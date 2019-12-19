@@ -36,6 +36,16 @@ class ParticleActionContext {
     BLI_assert(m_custom_context_ids.size() == m_custom_contexts.size());
   }
 
+  ArrayRef<BLI::class_id_t> custom_context_ids() const
+  {
+    return m_custom_context_ids;
+  }
+
+  ArrayRef<void *> custom_contexts() const
+  {
+    return m_custom_contexts;
+  }
+
   ParticleAllocator &particle_allocator()
   {
     return m_particle_allocator;
@@ -81,66 +91,16 @@ class ParticleAction {
   void execute_from_offset_handler(OffsetHandlerInterface &offset_handler_interface);
 };
 
-inline void ParticleAction::execute_from_emitter(AttributesRefGroup &new_particles,
-                                                 EmitterInterface &emitter_interface)
-{
-  for (AttributesRef attributes : new_particles) {
-    ParticleActionContext context(
-        emitter_interface.particle_allocator(), IndexMask(attributes.size()), attributes, {}, {});
-    this->execute(context);
-  }
-}
+struct ParticleCurrentTimesContext {
+  ArrayRef<float> current_times;
+};
 
-inline void ParticleAction::execute_for_new_particles(AttributesRefGroup &new_particles,
-                                                      ParticleActionContext &parent_context)
-{
-  for (AttributesRef attributes : new_particles) {
-    ParticleActionContext context(
-        parent_context.particle_allocator(), IndexMask(attributes.size()), attributes, {}, {});
-    this->execute(context);
-  }
-}
+struct ParticleIntegratedOffsets {
+  AttributesRef offsets;
+};
 
-inline void ParticleAction::execute_for_new_particles(
-    AttributesRefGroup &new_particles, OffsetHandlerInterface &offset_handler_interface)
-{
-  for (AttributesRef attributes : new_particles) {
-    ParticleActionContext context(offset_handler_interface.particle_allocator(),
-                                  IndexMask(attributes.size()),
-                                  attributes,
-                                  {},
-                                  {});
-    this->execute(context);
-  }
-}
-
-inline void ParticleAction::execute_from_event(EventExecuteInterface &event_interface)
-{
-  ParticleActionContext context(event_interface.particle_allocator(),
-                                event_interface.pindices(),
-                                event_interface.attributes(),
-                                {},
-                                {});
-  this->execute(context);
-}
-
-inline void ParticleAction::execute_for_subset(IndexMask pindex_mask,
-                                               ParticleActionContext &parent_context)
-{
-  ParticleActionContext context(
-      parent_context.particle_allocator(), pindex_mask, parent_context.attributes(), {}, {});
-  this->execute(context);
-}
-
-inline void ParticleAction::execute_from_offset_handler(
-    OffsetHandlerInterface &offset_handler_interface)
-{
-  ParticleActionContext context(offset_handler_interface.particle_allocator(),
-                                offset_handler_interface.pindices(),
-                                offset_handler_interface.attributes(),
-                                {},
-                                {});
-  this->execute(context);
-}
+struct ParticleRemainingTimeInStep {
+  ArrayRef<float> remaining_times;
+};
 
 }  // namespace BParticles

@@ -13,25 +13,32 @@ void ActionSequence::execute(ParticleActionContext &context)
   }
 }
 
-static void update_position_and_velocity_offsets(ParticleActionContext &UNUSED(context))
+static void update_position_and_velocity_offsets(ParticleActionContext &context)
 {
-  // AttributesRef attributes = context.attributes();
-  // AttributesRef attribute_offsets = context.attribute_offsets();
+  auto *offsets_context = context.try_find<ParticleIntegratedOffsets>();
+  auto *remaining_times_context = context.try_find<ParticleRemainingTimeInStep>();
+  if (offsets_context == nullptr || remaining_times_context == nullptr) {
+    return;
+  }
 
-  // auto velocities = attributes.get<float3>("Velocity");
-  // auto position_offsets = attribute_offsets.try_get<float3>("Position");
-  // auto velocity_offsets = attribute_offsets.try_get<float3>("Velocity");
+  AttributesRef attributes = context.attributes();
+  AttributesRef attribute_offsets = offsets_context->offsets;
+  ArrayRef<float> remaining_times = remaining_times_context->remaining_times;
 
-  // for (uint pindex : context.pindex_mask()) {
-  //   float3 velocity = velocities[pindex];
+  auto velocities = attributes.get<float3>("Velocity");
+  auto position_offsets = attribute_offsets.try_get<float3>("Position");
+  auto velocity_offsets = attribute_offsets.try_get<float3>("Velocity");
 
-  //   if (position_offsets.has_value()) {
-  //     position_offsets.value()[pindex] = velocity * context.remaining_time_in_step(pindex);
-  //   }
-  //   if (velocity_offsets.has_value()) {
-  //     velocity_offsets.value()[pindex] = float3(0);
-  //   }
-  // }
+  for (uint pindex : context.pindex_mask().indices()) {
+    float3 velocity = velocities[pindex];
+
+    if (position_offsets.has_value()) {
+      position_offsets.value()[pindex] = velocity * remaining_times[pindex];
+    }
+    if (velocity_offsets.has_value()) {
+      velocity_offsets.value()[pindex] = float3(0);
+    }
+  }
 }
 
 void ConditionAction::execute(ParticleActionContext &context)
@@ -87,6 +94,12 @@ void SpawnParticlesAction::execute(ParticleActionContext &context)
     return;
   }
 
+  auto *current_time_context = context.try_find<ParticleCurrentTimesContext>();
+  if (current_time_context == nullptr) {
+    return;
+  }
+  ArrayRef<float> current_times = current_time_context->current_times;
+
   uint array_size = context.pindex_mask().min_array_size();
 
   auto inputs = ParticleFunctionResult::Compute(
@@ -121,7 +134,7 @@ void SpawnParticlesAction::execute(ParticleActionContext &context)
 
   Vector<float> new_birth_times;
   for (uint i : context.pindex_mask().indices()) {
-    // new_birth_times.append_n_times(context.current_times()[i], particle_counts[i]);
+    new_birth_times.append_n_times(current_times[i], particle_counts[i]);
   }
   attribute_arrays.add_new("Birth Time", new_birth_times.as_mutable_ref());
 
