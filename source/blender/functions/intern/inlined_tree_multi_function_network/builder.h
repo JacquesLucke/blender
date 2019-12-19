@@ -298,9 +298,10 @@ class VSocketMFNetworkBuilder {
     return m_network_builder;
   }
 
-  template<typename T> void set_constant_value(const T &value)
+  template<typename T> void set_constant_value(T value)
   {
-    const MultiFunction &fn = m_network_builder.construct_fn<MF_ConstantValue<T>>(value);
+    const MultiFunction &fn = m_network_builder.construct_fn<MF_ConstantValue<T>>(
+        std::move(value));
     this->set_generator_fn(fn);
   }
 

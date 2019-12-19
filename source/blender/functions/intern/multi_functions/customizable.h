@@ -12,16 +12,39 @@ template<typename T> class MF_ConstantValue : public MultiFunction {
   MF_ConstantValue(T value) : m_value(std::move(value))
   {
     MFSignatureBuilder signature = this->get_builder("Constant " + CPP_TYPE<T>().name());
-    signature.single_output<T>("Output");
+    std::string name = output_name_from_value(m_value);
+    signature.single_output<T>(name);
   }
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
-    MutableArrayRef<T> output = params.uninitialized_single_output<T>(0, "Output");
+    MutableArrayRef<T> output = params.uninitialized_single_output<T>(0);
 
     mask.foreach_index([&](uint i) { new (output.begin() + i) T(m_value); });
   }
+
+ private:
+  static std::string output_name_from_value(const T &UNUSED(value))
+  {
+    return "Value";
+  }
 };
+
+template<> inline std::string MF_ConstantValue<float>::output_name_from_value(const float &value)
+{
+  return std::to_string(value);
+}
+
+template<> inline std::string MF_ConstantValue<int>::output_name_from_value(const int &value)
+{
+  return std::to_string(value);
+}
+
+template<>
+inline std::string MF_ConstantValue<std::string>::output_name_from_value(const std::string &value)
+{
+  return "\"" + value + "\"";
+}
 
 template<typename FromT, typename ToT> class MF_Convert : public MultiFunction {
  public:
