@@ -3,6 +3,12 @@ from bpy.props import *
 from pathlib import Path
 from . base import BaseNode
 from . utils.enum_items_cache import cache_enum_items
+from functools import lru_cache
+
+@lru_cache()
+def get_node_group_names_in_file(path: str):
+    with bpy.data.libraries.load(path) as (data_from, data_to):
+        return list(data_from.node_groups)
 
 class NodeSearch(bpy.types.Operator):
     bl_idname = "fn.node_search"
@@ -28,11 +34,10 @@ class NodeSearch(bpy.types.Operator):
         for path in nodelibdir.glob("**/*.blend"):
             if not path.is_file():
                 continue
-            with bpy.data.libraries.load(str(path)) as (data_from, data_to):
-                for group_name in data_from.node_groups:
-                    if group_name not in local_group_names:
-                        item = encode_search_item(("LIB_GROUP", str(path), group_name), "(G) " + group_name)
-                        items.append(item)
+            for group_name in get_node_group_names_in_file(str(path)):
+                if group_name not in local_group_names:
+                    item = encode_search_item(("LIB_GROUP", str(path), group_name), "(G) " + group_name)
+                    items.append(item)
 
         sorted_items = list(sorted(items, key=lambda item: item[1]))
         return sorted_items
