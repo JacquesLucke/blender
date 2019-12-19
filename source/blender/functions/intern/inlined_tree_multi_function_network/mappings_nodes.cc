@@ -166,10 +166,10 @@ static void INSERT_time_info(VNodeMFNetworkBuilder &builder)
 }
 
 template<typename InT, typename OutT, typename FuncT>
-static std::function<void(MFMask mask, VirtualListRef<InT>, MutableArrayRef<OutT>)>
+static std::function<void(IndexMask mask, VirtualListRef<InT>, MutableArrayRef<OutT>)>
 vectorize_function_1in_1out(FuncT func)
 {
-  return [=](MFMask mask, VirtualListRef<InT> inputs, MutableArrayRef<OutT> outputs) {
+  return [=](IndexMask mask, VirtualListRef<InT> inputs, MutableArrayRef<OutT> outputs) {
     if (inputs.is_non_single_full_array()) {
       ArrayRef<InT> in_array = inputs.as_full_array();
       mask.foreach_index([=](uint i) { outputs[i] = func(in_array[i]); });
@@ -195,10 +195,10 @@ static void build_math_fn_1in_1out(VNodeMFNetworkBuilder &builder, FuncT func)
 
 template<typename InT1, typename InT2, typename OutT, typename FuncT>
 static std::function<
-    void(MFMask, VirtualListRef<InT1>, VirtualListRef<InT2>, MutableArrayRef<OutT>)>
+    void(IndexMask, VirtualListRef<InT1>, VirtualListRef<InT2>, MutableArrayRef<OutT>)>
 vectorize_function_2in_1out(FuncT func)
 {
-  return [=](MFMask mask,
+  return [=](IndexMask mask,
              VirtualListRef<InT1> inputs1,
              VirtualListRef<InT2> inputs2,
              MutableArrayRef<OutT> outputs) -> void {

@@ -52,7 +52,7 @@ MF_SimpleVectorize::MF_SimpleVectorize(const MultiFunction &function,
   }
 }
 
-static void get_vectorization_lengths(MFMask mask,
+static void get_vectorization_lengths(IndexMask mask,
                                       MFParams params,
                                       ArrayRef<uint> vectorized_param_indices,
                                       MutableArrayRef<int> r_lengths)
@@ -70,7 +70,7 @@ static void get_vectorization_lengths(MFMask mask,
   }
 }
 
-void MF_SimpleVectorize::call(MFMask mask, MFParams params, MFContext context) const
+void MF_SimpleVectorize::call(IndexMask mask, MFParams params, MFContext context) const
 {
   if (mask.indices_amount() == 0) {
     return;

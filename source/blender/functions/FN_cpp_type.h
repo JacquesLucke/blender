@@ -4,10 +4,12 @@
 #include "BLI_string_ref.h"
 #include "BLI_utility_mixins.h"
 #include "BLI_vector.h"
+#include "BLI_index_mask.h"
 
 namespace FN {
 
 using BLI::ArrayRef;
+using BLI::IndexMask;
 using BLI::StringRef;
 using BLI::StringRefNull;
 
@@ -15,33 +17,33 @@ class CPPType {
  public:
   using ConstructDefaultF = void (*)(void *ptr);
   using ConstructDefaultNF = void (*)(void *ptr, uint n);
-  using ConstructDefaultIndicesF = void (*)(void *ptr, ArrayRef<uint> indices);
+  using ConstructDefaultIndicesF = void (*)(void *ptr, IndexMask index_mask);
 
   using DestructF = void (*)(void *ptr);
   using DestructNF = void (*)(void *ptr, uint n);
-  using DestructIndicesF = void (*)(void *ptr, ArrayRef<uint> indices);
+  using DestructIndicesF = void (*)(void *ptr, IndexMask index_mask);
 
   using CopyToInitializedF = void (*)(const void *src, void *dst);
   using CopyToInitializedNF = void (*)(const void *src, void *dst, uint n);
-  using CopyToInitializedIndicesF = void (*)(const void *src, void *dst, ArrayRef<uint> indices);
+  using CopyToInitializedIndicesF = void (*)(const void *src, void *dst, IndexMask index_mask);
 
   using CopyToUninitializedF = void (*)(const void *src, void *dst);
   using CopyToUninitializedNF = void (*)(const void *src, void *dst, uint n);
-  using CopyToUninitializedIndicesF = void (*)(const void *src, void *dst, ArrayRef<uint> indices);
+  using CopyToUninitializedIndicesF = void (*)(const void *src, void *dst, IndexMask index_mask);
 
   using RelocateToInitializedF = void (*)(void *src, void *dst);
   using RelocateToInitializedNF = void (*)(void *src, void *dst, uint n);
-  using RelocateToInitializedIndicesF = void (*)(void *src, void *dst, ArrayRef<uint> indices);
+  using RelocateToInitializedIndicesF = void (*)(void *src, void *dst, IndexMask index_mask);
 
   using RelocateToUninitializedF = void (*)(void *src, void *dst);
   using RelocateToUninitializedNF = void (*)(void *src, void *dst, uint n);
-  using RelocateToUninitializedIndicesF = void (*)(void *src, void *dst, ArrayRef<uint> indices);
+  using RelocateToUninitializedIndicesF = void (*)(void *src, void *dst, IndexMask index_mask);
 
   using FillInitializedF = void (*)(const void *value, void *dst, uint n);
-  using FillInitializedIndicesF = void (*)(const void *value, void *dst, ArrayRef<uint> indices);
+  using FillInitializedIndicesF = void (*)(const void *value, void *dst, IndexMask index_mask);
 
   using FillUninitializedF = void (*)(const void *value, void *dst, uint n);
-  using FillUninitializedIndicesF = void (*)(const void *value, void *dst, ArrayRef<uint> indices);
+  using FillUninitializedIndicesF = void (*)(const void *value, void *dst, IndexMask index_mask);
 
   CPPType(std::string name,
           uint size,
@@ -140,11 +142,11 @@ class CPPType {
     m_construct_default_n(ptr, n);
   }
 
-  void construct_default_indices(void *ptr, ArrayRef<uint> indices) const
+  void construct_default_indices(void *ptr, IndexMask index_mask) const
   {
     BLI_assert(this->pointer_has_valid_alignment(ptr));
 
-    m_construct_default_indices(ptr, indices);
+    m_construct_default_indices(ptr, index_mask);
   }
 
   void destruct(void *ptr) const
@@ -161,11 +163,11 @@ class CPPType {
     m_destruct_n(ptr, n);
   }
 
-  void destruct_indices(void *ptr, ArrayRef<uint> indices) const
+  void destruct_indices(void *ptr, IndexMask index_mask) const
   {
     BLI_assert(this->pointer_has_valid_alignment(ptr));
 
-    m_destruct_indices(ptr, indices);
+    m_destruct_indices(ptr, index_mask);
   }
 
   void copy_to_initialized(const void *src, void *dst) const
@@ -184,12 +186,12 @@ class CPPType {
     m_copy_to_initialized_n(src, dst, n);
   }
 
-  void copy_to_initialized_indices(const void *src, void *dst, ArrayRef<uint> indices) const
+  void copy_to_initialized_indices(const void *src, void *dst, IndexMask index_mask) const
   {
     BLI_assert(this->pointer_has_valid_alignment(src));
     BLI_assert(this->pointer_has_valid_alignment(dst));
 
-    m_copy_to_initialized_indices(src, dst, indices);
+    m_copy_to_initialized_indices(src, dst, index_mask);
   }
 
   void copy_to_uninitialized(const void *src, void *dst) const
@@ -208,12 +210,12 @@ class CPPType {
     m_copy_to_uninitialized_n(src, dst, n);
   }
 
-  void copy_to_uninitialized_indices(const void *src, void *dst, ArrayRef<uint> indices) const
+  void copy_to_uninitialized_indices(const void *src, void *dst, IndexMask index_mask) const
   {
     BLI_assert(this->pointer_has_valid_alignment(src));
     BLI_assert(this->pointer_has_valid_alignment(dst));
 
-    m_copy_to_uninitialized_indices(src, dst, indices);
+    m_copy_to_uninitialized_indices(src, dst, index_mask);
   }
 
   void relocate_to_initialized(void *src, void *dst) const
@@ -232,12 +234,12 @@ class CPPType {
     m_relocate_to_initialized_n(src, dst, n);
   }
 
-  void relocate_to_initialized_indices(void *src, void *dst, ArrayRef<uint> indices) const
+  void relocate_to_initialized_indices(void *src, void *dst, IndexMask index_mask) const
   {
     BLI_assert(this->pointer_has_valid_alignment(src));
     BLI_assert(this->pointer_has_valid_alignment(dst));
 
-    m_relocate_to_initialized_indices(src, dst, indices);
+    m_relocate_to_initialized_indices(src, dst, index_mask);
   }
 
   void relocate_to_uninitialized(void *src, void *dst) const
@@ -256,12 +258,12 @@ class CPPType {
     m_relocate_to_uninitialized_n(src, dst, n);
   }
 
-  void relocate_to_uninitialized_indices(void *src, void *dst, ArrayRef<uint> indices) const
+  void relocate_to_uninitialized_indices(void *src, void *dst, IndexMask index_mask) const
   {
     BLI_assert(this->pointer_has_valid_alignment(src));
     BLI_assert(this->pointer_has_valid_alignment(dst));
 
-    m_relocate_to_uninitialized_indices(src, dst, indices);
+    m_relocate_to_uninitialized_indices(src, dst, index_mask);
   }
 
   void fill_initialized(const void *value, void *dst, uint n) const
@@ -272,12 +274,12 @@ class CPPType {
     m_fill_initialized(value, dst, n);
   }
 
-  void fill_initialized_indices(const void *value, void *dst, ArrayRef<uint> indices) const
+  void fill_initialized_indices(const void *value, void *dst, IndexMask index_mask) const
   {
     BLI_assert(this->pointer_has_valid_alignment(value));
     BLI_assert(this->pointer_has_valid_alignment(dst));
 
-    m_fill_initialized_indices(value, dst, indices);
+    m_fill_initialized_indices(value, dst, index_mask);
   }
 
   void fill_uninitialized(const void *value, void *dst, uint n) const
@@ -288,12 +290,12 @@ class CPPType {
     m_fill_uninitialized(value, dst, n);
   }
 
-  void fill_uninitialized_indices(const void *value, void *dst, ArrayRef<uint> indices) const
+  void fill_uninitialized_indices(const void *value, void *dst, IndexMask index_mask) const
   {
     BLI_assert(this->pointer_has_valid_alignment(value));
     BLI_assert(this->pointer_has_valid_alignment(dst));
 
-    m_fill_uninitialized_indices(value, dst, indices);
+    m_fill_uninitialized_indices(value, dst, index_mask);
   }
 
   friend bool operator==(const CPPType &a, const CPPType &b)

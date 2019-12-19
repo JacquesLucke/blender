@@ -13,7 +13,7 @@ MF_ParticleAttribute::MF_ParticleAttribute(const CPPType &type) : m_type(type)
   signature.single_output("Value", type);
 }
 
-void MF_ParticleAttribute::call(MFMask mask, MFParams params, MFContext context) const
+void MF_ParticleAttribute::call(IndexMask mask, MFParams params, MFContext context) const
 {
   VirtualListRef<std::string> attribute_names = params.readonly_single_input<std::string>(
       0, "Attribute Name");
@@ -53,7 +53,7 @@ MF_ParticleIsInGroup::MF_ParticleIsInGroup()
   signature.single_output<bool>("Is in Group");
 }
 
-void MF_ParticleIsInGroup::call(MFMask mask, MFParams params, MFContext context) const
+void MF_ParticleIsInGroup::call(IndexMask mask, MFParams params, MFContext context) const
 {
   VirtualListRef<std::string> group_names = params.readonly_single_input<std::string>(
       0, "Group Name");
@@ -91,7 +91,7 @@ MF_EmitterTimeInfo::MF_EmitterTimeInfo()
   signature.single_output<int>("Step");
 }
 
-void MF_EmitterTimeInfo::call(MFMask mask, MFParams params, MFContext context) const
+void MF_EmitterTimeInfo::call(IndexMask mask, MFParams params, MFContext context) const
 {
   MutableArrayRef<float> r_durations = params.uninitialized_single_output<float>(0, "Duration");
   MutableArrayRef<float> r_begins = params.uninitialized_single_output<float>(1, "Begin");

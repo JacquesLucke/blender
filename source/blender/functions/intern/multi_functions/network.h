@@ -20,7 +20,7 @@ class MF_EvaluateNetwork final : public MultiFunction {
  public:
   MF_EvaluateNetwork(Vector<const MFOutputSocket *> inputs, Vector<const MFInputSocket *> outputs);
 
-  void call(MFMask mask, MFParams params, MFContext context) const override;
+  void call(IndexMask mask, MFParams params, MFContext context) const override;
 
  private:
   using Storage = MF_EvaluateNetwork_Storage;

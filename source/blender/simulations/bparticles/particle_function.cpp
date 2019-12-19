@@ -7,9 +7,9 @@
 namespace BParticles {
 
 using FN::CPPType;
+using FN::IndexMask;
 using FN::MFContextBuilder;
 using FN::MFDataType;
-using FN::MFMask;
 using FN::MFParamsBuilder;
 using FN::MFParamType;
 
@@ -56,7 +56,7 @@ ParticleFunctionResult ParticleFunctionResult::Compute(const ParticleFunction &p
                                                        ArrayRef<uint> indices,
                                                        AttributesRef attributes)
 {
-  MFMask mask(indices);
+  IndexMask mask(indices);
   uint array_size = mask.min_array_size();
 
   const MultiFunction &fn = particle_fn.m_fn;

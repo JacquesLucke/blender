@@ -4,7 +4,7 @@ namespace FN {
 
 class MF_EvaluateNetwork_Storage {
  private:
-  MFMask m_mask;
+  IndexMask m_mask;
   Vector<GenericVectorArray *> m_vector_arrays;
   Vector<GenericMutableArrayRef> m_arrays;
   Vector<GenericMutableArrayRef> m_single_element_arrays;
@@ -14,7 +14,7 @@ class MF_EvaluateNetwork_Storage {
   Map<uint, GenericMutableArrayRef> m_array_ref_for_inputs;
 
  public:
-  MF_EvaluateNetwork_Storage(MFMask mask) : m_mask(mask)
+  MF_EvaluateNetwork_Storage(IndexMask mask) : m_mask(mask)
   {
   }
 
@@ -33,7 +33,7 @@ class MF_EvaluateNetwork_Storage {
     }
   }
 
-  MFMask &mask()
+  IndexMask &mask()
   {
     return m_mask;
   }
@@ -242,7 +242,7 @@ MF_EvaluateNetwork::MF_EvaluateNetwork(Vector<const MFOutputSocket *> inputs,
   }
 }
 
-void MF_EvaluateNetwork::call(MFMask mask, MFParams params, MFContext context) const
+void MF_EvaluateNetwork::call(IndexMask mask, MFParams params, MFContext context) const
 {
   if (mask.indices_amount() == 0) {
     return;

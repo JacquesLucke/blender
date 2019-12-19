@@ -7,7 +7,6 @@
 #include "FN_generic_virtual_list_list_ref.h"
 #include "FN_multi_function_data_type.h"
 #include "FN_multi_function_param_type.h"
-#include "FN_multi_function_mask.h"
 #include "FN_multi_function_context.h"
 
 #include "BLI_vector.h"
@@ -158,7 +157,7 @@ class MultiFunction {
   virtual ~MultiFunction()
   {
   }
-  virtual void call(MFMask mask, MFParams params, MFContext context) const = 0;
+  virtual void call(IndexMask mask, MFParams params, MFContext context) const = 0;
 
   IndexRange param_indices() const
   {

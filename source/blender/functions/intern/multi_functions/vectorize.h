@@ -13,7 +13,7 @@ class MF_SimpleVectorize final : public MultiFunction {
 
  public:
   MF_SimpleVectorize(const MultiFunction &function, ArrayRef<bool> input_is_vectorized);
-  void call(MFMask mask, MFParams params, MFContext context) const override;
+  void call(IndexMask mask, MFParams params, MFContext context) const override;
 };
 
 }  // namespace FN

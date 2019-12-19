@@ -273,6 +273,7 @@ set(SRC
   BLI_multi_vector.h
   BLI_utility_mixins.h
   BLI_static_class_ids.h
+  BLI_index_mask.h
 )
 
 set(LIB

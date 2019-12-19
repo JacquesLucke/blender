@@ -15,7 +15,7 @@ template<typename T> class MF_ConstantValue : public MultiFunction {
     signature.single_output<T>("Output");
   }
 
-  void call(MFMask mask, MFParams params, MFContext UNUSED(context)) const override
+  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
     MutableArrayRef<T> output = params.uninitialized_single_output<T>(0, "Output");
 
@@ -33,7 +33,7 @@ template<typename FromT, typename ToT> class MF_Convert : public MultiFunction {
     signature.single_output<ToT>("Output");
   }
 
-  void call(MFMask mask, MFParams params, MFContext UNUSED(context)) const override
+  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
     VirtualListRef<FromT> inputs = params.readonly_single_input<FromT>(0, "Input");
     MutableArrayRef<ToT> outputs = params.uninitialized_single_output<ToT>(1, "Output");
@@ -47,7 +47,8 @@ template<typename FromT, typename ToT> class MF_Convert : public MultiFunction {
 
 template<typename InT, typename OutT> class MF_Custom_In1_Out1 final : public MultiFunction {
  private:
-  using FunctionT = std::function<void(MFMask mask, VirtualListRef<InT>, MutableArrayRef<OutT>)>;
+  using FunctionT =
+      std::function<void(IndexMask mask, VirtualListRef<InT>, MutableArrayRef<OutT>)>;
   FunctionT m_fn;
 
  public:
@@ -58,7 +59,7 @@ template<typename InT, typename OutT> class MF_Custom_In1_Out1 final : public Mu
     signature.single_output<OutT>("Output");
   }
 
-  void call(MFMask mask, MFParams params, MFContext UNUSED(context)) const override
+  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
     VirtualListRef<InT> inputs = params.readonly_single_input<InT>(0);
     MutableArrayRef<OutT> outputs = params.uninitialized_single_output<OutT>(1);
@@ -70,7 +71,7 @@ template<typename InT1, typename InT2, typename OutT>
 class MF_Custom_In2_Out1 final : public MultiFunction {
  private:
   using FunctionT = std::function<void(
-      MFMask mask, VirtualListRef<InT1>, VirtualListRef<InT2>, MutableArrayRef<OutT>)>;
+      IndexMask mask, VirtualListRef<InT1>, VirtualListRef<InT2>, MutableArrayRef<OutT>)>;
 
   FunctionT m_fn;
 
@@ -83,7 +84,7 @@ class MF_Custom_In2_Out1 final : public MultiFunction {
     signature.single_output<OutT>("Output");
   }
 
-  void call(MFMask mask, MFParams params, MFContext UNUSED(context)) const override
+  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
     VirtualListRef<InT1> inputs1 = params.readonly_single_input<InT1>(0);
     VirtualListRef<InT2> inputs2 = params.readonly_single_input<InT2>(1);
@@ -94,8 +95,8 @@ class MF_Custom_In2_Out1 final : public MultiFunction {
 
 template<typename T> class MF_VariadicMath final : public MultiFunction {
  private:
-  using FunctionT =
-      std::function<void(MFMask mask, VirtualListRef<T>, VirtualListRef<T>, MutableArrayRef<T>)>;
+  using FunctionT = std::function<void(
+      IndexMask mask, VirtualListRef<T>, VirtualListRef<T>, MutableArrayRef<T>)>;
 
   uint m_input_amount;
   FunctionT m_fn;
@@ -113,7 +114,7 @@ template<typename T> class MF_VariadicMath final : public MultiFunction {
     signature.single_output<T>("Output");
   }
 
-  void call(MFMask mask, MFParams params, MFContext UNUSED(context)) const override
+  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
     MutableArrayRef<T> outputs = params.uninitialized_single_output<T>(m_input_amount, "Output");
 

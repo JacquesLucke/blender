@@ -36,7 +36,7 @@ MF_PackList::MF_PackList(const CPPType &base_type, ArrayRef<bool> input_list_sta
   }
 }
 
-void MF_PackList::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
+void MF_PackList::call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const
 {
   GenericVectorArray *vector_array;
   bool is_mutating_first_list;
@@ -84,7 +84,7 @@ MF_GetListElement::MF_GetListElement(const CPPType &base_type) : m_base_type(bas
   signature.single_output("Value", m_base_type);
 }
 
-void MF_GetListElement::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
+void MF_GetListElement::call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const
 {
   GenericVirtualListListRef lists = params.readonly_vector_input(0, "List");
   VirtualListRef<int> indices = params.readonly_single_input<int>(1, "Index");
@@ -114,7 +114,7 @@ MF_GetListElements::MF_GetListElements(const CPPType &base_type) : m_base_type(b
   signature.vector_output("Values", m_base_type);
 }
 
-void MF_GetListElements::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
+void MF_GetListElements::call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const
 {
   GenericVirtualListListRef lists = params.readonly_vector_input(0, "List");
   VirtualListListRef<int> indices = params.readonly_vector_input<int>(1, "Indices");
@@ -145,7 +145,7 @@ MF_ListLength::MF_ListLength(const CPPType &base_type) : m_base_type(base_type)
   signature.single_output<int>("Length");
 }
 
-void MF_ListLength::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
+void MF_ListLength::call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const
 {
   GenericVirtualListListRef lists = params.readonly_vector_input(0, "List");
   MutableArrayRef<int> lengths = params.uninitialized_single_output<int>(1, "Length");

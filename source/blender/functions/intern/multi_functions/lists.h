@@ -10,7 +10,7 @@ class MF_GetListElement final : public MultiFunction {
 
  public:
   MF_GetListElement(const CPPType &base_type);
-  void call(MFMask mask, MFParams params, MFContext context) const override;
+  void call(IndexMask mask, MFParams params, MFContext context) const override;
 };
 
 class MF_GetListElements final : public MultiFunction {
@@ -19,7 +19,7 @@ class MF_GetListElements final : public MultiFunction {
 
  public:
   MF_GetListElements(const CPPType &base_type);
-  void call(MFMask mask, MFParams params, MFContext context) const override;
+  void call(IndexMask mask, MFParams params, MFContext context) const override;
 };
 
 class MF_ListLength final : public MultiFunction {
@@ -28,7 +28,7 @@ class MF_ListLength final : public MultiFunction {
 
  public:
   MF_ListLength(const CPPType &base_type);
-  void call(MFMask mask, MFParams params, MFContext context) const override;
+  void call(IndexMask mask, MFParams params, MFContext context) const override;
 };
 
 class MF_PackList final : public MultiFunction {
@@ -38,7 +38,7 @@ class MF_PackList final : public MultiFunction {
 
  public:
   MF_PackList(const CPPType &base_type, ArrayRef<bool> input_list_status);
-  void call(MFMask mask, MFParams params, MFContext context) const override;
+  void call(IndexMask mask, MFParams params, MFContext context) const override;
 
  private:
   bool input_is_list(uint index) const;
@@ -52,7 +52,9 @@ template<typename T> class MF_EmptyList : public MultiFunction {
     signature.vector_output<T>("Output");
   }
 
-  void call(MFMask UNUSED(mask), MFParams UNUSED(params), MFContext UNUSED(context)) const override
+  void call(IndexMask UNUSED(mask),
+            MFParams UNUSED(params),
+            MFContext UNUSED(context)) const override
   {
   }
 };
@@ -67,7 +69,7 @@ template<typename FromT, typename ToT> class MF_ConvertList : public MultiFuncti
     signature.vector_output<ToT>("Outputs");
   }
 
-  void call(MFMask mask, MFParams params, MFContext UNUSED(context)) const override
+  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
     VirtualListListRef<FromT> inputs = params.readonly_vector_input<FromT>(0, "Inputs");
     GenericVectorArray::MutableTypedRef<ToT> outputs = params.vector_output<ToT>(1, "Outputs");
@@ -94,7 +96,7 @@ template<typename T> class MF_SingleElementList : public MultiFunction {
     signature.vector_output<T>("Outputs");
   }
 
-  void call(MFMask mask, MFParams params, MFContext UNUSED(context)) const override
+  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
     VirtualListRef<T> inputs = params.readonly_single_input<T>(0, "Input");
     GenericVectorArray::MutableTypedRef<T> outputs = params.vector_output<T>(1, "Outputs");

@@ -70,7 +70,7 @@ static float3 get_barycentric_coords(Mesh *mesh,
   return weights;
 }
 
-void MF_ClosestSurfaceHookOnObject::call(MFMask mask, MFParams params, MFContext context) const
+void MF_ClosestSurfaceHookOnObject::call(IndexMask mask, MFParams params, MFContext context) const
 {
   VirtualListRef<ObjectIDHandle> object_handles = params.readonly_single_input<ObjectIDHandle>(
       0, "Object");
@@ -129,7 +129,7 @@ MF_GetPositionOnSurface::MF_GetPositionOnSurface()
   signature.single_output<float3>("Position");
 }
 
-void MF_GetPositionOnSurface::call(MFMask mask, MFParams params, MFContext context) const
+void MF_GetPositionOnSurface::call(IndexMask mask, MFParams params, MFContext context) const
 {
   VirtualListRef<SurfaceHook> surface_hooks = params.readonly_single_input<SurfaceHook>(
       0, "Surface Hook");
@@ -200,7 +200,7 @@ static float3 short_normal_to_float3(const short normal[3])
       (float)normal[0] / 32767.0f, (float)normal[1] / 32767.0f, (float)normal[2] / 32767.0f);
 }
 
-void MF_GetNormalOnSurface::call(MFMask mask, MFParams params, MFContext context) const
+void MF_GetNormalOnSurface::call(IndexMask mask, MFParams params, MFContext context) const
 {
   VirtualListRef<SurfaceHook> surface_hooks = params.readonly_single_input<SurfaceHook>(
       0, "Surface Hook");
@@ -266,7 +266,7 @@ MF_GetWeightOnSurface::MF_GetWeightOnSurface()
   signature.single_output<float>("Weight");
 }
 
-void MF_GetWeightOnSurface::call(MFMask mask, MFParams params, MFContext context) const
+void MF_GetWeightOnSurface::call(IndexMask mask, MFParams params, MFContext context) const
 {
   VirtualListRef<SurfaceHook> surface_hooks = params.readonly_single_input<SurfaceHook>(
       0, "Surface Hook");
@@ -404,7 +404,7 @@ static void get_colors_on_surface(ArrayRef<uint> indices,
       SurfaceHook::on_same_surface);
 }
 
-void MF_GetImageColorOnSurface::call(MFMask mask, MFParams params, MFContext context) const
+void MF_GetImageColorOnSurface::call(IndexMask mask, MFParams params, MFContext context) const
 {
   if (mask.indices_amount() == 0) {
     return;
@@ -539,7 +539,7 @@ static BLI_NOINLINE void vertex_weights_to_triangle_weights(
   }
 }
 
-void MF_SampleObjectSurface::call(MFMask mask, MFParams params, MFContext context) const
+void MF_SampleObjectSurface::call(IndexMask mask, MFParams params, MFContext context) const
 {
   uint param_index = 0;
   VirtualListRef<ObjectIDHandle> object_handles = params.readonly_single_input<ObjectIDHandle>(

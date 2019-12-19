@@ -1,20 +1,17 @@
-#ifndef __FN_MULTI_FUNCTION_MASK_H__
-#define __FN_MULTI_FUNCTION_MASK_H__
+#ifndef __BLI_INDEX_MASK_H__
+#define __BLI_INDEX_MASK_H__
 
-#include "BLI_index_range.h"
 #include "BLI_array_ref.h"
+#include "BLI_index_range.h"
 
-namespace FN {
+namespace BLI {
 
-using BLI::ArrayRef;
-using BLI::IndexRange;
-
-class MFMask {
+class IndexMask {
  private:
   ArrayRef<uint> m_indices;
 
  public:
-  MFMask(ArrayRef<uint> indices) : m_indices(indices)
+  IndexMask(ArrayRef<uint> indices) : m_indices(indices)
   {
 #ifdef DEBUG
     for (uint i = 1; i < indices.size(); i++) {
@@ -23,11 +20,11 @@ class MFMask {
 #endif
   }
 
-  MFMask(IndexRange range) : m_indices(range.as_array_ref())
+  IndexMask(IndexRange range) : m_indices(range.as_array_ref())
   {
   }
 
-  MFMask(const std::initializer_list<uint> &list) : MFMask(ArrayRef<uint>(list))
+  IndexMask(const std::initializer_list<uint> &list) : IndexMask(ArrayRef<uint>(list))
   {
   }
 
@@ -73,6 +70,6 @@ class MFMask {
   }
 };
 
-}  // namespace FN
+}  // namespace BLI
 
-#endif /* __FN_MULTI_FUNCTION_MASK_H__ */
+#endif /* __BLI_INDEX_MASK_H__ */

@@ -25,9 +25,9 @@ template<typename T> void ConstructDefaultN_CB(void *ptr, uint n)
     BLI::construct_default((T *)ptr + i);
   }
 }
-template<typename T> void ConstructDefaultIndices_CB(void *ptr, ArrayRef<uint> indices)
+template<typename T> void ConstructDefaultIndices_CB(void *ptr, IndexMask index_mask)
 {
-  for (uint i : indices) {
+  for (uint i : index_mask.indices()) {
     BLI::construct_default((T *)ptr + i);
   }
 }
@@ -40,9 +40,9 @@ template<typename T> void DestructN_CB(void *ptr, uint n)
 {
   BLI::destruct_n((T *)ptr, n);
 }
-template<typename T> void DestructIndices_CB(void *ptr, ArrayRef<uint> indices)
+template<typename T> void DestructIndices_CB(void *ptr, IndexMask index_mask)
 {
-  for (uint i : indices) {
+  for (uint i : index_mask.indices()) {
     BLI::destruct((T *)ptr + i);
   }
 }
@@ -61,12 +61,12 @@ template<typename T> void CopyToInitializedN_CB(const void *src, void *dst, uint
   }
 }
 template<typename T>
-void CopyToInitializedIndices_CB(const void *src, void *dst, ArrayRef<uint> indices)
+void CopyToInitializedIndices_CB(const void *src, void *dst, IndexMask index_mask)
 {
   const T *src_ = (const T *)src;
   T *dst_ = (T *)dst;
 
-  for (uint i : indices) {
+  for (uint i : index_mask.indices()) {
     dst_[i] = src_[i];
   }
 }
@@ -80,12 +80,12 @@ template<typename T> void CopyToUninitializedN_CB(const void *src, void *dst, ui
   BLI::uninitialized_copy_n((T *)src, n, (T *)dst);
 }
 template<typename T>
-void CopyToUninitializedIndices_CB(const void *src, void *dst, ArrayRef<uint> indices)
+void CopyToUninitializedIndices_CB(const void *src, void *dst, IndexMask index_mask)
 {
   const T *src_ = (const T *)src;
   T *dst_ = (T *)dst;
 
-  for (uint i : indices) {
+  for (uint i : index_mask.indices()) {
     new (dst_ + i) T(src_[i]);
   }
 }
@@ -99,12 +99,12 @@ template<typename T> void RelocateToInitializedN_CB(void *src, void *dst, uint n
   BLI::relocate_n((T *)src, n, (T *)dst);
 }
 template<typename T>
-void RelocateToInitializedIndices_CB(void *src, void *dst, ArrayRef<uint> indices)
+void RelocateToInitializedIndices_CB(void *src, void *dst, IndexMask index_mask)
 {
   T *src_ = (T *)src;
   T *dst_ = (T *)dst;
 
-  for (uint i : indices) {
+  for (uint i : index_mask.indices()) {
     dst_[i] = std::move(src_[i]);
     src_[i].~T();
   }
@@ -119,12 +119,12 @@ template<typename T> void RelocateToUninitializedN_CB(void *src, void *dst, uint
   BLI::uninitialized_relocate_n((T *)src, n, (T *)dst);
 }
 template<typename T>
-void RelocateToUninitializedIndices_CB(void *src, void *dst, ArrayRef<uint> indices)
+void RelocateToUninitializedIndices_CB(void *src, void *dst, IndexMask index_mask)
 {
   T *src_ = (T *)src;
   T *dst_ = (T *)dst;
 
-  for (uint i : indices) {
+  for (uint i : index_mask.indices()) {
     new (dst_ + i) T(std::move(src_[i]));
     src_[i].~T();
   }
@@ -140,12 +140,12 @@ template<typename T> void FillInitialized_CB(const void *value, void *dst, uint 
   }
 }
 template<typename T>
-void FillInitializedIndices_CB(const void *value, void *dst, ArrayRef<uint> indices)
+void FillInitializedIndices_CB(const void *value, void *dst, IndexMask index_mask)
 {
   const T &value_ = *(const T *)value;
   T *dst_ = (T *)dst;
 
-  for (uint i : indices) {
+  for (uint i : index_mask.indices()) {
     dst_[i] = value_;
   }
 }
@@ -160,12 +160,12 @@ template<typename T> void FillUninitialized_CB(const void *value, void *dst, uin
   }
 }
 template<typename T>
-void FillUninitializedIndices_CB(const void *value, void *dst, ArrayRef<uint> indices)
+void FillUninitializedIndices_CB(const void *value, void *dst, IndexMask index_mask)
 {
   const T &value_ = *(const T *)value;
   T *dst_ = (T *)dst;
 
-  for (uint i : indices) {
+  for (uint i : index_mask.indices()) {
     new (dst_ + i) T(value_);
   }
 }
