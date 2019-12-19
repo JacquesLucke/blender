@@ -13,19 +13,9 @@ using BLI::LargeScopedVector;
 void AgeReachedEvent::filter(EventFilterInterface &interface)
 {
   AttributesRef attributes = interface.attributes();
-  auto ids = attributes.get<int32_t>("ID");
 
   auto inputs = ParticleFunctionResult::Compute(
       *m_inputs_fn, interface.pindices(), interface.attributes());
-
-  LargeScopedArray<float> trigger_ages(attributes.size());
-  for (uint pindex : interface.pindices()) {
-    float age = inputs.get_single<float>("Age", 0, pindex);
-    float variation = inputs.get_single<float>("Variation", 1, pindex);
-    int32_t id = ids[pindex];
-    float random_factor = BLI_hash_int_01(id);
-    trigger_ages[pindex] = age + random_factor * variation;
-  }
 
   float end_time = interface.step_end_time();
   auto birth_times = attributes.get<float>("Birth Time");
@@ -36,7 +26,7 @@ void AgeReachedEvent::filter(EventFilterInterface &interface)
       continue;
     }
 
-    float trigger_age = trigger_ages[pindex];
+    float trigger_age = inputs.get_single<float>("Age", 0, pindex);
     float birth_time = birth_times[pindex];
     float age_at_end = end_time - birth_time;
 
