@@ -6,10 +6,6 @@ namespace BParticles {
 
 using BLI::rgba_f;
 
-void NoneAction::execute(ActionInterface &UNUSED(interface))
-{
-}
-
 void ActionSequence::execute(ActionInterface &interface)
 {
   for (auto &action : m_actions) {

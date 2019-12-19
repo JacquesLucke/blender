@@ -7,10 +7,6 @@ namespace BParticles {
 
 using FN::CPPType;
 
-class NoneAction : public Action {
-  void execute(ActionInterface &UNUSED(interface)) override;
-};
-
 class ActionSequence : public Action {
  private:
   Vector<Action *> m_actions;
