@@ -216,14 +216,6 @@ inline ArrayRef<float> ActionInterface::current_times()
   return m_current_times;
 }
 
-inline void ActionInterface::kill(ArrayRef<uint> pindices)
-{
-  auto kill_states = m_attributes.get<bool>("Kill State");
-  for (uint pindex : pindices) {
-    kill_states[pindex] = 1;
-  }
-}
-
 inline ParticleAllocator &ActionInterface::particle_allocator()
 {
   return m_particle_allocator;

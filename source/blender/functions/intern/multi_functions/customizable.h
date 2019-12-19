@@ -40,6 +40,11 @@ template<> inline std::string MF_ConstantValue<int>::output_name_from_value(cons
   return std::to_string(value);
 }
 
+template<> inline std::string MF_ConstantValue<bool>::output_name_from_value(const bool &value)
+{
+  return (value) ? "true" : "false";
+}
+
 template<>
 inline std::string MF_ConstantValue<std::string>::output_name_from_value(const std::string &value)
 {

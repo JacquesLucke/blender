@@ -78,7 +78,6 @@ class ActionNodesMenu(bpy.types.Menu):
         layout = self.layout
         layout.operator_context = 'INVOKE_DEFAULT'
 
-        insert_node(layout, "fn_KillParticleNode", "Kill Particle")
         insert_node(layout, "fn_ParticleConditionNode", "Condition")
 
 

@@ -236,7 +236,7 @@ BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
 
   find_unfinished_particles(pindices_with_event,
                             time_factors_to_next_event,
-                            step_data.attributes.get<bool>("Kill State"),
+                            step_data.attributes.get<bool>("Dead"),
                             r_unfinished_pindices);
 }
 
@@ -358,7 +358,7 @@ BLI_NOINLINE static void simulate_block(SimulationState &simulation_state,
 
 BLI_NOINLINE static void delete_tagged_particles_and_reorder(AttributesBlock &block)
 {
-  auto kill_states = block.as_ref().get<bool>("Kill State");
+  auto kill_states = block.as_ref().get<bool>("Dead");
   LargeScopedVector<uint> indices_to_delete;
 
   for (uint i : kill_states.index_iterator()) {

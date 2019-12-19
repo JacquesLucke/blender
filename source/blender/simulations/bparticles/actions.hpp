@@ -19,10 +19,6 @@ class ActionSequence : public Action {
   void execute(ActionInterface &interface) override;
 };
 
-class KillAction : public Action {
-  void execute(ActionInterface &interface) override;
-};
-
 class ConditionAction : public Action {
  private:
   ParticleFunction *m_inputs_fn;

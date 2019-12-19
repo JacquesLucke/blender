@@ -34,11 +34,6 @@ static void update_position_and_velocity_offsets(ActionInterface &interface)
   }
 }
 
-void KillAction::execute(ActionInterface &interface)
-{
-  interface.kill(interface.pindices());
-}
-
 void ConditionAction::execute(ActionInterface &interface)
 {
   auto inputs = ParticleFunctionResult::Compute(

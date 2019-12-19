@@ -201,7 +201,7 @@ const MultiFunction &VNodeMFNetworkBuilder::get_vectorized_function(
 
 std::unique_ptr<InlinedTreeMFNetwork> InlinedTreeMFNetworkBuilder::build()
 {
-  m_builder->to_dot__clipboard();
+  // m_builder->to_dot__clipboard();
 
   auto network = BLI::make_unique<MFNetwork>(std::move(m_builder));
 

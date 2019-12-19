@@ -517,11 +517,6 @@ Action *InlinedTreeData::build_action(InfluencesCollector &collector,
   return builder.built_action();
 }
 
-static void ACTION_kill(XSocketActionBuilder &builder)
-{
-  builder.set_constructed<KillAction>();
-}
-
 static void ACTION_spawn(XSocketActionBuilder &builder)
 {
   const XNode &xnode = builder.xsocket().node();
@@ -639,7 +634,6 @@ static void ACTION_multi_execute(XSocketActionBuilder &builder)
 BLI_LAZY_INIT(StringMap<ActionParserCallback>, get_action_parsers)
 {
   StringMap<ActionParserCallback> map;
-  map.add_new("fn_KillParticleNode", ACTION_kill);
   map.add_new("fn_SpawnParticlesNode", ACTION_spawn);
   map.add_new("fn_ParticleConditionNode", ACTION_condition);
   map.add_new("fn_AddToGroupNode", ACTION_add_to_group);
@@ -1125,7 +1119,7 @@ static void collect_influences(InlinedTreeData &inlined_tree_data,
     r_system_names.append(name);
 
     AttributesInfoBuilder *attributes = new AttributesInfoBuilder();
-    attributes->add<bool>("Kill State", 0);
+    attributes->add<bool>("Dead", false);
     attributes->add<int32_t>("ID", 0);
     attributes->add<float>("Birth Time", 0);
     attributes->add<float3>("Position", float3(0, 0, 0));
@@ -1163,6 +1157,7 @@ class NodeTreeStepSimulator : public StepSimulator {
  public:
   NodeTreeStepSimulator(bNodeTree *btree) : m_inlined_tree(btree, m_inlined_trees)
   {
+    // m_inlined_tree.to_dot__clipboard();
   }
 
   void simulate(SimulationState &simulation_state) override
