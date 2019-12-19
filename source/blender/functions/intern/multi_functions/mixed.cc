@@ -868,4 +868,28 @@ void MF_FindNonClosePoints::call(IndexMask mask, MFParams params, MFContext UNUS
   }
 }
 
+MF_JoinTextList::MF_JoinTextList()
+{
+  MFSignatureBuilder signature = this->get_builder("Join Text List");
+  signature.vector_input<std::string>("Texts");
+  signature.single_output<std::string>("Text");
+}
+
+void MF_JoinTextList::call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const
+{
+  VirtualListListRef<std::string> text_lists = params.readonly_vector_input<std::string>(0,
+                                                                                         "Texts");
+  MutableArrayRef<std::string> r_texts = params.uninitialized_single_output<std::string>(1,
+                                                                                         "Text");
+
+  for (uint index : mask.indices()) {
+    VirtualListRef<std::string> texts = text_lists[index];
+    std::string r_text = "";
+    for (uint i : texts.index_iterator()) {
+      r_text += texts[i];
+    }
+    new (&r_texts[index]) std::string(std::move(r_text));
+  }
+}
+
 }  // namespace FN

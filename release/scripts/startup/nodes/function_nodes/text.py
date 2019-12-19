@@ -9,3 +9,12 @@ class TextLengthNode(bpy.types.Node, FunctionNode):
     def declaration(self, builder: NodeBuilder):
         builder.fixed_input("text", "Text", "Text")
         builder.fixed_output("length", "Length", "Integer")
+
+
+class JoinTextListNode(bpy.types.Node, FunctionNode):
+    bl_idname = "fn_JoinTextListNode"
+    bl_label = "Join Text List"
+
+    def declaration(self, builder: NodeBuilder):
+        builder.fixed_input("texts", "Texts", "Text List")
+        builder.fixed_output("text", "Text", "Text")

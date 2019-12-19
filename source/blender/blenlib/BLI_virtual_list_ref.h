@@ -175,6 +175,11 @@ template<typename T> class VirtualListRef {
     BLI_assert(false);
     return false;
   }
+
+  IndexRange index_iterator() const
+  {
+    return IndexRange(m_virtual_size);
+  }
 };
 
 }  // namespace BLI

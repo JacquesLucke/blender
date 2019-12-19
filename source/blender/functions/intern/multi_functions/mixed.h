@@ -196,4 +196,10 @@ class MF_FindNonClosePoints final : public MultiFunction {
   void call(IndexMask mask, MFParams params, MFContext context) const override;
 };
 
+class MF_JoinTextList final : public MultiFunction {
+ public:
+  MF_JoinTextList();
+  void call(IndexMask mask, MFParams params, MFContext context) const override;
+};
+
 }  // namespace FN

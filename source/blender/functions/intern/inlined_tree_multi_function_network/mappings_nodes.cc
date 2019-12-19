@@ -515,9 +515,14 @@ static void INSERT_sample_object_surface(VNodeMFNetworkBuilder &builder)
   builder.set_constructed_matching_fn<MF_SampleObjectSurface>(value == 1);
 }
 
-static void INSERT_FindNonClosePointsNode(VNodeMFNetworkBuilder &builder)
+static void INSERT_find_non_close_points(VNodeMFNetworkBuilder &builder)
 {
   builder.set_constructed_matching_fn<MF_FindNonClosePoints>();
+}
+
+static void INSERT_join_text_list(VNodeMFNetworkBuilder &builder)
+{
+  builder.set_constructed_matching_fn<MF_JoinTextList>();
 }
 
 void add_inlined_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
@@ -559,7 +564,7 @@ void add_inlined_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.xnode_inserters.add_new("fn_ValueNode", INSERT_value);
   mappings.xnode_inserters.add_new("fn_EmitterTimeInfoNode", INSERT_emitter_time_info);
   mappings.xnode_inserters.add_new("fn_SampleObjectSurfaceNode", INSERT_sample_object_surface);
-  mappings.xnode_inserters.add_new("fn_FindNonClosePointsNode", INSERT_FindNonClosePointsNode);
+  mappings.xnode_inserters.add_new("fn_FindNonClosePointsNode", INSERT_find_non_close_points);
 
   mappings.xnode_inserters.add_new("fn_AddFloatsNode", INSERT_add_floats);
   mappings.xnode_inserters.add_new("fn_MultiplyFloatsNode", INSERT_multiply_floats);
@@ -591,6 +596,8 @@ void add_inlined_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.xnode_inserters.add_new("fn_BooleanAndNode", INSERT_boolean_and);
   mappings.xnode_inserters.add_new("fn_BooleanOrNode", INSERT_boolean_or);
   mappings.xnode_inserters.add_new("fn_BooleanNotNode", INSERT_boolean_not);
+
+  mappings.xnode_inserters.add_new("fn_JoinTextListNode", INSERT_join_text_list);
 }
 
 };  // namespace FN
