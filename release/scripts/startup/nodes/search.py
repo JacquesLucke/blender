@@ -26,7 +26,7 @@ class NodeSearch(bpy.types.Operator):
         local_group_names = set(tree.name for tree in bpy.data.node_groups)
         nodelibdir = Path(context.preferences.filepaths.nodelib_directory)
         for path in nodelibdir.glob("**/*"):
-            if not path.is_file():
+            if not path.is_file() or not str(path).endswith(".blend"):
                 continue
             with bpy.data.libraries.load(str(path)) as (data_from, data_to):
                 for group_name in data_from.node_groups:
