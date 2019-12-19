@@ -1,6 +1,10 @@
 #pragma once
 
+#include <sstream>
+
 #include "FN_multi_function.h"
+
+#include "BLI_math_cxx.h"
 
 namespace FN {
 
@@ -38,6 +42,14 @@ template<> inline std::string MF_ConstantValue<float>::output_name_from_value(co
 template<> inline std::string MF_ConstantValue<int>::output_name_from_value(const int &value)
 {
   return std::to_string(value);
+}
+
+template<>
+inline std::string MF_ConstantValue<BLI::float3>::output_name_from_value(const BLI::float3 &value)
+{
+  std::stringstream ss;
+  ss << value;
+  return ss.str();
 }
 
 template<> inline std::string MF_ConstantValue<bool>::output_name_from_value(const bool &value)
