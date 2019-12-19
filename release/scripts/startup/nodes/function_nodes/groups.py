@@ -486,7 +486,7 @@ class OpenCloseGroupOperator(bpy.types.Operator):
     def invoke(self, context, event):
         space_data = context.space_data
         active_node = context.active_node
-        if isinstance(active_node, GroupNode) and active_node.node_group is not None:
+        if isinstance(active_node, GroupNode) and active_node.node_group is not None and active_node.select:
             space_data.path.append(active_node.node_group, node=active_node)
         else:
             space_data.path.pop()
