@@ -2,7 +2,7 @@
 
 #include "BLI_array_cxx.h"
 
-#include "action_interface.hpp"
+#include "particle_action.hpp"
 #include "force_interface.hpp"
 
 #include "FN_multi_function.h"
@@ -50,7 +50,7 @@ class ParticleFunctionResult : BLI::NonCopyable {
   Vector<GenericMutableArrayRef> m_arrays;
 
   ArrayRef<uint> m_index_mapping;
-  ArrayRef<uint> m_indices;
+  IndexMask m_mask;
   ArrayRef<std::string> m_computed_names;
 
   ParticleFunctionResult() = default;
@@ -60,7 +60,7 @@ class ParticleFunctionResult : BLI::NonCopyable {
   ParticleFunctionResult(ParticleFunctionResult &&other) = default;
 
   static ParticleFunctionResult Compute(const ParticleFunction &particle_fn,
-                                        ArrayRef<uint> indices,
+                                        IndexMask mask,
                                         AttributesRef attributes);
 
   const void *get_single(StringRef expected_name, uint param_index, uint pindex)

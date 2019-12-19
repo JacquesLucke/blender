@@ -73,7 +73,7 @@ void CustomEvent::filter(EventFilterInterface &interface)
   }
 
   auto inputs = ParticleFunctionResult::Compute(
-      *m_inputs_fn, pindices_to_check, interface.attributes());
+      *m_inputs_fn, pindices_to_check.as_ref(), interface.attributes());
 
   for (uint pindex : pindices_to_check) {
     bool condition = inputs.get_single<bool>("Condition", 0, pindex);

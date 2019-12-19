@@ -26,8 +26,8 @@ set(SRC
   bparticles/forces.cpp
   bparticles/actions.hpp
   bparticles/actions.cpp
-  bparticles/action_interface.hpp
-  bparticles/action_interface.cpp
+  bparticles/particle_action.hpp
+  bparticles/particle_action.cpp
   bparticles/events.hpp
   bparticles/events.cpp
   bparticles/emitter_interface.hpp

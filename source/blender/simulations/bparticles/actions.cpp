@@ -6,41 +6,41 @@ namespace BParticles {
 
 using BLI::rgba_f;
 
-void ActionSequence::execute(ActionInterface &interface)
+void ActionSequence::execute(ParticleActionContext &context)
 {
   for (auto &action : m_actions) {
-    action->execute(interface);
+    action->execute(context);
   }
 }
 
-static void update_position_and_velocity_offsets(ActionInterface &interface)
+static void update_position_and_velocity_offsets(ParticleActionContext &UNUSED(context))
 {
-  AttributesRef attributes = interface.attributes();
-  AttributesRef attribute_offsets = interface.attribute_offsets();
+  // AttributesRef attributes = context.attributes();
+  // AttributesRef attribute_offsets = context.attribute_offsets();
 
-  auto velocities = attributes.get<float3>("Velocity");
-  auto position_offsets = attribute_offsets.try_get<float3>("Position");
-  auto velocity_offsets = attribute_offsets.try_get<float3>("Velocity");
+  // auto velocities = attributes.get<float3>("Velocity");
+  // auto position_offsets = attribute_offsets.try_get<float3>("Position");
+  // auto velocity_offsets = attribute_offsets.try_get<float3>("Velocity");
 
-  for (uint pindex : interface.pindices()) {
-    float3 velocity = velocities[pindex];
+  // for (uint pindex : context.pindex_mask()) {
+  //   float3 velocity = velocities[pindex];
 
-    if (position_offsets.has_value()) {
-      position_offsets.value()[pindex] = velocity * interface.remaining_time_in_step(pindex);
-    }
-    if (velocity_offsets.has_value()) {
-      velocity_offsets.value()[pindex] = float3(0);
-    }
-  }
+  //   if (position_offsets.has_value()) {
+  //     position_offsets.value()[pindex] = velocity * context.remaining_time_in_step(pindex);
+  //   }
+  //   if (velocity_offsets.has_value()) {
+  //     velocity_offsets.value()[pindex] = float3(0);
+  //   }
+  // }
 }
 
-void ConditionAction::execute(ActionInterface &interface)
+void ConditionAction::execute(ParticleActionContext &context)
 {
   auto inputs = ParticleFunctionResult::Compute(
-      *m_inputs_fn, interface.pindices(), interface.attributes());
+      *m_inputs_fn, context.pindex_mask(), context.attributes());
 
   Vector<uint> true_pindices, false_pindices;
-  for (uint pindex : interface.pindices()) {
+  for (uint pindex : context.pindex_mask().indices()) {
     if (inputs.get_single<bool>("Condition", 0, pindex)) {
       true_pindices.append(pindex);
     }
@@ -49,14 +49,14 @@ void ConditionAction::execute(ActionInterface &interface)
     }
   }
 
-  m_true_action.execute_for_subset(true_pindices, interface);
-  m_false_action.execute_for_subset(false_pindices, interface);
+  m_true_action.execute_for_subset(true_pindices.as_ref(), context);
+  m_false_action.execute_for_subset(false_pindices.as_ref(), context);
 }
 
-void SetAttributeAction::execute(ActionInterface &interface)
+void SetAttributeAction::execute(ParticleActionContext &context)
 {
-  Optional<GenericMutableArrayRef> attribute_opt = interface.attributes().try_get(
-      m_attribute_name, m_attribute_type);
+  Optional<GenericMutableArrayRef> attribute_opt = context.attributes().try_get(m_attribute_name,
+                                                                                m_attribute_type);
 
   if (!attribute_opt.has_value()) {
     return;
@@ -65,32 +65,32 @@ void SetAttributeAction::execute(ActionInterface &interface)
   GenericMutableArrayRef attribute = *attribute_opt;
 
   auto inputs = ParticleFunctionResult::Compute(
-      m_inputs_fn, interface.pindices(), interface.attributes());
+      m_inputs_fn, context.pindex_mask(), context.attributes());
 
-  for (uint pindex : interface.pindices()) {
+  for (uint pindex : context.pindex_mask().indices()) {
     const void *value = inputs.get_single("Value", 0, pindex);
     void *dst = attribute[pindex];
     m_attribute_type.copy_to_initialized(value, dst);
   }
 
   if (m_attribute_name == "Velocity") {
-    update_position_and_velocity_offsets(interface);
+    update_position_and_velocity_offsets(context);
   }
 }
 
 using FN::MFDataType;
 using FN::MFParamType;
 
-void SpawnParticlesAction::execute(ActionInterface &interface)
+void SpawnParticlesAction::execute(ParticleActionContext &context)
 {
-  if (interface.pindices().size() == 0) {
+  if (context.pindex_mask().indices_amount() == 0) {
     return;
   }
 
-  uint array_size = interface.pindices().last() + 1;
+  uint array_size = context.pindex_mask().min_array_size();
 
   auto inputs = ParticleFunctionResult::Compute(
-      m_spawn_function, interface.pindices(), interface.attributes());
+      m_spawn_function, context.pindex_mask(), context.attributes());
 
   LargeScopedArray<int> particle_counts(array_size, -1);
 
@@ -99,29 +99,29 @@ void SpawnParticlesAction::execute(ActionInterface &interface)
     MFParamType param_type = fn.param_type(param_index);
     if (param_type.is_vector_output()) {
       FN::GenericVectorArray &vector_array = inputs.computed_vector_array(param_index);
-      for (uint i : interface.pindices()) {
+      for (uint i : context.pindex_mask().indices()) {
         FN::GenericArrayRef array = vector_array[i];
         particle_counts[i] = std::max<int>(particle_counts[i], array.size());
       }
     }
   }
 
-  for (uint i : interface.pindices()) {
+  for (uint i : context.pindex_mask().indices()) {
     if (particle_counts[i] == -1) {
       particle_counts[i] = 1;
     }
   }
 
   uint total_spawn_amount = 0;
-  for (uint i : interface.pindices()) {
+  for (uint i : context.pindex_mask().indices()) {
     total_spawn_amount += particle_counts[i];
   }
 
   StringMap<GenericMutableArrayRef> attribute_arrays;
 
   Vector<float> new_birth_times;
-  for (uint i : interface.pindices()) {
-    new_birth_times.append_n_times(interface.current_times()[i], particle_counts[i]);
+  for (uint i : context.pindex_mask().indices()) {
+    // new_birth_times.append_n_times(context.current_times()[i], particle_counts[i]);
   }
   attribute_arrays.add_new("Birth Time", new_birth_times.as_mutable_ref());
 
@@ -138,7 +138,7 @@ void SpawnParticlesAction::execute(ActionInterface &interface)
         GenericArrayRef computed_array = inputs.computed_array(param_index);
 
         uint current = 0;
-        for (uint i : interface.pindices()) {
+        for (uint i : context.pindex_mask().indices()) {
           uint amount = particle_counts[i];
           array.slice(current, amount).fill__uninitialized(computed_array[i]);
           current += amount;
@@ -154,13 +154,13 @@ void SpawnParticlesAction::execute(ActionInterface &interface)
         FN::GenericVectorArray &computed_vector_array = inputs.computed_vector_array(param_index);
 
         uint current = 0;
-        for (uint pindex : interface.pindices()) {
+        for (uint pindex : context.pindex_mask().indices()) {
           uint amount = particle_counts[pindex];
           GenericMutableArrayRef array_slice = array.slice(current, amount);
           GenericArrayRef computed_array = computed_vector_array[pindex];
 
           if (computed_array.size() == 0) {
-            const void *default_buffer = interface.attributes().info().default_of(attribute_name);
+            const void *default_buffer = context.attributes().info().default_of(attribute_name);
             array_slice.fill__uninitialized(default_buffer);
           }
           else if (computed_array.size() == amount) {
@@ -184,7 +184,7 @@ void SpawnParticlesAction::execute(ActionInterface &interface)
   }
 
   for (StringRef system_name : m_systems_to_emit) {
-    auto new_particles = interface.particle_allocator().request(system_name, total_spawn_amount);
+    auto new_particles = context.particle_allocator().request(system_name, total_spawn_amount);
 
     attribute_arrays.foreach_key_value_pair(
         [&](StringRef attribute_name, GenericMutableArrayRef array) {
@@ -193,13 +193,13 @@ void SpawnParticlesAction::execute(ActionInterface &interface)
           }
         });
 
-    m_action.execute_for_new_particles(new_particles, interface);
+    m_action.execute_for_new_particles(new_particles, context);
   }
 
   attribute_arrays.foreach_key_value_pair(
       [&](StringRef attribute_name, GenericMutableArrayRef array) {
         if (attribute_name != "Birth Time") {
-          array.destruct_indices(interface.pindices());
+          array.destruct_indices(context.pindex_mask().indices());
           MEM_freeN(array.buffer());
         }
       });

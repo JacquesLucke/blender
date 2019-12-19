@@ -20,10 +20,12 @@ class AgeReachedEvent : public Event {
  private:
   std::string m_is_triggered_attribute;
   ParticleFunction *m_inputs_fn;
-  Action &m_action;
+  ParticleAction &m_action;
 
  public:
-  AgeReachedEvent(StringRef is_triggered_attribute, ParticleFunction *inputs_fn, Action &action)
+  AgeReachedEvent(StringRef is_triggered_attribute,
+                  ParticleFunction *inputs_fn,
+                  ParticleAction &action)
       : m_is_triggered_attribute(is_triggered_attribute), m_inputs_fn(inputs_fn), m_action(action)
   {
   }
@@ -36,10 +38,12 @@ class CustomEvent : public Event {
  private:
   std::string m_is_triggered_attribute;
   ParticleFunction *m_inputs_fn;
-  Action &m_action;
+  ParticleAction &m_action;
 
  public:
-  CustomEvent(StringRef is_triggered_attribute, ParticleFunction *inputs_fn, Action &action)
+  CustomEvent(StringRef is_triggered_attribute,
+              ParticleFunction *inputs_fn,
+              ParticleAction &action)
       : m_is_triggered_attribute(is_triggered_attribute), m_inputs_fn(inputs_fn), m_action(action)
   {
   }
@@ -57,7 +61,7 @@ class MeshCollisionEvent : public Event {
   float4x4 m_world_to_local_begin;
   float4x4 m_local_to_world_end;
   float4x4 m_world_to_local_end;
-  Action &m_action;
+  ParticleAction &m_action;
 
   struct RayCastResult {
     bool success;
@@ -75,7 +79,7 @@ class MeshCollisionEvent : public Event {
  public:
   MeshCollisionEvent(StringRef last_collision_attribute,
                      Object *object,
-                     Action &action,
+                     ParticleAction &action,
                      float4x4 local_to_world_begin,
                      float4x4 local_to_world_end)
       : m_last_collision_attribute(last_collision_attribute), m_object(object), m_action(action)

@@ -47,22 +47,21 @@ ParticleFunctionResult::~ParticleFunctionResult()
     delete vector_array;
   }
   for (GenericMutableArrayRef array : m_arrays) {
-    array.destruct_indices(m_indices);
+    array.destruct_indices(m_mask.indices());
     MEM_freeN(array.buffer());
   }
 }
 
 ParticleFunctionResult ParticleFunctionResult::Compute(const ParticleFunction &particle_fn,
-                                                       ArrayRef<uint> indices,
+                                                       IndexMask mask,
                                                        AttributesRef attributes)
 {
-  IndexMask mask(indices);
   uint array_size = mask.min_array_size();
 
   const MultiFunction &fn = particle_fn.m_fn;
 
   ParticleFunctionResult result;
-  result.m_indices = indices;
+  result.m_mask = mask;
   result.m_index_mapping = particle_fn.m_index_mapping;
   result.m_computed_names = particle_fn.m_computed_names;
 

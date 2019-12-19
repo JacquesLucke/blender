@@ -11,6 +11,8 @@ class IndexMask {
   ArrayRef<uint> m_indices;
 
  public:
+  IndexMask() = default;
+
   IndexMask(ArrayRef<uint> indices) : m_indices(indices)
   {
 #ifdef DEBUG

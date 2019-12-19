@@ -1,7 +1,7 @@
 #pragma once
 
 #include "world_state.hpp"
-#include "action_interface.hpp"
+#include "particle_action.hpp"
 #include "emitter_interface.hpp"
 
 #include "FN_multi_function.h"
@@ -16,7 +16,7 @@ using FN::MultiFunction;
 class SurfaceEmitter : public Emitter {
  private:
   ArrayRef<std::string> m_systems_to_emit;
-  Action &m_on_birth_action;
+  ParticleAction &m_on_birth_action;
 
   Object *m_object;
   VaryingFloat4x4 m_transform;
@@ -26,7 +26,7 @@ class SurfaceEmitter : public Emitter {
 
  public:
   SurfaceEmitter(ArrayRef<std::string> systems_to_emit,
-                 Action &on_birth_action,
+                 ParticleAction &on_birth_action,
                  Object *object,
                  VaryingFloat4x4 transform,
                  float rate,
@@ -49,14 +49,14 @@ class PointEmitter : public Emitter {
   VaryingFloat3 m_position;
   VaryingFloat3 m_velocity;
   VaryingFloat m_size;
-  Action &m_action;
+  ParticleAction &m_action;
 
  public:
   PointEmitter(ArrayRef<std::string> systems_to_emit,
                VaryingFloat3 position,
                VaryingFloat3 velocity,
                VaryingFloat size,
-               Action &action)
+               ParticleAction &action)
       : m_systems_to_emit(systems_to_emit),
         m_position(position),
         m_velocity(velocity),
@@ -76,7 +76,7 @@ class InitialGridEmitter : public Emitter {
   float m_step_x;
   float m_step_y;
   float m_size;
-  Action &m_action;
+  ParticleAction &m_action;
 
  public:
   InitialGridEmitter(ArrayRef<std::string> systems_to_emit,
@@ -85,7 +85,7 @@ class InitialGridEmitter : public Emitter {
                      float step_x,
                      float step_y,
                      float size,
-                     Action &action)
+                     ParticleAction &action)
       : m_systems_to_emit(systems_to_emit),
         m_amount_x(amount_x),
         m_amount_y(amount_y),
@@ -114,7 +114,7 @@ class CustomEmitter : public Emitter {
   ArrayRef<std::string> m_systems_to_emit;
   const MultiFunction &m_emitter_function;
   Vector<std::string> m_attribute_names;
-  Action &m_action;
+  ParticleAction &m_action;
   BirthTimeModes::Enum m_birth_time_mode;
   const BKE::IDHandleLookup &m_id_handle_lookup;
   const BKE::IDDataCache &m_id_data_cache;
@@ -123,7 +123,7 @@ class CustomEmitter : public Emitter {
   CustomEmitter(ArrayRef<std::string> systems_to_emit,
                 const MultiFunction &emitter_function,
                 Vector<std::string> attribute_names,
-                Action &action,
+                ParticleAction &action,
                 BirthTimeModes::Enum birth_time_mode,
                 const BKE::IDHandleLookup &id_handle_lookup,
                 const BKE::IDDataCache &id_data_cache)

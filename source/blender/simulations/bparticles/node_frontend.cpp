@@ -230,24 +230,24 @@ class InlinedTreeData {
     return system_names;
   }
 
-  Action *build_action(InfluencesCollector &collector,
-                       const XInputSocket &start,
-                       ArrayRef<std::string> system_names);
+  ParticleAction *build_action(InfluencesCollector &collector,
+                               const XInputSocket &start,
+                               ArrayRef<std::string> system_names);
 
-  Action &build_action_list(InfluencesCollector &collector,
-                            const XNode &start_xnode,
-                            StringRef name,
-                            ArrayRef<std::string> system_names)
+  ParticleAction &build_action_list(InfluencesCollector &collector,
+                                    const XNode &start_xnode,
+                                    StringRef name,
+                                    ArrayRef<std::string> system_names)
   {
     Vector<const XInputSocket *> execute_sockets = this->find_execute_sockets(start_xnode, name);
-    Vector<Action *> actions;
+    Vector<ParticleAction *> actions;
     for (const XInputSocket *socket : execute_sockets) {
-      Action *action = this->build_action(collector, *socket, system_names);
+      ParticleAction *action = this->build_action(collector, *socket, system_names);
       if (action != nullptr) {
         actions.append(action);
       }
     }
-    Action &sequence = this->construct<ActionSequence>(__func__, std::move(actions));
+    ParticleAction &sequence = this->construct<ActionSequence>(__func__, std::move(actions));
     return sequence;
   }
 
@@ -348,7 +348,7 @@ class XSocketActionBuilder {
   InlinedTreeData &m_inlined_tree_data;
   const XSocket &m_execute_xsocket;
   ArrayRef<std::string> m_system_names;
-  Action *m_built_action = nullptr;
+  ParticleAction *m_built_action = nullptr;
 
  public:
   XSocketActionBuilder(InfluencesCollector &influences_collector,
@@ -362,7 +362,7 @@ class XSocketActionBuilder {
   {
   }
 
-  Action *built_action()
+  ParticleAction *built_action()
   {
     return m_built_action;
   }
@@ -392,13 +392,13 @@ class XSocketActionBuilder {
 
   template<typename T, typename... Args> T &set_constructed(Args &&... args)
   {
-    BLI_STATIC_ASSERT((std::is_base_of<Action, T>::value), "");
+    BLI_STATIC_ASSERT((std::is_base_of<ParticleAction, T>::value), "");
     T &action = this->construct<T>(std::forward<Args>(args)...);
     this->set(action);
     return action;
   }
 
-  void set(Action &action)
+  void set(ParticleAction &action)
   {
     m_built_action = &action;
   }
@@ -429,7 +429,7 @@ class XSocketActionBuilder {
     return m_execute_xsocket.node().rna();
   }
 
-  Action &build_input_action_list(StringRef name, ArrayRef<std::string> system_names)
+  ParticleAction &build_input_action_list(StringRef name, ArrayRef<std::string> system_names)
   {
     return m_inlined_tree_data.build_action_list(
         m_influences_collector, m_execute_xsocket.node(), name, system_names);
@@ -491,9 +491,9 @@ class XSocketActionBuilder {
   }
 };
 
-Action *InlinedTreeData::build_action(InfluencesCollector &collector,
-                                      const XInputSocket &start,
-                                      ArrayRef<std::string> system_names)
+ParticleAction *InlinedTreeData::build_action(InfluencesCollector &collector,
+                                              const XInputSocket &start,
+                                              ArrayRef<std::string> system_names)
 {
   if (start.linked_sockets().size() != 1) {
     return nullptr;
@@ -555,7 +555,7 @@ static void ACTION_spawn(XSocketActionBuilder &builder)
     builder.try_add_attribute(system_names, attribute_name, *attribute_type);
   }
 
-  Action &action = builder.build_input_action_list("Execute on Birth", system_names);
+  ParticleAction &action = builder.build_input_action_list("Execute on Birth", system_names);
 
   builder.set_constructed<SpawnParticlesAction>(
       system_names, *inputs_fn, std::move(attribute_names), action);
@@ -568,9 +568,10 @@ static void ACTION_condition(XSocketActionBuilder &builder)
     return;
   }
 
-  Action &action_true = builder.build_input_action_list("Execute If True", builder.system_names());
-  Action &action_false = builder.build_input_action_list("Execute If False",
-                                                         builder.system_names());
+  ParticleAction &action_true = builder.build_input_action_list("Execute If True",
+                                                                builder.system_names());
+  ParticleAction &action_false = builder.build_input_action_list("Execute If False",
+                                                                 builder.system_names());
   builder.set_constructed<ConditionAction>(inputs_fn, action_true, action_false);
 }
 
@@ -600,7 +601,7 @@ static void ACTION_set_attribute(XSocketActionBuilder &builder)
 
 static void ACTION_multi_execute(XSocketActionBuilder &builder)
 {
-  Action &action = builder.build_input_action_list("Execute", builder.system_names());
+  ParticleAction &action = builder.build_input_action_list("Execute", builder.system_names());
   builder.set(action);
 }
 
@@ -653,7 +654,7 @@ class XNodeInfluencesBuilder {
     return m_inlined_tree_data.function_for_inputs(m_xnode, input_indices);
   }
 
-  Action &build_action_list(StringRef name, ArrayRef<std::string> system_names)
+  ParticleAction &build_action_list(StringRef name, ArrayRef<std::string> system_names)
   {
     return m_inlined_tree_data.build_action_list(
         m_influences_collector, m_xnode, name, system_names);
@@ -766,7 +767,7 @@ static void PARSE_point_emitter(XNodeInfluencesBuilder &builder)
   }
 
   ArrayRef<std::string> system_names = builder.find_target_system_names(0, "Emitter");
-  Action &action = builder.build_action_list("Execute on Birth", system_names);
+  ParticleAction &action = builder.build_action_list("Execute on Birth", system_names);
 
   std::string identifier = builder.node_identifier();
 
@@ -817,7 +818,7 @@ static void PARSE_custom_emitter(XNodeInfluencesBuilder &builder)
     builder.try_add_attribute(system_names, attribute_name, *attribute_type);
   }
 
-  Action &action = builder.build_action_list("Execute on Birth", system_names);
+  ParticleAction &action = builder.build_action_list("Execute on Birth", system_names);
   BirthTimeModes::Enum birth_time_mode = (BirthTimeModes::Enum)RNA_enum_get(builder.node_rna(),
                                                                             "birth_time_mode");
 
@@ -882,7 +883,7 @@ static void PARSE_mesh_emitter(XNodeInfluencesBuilder &builder)
       object->id.name, "obmat", object->obmat);
 
   ArrayRef<std::string> system_names = builder.find_target_system_names(0, "Emitter");
-  Action &on_birth_action = builder.build_action_list("Execute on Birth", system_names);
+  ParticleAction &on_birth_action = builder.build_action_list("Execute on Birth", system_names);
 
   Emitter &emitter = builder.construct<SurfaceEmitter>(system_names,
                                                        on_birth_action,
@@ -921,7 +922,7 @@ static void PARSE_age_reached_event(XNodeInfluencesBuilder &builder)
     return;
   }
 
-  Action &action = builder.build_action_list("Execute on Event", system_names);
+  ParticleAction &action = builder.build_action_list("Execute on Event", system_names);
   Event &event = builder.construct<AgeReachedEvent>(is_triggered_attribute, inputs_fn, action);
   builder.add_event(system_names, event);
 }
@@ -939,7 +940,7 @@ static void PARSE_trails(XNodeInfluencesBuilder &builder)
     return;
   }
 
-  Action &action = builder.build_action_list("Execute on Birth", trail_system_names);
+  ParticleAction &action = builder.build_action_list("Execute on Birth", trail_system_names);
   OffsetHandler &offset_handler = builder.construct<CreateTrailHandler>(
       trail_system_names, inputs_fn, action);
   builder.add_offset_handler(main_system_names, offset_handler);
@@ -953,7 +954,7 @@ static void PARSE_initial_grid_emitter(XNodeInfluencesBuilder &builder)
   }
 
   ArrayRef<std::string> system_names = builder.find_target_system_names(0, "Emitter");
-  Action &action = builder.build_action_list("Execute on Birth", system_names);
+  ParticleAction &action = builder.build_action_list("Execute on Birth", system_names);
 
   Emitter &emitter = builder.construct<InitialGridEmitter>(
       std::move(system_names),
@@ -985,7 +986,7 @@ static void PARSE_mesh_collision(XNodeInfluencesBuilder &builder)
   }
 
   ArrayRef<std::string> system_names = builder.find_target_system_names(0, "Event");
-  Action &action = builder.build_action_list("Execute on Event", system_names);
+  ParticleAction &action = builder.build_action_list("Execute on Event", system_names);
 
   float4x4 local_to_world_end = object->obmat;
   float4x4 local_to_world_begin =
@@ -1031,7 +1032,7 @@ static void PARSE_custom_event(XNodeInfluencesBuilder &builder)
     return;
   }
 
-  Action &action = builder.build_action_list("Execute on Event", system_names);
+  ParticleAction &action = builder.build_action_list("Execute on Event", system_names);
   Event &event = builder.construct<CustomEvent>(is_triggered_attribute, inputs_fn, action);
   builder.add_event(system_names, event);
 }
@@ -1039,7 +1040,7 @@ static void PARSE_custom_event(XNodeInfluencesBuilder &builder)
 static void PARSE_always_execute(XNodeInfluencesBuilder &builder)
 {
   ArrayRef<std::string> system_names = builder.find_target_system_names(0, "Influence");
-  Action &action = builder.build_action_list("Execute", system_names);
+  ParticleAction &action = builder.build_action_list("Execute", system_names);
 
   OffsetHandler &offset_handler = builder.construct<AlwaysExecuteHandler>(action);
   builder.add_offset_handler(system_names, offset_handler);
