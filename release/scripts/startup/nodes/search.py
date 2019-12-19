@@ -1,3 +1,4 @@
+import os
 import bpy
 from bpy.props import *
 from pathlib import Path
@@ -29,15 +30,16 @@ class NodeSearch(bpy.types.Operator):
             item = encode_search_item(("EXISTING_GROUP", tree.name), "(G) " + tree.name)
             items.append(item)
 
-        local_group_names = set(tree.name for tree in bpy.data.node_groups)
-        nodelibdir = Path(context.preferences.filepaths.nodelib_directory)
-        for path in nodelibdir.glob("**/*.blend"):
-            if not path.is_file():
-                continue
-            for group_name in get_node_group_names_in_file(str(path)):
-                if group_name not in local_group_names:
-                    item = encode_search_item(("LIB_GROUP", str(path), group_name), "(G) " + group_name)
-                    items.append(item)
+        nodelibdir = context.preferences.filepaths.nodelib_directory
+        if len(nodelibdir) > 0 and os.path.exists(nodelibdir):
+            local_group_names = set(tree.name for tree in bpy.data.node_groups)
+            for path in Path(nodelibdir).glob("**/*.blend"):
+                if not path.is_file():
+                    continue
+                for group_name in get_node_group_names_in_file(str(path)):
+                    if group_name not in local_group_names:
+                        item = encode_search_item(("LIB_GROUP", str(path), group_name), "(G) " + group_name)
+                        items.append(item)
 
         sorted_items = list(sorted(items, key=lambda item: item[1]))
         return sorted_items
