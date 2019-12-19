@@ -79,11 +79,6 @@ class ActionNodesMenu(bpy.types.Menu):
         layout = self.layout
         layout.operator_context = 'INVOKE_DEFAULT'
 
-        insert_node(layout, "fn_ChangeParticleColorNode", "Change Color")
-        insert_node(layout, "fn_ChangeParticleVelocityNode", "Change Velocity")
-        insert_node(layout, "fn_ChangeParticleSizeNode", "Change Size")
-        insert_node(layout, "fn_ChangeParticlePositionNode", "Change Position")
-        layout.separator()
         insert_node(layout, "fn_KillParticleNode", "Kill Particle")
         insert_node(layout, "fn_ParticleConditionNode", "Condition")
 

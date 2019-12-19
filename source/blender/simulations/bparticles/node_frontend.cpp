@@ -518,27 +518,6 @@ static void ACTION_kill(XSocketActionBuilder &builder)
   builder.set_constructed<KillAction>();
 }
 
-static void ACTION_change_velocity(XSocketActionBuilder &builder)
-{
-  ParticleFunction *inputs_fn = builder.particle_function_for_all_inputs();
-  if (inputs_fn == nullptr) {
-    return;
-  }
-
-  int mode = RNA_enum_get(builder.node_rna(), "mode");
-  switch (mode) {
-    case 0:
-      builder.set_constructed<SetVelocityAction>(inputs_fn);
-      break;
-    case 1:
-      builder.set_constructed<RandomizeVelocityAction>(inputs_fn);
-      break;
-    default:
-      BLI_assert(false);
-      break;
-  }
-}
-
 static void ACTION_spawn(XSocketActionBuilder &builder)
 {
   const XNode &xnode = builder.xsocket().node();
@@ -594,36 +573,6 @@ static void ACTION_condition(XSocketActionBuilder &builder)
   Action &action_false = builder.build_input_action_list("Execute If False",
                                                          builder.system_names());
   builder.set_constructed<ConditionAction>(inputs_fn, action_true, action_false);
-}
-
-static void ACTION_change_color(XSocketActionBuilder &builder)
-{
-  ParticleFunction *inputs_fn = builder.particle_function_for_all_inputs();
-  if (inputs_fn == nullptr) {
-    return;
-  }
-
-  builder.set_constructed<ChangeColorAction>(inputs_fn);
-}
-
-static void ACTION_change_size(XSocketActionBuilder &builder)
-{
-  ParticleFunction *inputs_fn = builder.particle_function_for_all_inputs();
-  if (inputs_fn == nullptr) {
-    return;
-  }
-
-  builder.set_constructed<ChangeSizeAction>(inputs_fn);
-}
-
-static void ACTION_change_position(XSocketActionBuilder &builder)
-{
-  ParticleFunction *inputs_fn = builder.particle_function_for_all_inputs();
-  if (inputs_fn == nullptr) {
-    return;
-  }
-
-  builder.set_constructed<ChangePositionAction>(inputs_fn);
 }
 
 static void ACTION_add_to_group(XSocketActionBuilder &builder)
@@ -687,12 +636,8 @@ BLI_LAZY_INIT(StringMap<ActionParserCallback>, get_action_parsers)
 {
   StringMap<ActionParserCallback> map;
   map.add_new("fn_KillParticleNode", ACTION_kill);
-  map.add_new("fn_ChangeParticleVelocityNode", ACTION_change_velocity);
   map.add_new("fn_SpawnParticlesNode", ACTION_spawn);
   map.add_new("fn_ParticleConditionNode", ACTION_condition);
-  map.add_new("fn_ChangeParticleColorNode", ACTION_change_color);
-  map.add_new("fn_ChangeParticleSizeNode", ACTION_change_size);
-  map.add_new("fn_ChangeParticlePositionNode", ACTION_change_position);
   map.add_new("fn_AddToGroupNode", ACTION_add_to_group);
   map.add_new("fn_RemoveFromGroupNode", ACTION_remove_from_group);
   map.add_new("fn_SetParticleAttributeNode", ACTION_set_attribute);

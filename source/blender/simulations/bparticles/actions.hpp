@@ -23,66 +23,6 @@ class KillAction : public Action {
   void execute(ActionInterface &interface) override;
 };
 
-class SetVelocityAction : public Action {
- private:
-  ParticleFunction *m_inputs_fn;
-
- public:
-  SetVelocityAction(ParticleFunction *inputs_fn) : m_inputs_fn(inputs_fn)
-  {
-  }
-
-  void execute(ActionInterface &interface) override;
-};
-
-class RandomizeVelocityAction : public Action {
- private:
-  ParticleFunction *m_inputs_fn;
-
- public:
-  RandomizeVelocityAction(ParticleFunction *inputs_fn) : m_inputs_fn(inputs_fn)
-  {
-  }
-
-  void execute(ActionInterface &interface) override;
-};
-
-class ChangeColorAction : public Action {
- private:
-  ParticleFunction *m_inputs_fn;
-
- public:
-  ChangeColorAction(ParticleFunction *inputs_fn) : m_inputs_fn(inputs_fn)
-  {
-  }
-
-  void execute(ActionInterface &interface) override;
-};
-
-class ChangeSizeAction : public Action {
- private:
-  ParticleFunction *m_inputs_fn;
-
- public:
-  ChangeSizeAction(ParticleFunction *inputs_fn) : m_inputs_fn(inputs_fn)
-  {
-  }
-
-  void execute(ActionInterface &interface) override;
-};
-
-class ChangePositionAction : public Action {
- private:
-  ParticleFunction *m_inputs_fn;
-
- public:
-  ChangePositionAction(ParticleFunction *inputs_fn) : m_inputs_fn(inputs_fn)
-  {
-  }
-
-  void execute(ActionInterface &interface) override;
-};
-
 class ConditionAction : public Action {
  private:
   ParticleFunction *m_inputs_fn;

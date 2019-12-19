@@ -13,18 +13,6 @@ void ActionSequence::execute(ActionInterface &interface)
   }
 }
 
-static float random_number()
-{
-  static uint number = 0;
-  number++;
-  return BLI_hash_int_01(number) * 2.0f - 1.0f;
-}
-
-static float3 random_direction()
-{
-  return float3(random_number(), random_number(), random_number());
-}
-
 static void update_position_and_velocity_offsets(ActionInterface &interface)
 {
   AttributesRef attributes = interface.attributes();
@@ -43,76 +31,6 @@ static void update_position_and_velocity_offsets(ActionInterface &interface)
     if (velocity_offsets.has_value()) {
       velocity_offsets.value()[pindex] = float3(0);
     }
-  }
-}
-
-void SetVelocityAction::execute(ActionInterface &interface)
-{
-  auto velocities = interface.attributes().get<float3>("Velocity");
-
-  auto inputs = ParticleFunctionResult::Compute(
-      *m_inputs_fn, interface.pindices(), interface.attributes());
-
-  for (uint pindex : interface.pindices()) {
-    float3 velocity = inputs.get_single<float3>("Velocity", 0, pindex);
-    velocities[pindex] = velocity;
-  }
-
-  update_position_and_velocity_offsets(interface);
-}
-
-void RandomizeVelocityAction::execute(ActionInterface &interface)
-{
-  auto velocities = interface.attributes().get<float3>("Velocity");
-
-  auto inputs = ParticleFunctionResult::Compute(
-      *m_inputs_fn, interface.pindices(), interface.attributes());
-
-  for (uint pindex : interface.pindices()) {
-    float randomness = inputs.get_single<float>("Randomness", 0, pindex);
-    float3 old_velocity = velocities[pindex];
-    float old_speed = old_velocity.length();
-
-    float3 velocity_offset = random_direction().normalized() * old_speed * randomness;
-    velocities[pindex] += velocity_offset;
-  }
-
-  update_position_and_velocity_offsets(interface);
-}
-
-void ChangeColorAction::execute(ActionInterface &interface)
-{
-  auto colors = interface.attributes().get<rgba_f>("Color");
-
-  auto inputs = ParticleFunctionResult::Compute(
-      *m_inputs_fn, interface.pindices(), interface.attributes());
-  for (uint pindex : interface.pindices()) {
-    rgba_f color = inputs.get_single<rgba_f>("Color", 0, pindex);
-    colors[pindex] = color;
-  }
-}
-
-void ChangeSizeAction::execute(ActionInterface &interface)
-{
-  auto sizes = interface.attributes().get<float>("Size");
-
-  auto inputs = ParticleFunctionResult::Compute(
-      *m_inputs_fn, interface.pindices(), interface.attributes());
-  for (uint pindex : interface.pindices()) {
-    float size = inputs.get_single<float>("Size", 0, pindex);
-    sizes[pindex] = size;
-  }
-}
-
-void ChangePositionAction::execute(ActionInterface &interface)
-{
-  auto positions = interface.attributes().get<float3>("Position");
-
-  auto inputs = ParticleFunctionResult::Compute(
-      *m_inputs_fn, interface.pindices(), interface.attributes());
-  for (uint pindex : interface.pindices()) {
-    float3 position = inputs.get_single<float3>("Position", 0, pindex);
-    positions[pindex] = position;
   }
 }
 
@@ -179,6 +97,10 @@ void SetAttributeAction::execute(ActionInterface &interface)
     const void *value = inputs.get_single("Value", 0, pindex);
     void *dst = attribute[pindex];
     m_attribute_type.copy_to_initialized(value, dst);
+  }
+
+  if (m_attribute_name == "Velocity") {
+    update_position_and_velocity_offsets(interface);
   }
 }
 
