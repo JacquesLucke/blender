@@ -5790,6 +5790,13 @@ static void rna_def_userdef_filepaths(BlenderRNA *brna)
       prop, "Temporary Directory", "The directory for storing temporary save files");
   RNA_def_property_update(prop, 0, "rna_userdef_temp_update");
 
+  prop = RNA_def_property(srna, "nodelib_directory", PROP_STRING, PROP_DIRPATH);
+  RNA_def_property_string_sdna(prop, NULL, "nodelibdir");
+  RNA_def_property_ui_text(
+      prop,
+      "Nodelib Directory",
+      "All node groups in .blend files in this directory can be loaded easily");
+
   prop = RNA_def_property(srna, "render_cache_directory", PROP_STRING, PROP_DIRPATH);
   RNA_def_property_string_sdna(prop, NULL, "render_cachedir");
   RNA_def_property_ui_text(prop, "Render Cache Path", "Where to cache raw render results");

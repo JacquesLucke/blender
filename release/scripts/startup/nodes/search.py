@@ -1,5 +1,6 @@
 import bpy
 from bpy.props import *
+from pathlib import Path
 from . base import BaseNode
 from . utils.enum_items_cache import cache_enum_items
 
@@ -21,6 +22,17 @@ class NodeSearch(bpy.types.Operator):
         for tree in current_tree.find_callable_trees():
             item = encode_search_item(("EXISTING_GROUP", tree.name), "(G) " + tree.name)
             items.append(item)
+
+        local_group_names = set(tree.name for tree in bpy.data.node_groups)
+        nodelibdir = Path(context.preferences.filepaths.nodelib_directory)
+        for path in nodelibdir.glob("**/*"):
+            if not path.is_file():
+                continue
+            with bpy.data.libraries.load(str(path)) as (data_from, data_to):
+                for group_name in data_from.node_groups:
+                    if group_name not in local_group_names:
+                        item = encode_search_item(("LIB_GROUP", str(path), group_name), "(G) " + group_name)
+                        items.append(item)
 
         sorted_items = list(sorted(items, key=lambda item: item[1]))
         return sorted_items
@@ -54,6 +66,13 @@ class NodeSearch(bpy.types.Operator):
             group_name = item_data[1]
             bpy.ops.node.add_node('INVOKE_DEFAULT', type="fn_GroupNode")
             new_node = context.active_node
+            new_node.node_group = bpy.data.node_groups[group_name]
+        elif item_type == "LIB_GROUP":
+            path, group_name = item_data[1:]
+            bpy.ops.node.add_node('INVOKE_DEFAULT', type="fn_GroupNode")
+            new_node = context.active_node
+            with bpy.data.libraries.load(path, link=True) as (data_from, data_to):
+                data_to.node_groups = [group_name]
             new_node.node_group = bpy.data.node_groups[group_name]
 
         bpy.ops.node.translate_attach("INVOKE_DEFAULT")

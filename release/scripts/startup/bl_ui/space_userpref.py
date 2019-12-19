@@ -1189,6 +1189,7 @@ class USERPREF_PT_file_paths_data(FilePathsPanel, Panel):
         col.prop(paths, "script_directory", text="Scripts")
         col.prop(paths, "sound_directory", text="Sounds")
         col.prop(paths, "temporary_directory", text="Temporary Files")
+        col.prop(paths, "nodelib_directory", text="Nodelib Files")
 
 
 class USERPREF_PT_file_paths_render(FilePathsPanel, Panel):

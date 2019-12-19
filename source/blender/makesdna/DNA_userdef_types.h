@@ -626,6 +626,7 @@ typedef struct UserDef {
   /** FILE_MAXDIR length. */
   char tempdir[768];
   char fontdir[768];
+  char nodelibdir[768];
   /** FILE_MAX length. */
   char renderdir[1024];
   /* EXR cache path */
