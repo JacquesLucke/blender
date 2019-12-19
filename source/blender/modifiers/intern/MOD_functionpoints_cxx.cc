@@ -63,7 +63,7 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
   context_builder.add_global_context(id_handle_lookup);
   context_builder.add_global_context(time_context);
 
-  function->call({0}, params_builder, context_builder);
+  function->call(BLI::IndexMask(1), params_builder, context_builder);
 
   ArrayRef<float3> output_points = vector_array[0].as_typed_ref<float3>();
 

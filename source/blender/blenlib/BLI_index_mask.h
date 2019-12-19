@@ -24,7 +24,7 @@ class IndexMask {
   {
   }
 
-  IndexMask(const std::initializer_list<uint> &list) : IndexMask(ArrayRef<uint>(list))
+  explicit IndexMask(uint n) : IndexMask(IndexRange(n))
   {
   }
 

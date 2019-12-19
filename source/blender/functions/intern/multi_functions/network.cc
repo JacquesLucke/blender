@@ -378,7 +378,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
     MFParamsBuilder params_builder(function, 1);
 
     this->prepare_function_params__single(function_node, storage, params_builder);
-    function.call({0}, params_builder, global_context);
+    function.call(IndexMask(1), params_builder, global_context);
     this->forward_computed_values__single(function_node, storage, params_builder);
   }
   else {

@@ -390,7 +390,7 @@ void CustomEmitter::emit(EmitterInterface &interface)
   context_builder.add_global_context(m_id_handle_lookup);
   context_builder.add_global_context(time_context);
 
-  m_emitter_function.call({0}, params_builder, context_builder);
+  m_emitter_function.call(BLI::IndexMask(1), params_builder, context_builder);
 
   int particle_count = -1;
 
