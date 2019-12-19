@@ -377,7 +377,10 @@ static BLI::DotExport::Cluster *get_cluster_for_parent(
   }
   else if (!clusters.contains(parent)) {
     auto *parent_cluster = get_cluster_for_parent(graph, clusters, parent->parent());
-    auto &new_cluster = graph.new_cluster(parent->vnode().name());
+    const VNode &parent_node = parent->vnode();
+    bNodeTree *btree = (bNodeTree *)RNA_pointer_get(parent_node.rna(), "node_group").data;
+    auto &new_cluster = graph.new_cluster(parent->vnode().name() + " / " +
+                                          StringRef(btree->id.name + 2));
     new_cluster.set_parent_cluster(parent_cluster);
     clusters.add_new(parent, &new_cluster);
     return &new_cluster;
