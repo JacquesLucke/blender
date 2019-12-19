@@ -13,16 +13,13 @@ class NodeSearch(bpy.types.Operator):
         items = []
         tree = context.space_data.edit_tree
         for node_cls in BaseNode.iter_final_subclasses():
-            if node_cls.bl_label.startswith("Mockup") and not tree.show_mockups:
-                continue
             for search_term, settings in node_cls.get_search_terms():
-                item = encode_search_item(node_cls.bl_idname, search_term, settings)
+                item = encode_search_item(("BUILTIN", node_cls.bl_idname, settings), search_term)
                 items.append(item)
 
         current_tree = context.space_data.node_tree
         for tree in current_tree.find_callable_trees():
-            name = "(G) " + tree.name
-            item = encode_search_item(name, name, {})
+            item = encode_search_item(("EXISTING_GROUP", tree.name), "(G) " + tree.name)
             items.append(item)
 
         sorted_items = list(sorted(items, key=lambda item: item[1]))
@@ -44,28 +41,28 @@ class NodeSearch(bpy.types.Operator):
         for node in tree.nodes:
             node.select = False
 
-        idname, settings = decode_search_item(self.item)
-        if idname.startswith("(G) "):
-            group_name = idname[len("(G) "):]
-            idname = "fn_GroupNode"
-            node_group = bpy.data.node_groups[group_name]
-            settings = {"node_group" : node_group}
+        item_data = decode_search_item(self.item)
+        item_type = item_data[0]
 
-        bpy.ops.node.add_node('INVOKE_DEFAULT', type=idname)
-        new_node = context.active_node
-        new_node.select = True
-        for key, value in settings.items():
-            setattr(new_node, key, value)
+        if item_type == "BUILTIN":
+            idname, settings = item_data[1:]
+            bpy.ops.node.add_node('INVOKE_DEFAULT', type=idname)
+            new_node = context.active_node
+            for key, value in settings.items():
+                setattr(new_node, key, value)
+        elif item_type == "EXISTING_GROUP":
+            group_name = item_data[1]
+            bpy.ops.node.add_node('INVOKE_DEFAULT', type="fn_GroupNode")
+            new_node = context.active_node
+            new_node.node_group = bpy.data.node_groups[group_name]
 
         bpy.ops.node.translate_attach("INVOKE_DEFAULT")
         return {'FINISHED'}
 
 
-def encode_search_item(idname, search_term, settings):
-    identifier = idname + ":" + repr(settings)
+def encode_search_item(data, search_term):
+    identifier = repr(data)
     return (identifier, search_term, "")
 
 def decode_search_item(identifier):
-    idname, settings_repr = identifier.split(":", 1)
-    settings = eval(settings_repr)
-    return idname, settings
+    return eval(identifier)

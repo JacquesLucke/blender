@@ -15,4 +15,3 @@ class TreePanel(bpy.types.Panel, NodeSidebarPanel):
         layout = self.layout
 
         tree = context.space_data.edit_tree
-        layout.prop(tree, "show_mockups")
