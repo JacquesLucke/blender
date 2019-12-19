@@ -53,27 +53,6 @@ void ConditionAction::execute(ActionInterface &interface)
   m_false_action.execute_for_subset(false_pindices, interface);
 }
 
-void AddToGroupAction::execute(ActionInterface &interface)
-{
-  auto is_in_group = interface.attributes().get<bool>(m_group_name);
-  for (uint pindex : interface.pindices()) {
-    is_in_group[pindex] = true;
-  }
-}
-
-void RemoveFromGroupAction::execute(ActionInterface &interface)
-{
-  auto is_in_group_optional = interface.attributes().try_get<bool>(m_group_name);
-  if (!is_in_group_optional.has_value()) {
-    return;
-  }
-
-  MutableArrayRef<bool> is_in_group = *is_in_group_optional;
-  for (uint pindex : interface.pindices()) {
-    is_in_group[pindex] = false;
-  }
-}
-
 void SetAttributeAction::execute(ActionInterface &interface)
 {
   Optional<GenericMutableArrayRef> attribute_opt = interface.attributes().try_get(

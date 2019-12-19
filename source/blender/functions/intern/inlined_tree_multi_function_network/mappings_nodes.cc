@@ -97,11 +97,6 @@ static void INSERT_get_image_color_on_surface(VNodeMFNetworkBuilder &builder)
       {"use_list__surface_hook", "use_list__image"});
 }
 
-static void INSERT_particle_is_in_group(VNodeMFNetworkBuilder &builder)
-{
-  builder.set_constructed_matching_fn<MF_ParticleIsInGroup>();
-}
-
 static void INSERT_switch(VNodeMFNetworkBuilder &builder)
 {
   MFDataType type = builder.data_type_from_property("data_type");
@@ -545,7 +540,6 @@ void add_inlined_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.xnode_inserters.add_new("fn_GetWeightOnSurfaceNode", INSERT_get_weight_on_surface);
   mappings.xnode_inserters.add_new("fn_GetImageColorOnSurfaceNode",
                                    INSERT_get_image_color_on_surface);
-  mappings.xnode_inserters.add_new("fn_IsInGroupNode", INSERT_particle_is_in_group);
   mappings.xnode_inserters.add_new("fn_TextLengthNode", INSERT_text_length);
   mappings.xnode_inserters.add_new("fn_VertexInfoNode", INSERT_vertex_info);
   mappings.xnode_inserters.add_new("fn_FloatRangeNode", INSERT_float_range);

@@ -34,30 +34,6 @@ class ConditionAction : public Action {
   void execute(ActionInterface &interface) override;
 };
 
-class AddToGroupAction : public Action {
- private:
-  std::string m_group_name;
-
- public:
-  AddToGroupAction(std::string group_name) : m_group_name(std::move(group_name))
-  {
-  }
-
-  void execute(ActionInterface &interface) override;
-};
-
-class RemoveFromGroupAction : public Action {
- private:
-  std::string m_group_name;
-
- public:
-  RemoveFromGroupAction(std::string group_name) : m_group_name(std::move(group_name))
-  {
-  }
-
-  void execute(ActionInterface &interface) override;
-};
-
 class SetAttributeAction : public Action {
  private:
   std::string m_attribute_name;

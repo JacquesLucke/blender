@@ -45,42 +45,6 @@ void MF_ParticleAttribute::call(IndexMask mask, MFParams params, MFContext conte
       });
 }
 
-MF_ParticleIsInGroup::MF_ParticleIsInGroup()
-{
-  MFSignatureBuilder signature = this->get_builder("Particle is in Group");
-  signature.use_element_context<ParticleAttributesContext>();
-  signature.single_input<std::string>("Group Name");
-  signature.single_output<bool>("Is in Group");
-}
-
-void MF_ParticleIsInGroup::call(IndexMask mask, MFParams params, MFContext context) const
-{
-  VirtualListRef<std::string> group_names = params.readonly_single_input<std::string>(
-      0, "Group Name");
-  MutableArrayRef<bool> r_is_in_group = params.uninitialized_single_output<bool>(1, "Is in Group");
-
-  auto context_data = context.try_find_per_element<ParticleAttributesContext>();
-  if (!context_data.has_value()) {
-    r_is_in_group.fill_indices(mask.indices(), false);
-    return;
-  }
-
-  AttributesRef attributes = context_data->data->attributes;
-
-  for (uint i : mask.indices()) {
-    const std::string group_name = "private/group/" + group_names[i];
-    Optional<MutableArrayRef<bool>> is_in_group_attr = attributes.try_get<bool>(group_name);
-    if (!is_in_group_attr.has_value()) {
-      r_is_in_group[i] = false;
-      continue;
-    }
-
-    uint index = context_data->indices[i];
-    bool is_in_group = is_in_group_attr.value()[index];
-    r_is_in_group[i] = is_in_group;
-  }
-}
-
 MF_EmitterTimeInfo::MF_EmitterTimeInfo()
 {
   MFSignatureBuilder signature = this->get_builder("Emitter Time Info");

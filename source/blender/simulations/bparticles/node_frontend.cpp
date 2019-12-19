@@ -574,33 +574,6 @@ static void ACTION_condition(XSocketActionBuilder &builder)
   builder.set_constructed<ConditionAction>(inputs_fn, action_true, action_false);
 }
 
-static void ACTION_add_to_group(XSocketActionBuilder &builder)
-{
-  auto inputs = builder.compute_all_data_inputs();
-  if (!inputs.has_value()) {
-    return;
-  }
-
-  std::string group_name = "private/group/" + inputs->relocate_out<std::string>(0, "Group");
-  bool attribute_added = builder.try_add_attribute_to_affected_particles<bool>(group_name, false);
-  if (!attribute_added) {
-    return;
-  }
-
-  builder.set_constructed<AddToGroupAction>(group_name);
-}
-
-static void ACTION_remove_from_group(XSocketActionBuilder &builder)
-{
-  auto inputs = builder.compute_all_data_inputs();
-  if (!inputs.has_value()) {
-    return;
-  }
-
-  std::string group_name = inputs->relocate_out<std::string>(0, "Group");
-  builder.set_constructed<RemoveFromGroupAction>(group_name);
-}
-
 static void ACTION_set_attribute(XSocketActionBuilder &builder)
 {
   Optional<NamedGenericTupleRef> values = builder.compute_inputs({0});
@@ -636,8 +609,6 @@ BLI_LAZY_INIT(StringMap<ActionParserCallback>, get_action_parsers)
   StringMap<ActionParserCallback> map;
   map.add_new("fn_SpawnParticlesNode", ACTION_spawn);
   map.add_new("fn_ParticleConditionNode", ACTION_condition);
-  map.add_new("fn_AddToGroupNode", ACTION_add_to_group);
-  map.add_new("fn_RemoveFromGroupNode", ACTION_remove_from_group);
   map.add_new("fn_SetParticleAttributeNode", ACTION_set_attribute);
   map.add_new("fn_MultiExecuteNode", ACTION_multi_execute);
   return map;

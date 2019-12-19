@@ -13,12 +13,6 @@ class MF_ParticleAttribute final : public MultiFunction {
   void call(IndexMask mask, MFParams params, MFContext context) const override;
 };
 
-class MF_ParticleIsInGroup final : public MultiFunction {
- public:
-  MF_ParticleIsInGroup();
-  void call(IndexMask mask, MFParams params, MFContext context) const override;
-};
-
 class MF_EmitterTimeInfo final : public MultiFunction {
  public:
   MF_EmitterTimeInfo();
