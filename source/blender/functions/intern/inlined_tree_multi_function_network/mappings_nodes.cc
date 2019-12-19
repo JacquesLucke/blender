@@ -405,31 +405,6 @@ static void INSERT_perlin_noise(VNodeMFNetworkBuilder &builder)
   builder.set_constructed_matching_fn<MF_PerlinNoise>();
 }
 
-static void create_particle_info_nodes(VNodeMFNetworkBuilder &builder,
-                                       StringRef name,
-                                       const XOutputSocket &xsocket)
-{
-  InlinedTreeMFNetworkBuilder &network_builder = builder.network_builder();
-  const CPPType &type = network_builder.try_get_data_type(xsocket)->single__cpp_type();
-
-  const MultiFunction &name_fn = network_builder.construct_fn<MF_ConstantValue<std::string>>(name);
-  const MultiFunction &attribute_fn = network_builder.construct_fn<MF_ParticleAttribute>(type);
-  MFBuilderFunctionNode &name_node = network_builder.add_function(name_fn);
-  MFBuilderFunctionNode &attribute_node = network_builder.add_function(attribute_fn);
-  network_builder.add_link(name_node.output(0), attribute_node.input(0));
-  network_builder.map_sockets(xsocket, attribute_node.output(0));
-}
-
-static void INSERT_particle_info(VNodeMFNetworkBuilder &builder)
-{
-  const XNode &xnode = builder.xnode();
-
-  create_particle_info_nodes(builder, "ID", xnode.output(0));
-  create_particle_info_nodes(builder, "Position", xnode.output(1));
-  create_particle_info_nodes(builder, "Velocity", xnode.output(2));
-  create_particle_info_nodes(builder, "Birth Time", xnode.output(3));
-}
-
 static void INSERT_get_particle_attribute(VNodeMFNetworkBuilder &builder)
 {
   const CPPType &type = builder.cpp_type_from_property("attribute_type");
@@ -572,7 +547,6 @@ void add_inlined_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.xnode_inserters.add_new("fn_TimeInfoNode", INSERT_time_info);
   mappings.xnode_inserters.add_new("fn_CompareNode", INSERT_compare);
   mappings.xnode_inserters.add_new("fn_PerlinNoiseNode", INSERT_perlin_noise);
-  mappings.xnode_inserters.add_new("fn_ParticleInfoNode", INSERT_particle_info);
   mappings.xnode_inserters.add_new("fn_GetParticleAttributeNode", INSERT_get_particle_attribute);
   mappings.xnode_inserters.add_new("fn_ClosestLocationOnObjectNode",
                                    INSERT_closest_surface_hook_on_object);

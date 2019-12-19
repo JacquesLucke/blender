@@ -16,7 +16,6 @@ def draw_menu(self, context):
     insert_node(layout, "fn_ParticleSystemNode", "Particle System")
     layout.menu("BP_MT_influences_nodes_menu", text="Influences")
     layout.menu("BP_MT_action_nodes_menu", text="Actions")
-    layout.menu("BP_MT_input_nodes_menu", text="Inputs")
 
 class FunctionNodesMenu(bpy.types.Menu):
     bl_idname = "FN_MT_function_nodes_menu"
@@ -81,16 +80,6 @@ class ActionNodesMenu(bpy.types.Menu):
 
         insert_node(layout, "fn_KillParticleNode", "Kill Particle")
         insert_node(layout, "fn_ParticleConditionNode", "Condition")
-
-class InputNodesMenu(bpy.types.Menu):
-    bl_idname = "BP_MT_input_nodes_menu"
-    bl_label = "Input Nodes Menu"
-
-    def draw(self, context):
-        layout = self.layout
-        layout.operator_context = 'INVOKE_DEFAULT'
-
-        insert_node(layout, "fn_ParticleInfoNode", "Particle Info")
 
 
 def insert_node(layout, type, text, settings = {}, icon = "NONE"):
