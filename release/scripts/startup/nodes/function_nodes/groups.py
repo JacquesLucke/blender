@@ -141,7 +141,7 @@ class GroupNode(bpy.types.Node, FunctionNode):
     )
 
     def declaration(self, builder: NodeBuilder):
-        if self.node_group is None:
+        if not isinstance(self.node_group, FunctionTree):
             return
 
         for input_node in self.node_group.get_input_nodes():
@@ -172,9 +172,12 @@ class GroupNode(bpy.types.Node, FunctionNode):
                 assert False
 
     def draw(self, layout):
+        layout.scale_y = 1.3
         if self.node_group is None:
-            layout.scale_y = 1.3
             self.invoke_group_selector(layout, "set_group", "Select Group", icon="NODETREE")
+        elif not isinstance(self.node_group, FunctionTree):
+            layout.label(text="Group not found!", icon="ERROR")
+            self.invoke_group_selector(layout, "set_group", "Change Group", icon="NODETREE")
 
     def draw_advanced(self, layout):
         col = layout.column()
