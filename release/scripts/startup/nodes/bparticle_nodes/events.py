@@ -50,3 +50,11 @@ class EventFilterEndTimeNode(bpy.types.Node, FunctionNode):
 
     def declaration(self, builder: NodeBuilder):
         builder.fixed_output("end_time", "End Time", "Float")
+
+
+class EventFilterDurationNode(bpy.types.Node, FunctionNode):
+    bl_idname = "fn_EventFilterDurationNode"
+    bl_label = "Event Filter Duration"
+
+    def declaration(self, builder: NodeBuilder):
+        builder.fixed_output("duration", "Duration", "Float")

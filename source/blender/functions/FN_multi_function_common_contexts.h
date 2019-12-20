@@ -13,36 +13,31 @@ namespace FN {
 
 using BLI::Map;
 
-class VertexPositionArray {
- public:
+struct VertexPositionArray {
   ArrayRef<BLI::float3> positions;
 };
 
-class SceneTimeContext {
- public:
+struct SceneTimeContext {
   float time;
 };
 
-class ParticleAttributesContext {
- public:
+struct ParticleAttributesContext {
   AttributesRef attributes;
-
-  ParticleAttributesContext(AttributesRef attributes) : attributes(attributes)
-  {
-  }
 };
 
-class EmitterTimeInfoContext {
- public:
+struct EmitterTimeInfoContext {
   float duration;
   float begin;
   float end;
   int step;
 };
 
-class EventFilterEndTimeContext {
- public:
+struct EventFilterEndTimeContext {
   float end_time;
+};
+
+struct EventFilterDurationsContext {
+  ArrayRef<float> durations;
 };
 
 }  // namespace FN

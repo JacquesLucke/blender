@@ -85,14 +85,37 @@ MF_EventFilterEndTime::MF_EventFilterEndTime()
 
 void MF_EventFilterEndTime::call(IndexMask mask, MFParams params, MFContext context) const
 {
-  MutableArrayRef<float> end_times = params.uninitialized_single_output<float>(0, "End Time");
+  MutableArrayRef<float> r_end_times = params.uninitialized_single_output<float>(0, "End Time");
 
   auto *time_context = context.try_find_global<EventFilterEndTimeContext>();
   if (time_context == nullptr) {
-    end_times.fill_indices(mask.indices(), 0.0f);
+    r_end_times.fill_indices(mask, 0.0f);
   }
   else {
-    end_times.fill_indices(mask.indices(), time_context->end_time);
+    r_end_times.fill_indices(mask, time_context->end_time);
+  }
+}
+
+MF_EventFilterDuration::MF_EventFilterDuration()
+{
+  MFSignatureBuilder signature = this->get_builder("Event Filter Duration");
+  signature.use_element_context<EventFilterDurationsContext>();
+  signature.single_output<float>("Duration");
+}
+
+void MF_EventFilterDuration::call(IndexMask mask, MFParams params, MFContext context) const
+{
+  MutableArrayRef<float> r_durations = params.uninitialized_single_output<float>(0, "Duration");
+
+  auto duration_context = context.try_find_per_element<EventFilterDurationsContext>();
+  if (duration_context.has_value()) {
+    for (uint i : mask) {
+      uint index = duration_context->indices[i];
+      r_durations[i] = duration_context->data->durations[index];
+    }
+  }
+  else {
+    r_durations.fill_indices(mask, 0.0f);
   }
 }
 

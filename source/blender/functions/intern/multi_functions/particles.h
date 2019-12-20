@@ -25,4 +25,10 @@ class MF_EventFilterEndTime final : public MultiFunction {
   void call(IndexMask mask, MFParams params, MFContext context) const override;
 };
 
+class MF_EventFilterDuration final : public MultiFunction {
+ public:
+  MF_EventFilterDuration();
+  void call(IndexMask mask, MFParams params, MFContext context) const override;
+};
+
 }  // namespace FN
