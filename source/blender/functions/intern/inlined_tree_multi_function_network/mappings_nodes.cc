@@ -520,6 +520,18 @@ static void INSERT_join_text_list(VNodeMFNetworkBuilder &builder)
   builder.set_constructed_matching_fn<MF_JoinTextList>();
 }
 
+static void INSERT_node_instance_identifier(VNodeMFNetworkBuilder &builder)
+{
+  const XNode &xnode = builder.xnode();
+  std::string identifier = "";
+  for (const BKE::XParentNode *parent = xnode.parent(); parent; parent = parent->parent()) {
+    identifier = parent->vnode().name() + "/" + identifier;
+  }
+  identifier = "/nodeid/" + identifier + xnode.name();
+  std::cout << identifier << "\n";
+  builder.set_constructed_matching_fn<MF_ConstantValue<std::string>>(std::move(identifier));
+}
+
 void add_inlined_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
 {
   mappings.xnode_inserters.add_new("fn_CombineColorNode", INSERT_combine_color);
@@ -592,6 +604,8 @@ void add_inlined_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.xnode_inserters.add_new("fn_BooleanNotNode", INSERT_boolean_not);
 
   mappings.xnode_inserters.add_new("fn_JoinTextListNode", INSERT_join_text_list);
+  mappings.xnode_inserters.add_new("fn_NodeInstanceIdentifierNode",
+                                   INSERT_node_instance_identifier);
 }
 
 };  // namespace FN
