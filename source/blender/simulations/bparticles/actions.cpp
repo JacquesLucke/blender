@@ -43,8 +43,8 @@ static void update_position_and_velocity_offsets(ParticleActionContext &context)
 
 void ConditionAction::execute(ParticleActionContext &context)
 {
-  auto inputs = ParticleFunctionResult::Compute(
-      *m_inputs_fn, context.pindex_mask(), context.attributes());
+  ParticleFunctionEvaluator inputs{*m_inputs_fn, context.pindex_mask(), context.attributes()};
+  inputs.compute();
 
   Vector<uint> true_pindices, false_pindices;
   for (uint pindex : context.pindex_mask().indices()) {
@@ -71,8 +71,8 @@ void SetAttributeAction::execute(ParticleActionContext &context)
 
   GenericMutableArrayRef attribute = *attribute_opt;
 
-  auto inputs = ParticleFunctionResult::Compute(
-      m_inputs_fn, context.pindex_mask(), context.attributes());
+  ParticleFunctionEvaluator inputs{m_inputs_fn, context.pindex_mask(), context.attributes()};
+  inputs.compute();
 
   for (uint pindex : context.pindex_mask().indices()) {
     const void *value = inputs.get_single("Value", 0, pindex);
@@ -102,8 +102,8 @@ void SpawnParticlesAction::execute(ParticleActionContext &context)
 
   uint array_size = context.pindex_mask().min_array_size();
 
-  auto inputs = ParticleFunctionResult::Compute(
-      m_spawn_function, context.pindex_mask(), context.attributes());
+  ParticleFunctionEvaluator inputs{m_spawn_function, context.pindex_mask(), context.attributes()};
+  inputs.compute();
 
   LargeScopedArray<int> particle_counts(array_size, -1);
 

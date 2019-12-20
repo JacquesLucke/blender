@@ -30,7 +30,7 @@ class ParticleFunction {
   const BKE::IDDataCache &m_id_data_cache;
   const BKE::IDHandleLookup &m_id_handle_lookup;
 
-  friend class ParticleFunctionResult;
+  friend class ParticleFunctionEvaluator;
 
  public:
   ParticleFunction(const MultiFunction &fn,
@@ -44,73 +44,89 @@ class ParticleFunction {
   }
 };
 
-class ParticleFunctionResult : BLI::NonCopyable {
+class ParticleFunctionEvaluator {
  private:
-  Vector<GenericVectorArray *> m_vector_arrays;
-  Vector<GenericMutableArrayRef> m_arrays;
-
-  ArrayRef<uint> m_index_mapping;
+  const ParticleFunction &m_particle_fn;
   IndexMask m_mask;
-  ArrayRef<std::string> m_computed_names;
+  AttributesRef m_particle_attributes;
+  bool m_is_computed = false;
 
-  ParticleFunctionResult() = default;
+  FN::MFContextBuilder m_context_builder;
+
+  Vector<GenericVectorArray *> m_computed_vector_arrays;
+  Vector<GenericMutableArrayRef> m_computed_arrays;
 
  public:
-  ~ParticleFunctionResult();
-  ParticleFunctionResult(ParticleFunctionResult &&other) = default;
+  ParticleFunctionEvaluator(const ParticleFunction &particle_fn,
+                            IndexMask mask,
+                            AttributesRef particle_attributes)
+      : m_particle_fn(particle_fn), m_mask(mask), m_particle_attributes(particle_attributes)
+  {
+  }
 
-  static ParticleFunctionResult Compute(const ParticleFunction &particle_fn,
-                                        IndexMask mask,
-                                        AttributesRef attributes,
-                                        ArrayRef<BLI::class_id_t> context_ids = {},
-                                        ArrayRef<const void *> contexts = {});
+  ~ParticleFunctionEvaluator();
+
+  FN::MFContextBuilder &context_builder()
+  {
+    return m_context_builder;
+  }
+
+  void compute();
+
+  /* Access computed values
+   *********************************************/
 
   const void *get_single(StringRef expected_name, uint param_index, uint pindex)
   {
+    BLI_assert(m_is_computed);
     UNUSED_VARS_NDEBUG(expected_name);
 #ifdef DEBUG
-    StringRef actual_name = m_computed_names[param_index];
+    StringRef actual_name = m_particle_fn.m_computed_names[param_index];
     BLI_assert(expected_name == actual_name);
 #endif
-    uint corrected_index = m_index_mapping[param_index];
-    return m_arrays[corrected_index][pindex];
+    uint corrected_index = m_particle_fn.m_index_mapping[param_index];
+    return m_computed_arrays[corrected_index][pindex];
   }
 
   template<typename T> const T &get_single(StringRef expected_name, uint param_index, uint pindex)
   {
+    BLI_assert(m_is_computed);
     UNUSED_VARS_NDEBUG(expected_name);
 #ifdef DEBUG
-    StringRef actual_name = m_computed_names[param_index];
+    StringRef actual_name = m_particle_fn.m_computed_names[param_index];
     BLI_assert(expected_name == actual_name);
 #endif
-    uint corrected_index = m_index_mapping[param_index];
-    ArrayRef<T> array = m_arrays[corrected_index].as_typed_ref<T>();
+    uint corrected_index = m_particle_fn.m_index_mapping[param_index];
+    ArrayRef<T> array = m_computed_arrays[corrected_index].as_typed_ref<T>();
     return array[pindex];
   }
 
   template<typename T>
   ArrayRef<T> get_vector(StringRef expected_name, uint param_index, uint pindex)
   {
+    BLI_assert(m_is_computed);
     UNUSED_VARS_NDEBUG(expected_name);
 #ifdef DEBUG
-    StringRef actual_name = m_computed_names[param_index];
+    StringRef actual_name = m_particle_fn.m_computed_names[param_index];
     BLI_assert(expected_name == actual_name);
 #endif
-    uint corrected_index = m_index_mapping[param_index];
-    GenericVectorArray &vector_array = *m_vector_arrays[corrected_index];
+    uint corrected_index = m_particle_fn.m_index_mapping[param_index];
+    GenericVectorArray &vector_array = *m_computed_vector_arrays[corrected_index];
     return vector_array[pindex].as_typed_ref<T>();
   }
 
   GenericVectorArray &computed_vector_array(uint param_index)
   {
-    uint corrected_index = m_index_mapping[param_index];
-    return *m_vector_arrays[corrected_index];
+    BLI_assert(m_is_computed);
+    uint corrected_index = m_particle_fn.m_index_mapping[param_index];
+    return *m_computed_vector_arrays[corrected_index];
   }
 
   GenericArrayRef computed_array(uint param_index)
   {
-    uint corrected_index = m_index_mapping[param_index];
-    return m_arrays[corrected_index];
+    BLI_assert(m_is_computed);
+    uint corrected_index = m_particle_fn.m_index_mapping[param_index];
+    return m_computed_arrays[corrected_index];
   }
 };
 

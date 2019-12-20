@@ -10,8 +10,8 @@ void CreateTrailHandler::execute(OffsetHandlerInterface &interface)
   auto position_offsets = interface.attribute_offsets().get<float3>("Position");
   auto colors = interface.attributes().get<rgba_f>("Color");
 
-  auto inputs = ParticleFunctionResult::Compute(
-      *m_inputs_fn, interface.pindices(), interface.attributes());
+  ParticleFunctionEvaluator inputs{*m_inputs_fn, interface.pindices(), interface.attributes()};
+  inputs.compute();
 
   Vector<float3> new_positions;
   Vector<rgba_f> new_colors;
@@ -53,8 +53,8 @@ void SizeOverTimeHandler::execute(OffsetHandlerInterface &interface)
   auto birth_times = interface.attributes().get<float>("Birth Time");
   auto sizes = interface.attributes().get<float>("Size");
 
-  auto inputs = ParticleFunctionResult::Compute(
-      *m_inputs_fn, interface.pindices(), interface.attributes());
+  ParticleFunctionEvaluator inputs{*m_inputs_fn, interface.pindices(), interface.attributes()};
+  inputs.compute();
 
   for (uint pindex : interface.pindices()) {
     float final_size = inputs.get_single<float>("Final Size", 0, pindex);

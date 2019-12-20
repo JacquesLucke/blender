@@ -14,8 +14,8 @@ void AgeReachedEvent::filter(EventFilterInterface &interface)
 {
   AttributesRef attributes = interface.attributes();
 
-  auto inputs = ParticleFunctionResult::Compute(
-      *m_inputs_fn, interface.index_mask(), interface.attributes());
+  ParticleFunctionEvaluator inputs{*m_inputs_fn, interface.index_mask(), interface.attributes()};
+  inputs.compute();
 
   float end_time = interface.step_end_time();
   auto birth_times = attributes.get<float>("Birth Time");
@@ -63,12 +63,9 @@ void CustomEvent::filter(EventFilterInterface &interface)
 {
   FN::EventFilterEndTimeContext end_time_context = {interface.step_end_time()};
 
-  auto inputs = ParticleFunctionResult::Compute(
-      m_inputs_fn,
-      interface.index_mask(),
-      interface.attributes(),
-      {BLI::get_class_id<FN::EventFilterEndTimeContext>()},
-      {(const void *)&end_time_context});
+  ParticleFunctionEvaluator inputs{m_inputs_fn, interface.index_mask(), interface.attributes()};
+  inputs.context_builder().add_global_context(end_time_context);
+  inputs.compute();
 
   for (uint pindex : interface.index_mask().indices()) {
     bool condition = inputs.get_single<bool>("Condition", 0, pindex);

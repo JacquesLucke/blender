@@ -41,32 +41,30 @@ ParticleFunction::ParticleFunction(const MultiFunction &fn,
   }
 }
 
-ParticleFunctionResult::~ParticleFunctionResult()
+ParticleFunctionEvaluator::~ParticleFunctionEvaluator()
 {
-  for (GenericVectorArray *vector_array : m_vector_arrays) {
+  BLI_assert(m_is_computed);
+  for (GenericVectorArray *vector_array : m_computed_vector_arrays) {
     delete vector_array;
   }
-  for (GenericMutableArrayRef array : m_arrays) {
+  for (GenericMutableArrayRef array : m_computed_arrays) {
     array.destruct_indices(m_mask.indices());
     MEM_freeN(array.buffer());
   }
 }
 
-ParticleFunctionResult ParticleFunctionResult::Compute(const ParticleFunction &particle_fn,
-                                                       IndexMask mask,
-                                                       AttributesRef attributes,
-                                                       ArrayRef<BLI::class_id_t> context_ids,
-                                                       ArrayRef<const void *> contexts)
+void ParticleFunctionEvaluator::compute()
 {
-  uint array_size = mask.min_array_size();
+  BLI_assert(!m_is_computed);
 
-  const MultiFunction &fn = particle_fn.m_fn;
+  uint array_size = m_mask.min_array_size();
 
-  ParticleFunctionResult result;
-  result.m_mask = mask;
-  result.m_index_mapping = particle_fn.m_index_mapping;
-  result.m_computed_names = particle_fn.m_computed_names;
+  FN::ParticleAttributesContext attributes_context(m_particle_attributes);
+  m_context_builder.add_element_context(attributes_context, IndexRange(array_size));
+  m_context_builder.add_global_context(m_particle_fn.m_id_data_cache);
+  m_context_builder.add_global_context(m_particle_fn.m_id_handle_lookup);
 
+  const MultiFunction &fn = m_particle_fn.fn();
   MFParamsBuilder params_builder(fn, array_size);
   for (uint param_index : fn.param_indices()) {
     MFParamType param_type = fn.param_type(param_index);
@@ -78,33 +76,21 @@ ParticleFunctionResult ParticleFunctionResult::Compute(const ParticleFunction &p
         void *buffer = MEM_mallocN_aligned(array_size * type.size(), type.alignment(), __func__);
         GenericMutableArrayRef array{type, buffer, array_size};
         params_builder.add_single_output(array);
-        result.m_arrays.append(array);
+        m_computed_arrays.append(array);
         break;
       }
       case MFDataType::Vector: {
         const CPPType &base_type = data_type.vector__cpp_base_type();
         GenericVectorArray *vector_array = new GenericVectorArray(base_type, array_size);
         params_builder.add_vector_output(*vector_array);
-        result.m_vector_arrays.append(vector_array);
+        m_computed_vector_arrays.append(vector_array);
         break;
       }
     }
   }
 
-  FN::ParticleAttributesContext attributes_context(attributes);
-
-  MFContextBuilder context_builder;
-  context_builder.add_element_context(attributes_context, IndexRange(array_size));
-  context_builder.add_global_context(particle_fn.m_id_data_cache);
-  context_builder.add_global_context(particle_fn.m_id_handle_lookup);
-
-  for (uint i : context_ids.index_iterator()) {
-    context_builder.add_global_context(context_ids[i], contexts[i]);
-  }
-
-  fn.call(mask, params_builder, context_builder);
-
-  return result;
+  fn.call(m_mask, params_builder, m_context_builder);
+  m_is_computed = true;
 }
 
 }  // namespace BParticles
