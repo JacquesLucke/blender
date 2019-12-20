@@ -29,9 +29,7 @@ void MF_ParticleAttribute::call(IndexMask mask, MFParams params, MFContext conte
   VirtualListRef<uint> element_indices = context_data->indices;
 
   group_indices_by_same_value(
-      mask.indices(),
-      attribute_names,
-      [&](StringRef attribute_name, ArrayRef<uint> indices_with_same_name) {
+      mask, attribute_names, [&](StringRef attribute_name, IndexMask indices_with_same_name) {
         Optional<GenericMutableArrayRef> opt_array = attributes.try_get(attribute_name, m_type);
         if (!opt_array.has_value()) {
           r_values.default_initialize(indices_with_same_name);
@@ -64,18 +62,17 @@ void MF_EmitterTimeInfo::call(IndexMask mask, MFParams params, MFContext context
 
   auto *time_context = context.try_find_global<EmitterTimeInfoContext>();
 
-  ArrayRef<uint> indices = mask.indices();
   if (time_context == nullptr) {
-    r_durations.fill_indices(indices, 0.0f);
-    r_begins.fill_indices(indices, 0.0f);
-    r_ends.fill_indices(indices, 0.0f);
-    r_steps.fill_indices(indices, 0);
+    r_durations.fill_indices(mask, 0.0f);
+    r_begins.fill_indices(mask, 0.0f);
+    r_ends.fill_indices(mask, 0.0f);
+    r_steps.fill_indices(mask, 0);
   }
   else {
-    r_durations.fill_indices(indices, time_context->duration);
-    r_begins.fill_indices(indices, time_context->begin);
-    r_ends.fill_indices(indices, time_context->end);
-    r_steps.fill_indices(indices, time_context->step);
+    r_durations.fill_indices(mask, time_context->duration);
+    r_begins.fill_indices(mask, time_context->begin);
+    r_ends.fill_indices(mask, time_context->end);
+    r_steps.fill_indices(mask, time_context->step);
   }
 }
 

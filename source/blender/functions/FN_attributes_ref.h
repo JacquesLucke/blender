@@ -273,7 +273,7 @@ class AttributesRef {
     return this->slice(0, n);
   }
 
-  void destruct_and_reorder(ArrayRef<uint> sorted_indices_to_destruct);
+  void destruct_and_reorder(IndexMask indices_to_destruct);
 
   static void RelocateUninitialized(AttributesRef from, AttributesRef to);
 };

@@ -345,7 +345,7 @@ BLI_NOINLINE static void delete_tagged_particles_and_reorder(AttributesBlock &bl
     }
   }
 
-  block.destruct_and_reorder(indices_to_delete);
+  block.destruct_and_reorder(indices_to_delete.as_ref());
 }
 
 BLI_NOINLINE static void simulate_blocks_for_time_span(

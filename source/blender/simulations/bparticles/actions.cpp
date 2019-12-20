@@ -90,7 +90,7 @@ using FN::MFParamType;
 
 void SpawnParticlesAction::execute(ParticleActionContext &context)
 {
-  if (context.pindex_mask().indices_amount() == 0) {
+  if (context.pindex_mask().size() == 0) {
     return;
   }
 

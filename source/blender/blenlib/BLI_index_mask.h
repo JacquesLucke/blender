@@ -30,7 +30,27 @@ class IndexMask {
   {
   }
 
-  uint indices_amount() const
+  operator ArrayRef<uint>() const
+  {
+    return m_indices;
+  }
+
+  const uint *begin() const
+  {
+    return m_indices.begin();
+  }
+
+  const uint *end() const
+  {
+    return m_indices.end();
+  }
+
+  uint operator[](uint index) const
+  {
+    return m_indices[index];
+  }
+
+  uint size() const
   {
     return m_indices.size();
   }
@@ -69,6 +89,16 @@ class IndexMask {
         func(i);
       }
     }
+  }
+
+  IndexRange index_iterator() const
+  {
+    return m_indices.index_iterator();
+  }
+
+  uint last() const
+  {
+    return m_indices.last();
   }
 };
 

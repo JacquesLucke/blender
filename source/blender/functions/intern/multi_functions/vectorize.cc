@@ -72,7 +72,7 @@ static void get_vectorization_lengths(IndexMask mask,
 
 void MF_SimpleVectorize::call(IndexMask mask, MFParams params, MFContext context) const
 {
-  if (mask.indices_amount() == 0) {
+  if (mask.size() == 0) {
     return;
   }
 

@@ -93,10 +93,10 @@ AttributesBlock::~AttributesBlock()
   }
 }
 
-void AttributesBlock::destruct_and_reorder(ArrayRef<uint> sorted_indices_to_destruct)
+void AttributesBlock::destruct_and_reorder(IndexMask indices_to_destruct)
 {
-  this->as_ref().destruct_and_reorder(sorted_indices_to_destruct);
-  this->set_used_size(m_used_size - sorted_indices_to_destruct.size());
+  this->as_ref().destruct_and_reorder(indices_to_destruct);
+  this->set_used_size(m_used_size - indices_to_destruct.size());
 }
 
 void AttributesBlock::MoveUntilFull(AttributesBlock &from, AttributesBlock &to)

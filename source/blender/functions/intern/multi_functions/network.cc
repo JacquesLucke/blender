@@ -24,11 +24,11 @@ class MF_EvaluateNetwork_Storage {
       delete vector_array;
     }
     for (GenericMutableArrayRef array : m_arrays) {
-      array.destruct_indices(m_mask.indices());
+      array.destruct_indices(m_mask);
       MEM_freeN(array.buffer());
     }
     for (GenericMutableArrayRef array : m_single_element_arrays) {
-      array.destruct_indices({0});
+      array.destruct_indices(IndexMask(1));
       MEM_freeN(array.buffer());
     }
   }
@@ -244,7 +244,7 @@ MF_EvaluateNetwork::MF_EvaluateNetwork(Vector<const MFOutputSocket *> inputs,
 
 void MF_EvaluateNetwork::call(IndexMask mask, MFParams params, MFContext context) const
 {
-  if (mask.indices_amount() == 0) {
+  if (mask.size() == 0) {
     return;
   }
 

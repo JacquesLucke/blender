@@ -47,13 +47,13 @@ AttributesInfo::~AttributesInfo()
   }
 }
 
-void AttributesRef::destruct_and_reorder(ArrayRef<uint> indices)
+void AttributesRef::destruct_and_reorder(IndexMask index_mask)
 {
 #ifdef DEBUG
-  BLI_assert(indices.size() <= m_range.size());
-  BLI_assert(indices.size() == 0 || indices.last() < m_range.size());
-  for (uint i = 1; i < indices.size(); i++) {
-    BLI_assert(indices[i - 1] < indices[i]);
+  BLI_assert(index_mask.size() <= m_range.size());
+  BLI_assert(index_mask.size() == 0 || index_mask.last() < m_range.size());
+  for (uint i = 1; i < index_mask.size(); i++) {
+    BLI_assert(index_mask[i - 1] < index_mask[i]);
   }
 #endif
 
@@ -61,11 +61,11 @@ void AttributesRef::destruct_and_reorder(ArrayRef<uint> indices)
     GenericMutableArrayRef array = this->get(attribute_index);
     const CPPType &type = m_info->type_of(attribute_index);
 
-    array.destruct_indices(indices);
+    array.destruct_indices(index_mask);
 
-    for (uint i = 0; i < indices.size(); i++) {
+    for (uint i : index_mask.index_iterator()) {
       uint last_index = m_range.size() - 1 - i;
-      uint index_to_remove = indices[indices.size() - 1 - i];
+      uint index_to_remove = index_mask[index_mask.size() - 1 - i];
       if (index_to_remove == last_index) {
         /* Do nothing. It has been destructed before. */
       }

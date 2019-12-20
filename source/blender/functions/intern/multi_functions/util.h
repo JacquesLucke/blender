@@ -8,7 +8,7 @@ using BLI::LargeScopedVector;
 using BLI::ScopedVector;
 
 template<typename T, typename FuncT, typename EqualFuncT = std::equal_to<T>>
-void group_indices_by_same_value(ArrayRef<uint> indices,
+void group_indices_by_same_value(IndexMask indices,
                                  VirtualListRef<T> values,
                                  const FuncT &func,
                                  EqualFuncT equal = std::equal_to<T>())
@@ -34,13 +34,14 @@ void group_indices_by_same_value(ArrayRef<uint> indices,
     seen_values.append(value);
 
     LargeScopedVector<uint> indices_with_value;
-    for (uint j : indices.drop_front(i)) {
+    for (uint j : indices.indices().drop_front(i)) {
       if (equal(values[j], value)) {
         indices_with_value.append(j);
       }
     }
 
-    func(value, indices_with_value.as_ref());
+    IndexMask mask_with_same_value = indices_with_value.as_ref();
+    func(value, mask_with_same_value);
   }
 }
 

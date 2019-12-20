@@ -96,7 +96,7 @@ class GenericMutableArrayRef {
     m_type->destruct_n(m_buffer, m_size);
   }
 
-  void destruct_indices(ArrayRef<uint> indices)
+  void destruct_indices(IndexMask indices)
   {
     m_type->destruct_indices(m_buffer, indices);
   }
@@ -122,7 +122,7 @@ class GenericMutableArrayRef {
     return m_size;
   }
 
-  void default_initialize(ArrayRef<uint> indices)
+  void default_initialize(IndexMask indices)
   {
     m_type->construct_default_indices(m_buffer, indices);
   }

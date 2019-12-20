@@ -89,7 +89,7 @@ void MF_ClosestSurfaceHookOnObject::call(IndexMask mask, MFParams params, MFCont
   group_indices_by_same_value(
       mask.indices(),
       object_handles,
-      [&](ObjectIDHandle object_handle, ArrayRef<uint> indices_with_same_object) {
+      [&](ObjectIDHandle object_handle, IndexMask indices_with_same_object) {
         Object *object = id_handle_lookup->lookup(object_handle);
         if (object == nullptr) {
           r_surface_hooks.fill_indices(indices_with_same_object, {});
@@ -146,7 +146,7 @@ void MF_GetPositionOnSurface::call(IndexMask mask, MFParams params, MFContext co
   group_indices_by_same_value(
       mask.indices(),
       surface_hooks,
-      [&](SurfaceHook base_hook, ArrayRef<uint> indices_on_same_surface) {
+      [&](SurfaceHook base_hook, IndexMask indices_on_same_surface) {
         if (base_hook.type() != BKE::SurfaceHookType::MeshObject) {
           r_positions.fill_indices(indices_on_same_surface, fallback);
           return;
@@ -217,7 +217,7 @@ void MF_GetNormalOnSurface::call(IndexMask mask, MFParams params, MFContext cont
   group_indices_by_same_value(
       mask.indices(),
       surface_hooks,
-      [&](SurfaceHook base_hook, ArrayRef<uint> indices_on_same_surface) {
+      [&](SurfaceHook base_hook, IndexMask indices_on_same_surface) {
         if (base_hook.type() != BKE::SurfaceHookType::MeshObject) {
           r_normals.fill_indices(indices_on_same_surface, fallback);
           return;
@@ -285,7 +285,7 @@ void MF_GetWeightOnSurface::call(IndexMask mask, MFParams params, MFContext cont
   group_indices_by_same_value(
       mask.indices(),
       surface_hooks,
-      [&](SurfaceHook base_hook, ArrayRef<uint> indices_on_same_surface) {
+      [&](SurfaceHook base_hook, IndexMask indices_on_same_surface) {
         if (base_hook.type() != BKE::SurfaceHookType::MeshObject) {
           r_weights.fill_indices(indices_on_same_surface, fallback);
           return;
@@ -304,7 +304,7 @@ void MF_GetWeightOnSurface::call(IndexMask mask, MFParams params, MFContext cont
         group_indices_by_same_value(
             indices_on_same_surface,
             group_names,
-            [&](const std::string &group, ArrayRef<uint> indices_with_same_group) {
+            [&](const std::string &group, IndexMask indices_with_same_group) {
               MDeformVert *vertex_weights = mesh->dvert;
               int group_index = defgroup_name_index(object, group.c_str());
               if (group_index == -1 || vertex_weights == nullptr) {
@@ -345,7 +345,7 @@ MF_GetImageColorOnSurface::MF_GetImageColorOnSurface()
   signature.single_output<rgba_f>("Color");
 }
 
-static void get_colors_on_surface(ArrayRef<uint> indices,
+static void get_colors_on_surface(IndexMask indices,
                                   VirtualListRef<SurfaceHook> surface_hooks,
                                   MutableArrayRef<rgba_f> r_colors,
                                   rgba_f fallback,
@@ -355,7 +355,7 @@ static void get_colors_on_surface(ArrayRef<uint> indices,
   group_indices_by_same_value(
       indices,
       surface_hooks,
-      [&](SurfaceHook base_hook, ArrayRef<uint> indices_on_same_surface) {
+      [&](SurfaceHook base_hook, IndexMask indices_on_same_surface) {
         if (base_hook.type() != BKE::SurfaceHookType::MeshObject) {
           r_colors.fill_indices(indices_on_same_surface, fallback);
           return;
@@ -406,7 +406,7 @@ static void get_colors_on_surface(ArrayRef<uint> indices,
 
 void MF_GetImageColorOnSurface::call(IndexMask mask, MFParams params, MFContext context) const
 {
-  if (mask.indices_amount() == 0) {
+  if (mask.size() == 0) {
     return;
   }
 
@@ -427,7 +427,7 @@ void MF_GetImageColorOnSurface::call(IndexMask mask, MFParams params, MFContext 
   group_indices_by_same_value<ImageIDHandle>(
       mask.indices(),
       image_handles,
-      [&](ImageIDHandle image_handle, ArrayRef<uint> indices_with_image) {
+      [&](ImageIDHandle image_handle, IndexMask indices_with_image) {
         Image *image = id_handle_lookup->lookup(image_handle);
         if (image == nullptr) {
           r_colors.fill_indices(indices_with_image, fallback);
