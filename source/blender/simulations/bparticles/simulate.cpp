@@ -19,20 +19,10 @@ using BLI::LargeScopedVector;
 using BLI::VectorAdaptor;
 using FN::CPPType;
 
-static uint get_max_event_storage_size(ArrayRef<Event *> events)
-{
-  uint max_size = 0;
-  for (Event *event : events) {
-    max_size = std::max(max_size, event->storage_size());
-  }
-  return max_size;
-}
-
 BLI_NOINLINE static void find_next_event_per_particle(
     BlockStepData &step_data,
     ArrayRef<uint> pindices,
     ArrayRef<Event *> events,
-    EventStorage &r_event_storage,
     MutableArrayRef<int> r_next_event_indices,
     MutableArrayRef<float> r_time_factors_to_next_event,
     LargeScopedVector<uint> &r_pindices_with_event)
@@ -48,7 +38,6 @@ BLI_NOINLINE static void find_next_event_per_particle(
     EventFilterInterface interface(step_data,
                                    pindices,
                                    r_time_factors_to_next_event,
-                                   r_event_storage,
                                    triggered_pindices,
                                    triggered_time_factors);
     event->filter(interface);
@@ -166,7 +155,6 @@ BLI_NOINLINE static void execute_events(BlockStepData &step_data,
                                         ParticleAllocator &particle_allocator,
                                         ArrayRef<Vector<uint>> pindices_per_event,
                                         ArrayRef<float> current_times,
-                                        EventStorage &event_storage,
                                         ArrayRef<Event *> events)
 {
   BLI_assert(events.size() == pindices_per_event.size());
@@ -179,8 +167,7 @@ BLI_NOINLINE static void execute_events(BlockStepData &step_data,
       continue;
     }
 
-    EventExecuteInterface interface(
-        step_data, pindices, current_times, event_storage, particle_allocator);
+    EventExecuteInterface interface(step_data, pindices, current_times, particle_allocator);
     event->execute(interface);
   }
 }
@@ -196,14 +183,9 @@ BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
   LargeScopedArray<float> time_factors_to_next_event(amount);
   LargeScopedVector<uint> pindices_with_event;
 
-  uint max_event_storage_size = std::max(get_max_event_storage_size(system_info.events), 1u);
-  LargeScopedArray<bool> event_storage_array(max_event_storage_size * amount);
-  EventStorage event_storage((void *)event_storage_array.begin(), max_event_storage_size);
-
   find_next_event_per_particle(step_data,
                                pindices,
                                system_info.events,
-                               event_storage,
                                next_event_indices,
                                time_factors_to_next_event,
                                pindices_with_event);
@@ -227,12 +209,8 @@ BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
   compute_current_time_per_particle(
       pindices_with_event, step_data.remaining_durations, step_data.step_end_time, current_times);
 
-  execute_events(step_data,
-                 particle_allocator,
-                 particles_per_event,
-                 current_times,
-                 event_storage,
-                 system_info.events);
+  execute_events(
+      step_data, particle_allocator, particles_per_event, current_times, system_info.events);
 
   find_unfinished_particles(pindices_with_event,
                             time_factors_to_next_event,

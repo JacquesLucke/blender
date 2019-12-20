@@ -70,12 +70,6 @@ class MeshCollisionEvent : public Event {
     float distance;
   };
 
-  struct EventStorage {
-    uint looptri_index;
-    float3 local_normal;
-    float3 local_position;
-  };
-
  public:
   MeshCollisionEvent(StringRef last_collision_attribute,
                      Object *object,
@@ -98,7 +92,6 @@ class MeshCollisionEvent : public Event {
     free_bvhtree_from_mesh(&m_bvhtree_data);
   }
 
-  uint storage_size() override;
   void filter(EventFilterInterface &interface) override;
   void execute(EventExecuteInterface &interface) override;
 

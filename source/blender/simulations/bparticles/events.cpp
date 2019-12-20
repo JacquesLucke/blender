@@ -96,11 +96,6 @@ void CustomEvent::execute(EventExecuteInterface &interface)
 /* Collision Event
  ***********************************************/
 
-uint MeshCollisionEvent::storage_size()
-{
-  return sizeof(EventStorage);
-}
-
 void MeshCollisionEvent::filter(EventFilterInterface &interface)
 {
   AttributesRef attributes = interface.attributes();
@@ -127,13 +122,10 @@ void MeshCollisionEvent::filter(EventFilterInterface &interface)
     auto result = this->ray_cast(local_ray_start, local_ray_direction, local_ray_length);
     if (result.success) {
       float time_factor = result.distance / local_ray_length;
-      auto &storage = interface.trigger_particle<EventStorage>(pindex, time_factor);
+      interface.trigger_particle(pindex, time_factor);
       if (float3::dot(result.normal, local_ray_direction) > 0) {
         result.normal = -result.normal;
       }
-      storage.local_normal = result.normal;
-      storage.local_position = local_ray_start + local_ray_direction * result.distance;
-      storage.looptri_index = result.index;
     }
   }
 }

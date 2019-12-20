@@ -6,37 +6,6 @@
 namespace BParticles {
 
 /**
- * Utility array wrapper that can hold different kinds of plain-old-data values.
- */
-class EventStorage {
- private:
-  void *m_array;
-  uint m_stride;
-
- public:
-  EventStorage(void *array, uint stride) : m_array(array), m_stride(stride)
-  {
-  }
-
-  EventStorage(EventStorage &other) = delete;
-
-  void *operator[](uint index)
-  {
-    return POINTER_OFFSET(m_array, m_stride * index);
-  }
-
-  template<typename T> T &get(uint index)
-  {
-    return *(T *)(*this)[index];
-  }
-
-  uint max_element_size() const
-  {
-    return m_stride;
-  }
-};
-
-/**
  * Interface between the Event->filter() function and the core simulation code.
  */
 class EventFilterInterface : public BlockStepDataAccess {
@@ -44,7 +13,6 @@ class EventFilterInterface : public BlockStepDataAccess {
   ArrayRef<uint> m_pindices;
   ArrayRef<float> m_known_min_time_factors;
 
-  EventStorage &m_event_storage;
   Vector<uint> &m_filtered_pindices;
   Vector<float> &m_filtered_time_factors;
 
@@ -55,13 +23,11 @@ class EventFilterInterface : public BlockStepDataAccess {
   EventFilterInterface(BlockStepData &step_data,
                        ArrayRef<uint> pindices,
                        ArrayRef<float> known_min_time_factors,
-                       EventStorage &r_event_storage,
                        Vector<uint> &r_filtered_pindices,
                        Vector<float> &r_filtered_time_factors)
       : BlockStepDataAccess(step_data),
         m_pindices(pindices),
         m_known_min_time_factors(known_min_time_factors),
-        m_event_storage(r_event_storage),
         m_filtered_pindices(r_filtered_pindices),
         m_filtered_time_factors(r_filtered_time_factors)
   {
@@ -88,26 +54,6 @@ class EventFilterInterface : public BlockStepDataAccess {
       m_filtered_time_factors.append(time_factor);
     }
   }
-
-  /**
-   * Same as above but returns a reference to a struct that can be used to pass data to the execute
-   * function. The reference might point to a dummy buffer when the time_factor is after a known
-   * other event.
-   */
-  template<typename T> T &trigger_particle(uint pindex, float time_factor)
-  {
-    BLI_STATIC_ASSERT(std::is_trivial<T>::value, "");
-    BLI_assert(sizeof(T) <= m_event_storage.max_element_size());
-    BLI_assert(sizeof(m_dummy_event_storage) >= m_event_storage.max_element_size());
-
-    if (time_factor <= m_known_min_time_factors[pindex]) {
-      this->trigger_particle(pindex, time_factor);
-      return m_event_storage.get<T>(pindex);
-    }
-    else {
-      return *(T *)m_dummy_event_storage;
-    }
-  }
 };
 
 /**
@@ -117,19 +63,16 @@ class EventExecuteInterface : public BlockStepDataAccess {
  private:
   ArrayRef<uint> m_pindices;
   ArrayRef<float> m_current_times;
-  EventStorage &m_event_storage;
   ParticleAllocator &m_particle_allocator;
 
  public:
   EventExecuteInterface(BlockStepData &step_data,
                         ArrayRef<uint> pindices,
                         ArrayRef<float> current_times,
-                        EventStorage &event_storage,
                         ParticleAllocator &particle_allocator)
       : BlockStepDataAccess(step_data),
         m_pindices(pindices),
         m_current_times(current_times),
-        m_event_storage(event_storage),
         m_particle_allocator(particle_allocator)
   {
   }
@@ -152,24 +95,6 @@ class EventExecuteInterface : public BlockStepDataAccess {
     return m_current_times;
   }
 
-  /**
-   * Get the data stored in the Event->filter() function for a particle index.
-   */
-  template<typename T> T &get_storage(uint pindex)
-  {
-    BLI_STATIC_ASSERT(std::is_trivial<T>::value, "");
-    BLI_assert(sizeof(T) <= m_event_storage.max_element_size());
-    return m_event_storage.get<T>(pindex);
-  }
-
-  /**
-   * Get the entire event storage.
-   */
-  EventStorage &event_storage()
-  {
-    return m_event_storage;
-  }
-
   ParticleAllocator &particle_allocator()
   {
     return m_particle_allocator;
@@ -189,14 +114,6 @@ class Event {
  public:
   virtual ~Event()
   {
-  }
-
-  /**
-   * Return how many bytes this event wants to pass between the filter and execute function.
-   */
-  virtual uint storage_size()
-  {
-    return 0;
   }
 
   /**
