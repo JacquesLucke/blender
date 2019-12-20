@@ -27,7 +27,7 @@ class NodeSearch(bpy.types.Operator):
 
         current_tree = context.space_data.node_tree
         for tree in current_tree.find_callable_trees():
-            item = encode_search_item(("EXISTING_GROUP", tree.name), "(G) " + tree.name)
+            item = encode_search_item(("EXISTING_GROUP", tree.name), tree.name + " (G)")
             items.append(item)
 
         nodelibdir = context.preferences.filepaths.nodelib_directory
@@ -38,7 +38,7 @@ class NodeSearch(bpy.types.Operator):
                     continue
                 for group_name in get_node_group_names_in_file(str(path)):
                     if group_name not in local_group_names:
-                        item = encode_search_item(("LIB_GROUP", str(path), group_name), "(G) " + group_name)
+                        item = encode_search_item(("LIB_GROUP", str(path), group_name), group_name + " (G)")
                         items.append(item)
 
         sorted_items = list(sorted(items, key=lambda item: item[1]))
