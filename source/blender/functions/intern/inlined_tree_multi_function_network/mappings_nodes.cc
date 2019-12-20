@@ -532,6 +532,11 @@ static void INSERT_node_instance_identifier(VNodeMFNetworkBuilder &builder)
   builder.set_constructed_matching_fn<MF_ConstantValue<std::string>>(std::move(identifier));
 }
 
+static void INSERT_event_filter_end_time(VNodeMFNetworkBuilder &builder)
+{
+  builder.set_constructed_matching_fn<MF_EventFilterEndTime>();
+}
+
 void add_inlined_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
 {
   mappings.xnode_inserters.add_new("fn_CombineColorNode", INSERT_combine_color);
@@ -606,6 +611,7 @@ void add_inlined_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.xnode_inserters.add_new("fn_JoinTextListNode", INSERT_join_text_list);
   mappings.xnode_inserters.add_new("fn_NodeInstanceIdentifierNode",
                                    INSERT_node_instance_identifier);
+  mappings.xnode_inserters.add_new("fn_EventFilterEndTimeNode", INSERT_event_filter_end_time);
 }
 
 };  // namespace FN

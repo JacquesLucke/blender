@@ -19,4 +19,10 @@ class MF_EmitterTimeInfo final : public MultiFunction {
   void call(IndexMask mask, MFParams params, MFContext context) const override;
 };
 
+class MF_EventFilterEndTime final : public MultiFunction {
+ public:
+  MF_EventFilterEndTime();
+  void call(IndexMask mask, MFParams params, MFContext context) const override;
+};
+
 }  // namespace FN

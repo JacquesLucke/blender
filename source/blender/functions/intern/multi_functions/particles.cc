@@ -79,4 +79,24 @@ void MF_EmitterTimeInfo::call(IndexMask mask, MFParams params, MFContext context
   }
 }
 
+MF_EventFilterEndTime::MF_EventFilterEndTime()
+{
+  MFSignatureBuilder signature = this->get_builder("Event Filter End Time");
+  signature.use_global_context<EventFilterEndTimeContext>();
+  signature.single_output<float>("End Time");
+}
+
+void MF_EventFilterEndTime::call(IndexMask mask, MFParams params, MFContext context) const
+{
+  MutableArrayRef<float> end_times = params.uninitialized_single_output<float>(0, "End Time");
+
+  auto *time_context = context.try_find_global<EventFilterEndTimeContext>();
+  if (time_context == nullptr) {
+    end_times.fill_indices(mask.indices(), 0.0f);
+  }
+  else {
+    end_times.fill_indices(mask.indices(), time_context->end_time);
+  }
+}
+
 }  // namespace FN

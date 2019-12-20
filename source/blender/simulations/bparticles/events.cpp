@@ -61,35 +61,27 @@ void AgeReachedEvent::execute(EventExecuteInterface &interface)
 
 void CustomEvent::filter(EventFilterInterface &interface)
 {
-  auto was_activated_before = interface.attributes().get<bool>(m_is_triggered_attribute);
-
-  LargeScopedVector<uint> pindices_to_check;
-  pindices_to_check.reserve(interface.index_mask().indices_amount());
-
-  for (uint pindex : interface.index_mask().indices()) {
-    if (!was_activated_before[pindex]) {
-      pindices_to_check.append(pindex);
-    }
-  }
+  FN::EventFilterEndTimeContext end_time_context = {interface.step_end_time()};
 
   auto inputs = ParticleFunctionResult::Compute(
-      *m_inputs_fn, pindices_to_check.as_ref(), interface.attributes());
+      m_inputs_fn,
+      interface.index_mask(),
+      interface.attributes(),
+      {BLI::get_class_id<FN::EventFilterEndTimeContext>()},
+      {(const void *)&end_time_context});
 
-  for (uint pindex : pindices_to_check) {
+  for (uint pindex : interface.index_mask().indices()) {
     bool condition = inputs.get_single<bool>("Condition", 0, pindex);
     if (condition) {
-      interface.trigger_particle(pindex, 0.0f);
+      float time_factor = inputs.get_single<float>("Time Factor", 1, pindex);
+      time_factor = std::min(std::max(time_factor, 0.0f), 1.0f);
+      interface.trigger_particle(pindex, time_factor);
     }
   }
 }
 
 void CustomEvent::execute(EventExecuteInterface &interface)
 {
-  auto was_activated_before = interface.attributes().get<bool>(m_is_triggered_attribute);
-  for (uint pindex : interface.pindices()) {
-    was_activated_before[pindex] = true;
-  }
-
   m_action.execute_from_event(interface);
 }
 

@@ -40,6 +40,11 @@ class EmitterTimeInfoContext {
   int step;
 };
 
+class EventFilterEndTimeContext {
+ public:
+  float end_time;
+};
+
 }  // namespace FN
 
 #endif /* __FN_MULTI_FUNCTION_COMMON_CONTEXTS_H__ */

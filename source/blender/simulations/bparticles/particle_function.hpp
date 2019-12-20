@@ -61,7 +61,9 @@ class ParticleFunctionResult : BLI::NonCopyable {
 
   static ParticleFunctionResult Compute(const ParticleFunction &particle_fn,
                                         IndexMask mask,
-                                        AttributesRef attributes);
+                                        AttributesRef attributes,
+                                        ArrayRef<BLI::class_id_t> context_ids = {},
+                                        ArrayRef<const void *> contexts = {});
 
   const void *get_single(StringRef expected_name, uint param_index, uint pindex)
   {

@@ -103,8 +103,13 @@ class MFContextBuilder : BLI::NonCopyable, BLI::NonMovable {
 
   template<typename T> void add_global_context(const T &context)
   {
-    m_global_contexts.m_ids.append(BLI::get_class_id<T>());
-    m_global_contexts.m_contexts.append((const void *)&context);
+    this->add_global_context(BLI::get_class_id<T>(), (const void *)&context);
+  }
+
+  void add_global_context(BLI::class_id_t id, const void *context)
+  {
+    m_global_contexts.m_ids.append(id);
+    m_global_contexts.m_contexts.append(context);
   }
 };
 

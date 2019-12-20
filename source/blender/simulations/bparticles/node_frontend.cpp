@@ -1024,16 +1024,9 @@ static void PARSE_custom_event(XNodeInfluencesBuilder &builder)
   }
 
   ArrayRef<std::string> system_names = builder.find_target_system_names(0, "Event");
-
-  std::string is_triggered_attribute = builder.node_identifier();
-  bool attribute_added = builder.try_add_attribute<bool>(
-      system_names, is_triggered_attribute, false);
-  if (!attribute_added) {
-    return;
-  }
-
   ParticleAction &action = builder.build_action_list("Execute on Event", system_names);
-  Event &event = builder.construct<CustomEvent>(is_triggered_attribute, inputs_fn, action);
+
+  Event &event = builder.construct<CustomEvent>(*inputs_fn, action);
   builder.add_event(system_names, event);
 }
 

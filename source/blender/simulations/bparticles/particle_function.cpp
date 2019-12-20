@@ -54,7 +54,9 @@ ParticleFunctionResult::~ParticleFunctionResult()
 
 ParticleFunctionResult ParticleFunctionResult::Compute(const ParticleFunction &particle_fn,
                                                        IndexMask mask,
-                                                       AttributesRef attributes)
+                                                       AttributesRef attributes,
+                                                       ArrayRef<BLI::class_id_t> context_ids,
+                                                       ArrayRef<const void *> contexts)
 {
   uint array_size = mask.min_array_size();
 
@@ -95,6 +97,10 @@ ParticleFunctionResult ParticleFunctionResult::Compute(const ParticleFunction &p
   context_builder.add_element_context(attributes_context, IndexRange(array_size));
   context_builder.add_global_context(particle_fn.m_id_data_cache);
   context_builder.add_global_context(particle_fn.m_id_handle_lookup);
+
+  for (uint i : context_ids.index_iterator()) {
+    context_builder.add_global_context(context_ids[i], contexts[i]);
+  }
 
   fn.call(mask, params_builder, context_builder);
 
