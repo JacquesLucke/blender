@@ -15,13 +15,13 @@ void AgeReachedEvent::filter(EventFilterInterface &interface)
   AttributesRef attributes = interface.attributes();
 
   auto inputs = ParticleFunctionResult::Compute(
-      *m_inputs_fn, interface.pindices(), interface.attributes());
+      *m_inputs_fn, interface.index_mask(), interface.attributes());
 
   float end_time = interface.step_end_time();
   auto birth_times = attributes.get<float>("Birth Time");
   auto was_activated_before = attributes.get<bool>(m_is_triggered_attribute);
 
-  for (uint pindex : interface.pindices()) {
+  for (uint pindex : interface.index_mask().indices()) {
     if (was_activated_before[pindex]) {
       continue;
     }
@@ -64,9 +64,9 @@ void CustomEvent::filter(EventFilterInterface &interface)
   auto was_activated_before = interface.attributes().get<bool>(m_is_triggered_attribute);
 
   LargeScopedVector<uint> pindices_to_check;
-  pindices_to_check.reserve(interface.pindices().size());
+  pindices_to_check.reserve(interface.index_mask().indices_amount());
 
-  for (uint pindex : interface.pindices()) {
+  for (uint pindex : interface.index_mask().indices()) {
     if (!was_activated_before[pindex]) {
       pindices_to_check.append(pindex);
     }
@@ -105,7 +105,7 @@ void MeshCollisionEvent::filter(EventFilterInterface &interface)
 
   uint current_update_index = interface.simulation_state().time().current_update_index();
 
-  for (uint pindex : interface.pindices()) {
+  for (uint pindex : interface.index_mask().indices()) {
     if (last_collision_step[pindex] == current_update_index) {
       continue;
     }

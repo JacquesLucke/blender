@@ -1,32 +1,33 @@
 #pragma once
 
+#include "BLI_index_mask.h"
+
 #include "block_step_data.hpp"
 #include "particle_allocator.hpp"
 
 namespace BParticles {
+
+using BLI::IndexMask;
 
 /**
  * Interface between the Event->filter() function and the core simulation code.
  */
 class EventFilterInterface : public BlockStepDataAccess {
  private:
-  ArrayRef<uint> m_pindices;
+  IndexMask m_index_mask;
   ArrayRef<float> m_known_min_time_factors;
 
   Vector<uint> &m_filtered_pindices;
   Vector<float> &m_filtered_time_factors;
 
-  /* Size can be increased when necessary. */
-  char m_dummy_event_storage[64];
-
  public:
   EventFilterInterface(BlockStepData &step_data,
-                       ArrayRef<uint> pindices,
+                       IndexMask index_mask,
                        ArrayRef<float> known_min_time_factors,
                        Vector<uint> &r_filtered_pindices,
                        Vector<float> &r_filtered_time_factors)
       : BlockStepDataAccess(step_data),
-        m_pindices(pindices),
+        m_index_mask(index_mask),
         m_known_min_time_factors(known_min_time_factors),
         m_filtered_pindices(r_filtered_pindices),
         m_filtered_time_factors(r_filtered_time_factors)
@@ -36,9 +37,9 @@ class EventFilterInterface : public BlockStepDataAccess {
   /**
    * Return the indices that should be checked.
    */
-  ArrayRef<uint> pindices()
+  IndexMask index_mask()
   {
-    return m_pindices;
+    return m_index_mask;
   }
 
   /**
