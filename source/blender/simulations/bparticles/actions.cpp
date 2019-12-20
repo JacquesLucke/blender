@@ -43,7 +43,7 @@ static void update_position_and_velocity_offsets(ParticleActionContext &context)
 
 void ConditionAction::execute(ParticleActionContext &context)
 {
-  ParticleFunctionEvaluator inputs{*m_inputs_fn, context.pindex_mask(), context.attributes()};
+  ParticleFunctionEvaluator inputs{m_inputs_fn, context.pindex_mask(), context.attributes()};
   inputs.compute();
 
   Vector<uint> true_pindices, false_pindices;

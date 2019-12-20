@@ -8,12 +8,12 @@ namespace BParticles {
 class CreateTrailHandler : public OffsetHandler {
  private:
   ArrayRef<std::string> m_systems_to_emit;
-  ParticleFunction *m_inputs_fn;
+  const ParticleFunction &m_inputs_fn;
   ParticleAction &m_on_birth_action;
 
  public:
   CreateTrailHandler(ArrayRef<std::string> systems_to_emit,
-                     ParticleFunction *inputs_fn,
+                     const ParticleFunction &inputs_fn,
                      ParticleAction &on_birth_action)
       : m_systems_to_emit(systems_to_emit),
         m_inputs_fn(inputs_fn),
@@ -26,10 +26,10 @@ class CreateTrailHandler : public OffsetHandler {
 
 class SizeOverTimeHandler : public OffsetHandler {
  private:
-  ParticleFunction *m_inputs_fn;
+  const ParticleFunction &m_inputs_fn;
 
  public:
-  SizeOverTimeHandler(ParticleFunction *inputs_fn) : m_inputs_fn(inputs_fn)
+  SizeOverTimeHandler(const ParticleFunction &inputs_fn) : m_inputs_fn(inputs_fn)
   {
   }
 

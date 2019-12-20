@@ -22,10 +22,10 @@ class Force {
 
 class CustomForce : public Force {
  private:
-  ParticleFunction *m_inputs_fn;
+  const ParticleFunction &m_inputs_fn;
 
  public:
-  CustomForce(ParticleFunction *inputs_fn) : m_inputs_fn(inputs_fn)
+  CustomForce(const ParticleFunction &inputs_fn) : m_inputs_fn(inputs_fn)
   {
   }
 

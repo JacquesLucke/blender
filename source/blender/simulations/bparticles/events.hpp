@@ -19,12 +19,12 @@ using BLI::float4x4;
 class AgeReachedEvent : public Event {
  private:
   std::string m_is_triggered_attribute;
-  ParticleFunction *m_inputs_fn;
+  const ParticleFunction &m_inputs_fn;
   ParticleAction &m_action;
 
  public:
   AgeReachedEvent(StringRef is_triggered_attribute,
-                  ParticleFunction *inputs_fn,
+                  const ParticleFunction &inputs_fn,
                   ParticleAction &action)
       : m_is_triggered_attribute(is_triggered_attribute), m_inputs_fn(inputs_fn), m_action(action)
   {

@@ -21,12 +21,12 @@ class ActionSequence : public ParticleAction {
 
 class ConditionAction : public ParticleAction {
  private:
-  ParticleFunction *m_inputs_fn;
+  const ParticleFunction &m_inputs_fn;
   ParticleAction &m_true_action;
   ParticleAction &m_false_action;
 
  public:
-  ConditionAction(ParticleFunction *inputs_fn,
+  ConditionAction(const ParticleFunction &inputs_fn,
                   ParticleAction &true_action,
                   ParticleAction &false_action)
       : m_inputs_fn(inputs_fn), m_true_action(true_action), m_false_action(false_action)

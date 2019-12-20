@@ -14,7 +14,7 @@ void AgeReachedEvent::filter(EventFilterInterface &interface)
 {
   AttributesRef attributes = interface.attributes();
 
-  ParticleFunctionEvaluator inputs{*m_inputs_fn, interface.index_mask(), interface.attributes()};
+  ParticleFunctionEvaluator inputs{m_inputs_fn, interface.index_mask(), interface.attributes()};
   inputs.compute();
 
   float end_time = interface.step_end_time();

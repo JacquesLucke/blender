@@ -572,7 +572,7 @@ static void ACTION_condition(XSocketActionBuilder &builder)
                                                                 builder.system_names());
   ParticleAction &action_false = builder.build_input_action_list("Execute If False",
                                                                  builder.system_names());
-  builder.set_constructed<ConditionAction>(inputs_fn, action_true, action_false);
+  builder.set_constructed<ConditionAction>(*inputs_fn, action_true, action_false);
 }
 
 static void ACTION_set_attribute(XSocketActionBuilder &builder)
@@ -902,7 +902,7 @@ static void PARSE_custom_force(XNodeInfluencesBuilder &builder)
   }
 
   ArrayRef<std::string> system_names = builder.find_target_system_names(0, "Force");
-  CustomForce &force = builder.construct<CustomForce>(inputs_fn);
+  CustomForce &force = builder.construct<CustomForce>(*inputs_fn);
   builder.add_force(system_names, force);
 }
 
@@ -923,7 +923,7 @@ static void PARSE_age_reached_event(XNodeInfluencesBuilder &builder)
   }
 
   ParticleAction &action = builder.build_action_list("Execute on Event", system_names);
-  Event &event = builder.construct<AgeReachedEvent>(is_triggered_attribute, inputs_fn, action);
+  Event &event = builder.construct<AgeReachedEvent>(is_triggered_attribute, *inputs_fn, action);
   builder.add_event(system_names, event);
 }
 
@@ -942,7 +942,7 @@ static void PARSE_trails(XNodeInfluencesBuilder &builder)
 
   ParticleAction &action = builder.build_action_list("Execute on Birth", trail_system_names);
   OffsetHandler &offset_handler = builder.construct<CreateTrailHandler>(
-      trail_system_names, inputs_fn, action);
+      trail_system_names, *inputs_fn, action);
   builder.add_offset_handler(main_system_names, offset_handler);
 }
 
@@ -1012,7 +1012,7 @@ static void PARSE_size_over_time(XNodeInfluencesBuilder &builder)
   }
 
   ArrayRef<std::string> system_names = builder.find_target_system_names(0, "Influence");
-  OffsetHandler &offset_handler = builder.construct<SizeOverTimeHandler>(inputs_fn);
+  OffsetHandler &offset_handler = builder.construct<SizeOverTimeHandler>(*inputs_fn);
   builder.add_offset_handler(system_names, offset_handler);
 }
 
