@@ -389,10 +389,16 @@ static void INSERT_boolean_not(VNodeMFNetworkBuilder &builder)
   build_math_fn_1in_1out<bool, bool>(builder, [](bool a) -> bool { return !a; });
 }
 
-static void INSERT_compare(VNodeMFNetworkBuilder &builder)
+static void INSERT_less_than_float(VNodeMFNetworkBuilder &builder)
 {
   build_math_fn_in2_out1<float, float, bool>(builder,
                                              [](float a, float b) -> bool { return a < b; });
+}
+
+static void INSERT_greater_than_float(VNodeMFNetworkBuilder &builder)
+{
+  build_math_fn_in2_out1<float, float, bool>(builder,
+                                             [](float a, float b) -> bool { return a > b; });
 }
 
 static void INSERT_perlin_noise(VNodeMFNetworkBuilder &builder)
@@ -561,7 +567,8 @@ void add_inlined_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.xnode_inserters.add_new("fn_VertexInfoNode", INSERT_vertex_info);
   mappings.xnode_inserters.add_new("fn_FloatRangeNode", INSERT_float_range);
   mappings.xnode_inserters.add_new("fn_TimeInfoNode", INSERT_time_info);
-  mappings.xnode_inserters.add_new("fn_CompareNode", INSERT_compare);
+  mappings.xnode_inserters.add_new("fn_LessThanFloatNode", INSERT_less_than_float);
+  mappings.xnode_inserters.add_new("fn_GreaterThanFloatNode", INSERT_greater_than_float);
   mappings.xnode_inserters.add_new("fn_PerlinNoiseNode", INSERT_perlin_noise);
   mappings.xnode_inserters.add_new("fn_GetParticleAttributeNode", INSERT_get_particle_attribute);
   mappings.xnode_inserters.add_new("fn_ClosestLocationOnObjectNode",

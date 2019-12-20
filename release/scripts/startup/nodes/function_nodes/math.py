@@ -83,6 +83,8 @@ BooleanAndNode = create_variadic_math_node("Boolean", "fn_BooleanAndNode", "And"
 BooleanOrNode = create_variadic_math_node("Boolean", "fn_BooleanOrNode", "Or")
 BooleanNotNode = create_single_input_math_node("Boolean", "fn_BooleanNotNode", "Not")
 
+LessThanFloatNode = create_two_inputs_math_node("Float", "Float", "Boolean", "fn_LessThanFloatNode", "Less Than Float")
+GreaterThanFloatNode = create_two_inputs_math_node("Float", "Float", "Boolean", "fn_GreaterThanFloatNode", "Greater Than Float")
 
 class MapRangeNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_MapRangeNode"
