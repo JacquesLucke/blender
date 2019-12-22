@@ -21,25 +21,22 @@ using FN::CPPType;
 
 BLI_NOINLINE static void find_next_event_per_particle(
     BlockStepData &step_data,
-    ArrayRef<uint> pindices,
+    IndexMask mask,
     ArrayRef<Event *> events,
     MutableArrayRef<int> r_next_event_indices,
     MutableArrayRef<float> r_time_factors_to_next_event,
     LargeScopedVector<uint> &r_pindices_with_event)
 {
-  r_next_event_indices.fill_indices(pindices, -1);
-  r_time_factors_to_next_event.fill_indices(pindices, 1.0f);
+  r_next_event_indices.fill_indices(mask, -1);
+  r_time_factors_to_next_event.fill_indices(mask, 1.0f);
 
   for (uint event_index : events.index_iterator()) {
     Vector<uint> triggered_pindices;
     Vector<float> triggered_time_factors;
 
     Event *event = events[event_index];
-    EventFilterInterface interface(step_data,
-                                   pindices,
-                                   r_time_factors_to_next_event,
-                                   triggered_pindices,
-                                   triggered_time_factors);
+    EventFilterInterface interface(
+        step_data, mask, r_time_factors_to_next_event, triggered_pindices, triggered_time_factors);
     event->filter(interface);
 
     for (uint i : triggered_pindices.index_iterator()) {
@@ -52,7 +49,7 @@ BLI_NOINLINE static void find_next_event_per_particle(
     }
   }
 
-  for (uint pindex : pindices) {
+  for (uint pindex : mask) {
     if (r_next_event_indices[pindex] != -1) {
       r_pindices_with_event.append(pindex);
     }
@@ -62,12 +59,12 @@ BLI_NOINLINE static void find_next_event_per_particle(
 BLI_NOINLINE static void forward_particles_to_next_event_or_end(
     BlockStepData &step_data,
     ParticleAllocator &particle_allocator,
-    ArrayRef<uint> pindices,
+    IndexMask mask,
     ArrayRef<float> time_factors_to_next_event,
     ArrayRef<OffsetHandler *> offset_handlers)
 {
   OffsetHandlerInterface interface(
-      step_data, pindices, time_factors_to_next_event, particle_allocator);
+      step_data, mask, time_factors_to_next_event, particle_allocator);
   for (OffsetHandler *handler : offset_handlers) {
     handler->execute(interface);
   }
@@ -81,7 +78,7 @@ BLI_NOINLINE static void forward_particles_to_next_event_or_end(
     auto values = attributes.get<float3>(name);
     auto offsets = attribute_offsets.get<float3>(attribute_index);
 
-    for (uint pindex : pindices) {
+    for (uint pindex : mask) {
       float time_factor = time_factors_to_next_event[pindex];
       values[pindex] += time_factor * offsets[pindex];
     }
@@ -89,58 +86,56 @@ BLI_NOINLINE static void forward_particles_to_next_event_or_end(
 }
 
 BLI_NOINLINE static void update_remaining_attribute_offsets(
-    ArrayRef<uint> pindices_with_event,
-    ArrayRef<float> time_factors_to_next_event,
-    AttributesRef attribute_offsets)
+    IndexMask mask, ArrayRef<float> time_factors_to_next_event, AttributesRef attribute_offsets)
 {
   for (uint attribute_index : attribute_offsets.info().indices()) {
     /* Only vectors can be integrated for now. */
     auto offsets = attribute_offsets.get<float3>(attribute_index);
 
-    for (uint pindex : pindices_with_event) {
+    for (uint pindex : mask) {
       float factor = 1.0f - time_factors_to_next_event[pindex];
       offsets[pindex] *= factor;
     }
   }
 }
 
-BLI_NOINLINE static void update_remaining_durations(ArrayRef<uint> pindices_with_event,
+BLI_NOINLINE static void update_remaining_durations(IndexMask mask,
                                                     ArrayRef<float> time_factors_to_next_event,
                                                     MutableArrayRef<float> remaining_durations)
 {
-  for (uint pindex : pindices_with_event) {
+  for (uint pindex : mask) {
     remaining_durations[pindex] *= (1.0f - time_factors_to_next_event[pindex]);
   }
 }
 
 BLI_NOINLINE static void find_pindices_per_event(
-    ArrayRef<uint> pindices_with_events,
+    IndexMask mask,
     ArrayRef<int> next_event_indices,
     MutableArrayRef<Vector<uint>> r_particles_per_event)
 {
-  for (uint pindex : pindices_with_events) {
+  for (uint pindex : mask) {
     int event_index = next_event_indices[pindex];
     BLI_assert(event_index >= 0);
     r_particles_per_event[event_index].append(pindex);
   }
 }
 
-BLI_NOINLINE static void compute_current_time_per_particle(ArrayRef<uint> pindices_with_event,
+BLI_NOINLINE static void compute_current_time_per_particle(IndexMask mask,
                                                            ArrayRef<float> remaining_durations,
                                                            float end_time,
                                                            MutableArrayRef<float> r_current_times)
 {
-  for (uint pindex : pindices_with_event) {
+  for (uint pindex : mask) {
     r_current_times[pindex] = end_time - remaining_durations[pindex];
   }
 }
 
-BLI_NOINLINE static void find_unfinished_particles(ArrayRef<uint> pindices_with_event,
+BLI_NOINLINE static void find_unfinished_particles(IndexMask mask,
                                                    ArrayRef<float> time_factors_to_next_event,
                                                    ArrayRef<bool> kill_states,
                                                    VectorAdaptor<uint> &r_unfinished_pindices)
 {
-  for (uint pindex : pindices_with_event) {
+  for (uint pindex : mask) {
     if (kill_states[pindex] == 0) {
       float time_factor = time_factors_to_next_event[pindex];
 
@@ -174,7 +169,7 @@ BLI_NOINLINE static void execute_events(BlockStepData &step_data,
 
 BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
                                                 ParticleAllocator &particle_allocator,
-                                                ArrayRef<uint> pindices,
+                                                IndexMask mask,
                                                 ParticleSystemInfo &system_info,
                                                 VectorAdaptor<uint> &r_unfinished_pindices)
 {
@@ -184,7 +179,7 @@ BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
   LargeScopedVector<uint> pindices_with_event;
 
   find_next_event_per_particle(step_data,
-                               pindices,
+                               mask,
                                system_info.events,
                                next_event_indices,
                                time_factors_to_next_event,
@@ -192,7 +187,7 @@ BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
 
   forward_particles_to_next_event_or_end(step_data,
                                          particle_allocator,
-                                         pindices,
+                                         mask,
                                          time_factors_to_next_event,
                                          system_info.offset_handlers);
 
@@ -258,13 +253,13 @@ BLI_NOINLINE static void simulate_with_max_n_events(BlockStepData &step_data,
 BLI_NOINLINE static void apply_remaining_offsets(BlockStepData &step_data,
                                                  ParticleAllocator &particle_allocator,
                                                  ArrayRef<OffsetHandler *> offset_handlers,
-                                                 ArrayRef<uint> pindices)
+                                                 IndexMask mask)
 {
   if (offset_handlers.size() > 0) {
     LargeScopedArray<float> time_factors(step_data.array_size());
-    time_factors.fill_indices(pindices, 1.0f);
+    time_factors.fill_indices(mask, 1.0f);
 
-    OffsetHandlerInterface interface(step_data, pindices, time_factors, particle_allocator);
+    OffsetHandlerInterface interface(step_data, mask, time_factors, particle_allocator);
     for (OffsetHandler *handler : offset_handlers) {
       handler->execute(interface);
     }
@@ -280,7 +275,7 @@ BLI_NOINLINE static void apply_remaining_offsets(BlockStepData &step_data,
     auto values = attributes.get<float3>(name);
     auto offsets = attribute_offsets.get<float3>(attribute_index);
 
-    for (uint pindex : pindices) {
+    for (uint pindex : mask) {
       values[pindex] += offsets[pindex];
     }
   }

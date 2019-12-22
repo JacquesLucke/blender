@@ -3,6 +3,8 @@
 
 #include "BLI_array_ref.h"
 #include "BLI_index_range.h"
+#include "BLI_vector.h"
+#include "BLI_vector_adaptor.h"
 
 namespace BLI {
 
@@ -23,6 +25,15 @@ class IndexMask {
   }
 
   IndexMask(IndexRange range) : m_indices(range.as_array_ref())
+  {
+  }
+
+  template<uint N, typename Allocator>
+  IndexMask(const Vector<uint, N, Allocator> &vector) : IndexMask(vector.as_ref())
+  {
+  }
+
+  IndexMask(const VectorAdaptor<uint> &vector) : IndexMask(ArrayRef<uint>(vector))
   {
   }
 
