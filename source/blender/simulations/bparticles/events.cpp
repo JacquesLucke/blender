@@ -67,7 +67,7 @@ void CustomEvent::filter(EventFilterInterface &interface)
   ParticleFunctionEvaluator inputs{m_inputs_fn, interface.index_mask(), interface.attributes()};
   inputs.context_builder().add_global_context(end_time_context);
   inputs.context_builder().add_element_context(durations_context,
-                                               IndexRange(interface.array_size()));
+                                               FN::MFElementContextIndices::FromDirectMapping());
   inputs.compute();
 
   for (uint pindex : interface.index_mask().indices()) {

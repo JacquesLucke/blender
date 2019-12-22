@@ -26,7 +26,7 @@ void MF_ParticleAttribute::call(IndexMask mask, MFParams params, MFContext conte
   }
 
   AttributesRef attributes = context_data->data->attributes;
-  VirtualListRef<uint> element_indices = context_data->indices;
+  MFElementContextIndices element_indices = context_data->indices;
 
   group_indices_by_same_value(
       mask, attribute_names, [&](StringRef attribute_name, IndexMask indices_with_same_name) {
@@ -36,9 +36,15 @@ void MF_ParticleAttribute::call(IndexMask mask, MFParams params, MFContext conte
           return;
         }
         GenericMutableArrayRef array = opt_array.value();
-        for (uint i : indices_with_same_name) {
-          uint index = element_indices[i];
-          r_values.copy_in__initialized(i, array[index]);
+        if (element_indices.is_direct_mapping()) {
+          m_type.copy_to_uninitialized_indices(
+              array.buffer(), r_values.buffer(), indices_with_same_name);
+        }
+        else {
+          for (uint i : indices_with_same_name) {
+            uint index = element_indices[i];
+            r_values.copy_in__initialized(i, array[index]);
+          }
         }
       });
 }

@@ -4,6 +4,7 @@ namespace FN {
 
 class MF_EvaluateNetwork_Storage {
  private:
+  MonotonicAllocator<256> m_single_allocator;
   IndexMask m_mask;
   Vector<GenericVectorArray *> m_vector_arrays;
   Vector<GenericMutableArrayRef> m_arrays;
@@ -29,7 +30,6 @@ class MF_EvaluateNetwork_Storage {
     }
     for (GenericMutableArrayRef array : m_single_element_arrays) {
       array.destruct_indices(IndexMask(1));
-      MEM_freeN(array.buffer());
     }
   }
 
@@ -49,7 +49,7 @@ class MF_EvaluateNetwork_Storage {
 
   GenericMutableArrayRef allocate_array__single_element(const CPPType &type)
   {
-    void *buffer = MEM_mallocN(type.size(), __func__);
+    void *buffer = m_single_allocator.allocate(type.size(), type.alignment());
     GenericMutableArrayRef array(type, buffer, 1);
     m_single_element_arrays.append(array);
     return array;

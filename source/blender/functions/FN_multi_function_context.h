@@ -20,11 +20,32 @@ using BLI::Optional;
 using BLI::Vector;
 using BLI::VirtualListRef;
 
+class MFElementContextIndices {
+ private:
+  MFElementContextIndices() = default;
+
+ public:
+  static MFElementContextIndices FromDirectMapping()
+  {
+    return MFElementContextIndices();
+  }
+
+  uint operator[](uint index) const
+  {
+    return index;
+  }
+
+  bool is_direct_mapping() const
+  {
+    return true;
+  }
+};
+
 class MFElementContexts {
  private:
   Vector<BLI::class_id_t> m_ids;
   Vector<const void *> m_contexts;
-  Vector<VirtualListRef<uint>> m_indices;
+  Vector<MFElementContextIndices> m_indices;
 
   friend class MFContextBuilder;
 
@@ -33,7 +54,7 @@ class MFElementContexts {
 
   template<typename T> struct TypedContext {
     const T *data;
-    VirtualListRef<uint> indices;
+    MFElementContextIndices indices;
   };
 
   template<typename T> Optional<TypedContext<T>> try_find() const
@@ -88,17 +109,11 @@ class MFContextBuilder : BLI::NonCopyable, BLI::NonMovable {
 
   void add_global_contexts(const MFContext &other);
 
-  template<typename T> void add_element_context(const T &context, VirtualListRef<uint> indices)
+  template<typename T> void add_element_context(const T &context, MFElementContextIndices indices)
   {
     m_element_contexts.m_ids.append(BLI::get_class_id<T>());
     m_element_contexts.m_contexts.append((const void *)&context);
     m_element_contexts.m_indices.append(indices);
-  }
-
-  template<typename T> void add_element_context(const T &context, IndexRange indices)
-  {
-    this->add_element_context(context,
-                              VirtualListRef<uint>::FromFullArray(indices.as_array_ref()));
   }
 
   template<typename T> void add_global_context(const T &context)

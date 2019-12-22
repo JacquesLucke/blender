@@ -60,7 +60,8 @@ void ParticleFunctionEvaluator::compute()
   uint array_size = m_mask.min_array_size();
 
   FN::ParticleAttributesContext attributes_context = {m_particle_attributes};
-  m_context_builder.add_element_context(attributes_context, IndexRange(array_size));
+  m_context_builder.add_element_context(attributes_context,
+                                        FN::MFElementContextIndices::FromDirectMapping());
   m_context_builder.add_global_context(m_particle_fn.m_id_data_cache);
   m_context_builder.add_global_context(m_particle_fn.m_id_handle_lookup);
 

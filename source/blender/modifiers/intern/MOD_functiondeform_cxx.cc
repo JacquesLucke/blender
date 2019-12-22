@@ -72,7 +72,8 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd,
   MFContextBuilder context_builder;
   context_builder.add_global_context(id_handle_lookup);
   context_builder.add_global_context(time_context);
-  context_builder.add_element_context(vertex_positions_context, IndexRange(numVerts));
+  context_builder.add_element_context(vertex_positions_context,
+                                      FN::MFElementContextIndices::FromDirectMapping());
 
   function->call(IndexRange(numVerts), params_builder, context_builder);
 

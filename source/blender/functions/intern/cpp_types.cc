@@ -27,9 +27,7 @@ template<typename T> void ConstructDefaultN_CB(void *ptr, uint n)
 }
 template<typename T> void ConstructDefaultIndices_CB(void *ptr, IndexMask index_mask)
 {
-  for (uint i : index_mask.indices()) {
-    BLI::construct_default((T *)ptr + i);
-  }
+  index_mask.foreach_index([=](uint i) { BLI::construct_default((T *)ptr + i); });
 }
 
 template<typename T> void Destruct_CB(void *ptr)
@@ -42,9 +40,7 @@ template<typename T> void DestructN_CB(void *ptr, uint n)
 }
 template<typename T> void DestructIndices_CB(void *ptr, IndexMask index_mask)
 {
-  for (uint i : index_mask.indices()) {
-    BLI::destruct((T *)ptr + i);
-  }
+  index_mask.foreach_index([=](uint i) { BLI::destruct((T *)ptr + i); });
 }
 
 template<typename T> void CopyToInitialized_CB(const void *src, void *dst)
@@ -66,9 +62,7 @@ void CopyToInitializedIndices_CB(const void *src, void *dst, IndexMask index_mas
   const T *src_ = (const T *)src;
   T *dst_ = (T *)dst;
 
-  for (uint i : index_mask.indices()) {
-    dst_[i] = src_[i];
-  }
+  index_mask.foreach_index([=](uint i) { dst_[i] = src_[i]; });
 }
 
 template<typename T> void CopyToUninitialized_CB(const void *src, void *dst)
@@ -85,9 +79,7 @@ void CopyToUninitializedIndices_CB(const void *src, void *dst, IndexMask index_m
   const T *src_ = (const T *)src;
   T *dst_ = (T *)dst;
 
-  for (uint i : index_mask.indices()) {
-    new (dst_ + i) T(src_[i]);
-  }
+  index_mask.foreach_index([=](uint i) { new (dst_ + i) T(src_[i]); });
 }
 
 template<typename T> void RelocateToInitialized_CB(void *src, void *dst)
@@ -104,10 +96,10 @@ void RelocateToInitializedIndices_CB(void *src, void *dst, IndexMask index_mask)
   T *src_ = (T *)src;
   T *dst_ = (T *)dst;
 
-  for (uint i : index_mask.indices()) {
+  index_mask.foreach_index([=](uint i) {
     dst_[i] = std::move(src_[i]);
     src_[i].~T();
-  }
+  });
 }
 
 template<typename T> void RelocateToUninitialized_CB(void *src, void *dst)
@@ -124,10 +116,10 @@ void RelocateToUninitializedIndices_CB(void *src, void *dst, IndexMask index_mas
   T *src_ = (T *)src;
   T *dst_ = (T *)dst;
 
-  for (uint i : index_mask.indices()) {
+  index_mask.foreach_index([=](uint i) {
     new (dst_ + i) T(std::move(src_[i]));
     src_[i].~T();
-  }
+  });
 }
 
 template<typename T> void FillInitialized_CB(const void *value, void *dst, uint n)
@@ -145,9 +137,7 @@ void FillInitializedIndices_CB(const void *value, void *dst, IndexMask index_mas
   const T &value_ = *(const T *)value;
   T *dst_ = (T *)dst;
 
-  for (uint i : index_mask.indices()) {
-    dst_[i] = value_;
-  }
+  index_mask.foreach_index([=](uint i) { dst_[i] = value_; });
 }
 
 template<typename T> void FillUninitialized_CB(const void *value, void *dst, uint n)
@@ -165,9 +155,7 @@ void FillUninitializedIndices_CB(const void *value, void *dst, IndexMask index_m
   const T &value_ = *(const T *)value;
   T *dst_ = (T *)dst;
 
-  for (uint i : index_mask.indices()) {
-    new (dst_ + i) T(value_);
-  }
+  index_mask.foreach_index([=](uint i) { new (dst_ + i) T(value_); });
 }
 
 template<typename T> static std::unique_ptr<const CPPType> create_cpp_type(StringRef name)
