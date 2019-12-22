@@ -5,7 +5,7 @@ from .. node_builder import NodeBuilder
 
 class SetParticleAttributeNode(bpy.types.Node, SimulationNode):
     bl_idname = "fn_SetParticleAttributeNode"
-    bl_label = "Set Particle Attribute"
+    bl_label = "Set Attribute"
 
     attribute_type: StringProperty(
         name="Attribute Type",
@@ -25,9 +25,9 @@ class SetParticleAttributeNode(bpy.types.Node, SimulationNode):
         self.attribute_type = data_type
 
 
-class GetParticleAttribute(bpy.types.Node, FunctionNode):
+class GetParticleAttributeNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_GetParticleAttributeNode"
-    bl_label = "Get Particle Attribute"
+    bl_label = "Get Attribute"
 
     attribute_type: StringProperty(
         name="Attribute Type",
