@@ -351,12 +351,6 @@ BLI_NOINLINE static void simulate_blocks_for_time_span(
     TimeSpan time_span,
     SimulationState &simulation_state)
 {
-  if (blocks.size() == 0) {
-    return;
-  }
-
-  std::mutex mutex;
-
   tbb::parallel_for((uint)0, blocks.size(), [&](uint block_index) {
     AttributesBlock &block = *blocks[block_index];
 
@@ -385,10 +379,6 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
     float end_time,
     SimulationState &simulation_state)
 {
-  if (blocks.size() == 0) {
-    return;
-  }
-
   tbb::parallel_for((uint)0, blocks.size(), [&](uint block_index) {
     AttributesBlock &block = *blocks[block_index];
 
