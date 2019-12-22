@@ -1,6 +1,5 @@
 
 #include "BLI_lazy_init_cxx.h"
-#include "BLI_task_cxx.h"
 #include "BLI_timeit.h"
 #include "BLI_array_cxx.h"
 #include "BLI_vector_adaptor.h"
@@ -10,7 +9,9 @@
 #include "simulate.hpp"
 #include "time_span.hpp"
 
-#define USE_THREADING true
+// #ifdef WITH_TBB
+#include "tbb/tbb.h"
+// #endif
 
 namespace BParticles {
 
@@ -354,28 +355,27 @@ BLI_NOINLINE static void simulate_blocks_for_time_span(
     return;
   }
 
-  BLI::Task::parallel_array_elements(
-      blocks,
-      /* Process individual element. */
-      [&](AttributesBlock *block) {
-        StringRef particle_system_name = simulation_state.particles().particle_container_name(
-            block->owner());
-        ParticleSystemInfo &system_info = systems_to_simulate.lookup(particle_system_name);
+  std::mutex mutex;
 
-        LargeScopedArray<float> remaining_durations(block->used_size());
-        remaining_durations.fill(time_span.duration());
+  tbb::parallel_for((uint)0, blocks.size(), [&](uint block_index) {
+    AttributesBlock &block = *blocks[block_index];
 
-        simulate_particle_chunk(simulation_state,
-                                particle_allocator,
-                                block->as_ref(),
-                                system_info,
-                                remaining_durations,
-                                time_span.end());
+    StringRef particle_system_name = simulation_state.particles().particle_container_name(
+        block.owner());
+    ParticleSystemInfo &system_info = systems_to_simulate.lookup(particle_system_name);
 
-        delete_tagged_particles_and_reorder(*block);
-      },
-      1,
-      USE_THREADING);
+    LargeScopedArray<float> remaining_durations(block.used_size());
+    remaining_durations.fill(time_span.duration());
+
+    simulate_particle_chunk(simulation_state,
+                            particle_allocator,
+                            block.as_ref(),
+                            system_info,
+                            remaining_durations,
+                            time_span.end());
+
+    delete_tagged_particles_and_reorder(block);
+  });
 }
 
 BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
@@ -389,31 +389,24 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
     return;
   }
 
-  BLI::Task::parallel_array_elements(
-      blocks,
-      /* Process individual element. */
-      [&](AttributesBlock *block) {
-        StringRef particle_system_name = simulation_state.particles().particle_container_name(
-            block->owner());
-        ParticleSystemInfo &system_info = systems_to_simulate.lookup(particle_system_name);
+  tbb::parallel_for((uint)0, blocks.size(), [&](uint block_index) {
+    AttributesBlock &block = *blocks[block_index];
 
-        uint active_amount = block->used_size();
-        Vector<float> durations(active_amount);
-        auto birth_times = block->as_ref().get<float>("Birth Time");
-        for (uint i = 0; i < active_amount; i++) {
-          durations[i] = end_time - birth_times[i];
-        }
-        simulate_particle_chunk(simulation_state,
-                                particle_allocator,
-                                block->as_ref(),
-                                system_info,
-                                durations,
-                                end_time);
+    StringRef particle_system_name = simulation_state.particles().particle_container_name(
+        block.owner());
+    ParticleSystemInfo &system_info = systems_to_simulate.lookup(particle_system_name);
 
-        delete_tagged_particles_and_reorder(*block);
-      },
-      1,
-      USE_THREADING);
+    uint active_amount = block.used_size();
+    Vector<float> durations(active_amount);
+    auto birth_times = block.as_ref().get<float>("Birth Time");
+    for (uint i = 0; i < active_amount; i++) {
+      durations[i] = end_time - birth_times[i];
+    }
+    simulate_particle_chunk(
+        simulation_state, particle_allocator, block.as_ref(), system_info, durations, end_time);
+
+    delete_tagged_particles_and_reorder(block);
+  });
 }
 
 BLI_NOINLINE static Vector<AttributesBlock *> get_all_blocks_to_simulate(
@@ -480,10 +473,15 @@ void simulate_particles(SimulationState &simulation_state,
   Vector<AttributesBlock *> newly_created_blocks;
   {
     ParticleAllocator particle_allocator(particles_state);
-    simulate_all_existing_blocks(
-        simulation_state, systems_to_simulate, particle_allocator, simulation_time_span);
-    create_particles_from_emitters(
-        simulation_state, particle_allocator, emitters, simulation_time_span);
+    tbb::parallel_invoke(
+        [&]() {
+          simulate_all_existing_blocks(
+              simulation_state, systems_to_simulate, particle_allocator, simulation_time_span);
+        },
+        [&]() {
+          create_particles_from_emitters(
+              simulation_state, particle_allocator, emitters, simulation_time_span);
+        });
     newly_created_blocks = particle_allocator.allocated_blocks();
   }
 
