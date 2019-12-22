@@ -5,7 +5,6 @@
 #include "node_frontend.hpp"
 
 #include "BLI_timeit.h"
-#include "BLI_task_cxx.h"
 #include "BLI_string.h"
 
 #include "BKE_mesh.h"
@@ -17,6 +16,8 @@
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_modifier_types.h"
+
+#include "tbb/tbb.h"
 
 #define WRAPPERS(T1, T2) \
   inline T1 unwrap(T2 value) \
@@ -147,8 +148,8 @@ static Mesh *distribute_tetrahedons(ArrayRef<float3> centers,
           &mesh->ldata, CD_MLOOPCOL, CD_DEFAULT, nullptr, mesh->totloop, "Color"),
       mesh->totloop);
 
-  BLI::Task::parallel_range(
-      IndexRange(amount), 1000, [mesh, centers, scales, colors, loop_colors](IndexRange range) {
+  tbb::parallel_for(
+      tbb::blocked_range<uint>(0, amount, 1000), [&](const tbb::blocked_range<uint> &range) {
         distribute_tetrahedons_range(mesh, loop_colors, range, centers, scales, colors);
       });
 
