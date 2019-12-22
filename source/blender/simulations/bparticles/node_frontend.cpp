@@ -60,11 +60,11 @@ StringMap<ActionParserCallback> &get_action_parsers();
 
 class InfluencesCollector {
  public:
-  Vector<Emitter *> &m_emitters;
-  MultiMap<std::string, Force *> &m_forces;
-  MultiMap<std::string, Event *> &m_events;
-  MultiMap<std::string, OffsetHandler *> &m_offset_handlers;
-  StringMap<AttributesInfoBuilder *> &m_attributes;
+  Vector<Emitter *> m_emitters;
+  MultiMap<std::string, Force *> m_forces;
+  MultiMap<std::string, Event *> m_events;
+  MultiMap<std::string, OffsetHandler *> m_offset_handlers;
+  StringMap<AttributesInfoBuilder *> m_attributes;
 };
 
 class InlinedTreeData {
@@ -1059,24 +1059,12 @@ BLI_LAZY_INIT_STATIC(StringMap<ParseNodeCallback>, get_node_parsers)
 static void collect_influences(InlinedTreeData &inlined_tree_data,
                                WorldTransition &world_transition,
                                Vector<std::string> &r_system_names,
-                               Vector<Emitter *> &r_emitters,
-                               MultiMap<std::string, Event *> &r_events_per_type,
-                               MultiMap<std::string, OffsetHandler *> &r_offset_handler_per_type,
-                               StringMap<AttributesInfoBuilder *> &r_attributes_per_type,
+                               InfluencesCollector &collector,
                                StringMap<Integrator *> &r_integrators)
 {
   SCOPED_TIMER(__func__);
 
   StringMap<ParseNodeCallback> &parsers = get_node_parsers();
-
-  MultiMap<std::string, Force *> forces;
-  InfluencesCollector collector = {
-      r_emitters,
-      forces,
-      r_events_per_type,
-      r_offset_handler_per_type,
-      r_attributes_per_type,
-  };
 
   for (const XNode *xnode :
        inlined_tree_data.inlined_tree().nodes_with_idname(particle_system_idname)) {
@@ -1093,7 +1081,7 @@ static void collect_influences(InlinedTreeData &inlined_tree_data,
     attributes->add<rgba_f>("Color", rgba_f(1, 1, 1, 1));
     attributes->add<BKE::SurfaceHook>("Emit Hook", {});
 
-    r_attributes_per_type.add_new(name, attributes);
+    collector.m_attributes.add_new(name, attributes);
   }
 
   for (const XNode *xnode : inlined_tree_data.inlined_tree().all_nodes()) {
@@ -1133,13 +1121,6 @@ class NodeTreeStepSimulator : public StepSimulator {
 
     ParticlesState &particles_state = simulation_state.particles();
 
-    Vector<std::string> system_names;
-    Vector<Emitter *> emitters;
-    MultiMap<std::string, Event *> events;
-    MultiMap<std::string, OffsetHandler *> offset_handlers;
-    StringMap<AttributesInfoBuilder *> attributes;
-    StringMap<Integrator *> integrators;
-
     ResourceCollector resources;
     std::unique_ptr<InlinedTreeMFNetwork> data_graph =
         FN::generate_inlined_tree_multi_function_network(m_inlined_tree, resources);
@@ -1148,20 +1129,17 @@ class NodeTreeStepSimulator : public StepSimulator {
     }
     InlinedTreeData inlined_tree_data(*data_graph);
 
-    collect_influences(inlined_tree_data,
-                       world_transition,
-                       system_names,
-                       emitters,
-                       events,
-                       offset_handlers,
-                       attributes,
-                       integrators);
+    Vector<std::string> system_names;
+    StringMap<Integrator *> integrators;
+    InfluencesCollector influences_collector;
+    collect_influences(
+        inlined_tree_data, world_transition, system_names, influences_collector, integrators);
 
     auto &containers = particles_state.particle_containers();
 
     StringMap<ParticleSystemInfo> systems_to_simulate;
     for (std::string name : system_names) {
-      AttributesInfoBuilder &system_attributes = *attributes.lookup(name);
+      AttributesInfoBuilder &system_attributes = *influences_collector.m_attributes.lookup(name);
 
       /* Keep old attributes. */
       AttributesBlockContainer *container = containers.lookup_default(name, nullptr);
@@ -1174,15 +1152,16 @@ class NodeTreeStepSimulator : public StepSimulator {
 
       ParticleSystemInfo type_info = {
           integrators.lookup(name),
-          events.lookup_default(name),
-          offset_handlers.lookup_default(name),
+          influences_collector.m_events.lookup_default(name),
+          influences_collector.m_offset_handlers.lookup_default(name),
       };
       systems_to_simulate.add_new(name, type_info);
     }
 
-    simulate_particles(simulation_state, emitters, systems_to_simulate);
+    simulate_particles(simulation_state, influences_collector.m_emitters, systems_to_simulate);
 
-    attributes.foreach_value([](AttributesInfoBuilder *builder) { delete builder; });
+    influences_collector.m_attributes.foreach_value(
+        [](AttributesInfoBuilder *builder) { delete builder; });
 
     simulation_state.world() = std::move(new_world_state);
   }
