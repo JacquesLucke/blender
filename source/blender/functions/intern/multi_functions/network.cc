@@ -123,42 +123,42 @@ class MF_EvaluateNetwork_Storage {
     return new_vector_array;
   }
 
-  void set_array_ref_for_input(const MFInputSocket &socket, GenericMutableArrayRef array)
+  void set_array_ref(const MFInputSocket &socket, GenericMutableArrayRef array)
   {
     m_array_ref_for_inputs.add_new(socket.id(), array);
   }
 
-  void set_virtual_list_for_input(const MFInputSocket &socket, GenericVirtualListRef list)
+  void set_virtual_list(const MFInputSocket &socket, GenericVirtualListRef list)
   {
     m_virtual_list_for_inputs.add_new(socket.id(), list);
   }
 
-  void set_virtual_list_list_for_input(const MFInputSocket &socket, GenericVirtualListListRef list)
+  void set_virtual_list_list(const MFInputSocket &socket, GenericVirtualListListRef list)
   {
     m_virtual_list_list_for_inputs.add_new(socket.id(), list);
   }
 
-  void set_vector_array_for_input(const MFInputSocket &socket, GenericVectorArray &vector_array)
+  void set_vector_array(const MFInputSocket &socket, GenericVectorArray &vector_array)
   {
     m_vector_array_for_inputs.add_new(socket.id(), &vector_array);
   }
 
-  GenericVirtualListRef get_virtual_list_for_input(const MFInputSocket &socket) const
+  GenericVirtualListRef get_virtual_list(const MFInputSocket &socket) const
   {
     return m_virtual_list_for_inputs.lookup(socket.id());
   }
 
-  GenericVirtualListListRef get_virtual_list_list_for_input(const MFInputSocket &socket) const
+  GenericVirtualListListRef get_virtual_list_list(const MFInputSocket &socket) const
   {
     return m_virtual_list_list_for_inputs.lookup(socket.id());
   }
 
-  GenericVectorArray &get_vector_array_for_input(const MFInputSocket &socket) const
+  GenericVectorArray &get_vector_array(const MFInputSocket &socket) const
   {
     return *m_vector_array_for_inputs.lookup(socket.id());
   }
 
-  GenericMutableArrayRef get_array_ref_for_input(const MFInputSocket &socket) const
+  GenericMutableArrayRef get_array_ref(const MFInputSocket &socket) const
   {
     return m_array_ref_for_inputs.lookup(socket.id());
   }
@@ -282,16 +282,16 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_inputs_to_storage__single(
   for (const MFInputSocket *target : targets) {
     const MFNode &target_node = target->node();
     if (target_node.is_dummy()) {
-      storage.set_virtual_list_for_input(*target, input_list);
+      storage.set_virtual_list(*target, input_list);
     }
     else {
       MFParamType param_type = target->param_type();
       if (param_type.is_single_input()) {
-        storage.set_virtual_list_for_input(*target, input_list);
+        storage.set_virtual_list(*target, input_list);
       }
       else if (param_type.is_mutable_single()) {
         GenericMutableArrayRef array = storage.allocate_copy(input_list);
-        storage.set_array_ref_for_input(*target, array);
+        storage.set_array_ref(*target, array);
       }
       else {
         BLI_assert(false);
@@ -308,16 +308,16 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_inputs_to_storage__vector(
   for (const MFInputSocket *target : targets) {
     const MFNode &target_node = target->node();
     if (target_node.is_dummy()) {
-      storage.set_virtual_list_list_for_input(*target, input_list_list);
+      storage.set_virtual_list_list(*target, input_list_list);
     }
     else {
       MFParamType param_type = target->param_type();
       if (param_type.is_vector_input()) {
-        storage.set_virtual_list_list_for_input(*target, input_list_list);
+        storage.set_virtual_list_list(*target, input_list_list);
       }
       else if (param_type.is_mutable_vector()) {
         GenericVectorArray &vector_array = storage.allocate_copy(input_list_list);
-        storage.set_vector_array_for_input(*target, vector_array);
+        storage.set_vector_array(*target, vector_array);
       }
       else {
         BLI_assert(false);
@@ -417,7 +417,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::prepare_function_params__all(
     switch (param_type.type()) {
       case MFParamType::SingleInput: {
         const MFInputSocket &input_socket = function_node.input_for_param(param_index);
-        GenericVirtualListRef values = storage.get_virtual_list_for_input(input_socket);
+        GenericVirtualListRef values = storage.get_virtual_list(input_socket);
         if (values.size() < array_size) {
           BLI_assert(values.is_single_element());
           values = GenericVirtualListRef::FromSingle(values.type(), values[0], array_size);
@@ -427,7 +427,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::prepare_function_params__all(
       }
       case MFParamType::VectorInput: {
         const MFInputSocket &input_socket = function_node.input_for_param(param_index);
-        GenericVirtualListListRef values = storage.get_virtual_list_list_for_input(input_socket);
+        GenericVirtualListListRef values = storage.get_virtual_list_list(input_socket);
         if (values.size() < array_size) {
           BLI_assert(values.is_single_list());
           values = values.extended_single_list(array_size);
@@ -449,7 +449,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::prepare_function_params__all(
       }
       case MFParamType::MutableSingle: {
         const MFInputSocket &input_socket = function_node.input_for_param(param_index);
-        GenericMutableArrayRef values = storage.get_array_ref_for_input(input_socket);
+        GenericMutableArrayRef values = storage.get_array_ref(input_socket);
         if (values.size() < array_size) {
           BLI_assert(values.size() == 1);
           GenericMutableArrayRef new_values = storage.allocate_full_copy_from_single(values);
@@ -462,7 +462,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::prepare_function_params__all(
       }
       case MFParamType::MutableVector: {
         const MFInputSocket &input_socket = function_node.input_for_param(param_index);
-        GenericVectorArray &values = storage.get_vector_array_for_input(input_socket);
+        GenericVectorArray &values = storage.get_vector_array(input_socket);
         if (values.size() < array_size) {
           BLI_assert(values.size() == 1);
           GenericVectorArray &new_values = storage.allocate_full_copy_from_single(values);
@@ -496,17 +496,17 @@ BLI_NOINLINE void MF_EvaluateNetwork::forward_computed_values__all(
         for (const MFInputSocket *target : output_socket.targets()) {
           if (target->node().is_dummy()) {
             if (m_outputs.contains(target)) {
-              storage.set_virtual_list_for_input(*target, computed_values);
+              storage.set_virtual_list(*target, computed_values);
             }
           }
           else {
             MFParamType target_param_type = target->param_type();
             if (target_param_type.is_single_input()) {
-              storage.set_virtual_list_for_input(*target, computed_values);
+              storage.set_virtual_list(*target, computed_values);
             }
             else if (target_param_type.is_mutable_single()) {
               GenericMutableArrayRef copied_values = storage.allocate_copy(computed_values);
-              storage.set_array_ref_for_input(*target, copied_values);
+              storage.set_array_ref(*target, copied_values);
             }
             else {
               BLI_assert(false);
@@ -522,17 +522,17 @@ BLI_NOINLINE void MF_EvaluateNetwork::forward_computed_values__all(
         for (const MFInputSocket *target : output_socket.targets()) {
           if (target->node().is_dummy()) {
             if (m_outputs.contains(target)) {
-              storage.set_virtual_list_list_for_input(*target, computed_values);
+              storage.set_virtual_list_list(*target, computed_values);
             }
           }
           else {
             MFParamType target_param_type = target->param_type();
             if (target_param_type.is_vector_input()) {
-              storage.set_virtual_list_list_for_input(*target, computed_values);
+              storage.set_virtual_list_list(*target, computed_values);
             }
             else if (target_param_type.is_mutable_vector()) {
               GenericVectorArray &copied_values = storage.allocate_copy(computed_values);
-              storage.set_vector_array_for_input(*target, copied_values);
+              storage.set_vector_array(*target, copied_values);
             }
             else {
               BLI_assert(false);
@@ -555,14 +555,14 @@ BLI_NOINLINE void MF_EvaluateNetwork::prepare_function_params__single(
     switch (param_type.type()) {
       case MFParamType::SingleInput: {
         const MFInputSocket &input_socket = function_node.input_for_param(param_index);
-        GenericVirtualListRef values = storage.get_virtual_list_for_input(input_socket);
+        GenericVirtualListRef values = storage.get_virtual_list(input_socket);
         BLI_assert(values.is_single_element());
         params_builder.add_readonly_single_input(values);
         break;
       }
       case MFParamType::VectorInput: {
         const MFInputSocket &input_socket = function_node.input_for_param(param_index);
-        GenericVirtualListListRef values = storage.get_virtual_list_list_for_input(input_socket);
+        GenericVirtualListListRef values = storage.get_virtual_list_list(input_socket);
         BLI_assert(values.is_single_list());
         params_builder.add_readonly_vector_input(values);
         break;
@@ -581,13 +581,13 @@ BLI_NOINLINE void MF_EvaluateNetwork::prepare_function_params__single(
       }
       case MFParamType::MutableSingle: {
         const MFInputSocket &input_socket = function_node.input_for_param(param_index);
-        GenericMutableArrayRef values = storage.get_array_ref_for_input(input_socket);
+        GenericMutableArrayRef values = storage.get_array_ref(input_socket);
         params_builder.add_mutable_single(values);
         break;
       }
       case MFParamType::MutableVector: {
         const MFInputSocket &input_socket = function_node.input_for_param(param_index);
-        GenericVectorArray &values = storage.get_vector_array_for_input(input_socket);
+        GenericVectorArray &values = storage.get_vector_array(input_socket);
         params_builder.add_mutable_vector(values);
         break;
       }
@@ -614,17 +614,17 @@ BLI_NOINLINE void MF_EvaluateNetwork::forward_computed_values__single(
         for (const MFInputSocket *target : output_socket.targets()) {
           if (target->node().is_dummy()) {
             if (m_outputs.contains(target)) {
-              storage.set_virtual_list_for_input(*target, computed_value);
+              storage.set_virtual_list(*target, computed_value);
             }
           }
           else {
             MFParamType target_param_type = target->param_type();
             if (target_param_type.is_single_input()) {
-              storage.set_virtual_list_for_input(*target, computed_value);
+              storage.set_virtual_list(*target, computed_value);
             }
             else if (target_param_type.is_mutable_single()) {
               GenericMutableArrayRef copied_value = storage.allocate_single_copy(computed_value);
-              storage.set_array_ref_for_input(*target, copied_value);
+              storage.set_array_ref(*target, copied_value);
             }
             else {
               BLI_assert(false);
@@ -640,17 +640,17 @@ BLI_NOINLINE void MF_EvaluateNetwork::forward_computed_values__single(
         for (const MFInputSocket *target : output_socket.targets()) {
           if (target->node().is_dummy()) {
             if (m_outputs.contains(target)) {
-              storage.set_virtual_list_list_for_input(*target, computed_value);
+              storage.set_virtual_list_list(*target, computed_value);
             }
           }
           else {
             MFParamType target_param_type = target->param_type();
             if (target_param_type.is_vector_input()) {
-              storage.set_virtual_list_list_for_input(*target, computed_value);
+              storage.set_virtual_list_list(*target, computed_value);
             }
             else if (target_param_type.is_mutable_vector()) {
               GenericVectorArray &copied_value = storage.allocate_single_copy(computed_value);
-              storage.set_vector_array_for_input(*target, copied_value);
+              storage.set_vector_array(*target, copied_value);
             }
           }
         }
@@ -670,7 +670,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_computed_values_to_outputs(MFParams p
     const MFInputSocket &socket = *m_outputs[output_index];
     switch (socket.data_type().category()) {
       case MFDataType::Single: {
-        GenericVirtualListRef values = storage.get_virtual_list_for_input(socket);
+        GenericVirtualListRef values = storage.get_virtual_list(socket);
         GenericMutableArrayRef output_values = params.uninitialized_single_output(
             global_param_index);
         if (values.size() < array_size) {
@@ -687,7 +687,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_computed_values_to_outputs(MFParams p
         break;
       }
       case MFDataType::Vector: {
-        GenericVirtualListListRef values = storage.get_virtual_list_list_for_input(socket);
+        GenericVirtualListListRef values = storage.get_virtual_list_list(socket);
         GenericVectorArray &output_values = params.vector_output(global_param_index);
         if (values.size() < array_size) {
           BLI_assert(values.is_single_list());
