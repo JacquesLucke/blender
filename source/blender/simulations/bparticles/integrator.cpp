@@ -22,7 +22,7 @@ void ConstantVelocityIntegrator::integrate(IntegratorInterface &interface)
   auto position_offsets = interface.attribute_offsets().get<float3>("Position");
   auto durations = interface.remaining_durations();
 
-  for (uint pindex : interface.pindices()) {
+  for (uint pindex : interface.mask()) {
     position_offsets[pindex] = velocities[pindex] * durations[pindex];
   }
 }
@@ -56,8 +56,12 @@ void EulerIntegrator::integrate(IntegratorInterface &interface)
 
   auto position_offsets = r_offsets.get<float3>("Position");
   auto velocity_offsets = r_offsets.get<float3>("Velocity");
-  this->compute_offsets(
-      durations, last_velocities, combined_force, position_offsets, velocity_offsets);
+  this->compute_offsets(interface.mask(),
+                        durations,
+                        last_velocities,
+                        combined_force,
+                        position_offsets,
+                        velocity_offsets);
 }
 
 BLI_NOINLINE void EulerIntegrator::compute_combined_force(IntegratorInterface &interface,
@@ -65,21 +69,21 @@ BLI_NOINLINE void EulerIntegrator::compute_combined_force(IntegratorInterface &i
 {
   r_force.fill({0, 0, 0});
 
-  ForceInterface force_interface(interface.step_data(), interface.pindices(), r_force);
+  ForceInterface force_interface(interface.step_data(), interface.mask(), r_force);
 
   for (Force *force : m_forces) {
     force->add_force(force_interface);
   }
 }
 
-BLI_NOINLINE void EulerIntegrator::compute_offsets(ArrayRef<float> durations,
+BLI_NOINLINE void EulerIntegrator::compute_offsets(IndexMask mask,
+                                                   ArrayRef<float> durations,
                                                    ArrayRef<float3> last_velocities,
                                                    ArrayRef<float3> combined_force,
                                                    MutableArrayRef<float3> r_position_offsets,
                                                    MutableArrayRef<float3> r_velocity_offsets)
 {
-  uint amount = durations.size();
-  for (uint pindex = 0; pindex < amount; pindex++) {
+  for (uint pindex : mask) {
     float mass = 1.0f;
     float duration = durations[pindex];
 

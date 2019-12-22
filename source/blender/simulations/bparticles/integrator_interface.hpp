@@ -1,25 +1,29 @@
 #pragma once
 
+#include "BLI_index_mask.h"
+
 #include "block_step_data.hpp"
 
 namespace BParticles {
+
+using BLI::IndexMask;
 
 /**
  * Interface between the Integrator->integrate() function and the core simulation code.
  */
 class IntegratorInterface : public BlockStepDataAccess {
  private:
-  ArrayRef<uint> m_pindices;
+  IndexMask m_mask;
 
  public:
-  IntegratorInterface(BlockStepData &step_data, ArrayRef<uint> pindices)
-      : BlockStepDataAccess(step_data), m_pindices(pindices)
+  IntegratorInterface(BlockStepData &step_data, IndexMask mask)
+      : BlockStepDataAccess(step_data), m_mask(mask)
   {
   }
 
-  ArrayRef<uint> pindices()
+  IndexMask mask()
   {
-    return m_pindices;
+    return m_mask;
   }
 };
 

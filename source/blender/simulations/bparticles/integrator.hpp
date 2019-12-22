@@ -30,7 +30,8 @@ class EulerIntegrator : public Integrator {
  private:
   void compute_combined_force(IntegratorInterface &interface, MutableArrayRef<float3> r_force);
 
-  void compute_offsets(ArrayRef<float> durations,
+  void compute_offsets(IndexMask mask,
+                       ArrayRef<float> durations,
                        ArrayRef<float3> last_velocities,
                        ArrayRef<float3> combined_force,
                        MutableArrayRef<float3> r_position_offsets,

@@ -1,27 +1,28 @@
 #pragma once
 
+#include "BLI_index_mask.h"
+
 #include "block_step_data.hpp"
 
 namespace BParticles {
 
 using BLI::float3;
+using BLI::IndexMask;
 
 class ForceInterface : public BlockStepDataAccess {
  private:
-  ArrayRef<uint> m_pindices;
+  IndexMask m_mask;
   MutableArrayRef<float3> m_destination;
 
  public:
-  ForceInterface(BlockStepData &step_data,
-                 ArrayRef<uint> pindices,
-                 MutableArrayRef<float3> destination)
-      : BlockStepDataAccess(step_data), m_pindices(pindices), m_destination(destination)
+  ForceInterface(BlockStepData &step_data, IndexMask mask, MutableArrayRef<float3> destination)
+      : BlockStepDataAccess(step_data), m_mask(mask), m_destination(destination)
   {
   }
 
-  ArrayRef<uint> pindices()
+  IndexMask mask()
   {
-    return m_pindices;
+    return m_mask;
   }
 
   MutableArrayRef<float3> combined_destination()
