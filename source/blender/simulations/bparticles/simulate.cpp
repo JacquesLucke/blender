@@ -286,14 +286,14 @@ BLI_NOINLINE static void apply_remaining_offsets(BlockStepData &step_data,
   }
 }
 
-BLI_NOINLINE static void simulate_block(SimulationState &simulation_state,
-                                        ParticleAllocator &particle_allocator,
-                                        AttributesBlock &block,
-                                        ParticleSystemInfo &system_info,
-                                        MutableArrayRef<float> remaining_durations,
-                                        float end_time)
+BLI_NOINLINE static void simulate_particle_chunk(SimulationState &simulation_state,
+                                                 ParticleAllocator &particle_allocator,
+                                                 AttributesRef attributes,
+                                                 ParticleSystemInfo &system_info,
+                                                 MutableArrayRef<float> remaining_durations,
+                                                 float end_time)
 {
-  uint amount = block.used_size();
+  uint amount = attributes.size();
   BLI_assert(amount == remaining_durations.size());
 
   Integrator &integrator = *system_info.integrator;
@@ -306,16 +306,16 @@ BLI_NOINLINE static void simulate_block(SimulationState &simulation_state,
   AttributesRef attribute_offsets(offsets_info, offset_buffers, amount);
 
   BlockStepData step_data = {
-      simulation_state, block.as_ref(), attribute_offsets, remaining_durations, end_time};
+      simulation_state, attributes, attribute_offsets, remaining_durations, end_time};
 
-  IntegratorInterface interface(step_data, block.used_range().as_array_ref());
+  IntegratorInterface interface(step_data, IndexRange(amount).as_array_ref());
   integrator.integrate(interface);
 
   if (system_info.events.size() == 0) {
     apply_remaining_offsets(step_data,
                             particle_allocator,
                             system_info.offset_handlers,
-                            block.used_range().as_array_ref());
+                            IndexRange(amount).as_array_ref());
   }
   else {
     LargeScopedVector<uint> unfinished_pindices;
@@ -370,12 +370,12 @@ BLI_NOINLINE static void simulate_blocks_for_time_span(
         LargeScopedArray<float> remaining_durations(block->used_size());
         remaining_durations.fill(time_span.duration());
 
-        simulate_block(simulation_state,
-                       particle_allocator,
-                       *block,
-                       system_info,
-                       remaining_durations,
-                       time_span.end());
+        simulate_particle_chunk(simulation_state,
+                                particle_allocator,
+                                block->as_ref(),
+                                system_info,
+                                remaining_durations,
+                                time_span.end());
 
         delete_tagged_particles_and_reorder(*block);
       },
@@ -408,8 +408,12 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
         for (uint i = 0; i < active_amount; i++) {
           durations[i] = end_time - birth_times[i];
         }
-        simulate_block(
-            simulation_state, particle_allocator, *block, system_info, durations, end_time);
+        simulate_particle_chunk(simulation_state,
+                                particle_allocator,
+                                block->as_ref(),
+                                system_info,
+                                durations,
+                                end_time);
 
         delete_tagged_particles_and_reorder(*block);
       },
