@@ -10,13 +10,13 @@ void CreateTrailHandler::execute(OffsetHandlerInterface &interface)
   auto position_offsets = interface.attribute_offsets().get<float3>("Position");
   auto colors = interface.attributes().get<rgba_f>("Color");
 
-  ParticleFunctionEvaluator inputs{m_inputs_fn, interface.pindices(), interface.attributes()};
+  ParticleFunctionEvaluator inputs{m_inputs_fn, interface.mask(), interface.attributes()};
   inputs.compute();
 
   Vector<float3> new_positions;
   Vector<rgba_f> new_colors;
   Vector<float> new_birth_times;
-  for (uint pindex : interface.pindices()) {
+  for (uint pindex : interface.mask()) {
     float rate = inputs.get_single<float>("Rate", 0, pindex);
     if (rate <= 0.0f) {
       continue;
@@ -53,10 +53,10 @@ void SizeOverTimeHandler::execute(OffsetHandlerInterface &interface)
   auto birth_times = interface.attributes().get<float>("Birth Time");
   auto sizes = interface.attributes().get<float>("Size");
 
-  ParticleFunctionEvaluator inputs{m_inputs_fn, interface.pindices(), interface.attributes()};
+  ParticleFunctionEvaluator inputs{m_inputs_fn, interface.mask(), interface.attributes()};
   inputs.compute();
 
-  for (uint pindex : interface.pindices()) {
+  for (uint pindex : interface.mask()) {
     float final_size = inputs.get_single<float>("Final Size", 0, pindex);
     float final_age = inputs.get_single<float>("Final Age", 1, pindex);
 

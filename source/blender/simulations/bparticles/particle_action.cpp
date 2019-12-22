@@ -95,7 +95,7 @@ void ParticleAction::execute_for_subset(IndexMask mask, ParticleActionContext &p
 void ParticleAction::execute_from_offset_handler(OffsetHandlerInterface &offset_handler_interface)
 {
   LargeScopedArray<float> current_times(offset_handler_interface.array_size());
-  for (uint pindex : offset_handler_interface.pindices()) {
+  for (uint pindex : offset_handler_interface.mask()) {
     current_times[pindex] = offset_handler_interface.time_span(pindex).start();
   }
 
@@ -109,7 +109,7 @@ void ParticleAction::execute_from_offset_handler(OffsetHandlerInterface &offset_
 
   ParticleActionContext context(
       offset_handler_interface.particle_allocator(),
-      offset_handler_interface.pindices(),
+      offset_handler_interface.mask(),
       offset_handler_interface.attributes(),
       {BLI::get_class_id<ParticleCurrentTimesContext>(),
        BLI::get_class_id<ParticleIntegratedOffsets>(),
