@@ -82,11 +82,10 @@ void ParticleAction::execute_from_event(EventExecuteInterface &event_interface)
   this->execute(context);
 }
 
-void ParticleAction::execute_for_subset(IndexMask pindex_mask,
-                                        ParticleActionContext &parent_context)
+void ParticleAction::execute_for_subset(IndexMask mask, ParticleActionContext &parent_context)
 {
   ParticleActionContext context(parent_context.particle_allocator(),
-                                pindex_mask,
+                                mask,
                                 parent_context.attributes(),
                                 parent_context.custom_context_ids(),
                                 parent_context.custom_contexts());

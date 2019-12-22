@@ -14,7 +14,7 @@ using BLI::IndexMask;
  */
 class EventFilterInterface : public BlockStepDataAccess {
  private:
-  IndexMask m_index_mask;
+  IndexMask m_mask;
   ArrayRef<float> m_known_min_time_factors;
 
   Vector<uint> &m_filtered_pindices;
@@ -22,12 +22,12 @@ class EventFilterInterface : public BlockStepDataAccess {
 
  public:
   EventFilterInterface(BlockStepData &step_data,
-                       IndexMask index_mask,
+                       IndexMask mask,
                        ArrayRef<float> known_min_time_factors,
                        Vector<uint> &r_filtered_pindices,
                        Vector<float> &r_filtered_time_factors)
       : BlockStepDataAccess(step_data),
-        m_index_mask(index_mask),
+        m_mask(mask),
         m_known_min_time_factors(known_min_time_factors),
         m_filtered_pindices(r_filtered_pindices),
         m_filtered_time_factors(r_filtered_time_factors)
@@ -37,9 +37,9 @@ class EventFilterInterface : public BlockStepDataAccess {
   /**
    * Return the indices that should be checked.
    */
-  IndexMask index_mask()
+  IndexMask mask()
   {
-    return m_index_mask;
+    return m_mask;
   }
 
   /**

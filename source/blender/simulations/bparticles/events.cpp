@@ -14,14 +14,14 @@ void AgeReachedEvent::filter(EventFilterInterface &interface)
 {
   AttributesRef attributes = interface.attributes();
 
-  ParticleFunctionEvaluator inputs{m_inputs_fn, interface.index_mask(), interface.attributes()};
+  ParticleFunctionEvaluator inputs{m_inputs_fn, interface.mask(), interface.attributes()};
   inputs.compute();
 
   float end_time = interface.step_end_time();
   auto birth_times = attributes.get<float>("Birth Time");
   auto was_activated_before = attributes.get<bool>(m_is_triggered_attribute);
 
-  for (uint pindex : interface.index_mask().indices()) {
+  for (uint pindex : interface.mask()) {
     if (was_activated_before[pindex]) {
       continue;
     }
@@ -64,13 +64,13 @@ void CustomEvent::filter(EventFilterInterface &interface)
   FN::EventFilterEndTimeContext end_time_context = {interface.step_end_time()};
   FN::EventFilterDurationsContext durations_context = {interface.remaining_durations()};
 
-  ParticleFunctionEvaluator inputs{m_inputs_fn, interface.index_mask(), interface.attributes()};
+  ParticleFunctionEvaluator inputs{m_inputs_fn, interface.mask(), interface.attributes()};
   inputs.context_builder().add_global_context(end_time_context);
   inputs.context_builder().add_element_context(durations_context,
                                                FN::MFElementContextIndices::FromDirectMapping());
   inputs.compute();
 
-  for (uint pindex : interface.index_mask().indices()) {
+  for (uint pindex : interface.mask()) {
     bool condition = inputs.get_single<bool>("Condition", 0, pindex);
     if (condition) {
       float time_factor = inputs.get_single<float>("Time Factor", 1, pindex);
@@ -97,7 +97,7 @@ void MeshCollisionEvent::filter(EventFilterInterface &interface)
 
   uint current_update_index = interface.simulation_state().time().current_update_index();
 
-  for (uint pindex : interface.index_mask().indices()) {
+  for (uint pindex : interface.mask()) {
     if (last_collision_step[pindex] == current_update_index) {
       continue;
     }

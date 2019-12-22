@@ -29,7 +29,7 @@ static void update_position_and_velocity_offsets(ParticleActionContext &context)
   auto position_offsets = attribute_offsets.try_get<float3>("Position");
   auto velocity_offsets = attribute_offsets.try_get<float3>("Velocity");
 
-  for (uint pindex : context.pindex_mask().indices()) {
+  for (uint pindex : context.mask()) {
     float3 velocity = velocities[pindex];
 
     if (position_offsets.has_value()) {
@@ -43,11 +43,11 @@ static void update_position_and_velocity_offsets(ParticleActionContext &context)
 
 void ConditionAction::execute(ParticleActionContext &context)
 {
-  ParticleFunctionEvaluator inputs{m_inputs_fn, context.pindex_mask(), context.attributes()};
+  ParticleFunctionEvaluator inputs{m_inputs_fn, context.mask(), context.attributes()};
   inputs.compute();
 
   Vector<uint> true_pindices, false_pindices;
-  for (uint pindex : context.pindex_mask().indices()) {
+  for (uint pindex : context.mask()) {
     if (inputs.get_single<bool>("Condition", 0, pindex)) {
       true_pindices.append(pindex);
     }
@@ -71,10 +71,10 @@ void SetAttributeAction::execute(ParticleActionContext &context)
 
   GenericMutableArrayRef attribute = *attribute_opt;
 
-  ParticleFunctionEvaluator inputs{m_inputs_fn, context.pindex_mask(), context.attributes()};
+  ParticleFunctionEvaluator inputs{m_inputs_fn, context.mask(), context.attributes()};
   inputs.compute();
 
-  for (uint pindex : context.pindex_mask().indices()) {
+  for (uint pindex : context.mask()) {
     const void *value = inputs.get_single("Value", 0, pindex);
     void *dst = attribute[pindex];
     m_attribute_type.copy_to_initialized(value, dst);
@@ -90,7 +90,7 @@ using FN::MFParamType;
 
 void SpawnParticlesAction::execute(ParticleActionContext &context)
 {
-  if (context.pindex_mask().size() == 0) {
+  if (context.mask().size() == 0) {
     return;
   }
 
@@ -100,9 +100,9 @@ void SpawnParticlesAction::execute(ParticleActionContext &context)
   }
   ArrayRef<float> current_times = current_time_context->current_times;
 
-  uint array_size = context.pindex_mask().min_array_size();
+  uint array_size = context.mask().min_array_size();
 
-  ParticleFunctionEvaluator inputs{m_spawn_function, context.pindex_mask(), context.attributes()};
+  ParticleFunctionEvaluator inputs{m_spawn_function, context.mask(), context.attributes()};
   inputs.compute();
 
   LargeScopedArray<int> particle_counts(array_size, -1);
@@ -112,28 +112,28 @@ void SpawnParticlesAction::execute(ParticleActionContext &context)
     MFParamType param_type = fn.param_type(param_index);
     if (param_type.is_vector_output()) {
       FN::GenericVectorArray &vector_array = inputs.computed_vector_array(param_index);
-      for (uint i : context.pindex_mask().indices()) {
+      for (uint i : context.mask()) {
         FN::GenericArrayRef array = vector_array[i];
         particle_counts[i] = std::max<int>(particle_counts[i], array.size());
       }
     }
   }
 
-  for (uint i : context.pindex_mask().indices()) {
+  for (uint i : context.mask()) {
     if (particle_counts[i] == -1) {
       particle_counts[i] = 1;
     }
   }
 
   uint total_spawn_amount = 0;
-  for (uint i : context.pindex_mask().indices()) {
+  for (uint i : context.mask()) {
     total_spawn_amount += particle_counts[i];
   }
 
   StringMap<GenericMutableArrayRef> attribute_arrays;
 
   Vector<float> new_birth_times;
-  for (uint i : context.pindex_mask().indices()) {
+  for (uint i : context.mask()) {
     new_birth_times.append_n_times(current_times[i], particle_counts[i]);
   }
   attribute_arrays.add_new("Birth Time", new_birth_times.as_mutable_ref());
@@ -151,7 +151,7 @@ void SpawnParticlesAction::execute(ParticleActionContext &context)
         GenericArrayRef computed_array = inputs.computed_array(param_index);
 
         uint current = 0;
-        for (uint i : context.pindex_mask().indices()) {
+        for (uint i : context.mask()) {
           uint amount = particle_counts[i];
           array.slice(current, amount).fill__uninitialized(computed_array[i]);
           current += amount;
@@ -167,7 +167,7 @@ void SpawnParticlesAction::execute(ParticleActionContext &context)
         FN::GenericVectorArray &computed_vector_array = inputs.computed_vector_array(param_index);
 
         uint current = 0;
-        for (uint pindex : context.pindex_mask().indices()) {
+        for (uint pindex : context.mask()) {
           uint amount = particle_counts[pindex];
           GenericMutableArrayRef array_slice = array.slice(current, amount);
           GenericArrayRef computed_array = computed_vector_array[pindex];
@@ -212,7 +212,7 @@ void SpawnParticlesAction::execute(ParticleActionContext &context)
   attribute_arrays.foreach_key_value_pair(
       [&](StringRef attribute_name, GenericMutableArrayRef array) {
         if (attribute_name != "Birth Time") {
-          array.destruct_indices(context.pindex_mask().indices());
+          array.destruct_indices(context.mask());
           MEM_freeN(array.buffer());
         }
       });

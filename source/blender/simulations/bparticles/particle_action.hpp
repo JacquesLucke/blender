@@ -15,7 +15,7 @@ using BLI::IndexMask;
 class ParticleActionContext {
  private:
   ParticleAllocator &m_particle_allocator;
-  IndexMask m_pindex_mask;
+  IndexMask m_mask;
   AttributesRef m_attributes;
 
   ArrayRef<BLI::class_id_t> m_custom_context_ids;
@@ -23,12 +23,12 @@ class ParticleActionContext {
 
  public:
   ParticleActionContext(ParticleAllocator &particle_allocator,
-                        IndexMask pindex_mask,
+                        IndexMask mask,
                         AttributesRef attributes,
                         ArrayRef<BLI::class_id_t> custom_context_ids,
                         ArrayRef<void *> custom_contexts)
       : m_particle_allocator(particle_allocator),
-        m_pindex_mask(pindex_mask),
+        m_mask(mask),
         m_attributes(attributes),
         m_custom_context_ids(custom_context_ids),
         m_custom_contexts(custom_contexts)
@@ -51,9 +51,9 @@ class ParticleActionContext {
     return m_particle_allocator;
   }
 
-  IndexMask pindex_mask() const
+  IndexMask mask() const
   {
-    return m_pindex_mask;
+    return m_mask;
   }
 
   AttributesRef attributes()
@@ -87,7 +87,7 @@ class ParticleAction {
   void execute_for_new_particles(AttributesRefGroup &new_particles,
                                  OffsetHandlerInterface &offset_handler_interface);
   void execute_from_event(EventExecuteInterface &event_interface);
-  void execute_for_subset(IndexMask pindex_mask, ParticleActionContext &parent_context);
+  void execute_for_subset(IndexMask mask, ParticleActionContext &parent_context);
   void execute_from_offset_handler(OffsetHandlerInterface &offset_handler_interface);
 };
 
