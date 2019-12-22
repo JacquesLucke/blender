@@ -22,7 +22,7 @@ void CreateTrailHandler::execute(OffsetHandlerInterface &interface)
       continue;
     }
 
-    TimeSpan time_span = interface.time_span(pindex);
+    FloatInterval time_span = interface.time_span(pindex);
 
     rgba_f color = colors[pindex];
 
@@ -31,7 +31,7 @@ void CreateTrailHandler::execute(OffsetHandlerInterface &interface)
 
     float3 total_offset = position_offsets[pindex] * interface.time_factors()[pindex];
     for (float factor = factor_start; factor < 1.0f; factor += factor_step) {
-      float time = time_span.interpolate(factor);
+      float time = time_span.value_at(factor);
       new_positions.append(positions[pindex] + total_offset * factor);
       new_birth_times.append(time);
       new_colors.append(color);
@@ -60,14 +60,14 @@ void SizeOverTimeHandler::execute(OffsetHandlerInterface &interface)
     float final_size = inputs.get_single<float>("Final Size", 0, pindex);
     float final_age = inputs.get_single<float>("Final Age", 1, pindex);
 
-    TimeSpan time_span = interface.time_span(pindex);
+    FloatInterval time_span = interface.time_span(pindex);
     float age = time_span.start() - birth_times[pindex];
     float time_until_end = final_age - age;
     if (time_until_end <= 0.0f) {
       continue;
     }
 
-    float factor = std::min(time_span.duration() / time_until_end, 1.0f);
+    float factor = std::min(time_span.size() / time_until_end, 1.0f);
     float new_size = final_size * factor + sizes[pindex] * (1.0f - factor);
     sizes[pindex] = new_size;
   }

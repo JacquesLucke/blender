@@ -2,7 +2,6 @@
 
 #include "particle_allocator.hpp"
 #include "simulation_state.hpp"
-#include "time_span.hpp"
 
 namespace BParticles {
 
@@ -10,12 +9,12 @@ class EmitterInterface {
  private:
   SimulationState &m_simulation_state;
   ParticleAllocator &m_particle_allocator;
-  TimeSpan m_time_span;
+  FloatInterval m_time_span;
 
  public:
   EmitterInterface(SimulationState &simulation_state,
                    ParticleAllocator &particle_allocator,
-                   TimeSpan time_span)
+                   FloatInterval time_span)
       : m_simulation_state(simulation_state),
         m_particle_allocator(particle_allocator),
         m_time_span(time_span)
@@ -32,7 +31,7 @@ class EmitterInterface {
   /**
    * Time span that new particles should be emitted in.
    */
-  TimeSpan time_span()
+  FloatInterval time_span()
   {
     return m_time_span;
   }

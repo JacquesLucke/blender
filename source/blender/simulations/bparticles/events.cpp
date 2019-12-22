@@ -31,14 +31,14 @@ void AgeReachedEvent::filter(EventFilterInterface &interface)
     float age_at_end = end_time - birth_time;
 
     if (age_at_end >= trigger_age) {
-      TimeSpan time_span = interface.time_span(pindex);
+      FloatInterval time_span = interface.time_span(pindex);
 
-      float age_at_start = age_at_end - time_span.duration();
+      float age_at_start = age_at_end - time_span.size();
       if (trigger_age < age_at_start) {
         interface.trigger_particle(pindex, 0.0f);
       }
       else {
-        float time_factor = time_span.get_factor_safe(birth_time + trigger_age);
+        float time_factor = time_span.safe_factor_of(birth_time + trigger_age);
         CLAMP(time_factor, 0.0f, 1.0f);
         interface.trigger_particle(pindex, time_factor);
       }

@@ -1,10 +1,13 @@
 #pragma once
 
+#include "BLI_float_interval.h"
+
 #include "particles_state.hpp"
 #include "world_state.hpp"
-#include "time_span.hpp"
 
 namespace BParticles {
+
+using BLI::FloatInterval;
 
 class SimulationTimeState {
  private:
@@ -20,10 +23,10 @@ class SimulationTimeState {
     return m_is_updating;
   }
 
-  TimeSpan current_update_time() const
+  FloatInterval current_update_time() const
   {
     BLI_assert(m_is_updating);
-    return TimeSpan(m_update_start_time, m_update_duration);
+    return FloatInterval(m_update_start_time, m_update_duration);
   }
 
   uint current_update_index() const

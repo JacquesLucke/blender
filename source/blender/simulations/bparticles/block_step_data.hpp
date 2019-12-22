@@ -1,11 +1,14 @@
 #pragma once
 
 #include "FN_attributes_ref.h"
-#include "time_span.hpp"
+
+#include "BLI_float_interval.h"
+
 #include "simulation_state.hpp"
 
 namespace BParticles {
 
+using BLI::FloatInterval;
 using FN::AttributesRef;
 
 struct BlockStepData {
@@ -65,10 +68,10 @@ class BlockStepDataAccess {
     return m_step_data.step_end_time;
   }
 
-  TimeSpan time_span(uint pindex)
+  FloatInterval time_span(uint pindex)
   {
     float duration = m_step_data.remaining_durations[pindex];
-    return TimeSpan(m_step_data.step_end_time - duration, duration);
+    return FloatInterval(m_step_data.step_end_time - duration, duration);
   }
 };
 

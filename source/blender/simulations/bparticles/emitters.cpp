@@ -39,7 +39,7 @@ void PointEmitter::emit(EmitterInterface &interface)
     new_positions[i] = m_position.interpolate(t);
     new_velocities[i] = m_velocity.interpolate(t);
     new_sizes[i] = m_size.interpolate(t);
-    birth_times[i] = interface.time_span().interpolate(t);
+    birth_times[i] = interface.time_span().value_at(t);
   }
 
   for (StringRef type : m_systems_to_emit) {
@@ -297,14 +297,14 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
     float3 position_before_birth = transforms_before_birth[i].transform_position(
         local_positions[i]);
     surface_velocities[i] = (positions_at_birth[i] - position_before_birth) / epsilon /
-                            interface.time_span().duration();
+                            interface.time_span().size();
   }
 
   LargeScopedArray<float3> world_normals(particles_to_emit);
   float4x4::transform_directions(transforms_at_birth, local_normals, world_normals);
 
   LargeScopedArray<float> birth_times(particles_to_emit);
-  interface.time_span().interpolate(birth_moments, birth_times);
+  interface.time_span().value_at(birth_moments, birth_times);
 
   LargeScopedArray<SurfaceHook> emit_hooks(particles_to_emit);
   BKE::ObjectIDHandle object_handle(m_object);
@@ -378,11 +378,11 @@ void CustomEmitter::emit(EmitterInterface &interface)
     }
   }
 
-  TimeSpan time_span = interface.time_span();
+  FloatInterval time_span = interface.time_span();
   FN::EmitterTimeInfoContext time_context;
   time_context.begin = time_span.start();
   time_context.end = time_span.end();
-  time_context.duration = time_span.duration();
+  time_context.duration = time_span.size();
   time_context.step = interface.time_step();
 
   FN::MFContextBuilder context_builder;
@@ -427,7 +427,7 @@ void CustomEmitter::emit(EmitterInterface &interface)
       case BirthTimeModes::Random: {
         LargeScopedArray<float> birth_times(new_particles.total_size());
         for (uint i = 0; i < particle_count; i++) {
-          birth_times[i] = time_span.interpolate(random_float());
+          birth_times[i] = time_span.value_at(random_float());
         }
         new_particles.set<float>("Birth Time", birth_times);
         break;

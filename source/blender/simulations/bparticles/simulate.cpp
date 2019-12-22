@@ -7,7 +7,6 @@
 #include "FN_cpp_type.h"
 
 #include "simulate.hpp"
-#include "time_span.hpp"
 
 // #ifdef WITH_TBB
 #include "tbb/tbb.h"
@@ -348,7 +347,7 @@ BLI_NOINLINE static void simulate_blocks_for_time_span(
     ParticleAllocator &particle_allocator,
     ArrayRef<AttributesBlock *> blocks,
     StringMap<ParticleSystemInfo> &systems_to_simulate,
-    TimeSpan time_span,
+    FloatInterval time_span,
     SimulationState &simulation_state)
 {
   tbb::parallel_for((uint)0, blocks.size(), [&](uint block_index) {
@@ -359,7 +358,7 @@ BLI_NOINLINE static void simulate_blocks_for_time_span(
     ParticleSystemInfo &system_info = systems_to_simulate.lookup(particle_system_name);
 
     LargeScopedArray<float> remaining_durations(block.used_size());
-    remaining_durations.fill(time_span.duration());
+    remaining_durations.fill(time_span.size());
 
     simulate_particle_chunk(simulation_state,
                             particle_allocator,
@@ -432,7 +431,7 @@ BLI_NOINLINE static void simulate_all_existing_blocks(
     SimulationState &simulation_state,
     StringMap<ParticleSystemInfo> &systems_to_simulate,
     ParticleAllocator &particle_allocator,
-    TimeSpan time_span)
+    FloatInterval time_span)
 {
   Vector<AttributesBlock *> blocks = get_all_blocks_to_simulate(simulation_state.particles(),
                                                                 systems_to_simulate);
@@ -443,7 +442,7 @@ BLI_NOINLINE static void simulate_all_existing_blocks(
 BLI_NOINLINE static void create_particles_from_emitters(SimulationState &simulation_state,
                                                         ParticleAllocator &particle_allocator,
                                                         ArrayRef<Emitter *> emitters,
-                                                        TimeSpan time_span)
+                                                        FloatInterval time_span)
 {
   for (Emitter *emitter : emitters) {
     EmitterInterface interface(simulation_state, particle_allocator, time_span);
@@ -458,7 +457,7 @@ void simulate_particles(SimulationState &simulation_state,
   SCOPED_TIMER(__func__);
 
   ParticlesState &particles_state = simulation_state.particles();
-  TimeSpan simulation_time_span = simulation_state.time().current_update_time();
+  FloatInterval simulation_time_span = simulation_state.time().current_update_time();
 
   Vector<AttributesBlock *> newly_created_blocks;
   {
