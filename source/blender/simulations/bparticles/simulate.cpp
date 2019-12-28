@@ -8,9 +8,10 @@
 
 #include "simulate.hpp"
 
-// #ifdef WITH_TBB
-#include "tbb/tbb.h"
-// #endif
+#ifdef WITH_TBB
+#  define TBB_SUPPRESS_DEPRECATED_MESSAGES 1
+#  include "tbb/tbb.h"
+#endif
 
 namespace BParticles {
 
@@ -350,7 +351,7 @@ BLI_NOINLINE static void simulate_blocks_for_time_span(
     FloatInterval time_span,
     SimulationState &simulation_state)
 {
-  tbb::parallel_for((uint)0, blocks.size(), [&](uint block_index) {
+  auto func = [&](uint block_index) {
     AttributesBlock &block = *blocks[block_index];
 
     StringRef particle_system_name = simulation_state.particles().particle_container_name(
@@ -368,7 +369,15 @@ BLI_NOINLINE static void simulate_blocks_for_time_span(
                             time_span.end());
 
     delete_tagged_particles_and_reorder(block);
-  });
+  };
+
+#ifdef WITH_TBB
+  tbb::parallel_for((uint)0, blocks.size(), func);
+#else
+  for (uint i : blocks.index_iterator()) {
+    func(i);
+  }
+#endif
 }
 
 BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
@@ -378,7 +387,7 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
     float end_time,
     SimulationState &simulation_state)
 {
-  tbb::parallel_for((uint)0, blocks.size(), [&](uint block_index) {
+  auto func = [&](uint block_index) {
     AttributesBlock &block = *blocks[block_index];
 
     StringRef particle_system_name = simulation_state.particles().particle_container_name(
@@ -395,7 +404,15 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
         simulation_state, particle_allocator, block.as_ref(), system_info, durations, end_time);
 
     delete_tagged_particles_and_reorder(block);
-  });
+  };
+
+#ifdef WITH_TBB
+  tbb::parallel_for((uint)0, blocks.size(), func);
+#else
+  for (uint i : blocks.index_iterator()) {
+    func(i);
+  }
+#endif
 }
 
 BLI_NOINLINE static Vector<AttributesBlock *> get_all_blocks_to_simulate(
@@ -462,6 +479,7 @@ void simulate_particles(SimulationState &simulation_state,
   Vector<AttributesBlock *> newly_created_blocks;
   {
     ParticleAllocator particle_allocator(particles_state);
+#ifdef WITH_TBB
     tbb::parallel_invoke(
         [&]() {
           simulate_all_existing_blocks(
@@ -471,6 +489,12 @@ void simulate_particles(SimulationState &simulation_state,
           create_particles_from_emitters(
               simulation_state, particle_allocator, emitters, simulation_time_span);
         });
+#else
+    simulate_all_existing_blocks(
+        simulation_state, systems_to_simulate, particle_allocator, simulation_time_span);
+    create_particles_from_emitters(
+        simulation_state, particle_allocator, emitters, simulation_time_span);
+#endif
     newly_created_blocks = particle_allocator.allocated_blocks();
   }
 
