@@ -19,7 +19,7 @@
 
 #ifdef WITH_TBB
 #  define TBB_SUPPRESS_DEPRECATED_MESSAGES 1
-#  include "tbb/tbb.h"
+#  include "tbb/parallel_for.h"
 #endif
 
 #define WRAPPERS(T1, T2) \
