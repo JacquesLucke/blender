@@ -4,6 +4,7 @@
 
 #include "BKE_mesh.h"
 #include "BKE_modifier.h"
+#include "BKE_id_data_cache.h"
 
 #include "BLI_math.h"
 
@@ -59,9 +60,12 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
   BKE::IDHandleLookup id_handle_lookup;
   FN::add_ids_used_by_nodes(id_handle_lookup, inlined_tree);
 
+  BKE::IDDataCache id_data_cache;
+
   FN::MFContextBuilder context_builder;
   context_builder.add_global_context(id_handle_lookup);
   context_builder.add_global_context(time_context);
+  context_builder.add_global_context(id_data_cache);
 
   function->call(BLI::IndexMask(1), params_builder, context_builder);
 
