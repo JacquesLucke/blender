@@ -171,7 +171,7 @@ vectorize_function_1in_1out(FuncT func)
     }
     else if (inputs.is_single_element()) {
       InT in_single = inputs.as_single_element();
-      outputs.fill_indices(mask.indices(), in_single);
+      outputs.fill_indices(mask.indices(), func(in_single));
     }
     else {
       mask.foreach_index([=](uint i) { outputs[i] = func(inputs[i]); });
