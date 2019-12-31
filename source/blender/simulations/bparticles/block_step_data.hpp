@@ -10,11 +10,12 @@ namespace BParticles {
 
 using BLI::FloatInterval;
 using FN::AttributesRef;
+using FN::MutableAttributesRef;
 
 struct BlockStepData {
   SimulationState &simulation_state;
-  AttributesRef attributes;
-  AttributesRef attribute_offsets;
+  MutableAttributesRef attributes;
+  MutableAttributesRef attribute_offsets;
   MutableArrayRef<float> remaining_durations;
   float step_end_time;
 
@@ -48,12 +49,12 @@ class BlockStepDataAccess {
     return m_step_data;
   }
 
-  AttributesRef attributes()
+  MutableAttributesRef attributes()
   {
     return m_step_data.attributes;
   }
 
-  AttributesRef attribute_offsets()
+  MutableAttributesRef attribute_offsets()
   {
     return m_step_data.attribute_offsets;
   }

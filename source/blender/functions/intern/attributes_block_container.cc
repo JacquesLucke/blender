@@ -108,10 +108,11 @@ void AttributesBlock::MoveUntilFull(AttributesBlock &from, AttributesBlock &to)
     return;
   }
 
-  AttributesRef from_ref = from.as_ref__all().slice(from.used_size() - move_amount, move_amount);
-  AttributesRef to_ref = to.as_ref__all().slice(to.used_size(), move_amount);
+  MutableAttributesRef from_ref = from.as_ref__all().slice(from.used_size() - move_amount,
+                                                           move_amount);
+  MutableAttributesRef to_ref = to.as_ref__all().slice(to.used_size(), move_amount);
 
-  AttributesRef::RelocateUninitialized(from_ref, to_ref);
+  MutableAttributesRef::RelocateUninitialized(from_ref, to_ref);
 
   from.set_used_size(from.used_size() - move_amount);
   to.set_used_size(to.used_size() + move_amount);

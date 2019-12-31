@@ -19,6 +19,7 @@ using FN::AttributesBlock;
 using FN::AttributesBlockContainer;
 using FN::AttributesInfo;
 using FN::AttributesRef;
+using FN::MutableAttributesRef;
 
 class ParticlesState {
  private:

@@ -101,14 +101,14 @@ class AttributesBlock : BLI::NonCopyable, BLI::NonMovable {
     return m_owner;
   }
 
-  AttributesRef as_ref()
+  MutableAttributesRef as_ref()
   {
-    return AttributesRef(m_owner.info(), m_buffers, m_used_size);
+    return MutableAttributesRef(m_owner.info(), m_buffers, m_used_size);
   }
 
-  AttributesRef as_ref__all()
+  MutableAttributesRef as_ref__all()
   {
-    return AttributesRef(m_owner.info(), m_buffers, this->capacity());
+    return MutableAttributesRef(m_owner.info(), m_buffers, this->capacity());
   }
 
   ArrayRef<void *> buffers()

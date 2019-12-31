@@ -44,7 +44,7 @@ void ParticleAllocator::initialize_new_particles(AttributesRefGroup &attributes_
 {
   const AttributesInfo &info = attributes_group.info();
 
-  for (AttributesRef attributes : attributes_group) {
+  for (MutableAttributesRef attributes : attributes_group) {
     for (uint i : info.indices()) {
       StringRef attribute_name = info.name_of(i);
       const void *default_value = info.default_of(attribute_name);

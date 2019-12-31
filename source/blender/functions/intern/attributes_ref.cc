@@ -47,7 +47,7 @@ AttributesInfo::~AttributesInfo()
   }
 }
 
-void AttributesRef::destruct_and_reorder(IndexMask index_mask)
+void MutableAttributesRef::destruct_and_reorder(IndexMask index_mask)
 {
 #ifdef DEBUG
   BLI_assert(index_mask.size() <= m_range.size());
@@ -77,7 +77,8 @@ void AttributesRef::destruct_and_reorder(IndexMask index_mask)
   }
 }
 
-void AttributesRef::RelocateUninitialized(AttributesRef from, AttributesRef to)
+void MutableAttributesRef::RelocateUninitialized(MutableAttributesRef from,
+                                                 MutableAttributesRef to)
 {
   BLI_assert(from.size() == to.size());
   BLI_assert(&from.info() == &to.info());

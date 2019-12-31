@@ -15,7 +15,7 @@ ParticleAction::~ParticleAction()
 void ParticleAction::execute_from_emitter(AttributesRefGroup &new_particles,
                                           EmitterInterface &emitter_interface)
 {
-  for (AttributesRef attributes : new_particles) {
+  for (MutableAttributesRef attributes : new_particles) {
     ParticleCurrentTimesContext current_times_context;
     current_times_context.current_times = attributes.get<float>("Birth Time");
 
@@ -32,7 +32,7 @@ void ParticleAction::execute_for_new_particles(AttributesRefGroup &new_particles
                                                ParticleActionContext &parent_context)
 {
 
-  for (AttributesRef attributes : new_particles) {
+  for (MutableAttributesRef attributes : new_particles) {
     ParticleCurrentTimesContext current_times_context;
     current_times_context.current_times = attributes.get<float>("Birth Time");
 
@@ -48,7 +48,7 @@ void ParticleAction::execute_for_new_particles(AttributesRefGroup &new_particles
 void ParticleAction::execute_for_new_particles(AttributesRefGroup &new_particles,
                                                OffsetHandlerInterface &offset_handler_interface)
 {
-  for (AttributesRef attributes : new_particles) {
+  for (MutableAttributesRef attributes : new_particles) {
     ParticleCurrentTimesContext current_times_context;
     current_times_context.current_times = attributes.get<float>("Birth Time");
 

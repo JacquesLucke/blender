@@ -88,7 +88,9 @@ BLI_NOINLINE static void forward_particles_to_next_event_or_end(
 }
 
 BLI_NOINLINE static void update_remaining_attribute_offsets(
-    IndexMask mask, ArrayRef<float> time_factors_to_next_event, AttributesRef attribute_offsets)
+    IndexMask mask,
+    ArrayRef<float> time_factors_to_next_event,
+    MutableAttributesRef attribute_offsets)
 {
   for (uint attribute_index : attribute_offsets.info().indices()) {
     /* Only vectors can be integrated for now. */
@@ -285,7 +287,7 @@ BLI_NOINLINE static void apply_remaining_offsets(BlockStepData &step_data,
 
 BLI_NOINLINE static void simulate_particle_chunk(SimulationState &simulation_state,
                                                  ParticleAllocator &particle_allocator,
-                                                 AttributesRef attributes,
+                                                 MutableAttributesRef attributes,
                                                  ParticleSystemInfo &system_info,
                                                  MutableArrayRef<float> remaining_durations,
                                                  float end_time)
@@ -300,7 +302,7 @@ BLI_NOINLINE static void simulate_particle_chunk(SimulationState &simulation_sta
     void *ptr = BLI_temporary_allocate(type->size() * amount);
     offset_buffers.append(ptr);
   }
-  AttributesRef attribute_offsets(offsets_info, offset_buffers, amount);
+  MutableAttributesRef attribute_offsets(offsets_info, offset_buffers, amount);
 
   BlockStepData step_data = {
       simulation_state, attributes, attribute_offsets, remaining_durations, end_time};

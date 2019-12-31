@@ -30,12 +30,12 @@ void MF_ParticleAttribute::call(IndexMask mask, MFParams params, MFContext conte
 
   group_indices_by_same_value(
       mask, attribute_names, [&](StringRef attribute_name, IndexMask indices_with_same_name) {
-        Optional<GenericMutableArrayRef> opt_array = attributes.try_get(attribute_name, m_type);
+        Optional<GenericArrayRef> opt_array = attributes.try_get(attribute_name, m_type);
         if (!opt_array.has_value()) {
           r_values.default_initialize(indices_with_same_name);
           return;
         }
-        GenericMutableArrayRef array = opt_array.value();
+        GenericArrayRef array = opt_array.value();
         if (element_indices.is_direct_mapping()) {
           m_type.copy_to_uninitialized_indices(
               array.buffer(), r_values.buffer(), indices_with_same_name);

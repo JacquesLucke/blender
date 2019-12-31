@@ -16,7 +16,7 @@ class ParticleActionContext {
  private:
   ParticleAllocator &m_particle_allocator;
   IndexMask m_mask;
-  AttributesRef m_attributes;
+  MutableAttributesRef m_attributes;
 
   ArrayRef<BLI::class_id_t> m_custom_context_ids;
   ArrayRef<void *> m_custom_contexts;
@@ -24,7 +24,7 @@ class ParticleActionContext {
  public:
   ParticleActionContext(ParticleAllocator &particle_allocator,
                         IndexMask mask,
-                        AttributesRef attributes,
+                        MutableAttributesRef attributes,
                         ArrayRef<BLI::class_id_t> custom_context_ids,
                         ArrayRef<void *> custom_contexts)
       : m_particle_allocator(particle_allocator),
@@ -56,7 +56,7 @@ class ParticleActionContext {
     return m_mask;
   }
 
-  AttributesRef attributes()
+  MutableAttributesRef attributes()
   {
     return m_attributes;
   }
@@ -96,7 +96,7 @@ struct ParticleCurrentTimesContext {
 };
 
 struct ParticleIntegratedOffsets {
-  AttributesRef offsets;
+  MutableAttributesRef offsets;
 };
 
 struct ParticleRemainingTimeInStep {

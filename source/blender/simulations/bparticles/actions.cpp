@@ -22,7 +22,7 @@ static void update_position_and_velocity_offsets(ParticleActionContext &context)
   }
 
   AttributesRef attributes = context.attributes();
-  AttributesRef attribute_offsets = offsets_context->offsets;
+  MutableAttributesRef attribute_offsets = offsets_context->offsets;
   ArrayRef<float> remaining_times = remaining_times_context->remaining_times;
 
   auto velocities = attributes.get<float3>("Velocity");

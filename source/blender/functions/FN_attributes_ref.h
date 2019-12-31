@@ -186,19 +186,21 @@ class AttributesInfo : BLI::NonCopyable, BLI::NonMovable {
   }
 };
 
-class AttributesRef {
+class MutableAttributesRef {
  private:
   const AttributesInfo *m_info;
   ArrayRef<void *> m_buffers;
   IndexRange m_range;
 
+  friend class AttributesRef;
+
  public:
-  AttributesRef(const AttributesInfo &info, ArrayRef<void *> buffers, uint size)
-      : AttributesRef(info, buffers, IndexRange(size))
+  MutableAttributesRef(const AttributesInfo &info, ArrayRef<void *> buffers, uint size)
+      : MutableAttributesRef(info, buffers, IndexRange(size))
   {
   }
 
-  AttributesRef(const AttributesInfo &info, ArrayRef<void *> buffers, IndexRange range)
+  MutableAttributesRef(const AttributesInfo &info, ArrayRef<void *> buffers, IndexRange range)
       : m_info(&info), m_buffers(buffers), m_range(range)
   {
   }
@@ -258,24 +260,105 @@ class AttributesRef {
     }
   }
 
-  AttributesRef slice(IndexRange range) const
+  MutableAttributesRef slice(IndexRange range) const
   {
     return this->slice(range.start(), range.size());
   }
 
-  AttributesRef slice(uint start, uint size) const
+  MutableAttributesRef slice(uint start, uint size) const
   {
-    return AttributesRef(*m_info, m_buffers, m_range.slice(start, size));
+    return MutableAttributesRef(*m_info, m_buffers, m_range.slice(start, size));
   }
 
-  AttributesRef take_front(uint n) const
+  MutableAttributesRef take_front(uint n) const
   {
     return this->slice(0, n);
   }
 
   void destruct_and_reorder(IndexMask indices_to_destruct);
 
-  static void RelocateUninitialized(AttributesRef from, AttributesRef to);
+  static void RelocateUninitialized(MutableAttributesRef from, MutableAttributesRef to);
+};
+
+class AttributesRef {
+ private:
+  mutable MutableAttributesRef m_ref;
+
+ public:
+  AttributesRef(const AttributesInfo &info, ArrayRef<void *> buffers, uint size)
+      : m_ref(info, buffers, IndexRange(size))
+  {
+  }
+
+  AttributesRef(const AttributesInfo &info, ArrayRef<void *> buffers, IndexRange range)
+      : m_ref(info, buffers, range)
+  {
+  }
+
+  AttributesRef(MutableAttributesRef ref) : m_ref(ref)
+  {
+  }
+
+  uint size() const
+  {
+    return m_ref.size();
+  }
+
+  const AttributesInfo &info() const
+  {
+    return m_ref.info();
+  }
+
+  GenericArrayRef get(uint index) const
+  {
+    return m_ref.get(index);
+  }
+
+  GenericArrayRef get(StringRef name) const
+  {
+    return m_ref.get(name);
+  }
+
+  template<typename T> ArrayRef<T> get(uint index) const
+  {
+    return m_ref.get<T>(index);
+  }
+
+  template<typename T> ArrayRef<T> get(StringRef name) const
+  {
+    return m_ref.get<T>(name);
+  }
+
+  Optional<GenericArrayRef> try_get(StringRef name, const CPPType &type) const
+  {
+    Optional<GenericMutableArrayRef> array = m_ref.try_get(name, type);
+    if (array.has_value()) {
+      return GenericArrayRef(array.value());
+    }
+    else {
+      return {};
+    }
+  }
+
+  template<typename T> Optional<ArrayRef<T>> try_get(StringRef name)
+  {
+    return m_ref.try_get<T>(name);
+  }
+
+  AttributesRef slice(IndexRange range) const
+  {
+    return m_ref.slice(range);
+  }
+
+  AttributesRef slice(uint start, uint size) const
+  {
+    return m_ref.slice(start, size);
+  }
+
+  AttributesRef take_front(uint n) const
+  {
+    return this->slice(0, n);
+  }
 };
 
 class AttributesRefGroup {
@@ -301,7 +384,7 @@ class AttributesRefGroup {
     BLI_assert(m_info->type_of(index) == CPP_TYPE<T>());
 
     uint offset = 0;
-    for (AttributesRef attributes : *this) {
+    for (MutableAttributesRef attributes : *this) {
       MutableArrayRef<T> array = attributes.get<T>(index);
       array.copy_from(data.slice(offset, array.size()));
       offset += array.size();
@@ -319,7 +402,7 @@ class AttributesRefGroup {
     BLI_assert(m_info->type_of(index) == data.type());
 
     uint offset = 0;
-    for (AttributesRef attributes : *this) {
+    for (MutableAttributesRef attributes : *this) {
       GenericMutableArrayRef array = attributes.get(index);
       array.type().copy_to_initialized_n(data[offset], array[0], attributes.size());
       offset += attributes.size();
@@ -361,7 +444,7 @@ class AttributesRefGroup {
     BLI_assert(m_info->type_of(index) == data.type());
 
     uint src_index = 0;
-    for (AttributesRef attributes : *this) {
+    for (MutableAttributesRef attributes : *this) {
       GenericMutableArrayRef array = attributes.get(index);
 
       for (uint i = 0; i < attributes.size(); i++) {
@@ -383,7 +466,7 @@ class AttributesRefGroup {
   {
     BLI_assert(m_info->type_of(index) == CPP_TYPE<T>());
 
-    for (AttributesRef attributes : *this) {
+    for (MutableAttributesRef attributes : *this) {
       MutableArrayRef<T> array = attributes.get<T>(index);
       array.fill(value);
     }
@@ -399,7 +482,7 @@ class AttributesRefGroup {
     BLI_assert(m_info->type_of(index) == type);
     UNUSED_VARS_NDEBUG(type);
 
-    for (AttributesRef attributes : *this) {
+    for (MutableAttributesRef attributes : *this) {
       GenericMutableArrayRef array = attributes.get(index);
       array.fill__initialized(value);
     }
@@ -431,9 +514,9 @@ class AttributesRefGroup {
       return *this;
     }
 
-    AttributesRef operator*()
+    MutableAttributesRef operator*()
     {
-      return AttributesRef(
+      return MutableAttributesRef(
           *m_group->m_info, m_group->m_buffers[m_current], m_group->m_ranges[m_current]);
     }
 

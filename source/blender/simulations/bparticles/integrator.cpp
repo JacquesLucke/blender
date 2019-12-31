@@ -46,7 +46,7 @@ const AttributesInfo &EulerIntegrator::offset_attributes_info()
 
 void EulerIntegrator::integrate(IntegratorInterface &interface)
 {
-  AttributesRef r_offsets = interface.attribute_offsets();
+  MutableAttributesRef r_offsets = interface.attribute_offsets();
   ArrayRef<float> durations = interface.remaining_durations();
 
   LargeScopedArray<float3> combined_force(interface.array_size());
