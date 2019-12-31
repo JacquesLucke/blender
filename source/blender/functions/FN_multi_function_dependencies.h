@@ -12,18 +12,18 @@ namespace FN {
 
 using BLI::Set;
 
-inline Set<Object *> get_objects_used_by_sockets(const InlinedNodeTree &inlined_tree)
+inline Set<Object *> get_objects_used_by_sockets(const FunctionNodeTree &function_tree)
 {
   Set<Object *> objects;
-  for (const XSocket *xsocket : inlined_tree.all_sockets()) {
-    if (xsocket->idname() == "fn_ObjectSocket") {
-      Object *object = (Object *)RNA_pointer_get(xsocket->rna(), "value").data;
+  for (const FSocket *fsocket : function_tree.all_sockets()) {
+    if (fsocket->idname() == "fn_ObjectSocket") {
+      Object *object = (Object *)RNA_pointer_get(fsocket->rna(), "value").data;
       if (object != nullptr) {
         objects.add(object);
       }
     }
   }
-  for (const XGroupInput *group_input : inlined_tree.all_group_inputs()) {
+  for (const FGroupInput *group_input : function_tree.all_group_inputs()) {
     if (group_input->vsocket().idname() == "fn_ObjectSocket") {
       Object *object = (Object *)RNA_pointer_get(group_input->vsocket().rna(), "value").data;
       if (object != nullptr) {
@@ -34,18 +34,18 @@ inline Set<Object *> get_objects_used_by_sockets(const InlinedNodeTree &inlined_
   return objects;
 }
 
-inline Set<Image *> get_images_used_by_sockets(const InlinedNodeTree &inlined_tree)
+inline Set<Image *> get_images_used_by_sockets(const FunctionNodeTree &function_tree)
 {
   Set<Image *> images;
-  for (const XSocket *xsocket : inlined_tree.all_sockets()) {
-    if (xsocket->idname() == "fn_ImageSocket") {
-      Image *image = (Image *)RNA_pointer_get(xsocket->rna(), "value").data;
+  for (const FSocket *fsocket : function_tree.all_sockets()) {
+    if (fsocket->idname() == "fn_ImageSocket") {
+      Image *image = (Image *)RNA_pointer_get(fsocket->rna(), "value").data;
       if (image != nullptr) {
         images.add(image);
       }
     }
   }
-  for (const XGroupInput *group_input : inlined_tree.all_group_inputs()) {
+  for (const FGroupInput *group_input : function_tree.all_group_inputs()) {
     if (group_input->vsocket().idname() == "fn_ImageSocket") {
       Image *image = (Image *)RNA_pointer_get(group_input->vsocket().rna(), "value").data;
       if (image != nullptr) {
@@ -57,12 +57,12 @@ inline Set<Image *> get_images_used_by_sockets(const InlinedNodeTree &inlined_tr
 }
 
 inline void add_ids_used_by_nodes(IDHandleLookup &id_handle_lookup,
-                                  const InlinedNodeTree &inlined_tree)
+                                  const FunctionNodeTree &function_tree)
 {
-  for (Object *object : get_objects_used_by_sockets(inlined_tree)) {
+  for (Object *object : get_objects_used_by_sockets(function_tree)) {
     id_handle_lookup.add(object->id);
   }
-  for (Image *image : get_images_used_by_sockets(inlined_tree)) {
+  for (Image *image : get_images_used_by_sockets(function_tree)) {
     id_handle_lookup.add(image->id);
   }
 }

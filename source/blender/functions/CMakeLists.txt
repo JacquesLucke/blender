@@ -30,11 +30,11 @@ set(SRC
   intern/multi_functions/sampling_util.cc
   intern/multi_functions/surface_hook.cc
   intern/multi_functions/vectorize.cc
-  intern/inlined_tree_multi_function_network/builder.cc
-  intern/inlined_tree_multi_function_network/generate.cc
-  intern/inlined_tree_multi_function_network/mappings_nodes.cc
-  intern/inlined_tree_multi_function_network/mappings_sockets.cc
-  intern/inlined_tree_multi_function_network/mappings.cc
+  intern/node_tree_multi_function_network/builder.cc
+  intern/node_tree_multi_function_network/generate.cc
+  intern/node_tree_multi_function_network/mappings_nodes.cc
+  intern/node_tree_multi_function_network/mappings_sockets.cc
+  intern/node_tree_multi_function_network/mappings.cc
   intern/attributes_block_container.cc
   intern/attributes_ref.cc
   intern/cpp_type.cc
@@ -64,8 +64,8 @@ set(SRC
   FN_multi_function_param_type.h
   FN_multi_function.h
   FN_multi_functions.h
-  FN_inlined_tree_multi_function_network_generation.h
-  FN_inlined_tree_multi_function_network.h
+  FN_node_tree_multi_function_network_generation.h
+  FN_node_tree_multi_function_network.h
   FN_node_tree.h
 
   intern/multi_functions/customizable.h
@@ -77,8 +77,8 @@ set(SRC
   intern/multi_functions/surface_hook.h
   intern/multi_functions/util.h
   intern/multi_functions/vectorize.h
-  intern/inlined_tree_multi_function_network/builder.h
-  intern/inlined_tree_multi_function_network/mappings.h
+  intern/node_tree_multi_function_network/builder.h
+  intern/node_tree_multi_function_network/mappings.h
   intern/cpp_types.h
 )
 

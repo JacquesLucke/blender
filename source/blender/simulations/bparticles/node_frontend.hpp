@@ -7,7 +7,7 @@
 
 namespace BParticles {
 
-using FN::InlinedNodeTree;
+using FN::FunctionNodeTree;
 
 std::unique_ptr<StepSimulator> simulator_from_node_tree(bNodeTree *btree);
 

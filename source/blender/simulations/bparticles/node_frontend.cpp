@@ -13,7 +13,7 @@
 #include "FN_node_tree.h"
 #include "FN_multi_functions.h"
 #include "FN_generic_tuple.h"
-#include "FN_inlined_tree_multi_function_network_generation.h"
+#include "FN_node_tree_multi_function_network_generation.h"
 #include "FN_multi_function_common_contexts.h"
 #include "FN_multi_function_dependencies.h"
 
@@ -37,25 +37,25 @@ using BLI::ScopedVector;
 using BLI::Set;
 using FN::AttributesInfoBuilder;
 using FN::CPPType;
-using FN::InlinedTreeMFNetwork;
+using FN::FGroupInput;
+using FN::FInputSocket;
+using FN::FNode;
+using FN::FOutputSocket;
+using FN::FSocket;
+using FN::FunctionTreeMFNetwork;
 using FN::MFInputSocket;
 using FN::MFOutputSocket;
 using FN::MultiFunction;
 using FN::NamedGenericTupleRef;
-using FN::XGroupInput;
-using FN::XInputSocket;
-using FN::XNode;
-using FN::XOutputSocket;
-using FN::XSocket;
 
 static StringRef particle_system_idname = "fn_ParticleSystemNode";
 static StringRef combine_influences_idname = "fn_CombineInfluencesNode";
 
-class InlinedTreeData;
+class FunctionTreeData;
 class InfluencesCollector;
-class XSocketActionBuilder;
+class FSocketActionBuilder;
 
-using ActionParserCallback = std::function<void(XSocketActionBuilder &builder)>;
+using ActionParserCallback = std::function<void(FSocketActionBuilder &builder)>;
 StringMap<ActionParserCallback> &get_action_parsers();
 
 class InfluencesCollector {
@@ -67,34 +67,34 @@ class InfluencesCollector {
   StringMap<AttributesInfoBuilder *> m_attributes;
 };
 
-class InlinedTreeData {
+class FunctionTreeData {
  private:
   /* Keep this at the beginning, so that it is destructed last. */
   ResourceCollector m_resources;
-  InlinedTreeMFNetwork &m_inlined_tree_data_graph;
+  FunctionTreeMFNetwork &m_function_tree_data_graph;
   IDDataCache m_id_data_cache;
   IDHandleLookup m_id_handle_lookup;
 
  public:
-  InlinedTreeData(InlinedTreeMFNetwork &inlined_tree_data)
-      : m_inlined_tree_data_graph(inlined_tree_data)
+  FunctionTreeData(FunctionTreeMFNetwork &function_tree_data)
+      : m_function_tree_data_graph(function_tree_data)
   {
-    FN::add_ids_used_by_nodes(m_id_handle_lookup, inlined_tree_data.inlined_tree());
+    FN::add_ids_used_by_nodes(m_id_handle_lookup, function_tree_data.function_tree());
   }
 
-  const InlinedNodeTree &inlined_tree()
+  const FunctionNodeTree &function_tree()
   {
-    return m_inlined_tree_data_graph.inlined_tree();
+    return m_function_tree_data_graph.function_tree();
   }
 
   const FN::MFNetwork &data_graph()
   {
-    return m_inlined_tree_data_graph.network();
+    return m_function_tree_data_graph.network();
   }
 
-  const InlinedTreeMFNetwork &inlined_tree_data_graph()
+  const FunctionTreeMFNetwork &function_tree_data_graph()
   {
-    return m_inlined_tree_data_graph;
+    return m_function_tree_data_graph;
   }
 
   IDHandleLookup &id_handle_lookup()
@@ -115,14 +115,14 @@ class InlinedTreeData {
     return *value;
   }
 
-  ParticleFunction *particle_function_for_all_inputs(const XNode &xnode)
+  ParticleFunction *particle_function_for_all_inputs(const FNode &fnode)
   {
     Vector<const MFInputSocket *> sockets_to_compute;
     Vector<std::string> names_to_compute;
-    for (const XInputSocket *xsocket : xnode.inputs()) {
-      if (m_inlined_tree_data_graph.is_mapped(*xsocket)) {
-        sockets_to_compute.append(&m_inlined_tree_data_graph.lookup_dummy_socket(*xsocket));
-        names_to_compute.append(xsocket->name());
+    for (const FInputSocket *fsocket : fnode.inputs()) {
+      if (m_function_tree_data_graph.is_mapped(*fsocket)) {
+        sockets_to_compute.append(&m_function_tree_data_graph.lookup_dummy_socket(*fsocket));
+        names_to_compute.append(fsocket->name());
       }
     }
 
@@ -130,14 +130,14 @@ class InlinedTreeData {
                                                std::move(names_to_compute));
   }
 
-  ParticleFunction *particle_function_for_inputs(const XNode &xnode, ArrayRef<uint> input_indices)
+  ParticleFunction *particle_function_for_inputs(const FNode &fnode, ArrayRef<uint> input_indices)
   {
     Vector<const MFInputSocket *> sockets_to_compute;
     Vector<std::string> names_to_compute;
     for (uint i : input_indices) {
-      const MFInputSocket &socket = m_inlined_tree_data_graph.lookup_dummy_socket(xnode.input(i));
+      const MFInputSocket &socket = m_function_tree_data_graph.lookup_dummy_socket(fnode.input(i));
       sockets_to_compute.append(&socket);
-      names_to_compute.append(xnode.input(i).name());
+      names_to_compute.append(fnode.input(i).name());
     }
 
     return this->particle_function_for_sockets(std::move(sockets_to_compute),
@@ -156,21 +156,21 @@ class InlinedTreeData {
     return &particle_fn;
   }
 
-  Optional<NamedGenericTupleRef> compute_inputs(const XNode &xnode, ArrayRef<uint> input_indices)
+  Optional<NamedGenericTupleRef> compute_inputs(const FNode &fnode, ArrayRef<uint> input_indices)
   {
-    const MultiFunction *fn = this->function_for_inputs(xnode, input_indices);
+    const MultiFunction *fn = this->function_for_inputs(fnode, input_indices);
     if (fn == nullptr) {
       return {};
     }
     if (fn->uses_element_context<FN::ParticleAttributesContext>()) {
-      std::cout << "Inputs may not depend on particle attributes: " << xnode.name() << "\n";
+      std::cout << "Inputs may not depend on particle attributes: " << fnode.name() << "\n";
       return {};
     }
 
     Vector<const CPPType *> computed_types;
     for (uint i : input_indices) {
       FN::MFDataType data_type =
-          m_inlined_tree_data_graph.lookup_dummy_socket(xnode.input(i)).data_type();
+          m_function_tree_data_graph.lookup_dummy_socket(fnode.input(i)).data_type();
       BLI_assert(data_type.is_single());
       computed_types.append(&data_type.single__cpp_type());
     }
@@ -195,7 +195,7 @@ class InlinedTreeData {
 
     Vector<std::string> computed_names;
     for (uint i : input_indices) {
-      computed_names.append(xnode.input(i).name());
+      computed_names.append(fnode.input(i).name());
     }
 
     auto &name_provider = this->construct<FN::CustomGenericTupleNameProvider>(
@@ -205,43 +205,43 @@ class InlinedTreeData {
     return named_tuple_ref;
   }
 
-  Optional<NamedGenericTupleRef> compute_all_data_inputs(const XNode &xnode)
+  Optional<NamedGenericTupleRef> compute_all_data_inputs(const FNode &fnode)
   {
     ScopedVector<uint> data_input_indices;
-    for (uint i : xnode.inputs().index_iterator()) {
-      if (m_inlined_tree_data_graph.is_mapped(xnode.input(i))) {
+    for (uint i : fnode.inputs().index_iterator()) {
+      if (m_function_tree_data_graph.is_mapped(fnode.input(i))) {
         data_input_indices.append(i);
       }
     }
 
-    return this->compute_inputs(xnode, data_input_indices);
+    return this->compute_inputs(fnode, data_input_indices);
   }
 
-  ArrayRef<std::string> find_target_system_names(const XOutputSocket &output_xsocket)
+  ArrayRef<std::string> find_target_system_names(const FOutputSocket &output_fsocket)
   {
-    VectorSet<const XNode *> system_xnodes;
-    this->find_target_system_nodes__recursive(output_xsocket, system_xnodes);
+    VectorSet<const FNode *> system_fnodes;
+    this->find_target_system_nodes__recursive(output_fsocket, system_fnodes);
 
     auto &system_names = this->construct<Vector<std::string>>(__func__);
-    for (const XNode *xnode : system_xnodes) {
-      system_names.append(xnode->name());
+    for (const FNode *fnode : system_fnodes) {
+      system_names.append(fnode->name());
     }
 
     return system_names;
   }
 
   ParticleAction *build_action(InfluencesCollector &collector,
-                               const XInputSocket &start,
+                               const FInputSocket &start,
                                ArrayRef<std::string> system_names);
 
   ParticleAction &build_action_list(InfluencesCollector &collector,
-                                    const XNode &start_xnode,
+                                    const FNode &start_fnode,
                                     StringRef name,
                                     ArrayRef<std::string> system_names)
   {
-    Vector<const XInputSocket *> execute_sockets = this->find_execute_sockets(start_xnode, name);
+    Vector<const FInputSocket *> execute_sockets = this->find_execute_sockets(start_fnode, name);
     Vector<ParticleAction *> actions;
-    for (const XInputSocket *socket : execute_sockets) {
+    for (const FInputSocket *socket : execute_sockets) {
       ParticleAction *action = this->build_action(collector, *socket, system_names);
       if (action != nullptr) {
         actions.append(action);
@@ -251,15 +251,15 @@ class InlinedTreeData {
     return sequence;
   }
 
-  const FN::MultiFunction *function_for_inputs(const XNode &xnode, ArrayRef<uint> input_indices)
+  const FN::MultiFunction *function_for_inputs(const FNode &fnode, ArrayRef<uint> input_indices)
   {
     Vector<const MFInputSocket *> sockets_to_compute;
     for (uint index : input_indices) {
       sockets_to_compute.append(
-          &m_inlined_tree_data_graph.lookup_dummy_socket(xnode.input(index)));
+          &m_function_tree_data_graph.lookup_dummy_socket(fnode.input(index)));
     }
 
-    if (m_inlined_tree_data_graph.network().find_dummy_dependencies(sockets_to_compute).size() >
+    if (m_function_tree_data_graph.network().find_dummy_dependencies(sockets_to_compute).size() >
         0) {
       return nullptr;
     }
@@ -296,45 +296,45 @@ class InlinedTreeData {
   }
 
  private:
-  Vector<const XNode *> find_target_system_nodes(const XOutputSocket &xsocket)
+  Vector<const FNode *> find_target_system_nodes(const FOutputSocket &fsocket)
   {
-    VectorSet<const XNode *> type_nodes;
-    find_target_system_nodes__recursive(xsocket, type_nodes);
-    return Vector<const XNode *>(type_nodes);
+    VectorSet<const FNode *> type_nodes;
+    find_target_system_nodes__recursive(fsocket, type_nodes);
+    return Vector<const FNode *>(type_nodes);
   }
 
-  void find_target_system_nodes__recursive(const XOutputSocket &output_xsocket,
-                                           VectorSet<const XNode *> &r_nodes)
+  void find_target_system_nodes__recursive(const FOutputSocket &output_fsocket,
+                                           VectorSet<const FNode *> &r_nodes)
   {
-    for (const XInputSocket *connected : output_xsocket.linked_sockets()) {
-      const XNode &connected_xnode = connected->node();
-      if (connected_xnode.idname() == particle_system_idname) {
-        r_nodes.add(&connected_xnode);
+    for (const FInputSocket *connected : output_fsocket.linked_sockets()) {
+      const FNode &connected_fnode = connected->node();
+      if (connected_fnode.idname() == particle_system_idname) {
+        r_nodes.add(&connected_fnode);
       }
-      else if (connected_xnode.idname() == combine_influences_idname) {
-        find_target_system_nodes__recursive(connected_xnode.output(0), r_nodes);
+      else if (connected_fnode.idname() == combine_influences_idname) {
+        find_target_system_nodes__recursive(connected_fnode.output(0), r_nodes);
       }
     }
   }
 
-  Vector<const XInputSocket *> find_execute_sockets(const XNode &xnode, StringRef name_prefix)
+  Vector<const FInputSocket *> find_execute_sockets(const FNode &fnode, StringRef name_prefix)
   {
     int first_index = -1;
-    for (const XInputSocket *xsocket : xnode.inputs()) {
-      if (xsocket->name() == name_prefix) {
-        first_index = xsocket->index();
+    for (const FInputSocket *fsocket : fnode.inputs()) {
+      if (fsocket->name() == name_prefix) {
+        first_index = fsocket->index();
         break;
       }
     }
     BLI_assert(first_index >= 0);
 
-    Vector<const XInputSocket *> execute_sockets;
-    for (const XInputSocket *xsocket : xnode.inputs().drop_front(first_index)) {
-      if (xsocket->idname() == "fn_OperatorSocket") {
+    Vector<const FInputSocket *> execute_sockets;
+    for (const FInputSocket *fsocket : fnode.inputs().drop_front(first_index)) {
+      if (fsocket->idname() == "fn_OperatorSocket") {
         break;
       }
       else {
-        execute_sockets.append(xsocket);
+        execute_sockets.append(fsocket);
       }
     }
 
@@ -342,22 +342,22 @@ class InlinedTreeData {
   }
 };
 
-class XSocketActionBuilder {
+class FSocketActionBuilder {
  private:
   InfluencesCollector &m_influences_collector;
-  InlinedTreeData &m_inlined_tree_data;
-  const XSocket &m_execute_xsocket;
+  FunctionTreeData &m_function_tree_data;
+  const FSocket &m_execute_fsocket;
   ArrayRef<std::string> m_system_names;
   ParticleAction *m_built_action = nullptr;
 
  public:
-  XSocketActionBuilder(InfluencesCollector &influences_collector,
-                       InlinedTreeData &inlined_tree_data,
-                       const XSocket &execute_xsocket,
+  FSocketActionBuilder(InfluencesCollector &influences_collector,
+                       FunctionTreeData &function_tree_data,
+                       const FSocket &execute_fsocket,
                        ArrayRef<std::string> system_names)
       : m_influences_collector(influences_collector),
-        m_inlined_tree_data(inlined_tree_data),
-        m_execute_xsocket(execute_xsocket),
+        m_function_tree_data(function_tree_data),
+        m_execute_fsocket(execute_fsocket),
         m_system_names(system_names)
   {
   }
@@ -367,9 +367,9 @@ class XSocketActionBuilder {
     return m_built_action;
   }
 
-  const XSocket &xsocket() const
+  const FSocket &fsocket() const
   {
-    return m_execute_xsocket;
+    return m_execute_fsocket;
   }
 
   ArrayRef<std::string> system_names() const
@@ -377,17 +377,17 @@ class XSocketActionBuilder {
     return m_system_names;
   }
 
-  const CPPType &base_type_of(const XInputSocket &xsocket) const
+  const CPPType &base_type_of(const FInputSocket &fsocket) const
   {
-    return m_inlined_tree_data.inlined_tree_data_graph()
-        .lookup_dummy_socket(xsocket)
+    return m_function_tree_data.function_tree_data_graph()
+        .lookup_dummy_socket(fsocket)
         .data_type()
         .single__cpp_type();
   }
 
   template<typename T, typename... Args> T &construct(Args &&... args)
   {
-    return m_inlined_tree_data.construct<T>("construct action", std::forward<Args>(args)...);
+    return m_function_tree_data.construct<T>("construct action", std::forward<Args>(args)...);
   }
 
   template<typename T, typename... Args> T &set_constructed(Args &&... args)
@@ -405,50 +405,52 @@ class XSocketActionBuilder {
 
   ParticleFunction *particle_function_for_all_inputs()
   {
-    return m_inlined_tree_data.particle_function_for_all_inputs(m_execute_xsocket.node());
+    return m_function_tree_data.particle_function_for_all_inputs(m_execute_fsocket.node());
   }
 
   ParticleFunction *particle_function_for_inputs(ArrayRef<uint> input_indices)
   {
-    return m_inlined_tree_data.particle_function_for_inputs(m_execute_xsocket.node(),
-                                                            input_indices);
+    return m_function_tree_data.particle_function_for_inputs(m_execute_fsocket.node(),
+                                                             input_indices);
   }
 
   const MultiFunction *function_for_inputs(ArrayRef<uint> input_indices)
   {
-    return m_inlined_tree_data.function_for_inputs(m_execute_xsocket.node(), input_indices);
+    return m_function_tree_data.function_for_inputs(m_execute_fsocket.node(), input_indices);
   }
 
-  FN::MFDataType data_type_of_input(const XInputSocket &xsocket)
+  FN::MFDataType data_type_of_input(const FInputSocket &fsocket)
   {
-    return m_inlined_tree_data.inlined_tree_data_graph().lookup_dummy_socket(xsocket).data_type();
+    return m_function_tree_data.function_tree_data_graph()
+        .lookup_dummy_socket(fsocket)
+        .data_type();
   }
 
   PointerRNA *node_rna()
   {
-    return m_execute_xsocket.node().rna();
+    return m_execute_fsocket.node().rna();
   }
 
   ParticleAction &build_input_action_list(StringRef name, ArrayRef<std::string> system_names)
   {
-    return m_inlined_tree_data.build_action_list(
-        m_influences_collector, m_execute_xsocket.node(), name, system_names);
+    return m_function_tree_data.build_action_list(
+        m_influences_collector, m_execute_fsocket.node(), name, system_names);
   }
 
   ArrayRef<std::string> find_system_target_names(uint output_index, StringRef expected_name)
   {
-    const XOutputSocket &xsocket = m_execute_xsocket.node().output(output_index, expected_name);
-    return m_inlined_tree_data.find_target_system_names(xsocket);
+    const FOutputSocket &fsocket = m_execute_fsocket.node().output(output_index, expected_name);
+    return m_function_tree_data.find_target_system_names(fsocket);
   }
 
   Optional<NamedGenericTupleRef> compute_all_data_inputs()
   {
-    return m_inlined_tree_data.compute_all_data_inputs(m_execute_xsocket.node());
+    return m_function_tree_data.compute_all_data_inputs(m_execute_fsocket.node());
   }
 
   Optional<NamedGenericTupleRef> compute_inputs(ArrayRef<uint> input_indices)
   {
-    return m_inlined_tree_data.compute_inputs(m_execute_xsocket.node(), input_indices);
+    return m_function_tree_data.compute_inputs(m_execute_fsocket.node(), input_indices);
   }
 
   template<typename T>
@@ -467,7 +469,7 @@ class XSocketActionBuilder {
     m_influences_collector.m_attributes.foreach_key(
         [&](StringRef name) { system_names.append(name); });
 
-    return m_inlined_tree_data.try_add_attribute(
+    return m_function_tree_data.try_add_attribute(
         m_influences_collector, system_names, name, type, default_value);
   }
 
@@ -476,30 +478,30 @@ class XSocketActionBuilder {
                          const CPPType &type,
                          const void *default_value = nullptr)
   {
-    return m_inlined_tree_data.try_add_attribute(
+    return m_function_tree_data.try_add_attribute(
         m_influences_collector, system_names, name, type, default_value);
   }
 
   IDHandleLookup &id_handle_lookup()
   {
-    return m_inlined_tree_data.id_handle_lookup();
+    return m_function_tree_data.id_handle_lookup();
   }
 
   BKE::IDDataCache &id_data_cache()
   {
-    return m_inlined_tree_data.id_data_cache();
+    return m_function_tree_data.id_data_cache();
   }
 };
 
-ParticleAction *InlinedTreeData::build_action(InfluencesCollector &collector,
-                                              const XInputSocket &start,
-                                              ArrayRef<std::string> system_names)
+ParticleAction *FunctionTreeData::build_action(InfluencesCollector &collector,
+                                               const FInputSocket &start,
+                                               ArrayRef<std::string> system_names)
 {
   if (start.linked_sockets().size() != 1) {
     return nullptr;
   }
 
-  const XSocket &execute_socket = *start.linked_sockets()[0];
+  const FSocket &execute_socket = *start.linked_sockets()[0];
   if (execute_socket.idname() != "fn_ExecuteSocket") {
     return nullptr;
   }
@@ -511,17 +513,17 @@ ParticleAction *InlinedTreeData::build_action(InfluencesCollector &collector,
     return nullptr;
   }
 
-  XSocketActionBuilder builder{collector, *this, execute_socket, system_names};
+  FSocketActionBuilder builder{collector, *this, execute_socket, system_names};
   (*parser)(builder);
 
   return builder.built_action();
 }
 
-static void ACTION_spawn(XSocketActionBuilder &builder)
+static void ACTION_spawn(FSocketActionBuilder &builder)
 {
-  const XNode &xnode = builder.xsocket().node();
-  const XInputSocket &first_execute_socket = *xnode.input_with_name_prefix("Execute on Birth");
-  ArrayRef<const XInputSocket *> data_inputs = xnode.inputs().take_front(
+  const FNode &fnode = builder.fsocket().node();
+  const FInputSocket &first_execute_socket = *fnode.input_with_name_prefix("Execute on Birth");
+  ArrayRef<const FInputSocket *> data_inputs = fnode.inputs().take_front(
       first_execute_socket.index());
   ArrayRef<uint> input_indices = IndexRange(data_inputs.size()).as_array_ref();
   const ParticleFunction *inputs_fn = builder.particle_function_for_inputs(input_indices);
@@ -536,12 +538,12 @@ static void ACTION_spawn(XSocketActionBuilder &builder)
   }
 
   Vector<std::string> attribute_names;
-  for (const XInputSocket *xsocket : data_inputs) {
-    StringRef attribute_name = xsocket->name();
+  for (const FInputSocket *fsocket : data_inputs) {
+    StringRef attribute_name = fsocket->name();
     attribute_names.append(attribute_name);
     const CPPType *attribute_type = nullptr;
 
-    FN::MFDataType data_type = builder.data_type_of_input(*xsocket);
+    FN::MFDataType data_type = builder.data_type_of_input(*fsocket);
     if (data_type.is_single()) {
       attribute_type = &data_type.single__cpp_type();
     }
@@ -561,7 +563,7 @@ static void ACTION_spawn(XSocketActionBuilder &builder)
       system_names, *inputs_fn, std::move(attribute_names), action);
 }
 
-static void ACTION_condition(XSocketActionBuilder &builder)
+static void ACTION_condition(FSocketActionBuilder &builder)
 {
   ParticleFunction *inputs_fn = builder.particle_function_for_all_inputs();
   if (inputs_fn == nullptr) {
@@ -575,7 +577,7 @@ static void ACTION_condition(XSocketActionBuilder &builder)
   builder.set_constructed<ConditionAction>(*inputs_fn, action_true, action_false);
 }
 
-static void ACTION_set_attribute(XSocketActionBuilder &builder)
+static void ACTION_set_attribute(FSocketActionBuilder &builder)
 {
   Optional<NamedGenericTupleRef> values = builder.compute_inputs({0});
   if (!values.has_value()) {
@@ -587,7 +589,7 @@ static void ACTION_set_attribute(XSocketActionBuilder &builder)
     return;
   }
 
-  const CPPType &attribute_type = builder.base_type_of(builder.xsocket().node().input(1));
+  const CPPType &attribute_type = builder.base_type_of(builder.fsocket().node().input(1));
   std::string attribute_name = values->relocate_out<std::string>(0, "Name");
 
   bool attribute_added = builder.try_add_attribute_to_affected_particles(attribute_name,
@@ -599,7 +601,7 @@ static void ACTION_set_attribute(XSocketActionBuilder &builder)
   builder.set_constructed<SetAttributeAction>(attribute_name, attribute_type, *inputs_fn);
 }
 
-static void ACTION_multi_execute(XSocketActionBuilder &builder)
+static void ACTION_multi_execute(FSocketActionBuilder &builder)
 {
   ParticleAction &action = builder.build_input_action_list("Execute", builder.system_names());
   builder.set(action);
@@ -615,55 +617,55 @@ BLI_LAZY_INIT(StringMap<ActionParserCallback>, get_action_parsers)
   return map;
 }
 
-class XNodeInfluencesBuilder {
+class FNodeInfluencesBuilder {
  private:
   InfluencesCollector &m_influences_collector;
-  InlinedTreeData &m_inlined_tree_data;
+  FunctionTreeData &m_function_tree_data;
   WorldTransition &m_world_transition;
-  const XNode &m_xnode;
+  const FNode &m_fnode;
 
  public:
-  XNodeInfluencesBuilder(InfluencesCollector &influences_collector,
-                         InlinedTreeData &inlined_tree_data,
+  FNodeInfluencesBuilder(InfluencesCollector &influences_collector,
+                         FunctionTreeData &function_tree_data,
                          WorldTransition &world_transition,
-                         const XNode &xnode)
+                         const FNode &fnode)
       : m_influences_collector(influences_collector),
-        m_inlined_tree_data(inlined_tree_data),
+        m_function_tree_data(function_tree_data),
         m_world_transition(world_transition),
-        m_xnode(xnode)
+        m_fnode(fnode)
   {
   }
 
-  const XNode &xnode() const
+  const FNode &fnode() const
   {
-    return m_xnode;
+    return m_fnode;
   }
 
   Optional<NamedGenericTupleRef> compute_all_data_inputs()
   {
-    return m_inlined_tree_data.compute_all_data_inputs(m_xnode);
+    return m_function_tree_data.compute_all_data_inputs(m_fnode);
   }
 
   Optional<NamedGenericTupleRef> compute_inputs(ArrayRef<uint> input_indices)
   {
-    return m_inlined_tree_data.compute_inputs(m_xnode, input_indices);
+    return m_function_tree_data.compute_inputs(m_fnode, input_indices);
   }
 
   const MultiFunction *function_for_inputs(ArrayRef<uint> input_indices)
   {
-    return m_inlined_tree_data.function_for_inputs(m_xnode, input_indices);
+    return m_function_tree_data.function_for_inputs(m_fnode, input_indices);
   }
 
   ParticleAction &build_action_list(StringRef name, ArrayRef<std::string> system_names)
   {
-    return m_inlined_tree_data.build_action_list(
-        m_influences_collector, m_xnode, name, system_names);
+    return m_function_tree_data.build_action_list(
+        m_influences_collector, m_fnode, name, system_names);
   }
 
   ArrayRef<std::string> find_target_system_names(uint output_index, StringRef expected_name)
   {
-    return m_inlined_tree_data.find_target_system_names(
-        m_xnode.output(output_index, expected_name));
+    return m_function_tree_data.find_target_system_names(
+        m_fnode.output(output_index, expected_name));
   }
 
   WorldTransition &world_transition()
@@ -673,7 +675,7 @@ class XNodeInfluencesBuilder {
 
   template<typename T, typename... Args> T &construct(Args &&... args)
   {
-    return m_inlined_tree_data.construct<T>(__func__, std::forward<Args>(args)...);
+    return m_function_tree_data.construct<T>(__func__, std::forward<Args>(args)...);
   }
 
   void add_emitter(Emitter &emitter)
@@ -706,10 +708,10 @@ class XNodeInfluencesBuilder {
   {
     std::stringstream ss;
     ss << "private/node";
-    for (const FN::XParentNode *parent = m_xnode.parent(); parent; parent = parent->parent()) {
+    for (const FN::FParentNode *parent = m_fnode.parent(); parent; parent = parent->parent()) {
       ss << "/" << parent->vnode().name();
     }
-    ss << "/" << m_xnode.name();
+    ss << "/" << m_fnode.name();
 
     std::string identifier = ss.str();
     return identifier;
@@ -717,27 +719,29 @@ class XNodeInfluencesBuilder {
 
   IDHandleLookup &id_handle_lookup()
   {
-    return m_inlined_tree_data.id_handle_lookup();
+    return m_function_tree_data.id_handle_lookup();
   }
 
   BKE::IDDataCache &id_data_cache()
   {
-    return m_inlined_tree_data.id_data_cache();
+    return m_function_tree_data.id_data_cache();
   }
 
   PointerRNA *node_rna()
   {
-    return m_xnode.rna();
+    return m_fnode.rna();
   }
 
   ParticleFunction *particle_function_for_all_inputs()
   {
-    return m_inlined_tree_data.particle_function_for_all_inputs(m_xnode);
+    return m_function_tree_data.particle_function_for_all_inputs(m_fnode);
   }
 
-  FN::MFDataType data_type_of_input(const XInputSocket &xsocket)
+  FN::MFDataType data_type_of_input(const FInputSocket &fsocket)
   {
-    return m_inlined_tree_data.inlined_tree_data_graph().lookup_dummy_socket(xsocket).data_type();
+    return m_function_tree_data.function_tree_data_graph()
+        .lookup_dummy_socket(fsocket)
+        .data_type();
   }
 
   template<typename T>
@@ -752,14 +756,14 @@ class XNodeInfluencesBuilder {
                          const CPPType &type,
                          const void *default_value = nullptr)
   {
-    return m_inlined_tree_data.try_add_attribute(
+    return m_function_tree_data.try_add_attribute(
         m_influences_collector, system_names, name, type, default_value);
   }
 };
 
-using ParseNodeCallback = std::function<void(XNodeInfluencesBuilder &builder)>;
+using ParseNodeCallback = std::function<void(FNodeInfluencesBuilder &builder)>;
 
-static void PARSE_point_emitter(XNodeInfluencesBuilder &builder)
+static void PARSE_point_emitter(FNodeInfluencesBuilder &builder)
 {
   Optional<NamedGenericTupleRef> inputs = builder.compute_all_data_inputs();
   if (!inputs.has_value()) {
@@ -784,11 +788,11 @@ static void PARSE_point_emitter(XNodeInfluencesBuilder &builder)
   builder.add_emitter(emitter);
 }
 
-static void PARSE_custom_emitter(XNodeInfluencesBuilder &builder)
+static void PARSE_custom_emitter(FNodeInfluencesBuilder &builder)
 {
-  const XNode &xnode = builder.xnode();
-  const XInputSocket &first_execute_socket = *xnode.input_with_name_prefix("Execute on Birth");
-  ArrayRef<const XInputSocket *> data_inputs = xnode.inputs().take_front(
+  const FNode &fnode = builder.fnode();
+  const FInputSocket &first_execute_socket = *fnode.input_with_name_prefix("Execute on Birth");
+  ArrayRef<const FInputSocket *> data_inputs = fnode.inputs().take_front(
       first_execute_socket.index());
   ArrayRef<uint> input_indices = IndexRange(data_inputs.size()).as_array_ref();
   const MultiFunction *emitter_function = builder.function_for_inputs(input_indices);
@@ -799,7 +803,7 @@ static void PARSE_custom_emitter(XNodeInfluencesBuilder &builder)
   ArrayRef<std::string> system_names = builder.find_target_system_names(0, "Emitter");
 
   Vector<std::string> attribute_names;
-  for (const XInputSocket *socket : data_inputs) {
+  for (const FInputSocket *socket : data_inputs) {
     StringRef attribute_name = socket->name();
     attribute_names.append(attribute_name);
     const CPPType *attribute_type = nullptr;
@@ -864,7 +868,7 @@ static Vector<float> compute_emitter_vertex_weights(PointerRNA *node_rna,
   return vertex_weights;
 }
 
-static void PARSE_mesh_emitter(XNodeInfluencesBuilder &builder)
+static void PARSE_mesh_emitter(FNodeInfluencesBuilder &builder)
 {
   Optional<NamedGenericTupleRef> inputs = builder.compute_all_data_inputs();
   if (!inputs.has_value()) {
@@ -894,7 +898,7 @@ static void PARSE_mesh_emitter(XNodeInfluencesBuilder &builder)
   builder.add_emitter(emitter);
 }
 
-static void PARSE_custom_force(XNodeInfluencesBuilder &builder)
+static void PARSE_custom_force(FNodeInfluencesBuilder &builder)
 {
   ParticleFunction *inputs_fn = builder.particle_function_for_all_inputs();
   if (inputs_fn == nullptr) {
@@ -906,7 +910,7 @@ static void PARSE_custom_force(XNodeInfluencesBuilder &builder)
   builder.add_force(system_names, force);
 }
 
-static void PARSE_age_reached_event(XNodeInfluencesBuilder &builder)
+static void PARSE_age_reached_event(FNodeInfluencesBuilder &builder)
 {
   ParticleFunction *inputs_fn = builder.particle_function_for_all_inputs();
   if (inputs_fn == nullptr) {
@@ -927,7 +931,7 @@ static void PARSE_age_reached_event(XNodeInfluencesBuilder &builder)
   builder.add_event(system_names, event);
 }
 
-static void PARSE_trails(XNodeInfluencesBuilder &builder)
+static void PARSE_trails(FNodeInfluencesBuilder &builder)
 {
   ArrayRef<std::string> main_system_names = builder.find_target_system_names(0, "Main System");
   ArrayRef<std::string> trail_system_names = builder.find_target_system_names(1, "Trail System");
@@ -946,7 +950,7 @@ static void PARSE_trails(XNodeInfluencesBuilder &builder)
   builder.add_offset_handler(main_system_names, offset_handler);
 }
 
-static void PARSE_initial_grid_emitter(XNodeInfluencesBuilder &builder)
+static void PARSE_initial_grid_emitter(FNodeInfluencesBuilder &builder)
 {
   Optional<NamedGenericTupleRef> inputs = builder.compute_all_data_inputs();
   if (!inputs.has_value()) {
@@ -967,7 +971,7 @@ static void PARSE_initial_grid_emitter(XNodeInfluencesBuilder &builder)
   builder.add_emitter(emitter);
 }
 
-static void PARSE_mesh_collision(XNodeInfluencesBuilder &builder)
+static void PARSE_mesh_collision(FNodeInfluencesBuilder &builder)
 {
   ParticleFunction *inputs_fn = builder.particle_function_for_all_inputs();
   if (inputs_fn == nullptr) {
@@ -1004,7 +1008,7 @@ static void PARSE_mesh_collision(XNodeInfluencesBuilder &builder)
   builder.add_event(system_names, event);
 }
 
-static void PARSE_size_over_time(XNodeInfluencesBuilder &builder)
+static void PARSE_size_over_time(FNodeInfluencesBuilder &builder)
 {
   ParticleFunction *inputs_fn = builder.particle_function_for_all_inputs();
   if (inputs_fn == nullptr) {
@@ -1016,7 +1020,7 @@ static void PARSE_size_over_time(XNodeInfluencesBuilder &builder)
   builder.add_offset_handler(system_names, offset_handler);
 }
 
-static void PARSE_custom_event(XNodeInfluencesBuilder &builder)
+static void PARSE_custom_event(FNodeInfluencesBuilder &builder)
 {
   ParticleFunction *inputs_fn = builder.particle_function_for_all_inputs();
   if (inputs_fn == nullptr) {
@@ -1030,7 +1034,7 @@ static void PARSE_custom_event(XNodeInfluencesBuilder &builder)
   builder.add_event(system_names, event);
 }
 
-static void PARSE_always_execute(XNodeInfluencesBuilder &builder)
+static void PARSE_always_execute(FNodeInfluencesBuilder &builder)
 {
   ArrayRef<std::string> system_names = builder.find_target_system_names(0, "Influence");
   ParticleAction &action = builder.build_action_list("Execute", system_names);
@@ -1056,7 +1060,7 @@ BLI_LAZY_INIT_STATIC(StringMap<ParseNodeCallback>, get_node_parsers)
   return map;
 }
 
-static void collect_influences(InlinedTreeData &inlined_tree_data,
+static void collect_influences(FunctionTreeData &function_tree_data,
                                WorldTransition &world_transition,
                                Vector<std::string> &r_system_names,
                                InfluencesCollector &collector,
@@ -1066,9 +1070,9 @@ static void collect_influences(InlinedTreeData &inlined_tree_data,
 
   StringMap<ParseNodeCallback> &parsers = get_node_parsers();
 
-  for (const XNode *xnode :
-       inlined_tree_data.inlined_tree().nodes_with_idname(particle_system_idname)) {
-    StringRef name = xnode->name();
+  for (const FNode *fnode :
+       function_tree_data.function_tree().nodes_with_idname(particle_system_idname)) {
+    StringRef name = fnode->name();
     r_system_names.append(name);
 
     AttributesInfoBuilder *attributes = new AttributesInfoBuilder();
@@ -1084,19 +1088,19 @@ static void collect_influences(InlinedTreeData &inlined_tree_data,
     collector.m_attributes.add_new(name, attributes);
   }
 
-  for (const XNode *xnode : inlined_tree_data.inlined_tree().all_nodes()) {
-    StringRef idname = xnode->idname();
+  for (const FNode *fnode : function_tree_data.function_tree().all_nodes()) {
+    StringRef idname = fnode->idname();
     ParseNodeCallback *callback = parsers.lookup_ptr(idname);
     if (callback != nullptr) {
-      XNodeInfluencesBuilder builder{collector, inlined_tree_data, world_transition, *xnode};
+      FNodeInfluencesBuilder builder{collector, function_tree_data, world_transition, *fnode};
       (*callback)(builder);
     }
   }
 
   for (std::string &system_name : r_system_names) {
     ArrayRef<Force *> forces = collector.m_forces.lookup_default(system_name);
-    EulerIntegrator &integrator = inlined_tree_data.construct<EulerIntegrator>("integrator",
-                                                                               forces);
+    EulerIntegrator &integrator = function_tree_data.construct<EulerIntegrator>("integrator",
+                                                                                forces);
 
     r_integrators.add_new(system_name, &integrator);
   }
@@ -1104,13 +1108,13 @@ static void collect_influences(InlinedTreeData &inlined_tree_data,
 
 class NodeTreeStepSimulator : public StepSimulator {
  private:
-  FN::BTreeVTreeMap m_inlined_trees;
-  InlinedNodeTree m_inlined_tree;
+  FN::BTreeVTreeMap m_function_trees;
+  FunctionNodeTree m_function_tree;
 
  public:
-  NodeTreeStepSimulator(bNodeTree *btree) : m_inlined_tree(btree, m_inlined_trees)
+  NodeTreeStepSimulator(bNodeTree *btree) : m_function_tree(btree, m_function_trees)
   {
-    // m_inlined_tree.to_dot__clipboard();
+    // m_function_tree.to_dot__clipboard();
   }
 
   void simulate(SimulationState &simulation_state) override
@@ -1122,18 +1126,18 @@ class NodeTreeStepSimulator : public StepSimulator {
     ParticlesState &particles_state = simulation_state.particles();
 
     ResourceCollector resources;
-    std::unique_ptr<InlinedTreeMFNetwork> data_graph =
-        FN::generate_inlined_tree_multi_function_network(m_inlined_tree, resources);
+    std::unique_ptr<FunctionTreeMFNetwork> data_graph =
+        FN::generate_node_tree_multi_function_network(m_function_tree, resources);
     if (data_graph.get() == nullptr) {
       return;
     }
-    InlinedTreeData inlined_tree_data(*data_graph);
+    FunctionTreeData function_tree_data(*data_graph);
 
     Vector<std::string> system_names;
     StringMap<Integrator *> integrators;
     InfluencesCollector influences_collector;
     collect_influences(
-        inlined_tree_data, world_transition, system_names, influences_collector, integrators);
+        function_tree_data, world_transition, system_names, influences_collector, integrators);
 
     auto &containers = particles_state.particle_containers();
 

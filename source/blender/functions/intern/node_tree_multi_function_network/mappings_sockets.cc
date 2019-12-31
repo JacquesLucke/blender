@@ -90,7 +90,7 @@ template<typename T> static void INSERT_empty_list_socket(VSocketMFNetworkBuilde
 
 template<typename FromT, typename ToT>
 static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_convert(
-    InlinedTreeMFNetworkBuilder &builder)
+    FunctionTreeMFNetworkBuilder &builder)
 {
   const MultiFunction &fn = builder.construct_fn<FN::MF_Convert<FromT, ToT>>();
   MFBuilderFunctionNode &node = builder.add_function(fn);
@@ -99,7 +99,7 @@ static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_convert
 
 template<typename FromT, typename ToT>
 static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_convert_list(
-    InlinedTreeMFNetworkBuilder &builder)
+    FunctionTreeMFNetworkBuilder &builder)
 {
   const MultiFunction &fn = builder.construct_fn<FN::MF_ConvertList<FromT, ToT>>();
   MFBuilderFunctionNode &node = builder.add_function(fn);
@@ -108,7 +108,7 @@ static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_convert
 
 template<typename T>
 static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_element_to_list(
-    InlinedTreeMFNetworkBuilder &builder)
+    FunctionTreeMFNetworkBuilder &builder)
 {
   const MultiFunction &fn = builder.construct_fn<FN::MF_SingleElementList<T>>();
   MFBuilderFunctionNode &node = builder.add_function(fn);
@@ -130,8 +130,8 @@ static void add_basic_type(VTreeMultiFunctionMappings &mappings,
   mappings.data_type_by_idname.add_new(list_idname, MFDataType::ForVector<T>());
   mappings.data_type_by_type_name.add_new(base_name, MFDataType::ForSingle<T>());
   mappings.data_type_by_type_name.add_new(list_name, MFDataType::ForVector<T>());
-  mappings.xsocket_inserters.add_new(base_idname, base_inserter);
-  mappings.xsocket_inserters.add_new(list_idname, INSERT_empty_list_socket<T>);
+  mappings.fsocket_inserters.add_new(base_idname, base_inserter);
+  mappings.fsocket_inserters.add_new(list_idname, INSERT_empty_list_socket<T>);
   mappings.conversion_inserters.add_new({base_idname, list_idname}, INSERT_element_to_list<T>);
   mappings.type_name_from_cpp_type.add_new(&CPP_TYPE<T>(), base_name);
 }
@@ -169,7 +169,7 @@ static void add_bidirectional_implicit_conversion(VTreeMultiFunctionMappings &ma
   add_implicit_conversion<T2, T1>(mappings);
 }
 
-void add_inlined_tree_socket_mapping_info(VTreeMultiFunctionMappings &mappings)
+void add_function_tree_socket_mapping_info(VTreeMultiFunctionMappings &mappings)
 {
   add_basic_type<float>(mappings, "Float", INSERT_float_socket);
   add_basic_type<BLI::float3>(mappings, "Vector", INSERT_vector_socket);

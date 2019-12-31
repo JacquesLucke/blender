@@ -1,6 +1,6 @@
 #include "DNA_modifier_types.h"
 
-#include "FN_inlined_tree_multi_function_network_generation.h"
+#include "FN_node_tree_multi_function_network_generation.h"
 #include "FN_multi_functions.h"
 #include "FN_multi_function_common_contexts.h"
 #include "FN_multi_function_dependencies.h"
@@ -18,7 +18,7 @@ using BLI::float3;
 using BLI::IndexRange;
 using BLI::LargeScopedVector;
 using BLI::Vector;
-using FN::InlinedNodeTree;
+using FN::FunctionNodeTree;
 using FN::MFContext;
 using FN::MFContextBuilder;
 using FN::MFInputSocket;
@@ -46,10 +46,10 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd,
   bNodeTree *btree = (bNodeTree *)DEG_get_original_id((ID *)fdmd->function_tree);
 
   FN::BTreeVTreeMap vtrees;
-  InlinedNodeTree inlined_tree(btree, vtrees);
+  FunctionNodeTree function_tree(btree, vtrees);
 
   BLI::ResourceCollector resources;
-  auto function = FN::generate_inlined_tree_multi_function(inlined_tree, resources);
+  auto function = FN::generate_node_tree_multi_function(function_tree, resources);
 
   MFParamsBuilder params_builder(*function, numVerts);
   params_builder.add_readonly_single_input(ArrayRef<float3>((float3 *)vertexCos, numVerts));
@@ -68,7 +68,7 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd,
   vertex_positions_context.positions = ArrayRef<float3>((float3 *)vertexCos, numVerts);
 
   BKE::IDHandleLookup id_handle_lookup;
-  FN::add_ids_used_by_nodes(id_handle_lookup, inlined_tree);
+  FN::add_ids_used_by_nodes(id_handle_lookup, function_tree);
 
   BKE::IDDataCache id_data_cache;
 

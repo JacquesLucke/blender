@@ -8,7 +8,7 @@
 
 #include "BLI_math.h"
 
-#include "FN_inlined_tree_multi_function_network_generation.h"
+#include "FN_node_tree_multi_function_network_generation.h"
 #include "FN_multi_functions.h"
 #include "FN_multi_function_common_contexts.h"
 #include "FN_multi_function_dependencies.h"
@@ -21,7 +21,7 @@ using BLI::ArrayRef;
 using BLI::float3;
 using BLI::IndexRange;
 using BLI::Vector;
-using FN::InlinedNodeTree;
+using FN::FunctionNodeTree;
 using FN::MFContext;
 using FN::MFInputSocket;
 using FN::MFOutputSocket;
@@ -42,10 +42,10 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
   bNodeTree *btree = (bNodeTree *)DEG_get_original_id((ID *)fpmd->function_tree);
 
   FN::BTreeVTreeMap vtrees;
-  InlinedNodeTree inlined_tree(btree, vtrees);
+  FunctionNodeTree function_tree(btree, vtrees);
 
   BLI::ResourceCollector resources;
-  auto function = FN::generate_inlined_tree_multi_function(inlined_tree, resources);
+  auto function = FN::generate_node_tree_multi_function(function_tree, resources);
 
   MFParamsBuilder params_builder(*function, 1);
   params_builder.add_readonly_single_input(&fpmd->control1);
@@ -58,7 +58,7 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
   time_context.time = DEG_get_ctime(ctx->depsgraph);
 
   BKE::IDHandleLookup id_handle_lookup;
-  FN::add_ids_used_by_nodes(id_handle_lookup, inlined_tree);
+  FN::add_ids_used_by_nodes(id_handle_lookup, function_tree);
 
   BKE::IDDataCache id_data_cache;
 

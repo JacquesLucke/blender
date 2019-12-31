@@ -7,11 +7,11 @@
 
 namespace FN {
 
-BLI_LAZY_INIT_REF(const VTreeMultiFunctionMappings, get_inlined_tree_multi_function_mappings)
+BLI_LAZY_INIT_REF(const VTreeMultiFunctionMappings, get_function_tree_multi_function_mappings)
 {
   auto mappings = BLI::make_unique<VTreeMultiFunctionMappings>();
-  add_inlined_tree_socket_mapping_info(*mappings);
-  add_inlined_tree_node_mapping_info(*mappings);
+  add_function_tree_socket_mapping_info(*mappings);
+  add_function_tree_node_mapping_info(*mappings);
   return mappings;
 }
 
