@@ -4,21 +4,25 @@
 
 namespace BParticles {
 
+using BLI::Array;
 using BLI::IndexMask;
+using BLI::IndexRange;
 using BLI::Vector;
 using FN::AttributesInfo;
 using FN::AttributesInfoBuilder;
 using FN::AttributesRef;
+using FN::CPPType;
+using FN::MutableAttributesRef;
 
-class ParticleSet {
+class ParticleSet : BLI::NonCopyable, BLI::NonMovable {
  private:
-  std::unique_ptr<AttributesInfo> m_attributes_info;
-  Vector<void *> m_attribute_buffers;
+  const AttributesInfo *m_attributes_info;
+  Array<void *> m_attribute_buffers;
   uint m_size;
   uint m_capacity;
 
  public:
-  ParticleSet(const AttributesInfoBuilder &attributes_info_builder, uint size);
+  ParticleSet(const AttributesInfo *attributes_info, uint size);
   ~ParticleSet();
 
   const AttributesInfo &attributes_info() const
@@ -26,9 +30,9 @@ class ParticleSet {
     return *m_attributes_info;
   }
 
-  AttributesRef attributes()
+  MutableAttributesRef attributes()
   {
-    return AttributesRef(*m_attributes_info, m_attribute_buffers, m_size);
+    return MutableAttributesRef(*m_attributes_info, m_attribute_buffers, m_size);
   }
 
   uint size() const
@@ -38,13 +42,16 @@ class ParticleSet {
 
   void add_particles(ParticleSet &particles);
 
-  void update_attributes(const AttributesInfoBuilder &new_attributes_info_builder);
+  void update_attributes(const AttributesInfo *new_attributes_info);
   void destruct_and_reorder(IndexMask indices_to_destruct);
 
   friend bool operator==(const ParticleSet &a, const ParticleSet &b)
   {
     return &a == &b;
   }
+
+ private:
+  void realloc_particle_attributes(uint min_size);
 };
 
 }  // namespace BParticles
