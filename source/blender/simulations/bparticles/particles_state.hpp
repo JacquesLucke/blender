@@ -2,7 +2,7 @@
 
 #include <atomic>
 
-#include "FN_attributes_block_container.h"
+#include "particle_set.hpp"
 
 namespace BParticles {
 
@@ -15,15 +15,13 @@ using BLI::StringRef;
 using BLI::StringRefNull;
 using BLI::Vector;
 using BLI::VectorSet;
-using FN::AttributesBlock;
-using FN::AttributesBlockContainer;
 using FN::AttributesInfo;
 using FN::AttributesRef;
 using FN::MutableAttributesRef;
 
 class ParticlesState {
  private:
-  StringMap<AttributesBlockContainer *> m_container_by_id;
+  StringMap<ParticleSet *> m_container_by_id;
   std::atomic<uint> m_next_id;
 
  public:
@@ -36,18 +34,18 @@ class ParticlesState {
   /**
    * Access the mapping from particle system names to their corresponding containers.
    */
-  StringMap<AttributesBlockContainer *> &particle_containers();
+  StringMap<ParticleSet *> &particle_containers();
 
   /**
    * Get the container corresponding to a particle system name.
    * Asserts when the container does not exist.
    */
-  AttributesBlockContainer &particle_container(StringRef name);
+  ParticleSet &particle_container(StringRef name);
 
   /**
    * Get the name of a container in the context of this particle state.
    */
-  StringRefNull particle_container_name(AttributesBlockContainer &container);
+  StringRefNull particle_container_name(ParticleSet &container);
 
   /**
    * Get range of unique particle ids.
@@ -62,17 +60,17 @@ class ParticlesState {
 /* ParticlesState inline functions
  ********************************************/
 
-inline StringMap<AttributesBlockContainer *> &ParticlesState::particle_containers()
+inline StringMap<ParticleSet *> &ParticlesState::particle_containers()
 {
   return m_container_by_id;
 }
 
-inline AttributesBlockContainer &ParticlesState::particle_container(StringRef name)
+inline ParticleSet &ParticlesState::particle_container(StringRef name)
 {
   return *m_container_by_id.lookup(name);
 }
 
-inline StringRefNull ParticlesState::particle_container_name(AttributesBlockContainer &container)
+inline StringRefNull ParticlesState::particle_container_name(ParticleSet &container)
 {
   StringRefNull result = m_container_by_id.find_key_for_value(&container);
   return result;

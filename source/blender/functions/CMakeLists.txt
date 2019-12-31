@@ -35,7 +35,6 @@ set(SRC
   intern/node_tree_multi_function_network/mappings_nodes.cc
   intern/node_tree_multi_function_network/mappings_sockets.cc
   intern/node_tree_multi_function_network/mappings.cc
-  intern/attributes_block_container.cc
   intern/attributes_ref.cc
   intern/cpp_type.cc
   intern/cpp_types.cc
@@ -47,7 +46,6 @@ set(SRC
   intern/multi_function_network.cc
   intern/node_tree.cc
 
-  FN_attributes_block_container.h
   FN_attributes_ref.h
   FN_cpp_type.h
   FN_generic_array_ref.h

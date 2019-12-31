@@ -20,9 +20,10 @@ class ParticleSet : BLI::NonCopyable, BLI::NonMovable {
   Array<void *> m_attribute_buffers;
   uint m_size;
   uint m_capacity;
+  bool m_own_attributes_info;
 
  public:
-  ParticleSet(const AttributesInfo *attributes_info, uint size);
+  ParticleSet(const AttributesInfo &attributes_info, bool own_attributes_info);
   ~ParticleSet();
 
   const AttributesInfo &attributes_info() const
@@ -35,9 +36,30 @@ class ParticleSet : BLI::NonCopyable, BLI::NonMovable {
     return MutableAttributesRef(*m_attributes_info, m_attribute_buffers, m_size);
   }
 
+  MutableAttributesRef attributes_all()
+  {
+    return MutableAttributesRef(*m_attributes_info, m_attribute_buffers, m_capacity);
+  }
+
   uint size() const
   {
     return m_size;
+  }
+
+  uint remaining_size() const
+  {
+    return m_capacity - m_size;
+  }
+
+  void increase_size_without_realloc(uint amount)
+  {
+    BLI_assert(m_size + amount <= m_capacity);
+    m_size += amount;
+  }
+
+  void reserve(uint amount)
+  {
+    this->realloc_particle_attributes(std::max(amount, m_capacity));
   }
 
   void add_particles(ParticleSet &particles);

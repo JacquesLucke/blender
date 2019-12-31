@@ -2,19 +2,29 @@
 
 namespace BParticles {
 
-ParticleSet::ParticleSet(const AttributesInfo *attributes_info, uint size)
-    : m_attributes_info(attributes_info),
-      m_attribute_buffers(attributes_info->size()),
-      m_size(size),
-      m_capacity(size)
+ParticleSet::ParticleSet(const AttributesInfo &attributes_info, bool own_attributes_info)
+    : m_attributes_info(&attributes_info),
+      m_attribute_buffers(attributes_info.size(), nullptr),
+      m_size(0),
+      m_capacity(0),
+      m_own_attributes_info(own_attributes_info)
+{
+}
+
+ParticleSet::~ParticleSet()
 {
   for (uint i : m_attributes_info->indices()) {
     const CPPType &type = m_attributes_info->type_of(i);
-    const void *default_value = attributes_info->default_of(i);
+    void *buffer = m_attribute_buffers[i];
 
-    void *buffer = MEM_mallocN_aligned(m_capacity * type.size(), type.alignment(), __func__);
-    type.fill_uninitialized(default_value, buffer, m_size);
-    m_attribute_buffers[i] = buffer;
+    if (buffer != nullptr) {
+      type.destruct_n(m_attribute_buffers[i], m_size);
+      MEM_freeN(buffer);
+    }
+  }
+
+  if (m_own_attributes_info) {
+    delete m_attributes_info;
   }
 }
 
@@ -59,13 +69,17 @@ void ParticleSet::realloc_particle_attributes(uint min_size)
 
   for (uint index : m_attributes_info->indices()) {
     const CPPType &type = m_attributes_info->type_of(index);
-    void *old_buffer = m_attribute_buffers[index];
     void *new_buffer = MEM_mallocN_aligned(type.size() * new_capacity, type.alignment(), __func__);
-    type.relocate_to_uninitialized_n(old_buffer, new_buffer, m_size);
-    MEM_freeN(old_buffer);
+
+    void *old_buffer = m_attribute_buffers[index];
+    if (old_buffer != nullptr) {
+      type.relocate_to_uninitialized_n(old_buffer, new_buffer, m_size);
+      MEM_freeN(old_buffer);
+    }
 
     m_attribute_buffers[index] = new_buffer;
   }
+  m_capacity = new_capacity;
 }
 
 }  // namespace BParticles

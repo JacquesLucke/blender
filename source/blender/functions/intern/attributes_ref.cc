@@ -153,9 +153,10 @@ void AttributesInfoDiff::update(uint capacity,
 
   for (uint old_index : m_old_info->indices()) {
     int new_index = m_old_to_new_mapping[old_index];
+    void *old_buffer = old_buffers[old_index];
 
-    if (new_index == -1) {
-      MEM_freeN(old_buffers[old_index]);
+    if (new_index == -1 && old_buffer != nullptr) {
+      MEM_freeN(old_buffer);
     }
   }
 }

@@ -275,6 +275,16 @@ class MutableAttributesRef {
     return this->slice(0, n);
   }
 
+  ArrayRef<void *> internal_buffers()
+  {
+    return m_buffers;
+  }
+
+  IndexRange internal_range()
+  {
+    return m_range;
+  }
+
   void destruct_and_reorder(IndexMask indices_to_destruct);
 
   static void RelocateUninitialized(MutableAttributesRef from, MutableAttributesRef to);

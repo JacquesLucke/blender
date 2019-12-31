@@ -1146,9 +1146,9 @@ class NodeTreeStepSimulator : public StepSimulator {
       AttributesInfoBuilder &system_attributes = *influences_collector.m_attributes.lookup(name);
 
       /* Keep old attributes. */
-      AttributesBlockContainer *container = containers.lookup_default(name, nullptr);
-      if (container != nullptr) {
-        system_attributes.add(container->info());
+      ParticleSet *particles = containers.lookup_default(name, nullptr);
+      if (particles != nullptr) {
+        system_attributes.add(particles->attributes_info());
       }
 
       this->ensure_particle_container_exist_and_has_attributes(
@@ -1177,14 +1177,14 @@ class NodeTreeStepSimulator : public StepSimulator {
       const AttributesInfoBuilder &attributes_info_builder)
   {
     auto &containers = particles_state.particle_containers();
-    AttributesBlockContainer *container = containers.lookup_default(name, nullptr);
-    if (container == nullptr) {
-      AttributesBlockContainer *container = new AttributesBlockContainer(attributes_info_builder,
-                                                                         1000);
-      containers.add_new(name, container);
+    ParticleSet *particles = containers.lookup_default(name, nullptr);
+    AttributesInfo *attributes_info = new AttributesInfo(attributes_info_builder);
+    if (particles == nullptr) {
+      ParticleSet *new_particle_set = new ParticleSet(*attributes_info, true);
+      containers.add_new(name, new_particle_set);
     }
     else {
-      container->update_attributes(attributes_info_builder);
+      particles->update_attributes(attributes_info);
     }
   }
 };
