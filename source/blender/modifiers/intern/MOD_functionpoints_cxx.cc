@@ -16,12 +16,12 @@
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
 
-using BKE::InlinedNodeTree;
 using BKE::VNode;
 using BLI::ArrayRef;
 using BLI::float3;
 using BLI::IndexRange;
 using BLI::Vector;
+using FN::InlinedNodeTree;
 using FN::MFContext;
 using FN::MFInputSocket;
 using FN::MFOutputSocket;
@@ -41,7 +41,7 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
 
   bNodeTree *btree = (bNodeTree *)DEG_get_original_id((ID *)fpmd->function_tree);
 
-  BKE::BTreeVTreeMap vtrees;
+  FN::BTreeVTreeMap vtrees;
   InlinedNodeTree inlined_tree(btree, vtrees);
 
   BLI::ResourceCollector resources;

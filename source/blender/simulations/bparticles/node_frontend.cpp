@@ -1,4 +1,3 @@
-#include "BKE_inlined_node_tree.h"
 #include "BKE_deform.h"
 #include "BKE_surface_hook.h"
 #include "BKE_id_data_cache.h"
@@ -11,6 +10,7 @@
 #include "BLI_set.h"
 #include "BLI_lazy_init_cxx.h"
 
+#include "FN_node_tree.h"
 #include "FN_multi_functions.h"
 #include "FN_generic_tuple.h"
 #include "FN_inlined_tree_multi_function_network_generation.h"
@@ -29,11 +29,6 @@ namespace BParticles {
 using BKE::IDDataCache;
 using BKE::IDHandleLookup;
 using BKE::ObjectIDHandle;
-using BKE::XGroupInput;
-using BKE::XInputSocket;
-using BKE::XNode;
-using BKE::XOutputSocket;
-using BKE::XSocket;
 using BLI::destruct_ptr;
 using BLI::MultiMap;
 using BLI::ResourceCollector;
@@ -47,6 +42,11 @@ using FN::MFInputSocket;
 using FN::MFOutputSocket;
 using FN::MultiFunction;
 using FN::NamedGenericTupleRef;
+using FN::XGroupInput;
+using FN::XInputSocket;
+using FN::XNode;
+using FN::XOutputSocket;
+using FN::XSocket;
 
 static StringRef particle_system_idname = "fn_ParticleSystemNode";
 static StringRef combine_influences_idname = "fn_CombineInfluencesNode";
@@ -706,7 +706,7 @@ class XNodeInfluencesBuilder {
   {
     std::stringstream ss;
     ss << "private/node";
-    for (const BKE::XParentNode *parent = m_xnode.parent(); parent; parent = parent->parent()) {
+    for (const FN::XParentNode *parent = m_xnode.parent(); parent; parent = parent->parent()) {
       ss << "/" << parent->vnode().name();
     }
     ss << "/" << m_xnode.name();
@@ -1104,7 +1104,7 @@ static void collect_influences(InlinedTreeData &inlined_tree_data,
 
 class NodeTreeStepSimulator : public StepSimulator {
  private:
-  BKE::BTreeVTreeMap m_inlined_trees;
+  FN::BTreeVTreeMap m_inlined_trees;
   InlinedNodeTree m_inlined_tree;
 
  public:

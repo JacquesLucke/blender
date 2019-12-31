@@ -530,7 +530,7 @@ static void INSERT_node_instance_identifier(VNodeMFNetworkBuilder &builder)
 {
   const XNode &xnode = builder.xnode();
   std::string identifier = "";
-  for (const BKE::XParentNode *parent = xnode.parent(); parent; parent = parent->parent()) {
+  for (const FN::XParentNode *parent = xnode.parent(); parent; parent = parent->parent()) {
     identifier = parent->vnode().name() + "/" + identifier;
   }
   identifier = "/nodeid/" + identifier + xnode.name();

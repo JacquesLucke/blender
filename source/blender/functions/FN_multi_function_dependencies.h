@@ -6,13 +6,10 @@
 #include "DNA_object_types.h"
 #include "DNA_image_types.h"
 
-#include "BKE_inlined_node_tree.h"
+#include "FN_node_tree.h"
 
 namespace FN {
 
-using BKE::InlinedNodeTree;
-using BKE::XGroupInput;
-using BKE::XInputSocket;
 using BLI::Set;
 
 inline Set<Object *> get_objects_used_by_sockets(const InlinedNodeTree &inlined_tree)

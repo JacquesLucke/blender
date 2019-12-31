@@ -10,7 +10,6 @@
 namespace FN {
 
 using BKE::VSocket;
-using BKE::XGroupInput;
 using BLI::MultiMap;
 
 class PreprocessedVTreeMFData {

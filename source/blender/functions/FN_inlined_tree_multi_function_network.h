@@ -1,7 +1,7 @@
 #ifndef __FN_VTREE_MULTI_FUNCTION_NETWORK_H__
 #define __FN_VTREE_MULTI_FUNCTION_NETWORK_H__
 
-#include "BKE_inlined_node_tree.h"
+#include "FN_node_tree.h"
 
 #include "BLI_multi_map.h"
 
@@ -9,11 +9,6 @@
 
 namespace FN {
 
-using BKE::InlinedNodeTree;
-using BKE::XInputSocket;
-using BKE::XNode;
-using BKE::XOutputSocket;
-using BKE::XSocket;
 using BLI::MultiMap;
 
 #define InlinedTreeMFSocketMap_UNMAPPED UINT_MAX

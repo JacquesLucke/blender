@@ -6,11 +6,21 @@
 #include "BLI_map.h"
 #include "BLI_multi_map.h"
 
-namespace BKE {
+namespace FN {
 
+using BKE::VInputSocket;
+using BKE::VirtualNodeTree;
+using BKE::VNode;
+using BKE::VOutputSocket;
+using BKE::VSocket;
+using BLI::ArrayRef;
 using BLI::Map;
 using BLI::MultiMap;
 using BLI::MutableArrayRef;
+using BLI::StringMap;
+using BLI::StringRef;
+using BLI::StringRefNull;
+using BLI::Vector;
 
 class XNode;
 class XParentNode;
@@ -444,6 +454,6 @@ inline ArrayRef<const XNode *> InlinedNodeTree::nodes_with_idname(StringRef idna
   }
 }
 
-}  // namespace BKE
+}  // namespace FN
 
 #endif /* __BKE_INLINED_NODE_TREE_H__ */

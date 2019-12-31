@@ -1,4 +1,4 @@
-#include "BKE_inlined_node_tree.h"
+#include "FN_node_tree.h"
 
 #include "BLI_string.h"
 #include "BLI_dot_export.h"
@@ -7,7 +7,7 @@ extern "C" {
 void WM_clipboard_text_set(const char *buf, bool selection);
 }
 
-namespace BKE {
+namespace FN {
 
 static const VirtualNodeTree &get_vtree(BTreeVTreeMap &vtrees, bNodeTree *btree)
 {
@@ -484,4 +484,4 @@ const XInputSocket *XNode::input_with_name_prefix(StringRef name_prefix) const
   return nullptr;
 }
 
-}  // namespace BKE
+}  // namespace FN

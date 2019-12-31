@@ -45,6 +45,7 @@ set(SRC
   intern/multi_function_common_contexts.cc
   intern/multi_function_context.cc
   intern/multi_function_network.cc
+  intern/node_tree.cc
 
   FN_attributes_block_container.h
   FN_attributes_ref.h
@@ -65,6 +66,7 @@ set(SRC
   FN_multi_functions.h
   FN_inlined_tree_multi_function_network_generation.h
   FN_inlined_tree_multi_function_network.h
+  FN_node_tree.h
 
   intern/multi_functions/customizable.h
   intern/multi_functions/lists.h

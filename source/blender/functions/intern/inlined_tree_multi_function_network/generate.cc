@@ -10,8 +10,6 @@
 
 namespace FN {
 
-using BKE::XGroupInput;
-
 static bool insert_nodes(InlinedTreeMFNetworkBuilder &builder,
                          const VTreeMultiFunctionMappings &mappings)
 {

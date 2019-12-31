@@ -1,13 +1,13 @@
 #pragma once
 
-#include "BKE_inlined_node_tree.h"
+#include "FN_node_tree.h"
 
 #include "world_state.hpp"
 #include "step_simulator.hpp"
 
 namespace BParticles {
 
-using BKE::InlinedNodeTree;
+using FN::InlinedNodeTree;
 
 std::unique_ptr<StepSimulator> simulator_from_node_tree(bNodeTree *btree);
 
