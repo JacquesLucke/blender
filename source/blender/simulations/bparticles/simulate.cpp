@@ -417,19 +417,36 @@ void simulate_particles(SimulationState &simulation_state,
   MultiMap<std::string, ParticleSet *> newly_created_particles;
   {
     ParticleAllocator particle_allocator(particles_state);
+    Vector<std::string> name_vector;
+    Vector<ParticleSet *> particles_vector;
     particles_state.particle_containers().foreach_key_value_pair(
         [&](StringRef name, ParticleSet *particles) {
-          ParticleSystemInfo *system_info = systems_to_simulate.lookup_ptr(name);
-          if (system_info == nullptr) {
-            return;
-          }
-
-          simulate_particles_for_time_span(simulation_state,
-                                           particle_allocator,
-                                           *system_info,
-                                           simulation_time_span,
-                                           particles->attributes());
+          name_vector.append(name);
+          particles_vector.append(particles);
         });
+
+    auto func = [&](uint index) {
+      ParticleSystemInfo *system_info = systems_to_simulate.lookup_ptr(name_vector[index]);
+      ParticleSet *particles = particles_vector[index];
+      if (system_info == nullptr) {
+        return;
+      }
+
+      simulate_particles_for_time_span(simulation_state,
+                                       particle_allocator,
+                                       *system_info,
+                                       simulation_time_span,
+                                       particles->attributes());
+    };
+
+#ifdef WITH_TBB
+    tbb::parallel_for((uint)0, name_vector.size(), func);
+#else
+    for (uint i : name_vector.index_iterator()) {
+      func(i);
+    }
+#endif
+
     create_particles_from_emitters(
         simulation_state, particle_allocator, emitters, simulation_time_span);
     newly_created_particles = particle_allocator.allocated_particles();
