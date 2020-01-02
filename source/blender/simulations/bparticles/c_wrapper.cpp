@@ -6,6 +6,7 @@
 
 #include "BLI_timeit.h"
 #include "BLI_string.h"
+#include "BLI_parallel.h"
 
 #include "BKE_mesh.h"
 #include "BKE_customdata.h"
@@ -16,11 +17,6 @@
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_modifier_types.h"
-
-#ifdef WITH_TBB
-#  define TBB_SUPPRESS_DEPRECATED_MESSAGES 1
-#  include "tbb/parallel_for.h"
-#endif
 
 #define WRAPPERS(T1, T2) \
   inline T1 unwrap(T2 value) \
@@ -148,14 +144,9 @@ static Mesh *distribute_tetrahedons(ArrayRef<float3> centers,
           &mesh->ldata, CD_MLOOPCOL, CD_DEFAULT, nullptr, mesh->totloop, "Color"),
       mesh->totloop);
 
-#if WITH_TBB
-  tbb::parallel_for(
-      tbb::blocked_range<uint>(0, amount, 1000), [&](const tbb::blocked_range<uint> &range) {
-        distribute_tetrahedons_range(mesh, loop_colors, range, centers, scales, colors);
-      });
-#else
-  distribute_tetrahedons_range(mesh, loop_colors, IndexRange(amount), centers, scales, colors);
-#endif
+  BLI::blocked_parallel_for(IndexRange(amount), 1000, [&](IndexRange range) {
+    distribute_tetrahedons_range(mesh, loop_colors, range, centers, scales, colors);
+  });
 
   return mesh;
 }
