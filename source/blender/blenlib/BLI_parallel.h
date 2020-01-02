@@ -10,6 +10,7 @@
 #include "BLI_index_range.h"
 #include "BLI_multi_map.h"
 #include "BLI_string_map.h"
+#include "BLI_string_multi_map.h"
 
 namespace BLI {
 
@@ -76,7 +77,7 @@ void parallel_invoke(const FuncT1 &func1, const FuncT2 &func2, const FuncT3 &fun
 }
 
 template<typename KeyT, typename ValueT, uint N, typename FuncT>
-void parallel_multi_map_items(const MultiMap<KeyT, ValueT, N> &multi_map, const FuncT &func)
+void parallel_map_items(const MultiMap<KeyT, ValueT, N> &multi_map, const FuncT &func)
 {
   ScopedVector<const KeyT *> key_vector;
   ScopedVector<ArrayRef<ValueT>> values_vector;
@@ -95,12 +96,31 @@ void parallel_multi_map_items(const MultiMap<KeyT, ValueT, N> &multi_map, const 
 }
 
 template<typename ValueT, typename FuncT>
-void parallel_string_map_items(const StringMap<ValueT> &string_map, const FuncT &func)
+void parallel_map_items(const StringMultiMap<ValueT> &string_multi_map, const FuncT &func)
+{
+  ScopedVector<StringRefNull> key_vector;
+  ScopedVector<ArrayRef<ValueT>> values_vector;
+
+  string_multi_map.foreach_item([&](StringRefNull key, ArrayRef<ValueT> values) {
+    key_vector.append(key);
+    values_vector.append(values);
+  });
+
+  parallel_for(key_vector.index_range(), [&](uint index) {
+    StringRefNull &key = key_vector[index];
+    ArrayRef<ValueT> values = values_vector[index];
+
+    func(key, values);
+  });
+}
+
+template<typename ValueT, typename FuncT>
+void parallel_map_items(const StringMap<ValueT> &string_map, const FuncT &func)
 {
   ScopedVector<StringRefNull> key_vector;
   ScopedVector<const ValueT *> value_vector;
 
-  string_map.foreach_key_value_pair([&](StringRefNull key, const ValueT &value) {
+  string_map.foreach_item([&](StringRefNull key, const ValueT &value) {
     key_vector.append(key);
     value_vector.append(&value);
   });

@@ -199,23 +199,21 @@ void SpawnParticlesAction::execute(ParticleActionContext &context)
   for (StringRef system_name : m_systems_to_emit) {
     auto new_particles = context.particle_allocator().request(system_name, total_spawn_amount);
 
-    attribute_arrays.foreach_key_value_pair(
-        [&](StringRef attribute_name, GenericMutableArrayRef array) {
-          if (new_particles.info().has_attribute(attribute_name, array.type())) {
-            new_particles.set(attribute_name, array);
-          }
-        });
+    attribute_arrays.foreach_item([&](StringRef attribute_name, GenericMutableArrayRef array) {
+      if (new_particles.info().has_attribute(attribute_name, array.type())) {
+        new_particles.set(attribute_name, array);
+      }
+    });
 
     m_action.execute_for_new_particles(new_particles, context);
   }
 
-  attribute_arrays.foreach_key_value_pair(
-      [&](StringRef attribute_name, GenericMutableArrayRef array) {
-        if (attribute_name != "Birth Time") {
-          array.destruct_indices(context.mask());
-          MEM_freeN(array.buffer());
-        }
-      });
+  attribute_arrays.foreach_item([&](StringRef attribute_name, GenericMutableArrayRef array) {
+    if (attribute_name != "Birth Time") {
+      array.destruct_indices(context.mask());
+      MEM_freeN(array.buffer());
+    }
+  });
 }
 
 }  // namespace BParticles

@@ -74,7 +74,7 @@ void BParticles_simulate_modifier(BParticlesModifierData *bpmd,
   simulation_state.time().end_update();
 
   auto &containers = simulation_state.particles().particle_containers();
-  containers.foreach_key_value_pair([](StringRefNull system_name, ParticleSet *particles) {
+  containers.foreach_item([](StringRefNull system_name, ParticleSet *particles) {
     std::cout << "Particle System: " << system_name << ": " << particles->size() << "\n";
   });
 }
@@ -297,7 +297,7 @@ void BParticles_modifier_cache_state(BParticlesModifierData *bpmd,
   Vector<std::string> system_names;
   Vector<ParticleSet *> particle_sets;
 
-  state.particles().particle_containers().foreach_key_value_pair(
+  state.particles().particle_containers().foreach_item(
       [&system_names, &particle_sets](StringRefNull name, ParticleSet *particles) {
         system_names.append(name);
         particle_sets.append(particles);

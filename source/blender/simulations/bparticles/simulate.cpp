@@ -392,20 +392,20 @@ BLI_NOINLINE static void simulate_existing_particles(
 {
   FloatInterval simulation_time_span = simulation_state.time().current_update_time();
 
-  BLI::parallel_string_map_items(
-      simulation_state.particles().particle_containers(),
-      [&](StringRef system_name, ParticleSet *particle_set) {
-        ParticleSystemInfo *system_info = systems_to_simulate.lookup_ptr(system_name);
-        if (system_info == nullptr) {
-          return;
-        }
+  BLI::parallel_map_items(simulation_state.particles().particle_containers(),
+                          [&](StringRef system_name, ParticleSet *particle_set) {
+                            ParticleSystemInfo *system_info = systems_to_simulate.lookup_ptr(
+                                system_name);
+                            if (system_info == nullptr) {
+                              return;
+                            }
 
-        simulate_particles_for_time_span(simulation_state,
-                                         particle_allocator,
-                                         *system_info,
-                                         simulation_time_span,
-                                         particle_set->attributes());
-      });
+                            simulate_particles_for_time_span(simulation_state,
+                                                             particle_allocator,
+                                                             *system_info,
+                                                             simulation_time_span,
+                                                             particle_set->attributes());
+                          });
 }
 
 BLI_NOINLINE static void create_particles_from_emitters(SimulationState &simulation_state,
@@ -429,8 +429,8 @@ void simulate_particles(SimulationState &simulation_state,
   ParticlesState &particles_state = simulation_state.particles();
   FloatInterval simulation_time_span = simulation_state.time().current_update_time();
 
-  MultiMap<std::string, ParticleSet *> all_newly_created_particles;
-  MultiMap<std::string, ParticleSet *> newly_created_particles;
+  StringMultiMap<ParticleSet *> all_newly_created_particles;
+  StringMultiMap<ParticleSet *> newly_created_particles;
   {
     ParticleAllocator particle_allocator(particles_state);
     BLI::parallel_invoke(
@@ -449,7 +449,7 @@ void simulate_particles(SimulationState &simulation_state,
   while (newly_created_particles.key_amount() > 0) {
     ParticleAllocator particle_allocator(particles_state);
 
-    BLI::parallel_multi_map_items(
+    BLI::parallel_map_items(
         newly_created_particles, [&](StringRef name, ArrayRef<ParticleSet *> new_particle_sets) {
           ParticleSystemInfo *system_info = systems_to_simulate.lookup_ptr(name);
           if (system_info == nullptr) {
@@ -470,17 +470,17 @@ void simulate_particles(SimulationState &simulation_state,
     all_newly_created_particles.add_multiple(newly_created_particles);
   }
 
-  BLI::parallel_multi_map_items(all_newly_created_particles,
-                                [&](StringRef name, ArrayRef<ParticleSet *> new_particle_sets) {
-                                  ParticleSet &main_set = particles_state.particle_container(name);
+  BLI::parallel_map_items(all_newly_created_particles,
+                          [&](StringRef name, ArrayRef<ParticleSet *> new_particle_sets) {
+                            ParticleSet &main_set = particles_state.particle_container(name);
 
-                                  for (ParticleSet *set : new_particle_sets) {
-                                    main_set.add_particles(*set);
-                                    delete set;
-                                  }
+                            for (ParticleSet *set : new_particle_sets) {
+                              main_set.add_particles(*set);
+                              delete set;
+                            }
 
-                                  delete_tagged_particles_and_reorder(main_set);
-                                });
+                            delete_tagged_particles_and_reorder(main_set);
+                          });
 }
 
 }  // namespace BParticles

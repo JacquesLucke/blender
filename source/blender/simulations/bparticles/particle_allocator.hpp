@@ -2,19 +2,19 @@
 
 #include <mutex>
 
-#include "BLI_multi_map.h"
+#include "BLI_string_multi_map.h"
 
 #include "particles_state.hpp"
 
 namespace BParticles {
 
-using BLI::MultiMap;
+using BLI::StringMultiMap;
 using FN::AttributesRefGroup;
 
 class ParticleAllocator : BLI::NonCopyable, BLI::NonMovable {
  private:
   ParticlesState &m_state;
-  MultiMap<std::string, ParticleSet *> m_allocated_particles;
+  StringMultiMap<ParticleSet *> m_allocated_particles;
   std::mutex m_request_mutex;
 
  public:
@@ -23,7 +23,7 @@ class ParticleAllocator : BLI::NonCopyable, BLI::NonMovable {
   /**
    * Access all particles that have been allocated by this allocator.
    */
-  MultiMap<std::string, ParticleSet *> allocated_particles();
+  StringMultiMap<ParticleSet *> allocated_particles();
 
   /**
    * Get memory buffers for new particles.
@@ -37,7 +37,7 @@ class ParticleAllocator : BLI::NonCopyable, BLI::NonMovable {
 /* ParticleAllocator inline functions
  ********************************************/
 
-inline MultiMap<std::string, ParticleSet *> ParticleAllocator::allocated_particles()
+inline StringMultiMap<ParticleSet *> ParticleAllocator::allocated_particles()
 {
   return m_allocated_particles;
 }

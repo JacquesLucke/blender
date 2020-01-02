@@ -348,7 +348,7 @@ template<typename T, typename Allocator = GuardedAllocator> class StringMap {
   /**
    * Run a function for every key-value-pair in the map.
    */
-  template<typename FuncT> void foreach_key_value_pair(const FuncT &func)
+  template<typename FuncT> void foreach_item(const FuncT &func)
   {
     for (Item &item : m_array) {
       for (uint offset = 0; offset < 4; offset++) {
@@ -361,7 +361,7 @@ template<typename T, typename Allocator = GuardedAllocator> class StringMap {
     }
   }
 
-  template<typename FuncT> void foreach_key_value_pair(const FuncT &func) const
+  template<typename FuncT> void foreach_item(const FuncT &func) const
   {
     for (const Item &item : m_array) {
       for (uint offset = 0; offset < 4; offset++) {

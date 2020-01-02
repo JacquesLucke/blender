@@ -203,7 +203,7 @@ TEST(string_map, ForeachKeyValuePair)
   Vector<std::string> keys;
   Vector<int> values;
 
-  map.foreach_key_value_pair([&keys, &values](StringRefNull key, int value) {
+  map.foreach_item([&keys, &values](StringRefNull key, int value) {
     keys.append(key);
     values.append(value);
   });
