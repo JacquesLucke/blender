@@ -411,19 +411,23 @@ BLI_NOINLINE static void simulate_particles_from_birth_to_end_of_step(
     float end_time,
     MutableAttributesRef particle_attributes)
 {
-  ArrayRef<float> birth_times = particle_attributes.get<float>("Birth Time");
+  ArrayRef<float> all_birth_times = particle_attributes.get<float>("Birth Time");
 
-  Array<float> remaining_durations(particle_attributes.size());
-  for (uint i : remaining_durations.index_iterator()) {
-    remaining_durations[i] = end_time - birth_times[i];
-  }
+  blocked_parallel_for(IndexRange(particle_attributes.size()), 1000, [&](IndexRange range) {
+    ArrayRef<float> birth_times = all_birth_times.slice(range);
 
-  simulate_particle_chunk(simulation_state,
-                          particle_allocator,
-                          particle_attributes,
-                          system_info,
-                          remaining_durations,
-                          end_time);
+    Array<float> remaining_durations(range.size());
+    for (uint i : remaining_durations.index_iterator()) {
+      remaining_durations[i] = end_time - birth_times[i];
+    }
+
+    simulate_particle_chunk(simulation_state,
+                            particle_allocator,
+                            particle_attributes.slice(range),
+                            system_info,
+                            remaining_durations,
+                            end_time);
+  });
 }
 
 BLI_NOINLINE static void simulate_existing_particles(
@@ -516,16 +520,26 @@ void simulate_particles(SimulationState &simulation_state,
     all_newly_created_particles.add_multiple(newly_created_particles);
   }
 
+  Vector<ParticleSet *> main_sets;
+  Vector<ArrayRef<ParticleSet *>> particle_sets_vector;
+
   all_newly_created_particles.foreach_item(
       [&](StringRef name, ArrayRef<ParticleSet *> new_particle_sets) {
-        ParticleSet &main_set = particles_state.particle_container(name);
-        for (ParticleSet *set : new_particle_sets) {
-          main_set.add_particles(*set);
-          delete set;
-        }
-
-        delete_tagged_particles_and_reorder(main_set);
+        main_sets.append(&particles_state.particle_container(name));
+        particle_sets_vector.append(new_particle_sets);
       });
-}  // namespace BParticles
+
+  parallel_for(main_sets.index_iterator(), [&](uint index) {
+    ParticleSet &main_set = *main_sets[index];
+    ArrayRef<ParticleSet *> particle_sets = particle_sets_vector[index];
+
+    for (ParticleSet *set : particle_sets) {
+      main_set.add_particles(*set);
+      delete set;
+    }
+
+    delete_tagged_particles_and_reorder(main_set);
+  });
+}
 
 }  // namespace BParticles
