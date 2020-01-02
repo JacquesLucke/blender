@@ -35,6 +35,21 @@ template<typename FuncT> void parallel_for(IndexRange range, const FuncT &func)
 #endif
 }
 
+template<typename FuncT>
+void blocked_parallel_for(IndexRange range, uint grain_size, const FuncT &func)
+{
+  if (range.size() == 0) {
+    return;
+  }
+#ifdef WITH_TBB
+  tbb::parallel_for(
+      tbb::blocked_range<uint>(range.first(), range.one_after_last(), grain_size),
+      [&](const tbb::blocked_range<uint> &sub_range) { func(IndexRange(sub_range)); });
+#else
+  func(range);
+#endif
+}
+
 template<typename FuncT1, typename FuncT2>
 void parallel_invoke(const FuncT1 &func1, const FuncT2 &func2)
 {
@@ -378,13 +393,15 @@ BLI_NOINLINE static void simulate_particles_for_time_span(SimulationState &simul
                                                           FloatInterval time_span,
                                                           MutableAttributesRef particle_attributes)
 {
-  Array<float> remaining_durations(particle_attributes.size(), time_span.size());
-  simulate_particle_chunk(simulation_state,
-                          particle_allocator,
-                          particle_attributes,
-                          system_info,
-                          remaining_durations,
-                          time_span.end());
+  blocked_parallel_for(IndexRange(particle_attributes.size()), 1000, [&](IndexRange range) {
+    Array<float> remaining_durations(range.size(), time_span.size());
+    simulate_particle_chunk(simulation_state,
+                            particle_allocator,
+                            particle_attributes.slice(range),
+                            system_info,
+                            remaining_durations,
+                            time_span.end());
+  });
 }
 
 BLI_NOINLINE static void simulate_particles_from_birth_to_end_of_step(
