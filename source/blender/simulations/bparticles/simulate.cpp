@@ -475,26 +475,17 @@ void simulate_particles(SimulationState &simulation_state,
     all_newly_created_particles.add_multiple(newly_created_particles);
   }
 
-  Vector<ParticleSet *> main_sets;
-  Vector<ArrayRef<ParticleSet *>> particle_sets_vector;
+  BLI::parallel_multi_map_items(all_newly_created_particles,
+                                [&](StringRef name, ArrayRef<ParticleSet *> new_particle_sets) {
+                                  ParticleSet &main_set = particles_state.particle_container(name);
 
-  all_newly_created_particles.foreach_item(
-      [&](StringRef name, ArrayRef<ParticleSet *> new_particle_sets) {
-        main_sets.append(&particles_state.particle_container(name));
-        particle_sets_vector.append(new_particle_sets);
-      });
+                                  for (ParticleSet *set : new_particle_sets) {
+                                    main_set.add_particles(*set);
+                                    delete set;
+                                  }
 
-  BLI::parallel_for(main_sets.index_range(), [&](uint index) {
-    ParticleSet &main_set = *main_sets[index];
-    ArrayRef<ParticleSet *> particle_sets = particle_sets_vector[index];
-
-    for (ParticleSet *set : particle_sets) {
-      main_set.add_particles(*set);
-      delete set;
-    }
-
-    delete_tagged_particles_and_reorder(main_set);
-  });
+                                  delete_tagged_particles_and_reorder(main_set);
+                                });
 }
 
 }  // namespace BParticles

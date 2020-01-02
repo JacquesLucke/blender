@@ -8,6 +8,7 @@
 #endif
 
 #include "BLI_index_range.h"
+#include "BLI_multi_map.h"
 
 namespace BLI {
 
@@ -71,6 +72,25 @@ void parallel_invoke(const FuncT1 &func1, const FuncT2 &func2, const FuncT3 &fun
   func2();
   func3();
 #endif
+}
+
+template<typename KeyT, typename ValueT, uint N, typename FuncT>
+void parallel_multi_map_items(const MultiMap<KeyT, ValueT, N> &multi_map, const FuncT &func)
+{
+  ScopedVector<const KeyT *> key_vector;
+  ScopedVector<ArrayRef<ValueT>> values_vector;
+
+  multi_map.foreach_item([&](const KeyT &key, ArrayRef<ValueT> values) {
+    key_vector.append(&key);
+    values_vector.append(values);
+  });
+
+  parallel_for(key_vector.index_range(), [&](uint index) {
+    const KeyT &key = *key_vector[index];
+    ArrayRef<ValueT> values = values_vector[index];
+
+    func(key, values);
+  });
 }
 
 }  // namespace BLI
