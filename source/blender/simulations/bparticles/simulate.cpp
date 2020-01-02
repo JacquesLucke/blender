@@ -3,16 +3,11 @@
 #include "BLI_timeit.h"
 #include "BLI_array_cxx.h"
 #include "BLI_vector_adaptor.h"
+#include "BLI_parallel.h"
 
 #include "FN_cpp_type.h"
 
 #include "simulate.hpp"
-
-#ifdef WITH_TBB
-#  define TBB_SUPPRESS_DEPRECATED_MESSAGES 1
-#  include "tbb/parallel_for.h"
-#  include "tbb/parallel_invoke.h"
-#endif
 
 namespace BParticles {
 
@@ -20,46 +15,6 @@ using BLI::LargeScopedArray;
 using BLI::LargeScopedVector;
 using BLI::VectorAdaptor;
 using FN::CPPType;
-
-template<typename FuncT> void parallel_for(IndexRange range, const FuncT &func)
-{
-  if (range.size() == 0) {
-    return;
-  }
-#ifdef WITH_TBB
-  tbb::parallel_for(range.first(), range.one_after_last(), func);
-#else
-  for (uint i : range) {
-    func(i);
-  }
-#endif
-}
-
-template<typename FuncT>
-void blocked_parallel_for(IndexRange range, uint grain_size, const FuncT &func)
-{
-  if (range.size() == 0) {
-    return;
-  }
-#ifdef WITH_TBB
-  tbb::parallel_for(
-      tbb::blocked_range<uint>(range.first(), range.one_after_last(), grain_size),
-      [&](const tbb::blocked_range<uint> &sub_range) { func(IndexRange(sub_range)); });
-#else
-  func(range);
-#endif
-}
-
-template<typename FuncT1, typename FuncT2>
-void parallel_invoke(const FuncT1 &func1, const FuncT2 &func2)
-{
-#ifdef WITH_TBB
-  tbb::parallel_invoke(func1, func2);
-#else
-  func1();
-  func2();
-#endif
-}
 
 BLI_NOINLINE static void find_next_event_per_particle(
     BlockStepData &step_data,
@@ -393,7 +348,7 @@ BLI_NOINLINE static void simulate_particles_for_time_span(SimulationState &simul
                                                           FloatInterval time_span,
                                                           MutableAttributesRef particle_attributes)
 {
-  blocked_parallel_for(IndexRange(particle_attributes.size()), 1000, [&](IndexRange range) {
+  BLI::blocked_parallel_for(IndexRange(particle_attributes.size()), 1000, [&](IndexRange range) {
     Array<float> remaining_durations(range.size(), time_span.size());
     simulate_particle_chunk(simulation_state,
                             particle_allocator,
@@ -413,7 +368,7 @@ BLI_NOINLINE static void simulate_particles_from_birth_to_end_of_step(
 {
   ArrayRef<float> all_birth_times = particle_attributes.get<float>("Birth Time");
 
-  blocked_parallel_for(IndexRange(particle_attributes.size()), 1000, [&](IndexRange range) {
+  BLI::blocked_parallel_for(IndexRange(particle_attributes.size()), 1000, [&](IndexRange range) {
     ArrayRef<float> birth_times = all_birth_times.slice(range);
 
     Array<float> remaining_durations(range.size());
@@ -445,7 +400,7 @@ BLI_NOINLINE static void simulate_existing_particles(
         particles_vector.append(particles);
       });
 
-  parallel_for(name_vector.index_iterator(), [&](uint index) {
+  BLI::parallel_for(name_vector.index_iterator(), [&](uint index) {
     ParticleSystemInfo *system_info = systems_to_simulate.lookup_ptr(name_vector[index]);
     ParticleSet *particles = particles_vector[index];
     if (system_info == nullptr) {
@@ -465,7 +420,7 @@ BLI_NOINLINE static void create_particles_from_emitters(SimulationState &simulat
                                                         ArrayRef<Emitter *> emitters,
                                                         FloatInterval time_span)
 {
-  parallel_for(emitters.index_iterator(), [&](uint emitter_index) {
+  BLI::parallel_for(emitters.index_iterator(), [&](uint emitter_index) {
     Emitter &emitter = *emitters[emitter_index];
     EmitterInterface interface(simulation_state, particle_allocator, time_span);
     emitter.emit(interface);
@@ -485,7 +440,7 @@ void simulate_particles(SimulationState &simulation_state,
   MultiMap<std::string, ParticleSet *> newly_created_particles;
   {
     ParticleAllocator particle_allocator(particles_state);
-    parallel_invoke(
+    BLI::parallel_invoke(
         [&]() {
           simulate_existing_particles(simulation_state, particle_allocator, systems_to_simulate);
         },
@@ -529,7 +484,7 @@ void simulate_particles(SimulationState &simulation_state,
         particle_sets_vector.append(new_particle_sets);
       });
 
-  parallel_for(main_sets.index_iterator(), [&](uint index) {
+  BLI::parallel_for(main_sets.index_iterator(), [&](uint index) {
     ParticleSet &main_set = *main_sets[index];
     ArrayRef<ParticleSet *> particle_sets = particle_sets_vector[index];
 

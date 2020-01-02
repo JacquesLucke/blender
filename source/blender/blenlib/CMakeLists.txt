@@ -274,6 +274,7 @@ set(SRC
   BLI_utility_mixins.h
   BLI_static_class_ids.h
   BLI_index_mask.h
+  BLI_parallel.h
 )
 
 set(LIB
