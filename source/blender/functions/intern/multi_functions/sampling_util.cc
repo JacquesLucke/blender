@@ -12,7 +12,7 @@ float compute_cumulative_distribution(ArrayRef<float> weights,
   BLI_assert(weights.size() + 1 == r_cumulative_weights.size());
 
   r_cumulative_weights[0] = 0;
-  for (uint i : weights.index_iterator()) {
+  for (uint i : weights.index_range()) {
     r_cumulative_weights[i + 1] = r_cumulative_weights[i] + weights[i];
   }
 

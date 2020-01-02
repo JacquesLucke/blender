@@ -102,9 +102,9 @@ class IndexMask {
     }
   }
 
-  IndexRange index_iterator() const
+  IndexRange index_range() const
   {
-    return m_indices.index_iterator();
+    return m_indices.index_range();
   }
 
   uint last() const

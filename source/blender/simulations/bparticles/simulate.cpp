@@ -27,7 +27,7 @@ BLI_NOINLINE static void find_next_event_per_particle(
   r_next_event_indices.fill_indices(mask, -1);
   r_time_factors_to_next_event.fill_indices(mask, 1.0f);
 
-  for (uint event_index : events.index_iterator()) {
+  for (uint event_index : events.index_range()) {
     Vector<uint> triggered_pindices;
     Vector<float> triggered_time_factors;
 
@@ -36,7 +36,7 @@ BLI_NOINLINE static void find_next_event_per_particle(
         step_data, mask, r_time_factors_to_next_event, triggered_pindices, triggered_time_factors);
     event->filter(interface);
 
-    for (uint i : triggered_pindices.index_iterator()) {
+    for (uint i : triggered_pindices.index_range()) {
       uint pindex = triggered_pindices[i];
       float time_factor = triggered_time_factors[i];
       BLI_assert(time_factor <= r_time_factors_to_next_event[pindex]);
@@ -153,7 +153,7 @@ BLI_NOINLINE static void execute_events(BlockStepData &step_data,
 {
   BLI_assert(events.size() == pindices_per_event.size());
 
-  for (uint event_index : events.index_iterator()) {
+  for (uint event_index : events.index_range()) {
     Event *event = events[event_index];
     ArrayRef<uint> pindices = pindices_per_event[event_index];
 
@@ -333,7 +333,7 @@ BLI_NOINLINE static void delete_tagged_particles_and_reorder(ParticleSet &partic
   auto kill_states = particles.attributes().get<bool>("Dead");
   LargeScopedVector<uint> indices_to_delete;
 
-  for (uint i : kill_states.index_iterator()) {
+  for (uint i : kill_states.index_range()) {
     if (kill_states[i]) {
       indices_to_delete.append(i);
     }
@@ -372,7 +372,7 @@ BLI_NOINLINE static void simulate_particles_from_birth_to_end_of_step(
     ArrayRef<float> birth_times = all_birth_times.slice(range);
 
     Array<float> remaining_durations(range.size());
-    for (uint i : remaining_durations.index_iterator()) {
+    for (uint i : remaining_durations.index_range()) {
       remaining_durations[i] = end_time - birth_times[i];
     }
 
@@ -400,7 +400,7 @@ BLI_NOINLINE static void simulate_existing_particles(
         particles_vector.append(particles);
       });
 
-  BLI::parallel_for(name_vector.index_iterator(), [&](uint index) {
+  BLI::parallel_for(name_vector.index_range(), [&](uint index) {
     ParticleSystemInfo *system_info = systems_to_simulate.lookup_ptr(name_vector[index]);
     ParticleSet *particles = particles_vector[index];
     if (system_info == nullptr) {
@@ -420,7 +420,7 @@ BLI_NOINLINE static void create_particles_from_emitters(SimulationState &simulat
                                                         ArrayRef<Emitter *> emitters,
                                                         FloatInterval time_span)
 {
-  BLI::parallel_for(emitters.index_iterator(), [&](uint emitter_index) {
+  BLI::parallel_for(emitters.index_range(), [&](uint emitter_index) {
     Emitter &emitter = *emitters[emitter_index];
     EmitterInterface interface(simulation_state, particle_allocator, time_span);
     emitter.emit(interface);
@@ -484,7 +484,7 @@ void simulate_particles(SimulationState &simulation_state,
         particle_sets_vector.append(new_particle_sets);
       });
 
-  BLI::parallel_for(main_sets.index_iterator(), [&](uint index) {
+  BLI::parallel_for(main_sets.index_range(), [&](uint index) {
     ParticleSet &main_set = *main_sets[index];
     ArrayRef<ParticleSet *> particle_sets = particle_sets_vector[index];
 

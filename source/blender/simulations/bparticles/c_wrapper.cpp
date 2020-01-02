@@ -310,7 +310,7 @@ void BParticles_modifier_cache_state(BParticlesModifierData *bpmd,
   cached_frame.particle_types = (BParticlesTypeCache *)MEM_calloc_arrayN(
       particle_sets.size(), sizeof(BParticlesTypeCache), __func__);
 
-  for (uint i : particle_sets.index_iterator()) {
+  for (uint i : particle_sets.index_range()) {
     ParticleSet &particles = *particle_sets[i];
     BParticlesTypeCache &cached_type = cached_frame.particle_types[i];
 

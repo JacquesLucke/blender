@@ -66,7 +66,7 @@ MFBuilderFunctionNode &MFNetworkBuilder::add_function(const MultiFunction &funct
   node.m_output_param_indices = output_param_indices;
   node.m_id = m_node_by_id.size();
 
-  for (uint i : input_param_indices.index_iterator()) {
+  for (uint i : input_param_indices.index_range()) {
     uint param_index = input_param_indices[i];
     MFParamType param = function.param_type(param_index);
     BLI_assert(param.is_input_or_mutable());
@@ -82,7 +82,7 @@ MFBuilderFunctionNode &MFNetworkBuilder::add_function(const MultiFunction &funct
     m_input_sockets.append(&input_socket);
   }
 
-  for (uint i : output_param_indices.index_iterator()) {
+  for (uint i : output_param_indices.index_range()) {
     uint param_index = output_param_indices[i];
     MFParamType param = function.param_type(param_index);
     BLI_assert(param.is_output_or_mutable());
@@ -116,7 +116,7 @@ MFBuilderDummyNode &MFNetworkBuilder::add_dummy(StringRef name,
   node.m_id = m_node_by_id.size();
   node.m_name = m_allocator.copy_string(name);
 
-  for (uint i : input_types.index_iterator()) {
+  for (uint i : input_types.index_range()) {
     auto &input_socket = *m_allocator.construct<MFBuilderInputSocket>().release();
     input_socket.m_data_type = input_types[i];
     input_socket.m_node = &node;
@@ -128,7 +128,7 @@ MFBuilderDummyNode &MFNetworkBuilder::add_dummy(StringRef name,
     m_socket_by_id.append(&input_socket);
     m_input_sockets.append(&input_socket);
   }
-  for (uint i : output_types.index_iterator()) {
+  for (uint i : output_types.index_range()) {
     auto &output_socket = *m_allocator.construct<MFBuilderOutputSocket>().release();
     output_socket.m_data_type = output_types[i];
     output_socket.m_node = &node;

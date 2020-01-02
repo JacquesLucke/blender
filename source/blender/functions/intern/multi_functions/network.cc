@@ -257,7 +257,7 @@ void MF_EvaluateNetwork::call(IndexMask mask, MFParams params, MFContext context
 BLI_NOINLINE void MF_EvaluateNetwork::copy_inputs_to_storage(MFParams params,
                                                              Storage &storage) const
 {
-  for (uint input_index : m_inputs.index_iterator()) {
+  for (uint input_index : m_inputs.index_range()) {
     const MFOutputSocket &socket = *m_inputs[input_index];
     switch (socket.data_type().category()) {
       case MFDataType::Single: {
@@ -665,7 +665,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_computed_values_to_outputs(MFParams p
 {
   uint array_size = storage.mask().min_array_size();
 
-  for (uint output_index : m_outputs.index_iterator()) {
+  for (uint output_index : m_outputs.index_range()) {
     uint global_param_index = m_inputs.size() + output_index;
     const MFInputSocket &socket = *m_outputs[output_index];
     switch (socket.data_type().category()) {

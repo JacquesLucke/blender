@@ -39,7 +39,7 @@ class FloatInterval {
   void value_at(ArrayRef<float> factors, MutableArrayRef<float> r_values)
   {
     BLI_assert(factors.size() == r_values.size());
-    for (uint i : factors.index_iterator()) {
+    for (uint i : factors.index_range()) {
       r_values[i] = this->value_at(factors[i]);
     }
   }
@@ -52,7 +52,7 @@ class FloatInterval {
     if (r_values.size() == 1) {
       r_values[0] = this->value_at(0.5f);
     }
-    for (uint i : r_values.index_iterator()) {
+    for (uint i : r_values.index_range()) {
       float factor = (i - 1) / (float)r_values.size();
       r_values[i] = this->value_at(factor);
     }

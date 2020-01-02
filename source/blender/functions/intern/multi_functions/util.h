@@ -24,7 +24,7 @@ void group_indices_by_same_value(IndexMask indices,
 
   ScopedVector<T> seen_values;
 
-  for (uint i : indices.index_iterator()) {
+  for (uint i : indices.index_range()) {
     uint index = indices[i];
 
     const T &value = values[index];

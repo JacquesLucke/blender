@@ -847,7 +847,7 @@ static BLI_NOINLINE Vector<int> find_non_close_indices(VirtualListRef<float3> po
   BLI_kdtree_3d_free(kdtree);
 
   Vector<int> indices;
-  for (uint i : keep_index.index_iterator()) {
+  for (uint i : keep_index.index_range()) {
     if (keep_index[i]) {
       indices.append(i);
     }
@@ -885,7 +885,7 @@ void MF_JoinTextList::call(IndexMask mask, MFParams params, MFContext UNUSED(con
   for (uint index : mask.indices()) {
     VirtualListRef<std::string> texts = text_lists[index];
     std::string r_text = "";
-    for (uint i : texts.index_iterator()) {
+    for (uint i : texts.index_range()) {
       r_text += texts[i];
     }
     new (&r_texts[index]) std::string(std::move(r_text));

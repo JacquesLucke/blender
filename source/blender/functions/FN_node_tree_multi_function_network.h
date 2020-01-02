@@ -167,7 +167,7 @@ class FunctionTreeMFNetwork {
                             MutableArrayRef<const MFOutputSocket *> r_result) const
   {
     BLI_assert(fsockets.size() == r_result.size());
-    for (uint i : fsockets.index_iterator()) {
+    for (uint i : fsockets.index_range()) {
       r_result[i] = &this->lookup_socket(*fsockets[i]);
     }
   }
@@ -176,7 +176,7 @@ class FunctionTreeMFNetwork {
                             MutableArrayRef<const MFInputSocket *> r_result) const
   {
     BLI_assert(fsockets.size() == r_result.size());
-    for (uint i : fsockets.index_iterator()) {
+    for (uint i : fsockets.index_range()) {
       r_result[i] = &this->lookup_dummy_socket(*fsockets[i]);
     }
   }

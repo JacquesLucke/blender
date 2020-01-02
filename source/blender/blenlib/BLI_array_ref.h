@@ -324,7 +324,7 @@ template<typename T> class ArrayRef {
    * Utility to make it more convenient to iterate over all indices that can be used with this
    * array.
    */
-  IndexRange index_iterator() const
+  IndexRange index_range() const
   {
     return IndexRange(m_size);
   }
@@ -494,7 +494,7 @@ template<typename T> class MutableArrayRef {
     return ArrayRef<T>(m_start, m_size);
   }
 
-  IndexRange index_iterator() const
+  IndexRange index_range() const
   {
     return IndexRange(m_size);
   }

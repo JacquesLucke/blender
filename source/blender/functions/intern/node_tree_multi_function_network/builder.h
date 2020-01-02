@@ -183,7 +183,7 @@ class FunctionTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
                    ArrayRef<MFBuilderInputSocket *> sockets)
   {
     BLI_assert(fsockets.size() == sockets.size());
-    for (uint i : fsockets.index_iterator()) {
+    for (uint i : fsockets.index_range()) {
       this->map_sockets(*fsockets[i], *sockets[i]);
     }
   }
@@ -192,7 +192,7 @@ class FunctionTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
                    ArrayRef<MFBuilderOutputSocket *> sockets)
   {
     BLI_assert(fsockets.size() == sockets.size());
-    for (uint i : fsockets.index_iterator()) {
+    for (uint i : fsockets.index_range()) {
       this->map_sockets(*fsockets[i], *sockets[i]);
     }
   }

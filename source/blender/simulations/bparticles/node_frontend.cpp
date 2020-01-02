@@ -208,7 +208,7 @@ class FunctionTreeData {
   Optional<NamedGenericTupleRef> compute_all_data_inputs(const FNode &fnode)
   {
     ScopedVector<uint> data_input_indices;
-    for (uint i : fnode.inputs().index_iterator()) {
+    for (uint i : fnode.inputs().index_range()) {
       if (m_function_tree_data_graph.is_mapped(fnode.input(i))) {
         data_input_indices.append(i);
       }

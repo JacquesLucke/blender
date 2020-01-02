@@ -63,7 +63,7 @@ void MutableAttributesRef::destruct_and_reorder(IndexMask index_mask)
 
     array.destruct_indices(index_mask);
 
-    for (uint i : index_mask.index_iterator()) {
+    for (uint i : index_mask.index_range()) {
       uint last_index = m_range.size() - 1 - i;
       uint index_to_remove = index_mask[index_mask.size() - 1 - i];
       if (index_to_remove == last_index) {

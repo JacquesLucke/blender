@@ -60,7 +60,7 @@ class MFElementContexts {
   template<typename T> Optional<TypedContext<T>> try_find() const
   {
     BLI::class_id_t context_id = BLI::get_class_id<T>();
-    for (uint i : m_contexts.index_iterator()) {
+    for (uint i : m_contexts.index_range()) {
       if (m_ids[i] == context_id) {
         const T *context = (const T *)m_contexts[i];
         return TypedContext<T>{context, m_indices[i]};
@@ -83,7 +83,7 @@ class MFGlobalContexts {
   template<typename T> const T *try_find() const
   {
     BLI::class_id_t context_id = BLI::get_class_id<T>();
-    for (uint i : m_contexts.index_iterator()) {
+    for (uint i : m_contexts.index_range()) {
       if (m_ids[i] == context_id) {
         const T *context = (const T *)m_contexts[i];
         return context;
@@ -154,7 +154,7 @@ inline void MFContextBuilder::add_global_contexts(const MFContext &other)
 {
   const MFGlobalContexts &global_contexts = other.m_builder->m_global_contexts;
 
-  for (uint i : global_contexts.m_ids.index_iterator()) {
+  for (uint i : global_contexts.m_ids.index_range()) {
     BLI::class_id_t id = other.m_builder->m_global_contexts.m_ids[i];
     const void *context = other.m_builder->m_global_contexts.m_contexts[i];
 

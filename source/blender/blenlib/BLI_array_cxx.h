@@ -195,7 +195,7 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ar
     return m_data + m_size;
   }
 
-  IndexRange index_iterator() const
+  IndexRange index_range() const
   {
     return IndexRange(m_size);
   }

@@ -465,7 +465,7 @@ static BLI_NOINLINE void compute_triangle_areas(Mesh *mesh,
 {
   BLI_assert(triangles.size() == r_areas.size());
 
-  for (uint i : triangles.index_iterator()) {
+  for (uint i : triangles.index_range()) {
     const MLoopTri &triangle = triangles[i];
 
     float3 v1 = mesh->mvert[mesh->mloop[triangle.tri[0]].v].co;
@@ -511,7 +511,7 @@ static BLI_NOINLINE bool get_vertex_weights(Object *object,
     return false;
   }
 
-  for (uint i : r_vertex_weights.index_iterator()) {
+  for (uint i : r_vertex_weights.index_range()) {
     r_vertex_weights[i] = defvert_find_weight(vertices + i, group_index);
   }
   return true;
@@ -526,7 +526,7 @@ static BLI_NOINLINE void vertex_weights_to_triangle_weights(
   BLI_assert(r_triangle_weights.size() == triangles.size());
   BLI_assert(mesh->totvert == vertex_weights.size());
 
-  for (uint triangle_index : triangles.index_iterator()) {
+  for (uint triangle_index : triangles.index_range()) {
     const MLoopTri &looptri = triangles[triangle_index];
     float triangle_weight = 0.0f;
     for (uint i = 0; i < 3; i++) {
@@ -590,7 +590,7 @@ void MF_SampleObjectSurface::call(IndexMask mask, MFParams params, MFContext con
         vertex_weights_to_triangle_weights(
             mesh, triangles, vertex_weights, vertex_weights_for_triangles);
 
-        for (uint i : triangle_weights.index_iterator()) {
+        for (uint i : triangle_weights.index_range()) {
           triangle_weights[i] *= vertex_weights_for_triangles[i];
         }
       }

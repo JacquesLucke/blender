@@ -185,7 +185,7 @@ BLI_NOINLINE void FunctionNodeTree::expand_group__relink_inputs(const VirtualNod
 {
   Vector<const VOutputSocket *> group_inputs = get_group_inputs(vtree);
 
-  for (uint input_index : group_inputs.index_iterator()) {
+  for (uint input_index : group_inputs.index_range()) {
     const VOutputSocket *inside_interface_vsocket = group_inputs[input_index];
     const VNode &inside_interface_vnode = inside_interface_vsocket->node();
     FNode *inside_interface_fnode = new_fnodes_by_id[inside_interface_vnode.id()];
@@ -227,7 +227,7 @@ BLI_NOINLINE void FunctionNodeTree::expand_group__relink_outputs(
 {
   Vector<const VInputSocket *> group_outputs = get_group_outputs(vtree);
 
-  for (uint output_index : group_outputs.index_iterator()) {
+  for (uint output_index : group_outputs.index_range()) {
     const VInputSocket *inside_interface_vsocket = group_outputs[output_index];
     const VNode &inside_interface_vnode = inside_interface_vsocket->node();
     FNode *inside_interface_fnode = new_fnodes_by_id[inside_interface_vnode.id()];
@@ -344,7 +344,7 @@ BLI_NOINLINE void FunctionNodeTree::store_tree_in_this_and_init_ids(
   m_group_inputs = std::move(all_group_inputs);
   m_parent_nodes = std::move(all_parent_nodes);
 
-  for (uint node_index : m_node_by_id.index_iterator()) {
+  for (uint node_index : m_node_by_id.index_range()) {
     FNode *fnode = m_node_by_id[node_index];
     fnode->m_id = node_index;
 

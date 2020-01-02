@@ -176,7 +176,7 @@ template<typename T> class VirtualListRef {
     return false;
   }
 
-  IndexRange index_iterator() const
+  IndexRange index_range() const
   {
     return IndexRange(m_virtual_size);
   }

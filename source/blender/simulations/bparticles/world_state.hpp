@@ -50,7 +50,7 @@ struct VaryingFloat4x4 {
                    MutableArrayRef<float4x4> r_results) const
   {
     BLI_assert(times.size() == r_results.size());
-    for (uint i : times.index_iterator()) {
+    for (uint i : times.index_range()) {
       r_results[i] = this->interpolate(times[i] + time_offset);
     }
   }

@@ -206,7 +206,7 @@ std::unique_ptr<FunctionTreeMFNetwork> FunctionTreeMFNetworkBuilder::build()
   auto network = BLI::make_unique<MFNetwork>(std::move(m_builder));
 
   Array<uint> fsocket_by_socket(network->socket_ids().size(), InlinedTreeMFSocketMap_UNMAPPED);
-  for (uint fsocket_id : m_single_socket_by_fsocket.index_iterator()) {
+  for (uint fsocket_id : m_single_socket_by_fsocket.index_range()) {
     switch (m_single_socket_by_fsocket[fsocket_id]) {
       case InlinedTreeMFSocketMap_UNMAPPED: {
         break;
