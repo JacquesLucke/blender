@@ -35,6 +35,17 @@ template<typename FuncT> void parallel_for(IndexRange range, const FuncT &func)
 #endif
 }
 
+template<typename FuncT1, typename FuncT2>
+void parallel_invoke(const FuncT1 &func1, const FuncT2 &func2)
+{
+#ifdef WITH_TBB
+  tbb::parallel_invoke(func1, func2);
+#else
+  func1();
+  func2();
+#endif
+}
+
 BLI_NOINLINE static void find_next_event_per_particle(
     BlockStepData &step_data,
     IndexMask mask,
@@ -423,30 +434,36 @@ void simulate_particles(SimulationState &simulation_state,
   MultiMap<std::string, ParticleSet *> newly_created_particles;
   {
     ParticleAllocator particle_allocator(particles_state);
-    Vector<std::string> name_vector;
-    Vector<ParticleSet *> particles_vector;
-    particles_state.particle_containers().foreach_key_value_pair(
-        [&](StringRef name, ParticleSet *particles) {
-          name_vector.append(name);
-          particles_vector.append(particles);
+
+    parallel_invoke(
+        [&]() {
+          Vector<std::string> name_vector;
+          Vector<ParticleSet *> particles_vector;
+          particles_state.particle_containers().foreach_key_value_pair(
+              [&](StringRef name, ParticleSet *particles) {
+                name_vector.append(name);
+                particles_vector.append(particles);
+              });
+
+          parallel_for(name_vector.index_iterator(), [&](uint index) {
+            ParticleSystemInfo *system_info = systems_to_simulate.lookup_ptr(name_vector[index]);
+            ParticleSet *particles = particles_vector[index];
+            if (system_info == nullptr) {
+              return;
+            }
+
+            simulate_particles_for_time_span(simulation_state,
+                                             particle_allocator,
+                                             *system_info,
+                                             simulation_time_span,
+                                             particles->attributes());
+          });
+        },
+        [&]() {
+          create_particles_from_emitters(
+              simulation_state, particle_allocator, emitters, simulation_time_span);
         });
 
-    parallel_for(name_vector.index_iterator(), [&](uint index) {
-      ParticleSystemInfo *system_info = systems_to_simulate.lookup_ptr(name_vector[index]);
-      ParticleSet *particles = particles_vector[index];
-      if (system_info == nullptr) {
-        return;
-      }
-
-      simulate_particles_for_time_span(simulation_state,
-                                       particle_allocator,
-                                       *system_info,
-                                       simulation_time_span,
-                                       particles->attributes());
-    });
-
-    create_particles_from_emitters(
-        simulation_state, particle_allocator, emitters, simulation_time_span);
     newly_created_particles = particle_allocator.allocated_particles();
     all_newly_created_particles = newly_created_particles;
   }
