@@ -607,7 +607,7 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
     uint size = this->size();
 
     T *new_array = (T *)m_allocator.allocate_aligned(
-        min_capacity * (uint)sizeof(T), std::alignment_of<T>::value, __func__);
+        min_capacity * (uint)sizeof(T), std::alignment_of<T>::value, "grow BLI::Vector");
     uninitialized_relocate_n(m_begin, size, new_array);
 
     if (!this->is_small()) {

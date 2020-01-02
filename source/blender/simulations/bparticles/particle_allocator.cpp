@@ -38,7 +38,7 @@ AttributesRefGroup ParticleAllocator::request(StringRef particle_system_name, ui
 
   {
     std::lock_guard<std::mutex> lock(m_request_mutex);
-    m_allocated_particles.add(&main_set, particles);
+    m_allocated_particles.add(particle_system_name, particles);
   }
 
   Vector<ArrayRef<void *>> buffers;

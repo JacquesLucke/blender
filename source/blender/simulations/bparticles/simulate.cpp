@@ -347,101 +347,42 @@ BLI_NOINLINE static void delete_tagged_particles_and_reorder(ParticleSet &partic
   particles.destruct_and_reorder(indices_to_delete.as_ref());
 }
 
-// BLI_NOINLINE static void simulate_blocks_for_time_span(
-//     ParticleAllocator &particle_allocator,
-//     ArrayRef<AttributesBlock *> blocks,
-//     StringMap<ParticleSystemInfo> &systems_to_simulate,
-//     FloatInterval time_span,
-//     SimulationState &simulation_state)
-// {
-//   auto func = [&](uint block_index) {
-//     AttributesBlock &block = *blocks[block_index];
+BLI_NOINLINE static void simulate_particles_for_time_span(SimulationState &simulation_state,
+                                                          ParticleAllocator &particle_allocator,
+                                                          ParticleSystemInfo &system_info,
+                                                          FloatInterval time_span,
+                                                          MutableAttributesRef particle_attributes)
+{
+  Array<float> remaining_durations(particle_attributes.size(), time_span.size());
+  simulate_particle_chunk(simulation_state,
+                          particle_allocator,
+                          particle_attributes,
+                          system_info,
+                          remaining_durations,
+                          time_span.end());
+}
 
-//     StringRef particle_system_name = simulation_state.particles().particle_container_name(
-//         block.owner());
-//     ParticleSystemInfo &system_info = systems_to_simulate.lookup(particle_system_name);
+BLI_NOINLINE static void simulate_particles_from_birth_to_end_of_step(
+    SimulationState &simulation_state,
+    ParticleAllocator &particle_allocator,
+    ParticleSystemInfo &system_info,
+    float end_time,
+    MutableAttributesRef particle_attributes)
+{
+  ArrayRef<float> birth_times = particle_attributes.get<float>("Birth Time");
 
-//     LargeScopedArray<float> remaining_durations(block.used_size());
-//     remaining_durations.fill(time_span.size());
+  Array<float> remaining_durations(particle_attributes.size());
+  for (uint i : remaining_durations.index_iterator()) {
+    remaining_durations[i] = end_time - birth_times[i];
+  }
 
-//     simulate_particle_chunk(simulation_state,
-//                             particle_allocator,
-//                             block.as_ref(),
-//                             system_info,
-//                             remaining_durations,
-//                             time_span.end());
-
-//     delete_tagged_particles_and_reorder(block);
-//   };
-
-// #ifdef WITH_TBB
-//   tbb::parallel_for((uint)0, blocks.size(), func);
-// #else
-//   for (uint i : blocks.index_iterator()) {
-//     func(i);
-//   }
-// #endif
-// }
-
-// BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
-//     ParticleAllocator &particle_allocator,
-//     ArrayRef<AttributesBlock *> blocks,
-//     StringMap<ParticleSystemInfo> &systems_to_simulate,
-//     float end_time,
-//     SimulationState &simulation_state)
-// {
-//   auto func = [&](uint block_index) {
-//     AttributesBlock &block = *blocks[block_index];
-
-//     StringRef particle_system_name = simulation_state.particles().particle_container_name(
-//         block.owner());
-//     ParticleSystemInfo &system_info = systems_to_simulate.lookup(particle_system_name);
-
-//     uint active_amount = block.used_size();
-//     Vector<float> durations(active_amount);
-//     auto birth_times = block.as_ref().get<float>("Birth Time");
-//     for (uint i = 0; i < active_amount; i++) {
-//       durations[i] = end_time - birth_times[i];
-//     }
-//     simulate_particle_chunk(
-//         simulation_state, particle_allocator, block.as_ref(), system_info, durations, end_time);
-
-//     delete_tagged_particles_and_reorder(block);
-//   };
-
-// #ifdef WITH_TBB
-//   tbb::parallel_for((uint)0, blocks.size(), func);
-// #else
-//   for (uint i : blocks.index_iterator()) {
-//     func(i);
-//   }
-// #endif
-// }
-
-// BLI_NOINLINE static Vector<AttributesBlock *> get_all_blocks_to_simulate(
-//     ParticlesState &state, StringMap<ParticleSystemInfo> &systems_to_simulate)
-// {
-//   Vector<AttributesBlock *> blocks;
-//   systems_to_simulate.foreach_key([&state, &blocks](StringRefNull particle_system_name) {
-//     AttributesBlockContainer &container = state.particle_container(particle_system_name);
-//     blocks.extend(container.active_blocks());
-//   });
-//   return blocks;
-// }
-
-// BLI_NOINLINE static void simulate_all_existing_blocks(
-//     SimulationState &simulation_state,
-//     StringMap<ParticleSystemInfo> &systems_to_simulate,
-//     ParticleAllocator &particle_allocator,
-//     FloatInterval time_span)
-// {
-//   simulation_state.particles().particle_containers().foreach_key_value_pair(
-//       [&](StringRef name, ParticleSet *particles) {});
-//   Vector<AttributesBlock *> blocks = get_all_blocks_to_simulate(simulation_state.particles(),
-//                                                                 systems_to_simulate);
-//   simulate_blocks_for_time_span(
-//       particle_allocator, blocks, systems_to_simulate, time_span, simulation_state);
-// }
+  simulate_particle_chunk(simulation_state,
+                          particle_allocator,
+                          particle_attributes,
+                          system_info,
+                          remaining_durations,
+                          end_time);
+}
 
 BLI_NOINLINE static void create_particles_from_emitters(SimulationState &simulation_state,
                                                         ParticleAllocator &particle_allocator,
@@ -463,27 +404,61 @@ void simulate_particles(SimulationState &simulation_state,
   ParticlesState &particles_state = simulation_state.particles();
   FloatInterval simulation_time_span = simulation_state.time().current_update_time();
 
-  Vector<AttributesBlock *> newly_created_blocks;
+  MultiMap<std::string, ParticleSet *> all_newly_created_particles;
+  MultiMap<std::string, ParticleSet *> newly_created_particles;
   {
     ParticleAllocator particle_allocator(particles_state);
-    simulate_all_existing_blocks(
-        simulation_state, systems_to_simulate, particle_allocator, simulation_time_span);
+    particles_state.particle_containers().foreach_key_value_pair(
+        [&](StringRef name, ParticleSet *particles) {
+          ParticleSystemInfo *system_info = systems_to_simulate.lookup_ptr(name);
+          if (system_info == nullptr) {
+            return;
+          }
+
+          simulate_particles_for_time_span(simulation_state,
+                                           particle_allocator,
+                                           *system_info,
+                                           simulation_time_span,
+                                           particles->attributes());
+        });
     create_particles_from_emitters(
         simulation_state, particle_allocator, emitters, simulation_time_span);
-    newly_created_blocks = particle_allocator.allocated_blocks();
+    newly_created_particles = particle_allocator.allocated_particles();
+    all_newly_created_particles = newly_created_particles;
   }
 
-  while (newly_created_blocks.size() > 0) {
+  while (newly_created_particles.key_amount() > 0) {
     ParticleAllocator particle_allocator(particles_state);
-    simulate_blocks_from_birth_to_current_time(particle_allocator,
-                                               newly_created_blocks,
-                                               systems_to_simulate,
-                                               simulation_time_span.end(),
-                                               simulation_state);
-    newly_created_blocks = particle_allocator.allocated_blocks();
+
+    newly_created_particles.foreach_item(
+        [&](StringRef name, ArrayRef<ParticleSet *> new_particle_sets) {
+          ParticleSystemInfo *system_info = systems_to_simulate.lookup_ptr(name);
+          if (system_info == nullptr) {
+            return;
+          }
+
+          for (ParticleSet *new_particles : new_particle_sets) {
+            simulate_particles_from_birth_to_end_of_step(simulation_state,
+                                                         particle_allocator,
+                                                         *system_info,
+                                                         simulation_time_span.end(),
+                                                         new_particles->attributes());
+          }
+        });
+    newly_created_particles = particle_allocator.allocated_particles();
+    all_newly_created_particles.add_multiple(newly_created_particles);
   }
 
-  compress_all_containers(particles_state);
+  all_newly_created_particles.foreach_item(
+      [&](StringRef name, ArrayRef<ParticleSet *> new_particle_sets) {
+        ParticleSet &main_set = particles_state.particle_container(name);
+        for (ParticleSet *set : new_particle_sets) {
+          main_set.add_particles(*set);
+          delete set;
+        }
+
+        delete_tagged_particles_and_reorder(main_set);
+      });
 }
 
 }  // namespace BParticles

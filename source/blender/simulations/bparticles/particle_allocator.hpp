@@ -14,7 +14,7 @@ using FN::AttributesRefGroup;
 class ParticleAllocator : BLI::NonCopyable, BLI::NonMovable {
  private:
   ParticlesState &m_state;
-  MultiMap<ParticleSet *, ParticleSet *> m_allocated_particles;
+  MultiMap<std::string, ParticleSet *> m_allocated_particles;
   std::mutex m_request_mutex;
 
  public:

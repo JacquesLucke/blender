@@ -36,6 +36,10 @@ void ParticleSet::update_attributes(const AttributesInfo *new_attributes_info)
   diff.update(m_capacity, m_size, m_attribute_buffers, new_buffers);
 
   m_attribute_buffers = std::move(new_buffers);
+
+  if (m_own_attributes_info) {
+    delete m_attributes_info;
+  }
   m_attributes_info = new_attributes_info;
 }
 
@@ -57,6 +61,7 @@ void ParticleSet::add_particles(ParticleSet &particles)
   MutableAttributesRef dst{
       *m_attributes_info, m_attribute_buffers, IndexRange(m_size, particles.size())};
   MutableAttributesRef::RelocateUninitialized(particles.attributes(), dst);
+  m_size = required_size;
 }
 
 void ParticleSet::realloc_particle_attributes(uint min_size)

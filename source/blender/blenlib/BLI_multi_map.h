@@ -101,6 +101,12 @@ template<typename K, typename V, uint N = 4> class MultiMap {
     return newly_inserted;
   }
 
+  template<uint OtherN> void add_multiple(MultiMap<K, V, OtherN> &other)
+  {
+    BLI_assert(this != &other);
+    other.foreach_item([&](const K &key, ArrayRef<V> values) { this->add_multiple(key, values); });
+  }
+
   void add_multiple(const K &key, ArrayRef<V> values)
   {
     for (const V &value : values) {
@@ -157,6 +163,15 @@ template<typename K, typename V, uint N = 4> class MultiMap {
       for (const V &value : entry.get_slice(m_elements)) {
         func(value);
       }
+    }
+  }
+
+  template<typename FuncT> void foreach_item(const FuncT &func)
+  {
+    for (auto item : m_map.items()) {
+      const K &key = item.key;
+      ArrayRef<V> values = item.value.get_slice(m_elements);
+      func(key, values);
     }
   }
 };
