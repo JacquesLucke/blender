@@ -21,6 +21,20 @@ using BLI::LargeScopedVector;
 using BLI::VectorAdaptor;
 using FN::CPPType;
 
+template<typename FuncT> void parallel_for(IndexRange range, const FuncT &func)
+{
+  if (range.size() == 0) {
+    return;
+  }
+#ifdef WITH_TBB
+  tbb::parallel_for(range.first(), range.one_after_last(), func);
+#else
+  for (uint i : range) {
+    func(i);
+  }
+#endif
+}
+
 BLI_NOINLINE static void find_next_event_per_particle(
     BlockStepData &step_data,
     IndexMask mask,
@@ -389,19 +403,11 @@ BLI_NOINLINE static void create_particles_from_emitters(SimulationState &simulat
                                                         ArrayRef<Emitter *> emitters,
                                                         FloatInterval time_span)
 {
-  auto func = [&](uint emitter_index) {
+  parallel_for(emitters.index_iterator(), [&](uint emitter_index) {
     Emitter &emitter = *emitters[emitter_index];
     EmitterInterface interface(simulation_state, particle_allocator, time_span);
     emitter.emit(interface);
-  };
-
-#ifdef WITH_TBB
-  tbb::parallel_for((uint)0, emitters.size(), func);
-#else
-  for (uint i : emitters.index_iterator()) {
-    func(i);
-  }
-#endif
+  });
 }
 
 void simulate_particles(SimulationState &simulation_state,
@@ -425,7 +431,7 @@ void simulate_particles(SimulationState &simulation_state,
           particles_vector.append(particles);
         });
 
-    auto func = [&](uint index) {
+    parallel_for(name_vector.index_iterator(), [&](uint index) {
       ParticleSystemInfo *system_info = systems_to_simulate.lookup_ptr(name_vector[index]);
       ParticleSet *particles = particles_vector[index];
       if (system_info == nullptr) {
@@ -437,15 +443,7 @@ void simulate_particles(SimulationState &simulation_state,
                                        *system_info,
                                        simulation_time_span,
                                        particles->attributes());
-    };
-
-#ifdef WITH_TBB
-    tbb::parallel_for((uint)0, name_vector.size(), func);
-#else
-    for (uint i : name_vector.index_iterator()) {
-      func(i);
-    }
-#endif
+    });
 
     create_particles_from_emitters(
         simulation_state, particle_allocator, emitters, simulation_time_span);
