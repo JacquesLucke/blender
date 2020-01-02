@@ -9,6 +9,7 @@
 
 #include "BLI_index_range.h"
 #include "BLI_multi_map.h"
+#include "BLI_string_map.h"
 
 namespace BLI {
 
@@ -90,6 +91,25 @@ void parallel_multi_map_items(const MultiMap<KeyT, ValueT, N> &multi_map, const 
     ArrayRef<ValueT> values = values_vector[index];
 
     func(key, values);
+  });
+}
+
+template<typename ValueT, typename FuncT>
+void parallel_string_map_items(const StringMap<ValueT> &string_map, const FuncT &func)
+{
+  ScopedVector<StringRefNull> key_vector;
+  ScopedVector<const ValueT *> value_vector;
+
+  string_map.foreach_key_value_pair([&](StringRefNull key, const ValueT &value) {
+    key_vector.append(key);
+    value_vector.append(&value);
+  });
+
+  parallel_for(key_vector.index_range(), [&](uint index) {
+    StringRefNull key = key_vector[index];
+    const ValueT &value = *value_vector[index];
+
+    func(key, value);
   });
 }
 

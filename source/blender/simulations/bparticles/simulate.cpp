@@ -392,27 +392,20 @@ BLI_NOINLINE static void simulate_existing_particles(
 {
   FloatInterval simulation_time_span = simulation_state.time().current_update_time();
 
-  Vector<std::string> name_vector;
-  Vector<ParticleSet *> particles_vector;
-  simulation_state.particles().particle_containers().foreach_key_value_pair(
-      [&](StringRef name, ParticleSet *particles) {
-        name_vector.append(name);
-        particles_vector.append(particles);
+  BLI::parallel_string_map_items(
+      simulation_state.particles().particle_containers(),
+      [&](StringRef system_name, ParticleSet *particle_set) {
+        ParticleSystemInfo *system_info = systems_to_simulate.lookup_ptr(system_name);
+        if (system_info == nullptr) {
+          return;
+        }
+
+        simulate_particles_for_time_span(simulation_state,
+                                         particle_allocator,
+                                         *system_info,
+                                         simulation_time_span,
+                                         particle_set->attributes());
       });
-
-  BLI::parallel_for(name_vector.index_range(), [&](uint index) {
-    ParticleSystemInfo *system_info = systems_to_simulate.lookup_ptr(name_vector[index]);
-    ParticleSet *particles = particles_vector[index];
-    if (system_info == nullptr) {
-      return;
-    }
-
-    simulate_particles_for_time_span(simulation_state,
-                                     particle_allocator,
-                                     *system_info,
-                                     simulation_time_span,
-                                     particles->attributes());
-  });
 }
 
 BLI_NOINLINE static void create_particles_from_emitters(SimulationState &simulation_state,
@@ -456,21 +449,23 @@ void simulate_particles(SimulationState &simulation_state,
   while (newly_created_particles.key_amount() > 0) {
     ParticleAllocator particle_allocator(particles_state);
 
-    newly_created_particles.foreach_item(
-        [&](StringRef name, ArrayRef<ParticleSet *> new_particle_sets) {
+    BLI::parallel_multi_map_items(
+        newly_created_particles, [&](StringRef name, ArrayRef<ParticleSet *> new_particle_sets) {
           ParticleSystemInfo *system_info = systems_to_simulate.lookup_ptr(name);
           if (system_info == nullptr) {
             return;
           }
 
-          for (ParticleSet *new_particles : new_particle_sets) {
+          BLI::parallel_for(new_particle_sets.index_range(), [&](uint index) {
+            ParticleSet &particle_set = *new_particle_sets[index];
             simulate_particles_from_birth_to_end_of_step(simulation_state,
                                                          particle_allocator,
                                                          *system_info,
                                                          simulation_time_span.end(),
-                                                         new_particles->attributes());
-          }
+                                                         particle_set.attributes());
+          });
         });
+
     newly_created_particles = particle_allocator.allocated_particles();
     all_newly_created_particles.add_multiple(newly_created_particles);
   }
