@@ -389,10 +389,19 @@ BLI_NOINLINE static void create_particles_from_emitters(SimulationState &simulat
                                                         ArrayRef<Emitter *> emitters,
                                                         FloatInterval time_span)
 {
-  for (Emitter *emitter : emitters) {
+  auto func = [&](uint emitter_index) {
+    Emitter &emitter = *emitters[emitter_index];
     EmitterInterface interface(simulation_state, particle_allocator, time_span);
-    emitter->emit(interface);
+    emitter.emit(interface);
+  };
+
+#ifdef WITH_TBB
+  tbb::parallel_for((uint)0, emitters.size(), func);
+#else
+  for (uint i : emitters.index_iterator()) {
+    func(i);
   }
+#endif
 }
 
 void simulate_particles(SimulationState &simulation_state,
