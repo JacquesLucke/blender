@@ -35,6 +35,7 @@ using BLI::ResourceCollector;
 using BLI::rgba_f;
 using BLI::ScopedVector;
 using BLI::Set;
+using BLI::StringMultiMap;
 using FN::AttributesInfoBuilder;
 using FN::CPPType;
 using FN::FGroupInput;
@@ -61,9 +62,9 @@ StringMap<ActionParserCallback> &get_action_parsers();
 class InfluencesCollector {
  public:
   Vector<Emitter *> m_emitters;
-  MultiMap<std::string, Force *> m_forces;
-  MultiMap<std::string, Event *> m_events;
-  MultiMap<std::string, OffsetHandler *> m_offset_handlers;
+  StringMultiMap<Force *> m_forces;
+  StringMultiMap<Event *> m_events;
+  StringMultiMap<OffsetHandler *> m_offset_handlers;
   StringMap<AttributesInfoBuilder *> m_attributes;
 };
 

@@ -59,7 +59,7 @@ template<typename ValueT> class StringMultiMap {
   }
 
   ArrayRef<ValueT> lookup_default(StringRef key,
-                                  ArrayRef<ValueT> default_array = ArrayRef<ValueT>())
+                                  ArrayRef<ValueT> default_array = ArrayRef<ValueT>()) const
   {
     const Vector<ValueT> *values = m_map.lookup_ptr(key);
     if (values == nullptr) {

@@ -348,12 +348,7 @@ BLI_NOINLINE void FunctionNodeTree::store_tree_in_this_and_init_ids(
     FNode *fnode = m_node_by_id[node_index];
     fnode->m_id = node_index;
 
-    if (m_nodes_by_idname.contains(fnode->idname())) {
-      m_nodes_by_idname.lookup(fnode->idname()).append(fnode);
-    }
-    else {
-      m_nodes_by_idname.add_new(fnode->idname(), {fnode});
-    }
+    m_nodes_by_idname.add(fnode->idname(), fnode);
 
     for (FInputSocket *fsocket : fnode->m_inputs) {
       fsocket->m_id = m_sockets_by_id.append_and_get_index(fsocket);

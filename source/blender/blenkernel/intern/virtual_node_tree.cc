@@ -82,12 +82,7 @@ VirtualNodeTree::VirtualNodeTree(bNodeTree *btree) : m_btree(btree)
   }
 
   for (VNode *vnode : vtree.m_nodes_by_id) {
-    if (vtree.m_nodes_by_idname.contains(vnode->idname())) {
-      vtree.m_nodes_by_idname.lookup(vnode->idname()).append(vnode);
-    }
-    else {
-      vtree.m_nodes_by_idname.add_new(vnode->idname(), {vnode});
-    }
+    vtree.m_nodes_by_idname.add(vnode->idname(), vnode);
   }
 }
 

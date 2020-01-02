@@ -7,6 +7,7 @@
 #include "BLI_string_ref.h"
 #include "BLI_string_map.h"
 #include "BLI_resource_collector.h"
+#include "BLI_string_multi_map.h"
 
 #include "DNA_node_types.h"
 
@@ -18,6 +19,7 @@ using BLI::Array;
 using BLI::ArrayRef;
 using BLI::ResourceCollector;
 using BLI::StringMap;
+using BLI::StringMultiMap;
 using BLI::StringRef;
 using BLI::StringRefNull;
 using BLI::Vector;
@@ -125,7 +127,7 @@ class VirtualNodeTree : BLI::NonCopyable, BLI::NonMovable {
   Vector<VSocket *> m_sockets_by_id;
   Vector<VInputSocket *> m_input_sockets;
   Vector<VOutputSocket *> m_output_sockets;
-  StringMap<Vector<VNode *>> m_nodes_by_idname;
+  StringMultiMap<VNode *> m_nodes_by_idname;
 
  public:
   VirtualNodeTree(bNodeTree *btree);
@@ -329,13 +331,7 @@ inline ArrayRef<const VNode *> VirtualNodeTree::nodes() const
 
 inline ArrayRef<const VNode *> VirtualNodeTree::nodes_with_idname(StringRef idname) const
 {
-  auto *nodes = m_nodes_by_idname.lookup_ptr(idname);
-  if (nodes == nullptr) {
-    return {};
-  }
-  else {
-    return ArrayRef<VNode *>(*nodes).cast<const VNode *>();
-  }
+  return m_nodes_by_idname.lookup_default(idname);
 }
 
 inline uint VirtualNodeTree::socket_count() const

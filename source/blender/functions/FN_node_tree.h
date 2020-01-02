@@ -18,6 +18,7 @@ using BLI::Map;
 using BLI::MultiMap;
 using BLI::MutableArrayRef;
 using BLI::StringMap;
+using BLI::StringMultiMap;
 using BLI::StringRef;
 using BLI::StringRefNull;
 using BLI::Vector;
@@ -164,7 +165,7 @@ class FunctionNodeTree : BLI::NonCopyable, BLI::NonMovable {
   Vector<FInputSocket *> m_input_sockets;
   Vector<FOutputSocket *> m_output_sockets;
 
-  StringMap<Vector<FNode *>> m_nodes_by_idname;
+  StringMultiMap<FNode *> m_nodes_by_idname;
 
  public:
   FunctionNodeTree(bNodeTree *btree, BTreeVTreeMap &vtrees);
@@ -445,13 +446,7 @@ inline ArrayRef<const FGroupInput *> FunctionNodeTree::all_group_inputs() const
 
 inline ArrayRef<const FNode *> FunctionNodeTree::nodes_with_idname(StringRef idname) const
 {
-  auto *nodes = m_nodes_by_idname.lookup_ptr(idname);
-  if (nodes == nullptr) {
-    return {};
-  }
-  else {
-    return nodes->as_ref();
-  }
+  return m_nodes_by_idname.lookup_default(idname);
 }
 
 }  // namespace FN
