@@ -409,6 +409,36 @@ BLI_NOINLINE static void simulate_particles_from_birth_to_end_of_step(
                           end_time);
 }
 
+BLI_NOINLINE static void simulate_existing_particles(
+    SimulationState &simulation_state,
+    ParticleAllocator &particle_allocator,
+    StringMap<ParticleSystemInfo> &systems_to_simulate)
+{
+  FloatInterval simulation_time_span = simulation_state.time().current_update_time();
+
+  Vector<std::string> name_vector;
+  Vector<ParticleSet *> particles_vector;
+  simulation_state.particles().particle_containers().foreach_key_value_pair(
+      [&](StringRef name, ParticleSet *particles) {
+        name_vector.append(name);
+        particles_vector.append(particles);
+      });
+
+  parallel_for(name_vector.index_iterator(), [&](uint index) {
+    ParticleSystemInfo *system_info = systems_to_simulate.lookup_ptr(name_vector[index]);
+    ParticleSet *particles = particles_vector[index];
+    if (system_info == nullptr) {
+      return;
+    }
+
+    simulate_particles_for_time_span(simulation_state,
+                                     particle_allocator,
+                                     *system_info,
+                                     simulation_time_span,
+                                     particles->attributes());
+  });
+}
+
 BLI_NOINLINE static void create_particles_from_emitters(SimulationState &simulation_state,
                                                         ParticleAllocator &particle_allocator,
                                                         ArrayRef<Emitter *> emitters,
@@ -434,30 +464,9 @@ void simulate_particles(SimulationState &simulation_state,
   MultiMap<std::string, ParticleSet *> newly_created_particles;
   {
     ParticleAllocator particle_allocator(particles_state);
-
     parallel_invoke(
         [&]() {
-          Vector<std::string> name_vector;
-          Vector<ParticleSet *> particles_vector;
-          particles_state.particle_containers().foreach_key_value_pair(
-              [&](StringRef name, ParticleSet *particles) {
-                name_vector.append(name);
-                particles_vector.append(particles);
-              });
-
-          parallel_for(name_vector.index_iterator(), [&](uint index) {
-            ParticleSystemInfo *system_info = systems_to_simulate.lookup_ptr(name_vector[index]);
-            ParticleSet *particles = particles_vector[index];
-            if (system_info == nullptr) {
-              return;
-            }
-
-            simulate_particles_for_time_span(simulation_state,
-                                             particle_allocator,
-                                             *system_info,
-                                             simulation_time_span,
-                                             particles->attributes());
-          });
+          simulate_existing_particles(simulation_state, particle_allocator, systems_to_simulate);
         },
         [&]() {
           create_particles_from_emitters(
@@ -500,6 +509,6 @@ void simulate_particles(SimulationState &simulation_state,
 
         delete_tagged_particles_and_reorder(main_set);
       });
-}
+}  // namespace BParticles
 
 }  // namespace BParticles
