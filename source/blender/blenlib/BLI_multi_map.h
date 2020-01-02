@@ -25,154 +25,200 @@
 #include "BLI_map.h"
 #include "BLI_array_ref.h"
 #include "BLI_vector.h"
+#include "BLI_monotonic_allocator.h"
 
 namespace BLI {
 
-template<typename K, typename V, uint N = 4> class MultiMap {
+template<typename KeyT, typename ValueT, uint N = 4> class MultiMap {
  private:
   struct Entry {
-    uint offset;
-    uint length;
-    uint capacity;
-
-    ArrayRef<V> get_slice(ArrayRef<V> array) const
-    {
-      return array.slice(offset, length);
-    }
+    ValueT *ptr = nullptr;
+    uint length = 0;
+    uint capacity = 0;
   };
 
-  Map<K, Entry> m_map;
-  Vector<V, N> m_elements;
+  MonotonicAllocator<sizeof(ValueT) * N> m_allocator;
+  Map<KeyT, Entry> m_map;
 
  public:
   MultiMap() = default;
+
+  ~MultiMap()
+  {
+    this->foreach_value([](ValueT &value) { value.~ValueT(); });
+  }
+
+  MultiMap(const MultiMap &other)
+  {
+    this->add_multiple(other);
+  }
+
+  MultiMap &operator=(const MultiMap &other)
+  {
+    if (this == &other) {
+      return *this;
+    }
+    this->~MultiMap();
+    new (this) MultiMap(other);
+    return *this;
+  }
 
   uint key_amount() const
   {
     return m_map.size();
   }
 
-  uint value_amount(const K &key) const
+  uint value_amount(const KeyT &key) const
   {
-    return this->lookup_default(key).size();
+    return m_map.lookup_default(key, {}).length;
   }
 
-  bool add(const K &key, const V &value)
+  void add_new(const KeyT &key, const ValueT &value)
   {
-    BLI_STATIC_ASSERT(std::is_trivially_destructible<V>::value, "");
-    bool newly_inserted = m_map.add_or_modify(
-        key,
-        /* Insert new key with value. */
-        [&](Entry *r_entry) {
-          UNUSED_VARS(key);
-          uint offset = m_elements.size();
-          m_elements.append(value);
-          *r_entry = {offset, 1, 1};
-          return true;
-        },
-        /* Append new value for existing key. */
-        [&](Entry *entry) {
-          if (entry->length < entry->capacity) {
-            m_elements[entry->offset + entry->length] = value;
-            entry->length += 1;
-          }
-          else {
-            uint new_offset = m_elements.size();
-            uint new_capacity = entry->capacity * 2;
-
-            m_elements.reserve(m_elements.size() + new_capacity);
-
-            /* Copy the existing elements to the end. */
-            ArrayRef<V> old_values = entry->get_slice(m_elements);
-            m_elements.extend_unchecked(old_values);
-
-            /* Insert the new value. */
-            m_elements.append_unchecked(value);
-
-            /* Reserve the remaining capacity for this entry-> */
-            m_elements.increase_size_unchecked(entry->length - 1);
-
-            entry->offset = new_offset;
-            entry->length += 1;
-            entry->capacity = new_capacity;
-          }
-          return false;
-        });
-    return newly_inserted;
+    BLI_assert(!this->contains(key));
+    this->add(key, value);
   }
 
-  template<uint OtherN> void add_multiple(MultiMap<K, V, OtherN> &other)
+  void add_multiple_new(const KeyT &key, ArrayRef<ValueT> values)
+  {
+    BLI_assert(!this->contains(key));
+    this->add_multiple(key, values);
+  }
+
+  bool add(const KeyT &key, const ValueT &value)
+  {
+    return this->add__impl(key, value);
+  }
+  bool add(const KeyT &key, ValueT &&value)
+  {
+    return this->add__impl(key, std::move(value));
+  }
+  bool add(KeyT &&key, const ValueT &value)
+  {
+    return this->add__impl(std::move(key), value);
+  }
+  bool add(KeyT &&key, ValueT &&value)
+  {
+    return this->add__impl(std::move(key), std::move(value));
+  }
+
+  void add_multiple(const KeyT &key, ArrayRef<ValueT> values)
+  {
+    this->add_multiple__impl(key, values);
+  }
+  void add_multiple(const KeyT &&key, ArrayRef<ValueT> values)
+  {
+    this->add_multiple__impl(std::move(key), values);
+  }
+
+  template<uint OtherN> void add_multiple(const MultiMap<KeyT, ValueT, OtherN> &other)
   {
     BLI_assert(this != &other);
-    other.foreach_item([&](const K &key, ArrayRef<V> values) { this->add_multiple(key, values); });
+    other.foreach_item(
+        [&](const KeyT &key, ArrayRef<ValueT> values) { this->add_multiple(key, values); });
   }
 
-  void add_multiple(const K &key, ArrayRef<V> values)
+  ArrayRef<ValueT> lookup(const KeyT &key) const
   {
-    for (const V &value : values) {
-      this->add(key, value);
-    }
+    const Entry &entry = m_map.lookup(key);
+    return ArrayRef<ValueT>(entry.ptr, entry.length);
   }
 
-  void add_new(const K &key, const V &value)
-  {
-    BLI_assert(!m_map.contains(key));
-    uint offset = m_elements.size();
-    m_elements.append(value);
-    m_map.add_new(key, {offset, 1, 1});
-  }
-
-  void add_multiple_new(const K &key, ArrayRef<V> values)
-  {
-    BLI_assert(!m_map.contains(key));
-    uint offset = m_elements.size();
-    m_elements.extend(values);
-    m_map.add_new(key, {offset, values.size(), values.size()});
-  }
-
-  ArrayRef<V> lookup(const K &key) const
-  {
-    BLI_assert(m_map.contains(key));
-    return this->lookup_default(key);
-  }
-
-  ArrayRef<V> lookup_default(const K &key, ArrayRef<V> default_array = ArrayRef<V>()) const
+  ArrayRef<ValueT> lookup_default(const KeyT &key,
+                                  ArrayRef<ValueT> default_array = ArrayRef<ValueT>()) const
   {
     const Entry *entry = m_map.lookup_ptr(key);
     if (entry == nullptr) {
       return default_array;
     }
     else {
-      return entry->get_slice(m_elements);
+      return ArrayRef<ValueT>(entry->ptr, entry->length);
     }
   }
 
-  bool contains(const K &key) const
+  bool contains(const KeyT &key) const
   {
     return m_map.contains(key);
   }
 
-  typename Map<K, Entry>::KeyIterator keys() const
+  typename Map<KeyT, Entry>::KeyIterator keys() const
   {
     return m_map.keys();
   }
 
-  template<typename FuncT> void foreach_value(const FuncT &func)
+  template<typename FuncT> void foreach_value(const FuncT &func) const
   {
-    for (Entry &entry : m_map.values()) {
-      for (const V &value : entry.get_slice(m_elements)) {
+    for (const Entry &entry : m_map.values()) {
+      for (const ValueT &value : ArrayRef<ValueT>(entry.ptr, entry.length)) {
         func(value);
       }
     }
   }
 
-  template<typename FuncT> void foreach_item(const FuncT &func)
+  template<typename FuncT> void foreach_value(const FuncT &func)
+  {
+    for (Entry &entry : m_map.values()) {
+      for (ValueT &value : MutableArrayRef<ValueT>(entry.ptr, entry.length)) {
+        func(value);
+      }
+    }
+  }
+
+  template<typename FuncT> void foreach_item(const FuncT &func) const
   {
     for (auto item : m_map.items()) {
-      const K &key = item.key;
-      ArrayRef<V> values = item.value.get_slice(m_elements);
+      const KeyT &key = item.key;
+      ArrayRef<ValueT> values{item.value.ptr, item.value.length};
       func(key, values);
     }
+  }
+
+ private:
+  template<typename ForwardKeyT>
+  void add_multiple__impl(ForwardKeyT &&key, ArrayRef<ValueT> values)
+  {
+    for (const ValueT &value : values) {
+      this->add(key, value);
+    }
+  }
+
+  template<typename ForwardKeyT, typename ForwardValueT>
+  bool add__impl(ForwardKeyT &&key, ForwardValueT &&value)
+  {
+    bool newly_inserted = m_map.add_or_modify(
+        std::forward<ForwardKeyT>(key),
+        /* Insert new key with value. */
+        [&](Entry *r_entry) -> bool {
+          uint initial_capacity = 1;
+          ValueT *array = (ValueT *)m_allocator.allocate(sizeof(ValueT) * initial_capacity,
+                                                         alignof(ValueT));
+          new (array) ValueT(std::forward<ForwardValueT>(value));
+          r_entry->ptr = array;
+          r_entry->length = 1;
+          r_entry->capacity = initial_capacity;
+          return true;
+        },
+        /* Append new value for existing key. */
+        [&](Entry *entry) -> bool {
+          if (entry->length < entry->capacity) {
+            new (entry->ptr + entry->length) ValueT(std::forward<ForwardValueT>(value));
+            entry->length++;
+          }
+          else {
+            uint old_capacity = entry->capacity;
+            BLI_assert(old_capacity >= 1);
+            uint new_capacity = old_capacity * 2;
+            ValueT *new_array = (ValueT *)m_allocator.allocate(sizeof(ValueT) * new_capacity,
+                                                               alignof(ValueT));
+            uninitialized_relocate_n(entry->ptr, old_capacity, new_array);
+            new (new_array + entry->length) ValueT(std::forward<ForwardValueT>(value));
+            entry->ptr = new_array;
+            entry->length++;
+            entry->capacity = new_capacity;
+          }
+          return false;
+        });
+    return newly_inserted;
   }
 };
 
