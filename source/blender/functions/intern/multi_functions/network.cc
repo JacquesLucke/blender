@@ -73,9 +73,7 @@ class MF_EvaluateNetwork_Storage {
   GenericMutableArrayRef allocate_copy(GenericVirtualListRef array)
   {
     GenericMutableArrayRef new_array = this->allocate_array(array.type());
-    for (uint i : m_mask.indices()) {
-      new_array.copy_in__uninitialized(i, array[i]);
-    }
+    array.materialize_to_uninitialized(m_mask, new_array);
     return new_array;
   }
 
@@ -107,9 +105,7 @@ class MF_EvaluateNetwork_Storage {
   {
     BLI_assert(array.size() == 1);
     GenericMutableArrayRef new_array = this->allocate_array(array.type());
-    for (uint i : m_mask.indices()) {
-      new_array.copy_in__uninitialized(i, array[0]);
-    }
+    array.type().fill_uninitialized_indices(array[0], new_array.buffer(), m_mask);
     return new_array;
   }
 
@@ -675,14 +671,11 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_computed_values_to_outputs(MFParams p
             global_param_index);
         if (values.size() < array_size) {
           BLI_assert(values.is_single_element());
-          for (uint i : storage.mask().indices()) {
-            output_values.copy_in__uninitialized(i, values[0]);
-          }
+          output_values.type().fill_uninitialized_indices(
+              values[0], output_values.buffer(), storage.mask());
         }
         else {
-          for (uint i : storage.mask().indices()) {
-            output_values.copy_in__uninitialized(i, values[i]);
-          }
+          values.materialize_to_uninitialized(storage.mask(), output_values);
         }
         break;
       }

@@ -212,6 +212,25 @@ class GenericVirtualListRef {
   {
     return GenericVirtualListRef::FromSingle(*m_type, (*this)[index], new_virtual_size);
   }
+
+  void materialize_to_uninitialized(IndexMask index_mask, GenericMutableArrayRef r_array)
+  {
+    BLI_assert(this->size() >= index_mask.min_array_size());
+    BLI_assert(r_array.size() >= index_mask.min_array_size());
+
+    if (this->is_single_element()) {
+      m_type->fill_uninitialized_indices(this->as_single_element(), r_array.buffer(), index_mask);
+    }
+    else if (this->is_non_single_full_array()) {
+      m_type->copy_to_uninitialized_indices(
+          this->as_full_array().buffer(), r_array.buffer(), index_mask);
+    }
+    else {
+      for (uint i : index_mask) {
+        m_type->copy_to_uninitialized((*this)[i], r_array[i]);
+      }
+    }
+  }
 };
 
 }  // namespace FN
