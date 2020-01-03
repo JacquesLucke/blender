@@ -4,13 +4,13 @@
 #include "FN_node_tree.h"
 
 #include "BLI_multi_map.h"
-#include "BLI_index_map.h"
+#include "BLI_index_to_ref_map.h"
 
 #include "FN_multi_function_network.h"
 
 namespace FN {
 
-using BLI::IndexMap;
+using BLI::IndexToRefMap;
 using BLI::MultiMap;
 
 #define IdMultiMap_UNMAPPED UINT_MAX
@@ -80,14 +80,14 @@ class InlinedTreeMFSocketMap {
   const FunctionNodeTree *m_function_tree;
   const MFNetwork *m_network;
 
-  IndexMap<const MFSocket *> m_dummy_socket_by_fsocket_id;
-  IndexMap<const FSocket *> m_fsocket_by_dummy_socket_id;
+  IndexToRefMap<const MFSocket> m_dummy_socket_by_fsocket_id;
+  IndexToRefMap<const FSocket> m_fsocket_by_dummy_socket_id;
 
  public:
   InlinedTreeMFSocketMap(const FunctionNodeTree &function_tree,
                          const MFNetwork &network,
-                         IndexMap<const MFSocket *> dummy_socket_by_fsocket_id,
-                         IndexMap<const FSocket *> fsocket_by_dummy_socket_id)
+                         IndexToRefMap<const MFSocket> dummy_socket_by_fsocket_id,
+                         IndexToRefMap<const FSocket> fsocket_by_dummy_socket_id)
       : m_function_tree(&function_tree),
         m_network(&network),
         m_dummy_socket_by_fsocket_id(std::move(dummy_socket_by_fsocket_id)),
@@ -107,24 +107,24 @@ class InlinedTreeMFSocketMap {
 
   const MFInputSocket &lookup_singly_mapped_input_socket(const FInputSocket &fsocket) const
   {
-    return m_dummy_socket_by_fsocket_id.lookup(fsocket.id())->as_input();
+    return m_dummy_socket_by_fsocket_id.lookup(fsocket.id()).as_input();
   }
 
   const MFOutputSocket &lookup_socket(const FOutputSocket &fsocket) const
   {
-    return m_dummy_socket_by_fsocket_id.lookup(fsocket.id())->as_output();
+    return m_dummy_socket_by_fsocket_id.lookup(fsocket.id()).as_output();
   }
 
   const FInputSocket &lookup_fsocket(const MFInputSocket &socket) const
   {
     BLI_assert(socket.node().is_dummy());
-    return m_fsocket_by_dummy_socket_id.lookup(socket.id())->as_input();
+    return m_fsocket_by_dummy_socket_id.lookup(socket.id()).as_input();
   }
 
   const FOutputSocket &lookup_fsocket(const MFOutputSocket &socket) const
   {
     BLI_assert(socket.node().is_dummy());
-    return m_fsocket_by_dummy_socket_id.lookup(socket.id())->as_output();
+    return m_fsocket_by_dummy_socket_id.lookup(socket.id()).as_output();
   }
 };
 

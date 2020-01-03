@@ -203,8 +203,8 @@ std::unique_ptr<FunctionTreeMFNetwork> FunctionTreeMFNetworkBuilder::build()
 {
   // m_builder->to_dot__clipboard();
 
-  IndexMap<const MFSocket *> dummy_socket_by_fsocket_id(m_function_tree.socket_count(), nullptr);
-  IndexMap<const FSocket *> fsocket_by_dummy_socket_id(m_builder->sockets_by_id().size(), nullptr);
+  IndexToRefMap<const MFSocket> dummy_socket_by_fsocket_id(m_function_tree.socket_count());
+  IndexToRefMap<const FSocket> fsocket_by_dummy_socket_id(m_builder->sockets_by_id().size());
 
   auto network = BLI::make_unique<MFNetwork>(std::move(m_builder));
 
@@ -213,8 +213,8 @@ std::unique_ptr<FunctionTreeMFNetwork> FunctionTreeMFNetworkBuilder::build()
     for (uint mapped_id : mapped_ids) {
       const MFSocket &socket = network->socket_by_id(mapped_id);
       if (socket.node().is_dummy()) {
-        dummy_socket_by_fsocket_id.add_new(fsocket->id(), &socket);
-        fsocket_by_dummy_socket_id.add_new(socket.id(), fsocket);
+        dummy_socket_by_fsocket_id.add_new(fsocket->id(), socket);
+        fsocket_by_dummy_socket_id.add_new(socket.id(), *fsocket);
       }
     }
   }
