@@ -68,7 +68,7 @@ class FunctionTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
   IndexToRefMultiMap<MFBuilderSocket> &m_sockets_by_fsocket_id;
   IndexToRefMap<MFBuilderOutputSocket> &m_socket_by_group_input_id;
 
-  std::unique_ptr<MFNetworkBuilder> m_builder;
+  MFNetworkBuilder &m_builder;
 
  public:
   FunctionTreeMFNetworkBuilder(const FunctionNodeTree &function_tree,
@@ -76,7 +76,8 @@ class FunctionTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
                                const VTreeMultiFunctionMappings &function_tree_mappings,
                                ResourceCollector &resources,
                                IndexToRefMultiMap<MFBuilderSocket> &sockets_by_fsocket_id,
-                               IndexToRefMap<MFBuilderOutputSocket> &socket_by_group_input_id);
+                               IndexToRefMap<MFBuilderOutputSocket> &socket_by_group_input_id,
+                               MFNetworkBuilder &builder);
 
   const FunctionNodeTree &function_tree() const
   {
@@ -105,12 +106,12 @@ class FunctionTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
                                 ArrayRef<StringRef> input_names,
                                 ArrayRef<StringRef> output_names)
   {
-    return m_builder->add_dummy(name, input_types, output_types, input_names, output_names);
+    return m_builder.add_dummy(name, input_types, output_types, input_names, output_names);
   }
 
   void add_link(MFBuilderOutputSocket &from, MFBuilderInputSocket &to)
   {
-    m_builder->add_link(from, to);
+    m_builder.add_link(from, to);
   }
 
   template<typename T, typename... Args> T &construct(const char *name, Args &&... args)
@@ -218,8 +219,6 @@ class FunctionTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
 
   const CPPType &cpp_type_from_property(const FNode &fnode, StringRefNull prop_name) const;
   MFDataType data_type_from_property(const FNode &fnode, StringRefNull prop_name) const;
-
-  std::unique_ptr<FunctionTreeMFNetwork> build();
 };
 
 class VSocketMFNetworkBuilder {
