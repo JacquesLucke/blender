@@ -111,17 +111,6 @@ class InlinedTreeMFSocketMap {
     return m_network->socket_by_id(mapped_id).as_input();
   }
 
-  Vector<const MFInputSocket *> lookup_socket(const FInputSocket &fsocket) const
-  {
-    ArrayRef<uint> mapped_ids = m_socket_by_fsocket.lookup(fsocket.id());
-    Vector<const MFInputSocket *> sockets;
-    sockets.reserve(mapped_ids.size());
-    for (uint mapped_id : mapped_ids) {
-      sockets.append(&m_network->socket_by_id(mapped_id).as_input());
-    }
-    return sockets;
-  }
-
   const MFOutputSocket &lookup_socket(const FOutputSocket &fsocket) const
   {
     uint mapped_id = m_socket_by_fsocket.lookup_single(fsocket.id());
@@ -130,12 +119,14 @@ class InlinedTreeMFSocketMap {
 
   const FInputSocket &lookup_fsocket(const MFInputSocket &socket) const
   {
+    BLI_assert(socket.node().is_dummy());
     uint mapped_id = m_fsocket_by_socket[socket.id()];
     return m_function_tree->socket_by_id(mapped_id).as_input();
   }
 
   const FOutputSocket &lookup_fsocket(const MFOutputSocket &socket) const
   {
+    BLI_assert(socket.node().is_dummy());
     uint mapped_id = m_fsocket_by_socket[socket.id()];
     return m_function_tree->socket_by_id(mapped_id).as_output();
   }
