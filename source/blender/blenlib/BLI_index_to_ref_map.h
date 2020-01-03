@@ -40,6 +40,12 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class In
     BLI_assert(this->contains(key));
     return *m_array[key];
   }
+
+  T &lookup(uint key)
+  {
+    BLI_assert(this->contains(key));
+    return *m_array[key];
+  }
 };
 
 }  // namespace BLI

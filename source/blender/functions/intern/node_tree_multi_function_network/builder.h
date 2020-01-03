@@ -65,8 +65,7 @@ class FunctionTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
   ResourceCollector &m_resources;
 
   IdMultiMap m_socket_by_fsocket;
-
-  Map<const FGroupInput *, MFBuilderOutputSocket *> m_group_inputs_mapping;
+  IndexToRefMap<MFBuilderOutputSocket> m_socket_by_group_input;
 
   std::unique_ptr<MFNetworkBuilder> m_builder;
 
@@ -175,12 +174,12 @@ class FunctionTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
 
   void map_group_input(const FGroupInput &group_input, MFBuilderOutputSocket &socket)
   {
-    m_group_inputs_mapping.add_new(&group_input, &socket);
+    m_socket_by_group_input.add_new(group_input.id(), socket);
   }
 
-  MFBuilderOutputSocket &lookup_group_input(const FGroupInput &group_input) const
+  MFBuilderOutputSocket &lookup_group_input(const FGroupInput &group_input)
   {
-    return *m_group_inputs_mapping.lookup(&group_input);
+    return m_socket_by_group_input.lookup(group_input.id());
   }
 
   bool fsocket_is_mapped(const FSocket &fsocket) const

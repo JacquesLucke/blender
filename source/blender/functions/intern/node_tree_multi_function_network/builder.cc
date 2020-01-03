@@ -14,6 +14,7 @@ FunctionTreeMFNetworkBuilder::FunctionTreeMFNetworkBuilder(
       m_function_tree_mappings(function_tree_mappings),
       m_resources(resources),
       m_socket_by_fsocket(function_tree.socket_count()),
+      m_socket_by_group_input(function_tree.all_group_inputs().size()),
       m_builder(BLI::make_unique<MFNetworkBuilder>())
 {
 }
