@@ -13,8 +13,8 @@ FunctionTreeMFNetworkBuilder::FunctionTreeMFNetworkBuilder(
       m_preprocessed_function_tree_data(preprocessed_function_tree_data),
       m_function_tree_mappings(function_tree_mappings),
       m_resources(resources),
-      m_socket_by_fsocket(function_tree.socket_count()),
-      m_socket_by_group_input(function_tree.all_group_inputs().size()),
+      m_sockets_by_fsocket_id(function_tree.socket_count()),
+      m_socket_by_group_input_id(function_tree.all_group_inputs().size()),
       m_builder(BLI::make_unique<MFNetworkBuilder>())
 {
 }
@@ -79,7 +79,7 @@ void FunctionTreeMFNetworkBuilder::map_data_sockets(const FNode &fnode, MFBuilde
   }
 }
 
-void FunctionTreeMFNetworkBuilder::assert_fnode_is_mapped_correctly(const FNode &fnode) const
+void FunctionTreeMFNetworkBuilder::assert_fnode_is_mapped_correctly(const FNode &fnode)
 {
   UNUSED_VARS_NDEBUG(fnode);
 #ifdef DEBUG
@@ -89,7 +89,7 @@ void FunctionTreeMFNetworkBuilder::assert_fnode_is_mapped_correctly(const FNode 
 }
 
 void FunctionTreeMFNetworkBuilder::assert_data_sockets_are_mapped_correctly(
-    ArrayRef<const FSocket *> fsockets) const
+    ArrayRef<const FSocket *> fsockets)
 {
   for (const FSocket *fsocket : fsockets) {
     if (this->is_data_socket(*fsocket)) {
@@ -98,7 +98,7 @@ void FunctionTreeMFNetworkBuilder::assert_data_sockets_are_mapped_correctly(
   }
 }
 
-void FunctionTreeMFNetworkBuilder::assert_fsocket_is_mapped_correctly(const FSocket &fsocket) const
+void FunctionTreeMFNetworkBuilder::assert_fsocket_is_mapped_correctly(const FSocket &fsocket)
 {
   BLI_assert(this->fsocket_is_mapped(fsocket));
   MFDataType fsocket_type = this->try_get_data_type(fsocket).value();
@@ -204,20 +204,28 @@ std::unique_ptr<FunctionTreeMFNetwork> FunctionTreeMFNetworkBuilder::build()
 {
   // m_builder->to_dot__clipboard();
 
-  IndexToRefMap<const MFSocket> dummy_socket_by_fsocket_id(m_function_tree.socket_count());
-  IndexToRefMap<const FSocket> fsocket_by_dummy_socket_id(m_builder->sockets_by_id().size());
+  Vector<std::pair<uint, uint>> m_dummy_mappings;
+  for (uint fsocket_id : IndexRange(m_function_tree.socket_count())) {
+    ArrayRef<MFBuilderSocket *> mapped_sockets = m_sockets_by_fsocket_id.lookup(fsocket_id);
+    if (mapped_sockets.size() == 1) {
+      MFBuilderSocket &socket = *mapped_sockets[0];
+      if (socket.node().is_dummy()) {
+        m_dummy_mappings.append({fsocket_id, socket.id()});
+      }
+    }
+  }
 
   auto network = BLI::make_unique<MFNetwork>(std::move(m_builder));
 
-  for (const FSocket *fsocket : m_function_tree.all_sockets()) {
-    ArrayRef<uint> mapped_ids = m_socket_by_fsocket.lookup(fsocket->id());
-    for (uint mapped_id : mapped_ids) {
-      const MFSocket &socket = network->socket_by_id(mapped_id);
-      if (socket.node().is_dummy()) {
-        dummy_socket_by_fsocket_id.add_new(fsocket->id(), socket);
-        fsocket_by_dummy_socket_id.add_new(socket.id(), *fsocket);
-      }
-    }
+  IndexToRefMap<const MFSocket> dummy_socket_by_fsocket_id(m_function_tree.socket_count());
+  IndexToRefMap<const FSocket> fsocket_by_dummy_socket_id(network->socket_ids().size());
+
+  for (auto pair : m_dummy_mappings) {
+    const FSocket &fsocket = m_function_tree.socket_by_id(pair.first);
+    const MFSocket &socket = network->socket_by_id(pair.second);
+
+    dummy_socket_by_fsocket_id.add_new(pair.first, socket);
+    fsocket_by_dummy_socket_id.add_new(pair.second, fsocket);
   }
 
   InlinedTreeMFSocketMap socket_map(m_function_tree,

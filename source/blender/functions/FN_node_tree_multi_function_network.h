@@ -13,68 +13,6 @@ namespace FN {
 using BLI::IndexToRefMap;
 using BLI::MultiMap;
 
-#define IdMultiMap_UNMAPPED UINT_MAX
-#define IdMultiMap_MULTIMAPPED (UINT_MAX - 1)
-
-class IdMultiMap {
- private:
-  Array<uint> m_single_mapping;
-  MultiMap<uint, uint> m_fallback_multimap;
-
- public:
-  IdMultiMap(uint max_key_id) : m_single_mapping(max_key_id, IdMultiMap_UNMAPPED)
-  {
-  }
-
-  bool contains(uint key_id) const
-  {
-    return m_single_mapping[key_id] != IdMultiMap_UNMAPPED;
-  }
-
-  ArrayRef<uint> lookup(uint key_id) const
-  {
-    const uint &stored_value = m_single_mapping[key_id];
-    switch (stored_value) {
-      case IdMultiMap_UNMAPPED: {
-        return {};
-      }
-      case IdMultiMap_MULTIMAPPED: {
-        return m_fallback_multimap.lookup(key_id);
-      }
-      default:
-        return ArrayRef<uint>(&stored_value, 1);
-    }
-  }
-
-  uint lookup_single(uint key_id) const
-  {
-    uint stored_value = m_single_mapping[key_id];
-    BLI_assert(stored_value != IdMultiMap_UNMAPPED && stored_value != IdMultiMap_MULTIMAPPED);
-    return stored_value;
-  }
-
-  void add(uint key_id, uint value_id)
-  {
-    uint &stored_value = m_single_mapping[key_id];
-    switch (stored_value) {
-      case IdMultiMap_UNMAPPED: {
-        stored_value = value_id;
-        break;
-      }
-      case IdMultiMap_MULTIMAPPED: {
-        m_fallback_multimap.add(key_id, value_id);
-        break;
-      }
-      default: {
-        uint other_value_id = stored_value;
-        stored_value = IdMultiMap_MULTIMAPPED;
-        m_fallback_multimap.add_multiple_new(key_id, {other_value_id, value_id});
-        break;
-      }
-    }
-  }
-};
-
 class InlinedTreeMFSocketMap {
  private:
   const FunctionNodeTree *m_function_tree;
