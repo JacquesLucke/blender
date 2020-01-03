@@ -13,13 +13,13 @@ using BKE::VSocket;
 using BLI::IndexToRefMultiMap;
 using BLI::MultiMap;
 
-class PreprocessedVTreeMFData {
+class FSocketDataTypes {
  private:
   Array<Optional<MFDataType>> m_data_type_by_fsocket_id;
   Array<Optional<MFDataType>> m_data_type_by_group_input_id;
 
  public:
-  PreprocessedVTreeMFData(const FunctionNodeTree &function_tree)
+  FSocketDataTypes(const FunctionNodeTree &function_tree)
   {
     auto &mappings = get_function_tree_multi_function_mappings();
 
@@ -61,7 +61,7 @@ class PreprocessedVTreeMFData {
 class FunctionTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
  private:
   const FunctionNodeTree &m_function_tree;
-  const PreprocessedVTreeMFData &m_preprocessed_function_tree_data;
+  const FSocketDataTypes &m_fsocket_data_types;
   const VTreeMultiFunctionMappings &m_function_tree_mappings;
   ResourceCollector &m_resources;
 
@@ -72,7 +72,7 @@ class FunctionTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
 
  public:
   FunctionTreeMFNetworkBuilder(const FunctionNodeTree &function_tree,
-                               const PreprocessedVTreeMFData &preprocessed_function_tree_data,
+                               const FSocketDataTypes &preprocessed_function_tree_data,
                                const VTreeMultiFunctionMappings &function_tree_mappings,
                                ResourceCollector &resources,
                                IndexToRefMultiMap<MFBuilderSocket> &sockets_by_fsocket_id,
@@ -133,17 +133,17 @@ class FunctionTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
 
   Optional<MFDataType> try_get_data_type(const FSocket &fsocket) const
   {
-    return m_preprocessed_function_tree_data.try_lookup_data_type(fsocket);
+    return m_fsocket_data_types.try_lookup_data_type(fsocket);
   }
 
   bool is_data_socket(const FSocket &fsocket) const
   {
-    return m_preprocessed_function_tree_data.is_data_socket(fsocket);
+    return m_fsocket_data_types.is_data_socket(fsocket);
   }
 
   bool is_data_group_input(const FGroupInput &group_input) const
   {
-    return m_preprocessed_function_tree_data.is_data_group_input(group_input);
+    return m_fsocket_data_types.is_data_group_input(group_input);
   }
 
   void map_data_sockets(const FNode &fnode, MFBuilderNode &node);

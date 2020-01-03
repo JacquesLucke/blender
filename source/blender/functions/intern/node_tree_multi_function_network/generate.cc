@@ -174,14 +174,14 @@ std::unique_ptr<FunctionTreeMFNetwork> generate_node_tree_multi_function_network
     const FunctionNodeTree &function_tree, ResourceCollector &resources)
 {
   const VTreeMultiFunctionMappings &mappings = get_function_tree_multi_function_mappings();
-  PreprocessedVTreeMFData preprocessed_data{function_tree};
+  FSocketDataTypes fsocket_data_types{function_tree};
   IndexToRefMultiMap<MFBuilderSocket> sockets_by_fsocket_id(function_tree.all_sockets().size());
   IndexToRefMap<MFBuilderOutputSocket> socket_by_group_input_id(
       function_tree.all_group_inputs().size());
   auto network_builder = BLI::make_unique<MFNetworkBuilder>();
 
   FunctionTreeMFNetworkBuilder builder(function_tree,
-                                       preprocessed_data,
+                                       fsocket_data_types,
                                        mappings,
                                        resources,
                                        sockets_by_fsocket_id,

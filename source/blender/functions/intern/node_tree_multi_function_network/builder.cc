@@ -6,14 +6,14 @@ using BLI::ScopedVector;
 
 FunctionTreeMFNetworkBuilder::FunctionTreeMFNetworkBuilder(
     const FunctionNodeTree &function_tree,
-    const PreprocessedVTreeMFData &preprocessed_function_tree_data,
+    const FSocketDataTypes &preprocessed_function_tree_data,
     const VTreeMultiFunctionMappings &function_tree_mappings,
     ResourceCollector &resources,
     IndexToRefMultiMap<MFBuilderSocket> &sockets_by_fsocket_id,
     IndexToRefMap<MFBuilderOutputSocket> &socket_by_group_input_id,
     MFNetworkBuilder &builder)
     : m_function_tree(function_tree),
-      m_preprocessed_function_tree_data(preprocessed_function_tree_data),
+      m_fsocket_data_types(preprocessed_function_tree_data),
       m_function_tree_mappings(function_tree_mappings),
       m_resources(resources),
       m_sockets_by_fsocket_id(sockets_by_fsocket_id),
