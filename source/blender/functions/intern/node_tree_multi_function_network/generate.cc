@@ -161,10 +161,10 @@ static std::unique_ptr<FunctionTreeMFNetwork> build(
     fsocket_by_dummy_socket_id.add_new(pair.second, fsocket);
   }
 
-  InlinedTreeMFSocketMap socket_map(function_tree,
-                                    *network,
-                                    std::move(dummy_socket_by_fsocket_id),
-                                    std::move(fsocket_by_dummy_socket_id));
+  DummySocketMap socket_map(function_tree,
+                            *network,
+                            std::move(dummy_socket_by_fsocket_id),
+                            std::move(fsocket_by_dummy_socket_id));
 
   return BLI::make_unique<FunctionTreeMFNetwork>(
       function_tree, std::move(network), std::move(socket_map));

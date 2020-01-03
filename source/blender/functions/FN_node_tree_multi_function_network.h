@@ -13,7 +13,7 @@ namespace FN {
 using BLI::IndexToRefMap;
 using BLI::MultiMap;
 
-class InlinedTreeMFSocketMap {
+class DummySocketMap {
  private:
   const FunctionNodeTree *m_function_tree;
   const MFNetwork *m_network;
@@ -22,10 +22,10 @@ class InlinedTreeMFSocketMap {
   IndexToRefMap<const FSocket> m_fsocket_by_dummy_socket_id;
 
  public:
-  InlinedTreeMFSocketMap(const FunctionNodeTree &function_tree,
-                         const MFNetwork &network,
-                         IndexToRefMap<const MFSocket> dummy_socket_by_fsocket_id,
-                         IndexToRefMap<const FSocket> fsocket_by_dummy_socket_id)
+  DummySocketMap(const FunctionNodeTree &function_tree,
+                 const MFNetwork &network,
+                 IndexToRefMap<const MFSocket> dummy_socket_by_fsocket_id,
+                 IndexToRefMap<const FSocket> fsocket_by_dummy_socket_id)
       : m_function_tree(&function_tree),
         m_network(&network),
         m_dummy_socket_by_fsocket_id(std::move(dummy_socket_by_fsocket_id)),
@@ -70,12 +70,12 @@ class FunctionTreeMFNetwork {
  private:
   const FunctionNodeTree &m_function_tree;
   std::unique_ptr<MFNetwork> m_network;
-  InlinedTreeMFSocketMap m_socket_map;
+  DummySocketMap m_socket_map;
 
  public:
   FunctionTreeMFNetwork(const FunctionNodeTree &function_tree,
                         std::unique_ptr<MFNetwork> network,
-                        InlinedTreeMFSocketMap socket_map)
+                        DummySocketMap socket_map)
       : m_function_tree(function_tree),
         m_network(std::move(network)),
         m_socket_map(std::move(socket_map))
