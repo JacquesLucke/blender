@@ -203,18 +203,26 @@ std::unique_ptr<FunctionTreeMFNetwork> FunctionTreeMFNetworkBuilder::build()
 {
   // m_builder->to_dot__clipboard();
 
+  IndexMap<const MFSocket *> dummy_socket_by_fsocket_id(m_function_tree.socket_count(), nullptr);
+  IndexMap<const FSocket *> fsocket_by_dummy_socket_id(m_builder->sockets_by_id().size(), nullptr);
+
   auto network = BLI::make_unique<MFNetwork>(std::move(m_builder));
 
-  Array<uint> fsocket_by_socket(network->socket_ids().size(), IdMultiMap_UNMAPPED);
-  for (uint fsocket_id : IndexRange(m_function_tree.socket_count())) {
-    ArrayRef<uint> mapped_ids = m_socket_by_fsocket.lookup(fsocket_id);
+  for (const FSocket *fsocket : m_function_tree.all_sockets()) {
+    ArrayRef<uint> mapped_ids = m_socket_by_fsocket.lookup(fsocket->id());
     for (uint mapped_id : mapped_ids) {
-      fsocket_by_socket[mapped_id] = fsocket_id;
+      const MFSocket &socket = network->socket_by_id(mapped_id);
+      if (socket.node().is_dummy()) {
+        dummy_socket_by_fsocket_id.add_new(fsocket->id(), &socket);
+        fsocket_by_dummy_socket_id.add_new(socket.id(), fsocket);
+      }
     }
   }
 
-  InlinedTreeMFSocketMap socket_map(
-      m_function_tree, *network, std::move(m_socket_by_fsocket), std::move(fsocket_by_socket));
+  InlinedTreeMFSocketMap socket_map(m_function_tree,
+                                    *network,
+                                    std::move(dummy_socket_by_fsocket_id),
+                                    std::move(fsocket_by_dummy_socket_id));
 
   return BLI::make_unique<FunctionTreeMFNetwork>(
       m_function_tree, std::move(network), std::move(socket_map));
