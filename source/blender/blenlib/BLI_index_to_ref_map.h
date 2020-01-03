@@ -58,8 +58,13 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class In
   MultiMap<uint, T *> m_fallback_multimap;
 
  public:
-  IndexToRefMultiMap(uint size) : m_array(size, IndexToRefMultiMap_UNMAPPED)
+  IndexToRefMultiMap(uint max_index) : m_array(max_index, IndexToRefMultiMap_UNMAPPED)
   {
+  }
+
+  uint max_index() const
+  {
+    return m_array.size();
   }
 
   bool contains(uint key) const

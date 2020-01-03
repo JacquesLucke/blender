@@ -58,6 +58,90 @@ class FSocketDataTypes {
   }
 };
 
+class MFSocketByFSocketMapping {
+ private:
+  IndexToRefMultiMap<MFBuilderSocket> m_sockets_by_fsocket_id;
+  IndexToRefMap<MFBuilderOutputSocket> m_socket_by_group_input_id;
+
+ public:
+  MFSocketByFSocketMapping(const FunctionNodeTree &function_tree)
+      : m_sockets_by_fsocket_id(function_tree.all_sockets().size()),
+        m_socket_by_group_input_id(function_tree.all_group_inputs().size())
+  {
+  }
+
+  const IndexToRefMultiMap<MFBuilderSocket> &sockets_by_fsocket_id() const
+  {
+    return m_sockets_by_fsocket_id;
+  }
+
+  void add(const FInputSocket &fsocket, MFBuilderInputSocket &socket)
+  {
+    m_sockets_by_fsocket_id.add(fsocket.id(), socket);
+  }
+
+  void add(const FOutputSocket &fsocket, MFBuilderOutputSocket &socket)
+  {
+    m_sockets_by_fsocket_id.add(fsocket.id(), socket);
+  }
+
+  void add(ArrayRef<const FInputSocket *> fsockets, ArrayRef<MFBuilderInputSocket *> sockets)
+  {
+    BLI_assert(fsockets.size() == sockets.size());
+    for (uint i : fsockets.index_range()) {
+      this->add(*fsockets[i], *sockets[i]);
+    }
+  }
+
+  void add(ArrayRef<const FOutputSocket *> fsockets, ArrayRef<MFBuilderOutputSocket *> sockets)
+  {
+    BLI_assert(fsockets.size() == sockets.size());
+    for (uint i : fsockets.index_range()) {
+      this->add(*fsockets[i], *sockets[i]);
+    }
+  }
+
+  void add(const FGroupInput &group_input, MFBuilderOutputSocket &socket)
+  {
+    m_socket_by_group_input_id.add_new(group_input.id(), socket);
+  }
+
+  MFBuilderOutputSocket &lookup(const FGroupInput &group_input)
+  {
+    return m_socket_by_group_input_id.lookup(group_input.id());
+  }
+
+  MFBuilderOutputSocket &lookup(const FOutputSocket &fsocket)
+  {
+    return m_sockets_by_fsocket_id.lookup_single(fsocket.id()).as_output();
+  }
+
+  ArrayRef<MFBuilderInputSocket *> lookup(const FInputSocket &fsocket)
+  {
+    return m_sockets_by_fsocket_id.lookup(fsocket.id()).cast<MFBuilderInputSocket *>();
+  }
+
+  bool is_mapped(const FSocket &fsocket) const
+  {
+    return m_sockets_by_fsocket_id.contains(fsocket.id());
+  }
+
+  Vector<std::pair<uint, uint>> get_dummy_mappings()
+  {
+    Vector<std::pair<uint, uint>> dummy_mappings;
+    for (uint fsocket_id : IndexRange(m_sockets_by_fsocket_id.max_index())) {
+      ArrayRef<MFBuilderSocket *> mapped_sockets = m_sockets_by_fsocket_id.lookup(fsocket_id);
+      if (mapped_sockets.size() == 1) {
+        MFBuilderSocket &socket = *mapped_sockets[0];
+        if (socket.node().is_dummy()) {
+          dummy_mappings.append({fsocket_id, socket.id()});
+        }
+      }
+    }
+    return dummy_mappings;
+  }
+};
+
 class FunctionTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
  private:
   const FunctionNodeTree &m_function_tree;
@@ -65,9 +149,7 @@ class FunctionTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
   const VTreeMultiFunctionMappings &m_function_tree_mappings;
   ResourceCollector &m_resources;
 
-  IndexToRefMultiMap<MFBuilderSocket> &m_sockets_by_fsocket_id;
-  IndexToRefMap<MFBuilderOutputSocket> &m_socket_by_group_input_id;
-
+  MFSocketByFSocketMapping &m_socket_map;
   MFNetworkBuilder &m_builder;
 
  public:
@@ -75,8 +157,7 @@ class FunctionTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
                                const FSocketDataTypes &preprocessed_function_tree_data,
                                const VTreeMultiFunctionMappings &function_tree_mappings,
                                ResourceCollector &resources,
-                               IndexToRefMultiMap<MFBuilderSocket> &sockets_by_fsocket_id,
-                               IndexToRefMap<MFBuilderOutputSocket> &socket_by_group_input_id,
+                               MFSocketByFSocketMapping &socket_map,
                                MFNetworkBuilder &builder);
 
   const FunctionNodeTree &function_tree() const
@@ -150,45 +231,39 @@ class FunctionTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
 
   void map_sockets(const FInputSocket &fsocket, MFBuilderInputSocket &socket)
   {
-    m_sockets_by_fsocket_id.add(fsocket.id(), socket);
+    m_socket_map.add(fsocket, socket);
   }
 
   void map_sockets(const FOutputSocket &fsocket, MFBuilderOutputSocket &socket)
   {
-    m_sockets_by_fsocket_id.add(fsocket.id(), socket);
+    m_socket_map.add(fsocket, socket);
   }
 
   void map_sockets(ArrayRef<const FInputSocket *> fsockets,
                    ArrayRef<MFBuilderInputSocket *> sockets)
   {
-    BLI_assert(fsockets.size() == sockets.size());
-    for (uint i : fsockets.index_range()) {
-      this->map_sockets(*fsockets[i], *sockets[i]);
-    }
+    m_socket_map.add(fsockets, sockets);
   }
 
   void map_sockets(ArrayRef<const FOutputSocket *> fsockets,
                    ArrayRef<MFBuilderOutputSocket *> sockets)
   {
-    BLI_assert(fsockets.size() == sockets.size());
-    for (uint i : fsockets.index_range()) {
-      this->map_sockets(*fsockets[i], *sockets[i]);
-    }
+    m_socket_map.add(fsockets, sockets);
   }
 
   void map_group_input(const FGroupInput &group_input, MFBuilderOutputSocket &socket)
   {
-    m_socket_by_group_input_id.add_new(group_input.id(), socket);
+    m_socket_map.add(group_input, socket);
   }
 
   MFBuilderOutputSocket &lookup_group_input(const FGroupInput &group_input)
   {
-    return m_socket_by_group_input_id.lookup(group_input.id());
+    return m_socket_map.lookup(group_input);
   }
 
   bool fsocket_is_mapped(const FSocket &fsocket) const
   {
-    return m_sockets_by_fsocket_id.contains(fsocket.id());
+    return m_socket_map.is_mapped(fsocket);
   }
 
   void assert_fnode_is_mapped_correctly(const FNode &fnode);
@@ -197,19 +272,14 @@ class FunctionTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
 
   bool has_data_sockets(const FNode &fnode) const;
 
-  MFBuilderSocket &lookup_single_socket(const FSocket &fsocket)
-  {
-    return m_sockets_by_fsocket_id.lookup_single(fsocket.id());
-  }
-
   MFBuilderOutputSocket &lookup_socket(const FOutputSocket &fsocket)
   {
-    return this->lookup_single_socket(fsocket.as_base()).as_output();
+    return m_socket_map.lookup(fsocket);
   }
 
   ArrayRef<MFBuilderInputSocket *> lookup_socket(const FInputSocket &fsocket)
   {
-    return m_sockets_by_fsocket_id.lookup(fsocket.id()).cast<MFBuilderInputSocket *>();
+    return m_socket_map.lookup(fsocket);
   }
 
   const CPPType &cpp_type_by_name(StringRef name) const
