@@ -65,8 +65,8 @@ class FunctionTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
   const VTreeMultiFunctionMappings &m_function_tree_mappings;
   ResourceCollector &m_resources;
 
-  IndexToRefMultiMap<MFBuilderSocket> m_sockets_by_fsocket_id;
-  IndexToRefMap<MFBuilderOutputSocket> m_socket_by_group_input_id;
+  IndexToRefMultiMap<MFBuilderSocket> &m_sockets_by_fsocket_id;
+  IndexToRefMap<MFBuilderOutputSocket> &m_socket_by_group_input_id;
 
   std::unique_ptr<MFNetworkBuilder> m_builder;
 
@@ -74,7 +74,9 @@ class FunctionTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
   FunctionTreeMFNetworkBuilder(const FunctionNodeTree &function_tree,
                                const PreprocessedVTreeMFData &preprocessed_function_tree_data,
                                const VTreeMultiFunctionMappings &function_tree_mappings,
-                               ResourceCollector &resources);
+                               ResourceCollector &resources,
+                               IndexToRefMultiMap<MFBuilderSocket> &sockets_by_fsocket_id,
+                               IndexToRefMap<MFBuilderOutputSocket> &socket_by_group_input_id);
 
   const FunctionNodeTree &function_tree() const
   {

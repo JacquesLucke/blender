@@ -8,13 +8,15 @@ FunctionTreeMFNetworkBuilder::FunctionTreeMFNetworkBuilder(
     const FunctionNodeTree &function_tree,
     const PreprocessedVTreeMFData &preprocessed_function_tree_data,
     const VTreeMultiFunctionMappings &function_tree_mappings,
-    ResourceCollector &resources)
+    ResourceCollector &resources,
+    IndexToRefMultiMap<MFBuilderSocket> &sockets_by_fsocket_id,
+    IndexToRefMap<MFBuilderOutputSocket> &socket_by_group_input_id)
     : m_function_tree(function_tree),
       m_preprocessed_function_tree_data(preprocessed_function_tree_data),
       m_function_tree_mappings(function_tree_mappings),
       m_resources(resources),
-      m_sockets_by_fsocket_id(function_tree.socket_count()),
-      m_socket_by_group_input_id(function_tree.all_group_inputs().size()),
+      m_sockets_by_fsocket_id(sockets_by_fsocket_id),
+      m_socket_by_group_input_id(socket_by_group_input_id),
       m_builder(BLI::make_unique<MFNetworkBuilder>())
 {
 }
