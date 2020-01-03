@@ -11,8 +11,67 @@ namespace FN {
 
 using BLI::MultiMap;
 
-#define InlinedTreeMFSocketMap_UNMAPPED UINT_MAX
-#define InlinedTreeMFSocketMap_MULTIMAPPED (UINT_MAX - 1)
+#define IdMultiMap_UNMAPPED UINT_MAX
+#define IdMultiMap_MULTIMAPPED (UINT_MAX - 1)
+
+class IdMultiMap {
+ private:
+  Array<uint> m_single_mapping;
+  MultiMap<uint, uint> m_fallback_multimap;
+
+ public:
+  IdMultiMap(uint max_key_id) : m_single_mapping(max_key_id, IdMultiMap_UNMAPPED)
+  {
+  }
+
+  bool contains(uint key_id) const
+  {
+    return m_single_mapping[key_id] != IdMultiMap_UNMAPPED;
+  }
+
+  ArrayRef<uint> lookup(uint key_id) const
+  {
+    const uint &stored_value = m_single_mapping[key_id];
+    switch (stored_value) {
+      case IdMultiMap_UNMAPPED: {
+        return {};
+      }
+      case IdMultiMap_MULTIMAPPED: {
+        return m_fallback_multimap.lookup(key_id);
+      }
+      default:
+        return ArrayRef<uint>(&stored_value, 1);
+    }
+  }
+
+  uint lookup_single(uint key_id) const
+  {
+    uint stored_value = m_single_mapping[key_id];
+    BLI_assert(stored_value != IdMultiMap_UNMAPPED && stored_value != IdMultiMap_MULTIMAPPED);
+    return stored_value;
+  }
+
+  void add(uint key_id, uint value_id)
+  {
+    uint &stored_value = m_single_mapping[key_id];
+    switch (stored_value) {
+      case IdMultiMap_UNMAPPED: {
+        stored_value = value_id;
+        break;
+      }
+      case IdMultiMap_MULTIMAPPED: {
+        m_fallback_multimap.add(key_id, value_id);
+        break;
+      }
+      default: {
+        uint other_value_id = stored_value;
+        stored_value = IdMultiMap_MULTIMAPPED;
+        m_fallback_multimap.add_multiple_new(key_id, {other_value_id, value_id});
+        break;
+      }
+    }
+  }
+};
 
 class InlinedTreeMFSocketMap {
  private:
@@ -21,67 +80,51 @@ class InlinedTreeMFSocketMap {
    */
   const FunctionNodeTree *m_function_tree;
   const MFNetwork *m_network;
-  Array<uint> m_single_socket_by_fsocket;
-  MultiMap<uint, uint> m_multiple_inputs_by_fsocket;
+  IdMultiMap m_socket_by_fsocket;
   Array<uint> m_fsocket_by_socket;
 
  public:
   InlinedTreeMFSocketMap(const FunctionNodeTree &function_tree,
                          const MFNetwork &network,
-                         Array<uint> single_socket_by_fsocket,
-                         MultiMap<uint, uint> multiple_inputs_by_fsocket,
+                         IdMultiMap socket_by_fsocket,
                          Array<uint> fsocket_by_socket)
       : m_function_tree(&function_tree),
         m_network(&network),
-        m_single_socket_by_fsocket(std::move(single_socket_by_fsocket)),
-        m_multiple_inputs_by_fsocket(std::move(multiple_inputs_by_fsocket)),
+        m_socket_by_fsocket(std::move(socket_by_fsocket)),
         m_fsocket_by_socket(std::move(fsocket_by_socket))
   {
   }
 
   bool is_mapped(const FSocket &fsocket) const
   {
-    return m_single_socket_by_fsocket[fsocket.id()] < InlinedTreeMFSocketMap_MULTIMAPPED;
+    return m_socket_by_fsocket.contains(fsocket.id());
   }
 
   bool is_mapped(const MFSocket &socket) const
   {
-    return m_fsocket_by_socket[socket.id()] != InlinedTreeMFSocketMap_UNMAPPED;
+    return m_fsocket_by_socket[socket.id()] != IdMultiMap_UNMAPPED;
   }
 
   const MFInputSocket &lookup_singly_mapped_input_socket(const FInputSocket &fsocket) const
   {
-    BLI_assert(this->lookup_socket(fsocket).size() == 1);
-    uint mapped_id = m_single_socket_by_fsocket[fsocket.id()];
+    uint mapped_id = m_socket_by_fsocket.lookup_single(fsocket.id());
     return m_network->socket_by_id(mapped_id).as_input();
   }
 
   Vector<const MFInputSocket *> lookup_socket(const FInputSocket &fsocket) const
   {
-    uint id = fsocket.id();
-    uint mapped_value = m_single_socket_by_fsocket[id];
-    switch (mapped_value) {
-      case InlinedTreeMFSocketMap_UNMAPPED: {
-        return {};
-      }
-      case InlinedTreeMFSocketMap_MULTIMAPPED: {
-        Vector<const MFInputSocket *> sockets;
-        for (uint mapped_id : m_multiple_inputs_by_fsocket.lookup(id)) {
-          sockets.append(&m_network->socket_by_id(mapped_id).as_input());
-        }
-        return sockets;
-      }
-      default: {
-        uint mapped_id = mapped_value;
-        const MFInputSocket &socket = m_network->socket_by_id(mapped_id).as_input();
-        return {&socket};
-      }
+    ArrayRef<uint> mapped_ids = m_socket_by_fsocket.lookup(fsocket.id());
+    Vector<const MFInputSocket *> sockets;
+    sockets.reserve(mapped_ids.size());
+    for (uint mapped_id : mapped_ids) {
+      sockets.append(&m_network->socket_by_id(mapped_id).as_input());
     }
+    return sockets;
   }
 
   const MFOutputSocket &lookup_socket(const FOutputSocket &fsocket) const
   {
-    uint mapped_id = m_single_socket_by_fsocket[fsocket.id()];
+    uint mapped_id = m_socket_by_fsocket.lookup_single(fsocket.id());
     return m_network->socket_by_id(mapped_id).as_output();
   }
 

@@ -13,7 +13,7 @@ FunctionTreeMFNetworkBuilder::FunctionTreeMFNetworkBuilder(
       m_preprocessed_function_tree_data(preprocessed_function_tree_data),
       m_function_tree_mappings(function_tree_mappings),
       m_resources(resources),
-      m_single_socket_by_fsocket(function_tree.socket_count(), InlinedTreeMFSocketMap_UNMAPPED),
+      m_socket_by_fsocket(function_tree.socket_count()),
       m_builder(BLI::make_unique<MFNetworkBuilder>())
 {
 }
@@ -205,31 +205,16 @@ std::unique_ptr<FunctionTreeMFNetwork> FunctionTreeMFNetworkBuilder::build()
 
   auto network = BLI::make_unique<MFNetwork>(std::move(m_builder));
 
-  Array<uint> fsocket_by_socket(network->socket_ids().size(), InlinedTreeMFSocketMap_UNMAPPED);
-  for (uint fsocket_id : m_single_socket_by_fsocket.index_range()) {
-    switch (m_single_socket_by_fsocket[fsocket_id]) {
-      case InlinedTreeMFSocketMap_UNMAPPED: {
-        break;
-      }
-      case InlinedTreeMFSocketMap_MULTIMAPPED: {
-        for (uint socket_id : m_multiple_inputs_by_fsocket.lookup(fsocket_id)) {
-          fsocket_by_socket[socket_id] = fsocket_id;
-        }
-        break;
-      }
-      default: {
-        uint socket_id = m_single_socket_by_fsocket[fsocket_id];
-        fsocket_by_socket[socket_id] = fsocket_id;
-        break;
-      }
+  Array<uint> fsocket_by_socket(network->socket_ids().size(), IdMultiMap_UNMAPPED);
+  for (uint fsocket_id : IndexRange(m_function_tree.socket_count())) {
+    ArrayRef<uint> mapped_ids = m_socket_by_fsocket.lookup(fsocket_id);
+    for (uint mapped_id : mapped_ids) {
+      fsocket_by_socket[mapped_id] = fsocket_id;
     }
   }
 
-  InlinedTreeMFSocketMap socket_map(m_function_tree,
-                                    *network,
-                                    std::move(m_single_socket_by_fsocket),
-                                    std::move(m_multiple_inputs_by_fsocket),
-                                    std::move(fsocket_by_socket));
+  InlinedTreeMFSocketMap socket_map(
+      m_function_tree, *network, std::move(m_socket_by_fsocket), std::move(fsocket_by_socket));
 
   return BLI::make_unique<FunctionTreeMFNetwork>(
       m_function_tree, std::move(network), std::move(socket_map));

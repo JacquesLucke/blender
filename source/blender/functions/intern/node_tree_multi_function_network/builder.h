@@ -64,12 +64,7 @@ class FunctionTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
   const VTreeMultiFunctionMappings &m_function_tree_mappings;
   ResourceCollector &m_resources;
 
-  /* By default store mapping between fsockets and builder sockets in an array.
-   * Input fsockets can be mapped to multiple new sockets. So fallback to a multimap in this case.
-   */
-  Array<uint> m_single_socket_by_fsocket;
-  MultiMap<uint, uint> m_multiple_inputs_by_fsocket;
-  static constexpr intptr_t MULTI_MAP_INDICATOR = 1;
+  IdMultiMap m_socket_by_fsocket;
 
   Map<const FGroupInput *, MFBuilderOutputSocket *> m_group_inputs_mapping;
 
@@ -152,31 +147,12 @@ class FunctionTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
 
   void map_sockets(const FInputSocket &fsocket, MFBuilderInputSocket &socket)
   {
-    switch (m_single_socket_by_fsocket[fsocket.id()]) {
-      case InlinedTreeMFSocketMap_UNMAPPED: {
-        m_single_socket_by_fsocket[fsocket.id()] = socket.id();
-        break;
-      }
-      case InlinedTreeMFSocketMap_MULTIMAPPED: {
-        BLI_assert(!m_multiple_inputs_by_fsocket.lookup(fsocket.id()).contains(socket.id()));
-        m_multiple_inputs_by_fsocket.add(fsocket.id(), socket.id());
-        break;
-      }
-      default: {
-        uint already_inserted_id = m_single_socket_by_fsocket[fsocket.id()];
-        BLI_assert(already_inserted_id != socket.id());
-        m_multiple_inputs_by_fsocket.add_multiple_new(fsocket.id(),
-                                                      {already_inserted_id, socket.id()});
-        m_single_socket_by_fsocket[fsocket.id()] = InlinedTreeMFSocketMap_MULTIMAPPED;
-        break;
-      }
-    }
+    m_socket_by_fsocket.add(fsocket.id(), socket.id());
   }
 
   void map_sockets(const FOutputSocket &fsocket, MFBuilderOutputSocket &socket)
   {
-    BLI_assert(m_single_socket_by_fsocket[fsocket.id()] == InlinedTreeMFSocketMap_UNMAPPED);
-    m_single_socket_by_fsocket[fsocket.id()] = socket.id();
+    m_socket_by_fsocket.add(fsocket.id(), socket.id());
   }
 
   void map_sockets(ArrayRef<const FInputSocket *> fsockets,
@@ -209,7 +185,7 @@ class FunctionTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
 
   bool fsocket_is_mapped(const FSocket &fsocket) const
   {
-    return m_single_socket_by_fsocket[fsocket.id()] != InlinedTreeMFSocketMap_UNMAPPED;
+    return m_socket_by_fsocket.contains(fsocket.id());
   }
 
   void assert_fnode_is_mapped_correctly(const FNode &fnode) const;
@@ -220,9 +196,7 @@ class FunctionTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
 
   MFBuilderSocket &lookup_single_socket(const FSocket &fsocket) const
   {
-    uint mapped_id = m_single_socket_by_fsocket[fsocket.id()];
-    BLI_assert(
-        !ELEM(mapped_id, InlinedTreeMFSocketMap_MULTIMAPPED, InlinedTreeMFSocketMap_UNMAPPED));
+    uint mapped_id = m_socket_by_fsocket.lookup_single(fsocket.id());
     return *m_builder->sockets_by_id()[mapped_id];
   }
 
@@ -233,22 +207,14 @@ class FunctionTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
 
   Vector<MFBuilderInputSocket *> lookup_socket(const FInputSocket &fsocket) const
   {
+    ArrayRef<uint> mapped_ids = m_socket_by_fsocket.lookup(fsocket.id());
+    ArrayRef<MFBuilderSocket *> sockets_by_id = m_builder->sockets_by_id();
+
     Vector<MFBuilderInputSocket *> sockets;
-    switch (m_single_socket_by_fsocket[fsocket.id()]) {
-      case InlinedTreeMFSocketMap_UNMAPPED: {
-        break;
-      }
-      case InlinedTreeMFSocketMap_MULTIMAPPED: {
-        for (uint mapped_id : m_multiple_inputs_by_fsocket.lookup(fsocket.id())) {
-          sockets.append(&m_builder->sockets_by_id()[mapped_id]->as_input());
-        }
-        break;
-      }
-      default: {
-        uint mapped_id = m_single_socket_by_fsocket[fsocket.id()];
-        sockets.append(&m_builder->sockets_by_id()[mapped_id]->as_input());
-        break;
-      }
+    sockets.reserve(mapped_ids.size());
+    for (uint mapped_id : mapped_ids) {
+      MFBuilderSocket &socket = *sockets_by_id[mapped_id];
+      sockets.append(&socket.as_input());
     }
     return sockets;
   }
