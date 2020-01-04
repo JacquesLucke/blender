@@ -12,7 +12,22 @@ static bool node_can_be_constant(MFBuilderNode &node)
 {
   if (node.is_function()) {
     const MultiFunction &fn = node.as_function().function();
-    return !fn.depends_on_context();
+    if (fn.depends_on_context()) {
+      return false;
+    }
+
+    /* TODO: Support vectors. */
+    for (auto *socket : node.inputs()) {
+      if (socket->data_type().is_vector()) {
+        return false;
+      }
+    }
+    for (auto *socket : node.outputs()) {
+      if (socket->data_type().is_vector()) {
+        return false;
+      }
+    }
+    return true;
   }
   else {
     return false;
@@ -65,10 +80,6 @@ void optimize_network__constant_folding(MFNetworkBuilder &network_builder,
 
     for (MFBuilderOutputSocket *output_socket : node->outputs()) {
       MFDataType data_type = output_socket->data_type();
-      if (data_type.is_vector()) {
-        /* TODO: support vector */
-        continue;
-      }
 
       for (MFBuilderInputSocket *target_socket : output_socket->targets()) {
         if (!is_constant[target_socket->node().id()]) {
@@ -82,6 +93,10 @@ void optimize_network__constant_folding(MFNetworkBuilder &network_builder,
         }
       }
     }
+  }
+
+  if (ids_to_compute.size() == 0) {
+    return;
   }
 
   MFNetwork network{network_builder};
@@ -140,7 +155,7 @@ void optimize_network__constant_folding(MFNetworkBuilder &network_builder,
     }
   }
 
-  network_builder.to_dot__clipboard();
+  // network_builder.to_dot__clipboard();
 }
 
 }  // namespace FN
