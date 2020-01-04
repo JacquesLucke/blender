@@ -5,11 +5,13 @@
 
 #include "BLI_optional.h"
 #include "BLI_array_cxx.h"
+#include "BLI_set.h"
 
 namespace FN {
 
 using BLI::Array;
 using BLI::Optional;
+using BLI::Set;
 
 /* MFNetwork Builder
  ****************************************/
@@ -140,8 +142,8 @@ class MFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
  public:
   ~MFNetworkBuilder();
 
-  std::string to_dot();
-  void to_dot__clipboard();
+  std::string to_dot(const Set<MFBuilderNode *> &marked_nodes = {});
+  void to_dot__clipboard(const Set<MFBuilderNode *> &marked_nodes = {});
 
   MFBuilderFunctionNode &add_function(const MultiFunction &function);
   MFBuilderDummyNode &add_dummy(StringRef name,
@@ -150,6 +152,7 @@ class MFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
                                 ArrayRef<StringRef> input_names,
                                 ArrayRef<StringRef> output_names);
   void add_link(MFBuilderOutputSocket &from, MFBuilderInputSocket &to);
+  void remove_link(MFBuilderOutputSocket &from, MFBuilderInputSocket &to);
 
   ArrayRef<MFBuilderNode *> nodes_by_id() const
   {
@@ -181,6 +184,8 @@ class MFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
     return m_output_sockets;
   }
 };
+
+void optimize_multi_function_network(MFNetworkBuilder &network);
 
 /* Network
  ******************************************/
@@ -314,7 +319,7 @@ class MFNetwork : BLI::NonCopyable, BLI::NonMovable {
   Vector<MFOutputSocket *> m_output_sockets;
 
  public:
-  MFNetwork(std::unique_ptr<MFNetworkBuilder> builder);
+  MFNetwork(MFNetworkBuilder &builder);
   ~MFNetwork();
 
   const MFNode &node_by_id(uint id) const;

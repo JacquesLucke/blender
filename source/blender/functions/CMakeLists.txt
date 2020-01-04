@@ -43,6 +43,7 @@ set(SRC
   intern/initialize.cc
   intern/multi_function_common_contexts.cc
   intern/multi_function_context.cc
+  intern/multi_function_network_optimization.cc
   intern/multi_function_network.cc
   intern/node_tree.cc
 
@@ -58,6 +59,7 @@ set(SRC
   FN_multi_function_context.h
   FN_multi_function_data_type.h
   FN_multi_function_dependencies.h
+  FN_multi_function_network_optimization.h
   FN_multi_function_network.h
   FN_multi_function_param_type.h
   FN_multi_function.h

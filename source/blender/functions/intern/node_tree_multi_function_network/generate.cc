@@ -1,4 +1,5 @@
 #include "FN_node_tree_multi_function_network_generation.h"
+#include "FN_multi_function_network_optimization.h"
 #include "FN_multi_functions.h"
 
 #include "BLI_math_cxx.h"
@@ -205,14 +206,13 @@ static bool insert_unlinked_inputs(CommonBuilderData &common)
   return true;
 }
 
-static std::unique_ptr<FunctionTreeMFNetwork> build(
-    const FunctionTree &function_tree,
-    std::unique_ptr<MFNetworkBuilder> network_builder,
-    ArrayRef<std::pair<uint, uint>> dummy_mappings)
+static std::unique_ptr<FunctionTreeMFNetwork> build(const FunctionTree &function_tree,
+                                                    MFNetworkBuilder &network_builder,
+                                                    ArrayRef<std::pair<uint, uint>> dummy_mappings)
 {
-  network_builder->to_dot__clipboard();
+  // network_builder->to_dot__clipboard();
 
-  auto network = BLI::make_unique<MFNetwork>(std::move(network_builder));
+  auto network = BLI::make_unique<MFNetwork>(network_builder);
 
   IndexToRefMap<const MFSocket> dummy_socket_by_fsocket_id(function_tree.socket_count());
   IndexToRefMap<const FSocket> fsocket_by_dummy_socket_id(network->socket_ids().size());
@@ -240,12 +240,12 @@ std::unique_ptr<FunctionTreeMFNetwork> generate_node_tree_multi_function_network
   const FunctionTreeMFMappings &mappings = get_function_tree_multi_function_mappings();
   FSocketDataTypes fsocket_data_types{function_tree};
   MFSocketByFSocketMapping socket_map{function_tree};
-  auto network_builder = BLI::make_unique<MFNetworkBuilder>();
+  MFNetworkBuilder network_builder;
 
   BLI_assert(check_if_data_links_are_valid(function_tree, mappings, fsocket_data_types));
 
   CommonBuilderData common{
-      resources, mappings, fsocket_data_types, socket_map, *network_builder, function_tree};
+      resources, mappings, fsocket_data_types, socket_map, network_builder, function_tree};
   if (!insert_nodes(common)) {
     BLI_assert(false);
   }
@@ -261,7 +261,8 @@ std::unique_ptr<FunctionTreeMFNetwork> generate_node_tree_multi_function_network
 
   Vector<std::pair<uint, uint>> dummy_mappings = socket_map.get_dummy_mappings();
 
-  auto function_tree_network = build(function_tree, std::move(network_builder), dummy_mappings);
+  // optimize_network__constant_folding(network_builder, resources);
+  auto function_tree_network = build(function_tree, network_builder, dummy_mappings);
   return function_tree_network;
 }
 

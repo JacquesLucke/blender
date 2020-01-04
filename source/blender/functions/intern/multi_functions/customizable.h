@@ -8,6 +8,28 @@
 
 namespace FN {
 
+/**
+ * Note: The value buffer passed into the constructor should have a longer lifetime than the
+ * function itself.
+ */
+class MF_GenericConstantValue : public MultiFunction {
+ private:
+  const void *m_value;
+
+ public:
+  MF_GenericConstantValue(const CPPType &type, const void *value) : m_value(value)
+  {
+    MFSignatureBuilder signature = this->get_builder("Constant");
+    signature.single_output("Constant", type);
+  }
+
+  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
+  {
+    GenericMutableArrayRef r_value = params.uninitialized_single_output(0);
+    r_value.type().fill_uninitialized_indices(m_value, r_value.buffer(), mask);
+  }
+};
+
 template<typename T> class MF_ConstantValue : public MultiFunction {
  private:
   T m_value;

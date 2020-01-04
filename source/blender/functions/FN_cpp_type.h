@@ -170,6 +170,11 @@ class CPPType {
     m_destruct_indices(ptr, index_mask);
   }
 
+  DestructF destruct_cb() const
+  {
+    return m_destruct;
+  }
+
   void copy_to_initialized(const void *src, void *dst) const
   {
     BLI_assert(this->pointer_has_valid_alignment(src));

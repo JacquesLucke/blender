@@ -154,7 +154,15 @@ void MFNetworkBuilder::add_link(MFBuilderOutputSocket &from, MFBuilderInputSocke
   to.m_origin = &from;
 }
 
-std::string MFNetworkBuilder::to_dot()
+void MFNetworkBuilder::remove_link(MFBuilderOutputSocket &from, MFBuilderInputSocket &to)
+{
+  BLI_assert(from.m_targets.contains(&to));
+  BLI_assert(to.m_origin == &from);
+  from.m_targets.remove_first_occurrence_and_reorder(&to);
+  to.m_origin = nullptr;
+}
+
+std::string MFNetworkBuilder::to_dot(const Set<MFBuilderNode *> &marked_nodes)
 {
   using BLI::DotExport::Utils::NodeWithSocketsWrapper;
 
@@ -175,7 +183,10 @@ std::string MFNetworkBuilder::to_dot()
     }
 
     if (node->is_dummy()) {
-      dot_node.set_background_color("#AAAAFF");
+      dot_node.set_background_color("#EEEEFF");
+    }
+    if (marked_nodes.contains(node)) {
+      dot_node.set_background_color("#99EE99");
     }
 
     dot_nodes.add_new(node,
@@ -201,21 +212,21 @@ std::string MFNetworkBuilder::to_dot()
   return digraph.to_dot_string();
 }
 
-void MFNetworkBuilder::to_dot__clipboard()
+void MFNetworkBuilder::to_dot__clipboard(const Set<MFBuilderNode *> &marked_nodes)
 {
-  std::string dot = this->to_dot();
+  std::string dot = this->to_dot(marked_nodes);
   WM_clipboard_text_set(dot.c_str(), false);
 }
 
 /* Network
  ********************************************/
 
-MFNetwork::MFNetwork(std::unique_ptr<MFNetworkBuilder> builder)
+MFNetwork::MFNetwork(MFNetworkBuilder &builder)
 {
-  m_node_by_id = Array<MFNode *>(builder->nodes_by_id().size());
-  m_socket_by_id = Array<MFSocket *>(builder->sockets_by_id().size());
+  m_node_by_id = Array<MFNode *>(builder.nodes_by_id().size());
+  m_socket_by_id = Array<MFSocket *>(builder.sockets_by_id().size());
 
-  for (MFBuilderFunctionNode *builder_node : builder->function_nodes()) {
+  for (MFBuilderFunctionNode *builder_node : builder.function_nodes()) {
     MFFunctionNode &node = *m_allocator.construct<MFFunctionNode>().release();
 
     node.m_function = &builder_node->function();
@@ -254,7 +265,7 @@ MFNetwork::MFNetwork(std::unique_ptr<MFNetworkBuilder> builder)
     m_node_by_id[node.id()] = &node;
   }
 
-  for (MFBuilderDummyNode *builder_node : builder->dummy_nodes()) {
+  for (MFBuilderDummyNode *builder_node : builder.dummy_nodes()) {
     MFDummyNode &node = *m_allocator.construct<MFDummyNode>().release();
 
     node.m_id = builder_node->id();
@@ -292,14 +303,14 @@ MFNetwork::MFNetwork(std::unique_ptr<MFNetworkBuilder> builder)
     m_node_by_id[node.id()] = &node;
   }
 
-  for (MFBuilderInputSocket *builder_socket : builder->input_sockets()) {
+  for (MFBuilderInputSocket *builder_socket : builder.input_sockets()) {
     MFInputSocket &socket = m_socket_by_id[builder_socket->id()]->as_input();
     MFOutputSocket &origin = m_socket_by_id[builder_socket->origin()->id()]->as_output();
 
     socket.m_origin = &origin;
   }
 
-  for (MFBuilderOutputSocket *builder_socket : builder->output_sockets()) {
+  for (MFBuilderOutputSocket *builder_socket : builder.output_sockets()) {
     MFOutputSocket &socket = m_socket_by_id[builder_socket->id()]->as_output();
 
     for (MFBuilderInputSocket *builder_target : builder_socket->targets()) {

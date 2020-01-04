@@ -184,6 +184,12 @@ class MultiFunction {
     return m_signature_data.used_element_contexts.size() > 0;
   }
 
+  bool depends_on_context() const
+  {
+    return m_signature_data.used_element_contexts.size() > 0 ||
+           m_signature_data.used_global_contexts.size() > 0;
+  }
+
   template<typename T> bool uses_element_context() const
   {
     BLI::class_id_t id = BLI::get_class_id<T>();
