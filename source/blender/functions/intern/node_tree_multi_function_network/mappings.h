@@ -16,12 +16,11 @@ struct VTreeMultiFunctionMappings;
 class FunctionTreeMFNetworkBuilder;
 class FNodeMFNetworkBuilder;
 class VSocketMFNetworkBuilder;
+class ImplicitConversionMFBuilder;
 
 using InsertVNodeFunction = std::function<void(FNodeMFNetworkBuilder &builder)>;
 using InsertVSocketFunction = std::function<void(VSocketMFNetworkBuilder &builder)>;
-using InsertImplicitConversionFunction =
-    std::function<std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *>(
-        FunctionTreeMFNetworkBuilder &builder)>;
+using InsertImplicitConversionFunction = std::function<void(ImplicitConversionMFBuilder &builder)>;
 
 struct VTreeMultiFunctionMappings {
   StringMap<MFDataType> data_type_by_idname;

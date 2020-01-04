@@ -56,6 +56,21 @@ class FSocketDataTypes {
   {
     return m_data_type_by_group_input_id[group_input.id()].has_value();
   }
+
+  bool has_data_sockets(const FNode &fnode) const
+  {
+    for (const FInputSocket *fsocket : fnode.inputs()) {
+      if (this->is_data_socket(*fsocket)) {
+        return true;
+      }
+    }
+    for (const FOutputSocket *fsocket : fnode.outputs()) {
+      if (this->is_data_socket(*fsocket)) {
+        return true;
+      }
+    }
+    return false;
+  }
 };
 
 class MFSocketByFSocketMapping {
@@ -106,6 +121,25 @@ class MFSocketByFSocketMapping {
     m_socket_by_group_input_id.add_new(group_input.id(), socket);
   }
 
+  void add(const FNode &fnode, MFBuilderNode &node, const FSocketDataTypes &fsocket_data_types)
+  {
+    uint data_inputs = 0;
+    for (const FInputSocket *fsocket : fnode.inputs()) {
+      if (fsocket_data_types.is_data_socket(*fsocket)) {
+        this->add(*fsocket, *node.inputs()[data_inputs]);
+        data_inputs++;
+      }
+    }
+
+    uint data_outputs = 0;
+    for (const FOutputSocket *fsocket : fnode.outputs()) {
+      if (fsocket_data_types.is_data_socket(*fsocket)) {
+        this->add(*fsocket, *node.outputs()[data_outputs]);
+        data_outputs++;
+      }
+    }
+  }
+
   MFBuilderOutputSocket &lookup(const FGroupInput &group_input)
   {
     return m_socket_by_group_input_id.lookup(group_input.id());
@@ -142,37 +176,87 @@ class MFSocketByFSocketMapping {
   }
 };
 
-class FunctionTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
- private:
-  const FunctionNodeTree &m_function_tree;
-  const FSocketDataTypes &m_fsocket_data_types;
-  const VTreeMultiFunctionMappings &m_function_tree_mappings;
-  ResourceCollector &m_resources;
+struct FunctionTreeMFBuilderCommonData {
+  ResourceCollector &resources;
+  const VTreeMultiFunctionMappings &mappings;
+  const FSocketDataTypes &fsocket_data_types;
+  MFSocketByFSocketMapping &socket_map;
+  MFNetworkBuilder &network_builder;
+  const FunctionNodeTree &function_tree;
+};
 
-  MFSocketByFSocketMapping &m_socket_map;
-  MFNetworkBuilder &m_builder;
+class FunctionTreeMFBuilderBase {
+ protected:
+  FunctionTreeMFBuilderCommonData &m_common;
 
  public:
-  FunctionTreeMFNetworkBuilder(const FunctionNodeTree &function_tree,
-                               const FSocketDataTypes &preprocessed_function_tree_data,
-                               const VTreeMultiFunctionMappings &function_tree_mappings,
-                               ResourceCollector &resources,
-                               MFSocketByFSocketMapping &socket_map,
-                               MFNetworkBuilder &builder);
+  FunctionTreeMFBuilderBase(FunctionTreeMFBuilderCommonData &common) : m_common(common)
+  {
+  }
+
+  FunctionTreeMFBuilderCommonData &common()
+  {
+    return m_common;
+  }
 
   const FunctionNodeTree &function_tree() const
   {
-    return m_function_tree;
+    return m_common.function_tree;
   }
 
   ResourceCollector &resources()
   {
-    return m_resources;
+    return m_common.resources;
   }
 
-  const VTreeMultiFunctionMappings &vtree_multi_function_mappings() const
+  const VTreeMultiFunctionMappings &mappings() const
   {
-    return m_function_tree_mappings;
+    return m_common.mappings;
+  }
+
+  MFSocketByFSocketMapping &socket_map() const
+  {
+    return m_common.socket_map;
+  }
+
+  const FSocketDataTypes &fsocket_data_types() const
+  {
+    return m_common.fsocket_data_types;
+  }
+
+  template<typename T, typename... Args> T &construct_fn(Args &&... args)
+  {
+    BLI_STATIC_ASSERT((std::is_base_of<MultiFunction, T>::value), "");
+    void *buffer = m_common.resources.allocate(sizeof(T), alignof(T));
+    T *fn = new (buffer) T(std::forward<Args>(args)...);
+    m_common.resources.add(BLI::destruct_ptr<T>(fn), fn->name().data());
+    return *fn;
+  }
+
+  const CPPType &cpp_type_by_name(StringRef name) const
+  {
+    return *m_common.mappings.cpp_type_by_type_name.lookup(name);
+  }
+
+  const CPPType &cpp_type_from_property(const FNode &fnode, StringRefNull prop_name) const
+  {
+    char *type_name = RNA_string_get_alloc(fnode.rna(), prop_name.data(), nullptr, 0);
+    const CPPType &type = this->cpp_type_by_name(type_name);
+    MEM_freeN(type_name);
+    return type;
+  }
+
+  MFDataType data_type_from_property(const FNode &fnode, StringRefNull prop_name) const
+  {
+    char *type_name = RNA_string_get_alloc(fnode.rna(), prop_name.data(), nullptr, 0);
+    MFDataType type = m_common.mappings.data_type_by_type_name.lookup(type_name);
+    MEM_freeN(type_name);
+    return type;
+  }
+
+  void add_link(MFBuilderOutputSocket &from, MFBuilderInputSocket &to)
+  {
+    m_common.network_builder.add_link(from, to);
   }
 
   MFBuilderFunctionNode &add_function(const MultiFunction &function);
@@ -187,119 +271,19 @@ class FunctionTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
                                 ArrayRef<StringRef> input_names,
                                 ArrayRef<StringRef> output_names)
   {
-    return m_builder.add_dummy(name, input_types, output_types, input_names, output_names);
+    return m_common.network_builder.add_dummy(
+        name, input_types, output_types, input_names, output_names);
   }
-
-  void add_link(MFBuilderOutputSocket &from, MFBuilderInputSocket &to)
-  {
-    m_builder.add_link(from, to);
-  }
-
-  template<typename T, typename... Args> T &construct(const char *name, Args &&... args)
-  {
-    void *buffer = m_resources.allocate(sizeof(T), alignof(T));
-    T *value = new (buffer) T(std::forward<Args>(args)...);
-    m_resources.add(BLI::destruct_ptr<T>(value), name);
-    return *value;
-  }
-
-  template<typename T, typename... Args> T &construct_fn(Args &&... args)
-  {
-    BLI_STATIC_ASSERT((std::is_base_of<MultiFunction, T>::value), "");
-    void *buffer = m_resources.allocate(sizeof(T), alignof(T));
-    T *fn = new (buffer) T(std::forward<Args>(args)...);
-    m_resources.add(BLI::destruct_ptr<T>(fn), fn->name().data());
-    return *fn;
-  }
-
-  Optional<MFDataType> try_get_data_type(const FSocket &fsocket) const
-  {
-    return m_fsocket_data_types.try_lookup_data_type(fsocket);
-  }
-
-  bool is_data_socket(const FSocket &fsocket) const
-  {
-    return m_fsocket_data_types.is_data_socket(fsocket);
-  }
-
-  bool is_data_group_input(const FGroupInput &group_input) const
-  {
-    return m_fsocket_data_types.is_data_group_input(group_input);
-  }
-
-  void map_data_sockets(const FNode &fnode, MFBuilderNode &node);
-
-  void map_sockets(const FInputSocket &fsocket, MFBuilderInputSocket &socket)
-  {
-    m_socket_map.add(fsocket, socket);
-  }
-
-  void map_sockets(const FOutputSocket &fsocket, MFBuilderOutputSocket &socket)
-  {
-    m_socket_map.add(fsocket, socket);
-  }
-
-  void map_sockets(ArrayRef<const FInputSocket *> fsockets,
-                   ArrayRef<MFBuilderInputSocket *> sockets)
-  {
-    m_socket_map.add(fsockets, sockets);
-  }
-
-  void map_sockets(ArrayRef<const FOutputSocket *> fsockets,
-                   ArrayRef<MFBuilderOutputSocket *> sockets)
-  {
-    m_socket_map.add(fsockets, sockets);
-  }
-
-  void map_group_input(const FGroupInput &group_input, MFBuilderOutputSocket &socket)
-  {
-    m_socket_map.add(group_input, socket);
-  }
-
-  MFBuilderOutputSocket &lookup_group_input(const FGroupInput &group_input)
-  {
-    return m_socket_map.lookup(group_input);
-  }
-
-  bool fsocket_is_mapped(const FSocket &fsocket) const
-  {
-    return m_socket_map.is_mapped(fsocket);
-  }
-
-  void assert_fnode_is_mapped_correctly(const FNode &fnode);
-  void assert_data_sockets_are_mapped_correctly(ArrayRef<const FSocket *> fsockets);
-  void assert_fsocket_is_mapped_correctly(const FSocket &fsocket);
-
-  bool has_data_sockets(const FNode &fnode) const;
-
-  MFBuilderOutputSocket &lookup_socket(const FOutputSocket &fsocket)
-  {
-    return m_socket_map.lookup(fsocket);
-  }
-
-  ArrayRef<MFBuilderInputSocket *> lookup_socket(const FInputSocket &fsocket)
-  {
-    return m_socket_map.lookup(fsocket);
-  }
-
-  const CPPType &cpp_type_by_name(StringRef name) const
-  {
-    return *m_function_tree_mappings.cpp_type_by_type_name.lookup(name);
-  }
-
-  const CPPType &cpp_type_from_property(const FNode &fnode, StringRefNull prop_name) const;
-  MFDataType data_type_from_property(const FNode &fnode, StringRefNull prop_name) const;
 };
 
-class VSocketMFNetworkBuilder {
+class VSocketMFNetworkBuilder : public FunctionTreeMFBuilderBase {
  private:
-  FunctionTreeMFNetworkBuilder &m_network_builder;
   const VSocket &m_vsocket;
   MFBuilderOutputSocket *m_socket_to_build = nullptr;
 
  public:
-  VSocketMFNetworkBuilder(FunctionTreeMFNetworkBuilder &network_builder, const VSocket &vsocket)
-      : m_network_builder(network_builder), m_vsocket(vsocket)
+  VSocketMFNetworkBuilder(FunctionTreeMFBuilderCommonData &common, const VSocket &vsocket)
+      : FunctionTreeMFBuilderBase(common), m_vsocket(vsocket)
   {
   }
 
@@ -319,21 +303,15 @@ class VSocketMFNetworkBuilder {
     return m_vsocket.rna();
   }
 
-  FunctionTreeMFNetworkBuilder &network_builder()
-  {
-    return m_network_builder;
-  }
-
   template<typename T> void set_constant_value(T value)
   {
-    const MultiFunction &fn = m_network_builder.construct_fn<MF_ConstantValue<T>>(
-        std::move(value));
+    const MultiFunction &fn = this->construct_fn<MF_ConstantValue<T>>(std::move(value));
     this->set_generator_fn(fn);
   }
 
   void set_generator_fn(const MultiFunction &fn)
   {
-    MFBuilderFunctionNode &node = m_network_builder.add_function(fn);
+    MFBuilderFunctionNode &node = m_common.network_builder.add_function(fn);
     this->set_socket(node.output(0));
   }
 
@@ -343,20 +321,17 @@ class VSocketMFNetworkBuilder {
   }
 };
 
-class FNodeMFNetworkBuilder {
+class FNodeMFNetworkBuilder : public FunctionTreeMFBuilderBase {
  private:
-  FunctionTreeMFNetworkBuilder &m_network_builder;
   const FNode &m_fnode;
 
- public:
-  FNodeMFNetworkBuilder(FunctionTreeMFNetworkBuilder &network_builder, const FNode &fnode)
-      : m_network_builder(network_builder), m_fnode(fnode)
-  {
-  }
+  using FunctionTreeMFBuilderBase::cpp_type_from_property;
+  using FunctionTreeMFBuilderBase::data_type_from_property;
 
-  FunctionTreeMFNetworkBuilder &network_builder()
+ public:
+  FNodeMFNetworkBuilder(FunctionTreeMFBuilderCommonData &common, const FNode &fnode)
+      : FunctionTreeMFBuilderBase(common), m_fnode(fnode)
   {
-    return m_network_builder;
   }
 
   const FNode &fnode() const
@@ -371,12 +346,12 @@ class FNodeMFNetworkBuilder {
 
   const CPPType &cpp_type_from_property(StringRefNull prop_name)
   {
-    return m_network_builder.cpp_type_from_property(m_fnode, prop_name);
+    return this->cpp_type_from_property(m_fnode, prop_name);
   }
 
   MFDataType data_type_from_property(StringRefNull prop_name)
   {
-    return m_network_builder.data_type_from_property(m_fnode, prop_name);
+    return this->data_type_from_property(m_fnode, prop_name);
   }
 
   std::string string_from_property(StringRefNull prop_name)
@@ -388,11 +363,6 @@ class FNodeMFNetworkBuilder {
   }
 
   Vector<bool> get_list_base_variadic_states(StringRefNull prop_name);
-
-  template<typename T, typename... Args> T &construct_fn(Args &&... args)
-  {
-    return m_network_builder.construct_fn<T>(std::forward<Args>(args)...);
-  }
 
   template<typename T, typename... Args>
   void set_vectorized_constructed_matching_fn(ArrayRef<const char *> is_vectorized_prop_names,
@@ -413,6 +383,40 @@ class FNodeMFNetworkBuilder {
 
   const MultiFunction &get_vectorized_function(const MultiFunction &base_function,
                                                ArrayRef<const char *> is_vectorized_prop_names);
+};
+
+class ImplicitConversionMFBuilder : public FunctionTreeMFBuilderBase {
+ private:
+  MFBuilderInputSocket *m_built_input = nullptr;
+  MFBuilderOutputSocket *m_built_output = nullptr;
+
+ public:
+  ImplicitConversionMFBuilder(FunctionTreeMFBuilderCommonData &common)
+      : FunctionTreeMFBuilderBase(common)
+  {
+  }
+
+  template<typename T, typename... Args> void set_constructed_conversion_fn(Args &&... args)
+  {
+    const MultiFunction &fn = this->construct_fn<T>(std::forward<Args>(args)...);
+    MFBuilderFunctionNode &node = this->add_function(fn);
+    BLI_assert(node.inputs().size() == 1);
+    BLI_assert(node.outputs().size() == 1);
+    m_built_input = &node.input(0);
+    m_built_output = &node.output(0);
+  }
+
+  MFBuilderInputSocket &built_input()
+  {
+    BLI_assert(m_built_input != nullptr);
+    return *m_built_input;
+  }
+
+  MFBuilderOutputSocket &built_output()
+  {
+    BLI_assert(m_built_output != nullptr);
+    return *m_built_output;
+  }
 };
 
 }  // namespace FN

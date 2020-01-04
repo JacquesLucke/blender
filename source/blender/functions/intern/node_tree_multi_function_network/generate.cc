@@ -10,44 +10,39 @@
 
 namespace FN {
 
-static bool insert_nodes(FunctionTreeMFNetworkBuilder &builder,
-                         const VTreeMultiFunctionMappings &mappings)
+static bool insert_nodes(FunctionTreeMFBuilderCommonData &common)
 {
-  const FunctionNodeTree &function_tree = builder.function_tree();
-
-  for (const FNode *fnode : function_tree.all_nodes()) {
+  for (const FNode *fnode : common.function_tree.all_nodes()) {
     StringRef idname = fnode->idname();
-    const InsertVNodeFunction *inserter = mappings.fnode_inserters.lookup_ptr(idname);
+    const InsertVNodeFunction *inserter = common.mappings.fnode_inserters.lookup_ptr(idname);
 
     if (inserter != nullptr) {
-      FNodeMFNetworkBuilder fnode_builder{builder, *fnode};
-
+      FNodeMFNetworkBuilder fnode_builder{common, *fnode};
       (*inserter)(fnode_builder);
-      builder.assert_fnode_is_mapped_correctly(*fnode);
     }
-    else if (builder.has_data_sockets(*fnode)) {
+    else if (common.fsocket_data_types.has_data_sockets(*fnode)) {
+      FunctionTreeMFBuilderBase builder{common};
       builder.add_dummy(*fnode);
     }
   }
 
-  for (const FGroupInput *group_input : function_tree.all_group_inputs()) {
-    VSocketMFNetworkBuilder socket_builder{builder, group_input->vsocket()};
-    const InsertVSocketFunction *inserter = mappings.fsocket_inserters.lookup_ptr(
+  for (const FGroupInput *group_input : common.function_tree.all_group_inputs()) {
+    VSocketMFNetworkBuilder socket_builder{common, group_input->vsocket()};
+    const InsertVSocketFunction *inserter = common.mappings.fsocket_inserters.lookup_ptr(
         group_input->vsocket().idname());
     if (inserter != nullptr) {
       (*inserter)(socket_builder);
-      builder.map_group_input(*group_input, socket_builder.built_socket());
+      common.socket_map.add(*group_input, socket_builder.built_socket());
     }
   }
 
   return true;
 }
 
-static bool insert_links(FunctionTreeMFNetworkBuilder &builder,
-                         const VTreeMultiFunctionMappings &mappings)
+static bool insert_links(FunctionTreeMFBuilderCommonData &common)
 {
-  for (const FInputSocket *to_fsocket : builder.function_tree().all_input_sockets()) {
-    if (!builder.is_data_socket(*to_fsocket)) {
+  for (const FInputSocket *to_fsocket : common.function_tree.all_input_sockets()) {
+    if (!common.fsocket_data_types.is_data_socket(*to_fsocket)) {
       continue;
     }
 
@@ -61,51 +56,51 @@ static bool insert_links(FunctionTreeMFNetworkBuilder &builder,
     StringRef from_idname;
 
     if (origin_sockets.size() == 1) {
-      if (!builder.is_data_socket(*origin_sockets[0])) {
+      if (!common.fsocket_data_types.is_data_socket(*origin_sockets[0])) {
         return false;
       }
-      from_socket = &builder.lookup_socket(*origin_sockets[0]);
+      from_socket = &common.socket_map.lookup(*origin_sockets[0]);
       from_idname = origin_sockets[0]->idname();
     }
     else {
-      if (!builder.is_data_group_input(*origin_group_inputs[0])) {
+      if (!common.fsocket_data_types.is_data_group_input(*origin_group_inputs[0])) {
         return false;
       }
-      from_socket = &builder.lookup_group_input(*origin_group_inputs[0]);
+      from_socket = &common.socket_map.lookup(*origin_group_inputs[0]);
       from_idname = origin_group_inputs[0]->vsocket().idname();
     }
 
-    Vector<MFBuilderInputSocket *> to_sockets = builder.lookup_socket(*to_fsocket);
+    Vector<MFBuilderInputSocket *> to_sockets = common.socket_map.lookup(*to_fsocket);
     BLI_assert(to_sockets.size() >= 1);
 
     MFDataType from_type = from_socket->data_type();
     MFDataType to_type = to_sockets[0]->data_type();
 
     if (from_type != to_type) {
-      const InsertImplicitConversionFunction *inserter = mappings.conversion_inserters.lookup_ptr(
-          {from_idname, to_fsocket->idname()});
+      const InsertImplicitConversionFunction *inserter =
+          common.mappings.conversion_inserters.lookup_ptr({from_idname, to_fsocket->idname()});
       if (inserter == nullptr) {
         return false;
       }
-      auto new_sockets = (*inserter)(builder);
-      builder.add_link(*from_socket, *new_sockets.first);
-      from_socket = new_sockets.second;
+      ImplicitConversionMFBuilder builder{common};
+      (*inserter)(builder);
+      builder.add_link(*from_socket, builder.built_input());
+      from_socket = &builder.built_output();
     }
 
     for (MFBuilderInputSocket *to_socket : to_sockets) {
-      builder.add_link(*from_socket, *to_socket);
+      common.network_builder.add_link(*from_socket, *to_socket);
     }
   }
 
   return true;
 }
 
-static bool insert_unlinked_inputs(FunctionTreeMFNetworkBuilder &builder,
-                                   const VTreeMultiFunctionMappings &mappings)
+static bool insert_unlinked_inputs(FunctionTreeMFBuilderCommonData &common)
 {
   Vector<const FInputSocket *> unlinked_data_inputs;
-  for (const FInputSocket *fsocket : builder.function_tree().all_input_sockets()) {
-    if (builder.is_data_socket(*fsocket)) {
+  for (const FInputSocket *fsocket : common.function_tree.all_input_sockets()) {
+    if (common.fsocket_data_types.is_data_socket(*fsocket)) {
       if (!fsocket->is_linked()) {
         unlinked_data_inputs.append(fsocket);
       }
@@ -113,17 +108,17 @@ static bool insert_unlinked_inputs(FunctionTreeMFNetworkBuilder &builder,
   }
 
   for (const FInputSocket *fsocket : unlinked_data_inputs) {
-    const InsertVSocketFunction *inserter = mappings.fsocket_inserters.lookup_ptr(
+    const InsertVSocketFunction *inserter = common.mappings.fsocket_inserters.lookup_ptr(
         fsocket->idname());
 
     if (inserter == nullptr) {
       return false;
     }
 
-    VSocketMFNetworkBuilder fsocket_builder{builder, fsocket->vsocket()};
+    VSocketMFNetworkBuilder fsocket_builder{common, fsocket->vsocket()};
     (*inserter)(fsocket_builder);
-    for (MFBuilderInputSocket *to_socket : builder.lookup_socket(*fsocket)) {
-      builder.add_link(fsocket_builder.built_socket(), *to_socket);
+    for (MFBuilderInputSocket *to_socket : common.socket_map.lookup(*fsocket)) {
+      common.network_builder.add_link(fsocket_builder.built_socket(), *to_socket);
     }
   }
 
@@ -135,7 +130,7 @@ static std::unique_ptr<FunctionTreeMFNetwork> build(
     std::unique_ptr<MFNetworkBuilder> network_builder,
     ArrayRef<std::pair<uint, uint>> dummy_mappings)
 {
-  // m_builder.to_dot__clipboard();
+  network_builder->to_dot__clipboard();
 
   auto network = BLI::make_unique<MFNetwork>(std::move(network_builder));
 
@@ -167,15 +162,15 @@ std::unique_ptr<FunctionTreeMFNetwork> generate_node_tree_multi_function_network
   MFSocketByFSocketMapping socket_map{function_tree};
   auto network_builder = BLI::make_unique<MFNetworkBuilder>();
 
-  FunctionTreeMFNetworkBuilder builder(
-      function_tree, fsocket_data_types, mappings, resources, socket_map, *network_builder);
-  if (!insert_nodes(builder, mappings)) {
+  FunctionTreeMFBuilderCommonData common{
+      resources, mappings, fsocket_data_types, socket_map, *network_builder, function_tree};
+  if (!insert_nodes(common)) {
     BLI_assert(false);
   }
-  if (!insert_links(builder, mappings)) {
+  if (!insert_links(common)) {
     BLI_assert(false);
   }
-  if (!insert_unlinked_inputs(builder, mappings)) {
+  if (!insert_unlinked_inputs(common)) {
     BLI_assert(false);
   }
 

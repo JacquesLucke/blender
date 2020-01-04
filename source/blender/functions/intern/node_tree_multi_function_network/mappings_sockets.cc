@@ -81,7 +81,7 @@ static void INSERT_surface_hook_socket(VSocketMFNetworkBuilder &builder)
 
 template<typename T> static void INSERT_empty_list_socket(VSocketMFNetworkBuilder &builder)
 {
-  const MultiFunction &fn = builder.network_builder().construct_fn<FN::MF_EmptyList<T>>();
+  const MultiFunction &fn = builder.construct_fn<FN::MF_EmptyList<T>>();
   builder.set_generator_fn(fn);
 }
 
@@ -89,30 +89,20 @@ template<typename T> static void INSERT_empty_list_socket(VSocketMFNetworkBuilde
  *******************************************/
 
 template<typename FromT, typename ToT>
-static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_convert(
-    FunctionTreeMFNetworkBuilder &builder)
+static void INSERT_convert(ImplicitConversionMFBuilder &builder)
 {
-  const MultiFunction &fn = builder.construct_fn<FN::MF_Convert<FromT, ToT>>();
-  MFBuilderFunctionNode &node = builder.add_function(fn);
-  return {node.inputs()[0], node.outputs()[0]};
+  builder.set_constructed_conversion_fn<MF_Convert<FromT, ToT>>();
 }
 
 template<typename FromT, typename ToT>
-static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_convert_list(
-    FunctionTreeMFNetworkBuilder &builder)
+static void INSERT_convert_list(ImplicitConversionMFBuilder &builder)
 {
-  const MultiFunction &fn = builder.construct_fn<FN::MF_ConvertList<FromT, ToT>>();
-  MFBuilderFunctionNode &node = builder.add_function(fn);
-  return {node.inputs()[0], node.outputs()[0]};
+  builder.set_constructed_conversion_fn<MF_ConvertList<FromT, ToT>>();
 }
 
-template<typename T>
-static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_element_to_list(
-    FunctionTreeMFNetworkBuilder &builder)
+template<typename T> static void INSERT_element_to_list(ImplicitConversionMFBuilder &builder)
 {
-  const MultiFunction &fn = builder.construct_fn<FN::MF_SingleElementList<T>>();
-  MFBuilderFunctionNode &node = builder.add_function(fn);
-  return {node.inputs()[0], node.outputs()[0]};
+  builder.set_constructed_conversion_fn<MF_SingleElementList<T>>();
 }
 
 template<typename T>

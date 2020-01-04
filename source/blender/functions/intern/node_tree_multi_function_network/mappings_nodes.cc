@@ -421,14 +421,12 @@ static void INSERT_closest_surface_hook_on_object(FNodeMFNetworkBuilder &builder
   const MultiFunction &vectorized_main_fn = builder.get_vectorized_function(
       main_fn, {"use_list__object", "use_list__position"});
 
-  FunctionTreeMFNetworkBuilder &network_builder = builder.network_builder();
-
   MFBuilderFunctionNode *main_node, *position_node, *normal_node;
 
   if (&main_fn == &vectorized_main_fn) {
-    main_node = &network_builder.add_function(main_fn);
-    position_node = &network_builder.add_function(position_fn);
-    normal_node = &network_builder.add_function(normal_fn);
+    main_node = &builder.add_function(main_fn);
+    position_node = &builder.add_function(position_fn);
+    normal_node = &builder.add_function(normal_fn);
   }
   else {
     std::array<bool, 1> input_is_vectorized = {true};
@@ -437,19 +435,19 @@ static void INSERT_closest_surface_hook_on_object(FNodeMFNetworkBuilder &builder
     const MultiFunction &vectorized_normal_fn = builder.construct_fn<MF_SimpleVectorize>(
         normal_fn, input_is_vectorized);
 
-    main_node = &network_builder.add_function(vectorized_main_fn);
-    position_node = &network_builder.add_function(vectorized_position_fn);
-    normal_node = &network_builder.add_function(vectorized_normal_fn);
+    main_node = &builder.add_function(vectorized_main_fn);
+    position_node = &builder.add_function(vectorized_position_fn);
+    normal_node = &builder.add_function(vectorized_normal_fn);
   }
 
-  network_builder.add_link(main_node->output(0), position_node->input(0));
-  network_builder.add_link(main_node->output(0), normal_node->input(0));
+  builder.add_link(main_node->output(0), position_node->input(0));
+  builder.add_link(main_node->output(0), normal_node->input(0));
 
   const FNode &fnode = builder.fnode();
-  network_builder.map_sockets(fnode.inputs(), main_node->inputs());
-  network_builder.map_sockets(fnode.output(0), main_node->output(0));
-  network_builder.map_sockets(fnode.output(1), position_node->output(0));
-  network_builder.map_sockets(fnode.output(2), normal_node->output(0));
+  builder.socket_map().add(fnode.inputs(), main_node->inputs());
+  builder.socket_map().add(fnode.output(0), main_node->output(0));
+  builder.socket_map().add(fnode.output(1), position_node->output(0));
+  builder.socket_map().add(fnode.output(2), normal_node->output(0));
 }
 
 static void INSERT_clamp_float(FNodeMFNetworkBuilder &builder)
@@ -494,15 +492,13 @@ static void INSERT_value(FNodeMFNetworkBuilder &builder)
 {
   const FOutputSocket &fsocket = builder.fnode().output(0);
   const VSocket &vsocket = fsocket.vsocket();
-  FunctionTreeMFNetworkBuilder &network_builder = builder.network_builder();
 
-  VSocketMFNetworkBuilder socket_builder{network_builder, vsocket};
-  auto &inserter = network_builder.vtree_multi_function_mappings().fsocket_inserters.lookup(
-      vsocket.idname());
+  VSocketMFNetworkBuilder socket_builder{builder.common(), vsocket};
+  auto &inserter = builder.mappings().fsocket_inserters.lookup(vsocket.idname());
   inserter(socket_builder);
   MFBuilderOutputSocket &built_socket = socket_builder.built_socket();
 
-  network_builder.map_sockets(fsocket, built_socket);
+  builder.socket_map().add(fsocket, built_socket);
 }
 
 static void INSERT_emitter_time_info(FNodeMFNetworkBuilder &builder)
