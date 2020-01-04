@@ -8,6 +8,30 @@
 
 namespace FN {
 
+inline std::string constant_output_name_from_value(const CPPType &type, const void *value)
+{
+  if (type == CPP_TYPE<float>()) {
+    return std::to_string(*(float *)value);
+  }
+  else if (type == CPP_TYPE<int>()) {
+    return std::to_string(*(int *)value);
+  }
+  else if (type == CPP_TYPE<BLI::float3>()) {
+    std::stringstream ss;
+    ss << *(BLI::float3 *)value;
+    return ss.str();
+  }
+  else if (type == CPP_TYPE<bool>()) {
+    return (*(bool *)value) ? "true" : "false";
+  }
+  else if (type == CPP_TYPE<std::string>()) {
+    return "\"" + *(std::string *)value + "\"";
+  }
+  else {
+    return "Value";
+  }
+}
+
 /**
  * Note: The value buffer passed into the constructor should have a longer lifetime than the
  * function itself.
@@ -19,8 +43,9 @@ class MF_GenericConstantValue : public MultiFunction {
  public:
   MF_GenericConstantValue(const CPPType &type, const void *value) : m_value(value)
   {
-    MFSignatureBuilder signature = this->get_builder("Constant");
-    signature.single_output("Constant", type);
+    MFSignatureBuilder signature = this->get_builder("Constant " + type.name());
+    std::string name = constant_output_name_from_value(type, value);
+    signature.single_output(name, type);
   }
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
@@ -38,7 +63,7 @@ template<typename T> class MF_ConstantValue : public MultiFunction {
   MF_ConstantValue(T value) : m_value(std::move(value))
   {
     MFSignatureBuilder signature = this->get_builder("Constant " + CPP_TYPE<T>().name());
-    std::string name = output_name_from_value(m_value);
+    std::string name = constant_output_name_from_value(CPP_TYPE<T>(), (const void *)&m_value);
     signature.single_output<T>(name);
   }
 
@@ -48,42 +73,7 @@ template<typename T> class MF_ConstantValue : public MultiFunction {
 
     mask.foreach_index([&](uint i) { new (output.begin() + i) T(m_value); });
   }
-
- private:
-  static std::string output_name_from_value(const T &UNUSED(value))
-  {
-    return "Value";
-  }
 };
-
-template<> inline std::string MF_ConstantValue<float>::output_name_from_value(const float &value)
-{
-  return std::to_string(value);
-}
-
-template<> inline std::string MF_ConstantValue<int>::output_name_from_value(const int &value)
-{
-  return std::to_string(value);
-}
-
-template<>
-inline std::string MF_ConstantValue<BLI::float3>::output_name_from_value(const BLI::float3 &value)
-{
-  std::stringstream ss;
-  ss << value;
-  return ss.str();
-}
-
-template<> inline std::string MF_ConstantValue<bool>::output_name_from_value(const bool &value)
-{
-  return (value) ? "true" : "false";
-}
-
-template<>
-inline std::string MF_ConstantValue<std::string>::output_name_from_value(const std::string &value)
-{
-  return "\"" + value + "\"";
-}
 
 template<typename FromT, typename ToT> class MF_Convert : public MultiFunction {
  public:
