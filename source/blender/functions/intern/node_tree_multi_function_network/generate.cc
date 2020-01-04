@@ -11,6 +11,61 @@
 namespace FN {
 namespace MFGeneration {
 
+BLI_NOINLINE static bool check_if_data_links_are_valid(const FunctionTree &function_tree,
+                                                       const FunctionTreeMFMappings &mappings,
+                                                       const FSocketDataTypes &fsocket_data_types)
+{
+  for (const FInputSocket *to_fsocket : function_tree.all_input_sockets()) {
+    ArrayRef<const FOutputSocket *> origin_sockets = to_fsocket->linked_sockets();
+    ArrayRef<const FGroupInput *> origin_group_inputs = to_fsocket->linked_group_inputs();
+
+    if (fsocket_data_types.is_data_socket(*to_fsocket)) {
+      uint total_linked_amount = origin_sockets.size() + origin_group_inputs.size();
+      if (total_linked_amount > 1) {
+        /* A data input can have at most one linked input. */
+        return false;
+      }
+      else if (total_linked_amount == 0) {
+        continue;
+      }
+
+      StringRef origin_idname = (origin_sockets.size() == 1) ?
+                                    origin_sockets[0]->idname() :
+                                    origin_group_inputs[0]->vsocket().idname();
+
+      MFDataType to_type = mappings.data_type_by_idname.lookup(to_fsocket->idname());
+      Optional<MFDataType> from_type = mappings.data_type_by_idname.try_lookup(origin_idname);
+
+      if (!from_type.has_value()) {
+        /* A data input can only be connected to data outputs. */
+        return false;
+      }
+      if (to_type != *from_type) {
+        if (!mappings.conversion_inserters.contains({*from_type, to_type})) {
+          /* A data input can only be connected to data outputs of the same or implicitly
+           * convertible types. */
+          return false;
+        }
+      }
+    }
+    else {
+      for (const FOutputSocket *from_fsocket : origin_sockets) {
+        if (fsocket_data_types.is_data_socket(*from_fsocket)) {
+          /* A non-data input cannot be connected to a data socket. */
+          return false;
+        }
+      }
+      for (const FGroupInput *from_group_input : origin_group_inputs) {
+        if (fsocket_data_types.is_data_group_input(*from_group_input)) {
+          /* A non-data input cannot be connected to a data socket. */
+          return false;
+        }
+      }
+    }
+  }
+  return true;
+}
+
 static const FNodeInserter *try_find_node_inserter(CommonBuilderData &common, const FNode &fnode)
 {
   StringRef idname = fnode.idname();
@@ -55,6 +110,33 @@ static bool insert_group_inputs(CommonBuilderData &common)
   return true;
 }
 
+static MFBuilderOutputSocket *try_find_origin_of_data_socket(CommonBuilderData &common,
+                                                             const FInputSocket &to_fsocket)
+{
+  ArrayRef<const FOutputSocket *> origin_sockets = to_fsocket.linked_sockets();
+  ArrayRef<const FGroupInput *> origin_group_inputs = to_fsocket.linked_group_inputs();
+  uint total_linked_amount = origin_sockets.size() + origin_group_inputs.size();
+  BLI_assert(total_linked_amount <= 1);
+
+  if (total_linked_amount == 0) {
+    return nullptr;
+  }
+
+  if (origin_sockets.size() == 1) {
+    return &common.socket_map.lookup(*origin_sockets[0]);
+  }
+  else {
+    return &common.socket_map.lookup(*origin_group_inputs[0]);
+  }
+}
+
+static const ConversionInserter *try_find_conversion_inserter(CommonBuilderData &common,
+                                                              MFDataType from_type,
+                                                              MFDataType to_type)
+{
+  return common.mappings.conversion_inserters.lookup_ptr({from_type, to_type});
+}
+
 static bool insert_links(CommonBuilderData &common)
 {
   for (const FInputSocket *to_fsocket : common.function_tree.all_input_sockets()) {
@@ -62,25 +144,9 @@ static bool insert_links(CommonBuilderData &common)
       continue;
     }
 
-    ArrayRef<const FOutputSocket *> origin_sockets = to_fsocket->linked_sockets();
-    ArrayRef<const FGroupInput *> origin_group_inputs = to_fsocket->linked_group_inputs();
-    if (origin_sockets.size() + origin_group_inputs.size() != 1) {
+    MFBuilderOutputSocket *from_socket = try_find_origin_of_data_socket(common, *to_fsocket);
+    if (from_socket == nullptr) {
       continue;
-    }
-
-    MFBuilderOutputSocket *from_socket = nullptr;
-
-    if (origin_sockets.size() == 1) {
-      if (!common.fsocket_data_types.is_data_socket(*origin_sockets[0])) {
-        return false;
-      }
-      from_socket = &common.socket_map.lookup(*origin_sockets[0]);
-    }
-    else {
-      if (!common.fsocket_data_types.is_data_group_input(*origin_group_inputs[0])) {
-        return false;
-      }
-      from_socket = &common.socket_map.lookup(*origin_group_inputs[0]);
     }
 
     Vector<MFBuilderInputSocket *> to_sockets = common.socket_map.lookup(*to_fsocket);
@@ -90,11 +156,12 @@ static bool insert_links(CommonBuilderData &common)
     MFDataType to_type = to_sockets[0]->data_type();
 
     if (from_type != to_type) {
-      const ConversionInserter *inserter = common.mappings.conversion_inserters.lookup_ptr(
-          {from_type, to_type});
+      const ConversionInserter *inserter = try_find_conversion_inserter(
+          common, from_type, to_type);
       if (inserter == nullptr) {
         return false;
       }
+
       ConversionMFBuilder builder{common};
       (*inserter)(builder);
       builder.add_link(*from_socket, builder.built_input());
@@ -174,6 +241,8 @@ std::unique_ptr<FunctionTreeMFNetwork> generate_node_tree_multi_function_network
   FSocketDataTypes fsocket_data_types{function_tree};
   MFSocketByFSocketMapping socket_map{function_tree};
   auto network_builder = BLI::make_unique<MFNetworkBuilder>();
+
+  BLI_assert(check_if_data_links_are_valid(function_tree, mappings, fsocket_data_types));
 
   CommonBuilderData common{
       resources, mappings, fsocket_data_types, socket_map, *network_builder, function_tree};
