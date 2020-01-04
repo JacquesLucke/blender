@@ -177,7 +177,7 @@ class MFSocketByFSocketMapping {
   }
 };
 
-struct FunctionTreeMFBuilderCommonData {
+struct CommonBuilderData {
   ResourceCollector &resources;
   const VTreeMultiFunctionMappings &mappings;
   const FSocketDataTypes &fsocket_data_types;
@@ -186,16 +186,16 @@ struct FunctionTreeMFBuilderCommonData {
   const FunctionTree &function_tree;
 };
 
-class FunctionTreeMFBuilderBase {
+class CommonBuilderBase {
  protected:
-  FunctionTreeMFBuilderCommonData &m_common;
+  CommonBuilderData &m_common;
 
  public:
-  FunctionTreeMFBuilderBase(FunctionTreeMFBuilderCommonData &common) : m_common(common)
+  CommonBuilderBase(CommonBuilderData &common) : m_common(common)
   {
   }
 
-  FunctionTreeMFBuilderCommonData &common()
+  CommonBuilderData &common()
   {
     return m_common;
   }
@@ -277,14 +277,14 @@ class FunctionTreeMFBuilderBase {
   }
 };
 
-class VSocketMFNetworkBuilder : public FunctionTreeMFBuilderBase {
+class VSocketMFNetworkBuilder : public CommonBuilderBase {
  private:
   const VSocket &m_vsocket;
   MFBuilderOutputSocket *m_socket_to_build = nullptr;
 
  public:
-  VSocketMFNetworkBuilder(FunctionTreeMFBuilderCommonData &common, const VSocket &vsocket)
-      : FunctionTreeMFBuilderBase(common), m_vsocket(vsocket)
+  VSocketMFNetworkBuilder(CommonBuilderData &common, const VSocket &vsocket)
+      : CommonBuilderBase(common), m_vsocket(vsocket)
   {
   }
 
@@ -322,16 +322,16 @@ class VSocketMFNetworkBuilder : public FunctionTreeMFBuilderBase {
   }
 };
 
-class FNodeMFNetworkBuilder : public FunctionTreeMFBuilderBase {
+class FNodeMFNetworkBuilder : public CommonBuilderBase {
  private:
   const FNode &m_fnode;
 
-  using FunctionTreeMFBuilderBase::cpp_type_from_property;
-  using FunctionTreeMFBuilderBase::data_type_from_property;
+  using CommonBuilderBase::cpp_type_from_property;
+  using CommonBuilderBase::data_type_from_property;
 
  public:
-  FNodeMFNetworkBuilder(FunctionTreeMFBuilderCommonData &common, const FNode &fnode)
-      : FunctionTreeMFBuilderBase(common), m_fnode(fnode)
+  FNodeMFNetworkBuilder(CommonBuilderData &common, const FNode &fnode)
+      : CommonBuilderBase(common), m_fnode(fnode)
   {
   }
 
@@ -386,14 +386,13 @@ class FNodeMFNetworkBuilder : public FunctionTreeMFBuilderBase {
                                                ArrayRef<const char *> is_vectorized_prop_names);
 };
 
-class ImplicitConversionMFBuilder : public FunctionTreeMFBuilderBase {
+class ImplicitConversionMFBuilder : public CommonBuilderBase {
  private:
   MFBuilderInputSocket *m_built_input = nullptr;
   MFBuilderOutputSocket *m_built_output = nullptr;
 
  public:
-  ImplicitConversionMFBuilder(FunctionTreeMFBuilderCommonData &common)
-      : FunctionTreeMFBuilderBase(common)
+  ImplicitConversionMFBuilder(CommonBuilderData &common) : CommonBuilderBase(common)
   {
   }
 

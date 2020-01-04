@@ -5,20 +5,20 @@ namespace MFGeneration {
 
 using BLI::ScopedVector;
 
-MFBuilderFunctionNode &FunctionTreeMFBuilderBase::add_function(const MultiFunction &function)
+MFBuilderFunctionNode &CommonBuilderBase::add_function(const MultiFunction &function)
 {
   return m_common.network_builder.add_function(function);
 }
 
-MFBuilderFunctionNode &FunctionTreeMFBuilderBase::add_function(const MultiFunction &function,
-                                                               const FNode &fnode)
+MFBuilderFunctionNode &CommonBuilderBase::add_function(const MultiFunction &function,
+                                                       const FNode &fnode)
 {
   MFBuilderFunctionNode &node = m_common.network_builder.add_function(function);
   m_common.socket_map.add(fnode, node, m_common.fsocket_data_types);
   return node;
 }
 
-MFBuilderDummyNode &FunctionTreeMFBuilderBase::add_dummy(const FNode &fnode)
+MFBuilderDummyNode &CommonBuilderBase::add_dummy(const FNode &fnode)
 {
   ScopedVector<MFDataType> input_types;
   ScopedVector<StringRef> input_names;

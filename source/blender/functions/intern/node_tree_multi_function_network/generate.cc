@@ -11,7 +11,7 @@
 namespace FN {
 namespace MFGeneration {
 
-static bool insert_nodes(FunctionTreeMFBuilderCommonData &common)
+static bool insert_nodes(CommonBuilderData &common)
 {
   for (const FNode *fnode : common.function_tree.all_nodes()) {
     StringRef idname = fnode->idname();
@@ -22,7 +22,7 @@ static bool insert_nodes(FunctionTreeMFBuilderCommonData &common)
       (*inserter)(fnode_builder);
     }
     else if (common.fsocket_data_types.has_data_sockets(*fnode)) {
-      FunctionTreeMFBuilderBase builder{common};
+      CommonBuilderBase builder{common};
       builder.add_dummy(*fnode);
     }
   }
@@ -40,7 +40,7 @@ static bool insert_nodes(FunctionTreeMFBuilderCommonData &common)
   return true;
 }
 
-static bool insert_links(FunctionTreeMFBuilderCommonData &common)
+static bool insert_links(CommonBuilderData &common)
 {
   for (const FInputSocket *to_fsocket : common.function_tree.all_input_sockets()) {
     if (!common.fsocket_data_types.is_data_socket(*to_fsocket)) {
@@ -97,7 +97,7 @@ static bool insert_links(FunctionTreeMFBuilderCommonData &common)
   return true;
 }
 
-static bool insert_unlinked_inputs(FunctionTreeMFBuilderCommonData &common)
+static bool insert_unlinked_inputs(CommonBuilderData &common)
 {
   Vector<const FInputSocket *> unlinked_data_inputs;
   for (const FInputSocket *fsocket : common.function_tree.all_input_sockets()) {
@@ -163,7 +163,7 @@ std::unique_ptr<FunctionTreeMFNetwork> generate_node_tree_multi_function_network
   MFSocketByFSocketMapping socket_map{function_tree};
   auto network_builder = BLI::make_unique<MFNetworkBuilder>();
 
-  FunctionTreeMFBuilderCommonData common{
+  CommonBuilderData common{
       resources, mappings, fsocket_data_types, socket_map, *network_builder, function_tree};
   if (!insert_nodes(common)) {
     BLI_assert(false);
