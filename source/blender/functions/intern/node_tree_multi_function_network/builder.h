@@ -20,7 +20,7 @@ class FSocketDataTypes {
   Array<Optional<MFDataType>> m_data_type_by_group_input_id;
 
  public:
-  FSocketDataTypes(const FunctionNodeTree &function_tree)
+  FSocketDataTypes(const FunctionTree &function_tree)
   {
     auto &mappings = get_function_tree_multi_function_mappings();
 
@@ -80,7 +80,7 @@ class MFSocketByFSocketMapping {
   IndexToRefMap<MFBuilderOutputSocket> m_socket_by_group_input_id;
 
  public:
-  MFSocketByFSocketMapping(const FunctionNodeTree &function_tree)
+  MFSocketByFSocketMapping(const FunctionTree &function_tree)
       : m_sockets_by_fsocket_id(function_tree.all_sockets().size()),
         m_socket_by_group_input_id(function_tree.all_group_inputs().size())
   {
@@ -183,7 +183,7 @@ struct FunctionTreeMFBuilderCommonData {
   const FSocketDataTypes &fsocket_data_types;
   MFSocketByFSocketMapping &socket_map;
   MFNetworkBuilder &network_builder;
-  const FunctionNodeTree &function_tree;
+  const FunctionTree &function_tree;
 };
 
 class FunctionTreeMFBuilderBase {
@@ -200,7 +200,7 @@ class FunctionTreeMFBuilderBase {
     return m_common;
   }
 
-  const FunctionNodeTree &function_tree() const
+  const FunctionTree &function_tree() const
   {
     return m_common.function_tree;
   }

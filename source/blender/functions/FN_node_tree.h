@@ -29,7 +29,7 @@ class FSocket;
 class FInputSocket;
 class FOutputSocket;
 class FGroupInput;
-class FunctionNodeTree;
+class FunctionTree;
 
 class FSocket : BLI::NonCopyable, BLI::NonMovable {
  protected:
@@ -40,7 +40,7 @@ class FSocket : BLI::NonCopyable, BLI::NonMovable {
   /* Input and output sockets share the same id-space. */
   uint m_id;
 
-  friend FunctionNodeTree;
+  friend FunctionTree;
 
  public:
   const FNode &node() const;
@@ -64,7 +64,7 @@ class FInputSocket : public FSocket {
   Vector<FOutputSocket *> m_linked_sockets;
   Vector<FGroupInput *> m_linked_group_inputs;
 
-  friend FunctionNodeTree;
+  friend FunctionTree;
 
  public:
   const VInputSocket &vsocket() const;
@@ -78,7 +78,7 @@ class FOutputSocket : public FSocket {
  private:
   Vector<FInputSocket *> m_linked_sockets;
 
-  friend FunctionNodeTree;
+  friend FunctionTree;
 
  public:
   const VOutputSocket &vsocket() const;
@@ -92,7 +92,7 @@ class FGroupInput : BLI::NonCopyable, BLI::NonMovable {
   Vector<FInputSocket *> m_linked_sockets;
   uint m_id;
 
-  friend FunctionNodeTree;
+  friend FunctionTree;
 
  public:
   const VInputSocket &vsocket() const;
@@ -112,7 +112,7 @@ class FNode : BLI::NonCopyable, BLI::NonMovable {
   /* Uniquely identifies this node in the inlined node tree. */
   uint m_id;
 
-  friend FunctionNodeTree;
+  friend FunctionTree;
 
   void destruct_with_sockets();
 
@@ -143,7 +143,7 @@ class FParentNode : BLI::NonCopyable, BLI::NonMovable {
   FParentNode *m_parent;
   uint m_id;
 
-  friend FunctionNodeTree;
+  friend FunctionTree;
 
  public:
   const FParentNode *parent() const;
@@ -153,7 +153,7 @@ class FParentNode : BLI::NonCopyable, BLI::NonMovable {
 
 using BTreeVTreeMap = Map<bNodeTree *, std::unique_ptr<const VirtualNodeTree>>;
 
-class FunctionNodeTree : BLI::NonCopyable, BLI::NonMovable {
+class FunctionTree : BLI::NonCopyable, BLI::NonMovable {
  private:
   BLI::MonotonicAllocator<> m_allocator;
   bNodeTree *m_btree;
@@ -168,8 +168,8 @@ class FunctionNodeTree : BLI::NonCopyable, BLI::NonMovable {
   StringMultiMap<FNode *> m_nodes_by_idname;
 
  public:
-  FunctionNodeTree(bNodeTree *btree, BTreeVTreeMap &vtrees);
-  ~FunctionNodeTree();
+  FunctionTree(bNodeTree *btree, BTreeVTreeMap &vtrees);
+  ~FunctionTree();
 
   std::string to_dot() const;
   void to_dot__clipboard() const;
@@ -404,47 +404,47 @@ inline uint FGroupInput::id() const
   return m_id;
 }
 
-inline const FSocket &FunctionNodeTree::socket_by_id(uint id) const
+inline const FSocket &FunctionTree::socket_by_id(uint id) const
 {
   return *m_sockets_by_id[id];
 }
 
-inline uint FunctionNodeTree::socket_count() const
+inline uint FunctionTree::socket_count() const
 {
   return m_sockets_by_id.size();
 }
 
-inline uint FunctionNodeTree::node_count() const
+inline uint FunctionTree::node_count() const
 {
   return m_node_by_id.size();
 }
 
-inline ArrayRef<const FSocket *> FunctionNodeTree::all_sockets() const
+inline ArrayRef<const FSocket *> FunctionTree::all_sockets() const
 {
   return m_sockets_by_id.as_ref();
 }
 
-inline ArrayRef<const FNode *> FunctionNodeTree::all_nodes() const
+inline ArrayRef<const FNode *> FunctionTree::all_nodes() const
 {
   return m_node_by_id.as_ref();
 }
 
-inline ArrayRef<const FInputSocket *> FunctionNodeTree::all_input_sockets() const
+inline ArrayRef<const FInputSocket *> FunctionTree::all_input_sockets() const
 {
   return m_input_sockets.as_ref();
 }
 
-inline ArrayRef<const FOutputSocket *> FunctionNodeTree::all_output_sockets() const
+inline ArrayRef<const FOutputSocket *> FunctionTree::all_output_sockets() const
 {
   return m_output_sockets.as_ref();
 }
 
-inline ArrayRef<const FGroupInput *> FunctionNodeTree::all_group_inputs() const
+inline ArrayRef<const FGroupInput *> FunctionTree::all_group_inputs() const
 {
   return m_group_inputs.as_ref();
 }
 
-inline ArrayRef<const FNode *> FunctionNodeTree::nodes_with_idname(StringRef idname) const
+inline ArrayRef<const FNode *> FunctionTree::nodes_with_idname(StringRef idname) const
 {
   return m_nodes_by_idname.lookup_default(idname);
 }

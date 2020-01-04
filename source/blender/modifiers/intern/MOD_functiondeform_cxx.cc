@@ -18,7 +18,7 @@ using BLI::float3;
 using BLI::IndexRange;
 using BLI::LargeScopedVector;
 using BLI::Vector;
-using FN::FunctionNodeTree;
+using FN::FunctionTree;
 using FN::MFContext;
 using FN::MFContextBuilder;
 using FN::MFInputSocket;
@@ -46,7 +46,7 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd,
   bNodeTree *btree = (bNodeTree *)DEG_get_original_id((ID *)fdmd->function_tree);
 
   FN::BTreeVTreeMap vtrees;
-  FunctionNodeTree function_tree(btree, vtrees);
+  FunctionTree function_tree(btree, vtrees);
 
   BLI::ResourceCollector resources;
   auto function = FN::MFGeneration::generate_node_tree_multi_function(function_tree, resources);

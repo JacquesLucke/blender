@@ -21,7 +21,7 @@ using BLI::ArrayRef;
 using BLI::float3;
 using BLI::IndexRange;
 using BLI::Vector;
-using FN::FunctionNodeTree;
+using FN::FunctionTree;
 using FN::MFContext;
 using FN::MFInputSocket;
 using FN::MFOutputSocket;
@@ -42,7 +42,7 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
   bNodeTree *btree = (bNodeTree *)DEG_get_original_id((ID *)fpmd->function_tree);
 
   FN::BTreeVTreeMap vtrees;
-  FunctionNodeTree function_tree(btree, vtrees);
+  FunctionTree function_tree(btree, vtrees);
 
   BLI::ResourceCollector resources;
   auto function = FN::MFGeneration::generate_node_tree_multi_function(function_tree, resources);

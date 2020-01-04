@@ -83,7 +83,7 @@ class FunctionTreeData {
     FN::add_ids_used_by_nodes(m_id_handle_lookup, function_tree_data.function_tree());
   }
 
-  const FunctionNodeTree &function_tree()
+  const FunctionTree &function_tree()
   {
     return m_function_tree_data_graph.function_tree();
   }
@@ -1110,7 +1110,7 @@ static void collect_influences(FunctionTreeData &function_tree_data,
 class NodeTreeStepSimulator : public StepSimulator {
  private:
   FN::BTreeVTreeMap m_function_trees;
-  FunctionNodeTree m_function_tree;
+  FunctionTree m_function_tree;
 
  public:
   NodeTreeStepSimulator(bNodeTree *btree) : m_function_tree(btree, m_function_trees)

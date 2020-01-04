@@ -12,7 +12,7 @@ namespace FN {
 
 using BLI::Set;
 
-inline Set<Object *> get_objects_used_by_sockets(const FunctionNodeTree &function_tree)
+inline Set<Object *> get_objects_used_by_sockets(const FunctionTree &function_tree)
 {
   Set<Object *> objects;
   for (const FSocket *fsocket : function_tree.all_sockets()) {
@@ -34,7 +34,7 @@ inline Set<Object *> get_objects_used_by_sockets(const FunctionNodeTree &functio
   return objects;
 }
 
-inline Set<Image *> get_images_used_by_sockets(const FunctionNodeTree &function_tree)
+inline Set<Image *> get_images_used_by_sockets(const FunctionTree &function_tree)
 {
   Set<Image *> images;
   for (const FSocket *fsocket : function_tree.all_sockets()) {
@@ -57,7 +57,7 @@ inline Set<Image *> get_images_used_by_sockets(const FunctionNodeTree &function_
 }
 
 inline void add_ids_used_by_nodes(IDHandleLookup &id_handle_lookup,
-                                  const FunctionNodeTree &function_tree)
+                                  const FunctionTree &function_tree)
 {
   for (Object *object : get_objects_used_by_sockets(function_tree)) {
     id_handle_lookup.add(object->id);

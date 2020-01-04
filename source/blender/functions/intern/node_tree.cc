@@ -76,7 +76,7 @@ static bool is_group_node(const VNode &vnode)
   return vnode.idname() == "fn_GroupNode";
 }
 
-FunctionNodeTree::~FunctionNodeTree()
+FunctionTree::~FunctionTree()
 {
   for (FNode *fnode : m_node_by_id) {
     fnode->~FNode();
@@ -106,8 +106,7 @@ void FNode::destruct_with_sockets()
   this->~FNode();
 }
 
-BLI_NOINLINE FunctionNodeTree::FunctionNodeTree(bNodeTree *btree, BTreeVTreeMap &vtrees)
-    : m_btree(btree)
+BLI_NOINLINE FunctionTree::FunctionTree(bNodeTree *btree, BTreeVTreeMap &vtrees) : m_btree(btree)
 {
   const VirtualNodeTree &main_vtree = get_vtree(vtrees, btree);
 
@@ -122,10 +121,10 @@ BLI_NOINLINE FunctionNodeTree::FunctionNodeTree(bNodeTree *btree, BTreeVTreeMap 
       std::move(all_nodes), std::move(all_group_inputs), std::move(all_parent_nodes));
 }
 
-BLI_NOINLINE void FunctionNodeTree::expand_groups(Vector<FNode *> &all_nodes,
-                                                  Vector<FGroupInput *> &all_group_inputs,
-                                                  Vector<FParentNode *> &all_parent_nodes,
-                                                  BTreeVTreeMap &vtrees)
+BLI_NOINLINE void FunctionTree::expand_groups(Vector<FNode *> &all_nodes,
+                                              Vector<FGroupInput *> &all_group_inputs,
+                                              Vector<FParentNode *> &all_parent_nodes,
+                                              BTreeVTreeMap &vtrees)
 {
   for (uint i = 0; i < all_nodes.size(); i++) {
     FNode &current_node = *all_nodes[i];
@@ -135,11 +134,11 @@ BLI_NOINLINE void FunctionNodeTree::expand_groups(Vector<FNode *> &all_nodes,
   }
 }
 
-BLI_NOINLINE void FunctionNodeTree::expand_group_node(FNode &group_node,
-                                                      Vector<FNode *> &all_nodes,
-                                                      Vector<FGroupInput *> &all_group_inputs,
-                                                      Vector<FParentNode *> &all_parent_nodes,
-                                                      BTreeVTreeMap &vtrees)
+BLI_NOINLINE void FunctionTree::expand_group_node(FNode &group_node,
+                                                  Vector<FNode *> &all_nodes,
+                                                  Vector<FGroupInput *> &all_group_inputs,
+                                                  Vector<FParentNode *> &all_parent_nodes,
+                                                  BTreeVTreeMap &vtrees)
 {
   BLI_assert(is_group_node(*group_node.m_vnode));
   const VNode &group_vnode = *group_node.m_vnode;
@@ -163,7 +162,7 @@ BLI_NOINLINE void FunctionNodeTree::expand_group_node(FNode &group_node,
   this->expand_group__relink_outputs(vtree, new_fnodes_by_id, group_node);
 }
 
-BLI_NOINLINE void FunctionNodeTree::expand_group__group_inputs_for_unlinked_inputs(
+BLI_NOINLINE void FunctionTree::expand_group__group_inputs_for_unlinked_inputs(
     FNode &group_node, Vector<FGroupInput *> &all_group_inputs)
 {
   for (FInputSocket *input_socket : group_node.m_inputs) {
@@ -179,9 +178,9 @@ BLI_NOINLINE void FunctionNodeTree::expand_group__group_inputs_for_unlinked_inpu
   }
 }
 
-BLI_NOINLINE void FunctionNodeTree::expand_group__relink_inputs(const VirtualNodeTree &vtree,
-                                                                ArrayRef<FNode *> new_fnodes_by_id,
-                                                                FNode &group_node)
+BLI_NOINLINE void FunctionTree::expand_group__relink_inputs(const VirtualNodeTree &vtree,
+                                                            ArrayRef<FNode *> new_fnodes_by_id,
+                                                            FNode &group_node)
 {
   Vector<const VOutputSocket *> group_inputs = get_group_inputs(vtree);
 
@@ -222,8 +221,9 @@ BLI_NOINLINE void FunctionNodeTree::expand_group__relink_inputs(const VirtualNod
   }
 }
 
-BLI_NOINLINE void FunctionNodeTree::expand_group__relink_outputs(
-    const VirtualNodeTree &vtree, ArrayRef<FNode *> new_fnodes_by_id, FNode &group_node)
+BLI_NOINLINE void FunctionTree::expand_group__relink_outputs(const VirtualNodeTree &vtree,
+                                                             ArrayRef<FNode *> new_fnodes_by_id,
+                                                             FNode &group_node)
 {
   Vector<const VInputSocket *> group_outputs = get_group_outputs(vtree);
 
@@ -263,7 +263,7 @@ BLI_NOINLINE void FunctionNodeTree::expand_group__relink_outputs(
   }
 }
 
-BLI_NOINLINE void FunctionNodeTree::insert_linked_nodes_for_vtree_in_id_order(
+BLI_NOINLINE void FunctionTree::insert_linked_nodes_for_vtree_in_id_order(
     const VirtualNodeTree &vtree, Vector<FNode *> &all_nodes, FParentNode *parent)
 {
   BLI::LargeScopedArray<FSocket *> sockets_map(vtree.socket_count());
@@ -287,9 +287,9 @@ BLI_NOINLINE void FunctionNodeTree::insert_linked_nodes_for_vtree_in_id_order(
   }
 }
 
-BLI_NOINLINE FNode &FunctionNodeTree::create_node(const VNode &vnode,
-                                                  FParentNode *parent,
-                                                  MutableArrayRef<FSocket *> sockets_map)
+BLI_NOINLINE FNode &FunctionTree::create_node(const VNode &vnode,
+                                              FParentNode *parent,
+                                              MutableArrayRef<FSocket *> sockets_map)
 {
   FNode &new_node = *m_allocator.construct<FNode>().release();
   new_node.m_vnode = &vnode;
@@ -321,8 +321,7 @@ BLI_NOINLINE FNode &FunctionNodeTree::create_node(const VNode &vnode,
   return new_node;
 }
 
-BLI_NOINLINE void FunctionNodeTree::remove_expanded_groups_and_interfaces(
-    Vector<FNode *> &all_nodes)
+BLI_NOINLINE void FunctionTree::remove_expanded_groups_and_interfaces(Vector<FNode *> &all_nodes)
 {
   for (int i = 0; i < all_nodes.size(); i++) {
     FNode *current_node = all_nodes[i];
@@ -335,7 +334,7 @@ BLI_NOINLINE void FunctionNodeTree::remove_expanded_groups_and_interfaces(
   }
 }
 
-BLI_NOINLINE void FunctionNodeTree::store_tree_in_this_and_init_ids(
+BLI_NOINLINE void FunctionTree::store_tree_in_this_and_init_ids(
     Vector<FNode *> &&all_nodes,
     Vector<FGroupInput *> &&all_group_inputs,
     Vector<FParentNode *> &&all_parent_nodes)
@@ -384,7 +383,7 @@ static BLI::DotExport::Cluster *get_cluster_for_parent(
   }
 }
 
-std::string FunctionNodeTree::to_dot() const
+std::string FunctionTree::to_dot() const
 {
   BLI::DotExport::DirectedGraph digraph;
   digraph.set_rankdir(BLI::DotExport::Attr_rankdir::LeftToRight);
@@ -462,7 +461,7 @@ std::string FunctionNodeTree::to_dot() const
   return digraph.to_dot_string();
 }
 
-void FunctionNodeTree::to_dot__clipboard() const
+void FunctionTree::to_dot__clipboard() const
 {
   std::string dot = this->to_dot();
   WM_clipboard_text_set(dot.c_str(), false);

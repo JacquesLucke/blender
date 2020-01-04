@@ -127,7 +127,7 @@ static bool insert_unlinked_inputs(FunctionTreeMFBuilderCommonData &common)
 }
 
 static std::unique_ptr<FunctionTreeMFNetwork> build(
-    const FunctionNodeTree &function_tree,
+    const FunctionTree &function_tree,
     std::unique_ptr<MFNetworkBuilder> network_builder,
     ArrayRef<std::pair<uint, uint>> dummy_mappings)
 {
@@ -156,7 +156,7 @@ static std::unique_ptr<FunctionTreeMFNetwork> build(
 }
 
 std::unique_ptr<FunctionTreeMFNetwork> generate_node_tree_multi_function_network(
-    const FunctionNodeTree &function_tree, ResourceCollector &resources)
+    const FunctionTree &function_tree, ResourceCollector &resources)
 {
   const VTreeMultiFunctionMappings &mappings = get_function_tree_multi_function_mappings();
   FSocketDataTypes fsocket_data_types{function_tree};
@@ -194,7 +194,7 @@ static bool cmp_group_interface_nodes(const FNode *a, const FNode *b)
 }
 
 std::unique_ptr<MF_EvaluateNetwork> generate_node_tree_multi_function(
-    const FunctionNodeTree &function_tree, ResourceCollector &resources)
+    const FunctionTree &function_tree, ResourceCollector &resources)
 {
   std::unique_ptr<FunctionTreeMFNetwork> network = generate_node_tree_multi_function_network(
       function_tree, resources);

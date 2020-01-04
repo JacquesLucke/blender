@@ -15,14 +15,14 @@ using BLI::MultiMap;
 
 class DummySocketMap {
  private:
-  const FunctionNodeTree *m_function_tree;
+  const FunctionTree *m_function_tree;
   const MFNetwork *m_network;
 
   IndexToRefMap<const MFSocket> m_dummy_socket_by_fsocket_id;
   IndexToRefMap<const FSocket> m_fsocket_by_dummy_socket_id;
 
  public:
-  DummySocketMap(const FunctionNodeTree &function_tree,
+  DummySocketMap(const FunctionTree &function_tree,
                  const MFNetwork &network,
                  IndexToRefMap<const MFSocket> dummy_socket_by_fsocket_id,
                  IndexToRefMap<const FSocket> fsocket_by_dummy_socket_id)
@@ -68,12 +68,12 @@ class DummySocketMap {
 
 class FunctionTreeMFNetwork {
  private:
-  const FunctionNodeTree &m_function_tree;
+  const FunctionTree &m_function_tree;
   std::unique_ptr<MFNetwork> m_network;
   DummySocketMap m_socket_map;
 
  public:
-  FunctionTreeMFNetwork(const FunctionNodeTree &function_tree,
+  FunctionTreeMFNetwork(const FunctionTree &function_tree,
                         std::unique_ptr<MFNetwork> network,
                         DummySocketMap socket_map)
       : m_function_tree(function_tree),
@@ -82,7 +82,7 @@ class FunctionTreeMFNetwork {
   {
   }
 
-  const FunctionNodeTree &function_tree() const
+  const FunctionTree &function_tree() const
   {
     return m_function_tree;
   }
