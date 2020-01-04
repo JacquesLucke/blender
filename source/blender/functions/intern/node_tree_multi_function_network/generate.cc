@@ -11,11 +11,23 @@
 namespace FN {
 namespace MFGeneration {
 
+static const FNodeInserter *try_find_node_inserter(CommonBuilderData &common, const FNode &fnode)
+{
+  StringRef idname = fnode.idname();
+  return common.mappings.fnode_inserters.lookup_ptr(idname);
+}
+
+static const VSocketInserter *try_find_socket_inserter(CommonBuilderData &common,
+                                                       const VSocket &vsocket)
+{
+  StringRef idname = vsocket.idname();
+  return common.mappings.fsocket_inserters.lookup_ptr(idname);
+}
+
 static bool insert_nodes(CommonBuilderData &common)
 {
   for (const FNode *fnode : common.function_tree.all_nodes()) {
-    StringRef idname = fnode->idname();
-    const FNodeInserter *inserter = common.mappings.fnode_inserters.lookup_ptr(idname);
+    const FNodeInserter *inserter = try_find_node_inserter(common, *fnode);
 
     if (inserter != nullptr) {
       FNodeMFBuilder fnode_builder{common, *fnode};
@@ -32,10 +44,10 @@ static bool insert_nodes(CommonBuilderData &common)
 static bool insert_group_inputs(CommonBuilderData &common)
 {
   for (const FGroupInput *group_input : common.function_tree.all_group_inputs()) {
-    VSocketMFBuilder socket_builder{common, group_input->vsocket()};
-    const VSocketInserter *inserter = common.mappings.fsocket_inserters.lookup_ptr(
-        group_input->vsocket().idname());
+    const VSocketInserter *inserter = try_find_socket_inserter(common, group_input->vsocket());
+
     if (inserter != nullptr) {
+      VSocketMFBuilder socket_builder{common, group_input->vsocket()};
       (*inserter)(socket_builder);
       common.socket_map.add(*group_input, socket_builder.built_socket());
     }
