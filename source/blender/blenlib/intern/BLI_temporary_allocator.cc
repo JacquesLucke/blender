@@ -83,7 +83,7 @@ void *BLI_temporary_allocate(uint size)
 
   if (size <= SMALL_BUFFER_SIZE) {
     auto &buffers = local_storage.buffers;
-    if (buffers.empty()) {
+    if (buffers.is_empty()) {
       void *ptr = raw_allocate(SMALL_BUFFER_SIZE);
       MemHead &memhead = get_memhead(ptr);
       memhead.type = TemporaryBufferType::Small;

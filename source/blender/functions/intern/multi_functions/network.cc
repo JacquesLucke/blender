@@ -331,7 +331,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::evaluate_network_to_compute_outputs(
     sockets_to_compute.push(input_socket);
   }
 
-  while (!sockets_to_compute.empty()) {
+  while (!sockets_to_compute.is_empty()) {
     const MFSocket &socket = *sockets_to_compute.peek();
 
     if (socket.is_input()) {

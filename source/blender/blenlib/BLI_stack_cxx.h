@@ -58,7 +58,7 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class St
   /**
    * Return true when the stack is empty, otherwise false.
    */
-  bool empty() const
+  bool is_empty() const
   {
     return this->size() == 0;
   }
@@ -96,7 +96,7 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class St
    */
   T &peek()
   {
-    BLI_assert(!this->empty());
+    BLI_assert(!this->is_empty());
     return m_elements[this->size() - 1];
   }
 

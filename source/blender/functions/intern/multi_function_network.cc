@@ -332,7 +332,7 @@ Vector<const MFOutputSocket *> MFNetwork::find_dummy_dependencies(
   Set<const MFOutputSocket *> found_outputs;
   Stack<const MFInputSocket *> inputs_to_check = sockets;
 
-  while (!inputs_to_check.empty()) {
+  while (!inputs_to_check.is_empty()) {
     const MFInputSocket &input_socket = *inputs_to_check.pop();
     const MFOutputSocket &origin_socket = input_socket.origin();
 
@@ -357,7 +357,7 @@ Vector<const MFFunctionNode *> MFNetwork::find_function_dependencies(
   Set<const MFNode *> found_nodes;
   Stack<const MFInputSocket *> inputs_to_check = sockets;
 
-  while (!inputs_to_check.empty()) {
+  while (!inputs_to_check.is_empty()) {
     const MFInputSocket &input_socket = *inputs_to_check.pop();
     const MFOutputSocket &origin_socket = input_socket.origin();
     const MFNode &origin_node = origin_socket.node();

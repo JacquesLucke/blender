@@ -29,7 +29,7 @@ std::mutex store_free_func_mutex;
 
 void BLI_lazy_init_free_all()
 {
-  while (!free_functions.empty()) {
+  while (!free_functions.is_empty()) {
     FreeFunc free_object = free_functions.pop();
     free_object.func();
   }
