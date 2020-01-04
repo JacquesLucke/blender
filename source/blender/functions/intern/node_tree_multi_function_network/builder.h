@@ -179,7 +179,7 @@ class MFSocketByFSocketMapping {
 
 struct CommonBuilderData {
   ResourceCollector &resources;
-  const VTreeMultiFunctionMappings &mappings;
+  const FunctionTreeMFMappings &mappings;
   const FSocketDataTypes &fsocket_data_types;
   MFSocketByFSocketMapping &socket_map;
   MFNetworkBuilder &network_builder;
@@ -210,7 +210,7 @@ class CommonBuilderBase {
     return m_common.resources;
   }
 
-  const VTreeMultiFunctionMappings &mappings() const
+  const FunctionTreeMFMappings &mappings() const
   {
     return m_common.mappings;
   }
@@ -386,13 +386,13 @@ class FNodeMFBuilder : public CommonBuilderBase {
                                                ArrayRef<const char *> is_vectorized_prop_names);
 };
 
-class ImplicitConversionMFBuilder : public CommonBuilderBase {
+class ConversionMFBuilder : public CommonBuilderBase {
  private:
   MFBuilderInputSocket *m_built_input = nullptr;
   MFBuilderOutputSocket *m_built_output = nullptr;
 
  public:
-  ImplicitConversionMFBuilder(CommonBuilderData &common) : CommonBuilderBase(common)
+  ConversionMFBuilder(CommonBuilderData &common) : CommonBuilderBase(common)
   {
   }
 

@@ -545,7 +545,7 @@ static void INSERT_event_filter_duration(FNodeMFBuilder &builder)
   builder.set_constructed_matching_fn<MF_EventFilterDuration>();
 }
 
-void add_function_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
+void add_function_tree_node_mapping_info(FunctionTreeMFMappings &mappings)
 {
   mappings.fnode_inserters.add_new("fn_CombineColorNode", INSERT_combine_color);
   mappings.fnode_inserters.add_new("fn_SeparateColorNode", INSERT_separate_color);

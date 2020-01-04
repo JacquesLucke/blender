@@ -89,28 +89,27 @@ template<typename T> static void INSERT_empty_list_socket(VSocketMFBuilder &buil
 /* Implicit Conversion Inserters
  *******************************************/
 
-template<typename FromT, typename ToT>
-static void INSERT_convert(ImplicitConversionMFBuilder &builder)
+template<typename FromT, typename ToT> static void INSERT_convert(ConversionMFBuilder &builder)
 {
   builder.set_constructed_conversion_fn<MF_Convert<FromT, ToT>>();
 }
 
 template<typename FromT, typename ToT>
-static void INSERT_convert_list(ImplicitConversionMFBuilder &builder)
+static void INSERT_convert_list(ConversionMFBuilder &builder)
 {
   builder.set_constructed_conversion_fn<MF_ConvertList<FromT, ToT>>();
 }
 
-template<typename T> static void INSERT_element_to_list(ImplicitConversionMFBuilder &builder)
+template<typename T> static void INSERT_element_to_list(ConversionMFBuilder &builder)
 {
   builder.set_constructed_conversion_fn<MF_SingleElementList<T>>();
 }
 
 template<typename T>
-static void add_basic_type(VTreeMultiFunctionMappings &mappings,
+static void add_basic_type(FunctionTreeMFMappings &mappings,
                            StringRef base_name,
                            StringRef base_name_without_spaces,
-                           InsertVSocketFunction base_inserter)
+                           VSocketInserter base_inserter)
 {
   std::string base_idname = "fn_" + base_name_without_spaces + "Socket";
   std::string list_idname = "fn_" + base_name_without_spaces + "ListSocket";
@@ -128,15 +127,15 @@ static void add_basic_type(VTreeMultiFunctionMappings &mappings,
 }
 
 template<typename T>
-static void add_basic_type(VTreeMultiFunctionMappings &mappings,
+static void add_basic_type(FunctionTreeMFMappings &mappings,
                            StringRef base_name,
-                           InsertVSocketFunction base_inserter)
+                           VSocketInserter base_inserter)
 {
   add_basic_type<T>(mappings, base_name, base_name, base_inserter);
 }
 
 template<typename FromT, typename ToT>
-static void add_implicit_conversion(VTreeMultiFunctionMappings &mappings)
+static void add_implicit_conversion(FunctionTreeMFMappings &mappings)
 {
   StringRef from_name = mappings.type_name_from_cpp_type.lookup(&CPP_TYPE<FromT>());
   StringRef to_name = mappings.type_name_from_cpp_type.lookup(&CPP_TYPE<ToT>());
@@ -154,13 +153,13 @@ static void add_implicit_conversion(VTreeMultiFunctionMappings &mappings)
 }
 
 template<typename T1, typename T2>
-static void add_bidirectional_implicit_conversion(VTreeMultiFunctionMappings &mappings)
+static void add_bidirectional_implicit_conversion(FunctionTreeMFMappings &mappings)
 {
   add_implicit_conversion<T1, T2>(mappings);
   add_implicit_conversion<T2, T1>(mappings);
 }
 
-void add_function_tree_socket_mapping_info(VTreeMultiFunctionMappings &mappings)
+void add_function_tree_socket_mapping_info(FunctionTreeMFMappings &mappings)
 {
   add_basic_type<float>(mappings, "Float", INSERT_float_socket);
   add_basic_type<BLI::float3>(mappings, "Vector", INSERT_vector_socket);
