@@ -277,13 +277,13 @@ class CommonBuilderBase {
   }
 };
 
-class VSocketMFNetworkBuilder : public CommonBuilderBase {
+class VSocketMFBuilder : public CommonBuilderBase {
  private:
   const VSocket &m_vsocket;
   MFBuilderOutputSocket *m_socket_to_build = nullptr;
 
  public:
-  VSocketMFNetworkBuilder(CommonBuilderData &common, const VSocket &vsocket)
+  VSocketMFBuilder(CommonBuilderData &common, const VSocket &vsocket)
       : CommonBuilderBase(common), m_vsocket(vsocket)
   {
   }
@@ -322,7 +322,7 @@ class VSocketMFNetworkBuilder : public CommonBuilderBase {
   }
 };
 
-class FNodeMFNetworkBuilder : public CommonBuilderBase {
+class FNodeMFBuilder : public CommonBuilderBase {
  private:
   const FNode &m_fnode;
 
@@ -330,7 +330,7 @@ class FNodeMFNetworkBuilder : public CommonBuilderBase {
   using CommonBuilderBase::data_type_from_property;
 
  public:
-  FNodeMFNetworkBuilder(CommonBuilderData &common, const FNode &fnode)
+  FNodeMFBuilder(CommonBuilderData &common, const FNode &fnode)
       : CommonBuilderBase(common), m_fnode(fnode)
   {
   }

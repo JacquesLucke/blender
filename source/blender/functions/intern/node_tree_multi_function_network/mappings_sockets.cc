@@ -13,39 +13,39 @@ namespace MFGeneration {
 /* Socket Inserters
  **********************************************************/
 
-static void INSERT_vector_socket(VSocketMFNetworkBuilder &builder)
+static void INSERT_vector_socket(VSocketMFBuilder &builder)
 {
   BLI::float3 value;
   RNA_float_get_array(builder.rna(), "value", value);
   builder.set_constant_value(value);
 }
 
-static void INSERT_color_socket(VSocketMFNetworkBuilder &builder)
+static void INSERT_color_socket(VSocketMFBuilder &builder)
 {
   BLI::rgba_f value;
   RNA_float_get_array(builder.rna(), "value", value);
   builder.set_constant_value(value);
 }
 
-static void INSERT_float_socket(VSocketMFNetworkBuilder &builder)
+static void INSERT_float_socket(VSocketMFBuilder &builder)
 {
   float value = RNA_float_get(builder.rna(), "value");
   builder.set_constant_value(value);
 }
 
-static void INSERT_bool_socket(VSocketMFNetworkBuilder &builder)
+static void INSERT_bool_socket(VSocketMFBuilder &builder)
 {
   bool value = RNA_boolean_get(builder.rna(), "value");
   builder.set_constant_value(value);
 }
 
-static void INSERT_int_socket(VSocketMFNetworkBuilder &builder)
+static void INSERT_int_socket(VSocketMFBuilder &builder)
 {
   int value = RNA_int_get(builder.rna(), "value");
   builder.set_constant_value(value);
 }
 
-static void INSERT_object_socket(VSocketMFNetworkBuilder &builder)
+static void INSERT_object_socket(VSocketMFBuilder &builder)
 {
   Object *value = (Object *)RNA_pointer_get(builder.rna(), "value").data;
   if (value == nullptr) {
@@ -56,7 +56,7 @@ static void INSERT_object_socket(VSocketMFNetworkBuilder &builder)
   }
 }
 
-static void INSERT_image_socket(VSocketMFNetworkBuilder &builder)
+static void INSERT_image_socket(VSocketMFBuilder &builder)
 {
   Image *value = (Image *)RNA_pointer_get(builder.rna(), "value").data;
   if (value == nullptr) {
@@ -67,7 +67,7 @@ static void INSERT_image_socket(VSocketMFNetworkBuilder &builder)
   }
 }
 
-static void INSERT_text_socket(VSocketMFNetworkBuilder &builder)
+static void INSERT_text_socket(VSocketMFBuilder &builder)
 {
   char *value = RNA_string_get_alloc(builder.rna(), "value", nullptr, 0);
   std::string text = value;
@@ -75,12 +75,12 @@ static void INSERT_text_socket(VSocketMFNetworkBuilder &builder)
   builder.set_constant_value(std::move(text));
 }
 
-static void INSERT_surface_hook_socket(VSocketMFNetworkBuilder &builder)
+static void INSERT_surface_hook_socket(VSocketMFBuilder &builder)
 {
   builder.set_constant_value(BKE::SurfaceHook());
 }
 
-template<typename T> static void INSERT_empty_list_socket(VSocketMFNetworkBuilder &builder)
+template<typename T> static void INSERT_empty_list_socket(VSocketMFBuilder &builder)
 {
   const MultiFunction &fn = builder.construct_fn<FN::MF_EmptyList<T>>();
   builder.set_generator_fn(fn);

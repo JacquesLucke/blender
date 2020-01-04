@@ -12,93 +12,93 @@ namespace FN {
 namespace MFGeneration {
 
 using BLI::float3;
-static void INSERT_combine_color(FNodeMFNetworkBuilder &builder)
+static void INSERT_combine_color(FNodeMFBuilder &builder)
 {
   builder.set_vectorized_constructed_matching_fn<MF_CombineColor>(
       {"use_list__red", "use_list__green", "use_list__blue", "use_list__alpha"});
 }
 
-static void INSERT_separate_color(FNodeMFNetworkBuilder &builder)
+static void INSERT_separate_color(FNodeMFBuilder &builder)
 {
   builder.set_vectorized_constructed_matching_fn<MF_SeparateColor>({"use_list__color"});
 }
 
-static void INSERT_combine_vector(FNodeMFNetworkBuilder &builder)
+static void INSERT_combine_vector(FNodeMFBuilder &builder)
 {
   builder.set_vectorized_constructed_matching_fn<MF_CombineVector>(
       {"use_list__x", "use_list__y", "use_list__z"});
 }
 
-static void INSERT_separate_vector(FNodeMFNetworkBuilder &builder)
+static void INSERT_separate_vector(FNodeMFBuilder &builder)
 {
   builder.set_vectorized_constructed_matching_fn<MF_SeparateVector>({"use_list__vector"});
 }
 
-static void INSERT_vector_from_value(FNodeMFNetworkBuilder &builder)
+static void INSERT_vector_from_value(FNodeMFBuilder &builder)
 {
   builder.set_vectorized_constructed_matching_fn<MF_VectorFromValue>({"use_list__value"});
 }
 
-static void INSERT_list_length(FNodeMFNetworkBuilder &builder)
+static void INSERT_list_length(FNodeMFBuilder &builder)
 {
   const CPPType &type = builder.cpp_type_from_property("active_type");
   builder.set_constructed_matching_fn<MF_ListLength>(type);
 }
 
-static void INSERT_get_list_element(FNodeMFNetworkBuilder &builder)
+static void INSERT_get_list_element(FNodeMFBuilder &builder)
 {
   const CPPType &type = builder.cpp_type_from_property("active_type");
   builder.set_constructed_matching_fn<MF_GetListElement>(type);
 }
 
-static void INSERT_get_list_elements(FNodeMFNetworkBuilder &builder)
+static void INSERT_get_list_elements(FNodeMFBuilder &builder)
 {
   const CPPType &type = builder.cpp_type_from_property("active_type");
   builder.set_constructed_matching_fn<MF_GetListElements>(type);
 }
 
-static void INSERT_pack_list(FNodeMFNetworkBuilder &builder)
+static void INSERT_pack_list(FNodeMFBuilder &builder)
 {
   const CPPType &type = builder.cpp_type_from_property("active_type");
   Vector<bool> list_states = builder.get_list_base_variadic_states("variadic");
   builder.set_constructed_matching_fn<MF_PackList>(type, list_states);
 }
 
-static void INSERT_object_location(FNodeMFNetworkBuilder &builder)
+static void INSERT_object_location(FNodeMFBuilder &builder)
 {
   builder.set_constructed_matching_fn<MF_ObjectWorldLocation>();
 }
 
-static void INSERT_object_mesh_info(FNodeMFNetworkBuilder &builder)
+static void INSERT_object_mesh_info(FNodeMFBuilder &builder)
 {
   builder.set_constructed_matching_fn<MF_ObjectVertexPositions>();
 }
 
-static void INSERT_get_position_on_surface(FNodeMFNetworkBuilder &builder)
+static void INSERT_get_position_on_surface(FNodeMFBuilder &builder)
 {
   builder.set_vectorized_constructed_matching_fn<MF_GetPositionOnSurface>(
       {"use_list__surface_hook"});
 }
 
-static void INSERT_get_normal_on_surface(FNodeMFNetworkBuilder &builder)
+static void INSERT_get_normal_on_surface(FNodeMFBuilder &builder)
 {
   builder.set_vectorized_constructed_matching_fn<MF_GetNormalOnSurface>(
       {"use_list__surface_hook"});
 }
 
-static void INSERT_get_weight_on_surface(FNodeMFNetworkBuilder &builder)
+static void INSERT_get_weight_on_surface(FNodeMFBuilder &builder)
 {
   builder.set_vectorized_constructed_matching_fn<MF_GetWeightOnSurface>(
       {"use_list__surface_hook", "use_list__vertex_group_name"});
 }
 
-static void INSERT_get_image_color_on_surface(FNodeMFNetworkBuilder &builder)
+static void INSERT_get_image_color_on_surface(FNodeMFBuilder &builder)
 {
   builder.set_vectorized_constructed_matching_fn<MF_GetImageColorOnSurface>(
       {"use_list__surface_hook", "use_list__image"});
 }
 
-static void INSERT_switch(FNodeMFNetworkBuilder &builder)
+static void INSERT_switch(FNodeMFBuilder &builder)
 {
   MFDataType type = builder.data_type_from_property("data_type");
   switch (type.category()) {
@@ -113,7 +113,7 @@ static void INSERT_switch(FNodeMFNetworkBuilder &builder)
   }
 }
 
-static void INSERT_select(FNodeMFNetworkBuilder &builder)
+static void INSERT_select(FNodeMFBuilder &builder)
 {
   MFDataType type = builder.data_type_from_property("data_type");
   uint inputs = RNA_collection_length(builder.rna(), "input_items");
@@ -129,17 +129,17 @@ static void INSERT_select(FNodeMFNetworkBuilder &builder)
   }
 }
 
-static void INSERT_text_length(FNodeMFNetworkBuilder &builder)
+static void INSERT_text_length(FNodeMFBuilder &builder)
 {
   builder.set_constructed_matching_fn<MF_TextLength>();
 }
 
-static void INSERT_vertex_info(FNodeMFNetworkBuilder &builder)
+static void INSERT_vertex_info(FNodeMFBuilder &builder)
 {
   builder.set_constructed_matching_fn<MF_ContextVertexPosition>();
 }
 
-static void INSERT_float_range(FNodeMFNetworkBuilder &builder)
+static void INSERT_float_range(FNodeMFBuilder &builder)
 {
   int mode = RNA_enum_get(builder.rna(), "mode");
   switch (mode) {
@@ -156,7 +156,7 @@ static void INSERT_float_range(FNodeMFNetworkBuilder &builder)
   }
 }
 
-static void INSERT_time_info(FNodeMFNetworkBuilder &builder)
+static void INSERT_time_info(FNodeMFBuilder &builder)
 {
   builder.set_constructed_matching_fn<MF_ContextCurrentFrame>();
 }
@@ -181,7 +181,7 @@ vectorize_function_1in_1out(FuncT func)
 }
 
 template<typename InT, typename OutT, typename FuncT>
-static void build_math_fn_1in_1out(FNodeMFNetworkBuilder &builder, FuncT func)
+static void build_math_fn_1in_1out(FNodeMFBuilder &builder, FuncT func)
 {
   auto fn = vectorize_function_1in_1out<InT, OutT>(func);
 
@@ -227,7 +227,7 @@ vectorize_function_2in_1out(FuncT func)
 }
 
 template<typename InT1, typename InT2, typename OutT, typename FuncT>
-static void build_math_fn_in2_out1(FNodeMFNetworkBuilder &builder, FuncT func)
+static void build_math_fn_in2_out1(FNodeMFBuilder &builder, FuncT func)
 {
   auto fn = vectorize_function_2in_1out<InT1, InT2, OutT>(func);
   builder.set_vectorized_constructed_matching_fn<MF_Custom_In2_Out1<InT1, InT2, OutT>>(
@@ -235,7 +235,7 @@ static void build_math_fn_in2_out1(FNodeMFNetworkBuilder &builder, FuncT func)
 }
 
 template<typename T, typename FuncT>
-static void build_variadic_math_fn(FNodeMFNetworkBuilder &builder, FuncT func, T default_value)
+static void build_variadic_math_fn(FNodeMFBuilder &builder, FuncT func, T default_value)
 {
   auto fn = vectorize_function_2in_1out<T, T, T>(func);
 
@@ -255,165 +255,165 @@ static void build_variadic_math_fn(FNodeMFNetworkBuilder &builder, FuncT func, T
   }
 }
 
-static void INSERT_add_floats(FNodeMFNetworkBuilder &builder)
+static void INSERT_add_floats(FNodeMFBuilder &builder)
 {
   build_variadic_math_fn(
       builder, [](float a, float b) -> float { return a + b; }, 0.0f);
 }
 
-static void INSERT_multiply_floats(FNodeMFNetworkBuilder &builder)
+static void INSERT_multiply_floats(FNodeMFBuilder &builder)
 {
   build_variadic_math_fn(
       builder, [](float a, float b) -> float { return a * b; }, 1.0f);
 }
 
-static void INSERT_minimum_floats(FNodeMFNetworkBuilder &builder)
+static void INSERT_minimum_floats(FNodeMFBuilder &builder)
 {
   build_variadic_math_fn(
       builder, [](float a, float b) -> float { return std::min(a, b); }, 0.0f);
 }
 
-static void INSERT_maximum_floats(FNodeMFNetworkBuilder &builder)
+static void INSERT_maximum_floats(FNodeMFBuilder &builder)
 {
   build_variadic_math_fn(
       builder, [](float a, float b) -> float { return std::max(a, b); }, 0.0f);
 }
 
-static void INSERT_subtract_floats(FNodeMFNetworkBuilder &builder)
+static void INSERT_subtract_floats(FNodeMFBuilder &builder)
 {
   build_math_fn_in2_out1<float, float, float>(builder,
                                               [](float a, float b) -> float { return a - b; });
 }
 
-static void INSERT_divide_floats(FNodeMFNetworkBuilder &builder)
+static void INSERT_divide_floats(FNodeMFBuilder &builder)
 {
   build_math_fn_in2_out1<float, float, float>(
       builder, [](float a, float b) -> float { return (b != 0.0f) ? a / b : 0.0f; });
 }
 
-static void INSERT_power_floats(FNodeMFNetworkBuilder &builder)
+static void INSERT_power_floats(FNodeMFBuilder &builder)
 {
   build_math_fn_in2_out1<float, float, float>(builder, [](float a, float b) -> float {
     return (a >= 0.0f) ? (float)std::pow(a, b) : 0.0f;
   });
 }
 
-static void INSERT_sqrt_float(FNodeMFNetworkBuilder &builder)
+static void INSERT_sqrt_float(FNodeMFBuilder &builder)
 {
   build_math_fn_1in_1out<float, float>(
       builder, [](float a) -> float { return (a >= 0.0f) ? (float)std::sqrt(a) : 0.0f; });
 }
 
-static void INSERT_abs_float(FNodeMFNetworkBuilder &builder)
+static void INSERT_abs_float(FNodeMFBuilder &builder)
 {
   build_math_fn_1in_1out<float, float>(builder, [](float a) -> float { return std::abs(a); });
 }
 
-static void INSERT_sine_float(FNodeMFNetworkBuilder &builder)
+static void INSERT_sine_float(FNodeMFBuilder &builder)
 {
   build_math_fn_1in_1out<float, float>(builder, [](float a) -> float { return std::sin(a); });
 }
 
-static void INSERT_cosine_float(FNodeMFNetworkBuilder &builder)
+static void INSERT_cosine_float(FNodeMFBuilder &builder)
 {
   build_math_fn_1in_1out<float, float>(builder, [](float a) -> float { return std::cos(a); });
 }
 
-static void INSERT_add_vectors(FNodeMFNetworkBuilder &builder)
+static void INSERT_add_vectors(FNodeMFBuilder &builder)
 {
   build_variadic_math_fn(
       builder, [](float3 a, float3 b) -> float3 { return a + b; }, float3(0, 0, 0));
 }
 
-static void INSERT_multiply_vectors(FNodeMFNetworkBuilder &builder)
+static void INSERT_multiply_vectors(FNodeMFBuilder &builder)
 {
   build_variadic_math_fn(
       builder, [](float3 a, float3 b) -> float3 { return a * b; }, float3(1, 1, 1));
 }
 
-static void INSERT_subtract_vectors(FNodeMFNetworkBuilder &builder)
+static void INSERT_subtract_vectors(FNodeMFBuilder &builder)
 {
   build_math_fn_in2_out1<float3, float3, float3>(
       builder, [](float3 a, float3 b) -> float3 { return a - b; });
 }
 
-static void INSERT_divide_vectors(FNodeMFNetworkBuilder &builder)
+static void INSERT_divide_vectors(FNodeMFBuilder &builder)
 {
   build_math_fn_in2_out1<float3, float3, float3>(builder, float3::safe_divide);
 }
 
-static void INSERT_vector_cross_product(FNodeMFNetworkBuilder &builder)
+static void INSERT_vector_cross_product(FNodeMFBuilder &builder)
 {
   build_math_fn_in2_out1<float3, float3, float3>(builder, float3::cross_high_precision);
 }
 
-static void INSERT_reflect_vector(FNodeMFNetworkBuilder &builder)
+static void INSERT_reflect_vector(FNodeMFBuilder &builder)
 {
   build_math_fn_in2_out1<float3, float3, float3>(
       builder, [](float3 a, float3 b) { return a.reflected(b.normalized()); });
 }
 
-static void INSERT_project_vector(FNodeMFNetworkBuilder &builder)
+static void INSERT_project_vector(FNodeMFBuilder &builder)
 {
   build_math_fn_in2_out1<float3, float3, float3>(builder, float3::project);
 }
 
-static void INSERT_vector_dot_product(FNodeMFNetworkBuilder &builder)
+static void INSERT_vector_dot_product(FNodeMFBuilder &builder)
 {
   build_math_fn_in2_out1<float3, float3, float>(builder, float3::dot);
 }
 
-static void INSERT_vector_distance(FNodeMFNetworkBuilder &builder)
+static void INSERT_vector_distance(FNodeMFBuilder &builder)
 {
   build_math_fn_in2_out1<float3, float3, float>(builder, float3::distance);
 }
 
-static void INSERT_multiply_vector_with_float(FNodeMFNetworkBuilder &builder)
+static void INSERT_multiply_vector_with_float(FNodeMFBuilder &builder)
 {
   build_math_fn_in2_out1<float3, float, float3>(builder, [](float3 a, float b) { return a * b; });
 }
 
-static void INSERT_boolean_and(FNodeMFNetworkBuilder &builder)
+static void INSERT_boolean_and(FNodeMFBuilder &builder)
 {
   build_variadic_math_fn(
       builder, [](bool a, bool b) { return a && b; }, true);
 }
 
-static void INSERT_boolean_or(FNodeMFNetworkBuilder &builder)
+static void INSERT_boolean_or(FNodeMFBuilder &builder)
 {
   build_variadic_math_fn(
       builder, [](bool a, bool b) { return a || b; }, false);
 }
 
-static void INSERT_boolean_not(FNodeMFNetworkBuilder &builder)
+static void INSERT_boolean_not(FNodeMFBuilder &builder)
 {
   build_math_fn_1in_1out<bool, bool>(builder, [](bool a) -> bool { return !a; });
 }
 
-static void INSERT_less_than_float(FNodeMFNetworkBuilder &builder)
+static void INSERT_less_than_float(FNodeMFBuilder &builder)
 {
   build_math_fn_in2_out1<float, float, bool>(builder,
                                              [](float a, float b) -> bool { return a < b; });
 }
 
-static void INSERT_greater_than_float(FNodeMFNetworkBuilder &builder)
+static void INSERT_greater_than_float(FNodeMFBuilder &builder)
 {
   build_math_fn_in2_out1<float, float, bool>(builder,
                                              [](float a, float b) -> bool { return a > b; });
 }
 
-static void INSERT_perlin_noise(FNodeMFNetworkBuilder &builder)
+static void INSERT_perlin_noise(FNodeMFBuilder &builder)
 {
   builder.set_constructed_matching_fn<MF_PerlinNoise>();
 }
 
-static void INSERT_get_particle_attribute(FNodeMFNetworkBuilder &builder)
+static void INSERT_get_particle_attribute(FNodeMFBuilder &builder)
 {
   const CPPType &type = builder.cpp_type_from_property("attribute_type");
   builder.set_constructed_matching_fn<MF_ParticleAttribute>(type);
 }
 
-static void INSERT_closest_surface_hook_on_object(FNodeMFNetworkBuilder &builder)
+static void INSERT_closest_surface_hook_on_object(FNodeMFBuilder &builder)
 {
   const MultiFunction &main_fn = builder.construct_fn<MF_ClosestSurfaceHookOnObject>();
   const MultiFunction &position_fn = builder.construct_fn<MF_GetPositionOnSurface>();
@@ -451,30 +451,30 @@ static void INSERT_closest_surface_hook_on_object(FNodeMFNetworkBuilder &builder
   builder.socket_map().add(fnode.output(2), normal_node->output(0));
 }
 
-static void INSERT_clamp_float(FNodeMFNetworkBuilder &builder)
+static void INSERT_clamp_float(FNodeMFBuilder &builder)
 {
   builder.set_constructed_matching_fn<MF_Clamp>(false);
 }
 
-static void INSERT_map_range(FNodeMFNetworkBuilder &builder)
+static void INSERT_map_range(FNodeMFBuilder &builder)
 {
   bool clamp = RNA_boolean_get(builder.rna(), "clamp");
   builder.set_constructed_matching_fn<MF_MapRange>(clamp);
 }
 
-static void INSERT_random_float(FNodeMFNetworkBuilder &builder)
+static void INSERT_random_float(FNodeMFBuilder &builder)
 {
   uint node_seed = (uint)RNA_int_get(builder.rna(), "node_seed");
   builder.set_constructed_matching_fn<MF_RandomFloat>(node_seed);
 }
 
-static void INSERT_random_floats(FNodeMFNetworkBuilder &builder)
+static void INSERT_random_floats(FNodeMFBuilder &builder)
 {
   uint node_seed = (uint)RNA_int_get(builder.rna(), "node_seed");
   builder.set_constructed_matching_fn<MF_RandomFloats>(node_seed);
 }
 
-static void INSERT_random_vector(FNodeMFNetworkBuilder &builder)
+static void INSERT_random_vector(FNodeMFBuilder &builder)
 {
   uint node_seed = (uint)RNA_int_get(builder.rna(), "node_seed");
   RandomVectorMode::Enum mode = (RandomVectorMode::Enum)RNA_enum_get(builder.rna(), "mode");
@@ -482,19 +482,19 @@ static void INSERT_random_vector(FNodeMFNetworkBuilder &builder)
       {"use_list__factor", "use_list__seed"}, node_seed, mode);
 }
 
-static void INSERT_random_vectors(FNodeMFNetworkBuilder &builder)
+static void INSERT_random_vectors(FNodeMFBuilder &builder)
 {
   uint node_seed = (uint)RNA_int_get(builder.rna(), "node_seed");
   RandomVectorMode::Enum mode = (RandomVectorMode::Enum)RNA_enum_get(builder.rna(), "mode");
   builder.set_constructed_matching_fn<MF_RandomVectors>(node_seed, mode);
 }
 
-static void INSERT_value(FNodeMFNetworkBuilder &builder)
+static void INSERT_value(FNodeMFBuilder &builder)
 {
   const FOutputSocket &fsocket = builder.fnode().output(0);
   const VSocket &vsocket = fsocket.vsocket();
 
-  VSocketMFNetworkBuilder socket_builder{builder.common(), vsocket};
+  VSocketMFBuilder socket_builder{builder.common(), vsocket};
   auto &inserter = builder.mappings().fsocket_inserters.lookup(vsocket.idname());
   inserter(socket_builder);
   MFBuilderOutputSocket &built_socket = socket_builder.built_socket();
@@ -502,28 +502,28 @@ static void INSERT_value(FNodeMFNetworkBuilder &builder)
   builder.socket_map().add(fsocket, built_socket);
 }
 
-static void INSERT_emitter_time_info(FNodeMFNetworkBuilder &builder)
+static void INSERT_emitter_time_info(FNodeMFBuilder &builder)
 {
   builder.set_constructed_matching_fn<MF_EmitterTimeInfo>();
 }
 
-static void INSERT_sample_object_surface(FNodeMFNetworkBuilder &builder)
+static void INSERT_sample_object_surface(FNodeMFBuilder &builder)
 {
   int value = RNA_enum_get(builder.rna(), "weight_mode");
   builder.set_constructed_matching_fn<MF_SampleObjectSurface>(value == 1);
 }
 
-static void INSERT_find_non_close_points(FNodeMFNetworkBuilder &builder)
+static void INSERT_find_non_close_points(FNodeMFBuilder &builder)
 {
   builder.set_constructed_matching_fn<MF_FindNonClosePoints>();
 }
 
-static void INSERT_join_text_list(FNodeMFNetworkBuilder &builder)
+static void INSERT_join_text_list(FNodeMFBuilder &builder)
 {
   builder.set_constructed_matching_fn<MF_JoinTextList>();
 }
 
-static void INSERT_node_instance_identifier(FNodeMFNetworkBuilder &builder)
+static void INSERT_node_instance_identifier(FNodeMFBuilder &builder)
 {
   const FNode &fnode = builder.fnode();
   std::string identifier = "";
@@ -535,12 +535,12 @@ static void INSERT_node_instance_identifier(FNodeMFNetworkBuilder &builder)
   builder.set_constructed_matching_fn<MF_ConstantValue<std::string>>(std::move(identifier));
 }
 
-static void INSERT_event_filter_end_time(FNodeMFNetworkBuilder &builder)
+static void INSERT_event_filter_end_time(FNodeMFBuilder &builder)
 {
   builder.set_constructed_matching_fn<MF_EventFilterEndTime>();
 }
 
-static void INSERT_event_filter_duration(FNodeMFNetworkBuilder &builder)
+static void INSERT_event_filter_duration(FNodeMFBuilder &builder)
 {
   builder.set_constructed_matching_fn<MF_EventFilterDuration>();
 }

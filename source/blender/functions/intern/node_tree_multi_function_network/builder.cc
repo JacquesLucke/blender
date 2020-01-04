@@ -46,7 +46,7 @@ MFBuilderDummyNode &CommonBuilderBase::add_dummy(const FNode &fnode)
   return node;
 }
 
-Vector<bool> FNodeMFNetworkBuilder::get_list_base_variadic_states(StringRefNull prop_name)
+Vector<bool> FNodeMFBuilder::get_list_base_variadic_states(StringRefNull prop_name)
 {
   Vector<bool> states;
   RNA_BEGIN (m_fnode.rna(), itemptr, prop_name.data()) {
@@ -67,13 +67,13 @@ Vector<bool> FNodeMFNetworkBuilder::get_list_base_variadic_states(StringRefNull 
   return states;
 }
 
-void FNodeMFNetworkBuilder::set_matching_fn(const MultiFunction &fn)
+void FNodeMFBuilder::set_matching_fn(const MultiFunction &fn)
 {
   MFBuilderFunctionNode &node = this->add_function(fn);
   m_common.socket_map.add(m_fnode, node, m_common.fsocket_data_types);
 }
 
-const MultiFunction &FNodeMFNetworkBuilder::get_vectorized_function(
+const MultiFunction &FNodeMFBuilder::get_vectorized_function(
     const MultiFunction &base_function, ArrayRef<const char *> is_vectorized_prop_names)
 {
   ScopedVector<bool> input_is_vectorized;

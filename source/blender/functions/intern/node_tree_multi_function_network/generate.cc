@@ -18,7 +18,7 @@ static bool insert_nodes(CommonBuilderData &common)
     const InsertVNodeFunction *inserter = common.mappings.fnode_inserters.lookup_ptr(idname);
 
     if (inserter != nullptr) {
-      FNodeMFNetworkBuilder fnode_builder{common, *fnode};
+      FNodeMFBuilder fnode_builder{common, *fnode};
       (*inserter)(fnode_builder);
     }
     else if (common.fsocket_data_types.has_data_sockets(*fnode)) {
@@ -28,7 +28,7 @@ static bool insert_nodes(CommonBuilderData &common)
   }
 
   for (const FGroupInput *group_input : common.function_tree.all_group_inputs()) {
-    VSocketMFNetworkBuilder socket_builder{common, group_input->vsocket()};
+    VSocketMFBuilder socket_builder{common, group_input->vsocket()};
     const InsertVSocketFunction *inserter = common.mappings.fsocket_inserters.lookup_ptr(
         group_input->vsocket().idname());
     if (inserter != nullptr) {
@@ -116,7 +116,7 @@ static bool insert_unlinked_inputs(CommonBuilderData &common)
       return false;
     }
 
-    VSocketMFNetworkBuilder fsocket_builder{common, fsocket->vsocket()};
+    VSocketMFBuilder fsocket_builder{common, fsocket->vsocket()};
     (*inserter)(fsocket_builder);
     for (MFBuilderInputSocket *to_socket : common.socket_map.lookup(*fsocket)) {
       common.network_builder.add_link(fsocket_builder.built_socket(), *to_socket);
