@@ -69,21 +69,18 @@ static bool insert_links(CommonBuilderData &common)
     }
 
     MFBuilderOutputSocket *from_socket = nullptr;
-    StringRef from_idname;
 
     if (origin_sockets.size() == 1) {
       if (!common.fsocket_data_types.is_data_socket(*origin_sockets[0])) {
         return false;
       }
       from_socket = &common.socket_map.lookup(*origin_sockets[0]);
-      from_idname = origin_sockets[0]->idname();
     }
     else {
       if (!common.fsocket_data_types.is_data_group_input(*origin_group_inputs[0])) {
         return false;
       }
       from_socket = &common.socket_map.lookup(*origin_group_inputs[0]);
-      from_idname = origin_group_inputs[0]->vsocket().idname();
     }
 
     Vector<MFBuilderInputSocket *> to_sockets = common.socket_map.lookup(*to_fsocket);
@@ -94,7 +91,7 @@ static bool insert_links(CommonBuilderData &common)
 
     if (from_type != to_type) {
       const ConversionInserter *inserter = common.mappings.conversion_inserters.lookup_ptr(
-          {from_idname, to_fsocket->idname()});
+          {from_type, to_type});
       if (inserter == nullptr) {
         return false;
       }

@@ -3,6 +3,8 @@
 
 #include "FN_cpp_type.h"
 
+#include "BLI_hash_cxx.h"
+
 namespace FN {
 
 struct MFDataType {
@@ -98,8 +100,20 @@ struct MFDataType {
  private:
   Category m_category;
   const CPPType *m_base_type;
+
+  friend BLI::DefaultHash<MFDataType>;
 };
 
 }  // namespace FN
+
+namespace BLI {
+template<> struct DefaultHash<FN::MFDataType> {
+  uint32_t operator()(const FN::MFDataType &value) const
+  {
+    return DefaultHash<FN::CPPType *>{}(value.m_base_type) + 243523 * (uint)value.m_category;
+  }
+};
+
+}  // namespace BLI
 
 #endif /* __FN_MULTI_FUNCTION_DATA_TYPE_H__ */

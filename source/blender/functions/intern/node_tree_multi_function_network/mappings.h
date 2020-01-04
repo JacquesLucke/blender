@@ -28,7 +28,7 @@ struct FunctionTreeMFMappings {
   Map<const CPPType *, std::string> type_name_from_cpp_type;
   StringMap<FNodeInserter> fnode_inserters;
   StringMap<VSocketInserter> fsocket_inserters;
-  Map<std::pair<std::string, std::string>, ConversionInserter> conversion_inserters;
+  Map<std::pair<MFDataType, MFDataType>, ConversionInserter> conversion_inserters;
 };
 
 void add_function_tree_socket_mapping_info(FunctionTreeMFMappings &mappings);

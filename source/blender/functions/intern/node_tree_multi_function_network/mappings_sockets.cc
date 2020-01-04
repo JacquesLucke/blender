@@ -115,15 +115,20 @@ static void add_basic_type(FunctionTreeMFMappings &mappings,
   std::string list_idname = "fn_" + base_name_without_spaces + "ListSocket";
   std::string list_name = base_name + " List";
 
-  mappings.cpp_type_by_type_name.add_new(base_name, &CPP_TYPE<T>());
-  mappings.data_type_by_idname.add_new(base_idname, MFDataType::ForSingle<T>());
-  mappings.data_type_by_idname.add_new(list_idname, MFDataType::ForVector<T>());
-  mappings.data_type_by_type_name.add_new(base_name, MFDataType::ForSingle<T>());
-  mappings.data_type_by_type_name.add_new(list_name, MFDataType::ForVector<T>());
+  const CPPType &cpp_type = CPP_TYPE<T>();
+  MFDataType base_data_type = MFDataType::ForSingle(cpp_type);
+  MFDataType list_data_type = MFDataType::ForVector(cpp_type);
+
+  mappings.cpp_type_by_type_name.add_new(base_name, &cpp_type);
+  mappings.data_type_by_idname.add_new(base_idname, base_data_type);
+  mappings.data_type_by_idname.add_new(list_idname, list_data_type);
+  mappings.data_type_by_type_name.add_new(base_name, base_data_type);
+  mappings.data_type_by_type_name.add_new(list_name, list_data_type);
   mappings.fsocket_inserters.add_new(base_idname, base_inserter);
   mappings.fsocket_inserters.add_new(list_idname, INSERT_empty_list_socket<T>);
-  mappings.conversion_inserters.add_new({base_idname, list_idname}, INSERT_element_to_list<T>);
-  mappings.type_name_from_cpp_type.add_new(&CPP_TYPE<T>(), base_name);
+  mappings.conversion_inserters.add_new({base_data_type, list_data_type},
+                                        INSERT_element_to_list<T>);
+  mappings.type_name_from_cpp_type.add_new(&cpp_type, base_name);
 }
 
 template<typename T>
@@ -146,10 +151,11 @@ static void add_implicit_conversion(FunctionTreeMFMappings &mappings)
   std::string to_base_idname = "fn_" + to_name + "Socket";
   std::string to_list_idname = "fn_" + to_name + "ListSocket";
 
-  mappings.conversion_inserters.add_new({from_base_idname, to_base_idname},
-                                        INSERT_convert<FromT, ToT>);
-  mappings.conversion_inserters.add_new({from_list_idname, to_list_idname},
-                                        INSERT_convert_list<FromT, ToT>);
+  mappings.conversion_inserters.add_new(
+      {MFDataType::ForSingle<FromT>(), MFDataType::ForSingle<ToT>()}, INSERT_convert<FromT, ToT>);
+  mappings.conversion_inserters.add_new(
+      {MFDataType::ForVector<FromT>(), MFDataType::ForVector<ToT>()},
+      INSERT_convert_list<FromT, ToT>);
 }
 
 template<typename T1, typename T2>
