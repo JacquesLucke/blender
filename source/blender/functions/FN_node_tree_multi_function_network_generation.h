@@ -6,6 +6,7 @@
 #include "intern/multi_functions/network.h"
 
 namespace FN {
+namespace MFGeneration {
 
 using BLI::ResourceCollector;
 
@@ -15,6 +16,7 @@ std::unique_ptr<FunctionTreeMFNetwork> generate_node_tree_multi_function_network
 std::unique_ptr<MF_EvaluateNetwork> generate_node_tree_multi_function(
     const FunctionNodeTree &function_tree, ResourceCollector &resources);
 
+}  // namespace MFGeneration
 }  // namespace FN
 
 #endif /* __FN_VTREE_MULTI_FUNCTION_NETWORK_GENERATION_H__ */

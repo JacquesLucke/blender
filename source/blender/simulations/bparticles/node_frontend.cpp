@@ -1128,7 +1128,7 @@ class NodeTreeStepSimulator : public StepSimulator {
 
     ResourceCollector resources;
     std::unique_ptr<FunctionTreeMFNetwork> data_graph =
-        FN::generate_node_tree_multi_function_network(m_function_tree, resources);
+        FN::MFGeneration::generate_node_tree_multi_function_network(m_function_tree, resources);
     if (data_graph.get() == nullptr) {
       return;
     }

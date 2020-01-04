@@ -9,6 +9,7 @@
 #include "builder.h"
 
 namespace FN {
+namespace MFGeneration {
 
 static bool insert_nodes(FunctionTreeMFBuilderCommonData &common)
 {
@@ -221,4 +222,5 @@ std::unique_ptr<MF_EvaluateNetwork> generate_node_tree_multi_function(
   return function;
 }
 
+}  // namespace MFGeneration
 }  // namespace FN

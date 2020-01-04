@@ -1,6 +1,7 @@
 #include "builder.h"
 
 namespace FN {
+namespace MFGeneration {
 
 using BLI::ScopedVector;
 
@@ -93,4 +94,5 @@ const MultiFunction &FNodeMFNetworkBuilder::get_vectorized_function(
   }
 }
 
+}  // namespace MFGeneration
 }  // namespace FN

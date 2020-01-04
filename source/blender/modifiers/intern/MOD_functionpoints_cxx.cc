@@ -45,7 +45,7 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
   FunctionNodeTree function_tree(btree, vtrees);
 
   BLI::ResourceCollector resources;
-  auto function = FN::generate_node_tree_multi_function(function_tree, resources);
+  auto function = FN::MFGeneration::generate_node_tree_multi_function(function_tree, resources);
 
   MFParamsBuilder params_builder(*function, 1);
   params_builder.add_readonly_single_input(&fpmd->control1);

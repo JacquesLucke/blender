@@ -7,6 +7,7 @@
 #include "FN_node_tree_multi_function_network.h"
 
 namespace FN {
+namespace MFGeneration {
 
 using BLI::Map;
 using BLI::ResourceCollector;
@@ -37,4 +38,5 @@ void add_function_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings);
 
 const VTreeMultiFunctionMappings &get_function_tree_multi_function_mappings();
 
+}  // namespace MFGeneration
 }  // namespace FN

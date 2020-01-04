@@ -9,6 +9,7 @@
 #include "BKE_surface_hook.h"
 
 namespace FN {
+namespace MFGeneration {
 
 using BLI::float3;
 static void INSERT_combine_color(FNodeMFNetworkBuilder &builder)
@@ -623,4 +624,5 @@ void add_function_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.fnode_inserters.add_new("fn_EventFilterDurationNode", INSERT_event_filter_duration);
 }
 
-};  // namespace FN
+}  // namespace MFGeneration
+}  // namespace FN

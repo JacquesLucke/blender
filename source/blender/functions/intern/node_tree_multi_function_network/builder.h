@@ -8,6 +8,7 @@
 #include "mappings.h"
 
 namespace FN {
+namespace MFGeneration {
 
 using BKE::VSocket;
 using BLI::IndexToRefMultiMap;
@@ -419,4 +420,5 @@ class ImplicitConversionMFBuilder : public FunctionTreeMFBuilderBase {
   }
 };
 
+}  // namespace MFGeneration
 }  // namespace FN

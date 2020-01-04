@@ -6,6 +6,7 @@
 #include "FN_multi_functions.h"
 
 namespace FN {
+namespace MFGeneration {
 
 BLI_LAZY_INIT_REF(const VTreeMultiFunctionMappings, get_function_tree_multi_function_mappings)
 {
@@ -15,4 +16,5 @@ BLI_LAZY_INIT_REF(const VTreeMultiFunctionMappings, get_function_tree_multi_func
   return mappings;
 }
 
+}  // namespace MFGeneration
 }  // namespace FN

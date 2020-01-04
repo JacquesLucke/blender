@@ -49,7 +49,7 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd,
   FunctionNodeTree function_tree(btree, vtrees);
 
   BLI::ResourceCollector resources;
-  auto function = FN::generate_node_tree_multi_function(function_tree, resources);
+  auto function = FN::MFGeneration::generate_node_tree_multi_function(function_tree, resources);
 
   MFParamsBuilder params_builder(*function, numVerts);
   params_builder.add_readonly_single_input(ArrayRef<float3>((float3 *)vertexCos, numVerts));

@@ -8,6 +8,7 @@
 #include "FN_multi_functions.h"
 
 namespace FN {
+namespace MFGeneration {
 
 /* Socket Inserters
  **********************************************************/
@@ -177,4 +178,5 @@ void add_function_tree_socket_mapping_info(VTreeMultiFunctionMappings &mappings)
   add_bidirectional_implicit_conversion<int32_t, bool>(mappings);
 }
 
-};  // namespace FN
+}  // namespace MFGeneration
+}  // namespace FN
