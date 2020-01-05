@@ -10,3 +10,8 @@ from . bparticles import (
     ExecuteInputDecl,
     ExecuteInputListDecl,
 )
+
+from . simulation import (
+    SimulationDataSocketDecl,
+    SimulationObjectsSocketDecl,
+)

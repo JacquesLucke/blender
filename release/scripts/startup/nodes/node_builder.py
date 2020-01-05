@@ -8,6 +8,8 @@ from . declaration import (
     ExecuteOutputDecl,
     ExecuteInputListDecl,
     ExecuteInputDecl,
+    SimulationDataSocketDecl,
+    SimulationObjectsSocketDecl,
 
     NoDefaultValue,
 )
@@ -194,6 +196,25 @@ class NodeBuilder:
         decl = ExecuteOutputDecl(self.node, identifier, name)
         self._add_output(decl)
 
+
+    # Simulation
+    ###################################
+
+    def simulation_objects_input(self, identifier, display_name):
+        decl = SimulationObjectsSocketDecl(self, identifier, display_name)
+        self._add_input(decl)
+
+    def simulation_objects_output(self, identifier, display_name):
+        decl = SimulationObjectsSocketDecl(self, identifier, display_name)
+        self._add_output(decl)
+
+    def simulation_data_input(self, identifier, display_name):
+        decl = SimulationDataSocketDecl(self, identifier, display_name)
+        self._add_input(decl)
+
+    def simulation_data_output(self, identifier, display_name):
+        decl = SimulationDataSocketDecl(self, identifier, display_name)
+        self._add_output(decl)
 
 
 class SocketDeclMap:

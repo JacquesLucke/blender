@@ -226,3 +226,13 @@ class InfluencesSocket(bpy.types.NodeSocket, BaseSocket):
     bl_idname = "fn_InfluencesSocket"
     bl_label = "Influences Socket"
     color = (0.8, 0.8, 0.2, 1)
+
+class SimulationObjectsSocket(bpy.types.NodeSocket, BaseSocket):
+    bl_idname = "fn_SimulationObjectsSocket"
+    bl_label = "Simulation Objects Socket"
+    color = (0, 0, 0, 1)
+
+class SimulationDataSocket(bpy.types.NodeSocket, BaseSocket):
+    bl_idname = "fn_SimulationDataSocket"
+    bl_label = "Simulation Data"
+    color = (1, 1, 1, 1)
