@@ -8,7 +8,7 @@ from . declaration import (
     ExecuteOutputDecl,
     ExecuteInputListDecl,
     ExecuteInputDecl,
-    SimulationDataSocketDecl,
+    SimulationSolverSocketDecl,
     SimulationObjectsSocketDecl,
 
     NoDefaultValue,
@@ -208,12 +208,12 @@ class NodeBuilder:
         decl = SimulationObjectsSocketDecl(self, identifier, display_name)
         self._add_output(decl)
 
-    def simulation_data_input(self, identifier, display_name):
-        decl = SimulationDataSocketDecl(self, identifier, display_name)
+    def solver_input(self, identifier, display_name):
+        decl = SimulationSolverSocketDecl(self, identifier, display_name)
         self._add_input(decl)
 
-    def simulation_data_output(self, identifier, display_name):
-        decl = SimulationDataSocketDecl(self, identifier, display_name)
+    def solver_output(self, identifier, display_name):
+        decl = SimulationSolverSocketDecl(self, identifier, display_name)
         self._add_output(decl)
 
 

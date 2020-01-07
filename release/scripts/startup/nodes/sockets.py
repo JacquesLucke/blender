@@ -232,7 +232,7 @@ class SimulationObjectsSocket(bpy.types.NodeSocket, BaseSocket):
     bl_label = "Simulation Objects Socket"
     color = (0, 0, 0, 1)
 
-class SimulationDataSocket(bpy.types.NodeSocket, BaseSocket):
-    bl_idname = "fn_SimulationDataSocket"
-    bl_label = "Simulation Data"
+class SimulationSolverSocket(bpy.types.NodeSocket, BaseSocket):
+    bl_idname = "fn_SimulationSolverSocket"
+    bl_label = "Simulation Solver"
     color = (1, 1, 1, 1)

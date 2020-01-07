@@ -12,6 +12,6 @@ from . bparticles import (
 )
 
 from . simulation import (
-    SimulationDataSocketDecl,
+    SimulationSolverSocketDecl,
     SimulationObjectsSocketDecl,
 )
