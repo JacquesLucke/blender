@@ -15,18 +15,6 @@ static bool node_can_be_constant(MFBuilderNode &node)
     if (fn.depends_on_context()) {
       return false;
     }
-
-    /* TODO: Support vectors. */
-    for (auto *socket : node.inputs()) {
-      if (socket->data_type().is_vector()) {
-        return false;
-      }
-    }
-    for (auto *socket : node.outputs()) {
-      if (socket->data_type().is_vector()) {
-        return false;
-      }
-    }
     return true;
   }
   else {
@@ -125,7 +113,10 @@ void optimize_network__constant_folding(MFNetworkBuilder &network_builder,
         break;
       }
       case MFDataType::Vector: {
-        BLI_assert(false);
+        const CPPType &cpp_base_type = data_type.vector__cpp_base_type();
+        GenericVectorArray &vector_array = resources.construct<GenericVectorArray>(
+            "constant vector", cpp_base_type, 1);
+        params_builder.add_vector_output(vector_array);
         break;
       }
     }
@@ -136,15 +127,31 @@ void optimize_network__constant_folding(MFNetworkBuilder &network_builder,
   for (uint param_index : network_function.param_indices()) {
     MFParamType param_type = network_function.param_type(param_index);
     MFDataType data_type = param_type.data_type();
-    const CPPType &cpp_type = data_type.single__cpp_type();
 
-    GenericMutableArrayRef array = params_builder.computed_array(param_index);
-    void *buffer = array.buffer();
-    resources.add(buffer, array.type().destruct_cb(), "Constant folded value");
+    const MultiFunction *constant_fn = nullptr;
 
-    const MultiFunction &fn = resources.construct<MF_GenericConstantValue>(
-        "Constant folded function", cpp_type, buffer);
-    MFBuilderFunctionNode &folded_node = network_builder.add_function(fn);
+    switch (data_type.category()) {
+      case MFDataType::Single: {
+        const CPPType &cpp_type = data_type.single__cpp_type();
+
+        GenericMutableArrayRef array = params_builder.computed_array(param_index);
+        void *buffer = array.buffer();
+        resources.add(buffer, array.type().destruct_cb(), "Constant folded value");
+
+        constant_fn = &resources.construct<MF_GenericConstantValue>(
+            "Constant folded function", cpp_type, buffer);
+        break;
+      }
+      case MFDataType::Vector: {
+        GenericVectorArray &vector_array = params_builder.computed_vector_array(param_index);
+        GenericArrayRef array = vector_array[0];
+        constant_fn = &resources.construct<MF_GenericConstantVector>("Constant folded function",
+                                                                     array);
+        break;
+      }
+    }
+
+    MFBuilderFunctionNode &folded_node = network_builder.add_function(*constant_fn);
 
     MFBuilderOutputSocket &original_socket = *builder_sockets_to_compute[param_index];
     Vector<MFBuilderInputSocket *> targets = original_socket.targets();

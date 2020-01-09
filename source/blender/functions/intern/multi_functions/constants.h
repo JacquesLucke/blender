@@ -7,7 +7,7 @@
 namespace FN {
 
 /**
- * Note: The value buffer passed into the constructor should have a longer lifetime than the
+ * The value buffer passed into the constructor should have a longer lifetime than the
  * function itself.
  */
 class MF_GenericConstantValue : public MultiFunction {
@@ -15,21 +15,22 @@ class MF_GenericConstantValue : public MultiFunction {
   const void *m_value;
 
  public:
-  MF_GenericConstantValue(const CPPType &type, const void *value) : m_value(value)
-  {
-    MFSignatureBuilder signature = this->get_builder("Constant " + type.name());
-    std::stringstream ss;
-    MF_GenericConstantValue::value_to_string(ss, type, value);
-    signature.single_output(ss.str(), type);
-  }
-
-  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
-  {
-    GenericMutableArrayRef r_value = params.uninitialized_single_output(0);
-    r_value.type().fill_uninitialized_indices(m_value, r_value.buffer(), mask);
-  }
+  MF_GenericConstantValue(const CPPType &type, const void *value);
+  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override;
 
   static void value_to_string(std::stringstream &ss, const CPPType &type, const void *value);
+};
+
+/**
+ * The passed in buffer has to have a longer lifetime than the function itself.
+ */
+class MF_GenericConstantVector : public MultiFunction {
+ private:
+  GenericArrayRef m_array;
+
+ public:
+  MF_GenericConstantVector(GenericArrayRef array);
+  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override;
 };
 
 template<typename T> class MF_ConstantValue : public MultiFunction {
