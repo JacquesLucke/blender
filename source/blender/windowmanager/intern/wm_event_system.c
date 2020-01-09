@@ -1363,7 +1363,7 @@ bool WM_operator_last_properties_store(wmOperator *op)
               IDP_GROUP, &(IDPropertyTemplate){0}, "wmOperatorProperties");
         }
         IDProperty *idp_macro = IDP_CopyProperty(opm->properties);
-        STRNCPY(idp_macro->name, opm->idname);
+        STRNCPY(idp_macro->name, opm->type->idname);
         IDP_ReplaceInGroup(op->type->last_properties, idp_macro);
       }
     }
@@ -2810,12 +2810,6 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
         wmGizmoMap *gzmap = handler->gizmo_map;
         BLI_assert(gzmap != NULL);
         wmGizmo *gz = wm_gizmomap_highlight_get(gzmap);
-
-        /* Special case, needed so postponed refresh can respond to events,
-         * see #WM_GIZMOGROUPTYPE_DELAY_REFRESH_FOR_TWEAK for details. */
-        if (WM_gizmomap_tag_refresh_check(gzmap)) {
-          ED_region_tag_redraw(region);
-        }
 
         if (region->gizmo_map != handler->gizmo_map) {
           WM_gizmomap_tag_refresh(handler->gizmo_map);
