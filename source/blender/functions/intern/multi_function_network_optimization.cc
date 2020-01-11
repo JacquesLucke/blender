@@ -25,9 +25,9 @@ static bool node_can_be_constant(MFBuilderNode &node)
 void optimize_network__constant_folding(MFNetworkBuilder &network_builder,
                                         ResourceCollector &resources)
 {
-  Array<bool> is_constant(network_builder.nodes_by_id().size(), true);
+  Array<bool> is_constant(network_builder.all_nodes().size(), true);
 
-  Stack<MFBuilderNode *> nodes_to_check = network_builder.nodes_by_id();
+  Stack<MFBuilderNode *> nodes_to_check = network_builder.all_nodes();
 
   while (!nodes_to_check.is_empty()) {
     MFBuilderNode &current_node = *nodes_to_check.pop();
@@ -54,7 +54,7 @@ void optimize_network__constant_folding(MFNetworkBuilder &network_builder,
   Set<MFBuilderNode *> constant_nodes;
   for (uint i : is_constant.index_range()) {
     if (is_constant[i]) {
-      constant_nodes.add_new(network_builder.nodes_by_id()[i]);
+      constant_nodes.add_new(network_builder.all_nodes()[i]);
     }
   }
   // network_builder.to_dot__clipboard(constant_nodes);

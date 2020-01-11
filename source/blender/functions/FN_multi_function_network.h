@@ -154,6 +154,11 @@ class MFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
   void add_link(MFBuilderOutputSocket &from, MFBuilderInputSocket &to);
   void remove_link(MFBuilderOutputSocket &from, MFBuilderInputSocket &to);
 
+  ArrayRef<MFBuilderNode *> all_nodes() const
+  {
+    return m_node_by_id;
+  }
+
   ArrayRef<MFBuilderNode *> nodes_by_id() const
   {
     return m_node_by_id;
