@@ -33,8 +33,8 @@ class MFNetworkBuilder;
 class MFBuilderNode : BLI::NonCopyable, BLI::NonMovable {
  protected:
   MFNetworkBuilder *m_network;
-  Vector<MFBuilderInputSocket *> m_inputs;
-  Vector<MFBuilderOutputSocket *> m_outputs;
+  ArrayRef<MFBuilderInputSocket *> m_inputs;
+  ArrayRef<MFBuilderOutputSocket *> m_outputs;
   bool m_is_dummy;
 
   friend MFNetworkBuilder;
@@ -62,8 +62,8 @@ class MFBuilderNode : BLI::NonCopyable, BLI::NonMovable {
 class MFBuilderFunctionNode : public MFBuilderNode {
  private:
   const MultiFunction *m_function;
-  Vector<uint> m_input_param_indices;
-  Vector<uint> m_output_param_indices;
+  ArrayRef<uint> m_input_param_indices;
+  ArrayRef<uint> m_output_param_indices;
 
   friend MFNetworkBuilder;
 
@@ -77,8 +77,8 @@ class MFBuilderFunctionNode : public MFBuilderNode {
 class MFBuilderDummyNode : public MFBuilderNode {
  private:
   StringRefNull m_name;
-  Vector<StringRefNull> m_input_names;
-  Vector<StringRefNull> m_output_names;
+  MutableArrayRef<StringRefNull> m_input_names;
+  MutableArrayRef<StringRefNull> m_output_names;
 
   friend MFNetworkBuilder;
   friend MFBuilderSocket;

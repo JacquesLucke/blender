@@ -103,6 +103,32 @@ class MonotonicAllocator : NonCopyable, NonMovable {
     return destruct_ptr<T>(value);
   }
 
+  template<typename T, typename... Args>
+  ArrayRef<T *> construct_elements_and_pointer_array(uint n, Args &&... args)
+  {
+    void *pointer_buffer = this->allocate(n * sizeof(T *), alignof(T *));
+    void *element_buffer = this->allocate(n * sizeof(T), alignof(T));
+
+    MutableArrayRef<T *> pointers((T **)pointer_buffer, n);
+    T *elements = (T *)element_buffer;
+
+    for (uint i : IndexRange(n)) {
+      pointers[i] = elements + i;
+    }
+    for (uint i : IndexRange(n)) {
+      new (elements + i) T(std::forward<Args>(args)...);
+    }
+
+    return pointers;
+  }
+
+  template<typename T> MutableArrayRef<T> allocate_array_copy(ArrayRef<T> source)
+  {
+    T *buffer = (T *)this->allocate(source.byte_size(), alignof(T));
+    source.copy_to(buffer);
+    return MutableArrayRef<T>(buffer, source.size());
+  }
+
  private:
   void allocate_new_buffer(uint min_allocation_size)
   {
