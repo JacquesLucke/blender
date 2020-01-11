@@ -173,6 +173,34 @@ void optimize_network__constant_folding(MFNetworkBuilder &network_builder,
     }
   }
 
+  Vector<MFBuilderFunctionNode *> inner_constant_nodes;
+  Vector<MFBuilderFunctionNode *> left_most_constant_nodes;
+
+  for (MFBuilderFunctionNode *constant_node : constant_nodes) {
+    if (constant_node->inputs().size() > 0) {
+      inner_constant_nodes.append(constant_node);
+    }
+    else {
+      left_most_constant_nodes.append(constant_node);
+    }
+  }
+  for (MFBuilderFunctionNode *node : inner_constant_nodes) {
+    network_builder.remove_node(*node);
+  }
+  for (MFBuilderFunctionNode *node : left_most_constant_nodes) {
+    uint target_amount = 0;
+    for (MFBuilderOutputSocket *output_socket : node->outputs()) {
+      target_amount += output_socket->targets().size();
+    }
+    if (target_amount == 0) {
+      network_builder.remove_node(*node);
+    }
+  }
+
+  for (MFBuilderDummyNode *dummy_node : dummy_nodes_to_compute) {
+    network_builder.remove_node(*dummy_node);
+  }
+
   network_builder.to_dot__clipboard();
 }
 

@@ -152,6 +152,33 @@ void MFNetworkBuilder::remove_link(MFBuilderOutputSocket &from, MFBuilderInputSo
   to.m_origin = nullptr;
 }
 
+void MFNetworkBuilder::remove_node(MFBuilderNode &node)
+{
+  for (MFBuilderInputSocket *input_socket : node.inputs()) {
+    MFBuilderOutputSocket *origin = input_socket->origin();
+    if (origin != nullptr) {
+      origin->m_targets.remove_first_occurrence_and_reorder(input_socket);
+    }
+    input_socket->~MFBuilderInputSocket();
+  }
+  for (MFBuilderOutputSocket *output_socket : node.outputs()) {
+    for (MFBuilderInputSocket *target : output_socket->targets()) {
+      target->m_origin = nullptr;
+    }
+    output_socket->~MFBuilderOutputSocket();
+  }
+  if (node.is_dummy()) {
+    MFBuilderDummyNode &dummy_node = node.as_dummy();
+    m_dummy_nodes.remove(&dummy_node);
+    dummy_node.~MFBuilderDummyNode();
+  }
+  else {
+    MFBuilderFunctionNode &function_node = node.as_function();
+    m_function_nodes.remove(&function_node);
+    function_node.~MFBuilderFunctionNode();
+  }
+}
+
 std::string MFNetworkBuilder::to_dot(const Set<MFBuilderNode *> &marked_nodes)
 {
   using BLI::DotExport::Utils::NodeWithSocketsWrapper;
