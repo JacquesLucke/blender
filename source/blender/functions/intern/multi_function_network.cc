@@ -71,6 +71,7 @@ MFBuilderFunctionNode &MFNetworkBuilder::add_function(const MultiFunction &funct
   node.m_network = this;
   node.m_is_dummy = false;
   node.m_function = &function;
+  node.m_id = m_node_or_null_by_id.append_and_get_index(&node);
   node.m_input_param_indices = m_allocator.construct_array_copy<uint>(input_param_indices);
   node.m_output_param_indices = m_allocator.construct_array_copy<uint>(output_param_indices);
 
@@ -88,6 +89,7 @@ MFBuilderFunctionNode &MFNetworkBuilder::add_function(const MultiFunction &funct
     input_socket.m_node = &node;
     input_socket.m_index = i;
     input_socket.m_is_output = false;
+    input_socket.m_id = m_socket_or_null_by_id.append_and_get_index(&input_socket);
   }
 
   for (uint i : output_param_indices.index_range()) {
@@ -99,6 +101,7 @@ MFBuilderFunctionNode &MFNetworkBuilder::add_function(const MultiFunction &funct
     output_socket.m_node = &node;
     output_socket.m_index = i;
     output_socket.m_is_output = true;
+    output_socket.m_id = m_socket_or_null_by_id.append_and_get_index(&output_socket);
   }
 
   return node;
@@ -119,6 +122,7 @@ MFBuilderDummyNode &MFNetworkBuilder::add_dummy(StringRef name,
   node.m_network = this;
   node.m_is_dummy = true;
   node.m_name = m_allocator.copy_string(name);
+  node.m_id = m_node_or_null_by_id.append_and_get_index(&node);
 
   node.m_inputs = m_allocator.construct_elements_and_pointer_array<MFBuilderInputSocket>(
       input_types.size());
@@ -134,6 +138,7 @@ MFBuilderDummyNode &MFNetworkBuilder::add_dummy(StringRef name,
     input_socket.m_node = &node;
     input_socket.m_index = i;
     input_socket.m_is_output = false;
+    input_socket.m_id = m_socket_or_null_by_id.append_and_get_index(&input_socket);
     node.m_input_names[i] = m_allocator.copy_string(input_names[i]);
   }
   for (uint i : output_types.index_range()) {
@@ -142,6 +147,7 @@ MFBuilderDummyNode &MFNetworkBuilder::add_dummy(StringRef name,
     output_socket.m_node = &node;
     output_socket.m_index = i;
     output_socket.m_is_output = true;
+    output_socket.m_id = m_socket_or_null_by_id.append_and_get_index(&output_socket);
     node.m_output_names[i] = m_allocator.copy_string(output_names[i]);
   }
   return node;
@@ -166,6 +172,7 @@ void MFNetworkBuilder::remove_link(MFBuilderOutputSocket &from, MFBuilderInputSo
 void MFNetworkBuilder::remove_node(MFBuilderNode &node)
 {
   for (MFBuilderInputSocket *input_socket : node.inputs()) {
+    m_socket_or_null_by_id[input_socket->m_id] = nullptr;
     MFBuilderOutputSocket *origin = input_socket->origin();
     if (origin != nullptr) {
       origin->m_targets.remove_first_occurrence_and_reorder(input_socket);
@@ -173,11 +180,14 @@ void MFNetworkBuilder::remove_node(MFBuilderNode &node)
     input_socket->~MFBuilderInputSocket();
   }
   for (MFBuilderOutputSocket *output_socket : node.outputs()) {
+    m_socket_or_null_by_id[output_socket->m_id] = nullptr;
     for (MFBuilderInputSocket *target : output_socket->targets()) {
       target->m_origin = nullptr;
     }
     output_socket->~MFBuilderOutputSocket();
   }
+
+  m_node_or_null_by_id[node.m_id] = nullptr;
   if (node.is_dummy()) {
     MFBuilderDummyNode &dummy_node = node.as_dummy();
     m_dummy_nodes.remove(&dummy_node);

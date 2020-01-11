@@ -36,6 +36,7 @@ class MFBuilderNode : BLI::NonCopyable, BLI::NonMovable {
   ArrayRef<MFBuilderInputSocket *> m_inputs;
   ArrayRef<MFBuilderOutputSocket *> m_outputs;
   bool m_is_dummy;
+  uint m_id;
 
   friend MFNetworkBuilder;
 
@@ -49,6 +50,7 @@ class MFBuilderNode : BLI::NonCopyable, BLI::NonMovable {
   MFBuilderOutputSocket &output(uint index);
 
   StringRefNull name();
+  uint id();
 
   bool is_function();
   bool is_dummy();
@@ -91,6 +93,7 @@ class MFBuilderSocket : BLI::NonCopyable, BLI::NonMovable {
   bool m_is_output;
   uint m_index;
   MFDataType m_data_type;
+  uint m_id;
 
   friend MFNetworkBuilder;
 
@@ -100,6 +103,7 @@ class MFBuilderSocket : BLI::NonCopyable, BLI::NonMovable {
 
   uint index();
   StringRefNull name();
+  uint id();
 
   bool is_input();
   bool is_output();
@@ -135,6 +139,9 @@ class MFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
   VectorSet<MFBuilderFunctionNode *> m_function_nodes;
   VectorSet<MFBuilderDummyNode *> m_dummy_nodes;
 
+  Vector<MFBuilderNode *> m_node_or_null_by_id;
+  Vector<MFBuilderSocket *> m_socket_or_null_by_id;
+
  public:
   ~MFNetworkBuilder();
 
@@ -159,6 +166,38 @@ class MFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
   uint current_index_of(MFBuilderDummyNode &node) const
   {
     return m_dummy_nodes.index(&node);
+  }
+
+  MFBuilderNode &node_by_id(uint id)
+  {
+    BLI_assert(m_node_or_null_by_id[id] != nullptr);
+    return *m_node_or_null_by_id[id];
+  }
+
+  MFBuilderFunctionNode &function_by_id(uint id)
+  {
+    return this->node_by_id(id).as_function();
+  }
+
+  MFBuilderDummyNode &dummy_by_id(uint id)
+  {
+    return this->node_by_id(id).as_dummy();
+  }
+
+  MFBuilderSocket &socket_by_id(uint id)
+  {
+    BLI_assert(m_socket_or_null_by_id[id] != nullptr);
+    return *m_socket_or_null_by_id[id];
+  }
+
+  MFBuilderInputSocket &input_by_id(uint id)
+  {
+    return this->socket_by_id(id).as_input();
+  }
+
+  MFBuilderOutputSocket &output_by_id(uint id)
+  {
+    return this->socket_by_id(id).as_output();
   }
 
   ArrayRef<MFBuilderFunctionNode *> function_nodes() const
@@ -371,6 +410,11 @@ inline StringRefNull MFBuilderNode::name()
   }
 }
 
+inline uint MFBuilderNode::id()
+{
+  return m_id;
+}
+
 inline bool MFBuilderNode::is_function()
 {
   return !m_is_dummy;
@@ -451,6 +495,11 @@ inline StringRefNull MFBuilderSocket::name()
       return node.m_input_names[m_index];
     }
   }
+}
+
+inline uint MFBuilderSocket::id()
+{
+  return m_id;
 }
 
 inline bool MFBuilderSocket::is_input()
