@@ -14,8 +14,8 @@ void optimize_network__constant_folding(MFNetworkBuilder &network_builder,
   Array<bool> function_node_is_constant(network_builder.function_nodes().size(), true);
 
   Stack<MFBuilderNode *> nodes_to_check;
-  nodes_to_check.push_multiple(network_builder.dummy_nodes().cast<MFBuilderNode *>());
-  nodes_to_check.push_multiple(network_builder.function_nodes().cast<MFBuilderNode *>());
+  nodes_to_check.push_multiple(network_builder.dummy_nodes());
+  nodes_to_check.push_multiple(network_builder.function_nodes());
 
   while (!nodes_to_check.is_empty()) {
     MFBuilderNode &current_node = *nodes_to_check.pop();

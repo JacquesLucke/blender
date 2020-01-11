@@ -188,8 +188,8 @@ std::string MFNetworkBuilder::to_dot(const Set<MFBuilderNode *> &marked_nodes)
   Map<MFBuilderNode *, NodeWithSocketsWrapper> dot_nodes;
 
   Vector<MFBuilderNode *> all_nodes;
-  all_nodes.extend(m_function_nodes.as_ref().cast<MFBuilderNode *>());
-  all_nodes.extend(m_dummy_nodes.as_ref().cast<MFBuilderNode *>());
+  all_nodes.extend(m_function_nodes.as_ref());
+  all_nodes.extend(m_dummy_nodes.as_ref());
 
   for (MFBuilderNode *node : all_nodes) {
     auto &dot_node = digraph.new_node("");
