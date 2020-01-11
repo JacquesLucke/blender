@@ -59,6 +59,9 @@ class MFBuilderNode : BLI::NonCopyable, BLI::NonMovable {
   MFBuilderDummyNode &as_dummy();
 
   template<typename FuncT> void foreach_target_socket(const FuncT &func);
+  template<typename FuncT> void foreach_target_node(const FuncT &func);
+  template<typename FuncT> void foreach_origin_node(const FuncT &func);
+  template<typename FuncT> void foreach_linked_node(const FuncT &func);
 };
 
 class MFBuilderFunctionNode : public MFBuilderNode {
@@ -168,9 +171,19 @@ class MFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
     return m_dummy_nodes.index(&node);
   }
 
+  uint node_id_amount() const
+  {
+    return m_node_or_null_by_id.size();
+  }
+
+  bool node_id_is_valid(uint id) const
+  {
+    return m_node_or_null_by_id[id] != nullptr;
+  }
+
   MFBuilderNode &node_by_id(uint id)
   {
-    BLI_assert(m_node_or_null_by_id[id] != nullptr);
+    BLI_assert(this->node_id_is_valid(id));
     return *m_node_or_null_by_id[id];
   }
 
@@ -443,6 +456,31 @@ template<typename FuncT> inline void MFBuilderNode::foreach_target_socket(const 
       func(*target);
     }
   }
+}
+
+template<typename FuncT> inline void MFBuilderNode::foreach_target_node(const FuncT &func)
+{
+  for (MFBuilderOutputSocket *socket : m_outputs) {
+    for (MFBuilderInputSocket *target : socket->targets()) {
+      func(target->node());
+    }
+  }
+}
+
+template<typename FuncT> inline void MFBuilderNode::foreach_origin_node(const FuncT &func)
+{
+  for (MFBuilderInputSocket *socket : m_inputs) {
+    MFBuilderOutputSocket *origin = socket->origin();
+    if (origin != nullptr) {
+      func(origin->node());
+    }
+  }
+}
+
+template<typename FuncT> inline void MFBuilderNode::foreach_linked_node(const FuncT &func)
+{
+  this->foreach_origin_node(func);
+  this->foreach_target_node(func);
 }
 
 inline const MultiFunction &MFBuilderFunctionNode::function()

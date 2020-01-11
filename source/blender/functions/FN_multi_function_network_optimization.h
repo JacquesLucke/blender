@@ -10,6 +10,8 @@ namespace FN {
 using BLI::ResourceCollector;
 
 void optimize_network__constant_folding(MFNetworkBuilder &network, ResourceCollector &resources);
+void optimize_network__remove_unused_nodes(MFNetworkBuilder &network_builder,
+                                           ArrayRef<MFBuilderNode *> fixed_nodes);
 
 }  // namespace FN
 
