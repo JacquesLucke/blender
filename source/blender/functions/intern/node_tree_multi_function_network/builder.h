@@ -160,21 +160,6 @@ class MFSocketByFSocketMapping {
   {
     return m_sockets_by_fsocket_id.contains(fsocket.id());
   }
-
-  Vector<std::pair<uint, uint>> get_dummy_mappings()
-  {
-    Vector<std::pair<uint, uint>> dummy_mappings;
-    for (uint fsocket_id : IndexRange(m_sockets_by_fsocket_id.max_index())) {
-      ArrayRef<MFBuilderSocket *> mapped_sockets = m_sockets_by_fsocket_id.lookup(fsocket_id);
-      if (mapped_sockets.size() == 1) {
-        MFBuilderSocket &socket = *mapped_sockets[0];
-        if (socket.node().is_dummy()) {
-          dummy_mappings.append({fsocket_id, socket.id()});
-        }
-      }
-    }
-    return dummy_mappings;
-  }
 };
 
 struct CommonBuilderData {
@@ -184,6 +169,7 @@ struct CommonBuilderData {
   MFSocketByFSocketMapping &socket_map;
   MFNetworkBuilder &network_builder;
   const FunctionTree &function_tree;
+  Map<const FSocket *, MFBuilderSocket *> &dummy_socket_mapping;
 };
 
 class CommonBuilderBase {
@@ -265,16 +251,6 @@ class CommonBuilderBase {
   MFBuilderFunctionNode &add_function(const MultiFunction &function, const FNode &fnode);
 
   MFBuilderDummyNode &add_dummy(const FNode &fnode);
-
-  MFBuilderDummyNode &add_dummy(StringRef name,
-                                ArrayRef<MFDataType> input_types,
-                                ArrayRef<MFDataType> output_types,
-                                ArrayRef<StringRef> input_names,
-                                ArrayRef<StringRef> output_names)
-  {
-    return m_common.network_builder.add_dummy(
-        name, input_types, output_types, input_names, output_names);
-  }
 };
 
 class VSocketMFBuilder : public CommonBuilderBase {

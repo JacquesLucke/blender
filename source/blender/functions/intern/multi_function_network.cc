@@ -21,17 +21,24 @@ using BLI::Stack;
 
 MFNetworkBuilder::~MFNetworkBuilder()
 {
-  for (auto node : m_function_nodes) {
+  for (MFBuilderFunctionNode *node : m_function_nodes) {
+    for (MFBuilderInputSocket *input_socket : node->m_inputs) {
+      input_socket->~MFBuilderInputSocket();
+    }
+    for (MFBuilderOutputSocket *output_socket : node->m_outputs) {
+      output_socket->~MFBuilderOutputSocket();
+    }
     node->~MFBuilderFunctionNode();
   }
-  for (auto node : m_dummy_nodes) {
+
+  for (MFBuilderDummyNode *node : m_dummy_nodes) {
+    for (MFBuilderInputSocket *input_socket : node->m_inputs) {
+      input_socket->~MFBuilderInputSocket();
+    }
+    for (MFBuilderOutputSocket *output_socket : node->m_outputs) {
+      output_socket->~MFBuilderOutputSocket();
+    }
     node->~MFBuilderDummyNode();
-  }
-  for (auto socket : m_input_sockets) {
-    socket->~MFBuilderInputSocket();
-  }
-  for (auto socket : m_output_sockets) {
-    socket->~MFBuilderOutputSocket();
   }
 }
 
@@ -58,13 +65,13 @@ MFBuilderFunctionNode &MFNetworkBuilder::add_function(const MultiFunction &funct
   }
 
   auto &node = *m_allocator.construct<MFBuilderFunctionNode>().release();
+  m_function_nodes.add_new(&node);
 
   node.m_network = this;
   node.m_is_dummy = false;
   node.m_function = &function;
   node.m_input_param_indices = input_param_indices;
   node.m_output_param_indices = output_param_indices;
-  node.m_id = m_node_by_id.size();
 
   for (uint i : input_param_indices.index_range()) {
     uint param_index = input_param_indices[i];
@@ -76,10 +83,7 @@ MFBuilderFunctionNode &MFNetworkBuilder::add_function(const MultiFunction &funct
     input_socket.m_node = &node;
     input_socket.m_index = i;
     input_socket.m_is_output = false;
-    input_socket.m_id = m_socket_by_id.size();
     node.m_inputs.append(&input_socket);
-    m_socket_by_id.append(&input_socket);
-    m_input_sockets.append(&input_socket);
   }
 
   for (uint i : output_param_indices.index_range()) {
@@ -92,14 +96,9 @@ MFBuilderFunctionNode &MFNetworkBuilder::add_function(const MultiFunction &funct
     output_socket.m_node = &node;
     output_socket.m_index = i;
     output_socket.m_is_output = true;
-    output_socket.m_id = m_socket_by_id.size();
     node.m_outputs.append(&output_socket);
-    m_socket_by_id.append(&output_socket);
-    m_output_sockets.append(&output_socket);
   }
 
-  m_function_nodes.append(&node);
-  m_node_by_id.append(&node);
   return node;
 }
 
@@ -110,10 +109,10 @@ MFBuilderDummyNode &MFNetworkBuilder::add_dummy(StringRef name,
                                                 ArrayRef<StringRef> output_names)
 {
   auto &node = *m_allocator.construct<MFBuilderDummyNode>().release();
+  m_dummy_nodes.add_new(&node);
 
   node.m_network = this;
   node.m_is_dummy = true;
-  node.m_id = m_node_by_id.size();
   node.m_name = m_allocator.copy_string(name);
 
   for (uint i : input_types.index_range()) {
@@ -122,11 +121,8 @@ MFBuilderDummyNode &MFNetworkBuilder::add_dummy(StringRef name,
     input_socket.m_node = &node;
     input_socket.m_index = i;
     input_socket.m_is_output = false;
-    input_socket.m_id = m_socket_by_id.size();
     node.m_inputs.append(&input_socket);
     node.m_input_names.append(m_allocator.copy_string(input_names[i]));
-    m_socket_by_id.append(&input_socket);
-    m_input_sockets.append(&input_socket);
   }
   for (uint i : output_types.index_range()) {
     auto &output_socket = *m_allocator.construct<MFBuilderOutputSocket>().release();
@@ -134,15 +130,9 @@ MFBuilderDummyNode &MFNetworkBuilder::add_dummy(StringRef name,
     output_socket.m_node = &node;
     output_socket.m_index = i;
     output_socket.m_is_output = true;
-    output_socket.m_id = m_socket_by_id.size();
     node.m_outputs.append(&output_socket);
     node.m_output_names.append(m_allocator.copy_string(output_names[i]));
-    m_socket_by_id.append(&output_socket);
-    m_output_sockets.append(&output_socket);
   }
-
-  m_dummy_nodes.append(&node);
-  m_node_by_id.append(&node);
   return node;
 }
 
@@ -170,7 +160,11 @@ std::string MFNetworkBuilder::to_dot(const Set<MFBuilderNode *> &marked_nodes)
   digraph.set_rankdir(BLI::DotExport::Attr_rankdir::LeftToRight);
   Map<MFBuilderNode *, NodeWithSocketsWrapper> dot_nodes;
 
-  for (MFBuilderNode *node : m_node_by_id) {
+  Vector<MFBuilderNode *> all_nodes;
+  all_nodes.extend(m_function_nodes.as_ref().cast<MFBuilderNode *>());
+  all_nodes.extend(m_dummy_nodes.as_ref().cast<MFBuilderNode *>());
+
+  for (MFBuilderNode *node : all_nodes) {
     auto &dot_node = digraph.new_node("");
 
     Vector<std::string> input_names;
@@ -193,7 +187,7 @@ std::string MFNetworkBuilder::to_dot(const Set<MFBuilderNode *> &marked_nodes)
                       NodeWithSocketsWrapper(dot_node, node->name(), input_names, output_names));
   }
 
-  for (MFBuilderNode *to_node : m_node_by_id) {
+  for (MFBuilderNode *to_node : all_nodes) {
     auto to_dot_node = dot_nodes.lookup(to_node);
 
     for (MFBuilderInputSocket *to_socket : to_node->inputs()) {
@@ -223,14 +217,14 @@ void MFNetworkBuilder::to_dot__clipboard(const Set<MFBuilderNode *> &marked_node
 
 MFNetwork::MFNetwork(MFNetworkBuilder &builder)
 {
-  m_node_by_id = Array<MFNode *>(builder.nodes_by_id().size());
-  m_socket_by_id = Array<MFSocket *>(builder.sockets_by_id().size());
+  ArrayRef<MFBuilderFunctionNode *> builder_function_nodes = builder.function_nodes();
+  ArrayRef<MFBuilderDummyNode *> builder_dummy_nodes = builder.dummy_nodes();
 
-  for (MFBuilderFunctionNode *builder_node : builder.function_nodes()) {
+  for (MFBuilderFunctionNode *builder_node : builder_function_nodes) {
     MFFunctionNode &node = *m_allocator.construct<MFFunctionNode>().release();
 
     node.m_function = &builder_node->function();
-    node.m_id = builder_node->id();
+    node.m_id = m_node_by_id.append_and_get_index(&node);
     node.m_input_param_indices = builder_node->input_param_indices();
     node.m_output_param_indices = builder_node->output_param_indices();
     node.m_network = this;
@@ -238,86 +232,114 @@ MFNetwork::MFNetwork(MFNetworkBuilder &builder)
 
     for (MFBuilderInputSocket *builder_socket : builder_node->inputs()) {
       MFInputSocket &socket = *m_allocator.construct<MFInputSocket>().release();
-      socket.m_id = builder_socket->id();
+      socket.m_id = m_socket_by_id.append_and_get_index(&socket);
       socket.m_index = builder_socket->index();
       socket.m_is_output = false;
       socket.m_node = &node;
       socket.m_data_type = builder_socket->data_type();
 
-      m_socket_by_id[socket.id()] = &socket;
       m_input_sockets.append(&socket);
       node.m_inputs.append(&socket);
     }
     for (MFBuilderOutputSocket *builder_socket : builder_node->outputs()) {
       MFOutputSocket &socket = *m_allocator.construct<MFOutputSocket>().release();
-      socket.m_id = builder_socket->id();
+      socket.m_id = m_socket_by_id.append_and_get_index(&socket);
       socket.m_index = builder_socket->index();
       socket.m_is_output = true;
       socket.m_node = &node;
       socket.m_data_type = builder_socket->data_type();
 
-      m_socket_by_id[socket.id()] = &socket;
       m_output_sockets.append(&socket);
       node.m_outputs.append(&socket);
     }
 
     m_function_nodes.append(&node);
-    m_node_by_id[node.id()] = &node;
   }
 
-  for (MFBuilderDummyNode *builder_node : builder.dummy_nodes()) {
+  for (MFBuilderDummyNode *builder_node : builder_dummy_nodes) {
     MFDummyNode &node = *m_allocator.construct<MFDummyNode>().release();
 
-    node.m_id = builder_node->id();
+    node.m_id = m_node_by_id.append_and_get_index(&node);
     node.m_network = this;
     node.m_is_dummy = true;
 
     for (MFBuilderInputSocket *builder_socket : builder_node->inputs()) {
       MFInputSocket &socket = *m_allocator.construct<MFInputSocket>().release();
-      socket.m_id = builder_socket->id();
+      socket.m_id = m_socket_by_id.append_and_get_index(&socket);
       socket.m_index = builder_socket->index();
       socket.m_is_output = false;
       socket.m_node = &node;
       socket.m_data_type = builder_socket->data_type();
 
-      m_socket_by_id[socket.id()] = &socket;
       m_input_sockets.append(&socket);
       node.m_inputs.append(&socket);
       node.m_input_names.append(m_allocator.copy_string(builder_socket->name()));
     }
     for (MFBuilderOutputSocket *builder_socket : builder_node->outputs()) {
       MFOutputSocket &socket = *m_allocator.construct<MFOutputSocket>().release();
-      socket.m_id = builder_socket->id();
+      socket.m_id = m_socket_by_id.append_and_get_index(&socket);
       socket.m_index = builder_socket->index();
       socket.m_is_output = true;
       socket.m_node = &node;
       socket.m_data_type = builder_socket->data_type();
 
-      m_socket_by_id[socket.id()] = &socket;
       m_output_sockets.append(&socket);
       node.m_outputs.append(&socket);
       node.m_output_names.append(m_allocator.copy_string(builder_socket->name()));
     }
 
     m_dummy_nodes.append(&node);
-    m_node_by_id[node.id()] = &node;
   }
 
-  for (MFBuilderInputSocket *builder_socket : builder.input_sockets()) {
-    MFInputSocket &socket = m_socket_by_id[builder_socket->id()]->as_input();
-    MFOutputSocket &origin = m_socket_by_id[builder_socket->origin()->id()]->as_output();
+  for (uint node_index : builder_function_nodes.index_range()) {
+    MFFunctionNode *to_node = m_function_nodes[node_index];
+    MFBuilderFunctionNode *to_builder_node = builder_function_nodes[node_index];
+    this->create_links_to_node(builder, to_node, to_builder_node);
+  }
+  for (uint node_index : builder.dummy_nodes().index_range()) {
+    MFDummyNode *to_node = m_dummy_nodes[node_index];
+    MFBuilderDummyNode *to_builder_node = builder_dummy_nodes[node_index];
+    this->create_links_to_node(builder, to_node, to_builder_node);
+  }
+}
 
-    socket.m_origin = &origin;
+void MFNetwork::create_links_to_node(MFNetworkBuilder &builder,
+                                     MFNode *to_node,
+                                     MFBuilderNode *to_builder_node)
+{
+  for (uint socket_index : to_builder_node->inputs().index_range()) {
+    MFInputSocket *to_socket = to_node->m_inputs[socket_index];
+    MFBuilderInputSocket *to_builder_socket = &to_builder_node->input(socket_index);
+    this->create_link_to_socket(builder, to_socket, to_builder_socket);
+  }
+}
+
+void MFNetwork::create_link_to_socket(MFNetworkBuilder &builder,
+                                      MFInputSocket *to_socket,
+                                      MFBuilderInputSocket *to_builder_socket)
+{
+  BLI_assert(to_socket->m_origin == nullptr);
+
+  MFBuilderOutputSocket *from_builder_socket = to_builder_socket->origin();
+  BLI_assert(from_builder_socket != nullptr);
+
+  MFBuilderNode *from_builder_node = &from_builder_socket->node();
+
+  MFNode *from_node = nullptr;
+  if (from_builder_node->is_dummy()) {
+    uint dummy_node_index = builder.current_index_of(from_builder_node->as_dummy());
+    from_node = m_dummy_nodes[dummy_node_index];
+  }
+  else {
+    uint function_node_index = builder.current_index_of(from_builder_node->as_function());
+    from_node = m_function_nodes[function_node_index];
   }
 
-  for (MFBuilderOutputSocket *builder_socket : builder.output_sockets()) {
-    MFOutputSocket &socket = m_socket_by_id[builder_socket->id()]->as_output();
+  uint from_index = from_builder_socket->index();
+  MFOutputSocket *from_socket = from_node->m_outputs[from_index];
 
-    for (MFBuilderInputSocket *builder_target : builder_socket->targets()) {
-      MFInputSocket &target = m_socket_by_id[builder_target->id()]->as_input();
-      socket.m_targets.append(&target);
-    }
-  }
+  from_socket->m_targets.append(to_socket);
+  to_socket->m_origin = from_socket;
 }
 
 MFNetwork::~MFNetwork()

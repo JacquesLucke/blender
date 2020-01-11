@@ -206,9 +206,10 @@ static bool insert_unlinked_inputs(CommonBuilderData &common)
   return true;
 }
 
-static std::unique_ptr<FunctionTreeMFNetwork> build(const FunctionTree &function_tree,
-                                                    MFNetworkBuilder &network_builder,
-                                                    ArrayRef<std::pair<uint, uint>> dummy_mappings)
+static std::unique_ptr<FunctionTreeMFNetwork> build(
+    const FunctionTree &function_tree,
+    MFNetworkBuilder &network_builder,
+    Map<const FSocket *, MFBuilderSocket *> &dummy_socket_mapping)
 {
   // network_builder->to_dot__clipboard();
 
@@ -217,13 +218,19 @@ static std::unique_ptr<FunctionTreeMFNetwork> build(const FunctionTree &function
   IndexToRefMap<const MFSocket> dummy_socket_by_fsocket_id(function_tree.socket_count());
   IndexToRefMap<const FSocket> fsocket_by_dummy_socket_id(network->socket_ids().size());
 
-  for (auto pair : dummy_mappings) {
-    const FSocket &fsocket = function_tree.socket_by_id(pair.first);
-    const MFSocket &socket = network->socket_by_id(pair.second);
-
-    dummy_socket_by_fsocket_id.add_new(pair.first, socket);
-    fsocket_by_dummy_socket_id.add_new(pair.second, fsocket);
-  }
+  dummy_socket_mapping.foreach_item([&](const FSocket *fsocket, MFBuilderSocket *builder_socket) {
+    uint node_index = network_builder.current_index_of(builder_socket->node().as_dummy());
+    const MFDummyNode *node = network->dummy_nodes()[node_index];
+    const MFSocket *socket = nullptr;
+    if (builder_socket->is_input()) {
+      socket = &node->input(builder_socket->index());
+    }
+    else {
+      socket = &node->output(builder_socket->index());
+    }
+    dummy_socket_by_fsocket_id.add_new(fsocket->id(), *socket);
+    fsocket_by_dummy_socket_id.add_new(socket->id(), *fsocket);
+  });
 
   DummySocketMap socket_map(function_tree,
                             *network,
@@ -240,12 +247,18 @@ std::unique_ptr<FunctionTreeMFNetwork> generate_node_tree_multi_function_network
   const FunctionTreeMFMappings &mappings = get_function_tree_multi_function_mappings();
   FSocketDataTypes fsocket_data_types{function_tree};
   MFSocketByFSocketMapping socket_map{function_tree};
+  Map<const FSocket *, MFBuilderSocket *> dummy_socket_mapping;
   MFNetworkBuilder network_builder;
 
   BLI_assert(check_if_data_links_are_valid(function_tree, mappings, fsocket_data_types));
 
-  CommonBuilderData common{
-      resources, mappings, fsocket_data_types, socket_map, network_builder, function_tree};
+  CommonBuilderData common{resources,
+                           mappings,
+                           fsocket_data_types,
+                           socket_map,
+                           network_builder,
+                           function_tree,
+                           dummy_socket_mapping};
   if (!insert_nodes(common)) {
     BLI_assert(false);
   }
@@ -259,10 +272,8 @@ std::unique_ptr<FunctionTreeMFNetwork> generate_node_tree_multi_function_network
     BLI_assert(false);
   }
 
-  Vector<std::pair<uint, uint>> dummy_mappings = socket_map.get_dummy_mappings();
-
-  // optimize_network__constant_folding(network_builder, resources);
-  auto function_tree_network = build(function_tree, network_builder, dummy_mappings);
+  optimize_network__constant_folding(network_builder, resources);
+  auto function_tree_network = build(function_tree, network_builder, dummy_socket_mapping);
   return function_tree_network;
 }
 
