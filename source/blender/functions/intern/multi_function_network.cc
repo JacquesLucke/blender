@@ -200,6 +200,88 @@ void MFNetworkBuilder::remove_node(MFBuilderNode &node)
   }
 }
 
+void MFNetworkBuilder::remove_nodes(ArrayRef<MFBuilderNode *> nodes)
+{
+  for (MFBuilderNode *node : nodes) {
+    this->remove_node(*node);
+  }
+}
+
+static bool set_tag_and_check_if_modified(bool &tag, bool new_value)
+{
+  if (tag != new_value) {
+    tag = new_value;
+    return true;
+  }
+  else {
+    return false;
+  }
+}
+
+Vector<MFBuilderNode *> MFNetworkBuilder::find_nodes_whose_inputs_do_not_depend_on_these_nodes(
+    ArrayRef<MFBuilderNode *> nodes)
+{
+  Array<bool> depends_on_nodes_tag(this->node_id_amount(), false);
+
+  for (MFBuilderNode *node : nodes) {
+    depends_on_nodes_tag[node->id()] = true;
+  }
+
+  Stack<MFBuilderNode *> nodes_to_check = nodes;
+  while (!nodes_to_check.is_empty()) {
+    MFBuilderNode &node = *nodes_to_check.pop();
+
+    if (depends_on_nodes_tag[node.id()]) {
+      node.foreach_target_node([&](MFBuilderNode &other_node) {
+        if (set_tag_and_check_if_modified(depends_on_nodes_tag[other_node.id()], true)) {
+          nodes_to_check.push(&other_node);
+        }
+      });
+    }
+  }
+
+  Vector<MFBuilderNode *> result;
+  for (uint id : m_node_or_null_by_id.index_range()) {
+    MFBuilderNode *node = m_node_or_null_by_id[id];
+    if (node != nullptr && !depends_on_nodes_tag[id]) {
+      result.append(node);
+    }
+  }
+  return result;
+}
+
+Vector<MFBuilderNode *> MFNetworkBuilder::find_nodes_none_of_these_nodes_depends_on(
+    ArrayRef<MFBuilderNode *> nodes)
+{
+  Array<bool> is_dependency_tag(this->node_id_amount(), false);
+
+  for (MFBuilderNode *node : nodes) {
+    is_dependency_tag[node->id()] = true;
+  }
+
+  Stack<MFBuilderNode *> nodes_to_check = nodes;
+  while (!nodes_to_check.is_empty()) {
+    MFBuilderNode &node = *nodes_to_check.pop();
+
+    if (is_dependency_tag[node.id()]) {
+      node.foreach_origin_node([&](MFBuilderNode &other_node) {
+        if (set_tag_and_check_if_modified(is_dependency_tag[other_node.id()], true)) {
+          nodes_to_check.push(&other_node);
+        }
+      });
+    }
+  }
+
+  Vector<MFBuilderNode *> result;
+  for (uint id : m_node_or_null_by_id.index_range()) {
+    MFBuilderNode *node = m_node_or_null_by_id[id];
+    if (node != nullptr && !is_dependency_tag[id]) {
+      result.append(node);
+    }
+  }
+  return result;
+}
+
 std::string MFNetworkBuilder::to_dot(const Set<MFBuilderNode *> &marked_nodes)
 {
   using BLI::DotExport::Utils::NodeWithSocketsWrapper;

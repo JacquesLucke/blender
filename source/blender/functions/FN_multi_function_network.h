@@ -160,6 +160,12 @@ class MFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
   void add_link(MFBuilderOutputSocket &from, MFBuilderInputSocket &to);
   void remove_link(MFBuilderOutputSocket &from, MFBuilderInputSocket &to);
   void remove_node(MFBuilderNode &node);
+  void remove_nodes(ArrayRef<MFBuilderNode *> nodes);
+
+  Vector<MFBuilderNode *> find_nodes_whose_inputs_do_not_depend_on_these_nodes(
+      ArrayRef<MFBuilderNode *> nodes);
+  Vector<MFBuilderNode *> find_nodes_none_of_these_nodes_depends_on(
+      ArrayRef<MFBuilderNode *> nodes);
 
   uint current_index_of(MFBuilderFunctionNode &node) const
   {

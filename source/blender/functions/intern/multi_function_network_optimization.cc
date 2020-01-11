@@ -8,37 +8,12 @@ namespace FN {
 
 using BLI::Stack;
 
-void optimize_network__remove_unused_nodes(MFNetworkBuilder &network_builder,
-                                           ArrayRef<MFBuilderNode *> fixed_nodes)
+void optimize_network__remove_unused_nodes(MFNetworkBuilder &network_builder)
 {
-  Array<bool> unused_tag_per_id(network_builder.node_id_amount(), false);
-
-  for (MFBuilderNode *fixed_node : fixed_nodes) {
-    unused_tag_per_id[fixed_node->id()] = true;
-  }
-
-  Stack<MFBuilderNode *> nodes_to_check = fixed_nodes;
-  while (!nodes_to_check.is_empty()) {
-    MFBuilderNode &current_node = *nodes_to_check.pop();
-    if (!unused_tag_per_id[current_node.id()]) {
-      continue;
-    }
-
-    current_node.foreach_origin_node([&](MFBuilderNode &other_node) {
-      bool &other_is_connected = unused_tag_per_id[other_node.id()];
-      if (!other_is_connected) {
-        other_is_connected = true;
-        nodes_to_check.push(&other_node);
-      }
-    });
-  }
-
-  for (uint id : unused_tag_per_id.index_range()) {
-    if (network_builder.node_id_is_valid(id) && !unused_tag_per_id[id]) {
-      MFBuilderNode &node = network_builder.node_by_id(id);
-      network_builder.remove_node(node);
-    }
-  }
+  ArrayRef<MFBuilderNode *> dummy_nodes = network_builder.dummy_nodes();
+  Vector<MFBuilderNode *> nodes = network_builder.find_nodes_none_of_these_nodes_depends_on(
+      dummy_nodes);
+  network_builder.remove_nodes(nodes);
 }
 
 void optimize_network__constant_folding(MFNetworkBuilder &network_builder,
