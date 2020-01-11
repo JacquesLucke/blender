@@ -190,8 +190,8 @@ class MFNetwork;
 class MFNode : BLI::NonCopyable, BLI::NonMovable {
  private:
   MFNetwork *m_network;
-  Vector<MFInputSocket *> m_inputs;
-  Vector<MFOutputSocket *> m_outputs;
+  ArrayRef<MFInputSocket *> m_inputs;
+  ArrayRef<MFOutputSocket *> m_outputs;
   bool m_is_dummy;
   uint m_id;
 
@@ -220,8 +220,8 @@ class MFNode : BLI::NonCopyable, BLI::NonMovable {
 class MFFunctionNode final : public MFNode {
  private:
   const MultiFunction *m_function;
-  Vector<uint> m_input_param_indices;
-  Vector<uint> m_output_param_indices;
+  ArrayRef<uint> m_input_param_indices;
+  ArrayRef<uint> m_output_param_indices;
 
   friend MFNetwork;
 
@@ -238,8 +238,8 @@ class MFFunctionNode final : public MFNode {
 class MFDummyNode final : public MFNode {
  private:
   StringRefNull m_name;
-  Vector<StringRefNull> m_input_names;
-  Vector<StringRefNull> m_output_names;
+  MutableArrayRef<StringRefNull> m_input_names;
+  MutableArrayRef<StringRefNull> m_output_names;
 
   friend MFNetwork;
 };
@@ -493,12 +493,12 @@ inline const MFNetwork &MFNode::network() const
 
 inline ArrayRef<const MFInputSocket *> MFNode::inputs() const
 {
-  return m_inputs.as_ref();
+  return m_inputs;
 }
 
 inline ArrayRef<const MFOutputSocket *> MFNode::outputs() const
 {
-  return m_outputs.as_ref();
+  return m_outputs;
 }
 
 inline const MFInputSocket &MFNode::input(uint index) const
@@ -565,12 +565,12 @@ inline ArrayRef<uint> MFFunctionNode::output_param_indices() const
 
 inline const MFInputSocket &MFFunctionNode::input_for_param(uint param_index) const
 {
-  return this->input(m_input_param_indices.index(param_index));
+  return this->input(m_input_param_indices.first_index(param_index));
 }
 
 inline const MFOutputSocket &MFFunctionNode::output_for_param(uint param_index) const
 {
-  return this->output(m_output_param_indices.index(param_index));
+  return this->output(m_output_param_indices.first_index(param_index));
 }
 
 inline const MFNode &MFSocket::node() const

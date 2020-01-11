@@ -122,7 +122,7 @@ class MonotonicAllocator : NonCopyable, NonMovable {
     return pointers;
   }
 
-  template<typename T> MutableArrayRef<T> allocate_array_copy(ArrayRef<T> source)
+  template<typename T> MutableArrayRef<T> construct_array_copy(ArrayRef<T> source)
   {
     T *buffer = (T *)this->allocate(source.byte_size(), alignof(T));
     source.copy_to(buffer);
