@@ -53,7 +53,6 @@ class GuardedAllocator {
 
   void *allocate_aligned(uint size, uint alignment, const char *name)
   {
-    alignment = std::max<uint>(alignment, 8);
     return MEM_mallocN_aligned(size, alignment, name);
   }
 
