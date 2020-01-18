@@ -11,7 +11,7 @@ using BLI::Stack;
 void optimize_network__remove_unused_nodes(MFNetworkBuilder &network_builder)
 {
   ArrayRef<MFBuilderNode *> dummy_nodes = network_builder.dummy_nodes();
-  Vector<MFBuilderNode *> nodes = network_builder.find_nodes_none_of_these_nodes_depends_on(
+  Vector<MFBuilderNode *> nodes = network_builder.find_nodes_not_to_the_left_of__exclusive__vector(
       dummy_nodes);
   network_builder.remove_nodes(nodes);
 }

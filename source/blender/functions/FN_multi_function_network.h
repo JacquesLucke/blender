@@ -162,9 +162,9 @@ class MFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
   void remove_node(MFBuilderNode &node);
   void remove_nodes(ArrayRef<MFBuilderNode *> nodes);
 
-  Vector<MFBuilderNode *> find_nodes_whose_inputs_do_not_depend_on_these_nodes(
-      ArrayRef<MFBuilderNode *> nodes);
-  Vector<MFBuilderNode *> find_nodes_none_of_these_nodes_depends_on(
+  Array<bool> find_nodes_to_the_right_of__inclusive__mask(ArrayRef<MFBuilderNode *> nodes);
+  Array<bool> find_nodes_to_the_left_of__inclusive__mask(ArrayRef<MFBuilderNode *> nodes);
+  Vector<MFBuilderNode *> find_nodes_not_to_the_left_of__exclusive__vector(
       ArrayRef<MFBuilderNode *> nodes);
 
   uint current_index_of(MFBuilderFunctionNode &node) const

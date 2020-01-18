@@ -218,67 +218,71 @@ static bool set_tag_and_check_if_modified(bool &tag, bool new_value)
   }
 }
 
-Vector<MFBuilderNode *> MFNetworkBuilder::find_nodes_whose_inputs_do_not_depend_on_these_nodes(
+Array<bool> MFNetworkBuilder::find_nodes_to_the_right_of__inclusive__mask(
     ArrayRef<MFBuilderNode *> nodes)
 {
-  Array<bool> depends_on_nodes_tag(this->node_id_amount(), false);
+  Array<bool> is_to_the_right(this->node_id_amount(), false);
 
   for (MFBuilderNode *node : nodes) {
-    depends_on_nodes_tag[node->id()] = true;
+    is_to_the_right[node->id()] = true;
   }
 
   Stack<MFBuilderNode *> nodes_to_check = nodes;
   while (!nodes_to_check.is_empty()) {
     MFBuilderNode &node = *nodes_to_check.pop();
 
-    if (depends_on_nodes_tag[node.id()]) {
+    if (is_to_the_right[node.id()]) {
       node.foreach_target_node([&](MFBuilderNode &other_node) {
-        if (set_tag_and_check_if_modified(depends_on_nodes_tag[other_node.id()], true)) {
+        if (set_tag_and_check_if_modified(is_to_the_right[other_node.id()], true)) {
           nodes_to_check.push(&other_node);
         }
       });
     }
   }
 
-  Vector<MFBuilderNode *> result;
-  for (uint id : m_node_or_null_by_id.index_range()) {
-    MFBuilderNode *node = m_node_or_null_by_id[id];
-    if (node != nullptr && !depends_on_nodes_tag[id]) {
-      result.append(node);
-    }
-  }
-  return result;
+  return is_to_the_right;
 }
 
-Vector<MFBuilderNode *> MFNetworkBuilder::find_nodes_none_of_these_nodes_depends_on(
+Array<bool> MFNetworkBuilder::find_nodes_to_the_left_of__inclusive__mask(
     ArrayRef<MFBuilderNode *> nodes)
 {
-  Array<bool> is_dependency_tag(this->node_id_amount(), false);
+  Array<bool> is_to_the_left(this->node_id_amount(), false);
 
   for (MFBuilderNode *node : nodes) {
-    is_dependency_tag[node->id()] = true;
+    is_to_the_left[node->id()] = true;
   }
 
   Stack<MFBuilderNode *> nodes_to_check = nodes;
   while (!nodes_to_check.is_empty()) {
     MFBuilderNode &node = *nodes_to_check.pop();
 
-    if (is_dependency_tag[node.id()]) {
+    if (is_to_the_left[node.id()]) {
       node.foreach_origin_node([&](MFBuilderNode &other_node) {
-        if (set_tag_and_check_if_modified(is_dependency_tag[other_node.id()], true)) {
+        if (set_tag_and_check_if_modified(is_to_the_left[other_node.id()], true)) {
           nodes_to_check.push(&other_node);
         }
       });
     }
   }
 
+  return is_to_the_left;
+}
+
+Vector<MFBuilderNode *> MFNetworkBuilder::find_nodes_not_to_the_left_of__exclusive__vector(
+    ArrayRef<MFBuilderNode *> nodes)
+{
+  Array<bool> is_to_the_left = this->find_nodes_to_the_left_of__inclusive__mask(nodes);
+
   Vector<MFBuilderNode *> result;
-  for (uint id : m_node_or_null_by_id.index_range()) {
-    MFBuilderNode *node = m_node_or_null_by_id[id];
-    if (node != nullptr && !is_dependency_tag[id]) {
-      result.append(node);
+  for (uint id : is_to_the_left.index_range()) {
+    if (this->node_id_is_valid(id)) {
+      if (!is_to_the_left[id]) {
+        MFBuilderNode &node = this->node_by_id(id);
+        result.append(&node);
+      }
     }
   }
+
   return result;
 }
 
