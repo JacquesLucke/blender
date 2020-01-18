@@ -167,6 +167,8 @@ class MFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
   Vector<MFBuilderNode *> find_nodes_not_to_the_left_of__exclusive__vector(
       ArrayRef<MFBuilderNode *> nodes);
 
+  Vector<MFBuilderNode *> nodes_by_id_inverted_id_mask(ArrayRef<bool> id_mask);
+
   uint current_index_of(MFBuilderFunctionNode &node) const
   {
     return m_function_nodes.index(&node);

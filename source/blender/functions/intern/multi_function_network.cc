@@ -268,21 +268,25 @@ Array<bool> MFNetworkBuilder::find_nodes_to_the_left_of__inclusive__mask(
   return is_to_the_left;
 }
 
+Vector<MFBuilderNode *> MFNetworkBuilder::nodes_by_id_inverted_id_mask(ArrayRef<bool> id_mask)
+{
+  Vector<MFBuilderNode *> nodes;
+  for (uint id : id_mask.index_range()) {
+    if (this->node_id_is_valid(id)) {
+      if (!id_mask[id]) {
+        MFBuilderNode &node = this->node_by_id(id);
+        nodes.append(&node);
+      }
+    }
+  }
+  return nodes;
+}
+
 Vector<MFBuilderNode *> MFNetworkBuilder::find_nodes_not_to_the_left_of__exclusive__vector(
     ArrayRef<MFBuilderNode *> nodes)
 {
   Array<bool> is_to_the_left = this->find_nodes_to_the_left_of__inclusive__mask(nodes);
-
-  Vector<MFBuilderNode *> result;
-  for (uint id : is_to_the_left.index_range()) {
-    if (this->node_id_is_valid(id)) {
-      if (!is_to_the_left[id]) {
-        MFBuilderNode &node = this->node_by_id(id);
-        result.append(&node);
-      }
-    }
-  }
-
+  Vector<MFBuilderNode *> result = this->nodes_by_id_inverted_id_mask(is_to_the_left);
   return result;
 }
 
@@ -311,7 +315,7 @@ std::string MFNetworkBuilder::to_dot(const Set<MFBuilderNode *> &marked_nodes)
     }
 
     if (node->is_dummy()) {
-      dot_node.set_background_color("#EEEEFF");
+      dot_node.set_background_color("#DDDDFF");
     }
     if (marked_nodes.contains(node)) {
       dot_node.set_background_color("#99EE99");

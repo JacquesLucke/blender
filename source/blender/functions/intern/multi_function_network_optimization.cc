@@ -19,60 +19,22 @@ void optimize_network__remove_unused_nodes(MFNetworkBuilder &network_builder)
 void optimize_network__constant_folding(MFNetworkBuilder &network_builder,
                                         ResourceCollector &resources)
 {
-  Array<bool> function_node_is_constant(network_builder.function_nodes().size(), true);
-
-  Stack<MFBuilderNode *> nodes_to_check;
-  nodes_to_check.push_multiple(network_builder.dummy_nodes());
-  nodes_to_check.push_multiple(network_builder.function_nodes());
-
-  while (!nodes_to_check.is_empty()) {
-    MFBuilderNode &current_node = *nodes_to_check.pop();
-
-    bool is_const = true;
-    if (current_node.is_dummy()) {
-      is_const = false;
-    }
-    else {
-      MFBuilderFunctionNode &function_node = current_node.as_function();
-      uint function_node_index = network_builder.current_index_of(function_node);
-      if (!function_node_is_constant[function_node_index]) {
-        is_const = false;
-      }
-      else {
-        const MultiFunction &fn = function_node.function();
-        if (fn.depends_on_context()) {
-          is_const = false;
-          function_node_is_constant[function_node_index] = false;
-        }
-      }
-    }
-
-    if (!is_const) {
-      current_node.foreach_target_socket([&](MFBuilderInputSocket &target_socket) {
-        MFBuilderNode &target_node = target_socket.node();
-        if (target_node.is_function()) {
-          bool &target_is_const = function_node_is_constant[network_builder.current_index_of(
-              target_node.as_function())];
-          if (target_is_const) {
-            target_is_const = false;
-            nodes_to_check.push(&target_node);
-          }
-        }
-      });
+  Vector<MFBuilderNode *> non_constant_nodes;
+  non_constant_nodes.extend(network_builder.dummy_nodes());
+  for (MFBuilderFunctionNode *node : network_builder.function_nodes()) {
+    if (node->function().depends_on_context()) {
+      non_constant_nodes.append(node);
     }
   }
 
-  Set<MFBuilderFunctionNode *> constant_nodes;
-  for (uint i : function_node_is_constant.index_range()) {
-    if (function_node_is_constant[i]) {
-      constant_nodes.add_new(network_builder.function_nodes()[i]);
-    }
-  }
-  // network_builder.to_dot__clipboard(*(Set<MFBuilderNode *> *)&constant_nodes);
+  Array<bool> node_is_not_constant = network_builder.find_nodes_to_the_right_of__inclusive__mask(
+      non_constant_nodes);
+  Vector<MFBuilderNode *> constant_builder_nodes = network_builder.nodes_by_id_inverted_id_mask(
+      node_is_not_constant);
+  // network_builder.to_dot__clipboard(constant_builder_nodes.as_ref());
 
-  Vector<MFBuilderOutputSocket *> builder_sockets_to_compute;
   Vector<MFBuilderDummyNode *> dummy_nodes_to_compute;
-  for (MFBuilderNode *node : constant_nodes) {
+  for (MFBuilderNode *node : constant_builder_nodes) {
     if (node->inputs().size() == 0) {
       continue;
     }
@@ -82,21 +44,15 @@ void optimize_network__constant_folding(MFNetworkBuilder &network_builder,
 
       for (MFBuilderInputSocket *target_socket : output_socket->targets()) {
         MFBuilderNode &target_node = target_socket->node();
-        if (target_node.is_dummy()) {
+        if (!node_is_not_constant[target_node.id()]) {
           continue;
         }
 
-        MFBuilderFunctionNode &target_function_node = target_node.as_function();
-        uint target_node_index = network_builder.current_index_of(target_function_node);
-
-        if (!function_node_is_constant[target_node_index]) {
-          MFBuilderDummyNode &dummy_node = network_builder.add_dummy(
-              "Dummy", {data_type}, {}, {"Value"}, {});
-          network_builder.add_link(*output_socket, dummy_node.input(0));
-          dummy_nodes_to_compute.append(&dummy_node);
-          builder_sockets_to_compute.append(output_socket);
-          break;
-        }
+        MFBuilderDummyNode &dummy_node = network_builder.add_dummy(
+            "Dummy", {data_type}, {}, {"Value"}, {});
+        network_builder.add_link(*output_socket, dummy_node.input(0));
+        dummy_nodes_to_compute.append(&dummy_node);
+        break;
       }
     }
   }
@@ -172,24 +128,12 @@ void optimize_network__constant_folding(MFNetworkBuilder &network_builder,
 
     MFBuilderFunctionNode &folded_node = network_builder.add_function(*constant_fn);
 
-    MFBuilderOutputSocket &original_socket = *builder_sockets_to_compute[param_index];
-    Vector<MFBuilderInputSocket *> targets = original_socket.targets();
+    MFBuilderOutputSocket &original_socket =
+        *dummy_nodes_to_compute[param_index]->input(0).origin();
 
-    for (MFBuilderInputSocket *target : targets) {
+    for (MFBuilderInputSocket *target : original_socket.targets()) {
       network_builder.remove_link(original_socket, *target);
       network_builder.add_link(folded_node.output(0), *target);
-    }
-  }
-
-  Vector<MFBuilderFunctionNode *> inner_constant_nodes;
-  Vector<MFBuilderFunctionNode *> left_most_constant_nodes;
-
-  for (MFBuilderFunctionNode *constant_node : constant_nodes) {
-    if (constant_node->inputs().size() > 0) {
-      inner_constant_nodes.append(constant_node);
-    }
-    else {
-      left_most_constant_nodes.append(constant_node);
     }
   }
 
