@@ -4,6 +4,8 @@
 
 #include <sstream>
 
+#include "BLI_hash.h"
+
 namespace FN {
 
 /**
@@ -44,6 +46,19 @@ template<typename T> class MF_ConstantValue : public MultiFunction {
     std::stringstream ss;
     MF_GenericConstantValue::value_to_string(ss, CPP_TYPE<T>(), (const void *)&m_value);
     signature.single_output<T>(ss.str());
+
+    if (CPP_TYPE<T>() == CPP_TYPE<float>()) {
+      uint32_t hash = BLI_hash_int(*(uint *)&m_value);
+      signature.operation_hash(hash);
+    }
+    else if (CPP_TYPE<T>() == CPP_TYPE<int>()) {
+      uint32_t hash = BLI_hash_int(*(uint *)&m_value);
+      signature.operation_hash(hash);
+    }
+    else if (CPP_TYPE<T>() == CPP_TYPE<std::string>()) {
+      uint32_t hash = BLI_hash_string(((std::string *)&m_value)->c_str());
+      signature.operation_hash(hash);
+    }
   }
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override

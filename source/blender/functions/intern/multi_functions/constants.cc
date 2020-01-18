@@ -33,6 +33,11 @@ MF_GenericConstantValue::MF_GenericConstantValue(const CPPType &type, const void
   std::stringstream ss;
   MF_GenericConstantValue::value_to_string(ss, type, value);
   signature.single_output(ss.str(), type);
+
+  if (type == CPP_TYPE<float>()) {
+    uint32_t hash = *(uint32_t *)value;
+    signature.operation_hash(hash);
+  }
 }
 
 void MF_GenericConstantValue::call(IndexMask mask,

@@ -175,6 +175,7 @@ void MF_FloatArraySum::call(IndexMask mask, MFParams params, MFContext UNUSED(co
 MF_FloatRange_Amount_Start_Step::MF_FloatRange_Amount_Start_Step()
 {
   MFSignatureBuilder signature = this->get_builder("Float Range");
+  signature.constant_operation_hash();
   signature.single_input<int>("Amount");
   signature.single_input<float>("Start");
   signature.single_input<float>("Step");
@@ -207,6 +208,7 @@ void MF_FloatRange_Amount_Start_Step::call(IndexMask mask,
 MF_FloatRange_Amount_Start_Stop::MF_FloatRange_Amount_Start_Stop()
 {
   MFSignatureBuilder signature = this->get_builder("Float Range");
+  signature.constant_operation_hash();
   signature.single_input<int>("Amount");
   signature.single_input<float>("Start");
   signature.single_input<float>("Stop");
