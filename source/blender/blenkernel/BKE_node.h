@@ -549,7 +549,8 @@ void nodeRemoveNode(struct Main *bmain,
 
 struct bNode *BKE_node_copy_ex(struct bNodeTree *ntree,
                                const struct bNode *node_src,
-                               const int flag);
+                               const int flag,
+                               const bool unique_name);
 
 /* Same as BKE_node_copy_ex() but stores pointers to a new node and its sockets in the source
  * node.
