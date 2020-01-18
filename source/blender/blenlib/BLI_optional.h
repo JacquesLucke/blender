@@ -146,6 +146,20 @@ template<typename T> class Optional {
     }
   }
 
+  void set_new(const T &value)
+  {
+    BLI_assert(!m_set);
+    new (this->value_ptr()) T(value);
+    m_set = true;
+  }
+
+  void set_new(T &&value)
+  {
+    BLI_assert(!m_set);
+    new (this->value_ptr()) T(std::move(value));
+    m_set = true;
+  }
+
   void reset()
   {
     if (m_set) {
