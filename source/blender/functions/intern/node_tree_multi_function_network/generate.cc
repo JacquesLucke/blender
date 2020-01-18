@@ -271,6 +271,7 @@ std::unique_ptr<FunctionTreeMFNetwork> generate_node_tree_multi_function_network
   }
 
   optimize_network__constant_folding(network_builder, resources);
+  optimize_network__remove_duplicates(network_builder);
   optimize_network__remove_unused_nodes(network_builder);
   network_builder.to_dot__clipboard();
   auto function_tree_network = build(function_tree, network_builder, dummy_socket_mapping);

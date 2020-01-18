@@ -3,10 +3,103 @@
 #include "FN_multi_functions.h"
 
 #include "BLI_stack_cxx.h"
+#include "BLI_multi_map.h"
+#include "BLI_rand.h"
 
 namespace FN {
 
+using BLI::MultiMap;
 using BLI::Stack;
+
+void optimize_network__remove_duplicates(MFNetworkBuilder &network_builder)
+{
+  Array<Optional<uint32_t>> hash_by_output_socket(network_builder.socket_id_amount());
+  Array<bool> node_outputs_are_hashed(network_builder.node_id_amount(), false);
+
+  RNG *rng = BLI_rng_new(0);
+
+  for (MFBuilderDummyNode *node : network_builder.dummy_nodes()) {
+    for (MFBuilderOutputSocket *output_socket : node->outputs()) {
+      uint32_t output_hash = BLI_rng_get_uint(rng);
+      hash_by_output_socket[output_socket->id()].set_new(output_hash);
+    }
+    node_outputs_are_hashed[node->id()] = true;
+  }
+
+  Stack<MFBuilderFunctionNode *> nodes_to_check = network_builder.function_nodes();
+  while (!nodes_to_check.is_empty()) {
+    MFBuilderFunctionNode &node = *nodes_to_check.peek();
+    if (node_outputs_are_hashed[node.id()]) {
+      nodes_to_check.pop();
+      continue;
+    }
+
+    bool all_dependencies_ready = true;
+    node.foreach_origin_node([&](MFBuilderNode &origin_node) {
+      if (!node_outputs_are_hashed[origin_node.id()]) {
+        all_dependencies_ready = false;
+        nodes_to_check.push(&origin_node.as_function());
+      }
+    });
+
+    if (!all_dependencies_ready) {
+      continue;
+    }
+
+    uint32_t combined_inputs_hash = 827823743;
+    for (MFBuilderInputSocket *input_socket : node.inputs()) {
+      MFBuilderOutputSocket *origin = input_socket->origin();
+      uint32_t input_hash;
+      if (origin == nullptr) {
+        input_hash = BLI_rng_get_uint(rng);
+      }
+      else {
+        input_hash = *hash_by_output_socket[origin->id()];
+      }
+
+      combined_inputs_hash = combined_inputs_hash * 456123 + input_hash;
+    }
+
+    Optional<uint32_t> maybe_operation_hash = node.function().operation_hash();
+    uint32_t operation_hash = (maybe_operation_hash.has_value()) ? *maybe_operation_hash :
+                                                                   BLI_rng_get_uint(rng);
+    uint32_t node_hash = combined_inputs_hash * 462347 + operation_hash;
+
+    for (MFBuilderOutputSocket *output_socket : node.outputs()) {
+      uint32_t output_hash = node_hash * (45234 + 567243 * output_socket->index());
+      hash_by_output_socket[output_socket->id()].set_new(output_hash);
+    }
+
+    nodes_to_check.pop();
+    node_outputs_are_hashed[node.id()] = true;
+  }
+
+  MultiMap<uint32_t, MFBuilderOutputSocket *> outputs_by_hash;
+  for (uint id : hash_by_output_socket.index_range()) {
+    Optional<uint32_t> maybe_hash = hash_by_output_socket[id];
+    if (maybe_hash.has_value()) {
+      uint32_t hash = *maybe_hash;
+      MFBuilderOutputSocket &socket = network_builder.socket_by_id(id).as_output();
+      outputs_by_hash.add(hash, &socket);
+    }
+  }
+
+  outputs_by_hash.foreach_item(
+      [&](uint32_t UNUSED(hash), ArrayRef<MFBuilderOutputSocket *> outputs_with_hash) {
+        if (outputs_with_hash.size() <= 1) {
+          return;
+        }
+
+        MFBuilderOutputSocket &deduplicated_output = *outputs_with_hash[0];
+        for (MFBuilderOutputSocket *socket : outputs_with_hash.drop_front(1)) {
+          for (MFBuilderInputSocket *target : socket->targets()) {
+            network_builder.relink_origin(deduplicated_output, *target);
+          }
+        }
+      });
+
+  BLI_rng_free(rng);
+}
 
 void optimize_network__remove_unused_nodes(MFNetworkBuilder &network_builder)
 {
@@ -132,8 +225,7 @@ void optimize_network__constant_folding(MFNetworkBuilder &network_builder,
         *dummy_nodes_to_compute[param_index]->input(0).origin();
 
     for (MFBuilderInputSocket *target : original_socket.targets()) {
-      network_builder.remove_link(original_socket, *target);
-      network_builder.add_link(folded_node.output(0), *target);
+      network_builder.relink_origin(folded_node.output(0), *target);
     }
   }
 
