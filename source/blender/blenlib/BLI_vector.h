@@ -476,8 +476,9 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
 
   void remove_first_occurrence_and_reorder(const T &value)
   {
-    uint index = this->index(value);
-    this->remove_and_reorder(index);
+    int index = this->index(value);
+    BLI_assert(index >= 0);
+    this->remove_and_reorder((uint)index);
   }
 
   /**
