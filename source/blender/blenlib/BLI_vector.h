@@ -476,8 +476,7 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
 
   void remove_first_occurrence_and_reorder(const T &value)
   {
-    int index = this->index(value);
-    BLI_assert(index >= 0);
+    uint index = this->index(value);
     this->remove_and_reorder((uint)index);
   }
 
@@ -485,7 +484,7 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
    * Do a linear search to find the value in the vector.
    * When found, return the first index, otherwise return -1.
    */
-  int index(const T &value) const
+  int index_try(const T &value) const
   {
     for (T *current = m_begin; current != m_end; current++) {
       if (*current == value) {
@@ -496,12 +495,23 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
   }
 
   /**
+   * Do a linear search to find the value in the vector.
+   * When found, return the first index, otherwise fail.
+   */
+  uint index(const T &value) const
+  {
+    int index = this->index_try(value);
+    BLI_assert(index >= 0);
+    return (uint)index;
+  }
+
+  /**
    * Do a linear search to see of the value is in the vector.
    * Return true when it exists, otherwise false.
    */
   bool contains(const T &value) const
   {
-    return this->index(value) != -1;
+    return this->index_try(value) != -1;
   }
 
   /**
