@@ -169,6 +169,15 @@ void MFNetworkBuilder::remove_link(MFBuilderOutputSocket &from, MFBuilderInputSo
   to.m_origin = nullptr;
 }
 
+void MFNetworkBuilder::relink_origin(MFBuilderOutputSocket &new_from, MFBuilderInputSocket &to)
+{
+  BLI_assert(to.m_origin != nullptr);
+  BLI_assert(to.m_origin != &new_from);
+  to.m_origin->m_targets.remove_first_occurrence_and_reorder(&to);
+  new_from.m_targets.append(&to);
+  to.m_origin = &new_from;
+}
+
 void MFNetworkBuilder::remove_node(MFBuilderNode &node)
 {
   for (MFBuilderInputSocket *input_socket : node.inputs()) {
