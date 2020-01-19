@@ -1,6 +1,7 @@
 #include "vectorize.h"
 
 #include "BLI_array_cxx.h"
+#include "BLI_rand_cxx.h"
 
 namespace FN {
 
@@ -49,6 +50,12 @@ MF_SimpleVectorize::MF_SimpleVectorize(const MultiFunction &function,
         break;
       }
     }
+  }
+
+  Optional<uint32_t> maybe_hash = function.operation_hash();
+  if (maybe_hash.has_value()) {
+    uint32_t vectorize_operation_hash = *maybe_hash * BLI_RAND_PER_LINE_UINT32;
+    signature.operation_hash(vectorize_operation_hash);
   }
 }
 
