@@ -65,6 +65,13 @@ template<typename T> class MF_ConstantValue : public MultiFunction {
       uint32_t hash = object_handle.internal_identifier() ^ BLI_RAND_PER_LINE_UINT32;
       signature.operation_hash(hash);
     }
+    else if (CPP_TYPE<T>() == CPP_TYPE<BLI::float3>()) {
+      BLI::float3 vector = *(BLI::float3 *)&value;
+      uint32_t hash = BLI_hash_int_2d(*(uint *)&vector.x, 0);
+      hash = BLI_hash_int_2d(*(uint *)&vector.x, hash);
+      hash = BLI_hash_int_2d(*(uint *)&vector.x, hash);
+      signature.operation_hash(hash);
+    }
   }
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override

@@ -12,6 +12,7 @@
 #include "BLI_hash.h"
 #include "BLI_rand.h"
 #include "BLI_kdtree.h"
+#include "BLI_rand_cxx.h"
 
 #include "DNA_object_types.h"
 #include "DNA_mesh_types.h"
@@ -45,6 +46,7 @@ MF_CombineColor::MF_CombineColor()
   signature.single_input<float>("B");
   signature.single_input<float>("A");
   signature.single_output<rgba_f>("Color");
+  signature.operation_hash_per_class();
 }
 
 void MF_CombineColor::call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -68,6 +70,7 @@ MF_SeparateColor::MF_SeparateColor()
   signature.single_output<float>("G");
   signature.single_output<float>("B");
   signature.single_output<float>("A");
+  signature.operation_hash_per_class();
 }
 
 void MF_SeparateColor::call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -94,6 +97,7 @@ MF_CombineVector::MF_CombineVector()
   signature.single_input<float>("Y");
   signature.single_input<float>("Z");
   signature.single_output<float3>("Vector");
+  signature.operation_hash_per_class();
 }
 
 void MF_CombineVector::call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -115,6 +119,7 @@ MF_SeparateVector::MF_SeparateVector()
   signature.single_output<float>("X");
   signature.single_output<float>("Y");
   signature.single_output<float>("Z");
+  signature.operation_hash_per_class();
 }
 
 void MF_SeparateVector::call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -137,6 +142,7 @@ MF_VectorFromValue::MF_VectorFromValue()
   MFSignatureBuilder signature = this->get_builder("Vector from Value");
   signature.single_input<float>("Value");
   signature.single_output<float3>("Vector");
+  signature.operation_hash_per_class();
 }
 
 void MF_VectorFromValue::call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -155,6 +161,7 @@ MF_FloatArraySum::MF_FloatArraySum()
   MFSignatureBuilder signature = this->get_builder("Float Array Sum");
   signature.vector_input<float>("Array");
   signature.single_output<float>("Sum");
+  signature.operation_hash_per_class();
 }
 
 void MF_FloatArraySum::call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -180,6 +187,7 @@ MF_FloatRange_Amount_Start_Step::MF_FloatRange_Amount_Start_Step()
   signature.single_input<float>("Start");
   signature.single_input<float>("Step");
   signature.vector_output<float>("Range");
+  signature.operation_hash_per_class();
 }
 
 void MF_FloatRange_Amount_Start_Step::call(IndexMask mask,
@@ -213,6 +221,7 @@ MF_FloatRange_Amount_Start_Stop::MF_FloatRange_Amount_Start_Stop()
   signature.single_input<float>("Start");
   signature.single_input<float>("Stop");
   signature.vector_output<float>("Range");
+  signature.operation_hash_per_class();
 }
 
 void MF_FloatRange_Amount_Start_Stop::call(IndexMask mask,
@@ -253,6 +262,7 @@ MF_ObjectVertexPositions::MF_ObjectVertexPositions()
   signature.use_global_context<IDHandleLookup>();
   signature.single_input<ObjectIDHandle>("Object");
   signature.vector_output<float3>("Positions");
+  signature.operation_hash_per_class();
 }
 
 void MF_ObjectVertexPositions::call(IndexMask mask, MFParams params, MFContext context) const
@@ -323,6 +333,7 @@ MF_SwitchSingle::MF_SwitchSingle(const CPPType &type) : m_type(type)
   signature.single_input("True", m_type);
   signature.single_input("False", m_type);
   signature.single_output("Result", m_type);
+  signature.operation_hash_per_class();
 }
 
 void MF_SwitchSingle::call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -349,6 +360,7 @@ MF_SwitchVector::MF_SwitchVector(const CPPType &type) : m_type(type)
   signature.vector_input("True", m_type);
   signature.vector_input("False", m_type);
   signature.vector_output("Result", m_type);
+  signature.operation_hash_per_class();
 }
 
 void MF_SwitchVector::call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -377,6 +389,7 @@ MF_SelectSingle::MF_SelectSingle(const CPPType &type, uint inputs) : m_inputs(in
   }
   signature.single_input("Fallback", type);
   signature.single_output("Result", type);
+  signature.operation_hash_per_class();
 }
 
 void MF_SelectSingle::call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -406,6 +419,7 @@ MF_SelectVector::MF_SelectVector(const CPPType &base_type, uint inputs) : m_inpu
   }
   signature.vector_input("Fallback", base_type);
   signature.vector_output("Result", base_type);
+  signature.operation_hash_per_class();
 }
 
 void MF_SelectVector::call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -431,6 +445,7 @@ MF_TextLength::MF_TextLength()
   MFSignatureBuilder signature = this->get_builder("Text Length");
   signature.single_input<std::string>("Text");
   signature.single_output<int>("Length");
+  signature.operation_hash_per_class();
 }
 
 void MF_TextLength::call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -448,6 +463,7 @@ MF_ContextVertexPosition::MF_ContextVertexPosition()
   MFSignatureBuilder signature = this->get_builder("Vertex Position");
   signature.use_element_context<VertexPositionArray>();
   signature.single_output<float3>("Position");
+  signature.operation_hash_per_class();
 }
 
 void MF_ContextVertexPosition::call(IndexMask mask, MFParams params, MFContext context) const
@@ -471,6 +487,7 @@ MF_ContextCurrentFrame::MF_ContextCurrentFrame()
   MFSignatureBuilder signature = this->get_builder("Current Frame");
   signature.use_global_context<SceneTimeContext>();
   signature.single_output<float>("Frame");
+  signature.operation_hash_per_class();
 }
 
 void MF_ContextCurrentFrame::call(IndexMask mask, MFParams params, MFContext context) const
@@ -496,6 +513,7 @@ MF_PerlinNoise::MF_PerlinNoise()
   signature.single_input<float>("Scale");
   signature.single_output<float>("Noise 1D");
   signature.single_output<float3>("Noise 3D");
+  signature.operation_hash_per_class();
 }
 
 void MF_PerlinNoise::call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -531,6 +549,13 @@ MF_MapRange::MF_MapRange(bool clamp) : m_clamp(clamp)
   signature.single_input<float>("To Min");
   signature.single_input<float>("To Max");
   signature.single_output<float>("Value");
+
+  if (clamp) {
+    signature.operation_hash(BLI_RAND_PER_LINE_UINT32);
+  }
+  else {
+    signature.operation_hash(BLI_RAND_PER_LINE_UINT32);
+  }
 }
 
 void MF_MapRange::call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -574,6 +599,13 @@ MF_Clamp::MF_Clamp(bool sort_minmax) : m_sort_minmax(sort_minmax)
   signature.single_input<float>("Min");
   signature.single_input<float>("Max");
   signature.single_output<float>("Value");
+
+  if (sort_minmax) {
+    signature.operation_hash(BLI_RAND_PER_LINE_UINT32);
+  }
+  else {
+    signature.operation_hash(BLI_RAND_PER_LINE_UINT32);
+  }
 }
 
 void MF_Clamp::call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -606,13 +638,14 @@ void MF_Clamp::call(IndexMask mask, MFParams params, MFContext UNUSED(context)) 
   }
 }
 
-MF_RandomFloat::MF_RandomFloat(uint seed) : m_seed(seed * 53723457)
+MF_RandomFloat::MF_RandomFloat(uint seed) : m_seed(seed * BLI_RAND_PER_LINE_UINT32)
 {
   MFSignatureBuilder signature = this->get_builder("Random Float");
   signature.single_input<float>("Min");
   signature.single_input<float>("Max");
   signature.single_input<int>("Seed");
   signature.single_output<float>("Value");
+  signature.operation_hash(BLI_RAND_PER_LINE_UINT32 ^ m_seed);
 }
 
 void MF_RandomFloat::call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -628,7 +661,7 @@ void MF_RandomFloat::call(IndexMask mask, MFParams params, MFContext UNUSED(cont
   }
 }
 
-MF_RandomFloats::MF_RandomFloats(uint seed) : m_seed(seed * 2354567)
+MF_RandomFloats::MF_RandomFloats(uint seed) : m_seed(seed * BLI_RAND_PER_LINE_UINT32)
 {
   MFSignatureBuilder signature = this->get_builder("Random Floats");
   signature.single_input<int>("Amount");
@@ -636,6 +669,7 @@ MF_RandomFloats::MF_RandomFloats(uint seed) : m_seed(seed * 2354567)
   signature.single_input<float>("Max");
   signature.single_input<int>("Seed");
   signature.vector_output<float>("Values");
+  signature.operation_hash(BLI_RAND_PER_LINE_UINT32 ^ m_seed);
 }
 
 void MF_RandomFloats::call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -665,12 +699,13 @@ void MF_RandomFloats::call(IndexMask mask, MFParams params, MFContext UNUSED(con
 }
 
 MF_RandomVector::MF_RandomVector(uint seed, RandomVectorMode::Enum mode)
-    : m_seed(seed * 56242361), m_mode(mode)
+    : m_seed(seed * BLI_RAND_PER_LINE_UINT32), m_mode(mode)
 {
   MFSignatureBuilder signature = this->get_builder("Random Vector");
   signature.single_input<float3>("Factor");
   signature.single_input<int>("Seed");
   signature.single_output<float3>("Vector");
+  signature.operation_hash(m_seed + BLI_RAND_PER_LINE_UINT32 * (uint)m_mode);
 }
 
 static float3 rng_get_float3_01(RNG *rng)
@@ -732,13 +767,14 @@ void MF_RandomVector::call(IndexMask mask, MFParams params, MFContext UNUSED(con
 }
 
 MF_RandomVectors::MF_RandomVectors(uint seed, RandomVectorMode::Enum mode)
-    : m_seed(seed * 45621347), m_mode(mode)
+    : m_seed(seed * BLI_RAND_PER_LINE_UINT32), m_mode(mode)
 {
   MFSignatureBuilder signature = this->get_builder("Random Vectors");
   signature.single_input<int>("Amount");
   signature.single_input<float3>("Factor");
   signature.single_input<int>("Seed");
   signature.vector_output<float3>("Vectors");
+  signature.operation_hash(m_seed + BLI_RAND_PER_LINE_UINT32 * (uint)m_mode);
 }
 
 void MF_RandomVectors::call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -802,6 +838,7 @@ MF_FindNonClosePoints::MF_FindNonClosePoints()
   signature.vector_input<float3>("Points");
   signature.single_input<float>("Min Distance");
   signature.vector_output<int>("Indices");
+  signature.operation_hash_per_class();
 }
 
 static BLI_NOINLINE Vector<int> find_non_close_indices(VirtualListRef<float3> points,
@@ -876,6 +913,7 @@ MF_JoinTextList::MF_JoinTextList()
   MFSignatureBuilder signature = this->get_builder("Join Text List");
   signature.vector_input<std::string>("Texts");
   signature.single_output<std::string>("Text");
+  signature.operation_hash_per_class();
 }
 
 void MF_JoinTextList::call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const
