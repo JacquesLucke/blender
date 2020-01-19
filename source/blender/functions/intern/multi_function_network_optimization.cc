@@ -92,7 +92,8 @@ void optimize_network__remove_duplicates(MFNetworkBuilder &network_builder)
 
         MFBuilderOutputSocket &deduplicated_output = *outputs_with_hash[0];
         for (MFBuilderOutputSocket *socket : outputs_with_hash.drop_front(1)) {
-          for (MFBuilderInputSocket *target : socket->targets()) {
+          BLI::ScopedVector<MFBuilderInputSocket *> targets_copy = socket->targets();
+          for (MFBuilderInputSocket *target : targets_copy) {
             network_builder.relink_origin(deduplicated_output, *target);
           }
         }
@@ -224,7 +225,8 @@ void optimize_network__constant_folding(MFNetworkBuilder &network_builder,
     MFBuilderOutputSocket &original_socket =
         *dummy_nodes_to_compute[param_index]->input(0).origin();
 
-    for (MFBuilderInputSocket *target : original_socket.targets()) {
+    BLI::ScopedVector<MFBuilderInputSocket *> targets_copy = original_socket.targets();
+    for (MFBuilderInputSocket *target : targets_copy) {
       network_builder.relink_origin(folded_node.output(0), *target);
     }
   }
