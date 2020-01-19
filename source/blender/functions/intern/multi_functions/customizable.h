@@ -38,11 +38,13 @@ template<typename InT, typename OutT> class MF_Custom_In1_Out1 final : public Mu
   FunctionT m_fn;
 
  public:
-  MF_Custom_In1_Out1(StringRef name, FunctionT fn) : m_fn(std::move(fn))
+  MF_Custom_In1_Out1(StringRef name, FunctionT fn, Optional<uint32_t> operation_hash = {})
+      : m_fn(std::move(fn))
   {
     MFSignatureBuilder signature = this->get_builder(name);
     signature.single_input<InT>("Input");
     signature.single_output<OutT>("Output");
+    signature.operation_hash(operation_hash);
   }
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
@@ -62,12 +64,14 @@ class MF_Custom_In2_Out1 final : public MultiFunction {
   FunctionT m_fn;
 
  public:
-  MF_Custom_In2_Out1(StringRef name, FunctionT fn) : m_fn(std::move(fn))
+  MF_Custom_In2_Out1(StringRef name, FunctionT fn, Optional<uint32_t> operation_hash = {})
+      : m_fn(std::move(fn))
   {
     MFSignatureBuilder signature = this->get_builder(name);
     signature.single_input<InT1>("Input 1");
     signature.single_input<InT2>("Input 2");
     signature.single_output<OutT>("Output");
+    signature.operation_hash(operation_hash);
   }
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
@@ -88,7 +92,10 @@ template<typename T> class MF_VariadicMath final : public MultiFunction {
   FunctionT m_fn;
 
  public:
-  MF_VariadicMath(StringRef name, uint input_amount, FunctionT fn)
+  MF_VariadicMath(StringRef name,
+                  uint input_amount,
+                  FunctionT fn,
+                  Optional<uint32_t> operation_hash)
       : m_input_amount(input_amount), m_fn(fn)
   {
     BLI_STATIC_ASSERT(std::is_trivial<T>::value, "");
@@ -98,6 +105,7 @@ template<typename T> class MF_VariadicMath final : public MultiFunction {
       signature.single_input<T>("Input");
     }
     signature.single_output<T>("Output");
+    signature.operation_hash(operation_hash);
   }
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
