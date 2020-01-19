@@ -175,7 +175,7 @@ void MF_FloatArraySum::call(IndexMask mask, MFParams params, MFContext UNUSED(co
 MF_FloatRange_Amount_Start_Step::MF_FloatRange_Amount_Start_Step()
 {
   MFSignatureBuilder signature = this->get_builder("Float Range");
-  signature.constant_operation_hash();
+  signature.operation_hash_per_class();
   signature.single_input<int>("Amount");
   signature.single_input<float>("Start");
   signature.single_input<float>("Step");
@@ -208,7 +208,7 @@ void MF_FloatRange_Amount_Start_Step::call(IndexMask mask,
 MF_FloatRange_Amount_Start_Stop::MF_FloatRange_Amount_Start_Stop()
 {
   MFSignatureBuilder signature = this->get_builder("Float Range");
-  signature.constant_operation_hash();
+  signature.operation_hash_per_class();
   signature.single_input<int>("Amount");
   signature.single_input<float>("Start");
   signature.single_input<float>("Stop");
@@ -289,7 +289,7 @@ MF_ObjectWorldLocation::MF_ObjectWorldLocation()
   signature.use_global_context<IDHandleLookup>();
   signature.single_input<ObjectIDHandle>("Object");
   signature.single_output<float3>("Location");
-  signature.constant_operation_hash();
+  signature.operation_hash_per_class();
 }
 
 void MF_ObjectWorldLocation::call(IndexMask mask, MFParams params, MFContext context) const

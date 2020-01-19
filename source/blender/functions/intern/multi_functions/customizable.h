@@ -16,7 +16,7 @@ template<typename FromT, typename ToT> class MF_Convert : public MultiFunction {
                                                      CPP_TYPE<ToT>().name());
     signature.single_input<FromT>("Input");
     signature.single_output<ToT>("Output");
-    signature.constant_operation_hash();
+    signature.operation_hash_per_class();
   }
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override

@@ -164,7 +164,7 @@ class MFSignatureBuilder {
     m_data.operation_hash = maybe_hash;
   }
 
-  void constant_operation_hash()
+  void operation_hash_per_class()
   {
     const std::type_info &type_info = typeid(*this);
     uintptr_t ptr = (uintptr_t)&type_info;
