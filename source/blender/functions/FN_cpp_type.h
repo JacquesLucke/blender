@@ -70,7 +70,8 @@ class CPPType {
           FillInitializedF fill_initialized,
           FillInitializedIndicesF fill_initialized_indices,
           FillUninitializedF fill_uninitialized,
-          FillUninitializedIndicesF fill_uninitialized_indices)
+          FillUninitializedIndicesF fill_uninitialized_indices,
+          uint32_t type_hash)
       : m_size(size),
         m_alignment(alignment),
         m_trivially_destructible(trivially_destructible),
@@ -96,6 +97,7 @@ class CPPType {
         m_fill_initialized_indices(fill_initialized_indices),
         m_fill_uninitialized(fill_uninitialized),
         m_fill_uninitialized_indices(fill_uninitialized_indices),
+        m_type_hash(type_hash),
         m_name(name)
   {
     BLI_assert(is_power_of_2_i(m_alignment));
@@ -303,6 +305,11 @@ class CPPType {
     m_fill_uninitialized_indices(value, dst, index_mask);
   }
 
+  uint32_t type_hash() const
+  {
+    return m_type_hash;
+  }
+
   friend bool operator==(const CPPType &a, const CPPType &b)
   {
     return &a == &b;
@@ -349,6 +356,7 @@ class CPPType {
   FillUninitializedF m_fill_uninitialized;
   FillUninitializedIndicesF m_fill_uninitialized_indices;
 
+  uint32_t m_type_hash;
   std::string m_name;
 };
 
