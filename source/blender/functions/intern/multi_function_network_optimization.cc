@@ -5,6 +5,7 @@
 #include "BLI_stack_cxx.h"
 #include "BLI_multi_map.h"
 #include "BLI_rand.h"
+#include "BLI_rand_cxx.h"
 
 namespace FN {
 
@@ -46,7 +47,7 @@ void optimize_network__remove_duplicates(MFNetworkBuilder &network_builder)
       continue;
     }
 
-    uint32_t combined_inputs_hash = 827823743;
+    uint32_t combined_inputs_hash = BLI_RAND_PER_LINE_UINT32;
     for (MFBuilderInputSocket *input_socket : node.inputs()) {
       MFBuilderOutputSocket *origin = input_socket->origin();
       uint32_t input_hash;
@@ -57,16 +58,17 @@ void optimize_network__remove_duplicates(MFNetworkBuilder &network_builder)
         input_hash = *hash_by_output_socket[origin->id()];
       }
 
-      combined_inputs_hash = combined_inputs_hash * 456123 + input_hash;
+      combined_inputs_hash = combined_inputs_hash * BLI_RAND_PER_LINE_UINT32 + input_hash;
     }
 
     Optional<uint32_t> maybe_operation_hash = node.function().operation_hash();
     uint32_t operation_hash = (maybe_operation_hash.has_value()) ? *maybe_operation_hash :
                                                                    BLI_rng_get_uint(rng);
-    uint32_t node_hash = combined_inputs_hash * 462347 + operation_hash;
+    uint32_t node_hash = combined_inputs_hash * BLI_RAND_PER_LINE_UINT32 + operation_hash;
 
     for (MFBuilderOutputSocket *output_socket : node.outputs()) {
-      uint32_t output_hash = node_hash * (45234 + 567243 * output_socket->index());
+      uint32_t output_hash = node_hash *
+                             (45234 + BLI_RAND_PER_LINE_UINT32 * output_socket->index());
       hash_by_output_socket[output_socket->id()].set_new(output_hash);
     }
 
