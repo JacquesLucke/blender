@@ -5,6 +5,7 @@
 #include <sstream>
 
 #include "BLI_hash.h"
+#include "BLI_rand_cxx.h"
 
 namespace FN {
 
@@ -57,6 +58,11 @@ template<typename T> class MF_ConstantValue : public MultiFunction {
     }
     else if (CPP_TYPE<T>() == CPP_TYPE<std::string>()) {
       uint32_t hash = BLI_hash_string(((std::string *)&m_value)->c_str());
+      signature.operation_hash(hash);
+    }
+    else if (CPP_TYPE<T>() == CPP_TYPE<BKE::ObjectIDHandle>()) {
+      BKE::ObjectIDHandle object_handle = *(BKE::ObjectIDHandle *)&m_value;
+      uint32_t hash = object_handle.internal_identifier() ^ BLI_RAND_PER_LINE_UINT32;
       signature.operation_hash(hash);
     }
   }

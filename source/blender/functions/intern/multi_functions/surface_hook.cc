@@ -42,6 +42,7 @@ MF_ClosestSurfaceHookOnObject::MF_ClosestSurfaceHookOnObject()
   signature.single_input<ObjectIDHandle>("Object");
   signature.single_input<float3>("Position");
   signature.single_output<SurfaceHook>("Closest Location");
+  signature.constant_operation_hash();
 }
 
 static BVHTreeNearest get_nearest_point(BVHTreeFromMesh *bvhtree_data, float3 point)
@@ -127,6 +128,7 @@ MF_GetPositionOnSurface::MF_GetPositionOnSurface()
   signature.use_global_context<IDHandleLookup>();
   signature.single_input<SurfaceHook>("Surface Hook");
   signature.single_output<float3>("Position");
+  signature.constant_operation_hash();
 }
 
 void MF_GetPositionOnSurface::call(IndexMask mask, MFParams params, MFContext context) const
@@ -192,6 +194,7 @@ MF_GetNormalOnSurface::MF_GetNormalOnSurface()
   signature.use_global_context<IDHandleLookup>();
   signature.single_input<SurfaceHook>("Surface Hook");
   signature.single_output<float3>("Normal");
+  signature.constant_operation_hash();
 }
 
 static float3 short_normal_to_float3(const short normal[3])
@@ -264,6 +267,7 @@ MF_GetWeightOnSurface::MF_GetWeightOnSurface()
   signature.single_input<SurfaceHook>("Surface Hook");
   signature.single_input<std::string>("Group Name");
   signature.single_output<float>("Weight");
+  signature.constant_operation_hash();
 }
 
 void MF_GetWeightOnSurface::call(IndexMask mask, MFParams params, MFContext context) const
@@ -343,6 +347,7 @@ MF_GetImageColorOnSurface::MF_GetImageColorOnSurface()
   signature.single_input<SurfaceHook>("Surface Hook");
   signature.single_input<ImageIDHandle>("Image");
   signature.single_output<rgba_f>("Color");
+  signature.constant_operation_hash();
 }
 
 static void get_colors_on_surface(IndexMask indices,
@@ -457,6 +462,7 @@ MF_SampleObjectSurface::MF_SampleObjectSurface(bool use_vertex_weights)
     signature.single_input<std::string>("Vertex Group Name");
   }
   signature.vector_output<SurfaceHook>("Surface Hooks");
+  signature.constant_operation_hash();
 }
 
 static BLI_NOINLINE void compute_triangle_areas(Mesh *mesh,

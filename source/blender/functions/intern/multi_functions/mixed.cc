@@ -289,6 +289,7 @@ MF_ObjectWorldLocation::MF_ObjectWorldLocation()
   signature.use_global_context<IDHandleLookup>();
   signature.single_input<ObjectIDHandle>("Object");
   signature.single_output<float3>("Location");
+  signature.constant_operation_hash();
 }
 
 void MF_ObjectWorldLocation::call(IndexMask mask, MFParams params, MFContext context) const
