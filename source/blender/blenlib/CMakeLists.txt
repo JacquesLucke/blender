@@ -277,6 +277,7 @@ set(SRC
   BLI_parallel.h
   BLI_string_multi_map.h
   BLI_index_to_ref_map.h
+  BLI_rand_cxx.h
 )
 
 set(LIB
