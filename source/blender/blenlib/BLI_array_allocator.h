@@ -50,9 +50,6 @@ class ArrayAllocator : NonCopyable, NonMovable {
     BLI_assert(alignment <= 64);
     UNUSED_VARS_NDEBUG(alignment);
 
-    std::cout << "Allocate array - Length: " << m_array_size << "  Element Size: " << element_size
-              << "\n";
-
     Stack<void *> &stack = this->stack_for_element_size(element_size);
     if (stack.is_empty()) {
       void *new_buffer = MEM_mallocN_aligned(
