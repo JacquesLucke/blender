@@ -1,11 +1,16 @@
 #include "network.h"
 
+#include "BLI_array_allocator.h"
+
 namespace FN {
+
+using BLI::ArrayAllocator;
 
 class MF_EvaluateNetwork_Storage {
  private:
   MonotonicAllocator<256> m_single_allocator;
   IndexMask m_mask;
+  ArrayAllocator &m_array_allocator;
   Vector<GenericVectorArray *> m_vector_arrays;
   Vector<GenericMutableArrayRef> m_arrays;
   Vector<GenericMutableArrayRef> m_single_element_arrays;
@@ -15,8 +20,10 @@ class MF_EvaluateNetwork_Storage {
   Map<uint, GenericMutableArrayRef> m_array_ref_for_inputs;
 
  public:
-  MF_EvaluateNetwork_Storage(IndexMask mask) : m_mask(mask)
+  MF_EvaluateNetwork_Storage(IndexMask mask, ArrayAllocator &array_allocator)
+      : m_mask(mask), m_array_allocator(array_allocator)
   {
+    BLI_assert(array_allocator.array_size() >= mask.min_array_size());
   }
 
   ~MF_EvaluateNetwork_Storage()
@@ -26,7 +33,7 @@ class MF_EvaluateNetwork_Storage {
     }
     for (GenericMutableArrayRef array : m_arrays) {
       array.destruct_indices(m_mask);
-      MEM_freeN(array.buffer());
+      m_array_allocator.deallocate(array.type().size(), array.buffer());
     }
     for (GenericMutableArrayRef array : m_single_element_arrays) {
       array.destruct_indices(IndexMask(1));
@@ -41,7 +48,7 @@ class MF_EvaluateNetwork_Storage {
   GenericMutableArrayRef allocate_array(const CPPType &type)
   {
     uint size = m_mask.min_array_size();
-    void *buffer = MEM_malloc_arrayN(size, type.size(), __func__);
+    void *buffer = m_array_allocator.allocate(type.size(), type.alignment());
     GenericMutableArrayRef array(type, buffer, size);
     m_arrays.append(array);
     return array;
@@ -244,7 +251,9 @@ void MF_EvaluateNetwork::call(IndexMask mask, MFParams params, MFContext context
     return;
   }
 
-  Storage storage(mask);
+  ArrayAllocator array_allocator(mask.min_array_size());
+
+  Storage storage(mask, array_allocator);
   this->copy_inputs_to_storage(params, storage);
   this->evaluate_network_to_compute_outputs(context, storage);
   this->copy_computed_values_to_outputs(params, storage);

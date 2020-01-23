@@ -278,6 +278,7 @@ set(SRC
   BLI_string_multi_map.h
   BLI_index_to_ref_map.h
   BLI_rand_cxx.h
+  BLI_array_allocator.h
 )
 
 set(LIB
