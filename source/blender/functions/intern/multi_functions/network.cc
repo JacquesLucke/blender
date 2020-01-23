@@ -6,18 +6,40 @@ namespace FN {
 
 using BLI::ArrayAllocator;
 
+namespace InputValueType {
+enum Enum {
+  None,
+  VectorArray,
+  Array,
+  VirtualList,
+  VirtualListList,
+};
+}
+
+struct InputValue {
+  InputValueType::Enum type;
+
+  union Value {
+    Value()
+    {
+    }
+
+    GenericVectorArray *vector_array;
+    GenericMutableArrayRef array_ref;
+    GenericVirtualListRef virtual_list_ref;
+    GenericVirtualListListRef virtual_list_list_ref;
+  } data;
+};
+
 class MF_EvaluateNetwork_Storage {
  private:
-  MonotonicAllocator<256> m_single_allocator;
+  MonotonicAllocator<256> m_monotonic_allocator;
   IndexMask m_mask;
   ArrayAllocator &m_array_allocator;
   Vector<GenericVectorArray *> m_vector_arrays;
   Vector<GenericMutableArrayRef> m_arrays;
   Vector<GenericMutableArrayRef> m_single_element_arrays;
-  Map<uint, GenericVectorArray *> m_vector_array_for_inputs;
-  Map<uint, GenericVirtualListRef> m_virtual_list_for_inputs;
-  Map<uint, GenericVirtualListListRef> m_virtual_list_list_for_inputs;
-  Map<uint, GenericMutableArrayRef> m_array_ref_for_inputs;
+  Map<uint, InputValue *> m_value_by_input;
 
  public:
   MF_EvaluateNetwork_Storage(IndexMask mask, ArrayAllocator &array_allocator)
@@ -56,7 +78,7 @@ class MF_EvaluateNetwork_Storage {
 
   GenericMutableArrayRef allocate_array__single_element(const CPPType &type)
   {
-    void *buffer = m_single_allocator.allocate(type.size(), type.alignment());
+    void *buffer = m_monotonic_allocator.allocate(type.size(), type.alignment());
     GenericMutableArrayRef array(type, buffer, 1);
     m_single_element_arrays.append(array);
     return array;
@@ -128,55 +150,67 @@ class MF_EvaluateNetwork_Storage {
 
   void set_array_ref(const MFInputSocket &socket, GenericMutableArrayRef array)
   {
-    m_array_ref_for_inputs.add_new(socket.id(), array);
+    InputValue *input_value = m_monotonic_allocator.allocate<InputValue>();
+    input_value->type = InputValueType::Array;
+    new (&input_value->data.array_ref) GenericMutableArrayRef(array);
+    m_value_by_input.add_new(socket.id(), input_value);
   }
 
   void set_virtual_list(const MFInputSocket &socket, GenericVirtualListRef list)
   {
-    m_virtual_list_for_inputs.add_new(socket.id(), list);
+    InputValue *input_value = m_monotonic_allocator.allocate<InputValue>();
+    input_value->type = InputValueType::VirtualList;
+    new (&input_value->data.virtual_list_ref) GenericVirtualListRef(list);
+    m_value_by_input.add_new(socket.id(), input_value);
   }
 
   void set_virtual_list_list(const MFInputSocket &socket, GenericVirtualListListRef list)
   {
-    m_virtual_list_list_for_inputs.add_new(socket.id(), list);
+    InputValue *input_value = m_monotonic_allocator.allocate<InputValue>();
+    input_value->type = InputValueType::VirtualListList;
+    new (&input_value->data.virtual_list_list_ref) GenericVirtualListListRef(list);
+    m_value_by_input.add_new(socket.id(), input_value);
   }
 
   void set_vector_array(const MFInputSocket &socket, GenericVectorArray &vector_array)
   {
-    m_vector_array_for_inputs.add_new(socket.id(), &vector_array);
+    InputValue *input_value = m_monotonic_allocator.allocate<InputValue>();
+    input_value->type = InputValueType::VectorArray;
+    input_value->data.vector_array = &vector_array;
+    m_value_by_input.add_new(socket.id(), input_value);
   }
 
   GenericVirtualListRef get_virtual_list(const MFInputSocket &socket) const
   {
-    return m_virtual_list_for_inputs.lookup(socket.id());
+    InputValue *input_value = m_value_by_input.lookup(socket.id());
+    BLI_assert(input_value->type == InputValueType::VirtualList);
+    return input_value->data.virtual_list_ref;
   }
 
   GenericVirtualListListRef get_virtual_list_list(const MFInputSocket &socket) const
   {
-    return m_virtual_list_list_for_inputs.lookup(socket.id());
+    InputValue *input_value = m_value_by_input.lookup(socket.id());
+    BLI_assert(input_value->type == InputValueType::VirtualListList);
+    return input_value->data.virtual_list_list_ref;
   }
 
   GenericVectorArray &get_vector_array(const MFInputSocket &socket) const
   {
-    return *m_vector_array_for_inputs.lookup(socket.id());
+    InputValue *input_value = m_value_by_input.lookup(socket.id());
+    BLI_assert(input_value->type == InputValueType::VectorArray);
+    return *input_value->data.vector_array;
   }
 
   GenericMutableArrayRef get_array_ref(const MFInputSocket &socket) const
   {
-    return m_array_ref_for_inputs.lookup(socket.id());
+    InputValue *input_value = m_value_by_input.lookup(socket.id());
+    BLI_assert(input_value->type == InputValueType::Array);
+    return input_value->data.array_ref;
   }
 
   bool input_is_computed(const MFInputSocket &socket) const
   {
-    switch (socket.data_type().category()) {
-      case MFDataType::Single:
-        return m_virtual_list_for_inputs.contains(socket.id());
-      case MFDataType::Vector:
-        return m_virtual_list_list_for_inputs.contains(socket.id()) ||
-               m_vector_array_for_inputs.contains(socket.id());
-    }
-    BLI_assert(false);
-    return false;
+    return m_value_by_input.contains(socket.id());
   }
 
   bool function_input_has_single_element(const MFInputSocket &socket) const
@@ -185,13 +219,13 @@ class MF_EvaluateNetwork_Storage {
     MFParamType param_type = socket.param_type();
     switch (param_type.type()) {
       case MFParamType::SingleInput:
-        return m_virtual_list_for_inputs.lookup(socket.id()).is_single_element();
+        return this->get_virtual_list(socket).is_single_element();
       case MFParamType::VectorInput:
-        return m_virtual_list_list_for_inputs.lookup(socket.id()).is_single_list();
+        return this->get_virtual_list_list(socket).is_single_list();
       case MFParamType::MutableSingle:
-        return m_array_ref_for_inputs.lookup(socket.id()).size() == 1;
+        return this->get_array_ref(socket).size() == 1;
       case MFParamType::MutableVector:
-        return m_vector_array_for_inputs.lookup(socket.id())->size() == 1;
+        return this->get_vector_array(socket).size() == 1;
       case MFParamType::SingleOutput:
       case MFParamType::VectorOutput:
         break;
