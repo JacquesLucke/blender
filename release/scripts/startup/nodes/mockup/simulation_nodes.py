@@ -107,10 +107,32 @@ class AttachDynamicRigidBodyDataNode(bpy.types.Node, SimulationNode):
         builder.simulation_objects_output("solver", "Objects")
 
 class AttractForceNode(bpy.types.Node, SimulationNode):
-    bl_idname = "fn_AttractForceNo"
+    bl_idname = "fn_AttractForceNode"
     bl_label = "Attract Force"
 
     def declaration(self, builder: NodeBuilder):
         builder.simulation_objects_input("solver", "Objects")
         builder.fixed_input("point", "Point", "Vector")
         builder.simulation_objects_output("solver", "Objects")
+
+
+class CrowdSolverNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_CrowdSolverNode"
+    bl_label = "Crowd Solver"
+
+    def declaration(self, builder: NodeBuilder):
+        builder.simulation_objects_input("objects", "Objects")
+        builder.simulation_objects_output("objects", "Objects")
+
+class AttachAgentBehaviorNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_AttachAgentBehaviorNode"
+    bl_label = "Attach Agent Behavior"
+
+    behavior_tree: PointerProperty(type=bpy.types.NodeTree)
+
+    def declaration(self, builder: NodeBuilder):
+        builder.simulation_objects_input("objects", "Objects")
+        builder.simulation_objects_output("objects", "Objects")
+
+    def draw(self, layout):
+        layout.prop(self, "behavior_tree", text="")
