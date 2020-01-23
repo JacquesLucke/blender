@@ -136,3 +136,11 @@ class AttachAgentBehaviorNode(bpy.types.Node, SimulationNode):
 
     def draw(self, layout):
         layout.prop(self, "behavior_tree", text="")
+
+
+class OutputNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_OutputNode"
+    bl_label = "Output"
+
+    def declaration(self, builder: NodeBuilder):
+        builder.simulation_objects_input("objects", "Objects")
