@@ -47,6 +47,7 @@ extern "C" {
 #include "DNA_gpencil_types.h"
 #include "DNA_key_types.h"
 #include "DNA_light_types.h"
+#include "DNA_linestyle_types.h"
 #include "DNA_material_types.h"
 #include "DNA_mask_types.h"
 #include "DNA_mesh_types.h"
@@ -535,6 +536,9 @@ void DepsgraphRelationBuilder::build_id(ID *id)
       break;
     case ID_MSK:
       build_mask((Mask *)id);
+      break;
+    case ID_LS:
+      build_freestyle_linestyle((FreestyleLineStyle *)id);
       break;
     case ID_MC:
       build_movieclip((MovieClip *)id);
@@ -2430,6 +2434,18 @@ void DepsgraphRelationBuilder::build_mask(Mask *mask)
   }
 }
 
+void DepsgraphRelationBuilder::build_freestyle_linestyle(FreestyleLineStyle *linestyle)
+{
+  if (built_map_.checkIsBuiltAndTag(linestyle)) {
+    return;
+  }
+
+  ID *linestyle_id = &linestyle->id;
+  build_parameters(linestyle_id);
+  build_animdata(linestyle_id);
+  build_nodetree(linestyle->nodetree);
+}
+
 void DepsgraphRelationBuilder::build_movieclip(MovieClip *clip)
 {
   if (built_map_.checkIsBuiltAndTag(clip)) {
@@ -2675,6 +2691,26 @@ void DepsgraphRelationBuilder::build_copy_on_write_relations(IDNode *id_node)
       BLI_assert(object->type == OB_EMPTY);
     }
   }
+
+#if 0
+  /* NOTE: Relation is disabled since AnimationBackup() is disabled.
+   * See comment in  AnimationBackup:init_from_id(). */
+
+  /* Copy-on-write of write will iterate over f-curves to store current values corresponding
+   * to their RNA path. This means that action must be copied prior to the ID's copy-on-write,
+   * otherwise depsgraph might try to access freed data. */
+  AnimData *animation_data = BKE_animdata_from_id(id_orig);
+  if (animation_data != NULL) {
+    if (animation_data->action != NULL) {
+      OperationKey action_copy_on_write_key(
+          &animation_data->action->id, NodeType::COPY_ON_WRITE, OperationCode::COPY_ON_WRITE);
+      add_relation(action_copy_on_write_key,
+                   copy_on_write_key,
+                   "Eval Order",
+                   RELATION_FLAG_GODMODE | RELATION_FLAG_NO_FLUSH);
+    }
+  }
+#endif
 }
 
 /* **** ID traversal callbacks functions **** */

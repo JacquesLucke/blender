@@ -292,6 +292,11 @@ template<typename T, typename Allocator = GuardedAllocator> class VectorSet {
     return m_elements[index];
   }
 
+  ArrayRef<T> as_ref() const
+  {
+    return *this;
+  }
+
   operator ArrayRef<T>() const
   {
     return m_elements;

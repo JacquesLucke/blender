@@ -3,77 +3,134 @@
 #include "FN_multi_functions.h"
 
 #include "BLI_stack_cxx.h"
+#include "BLI_multi_map.h"
+#include "BLI_rand.h"
+#include "BLI_rand_cxx.h"
 
 namespace FN {
 
+using BLI::MultiMap;
 using BLI::Stack;
 
-static bool node_can_be_constant(MFBuilderNode &node)
+void optimize_network__remove_duplicates(MFNetworkBuilder &network_builder)
 {
-  if (node.is_function()) {
-    const MultiFunction &fn = node.as_function().function();
-    if (fn.depends_on_context()) {
-      return false;
+  Array<Optional<uint32_t>> hash_by_output_socket(network_builder.socket_id_amount());
+  Array<bool> node_outputs_are_hashed(network_builder.node_id_amount(), false);
+
+  RNG *rng = BLI_rng_new(0);
+
+  for (MFBuilderDummyNode *node : network_builder.dummy_nodes()) {
+    for (MFBuilderOutputSocket *output_socket : node->outputs()) {
+      uint32_t output_hash = BLI_rng_get_uint(rng);
+      hash_by_output_socket[output_socket->id()].set_new(output_hash);
+    }
+    node_outputs_are_hashed[node->id()] = true;
+  }
+
+  Stack<MFBuilderFunctionNode *> nodes_to_check = network_builder.function_nodes();
+  while (!nodes_to_check.is_empty()) {
+    MFBuilderFunctionNode &node = *nodes_to_check.peek();
+    if (node_outputs_are_hashed[node.id()]) {
+      nodes_to_check.pop();
+      continue;
     }
 
-    /* TODO: Support vectors. */
-    for (auto *socket : node.inputs()) {
-      if (socket->data_type().is_vector()) {
-        return false;
+    bool all_dependencies_ready = true;
+    node.foreach_origin_node([&](MFBuilderNode &origin_node) {
+      if (!node_outputs_are_hashed[origin_node.id()]) {
+        all_dependencies_ready = false;
+        nodes_to_check.push(&origin_node.as_function());
       }
+    });
+
+    if (!all_dependencies_ready) {
+      continue;
     }
-    for (auto *socket : node.outputs()) {
-      if (socket->data_type().is_vector()) {
-        return false;
+
+    uint32_t combined_inputs_hash = BLI_RAND_PER_LINE_UINT32;
+    for (MFBuilderInputSocket *input_socket : node.inputs()) {
+      MFBuilderOutputSocket *origin = input_socket->origin();
+      uint32_t input_hash;
+      if (origin == nullptr) {
+        input_hash = BLI_rng_get_uint(rng);
       }
+      else {
+        input_hash = *hash_by_output_socket[origin->id()];
+      }
+
+      combined_inputs_hash = combined_inputs_hash * BLI_RAND_PER_LINE_UINT32 + input_hash;
     }
-    return true;
+
+    Optional<uint32_t> maybe_operation_hash = node.function().operation_hash();
+    uint32_t operation_hash = (maybe_operation_hash.has_value()) ? *maybe_operation_hash :
+                                                                   BLI_rng_get_uint(rng);
+    uint32_t node_hash = combined_inputs_hash * BLI_RAND_PER_LINE_UINT32 + operation_hash;
+
+    for (MFBuilderOutputSocket *output_socket : node.outputs()) {
+      uint32_t output_hash = node_hash *
+                             (45234 + BLI_RAND_PER_LINE_UINT32 * output_socket->index());
+      hash_by_output_socket[output_socket->id()].set_new(output_hash);
+    }
+
+    nodes_to_check.pop();
+    node_outputs_are_hashed[node.id()] = true;
   }
-  else {
-    return false;
+
+  MultiMap<uint32_t, MFBuilderOutputSocket *> outputs_by_hash;
+  for (uint id : hash_by_output_socket.index_range()) {
+    Optional<uint32_t> maybe_hash = hash_by_output_socket[id];
+    if (maybe_hash.has_value()) {
+      uint32_t hash = *maybe_hash;
+      MFBuilderOutputSocket &socket = network_builder.socket_by_id(id).as_output();
+      outputs_by_hash.add(hash, &socket);
+    }
   }
+
+  outputs_by_hash.foreach_item(
+      [&](uint32_t UNUSED(hash), ArrayRef<MFBuilderOutputSocket *> outputs_with_hash) {
+        if (outputs_with_hash.size() <= 1) {
+          return;
+        }
+
+        MFBuilderOutputSocket &deduplicated_output = *outputs_with_hash[0];
+        for (MFBuilderOutputSocket *socket : outputs_with_hash.drop_front(1)) {
+          BLI::ScopedVector<MFBuilderInputSocket *> targets_copy = socket->targets();
+          for (MFBuilderInputSocket *target : targets_copy) {
+            network_builder.relink_origin(deduplicated_output, *target);
+          }
+        }
+      });
+
+  BLI_rng_free(rng);
+}
+
+void optimize_network__remove_unused_nodes(MFNetworkBuilder &network_builder)
+{
+  ArrayRef<MFBuilderNode *> dummy_nodes = network_builder.dummy_nodes();
+  Vector<MFBuilderNode *> nodes = network_builder.find_nodes_not_to_the_left_of__exclusive__vector(
+      dummy_nodes);
+  network_builder.remove_nodes(nodes);
 }
 
 void optimize_network__constant_folding(MFNetworkBuilder &network_builder,
                                         ResourceCollector &resources)
 {
-  Array<bool> is_constant(network_builder.nodes_by_id().size(), true);
-
-  Stack<MFBuilderNode *> nodes_to_check = network_builder.nodes_by_id();
-
-  while (!nodes_to_check.is_empty()) {
-    MFBuilderNode &current_node = *nodes_to_check.pop();
-    bool &current_node_is_constant = is_constant[current_node.id()];
-
-    if (current_node_is_constant && !node_can_be_constant(current_node)) {
-      current_node_is_constant = false;
-    }
-
-    if (!current_node_is_constant) {
-      for (MFBuilderOutputSocket *output_socket : current_node.outputs()) {
-        for (MFBuilderInputSocket *target_socket : output_socket->targets()) {
-          MFBuilderNode &target_node = target_socket->node();
-          bool &target_node_is_constant = is_constant[target_node.id()];
-          if (target_node_is_constant) {
-            target_node_is_constant = false;
-            nodes_to_check.push(&target_node);
-          }
-        }
-      }
+  Vector<MFBuilderNode *> non_constant_nodes;
+  non_constant_nodes.extend(network_builder.dummy_nodes());
+  for (MFBuilderFunctionNode *node : network_builder.function_nodes()) {
+    if (node->function().depends_on_context()) {
+      non_constant_nodes.append(node);
     }
   }
 
-  Set<MFBuilderNode *> constant_nodes;
-  for (uint i : is_constant.index_range()) {
-    if (is_constant[i]) {
-      constant_nodes.add_new(network_builder.nodes_by_id()[i]);
-    }
-  }
-  // network_builder.to_dot__clipboard(constant_nodes);
+  Array<bool> node_is_not_constant = network_builder.find_nodes_to_the_right_of__inclusive__mask(
+      non_constant_nodes);
+  Vector<MFBuilderNode *> constant_builder_nodes = network_builder.nodes_by_id_inverted_id_mask(
+      node_is_not_constant);
+  // network_builder.to_dot__clipboard(constant_builder_nodes.as_ref());
 
-  Vector<MFBuilderOutputSocket *> builder_sockets_to_compute;
-  Vector<uint> ids_to_compute;
-  for (MFBuilderNode *node : constant_nodes) {
+  Vector<MFBuilderDummyNode *> dummy_nodes_to_compute;
+  for (MFBuilderNode *node : constant_builder_nodes) {
     if (node->inputs().size() == 0) {
       continue;
     }
@@ -82,28 +139,30 @@ void optimize_network__constant_folding(MFNetworkBuilder &network_builder,
       MFDataType data_type = output_socket->data_type();
 
       for (MFBuilderInputSocket *target_socket : output_socket->targets()) {
-        if (!is_constant[target_socket->node().id()]) {
-
-          MFBuilderDummyNode &dummy_node = network_builder.add_dummy(
-              "Dummy", {data_type}, {}, {"Value"}, {});
-          network_builder.add_link(*output_socket, dummy_node.input(0));
-          ids_to_compute.append(dummy_node.input(0).id());
-          builder_sockets_to_compute.append(output_socket);
-          break;
+        MFBuilderNode &target_node = target_socket->node();
+        if (!node_is_not_constant[target_node.id()]) {
+          continue;
         }
+
+        MFBuilderDummyNode &dummy_node = network_builder.add_dummy(
+            "Dummy", {data_type}, {}, {"Value"}, {});
+        network_builder.add_link(*output_socket, dummy_node.input(0));
+        dummy_nodes_to_compute.append(&dummy_node);
+        break;
       }
     }
   }
 
-  if (ids_to_compute.size() == 0) {
+  if (dummy_nodes_to_compute.size() == 0) {
     return;
   }
 
   MFNetwork network{network_builder};
 
   Vector<const MFInputSocket *> sockets_to_compute;
-  for (uint id : ids_to_compute) {
-    sockets_to_compute.append(&network.socket_by_id(id).as_input());
+  for (MFBuilderDummyNode *dummy_node : dummy_nodes_to_compute) {
+    uint node_index = network_builder.current_index_of(*dummy_node);
+    sockets_to_compute.append(&network.dummy_nodes()[node_index]->input(0));
   }
 
   MF_EvaluateNetwork network_function{{}, sockets_to_compute};
@@ -125,7 +184,10 @@ void optimize_network__constant_folding(MFNetworkBuilder &network_builder,
         break;
       }
       case MFDataType::Vector: {
-        BLI_assert(false);
+        const CPPType &cpp_base_type = data_type.vector__cpp_base_type();
+        GenericVectorArray &vector_array = resources.construct<GenericVectorArray>(
+            "constant vector", cpp_base_type, 1);
+        params_builder.add_vector_output(vector_array);
         break;
       }
     }
@@ -136,26 +198,44 @@ void optimize_network__constant_folding(MFNetworkBuilder &network_builder,
   for (uint param_index : network_function.param_indices()) {
     MFParamType param_type = network_function.param_type(param_index);
     MFDataType data_type = param_type.data_type();
-    const CPPType &cpp_type = data_type.single__cpp_type();
 
-    GenericMutableArrayRef array = params_builder.computed_array(param_index);
-    void *buffer = array.buffer();
-    resources.add(buffer, array.type().destruct_cb(), "Constant folded value");
+    const MultiFunction *constant_fn = nullptr;
 
-    const MultiFunction &fn = resources.construct<MF_GenericConstantValue>(
-        "Constant folded function", cpp_type, buffer);
-    MFBuilderFunctionNode &folded_node = network_builder.add_function(fn);
+    switch (data_type.category()) {
+      case MFDataType::Single: {
+        const CPPType &cpp_type = data_type.single__cpp_type();
 
-    MFBuilderOutputSocket &original_socket = *builder_sockets_to_compute[param_index];
-    Vector<MFBuilderInputSocket *> targets = original_socket.targets();
+        GenericMutableArrayRef array = params_builder.computed_array(param_index);
+        void *buffer = array.buffer();
+        resources.add(buffer, array.type().destruct_cb(), "Constant folded value");
 
-    for (MFBuilderInputSocket *target : targets) {
-      network_builder.remove_link(original_socket, *target);
-      network_builder.add_link(folded_node.output(0), *target);
+        constant_fn = &resources.construct<MF_GenericConstantValue>(
+            "Constant folded function", cpp_type, buffer);
+        break;
+      }
+      case MFDataType::Vector: {
+        GenericVectorArray &vector_array = params_builder.computed_vector_array(param_index);
+        GenericArrayRef array = vector_array[0];
+        constant_fn = &resources.construct<MF_GenericConstantVector>("Constant folded function",
+                                                                     array);
+        break;
+      }
+    }
+
+    MFBuilderFunctionNode &folded_node = network_builder.add_function(*constant_fn);
+
+    MFBuilderOutputSocket &original_socket =
+        *dummy_nodes_to_compute[param_index]->input(0).origin();
+
+    BLI::ScopedVector<MFBuilderInputSocket *> targets_copy = original_socket.targets();
+    for (MFBuilderInputSocket *target : targets_copy) {
+      network_builder.relink_origin(folded_node.output(0), *target);
     }
   }
 
-  // network_builder.to_dot__clipboard();
+  for (MFBuilderDummyNode *dummy_node : dummy_nodes_to_compute) {
+    network_builder.remove_node(*dummy_node);
+  }
 }
 
 }  // namespace FN

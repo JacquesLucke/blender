@@ -43,6 +43,10 @@ class MonotonicAllocator : NonCopyable, NonMovable {
 
   AlignedBuffer<N, 8> m_inline_buffer;
 
+#ifdef DEBUG
+  uint m_debug_allocated_amount = 0;
+#endif
+
  public:
   MonotonicAllocator() : m_remaining_capacity(N), m_next_min_alloc_size(std::max<uint>(N * 2, 16))
   {
@@ -70,6 +74,10 @@ class MonotonicAllocator : NonCopyable, NonMovable {
   {
     BLI_assert(alignment >= 1);
     BLI_assert(is_power_of_2_i(alignment));
+
+#ifdef DEBUG
+    m_debug_allocated_amount += size;
+#endif
 
     uintptr_t alignment_mask = alignment - 1;
 
@@ -101,6 +109,32 @@ class MonotonicAllocator : NonCopyable, NonMovable {
     void *buffer = this->allocate(sizeof(T), alignof(T));
     T *value = new (buffer) T(std::forward<Args>(args)...);
     return destruct_ptr<T>(value);
+  }
+
+  template<typename T, typename... Args>
+  ArrayRef<T *> construct_elements_and_pointer_array(uint n, Args &&... args)
+  {
+    void *pointer_buffer = this->allocate(n * sizeof(T *), alignof(T *));
+    void *element_buffer = this->allocate(n * sizeof(T), alignof(T));
+
+    MutableArrayRef<T *> pointers((T **)pointer_buffer, n);
+    T *elements = (T *)element_buffer;
+
+    for (uint i : IndexRange(n)) {
+      pointers[i] = elements + i;
+    }
+    for (uint i : IndexRange(n)) {
+      new (elements + i) T(std::forward<Args>(args)...);
+    }
+
+    return pointers;
+  }
+
+  template<typename T> MutableArrayRef<T> construct_array_copy(ArrayRef<T> source)
+  {
+    T *buffer = (T *)this->allocate(source.byte_size(), alignof(T));
+    source.copy_to(buffer);
+    return MutableArrayRef<T>(buffer, source.size());
   }
 
  private:

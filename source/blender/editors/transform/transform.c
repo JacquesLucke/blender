@@ -856,7 +856,7 @@ static bool transform_modal_item_poll(const wmOperator *op, int value)
       if (t->spacetype != SPACE_VIEW3D) {
         return false;
       }
-      else if (t->tsnap.mode & (SCE_SNAP_MODE_INCREMENT | SCE_SNAP_MODE_GRID)) {
+      else if ((t->tsnap.mode & ~(SCE_SNAP_MODE_INCREMENT | SCE_SNAP_MODE_GRID)) == 0) {
         return false;
       }
       else if (!validSnap(t)) {
@@ -2479,7 +2479,7 @@ bool initTransform(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
           else if (!do_skip) {
             const bool preserve_clnor = RNA_property_boolean_get(op->ptr, prop);
             if (preserve_clnor) {
-              BKE_editmesh_lnorspace_update(em);
+              BKE_editmesh_lnorspace_update(em, tc->obedit->data);
               t->flag |= T_CLNOR_REBUILD;
             }
             BM_lnorspace_invalidate(em->bm, true);
@@ -4657,8 +4657,8 @@ static void initNormalRotation(TransInfo *t)
     BMEditMesh *em = BKE_editmesh_from_object(tc->obedit);
     BMesh *bm = em->bm;
 
-    BKE_editmesh_ensure_autosmooth(em);
-    BKE_editmesh_lnorspace_update(em);
+    BKE_editmesh_ensure_autosmooth(em, tc->obedit->data);
+    BKE_editmesh_lnorspace_update(em, tc->obedit->data);
 
     storeCustomLNorValue(tc, bm);
   }

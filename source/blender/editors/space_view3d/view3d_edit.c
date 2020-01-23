@@ -158,6 +158,12 @@ typedef struct ViewOpsData {
     float trackvec[3];
     /** Dolly only. */
     float mousevec[3];
+
+    /**
+     * #RegionView3D.persp set after auto-perspective is applied.
+     * If we want the value before running the operator, add a separate member.
+     */
+    char persp;
   } init;
 
   /** Previous state (previous modal event handled). */
@@ -413,6 +419,7 @@ static void viewops_data_create(bContext *C,
    * we may want to make this optional but for now its needed always */
   ED_view3d_camera_lock_init(depsgraph, vod->v3d, vod->rv3d);
 
+  vod->init.persp = rv3d->persp;
   vod->init.dist = rv3d->dist;
   vod->init.camzoom = rv3d->camzoom;
   copy_qt_qt(vod->init.quat, rv3d->viewquat);
@@ -613,6 +620,7 @@ static void viewrotate_apply_snap(ViewOpsData *vod)
   float zaxis_best[3];
   int x, y, z;
   bool found = false;
+  bool is_axis_aligned = false;
 
   invert_qt_qt_normalized(viewquat_inv, vod->curr.viewquat);
 
@@ -630,6 +638,10 @@ static void viewrotate_apply_snap(ViewOpsData *vod)
           if (angle_normalized_v3v3(zaxis_test, zaxis) < axis_limit) {
             copy_v3_v3(zaxis_best, zaxis_test);
             found = true;
+
+            if (abs(x) + abs(y) + abs(z) == 1) {
+              is_axis_aligned = true;
+            }
           }
         }
       }
@@ -700,6 +712,17 @@ static void viewrotate_apply_snap(ViewOpsData *vod)
     copy_qt_qt(rv3d->viewquat, quat_best);
 
     viewrotate_apply_dyn_ofs(vod, rv3d->viewquat);
+
+    if (U.uiflag & USER_AUTOPERSP) {
+      if (is_axis_aligned) {
+        if (rv3d->persp == RV3D_PERSP) {
+          rv3d->persp = RV3D_ORTHO;
+        }
+      }
+    }
+  }
+  else if (U.uiflag & USER_AUTOPERSP) {
+    rv3d->persp = vod->init.persp;
   }
 }
 
@@ -758,7 +781,32 @@ static void viewrotate_apply(ViewOpsData *vod, const int event_xy[2])
     quat_to_mat3(m, vod->curr.viewquat);
     invert_m3_m3(m_inv, m);
 
-    /* avoid gimble lock */
+    /* Avoid Gimble Lock
+     *
+     * Even though turn-table mode is in use, this can occur when the user exits the camera view
+     * or when aligning the view to a rotated object.
+     *
+     * We have gimble lock when the user's view is rotated +/- 90 degrees along the view axis.
+     * In this case the vertical rotation is the same as the sideways turntable motion.
+     * Making it impossible to get out of the gimble locked state without resetting the view.
+     *
+     * The logic below lets the user exit out of this state without any abrupt 'fix'
+     * which would be disorienting.
+     *
+     * This works by blending two horizons:
+     * - Rotated-horizon: `cross_v3_v3v3(xaxis, zvec_global, m_inv[2])`
+     *   When only this is used, this turntable rotation works - but it's side-ways
+     *   (as if the entire turn-table has been placed on it's side)
+     *   While there is no gimble lock, it's also awkward to use.
+     * - Un-rotated-horizon: `m_inv[0]`
+     *   When only this is used, the turntable rotation can have gimbal lock.
+     *
+     * The solution used here is to blend between these two values,
+     * so the severity of the gimbal lock is used to blend the rotated horizon.
+     * Blending isn't essential, it just makes the transition smoother.
+     *
+     * This allows sideways turn-table rotation on a Z axis that isn't world-space Z,
+     * While up-down turntable rotation eventually corrects gimble lock. */
 #if 1
     if (len_squared_v3v3(zvec_global, m_inv[2]) > 0.001f) {
       float fac;
@@ -834,6 +882,7 @@ static int viewrotate_modal(bContext *C, wmOperator *op, const wmEvent *event)
         event_code = VIEW_APPLY;
         break;
       case VIEWROT_MODAL_AXIS_SNAP_DISABLE:
+        vod->rv3d->persp = vod->init.persp;
         vod->axis_snap = false;
         event_code = VIEW_APPLY;
         break;
@@ -1448,10 +1497,20 @@ static int ndof_orbit_zoom_invoke(bContext *C, wmOperator *op, const wmEvent *ev
     const bool is_orbit_around_pivot = (U.ndof_flag & NDOF_MODE_ORBIT) ||
                                        ED_view3d_offset_lock_check(v3d, rv3d);
     const bool has_rotation = ndof_has_rotate(ndof, rv3d);
-    const bool has_translate = !is_zero_v2(ndof->tvec) && ndof_has_translate(ndof, v3d, rv3d);
-    const bool has_zoom = (ndof->tvec[2] != 0.0f);
+    bool has_translate, has_zoom;
 
-    /* Rotation first because dynamic offset resets offset otherwise (and disasbles panning). */
+    if (is_orbit_around_pivot) {
+      /* Orbit preference or forced lock (Z zooms). */
+      has_translate = !is_zero_v2(ndof->tvec) && ndof_has_translate(ndof, v3d, rv3d);
+      has_zoom = (ndof->tvec[2] != 0.0f);
+    }
+    else {
+      /* Free preference (Z translates). */
+      has_translate = ndof_has_translate(ndof, v3d, rv3d);
+      has_zoom = false;
+    }
+
+    /* Rotation first because dynamic offset resets offset otherwise (and disables panning). */
     if (has_rotation) {
       const float dist_backup = rv3d->dist;
       if (!is_orbit_around_pivot) {
@@ -4944,6 +5003,7 @@ void ED_view3d_cursor3d_position_rotation(bContext *C,
                                                    &(const struct SnapObjectParams){
                                                        .snap_select = SNAP_ALL,
                                                        .use_object_edit_cage = false,
+                                                       .use_occlusion_test = true,
                                                    },
                                                    mval_fl,
                                                    NULL,
@@ -4957,10 +5017,9 @@ void ED_view3d_cursor3d_position_rotation(bContext *C,
         copy_v3_v3(cursor_co, ray_co);
       }
 
-      float tquat[4];
-
       /* Math normal (Z). */
       {
+        float tquat[4];
         float z_src[3] = {0, 0, 1};
         mul_qt_v3(cursor_quat, z_src);
         rotation_between_vecs_to_quat(tquat, z_src, ray_no);
@@ -4975,13 +5034,34 @@ void ED_view3d_cursor3d_position_rotation(bContext *C,
             dot_v3v3(ray_no, obmat[2]),
         };
         const int ortho_axis = axis_dominant_v3_ortho_single(ortho_axis_dot);
-        float x_src[3] = {1, 0, 0};
-        float x_dst[3];
-        mul_qt_v3(cursor_quat, x_src);
-        project_plane_v3_v3v3(x_dst, obmat[ortho_axis], ray_no);
-        normalize_v3(x_dst);
-        rotation_between_vecs_to_quat(tquat, x_src, x_dst);
-        mul_qt_qtqt(cursor_quat, tquat, cursor_quat);
+
+        float tquat_best[4];
+        float angle_best = -1.0f;
+
+        float tan_dst[3];
+        project_plane_v3_v3v3(tan_dst, obmat[ortho_axis], ray_no);
+        normalize_v3(tan_dst);
+
+        /* As the tangent is arbitrary from the users point of view,
+         * make the cursor 'roll' on the shortest angle.
+         * otherwise this can cause noticeable 'flipping', see T72419. */
+        for (int axis = 0; axis < 2; axis++) {
+          float tan_src[3] = {0, 0, 0};
+          tan_src[axis] = 1.0f;
+          mul_qt_v3(cursor_quat, tan_src);
+
+          for (int axis_sign = 0; axis_sign < 2; axis_sign++) {
+            float tquat_test[4];
+            rotation_between_vecs_to_quat(tquat_test, tan_src, tan_dst);
+            const float angle_test = angle_normalized_qt(tquat_test);
+            if (angle_test < angle_best || angle_best == -1.0f) {
+              angle_best = angle_test;
+              copy_qt_qt(tquat_best, tquat_test);
+            }
+            negate_v3(tan_src);
+          }
+        }
+        mul_qt_qtqt(cursor_quat, tquat_best, cursor_quat);
       }
     }
     ED_transform_snap_object_context_destroy(snap_context);

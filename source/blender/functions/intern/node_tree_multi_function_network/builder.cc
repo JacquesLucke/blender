@@ -20,21 +20,26 @@ MFBuilderFunctionNode &CommonBuilderBase::add_function(const MultiFunction &func
 
 MFBuilderDummyNode &CommonBuilderBase::add_dummy(const FNode &fnode)
 {
+  ScopedVector<const FInputSocket *> data_inputs;
   ScopedVector<MFDataType> input_types;
   ScopedVector<StringRef> input_names;
+
   for (const FInputSocket *fsocket : fnode.inputs()) {
     Optional<MFDataType> data_type = m_common.fsocket_data_types.try_lookup_data_type(*fsocket);
     if (data_type.has_value()) {
+      data_inputs.append(fsocket);
       input_types.append(data_type.value());
       input_names.append(fsocket->name());
     }
   }
 
+  ScopedVector<const FOutputSocket *> data_outputs;
   ScopedVector<MFDataType> output_types;
   ScopedVector<StringRef> output_names;
   for (const FOutputSocket *fsocket : fnode.outputs()) {
     Optional<MFDataType> data_type = m_common.fsocket_data_types.try_lookup_data_type(*fsocket);
     if (data_type.has_value()) {
+      data_outputs.append(fsocket);
       output_types.append(data_type.value());
       output_names.append(fsocket->name());
     }
@@ -42,7 +47,21 @@ MFBuilderDummyNode &CommonBuilderBase::add_dummy(const FNode &fnode)
 
   MFBuilderDummyNode &node = m_common.network_builder.add_dummy(
       fnode.name(), input_types, output_types, input_names, output_names);
-  m_common.socket_map.add(fnode, node, m_common.fsocket_data_types);
+
+  m_common.socket_map.add(data_inputs, node.inputs());
+  m_common.socket_map.add(data_outputs, node.outputs());
+
+  for (uint i : data_inputs.index_range()) {
+    const FInputSocket *fsocket = data_inputs[i];
+    MFBuilderInputSocket *socket = &node.input(i);
+    m_common.dummy_socket_mapping.add_new(fsocket, socket);
+  }
+  for (uint i : data_outputs.index_range()) {
+    const FOutputSocket *fsocket = data_outputs[i];
+    MFBuilderOutputSocket *socket = &node.output(i);
+    m_common.dummy_socket_mapping.add_new(fsocket, socket);
+  }
+
   return node;
 }
 

@@ -80,6 +80,10 @@ ccl_device_inline void kernel_update_denoising_features(KernelGlobals *kg,
         MicrofacetBsdf *bsdf = (MicrofacetBsdf *)sc;
         closure_albedo *= bsdf->extra->fresnel_color;
       }
+      else if (sc->type == CLOSURE_BSDF_PRINCIPLED_SHEEN_ID) {
+        PrincipledSheenBsdf *bsdf = (PrincipledSheenBsdf *)sc;
+        closure_albedo *= bsdf->avg_value;
+      }
 
       albedo += closure_albedo;
       sum_nonspecular_weight += sc->sample_weight;
@@ -91,6 +95,11 @@ ccl_device_inline void kernel_update_denoising_features(KernelGlobals *kg,
     if (sum_weight != 0.0f) {
       normal /= sum_weight;
     }
+
+    /* Transform normal into camera space. */
+    const Transform worldtocamera = kernel_data.cam.worldtocamera;
+    normal = transform_direction(&worldtocamera, normal);
+
     L->denoising_normal += ensure_finite3(state->denoising_feature_weight * normal);
     L->denoising_albedo += ensure_finite3(state->denoising_feature_weight * albedo);
 

@@ -8,73 +8,6 @@
 
 namespace FN {
 
-inline std::string constant_output_name_from_value(const CPPType &type, const void *value)
-{
-  if (type == CPP_TYPE<float>()) {
-    return std::to_string(*(float *)value);
-  }
-  else if (type == CPP_TYPE<int>()) {
-    return std::to_string(*(int *)value);
-  }
-  else if (type == CPP_TYPE<BLI::float3>()) {
-    std::stringstream ss;
-    ss << *(BLI::float3 *)value;
-    return ss.str();
-  }
-  else if (type == CPP_TYPE<bool>()) {
-    return (*(bool *)value) ? "true" : "false";
-  }
-  else if (type == CPP_TYPE<std::string>()) {
-    return "\"" + *(std::string *)value + "\"";
-  }
-  else {
-    return "Value";
-  }
-}
-
-/**
- * Note: The value buffer passed into the constructor should have a longer lifetime than the
- * function itself.
- */
-class MF_GenericConstantValue : public MultiFunction {
- private:
-  const void *m_value;
-
- public:
-  MF_GenericConstantValue(const CPPType &type, const void *value) : m_value(value)
-  {
-    MFSignatureBuilder signature = this->get_builder("Constant " + type.name());
-    std::string name = constant_output_name_from_value(type, value);
-    signature.single_output(name, type);
-  }
-
-  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
-  {
-    GenericMutableArrayRef r_value = params.uninitialized_single_output(0);
-    r_value.type().fill_uninitialized_indices(m_value, r_value.buffer(), mask);
-  }
-};
-
-template<typename T> class MF_ConstantValue : public MultiFunction {
- private:
-  T m_value;
-
- public:
-  MF_ConstantValue(T value) : m_value(std::move(value))
-  {
-    MFSignatureBuilder signature = this->get_builder("Constant " + CPP_TYPE<T>().name());
-    std::string name = constant_output_name_from_value(CPP_TYPE<T>(), (const void *)&m_value);
-    signature.single_output<T>(name);
-  }
-
-  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
-  {
-    MutableArrayRef<T> output = params.uninitialized_single_output<T>(0);
-
-    mask.foreach_index([&](uint i) { new (output.begin() + i) T(m_value); });
-  }
-};
-
 template<typename FromT, typename ToT> class MF_Convert : public MultiFunction {
  public:
   MF_Convert()
@@ -83,6 +16,7 @@ template<typename FromT, typename ToT> class MF_Convert : public MultiFunction {
                                                      CPP_TYPE<ToT>().name());
     signature.single_input<FromT>("Input");
     signature.single_output<ToT>("Output");
+    signature.operation_hash_per_class();
   }
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
@@ -104,11 +38,13 @@ template<typename InT, typename OutT> class MF_Custom_In1_Out1 final : public Mu
   FunctionT m_fn;
 
  public:
-  MF_Custom_In1_Out1(StringRef name, FunctionT fn) : m_fn(std::move(fn))
+  MF_Custom_In1_Out1(StringRef name, FunctionT fn, Optional<uint32_t> operation_hash = {})
+      : m_fn(std::move(fn))
   {
     MFSignatureBuilder signature = this->get_builder(name);
     signature.single_input<InT>("Input");
     signature.single_output<OutT>("Output");
+    signature.operation_hash(operation_hash);
   }
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
@@ -128,12 +64,14 @@ class MF_Custom_In2_Out1 final : public MultiFunction {
   FunctionT m_fn;
 
  public:
-  MF_Custom_In2_Out1(StringRef name, FunctionT fn) : m_fn(std::move(fn))
+  MF_Custom_In2_Out1(StringRef name, FunctionT fn, Optional<uint32_t> operation_hash = {})
+      : m_fn(std::move(fn))
   {
     MFSignatureBuilder signature = this->get_builder(name);
     signature.single_input<InT1>("Input 1");
     signature.single_input<InT2>("Input 2");
     signature.single_output<OutT>("Output");
+    signature.operation_hash(operation_hash);
   }
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
@@ -154,7 +92,10 @@ template<typename T> class MF_VariadicMath final : public MultiFunction {
   FunctionT m_fn;
 
  public:
-  MF_VariadicMath(StringRef name, uint input_amount, FunctionT fn)
+  MF_VariadicMath(StringRef name,
+                  uint input_amount,
+                  FunctionT fn,
+                  Optional<uint32_t> operation_hash)
       : m_input_amount(input_amount), m_fn(fn)
   {
     BLI_STATIC_ASSERT(std::is_trivial<T>::value, "");
@@ -164,6 +105,7 @@ template<typename T> class MF_VariadicMath final : public MultiFunction {
       signature.single_input<T>("Input");
     }
     signature.single_output<T>("Output");
+    signature.operation_hash(operation_hash);
   }
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override

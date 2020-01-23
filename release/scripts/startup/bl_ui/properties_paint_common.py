@@ -438,7 +438,7 @@ class FalloffPanel(BrushPanel):
             row.operator("brush.curve_preset", icon='LINCURVE', text="").shape = 'LINE'
             row.operator("brush.curve_preset", icon='NOCURVE', text="").shape = 'MAX'
 
-        if mode in {'SCULPT', 'PAINT_VERTEX', 'PAINT_WEIGHT'}:
+        if mode in {'SCULPT', 'PAINT_VERTEX', 'PAINT_WEIGHT'} and brush.sculpt_tool != 'POSE':
             col.separator()
             row = col.row(align=True)
             row.use_property_split = True
@@ -616,9 +616,12 @@ def brush_settings(layout, context, brush, popover=False):
             layout.separator()
 
         if brush.sculpt_tool == 'POSE':
-            row = layout.row()
-            row.prop(brush, "pose_offset")
-
+            layout.separator()
+            layout.prop(brush, "pose_offset")
+            layout.prop(brush, "pose_smooth_iterations")
+            layout.prop(brush, "pose_ik_segments")
+            layout.separator()
+        
         if brush.sculpt_tool == 'SCRAPE':
             row = layout.row()
             row.prop(brush, "invert_to_scrape_fill", text="Invert to Fill")

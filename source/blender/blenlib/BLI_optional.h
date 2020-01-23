@@ -23,6 +23,7 @@
 #pragma once
 
 #include "BLI_utildefines.h"
+#include "BLI_memory_utils_cxx.h"
 
 #include <algorithm>
 #include <memory>
@@ -31,7 +32,7 @@ namespace BLI {
 
 template<typename T> class Optional {
  private:
-  char m_raw_data[sizeof(T)];
+  AlignedBuffer<sizeof(T), alignof(T)> m_storage;
   bool m_set;
 
  public:
@@ -145,6 +146,20 @@ template<typename T> class Optional {
     }
   }
 
+  void set_new(const T &value)
+  {
+    BLI_assert(!m_set);
+    new (this->value_ptr()) T(value);
+    m_set = true;
+  }
+
+  void set_new(T &&value)
+  {
+    BLI_assert(!m_set);
+    new (this->value_ptr()) T(std::move(value));
+    m_set = true;
+  }
+
   void reset()
   {
     if (m_set) {
@@ -174,7 +189,7 @@ template<typename T> class Optional {
  private:
   T *value_ptr() const
   {
-    return (T *)m_raw_data;
+    return (T *)m_storage.ptr();
   }
 };
 

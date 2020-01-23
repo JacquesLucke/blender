@@ -302,6 +302,11 @@ const EnumPropertyItem rna_enum_event_type_items[] = {
     {F17KEY, "F17", 0, "F17", ""},
     {F18KEY, "F18", 0, "F18", ""},
     {F19KEY, "F19", 0, "F19", ""},
+    {F20KEY, "F20", 0, "F20", ""},
+    {F21KEY, "F21", 0, "F21", ""},
+    {F22KEY, "F22", 0, "F22", ""},
+    {F23KEY, "F23", 0, "F23", ""},
+    {F24KEY, "F24", 0, "F24", ""},
     {PAUSEKEY, "PAUSE", 0, "Pause", ""},
     {INSERTKEY, "INSERT", 0, "Insert", "Ins"},
     {HOMEKEY, "HOME", 0, "Home", ""},
@@ -2180,7 +2185,7 @@ static void rna_def_event(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Is Tablet", "The event has tablet data");
 
   prop = RNA_def_property(srna, "is_mouse_absolute", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, NULL, "is_motion_absolute", 1);
+  RNA_def_property_boolean_sdna(prop, NULL, "tablet.is_motion_absolute", 1);
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
   RNA_def_property_ui_text(prop, "Absolute Motion", "The last motion event was an absolute input");
 

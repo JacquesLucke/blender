@@ -79,13 +79,12 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Construct ArrayRef<const T *> from ArrayRef<T *>.
+   * ArrayRef<T *> -> ArrayRef<const T *>
+   * ArrayRef<Derived *> -> ArrayRef<Base *>
    */
-  template<typename U>
-  ArrayRef(
-      ArrayRef<U *> array,
-      typename std::enable_if<std::is_convertible<U *const *, T const *>::value>::type * = nullptr)
-      : ArrayRef(array.begin(), array.size())
+  template<typename U,
+           typename std::enable_if<std::is_convertible<U *, T>::value>::type * = nullptr>
+  ArrayRef(ArrayRef<U *> array) : ArrayRef((T *)array.begin(), array.size())
   {
   }
 

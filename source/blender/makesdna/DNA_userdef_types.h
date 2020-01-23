@@ -283,13 +283,12 @@ typedef struct ThemeSpace {
   unsigned char normal[4];
   unsigned char vertex_normal[4];
   unsigned char loop_normal[4];
-  unsigned char bone_solid[4], bone_pose[4], bone_pose_active[4];
+  unsigned char bone_solid[4], bone_pose[4], bone_pose_active[4], bone_locked_weight[4];
   unsigned char strip[4], strip_select[4];
   unsigned char cframe[4];
   unsigned char time_keyframe[4], time_gp_keyframe[4];
   unsigned char freestyle_edge_mark[4], freestyle_face_mark[4];
   unsigned char time_scrub_background[4];
-  char _pad5[4];
 
   unsigned char nurb_uline[4], nurb_vline[4];
   unsigned char act_spline[4], nurb_sel_uline[4], nurb_sel_vline[4], lastsel_point[4];
@@ -601,9 +600,7 @@ typedef struct UserDef_FileSpaceData {
 } UserDef_FileSpaceData;
 
 typedef struct UserDef_Experimental {
-  char use_usd_exporter;
-
-  char _pad0[7];
+  char _pad0[8]; /* makesdna does not allow empty structs. */
 } UserDef_Experimental;
 
 #define USER_EXPERIMENTAL_TEST(userdef, member) \

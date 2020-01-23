@@ -386,8 +386,8 @@ if(WITH_BOOST)
     set(BOOST_INCLUDE_DIR ${BOOST}/include)
     set(BOOST_LIBPATH ${BOOST}/lib)
     if(CMAKE_CL_64)
-      set(BOOST_POSTFIX "vc141-mt-x64-1_68.lib")
-      set(BOOST_DEBUG_POSTFIX "vc141-mt-gd-x64-1_68.lib")
+      set(BOOST_POSTFIX "vc141-mt-x64-1_70.lib")
+      set(BOOST_DEBUG_POSTFIX "vc141-mt-gd-x64-1_70.lib")
     endif()
     set(BOOST_LIBRARIES
       optimized ${BOOST_LIBPATH}/libboost_date_time-${BOOST_POSTFIX}
@@ -660,9 +660,11 @@ if(WITH_USD)
   if(NOT USD_FOUND)
     set(USD_FOUND ON)
     set(USD_INCLUDE_DIRS ${LIBDIR}/usd/include)
+    set(USD_RELEASE_LIB ${LIBDIR}/usd/lib/libusd_m.lib)
+    set(USD_DEBUG_LIB ${LIBDIR}/usd/lib/libusd_m_d.lib)
     set(USD_LIBRARIES
-        debug ${LIBDIR}/usd/lib/libusd_m_d.lib
-        optimized ${LIBDIR}/usd/lib/libusd_m.lib
+        debug ${USD_DEBUG_LIB}
+        optimized ${USD_RELEASE_LIB}
     )
   endif()
 endif()

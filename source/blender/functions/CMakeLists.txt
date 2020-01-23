@@ -23,6 +23,7 @@ if(WITH_PYTHON)
 endif()
 
 set(SRC
+  intern/multi_functions/constants.cc
   intern/multi_functions/lists.cc
   intern/multi_functions/mixed.cc
   intern/multi_functions/network.cc
@@ -68,6 +69,7 @@ set(SRC
   FN_node_tree_multi_function_network.h
   FN_node_tree.h
 
+  intern/multi_functions/constants.h
   intern/multi_functions/customizable.h
   intern/multi_functions/lists.h
   intern/multi_functions/mixed.h

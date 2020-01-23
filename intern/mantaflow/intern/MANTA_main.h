@@ -248,11 +248,11 @@ struct MANTA {
   {
     return mObstacle;
   }
-  inline int *getNumObstacle()
+  inline float *getNumObstacle()
   {
     return mNumObstacle;
   }
-  inline int *getNumGuide()
+  inline float *getNumGuide()
   {
     return mNumGuide;
   }
@@ -692,6 +692,19 @@ struct MANTA {
     return (mSndParticleData && !mSndParticleData->empty()) ? mSndParticleData->size() : 0;
   }
 
+  inline bool usingFlipFromFile()
+  {
+    return mFlipFromFile;
+  }
+  inline bool usingMeshFromFile()
+  {
+    return mMeshFromFile;
+  }
+  inline bool usingParticleFromFile()
+  {
+    return mParticlesFromFile;
+  }
+
   // Direct access to solver time attributes
   int getFrame();
   float getTimestep();
@@ -725,6 +738,10 @@ struct MANTA {
   bool mUsingBubbles;
   bool mUsingFloats;
   bool mUsingTracers;
+
+  bool mFlipFromFile;
+  bool mMeshFromFile;
+  bool mParticlesFromFile;
 
   int mResX;
   int mResY;
@@ -765,8 +782,8 @@ struct MANTA {
   float *mForceY;
   float *mForceZ;
   int *mObstacle;
-  int *mNumObstacle;
-  int *mNumGuide;
+  float *mNumObstacle;
+  float *mNumGuide;
 
   // Smoke grids
   float *mDensity;
@@ -837,8 +854,6 @@ struct MANTA {
   void updateParticlesFromUni(const char *filename, bool isSecondarySys, bool isVelData);
   void updateMeshFromFile(const char *filename);
   void updateParticlesFromFile(const char *filename, bool isSecondarySys, bool isVelData);
-  template<class T>
-  void setPointers(std::vector<std::tuple<T **, std::string, std::string, bool>>);
 };
 
 #endif

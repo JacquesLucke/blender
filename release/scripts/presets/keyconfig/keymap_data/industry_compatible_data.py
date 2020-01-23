@@ -114,20 +114,6 @@ def _template_items_animation():
 
     ]
 
-# Gizmos
-
-def _template_items_gizmo_tweak_value():
-    return [
-        ("gizmogroup.gizmo_tweak", {"type": 'LEFTMOUSE', "value": 'PRESS'}, None),
-    ]
-
-
-def _template_items_gizmo_tweak_value_click_drag():
-    return [
-        ("gizmogroup.gizmo_tweak", {"type": 'LEFTMOUSE', "value": 'CLICK'}, None),
-        ("gizmogroup.gizmo_tweak", {"type": 'EVT_TWEAK_L', "value": 'ANY'}, None),
-    ]
-
 
 def _template_items_gizmo_tweak_value_drag():
     return [
@@ -960,7 +946,7 @@ def km_image_generic(params):
         ("image.reload", {"type": 'R', "value": 'PRESS', "alt": True}, None),
         ("image.read_viewlayers", {"type": 'R', "value": 'PRESS', "ctrl": True}, None),
         ("image.save", {"type": 'S', "value": 'PRESS', "alt": True}, None),
-        ("image.save_as", {"type": 'S', "value": 'PRESS', "shift": True}, None),
+        ("image.save_as", {"type": 'S', "value": 'PRESS', "shift": True, "alt": True}, None),
     ])
 
     return keymap
@@ -3574,17 +3560,88 @@ def km_transform_modal_map(_params):
 
 
 # ------------------------------------------------------------------------------
-# Gizmos
+# Tool System Keymaps
+#
+# Named are auto-generated based on the tool name and it's toolbar.
 
-# Fallback for gizmos that don't have custom a custom key-map.
-def km_generic_gizmo(_params):
-    keymap = (
-        "Generic Gizmo",
-        {"space_type": 'EMPTY', "region_type": 'WINDOW'},
-        {"items": _template_items_gizmo_tweak_value()},
+
+def km_image_editor_tool_uv_move(params):
+    return (
+        "Image Editor Tool: Uv, Move",
+        {"space_type": 'IMAGE_EDITOR', "region_type": 'WINDOW'},
+        {"items": [
+            ("transform.translate", {"type": 'EVT_TWEAK_M', "value": 'ANY'},
+             {"properties": [("release_confirm", True)]}),
+        ]},
     )
 
-    return keymap
+
+def km_image_editor_tool_uv_rotate(params):
+    return (
+        "Image Editor Tool: Uv, Rotate",
+        {"space_type": 'IMAGE_EDITOR', "region_type": 'WINDOW'},
+        {"items": [
+            ("transform.rotate", {"type": 'EVT_TWEAK_M', "value": 'ANY'},
+             {"properties": [("release_confirm", True)]}),
+        ]},
+    )
+
+
+def km_image_editor_tool_uv_scale(params):
+    return (
+        "Image Editor Tool: Uv, Scale",
+        {"space_type": 'IMAGE_EDITOR', "region_type": 'WINDOW'},
+        {"items": [
+            ("transform.resize", {"type": 'EVT_TWEAK_M', "value": 'ANY'},
+             {"properties": [("release_confirm", True)]}),
+        ]},
+    )
+
+
+def km_3d_view_tool_move(params):
+    return (
+        "3D View Tool: Move",
+        {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
+        {"items": [
+            ("transform.translate", {"type": 'EVT_TWEAK_M', "value": 'ANY'},
+             {"properties": [("release_confirm", True)]}),
+        ]},
+    )
+
+
+def km_3d_view_tool_rotate(params):
+    return (
+        "3D View Tool: Rotate",
+        {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
+        {"items": [
+            ("transform.rotate", {"type": 'EVT_TWEAK_M', "value": 'ANY'},
+             {"properties": [("release_confirm", True)]}),
+        ]},
+    )
+
+
+def km_3d_view_tool_scale(params):
+    return (
+        "3D View Tool: Scale",
+        {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
+        {"items": [
+            ("transform.resize", {"type": 'EVT_TWEAK_M', "value": 'ANY'},
+             {"properties": [("release_confirm", True)]}),
+        ]},
+    )
+
+
+def km_3d_view_tool_transform(params):
+    return (
+        "3D View Tool: Transform",
+        {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
+        {"items": [
+            ("transform.from_gizmo", {"type": 'EVT_TWEAK_M', "value": 'ANY'}, None),
+        ]},
+    )
+
+
+# Fallback for gizmos that don't have custom a custom key-map.
 
 
 def km_generic_gizmo_drag(_params):
@@ -3592,16 +3649,6 @@ def km_generic_gizmo_drag(_params):
         "Generic Gizmo Drag",
         {"space_type": 'EMPTY', "region_type": 'WINDOW'},
         {"items": _template_items_gizmo_tweak_value_drag()},
-    )
-
-    return keymap
-
-
-def km_generic_gizmo_click_drag(_params):
-    keymap = (
-        "Generic Gizmo Click Drag",
-        {"space_type": 'EMPTY', "region_type": 'WINDOW'},
-        {"items": _template_items_gizmo_tweak_value_click_drag()},
     )
 
     return keymap
@@ -3622,7 +3669,7 @@ def km_generic_gizmo_maybe_drag(params):
 # ------------------------------------------------------------------------------
 # Full Configuration
 
-def generate_keymaps(params=None):
+def generate_keymaps_impl(params=None):
     if params is None:
         params = Params()
     return [
@@ -3708,9 +3755,63 @@ def generate_keymaps(params=None):
         km_transform_modal_map(params),
 
         # Gizmos.
-        km_generic_gizmo(params),
         km_generic_gizmo_drag(params),
         km_generic_gizmo_maybe_drag(params),
-        km_generic_gizmo_click_drag(params),
+
+        # Tool System.
+        km_image_editor_tool_uv_move(params),
+        km_image_editor_tool_uv_rotate(params),
+        km_image_editor_tool_uv_scale(params),
+        km_3d_view_tool_transform(params),
+        km_3d_view_tool_move(params),
+        km_3d_view_tool_rotate(params),
+        km_3d_view_tool_scale(params),
 
     ]
+
+
+def keymap_transform_tool_mmb(keymap):
+    import re
+    # Any tool besides fallback tools.
+    re_fallback_tool = re.compile(
+        r".*\bTool:\s(?!"
+        r".*\bSelect Box$|"
+        r".*\bSelect Circle$|"
+        r".*\bSelect Lasso$|"
+        r".*\bTweak$)",
+    )
+    for km_name, km_args, km_content in keymap:
+        if re_fallback_tool.match(km_name):
+            km_items = km_content["items"]
+            km_items_new = []
+            for kmi in km_items:
+                ty = kmi[1]["type"]
+                if ty == 'LEFTMOUSE':
+                    kmi = (kmi[0], kmi[1].copy(), kmi[2])
+                    kmi[1]["type"] = 'MIDDLEMOUSE'
+                    km_items_new.append(kmi)
+                elif ty == 'EVT_TWEAK_L':
+                    kmi = (kmi[0], kmi[1].copy(), kmi[2])
+                    kmi[1]["type"] = 'EVT_TWEAK_M'
+                    km_items_new.append(kmi)
+            km_items.extend(km_items_new)
+
+
+def generate_keymaps(params=None):
+    import os
+    from bpy.utils import execfile
+    keymap = generate_keymaps_impl(params)
+
+    # Combine the key-map to support manipulating it, so we don't need to manually
+    # define key-map here just to manipulate them.
+    blender_default = execfile(
+        os.path.join(os.path.dirname(__file__), "blender_default.py"),
+    ).generate_keymaps()
+
+    keymap_existing_names = {km[0] for km in keymap}
+    keymap.extend([km for km in blender_default if km[0] not in keymap_existing_names])
+
+    # Manipulate the key-map.
+    keymap_transform_tool_mmb(keymap)
+
+    return keymap
