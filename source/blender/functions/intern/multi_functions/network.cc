@@ -5,6 +5,7 @@
 namespace FN {
 
 using BLI::ArrayAllocator;
+using BLI::ScopedVector;
 
 namespace OutputValueType {
 enum Enum {
@@ -394,14 +395,58 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_inputs_to_storage(MFParams params,
   }
 }
 
+static BLI_NOINLINE void compute_max_depth_per_node(const MFNetwork &network,
+                                                    MutableArrayRef<int> r_max_depths)
+{
+  BLI_assert(r_max_depths.size() == network.node_ids().size());
+  r_max_depths.fill(-1);
+
+  for (const MFDummyNode *node : network.dummy_nodes()) {
+    r_max_depths[node->id()] = 0;
+  }
+
+  Stack<const MFNode *> nodes_to_check;
+  nodes_to_check.push_multiple(network.function_nodes());
+
+  while (!nodes_to_check.is_empty()) {
+    const MFNode &current = *nodes_to_check.peek();
+    if (r_max_depths[current.id()] >= 0) {
+      nodes_to_check.pop();
+      continue;
+    }
+
+    bool all_inputs_computed = true;
+    int max_incoming_depth = 0;
+    for (const MFInputSocket *socket : current.inputs()) {
+      const MFNode &origin_node = socket->origin().node();
+      int origin_depth = r_max_depths[origin_node.id()];
+      if (origin_depth == -1) {
+        nodes_to_check.push(&origin_node);
+        all_inputs_computed = false;
+      }
+      else {
+        max_incoming_depth = std::max(max_incoming_depth, origin_depth);
+      }
+    }
+
+    if (!all_inputs_computed) {
+      continue;
+    }
+
+    nodes_to_check.pop();
+    r_max_depths[current.id()] = max_incoming_depth + 1;
+  }
+}
+
 BLI_NOINLINE void MF_EvaluateNetwork::evaluate_network_to_compute_outputs(
     MFContext &global_context, Storage &storage) const
 {
-  Stack<const MFSocket *> sockets_to_compute;
+  const MFNetwork &network = m_outputs[0]->node().network();
+  Array<int> max_depths(network.node_ids().size());
+  compute_max_depth_per_node(network, max_depths);
 
-  for (const MFInputSocket *input_socket : m_outputs) {
-    sockets_to_compute.push(input_socket);
-  }
+  Stack<const MFSocket *> sockets_to_compute;
+  sockets_to_compute.push_multiple(m_outputs.as_ref());
 
   while (!sockets_to_compute.is_empty()) {
     const MFSocket &socket = *sockets_to_compute.peek();
@@ -420,15 +465,23 @@ BLI_NOINLINE void MF_EvaluateNetwork::evaluate_network_to_compute_outputs(
       const MFOutputSocket &output_socket = socket.as_output();
       const MFFunctionNode &function_node = output_socket.node().as_function();
 
-      uint not_computed_inputs_amount = 0;
+      ScopedVector<const MFInputSocket *> missing_inputs;
       for (const MFInputSocket *input_socket : function_node.inputs()) {
         if (!storage.input_is_computed(*input_socket)) {
-          not_computed_inputs_amount++;
+          missing_inputs.append(input_socket);
           sockets_to_compute.push(input_socket);
         }
       }
 
-      bool all_inputs_are_computed = not_computed_inputs_amount == 0;
+      std::sort(missing_inputs.begin(),
+                missing_inputs.end(),
+                [&](const MFInputSocket *a, const MFInputSocket *b) {
+                  return max_depths[a->origin().node().id()] < max_depths[b->origin().node().id()];
+                });
+
+      sockets_to_compute.push_multiple(missing_inputs.as_ref());
+
+      bool all_inputs_are_computed = missing_inputs.size() == 0;
       if (all_inputs_are_computed) {
         this->evaluate_function(global_context, function_node, storage);
         sockets_to_compute.pop();
@@ -442,7 +495,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::evaluate_function(MFContext &global_contex
                                                         Storage &storage) const
 {
   const MultiFunction &function = function_node.function();
-  std::cout << function.name() << "\n";
+  // std::cout << "Function: " << function.name() << "\n";
 
   MFParamsBuilder params_builder{function, storage.mask().min_array_size()};
 

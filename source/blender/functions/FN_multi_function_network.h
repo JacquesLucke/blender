@@ -383,10 +383,16 @@ class MFNetwork : BLI::NonCopyable, BLI::NonMovable {
   const MFNode &node_by_id(uint id) const;
   const MFSocket &socket_by_id(uint id) const;
   IndexRange socket_ids() const;
+  IndexRange node_ids() const;
 
   ArrayRef<const MFDummyNode *> dummy_nodes() const
   {
     return m_dummy_nodes.as_ref();
+  }
+
+  ArrayRef<const MFFunctionNode *> function_nodes() const
+  {
+    return m_function_nodes.as_ref();
   }
 
   Vector<const MFOutputSocket *> find_dummy_dependencies(
@@ -773,6 +779,11 @@ inline const MFSocket &MFNetwork::socket_by_id(uint index) const
 inline IndexRange MFNetwork::socket_ids() const
 {
   return IndexRange(m_socket_by_id.size());
+}
+
+inline IndexRange MFNetwork::node_ids() const
+{
+  return IndexRange(m_node_by_id.size());
 }
 
 }  // namespace FN
