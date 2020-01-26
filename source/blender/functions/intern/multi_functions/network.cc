@@ -308,10 +308,9 @@ class NetworkEvaluationStorage {
     return GenericVirtualListListRef::FromSingleArray(CPP_TYPE<float>(), nullptr, 0, 0);
   }
 
-  bool input_is_computed(const MFInputSocket &socket)
+  bool socket_is_computed(const MFOutputSocket &socket)
   {
-    const MFOutputSocket &origin = socket.origin();
-    OutputValue *any_value = m_value_per_output_id[origin.id()];
+    OutputValue *any_value = m_value_per_output_id[socket.id()];
     return any_value != nullptr;
   }
 };
@@ -401,48 +400,42 @@ BLI_NOINLINE void MF_EvaluateNetwork::evaluate_network_to_compute_outputs(
   const MFNetwork &network = m_outputs[0]->node().network();
   ArrayRef<uint> max_dependency_depths = network.max_dependency_depth_per_node();
 
-  Stack<const MFSocket *> sockets_to_compute;
-  sockets_to_compute.push_multiple(m_outputs.as_ref());
+  Stack<const MFOutputSocket *> sockets_to_compute;
+  for (const MFInputSocket *socket : m_outputs) {
+    sockets_to_compute.push(&socket->origin());
+  }
 
   while (!sockets_to_compute.is_empty()) {
-    const MFSocket &socket = *sockets_to_compute.peek();
+    const MFOutputSocket &socket = *sockets_to_compute.peek();
+    const MFNode &node = socket.node();
 
-    if (socket.is_input()) {
-      const MFInputSocket &input_socket = socket.as_input();
-      if (storage.input_is_computed(input_socket)) {
-        sockets_to_compute.pop();
-      }
-      else {
-        const MFOutputSocket &origin = input_socket.origin();
-        sockets_to_compute.push(&origin);
-      }
+    if (node.is_dummy()) {
+      BLI_assert(m_inputs.contains(&socket));
+      continue;
     }
-    else {
-      const MFOutputSocket &output_socket = socket.as_output();
-      const MFFunctionNode &function_node = output_socket.node().as_function();
 
-      ScopedVector<const MFInputSocket *> missing_inputs;
-      for (const MFInputSocket *input_socket : function_node.inputs()) {
-        if (!storage.input_is_computed(*input_socket)) {
-          missing_inputs.append(input_socket);
-          sockets_to_compute.push(input_socket);
-        }
+    const MFFunctionNode &function_node = node.as_function();
+
+    ScopedVector<const MFOutputSocket *> missing_sockets;
+    function_node.foreach_origin_socket([&](const MFOutputSocket &origin) {
+      if (!storage.socket_is_computed(origin)) {
+        missing_sockets.append(&origin);
       }
+    });
 
-      std::sort(missing_inputs.begin(),
-                missing_inputs.end(),
-                [&](const MFInputSocket *a, const MFInputSocket *b) {
-                  return max_dependency_depths[a->origin().node().id()] <
-                         max_dependency_depths[b->origin().node().id()];
-                });
+    std::sort(missing_sockets.begin(),
+              missing_sockets.end(),
+              [&](const MFOutputSocket *a, const MFOutputSocket *b) {
+                return max_dependency_depths[a->node().id()] <
+                       max_dependency_depths[b->node().id()];
+              });
 
-      sockets_to_compute.push_multiple(missing_inputs.as_ref());
+    sockets_to_compute.push_multiple(missing_sockets.as_ref());
 
-      bool all_inputs_are_computed = missing_inputs.size() == 0;
-      if (all_inputs_are_computed) {
-        this->evaluate_function(global_context, function_node, storage);
-        sockets_to_compute.pop();
-      }
+    bool all_inputs_are_computed = missing_sockets.size() == 0;
+    if (all_inputs_are_computed) {
+      this->evaluate_function(global_context, function_node, storage);
+      sockets_to_compute.pop();
     }
   }
 }

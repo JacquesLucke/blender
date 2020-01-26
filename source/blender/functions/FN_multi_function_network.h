@@ -288,6 +288,7 @@ class MFNode : BLI::NonCopyable, BLI::NonMovable {
   const MFDummyNode &as_dummy() const;
 
   template<typename FuncT> void foreach_origin_node(const FuncT &func) const;
+  template<typename FuncT> void foreach_origin_socket(const FuncT &func) const;
 };
 
 class MFFunctionNode final : public MFNode {
@@ -661,12 +662,20 @@ inline const MFDummyNode &MFNode::as_dummy() const
   return *(const MFDummyNode *)this;
 }
 
-template<typename FuncT> void MFNode::foreach_origin_node(const FuncT &func) const
+template<typename FuncT> inline void MFNode::foreach_origin_node(const FuncT &func) const
 {
   for (const MFInputSocket *socket : m_inputs) {
     const MFOutputSocket &origin_socket = socket->origin();
     const MFNode &origin_node = origin_socket.node();
     func(origin_node);
+  }
+}
+
+template<typename FuncT> inline void MFNode::foreach_origin_socket(const FuncT &func) const
+{
+  for (const MFInputSocket *socket : m_inputs) {
+    const MFOutputSocket &origin_socket = socket->origin();
+    func(origin_socket);
   }
 }
 
