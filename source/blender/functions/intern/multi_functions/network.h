@@ -33,6 +33,8 @@ class MF_EvaluateNetwork final : public MultiFunction {
                          const MFFunctionNode &function_node,
                          Storage &storage) const;
 
+  bool can_do_single_value_evaluation(const MFFunctionNode &function_node, Storage &storage) const;
+
   void copy_computed_values_to_outputs(MFParams params, Storage &storage) const;
 };
 
