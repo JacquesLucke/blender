@@ -409,11 +409,12 @@ BLI_NOINLINE void MF_EvaluateNetwork::evaluate_network_to_compute_outputs(
     const MFOutputSocket &socket = *sockets_to_compute.peek();
     const MFNode &node = socket.node();
 
-    if (node.is_dummy()) {
-      BLI_assert(m_inputs.contains(&socket));
+    if (storage.socket_is_computed(socket)) {
+      sockets_to_compute.pop();
       continue;
     }
 
+    BLI_assert(node.is_function());
     const MFFunctionNode &function_node = node.as_function();
 
     ScopedVector<const MFOutputSocket *> missing_sockets;
