@@ -32,12 +32,6 @@ class MF_EvaluateNetwork final : public MultiFunction {
   void evaluate_function(MFContext &global_context,
                          const MFFunctionNode &function_node,
                          Storage &storage) const;
-  void pre_function_evaluation(const MFFunctionNode &function_node,
-                               Storage &storage,
-                               MFParamsBuilder &params_builder) const;
-  void post_function_evaluation(const MFFunctionNode &function_node,
-                                Storage &storage,
-                                MFParamsBuilder &params_builder) const;
 
   void copy_computed_values_to_outputs(MFParams params, Storage &storage) const;
 };
