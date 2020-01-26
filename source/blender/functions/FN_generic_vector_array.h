@@ -121,6 +121,13 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
     m_lengths[index] = new_length;
   }
 
+  void extend_multiple__copy(IndexMask indices, const GenericVirtualListListRef &values)
+  {
+    for (uint i : indices) {
+      this->extend_single__copy(i, values[i]);
+    }
+  }
+
   GenericMutableArrayRef allocate_single(uint index, uint size)
   {
     if (m_lengths[index] + size > m_capacities[index]) {
