@@ -395,55 +395,11 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_inputs_to_storage(MFParams params,
   }
 }
 
-static BLI_NOINLINE void compute_max_depth_per_node(const MFNetwork &network,
-                                                    MutableArrayRef<int> r_max_depths)
-{
-  BLI_assert(r_max_depths.size() == network.node_ids().size());
-  r_max_depths.fill(-1);
-
-  for (const MFDummyNode *node : network.dummy_nodes()) {
-    r_max_depths[node->id()] = 0;
-  }
-
-  Stack<const MFNode *> nodes_to_check;
-  nodes_to_check.push_multiple(network.function_nodes());
-
-  while (!nodes_to_check.is_empty()) {
-    const MFNode &current = *nodes_to_check.peek();
-    if (r_max_depths[current.id()] >= 0) {
-      nodes_to_check.pop();
-      continue;
-    }
-
-    bool all_inputs_computed = true;
-    int max_incoming_depth = 0;
-    for (const MFInputSocket *socket : current.inputs()) {
-      const MFNode &origin_node = socket->origin().node();
-      int origin_depth = r_max_depths[origin_node.id()];
-      if (origin_depth == -1) {
-        nodes_to_check.push(&origin_node);
-        all_inputs_computed = false;
-      }
-      else {
-        max_incoming_depth = std::max(max_incoming_depth, origin_depth);
-      }
-    }
-
-    if (!all_inputs_computed) {
-      continue;
-    }
-
-    nodes_to_check.pop();
-    r_max_depths[current.id()] = max_incoming_depth + 1;
-  }
-}
-
 BLI_NOINLINE void MF_EvaluateNetwork::evaluate_network_to_compute_outputs(
     MFContext &global_context, Storage &storage) const
 {
   const MFNetwork &network = m_outputs[0]->node().network();
-  Array<int> max_depths(network.node_ids().size());
-  compute_max_depth_per_node(network, max_depths);
+  ArrayRef<uint> max_dependency_depths = network.max_dependency_depth_per_node();
 
   Stack<const MFSocket *> sockets_to_compute;
   sockets_to_compute.push_multiple(m_outputs.as_ref());
@@ -476,7 +432,8 @@ BLI_NOINLINE void MF_EvaluateNetwork::evaluate_network_to_compute_outputs(
       std::sort(missing_inputs.begin(),
                 missing_inputs.end(),
                 [&](const MFInputSocket *a, const MFInputSocket *b) {
-                  return max_depths[a->origin().node().id()] < max_depths[b->origin().node().id()];
+                  return max_dependency_depths[a->origin().node().id()] <
+                         max_dependency_depths[b->origin().node().id()];
                 });
 
       sockets_to_compute.push_multiple(missing_inputs.as_ref());

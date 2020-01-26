@@ -468,6 +468,8 @@ MFNetwork::MFNetwork(MFNetworkBuilder &builder)
     MFBuilderDummyNode *to_builder_node = builder_dummy_nodes[node_index];
     this->create_links_to_node(builder, to_node, to_builder_node);
   }
+
+  this->compute_max_dependency_depths();
 }
 
 void MFNetwork::create_links_to_node(MFNetworkBuilder &builder,
@@ -507,6 +509,47 @@ void MFNetwork::create_link_to_socket(MFNetworkBuilder &builder,
 
   from_socket->m_targets.append(to_socket);
   to_socket->m_origin = from_socket;
+}
+
+BLI_NOINLINE void MFNetwork::compute_max_dependency_depths()
+{
+  m_max_dependency_depth_per_node = Array<uint>(m_node_by_id.size(), UINT32_MAX);
+  Array<uint> &max_depths = m_max_dependency_depth_per_node;
+
+  for (const MFDummyNode *node : this->dummy_nodes()) {
+    max_depths[node->id()] = 0;
+  }
+
+  Stack<const MFNode *> nodes_to_check;
+  nodes_to_check.push_multiple(this->function_nodes());
+
+  while (!nodes_to_check.is_empty()) {
+    const MFNode &current = *nodes_to_check.peek();
+    if (max_depths[current.id()] != UINT32_MAX) {
+      nodes_to_check.pop();
+      continue;
+    }
+
+    bool all_inputs_computed = true;
+    uint max_incoming_depth = 0;
+    current.foreach_origin_node([&](const MFNode &origin_node) {
+      uint origin_depth = max_depths[origin_node.id()];
+      if (origin_depth == UINT32_MAX) {
+        nodes_to_check.push(&origin_node);
+        all_inputs_computed = false;
+      }
+      else {
+        max_incoming_depth = std::max(max_incoming_depth, origin_depth);
+      }
+    });
+
+    if (!all_inputs_computed) {
+      continue;
+    }
+
+    nodes_to_check.pop();
+    max_depths[current.id()] = max_incoming_depth + 1;
+  }
 }
 
 MFNetwork::~MFNetwork()
