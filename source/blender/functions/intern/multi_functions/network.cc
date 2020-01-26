@@ -405,6 +405,8 @@ BLI_NOINLINE void MF_EvaluateNetwork::evaluate_network_to_compute_outputs(
     sockets_to_compute.push(&socket->origin());
   }
 
+  ScopedVector<const MFOutputSocket *> missing_sockets;
+
   while (!sockets_to_compute.is_empty()) {
     const MFOutputSocket &socket = *sockets_to_compute.peek();
     const MFNode &node = socket.node();
@@ -417,7 +419,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::evaluate_network_to_compute_outputs(
     BLI_assert(node.is_function());
     const MFFunctionNode &function_node = node.as_function();
 
-    ScopedVector<const MFOutputSocket *> missing_sockets;
+    missing_sockets.clear();
     function_node.foreach_origin_socket([&](const MFOutputSocket &origin) {
       if (!storage.socket_is_computed(origin)) {
         missing_sockets.append(&origin);
