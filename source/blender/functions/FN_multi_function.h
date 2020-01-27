@@ -291,6 +291,12 @@ class MFParamsBuilder {
     BLI_assert(array.size() >= m_min_array_size);
     this->add_single_output(GenericMutableArrayRef(array));
   }
+  template<typename T> void add_single_output(T *value)
+  {
+    BLI_assert(m_min_array_size == 1);
+    BLI_assert(value != nullptr);
+    this->add_single_output(GenericMutableArrayRef(CPP_TYPE<T>(), (void *)value, 1));
+  }
   void add_single_output(GenericMutableArrayRef array)
   {
     this->assert_current_param_type(MFParamType::ForSingleOutput(array.type()));
