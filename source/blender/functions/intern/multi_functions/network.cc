@@ -135,7 +135,7 @@ class NetworkEvaluationStorage {
     m_value_per_output_id[socket.id()] = value;
   }
 
-  GenericMutableArrayRef allocate_single_output(const MFOutputSocket &socket)
+  GenericMutableArrayRef allocate_single_output__full(const MFOutputSocket &socket)
   {
     BLI_assert(m_value_per_output_id[socket.id()] == nullptr);
 
@@ -150,7 +150,7 @@ class NetworkEvaluationStorage {
     return array_ref;
   }
 
-  GenericMutableArrayRef allocate_single_output__scalar(const MFOutputSocket &socket)
+  GenericMutableArrayRef allocate_single_output__single(const MFOutputSocket &socket)
   {
     BLI_assert(m_value_per_output_id[socket.id()] == nullptr);
 
@@ -165,7 +165,7 @@ class NetworkEvaluationStorage {
     return value->array_ref;
   }
 
-  GenericVectorArray &allocate_vector_output(const MFOutputSocket &socket)
+  GenericVectorArray &allocate_vector_output__full(const MFOutputSocket &socket)
   {
     BLI_assert(m_value_per_output_id[socket.id()] == nullptr);
 
@@ -179,7 +179,7 @@ class NetworkEvaluationStorage {
     return *value->vector_array;
   }
 
-  GenericVectorArray &allocate_vector_output__scalar(const MFOutputSocket &socket)
+  GenericVectorArray &allocate_vector_output__single(const MFOutputSocket &socket)
   {
     BLI_assert(m_value_per_output_id[socket.id()] == nullptr);
 
@@ -193,8 +193,8 @@ class NetworkEvaluationStorage {
     return *value->vector_array;
   }
 
-  GenericMutableArrayRef get_mutable_single(const MFInputSocket &input,
-                                            const MFOutputSocket &output)
+  GenericMutableArrayRef get_mutable_single__full(const MFInputSocket &input,
+                                                  const MFOutputSocket &output)
   {
     const MFOutputSocket &from = input.origin();
     const MFOutputSocket &to = output;
@@ -243,7 +243,7 @@ class NetworkEvaluationStorage {
     return GenericMutableArrayRef(CPP_TYPE<float>());
   }
 
-  GenericMutableArrayRef get_mutable_single__scalar(const MFInputSocket &input,
+  GenericMutableArrayRef get_mutable_single__single(const MFInputSocket &input,
                                                     const MFOutputSocket &output)
   {
     const MFOutputSocket &from = input.origin();
@@ -295,7 +295,8 @@ class NetworkEvaluationStorage {
     return GenericMutableArrayRef(CPP_TYPE<float>());
   }
 
-  GenericVectorArray &get_mutable_vector(const MFInputSocket &input, const MFOutputSocket &output)
+  GenericVectorArray &get_mutable_vector__full(const MFInputSocket &input,
+                                               const MFOutputSocket &output)
   {
     const MFOutputSocket &from = input.origin();
     const MFOutputSocket &to = output;
@@ -342,7 +343,7 @@ class NetworkEvaluationStorage {
     return *new GenericVectorArray(CPP_TYPE<float>(), 0);
   }
 
-  GenericVectorArray &get_mutable_vector__scalar(const MFInputSocket &input,
+  GenericVectorArray &get_mutable_vector__single(const MFInputSocket &input,
                                                  const MFOutputSocket &output)
   {
     const MFOutputSocket &from = input.origin();
@@ -432,7 +433,7 @@ class NetworkEvaluationStorage {
     }
   }
 
-  GenericVirtualListRef get_single_input(const MFInputSocket &socket)
+  GenericVirtualListRef get_single_input__full(const MFInputSocket &socket)
   {
     const MFOutputSocket &origin = socket.origin();
     OutputValue *any_value = m_value_per_output_id[origin.id()];
@@ -457,7 +458,7 @@ class NetworkEvaluationStorage {
     return GenericVirtualListRef(CPP_TYPE<float>());
   }
 
-  GenericVirtualListRef get_single_input__scalar(const MFInputSocket &socket)
+  GenericVirtualListRef get_single_input__single(const MFInputSocket &socket)
   {
     const MFOutputSocket &origin = socket.origin();
     OutputValue *any_value = m_value_per_output_id[origin.id()];
@@ -478,7 +479,7 @@ class NetworkEvaluationStorage {
     return GenericVirtualListRef(CPP_TYPE<float>());
   }
 
-  GenericVirtualListListRef get_vector_input(const MFInputSocket &socket)
+  GenericVirtualListListRef get_vector_input__full(const MFInputSocket &socket)
   {
     const MFOutputSocket &origin = socket.origin();
     OutputValue *any_value = m_value_per_output_id[origin.id()];
@@ -504,7 +505,7 @@ class NetworkEvaluationStorage {
     return GenericVirtualListListRef::FromSingleArray(CPP_TYPE<float>(), nullptr, 0, 0);
   }
 
-  GenericVirtualListListRef get_vector_input__scalar(const MFInputSocket &socket)
+  GenericVirtualListListRef get_vector_input__single(const MFInputSocket &socket)
   {
     const MFOutputSocket &origin = socket.origin();
     OutputValue *any_value = m_value_per_output_id[origin.id()];
@@ -692,39 +693,39 @@ BLI_NOINLINE void MF_EvaluateNetwork::evaluate_function(MFContext &global_contex
       switch (param_type.type()) {
         case MFParamType::SingleInput: {
           const MFInputSocket &socket = function_node.input_for_param(param_index);
-          GenericVirtualListRef values = storage.get_single_input__scalar(socket);
+          GenericVirtualListRef values = storage.get_single_input__single(socket);
           params_builder.add_readonly_single_input(values);
           break;
         }
         case MFParamType::VectorInput: {
           const MFInputSocket &socket = function_node.input_for_param(param_index);
-          GenericVirtualListListRef values = storage.get_vector_input__scalar(socket);
+          GenericVirtualListListRef values = storage.get_vector_input__single(socket);
           params_builder.add_readonly_vector_input(values);
           break;
         }
         case MFParamType::SingleOutput: {
           const MFOutputSocket &socket = function_node.output_for_param(param_index);
-          GenericMutableArrayRef values = storage.allocate_single_output__scalar(socket);
+          GenericMutableArrayRef values = storage.allocate_single_output__single(socket);
           params_builder.add_single_output(values);
           break;
         }
         case MFParamType::VectorOutput: {
           const MFOutputSocket &socket = function_node.output_for_param(param_index);
-          GenericVectorArray &values = storage.allocate_vector_output__scalar(socket);
+          GenericVectorArray &values = storage.allocate_vector_output__single(socket);
           params_builder.add_vector_output(values);
           break;
         }
         case MFParamType::MutableSingle: {
           const MFInputSocket &input = function_node.input_for_param(param_index);
           const MFOutputSocket &output = function_node.output_for_param(param_index);
-          GenericMutableArrayRef values = storage.get_mutable_single__scalar(input, output);
+          GenericMutableArrayRef values = storage.get_mutable_single__single(input, output);
           params_builder.add_mutable_single(values);
           break;
         }
         case MFParamType::MutableVector: {
           const MFInputSocket &input = function_node.input_for_param(param_index);
           const MFOutputSocket &output = function_node.output_for_param(param_index);
-          GenericVectorArray &values = storage.get_mutable_vector__scalar(input, output);
+          GenericVectorArray &values = storage.get_mutable_vector__single(input, output);
           params_builder.add_mutable_vector(values);
           break;
         }
@@ -741,39 +742,39 @@ BLI_NOINLINE void MF_EvaluateNetwork::evaluate_function(MFContext &global_contex
       switch (param_type.type()) {
         case MFParamType::SingleInput: {
           const MFInputSocket &socket = function_node.input_for_param(param_index);
-          GenericVirtualListRef values = storage.get_single_input(socket);
+          GenericVirtualListRef values = storage.get_single_input__full(socket);
           params_builder.add_readonly_single_input(values);
           break;
         }
         case MFParamType::VectorInput: {
           const MFInputSocket &socket = function_node.input_for_param(param_index);
-          GenericVirtualListListRef values = storage.get_vector_input(socket);
+          GenericVirtualListListRef values = storage.get_vector_input__full(socket);
           params_builder.add_readonly_vector_input(values);
           break;
         }
         case MFParamType::SingleOutput: {
           const MFOutputSocket &socket = function_node.output_for_param(param_index);
-          GenericMutableArrayRef values = storage.allocate_single_output(socket);
+          GenericMutableArrayRef values = storage.allocate_single_output__full(socket);
           params_builder.add_single_output(values);
           break;
         }
         case MFParamType::VectorOutput: {
           const MFOutputSocket &socket = function_node.output_for_param(param_index);
-          GenericVectorArray &values = storage.allocate_vector_output(socket);
+          GenericVectorArray &values = storage.allocate_vector_output__full(socket);
           params_builder.add_vector_output(values);
           break;
         }
         case MFParamType::MutableSingle: {
           const MFInputSocket &input = function_node.input_for_param(param_index);
           const MFOutputSocket &output = function_node.output_for_param(param_index);
-          GenericMutableArrayRef values = storage.get_mutable_single(input, output);
+          GenericMutableArrayRef values = storage.get_mutable_single__full(input, output);
           params_builder.add_mutable_single(values);
           break;
         }
         case MFParamType::MutableVector: {
           const MFInputSocket &input = function_node.input_for_param(param_index);
           const MFOutputSocket &output = function_node.output_for_param(param_index);
-          GenericVectorArray &values = storage.get_mutable_vector(input, output);
+          GenericVectorArray &values = storage.get_mutable_vector__full(input, output);
           params_builder.add_mutable_vector(values);
           break;
         }
@@ -811,14 +812,14 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_computed_values_to_outputs(MFParams p
 
     switch (socket.data_type().category()) {
       case MFDataType::Single: {
-        GenericVirtualListRef values = storage.get_single_input(socket);
+        GenericVirtualListRef values = storage.get_single_input__full(socket);
         GenericMutableArrayRef output_values = params.uninitialized_single_output(
             global_param_index);
         values.materialize_to_uninitialized(storage.mask(), output_values);
         break;
       }
       case MFDataType::Vector: {
-        GenericVirtualListListRef values = storage.get_vector_input(socket);
+        GenericVirtualListListRef values = storage.get_vector_input__full(socket);
         GenericVectorArray &output_values = params.vector_output(global_param_index);
         output_values.extend_multiple__copy(storage.mask(), values);
         break;
