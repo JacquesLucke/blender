@@ -144,7 +144,10 @@ class NetworkEvaluationStorage {
     const MFOutputSocket &origin = socket.origin();
 
     OutputValue *any_value = m_value_per_output_id[origin.id()];
-    BLI_assert(any_value != nullptr);
+    if (any_value == nullptr) {
+      /* Can happen when a value has been forward to the next node. */
+      return;
+    }
 
     switch (any_value->type) {
       case OutputValueType::SingleFromCaller:
@@ -280,42 +283,24 @@ class NetworkEvaluationStorage {
 
     if (any_value->type == OutputValueType::Single) {
       SingleValue *value = (SingleValue *)any_value;
-      if (value->max_remaining_users == 1) {
+      if (value->max_remaining_users == 1 && !value->is_single_allocated) {
         m_value_per_output_id[to.id()] = value;
         m_value_per_output_id[from.id()] = nullptr;
         value->max_remaining_users = to.target_amount();
         return value->array_ref;
       }
-      else {
-        const CPPType &type = from.data_type().single__cpp_type();
-        void *new_buffer = m_array_allocator.allocate(type.size(), type.alignment());
-        type.copy_to_uninitialized_indices(value->array_ref.buffer(), new_buffer, m_mask);
-        GenericMutableArrayRef new_array_ref(type, new_buffer, m_min_array_size);
-
-        SingleValue *new_value =
-            m_allocator.construct<SingleValue>(new_array_ref, to.target_amount(), false).release();
-        m_value_per_output_id[to.id()] = new_value;
-
-        return new_array_ref;
-      }
-    }
-    else if (any_value->type == OutputValueType::SingleFromCaller) {
-      SingleFromCallerValue *value = (SingleFromCallerValue *)any_value;
-
-      const CPPType &type = from.data_type().single__cpp_type();
-      void *new_buffer = m_array_allocator.allocate(type.size(), type.alignment());
-      GenericMutableArrayRef new_array_ref(type, new_buffer, m_min_array_size);
-      value->list_ref.materialize_to_uninitialized(m_mask, new_array_ref);
-
-      SingleValue *new_value =
-          m_allocator.construct<SingleValue>(new_array_ref, to.target_amount(), false).release();
-      m_value_per_output_id[to.id()] = new_value;
-
-      return new_value->array_ref;
     }
 
-    BLI_assert(false);
-    return GenericMutableArrayRef(CPP_TYPE<float>());
+    GenericVirtualListRef list_ref = this->get_single_input__full(input);
+    const CPPType &type = list_ref.type();
+    void *new_buffer = m_array_allocator.allocate(type.size(), type.alignment());
+    GenericMutableArrayRef new_array_ref(type, new_buffer, m_min_array_size);
+    list_ref.materialize_to_uninitialized(m_mask, new_array_ref);
+
+    SingleValue *new_value =
+        m_allocator.construct<SingleValue>(new_array_ref, to.target_amount(), false).release();
+    m_value_per_output_id[to.id()] = new_value;
+    return new_array_ref;
   }
 
   GenericMutableArrayRef get_mutable_single__single(const MFInputSocket &input,
@@ -337,37 +322,19 @@ class NetworkEvaluationStorage {
         BLI_assert(value->array_ref.size() == 1);
         return value->array_ref;
       }
-      else {
-
-        const CPPType &type = from.data_type().single__cpp_type();
-        void *new_buffer = m_allocator.allocate(type.size(), type.alignment());
-        type.copy_to_uninitialized(value->array_ref[0], new_buffer);
-        GenericMutableArrayRef new_array_ref(type, new_buffer, 1);
-
-        SingleValue *new_value =
-            m_allocator.construct<SingleValue>(new_array_ref, to.target_amount(), true).release();
-        m_value_per_output_id[to.id()] = new_value;
-
-        return new_array_ref;
-      }
-    }
-    else if (any_value->type == OutputValueType::SingleFromCaller) {
-      SingleFromCallerValue *value = (SingleFromCallerValue *)any_value;
-
-      const CPPType &type = from.data_type().single__cpp_type();
-      void *new_buffer = m_allocator.allocate(type.size(), type.alignment());
-      type.copy_to_uninitialized(value->list_ref.as_single_element(), new_buffer);
-      GenericMutableArrayRef new_array_ref(type, new_buffer, 1);
-
-      SingleValue *new_value =
-          m_allocator.construct<SingleValue>(new_array_ref, to.target_amount(), true).release();
-      m_value_per_output_id[to.id()] = new_value;
-
-      return new_value->array_ref;
     }
 
-    BLI_assert(false);
-    return GenericMutableArrayRef(CPP_TYPE<float>());
+    GenericVirtualListRef list_ref = this->get_single_input__single(input);
+
+    const CPPType &type = list_ref.type();
+    void *new_buffer = m_allocator.allocate(type.size(), type.alignment());
+    type.copy_to_uninitialized(list_ref.as_single_element(), new_buffer);
+    GenericMutableArrayRef new_array_ref(type, new_buffer, 1);
+
+    SingleValue *new_value =
+        m_allocator.construct<SingleValue>(new_array_ref, to.target_amount(), true).release();
+    m_value_per_output_id[to.id()] = new_value;
+    return new_array_ref;
   }
 
   GenericVectorArray &get_mutable_vector__full(const MFInputSocket &input,
@@ -388,34 +355,19 @@ class NetworkEvaluationStorage {
         value->max_remaining_users = to.target_amount();
         return *value->vector_array;
       }
-      else {
-        const CPPType &base_type = to.data_type().vector__cpp_base_type();
-        GenericVectorArray *new_vector_array = new GenericVectorArray(base_type, m_min_array_size);
-        new_vector_array->extend_multiple__copy(m_mask, *value->vector_array);
-
-        VectorValue *new_value =
-            m_allocator.construct<VectorValue>(*new_vector_array, to.target_amount()).release();
-        m_value_per_output_id[to.id()] = new_value;
-
-        return *new_vector_array;
-      }
-    }
-    else if (any_value->type == OutputValueType::VectorFromCaller) {
-      VectorFromCallerValue *value = (VectorFromCallerValue *)any_value;
-
-      const CPPType &base_type = to.data_type().vector__cpp_base_type();
-      GenericVectorArray *new_vector_array = new GenericVectorArray(base_type, m_min_array_size);
-      new_vector_array->extend_multiple__copy(m_mask, value->list_list_ref);
-
-      VectorValue *new_value =
-          m_allocator.construct<VectorValue>(*new_vector_array, to.target_amount()).release();
-      m_value_per_output_id[to.id()] = new_value;
-
-      return *new_vector_array;
     }
 
-    BLI_assert(false);
-    return *new GenericVectorArray(CPP_TYPE<float>(), 0);
+    GenericVirtualListListRef list_list_ref = this->get_vector_input__full(input);
+
+    const CPPType &base_type = list_list_ref.type();
+    GenericVectorArray *new_vector_array = new GenericVectorArray(base_type, m_min_array_size);
+    new_vector_array->extend_multiple__copy(m_mask, list_list_ref);
+
+    VectorValue *new_value =
+        m_allocator.construct<VectorValue>(*new_vector_array, to.target_amount()).release();
+    m_value_per_output_id[to.id()] = new_value;
+
+    return *new_vector_array;
   }
 
   GenericVectorArray &get_mutable_vector__single(const MFInputSocket &input,
@@ -436,33 +388,18 @@ class NetworkEvaluationStorage {
         value->max_remaining_users = to.target_amount();
         return *value->vector_array;
       }
-      else {
-        const CPPType &base_type = to.data_type().vector__cpp_base_type();
-        GenericVectorArray *new_vector_array = new GenericVectorArray(base_type, 1);
-        new_vector_array->extend_single__copy(0, (*value->vector_array)[0]);
-
-        VectorValue *new_value =
-            m_allocator.construct<VectorValue>(*new_vector_array, to.target_amount()).release();
-        m_value_per_output_id[to.id()] = new_value;
-
-        return *new_vector_array;
-      }
-    }
-    else if (any_value->type == OutputValueType::VectorFromCaller) {
-      VectorFromCallerValue *value = (VectorFromCallerValue *)any_value;
-
-      const CPPType &base_type = to.data_type().vector__cpp_base_type();
-      GenericVectorArray *new_vector_array = new GenericVectorArray(base_type, 1);
-      new_vector_array->extend_single__copy(0, value->list_list_ref[0]);
-
-      VectorValue *new_value =
-          m_allocator.construct<VectorValue>(*new_vector_array, to.target_amount()).release();
-      m_value_per_output_id[to.id()] = new_value;
-      return *new_vector_array;
     }
 
-    BLI_assert(false);
-    return *new GenericVectorArray(CPP_TYPE<float>(), 0);
+    GenericVirtualListListRef list_list_ref = this->get_vector_input__single(input);
+
+    const CPPType &base_type = list_list_ref.type();
+    GenericVectorArray *new_vector_array = new GenericVectorArray(base_type, 1);
+    new_vector_array->extend_single__copy(0, list_list_ref[0]);
+
+    VectorValue *new_value =
+        m_allocator.construct<VectorValue>(*new_vector_array, to.target_amount()).release();
+    m_value_per_output_id[to.id()] = new_value;
+    return *new_vector_array;
   }
 
   /* Get readonly inputs for a function call.
