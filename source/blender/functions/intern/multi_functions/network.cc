@@ -206,10 +206,10 @@ class NetworkEvaluationStorage {
     m_value_per_output_id[socket.id()] = value;
   }
 
-  /* Allocate memory for the output of individual function calls.
+  /* Get memory for the output of individual function calls.
    ********************************************************************/
 
-  GenericMutableArrayRef allocate_single_output__full(const MFOutputSocket &socket)
+  GenericMutableArrayRef get_single_output__full(const MFOutputSocket &socket)
   {
     BLI_assert(m_value_per_output_id[socket.id()] == nullptr);
 
@@ -223,7 +223,7 @@ class NetworkEvaluationStorage {
     return array_ref;
   }
 
-  GenericMutableArrayRef allocate_single_output__single(const MFOutputSocket &socket)
+  GenericMutableArrayRef get_single_output__single(const MFOutputSocket &socket)
   {
     BLI_assert(m_value_per_output_id[socket.id()] == nullptr);
 
@@ -237,7 +237,7 @@ class NetworkEvaluationStorage {
     return value->array_ref;
   }
 
-  GenericVectorArray &allocate_vector_output__full(const MFOutputSocket &socket)
+  GenericVectorArray &get_vector_output__full(const MFOutputSocket &socket)
   {
     BLI_assert(m_value_per_output_id[socket.id()] == nullptr);
 
@@ -250,7 +250,7 @@ class NetworkEvaluationStorage {
     return *value->vector_array;
   }
 
-  GenericVectorArray &allocate_vector_output__single(const MFOutputSocket &socket)
+  GenericVectorArray &get_vector_output__single(const MFOutputSocket &socket)
   {
     BLI_assert(m_value_per_output_id[socket.id()] == nullptr);
 
@@ -648,13 +648,13 @@ BLI_NOINLINE void MF_EvaluateNetwork::evaluate_function(MFContext &global_contex
         }
         case MFParamType::SingleOutput: {
           const MFOutputSocket &socket = function_node.output_for_param(param_index);
-          GenericMutableArrayRef values = storage.allocate_single_output__single(socket);
+          GenericMutableArrayRef values = storage.get_single_output__single(socket);
           params_builder.add_single_output(values);
           break;
         }
         case MFParamType::VectorOutput: {
           const MFOutputSocket &socket = function_node.output_for_param(param_index);
-          GenericVectorArray &values = storage.allocate_vector_output__single(socket);
+          GenericVectorArray &values = storage.get_vector_output__single(socket);
           params_builder.add_vector_output(values);
           break;
         }
@@ -697,13 +697,13 @@ BLI_NOINLINE void MF_EvaluateNetwork::evaluate_function(MFContext &global_contex
         }
         case MFParamType::SingleOutput: {
           const MFOutputSocket &socket = function_node.output_for_param(param_index);
-          GenericMutableArrayRef values = storage.allocate_single_output__full(socket);
+          GenericMutableArrayRef values = storage.get_single_output__full(socket);
           params_builder.add_single_output(values);
           break;
         }
         case MFParamType::VectorOutput: {
           const MFOutputSocket &socket = function_node.output_for_param(param_index);
-          GenericVectorArray &values = storage.allocate_vector_output__full(socket);
+          GenericVectorArray &values = storage.get_vector_output__full(socket);
           params_builder.add_vector_output(values);
           break;
         }
