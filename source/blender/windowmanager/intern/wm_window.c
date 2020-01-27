@@ -395,6 +395,7 @@ void wm_quit_with_optional_confirmation_prompt(bContext *C, wmWindow *win)
 
   if (U.uiflag & USER_SAVE_PROMPT) {
     if (wm_file_or_image_is_modified(C) && !G.background) {
+      wm_window_raise(win);
       wm_confirm_quit(C);
     }
     else {
@@ -1547,7 +1548,7 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
       case GHOST_kEventButtonUp: {
         if (win->active == 0) {
           /* Entering window, update cursor and tablet state.
-           * (ghost sends win-activate *after* the mouseclick in window!) */
+           * (ghost sends win-activate *after* the mouse-click in window!) */
           wm_window_update_eventstate(win);
         }
 

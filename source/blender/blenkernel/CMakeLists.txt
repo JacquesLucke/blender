@@ -431,6 +431,10 @@ if(WITH_AUDASPACE)
   list(APPEND INC_SYS
     ${AUDASPACE_C_INCLUDE_DIRS}
   )
+  list(APPEND LIB
+    ${AUDASPACE_C_LIBRARIES}
+    ${AUDASPACE_PY_LIBRARIES}
+  )
 endif()
 
 if(WITH_BULLET)
@@ -443,6 +447,8 @@ if(WITH_BULLET)
   list(APPEND LIB
     bf_intern_rigidbody
     extern_bullet
+
+    ${BULLET_LIBRARIES}
   )
   add_definitions(-DWITH_BULLET)
 endif()
@@ -497,6 +503,9 @@ if(WITH_CODEC_FFMPEG)
   list(APPEND INC_SYS
     ${FFMPEG_INCLUDE_DIRS}
   )
+  list(APPEND LIB
+    ${FFMPEG_LIBRARIES}
+  )
   add_definitions(-DWITH_FFMPEG)
 
   remove_strict_c_flags_file(
@@ -550,6 +559,9 @@ if(WITH_LZO)
     list(APPEND INC_SYS
       ${LZO_INCLUDE_DIR}
     )
+    list(APPEND LIB
+      ${LZO_LIBRARIES}
+    )
     add_definitions(-DWITH_SYSTEM_LZO)
   else()
     list(APPEND INC_SYS
@@ -580,6 +592,9 @@ if(WITH_FFTW3)
   list(APPEND INC_SYS
     ${FFTW3_INCLUDE_DIRS}
   )
+  list(APPEND LIB
+    ${FFTW3_LIBRARIES}
+  )
   add_definitions(-DFFTW3=1)
 endif()
 
@@ -601,6 +616,9 @@ endif()
 if(WITH_OPENSUBDIV)
   list(APPEND INC_SYS
     ${OPENSUBDIV_INCLUDE_DIRS}
+  )
+  list(APPEND LIB
+    ${OPENSUBDIV_LIBRARIES}
   )
   add_definitions(-DWITH_OPENSUBDIV)
 endif()
@@ -636,6 +654,9 @@ if(WITH_TBB)
 
   list(APPEND INC_SYS
     ${TBB_INCLUDE_DIRS}
+  )
+  list(APPEND LIB
+    ${TBB_LIBRARIES}
   )
 endif()
 
