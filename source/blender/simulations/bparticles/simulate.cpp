@@ -299,8 +299,14 @@ BLI_NOINLINE static void simulate_particle_chunk(SimulationState &simulation_sta
   }
   MutableAttributesRef attribute_offsets(offsets_info, offset_buffers, amount);
 
-  BlockStepData step_data = {
-      simulation_state, attributes, attribute_offsets, remaining_durations, end_time};
+  BufferCache buffer_cache;
+
+  BlockStepData step_data = {simulation_state,
+                             buffer_cache,
+                             attributes,
+                             attribute_offsets,
+                             remaining_durations,
+                             end_time};
 
   IntegratorInterface interface(step_data, IndexRange(amount).as_array_ref());
   integrator.integrate(interface);

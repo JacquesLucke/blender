@@ -44,6 +44,7 @@ static void update_position_and_velocity_offsets(ParticleActionContext &context)
 void ConditionAction::execute(ParticleActionContext &context)
 {
   ParticleFunctionEvaluator inputs{m_inputs_fn, context.mask(), context.attributes()};
+  inputs.context_builder().set_buffer_cache(context.buffer_cache());
   inputs.compute();
 
   Vector<uint> true_pindices, false_pindices;
@@ -72,6 +73,7 @@ void SetAttributeAction::execute(ParticleActionContext &context)
   GenericMutableArrayRef attribute = *attribute_opt;
 
   ParticleFunctionEvaluator inputs{m_inputs_fn, context.mask(), context.attributes()};
+  inputs.context_builder().set_buffer_cache(context.buffer_cache());
   inputs.compute();
 
   for (uint pindex : context.mask()) {
@@ -103,6 +105,7 @@ void SpawnParticlesAction::execute(ParticleActionContext &context)
   uint array_size = context.mask().min_array_size();
 
   ParticleFunctionEvaluator inputs{m_spawn_function, context.mask(), context.attributes()};
+  inputs.context_builder().set_buffer_cache(context.buffer_cache());
   inputs.compute();
 
   LargeScopedArray<int> particle_counts(array_size, -1);

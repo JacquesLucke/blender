@@ -15,6 +15,8 @@ ParticleAction::~ParticleAction()
 void ParticleAction::execute_from_emitter(AttributesRefGroup &new_particles,
                                           EmitterInterface &emitter_interface)
 {
+  BufferCache buffer_cache;
+
   for (MutableAttributesRef attributes : new_particles) {
     ParticleCurrentTimesContext current_times_context;
     current_times_context.current_times = attributes.get<float>("Birth Time");
@@ -22,6 +24,7 @@ void ParticleAction::execute_from_emitter(AttributesRefGroup &new_particles,
     ParticleActionContext context(emitter_interface.particle_allocator(),
                                   IndexMask(attributes.size()),
                                   attributes,
+                                  buffer_cache,
                                   {BLI::get_class_id<ParticleCurrentTimesContext>()},
                                   {(void *)&current_times_context});
     this->execute(context);
@@ -39,6 +42,7 @@ void ParticleAction::execute_for_new_particles(AttributesRefGroup &new_particles
     ParticleActionContext context(parent_context.particle_allocator(),
                                   IndexMask(attributes.size()),
                                   attributes,
+                                  parent_context.buffer_cache(),
                                   {BLI::get_class_id<ParticleCurrentTimesContext>()},
                                   {(void *)&current_times_context});
     this->execute(context);
@@ -55,6 +59,7 @@ void ParticleAction::execute_for_new_particles(AttributesRefGroup &new_particles
     ParticleActionContext context(offset_handler_interface.particle_allocator(),
                                   IndexMask(attributes.size()),
                                   attributes,
+                                  offset_handler_interface.buffer_cache(),
                                   {BLI::get_class_id<ParticleCurrentTimesContext>()},
                                   {(void *)&current_times_context});
     this->execute(context);
@@ -75,6 +80,7 @@ void ParticleAction::execute_from_event(EventExecuteInterface &event_interface)
       event_interface.particle_allocator(),
       event_interface.pindices(),
       event_interface.attributes(),
+      event_interface.buffer_cache(),
       {BLI::get_class_id<ParticleCurrentTimesContext>(),
        BLI::get_class_id<ParticleIntegratedOffsets>(),
        BLI::get_class_id<ParticleRemainingTimeInStep>()},
@@ -87,6 +93,7 @@ void ParticleAction::execute_for_subset(IndexMask mask, ParticleActionContext &p
   ParticleActionContext context(parent_context.particle_allocator(),
                                 mask,
                                 parent_context.attributes(),
+                                parent_context.buffer_cache(),
                                 parent_context.custom_context_ids(),
                                 parent_context.custom_contexts());
   this->execute(context);
@@ -111,6 +118,7 @@ void ParticleAction::execute_from_offset_handler(OffsetHandlerInterface &offset_
       offset_handler_interface.particle_allocator(),
       offset_handler_interface.mask(),
       offset_handler_interface.attributes(),
+      offset_handler_interface.buffer_cache(),
       {BLI::get_class_id<ParticleCurrentTimesContext>(),
        BLI::get_class_id<ParticleIntegratedOffsets>(),
        BLI::get_class_id<ParticleRemainingTimeInStep>()},

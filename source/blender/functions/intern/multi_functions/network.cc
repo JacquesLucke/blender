@@ -544,10 +544,9 @@ void MF_EvaluateNetwork::call(IndexMask mask, MFParams params, MFContext context
     return;
   }
 
-  BufferCache buffer_cache;
   const MFNetwork &network = m_outputs[0]->node().network();
+  Storage storage(context.buffer_cache(), mask, network.socket_ids().size());
 
-  Storage storage(buffer_cache, mask, network.socket_ids().size());
   this->copy_inputs_to_storage(params, storage);
   this->evaluate_network_to_compute_outputs(context, storage);
   this->copy_computed_values_to_outputs(params, storage);

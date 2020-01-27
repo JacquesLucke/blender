@@ -17,6 +17,7 @@ class ParticleActionContext {
   ParticleAllocator &m_particle_allocator;
   IndexMask m_mask;
   MutableAttributesRef m_attributes;
+  BufferCache &m_buffer_cache;
 
   ArrayRef<BLI::class_id_t> m_custom_context_ids;
   ArrayRef<void *> m_custom_contexts;
@@ -25,11 +26,13 @@ class ParticleActionContext {
   ParticleActionContext(ParticleAllocator &particle_allocator,
                         IndexMask mask,
                         MutableAttributesRef attributes,
+                        BufferCache &buffer_cache,
                         ArrayRef<BLI::class_id_t> custom_context_ids,
                         ArrayRef<void *> custom_contexts)
       : m_particle_allocator(particle_allocator),
         m_mask(mask),
         m_attributes(attributes),
+        m_buffer_cache(buffer_cache),
         m_custom_context_ids(custom_context_ids),
         m_custom_contexts(custom_contexts)
   {
@@ -71,6 +74,11 @@ class ParticleActionContext {
     else {
       return nullptr;
     }
+  }
+
+  BufferCache &buffer_cache()
+  {
+    return m_buffer_cache;
   }
 };
 

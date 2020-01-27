@@ -46,7 +46,7 @@ void blocked_parallel_for(IndexRange range, uint grain_size, const FuncT &func)
       tbb::blocked_range<uint>(range.first(), range.one_after_last(), grain_size),
       [&](const tbb::blocked_range<uint> &sub_range) { func(IndexRange(sub_range)); });
 #else
-  UNUSED_VARS_NDEBUG(grain_size);
+  UNUSED_VARS(grain_size);
   func(range);
 #endif
 }
