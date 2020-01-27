@@ -116,6 +116,75 @@ class NetworkEvaluationStorage {
     return m_mask;
   }
 
+  bool socket_is_computed(const MFOutputSocket &socket)
+  {
+    OutputValue *any_value = m_value_per_output_id[socket.id()];
+    return any_value != nullptr;
+  }
+
+  bool is_same_value_for_every_index(const MFOutputSocket &socket)
+  {
+    OutputValue *any_value = m_value_per_output_id[socket.id()];
+    switch (any_value->type) {
+      case OutputValueType::Single:
+        return ((SingleValue *)any_value)->array_ref.size() == 1;
+      case OutputValueType::Vector:
+        return ((VectorValue *)any_value)->vector_array->size() == 1;
+      case OutputValueType::SingleFromCaller:
+        return ((SingleFromCallerValue *)any_value)->list_ref.is_single_element();
+      case OutputValueType::VectorFromCaller:
+        return ((VectorFromCallerValue *)any_value)->list_list_ref.is_single_list();
+    }
+    BLI_assert(false);
+    return false;
+  }
+
+  void finish_input_socket(const MFInputSocket &socket)
+  {
+    const MFOutputSocket &origin = socket.origin();
+
+    OutputValue *any_value = m_value_per_output_id[origin.id()];
+    BLI_assert(any_value != nullptr);
+
+    switch (any_value->type) {
+      case OutputValueType::SingleFromCaller:
+      case OutputValueType::VectorFromCaller: {
+        break;
+      }
+      case OutputValueType::Single: {
+        SingleValue *value = (SingleValue *)any_value;
+        BLI_assert(value->max_remaining_users >= 1);
+        value->max_remaining_users--;
+        if (value->max_remaining_users == 0) {
+          GenericMutableArrayRef array_ref = value->array_ref;
+          const CPPType &type = array_ref.type();
+          if (value->is_single_allocated) {
+            type.destruct(array_ref.buffer());
+          }
+          else {
+            type.destruct_indices(value->array_ref.buffer(), m_mask);
+            m_array_allocator.deallocate(type.size(), value->array_ref.buffer());
+          }
+          m_value_per_output_id[origin.id()] = nullptr;
+        }
+        break;
+      }
+      case OutputValueType::Vector: {
+        VectorValue *value = (VectorValue *)any_value;
+        BLI_assert(value->max_remaining_users >= 1);
+        value->max_remaining_users--;
+        if (value->max_remaining_users == 0) {
+          delete value->vector_array;
+          m_value_per_output_id[origin.id()] = nullptr;
+        }
+        break;
+      }
+    }
+  }
+
+  /* Add function inputs from caller to the storage.
+   ********************************************************/
+
   void add_single_from_caller(const MFOutputSocket &socket, GenericVirtualListRef list_ref)
   {
     BLI_assert(m_value_per_output_id[socket.id()] == nullptr);
@@ -134,6 +203,9 @@ class NetworkEvaluationStorage {
     auto *value = m_allocator.construct<VectorFromCallerValue>(list_list_ref).release();
     m_value_per_output_id[socket.id()] = value;
   }
+
+  /* Allocate memory for the output of individual function calls.
+   ********************************************************************/
 
   GenericMutableArrayRef allocate_single_output__full(const MFOutputSocket &socket)
   {
@@ -192,6 +264,9 @@ class NetworkEvaluationStorage {
 
     return *value->vector_array;
   }
+
+  /* Get a mutable memory for a function that wants to mutate date.
+   **********************************************************************/
 
   GenericMutableArrayRef get_mutable_single__full(const MFInputSocket &input,
                                                   const MFOutputSocket &output)
@@ -390,48 +465,8 @@ class NetworkEvaluationStorage {
     return *new GenericVectorArray(CPP_TYPE<float>(), 0);
   }
 
-  void finish_input_socket(const MFInputSocket &socket)
-  {
-    const MFOutputSocket &origin = socket.origin();
-
-    OutputValue *any_value = m_value_per_output_id[origin.id()];
-    BLI_assert(any_value != nullptr);
-
-    switch (any_value->type) {
-      case OutputValueType::SingleFromCaller:
-      case OutputValueType::VectorFromCaller: {
-        break;
-      }
-      case OutputValueType::Single: {
-        SingleValue *value = (SingleValue *)any_value;
-        BLI_assert(value->max_remaining_users >= 1);
-        value->max_remaining_users--;
-        if (value->max_remaining_users == 0) {
-          GenericMutableArrayRef array_ref = value->array_ref;
-          const CPPType &type = array_ref.type();
-          if (value->is_single_allocated) {
-            type.destruct(array_ref.buffer());
-          }
-          else {
-            type.destruct_indices(value->array_ref.buffer(), m_mask);
-            m_array_allocator.deallocate(type.size(), value->array_ref.buffer());
-          }
-          m_value_per_output_id[origin.id()] = nullptr;
-        }
-        break;
-      }
-      case OutputValueType::Vector: {
-        VectorValue *value = (VectorValue *)any_value;
-        BLI_assert(value->max_remaining_users >= 1);
-        value->max_remaining_users--;
-        if (value->max_remaining_users == 0) {
-          delete value->vector_array;
-          m_value_per_output_id[origin.id()] = nullptr;
-        }
-        break;
-      }
-    }
-  }
+  /* Get readonly inputs for a function call.
+   **************************************************/
 
   GenericVirtualListRef get_single_input__full(const MFInputSocket &socket)
   {
@@ -524,29 +559,6 @@ class NetworkEvaluationStorage {
 
     BLI_assert(false);
     return GenericVirtualListListRef::FromSingleArray(CPP_TYPE<float>(), nullptr, 0, 0);
-  }
-
-  bool socket_is_computed(const MFOutputSocket &socket)
-  {
-    OutputValue *any_value = m_value_per_output_id[socket.id()];
-    return any_value != nullptr;
-  }
-
-  bool is_same_value_for_every_index(const MFOutputSocket &socket)
-  {
-    OutputValue *any_value = m_value_per_output_id[socket.id()];
-    switch (any_value->type) {
-      case OutputValueType::Single:
-        return ((SingleValue *)any_value)->array_ref.size() == 1;
-      case OutputValueType::Vector:
-        return ((VectorValue *)any_value)->vector_array->size() == 1;
-      case OutputValueType::SingleFromCaller:
-        return ((SingleFromCallerValue *)any_value)->list_ref.is_single_element();
-      case OutputValueType::VectorFromCaller:
-        return ((VectorFromCallerValue *)any_value)->list_list_ref.is_single_list();
-    }
-    BLI_assert(false);
-    return false;
   }
 };
 
