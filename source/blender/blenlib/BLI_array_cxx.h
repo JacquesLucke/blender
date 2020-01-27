@@ -143,7 +143,7 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ar
     return *this;
   }
 
-  MutableArrayRef<T> as_mutable_ref() const
+  MutableArrayRef<T> as_mutable_ref()
   {
     return *this;
   }
