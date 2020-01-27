@@ -1,10 +1,10 @@
 #include "network.h"
 
-#include "BLI_array_allocator.h"
+#include "BLI_buffer_cache.h"
 
 namespace FN {
 
-using BLI::ArrayAllocator;
+using BLI::BufferCache;
 using BLI::ScopedVector;
 
 namespace OutputValueType {
@@ -71,19 +71,18 @@ struct VectorValue : public OutputValue {
 class NetworkEvaluationStorage {
  private:
   MonotonicAllocator<256> m_allocator;
-  ArrayAllocator &m_array_allocator;
+  BufferCache &m_buffer_cache;
   IndexMask m_mask;
   Array<OutputValue *> m_value_per_output_id;
   uint m_min_array_size;
 
  public:
-  NetworkEvaluationStorage(ArrayAllocator &array_allocator, IndexMask mask, uint socket_id_amount)
-      : m_array_allocator(array_allocator),
+  NetworkEvaluationStorage(BufferCache &buffer_cache, IndexMask mask, uint socket_id_amount)
+      : m_buffer_cache(buffer_cache),
         m_mask(mask),
         m_value_per_output_id(socket_id_amount, nullptr),
         m_min_array_size(mask.min_array_size())
   {
-    BLI_assert(array_allocator.array_size() >= m_min_array_size);
   }
 
   ~NetworkEvaluationStorage()
@@ -100,8 +99,8 @@ class NetworkEvaluationStorage {
           type.destruct(array_ref.buffer());
         }
         else {
-          type.destruct_indices(value->array_ref.buffer(), m_mask);
-          m_array_allocator.deallocate(type.size(), value->array_ref.buffer());
+          type.destruct_indices(array_ref.buffer(), m_mask);
+          m_buffer_cache.deallocate(array_ref.buffer());
         }
       }
       else if (any_value->type == OutputValueType::Vector) {
@@ -165,8 +164,8 @@ class NetworkEvaluationStorage {
             type.destruct(array_ref.buffer());
           }
           else {
-            type.destruct_indices(value->array_ref.buffer(), m_mask);
-            m_array_allocator.deallocate(type.size(), value->array_ref.buffer());
+            type.destruct_indices(array_ref.buffer(), m_mask);
+            m_buffer_cache.deallocate(array_ref.buffer());
           }
           m_value_per_output_id[origin.id()] = nullptr;
         }
@@ -215,7 +214,7 @@ class NetworkEvaluationStorage {
     BLI_assert(m_value_per_output_id[socket.id()] == nullptr);
 
     const CPPType &type = socket.data_type().single__cpp_type();
-    void *buffer = m_array_allocator.allocate(type.size(), type.alignment());
+    void *buffer = m_buffer_cache.allocate(m_min_array_size, type.size(), type.alignment());
     GenericMutableArrayRef array_ref(type, buffer, m_min_array_size);
 
     auto *value = m_allocator.construct<SingleValue>(array_ref, socket.target_amount(), false);
@@ -289,7 +288,7 @@ class NetworkEvaluationStorage {
 
     GenericVirtualListRef list_ref = this->get_single_input__full(input);
     const CPPType &type = list_ref.type();
-    void *new_buffer = m_array_allocator.allocate(type.size(), type.alignment());
+    void *new_buffer = m_buffer_cache.allocate(m_min_array_size, type.size(), type.alignment());
     GenericMutableArrayRef new_array_ref(type, new_buffer, m_min_array_size);
     list_ref.materialize_to_uninitialized(m_mask, new_array_ref);
 
@@ -545,10 +544,10 @@ void MF_EvaluateNetwork::call(IndexMask mask, MFParams params, MFContext context
     return;
   }
 
-  ArrayAllocator array_allocator(mask.min_array_size());
+  BufferCache buffer_cache;
   const MFNetwork &network = m_outputs[0]->node().network();
 
-  Storage storage(array_allocator, mask, network.socket_ids().size());
+  Storage storage(buffer_cache, mask, network.socket_ids().size());
   this->copy_inputs_to_storage(params, storage);
   this->evaluate_network_to_compute_outputs(context, storage);
   this->copy_computed_values_to_outputs(params, storage);
