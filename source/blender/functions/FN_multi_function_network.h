@@ -365,6 +365,7 @@ class MFOutputSocket final : public MFSocket {
 
  public:
   ArrayRef<const MFInputSocket *> targets() const;
+  uint target_amount() const;
 };
 
 class MFNetwork : BLI::NonCopyable, BLI::NonMovable {
@@ -783,6 +784,11 @@ inline const MFOutputSocket &MFInputSocket::origin() const
 inline ArrayRef<const MFInputSocket *> MFOutputSocket::targets() const
 {
   return m_targets;
+}
+
+inline uint MFOutputSocket::target_amount() const
+{
+  return m_targets.size();
 }
 
 inline const MFNode &MFNetwork::node_by_id(uint index) const

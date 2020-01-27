@@ -18,30 +18,59 @@ enum Enum {
 
 struct OutputValue {
   OutputValueType::Enum type;
+
+  OutputValue(OutputValueType::Enum type) : type(type)
+  {
+  }
 };
 
 struct SingleFromCallerValue : public OutputValue {
   GenericVirtualListRef list_ref;
+
+  SingleFromCallerValue(GenericVirtualListRef list_ref)
+      : OutputValue(OutputValueType::SingleFromCaller), list_ref(list_ref)
+  {
+  }
 };
 
 struct VectorFromCallerValue : public OutputValue {
   GenericVirtualListListRef list_list_ref;
+
+  VectorFromCallerValue(GenericVirtualListListRef list_list_ref)
+      : OutputValue(OutputValueType::VectorFromCaller), list_list_ref(list_list_ref)
+  {
+  }
 };
 
 struct SingleValue : public OutputValue {
   GenericMutableArrayRef array_ref;
   int max_remaining_users;
   bool is_single_allocated;
+
+  SingleValue(GenericMutableArrayRef array_ref, int max_remaining_users, bool is_single_allocated)
+      : OutputValue(OutputValueType::Single),
+        array_ref(array_ref),
+        max_remaining_users(max_remaining_users),
+        is_single_allocated(is_single_allocated)
+  {
+  }
 };
 
 struct VectorValue : public OutputValue {
   GenericVectorArray *vector_array;
   int max_remaining_users;
+
+  VectorValue(GenericVectorArray &vector_array, int max_remaining_users)
+      : OutputValue(OutputValueType::Vector),
+        vector_array(&vector_array),
+        max_remaining_users(max_remaining_users)
+  {
+  }
 };
 
 class NetworkEvaluationStorage {
  private:
-  MonotonicAllocator<256> m_monotonic_allocator;
+  MonotonicAllocator<256> m_allocator;
   ArrayAllocator &m_array_allocator;
   IndexMask m_mask;
   Array<OutputValue *> m_value_per_output_id;
@@ -92,10 +121,8 @@ class NetworkEvaluationStorage {
     BLI_assert(m_value_per_output_id[socket.id()] == nullptr);
     BLI_assert(list_ref.size() >= m_min_array_size);
 
-    auto *value = m_monotonic_allocator.allocate<SingleFromCallerValue>();
+    auto *value = m_allocator.construct<SingleFromCallerValue>(list_ref).release();
     m_value_per_output_id[socket.id()] = value;
-    value->type = OutputValueType::SingleFromCaller;
-    value->list_ref = list_ref;
   }
 
   void add_vector_from_caller(const MFOutputSocket &socket,
@@ -104,42 +131,36 @@ class NetworkEvaluationStorage {
     BLI_assert(m_value_per_output_id[socket.id()] == nullptr);
     BLI_assert(list_list_ref.size() >= m_min_array_size);
 
-    auto *value = m_monotonic_allocator.allocate<VectorFromCallerValue>();
+    auto *value = m_allocator.construct<VectorFromCallerValue>(list_list_ref).release();
     m_value_per_output_id[socket.id()] = value;
-    value->type = OutputValueType::VectorFromCaller;
-    value->list_list_ref = list_list_ref;
   }
 
   GenericMutableArrayRef allocate_single_output(const MFOutputSocket &socket)
   {
     BLI_assert(m_value_per_output_id[socket.id()] == nullptr);
 
-    auto *value = m_monotonic_allocator.allocate<SingleValue>();
-    m_value_per_output_id[socket.id()] = value;
-    value->type = OutputValueType::Single;
-    value->max_remaining_users = socket.targets().size();
-    value->is_single_allocated = false;
-
     const CPPType &type = socket.data_type().single__cpp_type();
     void *buffer = m_array_allocator.allocate(type.size(), type.alignment());
-    value->array_ref = GenericMutableArrayRef(type, buffer, m_min_array_size);
+    GenericMutableArrayRef array_ref(type, buffer, m_min_array_size);
 
-    return value->array_ref;
+    auto *value =
+        m_allocator.construct<SingleValue>(array_ref, socket.target_amount(), false).release();
+    m_value_per_output_id[socket.id()] = value;
+
+    return array_ref;
   }
 
   GenericMutableArrayRef allocate_single_output__scalar(const MFOutputSocket &socket)
   {
     BLI_assert(m_value_per_output_id[socket.id()] == nullptr);
 
-    auto *value = m_monotonic_allocator.allocate<SingleValue>();
-    m_value_per_output_id[socket.id()] = value;
-    value->type = OutputValueType::Single;
-    value->max_remaining_users = socket.targets().size();
-    value->is_single_allocated = true;
-
     const CPPType &type = socket.data_type().single__cpp_type();
-    void *buffer = m_monotonic_allocator.allocate(type.size(), type.alignment());
-    value->array_ref = GenericMutableArrayRef(type, buffer, 1);
+    void *buffer = m_allocator.allocate(type.size(), type.alignment());
+    GenericMutableArrayRef array_ref(type, buffer, 1);
+
+    auto *value =
+        m_allocator.construct<SingleValue>(array_ref, socket.target_amount(), true).release();
+    m_value_per_output_id[socket.id()] = value;
 
     return value->array_ref;
   }
@@ -148,14 +169,12 @@ class NetworkEvaluationStorage {
   {
     BLI_assert(m_value_per_output_id[socket.id()] == nullptr);
 
-    auto *value = m_monotonic_allocator.allocate<VectorValue>();
-    m_value_per_output_id[socket.id()] = value;
-    value->type = OutputValueType::Vector;
-    value->max_remaining_users = socket.targets().size();
-
     const CPPType &type = socket.data_type().vector__cpp_base_type();
     GenericVectorArray *vector_array = new GenericVectorArray(type, m_min_array_size);
-    value->vector_array = vector_array;
+
+    auto *value =
+        m_allocator.construct<VectorValue>(*vector_array, socket.target_amount()).release();
+    m_value_per_output_id[socket.id()] = value;
 
     return *value->vector_array;
   }
@@ -164,14 +183,12 @@ class NetworkEvaluationStorage {
   {
     BLI_assert(m_value_per_output_id[socket.id()] == nullptr);
 
-    auto *value = m_monotonic_allocator.allocate<VectorValue>();
-    m_value_per_output_id[socket.id()] = value;
-    value->type = OutputValueType::Vector;
-    value->max_remaining_users = socket.targets().size();
-
     const CPPType &type = socket.data_type().vector__cpp_base_type();
     GenericVectorArray *vector_array = new GenericVectorArray(type, 1);
-    value->vector_array = vector_array;
+
+    auto *value =
+        m_allocator.construct<VectorValue>(*vector_array, socket.target_amount()).release();
+    m_value_per_output_id[socket.id()] = value;
 
     return *value->vector_array;
   }
@@ -191,35 +208,34 @@ class NetworkEvaluationStorage {
       if (value->max_remaining_users == 1) {
         m_value_per_output_id[to.id()] = value;
         m_value_per_output_id[from.id()] = nullptr;
-        value->max_remaining_users = to.targets().size();
+        value->max_remaining_users = to.target_amount();
         return value->array_ref;
       }
       else {
-        SingleValue *new_value = m_monotonic_allocator.allocate<SingleValue>();
-        m_value_per_output_id[to.id()] = new_value;
-        new_value->type = OutputValueType::Single;
-        new_value->max_remaining_users = to.targets().size();
-        new_value->is_single_allocated = false;
-
         const CPPType &type = from.data_type().single__cpp_type();
         void *new_buffer = m_array_allocator.allocate(type.size(), type.alignment());
         type.copy_to_uninitialized_indices(value->array_ref.buffer(), new_buffer, m_mask);
-        new_value->array_ref = GenericMutableArrayRef(type, new_buffer, m_min_array_size);
-        return new_value->array_ref;
+        GenericMutableArrayRef new_array_ref(type, new_buffer, m_min_array_size);
+
+        SingleValue *new_value =
+            m_allocator.construct<SingleValue>(new_array_ref, to.target_amount(), false).release();
+        m_value_per_output_id[to.id()] = new_value;
+
+        return new_array_ref;
       }
     }
     else if (any_value->type == OutputValueType::SingleFromCaller) {
       SingleFromCallerValue *value = (SingleFromCallerValue *)any_value;
-      SingleValue *new_value = m_monotonic_allocator.allocate<SingleValue>();
-      m_value_per_output_id[to.id()] = new_value;
-      new_value->type = OutputValueType::Single;
-      new_value->max_remaining_users = to.targets().size();
-      new_value->is_single_allocated = false;
 
       const CPPType &type = from.data_type().single__cpp_type();
       void *new_buffer = m_array_allocator.allocate(type.size(), type.alignment());
-      new_value->array_ref = GenericMutableArrayRef(type, new_buffer, m_min_array_size);
-      value->list_ref.materialize_to_uninitialized(m_mask, new_value->array_ref);
+      GenericMutableArrayRef new_array_ref(type, new_buffer, m_min_array_size);
+      value->list_ref.materialize_to_uninitialized(m_mask, new_array_ref);
+
+      SingleValue *new_value =
+          m_allocator.construct<SingleValue>(new_array_ref, to.target_amount(), false).release();
+      m_value_per_output_id[to.id()] = new_value;
+
       return new_value->array_ref;
     }
 
@@ -242,36 +258,36 @@ class NetworkEvaluationStorage {
       if (value->max_remaining_users == 1) {
         m_value_per_output_id[to.id()] = value;
         m_value_per_output_id[from.id()] = nullptr;
-        value->max_remaining_users = to.targets().size();
+        value->max_remaining_users = to.target_amount();
         BLI_assert(value->array_ref.size() == 1);
         return value->array_ref;
       }
       else {
-        SingleValue *new_value = m_monotonic_allocator.allocate<SingleValue>();
-        m_value_per_output_id[to.id()] = new_value;
-        new_value->type = OutputValueType::Single;
-        new_value->max_remaining_users = to.targets().size();
-        new_value->is_single_allocated = true;
 
         const CPPType &type = from.data_type().single__cpp_type();
-        void *new_buffer = m_monotonic_allocator.allocate(type.size(), type.alignment());
+        void *new_buffer = m_allocator.allocate(type.size(), type.alignment());
         type.copy_to_uninitialized(value->array_ref[0], new_buffer);
-        new_value->array_ref = GenericMutableArrayRef(type, new_buffer, 1);
-        return new_value->array_ref;
+        GenericMutableArrayRef new_array_ref(type, new_buffer, 1);
+
+        SingleValue *new_value =
+            m_allocator.construct<SingleValue>(new_array_ref, to.target_amount(), true).release();
+        m_value_per_output_id[to.id()] = new_value;
+
+        return new_array_ref;
       }
     }
     else if (any_value->type == OutputValueType::SingleFromCaller) {
       SingleFromCallerValue *value = (SingleFromCallerValue *)any_value;
-      SingleValue *new_value = m_monotonic_allocator.allocate<SingleValue>();
-      m_value_per_output_id[to.id()] = new_value;
-      new_value->type = OutputValueType::Single;
-      new_value->max_remaining_users = to.targets().size();
-      new_value->is_single_allocated = true;
 
       const CPPType &type = from.data_type().single__cpp_type();
-      void *new_buffer = m_monotonic_allocator.allocate(type.size(), type.alignment());
+      void *new_buffer = m_allocator.allocate(type.size(), type.alignment());
       type.copy_to_uninitialized(value->list_ref.as_single_element(), new_buffer);
-      new_value->array_ref = GenericMutableArrayRef(type, new_buffer, 1);
+      GenericMutableArrayRef new_array_ref(type, new_buffer, 1);
+
+      SingleValue *new_value =
+          m_allocator.construct<SingleValue>(new_array_ref, to.target_amount(), true).release();
+      m_value_per_output_id[to.id()] = new_value;
+
       return new_value->array_ref;
     }
 
@@ -293,32 +309,33 @@ class NetworkEvaluationStorage {
       if (value->max_remaining_users == 1) {
         m_value_per_output_id[to.id()] = value;
         m_value_per_output_id[from.id()] = nullptr;
-        value->max_remaining_users = to.targets().size();
+        value->max_remaining_users = to.target_amount();
         return *value->vector_array;
       }
       else {
-        VectorValue *new_value = m_monotonic_allocator.allocate<VectorValue>();
-        m_value_per_output_id[to.id()] = new_value;
-        new_value->type = OutputValueType::Vector;
-        new_value->max_remaining_users = to.targets().size();
-
         const CPPType &base_type = to.data_type().vector__cpp_base_type();
-        new_value->vector_array = new GenericVectorArray(base_type, m_min_array_size);
-        new_value->vector_array->extend_multiple__copy(m_mask, *value->vector_array);
-        return *new_value->vector_array;
+        GenericVectorArray *new_vector_array = new GenericVectorArray(base_type, m_min_array_size);
+        new_vector_array->extend_multiple__copy(m_mask, *value->vector_array);
+
+        VectorValue *new_value =
+            m_allocator.construct<VectorValue>(*new_vector_array, to.target_amount()).release();
+        m_value_per_output_id[to.id()] = new_value;
+
+        return *new_vector_array;
       }
     }
     else if (any_value->type == OutputValueType::VectorFromCaller) {
       VectorFromCallerValue *value = (VectorFromCallerValue *)any_value;
-      VectorValue *new_value = m_monotonic_allocator.allocate<VectorValue>();
-      m_value_per_output_id[to.id()] = new_value;
-      new_value->type = OutputValueType::Vector;
-      new_value->max_remaining_users = to.targets().size();
 
       const CPPType &base_type = to.data_type().vector__cpp_base_type();
-      new_value->vector_array = new GenericVectorArray(base_type, m_min_array_size);
-      new_value->vector_array->extend_multiple__copy(m_mask, value->list_list_ref);
-      return *new_value->vector_array;
+      GenericVectorArray *new_vector_array = new GenericVectorArray(base_type, m_min_array_size);
+      new_vector_array->extend_multiple__copy(m_mask, value->list_list_ref);
+
+      VectorValue *new_value =
+          m_allocator.construct<VectorValue>(*new_vector_array, to.target_amount()).release();
+      m_value_per_output_id[to.id()] = new_value;
+
+      return *new_vector_array;
     }
 
     BLI_assert(false);
@@ -340,32 +357,32 @@ class NetworkEvaluationStorage {
       if (value->max_remaining_users == 1) {
         m_value_per_output_id[to.id()] = value;
         m_value_per_output_id[from.id()] = nullptr;
-        value->max_remaining_users = to.targets().size();
+        value->max_remaining_users = to.target_amount();
         return *value->vector_array;
       }
       else {
-        VectorValue *new_value = m_monotonic_allocator.allocate<VectorValue>();
-        m_value_per_output_id[to.id()] = new_value;
-        new_value->type = OutputValueType::Vector;
-        new_value->max_remaining_users = to.targets().size();
-
         const CPPType &base_type = to.data_type().vector__cpp_base_type();
-        new_value->vector_array = new GenericVectorArray(base_type, 1);
-        new_value->vector_array->extend_single__copy(0, (*value->vector_array)[0]);
-        return *new_value->vector_array;
+        GenericVectorArray *new_vector_array = new GenericVectorArray(base_type, 1);
+        new_vector_array->extend_single__copy(0, (*value->vector_array)[0]);
+
+        VectorValue *new_value =
+            m_allocator.construct<VectorValue>(*new_vector_array, to.target_amount()).release();
+        m_value_per_output_id[to.id()] = new_value;
+
+        return *new_vector_array;
       }
     }
     else if (any_value->type == OutputValueType::VectorFromCaller) {
       VectorFromCallerValue *value = (VectorFromCallerValue *)any_value;
-      VectorValue *new_value = m_monotonic_allocator.allocate<VectorValue>();
-      m_value_per_output_id[to.id()] = new_value;
-      new_value->type = OutputValueType::Vector;
-      new_value->max_remaining_users = to.targets().size();
 
       const CPPType &base_type = to.data_type().vector__cpp_base_type();
-      new_value->vector_array = new GenericVectorArray(base_type, 1);
-      new_value->vector_array->extend_single__copy(0, value->list_list_ref[0]);
-      return *new_value->vector_array;
+      GenericVectorArray *new_vector_array = new GenericVectorArray(base_type, 1);
+      new_vector_array->extend_single__copy(0, value->list_list_ref[0]);
+
+      VectorValue *new_value =
+          m_allocator.construct<VectorValue>(*new_vector_array, to.target_amount()).release();
+      m_value_per_output_id[to.id()] = new_value;
+      return *new_vector_array;
     }
 
     BLI_assert(false);
