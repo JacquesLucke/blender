@@ -193,7 +193,7 @@ class NetworkEvaluationStorage {
     BLI_assert(m_value_per_output_id[socket.id()] == nullptr);
     BLI_assert(list_ref.size() >= m_min_array_size);
 
-    auto *value = m_allocator.construct<SingleFromCallerValue>(list_ref).release();
+    auto *value = m_allocator.construct<SingleFromCallerValue>(list_ref);
     m_value_per_output_id[socket.id()] = value;
   }
 
@@ -203,7 +203,7 @@ class NetworkEvaluationStorage {
     BLI_assert(m_value_per_output_id[socket.id()] == nullptr);
     BLI_assert(list_list_ref.size() >= m_min_array_size);
 
-    auto *value = m_allocator.construct<VectorFromCallerValue>(list_list_ref).release();
+    auto *value = m_allocator.construct<VectorFromCallerValue>(list_list_ref);
     m_value_per_output_id[socket.id()] = value;
   }
 
@@ -218,8 +218,7 @@ class NetworkEvaluationStorage {
     void *buffer = m_array_allocator.allocate(type.size(), type.alignment());
     GenericMutableArrayRef array_ref(type, buffer, m_min_array_size);
 
-    auto *value =
-        m_allocator.construct<SingleValue>(array_ref, socket.target_amount(), false).release();
+    auto *value = m_allocator.construct<SingleValue>(array_ref, socket.target_amount(), false);
     m_value_per_output_id[socket.id()] = value;
 
     return array_ref;
@@ -233,8 +232,7 @@ class NetworkEvaluationStorage {
     void *buffer = m_allocator.allocate(type.size(), type.alignment());
     GenericMutableArrayRef array_ref(type, buffer, 1);
 
-    auto *value =
-        m_allocator.construct<SingleValue>(array_ref, socket.target_amount(), true).release();
+    auto *value = m_allocator.construct<SingleValue>(array_ref, socket.target_amount(), true);
     m_value_per_output_id[socket.id()] = value;
 
     return value->array_ref;
@@ -247,8 +245,7 @@ class NetworkEvaluationStorage {
     const CPPType &type = socket.data_type().vector__cpp_base_type();
     GenericVectorArray *vector_array = new GenericVectorArray(type, m_min_array_size);
 
-    auto *value =
-        m_allocator.construct<VectorValue>(*vector_array, socket.target_amount()).release();
+    auto *value = m_allocator.construct<VectorValue>(*vector_array, socket.target_amount());
     m_value_per_output_id[socket.id()] = value;
 
     return *value->vector_array;
@@ -261,8 +258,7 @@ class NetworkEvaluationStorage {
     const CPPType &type = socket.data_type().vector__cpp_base_type();
     GenericVectorArray *vector_array = new GenericVectorArray(type, 1);
 
-    auto *value =
-        m_allocator.construct<VectorValue>(*vector_array, socket.target_amount()).release();
+    auto *value = m_allocator.construct<VectorValue>(*vector_array, socket.target_amount());
     m_value_per_output_id[socket.id()] = value;
 
     return *value->vector_array;
@@ -297,8 +293,8 @@ class NetworkEvaluationStorage {
     GenericMutableArrayRef new_array_ref(type, new_buffer, m_min_array_size);
     list_ref.materialize_to_uninitialized(m_mask, new_array_ref);
 
-    SingleValue *new_value =
-        m_allocator.construct<SingleValue>(new_array_ref, to.target_amount(), false).release();
+    SingleValue *new_value = m_allocator.construct<SingleValue>(
+        new_array_ref, to.target_amount(), false);
     m_value_per_output_id[to.id()] = new_value;
     return new_array_ref;
   }
@@ -331,8 +327,8 @@ class NetworkEvaluationStorage {
     type.copy_to_uninitialized(list_ref.as_single_element(), new_buffer);
     GenericMutableArrayRef new_array_ref(type, new_buffer, 1);
 
-    SingleValue *new_value =
-        m_allocator.construct<SingleValue>(new_array_ref, to.target_amount(), true).release();
+    SingleValue *new_value = m_allocator.construct<SingleValue>(
+        new_array_ref, to.target_amount(), true);
     m_value_per_output_id[to.id()] = new_value;
     return new_array_ref;
   }
@@ -363,8 +359,8 @@ class NetworkEvaluationStorage {
     GenericVectorArray *new_vector_array = new GenericVectorArray(base_type, m_min_array_size);
     new_vector_array->extend_multiple__copy(m_mask, list_list_ref);
 
-    VectorValue *new_value =
-        m_allocator.construct<VectorValue>(*new_vector_array, to.target_amount()).release();
+    VectorValue *new_value = m_allocator.construct<VectorValue>(*new_vector_array,
+                                                                to.target_amount());
     m_value_per_output_id[to.id()] = new_value;
 
     return *new_vector_array;
@@ -396,8 +392,8 @@ class NetworkEvaluationStorage {
     GenericVectorArray *new_vector_array = new GenericVectorArray(base_type, 1);
     new_vector_array->extend_single__copy(0, list_list_ref[0]);
 
-    VectorValue *new_value =
-        m_allocator.construct<VectorValue>(*new_vector_array, to.target_amount()).release();
+    VectorValue *new_value = m_allocator.construct<VectorValue>(*new_vector_array,
+                                                                to.target_amount());
     m_value_per_output_id[to.id()] = new_value;
     return *new_vector_array;
   }

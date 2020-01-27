@@ -71,10 +71,9 @@ class ResourceCollector : NonCopyable {
 
   template<typename T, typename... Args> T &construct(const char *name, Args &&... args)
   {
-    destruct_ptr<T> value = m_allocator.construct<T>(std::forward<Args>(args)...);
-    T &value_ref = *value;
-    this->add(std::move(value), name);
-    return value_ref;
+    T *value = m_allocator.construct<T>(std::forward<Args>(args)...);
+    this->add(destruct_ptr<T>(value), name);
+    return *value;
   }
 
   void add(void *userdata, void (*free)(void *), const char *name)

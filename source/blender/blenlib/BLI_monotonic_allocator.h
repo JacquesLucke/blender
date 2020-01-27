@@ -104,11 +104,11 @@ class MonotonicAllocator : NonCopyable, NonMovable {
     return StringRefNull((const char *)buffer);
   }
 
-  template<typename T, typename... Args> destruct_ptr<T> construct(Args &&... args)
+  template<typename T, typename... Args> T *construct(Args &&... args)
   {
     void *buffer = this->allocate(sizeof(T), alignof(T));
     T *value = new (buffer) T(std::forward<Args>(args)...);
-    return destruct_ptr<T>(value);
+    return value;
   }
 
   template<typename T, typename... Args>

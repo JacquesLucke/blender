@@ -65,7 +65,7 @@ MFBuilderFunctionNode &MFNetworkBuilder::add_function(const MultiFunction &funct
     }
   }
 
-  auto &node = *m_allocator.construct<MFBuilderFunctionNode>().release();
+  auto &node = *m_allocator.construct<MFBuilderFunctionNode>();
   m_function_nodes.add_new(&node);
 
   node.m_network = this;
@@ -116,7 +116,7 @@ MFBuilderDummyNode &MFNetworkBuilder::add_dummy(StringRef name,
   BLI_assert(input_types.size() == input_names.size());
   BLI_assert(output_types.size() == output_names.size());
 
-  auto &node = *m_allocator.construct<MFBuilderDummyNode>().release();
+  auto &node = *m_allocator.construct<MFBuilderDummyNode>();
   m_dummy_nodes.add_new(&node);
 
   node.m_network = this;
@@ -371,7 +371,7 @@ MFNetwork::MFNetwork(MFNetworkBuilder &builder)
     uint input_amount = builder_node->inputs().size();
     uint output_amount = builder_node->outputs().size();
 
-    MFFunctionNode &node = *m_allocator.construct<MFFunctionNode>().release();
+    MFFunctionNode &node = *m_allocator.construct<MFFunctionNode>();
 
     node.m_function = &builder_node->function();
     node.m_id = m_node_by_id.append_and_get_index(&node);
@@ -417,7 +417,7 @@ MFNetwork::MFNetwork(MFNetworkBuilder &builder)
     uint input_amount = builder_node->inputs().size();
     uint output_amount = builder_node->outputs().size();
 
-    MFDummyNode &node = *m_allocator.construct<MFDummyNode>().release();
+    MFDummyNode &node = *m_allocator.construct<MFDummyNode>();
 
     node.m_id = m_node_by_id.append_and_get_index(&node);
     node.m_network = this;
