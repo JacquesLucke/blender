@@ -531,7 +531,7 @@ class NetworkEvaluationStorage {
     return any_value != nullptr;
   }
 
-  bool is_single_value(const MFOutputSocket &socket)
+  bool is_same_value_for_every_index(const MFOutputSocket &socket)
   {
     OutputValue *any_value = m_value_per_output_id[socket.id()];
     switch (any_value->type) {
@@ -795,7 +795,7 @@ bool MF_EvaluateNetwork::can_do_single_value_evaluation(const MFFunctionNode &fu
     return false;
   }
   for (const MFInputSocket *socket : function_node.inputs()) {
-    if (!storage.is_single_value(socket->origin())) {
+    if (!storage.is_same_value_for_every_index(socket->origin())) {
       return false;
     }
   }
