@@ -7,48 +7,80 @@ namespace FN {
 using BLI::BufferCache;
 using BLI::ScopedVector;
 
-namespace OutputValueType {
+namespace {
+
+namespace ValueType {
 enum Enum {
-  SingleInputFromCaller,
-  VectorInputFromCaller,
-  Single,
-  Vector,
+  InputSingle,
+  InputVector,
+  OutputSingle,
+  OutputVector,
+  OwnSingle,
+  OwnVector,
 };
 }
 
-struct OutputValue {
-  OutputValueType::Enum type;
+struct Value {
+  ValueType::Enum type;
 
-  OutputValue(OutputValueType::Enum type) : type(type)
+  Value(ValueType::Enum type) : type(type)
   {
   }
 };
 
-struct SingleInputFromCallerValue : public OutputValue {
+struct InputSingleValue : public Value {
   GenericVirtualListRef list_ref;
 
-  SingleInputFromCallerValue(GenericVirtualListRef list_ref)
-      : OutputValue(OutputValueType::SingleInputFromCaller), list_ref(list_ref)
+  InputSingleValue(GenericVirtualListRef list_ref)
+      : Value(ValueType::InputSingle), list_ref(list_ref)
   {
   }
 };
 
-struct VectorInputFromCallerValue : public OutputValue {
+struct InputVectorValue : public Value {
   GenericVirtualListListRef list_list_ref;
 
-  VectorInputFromCallerValue(GenericVirtualListListRef list_list_ref)
-      : OutputValue(OutputValueType::VectorInputFromCaller), list_list_ref(list_list_ref)
+  InputVectorValue(GenericVirtualListListRef list_list_ref)
+      : Value(ValueType::InputVector), list_list_ref(list_list_ref)
   {
   }
 };
 
-struct SingleValue : public OutputValue {
+struct OutputValue : public Value {
+  bool is_computed = false;
+
+  OutputValue(ValueType::Enum type) : Value(type)
+  {
+  }
+};
+
+struct OutputSingleValue : public OutputValue {
+  GenericMutableArrayRef array_ref;
+
+  OutputSingleValue(GenericMutableArrayRef array_ref)
+      : OutputValue(ValueType::OutputSingle), array_ref(array_ref)
+  {
+  }
+};
+
+struct OutputVectorValue : public OutputValue {
+  GenericVectorArray *vector_array;
+
+  OutputVectorValue(GenericVectorArray &vector_array)
+      : OutputValue(ValueType::OutputVector), vector_array(&vector_array)
+  {
+  }
+};
+
+struct OwnSingleValue : public Value {
   GenericMutableArrayRef array_ref;
   int max_remaining_users;
   bool is_single_allocated;
 
-  SingleValue(GenericMutableArrayRef array_ref, int max_remaining_users, bool is_single_allocated)
-      : OutputValue(OutputValueType::Single),
+  OwnSingleValue(GenericMutableArrayRef array_ref,
+                 int max_remaining_users,
+                 bool is_single_allocated)
+      : Value(ValueType::OwnSingle),
         array_ref(array_ref),
         max_remaining_users(max_remaining_users),
         is_single_allocated(is_single_allocated)
@@ -56,24 +88,26 @@ struct SingleValue : public OutputValue {
   }
 };
 
-struct VectorValue : public OutputValue {
+struct OwnVectorValue : public Value {
   GenericVectorArray *vector_array;
   int max_remaining_users;
 
-  VectorValue(GenericVectorArray &vector_array, int max_remaining_users)
-      : OutputValue(OutputValueType::Vector),
+  OwnVectorValue(GenericVectorArray &vector_array, int max_remaining_users)
+      : Value(ValueType::OwnVector),
         vector_array(&vector_array),
         max_remaining_users(max_remaining_users)
   {
   }
 };
 
+}  // namespace
+
 class NetworkEvaluationStorage {
  private:
   MonotonicAllocator<256> m_allocator;
   BufferCache &m_buffer_cache;
   IndexMask m_mask;
-  Array<OutputValue *> m_value_per_output_id;
+  Array<Value *> m_value_per_output_id;
   uint m_min_array_size;
 
  public:
@@ -87,12 +121,12 @@ class NetworkEvaluationStorage {
 
   ~NetworkEvaluationStorage()
   {
-    for (OutputValue *any_value : m_value_per_output_id) {
+    for (Value *any_value : m_value_per_output_id) {
       if (any_value == nullptr) {
         continue;
       }
-      else if (any_value->type == OutputValueType::Single) {
-        SingleValue *value = (SingleValue *)any_value;
+      else if (any_value->type == ValueType::OwnSingle) {
+        OwnSingleValue *value = (OwnSingleValue *)any_value;
         GenericMutableArrayRef array_ref = value->array_ref;
         const CPPType &type = array_ref.type();
         if (value->is_single_allocated) {
@@ -103,8 +137,8 @@ class NetworkEvaluationStorage {
           m_buffer_cache.deallocate(array_ref.buffer());
         }
       }
-      else if (any_value->type == OutputValueType::Vector) {
-        VectorValue *value = (VectorValue *)any_value;
+      else if (any_value->type == ValueType::OwnVector) {
+        OwnVectorValue *value = (OwnVectorValue *)any_value;
         delete value->vector_array;
       }
     }
@@ -117,44 +151,79 @@ class NetworkEvaluationStorage {
 
   bool socket_is_computed(const MFOutputSocket &socket)
   {
-    OutputValue *any_value = m_value_per_output_id[socket.id()];
-    return any_value != nullptr;
+    Value *any_value = m_value_per_output_id[socket.id()];
+    if (any_value == nullptr) {
+      return false;
+    }
+    if (ELEM(any_value->type, ValueType::OutputSingle, ValueType::OutputVector)) {
+      return ((OutputValue *)any_value)->is_computed;
+    }
+    return true;
   }
 
   bool is_same_value_for_every_index(const MFOutputSocket &socket)
   {
-    OutputValue *any_value = m_value_per_output_id[socket.id()];
+    Value *any_value = m_value_per_output_id[socket.id()];
     switch (any_value->type) {
-      case OutputValueType::Single:
-        return ((SingleValue *)any_value)->array_ref.size() == 1;
-      case OutputValueType::Vector:
-        return ((VectorValue *)any_value)->vector_array->size() == 1;
-      case OutputValueType::SingleInputFromCaller:
-        return ((SingleInputFromCallerValue *)any_value)->list_ref.is_single_element();
-      case OutputValueType::VectorInputFromCaller:
-        return ((VectorInputFromCallerValue *)any_value)->list_list_ref.is_single_list();
+      case ValueType::OwnSingle:
+        return ((OwnSingleValue *)any_value)->array_ref.size() == 1;
+      case ValueType::OwnVector:
+        return ((OwnVectorValue *)any_value)->vector_array->size() == 1;
+      case ValueType::InputSingle:
+        return ((InputSingleValue *)any_value)->list_ref.is_single_element();
+      case ValueType::InputVector:
+        return ((InputVectorValue *)any_value)->list_list_ref.is_single_list();
+      case ValueType::OutputSingle:
+        return ((OutputSingleValue *)any_value)->array_ref.size() == 1;
+      case ValueType::OutputVector:
+        return ((OutputVectorValue *)any_value)->vector_array->size() == 1;
     }
     BLI_assert(false);
     return false;
+  }
+
+  bool socket_has_buffer_for_output(const MFOutputSocket &socket)
+  {
+    Value *any_value = m_value_per_output_id[socket.id()];
+    if (any_value == nullptr) {
+      return false;
+    }
+
+    BLI_assert(ELEM(any_value->type, ValueType::OutputSingle, ValueType::OutputVector));
+    return true;
+  }
+
+  void finish_output_socket(const MFOutputSocket &socket)
+  {
+    Value *any_value = m_value_per_output_id[socket.id()];
+    if (any_value == nullptr) {
+      return;
+    }
+
+    if (ELEM(any_value->type, ValueType::OutputSingle, ValueType::OutputVector)) {
+      ((OutputValue *)any_value)->is_computed = true;
+    }
   }
 
   void finish_input_socket(const MFInputSocket &socket)
   {
     const MFOutputSocket &origin = socket.origin();
 
-    OutputValue *any_value = m_value_per_output_id[origin.id()];
+    Value *any_value = m_value_per_output_id[origin.id()];
     if (any_value == nullptr) {
       /* Can happen when a value has been forward to the next node. */
       return;
     }
 
     switch (any_value->type) {
-      case OutputValueType::SingleInputFromCaller:
-      case OutputValueType::VectorInputFromCaller: {
+      case ValueType::InputSingle:
+      case ValueType::OutputSingle:
+      case ValueType::InputVector:
+      case ValueType::OutputVector: {
         break;
       }
-      case OutputValueType::Single: {
-        SingleValue *value = (SingleValue *)any_value;
+      case ValueType::OwnSingle: {
+        OwnSingleValue *value = (OwnSingleValue *)any_value;
         BLI_assert(value->max_remaining_users >= 1);
         value->max_remaining_users--;
         if (value->max_remaining_users == 0) {
@@ -171,8 +240,8 @@ class NetworkEvaluationStorage {
         }
         break;
       }
-      case OutputValueType::Vector: {
-        VectorValue *value = (VectorValue *)any_value;
+      case ValueType::OwnVector: {
+        OwnVectorValue *value = (OwnVectorValue *)any_value;
         BLI_assert(value->max_remaining_users >= 1);
         value->max_remaining_users--;
         if (value->max_remaining_users == 0) {
@@ -187,22 +256,45 @@ class NetworkEvaluationStorage {
   /* Add function inputs from caller to the storage.
    ********************************************************/
 
-  void add_single_from_caller(const MFOutputSocket &socket, GenericVirtualListRef list_ref)
+  void add_single_input_from_caller(const MFOutputSocket &socket, GenericVirtualListRef list_ref)
   {
     BLI_assert(m_value_per_output_id[socket.id()] == nullptr);
     BLI_assert(list_ref.size() >= m_min_array_size);
 
-    auto *value = m_allocator.construct<SingleInputFromCallerValue>(list_ref);
+    auto *value = m_allocator.construct<InputSingleValue>(list_ref);
     m_value_per_output_id[socket.id()] = value;
   }
 
-  void add_vector_from_caller(const MFOutputSocket &socket,
-                              GenericVirtualListListRef list_list_ref)
+  void add_vector_input_from_caller(const MFOutputSocket &socket,
+                                    GenericVirtualListListRef list_list_ref)
   {
     BLI_assert(m_value_per_output_id[socket.id()] == nullptr);
     BLI_assert(list_list_ref.size() >= m_min_array_size);
 
-    auto *value = m_allocator.construct<VectorInputFromCallerValue>(list_list_ref);
+    auto *value = m_allocator.construct<InputVectorValue>(list_list_ref);
+    m_value_per_output_id[socket.id()] = value;
+  }
+
+  /* Add function outputs from caller to the storage.
+   *******************************************************/
+
+  void add_single_output_from_caller(const MFOutputSocket &socket,
+                                     GenericMutableArrayRef array_ref)
+  {
+    BLI_assert(m_value_per_output_id[socket.id()] == nullptr);
+    BLI_assert(array_ref.size() >= m_min_array_size);
+
+    auto *value = m_allocator.construct<OutputSingleValue>(array_ref);
+    m_value_per_output_id[socket.id()] = value;
+  }
+
+  void add_vector_output_from_caller(const MFOutputSocket &socket,
+                                     GenericVectorArray &vector_array)
+  {
+    BLI_assert(m_value_per_output_id[socket.id()] == nullptr);
+    BLI_assert(vector_array.size() >= m_min_array_size);
+
+    auto *value = m_allocator.construct<OutputVectorValue>(vector_array);
     m_value_per_output_id[socket.id()] = value;
   }
 
@@ -211,56 +303,81 @@ class NetworkEvaluationStorage {
 
   GenericMutableArrayRef get_single_output__full(const MFOutputSocket &socket)
   {
-    BLI_assert(m_value_per_output_id[socket.id()] == nullptr);
+    Value *any_value = m_value_per_output_id[socket.id()];
+    if (any_value == nullptr) {
+      const CPPType &type = socket.data_type().single__cpp_type();
+      void *buffer = m_buffer_cache.allocate(m_min_array_size, type.size(), type.alignment());
+      GenericMutableArrayRef array_ref(type, buffer, m_min_array_size);
 
-    const CPPType &type = socket.data_type().single__cpp_type();
-    void *buffer = m_buffer_cache.allocate(m_min_array_size, type.size(), type.alignment());
-    GenericMutableArrayRef array_ref(type, buffer, m_min_array_size);
+      auto *value = m_allocator.construct<OwnSingleValue>(
+          array_ref, socket.target_amount(), false);
+      m_value_per_output_id[socket.id()] = value;
 
-    auto *value = m_allocator.construct<SingleValue>(array_ref, socket.target_amount(), false);
-    m_value_per_output_id[socket.id()] = value;
-
-    return array_ref;
+      return array_ref;
+    }
+    else {
+      BLI_assert(any_value->type == ValueType::OutputSingle);
+      return ((OutputSingleValue *)any_value)->array_ref;
+    }
   }
 
   GenericMutableArrayRef get_single_output__single(const MFOutputSocket &socket)
   {
-    BLI_assert(m_value_per_output_id[socket.id()] == nullptr);
+    Value *any_value = m_value_per_output_id[socket.id()];
+    if (any_value == nullptr) {
+      const CPPType &type = socket.data_type().single__cpp_type();
+      void *buffer = m_allocator.allocate(type.size(), type.alignment());
+      GenericMutableArrayRef array_ref(type, buffer, 1);
 
-    const CPPType &type = socket.data_type().single__cpp_type();
-    void *buffer = m_allocator.allocate(type.size(), type.alignment());
-    GenericMutableArrayRef array_ref(type, buffer, 1);
+      auto *value = m_allocator.construct<OwnSingleValue>(array_ref, socket.target_amount(), true);
+      m_value_per_output_id[socket.id()] = value;
 
-    auto *value = m_allocator.construct<SingleValue>(array_ref, socket.target_amount(), true);
-    m_value_per_output_id[socket.id()] = value;
-
-    return value->array_ref;
+      return value->array_ref;
+    }
+    else {
+      BLI_assert(any_value->type == ValueType::OutputSingle);
+      GenericMutableArrayRef array_ref = ((OutputSingleValue *)any_value)->array_ref;
+      BLI_assert(array_ref.size() == 1);
+      return array_ref;
+    }
   }
 
   GenericVectorArray &get_vector_output__full(const MFOutputSocket &socket)
   {
-    BLI_assert(m_value_per_output_id[socket.id()] == nullptr);
+    Value *any_value = m_value_per_output_id[socket.id()];
+    if (any_value == nullptr) {
+      const CPPType &type = socket.data_type().vector__cpp_base_type();
+      GenericVectorArray *vector_array = new GenericVectorArray(type, m_min_array_size);
 
-    const CPPType &type = socket.data_type().vector__cpp_base_type();
-    GenericVectorArray *vector_array = new GenericVectorArray(type, m_min_array_size);
+      auto *value = m_allocator.construct<OwnVectorValue>(*vector_array, socket.target_amount());
+      m_value_per_output_id[socket.id()] = value;
 
-    auto *value = m_allocator.construct<VectorValue>(*vector_array, socket.target_amount());
-    m_value_per_output_id[socket.id()] = value;
-
-    return *value->vector_array;
+      return *value->vector_array;
+    }
+    else {
+      BLI_assert(any_value->type == ValueType::OutputVector);
+      return *((OutputVectorValue *)any_value)->vector_array;
+    }
   }
 
   GenericVectorArray &get_vector_output__single(const MFOutputSocket &socket)
   {
-    BLI_assert(m_value_per_output_id[socket.id()] == nullptr);
+    Value *any_value = m_value_per_output_id[socket.id()];
+    if (any_value == nullptr) {
+      const CPPType &type = socket.data_type().vector__cpp_base_type();
+      GenericVectorArray *vector_array = new GenericVectorArray(type, 1);
 
-    const CPPType &type = socket.data_type().vector__cpp_base_type();
-    GenericVectorArray *vector_array = new GenericVectorArray(type, 1);
+      auto *value = m_allocator.construct<OwnVectorValue>(*vector_array, socket.target_amount());
+      m_value_per_output_id[socket.id()] = value;
 
-    auto *value = m_allocator.construct<VectorValue>(*vector_array, socket.target_amount());
-    m_value_per_output_id[socket.id()] = value;
-
-    return *value->vector_array;
+      return *value->vector_array;
+    }
+    else {
+      BLI_assert(any_value->type == ValueType::OutputVector);
+      GenericVectorArray &vector_array = *((OutputVectorValue *)any_value)->vector_array;
+      BLI_assert(vector_array.size() == 1);
+      return vector_array;
+    }
   }
 
   /* Get a mutable memory for a function that wants to mutate date.
@@ -271,13 +388,23 @@ class NetworkEvaluationStorage {
   {
     const MFOutputSocket &from = input.origin();
     const MFOutputSocket &to = output;
+    const CPPType &type = from.data_type().single__cpp_type();
 
-    OutputValue *any_value = m_value_per_output_id[from.id()];
-    BLI_assert(any_value != nullptr);
-    BLI_assert(from.data_type().single__cpp_type() == to.data_type().single__cpp_type());
+    Value *from_any_value = m_value_per_output_id[from.id()];
+    Value *to_any_value = m_value_per_output_id[to.id()];
+    BLI_assert(from_any_value != nullptr);
+    BLI_assert(type == to.data_type().single__cpp_type());
 
-    if (any_value->type == OutputValueType::Single) {
-      SingleValue *value = (SingleValue *)any_value;
+    if (to_any_value != nullptr) {
+      BLI_assert(to_any_value->type == ValueType::OutputSingle);
+      GenericMutableArrayRef array_ref = ((OutputSingleValue *)to_any_value)->array_ref;
+      GenericVirtualListRef list_ref = this->get_single_input__full(input);
+      list_ref.materialize_to_uninitialized(m_mask, array_ref);
+      return array_ref;
+    }
+
+    if (from_any_value->type == ValueType::OwnSingle) {
+      OwnSingleValue *value = (OwnSingleValue *)from_any_value;
       if (value->max_remaining_users == 1 && !value->is_single_allocated) {
         m_value_per_output_id[to.id()] = value;
         m_value_per_output_id[from.id()] = nullptr;
@@ -287,12 +414,11 @@ class NetworkEvaluationStorage {
     }
 
     GenericVirtualListRef list_ref = this->get_single_input__full(input);
-    const CPPType &type = list_ref.type();
     void *new_buffer = m_buffer_cache.allocate(m_min_array_size, type.size(), type.alignment());
     GenericMutableArrayRef new_array_ref(type, new_buffer, m_min_array_size);
     list_ref.materialize_to_uninitialized(m_mask, new_array_ref);
 
-    SingleValue *new_value = m_allocator.construct<SingleValue>(
+    OwnSingleValue *new_value = m_allocator.construct<OwnSingleValue>(
         new_array_ref, to.target_amount(), false);
     m_value_per_output_id[to.id()] = new_value;
     return new_array_ref;
@@ -303,13 +429,24 @@ class NetworkEvaluationStorage {
   {
     const MFOutputSocket &from = input.origin();
     const MFOutputSocket &to = output;
+    const CPPType &type = from.data_type().single__cpp_type();
 
-    OutputValue *any_value = m_value_per_output_id[from.id()];
-    BLI_assert(any_value != nullptr);
-    BLI_assert(from.data_type().single__cpp_type() == to.data_type().single__cpp_type());
+    Value *from_any_value = m_value_per_output_id[from.id()];
+    Value *to_any_value = m_value_per_output_id[to.id()];
+    BLI_assert(from_any_value != nullptr);
+    BLI_assert(type == to.data_type().single__cpp_type());
 
-    if (any_value->type == OutputValueType::Single) {
-      SingleValue *value = (SingleValue *)any_value;
+    if (to_any_value != nullptr) {
+      BLI_assert(to_any_value->type == ValueType::OutputSingle);
+      GenericMutableArrayRef array_ref = ((OutputSingleValue *)to_any_value)->array_ref;
+      BLI_assert(array_ref.size() == 1);
+      GenericVirtualListRef list_ref = this->get_single_input__single(input);
+      type.copy_to_uninitialized(list_ref.as_single_element(), array_ref[0]);
+      return array_ref;
+    }
+
+    if (from_any_value->type == ValueType::OwnSingle) {
+      OwnSingleValue *value = (OwnSingleValue *)from_any_value;
       if (value->max_remaining_users == 1) {
         m_value_per_output_id[to.id()] = value;
         m_value_per_output_id[from.id()] = nullptr;
@@ -321,12 +458,11 @@ class NetworkEvaluationStorage {
 
     GenericVirtualListRef list_ref = this->get_single_input__single(input);
 
-    const CPPType &type = list_ref.type();
     void *new_buffer = m_allocator.allocate(type.size(), type.alignment());
     type.copy_to_uninitialized(list_ref.as_single_element(), new_buffer);
     GenericMutableArrayRef new_array_ref(type, new_buffer, 1);
 
-    SingleValue *new_value = m_allocator.construct<SingleValue>(
+    OwnSingleValue *new_value = m_allocator.construct<OwnSingleValue>(
         new_array_ref, to.target_amount(), true);
     m_value_per_output_id[to.id()] = new_value;
     return new_array_ref;
@@ -337,13 +473,23 @@ class NetworkEvaluationStorage {
   {
     const MFOutputSocket &from = input.origin();
     const MFOutputSocket &to = output;
+    const CPPType &base_type = from.data_type().vector__cpp_base_type();
 
-    OutputValue *any_value = m_value_per_output_id[from.id()];
-    BLI_assert(any_value != nullptr);
-    BLI_assert(from.data_type().vector__cpp_base_type() == to.data_type().vector__cpp_base_type());
+    Value *from_any_value = m_value_per_output_id[from.id()];
+    Value *to_any_value = m_value_per_output_id[to.id()];
+    BLI_assert(from_any_value != nullptr);
+    BLI_assert(base_type == to.data_type().vector__cpp_base_type());
 
-    if (any_value->type == OutputValueType::Vector) {
-      VectorValue *value = (VectorValue *)any_value;
+    if (to_any_value != nullptr) {
+      BLI_assert(to_any_value->type == ValueType::OutputVector);
+      GenericVectorArray &vector_array = *((OutputVectorValue *)to_any_value)->vector_array;
+      GenericVirtualListListRef list_list_ref = this->get_vector_input__full(input);
+      vector_array.extend_multiple__copy(m_mask, list_list_ref);
+      return vector_array;
+    }
+
+    if (from_any_value->type == ValueType::OwnVector) {
+      OwnVectorValue *value = (OwnVectorValue *)from_any_value;
       if (value->max_remaining_users == 1) {
         m_value_per_output_id[to.id()] = value;
         m_value_per_output_id[from.id()] = nullptr;
@@ -354,12 +500,11 @@ class NetworkEvaluationStorage {
 
     GenericVirtualListListRef list_list_ref = this->get_vector_input__full(input);
 
-    const CPPType &base_type = list_list_ref.type();
     GenericVectorArray *new_vector_array = new GenericVectorArray(base_type, m_min_array_size);
     new_vector_array->extend_multiple__copy(m_mask, list_list_ref);
 
-    VectorValue *new_value = m_allocator.construct<VectorValue>(*new_vector_array,
-                                                                to.target_amount());
+    OwnVectorValue *new_value = m_allocator.construct<OwnVectorValue>(*new_vector_array,
+                                                                      to.target_amount());
     m_value_per_output_id[to.id()] = new_value;
 
     return *new_vector_array;
@@ -370,13 +515,24 @@ class NetworkEvaluationStorage {
   {
     const MFOutputSocket &from = input.origin();
     const MFOutputSocket &to = output;
+    const CPPType &base_type = from.data_type().vector__cpp_base_type();
 
-    OutputValue *any_value = m_value_per_output_id[from.id()];
-    BLI_assert(any_value != nullptr);
-    BLI_assert(from.data_type().vector__cpp_base_type() == to.data_type().vector__cpp_base_type());
+    Value *from_any_value = m_value_per_output_id[from.id()];
+    Value *to_any_value = m_value_per_output_id[to.id()];
+    BLI_assert(from_any_value != nullptr);
+    BLI_assert(base_type == to.data_type().vector__cpp_base_type());
 
-    if (any_value->type == OutputValueType::Vector) {
-      VectorValue *value = (VectorValue *)any_value;
+    if (to_any_value != nullptr) {
+      BLI_assert(to_any_value->type == ValueType::OutputVector);
+      GenericVectorArray &vector_array = *((OutputVectorValue *)to_any_value)->vector_array;
+      BLI_assert(vector_array.size() == 1);
+      GenericVirtualListListRef list_list_ref = this->get_vector_input__single(input);
+      vector_array.extend_single__copy(0, list_list_ref[0]);
+      return vector_array;
+    }
+
+    if (from_any_value->type == ValueType::OwnVector) {
+      OwnVectorValue *value = (OwnVectorValue *)from_any_value;
       if (value->max_remaining_users == 1) {
         m_value_per_output_id[to.id()] = value;
         m_value_per_output_id[from.id()] = nullptr;
@@ -387,12 +543,11 @@ class NetworkEvaluationStorage {
 
     GenericVirtualListListRef list_list_ref = this->get_vector_input__single(input);
 
-    const CPPType &base_type = list_list_ref.type();
     GenericVectorArray *new_vector_array = new GenericVectorArray(base_type, 1);
     new_vector_array->extend_single__copy(0, list_list_ref[0]);
 
-    VectorValue *new_value = m_allocator.construct<VectorValue>(*new_vector_array,
-                                                                to.target_amount());
+    OwnVectorValue *new_value = m_allocator.construct<OwnVectorValue>(*new_vector_array,
+                                                                      to.target_amount());
     m_value_per_output_id[to.id()] = new_value;
     return *new_vector_array;
   }
@@ -403,11 +558,11 @@ class NetworkEvaluationStorage {
   GenericVirtualListRef get_single_input__full(const MFInputSocket &socket)
   {
     const MFOutputSocket &origin = socket.origin();
-    OutputValue *any_value = m_value_per_output_id[origin.id()];
+    Value *any_value = m_value_per_output_id[origin.id()];
     BLI_assert(any_value != nullptr);
 
-    if (any_value->type == OutputValueType::Single) {
-      SingleValue *value = (SingleValue *)any_value;
+    if (any_value->type == ValueType::OwnSingle) {
+      OwnSingleValue *value = (OwnSingleValue *)any_value;
       if (value->is_single_allocated) {
         return GenericVirtualListRef::FromSingle(
             value->array_ref.type(), value->array_ref.buffer(), m_min_array_size);
@@ -416,9 +571,14 @@ class NetworkEvaluationStorage {
         return value->array_ref;
       }
     }
-    else if (any_value->type == OutputValueType::SingleInputFromCaller) {
-      SingleInputFromCallerValue *value = (SingleInputFromCallerValue *)any_value;
+    else if (any_value->type == ValueType::InputSingle) {
+      InputSingleValue *value = (InputSingleValue *)any_value;
       return value->list_ref;
+    }
+    else if (any_value->type == ValueType::OutputSingle) {
+      OutputSingleValue *value = (OutputSingleValue *)any_value;
+      BLI_assert(value->is_computed);
+      return value->array_ref;
     }
 
     BLI_assert(false);
@@ -428,18 +588,24 @@ class NetworkEvaluationStorage {
   GenericVirtualListRef get_single_input__single(const MFInputSocket &socket)
   {
     const MFOutputSocket &origin = socket.origin();
-    OutputValue *any_value = m_value_per_output_id[origin.id()];
+    Value *any_value = m_value_per_output_id[origin.id()];
     BLI_assert(any_value != nullptr);
 
-    if (any_value->type == OutputValueType::Single) {
-      SingleValue *value = (SingleValue *)any_value;
+    if (any_value->type == ValueType::OwnSingle) {
+      OwnSingleValue *value = (OwnSingleValue *)any_value;
       BLI_assert(value->array_ref.size() == 1);
       return value->array_ref;
     }
-    else if (any_value->type == OutputValueType::SingleInputFromCaller) {
-      SingleInputFromCallerValue *value = (SingleInputFromCallerValue *)any_value;
+    else if (any_value->type == ValueType::InputSingle) {
+      InputSingleValue *value = (InputSingleValue *)any_value;
       BLI_assert(value->list_ref.is_single_element());
       return value->list_ref;
+    }
+    else if (any_value->type == ValueType::OutputSingle) {
+      OutputSingleValue *value = (OutputSingleValue *)any_value;
+      BLI_assert(value->is_computed);
+      BLI_assert(value->array_ref.size() == 1);
+      return value->array_ref;
     }
 
     BLI_assert(false);
@@ -449,11 +615,11 @@ class NetworkEvaluationStorage {
   GenericVirtualListListRef get_vector_input__full(const MFInputSocket &socket)
   {
     const MFOutputSocket &origin = socket.origin();
-    OutputValue *any_value = m_value_per_output_id[origin.id()];
+    Value *any_value = m_value_per_output_id[origin.id()];
     BLI_assert(any_value != nullptr);
 
-    if (any_value->type == OutputValueType::Vector) {
-      VectorValue *value = (VectorValue *)any_value;
+    if (any_value->type == ValueType::OwnVector) {
+      OwnVectorValue *value = (OwnVectorValue *)any_value;
       if (value->vector_array->size() == 1) {
         GenericArrayRef array_ref = (*value->vector_array)[0];
         return GenericVirtualListListRef::FromSingleArray(
@@ -463,9 +629,13 @@ class NetworkEvaluationStorage {
         return *value->vector_array;
       }
     }
-    else if (any_value->type == OutputValueType::VectorInputFromCaller) {
-      VectorInputFromCallerValue *value = (VectorInputFromCallerValue *)any_value;
+    else if (any_value->type == ValueType::InputVector) {
+      InputVectorValue *value = (InputVectorValue *)any_value;
       return value->list_list_ref;
+    }
+    else if (any_value->type == ValueType::OutputVector) {
+      OutputVectorValue *value = (OutputVectorValue *)any_value;
+      return *value->vector_array;
     }
 
     BLI_assert(false);
@@ -475,18 +645,23 @@ class NetworkEvaluationStorage {
   GenericVirtualListListRef get_vector_input__single(const MFInputSocket &socket)
   {
     const MFOutputSocket &origin = socket.origin();
-    OutputValue *any_value = m_value_per_output_id[origin.id()];
+    Value *any_value = m_value_per_output_id[origin.id()];
     BLI_assert(any_value != nullptr);
 
-    if (any_value->type == OutputValueType::Vector) {
-      VectorValue *value = (VectorValue *)any_value;
+    if (any_value->type == ValueType::OwnVector) {
+      OwnVectorValue *value = (OwnVectorValue *)any_value;
       BLI_assert(value->vector_array->size() == 1);
       return *value->vector_array;
     }
-    else if (any_value->type == OutputValueType::VectorInputFromCaller) {
-      VectorInputFromCallerValue *value = (VectorInputFromCallerValue *)any_value;
+    else if (any_value->type == ValueType::InputVector) {
+      InputVectorValue *value = (InputVectorValue *)any_value;
       BLI_assert(value->list_list_ref.is_single_list());
       return value->list_list_ref;
+    }
+    else if (any_value->type == ValueType::OutputVector) {
+      OutputVectorValue *value = (OutputVectorValue *)any_value;
+      BLI_assert(value->vector_array->size() == 1);
+      return *value->vector_array;
     }
 
     BLI_assert(false);
@@ -547,25 +722,67 @@ void MF_EvaluateNetwork::call(IndexMask mask, MFParams params, MFContext context
   const MFNetwork &network = m_outputs[0]->node().network();
   Storage storage(context.buffer_cache(), mask, network.socket_ids().size());
 
+  Vector<const MFInputSocket *> outputs_to_initialize_in_the_end;
+
   this->copy_inputs_to_storage(params, storage);
+  this->copy_outputs_to_storage(params, storage, outputs_to_initialize_in_the_end);
   this->evaluate_network_to_compute_outputs(context, storage);
-  this->copy_computed_values_to_outputs(params, storage);
+  this->initialize_remaining_outputs(params, storage, outputs_to_initialize_in_the_end);
 }
 
 BLI_NOINLINE void MF_EvaluateNetwork::copy_inputs_to_storage(MFParams params,
                                                              Storage &storage) const
 {
   for (uint input_index : m_inputs.index_range()) {
+    uint param_index = input_index + 0;
     const MFOutputSocket &socket = *m_inputs[input_index];
     switch (socket.data_type().category()) {
       case MFDataType::Single: {
-        GenericVirtualListRef input_list = params.readonly_single_input(input_index);
-        storage.add_single_from_caller(socket, input_list);
+        GenericVirtualListRef input_list = params.readonly_single_input(param_index);
+        storage.add_single_input_from_caller(socket, input_list);
         break;
       }
       case MFDataType::Vector: {
-        GenericVirtualListListRef input_list_list = params.readonly_vector_input(input_index);
-        storage.add_vector_from_caller(socket, input_list_list);
+        GenericVirtualListListRef input_list_list = params.readonly_vector_input(param_index);
+        storage.add_vector_input_from_caller(socket, input_list_list);
+        break;
+      }
+    }
+  }
+}
+
+BLI_NOINLINE void MF_EvaluateNetwork::copy_outputs_to_storage(
+    MFParams params,
+    Storage &storage,
+    Vector<const MFInputSocket *> &outputs_to_initialize_in_the_end) const
+{
+  for (uint output_index : m_outputs.index_range()) {
+    uint param_index = output_index + m_inputs.size();
+    const MFInputSocket &socket = *m_outputs[output_index];
+    const MFOutputSocket &origin = socket.origin();
+
+    if (origin.node().is_dummy()) {
+      BLI_assert(m_inputs.contains(&origin));
+      /* Don't overwrite input buffers. */
+      outputs_to_initialize_in_the_end.append(&socket);
+      continue;
+    }
+
+    if (storage.socket_has_buffer_for_output(origin)) {
+      /* When two outputs will be initialized to the same values. */
+      outputs_to_initialize_in_the_end.append(&socket);
+      continue;
+    }
+
+    switch (socket.data_type().category()) {
+      case MFDataType::Single: {
+        GenericMutableArrayRef array_ref = params.uninitialized_single_output(param_index);
+        storage.add_single_output_from_caller(origin, array_ref);
+        break;
+      }
+      case MFDataType::Vector: {
+        GenericVectorArray &vector_array = params.vector_output(param_index);
+        storage.add_vector_output_from_caller(origin, vector_array);
         break;
       }
     }
@@ -730,6 +947,9 @@ BLI_NOINLINE void MF_EvaluateNetwork::evaluate_function(MFContext &global_contex
   for (const MFInputSocket *socket : function_node.inputs()) {
     storage.finish_input_socket(*socket);
   }
+  for (const MFOutputSocket *socket : function_node.outputs()) {
+    storage.finish_output_socket(*socket);
+  }
 }
 
 bool MF_EvaluateNetwork::can_do_single_value_evaluation(const MFFunctionNode &function_node,
@@ -743,27 +963,32 @@ bool MF_EvaluateNetwork::can_do_single_value_evaluation(const MFFunctionNode &fu
       return false;
     }
   }
+  if (storage.mask().min_array_size() >= 1) {
+    for (const MFOutputSocket *socket : function_node.outputs()) {
+      if (storage.socket_has_buffer_for_output(*socket)) {
+        return false;
+      }
+    }
+  }
   return true;
 }
 
-BLI_NOINLINE void MF_EvaluateNetwork::copy_computed_values_to_outputs(MFParams params,
-                                                                      Storage &storage) const
+BLI_NOINLINE void MF_EvaluateNetwork::initialize_remaining_outputs(
+    MFParams params, Storage &storage, ArrayRef<const MFInputSocket *> remaining_outputs) const
 {
-  for (uint output_index : m_outputs.index_range()) {
-    uint global_param_index = m_inputs.size() + output_index;
-    const MFInputSocket &socket = *m_outputs[output_index];
+  for (const MFInputSocket *socket : remaining_outputs) {
+    uint param_index = m_inputs.size() + m_outputs.index(socket);
 
-    switch (socket.data_type().category()) {
+    switch (socket->data_type().category()) {
       case MFDataType::Single: {
-        GenericVirtualListRef values = storage.get_single_input__full(socket);
-        GenericMutableArrayRef output_values = params.uninitialized_single_output(
-            global_param_index);
+        GenericVirtualListRef values = storage.get_single_input__full(*socket);
+        GenericMutableArrayRef output_values = params.uninitialized_single_output(param_index);
         values.materialize_to_uninitialized(storage.mask(), output_values);
         break;
       }
       case MFDataType::Vector: {
-        GenericVirtualListListRef values = storage.get_vector_input__full(socket);
-        GenericVectorArray &output_values = params.vector_output(global_param_index);
+        GenericVirtualListListRef values = storage.get_vector_input__full(*socket);
+        GenericVectorArray &output_values = params.vector_output(param_index);
         output_values.extend_multiple__copy(storage.mask(), values);
         break;
       }

@@ -54,7 +54,6 @@ class BufferCache {
       if (head->buffer_size_in_bytes == padded_size) {
         void *user_ptr = head->user_ptr();
         m_cached_buffers.remove_and_reorder(i);
-        // std::cout << "Reuse buffer\n";
         return user_ptr;
       }
     }
@@ -63,7 +62,6 @@ class BufferCache {
         padded_size + Alignment, Alignment, "allocate in BufferCache");
     new_head->buffer_size_in_bytes = padded_size;
     m_all_buffers.append(new_head);
-    // std::cout << "New buffer\n";
     return new_head->user_ptr();
   }
 
