@@ -172,67 +172,27 @@ static void build_math_fn_1in_1out(FNodeMFBuilder &builder,
 }
 
 template<typename InT1, typename InT2, typename OutT, typename FuncT>
-static std::function<
-    void(IndexMask, VirtualListRef<InT1>, VirtualListRef<InT2>, MutableArrayRef<OutT>)>
-vectorize_function_2in_1out(FuncT func)
-{
-  return [=](IndexMask mask,
-             VirtualListRef<InT1> inputs1,
-             VirtualListRef<InT2> inputs2,
-             MutableArrayRef<OutT> outputs) -> void {
-    if (inputs1.is_non_single_full_array() && inputs2.is_non_single_full_array()) {
-      ArrayRef<InT1> in1_array = inputs1.as_full_array();
-      ArrayRef<InT2> in2_array = inputs2.as_full_array();
-      mask.foreach_index(
-          [=](uint i) { new (&outputs[i]) OutT(func(in1_array[i], in2_array[i])); });
-    }
-    else if (inputs1.is_non_single_full_array() && inputs2.is_single_element()) {
-      ArrayRef<InT1> in1_array = inputs1.as_full_array();
-      InT2 in2_single = inputs2.as_single_element();
-      mask.foreach_index([=](uint i) { new (&outputs[i]) OutT(func(in1_array[i], in2_single)); });
-    }
-    else if (inputs1.is_single_element() && inputs2.is_non_single_full_array()) {
-      InT1 in1_single = inputs1.as_single_element();
-      ArrayRef<InT2> in2_array = inputs2.as_full_array();
-      mask.foreach_index([=](uint i) { new (&outputs[i]) OutT(func(in1_single, in2_array[i])); });
-    }
-    else if (inputs1.is_single_element() && inputs2.is_single_element()) {
-      InT1 in1_single = inputs1.as_single_element();
-      InT2 in2_single = inputs2.as_single_element();
-      OutT out_single = func(in1_single, in2_single);
-      outputs.fill_indices(mask.indices(), out_single);
-    }
-    else {
-      mask.foreach_index([=](uint i) { new (&outputs[i]) OutT(func(inputs1[i], inputs2[i])); });
-    }
-  };
-}
-
-template<typename InT1, typename InT2, typename OutT, typename FuncT>
 static void build_math_fn_in2_out1(FNodeMFBuilder &builder,
-                                   FuncT func,
+                                   FuncT element_func,
                                    Optional<uint32_t> operation_hash = {})
 {
-  auto fn = vectorize_function_2in_1out<InT1, InT2, OutT>(func);
   builder.set_vectorized_constructed_matching_fn<MF_Custom_In2_Out1<InT1, InT2, OutT>>(
-      {"use_list__a", "use_list__b"}, builder.fnode().name(), fn, operation_hash);
+      {"use_list__a", "use_list__b"}, builder.fnode().name(), element_func, operation_hash);
 }
 
 template<typename T, typename FuncT>
 static void build_variadic_math_fn(FNodeMFBuilder &builder,
-                                   FuncT func,
+                                   FuncT element_func,
                                    T default_value,
                                    Optional<uint32_t> operation_hash = {})
 {
-  auto fn = vectorize_function_2in_1out<T, T, T>(func);
-
   Vector<bool> list_states = builder.get_list_base_variadic_states("variadic");
   if (list_states.size() == 0) {
     builder.set_constructed_matching_fn<MF_ConstantValue<T>>(default_value);
   }
   else {
     const MultiFunction &base_fn = builder.construct_fn<MF_VariadicMath<T>>(
-        builder.fnode().name(), list_states.size(), fn, operation_hash);
+        builder.fnode().name(), list_states.size(), element_func, operation_hash);
     if (list_states.contains(true)) {
       builder.set_constructed_matching_fn<MF_SimpleVectorize>(base_fn, list_states);
     }
