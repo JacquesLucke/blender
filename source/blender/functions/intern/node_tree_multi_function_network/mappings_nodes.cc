@@ -163,33 +163,12 @@ static void INSERT_time_info(FNodeMFBuilder &builder)
 }
 
 template<typename InT, typename OutT, typename FuncT>
-static std::function<void(IndexMask mask, VirtualListRef<InT>, MutableArrayRef<OutT>)>
-vectorize_function_1in_1out(FuncT func)
-{
-  return [=](IndexMask mask, VirtualListRef<InT> inputs, MutableArrayRef<OutT> outputs) {
-    if (inputs.is_non_single_full_array()) {
-      ArrayRef<InT> in_array = inputs.as_full_array();
-      mask.foreach_index([=](uint i) { outputs[i] = func(in_array[i]); });
-    }
-    else if (inputs.is_single_element()) {
-      InT in_single = inputs.as_single_element();
-      outputs.fill_indices(mask.indices(), func(in_single));
-    }
-    else {
-      mask.foreach_index([=](uint i) { outputs[i] = func(inputs[i]); });
-    }
-  };
-}
-
-template<typename InT, typename OutT, typename FuncT>
 static void build_math_fn_1in_1out(FNodeMFBuilder &builder,
                                    FuncT func,
                                    Optional<uint32_t> operation_hash = {})
 {
-  auto fn = vectorize_function_1in_1out<InT, OutT>(func);
-
   builder.set_vectorized_constructed_matching_fn<MF_Custom_In1_Out1<InT, OutT>>(
-      {"use_list"}, builder.fnode().name(), fn, operation_hash);
+      {"use_list"}, builder.fnode().name(), func, operation_hash);
 }
 
 template<typename InT1, typename InT2, typename OutT, typename FuncT>
