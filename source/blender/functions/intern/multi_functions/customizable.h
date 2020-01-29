@@ -47,6 +47,31 @@ template<typename InT, typename OutT> class MF_Custom_In1_Out1 final : public Mu
     signature.operation_hash(operation_hash);
   }
 
+  template<typename ElementFuncT>
+  MF_Custom_In1_Out1(StringRef name,
+                     ElementFuncT element_fn,
+                     Optional<uint32_t> operation_hash = {})
+      : MF_Custom_In1_Out1(name, MF_Custom_In1_Out1::create_function(element_fn), operation_hash)
+  {
+  }
+
+  template<typename ElementFuncT> static FunctionT create_function(ElementFuncT element_fn)
+  {
+    return [=](IndexMask mask, VirtualListRef<InT> inputs, MutableArrayRef<OutT> outputs) {
+      if (inputs.is_non_single_full_array()) {
+        ArrayRef<InT> in_array = inputs.as_full_array();
+        mask.foreach_index([=](uint i) { outputs[i] = element_fn(in_array[i]); });
+      }
+      else if (inputs.is_single_element()) {
+        InT in_single = inputs.as_single_element();
+        outputs.fill_indices(mask.indices(), element_fn(in_single));
+      }
+      else {
+        mask.foreach_index([=](uint i) { outputs[i] = element_fn(inputs[i]); });
+      }
+    };
+  }
+
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
     VirtualListRef<InT> inputs = params.readonly_single_input<InT>(0);
