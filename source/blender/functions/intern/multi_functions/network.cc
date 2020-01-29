@@ -9,8 +9,8 @@ using BLI::ScopedVector;
 
 namespace OutputValueType {
 enum Enum {
-  SingleFromCaller,
-  VectorFromCaller,
+  SingleInputFromCaller,
+  VectorInputFromCaller,
   Single,
   Vector,
 };
@@ -24,20 +24,20 @@ struct OutputValue {
   }
 };
 
-struct SingleFromCallerValue : public OutputValue {
+struct SingleInputFromCallerValue : public OutputValue {
   GenericVirtualListRef list_ref;
 
-  SingleFromCallerValue(GenericVirtualListRef list_ref)
-      : OutputValue(OutputValueType::SingleFromCaller), list_ref(list_ref)
+  SingleInputFromCallerValue(GenericVirtualListRef list_ref)
+      : OutputValue(OutputValueType::SingleInputFromCaller), list_ref(list_ref)
   {
   }
 };
 
-struct VectorFromCallerValue : public OutputValue {
+struct VectorInputFromCallerValue : public OutputValue {
   GenericVirtualListListRef list_list_ref;
 
-  VectorFromCallerValue(GenericVirtualListListRef list_list_ref)
-      : OutputValue(OutputValueType::VectorFromCaller), list_list_ref(list_list_ref)
+  VectorInputFromCallerValue(GenericVirtualListListRef list_list_ref)
+      : OutputValue(OutputValueType::VectorInputFromCaller), list_list_ref(list_list_ref)
   {
   }
 };
@@ -129,10 +129,10 @@ class NetworkEvaluationStorage {
         return ((SingleValue *)any_value)->array_ref.size() == 1;
       case OutputValueType::Vector:
         return ((VectorValue *)any_value)->vector_array->size() == 1;
-      case OutputValueType::SingleFromCaller:
-        return ((SingleFromCallerValue *)any_value)->list_ref.is_single_element();
-      case OutputValueType::VectorFromCaller:
-        return ((VectorFromCallerValue *)any_value)->list_list_ref.is_single_list();
+      case OutputValueType::SingleInputFromCaller:
+        return ((SingleInputFromCallerValue *)any_value)->list_ref.is_single_element();
+      case OutputValueType::VectorInputFromCaller:
+        return ((VectorInputFromCallerValue *)any_value)->list_list_ref.is_single_list();
     }
     BLI_assert(false);
     return false;
@@ -149,8 +149,8 @@ class NetworkEvaluationStorage {
     }
 
     switch (any_value->type) {
-      case OutputValueType::SingleFromCaller:
-      case OutputValueType::VectorFromCaller: {
+      case OutputValueType::SingleInputFromCaller:
+      case OutputValueType::VectorInputFromCaller: {
         break;
       }
       case OutputValueType::Single: {
@@ -192,7 +192,7 @@ class NetworkEvaluationStorage {
     BLI_assert(m_value_per_output_id[socket.id()] == nullptr);
     BLI_assert(list_ref.size() >= m_min_array_size);
 
-    auto *value = m_allocator.construct<SingleFromCallerValue>(list_ref);
+    auto *value = m_allocator.construct<SingleInputFromCallerValue>(list_ref);
     m_value_per_output_id[socket.id()] = value;
   }
 
@@ -202,7 +202,7 @@ class NetworkEvaluationStorage {
     BLI_assert(m_value_per_output_id[socket.id()] == nullptr);
     BLI_assert(list_list_ref.size() >= m_min_array_size);
 
-    auto *value = m_allocator.construct<VectorFromCallerValue>(list_list_ref);
+    auto *value = m_allocator.construct<VectorInputFromCallerValue>(list_list_ref);
     m_value_per_output_id[socket.id()] = value;
   }
 
@@ -416,8 +416,8 @@ class NetworkEvaluationStorage {
         return value->array_ref;
       }
     }
-    else if (any_value->type == OutputValueType::SingleFromCaller) {
-      SingleFromCallerValue *value = (SingleFromCallerValue *)any_value;
+    else if (any_value->type == OutputValueType::SingleInputFromCaller) {
+      SingleInputFromCallerValue *value = (SingleInputFromCallerValue *)any_value;
       return value->list_ref;
     }
 
@@ -436,8 +436,8 @@ class NetworkEvaluationStorage {
       BLI_assert(value->array_ref.size() == 1);
       return value->array_ref;
     }
-    else if (any_value->type == OutputValueType::SingleFromCaller) {
-      SingleFromCallerValue *value = (SingleFromCallerValue *)any_value;
+    else if (any_value->type == OutputValueType::SingleInputFromCaller) {
+      SingleInputFromCallerValue *value = (SingleInputFromCallerValue *)any_value;
       BLI_assert(value->list_ref.is_single_element());
       return value->list_ref;
     }
@@ -463,8 +463,8 @@ class NetworkEvaluationStorage {
         return *value->vector_array;
       }
     }
-    else if (any_value->type == OutputValueType::VectorFromCaller) {
-      VectorFromCallerValue *value = (VectorFromCallerValue *)any_value;
+    else if (any_value->type == OutputValueType::VectorInputFromCaller) {
+      VectorInputFromCallerValue *value = (VectorInputFromCallerValue *)any_value;
       return value->list_list_ref;
     }
 
@@ -483,8 +483,8 @@ class NetworkEvaluationStorage {
       BLI_assert(value->vector_array->size() == 1);
       return *value->vector_array;
     }
-    else if (any_value->type == OutputValueType::VectorFromCaller) {
-      VectorFromCallerValue *value = (VectorFromCallerValue *)any_value;
+    else if (any_value->type == OutputValueType::VectorInputFromCaller) {
+      VectorInputFromCallerValue *value = (VectorInputFromCallerValue *)any_value;
       BLI_assert(value->list_list_ref.is_single_list());
       return value->list_list_ref;
     }
