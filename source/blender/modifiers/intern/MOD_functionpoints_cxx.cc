@@ -12,6 +12,7 @@
 #include "FN_multi_functions.h"
 #include "FN_multi_function_common_contexts.h"
 #include "FN_multi_function_dependencies.h"
+#include "FN_multi_function_expression.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
@@ -35,8 +36,52 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
 Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
                             const struct ModifierEvalContext *ctx)
 {
+  {
+    FN::VariableExprNode var_a{"a", FN::MFDataType::ForSingle<float>()};
+    FN::MF_Convert<float, int> convert_fn;
+    FN::FunctionExprNode convert_expr{convert_fn, 1, {&var_a}};
+    FN::MF_Custom_In1_Out1<int, int> math_fn{"My Operation", [](int a) { return a + 42; }};
+    FN::FunctionExprNode math_expr{math_fn, 1, {&convert_expr}};
+
+    FN::MFNetworkBuilder network_builder;
+    FN::MFBuilderOutputSocket &value_a_socket =
+        network_builder
+            .add_dummy("Input 'a'", {}, {FN::MFDataType::ForSingle<float>()}, {}, {"Value"})
+            .output(0);
+    BLI::StringMap<FN::MFBuilderOutputSocket *> variable_map;
+    variable_map.add_new("a", &value_a_socket);
+
+    FN::MFBuilderOutputSocket &expr_output = math_expr.build_network(network_builder,
+                                                                     variable_map);
+    FN::MFBuilderDummyNode &output_node = network_builder.add_dummy(
+        "Output", {expr_output.data_type()}, {}, {"Value"}, {});
+    network_builder.add_link(expr_output, output_node.input(0));
+
+    uint index_of_input_node = network_builder.current_index_of(value_a_socket.node().as_dummy());
+    uint index_of_output_node = network_builder.current_index_of(output_node);
+
+    FN::MFNetwork network{network_builder};
+    FN::MF_EvaluateNetwork network_fn({&network.dummy_nodes()[index_of_input_node]->output(0)},
+                                      {&network.dummy_nodes()[index_of_output_node]->input(0)});
+
+    Vector<float> input_values = {5.4f, 6.0f, 8.0f};
+    BLI::Array<int> output_values(3, 0);
+
+    FN::MFParamsBuilder params_builder{network_fn, input_values.size()};
+    params_builder.add_readonly_single_input(input_values.as_ref());
+    params_builder.add_single_output(output_values.as_mutable_ref());
+
+    FN::MFContextBuilder context_builder;
+
+    network_fn.call(IndexRange(input_values.size()), params_builder, context_builder);
+
+    output_values.as_ref().print_as_lines("Output", [](int value) { std::cout << value; });
+
+    network_builder.to_dot__clipboard();
+  }
+
+  return BKE_mesh_new_nomain(0, 0, 0, 0, 0);
   if (fpmd->function_tree == nullptr) {
-    return BKE_mesh_new_nomain(0, 0, 0, 0, 0);
   }
 
   bNodeTree *btree = (bNodeTree *)DEG_get_original_id((ID *)fpmd->function_tree);

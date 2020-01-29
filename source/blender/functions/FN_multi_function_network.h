@@ -77,6 +77,9 @@ class MFBuilderFunctionNode : public MFBuilderNode {
 
   ArrayRef<uint> input_param_indices();
   ArrayRef<uint> output_param_indices();
+
+  MFBuilderInputSocket &input_for_param(uint param_index);
+  MFBuilderOutputSocket &output_for_param(uint param_index);
 };
 
 class MFBuilderDummyNode : public MFBuilderNode {
@@ -524,6 +527,16 @@ inline ArrayRef<uint> MFBuilderFunctionNode::input_param_indices()
 inline ArrayRef<uint> MFBuilderFunctionNode::output_param_indices()
 {
   return m_output_param_indices;
+}
+
+inline MFBuilderInputSocket &MFBuilderFunctionNode::input_for_param(uint param_index)
+{
+  return this->input(m_input_param_indices.first_index(param_index));
+}
+
+inline MFBuilderOutputSocket &MFBuilderFunctionNode::output_for_param(uint param_index)
+{
+  return this->output(m_output_param_indices.first_index(param_index));
 }
 
 inline MFBuilderNode &MFBuilderSocket::node()
