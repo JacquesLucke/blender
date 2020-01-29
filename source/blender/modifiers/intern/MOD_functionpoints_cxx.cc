@@ -40,8 +40,12 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
     FN::VariableExprNode var_a{"a", FN::MFDataType::ForSingle<float>()};
     FN::MF_Convert<float, int> convert_fn;
     FN::FunctionExprNode convert_expr{convert_fn, 1, {&var_a}};
-    FN::MF_Custom_In1_Out1<int, int> math_fn{"My Operation", [](int a) { return a + 42; }};
-    FN::FunctionExprNode math_expr{math_fn, 1, {&convert_expr}};
+
+    FN::MF_ConstantValue<int> constant_fn(42);
+    FN::FunctionExprNode constant_expr{constant_fn, 0, {}};
+
+    FN::MF_Custom_In2_Out1<int, int, int> math_fn{"Add", [](int a, int b) { return a + b; }};
+    FN::FunctionExprNode math_expr{math_fn, 2, {&convert_expr, &constant_expr}};
 
     FN::MFNetworkBuilder network_builder;
     FN::MFBuilderOutputSocket &value_a_socket =
