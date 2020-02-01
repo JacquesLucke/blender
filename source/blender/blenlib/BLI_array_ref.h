@@ -351,6 +351,11 @@ template<typename T> class ArrayRef {
       std::cout << '\n';
     }
   }
+
+  void print_as_lines(std::string name) const
+  {
+    this->print_as_lines(name, [](const T &value) { std::cout << value; });
+  }
 };
 
 /**
