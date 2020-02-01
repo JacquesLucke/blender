@@ -166,7 +166,7 @@ static BLI_NOINLINE void compute_triangle_areas(Mesh *mesh,
                                                 ArrayRef<MLoopTri> triangles,
                                                 MutableArrayRef<float> r_areas)
 {
-  BLI_assert(triangles.size() == r_areas.size());
+  BLI::assert_same_size(triangles, r_areas);
 
   for (uint i : triangles.index_range()) {
     const MLoopTri &triangle = triangles[i];
@@ -205,7 +205,7 @@ static BLI_NOINLINE void sample_looptris(Mesh *mesh,
                                          MutableArrayRef<float3> r_sampled_normals,
                                          MutableArrayRef<float3> r_sampled_bary_coords)
 {
-  BLI_assert(triangles_to_sample.size() == r_sampled_positions.size());
+  BLI::assert_same_size(triangles_to_sample, r_sampled_positions);
 
   MLoop *loops = mesh->mloop;
   MVert *verts = mesh->mvert;

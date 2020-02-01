@@ -48,7 +48,7 @@ template<typename T> class VirtualListListRef {
   static VirtualListListRef FromListOfStartPointers(ArrayRef<const T *> starts,
                                                     ArrayRef<uint> sizes)
   {
-    BLI_assert(starts.size() == sizes.size());
+    assert_same_size(starts, sizes);
     VirtualListListRef list;
     list.m_virtual_size = starts.size();
     list.m_category = Category::ListOfStartPointers;

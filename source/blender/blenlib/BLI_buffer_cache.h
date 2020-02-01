@@ -32,7 +32,7 @@ class BufferCache {
 
   ~BufferCache()
   {
-    BLI_assert(m_cached_buffers.size() == m_all_buffers.size());
+    assert_same_size(m_cached_buffers, m_all_buffers);
 
     for (BufferHead *head : m_all_buffers) {
       MEM_freeN((void *)head);

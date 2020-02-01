@@ -80,7 +80,7 @@ void MutableAttributesRef::destruct_and_reorder(IndexMask index_mask)
 void MutableAttributesRef::RelocateUninitialized(MutableAttributesRef from,
                                                  MutableAttributesRef to)
 {
-  BLI_assert(from.size() == to.size());
+  BLI::assert_same_size(from, to);
   BLI_assert(&from.info() == &to.info());
 
   for (uint attribute_index : from.info().indices()) {
@@ -131,8 +131,8 @@ void AttributesInfoDiff::update(uint capacity,
                                 ArrayRef<void *> old_buffers,
                                 MutableArrayRef<void *> new_buffers) const
 {
-  BLI_assert(old_buffers.size() == m_old_info->size());
-  BLI_assert(new_buffers.size() == m_new_info->size());
+  BLI::assert_same_size(old_buffers, *m_old_info);
+  BLI::assert_same_size(new_buffers, *m_new_info);
 
   for (uint new_index : m_new_info->indices()) {
     int old_index = m_new_to_old_mapping[new_index];

@@ -113,8 +113,8 @@ MFBuilderDummyNode &MFNetworkBuilder::add_dummy(StringRef name,
                                                 ArrayRef<StringRef> input_names,
                                                 ArrayRef<StringRef> output_names)
 {
-  BLI_assert(input_types.size() == input_names.size());
-  BLI_assert(output_types.size() == output_names.size());
+  BLI::assert_same_size(input_types, input_names);
+  BLI::assert_same_size(output_types, output_names);
 
   auto &node = *m_allocator.construct<MFBuilderDummyNode>();
   m_dummy_nodes.add_new(&node);

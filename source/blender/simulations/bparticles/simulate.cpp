@@ -151,7 +151,7 @@ BLI_NOINLINE static void execute_events(BlockStepData &step_data,
                                         ArrayRef<float> current_times,
                                         ArrayRef<Event *> events)
 {
-  BLI_assert(events.size() == pindices_per_event.size());
+  BLI::assert_same_size(events, pindices_per_event);
 
   for (uint event_index : events.index_range()) {
     Event *event = events[event_index];

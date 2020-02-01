@@ -469,7 +469,7 @@ static BLI_NOINLINE void compute_triangle_areas(Mesh *mesh,
                                                 ArrayRef<MLoopTri> triangles,
                                                 MutableArrayRef<float> r_areas)
 {
-  BLI_assert(triangles.size() == r_areas.size());
+  BLI::assert_same_size(triangles, r_areas);
 
   for (uint i : triangles.index_range()) {
     const MLoopTri &triangle = triangles[i];
@@ -529,7 +529,7 @@ static BLI_NOINLINE void vertex_weights_to_triangle_weights(
     ArrayRef<float> vertex_weights,
     MutableArrayRef<float> r_triangle_weights)
 {
-  BLI_assert(r_triangle_weights.size() == triangles.size());
+  BLI::assert_same_size(r_triangle_weights, triangles);
   BLI_assert(mesh->totvert == vertex_weights.size());
 
   for (uint triangle_index : triangles.index_range()) {

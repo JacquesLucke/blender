@@ -19,7 +19,7 @@ void ParticleAllocator::initialize_new_particles(AttributesRefGroup &attributes_
 
     MutableArrayRef<int32_t> particle_ids = attributes.get<int32_t>("ID");
     IndexRange new_ids = m_state.get_new_particle_ids(attributes.size());
-    BLI_assert(particle_ids.size() == new_ids.size());
+    BLI::assert_same_size(particle_ids, new_ids);
     for (uint i = 0; i < new_ids.size(); i++) {
       particle_ids[i] = new_ids[i];
     }

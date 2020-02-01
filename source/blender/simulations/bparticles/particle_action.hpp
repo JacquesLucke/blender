@@ -36,7 +36,7 @@ class ParticleActionContext {
         m_custom_context_ids(custom_context_ids),
         m_custom_contexts(custom_contexts)
   {
-    BLI_assert(m_custom_context_ids.size() == m_custom_contexts.size());
+    BLI::assert_same_size(m_custom_context_ids, m_custom_contexts);
   }
 
   ArrayRef<BLI::class_id_t> custom_context_ids() const
