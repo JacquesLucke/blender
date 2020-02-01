@@ -157,6 +157,9 @@ class MFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
                                 ArrayRef<MFDataType> output_types,
                                 ArrayRef<StringRef> input_names,
                                 ArrayRef<StringRef> output_names);
+  MFBuilderDummyNode &add_input_dummy(StringRef name, MFBuilderInputSocket &socket);
+  MFBuilderDummyNode &add_output_dummy(StringRef name, MFBuilderOutputSocket &socket);
+
   void add_link(MFBuilderOutputSocket &from, MFBuilderInputSocket &to);
   void remove_link(MFBuilderOutputSocket &from, MFBuilderInputSocket &to);
   void remove_node(MFBuilderNode &node);
@@ -401,6 +404,10 @@ class MFNetwork : BLI::NonCopyable, BLI::NonMovable {
       ArrayRef<const MFInputSocket *> sockets) const;
 
   ArrayRef<uint> max_dependency_depth_per_node() const;
+
+  const MFDummyNode &find_dummy_node(MFBuilderDummyNode &builder_node) const;
+  const MFInputSocket &find_dummy_socket(MFBuilderInputSocket &builder_socket) const;
+  const MFOutputSocket &find_dummy_socket(MFBuilderOutputSocket &builder_socket) const;
 
  private:
   void create_links_to_node(MFNetworkBuilder &builder,
@@ -824,6 +831,29 @@ inline ArrayRef<const MFFunctionNode *> MFNetwork::function_nodes() const
 inline ArrayRef<uint> MFNetwork::max_dependency_depth_per_node() const
 {
   return m_max_dependency_depth_per_node;
+}
+
+inline const MFDummyNode &MFNetwork::find_dummy_node(MFBuilderDummyNode &builder_node) const
+{
+  uint node_index = builder_node.network().current_index_of(builder_node);
+  const MFDummyNode &node = *this->m_dummy_nodes[node_index];
+  return node;
+}
+
+inline const MFInputSocket &MFNetwork::find_dummy_socket(
+    MFBuilderInputSocket &builder_socket) const
+{
+  const MFDummyNode &node = this->find_dummy_node(builder_socket.node().as_dummy());
+  const MFInputSocket &socket = node.input(builder_socket.index());
+  return socket;
+}
+
+inline const MFOutputSocket &MFNetwork::find_dummy_socket(
+    MFBuilderOutputSocket &builder_socket) const
+{
+  const MFDummyNode &node = this->find_dummy_node(builder_socket.node().as_dummy());
+  const MFOutputSocket &socket = node.output(builder_socket.index());
+  return socket;
 }
 
 }  // namespace FN

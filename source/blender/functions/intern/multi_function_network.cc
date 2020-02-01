@@ -153,6 +153,21 @@ MFBuilderDummyNode &MFNetworkBuilder::add_dummy(StringRef name,
   return node;
 }
 
+MFBuilderDummyNode &MFNetworkBuilder::add_input_dummy(StringRef name, MFBuilderInputSocket &socket)
+{
+  MFBuilderDummyNode &node = this->add_dummy(name, {}, {socket.data_type()}, {}, {"Value"});
+  this->add_link(node.output(0), socket);
+  return node;
+}
+
+MFBuilderDummyNode &MFNetworkBuilder::add_output_dummy(StringRef name,
+                                                       MFBuilderOutputSocket &socket)
+{
+  MFBuilderDummyNode &node = this->add_dummy(name, {socket.data_type()}, {}, {"Value"}, {});
+  this->add_link(socket, node.input(0));
+  return node;
+}
+
 void MFNetworkBuilder::add_link(MFBuilderOutputSocket &from, MFBuilderInputSocket &to)
 {
   BLI_assert(to.origin() == nullptr);
