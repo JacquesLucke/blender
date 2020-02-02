@@ -172,6 +172,7 @@ void MFNetworkBuilder::add_link(MFBuilderOutputSocket &from, MFBuilderInputSocke
 {
   BLI_assert(to.origin() == nullptr);
   BLI_assert(from.m_node->m_network == to.m_node->m_network);
+  BLI_assert(from.data_type() == to.data_type());
   from.m_targets.append(&to);
   to.m_origin = &from;
 }
@@ -188,6 +189,7 @@ void MFNetworkBuilder::relink_origin(MFBuilderOutputSocket &new_from, MFBuilderI
 {
   BLI_assert(to.m_origin != nullptr);
   BLI_assert(to.m_origin != &new_from);
+  BLI_assert(new_from.data_type() == to.data_type());
   to.m_origin->m_targets.remove_first_occurrence_and_reorder(&to);
   new_from.m_targets.append(&to);
   to.m_origin = &new_from;
