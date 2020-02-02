@@ -365,6 +365,11 @@ static void INSERT_normalize_vector(FNodeMFBuilder &builder)
                                          [](float3 a) -> float3 { return a.normalized(); });
 }
 
+static void INSERT_vector_length(FNodeMFBuilder &builder)
+{
+  build_math_fn_1in_1out<float3, float>(builder, [](float3 a) -> float { return a.length(); });
+}
+
 static void INSERT_boolean_and(FNodeMFBuilder &builder)
 {
   build_variadic_math_fn(
@@ -614,6 +619,7 @@ void add_function_tree_node_mapping_info(FunctionTreeMFMappings &mappings)
   mappings.fnode_inserters.add_new("fn_MultiplyVectorWithFloatNode",
                                    INSERT_multiply_vector_with_float);
   mappings.fnode_inserters.add_new("fn_NormalizeVectorNode", INSERT_normalize_vector);
+  mappings.fnode_inserters.add_new("fn_VectorLengthNode", INSERT_vector_length);
 
   mappings.fnode_inserters.add_new("fn_BooleanAndNode", INSERT_boolean_and);
   mappings.fnode_inserters.add_new("fn_BooleanOrNode", INSERT_boolean_or);
