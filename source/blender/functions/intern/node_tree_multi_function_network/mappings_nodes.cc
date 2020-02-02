@@ -446,7 +446,12 @@ static void INSERT_clamp_float(FNodeMFBuilder &builder)
 static void INSERT_map_range(FNodeMFBuilder &builder)
 {
   bool clamp = RNA_boolean_get(builder.rna(), "clamp");
-  builder.set_constructed_matching_fn<MF_MapRange>(clamp);
+  builder.set_vectorized_constructed_matching_fn<MF_MapRange>({"use_list__value",
+                                                               "use_list__from_min",
+                                                               "use_list__from_max",
+                                                               "use_list__to_min",
+                                                               "use_list__to_max"},
+                                                              clamp);
 }
 
 static void INSERT_random_float(FNodeMFBuilder &builder)

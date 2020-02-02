@@ -98,13 +98,21 @@ class MapRangeNode(bpy.types.Node, FunctionNode):
         default=True,
     )
 
+    use_list__value: NodeBuilder.VectorizedProperty()
+    use_list__from_min: NodeBuilder.VectorizedProperty()
+    use_list__from_max: NodeBuilder.VectorizedProperty()
+    use_list__to_min: NodeBuilder.VectorizedProperty()
+    use_list__to_max: NodeBuilder.VectorizedProperty()
+
     def declaration(self, builder: NodeBuilder):
-        builder.fixed_input("value", "Value", "Float")
-        builder.fixed_input("from_min", "From Min", "Float", default=0)
-        builder.fixed_input("from_max", "From Max", "Float", default=1)
-        builder.fixed_input("to_min", "To Min", "Float", default=0)
-        builder.fixed_input("to_max", "To Max", "Float", default=1)
-        builder.fixed_output("value", "Value", "Float")
+        builder.vectorized_input("value", "use_list__value", "Value", "Values", "Float")
+        builder.vectorized_input("from_min", "use_list__from_min", "From Min", "From Min", "Float")
+        builder.vectorized_input("from_max", "use_list__from_max", "From Max", "From Max", "Float")
+        builder.vectorized_input("to_min", "use_list__to_min", "To Min", "To Min", "Float")
+        builder.vectorized_input("to_max", "use_list__to_max", "To Max", "To Max", "Float")
+        builder.vectorized_output("value", [
+            "use_list__value", "use_list__from_min", "use_list__from_max",
+            "use_list__to_min", "use_list__to_max"], "Value", "Values", "Float")
 
     def draw(self, layout):
         layout.prop(self, "clamp")
