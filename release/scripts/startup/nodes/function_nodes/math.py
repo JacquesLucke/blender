@@ -81,6 +81,7 @@ VectorReflectNode = create_single_type_two_inputs_math_node("Vector", "fn_Reflec
 VectorProjectNode = create_single_type_two_inputs_math_node("Vector", "fn_ProjectVectorNode", "Project Vector")
 VectorDotProductNode = create_two_inputs_math_node("Vector", "Vector", "Float", "fn_VectorDotProductNode", "Dot Product")
 VectorDistanceNode = create_two_inputs_math_node("Vector", "Vector", "Float", "fn_VectorDistanceNode", "Vector Distance")
+NormalizeVectorNode = create_single_input_math_node("Vector", "fn_NormalizeVectorNode", "Normalize Vector")
 
 BooleanAndNode = create_variadic_math_node("Boolean", "fn_BooleanAndNode", "And")
 BooleanOrNode = create_variadic_math_node("Boolean", "fn_BooleanOrNode", "Or")

@@ -359,6 +359,12 @@ static void INSERT_multiply_vector_with_float(FNodeMFBuilder &builder)
       builder, [](float3 a, float b) { return a * b; }, BLI_RAND_PER_LINE_UINT32);
 }
 
+static void INSERT_normalize_vector(FNodeMFBuilder &builder)
+{
+  build_math_fn_1in_1out<float3, float3>(builder,
+                                         [](float3 a) -> float3 { return a.normalized(); });
+}
+
 static void INSERT_boolean_and(FNodeMFBuilder &builder)
 {
   build_variadic_math_fn(
@@ -607,6 +613,7 @@ void add_function_tree_node_mapping_info(FunctionTreeMFMappings &mappings)
   mappings.fnode_inserters.add_new("fn_VectorDistanceNode", INSERT_vector_distance);
   mappings.fnode_inserters.add_new("fn_MultiplyVectorWithFloatNode",
                                    INSERT_multiply_vector_with_float);
+  mappings.fnode_inserters.add_new("fn_NormalizeVectorNode", INSERT_normalize_vector);
 
   mappings.fnode_inserters.add_new("fn_BooleanAndNode", INSERT_boolean_and);
   mappings.fnode_inserters.add_new("fn_BooleanOrNode", INSERT_boolean_or);
