@@ -280,6 +280,18 @@ static void INSERT_cosine_float(FNodeMFBuilder &builder)
       builder, [](float a) -> float { return std::cos(a); }, BLI_RAND_PER_LINE_UINT32);
 }
 
+static void INSERT_ceil_float(FNodeMFBuilder &builder)
+{
+  build_math_fn_1in_1out<float, float>(
+      builder, [](float a) -> float { return std::ceil(a); }, BLI_RAND_PER_LINE_UINT32);
+}
+
+static void INSERT_floor_float(FNodeMFBuilder &builder)
+{
+  build_math_fn_1in_1out<float, float>(
+      builder, [](float a) -> float { return std::floor(a); }, BLI_RAND_PER_LINE_UINT32);
+}
+
 static void INSERT_add_vectors(FNodeMFBuilder &builder)
 {
   build_variadic_math_fn(
@@ -574,6 +586,9 @@ void add_function_tree_node_mapping_info(FunctionTreeMFMappings &mappings)
   mappings.fnode_inserters.add_new("fn_AbsoluteFloatNode", INSERT_abs_float);
   mappings.fnode_inserters.add_new("fn_SineFloatNode", INSERT_sine_float);
   mappings.fnode_inserters.add_new("fn_CosineFloatNode", INSERT_cosine_float);
+
+  mappings.fnode_inserters.add_new("fn_CeilFloatNode", INSERT_ceil_float);
+  mappings.fnode_inserters.add_new("fn_FloorFloatNode", INSERT_floor_float);
 
   mappings.fnode_inserters.add_new("fn_AddVectorsNode", INSERT_add_vectors);
   mappings.fnode_inserters.add_new("fn_SubtractVectorsNode", INSERT_subtract_vectors);

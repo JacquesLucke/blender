@@ -67,6 +67,9 @@ AbsFloatNode = create_single_input_math_node("Float", "fn_AbsoluteFloatNode", "A
 SineFloatNode = create_single_input_math_node("Float", "fn_SineFloatNode", "Sine")
 CosineFloatNode = create_single_input_math_node("Float", "fn_CosineFloatNode", "Cosine")
 
+CeilFloatNode = create_single_input_math_node("Float", "fn_CeilFloatNode", "Ceil Float")
+FloorFloatNode = create_single_input_math_node("Float", "fn_FloorFloatNode", "Floor Float")
+
 AddVectorsNode = create_variadic_math_node("Vector", "fn_AddVectorsNode", "Add Vectors")
 SubtractVectorsNode = create_single_type_two_inputs_math_node("Vector", "fn_SubtractVectorsNode", "Subtract Vectors")
 MultiplyVectorsNode = create_variadic_math_node("Vector", "fn_MultiplyVectorsNode", "Multiply Vectors")
