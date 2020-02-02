@@ -471,7 +471,7 @@ void CustomEmitter::emit(EmitterInterface &interface)
   for (uint param_index : m_emitter_function.param_indices()) {
     MFParamType param_type = m_emitter_function.param_type(param_index);
     if (param_type.is_vector_output()) {
-      params_builder.computed_vector_array(param_index).~GenericVectorArray();
+      delete &params_builder.computed_vector_array(param_index);
     }
     else if (param_type.is_single_output()) {
       FN::GenericMutableArrayRef array = params_builder.computed_array(param_index);
