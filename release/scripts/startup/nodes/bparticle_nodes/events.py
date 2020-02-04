@@ -14,7 +14,7 @@ class AgeReachedEventNode(bpy.types.Node, SimulationNode):
         builder.fixed_input("age", "Age", "Float", default=3)
         builder.execute_input("execute_on_event", "Execute on Event", "execute_on_event__prop")
 
-        builder.influences_output("event", "Event")
+        builder.mockup_output("event", "Event", "fn_EventsSocket")
 
 
 class MeshCollisionEventNode(bpy.types.Node, SimulationNode):
@@ -27,7 +27,7 @@ class MeshCollisionEventNode(bpy.types.Node, SimulationNode):
         builder.fixed_input("object", "Object", "Object")
         builder.execute_input("execute_on_event", "Execute on Event", "execute_on_event__prop")
 
-        builder.influences_output("event", "Event")
+        builder.mockup_output("event", "Event", "fn_EventsSocket")
 
 
 class CustomEventNode(bpy.types.Node, SimulationNode):
@@ -41,7 +41,7 @@ class CustomEventNode(bpy.types.Node, SimulationNode):
         builder.fixed_input("time_factor", "Time Factor", "Float", default=1.0)
         builder.execute_input("execute_on_event", "Execute on Event", "execute_on_event__prop")
 
-        builder.influences_output("event", "Event")
+        builder.mockup_output("event", "Event", "fn_EventsSocket")
 
 
 class EventFilterEndTimeNode(bpy.types.Node, FunctionNode):

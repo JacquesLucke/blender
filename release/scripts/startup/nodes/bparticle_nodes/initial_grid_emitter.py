@@ -16,4 +16,4 @@ class InitialGridEmitterNode(bpy.types.Node, SimulationNode):
         builder.fixed_input("step_y", "Step Y", "Float", default=0.2)
         builder.fixed_input("size", "Size", "Float", default=0.01)
         builder.execute_input("execute_on_birth", "Execute on Birth", "execute_on_birth__prop")
-        builder.influences_output("emitter", "Emitter")
+        builder.mockup_output("emitter", "Emitter", "fn_EmittersSocket")

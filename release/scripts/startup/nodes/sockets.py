@@ -254,3 +254,24 @@ CollisionGeometrySocket = make_mockup_socket(
     "fn_CollisionGeometrySocket", (0.4, 0.4, 0.6), "DIAMOND")
 ClothObjectSocket = make_mockup_socket(
     "fn_ClothObjectSocket", (0.7, 0.3, 0.3), "DIAMOND")
+
+EmittersSocket = make_mockup_socket(
+    "fn_EmittersSocket", (0.8, 0.8, 0.2), "DIAMOND")
+EventsSocket = make_mockup_socket(
+    "fn_EventsSocket", (0.8, 0.2, 0.8), "DIAMOND")
+ForcesSocket = make_mockup_socket(
+    "fn_ForcesSocket", (0.2, 0.8, 0.8), "DIAMOND")
+
+class GeometrySocket(bpy.types.NodeSocket, BaseSocket):
+    bl_idname = "fn_GeometrySocket"
+    bl_label = "Geometry Socket"
+    color = (0.5, 0.5, 0.5, 1)
+    default_shape = "CIRCLE"
+
+    value: PointerProperty(type=bpy.types.Object)
+
+    def draw_self(self, layout, node, text):
+        if not (self.is_linked or self.is_output):
+            layout.prop(self, "value", text=text)
+        else:
+            layout.label(text=text)

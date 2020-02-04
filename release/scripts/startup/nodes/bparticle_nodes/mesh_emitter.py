@@ -26,7 +26,7 @@ class MeshEmitterNode(bpy.types.Node, SimulationNode):
             builder.fixed_input("density_vertex_group", "Density Group", "Text")
 
         builder.execute_input("execute_on_birth", "Execute on Birth", "execute_on_birth__prop")
-        builder.influences_output("emitter", "Emitter")
+        builder.mockup_output("emitter", "Emitter", "fn_EmittersSocket")
 
     def draw(self, layout):
         layout.prop(self, "density_mode")

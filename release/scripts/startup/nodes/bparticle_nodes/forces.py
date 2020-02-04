@@ -10,4 +10,4 @@ class ForceNode(bpy.types.Node, SimulationNode):
 
     def declaration(self, builder: NodeBuilder):
         builder.fixed_input("force", "Force", "Vector")
-        builder.influences_output("force", "Force")
+        builder.mockup_output("force", "Force", "fn_ForcesSocket")
