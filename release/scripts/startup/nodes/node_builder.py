@@ -8,8 +8,7 @@ from . declaration import (
     ExecuteOutputDecl,
     ExecuteInputListDecl,
     ExecuteInputDecl,
-    SimulationSolverSocketDecl,
-    SimulationObjectsSocketDecl,
+    MockupSocketDecl,
 
     NoDefaultValue,
 )
@@ -197,23 +196,15 @@ class NodeBuilder:
         self._add_output(decl)
 
 
-    # Simulation
+    # Mockup
     ###################################
 
-    def simulation_objects_input(self, identifier, display_name):
-        decl = SimulationObjectsSocketDecl(self, identifier, display_name)
+    def mockup_input(self, identifier, display_name, idname):
+        decl = MockupSocketDecl(self.node, identifier, display_name, idname)
         self._add_input(decl)
 
-    def simulation_objects_output(self, identifier, display_name):
-        decl = SimulationObjectsSocketDecl(self, identifier, display_name)
-        self._add_output(decl)
-
-    def solver_input(self, identifier, display_name):
-        decl = SimulationSolverSocketDecl(self, identifier, display_name)
-        self._add_input(decl)
-
-    def solver_output(self, identifier, display_name):
-        decl = SimulationSolverSocketDecl(self, identifier, display_name)
+    def mockup_output(self, identifier, display_name, idname):
+        decl = MockupSocketDecl(self.node, identifier, display_name, idname)
         self._add_output(decl)
 
 

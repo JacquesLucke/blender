@@ -1,4 +1,5 @@
 from . base import NoDefaultValue
+from . mockup import MockupSocketDecl
 from . fixed_type import FixedSocketDecl
 from . dynamic_list import ListSocketDecl
 from . base_list_variadic import BaseListVariadic
@@ -11,7 +12,3 @@ from . bparticles import (
     ExecuteInputListDecl,
 )
 
-from . simulation import (
-    SimulationSolverSocketDecl,
-    SimulationObjectsSocketDecl,
-)

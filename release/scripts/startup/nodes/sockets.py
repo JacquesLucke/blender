@@ -231,8 +231,10 @@ class SimulationObjectsSocket(bpy.types.NodeSocket, BaseSocket):
     bl_idname = "fn_SimulationObjectsSocket"
     bl_label = "Simulation Objects Socket"
     color = (0, 0, 0, 1)
+    default_shape = "DIAMOND"
 
 class SimulationSolverSocket(bpy.types.NodeSocket, BaseSocket):
     bl_idname = "fn_SimulationSolverSocket"
     bl_label = "Simulation Solver"
     color = (1, 1, 1, 1)
+    default_shape = "SQUARE"
