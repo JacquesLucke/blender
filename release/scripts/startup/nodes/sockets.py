@@ -240,3 +240,11 @@ SimulationObjectsSocket = make_mockup_socket(
     "fn_SimulationObjectsSocket", (0, 0, 0, 1), "DIAMOND")
 SimulationSolverSocket = make_mockup_socket(
     "fn_SimulationSolverSocket", (1, 1, 1, 1), "SQUARE")
+
+ExecuteSolverSocket = make_mockup_socket(
+    "fn_ExecuteSolverSocket", (0.2, 0.8, 0.2, 1), "SQUARE")
+ParticleSystemsSocket = make_mockup_socket(
+    "fn_ParticleSystemsSocket", (0.5, 0.5, 0.2, 1), "DIAMOND")
+
+SimulationDataSocket = make_mockup_socket(
+    "fn_SimulationDataSocket", (0.8, 0.2, 0.2, 1), "DIAMOND")
