@@ -29,6 +29,8 @@ class FixedSocketDecl(SocketDeclBase):
             return False
         socket = sockets[0]
         for name, value in self.socket_settings.items():
+            if not hasattr(socket, name):
+                return False
             if getattr(socket, name) != value:
                 return False
         return self._data_socket_test(sockets[0],

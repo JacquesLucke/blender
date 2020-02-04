@@ -88,7 +88,7 @@ class GetGeometryNode(bpy.types.Node, SimulationNode):
     bl_idname = "fn_GetGeometryNode"
     bl_label = "Get Geometry"
 
-    mode = EnumProperty(
+    mode: EnumProperty(
         items=[
             ("OBJECT", "Object", ""),
             ("SIMULATION_OBJECT", "Simulation Object", ""),
@@ -180,3 +180,57 @@ class StaticColliderNode(bpy.types.Node, SimulationNode):
         if self.mode == "COLLECTION":
             layout.prop(self, "collection", text="")
         layout.prop(self, "use_settings_from_object", text="Use Settings from Object")
+
+class FluidSolverNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_FluidSolverNode"
+    bl_label = "Fluid Solver"
+
+    def declaration(self, builder: NodeBuilder):
+        builder.mockup_input("domain", "Domain", "fn_FluidDomainSocket")
+        builder.mockup_input("sources", "Sources", "fn_FluidSourcesSocket")
+        builder.mockup_input("forces", "Forces", "fn_ForcesSocket")
+        builder.mockup_input("colliders", "Colliders", "fn_CollidersSocket")
+        builder.mockup_output("solver", "Solver", "fn_ExecuteSolverSocket")
+
+class FluidDomainNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_FluidDomainNode"
+    bl_label = "Fluid Domain"
+
+    def declaration(self, builder: NodeBuilder):
+        builder.fixed_input("name", "Name", "Text", display_icon="FILE_3D")
+        builder.fixed_input("resolution", "Resolution", "Integer", default=128)
+        builder.mockup_output("domain", "Domain", "fn_FluidDomainSocket")
+
+class FluidInflowNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_FluidInflowNode"
+    bl_label = "Fluid Inflow"
+
+    mode: EnumProperty(
+        items=[
+            ("SURFACE", "Surface", ""),
+            ("VOLUME", "Volume", ""),
+        ]
+    )
+
+    def declaration(self, builder: NodeBuilder):
+        builder.mockup_input("geometry", "Geometry", "fn_GeometrySocket")
+        builder.mockup_output("inflow", "Inflow", "fn_FluidSourcesSocket")
+
+    def draw(self, layout):
+        layout.prop(self, "mode", text="")
+
+class WindForceNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_WindForceNode"
+    bl_label = "Wind Force"
+
+    def declaration(self, builder: NodeBuilder):
+        builder.fixed_input("strength", "Strength", "Vector")
+        builder.mockup_output("force", "Force", "fn_ForcesSocket")
+
+class GravityForceNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_GravityForceNode"
+    bl_label = "Gravity Force"
+
+    def declaration(self, builder: NodeBuilder):
+        builder.fixed_input("strength", "Strength", "Vector")
+        builder.mockup_output("force", "Force", "fn_ForcesSocket")

@@ -264,6 +264,11 @@ ForcesSocket = make_mockup_socket(
 CollidersSocket = make_mockup_socket(
     "fn_CollidersSocket", (0.4, 0.6, 0.8), "DIAMOND")
 
+FluidDomainSocket = make_mockup_socket(
+    "fn_FluidDomainSocket", (0.6, 0.4, 0.2), "DIAMOND")
+FluidSourcesSocket = make_mockup_socket(
+    "fn_FluidSourcesSocket", (0.4, 0.7, 0.3), "DIAMOND")
+
 class GeometrySocket(bpy.types.NodeSocket, BaseSocket):
     bl_idname = "fn_GeometrySocket"
     bl_label = "Geometry Socket"
