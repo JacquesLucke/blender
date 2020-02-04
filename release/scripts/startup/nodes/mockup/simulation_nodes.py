@@ -33,6 +33,7 @@ class ParticleSystemNode2(bpy.types.Node, SimulationNode):
         builder.mockup_input("emitters", "Emitters", "fn_EmittersSocket")
         builder.mockup_input("events", "Events", "fn_EventsSocket")
         builder.mockup_input("forces", "Forces", "fn_ForcesSocket")
+        builder.mockup_input("colliders", "Colliders", "fn_CollidersSocket")
         builder.mockup_output("system", "System", "fn_ParticleSystemsSocket")
 
 class SimulationDataNode(bpy.types.Node, SimulationNode):
@@ -59,6 +60,7 @@ class ClothObjectNode(bpy.types.Node, SimulationNode):
         builder.fixed_input("name", "Name", "Text", display_icon="FILE_3D")
         builder.mockup_input("initial_geometry", "Initial Geometry", "fn_GeometrySocket")
         builder.mockup_input("forces", "Forces", "fn_ForcesSocket")
+        builder.mockup_input("colliders", "Colliders", "fn_CollidersSocket")
         builder.mockup_output("cloth_object", "Cloth Object", "fn_ClothObjectSocket")
 
 class MovingPointsForceNode(bpy.types.Node, SimulationNode):
@@ -88,18 +90,93 @@ class GetGeometryNode(bpy.types.Node, SimulationNode):
 
     mode = EnumProperty(
         items=[
-            ("DATA_BLOCK", "Object Data Block", ""),
-            ("DYNAMIC_GEOMETRY", "Dynamic Geometry", ""),
+            ("OBJECT", "Object", ""),
+            ("SIMULATION_OBJECT", "Simulation Object", ""),
         ],
         update=SimulationNode.sync_tree
     )
 
     def declaration(self, builder: NodeBuilder):
         builder.mockup_output("geometry", "Geometry", "fn_GeometrySocket")
-        if self.mode == "DATA_BLOCK":
+        if self.mode == "OBJECT":
             builder.fixed_input("object", "Object", "Object")
-        elif self.mode == "DYNAMIC_GEOMETRY":
+        elif self.mode == "SIMULATION_OBJECT":
             builder.fixed_input("name", "Name", "Text", display_icon="FILE_3D")
 
     def draw(self, layout):
         layout.prop(self, "mode", text="")
+
+class TrailEmitterNode1(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_ParticleTrailsNode1"
+    bl_label = "Trails Emitter (1)"
+
+    execute_on_birth__prop: NodeBuilder.ExecuteInputProperty()
+
+    def declaration(self, builder: NodeBuilder):
+        builder.mockup_input("points", "Points", "fn_GeometrySocket")
+        builder.fixed_input("rate", "Rate", "Float", default=20)
+        builder.execute_input("execute_on_birth", "Execute on Birth", "execute_on_birth__prop")
+        builder.mockup_output("emitter", "Emitter", "fn_EmittersSocket")
+
+class TrailEmitterNode2(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_ParticleTrailsNode2"
+    bl_label = "Trails Emitter (2)"
+
+    execute_on_birth__prop: NodeBuilder.ExecuteInputProperty()
+
+    def declaration(self, builder: NodeBuilder):
+        builder.fixed_input("rate", "Rate", "Float", default=20)
+        builder.execute_input("execute_on_birth", "Execute on Birth", "execute_on_birth__prop")
+        builder.mockup_output("event", "Event", "fn_EventsSocket")
+        builder.mockup_output("emitter", "Emitter", "fn_EmittersSocket")
+
+class TrailEmitterNode3(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_ParticleTrailsNode3"
+    bl_label = "Trails Emitter (3)"
+
+    execute_on_birth__prop: NodeBuilder.ExecuteInputProperty()
+
+    source_name: StringProperty()
+
+    def declaration(self, builder: NodeBuilder):
+        builder.fixed_input("rate", "Rate", "Float", default=20)
+        builder.execute_input("execute_on_birth", "Execute on Birth", "execute_on_birth__prop")
+        builder.mockup_output("emitter", "Emitter", "fn_EmittersSocket")
+
+    def draw(self, layout):
+        layout.prop(self, "source_name", text="Source", icon="FILE_3D")
+
+class StaticColliderNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_StaticColliderObjectNode"
+    bl_label = "Static Collider"
+
+    mode: EnumProperty(
+        items=[
+            ("OBJECT", "Object", ""),
+            ("COLLECTION", "Collection", ""),
+            ("SIMULATION_OBJECT", "Simulation Object", ""),
+        ],
+        update=SimulationNode.sync_tree
+    )
+
+    collection: PointerProperty(type=bpy.types.Collection)
+
+    use_settings_from_object: BoolProperty(default=True, update=SimulationNode.sync_tree)
+
+    def declaration(self, builder: NodeBuilder):
+        if self.mode == "OBJECT":
+            builder.fixed_input("object", "Object", "Object")
+        elif self.mode == "SIMULATION_OBJECT":
+            builder.mockup_input("geometry", "Geometry", "fn_GeometrySocket")
+
+        if self.mode == "SIMULATION_OBJECT" or not self.use_settings_from_object:
+            builder.fixed_input("stickiness", "Stickiness", "Float")
+            builder.fixed_input("damping", "Damping", "Float")
+            builder.fixed_input("friction", "Friction", "Float")
+        builder.mockup_output("collider", "Collider", "fn_CollidersSocket")
+
+    def draw(self, layout):
+        layout.prop(self, "mode", text="")
+        if self.mode == "COLLECTION":
+            layout.prop(self, "collection", text="")
+        layout.prop(self, "use_settings_from_object", text="Use Settings from Object")

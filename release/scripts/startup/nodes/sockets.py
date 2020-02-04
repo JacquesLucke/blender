@@ -261,6 +261,8 @@ EventsSocket = make_mockup_socket(
     "fn_EventsSocket", (0.8, 0.2, 0.8), "DIAMOND")
 ForcesSocket = make_mockup_socket(
     "fn_ForcesSocket", (0.2, 0.8, 0.8), "DIAMOND")
+CollidersSocket = make_mockup_socket(
+    "fn_CollidersSocket", (0.4, 0.6, 0.8), "DIAMOND")
 
 class GeometrySocket(bpy.types.NodeSocket, BaseSocket):
     bl_idname = "fn_GeometrySocket"
