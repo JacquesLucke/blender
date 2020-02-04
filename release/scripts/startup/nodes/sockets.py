@@ -238,23 +238,11 @@ def make_mockup_socket(idname, color, shape):
             "default_shape" : shape,
         })
 
-SimulationObjectsSocket = make_mockup_socket(
-    "fn_SimulationObjectsSocket", (0, 0, 0), "DIAMOND")
-SimulationSolverSocket = make_mockup_socket(
-    "fn_SimulationSolverSocket", (1, 1, 1), "SQUARE")
+SimulationsSocket = make_mockup_socket(
+    "fn_SimulationsSocket", (0.2, 0.3, 0.6), "DIAMOND")
 
-ExecuteSolverSocket = make_mockup_socket(
-    "fn_ExecuteSolverSocket", (0.2, 0.8, 0.2), "SQUARE")
-ParticleSystemsSocket = make_mockup_socket(
-    "fn_ParticleSystemsSocket", (0.5, 0.5, 0.2), "DIAMOND")
-
-SimulationDataSocket = make_mockup_socket(
-    "fn_SimulationDataSocket", (0.5, 0.5, 0.5), "DIAMOND")
-CollisionGeometrySocket = make_mockup_socket(
-    "fn_CollisionGeometrySocket", (0.4, 0.4, 0.6), "DIAMOND")
-ClothObjectSocket = make_mockup_socket(
-    "fn_ClothObjectSocket", (0.7, 0.3, 0.3), "DIAMOND")
-
+SolverSocket = make_mockup_socket(
+    "fn_SolverSocket", (0.2, 0.8, 0.2), "SQUARE")
 EmittersSocket = make_mockup_socket(
     "fn_EmittersSocket", (0.8, 0.8, 0.2), "DIAMOND")
 EventsSocket = make_mockup_socket(
@@ -264,10 +252,6 @@ ForcesSocket = make_mockup_socket(
 CollidersSocket = make_mockup_socket(
     "fn_CollidersSocket", (0.4, 0.6, 0.8), "DIAMOND")
 
-FluidDomainSocket = make_mockup_socket(
-    "fn_FluidDomainSocket", (0.6, 0.4, 0.2), "DIAMOND")
-FluidSourcesSocket = make_mockup_socket(
-    "fn_FluidSourcesSocket", (0.4, 0.7, 0.3), "DIAMOND")
 
 class GeometrySocket(bpy.types.NodeSocket, BaseSocket):
     bl_idname = "fn_GeometrySocket"

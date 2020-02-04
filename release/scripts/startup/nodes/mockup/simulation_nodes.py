@@ -9,23 +9,23 @@ class SimulateNode(bpy.types.Node, SimulationNode):
     bl_label = "Simulate"
 
     def declaration(self, builder: NodeBuilder):
-        builder.mockup_input("solver1", "Solvers", "fn_ExecuteSolverSocket")
-        builder.mockup_input("solver2", "Then", "fn_ExecuteSolverSocket")
-        builder.mockup_input("solver3", "Then", "fn_ExecuteSolverSocket")
-        builder.mockup_input("solver4", "Then", "fn_ExecuteSolverSocket")
-        builder.mockup_input("solver5", "Then", "fn_ExecuteSolverSocket")
+        builder.mockup_input("solver1", "Solvers", "fn_SolverSocket")
+        builder.mockup_input("solver2", "Then", "fn_SolverSocket")
+        builder.mockup_input("solver3", "Then", "fn_SolverSocket")
+        builder.mockup_input("solver4", "Then", "fn_SolverSocket")
+        builder.mockup_input("solver5", "Then", "fn_SolverSocket")
 
 class ParticleSolverNode2(bpy.types.Node, SimulationNode):
     bl_idname = "fn_ParticleSolverNode2"
     bl_label = "Particle Solver"
 
     def declaration(self, builder: NodeBuilder):
-        builder.mockup_input("systems", "Systems", "fn_ParticleSystemsSocket")
-        builder.mockup_output("solver", "Solver", "fn_ExecuteSolverSocket")
+        builder.mockup_input("simulations", "Simulations", "fn_SimulationsSocket")
+        builder.mockup_output("solver", "Solver", "fn_SolverSocket")
 
 class ParticleSystemNode2(bpy.types.Node, SimulationNode):
     bl_idname = "fn_ParticleSystemNode2"
-    bl_label = "Particle System"
+    bl_label = "Particle Simulation"
 
     def declaration(self, builder: NodeBuilder):
         builder.fixed_input("name", "Name", "Text", display_icon="FILE_3D")
@@ -34,34 +34,26 @@ class ParticleSystemNode2(bpy.types.Node, SimulationNode):
         builder.mockup_input("events", "Events", "fn_EventsSocket")
         builder.mockup_input("forces", "Forces", "fn_ForcesSocket")
         builder.mockup_input("colliders", "Colliders", "fn_CollidersSocket")
-        builder.mockup_output("system", "System", "fn_ParticleSystemsSocket")
-
-class SimulationDataNode(bpy.types.Node, SimulationNode):
-    bl_idname = "fn_SimulationDataNode"
-    bl_label = "Simulation Data (old)"
-
-    def declaration(self, builder: NodeBuilder):
-        builder.fixed_input("name", "Name", "Text", display_name=False, default="Name")
-        builder.mockup_output("data", "Data", "fn_SimulationDataSocket")
+        builder.mockup_output("simulation", "Particle Simulation", "fn_SimulationsSocket")
 
 class ClothSolverNode(bpy.types.Node, SimulationNode):
     bl_idname = "fn_ClothSolverNode"
     bl_label = "Cloth Solver"
 
     def declaration(self, builder: NodeBuilder):
-        builder.mockup_input("cloth_objects", "Cloth Objects", "fn_ClothObjectSocket")
-        builder.mockup_output("solver", "Solver", "fn_ExecuteSolverSocket")
+        builder.mockup_input("simulations", "Simulations", "fn_SimulationsSocket")
+        builder.mockup_output("solver", "Solver", "fn_SolverSocket")
 
 class ClothObjectNode(bpy.types.Node, SimulationNode):
     bl_idname = "fn_ClothObjectNode"
-    bl_label = "Cloth Object"
+    bl_label = "Cloth Simulation"
 
     def declaration(self, builder: NodeBuilder):
         builder.fixed_input("name", "Name", "Text", display_icon="FILE_3D")
         builder.mockup_input("initial_geometry", "Initial Geometry", "fn_GeometrySocket")
         builder.mockup_input("forces", "Forces", "fn_ForcesSocket")
         builder.mockup_input("colliders", "Colliders", "fn_CollidersSocket")
-        builder.mockup_output("cloth_object", "Cloth Object", "fn_ClothObjectSocket")
+        builder.mockup_output("simulation", "Cloth Simulation", "fn_SimulationsSocket")
 
 class MovingPointsForceNode(bpy.types.Node, SimulationNode):
     bl_idname = "fn_MovingPointsForce"
@@ -186,20 +178,20 @@ class FluidSolverNode(bpy.types.Node, SimulationNode):
     bl_label = "Fluid Solver"
 
     def declaration(self, builder: NodeBuilder):
-        builder.mockup_input("domain", "Domain", "fn_FluidDomainSocket")
-        builder.mockup_input("sources", "Sources", "fn_FluidSourcesSocket")
-        builder.mockup_input("forces", "Forces", "fn_ForcesSocket")
-        builder.mockup_input("colliders", "Colliders", "fn_CollidersSocket")
-        builder.mockup_output("solver", "Solver", "fn_ExecuteSolverSocket")
+        builder.mockup_input("simulations", "Simulations", "fn_SimulationsSocket")
+        builder.mockup_output("solver", "Solver", "fn_SolverSocket")
 
 class FluidDomainNode(bpy.types.Node, SimulationNode):
     bl_idname = "fn_FluidDomainNode"
-    bl_label = "Fluid Domain"
+    bl_label = "Fluid Simulation"
 
     def declaration(self, builder: NodeBuilder):
         builder.fixed_input("name", "Name", "Text", display_icon="FILE_3D")
         builder.fixed_input("resolution", "Resolution", "Integer", default=128)
-        builder.mockup_output("domain", "Domain", "fn_FluidDomainSocket")
+        builder.mockup_input("emitters", "Emitters", "fn_EmittersSocket")
+        builder.mockup_input("forces", "Forces", "fn_ForcesSocket")
+        builder.mockup_input("colliders", "Colliders", "fn_CollidersSocket")
+        builder.mockup_output("simulation", "Fluid Simulation", "fn_SimulationsSocket")
 
 class FluidInflowNode(bpy.types.Node, SimulationNode):
     bl_idname = "fn_FluidInflowNode"
@@ -214,7 +206,7 @@ class FluidInflowNode(bpy.types.Node, SimulationNode):
 
     def declaration(self, builder: NodeBuilder):
         builder.mockup_input("geometry", "Geometry", "fn_GeometrySocket")
-        builder.mockup_output("inflow", "Inflow", "fn_FluidSourcesSocket")
+        builder.mockup_output("emitter", "Emitter", "fn_EmittersSocket")
 
     def draw(self, layout):
         layout.prop(self, "mode", text="")
