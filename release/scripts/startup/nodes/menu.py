@@ -64,7 +64,6 @@ class InfluencesNodesMenu(bpy.types.Menu):
         layout.separator()
         insert_node(layout, "fn_ForceNode", "Force")
         layout.separator()
-        insert_node(layout, "fn_SizeOverTimeNode", "Size Over Time")
         insert_node(layout, "fn_ParticleTrailsNode", "Trails")
         insert_node(layout, "fn_AlwaysExecuteNode", "Always Execute")
 
