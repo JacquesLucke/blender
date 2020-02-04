@@ -51,7 +51,7 @@ class CustomEmitter(bpy.types.Node, SimulationNode):
                 item.attribute_name,
                 item.attribute_type)
         builder.execute_input("execute_on_birth", "Execute on Birth", "execute_on_birth__prop")
-        builder.influences_output("emitter", "Emitter")
+        builder.emitters_output("emitter", "Emitter")
 
     def draw(self, layout):
         layout.prop(self, "birth_time_mode", text="Birth")
@@ -132,7 +132,7 @@ class SpawnParticlesNode(bpy.types.Node, SimulationNode):
                 item.attribute_type)
         builder.execute_input("execute_on_birth", "Execute on Birth", "execute_on_birth__prop")
         builder.execute_output("execute", "Execute")
-        builder.influences_output("spawn_system", "Spawn System")
+        builder.emitters_output("emitter", "Emitter")
 
     def draw(self, layout):
         self.invoke_type_selection(layout, "add_attribute", "Add Attribute", mode="BASE")

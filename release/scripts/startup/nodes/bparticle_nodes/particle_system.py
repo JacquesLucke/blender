@@ -9,7 +9,9 @@ class ParticleSystemNode(bpy.types.Node, SimulationNode):
     def declaration(self, builder: NodeBuilder):
         builder.background_color((0.8, 0.5, 0.4))
 
-        builder.influences_input("influences", "Influences")
+        builder.emitters_input("emitters", "Emitters")
+        builder.events_input("events", "Events")
+        builder.forces_input("forces", "Forces")
 
     def draw(self, layout):
         layout.prop(self, "name", text="", icon="PHYSICS")

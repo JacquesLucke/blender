@@ -5,7 +5,9 @@ from . base_list_variadic import BaseListVariadic
 from . vectorized import VectorizedInputDecl, VectorizedOutputDecl
 
 from . bparticles import (
-    InfluencesSocketDecl,
+    EmittersSocketDecl,
+    EventsSocketDecl,
+    ForcesSocketDecl,
     ExecuteOutputDecl,
     ExecuteInputDecl,
     ExecuteInputListDecl,

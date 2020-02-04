@@ -7,5 +7,9 @@ class CombineInfluencesNode(bpy.types.Node, SimulationNode):
     bl_label = "Combine Influences"
 
     def declaration(self, builder: NodeBuilder):
-        builder.influences_input("influences", "Influences")
-        builder.influences_output("influences", "Influences")
+        builder.emitters_input("emitters", "Emitters")
+        builder.emitters_output("emitters", "Emitters")
+        builder.events_input("events", "Events")
+        builder.events_output("events", "Events")
+        builder.forces_input("forces", "Forces")
+        builder.forces_output("forces", "Forces")

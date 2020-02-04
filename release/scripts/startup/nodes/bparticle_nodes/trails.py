@@ -12,5 +12,5 @@ class ParticleTrailsNode(bpy.types.Node, SimulationNode):
     def declaration(self, builder: NodeBuilder):
         builder.fixed_input("rate", "Rate", "Float", default=20)
         builder.execute_input("execute_on_birth", "Execute on Birth", "execute_on_birth__prop")
-        builder.influences_output("main_system", "Main System")
-        builder.influences_output("trail_system", "Trail System")
+        builder.events_output("main_system", "Main System")
+        builder.emitters_output("trail_system", "Trail System")

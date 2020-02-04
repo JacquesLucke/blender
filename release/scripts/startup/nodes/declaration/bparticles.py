@@ -6,32 +6,39 @@ from .. sockets import OperatorSocket, ExecuteSocket
 
 MAX_LINK_LIMIT = 4095
 
-class InfluencesSocketDecl(SocketDeclBase):
-    def __init__(self, node, identifier: str, display_name: str):
-        self.node = node
-        self.identifier = identifier
-        self.display_name = display_name
+def new_influences_decl(socket_idname):
+    class InfluencesSocketDecl(SocketDeclBase):
+        def __init__(self, node, identifier: str, display_name: str):
+            self.node = node
+            self.identifier = identifier
+            self.display_name = display_name
 
-    def build(self, node_sockets):
-        socket = node_sockets.new("fn_InfluencesSocket", self.display_name, identifier=self.identifier)
-        socket.link_limit = MAX_LINK_LIMIT
-        socket.display_shape = 'DIAMOND'
-        return [socket]
+        def build(self, node_sockets):
+            socket = node_sockets.new(socket_idname, self.display_name, identifier=self.identifier)
+            socket.link_limit = MAX_LINK_LIMIT
+            socket.display_shape = 'DIAMOND'
+            return [socket]
 
-    def validate(self, sockets):
-        if len(sockets) != 1:
-            return False
-        socket = sockets[0]
-        if socket.bl_idname != "fn_InfluencesSocket":
-            return False
-        if socket.name != self.display_name:
-            return False
-        if socket.link_limit != MAX_LINK_LIMIT:
-            return False
-        return True
+        def validate(self, sockets):
+            if len(sockets) != 1:
+                return False
+            socket = sockets[0]
+            if socket.bl_idname != socket_idname:
+                return False
+            if socket.name != self.display_name:
+                return False
+            if socket.link_limit != MAX_LINK_LIMIT:
+                return False
+            return True
 
-    def amount(self):
-        return 1
+        def amount(self):
+            return 1
+
+    return InfluencesSocketDecl
+
+EmittersSocketDecl = new_influences_decl("fn_EmittersSocket")
+EventsSocketDecl = new_influences_decl("fn_EventsSocket")
+ForcesSocketDecl = new_influences_decl("fn_ForcesSocket")
 
 class ExecuteOutputDecl(SocketDeclBase):
     def __init__(self, node, identifier: str, display_name: str):

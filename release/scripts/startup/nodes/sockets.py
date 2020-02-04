@@ -222,7 +222,17 @@ class ExecuteSocket(bpy.types.NodeSocket, BaseSocket):
     bl_label = "Control Flow Socket"
     color = (0.8, 0.2, 0.2, 1)
 
-class InfluencesSocket(bpy.types.NodeSocket, BaseSocket):
-    bl_idname = "fn_InfluencesSocket"
-    bl_label = "Influences Socket"
+class EmittersSocket(bpy.types.NodeSocket, BaseSocket):
+    bl_idname = "fn_EmittersSocket"
+    bl_label = "Emitters Socket"
     color = (0.8, 0.8, 0.2, 1)
+
+class EventsSocket(bpy.types.NodeSocket, BaseSocket):
+    bl_idname = "fn_EventsSocket"
+    bl_label = "Events Socket"
+    color = (0.8, 0.2, 0.8, 1)
+
+class ForcesSocket(bpy.types.NodeSocket, BaseSocket):
+    bl_idname = "fn_ForcesSocket"
+    bl_label = "Forces Socket"
+    color = (0.2, 0.8, 0.8, 1)

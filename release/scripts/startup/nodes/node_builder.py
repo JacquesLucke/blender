@@ -4,7 +4,9 @@ from . declaration import (
     BaseListVariadic,
     VectorizedInputDecl,
     VectorizedOutputDecl,
-    InfluencesSocketDecl,
+    EmittersSocketDecl,
+    EventsSocketDecl,
+    ForcesSocketDecl,
     ExecuteOutputDecl,
     ExecuteInputListDecl,
     ExecuteInputDecl,
@@ -170,12 +172,28 @@ class NodeBuilder:
     # BParticles
     ###################################
 
-    def influences_input(self, identifier, name):
-        decl = InfluencesSocketDecl(self.node, identifier, name)
+    def forces_input(self, identifier, name):
+        decl = ForcesSocketDecl(self.node, identifier, name)
         self._add_input(decl)
 
-    def influences_output(self, identifier, name):
-        decl = InfluencesSocketDecl(self.node, identifier, name)
+    def forces_output(self, identifier, name):
+        decl = ForcesSocketDecl(self.node, identifier, name)
+        self._add_output(decl)
+
+    def events_input(self, identifier, name):
+        decl = EventsSocketDecl(self.node, identifier, name)
+        self._add_input(decl)
+
+    def events_output(self, identifier, name):
+        decl = EventsSocketDecl(self.node, identifier, name)
+        self._add_output(decl)
+
+    def emitters_input(self, identifier, name):
+        decl = EmittersSocketDecl(self.node, identifier, name)
+        self._add_input(decl)
+
+    def emitters_output(self, identifier, name):
+        decl = EmittersSocketDecl(self.node, identifier, name)
         self._add_output(decl)
 
     @staticmethod

@@ -11,7 +11,9 @@ from .. sync import skip_syncing
 interface_type_items = [
     ("DATA", "Data", "Some data type like integer or vector", "NONE", 0),
     ("EXECUTE", "Control Flow", "", "NONE", 1),
-    ("INFLUENCES", "Influences", "", "NONE", 2),
+    ("EMITTERS", "Emitters", "", "NONE", 2),
+    ("EVENTS", "Events", "", "NONE", 3),
+    ("FORCES", "Forces", "", "NONE", 4),
 ]
 
 class GroupInputNode(bpy.types.Node, BaseNode):
@@ -46,8 +48,12 @@ class GroupInputNode(bpy.types.Node, BaseNode):
             builder.fixed_output("value", "Value", self.data_type)
         elif self.interface_type == "EXECUTE":
             builder.execute_output("execute", "Execute")
-        elif self.interface_type == "INFLUENCES":
-            builder.influences_output("influences", "Influences")
+        elif self.interface_type == "EMITTERS":
+            builder.emitters_output("emitters", "Emitters")
+        elif self.interface_type == "EVENTS":
+            builder.events_output("events", "Events")
+        elif self.interface_type == "FORCES":
+            builder.forces_output("forces", "Forces")
         else:
             assert False
 
@@ -107,8 +113,12 @@ class GroupOutputNode(bpy.types.Node, BaseNode):
             builder.fixed_input("value", "Value", self.data_type)
         elif self.interface_type == "EXECUTE":
             builder.single_execute_input("execute", "Execute")
-        elif self.interface_type == "INFLUENCES":
-            builder.influences_input("influences", "Influences")
+        elif self.interface_type == "EMITTERS":
+            builder.emitters_input("emitters", "Emitters")
+        elif self.interface_type == "EVENTS":
+            builder.events_input("events", "Events")
+        elif self.interface_type == "FORCES":
+            builder.forces_input("forces", "Forces")
 
     def draw(self, layout):
         if not self.display_settings:
@@ -153,8 +163,12 @@ class GroupNode(bpy.types.Node, FunctionNode):
                     default=input_node.outputs[0].get_state())
             elif input_node.interface_type == "EXECUTE":
                 builder.single_execute_input(input_node.identifier, input_node.input_name)
-            elif input_node.interface_type == "INFLUENCES":
-                builder.influences_input(input_node.identifier, input_node.input_name)
+            elif input_node.interface_type  == "EMITTERS":
+                builder.emitters_input(input_node.identifier, input_node.input_name)
+            elif input_node.interface_type  == "EVENTS":
+                builder.events_input(input_node.identifier, input_node.input_name)
+            elif input_node.interface_type  == "FORCES":
+                builder.forces_input(input_node.identifier, input_node.input_name)
             else:
                 assert False
 
@@ -166,8 +180,12 @@ class GroupNode(bpy.types.Node, FunctionNode):
                     output_node.data_type)
             elif output_node.interface_type == "EXECUTE":
                 builder.execute_output(output_node.identifier, output_node.output_name)
-            elif output_node.interface_type == "INFLUENCES":
-                builder.influences_output(output_node.identifier, output_node.output_name)
+            elif output_node.interface_type == "EMITTERS":
+                builder.emitters_output(output_node.identifier, output_node.output_name)
+            elif output_node.interface_type == "EVENTS":
+                builder.events_output(output_node.identifier, output_node.output_name)
+            elif output_node.interface_type == "FORCES":
+                builder.forces_output(output_node.identifier, output_node.output_name)
             else:
                 assert False
 
@@ -419,8 +437,12 @@ class CreateGroupInputForSocket(bpy.types.Operator):
                 new_node.data_type = socket.data_type
             elif socket.bl_idname == "fn_ExecuteSocket":
                 new_node.interface_type = "EXECUTE"
-            elif socket.bl_idname == "fn_InfluencesSocket":
-                new_node.interface_type = "INFLUENCES"
+            elif socket.bl_idname == "fn_EmittersSocket":
+                new_node.interface_type = "EMITTERS"
+            elif socket.bl_idname == "fn_EventsSocket":
+                new_node.interface_type = "EVENTS"
+            elif socket.bl_idname == "fn_ForcesSocket":
+                new_node.interface_type = "FORCES"
             new_node.rebuild()
 
             new_node.select = True
@@ -460,8 +482,12 @@ class CreateGroupOutputForSocket(bpy.types.Operator):
                 new_node.data_type = socket.data_type
             elif socket.bl_idname == "fn_ExecuteSocket":
                 new_node.interface_type = "EXECUTE"
-            elif socket.bl_idname == "fn_InfluencesSocket":
-                new_node.interface_type = "INFLUENCES"
+            elif socket.bl_idname == "fn_EmittersSocket":
+                new_node.interface_type = "EMITTERS"
+            elif socket.bl_idname == "fn_EventsSocket":
+                new_node.interface_type = "EVENTS"
+            elif socket.bl_idname == "fn_ForcesSocket":
+                new_node.interface_type = "FORCES"
             new_node.rebuild()
 
             new_node.select = True

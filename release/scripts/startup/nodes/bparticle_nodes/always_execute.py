@@ -12,7 +12,7 @@ class AlwaysExecuteNode(bpy.types.Node, SimulationNode):
 
     def declaration(self, builder: NodeBuilder):
         builder.execute_input("execute", "Execute", "execute__prop")
-        builder.influences_output("influence", "Influence")
+        builder.events_output("event", "Event")
 
 
 class MultiExecuteNode(bpy.types.Node, SimulationNode):

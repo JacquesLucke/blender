@@ -160,6 +160,7 @@ def remove_invalid_links(tree_data):
 def is_link_valid(tree_data, from_socket, to_socket):
     from . types import type_infos
     from . base import DataSocket
+    from . sockets import EmittersSocket, EventsSocket, ForcesSocket
 
     is_data_src = isinstance(from_socket, DataSocket)
     is_data_dst = isinstance(to_socket, DataSocket)
@@ -171,6 +172,13 @@ def is_link_valid(tree_data, from_socket, to_socket):
         from_type = from_socket.data_type
         to_type = to_socket.data_type
         return type_infos.is_link_allowed(from_type, to_type)
+
+    if isinstance(from_socket, EmittersSocket) != isinstance(to_socket, EmittersSocket):
+        return False
+    if isinstance(from_socket, EventsSocket) != isinstance(to_socket, EventsSocket):
+        return False
+    if isinstance(from_socket, ForcesSocket) != isinstance(to_socket, ForcesSocket):
+        return False
 
     return True
 

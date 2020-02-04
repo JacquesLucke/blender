@@ -313,7 +313,9 @@ class FunctionTreeData {
         r_nodes.add(&connected_fnode);
       }
       else if (connected_fnode.idname() == combine_influences_idname) {
-        find_target_system_nodes__recursive(connected_fnode.output(0), r_nodes);
+        for (const FOutputSocket *output : connected_fnode.outputs()) {
+          find_target_system_nodes__recursive(*output, r_nodes);
+        }
       }
     }
   }
