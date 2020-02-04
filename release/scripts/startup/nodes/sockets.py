@@ -227,14 +227,16 @@ class InfluencesSocket(bpy.types.NodeSocket, BaseSocket):
     bl_label = "Influences Socket"
     color = (0.8, 0.8, 0.2, 1)
 
-class SimulationObjectsSocket(bpy.types.NodeSocket, BaseSocket):
-    bl_idname = "fn_SimulationObjectsSocket"
-    bl_label = "Simulation Objects Socket"
-    color = (0, 0, 0, 1)
-    default_shape = "DIAMOND"
+def make_mockup_socket(idname, color, shape):
+    return type(idname, (bpy.types.NodeSocket, BaseSocket),
+        {
+            "bl_idname" : idname,
+            "bl_label" : idname,
+            "color" : color,
+            "default_shape" : shape,
+        })
 
-class SimulationSolverSocket(bpy.types.NodeSocket, BaseSocket):
-    bl_idname = "fn_SimulationSolverSocket"
-    bl_label = "Simulation Solver"
-    color = (1, 1, 1, 1)
-    default_shape = "SQUARE"
+SimulationObjectsSocket = make_mockup_socket(
+    "fn_SimulationObjectsSocket", (0, 0, 0, 1), "DIAMOND")
+SimulationSolverSocket = make_mockup_socket(
+    "fn_SimulationSolverSocket", (1, 1, 1, 1), "SQUARE")

@@ -144,3 +144,13 @@ class OutputNode(bpy.types.Node, SimulationNode):
 
     def declaration(self, builder: NodeBuilder):
         builder.mockup_input("objects", "Objects", "fn_SimulationObjectsSocket")
+
+
+class SimulateNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_SimulateNode"
+    bl_label = "Simulate"
+
+    execute__prop: NodeBuilder.ExecuteInputProperty()
+
+    def declaration(self, builder: NodeBuilder):
+        builder.execute_input("solvers", "Solvers", "execute__prop")
