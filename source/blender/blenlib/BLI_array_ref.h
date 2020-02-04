@@ -351,6 +351,11 @@ template<typename T> class ArrayRef {
       std::cout << '\n';
     }
   }
+
+  void print_as_lines(std::string name) const
+  {
+    this->print_as_lines(name, [](const T &value) { std::cout << value; });
+  }
 };
 
 /**
@@ -511,6 +516,28 @@ template<typename T> class MutableArrayRef {
 template<typename T> ArrayRef<T> ref_c_array(const T *array, uint size)
 {
   return ArrayRef<T>(array, size);
+}
+
+template<typename T1, typename T2> void assert_same_size(const T1 &v1, const T2 &v2)
+{
+  UNUSED_VARS_NDEBUG(v1, v2);
+#ifdef DEBUG
+  uint size = v1.size();
+  BLI_assert(size == v1.size());
+  BLI_assert(size == v2.size());
+#endif
+}
+
+template<typename T1, typename T2, typename T3>
+void assert_same_size(const T1 &v1, const T2 &v2, const T3 &v3)
+{
+  UNUSED_VARS_NDEBUG(v1, v2, v3);
+#ifdef DEBUG
+  uint size = v1.size();
+  BLI_assert(size == v1.size());
+  BLI_assert(size == v2.size());
+  BLI_assert(size == v3.size());
+#endif
 }
 
 } /* namespace BLI */

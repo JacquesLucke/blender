@@ -8,6 +8,7 @@
 #include "BLI_utility_mixins.h"
 #include "BLI_index_range.h"
 #include "BLI_static_class_ids.h"
+#include "BLI_buffer_cache.h"
 
 #include "BKE_id_handle.h"
 
@@ -15,6 +16,7 @@ namespace FN {
 
 using BKE::IDHandleLookup;
 using BLI::ArrayRef;
+using BLI::BufferCache;
 using BLI::IndexRange;
 using BLI::Optional;
 using BLI::Vector;
@@ -99,12 +101,19 @@ class MFContextBuilder : BLI::NonCopyable, BLI::NonMovable {
  private:
   MFElementContexts m_element_contexts;
   MFGlobalContexts m_global_contexts;
+  BufferCache m_buffer_cache_fallback;
+  BufferCache *m_buffer_cache = nullptr;
 
   friend class MFContext;
 
  public:
-  MFContextBuilder()
+  MFContextBuilder() : m_buffer_cache(&m_buffer_cache_fallback)
   {
+  }
+
+  void set_buffer_cache(BufferCache &buffer_cache)
+  {
+    m_buffer_cache = &buffer_cache;
   }
 
   void add_global_contexts(const MFContext &other);
@@ -147,6 +156,11 @@ class MFContext {
   template<typename T> const T *try_find_global() const
   {
     return m_builder->m_global_contexts.try_find<T>();
+  }
+
+  BufferCache &buffer_cache()
+  {
+    return *m_builder->m_buffer_cache;
   }
 };
 

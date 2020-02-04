@@ -263,7 +263,6 @@ set(SRC
   intern/BLI_lazy_init.cc
   BLI_math_cxx.h
   BLI_monotonic_allocator.h
-  BLI_object_pool.h
   BLI_optional.h
   BLI_refcount.h
   BLI_multi_map.h
@@ -278,6 +277,7 @@ set(SRC
   BLI_string_multi_map.h
   BLI_index_to_ref_map.h
   BLI_rand_cxx.h
+  BLI_buffer_cache.h
 )
 
 set(LIB
@@ -285,6 +285,8 @@ set(LIB
   bf_intern_guardedalloc
   bf_intern_numaapi
   extern_wcwidth
+
+  ${FREETYPE_LIBRARY}
 )
 
 if(WITH_MEM_VALGRIND)

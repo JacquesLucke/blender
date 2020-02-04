@@ -39,7 +39,7 @@ def create_two_inputs_math_node(input_type1, input_type2, output_type, idname, l
 
     return MathNode
 
-def create_single_input_math_node(data_type, idname, label):
+def create_single_input_math_node(input_type, output_type, idname, label):
 
     class MathNode(bpy.types.Node, FunctionNode):
         bl_idname = idname
@@ -48,8 +48,8 @@ def create_single_input_math_node(data_type, idname, label):
         use_list: NodeBuilder.VectorizedProperty()
 
         def declaration(self, builder: NodeBuilder):
-            builder.vectorized_input("input", "use_list", "Value", "Values", data_type)
-            builder.vectorized_output("output", ["use_list"], "Result", "Result", data_type)
+            builder.vectorized_input("input", "use_list", "Value", "Values", input_type)
+            builder.vectorized_output("output", ["use_list"], "Result", "Result", output_type)
 
     return MathNode
 
@@ -62,10 +62,13 @@ SubtractFloatsNode = create_single_type_two_inputs_math_node("Float", "fn_Subtra
 DivideFloatsNode = create_single_type_two_inputs_math_node("Float", "fn_DivideFloatsNode", "Divide Floats")
 PowerFloatsNode = create_single_type_two_inputs_math_node("Float", "fn_PowerFloatsNode", "Power Floats")
 
-SqrtFloatNode = create_single_input_math_node("Float", "fn_SqrtFloatNode", "Sqrt Float")
-AbsFloatNode = create_single_input_math_node("Float", "fn_AbsoluteFloatNode", "Absolute Float")
-SineFloatNode = create_single_input_math_node("Float", "fn_SineFloatNode", "Sine")
-CosineFloatNode = create_single_input_math_node("Float", "fn_CosineFloatNode", "Cosine")
+SqrtFloatNode = create_single_input_math_node("Float", "Float", "fn_SqrtFloatNode", "Sqrt Float")
+AbsFloatNode = create_single_input_math_node("Float", "Float", "fn_AbsoluteFloatNode", "Absolute Float")
+SineFloatNode = create_single_input_math_node("Float", "Float", "fn_SineFloatNode", "Sine")
+CosineFloatNode = create_single_input_math_node("Float", "Float", "fn_CosineFloatNode", "Cosine")
+
+CeilFloatNode = create_single_input_math_node("Float", "Float", "fn_CeilFloatNode", "Ceil Float")
+FloorFloatNode = create_single_input_math_node("Float", "Float", "fn_FloorFloatNode", "Floor Float")
 
 AddVectorsNode = create_variadic_math_node("Vector", "fn_AddVectorsNode", "Add Vectors")
 SubtractVectorsNode = create_single_type_two_inputs_math_node("Vector", "fn_SubtractVectorsNode", "Subtract Vectors")
@@ -78,10 +81,12 @@ VectorReflectNode = create_single_type_two_inputs_math_node("Vector", "fn_Reflec
 VectorProjectNode = create_single_type_two_inputs_math_node("Vector", "fn_ProjectVectorNode", "Project Vector")
 VectorDotProductNode = create_two_inputs_math_node("Vector", "Vector", "Float", "fn_VectorDotProductNode", "Dot Product")
 VectorDistanceNode = create_two_inputs_math_node("Vector", "Vector", "Float", "fn_VectorDistanceNode", "Vector Distance")
+NormalizeVectorNode = create_single_input_math_node("Vector", "Vector", "fn_NormalizeVectorNode", "Normalize Vector")
+VectorLengthNode = create_single_input_math_node("Vector", "Float", "fn_VectorLengthNode", "Vector Length")
 
 BooleanAndNode = create_variadic_math_node("Boolean", "fn_BooleanAndNode", "And")
 BooleanOrNode = create_variadic_math_node("Boolean", "fn_BooleanOrNode", "Or")
-BooleanNotNode = create_single_input_math_node("Boolean", "fn_BooleanNotNode", "Not")
+BooleanNotNode = create_single_input_math_node("Boolean", "Boolean", "fn_BooleanNotNode", "Not")
 
 LessThanFloatNode = create_two_inputs_math_node("Float", "Float", "Boolean", "fn_LessThanFloatNode", "Less Than Float")
 GreaterThanFloatNode = create_two_inputs_math_node("Float", "Float", "Boolean", "fn_GreaterThanFloatNode", "Greater Than Float")
@@ -95,13 +100,21 @@ class MapRangeNode(bpy.types.Node, FunctionNode):
         default=True,
     )
 
+    use_list__value: NodeBuilder.VectorizedProperty()
+    use_list__from_min: NodeBuilder.VectorizedProperty()
+    use_list__from_max: NodeBuilder.VectorizedProperty()
+    use_list__to_min: NodeBuilder.VectorizedProperty()
+    use_list__to_max: NodeBuilder.VectorizedProperty()
+
     def declaration(self, builder: NodeBuilder):
-        builder.fixed_input("value", "Value", "Float")
-        builder.fixed_input("from_min", "From Min", "Float", default=0)
-        builder.fixed_input("from_max", "From Max", "Float", default=1)
-        builder.fixed_input("to_min", "To Min", "Float", default=0)
-        builder.fixed_input("to_max", "To Max", "Float", default=1)
-        builder.fixed_output("value", "Value", "Float")
+        builder.vectorized_input("value", "use_list__value", "Value", "Values", "Float")
+        builder.vectorized_input("from_min", "use_list__from_min", "From Min", "From Min", "Float")
+        builder.vectorized_input("from_max", "use_list__from_max", "From Max", "From Max", "Float")
+        builder.vectorized_input("to_min", "use_list__to_min", "To Min", "To Min", "Float")
+        builder.vectorized_input("to_max", "use_list__to_max", "To Max", "To Max", "Float")
+        builder.vectorized_output("value", [
+            "use_list__value", "use_list__from_min", "use_list__from_max",
+            "use_list__to_min", "use_list__to_max"], "Value", "Values", "Float")
 
     def draw(self, layout):
         layout.prop(self, "clamp")

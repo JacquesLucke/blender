@@ -166,7 +166,7 @@ static BLI_NOINLINE void compute_triangle_areas(Mesh *mesh,
                                                 ArrayRef<MLoopTri> triangles,
                                                 MutableArrayRef<float> r_areas)
 {
-  BLI_assert(triangles.size() == r_areas.size());
+  BLI::assert_same_size(triangles, r_areas);
 
   for (uint i : triangles.index_range()) {
     const MLoopTri &triangle = triangles[i];
@@ -205,7 +205,7 @@ static BLI_NOINLINE void sample_looptris(Mesh *mesh,
                                          MutableArrayRef<float3> r_sampled_normals,
                                          MutableArrayRef<float3> r_sampled_bary_coords)
 {
-  BLI_assert(triangles_to_sample.size() == r_sampled_positions.size());
+  BLI::assert_same_size(triangles_to_sample, r_sampled_positions);
 
   MLoop *loops = mesh->mloop;
   MVert *verts = mesh->mvert;
@@ -471,7 +471,7 @@ void CustomEmitter::emit(EmitterInterface &interface)
   for (uint param_index : m_emitter_function.param_indices()) {
     MFParamType param_type = m_emitter_function.param_type(param_index);
     if (param_type.is_vector_output()) {
-      params_builder.computed_vector_array(param_index).~GenericVectorArray();
+      delete &params_builder.computed_vector_array(param_index);
     }
     else if (param_type.is_single_output()) {
       FN::GenericMutableArrayRef array = params_builder.computed_array(param_index);

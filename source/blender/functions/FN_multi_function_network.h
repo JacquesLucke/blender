@@ -157,6 +157,9 @@ class MFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
                                 ArrayRef<MFDataType> output_types,
                                 ArrayRef<StringRef> input_names,
                                 ArrayRef<StringRef> output_names);
+  MFBuilderDummyNode &add_input_dummy(StringRef name, MFBuilderInputSocket &socket);
+  MFBuilderDummyNode &add_output_dummy(StringRef name, MFBuilderOutputSocket &socket);
+
   void add_link(MFBuilderOutputSocket &from, MFBuilderInputSocket &to);
   void remove_link(MFBuilderOutputSocket &from, MFBuilderInputSocket &to);
   void remove_node(MFBuilderNode &node);
@@ -286,6 +289,9 @@ class MFNode : BLI::NonCopyable, BLI::NonMovable {
 
   const MFFunctionNode &as_function() const;
   const MFDummyNode &as_dummy() const;
+
+  template<typename FuncT> void foreach_origin_node(const FuncT &func) const;
+  template<typename FuncT> void foreach_origin_socket(const FuncT &func) const;
 };
 
 class MFFunctionNode final : public MFNode {
@@ -362,6 +368,7 @@ class MFOutputSocket final : public MFSocket {
 
  public:
   ArrayRef<const MFInputSocket *> targets() const;
+  uint target_amount() const;
 };
 
 class MFNetwork : BLI::NonCopyable, BLI::NonMovable {
@@ -376,6 +383,8 @@ class MFNetwork : BLI::NonCopyable, BLI::NonMovable {
   Vector<MFInputSocket *> m_input_sockets;
   Vector<MFOutputSocket *> m_output_sockets;
 
+  Array<uint> m_max_dependency_depth_per_node;
+
  public:
   MFNetwork(MFNetworkBuilder &builder);
   ~MFNetwork();
@@ -383,17 +392,22 @@ class MFNetwork : BLI::NonCopyable, BLI::NonMovable {
   const MFNode &node_by_id(uint id) const;
   const MFSocket &socket_by_id(uint id) const;
   IndexRange socket_ids() const;
+  IndexRange node_ids() const;
 
-  ArrayRef<const MFDummyNode *> dummy_nodes() const
-  {
-    return m_dummy_nodes.as_ref();
-  }
+  ArrayRef<const MFDummyNode *> dummy_nodes() const;
+  ArrayRef<const MFFunctionNode *> function_nodes() const;
 
   Vector<const MFOutputSocket *> find_dummy_dependencies(
       ArrayRef<const MFInputSocket *> sockets) const;
 
   Vector<const MFFunctionNode *> find_function_dependencies(
       ArrayRef<const MFInputSocket *> sockets) const;
+
+  ArrayRef<uint> max_dependency_depth_per_node() const;
+
+  const MFDummyNode &find_dummy_node(MFBuilderDummyNode &builder_node) const;
+  const MFInputSocket &find_dummy_socket(MFBuilderInputSocket &builder_socket) const;
+  const MFOutputSocket &find_dummy_socket(MFBuilderOutputSocket &builder_socket) const;
 
  private:
   void create_links_to_node(MFNetworkBuilder &builder,
@@ -403,6 +417,8 @@ class MFNetwork : BLI::NonCopyable, BLI::NonMovable {
   void create_link_to_socket(MFNetworkBuilder &builder,
                              MFInputSocket *to_socket,
                              MFBuilderInputSocket *to_builder_socket);
+
+  void compute_max_dependency_depths();
 };
 
 /* Builder Implementations
@@ -654,6 +670,23 @@ inline const MFDummyNode &MFNode::as_dummy() const
   return *(const MFDummyNode *)this;
 }
 
+template<typename FuncT> inline void MFNode::foreach_origin_node(const FuncT &func) const
+{
+  for (const MFInputSocket *socket : m_inputs) {
+    const MFOutputSocket &origin_socket = socket->origin();
+    const MFNode &origin_node = origin_socket.node();
+    func(origin_node);
+  }
+}
+
+template<typename FuncT> inline void MFNode::foreach_origin_socket(const FuncT &func) const
+{
+  for (const MFInputSocket *socket : m_inputs) {
+    const MFOutputSocket &origin_socket = socket->origin();
+    func(origin_socket);
+  }
+}
+
 inline const MultiFunction &MFFunctionNode::function() const
 {
   return *m_function;
@@ -760,6 +793,11 @@ inline ArrayRef<const MFInputSocket *> MFOutputSocket::targets() const
   return m_targets;
 }
 
+inline uint MFOutputSocket::target_amount() const
+{
+  return m_targets.size();
+}
+
 inline const MFNode &MFNetwork::node_by_id(uint index) const
 {
   return *m_node_by_id[index];
@@ -773,6 +811,49 @@ inline const MFSocket &MFNetwork::socket_by_id(uint index) const
 inline IndexRange MFNetwork::socket_ids() const
 {
   return IndexRange(m_socket_by_id.size());
+}
+
+inline IndexRange MFNetwork::node_ids() const
+{
+  return IndexRange(m_node_by_id.size());
+}
+
+inline ArrayRef<const MFDummyNode *> MFNetwork::dummy_nodes() const
+{
+  return m_dummy_nodes.as_ref();
+}
+
+inline ArrayRef<const MFFunctionNode *> MFNetwork::function_nodes() const
+{
+  return m_function_nodes.as_ref();
+}
+
+inline ArrayRef<uint> MFNetwork::max_dependency_depth_per_node() const
+{
+  return m_max_dependency_depth_per_node;
+}
+
+inline const MFDummyNode &MFNetwork::find_dummy_node(MFBuilderDummyNode &builder_node) const
+{
+  uint node_index = builder_node.network().current_index_of(builder_node);
+  const MFDummyNode &node = *this->m_dummy_nodes[node_index];
+  return node;
+}
+
+inline const MFInputSocket &MFNetwork::find_dummy_socket(
+    MFBuilderInputSocket &builder_socket) const
+{
+  const MFDummyNode &node = this->find_dummy_node(builder_socket.node().as_dummy());
+  const MFInputSocket &socket = node.input(builder_socket.index());
+  return socket;
+}
+
+inline const MFOutputSocket &MFNetwork::find_dummy_socket(
+    MFBuilderOutputSocket &builder_socket) const
+{
+  const MFDummyNode &node = this->find_dummy_node(builder_socket.node().as_dummy());
+  const MFOutputSocket &socket = node.output(builder_socket.index());
+  return socket;
 }
 
 }  // namespace FN

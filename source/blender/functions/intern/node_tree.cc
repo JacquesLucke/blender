@@ -149,7 +149,7 @@ BLI_NOINLINE void FunctionTree::expand_group_node(FNode &group_node,
 
   const VirtualNodeTree &vtree = get_vtree(vtrees, btree);
 
-  FParentNode &sub_parent = *m_allocator.construct<FParentNode>().release();
+  FParentNode &sub_parent = *m_allocator.construct<FParentNode>();
   sub_parent.m_id = all_parent_nodes.append_and_get_index(&sub_parent);
   sub_parent.m_parent = group_node.m_parent;
   sub_parent.m_vnode = &group_vnode;
@@ -167,7 +167,7 @@ BLI_NOINLINE void FunctionTree::expand_group__group_inputs_for_unlinked_inputs(
 {
   for (FInputSocket *input_socket : group_node.m_inputs) {
     if (!input_socket->is_linked()) {
-      FGroupInput &group_input = *m_allocator.construct<FGroupInput>().release();
+      FGroupInput &group_input = *m_allocator.construct<FGroupInput>();
       group_input.m_id = all_group_inputs.append_and_get_index(&group_input);
       group_input.m_vsocket = &input_socket->m_vsocket->as_input();
       group_input.m_parent = group_node.m_parent;
@@ -291,13 +291,13 @@ BLI_NOINLINE FNode &FunctionTree::create_node(const VNode &vnode,
                                               FParentNode *parent,
                                               MutableArrayRef<FSocket *> sockets_map)
 {
-  FNode &new_node = *m_allocator.construct<FNode>().release();
+  FNode &new_node = *m_allocator.construct<FNode>();
   new_node.m_vnode = &vnode;
   new_node.m_parent = parent;
   new_node.m_id = UINT32_MAX;
 
   for (const VInputSocket *vsocket : vnode.inputs()) {
-    FInputSocket &new_socket = *m_allocator.construct<FInputSocket>().release();
+    FInputSocket &new_socket = *m_allocator.construct<FInputSocket>();
     new_socket.m_vsocket = vsocket;
     new_socket.m_node = &new_node;
     new_socket.m_id = UINT32_MAX;
@@ -308,7 +308,7 @@ BLI_NOINLINE FNode &FunctionTree::create_node(const VNode &vnode,
   }
 
   for (const VOutputSocket *vsocket : vnode.outputs()) {
-    FOutputSocket &new_socket = *m_allocator.construct<FOutputSocket>().release();
+    FOutputSocket &new_socket = *m_allocator.construct<FOutputSocket>();
     new_socket.m_vsocket = vsocket;
     new_socket.m_node = &new_node;
     new_socket.m_id = UINT32_MAX;

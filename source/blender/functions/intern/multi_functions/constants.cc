@@ -35,7 +35,7 @@ MF_GenericConstantValue::MF_GenericConstantValue(const CPPType &type, const void
   signature.single_output(ss.str(), type);
 
   if (type == CPP_TYPE<float>()) {
-    uint32_t hash = *(uint32_t *)value;
+    uint32_t hash = BLI_hash_int_2d(*(uint *)value, 0);
     signature.operation_hash(hash);
   }
 }

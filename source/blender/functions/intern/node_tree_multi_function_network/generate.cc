@@ -217,14 +217,12 @@ static std::unique_ptr<FunctionTreeMFNetwork> build(
   IndexToRefMap<const FSocket> fsocket_by_dummy_socket_id(network->socket_ids().size());
 
   dummy_socket_mapping.foreach_item([&](const FSocket *fsocket, MFBuilderSocket *builder_socket) {
-    uint node_index = network_builder.current_index_of(builder_socket->node().as_dummy());
-    const MFDummyNode *node = network->dummy_nodes()[node_index];
     const MFSocket *socket = nullptr;
     if (builder_socket->is_input()) {
-      socket = &node->input(builder_socket->index());
+      socket = &network->find_dummy_socket(builder_socket->as_input());
     }
     else {
-      socket = &node->output(builder_socket->index());
+      socket = &network->find_dummy_socket(builder_socket->as_output());
     }
     dummy_socket_by_fsocket_id.add_new(fsocket->id(), *socket);
     fsocket_by_dummy_socket_id.add_new(socket->id(), *fsocket);
@@ -270,9 +268,9 @@ std::unique_ptr<FunctionTreeMFNetwork> generate_node_tree_multi_function_network
     BLI_assert(false);
   }
 
-  // optimize_network__constant_folding(network_builder, resources);
-  // optimize_network__remove_duplicates(network_builder);
-  // optimize_network__remove_unused_nodes(network_builder);
+  optimize_network__constant_folding(network_builder, resources);
+  optimize_network__remove_duplicates(network_builder);
+  optimize_network__remove_unused_nodes(network_builder);
   // network_builder.to_dot__clipboard();
   // function_tree.to_dot__clipboard();
   auto function_tree_network = build(function_tree, network_builder, dummy_socket_mapping);

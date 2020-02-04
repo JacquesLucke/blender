@@ -49,11 +49,11 @@ template<typename T> class MF_ConstantValue : public MultiFunction {
     signature.single_output<T>(ss.str());
 
     if (CPP_TYPE<T>() == CPP_TYPE<float>()) {
-      uint32_t hash = BLI_hash_int(*(uint *)&m_value);
+      uint32_t hash = BLI_hash_int_2d(*(uint *)&m_value, 0);
       signature.operation_hash(hash);
     }
     else if (CPP_TYPE<T>() == CPP_TYPE<int>()) {
-      uint32_t hash = BLI_hash_int(*(uint *)&m_value);
+      uint32_t hash = BLI_hash_int_2d(*(uint *)&m_value, 1);
       signature.operation_hash(hash);
     }
     else if (CPP_TYPE<T>() == CPP_TYPE<std::string>()) {
@@ -68,8 +68,8 @@ template<typename T> class MF_ConstantValue : public MultiFunction {
     else if (CPP_TYPE<T>() == CPP_TYPE<BLI::float3>()) {
       BLI::float3 vector = *(BLI::float3 *)&value;
       uint32_t hash = BLI_hash_int_2d(*(uint *)&vector.x, 0);
-      hash = BLI_hash_int_2d(*(uint *)&vector.x, hash);
-      hash = BLI_hash_int_2d(*(uint *)&vector.x, hash);
+      hash = BLI_hash_int_2d(*(uint *)&vector.y, hash);
+      hash = BLI_hash_int_2d(*(uint *)&vector.z, hash);
       signature.operation_hash(hash);
     }
   }

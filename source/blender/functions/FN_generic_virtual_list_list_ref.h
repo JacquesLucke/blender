@@ -66,7 +66,7 @@ class GenericVirtualListListRef {
                                                      ArrayRef<const void *> starts,
                                                      ArrayRef<uint> array_sizes)
   {
-    BLI_assert(starts.size() == array_sizes.size());
+    BLI::assert_same_size(starts, array_sizes);
     return GenericVirtualListListRef::FromFullArrayList(
         type, starts.begin(), array_sizes.begin(), starts.size());
   }

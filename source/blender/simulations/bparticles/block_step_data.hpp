@@ -3,17 +3,20 @@
 #include "FN_attributes_ref.h"
 
 #include "BLI_float_interval.h"
+#include "BLI_buffer_cache.h"
 
 #include "simulation_state.hpp"
 
 namespace BParticles {
 
+using BLI::BufferCache;
 using BLI::FloatInterval;
 using FN::AttributesRef;
 using FN::MutableAttributesRef;
 
 struct BlockStepData {
   SimulationState &simulation_state;
+  BufferCache &buffer_cache;
   MutableAttributesRef attributes;
   MutableAttributesRef attribute_offsets;
   MutableArrayRef<float> remaining_durations;
@@ -37,6 +40,11 @@ class BlockStepDataAccess {
   SimulationState &simulation_state()
   {
     return m_step_data.simulation_state;
+  }
+
+  BufferCache &buffer_cache()
+  {
+    return m_step_data.buffer_cache;
   }
 
   uint array_size() const

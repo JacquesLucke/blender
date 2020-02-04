@@ -151,7 +151,7 @@ BLI_NOINLINE static void execute_events(BlockStepData &step_data,
                                         ArrayRef<float> current_times,
                                         ArrayRef<Event *> events)
 {
-  BLI_assert(events.size() == pindices_per_event.size());
+  BLI::assert_same_size(events, pindices_per_event);
 
   for (uint event_index : events.index_range()) {
     Event *event = events[event_index];
@@ -299,8 +299,14 @@ BLI_NOINLINE static void simulate_particle_chunk(SimulationState &simulation_sta
   }
   MutableAttributesRef attribute_offsets(offsets_info, offset_buffers, amount);
 
-  BlockStepData step_data = {
-      simulation_state, attributes, attribute_offsets, remaining_durations, end_time};
+  BufferCache buffer_cache;
+
+  BlockStepData step_data = {simulation_state,
+                             buffer_cache,
+                             attributes,
+                             attribute_offsets,
+                             remaining_durations,
+                             end_time};
 
   IntegratorInterface interface(step_data, IndexRange(amount).as_array_ref());
   integrator.integrate(interface);

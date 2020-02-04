@@ -47,6 +47,31 @@ template<typename InT, typename OutT> class MF_Custom_In1_Out1 final : public Mu
     signature.operation_hash(operation_hash);
   }
 
+  template<typename ElementFuncT>
+  MF_Custom_In1_Out1(StringRef name,
+                     ElementFuncT element_fn,
+                     Optional<uint32_t> operation_hash = {})
+      : MF_Custom_In1_Out1(name, MF_Custom_In1_Out1::create_function(element_fn), operation_hash)
+  {
+  }
+
+  template<typename ElementFuncT> static FunctionT create_function(ElementFuncT element_fn)
+  {
+    return [=](IndexMask mask, VirtualListRef<InT> inputs, MutableArrayRef<OutT> outputs) {
+      if (inputs.is_non_single_full_array()) {
+        ArrayRef<InT> in_array = inputs.as_full_array();
+        mask.foreach_index([=](uint i) { outputs[i] = element_fn(in_array[i]); });
+      }
+      else if (inputs.is_single_element()) {
+        InT in_single = inputs.as_single_element();
+        outputs.fill_indices(mask.indices(), element_fn(in_single));
+      }
+      else {
+        mask.foreach_index([=](uint i) { outputs[i] = element_fn(inputs[i]); });
+      }
+    };
+  }
+
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
     VirtualListRef<InT> inputs = params.readonly_single_input<InT>(0);
@@ -72,6 +97,51 @@ class MF_Custom_In2_Out1 final : public MultiFunction {
     signature.single_input<InT2>("Input 2");
     signature.single_output<OutT>("Output");
     signature.operation_hash(operation_hash);
+  }
+
+  template<typename ElementFuncT>
+  MF_Custom_In2_Out1(StringRef name,
+                     ElementFuncT element_fn,
+                     Optional<uint32_t> operation_hash = {})
+      : MF_Custom_In2_Out1(name, MF_Custom_In2_Out1::create_function(element_fn), operation_hash)
+  {
+  }
+
+  template<typename ElementFuncT> static FunctionT create_function(ElementFuncT element_fn)
+  {
+    return [=](IndexMask mask,
+               VirtualListRef<InT1> inputs1,
+               VirtualListRef<InT2> inputs2,
+               MutableArrayRef<OutT> outputs) -> void {
+      if (inputs1.is_non_single_full_array() && inputs2.is_non_single_full_array()) {
+        ArrayRef<InT1> in1_array = inputs1.as_full_array();
+        ArrayRef<InT2> in2_array = inputs2.as_full_array();
+        mask.foreach_index(
+            [=](uint i) { new (&outputs[i]) OutT(element_fn(in1_array[i], in2_array[i])); });
+      }
+      else if (inputs1.is_non_single_full_array() && inputs2.is_single_element()) {
+        ArrayRef<InT1> in1_array = inputs1.as_full_array();
+        InT2 in2_single = inputs2.as_single_element();
+        mask.foreach_index(
+            [=](uint i) { new (&outputs[i]) OutT(element_fn(in1_array[i], in2_single)); });
+      }
+      else if (inputs1.is_single_element() && inputs2.is_non_single_full_array()) {
+        InT1 in1_single = inputs1.as_single_element();
+        ArrayRef<InT2> in2_array = inputs2.as_full_array();
+        mask.foreach_index(
+            [=](uint i) { new (&outputs[i]) OutT(element_fn(in1_single, in2_array[i])); });
+      }
+      else if (inputs1.is_single_element() && inputs2.is_single_element()) {
+        InT1 in1_single = inputs1.as_single_element();
+        InT2 in2_single = inputs2.as_single_element();
+        OutT out_single = element_fn(in1_single, in2_single);
+        outputs.fill_indices(mask.indices(), out_single);
+      }
+      else {
+        mask.foreach_index(
+            [=](uint i) { new (&outputs[i]) OutT(element_fn(inputs1[i], inputs2[i])); });
+      }
+    };
   }
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
@@ -106,6 +176,18 @@ template<typename T> class MF_VariadicMath final : public MultiFunction {
     }
     signature.single_output<T>("Output");
     signature.operation_hash(operation_hash);
+  }
+
+  template<typename ElementFuncT>
+  MF_VariadicMath(StringRef name,
+                  uint input_amount,
+                  ElementFuncT element_func,
+                  Optional<uint32_t> operation_hash = {})
+      : MF_VariadicMath(name,
+                        input_amount,
+                        MF_Custom_In2_Out1<T, T, T>::create_function(element_func),
+                        operation_hash)
+  {
   }
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override

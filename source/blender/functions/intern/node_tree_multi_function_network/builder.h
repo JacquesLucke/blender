@@ -103,7 +103,7 @@ class MFSocketByFSocketMapping {
 
   void add(ArrayRef<const FInputSocket *> fsockets, ArrayRef<MFBuilderInputSocket *> sockets)
   {
-    BLI_assert(fsockets.size() == sockets.size());
+    BLI::assert_same_size(fsockets, sockets);
     for (uint i : fsockets.index_range()) {
       this->add(*fsockets[i], *sockets[i]);
     }
@@ -111,7 +111,7 @@ class MFSocketByFSocketMapping {
 
   void add(ArrayRef<const FOutputSocket *> fsockets, ArrayRef<MFBuilderOutputSocket *> sockets)
   {
-    BLI_assert(fsockets.size() == sockets.size());
+    BLI::assert_same_size(fsockets, sockets);
     for (uint i : fsockets.index_range()) {
       this->add(*fsockets[i], *sockets[i]);
     }

@@ -163,97 +163,36 @@ static void INSERT_time_info(FNodeMFBuilder &builder)
 }
 
 template<typename InT, typename OutT, typename FuncT>
-static std::function<void(IndexMask mask, VirtualListRef<InT>, MutableArrayRef<OutT>)>
-vectorize_function_1in_1out(FuncT func)
-{
-  return [=](IndexMask mask, VirtualListRef<InT> inputs, MutableArrayRef<OutT> outputs) {
-    if (inputs.is_non_single_full_array()) {
-      ArrayRef<InT> in_array = inputs.as_full_array();
-      mask.foreach_index([=](uint i) { outputs[i] = func(in_array[i]); });
-    }
-    else if (inputs.is_single_element()) {
-      InT in_single = inputs.as_single_element();
-      outputs.fill_indices(mask.indices(), func(in_single));
-    }
-    else {
-      mask.foreach_index([=](uint i) { outputs[i] = func(inputs[i]); });
-    }
-  };
-}
-
-template<typename InT, typename OutT, typename FuncT>
 static void build_math_fn_1in_1out(FNodeMFBuilder &builder,
                                    FuncT func,
                                    Optional<uint32_t> operation_hash = {})
 {
-  auto fn = vectorize_function_1in_1out<InT, OutT>(func);
-
   builder.set_vectorized_constructed_matching_fn<MF_Custom_In1_Out1<InT, OutT>>(
-      {"use_list"}, builder.fnode().name(), fn, operation_hash);
-}
-
-template<typename InT1, typename InT2, typename OutT, typename FuncT>
-static std::function<
-    void(IndexMask, VirtualListRef<InT1>, VirtualListRef<InT2>, MutableArrayRef<OutT>)>
-vectorize_function_2in_1out(FuncT func)
-{
-  return [=](IndexMask mask,
-             VirtualListRef<InT1> inputs1,
-             VirtualListRef<InT2> inputs2,
-             MutableArrayRef<OutT> outputs) -> void {
-    if (inputs1.is_non_single_full_array() && inputs2.is_non_single_full_array()) {
-      ArrayRef<InT1> in1_array = inputs1.as_full_array();
-      ArrayRef<InT2> in2_array = inputs2.as_full_array();
-      mask.foreach_index(
-          [=](uint i) { new (&outputs[i]) OutT(func(in1_array[i], in2_array[i])); });
-    }
-    else if (inputs1.is_non_single_full_array() && inputs2.is_single_element()) {
-      ArrayRef<InT1> in1_array = inputs1.as_full_array();
-      InT2 in2_single = inputs2.as_single_element();
-      mask.foreach_index([=](uint i) { new (&outputs[i]) OutT(func(in1_array[i], in2_single)); });
-    }
-    else if (inputs1.is_single_element() && inputs2.is_non_single_full_array()) {
-      InT1 in1_single = inputs1.as_single_element();
-      ArrayRef<InT2> in2_array = inputs2.as_full_array();
-      mask.foreach_index([=](uint i) { new (&outputs[i]) OutT(func(in1_single, in2_array[i])); });
-    }
-    else if (inputs1.is_single_element() && inputs2.is_single_element()) {
-      InT1 in1_single = inputs1.as_single_element();
-      InT2 in2_single = inputs2.as_single_element();
-      OutT out_single = func(in1_single, in2_single);
-      outputs.fill_indices(mask.indices(), out_single);
-    }
-    else {
-      mask.foreach_index([=](uint i) { new (&outputs[i]) OutT(func(inputs1[i], inputs2[i])); });
-    }
-  };
+      {"use_list"}, builder.fnode().name(), func, operation_hash);
 }
 
 template<typename InT1, typename InT2, typename OutT, typename FuncT>
 static void build_math_fn_in2_out1(FNodeMFBuilder &builder,
-                                   FuncT func,
+                                   FuncT element_func,
                                    Optional<uint32_t> operation_hash = {})
 {
-  auto fn = vectorize_function_2in_1out<InT1, InT2, OutT>(func);
   builder.set_vectorized_constructed_matching_fn<MF_Custom_In2_Out1<InT1, InT2, OutT>>(
-      {"use_list__a", "use_list__b"}, builder.fnode().name(), fn, operation_hash);
+      {"use_list__a", "use_list__b"}, builder.fnode().name(), element_func, operation_hash);
 }
 
 template<typename T, typename FuncT>
 static void build_variadic_math_fn(FNodeMFBuilder &builder,
-                                   FuncT func,
+                                   FuncT element_func,
                                    T default_value,
                                    Optional<uint32_t> operation_hash = {})
 {
-  auto fn = vectorize_function_2in_1out<T, T, T>(func);
-
   Vector<bool> list_states = builder.get_list_base_variadic_states("variadic");
   if (list_states.size() == 0) {
     builder.set_constructed_matching_fn<MF_ConstantValue<T>>(default_value);
   }
   else {
     const MultiFunction &base_fn = builder.construct_fn<MF_VariadicMath<T>>(
-        builder.fnode().name(), list_states.size(), fn, operation_hash);
+        builder.fnode().name(), list_states.size(), element_func, operation_hash);
     if (list_states.contains(true)) {
       builder.set_constructed_matching_fn<MF_SimpleVectorize>(base_fn, list_states);
     }
@@ -341,6 +280,18 @@ static void INSERT_cosine_float(FNodeMFBuilder &builder)
       builder, [](float a) -> float { return std::cos(a); }, BLI_RAND_PER_LINE_UINT32);
 }
 
+static void INSERT_ceil_float(FNodeMFBuilder &builder)
+{
+  build_math_fn_1in_1out<float, float>(
+      builder, [](float a) -> float { return std::ceil(a); }, BLI_RAND_PER_LINE_UINT32);
+}
+
+static void INSERT_floor_float(FNodeMFBuilder &builder)
+{
+  build_math_fn_1in_1out<float, float>(
+      builder, [](float a) -> float { return std::floor(a); }, BLI_RAND_PER_LINE_UINT32);
+}
+
 static void INSERT_add_vectors(FNodeMFBuilder &builder)
 {
   build_variadic_math_fn(
@@ -406,6 +357,17 @@ static void INSERT_multiply_vector_with_float(FNodeMFBuilder &builder)
 {
   build_math_fn_in2_out1<float3, float, float3>(
       builder, [](float3 a, float b) { return a * b; }, BLI_RAND_PER_LINE_UINT32);
+}
+
+static void INSERT_normalize_vector(FNodeMFBuilder &builder)
+{
+  build_math_fn_1in_1out<float3, float3>(builder,
+                                         [](float3 a) -> float3 { return a.normalized(); });
+}
+
+static void INSERT_vector_length(FNodeMFBuilder &builder)
+{
+  build_math_fn_1in_1out<float3, float>(builder, [](float3 a) -> float { return a.length(); });
 }
 
 static void INSERT_boolean_and(FNodeMFBuilder &builder)
@@ -495,7 +457,12 @@ static void INSERT_clamp_float(FNodeMFBuilder &builder)
 static void INSERT_map_range(FNodeMFBuilder &builder)
 {
   bool clamp = RNA_boolean_get(builder.rna(), "clamp");
-  builder.set_constructed_matching_fn<MF_MapRange>(clamp);
+  builder.set_vectorized_constructed_matching_fn<MF_MapRange>({"use_list__value",
+                                                               "use_list__from_min",
+                                                               "use_list__from_max",
+                                                               "use_list__to_min",
+                                                               "use_list__to_max"},
+                                                              clamp);
 }
 
 static void INSERT_random_float(FNodeMFBuilder &builder)
@@ -636,6 +603,9 @@ void add_function_tree_node_mapping_info(FunctionTreeMFMappings &mappings)
   mappings.fnode_inserters.add_new("fn_SineFloatNode", INSERT_sine_float);
   mappings.fnode_inserters.add_new("fn_CosineFloatNode", INSERT_cosine_float);
 
+  mappings.fnode_inserters.add_new("fn_CeilFloatNode", INSERT_ceil_float);
+  mappings.fnode_inserters.add_new("fn_FloorFloatNode", INSERT_floor_float);
+
   mappings.fnode_inserters.add_new("fn_AddVectorsNode", INSERT_add_vectors);
   mappings.fnode_inserters.add_new("fn_SubtractVectorsNode", INSERT_subtract_vectors);
   mappings.fnode_inserters.add_new("fn_MultiplyVectorsNode", INSERT_multiply_vectors);
@@ -648,6 +618,8 @@ void add_function_tree_node_mapping_info(FunctionTreeMFMappings &mappings)
   mappings.fnode_inserters.add_new("fn_VectorDistanceNode", INSERT_vector_distance);
   mappings.fnode_inserters.add_new("fn_MultiplyVectorWithFloatNode",
                                    INSERT_multiply_vector_with_float);
+  mappings.fnode_inserters.add_new("fn_NormalizeVectorNode", INSERT_normalize_vector);
+  mappings.fnode_inserters.add_new("fn_VectorLengthNode", INSERT_vector_length);
 
   mappings.fnode_inserters.add_new("fn_BooleanAndNode", INSERT_boolean_and);
   mappings.fnode_inserters.add_new("fn_BooleanOrNode", INSERT_boolean_or);

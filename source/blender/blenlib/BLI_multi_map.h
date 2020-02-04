@@ -178,7 +178,7 @@ template<typename KeyT, typename ValueT, uint N = 4> class MultiMap {
   void add_multiple__impl(ForwardKeyT &&key, ArrayRef<ValueT> values)
   {
     for (const ValueT &value : values) {
-      this->add(key, value);
+      this->add(std::forward<ForwardKeyT>(key), value);
     }
   }
 

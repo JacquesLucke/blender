@@ -10,7 +10,7 @@ namespace FN {
 using BLI::Map;
 using BLI::Stack;
 
-class MF_EvaluateNetwork_Storage;
+class NetworkEvaluationStorage;
 
 class MF_EvaluateNetwork final : public MultiFunction {
  private:
@@ -23,37 +23,25 @@ class MF_EvaluateNetwork final : public MultiFunction {
   void call(IndexMask mask, MFParams params, MFContext context) const override;
 
  private:
-  using Storage = MF_EvaluateNetwork_Storage;
+  using Storage = NetworkEvaluationStorage;
 
   void copy_inputs_to_storage(MFParams params, Storage &storage) const;
-  void copy_inputs_to_storage__single(GenericVirtualListRef input_list,
-                                      ArrayRef<const MFInputSocket *> targets,
-                                      Storage &storage) const;
-  void copy_inputs_to_storage__vector(GenericVirtualListListRef input_list_list,
-                                      ArrayRef<const MFInputSocket *> targets,
-                                      Storage &storage) const;
+  void copy_outputs_to_storage(
+      MFParams params,
+      Storage &storage,
+      Vector<const MFInputSocket *> &outputs_to_initialize_in_the_end) const;
 
   void evaluate_network_to_compute_outputs(MFContext &global_context, Storage &storage) const;
 
-  void compute_and_forward_outputs(MFContext &global_context,
-                                   const MFFunctionNode &function_node,
-                                   Storage &storage) const;
-  bool can_evaluate_function_only_ones(const MFFunctionNode &function_node,
-                                       Storage &storage) const;
-  void prepare_function_params__all(const MFFunctionNode &function_node,
-                                    Storage &storage,
-                                    MFParamsBuilder &params_builder) const;
-  void forward_computed_values__all(const MFFunctionNode &function_node,
-                                    Storage &storage,
-                                    MFParamsBuilder &params_builder) const;
-  void prepare_function_params__single(const MFFunctionNode &function_node,
-                                       Storage &storage,
-                                       MFParamsBuilder &params_builder) const;
-  void forward_computed_values__single(const MFFunctionNode &function_node,
-                                       Storage &storage,
-                                       MFParamsBuilder &params_builder) const;
+  void evaluate_function(MFContext &global_context,
+                         const MFFunctionNode &function_node,
+                         Storage &storage) const;
 
-  void copy_computed_values_to_outputs(MFParams params, Storage &storage) const;
+  bool can_do_single_value_evaluation(const MFFunctionNode &function_node, Storage &storage) const;
+
+  void initialize_remaining_outputs(MFParams params,
+                                    Storage &storage,
+                                    ArrayRef<const MFInputSocket *> remaining_outputs) const;
 };
 
 }  // namespace FN

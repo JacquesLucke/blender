@@ -15,6 +15,7 @@ void AgeReachedEvent::filter(EventFilterInterface &interface)
   AttributesRef attributes = interface.attributes();
 
   ParticleFunctionEvaluator inputs{m_inputs_fn, interface.mask(), interface.attributes()};
+  inputs.context_builder().set_buffer_cache(interface.buffer_cache());
   inputs.compute();
 
   float end_time = interface.step_end_time();
@@ -65,9 +66,11 @@ void CustomEvent::filter(EventFilterInterface &interface)
   FN::EventFilterDurationsContext durations_context = {interface.remaining_durations()};
 
   ParticleFunctionEvaluator inputs{m_inputs_fn, interface.mask(), interface.attributes()};
-  inputs.context_builder().add_global_context(end_time_context);
-  inputs.context_builder().add_element_context(durations_context,
-                                               FN::MFElementContextIndices::FromDirectMapping());
+  FN::MFContextBuilder &context_builder = inputs.context_builder();
+  context_builder.set_buffer_cache(interface.buffer_cache());
+  context_builder.add_global_context(end_time_context);
+  context_builder.add_element_context(durations_context,
+                                      FN::MFElementContextIndices::FromDirectMapping());
   inputs.compute();
 
   for (uint pindex : interface.mask()) {
