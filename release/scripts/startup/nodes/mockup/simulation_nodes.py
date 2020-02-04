@@ -189,3 +189,42 @@ class SimulationDataNode(bpy.types.Node, SimulationNode):
     def declaration(self, builder: NodeBuilder):
         builder.fixed_input("name", "Name", "Text", display_name=False, default="Name")
         builder.mockup_output("data", "Data", "fn_SimulationDataSocket")
+
+class ClothSolverNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_ClothSolverNode"
+    bl_label = "Cloth Solver"
+
+    def declaration(self, builder: NodeBuilder):
+        builder.mockup_input("cloth_objects", "Cloth Objects", "fn_ClothObjectSocket")
+        builder.mockup_output("solver", "Solver", "fn_ExecuteSolverSocket")
+
+class ClothObjectNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_ClothObjectNode"
+    bl_label = "Cloth Object"
+
+    def declaration(self, builder: NodeBuilder):
+        builder.mockup_input("data", "Data", "fn_SimulationDataSocket")
+        builder.fixed_input("initial_geometry", "Initial Geometry", "Object")
+        builder.influences_input("influences", "Influences")
+        builder.mockup_output("cloth_object", "Cloth Object", "fn_ClothObjectSocket")
+
+class MovingPointsForceNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_MovingPointsForce"
+    bl_label = "Moving Points Force"
+
+    def declaration(self, builder: NodeBuilder):
+        builder.mockup_input("point_source", "Point Source", "fn_SimulationDataSocket")
+        builder.fixed_input("strength", "Strength", "Float", default=1.0)
+        builder.fixed_input("radius", "Radius", "Float", default=0.1)
+        builder.influences_output("force", "Force")
+
+class MeshCollisionEventNode2(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_MeshCollisionEventNode2"
+    bl_label = "Mesh Collision Event"
+
+    execute__prop: NodeBuilder.ExecuteInputProperty()
+
+    def declaration(self, builder: NodeBuilder):
+        builder.mockup_input("geometry_source", "Geometry Source", "fn_SimulationDataSocket")
+        builder.execute_input("execute", "Execute on Event", "execute__prop")
+        builder.influences_output("event", "Event")

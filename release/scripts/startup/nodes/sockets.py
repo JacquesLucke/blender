@@ -228,6 +228,8 @@ class InfluencesSocket(bpy.types.NodeSocket, BaseSocket):
     color = (0.8, 0.8, 0.2, 1)
 
 def make_mockup_socket(idname, color, shape):
+    if len(color) == 3:
+        color = list(color) + [1.0]
     return type(idname, (bpy.types.NodeSocket, BaseSocket),
         {
             "bl_idname" : idname,
@@ -237,14 +239,18 @@ def make_mockup_socket(idname, color, shape):
         })
 
 SimulationObjectsSocket = make_mockup_socket(
-    "fn_SimulationObjectsSocket", (0, 0, 0, 1), "DIAMOND")
+    "fn_SimulationObjectsSocket", (0, 0, 0), "DIAMOND")
 SimulationSolverSocket = make_mockup_socket(
-    "fn_SimulationSolverSocket", (1, 1, 1, 1), "SQUARE")
+    "fn_SimulationSolverSocket", (1, 1, 1), "SQUARE")
 
 ExecuteSolverSocket = make_mockup_socket(
-    "fn_ExecuteSolverSocket", (0.2, 0.8, 0.2, 1), "SQUARE")
+    "fn_ExecuteSolverSocket", (0.2, 0.8, 0.2), "SQUARE")
 ParticleSystemsSocket = make_mockup_socket(
-    "fn_ParticleSystemsSocket", (0.5, 0.5, 0.2, 1), "DIAMOND")
+    "fn_ParticleSystemsSocket", (0.5, 0.5, 0.2), "DIAMOND")
 
 SimulationDataSocket = make_mockup_socket(
-    "fn_SimulationDataSocket", (0.8, 0.2, 0.2, 1), "DIAMOND")
+    "fn_SimulationDataSocket", (0.5, 0.5, 0.5), "DIAMOND")
+CollisionGeometrySocket = make_mockup_socket(
+    "fn_CollisionGeometrySocket", (0.4, 0.4, 0.6), "DIAMOND")
+ClothObjectSocket = make_mockup_socket(
+    "fn_ClothObjectSocket", (0.7, 0.3, 0.3), "DIAMOND")

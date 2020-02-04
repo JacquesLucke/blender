@@ -19,7 +19,7 @@ class AgeReachedEventNode(bpy.types.Node, SimulationNode):
 
 class MeshCollisionEventNode(bpy.types.Node, SimulationNode):
     bl_idname = "fn_MeshCollisionEventNode"
-    bl_label = "Mesh Collision Event"
+    bl_label = "Mesh Collision Event (old)"
 
     execute_on_event__prop: NodeBuilder.ExecuteInputProperty()
 
