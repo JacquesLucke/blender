@@ -134,6 +134,19 @@ void parallel_map_items(const StringMap<ValueT> &string_map, const FuncT &func)
   });
 }
 
+template<typename ValueT, typename FuncT>
+void parallel_map_keys(const StringMap<ValueT> &string_map, const FuncT &func)
+{
+  ScopedVector<StringRefNull> key_vector;
+
+  string_map.foreach_item([&](StringRefNull key, const ValueT &value) { key_vector.append(key); });
+
+  parallel_for(key_vector.index_range(), [&](uint index) {
+    StringRefNull key = key_vector[index];
+    func(key);
+  });
+}
+
 }  // namespace BLI
 
 #endif /* __BLI_PARALLEL_H__ */

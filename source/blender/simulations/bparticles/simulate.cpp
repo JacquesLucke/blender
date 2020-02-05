@@ -484,9 +484,12 @@ void simulate_particles(SimulationState &simulation_state,
                               main_set.add_particles(*set);
                               delete set;
                             }
-
-                            delete_tagged_particles_and_reorder(main_set);
                           });
+
+  BLI::parallel_map_keys(systems_to_simulate, [&](StringRef name) {
+    ParticleSet &particles = particles_state.particle_container(name);
+    delete_tagged_particles_and_reorder(particles);
+  });
 }
 
 }  // namespace BParticles
