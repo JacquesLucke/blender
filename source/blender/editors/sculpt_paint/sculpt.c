@@ -4086,9 +4086,7 @@ SculptPoseIKChain *sculpt_pose_ik_chain_init(Sculpt *sd,
                                              const float radius)
 {
 
-  float chain_end[3];
-  float chain_segment_len = len_v3v3(initial_location, chain_end) / br->pose_ik_segments;
-  chain_segment_len = radius * (1.0f + br->pose_offset);
+  const float chain_segment_len = radius * (1.0f + br->pose_offset);
   float next_chain_segment_target[3];
 
   int totvert = sculpt_vertex_count_get(ss);
@@ -8308,13 +8306,13 @@ static bool sculpt_and_dynamic_topology_poll(bContext *C)
 static void SCULPT_OT_optimize(wmOperatorType *ot)
 {
   /* identifiers */
-  ot->name = "Optimize";
+  ot->name = "Rebuild BVH";
   ot->idname = "SCULPT_OT_optimize";
   ot->description = "Recalculate the sculpt BVH to improve performance";
 
   /* api callbacks */
   ot->exec = sculpt_optimize_exec;
-  ot->poll = sculpt_and_dynamic_topology_poll;
+  ot->poll = sculpt_mode_poll;
 
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }

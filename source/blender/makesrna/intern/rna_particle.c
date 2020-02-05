@@ -385,11 +385,11 @@ static void rna_ParticleSystem_co_hair(
     totchild = 0;
   }
 
-  if (particle_no < totpart) {
+  if (particle_no < totpart && particlesystem->pathcache) {
     cache = particlesystem->pathcache[particle_no];
     max_k = (int)cache->segments;
   }
-  else if (particle_no < totpart + totchild) {
+  else if (particle_no < totpart + totchild && particlesystem->childcache) {
     cache = particlesystem->childcache[particle_no - totpart];
 
     if (cache->segments < 0) {
@@ -425,7 +425,7 @@ static const EnumPropertyItem *rna_Particle_Material_itemf(bContext *C,
 
   if (ob && ob->totcol > 0) {
     for (i = 1; i <= ob->totcol; i++) {
-      ma = give_current_material(ob, i);
+      ma = BKE_object_material_get(ob, i);
       tmp.value = i;
       tmp.icon = ICON_MATERIAL_DATA;
       if (ma) {
