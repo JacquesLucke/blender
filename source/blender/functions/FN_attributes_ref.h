@@ -46,9 +46,8 @@ class AttributesInfoBuilder : BLI::NonCopyable, BLI::NonMovable {
     if (m_names.add(name)) {
       m_types.append(&type);
       void *dst = m_allocator.allocate(type.size(), type.alignment());
-      memset(dst, 0, type.size());
       if (default_value == nullptr) {
-        type.construct_default(dst);
+        type.copy_to_uninitialized(type.default_value(), dst);
       }
       else {
         type.copy_to_uninitialized(default_value, dst);

@@ -160,7 +160,9 @@ void FillUninitializedIndices_CB(const void *value, void *dst, IndexMask index_m
 }
 
 template<typename T>
-static std::unique_ptr<const CPPType> create_cpp_type(StringRef name, uint32_t type_hash)
+static std::unique_ptr<const CPPType> create_cpp_type(StringRef name,
+                                                      uint32_t type_hash,
+                                                      const T &default_value)
 {
   const CPPType *type = new CPPType(name,
                                     sizeof(T),
@@ -188,13 +190,15 @@ static std::unique_ptr<const CPPType> create_cpp_type(StringRef name, uint32_t t
                                     FillInitializedIndices_CB<T>,
                                     FillUninitialized_CB<T>,
                                     FillUninitializedIndices_CB<T>,
-                                    type_hash);
+                                    type_hash,
+                                    (const void *)&default_value);
   return std::unique_ptr<const CPPType>(type);
 }
 
 #define MAKE_CPP_TYPE(IDENTIFIER, TYPE_NAME) \
+  static TYPE_NAME default_value_##IDENTIFIER; \
   static std::unique_ptr<const CPPType> CPPTYPE_##IDENTIFIER = create_cpp_type<TYPE_NAME>( \
-      STRINGIFY(IDENTIFIER), BLI_RAND_PER_LINE_UINT32); \
+      STRINGIFY(IDENTIFIER), BLI_RAND_PER_LINE_UINT32, default_value_##IDENTIFIER); \
   template<> const CPPType &CPP_TYPE<TYPE_NAME>() \
   { \
     return *CPPTYPE_##IDENTIFIER; \
