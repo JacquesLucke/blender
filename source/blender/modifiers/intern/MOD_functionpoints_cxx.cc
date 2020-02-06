@@ -12,6 +12,7 @@
 #include "FN_multi_functions.h"
 #include "FN_multi_function_common_contexts.h"
 #include "FN_multi_function_dependencies.h"
+#include "FN_expression_lexer.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
@@ -35,6 +36,9 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
 Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
                             const struct ModifierEvalContext *ctx)
 {
+  Vector<FN::Expr::Token> tokens;
+  FN::Expr::tokenize("4+  (a + abc/5.4 -3)", tokens);
+
   if (fpmd->function_tree == nullptr) {
     return BKE_mesh_new_nomain(0, 0, 0, 0, 0);
   }
