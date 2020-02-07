@@ -25,8 +25,7 @@ enum Enum {
 
 struct Token {
   TokenType::Enum type;
-  uint start;
-  uint size;
+  StringRef str;
 };
 
 void tokenize(StringRef str, Vector<Token> &r_tokens);

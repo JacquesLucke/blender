@@ -61,8 +61,9 @@ void tokenize(StringRef str, Vector<Token> &r_tokens)
 
   while (offset < total_size) {
     const char next_char = str[offset];
-    Token token;
-    token.start = offset;
+
+    uint token_size;
+    TokenType::Enum token_type;
     switch (next_char) {
       case ' ':
       case '\t':
@@ -81,42 +82,42 @@ void tokenize(StringRef str, Vector<Token> &r_tokens)
       case '7':
       case '8':
       case '9': {
-        tokenize_number(str.drop_prefix(offset), token.size, token.type);
+        tokenize_number(str.drop_prefix(offset), token_size, token_type);
         break;
       }
       case '+': {
-        token.size = 1;
-        token.type = TokenType::Plus;
+        token_size = 1;
+        token_type = TokenType::Plus;
         break;
       }
       case '-': {
-        token.size = 1;
-        token.type = TokenType::Minus;
+        token_size = 1;
+        token_type = TokenType::Minus;
         break;
       }
       case '*': {
-        token.size = 1;
-        token.type = TokenType::Asterix;
+        token_size = 1;
+        token_type = TokenType::Asterix;
         break;
       }
       case '/': {
-        token.size = 1;
-        token.type = TokenType::ForwardSlash;
+        token_size = 1;
+        token_type = TokenType::ForwardSlash;
         break;
       }
       case '(': {
-        token.size = 1;
-        token.type = TokenType::ParenOpen;
+        token_size = 1;
+        token_type = TokenType::ParenOpen;
         break;
       }
       case ')': {
-        token.size = 1;
-        token.type = TokenType::ParenClose;
+        token_size = 1;
+        token_type = TokenType::ParenClose;
         break;
       }
       default: {
         if (is_identifier_start(next_char)) {
-          tokenize_identifier(str.drop_prefix(offset), token.size, token.type);
+          tokenize_identifier(str.drop_prefix(offset), token_size, token_type);
         }
         else {
           BLI_assert(false);
@@ -125,8 +126,12 @@ void tokenize(StringRef str, Vector<Token> &r_tokens)
       }
     }
 
+    Token token;
+    token.type = token_type;
+    token.str = StringRef(str.begin() + offset, token_size);
     r_tokens.append(token);
-    offset += token.size;
+
+    offset += token_size;
   }
 }
 
