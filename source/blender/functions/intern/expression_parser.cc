@@ -113,6 +113,7 @@ class TokensToAstBuilder {
 };
 
 static ASTNode *parse_expression(TokensToAstBuilder &builder);
+static ASTNode *parse_expression__comparison_level(TokensToAstBuilder &builder);
 static ASTNode *parse_expression__add_sub_level(TokensToAstBuilder &builder);
 static ASTNode *parse_expression__mul_div_level(TokensToAstBuilder &builder);
 static ASTNode *parse_expression__power_level(TokensToAstBuilder &builder);
@@ -186,9 +187,47 @@ static ASTNode *parse_expression__add_sub_level(TokensToAstBuilder &builder)
   return left_expr;
 }
 
+static ASTNodeType::Enum get_comparison_node_type(TokenType::Enum token_type)
+{
+  switch (token_type) {
+    case TokenType::Equal:
+      return ASTNodeType::Equal;
+    case TokenType::Less:
+      return ASTNodeType::Less;
+    case TokenType::LessOrEqual:
+      return ASTNodeType::LessOrEqual;
+    case TokenType::Greater:
+      return ASTNodeType::Greater;
+    case TokenType::GreaterOrEqual:
+      return ASTNodeType::GreaterOrEqual;
+    default:
+      BLI_assert(false);
+      return ASTNodeType::Equal;
+  }
+}
+
+static ASTNode *parse_expression__comparison_level(TokensToAstBuilder &builder)
+{
+  ASTNode *left_expr = parse_expression__add_sub_level(builder);
+  if (ELEM(builder.next_type(),
+           TokenType::Equal,
+           TokenType::Less,
+           TokenType::LessOrEqual,
+           TokenType::Greater,
+           TokenType::GreaterOrEqual)) {
+    builder.consume();
+    ASTNode *right_expr = parse_expression__add_sub_level(builder);
+    ASTNodeType::Enum node_type = get_comparison_node_type(builder.next_type());
+    return builder.construct_binary_node(node_type, left_expr, right_expr);
+  }
+  else {
+    return left_expr;
+  }
+}
+
 static ASTNode *parse_expression(TokensToAstBuilder &builder)
 {
-  return parse_expression__add_sub_level(builder);
+  return parse_expression__comparison_level(builder);
 }
 
 ASTNode &parse_expression(StringRef str, MonotonicAllocator<> &allocator)
@@ -199,6 +238,7 @@ ASTNode &parse_expression(StringRef str, MonotonicAllocator<> &allocator)
 
   token_types.append(TokenType::EndOfString);
   TokensToAstBuilder builder(str, token_types, token_ranges, allocator);
+  BLI_assert(builder.is_at_end());
   ASTNode &node = *parse_expression(builder);
   return node;
 }
