@@ -37,26 +37,10 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
 Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
                             const struct ModifierEvalContext *ctx)
 {
-  std::string str =
-      "4<<2**4 *6+  (a>>6>=>3 + abc/5.4== \"sfddsfg sdf 4 33\"-3\"\"<5>\"asd\\\" "
-      "df\"3<=12>54>=65>)**";
-  Vector<FN::Expr::TokenType::Enum> token_types;
-  Vector<FN::Expr::TokenRange> token_ranges;
-  FN::Expr::tokenize(str, token_types, token_ranges);
-
-  BLI_assert(token_ranges.size() == token_types.size());
-
-  for (uint i : token_types.index_range()) {
-    auto range = token_ranges[i];
-    std::cout << (uint)token_types[i] << ": " << str.substr(range.start, range.size) << "\n";
-  }
-
-  std::cout << sizeof(FN::Expr::TokenType::Enum) << "\n";
-  std::cout << sizeof(FN::Expr::TokenRange) << "\n";
-  // BLI::MonotonicAllocator<> allocator;
-  // FN::Expr::ASTNode &ast = FN::Expr::parse_tokens(str, tokens, allocator);
-  // ast.print();
-  // std::cout << "\n";
+  std::string str = "---4+5";
+  BLI::MonotonicAllocator<> allocator;
+  FN::Expr::ASTNode &ast = FN::Expr::parse_expression(str, allocator);
+  ast.print();
 
   if (fpmd->function_tree == nullptr) {
     return BKE_mesh_new_nomain(0, 0, 0, 0, 0);

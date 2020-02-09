@@ -11,6 +11,7 @@ using BLI::Vector;
 
 namespace TokenType {
 enum Enum : uchar {
+  EndOfString = 0,
   ParenOpen,
   ParenClose,
   IntLiteral,
