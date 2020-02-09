@@ -54,7 +54,9 @@ static void tokenize_identifier(StringRef str, uint &r_token_size, TokenType::En
   r_token_type = TokenType::Identifier;
 }
 
-void tokenize(StringRef str, Vector<Token> &r_tokens)
+void tokenize(StringRef str,
+              Vector<TokenType::Enum> &r_token_types,
+              Vector<TokenRange> &r_token_ranges)
 {
   uint offset = 0;
   uint total_size = str.size();
@@ -115,6 +117,46 @@ void tokenize(StringRef str, Vector<Token> &r_tokens)
         token_type = TokenType::ParenClose;
         break;
       }
+      case '=': {
+        BLI_assert(str[offset + 1] == '=');
+        token_size = 2;
+        token_type = TokenType::Equal;
+        break;
+      }
+      case '<': {
+        if (offset + 1 < total_size) {
+          if (str[offset + 1] == '=') {
+            token_size = 2;
+            token_type = TokenType::LessOrEqual;
+          }
+          else {
+            token_size = 1;
+            token_type = TokenType::Less;
+          }
+        }
+        else {
+          token_size = 1;
+          token_type = TokenType::Less;
+        }
+        break;
+      }
+      case '>': {
+        if (offset + 1 < total_size) {
+          if (str[offset + 1] == '=') {
+            token_size = 2;
+            token_type = TokenType::GreaterOrEqual;
+          }
+          else {
+            token_size = 1;
+            token_type = TokenType::Greater;
+          }
+        }
+        else {
+          token_size = 1;
+          token_type = TokenType::Greater;
+        }
+        break;
+      }
       default: {
         if (is_identifier_start(next_char)) {
           tokenize_identifier(str.drop_prefix(offset), token_size, token_type);
@@ -126,10 +168,12 @@ void tokenize(StringRef str, Vector<Token> &r_tokens)
       }
     }
 
-    Token token;
-    token.type = token_type;
-    token.str = StringRef(str.begin() + offset, token_size);
-    r_tokens.append(token);
+    TokenRange range;
+    range.start = offset;
+    range.size = token_size;
+
+    r_token_types.append(token_type);
+    r_token_ranges.append(range);
 
     offset += token_size;
   }

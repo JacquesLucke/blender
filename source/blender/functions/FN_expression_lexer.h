@@ -10,7 +10,7 @@ using BLI::StringRef;
 using BLI::Vector;
 
 namespace TokenType {
-enum Enum {
+enum Enum : uchar {
   ParenOpen,
   ParenClose,
   IntLiteral,
@@ -20,15 +20,22 @@ enum Enum {
   Asterix,
   ForwardSlash,
   Identifier,
+  Less,
+  Greater,
+  Equal,
+  LessOrEqual,
+  GreaterOrEqual,
 };
 }
 
-struct Token {
-  TokenType::Enum type;
-  StringRef str;
+struct TokenRange {
+  uint start;
+  uint size;
 };
 
-void tokenize(StringRef str, Vector<Token> &r_tokens);
+void tokenize(StringRef str,
+              Vector<TokenType::Enum> &r_token_types,
+              Vector<TokenRange> &r_token_ranges);
 
 }  // namespace Expr
 }  // namespace FN

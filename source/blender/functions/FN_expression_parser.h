@@ -76,7 +76,10 @@ struct BinaryOperationNode : public ASTNode {
   }
 };
 
-ASTNode &parse_tokens(StringRef str, ArrayRef<Token> tokens, MonotonicAllocator<> &allocator);
+ASTNode &parse_tokens(StringRef str,
+                      ArrayRef<TokenType::Enum> token_types,
+                      ArrayRef<TokenRange> token_ranges,
+                      MonotonicAllocator<> &allocator);
 
 }  // namespace Expr
 }  // namespace FN
