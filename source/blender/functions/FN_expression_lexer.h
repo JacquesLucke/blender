@@ -25,6 +25,7 @@ enum Enum : uchar {
   Equal,
   LessOrEqual,
   GreaterOrEqual,
+  String,
 };
 }
 

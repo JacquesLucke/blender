@@ -157,6 +157,25 @@ void tokenize(StringRef str,
         }
         break;
       }
+      case '"': {
+        bool is_escaped = false;
+        token_type = TokenType::String;
+        token_size = 2 + count_while(str.drop_prefix(offset + 1), [&](char c) {
+                       if (is_escaped) {
+                         is_escaped = false;
+                         return true;
+                       }
+                       else if (c == '\\') {
+                         is_escaped = true;
+                         return true;
+                       }
+                       else {
+                         bool is_end = c == '"';
+                         return !is_end;
+                       }
+                     });
+        break;
+      }
       default: {
         if (is_identifier_start(next_char)) {
           tokenize_identifier(str.drop_prefix(offset), token_size, token_type);
