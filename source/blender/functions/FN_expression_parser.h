@@ -1,8 +1,10 @@
 #pragma once
 
 #include "BLI_array_ref.h"
-#include "FN_expression_lexer.h"
 #include "BLI_monotonic_allocator.h"
+
+#include "FN_expression_lexer.h"
+#include "FN_cpp_type.h"
 
 namespace FN {
 namespace Expr {
@@ -13,12 +15,18 @@ using BLI::MutableArrayRef;
 
 namespace ASTNodeType {
 enum Enum {
+  Identifier,
+  Constant,
+  BinaryOperation,
+};
+}
+
+namespace BinaryOperationType {
+enum Enum {
   Plus,
   Minus,
-  Identifier,
-  IntConstant,
-  FloatConstant,
-  InfixOperation,
+  Multiply,
+  Divide,
 };
 }
 
@@ -30,6 +38,15 @@ struct ASTNode {
       : children(children), type(type)
   {
   }
+
+  void print() const
+  {
+    std::cout << type << "(";
+    for (ASTNode *child : children) {
+      child->print();
+    }
+    std::cout << ")";
+  }
 };
 
 struct IdentifierNode : public ASTNode {
@@ -40,27 +57,21 @@ struct IdentifierNode : public ASTNode {
   }
 };
 
-struct IntConstantNode : public ASTNode {
-  StringRef value;
+struct ConstantNode : public ASTNode {
+  void *value;
+  const CPPType &type;
 
-  IntConstantNode(StringRef value) : ASTNode({}, ASTNodeType::IntConstant), value(value)
+  ConstantNode(void *value, const CPPType &type)
+      : ASTNode({}, ASTNodeType::Constant), value(value), type(type)
   {
   }
 };
 
-struct FloatConstantNode : public ASTNode {
-  StringRef value;
+struct BinaryOperationNode : public ASTNode {
+  BinaryOperationType::Enum op_type;
 
-  FloatConstantNode(StringRef value) : ASTNode({}, ASTNodeType::FloatConstant), value(value)
-  {
-  }
-};
-
-struct InfixOperationNode : public ASTNode {
-  StringRef value;
-
-  InfixOperationNode(StringRef value, MutableArrayRef<ASTNode *> operands)
-      : ASTNode(operands, ASTNodeType::InfixOperation), value(value)
+  BinaryOperationNode(BinaryOperationType::Enum op_type, MutableArrayRef<ASTNode *> operands)
+      : ASTNode(operands, ASTNodeType::BinaryOperation), op_type(op_type)
   {
   }
 };

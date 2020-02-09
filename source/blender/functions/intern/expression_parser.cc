@@ -46,10 +46,16 @@ static ASTNode *parse_expression__atom_level(TokenStream &tokens, MonotonicAlloc
   switch (token.type) {
     case TokenType::Identifier:
       return allocator.construct<IdentifierNode>(token.str);
-    case TokenType::IntLiteral:
-      return allocator.construct<IntConstantNode>(token.str);
-    case TokenType::FloatLiteral:
-      return allocator.construct<FloatConstantNode>(token.str);
+    case TokenType::IntLiteral: {
+      std::string str = token.str;
+      void *value = allocator.construct<int>(std::atoi(str.c_str()));
+      return allocator.construct<ConstantNode>(value, CPP_TYPE<int>());
+    }
+    case TokenType::FloatLiteral: {
+      std::string str = token.str;
+      void *value = allocator.construct<float>(std::atof(str.c_str()));
+      return allocator.construct<ConstantNode>(value, CPP_TYPE<float>());
+    }
     case TokenType::ParenOpen: {
       ASTNode *expr = parse_expression(tokens, allocator);
       tokens.consume(TokenType::ParenClose);
@@ -71,7 +77,13 @@ static ASTNode *parse_expression__mul_div_level(TokenStream &tokens,
     MutableArrayRef<ASTNode *> operands = allocator.allocate_array<ASTNode *>(2);
     operands[0] = left_expr;
     operands[1] = right_expr;
-    left_expr = allocator.construct<InfixOperationNode>(operator_token.str, operands);
+    if (tokens.next_is(TokenType::Asterix)) {
+      left_expr = allocator.construct<BinaryOperationNode>(BinaryOperationType::Multiply,
+                                                           operands);
+    }
+    else {
+      left_expr = allocator.construct<BinaryOperationNode>(BinaryOperationType::Divide, operands);
+    }
   }
   return left_expr;
 }
@@ -86,7 +98,12 @@ static ASTNode *parse_expression__add_sub_level(TokenStream &tokens,
     MutableArrayRef<ASTNode *> operands = allocator.allocate_array<ASTNode *>(2);
     operands[0] = left_expr;
     operands[1] = right_expr;
-    left_expr = allocator.construct<InfixOperationNode>(operator_token.str, operands);
+    if (tokens.next_is(TokenType::Plus)) {
+      left_expr = allocator.construct<BinaryOperationNode>(BinaryOperationType::Plus, operands);
+    }
+    else {
+      left_expr = allocator.construct<BinaryOperationNode>(BinaryOperationType::Minus, operands);
+    }
   }
   return left_expr;
 }

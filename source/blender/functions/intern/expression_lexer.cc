@@ -5,7 +5,7 @@ namespace Expr {
 
 static bool is_digit(char c)
 {
-  return c >= '0' & c <= '9';
+  return c >= '0' && c <= '9';
 }
 
 static bool is_identifier_start(char c)

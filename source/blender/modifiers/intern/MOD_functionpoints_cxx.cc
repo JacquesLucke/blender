@@ -43,6 +43,8 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
 
   BLI::MonotonicAllocator<> allocator;
   FN::Expr::ASTNode &ast = FN::Expr::parse_tokens(str, tokens, allocator);
+  ast.print();
+  std::cout << "\n";
 
   if (fpmd->function_tree == nullptr) {
     return BKE_mesh_new_nomain(0, 0, 0, 0, 0);
