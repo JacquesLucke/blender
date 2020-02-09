@@ -26,6 +26,8 @@ enum Enum : uchar {
   LessOrEqual,
   GreaterOrEqual,
   String,
+  ShiftLeft,
+  ShiftRight,
 };
 }
 

@@ -37,7 +37,8 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
 Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
                             const struct ModifierEvalContext *ctx)
 {
-  std::string str = "4+  (a + abc/5.4== \"sfddsfg sdf 4 33\"-3\"\"<5>\"asd\\\" df\"3<=12>54>=65>)";
+  std::string str =
+      "4<<2+  (a>>6>=>3 + abc/5.4== \"sfddsfg sdf 4 33\"-3\"\"<5>\"asd\\\" df\"3<=12>54>=65>)";
   Vector<FN::Expr::TokenType::Enum> token_types;
   Vector<FN::Expr::TokenRange> token_ranges;
   FN::Expr::tokenize(str, token_types, token_ranges);

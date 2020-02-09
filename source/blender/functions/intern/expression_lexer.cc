@@ -62,11 +62,11 @@ void tokenize(StringRef str,
   uint total_size = str.size();
 
   while (offset < total_size) {
-    const char next_char = str[offset];
+    const char current_char = str[offset];
 
     uint token_size;
     TokenType::Enum token_type;
-    switch (next_char) {
+    switch (current_char) {
       case ' ':
       case '\t':
       case '\n':
@@ -125,9 +125,14 @@ void tokenize(StringRef str,
       }
       case '<': {
         if (offset + 1 < total_size) {
-          if (str[offset + 1] == '=') {
+          char next_char = str[offset + 1];
+          if (str[next_char] == '=') {
             token_size = 2;
             token_type = TokenType::LessOrEqual;
+          }
+          else if (next_char == '<') {
+            token_size = 2;
+            token_type == TokenType::ShiftLeft;
           }
           else {
             token_size = 1;
@@ -142,9 +147,14 @@ void tokenize(StringRef str,
       }
       case '>': {
         if (offset + 1 < total_size) {
-          if (str[offset + 1] == '=') {
+          char next_char = str[offset + 1];
+          if (next_char == '=') {
             token_size = 2;
             token_type = TokenType::GreaterOrEqual;
+          }
+          else if (next_char == '>') {
+            token_size = 2;
+            token_type = TokenType::ShiftRight;
           }
           else {
             token_size = 1;
@@ -177,7 +187,7 @@ void tokenize(StringRef str,
         break;
       }
       default: {
-        if (is_identifier_start(next_char)) {
+        if (is_identifier_start(current_char)) {
           tokenize_identifier(str.drop_prefix(offset), token_size, token_type);
         }
         else {
