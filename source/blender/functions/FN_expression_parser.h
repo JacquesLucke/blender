@@ -16,17 +16,22 @@ using BLI::MutableArrayRef;
 namespace ASTNodeType {
 enum Enum {
   Identifier,
-  Constant,
-  BinaryOperation,
-};
-}
-
-namespace BinaryOperationType {
-enum Enum {
+  ConstantInt,
+  ConstantFloat,
+  ConstantString,
   Plus,
   Minus,
   Multiply,
   Divide,
+  Less,
+  Greater,
+  Equal,
+  LessOrEqual,
+  GreaterOrEqual,
+  ShiftLeft,
+  ShiftRight,
+  Negate,
+  Power,
 };
 }
 
@@ -50,28 +55,33 @@ struct ASTNode {
 };
 
 struct IdentifierNode : public ASTNode {
-  StringRef value;
+  StringRefNull value;
 
-  IdentifierNode(StringRef value) : ASTNode({}, ASTNodeType::Identifier), value(value)
+  IdentifierNode(StringRefNull value) : ASTNode({}, ASTNodeType::Identifier), value(value)
   {
   }
 };
 
-struct ConstantNode : public ASTNode {
-  void *value;
-  const CPPType &type;
+struct ConstantFloatNode : public ASTNode {
+  float value;
 
-  ConstantNode(void *value, const CPPType &type)
-      : ASTNode({}, ASTNodeType::Constant), value(value), type(type)
+  ConstantFloatNode(float value) : ASTNode({}, ASTNodeType::ConstantFloat), value(value)
   {
   }
 };
 
-struct BinaryOperationNode : public ASTNode {
-  BinaryOperationType::Enum op_type;
+struct ConstantIntNode : public ASTNode {
+  int value;
 
-  BinaryOperationNode(BinaryOperationType::Enum op_type, MutableArrayRef<ASTNode *> operands)
-      : ASTNode(operands, ASTNodeType::BinaryOperation), op_type(op_type)
+  ConstantIntNode(int value) : ASTNode({}, ASTNodeType::ConstantInt), value(value)
+  {
+  }
+};
+
+struct ConstantStringNode : public ASTNode {
+  StringRefNull value;
+
+  ConstantStringNode(StringRefNull value) : ASTNode({}, ASTNodeType::ConstantString), value(value)
   {
   }
 };

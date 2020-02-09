@@ -18,6 +18,7 @@ enum Enum : uchar {
   Plus,
   Minus,
   Asterix,
+  DoubleAsterix,
   ForwardSlash,
   Identifier,
   Less,

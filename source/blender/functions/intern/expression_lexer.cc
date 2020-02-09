@@ -98,8 +98,21 @@ void tokenize(StringRef str,
         break;
       }
       case '*': {
-        token_size = 1;
-        token_type = TokenType::Asterix;
+        if (offset + 1 < total_size) {
+          char next_char = str[offset + 1];
+          if (next_char == '*') {
+            token_size = 2;
+            token_type = TokenType::DoubleAsterix;
+          }
+          else {
+            token_size = 1;
+            token_type = TokenType::Asterix;
+          }
+        }
+        else {
+          token_size = 1;
+          token_type = TokenType::Asterix;
+        }
         break;
       }
       case '/': {
@@ -132,7 +145,7 @@ void tokenize(StringRef str,
           }
           else if (next_char == '<') {
             token_size = 2;
-            token_type == TokenType::ShiftLeft;
+            token_type = TokenType::ShiftLeft;
           }
           else {
             token_size = 1;
