@@ -261,7 +261,6 @@ set(SRC
   intern/BLI_lazy_init.cc
   BLI_math_cxx.h
   BLI_linear_allocator.h
-  BLI_optional.h
   BLI_multi_map.h
   BLI_timeit.h
   BLI_vector_adaptor.h
