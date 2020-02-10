@@ -29,10 +29,6 @@ extern "C" {
  * \brief support for deformation groups and hooks.
  */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 struct ListBase;
 struct MDeformVert;
 struct MEdge;
