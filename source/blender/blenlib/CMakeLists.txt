@@ -263,7 +263,6 @@ set(SRC
   BLI_optional.h
   BLI_refcount.h
   BLI_multi_map.h
-  BLI_chunked_range.h
   BLI_timeit.h
   BLI_vector_adaptor.h
   BLI_multi_vector.h
