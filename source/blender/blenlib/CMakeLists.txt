@@ -52,7 +52,6 @@ set(SRC
   intern/BLI_memblock.c
   intern/BLI_memiter.c
   intern/BLI_mempool.c
-  intern/BLI_temporary_allocator.cc
   intern/BLI_timer.c
   intern/DLRB_tree.c
   intern/array_store.c
@@ -236,8 +235,6 @@ set(SRC
   BLI_sys_types.h
   BLI_system.h
   BLI_task.h
-  BLI_temporary_allocator.h
-  BLI_temporary_allocator_cxx.h
   BLI_threads.h
   BLI_timecode.h
   BLI_timer.h

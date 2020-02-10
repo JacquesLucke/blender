@@ -612,10 +612,6 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
      * reallocation every time even though the min_capacity only increments. */
     min_capacity = power_of_2_max_u(min_capacity);
 
-    /* Use a larger capacity if the allocator cannot allocate small buffers. */
-    uint min_allocation_capacity = m_allocator.min_allocated_size() / sizeof(T);
-    min_capacity = std::max(min_capacity, min_allocation_capacity);
-
     uint size = this->size();
 
     T *new_array = (T *)m_allocator.allocate_aligned(
@@ -660,15 +656,6 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
 };
 
 #undef UPDATE_VECTOR_SIZE
-
-/**
- * Use this when the following assumptions hold:
- *   - The number of elements in the vector is not known from the beginning.
- *   - The vector is usually relatively large (so that it does not fit in inline storage).
- *   - Is used in the scope of some function. So it will be freed soon.
- *   - The scope is not in a recursive function.
- */
-template<typename T, uint N = 4> using LargeScopedVector = Vector<T, N, TemporaryAllocator>;
 
 /**
  * Use when the vector is used in the local scope of a function. It has a larger inline storage by

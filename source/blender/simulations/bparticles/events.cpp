@@ -5,8 +5,6 @@
 
 namespace BParticles {
 
-using BLI::LargeScopedVector;
-
 /* Age Reached Event
  ******************************************/
 

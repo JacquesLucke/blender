@@ -266,7 +266,7 @@ BLI_NOINLINE void FunctionTree::expand_group__relink_outputs(const VirtualNodeTr
 BLI_NOINLINE void FunctionTree::insert_linked_nodes_for_vtree_in_id_order(
     const VirtualNodeTree &vtree, Vector<FNode *> &all_nodes, FParentNode *parent)
 {
-  BLI::LargeScopedArray<FSocket *> sockets_map(vtree.socket_count());
+  BLI::Array<FSocket *> sockets_map(vtree.socket_count());
 
   /* Insert nodes of group. */
   for (const VNode *vnode : vtree.nodes()) {

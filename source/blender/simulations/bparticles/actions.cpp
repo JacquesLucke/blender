@@ -108,7 +108,7 @@ void SpawnParticlesAction::execute(ParticleActionContext &context)
   inputs.context_builder().set_buffer_cache(context.buffer_cache());
   inputs.compute();
 
-  LargeScopedArray<int> particle_counts(array_size, -1);
+  Array<int> particle_counts(array_size, -1);
 
   const MultiFunction &fn = m_spawn_function.fn();
   for (uint param_index : fn.param_indices()) {

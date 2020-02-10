@@ -26,10 +26,10 @@ using BKE::IDHandleLookup;
 using BKE::ImageIDHandle;
 using BKE::ObjectIDHandle;
 using BKE::SurfaceHook;
+using BLI::Array;
 using BLI::float2;
 using BLI::float3;
 using BLI::float4x4;
-using BLI::LargeScopedArray;
 using BLI::rgba_b;
 using BLI::rgba_f;
 using BLI::VectorAdaptor;
@@ -145,47 +145,47 @@ void MF_GetPositionOnSurface::call(IndexMask mask, MFParams params, MFContext co
     return;
   }
 
-  group_indices_by_same_value(
-      mask.indices(),
-      surface_hooks,
-      [&](SurfaceHook base_hook, IndexMask indices_on_same_surface) {
-        if (base_hook.type() != BKE::SurfaceHookType::MeshObject) {
-          r_positions.fill_indices(indices_on_same_surface, fallback);
-          return;
-        }
+  group_indices_by_same_value(mask.indices(),
+                              surface_hooks,
+                              [&](SurfaceHook base_hook, IndexMask indices_on_same_surface) {
+                                if (base_hook.type() != BKE::SurfaceHookType::MeshObject) {
+                                  r_positions.fill_indices(indices_on_same_surface, fallback);
+                                  return;
+                                }
 
-        Object *object = id_handle_lookup->lookup(base_hook.object_handle());
-        if (object == nullptr) {
-          r_positions.fill_indices(indices_on_same_surface, fallback);
-          return;
-        }
+                                Object *object = id_handle_lookup->lookup(
+                                    base_hook.object_handle());
+                                if (object == nullptr) {
+                                  r_positions.fill_indices(indices_on_same_surface, fallback);
+                                  return;
+                                }
 
-        Mesh *mesh = (Mesh *)object->data;
-        const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
-        int triangle_amount = BKE_mesh_runtime_looptri_len(mesh);
+                                Mesh *mesh = (Mesh *)object->data;
+                                const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
+                                int triangle_amount = BKE_mesh_runtime_looptri_len(mesh);
 
-        for (uint i : indices_on_same_surface) {
-          SurfaceHook hook = surface_hooks[i];
+                                for (uint i : indices_on_same_surface) {
+                                  SurfaceHook hook = surface_hooks[i];
 
-          if (hook.triangle_index() >= triangle_amount) {
-            r_positions[i] = fallback;
-            continue;
-          }
+                                  if (hook.triangle_index() >= triangle_amount) {
+                                    r_positions[i] = fallback;
+                                    continue;
+                                  }
 
-          const MLoopTri &triangle = triangles[hook.triangle_index()];
-          float3 v1 = mesh->mvert[mesh->mloop[triangle.tri[0]].v].co;
-          float3 v2 = mesh->mvert[mesh->mloop[triangle.tri[1]].v].co;
-          float3 v3 = mesh->mvert[mesh->mloop[triangle.tri[2]].v].co;
+                                  const MLoopTri &triangle = triangles[hook.triangle_index()];
+                                  float3 v1 = mesh->mvert[mesh->mloop[triangle.tri[0]].v].co;
+                                  float3 v2 = mesh->mvert[mesh->mloop[triangle.tri[1]].v].co;
+                                  float3 v3 = mesh->mvert[mesh->mloop[triangle.tri[2]].v].co;
 
-          float3 position;
-          interp_v3_v3v3v3(position, v1, v2, v3, hook.bary_coords());
-          float4x4 local_to_world = object->obmat;
-          position = local_to_world.transform_position(position);
+                                  float3 position;
+                                  interp_v3_v3v3v3(position, v1, v2, v3, hook.bary_coords());
+                                  float4x4 local_to_world = object->obmat;
+                                  position = local_to_world.transform_position(position);
 
-          r_positions[i] = position;
-        }
-      },
-      SurfaceHook::on_same_surface);
+                                  r_positions[i] = position;
+                                }
+                              },
+                              SurfaceHook::on_same_surface);
 }
 
 MF_GetNormalOnSurface::MF_GetNormalOnSurface()
@@ -586,13 +586,13 @@ void MF_SampleObjectSurface::call(IndexMask mask, MFParams params, MFContext con
       continue;
     }
 
-    LargeScopedArray<float> triangle_weights(triangles.size());
+    Array<float> triangle_weights(triangles.size());
     compute_triangle_areas(mesh, triangles, triangle_weights);
 
     if (m_use_vertex_weights) {
-      LargeScopedArray<float> vertex_weights(mesh->totvert);
+      Array<float> vertex_weights(mesh->totvert);
       if (get_vertex_weights(object, vertex_group_names[i], vertex_weights)) {
-        LargeScopedArray<float> vertex_weights_for_triangles(triangles.size());
+        Array<float> vertex_weights_for_triangles(triangles.size());
         vertex_weights_to_triangle_weights(
             mesh, triangles, vertex_weights, vertex_weights_for_triangles);
 
@@ -602,17 +602,17 @@ void MF_SampleObjectSurface::call(IndexMask mask, MFParams params, MFContext con
       }
     }
 
-    LargeScopedArray<float> cumulative_weights(triangle_weights.size() + 1);
+    Array<float> cumulative_weights(triangle_weights.size() + 1);
     float total_weight = compute_cumulative_distribution(triangle_weights, cumulative_weights);
     if (total_weight <= 0.0f) {
       continue;
     }
 
     BLI_rng_srandom(rng, seeds[i] + amount * 1000);
-    LargeScopedArray<uint> triangle_indices(amount);
+    Array<uint> triangle_indices(amount);
     sample_cumulative_distribution(rng, cumulative_weights, triangle_indices);
 
-    LargeScopedArray<float3> bary_coords(amount);
+    Array<float3> bary_coords(amount);
     compute_random_uniform_bary_coords(rng, bary_coords);
 
     MutableArrayRef<SurfaceHook> r_hooks = r_hooks_per_index.allocate_and_default_construct(
