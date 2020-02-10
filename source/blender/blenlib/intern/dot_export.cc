@@ -95,7 +95,7 @@ void Cluster::set_random_cluster_bgcolors()
   float hue = rand() / (float)RAND_MAX;
   float staturation = 0.3f;
   float value = 0.8f;
-  this->set_attribute("bgcolor", Utils::color_attr_from_hsv(hue, staturation, value));
+  this->set_attribute("bgcolor", color_attr_from_hsv(hue, staturation, value));
 
   for (Cluster *cluster : m_children) {
     cluster->set_random_cluster_bgcolors();
@@ -225,8 +225,6 @@ void NodePort::to_dot_string(std::stringstream &ss) const
   }
 }
 
-namespace Utils {
-
 std::string color_attr_from_hsv(float h, float s, float v)
 {
   std::stringstream ss;
@@ -234,10 +232,10 @@ std::string color_attr_from_hsv(float h, float s, float v)
   return ss.str();
 }
 
-NodeWithSocketsWrapper::NodeWithSocketsWrapper(Node &node,
-                                               StringRef name,
-                                               ArrayRef<std::string> input_names,
-                                               ArrayRef<std::string> output_names)
+NodeWithSocketsRef::NodeWithSocketsRef(Node &node,
+                                       StringRef name,
+                                       ArrayRef<std::string> input_names,
+                                       ArrayRef<std::string> output_names)
     : m_node(&node)
 {
   std::stringstream ss;
@@ -286,8 +284,6 @@ NodeWithSocketsWrapper::NodeWithSocketsWrapper(Node &node,
   m_node->set_attribute("label", ss.str());
   m_node->set_shape(Attr_shape::Rectangle);
 }
-
-}  // namespace Utils
 
 }  // namespace DotExport
 }  // namespace BLI
