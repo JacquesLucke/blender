@@ -212,6 +212,7 @@ set(SRC
   BLI_mempool.h
   BLI_noise.h
   BLI_open_addressing.h
+  BLI_optional.h
   BLI_path_util.h
   BLI_polyfill_2d.h
   BLI_polyfill_2d_beautify.h
