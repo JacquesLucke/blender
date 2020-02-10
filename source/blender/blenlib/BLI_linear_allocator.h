@@ -27,37 +27,49 @@
 #include "BLI_vector.h"
 #include "BLI_utility_mixins.h"
 #include "BLI_timeit.h"
+#include "BLI_stack_cxx.h"
 #include "BLI_string_ref.h"
 
 namespace BLI {
 
-template<uint N = 0, typename Allocator = GuardedAllocator>
-class LinearAllocator : NonCopyable, NonMovable {
+template<typename Allocator = GuardedAllocator> class LinearAllocator : NonCopyable, NonMovable {
  private:
   Allocator m_allocator;
-  Vector<void *> m_pointers;
+  Vector<void *> m_owned_buffers;
+  Vector<ArrayRef<char>> m_unused_borrowed_buffers;
 
-  void *m_current_buffer;
-  uint m_remaining_capacity;
+  uintptr_t m_current_begin;
+  uintptr_t m_current_end;
   uint m_next_min_alloc_size;
-
-  AlignedBuffer<N, 8> m_inline_buffer;
 
 #ifdef DEBUG
   uint m_debug_allocated_amount = 0;
 #endif
 
  public:
-  LinearAllocator() : m_remaining_capacity(N), m_next_min_alloc_size(std::max<uint>(N * 2, 16))
+  LinearAllocator()
   {
-    m_current_buffer = m_inline_buffer.ptr();
+    m_current_begin = 0;
+    m_current_end = 0;
+    m_next_min_alloc_size = 64;
   }
 
   ~LinearAllocator()
   {
-    for (void *ptr : m_pointers) {
+    for (void *ptr : m_owned_buffers) {
       m_allocator.deallocate(ptr);
     }
+  }
+
+  void provide_buffer(void *buffer, uint size)
+  {
+    m_unused_borrowed_buffers.append(ArrayRef<char>((char *)buffer, size));
+  }
+
+  template<uint Size, uint Alignment>
+  void provide_buffer(AlignedBuffer<Size, Alignment> &aligned_buffer)
+  {
+    this->provide_buffer(aligned_buffer.ptr(), Size);
   }
 
   template<typename T> T *allocate()
@@ -80,15 +92,11 @@ class LinearAllocator : NonCopyable, NonMovable {
 #endif
 
     uintptr_t alignment_mask = alignment - 1;
-
-    uintptr_t current_buffer = (uintptr_t)m_current_buffer;
-    uintptr_t potential_allocation_begin = (current_buffer + alignment - 1) & ~alignment_mask;
+    uintptr_t potential_allocation_begin = (m_current_begin + alignment_mask) & ~alignment_mask;
     uintptr_t potential_allocation_end = potential_allocation_begin + size;
-    uintptr_t required_size = potential_allocation_end - current_buffer;
 
-    if (required_size <= m_remaining_capacity) {
-      m_remaining_capacity -= required_size;
-      m_current_buffer = (void *)potential_allocation_end;
+    if (potential_allocation_end <= m_current_end) {
+      m_current_begin = potential_allocation_end;
       return (void *)potential_allocation_begin;
     }
     else {
@@ -140,13 +148,23 @@ class LinearAllocator : NonCopyable, NonMovable {
  private:
   void allocate_new_buffer(uint min_allocation_size)
   {
+    for (uint i : m_unused_borrowed_buffers.index_range()) {
+      ArrayRef<char> buffer = m_unused_borrowed_buffers[i];
+      if (buffer.size() >= min_allocation_size) {
+        m_unused_borrowed_buffers.remove_and_reorder(i);
+        m_current_begin = (uintptr_t)buffer.begin();
+        m_current_end = (uintptr_t)buffer.end();
+        return;
+      }
+    }
+
     uint size_in_bytes = power_of_2_min_u(std::max(min_allocation_size, m_next_min_alloc_size));
     m_next_min_alloc_size = size_in_bytes * 2;
 
     void *buffer = m_allocator.allocate(size_in_bytes, __func__);
-    m_pointers.append(buffer);
-    m_remaining_capacity = size_in_bytes;
-    m_current_buffer = buffer;
+    m_owned_buffers.append(buffer);
+    m_current_begin = (uintptr_t)buffer;
+    m_current_end = m_current_begin + size_in_bytes;
   }
 };
 

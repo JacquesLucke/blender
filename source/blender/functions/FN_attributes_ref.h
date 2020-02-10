@@ -27,7 +27,7 @@ class AttributesInfo;
 
 class AttributesInfoBuilder : BLI::NonCopyable, BLI::NonMovable {
  private:
-  LinearAllocator<32> m_allocator;
+  LinearAllocator<> m_allocator;
   VectorSet<std::string> m_names;
   Vector<const CPPType *> m_types;
   Vector<void *> m_defaults;
@@ -100,7 +100,7 @@ class AttributesInfoBuilder : BLI::NonCopyable, BLI::NonMovable {
 
 class AttributesInfo : BLI::NonCopyable, BLI::NonMovable {
  private:
-  LinearAllocator<32> m_allocator;
+  LinearAllocator<> m_allocator;
   StringMap<int> m_index_by_name;
   Vector<std::string> m_name_by_index;
   Vector<const CPPType *> m_type_by_index;

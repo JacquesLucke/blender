@@ -104,7 +104,7 @@ struct OwnVectorValue : public Value {
 
 class NetworkEvaluationStorage {
  private:
-  LinearAllocator<256> m_allocator;
+  LinearAllocator<> m_allocator;
   BufferCache &m_buffer_cache;
   IndexMask m_mask;
   Array<Value *> m_value_per_output_id;

@@ -37,7 +37,7 @@ template<typename KeyT, typename ValueT, uint N = 4> class MultiMap {
     uint capacity = 0;
   };
 
-  LinearAllocator<sizeof(ValueT) * N> m_allocator;
+  LinearAllocator<> m_allocator;
   Map<KeyT, Entry> m_map;
 
  public:
