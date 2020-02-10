@@ -17,7 +17,7 @@
 /** \file
  * \ingroup bli
  *
- * A monotonic allocator is the simplest form of an allocator. It never reuses any memory, and
+ * A linear allocator is the simplest form of an allocator. It never reuses any memory, and
  * therefore does not need a deallocation method. It simply hands out consecutive buffers of
  * memory. When the current buffer is full, it reallocates a new larger buffer and continues.
  */
@@ -32,7 +32,7 @@
 namespace BLI {
 
 template<uint N = 0, typename Allocator = GuardedAllocator>
-class MonotonicAllocator : NonCopyable, NonMovable {
+class LinearAllocator : NonCopyable, NonMovable {
  private:
   Allocator m_allocator;
   Vector<void *> m_pointers;
@@ -48,12 +48,12 @@ class MonotonicAllocator : NonCopyable, NonMovable {
 #endif
 
  public:
-  MonotonicAllocator() : m_remaining_capacity(N), m_next_min_alloc_size(std::max<uint>(N * 2, 16))
+  LinearAllocator() : m_remaining_capacity(N), m_next_min_alloc_size(std::max<uint>(N * 2, 16))
   {
     m_current_buffer = m_inline_buffer.ptr();
   }
 
-  ~MonotonicAllocator()
+  ~LinearAllocator()
   {
     for (void *ptr : m_pointers) {
       m_allocator.deallocate(ptr);

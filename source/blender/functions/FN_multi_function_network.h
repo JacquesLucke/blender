@@ -137,7 +137,7 @@ class MFBuilderOutputSocket : public MFBuilderSocket {
 
 class MFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
  private:
-  MonotonicAllocator<> m_allocator;
+  LinearAllocator<> m_allocator;
 
   VectorSet<MFBuilderFunctionNode *> m_function_nodes;
   VectorSet<MFBuilderDummyNode *> m_dummy_nodes;
@@ -373,7 +373,7 @@ class MFOutputSocket final : public MFSocket {
 
 class MFNetwork : BLI::NonCopyable, BLI::NonMovable {
  private:
-  MonotonicAllocator<> m_allocator;
+  LinearAllocator<> m_allocator;
 
   Vector<MFNode *> m_node_by_id;
   Vector<MFSocket *> m_socket_by_id;
