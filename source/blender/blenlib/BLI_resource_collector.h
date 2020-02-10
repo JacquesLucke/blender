@@ -4,7 +4,7 @@
 #include "BLI_vector.h"
 #include "BLI_utility_mixins.h"
 #include "BLI_string_ref.h"
-#include "BLI_monotonic_allocator.h"
+#include "BLI_linear_allocator.h"
 
 namespace BLI {
 
@@ -16,7 +16,7 @@ class ResourceCollector : NonCopyable {
     const char *name;
   };
 
-  MonotonicAllocator<> m_allocator;
+  LinearAllocator<> m_allocator;
   Vector<ResourceData> m_resources;
 
  public:
@@ -64,7 +64,7 @@ class ResourceCollector : NonCopyable {
     return m_allocator.allocate(size, alignment);
   }
 
-  MonotonicAllocator<> &allocator()
+  LinearAllocator<> &allocator()
   {
     return m_allocator;
   }

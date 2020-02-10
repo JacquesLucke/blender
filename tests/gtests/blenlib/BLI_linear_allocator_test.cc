@@ -1,5 +1,5 @@
 #include "testing/testing.h"
-#include "BLI_monotonic_allocator.h"
+#include "BLI_linear_allocator.h"
 
 using namespace BLI;
 
@@ -11,7 +11,7 @@ static bool is_aligned(void *ptr, uint alignment)
 
 TEST(monotonic_allocator, AllocationAlignment)
 {
-  MonotonicAllocator<> allocator;
+  LinearAllocator<> allocator;
 
   EXPECT_TRUE(is_aligned(allocator.allocate(10, 4), 4));
   EXPECT_TRUE(is_aligned(allocator.allocate(10, 4), 4));
@@ -28,8 +28,9 @@ TEST(monotonic_allocator, AllocationAlignment)
 
 TEST(monotonic_allocator, PackedAllocation)
 {
-  MonotonicAllocator<256> allocator;
-  allocator.allocate(32, 32);
+  LinearAllocator<> allocator;
+  BLI::AlignedBuffer<256, 32> buffer;
+  allocator.provide_buffer(buffer);
 
   uintptr_t ptr1 = (uintptr_t)allocator.allocate(10, 4); /*  0 - 10 */
   uintptr_t ptr2 = (uintptr_t)allocator.allocate(10, 4); /* 12 - 22 */

@@ -262,7 +262,7 @@ set(SRC
   BLI_lazy_init_cxx.h
   intern/BLI_lazy_init.cc
   BLI_math_cxx.h
-  BLI_monotonic_allocator.h
+  BLI_linear_allocator.h
   BLI_optional.h
   BLI_refcount.h
   BLI_multi_map.h
