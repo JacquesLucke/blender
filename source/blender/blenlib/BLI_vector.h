@@ -37,6 +37,7 @@
 #include "BLI_listbase_wrapper.h"
 #include "BLI_math_base.h"
 #include "BLI_allocator.h"
+#include "BLI_index_range.h"
 
 #include "MEM_guardedalloc.h"
 

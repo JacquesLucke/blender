@@ -20,6 +20,10 @@
 #ifndef __BKE_DEFORM_H__
 #define __BKE_DEFORM_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /** \file
  * \ingroup bke
  * \brief support for deformation groups and hooks.
