@@ -8,14 +8,14 @@ class TokensToAstBuilder {
   StringRef m_str;
   ArrayRef<TokenType::Enum> m_token_types;
   ArrayRef<TokenRange> m_token_ranges;
-  MonotonicAllocator<> &m_allocator;
+  LinearAllocator<> &m_allocator;
   uint m_current = 0;
 
  public:
   TokensToAstBuilder(StringRef str,
                      ArrayRef<TokenType::Enum> token_types,
                      ArrayRef<TokenRange> token_ranges,
-                     MonotonicAllocator<> &allocator)
+                     LinearAllocator<> &allocator)
       : m_str(str),
         m_token_types(token_types),
         m_token_ranges(token_ranges),
@@ -230,7 +230,7 @@ static ASTNode *parse_expression(TokensToAstBuilder &builder)
   return parse_expression__comparison_level(builder);
 }
 
-ASTNode &parse_expression(StringRef str, MonotonicAllocator<> &allocator)
+ASTNode &parse_expression(StringRef str, LinearAllocator<> &allocator)
 {
   Vector<TokenType::Enum> token_types;
   Vector<TokenRange> token_ranges;

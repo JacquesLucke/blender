@@ -1,7 +1,7 @@
 #pragma once
 
 #include "BLI_array_ref.h"
-#include "BLI_monotonic_allocator.h"
+#include "BLI_linear_allocator.h"
 
 #include "FN_expression_lexer.h"
 #include "FN_cpp_type.h"
@@ -10,7 +10,7 @@ namespace FN {
 namespace Expr {
 
 using BLI::ArrayRef;
-using BLI::MonotonicAllocator;
+using BLI::LinearAllocator;
 using BLI::MutableArrayRef;
 
 namespace ASTNodeType {
@@ -86,7 +86,7 @@ struct ConstantStringNode : public ASTNode {
   }
 };
 
-ASTNode &parse_expression(StringRef str, MonotonicAllocator<> &allocator);
+ASTNode &parse_expression(StringRef str, LinearAllocator<> &allocator);
 
 }  // namespace Expr
 }  // namespace FN

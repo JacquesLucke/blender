@@ -38,7 +38,7 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
                             const struct ModifierEvalContext *ctx)
 {
   std::string str = "---4+5 < 10";
-  BLI::MonotonicAllocator<> allocator;
+  BLI::LinearAllocator<> allocator;
   FN::Expr::ASTNode &ast = FN::Expr::parse_expression(str, allocator);
   ast.print();
 
