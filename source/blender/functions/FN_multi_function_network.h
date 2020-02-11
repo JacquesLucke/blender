@@ -8,12 +8,14 @@
 #include "BLI_set.h"
 #include "BLI_vector_set.h"
 #include "BLI_map.h"
+#include "BLI_resource_collector.h"
 
 namespace FN {
 
 using BLI::Array;
 using BLI::Map;
 using BLI::Optional;
+using BLI::ResourceCollector;
 using BLI::Set;
 using BLI::VectorSet;
 
@@ -152,6 +154,8 @@ class MFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
   void to_dot__clipboard(const Set<MFBuilderNode *> &marked_nodes = {});
 
   MFBuilderFunctionNode &add_function(const MultiFunction &function);
+  template<typename T, typename... Args>
+  MFBuilderFunctionNode &add_function(ResourceCollector &resources, Args &&... args);
   MFBuilderDummyNode &add_dummy(StringRef name,
                                 ArrayRef<MFDataType> input_types,
                                 ArrayRef<MFDataType> output_types,
@@ -603,6 +607,17 @@ inline MFBuilderOutputSocket *MFBuilderInputSocket::origin()
 inline ArrayRef<MFBuilderInputSocket *> MFBuilderOutputSocket::targets()
 {
   return m_targets;
+}
+
+template<typename T, typename... Args>
+MFBuilderFunctionNode &MFNetworkBuilder::add_function(ResourceCollector &resources,
+                                                      Args &&... args)
+{
+  BLI_STATIC_ASSERT((std::is_base_of<MultiFunction, T>::value), "");
+  void *buffer = resources.allocate(sizeof(T), alignof(T));
+  T *fn = new (buffer) T(std::forward<Args>(args)...);
+  resources.add(BLI::destruct_ptr<T>(fn), fn->name().data());
+  return this->add_function(*fn);
 }
 
 /* MFNetwork Implementations

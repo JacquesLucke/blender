@@ -37,31 +37,30 @@ MFBuilderOutputSocket &build_node(AstNode &ast_node,
       const CPPType &type1 = sub1.data_type().single__cpp_type();
       const CPPType &type2 = sub2.data_type().single__cpp_type();
 
-      const MultiFunction *fn = nullptr;
+      MFBuilderFunctionNode *node;
       if (type1 == CPP_TYPE<int>() && type2 == CPP_TYPE<int>()) {
-        fn = &resources.construct<MF_Custom_In2_Out1<int, int, int>>(
-            "add", "add", [](int a, int b) { return a + b; });
+        node = &network_builder.add_function<MF_Custom_In2_Out1<int, int, int>>(
+            resources, "add", [](int a, int b) { return a + b; });
       }
       else if (type1 == CPP_TYPE<int>() && type2 == CPP_TYPE<float>()) {
-        fn = &resources.construct<MF_Custom_In2_Out1<int, float, float>>(
-            "add", "add", [](int a, float b) { return (float)a + b; });
+        node = &network_builder.add_function<MF_Custom_In2_Out1<int, float, float>>(
+            resources, "add", [](int a, float b) { return a + b; });
       }
       else if (type1 == CPP_TYPE<float>() && type2 == CPP_TYPE<int>()) {
-        fn = &resources.construct<MF_Custom_In2_Out1<float, int, float>>(
-            "add", "add", [](float a, int b) { return a + (float)b; });
+        node = &network_builder.add_function<MF_Custom_In2_Out1<float, int, float>>(
+            resources, "add", [](float a, int b) { return a + b; });
       }
       else if (type1 == CPP_TYPE<float>() && type2 == CPP_TYPE<float>()) {
-        fn = &resources.construct<MF_Custom_In2_Out1<float, float, float>>(
-            "add", "add", [](float a, float b) { return (float)a + b; });
+        node = &network_builder.add_function<MF_Custom_In2_Out1<float, float, float>>(
+            resources, "add", [](float a, float b) { return a + b; });
       }
       else {
         BLI_assert(false);
       }
 
-      MFBuilderNode &node = network_builder.add_function(*fn);
-      network_builder.add_link(sub1, node.input(0));
-      network_builder.add_link(sub2, node.input(1));
-      return node.output(0);
+      network_builder.add_link(sub1, node->input(0));
+      network_builder.add_link(sub2, node->input(1));
+      return node->output(0);
     }
     case AstNodeType::Minus: {
       BLI_assert(false);
@@ -81,15 +80,15 @@ MFBuilderOutputSocket &build_node(AstNode &ast_node,
     }
     case AstNodeType::ConstantInt: {
       ConstantIntNode &int_node = (ConstantIntNode &)ast_node;
-      const MultiFunction &fn = resources.construct<MF_ConstantValue<int>>("constant int",
-                                                                           int_node.value);
-      return network_builder.add_function(fn).output(0);
+      MFBuilderFunctionNode &node = network_builder.add_function<MF_ConstantValue<int>>(
+          resources, int_node.value);
+      return node.output(0);
     }
     case AstNodeType::ConstantFloat: {
       ConstantFloatNode &float_node = (ConstantFloatNode &)ast_node;
-      const MultiFunction &fn = resources.construct<MF_ConstantValue<float>>("constant float",
-                                                                             float_node.value);
-      return network_builder.add_function(fn).output(0);
+      MFBuilderFunctionNode &node = network_builder.add_function<MF_ConstantValue<float>>(
+          resources, float_node.value);
+      return node.output(0);
     }
     case AstNodeType::ConstantString: {
       BLI_assert(false);
@@ -98,21 +97,20 @@ MFBuilderOutputSocket &build_node(AstNode &ast_node,
     case AstNodeType::Negate: {
       MFBuilderOutputSocket &sub_output = build_node(
           *ast_node.children[0], network_builder, resources);
-      const MultiFunction *fn = nullptr;
+      MFBuilderFunctionNode *node;
       if (sub_output.data_type().single__cpp_type() == CPP_TYPE<int>()) {
-        fn = &resources.construct<MF_Custom_In1_Out1<int, int>>(
-            "negate", "negate", [](int a) -> int { return -a; });
+        node = &network_builder.add_function<MF_Custom_In1_Out1<int, int>>(
+            resources, "negate", [](int a) { return -a; });
       }
       else if (sub_output.data_type().single__cpp_type() == CPP_TYPE<float>()) {
-        fn = &resources.construct<MF_Custom_In1_Out1<float, float>>(
-            "negate", "negate", [](float a) -> float { return -a; });
+        node = &network_builder.add_function<MF_Custom_In1_Out1<float, float>>(
+            resources, "negate", [](float a) { return -a; });
       }
       else {
         BLI_assert(false);
       }
-      MFBuilderNode &node = network_builder.add_function(*fn);
-      network_builder.add_link(sub_output, node.input(0));
-      return node.output(0);
+      network_builder.add_link(sub_output, node->input(0));
+      return node->output(0);
     }
     case AstNodeType::Power: {
       BLI_assert(false);
