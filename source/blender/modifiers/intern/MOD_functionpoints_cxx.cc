@@ -39,7 +39,7 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
 {
   std::string str = "---4+5 < 10";
   BLI::LinearAllocator<> allocator;
-  FN::Expr::ASTNode &ast = FN::Expr::parse_expression(str, allocator);
+  FN::Expr::AstNode &ast = FN::Expr::parse_expression(str, allocator);
   ast.print();
   std::cout << '\n';
 

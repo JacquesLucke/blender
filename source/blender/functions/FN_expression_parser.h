@@ -13,7 +13,7 @@ using BLI::ArrayRef;
 using BLI::LinearAllocator;
 using BLI::MutableArrayRef;
 
-enum class ASTNodeType : uchar {
+enum class AstNodeType : uchar {
   Identifier,
   ConstantInt,
   ConstantFloat,
@@ -33,59 +33,59 @@ enum class ASTNodeType : uchar {
   Power,
 };
 
-StringRefNull node_type_to_string(ASTNodeType node_type);
+StringRefNull node_type_to_string(AstNodeType node_type);
 
-struct ASTNode {
-  MutableArrayRef<ASTNode *> children;
-  ASTNodeType type;
+struct AstNode {
+  MutableArrayRef<AstNode *> children;
+  AstNodeType type;
 
-  ASTNode(MutableArrayRef<ASTNode *> children, ASTNodeType type) : children(children), type(type)
+  AstNode(MutableArrayRef<AstNode *> children, AstNodeType type) : children(children), type(type)
   {
   }
 
   void print() const
   {
     std::cout << node_type_to_string(type) << "(";
-    for (ASTNode *child : children) {
+    for (AstNode *child : children) {
       child->print();
     }
     std::cout << ")";
   }
 };
 
-struct IdentifierNode : public ASTNode {
+struct IdentifierNode : public AstNode {
   StringRefNull value;
 
-  IdentifierNode(StringRefNull value) : ASTNode({}, ASTNodeType::Identifier), value(value)
+  IdentifierNode(StringRefNull value) : AstNode({}, AstNodeType::Identifier), value(value)
   {
   }
 };
 
-struct ConstantFloatNode : public ASTNode {
+struct ConstantFloatNode : public AstNode {
   float value;
 
-  ConstantFloatNode(float value) : ASTNode({}, ASTNodeType::ConstantFloat), value(value)
+  ConstantFloatNode(float value) : AstNode({}, AstNodeType::ConstantFloat), value(value)
   {
   }
 };
 
-struct ConstantIntNode : public ASTNode {
+struct ConstantIntNode : public AstNode {
   int value;
 
-  ConstantIntNode(int value) : ASTNode({}, ASTNodeType::ConstantInt), value(value)
+  ConstantIntNode(int value) : AstNode({}, AstNodeType::ConstantInt), value(value)
   {
   }
 };
 
-struct ConstantStringNode : public ASTNode {
+struct ConstantStringNode : public AstNode {
   StringRefNull value;
 
-  ConstantStringNode(StringRefNull value) : ASTNode({}, ASTNodeType::ConstantString), value(value)
+  ConstantStringNode(StringRefNull value) : AstNode({}, AstNodeType::ConstantString), value(value)
   {
   }
 };
 
-ASTNode &parse_expression(StringRef str, LinearAllocator<> &allocator);
+AstNode &parse_expression(StringRef str, LinearAllocator<> &allocator);
 
 }  // namespace Expr
 }  // namespace FN

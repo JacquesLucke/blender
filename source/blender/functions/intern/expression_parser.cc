@@ -92,32 +92,32 @@ class TokensToAstBuilder {
     return m_allocator.construct<ConstantStringNode>(value);
   }
 
-  ASTNode *construct_binary_node(ASTNodeType node_type, ASTNode *left_node, ASTNode *right_node)
+  AstNode *construct_binary_node(AstNodeType node_type, AstNode *left_node, AstNode *right_node)
   {
-    MutableArrayRef<ASTNode *> children = m_allocator.allocate_array<ASTNode *>(2);
+    MutableArrayRef<AstNode *> children = m_allocator.allocate_array<AstNode *>(2);
     children[0] = left_node;
     children[1] = right_node;
-    ASTNode *node = m_allocator.construct<ASTNode>(children, node_type);
+    AstNode *node = m_allocator.construct<AstNode>(children, node_type);
     return node;
   }
 
-  ASTNode *construct_unary_node(ASTNodeType node_type, ASTNode *sub_node)
+  AstNode *construct_unary_node(AstNodeType node_type, AstNode *sub_node)
   {
-    MutableArrayRef<ASTNode *> children = m_allocator.allocate_array<ASTNode *>(1);
+    MutableArrayRef<AstNode *> children = m_allocator.allocate_array<AstNode *>(1);
     children[0] = sub_node;
-    ASTNode *node = m_allocator.construct<ASTNode>(children, node_type);
+    AstNode *node = m_allocator.construct<AstNode>(children, node_type);
     return node;
   }
 };
 
-static ASTNode *parse_expression(TokensToAstBuilder &builder);
-static ASTNode *parse_expression__comparison_level(TokensToAstBuilder &builder);
-static ASTNode *parse_expression__add_sub_level(TokensToAstBuilder &builder);
-static ASTNode *parse_expression__mul_div_level(TokensToAstBuilder &builder);
-static ASTNode *parse_expression__power_level(TokensToAstBuilder &builder);
-static ASTNode *parse_expression__atom_level(TokensToAstBuilder &builder);
+static AstNode *parse_expression(TokensToAstBuilder &builder);
+static AstNode *parse_expression__comparison_level(TokensToAstBuilder &builder);
+static AstNode *parse_expression__add_sub_level(TokensToAstBuilder &builder);
+static AstNode *parse_expression__mul_div_level(TokensToAstBuilder &builder);
+static AstNode *parse_expression__power_level(TokensToAstBuilder &builder);
+static AstNode *parse_expression__atom_level(TokensToAstBuilder &builder);
 
-static ASTNode *parse_expression__atom_level(TokensToAstBuilder &builder)
+static AstNode *parse_expression__atom_level(TokensToAstBuilder &builder)
 {
   switch (builder.next_type()) {
     case TokenType::Identifier:
@@ -128,12 +128,12 @@ static ASTNode *parse_expression__atom_level(TokensToAstBuilder &builder)
       return builder.consume_constant_float();
     case TokenType::Minus: {
       builder.consume(TokenType::Minus);
-      ASTNode *expr = parse_expression__mul_div_level(builder);
-      return builder.construct_unary_node(ASTNodeType::Negate, expr);
+      AstNode *expr = parse_expression__mul_div_level(builder);
+      return builder.construct_unary_node(AstNodeType::Negate, expr);
     }
     case TokenType::ParenOpen: {
       builder.consume(TokenType::ParenOpen);
-      ASTNode *expr = parse_expression(builder);
+      AstNode *expr = parse_expression(builder);
       builder.consume(TokenType::ParenClose);
       return expr;
     }
@@ -143,69 +143,69 @@ static ASTNode *parse_expression__atom_level(TokensToAstBuilder &builder)
   }
 }
 
-static ASTNode *parse_expression__power_level(TokensToAstBuilder &builder)
+static AstNode *parse_expression__power_level(TokensToAstBuilder &builder)
 {
-  ASTNode *base_expr = parse_expression__atom_level(builder);
+  AstNode *base_expr = parse_expression__atom_level(builder);
   if (builder.next_type() == TokenType::DoubleAsterix) {
     builder.consume();
-    ASTNode *exponent_expr = parse_expression__power_level(builder);
-    return builder.construct_binary_node(ASTNodeType::Power, base_expr, exponent_expr);
+    AstNode *exponent_expr = parse_expression__power_level(builder);
+    return builder.construct_binary_node(AstNodeType::Power, base_expr, exponent_expr);
   }
   else {
     return base_expr;
   }
 }
 
-static ASTNode *parse_expression__mul_div_level(TokensToAstBuilder &builder)
+static AstNode *parse_expression__mul_div_level(TokensToAstBuilder &builder)
 {
-  ASTNode *left_expr = parse_expression__atom_level(builder);
+  AstNode *left_expr = parse_expression__atom_level(builder);
   TokenType op_token;
   while (ELEM(op_token = builder.next_type(), TokenType::Asterix, TokenType::ForwardSlash)) {
     builder.consume();
-    ASTNode *right_expr = parse_expression__atom_level(builder);
-    ASTNodeType node_type = (builder.next_type() == TokenType::Asterix) ? ASTNodeType::Multiply :
-                                                                          ASTNodeType::Divide;
+    AstNode *right_expr = parse_expression__atom_level(builder);
+    AstNodeType node_type = (builder.next_type() == TokenType::Asterix) ? AstNodeType::Multiply :
+                                                                          AstNodeType::Divide;
     left_expr = builder.construct_binary_node(node_type, left_expr, right_expr);
   }
   return left_expr;
 }
 
-static ASTNode *parse_expression__add_sub_level(TokensToAstBuilder &builder)
+static AstNode *parse_expression__add_sub_level(TokensToAstBuilder &builder)
 {
-  ASTNode *left_expr = parse_expression__mul_div_level(builder);
+  AstNode *left_expr = parse_expression__mul_div_level(builder);
   TokenType op_token;
   while (ELEM(op_token = builder.next_type(), TokenType::Plus, TokenType::Minus)) {
     builder.consume();
-    ASTNode *right_expr = parse_expression__mul_div_level(builder);
-    ASTNodeType node_type = (builder.next_type() == TokenType::Plus) ? ASTNodeType::Plus :
-                                                                       ASTNodeType::Minus;
+    AstNode *right_expr = parse_expression__mul_div_level(builder);
+    AstNodeType node_type = (builder.next_type() == TokenType::Plus) ? AstNodeType::Plus :
+                                                                       AstNodeType::Minus;
     left_expr = builder.construct_binary_node(node_type, left_expr, right_expr);
   }
   return left_expr;
 }
 
-static ASTNodeType get_comparison_node_type(TokenType token_type)
+static AstNodeType get_comparison_node_type(TokenType token_type)
 {
   switch (token_type) {
     case TokenType::Equal:
-      return ASTNodeType::Equal;
+      return AstNodeType::Equal;
     case TokenType::Less:
-      return ASTNodeType::Less;
+      return AstNodeType::Less;
     case TokenType::LessOrEqual:
-      return ASTNodeType::LessOrEqual;
+      return AstNodeType::LessOrEqual;
     case TokenType::Greater:
-      return ASTNodeType::Greater;
+      return AstNodeType::Greater;
     case TokenType::GreaterOrEqual:
-      return ASTNodeType::GreaterOrEqual;
+      return AstNodeType::GreaterOrEqual;
     default:
       BLI_assert(false);
-      return ASTNodeType::Equal;
+      return AstNodeType::Equal;
   }
 }
 
-static ASTNode *parse_expression__comparison_level(TokensToAstBuilder &builder)
+static AstNode *parse_expression__comparison_level(TokensToAstBuilder &builder)
 {
-  ASTNode *left_expr = parse_expression__add_sub_level(builder);
+  AstNode *left_expr = parse_expression__add_sub_level(builder);
   if (ELEM(builder.next_type(),
            TokenType::Equal,
            TokenType::Less,
@@ -214,8 +214,8 @@ static ASTNode *parse_expression__comparison_level(TokensToAstBuilder &builder)
            TokenType::GreaterOrEqual)) {
     TokenType op_token = builder.next_type();
     builder.consume();
-    ASTNode *right_expr = parse_expression__add_sub_level(builder);
-    ASTNodeType node_type = get_comparison_node_type(op_token);
+    AstNode *right_expr = parse_expression__add_sub_level(builder);
+    AstNodeType node_type = get_comparison_node_type(op_token);
     return builder.construct_binary_node(node_type, left_expr, right_expr);
   }
   else {
@@ -223,12 +223,12 @@ static ASTNode *parse_expression__comparison_level(TokensToAstBuilder &builder)
   }
 }
 
-static ASTNode *parse_expression(TokensToAstBuilder &builder)
+static AstNode *parse_expression(TokensToAstBuilder &builder)
 {
   return parse_expression__comparison_level(builder);
 }
 
-ASTNode &parse_expression(StringRef str, LinearAllocator<> &allocator)
+AstNode &parse_expression(StringRef str, LinearAllocator<> &allocator)
 {
   Vector<TokenType> token_types;
   Vector<TokenRange> token_ranges;
@@ -242,46 +242,46 @@ ASTNode &parse_expression(StringRef str, LinearAllocator<> &allocator)
   token_types.append(TokenType::EndOfString);
   TokensToAstBuilder builder(str, token_types, token_ranges, allocator);
   BLI_assert(builder.is_at_end());
-  ASTNode &node = *parse_expression(builder);
+  AstNode &node = *parse_expression(builder);
   return node;
 }
 
-StringRefNull node_type_to_string(ASTNodeType node_type)
+StringRefNull node_type_to_string(AstNodeType node_type)
 {
   switch (node_type) {
-    case ASTNodeType::Identifier:
+    case AstNodeType::Identifier:
       return "Identifier";
-    case ASTNodeType::ConstantInt:
+    case AstNodeType::ConstantInt:
       return "ConstantInt";
-    case ASTNodeType::ConstantFloat:
+    case AstNodeType::ConstantFloat:
       return "ConstantFloat";
-    case ASTNodeType::ConstantString:
+    case AstNodeType::ConstantString:
       return "ConstantString";
-    case ASTNodeType::Plus:
+    case AstNodeType::Plus:
       return "Plus";
-    case ASTNodeType::Minus:
+    case AstNodeType::Minus:
       return "Minus";
-    case ASTNodeType::Multiply:
+    case AstNodeType::Multiply:
       return "Multiply";
-    case ASTNodeType::Divide:
+    case AstNodeType::Divide:
       return "Divide";
-    case ASTNodeType::Less:
+    case AstNodeType::Less:
       return "Less";
-    case ASTNodeType::Greater:
+    case AstNodeType::Greater:
       return "Greater";
-    case ASTNodeType::Equal:
+    case AstNodeType::Equal:
       return "Equal";
-    case ASTNodeType::LessOrEqual:
+    case AstNodeType::LessOrEqual:
       return "LessOrEqual";
-    case ASTNodeType::GreaterOrEqual:
+    case AstNodeType::GreaterOrEqual:
       return "GreaterOrEqual";
-    case ASTNodeType::ShiftLeft:
+    case AstNodeType::ShiftLeft:
       return "ShiftLeft";
-    case ASTNodeType::ShiftRight:
+    case AstNodeType::ShiftRight:
       return "ShiftRight";
-    case ASTNodeType::Negate:
+    case AstNodeType::Negate:
       return "Negate";
-    case ASTNodeType::Power:
+    case AstNodeType::Power:
       return "Power";
   }
   BLI_assert(false);
