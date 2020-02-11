@@ -30,6 +30,57 @@ static void insert_implicit_conversions(ResourceCollector &resources,
   }
 }
 
+struct AddFunc {
+  template<typename T> T execute(T a, T b) const
+  {
+    return a + b;
+  }
+};
+
+struct SubFunc {
+  template<typename T> T execute(T a, T b) const
+  {
+    return a - b;
+  }
+};
+
+struct MulFunc {
+  template<typename T> T execute(T a, T b) const
+  {
+    return a * b;
+  }
+};
+
+template<typename FuncT>
+static MFBuilderOutputSocket &build_binary_node(AstNode &ast_node,
+                                                StringRef name,
+                                                MFNetworkBuilder &network_builder,
+                                                ResourceCollector &resources,
+                                                const FuncT &func)
+{
+  MFBuilderOutputSocket *sub1 = &build_node(*ast_node.children[0], network_builder, resources);
+  MFBuilderOutputSocket *sub2 = &build_node(*ast_node.children[1], network_builder, resources);
+  insert_implicit_conversions(resources, &sub1, &sub2);
+
+  MFBuilderFunctionNode *node;
+  const CPPType &type = sub1->data_type().single__cpp_type();
+  if (type == CPP_TYPE<int>()) {
+    node = &network_builder.add_function<MF_Custom_In2_Out1<int, int, int>>(
+        resources, name, [=](int a, int b) { return func.execute(a, b); });
+  }
+  else if (type == CPP_TYPE<float>()) {
+    node = &network_builder.add_function<MF_Custom_In2_Out1<float, float, float>>(
+        resources, name, [=](float a, float b) { return func.execute(a, b); });
+  }
+  else {
+    BLI_assert(false);
+  }
+
+  network_builder.add_link(*sub1, node->input(0));
+  network_builder.add_link(*sub2, node->input(1));
+  return node->output(0);
+}
+
 MFBuilderOutputSocket &build_node(AstNode &ast_node,
                                   MFNetworkBuilder &network_builder,
                                   ResourceCollector &resources)
@@ -56,74 +107,13 @@ MFBuilderOutputSocket &build_node(AstNode &ast_node,
       break;
     }
     case AstNodeType::Plus: {
-      MFBuilderOutputSocket *sub1 = &build_node(*ast_node.children[0], network_builder, resources);
-      MFBuilderOutputSocket *sub2 = &build_node(*ast_node.children[1], network_builder, resources);
-      insert_implicit_conversions(resources, &sub1, &sub2);
-
-      MFBuilderFunctionNode *node;
-      const CPPType &type = sub1->data_type().single__cpp_type();
-      if (type == CPP_TYPE<int>()) {
-        node = &network_builder.add_function<MF_Custom_In2_Out1<int, int, int>>(
-            resources, "add", [](int a, int b) { return a + b; });
-      }
-      else if (type == CPP_TYPE<float>()) {
-        node = &network_builder.add_function<MF_Custom_In2_Out1<float, float, float>>(
-            resources, "add", [](float a, float b) { return a + b; });
-      }
-      else {
-        BLI_assert(false);
-      }
-
-      network_builder.add_link(*sub1, node->input(0));
-      network_builder.add_link(*sub2, node->input(1));
-      return node->output(0);
+      return build_binary_node(ast_node, "add", network_builder, resources, AddFunc());
     }
     case AstNodeType::Minus: {
-      MFBuilderOutputSocket *sub1 = &build_node(*ast_node.children[0], network_builder, resources);
-      MFBuilderOutputSocket *sub2 = &build_node(*ast_node.children[1], network_builder, resources);
-      insert_implicit_conversions(resources, &sub1, &sub2);
-
-      MFBuilderFunctionNode *node;
-      const CPPType &type = sub1->data_type().single__cpp_type();
-      if (type == CPP_TYPE<int>()) {
-        node = &network_builder.add_function<MF_Custom_In2_Out1<int, int, int>>(
-            resources, "subtract", [](int a, int b) { return a - b; });
-      }
-      else if (type == CPP_TYPE<float>()) {
-        node = &network_builder.add_function<MF_Custom_In2_Out1<float, float, float>>(
-            resources, "subtract", [](float a, float b) { return a - b; });
-      }
-      else {
-        BLI_assert(false);
-      }
-
-      network_builder.add_link(*sub1, node->input(0));
-      network_builder.add_link(*sub2, node->input(1));
-      return node->output(0);
-      break;
+      return build_binary_node(ast_node, "subtract", network_builder, resources, SubFunc());
     }
     case AstNodeType::Multiply: {
-      MFBuilderOutputSocket *sub1 = &build_node(*ast_node.children[0], network_builder, resources);
-      MFBuilderOutputSocket *sub2 = &build_node(*ast_node.children[1], network_builder, resources);
-      insert_implicit_conversions(resources, &sub1, &sub2);
-
-      MFBuilderFunctionNode *node;
-      const CPPType &type = sub1->data_type().single__cpp_type();
-      if (type == CPP_TYPE<int>()) {
-        node = &network_builder.add_function<MF_Custom_In2_Out1<int, int, int>>(
-            resources, "multiply", [](int a, int b) { return a * b; });
-      }
-      else if (type == CPP_TYPE<float>()) {
-        node = &network_builder.add_function<MF_Custom_In2_Out1<float, float, float>>(
-            resources, "multiply", [](float a, float b) { return a * b; });
-      }
-      else {
-        BLI_assert(false);
-      }
-
-      network_builder.add_link(*sub1, node->input(0));
-      network_builder.add_link(*sub2, node->input(1));
-      return node->output(0);
+      return build_binary_node(ast_node, "multiply", network_builder, resources, MulFunc());
     }
     case AstNodeType::Divide: {
       BLI_assert(false);
