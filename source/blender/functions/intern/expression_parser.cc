@@ -256,8 +256,8 @@ AstNode &parse_expression(StringRef str, LinearAllocator<> &allocator)
 
   token_types.append(TokenType::EndOfString);
   TokensToAstBuilder builder(str, token_types, token_ranges, allocator);
-  BLI_assert(builder.is_at_end());
   AstNode &node = *parse_expression(builder);
+  BLI_assert(builder.is_at_end());
   return node;
 }
 
