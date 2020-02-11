@@ -290,10 +290,6 @@ StringRefNull node_type_to_string(AstNodeType node_type)
       return "LessOrEqual";
     case AstNodeType::GreaterOrEqual:
       return "GreaterOrEqual";
-    case AstNodeType::DoubleLess:
-      return "DoubleLess";
-    case AstNodeType::DoubleRight:
-      return "DoubleRight";
     case AstNodeType::Negate:
       return "Negate";
     case AstNodeType::Power:

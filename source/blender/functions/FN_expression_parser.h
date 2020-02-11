@@ -29,8 +29,6 @@ enum class AstNodeType : uchar {
   ConstantInt,
   ConstantFloat,
   ConstantString,
-  DoubleLess,
-  DoubleRight,
   Negate,
   Power,
 };

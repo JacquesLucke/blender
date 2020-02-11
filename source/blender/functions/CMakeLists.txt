@@ -40,6 +40,7 @@ set(SRC
   intern/cpp_type.cc
   intern/cpp_types.cc
   intern/expression_lexer.cc
+  intern/expression_multi_function.cc
   intern/expression_parser.cc
   intern/generic_array_ref.cc
   intern/generic_tuple.cc
@@ -53,6 +54,7 @@ set(SRC
   FN_attributes_ref.h
   FN_cpp_type.h
   FN_expression_lexer.h
+  FN_expression_multi_function.h
   FN_expression_parser.h
   FN_generic_array_ref.h
   FN_generic_tuple.h
