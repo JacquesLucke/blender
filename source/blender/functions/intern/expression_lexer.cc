@@ -143,7 +143,7 @@ void tokenize(StringRef str, Vector<TokenType> &r_token_types, Vector<TokenRange
           }
           else if (next_char == '<') {
             token_size = 2;
-            token_type = TokenType::ShiftLeft;
+            token_type = TokenType::DoubleLess;
           }
           else {
             token_size = 1;
@@ -165,7 +165,7 @@ void tokenize(StringRef str, Vector<TokenType> &r_token_types, Vector<TokenRange
           }
           else if (next_char == '>') {
             token_size = 2;
-            token_type = TokenType::ShiftRight;
+            token_type = TokenType::DoubleRight;
           }
           else {
             token_size = 1;
@@ -307,10 +307,10 @@ StringRefNull token_type_to_string(TokenType token_type)
       return "GreaterOrEqual";
     case TokenType::String:
       return "String";
-    case TokenType::ShiftLeft:
-      return "ShiftLeft";
-    case TokenType::ShiftRight:
-      return "ShiftRight";
+    case TokenType::DoubleLess:
+      return "DoubleLess";
+    case TokenType::DoubleRight:
+      return "DoubleRight";
   }
   BLI_assert(false);
   return "";

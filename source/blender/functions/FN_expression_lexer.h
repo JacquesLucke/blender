@@ -28,8 +28,8 @@ enum class TokenType : uchar {
   LessOrEqual,
   GreaterOrEqual,
   String,
-  ShiftLeft,
-  ShiftRight,
+  DoubleLess,
+  DoubleRight,
 };
 
 struct TokenRange {

@@ -27,8 +27,8 @@ enum class AstNodeType : uchar {
   Equal,
   LessOrEqual,
   GreaterOrEqual,
-  ShiftLeft,
-  ShiftRight,
+  DoubleLess,
+  DoubleRight,
   Negate,
   Power,
 };
