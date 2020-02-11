@@ -54,9 +54,7 @@ static void tokenize_identifier(StringRef str, uint &r_token_size, TokenType &r_
   r_token_type = TokenType::Identifier;
 }
 
-void tokenize(StringRef str,
-              Vector<TokenType> &r_token_types,
-              Vector<TokenRange> &r_token_ranges)
+void tokenize(StringRef str, Vector<TokenType> &r_token_types, Vector<TokenRange> &r_token_ranges)
 {
   uint offset = 0;
   uint total_size = str.size();
@@ -270,6 +268,52 @@ void tokenize(StringRef str,
 
     offset += token_size;
   }
+}
+
+StringRefNull token_type_to_string(TokenType token_type)
+{
+  switch (token_type) {
+    case TokenType::EndOfString:
+      return "EndOfString";
+    case TokenType::ParenOpen:
+      return "ParenOpen";
+    case TokenType::ParenClose:
+      return "ParenClose";
+    case TokenType::IntLiteral:
+      return "IntLiteral";
+    case TokenType::FloatLiteral:
+      return "FloatLiteral";
+    case TokenType::Plus:
+      return "Plus";
+    case TokenType::Minus:
+      return "Minus";
+    case TokenType::Asterix:
+      return "Asterix";
+    case TokenType::DoubleAsterix:
+      return "DoubleAsterix";
+    case TokenType::ForwardSlash:
+      return "ForwardSlash";
+    case TokenType::Identifier:
+      return "Identifier";
+    case TokenType::Less:
+      return "Less";
+    case TokenType::Greater:
+      return "Greater";
+    case TokenType::Equal:
+      return "Equal";
+    case TokenType::LessOrEqual:
+      return "LessOrEqual";
+    case TokenType::GreaterOrEqual:
+      return "GreaterOrEqual";
+    case TokenType::String:
+      return "String";
+    case TokenType::ShiftLeft:
+      return "ShiftLeft";
+    case TokenType::ShiftRight:
+      return "ShiftRight";
+  }
+  BLI_assert(false);
+  return "";
 }
 
 }  // namespace Expr

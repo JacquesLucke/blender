@@ -13,8 +13,7 @@ using BLI::ArrayRef;
 using BLI::LinearAllocator;
 using BLI::MutableArrayRef;
 
-namespace ASTNodeType {
-enum Enum {
+enum class ASTNodeType : uchar {
   Identifier,
   ConstantInt,
   ConstantFloat,
@@ -33,20 +32,20 @@ enum Enum {
   Negate,
   Power,
 };
-}
+
+StringRefNull node_type_to_string(ASTNodeType node_type);
 
 struct ASTNode {
   MutableArrayRef<ASTNode *> children;
-  ASTNodeType::Enum type;
+  ASTNodeType type;
 
-  ASTNode(MutableArrayRef<ASTNode *> children, ASTNodeType::Enum type)
-      : children(children), type(type)
+  ASTNode(MutableArrayRef<ASTNode *> children, ASTNodeType type) : children(children), type(type)
   {
   }
 
   void print() const
   {
-    std::cout << type << "(";
+    std::cout << node_type_to_string(type) << "(";
     for (ASTNode *child : children) {
       child->print();
     }
