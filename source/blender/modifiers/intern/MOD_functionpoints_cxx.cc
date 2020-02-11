@@ -14,6 +14,7 @@
 #include "FN_multi_function_dependencies.h"
 #include "FN_expression_lexer.h"
 #include "FN_expression_parser.h"
+#include "FN_expression_multi_function.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
@@ -37,12 +38,19 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
 Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
                             const struct ModifierEvalContext *ctx)
 {
-  std::string str = "+7-+5+7";
-  BLI::LinearAllocator<> allocator;
-  FN::Expr::AstNode &ast = FN::Expr::parse_expression(str, allocator);
-  ast.print();
-  std::cout << '\n';
+  {
+    std::string str = "-42 + 5";
+    BLI::ResourceCollector resources;
+    const FN::MultiFunction &fn = FN::Expr::expression_to_multi_function(str, resources);
 
+    FN::MFParamsBuilder params_builder(fn, 1);
+    FN::MFContextBuilder context_builder;
+
+    int result;
+    params_builder.add_single_output(&result);
+    fn.call(IndexRange(1), params_builder, context_builder);
+    std::cout << "Result: " << result << '\n';
+  }
   if (fpmd->function_tree == nullptr) {
     return BKE_mesh_new_nomain(0, 0, 0, 0, 0);
   }

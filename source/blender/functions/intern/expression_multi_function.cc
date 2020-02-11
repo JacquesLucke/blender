@@ -32,8 +32,15 @@ MFBuilderOutputSocket &build_node(AstNode &ast_node,
       break;
     }
     case AstNodeType::Plus: {
-      BLI_assert(false);
-      break;
+      MFBuilderOutputSocket &sub1 = build_node(*ast_node.children[0], network_builder, resources);
+      MFBuilderOutputSocket &sub2 = build_node(*ast_node.children[1], network_builder, resources);
+
+      const MultiFunction &fn = resources.construct<MF_Custom_In2_Out1<int, int, int>>(
+          "add", "add", [](int a, int b) { return a + b; });
+      MFBuilderNode &node = network_builder.add_function(fn);
+      network_builder.add_link(sub1, node.input(0));
+      network_builder.add_link(sub2, node.input(1));
+      return node.output(0);
     }
     case AstNodeType::Minus: {
       BLI_assert(false);
@@ -52,8 +59,10 @@ MFBuilderOutputSocket &build_node(AstNode &ast_node,
       break;
     }
     case AstNodeType::ConstantInt: {
-      BLI_assert(false);
-      break;
+      ConstantIntNode &int_node = (ConstantIntNode &)ast_node;
+      const MultiFunction &fn = resources.construct<MF_ConstantValue<int>>("constant int",
+                                                                           int_node.value);
+      return network_builder.add_function(fn).output(0);
     }
     case AstNodeType::ConstantFloat: {
       BLI_assert(false);
@@ -64,8 +73,13 @@ MFBuilderOutputSocket &build_node(AstNode &ast_node,
       break;
     }
     case AstNodeType::Negate: {
-      BLI_assert(false);
-      break;
+      MFBuilderOutputSocket &sub_output = build_node(
+          *ast_node.children[0], network_builder, resources);
+      const MultiFunction &fn = resources.construct<MF_Custom_In1_Out1<int, int>>(
+          "negate", "negate", [](int a) -> int { return -a; });
+      MFBuilderNode &node = network_builder.add_function(fn);
+      network_builder.add_link(sub_output, node.input(0));
+      return node.output(0);
     }
     case AstNodeType::Power: {
       BLI_assert(false);
