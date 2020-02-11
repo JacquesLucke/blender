@@ -157,6 +157,62 @@ static AstNode *parse_expression__mul_div_level(TokensToAstBuilder &builder);
 static AstNode *parse_expression__power_level(TokensToAstBuilder &builder);
 static AstNode *parse_expression__atom_level(TokensToAstBuilder &builder);
 
+static AstNode *parse_expression(TokensToAstBuilder &builder)
+{
+  return parse_expression__comparison_level(builder);
+}
+
+static AstNode *parse_expression__comparison_level(TokensToAstBuilder &builder)
+{
+  AstNode *left_expr = parse_expression__add_sub_level(builder);
+  if (is_comparison_token(builder.next_type())) {
+    AstNodeType node_type = get_comparison_node_type(builder.next_type());
+    builder.consume();
+    AstNode *right_expr = parse_expression__add_sub_level(builder);
+    return builder.construct_binary_node(node_type, left_expr, right_expr);
+  }
+  else {
+    return left_expr;
+  }
+}
+
+static AstNode *parse_expression__add_sub_level(TokensToAstBuilder &builder)
+{
+  AstNode *left_expr = parse_expression__mul_div_level(builder);
+  while (is_add_sub_token(builder.next_type())) {
+    AstNodeType node_type = get_add_sub_node_type(builder.next_type());
+    builder.consume();
+    AstNode *right_expr = parse_expression__mul_div_level(builder);
+    left_expr = builder.construct_binary_node(node_type, left_expr, right_expr);
+  }
+  return left_expr;
+}
+
+static AstNode *parse_expression__mul_div_level(TokensToAstBuilder &builder)
+{
+  AstNode *left_expr = parse_expression__atom_level(builder);
+  while (is_mul_div_token(builder.next_type())) {
+    AstNodeType node_type = get_mul_div_node_type(builder.next_type());
+    builder.consume();
+    AstNode *right_expr = parse_expression__atom_level(builder);
+    left_expr = builder.construct_binary_node(node_type, left_expr, right_expr);
+  }
+  return left_expr;
+}
+
+static AstNode *parse_expression__power_level(TokensToAstBuilder &builder)
+{
+  AstNode *base_expr = parse_expression__atom_level(builder);
+  if (builder.next_type() == TokenType::DoubleAsterix) {
+    builder.consume();
+    AstNode *exponent_expr = parse_expression__power_level(builder);
+    return builder.construct_binary_node(AstNodeType::Power, base_expr, exponent_expr);
+  }
+  else {
+    return base_expr;
+  }
+}
+
 static AstNode *parse_expression__atom_level(TokensToAstBuilder &builder)
 {
   switch (builder.next_type()) {
@@ -185,62 +241,6 @@ static AstNode *parse_expression__atom_level(TokensToAstBuilder &builder)
       BLI_assert(false);
       return nullptr;
   }
-}
-
-static AstNode *parse_expression__power_level(TokensToAstBuilder &builder)
-{
-  AstNode *base_expr = parse_expression__atom_level(builder);
-  if (builder.next_type() == TokenType::DoubleAsterix) {
-    builder.consume();
-    AstNode *exponent_expr = parse_expression__power_level(builder);
-    return builder.construct_binary_node(AstNodeType::Power, base_expr, exponent_expr);
-  }
-  else {
-    return base_expr;
-  }
-}
-
-static AstNode *parse_expression__mul_div_level(TokensToAstBuilder &builder)
-{
-  AstNode *left_expr = parse_expression__atom_level(builder);
-  while (is_mul_div_token(builder.next_type())) {
-    AstNodeType node_type = get_mul_div_node_type(builder.next_type());
-    builder.consume();
-    AstNode *right_expr = parse_expression__atom_level(builder);
-    left_expr = builder.construct_binary_node(node_type, left_expr, right_expr);
-  }
-  return left_expr;
-}
-
-static AstNode *parse_expression__add_sub_level(TokensToAstBuilder &builder)
-{
-  AstNode *left_expr = parse_expression__mul_div_level(builder);
-  while (is_add_sub_token(builder.next_type())) {
-    AstNodeType node_type = get_add_sub_node_type(builder.next_type());
-    builder.consume();
-    AstNode *right_expr = parse_expression__mul_div_level(builder);
-    left_expr = builder.construct_binary_node(node_type, left_expr, right_expr);
-  }
-  return left_expr;
-}
-
-static AstNode *parse_expression__comparison_level(TokensToAstBuilder &builder)
-{
-  AstNode *left_expr = parse_expression__add_sub_level(builder);
-  if (is_comparison_token(builder.next_type())) {
-    AstNodeType node_type = get_comparison_node_type(builder.next_type());
-    builder.consume();
-    AstNode *right_expr = parse_expression__add_sub_level(builder);
-    return builder.construct_binary_node(node_type, left_expr, right_expr);
-  }
-  else {
-    return left_expr;
-  }
-}
-
-static AstNode *parse_expression(TokensToAstBuilder &builder)
-{
-  return parse_expression__comparison_level(builder);
 }
 
 AstNode &parse_expression(StringRef str, LinearAllocator<> &allocator)
