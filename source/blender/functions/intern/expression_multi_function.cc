@@ -79,12 +79,51 @@ MFBuilderOutputSocket &build_node(AstNode &ast_node,
       return node->output(0);
     }
     case AstNodeType::Minus: {
-      BLI_assert(false);
+      MFBuilderOutputSocket *sub1 = &build_node(*ast_node.children[0], network_builder, resources);
+      MFBuilderOutputSocket *sub2 = &build_node(*ast_node.children[1], network_builder, resources);
+      insert_implicit_conversions(resources, &sub1, &sub2);
+
+      MFBuilderFunctionNode *node;
+      const CPPType &type = sub1->data_type().single__cpp_type();
+      if (type == CPP_TYPE<int>()) {
+        node = &network_builder.add_function<MF_Custom_In2_Out1<int, int, int>>(
+            resources, "subtract", [](int a, int b) { return a - b; });
+      }
+      else if (type == CPP_TYPE<float>()) {
+        node = &network_builder.add_function<MF_Custom_In2_Out1<float, float, float>>(
+            resources, "subtract", [](float a, float b) { return a - b; });
+      }
+      else {
+        BLI_assert(false);
+      }
+
+      network_builder.add_link(*sub1, node->input(0));
+      network_builder.add_link(*sub2, node->input(1));
+      return node->output(0);
       break;
     }
     case AstNodeType::Multiply: {
-      BLI_assert(false);
-      break;
+      MFBuilderOutputSocket *sub1 = &build_node(*ast_node.children[0], network_builder, resources);
+      MFBuilderOutputSocket *sub2 = &build_node(*ast_node.children[1], network_builder, resources);
+      insert_implicit_conversions(resources, &sub1, &sub2);
+
+      MFBuilderFunctionNode *node;
+      const CPPType &type = sub1->data_type().single__cpp_type();
+      if (type == CPP_TYPE<int>()) {
+        node = &network_builder.add_function<MF_Custom_In2_Out1<int, int, int>>(
+            resources, "multiply", [](int a, int b) { return a * b; });
+      }
+      else if (type == CPP_TYPE<float>()) {
+        node = &network_builder.add_function<MF_Custom_In2_Out1<float, float, float>>(
+            resources, "multiply", [](float a, float b) { return a * b; });
+      }
+      else {
+        BLI_assert(false);
+      }
+
+      network_builder.add_link(*sub1, node->input(0));
+      network_builder.add_link(*sub2, node->input(1));
+      return node->output(0);
     }
     case AstNodeType::Divide: {
       BLI_assert(false);

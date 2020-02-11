@@ -39,7 +39,7 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
                             const struct ModifierEvalContext *ctx)
 {
   {
-    std::string str = "10.25+-0.5+100";
+    std::string str = "100*5-50+4.0";
     BLI::ResourceCollector resources;
     const FN::MultiFunction &fn = FN::Expr::expression_to_multi_function(str, resources);
 
