@@ -14,19 +14,21 @@ using BLI::LinearAllocator;
 using BLI::MutableArrayRef;
 
 enum class AstNodeType : uchar {
+  Less = 1,
+  Greater = 2,
+  Equal = 3,
+  LessOrEqual = 4,
+  GreaterOrEqual = 5,
+
+  Plus = 6,
+  Minus = 7,
+  Multiply = 8,
+  Divide = 9,
+
   Identifier,
   ConstantInt,
   ConstantFloat,
   ConstantString,
-  Plus,
-  Minus,
-  Multiply,
-  Divide,
-  Less,
-  Greater,
-  Equal,
-  LessOrEqual,
-  GreaterOrEqual,
   DoubleLess,
   DoubleRight,
   Negate,

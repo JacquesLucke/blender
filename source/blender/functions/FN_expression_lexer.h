@@ -12,21 +12,24 @@ using BLI::Vector;
 
 enum class TokenType : uchar {
   EndOfString = 0,
+
+  Less = 1,
+  Greater = 2,
+  Equal = 3,
+  LessOrEqual = 4,
+  GreaterOrEqual = 5,
+
+  Plus = 6,
+  Minus = 7,
+  Asterix = 8,
+  ForwardSlash = 9,
+
   ParenOpen,
   ParenClose,
   IntLiteral,
   FloatLiteral,
-  Plus,
-  Minus,
-  Asterix,
   DoubleAsterix,
-  ForwardSlash,
   Identifier,
-  Less,
-  Greater,
-  Equal,
-  LessOrEqual,
-  GreaterOrEqual,
   String,
   DoubleLess,
   DoubleRight,
