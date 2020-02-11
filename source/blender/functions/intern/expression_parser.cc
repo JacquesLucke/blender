@@ -6,14 +6,14 @@ namespace Expr {
 class TokensToAstBuilder {
  private:
   StringRef m_str;
-  ArrayRef<TokenType::Enum> m_token_types;
+  ArrayRef<TokenType> m_token_types;
   ArrayRef<TokenRange> m_token_ranges;
   LinearAllocator<> &m_allocator;
   uint m_current = 0;
 
  public:
   TokensToAstBuilder(StringRef str,
-                     ArrayRef<TokenType::Enum> token_types,
+                     ArrayRef<TokenType> token_types,
                      ArrayRef<TokenRange> token_ranges,
                      LinearAllocator<> &allocator)
       : m_str(str),
@@ -24,7 +24,7 @@ class TokensToAstBuilder {
     BLI_assert(token_types.last() == TokenType::EndOfString);
   }
 
-  TokenType::Enum next_type() const
+  TokenType next_type() const
   {
     return m_token_types[m_current];
   }
@@ -48,7 +48,7 @@ class TokensToAstBuilder {
     return m_current == m_token_ranges.size();
   }
 
-  void consume(TokenType::Enum token_type)
+  void consume(TokenType token_type)
   {
     BLI_assert(this->next_type() == token_type);
     this->consume();
@@ -161,7 +161,7 @@ static ASTNode *parse_expression__power_level(TokensToAstBuilder &builder)
 static ASTNode *parse_expression__mul_div_level(TokensToAstBuilder &builder)
 {
   ASTNode *left_expr = parse_expression__atom_level(builder);
-  TokenType::Enum op_token;
+  TokenType op_token;
   while (ELEM(op_token = builder.next_type(), TokenType::Asterix, TokenType::ForwardSlash)) {
     builder.consume();
     ASTNode *right_expr = parse_expression__atom_level(builder);
@@ -176,7 +176,7 @@ static ASTNode *parse_expression__mul_div_level(TokensToAstBuilder &builder)
 static ASTNode *parse_expression__add_sub_level(TokensToAstBuilder &builder)
 {
   ASTNode *left_expr = parse_expression__mul_div_level(builder);
-  TokenType::Enum op_token;
+  TokenType op_token;
   while (ELEM(op_token = builder.next_type(), TokenType::Plus, TokenType::Minus)) {
     builder.consume();
     ASTNode *right_expr = parse_expression__mul_div_level(builder);
@@ -187,7 +187,7 @@ static ASTNode *parse_expression__add_sub_level(TokensToAstBuilder &builder)
   return left_expr;
 }
 
-static ASTNodeType::Enum get_comparison_node_type(TokenType::Enum token_type)
+static ASTNodeType::Enum get_comparison_node_type(TokenType token_type)
 {
   switch (token_type) {
     case TokenType::Equal:
@@ -232,7 +232,7 @@ static ASTNode *parse_expression(TokensToAstBuilder &builder)
 
 ASTNode &parse_expression(StringRef str, LinearAllocator<> &allocator)
 {
-  Vector<TokenType::Enum> token_types;
+  Vector<TokenType> token_types;
   Vector<TokenRange> token_ranges;
   tokenize(str, token_types, token_ranges);
 

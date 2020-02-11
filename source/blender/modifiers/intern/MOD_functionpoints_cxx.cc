@@ -41,6 +41,7 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
   BLI::LinearAllocator<> allocator;
   FN::Expr::ASTNode &ast = FN::Expr::parse_expression(str, allocator);
   ast.print();
+  std::cout << '\n';
 
   if (fpmd->function_tree == nullptr) {
     return BKE_mesh_new_nomain(0, 0, 0, 0, 0);

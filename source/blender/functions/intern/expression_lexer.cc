@@ -32,7 +32,7 @@ template<typename FuncT> static uint count_while(StringRef str, const FuncT &fun
   return count;
 }
 
-static void tokenize_number(StringRef str, uint &r_token_size, TokenType::Enum &r_token_type)
+static void tokenize_number(StringRef str, uint &r_token_size, TokenType &r_token_type)
 {
   BLI_assert(is_digit(str[0]));
   uint size = count_while(str, is_digit);
@@ -47,7 +47,7 @@ static void tokenize_number(StringRef str, uint &r_token_size, TokenType::Enum &
   r_token_type = TokenType::FloatLiteral;
 }
 
-static void tokenize_identifier(StringRef str, uint &r_token_size, TokenType::Enum &r_token_type)
+static void tokenize_identifier(StringRef str, uint &r_token_size, TokenType &r_token_type)
 {
   BLI_assert(is_identifier_start(str[0]));
   r_token_size = count_while(str, is_identifier_letter);
@@ -55,7 +55,7 @@ static void tokenize_identifier(StringRef str, uint &r_token_size, TokenType::En
 }
 
 void tokenize(StringRef str,
-              Vector<TokenType::Enum> &r_token_types,
+              Vector<TokenType> &r_token_types,
               Vector<TokenRange> &r_token_ranges)
 {
   uint offset = 0;
@@ -65,7 +65,7 @@ void tokenize(StringRef str,
     const char current_char = str[offset];
 
     uint token_size;
-    TokenType::Enum token_type;
+    TokenType token_type;
     switch (current_char) {
       case ' ':
       case '\t':

@@ -9,8 +9,7 @@ namespace Expr {
 using BLI::StringRef;
 using BLI::Vector;
 
-namespace TokenType {
-enum Enum : uchar {
+enum class TokenType : uchar {
   EndOfString = 0,
   ParenOpen,
   ParenClose,
@@ -31,16 +30,13 @@ enum Enum : uchar {
   ShiftLeft,
   ShiftRight,
 };
-}
 
 struct TokenRange {
   uint start;
   uint size;
 };
 
-void tokenize(StringRef str,
-              Vector<TokenType::Enum> &r_token_types,
-              Vector<TokenRange> &r_token_ranges);
+void tokenize(StringRef str, Vector<TokenType> &r_token_types, Vector<TokenRange> &r_token_ranges);
 
 }  // namespace Expr
 }  // namespace FN
