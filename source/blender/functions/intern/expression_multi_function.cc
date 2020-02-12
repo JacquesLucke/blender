@@ -3,8 +3,12 @@
 #include "FN_multi_function_network.h"
 #include "FN_multi_functions.h"
 
+#include "BLI_string_map.h"
+
 namespace FN {
 namespace Expr {
+
+using BLI::StringMap;
 
 static void insert_implicit_conversions(ResourceCollector &resources,
                                         MFBuilderOutputSocket **sub1,
@@ -60,17 +64,21 @@ struct SafeDivFunc {
 
 static MFBuilderOutputSocket &build_node(AstNode &ast_node,
                                          MFNetworkBuilder &network_builder,
-                                         ResourceCollector &resources);
+                                         ResourceCollector &resources,
+                                         const StringMap<MFBuilderOutputSocket *> &inputs);
 
 template<typename FuncT>
 static MFBuilderOutputSocket &build_binary_node(AstNode &ast_node,
                                                 StringRef name,
                                                 MFNetworkBuilder &network_builder,
                                                 ResourceCollector &resources,
+                                                const StringMap<MFBuilderOutputSocket *> &inputs,
                                                 const FuncT &func)
 {
-  MFBuilderOutputSocket *sub1 = &build_node(*ast_node.children[0], network_builder, resources);
-  MFBuilderOutputSocket *sub2 = &build_node(*ast_node.children[1], network_builder, resources);
+  MFBuilderOutputSocket *sub1 = &build_node(
+      *ast_node.children[0], network_builder, resources, inputs);
+  MFBuilderOutputSocket *sub2 = &build_node(
+      *ast_node.children[1], network_builder, resources, inputs);
   insert_implicit_conversions(resources, &sub1, &sub2);
 
   MFBuilderFunctionNode *node = nullptr;
@@ -94,7 +102,8 @@ static MFBuilderOutputSocket &build_binary_node(AstNode &ast_node,
 
 static MFBuilderOutputSocket &build_node(AstNode &ast_node,
                                          MFNetworkBuilder &network_builder,
-                                         ResourceCollector &resources)
+                                         ResourceCollector &resources,
+                                         const StringMap<MFBuilderOutputSocket *> &inputs)
 {
   switch (ast_node.type) {
     case AstNodeType::Less: {
@@ -118,20 +127,23 @@ static MFBuilderOutputSocket &build_node(AstNode &ast_node,
       break;
     }
     case AstNodeType::Plus: {
-      return build_binary_node(ast_node, "add", network_builder, resources, AddFunc());
+      return build_binary_node(ast_node, "add", network_builder, resources, inputs, AddFunc());
     }
     case AstNodeType::Minus: {
-      return build_binary_node(ast_node, "subtract", network_builder, resources, SubFunc());
+      return build_binary_node(
+          ast_node, "subtract", network_builder, resources, inputs, SubFunc());
     }
     case AstNodeType::Multiply: {
-      return build_binary_node(ast_node, "multiply", network_builder, resources, MulFunc());
+      return build_binary_node(
+          ast_node, "multiply", network_builder, resources, inputs, MulFunc());
     }
     case AstNodeType::Divide: {
-      return build_binary_node(ast_node, "divide", network_builder, resources, SafeDivFunc());
+      return build_binary_node(
+          ast_node, "divide", network_builder, resources, inputs, SafeDivFunc());
     }
     case AstNodeType::Identifier: {
-      BLI_assert(false);
-      break;
+      IdentifierNode &identifier_node = (IdentifierNode &)ast_node;
+      return *inputs.lookup(identifier_node.value);
     }
     case AstNodeType::ConstantInt: {
       ConstantIntNode &int_node = (ConstantIntNode &)ast_node;
@@ -151,8 +163,8 @@ static MFBuilderOutputSocket &build_node(AstNode &ast_node,
     }
     case AstNodeType::Negate: {
       MFBuilderOutputSocket &sub_output = build_node(
-          *ast_node.children[0], network_builder, resources);
-      MFBuilderFunctionNode *node;
+          *ast_node.children[0], network_builder, resources, inputs);
+      MFBuilderFunctionNode *node = nullptr;
       if (sub_output.data_type().single__cpp_type() == CPP_TYPE<int>()) {
         node = &network_builder.add_function<MF_Custom_In1_Out1<int, int>>(
             resources, "negate", [](int a) { return -a; });
@@ -176,11 +188,36 @@ static MFBuilderOutputSocket &build_node(AstNode &ast_node,
   return network_builder.node_by_id(0).output(0);
 }
 
+static void find_used_identifiers(AstNode &root, VectorSet<StringRefNull> &r_identifiers)
+{
+  if (root.type == AstNodeType::Identifier) {
+    IdentifierNode &identifier_node = (IdentifierNode &)root;
+    r_identifiers.add(identifier_node.value);
+  }
+  else {
+    for (AstNode *child : root.children) {
+      find_used_identifiers(*child, r_identifiers);
+    }
+  }
+}
+
 const MultiFunction &expression_to_multi_function(StringRef str, ResourceCollector &resources)
 {
   AstNode &ast_node = parse_expression(str, resources.allocator());
+  VectorSet<StringRefNull> identifiers;
+  find_used_identifiers(ast_node, identifiers);
+  identifiers.as_ref().print_as_lines("Identifiers");
+
   MFNetworkBuilder network_builder;
-  MFBuilderOutputSocket &builder_output_socket = build_node(ast_node, network_builder, resources);
+  StringMap<MFBuilderOutputSocket *> builder_dummy_inputs;
+  for (StringRefNull identifier : identifiers) {
+    MFBuilderDummyNode &node = network_builder.add_dummy(
+        identifier, {}, {MFDataType::ForSingle<float>()}, {}, {"Value"});
+    builder_dummy_inputs.add_new(identifier, &node.output(0));
+  }
+
+  MFBuilderOutputSocket &builder_output_socket = build_node(
+      ast_node, network_builder, resources, builder_dummy_inputs);
   MFBuilderDummyNode &builder_output = network_builder.add_output_dummy("Result",
                                                                         builder_output_socket);
 
@@ -193,6 +230,8 @@ const MultiFunction &expression_to_multi_function(StringRef str, ResourceCollect
 
   const MultiFunction &fn = resources.construct<MF_EvaluateNetwork>(
       "expression function", inputs, outputs);
+
+  network_builder.to_dot__clipboard();
 
   return fn;
 }

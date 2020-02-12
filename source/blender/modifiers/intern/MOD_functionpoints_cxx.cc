@@ -39,17 +39,17 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
                             const struct ModifierEvalContext *ctx)
 {
   {
-    std::string str = "100*5-50+4.0";
+    std::string str = "x+5*y/3-54*x";
     BLI::ResourceCollector resources;
     const FN::MultiFunction &fn = FN::Expr::expression_to_multi_function(str, resources);
 
-    FN::MFParamsBuilder params_builder(fn, 1);
-    FN::MFContextBuilder context_builder;
+    // FN::MFParamsBuilder params_builder(fn, 1);
+    // FN::MFContextBuilder context_builder;
 
-    float result;
-    params_builder.add_single_output(&result);
-    fn.call(IndexRange(1), params_builder, context_builder);
-    std::cout << "Result: " << result << '\n';
+    // float result;
+    // params_builder.add_single_output(&result);
+    // fn.call(IndexRange(1), params_builder, context_builder);
+    // std::cout << "Result: " << result << '\n';
   }
   if (fpmd->function_tree == nullptr) {
     return BKE_mesh_new_nomain(0, 0, 0, 0, 0);
