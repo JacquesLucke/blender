@@ -318,11 +318,11 @@ Vector<MFBuilderNode *> MFNetworkBuilder::find_nodes_not_to_the_left_of__exclusi
 
 std::string MFNetworkBuilder::to_dot(const Set<MFBuilderNode *> &marked_nodes)
 {
-  using BLI::DotExport::Utils::NodeWithSocketsWrapper;
+  using BLI::DotExport::NodeWithSocketsRef;
 
   BLI::DotExport::DirectedGraph digraph;
   digraph.set_rankdir(BLI::DotExport::Attr_rankdir::LeftToRight);
-  Map<MFBuilderNode *, NodeWithSocketsWrapper> dot_nodes;
+  Map<MFBuilderNode *, NodeWithSocketsRef> dot_nodes;
 
   Vector<MFBuilderNode *> all_nodes;
   all_nodes.extend(m_function_nodes.as_ref());
@@ -347,8 +347,7 @@ std::string MFNetworkBuilder::to_dot(const Set<MFBuilderNode *> &marked_nodes)
       dot_node.set_background_color("#99EE99");
     }
 
-    dot_nodes.add_new(node,
-                      NodeWithSocketsWrapper(dot_node, node->name(), input_names, output_names));
+    dot_nodes.add_new(node, NodeWithSocketsRef(dot_node, node->name(), input_names, output_names));
   }
 
   for (MFBuilderNode *to_node : all_nodes) {

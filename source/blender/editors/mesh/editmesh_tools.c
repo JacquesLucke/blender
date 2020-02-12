@@ -48,7 +48,7 @@
 #include "BKE_deform.h"
 #include "BKE_key.h"
 #include "BKE_layer.h"
-#include "BKE_library.h"
+#include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_mesh.h"
@@ -3935,7 +3935,10 @@ static Base *mesh_separate_tagged(
   /* DAG_relations_tag_update(bmain); */
 
   /* new in 2.5 */
-  BKE_object_material_array_assign(bmain, base_new->object, BKE_object_material_array(obedit), *BKE_object_material_num(obedit));
+  BKE_object_material_array_assign(bmain,
+                                   base_new->object,
+                                   BKE_object_material_array(obedit),
+                                   *BKE_object_material_num(obedit));
 
   ED_object_base_select(base_new, BA_SELECT);
 
@@ -4002,7 +4005,10 @@ static Base *mesh_separate_arrays(Main *bmain,
   /* DAG_relations_tag_update(bmain); */
 
   /* new in 2.5 */
-  BKE_object_material_array_assign(bmain, base_new->object, BKE_object_material_array(obedit), *BKE_object_material_num(obedit));
+  BKE_object_material_array_assign(bmain,
+                                   base_new->object,
+                                   BKE_object_material_array(obedit),
+                                   *BKE_object_material_num(obedit));
 
   ED_object_base_select(base_new, BA_SELECT);
 

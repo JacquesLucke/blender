@@ -131,8 +131,8 @@ add_definitions(
 # MSVC11 needs _ALLOW_KEYWORD_MACROS to build
 add_definitions(-D_ALLOW_KEYWORD_MACROS)
 
-# We want to support Vista level ABI
-add_definitions(-D_WIN32_WINNT=0x600)
+# We want to support Windows 7 level ABI
+add_definitions(-D_WIN32_WINNT=0x601)
 include(build_files/cmake/platform/platform_win32_bundle_crt.cmake)
 remove_cc_flag("/MDd" "/MD")
 
@@ -570,19 +570,6 @@ if(WITH_TBB)
   if(WITH_TBB_MALLOC_PROXY)
     add_definitions(-DWITH_TBB_MALLOC)
   endif()
-else()
-  if(WITH_OPENIMAGEDENOISE)
-    message(STATUS "TBB disabled, also disabling OpenImageDenoise")
-    set(WITH_OPENIMAGEDENOISE OFF)
-  endif()
-  if(WITH_OPENVDB)
-    message(STATUS "TBB disabled, also disabling OpenVDB")
-    set(WITH_OPENVDB OFF)
-  endif()
-  if(WITH_MOD_FLUID)
-    message(STATUS "TBB disabled, disabling Fluid modifier")
-    set(WITH_MOD_FLUID OFF)
-  endif()
 endif()
 
 # used in many places so include globally, like OpenGL
@@ -674,6 +661,7 @@ if(WITH_USD)
     set(USD_INCLUDE_DIRS ${LIBDIR}/usd/include)
     set(USD_RELEASE_LIB ${LIBDIR}/usd/lib/libusd_m.lib)
     set(USD_DEBUG_LIB ${LIBDIR}/usd/lib/libusd_m_d.lib)
+    set(USD_LIBRARY_DIR ${LIBDIR}/usd/lib/usd)
     set(USD_LIBRARIES
         debug ${USD_DEBUG_LIB}
         optimized ${USD_RELEASE_LIB}

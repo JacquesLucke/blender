@@ -1,6 +1,6 @@
-#include "BKE_deform.h"
 #include "BKE_surface_hook.h"
 #include "BKE_id_data_cache.h"
+#include "BKE_deform.h"
 
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"

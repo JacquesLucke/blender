@@ -161,8 +161,6 @@ MINLINE unsigned int power_of_2_min_u(unsigned int x);
 MINLINE unsigned int log2_floor_u(unsigned int x);
 MINLINE unsigned int log2_ceil_u(unsigned int x);
 
-MINLINE unsigned int pad_up(unsigned int x, unsigned int alignment);
-
 MINLINE int divide_round_i(int a, int b);
 MINLINE int mod_i(int i, int n);
 

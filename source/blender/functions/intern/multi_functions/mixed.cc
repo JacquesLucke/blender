@@ -34,7 +34,6 @@ using BKE::ObjectIDHandle;
 using BLI::float2;
 using BLI::float3;
 using BLI::float4x4;
-using BLI::LargeScopedArray;
 using BLI::rgba_b;
 using BLI::rgba_f;
 
@@ -285,7 +284,7 @@ void MF_ObjectVertexPositions::call(IndexMask mask, MFParams params, MFContext c
     float4x4 transform = object->obmat;
 
     Mesh *mesh = (Mesh *)object->data;
-    LargeScopedArray<float3> coords(mesh->totvert);
+    Array<float3> coords(mesh->totvert);
     for (uint j = 0; j < mesh->totvert; j++) {
       coords[j] = transform.transform_position(mesh->mvert[j].co);
     }
@@ -855,7 +854,7 @@ static BLI_NOINLINE Vector<int> find_non_close_indices(VirtualListRef<float3> po
 
   BLI_kdtree_3d_balance(kdtree);
 
-  LargeScopedArray<bool> keep_index(points.size());
+  Array<bool> keep_index(points.size());
   keep_index.fill(true);
 
   for (uint i : IndexRange(points.size())) {

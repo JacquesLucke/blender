@@ -389,7 +389,6 @@ static CDTEdge *connect_separate_parts(CDT_state *cdt, SymEdge *se1, SymEdge *se
 {
   CDTEdge *e;
   SymEdge *se1_rot, *se1_rotsym, *se2_rot, *se2_rotsym, *new_se, *new_se_sym;
-  ;
 
   BLI_assert(se1->face == cdt->outer_face && se2->face == cdt->outer_face);
   se1_rot = se1->rot;
@@ -1735,7 +1734,7 @@ static bool can_collapse(const SymEdge *se)
  * edges may end up with zero or negative area (see can_collapse, above).
  * So don't choose a collapse direction that is not allowed or one that has an original vertex
  * as origin and a non-original vertex as destination.
- * If both collapse directions are allowed by that rule, picke the one with the lower original
+ * If both collapse directions are allowed by that rule, pick the one with the lower original
  * index.
  *
  * After merging, the faces abc and adb disappear (if they are not the outer face).

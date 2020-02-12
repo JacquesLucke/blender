@@ -10,10 +10,11 @@ GenericTupleInfo::GenericTupleInfo(Vector<const CPPType *> types) : m_types(std:
   for (const CPPType *type : m_types) {
     uint size = type->size();
     uint alignment = type->alignment();
+    uint alignment_mask = alignment - 1;
 
     m_alignment = std::max(m_alignment, alignment);
 
-    m_size__data = pad_up(m_size__data, alignment);
+    m_size__data = (m_size__data + alignment_mask) & ~alignment_mask;
     m_offsets.append(m_size__data);
     m_size__data += size;
 

@@ -65,7 +65,7 @@
 #include "BKE_particle.h"
 #include "BKE_material.h"
 #include "BKE_key.h"
-#include "BKE_library.h"
+#include "BKE_lib_id.h"
 #include "BKE_modifier.h"
 #include "BKE_mesh.h"
 #include "BKE_cdderivedmesh.h" /* for weight_to_rgb() */
@@ -3638,12 +3638,14 @@ void object_remove_particle_system(Main *bmain, Scene *UNUSED(scene), Object *ob
     }
   }
 
-  /* clear modifier */
+  /* Clear modifier, skip empty ones. */
   psmd = psys_get_modifier(ob, psys);
-  BLI_remlink(&ob->modifiers, psmd);
-  modifier_free((ModifierData *)psmd);
+  if (psmd) {
+    BLI_remlink(&ob->modifiers, psmd);
+    modifier_free((ModifierData *)psmd);
+  }
 
-  /* clear particle system */
+  /* Clear particle system. */
   BLI_remlink(&ob->particlesystem, psys);
   if (psys->part) {
     id_us_min(&psys->part->id);
@@ -3810,7 +3812,7 @@ void BKE_particlesettings_twist_curve_init(ParticleSettings *part)
  *
  * WARNING! This function will not handle ID user count!
  *
- * \param flag: Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
+ * \param flag: Copying options (see BKE_lib_id.h's LIB_ID_COPY_... flags for more).
  */
 void BKE_particlesettings_copy_data(Main *UNUSED(bmain),
                                     ParticleSettings *part_dst,
