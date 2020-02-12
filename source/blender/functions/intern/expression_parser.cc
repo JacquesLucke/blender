@@ -1,4 +1,5 @@
 #include "FN_expression_parser.h"
+#include "BLI_dot_export.h"
 
 namespace FN {
 namespace Expr {
@@ -50,6 +51,7 @@ class TokensToAstBuilder {
 
   void consume(TokenType token_type)
   {
+    UNUSED_VARS_NDEBUG(token_type);
     BLI_assert(this->next_type() == token_type);
     this->consume();
   }
@@ -297,6 +299,38 @@ StringRefNull node_type_to_string(AstNodeType node_type)
   }
   BLI_assert(false);
   return "";
+}
+
+static BLI::DotExport::Node &ast_to_dot_node(BLI::DotExport::DirectedGraph &digraph,
+                                             const AstNode &ast_node)
+{
+  switch (ast_node.type) {
+    case AstNodeType::Identifier:
+      return digraph.new_node(((IdentifierNode &)ast_node).value);
+    case AstNodeType::ConstantFloat:
+      return digraph.new_node(std::to_string(((ConstantFloatNode &)ast_node).value));
+    case AstNodeType::ConstantInt:
+      return digraph.new_node(std::to_string(((ConstantIntNode &)ast_node).value));
+    case AstNodeType::ConstantString:
+      return digraph.new_node(((ConstantStringNode &)ast_node).value);
+    default: {
+      BLI::DotExport::Node &root_node = digraph.new_node(node_type_to_string(ast_node.type));
+      for (uint i : ast_node.children.index_range()) {
+        AstNode &child = *ast_node.children[i];
+        BLI::DotExport::Node &dot_child = ast_to_dot_node(digraph, child);
+        BLI::DotExport::DirectedEdge &dot_edge = digraph.new_edge(root_node, dot_child);
+        dot_edge.set_attribute("label", std::to_string(i));
+      }
+      return root_node;
+    }
+  }
+}
+
+std::string AstNode::to_dot() const
+{
+  BLI::DotExport::DirectedGraph digraph;
+  ast_to_dot_node(digraph, *this);
+  return digraph.to_dot_string();
 }
 
 }  // namespace Expr

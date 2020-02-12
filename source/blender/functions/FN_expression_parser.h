@@ -51,6 +51,8 @@ struct AstNode {
     }
     std::cout << ")";
   }
+
+  std::string to_dot() const;
 };
 
 struct IdentifierNode : public AstNode {
