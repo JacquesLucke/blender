@@ -51,6 +51,13 @@ struct MulFunc {
   }
 };
 
+struct SafeDivFunc {
+  template<typename T> T execute(T a, T b) const
+  {
+    return (b != 0) ? a / b : 0;
+  }
+};
+
 static MFBuilderOutputSocket &build_node(AstNode &ast_node,
                                          MFNetworkBuilder &network_builder,
                                          ResourceCollector &resources);
@@ -66,7 +73,7 @@ static MFBuilderOutputSocket &build_binary_node(AstNode &ast_node,
   MFBuilderOutputSocket *sub2 = &build_node(*ast_node.children[1], network_builder, resources);
   insert_implicit_conversions(resources, &sub1, &sub2);
 
-  MFBuilderFunctionNode *node;
+  MFBuilderFunctionNode *node = nullptr;
   const CPPType &type = sub1->data_type().single__cpp_type();
   if (type == CPP_TYPE<int>()) {
     node = &network_builder.add_function<MF_Custom_In2_Out1<int, int, int>>(
@@ -120,8 +127,7 @@ static MFBuilderOutputSocket &build_node(AstNode &ast_node,
       return build_binary_node(ast_node, "multiply", network_builder, resources, MulFunc());
     }
     case AstNodeType::Divide: {
-      BLI_assert(false);
-      break;
+      return build_binary_node(ast_node, "divide", network_builder, resources, SafeDivFunc());
     }
     case AstNodeType::Identifier: {
       BLI_assert(false);
