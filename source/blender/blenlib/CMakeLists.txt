@@ -265,7 +265,6 @@ set(SRC
   BLI_multi_map.h
   BLI_timeit.h
   BLI_vector_adaptor.h
-  BLI_utility_mixins.h
   BLI_static_class_ids.h
   BLI_index_mask.h
   BLI_parallel.h
