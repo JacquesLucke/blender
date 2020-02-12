@@ -51,13 +51,11 @@
 #include "DNA_material_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meta_types.h"
-#include "DNA_modifier_types.h"
 #include "DNA_movieclip_types.h"
 #include "DNA_mask_types.h"
 #include "DNA_node_types.h"
 #include "DNA_object_types.h"
 #include "DNA_lightprobe_types.h"
-#include "DNA_rigidbody_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_speaker_types.h"
@@ -70,7 +68,6 @@
 
 #include "BLI_utildefines.h"
 
-#include "BLI_bitmap.h"
 #include "BLI_blenlib.h"
 #include "BLI_ghash.h"
 #include "BLI_linklist.h"
@@ -103,7 +100,6 @@
 #include "BKE_lib_remap.h"
 #include "BKE_linestyle.h"
 #include "BKE_mesh.h"
-#include "BKE_mesh_runtime.h"
 #include "BKE_material.h"
 #include "BKE_main.h"
 #include "BKE_mball.h"
@@ -113,7 +109,6 @@
 #include "BKE_object.h"
 #include "BKE_paint.h"
 #include "BKE_particle.h"
-#include "BKE_packedFile.h"
 #include "BKE_lightprobe.h"
 #include "BKE_rigidbody.h"
 #include "BKE_sound.h"
@@ -127,9 +122,6 @@
 
 #include "RNA_access.h"
 
-#include "IMB_imbuf.h"
-#include "IMB_imbuf_types.h"
-
 #include "atomic_ops.h"
 
 //#define DEBUG_TIME
@@ -138,7 +130,7 @@
 #  include "PIL_time_utildefines.h"
 #endif
 
-static CLG_LogRef LOG = {"bke.library"};
+static CLG_LogRef LOG = {.identifier = "bke.lib_id"};
 
 /* GS reads the memory pointed at in a specific ordering.
  * only use this definition, makes little and big endian systems
@@ -1532,13 +1524,6 @@ void *BKE_libblock_copy_for_localize(const ID *id)
   return idn;
 }
 
-void BKE_library_free(Library *lib)
-{
-  if (lib->packedfile) {
-    BKE_packedfile_free(lib->packedfile);
-  }
-}
-
 /* ***************** ID ************************ */
 ID *BKE_libblock_find_name(struct Main *bmain, const short type, const char *name)
 {
@@ -2501,31 +2486,6 @@ char *BKE_id_to_unique_string_key(const struct ID *id)
      * Where 'LIfooOBbarOBbaz' could be ('LIfoo, OBbarOBbaz') or ('LIfooOBbar', 'OBbaz'). */
     const char ascii_len = strlen(id->lib->id.name + 2) + 32;
     return BLI_sprintfN("%c%s%s", ascii_len, id->lib->id.name, id->name);
-  }
-}
-
-void BKE_library_filepath_set(Main *bmain, Library *lib, const char *filepath)
-{
-  /* in some cases this is used to update the absolute path from the
-   * relative */
-  if (lib->name != filepath) {
-    BLI_strncpy(lib->name, filepath, sizeof(lib->name));
-  }
-
-  BLI_strncpy(lib->filepath, filepath, sizeof(lib->filepath));
-
-  /* not essential but set filepath is an absolute copy of value which
-   * is more useful if its kept in sync */
-  if (BLI_path_is_rel(lib->filepath)) {
-    /* note that the file may be unsaved, in this case, setting the
-     * filepath on an indirectly linked path is not allowed from the
-     * outliner, and its not really supported but allow from here for now
-     * since making local could cause this to be directly linked - campbell
-     */
-    /* Never make paths relative to parent lib - reading code (blenloader) always set *all*
-     * lib->name relative to current main, not to their parent for indirectly linked ones. */
-    const char *basepath = BKE_main_blendfile_path(bmain);
-    BLI_path_abs(lib->filepath, basepath);
   }
 }
 

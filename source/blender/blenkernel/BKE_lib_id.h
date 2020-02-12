@@ -16,35 +16,41 @@
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
  */
-#ifndef __BKE_LIBRARY_H__
-#define __BKE_LIBRARY_H__
+#ifndef __BKE_LIB_ID_H__
+#define __BKE_LIB_ID_H__
 
 /** \file
  * \ingroup bke
+ *
+ * API to manage data-blocks inside of Blender's Main data-base, or as independant runtime-only
+ * data.
+ *
+ * \note `BKE_lib_` files are for operations over data-blocks themselves, although they might
+ * alter Main as well (when creating/renaming/deleting an ID e.g.).
+ *
+ * \section Function Names
+ *
+ * \warning Descriptions below is ideal goal, current status of naming does not yet fully follow it
+ * (this is WIP).
+ *
+ * - `BKE_lib_id_` should be used for rather high-level operations, that involve Main database and
+ *   relations with other IDs, and can be considered as 'safe' (as in, in themselves, they leave
+ *   affected IDs/Main in a consistent status).
+ * - `BKE_lib_libblock_` should be used for lower level operations, that perform some parts of
+ *   `BKE_lib_id_` ones, but will generally not ensure caller that affected data is in a consistent
+ *   state by their own execution alone.
+ * - `BKE_lib_main_` should be used for operations performed over all IDs of a given Main
+ *   data-base.
+ *
+ * \note External code should typically not use `BKE_lib_libblock_` functions, except in some
+ * specific cases requiring advanced (and potentially dangerous) handling.
  */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #include "BLI_compiler_attrs.h"
-
-/**
- * Naming: BKE_id_ vs BKE_libblock_
- *
- * WARNING: description below is ideal goal, current status of naming does not yet
- * fully follow it (this is WIP).
- *
- * - BKE_id_ should be used for rather high-level operations, that involve Main database and
- *   relations with other IDs, and can be considered as 'safe'
- *   (as in, in themselves, they leave affected IDs/Main in a consistent status).
- *
- * - BKE_libblock_ should be used for lower level operations,
- *   that perform some parts of BKE_id_ ones, but will generally not ensure caller that affected
- *   data is in a consistent state by their own execution alone.
- *
- * Consequently, external code should not typically use BKE_libblock_ functions,
- * except in some specific cases requiring advanced (and potentially dangerous) handling.
- */
 
 struct GHash;
 struct ID;
@@ -176,7 +182,6 @@ void BKE_libblock_management_usercounts_clear(struct Main *bmain, void *idv);
 void BKE_id_lib_local_paths(struct Main *bmain, struct Library *lib, struct ID *id);
 void id_lib_extern(struct ID *id);
 void id_lib_indirect_weak_link(struct ID *id);
-void BKE_library_filepath_set(struct Main *bmain, struct Library *lib, const char *filepath);
 void id_us_ensure_real(struct ID *id);
 void id_us_clear_real(struct ID *id);
 void id_us_plus_no_lib(struct ID *id);
@@ -235,8 +240,6 @@ void BKE_id_full_name_ui_prefix_get(char name[MAX_ID_FULL_NAME_UI], const struct
 
 char *BKE_id_to_unique_string_key(const struct ID *id);
 
-void BKE_library_free(struct Library *lib);
-
 void BKE_library_make_local(struct Main *bmain,
                             const struct Library *lib,
                             struct GHash *old_to_new_ids,
@@ -257,4 +260,4 @@ void BKE_id_reorder(const struct ListBase *lb, struct ID *id, struct ID *relativ
 }
 #endif
 
-#endif /* __BKE_LIBRARY_H__ */
+#endif /* __BKE_LIB_ID_H__ */
