@@ -51,6 +51,10 @@ struct MulFunc {
   }
 };
 
+static MFBuilderOutputSocket &build_node(AstNode &ast_node,
+                                         MFNetworkBuilder &network_builder,
+                                         ResourceCollector &resources);
+
 template<typename FuncT>
 static MFBuilderOutputSocket &build_binary_node(AstNode &ast_node,
                                                 StringRef name,
@@ -81,9 +85,9 @@ static MFBuilderOutputSocket &build_binary_node(AstNode &ast_node,
   return node->output(0);
 }
 
-MFBuilderOutputSocket &build_node(AstNode &ast_node,
-                                  MFNetworkBuilder &network_builder,
-                                  ResourceCollector &resources)
+static MFBuilderOutputSocket &build_node(AstNode &ast_node,
+                                         MFNetworkBuilder &network_builder,
+                                         ResourceCollector &resources)
 {
   switch (ast_node.type) {
     case AstNodeType::Less: {
