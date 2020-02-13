@@ -1,6 +1,8 @@
 #ifndef __BLI_FLOAT2_H__
 #define __BLI_FLOAT2_H__
 
+#include "BLI_float3.h"
+
 namespace BLI {
 
 struct float2 {
@@ -16,7 +18,9 @@ struct float2 {
   {
   }
 
-  float2(float3 other);
+  float2(float3 other) : x(other.x), y(other.y)
+  {
+  }
 
   operator float *()
   {

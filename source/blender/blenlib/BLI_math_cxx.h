@@ -95,11 +95,4 @@ struct rgba_b {
   }
 };
 
-/* Conversions
- *****************************************/
-
-inline float2::float2(float3 other) : x(other.x), y(other.y)
-{
-}
-
 }  // namespace BLI
