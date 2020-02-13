@@ -58,7 +58,3 @@ void lazy_init_register(std::function<void()> free_func, const char *name);
     return value; \
   } \
   type func_name##_impl(void)
-
-#define BLI_LAZY_INIT_STATIC(type, func_name) \
-  static type &func_name(void); \
-  BLI_LAZY_INIT(type, func_name)

@@ -1044,9 +1044,9 @@ static void PARSE_always_execute(FNodeInfluencesBuilder &builder)
   builder.add_offset_handler(system_names, offset_handler);
 }
 
-BLI_LAZY_INIT_STATIC(StringMap<ParseNodeCallback>, get_node_parsers)
+static StringMap<ParseNodeCallback, BLI::RawAllocator> create_node_parsers_map()
 {
-  StringMap<ParseNodeCallback> map;
+  StringMap<ParseNodeCallback, BLI::RawAllocator> map;
   map.add_new("fn_PointEmitterNode", PARSE_point_emitter);
   map.add_new("fn_CustomEmitterNode", PARSE_custom_emitter);
   map.add_new("fn_MeshEmitterNode", PARSE_mesh_emitter);
@@ -1061,6 +1061,9 @@ BLI_LAZY_INIT_STATIC(StringMap<ParseNodeCallback>, get_node_parsers)
   return map;
 }
 
+static StringMap<ParseNodeCallback, BLI::RawAllocator> node_parsers_map =
+    create_node_parsers_map();
+
 static void collect_influences(FunctionTreeData &function_tree_data,
                                WorldTransition &world_transition,
                                Vector<std::string> &r_system_names,
@@ -1068,8 +1071,6 @@ static void collect_influences(FunctionTreeData &function_tree_data,
                                StringMap<Integrator *> &r_integrators)
 {
   SCOPED_TIMER(__func__);
-
-  StringMap<ParseNodeCallback> &parsers = get_node_parsers();
 
   for (const FNode *fnode :
        function_tree_data.function_tree().nodes_with_idname(particle_system_idname)) {
@@ -1091,7 +1092,7 @@ static void collect_influences(FunctionTreeData &function_tree_data,
 
   for (const FNode *fnode : function_tree_data.function_tree().all_nodes()) {
     StringRef idname = fnode->idname();
-    ParseNodeCallback *callback = parsers.lookup_ptr(idname);
+    ParseNodeCallback *callback = node_parsers_map.lookup_ptr(idname);
     if (callback != nullptr) {
       FNodeInfluencesBuilder builder{collector, function_tree_data, world_transition, *fnode};
       (*callback)(builder);
