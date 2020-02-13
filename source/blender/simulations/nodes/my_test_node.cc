@@ -66,6 +66,7 @@ void register_node_type_my_test_node()
   ntype.type = NODE_CUSTOM;
 
   ntype.initfunc = init_node;
+  ntype.poll = [](bNodeType *UNUSED(ntype), bNodeTree *UNUSED(ntree)) { return true; };
 
   nodeRegisterType(&ntype);
 }
