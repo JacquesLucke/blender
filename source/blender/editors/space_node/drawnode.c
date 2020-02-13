@@ -72,6 +72,8 @@
 #include "NOD_shader.h"
 #include "NOD_texture.h"
 
+#include "SIM_node_tree.h"
+
 /* ****************** SOCKET BUTTON DRAW FUNCTIONS ***************** */
 
 static void node_socket_button_label(bContext *UNUSED(C),
@@ -3223,6 +3225,7 @@ void ED_node_init_butfuncs(void)
   ntreeType_Composite->ui_icon = ICON_NODE_COMPOSITING;
   ntreeType_Shader->ui_icon = ICON_NODE_MATERIAL;
   ntreeType_Texture->ui_icon = ICON_NODE_TEXTURE;
+  ntreeType_Simulation->ui_icon = ICON_PARTICLES; /* TODO: new icon */
 }
 
 void ED_init_custom_node_type(bNodeType *ntype)

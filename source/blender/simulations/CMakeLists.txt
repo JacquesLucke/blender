@@ -7,6 +7,8 @@ set(INC
   ../depsgraph
   ../functions
   ../imbuf
+  ../blentranslation
+  ../editors/include
   ../../../intern/guardedalloc
 )
 
@@ -55,6 +57,9 @@ set(SRC
   bparticles/particle_set.cpp
   bparticles/force_interface.hpp
   bparticles/force_interface.cpp
+
+  nodes/SIM_node_tree.h
+  nodes/simulation_node_tree.cc
 )
 
 set(LIB
