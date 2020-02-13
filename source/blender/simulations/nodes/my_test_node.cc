@@ -3,9 +3,51 @@
 #include "BKE_node.h"
 #include "SIM_node_tree.h"
 
+#include "BLI_vector.h"
+#include "BLI_string_ref.h"
+using BLI::StringRef;
+using BLI::StringRefNull;
+using BLI::Vector;
+
+class SocketDecl {
+ public:
+  bNodeTree *m_ntree;
+  bNode *m_node;
+
+  virtual void build() const = 0;
+};
+
+class InputSocketDecl : public SocketDecl {
+};
+
+class InputMockupSocketDecl : public InputSocketDecl {
+ public:
+  StringRefNull m_ui_name;
+  StringRefNull m_identifier;
+  StringRefNull m_idname;
+
+  void build() const override
+  {
+    nodeAddSocket(
+        m_ntree, m_node, SOCK_IN, m_idname.data(), m_identifier.data(), m_ui_name.data());
+  }
+};
+
+class NodeDecl {
+ private:
+  Vector<SocketDecl *> m_inputs;
+  Vector<SocketDecl *> m_outputs;
+};
+
 static void init_node(bNodeTree *ntree, bNode *node)
 {
-  nodeAddSocket(ntree, node, SOCK_IN, "NodeSocketFloat", "my_identifier", "My Name");
+  InputMockupSocketDecl decl;
+  decl.m_ntree = ntree;
+  decl.m_node = node;
+  decl.m_ui_name = "Hello World";
+  decl.m_identifier = "myid";
+  decl.m_idname = "NodeSocketFloat";
+  decl.build();
 }
 
 void register_node_type_my_test_node()
