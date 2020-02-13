@@ -272,6 +272,7 @@ set(SRC
   BLI_index_to_ref_map.h
   BLI_rand_cxx.h
   BLI_buffer_cache.h
+  BLI_float3.h
 )
 
 set(LIB
