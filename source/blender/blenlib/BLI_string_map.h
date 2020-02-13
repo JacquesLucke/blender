@@ -140,12 +140,12 @@ template<typename T, typename Allocator = GuardedAllocator> class StringMap {
       return m_hashes[offset] == hash;
     }
 
-    bool has_exact_key(uint offset, StringRef key, const Vector<char> &chars) const
+    bool has_exact_key(uint offset, StringRef key, const Vector<char, 4, Allocator> &chars) const
     {
       return key == this->get_key(offset, chars);
     }
 
-    StringRefNull get_key(uint offset, const Vector<char> &chars) const
+    StringRefNull get_key(uint offset, const Vector<char, 4, Allocator> &chars) const
     {
       const char *ptr = chars.begin() + m_indices[offset];
       uint length = *(uint *)ptr;
@@ -165,7 +165,7 @@ template<typename T, typename Allocator = GuardedAllocator> class StringMap {
 
   using ArrayType = OpenAddressingArray<Item, 1, Allocator>;
   ArrayType m_array;
-  Vector<char> m_chars;
+  Vector<char, 4, Allocator> m_chars;
 
  public:
   StringMap() = default;
