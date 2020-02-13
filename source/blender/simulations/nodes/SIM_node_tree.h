@@ -8,6 +8,7 @@ extern "C" {
 extern struct bNodeTreeType *ntreeType_Simulation;
 
 void register_node_tree_type_sim(void);
+void register_node_type_my_test_node(void);
 
 #ifdef __cplusplus
 }

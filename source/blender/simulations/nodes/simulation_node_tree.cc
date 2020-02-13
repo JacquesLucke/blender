@@ -20,4 +20,6 @@ void register_node_tree_type_sim()
   tt->ext.srna = &RNA_SimulationNodeTree;
 
   ntreeTypeAdd(tt);
+
+  register_node_type_my_test_node();
 }

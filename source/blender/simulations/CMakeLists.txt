@@ -60,6 +60,7 @@ set(SRC
 
   nodes/SIM_node_tree.h
   nodes/simulation_node_tree.cc
+  nodes/my_test_node.cc
 )
 
 set(LIB
