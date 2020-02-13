@@ -257,7 +257,6 @@ set(SRC
   BLI_dot_export.h
   BLI_dot_export_attribute_enums.h
   intern/dot_export.cc
-  BLI_math_cxx.h
   BLI_linear_allocator.h
   BLI_multi_map.h
   BLI_timeit.h

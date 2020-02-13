@@ -1,7 +1,6 @@
 #ifndef __FN_MULTI_FUNCTION_CONTEXT_H__
 #define __FN_MULTI_FUNCTION_CONTEXT_H__
 
-#include "BLI_math_cxx.h"
 #include "BLI_optional.h"
 #include "BLI_virtual_list_ref.h"
 #include "BLI_vector.h"

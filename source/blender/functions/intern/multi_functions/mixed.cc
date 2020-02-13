@@ -4,7 +4,6 @@
 #include "FN_generic_vector_array.h"
 #include "FN_multi_function_common_contexts.h"
 
-#include "BLI_math_cxx.h"
 #include "BLI_string_map.h"
 #include "BLI_array_cxx.h"
 #include "BLI_noise.h"
@@ -12,6 +11,9 @@
 #include "BLI_rand.h"
 #include "BLI_kdtree.h"
 #include "BLI_rand_cxx.h"
+#include "BLI_float3.h"
+#include "BLI_float4x4.h"
+#include "BLI_color.h"
 
 #include "DNA_object_types.h"
 #include "DNA_mesh_types.h"
@@ -30,10 +32,8 @@ namespace FN {
 
 using BKE::ImageIDHandle;
 using BKE::ObjectIDHandle;
-using BLI::float2;
 using BLI::float3;
 using BLI::float4x4;
-using BLI::rgba_b;
 using BLI::rgba_f;
 
 MF_CombineColor::MF_CombineColor()

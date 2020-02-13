@@ -5,8 +5,6 @@
 #include "FN_multi_function_common_contexts.h"
 #include "FN_multi_function_dependencies.h"
 
-#include "BLI_math_cxx.h"
-
 #include "BKE_modifier.h"
 #include "BKE_id_data_cache.h"
 

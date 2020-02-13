@@ -1,7 +1,8 @@
 #include "mappings.h"
 #include "builder.h"
 
-#include "BLI_math_cxx.h"
+#include "BLI_float3.h"
+#include "BLI_color.h"
 
 #include "BKE_surface_hook.h"
 

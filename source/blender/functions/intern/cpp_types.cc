@@ -1,7 +1,8 @@
 #include "FN_cpp_type.h"
 #include "cpp_types.h"
 
-#include "BLI_math_cxx.h"
+#include "BLI_float3.h"
+#include "BLI_color.h"
 #include "BLI_rand_cxx.h"
 
 #include "BKE_surface_hook.h"

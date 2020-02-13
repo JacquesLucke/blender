@@ -4,8 +4,6 @@
 
 namespace BParticles {
 
-using BLI::rgba_f;
-
 void ActionSequence::execute(ParticleActionContext &context)
 {
   for (auto &action : m_actions) {
