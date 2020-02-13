@@ -5,7 +5,6 @@
 #include "FN_multi_function_common_contexts.h"
 
 #include "BLI_math_cxx.h"
-#include "BLI_lazy_init_cxx.h"
 #include "BLI_string_map.h"
 #include "BLI_array_cxx.h"
 #include "BLI_noise.h"

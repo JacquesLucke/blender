@@ -8,7 +8,6 @@
 #include "BLI_timeit.h"
 #include "BLI_multi_map.h"
 #include "BLI_set.h"
-#include "BLI_lazy_init_cxx.h"
 
 #include "FN_node_tree.h"
 #include "FN_multi_functions.h"

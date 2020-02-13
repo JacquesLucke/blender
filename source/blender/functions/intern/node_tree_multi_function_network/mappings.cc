@@ -1,6 +1,5 @@
 #include "mappings.h"
 
-#include "BLI_lazy_init_cxx.h"
 #include "BLI_math_cxx.h"
 
 #include "FN_multi_functions.h"

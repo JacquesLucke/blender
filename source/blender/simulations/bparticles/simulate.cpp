@@ -1,5 +1,4 @@
 
-#include "BLI_lazy_init_cxx.h"
 #include "BLI_timeit.h"
 #include "BLI_array_cxx.h"
 #include "BLI_vector_adaptor.h"
