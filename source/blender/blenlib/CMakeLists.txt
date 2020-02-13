@@ -273,6 +273,8 @@ set(SRC
   BLI_rand_cxx.h
   BLI_buffer_cache.h
   BLI_float3.h
+  BLI_float2.h
+  BLI_float4x4.h
 )
 
 set(LIB
