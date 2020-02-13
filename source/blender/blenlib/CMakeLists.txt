@@ -275,6 +275,7 @@ set(SRC
   BLI_float3.h
   BLI_float2.h
   BLI_float4x4.h
+  BLI_color.h
 )
 
 set(LIB
