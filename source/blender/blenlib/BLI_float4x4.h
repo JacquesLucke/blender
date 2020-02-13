@@ -1,7 +1,9 @@
 #ifndef __BLI_FLOAT4X4_H__
 #define __BLI_FLOAT4X4_H__
 
+#include "BLI_array_ref.h"
 #include "BLI_float3.h"
+#include "BLI_math_matrix.h"
 
 namespace BLI {
 

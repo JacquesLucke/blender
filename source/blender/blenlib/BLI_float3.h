@@ -1,6 +1,11 @@
 #ifndef __BLI_FLOAT3_H__
 #define __BLI_FLOAT3_H__
 
+#include <array>
+#include <iostream>
+
+#include "BLI_math_vector.h"
+
 namespace BLI {
 struct float3 {
   float x, y, z;
