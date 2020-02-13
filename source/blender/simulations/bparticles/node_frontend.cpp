@@ -57,7 +57,7 @@ class InfluencesCollector;
 class FSocketActionBuilder;
 
 using ActionParserCallback = std::function<void(FSocketActionBuilder &builder)>;
-StringMap<ActionParserCallback> &get_action_parsers();
+extern StringMap<ActionParserCallback, BLI::RawAllocator> action_parsers_map;
 
 class InfluencesCollector {
  public:
@@ -507,8 +507,7 @@ ParticleAction *FunctionTreeData::build_action(InfluencesCollector &collector,
     return nullptr;
   }
 
-  StringMap<ActionParserCallback> &parsers = get_action_parsers();
-  ActionParserCallback *parser = parsers.lookup_ptr(execute_socket.node().idname());
+  ActionParserCallback *parser = action_parsers_map.lookup_ptr(execute_socket.node().idname());
   if (parser == nullptr) {
     std::cout << "Expected to find parser for: " << execute_socket.node().idname() << "\n";
     return nullptr;
@@ -606,16 +605,6 @@ static void ACTION_multi_execute(FSocketActionBuilder &builder)
 {
   ParticleAction &action = builder.build_input_action_list("Execute", builder.system_names());
   builder.set(action);
-}
-
-BLI_LAZY_INIT(StringMap<ActionParserCallback>, get_action_parsers)
-{
-  StringMap<ActionParserCallback> map;
-  map.add_new("fn_SpawnParticlesNode", ACTION_spawn);
-  map.add_new("fn_ParticleConditionNode", ACTION_condition);
-  map.add_new("fn_SetParticleAttributeNode", ACTION_set_attribute);
-  map.add_new("fn_MultiExecuteNode", ACTION_multi_execute);
-  return map;
 }
 
 class FNodeInfluencesBuilder {
@@ -1061,8 +1050,20 @@ static StringMap<ParseNodeCallback, BLI::RawAllocator> create_node_parsers_map()
   return map;
 }
 
+static StringMap<ActionParserCallback, BLI::RawAllocator> create_action_parsers_map()
+{
+  StringMap<ActionParserCallback, BLI::RawAllocator> map;
+  map.add_new("fn_SpawnParticlesNode", ACTION_spawn);
+  map.add_new("fn_ParticleConditionNode", ACTION_condition);
+  map.add_new("fn_SetParticleAttributeNode", ACTION_set_attribute);
+  map.add_new("fn_MultiExecuteNode", ACTION_multi_execute);
+  return map;
+}
+
 static StringMap<ParseNodeCallback, BLI::RawAllocator> node_parsers_map =
     create_node_parsers_map();
+StringMap<ActionParserCallback, BLI::RawAllocator> action_parsers_map =
+    create_action_parsers_map();
 
 static void collect_influences(FunctionTreeData &function_tree_data,
                                WorldTransition &world_transition,
