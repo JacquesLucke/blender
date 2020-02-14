@@ -326,7 +326,9 @@ const MultiFunction &expression_to_multi_function(StringRef str,
                                                   ResourceCollector &resources,
                                                   ArrayRef<StringRef> variable_names,
                                                   ArrayRef<MFDataType> variable_types,
-                                                  const ConstantsTable &constants_table)
+                                                  const ConstantsTable &constants_table,
+                                                  const FunctionTable &function_table,
+                                                  const ConversionTable &conversion_table)
 {
   BLI::assert_same_size(variable_names, variable_types);
   AstNode &ast_node = parse_expression(str, resources.allocator());
@@ -339,14 +341,6 @@ const MultiFunction &expression_to_multi_function(StringRef str,
         identifier, {}, {variable_types[i]}, {}, {"Value"});
     builder_dummy_inputs.add_new(identifier, &node.output(0));
   }
-
-  FunctionTable function_table;
-  function_table.add("+", *MF_GLOBAL_add_floats_2);
-
-  ConversionTable conversion_table;
-  conversion_table.add(MFDataType::ForSingle<int>(),
-                       MFDataType::ForSingle<float>(),
-                       resources.construct<MF_Convert<int, float>>("convert int to float"));
 
   AstToNetworkBuilder builder{network_builder,
                               resources,

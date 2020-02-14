@@ -39,19 +39,32 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
                             const struct ModifierEvalContext *ctx)
 {
   {
-    std::string str = "x+5";
+    BLI::ResourceCollector resources;
+
+    std::string str = "x+5+2.5";
 
     FN::Expr::ConstantsTable constants_table;
     constants_table.add_single("var", 100.0f);
 
-    BLI::ResourceCollector resources;
+    FN::Expr::FunctionTable function_table;
+    function_table.add("+", *FN::MF_GLOBAL_add_floats_2);
+
+    FN::Expr::ConversionTable conversion_table;
+    conversion_table.add<int, float>(resources);
+
     const FN::MultiFunction &fn = FN::Expr::expression_to_multi_function(
-        str, resources, {"x"}, {FN::MFDataType::ForSingle<float>()}, constants_table);
+        str,
+        resources,
+        {"x"},
+        {FN::MFDataType::ForSingle<float>()},
+        constants_table,
+        function_table,
+        conversion_table);
 
     FN::MFParamsBuilder params_builder(fn, 1);
     FN::MFContextBuilder context_builder;
 
-    float input_x = 2.25f;
+    float input_x = 10.0f;
     float result;
     params_builder.add_readonly_single_input(&input_x);
     params_builder.add_single_output(&result);

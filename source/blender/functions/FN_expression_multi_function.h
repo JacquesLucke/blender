@@ -1,6 +1,8 @@
 #pragma once
 
 #include "FN_multi_function.h"
+#include "FN_multi_functions.h"
+
 #include "BLI_resource_collector.h"
 #include "BLI_map.h"
 #include "BLI_string_map.h"
@@ -38,6 +40,12 @@ class ConversionTable {
   void add(MFDataType from, MFDataType to, const MultiFunction &fn)
   {
     m_table.add_new({from, to}, &fn);
+  }
+
+  template<typename FromT, typename ToT> void add(ResourceCollector &resources)
+  {
+    const MultiFunction &fn = resources.construct<MF_Convert<FromT, ToT>>("conversion fn");
+    this->add(MFDataType::ForSingle<FromT>(), MFDataType::ForSingle<ToT>(), fn);
   }
 
   const MultiFunction *try_lookup(MFDataType from, MFDataType to) const
@@ -91,7 +99,9 @@ const MultiFunction &expression_to_multi_function(StringRef str,
                                                   ResourceCollector &resources,
                                                   ArrayRef<StringRef> variable_names,
                                                   ArrayRef<MFDataType> variable_types,
-                                                  const ConstantsTable &constants_table);
+                                                  const ConstantsTable &constants_table,
+                                                  const FunctionTable &function_table,
+                                                  const ConversionTable &conversion_table);
 
 }  // namespace Expr
 }  // namespace FN
