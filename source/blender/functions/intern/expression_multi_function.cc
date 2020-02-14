@@ -225,6 +225,9 @@ const MultiFunction &expression_to_multi_function(StringRef str, ResourceCollect
   const MFInputSocket &output_socket = network.find_dummy_socket(builder_output.input(0));
 
   Vector<const MFOutputSocket *> inputs;
+  builder_dummy_inputs.foreach_value([&](MFBuilderOutputSocket *builder_input) {
+    inputs.append(&network.find_dummy_socket(*builder_input));
+  });
   Vector<const MFInputSocket *> outputs;
   outputs.append(&output_socket);
 
