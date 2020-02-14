@@ -19,12 +19,12 @@ static void insert_implicit_conversions(ResourceCollector &resources,
   const CPPType &type2 = (*sub2)->data_type().single__cpp_type();
   if (type1 == type2) {
   }
-  else if (type1 == CPP_TYPE<float>() && type2 == CPP_TYPE<int>()) {
+  else if (type1 == CPPType_float && type2 == CPPType_int32) {
     MFBuilderFunctionNode &node = network_builder.add_function<MF_Convert<int, float>>(resources);
     network_builder.add_link(**sub2, node.input(0));
     *sub2 = &node.output(0);
   }
-  else if (type1 == CPP_TYPE<int>() && type2 == CPP_TYPE<float>()) {
+  else if (type1 == CPPType_int32 && type2 == CPPType_float) {
     MFBuilderFunctionNode &node = network_builder.add_function<MF_Convert<int, float>>(resources);
     network_builder.add_link(**sub1, node.input(0));
     *sub1 = &node.output(0);
@@ -83,11 +83,11 @@ static MFBuilderOutputSocket &build_binary_node(AstNode &ast_node,
 
   MFBuilderFunctionNode *node = nullptr;
   const CPPType &type = sub1->data_type().single__cpp_type();
-  if (type == CPP_TYPE<int>()) {
+  if (type == CPPType_int32) {
     node = &network_builder.add_function<MF_Custom_In2_Out1<int, int, int>>(
         resources, name, [=](int a, int b) { return func.execute(a, b); });
   }
-  else if (type == CPP_TYPE<float>()) {
+  else if (type == CPPType_float) {
     node = &network_builder.add_function<MF_Custom_In2_Out1<float, float, float>>(
         resources, name, [=](float a, float b) { return func.execute(a, b); });
   }
@@ -165,11 +165,11 @@ static MFBuilderOutputSocket &build_node(AstNode &ast_node,
       MFBuilderOutputSocket &sub_output = build_node(
           *ast_node.children[0], network_builder, resources, inputs);
       MFBuilderFunctionNode *node = nullptr;
-      if (sub_output.data_type().single__cpp_type() == CPP_TYPE<int>()) {
+      if (sub_output.data_type().single__cpp_type() == CPPType_int32) {
         node = &network_builder.add_function<MF_Custom_In1_Out1<int, int>>(
             resources, "negate", [](int a) { return -a; });
       }
-      else if (sub_output.data_type().single__cpp_type() == CPP_TYPE<float>()) {
+      else if (sub_output.data_type().single__cpp_type() == CPPType_float) {
         node = &network_builder.add_function<MF_Custom_In1_Out1<float, float>>(
             resources, "negate", [](float a) { return -a; });
       }
