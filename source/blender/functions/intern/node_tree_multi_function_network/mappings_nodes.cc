@@ -170,6 +170,11 @@ static void build_math_fn_in1_out1(FNodeMFBuilder &builder,
       {"use_list"}, builder.fnode().name(), func, operation_hash);
 }
 
+static void build_math_fn_in1_out1(FNodeMFBuilder &builder, const MultiFunction &base_fn)
+{
+  builder.set_vectorized_matching_fn({"use_list"}, base_fn);
+}
+
 template<typename InT1, typename InT2, typename OutT, typename FuncT>
 static void build_math_fn_in2_out1(FNodeMFBuilder &builder,
                                    FuncT element_func,
@@ -270,14 +275,12 @@ static void INSERT_abs_float(FNodeMFBuilder &builder)
 
 static void INSERT_sine_float(FNodeMFBuilder &builder)
 {
-  build_math_fn_in1_out1<float, float>(
-      builder, [](float a) -> float { return std::sin(a); }, BLI_RAND_PER_LINE_UINT32);
+  build_math_fn_in1_out1(builder, *MF_GLOBAL_sin_float);
 }
 
 static void INSERT_cosine_float(FNodeMFBuilder &builder)
 {
-  build_math_fn_in1_out1<float, float>(
-      builder, [](float a) -> float { return std::cos(a); }, BLI_RAND_PER_LINE_UINT32);
+  build_math_fn_in1_out1(builder, *MF_GLOBAL_cos_float);
 }
 
 static void INSERT_ceil_float(FNodeMFBuilder &builder)

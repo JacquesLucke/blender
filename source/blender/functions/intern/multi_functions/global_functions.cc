@@ -7,6 +7,8 @@ const MultiFunction *MF_GLOBAL_add_floats_2 = nullptr;
 const MultiFunction *MF_GLOBAL_multiply_floats_2 = nullptr;
 const MultiFunction *MF_GLOBAL_subtract_floats = nullptr;
 const MultiFunction *MF_GLOBAL_safe_division_floats = nullptr;
+const MultiFunction *MF_GLOBAL_sin_float = nullptr;
+const MultiFunction *MF_GLOBAL_cos_float = nullptr;
 
 void init_global_functions()
 {
@@ -20,6 +22,11 @@ void init_global_functions()
       "safe divide 2 floats",
       [](float a, float b) { return (b != 0.0f) ? a / b : 0.0f; },
       BLI_RAND_PER_LINE_UINT32);
+
+  MF_GLOBAL_sin_float = new MF_Custom_In1_Out1<float, float>(
+      "sin float", [](float a) { return std::sin(a); }, BLI_RAND_PER_LINE_UINT32);
+  MF_GLOBAL_cos_float = new MF_Custom_In1_Out1<float, float>(
+      "cos float", [](float a) { return std::cos(a); }, BLI_RAND_PER_LINE_UINT32);
 }
 
 void free_global_functions()
@@ -28,6 +35,8 @@ void free_global_functions()
   delete MF_GLOBAL_multiply_floats_2;
   delete MF_GLOBAL_subtract_floats;
   delete MF_GLOBAL_safe_division_floats;
+  delete MF_GLOBAL_sin_float;
+  delete MF_GLOBAL_cos_float;
 }
 
 }  // namespace FN

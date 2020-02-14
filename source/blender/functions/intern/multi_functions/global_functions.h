@@ -11,5 +11,7 @@ extern const MultiFunction *MF_GLOBAL_add_floats_2;
 extern const MultiFunction *MF_GLOBAL_multiply_floats_2;
 extern const MultiFunction *MF_GLOBAL_subtract_floats;
 extern const MultiFunction *MF_GLOBAL_safe_division_floats;
+extern const MultiFunction *MF_GLOBAL_sin_float;
+extern const MultiFunction *MF_GLOBAL_cos_float;
 
 }  // namespace FN
