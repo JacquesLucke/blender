@@ -2,7 +2,6 @@
 #include "FN_multi_function_network_optimization.h"
 #include "FN_multi_functions.h"
 
-#include "BLI_math_cxx.h"
 #include "BLI_string_map.h"
 #include "BLI_string.h"
 
@@ -12,9 +11,10 @@
 namespace FN {
 namespace MFGeneration {
 
-BLI_NOINLINE static bool check_if_data_links_are_valid(const FunctionTree &function_tree,
-                                                       const FunctionTreeMFMappings &mappings,
-                                                       const FSocketDataTypes &fsocket_data_types)
+BLI_NOINLINE static bool UNUSED_FUNCTION_NDEBUG(check_if_data_links_are_valid)(
+    const FunctionTree &function_tree,
+    const FunctionTreeMFMappings &mappings,
+    const FSocketDataTypes &fsocket_data_types)
 {
   for (const FInputSocket *to_fsocket : function_tree.all_input_sockets()) {
     ArrayRef<const FOutputSocket *> origin_sockets = to_fsocket->linked_sockets();

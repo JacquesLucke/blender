@@ -6,6 +6,7 @@
 
 #include "BLI_hash.h"
 #include "BLI_rand_cxx.h"
+#include "BLI_float3.h"
 
 namespace FN {
 

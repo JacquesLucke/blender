@@ -37,6 +37,7 @@ set(INC
   ../nodes
   ../physics
   ../shader_fx
+  ../simulations
   ../render/extern/include
   ../../../intern/ghost
   ../../../intern/glew-mx

@@ -34,6 +34,8 @@ struct FunctionTreeMFMappings {
 void add_function_tree_socket_mapping_info(FunctionTreeMFMappings &mappings);
 void add_function_tree_node_mapping_info(FunctionTreeMFMappings &mappings);
 
+void init_function_tree_mf_mappings();
+void free_function_tree_mf_mappings();
 const FunctionTreeMFMappings &get_function_tree_multi_function_mappings();
 
 }  // namespace MFGeneration

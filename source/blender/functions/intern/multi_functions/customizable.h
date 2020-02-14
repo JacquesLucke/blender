@@ -4,8 +4,6 @@
 
 #include "FN_multi_function.h"
 
-#include "BLI_math_cxx.h"
-
 namespace FN {
 
 template<typename FromT, typename ToT> class MF_Convert : public MultiFunction {

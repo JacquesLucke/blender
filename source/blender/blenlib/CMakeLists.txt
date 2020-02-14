@@ -257,10 +257,6 @@ set(SRC
   BLI_dot_export.h
   BLI_dot_export_attribute_enums.h
   intern/dot_export.cc
-  BLI_lazy_init.h
-  BLI_lazy_init_cxx.h
-  intern/BLI_lazy_init.cc
-  BLI_math_cxx.h
   BLI_linear_allocator.h
   BLI_multi_map.h
   BLI_timeit.h
@@ -272,6 +268,10 @@ set(SRC
   BLI_index_to_ref_map.h
   BLI_rand_cxx.h
   BLI_buffer_cache.h
+  BLI_float3.h
+  BLI_float2.h
+  BLI_float4x4.h
+  BLI_color.h
 )
 
 set(LIB

@@ -7,6 +7,7 @@
 #include "BLI_timeit.h"
 #include "BLI_string.h"
 #include "BLI_parallel.h"
+#include "BLI_color.h"
 
 #include "BKE_mesh.h"
 #include "BKE_customdata.h"
