@@ -18,17 +18,39 @@ using BLI::StringMultiMap;
 
 class FunctionTable {
  private:
-  StringMultiMap<const MultiFunction *> m_table;
+  StringMultiMap<const MultiFunction *> m_function_table;
+  Map<std::pair<MFDataType, std::string>, const MultiFunction *> m_attribute_table;
+  Map<std::pair<MFDataType, std::string>, const MultiFunction *> m_method_table;
 
  public:
-  void add(StringRef name, const MultiFunction &fn)
+  void add_function(StringRef name, const MultiFunction &fn)
   {
-    m_table.add(name, &fn);
+    m_function_table.add(name, &fn);
   }
 
-  ArrayRef<const MultiFunction *> lookup(StringRef name) const
+  ArrayRef<const MultiFunction *> lookup_function(StringRef name) const
   {
-    return m_table.lookup_default(name);
+    return m_function_table.lookup_default(name);
+  }
+
+  void add_attribute(MFDataType type, StringRef name, const MultiFunction &fn)
+  {
+    m_attribute_table.add_new({type, name}, &fn);
+  }
+
+  const MultiFunction *try_lookup_attribute(MFDataType type, StringRef name) const
+  {
+    return m_attribute_table.lookup_default({type, name}, nullptr);
+  }
+
+  void add_method(MFDataType type, StringRef name, const MultiFunction &fn)
+  {
+    m_method_table.add_new({type, name}, &fn);
+  }
+
+  const MultiFunction *try_lookup_method(MFDataType type, StringRef name) const
+  {
+    return m_method_table.lookup_default({type, name}, nullptr);
   }
 };
 

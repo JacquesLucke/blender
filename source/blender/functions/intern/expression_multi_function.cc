@@ -70,6 +70,8 @@ class AstToNetworkBuilder {
         return this->insert_call((CallNode &)ast_node);
       case AstNodeType::Identifier:
         return this->insert_identifier(ast_node);
+      case AstNodeType::Attribute:
+        return this->insert_attribute((AttributeNode &)ast_node);
     }
     BLI_assert(false);
     return this->build(ast_node);
@@ -120,6 +122,18 @@ class AstToNetworkBuilder {
     return this->insert_function(call_node.name, arg_sockets);
   }
 
+  MFBuilderOutputSocket &insert_attribute(AttributeNode &attribute_node)
+  {
+    MFBuilderOutputSocket &sub = this->build(*attribute_node.children[0]);
+    MFDataType type = sub.data_type();
+    const MultiFunction *fn = m_function_table.try_lookup_attribute(type, attribute_node.name);
+    BLI_assert(fn != nullptr);
+
+    MFBuilderNode &node = m_network_builder.add_function(*fn);
+    m_network_builder.add_link(sub, node.input(0));
+    return node.output(0);
+  }
+
   MFBuilderOutputSocket &insert_function(StringRef name,
                                          ArrayRef<MFBuilderOutputSocket *> arg_sockets)
   {
@@ -149,7 +163,7 @@ class AstToNetworkBuilder {
 
   const MultiFunction &lookup_function(StringRef name, ArrayRef<MFDataType> arg_types)
   {
-    ArrayRef<const MultiFunction *> candidates = m_function_table.lookup(name);
+    ArrayRef<const MultiFunction *> candidates = m_function_table.lookup_function(name);
     const MultiFunction *best_fit_yet = nullptr;
     int best_suitability_yet = INT32_MAX;
     for (const MultiFunction *candidate : candidates) {

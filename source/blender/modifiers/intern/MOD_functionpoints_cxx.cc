@@ -41,19 +41,23 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
   {
     BLI::ResourceCollector resources;
 
-    std::string str = "sin(pi/4) + pi";
+    std::string str = "(5).test+3.0";
 
     FN::Expr::ConstantsTable constants_table;
     constants_table.add_single("pi", (float)M_PI);
 
     FN::Expr::FunctionTable function_table;
-    function_table.add("a+b", *FN::MF_GLOBAL_add_floats_2);
-    function_table.add("a+b", *FN::MF_GLOBAL_add_int32s_2);
-    function_table.add("a-b", *FN::MF_GLOBAL_subtract_floats);
-    function_table.add("a*b", *FN::MF_GLOBAL_multiply_floats_2);
-    function_table.add("a/b", *FN::MF_GLOBAL_safe_division_floats);
-    function_table.add("sin", *FN::MF_GLOBAL_sin_float);
-    function_table.add("cos", *FN::MF_GLOBAL_cos_float);
+    function_table.add_function("a+b", *FN::MF_GLOBAL_add_floats_2);
+    function_table.add_function("a+b", *FN::MF_GLOBAL_add_int32s_2);
+    function_table.add_function("a-b", *FN::MF_GLOBAL_subtract_floats);
+    function_table.add_function("a*b", *FN::MF_GLOBAL_multiply_floats_2);
+    function_table.add_function("a/b", *FN::MF_GLOBAL_safe_division_floats);
+    function_table.add_function("sin", *FN::MF_GLOBAL_sin_float);
+    function_table.add_function("cos", *FN::MF_GLOBAL_cos_float);
+    function_table.add_attribute(FN::MFDataType::ForSingle<int>(),
+                                 "test",
+                                 resources.construct<FN::MF_Custom_In1_Out1<int, int>>(
+                                     "test", "test", [](int a) { return a * 1000; }));
 
     FN::Expr::ConversionTable conversion_table;
     conversion_table.add<int, float>(resources);
