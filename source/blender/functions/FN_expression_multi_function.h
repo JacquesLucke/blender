@@ -2,12 +2,14 @@
 
 #include "FN_multi_function.h"
 #include "BLI_resource_collector.h"
+#include "BLI_map.h"
 #include "BLI_string_map.h"
 #include "BLI_string_multi_map.h"
 
 namespace FN {
 namespace Expr {
 
+using BLI::Map;
 using BLI::ResourceCollector;
 using BLI::StringMap;
 using BLI::StringMultiMap;
@@ -25,6 +27,27 @@ class FunctionTable {
   ArrayRef<const MultiFunction *> lookup(StringRef name) const
   {
     return m_table.lookup_default(name);
+  }
+};
+
+class ConversionTable {
+ private:
+  Map<std::pair<MFDataType, MFDataType>, const MultiFunction *> m_table;
+
+ public:
+  void add(MFDataType from, MFDataType to, const MultiFunction &fn)
+  {
+    m_table.add_new({from, to}, &fn);
+  }
+
+  const MultiFunction *try_lookup(MFDataType from, MFDataType to) const
+  {
+    return m_table.lookup_default({from, to}, nullptr);
+  }
+
+  bool can_convert(MFDataType from, MFDataType to) const
+  {
+    return m_table.contains({from, to});
   }
 };
 

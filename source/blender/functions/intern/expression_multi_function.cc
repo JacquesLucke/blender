@@ -17,18 +17,21 @@ class AstToNetworkBuilder {
   const StringMap<MFBuilderOutputSocket *> &m_expression_inputs;
   const ConstantsTable &m_constants_table;
   const FunctionTable &m_function_table;
+  const ConversionTable &m_conversion_table;
 
  public:
   AstToNetworkBuilder(MFNetworkBuilder &network_builder,
                       ResourceCollector &resources,
                       const StringMap<MFBuilderOutputSocket *> &expression_inputs,
                       const ConstantsTable &constants_table,
-                      const FunctionTable &function_table)
+                      const FunctionTable &function_table,
+                      const ConversionTable &conversion_table)
       : m_network_builder(network_builder),
         m_resources(resources),
         m_expression_inputs(expression_inputs),
         m_constants_table(constants_table),
-        m_function_table(function_table)
+        m_function_table(function_table),
+        m_conversion_table(conversion_table)
   {
   }
 
@@ -55,6 +58,85 @@ class AstToNetworkBuilder {
   const FunctionTable &function_table()
   {
     return m_function_table;
+  }
+
+  MFBuilderOutputSocket &insert_function(StringRef name,
+                                         ArrayRef<MFBuilderOutputSocket *> arg_sockets)
+  {
+    Vector<MFDataType> arg_types;
+    for (MFBuilderOutputSocket *socket : arg_sockets) {
+      arg_types.append(socket->data_type());
+    }
+    const MultiFunction &fn = this->lookup_function(name, arg_types);
+    MFBuilderNode &node = m_network_builder.add_function(fn);
+    BLI_assert(node.inputs().size() == arg_sockets.size());
+    for (uint i : arg_sockets.index_range()) {
+      MFDataType actual_type = arg_types[i];
+      MFDataType expected_type = node.input(i).data_type();
+      if (actual_type == expected_type) {
+        m_network_builder.add_link(*arg_sockets[i], node.input(i));
+      }
+      else {
+        const MultiFunction &conversion_fn = *m_conversion_table.try_lookup(actual_type,
+                                                                            expected_type);
+        MFBuilderNode &conversion_node = m_network_builder.add_function(conversion_fn);
+        m_network_builder.add_link(*arg_sockets[i], conversion_node.input(0));
+        m_network_builder.add_link(conversion_node.output(0), node.input(i));
+      }
+    }
+    return node.output(0);
+  }
+
+  const MultiFunction &lookup_function(StringRef name, ArrayRef<MFDataType> arg_types)
+  {
+    ArrayRef<const MultiFunction *> candidates = m_function_table.lookup(name);
+    const MultiFunction *best_fit_yet = nullptr;
+    int best_suitability_yet = INT32_MAX;
+    for (const MultiFunction *candidate : candidates) {
+      int suitability = this->get_function_suitability(*candidate, arg_types);
+      if (suitability >= 0) {
+        if (suitability < best_suitability_yet) {
+          best_fit_yet = candidate;
+          best_suitability_yet = suitability;
+        }
+      }
+    }
+    BLI_assert(best_fit_yet != nullptr);
+    return *best_fit_yet;
+  }
+
+  /* Return -1, when the function cannot be used. Otherwise, lower return values mean a better fit.
+   */
+  int get_function_suitability(const MultiFunction &fn, ArrayRef<MFDataType> arg_types)
+  {
+    uint input_index = 0;
+    int conversion_count = 0;
+    for (uint param_index : fn.param_indices()) {
+      MFParamType param_type = fn.param_type(param_index);
+      if (param_type.is_input_or_mutable()) {
+        if (input_index >= arg_types.size()) {
+          /* Number of arguments does not match. */
+          return -1;
+        }
+
+        MFDataType actual_type = arg_types[input_index];
+        MFDataType expected_type = param_type.data_type();
+        if (actual_type != expected_type) {
+          if (m_conversion_table.can_convert(actual_type, expected_type)) {
+            conversion_count++;
+          }
+          else {
+            return -1;
+          }
+        }
+        input_index++;
+      }
+    }
+    if (input_index != arg_types.size()) {
+      /* Number of arguments does not match. */
+      return -1;
+    }
+    return conversion_count;
   }
 };
 
@@ -167,31 +249,7 @@ static MFBuilderOutputSocket &build_node(AstNode &ast_node, AstToNetworkBuilder 
     case AstNodeType::Plus: {
       MFBuilderOutputSocket *sub1 = &build_node(*ast_node.children[0], builder);
       MFBuilderOutputSocket *sub2 = &build_node(*ast_node.children[1], builder);
-      MFDataType type1 = sub1->data_type();
-      MFDataType type2 = sub2->data_type();
-      ArrayRef<const MultiFunction *> candidates = builder.function_table().lookup("+");
-      for (const MultiFunction *candidate : candidates) {
-        if (candidate->param_indices().size() != 3) {
-          continue;
-        }
-        MFParamType param1 = candidate->param_type(0);
-        MFParamType param2 = candidate->param_type(1);
-        MFParamType param3 = candidate->param_type(2);
-        if (!param1.is_input() || !param2.is_input() || !param3.is_output()) {
-          continue;
-        }
-        if (param1.data_type() != type1 || param2.data_type() != type2) {
-          continue;
-        }
-
-        MFNetworkBuilder &network_builder = builder.network_builder();
-        MFBuilderFunctionNode &node = network_builder.add_function(*candidate);
-        network_builder.add_link(*sub1, node.input(0));
-        network_builder.add_link(*sub2, node.input(1));
-        return node.output(0);
-      }
-      BLI_assert(false);
-      return *sub1;
+      return builder.insert_function("+", {sub1, sub2});
     }
     case AstNodeType::Minus: {
       return build_binary_node(ast_node, "subtract", builder, SubFunc());
@@ -285,8 +343,17 @@ const MultiFunction &expression_to_multi_function(StringRef str,
   FunctionTable function_table;
   function_table.add("+", *MF_GLOBAL_add_floats_2);
 
-  AstToNetworkBuilder builder{
-      network_builder, resources, builder_dummy_inputs, constants_table, function_table};
+  ConversionTable conversion_table;
+  conversion_table.add(MFDataType::ForSingle<int>(),
+                       MFDataType::ForSingle<float>(),
+                       resources.construct<MF_Convert<int, float>>("convert int to float"));
+
+  AstToNetworkBuilder builder{network_builder,
+                              resources,
+                              builder_dummy_inputs,
+                              constants_table,
+                              function_table,
+                              conversion_table};
 
   MFBuilderOutputSocket &builder_output_socket = build_node(ast_node, builder);
   MFBuilderDummyNode &builder_output = network_builder.add_output_dummy("Result",
