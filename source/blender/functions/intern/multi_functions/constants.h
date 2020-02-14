@@ -49,15 +49,15 @@ template<typename T> class MF_ConstantValue : public MultiFunction {
     MF_GenericConstantValue::value_to_string(ss, CPP_TYPE<T>(), (const void *)&m_value);
     signature.single_output<T>(ss.str());
 
-    if (CPP_TYPE<T>() == CPP_TYPE<float>()) {
+    if (CPP_TYPE<T>() == CPPType_float) {
       uint32_t hash = BLI_hash_int_2d(*(uint *)&m_value, 0);
       signature.operation_hash(hash);
     }
-    else if (CPP_TYPE<T>() == CPP_TYPE<int>()) {
+    else if (CPP_TYPE<T>() == CPPType_int32) {
       uint32_t hash = BLI_hash_int_2d(*(uint *)&m_value, 1);
       signature.operation_hash(hash);
     }
-    else if (CPP_TYPE<T>() == CPP_TYPE<std::string>()) {
+    else if (CPP_TYPE<T>() == CPPType_string) {
       uint32_t hash = BLI_hash_string(((std::string *)&m_value)->c_str());
       signature.operation_hash(hash);
     }
@@ -66,7 +66,7 @@ template<typename T> class MF_ConstantValue : public MultiFunction {
       uint32_t hash = object_handle.internal_identifier() ^ BLI_RAND_PER_LINE_UINT32;
       signature.operation_hash(hash);
     }
-    else if (CPP_TYPE<T>() == CPP_TYPE<BLI::float3>()) {
+    else if (CPP_TYPE<T>() == CPPType_float3) {
       BLI::float3 vector = *(BLI::float3 *)&value;
       uint32_t hash = BLI_hash_int_2d(*(uint *)&vector.x, 0);
       hash = BLI_hash_int_2d(*(uint *)&vector.y, hash);

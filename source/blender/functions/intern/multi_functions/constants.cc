@@ -6,19 +6,19 @@ void MF_GenericConstantValue::value_to_string(std::stringstream &ss,
                                               const CPPType &type,
                                               const void *value)
 {
-  if (type == CPP_TYPE<float>()) {
+  if (type == CPPType_float) {
     ss << (*(float *)value);
   }
-  else if (type == CPP_TYPE<int>()) {
+  else if (type == CPPType_int32) {
     ss << *(int *)value;
   }
-  else if (type == CPP_TYPE<BLI::float3>()) {
+  else if (type == CPPType_float3) {
     ss << *(BLI::float3 *)value;
   }
   else if (type == CPP_TYPE<bool>()) {
     ss << ((*(bool *)value) ? "true" : "false");
   }
-  else if (type == CPP_TYPE<std::string>()) {
+  else if (type == CPPType_string) {
     ss << "\"" << *(std::string *)value << "\"";
   }
   else {
@@ -34,7 +34,7 @@ MF_GenericConstantValue::MF_GenericConstantValue(const CPPType &type, const void
   MF_GenericConstantValue::value_to_string(ss, type, value);
   signature.single_output(ss.str(), type);
 
-  if (type == CPP_TYPE<float>()) {
+  if (type == CPPType_float) {
     uint32_t hash = BLI_hash_int_2d(*(uint *)value, 0);
     signature.operation_hash(hash);
   }
