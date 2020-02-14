@@ -15,23 +15,17 @@ class AstToNetworkBuilder {
   MFNetworkBuilder &m_network_builder;
   ResourceCollector &m_resources;
   const StringMap<MFBuilderOutputSocket *> &m_expression_inputs;
-  const ConstantsTable &m_constants_table;
-  const FunctionTable &m_function_table;
-  const ConversionTable &m_conversion_table;
+  const SymbolTable &m_symbols;
 
  public:
   AstToNetworkBuilder(MFNetworkBuilder &network_builder,
                       ResourceCollector &resources,
                       const StringMap<MFBuilderOutputSocket *> &expression_inputs,
-                      const ConstantsTable &constants_table,
-                      const FunctionTable &function_table,
-                      const ConversionTable &conversion_table)
+                      const SymbolTable &symbols)
       : m_network_builder(network_builder),
         m_resources(resources),
         m_expression_inputs(expression_inputs),
-        m_constants_table(constants_table),
-        m_function_table(function_table),
-        m_conversion_table(conversion_table)
+        m_symbols(symbols)
   {
   }
 
@@ -108,7 +102,7 @@ class AstToNetworkBuilder {
     if (expression_input_socket != nullptr) {
       return *expression_input_socket;
     }
-    Optional<SingleConstant> constant = m_constants_table.try_lookup(identifier);
+    Optional<SingleConstant> constant = m_symbols.try_lookup_single_constant(identifier);
     BLI_assert(constant.has_value());
     return m_network_builder
         .add_function<MF_GenericConstantValue>(m_resources, *constant->type, constant->buffer)
@@ -128,7 +122,7 @@ class AstToNetworkBuilder {
   {
     MFBuilderOutputSocket &sub = this->build(*attribute_node.children[0]);
     MFDataType type = sub.data_type();
-    const MultiFunction *fn = m_function_table.try_lookup_attribute(type, attribute_node.name);
+    const MultiFunction *fn = m_symbols.try_lookup_attribute(type, attribute_node.name);
     BLI_assert(fn != nullptr);
 
     MFBuilderNode &node = m_network_builder.add_function(*fn);
@@ -143,7 +137,7 @@ class AstToNetworkBuilder {
       arg_sockets.append(&this->build(*child));
     }
     MFDataType type = arg_sockets[0]->data_type();
-    const MultiFunction *fn = m_function_table.try_lookup_method(type, method_call_node.name);
+    const MultiFunction *fn = m_symbols.try_lookup_method(type, method_call_node.name);
     BLI_assert(fn != nullptr);
 
     MFBuilderNode &node = m_network_builder.add_function(*fn);
@@ -163,7 +157,7 @@ class AstToNetworkBuilder {
       m_network_builder.add_link(from, to);
     }
     else {
-      const MultiFunction *conversion_fn = m_conversion_table.try_lookup(from_type, to_type);
+      const MultiFunction *conversion_fn = m_symbols.try_lookup_conversion(from_type, to_type);
       BLI_assert(conversion_fn != nullptr);
       MFBuilderNode &conversion_node = m_network_builder.add_function(*conversion_fn);
       m_network_builder.add_link(from, conversion_node.input(0));
@@ -189,7 +183,7 @@ class AstToNetworkBuilder {
 
   const MultiFunction &lookup_function(StringRef name, ArrayRef<MFDataType> arg_types)
   {
-    ArrayRef<const MultiFunction *> candidates = m_function_table.lookup_function(name);
+    ArrayRef<const MultiFunction *> candidates = m_symbols.lookup_function_candidates(name);
     const MultiFunction *best_fit_yet = nullptr;
     int best_suitability_yet = INT32_MAX;
     for (const MultiFunction *candidate : candidates) {
@@ -222,7 +216,7 @@ class AstToNetworkBuilder {
         MFDataType actual_type = arg_types[input_index];
         MFDataType expected_type = param_type.data_type();
         if (actual_type != expected_type) {
-          if (m_conversion_table.can_convert(actual_type, expected_type)) {
+          if (m_symbols.can_convert(actual_type, expected_type)) {
             conversion_count++;
           }
           else {
@@ -244,9 +238,7 @@ const MultiFunction &expression_to_multi_function(StringRef str,
                                                   ResourceCollector &resources,
                                                   ArrayRef<StringRef> variable_names,
                                                   ArrayRef<MFDataType> variable_types,
-                                                  const ConstantsTable &constants_table,
-                                                  const FunctionTable &function_table,
-                                                  const ConversionTable &conversion_table)
+                                                  const SymbolTable &symbols)
 {
   BLI::assert_same_size(variable_names, variable_types);
   AstNode &ast_node = parse_expression(str, resources.allocator());
@@ -260,12 +252,7 @@ const MultiFunction &expression_to_multi_function(StringRef str,
     builder_dummy_inputs.add_new(identifier, &node.output(0));
   }
 
-  AstToNetworkBuilder builder{network_builder,
-                              resources,
-                              builder_dummy_inputs,
-                              constants_table,
-                              function_table,
-                              conversion_table};
+  AstToNetworkBuilder builder{network_builder, resources, builder_dummy_inputs, symbols};
   MFBuilderOutputSocket &builder_output_socket = builder.build(ast_node);
 
   MFBuilderDummyNode &builder_output = network_builder.add_output_dummy("Result",

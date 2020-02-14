@@ -40,37 +40,27 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
 {
   {
     BLI::ResourceCollector resources;
+    FN::Expr::SymbolTable symbols;
 
     std::string str = "(5).test(10)+3.0";
 
-    FN::Expr::ConstantsTable constants_table;
-    constants_table.add_single("pi", (float)M_PI);
+    symbols.add_single_constant("pi", (float)M_PI);
+    symbols.add_conversion<int, float>(resources);
 
-    FN::Expr::FunctionTable function_table;
-    function_table.add_function("a+b", *FN::MF_GLOBAL_add_floats_2);
-    function_table.add_function("a+b", *FN::MF_GLOBAL_add_int32s_2);
-    function_table.add_function("a-b", *FN::MF_GLOBAL_subtract_floats);
-    function_table.add_function("a*b", *FN::MF_GLOBAL_multiply_floats_2);
-    function_table.add_function("a/b", *FN::MF_GLOBAL_safe_division_floats);
-    function_table.add_function("sin", *FN::MF_GLOBAL_sin_float);
-    function_table.add_function("cos", *FN::MF_GLOBAL_cos_float);
-    function_table.add_method(
-        FN::MFDataType::ForSingle<int>(),
-        "test",
-        resources.construct<FN::MF_Custom_In2_Out1<int, float, int>>(
-            "test", "test", [](int a, float b) { return a * 1000 + b * 100; }));
-
-    FN::Expr::ConversionTable conversion_table;
-    conversion_table.add<int, float>(resources);
+    symbols.add_function("a+b", *FN::MF_GLOBAL_add_floats_2);
+    symbols.add_function("a+b", *FN::MF_GLOBAL_add_int32s_2);
+    symbols.add_function("a-b", *FN::MF_GLOBAL_subtract_floats);
+    symbols.add_function("a*b", *FN::MF_GLOBAL_multiply_floats_2);
+    symbols.add_function("a/b", *FN::MF_GLOBAL_safe_division_floats);
+    symbols.add_function("sin", *FN::MF_GLOBAL_sin_float);
+    symbols.add_function("cos", *FN::MF_GLOBAL_cos_float);
+    symbols.add_method(FN::MFDataType::ForSingle<int>(),
+                       "test",
+                       resources.construct<FN::MF_Custom_In2_Out1<int, float, int>>(
+                           "test", "test", [](int a, float b) { return a * 1000 + b * 100; }));
 
     const FN::MultiFunction &fn = FN::Expr::expression_to_multi_function(
-        str,
-        resources,
-        {"x"},
-        {FN::MFDataType::ForSingle<float>()},
-        constants_table,
-        function_table,
-        conversion_table);
+        str, resources, {"x"}, {FN::MFDataType::ForSingle<float>()}, symbols);
 
     FN::MFParamsBuilder params_builder(fn, 1);
     FN::MFContextBuilder context_builder;
