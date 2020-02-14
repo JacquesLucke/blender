@@ -41,7 +41,7 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
   {
     BLI::ResourceCollector resources;
 
-    std::string str = "(5).test+3.0";
+    std::string str = "(5).test(10)+3.0";
 
     FN::Expr::ConstantsTable constants_table;
     constants_table.add_single("pi", (float)M_PI);
@@ -54,10 +54,11 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
     function_table.add_function("a/b", *FN::MF_GLOBAL_safe_division_floats);
     function_table.add_function("sin", *FN::MF_GLOBAL_sin_float);
     function_table.add_function("cos", *FN::MF_GLOBAL_cos_float);
-    function_table.add_attribute(FN::MFDataType::ForSingle<int>(),
-                                 "test",
-                                 resources.construct<FN::MF_Custom_In1_Out1<int, int>>(
-                                     "test", "test", [](int a) { return a * 1000; }));
+    function_table.add_method(
+        FN::MFDataType::ForSingle<int>(),
+        "test",
+        resources.construct<FN::MF_Custom_In2_Out1<int, float, int>>(
+            "test", "test", [](int a, float b) { return a * 1000 + b * 100; }));
 
     FN::Expr::ConversionTable conversion_table;
     conversion_table.add<int, float>(resources);

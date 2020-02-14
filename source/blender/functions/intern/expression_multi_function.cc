@@ -72,6 +72,8 @@ class AstToNetworkBuilder {
         return this->insert_identifier(ast_node);
       case AstNodeType::Attribute:
         return this->insert_attribute((AttributeNode &)ast_node);
+      case AstNodeType::MethodCall:
+        return this->insert_method_call((MethodCallNode &)ast_node);
     }
     BLI_assert(false);
     return this->build(ast_node);
@@ -134,6 +136,41 @@ class AstToNetworkBuilder {
     return node.output(0);
   }
 
+  MFBuilderOutputSocket &insert_method_call(MethodCallNode &method_call_node)
+  {
+    Vector<MFBuilderOutputSocket *> arg_sockets;
+    for (AstNode *child : method_call_node.children) {
+      arg_sockets.append(&this->build(*child));
+    }
+    MFDataType type = arg_sockets[0]->data_type();
+    const MultiFunction *fn = m_function_table.try_lookup_method(type, method_call_node.name);
+    BLI_assert(fn != nullptr);
+
+    MFBuilderNode &node = m_network_builder.add_function(*fn);
+    BLI::assert_same_size(arg_sockets, node.inputs());
+
+    for (uint i : arg_sockets.index_range()) {
+      this->insert_link_with_conversion(*arg_sockets[i], node.input(i));
+    }
+    return node.output(0);
+  }
+
+  void insert_link_with_conversion(MFBuilderOutputSocket &from, MFBuilderInputSocket &to)
+  {
+    MFDataType from_type = from.data_type();
+    MFDataType to_type = to.data_type();
+    if (from_type == to_type) {
+      m_network_builder.add_link(from, to);
+    }
+    else {
+      const MultiFunction *conversion_fn = m_conversion_table.try_lookup(from_type, to_type);
+      BLI_assert(conversion_fn != nullptr);
+      MFBuilderNode &conversion_node = m_network_builder.add_function(*conversion_fn);
+      m_network_builder.add_link(from, conversion_node.input(0));
+      m_network_builder.add_link(conversion_node.output(0), to);
+    }
+  }
+
   MFBuilderOutputSocket &insert_function(StringRef name,
                                          ArrayRef<MFBuilderOutputSocket *> arg_sockets)
   {
@@ -145,18 +182,7 @@ class AstToNetworkBuilder {
     MFBuilderNode &node = m_network_builder.add_function(fn);
     BLI_assert(node.inputs().size() == arg_sockets.size());
     for (uint i : arg_sockets.index_range()) {
-      MFDataType actual_type = arg_types[i];
-      MFDataType expected_type = node.input(i).data_type();
-      if (actual_type == expected_type) {
-        m_network_builder.add_link(*arg_sockets[i], node.input(i));
-      }
-      else {
-        const MultiFunction &conversion_fn = *m_conversion_table.try_lookup(actual_type,
-                                                                            expected_type);
-        MFBuilderNode &conversion_node = m_network_builder.add_function(conversion_fn);
-        m_network_builder.add_link(*arg_sockets[i], conversion_node.input(0));
-        m_network_builder.add_link(conversion_node.output(0), node.input(i));
-      }
+      this->insert_link_with_conversion(*arg_sockets[i], node.input(i));
     }
     return node.output(0);
   }
