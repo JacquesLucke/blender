@@ -183,6 +183,10 @@ static MFBuilderOutputSocket &build_node(AstNode &ast_node,
       BLI_assert(false);
       break;
     }
+    case AstNodeType::Call: {
+      BLI_assert(false);
+      break;
+    }
   }
   BLI_assert(false);
   return network_builder.node_by_id(0).output(0);
@@ -204,6 +208,8 @@ static void find_used_identifiers(AstNode &root, VectorSet<StringRefNull> &r_ide
 const MultiFunction &expression_to_multi_function(StringRef str, ResourceCollector &resources)
 {
   AstNode &ast_node = parse_expression(str, resources.allocator());
+  std::cout << ast_node.to_dot() << "\n";
+  return resources.construct<MF_ConstantValue<float>>("const", 0.0f);
   VectorSet<StringRefNull> identifiers;
   find_used_identifiers(ast_node, identifiers);
   identifiers.as_ref().print_as_lines("Identifiers");
@@ -233,8 +239,6 @@ const MultiFunction &expression_to_multi_function(StringRef str, ResourceCollect
 
   const MultiFunction &fn = resources.construct<MF_EvaluateNetwork>(
       "expression function", inputs, outputs);
-
-  network_builder.to_dot__clipboard();
 
   return fn;
 }

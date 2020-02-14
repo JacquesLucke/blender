@@ -25,6 +25,11 @@ class TokensToAstBuilder {
     BLI_assert(token_types.last() == TokenType::EndOfString);
   }
 
+  LinearAllocator<> &allocator()
+  {
+    return m_allocator;
+  }
+
   TokenType next_type() const
   {
     return m_token_types[m_current];
@@ -218,8 +223,32 @@ static AstNode *parse_expression__power_level(TokensToAstBuilder &builder)
 static AstNode *parse_expression__atom_level(TokensToAstBuilder &builder)
 {
   switch (builder.next_type()) {
-    case TokenType::Identifier:
-      return builder.consume_identifier();
+    case TokenType::Identifier: {
+      StringRef token_str = builder.consume_next_str();
+      StringRefNull identifier = builder.allocator().copy_string(token_str);
+      if (builder.next_type() == TokenType::ParenOpen) {
+        builder.consume(TokenType::ParenOpen);
+        Vector<AstNode *> args;
+        while (true) {
+          AstNode *arg = parse_expression(builder);
+          args.append(arg);
+          if (builder.next_type() == TokenType::Comma) {
+            builder.consume();
+          }
+          else {
+            BLI_assert(builder.next_type() == TokenType::ParenClose);
+            builder.consume();
+            break;
+          }
+        }
+        MutableArrayRef<AstNode *> args_ref = builder.allocator().copy_array(args.as_ref());
+        builder.consume(TokenType::ParenClose);
+        return builder.allocator().construct<CallNode>(identifier, args_ref);
+      }
+      else {
+        return builder.allocator().construct<IdentifierNode>(identifier);
+      }
+    }
     case TokenType::IntLiteral:
       return builder.consume_constant_int();
     case TokenType::FloatLiteral:
@@ -296,34 +325,44 @@ StringRefNull node_type_to_string(AstNodeType node_type)
       return "Negate";
     case AstNodeType::Power:
       return "Power";
+    case AstNodeType::Call:
+      return "Call";
   }
   BLI_assert(false);
   return "";
 }
 
-static BLI::DotExport::Node &ast_to_dot_node(BLI::DotExport::DirectedGraph &digraph,
-                                             const AstNode &ast_node)
+static std::string get_ast_node_label(const AstNode &ast_node)
 {
   switch (ast_node.type) {
     case AstNodeType::Identifier:
-      return digraph.new_node(((IdentifierNode &)ast_node).value);
+      return ((IdentifierNode &)ast_node).value;
     case AstNodeType::ConstantFloat:
-      return digraph.new_node(std::to_string(((ConstantFloatNode &)ast_node).value));
+      return std::to_string(((ConstantFloatNode &)ast_node).value);
     case AstNodeType::ConstantInt:
-      return digraph.new_node(std::to_string(((ConstantIntNode &)ast_node).value));
+      return std::to_string(((ConstantIntNode &)ast_node).value);
     case AstNodeType::ConstantString:
-      return digraph.new_node(((ConstantStringNode &)ast_node).value);
+      return ((ConstantStringNode &)ast_node).value;
+    case AstNodeType::Call:
+      return ((CallNode &)ast_node).name;
     default: {
-      BLI::DotExport::Node &root_node = digraph.new_node(node_type_to_string(ast_node.type));
-      for (uint i : ast_node.children.index_range()) {
-        AstNode &child = *ast_node.children[i];
-        BLI::DotExport::Node &dot_child = ast_to_dot_node(digraph, child);
-        BLI::DotExport::DirectedEdge &dot_edge = digraph.new_edge(root_node, dot_child);
-        dot_edge.set_attribute("label", std::to_string(i));
-      }
-      return root_node;
+      return node_type_to_string(ast_node.type);
     }
   }
+}
+
+static BLI::DotExport::Node &ast_to_dot_node(BLI::DotExport::DirectedGraph &digraph,
+                                             const AstNode &ast_node)
+{
+  std::string node_label = get_ast_node_label(ast_node);
+  BLI::DotExport::Node &dot_node = digraph.new_node(node_label);
+  for (uint i : ast_node.children.index_range()) {
+    AstNode &child = *ast_node.children[i];
+    BLI::DotExport::Node &dot_child = ast_to_dot_node(digraph, child);
+    BLI::DotExport::DirectedEdge &dot_edge = digraph.new_edge(dot_node, dot_child);
+    dot_edge.set_attribute("label", std::to_string(i));
+  }
+  return dot_node;
 }
 
 std::string AstNode::to_dot() const

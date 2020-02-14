@@ -31,6 +31,7 @@ enum class AstNodeType : uchar {
   ConstantString,
   Negate,
   Power,
+  Call,
 };
 
 StringRefNull node_type_to_string(AstNodeType node_type);
@@ -83,6 +84,15 @@ struct ConstantStringNode : public AstNode {
   StringRefNull value;
 
   ConstantStringNode(StringRefNull value) : AstNode({}, AstNodeType::ConstantString), value(value)
+  {
+  }
+};
+
+struct CallNode : public AstNode {
+  StringRefNull name;
+
+  CallNode(StringRefNull name, MutableArrayRef<AstNode *> args)
+      : AstNode(args, AstNodeType::Call), name(name)
   {
   }
 };
