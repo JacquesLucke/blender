@@ -47,7 +47,7 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
     constants_table.add_single("var", 100.0f);
 
     FN::Expr::FunctionTable function_table;
-    function_table.add("+", *FN::MF_GLOBAL_add_floats_2);
+    function_table.add("a+b", *FN::MF_GLOBAL_add_floats_2);
 
     FN::Expr::ConversionTable conversion_table;
     conversion_table.add<int, float>(resources);
