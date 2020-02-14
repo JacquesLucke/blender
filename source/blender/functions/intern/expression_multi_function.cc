@@ -205,20 +205,20 @@ static void find_used_identifiers(AstNode &root, VectorSet<StringRefNull> &r_ide
   }
 }
 
-const MultiFunction &expression_to_multi_function(StringRef str, ResourceCollector &resources)
+const MultiFunction &expression_to_multi_function(StringRef str,
+                                                  ResourceCollector &resources,
+                                                  ArrayRef<StringRef> variable_names,
+                                                  ArrayRef<MFDataType> variable_types)
 {
+  BLI::assert_same_size(variable_names, variable_types);
   AstNode &ast_node = parse_expression(str, resources.allocator());
-  std::cout << ast_node.to_dot() << "\n";
-  return resources.construct<MF_ConstantValue<float>>("const", 0.0f);
-  VectorSet<StringRefNull> identifiers;
-  find_used_identifiers(ast_node, identifiers);
-  identifiers.as_ref().print_as_lines("Identifiers");
 
   MFNetworkBuilder network_builder;
   StringMap<MFBuilderOutputSocket *> builder_dummy_inputs;
-  for (StringRefNull identifier : identifiers) {
+  for (uint i : variable_names.index_range()) {
+    StringRef identifier = variable_names[i];
     MFBuilderDummyNode &node = network_builder.add_dummy(
-        identifier, {}, {MFDataType::ForSingle<float>()}, {}, {"Value"});
+        identifier, {}, {variable_types[i]}, {}, {"Value"});
     builder_dummy_inputs.add_new(identifier, &node.output(0));
   }
 
@@ -236,6 +236,8 @@ const MultiFunction &expression_to_multi_function(StringRef str, ResourceCollect
   });
   Vector<const MFInputSocket *> outputs;
   outputs.append(&output_socket);
+
+  network_builder.to_dot__clipboard();
 
   const MultiFunction &fn = resources.construct<MF_EvaluateNetwork>(
       "expression function", inputs, outputs);

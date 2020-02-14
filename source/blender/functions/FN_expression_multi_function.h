@@ -8,7 +8,10 @@ namespace Expr {
 
 using BLI::ResourceCollector;
 
-const MultiFunction &expression_to_multi_function(StringRef str, ResourceCollector &resources);
+const MultiFunction &expression_to_multi_function(StringRef str,
+                                                  ResourceCollector &resources,
+                                                  ArrayRef<StringRef> variable_names,
+                                                  ArrayRef<MFDataType> variable_types);
 
 }  // namespace Expr
 }  // namespace FN
