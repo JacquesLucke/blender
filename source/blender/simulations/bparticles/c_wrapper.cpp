@@ -318,18 +318,18 @@ void BParticles_modifier_cache_state(BParticlesModifierData *bpmd,
     strncpy(position_attribute.name, "Position", sizeof(position_attribute.name));
     position_attribute.values = (float *)MEM_malloc_arrayN(
         cached_type.particle_amount, sizeof(float3), __func__);
-    FN::CPP_TYPE<float3>().copy_to_uninitialized_n(particles.attributes().get("Position").buffer(),
-                                                   position_attribute.values,
-                                                   cached_type.particle_amount);
+    FN::CPPType_float3.copy_to_uninitialized_n(particles.attributes().get("Position").buffer(),
+                                               position_attribute.values,
+                                               cached_type.particle_amount);
 
     BParticlesAttributeCacheFloat &size_attribute = cached_type.attributes_float[1];
     size_attribute.floats_per_particle = 1;
     strncpy(size_attribute.name, "Size", sizeof(size_attribute.name));
     size_attribute.values = (float *)MEM_malloc_arrayN(
         cached_type.particle_amount, sizeof(float), __func__);
-    FN::CPP_TYPE<float>().copy_to_uninitialized_n(particles.attributes().get("Size").buffer(),
-                                                  size_attribute.values,
-                                                  cached_type.particle_amount);
+    FN::CPPType_float.copy_to_uninitialized_n(particles.attributes().get("Size").buffer(),
+                                              size_attribute.values,
+                                              cached_type.particle_amount);
 
     BParticlesAttributeCacheFloat &color_attribute = cached_type.attributes_float[2];
     color_attribute.floats_per_particle = 4;

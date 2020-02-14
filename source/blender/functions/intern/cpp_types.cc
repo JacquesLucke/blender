@@ -198,16 +198,18 @@ static std::unique_ptr<const CPPType> create_cpp_type(StringRef name,
 
 #define MAKE_CPP_TYPE(IDENTIFIER, TYPE_NAME) \
   static TYPE_NAME default_value_##IDENTIFIER; \
-  static std::unique_ptr<const CPPType> CPPTYPE_##IDENTIFIER = create_cpp_type<TYPE_NAME>( \
-      STRINGIFY(IDENTIFIER), BLI_RAND_PER_LINE_UINT32, default_value_##IDENTIFIER); \
+  static std::unique_ptr<const CPPType> CPPTYPE_##IDENTIFIER##_owner = \
+      create_cpp_type<TYPE_NAME>( \
+          STRINGIFY(IDENTIFIER), BLI_RAND_PER_LINE_UINT32, default_value_##IDENTIFIER); \
+  const CPPType &CPPType_##IDENTIFIER = *CPPTYPE_##IDENTIFIER##_owner; \
   template<> const CPPType &CPP_TYPE<TYPE_NAME>() \
   { \
-    return *CPPTYPE_##IDENTIFIER; \
+    return CPPType_##IDENTIFIER; \
   }
 
 MAKE_CPP_TYPE(float, float)
-MAKE_CPP_TYPE(uint32_t, uint32_t)
-MAKE_CPP_TYPE(uint8_t, uint8_t)
+MAKE_CPP_TYPE(uint32, uint32_t)
+MAKE_CPP_TYPE(uint8, uint8_t)
 MAKE_CPP_TYPE(bool, bool)
 MAKE_CPP_TYPE(ObjectIDHandle, BKE::ObjectIDHandle)
 MAKE_CPP_TYPE(ImageIDHandle, BKE::ImageIDHandle)

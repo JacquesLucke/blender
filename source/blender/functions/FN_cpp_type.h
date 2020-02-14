@@ -369,6 +369,10 @@ class CPPType {
 };
 
 template<typename T> const CPPType &CPP_TYPE();
+extern const CPPType &CPPType_float;
+extern const CPPType &CPPType_float3;
+extern const CPPType &CPPType_int32;
+extern const CPPType &CPPType_string;
 
 }  // namespace FN
 
