@@ -112,6 +112,13 @@ template<typename Allocator = GuardedAllocator> class LinearAllocator : NonCopya
     return StringRefNull((const char *)buffer);
   }
 
+  template<typename T> MutableArrayRef<T> copy_array(ArrayRef<T> array)
+  {
+    MutableArrayRef<T> new_array = this->allocate_array<T>(array.size());
+    uninitialized_copy_n(array.begin(), array.size(), new_array.begin());
+    return new_array;
+  }
+
   template<typename T, typename... Args> T *construct(Args &&... args)
   {
     void *buffer = this->allocate(sizeof(T), alignof(T));
