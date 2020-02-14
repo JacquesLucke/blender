@@ -33,6 +33,7 @@ enum class TokenType : uchar {
   String,
   DoubleLess,
   DoubleRight,
+  Comma,
 };
 
 struct TokenRange {

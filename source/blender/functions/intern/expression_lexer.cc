@@ -118,6 +118,11 @@ void tokenize(StringRef str, Vector<TokenType> &r_token_types, Vector<TokenRange
         token_type = TokenType::ForwardSlash;
         break;
       }
+      case ',': {
+        token_size = 1;
+        token_type = TokenType::Comma;
+        break;
+      }
       case '(': {
         token_size = 1;
         token_type = TokenType::ParenOpen;
@@ -255,6 +260,8 @@ void tokenize(StringRef str, Vector<TokenType> &r_token_types, Vector<TokenRange
       }
       default: {
         BLI_assert(false);
+        token_type = TokenType::EndOfString;
+        token_size = 1;
         break;
       }
     }
@@ -293,6 +300,8 @@ StringRefNull token_type_to_string(TokenType token_type)
       return "DoubleAsterix";
     case TokenType::ForwardSlash:
       return "ForwardSlash";
+    case TokenType::Comma:
+      return "Comma";
     case TokenType::Identifier:
       return "Identifier";
     case TokenType::Less:
