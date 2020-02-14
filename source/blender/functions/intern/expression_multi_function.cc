@@ -109,16 +109,6 @@ class AstToNetworkBuilder {
     return this->build(ast_node);
   }
 
-  const ConstantsTable &constants_table()
-  {
-    return m_constants_table;
-  }
-
-  const FunctionTable &function_table()
-  {
-    return m_function_table;
-  }
-
   MFBuilderOutputSocket &insert_binary_function(StringRef name, AstNode &ast_node)
   {
     MFBuilderOutputSocket *sub1 = &this->build(*ast_node.children[0]);
