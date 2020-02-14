@@ -41,13 +41,19 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
   {
     BLI::ResourceCollector resources;
 
-    std::string str = "x+5+2.5";
+    std::string str = "sin(pi/4) + pi";
 
     FN::Expr::ConstantsTable constants_table;
-    constants_table.add_single("var", 100.0f);
+    constants_table.add_single("pi", (float)M_PI);
 
     FN::Expr::FunctionTable function_table;
     function_table.add("a+b", *FN::MF_GLOBAL_add_floats_2);
+    function_table.add("a+b", *FN::MF_GLOBAL_add_int32s_2);
+    function_table.add("a-b", *FN::MF_GLOBAL_subtract_floats);
+    function_table.add("a*b", *FN::MF_GLOBAL_multiply_floats_2);
+    function_table.add("a/b", *FN::MF_GLOBAL_safe_division_floats);
+    function_table.add("sin", *FN::MF_GLOBAL_sin_float);
+    function_table.add("cos", *FN::MF_GLOBAL_cos_float);
 
     FN::Expr::ConversionTable conversion_table;
     conversion_table.add<int, float>(resources);

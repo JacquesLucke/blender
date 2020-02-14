@@ -242,7 +242,6 @@ static AstNode *parse_expression__atom_level(TokensToAstBuilder &builder)
           }
         }
         MutableArrayRef<AstNode *> args_ref = builder.allocator().copy_array(args.as_ref());
-        builder.consume(TokenType::ParenClose);
         return builder.allocator().construct<CallNode>(identifier, args_ref);
       }
       else {
