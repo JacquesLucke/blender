@@ -192,19 +192,6 @@ static MFBuilderOutputSocket &build_node(AstNode &ast_node,
   return network_builder.node_by_id(0).output(0);
 }
 
-static void find_used_identifiers(AstNode &root, VectorSet<StringRefNull> &r_identifiers)
-{
-  if (root.type == AstNodeType::Identifier) {
-    IdentifierNode &identifier_node = (IdentifierNode &)root;
-    r_identifiers.add(identifier_node.value);
-  }
-  else {
-    for (AstNode *child : root.children) {
-      find_used_identifiers(*child, r_identifiers);
-    }
-  }
-}
-
 const MultiFunction &expression_to_multi_function(StringRef str,
                                                   ResourceCollector &resources,
                                                   ArrayRef<StringRef> variable_names,
