@@ -39,22 +39,21 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
                             const struct ModifierEvalContext *ctx)
 {
   {
-    std::string str = "x+y*10";
+    std::string str = "x*var";
+
+    FN::Expr::ConstantsTable constants_table;
+    constants_table.add_single("var", 100.0f);
+
     BLI::ResourceCollector resources;
     const FN::MultiFunction &fn = FN::Expr::expression_to_multi_function(
-        str,
-        resources,
-        {"x", "y"},
-        {FN::MFDataType::ForSingle<float>(), FN::MFDataType::ForSingle<int>()});
+        str, resources, {"x"}, {FN::MFDataType::ForSingle<float>()}, constants_table);
 
     FN::MFParamsBuilder params_builder(fn, 1);
     FN::MFContextBuilder context_builder;
 
-    float input_x = 42.5f;
-    int input_y = 7;
+    float input_x = 2.25f;
     float result;
     params_builder.add_readonly_single_input(&input_x);
-    params_builder.add_readonly_single_input(&input_y);
     params_builder.add_single_output(&result);
     fn.call(IndexRange(1), params_builder, context_builder);
     std::cout << "Result: " << result << '\n';

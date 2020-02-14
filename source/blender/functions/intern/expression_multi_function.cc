@@ -65,7 +65,8 @@ struct SafeDivFunc {
 static MFBuilderOutputSocket &build_node(AstNode &ast_node,
                                          MFNetworkBuilder &network_builder,
                                          ResourceCollector &resources,
-                                         const StringMap<MFBuilderOutputSocket *> &inputs);
+                                         const StringMap<MFBuilderOutputSocket *> &inputs,
+                                         const ConstantsTable &constants_table);
 
 template<typename FuncT>
 static MFBuilderOutputSocket &build_binary_node(AstNode &ast_node,
@@ -73,12 +74,13 @@ static MFBuilderOutputSocket &build_binary_node(AstNode &ast_node,
                                                 MFNetworkBuilder &network_builder,
                                                 ResourceCollector &resources,
                                                 const StringMap<MFBuilderOutputSocket *> &inputs,
+                                                const ConstantsTable &constants_table,
                                                 const FuncT &func)
 {
   MFBuilderOutputSocket *sub1 = &build_node(
-      *ast_node.children[0], network_builder, resources, inputs);
+      *ast_node.children[0], network_builder, resources, inputs, constants_table);
   MFBuilderOutputSocket *sub2 = &build_node(
-      *ast_node.children[1], network_builder, resources, inputs);
+      *ast_node.children[1], network_builder, resources, inputs, constants_table);
   insert_implicit_conversions(resources, &sub1, &sub2);
 
   MFBuilderFunctionNode *node = nullptr;
@@ -103,7 +105,8 @@ static MFBuilderOutputSocket &build_binary_node(AstNode &ast_node,
 static MFBuilderOutputSocket &build_node(AstNode &ast_node,
                                          MFNetworkBuilder &network_builder,
                                          ResourceCollector &resources,
-                                         const StringMap<MFBuilderOutputSocket *> &inputs)
+                                         const StringMap<MFBuilderOutputSocket *> &inputs,
+                                         const ConstantsTable &constants_table)
 {
   switch (ast_node.type) {
     case AstNodeType::Less: {
@@ -127,23 +130,33 @@ static MFBuilderOutputSocket &build_node(AstNode &ast_node,
       break;
     }
     case AstNodeType::Plus: {
-      return build_binary_node(ast_node, "add", network_builder, resources, inputs, AddFunc());
+      return build_binary_node(
+          ast_node, "add", network_builder, resources, inputs, constants_table, AddFunc());
     }
     case AstNodeType::Minus: {
       return build_binary_node(
-          ast_node, "subtract", network_builder, resources, inputs, SubFunc());
+          ast_node, "subtract", network_builder, resources, inputs, constants_table, SubFunc());
     }
     case AstNodeType::Multiply: {
       return build_binary_node(
-          ast_node, "multiply", network_builder, resources, inputs, MulFunc());
+          ast_node, "multiply", network_builder, resources, inputs, constants_table, MulFunc());
     }
     case AstNodeType::Divide: {
       return build_binary_node(
-          ast_node, "divide", network_builder, resources, inputs, SafeDivFunc());
+          ast_node, "divide", network_builder, resources, inputs, constants_table, SafeDivFunc());
     }
     case AstNodeType::Identifier: {
       IdentifierNode &identifier_node = (IdentifierNode &)ast_node;
-      return *inputs.lookup(identifier_node.value);
+      StringRef identifier = identifier_node.value;
+      MFBuilderOutputSocket *expression_input_socket = inputs.lookup_default(identifier, nullptr);
+      if (expression_input_socket != nullptr) {
+        return *expression_input_socket;
+      }
+      Optional<SingleConstant> constant = constants_table.try_lookup(identifier);
+      BLI_assert(constant.has_value());
+      return network_builder
+          .add_function<MF_GenericConstantValue>(resources, *constant->type, constant->buffer)
+          .output(0);
     }
     case AstNodeType::ConstantInt: {
       ConstantIntNode &int_node = (ConstantIntNode &)ast_node;
@@ -163,7 +176,7 @@ static MFBuilderOutputSocket &build_node(AstNode &ast_node,
     }
     case AstNodeType::Negate: {
       MFBuilderOutputSocket &sub_output = build_node(
-          *ast_node.children[0], network_builder, resources, inputs);
+          *ast_node.children[0], network_builder, resources, inputs, constants_table);
       MFBuilderFunctionNode *node = nullptr;
       if (sub_output.data_type().single__cpp_type() == CPPType_int32) {
         node = &network_builder.add_function<MF_Custom_In1_Out1<int, int>>(
@@ -195,7 +208,8 @@ static MFBuilderOutputSocket &build_node(AstNode &ast_node,
 const MultiFunction &expression_to_multi_function(StringRef str,
                                                   ResourceCollector &resources,
                                                   ArrayRef<StringRef> variable_names,
-                                                  ArrayRef<MFDataType> variable_types)
+                                                  ArrayRef<MFDataType> variable_types,
+                                                  const ConstantsTable &constants_table)
 {
   BLI::assert_same_size(variable_names, variable_types);
   AstNode &ast_node = parse_expression(str, resources.allocator());
@@ -210,7 +224,7 @@ const MultiFunction &expression_to_multi_function(StringRef str,
   }
 
   MFBuilderOutputSocket &builder_output_socket = build_node(
-      ast_node, network_builder, resources, builder_dummy_inputs);
+      ast_node, network_builder, resources, builder_dummy_inputs, constants_table);
   MFBuilderDummyNode &builder_output = network_builder.add_output_dummy("Result",
                                                                         builder_output_socket);
 
