@@ -162,7 +162,7 @@ static void INSERT_time_info(FNodeMFBuilder &builder)
 }
 
 template<typename InT, typename OutT, typename FuncT>
-static void build_math_fn_1in_1out(FNodeMFBuilder &builder,
+static void build_math_fn_in1_out1(FNodeMFBuilder &builder,
                                    FuncT func,
                                    Optional<uint32_t> operation_hash = {})
 {
@@ -256,7 +256,7 @@ static void INSERT_power_floats(FNodeMFBuilder &builder)
 
 static void INSERT_sqrt_float(FNodeMFBuilder &builder)
 {
-  build_math_fn_1in_1out<float, float>(
+  build_math_fn_in1_out1<float, float>(
       builder,
       [](float a) -> float { return (a >= 0.0f) ? (float)std::sqrt(a) : 0.0f; },
       BLI_RAND_PER_LINE_UINT32);
@@ -264,31 +264,31 @@ static void INSERT_sqrt_float(FNodeMFBuilder &builder)
 
 static void INSERT_abs_float(FNodeMFBuilder &builder)
 {
-  build_math_fn_1in_1out<float, float>(
+  build_math_fn_in1_out1<float, float>(
       builder, [](float a) -> float { return std::abs(a); }, BLI_RAND_PER_LINE_UINT32);
 }
 
 static void INSERT_sine_float(FNodeMFBuilder &builder)
 {
-  build_math_fn_1in_1out<float, float>(
+  build_math_fn_in1_out1<float, float>(
       builder, [](float a) -> float { return std::sin(a); }, BLI_RAND_PER_LINE_UINT32);
 }
 
 static void INSERT_cosine_float(FNodeMFBuilder &builder)
 {
-  build_math_fn_1in_1out<float, float>(
+  build_math_fn_in1_out1<float, float>(
       builder, [](float a) -> float { return std::cos(a); }, BLI_RAND_PER_LINE_UINT32);
 }
 
 static void INSERT_ceil_float(FNodeMFBuilder &builder)
 {
-  build_math_fn_1in_1out<float, float>(
+  build_math_fn_in1_out1<float, float>(
       builder, [](float a) -> float { return std::ceil(a); }, BLI_RAND_PER_LINE_UINT32);
 }
 
 static void INSERT_floor_float(FNodeMFBuilder &builder)
 {
-  build_math_fn_1in_1out<float, float>(
+  build_math_fn_in1_out1<float, float>(
       builder, [](float a) -> float { return std::floor(a); }, BLI_RAND_PER_LINE_UINT32);
 }
 
@@ -361,13 +361,13 @@ static void INSERT_multiply_vector_with_float(FNodeMFBuilder &builder)
 
 static void INSERT_normalize_vector(FNodeMFBuilder &builder)
 {
-  build_math_fn_1in_1out<float3, float3>(builder,
+  build_math_fn_in1_out1<float3, float3>(builder,
                                          [](float3 a) -> float3 { return a.normalized(); });
 }
 
 static void INSERT_vector_length(FNodeMFBuilder &builder)
 {
-  build_math_fn_1in_1out<float3, float>(builder, [](float3 a) -> float { return a.length(); });
+  build_math_fn_in1_out1<float3, float>(builder, [](float3 a) -> float { return a.length(); });
 }
 
 static void INSERT_boolean_and(FNodeMFBuilder &builder)
@@ -384,7 +384,7 @@ static void INSERT_boolean_or(FNodeMFBuilder &builder)
 
 static void INSERT_boolean_not(FNodeMFBuilder &builder)
 {
-  build_math_fn_1in_1out<bool, bool>(
+  build_math_fn_in1_out1<bool, bool>(
       builder, [](bool a) -> bool { return !a; }, BLI_RAND_PER_LINE_UINT32);
 }
 
