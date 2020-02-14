@@ -9,5 +9,6 @@
 #include "intern/multi_functions/particles.h"
 #include "intern/multi_functions/surface_hook.h"
 #include "intern/multi_functions/vectorize.h"
+#include "intern/multi_functions/global_functions.h"
 
 #endif /* __FN_MULTI_FUNCTIONS_H__ */

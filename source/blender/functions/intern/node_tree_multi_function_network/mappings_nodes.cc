@@ -179,6 +179,11 @@ static void build_math_fn_in2_out1(FNodeMFBuilder &builder,
       {"use_list__a", "use_list__b"}, builder.fnode().name(), element_func, operation_hash);
 }
 
+static void build_math_fn_in2_out1(FNodeMFBuilder &builder, const MultiFunction &base_fn)
+{
+  builder.set_vectorized_matching_fn({"use_list__a", "use_list__b"}, base_fn);
+}
+
 template<typename T, typename FuncT>
 static void build_variadic_math_fn(FNodeMFBuilder &builder,
                                    FuncT element_func,
@@ -233,16 +238,12 @@ static void INSERT_maximum_floats(FNodeMFBuilder &builder)
 
 static void INSERT_subtract_floats(FNodeMFBuilder &builder)
 {
-  build_math_fn_in2_out1<float, float, float>(
-      builder, [](float a, float b) -> float { return a - b; }, BLI_RAND_PER_LINE_UINT32);
+  build_math_fn_in2_out1(builder, *MF_GLOBAL_subtract_floats);
 }
 
 static void INSERT_divide_floats(FNodeMFBuilder &builder)
 {
-  build_math_fn_in2_out1<float, float, float>(
-      builder,
-      [](float a, float b) -> float { return (b != 0.0f) ? a / b : 0.0f; },
-      BLI_RAND_PER_LINE_UINT32);
+  build_math_fn_in2_out1(builder, *MF_GLOBAL_safe_division_floats);
 }
 
 static void INSERT_power_floats(FNodeMFBuilder &builder)
