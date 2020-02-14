@@ -39,7 +39,7 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
                             const struct ModifierEvalContext *ctx)
 {
   {
-    std::string str = "x*var";
+    std::string str = "x*var--10";
 
     FN::Expr::ConstantsTable constants_table;
     constants_table.add_single("var", 100.0f);

@@ -10,6 +10,46 @@ namespace Expr {
 
 using BLI::StringMap;
 
+class AstToNetworkBuilder {
+ private:
+  MFNetworkBuilder &m_network_builder;
+  ResourceCollector &m_resources;
+  const StringMap<MFBuilderOutputSocket *> &m_expression_inputs;
+  const ConstantsTable &m_constants_table;
+
+ public:
+  AstToNetworkBuilder(MFNetworkBuilder &network_builder,
+                      ResourceCollector &resources,
+                      const StringMap<MFBuilderOutputSocket *> &expression_inputs,
+                      const ConstantsTable &constants_table)
+      : m_network_builder(network_builder),
+        m_resources(resources),
+        m_expression_inputs(expression_inputs),
+        m_constants_table(constants_table)
+  {
+  }
+
+  MFNetworkBuilder &network_builder()
+  {
+    return m_network_builder;
+  }
+
+  ResourceCollector &resources()
+  {
+    return m_resources;
+  }
+
+  const StringMap<MFBuilderOutputSocket *> &expression_inputs()
+  {
+    return m_expression_inputs;
+  }
+
+  const ConstantsTable &constants_table()
+  {
+    return m_constants_table;
+  }
+};
+
 static void insert_implicit_conversions(ResourceCollector &resources,
                                         MFBuilderOutputSocket **sub1,
                                         MFBuilderOutputSocket **sub2)
@@ -62,51 +102,38 @@ struct SafeDivFunc {
   }
 };
 
-static MFBuilderOutputSocket &build_node(AstNode &ast_node,
-                                         MFNetworkBuilder &network_builder,
-                                         ResourceCollector &resources,
-                                         const StringMap<MFBuilderOutputSocket *> &inputs,
-                                         const ConstantsTable &constants_table);
+static MFBuilderOutputSocket &build_node(AstNode &ast_node, AstToNetworkBuilder &builder);
 
 template<typename FuncT>
 static MFBuilderOutputSocket &build_binary_node(AstNode &ast_node,
                                                 StringRef name,
-                                                MFNetworkBuilder &network_builder,
-                                                ResourceCollector &resources,
-                                                const StringMap<MFBuilderOutputSocket *> &inputs,
-                                                const ConstantsTable &constants_table,
+                                                AstToNetworkBuilder &builder,
                                                 const FuncT &func)
 {
-  MFBuilderOutputSocket *sub1 = &build_node(
-      *ast_node.children[0], network_builder, resources, inputs, constants_table);
-  MFBuilderOutputSocket *sub2 = &build_node(
-      *ast_node.children[1], network_builder, resources, inputs, constants_table);
-  insert_implicit_conversions(resources, &sub1, &sub2);
+  MFBuilderOutputSocket *sub1 = &build_node(*ast_node.children[0], builder);
+  MFBuilderOutputSocket *sub2 = &build_node(*ast_node.children[1], builder);
+  insert_implicit_conversions(builder.resources(), &sub1, &sub2);
 
   MFBuilderFunctionNode *node = nullptr;
   const CPPType &type = sub1->data_type().single__cpp_type();
   if (type == CPPType_int32) {
-    node = &network_builder.add_function<MF_Custom_In2_Out1<int, int, int>>(
-        resources, name, [=](int a, int b) { return func.execute(a, b); });
+    node = &builder.network_builder().add_function<MF_Custom_In2_Out1<int, int, int>>(
+        builder.resources(), name, [=](int a, int b) { return func.execute(a, b); });
   }
   else if (type == CPPType_float) {
-    node = &network_builder.add_function<MF_Custom_In2_Out1<float, float, float>>(
-        resources, name, [=](float a, float b) { return func.execute(a, b); });
+    node = &builder.network_builder().add_function<MF_Custom_In2_Out1<float, float, float>>(
+        builder.resources(), name, [=](float a, float b) { return func.execute(a, b); });
   }
   else {
     BLI_assert(false);
   }
 
-  network_builder.add_link(*sub1, node->input(0));
-  network_builder.add_link(*sub2, node->input(1));
+  builder.network_builder().add_link(*sub1, node->input(0));
+  builder.network_builder().add_link(*sub2, node->input(1));
   return node->output(0);
 }
 
-static MFBuilderOutputSocket &build_node(AstNode &ast_node,
-                                         MFNetworkBuilder &network_builder,
-                                         ResourceCollector &resources,
-                                         const StringMap<MFBuilderOutputSocket *> &inputs,
-                                         const ConstantsTable &constants_table)
+static MFBuilderOutputSocket &build_node(AstNode &ast_node, AstToNetworkBuilder &builder)
 {
   switch (ast_node.type) {
     case AstNodeType::Less: {
@@ -130,44 +157,43 @@ static MFBuilderOutputSocket &build_node(AstNode &ast_node,
       break;
     }
     case AstNodeType::Plus: {
-      return build_binary_node(
-          ast_node, "add", network_builder, resources, inputs, constants_table, AddFunc());
+      return build_binary_node(ast_node, "add", builder, AddFunc());
     }
     case AstNodeType::Minus: {
-      return build_binary_node(
-          ast_node, "subtract", network_builder, resources, inputs, constants_table, SubFunc());
+      return build_binary_node(ast_node, "subtract", builder, SubFunc());
     }
     case AstNodeType::Multiply: {
-      return build_binary_node(
-          ast_node, "multiply", network_builder, resources, inputs, constants_table, MulFunc());
+      return build_binary_node(ast_node, "multiply", builder, MulFunc());
     }
     case AstNodeType::Divide: {
-      return build_binary_node(
-          ast_node, "divide", network_builder, resources, inputs, constants_table, SafeDivFunc());
+      return build_binary_node(ast_node, "divide", builder, SafeDivFunc());
     }
     case AstNodeType::Identifier: {
       IdentifierNode &identifier_node = (IdentifierNode &)ast_node;
       StringRef identifier = identifier_node.value;
-      MFBuilderOutputSocket *expression_input_socket = inputs.lookup_default(identifier, nullptr);
+      MFBuilderOutputSocket *expression_input_socket = builder.expression_inputs().lookup_default(
+          identifier, nullptr);
       if (expression_input_socket != nullptr) {
         return *expression_input_socket;
       }
-      Optional<SingleConstant> constant = constants_table.try_lookup(identifier);
+      Optional<SingleConstant> constant = builder.constants_table().try_lookup(identifier);
       BLI_assert(constant.has_value());
-      return network_builder
-          .add_function<MF_GenericConstantValue>(resources, *constant->type, constant->buffer)
+      return builder.network_builder()
+          .add_function<MF_GenericConstantValue>(
+              builder.resources(), *constant->type, constant->buffer)
           .output(0);
     }
     case AstNodeType::ConstantInt: {
       ConstantIntNode &int_node = (ConstantIntNode &)ast_node;
-      MFBuilderFunctionNode &node = network_builder.add_function<MF_ConstantValue<int>>(
-          resources, int_node.value);
+      MFBuilderFunctionNode &node = builder.network_builder().add_function<MF_ConstantValue<int>>(
+          builder.resources(), int_node.value);
       return node.output(0);
     }
     case AstNodeType::ConstantFloat: {
       ConstantFloatNode &float_node = (ConstantFloatNode &)ast_node;
-      MFBuilderFunctionNode &node = network_builder.add_function<MF_ConstantValue<float>>(
-          resources, float_node.value);
+      MFBuilderFunctionNode &node =
+          builder.network_builder().add_function<MF_ConstantValue<float>>(builder.resources(),
+                                                                          float_node.value);
       return node.output(0);
     }
     case AstNodeType::ConstantString: {
@@ -175,21 +201,20 @@ static MFBuilderOutputSocket &build_node(AstNode &ast_node,
       break;
     }
     case AstNodeType::Negate: {
-      MFBuilderOutputSocket &sub_output = build_node(
-          *ast_node.children[0], network_builder, resources, inputs, constants_table);
+      MFBuilderOutputSocket &sub_output = build_node(*ast_node.children[0], builder);
       MFBuilderFunctionNode *node = nullptr;
       if (sub_output.data_type().single__cpp_type() == CPPType_int32) {
-        node = &network_builder.add_function<MF_Custom_In1_Out1<int, int>>(
-            resources, "negate", [](int a) { return -a; });
+        node = &builder.network_builder().add_function<MF_Custom_In1_Out1<int, int>>(
+            builder.resources(), "negate", [](int a) { return -a; });
       }
       else if (sub_output.data_type().single__cpp_type() == CPPType_float) {
-        node = &network_builder.add_function<MF_Custom_In1_Out1<float, float>>(
-            resources, "negate", [](float a) { return -a; });
+        node = &builder.network_builder().add_function<MF_Custom_In1_Out1<float, float>>(
+            builder.resources(), "negate", [](float a) { return -a; });
       }
       else {
         BLI_assert(false);
       }
-      network_builder.add_link(sub_output, node->input(0));
+      builder.network_builder().add_link(sub_output, node->input(0));
       return node->output(0);
     }
     case AstNodeType::Power: {
@@ -202,7 +227,7 @@ static MFBuilderOutputSocket &build_node(AstNode &ast_node,
     }
   }
   BLI_assert(false);
-  return network_builder.node_by_id(0).output(0);
+  return builder.network_builder().node_by_id(0).output(0);
 }
 
 const MultiFunction &expression_to_multi_function(StringRef str,
@@ -223,8 +248,9 @@ const MultiFunction &expression_to_multi_function(StringRef str,
     builder_dummy_inputs.add_new(identifier, &node.output(0));
   }
 
-  MFBuilderOutputSocket &builder_output_socket = build_node(
-      ast_node, network_builder, resources, builder_dummy_inputs, constants_table);
+  AstToNetworkBuilder builder{network_builder, resources, builder_dummy_inputs, constants_table};
+
+  MFBuilderOutputSocket &builder_output_socket = build_node(ast_node, builder);
   MFBuilderDummyNode &builder_output = network_builder.add_output_dummy("Result",
                                                                         builder_output_socket);
 
