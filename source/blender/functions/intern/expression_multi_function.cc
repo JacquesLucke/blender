@@ -56,57 +56,36 @@ class AstToNetworkBuilder {
         return this->insert_binary_function("a*b", ast_node);
       case AstNodeType::Divide:
         return this->insert_binary_function("a/b", ast_node);
-      case AstNodeType::Identifier: {
-        IdentifierNode &identifier_node = (IdentifierNode &)ast_node;
-        StringRef identifier = identifier_node.value;
-        MFBuilderOutputSocket *expression_input_socket = m_expression_inputs.lookup_default(
-            identifier, nullptr);
-        if (expression_input_socket != nullptr) {
-          return *expression_input_socket;
-        }
-        Optional<SingleConstant> constant = m_constants_table.try_lookup(identifier);
-        BLI_assert(constant.has_value());
-        return m_network_builder
-            .add_function<MF_GenericConstantValue>(m_resources, *constant->type, constant->buffer)
-            .output(0);
-      }
-      case AstNodeType::ConstantInt: {
-        ConstantIntNode &int_node = (ConstantIntNode &)ast_node;
-        MFBuilderFunctionNode &node = m_network_builder.add_function<MF_ConstantValue<int>>(
-            m_resources, int_node.value);
-        return node.output(0);
-      }
-      case AstNodeType::ConstantFloat: {
-        ConstantFloatNode &float_node = (ConstantFloatNode &)ast_node;
-        MFBuilderFunctionNode &node = m_network_builder.add_function<MF_ConstantValue<float>>(
-            m_resources, float_node.value);
-        return node.output(0);
-      }
-      case AstNodeType::ConstantString: {
-        ConstantStringNode &string_node = (ConstantStringNode &)ast_node;
-        MFBuilderFunctionNode &node =
-            m_network_builder.add_function<MF_ConstantValue<std::string>>(m_resources,
-                                                                          string_node.value);
-        return node.output(0);
-      }
-      case AstNodeType::Negate: {
-        MFBuilderOutputSocket &sub = this->build(*ast_node.children[0]);
-        return this->insert_function("-a", {&sub});
-      }
-      case AstNodeType::Power: {
+      case AstNodeType::Power:
         return this->insert_binary_function("a**b", ast_node);
-      }
-      case AstNodeType::Call: {
-        CallNode &call_node = (CallNode &)ast_node;
-        Vector<MFBuilderOutputSocket *> arg_sockets;
-        for (AstNode *child : ast_node.children) {
-          arg_sockets.append(&this->build(*child));
-        }
-        return this->insert_function(call_node.name, arg_sockets);
-      }
+      case AstNodeType::Negate:
+        return this->insert_unary_function("-a", ast_node);
+      case AstNodeType::ConstantInt:
+        return this->insert_constant_function<int>(((ConstantIntNode &)ast_node).value);
+      case AstNodeType::ConstantFloat:
+        return this->insert_constant_function<float>(((ConstantFloatNode &)ast_node).value);
+      case AstNodeType::ConstantString:
+        return this->insert_constant_function<std::string>(((ConstantStringNode &)ast_node).value);
+      case AstNodeType::Call:
+        return this->insert_call((CallNode &)ast_node);
+      case AstNodeType::Identifier:
+        return this->insert_identifier(ast_node);
     }
     BLI_assert(false);
     return this->build(ast_node);
+  }
+
+  template<typename T> MFBuilderOutputSocket &insert_constant_function(const T &value)
+  {
+    MFBuilderFunctionNode &node = m_network_builder.add_function<MF_ConstantValue<T>>(m_resources,
+                                                                                      value);
+    return node.output(0);
+  }
+
+  MFBuilderOutputSocket &insert_unary_function(StringRef name, AstNode &ast_node)
+  {
+    MFBuilderOutputSocket *sub = &this->build(*ast_node.children[0]);
+    return this->insert_function(name, {sub});
   }
 
   MFBuilderOutputSocket &insert_binary_function(StringRef name, AstNode &ast_node)
@@ -114,6 +93,31 @@ class AstToNetworkBuilder {
     MFBuilderOutputSocket *sub1 = &this->build(*ast_node.children[0]);
     MFBuilderOutputSocket *sub2 = &this->build(*ast_node.children[1]);
     return this->insert_function(name, {sub1, sub2});
+  }
+
+  MFBuilderOutputSocket &insert_identifier(AstNode &ast_node)
+  {
+    IdentifierNode &identifier_node = (IdentifierNode &)ast_node;
+    StringRef identifier = identifier_node.value;
+    MFBuilderOutputSocket *expression_input_socket = m_expression_inputs.lookup_default(identifier,
+                                                                                        nullptr);
+    if (expression_input_socket != nullptr) {
+      return *expression_input_socket;
+    }
+    Optional<SingleConstant> constant = m_constants_table.try_lookup(identifier);
+    BLI_assert(constant.has_value());
+    return m_network_builder
+        .add_function<MF_GenericConstantValue>(m_resources, *constant->type, constant->buffer)
+        .output(0);
+  }
+
+  MFBuilderOutputSocket &insert_call(CallNode &call_node)
+  {
+    Vector<MFBuilderOutputSocket *> arg_sockets;
+    for (AstNode *child : call_node.children) {
+      arg_sockets.append(&this->build(*child));
+    }
+    return this->insert_function(call_node.name, arg_sockets);
   }
 
   MFBuilderOutputSocket &insert_function(StringRef name,
