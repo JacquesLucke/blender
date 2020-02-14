@@ -3,12 +3,30 @@
 #include "FN_multi_function.h"
 #include "BLI_resource_collector.h"
 #include "BLI_string_map.h"
+#include "BLI_string_multi_map.h"
 
 namespace FN {
 namespace Expr {
 
 using BLI::ResourceCollector;
 using BLI::StringMap;
+using BLI::StringMultiMap;
+
+class FunctionTable {
+ private:
+  StringMultiMap<const MultiFunction *> m_table;
+
+ public:
+  void add(StringRef name, const MultiFunction &fn)
+  {
+    m_table.add(name, &fn);
+  }
+
+  ArrayRef<const MultiFunction *> lookup(StringRef name) const
+  {
+    return m_table.lookup_default(name);
+  }
+};
 
 struct SingleConstant {
   const CPPType *type;

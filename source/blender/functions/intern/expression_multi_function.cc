@@ -16,16 +16,19 @@ class AstToNetworkBuilder {
   ResourceCollector &m_resources;
   const StringMap<MFBuilderOutputSocket *> &m_expression_inputs;
   const ConstantsTable &m_constants_table;
+  const FunctionTable &m_function_table;
 
  public:
   AstToNetworkBuilder(MFNetworkBuilder &network_builder,
                       ResourceCollector &resources,
                       const StringMap<MFBuilderOutputSocket *> &expression_inputs,
-                      const ConstantsTable &constants_table)
+                      const ConstantsTable &constants_table,
+                      const FunctionTable &function_table)
       : m_network_builder(network_builder),
         m_resources(resources),
         m_expression_inputs(expression_inputs),
-        m_constants_table(constants_table)
+        m_constants_table(constants_table),
+        m_function_table(function_table)
   {
   }
 
@@ -47,6 +50,11 @@ class AstToNetworkBuilder {
   const ConstantsTable &constants_table()
   {
     return m_constants_table;
+  }
+
+  const FunctionTable &function_table()
+  {
+    return m_function_table;
   }
 };
 
@@ -157,7 +165,33 @@ static MFBuilderOutputSocket &build_node(AstNode &ast_node, AstToNetworkBuilder 
       break;
     }
     case AstNodeType::Plus: {
-      return build_binary_node(ast_node, "add", builder, AddFunc());
+      MFBuilderOutputSocket *sub1 = &build_node(*ast_node.children[0], builder);
+      MFBuilderOutputSocket *sub2 = &build_node(*ast_node.children[1], builder);
+      MFDataType type1 = sub1->data_type();
+      MFDataType type2 = sub2->data_type();
+      ArrayRef<const MultiFunction *> candidates = builder.function_table().lookup("+");
+      for (const MultiFunction *candidate : candidates) {
+        if (candidate->param_indices().size() != 3) {
+          continue;
+        }
+        MFParamType param1 = candidate->param_type(0);
+        MFParamType param2 = candidate->param_type(1);
+        MFParamType param3 = candidate->param_type(2);
+        if (!param1.is_input() || !param2.is_input() || !param3.is_output()) {
+          continue;
+        }
+        if (param1.data_type() != type1 || param2.data_type() != type2) {
+          continue;
+        }
+
+        MFNetworkBuilder &network_builder = builder.network_builder();
+        MFBuilderFunctionNode &node = network_builder.add_function(*candidate);
+        network_builder.add_link(*sub1, node.input(0));
+        network_builder.add_link(*sub2, node.input(1));
+        return node.output(0);
+      }
+      BLI_assert(false);
+      return *sub1;
     }
     case AstNodeType::Minus: {
       return build_binary_node(ast_node, "subtract", builder, SubFunc());
@@ -248,7 +282,11 @@ const MultiFunction &expression_to_multi_function(StringRef str,
     builder_dummy_inputs.add_new(identifier, &node.output(0));
   }
 
-  AstToNetworkBuilder builder{network_builder, resources, builder_dummy_inputs, constants_table};
+  FunctionTable function_table;
+  function_table.add("+", *MF_GLOBAL_add_floats_2);
+
+  AstToNetworkBuilder builder{
+      network_builder, resources, builder_dummy_inputs, constants_table, function_table};
 
   MFBuilderOutputSocket &builder_output_socket = build_node(ast_node, builder);
   MFBuilderDummyNode &builder_output = network_builder.add_output_dummy("Result",
