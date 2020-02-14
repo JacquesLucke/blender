@@ -32,6 +32,8 @@ enum class AstNodeType : uchar {
   Negate,
   Power,
   Call,
+  Attribute,
+  MethodCall,
 };
 
 StringRefNull node_type_to_string(AstNodeType node_type);
@@ -94,6 +96,26 @@ struct CallNode : public AstNode {
   CallNode(StringRefNull name, MutableArrayRef<AstNode *> args)
       : AstNode(args, AstNodeType::Call), name(name)
   {
+  }
+};
+
+struct AttributeNode : public AstNode {
+  StringRefNull name;
+
+  AttributeNode(StringRefNull name, MutableArrayRef<AstNode *> args)
+      : AstNode(args, AstNodeType::Attribute), name(name)
+  {
+    BLI_assert(args.size() == 1);
+  }
+};
+
+struct MethodCallNode : public AstNode {
+  StringRefNull name;
+
+  MethodCallNode(StringRefNull name, MutableArrayRef<AstNode *> args)
+      : AstNode(args, AstNodeType::MethodCall), name(name)
+  {
+    BLI_assert(args.size() >= 1);
   }
 };
 

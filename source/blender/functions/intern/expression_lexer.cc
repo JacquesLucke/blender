@@ -123,6 +123,11 @@ void tokenize(StringRef str, Vector<TokenType> &r_token_types, Vector<TokenRange
         token_type = TokenType::Comma;
         break;
       }
+      case '.': {
+        token_size = 1;
+        token_type = TokenType::Dot;
+        break;
+      }
       case '(': {
         token_size = 1;
         token_type = TokenType::ParenOpen;
@@ -320,6 +325,8 @@ StringRefNull token_type_to_string(TokenType token_type)
       return "DoubleLess";
     case TokenType::DoubleRight:
       return "DoubleRight";
+    case TokenType::Dot:
+      return "Dot";
   }
   BLI_assert(false);
   return "";
