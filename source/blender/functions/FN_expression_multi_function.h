@@ -107,6 +107,7 @@ class SymbolTable {
 };
 
 const MultiFunction &expression_to_multi_function(StringRef str,
+                                                  MFDataType output_type,
                                                   ResourceCollector &resources,
                                                   ArrayRef<StringRef> variable_names,
                                                   ArrayRef<MFDataType> variable_types,

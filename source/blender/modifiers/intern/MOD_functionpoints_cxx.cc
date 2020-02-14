@@ -42,7 +42,7 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
     BLI::ResourceCollector resources;
     FN::Expr::SymbolTable symbols;
 
-    std::string str = "(5).test(10)+3.0";
+    std::string str = "5";
 
     symbols.add_single_constant("pi", (float)M_PI);
     symbols.add_conversion<int, float>(resources);
@@ -60,7 +60,12 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
                            "test", "test", [](int a, float b) { return a * 1000 + b * 100; }));
 
     const FN::MultiFunction &fn = FN::Expr::expression_to_multi_function(
-        str, resources, {"x"}, {FN::MFDataType::ForSingle<float>()}, symbols);
+        str,
+        FN::MFDataType::ForSingle<float>(),
+        resources,
+        {"x"},
+        {FN::MFDataType::ForSingle<float>()},
+        symbols);
 
     FN::MFParamsBuilder params_builder(fn, 1);
     FN::MFContextBuilder context_builder;

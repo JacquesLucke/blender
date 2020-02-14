@@ -235,6 +235,7 @@ class AstToNetworkBuilder {
 };
 
 const MultiFunction &expression_to_multi_function(StringRef str,
+                                                  MFDataType output_type,
                                                   ResourceCollector &resources,
                                                   ArrayRef<StringRef> variable_names,
                                                   ArrayRef<MFDataType> variable_types,
@@ -255,8 +256,9 @@ const MultiFunction &expression_to_multi_function(StringRef str,
   AstToNetworkBuilder builder{network_builder, resources, builder_dummy_inputs, symbols};
   MFBuilderOutputSocket &builder_output_socket = builder.build(ast_node);
 
-  MFBuilderDummyNode &builder_output = network_builder.add_output_dummy("Result",
-                                                                        builder_output_socket);
+  MFBuilderDummyNode &builder_output = network_builder.add_dummy(
+      "Result", {output_type}, {}, {"Value"}, {});
+  builder.insert_link_with_conversion(builder_output_socket, builder_output.input(0));
 
   MFNetwork &network = resources.construct<MFNetwork>("expression network", network_builder);
   const MFInputSocket &output_socket = network.find_dummy_socket(builder_output.input(0));
