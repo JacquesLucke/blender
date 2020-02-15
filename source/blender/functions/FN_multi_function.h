@@ -2,6 +2,7 @@
 #define __FN_MULTI_FUNCTION_H__
 
 #include <typeinfo>
+#include <memory>
 
 #include "FN_generic_array_ref.h"
 #include "FN_generic_vector_array.h"
@@ -16,6 +17,39 @@
 namespace FN {
 
 class MultiFunction;
+
+class MultiFunctionID {
+ private:
+  uint32_t m_hash;
+
+ public:
+  MultiFunctionID(uint32_t hash) : m_hash(hash)
+  {
+  }
+
+  virtual ~MultiFunctionID();
+
+  uint32_t hash() const
+  {
+    return m_hash;
+  }
+
+  friend bool operator==(const MultiFunctionID &a, const MultiFunctionID &b)
+  {
+    if (a.hash() != b.hash()) {
+      return false;
+    }
+    return a.is_same(b);
+  }
+
+  friend bool operator!=(const MultiFunctionID &a, const MultiFunctionID &b)
+  {
+    return !(a == b);
+  }
+
+ protected:
+  virtual bool is_same(const MultiFunctionID &other) const = 0;
+};
 
 struct MFSignatureData {
   std::string function_name;

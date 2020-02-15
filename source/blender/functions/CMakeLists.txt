@@ -47,6 +47,7 @@ set(SRC
   intern/multi_function_context.cc
   intern/multi_function_network_optimization.cc
   intern/multi_function_network.cc
+  intern/multi_function.cc
   intern/node_tree.cc
 
   FN_attributes_ref.h
