@@ -12,7 +12,6 @@ MF_ParticleAttribute::MF_ParticleAttribute(const CPPType &type) : m_type(type)
   signature.use_element_context<ParticleAttributesContext>();
   signature.single_input<std::string>("Attribute Name");
   signature.single_output("Value", type);
-  signature.operation_hash(BLI_RAND_PER_LINE_UINT32 ^ type.type_hash());
 }
 
 void MF_ParticleAttribute::call(IndexMask mask, MFParams params, MFContext context) const
