@@ -12,9 +12,47 @@ namespace FN {
 using BLI::MultiMap;
 using BLI::Stack;
 
+static uint32_t get_function_hash(const MultiFunction &fn)
+{
+  return POINTER_AS_UINT(&fn);
+}
+
+static bool functions_are_equal(const MultiFunction &a, const MultiFunction &b)
+{
+  return &a == &b;
+}
+
+/* TODO: Use approriate caching to avoid doing the same checks many times. */
+static bool outputs_have_same_value(MFBuilderOutputSocket &a, MFBuilderOutputSocket &b)
+{
+  if (a.index() != b.index()) {
+    return false;
+  }
+  if (&a.node() == &b.node()) {
+    return true;
+  }
+  if (a.node().is_dummy() || b.node().is_dummy()) {
+    return false;
+  }
+  if (!functions_are_equal(a.node().as_function().function(), b.node().as_function().function())) {
+    return false;
+  }
+  for (uint i : a.node().inputs().index_range()) {
+    MFBuilderOutputSocket *origin_a = a.node().input(i).origin();
+    MFBuilderOutputSocket *origin_b = b.node().input(i).origin();
+    if (origin_a == nullptr || origin_b == nullptr) {
+      return false;
+    }
+    if (!outputs_have_same_value(*origin_a, *origin_b)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 void optimize_network__remove_duplicates(MFNetworkBuilder &network_builder)
 {
-  Array<Optional<uint32_t>> hash_by_output_socket(network_builder.socket_id_amount());
+  Array<uint32_t> hash_by_output_socket(network_builder.socket_id_amount());
   Array<bool> node_outputs_are_hashed(network_builder.node_id_amount(), false);
 
   RNG *rng = BLI_rng_new(0);
@@ -22,7 +60,7 @@ void optimize_network__remove_duplicates(MFNetworkBuilder &network_builder)
   for (MFBuilderDummyNode *node : network_builder.dummy_nodes()) {
     for (MFBuilderOutputSocket *output_socket : node->outputs()) {
       uint32_t output_hash = BLI_rng_get_uint(rng);
-      hash_by_output_socket[output_socket->id()].set_new(output_hash);
+      hash_by_output_socket[output_socket->id()] = output_hash;
     }
     node_outputs_are_hashed[node->id()] = true;
   }
@@ -55,21 +93,18 @@ void optimize_network__remove_duplicates(MFNetworkBuilder &network_builder)
         input_hash = BLI_rng_get_uint(rng);
       }
       else {
-        input_hash = *hash_by_output_socket[origin->id()];
+        input_hash = hash_by_output_socket[origin->id()];
       }
-
       combined_inputs_hash = combined_inputs_hash * BLI_RAND_PER_LINE_UINT32 + input_hash;
     }
 
-    Optional<uint32_t> maybe_operation_hash = node.function().operation_hash();
-    uint32_t operation_hash = (maybe_operation_hash.has_value()) ? *maybe_operation_hash :
-                                                                   BLI_rng_get_uint(rng);
-    uint32_t node_hash = combined_inputs_hash * BLI_RAND_PER_LINE_UINT32 + operation_hash;
+    uint32_t function_hash = get_function_hash(node.function());
+    uint32_t node_hash = combined_inputs_hash * BLI_RAND_PER_LINE_UINT32 + function_hash;
 
     for (MFBuilderOutputSocket *output_socket : node.outputs()) {
       uint32_t output_hash = node_hash *
-                             (45234 + BLI_RAND_PER_LINE_UINT32 * output_socket->index());
-      hash_by_output_socket[output_socket->id()].set_new(output_hash);
+                             (345741 + BLI_RAND_PER_LINE_UINT32 * output_socket->index());
+      hash_by_output_socket[output_socket->id()] = output_hash;
     }
 
     nodes_to_check.pop();
@@ -78,13 +113,14 @@ void optimize_network__remove_duplicates(MFNetworkBuilder &network_builder)
 
   MultiMap<uint32_t, MFBuilderOutputSocket *> outputs_by_hash;
   for (uint id : hash_by_output_socket.index_range()) {
-    Optional<uint32_t> maybe_hash = hash_by_output_socket[id];
-    if (maybe_hash.has_value()) {
-      uint32_t hash = *maybe_hash;
-      MFBuilderOutputSocket &socket = network_builder.socket_by_id(id).as_output();
-      outputs_by_hash.add(hash, &socket);
+    MFBuilderSocket *socket = network_builder.sockets_or_null_by_id()[id];
+    if (socket != nullptr && socket->is_output()) {
+      uint32_t output_hash = hash_by_output_socket[id];
+      outputs_by_hash.add(output_hash, &socket->as_output());
     }
   }
+
+  Vector<MFBuilderOutputSocket *> remaining_sockets;
 
   outputs_by_hash.foreach_item(
       [&](uint32_t UNUSED(hash), ArrayRef<MFBuilderOutputSocket *> outputs_with_hash) {
@@ -92,12 +128,20 @@ void optimize_network__remove_duplicates(MFNetworkBuilder &network_builder)
           return;
         }
 
-        MFBuilderOutputSocket &deduplicated_output = *outputs_with_hash[0];
-        for (MFBuilderOutputSocket *socket : outputs_with_hash.drop_front(1)) {
-          BLI::ScopedVector<MFBuilderInputSocket *> targets_copy = socket->targets();
-          for (MFBuilderInputSocket *target : targets_copy) {
-            network_builder.relink_origin(deduplicated_output, *target);
+        remaining_sockets.clear();
+        ArrayRef<MFBuilderOutputSocket *> outputs_to_check = outputs_with_hash;
+        while (outputs_to_check.size() >= 2) {
+          MFBuilderOutputSocket &deduplicated_output = *outputs_to_check[0];
+          for (MFBuilderOutputSocket *socket : outputs_to_check.drop_front(1)) {
+            if (outputs_have_same_value(deduplicated_output, *socket)) {
+              network_builder.replace_origin(*socket, deduplicated_output);
+            }
+            else {
+              remaining_sockets.append(socket);
+            }
           }
+
+          outputs_to_check = remaining_sockets;
         }
       });
 
@@ -223,14 +267,9 @@ void optimize_network__constant_folding(MFNetworkBuilder &network_builder,
     }
 
     MFBuilderFunctionNode &folded_node = network_builder.add_function(*constant_fn);
-
     MFBuilderOutputSocket &original_socket =
         *dummy_nodes_to_compute[param_index]->input(0).origin();
-
-    BLI::ScopedVector<MFBuilderInputSocket *> targets_copy = original_socket.targets();
-    for (MFBuilderInputSocket *target : targets_copy) {
-      network_builder.relink_origin(folded_node.output(0), *target);
-    }
+    network_builder.replace_origin(original_socket, folded_node.output(0));
   }
 
   for (MFBuilderDummyNode *dummy_node : dummy_nodes_to_compute) {

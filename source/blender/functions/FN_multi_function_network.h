@@ -168,7 +168,7 @@ class MFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
   void remove_link(MFBuilderOutputSocket &from, MFBuilderInputSocket &to);
   void remove_node(MFBuilderNode &node);
   void remove_nodes(ArrayRef<MFBuilderNode *> nodes);
-  void relink_origin(MFBuilderOutputSocket &new_from, MFBuilderInputSocket &to);
+  void replace_origin(MFBuilderOutputSocket &old_origin, MFBuilderOutputSocket &new_origin);
 
   Array<bool> find_nodes_to_the_right_of__inclusive__mask(ArrayRef<MFBuilderNode *> nodes);
   Array<bool> find_nodes_to_the_left_of__inclusive__mask(ArrayRef<MFBuilderNode *> nodes);
@@ -237,6 +237,11 @@ class MFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
   MFBuilderOutputSocket &output_by_id(uint id)
   {
     return this->socket_by_id(id).as_output();
+  }
+
+  ArrayRef<MFBuilderSocket *> sockets_or_null_by_id()
+  {
+    return m_socket_or_null_by_id;
   }
 
   ArrayRef<MFBuilderFunctionNode *> function_nodes() const
