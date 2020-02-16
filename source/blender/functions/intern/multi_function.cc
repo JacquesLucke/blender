@@ -2,8 +2,4 @@
 
 namespace FN {
 
-MultiFunctionID::~MultiFunctionID()
-{
-}
-
 }  // namespace FN
