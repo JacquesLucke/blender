@@ -42,7 +42,7 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
     BLI::ResourceCollector resources;
     FN::Expr::SymbolTable symbols;
 
-    std::string str = "5";
+    std::string str = "5*3-x";
 
     symbols.add_single_constant("pi", (float)M_PI);
     symbols.add_conversion<int, float>(resources);

@@ -151,18 +151,22 @@ class AstToNetworkBuilder {
 
   void insert_link_with_conversion(MFBuilderOutputSocket &from, MFBuilderInputSocket &to)
   {
-    MFDataType from_type = from.data_type();
-    MFDataType to_type = to.data_type();
-    if (from_type == to_type) {
-      m_network_builder.add_link(from, to);
+    MFBuilderOutputSocket &new_from = this->maybe_insert_conversion(from, to.data_type());
+    m_network_builder.add_link(new_from, to);
+  }
+
+  MFBuilderOutputSocket &maybe_insert_conversion(MFBuilderOutputSocket &socket,
+                                                 MFDataType target_type)
+  {
+    MFDataType from_type = socket.data_type();
+    if (from_type == target_type) {
+      return socket;
     }
-    else {
-      const MultiFunction *conversion_fn = m_symbols.try_lookup_conversion(from_type, to_type);
-      BLI_assert(conversion_fn != nullptr);
-      MFBuilderNode &conversion_node = m_network_builder.add_function(*conversion_fn);
-      m_network_builder.add_link(from, conversion_node.input(0));
-      m_network_builder.add_link(conversion_node.output(0), to);
-    }
+    const MultiFunction *conversion_fn = m_symbols.try_lookup_conversion(from_type, target_type);
+    BLI_assert(conversion_fn != nullptr);
+    MFBuilderNode &conversion_node = m_network_builder.add_function(*conversion_fn);
+    m_network_builder.add_link(socket, conversion_node.input(0));
+    return conversion_node.output(0);
   }
 
   MFBuilderOutputSocket &insert_function(StringRef name,
@@ -234,6 +238,22 @@ class AstToNetworkBuilder {
   }
 };
 
+static MFBuilderOutputSocket &expression_to_network(
+    StringRef str,
+    MFDataType output_type,
+    ResourceCollector &resources,
+    StringMap<MFBuilderOutputSocket *> &expression_inputs,
+    const SymbolTable &symbols,
+    MFNetworkBuilder &network_builder)
+{
+  LinearAllocator<> ast_allocator;
+  AstNode &ast_node = parse_expression(str, ast_allocator);
+
+  AstToNetworkBuilder builder{network_builder, resources, expression_inputs, symbols};
+  MFBuilderOutputSocket &output_socket = builder.build(ast_node);
+  return builder.maybe_insert_conversion(output_socket, output_type);
+}
+
 const MultiFunction &expression_to_multi_function(StringRef str,
                                                   MFDataType output_type,
                                                   ResourceCollector &resources,
@@ -242,29 +262,27 @@ const MultiFunction &expression_to_multi_function(StringRef str,
                                                   const SymbolTable &symbols)
 {
   BLI::assert_same_size(variable_names, variable_types);
-  AstNode &ast_node = parse_expression(str, resources.allocator());
 
   MFNetworkBuilder network_builder;
-  StringMap<MFBuilderOutputSocket *> builder_dummy_inputs;
+  StringMap<MFBuilderOutputSocket *> expression_inputs;
   for (uint i : variable_names.index_range()) {
     StringRef identifier = variable_names[i];
     MFBuilderDummyNode &node = network_builder.add_dummy(
         identifier, {}, {variable_types[i]}, {}, {"Value"});
-    builder_dummy_inputs.add_new(identifier, &node.output(0));
+    expression_inputs.add_new(identifier, &node.output(0));
   }
 
-  AstToNetworkBuilder builder{network_builder, resources, builder_dummy_inputs, symbols};
-  MFBuilderOutputSocket &builder_output_socket = builder.build(ast_node);
-
+  MFBuilderOutputSocket &expr_builder_output = expression_to_network(
+      str, output_type, resources, expression_inputs, symbols, network_builder);
   MFBuilderDummyNode &builder_output = network_builder.add_dummy(
       "Result", {output_type}, {}, {"Value"}, {});
-  builder.insert_link_with_conversion(builder_output_socket, builder_output.input(0));
+  network_builder.add_link(expr_builder_output, builder_output.input(0));
 
   MFNetwork &network = resources.construct<MFNetwork>("expression network", network_builder);
   const MFInputSocket &output_socket = network.find_dummy_socket(builder_output.input(0));
 
   Vector<const MFOutputSocket *> inputs;
-  builder_dummy_inputs.foreach_value([&](MFBuilderOutputSocket *builder_input) {
+  expression_inputs.foreach_value([&](MFBuilderOutputSocket *builder_input) {
     inputs.append(&network.find_dummy_socket(*builder_input));
   });
   Vector<const MFInputSocket *> outputs;
