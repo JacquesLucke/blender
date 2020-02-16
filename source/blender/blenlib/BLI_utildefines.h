@@ -695,12 +695,6 @@ extern bool BLI_memory_is_zero(const void *arr, const size_t arr_size);
 #  define UNUSED_FUNCTION(x) UNUSED_##x
 #endif
 
-#ifdef DEBUG
-#  define UNUSED_FUNCTION_NDEBUG(x) x
-#else
-#  define UNUSED_FUNCTION_NDEBUG(x) UNUSED_FUNCTION(x)
-#endif
-
 /**
  * UNUSED_VARS#(a, ...): quiet unused warnings
  *
