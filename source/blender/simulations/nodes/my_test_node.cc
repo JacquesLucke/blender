@@ -73,24 +73,20 @@ class ListSocketDataType : public SocketDataType {
 class DataTypesInfo {
  private:
   Set<SocketDataType *> m_data_types;
-  Set<std::pair<SocketDataType *, SocketDataType *>> m_implicit_conversions;
 
  public:
   void add_data_type(SocketDataType *data_type)
   {
     m_data_types.add_new(data_type);
   }
-
-  void add_implicit_conversion(SocketDataType *from, SocketDataType *to)
-  {
-    m_implicit_conversions.add_new({from, to});
-  }
 };
 
 static DataTypesInfo *socket_data_types;
 
-static BaseSocketDataType *float_socket_type;
-static BaseSocketDataType *int_socket_type;
+static BaseSocketDataType *data_socket_float;
+static BaseSocketDataType *data_socket_int;
+static ListSocketDataType *data_socket_float_list;
+static ListSocketDataType *data_socket_int_list;
 
 class SocketDecl {
  protected:
@@ -196,9 +192,11 @@ static void init_node(bNodeTree *ntree, bNode *node)
   NodeDecl node_decl{*ntree, *node};
   NodeBuilder node_builder{allocator, node_decl};
 
-  node_builder.fixed_input("id1", "ID 1", *float_socket_type);
-  node_builder.fixed_input("id2", "ID 2", *int_socket_type);
-  node_builder.fixed_output("id3", "ID 3", *float_socket_type);
+  node_builder.fixed_input("id1", "ID 1", *data_socket_float);
+  node_builder.fixed_input("id2", "ID 2", *data_socket_int);
+  node_builder.fixed_input("id4", "ID 4", *data_socket_int_list);
+  node_builder.fixed_output("id3", "ID 3", *data_socket_float);
+  node_builder.fixed_output("id5", "ID 5", *data_socket_float_list);
 
   node_decl.build();
 }
@@ -251,21 +249,33 @@ static bNodeSocketType *register_new_simple_socket_type(StringRefNull idname, rg
 
 void init_socket_data_types()
 {
-  register_new_simple_socket_type("TestSocket", {0.0, 1.0, 0.5, 0.5f});
+  register_new_simple_socket_type("NodeSocketFloatList", {0.63, 0.63, 0.63, 0.5});
+  register_new_simple_socket_type("NodeSocketIntList", {0.06, 0.52, 0.15, 0.5});
 
-  float_socket_type = new BaseSocketDataType("Float", nodeSocketTypeFind("TestSocket"));
-  int_socket_type = new BaseSocketDataType("Integer", nodeSocketTypeFind("NodeSocketInt"));
+  data_socket_float = new BaseSocketDataType("Float", nodeSocketTypeFind("NodeSocketFloat"));
+  data_socket_int = new BaseSocketDataType("Integer", nodeSocketTypeFind("NodeSocketInt"));
+  data_socket_float_list = new ListSocketDataType("Float List",
+                                                  nodeSocketTypeFind("NodeSocketFloatList"));
+  data_socket_int_list = new ListSocketDataType("Integer List",
+                                                nodeSocketTypeFind("NodeSocketIntList"));
+
+  data_socket_float->m_list_type = data_socket_float_list;
+  data_socket_float_list->m_base_type = data_socket_float;
+  data_socket_int->m_list_type = data_socket_int_list;
+  data_socket_int_list->m_base_type = data_socket_int;
 
   socket_data_types = new DataTypesInfo();
-  socket_data_types->add_data_type(float_socket_type);
-  socket_data_types->add_data_type(int_socket_type);
-  socket_data_types->add_implicit_conversion(float_socket_type, int_socket_type);
-  socket_data_types->add_implicit_conversion(int_socket_type, float_socket_type);
+  socket_data_types->add_data_type(data_socket_float);
+  socket_data_types->add_data_type(data_socket_int);
+  socket_data_types->add_data_type(data_socket_float_list);
+  socket_data_types->add_data_type(data_socket_int_list);
 }
 
 void free_socket_data_types()
 {
   delete socket_data_types;
-  delete float_socket_type;
-  delete int_socket_type;
+  delete data_socket_float;
+  delete data_socket_int;
+  delete data_socket_float_list;
+  delete data_socket_int_list;
 }
