@@ -256,6 +256,10 @@ typedef struct bNodeType {
   /* Update the internal links list, for muting and disconnect operators. */
   void (*update_internal_links)(struct bNodeTree *, struct bNode *node);
 
+  /* Custom data that can be used in callbacks. */
+  void *userdata;
+  void (*free_userdata)(void *userdata);
+
   /* **** execution callbacks **** */
   NodeInitExecFunction initexecfunc;
   NodeFreeExecFunction freeexecfunc;
