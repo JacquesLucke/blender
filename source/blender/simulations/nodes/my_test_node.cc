@@ -5,9 +5,59 @@
 
 #include "BLI_vector.h"
 #include "BLI_string_ref.h"
+#include "BLI_set.h"
+
 using BLI::StringRef;
 using BLI::StringRefNull;
 using BLI::Vector;
+
+class SocketDataType;
+class BaseSocketDataType;
+class ListSocketDataType;
+
+enum class SocketTypeCategory {
+  Base,
+  List,
+};
+
+class SocketDataType {
+ public:
+  using BuildFunc = std::function<bNodeSocket *(
+      bNode *node, StringRef name, StringRef identifer, eNodeSocketInOut in_out)>;
+
+  std::string m_ui_name;
+  BuildFunc m_build_fn;
+  SocketTypeCategory m_category;
+
+  SocketDataType(StringRef ui_name, BuildFunc build_fn, SocketTypeCategory category)
+      : m_ui_name(ui_name), m_build_fn(std::move(build_fn)), m_category(category)
+  {
+  }
+};
+
+class BaseSocketDataType : public SocketDataType {
+ public:
+  ListSocketDataType *m_list_type;
+
+  BaseSocketDataType(StringRef ui_name, BuildFunc build_fn)
+      : SocketDataType(ui_name, std::move(build_fn), SocketTypeCategory::Base)
+  {
+  }
+};
+
+class ListSocketDataType : public SocketDataType {
+ public:
+  BaseSocketDataType *m_base_type;
+
+  ListSocketDataType(StringRef ui_name, BuildFunc build_fn)
+      : SocketDataType(ui_name, std::move(build_fn), SocketTypeCategory::List)
+  {
+  }
+};
+
+class SocketDataTypes {
+ public:
+};
 
 class SocketDecl {
  public:
@@ -17,11 +67,9 @@ class SocketDecl {
   virtual void build() const = 0;
 };
 
-class InputSocketDecl : public SocketDecl {
-};
-
-class InputMockupSocketDecl : public InputSocketDecl {
+class MockupSocketDecl : public SocketDecl {
  public:
+  eNodeSocketInOut m_in_out;
   StringRefNull m_ui_name;
   StringRefNull m_identifier;
   StringRefNull m_idname;
@@ -29,7 +77,7 @@ class InputMockupSocketDecl : public InputSocketDecl {
   void build() const override
   {
     nodeAddSocket(
-        m_ntree, m_node, SOCK_IN, m_idname.data(), m_identifier.data(), m_ui_name.data());
+        m_ntree, m_node, m_in_out, m_idname.data(), m_identifier.data(), m_ui_name.data());
   }
 };
 
@@ -41,7 +89,8 @@ class NodeDecl {
 
 static void init_node(bNodeTree *ntree, bNode *node)
 {
-  InputMockupSocketDecl decl;
+  MockupSocketDecl decl;
+  decl.m_in_out = SOCK_IN;
   decl.m_ntree = ntree;
   decl.m_node = node;
   decl.m_ui_name = "Hello World";
