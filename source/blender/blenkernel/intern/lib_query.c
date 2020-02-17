@@ -448,7 +448,7 @@ static void library_foreach_ID_link(Main *bmain,
     if (inherit_data == NULL) {
       data.cb_flag = ID_IS_LINKED(id) ? IDWALK_CB_INDIRECT_USAGE : 0;
       /* When an ID is not in Main database, it should never refcount IDs it is using.
-       * Exceptions: NodeTrees (yeeahhh!) directly used by Materials. */
+       * Exceptions: NodeTrees (yeah!) directly used by Materials. */
       data.cb_flag_clear = (id->tag & LIB_TAG_NO_MAIN) ? IDWALK_CB_USER | IDWALK_CB_USER_ONE : 0;
     }
     else {
@@ -468,6 +468,9 @@ static void library_foreach_ID_link(Main *bmain,
       }
       continue;
     }
+
+    /* Note: ID.lib pointer is purposefully fully ignored here...
+     * We may want to add it at some point? */
 
     if (id->override_library != NULL) {
       CALLBACK_INVOKE_ID(id->override_library->reference,
@@ -525,7 +528,10 @@ static void library_foreach_ID_link(Main *bmain,
           SEQ_END;
         }
 
-        library_foreach_collection(&data, scene->master_collection);
+        /* This pointer can be NULL during old files reading, better be safe than sorry. */
+        if (scene->master_collection != NULL) {
+          library_foreach_collection(&data, scene->master_collection);
+        }
 
         ViewLayer *view_layer;
         for (view_layer = scene->view_layers.first; view_layer; view_layer = view_layer->next) {
@@ -1027,13 +1033,15 @@ static void library_foreach_ID_link(Main *bmain,
         wmWindowManager *wm = (wmWindowManager *)id;
 
         for (wmWindow *win = wm->windows.first; win; win = win->next) {
-          ID *workspace = (ID *)BKE_workspace_active_get(win->workspace_hook);
-
           CALLBACK_INVOKE(win->scene, IDWALK_CB_USER_ONE);
 
-          CALLBACK_INVOKE_ID(workspace, IDWALK_CB_NOP);
-          /* allow callback to set a different workspace */
-          BKE_workspace_active_set(win->workspace_hook, (WorkSpace *)workspace);
+          /* This pointer can be NULL during old files reading, better be safe than sorry. */
+          if (win->workspace_hook != NULL) {
+            ID *workspace = (ID *)BKE_workspace_active_get(win->workspace_hook);
+            CALLBACK_INVOKE_ID(workspace, IDWALK_CB_NOP);
+            /* allow callback to set a different workspace */
+            BKE_workspace_active_set(win->workspace_hook, (WorkSpace *)workspace);
+          }
         }
         break;
       }

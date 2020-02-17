@@ -404,6 +404,8 @@ class SEQUENCER_MT_select(Menu):
         layout.separator()
 
         layout.operator("sequencer.select_box", text="Box Select")
+        props = layout.operator("sequencer.select_box", text="Box Select (Handles)")
+        props.include_handles = True
 
         layout.separator()
 
@@ -716,8 +718,8 @@ class SEQUENCER_MT_strip(Menu):
         layout.menu("SEQUENCER_MT_strip_transform")
 
         layout.separator()
-        layout.operator("sequencer.cut", text="Cut").type = 'SOFT'
-        layout.operator("sequencer.cut", text="Hold Cut").type = 'HARD'
+        layout.operator("sequencer.split", text="Split").type = 'SOFT'
+        layout.operator("sequencer.split", text="Hold Split").type = 'HARD'
 
         layout.separator()
         layout.operator("sequencer.copy", text="Copy")
@@ -842,7 +844,7 @@ class SEQUENCER_MT_context_menu(Menu):
             }:
                 layout.separator()
                 layout.menu("SEQUENCER_MT_strip_effect")
-            elif strip_type in 'MOVIE':
+            elif strip_type == 'MOVIE':
                 layout.separator()
                 layout.menu("SEQUENCER_MT_strip_movie")
             elif strip_type == 'IMAGE':

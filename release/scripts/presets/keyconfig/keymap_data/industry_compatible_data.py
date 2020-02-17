@@ -557,7 +557,7 @@ def km_uv_editor(params):
          {"properties": [("data_path", 'tool_settings.uv_select_mode'), ("value", 'FACE')]}),
         ("wm.context_set_enum", {"type": 'FOUR', "value": 'PRESS'},
          {"properties": [("data_path", 'tool_settings.uv_select_mode'), ("value", 'ISLAND')]}),
-  
+
         ("uv.select", {"type": 'LEFTMOUSE', "value": 'CLICK'},
          {"properties": [("extend", False), ("deselect_all", True)]}),
         ("uv.select", {"type": 'LEFTMOUSE', "value": 'CLICK', "shift": True},
@@ -3278,10 +3278,11 @@ def km_particle(params):
         ("particle.select_all", {"type": 'I', "value": 'PRESS', "ctrl": True}, {"properties": [("action", 'INVERT')]}),
         ("particle.select_more", {"type": 'UP_ARROW', "value": 'PRESS'}, None),
         ("particle.select_less", {"type": 'DOWN_ARROW', "value": 'PRESS'}, None),
-        ("particle.select_linked", {"type": 'RIGHT_BRACKET', "value": 'PRESS'},
+        ("particle.select_linked_pick", {"type": 'RIGHT_BRACKET', "value": 'PRESS'},
          {"properties": [("deselect", False)]}),
-        ("particle.select_linked", {"type": 'RIGHT_BRACKET', "value": 'PRESS', "shift": True},
+        ("particle.select_linked_pick", {"type": 'RIGHT_BRACKET', "value": 'PRESS', "shift": True},
          {"properties": [("deselect", True)]}),
+        ("particle.select_linked", {"type": 'RIGHT_BRACKET', "value": 'PRESS', "ctrl": True}, None),
         ("particle.delete", {"type": 'BACK_SPACE', "value": 'PRESS'}, None),
         ("particle.delete", {"type": 'DEL', "value": 'PRESS'}, None),
         ("particle.reveal", {"type": 'H', "value": 'PRESS', "alt": True}, None),
@@ -3738,7 +3739,13 @@ def keymap_transform_tool_mmb(keymap):
                     km_items_new.append(kmi)
                 elif ty == 'EVT_TWEAK_L':
                     kmi = (kmi[0], kmi[1].copy(), kmi[2])
-                    kmi[1]["type"] = 'EVT_TWEAK_M'
+                    if kmi[1]["value"] == 'ANY':
+                        kmi[1]["type"] = 'MIDDLEMOUSE'
+                        kmi[1]["value"] = 'PRESS'
+                    else:
+                        # Directional tweaking can't be replaced by middle-mouse.
+                        kmi[1]["type"] = 'EVT_TWEAK_M'
+
                     km_items_new.append(kmi)
             km_items.extend(km_items_new)
 
