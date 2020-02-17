@@ -30,6 +30,10 @@
 #include "DNA_texture_types.h"
 #include "DNA_scene_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct AnimData;
 struct ID;
 struct Image;
@@ -1382,5 +1386,9 @@ typedef enum NodeShaderOutputTarget {
   SHD_OUTPUT_EEVEE = 1,
   SHD_OUTPUT_CYCLES = 2,
 } NodeShaderOutputTarget;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
