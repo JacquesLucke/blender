@@ -3215,7 +3215,7 @@ void ED_node_init_butfuncs(void)
     ntype->draw_nodetype_prepare = node_update_default;
     ntype->select_area_func = node_select_area_default;
     ntype->tweak_area_func = node_tweak_area_default;
-    ntype->draw_buttons = NULL;
+    // ntype->draw_buttons = NULL; /* TODO */
     ntype->draw_buttons_ex = NULL;
     ntype->resize_area_func = node_resize_area_default;
 

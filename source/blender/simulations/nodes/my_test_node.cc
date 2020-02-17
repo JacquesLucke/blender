@@ -1,4 +1,5 @@
 #include <cstring>
+#include <typeinfo>
 
 #include "BKE_node.h"
 #include "SIM_node_tree.h"
@@ -10,7 +11,12 @@
 #include "BLI_color.h"
 #include "BLI_string.h"
 #include "BLI_array_cxx.h"
+
 #include "PIL_time.h"
+
+#include "BKE_context.h"
+
+#include "DNA_space_types.h"
 
 #include "UI_interface.h"
 
@@ -236,6 +242,16 @@ class NodeBuilder {
   {
   }
 
+  template<typename T> T *node_storage()
+  {
+#ifdef DEBUG
+    const char *type_name = typeid(T).name();
+    const char *expected_name = m_node_decl.m_node.typeinfo->storagename;
+    BLI_assert(strstr(type_name, expected_name));
+#endif
+    return (T *)m_node_decl.m_node.storage;
+  }
+
   void fixed_input(StringRef identifier, StringRef ui_name, SocketDataType &type)
   {
     FixedTypeSocketDecl *decl = m_allocator.construct<FixedTypeSocketDecl>(
@@ -265,12 +281,17 @@ using DeclareNodeFunc = void (*)(NodeBuilder &builder);
 
 static void declare_test_node(NodeBuilder &builder)
 {
+  MyTestNodeStorage *storage = builder.node_storage<MyTestNodeStorage>();
+
   builder.fixed_input("id1", "ID 1", *data_socket_float);
   builder.fixed_input("id2", "ID 2", *data_socket_int);
   builder.fixed_input("id4", "ID 4", *data_socket_int_list);
   builder.fixed_output("id3", "ID 3", *data_socket_float);
-  builder.fixed_output(
-      "id5", "Hello " + std::to_string(PIL_check_seconds_timer_i() / 10), *data_socket_float_list);
+
+  for (int i = 0; i < storage->x; i++) {
+    builder.fixed_input(
+        "id" + std::to_string(i), "Hello " + std::to_string(i), *data_socket_float_list);
+  }
 }
 
 static void init_node(bNodeTree *ntree, bNode *node)
@@ -278,6 +299,8 @@ static void init_node(bNodeTree *ntree, bNode *node)
   LinearAllocator<> allocator;
   NodeDecl node_decl{*ntree, *node};
   NodeBuilder node_builder{allocator, node_decl};
+  /* TODO: free storage */
+  node->storage = MEM_callocN(sizeof(MyTestNodeStorage), __func__);
   declare_test_node(node_builder);
   node_decl.build();
 }
@@ -295,11 +318,41 @@ void register_node_type_my_test_node()
   strcpy(ntype.idname, "MyTestNode");
   strcpy(ntype.ui_name, "My Test Node");
   strcpy(ntype.ui_description, "My Test Node Description");
+  strcpy(ntype.storagename, "MyTestNodeStorage");
   ntype.type = NODE_CUSTOM;
 
   ntype.initfunc = init_node;
   ntype.poll = [](bNodeType *UNUSED(ntype), bNodeTree *UNUSED(ntree)) { return true; };
   ntype.userdata = (void *)declare_test_node;
+
+  ntype.draw_buttons = [](uiLayout *layout, struct bContext *UNUSED(C), struct PointerRNA *ptr) {
+    bNode *node = (bNode *)ptr->data;
+    MyTestNodeStorage *storage = (MyTestNodeStorage *)node->storage;
+    uiBut *but = uiDefButI(uiLayoutGetBlock(layout),
+                           UI_BTYPE_NUM,
+                           0,
+                           "X value",
+                           0,
+                           0,
+                           50,
+                           50,
+                           &storage->x,
+                           -1000,
+                           1000,
+                           3,
+                           20,
+                           "my x value");
+    uiItemL(layout, "Hello World", 0);
+    UI_but_func_set(
+        but,
+        [](bContext *C, void *UNUSED(arg1), void *UNUSED(arg2)) {
+          bNodeTree *ntree = CTX_wm_space_node(C)->edittree;
+          ntree->update = NTREE_UPDATE;
+          ntreeUpdateTree(CTX_data_main(C), ntree);
+        },
+        nullptr,
+        nullptr);
+  };
 
   nodeRegisterType(&ntype);
 }
@@ -353,6 +406,7 @@ void init_socket_data_types()
   socket_data_types->add_data_type(data_socket_int_list);
 }
 
+/* TODO: actually call this function */
 void free_socket_data_types()
 {
   delete socket_data_types;
