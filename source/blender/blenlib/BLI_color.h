@@ -17,6 +17,8 @@
 #ifndef __BLI_COLOR_H__
 #define __BLI_COLOR_H__
 
+#include "BLI_math_color.h"
+
 namespace BLI {
 
 struct rgba_f {
