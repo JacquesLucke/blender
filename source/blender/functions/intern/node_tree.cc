@@ -266,7 +266,7 @@ BLI_NOINLINE void FunctionTree::expand_group__relink_outputs(const VirtualNodeTr
 BLI_NOINLINE void FunctionTree::insert_linked_nodes_for_vtree_in_id_order(
     const VirtualNodeTree &vtree, Vector<FNode *> &all_nodes, FParentNode *parent)
 {
-  BLI::LargeScopedArray<FSocket *> sockets_map(vtree.socket_count());
+  BLI::Array<FSocket *> sockets_map(vtree.socket_count());
 
   /* Insert nodes of group. */
   for (const VNode *vnode : vtree.nodes()) {
@@ -388,8 +388,8 @@ std::string FunctionTree::to_dot() const
   BLI::DotExport::DirectedGraph digraph;
   digraph.set_rankdir(BLI::DotExport::Attr_rankdir::LeftToRight);
 
-  Map<const FNode *, BLI::DotExport::Utils::NodeWithSocketsWrapper> dot_nodes;
-  Map<const FGroupInput *, BLI::DotExport::Utils::NodeWithSocketsWrapper> dot_group_inputs;
+  Map<const FNode *, BLI::DotExport::NodeWithSocketsRef> dot_nodes;
+  Map<const FGroupInput *, BLI::DotExport::NodeWithSocketsRef> dot_group_inputs;
   Map<const FParentNode *, BLI::DotExport::Cluster *> dot_clusters;
 
   for (const FNode *fnode : m_node_by_id) {
@@ -407,7 +407,7 @@ std::string FunctionTree::to_dot() const
     }
 
     dot_nodes.add_new(fnode,
-                      BLI::DotExport::Utils::NodeWithSocketsWrapper(
+                      BLI::DotExport::NodeWithSocketsRef(
                           dot_node, fnode->vnode().name(), input_names, output_names));
 
     BLI::DotExport::Cluster *cluster = get_cluster_for_parent(
@@ -425,7 +425,7 @@ std::string FunctionTree::to_dot() const
 
           dot_group_inputs.add_new(
               group_input,
-              BLI::DotExport::Utils::NodeWithSocketsWrapper(
+              BLI::DotExport::NodeWithSocketsRef(
                   dot_group_input_node, "Group Input", {}, {group_input_name}));
 
           BLI::DotExport::Cluster *cluster = get_cluster_for_parent(

@@ -45,7 +45,7 @@
 #include "BKE_brush.h"
 #include "BKE_colortools.h"
 #include "BKE_layer.h"
-#include "BKE_library.h"
+#include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_mesh.h"
 #include "BKE_node.h"
@@ -286,7 +286,6 @@ static void blo_update_defaults_scene(Main *bmain, Scene *scene)
   BLI_strncpy(scene->r.engine, RE_engine_id_BLENDER_EEVEE, sizeof(scene->r.engine));
 
   scene->r.cfra = 1.0f;
-  scene->r.displaymode = R_OUTPUT_WINDOW;
 
   /* Don't enable compositing nodes. */
   if (scene->nodetree) {

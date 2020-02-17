@@ -4,7 +4,6 @@
 #include "FN_multi_functions.h"
 #include "FN_node_tree_multi_function_network_generation.h"
 
-#include "BLI_math_cxx.h"
 #include "BLI_rand_cxx.h"
 
 #include "BKE_surface_hook.h"
@@ -163,28 +162,31 @@ static void INSERT_time_info(FNodeMFBuilder &builder)
 }
 
 template<typename InT, typename OutT, typename FuncT>
-static void build_math_fn_1in_1out(FNodeMFBuilder &builder,
-                                   FuncT func,
-                                   Optional<uint32_t> operation_hash = {})
+static void build_math_fn_in1_out1(FNodeMFBuilder &builder, FuncT func)
 {
   builder.set_vectorized_constructed_matching_fn<MF_Custom_In1_Out1<InT, OutT>>(
-      {"use_list"}, builder.fnode().name(), func, operation_hash);
+      {"use_list"}, builder.fnode().name(), func);
+}
+
+static void build_math_fn_in1_out1(FNodeMFBuilder &builder, const MultiFunction &base_fn)
+{
+  builder.set_vectorized_matching_fn({"use_list"}, base_fn);
 }
 
 template<typename InT1, typename InT2, typename OutT, typename FuncT>
-static void build_math_fn_in2_out1(FNodeMFBuilder &builder,
-                                   FuncT element_func,
-                                   Optional<uint32_t> operation_hash = {})
+static void build_math_fn_in2_out1(FNodeMFBuilder &builder, FuncT element_func)
 {
   builder.set_vectorized_constructed_matching_fn<MF_Custom_In2_Out1<InT1, InT2, OutT>>(
-      {"use_list__a", "use_list__b"}, builder.fnode().name(), element_func, operation_hash);
+      {"use_list__a", "use_list__b"}, builder.fnode().name(), element_func);
+}
+
+static void build_math_fn_in2_out1(FNodeMFBuilder &builder, const MultiFunction &base_fn)
+{
+  builder.set_vectorized_matching_fn({"use_list__a", "use_list__b"}, base_fn);
 }
 
 template<typename T, typename FuncT>
-static void build_variadic_math_fn(FNodeMFBuilder &builder,
-                                   FuncT element_func,
-                                   T default_value,
-                                   Optional<uint32_t> operation_hash = {})
+static void build_variadic_math_fn(FNodeMFBuilder &builder, FuncT element_func, T default_value)
 {
   Vector<bool> list_states = builder.get_list_base_variadic_states("variadic");
   if (list_states.size() == 0) {
@@ -192,7 +194,7 @@ static void build_variadic_math_fn(FNodeMFBuilder &builder,
   }
   else {
     const MultiFunction &base_fn = builder.construct_fn<MF_VariadicMath<T>>(
-        builder.fnode().name(), list_states.size(), element_func, operation_hash);
+        builder.fnode().name(), list_states.size(), element_func);
     if (list_states.contains(true)) {
       builder.set_constructed_matching_fn<MF_SimpleVectorize>(base_fn, list_states);
     }
@@ -205,199 +207,167 @@ static void build_variadic_math_fn(FNodeMFBuilder &builder,
 static void INSERT_add_floats(FNodeMFBuilder &builder)
 {
   build_variadic_math_fn(
-      builder, [](float a, float b) -> float { return a + b; }, 0.0f, BLI_RAND_PER_LINE_UINT32);
+      builder, [](float a, float b) -> float { return a + b; }, 0.0f);
 }
 
 static void INSERT_multiply_floats(FNodeMFBuilder &builder)
 {
   build_variadic_math_fn(
-      builder, [](float a, float b) -> float { return a * b; }, 1.0f, BLI_RAND_PER_LINE_UINT32);
+      builder, [](float a, float b) -> float { return a * b; }, 1.0f);
 }
 
 static void INSERT_minimum_floats(FNodeMFBuilder &builder)
 {
   build_variadic_math_fn(
-      builder,
-      [](float a, float b) -> float { return std::min(a, b); },
-      0.0f,
-      BLI_RAND_PER_LINE_UINT32);
+      builder, [](float a, float b) -> float { return std::min(a, b); }, 0.0f);
 }
 
 static void INSERT_maximum_floats(FNodeMFBuilder &builder)
 {
   build_variadic_math_fn(
-      builder,
-      [](float a, float b) -> float { return std::max(a, b); },
-      0.0f,
-      BLI_RAND_PER_LINE_UINT32);
+      builder, [](float a, float b) -> float { return std::max(a, b); }, 0.0f);
 }
 
 static void INSERT_subtract_floats(FNodeMFBuilder &builder)
 {
-  build_math_fn_in2_out1<float, float, float>(
-      builder, [](float a, float b) -> float { return a - b; }, BLI_RAND_PER_LINE_UINT32);
+  build_math_fn_in2_out1(builder, *MF_GLOBAL_subtract_floats);
 }
 
 static void INSERT_divide_floats(FNodeMFBuilder &builder)
 {
-  build_math_fn_in2_out1<float, float, float>(
-      builder,
-      [](float a, float b) -> float { return (b != 0.0f) ? a / b : 0.0f; },
-      BLI_RAND_PER_LINE_UINT32);
+  build_math_fn_in2_out1(builder, *MF_GLOBAL_safe_division_floats);
 }
 
 static void INSERT_power_floats(FNodeMFBuilder &builder)
 {
-  build_math_fn_in2_out1<float, float, float>(
-      builder,
-      [](float a, float b) -> float { return (a >= 0.0f) ? (float)std::pow(a, b) : 0.0f; },
-      BLI_RAND_PER_LINE_UINT32);
+  build_math_fn_in2_out1<float, float, float>(builder, [](float a, float b) -> float {
+    return (a >= 0.0f) ? (float)std::pow(a, b) : 0.0f;
+  });
 }
 
 static void INSERT_sqrt_float(FNodeMFBuilder &builder)
 {
-  build_math_fn_1in_1out<float, float>(
-      builder,
-      [](float a) -> float { return (a >= 0.0f) ? (float)std::sqrt(a) : 0.0f; },
-      BLI_RAND_PER_LINE_UINT32);
+  build_math_fn_in1_out1<float, float>(
+      builder, [](float a) -> float { return (a >= 0.0f) ? (float)std::sqrt(a) : 0.0f; });
 }
 
 static void INSERT_abs_float(FNodeMFBuilder &builder)
 {
-  build_math_fn_1in_1out<float, float>(
-      builder, [](float a) -> float { return std::abs(a); }, BLI_RAND_PER_LINE_UINT32);
+  build_math_fn_in1_out1<float, float>(builder, [](float a) -> float { return std::abs(a); });
 }
 
 static void INSERT_sine_float(FNodeMFBuilder &builder)
 {
-  build_math_fn_1in_1out<float, float>(
-      builder, [](float a) -> float { return std::sin(a); }, BLI_RAND_PER_LINE_UINT32);
+  build_math_fn_in1_out1(builder, *MF_GLOBAL_sin_float);
 }
 
 static void INSERT_cosine_float(FNodeMFBuilder &builder)
 {
-  build_math_fn_1in_1out<float, float>(
-      builder, [](float a) -> float { return std::cos(a); }, BLI_RAND_PER_LINE_UINT32);
+  build_math_fn_in1_out1(builder, *MF_GLOBAL_cos_float);
 }
 
 static void INSERT_ceil_float(FNodeMFBuilder &builder)
 {
-  build_math_fn_1in_1out<float, float>(
-      builder, [](float a) -> float { return std::ceil(a); }, BLI_RAND_PER_LINE_UINT32);
+  build_math_fn_in1_out1<float, float>(builder, [](float a) -> float { return std::ceil(a); });
 }
 
 static void INSERT_floor_float(FNodeMFBuilder &builder)
 {
-  build_math_fn_1in_1out<float, float>(
-      builder, [](float a) -> float { return std::floor(a); }, BLI_RAND_PER_LINE_UINT32);
+  build_math_fn_in1_out1<float, float>(builder, [](float a) -> float { return std::floor(a); });
 }
 
 static void INSERT_add_vectors(FNodeMFBuilder &builder)
 {
   build_variadic_math_fn(
-      builder,
-      [](float3 a, float3 b) -> float3 { return a + b; },
-      float3(0, 0, 0),
-      BLI_RAND_PER_LINE_UINT32);
+      builder, [](float3 a, float3 b) -> float3 { return a + b; }, float3(0, 0, 0));
 }
 
 static void INSERT_multiply_vectors(FNodeMFBuilder &builder)
 {
   build_variadic_math_fn(
-      builder,
-      [](float3 a, float3 b) -> float3 { return a * b; },
-      float3(1, 1, 1),
-      BLI_RAND_PER_LINE_UINT32);
+      builder, [](float3 a, float3 b) -> float3 { return a * b; }, float3(1, 1, 1));
 }
 
 static void INSERT_subtract_vectors(FNodeMFBuilder &builder)
 {
   build_math_fn_in2_out1<float3, float3, float3>(
-      builder, [](float3 a, float3 b) -> float3 { return a - b; }, BLI_RAND_PER_LINE_UINT32);
+      builder, [](float3 a, float3 b) -> float3 { return a - b; });
 }
 
 static void INSERT_divide_vectors(FNodeMFBuilder &builder)
 {
-  build_math_fn_in2_out1<float3, float3, float3>(
-      builder, float3::safe_divide, BLI_RAND_PER_LINE_UINT32);
+  build_math_fn_in2_out1<float3, float3, float3>(builder, float3::safe_divide);
 }
 
 static void INSERT_vector_cross_product(FNodeMFBuilder &builder)
 {
-  build_math_fn_in2_out1<float3, float3, float3>(
-      builder, float3::cross_high_precision, BLI_RAND_PER_LINE_UINT32);
+  build_math_fn_in2_out1<float3, float3, float3>(builder, float3::cross_high_precision);
 }
 
 static void INSERT_reflect_vector(FNodeMFBuilder &builder)
 {
   build_math_fn_in2_out1<float3, float3, float3>(
-      builder,
-      [](float3 a, float3 b) { return a.reflected(b.normalized()); },
-      BLI_RAND_PER_LINE_UINT32);
+      builder, [](float3 a, float3 b) { return a.reflected(b.normalized()); });
 }
 
 static void INSERT_project_vector(FNodeMFBuilder &builder)
 {
-  build_math_fn_in2_out1<float3, float3, float3>(
-      builder, float3::project, BLI_RAND_PER_LINE_UINT32);
+  build_math_fn_in2_out1<float3, float3, float3>(builder, float3::project);
 }
 
 static void INSERT_vector_dot_product(FNodeMFBuilder &builder)
 {
-  build_math_fn_in2_out1<float3, float3, float>(builder, float3::dot, BLI_RAND_PER_LINE_UINT32);
+  build_math_fn_in2_out1<float3, float3, float>(builder, float3::dot);
 }
 
 static void INSERT_vector_distance(FNodeMFBuilder &builder)
 {
-  build_math_fn_in2_out1<float3, float3, float>(
-      builder, float3::distance, BLI_RAND_PER_LINE_UINT32);
+  build_math_fn_in2_out1<float3, float3, float>(builder, float3::distance);
 }
 
 static void INSERT_multiply_vector_with_float(FNodeMFBuilder &builder)
 {
-  build_math_fn_in2_out1<float3, float, float3>(
-      builder, [](float3 a, float b) { return a * b; }, BLI_RAND_PER_LINE_UINT32);
+  build_math_fn_in2_out1<float3, float, float3>(builder, [](float3 a, float b) { return a * b; });
 }
 
 static void INSERT_normalize_vector(FNodeMFBuilder &builder)
 {
-  build_math_fn_1in_1out<float3, float3>(builder,
+  build_math_fn_in1_out1<float3, float3>(builder,
                                          [](float3 a) -> float3 { return a.normalized(); });
 }
 
 static void INSERT_vector_length(FNodeMFBuilder &builder)
 {
-  build_math_fn_1in_1out<float3, float>(builder, [](float3 a) -> float { return a.length(); });
+  build_math_fn_in1_out1<float3, float>(builder, [](float3 a) -> float { return a.length(); });
 }
 
 static void INSERT_boolean_and(FNodeMFBuilder &builder)
 {
   build_variadic_math_fn(
-      builder, [](bool a, bool b) { return a && b; }, true, BLI_RAND_PER_LINE_UINT32);
+      builder, [](bool a, bool b) { return a && b; }, true);
 }
 
 static void INSERT_boolean_or(FNodeMFBuilder &builder)
 {
   build_variadic_math_fn(
-      builder, [](bool a, bool b) { return a || b; }, false, BLI_RAND_PER_LINE_UINT32);
+      builder, [](bool a, bool b) { return a || b; }, false);
 }
 
 static void INSERT_boolean_not(FNodeMFBuilder &builder)
 {
-  build_math_fn_1in_1out<bool, bool>(
-      builder, [](bool a) -> bool { return !a; }, BLI_RAND_PER_LINE_UINT32);
+  build_math_fn_in1_out1<bool, bool>(builder, [](bool a) -> bool { return !a; });
 }
 
 static void INSERT_less_than_float(FNodeMFBuilder &builder)
 {
-  build_math_fn_in2_out1<float, float, bool>(
-      builder, [](float a, float b) -> bool { return a < b; }, BLI_RAND_PER_LINE_UINT32);
+  build_math_fn_in2_out1<float, float, bool>(builder,
+                                             [](float a, float b) -> bool { return a < b; });
 }
 
 static void INSERT_greater_than_float(FNodeMFBuilder &builder)
 {
-  build_math_fn_in2_out1<float, float, bool>(
-      builder, [](float a, float b) -> bool { return a > b; }, BLI_RAND_PER_LINE_UINT32);
+  build_math_fn_in2_out1<float, float, bool>(builder,
+                                             [](float a, float b) -> bool { return a > b; });
 }
 
 static void INSERT_perlin_noise(FNodeMFBuilder &builder)

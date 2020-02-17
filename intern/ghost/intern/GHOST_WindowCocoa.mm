@@ -94,16 +94,15 @@
 - (void)windowWillEnterFullScreen:(NSNotification *)notification
 {
   associatedWindow->setImmediateDraw(true);
-  /* macOS does not send a window resize event when switching between zoomed
-   * and fullscreen, when automatic show/hide of dock and menu bar are enabled.
-   * Send our own to prevent artifacts. */
-  if ([(NSWindow *)associatedWindow->getOSWindow() isZoomed]) {
-    systemCocoa->handleWindowEvent(GHOST_kEventWindowSize, associatedWindow);
-  }
 }
 
 - (void)windowDidEnterFullScreen:(NSNotification *)notification
 {
+  /* macOS does not send a window resize event when switching between zoomed
+   * and fullscreen, when automatic show/hide of dock and menu bar are enabled.
+   * Send our own to prevent artifacts. */
+  systemCocoa->handleWindowEvent(GHOST_kEventWindowSize, associatedWindow);
+
   associatedWindow->setImmediateDraw(false);
 }
 
@@ -114,11 +113,9 @@
 
 - (void)windowDidExitFullScreen:(NSNotification *)notification
 {
-  associatedWindow->setImmediateDraw(false);
   /* See comment for windowWillEnterFullScreen. */
-  if ([(NSWindow *)associatedWindow->getOSWindow() isZoomed]) {
-    systemCocoa->handleWindowEvent(GHOST_kEventWindowSize, associatedWindow);
-  }
+  systemCocoa->handleWindowEvent(GHOST_kEventWindowSize, associatedWindow);
+  associatedWindow->setImmediateDraw(false);
 }
 
 - (void)windowDidResize:(NSNotification *)notification
@@ -137,6 +134,7 @@
 - (void)windowDidChangeBackingProperties:(NSNotification *)notification
 {
   systemCocoa->handleWindowEvent(GHOST_kEventNativeResolutionChange, associatedWindow);
+  systemCocoa->handleWindowEvent(GHOST_kEventWindowSize, associatedWindow);
 }
 
 - (BOOL)windowShouldClose:(id)sender;
@@ -954,7 +952,9 @@ static NSCursor *getImageCursor(GHOST_TStandardCursor shape, NSString *name, NSP
   const int index = (int)shape;
   if (!loaded[index]) {
     /* Load image from file in application Resources folder. */
+    /* clang-format off */
     @autoreleasepool {
+      /* clang-format on */
       NSImage *image = [NSImage imageNamed:name];
       if (image != NULL) {
         cursors[index] = [[NSCursor alloc] initWithImage:image hotSpot:hotspot];

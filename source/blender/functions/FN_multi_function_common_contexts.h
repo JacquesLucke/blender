@@ -6,7 +6,7 @@
 #include "FN_multi_function_context.h"
 #include "FN_attributes_ref.h"
 
-#include "BLI_math_cxx.h"
+#include "BLI_float3.h"
 #include "BLI_map.h"
 
 namespace FN {

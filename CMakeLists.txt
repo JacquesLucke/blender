@@ -492,7 +492,8 @@ if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
     if(NOT MSVC)
       find_library(COMPILER_ASAN_LIBRARY asan ${CMAKE_C_IMPLICIT_LINK_DIRECTORIES})
     else()
-      find_library( COMPILER_ASAN_LIBRARY NAMES clang_rt.asan-x86_64
+      find_library(
+        COMPILER_ASAN_LIBRARY NAMES clang_rt.asan-x86_64
         PATHS
         [HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\LLVM\\LLVM;]/lib/clang/7.0.0/lib/windows
         [HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\LLVM\\LLVM;]/lib/clang/6.0.0/lib/windows
@@ -613,28 +614,24 @@ endif()
 
 # enable boost for cycles, audaspace or i18n
 # otherwise if the user disabled
-if(NOT WITH_BOOST)
-  # Explicitly disabled. so disable all deps.
-  macro(set_and_warn
-    _setting _val)
-    if(${${_setting}})
-      message(STATUS "'WITH_BOOST' is disabled: forcing 'set(${_setting} ${_val})'")
-    endif()
-    set(${_setting} ${_val})
-  endmacro()
 
-  set_and_warn(WITH_CYCLES         OFF)
-  set_and_warn(WITH_INTERNATIONAL  OFF)
-  set_and_warn(WITH_OPENVDB        OFF)
-  set_and_warn(WITH_OPENCOLORIO    OFF)
-  set_and_warn(WITH_QUADRIFLOW     OFF)
-elseif(WITH_CYCLES OR WITH_OPENIMAGEIO OR WITH_INTERNATIONAL OR
-       WITH_OPENVDB OR WITH_OPENCOLORIO)
-  # Keep enabled
-else()
-  # Disable boost if not needed.
+set_and_warn_dependency(WITH_BOOST WITH_CYCLES         OFF)
+set_and_warn_dependency(WITH_BOOST WITH_INTERNATIONAL  OFF)
+set_and_warn_dependency(WITH_BOOST WITH_OPENVDB        OFF)
+set_and_warn_dependency(WITH_BOOST WITH_OPENCOLORIO    OFF)
+set_and_warn_dependency(WITH_BOOST WITH_QUADRIFLOW     OFF)
+set_and_warn_dependency(WITH_BOOST WITH_USD            OFF)
+
+if(WITH_BOOST AND NOT (WITH_CYCLES OR WITH_OPENIMAGEIO OR WITH_INTERNATIONAL OR
+   WITH_OPENVDB OR WITH_OPENCOLORIO OR WITH_USD))
+  message(STATUS "No dependencies need 'WITH_BOOST' forcing WITH_BOOST=OFF")
   set(WITH_BOOST OFF)
 endif()
+
+set_and_warn_dependency(WITH_TBB WITH_USD               OFF)
+set_and_warn_dependency(WITH_TBB WITH_OPENIMAGEDENOISE  OFF)
+set_and_warn_dependency(WITH_TBB WITH_OPENVDB           OFF)
+set_and_warn_dependency(WITH_TBB WITH_MOD_FLUID         OFF)
 
 # auto enable openimageio for cycles
 if(WITH_CYCLES)

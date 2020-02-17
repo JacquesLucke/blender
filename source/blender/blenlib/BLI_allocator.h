@@ -36,7 +36,6 @@
 
 #include "BLI_utildefines.h"
 #include "BLI_math_base.h"
-#include "BLI_temporary_allocator.h"
 
 namespace BLI {
 
@@ -59,11 +58,6 @@ class GuardedAllocator {
   void deallocate(void *ptr)
   {
     MEM_freeN(ptr);
-  }
-
-  uint min_allocated_size() const
-  {
-    return 0;
   }
 };
 
@@ -103,109 +97,6 @@ class RawAllocator {
     int offset = -head->offset;
     void *actual_pointer = POINTER_OFFSET(ptr, offset);
     free(actual_pointer);
-  }
-
-  uint min_allocated_size() const
-  {
-    return 0;
-  }
-};
-
-/**
- * Use this only under specific circumstances as described in BLI_temporary_allocator.h.
- */
-class TemporaryAllocator {
- public:
-  void *allocate(uint size, const char *UNUSED(name))
-  {
-    return BLI_temporary_allocate(size);
-  }
-
-  void *allocate_aligned(uint size, uint alignment, const char *UNUSED(name))
-  {
-    BLI_assert(alignment <= 64);
-    UNUSED_VARS_NDEBUG(alignment);
-    return BLI_temporary_allocate(size);
-  }
-
-  void deallocate(void *ptr)
-  {
-    BLI_temporary_deallocate(ptr);
-  }
-
-  uint min_allocated_size() const
-  {
-    return BLI_TEMPORARY_MINIMUM_SIZE;
-  }
-};
-
-class AnyAllocator {
- public:
-  class VirtualBase {
-   public:
-    virtual void *allocate(uint size, const char *name) = 0;
-
-    virtual void *allocate_aligned(uint size, uint alignment, const char *name) = 0;
-
-    virtual void deallocate(void *ptr) = 0;
-
-    virtual uint min_allocated_size() const = 0;
-  };
-
-  /**
-   * Only take a reference to the underlying allocator. No ownership is transferred.
-   */
-  AnyAllocator(VirtualBase &base) : m_base(&base)
-  {
-  }
-
-  void *allocate(uint size, const char *name)
-  {
-    return m_base->allocate(size, name);
-  }
-
-  void *allocate_aligned(uint size, uint alignment, const char *name)
-  {
-    return m_base->allocate_aligned(size, alignment, name);
-  }
-
-  void deallocate(void *ptr)
-  {
-    m_base->deallocate(ptr);
-  }
-
-  uint min_allocated_size() const
-  {
-    return m_base->min_allocated_size();
-  }
-
- private:
-  VirtualBase *m_base;
-};
-
-template<typename Allocator> class AnyAllocatorBase : public AnyAllocator::VirtualBase {
- private:
-  Allocator m_allocator;
-
- public:
-  void *allocate(uint size, const char *name) final override
-  {
-    return m_allocator.allocate(size, name);
-  }
-
-  void *allocate_aligned(uint size, uint alignment, const char *name) final override
-  {
-    return m_allocator.allocate_aligned(size, alignment, name);
-  }
-
-  void deallocate(void *ptr) final override
-  {
-    m_allocator.deallocate(ptr);
-  }
-
-  uint min_allocated_size() const final override
-  {
-    return m_allocator.min_allocated_size();
   }
 };
 

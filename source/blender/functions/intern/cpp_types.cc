@@ -1,7 +1,8 @@
 #include "FN_cpp_type.h"
 #include "cpp_types.h"
 
-#include "BLI_math_cxx.h"
+#include "BLI_float3.h"
+#include "BLI_color.h"
 #include "BLI_rand_cxx.h"
 
 #include "BKE_surface_hook.h"
@@ -160,7 +161,9 @@ void FillUninitializedIndices_CB(const void *value, void *dst, IndexMask index_m
 }
 
 template<typename T>
-static std::unique_ptr<const CPPType> create_cpp_type(StringRef name, uint32_t type_hash)
+static std::unique_ptr<const CPPType> create_cpp_type(StringRef name,
+                                                      uint32_t type_hash,
+                                                      const T &default_value)
 {
   const CPPType *type = new CPPType(name,
                                     sizeof(T),
@@ -188,21 +191,25 @@ static std::unique_ptr<const CPPType> create_cpp_type(StringRef name, uint32_t t
                                     FillInitializedIndices_CB<T>,
                                     FillUninitialized_CB<T>,
                                     FillUninitializedIndices_CB<T>,
-                                    type_hash);
+                                    type_hash,
+                                    (const void *)&default_value);
   return std::unique_ptr<const CPPType>(type);
 }
 
 #define MAKE_CPP_TYPE(IDENTIFIER, TYPE_NAME) \
-  static std::unique_ptr<const CPPType> CPPTYPE_##IDENTIFIER = create_cpp_type<TYPE_NAME>( \
-      STRINGIFY(IDENTIFIER), BLI_RAND_PER_LINE_UINT32); \
+  static TYPE_NAME default_value_##IDENTIFIER; \
+  static std::unique_ptr<const CPPType> CPPTYPE_##IDENTIFIER##_owner = \
+      create_cpp_type<TYPE_NAME>( \
+          STRINGIFY(IDENTIFIER), BLI_RAND_PER_LINE_UINT32, default_value_##IDENTIFIER); \
+  const CPPType &CPPType_##IDENTIFIER = *CPPTYPE_##IDENTIFIER##_owner; \
   template<> const CPPType &CPP_TYPE<TYPE_NAME>() \
   { \
-    return *CPPTYPE_##IDENTIFIER; \
+    return CPPType_##IDENTIFIER; \
   }
 
 MAKE_CPP_TYPE(float, float)
-MAKE_CPP_TYPE(uint32_t, uint32_t)
-MAKE_CPP_TYPE(uint8_t, uint8_t)
+MAKE_CPP_TYPE(uint32, uint32_t)
+MAKE_CPP_TYPE(uint8, uint8_t)
 MAKE_CPP_TYPE(bool, bool)
 MAKE_CPP_TYPE(ObjectIDHandle, BKE::ObjectIDHandle)
 MAKE_CPP_TYPE(ImageIDHandle, BKE::ImageIDHandle)

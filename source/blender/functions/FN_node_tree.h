@@ -155,7 +155,7 @@ using BTreeVTreeMap = Map<bNodeTree *, std::unique_ptr<const VirtualNodeTree>>;
 
 class FunctionTree : BLI::NonCopyable, BLI::NonMovable {
  private:
-  BLI::MonotonicAllocator<> m_allocator;
+  BLI::LinearAllocator<> m_allocator;
   bNodeTree *m_btree;
   Vector<FNode *> m_node_by_id;
   Vector<FGroupInput *> m_group_inputs;

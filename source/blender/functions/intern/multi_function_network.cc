@@ -185,14 +185,17 @@ void MFNetworkBuilder::remove_link(MFBuilderOutputSocket &from, MFBuilderInputSo
   to.m_origin = nullptr;
 }
 
-void MFNetworkBuilder::relink_origin(MFBuilderOutputSocket &new_from, MFBuilderInputSocket &to)
+void MFNetworkBuilder::replace_origin(MFBuilderOutputSocket &old_origin,
+                                      MFBuilderOutputSocket &new_origin)
 {
-  BLI_assert(to.m_origin != nullptr);
-  BLI_assert(to.m_origin != &new_from);
-  BLI_assert(new_from.data_type() == to.data_type());
-  to.m_origin->m_targets.remove_first_occurrence_and_reorder(&to);
-  new_from.m_targets.append(&to);
-  to.m_origin = &new_from;
+  BLI_assert(&old_origin != &new_origin);
+  BLI_assert(old_origin.data_type() == new_origin.data_type());
+  for (MFBuilderInputSocket *target : old_origin.targets()) {
+    BLI_assert(target->m_origin != nullptr);
+    target->m_origin = &new_origin;
+    new_origin.m_targets.append(target);
+  }
+  old_origin.m_targets.clear();
 }
 
 void MFNetworkBuilder::remove_node(MFBuilderNode &node)
@@ -318,11 +321,11 @@ Vector<MFBuilderNode *> MFNetworkBuilder::find_nodes_not_to_the_left_of__exclusi
 
 std::string MFNetworkBuilder::to_dot(const Set<MFBuilderNode *> &marked_nodes)
 {
-  using BLI::DotExport::Utils::NodeWithSocketsWrapper;
+  using BLI::DotExport::NodeWithSocketsRef;
 
   BLI::DotExport::DirectedGraph digraph;
   digraph.set_rankdir(BLI::DotExport::Attr_rankdir::LeftToRight);
-  Map<MFBuilderNode *, NodeWithSocketsWrapper> dot_nodes;
+  Map<MFBuilderNode *, NodeWithSocketsRef> dot_nodes;
 
   Vector<MFBuilderNode *> all_nodes;
   all_nodes.extend(m_function_nodes.as_ref());
@@ -347,8 +350,7 @@ std::string MFNetworkBuilder::to_dot(const Set<MFBuilderNode *> &marked_nodes)
       dot_node.set_background_color("#99EE99");
     }
 
-    dot_nodes.add_new(node,
-                      NodeWithSocketsWrapper(dot_node, node->name(), input_names, output_names));
+    dot_nodes.add_new(node, NodeWithSocketsRef(dot_node, node->name(), input_names, output_names));
   }
 
   for (MFBuilderNode *to_node : all_nodes) {

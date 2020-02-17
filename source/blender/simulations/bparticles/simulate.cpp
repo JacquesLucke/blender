@@ -1,5 +1,4 @@
 
-#include "BLI_lazy_init_cxx.h"
 #include "BLI_timeit.h"
 #include "BLI_array_cxx.h"
 #include "BLI_vector_adaptor.h"
@@ -11,8 +10,7 @@
 
 namespace BParticles {
 
-using BLI::LargeScopedArray;
-using BLI::LargeScopedVector;
+using BLI::ScopedVector;
 using BLI::VectorAdaptor;
 using FN::CPPType;
 
@@ -22,7 +20,7 @@ BLI_NOINLINE static void find_next_event_per_particle(
     ArrayRef<Event *> events,
     MutableArrayRef<int> r_next_event_indices,
     MutableArrayRef<float> r_time_factors_to_next_event,
-    LargeScopedVector<uint> &r_pindices_with_event)
+    ScopedVector<uint> &r_pindices_with_event)
 {
   r_next_event_indices.fill_indices(mask, -1);
   r_time_factors_to_next_event.fill_indices(mask, 1.0f);
@@ -173,9 +171,9 @@ BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
                                                 VectorAdaptor<uint> &r_unfinished_pindices)
 {
   uint amount = step_data.array_size();
-  LargeScopedArray<int> next_event_indices(amount);
-  LargeScopedArray<float> time_factors_to_next_event(amount);
-  LargeScopedVector<uint> pindices_with_event;
+  Array<int> next_event_indices(amount);
+  Array<float> time_factors_to_next_event(amount);
+  ScopedVector<uint> pindices_with_event;
 
   find_next_event_per_particle(step_data,
                                mask,
@@ -199,7 +197,7 @@ BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
   Vector<Vector<uint>> particles_per_event(system_info.events.size());
   find_pindices_per_event(pindices_with_event, next_event_indices, particles_per_event);
 
-  LargeScopedArray<float> current_times(amount);
+  Array<float> current_times(amount);
   compute_current_time_per_particle(
       pindices_with_event, step_data.remaining_durations, step_data.step_end_time, current_times);
 
@@ -216,10 +214,10 @@ BLI_NOINLINE static void simulate_with_max_n_events(BlockStepData &step_data,
                                                     ParticleAllocator &particle_allocator,
                                                     uint max_events,
                                                     ParticleSystemInfo &system_info,
-                                                    LargeScopedVector<uint> &r_unfinished_pindices)
+                                                    ScopedVector<uint> &r_unfinished_pindices)
 {
-  LargeScopedArray<uint> pindices_A(step_data.array_size());
-  LargeScopedArray<uint> pindices_B(step_data.array_size());
+  Array<uint> pindices_A(step_data.array_size());
+  Array<uint> pindices_B(step_data.array_size());
 
   uint amount_left = step_data.attributes.size();
 
@@ -255,7 +253,7 @@ BLI_NOINLINE static void apply_remaining_offsets(BlockStepData &step_data,
                                                  IndexMask mask)
 {
   if (offset_handlers.size() > 0) {
-    LargeScopedArray<float> time_factors(step_data.array_size());
+    Array<float> time_factors(step_data.array_size());
     time_factors.fill_indices(mask, 1.0f);
 
     OffsetHandlerInterface interface(step_data, mask, time_factors, particle_allocator);
@@ -290,16 +288,16 @@ BLI_NOINLINE static void simulate_particle_chunk(SimulationState &simulation_sta
   uint amount = attributes.size();
   BLI_assert(amount == remaining_durations.size());
 
+  BufferCache buffer_cache;
+
   Integrator &integrator = *system_info.integrator;
   const AttributesInfo &offsets_info = integrator.offset_attributes_info();
   Vector<void *> offset_buffers;
   for (const CPPType *type : offsets_info.types()) {
-    void *ptr = BLI_temporary_allocate(type->size() * amount);
+    void *ptr = buffer_cache.allocate(type->size() * amount, type->alignment());
     offset_buffers.append(ptr);
   }
   MutableAttributesRef attribute_offsets(offsets_info, offset_buffers, amount);
-
-  BufferCache buffer_cache;
 
   BlockStepData step_data = {simulation_state,
                              buffer_cache,
@@ -318,7 +316,7 @@ BLI_NOINLINE static void simulate_particle_chunk(SimulationState &simulation_sta
                             IndexRange(amount).as_array_ref());
   }
   else {
-    LargeScopedVector<uint> unfinished_pindices;
+    ScopedVector<uint> unfinished_pindices;
     simulate_with_max_n_events(
         step_data, particle_allocator, 10, system_info, unfinished_pindices);
 
@@ -330,14 +328,14 @@ BLI_NOINLINE static void simulate_particle_chunk(SimulationState &simulation_sta
   }
 
   for (void *buffer : offset_buffers) {
-    BLI_temporary_deallocate(buffer);
+    buffer_cache.deallocate(buffer);
   }
 }
 
 BLI_NOINLINE static void delete_tagged_particles_and_reorder(ParticleSet &particles)
 {
   auto kill_states = particles.attributes().get<bool>("Dead");
-  LargeScopedVector<uint> indices_to_delete;
+  ScopedVector<uint> indices_to_delete;
 
   for (uint i : kill_states.index_range()) {
     if (kill_states[i]) {

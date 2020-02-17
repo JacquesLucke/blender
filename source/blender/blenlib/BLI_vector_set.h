@@ -302,11 +302,6 @@ template<typename T, typename Allocator = GuardedAllocator> class VectorSet {
     return m_elements;
   }
 
-  operator MutableArrayRef<T>()
-  {
-    return m_elements;
-  }
-
   void print_stats() const
   {
     std::cout << "VectorSet at " << (void *)this << ":\n";

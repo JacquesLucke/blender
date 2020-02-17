@@ -24,6 +24,7 @@ endif()
 
 set(SRC
   intern/multi_functions/constants.cc
+  intern/multi_functions/global_functions.cc
   intern/multi_functions/lists.cc
   intern/multi_functions/mixed.cc
   intern/multi_functions/network.cc
@@ -46,6 +47,7 @@ set(SRC
   intern/multi_function_context.cc
   intern/multi_function_network_optimization.cc
   intern/multi_function_network.cc
+  intern/multi_function.cc
   intern/node_tree.cc
 
   FN_attributes_ref.h
@@ -71,6 +73,7 @@ set(SRC
 
   intern/multi_functions/constants.h
   intern/multi_functions/customizable.h
+  intern/multi_functions/global_functions.h
   intern/multi_functions/lists.h
   intern/multi_functions/mixed.h
   intern/multi_functions/network.h

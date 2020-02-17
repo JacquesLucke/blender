@@ -164,9 +164,9 @@ const EnumPropertyItem rna_enum_node_math_items[] = {
     {NODE_MATH_TRUNC, "TRUNC", 0, "Truncate", "trunc(A)"},
     {0, "", ICON_NONE, NULL, NULL},
     {NODE_MATH_FRACTION, "FRACT", 0, "Fraction", "The fraction part of A"},
-    {NODE_MATH_MODULO, "MODULO", 0, "Modulo", "A mod B"},
-    {NODE_MATH_SNAP, "SNAP", 0, "Snap", "Snap to increment, snap(A,B)"},
+    {NODE_MATH_MODULO, "MODULO", 0, "Modulo", "Modulo using fmod(A,B)"},
     {NODE_MATH_WRAP, "WRAP", 0, "Wrap", "Wrap value to range, wrap(A,B)"},
+    {NODE_MATH_SNAP, "SNAP", 0, "Snap", "Snap to increment, snap(A,B)"},
     {NODE_MATH_PINGPONG,
      "PINGPONG",
      0,
@@ -211,18 +211,23 @@ const EnumPropertyItem rna_enum_node_vec_math_items[] = {
     {NODE_VECTOR_MATH_SCALE, "SCALE", 0, "Scale", "A multiplied by Scale"},
     {NODE_VECTOR_MATH_NORMALIZE, "NORMALIZE", 0, "Normalize", "Normalize A"},
     {0, "", ICON_NONE, NULL, NULL},
+    {NODE_VECTOR_MATH_ABSOLUTE, "ABSOLUTE", 0, "Absolute", "Entrywise absolute"},
+    {NODE_VECTOR_MATH_MINIMUM, "MINIMUM", 0, "Minimum", "Entrywise minimum"},
+    {NODE_VECTOR_MATH_MAXIMUM, "MAXIMUM", 0, "Maximum", "Entrywise maximum"},
+    {NODE_VECTOR_MATH_FLOOR, "FLOOR", 0, "Floor", "Entrywise floor"},
+    {NODE_VECTOR_MATH_CEIL, "CEIL", 0, "Ceil", "Entrywise ceil"},
+    {NODE_VECTOR_MATH_FRACTION, "FRACTION", 0, "Fraction", "The fraction part of A entrywise"},
+    {NODE_VECTOR_MATH_MODULO, "MODULO", 0, "Modulo", "Entrywise modulo using fmod(A,B)"},
+    {NODE_VECTOR_MATH_WRAP, "WRAP", 0, "Wrap", "Entrywise wrap(A,B)"},
     {NODE_VECTOR_MATH_SNAP,
      "SNAP",
      0,
      "Snap",
      "Round A to the largest integer multiple of B less than or equal A"},
-    {NODE_VECTOR_MATH_FLOOR, "FLOOR", 0, "Floor", "Entrywise floor"},
-    {NODE_VECTOR_MATH_CEIL, "CEIL", 0, "Ceil", "Entrywise ceil"},
-    {NODE_VECTOR_MATH_MODULO, "MODULO", 0, "Modulo", "Entrywise modulo"},
-    {NODE_VECTOR_MATH_FRACTION, "FRACTION", 0, "Fraction", "The fraction part of A entrywise"},
-    {NODE_VECTOR_MATH_ABSOLUTE, "ABSOLUTE", 0, "Absolute", "Entrywise absolute"},
-    {NODE_VECTOR_MATH_MINIMUM, "MINIMUM", 0, "Minimum", "Entrywise minimum"},
-    {NODE_VECTOR_MATH_MAXIMUM, "MAXIMUM", 0, "Maximum", "Entrywise maximum"},
+    {0, "", ICON_NONE, NULL, NULL},
+    {NODE_VECTOR_MATH_SINE, "SINE", 0, "Sine", "Entrywise sin(A)"},
+    {NODE_VECTOR_MATH_COSINE, "COSINE", 0, "Cosine", "Entrywise cos(A)"},
+    {NODE_VECTOR_MATH_TANGENT, "TANGENT", 0, "Tangent", "Entrywise tan(A)"},
     {0, NULL, 0, NULL, NULL},
 };
 
@@ -7891,6 +7896,11 @@ static void rna_def_node_socket(BlenderRNA *brna)
   RNA_def_struct_name_property(srna, prop);
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_NodeSocket_update");
 
+  prop = RNA_def_property(srna, "label", PROP_STRING, PROP_NONE);
+  RNA_def_property_string_sdna(prop, NULL, "label");
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_ui_text(prop, "Label", "Custom dynamic defined socket label");
+
   prop = RNA_def_property(srna, "identifier", PROP_STRING, PROP_NONE);
   RNA_def_property_string_sdna(prop, NULL, "identifier");
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -8613,7 +8623,8 @@ static void rna_def_internal_node(BlenderRNA *brna)
 
   /* update */
   func = RNA_def_function(srna, "update", "rna_NodeInternal_update");
-  RNA_def_function_ui_description(func, "Update on editor changes");
+  RNA_def_function_ui_description(
+      func, "Update on node graph topology changes (adding or removing nodes and links)");
   RNA_def_function_flag(func, FUNC_USE_SELF_ID | FUNC_ALLOW_WRITE);
 
   /* draw buttons */
@@ -8917,7 +8928,8 @@ static void rna_def_node(BlenderRNA *brna)
 
   /* update */
   func = RNA_def_function(srna, "update", NULL);
-  RNA_def_function_ui_description(func, "Update on editor changes");
+  RNA_def_function_ui_description(
+      func, "Update on node graph topology changes (adding or removing nodes and links)");
   RNA_def_function_flag(func, FUNC_USE_SELF_ID | FUNC_REGISTER_OPTIONAL | FUNC_ALLOW_WRITE);
 
   /* insert_link */
@@ -9396,6 +9408,17 @@ static void rna_def_texture_nodetree(BlenderRNA *brna)
   RNA_def_struct_ui_icon(srna, ICON_TEXTURE);
 }
 
+static void rna_def_simulation_nodetree(BlenderRNA *brna)
+{
+  StructRNA *srna;
+
+  srna = RNA_def_struct(brna, "SimulationNodeTree", "NodeTree");
+  RNA_def_struct_ui_text(
+      srna, "Simulation Node Tree", "Node tree consisting of linked nodes used for simulations");
+  RNA_def_struct_sdna(srna, "bNodeTree");
+  RNA_def_struct_ui_icon(srna, 0 /* TODO */);
+}
+
 static StructRNA *define_specific_node(BlenderRNA *brna,
                                        const char *struct_name,
                                        const char *base_name,
@@ -9490,6 +9513,7 @@ void RNA_def_nodetree(BlenderRNA *brna)
   rna_def_composite_nodetree(brna);
   rna_def_shader_nodetree(brna);
   rna_def_texture_nodetree(brna);
+  rna_def_simulation_nodetree(brna);
 
 #  define DefNode(Category, ID, DefFunc, EnumName, StructName, UIName, UIDesc) \
     { \

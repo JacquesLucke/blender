@@ -224,7 +224,7 @@ MINLINE unsigned int power_of_2_max_u(unsigned int x)
   return x + 1;
 }
 
-MINLINE unsigned power_of_2_min_u(unsigned x)
+MINLINE unsigned int power_of_2_min_u(unsigned int x)
 {
   x |= (x >> 1);
   x |= (x >> 2);
@@ -249,11 +249,6 @@ MINLINE unsigned int log2_ceil_u(unsigned int x)
   }
 }
 
-MINLINE unsigned int pad_up(unsigned int x, unsigned int alignment)
-{
-  BLI_assert(is_power_of_2_i((int)alignment));
-  return (x + alignment - 1) & ~(alignment - 1);
-}
 
 /* rounding and clamping */
 
@@ -604,7 +599,7 @@ MINLINE int integer_digits_i(const int i)
 
 /* Calculate initial guess for arg^exp based on float representation
  * This method gives a constant bias, which can be easily compensated by
- * multiplicating with bias_coeff.
+ * multiplying with bias_coeff.
  * Gives better results for exponents near 1 (e. g. 4/5).
  * exp = exponent, encoded as uint32_t
  * e2coeff = 2^(127/exponent - 127) * bias_coeff^(1/exponent), encoded as

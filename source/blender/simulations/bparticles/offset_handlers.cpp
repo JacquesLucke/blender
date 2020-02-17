@@ -1,4 +1,5 @@
 #include "offset_handlers.hpp"
+#include "BLI_color.h"
 
 namespace BParticles {
 

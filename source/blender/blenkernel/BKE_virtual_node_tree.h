@@ -121,7 +121,7 @@ class VNode : BLI::NonCopyable, BLI::NonMovable {
 
 class VirtualNodeTree : BLI::NonCopyable, BLI::NonMovable {
  private:
-  BLI::MonotonicAllocator<> m_allocator;
+  BLI::LinearAllocator<> m_allocator;
   bNodeTree *m_btree;
   Vector<VNode *> m_nodes_by_id;
   Vector<VSocket *> m_sockets_by_id;

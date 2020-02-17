@@ -1,9 +1,10 @@
 #pragma once
 
-#include "BLI_math_cxx.h"
 #include "BLI_map.h"
 #include "BLI_string_ref.h"
 #include "BLI_string_map.h"
+#include "BLI_float3.h"
+#include "BLI_float4x4.h"
 
 namespace BParticles {
 
