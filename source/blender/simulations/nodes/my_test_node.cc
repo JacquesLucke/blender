@@ -6,7 +6,9 @@
 #include "BLI_vector.h"
 #include "BLI_string_ref.h"
 #include "BLI_set.h"
+#include "BLI_linear_allocator.h"
 
+using BLI::LinearAllocator;
 using BLI::Set;
 using BLI::StringRef;
 using BLI::StringRefNull;
@@ -126,18 +128,74 @@ class FixedTypeSocketDecl : public SocketDecl {
 };
 
 class NodeDecl {
- private:
+ public:
+  bNodeTree &m_ntree;
+  bNode &m_node;
   Vector<SocketDecl *> m_inputs;
   Vector<SocketDecl *> m_outputs;
+
+  NodeDecl(bNodeTree &ntree, bNode &node) : m_ntree(ntree), m_node(node)
+  {
+  }
+
+  void build() const
+  {
+    for (SocketDecl *decl : m_inputs) {
+      decl->build();
+    }
+    for (SocketDecl *decl : m_outputs) {
+      decl->build();
+    }
+  }
+};
+
+class NodeBuilder {
+ private:
+  LinearAllocator<> &m_allocator;
+  NodeDecl &m_node_decl;
+
+ public:
+  NodeBuilder(LinearAllocator<> &allocator, NodeDecl &node_decl)
+      : m_allocator(allocator), m_node_decl(node_decl)
+  {
+  }
+
+  void fixed_input(StringRef identifier, StringRef ui_name, SocketDataType &type)
+  {
+    FixedTypeSocketDecl *decl = m_allocator.construct<FixedTypeSocketDecl>(
+        m_node_decl.m_ntree,
+        m_node_decl.m_node,
+        SOCK_IN,
+        type,
+        m_allocator.copy_string(ui_name),
+        m_allocator.copy_string(identifier));
+    m_node_decl.m_inputs.append(decl);
+  }
+
+  void fixed_output(StringRef identifier, StringRef ui_name, SocketDataType &type)
+  {
+    FixedTypeSocketDecl *decl = m_allocator.construct<FixedTypeSocketDecl>(
+        m_node_decl.m_ntree,
+        m_node_decl.m_node,
+        SOCK_OUT,
+        type,
+        m_allocator.copy_string(ui_name),
+        m_allocator.copy_string(identifier));
+    m_node_decl.m_outputs.append(decl);
+  }
 };
 
 static void init_node(bNodeTree *ntree, bNode *node)
 {
-  FixedTypeSocketDecl decl1{*ntree, *node, SOCK_IN, *float_socket_type, "Hello 1", "hey"};
-  FixedTypeSocketDecl decl2{*ntree, *node, SOCK_IN, *int_socket_type, "Hello 2", "qwe"};
+  LinearAllocator<> allocator;
+  NodeDecl node_decl{*ntree, *node};
+  NodeBuilder node_builder{allocator, node_decl};
 
-  decl1.build();
-  decl2.build();
+  node_builder.fixed_input("id1", "ID 1", *float_socket_type);
+  node_builder.fixed_input("id2", "ID 2", *int_socket_type);
+  node_builder.fixed_output("id3", "ID 3", *float_socket_type);
+
+  node_decl.build();
 }
 
 void register_node_type_my_test_node()
