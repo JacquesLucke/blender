@@ -21,5 +21,6 @@ void register_node_tree_type_sim()
 
   ntreeTypeAdd(tt);
 
+  init_socket_data_types();
   register_node_type_my_test_node();
 }
