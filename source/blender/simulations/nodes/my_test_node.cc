@@ -8,6 +8,8 @@
 #include "BLI_set.h"
 #include "BLI_linear_allocator.h"
 
+#include "UI_interface.h"
+
 using BLI::LinearAllocator;
 using BLI::Set;
 using BLI::StringRef;
@@ -221,7 +223,31 @@ void register_node_type_my_test_node()
 
 void init_socket_data_types()
 {
-  float_socket_type = new BaseSocketDataType("Float", nodeSocketTypeFind("NodeSocketFloat"));
+  {
+    bNodeSocketType *stype = (bNodeSocketType *)MEM_callocN(sizeof(bNodeSocketType), __func__);
+    strcpy(stype->idname, "TestSocket");
+    stype->draw = [](struct bContext *UNUSED(C),
+                     struct uiLayout *layout,
+                     struct PointerRNA *UNUSED(ptr),
+                     struct PointerRNA *UNUSED(node_ptr),
+                     const char *text) {
+      uiItemL(layout, text, 0);
+      std::cout << "->draw\n";
+    };
+    stype->draw_color = [](struct bContext *UNUSED(C),
+                           struct PointerRNA *UNUSED(ptr),
+                           struct PointerRNA *UNUSED(node_ptr),
+                           float *r_color) {
+      r_color[0] = 1.0f;
+      r_color[1] = 0.5f;
+      r_color[2] = 0.5f;
+      r_color[3] = 1.0f;
+      std::cout << "->draw_color\n";
+    };
+    nodeRegisterSocketType(stype);
+  }
+
+  float_socket_type = new BaseSocketDataType("Float", nodeSocketTypeFind("TestSocket"));
   int_socket_type = new BaseSocketDataType("Integer", nodeSocketTypeFind("NodeSocketInt"));
 
   socket_data_types = new DataTypesInfo();
