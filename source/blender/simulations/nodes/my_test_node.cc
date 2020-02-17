@@ -7,10 +7,13 @@
 #include "BLI_string_ref.h"
 #include "BLI_set.h"
 #include "BLI_linear_allocator.h"
+#include "BLI_color.h"
+#include "BLI_string.h"
 
 #include "UI_interface.h"
 
 using BLI::LinearAllocator;
+using BLI::rgba_f;
 using BLI::Set;
 using BLI::StringRef;
 using BLI::StringRefNull;
@@ -221,31 +224,34 @@ void register_node_type_my_test_node()
   nodeRegisterType(&ntype);
 }
 
+static bNodeSocketType *register_new_simple_socket_type(StringRefNull idname, rgba_f color)
+{
+  bNodeSocketType *stype = (bNodeSocketType *)MEM_callocN(sizeof(bNodeSocketType), __func__);
+  BLI_strncpy(stype->idname, idname.data(), sizeof(stype->idname));
+  stype->draw = [](struct bContext *UNUSED(C),
+                   struct uiLayout *layout,
+                   struct PointerRNA *UNUSED(ptr),
+                   struct PointerRNA *UNUSED(node_ptr),
+                   const char *text) { uiItemL(layout, text, 0); };
+
+  stype->userdata = new rgba_f(color);
+  stype->free_userdata = [](void *userdata) { delete (rgba_f *)userdata; };
+
+  stype->draw_color = [](struct bContext *UNUSED(C),
+                         struct PointerRNA *UNUSED(ptr),
+                         struct PointerRNA *UNUSED(node_ptr),
+                         const void *userdata,
+                         float *r_color) {
+    rgba_f color = *(rgba_f *)userdata;
+    *(rgba_f *)r_color = color;
+  };
+  nodeRegisterSocketType(stype);
+  return stype;
+}
+
 void init_socket_data_types()
 {
-  {
-    bNodeSocketType *stype = (bNodeSocketType *)MEM_callocN(sizeof(bNodeSocketType), __func__);
-    strcpy(stype->idname, "TestSocket");
-    stype->draw = [](struct bContext *UNUSED(C),
-                     struct uiLayout *layout,
-                     struct PointerRNA *UNUSED(ptr),
-                     struct PointerRNA *UNUSED(node_ptr),
-                     const char *text) {
-      uiItemL(layout, text, 0);
-      std::cout << "->draw\n";
-    };
-    stype->draw_color = [](struct bContext *UNUSED(C),
-                           struct PointerRNA *UNUSED(ptr),
-                           struct PointerRNA *UNUSED(node_ptr),
-                           float *r_color) {
-      r_color[0] = 1.0f;
-      r_color[1] = 0.5f;
-      r_color[2] = 0.5f;
-      r_color[3] = 1.0f;
-      std::cout << "->draw_color\n";
-    };
-    nodeRegisterSocketType(stype);
-  }
+  register_new_simple_socket_type("TestSocket", {0.0, 1.0, 0.5, 0.5f});
 
   float_socket_type = new BaseSocketDataType("Float", nodeSocketTypeFind("TestSocket"));
   int_socket_type = new BaseSocketDataType("Integer", nodeSocketTypeFind("NodeSocketInt"));
