@@ -470,6 +470,9 @@ static void node_free_socket_type(void *socktype_v)
    * or we'd want to update *all* active Mains, which we cannot do anyway currently. */
   update_typeinfo(G_MAIN, NULL, NULL, NULL, socktype, true);
 
+  if (socktype->free_userdata != NULL) {
+    socktype->free_userdata(socktype->userdata);
+  }
   MEM_freeN(socktype);
 }
 
