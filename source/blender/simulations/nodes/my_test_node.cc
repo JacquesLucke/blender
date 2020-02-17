@@ -9,9 +9,13 @@
 #include "BLI_linear_allocator.h"
 #include "BLI_color.h"
 #include "BLI_string.h"
+#include "BLI_array_cxx.h"
+#include "PIL_time.h"
 
 #include "UI_interface.h"
 
+using BLI::Array;
+using BLI::ArrayRef;
 using BLI::LinearAllocator;
 using BLI::rgba_f;
 using BLI::Set;
@@ -92,14 +96,29 @@ class SocketDecl {
  protected:
   bNodeTree &m_ntree;
   bNode &m_node;
+  uint m_amount;
 
  public:
-  SocketDecl(bNodeTree &ntree, bNode &node) : m_ntree(ntree), m_node(node)
+  SocketDecl(bNodeTree &ntree, bNode &node, uint amount)
+      : m_ntree(ntree), m_node(node), m_amount(amount)
   {
   }
 
+  virtual ~SocketDecl();
+
+  uint amount() const
+  {
+    return m_amount;
+  }
+
+  virtual bool sockets_are_correct(ArrayRef<bNodeSocket *> sockets) const = 0;
+
   virtual void build() const = 0;
 };
+
+SocketDecl::~SocketDecl()
+{
+}
 
 class FixedTypeSocketDecl : public SocketDecl {
   eNodeSocketInOut m_in_out;
@@ -114,12 +133,31 @@ class FixedTypeSocketDecl : public SocketDecl {
                       SocketDataType &type,
                       StringRefNull ui_name,
                       StringRefNull identifier)
-      : SocketDecl(ntree, node),
+      : SocketDecl(ntree, node, 1),
         m_in_out(in_out),
         m_type(type),
         m_ui_name(ui_name),
         m_identifier(identifier)
   {
+  }
+
+  bool sockets_are_correct(ArrayRef<bNodeSocket *> sockets) const override
+  {
+    if (sockets.size() != 1) {
+      return false;
+    }
+
+    bNodeSocket *socket = sockets[0];
+    if (socket->typeinfo != m_type.m_socket_type) {
+      return false;
+    }
+    if (socket->name != m_ui_name) {
+      return false;
+    }
+    if (socket->identifier != m_identifier) {
+      return false;
+    }
+    return true;
   }
 
   void build() const override
@@ -147,6 +185,43 @@ class NodeDecl {
     for (SocketDecl *decl : m_outputs) {
       decl->build();
     }
+  }
+
+  bool sockets_are_correct() const
+  {
+    if (!this->sockets_are_correct(m_node.inputs, m_inputs)) {
+      return false;
+    }
+    if (!this->sockets_are_correct(m_node.outputs, m_outputs)) {
+      return false;
+    }
+    return true;
+  }
+
+ private:
+  bool sockets_are_correct(ListBase &sockets_list, ArrayRef<SocketDecl *> decls) const
+  {
+    Vector<bNodeSocket *, 10> sockets;
+    LISTBASE_FOREACH (bNodeSocket *, socket, &sockets_list) {
+      sockets.append(socket);
+    }
+
+    uint offset = 0;
+    for (SocketDecl *decl : decls) {
+      uint amount = decl->amount();
+      if (offset + amount > sockets.size()) {
+        return false;
+      }
+      ArrayRef<bNodeSocket *> sockets_for_decl = sockets.as_ref().slice(offset, amount);
+      if (!decl->sockets_are_correct(sockets_for_decl)) {
+        return false;
+      }
+      offset += amount;
+    }
+    if (offset != sockets.size()) {
+      return false;
+    }
+    return true;
   }
 };
 
@@ -186,18 +261,24 @@ class NodeBuilder {
   }
 };
 
+using DeclareNodeFunc = void (*)(NodeBuilder &builder);
+
+static void declare_test_node(NodeBuilder &builder)
+{
+  builder.fixed_input("id1", "ID 1", *data_socket_float);
+  builder.fixed_input("id2", "ID 2", *data_socket_int);
+  builder.fixed_input("id4", "ID 4", *data_socket_int_list);
+  builder.fixed_output("id3", "ID 3", *data_socket_float);
+  builder.fixed_output(
+      "id5", "Hello " + std::to_string(PIL_check_seconds_timer_i() / 10), *data_socket_float_list);
+}
+
 static void init_node(bNodeTree *ntree, bNode *node)
 {
   LinearAllocator<> allocator;
   NodeDecl node_decl{*ntree, *node};
   NodeBuilder node_builder{allocator, node_decl};
-
-  node_builder.fixed_input("id1", "ID 1", *data_socket_float);
-  node_builder.fixed_input("id2", "ID 2", *data_socket_int);
-  node_builder.fixed_input("id4", "ID 4", *data_socket_int_list);
-  node_builder.fixed_output("id3", "ID 3", *data_socket_float);
-  node_builder.fixed_output("id5", "ID 5", *data_socket_float_list);
-
+  declare_test_node(node_builder);
   node_decl.build();
 }
 
@@ -218,6 +299,7 @@ void register_node_type_my_test_node()
 
   ntype.initfunc = init_node;
   ntype.poll = [](bNodeType *UNUSED(ntype), bNodeTree *UNUSED(ntree)) { return true; };
+  ntype.userdata = (void *)declare_test_node;
 
   nodeRegisterType(&ntype);
 }
@@ -278,4 +360,30 @@ void free_socket_data_types()
   delete data_socket_int;
   delete data_socket_float_list;
   delete data_socket_int_list;
+}
+
+void update_sim_node_tree(bNodeTree *ntree)
+{
+  Vector<bNode *> nodes;
+  for (bNode *node : BLI::IntrusiveListBaseWrapper<bNode>(ntree->nodes)) {
+    nodes.append(node);
+  }
+
+  LinearAllocator<> allocator;
+
+  for (bNode *node : nodes) {
+    NodeDecl node_decl{*ntree, *node};
+    NodeBuilder builder{allocator, node_decl};
+    DeclareNodeFunc fn = (DeclareNodeFunc)node->typeinfo->userdata;
+    fn(builder);
+
+    if (!node_decl.sockets_are_correct()) {
+      std::cout << "Rebuild\n";
+      nodeRemoveAllSockets(ntree, node);
+      node_decl.build();
+    }
+    else {
+      std::cout << "Don't rebuild\n";
+    }
+  }
 }

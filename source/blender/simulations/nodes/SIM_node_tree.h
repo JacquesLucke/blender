@@ -11,6 +11,7 @@ void register_node_tree_type_sim(void);
 void register_node_type_my_test_node(void);
 void init_socket_data_types(void);
 void free_socket_data_types(void);
+void update_sim_node_tree(struct bNodeTree *tree);
 
 #ifdef __cplusplus
 }
