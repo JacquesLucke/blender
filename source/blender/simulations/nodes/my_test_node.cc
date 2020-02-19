@@ -307,21 +307,32 @@ static void init_node(bNodeTree *ntree, bNode *node)
   node_decl.build();
 }
 
+static void setup_managed_node_type(bNodeType *ntype,
+                                    StringRef idname,
+                                    StringRef ui_name,
+                                    StringRef ui_description,
+                                    StringRef storage_name)
+{
+  memset(ntype, 0, sizeof(bNodeType));
+  ntype->minwidth = 20;
+  ntype->minheight = 20;
+  ntype->maxwidth = 1000;
+  ntype->maxheight = 1000;
+  ntype->height = 100;
+  ntype->width = 140;
+  ntype->type = NODE_CUSTOM;
+
+  idname.copy(ntype->idname);
+  ui_name.copy(ntype->ui_name);
+  ui_description.copy(ntype->ui_description);
+  storage_name.copy(ntype->storagename);
+}
+
 void register_node_type_my_test_node()
 {
   static bNodeType ntype = {0};
-  ntype.minwidth = 20;
-  ntype.minheight = 20;
-  ntype.maxwidth = 1000;
-  ntype.maxheight = 1000;
-  ntype.height = 100;
-  ntype.width = 140;
-
-  strcpy(ntype.idname, "MyTestNode");
-  strcpy(ntype.ui_name, "My Test Node");
-  strcpy(ntype.ui_description, "My Test Node Description");
-  strcpy(ntype.storagename, "MyTestNodeStorage");
-  ntype.type = NODE_CUSTOM;
+  setup_managed_node_type(
+      &ntype, "MyTestNode", "My Test Node", "My Description", "MyTestNodeStorage");
 
   ntype.initfunc = init_node;
   ntype.poll = [](bNodeType *UNUSED(ntype), bNodeTree *UNUSED(ntree)) { return true; };
