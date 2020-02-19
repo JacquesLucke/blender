@@ -296,6 +296,7 @@ static void declare_test_node(NodeBuilder &builder)
 
 using DeclareNodeFunc = std::function<void(NodeBuilder &node_builder)>;
 using InitStorageFunc = std::function<void *()>;
+using CopyStorageFunc = std::function<void *(void *)>;
 using FreeStorageFunc = std::function<void(void *)>;
 using DrawFunc =
     std::function<void(struct uiLayout *layout, struct bContext *C, struct PointerRNA *ptr)>;
@@ -304,6 +305,7 @@ template<typename T> using TypedInitStorageFunc = std::function<void(T *)>;
 struct NodeTypeCallbacks {
   DeclareNodeFunc m_declare_node;
   InitStorageFunc m_init_storage;
+  CopyStorageFunc m_copy_storage;
   FreeStorageFunc m_free_storage;
   DrawFunc m_draw;
 };
@@ -318,6 +320,20 @@ static void init_node(bNodeTree *ntree, bNode *node)
   node->storage = callbacks.m_init_storage();
   callbacks.m_declare_node(node_builder);
   node_decl.build();
+}
+
+static void copy_node(bNodeTree *UNUSED(dst_ntree), bNode *dst_node, const bNode *src_node)
+{
+  BLI_assert(dst_node->typeinfo == src_node->typeinfo);
+  NodeTypeCallbacks &callbacks = *(NodeTypeCallbacks *)dst_node->typeinfo->userdata;
+
+  dst_node->storage = callbacks.m_copy_storage(src_node->storage);
+}
+
+static void free_node(bNode *node)
+{
+  NodeTypeCallbacks &callbacks = *(NodeTypeCallbacks *)node->typeinfo->userdata;
+  callbacks.m_free_storage(node->storage);
 }
 
 static void setup_node_base(bNodeType *ntype,
@@ -345,13 +361,23 @@ static void setup_node_base(bNodeType *ntype,
 
   callbacks->m_declare_node = declare_fn;
   callbacks->m_init_storage = []() { return nullptr; };
-  callbacks->m_free_storage = [](void *UNUSED(storage)) {};
+  callbacks->m_copy_storage = [](void *storage) {
+    BLI_assert(storage == nullptr);
+    UNUSED_VARS_NDEBUG(storage);
+    return nullptr;
+  };
+  callbacks->m_free_storage = [](void *storage) {
+    BLI_assert(storage == nullptr);
+    UNUSED_VARS_NDEBUG(storage);
+  };
   callbacks->m_draw = [](struct uiLayout *UNUSED(layout),
                          struct bContext *UNUSED(C),
                          struct PointerRNA *UNUSED(ptr)) {};
 
   ntype->poll = [](bNodeType *UNUSED(ntype), bNodeTree *UNUSED(ntree)) { return true; };
   ntype->initfunc = init_node;
+  ntype->copyfunc = copy_node;
+  ntype->freefunc = free_node;
 
   ntype->draw_buttons = [](struct uiLayout *layout, struct bContext *C, struct PointerRNA *ptr) {
     bNode *node = (bNode *)ptr->data;
@@ -370,11 +396,13 @@ static void setup_node_base(bNodeType *ntype,
 static void setup_node_storage(bNodeType *ntype,
                                StringRef storage_name,
                                InitStorageFunc init_storage_fn,
+                               CopyStorageFunc copy_storage_fn,
                                FreeStorageFunc free_storage_fn)
 {
   storage_name.copy(ntype->storagename);
   NodeTypeCallbacks *callbacks = (NodeTypeCallbacks *)ntype->userdata;
   callbacks->m_init_storage = init_storage_fn;
+  callbacks->m_copy_storage = copy_storage_fn;
   callbacks->m_free_storage = free_storage_fn;
 }
 
@@ -390,6 +418,11 @@ static void setup_node_storage(bNodeType *ntype,
         void *buffer = MEM_callocN(sizeof(T), __func__);
         init_storage_fn((T *)buffer);
         return buffer;
+      },
+      [](void *buffer) {
+        void *new_buffer = MEM_callocN(sizeof(T), __func__);
+        memcpy(new_buffer, buffer, sizeof(T));
+        return new_buffer;
       },
       [](void *buffer) { MEM_freeN(buffer); });
 }
