@@ -233,6 +233,26 @@ class NodeDecl {
   }
 };
 
+template<typename T> static T *get_node_storage(bNode *node)
+{
+#ifdef DEBUG
+  const char *type_name = typeid(T).name();
+  const char *expected_name = node->typeinfo->storagename;
+  BLI_assert(strstr(type_name, expected_name));
+#endif
+  return (T *)node->storage;
+}
+
+template<typename T> static const T *get_node_storage(const bNode *node)
+{
+#ifdef DEBUG
+  const char *type_name = typeid(T).name();
+  const char *expected_name = node->typeinfo->storagename;
+  BLI_assert(strstr(type_name, expected_name));
+#endif
+  return (const T *)node->storage;
+}
+
 class NodeBuilder {
  private:
   LinearAllocator<> &m_allocator;
@@ -246,12 +266,7 @@ class NodeBuilder {
 
   template<typename T> T *node_storage()
   {
-#ifdef DEBUG
-    const char *type_name = typeid(T).name();
-    const char *expected_name = m_node_decl.m_node.typeinfo->storagename;
-    BLI_assert(strstr(type_name, expected_name));
-#endif
-    return (T *)m_node_decl.m_node.storage;
+    return get_node_storage<T>(&m_node_decl.m_node);
   }
 
   void fixed_input(StringRef identifier, StringRef ui_name, SocketDataType &type)
@@ -301,12 +316,14 @@ using FreeStorageFunc = std::function<void(void *)>;
 using DrawFunc =
     std::function<void(struct uiLayout *layout, struct bContext *C, struct PointerRNA *ptr)>;
 template<typename T> using TypedInitStorageFunc = std::function<void(T *)>;
+using CopyNodeFunc = std::function<void(bNode *dst_node, const bNode *src_node)>;
 
 struct NodeTypeCallbacks {
   DeclareNodeFunc m_declare_node;
   InitStorageFunc m_init_storage;
   CopyStorageFunc m_copy_storage;
   FreeStorageFunc m_free_storage;
+  CopyNodeFunc m_copy_node;
   DrawFunc m_draw;
 };
 
@@ -328,6 +345,7 @@ static void copy_node(bNodeTree *UNUSED(dst_ntree), bNode *dst_node, const bNode
   NodeTypeCallbacks &callbacks = *(NodeTypeCallbacks *)dst_node->typeinfo->userdata;
 
   dst_node->storage = callbacks.m_copy_storage(src_node->storage);
+  callbacks.m_copy_node(dst_node, src_node);
 }
 
 static void free_node(bNode *node)
@@ -373,6 +391,7 @@ static void setup_node_base(bNodeType *ntype,
   callbacks->m_draw = [](struct uiLayout *UNUSED(layout),
                          struct bContext *UNUSED(C),
                          struct PointerRNA *UNUSED(ptr)) {};
+  callbacks->m_copy_node = [](bNode *UNUSED(dst_node), const bNode *UNUSED(src_node)) {};
 
   ntype->poll = [](bNodeType *UNUSED(ntype), bNodeTree *UNUSED(ntree)) { return true; };
   ntype->initfunc = init_node;
@@ -433,6 +452,23 @@ static void setup_node_draw(bNodeType *ntype, DrawFunc draw_fn)
   callbacks->m_draw = draw_fn;
 }
 
+static void setup_node_copy(bNodeType *ntype, CopyNodeFunc copy_fn)
+{
+  NodeTypeCallbacks *callbacks = (NodeTypeCallbacks *)ntype->userdata;
+  callbacks->m_copy_node = copy_fn;
+}
+
+template<typename T>
+void setup_node_copy(bNodeType *ntype,
+                     std::function<void(T *dst_storage, const T *src_storage)> copy_fn)
+{
+  setup_node_copy(ntype, [copy_fn](bNode *dst_node, const bNode *src_node) {
+    T *dst_storage = get_node_storage<T>(dst_node);
+    const T *src_storage = get_node_storage<T>(src_node);
+    copy_fn(dst_storage, src_storage);
+  });
+}
+
 void register_node_type_my_test_node()
 {
   {
@@ -440,6 +476,10 @@ void register_node_type_my_test_node()
     setup_node_base(&ntype, "MyTestNode", "My Test Node", "My Description", declare_test_node);
     setup_node_storage<MyTestNodeStorage>(
         &ntype, "MyTestNodeStorage", [](MyTestNodeStorage *storage) { storage->x = 3; });
+    setup_node_copy<MyTestNodeStorage>(
+        &ntype, [](MyTestNodeStorage *dst_storage, const MyTestNodeStorage *UNUSED(src_storage)) {
+          dst_storage->x += 1;
+        });
     setup_node_draw(&ntype,
                     [](uiLayout *layout, struct bContext *UNUSED(C), struct PointerRNA *ptr) {
                       bNode *node = (bNode *)ptr->data;
