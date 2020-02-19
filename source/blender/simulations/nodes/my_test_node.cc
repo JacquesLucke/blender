@@ -469,57 +469,105 @@ void setup_node_copy(bNodeType *ntype,
   });
 }
 
+class NodeTypeDefinition {
+ private:
+  bNodeType m_ntype;
+
+ public:
+  NodeTypeDefinition(StringRef idname,
+                     StringRef ui_name,
+                     StringRef ui_description,
+                     DeclareNodeFunc declare_fn)
+  {
+    setup_node_base(&m_ntype, idname, ui_name, ui_description, declare_fn);
+  }
+
+  void add_dna_storage(StringRef struct_name,
+                       InitStorageFunc init_storage_fn,
+                       CopyStorageFunc copy_storage_fn,
+                       FreeStorageFunc free_storage_fn)
+  {
+    setup_node_storage(&m_ntype, struct_name, init_storage_fn, copy_storage_fn, free_storage_fn);
+  }
+
+  template<typename T>
+  void add_dna_storage(StringRef struct_name, TypedInitStorageFunc<T> init_storage_fn)
+  {
+    setup_node_storage(&m_ntype, struct_name, init_storage_fn);
+  }
+
+  void add_copy_behavior(CopyNodeFunc copy_fn)
+  {
+    setup_node_copy(&m_ntype, copy_fn);
+  }
+
+  template<typename T>
+  void add_copy_behavior(std::function<void(T *dst_storage, const T *src_storage)> copy_fn)
+  {
+    setup_node_copy(&m_ntype, copy_fn);
+  }
+
+  void add_draw_fn(DrawFunc draw_fn)
+  {
+    setup_node_draw(&m_ntype, draw_fn);
+  }
+
+  void register_type()
+  {
+    nodeRegisterType(&m_ntype);
+  }
+};
+
 void register_node_type_my_test_node()
 {
   {
-    static bNodeType ntype;
-    setup_node_base(&ntype, "MyTestNode", "My Test Node", "My Description", declare_test_node);
-    setup_node_storage<MyTestNodeStorage>(
-        &ntype, "MyTestNodeStorage", [](MyTestNodeStorage *storage) { storage->x = 3; });
-    setup_node_copy<MyTestNodeStorage>(
-        &ntype, [](MyTestNodeStorage *dst_storage, const MyTestNodeStorage *UNUSED(src_storage)) {
+    static NodeTypeDefinition ntype(
+        "MyTestNode", "My Test Node", "My Description", declare_test_node);
+    ntype.add_dna_storage<MyTestNodeStorage>("MyTestNodeStorage",
+                                             [](MyTestNodeStorage *storage) { storage->x = 3; });
+    ntype.add_copy_behavior<MyTestNodeStorage>(
+        [](MyTestNodeStorage *dst_storage, const MyTestNodeStorage *UNUSED(src_storage)) {
           dst_storage->x += 1;
         });
-    setup_node_draw(&ntype,
-                    [](uiLayout *layout, struct bContext *UNUSED(C), struct PointerRNA *ptr) {
-                      bNode *node = (bNode *)ptr->data;
-                      MyTestNodeStorage *storage = (MyTestNodeStorage *)node->storage;
-                      uiBut *but = uiDefButI(uiLayoutGetBlock(layout),
-                                             UI_BTYPE_NUM,
-                                             0,
-                                             "X value",
-                                             0,
-                                             0,
-                                             50,
-                                             50,
-                                             &storage->x,
-                                             -1000,
-                                             1000,
-                                             3,
-                                             20,
-                                             "my x value");
-                      uiItemL(layout, "Hello World", 0);
-                      UI_but_func_set(
-                          but,
-                          [](bContext *C, void *UNUSED(arg1), void *UNUSED(arg2)) {
-                            bNodeTree *ntree = CTX_wm_space_node(C)->edittree;
-                            ntree->update = NTREE_UPDATE;
-                            ntreeUpdateTree(CTX_data_main(C), ntree);
-                          },
-                          nullptr,
-                          nullptr);
-                    });
+    ntype.add_draw_fn([](uiLayout *layout, struct bContext *UNUSED(C), struct PointerRNA *ptr) {
+      bNode *node = (bNode *)ptr->data;
+      MyTestNodeStorage *storage = (MyTestNodeStorage *)node->storage;
+      uiBut *but = uiDefButI(uiLayoutGetBlock(layout),
+                             UI_BTYPE_NUM,
+                             0,
+                             "X value",
+                             0,
+                             0,
+                             50,
+                             50,
+                             &storage->x,
+                             -1000,
+                             1000,
+                             3,
+                             20,
+                             "my x value");
+      uiItemL(layout, "Hello World", 0);
+      UI_but_func_set(
+          but,
+          [](bContext *C, void *UNUSED(arg1), void *UNUSED(arg2)) {
+            bNodeTree *ntree = CTX_wm_space_node(C)->edittree;
+            ntree->update = NTREE_UPDATE;
+            ntreeUpdateTree(CTX_data_main(C), ntree);
+          },
+          nullptr,
+          nullptr);
+    });
 
-    nodeRegisterType(&ntype);
+    ntype.register_type();
   }
   {
-    static bNodeType ntype;
-    setup_node_base(&ntype, "MyTestNode2", "Node 2", "Description", [](NodeBuilder &node_builder) {
-      node_builder.fixed_input("a", "A", *data_socket_float);
-      node_builder.fixed_input("b", "B", *data_socket_float);
-      node_builder.fixed_output("result", "Result", *data_socket_float);
-    });
-    nodeRegisterType(&ntype);
+    static NodeTypeDefinition ntype(
+        "MyTestNode2", "Node 2", "Description", [](NodeBuilder &node_builder) {
+          node_builder.fixed_input("a", "A", *data_socket_float);
+          node_builder.fixed_input("b", "B", *data_socket_float);
+          node_builder.fixed_output("result", "Result", *data_socket_float);
+        });
+    ntype.register_type();
   }
 }
 
