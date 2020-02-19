@@ -360,10 +360,7 @@ class NodeTypeDefinition {
   NodeTypeCallbacks *m_callbacks;
 
  public:
-  NodeTypeDefinition(StringRef idname,
-                     StringRef ui_name,
-                     StringRef ui_description,
-                     DeclareNodeFunc declare_fn)
+  NodeTypeDefinition(StringRef idname, StringRef ui_name, StringRef ui_description)
   {
     bNodeType *ntype = &m_ntype;
 
@@ -384,7 +381,7 @@ class NodeTypeDefinition {
     ntype->userdata = (void *)m_callbacks;
     ntype->free_userdata = [](void *userdata) { delete (NodeTypeCallbacks *)userdata; };
 
-    m_callbacks->m_declare_node = declare_fn;
+    m_callbacks->m_declare_node = [](NodeBuilder &UNUSED(builder)) {};
     m_callbacks->m_init_storage = []() { return nullptr; };
     m_callbacks->m_copy_storage = [](void *storage) {
       BLI_assert(storage == nullptr);
@@ -417,6 +414,11 @@ class NodeTypeDefinition {
     ntype->tweak_area_func = node_tweak_area_default;
     ntype->resize_area_func = node_resize_area_default;
     ntype->draw_buttons_ex = nullptr;
+  }
+
+  void add_declaration(DeclareNodeFunc declare_fn)
+  {
+    m_callbacks->m_declare_node = declare_fn;
   }
 
   void add_dna_storage(StringRef struct_name,
@@ -477,8 +479,8 @@ class NodeTypeDefinition {
 void register_node_type_my_test_node()
 {
   {
-    static NodeTypeDefinition ntype(
-        "MyTestNode", "My Test Node", "My Description", declare_test_node);
+    static NodeTypeDefinition ntype("MyTestNode", "My Test Node", "My Description");
+    ntype.add_declaration(declare_test_node);
     ntype.add_dna_storage<MyTestNodeStorage>("MyTestNodeStorage",
                                              [](MyTestNodeStorage *storage) { storage->x = 3; });
     ntype.add_copy_behavior<MyTestNodeStorage>(
@@ -517,12 +519,12 @@ void register_node_type_my_test_node()
     ntype.register_type();
   }
   {
-    static NodeTypeDefinition ntype(
-        "MyTestNode2", "Node 2", "Description", [](NodeBuilder &node_builder) {
-          node_builder.fixed_input("a", "A", *data_socket_float);
-          node_builder.fixed_input("b", "B", *data_socket_float);
-          node_builder.fixed_output("result", "Result", *data_socket_float);
-        });
+    static NodeTypeDefinition ntype("MyTestNode2", "Node 2", "Description");
+    ntype.add_declaration([](NodeBuilder &node_builder) {
+      node_builder.fixed_input("a", "A", *data_socket_float);
+      node_builder.fixed_input("b", "B", *data_socket_float);
+      node_builder.fixed_output("result", "Result", *data_socket_float);
+    });
     ntype.register_type();
   }
 }
