@@ -9,7 +9,7 @@ static bool is_aligned(void *ptr, uint alignment)
   return (POINTER_AS_UINT(ptr) & (alignment - 1)) == 0;
 }
 
-TEST(monotonic_allocator, AllocationAlignment)
+TEST(linear_allocator, AllocationAlignment)
 {
   LinearAllocator<> allocator;
 
@@ -26,7 +26,7 @@ TEST(monotonic_allocator, AllocationAlignment)
   EXPECT_TRUE(is_aligned(allocator.allocate(10, 128), 128));
 }
 
-TEST(monotonic_allocator, PackedAllocation)
+TEST(linear_allocator, PackedAllocation)
 {
   LinearAllocator<> allocator;
   BLI::AlignedBuffer<256, 32> buffer;
@@ -46,4 +46,18 @@ TEST(monotonic_allocator, PackedAllocation)
   EXPECT_EQ(ptr5 - ptr4, 16); /* 56 - 40 = 16 */
   EXPECT_EQ(ptr6 - ptr5, 4);  /* 60 - 56 =  4 */
   EXPECT_EQ(ptr7 - ptr6, 1);  /* 61 - 60 =  1 */
+}
+
+TEST(linear_allocator, CopyString)
+{
+  LinearAllocator<> allocator;
+  BLI::AlignedBuffer<256, 1> buffer;
+  allocator.provide_buffer(buffer);
+
+  StringRefNull ref1 = allocator.copy_string("Hello");
+  StringRefNull ref2 = allocator.copy_string("World");
+
+  EXPECT_EQ(ref1, "Hello");
+  EXPECT_EQ(ref2, "World");
+  EXPECT_EQ(ref2.data() - ref1.data(), 6);
 }

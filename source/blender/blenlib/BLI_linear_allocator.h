@@ -107,8 +107,9 @@ template<typename Allocator = GuardedAllocator> class LinearAllocator : NonCopya
 
   StringRefNull copy_string(StringRef str)
   {
-    char *buffer = (char *)this->allocate(str.size() + 1, 1);
-    str.copy_to__with_null(buffer);
+    uint alloc_size = str.size() + 1;
+    char *buffer = (char *)this->allocate(alloc_size, 1);
+    str.copy(buffer, alloc_size);
     return StringRefNull((const char *)buffer);
   }
 
