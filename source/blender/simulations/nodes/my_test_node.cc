@@ -309,24 +309,25 @@ static void declare_test_node(NodeBuilder &builder)
   }
 }
 
-using DeclareNodeFunc = std::function<void(NodeBuilder &node_builder)>;
-using InitStorageFunc = std::function<void *()>;
-using CopyStorageFunc = std::function<void *(void *)>;
-using FreeStorageFunc = std::function<void(void *)>;
-using DrawFunc =
-    std::function<void(struct uiLayout *layout, struct bContext *C, struct PointerRNA *ptr)>;
-template<typename T> using TypedInitStorageFunc = std::function<void(T *)>;
-using CopyNodeFunc = std::function<void(bNode *dst_node, const bNode *src_node)>;
-
 class NodeTypeDefinition {
+ public:
+  using DeclareNodeFn = std::function<void(NodeBuilder &node_builder)>;
+  using InitStorageFn = std::function<void *()>;
+  using CopyStorageFn = std::function<void *(void *)>;
+  using FreeStorageFn = std::function<void(void *)>;
+  using DrawInNodeFn =
+      std::function<void(struct uiLayout *layout, struct bContext *C, struct PointerRNA *ptr)>;
+  template<typename T> using TypedInitStorageFn = std::function<void(T *)>;
+  using CopyBehaviorFn = std::function<void(bNode *dst_node, const bNode *src_node)>;
+
  private:
   bNodeType m_ntype;
-  DeclareNodeFunc m_declare_node;
-  InitStorageFunc m_init_storage;
-  CopyStorageFunc m_copy_storage;
-  FreeStorageFunc m_free_storage;
-  CopyNodeFunc m_copy_node;
-  DrawFunc m_draw;
+  DeclareNodeFn m_declare_node;
+  InitStorageFn m_init_storage;
+  CopyStorageFn m_copy_storage;
+  FreeStorageFn m_free_storage;
+  CopyBehaviorFn m_copy_node;
+  DrawInNodeFn m_draw;
 
  public:
   NodeTypeDefinition(StringRef idname, StringRef ui_name, StringRef ui_description)
@@ -383,15 +384,15 @@ class NodeTypeDefinition {
     ntype->draw_buttons_ex = nullptr;
   }
 
-  void add_declaration(DeclareNodeFunc declare_fn)
+  void add_declaration(DeclareNodeFn declare_fn)
   {
     m_declare_node = declare_fn;
   }
 
   void add_dna_storage(StringRef struct_name,
-                       InitStorageFunc init_storage_fn,
-                       CopyStorageFunc copy_storage_fn,
-                       FreeStorageFunc free_storage_fn)
+                       InitStorageFn init_storage_fn,
+                       CopyStorageFn copy_storage_fn,
+                       FreeStorageFn free_storage_fn)
   {
     struct_name.copy(m_ntype.storagename);
     m_init_storage = init_storage_fn;
@@ -400,7 +401,7 @@ class NodeTypeDefinition {
   }
 
   template<typename T>
-  void add_dna_storage(StringRef struct_name, TypedInitStorageFunc<T> init_storage_fn)
+  void add_dna_storage(StringRef struct_name, TypedInitStorageFn<T> init_storage_fn)
   {
     this->add_dna_storage(
         struct_name,
@@ -417,7 +418,7 @@ class NodeTypeDefinition {
         [](void *buffer) { MEM_freeN(buffer); });
   }
 
-  void add_copy_behavior(CopyNodeFunc copy_fn)
+  void add_copy_behavior(CopyBehaviorFn copy_fn)
   {
     m_copy_node = copy_fn;
   }
@@ -432,7 +433,7 @@ class NodeTypeDefinition {
     });
   }
 
-  void add_draw_fn(DrawFunc draw_fn)
+  void add_draw_fn(DrawInNodeFn draw_fn)
   {
     m_draw = draw_fn;
   }
