@@ -273,7 +273,7 @@ static void node_buts_math(uiLayout *layout, bContext *UNUSED(C), PointerRNA *pt
   uiItemR(layout, ptr, "use_clamp", 0, NULL, ICON_NONE);
 }
 
-static int node_resize_area_default(bNode *node, int x, int y)
+int node_resize_area_default(bNode *node, int x, int y)
 {
   if (node->flag & NODE_HIDDEN) {
     rctf totr = node->totr;
@@ -3223,7 +3223,7 @@ void ED_node_init_butfuncs(void)
     ntype->draw_nodetype_prepare = node_update_default;
     ntype->select_area_func = node_select_area_default;
     ntype->tweak_area_func = node_tweak_area_default;
-    // ntype->draw_buttons = NULL; /* TODO */
+    ntype->draw_buttons = NULL;
     ntype->draw_buttons_ex = NULL;
     ntype->resize_area_func = node_resize_area_default;
 
@@ -3242,7 +3242,6 @@ void ED_node_init_butfuncs(void)
   ntreeType_Composite->ui_icon = ICON_NODE_COMPOSITING;
   ntreeType_Shader->ui_icon = ICON_NODE_MATERIAL;
   ntreeType_Texture->ui_icon = ICON_NODE_TEXTURE;
-  ntreeType_Simulation->ui_icon = ICON_PARTICLES; /* TODO: new icon */
 }
 
 void ED_init_custom_node_type(bNodeType *ntype)

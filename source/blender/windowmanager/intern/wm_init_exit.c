@@ -132,6 +132,8 @@
 
 #include "FN_initialize.h"
 
+#include "nodes/SIM_node_tree.h"
+
 #ifdef WITH_OPENSUBDIV
 #  include "BKE_subsurf.h"
 #endif
@@ -264,6 +266,7 @@ void WM_init(bContext *C, int argc, const char **argv)
   ED_spacetypes_init(); /* editors/space_api/spacetype.c */
 
   ED_node_init_butfuncs();
+  register_node_tree_type_sim();
 
   BLF_init();
 

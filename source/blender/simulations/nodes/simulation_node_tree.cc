@@ -16,7 +16,7 @@ void register_node_tree_type_sim()
   strcpy(tt->idname, "SimulationNodeTree");
   strcpy(tt->ui_name, N_("Simulation Editor"));
   strcpy(tt->ui_description, N_("Simulation nodes"));
-  tt->ui_icon = 0; /* Defined in drawnode.c */
+  tt->ui_icon = 0; /* TODO */
   tt->ext.srna = &RNA_SimulationNodeTree;
   tt->update = update_sim_node_tree;
 

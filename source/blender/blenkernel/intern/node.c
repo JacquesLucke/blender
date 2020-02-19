@@ -68,8 +68,6 @@
 #include "NOD_shader.h"
 #include "NOD_texture.h"
 
-#include "nodes/SIM_node_tree.h"
-
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
 
@@ -4116,7 +4114,6 @@ void init_nodesystem(void)
   register_node_tree_type_cmp();
   register_node_tree_type_sh();
   register_node_tree_type_tex();
-  register_node_tree_type_sim();
 
   register_node_type_frame();
   register_node_type_reroute();

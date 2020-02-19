@@ -28,6 +28,10 @@
 #include "BKE_node.h"
 #include "UI_interface.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* internal exports only */
 
 struct ARegion;
@@ -77,6 +81,7 @@ void node_draw_sockets(struct View2D *v2d,
 void node_update_default(const struct bContext *C, struct bNodeTree *ntree, struct bNode *node);
 int node_select_area_default(struct bNode *node, int x, int y);
 int node_tweak_area_default(struct bNode *node, int x, int y);
+int node_resize_area_default(bNode *node, int x, int y);
 void node_update_nodetree(const struct bContext *C, struct bNodeTree *ntree);
 void node_draw_nodetree(const struct bContext *C,
                         struct ARegion *ar,
@@ -295,5 +300,9 @@ enum eNodeSpace_ButEvents {
   B_NODE_LOADIMAGE,
   B_NODE_SETIMAGE,
 };
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __NODE_INTERN_H__ */

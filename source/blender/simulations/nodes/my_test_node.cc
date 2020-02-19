@@ -20,6 +20,8 @@
 
 #include "UI_interface.h"
 
+#include "../space_node/node_intern.h"
+
 using BLI::Array;
 using BLI::ArrayRef;
 using BLI::LinearAllocator;
@@ -324,6 +326,13 @@ void register_node_type_my_test_node()
   ntype.initfunc = init_node;
   ntype.poll = [](bNodeType *UNUSED(ntype), bNodeTree *UNUSED(ntree)) { return true; };
   ntype.userdata = (void *)declare_test_node;
+
+  ntype.draw_nodetype = node_draw_default;
+  ntype.draw_nodetype_prepare = node_update_default;
+  ntype.select_area_func = node_select_area_default;
+  ntype.tweak_area_func = node_tweak_area_default;
+  ntype.draw_buttons_ex = nullptr;
+  ntype.resize_area_func = node_resize_area_default;
 
   ntype.draw_buttons = [](uiLayout *layout, struct bContext *UNUSED(C), struct PointerRNA *ptr) {
     bNode *node = (bNode *)ptr->data;
