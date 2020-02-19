@@ -292,16 +292,36 @@ class NodeBuilder {
         m_allocator.copy_string(identifier));
     m_node_decl.m_outputs.append(decl);
   }
+
+  void float_input(StringRef identifier, StringRef ui_name)
+  {
+    this->fixed_input(identifier, ui_name, *data_socket_float);
+  }
+
+  void int_input(StringRef identifier, StringRef ui_name)
+  {
+    this->fixed_input(identifier, ui_name, *data_socket_int);
+  }
+
+  void float_output(StringRef identifier, StringRef ui_name)
+  {
+    this->fixed_output(identifier, ui_name, *data_socket_float);
+  }
+
+  void int_output(StringRef identifier, StringRef ui_name)
+  {
+    this->fixed_output(identifier, ui_name, *data_socket_int);
+  }
 };
 
 static void declare_test_node(NodeBuilder &builder)
 {
   MyTestNodeStorage *storage = builder.node_storage<MyTestNodeStorage>();
 
-  builder.fixed_input("id1", "ID 1", *data_socket_float);
-  builder.fixed_input("id2", "ID 2", *data_socket_int);
-  builder.fixed_input("id4", "ID 4", *data_socket_int_list);
-  builder.fixed_output("id3", "ID 3", *data_socket_float);
+  builder.float_input("id1", "ID 1");
+  builder.int_input("id2", "ID 2");
+  builder.int_input("id4", "ID 4");
+  builder.float_output("id3", "ID 3");
 
   for (int i = 0; i < storage->x; i++) {
     builder.fixed_input(
@@ -542,9 +562,9 @@ void register_node_type_my_test_node()
   {
     static NodeTypeDefinition ntype("MyTestNode2", "Node 2", "Description");
     ntype.add_declaration([](NodeBuilder &node_builder) {
-      node_builder.fixed_input("a", "A", *data_socket_float);
-      node_builder.fixed_input("b", "B", *data_socket_float);
-      node_builder.fixed_output("result", "Result", *data_socket_float);
+      node_builder.float_input("a", "A");
+      node_builder.float_input("b", "B");
+      node_builder.float_output("result", "Result");
     });
     ntype.add_label_fn([](bNodeTree *UNUSED(ntree), bNode *node, char *r_label, int maxlen) {
       if (node->flag & NODE_HIDDEN) {
