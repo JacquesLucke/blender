@@ -318,19 +318,15 @@ using DrawFunc =
 template<typename T> using TypedInitStorageFunc = std::function<void(T *)>;
 using CopyNodeFunc = std::function<void(bNode *dst_node, const bNode *src_node)>;
 
-struct NodeTypeCallbacks {
+class NodeTypeDefinition {
+ private:
+  bNodeType m_ntype;
   DeclareNodeFunc m_declare_node;
   InitStorageFunc m_init_storage;
   CopyStorageFunc m_copy_storage;
   FreeStorageFunc m_free_storage;
   CopyNodeFunc m_copy_node;
   DrawFunc m_draw;
-};
-
-class NodeTypeDefinition {
- private:
-  bNodeType m_ntype;
-  NodeTypeCallbacks *m_callbacks;
 
  public:
   NodeTypeDefinition(StringRef idname, StringRef ui_name, StringRef ui_description)
@@ -350,25 +346,23 @@ class NodeTypeDefinition {
     ui_name.copy(ntype->ui_name);
     ui_description.copy(ntype->ui_description);
 
-    m_callbacks = new NodeTypeCallbacks();
-    ntype->userdata = (void *)m_callbacks;
-    ntype->free_userdata = [](void *userdata) { delete (NodeTypeCallbacks *)userdata; };
+    ntype->userdata = (void *)this;
 
-    m_callbacks->m_declare_node = [](NodeBuilder &UNUSED(builder)) {};
-    m_callbacks->m_init_storage = []() { return nullptr; };
-    m_callbacks->m_copy_storage = [](void *storage) {
+    m_declare_node = [](NodeBuilder &UNUSED(builder)) {};
+    m_init_storage = []() { return nullptr; };
+    m_copy_storage = [](void *storage) {
       BLI_assert(storage == nullptr);
       UNUSED_VARS_NDEBUG(storage);
       return nullptr;
     };
-    m_callbacks->m_free_storage = [](void *storage) {
+    m_free_storage = [](void *storage) {
       BLI_assert(storage == nullptr);
       UNUSED_VARS_NDEBUG(storage);
     };
-    m_callbacks->m_draw = [](struct uiLayout *UNUSED(layout),
-                             struct bContext *UNUSED(C),
-                             struct PointerRNA *UNUSED(ptr)) {};
-    m_callbacks->m_copy_node = [](bNode *UNUSED(dst_node), const bNode *UNUSED(src_node)) {};
+    m_draw = [](struct uiLayout *UNUSED(layout),
+                struct bContext *UNUSED(C),
+                struct PointerRNA *UNUSED(ptr)) {};
+    m_copy_node = [](bNode *UNUSED(dst_node), const bNode *UNUSED(src_node)) {};
 
     ntype->poll = [](bNodeType *UNUSED(ntype), bNodeTree *UNUSED(ntree)) { return true; };
     ntype->initfunc = init_node;
@@ -377,8 +371,8 @@ class NodeTypeDefinition {
 
     ntype->draw_buttons = [](struct uiLayout *layout, struct bContext *C, struct PointerRNA *ptr) {
       bNode *node = (bNode *)ptr->data;
-      NodeTypeCallbacks *callbacks = (NodeTypeCallbacks *)node->typeinfo->userdata;
-      callbacks->m_draw(layout, C, ptr);
+      NodeTypeDefinition *def = type_from_node(node);
+      def->m_draw(layout, C, ptr);
     };
 
     ntype->draw_nodetype = node_draw_default;
@@ -391,7 +385,7 @@ class NodeTypeDefinition {
 
   void add_declaration(DeclareNodeFunc declare_fn)
   {
-    m_callbacks->m_declare_node = declare_fn;
+    m_declare_node = declare_fn;
   }
 
   void add_dna_storage(StringRef struct_name,
@@ -400,9 +394,9 @@ class NodeTypeDefinition {
                        FreeStorageFunc free_storage_fn)
   {
     struct_name.copy(m_ntype.storagename);
-    m_callbacks->m_init_storage = init_storage_fn;
-    m_callbacks->m_copy_storage = copy_storage_fn;
-    m_callbacks->m_free_storage = free_storage_fn;
+    m_init_storage = init_storage_fn;
+    m_copy_storage = copy_storage_fn;
+    m_free_storage = free_storage_fn;
   }
 
   template<typename T>
@@ -425,7 +419,7 @@ class NodeTypeDefinition {
 
   void add_copy_behavior(CopyNodeFunc copy_fn)
   {
-    m_callbacks->m_copy_node = copy_fn;
+    m_copy_node = copy_fn;
   }
 
   template<typename T>
@@ -440,7 +434,7 @@ class NodeTypeDefinition {
 
   void add_draw_fn(DrawFunc draw_fn)
   {
-    m_callbacks->m_draw = draw_fn;
+    m_draw = draw_fn;
   }
 
   void register_type()
@@ -448,32 +442,43 @@ class NodeTypeDefinition {
     nodeRegisterType(&m_ntype);
   }
 
+  static void declare_node(bNode *node, NodeBuilder &builder)
+  {
+    NodeTypeDefinition *def = type_from_node(node);
+    def->m_declare_node(builder);
+  }
+
  private:
+  static NodeTypeDefinition *type_from_node(bNode *node)
+  {
+    return (NodeTypeDefinition *)node->typeinfo->userdata;
+  }
+
   static void init_node(bNodeTree *ntree, bNode *node)
   {
-    NodeTypeCallbacks &callbacks = *(NodeTypeCallbacks *)node->typeinfo->userdata;
+    NodeTypeDefinition *def = type_from_node(node);
 
     LinearAllocator<> allocator;
     NodeDecl node_decl{*ntree, *node};
     NodeBuilder node_builder{allocator, node_decl};
-    node->storage = callbacks.m_init_storage();
-    callbacks.m_declare_node(node_builder);
+    node->storage = def->m_init_storage();
+    def->m_declare_node(node_builder);
     node_decl.build();
   }
 
   static void copy_node(bNodeTree *UNUSED(dst_ntree), bNode *dst_node, const bNode *src_node)
   {
     BLI_assert(dst_node->typeinfo == src_node->typeinfo);
-    NodeTypeCallbacks &callbacks = *(NodeTypeCallbacks *)dst_node->typeinfo->userdata;
+    NodeTypeDefinition *def = type_from_node(dst_node);
 
-    dst_node->storage = callbacks.m_copy_storage(src_node->storage);
-    callbacks.m_copy_node(dst_node, src_node);
+    dst_node->storage = def->m_copy_storage(src_node->storage);
+    def->m_copy_node(dst_node, src_node);
   }
 
   static void free_node(bNode *node)
   {
-    NodeTypeCallbacks &callbacks = *(NodeTypeCallbacks *)node->typeinfo->userdata;
-    callbacks.m_free_storage(node->storage);
+    NodeTypeDefinition *def = type_from_node(node);
+    def->m_free_storage(node->storage);
   }
 };
 
@@ -600,8 +605,7 @@ void update_sim_node_tree(bNodeTree *ntree)
   for (bNode *node : nodes) {
     NodeDecl node_decl{*ntree, *node};
     NodeBuilder builder{allocator, node_decl};
-    NodeTypeCallbacks *callbacks = (NodeTypeCallbacks *)node->typeinfo->userdata;
-    callbacks->m_declare_node(builder);
+    NodeTypeDefinition::declare_node(node, builder);
 
     if (!node_decl.sockets_are_correct()) {
       std::cout << "Rebuild\n";
