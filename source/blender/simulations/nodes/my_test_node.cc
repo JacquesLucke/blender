@@ -327,33 +327,6 @@ struct NodeTypeCallbacks {
   DrawFunc m_draw;
 };
 
-static void init_node(bNodeTree *ntree, bNode *node)
-{
-  NodeTypeCallbacks &callbacks = *(NodeTypeCallbacks *)node->typeinfo->userdata;
-
-  LinearAllocator<> allocator;
-  NodeDecl node_decl{*ntree, *node};
-  NodeBuilder node_builder{allocator, node_decl};
-  node->storage = callbacks.m_init_storage();
-  callbacks.m_declare_node(node_builder);
-  node_decl.build();
-}
-
-static void copy_node(bNodeTree *UNUSED(dst_ntree), bNode *dst_node, const bNode *src_node)
-{
-  BLI_assert(dst_node->typeinfo == src_node->typeinfo);
-  NodeTypeCallbacks &callbacks = *(NodeTypeCallbacks *)dst_node->typeinfo->userdata;
-
-  dst_node->storage = callbacks.m_copy_storage(src_node->storage);
-  callbacks.m_copy_node(dst_node, src_node);
-}
-
-static void free_node(bNode *node)
-{
-  NodeTypeCallbacks &callbacks = *(NodeTypeCallbacks *)node->typeinfo->userdata;
-  callbacks.m_free_storage(node->storage);
-}
-
 class NodeTypeDefinition {
  private:
   bNodeType m_ntype;
@@ -473,6 +446,34 @@ class NodeTypeDefinition {
   void register_type()
   {
     nodeRegisterType(&m_ntype);
+  }
+
+ private:
+  static void init_node(bNodeTree *ntree, bNode *node)
+  {
+    NodeTypeCallbacks &callbacks = *(NodeTypeCallbacks *)node->typeinfo->userdata;
+
+    LinearAllocator<> allocator;
+    NodeDecl node_decl{*ntree, *node};
+    NodeBuilder node_builder{allocator, node_decl};
+    node->storage = callbacks.m_init_storage();
+    callbacks.m_declare_node(node_builder);
+    node_decl.build();
+  }
+
+  static void copy_node(bNodeTree *UNUSED(dst_ntree), bNode *dst_node, const bNode *src_node)
+  {
+    BLI_assert(dst_node->typeinfo == src_node->typeinfo);
+    NodeTypeCallbacks &callbacks = *(NodeTypeCallbacks *)dst_node->typeinfo->userdata;
+
+    dst_node->storage = callbacks.m_copy_storage(src_node->storage);
+    callbacks.m_copy_node(dst_node, src_node);
+  }
+
+  static void free_node(bNode *node)
+  {
+    NodeTypeCallbacks &callbacks = *(NodeTypeCallbacks *)node->typeinfo->userdata;
+    callbacks.m_free_storage(node->storage);
   }
 };
 
