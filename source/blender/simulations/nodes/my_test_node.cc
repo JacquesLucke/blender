@@ -279,8 +279,6 @@ class NodeBuilder {
   }
 };
 
-using DeclareNodeFunc = void (*)(NodeBuilder &builder);
-
 static void declare_test_node(NodeBuilder &builder)
 {
   MyTestNodeStorage *storage = builder.node_storage<MyTestNodeStorage>();
@@ -296,23 +294,48 @@ static void declare_test_node(NodeBuilder &builder)
   }
 }
 
+using DeclareNodeFunc = std::function<void(NodeBuilder &node_builder)>;
+using InitStorageFunc = std::function<void *()>;
+using FreeStorageFunc = std::function<void(void *)>;
+using DrawFunc =
+    std::function<void(struct uiLayout *layout, struct bContext *C, struct PointerRNA *ptr)>;
+
+struct NodeTypeCallbacks {
+  DeclareNodeFunc m_declare_node;
+  InitStorageFunc m_init_storage;
+  FreeStorageFunc m_free_storage;
+  DrawFunc m_draw;
+};
+
 static void init_node(bNodeTree *ntree, bNode *node)
 {
+  NodeTypeCallbacks &callbacks = *(NodeTypeCallbacks *)node->typeinfo->userdata;
+
   LinearAllocator<> allocator;
   NodeDecl node_decl{*ntree, *node};
   NodeBuilder node_builder{allocator, node_decl};
   /* TODO: free storage */
-  node->storage = MEM_callocN(sizeof(MyTestNodeStorage), __func__);
-  declare_test_node(node_builder);
+  node->storage = callbacks.m_init_storage();
+  callbacks.m_declare_node(node_builder);
   node_decl.build();
 }
 
-static void setup_managed_node_type(bNodeType *ntype,
-                                    StringRef idname,
-                                    StringRef ui_name,
-                                    StringRef ui_description,
-                                    StringRef storage_name,
-                                    DeclareNodeFunc declare_fn)
+static void setup_node_storage(bNodeType *ntype,
+                               StringRef storage_name,
+                               InitStorageFunc init_storage_fn,
+                               FreeStorageFunc free_storage_fn)
+{
+  storage_name.copy(ntype->storagename);
+  NodeTypeCallbacks *callbacks = (NodeTypeCallbacks *)ntype->userdata;
+  callbacks->m_init_storage = init_storage_fn;
+  callbacks->m_free_storage = free_storage_fn;
+}
+
+static void setup_node_base(bNodeType *ntype,
+                            StringRef idname,
+                            StringRef ui_name,
+                            StringRef ui_description,
+                            DeclareNodeFunc declare_fn)
 {
   memset(ntype, 0, sizeof(bNodeType));
   ntype->minwidth = 20;
@@ -326,10 +349,15 @@ static void setup_managed_node_type(bNodeType *ntype,
   idname.copy(ntype->idname);
   ui_name.copy(ntype->ui_name);
   ui_description.copy(ntype->ui_description);
-  storage_name.copy(ntype->storagename);
+
+  NodeTypeCallbacks *callbacks = new NodeTypeCallbacks();
+  ntype->userdata = (void *)callbacks;
+  ntype->free_userdata = [](void *userdata) { delete (NodeTypeCallbacks *)userdata; };
+
+  callbacks->m_declare_node = declare_fn;
+  callbacks->m_init_storage = []() { return nullptr; };
 
   ntype->poll = [](bNodeType *UNUSED(ntype), bNodeTree *UNUSED(ntree)) { return true; };
-  ntype->userdata = (void *)declare_fn;
   ntype->initfunc = init_node;
 
   ntype->draw_nodetype = node_draw_default;
@@ -343,44 +371,55 @@ static void setup_managed_node_type(bNodeType *ntype,
 
 void register_node_type_my_test_node()
 {
-  static bNodeType ntype = {0};
-  setup_managed_node_type(&ntype,
-                          "MyTestNode",
-                          "My Test Node",
-                          "My Description",
-                          "MyTestNodeStorage",
-                          declare_test_node);
+  {
+    static bNodeType ntype;
+    setup_node_base(&ntype, "MyTestNode", "My Test Node", "My Description", declare_test_node);
+    setup_node_storage(
+        &ntype,
+        "MyTestNodeStorage",
+        []() { return MEM_callocN(sizeof(MyTestNodeStorage), __func__); },
+        [](void *storage) { MEM_freeN(storage); });
 
-  ntype.draw_buttons = [](uiLayout *layout, struct bContext *UNUSED(C), struct PointerRNA *ptr) {
-    bNode *node = (bNode *)ptr->data;
-    MyTestNodeStorage *storage = (MyTestNodeStorage *)node->storage;
-    uiBut *but = uiDefButI(uiLayoutGetBlock(layout),
-                           UI_BTYPE_NUM,
-                           0,
-                           "X value",
-                           0,
-                           0,
-                           50,
-                           50,
-                           &storage->x,
-                           -1000,
-                           1000,
-                           3,
-                           20,
-                           "my x value");
-    uiItemL(layout, "Hello World", 0);
-    UI_but_func_set(
-        but,
-        [](bContext *C, void *UNUSED(arg1), void *UNUSED(arg2)) {
-          bNodeTree *ntree = CTX_wm_space_node(C)->edittree;
-          ntree->update = NTREE_UPDATE;
-          ntreeUpdateTree(CTX_data_main(C), ntree);
-        },
-        nullptr,
-        nullptr);
-  };
+    ntype.draw_buttons = [](uiLayout *layout, struct bContext *UNUSED(C), struct PointerRNA *ptr) {
+      bNode *node = (bNode *)ptr->data;
+      MyTestNodeStorage *storage = (MyTestNodeStorage *)node->storage;
+      uiBut *but = uiDefButI(uiLayoutGetBlock(layout),
+                             UI_BTYPE_NUM,
+                             0,
+                             "X value",
+                             0,
+                             0,
+                             50,
+                             50,
+                             &storage->x,
+                             -1000,
+                             1000,
+                             3,
+                             20,
+                             "my x value");
+      uiItemL(layout, "Hello World", 0);
+      UI_but_func_set(
+          but,
+          [](bContext *C, void *UNUSED(arg1), void *UNUSED(arg2)) {
+            bNodeTree *ntree = CTX_wm_space_node(C)->edittree;
+            ntree->update = NTREE_UPDATE;
+            ntreeUpdateTree(CTX_data_main(C), ntree);
+          },
+          nullptr,
+          nullptr);
+    };
 
-  nodeRegisterType(&ntype);
+    nodeRegisterType(&ntype);
+  }
+  {
+    static bNodeType ntype;
+    setup_node_base(&ntype, "MyTestNode2", "Node 2", "Description", [](NodeBuilder &node_builder) {
+      node_builder.fixed_input("a", "A", *data_socket_float);
+      node_builder.fixed_input("b", "B", *data_socket_float);
+      node_builder.fixed_output("result", "Result", *data_socket_float);
+    });
+    nodeRegisterType(&ntype);
+  }
 }
 
 static bNodeSocketType *register_new_simple_socket_type(StringRefNull idname, rgba_f color)
@@ -454,8 +493,8 @@ void update_sim_node_tree(bNodeTree *ntree)
   for (bNode *node : nodes) {
     NodeDecl node_decl{*ntree, *node};
     NodeBuilder builder{allocator, node_decl};
-    DeclareNodeFunc fn = (DeclareNodeFunc)node->typeinfo->userdata;
-    fn(builder);
+    NodeTypeCallbacks *callbacks = (NodeTypeCallbacks *)node->typeinfo->userdata;
+    callbacks->m_declare_node(builder);
 
     if (!node_decl.sockets_are_correct()) {
       std::cout << "Rebuild\n";
