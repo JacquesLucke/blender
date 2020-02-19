@@ -343,12 +343,12 @@ class NodeTypeDefinition {
 
  private:
   bNodeType m_ntype;
-  DeclareNodeFn m_declare_node;
-  InitStorageFn m_init_storage;
-  CopyStorageFn m_copy_storage;
-  FreeStorageFn m_free_storage;
-  CopyBehaviorFn m_copy_node;
-  DrawInNodeFn m_draw;
+  DeclareNodeFn m_declare_node_fn;
+  InitStorageFn m_init_storage_fn;
+  CopyStorageFn m_copy_storage_fn;
+  FreeStorageFn m_free_storage_fn;
+  CopyBehaviorFn m_copy_node_fn;
+  DrawInNodeFn m_draw_in_node_fn;
   LabelFn m_label_fn;
 
  public:
@@ -371,21 +371,21 @@ class NodeTypeDefinition {
 
     ntype->userdata = (void *)this;
 
-    m_declare_node = [](NodeBuilder &UNUSED(builder)) {};
-    m_init_storage = []() { return nullptr; };
-    m_copy_storage = [](void *storage) {
+    m_declare_node_fn = [](NodeBuilder &UNUSED(builder)) {};
+    m_init_storage_fn = []() { return nullptr; };
+    m_copy_storage_fn = [](void *storage) {
       BLI_assert(storage == nullptr);
       UNUSED_VARS_NDEBUG(storage);
       return nullptr;
     };
-    m_free_storage = [](void *storage) {
+    m_free_storage_fn = [](void *storage) {
       BLI_assert(storage == nullptr);
       UNUSED_VARS_NDEBUG(storage);
     };
-    m_draw = [](struct uiLayout *UNUSED(layout),
-                struct bContext *UNUSED(C),
-                struct PointerRNA *UNUSED(ptr)) {};
-    m_copy_node = [](bNode *UNUSED(dst_node), const bNode *UNUSED(src_node)) {};
+    m_draw_in_node_fn = [](struct uiLayout *UNUSED(layout),
+                           struct bContext *UNUSED(C),
+                           struct PointerRNA *UNUSED(ptr)) {};
+    m_copy_node_fn = [](bNode *UNUSED(dst_node), const bNode *UNUSED(src_node)) {};
 
     ntype->poll = [](bNodeType *UNUSED(ntype), bNodeTree *UNUSED(ntree)) { return true; };
     ntype->initfunc = init_node;
@@ -395,7 +395,7 @@ class NodeTypeDefinition {
     ntype->draw_buttons = [](struct uiLayout *layout, struct bContext *C, struct PointerRNA *ptr) {
       bNode *node = (bNode *)ptr->data;
       NodeTypeDefinition *def = type_from_node(node);
-      def->m_draw(layout, C, ptr);
+      def->m_draw_in_node_fn(layout, C, ptr);
     };
 
     ntype->draw_nodetype = node_draw_default;
@@ -408,7 +408,7 @@ class NodeTypeDefinition {
 
   void add_declaration(DeclareNodeFn declare_fn)
   {
-    m_declare_node = declare_fn;
+    m_declare_node_fn = declare_fn;
   }
 
   void add_dna_storage(StringRef struct_name,
@@ -417,9 +417,9 @@ class NodeTypeDefinition {
                        FreeStorageFn free_storage_fn)
   {
     struct_name.copy(m_ntype.storagename);
-    m_init_storage = init_storage_fn;
-    m_copy_storage = copy_storage_fn;
-    m_free_storage = free_storage_fn;
+    m_init_storage_fn = init_storage_fn;
+    m_copy_storage_fn = copy_storage_fn;
+    m_free_storage_fn = free_storage_fn;
   }
 
   template<typename T>
@@ -442,7 +442,7 @@ class NodeTypeDefinition {
 
   void add_copy_behavior(CopyBehaviorFn copy_fn)
   {
-    m_copy_node = copy_fn;
+    m_copy_node_fn = copy_fn;
   }
 
   template<typename T>
@@ -457,7 +457,7 @@ class NodeTypeDefinition {
 
   void add_draw_fn(DrawInNodeFn draw_fn)
   {
-    m_draw = draw_fn;
+    m_draw_in_node_fn = draw_fn;
   }
 
   void add_label_fn(LabelFn label_fn)
@@ -474,7 +474,7 @@ class NodeTypeDefinition {
   static void declare_node(bNode *node, NodeBuilder &builder)
   {
     NodeTypeDefinition *def = type_from_node(node);
-    def->m_declare_node(builder);
+    def->m_declare_node_fn(builder);
   }
 
  private:
@@ -490,8 +490,8 @@ class NodeTypeDefinition {
     LinearAllocator<> allocator;
     NodeDecl node_decl{*ntree, *node};
     NodeBuilder node_builder{allocator, node_decl};
-    node->storage = def->m_init_storage();
-    def->m_declare_node(node_builder);
+    node->storage = def->m_init_storage_fn();
+    def->m_declare_node_fn(node_builder);
     node_decl.build();
   }
 
@@ -500,14 +500,14 @@ class NodeTypeDefinition {
     BLI_assert(dst_node->typeinfo == src_node->typeinfo);
     NodeTypeDefinition *def = type_from_node(dst_node);
 
-    dst_node->storage = def->m_copy_storage(src_node->storage);
-    def->m_copy_node(dst_node, src_node);
+    dst_node->storage = def->m_copy_storage_fn(src_node->storage);
+    def->m_copy_node_fn(dst_node, src_node);
   }
 
   static void free_node(bNode *node)
   {
     NodeTypeDefinition *def = type_from_node(node);
-    def->m_free_storage(node->storage);
+    def->m_free_storage_fn(node->storage);
   }
 
   static void node_label(bNodeTree *ntree, bNode *node, char *r_label, int maxlen)
