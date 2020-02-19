@@ -311,7 +311,8 @@ static void setup_managed_node_type(bNodeType *ntype,
                                     StringRef idname,
                                     StringRef ui_name,
                                     StringRef ui_description,
-                                    StringRef storage_name)
+                                    StringRef storage_name,
+                                    DeclareNodeFunc declare_fn)
 {
   memset(ntype, 0, sizeof(bNodeType));
   ntype->minwidth = 20;
@@ -326,24 +327,29 @@ static void setup_managed_node_type(bNodeType *ntype,
   ui_name.copy(ntype->ui_name);
   ui_description.copy(ntype->ui_description);
   storage_name.copy(ntype->storagename);
+
+  ntype->poll = [](bNodeType *UNUSED(ntype), bNodeTree *UNUSED(ntree)) { return true; };
+  ntype->userdata = (void *)declare_fn;
+  ntype->initfunc = init_node;
+
+  ntype->draw_nodetype = node_draw_default;
+  ntype->draw_nodetype_prepare = node_update_default;
+  ntype->select_area_func = node_select_area_default;
+  ntype->tweak_area_func = node_tweak_area_default;
+  ntype->resize_area_func = node_resize_area_default;
+  ntype->draw_buttons = nullptr;
+  ntype->draw_buttons_ex = nullptr;
 }
 
 void register_node_type_my_test_node()
 {
   static bNodeType ntype = {0};
-  setup_managed_node_type(
-      &ntype, "MyTestNode", "My Test Node", "My Description", "MyTestNodeStorage");
-
-  ntype.initfunc = init_node;
-  ntype.poll = [](bNodeType *UNUSED(ntype), bNodeTree *UNUSED(ntree)) { return true; };
-  ntype.userdata = (void *)declare_test_node;
-
-  ntype.draw_nodetype = node_draw_default;
-  ntype.draw_nodetype_prepare = node_update_default;
-  ntype.select_area_func = node_select_area_default;
-  ntype.tweak_area_func = node_tweak_area_default;
-  ntype.draw_buttons_ex = nullptr;
-  ntype.resize_area_func = node_resize_area_default;
+  setup_managed_node_type(&ntype,
+                          "MyTestNode",
+                          "My Test Node",
+                          "My Description",
+                          "MyTestNodeStorage",
+                          declare_test_node);
 
   ntype.draw_buttons = [](uiLayout *layout, struct bContext *UNUSED(C), struct PointerRNA *ptr) {
     bNode *node = (bNode *)ptr->data;
