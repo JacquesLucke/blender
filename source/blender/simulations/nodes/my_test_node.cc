@@ -321,33 +321,6 @@ static void init_node(bNodeTree *ntree, bNode *node)
   node_decl.build();
 }
 
-static void setup_node_storage(bNodeType *ntype,
-                               StringRef storage_name,
-                               InitStorageFunc init_storage_fn,
-                               FreeStorageFunc free_storage_fn)
-{
-  storage_name.copy(ntype->storagename);
-  NodeTypeCallbacks *callbacks = (NodeTypeCallbacks *)ntype->userdata;
-  callbacks->m_init_storage = init_storage_fn;
-  callbacks->m_free_storage = free_storage_fn;
-}
-
-template<typename T>
-void setup_node_storage(bNodeType *ntype,
-                        StringRef storage_name,
-                        TypedInitStorageFunc<T> init_storage_fn)
-{
-  setup_node_storage(
-      ntype,
-      storage_name,
-      [init_storage_fn]() {
-        void *buffer = MEM_callocN(sizeof(T), __func__);
-        init_storage_fn((T *)buffer);
-        return buffer;
-      },
-      [](void *buffer) { MEM_freeN(buffer); });
-}
-
 static void setup_node_base(bNodeType *ntype,
                             StringRef idname,
                             StringRef ui_name,
@@ -377,13 +350,51 @@ static void setup_node_base(bNodeType *ntype,
   ntype->poll = [](bNodeType *UNUSED(ntype), bNodeTree *UNUSED(ntree)) { return true; };
   ntype->initfunc = init_node;
 
+  ntype->draw_buttons = [](struct uiLayout *layout, struct bContext *C, struct PointerRNA *ptr) {
+    bNode *node = (bNode *)ptr->data;
+    NodeTypeCallbacks *callbacks = (NodeTypeCallbacks *)node->typeinfo->userdata;
+    callbacks->m_draw(layout, C, ptr);
+  };
+
   ntype->draw_nodetype = node_draw_default;
   ntype->draw_nodetype_prepare = node_update_default;
   ntype->select_area_func = node_select_area_default;
   ntype->tweak_area_func = node_tweak_area_default;
   ntype->resize_area_func = node_resize_area_default;
-  ntype->draw_buttons = nullptr;
   ntype->draw_buttons_ex = nullptr;
+}
+
+static void setup_node_storage(bNodeType *ntype,
+                               StringRef storage_name,
+                               InitStorageFunc init_storage_fn,
+                               FreeStorageFunc free_storage_fn)
+{
+  storage_name.copy(ntype->storagename);
+  NodeTypeCallbacks *callbacks = (NodeTypeCallbacks *)ntype->userdata;
+  callbacks->m_init_storage = init_storage_fn;
+  callbacks->m_free_storage = free_storage_fn;
+}
+
+template<typename T>
+static void setup_node_storage(bNodeType *ntype,
+                               StringRef storage_name,
+                               TypedInitStorageFunc<T> init_storage_fn)
+{
+  setup_node_storage(
+      ntype,
+      storage_name,
+      [init_storage_fn]() {
+        void *buffer = MEM_callocN(sizeof(T), __func__);
+        init_storage_fn((T *)buffer);
+        return buffer;
+      },
+      [](void *buffer) { MEM_freeN(buffer); });
+}
+
+static void setup_node_draw(bNodeType *ntype, DrawFunc draw_fn)
+{
+  NodeTypeCallbacks *callbacks = (NodeTypeCallbacks *)ntype->userdata;
+  callbacks->m_draw = draw_fn;
 }
 
 void register_node_type_my_test_node()
@@ -393,35 +404,35 @@ void register_node_type_my_test_node()
     setup_node_base(&ntype, "MyTestNode", "My Test Node", "My Description", declare_test_node);
     setup_node_storage<MyTestNodeStorage>(
         &ntype, "MyTestNodeStorage", [](MyTestNodeStorage *storage) { storage->x = 3; });
-
-    ntype.draw_buttons = [](uiLayout *layout, struct bContext *UNUSED(C), struct PointerRNA *ptr) {
-      bNode *node = (bNode *)ptr->data;
-      MyTestNodeStorage *storage = (MyTestNodeStorage *)node->storage;
-      uiBut *but = uiDefButI(uiLayoutGetBlock(layout),
-                             UI_BTYPE_NUM,
-                             0,
-                             "X value",
-                             0,
-                             0,
-                             50,
-                             50,
-                             &storage->x,
-                             -1000,
-                             1000,
-                             3,
-                             20,
-                             "my x value");
-      uiItemL(layout, "Hello World", 0);
-      UI_but_func_set(
-          but,
-          [](bContext *C, void *UNUSED(arg1), void *UNUSED(arg2)) {
-            bNodeTree *ntree = CTX_wm_space_node(C)->edittree;
-            ntree->update = NTREE_UPDATE;
-            ntreeUpdateTree(CTX_data_main(C), ntree);
-          },
-          nullptr,
-          nullptr);
-    };
+    setup_node_draw(&ntype,
+                    [](uiLayout *layout, struct bContext *UNUSED(C), struct PointerRNA *ptr) {
+                      bNode *node = (bNode *)ptr->data;
+                      MyTestNodeStorage *storage = (MyTestNodeStorage *)node->storage;
+                      uiBut *but = uiDefButI(uiLayoutGetBlock(layout),
+                                             UI_BTYPE_NUM,
+                                             0,
+                                             "X value",
+                                             0,
+                                             0,
+                                             50,
+                                             50,
+                                             &storage->x,
+                                             -1000,
+                                             1000,
+                                             3,
+                                             20,
+                                             "my x value");
+                      uiItemL(layout, "Hello World", 0);
+                      UI_but_func_set(
+                          but,
+                          [](bContext *C, void *UNUSED(arg1), void *UNUSED(arg2)) {
+                            bNodeTree *ntree = CTX_wm_space_node(C)->edittree;
+                            ntree->update = NTREE_UPDATE;
+                            ntreeUpdateTree(CTX_data_main(C), ntree);
+                          },
+                          nullptr,
+                          nullptr);
+                    });
 
     nodeRegisterType(&ntype);
   }
