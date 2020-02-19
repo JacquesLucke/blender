@@ -345,6 +345,10 @@ static void setup_node_base(bNodeType *ntype,
 
   callbacks->m_declare_node = declare_fn;
   callbacks->m_init_storage = []() { return nullptr; };
+  callbacks->m_free_storage = [](void *UNUSED(storage)) {};
+  callbacks->m_draw = [](struct uiLayout *UNUSED(layout),
+                         struct bContext *UNUSED(C),
+                         struct PointerRNA *UNUSED(ptr)) {};
 
   ntype->poll = [](bNodeType *UNUSED(ntype), bNodeTree *UNUSED(ntree)) { return true; };
   ntype->initfunc = init_node;
