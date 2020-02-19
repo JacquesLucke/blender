@@ -299,6 +299,7 @@ using InitStorageFunc = std::function<void *()>;
 using FreeStorageFunc = std::function<void(void *)>;
 using DrawFunc =
     std::function<void(struct uiLayout *layout, struct bContext *C, struct PointerRNA *ptr)>;
+template<typename T> using TypedInitStorageFunc = std::function<void(T *)>;
 
 struct NodeTypeCallbacks {
   DeclareNodeFunc m_declare_node;
@@ -329,6 +330,22 @@ static void setup_node_storage(bNodeType *ntype,
   NodeTypeCallbacks *callbacks = (NodeTypeCallbacks *)ntype->userdata;
   callbacks->m_init_storage = init_storage_fn;
   callbacks->m_free_storage = free_storage_fn;
+}
+
+template<typename T>
+void setup_node_storage(bNodeType *ntype,
+                        StringRef storage_name,
+                        TypedInitStorageFunc<T> init_storage_fn)
+{
+  setup_node_storage(
+      ntype,
+      storage_name,
+      [init_storage_fn]() {
+        void *buffer = MEM_callocN(sizeof(T), __func__);
+        init_storage_fn((T *)buffer);
+        return buffer;
+      },
+      [](void *buffer) { MEM_freeN(buffer); });
 }
 
 static void setup_node_base(bNodeType *ntype,
@@ -374,11 +391,8 @@ void register_node_type_my_test_node()
   {
     static bNodeType ntype;
     setup_node_base(&ntype, "MyTestNode", "My Test Node", "My Description", declare_test_node);
-    setup_node_storage(
-        &ntype,
-        "MyTestNodeStorage",
-        []() { return MEM_callocN(sizeof(MyTestNodeStorage), __func__); },
-        [](void *storage) { MEM_freeN(storage); });
+    setup_node_storage<MyTestNodeStorage>(
+        &ntype, "MyTestNodeStorage", [](MyTestNodeStorage *storage) { storage->x = 3; });
 
     ntype.draw_buttons = [](uiLayout *layout, struct bContext *UNUSED(C), struct PointerRNA *ptr) {
       bNode *node = (bNode *)ptr->data;
