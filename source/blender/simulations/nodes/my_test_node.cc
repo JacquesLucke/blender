@@ -546,10 +546,11 @@ void register_node_type_my_test_node()
       node_builder.fixed_input("b", "B", *data_socket_float);
       node_builder.fixed_output("result", "Result", *data_socket_float);
     });
-    ntype.add_label_fn(
-        [](bNodeTree *UNUSED(ntree), bNode *UNUSED(node), char *r_label, int maxlen) {
-          BLI_strncpy(r_label, "Custom Label", maxlen);
-        });
+    ntype.add_label_fn([](bNodeTree *UNUSED(ntree), bNode *node, char *r_label, int maxlen) {
+      if (node->flag & NODE_HIDDEN) {
+        BLI_strncpy(r_label, "Custom Label", maxlen);
+      }
+    });
     ntype.register_type();
   }
 }
