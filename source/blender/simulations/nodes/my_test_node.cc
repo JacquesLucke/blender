@@ -315,7 +315,6 @@ static void init_node(bNodeTree *ntree, bNode *node)
   LinearAllocator<> allocator;
   NodeDecl node_decl{*ntree, *node};
   NodeBuilder node_builder{allocator, node_decl};
-  /* TODO: free storage */
   node->storage = callbacks.m_init_storage();
   callbacks.m_declare_node(node_builder);
   node_decl.build();
@@ -496,7 +495,6 @@ void init_socket_data_types()
   socket_data_types->add_data_type(data_socket_int_list);
 }
 
-/* TODO: actually call this function */
 void free_socket_data_types()
 {
   delete socket_data_types;

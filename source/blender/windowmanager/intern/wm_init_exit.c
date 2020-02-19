@@ -594,6 +594,7 @@ void WM_exit_ex(bContext *C, const bool do_python)
   ANIM_fmodifiers_copybuf_free();
   ED_gpencil_anim_copybuf_free();
   ED_gpencil_strokes_copybuf_free();
+  free_socket_data_types();
 
   /* free gizmo-maps after freeing blender,
    * so no deleted data get accessed during cleaning up of areas. */
