@@ -319,6 +319,7 @@ class NodeTypeDefinition {
       std::function<void(struct uiLayout *layout, struct bContext *C, struct PointerRNA *ptr)>;
   template<typename T> using TypedInitStorageFn = std::function<void(T *)>;
   using CopyBehaviorFn = std::function<void(bNode *dst_node, const bNode *src_node)>;
+  using LabelFn = std::function<void(bNodeTree *ntree, bNode *node, char *r_label, int maxlen)>;
 
  private:
   bNodeType m_ntype;
@@ -328,6 +329,7 @@ class NodeTypeDefinition {
   FreeStorageFn m_free_storage;
   CopyBehaviorFn m_copy_node;
   DrawInNodeFn m_draw;
+  LabelFn m_label_fn;
 
  public:
   NodeTypeDefinition(StringRef idname, StringRef ui_name, StringRef ui_description)
@@ -438,6 +440,12 @@ class NodeTypeDefinition {
     m_draw = draw_fn;
   }
 
+  void add_label_fn(LabelFn label_fn)
+  {
+    m_ntype.labelfunc = node_label;
+    m_label_fn = label_fn;
+  }
+
   void register_type()
   {
     nodeRegisterType(&m_ntype);
@@ -480,6 +488,12 @@ class NodeTypeDefinition {
   {
     NodeTypeDefinition *def = type_from_node(node);
     def->m_free_storage(node->storage);
+  }
+
+  static void node_label(bNodeTree *ntree, bNode *node, char *r_label, int maxlen)
+  {
+    NodeTypeDefinition *def = type_from_node(node);
+    def->m_label_fn(ntree, node, r_label, maxlen);
   }
 };
 
@@ -532,6 +546,10 @@ void register_node_type_my_test_node()
       node_builder.fixed_input("b", "B", *data_socket_float);
       node_builder.fixed_output("result", "Result", *data_socket_float);
     });
+    ntype.add_label_fn(
+        [](bNodeTree *UNUSED(ntree), bNode *UNUSED(node), char *r_label, int maxlen) {
+          BLI_strncpy(r_label, "Custom Label", maxlen);
+        });
     ntype.register_type();
   }
 }
