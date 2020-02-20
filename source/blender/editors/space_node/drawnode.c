@@ -3170,7 +3170,6 @@ static void node_socket_undefined_draw(bContext *UNUSED(C),
 static void node_socket_undefined_draw_color(bContext *UNUSED(C),
                                              PointerRNA *UNUSED(ptr),
                                              PointerRNA *UNUSED(node_ptr),
-                                             const void *UNUSED(userdata),
                                              float *r_color)
 {
   r_color[0] = 1.0f;
@@ -3276,7 +3275,6 @@ static const float std_node_socket_colors[][4] = {
 static void std_node_socket_draw_color(bContext *UNUSED(C),
                                        PointerRNA *ptr,
                                        PointerRNA *UNUSED(node_ptr),
-                                       const void *UNUSED(userdata),
                                        float *r_color)
 {
   bNodeSocket *sock = ptr->data;
@@ -3445,7 +3443,6 @@ void ED_init_standard_node_socket_type(bNodeSocketType *stype)
 static void node_socket_virtual_draw_color(bContext *UNUSED(C),
                                            PointerRNA *UNUSED(ptr),
                                            PointerRNA *UNUSED(node_ptr),
-                                           const void *UNUSED(userdata),
                                            float *r_color)
 {
   /* alpha = 0, empty circle */

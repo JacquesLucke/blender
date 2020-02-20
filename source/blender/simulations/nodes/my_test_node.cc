@@ -389,7 +389,6 @@ class SocketTypeDefinition {
   static void get_draw_color(struct bContext *UNUSED(C),
                              struct PointerRNA *ptr,
                              struct PointerRNA *UNUSED(node_ptr),
-                             const void *UNUSED(userdata),
                              float *r_color)
   {
     bNodeSocket *socket = (bNodeSocket *)ptr->data;
@@ -658,11 +657,10 @@ static bNodeSocketType *register_new_simple_socket_type(StringRefNull idname, rg
   stype->free_userdata = [](void *userdata) { delete (rgba_f *)userdata; };
 
   stype->draw_color = [](struct bContext *UNUSED(C),
-                         struct PointerRNA *UNUSED(ptr),
+                         struct PointerRNA *ptr,
                          struct PointerRNA *UNUSED(node_ptr),
-                         const void *userdata,
                          float *r_color) {
-    rgba_f color = *(rgba_f *)userdata;
+    rgba_f color = *(rgba_f *)((bNodeSocket *)ptr->data)->typeinfo->userdata;
     *(rgba_f *)r_color = color;
   };
   nodeRegisterSocketType(stype);

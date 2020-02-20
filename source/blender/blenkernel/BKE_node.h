@@ -117,7 +117,6 @@ typedef struct bNodeSocketType {
   void (*draw_color)(struct bContext *C,
                      struct PointerRNA *ptr,
                      struct PointerRNA *node_ptr,
-                     const void *userdata,
                      float *r_color);
 
   void (*interface_draw)(struct bContext *C, struct uiLayout *layout, struct PointerRNA *ptr);

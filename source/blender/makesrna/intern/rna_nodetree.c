@@ -2133,7 +2133,6 @@ static void rna_NodeSocket_draw(
 static void rna_NodeSocket_draw_color(bContext *C,
                                       PointerRNA *ptr,
                                       PointerRNA *node_ptr,
-                                      const void *UNUSED(userdata),
                                       float *r_color)
 {
   extern FunctionRNA rna_NodeSocket_draw_color_func;
@@ -2633,7 +2632,7 @@ static void rna_NodeSocketStandard_draw_color(
 {
   PointerRNA ptr;
   RNA_pointer_create(id, &RNA_NodeSocket, sock, &ptr);
-  sock->typeinfo->draw_color(C, &ptr, nodeptr, sock->typeinfo->userdata, r_color);
+  sock->typeinfo->draw_color(C, &ptr, nodeptr, r_color);
 }
 
 static void rna_NodeSocketInterfaceStandard_draw(ID *id,

@@ -737,7 +737,7 @@ static void node_socket_draw(const bContext *C,
   uint flags = 0;
 
   RNA_pointer_create((ID *)ntree, &RNA_NodeSocket, sock, &ptr);
-  sock->typeinfo->draw_color((bContext *)C, &ptr, &node_ptr, sock->typeinfo->userdata, color);
+  sock->typeinfo->draw_color((bContext *)C, &ptr, &node_ptr, color);
 
   bNode *node = node_ptr.data;
   if (node->flag & NODE_MUTED) {
