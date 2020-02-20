@@ -769,7 +769,20 @@ void init_socket_data_types()
                          const char *UNUSED(text)) {
       bNodeSocket *socket = (bNodeSocket *)ptr->data;
       bNodeSocketValueFloat *storage = get_socket_storage<bNodeSocketValueFloat>(socket);
-      uiItemL(layout, std::to_string(storage->value).c_str(), 0);
+      uiDefButF(uiLayoutGetBlock(layout),
+                UI_BTYPE_NUM,
+                0,
+                "My Value",
+                0,
+                0,
+                150,
+                30,
+                &storage->value,
+                -1000,
+                1000,
+                3,
+                20,
+                "my x value");
     });
     stype.register_type();
   }
