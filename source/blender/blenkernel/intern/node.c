@@ -521,7 +521,7 @@ static bool unique_identifier_check(void *arg, const char *identifier)
 }
 
 static bNodeSocket *make_socket(bNodeTree *ntree,
-                                bNode *UNUSED(node),
+                                bNode *node,
                                 int in_out,
                                 ListBase *lb,
                                 const char *idname,
@@ -555,7 +555,11 @@ static bNodeSocket *make_socket(bNodeTree *ntree,
   sock->type = SOCK_CUSTOM; /* int type undefined by default */
 
   BLI_strncpy(sock->idname, idname, sizeof(sock->idname));
-  node_socket_set_typeinfo(ntree, sock, nodeSocketTypeFind(idname));
+  bNodeSocketType *stype = nodeSocketTypeFind(idname);
+  node_socket_set_typeinfo(ntree, sock, stype);
+  if (stype && stype->init_fn) {
+    stype->init_fn(ntree, node, sock);
+  }
 
   return sock;
 }
@@ -782,9 +786,9 @@ bNodeSocket *nodeInsertStaticSocket(bNodeTree *ntree,
   return sock;
 }
 
-static void node_socket_free(bNodeTree *UNUSED(ntree),
+static void node_socket_free(bNodeTree *ntree,
                              bNodeSocket *sock,
-                             bNode *UNUSED(node),
+                             bNode *node,
                              const bool do_id_user)
 {
   if (sock->prop) {
@@ -794,6 +798,11 @@ static void node_socket_free(bNodeTree *UNUSED(ntree),
 
   if (sock->default_value) {
     MEM_freeN(sock->default_value);
+  }
+
+  bNodeSocketType *stype = sock->typeinfo;
+  if (stype->free_fn) {
+    stype->free_fn(ntree, node, sock);
   }
 }
 
@@ -1086,6 +1095,11 @@ static void node_socket_copy(bNodeSocket *sock_dst, const bNodeSocket *sock_src,
    * some persistent buffer data here, need to clear this to avoid dangling pointers.
    */
   sock_dst->cache = NULL;
+
+  bNodeSocketType *stype = sock_dst->typeinfo;
+  if (stype->copy_fn) {
+    stype->copy_fn(NULL, NULL, sock_dst, sock_src);
+  }
 }
 
 /* keep socket listorder identical, for copying links */
