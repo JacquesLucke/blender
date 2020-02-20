@@ -656,8 +656,13 @@ void init_socket_data_types()
     stype.set_color({0.06, 0.52, 0.15, 0.5});
     stype.register_type();
   }
+  {
+    static SocketTypeDefinition stype("MyFloatSocket");
+    stype.set_color({1, 1, 1, 1});
+    stype.register_type();
+  }
 
-  data_socket_float = new BaseSocketDataType("Float", nodeSocketTypeFind("NodeSocketFloat"));
+  data_socket_float = new BaseSocketDataType("Float", nodeSocketTypeFind("MyFloatSocket"));
   data_socket_int = new BaseSocketDataType("Integer", nodeSocketTypeFind("NodeSocketInt"));
   data_socket_float_list = new ListSocketDataType("Float List",
                                                   nodeSocketTypeFind("NodeSocketFloatList"));
