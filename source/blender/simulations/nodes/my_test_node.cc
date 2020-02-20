@@ -423,6 +423,11 @@ class SocketTypeDefinition {
         [](void *buffer) { MEM_freeN(buffer); });
   }
 
+  void add_draw_fn(DrawInNodeFn draw_in_node_fn)
+  {
+    m_draw_in_node_fn = draw_in_node_fn;
+  }
+
   void register_type()
   {
     nodeRegisterSocketType(&m_stype);
@@ -719,6 +724,11 @@ void init_socket_data_types()
     stype.set_color({1, 1, 1, 1});
     stype.add_dna_storage<bNodeSocketValueFloat>(
         "bNodeSocketValueFloat", [](bNodeSocketValueFloat *storage) { storage->value = 11.5f; });
+    stype.add_draw_fn([](bContext *UNUSED(C),
+                         uiLayout *layout,
+                         PointerRNA *UNUSED(ptr),
+                         PointerRNA *UNUSED(node_ptr),
+                         const char *UNUSED(text)) { uiItemL(layout, "Hello World", 0); });
     stype.register_type();
   }
 
