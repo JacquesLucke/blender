@@ -148,7 +148,9 @@ typedef struct bNodeSocketType {
 
   /* Custom data that can be passed into callbacks. */
   void *userdata;
-  void (*free_userdata)(void *userdata);
+
+  /* Callback to free the socket type. */
+  void (*free_self)(struct bNodeSocketType *stype);
 } bNodeSocketType;
 
 typedef void *(*NodeInitExecFunction)(struct bNodeExecContext *context,

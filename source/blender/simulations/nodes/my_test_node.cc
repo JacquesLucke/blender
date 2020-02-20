@@ -355,6 +355,7 @@ class SocketTypeDefinition {
                            const char *text) { uiItemL(layout, text, 0); };
 
     m_stype.draw_color = SocketTypeDefinition::get_draw_color;
+    m_stype.free_self = [](bNodeSocketType *UNUSED(stype)) {};
 
     m_stype.userdata = (void *)this;
   }
@@ -643,30 +644,6 @@ void register_node_type_my_test_node()
   }
 }
 
-static bNodeSocketType *register_new_simple_socket_type(StringRefNull idname, rgba_f color)
-{
-  bNodeSocketType *stype = (bNodeSocketType *)MEM_callocN(sizeof(bNodeSocketType), __func__);
-  BLI_strncpy(stype->idname, idname.data(), sizeof(stype->idname));
-  stype->draw = [](struct bContext *UNUSED(C),
-                   struct uiLayout *layout,
-                   struct PointerRNA *UNUSED(ptr),
-                   struct PointerRNA *UNUSED(node_ptr),
-                   const char *text) { uiItemL(layout, text, 0); };
-
-  stype->userdata = new rgba_f(color);
-  stype->free_userdata = [](void *userdata) { delete (rgba_f *)userdata; };
-
-  stype->draw_color = [](struct bContext *UNUSED(C),
-                         struct PointerRNA *ptr,
-                         struct PointerRNA *UNUSED(node_ptr),
-                         float *r_color) {
-    rgba_f color = *(rgba_f *)((bNodeSocket *)ptr->data)->typeinfo->userdata;
-    *(rgba_f *)r_color = color;
-  };
-  nodeRegisterSocketType(stype);
-  return stype;
-}
-
 void init_socket_data_types()
 {
   {
@@ -674,8 +651,11 @@ void init_socket_data_types()
     stype.set_color({0.63, 0.63, 0.63, 0.5});
     stype.register_type();
   }
-  // register_new_simple_socket_type("NodeSocketFloatList", {0.63, 0.63, 0.63, 0.5});
-  register_new_simple_socket_type("NodeSocketIntList", {0.06, 0.52, 0.15, 0.5});
+  {
+    static SocketTypeDefinition stype("NodeSocketIntList");
+    stype.set_color({0.06, 0.52, 0.15, 0.5});
+    stype.register_type();
+  }
 
   data_socket_float = new BaseSocketDataType("Float", nodeSocketTypeFind("NodeSocketFloat"));
   data_socket_int = new BaseSocketDataType("Integer", nodeSocketTypeFind("NodeSocketInt"));
