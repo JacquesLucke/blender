@@ -329,6 +329,75 @@ static void declare_test_node(NodeBuilder &builder)
   }
 }
 
+class SocketTypeDefinition {
+ public:
+  using DrawInNodeFn = std::function<void(struct bContext *C,
+                                          struct uiLayout *layout,
+                                          struct PointerRNA *ptr,
+                                          struct PointerRNA *node_ptr,
+                                          const char *text)>;
+
+ private:
+  bNodeSocketType m_stype;
+  DrawInNodeFn m_draw_in_node_fn;
+  rgba_f m_color = {0.0f, 0.0f, 0.0f, 1.0f};
+
+ public:
+  SocketTypeDefinition(StringRef idname)
+  {
+    idname.copy(m_stype.idname);
+
+    m_stype.draw = SocketTypeDefinition::draw_in_node;
+    m_draw_in_node_fn = [](struct bContext *UNUSED(C),
+                           struct uiLayout *layout,
+                           struct PointerRNA *UNUSED(ptr),
+                           struct PointerRNA *UNUSED(node_ptr),
+                           const char *text) { uiItemL(layout, text, 0); };
+
+    m_stype.draw_color = SocketTypeDefinition::get_draw_color;
+
+    m_stype.userdata = (void *)this;
+  }
+
+  void set_color(rgba_f color)
+  {
+    m_color = color;
+  }
+
+  void register_type()
+  {
+    nodeRegisterSocketType(&m_stype);
+  }
+
+ private:
+  static SocketTypeDefinition *get_from_socket(bNodeSocket *socket)
+  {
+    return (SocketTypeDefinition *)socket->typeinfo->userdata;
+  }
+
+  static void draw_in_node(struct bContext *C,
+                           struct uiLayout *layout,
+                           struct PointerRNA *ptr,
+                           struct PointerRNA *node_ptr,
+                           const char *text)
+  {
+    bNodeSocket *socket = (bNodeSocket *)ptr->data;
+    SocketTypeDefinition *def = get_from_socket(socket);
+    def->m_draw_in_node_fn(C, layout, ptr, node_ptr, text);
+  }
+
+  static void get_draw_color(struct bContext *UNUSED(C),
+                             struct PointerRNA *ptr,
+                             struct PointerRNA *UNUSED(node_ptr),
+                             const void *UNUSED(userdata),
+                             float *r_color)
+  {
+    bNodeSocket *socket = (bNodeSocket *)ptr->data;
+    SocketTypeDefinition *def = get_from_socket(socket);
+    memcpy(r_color, def->m_color, sizeof(rgba_f));
+  }
+};
+
 class NodeTypeDefinition {
  public:
   using DeclareNodeFn = std::function<void(NodeBuilder &node_builder)>;
@@ -602,7 +671,12 @@ static bNodeSocketType *register_new_simple_socket_type(StringRefNull idname, rg
 
 void init_socket_data_types()
 {
-  register_new_simple_socket_type("NodeSocketFloatList", {0.63, 0.63, 0.63, 0.5});
+  {
+    static SocketTypeDefinition stype("NodeSocketFloatList");
+    stype.set_color({0.63, 0.63, 0.63, 0.5});
+    stype.register_type();
+  }
+  // register_new_simple_socket_type("NodeSocketFloatList", {0.63, 0.63, 0.63, 0.5});
   register_new_simple_socket_type("NodeSocketIntList", {0.06, 0.52, 0.15, 0.5});
 
   data_socket_float = new BaseSocketDataType("Float", nodeSocketTypeFind("NodeSocketFloat"));
