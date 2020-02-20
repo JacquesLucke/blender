@@ -233,25 +233,9 @@ class NodeDecl {
   }
 };
 
-template<typename T> static T *get_node_storage(bNode *node)
-{
-#ifdef DEBUG
-  const char *type_name = typeid(T).name();
-  const char *expected_name = node->typeinfo->storagename;
-  BLI_assert(strstr(type_name, expected_name));
-#endif
-  return (T *)node->storage;
-}
-
-template<typename T> static const T *get_node_storage(const bNode *node)
-{
-#ifdef DEBUG
-  const char *type_name = typeid(T).name();
-  const char *expected_name = node->typeinfo->storagename;
-  BLI_assert(strstr(type_name, expected_name));
-#endif
-  return (const T *)node->storage;
-}
+template<typename T> static T *get_node_storage(bNode *node);
+template<typename T> static const T *get_node_storage(const bNode *node);
+template<typename T> static T *get_socket_storage(bNodeSocket *socket);
 
 class NodeBuilder {
  private:
@@ -337,7 +321,7 @@ class SocketTypeDefinition {
                                           struct PointerRNA *node_ptr,
                                           const char *text)>;
   using InitStorageFn = std::function<void *()>;
-  using CopyStorageFn = std::function<void *(void *)>;
+  using CopyStorageFn = std::function<void *(const void *)>;
   using FreeStorageFn = std::function<void(void *)>;
   template<typename T> using TypedInitStorageFn = std::function<void(T *)>;
 
@@ -367,7 +351,7 @@ class SocketTypeDefinition {
     m_stype.free_self = [](bNodeSocketType *UNUSED(stype)) {};
 
     m_init_storage_fn = []() { return nullptr; };
-    m_copy_storage_fn = [](void *storage) {
+    m_copy_storage_fn = [](const void *storage) {
       BLI_assert(storage == nullptr);
       UNUSED_VARS_NDEBUG(storage);
       return nullptr;
@@ -377,14 +361,9 @@ class SocketTypeDefinition {
       UNUSED_VARS_NDEBUG(storage);
     };
 
-    m_stype.init_fn =
-        [](bNodeTree *UNUSED(ntree), bNode *UNUSED(node), bNodeSocket *UNUSED(socket)) {};
-    m_stype.copy_fn = [](bNodeTree *UNUSED(dst_ntree),
-                         bNode *UNUSED(dst_node),
-                         bNodeSocket *UNUSED(dst_socket),
-                         const bNodeSocket *UNUSED(src_socket)) {};
-    m_stype.free_fn =
-        [](bNodeTree *UNUSED(ntree), bNode *UNUSED(node), bNodeSocket *UNUSED(socket)) {};
+    m_stype.init_fn = SocketTypeDefinition::init_socket;
+    m_stype.copy_fn = SocketTypeDefinition::copy_socket;
+    m_stype.free_fn = SocketTypeDefinition::free_socket;
 
     m_stype.userdata = (void *)this;
   }
@@ -415,7 +394,7 @@ class SocketTypeDefinition {
           init_storage_fn((T *)buffer);
           return buffer;
         },
-        [](void *buffer) {
+        [](const void *buffer) {
           void *new_buffer = MEM_callocN(sizeof(T), __func__);
           memcpy(new_buffer, buffer, sizeof(T));
           return new_buffer;
@@ -428,15 +407,42 @@ class SocketTypeDefinition {
     m_draw_in_node_fn = draw_in_node_fn;
   }
 
+  StringRefNull storage_struct_name() const
+  {
+    return m_storage_struct_name;
+  }
+
   void register_type()
   {
     nodeRegisterSocketType(&m_stype);
   }
 
- private:
   static SocketTypeDefinition *get_from_socket(bNodeSocket *socket)
   {
     return (SocketTypeDefinition *)socket->typeinfo->userdata;
+  }
+
+ private:
+  static void init_socket(bNodeTree *UNUSED(ntree), bNode *UNUSED(node), bNodeSocket *socket)
+  {
+    SocketTypeDefinition *def = get_from_socket(socket);
+    socket->default_value = def->m_init_storage_fn();
+  }
+
+  static void copy_socket(bNodeTree *UNUSED(dst_ntree),
+                          bNode *UNUSED(dst_node),
+                          bNodeSocket *dst_socket,
+                          const bNodeSocket *src_socket)
+  {
+    SocketTypeDefinition *def = get_from_socket(dst_socket);
+    dst_socket->default_value = def->m_copy_storage_fn(src_socket->default_value);
+  }
+
+  static void free_socket(bNodeTree *UNUSED(ntree), bNode *UNUSED(node), bNodeSocket *socket)
+  {
+    SocketTypeDefinition *def = get_from_socket(socket);
+    def->m_free_storage_fn(socket->default_value);
+    socket->default_value = nullptr;
   }
 
   static void draw_in_node(struct bContext *C,
@@ -640,6 +646,7 @@ class NodeTypeDefinition {
   {
     NodeTypeDefinition *def = type_from_node(node);
     def->m_free_storage_fn(node->storage);
+    node->storage = nullptr;
   }
 
   static void node_label(bNodeTree *ntree, bNode *node, char *r_label, int maxlen)
@@ -648,6 +655,37 @@ class NodeTypeDefinition {
     def->m_label_fn(ntree, node, r_label, maxlen);
   }
 };
+
+template<typename T> static T *get_node_storage(bNode *node)
+{
+#ifdef DEBUG
+  const char *type_name = typeid(T).name();
+  const char *expected_name = node->typeinfo->storagename;
+  BLI_assert(strstr(type_name, expected_name));
+#endif
+  return (T *)node->storage;
+}
+
+template<typename T> static const T *get_node_storage(const bNode *node)
+{
+#ifdef DEBUG
+  const char *type_name = typeid(T).name();
+  const char *expected_name = node->typeinfo->storagename;
+  BLI_assert(strstr(type_name, expected_name));
+#endif
+  return (const T *)node->storage;
+}
+
+template<typename T> static T *get_socket_storage(bNodeSocket *socket)
+{
+#ifdef DEBUG
+  const char *type_name = typeid(T).name();
+  const char *expected_name =
+      SocketTypeDefinition::get_from_socket(socket)->storage_struct_name().data();
+  BLI_assert(strstr(type_name, expected_name));
+#endif
+  return (T *)socket->default_value;
+}
 
 void register_node_type_my_test_node()
 {
@@ -726,9 +764,13 @@ void init_socket_data_types()
         "bNodeSocketValueFloat", [](bNodeSocketValueFloat *storage) { storage->value = 11.5f; });
     stype.add_draw_fn([](bContext *UNUSED(C),
                          uiLayout *layout,
-                         PointerRNA *UNUSED(ptr),
+                         PointerRNA *ptr,
                          PointerRNA *UNUSED(node_ptr),
-                         const char *UNUSED(text)) { uiItemL(layout, "Hello World", 0); });
+                         const char *UNUSED(text)) {
+      bNodeSocket *socket = (bNodeSocket *)ptr->data;
+      bNodeSocketValueFloat *storage = get_socket_storage<bNodeSocketValueFloat>(socket);
+      uiItemL(layout, std::to_string(storage->value).c_str(), 0);
+    });
     stype.register_type();
   }
 

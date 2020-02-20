@@ -796,13 +796,12 @@ static void node_socket_free(bNodeTree *ntree,
     MEM_freeN(sock->prop);
   }
 
-  if (sock->default_value) {
-    MEM_freeN(sock->default_value);
-  }
-
   bNodeSocketType *stype = sock->typeinfo;
   if (stype->free_fn) {
     stype->free_fn(ntree, node, sock);
+  }
+  else if (sock->default_value) {
+    MEM_freeN(sock->default_value);
   }
 }
 
@@ -1086,7 +1085,11 @@ static void node_socket_copy(bNodeSocket *sock_dst, const bNodeSocket *sock_src,
     sock_dst->prop = IDP_CopyProperty_ex(sock_src->prop, flag);
   }
 
-  if (sock_src->default_value) {
+  bNodeSocketType *stype = sock_dst->typeinfo;
+  if (stype->copy_fn) {
+    stype->copy_fn(NULL, NULL, sock_dst, sock_src);
+  }
+  else if (sock_src->default_value) {
     sock_dst->default_value = MEM_dupallocN(sock_src->default_value);
   }
 
@@ -1095,11 +1098,6 @@ static void node_socket_copy(bNodeSocket *sock_dst, const bNodeSocket *sock_src,
    * some persistent buffer data here, need to clear this to avoid dangling pointers.
    */
   sock_dst->cache = NULL;
-
-  bNodeSocketType *stype = sock_dst->typeinfo;
-  if (stype->copy_fn) {
-    stype->copy_fn(NULL, NULL, sock_dst, sock_src);
-  }
 }
 
 /* keep socket listorder identical, for copying links */
