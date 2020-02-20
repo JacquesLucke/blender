@@ -177,7 +177,6 @@ typedef int (*NodeGPUExecFunction)(struct GPUMaterial *mat,
  */
 typedef struct bNodeType {
   void *next, *prev;
-  short needs_free; /* set for allocated types that need to be freed */
 
   char idname[64]; /* identifier name */
   int type;
@@ -259,7 +258,8 @@ typedef struct bNodeType {
 
   /* Custom data that can be used in callbacks. */
   void *userdata;
-  void (*free_userdata)(void *userdata);
+
+  void (*free_self)(struct bNodeType *ntype);
 
   /* **** execution callbacks **** */
   NodeInitExecFunction initexecfunc;

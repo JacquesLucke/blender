@@ -1682,8 +1682,7 @@ static bNodeType *rna_Node_register_base(Main *bmain,
   /* create a new node type */
   nt = MEM_callocN(sizeof(bNodeType), "node type");
   memcpy(nt, &dummynt, sizeof(dummynt));
-  /* make sure the node type struct is freed on unregister */
-  nt->needs_free = 1;
+  nt->free_self = (void (*)(bNodeType *))MEM_freeN;
 
   nt->ext.srna = RNA_def_struct_ptr(&BLENDER_RNA, nt->idname, basetype);
   nt->ext.data = data;

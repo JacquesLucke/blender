@@ -412,8 +412,9 @@ static void node_free_type(void *nodetype_v)
     free_dynamic_typeinfo(nodetype);
   }
 
-  if (nodetype->needs_free) {
-    MEM_freeN(nodetype);
+  /* Can be NULL when the type is not dynamically allocated. */
+  if (nodetype->free_self) {
+    nodetype->free_self(nodetype);
   }
 }
 
