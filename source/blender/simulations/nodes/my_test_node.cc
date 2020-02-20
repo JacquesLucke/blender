@@ -377,18 +377,14 @@ class SocketTypeDefinition {
       UNUSED_VARS_NDEBUG(storage);
     };
 
-    m_stype.init_fn = [](bNodeTree *UNUSED(ntree), bNode *UNUSED(node), bNodeSocket *socket) {
-      std::cout << "Init: " << socket->name << '\n';
-    };
+    m_stype.init_fn =
+        [](bNodeTree *UNUSED(ntree), bNode *UNUSED(node), bNodeSocket *UNUSED(socket)) {};
     m_stype.copy_fn = [](bNodeTree *UNUSED(dst_ntree),
                          bNode *UNUSED(dst_node),
-                         bNodeSocket *dst_socket,
-                         const bNodeSocket *src_socket) {
-      std::cout << "Copy: " << src_socket->name << " -> " << dst_socket->name << '\n';
-    };
-    m_stype.free_fn = [](bNodeTree *UNUSED(ntree), bNode *UNUSED(node), bNodeSocket *socket) {
-      std::cout << "Free: " << socket->name << '\n';
-    };
+                         bNodeSocket *UNUSED(dst_socket),
+                         const bNodeSocket *UNUSED(src_socket)) {};
+    m_stype.free_fn =
+        [](bNodeTree *UNUSED(ntree), bNode *UNUSED(node), bNodeSocket *UNUSED(socket)) {};
 
     m_stype.userdata = (void *)this;
   }
