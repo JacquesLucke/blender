@@ -139,6 +139,13 @@ typedef struct bNodeSocketType {
                                 struct bNode *node,
                                 struct bNodeSocket *sock);
 
+  void (*init_fn)(struct bNodeTree *ntree, struct bNode *node, struct bNodeSocket *socket);
+  void (*copy_fn)(struct bNodeTree *dst_ntree,
+                  struct bNode *dst_node,
+                  struct bNodeSocket *dst_socket,
+                  const struct bNodeSocket *src_socket);
+  void (*free_fn)(struct bNodeTree *ntree, struct bNode *node, struct bNodeSocket *socket);
+
   /* RNA integration */
   ExtensionRNA ext_socket;
   ExtensionRNA ext_interface;

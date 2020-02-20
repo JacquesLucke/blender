@@ -336,17 +336,26 @@ class SocketTypeDefinition {
                                           struct PointerRNA *ptr,
                                           struct PointerRNA *node_ptr,
                                           const char *text)>;
+  using InitStorageFn = std::function<void *()>;
+  using CopyStorageFn = std::function<void *(void *)>;
+  using FreeStorageFn = std::function<void(void *)>;
+  template<typename T> using TypedInitStorageFn = std::function<void(T *)>;
 
  private:
   bNodeSocketType m_stype;
   DrawInNodeFn m_draw_in_node_fn;
   rgba_f m_color = {0.0f, 0.0f, 0.0f, 1.0f};
+  std::string m_storage_struct_name;
+  InitStorageFn m_init_storage_fn;
+  CopyStorageFn m_copy_storage_fn;
+  FreeStorageFn m_free_storage_fn;
 
  public:
   SocketTypeDefinition(StringRef idname)
   {
+    memset(&m_stype, 0, sizeof(bNodeSocketType));
     idname.copy(m_stype.idname);
-
+    m_stype.type = SOCK_CUSTOM;
     m_stype.draw = SocketTypeDefinition::draw_in_node;
     m_draw_in_node_fn = [](struct bContext *UNUSED(C),
                            struct uiLayout *layout,
@@ -357,12 +366,65 @@ class SocketTypeDefinition {
     m_stype.draw_color = SocketTypeDefinition::get_draw_color;
     m_stype.free_self = [](bNodeSocketType *UNUSED(stype)) {};
 
+    m_init_storage_fn = []() { return nullptr; };
+    m_copy_storage_fn = [](void *storage) {
+      BLI_assert(storage == nullptr);
+      UNUSED_VARS_NDEBUG(storage);
+      return nullptr;
+    };
+    m_free_storage_fn = [](void *storage) {
+      BLI_assert(storage == nullptr);
+      UNUSED_VARS_NDEBUG(storage);
+    };
+
+    m_stype.init_fn = [](bNodeTree *UNUSED(ntree), bNode *UNUSED(node), bNodeSocket *socket) {
+      std::cout << "Init: " << socket->name << '\n';
+    };
+    m_stype.copy_fn = [](bNodeTree *UNUSED(dst_ntree),
+                         bNode *UNUSED(dst_node),
+                         bNodeSocket *dst_socket,
+                         const bNodeSocket *src_socket) {
+      std::cout << "Copy: " << src_socket->name << " -> " << dst_socket->name << '\n';
+    };
+    m_stype.free_fn = [](bNodeTree *UNUSED(ntree), bNode *UNUSED(node), bNodeSocket *socket) {
+      std::cout << "Free: " << socket->name << '\n';
+    };
+
     m_stype.userdata = (void *)this;
   }
 
   void set_color(rgba_f color)
   {
     m_color = color;
+  }
+
+  void add_dna_storage(StringRef struct_name,
+                       InitStorageFn init_storage_fn,
+                       CopyStorageFn copy_storage_fn,
+                       FreeStorageFn free_storage_fn)
+  {
+    m_storage_struct_name = struct_name;
+    m_init_storage_fn = init_storage_fn;
+    m_copy_storage_fn = copy_storage_fn;
+    m_free_storage_fn = free_storage_fn;
+  }
+
+  template<typename T>
+  void add_dna_storage(StringRef struct_name, TypedInitStorageFn<T> init_storage_fn)
+  {
+    this->add_dna_storage(
+        struct_name,
+        [init_storage_fn]() {
+          void *buffer = MEM_callocN(sizeof(T), __func__);
+          init_storage_fn((T *)buffer);
+          return buffer;
+        },
+        [](void *buffer) {
+          void *new_buffer = MEM_callocN(sizeof(T), __func__);
+          memcpy(new_buffer, buffer, sizeof(T));
+          return new_buffer;
+        },
+        [](void *buffer) { MEM_freeN(buffer); });
   }
 
   void register_type()
@@ -659,6 +721,8 @@ void init_socket_data_types()
   {
     static SocketTypeDefinition stype("MyFloatSocket");
     stype.set_color({1, 1, 1, 1});
+    stype.add_dna_storage<bNodeSocketValueFloat>(
+        "bNodeSocketValueFloat", [](bNodeSocketValueFloat *storage) { storage->value = 11.5f; });
     stype.register_type();
   }
 
