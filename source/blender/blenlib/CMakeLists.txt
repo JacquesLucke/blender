@@ -272,6 +272,7 @@ set(SRC
   BLI_float2.h
   BLI_float4x4.h
   BLI_color.h
+  BLI_linear_allocated_vector.h
 )
 
 set(LIB
