@@ -35,7 +35,7 @@ VirtualNodeTree::VirtualNodeTree(bNodeTree *btree) : m_btree(btree)
       VInputSocket &vsocket = *vtree.m_allocator.construct<VInputSocket>();
 
       vsocket.m_node = &vnode;
-      vsocket.m_index = vnode.m_inputs.append_and_get_index(&vsocket);
+      vsocket.m_index = vnode.m_inputs.append_and_get_index(&vsocket, m_allocator);
       vsocket.m_is_input = true;
       vsocket.m_bsocket = bsocket;
       vsocket.m_id = vtree.m_sockets_by_id.append_and_get_index(&vsocket);
@@ -48,7 +48,7 @@ VirtualNodeTree::VirtualNodeTree(bNodeTree *btree) : m_btree(btree)
       VOutputSocket &vsocket = *vtree.m_allocator.construct<VOutputSocket>();
 
       vsocket.m_node = &vnode;
-      vsocket.m_index = vnode.m_outputs.append_and_get_index(&vsocket);
+      vsocket.m_index = vnode.m_outputs.append_and_get_index(&vsocket, m_allocator);
       vsocket.m_is_input = false;
       vsocket.m_bsocket = bsocket;
       vsocket.m_id = vtree.m_sockets_by_id.append_and_get_index(&vsocket);
@@ -68,15 +68,15 @@ VirtualNodeTree::VirtualNodeTree(bNodeTree *btree) : m_btree(btree)
         *node_mapping.lookup(blink->tonode)
              ->m_inputs[BSocketList(blink->tonode->inputs).index_of(blink->tosock)];
 
-    from_vsocket.m_directly_linked_sockets.append(&to_vsocket);
-    to_vsocket.m_directly_linked_sockets.append(&from_vsocket);
+    from_vsocket.m_directly_linked_sockets.append(&to_vsocket, m_allocator);
+    to_vsocket.m_directly_linked_sockets.append(&from_vsocket, m_allocator);
   }
 
   for (VOutputSocket *socket : vtree.m_output_sockets) {
     if (!is_reroute_node(socket->node())) {
       vtree.find_targets_skipping_reroutes(*socket, socket->m_linked_sockets);
       for (VSocket *target : socket->m_linked_sockets) {
-        target->m_linked_sockets.append(socket);
+        target->m_linked_sockets.append(socket, m_allocator);
       }
     }
   }
@@ -87,14 +87,14 @@ VirtualNodeTree::VirtualNodeTree(bNodeTree *btree) : m_btree(btree)
 }
 
 void VirtualNodeTree::find_targets_skipping_reroutes(VOutputSocket &vsocket,
-                                                     Vector<VSocket *> &r_targets)
+                                                     LinearAllocatedVector<VSocket *> &r_targets)
 {
   for (VSocket *direct_target : vsocket.m_directly_linked_sockets) {
     if (is_reroute_node(*direct_target->m_node)) {
       this->find_targets_skipping_reroutes(*direct_target->m_node->m_outputs[0], r_targets);
     }
     else if (!r_targets.contains(direct_target)) {
-      r_targets.append(direct_target);
+      r_targets.append(direct_target, m_allocator);
     }
   }
 }

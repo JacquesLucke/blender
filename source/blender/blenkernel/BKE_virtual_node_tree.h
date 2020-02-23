@@ -8,6 +8,7 @@
 #include "BLI_string_map.h"
 #include "BLI_resource_collector.h"
 #include "BLI_string_multi_map.h"
+#include "BLI_linear_allocated_vector.h"
 
 #include "DNA_node_types.h"
 
@@ -17,6 +18,7 @@ namespace BKE {
 
 using BLI::Array;
 using BLI::ArrayRef;
+using BLI::LinearAllocatedVector;
 using BLI::ResourceCollector;
 using BLI::StringMap;
 using BLI::StringMultiMap;
@@ -35,8 +37,8 @@ class VirtualNodeTree;
 
 class VSocket : BLI::NonCopyable, BLI::NonMovable {
  protected:
-  Vector<VSocket *> m_linked_sockets;
-  Vector<VSocket *> m_directly_linked_sockets;
+  LinearAllocatedVector<VSocket *> m_linked_sockets;
+  LinearAllocatedVector<VSocket *> m_directly_linked_sockets;
   VNode *m_node;
   bool m_is_input;
   bNodeSocket *m_bsocket;
@@ -89,8 +91,8 @@ class VOutputSocket final : public VSocket {
 class VNode : BLI::NonCopyable, BLI::NonMovable {
  private:
   VirtualNodeTree *m_vtree;
-  Vector<VInputSocket *> m_inputs;
-  Vector<VOutputSocket *> m_outputs;
+  LinearAllocatedVector<VInputSocket *> m_inputs;
+  LinearAllocatedVector<VOutputSocket *> m_outputs;
   bNode *m_bnode;
   uint m_id;
   PointerRNA m_rna;
@@ -146,7 +148,8 @@ class VirtualNodeTree : BLI::NonCopyable, BLI::NonMovable {
   bNodeTree *btree() const;
 
  private:
-  void find_targets_skipping_reroutes(VOutputSocket &vsocket, Vector<VSocket *> &r_targets);
+  void find_targets_skipping_reroutes(VOutputSocket &vsocket,
+                                      LinearAllocatedVector<VSocket *> &r_targets);
 };
 
 /* Virtual Node Tree inline functions

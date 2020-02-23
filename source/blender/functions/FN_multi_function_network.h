@@ -8,10 +8,12 @@
 #include "BLI_set.h"
 #include "BLI_vector_set.h"
 #include "BLI_map.h"
+#include "BLI_linear_allocated_vector.h"
 
 namespace FN {
 
 using BLI::Array;
+using BLI::LinearAllocatedVector;
 using BLI::Map;
 using BLI::Optional;
 using BLI::Set;
@@ -127,7 +129,7 @@ class MFBuilderInputSocket : public MFBuilderSocket {
 
 class MFBuilderOutputSocket : public MFBuilderSocket {
  private:
-  Vector<MFBuilderInputSocket *> m_targets;
+  LinearAllocatedVector<MFBuilderInputSocket *> m_targets;
 
   friend MFNetworkBuilder;
 

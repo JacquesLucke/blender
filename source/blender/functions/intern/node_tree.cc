@@ -172,8 +172,8 @@ BLI_NOINLINE void FunctionTree::expand_group__group_inputs_for_unlinked_inputs(
       group_input.m_vsocket = &input_socket->m_vsocket->as_input();
       group_input.m_parent = group_node.m_parent;
 
-      group_input.m_linked_sockets.append(input_socket);
-      input_socket->m_linked_group_inputs.append(&group_input);
+      group_input.m_linked_sockets.append(input_socket, m_allocator);
+      input_socket->m_linked_group_inputs.append(&group_input, m_allocator);
     }
   }
 }
@@ -205,13 +205,13 @@ BLI_NOINLINE void FunctionTree::expand_group__relink_inputs(const VirtualNodeTre
       inside_connected->m_linked_sockets.remove_first_occurrence_and_reorder(&inside_interface);
 
       for (FOutputSocket *outside_connected : outside_interface.m_linked_sockets) {
-        inside_connected->m_linked_sockets.append(outside_connected);
-        outside_connected->m_linked_sockets.append(inside_connected);
+        inside_connected->m_linked_sockets.append(outside_connected, m_allocator);
+        outside_connected->m_linked_sockets.append(inside_connected, m_allocator);
       }
 
       for (FGroupInput *outside_connected : outside_interface.m_linked_group_inputs) {
-        inside_connected->m_linked_group_inputs.append(outside_connected);
-        outside_connected->m_linked_sockets.append(inside_connected);
+        inside_connected->m_linked_group_inputs.append(outside_connected, m_allocator);
+        outside_connected->m_linked_sockets.append(inside_connected, m_allocator);
       }
     }
 
@@ -240,8 +240,8 @@ BLI_NOINLINE void FunctionTree::expand_group__relink_outputs(const VirtualNodeTr
       inside_connected->m_linked_sockets.remove_first_occurrence_and_reorder(&inside_interface);
 
       for (FInputSocket *outside_connected : outside_interface.m_linked_sockets) {
-        inside_connected->m_linked_sockets.append(outside_connected);
-        outside_connected->m_linked_sockets.append(inside_connected);
+        inside_connected->m_linked_sockets.append(outside_connected, m_allocator);
+        outside_connected->m_linked_sockets.append(inside_connected, m_allocator);
       }
     }
 
@@ -249,8 +249,8 @@ BLI_NOINLINE void FunctionTree::expand_group__relink_outputs(const VirtualNodeTr
       inside_connected->m_linked_sockets.remove_first_occurrence_and_reorder(&inside_interface);
 
       for (FInputSocket *outside_connected : outside_interface.m_linked_sockets) {
-        inside_connected->m_linked_sockets.append(outside_connected);
-        outside_connected->m_linked_group_inputs.append(inside_connected);
+        inside_connected->m_linked_sockets.append(outside_connected, m_allocator);
+        outside_connected->m_linked_group_inputs.append(inside_connected, m_allocator);
       }
     }
 
@@ -280,8 +280,8 @@ BLI_NOINLINE void FunctionTree::insert_linked_nodes_for_vtree_in_id_order(
       FInputSocket *to_socket = (FInputSocket *)sockets_map[to_vsocket->id()];
       for (const VOutputSocket *from_vsocket : to_vsocket->linked_sockets()) {
         FOutputSocket *from_socket = (FOutputSocket *)sockets_map[from_vsocket->id()];
-        to_socket->m_linked_sockets.append(from_socket);
-        from_socket->m_linked_sockets.append(to_socket);
+        to_socket->m_linked_sockets.append(from_socket, m_allocator);
+        from_socket->m_linked_sockets.append(to_socket, m_allocator);
       }
     }
   }
@@ -303,7 +303,7 @@ BLI_NOINLINE FNode &FunctionTree::create_node(const VNode &vnode,
     new_socket.m_id = UINT32_MAX;
     new_socket.m_is_input = true;
 
-    new_node.m_inputs.append_and_get_index(&new_socket);
+    new_node.m_inputs.append_and_get_index(&new_socket, m_allocator);
     sockets_map[vsocket->id()] = &new_socket;
   }
 
@@ -314,7 +314,7 @@ BLI_NOINLINE FNode &FunctionTree::create_node(const VNode &vnode,
     new_socket.m_id = UINT32_MAX;
     new_socket.m_is_input = false;
 
-    new_node.m_outputs.append_and_get_index(&new_socket);
+    new_node.m_outputs.append_and_get_index(&new_socket, m_allocator);
     sockets_map[vsocket->id()] = &new_socket;
   }
 
