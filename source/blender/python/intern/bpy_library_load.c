@@ -395,7 +395,7 @@ static PyObject *bpy_lib_exit(BPy_Library *self, PyObject *UNUSED(args))
   }
   else {
     Library *lib = mainl->curlib; /* newly added lib, assign before append end */
-    BLO_library_link_end(mainl, &(self->blo_handle), self->flag, NULL, NULL, NULL, NULL);
+    BLO_library_link_end(mainl, &(self->blo_handle), self->flag, 1.0f, NULL, NULL, NULL, NULL);
     BLO_blendhandle_close(self->blo_handle);
     self->blo_handle = NULL;
 

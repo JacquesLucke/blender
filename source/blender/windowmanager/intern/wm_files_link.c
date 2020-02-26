@@ -154,18 +154,20 @@ typedef struct WMLinkAppendData {
   /** Combines #eFileSel_Params_Flag from DNA_space_types.h and
    * BLO_LibLinkFlags from BLO_readfile.h */
   int flag;
+  float empty_drawsize;
 
   /* Internal 'private' data */
   MemArena *memarena;
 } WMLinkAppendData;
 
-static WMLinkAppendData *wm_link_append_data_new(const int flag)
+static WMLinkAppendData *wm_link_append_data_new(const int flag, float empty_drawsize)
 {
   MemArena *ma = BLI_memarena_new(BLI_MEMARENA_STD_BUFSIZE, __func__);
   WMLinkAppendData *lapp_data = BLI_memarena_calloc(ma, sizeof(*lapp_data));
 
   lapp_data->flag = flag;
   lapp_data->memarena = ma;
+  lapp_data->empty_drawsize = empty_drawsize;
 
   return lapp_data;
 }
@@ -281,7 +283,8 @@ static void wm_link_do(WMLinkAppendData *lapp_data,
       }
     }
 
-    BLO_library_link_end(mainl, &bh, flag, bmain, scene, view_layer, v3d);
+    BLO_library_link_end(
+        mainl, &bh, flag, lapp_data->empty_drawsize, bmain, scene, view_layer, v3d);
     BLO_blendhandle_close(bh);
   }
 }
@@ -406,7 +409,7 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 
   /* We define our working data...
    * Note that here, each item 'uses' one library, and only one. */
-  lapp_data = wm_link_append_data_new(flag);
+  lapp_data = wm_link_append_data_new(flag, RNA_float_get(op->ptr, "empty_drawsize"));
   if (totfiles != 0) {
     GHash *libraries = BLI_ghash_new(BLI_ghashutil_strhash_p, BLI_ghashutil_strcmp, __func__);
     int lib_idx = 0;
@@ -556,6 +559,8 @@ static void wm_link_append_properties_common(wmOperatorType *ot, bool is_link)
       "Instance Collections",
       "Create instances for collections, rather than adding them directly to the scene");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+  prop = RNA_def_float(
+      ot->srna, "empty_drawsize", 1.0f, 0.0f, FLT_MAX, "Empty Draw Size", "", 0.1f, 1.0f);
 }
 
 void WM_OT_link(wmOperatorType *ot)
@@ -634,7 +639,7 @@ ID *WM_file_append_datablock(bContext *C,
   BKE_main_id_tag_all(bmain, LIB_TAG_PRE_EXISTING, true);
 
   /* Define working data, with just the one item we want to append. */
-  WMLinkAppendData *lapp_data = wm_link_append_data_new(0);
+  WMLinkAppendData *lapp_data = wm_link_append_data_new(0, 1.0f);
 
   wm_link_append_data_library_add(lapp_data, filepath);
   WMLinkAppendDataItem *item = wm_link_append_data_item_add(lapp_data, id_name, id_code, NULL);
@@ -916,8 +921,8 @@ void WM_lib_reload(Library *lib, bContext *C, ReportList *reports)
     return;
   }
 
-  WMLinkAppendData *lapp_data = wm_link_append_data_new(BLO_LIBLINK_USE_PLACEHOLDERS |
-                                                        BLO_LIBLINK_FORCE_INDIRECT);
+  WMLinkAppendData *lapp_data = wm_link_append_data_new(
+      BLO_LIBLINK_USE_PLACEHOLDERS | BLO_LIBLINK_FORCE_INDIRECT, 1.0f);
 
   wm_link_append_data_library_add(lapp_data, lib->filepath);
 
@@ -982,7 +987,7 @@ static int wm_lib_relocate_exec_do(bContext *C, wmOperator *op, bool do_reload)
 
       do_reload = true;
 
-      lapp_data = wm_link_append_data_new(flag);
+      lapp_data = wm_link_append_data_new(flag, 1.0f);
       wm_link_append_data_library_add(lapp_data, path);
     }
     else {
@@ -1004,7 +1009,7 @@ static int wm_lib_relocate_exec_do(bContext *C, wmOperator *op, bool do_reload)
         }
       }
 
-      lapp_data = wm_link_append_data_new(flag);
+      lapp_data = wm_link_append_data_new(flag, 1.0f);
 
       if (totfiles) {
         RNA_BEGIN (op->ptr, itemptr, "files") {

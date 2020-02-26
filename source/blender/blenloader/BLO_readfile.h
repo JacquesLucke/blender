@@ -140,6 +140,7 @@ struct ID *BLO_library_link_named_part_ex(
 void BLO_library_link_end(struct Main *mainl,
                           BlendHandle **bh,
                           int flag,
+                          float empty_drawsize,
                           struct Main *bmain,
                           struct Scene *scene,
                           struct ViewLayer *view_layer,

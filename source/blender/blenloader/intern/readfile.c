@@ -11115,7 +11115,8 @@ static void add_collections_to_scene(Main *mainvar,
                                      ViewLayer *view_layer,
                                      const View3D *v3d,
                                      Library *lib,
-                                     const short flag)
+                                     const short flag,
+                                     float empty_drawsize)
 {
   Collection *active_collection = scene->master_collection;
   if (flag & FILE_ACTIVE_COLLECTION) {
@@ -11133,6 +11134,7 @@ static void add_collections_to_scene(Main *mainvar,
       /* BKE_object_add(...) messes with the selection. */
       Object *ob = BKE_object_add_only_object(bmain, OB_EMPTY, collection->id.name + 2);
       ob->type = OB_EMPTY;
+      ob->empty_drawsize = empty_drawsize;
 
       BKE_collection_object_add(bmain, active_collection, ob);
       Base *base = BKE_view_layer_base_find(view_layer, ob);
@@ -11428,6 +11430,7 @@ static void split_main_newid(Main *mainptr, Main *main_newid)
 static void library_link_end(Main *mainl,
                              FileData **fd,
                              const short flag,
+                             float empty_drawsize,
                              Main *bmain,
                              Scene *scene,
                              ViewLayer *view_layer,
@@ -11508,7 +11511,7 @@ static void library_link_end(Main *mainl,
    * `BLO_library_link_named_part_ex()` & co,
    * here we handle indirect ones and other possible edge-cases. */
   if (scene) {
-    add_collections_to_scene(mainvar, bmain, scene, view_layer, v3d, curlib, flag);
+    add_collections_to_scene(mainvar, bmain, scene, view_layer, v3d, curlib, flag, empty_drawsize);
     add_loose_objects_to_scene(mainvar, bmain, scene, view_layer, v3d, curlib, flag);
   }
   else {
@@ -11545,13 +11548,14 @@ static void library_link_end(Main *mainl,
 void BLO_library_link_end(Main *mainl,
                           BlendHandle **bh,
                           int flag,
+                          float empty_drawsize,
                           Main *bmain,
                           Scene *scene,
                           ViewLayer *view_layer,
                           const View3D *v3d)
 {
   FileData *fd = (FileData *)(*bh);
-  library_link_end(mainl, &fd, flag, bmain, scene, view_layer, v3d);
+  library_link_end(mainl, &fd, flag, empty_drawsize, bmain, scene, view_layer, v3d);
   *bh = (BlendHandle *)fd;
 }
 

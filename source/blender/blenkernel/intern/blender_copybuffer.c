@@ -94,7 +94,7 @@ bool BKE_copybuffer_read(Main *bmain_dst,
   /* Here appending/linking starts. */
   Main *mainl = BLO_library_link_begin(bmain_dst, &bh, libname);
   BLO_library_link_copypaste(mainl, bh, id_types_mask);
-  BLO_library_link_end(mainl, &bh, 0, NULL, NULL, NULL, NULL);
+  BLO_library_link_end(mainl, &bh, 0, 1.0f, NULL, NULL, NULL, NULL);
   /* Mark all library linked objects to be updated. */
   BKE_main_lib_objects_recalc_all(bmain_dst);
   IMB_colormanagement_check_file_config(bmain_dst);
@@ -147,7 +147,7 @@ int BKE_copybuffer_paste(bContext *C,
 
   const int num_pasted = BLO_library_link_copypaste(mainl, bh, id_types_mask);
 
-  BLO_library_link_end(mainl, &bh, flag, bmain, scene, view_layer, v3d);
+  BLO_library_link_end(mainl, &bh, flag, 1.0f, bmain, scene, view_layer, v3d);
 
   /* mark all library linked objects to be updated */
   BKE_main_lib_objects_recalc_all(bmain);
