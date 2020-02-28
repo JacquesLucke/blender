@@ -1,0 +1,4 @@
+#ifndef __NODE_SIMULATION_UTIL_H__
+#define __NODE_SIMULATION_UTIL_H__
+
+#endif /* __NODE_SIMULATION_UTIL_H__ */
