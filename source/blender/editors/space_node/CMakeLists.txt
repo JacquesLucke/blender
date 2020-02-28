@@ -30,7 +30,6 @@ set(INC
   ../../render/extern/include
   ../../compositor
   ../../windowmanager
-  ../../simulations/nodes
   ../../../../intern/glew-mx
   ../../../../intern/guardedalloc
 )
