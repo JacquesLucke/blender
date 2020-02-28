@@ -220,6 +220,8 @@ set(SRC
   shader/node_shader_tree.c
   shader/node_shader_util.c
 
+  simulation/node_sim_tree.cc
+
   texture/nodes/node_texture_at.c
   texture/nodes/node_texture_bricks.c
   texture/nodes/node_texture_checker.c
@@ -258,6 +260,7 @@ set(SRC
   NOD_common.h
   NOD_composite.h
   NOD_shader.h
+  NOD_simulation.h
   NOD_socket.h
   NOD_static_types.h
   NOD_texture.h
