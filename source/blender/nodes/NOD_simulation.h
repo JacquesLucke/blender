@@ -13,6 +13,7 @@ void register_node_type_sim_group(void);
 
 void register_node_type_sim_particle_simulation(void);
 void register_node_type_sim_custom_force(void);
+void register_node_type_set_particle_attribute(void);
 
 #ifdef __cplusplus
 }

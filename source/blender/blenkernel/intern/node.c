@@ -4125,6 +4125,7 @@ static void registerSimulationNodes(void)
 
   register_node_type_sim_particle_simulation();
   register_node_type_sim_custom_force();
+  register_node_type_set_particle_attribute();
 }
 
 void init_nodesystem(void)
