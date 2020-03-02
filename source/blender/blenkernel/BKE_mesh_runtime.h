@@ -27,6 +27,10 @@
 
 //#include "BKE_customdata.h"  /* for CustomDataMask */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct CustomData;
 struct CustomData_MeshMasks;
 struct Depsgraph;

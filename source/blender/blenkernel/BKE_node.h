@@ -38,6 +38,10 @@ extern "C" {
 
 #include "RNA_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* not very important, but the stack solver likes to know a maximum */
 #define MAX_SOCKET 512
 
