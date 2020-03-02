@@ -3,7 +3,10 @@
 #include "node_sim_util.h"
 
 static bNodeSocketTemplate sim_node_particle_simulation_in[] = {
-    {SOCK_FLOAT, 1, N_("Test"), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 100.0f},
+    {SOCK_EMITTERS, 1, N_("Emitters"), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f},
+    {SOCK_EVENTS, 1, N_("Events"), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f},
+    {SOCK_FORCES, 1, N_("Forces"), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f},
+    {SOCK_CONTROL_FLOW, 1, N_("Control Flow"), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f},
     {-1, 0, ""},
 };
 

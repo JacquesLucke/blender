@@ -153,6 +153,10 @@ typedef enum eNodeSocketDatatype {
   __SOCK_MESH = 5, /* deprecated */
   SOCK_INT = 6,
   SOCK_STRING = 7,
+  SOCK_EMITTERS = 8,
+  SOCK_EVENTS = 9,
+  SOCK_FORCES = 10,
+  SOCK_CONTROL_FLOW = 11,
 } eNodeSocketDatatype;
 
 /* socket shape */

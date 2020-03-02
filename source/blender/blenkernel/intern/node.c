@@ -675,6 +675,14 @@ const char *nodeStaticSocketType(int type, int subtype)
       return "NodeSocketString";
     case SOCK_SHADER:
       return "NodeSocketShader";
+    case SOCK_EMITTERS:
+      return "NodeSocketEmitters";
+    case SOCK_EVENTS:
+      return "NodeSocketEvents";
+    case SOCK_FORCES:
+      return "NodeSocketForces";
+    case SOCK_CONTROL_FLOW:
+      return "NodeSocketControlFlow";
   }
   return NULL;
 }
@@ -736,6 +744,14 @@ const char *nodeStaticSocketInterfaceType(int type, int subtype)
       return "NodeSocketInterfaceString";
     case SOCK_SHADER:
       return "NodeSocketInterfaceShader";
+    case SOCK_EMITTERS:
+      return "NodeSocketInterfaceEmitters";
+    case SOCK_EVENTS:
+      return "NodeSocketInterfaceEvents";
+    case SOCK_FORCES:
+      return "NodeSocketInterfaceForces";
+    case SOCK_CONTROL_FLOW:
+      return "NodeSocketInterfaceControlFlow";
   }
   return NULL;
 }

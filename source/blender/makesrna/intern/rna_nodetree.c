@@ -81,6 +81,10 @@ static const EnumPropertyItem node_socket_type_items[] = {
     {SOCK_STRING, "STRING", 0, "String", ""},
     {SOCK_RGBA, "RGBA", 0, "RGBA", ""},
     {SOCK_SHADER, "SHADER", 0, "Shader", ""},
+    {SOCK_EMITTERS, "EMITTERS", 0, "Emitters", ""},
+    {SOCK_EVENTS, "EVENTS", 0, "Events", ""},
+    {SOCK_FORCES, "FORCES", 0, "Forces", ""},
+    {SOCK_CONTROL_FLOW, "CONTROL_FLOW", 0, "Control Flow", ""},
     {0, NULL, 0, NULL, NULL},
 };
 
@@ -8523,6 +8527,36 @@ static void rna_def_node_socket_shader(BlenderRNA *brna,
   RNA_def_struct_sdna(srna, "bNodeSocket");
 }
 
+static void rna_def_node_socket_effector(BlenderRNA *brna,
+                                         const char *identifier,
+                                         const char *interface_idname)
+{
+  StructRNA *srna;
+
+  srna = RNA_def_struct(brna, identifier, "NodeSocketStandard");
+  RNA_def_struct_ui_text(srna, "", "");
+  RNA_def_struct_sdna(srna, "bNodeSocket");
+
+  srna = RNA_def_struct(brna, interface_idname, "NodeSocketInterfaceStandard");
+  RNA_def_struct_ui_text(srna, "", "");
+  RNA_def_struct_sdna(srna, "bNodeSocket");
+}
+
+static void rna_def_node_socket_control_flow(BlenderRNA *brna,
+                                             const char *identifier,
+                                             const char *interface_idname)
+{
+  StructRNA *srna;
+
+  srna = RNA_def_struct(brna, identifier, "NodeSocketStandard");
+  RNA_def_struct_ui_text(srna, "", "");
+  RNA_def_struct_sdna(srna, "bNodeSocket");
+
+  srna = RNA_def_struct(brna, interface_idname, "NodeSocketInterfaceStandard");
+  RNA_def_struct_ui_text(srna, "", "");
+  RNA_def_struct_sdna(srna, "bNodeSocket");
+}
+
 static void rna_def_node_socket_virtual(BlenderRNA *brna, const char *identifier)
 {
   StructRNA *srna;
@@ -8664,6 +8698,13 @@ static void rna_def_node_socket_standard_types(BlenderRNA *brna)
   rna_def_node_socket_string(brna, "NodeSocketString", "NodeSocketInterfaceString");
 
   rna_def_node_socket_shader(brna, "NodeSocketShader", "NodeSocketInterfaceShader");
+
+  rna_def_node_socket_effector(brna, "NodeSocketEmitters", "NodeSocketInterfaceEmitters");
+  rna_def_node_socket_effector(brna, "NodeSocketEvents", "NodeSocketInterfaceEvents");
+  rna_def_node_socket_effector(brna, "NodeSocketForces", "NodeSocketInterfaceForces");
+
+  rna_def_node_socket_control_flow(
+      brna, "NodeSocketControlFlow", "NodeSocketInterfaceControlFlow");
 
   rna_def_node_socket_virtual(brna, "NodeSocketVirtual");
 }

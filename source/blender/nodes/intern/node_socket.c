@@ -492,5 +492,11 @@ void register_standard_node_socket_types(void)
 
   nodeRegisterSocketType(make_standard_socket_type(SOCK_SHADER, PROP_NONE));
 
+  nodeRegisterSocketType(make_standard_socket_type(SOCK_EMITTERS, PROP_NONE));
+  nodeRegisterSocketType(make_standard_socket_type(SOCK_EVENTS, PROP_NONE));
+  nodeRegisterSocketType(make_standard_socket_type(SOCK_FORCES, PROP_NONE));
+
+  nodeRegisterSocketType(make_standard_socket_type(SOCK_CONTROL_FLOW, PROP_NONE));
+
   nodeRegisterSocketType(make_socket_type_virtual());
 }
