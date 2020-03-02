@@ -24,10 +24,6 @@
  * \ingroup bke
  */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "BLI_compiler_compat.h"
 #include "BLI_ghash.h"
 
@@ -37,6 +33,10 @@ extern "C" {
 #include "DNA_node_types.h"
 
 #include "RNA_types.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* not very important, but the stack solver likes to know a maximum */
 #define MAX_SOCKET 512

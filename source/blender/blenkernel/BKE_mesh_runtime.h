@@ -27,6 +27,10 @@
 
 //#include "BKE_customdata.h"  /* for CustomDataMask */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct CustomData;
 struct CustomData_MeshMasks;
 struct Depsgraph;
@@ -37,10 +41,6 @@ struct MVertTri;
 struct Mesh;
 struct Object;
 struct Scene;
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 void BKE_mesh_runtime_reset(struct Mesh *mesh);
 void BKE_mesh_runtime_reset_on_copy(struct Mesh *mesh, const int flag);
