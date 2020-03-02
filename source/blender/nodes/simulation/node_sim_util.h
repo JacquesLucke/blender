@@ -13,6 +13,8 @@
 
 #include "BLT_translation.h"
 
+#include "NOD_simulation.h"
+
 #include "node_util.h"
 
 void sim_node_type_base(
