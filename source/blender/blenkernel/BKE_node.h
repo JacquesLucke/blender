@@ -145,6 +145,7 @@ typedef struct bNodeSocketType {
 
   /* for standard socket types in C */
   int type, subtype;
+  int display_shape_default;
 
   /* Callback to free the socket type. */
   void (*free_self)(struct bNodeSocketType *stype);

@@ -433,6 +433,20 @@ static bNodeSocketType *make_standard_socket_type(int type, int subtype)
   return stype;
 }
 
+static bNodeSocketType *make_socket_type_effector(int type)
+{
+  bNodeSocketType *stype = make_standard_socket_type(type, PROP_NONE);
+  stype->display_shape_default = SOCK_DISPLAY_SHAPE_DIAMOND;
+  return stype;
+}
+
+static bNodeSocketType *make_socket_type_control_flow(int type)
+{
+  bNodeSocketType *stype = make_standard_socket_type(type, PROP_NONE);
+  stype->display_shape_default = SOCK_DISPLAY_SHAPE_SQUARE;
+  return stype;
+}
+
 static bNodeSocketType *make_socket_type_virtual(void)
 {
   extern void ED_init_node_socket_type_virtual(bNodeSocketType *);
@@ -492,11 +506,11 @@ void register_standard_node_socket_types(void)
 
   nodeRegisterSocketType(make_standard_socket_type(SOCK_SHADER, PROP_NONE));
 
-  nodeRegisterSocketType(make_standard_socket_type(SOCK_EMITTERS, PROP_NONE));
-  nodeRegisterSocketType(make_standard_socket_type(SOCK_EVENTS, PROP_NONE));
-  nodeRegisterSocketType(make_standard_socket_type(SOCK_FORCES, PROP_NONE));
+  nodeRegisterSocketType(make_socket_type_effector(SOCK_EMITTERS));
+  nodeRegisterSocketType(make_socket_type_effector(SOCK_EVENTS));
+  nodeRegisterSocketType(make_socket_type_effector(SOCK_FORCES));
 
-  nodeRegisterSocketType(make_standard_socket_type(SOCK_CONTROL_FLOW, PROP_NONE));
+  nodeRegisterSocketType(make_socket_type_control_flow(SOCK_CONTROL_FLOW));
 
   nodeRegisterSocketType(make_socket_type_virtual());
 }

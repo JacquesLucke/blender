@@ -217,6 +217,7 @@ static void node_socket_set_typeinfo(bNodeTree *ntree,
 
     /* deprecated integer type */
     sock->type = typeinfo->type;
+    sock->display_shape = typeinfo->display_shape_default;
 
     if (sock->default_value == NULL) {
       /* initialize the default_value pointer used by standard socket types */
