@@ -24,10 +24,6 @@
  * \ingroup bke
  */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "BLI_compiler_compat.h"
 #include "BLI_ghash.h"
 
