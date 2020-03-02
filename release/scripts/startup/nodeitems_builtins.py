@@ -76,7 +76,7 @@ node_tree_group_type = {
     'CompositorNodeTree': 'CompositorNodeGroup',
     'ShaderNodeTree': 'ShaderNodeGroup',
     'TextureNodeTree': 'TextureNodeGroup',
-    # TODO: simulation node group
+    'SimulationNodeTree' : 'SimulationNodeGroup',
 }
 
 

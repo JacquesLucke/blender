@@ -9,6 +9,8 @@ extern struct bNodeTreeType *ntreeType_Simulation;
 
 void register_node_tree_type_sim(void);
 
+void register_node_type_sim_group(void);
+
 void register_node_type_sim_particle_simulation(void);
 
 #ifdef __cplusplus

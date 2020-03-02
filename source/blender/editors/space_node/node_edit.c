@@ -71,6 +71,7 @@
 #include "NOD_composite.h"
 #include "NOD_shader.h"
 #include "NOD_texture.h"
+#include "NOD_simulation.h"
 
 #define USE_ESC_COMPO
 
@@ -436,6 +437,11 @@ bool ED_node_is_shader(struct SpaceNode *snode)
 bool ED_node_is_texture(struct SpaceNode *snode)
 {
   return STREQ(snode->tree_idname, ntreeType_Texture->idname);
+}
+
+bool ED_node_is_simulation(struct SpaceNode *snode)
+{
+  return STREQ(snode->tree_idname, ntreeType_Simulation->idname);
 }
 
 /* assumes nothing being done in ntree yet, sets the default in/out node */

@@ -4119,6 +4119,8 @@ static void registerTextureNodes(void)
 
 static void registerSimulationNodes(void)
 {
+  register_node_type_sim_group();
+
   register_node_type_sim_particle_simulation();
 }
 

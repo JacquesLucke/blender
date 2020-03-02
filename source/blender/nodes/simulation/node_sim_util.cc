@@ -12,4 +12,9 @@ void sim_node_type_base(bNodeType *ntype, int type, const char *name, short ncla
   };
 }
 
+bool sim_node_poll_default(bNodeType *UNUSED(ntype), bNodeTree *ntree)
+{
+  return STREQ(ntree->idname, "SimulationNodeTree");
+}
+
 #endif /* __NODE_SIMULATION_UTIL_H__ */
