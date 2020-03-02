@@ -48,6 +48,7 @@ struct bNodeSocket *node_add_socket_from_template(struct bNodeTree *ntree,
       ntree, node, in_out, stemp->type, stemp->subtype, stemp->identifier, stemp->name);
 
   sock->flag |= stemp->flag;
+  sock->limit = stemp->limit;
 
   /* initialize default_value */
   switch (stemp->type) {
