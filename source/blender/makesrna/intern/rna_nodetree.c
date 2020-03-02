@@ -669,6 +669,20 @@ static const EnumPropertyItem *rna_node_static_type_itemf(bContext *UNUSED(C),
 #  undef DefNode
   }
 
+  if (RNA_struct_is_a(ptr->type, &RNA_SimulationNode)) {
+#  define DefNode(Category, ID, DefFunc, EnumName, StructName, UIName, UIDesc) \
+    if (STREQ(#Category, "SimulationNode")) { \
+      tmp.value = ID; \
+      tmp.identifier = EnumName; \
+      tmp.name = UIName; \
+      tmp.description = UIDesc; \
+      tmp.icon = ICON_NONE; \
+      RNA_enum_item_add(&item, &totitem, &tmp); \
+    }
+#  include "../../nodes/NOD_static_types.h"
+#  undef DefNode
+  }
+
   RNA_enum_item_end(&item, &totitem);
   *r_free = true;
 
@@ -1773,6 +1787,28 @@ static StructRNA *rna_TextureNode_register(Main *bmain,
 {
   bNodeType *nt = rna_Node_register_base(
       bmain, reports, &RNA_TextureNode, data, identifier, validate, call, free);
+  if (!nt) {
+    return NULL;
+  }
+
+  nodeRegisterType(nt);
+
+  /* update while blender is running */
+  WM_main_add_notifier(NC_NODE | NA_EDITED, NULL);
+
+  return nt->ext.srna;
+}
+
+static StructRNA *rna_SimulationNode_register(Main *bmain,
+                                              ReportList *reports,
+                                              void *data,
+                                              const char *identifier,
+                                              StructValidateFunc validate,
+                                              StructCallbackFunc call,
+                                              StructFreeFunc free)
+{
+  bNodeType *nt = rna_Node_register_base(
+      bmain, reports, &RNA_SimulationNode, data, identifier, validate, call, free);
   if (!nt) {
     return NULL;
   }
@@ -7930,6 +7966,16 @@ static void rna_def_texture_node(BlenderRNA *brna)
   RNA_def_struct_register_funcs(srna, "rna_TextureNode_register", "rna_Node_unregister", NULL);
 }
 
+static void rna_def_simulation_node(BlenderRNA *brna)
+{
+  StructRNA *srna;
+
+  srna = RNA_def_struct(brna, "SimulationNode", "NodeInternal");
+  RNA_def_struct_ui_text(srna, "Simulation Node", "");
+  RNA_def_struct_sdna(srna, "bNode");
+  RNA_def_struct_register_funcs(srna, "rna_SimulationNode_register", "rna_Node_unregister", NULL);
+}
+
 /* -------------------------------------------------------------------------- */
 
 static void rna_def_node_socket(BlenderRNA *brna)
@@ -9565,6 +9611,7 @@ void RNA_def_nodetree(BlenderRNA *brna)
   rna_def_shader_node(brna);
   rna_def_compositor_node(brna);
   rna_def_texture_node(brna);
+  rna_def_simulation_node(brna);
 
   rna_def_nodetree(brna);
 

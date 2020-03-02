@@ -4100,6 +4100,11 @@ static void registerTextureNodes(void)
   register_node_type_tex_proc_distnoise();
 }
 
+static void registerSimulationNodes(void)
+{
+  register_node_type_sim_particle_simulation();
+}
+
 void init_nodesystem(void)
 {
   nodetreetypes_hash = BLI_ghash_str_new("nodetreetypes_hash gh");
@@ -4123,6 +4128,7 @@ void init_nodesystem(void)
   registerCompositNodes();
   registerShaderNodes();
   registerTextureNodes();
+  registerSimulationNodes();
 }
 
 void free_nodesystem(void)

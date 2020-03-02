@@ -23,6 +23,7 @@ set(INC
   composite
   intern
   shader
+  simulation
   texture
   ../blenkernel
   ../blenlib
@@ -220,7 +221,9 @@ set(SRC
   shader/node_shader_tree.c
   shader/node_shader_util.c
 
+  simulation/nodes/node_sim_particle_simulation.cc
   simulation/node_sim_tree.cc
+  simulation/node_sim_util.cc
 
   texture/nodes/node_texture_at.c
   texture/nodes/node_texture_bricks.c

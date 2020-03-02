@@ -258,6 +258,8 @@ DefNode(TextureNode,    TEX_NODE_PROC+TEX_NOISE, 0,                      "TEX_NO
 DefNode(TextureNode,    TEX_NODE_PROC+TEX_STUCCI, 0,                     "TEX_STUCCI",     TexStucci,        "Stucci",            ""              )
 DefNode(TextureNode,    TEX_NODE_PROC+TEX_DISTNOISE, 0,                  "TEX_DISTNOISE",  TexDistNoise,     "Distorted Noise",   ""              )
 
+DefNode(SimulationNode, SIM_NODE_PARTICLE_SIMULATION, 0,                 "PARTICLE_SIMULATION", ParticleSimulation, "Particle Simulation", "")
+
 /* undefine macros */
 #undef DefNode
 

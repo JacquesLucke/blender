@@ -57,6 +57,12 @@ class TextureNodeCategory(SortedNodeCategory):
         return (context.space_data.type == 'NODE_EDITOR' and
                 context.space_data.tree_type == 'TextureNodeTree')
 
+class SimulationNodeCategory(SortedNodeCategory):
+    @classmethod
+    def poll(cls, context):
+        return (context.space_data.type == 'NODE_EDITOR' and
+                context.space_data.tree_type == 'SimulationNodeTree')
+
 
 # menu entry for node group tools
 def group_tools_draw(self, layout, context):
@@ -70,6 +76,7 @@ node_tree_group_type = {
     'CompositorNodeTree': 'CompositorNodeGroup',
     'ShaderNodeTree': 'ShaderNodeGroup',
     'TextureNodeTree': 'TextureNodeGroup',
+    # TODO: simulation node group
 }
 
 
@@ -467,17 +474,25 @@ texture_node_categories = [
     ]),
 ]
 
+simulation_node_categories = [
+    SimulationNodeCategory("SIM_OUTPUT", "Output", items=[
+        NodeItem("SimulationNodeParticleSimulation"),
+    ]),
+]
+
 
 def register():
     nodeitems_utils.register_node_categories('SHADER', shader_node_categories)
     nodeitems_utils.register_node_categories('COMPOSITING', compositor_node_categories)
     nodeitems_utils.register_node_categories('TEXTURE', texture_node_categories)
+    nodeitems_utils.register_node_categories('SIMULATION', simulation_node_categories)
 
 
 def unregister():
     nodeitems_utils.unregister_node_categories('SHADER')
     nodeitems_utils.unregister_node_categories('COMPOSITING')
     nodeitems_utils.unregister_node_categories('TEXTURE')
+    nodeitems_utils.unregister_node_categories('SIMULATION')
 
 
 if __name__ == "__main__":
