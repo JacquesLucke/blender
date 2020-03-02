@@ -223,6 +223,7 @@ set(SRC
 
   simulation/nodes/node_sim_common.cc
   simulation/nodes/node_sim_custom_force.cc
+  simulation/nodes/node_sim_particle_birth_event.cc
   simulation/nodes/node_sim_particle_simulation.cc
   simulation/nodes/node_sim_set_particle_attribute.cc
   simulation/node_sim_tree.cc
