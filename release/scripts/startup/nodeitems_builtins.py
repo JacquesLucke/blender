@@ -478,6 +478,9 @@ simulation_node_categories = [
     SimulationNodeCategory("SIM_OUTPUT", "Output", items=[
         NodeItem("SimulationNodeParticleSimulation"),
     ]),
+    SimulationNodeCategory("FORCE", "Force", items=[
+        NodeItem("SimulationNodeCustomForce"),
+    ]),
 ]
 
 

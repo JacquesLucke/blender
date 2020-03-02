@@ -222,6 +222,7 @@ set(SRC
   shader/node_shader_util.c
 
   simulation/nodes/node_sim_common.cc
+  simulation/nodes/node_sim_custom_force.cc
   simulation/nodes/node_sim_particle_simulation.cc
   simulation/node_sim_tree.cc
   simulation/node_sim_util.cc
