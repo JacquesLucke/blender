@@ -89,7 +89,8 @@ struct uiLayout;
  * in RNA types automatically.
  */
 typedef struct bNodeSocketTemplate {
-  int type, limit;
+  int type;
+  int limit;                    /* unused */
   char name[64];                /* MAX_NAME */
   float val1, val2, val3, val4; /* default alloc value for inputs */
   float min, max;
@@ -146,6 +147,9 @@ typedef struct bNodeSocketType {
   /* for standard socket types in C */
   int type, subtype;
   int display_shape_default;
+
+  int input_link_limit;
+  int output_link_limit;
 
   /* Callback to free the socket type. */
   void (*free_self)(struct bNodeSocketType *stype);

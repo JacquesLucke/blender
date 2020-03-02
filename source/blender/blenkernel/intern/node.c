@@ -218,6 +218,8 @@ static void node_socket_set_typeinfo(bNodeTree *ntree,
     /* deprecated integer type */
     sock->type = typeinfo->type;
     sock->display_shape = typeinfo->display_shape_default;
+    sock->limit = (sock->in_out == SOCK_IN) ? typeinfo->input_link_limit :
+                                              typeinfo->output_link_limit;
 
     if (sock->default_value == NULL) {
       /* initialize the default_value pointer used by standard socket types */

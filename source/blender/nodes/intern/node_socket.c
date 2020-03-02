@@ -48,7 +48,6 @@ struct bNodeSocket *node_add_socket_from_template(struct bNodeTree *ntree,
       ntree, node, in_out, stemp->type, stemp->subtype, stemp->identifier, stemp->name);
 
   sock->flag |= stemp->flag;
-  sock->limit = stemp->limit;
 
   /* initialize default_value */
   switch (stemp->type) {
@@ -431,6 +430,9 @@ static bNodeSocketType *make_standard_socket_type(int type, int subtype)
   stype->interface_from_socket = standard_node_socket_interface_from_socket;
   stype->interface_verify_socket = standard_node_socket_interface_verify_socket;
 
+  stype->input_link_limit = 1;
+  stype->output_link_limit = 0xFFF;
+
   return stype;
 }
 
@@ -438,6 +440,7 @@ static bNodeSocketType *make_socket_type_effector(int type)
 {
   bNodeSocketType *stype = make_standard_socket_type(type, PROP_NONE);
   stype->display_shape_default = SOCK_DISPLAY_SHAPE_DIAMOND;
+  stype->input_link_limit = 0xFFF;
   return stype;
 }
 
@@ -471,6 +474,9 @@ static bNodeSocketType *make_socket_type_virtual(void)
   stype->type = SOCK_CUSTOM;
 
   ED_init_node_socket_type_virtual(stype);
+
+  stype->input_link_limit = 1;
+  stype->output_link_limit = 1;
 
   return stype;
 }

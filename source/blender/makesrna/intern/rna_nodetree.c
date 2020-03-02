@@ -2225,6 +2225,8 @@ static StructRNA *rna_NodeSocket_register(Main *UNUSED(bmain),
   }
 
   st->free_self = (void (*)(bNodeSocketType * stype)) MEM_freeN;
+  st->input_link_limit = 1;
+  st->output_link_limit = 0xFFF;
 
   /* if RNA type is already registered, unregister first */
   if (st->ext_socket.srna) {
@@ -2541,6 +2543,8 @@ static StructRNA *rna_NodeSocketInterface_register(Main *UNUSED(bmain),
   }
 
   st->free_self = (void (*)(bNodeSocketType * stype)) MEM_freeN;
+  st->input_link_limit = 1;
+  st->output_link_limit = 0xFFF;
 
   /* if RNA type is already registered, unregister first */
   if (st->ext_interface.srna) {
