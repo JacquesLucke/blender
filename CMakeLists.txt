@@ -118,6 +118,29 @@ blender_project_hack_post()
 
 enable_testing()
 
+#------------------------------------------------------------------------------
+# ccache https://crascit.com/2016/04/09/using-ccache-with-cmake/
+
+find_program(CCACHE_PROGRAM ccache)
+
+# Set up wrapper scripts
+set(C_LAUNCHER   "${CCACHE_PROGRAM}")
+set(CXX_LAUNCHER "${CCACHE_PROGRAM}")
+configure_file(/Users/ankitkumar/blender-build/resources/launch-c.in   /Users/ankitkumar/blender-build/resources/launch-c)
+configure_file(/Users/ankitkumar/blender-build/resources/launch-cxx.in /Users/ankitkumar/blender-build/resources/launch-cxx)
+execute_process(COMMAND chmod a+rx "/Users/ankitkumar/blender-build/resources/launch-c" "/Users/ankitkumar/blender-build/resources/launch-cxx")
+
+# Set Xcode project attributes to route compilation and linking
+# through our scripts
+set(CMAKE_XCODE_ATTRIBUTE_CC         "/Users/ankitkumar/blender-build/resources/launch-c")
+set(CMAKE_XCODE_ATTRIBUTE_CXX        "/Users/ankitkumar/blender-build/resources/launch-cxx")
+set(CMAKE_XCODE_ATTRIBUTE_LD         "/Users/ankitkumar/blender-build/resources/launch-c")
+set(CMAKE_XCODE_ATTRIBUTE_LDPLUSPLUS "/Users/ankitkumar/blender-build/resources/launch-cxx")
+# Support Unix Makefiles and Ninja
+set(CMAKE_C_COMPILER_LAUNCHER   "/Users/ankitkumar/blender-build/resources/launch-c")
+set(CMAKE_CXX_COMPILER_LAUNCHER "/Users/ankitkumar/blender-build/resources/launch-cxx")
+
+
 #-----------------------------------------------------------------------------
 # Redirect output files
 
