@@ -3293,6 +3293,9 @@ static const float std_node_socket_colors[][4] = {
     {0.8, 0.2, 0.8, 1.0},    /* SOCK_EVENTS */
     {0.2, 0.8, 0.8, 1.0},    /* SOCK_FORCES */
     {0.3, 0.3, 0.3, 1.0},    /* SOCK_CONTROL_FLOW */
+    {0.4, 0.1, 0.1, 1.0},    /* SOCK_OBJECT */
+    {0.1, 0.4, 0.1, 1.0},    /* SOCK_IMAGE */
+    {0.1, 0.1, 0.4, 1.0},    /* SOCK_SURFACE_HOOK */
 };
 
 /* common color callbacks for standard types */

@@ -85,6 +85,9 @@ static const EnumPropertyItem node_socket_type_items[] = {
     {SOCK_EVENTS, "EVENTS", 0, "Events", ""},
     {SOCK_FORCES, "FORCES", 0, "Forces", ""},
     {SOCK_CONTROL_FLOW, "CONTROL_FLOW", 0, "Control Flow", ""},
+    {SOCK_OBJECT, "OBJECT", 0, "Object", ""},
+    {SOCK_IMAGE, "IMAGE", 0, "Image", ""},
+    {SOCK_SURFACE_HOOK, "SURFACE_HOOK", 0, "Surface Hook", ""},
     {0, NULL, 0, NULL, NULL},
 };
 
@@ -8563,6 +8566,55 @@ static void rna_def_node_socket_shader(BlenderRNA *brna,
   RNA_def_struct_sdna(srna, "bNodeSocket");
 }
 
+static void rna_def_node_socket_object(BlenderRNA *brna,
+                                       const char *identifier,
+                                       const char *interface_idname)
+{
+  StructRNA *srna;
+
+  srna = RNA_def_struct(brna, identifier, "NodeSocketStandard");
+  RNA_def_struct_ui_text(srna, "Object Node Socket", "Object socket of a node");
+  RNA_def_struct_sdna(srna, "bNodeSocket");
+
+  /* socket interface */
+  srna = RNA_def_struct(brna, interface_idname, "NodeSocketInterfaceStandard");
+  RNA_def_struct_ui_text(srna, "Object Node Socket Interface", "Object socket of a node");
+  RNA_def_struct_sdna(srna, "bNodeSocket");
+}
+
+static void rna_def_node_socket_image(BlenderRNA *brna,
+                                      const char *identifier,
+                                      const char *interface_idname)
+{
+  StructRNA *srna;
+
+  srna = RNA_def_struct(brna, identifier, "NodeSocketStandard");
+  RNA_def_struct_ui_text(srna, "Image Node Socket", "Image socket of a node");
+  RNA_def_struct_sdna(srna, "bNodeSocket");
+
+  /* socket interface */
+  srna = RNA_def_struct(brna, interface_idname, "NodeSocketInterfaceStandard");
+  RNA_def_struct_ui_text(srna, "Image Node Socket Interface", "Image socket of a node");
+  RNA_def_struct_sdna(srna, "bNodeSocket");
+}
+
+static void rna_def_node_socket_surface_hook(BlenderRNA *brna,
+                                             const char *identifier,
+                                             const char *interface_idname)
+{
+  StructRNA *srna;
+
+  srna = RNA_def_struct(brna, identifier, "NodeSocketStandard");
+  RNA_def_struct_ui_text(srna, "Surface Hook Node Socket", "Surface Hook socket of a node");
+  RNA_def_struct_sdna(srna, "bNodeSocket");
+
+  /* socket interface */
+  srna = RNA_def_struct(brna, interface_idname, "NodeSocketInterfaceStandard");
+  RNA_def_struct_ui_text(
+      srna, "Surface Hook Node Socket Interface", "Surface Hook socket of a node");
+  RNA_def_struct_sdna(srna, "bNodeSocket");
+}
+
 static void rna_def_node_socket_effector(BlenderRNA *brna,
                                          const char *identifier,
                                          const char *interface_idname)
@@ -8730,10 +8782,12 @@ static void rna_def_node_socket_standard_types(BlenderRNA *brna)
       brna, "NodeSocketVectorXYZ", "NodeSocketInterfaceVectorXYZ", PROP_XYZ);
 
   rna_def_node_socket_color(brna, "NodeSocketColor", "NodeSocketInterfaceColor");
-
   rna_def_node_socket_string(brna, "NodeSocketString", "NodeSocketInterfaceString");
-
   rna_def_node_socket_shader(brna, "NodeSocketShader", "NodeSocketInterfaceShader");
+  rna_def_node_socket_object(brna, "NodeSocketObject", "NodeSocketInterfaceObject");
+  rna_def_node_socket_image(brna, "NodeSocketImage", "NodeSocketInterfaceImage");
+  rna_def_node_socket_surface_hook(
+      brna, "NodeSocketSurfaceHook", "NodeSocketInterfaceSurfaceHook");
 
   rna_def_node_socket_effector(brna, "NodeSocketEmitters", "NodeSocketInterfaceEmitters");
   rna_def_node_socket_effector(brna, "NodeSocketEvents", "NodeSocketInterfaceEvents");

@@ -157,6 +157,9 @@ typedef enum eNodeSocketDatatype {
   SOCK_EVENTS = 9,
   SOCK_FORCES = 10,
   SOCK_CONTROL_FLOW = 11,
+  SOCK_OBJECT = 12,
+  SOCK_IMAGE = 13,
+  SOCK_SURFACE_HOOK = 14,
 } eNodeSocketDatatype;
 
 /* socket shape */

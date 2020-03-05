@@ -508,10 +508,11 @@ void register_standard_node_socket_types(void)
   nodeRegisterSocketType(make_standard_socket_type(SOCK_VECTOR, PROP_XYZ));
 
   nodeRegisterSocketType(make_standard_socket_type(SOCK_RGBA, PROP_NONE));
-
   nodeRegisterSocketType(make_standard_socket_type(SOCK_STRING, PROP_NONE));
-
   nodeRegisterSocketType(make_standard_socket_type(SOCK_SHADER, PROP_NONE));
+  nodeRegisterSocketType(make_standard_socket_type(SOCK_OBJECT, PROP_NONE));
+  nodeRegisterSocketType(make_standard_socket_type(SOCK_IMAGE, PROP_NONE));
+  nodeRegisterSocketType(make_standard_socket_type(SOCK_SURFACE_HOOK, PROP_NONE));
 
   nodeRegisterSocketType(make_socket_type_effector(SOCK_EMITTERS));
   nodeRegisterSocketType(make_socket_type_effector(SOCK_EVENTS));

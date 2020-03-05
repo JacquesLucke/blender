@@ -686,6 +686,12 @@ const char *nodeStaticSocketType(int type, int subtype)
       return "NodeSocketForces";
     case SOCK_CONTROL_FLOW:
       return "NodeSocketControlFlow";
+    case SOCK_OBJECT:
+      return "NodeSocketObject";
+    case SOCK_IMAGE:
+      return "NodeSocketImage";
+    case SOCK_SURFACE_HOOK:
+      return "NodeSocketSurfaceHook";
   }
   return NULL;
 }
@@ -755,6 +761,12 @@ const char *nodeStaticSocketInterfaceType(int type, int subtype)
       return "NodeSocketInterfaceForces";
     case SOCK_CONTROL_FLOW:
       return "NodeSocketInterfaceControlFlow";
+    case SOCK_OBJECT:
+      return "NodeSocketInterfaceObject";
+    case SOCK_IMAGE:
+      return "NodeSocketInterfaceImage";
+    case SOCK_SURFACE_HOOK:
+      return "NodeSocketInterfaceSurfaceHook";
   }
   return NULL;
 }
