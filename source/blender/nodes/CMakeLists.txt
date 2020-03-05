@@ -223,6 +223,7 @@ set(SRC
 
   simulation/nodes/node_sim_common.cc
   simulation/nodes/node_sim_custom_force.cc
+  simulation/nodes/node_sim_execute_condition.cc
   simulation/nodes/node_sim_particle_birth_event.cc
   simulation/nodes/node_sim_particle_simulation.cc
   simulation/nodes/node_sim_particle_time_step_event.cc
