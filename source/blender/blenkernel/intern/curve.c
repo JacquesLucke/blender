@@ -220,9 +220,9 @@ Curve *BKE_curve_copy(Main *bmain, const Curve *cu)
   return cu_copy;
 }
 
-void BKE_curve_make_local(Main *bmain, Curve *cu, const bool lib_local)
+void BKE_curve_make_local(Main *bmain, Curve *cu, const int flags)
 {
-  BKE_id_make_local_generic(bmain, &cu->id, true, lib_local);
+  BKE_lib_id_make_local_generic(bmain, &cu->id, flags);
 }
 
 /* Get list of nurbs from editnurbs structure */
@@ -3031,7 +3031,7 @@ void BKE_curve_bevelList_make(Object *ob, ListBase *nurbs, bool for_render)
     blnext = bl->next;
     if (bl->nr && bl->dupe_nr) {
       nr = bl->nr - bl->dupe_nr + 1; /* +1 because vectorbezier sets flag too */
-      blnew = MEM_callocN(sizeof(BevList), "makeBevelList4");
+      blnew = MEM_mallocN(sizeof(BevList), "makeBevelList4");
       memcpy(blnew, bl, sizeof(BevList));
       blnew->bevpoints = MEM_calloc_arrayN(nr, sizeof(BevPoint), "makeBevelPoints4");
       if (!blnew->bevpoints) {

@@ -5086,11 +5086,11 @@ static void lib_link_object(FileData *fd, Main *bmain, Object *ob)
   /* When the object is local and the data is library its possible
    * the material list size gets out of sync. [#22663] */
   if (ob->data && ob->id.lib != ((ID *)ob->data)->lib) {
-    const short *totcol_data = BKE_object_material_num(ob);
+    const short *totcol_data = BKE_object_material_len_p(ob);
     /* Only expand so as not to loose any object materials that might be set. */
     if (totcol_data && (*totcol_data > ob->totcol)) {
       /* printf("'%s' %d -> %d\n", ob->id.name, ob->totcol, *totcol_data); */
-      BKE_material_resize_object(bmain, ob, *totcol_data, false);
+      BKE_object_material_resize(bmain, ob, *totcol_data, false);
     }
   }
 
@@ -7700,8 +7700,8 @@ static void *restore_pointer_by_name_main(Main *mainp, ID *id, ePointerUserMode 
  * Only for undo files, or to restore a screen after reading without UI...
  *
  * \param user:
- * - USER_IGNORE: no usercount change
- * - USER_REAL: ensure a real user (even if a fake one is set)
+ * - USER_IGNORE: no user-count change.
+ * - USER_REAL: ensure a real user (even if a fake one is set).
  * \param id_map: lookup table, use when performing many lookups.
  * this could be made an optional argument (falling back to a full lookup),
  * however at the moment it's always available.
@@ -11283,7 +11283,7 @@ static ID *link_named_part(
 /**
  * Simple reader for copy/paste buffers.
  */
-int BLO_library_link_copypaste(Main *mainl, BlendHandle *bh, const unsigned int id_types_mask)
+int BLO_library_link_copypaste(Main *mainl, BlendHandle *bh, const uint64_t id_types_mask)
 {
   FileData *fd = (FileData *)(bh);
   BHead *bhead;
