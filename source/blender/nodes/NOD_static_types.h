@@ -259,7 +259,7 @@ DefNode(TextureNode,    TEX_NODE_PROC+TEX_STUCCI, 0,                     "TEX_ST
 DefNode(TextureNode,    TEX_NODE_PROC+TEX_DISTNOISE, 0,                  "TEX_DISTNOISE",  TexDistNoise,     "Distorted Noise",   ""              )
 
 DefNode(SimulationNode, SIM_NODE_PARTICLE_SIMULATION, 0,                 "PARTICLE_SIMULATION", ParticleSimulation, "Particle Simulation", "")
-DefNode(SimulationNode, SIM_NODE_CUSTOM_FORCE,        0,                 "CUSTOM_FORCE",        CustomForce,        "Custom Force",        "")
+DefNode(SimulationNode, SIM_NODE_FORCE,        0,                        "FORCE",               Force,              "Force",               "")
 DefNode(SimulationNode, SIM_NODE_SET_PARTICLE_ATTRIBUTE, 0,              "SET_PARTICLE_ATTRIBUTE", SetParticleAttribute, "Set Particle Attribute", "")
 DefNode(SimulationNode, SIM_NODE_PARTICLE_BIRTH_EVENT,   0,              "PARTICLE_BIRTH_EVENT",   ParticleBirthEvent,   "Particle Birth Event",   "")
 DefNode(SimulationNode, SIM_NODE_PARTICLE_TIME_STEP_EVENT, def_sim_particle_time_step_event, "PARTICLE_TIME_STEP_EVENT", ParticleTimeStepEvent, "Particle Time Step Event", "")

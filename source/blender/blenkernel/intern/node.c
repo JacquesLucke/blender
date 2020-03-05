@@ -4124,7 +4124,7 @@ static void registerSimulationNodes(void)
   register_node_type_sim_group();
 
   register_node_type_sim_particle_simulation();
-  register_node_type_sim_custom_force();
+  register_node_type_sim_force();
   register_node_type_set_particle_attribute();
   register_node_type_sim_particle_birth_event();
   register_node_type_sim_particle_time_step_event();
