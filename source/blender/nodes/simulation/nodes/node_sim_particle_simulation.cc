@@ -4,7 +4,6 @@ static bNodeSocketTemplate sim_node_particle_simulation_in[] = {
     {SOCK_EMITTERS, 1000, N_("Emitters")},
     {SOCK_EVENTS, 1000, N_("Events")},
     {SOCK_FORCES, 1000, N_("Forces")},
-    {SOCK_CONTROL_FLOW, 1, N_("Control Flow")},
     {-1, 0, ""},
 };
 
