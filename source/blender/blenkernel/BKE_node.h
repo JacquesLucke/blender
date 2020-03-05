@@ -1012,6 +1012,7 @@ void BKE_nodetree_remove_layer_n(struct bNodeTree *ntree,
 #define SIM_NODE_PARTICLE_BIRTH_EVENT 1003
 #define SIM_NODE_PARTICLE_TIME_STEP_EVENT 1004
 #define SIM_NODE_EXECUTE_CONDITION 1005
+#define SIM_NODE_MULTI_EXECUTE 1006
 
 /* custom defines options for Material node */
 // #define SH_NODE_MAT_DIFF 1

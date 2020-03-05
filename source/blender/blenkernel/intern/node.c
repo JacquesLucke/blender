@@ -4129,6 +4129,7 @@ static void registerSimulationNodes(void)
   register_node_type_sim_particle_birth_event();
   register_node_type_sim_particle_time_step_event();
   register_node_type_sim_execute_condition();
+  register_node_type_sim_multi_execute();
 }
 
 void init_nodesystem(void)

@@ -488,6 +488,7 @@ simulation_node_categories = [
     SimulationNodeCategory("EXECUTE", "Execute", items=[
         NodeItem("SimulationNodeSetParticleAttribute"),
         NodeItem("SimulationNodeExecuteCondition"),
+        NodeItem("SimulationNodeMultiExecute"),
     ]),
 ]
 

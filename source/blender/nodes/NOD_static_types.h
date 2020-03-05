@@ -264,6 +264,7 @@ DefNode(SimulationNode, SIM_NODE_SET_PARTICLE_ATTRIBUTE, 0,              "SET_PA
 DefNode(SimulationNode, SIM_NODE_PARTICLE_BIRTH_EVENT,   0,              "PARTICLE_BIRTH_EVENT",   ParticleBirthEvent,   "Particle Birth Event",   "")
 DefNode(SimulationNode, SIM_NODE_PARTICLE_TIME_STEP_EVENT, def_sim_particle_time_step_event, "PARTICLE_TIME_STEP_EVENT", ParticleTimeStepEvent, "Particle Time Step Event", "")
 DefNode(SimulationNode, SIM_NODE_EXECUTE_CONDITION,   0,                 "EXECUTE_CONDITION",   ExecuteCondition,   "Execute Condition",    "")
+DefNode(SimulationNode, SIM_NODE_MULTI_EXECUTE,       0,                 "MULTI_EXECUTE",       MultiExecute,       "Multi Execute",        "")
 
 /* undefine macros */
 #undef DefNode
