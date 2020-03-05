@@ -3123,6 +3123,24 @@ static void node_texture_set_butfunc(bNodeType *ntype)
   }
 }
 
+/* ****************** BUTTON CALLBACKS FOR SIMULATION NODES ***************** */
+
+static void node_simulation_buts_particle_time_step_event(uiLayout *layout,
+                                                          bContext *UNUSED(C),
+                                                          PointerRNA *ptr)
+{
+  uiItemR(layout, ptr, "mode", 0, "", ICON_NONE);
+}
+
+static void node_simulation_set_butfunc(bNodeType *ntype)
+{
+  switch (ntype->type) {
+    case SIM_NODE_PARTICLE_TIME_STEP_EVENT:
+      ntype->draw_buttons = node_simulation_buts_particle_time_step_event;
+      break;
+  }
+}
+
 /* ****** init draw callbacks for all tree types, only called in usiblender.c, once ************ */
 
 static void node_property_update_default(Main *bmain, Scene *UNUSED(scene), PointerRNA *ptr)
@@ -3231,6 +3249,7 @@ void ED_node_init_butfuncs(void)
     node_composit_set_butfunc(ntype);
     node_shader_set_butfunc(ntype);
     node_texture_set_butfunc(ntype);
+    node_simulation_set_butfunc(ntype);
 
     /* define update callbacks for socket properties */
     node_template_properties_update(ntype);

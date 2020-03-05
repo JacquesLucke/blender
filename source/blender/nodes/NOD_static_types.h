@@ -262,7 +262,7 @@ DefNode(SimulationNode, SIM_NODE_PARTICLE_SIMULATION, 0,                 "PARTIC
 DefNode(SimulationNode, SIM_NODE_CUSTOM_FORCE,        0,                 "CUSTOM_FORCE",        CustomForce,        "Custom Force",        "")
 DefNode(SimulationNode, SIM_NODE_SET_PARTICLE_ATTRIBUTE, 0,              "SET_PARTICLE_ATTRIBUTE", SetParticleAttribute, "Set Particle Attribute", "")
 DefNode(SimulationNode, SIM_NODE_PARTICLE_BIRTH_EVENT,   0,              "PARTICLE_BIRTH_EVENT",   ParticleBirthEvent,   "Particle Birth Event",   "")
-DefNode(SimulationNode, SIM_NODE_PARTICLE_TIME_STEP_EVENT, 0,            "PARTICLE_TIME_STEP_EVENT", ParticleTimeStepEvent, "Particle Time Step Event", "")
+DefNode(SimulationNode, SIM_NODE_PARTICLE_TIME_STEP_EVENT, def_sim_particle_time_step_event, "PARTICLE_TIME_STEP_EVENT", ParticleTimeStepEvent, "Particle Time Step Event", "")
 
 /* undefine macros */
 #undef DefNode

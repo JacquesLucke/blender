@@ -7942,6 +7942,33 @@ static void def_tex_bricks(StructRNA *srna)
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
 }
 
+/* -- Simulation Nodes --------------------------------------------------------- */
+
+static void def_sim_particle_time_step_event(StructRNA *srna)
+{
+  static const EnumPropertyItem mode_items[] = {
+      {NODE_PARTICLE_TIME_STEP_EVENT_BEGIN,
+       "BEGIN",
+       0,
+       "Begin",
+       "Execute for every particle at the beginning of each time step"},
+      {NODE_PARTICLE_TIME_STEP_EVENT_END,
+       "END",
+       0,
+       "End",
+       "Execute for every particle at the end of each time step"},
+      {0, NULL, 0, NULL, NULL},
+  };
+
+  PropertyRNA *prop;
+
+  prop = RNA_def_property(srna, "mode", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_sdna(prop, NULL, "custom1");
+  RNA_def_property_enum_items(prop, mode_items);
+  RNA_def_property_ui_text(prop, "Mode", "When in each time step is the event triggered");
+  RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
+}
+
 /* -------------------------------------------------------------------------- */
 
 static void rna_def_shader_node(BlenderRNA *brna)
