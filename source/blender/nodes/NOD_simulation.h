@@ -15,6 +15,7 @@ void register_node_type_sim_particle_simulation(void);
 void register_node_type_sim_custom_force(void);
 void register_node_type_set_particle_attribute(void);
 void register_node_type_sim_particle_birth_event(void);
+void register_node_type_sim_particle_time_step_event(void);
 
 #ifdef __cplusplus
 }
