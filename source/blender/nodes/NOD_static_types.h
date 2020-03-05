@@ -266,6 +266,8 @@ DefNode(SimulationNode, SIM_NODE_PARTICLE_TIME_STEP_EVENT, def_sim_particle_time
 DefNode(SimulationNode, SIM_NODE_EXECUTE_CONDITION,   0,                 "EXECUTE_CONDITION",   ExecuteCondition,   "Execute Condition",    "")
 DefNode(SimulationNode, SIM_NODE_MULTI_EXECUTE,       0,                 "MULTI_EXECUTE",       MultiExecute,       "Multi Execute",        "")
 
+DefNode(FunctionNode, FN_NODE_COMBINE_VECTOR, 0, "COMBINE_VECTOR", CombineVector, "Combine Vector", "")
+
 /* undefine macros */
 #undef DefNode
 

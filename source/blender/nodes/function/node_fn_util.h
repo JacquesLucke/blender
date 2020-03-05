@@ -1,5 +1,5 @@
-#ifndef __NODE_SIM_UTIL_H__
-#define __NODE_SIM_UTIL_H__
+#ifndef __NODE_FN_UTIL_H__
+#define __NODE_FN_UTIL_H__
 
 #include <string.h>
 
@@ -13,12 +13,12 @@
 
 #include "BLT_translation.h"
 
-#include "NOD_simulation.h"
+#include "NOD_function.h"
 
 #include "node_util.h"
 
-void sim_node_type_base(
+void fn_node_type_base(
     struct bNodeType *ntype, int type, const char *name, short nclass, short flag);
-bool sim_node_poll_default(struct bNodeType *ntype, struct bNodeTree *ntree);
+bool fn_node_poll_default(struct bNodeType *ntype, struct bNodeTree *ntree);
 
-#endif /* __NODE_SIM_UTIL_H__ */
+#endif /* __NODE_FN_UTIL_H__ */

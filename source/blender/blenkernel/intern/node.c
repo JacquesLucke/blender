@@ -68,6 +68,7 @@
 #include "NOD_shader.h"
 #include "NOD_texture.h"
 #include "NOD_simulation.h"
+#include "NOD_function.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
@@ -4144,6 +4145,11 @@ static void registerSimulationNodes(void)
   register_node_type_sim_multi_execute();
 }
 
+static void registerFunctionNodes(void)
+{
+  register_node_type_fn_combine_vector();
+}
+
 void init_nodesystem(void)
 {
   nodetreetypes_hash = BLI_ghash_str_new("nodetreetypes_hash gh");
@@ -4168,6 +4174,7 @@ void init_nodesystem(void)
   registerShaderNodes();
   registerTextureNodes();
   registerSimulationNodes();
+  registerFunctionNodes();
 }
 
 void free_nodesystem(void)

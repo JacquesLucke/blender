@@ -63,6 +63,12 @@ class SimulationNodeCategory(SortedNodeCategory):
         return (context.space_data.type == 'NODE_EDITOR' and
                 context.space_data.tree_type == 'SimulationNodeTree')
 
+class FunctionNodeCategory(SortedNodeCategory):
+    @classmethod
+    def poll(cls, context):
+        return (context.space_data.type == 'NODE_EDITOR' and
+                context.space_data.tree_type == 'SimulationNodeTree')
+
 
 # menu entry for node group tools
 def group_tools_draw(self, layout, context):
@@ -489,6 +495,9 @@ simulation_node_categories = [
         NodeItem("SimulationNodeSetParticleAttribute"),
         NodeItem("SimulationNodeExecuteCondition"),
         NodeItem("SimulationNodeMultiExecute"),
+    ]),
+    FunctionNodeCategory("VECTOR", "Vector", items=[
+        NodeItem("FunctionNodeCombineVector"),
     ]),
 ]
 
