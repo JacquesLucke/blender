@@ -11879,4 +11879,14 @@ static void read_libraries(FileData *basefd, ListBase *mainlist)
   BKE_main_free(main_newid);
 }
 
+void *BLO_read_new_address(BloReadData *rd, const void *old_address)
+{
+  return newdataadr((FileData *)rd, old_address);
+}
+
+bool BLO_read_requires_endian_switch(BloReadData *rd)
+{
+  return (((FileData *)rd)->flags & FD_FLAGS_SWITCH_ENDIAN) != 0;
+}
+
 /** \} */

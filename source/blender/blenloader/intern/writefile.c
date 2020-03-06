@@ -4173,4 +4173,44 @@ bool BLO_write_file_mem(Main *mainvar, MemFile *compare, MemFile *current, int w
   return (err == 0);
 }
 
+void BLO_write_data(BloWriteData *wd, const void *data_ptr, int length)
+{
+  writedata((WriteData *)wd, DATA, length, data_ptr);
+}
+
+void BLO_write_struct_by_name(BloWriteData *wd, const char *struct_name, const void *data_ptr)
+{
+  int struct_id = BLO_get_struct_id_by_name(wd, struct_name);
+  BLO_write_struct_by_id(wd, struct_id, data_ptr);
+}
+
+void BLO_write_struct_array_by_name(BloWriteData *wd,
+                                    const char *struct_name,
+                                    const void *data_ptr,
+                                    int array_size)
+{
+  int struct_id = BLO_get_struct_id_by_name(wd, struct_name);
+  BLO_write_struct_array_by_id(wd, struct_id, data_ptr, array_size);
+}
+
+void BLO_write_struct_by_id(BloWriteData *wd, int struct_id, const void *data_ptr)
+{
+  writestruct_nr((WriteData *)wd, DATA, struct_id, 1, data_ptr);
+}
+
+void BLO_write_struct_array_by_id(BloWriteData *wd,
+                                  int struct_id,
+                                  const void *data_ptr,
+                                  int array_size)
+{
+  writestruct_nr((WriteData *)wd, DATA, struct_id, array_size, data_ptr);
+}
+
+int BLO_get_struct_id_by_name(BloWriteData *wd, const char *struct_name)
+{
+  int struct_id = DNA_struct_find_nr(((WriteData *)wd)->sdna, struct_name);
+  BLI_assert(struct_id >= 0);
+  return struct_id;
+}
+
 /** \} */
