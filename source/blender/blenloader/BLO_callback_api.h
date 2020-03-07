@@ -12,6 +12,9 @@ typedef struct BloReader BloReader;
  **********************************************/
 
 void BLO_write_raw(BloWriter *writer, int size_in_bytes, const void *data_ptr);
+#define BLO_write_raw_array(writer, element_size, length, data_ptr) \
+  BLO_write_raw(writer, (element_size) * (length), data_ptr)
+
 void BLO_write_struct_by_name(BloWriter *writer, const char *struct_name, const void *data_ptr);
 void BLO_write_struct_array_by_name(BloWriter *writer,
                                     const char *struct_name,
