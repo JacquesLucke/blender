@@ -1658,13 +1658,6 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
         BKE_curvemapping_blo_write_ptr(wrap_writer(wd), tmd->curfalloff);
       }
     }
-    else if (md->type == eModifierType_WeightVGEdit) {
-      WeightVGEditModifierData *wmd = (WeightVGEditModifierData *)md;
-
-      if (wmd->cmap_curve) {
-        BKE_curvemapping_blo_write_ptr(wrap_writer(wd), wmd->cmap_curve);
-      }
-    }
   }
 }
 
@@ -4090,22 +4083,22 @@ int BLO_get_struct_id_by_name(BloWriter *writer, const char *struct_name)
   return struct_id;
 }
 
-void BLO_write_int32_array(BloWriter *writer, int size, int32_t *data_ptr)
+void BLO_write_int32_array(BloWriter *writer, int size, const int32_t *data_ptr)
 {
   BLO_write_raw(writer, sizeof(int32_t) * size, data_ptr);
 }
 
-void BLO_write_uint32_array(BloWriter *writer, int size, uint32_t *data_ptr)
+void BLO_write_uint32_array(BloWriter *writer, int size, const uint32_t *data_ptr)
 {
   BLO_write_raw(writer, sizeof(uint32_t) * size, data_ptr);
 }
 
-void BLO_write_float_array(BloWriter *writer, int size, float *data_ptr)
+void BLO_write_float_array(BloWriter *writer, int size, const float *data_ptr)
 {
   BLO_write_raw(writer, sizeof(float) * size, data_ptr);
 }
 
-void BLO_write_float3_array(BloWriter *writer, int size, float *data_ptr)
+void BLO_write_float3_array(BloWriter *writer, int size, const float *data_ptr)
 {
   BLO_write_raw(writer, sizeof(float) * 3 * size, data_ptr);
 }

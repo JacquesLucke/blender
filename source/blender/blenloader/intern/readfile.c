@@ -5464,14 +5464,6 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
         BKE_curvemapping_blo_read_struct(wrap_reader(fd), tmd->curfalloff);
       }
     }
-    else if (md->type == eModifierType_WeightVGEdit) {
-      WeightVGEditModifierData *wmd = (WeightVGEditModifierData *)md;
-
-      wmd->cmap_curve = newdataadr(fd, wmd->cmap_curve);
-      if (wmd->cmap_curve) {
-        BKE_curvemapping_blo_read_struct(wrap_reader(fd), wmd->cmap_curve);
-      }
-    }
     else if (md->type == eModifierType_MeshSequenceCache) {
       MeshSeqCacheModifierData *msmcd = (MeshSeqCacheModifierData *)md;
       msmcd->reader = NULL;

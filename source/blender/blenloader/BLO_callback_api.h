@@ -35,10 +35,10 @@ int BLO_get_struct_id_by_name(BloWriter *writer, const char *struct_name);
   BLO_write_struct_array_by_id( \
       writer, BLO_get_struct_id(writer, struct_name), array_size, data_ptr)
 
-void BLO_write_int32_array(BloWriter *writer, int size, int32_t *data_ptr);
-void BLO_write_uint32_array(BloWriter *writer, int size, uint32_t *data_ptr);
-void BLO_write_float_array(BloWriter *writer, int size, float *data_ptr);
-void BLO_write_float3_array(BloWriter *writer, int size, float *data_ptr);
+void BLO_write_int32_array(BloWriter *writer, int size, const int32_t *data_ptr);
+void BLO_write_uint32_array(BloWriter *writer, int size, const uint32_t *data_ptr);
+void BLO_write_float_array(BloWriter *writer, int size, const float *data_ptr);
+void BLO_write_float3_array(BloWriter *writer, int size, const float *data_ptr);
 
 /* API for file reading.
  **********************************************/
