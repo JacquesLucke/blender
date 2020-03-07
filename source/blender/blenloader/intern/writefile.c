@@ -1617,30 +1617,6 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
 
       writestruct(wd, DATA, FluidsimSettings, 1, fluidmd->fss);
     }
-    else if (md->type == eModifierType_DynamicPaint) {
-      DynamicPaintModifierData *pmd = (DynamicPaintModifierData *)md;
-
-      if (pmd->canvas) {
-        DynamicPaintSurface *surface;
-        writestruct(wd, DATA, DynamicPaintCanvasSettings, 1, pmd->canvas);
-
-        /* write surfaces */
-        for (surface = pmd->canvas->surfaces.first; surface; surface = surface->next) {
-          writestruct(wd, DATA, DynamicPaintSurface, 1, surface);
-        }
-        /* write caches and effector weights */
-        for (surface = pmd->canvas->surfaces.first; surface; surface = surface->next) {
-          BKE_ptcache_blo_write_list(wrap_writer(wd), &(surface->ptcaches));
-
-          writestruct(wd, DATA, EffectorWeights, 1, surface->effector_weights);
-        }
-      }
-      if (pmd->brush) {
-        writestruct(wd, DATA, DynamicPaintBrushSettings, 1, pmd->brush);
-        writestruct(wd, DATA, ColorBand, 1, pmd->brush->paint_ramp);
-        writestruct(wd, DATA, ColorBand, 1, pmd->brush->vel_ramp);
-      }
-    }
     else if (md->type == eModifierType_Collision) {
 
 #if 0

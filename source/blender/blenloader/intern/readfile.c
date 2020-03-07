@@ -5371,37 +5371,6 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
         }
       }
     }
-    else if (md->type == eModifierType_DynamicPaint) {
-      DynamicPaintModifierData *pmd = (DynamicPaintModifierData *)md;
-
-      if (pmd->canvas) {
-        pmd->canvas = newdataadr(fd, pmd->canvas);
-        pmd->canvas->pmd = pmd;
-        pmd->canvas->flags &= ~MOD_DPAINT_BAKING; /* just in case */
-
-        if (pmd->canvas->surfaces.first) {
-          DynamicPaintSurface *surface;
-          link_list(fd, &pmd->canvas->surfaces);
-
-          for (surface = pmd->canvas->surfaces.first; surface; surface = surface->next) {
-            surface->canvas = pmd->canvas;
-            surface->data = NULL;
-            BKE_ptcache_blo_read(wrap_reader(fd), &(surface->ptcaches), &(surface->pointcache), 1);
-
-            if (!(surface->effector_weights = newdataadr(fd, surface->effector_weights))) {
-              surface->effector_weights = BKE_effector_add_weights(NULL);
-            }
-          }
-        }
-      }
-      if (pmd->brush) {
-        pmd->brush = newdataadr(fd, pmd->brush);
-        pmd->brush->pmd = pmd;
-        pmd->brush->psys = newdataadr(fd, pmd->brush->psys);
-        pmd->brush->paint_ramp = newdataadr(fd, pmd->brush->paint_ramp);
-        pmd->brush->vel_ramp = newdataadr(fd, pmd->brush->vel_ramp);
-      }
-    }
     else if (md->type == eModifierType_Collision) {
       CollisionModifierData *collmd = (CollisionModifierData *)md;
 #if 0
