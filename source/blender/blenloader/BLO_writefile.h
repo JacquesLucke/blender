@@ -40,26 +40,4 @@ extern bool BLO_write_file_mem(struct Main *mainvar,
                                struct MemFile *current,
                                int write_flags);
 
-typedef struct BloWriter BloWriter;
-
-void BLO_write_raw(BloWriter *writer, const void *data_ptr, int length);
-void BLO_write_struct_by_name(BloWriter *writer, const char *struct_name, const void *data_ptr);
-void BLO_write_struct_array_by_name(BloWriter *writer,
-                                    const char *struct_name,
-                                    const void *data_ptr,
-                                    int array_size);
-void BLO_write_struct_by_id(BloWriter *writer, int struct_id, const void *data_ptr);
-void BLO_write_struct_array_by_id(BloWriter *writer,
-                                  int struct_id,
-                                  const void *data_ptr,
-                                  int array_size);
-
-int BLO_get_struct_id_by_name(BloWriter *writer, const char *struct_name);
-#define BLO_get_struct_id(writer, struct_name) BLO_get_struct_id_by_name(writer, #struct_name)
-
-#define BLO_write_struct(writer, struct_name, data_ptr) \
-  BLO_write_struct_by_id(writer, BLO_get_struct_id(writer, struct_name), data_ptr)
-#define BLO_write_struct_array(writer, struct_name, data_ptr, array_size) \
-  BLO_write_struct_array_by_id(writer, BLO_get_struct_id(writer, struct_name), data_ptr, array_size)
-
 #endif
