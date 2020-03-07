@@ -55,6 +55,8 @@ void BLO_read_list(BloReader *reader, struct ListBase *list, BloLinkListFn callb
 
 #define BLO_read_array_int32(reader, ptr, array_size) \
   BLO_read_array_endian_corrected(reader, int32, ptr, array_size)
+#define BLO_read_array_uint32(reader, ptr, array_size) \
+  BLO_read_array_endian_corrected(reader, uint32, ptr, array_size)
 #define BLO_read_array_float(reader, ptr, array_size) \
   BLO_read_array_endian_corrected(reader, float, ptr, array_size)
 #define BLO_read_array_float3(reader, ptr, array_size) \

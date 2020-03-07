@@ -5500,43 +5500,6 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
       msmcd->reader = NULL;
       msmcd->reader_object_path[0] = '\0';
     }
-    else if (md->type == eModifierType_SurfaceDeform) {
-      SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *)md;
-
-      smd->verts = newdataadr(fd, smd->verts);
-
-      if (smd->verts) {
-        for (int i = 0; i < smd->numverts; i++) {
-          smd->verts[i].binds = newdataadr(fd, smd->verts[i].binds);
-
-          if (smd->verts[i].binds) {
-            for (int j = 0; j < smd->verts[i].numbinds; j++) {
-              smd->verts[i].binds[j].vert_inds = newdataadr(fd, smd->verts[i].binds[j].vert_inds);
-              smd->verts[i].binds[j].vert_weights = newdataadr(
-                  fd, smd->verts[i].binds[j].vert_weights);
-
-              if (fd->flags & FD_FLAGS_SWITCH_ENDIAN) {
-                if (smd->verts[i].binds[j].vert_inds) {
-                  BLI_endian_switch_uint32_array(smd->verts[i].binds[j].vert_inds,
-                                                 smd->verts[i].binds[j].numverts);
-                }
-
-                if (smd->verts[i].binds[j].vert_weights) {
-                  if (smd->verts[i].binds[j].mode == MOD_SDEF_MODE_CENTROID ||
-                      smd->verts[i].binds[j].mode == MOD_SDEF_MODE_LOOPTRI) {
-                    BLI_endian_switch_float_array(smd->verts[i].binds[j].vert_weights, 3);
-                  }
-                  else {
-                    BLI_endian_switch_float_array(smd->verts[i].binds[j].vert_weights,
-                                                  smd->verts[i].binds[j].numverts);
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
     else if (md->type == eModifierType_Bevel) {
       BevelModifierData *bmd = (BevelModifierData *)md;
       bmd->custom_profile = newdataadr(fd, bmd->custom_profile);
