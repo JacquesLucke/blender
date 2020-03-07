@@ -217,13 +217,13 @@ static void bloWrite(BloWriter *writer, const ModifierData *md)
       if (smd->verts[i].binds) {
         for (int j = 0; j < smd->verts[i].numbinds; j++) {
           SDefBind *bind = &smd->verts[i].binds[j];
-          BLO_write_raw_array(writer, sizeof(int), bind->numverts, bind->vert_inds);
+          BLO_write_int32_array(writer, bind->numverts, bind->vert_inds);
 
           if (ELEM(bind->mode, MOD_SDEF_MODE_CENTROID, MOD_SDEF_MODE_LOOPTRI)) {
-            BLO_write_raw(writer, sizeof(float) * 3, bind->vert_weights);
+            BLO_write_float3_array(writer, 1, bind->vert_weights);
           }
           else {
-            BLO_write_raw_array(writer, sizeof(float), bind->numverts, bind->vert_weights);
+            BLO_write_float_array(writer, bind->numverts, bind->vert_weights);
           }
         }
       }

@@ -4095,4 +4095,24 @@ int BLO_get_struct_id_by_name(BloWriter *writer, const char *struct_name)
   return struct_id;
 }
 
+void BLO_write_int32_array(BloWriter *writer, int size, int32_t *data_ptr)
+{
+  BLO_write_raw(writer, sizeof(int32_t) * size, data_ptr);
+}
+
+void BLO_write_uint32_array(BloWriter *writer, int size, uint32_t *data_ptr)
+{
+  BLO_write_raw(writer, sizeof(uint32_t) * size, data_ptr);
+}
+
+void BLO_write_float_array(BloWriter *writer, int size, float *data_ptr)
+{
+  BLO_write_raw(writer, sizeof(float) * size, data_ptr);
+}
+
+void BLO_write_float3_array(BloWriter *writer, int size, float *data_ptr)
+{
+  BLO_write_raw(writer, sizeof(float) * 3 * size, data_ptr);
+}
+
 /** \} */

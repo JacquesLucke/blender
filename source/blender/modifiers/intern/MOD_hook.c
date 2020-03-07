@@ -132,7 +132,7 @@ static void bloWrite(BloWriter *writer, const ModifierData *md)
   if (hmd->curfalloff) {
     BKE_curvemapping_blo_write_ptr(writer, hmd->curfalloff);
   }
-  BLO_write_raw_array(writer, sizeof(int), hmd->totindex, hmd->indexar);
+  BLO_write_int32_array(writer, hmd->totindex, hmd->indexar);
 }
 
 static void bloRead(BloReader *reader, ModifierData *md)

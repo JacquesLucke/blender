@@ -121,7 +121,7 @@ static void bloWrite(BloWriter *writer, const ModifierData *md)
   CorrectiveSmoothModifierData *csmd = (CorrectiveSmoothModifierData *)md;
 
   if (csmd->bind_coords) {
-    BLO_write_raw_array(writer, sizeof(float[3]), csmd->bind_coords_num, csmd->bind_coords);
+    BLO_write_float3_array(writer, (int)csmd->bind_coords_num, (float *)csmd->bind_coords);
   }
 }
 

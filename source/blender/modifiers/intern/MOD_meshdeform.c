@@ -171,12 +171,12 @@ static void bloWrite(BloWriter *writer, const ModifierData *md)
   int size = mmd->dyngridsize;
 
   BLO_write_struct_array(writer, MDefInfluence, mmd->totinfluence, mmd->bindinfluences);
-  BLO_write_raw_array(writer, sizeof(int), mmd->totvert + 1, mmd->bindoffsets);
-  BLO_write_raw_array(writer, sizeof(float) * 3, mmd->totcagevert, mmd->bindcagecos);
+  BLO_write_int32_array(writer, mmd->totvert + 1, mmd->bindoffsets);
+  BLO_write_float3_array(writer, mmd->totcagevert, mmd->bindcagecos);
 
   BLO_write_struct_array(writer, MDefCell, size * size * size, mmd->dyngrid);
   BLO_write_struct_array(writer, MDefInfluence, mmd->totinfluence, mmd->dyninfluences);
-  BLO_write_raw_array(writer, sizeof(int), mmd->totvert, mmd->dynverts);
+  BLO_write_int32_array(writer, mmd->totvert, mmd->dynverts);
 }
 
 static void bloRead(BloReader *reader, ModifierData *md)
