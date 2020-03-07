@@ -5397,15 +5397,6 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
       collmd->bvhtree = NULL;
       collmd->tri = NULL;
     }
-    else if (md->type == eModifierType_Surface) {
-      SurfaceModifierData *surmd = (SurfaceModifierData *)md;
-
-      surmd->mesh = NULL;
-      surmd->bvhtree = NULL;
-      surmd->x = NULL;
-      surmd->v = NULL;
-      surmd->numverts = 0;
-    }
     else if (md->type == eModifierType_ParticleSystem) {
       ParticleSystemModifierData *psmd = (ParticleSystemModifierData *)md;
 

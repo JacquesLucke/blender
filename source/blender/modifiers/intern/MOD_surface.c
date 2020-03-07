@@ -42,6 +42,8 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "BLO_callback_api.h"
+
 static void initData(ModifierData *md)
 {
   SurfaceModifierData *surmd = (SurfaceModifierData *)md;
@@ -88,6 +90,17 @@ static void freeData(ModifierData *md)
 static bool dependsOnTime(ModifierData *UNUSED(md))
 {
   return true;
+}
+
+static void bloRead(BloReader *UNUSED(reader), ModifierData *md)
+{
+  SurfaceModifierData *surmd = (SurfaceModifierData *)md;
+
+  surmd->mesh = NULL;
+  surmd->bvhtree = NULL;
+  surmd->x = NULL;
+  surmd->v = NULL;
+  surmd->numverts = 0;
 }
 
 static void deformVerts(ModifierData *md,
@@ -210,5 +223,5 @@ ModifierTypeInfo modifierType_Surface = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
-    /* bloRead */ NULL,
+    /* bloRead */ bloRead,
 };
