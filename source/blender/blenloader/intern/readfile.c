@@ -5420,11 +5420,6 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
 
       psmd->facepa = NULL;
     }
-    else if (md->type == eModifierType_Ocean) {
-      OceanModifierData *omd = (OceanModifierData *)md;
-      omd->oceancache = NULL;
-      omd->ocean = NULL;
-    }
   }
 }
 

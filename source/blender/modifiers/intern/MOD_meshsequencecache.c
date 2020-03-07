@@ -186,7 +186,7 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
   }
 }
 
-static void bloRead(BloReader *reader, ModifierData *md)
+static void bloRead(BloReader *UNUSED(reader), ModifierData *md)
 {
   MeshSeqCacheModifierData *msmcd = (MeshSeqCacheModifierData *)md;
   msmcd->reader = NULL;
