@@ -5500,13 +5500,6 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
       msmcd->reader = NULL;
       msmcd->reader_object_path[0] = '\0';
     }
-    else if (md->type == eModifierType_Bevel) {
-      BevelModifierData *bmd = (BevelModifierData *)md;
-      bmd->custom_profile = newdataadr(fd, bmd->custom_profile);
-      if (bmd->custom_profile) {
-        BKE_curveprofile_blo_read_struct(wrap_reader(fd), bmd->custom_profile);
-      }
-    }
   }
 }
 

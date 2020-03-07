@@ -1677,12 +1677,6 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
         writedata(wd, DATA, sizeof(float[3]) * csmd->bind_coords_num, csmd->bind_coords);
       }
     }
-    else if (md->type == eModifierType_Bevel) {
-      BevelModifierData *bmd = (BevelModifierData *)md;
-      if (bmd->custom_profile) {
-        BKE_curveprofile_blo_write_ptr(wrap_writer(wd), bmd->custom_profile);
-      }
-    }
   }
 }
 
