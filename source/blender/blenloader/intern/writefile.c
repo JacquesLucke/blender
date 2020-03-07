@@ -4173,7 +4173,7 @@ bool BLO_write_file_mem(Main *mainvar, MemFile *compare, MemFile *current, int w
   return (err == 0);
 }
 
-void BLO_write_data(BloWriter *writer, const void *data_ptr, int length)
+void BLO_write_raw(BloWriter *writer, const void *data_ptr, int length)
 {
   writedata((WriteData *)writer, DATA, length, data_ptr);
 }

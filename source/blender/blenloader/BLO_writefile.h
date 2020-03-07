@@ -42,7 +42,7 @@ extern bool BLO_write_file_mem(struct Main *mainvar,
 
 typedef struct BloWriter BloWriter;
 
-void BLO_write_data(BloWriter *writer, const void *data_ptr, int length);
+void BLO_write_raw(BloWriter *writer, const void *data_ptr, int length);
 void BLO_write_struct_by_name(BloWriter *writer, const char *struct_name, const void *data_ptr);
 void BLO_write_struct_array_by_name(BloWriter *writer,
                                     const char *struct_name,
