@@ -5472,15 +5472,6 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
         BKE_curvemapping_blo_read_struct(wrap_reader(fd), wmd->cmap_curve);
       }
     }
-    else if (md->type == eModifierType_LaplacianDeform) {
-      LaplacianDeformModifierData *lmd = (LaplacianDeformModifierData *)md;
-
-      lmd->vertexco = newdataadr(fd, lmd->vertexco);
-      if (fd->flags & FD_FLAGS_SWITCH_ENDIAN) {
-        BLI_endian_switch_float_array(lmd->vertexco, lmd->total_verts * 3);
-      }
-      lmd->cache_system = NULL;
-    }
     else if (md->type == eModifierType_MeshSequenceCache) {
       MeshSeqCacheModifierData *msmcd = (MeshSeqCacheModifierData *)md;
       msmcd->reader = NULL;

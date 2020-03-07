@@ -1665,11 +1665,6 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
         BKE_curvemapping_blo_write_ptr(wrap_writer(wd), wmd->cmap_curve);
       }
     }
-    else if (md->type == eModifierType_LaplacianDeform) {
-      LaplacianDeformModifierData *lmd = (LaplacianDeformModifierData *)md;
-
-      writedata(wd, DATA, sizeof(float) * lmd->total_verts * 3, lmd->vertexco);
-    }
   }
 }
 
