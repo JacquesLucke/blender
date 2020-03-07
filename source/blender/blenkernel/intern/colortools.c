@@ -193,7 +193,7 @@ void BKE_curvemapping_blo_write_struct(BloWriter *writer, CurveMapping *cumap)
   }
 }
 
-void BKE_curvemapping_read_file(struct BloReader *reader, struct CurveMapping *cumap)
+void BKE_curvemapping_blo_read_struct(struct BloReader *reader, struct CurveMapping *cumap)
 {
   cumap->flag &= ~CUMA_PREMULLED;
 

@@ -2765,7 +2765,7 @@ static void direct_link_brush(FileData *fd, Brush *brush)
   brush->gradient = newdataadr(fd, brush->gradient);
 
   if (brush->curve) {
-    BKE_curvemapping_read_file(wrap_reader(fd), brush->curve);
+    BKE_curvemapping_blo_read_struct(wrap_reader(fd), brush->curve);
   }
   else {
     BKE_brush_curve_preset(brush, CURVE_PRESET_SHARP);
@@ -2781,15 +2781,16 @@ static void direct_link_brush(FileData *fd, Brush *brush)
     brush->gpencil_settings->curve_jitter = newdataadr(fd, brush->gpencil_settings->curve_jitter);
 
     if (brush->gpencil_settings->curve_sensitivity) {
-      BKE_curvemapping_read_file(wrap_reader(fd), brush->gpencil_settings->curve_sensitivity);
+      BKE_curvemapping_blo_read_struct(wrap_reader(fd),
+                                       brush->gpencil_settings->curve_sensitivity);
     }
 
     if (brush->gpencil_settings->curve_strength) {
-      BKE_curvemapping_read_file(wrap_reader(fd), brush->gpencil_settings->curve_strength);
+      BKE_curvemapping_blo_read_struct(wrap_reader(fd), brush->gpencil_settings->curve_strength);
     }
 
     if (brush->gpencil_settings->curve_jitter) {
-      BKE_curvemapping_read_file(wrap_reader(fd), brush->gpencil_settings->curve_jitter);
+      BKE_curvemapping_blo_read_struct(wrap_reader(fd), brush->gpencil_settings->curve_jitter);
     }
   }
 
@@ -3499,7 +3500,7 @@ static void direct_link_nodetree(FileData *fd, bNodeTree *ntree)
         case CMP_NODE_HUECORRECT:
         case TEX_NODE_CURVE_RGB:
         case TEX_NODE_CURVE_TIME: {
-          BKE_curvemapping_read_file(wrap_reader(fd), node->storage);
+          BKE_curvemapping_blo_read_struct(wrap_reader(fd), node->storage);
           break;
         }
         case SH_NODE_SCRIPT: {
@@ -3888,7 +3889,7 @@ static void direct_link_light(FileData *fd, Light *la)
 
   la->curfalloff = newdataadr(fd, la->curfalloff);
   if (la->curfalloff) {
-    BKE_curvemapping_read_file(wrap_reader(fd), la->curfalloff);
+    BKE_curvemapping_blo_read_struct(wrap_reader(fd), la->curfalloff);
   }
 
   la->preview = direct_link_preview_image(fd, la->preview);
@@ -4410,15 +4411,15 @@ static void direct_link_particlesettings(FileData *fd, ParticleSettings *part)
 
   part->clumpcurve = newdataadr(fd, part->clumpcurve);
   if (part->clumpcurve) {
-    BKE_curvemapping_read_file(wrap_reader(fd), part->clumpcurve);
+    BKE_curvemapping_blo_read_struct(wrap_reader(fd), part->clumpcurve);
   }
   part->roughcurve = newdataadr(fd, part->roughcurve);
   if (part->roughcurve) {
-    BKE_curvemapping_read_file(wrap_reader(fd), part->roughcurve);
+    BKE_curvemapping_blo_read_struct(wrap_reader(fd), part->roughcurve);
   }
   part->twistcurve = newdataadr(fd, part->twistcurve);
   if (part->twistcurve) {
-    BKE_curvemapping_read_file(wrap_reader(fd), part->twistcurve);
+    BKE_curvemapping_blo_read_struct(wrap_reader(fd), part->twistcurve);
   }
 
   part->effector_weights = newdataadr(fd, part->effector_weights);
@@ -4563,7 +4564,7 @@ static void direct_link_particlesystems(FileData *fd, ListBase *particles)
       psys->clmd->solver_result = NULL;
     }
 
-    BKE_ptcache_file_read(wrap_reader(fd), &psys->ptcaches, &psys->pointcache, 0);
+    BKE_ptcache_blo_read(wrap_reader(fd), &psys->ptcaches, &psys->pointcache, 0);
     if (psys->clmd) {
       psys->clmd->point_cache = psys->pointcache;
     }
@@ -5296,7 +5297,7 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
       clmd->sim_parms = newdataadr(fd, clmd->sim_parms);
       clmd->coll_parms = newdataadr(fd, clmd->coll_parms);
 
-      BKE_ptcache_file_read(wrap_reader(fd), &clmd->ptcaches, &clmd->point_cache, 0);
+      BKE_ptcache_blo_read(wrap_reader(fd), &clmd->ptcaches, &clmd->point_cache, 0);
 
       if (clmd->sim_parms) {
         if (clmd->sim_parms->presets > 10) {
@@ -5344,7 +5345,7 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
           mmd->domain->effector_weights = BKE_effector_add_weights(NULL);
         }
 
-        BKE_ptcache_file_read(
+        BKE_ptcache_blo_read(
             wrap_reader(fd), &(mmd->domain->ptcaches[0]), &(mmd->domain->point_cache[0]), 1);
 
         /* Manta sim uses only one cache from now on, so store pointer convert */
@@ -5408,8 +5409,7 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
           for (surface = pmd->canvas->surfaces.first; surface; surface = surface->next) {
             surface->canvas = pmd->canvas;
             surface->data = NULL;
-            BKE_ptcache_file_read(
-                wrap_reader(fd), &(surface->ptcaches), &(surface->pointcache), 1);
+            BKE_ptcache_blo_read(wrap_reader(fd), &(surface->ptcaches), &(surface->pointcache), 1);
 
             if (!(surface->effector_weights = newdataadr(fd, surface->effector_weights))) {
               surface->effector_weights = BKE_effector_add_weights(NULL);
@@ -5470,7 +5470,7 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
 
       hmd->curfalloff = newdataadr(fd, hmd->curfalloff);
       if (hmd->curfalloff) {
-        BKE_curvemapping_read_file(wrap_reader(fd), hmd->curfalloff);
+        BKE_curvemapping_blo_read_struct(wrap_reader(fd), hmd->curfalloff);
       }
     }
     else if (md->type == eModifierType_ParticleSystem) {
@@ -5528,7 +5528,7 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
 
       tmd->curfalloff = newdataadr(fd, tmd->curfalloff);
       if (tmd->curfalloff) {
-        BKE_curvemapping_read_file(wrap_reader(fd), tmd->curfalloff);
+        BKE_curvemapping_blo_read_struct(wrap_reader(fd), tmd->curfalloff);
       }
     }
     else if (md->type == eModifierType_WeightVGEdit) {
@@ -5536,7 +5536,7 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
 
       wmd->cmap_curve = newdataadr(fd, wmd->cmap_curve);
       if (wmd->cmap_curve) {
-        BKE_curvemapping_read_file(wrap_reader(fd), wmd->cmap_curve);
+        BKE_curvemapping_blo_read_struct(wrap_reader(fd), wmd->cmap_curve);
       }
     }
     else if (md->type == eModifierType_LaplacianDeform) {
@@ -5608,7 +5608,7 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
       BevelModifierData *bmd = (BevelModifierData *)md;
       bmd->custom_profile = newdataadr(fd, bmd->custom_profile);
       if (bmd->custom_profile) {
-        BKE_curveprofile_read_file(wrap_reader(fd), bmd->custom_profile);
+        BKE_curveprofile_blo_read_struct(wrap_reader(fd), bmd->custom_profile);
       }
     }
   }
@@ -5637,7 +5637,7 @@ static void direct_link_gpencil_modifiers(FileData *fd, ListBase *lb)
 
       hmd->curfalloff = newdataadr(fd, hmd->curfalloff);
       if (hmd->curfalloff) {
-        BKE_curvemapping_read_file(wrap_reader(fd), hmd->curfalloff);
+        BKE_curvemapping_blo_read_struct(wrap_reader(fd), hmd->curfalloff);
       }
     }
     else if (md->type == eGpencilModifierType_Thick) {
@@ -5645,7 +5645,7 @@ static void direct_link_gpencil_modifiers(FileData *fd, ListBase *lb)
 
       gpmd->curve_thickness = newdataadr(fd, gpmd->curve_thickness);
       if (gpmd->curve_thickness) {
-        BKE_curvemapping_read_file(wrap_reader(fd), gpmd->curve_thickness);
+        BKE_curvemapping_blo_read_struct(wrap_reader(fd), gpmd->curve_thickness);
         /* initialize the curve. Maybe this could be moved to modififer logic */
         BKE_curvemapping_initialize(gpmd->curve_thickness);
       }
@@ -5799,12 +5799,11 @@ static void direct_link_object(FileData *fd, Object *ob)
        * We should only do this when sb->shared == NULL, because those pointers
        * are always set (for compatibility with older Blenders). We mustn't link
        * the same pointcache twice. */
-      BKE_ptcache_file_read(wrap_reader(fd), &sb->ptcaches, &sb->pointcache, false);
+      BKE_ptcache_blo_read(wrap_reader(fd), &sb->ptcaches, &sb->pointcache, false);
     }
     else {
       /* link caches */
-      BKE_ptcache_file_read(
-          wrap_reader(fd), &sb->shared->ptcaches, &sb->shared->pointcache, false);
+      BKE_ptcache_blo_read(wrap_reader(fd), &sb->shared->ptcaches, &sb->shared->pointcache, false);
     }
   }
   ob->fluidsimSettings = newdataadr(fd, ob->fluidsimSettings); /* NT */
@@ -5885,7 +5884,7 @@ static void direct_link_view_settings(FileData *fd, ColorManagedViewSettings *vi
   view_settings->curve_mapping = newdataadr(fd, view_settings->curve_mapping);
 
   if (view_settings->curve_mapping) {
-    BKE_curvemapping_read_file(wrap_reader(fd), view_settings->curve_mapping);
+    BKE_curvemapping_blo_read_struct(wrap_reader(fd), view_settings->curve_mapping);
   }
 }
 
@@ -6408,7 +6407,7 @@ static void direct_link_paint(FileData *fd, const Scene *scene, Paint *p)
 
   p->cavity_curve = newdataadr(fd, p->cavity_curve);
   if (p->cavity_curve) {
-    BKE_curvemapping_read_file(wrap_reader(fd), p->cavity_curve);
+    BKE_curvemapping_blo_read_struct(wrap_reader(fd), p->cavity_curve);
   }
   else {
     BKE_paint_cavity_curve_preset(p, CURVE_PRESET_LINE);
@@ -6450,12 +6449,12 @@ static void direct_link_sequence_modifiers(FileData *fd, ListBase *lb)
     if (smd->type == seqModifierType_Curves) {
       CurvesModifierData *cmd = (CurvesModifierData *)smd;
 
-      BKE_curvemapping_read_file(wrap_reader(fd), &cmd->curve_mapping);
+      BKE_curvemapping_blo_read_struct(wrap_reader(fd), &cmd->curve_mapping);
     }
     else if (smd->type == seqModifierType_HueCorrect) {
       HueCorrectModifierData *hcmd = (HueCorrectModifierData *)smd;
 
-      BKE_curvemapping_read_file(wrap_reader(fd), &hcmd->curve_mapping);
+      BKE_curvemapping_blo_read_struct(wrap_reader(fd), &hcmd->curve_mapping);
     }
   }
 }
@@ -6517,26 +6516,29 @@ static void direct_link_scene(FileData *fd, Scene *sce)
     sce->toolsettings->gp_interpolate.custom_ipo = newdataadr(
         fd, sce->toolsettings->gp_interpolate.custom_ipo);
     if (sce->toolsettings->gp_interpolate.custom_ipo) {
-      BKE_curvemapping_read_file(wrap_reader(fd), sce->toolsettings->gp_interpolate.custom_ipo);
+      BKE_curvemapping_blo_read_struct(wrap_reader(fd),
+                                       sce->toolsettings->gp_interpolate.custom_ipo);
     }
     /* relink grease pencil multiframe falloff curve */
     sce->toolsettings->gp_sculpt.cur_falloff = newdataadr(
         fd, sce->toolsettings->gp_sculpt.cur_falloff);
     if (sce->toolsettings->gp_sculpt.cur_falloff) {
-      BKE_curvemapping_read_file(wrap_reader(fd), sce->toolsettings->gp_sculpt.cur_falloff);
+      BKE_curvemapping_blo_read_struct(wrap_reader(fd), sce->toolsettings->gp_sculpt.cur_falloff);
     }
     /* relink grease pencil primitive curve */
     sce->toolsettings->gp_sculpt.cur_primitive = newdataadr(
         fd, sce->toolsettings->gp_sculpt.cur_primitive);
     if (sce->toolsettings->gp_sculpt.cur_primitive) {
-      BKE_curvemapping_read_file(wrap_reader(fd), sce->toolsettings->gp_sculpt.cur_primitive);
+      BKE_curvemapping_blo_read_struct(wrap_reader(fd),
+                                       sce->toolsettings->gp_sculpt.cur_primitive);
     }
 
     /* Relink toolsettings curve profile */
     sce->toolsettings->custom_bevel_profile_preset = newdataadr(
         fd, sce->toolsettings->custom_bevel_profile_preset);
     if (sce->toolsettings->custom_bevel_profile_preset) {
-      BKE_curveprofile_read_file(wrap_reader(fd), sce->toolsettings->custom_bevel_profile_preset);
+      BKE_curveprofile_blo_read_struct(wrap_reader(fd),
+                                       sce->toolsettings->custom_bevel_profile_preset);
     }
   }
 
@@ -6701,7 +6703,7 @@ static void direct_link_scene(FileData *fd, Scene *sce)
        * We should only do this when rbw->shared == NULL, because those pointers
        * are always set (for compatibility with older Blenders). We mustn't link
        * the same pointcache twice. */
-      BKE_ptcache_file_read(wrap_reader(fd), &rbw->ptcaches, &rbw->pointcache, false);
+      BKE_ptcache_blo_read(wrap_reader(fd), &rbw->ptcaches, &rbw->pointcache, false);
 
       /* make sure simulation starts from the beginning after loading file */
       if (rbw->pointcache) {
@@ -6715,7 +6717,7 @@ static void direct_link_scene(FileData *fd, Scene *sce)
       rbw->shared->physics_world = NULL;
 
       /* link caches */
-      BKE_ptcache_file_read(
+      BKE_ptcache_blo_read(
           wrap_reader(fd), &rbw->shared->ptcaches, &rbw->shared->pointcache, false);
 
       /* make sure simulation starts from the beginning after loading file */
@@ -6735,7 +6737,7 @@ static void direct_link_scene(FileData *fd, Scene *sce)
 
   sce->preview = direct_link_preview_image(fd, sce->preview);
 
-  BKE_curvemapping_read_file(wrap_reader(fd), &sce->r.mblur_shutter_curve);
+  BKE_curvemapping_blo_read_struct(wrap_reader(fd), &sce->r.mblur_shutter_curve);
 
 #ifdef USE_COLLECTION_COMPAT_28
   /* this runs before the very first doversion */
@@ -8534,51 +8536,51 @@ static void direct_link_linestyle_alpha_modifier(FileData *fd, LineStyleModifier
     case LS_MODIFIER_ALONG_STROKE: {
       LineStyleAlphaModifier_AlongStroke *m = (LineStyleAlphaModifier_AlongStroke *)modifier;
       m->curve = newdataadr(fd, m->curve);
-      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
+      BKE_curvemapping_blo_read_struct(wrap_reader(fd), m->curve);
       break;
     }
     case LS_MODIFIER_DISTANCE_FROM_CAMERA: {
       LineStyleAlphaModifier_DistanceFromCamera *m = (LineStyleAlphaModifier_DistanceFromCamera *)
           modifier;
       m->curve = newdataadr(fd, m->curve);
-      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
+      BKE_curvemapping_blo_read_struct(wrap_reader(fd), m->curve);
       break;
     }
     case LS_MODIFIER_DISTANCE_FROM_OBJECT: {
       LineStyleAlphaModifier_DistanceFromObject *m = (LineStyleAlphaModifier_DistanceFromObject *)
           modifier;
       m->curve = newdataadr(fd, m->curve);
-      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
+      BKE_curvemapping_blo_read_struct(wrap_reader(fd), m->curve);
       break;
     }
     case LS_MODIFIER_MATERIAL: {
       LineStyleAlphaModifier_Material *m = (LineStyleAlphaModifier_Material *)modifier;
       m->curve = newdataadr(fd, m->curve);
-      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
+      BKE_curvemapping_blo_read_struct(wrap_reader(fd), m->curve);
       break;
     }
     case LS_MODIFIER_TANGENT: {
       LineStyleAlphaModifier_Tangent *m = (LineStyleAlphaModifier_Tangent *)modifier;
       m->curve = newdataadr(fd, m->curve);
-      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
+      BKE_curvemapping_blo_read_struct(wrap_reader(fd), m->curve);
       break;
     }
     case LS_MODIFIER_NOISE: {
       LineStyleAlphaModifier_Noise *m = (LineStyleAlphaModifier_Noise *)modifier;
       m->curve = newdataadr(fd, m->curve);
-      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
+      BKE_curvemapping_blo_read_struct(wrap_reader(fd), m->curve);
       break;
     }
     case LS_MODIFIER_CREASE_ANGLE: {
       LineStyleAlphaModifier_CreaseAngle *m = (LineStyleAlphaModifier_CreaseAngle *)modifier;
       m->curve = newdataadr(fd, m->curve);
-      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
+      BKE_curvemapping_blo_read_struct(wrap_reader(fd), m->curve);
       break;
     }
     case LS_MODIFIER_CURVATURE_3D: {
       LineStyleAlphaModifier_Curvature_3D *m = (LineStyleAlphaModifier_Curvature_3D *)modifier;
       m->curve = newdataadr(fd, m->curve);
-      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
+      BKE_curvemapping_blo_read_struct(wrap_reader(fd), m->curve);
       break;
     }
   }
@@ -8591,47 +8593,47 @@ static void direct_link_linestyle_thickness_modifier(FileData *fd, LineStyleModi
       LineStyleThicknessModifier_AlongStroke *m = (LineStyleThicknessModifier_AlongStroke *)
           modifier;
       m->curve = newdataadr(fd, m->curve);
-      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
+      BKE_curvemapping_blo_read_struct(wrap_reader(fd), m->curve);
       break;
     }
     case LS_MODIFIER_DISTANCE_FROM_CAMERA: {
       LineStyleThicknessModifier_DistanceFromCamera *m =
           (LineStyleThicknessModifier_DistanceFromCamera *)modifier;
       m->curve = newdataadr(fd, m->curve);
-      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
+      BKE_curvemapping_blo_read_struct(wrap_reader(fd), m->curve);
       break;
     }
     case LS_MODIFIER_DISTANCE_FROM_OBJECT: {
       LineStyleThicknessModifier_DistanceFromObject *m =
           (LineStyleThicknessModifier_DistanceFromObject *)modifier;
       m->curve = newdataadr(fd, m->curve);
-      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
+      BKE_curvemapping_blo_read_struct(wrap_reader(fd), m->curve);
       break;
     }
     case LS_MODIFIER_MATERIAL: {
       LineStyleThicknessModifier_Material *m = (LineStyleThicknessModifier_Material *)modifier;
       m->curve = newdataadr(fd, m->curve);
-      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
+      BKE_curvemapping_blo_read_struct(wrap_reader(fd), m->curve);
       break;
     }
     case LS_MODIFIER_TANGENT: {
       LineStyleThicknessModifier_Tangent *m = (LineStyleThicknessModifier_Tangent *)modifier;
       m->curve = newdataadr(fd, m->curve);
-      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
+      BKE_curvemapping_blo_read_struct(wrap_reader(fd), m->curve);
       break;
     }
     case LS_MODIFIER_CREASE_ANGLE: {
       LineStyleThicknessModifier_CreaseAngle *m = (LineStyleThicknessModifier_CreaseAngle *)
           modifier;
       m->curve = newdataadr(fd, m->curve);
-      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
+      BKE_curvemapping_blo_read_struct(wrap_reader(fd), m->curve);
       break;
     }
     case LS_MODIFIER_CURVATURE_3D: {
       LineStyleThicknessModifier_Curvature_3D *m = (LineStyleThicknessModifier_Curvature_3D *)
           modifier;
       m->curve = newdataadr(fd, m->curve);
-      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
+      BKE_curvemapping_blo_read_struct(wrap_reader(fd), m->curve);
       break;
     }
   }

@@ -3448,10 +3448,10 @@ static void file_read_pointcache(BloReader *reader, PointCache *cache)
   cache->cached_frames_len = 0;
 }
 
-void BKE_ptcache_file_read(struct BloReader *reader,
-                           struct ListBase *ptcaches,
-                           struct PointCache **ocache,
-                           int force_disk)
+void BKE_ptcache_blo_read(struct BloReader *reader,
+                          struct ListBase *ptcaches,
+                          struct PointCache **ocache,
+                          int force_disk)
 {
   if (ptcaches->first) {
     PointCache *cache = NULL;

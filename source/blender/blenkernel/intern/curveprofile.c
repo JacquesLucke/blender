@@ -1079,7 +1079,7 @@ void BKE_curveprofile_blo_write_ptr(BloWriter *writer, const CurveProfile *profi
   BLO_write_struct_array(writer, CurveProfilePoint, profile->path_len, profile->path);
 }
 
-void BKE_curveprofile_read_file(BloReader *reader, CurveProfile *profile)
+void BKE_curveprofile_blo_read_struct(BloReader *reader, CurveProfile *profile)
 {
   BLO_read_update_address(reader, profile->path);
   profile->table = NULL;
