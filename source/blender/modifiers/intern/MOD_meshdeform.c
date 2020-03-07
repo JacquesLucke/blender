@@ -579,4 +579,5 @@ ModifierTypeInfo modifierType_MeshDeform = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

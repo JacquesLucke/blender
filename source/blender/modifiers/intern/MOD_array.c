@@ -821,4 +821,5 @@ ModifierTypeInfo modifierType_Array = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

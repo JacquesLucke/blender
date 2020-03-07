@@ -450,4 +450,5 @@ ModifierTypeInfo modifierType_WeightVGMix = {
     /* foreachTexLink */ foreachTexLink,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

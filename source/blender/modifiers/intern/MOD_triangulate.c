@@ -143,4 +143,5 @@ ModifierTypeInfo modifierType_Triangulate = {
     /* foreachIDLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

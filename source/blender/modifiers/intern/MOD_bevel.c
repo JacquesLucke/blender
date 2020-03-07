@@ -288,4 +288,5 @@ ModifierTypeInfo modifierType_Bevel = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

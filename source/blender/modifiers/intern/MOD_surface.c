@@ -210,4 +210,5 @@ ModifierTypeInfo modifierType_Surface = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

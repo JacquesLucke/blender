@@ -222,4 +222,5 @@ ModifierTypeInfo modifierType_Shrinkwrap = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

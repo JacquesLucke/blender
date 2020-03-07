@@ -156,4 +156,5 @@ ModifierTypeInfo modifierType_EdgeSplit = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

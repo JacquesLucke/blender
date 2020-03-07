@@ -177,4 +177,5 @@ ModifierTypeInfo modifierType_Curve = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

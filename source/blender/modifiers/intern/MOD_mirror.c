@@ -144,4 +144,5 @@ ModifierTypeInfo modifierType_Mirror = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

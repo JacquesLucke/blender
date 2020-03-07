@@ -432,4 +432,5 @@ ModifierTypeInfo modifierType_Displace = {
     /* foreachTexLink */ foreachTexLink,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

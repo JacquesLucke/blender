@@ -145,4 +145,5 @@ ModifierTypeInfo modifierType_ShapeKey = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

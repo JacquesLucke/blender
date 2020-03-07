@@ -302,4 +302,5 @@ ModifierTypeInfo modifierType_Build = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

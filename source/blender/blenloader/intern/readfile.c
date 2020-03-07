@@ -5271,12 +5271,16 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
       is_allocated = true;
     }
     /* if modifiers disappear, or for upward compatibility */
-    if (NULL == modifierType_getInfo(md->type)) {
+    const ModifierTypeInfo *mdi = modifierType_getInfo(md->type);
+    if (mdi == NULL) {
       md->type = eModifierType_None;
     }
 
     if (is_allocated) {
       /* All the fields has been properly allocated. */
+    }
+    else if (mdi && mdi->bloRead) {
+      mdi->bloRead(wrap_reader(fd), md);
     }
     else if (md->type == eModifierType_Subsurf) {
       SubsurfModifierData *smd = (SubsurfModifierData *)md;
@@ -5459,19 +5463,6 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
       surmd->x = NULL;
       surmd->v = NULL;
       surmd->numverts = 0;
-    }
-    else if (md->type == eModifierType_Hook) {
-      HookModifierData *hmd = (HookModifierData *)md;
-
-      hmd->indexar = newdataadr(fd, hmd->indexar);
-      if (fd->flags & FD_FLAGS_SWITCH_ENDIAN) {
-        BLI_endian_switch_int32_array(hmd->indexar, hmd->totindex);
-      }
-
-      hmd->curfalloff = newdataadr(fd, hmd->curfalloff);
-      if (hmd->curfalloff) {
-        BKE_curvemapping_blo_read_struct(wrap_reader(fd), hmd->curfalloff);
-      }
     }
     else if (md->type == eModifierType_ParticleSystem) {
       ParticleSystemModifierData *psmd = (ParticleSystemModifierData *)md;

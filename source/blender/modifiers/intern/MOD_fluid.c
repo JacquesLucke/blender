@@ -221,4 +221,5 @@ ModifierTypeInfo modifierType_Fluid = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

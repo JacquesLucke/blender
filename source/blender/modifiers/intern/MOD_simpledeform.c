@@ -477,4 +477,5 @@ ModifierTypeInfo modifierType_SimpleDeform = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

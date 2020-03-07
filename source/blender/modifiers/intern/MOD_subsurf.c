@@ -303,4 +303,5 @@ ModifierTypeInfo modifierType_Subsurf = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ freeRuntimeData,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

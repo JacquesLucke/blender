@@ -341,4 +341,5 @@ ModifierTypeInfo modifierType_UVProject = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

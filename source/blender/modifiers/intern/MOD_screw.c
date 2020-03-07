@@ -1188,4 +1188,5 @@ ModifierTypeInfo modifierType_Screw = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

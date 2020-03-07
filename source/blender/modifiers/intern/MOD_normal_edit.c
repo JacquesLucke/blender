@@ -717,4 +717,5 @@ ModifierTypeInfo modifierType_NormalEdit = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

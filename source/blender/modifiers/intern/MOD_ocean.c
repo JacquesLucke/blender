@@ -519,4 +519,5 @@ ModifierTypeInfo modifierType_Ocean = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

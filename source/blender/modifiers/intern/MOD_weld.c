@@ -1931,6 +1931,7 @@ ModifierTypeInfo modifierType_Weld = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };
 
 /** \} */

@@ -1954,4 +1954,5 @@ ModifierTypeInfo modifierType_Skin = {
     /* foreachIDLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

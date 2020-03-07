@@ -1316,4 +1316,5 @@ ModifierTypeInfo modifierType_SurfaceDeform = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

@@ -211,4 +211,5 @@ ModifierTypeInfo modifierType_MeshSequenceCache = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

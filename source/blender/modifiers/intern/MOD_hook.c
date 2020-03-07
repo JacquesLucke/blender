@@ -24,6 +24,7 @@
 #include "BLI_utildefines.h"
 
 #include "BLI_math.h"
+#include "BLI_endian_switch.h"
 
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
@@ -132,6 +133,21 @@ static void bloWrite(BloWriter *writer, const ModifierData *md)
     BKE_curvemapping_blo_write_ptr(writer, hmd->curfalloff);
   }
   BLO_write_raw_array(writer, sizeof(int), hmd->totindex, hmd->indexar);
+}
+
+static void bloRead(BloReader *reader, ModifierData *md)
+{
+  HookModifierData *hmd = (HookModifierData *)md;
+
+  BLO_read_update_address(reader, hmd->indexar);
+  if (BLO_read_requires_endian_switch(reader)) {
+    BLI_endian_switch_int32_array(hmd->indexar, hmd->totindex);
+  }
+
+  BLO_read_update_address(reader, hmd->curfalloff);
+  if (hmd->curfalloff) {
+    BKE_curvemapping_blo_read_struct(reader, hmd->curfalloff);
+  }
 }
 
 struct HookData_cb {
@@ -426,4 +442,5 @@ ModifierTypeInfo modifierType_Hook = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ bloWrite,
+    /* bloRead */ bloRead,
 };

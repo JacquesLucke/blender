@@ -263,4 +263,5 @@ ModifierTypeInfo modifierType_DataTransfer = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

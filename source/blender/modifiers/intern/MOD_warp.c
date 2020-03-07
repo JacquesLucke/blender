@@ -384,4 +384,5 @@ ModifierTypeInfo modifierType_Warp = {
     /* foreachTexLink */ foreachTexLink,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

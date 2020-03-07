@@ -789,4 +789,5 @@ ModifierTypeInfo modifierType_CorrectiveSmooth = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

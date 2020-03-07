@@ -377,4 +377,5 @@ ModifierTypeInfo modifierType_Wave = {
     /* foreachTexLink */ foreachTexLink,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

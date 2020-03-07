@@ -319,4 +319,5 @@ ModifierTypeInfo modifierType_WeightVGEdit = {
     /* foreachTexLink */ foreachTexLink,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

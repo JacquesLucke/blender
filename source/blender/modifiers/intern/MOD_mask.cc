@@ -415,4 +415,5 @@ ModifierTypeInfo modifierType_Mask = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

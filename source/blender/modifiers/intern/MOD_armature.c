@@ -267,4 +267,5 @@ ModifierTypeInfo modifierType_Armature = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

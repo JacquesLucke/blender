@@ -292,4 +292,5 @@ ModifierTypeInfo modifierType_Multires = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ freeRuntimeData,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

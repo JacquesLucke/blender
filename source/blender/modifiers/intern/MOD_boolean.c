@@ -373,4 +373,5 @@ ModifierTypeInfo modifierType_Boolean = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };
