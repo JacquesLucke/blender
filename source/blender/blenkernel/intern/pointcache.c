@@ -3363,7 +3363,7 @@ static const char *ptcache_extra_struct[] = {
     "ParticleSpring",
 };
 
-void BKE_ptcache_file_write(BloWriter *writer, ListBase *ptcaches)
+void BKE_ptcache_blo_write_list(BloWriter *writer, ListBase *ptcaches)
 {
   PointCache *cache = ptcaches->first;
   int i;
