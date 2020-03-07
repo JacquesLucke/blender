@@ -5292,33 +5292,6 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
 
       amd->prevCos = NULL;
     }
-    else if (md->type == eModifierType_Cloth) {
-      ClothModifierData *clmd = (ClothModifierData *)md;
-
-      clmd->clothObject = NULL;
-      clmd->hairdata = NULL;
-
-      clmd->sim_parms = newdataadr(fd, clmd->sim_parms);
-      clmd->coll_parms = newdataadr(fd, clmd->coll_parms);
-
-      BKE_ptcache_blo_read(wrap_reader(fd), &clmd->ptcaches, &clmd->point_cache, 0);
-
-      if (clmd->sim_parms) {
-        if (clmd->sim_parms->presets > 10) {
-          clmd->sim_parms->presets = 0;
-        }
-
-        clmd->sim_parms->reset = 0;
-
-        clmd->sim_parms->effector_weights = newdataadr(fd, clmd->sim_parms->effector_weights);
-
-        if (!clmd->sim_parms->effector_weights) {
-          clmd->sim_parms->effector_weights = BKE_effector_add_weights(NULL);
-        }
-      }
-
-      clmd->solver_result = NULL;
-    }
     else if (md->type == eModifierType_Fluid) {
 
       FluidModifierData *mmd = (FluidModifierData *)md;

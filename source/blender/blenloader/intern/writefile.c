@@ -1578,15 +1578,7 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
       mti->bloWrite(wrap_writer(wd), md);
     }
 
-    if (md->type == eModifierType_Cloth) {
-      ClothModifierData *clmd = (ClothModifierData *)md;
-
-      writestruct(wd, DATA, ClothSimSettings, 1, clmd->sim_parms);
-      writestruct(wd, DATA, ClothCollSettings, 1, clmd->coll_parms);
-      writestruct(wd, DATA, EffectorWeights, 1, clmd->sim_parms->effector_weights);
-      BKE_ptcache_blo_write_list(wrap_writer(wd), &clmd->ptcaches);
-    }
-    else if (md->type == eModifierType_Fluid) {
+    if (md->type == eModifierType_Fluid) {
       FluidModifierData *mmd = (FluidModifierData *)md;
 
       if (mmd->type & MOD_FLUID_TYPE_DOMAIN) {

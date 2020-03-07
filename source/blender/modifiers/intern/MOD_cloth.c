@@ -48,6 +48,8 @@
 #include "DEG_depsgraph_physics.h"
 #include "DEG_depsgraph_query.h"
 
+#include "BLO_callback_api.h"
+
 #include "MOD_util.h"
 
 static void initData(ModifierData *md)
@@ -249,6 +251,45 @@ static void foreachIDLink(ModifierData *md, Object *ob, IDWalkFunc walk, void *u
   }
 }
 
+static void bloWrite(BloWriter *writer, const ModifierData *md)
+{
+  ClothModifierData *clmd = (ClothModifierData *)md;
+
+  BLO_write_struct(writer, ClothSimSettings, clmd->sim_parms);
+  BLO_write_struct(writer, ClothCollSettings, clmd->coll_parms);
+  BLO_write_struct(writer, EffectorWeights, clmd->sim_parms->effector_weights);
+  BKE_ptcache_blo_write_list(writer, &clmd->ptcaches);
+}
+
+static void bloRead(BloReader *reader, ModifierData *md)
+{
+  ClothModifierData *clmd = (ClothModifierData *)md;
+
+  clmd->clothObject = NULL;
+  clmd->hairdata = NULL;
+
+  BLO_read_update_address(reader, clmd->sim_parms);
+  BLO_read_update_address(reader, clmd->coll_parms);
+
+  BKE_ptcache_blo_read(reader, &clmd->ptcaches, &clmd->point_cache, 0);
+
+  if (clmd->sim_parms) {
+    if (clmd->sim_parms->presets > 10) {
+      clmd->sim_parms->presets = 0;
+    }
+
+    clmd->sim_parms->reset = 0;
+
+    BLO_read_update_address(reader, clmd->sim_parms->effector_weights);
+
+    if (clmd->sim_parms->effector_weights == NULL) {
+      clmd->sim_parms->effector_weights = BKE_effector_add_weights(NULL);
+    }
+  }
+
+  clmd->solver_result = NULL;
+}
+
 ModifierTypeInfo modifierType_Cloth = {
     /* name */ "Cloth",
     /* structName */ "ClothModifierData",
@@ -276,6 +317,6 @@ ModifierTypeInfo modifierType_Cloth = {
     /* foreachIDLink */ foreachIDLink,
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
-    /* bloWrite */ NULL,
-    /* bloRead */ NULL,
+    /* bloWrite */ bloWrite,
+    /* bloRead */ bloRead,
 };
