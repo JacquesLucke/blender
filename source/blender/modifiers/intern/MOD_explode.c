@@ -45,6 +45,8 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "BLO_callback_api.h"
+
 #include "MOD_modifiertypes.h"
 
 static void initData(ModifierData *md)
@@ -84,6 +86,12 @@ static void requiredDataMask(Object *UNUSED(ob),
   if (emd->vgroup) {
     r_cddata_masks->vmask |= CD_MASK_MDEFORMVERT;
   }
+}
+
+static void bloRead(BloReader *UNUSED(reader), ModifierData *md)
+{
+  ExplodeModifierData *psmd = (ExplodeModifierData *)md;
+  psmd->facepa = NULL;
 }
 
 static void createFacepa(ExplodeModifierData *emd, ParticleSystemModifierData *psmd, Mesh *mesh)
@@ -1200,5 +1208,5 @@ ModifierTypeInfo modifierType_Explode = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
-    /* bloRead */ NULL,
+    /* bloRead */ bloRead,
 };

@@ -5397,11 +5397,6 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
       collmd->bvhtree = NULL;
       collmd->tri = NULL;
     }
-    else if (md->type == eModifierType_Explode) {
-      ExplodeModifierData *psmd = (ExplodeModifierData *)md;
-
-      psmd->facepa = NULL;
-    }
   }
 }
 
