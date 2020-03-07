@@ -336,7 +336,7 @@ typedef struct ModifierTypeInfo {
    */
   void (*freeRuntimeData)(void *runtime_data);
 
-  void (*bloWrite)(struct BloWriter *writer, struct ModifierData *md);
+  void (*bloWrite)(struct BloWriter *writer, const struct ModifierData *md);
 } ModifierTypeInfo;
 
 /* Initialize modifier's global data (type info and some common global storages). */

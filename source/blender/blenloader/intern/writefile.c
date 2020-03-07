@@ -1578,16 +1578,7 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
       mti->bloWrite(wrap_writer(wd), md);
     }
 
-    if (md->type == eModifierType_Hook) {
-      HookModifierData *hmd = (HookModifierData *)md;
-
-      if (hmd->curfalloff) {
-        BKE_curvemapping_blo_write_ptr(wrap_writer(wd), hmd->curfalloff);
-      }
-
-      writedata(wd, DATA, sizeof(int) * hmd->totindex, hmd->indexar);
-    }
-    else if (md->type == eModifierType_Cloth) {
+    if (md->type == eModifierType_Cloth) {
       ClothModifierData *clmd = (ClothModifierData *)md;
 
       writestruct(wd, DATA, ClothSimSettings, 1, clmd->sim_parms);

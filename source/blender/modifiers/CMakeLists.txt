@@ -24,6 +24,7 @@ set(INC
   ../blenfont
   ../blenkernel
   ../blenlib
+  ../blenloader
   ../bmesh
   ../depsgraph
   ../makesdna
