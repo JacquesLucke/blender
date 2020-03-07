@@ -36,6 +36,8 @@
 
 #include "DEG_depsgraph_query.h"
 
+#include "BLO_callback_api.h"
+
 #include "MOD_util.h"
 
 static void initData(ModifierData *md)
@@ -88,6 +90,17 @@ static void requiredDataMask(Object *UNUSED(ob),
   ParticleSystemModifierData *psmd = (ParticleSystemModifierData *)md;
 
   psys_emitter_customdata_mask(psmd->psys, r_cddata_masks);
+}
+
+static void bloRead(BloReader *reader, ModifierData *md)
+{
+  ParticleSystemModifierData *psmd = (ParticleSystemModifierData *)md;
+
+  psmd->mesh_final = NULL;
+  psmd->mesh_original = NULL;
+  BLO_read_update_address(reader, psmd->psys);
+  psmd->flag &= ~eParticleSystemFlag_psys_updated;
+  psmd->flag |= eParticleSystemFlag_file_loaded;
 }
 
 /* saves the current emitter state for a particle system and calculates particles */
@@ -278,5 +291,5 @@ ModifierTypeInfo modifierType_ParticleSystem = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* bloWrite */ NULL,
-    /* bloRead */ NULL,
+    /* bloRead */ bloRead,
 };
