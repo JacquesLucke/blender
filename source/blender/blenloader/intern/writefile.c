@@ -2690,19 +2690,19 @@ static void write_gpencil(WriteData *wd, bGPdata *gpd)
   }
 }
 
-static void write_region(WriteData *wd, ARegion *ar, int spacetype)
+static void write_region(WriteData *wd, ARegion *region, int spacetype)
 {
-  writestruct(wd, DATA, ARegion, 1, ar);
+  writestruct(wd, DATA, ARegion, 1, region);
 
-  if (ar->regiondata) {
-    if (ar->flag & RGN_FLAG_TEMP_REGIONDATA) {
+  if (region->regiondata) {
+    if (region->flag & RGN_FLAG_TEMP_REGIONDATA) {
       return;
     }
 
     switch (spacetype) {
       case SPACE_VIEW3D:
-        if (ar->regiontype == RGN_TYPE_WINDOW) {
-          RegionView3D *rv3d = ar->regiondata;
+        if (region->regiontype == RGN_TYPE_WINDOW) {
+          RegionView3D *rv3d = region->regiondata;
           writestruct(wd, DATA, RegionView3D, 1, rv3d);
 
           if (rv3d->localvd) {
@@ -4043,9 +4043,9 @@ bool BLO_write_file(Main *mainvar,
     BLI_split_dir_part(mainvar->name, dir_src, sizeof(dir_src));
     BLI_split_dir_part(filepath, dir_dst, sizeof(dir_dst));
 
-    /* just in case there is some subtle difference */
-    BLI_cleanup_dir(mainvar->name, dir_dst);
-    BLI_cleanup_dir(mainvar->name, dir_src);
+    /* Just in case there is some subtle difference. */
+    BLI_cleanup_path(mainvar->name, dir_dst);
+    BLI_cleanup_path(mainvar->name, dir_src);
 
     if (G.relbase_valid && (BLI_path_cmp(dir_dst, dir_src) == 0)) {
       /* Saved to same path. Nothing to do. */

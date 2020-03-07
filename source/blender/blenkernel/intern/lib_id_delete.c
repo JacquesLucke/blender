@@ -146,25 +146,24 @@ void BKE_libblock_free_datablock(ID *id, const int UNUSED(flag))
       BLI_assert(0);
       break;
     case ID_ME:
-      BKE_mesh_free((Mesh *)id);
+      BLI_assert(0);
       break;
     case ID_CU:
-      BKE_curve_free((Curve *)id);
+      BLI_assert(0);
       break;
     case ID_MB:
-      BKE_mball_free((MetaBall *)id);
+      BLI_assert(0);
       break;
     case ID_MA:
-      BKE_material_free((Material *)id);
+      BLI_assert(0);
       break;
     case ID_TE:
-      BKE_texture_free((Tex *)id);
       break;
     case ID_IM:
-      BKE_image_free((Image *)id);
+      BLI_assert(0);
       break;
     case ID_LT:
-      BKE_lattice_free((Lattice *)id);
+      BLI_assert(0);
       break;
     case ID_LA:
       BLI_assert(0);
@@ -182,13 +181,13 @@ void BKE_libblock_free_datablock(ID *id, const int UNUSED(flag))
       BLI_assert(0);
       break;
     case ID_SCR:
-      BKE_screen_free((bScreen *)id);
+      BLI_assert(0);
       break;
     case ID_VF:
-      BKE_vfont_free((VFont *)id);
+      BLI_assert(0);
       break;
     case ID_TXT:
-      BKE_text_free((Text *)id);
+      BLI_assert(0);
       break;
     case ID_SPK:
       BKE_speaker_free((Speaker *)id);
@@ -200,16 +199,16 @@ void BKE_libblock_free_datablock(ID *id, const int UNUSED(flag))
       BKE_sound_free((bSound *)id);
       break;
     case ID_GR:
-      BKE_collection_free((Collection *)id);
+      BLI_assert(0);
       break;
     case ID_AR:
-      BKE_armature_free((bArmature *)id);
+      BLI_assert(0);
       break;
     case ID_AC:
-      BKE_action_free((bAction *)id);
+      BLI_assert(0);
       break;
     case ID_NT:
-      ntreeFreeTree((bNodeTree *)id);
+      BLI_assert(0);
       break;
     case ID_BR:
       BLI_assert(0);

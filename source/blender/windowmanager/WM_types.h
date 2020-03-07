@@ -256,8 +256,7 @@ typedef enum eOperatorPropTags {
 typedef struct wmNotifier {
   struct wmNotifier *next, *prev;
 
-  struct wmWindowManager *wm;
-  struct wmWindow *window;
+  const struct wmWindow *window;
 
   unsigned int category, data, subtype, action;
 
@@ -893,7 +892,7 @@ typedef struct wmTooltipState {
   struct ARegion *region;
   /** Create the tooltip region (assign to 'region'). */
   struct ARegion *(*init)(struct bContext *C,
-                          struct ARegion *ar,
+                          struct ARegion *region,
                           int *pass,
                           double *pass_delay,
                           bool *r_exit_on_event);

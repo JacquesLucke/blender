@@ -267,10 +267,10 @@ void ED_fsmenu_entry_set_path(struct FSMenuEntry *fsentry, const char *path)
 
     fsentry->path = (path && path[0]) ? BLI_strdup(path) : NULL;
 
-    BLI_make_file_string("/",
-                         tmp_name,
-                         BKE_appdir_folder_id_create(BLENDER_USER_CONFIG, NULL),
-                         BLENDER_BOOKMARK_FILE);
+    BLI_join_dirfile(tmp_name,
+                     sizeof(tmp_name),
+                     BKE_appdir_folder_id_create(BLENDER_USER_CONFIG, NULL),
+                     BLENDER_BOOKMARK_FILE);
     fsmenu_write_file(ED_fsmenu_get(), tmp_name);
   }
 }
@@ -332,10 +332,10 @@ void ED_fsmenu_entry_set_name(struct FSMenuEntry *fsentry, const char *name)
       BLI_strncpy(fsentry->name, name, sizeof(fsentry->name));
     }
 
-    BLI_make_file_string("/",
-                         tmp_name,
-                         BKE_appdir_folder_id_create(BLENDER_USER_CONFIG, NULL),
-                         BLENDER_BOOKMARK_FILE);
+    BLI_join_dirfile(tmp_name,
+                     sizeof(tmp_name),
+                     BKE_appdir_folder_id_create(BLENDER_USER_CONFIG, NULL),
+                     BLENDER_BOOKMARK_FILE);
     fsmenu_write_file(ED_fsmenu_get(), tmp_name);
   }
 }
@@ -750,9 +750,6 @@ void fsmenu_read_system(struct FSMenu *fsmenu, int read_bookmarks)
 
       fsmenu_add_windows_folder(
           fsmenu, FS_CATEGORY_OTHER, &FOLDERID_UserProfiles, NULL, ICON_COMMUNITY, FS_INSERT_LAST);
-
-      fsmenu_add_windows_folder(
-          fsmenu, FS_CATEGORY_OTHER, &FOLDERID_Objects3D, NULL, ICON_FILE_3D, FS_INSERT_LAST);
 
       fsmenu_add_windows_folder(
           fsmenu, FS_CATEGORY_OTHER, &FOLDERID_SkyDrive, NULL, ICON_URL, FS_INSERT_LAST);
