@@ -5425,11 +5425,6 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
       omd->oceancache = NULL;
       omd->ocean = NULL;
     }
-    else if (md->type == eModifierType_MeshSequenceCache) {
-      MeshSeqCacheModifierData *msmcd = (MeshSeqCacheModifierData *)md;
-      msmcd->reader = NULL;
-      msmcd->reader_object_path[0] = '\0';
-    }
   }
 }
 
