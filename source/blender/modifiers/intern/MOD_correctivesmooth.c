@@ -46,6 +46,8 @@
 
 #include "DEG_depsgraph_query.h"
 
+#include "BLO_callback_api.h"
+
 // #define DEBUG_TIME
 
 #include "PIL_time.h"
@@ -112,6 +114,28 @@ static void requiredDataMask(Object *UNUSED(ob),
   if (csmd->defgrp_name[0] != '\0') {
     r_cddata_masks->vmask |= CD_MASK_MDEFORMVERT;
   }
+}
+
+static void bloWrite(BloWriter *writer, const ModifierData *md)
+{
+  CorrectiveSmoothModifierData *csmd = (CorrectiveSmoothModifierData *)md;
+
+  if (csmd->bind_coords) {
+    BLO_write_raw_array(writer, sizeof(float[3]), csmd->bind_coords_num, csmd->bind_coords);
+  }
+}
+
+static void bloRead(BloReader *reader, ModifierData *md)
+{
+  CorrectiveSmoothModifierData *csmd = (CorrectiveSmoothModifierData *)md;
+
+  if (csmd->bind_coords) {
+    BLO_read_array_float3(reader, csmd->bind_coords, csmd->bind_coords_num);
+  }
+
+  /* runtime only */
+  csmd->delta_cache.deltas = NULL;
+  csmd->delta_cache.totverts = 0;
 }
 
 /* check individual weights for changes and cache values */
@@ -788,6 +812,6 @@ ModifierTypeInfo modifierType_CorrectiveSmooth = {
     /* foreachIDLink */ NULL,
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
-    /* bloWrite */ NULL,
-    /* bloRead */ NULL,
+    /* bloWrite */ bloWrite,
+    /* bloRead */ bloRead,
 };
