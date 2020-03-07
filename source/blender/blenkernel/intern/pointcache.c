@@ -3382,11 +3382,11 @@ void BKE_ptcache_file_write(BloWriter *writer, ListBase *ptcaches)
         for (i = 0; i < BPHYS_TOT_DATA; i++) {
           if (pm->data[i] && pm->data_types & (1 << i)) {
             if (ptcache_data_struct[i][0] == '\0') {
-              BLO_write_raw(writer, pm->data[i], MEM_allocN_len(pm->data[i]));
+              BLO_write_raw(writer, MEM_allocN_len(pm->data[i]), pm->data[i]);
             }
             else {
               BLO_write_struct_array_by_name(
-                  writer, ptcache_data_struct[i], pm->data[i], pm->totpoint);
+                  writer, ptcache_data_struct[i], pm->totpoint, pm->data[i]);
             }
           }
         }
@@ -3397,7 +3397,7 @@ void BKE_ptcache_file_write(BloWriter *writer, ListBase *ptcaches)
           }
           BLO_write_struct(writer, PTCacheExtra, extra);
           BLO_write_struct_array_by_name(
-              writer, ptcache_extra_struct[extra->type], extra->data, extra->totdata);
+              writer, ptcache_extra_struct[extra->type], extra->totdata, extra->data);
         }
       }
     }

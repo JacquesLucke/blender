@@ -4125,9 +4125,9 @@ bool BLO_write_file_mem(Main *mainvar, MemFile *compare, MemFile *current, int w
   return (err == 0);
 }
 
-void BLO_write_raw(BloWriter *writer, const void *data_ptr, int length)
+void BLO_write_raw(BloWriter *writer, int size_in_bytes, const void *data_ptr)
 {
-  writedata((WriteData *)writer, DATA, length, data_ptr);
+  writedata((WriteData *)writer, DATA, size_in_bytes, data_ptr);
 }
 
 void BLO_write_struct_by_name(BloWriter *writer, const char *struct_name, const void *data_ptr)
@@ -4138,11 +4138,11 @@ void BLO_write_struct_by_name(BloWriter *writer, const char *struct_name, const 
 
 void BLO_write_struct_array_by_name(BloWriter *writer,
                                     const char *struct_name,
-                                    const void *data_ptr,
-                                    int array_size)
+                                    int array_size,
+                                    const void *data_ptr)
 {
   int struct_id = BLO_get_struct_id_by_name(writer, struct_name);
-  BLO_write_struct_array_by_id(writer, struct_id, data_ptr, array_size);
+  BLO_write_struct_array_by_id(writer, struct_id, array_size, data_ptr);
 }
 
 void BLO_write_struct_by_id(BloWriter *writer, int struct_id, const void *data_ptr)
@@ -4152,8 +4152,8 @@ void BLO_write_struct_by_id(BloWriter *writer, int struct_id, const void *data_p
 
 void BLO_write_struct_array_by_id(BloWriter *writer,
                                   int struct_id,
-                                  const void *data_ptr,
-                                  int array_size)
+                                  int array_size,
+                                  const void *data_ptr)
 {
   writestruct_nr((WriteData *)writer, DATA, struct_id, array_size, data_ptr);
 }

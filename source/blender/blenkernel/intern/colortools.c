@@ -189,7 +189,7 @@ void BKE_curvemapping_write_file(BloWriter *writer, CurveMapping *cumap)
 void BKE_curvemapping_curves_write_file(BloWriter *writer, CurveMapping *cumap)
 {
   for (int i = 0; i < CM_TOT; i++) {
-    BLO_write_struct_array(writer, CurveMapPoint, cumap->cm[i].curve, cumap->cm[i].totpoint);
+    BLO_write_struct_array(writer, CurveMapPoint, cumap->cm[i].totpoint, cumap->cm[i].curve);
   }
 }
 
