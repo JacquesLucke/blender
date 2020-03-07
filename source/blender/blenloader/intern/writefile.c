@@ -381,6 +381,11 @@ static void writedata_free(WriteData *wd)
   MEM_freeN(wd);
 }
 
+static BloWriter *wrap_writer(WriteData *wd)
+{
+  return (BloWriter *)wd;
+}
+
 /** \} */
 
 /* -------------------------------------------------------------------- */

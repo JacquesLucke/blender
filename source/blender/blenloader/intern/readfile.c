@@ -702,6 +702,11 @@ static Main *blo_find_main(FileData *fd, const char *filepath, const char *relab
 /** \name File Parsing
  * \{ */
 
+static BloReader *wrap_reader(FileData *fd)
+{
+  return (BloReader *)fd;
+}
+
 static void switch_endian_bh4(BHead4 *bhead)
 {
   /* the ID_.. codes */
