@@ -176,10 +176,10 @@ struct BlendThumbnail *BLO_thumbnail_from_file(const char *filepath);
 extern const struct bTheme U_theme_default;
 extern const struct UserDef U_default;
 
-typedef struct BloReadData BloReadData;
+typedef struct BloReader BloReader;
 
-void *BLO_read_new_address(BloReadData *rd, const void *old_address);
-bool BLO_read_requires_endian_switch(BloReadData *rd);
+void *BLO_read_new_address(BloReader *reader, const void *old_address);
+bool BLO_read_requires_endian_switch(BloReader *reader);
 
 #ifdef __cplusplus
 }

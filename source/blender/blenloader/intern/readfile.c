@@ -11879,14 +11879,14 @@ static void read_libraries(FileData *basefd, ListBase *mainlist)
   BKE_main_free(main_newid);
 }
 
-void *BLO_read_new_address(BloReadData *rd, const void *old_address)
+void *BLO_read_new_address(BloReader *reader, const void *old_address)
 {
-  return newdataadr((FileData *)rd, old_address);
+  return newdataadr((FileData *)reader, old_address);
 }
 
-bool BLO_read_requires_endian_switch(BloReadData *rd)
+bool BLO_read_requires_endian_switch(BloReader *reader)
 {
-  return (((FileData *)rd)->flags & FD_FLAGS_SWITCH_ENDIAN) != 0;
+  return (((FileData *)reader)->flags & FD_FLAGS_SWITCH_ENDIAN) != 0;
 }
 
 /** \} */
