@@ -5456,14 +5456,6 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
       omd->oceancache = NULL;
       omd->ocean = NULL;
     }
-    else if (md->type == eModifierType_Warp) {
-      WarpModifierData *tmd = (WarpModifierData *)md;
-
-      tmd->curfalloff = newdataadr(fd, tmd->curfalloff);
-      if (tmd->curfalloff) {
-        BKE_curvemapping_blo_read_struct(wrap_reader(fd), tmd->curfalloff);
-      }
-    }
     else if (md->type == eModifierType_MeshSequenceCache) {
       MeshSeqCacheModifierData *msmcd = (MeshSeqCacheModifierData *)md;
       msmcd->reader = NULL;

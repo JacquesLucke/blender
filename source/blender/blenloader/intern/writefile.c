@@ -1652,12 +1652,6 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
       writestruct(wd, DATA, MFace, collmd->numfaces, collmd->mfaces);
 #endif
     }
-    else if (md->type == eModifierType_Warp) {
-      WarpModifierData *tmd = (WarpModifierData *)md;
-      if (tmd->curfalloff) {
-        BKE_curvemapping_blo_write_ptr(wrap_writer(wd), tmd->curfalloff);
-      }
-    }
   }
 }
 
