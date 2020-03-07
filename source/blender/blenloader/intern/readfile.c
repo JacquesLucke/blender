@@ -112,6 +112,7 @@
 #include "BKE_colortools.h"
 #include "BKE_constraint.h"
 #include "BKE_curve.h"
+#include "BKE_curveprofile.h"
 #include "BKE_effect.h"
 #include "BKE_fcurve.h"
 #include "BKE_fluid.h"
@@ -2720,19 +2721,6 @@ static void direct_link_id(FileData *fd, ID *id)
 
   /* Handle 'private IDs'. */
   direct_link_id_private_id(fd, id);
-}
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name Read CurveProfile
- * \{ */
-
-static void direct_link_curveprofile(FileData *fd, CurveProfile *profile)
-{
-  profile->path = newdataadr(fd, profile->path);
-  profile->table = NULL;
-  profile->segments = NULL;
 }
 
 /** \} */
@@ -5620,7 +5608,7 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
       BevelModifierData *bmd = (BevelModifierData *)md;
       bmd->custom_profile = newdataadr(fd, bmd->custom_profile);
       if (bmd->custom_profile) {
-        direct_link_curveprofile(fd, bmd->custom_profile);
+        BKE_curveprofile_read_file(wrap_reader(fd), bmd->custom_profile);
       }
     }
   }
@@ -6548,7 +6536,7 @@ static void direct_link_scene(FileData *fd, Scene *sce)
     sce->toolsettings->custom_bevel_profile_preset = newdataadr(
         fd, sce->toolsettings->custom_bevel_profile_preset);
     if (sce->toolsettings->custom_bevel_profile_preset) {
-      direct_link_curveprofile(fd, sce->toolsettings->custom_bevel_profile_preset);
+      BKE_curveprofile_read_file(wrap_reader(fd), sce->toolsettings->custom_bevel_profile_preset);
     }
   }
 

@@ -153,6 +153,7 @@
 #include "BKE_colortools.h"
 #include "BKE_constraint.h"
 #include "BKE_curve.h"
+#include "BKE_curveprofile.h"
 #include "BKE_fcurve.h"
 #include "BKE_global.h"  // for G
 #include "BKE_gpencil_modifier.h"
@@ -950,12 +951,6 @@ static void write_animdata(WriteData *wd, AnimData *adt)
   write_nladata(wd, &adt->nla_tracks);
 }
 
-static void write_CurveProfile(WriteData *wd, CurveProfile *profile)
-{
-  writestruct(wd, DATA, CurveProfile, 1, profile);
-  writestruct(wd, DATA, CurveProfilePoint, profile->path_len, profile->path);
-}
-
 static void write_node_socket_default_value(WriteData *wd, bNodeSocket *sock)
 {
   if (sock->default_value == NULL) {
@@ -1740,7 +1735,7 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
     else if (md->type == eModifierType_Bevel) {
       BevelModifierData *bmd = (BevelModifierData *)md;
       if (bmd->custom_profile) {
-        write_CurveProfile(wd, bmd->custom_profile);
+        BKE_curveprofile_write_file(wrap_writer(wd), bmd->custom_profile);
       }
     }
   }
@@ -2499,7 +2494,7 @@ static void write_scene(WriteData *wd, Scene *sce)
   }
   /* Write the curve profile to the file. */
   if (tos->custom_bevel_profile_preset) {
-    write_CurveProfile(wd, tos->custom_bevel_profile_preset);
+    BKE_curveprofile_write_file(wrap_writer(wd), tos->custom_bevel_profile_preset);
   }
 
   write_paint(wd, &tos->imapaint.paint);
