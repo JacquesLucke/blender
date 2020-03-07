@@ -1,6 +1,8 @@
 #ifndef __BLO_CALLBACK_API_H__
 #define __BLO_CALLBACK_API_H__
 
+#include "BLI_endian_switch.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -44,6 +46,15 @@ bool BLO_read_requires_endian_switch(BloReader *reader);
 
 typedef void (*BloLinkListFn)(BloReader *reader, void *data);
 void BLO_read_list(BloReader *reader, struct ListBase *list, BloLinkListFn callback);
+
+#define BLO_read_array_endian_corrected(reader, type_name, ptr, array_size) \
+  BLO_read_update_address(reader, ptr); \
+  if (BLO_read_requires_endian_switch(reader)) { \
+    BLI_endian_switch_##type_name##_array(ptr, array_size); \
+  }
+
+#define BLO_read_array_int32(reader, ptr, array_size) \
+  BLO_read_array_endian_corrected(reader, int32, ptr, array_size)
 
 #ifdef __cplusplus
 }

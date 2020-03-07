@@ -138,11 +138,7 @@ static void bloWrite(BloWriter *writer, const ModifierData *md)
 static void bloRead(BloReader *reader, ModifierData *md)
 {
   HookModifierData *hmd = (HookModifierData *)md;
-
-  BLO_read_update_address(reader, hmd->indexar);
-  if (BLO_read_requires_endian_switch(reader)) {
-    BLI_endian_switch_int32_array(hmd->indexar, hmd->totindex);
-  }
+  BLO_read_array_int32(reader, hmd->indexar, hmd->totindex);
 
   BLO_read_update_address(reader, hmd->curfalloff);
   if (hmd->curfalloff) {
