@@ -1652,17 +1652,6 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
       writestruct(wd, DATA, MFace, collmd->numfaces, collmd->mfaces);
 #endif
     }
-    else if (md->type == eModifierType_MeshDeform) {
-      MeshDeformModifierData *mmd = (MeshDeformModifierData *)md;
-      int size = mmd->dyngridsize;
-
-      writestruct(wd, DATA, MDefInfluence, mmd->totinfluence, mmd->bindinfluences);
-      writedata(wd, DATA, sizeof(int) * (mmd->totvert + 1), mmd->bindoffsets);
-      writedata(wd, DATA, sizeof(float) * 3 * mmd->totcagevert, mmd->bindcagecos);
-      writestruct(wd, DATA, MDefCell, size * size * size, mmd->dyngrid);
-      writestruct(wd, DATA, MDefInfluence, mmd->totinfluence, mmd->dyninfluences);
-      writedata(wd, DATA, sizeof(int) * mmd->totvert, mmd->dynverts);
-    }
     else if (md->type == eModifierType_Warp) {
       WarpModifierData *tmd = (WarpModifierData *)md;
       if (tmd->curfalloff) {

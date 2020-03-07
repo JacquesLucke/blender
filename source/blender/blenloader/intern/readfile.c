@@ -5451,37 +5451,6 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
 
       psmd->facepa = NULL;
     }
-    else if (md->type == eModifierType_MeshDeform) {
-      MeshDeformModifierData *mmd = (MeshDeformModifierData *)md;
-
-      mmd->bindinfluences = newdataadr(fd, mmd->bindinfluences);
-      mmd->bindoffsets = newdataadr(fd, mmd->bindoffsets);
-      mmd->bindcagecos = newdataadr(fd, mmd->bindcagecos);
-      mmd->dyngrid = newdataadr(fd, mmd->dyngrid);
-      mmd->dyninfluences = newdataadr(fd, mmd->dyninfluences);
-      mmd->dynverts = newdataadr(fd, mmd->dynverts);
-
-      mmd->bindweights = newdataadr(fd, mmd->bindweights);
-      mmd->bindcos = newdataadr(fd, mmd->bindcos);
-
-      if (fd->flags & FD_FLAGS_SWITCH_ENDIAN) {
-        if (mmd->bindoffsets) {
-          BLI_endian_switch_int32_array(mmd->bindoffsets, mmd->totvert + 1);
-        }
-        if (mmd->bindcagecos) {
-          BLI_endian_switch_float_array(mmd->bindcagecos, mmd->totcagevert * 3);
-        }
-        if (mmd->dynverts) {
-          BLI_endian_switch_int32_array(mmd->dynverts, mmd->totvert);
-        }
-        if (mmd->bindweights) {
-          BLI_endian_switch_float_array(mmd->bindweights, mmd->totvert);
-        }
-        if (mmd->bindcos) {
-          BLI_endian_switch_float_array(mmd->bindcos, mmd->totcagevert * 3);
-        }
-      }
-    }
     else if (md->type == eModifierType_Ocean) {
       OceanModifierData *omd = (OceanModifierData *)md;
       omd->oceancache = NULL;

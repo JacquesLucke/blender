@@ -45,6 +45,8 @@
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
 
+#include "BLO_callback_api.h"
+
 #include "MOD_util.h"
 
 #ifdef __SSE2__
@@ -161,6 +163,36 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
     DEG_add_object_relation(ctx->node, mmd->object, DEG_OB_COMP_TRANSFORM, "Mesh Deform Modifier");
     DEG_add_object_relation(ctx->node, mmd->object, DEG_OB_COMP_GEOMETRY, "Mesh Deform Modifier");
   }
+}
+
+static void bloWrite(BloWriter *writer, const ModifierData *md)
+{
+  MeshDeformModifierData *mmd = (MeshDeformModifierData *)md;
+  int size = mmd->dyngridsize;
+
+  BLO_write_struct_array(writer, MDefInfluence, mmd->totinfluence, mmd->bindinfluences);
+  BLO_write_raw_array(writer, sizeof(int), mmd->totvert + 1, mmd->bindoffsets);
+  BLO_write_raw_array(writer, sizeof(float) * 3, mmd->totcagevert, mmd->bindcagecos);
+
+  BLO_write_struct_array(writer, MDefCell, size * size * size, mmd->dyngrid);
+  BLO_write_struct_array(writer, MDefInfluence, mmd->totinfluence, mmd->dyninfluences);
+  BLO_write_raw_array(writer, sizeof(int), mmd->totvert, mmd->dynverts);
+}
+
+static void bloRead(BloReader *reader, ModifierData *md)
+{
+  MeshDeformModifierData *mmd = (MeshDeformModifierData *)md;
+
+  BLO_read_update_address(reader, mmd->bindinfluences);
+  BLO_read_array_int32(reader, mmd->bindoffsets, mmd->totvert + 1);
+  BLO_read_array_float3(reader, mmd->bindcagecos, mmd->totcagevert);
+
+  BLO_read_update_address(reader, mmd->dyngrid);
+  BLO_read_update_address(reader, mmd->dyninfluences);
+  BLO_read_array_int32(reader, mmd->dynverts, mmd->totvert);
+
+  BLO_read_array_float(reader, mmd->bindweights, mmd->totvert);
+  BLO_read_array_float3(reader, mmd->bindcos, mmd->totcagevert);
 }
 
 static float meshdeform_dynamic_bind(MeshDeformModifierData *mmd, float (*dco)[3], float vec[3])
@@ -578,6 +610,6 @@ ModifierTypeInfo modifierType_MeshDeform = {
     /* foreachIDLink */ NULL,
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
-    /* bloWrite */ NULL,
-    /* bloRead */ NULL,
+    /* bloWrite */ bloWrite,
+    /* bloRead */ bloRead,
 };
