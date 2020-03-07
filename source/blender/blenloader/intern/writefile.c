@@ -1574,6 +1574,10 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
 
     writestruct_id(wd, DATA, mti->structName, 1, md);
 
+    if (mti->bloWrite != NULL) {
+      mti->bloWrite(wrap_writer(wd), md);
+    }
+
     if (md->type == eModifierType_Hook) {
       HookModifierData *hmd = (HookModifierData *)md;
 

@@ -40,6 +40,8 @@ struct ModifierData;
 struct Object;
 struct Scene;
 struct bArmature;
+struct BloWriter;
+struct BloReader;
 
 typedef enum {
   /* Should not be used, only for None modifier type */
@@ -333,6 +335,8 @@ typedef struct ModifierTypeInfo {
    *    more like "ensure the data is freed".
    */
   void (*freeRuntimeData)(void *runtime_data);
+
+  void (*bloWrite)(struct BloWriter *writer, struct ModifierData *md);
 } ModifierTypeInfo;
 
 /* Initialize modifier's global data (type info and some common global storages). */
