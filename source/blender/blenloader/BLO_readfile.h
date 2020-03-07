@@ -180,6 +180,7 @@ typedef struct BloReader BloReader;
 
 void *BLO_read_new_address(BloReader *reader, const void *old_address);
 bool BLO_read_requires_endian_switch(BloReader *reader);
+#define BLO_read_update_address(reader, ptr) ptr = BLO_read_new_address(reader, ptr)
 
 #ifdef __cplusplus
 }
