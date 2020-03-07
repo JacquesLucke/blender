@@ -4330,7 +4330,7 @@ static void direct_link_material(FileData *fd, Material *ma)
 /** \name Read ID: Particle Settings
  * \{ */
 
-/* update this also to writefile.c */
+/* update this also to pointcache.c */
 static const char *ptcache_data_struct[] = {
     "",          // BPHYS_DATA_INDEX
     "",          // BPHYS_DATA_LOCATION

@@ -67,6 +67,8 @@
 #include "BKE_fluid.h"
 #include "BKE_softbody.h"
 
+#include "BLO_callback_api.h"
+
 #include "BIK_api.h"
 
 #ifdef WITH_BULLET
@@ -3344,6 +3346,63 @@ int BKE_ptcache_write(PTCacheID *pid, unsigned int cfra)
 /* you'll need to close yourself after!
  * mode - PTCACHE_CLEAR_ALL,
  */
+
+/* also update in readfile.c */
+static const char *ptcache_data_struct[] = {
+    "",          // BPHYS_DATA_INDEX
+    "",          // BPHYS_DATA_LOCATION
+    "",          // BPHYS_DATA_VELOCITY
+    "",          // BPHYS_DATA_ROTATION
+    "",          // BPHYS_DATA_AVELOCITY / BPHYS_DATA_XCONST */
+    "",          // BPHYS_DATA_SIZE:
+    "",          // BPHYS_DATA_TIMES:
+    "BoidData",  // case BPHYS_DATA_BOIDS:
+};
+static const char *ptcache_extra_struct[] = {
+    "",
+    "ParticleSpring",
+};
+
+void BKE_ptcache_file_write(BloWriter *writer, ListBase *ptcaches)
+{
+  PointCache *cache = ptcaches->first;
+  int i;
+
+  for (; cache; cache = cache->next) {
+    BLO_write_struct(writer, PointCache, cache);
+
+    if ((cache->flag & PTCACHE_DISK_CACHE) == 0) {
+      PTCacheMem *pm = cache->mem_cache.first;
+
+      for (; pm; pm = pm->next) {
+        PTCacheExtra *extra = pm->extradata.first;
+
+        BLO_write_struct(writer, PTCacheMem, pm);
+
+        for (i = 0; i < BPHYS_TOT_DATA; i++) {
+          if (pm->data[i] && pm->data_types & (1 << i)) {
+            if (ptcache_data_struct[i][0] == '\0') {
+              BLO_write_raw(writer, pm->data[i], MEM_allocN_len(pm->data[i]));
+            }
+            else {
+              BLO_write_struct_array_by_name(
+                  writer, ptcache_data_struct[i], pm->data[i], pm->totpoint);
+            }
+          }
+        }
+
+        for (; extra; extra = extra->next) {
+          if (ptcache_extra_struct[extra->type][0] == '\0') {
+            continue;
+          }
+          BLO_write_struct(writer, PTCacheExtra, extra);
+          BLO_write_struct_array_by_name(
+              writer, ptcache_extra_struct[extra->type], extra->data, extra->totdata);
+        }
+      }
+    }
+  }
+}
 
 /* Clears & resets */
 void BKE_ptcache_id_clear(PTCacheID *pid, int mode, unsigned int cfra)

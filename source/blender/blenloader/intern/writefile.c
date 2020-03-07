@@ -1322,60 +1322,6 @@ static void write_boid_state(WriteData *wd, BoidState *state)
 #endif
 }
 
-/* update this also to readfile.c */
-static const char *ptcache_data_struct[] = {
-    "",          // BPHYS_DATA_INDEX
-    "",          // BPHYS_DATA_LOCATION
-    "",          // BPHYS_DATA_VELOCITY
-    "",          // BPHYS_DATA_ROTATION
-    "",          // BPHYS_DATA_AVELOCITY / BPHYS_DATA_XCONST */
-    "",          // BPHYS_DATA_SIZE:
-    "",          // BPHYS_DATA_TIMES:
-    "BoidData",  // case BPHYS_DATA_BOIDS:
-};
-static const char *ptcache_extra_struct[] = {
-    "",
-    "ParticleSpring",
-};
-static void write_pointcaches(WriteData *wd, ListBase *ptcaches)
-{
-  PointCache *cache = ptcaches->first;
-  int i;
-
-  for (; cache; cache = cache->next) {
-    writestruct(wd, DATA, PointCache, 1, cache);
-
-    if ((cache->flag & PTCACHE_DISK_CACHE) == 0) {
-      PTCacheMem *pm = cache->mem_cache.first;
-
-      for (; pm; pm = pm->next) {
-        PTCacheExtra *extra = pm->extradata.first;
-
-        writestruct(wd, DATA, PTCacheMem, 1, pm);
-
-        for (i = 0; i < BPHYS_TOT_DATA; i++) {
-          if (pm->data[i] && pm->data_types & (1 << i)) {
-            if (ptcache_data_struct[i][0] == '\0') {
-              writedata(wd, DATA, MEM_allocN_len(pm->data[i]), pm->data[i]);
-            }
-            else {
-              writestruct_id(wd, DATA, ptcache_data_struct[i], pm->totpoint, pm->data[i]);
-            }
-          }
-        }
-
-        for (; extra; extra = extra->next) {
-          if (ptcache_extra_struct[extra->type][0] == '\0') {
-            continue;
-          }
-          writestruct(wd, DATA, PTCacheExtra, 1, extra);
-          writestruct_id(wd, DATA, ptcache_extra_struct[extra->type], extra->totdata, extra->data);
-        }
-      }
-    }
-  }
-}
-
 static void write_particlesettings(WriteData *wd, ParticleSettings *part)
 {
   if (part->id.us > 0 || wd->use_memfile) {
@@ -1480,7 +1426,7 @@ static void write_particlesystems(WriteData *wd, ListBase *particles)
       writestruct(wd, DATA, ClothCollSettings, 1, psys->clmd->coll_parms);
     }
 
-    write_pointcaches(wd, &psys->ptcaches);
+    BKE_ptcache_file_write(wrap_writer(wd), &psys->ptcaches);
   }
 }
 
@@ -1648,7 +1594,7 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
       writestruct(wd, DATA, ClothSimSettings, 1, clmd->sim_parms);
       writestruct(wd, DATA, ClothCollSettings, 1, clmd->coll_parms);
       writestruct(wd, DATA, EffectorWeights, 1, clmd->sim_parms->effector_weights);
-      write_pointcaches(wd, &clmd->ptcaches);
+      BKE_ptcache_file_write(wrap_writer(wd), &clmd->ptcaches);
     }
     else if (md->type == eModifierType_Fluid) {
       FluidModifierData *mmd = (FluidModifierData *)md;
@@ -1657,14 +1603,14 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
         writestruct(wd, DATA, FluidDomainSettings, 1, mmd->domain);
 
         if (mmd->domain) {
-          write_pointcaches(wd, &(mmd->domain->ptcaches[0]));
+          BKE_ptcache_file_write(wrap_writer(wd), &(mmd->domain->ptcaches[0]));
 
           /* create fake pointcache so that old blender versions can read it */
           mmd->domain->point_cache[1] = BKE_ptcache_add(&mmd->domain->ptcaches[1]);
           mmd->domain->point_cache[1]->flag |= PTCACHE_DISK_CACHE | PTCACHE_FAKE_SMOKE;
           mmd->domain->point_cache[1]->step = 1;
 
-          write_pointcaches(wd, &(mmd->domain->ptcaches[1]));
+          BKE_ptcache_file_write(wrap_writer(wd), &(mmd->domain->ptcaches[1]));
 
           if (mmd->domain->coba) {
             writestruct(wd, DATA, ColorBand, 1, mmd->domain->coba);
@@ -1702,7 +1648,7 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
         }
         /* write caches and effector weights */
         for (surface = pmd->canvas->surfaces.first; surface; surface = surface->next) {
-          write_pointcaches(wd, &(surface->ptcaches));
+          BKE_ptcache_file_write(wrap_writer(wd), &(surface->ptcaches));
 
           writestruct(wd, DATA, EffectorWeights, 1, surface->effector_weights);
         }
@@ -1888,7 +1834,7 @@ static void write_object(WriteData *wd, Object *ob)
       ob->soft->ptcaches = ob->soft->shared->ptcaches;
       writestruct(wd, DATA, SoftBody, 1, ob->soft);
       writestruct(wd, DATA, SoftBody_Shared, 1, ob->soft->shared);
-      write_pointcaches(wd, &(ob->soft->shared->ptcaches));
+      BKE_ptcache_file_write(wrap_writer(wd), &(ob->soft->shared->ptcaches));
       writestruct(wd, DATA, EffectorWeights, 1, ob->soft->effector_weights);
     }
 
@@ -2692,7 +2638,7 @@ static void write_scene(WriteData *wd, Scene *sce)
 
     writestruct(wd, DATA, RigidBodyWorld_Shared, 1, sce->rigidbody_world->shared);
     writestruct(wd, DATA, EffectorWeights, 1, sce->rigidbody_world->effector_weights);
-    write_pointcaches(wd, &(sce->rigidbody_world->shared->ptcaches));
+    BKE_ptcache_file_write(wrap_writer(wd), &(sce->rigidbody_world->shared->ptcaches));
   }
 
   write_previews(wd, sce->preview);
