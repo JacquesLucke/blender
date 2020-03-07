@@ -770,7 +770,7 @@ static void bloRead(BloReader *reader, ModifierData *md)
 {
   LaplacianDeformModifierData *lmd = (LaplacianDeformModifierData *)md;
 
-  BLO_read_float3_array(reader, lmd->vertexco, lmd->total_verts);
+  BLO_read_float3_array(reader, lmd->total_verts, lmd->vertexco);
   lmd->cache_system = NULL;
 }
 

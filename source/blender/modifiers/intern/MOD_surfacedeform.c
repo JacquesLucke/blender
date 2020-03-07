@@ -243,13 +243,13 @@ static void bloRead(BloReader *reader, ModifierData *md)
       if (smd->verts[i].binds) {
         for (int j = 0; j < smd->verts[i].numbinds; j++) {
           SDefBind *bind = &smd->verts[i].binds[j];
-          BLO_read_uint32_array(reader, bind->vert_inds, bind->numverts);
+          BLO_read_uint32_array(reader, bind->numverts, bind->vert_inds);
 
           if (ELEM(bind->mode, MOD_SDEF_MODE_CENTROID, MOD_SDEF_MODE_LOOPTRI)) {
-            BLO_read_float3_array(reader, bind->vert_weights, 1);
+            BLO_read_float3_array(reader, 1, bind->vert_weights);
           }
           else {
-            BLO_read_float_array(reader, bind->vert_weights, bind->numverts);
+            BLO_read_float_array(reader, bind->numverts, bind->vert_weights);
           }
         }
       }

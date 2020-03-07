@@ -138,7 +138,7 @@ static void bloWrite(BloWriter *writer, const ModifierData *md)
 static void bloRead(BloReader *reader, ModifierData *md)
 {
   HookModifierData *hmd = (HookModifierData *)md;
-  BLO_read_int32_array(reader, hmd->indexar, hmd->totindex);
+  BLO_read_int32_array(reader, hmd->totindex, hmd->indexar);
 
   BLO_read_update_address(reader, hmd->curfalloff);
   if (hmd->curfalloff) {
