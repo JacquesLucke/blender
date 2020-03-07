@@ -1930,6 +1930,7 @@ ModifierTypeInfo modifierType_Weld = {
     /* foreachIDLink */ NULL,
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
+    /* bloWrite */ NULL,
 };
 
 /** \} */

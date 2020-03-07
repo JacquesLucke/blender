@@ -1199,4 +1199,5 @@ ModifierTypeInfo modifierType_Explode = {
     /* foreachIDLink */ NULL,
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
+    /* bloWrite */ NULL,
 };

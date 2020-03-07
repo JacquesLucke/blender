@@ -276,4 +276,5 @@ ModifierTypeInfo modifierType_Cloth = {
     /* foreachIDLink */ foreachIDLink,
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
+    /* bloWrite */ NULL,
 };

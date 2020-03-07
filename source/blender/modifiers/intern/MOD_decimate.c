@@ -241,4 +241,5 @@ ModifierTypeInfo modifierType_Decimate = {
     /* foreachIDLink */ NULL,
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
+    /* bloWrite */ NULL,
 };

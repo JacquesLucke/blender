@@ -200,4 +200,5 @@ ModifierTypeInfo modifierType_DynamicPaint = {
     /* foreachIDLink */ foreachIDLink,
     /* foreachTexLink */ foreachTexLink,
     /* freeRuntimeData */ freeRuntimeData,
+    /* bloWrite */ NULL,
 };

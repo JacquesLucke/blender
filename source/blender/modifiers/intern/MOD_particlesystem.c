@@ -277,4 +277,5 @@ ModifierTypeInfo modifierType_ParticleSystem = {
     /* foreachIDLink */ NULL,
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
+    /* bloWrite */ NULL,
 };
