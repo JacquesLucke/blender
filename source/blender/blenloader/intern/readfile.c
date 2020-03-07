@@ -5282,11 +5282,6 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
     else if (mdi && mdi->bloRead) {
       mdi->bloRead(wrap_reader(fd), md);
     }
-    else if (md->type == eModifierType_Subsurf) {
-      SubsurfModifierData *smd = (SubsurfModifierData *)md;
-
-      smd->emCache = smd->mCache = NULL;
-    }
     else if (md->type == eModifierType_Armature) {
       ArmatureModifierData *amd = (ArmatureModifierData *)md;
 
