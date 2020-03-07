@@ -5282,11 +5282,6 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
     else if (mdi && mdi->bloRead) {
       mdi->bloRead(wrap_reader(fd), md);
     }
-    else if (md->type == eModifierType_Armature) {
-      ArmatureModifierData *amd = (ArmatureModifierData *)md;
-
-      amd->prevCos = NULL;
-    }
     else if (md->type == eModifierType_Fluid) {
 
       FluidModifierData *mmd = (FluidModifierData *)md;
