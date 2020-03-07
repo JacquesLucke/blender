@@ -150,6 +150,7 @@
 #include "BKE_blender_version.h"
 #include "BKE_bpath.h"
 #include "BKE_collection.h"
+#include "BKE_colortools.h"
 #include "BKE_constraint.h"
 #include "BKE_curve.h"
 #include "BKE_fcurve.h"
@@ -948,20 +949,6 @@ static void write_animdata(WriteData *wd, AnimData *adt)
   write_nladata(wd, &adt->nla_tracks);
 }
 
-static void write_curvemapping_curves(WriteData *wd, CurveMapping *cumap)
-{
-  for (int a = 0; a < CM_TOT; a++) {
-    writestruct(wd, DATA, CurveMapPoint, cumap->cm[a].totpoint, cumap->cm[a].curve);
-  }
-}
-
-static void write_curvemapping(WriteData *wd, CurveMapping *cumap)
-{
-  writestruct(wd, DATA, CurveMapping, 1, cumap);
-
-  write_curvemapping_curves(wd, cumap);
-}
-
 static void write_CurveProfile(WriteData *wd, CurveProfile *profile)
 {
   writestruct(wd, DATA, CurveProfile, 1, profile);
@@ -1058,7 +1045,7 @@ static void write_nodetree_nolib(WriteData *wd, bNodeTree *ntree)
       /* could be handlerized at some point, now only 1 exception still */
       if ((ntree->type == NTREE_SHADER) &&
           ELEM(node->type, SH_NODE_CURVE_VEC, SH_NODE_CURVE_RGB)) {
-        write_curvemapping(wd, node->storage);
+        BKE_curvemapping_write_file(wrap_writer(wd), node->storage);
       }
       else if (ntree->type == NTREE_SHADER && (node->type == SH_NODE_SCRIPT)) {
         NodeShaderScript *nss = (NodeShaderScript *)node->storage;
@@ -1072,11 +1059,11 @@ static void write_nodetree_nolib(WriteData *wd, bNodeTree *ntree)
                                                        CMP_NODE_CURVE_VEC,
                                                        CMP_NODE_CURVE_RGB,
                                                        CMP_NODE_HUECORRECT)) {
-        write_curvemapping(wd, node->storage);
+        BKE_curvemapping_write_file(wrap_writer(wd), node->storage);
       }
       else if ((ntree->type == NTREE_TEXTURE) &&
                (node->type == TEX_NODE_CURVE_RGB || node->type == TEX_NODE_CURVE_TIME)) {
-        write_curvemapping(wd, node->storage);
+        BKE_curvemapping_write_file(wrap_writer(wd), node->storage);
       }
       else if ((ntree->type == NTREE_COMPOSIT) && (node->type == CMP_NODE_MOVIEDISTORTION)) {
         /* pass */
@@ -1403,13 +1390,13 @@ static void write_particlesettings(WriteData *wd, ParticleSettings *part)
     writestruct(wd, DATA, EffectorWeights, 1, part->effector_weights);
 
     if (part->clumpcurve) {
-      write_curvemapping(wd, part->clumpcurve);
+      BKE_curvemapping_write_file(wrap_writer(wd), part->clumpcurve);
     }
     if (part->roughcurve) {
-      write_curvemapping(wd, part->roughcurve);
+      BKE_curvemapping_write_file(wrap_writer(wd), part->roughcurve);
     }
     if (part->twistcurve) {
-      write_curvemapping(wd, part->twistcurve);
+      BKE_curvemapping_write_file(wrap_writer(wd), part->twistcurve);
     }
 
     for (ParticleDupliWeight *dw = part->instance_weights.first; dw; dw = dw->next) {
@@ -1649,7 +1636,7 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
       HookModifierData *hmd = (HookModifierData *)md;
 
       if (hmd->curfalloff) {
-        write_curvemapping(wd, hmd->curfalloff);
+        BKE_curvemapping_write_file(wrap_writer(wd), hmd->curfalloff);
       }
 
       writedata(wd, DATA, sizeof(int) * hmd->totindex, hmd->indexar);
@@ -1750,14 +1737,14 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
     else if (md->type == eModifierType_Warp) {
       WarpModifierData *tmd = (WarpModifierData *)md;
       if (tmd->curfalloff) {
-        write_curvemapping(wd, tmd->curfalloff);
+        BKE_curvemapping_write_file(wrap_writer(wd), tmd->curfalloff);
       }
     }
     else if (md->type == eModifierType_WeightVGEdit) {
       WeightVGEditModifierData *wmd = (WeightVGEditModifierData *)md;
 
       if (wmd->cmap_curve) {
-        write_curvemapping(wd, wmd->cmap_curve);
+        BKE_curvemapping_write_file(wrap_writer(wd), wmd->cmap_curve);
       }
     }
     else if (md->type == eModifierType_LaplacianDeform) {
@@ -1832,14 +1819,14 @@ static void write_gpencil_modifiers(WriteData *wd, ListBase *modbase)
       ThickGpencilModifierData *gpmd = (ThickGpencilModifierData *)md;
 
       if (gpmd->curve_thickness) {
-        write_curvemapping(wd, gpmd->curve_thickness);
+        BKE_curvemapping_write_file(wrap_writer(wd), gpmd->curve_thickness);
       }
     }
     else if (md->type == eGpencilModifierType_Hook) {
       HookGpencilModifierData *gpmd = (HookGpencilModifierData *)md;
 
       if (gpmd->curfalloff) {
-        write_curvemapping(wd, gpmd->curfalloff);
+        BKE_curvemapping_write_file(wrap_writer(wd), gpmd->curfalloff);
       }
     }
   }
@@ -2371,7 +2358,7 @@ static void write_light(WriteData *wd, Light *la)
     }
 
     if (la->curfalloff) {
-      write_curvemapping(wd, la->curfalloff);
+      BKE_curvemapping_write_file(wrap_writer(wd), la->curfalloff);
     }
 
     /* Node-tree is integral part of lights, no libdata. */
@@ -2422,12 +2409,12 @@ static void write_sequence_modifiers(WriteData *wd, ListBase *modbase)
       if (smd->type == seqModifierType_Curves) {
         CurvesModifierData *cmd = (CurvesModifierData *)smd;
 
-        write_curvemapping(wd, &cmd->curve_mapping);
+        BKE_curvemapping_write_file(wrap_writer(wd), &cmd->curve_mapping);
       }
       else if (smd->type == seqModifierType_HueCorrect) {
         HueCorrectModifierData *hcmd = (HueCorrectModifierData *)smd;
 
-        write_curvemapping(wd, &hcmd->curve_mapping);
+        BKE_curvemapping_write_file(wrap_writer(wd), &hcmd->curve_mapping);
       }
     }
     else {
@@ -2439,7 +2426,7 @@ static void write_sequence_modifiers(WriteData *wd, ListBase *modbase)
 static void write_view_settings(WriteData *wd, ColorManagedViewSettings *view_settings)
 {
   if (view_settings->curve_mapping) {
-    write_curvemapping(wd, view_settings->curve_mapping);
+    BKE_curvemapping_write_file(wrap_writer(wd), view_settings->curve_mapping);
   }
 }
 
@@ -2453,7 +2440,7 @@ static void write_view3dshading(WriteData *wd, View3DShading *shading)
 static void write_paint(WriteData *wd, Paint *p)
 {
   if (p->cavity_curve) {
-    write_curvemapping(wd, p->cavity_curve);
+    BKE_curvemapping_write_file(wrap_writer(wd), p->cavity_curve);
   }
   writestruct(wd, DATA, PaintToolSlot, p->tool_slots_len, p->tool_slots);
 }
@@ -2553,15 +2540,15 @@ static void write_scene(WriteData *wd, Scene *sce)
   }
   /* write grease-pencil custom ipo curve to file */
   if (tos->gp_interpolate.custom_ipo) {
-    write_curvemapping(wd, tos->gp_interpolate.custom_ipo);
+    BKE_curvemapping_write_file(wrap_writer(wd), tos->gp_interpolate.custom_ipo);
   }
   /* write grease-pencil multiframe falloff curve to file */
   if (tos->gp_sculpt.cur_falloff) {
-    write_curvemapping(wd, tos->gp_sculpt.cur_falloff);
+    BKE_curvemapping_write_file(wrap_writer(wd), tos->gp_sculpt.cur_falloff);
   }
   /* write grease-pencil primitive curve to file */
   if (tos->gp_sculpt.cur_primitive) {
-    write_curvemapping(wd, tos->gp_sculpt.cur_primitive);
+    BKE_curvemapping_write_file(wrap_writer(wd), tos->gp_sculpt.cur_primitive);
   }
   /* Write the curve profile to the file. */
   if (tos->custom_bevel_profile_preset) {
@@ -2708,7 +2695,7 @@ static void write_scene(WriteData *wd, Scene *sce)
   }
 
   write_previews(wd, sce->preview);
-  write_curvemapping_curves(wd, &sce->r.mblur_shutter_curve);
+  BKE_curvemapping_curves_write_file(wrap_writer(wd), &sce->r.mblur_shutter_curve);
 
   for (ViewLayer *view_layer = sce->view_layers.first; view_layer; view_layer = view_layer->next) {
     write_view_layer(wd, view_layer);
@@ -3172,20 +3159,20 @@ static void write_brush(WriteData *wd, Brush *brush)
     write_iddata(wd, &brush->id);
 
     if (brush->curve) {
-      write_curvemapping(wd, brush->curve);
+      BKE_curvemapping_write_file(wrap_writer(wd), brush->curve);
     }
 
     if (brush->gpencil_settings) {
       writestruct(wd, DATA, BrushGpencilSettings, 1, brush->gpencil_settings);
 
       if (brush->gpencil_settings->curve_sensitivity) {
-        write_curvemapping(wd, brush->gpencil_settings->curve_sensitivity);
+        BKE_curvemapping_write_file(wrap_writer(wd), brush->gpencil_settings->curve_sensitivity);
       }
       if (brush->gpencil_settings->curve_strength) {
-        write_curvemapping(wd, brush->gpencil_settings->curve_strength);
+        BKE_curvemapping_write_file(wrap_writer(wd), brush->gpencil_settings->curve_strength);
       }
       if (brush->gpencil_settings->curve_jitter) {
-        write_curvemapping(wd, brush->gpencil_settings->curve_jitter);
+        BKE_curvemapping_write_file(wrap_writer(wd), brush->gpencil_settings->curve_jitter);
       }
     }
     if (brush->gradient) {
@@ -3444,28 +3431,34 @@ static void write_linestyle_alpha_modifiers(WriteData *wd, ListBase *modifiers)
   for (m = modifiers->first; m; m = m->next) {
     switch (m->type) {
       case LS_MODIFIER_ALONG_STROKE:
-        write_curvemapping(wd, ((LineStyleAlphaModifier_AlongStroke *)m)->curve);
+        BKE_curvemapping_write_file(wrap_writer(wd),
+                                    ((LineStyleAlphaModifier_AlongStroke *)m)->curve);
         break;
       case LS_MODIFIER_DISTANCE_FROM_CAMERA:
-        write_curvemapping(wd, ((LineStyleAlphaModifier_DistanceFromCamera *)m)->curve);
+        BKE_curvemapping_write_file(wrap_writer(wd),
+                                    ((LineStyleAlphaModifier_DistanceFromCamera *)m)->curve);
         break;
       case LS_MODIFIER_DISTANCE_FROM_OBJECT:
-        write_curvemapping(wd, ((LineStyleAlphaModifier_DistanceFromObject *)m)->curve);
+        BKE_curvemapping_write_file(wrap_writer(wd),
+                                    ((LineStyleAlphaModifier_DistanceFromObject *)m)->curve);
         break;
       case LS_MODIFIER_MATERIAL:
-        write_curvemapping(wd, ((LineStyleAlphaModifier_Material *)m)->curve);
+        BKE_curvemapping_write_file(wrap_writer(wd),
+                                    ((LineStyleAlphaModifier_Material *)m)->curve);
         break;
       case LS_MODIFIER_TANGENT:
-        write_curvemapping(wd, ((LineStyleAlphaModifier_Tangent *)m)->curve);
+        BKE_curvemapping_write_file(wrap_writer(wd), ((LineStyleAlphaModifier_Tangent *)m)->curve);
         break;
       case LS_MODIFIER_NOISE:
-        write_curvemapping(wd, ((LineStyleAlphaModifier_Noise *)m)->curve);
+        BKE_curvemapping_write_file(wrap_writer(wd), ((LineStyleAlphaModifier_Noise *)m)->curve);
         break;
       case LS_MODIFIER_CREASE_ANGLE:
-        write_curvemapping(wd, ((LineStyleAlphaModifier_CreaseAngle *)m)->curve);
+        BKE_curvemapping_write_file(wrap_writer(wd),
+                                    ((LineStyleAlphaModifier_CreaseAngle *)m)->curve);
         break;
       case LS_MODIFIER_CURVATURE_3D:
-        write_curvemapping(wd, ((LineStyleAlphaModifier_Curvature_3D *)m)->curve);
+        BKE_curvemapping_write_file(wrap_writer(wd),
+                                    ((LineStyleAlphaModifier_Curvature_3D *)m)->curve);
         break;
     }
   }
@@ -3513,25 +3506,32 @@ static void write_linestyle_thickness_modifiers(WriteData *wd, ListBase *modifie
   for (m = modifiers->first; m; m = m->next) {
     switch (m->type) {
       case LS_MODIFIER_ALONG_STROKE:
-        write_curvemapping(wd, ((LineStyleThicknessModifier_AlongStroke *)m)->curve);
+        BKE_curvemapping_write_file(wrap_writer(wd),
+                                    ((LineStyleThicknessModifier_AlongStroke *)m)->curve);
         break;
       case LS_MODIFIER_DISTANCE_FROM_CAMERA:
-        write_curvemapping(wd, ((LineStyleThicknessModifier_DistanceFromCamera *)m)->curve);
+        BKE_curvemapping_write_file(wrap_writer(wd),
+                                    ((LineStyleThicknessModifier_DistanceFromCamera *)m)->curve);
         break;
       case LS_MODIFIER_DISTANCE_FROM_OBJECT:
-        write_curvemapping(wd, ((LineStyleThicknessModifier_DistanceFromObject *)m)->curve);
+        BKE_curvemapping_write_file(wrap_writer(wd),
+                                    ((LineStyleThicknessModifier_DistanceFromObject *)m)->curve);
         break;
       case LS_MODIFIER_MATERIAL:
-        write_curvemapping(wd, ((LineStyleThicknessModifier_Material *)m)->curve);
+        BKE_curvemapping_write_file(wrap_writer(wd),
+                                    ((LineStyleThicknessModifier_Material *)m)->curve);
         break;
       case LS_MODIFIER_TANGENT:
-        write_curvemapping(wd, ((LineStyleThicknessModifier_Tangent *)m)->curve);
+        BKE_curvemapping_write_file(wrap_writer(wd),
+                                    ((LineStyleThicknessModifier_Tangent *)m)->curve);
         break;
       case LS_MODIFIER_CREASE_ANGLE:
-        write_curvemapping(wd, ((LineStyleThicknessModifier_CreaseAngle *)m)->curve);
+        BKE_curvemapping_write_file(wrap_writer(wd),
+                                    ((LineStyleThicknessModifier_CreaseAngle *)m)->curve);
         break;
       case LS_MODIFIER_CURVATURE_3D:
-        write_curvemapping(wd, ((LineStyleThicknessModifier_Curvature_3D *)m)->curve);
+        BKE_curvemapping_write_file(wrap_writer(wd),
+                                    ((LineStyleThicknessModifier_Curvature_3D *)m)->curve);
         break;
     }
   }

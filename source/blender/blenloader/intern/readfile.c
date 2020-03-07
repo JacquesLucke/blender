@@ -2724,27 +2724,6 @@ static void direct_link_id(FileData *fd, ID *id)
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Read CurveMapping
- * \{ */
-
-/* cuma itself has been read! */
-static void direct_link_curvemapping(FileData *fd, CurveMapping *cumap)
-{
-  int a;
-
-  /* flag seems to be able to hang? Maybe old files... not bad to clear anyway */
-  cumap->flag &= ~CUMA_PREMULLED;
-
-  for (a = 0; a < CM_TOT; a++) {
-    cumap->cm[a].curve = newdataadr(fd, cumap->cm[a].curve);
-    cumap->cm[a].table = NULL;
-    cumap->cm[a].premultable = NULL;
-  }
-}
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
 /** \name Read CurveProfile
  * \{ */
 
@@ -2797,7 +2776,7 @@ static void direct_link_brush(FileData *fd, Brush *brush)
   brush->gradient = newdataadr(fd, brush->gradient);
 
   if (brush->curve) {
-    direct_link_curvemapping(fd, brush->curve);
+    BKE_curvemapping_read_file(wrap_reader(fd), brush->curve);
   }
   else {
     BKE_brush_curve_preset(brush, CURVE_PRESET_SHARP);
@@ -2813,15 +2792,15 @@ static void direct_link_brush(FileData *fd, Brush *brush)
     brush->gpencil_settings->curve_jitter = newdataadr(fd, brush->gpencil_settings->curve_jitter);
 
     if (brush->gpencil_settings->curve_sensitivity) {
-      direct_link_curvemapping(fd, brush->gpencil_settings->curve_sensitivity);
+      BKE_curvemapping_read_file(wrap_reader(fd), brush->gpencil_settings->curve_sensitivity);
     }
 
     if (brush->gpencil_settings->curve_strength) {
-      direct_link_curvemapping(fd, brush->gpencil_settings->curve_strength);
+      BKE_curvemapping_read_file(wrap_reader(fd), brush->gpencil_settings->curve_strength);
     }
 
     if (brush->gpencil_settings->curve_jitter) {
-      direct_link_curvemapping(fd, brush->gpencil_settings->curve_jitter);
+      BKE_curvemapping_read_file(wrap_reader(fd), brush->gpencil_settings->curve_jitter);
     }
   }
 
@@ -3531,7 +3510,7 @@ static void direct_link_nodetree(FileData *fd, bNodeTree *ntree)
         case CMP_NODE_HUECORRECT:
         case TEX_NODE_CURVE_RGB:
         case TEX_NODE_CURVE_TIME: {
-          direct_link_curvemapping(fd, node->storage);
+          BKE_curvemapping_read_file(wrap_reader(fd), node->storage);
           break;
         }
         case SH_NODE_SCRIPT: {
@@ -3920,7 +3899,7 @@ static void direct_link_light(FileData *fd, Light *la)
 
   la->curfalloff = newdataadr(fd, la->curfalloff);
   if (la->curfalloff) {
-    direct_link_curvemapping(fd, la->curfalloff);
+    BKE_curvemapping_read_file(wrap_reader(fd), la->curfalloff);
   }
 
   la->preview = direct_link_preview_image(fd, la->preview);
@@ -4528,15 +4507,15 @@ static void direct_link_particlesettings(FileData *fd, ParticleSettings *part)
 
   part->clumpcurve = newdataadr(fd, part->clumpcurve);
   if (part->clumpcurve) {
-    direct_link_curvemapping(fd, part->clumpcurve);
+    BKE_curvemapping_read_file(wrap_reader(fd), part->clumpcurve);
   }
   part->roughcurve = newdataadr(fd, part->roughcurve);
   if (part->roughcurve) {
-    direct_link_curvemapping(fd, part->roughcurve);
+    BKE_curvemapping_read_file(wrap_reader(fd), part->roughcurve);
   }
   part->twistcurve = newdataadr(fd, part->twistcurve);
   if (part->twistcurve) {
-    direct_link_curvemapping(fd, part->twistcurve);
+    BKE_curvemapping_read_file(wrap_reader(fd), part->twistcurve);
   }
 
   part->effector_weights = newdataadr(fd, part->effector_weights);
@@ -5587,7 +5566,7 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
 
       hmd->curfalloff = newdataadr(fd, hmd->curfalloff);
       if (hmd->curfalloff) {
-        direct_link_curvemapping(fd, hmd->curfalloff);
+        BKE_curvemapping_read_file(wrap_reader(fd), hmd->curfalloff);
       }
     }
     else if (md->type == eModifierType_ParticleSystem) {
@@ -5645,7 +5624,7 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
 
       tmd->curfalloff = newdataadr(fd, tmd->curfalloff);
       if (tmd->curfalloff) {
-        direct_link_curvemapping(fd, tmd->curfalloff);
+        BKE_curvemapping_read_file(wrap_reader(fd), tmd->curfalloff);
       }
     }
     else if (md->type == eModifierType_WeightVGEdit) {
@@ -5653,7 +5632,7 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
 
       wmd->cmap_curve = newdataadr(fd, wmd->cmap_curve);
       if (wmd->cmap_curve) {
-        direct_link_curvemapping(fd, wmd->cmap_curve);
+        BKE_curvemapping_read_file(wrap_reader(fd), wmd->cmap_curve);
       }
     }
     else if (md->type == eModifierType_LaplacianDeform) {
@@ -5754,7 +5733,7 @@ static void direct_link_gpencil_modifiers(FileData *fd, ListBase *lb)
 
       hmd->curfalloff = newdataadr(fd, hmd->curfalloff);
       if (hmd->curfalloff) {
-        direct_link_curvemapping(fd, hmd->curfalloff);
+        BKE_curvemapping_read_file(wrap_reader(fd), hmd->curfalloff);
       }
     }
     else if (md->type == eGpencilModifierType_Thick) {
@@ -5762,7 +5741,7 @@ static void direct_link_gpencil_modifiers(FileData *fd, ListBase *lb)
 
       gpmd->curve_thickness = newdataadr(fd, gpmd->curve_thickness);
       if (gpmd->curve_thickness) {
-        direct_link_curvemapping(fd, gpmd->curve_thickness);
+        BKE_curvemapping_read_file(wrap_reader(fd), gpmd->curve_thickness);
         /* initialize the curve. Maybe this could be moved to modififer logic */
         BKE_curvemapping_initialize(gpmd->curve_thickness);
       }
@@ -6001,7 +5980,7 @@ static void direct_link_view_settings(FileData *fd, ColorManagedViewSettings *vi
   view_settings->curve_mapping = newdataadr(fd, view_settings->curve_mapping);
 
   if (view_settings->curve_mapping) {
-    direct_link_curvemapping(fd, view_settings->curve_mapping);
+    BKE_curvemapping_read_file(wrap_reader(fd), view_settings->curve_mapping);
   }
 }
 
@@ -6524,7 +6503,7 @@ static void direct_link_paint(FileData *fd, const Scene *scene, Paint *p)
 
   p->cavity_curve = newdataadr(fd, p->cavity_curve);
   if (p->cavity_curve) {
-    direct_link_curvemapping(fd, p->cavity_curve);
+    BKE_curvemapping_read_file(wrap_reader(fd), p->cavity_curve);
   }
   else {
     BKE_paint_cavity_curve_preset(p, CURVE_PRESET_LINE);
@@ -6566,12 +6545,12 @@ static void direct_link_sequence_modifiers(FileData *fd, ListBase *lb)
     if (smd->type == seqModifierType_Curves) {
       CurvesModifierData *cmd = (CurvesModifierData *)smd;
 
-      direct_link_curvemapping(fd, &cmd->curve_mapping);
+      BKE_curvemapping_read_file(wrap_reader(fd), &cmd->curve_mapping);
     }
     else if (smd->type == seqModifierType_HueCorrect) {
       HueCorrectModifierData *hcmd = (HueCorrectModifierData *)smd;
 
-      direct_link_curvemapping(fd, &hcmd->curve_mapping);
+      BKE_curvemapping_read_file(wrap_reader(fd), &hcmd->curve_mapping);
     }
   }
 }
@@ -6633,19 +6612,19 @@ static void direct_link_scene(FileData *fd, Scene *sce)
     sce->toolsettings->gp_interpolate.custom_ipo = newdataadr(
         fd, sce->toolsettings->gp_interpolate.custom_ipo);
     if (sce->toolsettings->gp_interpolate.custom_ipo) {
-      direct_link_curvemapping(fd, sce->toolsettings->gp_interpolate.custom_ipo);
+      BKE_curvemapping_read_file(wrap_reader(fd), sce->toolsettings->gp_interpolate.custom_ipo);
     }
     /* relink grease pencil multiframe falloff curve */
     sce->toolsettings->gp_sculpt.cur_falloff = newdataadr(
         fd, sce->toolsettings->gp_sculpt.cur_falloff);
     if (sce->toolsettings->gp_sculpt.cur_falloff) {
-      direct_link_curvemapping(fd, sce->toolsettings->gp_sculpt.cur_falloff);
+      BKE_curvemapping_read_file(wrap_reader(fd), sce->toolsettings->gp_sculpt.cur_falloff);
     }
     /* relink grease pencil primitive curve */
     sce->toolsettings->gp_sculpt.cur_primitive = newdataadr(
         fd, sce->toolsettings->gp_sculpt.cur_primitive);
     if (sce->toolsettings->gp_sculpt.cur_primitive) {
-      direct_link_curvemapping(fd, sce->toolsettings->gp_sculpt.cur_primitive);
+      BKE_curvemapping_read_file(wrap_reader(fd), sce->toolsettings->gp_sculpt.cur_primitive);
     }
 
     /* Relink toolsettings curve profile */
@@ -6850,7 +6829,7 @@ static void direct_link_scene(FileData *fd, Scene *sce)
 
   sce->preview = direct_link_preview_image(fd, sce->preview);
 
-  direct_link_curvemapping(fd, &sce->r.mblur_shutter_curve);
+  BKE_curvemapping_read_file(wrap_reader(fd), &sce->r.mblur_shutter_curve);
 
 #ifdef USE_COLLECTION_COMPAT_28
   /* this runs before the very first doversion */
@@ -8649,51 +8628,51 @@ static void direct_link_linestyle_alpha_modifier(FileData *fd, LineStyleModifier
     case LS_MODIFIER_ALONG_STROKE: {
       LineStyleAlphaModifier_AlongStroke *m = (LineStyleAlphaModifier_AlongStroke *)modifier;
       m->curve = newdataadr(fd, m->curve);
-      direct_link_curvemapping(fd, m->curve);
+      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
       break;
     }
     case LS_MODIFIER_DISTANCE_FROM_CAMERA: {
       LineStyleAlphaModifier_DistanceFromCamera *m = (LineStyleAlphaModifier_DistanceFromCamera *)
           modifier;
       m->curve = newdataadr(fd, m->curve);
-      direct_link_curvemapping(fd, m->curve);
+      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
       break;
     }
     case LS_MODIFIER_DISTANCE_FROM_OBJECT: {
       LineStyleAlphaModifier_DistanceFromObject *m = (LineStyleAlphaModifier_DistanceFromObject *)
           modifier;
       m->curve = newdataadr(fd, m->curve);
-      direct_link_curvemapping(fd, m->curve);
+      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
       break;
     }
     case LS_MODIFIER_MATERIAL: {
       LineStyleAlphaModifier_Material *m = (LineStyleAlphaModifier_Material *)modifier;
       m->curve = newdataadr(fd, m->curve);
-      direct_link_curvemapping(fd, m->curve);
+      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
       break;
     }
     case LS_MODIFIER_TANGENT: {
       LineStyleAlphaModifier_Tangent *m = (LineStyleAlphaModifier_Tangent *)modifier;
       m->curve = newdataadr(fd, m->curve);
-      direct_link_curvemapping(fd, m->curve);
+      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
       break;
     }
     case LS_MODIFIER_NOISE: {
       LineStyleAlphaModifier_Noise *m = (LineStyleAlphaModifier_Noise *)modifier;
       m->curve = newdataadr(fd, m->curve);
-      direct_link_curvemapping(fd, m->curve);
+      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
       break;
     }
     case LS_MODIFIER_CREASE_ANGLE: {
       LineStyleAlphaModifier_CreaseAngle *m = (LineStyleAlphaModifier_CreaseAngle *)modifier;
       m->curve = newdataadr(fd, m->curve);
-      direct_link_curvemapping(fd, m->curve);
+      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
       break;
     }
     case LS_MODIFIER_CURVATURE_3D: {
       LineStyleAlphaModifier_Curvature_3D *m = (LineStyleAlphaModifier_Curvature_3D *)modifier;
       m->curve = newdataadr(fd, m->curve);
-      direct_link_curvemapping(fd, m->curve);
+      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
       break;
     }
   }
@@ -8706,47 +8685,47 @@ static void direct_link_linestyle_thickness_modifier(FileData *fd, LineStyleModi
       LineStyleThicknessModifier_AlongStroke *m = (LineStyleThicknessModifier_AlongStroke *)
           modifier;
       m->curve = newdataadr(fd, m->curve);
-      direct_link_curvemapping(fd, m->curve);
+      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
       break;
     }
     case LS_MODIFIER_DISTANCE_FROM_CAMERA: {
       LineStyleThicknessModifier_DistanceFromCamera *m =
           (LineStyleThicknessModifier_DistanceFromCamera *)modifier;
       m->curve = newdataadr(fd, m->curve);
-      direct_link_curvemapping(fd, m->curve);
+      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
       break;
     }
     case LS_MODIFIER_DISTANCE_FROM_OBJECT: {
       LineStyleThicknessModifier_DistanceFromObject *m =
           (LineStyleThicknessModifier_DistanceFromObject *)modifier;
       m->curve = newdataadr(fd, m->curve);
-      direct_link_curvemapping(fd, m->curve);
+      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
       break;
     }
     case LS_MODIFIER_MATERIAL: {
       LineStyleThicknessModifier_Material *m = (LineStyleThicknessModifier_Material *)modifier;
       m->curve = newdataadr(fd, m->curve);
-      direct_link_curvemapping(fd, m->curve);
+      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
       break;
     }
     case LS_MODIFIER_TANGENT: {
       LineStyleThicknessModifier_Tangent *m = (LineStyleThicknessModifier_Tangent *)modifier;
       m->curve = newdataadr(fd, m->curve);
-      direct_link_curvemapping(fd, m->curve);
+      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
       break;
     }
     case LS_MODIFIER_CREASE_ANGLE: {
       LineStyleThicknessModifier_CreaseAngle *m = (LineStyleThicknessModifier_CreaseAngle *)
           modifier;
       m->curve = newdataadr(fd, m->curve);
-      direct_link_curvemapping(fd, m->curve);
+      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
       break;
     }
     case LS_MODIFIER_CURVATURE_3D: {
       LineStyleThicknessModifier_Curvature_3D *m = (LineStyleThicknessModifier_Curvature_3D *)
           modifier;
       m->curve = newdataadr(fd, m->curve);
-      direct_link_curvemapping(fd, m->curve);
+      BKE_curvemapping_read_file(wrap_reader(fd), m->curve);
       break;
     }
   }
