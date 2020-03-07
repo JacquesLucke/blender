@@ -43,6 +43,7 @@
 #include "DNA_fluid_types.h"
 
 #include "BLI_blenlib.h"
+#include "BLI_endian_switch.h"
 #include "BLI_math.h"
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
@@ -3347,7 +3348,6 @@ int BKE_ptcache_write(PTCacheID *pid, unsigned int cfra)
  * mode - PTCACHE_CLEAR_ALL,
  */
 
-/* also update in readfile.c */
 static const char *ptcache_data_struct[] = {
     "",          // BPHYS_DATA_INDEX
     "",          // BPHYS_DATA_LOCATION
@@ -3401,6 +3401,81 @@ void BKE_ptcache_file_write(BloWriter *writer, ListBase *ptcaches)
         }
       }
     }
+  }
+}
+
+static void file_read_pointcache_cb(BloReader *reader, void *data)
+{
+  PTCacheMem *pm = data;
+  PTCacheExtra *extra;
+  int i;
+  for (i = 0; i < BPHYS_TOT_DATA; i++) {
+    BLO_read_update_address(reader, pm->data[i]);
+
+    /* the cache saves non-struct data without DNA */
+    if (pm->data[i] && ptcache_data_struct[i][0] == '\0' &&
+        BLO_read_requires_endian_switch(reader)) {
+      /* data_size returns bytes. */
+      int tot = (BKE_ptcache_data_size(i) * pm->totpoint) / sizeof(int);
+
+      int *poin = pm->data[i];
+
+      BLI_endian_switch_int32_array(poin, tot);
+    }
+  }
+
+  BLO_read_list(reader, &pm->extradata, NULL);
+
+  for (extra = pm->extradata.first; extra; extra = extra->next) {
+    BLO_read_update_address(reader, extra->data);
+  }
+}
+
+static void file_read_pointcache(BloReader *reader, PointCache *cache)
+{
+  if ((cache->flag & PTCACHE_DISK_CACHE) == 0) {
+    BLO_read_list(reader, &cache->mem_cache, file_read_pointcache_cb);
+  }
+  else {
+    BLI_listbase_clear(&cache->mem_cache);
+  }
+
+  cache->flag &= ~PTCACHE_SIMULATION_VALID;
+  cache->simframe = 0;
+  cache->edit = NULL;
+  cache->free_edit = NULL;
+  cache->cached_frames = NULL;
+  cache->cached_frames_len = 0;
+}
+
+void BKE_ptcache_file_read(struct BloReader *reader,
+                           struct ListBase *ptcaches,
+                           struct PointCache **ocache,
+                           int force_disk)
+{
+  if (ptcaches->first) {
+    PointCache *cache = NULL;
+    BLO_read_list(reader, ptcaches, NULL);
+    for (cache = ptcaches->first; cache; cache = cache->next) {
+      file_read_pointcache(reader, cache);
+      if (force_disk) {
+        cache->flag |= PTCACHE_DISK_CACHE;
+        cache->step = 1;
+      }
+    }
+
+    BLO_read_update_address(reader, *ocache);
+  }
+  else if (*ocache) {
+    /* old "single" caches need to be linked too */
+    BLO_read_update_address(reader, *ocache);
+    file_read_pointcache(reader, *ocache);
+    if (force_disk) {
+      (*ocache)->flag |= PTCACHE_DISK_CACHE;
+      (*ocache)->step = 1;
+    }
+
+    ptcaches->first = ptcaches->last = *ocache;
   }
 }
 

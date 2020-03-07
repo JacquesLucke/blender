@@ -4330,92 +4330,6 @@ static void direct_link_material(FileData *fd, Material *ma)
 /** \name Read ID: Particle Settings
  * \{ */
 
-/* update this also to pointcache.c */
-static const char *ptcache_data_struct[] = {
-    "",          // BPHYS_DATA_INDEX
-    "",          // BPHYS_DATA_LOCATION
-    "",          // BPHYS_DATA_VELOCITY
-    "",          // BPHYS_DATA_ROTATION
-    "",          // BPHYS_DATA_AVELOCITY / BPHYS_DATA_XCONST */
-    "",          // BPHYS_DATA_SIZE:
-    "",          // BPHYS_DATA_TIMES:
-    "BoidData",  // case BPHYS_DATA_BOIDS:
-};
-
-static void direct_link_pointcache_cb(FileData *fd, void *data)
-{
-  PTCacheMem *pm = data;
-  PTCacheExtra *extra;
-  int i;
-  for (i = 0; i < BPHYS_TOT_DATA; i++) {
-    pm->data[i] = newdataadr(fd, pm->data[i]);
-
-    /* the cache saves non-struct data without DNA */
-    if (pm->data[i] && ptcache_data_struct[i][0] == '\0' && (fd->flags & FD_FLAGS_SWITCH_ENDIAN)) {
-      /* data_size returns bytes. */
-      int tot = (BKE_ptcache_data_size(i) * pm->totpoint) / sizeof(int);
-
-      int *poin = pm->data[i];
-
-      BLI_endian_switch_int32_array(poin, tot);
-    }
-  }
-
-  link_list(fd, &pm->extradata);
-
-  for (extra = pm->extradata.first; extra; extra = extra->next) {
-    extra->data = newdataadr(fd, extra->data);
-  }
-}
-
-static void direct_link_pointcache(FileData *fd, PointCache *cache)
-{
-  if ((cache->flag & PTCACHE_DISK_CACHE) == 0) {
-    link_list_ex(fd, &cache->mem_cache, direct_link_pointcache_cb);
-  }
-  else {
-    BLI_listbase_clear(&cache->mem_cache);
-  }
-
-  cache->flag &= ~PTCACHE_SIMULATION_VALID;
-  cache->simframe = 0;
-  cache->edit = NULL;
-  cache->free_edit = NULL;
-  cache->cached_frames = NULL;
-  cache->cached_frames_len = 0;
-}
-
-static void direct_link_pointcache_list(FileData *fd,
-                                        ListBase *ptcaches,
-                                        PointCache **ocache,
-                                        int force_disk)
-{
-  if (ptcaches->first) {
-    PointCache *cache = NULL;
-    link_list(fd, ptcaches);
-    for (cache = ptcaches->first; cache; cache = cache->next) {
-      direct_link_pointcache(fd, cache);
-      if (force_disk) {
-        cache->flag |= PTCACHE_DISK_CACHE;
-        cache->step = 1;
-      }
-    }
-
-    *ocache = newdataadr(fd, *ocache);
-  }
-  else if (*ocache) {
-    /* old "single" caches need to be linked too */
-    *ocache = newdataadr(fd, *ocache);
-    direct_link_pointcache(fd, *ocache);
-    if (force_disk) {
-      (*ocache)->flag |= PTCACHE_DISK_CACHE;
-      (*ocache)->step = 1;
-    }
-
-    ptcaches->first = ptcaches->last = *ocache;
-  }
-}
-
 static void lib_link_partdeflect(FileData *fd, ID *id, PartDeflect *pd)
 {
   if (pd && pd->tex) {
@@ -4661,7 +4575,7 @@ static void direct_link_particlesystems(FileData *fd, ListBase *particles)
       psys->clmd->solver_result = NULL;
     }
 
-    direct_link_pointcache_list(fd, &psys->ptcaches, &psys->pointcache, 0);
+    BKE_ptcache_file_read(wrap_reader(fd), &psys->ptcaches, &psys->pointcache, 0);
     if (psys->clmd) {
       psys->clmd->point_cache = psys->pointcache;
     }
@@ -5394,7 +5308,7 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
       clmd->sim_parms = newdataadr(fd, clmd->sim_parms);
       clmd->coll_parms = newdataadr(fd, clmd->coll_parms);
 
-      direct_link_pointcache_list(fd, &clmd->ptcaches, &clmd->point_cache, 0);
+      BKE_ptcache_file_read(wrap_reader(fd), &clmd->ptcaches, &clmd->point_cache, 0);
 
       if (clmd->sim_parms) {
         if (clmd->sim_parms->presets > 10) {
@@ -5442,8 +5356,8 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
           mmd->domain->effector_weights = BKE_effector_add_weights(NULL);
         }
 
-        direct_link_pointcache_list(
-            fd, &(mmd->domain->ptcaches[0]), &(mmd->domain->point_cache[0]), 1);
+        BKE_ptcache_file_read(
+            wrap_reader(fd), &(mmd->domain->ptcaches[0]), &(mmd->domain->point_cache[0]), 1);
 
         /* Manta sim uses only one cache from now on, so store pointer convert */
         if (mmd->domain->ptcaches[1].first || mmd->domain->point_cache[1]) {
@@ -5506,7 +5420,8 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
           for (surface = pmd->canvas->surfaces.first; surface; surface = surface->next) {
             surface->canvas = pmd->canvas;
             surface->data = NULL;
-            direct_link_pointcache_list(fd, &(surface->ptcaches), &(surface->pointcache), 1);
+            BKE_ptcache_file_read(
+                wrap_reader(fd), &(surface->ptcaches), &(surface->pointcache), 1);
 
             if (!(surface->effector_weights = newdataadr(fd, surface->effector_weights))) {
               surface->effector_weights = BKE_effector_add_weights(NULL);
@@ -5896,11 +5811,12 @@ static void direct_link_object(FileData *fd, Object *ob)
        * We should only do this when sb->shared == NULL, because those pointers
        * are always set (for compatibility with older Blenders). We mustn't link
        * the same pointcache twice. */
-      direct_link_pointcache_list(fd, &sb->ptcaches, &sb->pointcache, false);
+      BKE_ptcache_file_read(wrap_reader(fd), &sb->ptcaches, &sb->pointcache, false);
     }
     else {
       /* link caches */
-      direct_link_pointcache_list(fd, &sb->shared->ptcaches, &sb->shared->pointcache, false);
+      BKE_ptcache_file_read(
+          wrap_reader(fd), &sb->shared->ptcaches, &sb->shared->pointcache, false);
     }
   }
   ob->fluidsimSettings = newdataadr(fd, ob->fluidsimSettings); /* NT */
@@ -6797,7 +6713,7 @@ static void direct_link_scene(FileData *fd, Scene *sce)
        * We should only do this when rbw->shared == NULL, because those pointers
        * are always set (for compatibility with older Blenders). We mustn't link
        * the same pointcache twice. */
-      direct_link_pointcache_list(fd, &rbw->ptcaches, &rbw->pointcache, false);
+      BKE_ptcache_file_read(wrap_reader(fd), &rbw->ptcaches, &rbw->pointcache, false);
 
       /* make sure simulation starts from the beginning after loading file */
       if (rbw->pointcache) {
@@ -6811,7 +6727,8 @@ static void direct_link_scene(FileData *fd, Scene *sce)
       rbw->shared->physics_world = NULL;
 
       /* link caches */
-      direct_link_pointcache_list(fd, &rbw->shared->ptcaches, &rbw->shared->pointcache, false);
+      BKE_ptcache_file_read(
+          wrap_reader(fd), &rbw->shared->ptcaches, &rbw->shared->pointcache, false);
 
       /* make sure simulation starts from the beginning after loading file */
       if (rbw->shared->pointcache) {
@@ -11872,6 +11789,11 @@ void *BLO_read_new_address(BloReader *reader, const void *old_address)
 bool BLO_read_requires_endian_switch(BloReader *reader)
 {
   return (((FileData *)reader)->flags & FD_FLAGS_SWITCH_ENDIAN) != 0;
+}
+
+void BLO_read_list(BloReader *reader, struct ListBase *list, BloLinkListFn callback)
+{
+  link_list_ex((FileData *)reader, list, (link_list_cb)callback);
 }
 
 /** \} */
