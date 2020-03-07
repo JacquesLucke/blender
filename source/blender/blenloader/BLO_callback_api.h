@@ -56,14 +56,14 @@ void BLO_read_list(BloReader *reader, struct ListBase *list, BloLinkListFn callb
     BLI_endian_switch_##type_name##_array((void *)ptr, array_size); \
   }
 
-#define BLO_read_array_int32(reader, ptr, array_size) \
+#define BLO_read_int32_array(reader, ptr, array_size) \
   BLO_read_array_endian_corrected(reader, int32, ptr, array_size)
-#define BLO_read_array_uint32(reader, ptr, array_size) \
+#define BLO_read_uint32_array(reader, ptr, array_size) \
   BLO_read_array_endian_corrected(reader, uint32, ptr, array_size)
-#define BLO_read_array_float(reader, ptr, array_size) \
+#define BLO_read_float_array(reader, ptr, array_size) \
   BLO_read_array_endian_corrected(reader, float, ptr, array_size)
-#define BLO_read_array_float3(reader, ptr, array_size) \
-  BLO_read_array_float(reader, ptr, 3 * (int)(array_size))
+#define BLO_read_float3_array(reader, ptr, array_size) \
+  BLO_read_float_array(reader, ptr, 3 * (int)(array_size))
 
 #ifdef __cplusplus
 }

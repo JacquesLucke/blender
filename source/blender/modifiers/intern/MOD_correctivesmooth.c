@@ -130,7 +130,7 @@ static void bloRead(BloReader *reader, ModifierData *md)
   CorrectiveSmoothModifierData *csmd = (CorrectiveSmoothModifierData *)md;
 
   if (csmd->bind_coords) {
-    BLO_read_array_float3(reader, csmd->bind_coords, csmd->bind_coords_num);
+    BLO_read_float3_array(reader, csmd->bind_coords, csmd->bind_coords_num);
   }
 
   /* runtime only */
