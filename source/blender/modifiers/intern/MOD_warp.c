@@ -169,7 +169,7 @@ static void bloRead(BloReader *reader, ModifierData *md)
 
   BLO_read_data_address(reader, tmd->curfalloff);
   if (tmd->curfalloff) {
-    BKE_curvemapping_blo_read_struct(reader, tmd->curfalloff);
+    BKE_curvemapping_blo_read(reader, tmd->curfalloff);
   }
 }
 

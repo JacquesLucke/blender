@@ -55,7 +55,7 @@ void BKE_curvemapping_set_black_white(struct CurveMapping *cumap,
                                       const float white[3]);
 void BKE_curvemapping_blo_write(struct BloWriter *writer, struct CurveMapping *cumap);
 void BKE_curvemapping_blo_write_content(struct BloWriter *writer, struct CurveMapping *cumap);
-void BKE_curvemapping_blo_read_struct(struct BloReader *reader, struct CurveMapping *cumap);
+void BKE_curvemapping_blo_read(struct BloReader *reader, struct CurveMapping *cumap);
 
 enum {
   CURVEMAP_SLOPE_NEGATIVE = 0,
