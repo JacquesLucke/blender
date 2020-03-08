@@ -154,6 +154,7 @@
 #include "BLO_blend_validate.h"
 #include "BLO_readfile.h"
 #include "BLO_undofile.h"
+#include "BLO_callback_api.h"
 
 #include "RE_engine.h"
 
@@ -701,6 +702,16 @@ static Main *blo_find_main(FileData *fd, const char *filepath, const char *relab
 /* -------------------------------------------------------------------- */
 /** \name File Parsing
  * \{ */
+
+static BloReader *wrap_reader(FileData *fd)
+{
+  return (BloReader *)fd;
+}
+
+static FileData *unwrap_reader(BloReader *reader)
+{
+  return (FileData *)reader;
+}
 
 static void switch_endian_bh4(BHead4 *bhead)
 {
@@ -11877,6 +11888,21 @@ static void read_libraries(FileData *basefd, ListBase *mainlist)
     mainptr->curlib->filedata = NULL;
   }
   BKE_main_free(main_newid);
+}
+
+void *BLO_read_get_new_data_address(BloReader *reader, const void *old_address)
+{
+  return newdataadr(unwrap_reader(reader), old_address);
+}
+
+bool BLO_read_requires_endian_switch(BloReader *reader)
+{
+  return (unwrap_reader(reader)->flags & FD_FLAGS_SWITCH_ENDIAN) != 0;
+}
+
+void BLO_read_list(BloReader *reader, struct ListBase *list, BloReadListFn callback)
+{
+  link_list_ex(unwrap_reader(reader), list, (link_list_cb)callback);
 }
 
 /** \} */

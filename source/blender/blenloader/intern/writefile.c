@@ -173,6 +173,7 @@
 #include "BLO_readfile.h"
 #include "BLO_undofile.h"
 #include "BLO_writefile.h"
+#include "BLO_callback_api.h"
 
 #include "readfile.h"
 
@@ -379,6 +380,16 @@ static void writedata_free(WriteData *wd)
     MEM_freeN(wd->buf);
   }
   MEM_freeN(wd);
+}
+
+static BloWriter *wrap_writer(WriteData *wd)
+{
+  return (BloWriter *)wd;
+}
+
+static WriteData *unwrap_writer(BloWriter *writer)
+{
+  return (WriteData *)writer;
 }
 
 /** \} */
@@ -4171,6 +4182,66 @@ bool BLO_write_file_mem(Main *mainvar, MemFile *compare, MemFile *current, int w
   const bool err = write_file_handle(mainvar, NULL, compare, current, write_flags, NULL);
 
   return (err == 0);
+}
+
+void BLO_write_raw(BloWriter *writer, int size_in_bytes, const void *data_ptr)
+{
+  writedata(unwrap_writer(writer), DATA, size_in_bytes, data_ptr);
+}
+
+void BLO_write_struct_by_name(BloWriter *writer, const char *struct_name, const void *data_ptr)
+{
+  int struct_id = BLO_get_struct_id_by_name(writer, struct_name);
+  BLO_write_struct_by_id(writer, struct_id, data_ptr);
+}
+
+void BLO_write_struct_array_by_name(BloWriter *writer,
+                                    const char *struct_name,
+                                    int array_size,
+                                    const void *data_ptr)
+{
+  int struct_id = BLO_get_struct_id_by_name(writer, struct_name);
+  BLO_write_struct_array_by_id(writer, struct_id, array_size, data_ptr);
+}
+
+void BLO_write_struct_by_id(BloWriter *writer, int struct_id, const void *data_ptr)
+{
+  writestruct_nr(unwrap_writer(writer), DATA, struct_id, 1, data_ptr);
+}
+
+void BLO_write_struct_array_by_id(BloWriter *writer,
+                                  int struct_id,
+                                  int array_size,
+                                  const void *data_ptr)
+{
+  writestruct_nr(unwrap_writer(writer), DATA, struct_id, array_size, data_ptr);
+}
+
+int BLO_get_struct_id_by_name(BloWriter *writer, const char *struct_name)
+{
+  int struct_id = DNA_struct_find_nr(unwrap_writer(writer)->sdna, struct_name);
+  BLI_assert(struct_id >= 0);
+  return struct_id;
+}
+
+void BLO_write_int32_array(BloWriter *writer, int size, const int32_t *data_ptr)
+{
+  BLO_write_raw(writer, sizeof(int32_t) * size, data_ptr);
+}
+
+void BLO_write_uint32_array(BloWriter *writer, int size, const uint32_t *data_ptr)
+{
+  BLO_write_raw(writer, sizeof(uint32_t) * size, data_ptr);
+}
+
+void BLO_write_float_array(BloWriter *writer, int size, const float *data_ptr)
+{
+  BLO_write_raw(writer, sizeof(float) * size, data_ptr);
+}
+
+void BLO_write_float3_array(BloWriter *writer, int size, const float *data_ptr)
+{
+  BLO_write_raw(writer, sizeof(float) * 3 * size, data_ptr);
 }
 
 /** \} */
