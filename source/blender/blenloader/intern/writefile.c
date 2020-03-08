@@ -2399,7 +2399,7 @@ static void write_scene(WriteData *wd, Scene *sce)
   }
   /* Write the curve profile to the file. */
   if (tos->custom_bevel_profile_preset) {
-    BKE_curveprofile_blo_write_ptr(wrap_writer(wd), tos->custom_bevel_profile_preset);
+    BKE_curveprofile_blo_write(wrap_writer(wd), tos->custom_bevel_profile_preset);
   }
 
   write_paint(wd, &tos->imapaint.paint);

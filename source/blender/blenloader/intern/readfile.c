@@ -2737,7 +2737,7 @@ static void direct_link_id(FileData *fd, ID *id)
 /* cuma itself has been read! */
 static void direct_link_curvemapping(FileData *fd, CurveMapping *cumap)
 {
-  BKE_curvemapping_blo_read(fd, cumap);
+  BKE_curvemapping_blo_read(wrap_reader(fd), cumap);
 }
 
 /** \} */
@@ -6327,8 +6327,7 @@ static void direct_link_scene(FileData *fd, Scene *sce)
     sce->toolsettings->custom_bevel_profile_preset = newdataadr(
         fd, sce->toolsettings->custom_bevel_profile_preset);
     if (sce->toolsettings->custom_bevel_profile_preset) {
-      BKE_curveprofile_blo_read_struct(wrap_reader(fd),
-                                       sce->toolsettings->custom_bevel_profile_preset);
+      BKE_curveprofile_blo_read(wrap_reader(fd), sce->toolsettings->custom_bevel_profile_preset);
     }
   }
 
