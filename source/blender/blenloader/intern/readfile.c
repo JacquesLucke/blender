@@ -4335,6 +4335,14 @@ static void direct_link_material(FileData *fd, Material *ma)
 /** \name Read ID: Particle Settings
  * \{ */
 
+static void direct_link_pointcache_list(FileData *fd,
+                                        ListBase *ptcaches,
+                                        PointCache **ocache,
+                                        int force_disk)
+{
+  BKE_ptcache_blo_read(wrap_reader(fd), ptcaches, ocache, force_disk);
+}
+
 static void lib_link_partdeflect(FileData *fd, ID *id, PartDeflect *pd)
 {
   if (pd && pd->tex) {
@@ -4580,7 +4588,7 @@ static void direct_link_particlesystems(FileData *fd, ListBase *particles)
       psys->clmd->solver_result = NULL;
     }
 
-    BKE_ptcache_blo_read(wrap_reader(fd), &psys->ptcaches, &psys->pointcache, 0);
+    direct_link_pointcache_list(fd, &psys->ptcaches, &psys->pointcache, 0);
     if (psys->clmd) {
       psys->clmd->point_cache = psys->pointcache;
     }
@@ -5328,8 +5336,8 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
           mmd->domain->effector_weights = BKE_effector_add_weights(NULL);
         }
 
-        BKE_ptcache_blo_read(
-            wrap_reader(fd), &(mmd->domain->ptcaches[0]), &(mmd->domain->point_cache[0]), 1);
+        direct_link_pointcache_list(
+            fd, &(mmd->domain->ptcaches[0]), &(mmd->domain->point_cache[0]), 1);
 
         /* Manta sim uses only one cache from now on, so store pointer convert */
         if (mmd->domain->ptcaches[1].first || mmd->domain->point_cache[1]) {
@@ -5591,11 +5599,11 @@ static void direct_link_object(FileData *fd, Object *ob)
        * We should only do this when sb->shared == NULL, because those pointers
        * are always set (for compatibility with older Blenders). We mustn't link
        * the same pointcache twice. */
-      BKE_ptcache_blo_read(wrap_reader(fd), &sb->ptcaches, &sb->pointcache, false);
+      direct_link_pointcache_list(fd, &sb->ptcaches, &sb->pointcache, false);
     }
     else {
       /* link caches */
-      BKE_ptcache_blo_read(wrap_reader(fd), &sb->shared->ptcaches, &sb->shared->pointcache, false);
+      direct_link_pointcache_list(fd, &sb->shared->ptcaches, &sb->shared->pointcache, false);
     }
   }
   ob->fluidsimSettings = newdataadr(fd, ob->fluidsimSettings); /* NT */
@@ -6492,7 +6500,7 @@ static void direct_link_scene(FileData *fd, Scene *sce)
        * We should only do this when rbw->shared == NULL, because those pointers
        * are always set (for compatibility with older Blenders). We mustn't link
        * the same pointcache twice. */
-      BKE_ptcache_blo_read(wrap_reader(fd), &rbw->ptcaches, &rbw->pointcache, false);
+      direct_link_pointcache_list(fd, &rbw->ptcaches, &rbw->pointcache, false);
 
       /* make sure simulation starts from the beginning after loading file */
       if (rbw->pointcache) {
@@ -6506,8 +6514,7 @@ static void direct_link_scene(FileData *fd, Scene *sce)
       rbw->shared->physics_world = NULL;
 
       /* link caches */
-      BKE_ptcache_blo_read(
-          wrap_reader(fd), &rbw->shared->ptcaches, &rbw->shared->pointcache, false);
+      direct_link_pointcache_list(fd, &rbw->shared->ptcaches, &rbw->shared->pointcache, false);
 
       /* make sure simulation starts from the beginning after loading file */
       if (rbw->shared->pointcache) {
