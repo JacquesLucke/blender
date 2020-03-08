@@ -53,8 +53,8 @@ void BKE_curvemapping_set_black_white_ex(const float black[3],
 void BKE_curvemapping_set_black_white(struct CurveMapping *cumap,
                                       const float black[3],
                                       const float white[3]);
-void BKE_curvemapping_blo_write_ptr(struct BloWriter *writer, struct CurveMapping *cumap);
-void BKE_curvemapping_blo_write_struct(struct BloWriter *writer, struct CurveMapping *cumap);
+void BKE_curvemapping_blo_write(struct BloWriter *writer, struct CurveMapping *cumap);
+void BKE_curvemapping_blo_write_content(struct BloWriter *writer, struct CurveMapping *cumap);
 void BKE_curvemapping_blo_read_struct(struct BloReader *reader, struct CurveMapping *cumap);
 
 enum {

@@ -180,13 +180,13 @@ void BKE_curvemapping_set_black_white(CurveMapping *cumap,
   cumap->changed_timestamp++;
 }
 
-void BKE_curvemapping_blo_write_ptr(BloWriter *writer, CurveMapping *cumap)
+void BKE_curvemapping_blo_write(BloWriter *writer, CurveMapping *cumap)
 {
   BLO_write_struct(writer, CurveMapping, cumap);
-  BKE_curvemapping_blo_write_struct(writer, cumap);
+  BKE_curvemapping_blo_write_content(writer, cumap);
 }
 
-void BKE_curvemapping_blo_write_struct(BloWriter *writer, CurveMapping *cumap)
+void BKE_curvemapping_blo_write_content(BloWriter *writer, CurveMapping *cumap)
 {
   for (int i = 0; i < CM_TOT; i++) {
     BLO_write_struct_array(writer, CurveMapPoint, cumap->cm[i].totpoint, cumap->cm[i].curve);

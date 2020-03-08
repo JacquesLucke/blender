@@ -163,7 +163,7 @@ static void bloWrite(BloWriter *writer, const ModifierData *md)
   WeightVGEditModifierData *wmd = (WeightVGEditModifierData *)md;
 
   if (wmd->cmap_curve) {
-    BKE_curvemapping_blo_write_ptr(writer, wmd->cmap_curve);
+    BKE_curvemapping_blo_write(writer, wmd->cmap_curve);
   }
 }
 

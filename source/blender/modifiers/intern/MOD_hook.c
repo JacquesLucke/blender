@@ -130,7 +130,7 @@ static void bloWrite(BloWriter *writer, const ModifierData *md)
 {
   HookModifierData *hmd = (HookModifierData *)md;
   if (hmd->curfalloff) {
-    BKE_curvemapping_blo_write_ptr(writer, hmd->curfalloff);
+    BKE_curvemapping_blo_write(writer, hmd->curfalloff);
   }
   BLO_write_int32_array(writer, hmd->totindex, hmd->indexar);
 }

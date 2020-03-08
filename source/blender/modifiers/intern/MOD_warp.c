@@ -159,7 +159,7 @@ static void bloWrite(BloWriter *writer, const ModifierData *md)
 {
   WarpModifierData *tmd = (WarpModifierData *)md;
   if (tmd->curfalloff) {
-    BKE_curvemapping_blo_write_ptr(writer, tmd->curfalloff);
+    BKE_curvemapping_blo_write(writer, tmd->curfalloff);
   }
 }
 
