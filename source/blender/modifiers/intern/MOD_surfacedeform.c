@@ -235,10 +235,10 @@ static void bloRead(BloReader *reader, ModifierData *md)
 {
   SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *)md;
 
-  BLO_read_update_address(reader, smd->verts);
+  BLO_read_data_address(reader, smd->verts);
   if (smd->verts) {
     for (int i = 0; i < smd->numverts; i++) {
-      BLO_read_update_address(reader, smd->verts[i].binds);
+      BLO_read_data_address(reader, smd->verts[i].binds);
 
       if (smd->verts[i].binds) {
         for (int j = 0; j < smd->verts[i].numbinds; j++) {

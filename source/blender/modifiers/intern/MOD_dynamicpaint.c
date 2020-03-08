@@ -134,7 +134,7 @@ static void bloRead(BloReader *reader, ModifierData *md)
   DynamicPaintModifierData *pmd = (DynamicPaintModifierData *)md;
 
   if (pmd->canvas) {
-    BLO_read_update_address(reader, pmd->canvas);
+    BLO_read_data_address(reader, pmd->canvas);
     pmd->canvas->pmd = pmd;
     pmd->canvas->flags &= ~MOD_DPAINT_BAKING; /* just in case */
 
@@ -147,7 +147,7 @@ static void bloRead(BloReader *reader, ModifierData *md)
         surface->data = NULL;
         BKE_ptcache_blo_read(reader, &(surface->ptcaches), &(surface->pointcache), 1);
 
-        BLO_read_update_address(reader, surface->effector_weights);
+        BLO_read_data_address(reader, surface->effector_weights);
         if (surface->effector_weights == NULL) {
           surface->effector_weights = BKE_effector_add_weights(NULL);
         }
@@ -155,12 +155,12 @@ static void bloRead(BloReader *reader, ModifierData *md)
     }
   }
   if (pmd->brush) {
-    BLO_read_update_address(reader, pmd->brush);
+    BLO_read_data_address(reader, pmd->brush);
     pmd->brush->pmd = pmd;
 
-    BLO_read_update_address(reader, pmd->brush->psys);
-    BLO_read_update_address(reader, pmd->brush->paint_ramp);
-    BLO_read_update_address(reader, pmd->brush->vel_ramp);
+    BLO_read_data_address(reader, pmd->brush->psys);
+    BLO_read_data_address(reader, pmd->brush->paint_ramp);
+    BLO_read_data_address(reader, pmd->brush->vel_ramp);
   }
 }
 

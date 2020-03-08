@@ -276,7 +276,7 @@ static void bloWrite(BloWriter *writer, const ModifierData *md)
 static void bloRead(BloReader *reader, ModifierData *md)
 {
   BevelModifierData *bmd = (BevelModifierData *)md;
-  BLO_read_update_address(reader, bmd->custom_profile);
+  BLO_read_data_address(reader, bmd->custom_profile);
   if (bmd->custom_profile) {
     BKE_curveprofile_blo_read_struct(reader, bmd->custom_profile);
   }

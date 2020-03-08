@@ -268,8 +268,8 @@ static void bloRead(BloReader *reader, ModifierData *md)
   clmd->clothObject = NULL;
   clmd->hairdata = NULL;
 
-  BLO_read_update_address(reader, clmd->sim_parms);
-  BLO_read_update_address(reader, clmd->coll_parms);
+  BLO_read_data_address(reader, clmd->sim_parms);
+  BLO_read_data_address(reader, clmd->coll_parms);
 
   BKE_ptcache_blo_read(reader, &clmd->ptcaches, &clmd->point_cache, 0);
 
@@ -280,7 +280,7 @@ static void bloRead(BloReader *reader, ModifierData *md)
 
     clmd->sim_parms->reset = 0;
 
-    BLO_read_update_address(reader, clmd->sim_parms->effector_weights);
+    BLO_read_data_address(reader, clmd->sim_parms->effector_weights);
 
     if (clmd->sim_parms->effector_weights == NULL) {
       clmd->sim_parms->effector_weights = BKE_effector_add_weights(NULL);

@@ -167,7 +167,7 @@ static void bloRead(BloReader *reader, ModifierData *md)
 {
   WarpModifierData *tmd = (WarpModifierData *)md;
 
-  BLO_read_update_address(reader, tmd->curfalloff);
+  BLO_read_data_address(reader, tmd->curfalloff);
   if (tmd->curfalloff) {
     BKE_curvemapping_blo_read_struct(reader, tmd->curfalloff);
   }

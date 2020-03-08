@@ -183,12 +183,12 @@ static void bloRead(BloReader *reader, ModifierData *md)
 {
   MeshDeformModifierData *mmd = (MeshDeformModifierData *)md;
 
-  BLO_read_update_address(reader, mmd->bindinfluences);
+  BLO_read_data_address(reader, mmd->bindinfluences);
   BLO_read_int32_array(reader, mmd->totvert + 1, mmd->bindoffsets);
   BLO_read_float3_array(reader, mmd->totcagevert, mmd->bindcagecos);
 
-  BLO_read_update_address(reader, mmd->dyngrid);
-  BLO_read_update_address(reader, mmd->dyninfluences);
+  BLO_read_data_address(reader, mmd->dyngrid);
+  BLO_read_data_address(reader, mmd->dyninfluences);
   BLO_read_int32_array(reader, mmd->totvert, mmd->dynverts);
 
   BLO_read_float_array(reader, mmd->totvert, mmd->bindweights);
