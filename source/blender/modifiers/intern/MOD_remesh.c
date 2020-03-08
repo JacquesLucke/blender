@@ -228,4 +228,6 @@ ModifierTypeInfo modifierType_Remesh = {
     /* foreachObjectLink */ NULL,
     /* foreachIDLink */ NULL,
     /* freeRuntimeData */ NULL,
+    /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

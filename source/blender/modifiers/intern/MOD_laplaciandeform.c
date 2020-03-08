@@ -43,6 +43,8 @@
 
 #include "eigen_capi.h"
 
+#include "BLO_callback_api.h"
+
 enum {
   LAPDEFORM_SYSTEM_NOT_CHANGE = 0,
   LAPDEFORM_SYSTEM_IS_DIFFERENT,
@@ -757,6 +759,21 @@ static void requiredDataMask(Object *UNUSED(ob),
   }
 }
 
+static void bloWrite(BloWriter *writer, const ModifierData *md)
+{
+  LaplacianDeformModifierData *lmd = (LaplacianDeformModifierData *)md;
+
+  BLO_write_float3_array(writer, lmd->total_verts, lmd->vertexco);
+}
+
+static void bloRead(BloReader *reader, ModifierData *md)
+{
+  LaplacianDeformModifierData *lmd = (LaplacianDeformModifierData *)md;
+
+  BLO_read_float3_array(reader, lmd->total_verts, lmd->vertexco);
+  lmd->cache_system = NULL;
+}
+
 static void deformVerts(ModifierData *md,
                         const ModifierEvalContext *ctx,
                         Mesh *mesh,
@@ -827,4 +844,6 @@ ModifierTypeInfo modifierType_LaplacianDeform = {
     /* foreachIDLink */ NULL,
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
+    /* bloWrite */ bloWrite,
+    /* bloRead */ bloRead,
 };

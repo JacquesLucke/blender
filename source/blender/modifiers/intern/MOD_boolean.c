@@ -372,4 +372,6 @@ ModifierTypeInfo modifierType_Boolean = {
     /* foreachIDLink */ NULL,
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
+    /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

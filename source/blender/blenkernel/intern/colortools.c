@@ -44,6 +44,8 @@
 #include "IMB_colormanagement.h"
 #include "IMB_imbuf_types.h"
 
+#include "BLO_callback_api.h"
+
 /* ********************************* color curve ********************* */
 
 /* ***************** operations on full struct ************* */
@@ -176,6 +178,30 @@ void BKE_curvemapping_set_black_white(CurveMapping *cumap,
 
   BKE_curvemapping_set_black_white_ex(cumap->black, cumap->white, cumap->bwmul);
   cumap->changed_timestamp++;
+}
+
+void BKE_curvemapping_blo_write(BloWriter *writer, CurveMapping *cumap)
+{
+  BLO_write_struct(writer, CurveMapping, cumap);
+  BKE_curvemapping_blo_write_content(writer, cumap);
+}
+
+void BKE_curvemapping_blo_write_content(BloWriter *writer, CurveMapping *cumap)
+{
+  for (int i = 0; i < CM_TOT; i++) {
+    BLO_write_struct_array(writer, CurveMapPoint, cumap->cm[i].totpoint, cumap->cm[i].curve);
+  }
+}
+
+void BKE_curvemapping_blo_read(struct BloReader *reader, struct CurveMapping *cumap)
+{
+  cumap->flag &= ~CUMA_PREMULLED;
+
+  for (int i = 0; i < CM_TOT; i++) {
+    BLO_read_data_address(reader, cumap->cm[i].curve);
+    cumap->cm[i].table = NULL;
+    cumap->cm[i].premultable = NULL;
+  }
 }
 
 /* ***************** operations on single curve ************* */

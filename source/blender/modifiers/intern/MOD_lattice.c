@@ -159,4 +159,6 @@ ModifierTypeInfo modifierType_Lattice = {
     /* foreachIDLink */ NULL,
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
+    /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

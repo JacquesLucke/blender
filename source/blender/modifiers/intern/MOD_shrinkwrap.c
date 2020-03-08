@@ -221,4 +221,6 @@ ModifierTypeInfo modifierType_Shrinkwrap = {
     /* foreachIDLink */ NULL,
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
+    /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

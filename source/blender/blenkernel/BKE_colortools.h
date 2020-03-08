@@ -37,6 +37,8 @@ struct Histogram;
 struct ImBuf;
 struct Scopes;
 struct rctf;
+struct BloWriter;
+struct BloReader;
 
 void BKE_curvemapping_set_defaults(
     struct CurveMapping *cumap, int tot, float minx, float miny, float maxx, float maxy);
@@ -51,6 +53,9 @@ void BKE_curvemapping_set_black_white_ex(const float black[3],
 void BKE_curvemapping_set_black_white(struct CurveMapping *cumap,
                                       const float black[3],
                                       const float white[3]);
+void BKE_curvemapping_blo_write(struct BloWriter *writer, struct CurveMapping *cumap);
+void BKE_curvemapping_blo_write_content(struct BloWriter *writer, struct CurveMapping *cumap);
+void BKE_curvemapping_blo_read(struct BloReader *reader, struct CurveMapping *cumap);
 
 enum {
   CURVEMAP_SLOPE_NEGATIVE = 0,

@@ -150,8 +150,10 @@
 #include "BKE_blender_version.h"
 #include "BKE_bpath.h"
 #include "BKE_collection.h"
+#include "BKE_colortools.h"
 #include "BKE_constraint.h"
 #include "BKE_curve.h"
+#include "BKE_curveprofile.h"
 #include "BKE_fcurve.h"
 #include "BKE_global.h"  // for G
 #include "BKE_gpencil_modifier.h"
@@ -956,22 +958,12 @@ static void write_animdata(WriteData *wd, AnimData *adt)
 
 static void write_curvemapping_curves(WriteData *wd, CurveMapping *cumap)
 {
-  for (int a = 0; a < CM_TOT; a++) {
-    writestruct(wd, DATA, CurveMapPoint, cumap->cm[a].totpoint, cumap->cm[a].curve);
-  }
+  BKE_curvemapping_blo_write_content(wrap_writer(wd), cumap);
 }
 
 static void write_curvemapping(WriteData *wd, CurveMapping *cumap)
 {
-  writestruct(wd, DATA, CurveMapping, 1, cumap);
-
-  write_curvemapping_curves(wd, cumap);
-}
-
-static void write_CurveProfile(WriteData *wd, CurveProfile *profile)
-{
-  writestruct(wd, DATA, CurveProfile, 1, profile);
-  writestruct(wd, DATA, CurveProfilePoint, profile->path_len, profile->path);
+  BKE_curvemapping_blo_write(wrap_writer(wd), cumap);
 }
 
 static void write_node_socket_default_value(WriteData *wd, bNodeSocket *sock)
@@ -1340,60 +1332,6 @@ static void write_boid_state(WriteData *wd, BoidState *state)
 #endif
 }
 
-/* update this also to readfile.c */
-static const char *ptcache_data_struct[] = {
-    "",          // BPHYS_DATA_INDEX
-    "",          // BPHYS_DATA_LOCATION
-    "",          // BPHYS_DATA_VELOCITY
-    "",          // BPHYS_DATA_ROTATION
-    "",          // BPHYS_DATA_AVELOCITY / BPHYS_DATA_XCONST */
-    "",          // BPHYS_DATA_SIZE:
-    "",          // BPHYS_DATA_TIMES:
-    "BoidData",  // case BPHYS_DATA_BOIDS:
-};
-static const char *ptcache_extra_struct[] = {
-    "",
-    "ParticleSpring",
-};
-static void write_pointcaches(WriteData *wd, ListBase *ptcaches)
-{
-  PointCache *cache = ptcaches->first;
-  int i;
-
-  for (; cache; cache = cache->next) {
-    writestruct(wd, DATA, PointCache, 1, cache);
-
-    if ((cache->flag & PTCACHE_DISK_CACHE) == 0) {
-      PTCacheMem *pm = cache->mem_cache.first;
-
-      for (; pm; pm = pm->next) {
-        PTCacheExtra *extra = pm->extradata.first;
-
-        writestruct(wd, DATA, PTCacheMem, 1, pm);
-
-        for (i = 0; i < BPHYS_TOT_DATA; i++) {
-          if (pm->data[i] && pm->data_types & (1 << i)) {
-            if (ptcache_data_struct[i][0] == '\0') {
-              writedata(wd, DATA, MEM_allocN_len(pm->data[i]), pm->data[i]);
-            }
-            else {
-              writestruct_id(wd, DATA, ptcache_data_struct[i], pm->totpoint, pm->data[i]);
-            }
-          }
-        }
-
-        for (; extra; extra = extra->next) {
-          if (ptcache_extra_struct[extra->type][0] == '\0') {
-            continue;
-          }
-          writestruct(wd, DATA, PTCacheExtra, 1, extra);
-          writestruct_id(wd, DATA, ptcache_extra_struct[extra->type], extra->totdata, extra->data);
-        }
-      }
-    }
-  }
-}
-
 static void write_particlesettings(WriteData *wd, ParticleSettings *part)
 {
   if (part->id.us > 0 || wd->use_memfile) {
@@ -1498,7 +1436,7 @@ static void write_particlesystems(WriteData *wd, ListBase *particles)
       writestruct(wd, DATA, ClothCollSettings, 1, psys->clmd->coll_parms);
     }
 
-    write_pointcaches(wd, &psys->ptcaches);
+    BKE_ptcache_blo_write_list(wrap_writer(wd), &psys->ptcaches);
   }
 }
 
@@ -1651,38 +1589,25 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
 
     writestruct_id(wd, DATA, mti->structName, 1, md);
 
-    if (md->type == eModifierType_Hook) {
-      HookModifierData *hmd = (HookModifierData *)md;
-
-      if (hmd->curfalloff) {
-        write_curvemapping(wd, hmd->curfalloff);
-      }
-
-      writedata(wd, DATA, sizeof(int) * hmd->totindex, hmd->indexar);
+    if (mti->bloWrite != NULL) {
+      mti->bloWrite(wrap_writer(wd), md);
     }
-    else if (md->type == eModifierType_Cloth) {
-      ClothModifierData *clmd = (ClothModifierData *)md;
 
-      writestruct(wd, DATA, ClothSimSettings, 1, clmd->sim_parms);
-      writestruct(wd, DATA, ClothCollSettings, 1, clmd->coll_parms);
-      writestruct(wd, DATA, EffectorWeights, 1, clmd->sim_parms->effector_weights);
-      write_pointcaches(wd, &clmd->ptcaches);
-    }
-    else if (md->type == eModifierType_Fluid) {
+    if (md->type == eModifierType_Fluid) {
       FluidModifierData *mmd = (FluidModifierData *)md;
 
       if (mmd->type & MOD_FLUID_TYPE_DOMAIN) {
         writestruct(wd, DATA, FluidDomainSettings, 1, mmd->domain);
 
         if (mmd->domain) {
-          write_pointcaches(wd, &(mmd->domain->ptcaches[0]));
+          BKE_ptcache_blo_write_list(wrap_writer(wd), &(mmd->domain->ptcaches[0]));
 
           /* create fake pointcache so that old blender versions can read it */
           mmd->domain->point_cache[1] = BKE_ptcache_add(&mmd->domain->ptcaches[1]);
           mmd->domain->point_cache[1]->flag |= PTCACHE_DISK_CACHE | PTCACHE_FAKE_SMOKE;
           mmd->domain->point_cache[1]->step = 1;
 
-          write_pointcaches(wd, &(mmd->domain->ptcaches[1]));
+          BKE_ptcache_blo_write_list(wrap_writer(wd), &(mmd->domain->ptcaches[1]));
 
           if (mmd->domain->coba) {
             writestruct(wd, DATA, ColorBand, 1, mmd->domain->coba);
@@ -1707,30 +1632,6 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
 
       writestruct(wd, DATA, FluidsimSettings, 1, fluidmd->fss);
     }
-    else if (md->type == eModifierType_DynamicPaint) {
-      DynamicPaintModifierData *pmd = (DynamicPaintModifierData *)md;
-
-      if (pmd->canvas) {
-        DynamicPaintSurface *surface;
-        writestruct(wd, DATA, DynamicPaintCanvasSettings, 1, pmd->canvas);
-
-        /* write surfaces */
-        for (surface = pmd->canvas->surfaces.first; surface; surface = surface->next) {
-          writestruct(wd, DATA, DynamicPaintSurface, 1, surface);
-        }
-        /* write caches and effector weights */
-        for (surface = pmd->canvas->surfaces.first; surface; surface = surface->next) {
-          write_pointcaches(wd, &(surface->ptcaches));
-
-          writestruct(wd, DATA, EffectorWeights, 1, surface->effector_weights);
-        }
-      }
-      if (pmd->brush) {
-        writestruct(wd, DATA, DynamicPaintBrushSettings, 1, pmd->brush);
-        writestruct(wd, DATA, ColorBand, 1, pmd->brush->paint_ramp);
-        writestruct(wd, DATA, ColorBand, 1, pmd->brush->vel_ramp);
-      }
-    }
     else if (md->type == eModifierType_Collision) {
 
 #if 0
@@ -1741,79 +1642,6 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
       writestruct(wd, DATA, MVert, collmd->numverts, collmd->xnew);
       writestruct(wd, DATA, MFace, collmd->numfaces, collmd->mfaces);
 #endif
-    }
-    else if (md->type == eModifierType_MeshDeform) {
-      MeshDeformModifierData *mmd = (MeshDeformModifierData *)md;
-      int size = mmd->dyngridsize;
-
-      writestruct(wd, DATA, MDefInfluence, mmd->totinfluence, mmd->bindinfluences);
-      writedata(wd, DATA, sizeof(int) * (mmd->totvert + 1), mmd->bindoffsets);
-      writedata(wd, DATA, sizeof(float) * 3 * mmd->totcagevert, mmd->bindcagecos);
-      writestruct(wd, DATA, MDefCell, size * size * size, mmd->dyngrid);
-      writestruct(wd, DATA, MDefInfluence, mmd->totinfluence, mmd->dyninfluences);
-      writedata(wd, DATA, sizeof(int) * mmd->totvert, mmd->dynverts);
-    }
-    else if (md->type == eModifierType_Warp) {
-      WarpModifierData *tmd = (WarpModifierData *)md;
-      if (tmd->curfalloff) {
-        write_curvemapping(wd, tmd->curfalloff);
-      }
-    }
-    else if (md->type == eModifierType_WeightVGEdit) {
-      WeightVGEditModifierData *wmd = (WeightVGEditModifierData *)md;
-
-      if (wmd->cmap_curve) {
-        write_curvemapping(wd, wmd->cmap_curve);
-      }
-    }
-    else if (md->type == eModifierType_LaplacianDeform) {
-      LaplacianDeformModifierData *lmd = (LaplacianDeformModifierData *)md;
-
-      writedata(wd, DATA, sizeof(float) * lmd->total_verts * 3, lmd->vertexco);
-    }
-    else if (md->type == eModifierType_CorrectiveSmooth) {
-      CorrectiveSmoothModifierData *csmd = (CorrectiveSmoothModifierData *)md;
-
-      if (csmd->bind_coords) {
-        writedata(wd, DATA, sizeof(float[3]) * csmd->bind_coords_num, csmd->bind_coords);
-      }
-    }
-    else if (md->type == eModifierType_SurfaceDeform) {
-      SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *)md;
-
-      writestruct(wd, DATA, SDefVert, smd->numverts, smd->verts);
-
-      if (smd->verts) {
-        for (int i = 0; i < smd->numverts; i++) {
-          writestruct(wd, DATA, SDefBind, smd->verts[i].numbinds, smd->verts[i].binds);
-
-          if (smd->verts[i].binds) {
-            for (int j = 0; j < smd->verts[i].numbinds; j++) {
-              writedata(wd,
-                        DATA,
-                        sizeof(int) * smd->verts[i].binds[j].numverts,
-                        smd->verts[i].binds[j].vert_inds);
-
-              if (smd->verts[i].binds[j].mode == MOD_SDEF_MODE_CENTROID ||
-                  smd->verts[i].binds[j].mode == MOD_SDEF_MODE_LOOPTRI) {
-                writedata(wd, DATA, sizeof(float) * 3, smd->verts[i].binds[j].vert_weights);
-              }
-              else {
-                writedata(wd,
-                          DATA,
-                          sizeof(float) * smd->verts[i].binds[j].numverts,
-                          smd->verts[i].binds[j].vert_weights);
-              }
-            }
-          }
-        }
-      }
-    }
-    else if (md->type == eModifierType_Bevel) {
-      BevelModifierData *bmd = (BevelModifierData *)md;
-      if (bmd->custom_profile) {
-        write_CurveProfile(wd, bmd->custom_profile);
-      }
     }
   }
 }
@@ -1906,7 +1734,7 @@ static void write_object(WriteData *wd, Object *ob)
       ob->soft->ptcaches = ob->soft->shared->ptcaches;
       writestruct(wd, DATA, SoftBody, 1, ob->soft);
       writestruct(wd, DATA, SoftBody_Shared, 1, ob->soft->shared);
-      write_pointcaches(wd, &(ob->soft->shared->ptcaches));
+      BKE_ptcache_blo_write_list(wrap_writer(wd), &(ob->soft->shared->ptcaches));
       writestruct(wd, DATA, EffectorWeights, 1, ob->soft->effector_weights);
     }
 
@@ -2571,7 +2399,7 @@ static void write_scene(WriteData *wd, Scene *sce)
   }
   /* Write the curve profile to the file. */
   if (tos->custom_bevel_profile_preset) {
-    write_CurveProfile(wd, tos->custom_bevel_profile_preset);
+    BKE_curveprofile_blo_write(wrap_writer(wd), tos->custom_bevel_profile_preset);
   }
 
   write_paint(wd, &tos->imapaint.paint);
@@ -2710,7 +2538,7 @@ static void write_scene(WriteData *wd, Scene *sce)
 
     writestruct(wd, DATA, RigidBodyWorld_Shared, 1, sce->rigidbody_world->shared);
     writestruct(wd, DATA, EffectorWeights, 1, sce->rigidbody_world->effector_weights);
-    write_pointcaches(wd, &(sce->rigidbody_world->shared->ptcaches));
+    BKE_ptcache_blo_write_list(wrap_writer(wd), &(sce->rigidbody_world->shared->ptcaches));
   }
 
   write_previews(wd, sce->preview);

@@ -43,6 +43,7 @@
 #include "DNA_fluid_types.h"
 
 #include "BLI_blenlib.h"
+#include "BLI_endian_switch.h"
 #include "BLI_math.h"
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
@@ -66,6 +67,8 @@
 #include "BKE_scene.h"
 #include "BKE_fluid.h"
 #include "BKE_softbody.h"
+
+#include "BLO_callback_api.h"
 
 #include "BIK_api.h"
 
@@ -3344,6 +3347,137 @@ int BKE_ptcache_write(PTCacheID *pid, unsigned int cfra)
 /* you'll need to close yourself after!
  * mode - PTCACHE_CLEAR_ALL,
  */
+
+static const char *ptcache_data_struct[] = {
+    "",          // BPHYS_DATA_INDEX
+    "",          // BPHYS_DATA_LOCATION
+    "",          // BPHYS_DATA_VELOCITY
+    "",          // BPHYS_DATA_ROTATION
+    "",          // BPHYS_DATA_AVELOCITY / BPHYS_DATA_XCONST */
+    "",          // BPHYS_DATA_SIZE:
+    "",          // BPHYS_DATA_TIMES:
+    "BoidData",  // case BPHYS_DATA_BOIDS:
+};
+static const char *ptcache_extra_struct[] = {
+    "",
+    "ParticleSpring",
+};
+
+void BKE_ptcache_blo_write_list(BloWriter *writer, ListBase *ptcaches)
+{
+  PointCache *cache = ptcaches->first;
+  int i;
+
+  for (; cache; cache = cache->next) {
+    BLO_write_struct(writer, PointCache, cache);
+
+    if ((cache->flag & PTCACHE_DISK_CACHE) == 0) {
+      PTCacheMem *pm = cache->mem_cache.first;
+
+      for (; pm; pm = pm->next) {
+        PTCacheExtra *extra = pm->extradata.first;
+
+        BLO_write_struct(writer, PTCacheMem, pm);
+
+        for (i = 0; i < BPHYS_TOT_DATA; i++) {
+          if (pm->data[i] && pm->data_types & (1 << i)) {
+            if (ptcache_data_struct[i][0] == '\0') {
+              BLO_write_raw(writer, MEM_allocN_len(pm->data[i]), pm->data[i]);
+            }
+            else {
+              BLO_write_struct_array_by_name(
+                  writer, ptcache_data_struct[i], pm->totpoint, pm->data[i]);
+            }
+          }
+        }
+
+        for (; extra; extra = extra->next) {
+          if (ptcache_extra_struct[extra->type][0] == '\0') {
+            continue;
+          }
+          BLO_write_struct(writer, PTCacheExtra, extra);
+          BLO_write_struct_array_by_name(
+              writer, ptcache_extra_struct[extra->type], extra->totdata, extra->data);
+        }
+      }
+    }
+  }
+}
+
+static void file_read_pointcache_cb(BloReader *reader, void *data)
+{
+  PTCacheMem *pm = data;
+  PTCacheExtra *extra;
+  int i;
+  for (i = 0; i < BPHYS_TOT_DATA; i++) {
+    BLO_read_data_address(reader, pm->data[i]);
+
+    /* the cache saves non-struct data without DNA */
+    if (pm->data[i] && ptcache_data_struct[i][0] == '\0' &&
+        BLO_read_requires_endian_switch(reader)) {
+      /* data_size returns bytes. */
+      int tot = (BKE_ptcache_data_size(i) * pm->totpoint) / sizeof(int);
+
+      int *poin = pm->data[i];
+
+      BLI_endian_switch_int32_array(poin, tot);
+    }
+  }
+
+  BLO_read_list(reader, &pm->extradata, NULL);
+
+  for (extra = pm->extradata.first; extra; extra = extra->next) {
+    BLO_read_data_address(reader, extra->data);
+  }
+}
+
+static void file_read_pointcache(BloReader *reader, PointCache *cache)
+{
+  if ((cache->flag & PTCACHE_DISK_CACHE) == 0) {
+    BLO_read_list(reader, &cache->mem_cache, file_read_pointcache_cb);
+  }
+  else {
+    BLI_listbase_clear(&cache->mem_cache);
+  }
+
+  cache->flag &= ~PTCACHE_SIMULATION_VALID;
+  cache->simframe = 0;
+  cache->edit = NULL;
+  cache->free_edit = NULL;
+  cache->cached_frames = NULL;
+  cache->cached_frames_len = 0;
+}
+
+void BKE_ptcache_blo_read(struct BloReader *reader,
+                          struct ListBase *ptcaches,
+                          struct PointCache **ocache,
+                          int force_disk)
+{
+  if (ptcaches->first) {
+    PointCache *cache = NULL;
+    BLO_read_list(reader, ptcaches, NULL);
+    for (cache = ptcaches->first; cache; cache = cache->next) {
+      file_read_pointcache(reader, cache);
+      if (force_disk) {
+        cache->flag |= PTCACHE_DISK_CACHE;
+        cache->step = 1;
+      }
+    }
+
+    BLO_read_data_address(reader, *ocache);
+  }
+  else if (*ocache) {
+    /* old "single" caches need to be linked too */
+    BLO_read_data_address(reader, *ocache);
+    file_read_pointcache(reader, *ocache);
+    if (force_disk) {
+      (*ocache)->flag |= PTCACHE_DISK_CACHE;
+      (*ocache)->step = 1;
+    }
+
+    ptcaches->first = ptcaches->last = *ocache;
+  }
+}
 
 /* Clears & resets */
 void BKE_ptcache_id_clear(PTCacheID *pid, int mode, unsigned int cfra)

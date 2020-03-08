@@ -29,15 +29,19 @@
 #include "DNA_mesh_types.h"
 
 #include "BKE_dynamicpaint.h"
+#include "BKE_effect.h"
 #include "BKE_layer.h"
 #include "BKE_lib_query.h"
 #include "BKE_mesh.h"
 #include "BKE_modifier.h"
+#include "BKE_pointcache.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
 #include "DEG_depsgraph_physics.h"
 #include "DEG_depsgraph_query.h"
+
+#include "BLO_callback_api.h"
 
 #include "MOD_modifiertypes.h"
 
@@ -97,6 +101,66 @@ static void requiredDataMask(Object *UNUSED(ob),
         r_cddata_masks->vmask |= CD_MASK_MDEFORMVERT;
       }
     }
+  }
+}
+
+static void bloWrite(BloWriter *writer, const ModifierData *md)
+{
+  DynamicPaintModifierData *pmd = (DynamicPaintModifierData *)md;
+
+  if (pmd->canvas) {
+    DynamicPaintSurface *surface;
+    BLO_write_struct(writer, DynamicPaintCanvasSettings, pmd->canvas);
+
+    /* write surfaces */
+    for (surface = pmd->canvas->surfaces.first; surface; surface = surface->next) {
+      BLO_write_struct(writer, DynamicPaintSurface, surface);
+    }
+    /* write caches and effector weights */
+    for (surface = pmd->canvas->surfaces.first; surface; surface = surface->next) {
+      BKE_ptcache_blo_write_list(writer, &(surface->ptcaches));
+      BLO_write_struct(writer, EffectorWeights, surface->effector_weights);
+    }
+  }
+  if (pmd->brush) {
+    BLO_write_struct(writer, DynamicPaintBrushSettings, pmd->brush);
+    BLO_write_struct(writer, ColorBand, pmd->brush->paint_ramp);
+    BLO_write_struct(writer, ColorBand, pmd->brush->vel_ramp);
+  }
+}
+
+static void bloRead(BloReader *reader, ModifierData *md)
+{
+  DynamicPaintModifierData *pmd = (DynamicPaintModifierData *)md;
+
+  if (pmd->canvas) {
+    BLO_read_data_address(reader, pmd->canvas);
+    pmd->canvas->pmd = pmd;
+    pmd->canvas->flags &= ~MOD_DPAINT_BAKING; /* just in case */
+
+    if (pmd->canvas->surfaces.first) {
+      DynamicPaintSurface *surface;
+      BLO_read_list(reader, &pmd->canvas->surfaces, NULL);
+
+      for (surface = pmd->canvas->surfaces.first; surface; surface = surface->next) {
+        surface->canvas = pmd->canvas;
+        surface->data = NULL;
+        BKE_ptcache_blo_read(reader, &(surface->ptcaches), &(surface->pointcache), 1);
+
+        BLO_read_data_address(reader, surface->effector_weights);
+        if (surface->effector_weights == NULL) {
+          surface->effector_weights = BKE_effector_add_weights(NULL);
+        }
+      }
+    }
+  }
+  if (pmd->brush) {
+    BLO_read_data_address(reader, pmd->brush);
+    pmd->brush->pmd = pmd;
+
+    BLO_read_data_address(reader, pmd->brush->psys);
+    BLO_read_data_address(reader, pmd->brush->paint_ramp);
+    BLO_read_data_address(reader, pmd->brush->vel_ramp);
   }
 }
 
@@ -200,4 +264,6 @@ ModifierTypeInfo modifierType_DynamicPaint = {
     /* foreachIDLink */ foreachIDLink,
     /* foreachTexLink */ foreachTexLink,
     /* freeRuntimeData */ freeRuntimeData,
+    /* bloWrite */ bloWrite,
+    /* bloRead */ bloRead,
 };

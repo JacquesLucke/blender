@@ -90,6 +90,8 @@ struct RigidBodyWorld;
 struct Scene;
 struct SoftBody;
 struct ViewLayer;
+struct BloWriter;
+struct BloReader;
 
 struct OpenVDBReader;
 struct OpenVDBWriter;
@@ -339,6 +341,12 @@ int BKE_ptcache_read(PTCacheID *pid, float cfra, bool no_extrapolate_old);
 
 /* Main cache writing call. */
 int BKE_ptcache_write(PTCacheID *pid, unsigned int cfra);
+
+void BKE_ptcache_blo_write_list(struct BloWriter *writer, struct ListBase *ptcaches);
+void BKE_ptcache_blo_read(struct BloReader *reader,
+                          struct ListBase *ptcaches,
+                          struct PointCache **ocache,
+                          int force_disk);
 
 /******************* Allocate & free ***************/
 struct PointCache *BKE_ptcache_add(struct ListBase *ptcaches);

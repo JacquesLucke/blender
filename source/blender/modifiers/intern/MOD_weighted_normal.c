@@ -727,4 +727,6 @@ ModifierTypeInfo modifierType_WeightedNormal = {
     /* foreachIDLink */ NULL,
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
+    /* bloWrite */ NULL,
+    /* bloRead */ NULL,
 };

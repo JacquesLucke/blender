@@ -47,6 +47,8 @@
 #include "MOD_weightvg_util.h"
 #include "MOD_modifiertypes.h"
 
+#include "BLO_callback_api.h"
+
 /**************************************
  * Modifiers functions.               *
  **************************************/
@@ -154,6 +156,25 @@ static bool isDisabled(const struct Scene *UNUSED(scene),
   WeightVGEditModifierData *wmd = (WeightVGEditModifierData *)md;
   /* If no vertex group, bypass. */
   return (wmd->defgrp_name[0] == '\0');
+}
+
+static void bloWrite(BloWriter *writer, const ModifierData *md)
+{
+  WeightVGEditModifierData *wmd = (WeightVGEditModifierData *)md;
+
+  if (wmd->cmap_curve) {
+    BKE_curvemapping_blo_write(writer, wmd->cmap_curve);
+  }
+}
+
+static void bloRead(BloReader *reader, ModifierData *md)
+{
+  WeightVGEditModifierData *wmd = (WeightVGEditModifierData *)md;
+
+  BLO_read_data_address(reader, wmd->cmap_curve);
+  if (wmd->cmap_curve) {
+    BKE_curvemapping_blo_read(reader, wmd->cmap_curve);
+  }
 }
 
 static Mesh *applyModifier(ModifierData *md, const ModifierEvalContext *ctx, Mesh *mesh)
@@ -318,4 +339,6 @@ ModifierTypeInfo modifierType_WeightVGEdit = {
     /* foreachIDLink */ foreachIDLink,
     /* foreachTexLink */ foreachTexLink,
     /* freeRuntimeData */ NULL,
+    /* bloWrite */ bloWrite,
+    /* bloRead */ bloRead,
 };

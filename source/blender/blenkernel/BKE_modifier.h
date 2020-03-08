@@ -40,6 +40,8 @@ struct ModifierData;
 struct Object;
 struct Scene;
 struct bArmature;
+struct BloWriter;
+struct BloReader;
 
 typedef enum {
   /* Should not be used, only for None modifier type */
@@ -333,6 +335,21 @@ typedef struct ModifierTypeInfo {
    *    more like "ensure the data is freed".
    */
   void (*freeRuntimeData)(void *runtime_data);
+
+  /* Is called when the modifier is written to a file. The modifier data struct itself is written
+   * already.
+   *
+   * This method should write any additional arrays and referenced structs that should be
+   * stored in the file.
+   */
+  void (*bloWrite)(struct BloWriter *writer, const struct ModifierData *md);
+
+  /* Is called when the modifier is read from a file.
+   *
+   * It can be used to update pointers to arrays and other structs. Furthermore, fields that have
+   * not been written (e.g. runtime data) can be reset.
+   */
+  void (*bloRead)(struct BloReader *reader, struct ModifierData *md);
 } ModifierTypeInfo;
 
 /* Initialize modifier's global data (type info and some common global storages). */

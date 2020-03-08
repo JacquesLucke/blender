@@ -41,6 +41,8 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "BLO_callback_api.h"
+
 #include "MOD_util.h"
 
 typedef struct SDefAdjacency {
@@ -200,6 +202,58 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
   if (smd->target != NULL) {
     DEG_add_object_relation(
         ctx->node, smd->target, DEG_OB_COMP_GEOMETRY, "Surface Deform Modifier");
+  }
+}
+
+static void bloWrite(BloWriter *writer, const ModifierData *md)
+{
+  SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *)md;
+
+  BLO_write_struct_array(writer, SDefVert, smd->numverts, smd->verts);
+  if (smd->verts) {
+    for (int i = 0; i < smd->numverts; i++) {
+      BLO_write_struct_array(writer, SDefBind, smd->verts[i].numbinds, smd->verts[i].binds);
+
+      if (smd->verts[i].binds) {
+        for (int j = 0; j < smd->verts[i].numbinds; j++) {
+          SDefBind *bind = &smd->verts[i].binds[j];
+          BLO_write_uint32_array(writer, (int)bind->numverts, bind->vert_inds);
+
+          if (ELEM(bind->mode, MOD_SDEF_MODE_CENTROID, MOD_SDEF_MODE_LOOPTRI)) {
+            BLO_write_float3_array(writer, 1, bind->vert_weights);
+          }
+          else {
+            BLO_write_float_array(writer, (int)bind->numverts, bind->vert_weights);
+          }
+        }
+      }
+    }
+  }
+}
+
+static void bloRead(BloReader *reader, ModifierData *md)
+{
+  SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *)md;
+
+  BLO_read_data_address(reader, smd->verts);
+  if (smd->verts) {
+    for (int i = 0; i < smd->numverts; i++) {
+      BLO_read_data_address(reader, smd->verts[i].binds);
+
+      if (smd->verts[i].binds) {
+        for (int j = 0; j < smd->verts[i].numbinds; j++) {
+          SDefBind *bind = &smd->verts[i].binds[j];
+          BLO_read_uint32_array(reader, bind->numverts, bind->vert_inds);
+
+          if (ELEM(bind->mode, MOD_SDEF_MODE_CENTROID, MOD_SDEF_MODE_LOOPTRI)) {
+            BLO_read_float3_array(reader, 1, bind->vert_weights);
+          }
+          else {
+            BLO_read_float_array(reader, bind->numverts, bind->vert_weights);
+          }
+        }
+      }
+    }
   }
 }
 
@@ -1315,4 +1369,6 @@ ModifierTypeInfo modifierType_SurfaceDeform = {
     /* foreachIDLink */ NULL,
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
+    /* bloWrite */ bloWrite,
+    /* bloRead */ bloRead,
 };
