@@ -24,7 +24,6 @@
 #include "BLI_utildefines.h"
 
 #include "BLI_math.h"
-#include "BLI_endian_switch.h"
 
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
@@ -129,17 +128,18 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
 static void bloWrite(BloWriter *writer, const ModifierData *md)
 {
   HookModifierData *hmd = (HookModifierData *)md;
+
+  BLO_write_int32_array(writer, hmd->totindex, hmd->indexar);
   if (hmd->curfalloff) {
     BKE_curvemapping_blo_write(writer, hmd->curfalloff);
   }
-  BLO_write_int32_array(writer, hmd->totindex, hmd->indexar);
 }
 
 static void bloRead(BloReader *reader, ModifierData *md)
 {
   HookModifierData *hmd = (HookModifierData *)md;
-  BLO_read_int32_array(reader, hmd->totindex, hmd->indexar);
 
+  BLO_read_int32_array(reader, hmd->totindex, hmd->indexar);
   BLO_read_data_address(reader, hmd->curfalloff);
   if (hmd->curfalloff) {
     BKE_curvemapping_blo_read(reader, hmd->curfalloff);
