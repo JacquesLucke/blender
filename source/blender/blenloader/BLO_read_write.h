@@ -61,31 +61,17 @@ void BLO_write_float3_array(BloWriter *writer, int size, const float *data_ptr);
 
 void *BLO_read_get_new_data_address(BloReader *reader, const void *old_address);
 bool BLO_read_requires_endian_switch(BloReader *reader);
-#define BLO_read_data_address(reader, ptr) ptr = BLO_read_get_new_data_address(reader, ptr)
+
+#define BLO_read_data_address(reader, ptr_p) \
+  *(ptr_p) = BLO_read_get_new_data_address(reader, *(ptr_p))
 
 typedef void (*BloReadListFn)(BloReader *reader, void *data);
 void BLO_read_list(BloReader *reader, struct ListBase *list, BloReadListFn callback);
 
-#define BLO_read_int32_array(reader, array_size, ptr) \
-  BLO_read_data_address(reader, ptr); \
-  if (BLO_read_requires_endian_switch(reader)) { \
-    BLI_endian_switch_int32_array((int32_t *)ptr, array_size); \
-  }
-
-#define BLO_read_uint32_array(reader, array_size, ptr) \
-  BLO_read_data_address(reader, ptr); \
-  if (BLO_read_requires_endian_switch(reader)) { \
-    BLI_endian_switch_uint32_array((uint32_t *)ptr, array_size); \
-  }
-
-#define BLO_read_float_array(reader, array_size, ptr) \
-  BLO_read_data_address(reader, ptr); \
-  if (BLO_read_requires_endian_switch(reader)) { \
-    BLI_endian_switch_float_array((float *)ptr, array_size); \
-  }
-
-#define BLO_read_float3_array(reader, array_size, ptr) \
-  BLO_read_float_array(reader, 3 * (int)(array_size), ptr)
+void BLO_read_int32_array(BloReader *reader, int array_size, int32_t **ptr_p);
+void BLO_read_uint32_array(BloReader *reader, int array_size, uint32_t **ptr_p);
+void BLO_read_float_array(BloReader *reader, int array_size, float **ptr_p);
+void BLO_read_float3_array(BloReader *reader, int array_size, float **ptr_p);
 
 #ifdef __cplusplus
 }
