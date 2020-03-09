@@ -66,6 +66,7 @@ class InfluencesCollector {
   StringMultiMap<Event *> m_events;
   StringMultiMap<OffsetHandler *> m_offset_handlers;
   StringMap<AttributesInfoBuilder *> m_attributes;
+  StringMultiMap<Object *> m_collision_objects;
 };
 
 class FunctionTreeData {
@@ -694,6 +695,16 @@ class FNodeInfluencesBuilder {
     }
   }
 
+  void add_collision_object(ArrayRef<std::string> system_names, Object *object)
+  {
+    for (StringRef system_name : system_names) {
+      if (!m_influences_collector.m_collision_objects.lookup_default(system_name)
+               .contains(object)) {
+        m_influences_collector.m_collision_objects.add(system_name, object);
+      }
+    }
+  }
+
   std::string node_identifier()
   {
     std::stringstream ss;
@@ -1033,6 +1044,24 @@ static void PARSE_always_execute(FNodeInfluencesBuilder &builder)
   builder.add_offset_handler(system_names, offset_handler);
 }
 
+static void PARSE_collision_object(FNodeInfluencesBuilder &builder)
+{
+  ArrayRef<std::string> system_names = builder.find_target_system_names(0, "Collider");
+
+  Optional<NamedGenericTupleRef> inputs = builder.compute_inputs({0});
+  if (!inputs.has_value()) {
+    return;
+  }
+
+  ObjectIDHandle object_handle = inputs->relocate_out<ObjectIDHandle>(0, "Object");
+  Object *object = builder.id_handle_lookup().lookup(object_handle);
+  if (object == nullptr || object->type != OB_MESH) {
+    return;
+  }
+
+  builder.add_collision_object(system_names, object);
+}
+
 static StringMap<ParseNodeCallback, BLI::RawAllocator> create_node_parsers_map()
 {
   StringMap<ParseNodeCallback, BLI::RawAllocator> map;
@@ -1047,6 +1076,7 @@ static StringMap<ParseNodeCallback, BLI::RawAllocator> create_node_parsers_map()
   map.add_new("fn_CustomEventNode", PARSE_custom_event);
   map.add_new("fn_AlwaysExecuteNode", PARSE_always_execute);
   map.add_new("fn_ForceNode", PARSE_custom_force);
+  map.add_new("fn_CollisionObjectNode", PARSE_collision_object);
   return map;
 }
 
@@ -1161,6 +1191,7 @@ class NodeTreeStepSimulator : public StepSimulator {
           integrators.lookup(name),
           influences_collector.m_events.lookup_default(name),
           influences_collector.m_offset_handlers.lookup_default(name),
+          influences_collector.m_collision_objects.lookup_default(name),
       };
       systems_to_simulate.add_new(name, type_info);
     }

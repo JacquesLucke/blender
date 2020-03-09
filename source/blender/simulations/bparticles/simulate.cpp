@@ -430,6 +430,11 @@ void simulate_particles(SimulationState &simulation_state,
 {
   SCOPED_TIMER(__func__);
 
+  systems_to_simulate.foreach_item([](StringRef name, ParticleSystemInfo &system_info) {
+    system_info.collision_objects.print_as_lines(
+        name, [](Object *object) { std::cout << object->id.name; });
+  });
+
   ParticlesState &particles_state = simulation_state.particles();
   FloatInterval simulation_time_span = simulation_state.time().current_update_time();
 
