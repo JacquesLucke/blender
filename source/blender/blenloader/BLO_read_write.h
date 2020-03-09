@@ -1,5 +1,5 @@
-#ifndef __BLO_CALLBACK_API_H__
-#define __BLO_CALLBACK_API_H__
+#ifndef __BLO_READ_WRITE_H__
+#define __BLO_READ_WRITE_H__
 
 #include "BLI_endian_switch.h"
 
@@ -75,4 +75,4 @@ void BLO_read_list(BloReader *reader, struct ListBase *list, BloReadListFn callb
 }
 #endif
 
-#endif /* __BLO_CALLBACK_API_H__ */
+#endif /* __BLO_READ_WRITE_H__ */
