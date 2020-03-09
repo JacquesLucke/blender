@@ -155,7 +155,7 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
   }
 }
 
-static void bloWrite(BloWriter *writer, const ModifierData *md)
+static void bloWrite(BlendWriter *writer, const ModifierData *md)
 {
   WarpModifierData *tmd = (WarpModifierData *)md;
   if (tmd->curfalloff) {
@@ -163,7 +163,7 @@ static void bloWrite(BloWriter *writer, const ModifierData *md)
   }
 }
 
-static void bloRead(BloReader *reader, ModifierData *md)
+static void bloRead(BlendReader *reader, ModifierData *md)
 {
   WarpModifierData *tmd = (WarpModifierData *)md;
 

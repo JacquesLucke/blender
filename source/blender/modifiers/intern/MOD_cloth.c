@@ -251,7 +251,7 @@ static void foreachIDLink(ModifierData *md, Object *ob, IDWalkFunc walk, void *u
   }
 }
 
-static void bloWrite(BloWriter *writer, const ModifierData *md)
+static void bloWrite(BlendWriter *writer, const ModifierData *md)
 {
   ClothModifierData *clmd = (ClothModifierData *)md;
 
@@ -261,7 +261,7 @@ static void bloWrite(BloWriter *writer, const ModifierData *md)
   BKE_ptcache_blo_write_list(writer, &clmd->ptcaches);
 }
 
-static void bloRead(BloReader *reader, ModifierData *md)
+static void bloRead(BlendReader *reader, ModifierData *md)
 {
   ClothModifierData *clmd = (ClothModifierData *)md;
 

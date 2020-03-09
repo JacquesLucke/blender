@@ -104,7 +104,7 @@ static void requiredDataMask(Object *UNUSED(ob),
   }
 }
 
-static void bloWrite(BloWriter *writer, const ModifierData *md)
+static void bloWrite(BlendWriter *writer, const ModifierData *md)
 {
   DynamicPaintModifierData *pmd = (DynamicPaintModifierData *)md;
 
@@ -129,7 +129,7 @@ static void bloWrite(BloWriter *writer, const ModifierData *md)
   }
 }
 
-static void bloRead(BloReader *reader, ModifierData *md)
+static void bloRead(BlendReader *reader, ModifierData *md)
 {
   DynamicPaintModifierData *pmd = (DynamicPaintModifierData *)md;
 

@@ -126,7 +126,7 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
   DEG_add_modifier_to_transform_relation(ctx->node, "Armature Modifier");
 }
 
-static void bloRead(BloReader *UNUSED(reader), ModifierData *md)
+static void bloRead(BlendReader *UNUSED(reader), ModifierData *md)
 {
   ArmatureModifierData *amd = (ArmatureModifierData *)md;
   amd->prevCos = NULL;

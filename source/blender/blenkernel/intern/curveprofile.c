@@ -1073,13 +1073,13 @@ void BKE_curveprofile_evaluate_length_portion(const CurveProfile *profile,
   *y_out = interpf(profile->table[i].y, profile->table[i + 1].y, lerp_factor);
 }
 
-void BKE_curveprofile_blo_write(BloWriter *writer, const CurveProfile *profile)
+void BKE_curveprofile_blo_write(BlendWriter *writer, const CurveProfile *profile)
 {
   BLO_write_struct(writer, CurveProfile, profile);
   BLO_write_struct_array(writer, CurveProfilePoint, profile->path_len, profile->path);
 }
 
-void BKE_curveprofile_blo_read(BloReader *reader, CurveProfile *profile)
+void BKE_curveprofile_blo_read(BlendReader *reader, CurveProfile *profile)
 {
   BLO_read_data_address(reader, &profile->path);
   profile->table = NULL;

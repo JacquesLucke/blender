@@ -265,7 +265,7 @@ static bool isDisabled(const Scene *UNUSED(scene), ModifierData *md, bool UNUSED
   return (bmd->value == 0.0f);
 }
 
-static void bloWrite(BloWriter *writer, const ModifierData *md)
+static void bloWrite(BlendWriter *writer, const ModifierData *md)
 {
   BevelModifierData *bmd = (BevelModifierData *)md;
   if (bmd->custom_profile) {
@@ -273,7 +273,7 @@ static void bloWrite(BloWriter *writer, const ModifierData *md)
   }
 }
 
-static void bloRead(BloReader *reader, ModifierData *md)
+static void bloRead(BlendReader *reader, ModifierData *md)
 {
   BevelModifierData *bmd = (BevelModifierData *)md;
   BLO_read_data_address(reader, &bmd->custom_profile);

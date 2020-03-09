@@ -181,7 +181,7 @@ static bool dependsOnNormals(ModifierData *md)
   return (omd->geometry_mode != MOD_OCEAN_GEOM_GENERATE);
 }
 
-static void bloRead(BloReader *UNUSED(reader), ModifierData *md)
+static void bloRead(BlendReader *UNUSED(reader), ModifierData *md)
 {
   OceanModifierData *omd = (OceanModifierData *)md;
   omd->oceancache = NULL;

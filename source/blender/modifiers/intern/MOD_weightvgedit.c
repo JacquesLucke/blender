@@ -158,7 +158,7 @@ static bool isDisabled(const struct Scene *UNUSED(scene),
   return (wmd->defgrp_name[0] == '\0');
 }
 
-static void bloWrite(BloWriter *writer, const ModifierData *md)
+static void bloWrite(BlendWriter *writer, const ModifierData *md)
 {
   WeightVGEditModifierData *wmd = (WeightVGEditModifierData *)md;
 
@@ -167,7 +167,7 @@ static void bloWrite(BloWriter *writer, const ModifierData *md)
   }
 }
 
-static void bloRead(BloReader *reader, ModifierData *md)
+static void bloRead(BlendReader *reader, ModifierData *md)
 {
   WeightVGEditModifierData *wmd = (WeightVGEditModifierData *)md;
 

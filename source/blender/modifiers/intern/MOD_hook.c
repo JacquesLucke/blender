@@ -125,7 +125,7 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
   DEG_add_modifier_to_transform_relation(ctx->node, "Hook Modifier");
 }
 
-static void bloWrite(BloWriter *writer, const ModifierData *md)
+static void bloWrite(BlendWriter *writer, const ModifierData *md)
 {
   HookModifierData *hmd = (HookModifierData *)md;
 
@@ -135,7 +135,7 @@ static void bloWrite(BloWriter *writer, const ModifierData *md)
   }
 }
 
-static void bloRead(BloReader *reader, ModifierData *md)
+static void bloRead(BlendReader *reader, ModifierData *md)
 {
   HookModifierData *hmd = (HookModifierData *)md;
 
