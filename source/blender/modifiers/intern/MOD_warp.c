@@ -169,7 +169,7 @@ static void warpModifier_do(WarpModifierData *wmd,
 
   float tmat[4][4];
 
-  const float falloff_radius_sq = SQUARE(wmd->falloff_radius);
+  const float falloff_radius_sq = square_f(wmd->falloff_radius);
   float strength = wmd->strength;
   float fac = 1.0f, weight;
   int i;
@@ -235,8 +235,8 @@ static void warpModifier_do(WarpModifierData *wmd,
       /* skip if no vert group found */
       if (defgrp_index != -1) {
         dv = &dvert[i];
-        weight = invert_vgroup ? 1.0f - defvert_find_weight(dv, defgrp_index) * strength :
-                                 defvert_find_weight(dv, defgrp_index) * strength;
+        weight = invert_vgroup ? 1.0f - BKE_defvert_find_weight(dv, defgrp_index) * strength :
+                                 BKE_defvert_find_weight(dv, defgrp_index) * strength;
         if (weight <= 0.0f) {
           continue;
         }

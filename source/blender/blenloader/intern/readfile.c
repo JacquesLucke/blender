@@ -3653,7 +3653,7 @@ static void lib_link_constraint_cb(bConstraint *UNUSED(con),
 {
   tConstraintLinkData *cld = (tConstraintLinkData *)userdata;
 
-  /* for reference types, we need to increment the usercounts on load... */
+  /* for reference types, we need to increment the user-counts on load... */
   if (is_reference) {
     /* reference type - with usercount */
     *idpoin = newlibadr(cld->fd, cld->id->lib, *idpoin);
@@ -7025,38 +7025,38 @@ static void direct_link_panel_list(FileData *fd, ListBase *lb)
   }
 }
 
-static void direct_link_region(FileData *fd, ARegion *ar, int spacetype)
+static void direct_link_region(FileData *fd, ARegion *region, int spacetype)
 {
   uiList *ui_list;
 
-  direct_link_panel_list(fd, &ar->panels);
+  direct_link_panel_list(fd, &region->panels);
 
-  link_list(fd, &ar->panels_category_active);
+  link_list(fd, &region->panels_category_active);
 
-  link_list(fd, &ar->ui_lists);
+  link_list(fd, &region->ui_lists);
 
-  for (ui_list = ar->ui_lists.first; ui_list; ui_list = ui_list->next) {
+  for (ui_list = region->ui_lists.first; ui_list; ui_list = ui_list->next) {
     ui_list->type = NULL;
     ui_list->dyn_data = NULL;
     ui_list->properties = newdataadr(fd, ui_list->properties);
     IDP_DirectLinkGroup_OrFree(&ui_list->properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
   }
 
-  link_list(fd, &ar->ui_previews);
+  link_list(fd, &region->ui_previews);
 
   if (spacetype == SPACE_EMPTY) {
     /* unknown space type, don't leak regiondata */
-    ar->regiondata = NULL;
+    region->regiondata = NULL;
   }
-  else if (ar->flag & RGN_FLAG_TEMP_REGIONDATA) {
+  else if (region->flag & RGN_FLAG_TEMP_REGIONDATA) {
     /* Runtime data, don't use. */
-    ar->regiondata = NULL;
+    region->regiondata = NULL;
   }
   else {
-    ar->regiondata = newdataadr(fd, ar->regiondata);
-    if (ar->regiondata) {
+    region->regiondata = newdataadr(fd, region->regiondata);
+    if (region->regiondata) {
       if (spacetype == SPACE_VIEW3D) {
-        RegionView3D *rv3d = ar->regiondata;
+        RegionView3D *rv3d = region->regiondata;
 
         rv3d->localvd = newdataadr(fd, rv3d->localvd);
         rv3d->clipbb = newdataadr(fd, rv3d->clipbb);
@@ -7071,28 +7071,28 @@ static void direct_link_region(FileData *fd, ARegion *ar, int spacetype)
     }
   }
 
-  ar->v2d.tab_offset = NULL;
-  ar->v2d.tab_num = 0;
-  ar->v2d.tab_cur = 0;
-  ar->v2d.sms = NULL;
-  ar->v2d.alpha_hor = ar->v2d.alpha_vert = 255; /* visible by default */
-  BLI_listbase_clear(&ar->panels_category);
-  BLI_listbase_clear(&ar->handlers);
-  BLI_listbase_clear(&ar->uiblocks);
-  ar->headerstr = NULL;
-  ar->visible = 0;
-  ar->type = NULL;
-  ar->do_draw = 0;
-  ar->gizmo_map = NULL;
-  ar->regiontimer = NULL;
-  ar->draw_buffer = NULL;
-  memset(&ar->drawrct, 0, sizeof(ar->drawrct));
+  region->v2d.tab_offset = NULL;
+  region->v2d.tab_num = 0;
+  region->v2d.tab_cur = 0;
+  region->v2d.sms = NULL;
+  region->v2d.alpha_hor = region->v2d.alpha_vert = 255; /* visible by default */
+  BLI_listbase_clear(&region->panels_category);
+  BLI_listbase_clear(&region->handlers);
+  BLI_listbase_clear(&region->uiblocks);
+  region->headerstr = NULL;
+  region->visible = 0;
+  region->type = NULL;
+  region->do_draw = 0;
+  region->gizmo_map = NULL;
+  region->regiontimer = NULL;
+  region->draw_buffer = NULL;
+  memset(&region->drawrct, 0, sizeof(region->drawrct));
 }
 
 static void direct_link_area(FileData *fd, ScrArea *area)
 {
   SpaceLink *sl;
-  ARegion *ar;
+  ARegion *region;
 
   link_list(fd, &(area->spacedata));
   link_list(fd, &(area->regionbase));
@@ -7118,8 +7118,8 @@ static void direct_link_area(FileData *fd, ScrArea *area)
     area->spacetype = SPACE_EMPTY;
   }
 
-  for (ar = area->regionbase.first; ar; ar = ar->next) {
-    direct_link_region(fd, ar, area->spacetype);
+  for (region = area->regionbase.first; region; region = region->next) {
+    direct_link_region(fd, region, area->spacetype);
   }
 
   /* accident can happen when read/save new file with older version */
@@ -7143,8 +7143,8 @@ static void direct_link_area(FileData *fd, ScrArea *area)
       sl->spacetype = SPACE_EMPTY;
     }
 
-    for (ar = sl->regionbase.first; ar; ar = ar->next) {
-      direct_link_region(fd, ar, sl->spacetype);
+    for (region = sl->regionbase.first; region; region = region->next) {
+      direct_link_region(fd, region, sl->spacetype);
     }
 
     if (sl->spacetype == SPACE_VIEW3D) {
@@ -7775,7 +7775,7 @@ static int lib_link_main_data_restore_cb(LibraryIDLinkCallbackData *cb_data)
 
   /* Note: Handling of usercount here is really bad, defining its own system...
    * Will have to be refactored at some point, but that is not top priority task for now.
-   * And all usercounts are properly recomputed at the end of the undo management code anyway. */
+   * And all user-counts are properly recomputed at the end of the undo management code anyway. */
   *id_pointer = restore_pointer_by_name(
       id_map, *id_pointer, (cb_flag & IDWALK_CB_USER_ONE) ? USER_REAL : USER_IGNORE);
 
@@ -7824,9 +7824,9 @@ static void lib_link_window_scene_data_restore(wmWindow *win, Scene *scene, View
             /* Regionbase storage is different depending if the space is active. */
             ListBase *regionbase = (sl == area->spacedata.first) ? &area->regionbase :
                                                                    &sl->regionbase;
-            for (ARegion *ar = regionbase->first; ar; ar = ar->next) {
-              if (ar->regiontype == RGN_TYPE_WINDOW) {
-                RegionView3D *rv3d = ar->regiondata;
+            for (ARegion *region = regionbase->first; region; region = region->next) {
+              if (region->regiontype == RGN_TYPE_WINDOW) {
+                RegionView3D *rv3d = region->regiondata;
                 if (rv3d->localvd) {
                   MEM_freeN(rv3d->localvd);
                   rv3d->localvd = NULL;
@@ -7852,16 +7852,16 @@ static void lib_link_workspace_layout_restore(struct IDNameLib_Map *id_map,
       for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
         if (sl->spacetype == SPACE_VIEW3D) {
           View3D *v3d = (View3D *)sl;
-          ARegion *ar;
+          ARegion *region;
 
           v3d->camera = restore_pointer_by_name(id_map, (ID *)v3d->camera, USER_REAL);
           v3d->ob_centre = restore_pointer_by_name(id_map, (ID *)v3d->ob_centre, USER_REAL);
 
           /* Free render engines for now. */
           ListBase *regionbase = (sl == sa->spacedata.first) ? &sa->regionbase : &sl->regionbase;
-          for (ar = regionbase->first; ar; ar = ar->next) {
-            if (ar->regiontype == RGN_TYPE_WINDOW) {
-              RegionView3D *rv3d = ar->regiondata;
+          for (region = regionbase->first; region; region = region->next) {
+            if (region->regiontype == RGN_TYPE_WINDOW) {
+              RegionView3D *rv3d = region->regiondata;
               if (rv3d && rv3d->render_engine) {
                 RE_engine_free(rv3d->render_engine);
                 rv3d->render_engine = NULL;
@@ -8080,7 +8080,8 @@ void blo_lib_link_restore(Main *oldmain,
                           Scene *curscene,
                           ViewLayer *cur_view_layer)
 {
-  struct IDNameLib_Map *id_map = BKE_main_idmap_create(newmain, true, oldmain);
+  struct IDNameLib_Map *id_map = BKE_main_idmap_create(
+      newmain, true, oldmain, MAIN_IDMAP_TYPE_NAME);
 
   for (WorkSpace *workspace = newmain->workspaces.first; workspace;
        workspace = workspace->id.next) {
@@ -8138,13 +8139,13 @@ void blo_lib_link_restore(Main *oldmain,
 /* and as patch for 2.48 and older */
 void blo_do_versions_view3d_split_250(View3D *v3d, ListBase *regions)
 {
-  ARegion *ar;
+  ARegion *region;
 
-  for (ar = regions->first; ar; ar = ar->next) {
-    if (ar->regiontype == RGN_TYPE_WINDOW && ar->regiondata == NULL) {
+  for (region = regions->first; region; region = region->next) {
+    if (region->regiontype == RGN_TYPE_WINDOW && region->regiondata == NULL) {
       RegionView3D *rv3d;
 
-      rv3d = ar->regiondata = MEM_callocN(sizeof(RegionView3D), "region v3d patch");
+      rv3d = region->regiondata = MEM_callocN(sizeof(RegionView3D), "region v3d patch");
       rv3d->persp = (char)v3d->persp;
       rv3d->view = (char)v3d->view;
       rv3d->dist = v3d->dist;
@@ -8825,6 +8826,8 @@ static ID *create_placeholder(Main *mainvar, const short idcode, const char *idn
   BLI_addtail(lb, ph_id);
   id_sort_by_name(lb, ph_id, NULL);
 
+  BKE_lib_libblock_session_uuid_ensure(ph_id);
+
   return ph_id;
 }
 
@@ -9037,6 +9040,14 @@ static BHead *read_libblock(FileData *fd,
       oldnewmap_insert(fd->libmap, bhead->old, id, bhead->code);
 
       BLI_addtail(lb, id);
+
+      if (fd->memfile == NULL) {
+        /* When actually reading a file , we do want to reset/re-generate session uuids.
+         * In unod case, we want to re-use existing ones. */
+        id->session_uuid = MAIN_ID_SESSION_UUID_UNSET;
+      }
+
+      BKE_lib_libblock_session_uuid_ensure(id);
     }
     else {
       /* unknown ID type */
@@ -9770,13 +9781,13 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
 
     /* Skip in undo case. */
     if (fd->memfile == NULL) {
-      /* Note that we cannot recompute usercounts at this point in undo case, we play too much with
+      /* Note that we can't recompute user-counts at this point in undo case, we play too much with
        * IDs from different memory realms, and Main database is not in a fully valid state yet.
        */
-      /* Some versioning code does expect some proper userrefcounting, e.g. in conversion from
-       * groups to collections... We could optimize out that first call when we are reading a
-       * current version file, but again this is really not a bottle neck currently. so not worth
-       * it. */
+      /* Some versioning code does expect some proper user-reference-counting, e.g. in conversion
+       * from groups to collections... We could optimize out that first call when we are reading a
+       * current version file, but again this is really not a bottle neck currently.
+       * So not worth it. */
       BKE_main_id_refcount_recompute(bfd->main, false);
 
       /* Yep, second splitting... but this is a very cheap operation, so no big deal. */
@@ -9787,9 +9798,9 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
       }
       blo_join_main(&mainlist);
 
-      /* And we have to compute those userrefcounts again, as `do_versions_after_linking()` does
-       * not always properly handle user counts, and/or that function does not take into account
-       * old, deprecated data. */
+      /* And we have to compute those user-reference-counts again, as `do_versions_after_linking()`
+       * does not always properly handle user counts, and/or that function does not take into
+       * account old, deprecated data. */
       BKE_main_id_refcount_recompute(bfd->main, false);
 
       /* After all data has been read and versioned, uses LIB_TAG_NEW. */

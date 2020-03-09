@@ -199,7 +199,7 @@ static void deformStroke(GpencilModifierData *md,
     return;
   }
 
-  const int def_nr = defgroup_name_index(ob, mmd->vgname);
+  const int def_nr = BKE_object_defgroup_name_index(ob, mmd->vgname);
 
   bPoseChannel *pchan = BKE_pose_channel_find_name(mmd->object->pose, mmd->subtarget);
   float dmat[4][4];
@@ -224,7 +224,7 @@ static void deformStroke(GpencilModifierData *md,
   tData.curfalloff = mmd->curfalloff;
   tData.falloff_type = mmd->falloff_type;
   tData.falloff = (mmd->falloff_type == eHook_Falloff_None) ? 0.0f : mmd->falloff;
-  tData.falloff_sq = SQUARE(tData.falloff);
+  tData.falloff_sq = square_f(tData.falloff);
   tData.fac_orig = mmd->force;
   tData.use_falloff = (tData.falloff_sq != 0.0f);
   tData.use_uniform = (mmd->flag & GP_HOOK_UNIFORM_SPACE) != 0;

@@ -38,7 +38,7 @@
 #include "rna_internal.h" /* own include */
 
 #ifdef WITH_ALEMBIC
-#  include "../../alembic/ABC_alembic.h"
+#  include "ABC_alembic.h"
 #endif
 
 const EnumPropertyItem rna_enum_abc_compression_items[] = {
@@ -161,9 +161,10 @@ static void rna_Scene_ray_cast(Scene *scene,
   normalize_v3(direction);
 
   Depsgraph *depsgraph = BKE_scene_get_depsgraph(bmain, scene, view_layer, true);
-  SnapObjectContext *sctx = ED_transform_snap_object_context_create(bmain, scene, depsgraph, 0);
+  SnapObjectContext *sctx = ED_transform_snap_object_context_create(bmain, scene, 0);
 
   bool ret = ED_transform_snap_object_project_ray_ex(sctx,
+                                                     depsgraph,
                                                      &(const struct SnapObjectParams){
                                                          .snap_select = SNAP_ALL,
                                                      },

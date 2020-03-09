@@ -24,6 +24,8 @@
 #ifndef __DNA_FLUID_TYPES_H__
 #define __DNA_FLUID_TYPES_H__
 
+#include "DNA_listBase.h"
+
 /* Domain flags. */
 enum {
   FLUID_DOMAIN_USE_NOISE = (1 << 1),        /* Use noise. */
@@ -42,6 +44,7 @@ enum {
   FLUID_DOMAIN_EXPORT_MANTA_SCRIPT = (1 << 12), /* Export mantaflow script during bake. */
   FLUID_DOMAIN_USE_FRACTIONS = (1 << 13),       /* Use second order obstacles. */
   FLUID_DOMAIN_DELETE_IN_OBSTACLE = (1 << 14),  /* Delete fluid inside obstacles. */
+  FLUID_DOMAIN_USE_DIFFUSION = (1 << 15), /* Use diffusion (e.g. viscosity, surface tension). */
 };
 
 /* Border collisions. */

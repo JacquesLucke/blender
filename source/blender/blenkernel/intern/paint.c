@@ -53,6 +53,7 @@
 #include "BKE_context.h"
 #include "BKE_crazyspace.h"
 #include "BKE_gpencil.h"
+#include "BKE_idtype.h"
 #include "BKE_image.h"
 #include "BKE_key.h"
 #include "BKE_lib_id.h"
@@ -73,6 +74,43 @@
 #include "RNA_enum_types.h"
 
 #include "bmesh.h"
+
+static void paint_curve_copy_data(Main *UNUSED(bmain),
+                                  ID *id_dst,
+                                  const ID *id_src,
+                                  const int UNUSED(flag))
+{
+  PaintCurve *paint_curve_dst = (PaintCurve *)id_dst;
+  const PaintCurve *paint_curve_src = (const PaintCurve *)id_src;
+
+  if (paint_curve_src->tot_points != 0) {
+    paint_curve_dst->points = MEM_dupallocN(paint_curve_src->points);
+  }
+}
+
+static void paint_curve_free_data(ID *id)
+{
+  PaintCurve *paint_curve = (PaintCurve *)id;
+
+  MEM_SAFE_FREE(paint_curve->points);
+  paint_curve->tot_points = 0;
+}
+
+IDTypeInfo IDType_ID_PC = {
+    .id_code = ID_PC,
+    .id_filter = FILTER_ID_PC,
+    .main_listbase_index = INDEX_ID_PC,
+    .struct_size = sizeof(PaintCurve),
+    .name = "PaintCurve",
+    .name_plural = "paint_curves",
+    .translation_context = BLT_I18NCONTEXT_ID_PAINTCURVE,
+    .flags = 0,
+
+    .init_data = NULL,
+    .copy_data = paint_curve_copy_data,
+    .free_data = paint_curve_free_data,
+    .make_local = NULL,
+};
 
 const char PAINT_CURSOR_SCULPT[3] = {255, 100, 100};
 const char PAINT_CURSOR_VERTEX_PAINT[3] = {255, 255, 255};
@@ -474,13 +512,6 @@ uint BKE_paint_get_brush_tool_offset_from_paintmode(const ePaintMode mode)
   return 0;
 }
 
-/** Free (or release) any data used by this paint curve (does not free the pcurve itself). */
-void BKE_paint_curve_free(PaintCurve *pc)
-{
-  MEM_SAFE_FREE(pc->points);
-  pc->tot_points = 0;
-}
-
 PaintCurve *BKE_paint_curve_add(Main *bmain, const char *name)
 {
   PaintCurve *pc;
@@ -490,36 +521,11 @@ PaintCurve *BKE_paint_curve_add(Main *bmain, const char *name)
   return pc;
 }
 
-/**
- * Only copy internal data of PaintCurve ID from source to
- * already allocated/initialized destination.
- * You probably never want to use that directly,
- * use #BKE_id_copy or #BKE_id_copy_ex for typical needs.
- *
- * WARNING! This function will not handle ID user count!
- *
- * \param flag: Copying options (see BKE_lib_id.h's LIB_ID_COPY_... flags for more).
- */
-void BKE_paint_curve_copy_data(Main *UNUSED(bmain),
-                               PaintCurve *pc_dst,
-                               const PaintCurve *pc_src,
-                               const int UNUSED(flag))
-{
-  if (pc_src->tot_points != 0) {
-    pc_dst->points = MEM_dupallocN(pc_src->points);
-  }
-}
-
 PaintCurve *BKE_paint_curve_copy(Main *bmain, const PaintCurve *pc)
 {
   PaintCurve *pc_copy;
   BKE_id_copy(bmain, &pc->id, (ID **)&pc_copy);
   return pc_copy;
-}
-
-void BKE_paint_curve_make_local(Main *bmain, PaintCurve *pc, const int flags)
-{
-  BKE_lib_id_make_local_generic(bmain, &pc->id, flags);
 }
 
 Palette *BKE_paint_palette(Paint *p)
@@ -1212,6 +1218,7 @@ static void sculpt_update_object(
 
   ss->deform_modifiers_active = sculpt_modifiers_active(scene, sd, ob);
   ss->show_mask = (sd->flags & SCULPT_HIDE_MASK) == 0;
+  ss->show_face_sets = (sd->flags & SCULPT_HIDE_FACE_SETS) == 0;
 
   ss->building_vp_handle = false;
 
@@ -1251,6 +1258,16 @@ static void sculpt_update_object(
     ss->mloop = me->mloop;
     ss->multires = NULL;
     ss->vmask = CustomData_get_layer(&me->vdata, CD_PAINT_MASK);
+
+    /* Sculpt Face Sets. */
+    if (!CustomData_has_layer(&me->pdata, CD_SCULPT_FACE_SETS)) {
+      ss->face_sets = CustomData_add_layer(
+          &me->pdata, CD_SCULPT_FACE_SETS, CD_CALLOC, NULL, me->totpoly);
+      for (int i = 0; i < me->totpoly; i++) {
+        ss->face_sets[i] = 1;
+      }
+    }
+    ss->face_sets = CustomData_get_layer(&me->pdata, CD_SCULPT_FACE_SETS);
   }
 
   ss->subdiv_ccg = me_eval->runtime.subdiv_ccg;
@@ -1265,6 +1282,7 @@ static void sculpt_update_object(
   }
 
   pbvh_show_mask_set(ss->pbvh, ss->show_mask);
+  pbvh_show_face_sets_set(ss->pbvh, ss->show_face_sets);
 
   if (ss->deform_modifiers_active) {
     if (!ss->orig_cos) {
@@ -1501,6 +1519,7 @@ static PBVH *build_pbvh_for_dynamic_topology(Object *ob)
                        ob->sculpt->cd_vert_node_offset,
                        ob->sculpt->cd_face_node_offset);
   pbvh_show_mask_set(pbvh, ob->sculpt->show_mask);
+  pbvh_show_face_sets_set(pbvh, false);
   return pbvh;
 }
 
@@ -1522,10 +1541,12 @@ static PBVH *build_pbvh_from_regular_mesh(Object *ob, Mesh *me_eval_deform)
                       me->totvert,
                       &me->vdata,
                       &me->ldata,
+                      &me->pdata,
                       looptri,
                       looptris_num);
 
   pbvh_show_mask_set(pbvh, ob->sculpt->show_mask);
+  pbvh_show_face_sets_set(pbvh, ob->sculpt->show_face_sets);
 
   const bool is_deformed = check_sculpt_object_deformed(ob, true);
   if (is_deformed && me_eval_deform != NULL) {
@@ -1551,6 +1572,7 @@ static PBVH *build_pbvh_from_ccg(Object *ob, SubdivCCG *subdiv_ccg)
                        subdiv_ccg->grid_flag_mats,
                        subdiv_ccg->grid_hidden);
   pbvh_show_mask_set(pbvh, ob->sculpt->show_mask);
+  pbvh_show_face_sets_set(pbvh, false);
   return pbvh;
 }
 

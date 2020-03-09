@@ -114,6 +114,7 @@ add_subdirectory(gpencil_modifiers)
 add_subdirectory(shader_fx)
 add_subdirectory(functions)
 add_subdirectory(simulations)
+add_subdirectory(io)
 add_subdirectory(makesdna)
 add_subdirectory(makesrna)
 
@@ -137,29 +138,14 @@ if(WITH_IMAGE_CINEON)
   add_subdirectory(imbuf/intern/cineon)
 endif()
 
-if(WITH_CODEC_AVI)
-  add_subdirectory(avi)
-endif()
-
 if(WITH_PYTHON)
   add_subdirectory(python)
-endif()
-
-if(WITH_OPENCOLLADA)
-  add_subdirectory(collada)
 endif()
 
 if(WITH_FREESTYLE)
   add_subdirectory(freestyle)
 endif()
 
-if(WITH_ALEMBIC)
-  add_subdirectory(alembic)
-endif()
-
 if(WIN32)
   add_subdirectory(blendthumb)
-endif()
-if(WITH_USD)
-  add_subdirectory(usd)
 endif()

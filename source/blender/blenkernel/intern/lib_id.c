@@ -467,119 +467,73 @@ bool BKE_lib_id_make_local(Main *bmain, ID *id, const bool test, const int flags
 
   switch ((ID_Type)GS(id->name)) {
     case ID_SCE:
-      if (!test) {
-        BKE_scene_make_local(bmain, (Scene *)id, flags);
-      }
+      BLI_assert(0);
       return true;
     case ID_OB:
-      if (!test) {
-        BKE_object_make_local(bmain, (Object *)id, flags);
-      }
+      BLI_assert(0);
       return true;
     case ID_ME:
-      if (!test) {
-        BKE_mesh_make_local(bmain, (Mesh *)id, flags);
-      }
+      BLI_assert(0);
       return true;
     case ID_CU:
-      if (!test) {
-        BKE_curve_make_local(bmain, (Curve *)id, flags);
-      }
+      BLI_assert(0);
       return true;
     case ID_MB:
-      if (!test) {
-        BKE_mball_make_local(bmain, (MetaBall *)id, flags);
-      }
+      BLI_assert(0);
       return true;
     case ID_MA:
-      if (!test) {
-        BKE_material_make_local(bmain, (Material *)id, flags);
-      }
+      BLI_assert(0);
       return true;
     case ID_TE:
-      if (!test) {
-        BKE_texture_make_local(bmain, (Tex *)id, flags);
-      }
+      BLI_assert(0);
       return true;
     case ID_IM:
-      if (!test) {
-        BKE_image_make_local(bmain, (Image *)id, flags);
-      }
+      BLI_assert(0);
       return true;
     case ID_LT:
-      if (!test) {
-        BKE_lattice_make_local(bmain, (Lattice *)id, flags);
-      }
+      BLI_assert(0);
       return true;
     case ID_LA:
-      if (!test) {
-        BKE_light_make_local(bmain, (Light *)id, flags);
-      }
+      BLI_assert(0);
       return true;
     case ID_CA:
-      if (!test) {
-        BKE_camera_make_local(bmain, (Camera *)id, flags);
-      }
+      BLI_assert(0);
       return true;
     case ID_SPK:
-      if (!test) {
-        BKE_speaker_make_local(bmain, (Speaker *)id, flags);
-      }
+      BLI_assert(0);
       return true;
     case ID_LP:
-      if (!test) {
-        BKE_lightprobe_make_local(bmain, (LightProbe *)id, flags);
-      }
+      BLI_assert(0);
       return true;
     case ID_WO:
-      if (!test) {
-        BKE_world_make_local(bmain, (World *)id, flags);
-      }
+      BLI_assert(0);
       return true;
     case ID_VF:
-      if (!test) {
-        BKE_vfont_make_local(bmain, (VFont *)id, flags);
-      }
+      BLI_assert(0);
       return true;
     case ID_TXT:
-      if (!test) {
-        BKE_text_make_local(bmain, (Text *)id, flags);
-      }
+      BLI_assert(0);
       return true;
     case ID_SO:
-      if (!test) {
-        BKE_sound_make_local(bmain, (bSound *)id, flags);
-      }
+      BLI_assert(0);
       return true;
     case ID_GR:
-      if (!test) {
-        BKE_collection_make_local(bmain, (Collection *)id, flags);
-      }
+      BLI_assert(0);
       return true;
     case ID_AR:
-      if (!test) {
-        BKE_armature_make_local(bmain, (bArmature *)id, flags);
-      }
+      BLI_assert(0);
       return true;
     case ID_AC:
-      if (!test) {
-        BKE_action_make_local(bmain, (bAction *)id, flags);
-      }
+      BLI_assert(0);
       return true;
     case ID_NT:
-      if (!test) {
-        ntreeMakeLocal(bmain, (bNodeTree *)id, flags);
-      }
+      BLI_assert(0);
       return true;
     case ID_BR:
-      if (!test) {
-        BKE_brush_make_local(bmain, (Brush *)id, flags);
-      }
+      BLI_assert(0);
       return true;
     case ID_PA:
-      if (!test) {
-        BKE_particlesettings_make_local(bmain, (ParticleSettings *)id, flags);
-      }
+      BLI_assert(0);
       return true;
     case ID_GD:
       if (!test) {
@@ -607,14 +561,10 @@ bool BKE_lib_id_make_local(Main *bmain, ID *id, const bool test, const int flags
       }
       return true;
     case ID_PC:
-      if (!test) {
-        BKE_paint_curve_make_local(bmain, (PaintCurve *)id, flags);
-      }
+      BLI_assert(0);
       return true;
     case ID_CF:
-      if (!test) {
-        BKE_cachefile_make_local(bmain, (CacheFile *)id, flags);
-      }
+      BLI_assert(0);
       return true;
     case ID_WS:
     case ID_SCR:
@@ -730,71 +680,70 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag)
 
     switch ((ID_Type)GS(id->name)) {
       case ID_SCE:
-        BKE_scene_copy_data(bmain, (Scene *)*r_newid, (Scene *)id, flag);
+        BLI_assert(0);
         break;
       case ID_OB:
-        BKE_object_copy_data(bmain, (Object *)*r_newid, (Object *)id, flag);
+        BLI_assert(0);
         break;
       case ID_ME:
-        BKE_mesh_copy_data(bmain, (Mesh *)*r_newid, (Mesh *)id, flag);
+        BLI_assert(0);
         break;
       case ID_CU:
-        BKE_curve_copy_data(bmain, (Curve *)*r_newid, (Curve *)id, flag);
+        BLI_assert(0);
         break;
       case ID_MB:
-        BKE_mball_copy_data(bmain, (MetaBall *)*r_newid, (MetaBall *)id, flag);
+        BLI_assert(0);
         break;
       case ID_MA:
-        BKE_material_copy_data(bmain, (Material *)*r_newid, (Material *)id, flag);
+        BLI_assert(0);
         break;
       case ID_TE:
-        BKE_texture_copy_data(bmain, (Tex *)*r_newid, (Tex *)id, flag);
+        BLI_assert(0);
         break;
       case ID_IM:
-        BKE_image_copy_data(bmain, (Image *)*r_newid, (Image *)id, flag);
+        BLI_assert(0);
         break;
       case ID_LT:
-        BKE_lattice_copy_data(bmain, (Lattice *)*r_newid, (Lattice *)id, flag);
+        BLI_assert(0);
         break;
       case ID_LA:
-        BKE_light_copy_data(bmain, (Light *)*r_newid, (Light *)id, flag);
+        BLI_assert(0);
         break;
       case ID_SPK:
-        BKE_speaker_copy_data(bmain, (Speaker *)*r_newid, (Speaker *)id, flag);
+        BLI_assert(0);
         break;
       case ID_LP:
-        BKE_lightprobe_copy_data(bmain, (LightProbe *)*r_newid, (LightProbe *)id, flag);
+        BLI_assert(0);
         break;
       case ID_CA:
-        BKE_camera_copy_data(bmain, (Camera *)*r_newid, (Camera *)id, flag);
+        BLI_assert(0);
         break;
       case ID_KE:
-        BKE_key_copy_data(bmain, (Key *)*r_newid, (Key *)id, flag);
+        BLI_assert(0);
         break;
       case ID_WO:
-        BKE_world_copy_data(bmain, (World *)*r_newid, (World *)id, flag);
+        BLI_assert(0);
         break;
       case ID_TXT:
-        BKE_text_copy_data(bmain, (Text *)*r_newid, (Text *)id, flag);
+        BLI_assert(0);
         break;
       case ID_GR:
-        BKE_collection_copy_data(bmain, (Collection *)*r_newid, (Collection *)id, flag);
+        BLI_assert(0);
         break;
       case ID_AR:
-        BKE_armature_copy_data(bmain, (bArmature *)*r_newid, (bArmature *)id, flag);
+        BLI_assert(0);
         break;
       case ID_AC:
-        BKE_action_copy_data(bmain, (bAction *)*r_newid, (bAction *)id, flag);
+        BLI_assert(0);
         break;
       case ID_NT:
-        BKE_node_tree_copy_data(bmain, (bNodeTree *)*r_newid, (bNodeTree *)id, flag);
+        BLI_assert(0);
         break;
       case ID_BR:
-        BKE_brush_copy_data(bmain, (Brush *)*r_newid, (Brush *)id, flag);
+        BLI_assert(0);
         break;
       case ID_PA:
-        BKE_particlesettings_copy_data(
-            bmain, (ParticleSettings *)*r_newid, (ParticleSettings *)id, flag);
+        BLI_assert(0);
         break;
       case ID_GD:
         BKE_gpencil_copy_data((bGPdata *)*r_newid, (bGPdata *)id, flag);
@@ -813,16 +762,16 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag)
         BKE_palette_copy_data(bmain, (Palette *)*r_newid, (Palette *)id, flag);
         break;
       case ID_PC:
-        BKE_paint_curve_copy_data(bmain, (PaintCurve *)*r_newid, (PaintCurve *)id, flag);
+        BLI_assert(0);
         break;
       case ID_CF:
-        BKE_cachefile_copy_data(bmain, (CacheFile *)*r_newid, (CacheFile *)id, flag);
+        BLI_assert(0);
         break;
       case ID_SO:
-        BKE_sound_copy_data(bmain, (bSound *)*r_newid, (bSound *)id, flag);
+        BLI_assert(0);
         break;
       case ID_VF:
-        BKE_vfont_copy_data(bmain, (VFont *)*r_newid, (VFont *)id, flag);
+        BLI_assert(0);
         break;
       case ID_LI:
       case ID_SCR:
@@ -1027,6 +976,8 @@ void BKE_libblock_management_main_add(Main *bmain, void *idv)
   id->tag &= ~(LIB_TAG_NO_MAIN | LIB_TAG_NO_USER_REFCOUNT);
   bmain->is_memfile_undo_written = false;
   BKE_main_unlock(bmain);
+
+  BKE_lib_libblock_session_uuid_ensure(id);
 }
 
 /** Remove a data-block from given main (set it to 'NO_MAIN' status). */
@@ -1313,6 +1264,8 @@ void *BKE_libblock_alloc(Main *bmain, short type, const char *name, const int fl
       /* alphabetic insertion: is in new_id */
       BKE_main_unlock(bmain);
 
+      BKE_lib_libblock_session_uuid_ensure(id);
+
       /* TODO to be removed from here! */
       if ((flag & LIB_ID_CREATE_NO_DEG_TAG) == 0) {
         DEG_id_type_tag(bmain, type);
@@ -1344,63 +1297,61 @@ void BKE_libblock_init_empty(ID *id)
   /* Note that only ID types that are not valid when filled of zero should have a callback here. */
   switch ((ID_Type)GS(id->name)) {
     case ID_SCE:
-      BKE_scene_init((Scene *)id);
+      BLI_assert(0);
       break;
     case ID_LI:
       /* Nothing to do. */
       break;
-    case ID_OB: {
-      Object *ob = (Object *)id;
-      BKE_object_init(ob, OB_EMPTY);
+    case ID_OB:
+      BLI_assert(0);
       break;
-    }
     case ID_ME:
-      BKE_mesh_init((Mesh *)id);
+      BLI_assert(0);
       break;
     case ID_CU:
-      BKE_curve_init((Curve *)id, 0);
+      BLI_assert(0);
       break;
     case ID_MB:
-      BKE_mball_init((MetaBall *)id);
+      BLI_assert(0);
       break;
     case ID_MA:
-      BKE_material_init((Material *)id);
+      BLI_assert(0);
       break;
     case ID_TE:
-      BKE_texture_default((Tex *)id);
+      BLI_assert(0);
       break;
     case ID_IM:
-      BKE_image_init((Image *)id);
+      BLI_assert(0);
       break;
     case ID_LT:
-      BKE_lattice_init((Lattice *)id);
+      BLI_assert(0);
       break;
     case ID_LA:
-      BKE_light_init((Light *)id);
+      BLI_assert(0);
       break;
     case ID_SPK:
-      BKE_speaker_init((Speaker *)id);
+      BLI_assert(0);
       break;
     case ID_LP:
-      BKE_lightprobe_init((LightProbe *)id);
+      BLI_assert(0);
       break;
     case ID_CA:
-      BKE_camera_init((Camera *)id);
+      BLI_assert(0);
       break;
     case ID_WO:
-      BKE_world_init((World *)id);
+      BLI_assert(0);
       break;
     case ID_SCR:
       /* Nothing to do. */
       break;
     case ID_VF:
-      BKE_vfont_init((VFont *)id);
+      BLI_assert(0);
       break;
     case ID_TXT:
-      BKE_text_init((Text *)id);
+      BLI_assert(0);
       break;
     case ID_SO:
-      /* Another fuzzy case, think NULLified content is OK here... */
+      BLI_assert(0);
       break;
     case ID_GR:
       /* Nothing to do. */
@@ -1412,16 +1363,16 @@ void BKE_libblock_init_empty(ID *id)
       /* Nothing to do. */
       break;
     case ID_NT:
-      ntreeInitDefault((bNodeTree *)id);
+      BLI_assert(0);
       break;
     case ID_BR:
-      BKE_brush_init((Brush *)id);
+      BLI_assert(0);
       break;
     case ID_PA:
-      /* Nothing to do. */
+      BLI_assert(0);
       break;
     case ID_PC:
-      /* Nothing to do. */
+      BLI_assert(0);
       break;
     case ID_GD:
       /* Nothing to do. */
@@ -1433,7 +1384,7 @@ void BKE_libblock_init_empty(ID *id)
       BKE_linestyle_init((FreestyleLineStyle *)id);
       break;
     case ID_CF:
-      BKE_cachefile_init((CacheFile *)id);
+      BLI_assert(0);
       break;
     case ID_KE:
       /* Shapekeys are a complex topic too - they depend on their 'user' data type...
@@ -1453,6 +1404,33 @@ void BKE_libblock_init_empty(ID *id)
       break;
     default:
       BLI_assert(0); /* Should never reach this point... */
+  }
+}
+
+/* ********** ID session-wise UUID management. ********** */
+static uint global_session_uuid = 0;
+
+/** Reset the session-wise uuid counter (used when reading a new file e.g.). */
+void BKE_lib_libblock_session_uuid_reset()
+{
+  global_session_uuid = 0;
+}
+
+/**
+ * Generate a session-wise uuid for the given \a id.
+ *
+ * \note "session-wise" here means while editing a given .blend file. Once a new .blend file is
+ * loaded or created, undo history is cleared/reset, and so is the uuid counter.
+ */
+void BKE_lib_libblock_session_uuid_ensure(ID *id)
+{
+  if (id->session_uuid == MAIN_ID_SESSION_UUID_UNSET) {
+    id->session_uuid = atomic_add_and_fetch_uint32(&global_session_uuid, 1);
+    /* In case overflow happens, still assign a valid ID. This way opening files many times works
+     * correctly. */
+    if (UNLIKELY(id->session_uuid == MAIN_ID_SESSION_UUID_UNSET)) {
+      id->session_uuid = atomic_add_and_fetch_uint32(&global_session_uuid, 1);
+    }
   }
 }
 
@@ -2388,7 +2366,7 @@ void BKE_library_make_local(Main *bmain,
       else {
         /* we can switch the proxy'ing from the linked-in to the made-local proxy.
          * BKE_object_make_proxy() shouldn't be used here, as it allocates memory that
-         * was already allocated by BKE_object_make_local() (which called BKE_object_copy). */
+         * was already allocated by object_make_local() (which called BKE_object_copy). */
         ob_new->proxy = ob->proxy;
         ob_new->proxy_group = ob->proxy_group;
         ob_new->proxy_from = ob->proxy_from;
