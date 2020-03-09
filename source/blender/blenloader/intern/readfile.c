@@ -9333,7 +9333,7 @@ static BHead *read_userdef(BlendFileData *bfd, FileData *fd, BHead *bhead)
 /** \name Read File (Internal)
  * \{ */
 
-BlendFileData *blend_read_file_internal(FileData *fd, const char *filepath)
+BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
 {
   BHead *bhead = blo_bhead_first(fd);
   BlendFileData *bfd;
@@ -11555,7 +11555,7 @@ static void read_libraries(FileData *basefd, ListBase *mainlist)
 
     /* Note: No need to call `do_versions_after_linking()` or `BKE_main_id_refcount_recompute()`
      * here, as this function is only called for library 'subset' data handling, as part of either
-     * full blendfile reading (`blend_read_file_internal()`), or libdata linking
+     * full blendfile reading (`blo_read_file_internal()`), or libdata linking
      * (`library_link_end()`). */
 
     /* Free file data we no longer need. */

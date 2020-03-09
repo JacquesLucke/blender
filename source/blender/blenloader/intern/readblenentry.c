@@ -317,7 +317,7 @@ BlendFileData *BLO_read_from_file(const char *filepath,
   if (fd) {
     fd->reports = reports;
     fd->skip_flags = skip_flags;
-    bfd = blend_read_file_internal(fd, filepath);
+    bfd = blo_read_file_internal(fd, filepath);
     blo_filedata_free(fd);
   }
 
@@ -345,7 +345,7 @@ BlendFileData *BLO_read_from_memory(const void *mem,
   if (fd) {
     fd->reports = reports;
     fd->skip_flags = skip_flags;
-    bfd = blend_read_file_internal(fd, "");
+    bfd = blo_read_file_internal(fd, "");
     blo_filedata_free(fd);
   }
 
@@ -398,7 +398,7 @@ BlendFileData *BLO_read_from_memfile(Main *oldmain,
 
     /* removed packed data from this trick - it's internal data that needs saves */
 
-    bfd = blend_read_file_internal(fd, filename);
+    bfd = blo_read_file_internal(fd, filename);
 
     /* ensures relinked light caches are not freed */
     blo_end_scene_pointer_map(fd, oldmain);
