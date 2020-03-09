@@ -958,12 +958,12 @@ static void write_animdata(WriteData *wd, AnimData *adt)
 
 static void write_curvemapping_curves(WriteData *wd, CurveMapping *cumap)
 {
-  BKE_curvemapping_blo_write_content(wrap_writer(wd), cumap);
+  BKE_curvemapping_blend_write_content(wrap_writer(wd), cumap);
 }
 
 static void write_curvemapping(WriteData *wd, CurveMapping *cumap)
 {
-  BKE_curvemapping_blo_write(wrap_writer(wd), cumap);
+  BKE_curvemapping_blend_write(wrap_writer(wd), cumap);
 }
 
 static void write_node_socket_default_value(WriteData *wd, bNodeSocket *sock)
@@ -1436,7 +1436,7 @@ static void write_particlesystems(WriteData *wd, ListBase *particles)
       writestruct(wd, DATA, ClothCollSettings, 1, psys->clmd->coll_parms);
     }
 
-    BKE_ptcache_blo_write_list(wrap_writer(wd), &psys->ptcaches);
+    BKE_ptcache_blend_write_list(wrap_writer(wd), &psys->ptcaches);
   }
 }
 
@@ -1589,8 +1589,8 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
 
     writestruct_id(wd, DATA, mti->structName, 1, md);
 
-    if (mti->bloWrite != NULL) {
-      mti->bloWrite(wrap_writer(wd), md);
+    if (mti->blendWrite != NULL) {
+      mti->blendWrite(wrap_writer(wd), md);
     }
 
     if (md->type == eModifierType_Fluid) {
@@ -1600,14 +1600,14 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
         writestruct(wd, DATA, FluidDomainSettings, 1, mmd->domain);
 
         if (mmd->domain) {
-          BKE_ptcache_blo_write_list(wrap_writer(wd), &(mmd->domain->ptcaches[0]));
+          BKE_ptcache_blend_write_list(wrap_writer(wd), &(mmd->domain->ptcaches[0]));
 
           /* create fake pointcache so that old blender versions can read it */
           mmd->domain->point_cache[1] = BKE_ptcache_add(&mmd->domain->ptcaches[1]);
           mmd->domain->point_cache[1]->flag |= PTCACHE_DISK_CACHE | PTCACHE_FAKE_SMOKE;
           mmd->domain->point_cache[1]->step = 1;
 
-          BKE_ptcache_blo_write_list(wrap_writer(wd), &(mmd->domain->ptcaches[1]));
+          BKE_ptcache_blend_write_list(wrap_writer(wd), &(mmd->domain->ptcaches[1]));
 
           if (mmd->domain->coba) {
             writestruct(wd, DATA, ColorBand, 1, mmd->domain->coba);
@@ -1734,7 +1734,7 @@ static void write_object(WriteData *wd, Object *ob)
       ob->soft->ptcaches = ob->soft->shared->ptcaches;
       writestruct(wd, DATA, SoftBody, 1, ob->soft);
       writestruct(wd, DATA, SoftBody_Shared, 1, ob->soft->shared);
-      BKE_ptcache_blo_write_list(wrap_writer(wd), &(ob->soft->shared->ptcaches));
+      BKE_ptcache_blend_write_list(wrap_writer(wd), &(ob->soft->shared->ptcaches));
       writestruct(wd, DATA, EffectorWeights, 1, ob->soft->effector_weights);
     }
 
@@ -2399,7 +2399,7 @@ static void write_scene(WriteData *wd, Scene *sce)
   }
   /* Write the curve profile to the file. */
   if (tos->custom_bevel_profile_preset) {
-    BKE_curveprofile_blo_write(wrap_writer(wd), tos->custom_bevel_profile_preset);
+    BKE_curveprofile_blend_write(wrap_writer(wd), tos->custom_bevel_profile_preset);
   }
 
   write_paint(wd, &tos->imapaint.paint);
@@ -2538,7 +2538,7 @@ static void write_scene(WriteData *wd, Scene *sce)
 
     writestruct(wd, DATA, RigidBodyWorld_Shared, 1, sce->rigidbody_world->shared);
     writestruct(wd, DATA, EffectorWeights, 1, sce->rigidbody_world->effector_weights);
-    BKE_ptcache_blo_write_list(wrap_writer(wd), &(sce->rigidbody_world->shared->ptcaches));
+    BKE_ptcache_blend_write_list(wrap_writer(wd), &(sce->rigidbody_world->shared->ptcaches));
   }
 
   write_previews(wd, sce->preview);

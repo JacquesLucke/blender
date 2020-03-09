@@ -265,20 +265,20 @@ static bool isDisabled(const Scene *UNUSED(scene), ModifierData *md, bool UNUSED
   return (bmd->value == 0.0f);
 }
 
-static void bloWrite(BlendWriter *writer, const ModifierData *md)
+static void blendWrite(BlendWriter *writer, const ModifierData *md)
 {
   BevelModifierData *bmd = (BevelModifierData *)md;
   if (bmd->custom_profile) {
-    BKE_curveprofile_blo_write(writer, bmd->custom_profile);
+    BKE_curveprofile_blend_write(writer, bmd->custom_profile);
   }
 }
 
-static void bloRead(BlendReader *reader, ModifierData *md)
+static void blendRead(BlendReader *reader, ModifierData *md)
 {
   BevelModifierData *bmd = (BevelModifierData *)md;
   BLO_read_data_address(reader, &bmd->custom_profile);
   if (bmd->custom_profile) {
-    BKE_curveprofile_blo_read(reader, bmd->custom_profile);
+    BKE_curveprofile_blend_read(reader, bmd->custom_profile);
   }
 }
 
@@ -306,6 +306,6 @@ ModifierTypeInfo modifierType_Bevel = {
     /* foreachIDLink */ NULL,
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
-    /* bloWrite */ bloWrite,
-    /* bloRead */ bloRead,
+    /* blendWrite */ blendWrite,
+    /* blendRead */ blendRead,
 };

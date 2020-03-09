@@ -759,14 +759,14 @@ static void requiredDataMask(Object *UNUSED(ob),
   }
 }
 
-static void bloWrite(BlendWriter *writer, const ModifierData *md)
+static void blendWrite(BlendWriter *writer, const ModifierData *md)
 {
   LaplacianDeformModifierData *lmd = (LaplacianDeformModifierData *)md;
 
   BLO_write_float3_array(writer, lmd->total_verts, lmd->vertexco);
 }
 
-static void bloRead(BlendReader *reader, ModifierData *md)
+static void blendRead(BlendReader *reader, ModifierData *md)
 {
   LaplacianDeformModifierData *lmd = (LaplacianDeformModifierData *)md;
 
@@ -844,6 +844,6 @@ ModifierTypeInfo modifierType_LaplacianDeform = {
     /* foreachIDLink */ NULL,
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
-    /* bloWrite */ bloWrite,
-    /* bloRead */ bloRead,
+    /* blendWrite */ blendWrite,
+    /* blendRead */ blendRead,
 };

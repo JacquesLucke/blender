@@ -116,7 +116,7 @@ static void requiredDataMask(Object *UNUSED(ob),
   }
 }
 
-static void bloWrite(BlendWriter *writer, const ModifierData *md)
+static void blendWrite(BlendWriter *writer, const ModifierData *md)
 {
   CorrectiveSmoothModifierData *csmd = (CorrectiveSmoothModifierData *)md;
 
@@ -125,7 +125,7 @@ static void bloWrite(BlendWriter *writer, const ModifierData *md)
   }
 }
 
-static void bloRead(BlendReader *reader, ModifierData *md)
+static void blendRead(BlendReader *reader, ModifierData *md)
 {
   CorrectiveSmoothModifierData *csmd = (CorrectiveSmoothModifierData *)md;
 
@@ -812,6 +812,6 @@ ModifierTypeInfo modifierType_CorrectiveSmooth = {
     /* foreachIDLink */ NULL,
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
-    /* bloWrite */ bloWrite,
-    /* bloRead */ bloRead,
+    /* blendWrite */ blendWrite,
+    /* blendRead */ blendRead,
 };

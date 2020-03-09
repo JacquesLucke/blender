@@ -92,7 +92,7 @@ static bool dependsOnTime(ModifierData *UNUSED(md))
   return true;
 }
 
-static void bloRead(BlendReader *UNUSED(reader), ModifierData *md)
+static void blendRead(BlendReader *UNUSED(reader), ModifierData *md)
 {
   SurfaceModifierData *surmd = (SurfaceModifierData *)md;
 
@@ -222,6 +222,6 @@ ModifierTypeInfo modifierType_Surface = {
     /* foreachIDLink */ NULL,
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
-    /* bloWrite */ NULL,
-    /* bloRead */ bloRead,
+    /* blendWrite */ NULL,
+    /* blendRead */ blendRead,
 };

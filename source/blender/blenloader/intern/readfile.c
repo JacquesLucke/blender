@@ -2737,7 +2737,7 @@ static void direct_link_id(FileData *fd, ID *id)
 /* cuma itself has been read! */
 static void direct_link_curvemapping(FileData *fd, CurveMapping *cumap)
 {
-  BKE_curvemapping_blo_read(wrap_reader(fd), cumap);
+  BKE_curvemapping_blend_read(wrap_reader(fd), cumap);
 }
 
 /** \} */
@@ -4340,7 +4340,7 @@ static void direct_link_pointcache_list(FileData *fd,
                                         PointCache **ocache,
                                         int force_disk)
 {
-  BKE_ptcache_blo_read(wrap_reader(fd), ptcaches, ocache, force_disk);
+  BKE_ptcache_blend_read(wrap_reader(fd), ptcaches, ocache, force_disk);
 }
 
 static void lib_link_partdeflect(FileData *fd, ID *id, PartDeflect *pd)
@@ -5303,8 +5303,8 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
     if (is_allocated) {
       /* All the fields has been properly allocated. */
     }
-    else if (mdi && mdi->bloRead) {
-      mdi->bloRead(wrap_reader(fd), md);
+    else if (mdi && mdi->blendRead) {
+      mdi->blendRead(wrap_reader(fd), md);
     }
     else if (md->type == eModifierType_Fluid) {
 
@@ -6335,7 +6335,7 @@ static void direct_link_scene(FileData *fd, Scene *sce)
     sce->toolsettings->custom_bevel_profile_preset = newdataadr(
         fd, sce->toolsettings->custom_bevel_profile_preset);
     if (sce->toolsettings->custom_bevel_profile_preset) {
-      BKE_curveprofile_blo_read(wrap_reader(fd), sce->toolsettings->custom_bevel_profile_preset);
+      BKE_curveprofile_blend_read(wrap_reader(fd), sce->toolsettings->custom_bevel_profile_preset);
     }
   }
 
@@ -9333,7 +9333,7 @@ static BHead *read_userdef(BlendFileData *bfd, FileData *fd, BHead *bhead)
 /** \name Read File (Internal)
  * \{ */
 
-BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
+BlendFileData *blend_read_file_internal(FileData *fd, const char *filepath)
 {
   BHead *bhead = blo_bhead_first(fd);
   BlendFileData *bfd;
@@ -11555,7 +11555,7 @@ static void read_libraries(FileData *basefd, ListBase *mainlist)
 
     /* Note: No need to call `do_versions_after_linking()` or `BKE_main_id_refcount_recompute()`
      * here, as this function is only called for library 'subset' data handling, as part of either
-     * full blendfile reading (`blo_read_file_internal()`), or libdata linking
+     * full blendfile reading (`blend_read_file_internal()`), or libdata linking
      * (`library_link_end()`). */
 
     /* Free file data we no longer need. */

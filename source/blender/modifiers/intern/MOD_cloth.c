@@ -251,17 +251,17 @@ static void foreachIDLink(ModifierData *md, Object *ob, IDWalkFunc walk, void *u
   }
 }
 
-static void bloWrite(BlendWriter *writer, const ModifierData *md)
+static void blendWrite(BlendWriter *writer, const ModifierData *md)
 {
   ClothModifierData *clmd = (ClothModifierData *)md;
 
   BLO_write_struct(writer, ClothSimSettings, clmd->sim_parms);
   BLO_write_struct(writer, ClothCollSettings, clmd->coll_parms);
   BLO_write_struct(writer, EffectorWeights, clmd->sim_parms->effector_weights);
-  BKE_ptcache_blo_write_list(writer, &clmd->ptcaches);
+  BKE_ptcache_blend_write_list(writer, &clmd->ptcaches);
 }
 
-static void bloRead(BlendReader *reader, ModifierData *md)
+static void blendRead(BlendReader *reader, ModifierData *md)
 {
   ClothModifierData *clmd = (ClothModifierData *)md;
 
@@ -271,7 +271,7 @@ static void bloRead(BlendReader *reader, ModifierData *md)
   BLO_read_data_address(reader, &clmd->sim_parms);
   BLO_read_data_address(reader, &clmd->coll_parms);
 
-  BKE_ptcache_blo_read(reader, &clmd->ptcaches, &clmd->point_cache, 0);
+  BKE_ptcache_blend_read(reader, &clmd->ptcaches, &clmd->point_cache, 0);
 
   if (clmd->sim_parms) {
     if (clmd->sim_parms->presets > 10) {
@@ -317,6 +317,6 @@ ModifierTypeInfo modifierType_Cloth = {
     /* foreachIDLink */ foreachIDLink,
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
-    /* bloWrite */ bloWrite,
-    /* bloRead */ bloRead,
+    /* blendWrite */ blendWrite,
+    /* blendRead */ blendRead,
 };

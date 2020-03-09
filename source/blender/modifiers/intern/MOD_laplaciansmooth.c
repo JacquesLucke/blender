@@ -593,6 +593,6 @@ ModifierTypeInfo modifierType_LaplacianSmooth = {
     /* foreachIDLink */ NULL,
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
-    /* bloWrite */ NULL,
-    /* bloRead */ NULL,
+    /* blendWrite */ NULL,
+    /* blendRead */ NULL,
 };

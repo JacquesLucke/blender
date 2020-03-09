@@ -80,8 +80,8 @@ void BKE_curveprofile_evaluate_length_portion(const struct CurveProfile *profile
                                               float *x_out,
                                               float *y_out);
 
-void BKE_curveprofile_blo_write(struct BlendWriter *writer, const struct CurveProfile *profile);
-void BKE_curveprofile_blo_read(struct BlendReader *reader, struct CurveProfile *profile);
+void BKE_curveprofile_blend_write(struct BlendWriter *writer, const struct CurveProfile *profile);
+void BKE_curveprofile_blend_read(struct BlendReader *reader, struct CurveProfile *profile);
 
 #ifdef __cplusplus
 }

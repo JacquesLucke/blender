@@ -104,7 +104,7 @@ static void requiredDataMask(Object *UNUSED(ob),
   }
 }
 
-static void bloWrite(BlendWriter *writer, const ModifierData *md)
+static void blendWrite(BlendWriter *writer, const ModifierData *md)
 {
   DynamicPaintModifierData *pmd = (DynamicPaintModifierData *)md;
 
@@ -118,7 +118,7 @@ static void bloWrite(BlendWriter *writer, const ModifierData *md)
     }
     /* write caches and effector weights */
     for (surface = pmd->canvas->surfaces.first; surface; surface = surface->next) {
-      BKE_ptcache_blo_write_list(writer, &(surface->ptcaches));
+      BKE_ptcache_blend_write_list(writer, &(surface->ptcaches));
       BLO_write_struct(writer, EffectorWeights, surface->effector_weights);
     }
   }
@@ -129,7 +129,7 @@ static void bloWrite(BlendWriter *writer, const ModifierData *md)
   }
 }
 
-static void bloRead(BlendReader *reader, ModifierData *md)
+static void blendRead(BlendReader *reader, ModifierData *md)
 {
   DynamicPaintModifierData *pmd = (DynamicPaintModifierData *)md;
 
@@ -145,7 +145,7 @@ static void bloRead(BlendReader *reader, ModifierData *md)
       for (surface = pmd->canvas->surfaces.first; surface; surface = surface->next) {
         surface->canvas = pmd->canvas;
         surface->data = NULL;
-        BKE_ptcache_blo_read(reader, &(surface->ptcaches), &(surface->pointcache), 1);
+        BKE_ptcache_blend_read(reader, &(surface->ptcaches), &(surface->pointcache), 1);
 
         BLO_read_data_address(reader, &surface->effector_weights);
         if (surface->effector_weights == NULL) {
@@ -264,6 +264,6 @@ ModifierTypeInfo modifierType_DynamicPaint = {
     /* foreachIDLink */ foreachIDLink,
     /* foreachTexLink */ foreachTexLink,
     /* freeRuntimeData */ freeRuntimeData,
-    /* bloWrite */ bloWrite,
-    /* bloRead */ bloRead,
+    /* blendWrite */ blendWrite,
+    /* blendRead */ blendRead,
 };

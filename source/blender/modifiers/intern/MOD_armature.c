@@ -126,7 +126,7 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
   DEG_add_modifier_to_transform_relation(ctx->node, "Armature Modifier");
 }
 
-static void bloRead(BlendReader *UNUSED(reader), ModifierData *md)
+static void blendRead(BlendReader *UNUSED(reader), ModifierData *md)
 {
   ArmatureModifierData *amd = (ArmatureModifierData *)md;
   amd->prevCos = NULL;
@@ -274,6 +274,6 @@ ModifierTypeInfo modifierType_Armature = {
     /* foreachIDLink */ NULL,
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
-    /* bloWrite */ NULL,
-    /* bloRead */ bloRead,
+    /* blendWrite */ NULL,
+    /* blendRead */ blendRead,
 };

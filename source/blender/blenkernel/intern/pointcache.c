@@ -3363,7 +3363,7 @@ static const char *ptcache_extra_struct[] = {
     "ParticleSpring",
 };
 
-void BKE_ptcache_blo_write_list(BlendWriter *writer, ListBase *ptcaches)
+void BKE_ptcache_blend_write_list(BlendWriter *writer, ListBase *ptcaches)
 {
   PointCache *cache = ptcaches->first;
   int i;
@@ -3448,10 +3448,10 @@ static void file_read_pointcache(BlendReader *reader, PointCache *cache)
   cache->cached_frames_len = 0;
 }
 
-void BKE_ptcache_blo_read(struct BlendReader *reader,
-                          struct ListBase *ptcaches,
-                          struct PointCache **ocache,
-                          int force_disk)
+void BKE_ptcache_blend_read(struct BlendReader *reader,
+                            struct ListBase *ptcaches,
+                            struct PointCache **ocache,
+                            int force_disk)
 {
   if (ptcaches->first) {
     PointCache *cache = NULL;

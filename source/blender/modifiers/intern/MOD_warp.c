@@ -155,21 +155,21 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
   }
 }
 
-static void bloWrite(BlendWriter *writer, const ModifierData *md)
+static void blendWrite(BlendWriter *writer, const ModifierData *md)
 {
   WarpModifierData *tmd = (WarpModifierData *)md;
   if (tmd->curfalloff) {
-    BKE_curvemapping_blo_write(writer, tmd->curfalloff);
+    BKE_curvemapping_blend_write(writer, tmd->curfalloff);
   }
 }
 
-static void bloRead(BlendReader *reader, ModifierData *md)
+static void blendRead(BlendReader *reader, ModifierData *md)
 {
   WarpModifierData *tmd = (WarpModifierData *)md;
 
   BLO_read_data_address(reader, &tmd->curfalloff);
   if (tmd->curfalloff) {
-    BKE_curvemapping_blo_read(reader, tmd->curfalloff);
+    BKE_curvemapping_blend_read(reader, tmd->curfalloff);
   }
 }
 
@@ -403,6 +403,6 @@ ModifierTypeInfo modifierType_Warp = {
     /* foreachIDLink */ foreachIDLink,
     /* foreachTexLink */ foreachTexLink,
     /* freeRuntimeData */ NULL,
-    /* bloWrite */ bloWrite,
-    /* bloRead */ bloRead,
+    /* blendWrite */ blendWrite,
+    /* blendRead */ blendRead,
 };

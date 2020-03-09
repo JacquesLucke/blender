@@ -158,22 +158,22 @@ static bool isDisabled(const struct Scene *UNUSED(scene),
   return (wmd->defgrp_name[0] == '\0');
 }
 
-static void bloWrite(BlendWriter *writer, const ModifierData *md)
+static void blendWrite(BlendWriter *writer, const ModifierData *md)
 {
   WeightVGEditModifierData *wmd = (WeightVGEditModifierData *)md;
 
   if (wmd->cmap_curve) {
-    BKE_curvemapping_blo_write(writer, wmd->cmap_curve);
+    BKE_curvemapping_blend_write(writer, wmd->cmap_curve);
   }
 }
 
-static void bloRead(BlendReader *reader, ModifierData *md)
+static void blendRead(BlendReader *reader, ModifierData *md)
 {
   WeightVGEditModifierData *wmd = (WeightVGEditModifierData *)md;
 
   BLO_read_data_address(reader, &wmd->cmap_curve);
   if (wmd->cmap_curve) {
-    BKE_curvemapping_blo_read(reader, wmd->cmap_curve);
+    BKE_curvemapping_blend_read(reader, wmd->cmap_curve);
   }
 }
 
@@ -339,6 +339,6 @@ ModifierTypeInfo modifierType_WeightVGEdit = {
     /* foreachIDLink */ foreachIDLink,
     /* foreachTexLink */ foreachTexLink,
     /* freeRuntimeData */ NULL,
-    /* bloWrite */ bloWrite,
-    /* bloRead */ bloRead,
+    /* blendWrite */ blendWrite,
+    /* blendRead */ blendRead,
 };

@@ -125,24 +125,24 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
   DEG_add_modifier_to_transform_relation(ctx->node, "Hook Modifier");
 }
 
-static void bloWrite(BlendWriter *writer, const ModifierData *md)
+static void blendWrite(BlendWriter *writer, const ModifierData *md)
 {
   HookModifierData *hmd = (HookModifierData *)md;
 
   BLO_write_int32_array(writer, hmd->totindex, hmd->indexar);
   if (hmd->curfalloff) {
-    BKE_curvemapping_blo_write(writer, hmd->curfalloff);
+    BKE_curvemapping_blend_write(writer, hmd->curfalloff);
   }
 }
 
-static void bloRead(BlendReader *reader, ModifierData *md)
+static void blendRead(BlendReader *reader, ModifierData *md)
 {
   HookModifierData *hmd = (HookModifierData *)md;
 
   BLO_read_int32_array(reader, hmd->totindex, &hmd->indexar);
   BLO_read_data_address(reader, &hmd->curfalloff);
   if (hmd->curfalloff) {
-    BKE_curvemapping_blo_read(reader, hmd->curfalloff);
+    BKE_curvemapping_blend_read(reader, hmd->curfalloff);
   }
 }
 
@@ -437,6 +437,6 @@ ModifierTypeInfo modifierType_Hook = {
     /* foreachIDLink */ NULL,
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
-    /* bloWrite */ bloWrite,
-    /* bloRead */ bloRead,
+    /* blendWrite */ blendWrite,
+    /* blendRead */ blendRead,
 };

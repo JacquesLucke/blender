@@ -342,14 +342,14 @@ typedef struct ModifierTypeInfo {
    * This method should write any additional arrays and referenced structs that should be
    * stored in the file.
    */
-  void (*bloWrite)(struct BlendWriter *writer, const struct ModifierData *md);
+  void (*blendWrite)(struct BlendWriter *writer, const struct ModifierData *md);
 
   /* Is called when the modifier is read from a file.
    *
    * It can be used to update pointers to arrays and other structs. Furthermore, fields that have
    * not been written (e.g. runtime data) can be reset.
    */
-  void (*bloRead)(struct BlendReader *reader, struct ModifierData *md);
+  void (*blendRead)(struct BlendReader *reader, struct ModifierData *md);
 } ModifierTypeInfo;
 
 /* Initialize modifier's global data (type info and some common global storages). */

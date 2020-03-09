@@ -165,7 +165,7 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
   }
 }
 
-static void bloWrite(BlendWriter *writer, const ModifierData *md)
+static void blendWrite(BlendWriter *writer, const ModifierData *md)
 {
   MeshDeformModifierData *mmd = (MeshDeformModifierData *)md;
   int size = mmd->dyngridsize;
@@ -179,7 +179,7 @@ static void bloWrite(BlendWriter *writer, const ModifierData *md)
   BLO_write_int32_array(writer, mmd->totvert, mmd->dynverts);
 }
 
-static void bloRead(BlendReader *reader, ModifierData *md)
+static void blendRead(BlendReader *reader, ModifierData *md)
 {
   MeshDeformModifierData *mmd = (MeshDeformModifierData *)md;
 
@@ -610,6 +610,6 @@ ModifierTypeInfo modifierType_MeshDeform = {
     /* foreachIDLink */ NULL,
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
-    /* bloWrite */ bloWrite,
-    /* bloRead */ bloRead,
+    /* blendWrite */ blendWrite,
+    /* blendRead */ blendRead,
 };
