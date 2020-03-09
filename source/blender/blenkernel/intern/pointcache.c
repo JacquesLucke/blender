@@ -3410,7 +3410,7 @@ static void file_read_pointcache_cb(BloReader *reader, void *data)
   PTCacheExtra *extra;
   int i;
   for (i = 0; i < BPHYS_TOT_DATA; i++) {
-    BLO_read_data_address(reader, pm->data[i]);
+    BLO_read_data_address(reader, &pm->data[i]);
 
     /* the cache saves non-struct data without DNA */
     if (pm->data[i] && ptcache_data_struct[i][0] == '\0' &&
@@ -3427,7 +3427,7 @@ static void file_read_pointcache_cb(BloReader *reader, void *data)
   BLO_read_list(reader, &pm->extradata, NULL);
 
   for (extra = pm->extradata.first; extra; extra = extra->next) {
-    BLO_read_data_address(reader, extra->data);
+    BLO_read_data_address(reader, &extra->data);
   }
 }
 
@@ -3464,11 +3464,11 @@ void BKE_ptcache_blo_read(struct BloReader *reader,
       }
     }
 
-    BLO_read_data_address(reader, *ocache);
+    BLO_read_data_address(reader, &*ocache);
   }
   else if (*ocache) {
     /* old "single" caches need to be linked too */
-    BLO_read_data_address(reader, *ocache);
+    BLO_read_data_address(reader, &*ocache);
     file_read_pointcache(reader, *ocache);
     if (force_disk) {
       (*ocache)->flag |= PTCACHE_DISK_CACHE;

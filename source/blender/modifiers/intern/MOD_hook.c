@@ -139,8 +139,8 @@ static void bloRead(BloReader *reader, ModifierData *md)
 {
   HookModifierData *hmd = (HookModifierData *)md;
 
-  BLO_read_int32_array(reader, hmd->totindex, hmd->indexar);
-  BLO_read_data_address(reader, hmd->curfalloff);
+  BLO_read_int32_array(reader, hmd->totindex, &hmd->indexar);
+  BLO_read_data_address(reader, &hmd->curfalloff);
   if (hmd->curfalloff) {
     BKE_curvemapping_blo_read(reader, hmd->curfalloff);
   }

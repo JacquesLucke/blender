@@ -1081,7 +1081,7 @@ void BKE_curveprofile_blo_write(BloWriter *writer, const CurveProfile *profile)
 
 void BKE_curveprofile_blo_read(BloReader *reader, CurveProfile *profile)
 {
-  BLO_read_data_address(reader, profile->path);
+  BLO_read_data_address(reader, &profile->path);
   profile->table = NULL;
   profile->segments = NULL;
 }

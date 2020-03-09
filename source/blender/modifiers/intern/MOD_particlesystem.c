@@ -98,7 +98,7 @@ static void bloRead(BloReader *reader, ModifierData *md)
 
   psmd->mesh_final = NULL;
   psmd->mesh_original = NULL;
-  BLO_read_data_address(reader, psmd->psys);
+  BLO_read_data_address(reader, &psmd->psys);
   psmd->flag &= ~eParticleSystemFlag_psys_updated;
   psmd->flag |= eParticleSystemFlag_file_loaded;
 }

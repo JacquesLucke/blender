@@ -235,21 +235,21 @@ static void bloRead(BloReader *reader, ModifierData *md)
 {
   SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *)md;
 
-  BLO_read_data_address(reader, smd->verts);
+  BLO_read_data_address(reader, &smd->verts);
   if (smd->verts) {
     for (int i = 0; i < smd->numverts; i++) {
-      BLO_read_data_address(reader, smd->verts[i].binds);
+      BLO_read_data_address(reader, &smd->verts[i].binds);
 
       if (smd->verts[i].binds) {
         for (int j = 0; j < smd->verts[i].numbinds; j++) {
           SDefBind *bind = &smd->verts[i].binds[j];
-          BLO_read_uint32_array(reader, bind->numverts, bind->vert_inds);
+          BLO_read_uint32_array(reader, bind->numverts, &bind->vert_inds);
 
           if (ELEM(bind->mode, MOD_SDEF_MODE_CENTROID, MOD_SDEF_MODE_LOOPTRI)) {
-            BLO_read_float3_array(reader, 1, bind->vert_weights);
+            BLO_read_float3_array(reader, 1, &bind->vert_weights);
           }
           else {
-            BLO_read_float_array(reader, bind->numverts, bind->vert_weights);
+            BLO_read_float_array(reader, bind->numverts, &bind->vert_weights);
           }
         }
       }

@@ -198,7 +198,7 @@ void BKE_curvemapping_blo_read(struct BloReader *reader, struct CurveMapping *cu
   cumap->flag &= ~CUMA_PREMULLED;
 
   for (int i = 0; i < CM_TOT; i++) {
-    BLO_read_data_address(reader, cumap->cm[i].curve);
+    BLO_read_data_address(reader, &cumap->cm[i].curve);
     cumap->cm[i].table = NULL;
     cumap->cm[i].premultable = NULL;
   }
