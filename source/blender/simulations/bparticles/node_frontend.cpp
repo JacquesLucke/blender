@@ -844,13 +844,13 @@ static Vector<float> compute_emitter_vertex_weights(PointerRNA *node_rna,
     std::string group_name = inputs.relocate_out<std::string>(2, "Density Group");
 
     MDeformVert *vertices = mesh->dvert;
-    int group_index = defgroup_name_index(object, group_name.c_str());
+    int group_index = BKE_object_defgroup_name_index(object, group_name.c_str());
     if (group_index == -1 || vertices == nullptr) {
       vertex_weights.fill(0);
     }
     else {
       for (uint i = 0; i < mesh->totvert; i++) {
-        vertex_weights[i] = defvert_find_weight(vertices + i, group_index);
+        vertex_weights[i] = BKE_defvert_find_weight(vertices + i, group_index);
       }
     }
   }
