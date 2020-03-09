@@ -1,5 +1,21 @@
-#ifndef __BLO_CALLBACK_API_H__
-#define __BLO_CALLBACK_API_H__
+/*
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ */
+
+#ifndef __BLO_READ_WRITE_H__
+#define __BLO_READ_WRITE_H__
 
 #include "BLI_endian_switch.h"
 
@@ -75,4 +91,4 @@ void BLO_read_list(BloReader *reader, struct ListBase *list, BloReadListFn callb
 }
 #endif
 
-#endif /* __BLO_CALLBACK_API_H__ */
+#endif /* __BLO_READ_WRITE_H__ */
