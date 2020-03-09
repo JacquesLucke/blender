@@ -45,7 +45,7 @@
 
 #include "DEG_depsgraph_query.h"
 
-#include "BLO_callback_api.h"
+#include "BLO_read_write.h"
 
 static void initData(ModifierData *md)
 {

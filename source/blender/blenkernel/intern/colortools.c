@@ -44,7 +44,7 @@
 #include "IMB_colormanagement.h"
 #include "IMB_imbuf_types.h"
 
-#include "BLO_callback_api.h"
+#include "BLO_read_write.h"
 
 /* ********************************* color curve ********************* */
 

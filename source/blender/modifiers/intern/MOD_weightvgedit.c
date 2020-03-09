@@ -47,7 +47,7 @@
 #include "MOD_weightvg_util.h"
 #include "MOD_modifiertypes.h"
 
-#include "BLO_callback_api.h"
+#include "BLO_read_write.h"
 
 /**************************************
  * Modifiers functions.               *

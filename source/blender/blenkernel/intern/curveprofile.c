@@ -41,7 +41,7 @@
 #include "BKE_curve.h"
 #include "BKE_fcurve.h"
 
-#include "BLO_callback_api.h"
+#include "BLO_read_write.h"
 
 void BKE_curveprofile_free_data(CurveProfile *profile)
 {
