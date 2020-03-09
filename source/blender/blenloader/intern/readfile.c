@@ -703,12 +703,12 @@ static Main *blo_find_main(FileData *fd, const char *filepath, const char *relab
 /** \name File Parsing
  * \{ */
 
-static BloReader *wrap_reader(FileData *fd)
+static BlendReader *wrap_reader(FileData *fd)
 {
-  return (BloReader *)fd;
+  return (BlendReader *)fd;
 }
 
-static FileData *unwrap_reader(BloReader *reader)
+static FileData *unwrap_reader(BlendReader *reader)
 {
   return (FileData *)reader;
 }
@@ -11890,22 +11890,22 @@ static void read_libraries(FileData *basefd, ListBase *mainlist)
   BKE_main_free(main_newid);
 }
 
-void *BLO_read_get_new_data_address(BloReader *reader, const void *old_address)
+void *BLO_read_get_new_data_address(BlendReader *reader, const void *old_address)
 {
   return newdataadr(unwrap_reader(reader), old_address);
 }
 
-bool BLO_read_requires_endian_switch(BloReader *reader)
+bool BLO_read_requires_endian_switch(BlendReader *reader)
 {
   return (unwrap_reader(reader)->flags & FD_FLAGS_SWITCH_ENDIAN) != 0;
 }
 
-void BLO_read_list(BloReader *reader, struct ListBase *list, BloReadListFn callback)
+void BLO_read_list(BlendReader *reader, struct ListBase *list, BlendReadListFn callback)
 {
   link_list_ex(unwrap_reader(reader), list, (link_list_cb)callback);
 }
 
-void BLO_read_int32_array(BloReader *reader, int array_size, int32_t **ptr_p)
+void BLO_read_int32_array(BlendReader *reader, int array_size, int32_t **ptr_p)
 {
   BLO_read_data_address(reader, ptr_p);
   if (BLO_read_requires_endian_switch(reader)) {
@@ -11913,7 +11913,7 @@ void BLO_read_int32_array(BloReader *reader, int array_size, int32_t **ptr_p)
   }
 }
 
-void BLO_read_uint32_array(BloReader *reader, int array_size, uint32_t **ptr_p)
+void BLO_read_uint32_array(BlendReader *reader, int array_size, uint32_t **ptr_p)
 {
   BLO_read_data_address(reader, ptr_p);
   if (BLO_read_requires_endian_switch(reader)) {
@@ -11921,7 +11921,7 @@ void BLO_read_uint32_array(BloReader *reader, int array_size, uint32_t **ptr_p)
   }
 }
 
-void BLO_read_float_array(BloReader *reader, int array_size, float **ptr_p)
+void BLO_read_float_array(BlendReader *reader, int array_size, float **ptr_p)
 {
   BLO_read_data_address(reader, ptr_p);
   if (BLO_read_requires_endian_switch(reader)) {
@@ -11929,7 +11929,7 @@ void BLO_read_float_array(BloReader *reader, int array_size, float **ptr_p)
   }
 }
 
-void BLO_read_float3_array(BloReader *reader, int array_size, float **ptr_p)
+void BLO_read_float3_array(BlendReader *reader, int array_size, float **ptr_p)
 {
   BLO_read_float_array(reader, array_size * 3, ptr_p);
 }
