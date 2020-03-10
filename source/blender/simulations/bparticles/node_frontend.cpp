@@ -1098,8 +1098,7 @@ StringMap<ActionParserCallback, BLI::RawAllocator> action_parsers_map =
 static void collect_influences(FunctionTreeData &function_tree_data,
                                WorldTransition &world_transition,
                                Vector<std::string> &r_system_names,
-                               InfluencesCollector &collector,
-                               StringMap<Integrator *> &r_integrators)
+                               InfluencesCollector &collector)
 {
   SCOPED_TIMER(__func__);
 
@@ -1128,14 +1127,6 @@ static void collect_influences(FunctionTreeData &function_tree_data,
       FNodeInfluencesBuilder builder{collector, function_tree_data, world_transition, *fnode};
       (*callback)(builder);
     }
-  }
-
-  for (std::string &system_name : r_system_names) {
-    ArrayRef<Force *> forces = collector.m_forces.lookup_default(system_name);
-    EulerIntegrator &integrator = function_tree_data.construct<EulerIntegrator>("integrator",
-                                                                                forces);
-
-    r_integrators.add_new(system_name, &integrator);
   }
 }
 
@@ -1167,10 +1158,8 @@ class NodeTreeStepSimulator : public StepSimulator {
     FunctionTreeData function_tree_data(*data_graph);
 
     Vector<std::string> system_names;
-    StringMap<Integrator *> integrators;
     InfluencesCollector influences_collector;
-    collect_influences(
-        function_tree_data, world_transition, system_names, influences_collector, integrators);
+    collect_influences(function_tree_data, world_transition, system_names, influences_collector);
 
     auto &containers = particles_state.particle_containers();
 
@@ -1188,7 +1177,7 @@ class NodeTreeStepSimulator : public StepSimulator {
           particles_state, name, system_attributes);
 
       ParticleSystemInfo type_info = {
-          integrators.lookup(name),
+          influences_collector.m_forces.lookup_default(name),
           influences_collector.m_events.lookup_default(name),
           influences_collector.m_offset_handlers.lookup_default(name),
           influences_collector.m_collision_objects.lookup_default(name),

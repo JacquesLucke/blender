@@ -5,13 +5,14 @@
 #include "event_interface.hpp"
 #include "offset_handler_interface.hpp"
 #include "emitter_interface.hpp"
+#include "forces.hpp"
 
 #include "DNA_object_types.h"
 
 namespace BParticles {
 
 struct ParticleSystemInfo {
-  Integrator *integrator;
+  ArrayRef<Force *> forces;
   ArrayRef<Event *> events;
   ArrayRef<OffsetHandler *> offset_handlers;
   ArrayRef<Object *> collision_objects;

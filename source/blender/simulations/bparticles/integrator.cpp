@@ -69,11 +69,11 @@ BLI_NOINLINE void EulerIntegrator::compute_combined_force(IntegratorInterface &i
 {
   r_force.fill({0, 0, 0});
 
-  ForceInterface force_interface(interface.step_data(), interface.mask(), r_force);
+  // ForceInterface force_interface(interface.step_data(), interface.mask(), r_force);
 
-  for (Force *force : m_forces) {
-    force->add_force(force_interface);
-  }
+  // for (Force *force : m_forces) {
+  //   force->add_force(force_interface);
+  // }
 }
 
 BLI_NOINLINE void EulerIntegrator::compute_offsets(IndexMask mask,

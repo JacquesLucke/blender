@@ -17,7 +17,10 @@ using BLI::float4x4;
 class Force {
  public:
   virtual ~Force() = 0;
-  virtual void add_force(ForceInterface &interface) = 0;
+  virtual void add_force(AttributesRef attributes,
+                         IndexMask mask,
+                         BufferCache &buffer_cache,
+                         MutableArrayRef<float3> r_destination) = 0;
 };
 
 class CustomForce : public Force {
@@ -29,7 +32,10 @@ class CustomForce : public Force {
   {
   }
 
-  void add_force(ForceInterface &interface) override;
+  void add_force(AttributesRef attributes,
+                 IndexMask mask,
+                 BufferCache &buffer_cache,
+                 MutableArrayRef<float3> r_destination) override;
 };
 
 }  // namespace BParticles
