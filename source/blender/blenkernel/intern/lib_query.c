@@ -200,6 +200,17 @@ static void library_foreach_idproperty_ID_link(LibraryForeachIDData *data,
   FOREACH_FINALIZE_VOID;
 }
 
+static void library_foreach_node_socket(LibraryForeachIDData *data, bNodeSocket *sock)
+{
+  library_foreach_idproperty_ID_link(data, sock->prop, IDWALK_CB_USER);
+
+  if (sock->type == SOCK_OBJECT) {
+    bNodeSocketValueObject *default_value = sock->default_value;
+    FOREACH_CALLBACK_INVOKE_ID_PP(data, (ID **)&default_value->object, IDWALK_CB_USER);
+    FOREACH_FINALIZE_VOID;
+  }
+}
+
 static void library_foreach_rigidbodyworldSceneLooper(struct RigidBodyWorld *UNUSED(rbw),
                                                       ID **id_pointer,
                                                       void *user_data,
@@ -1023,18 +1034,18 @@ static void library_foreach_ID_link(Main *bmain,
 
           library_foreach_idproperty_ID_link(&data, node->prop, IDWALK_CB_USER);
           for (sock = node->inputs.first; sock; sock = sock->next) {
-            library_foreach_idproperty_ID_link(&data, sock->prop, IDWALK_CB_USER);
+            library_foreach_node_socket(&data, sock);
           }
           for (sock = node->outputs.first; sock; sock = sock->next) {
-            library_foreach_idproperty_ID_link(&data, sock->prop, IDWALK_CB_USER);
+            library_foreach_node_socket(&data, sock);
           }
         }
 
         for (sock = ntree->inputs.first; sock; sock = sock->next) {
-          library_foreach_idproperty_ID_link(&data, sock->prop, IDWALK_CB_USER);
+          library_foreach_node_socket(&data, sock);
         }
         for (sock = ntree->outputs.first; sock; sock = sock->next) {
-          library_foreach_idproperty_ID_link(&data, sock->prop, IDWALK_CB_USER);
+          library_foreach_node_socket(&data, sock);
         }
         break;
       }

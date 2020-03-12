@@ -573,6 +573,10 @@ typedef struct bNodeSocketValueString {
   char value[1024];
 } bNodeSocketValueString;
 
+typedef struct bNodeSocketValueObject {
+  struct Object *object;
+} bNodeSocketValueObject;
+
 /* data structs, for node->storage */
 enum {
   CMP_NODE_MASKTYPE_ADD = 0,

@@ -759,6 +759,10 @@ void nodeModifySocketType(
   }
 
   if (sock->default_value) {
+    if (sock->type == SOCK_OBJECT) {
+      bNodeSocketValueObject *default_value = sock->default_value;
+      id_us_min(&default_value->object->id);
+    }
     MEM_freeN(sock->default_value);
     sock->default_value = NULL;
   }
@@ -1009,6 +1013,10 @@ static void node_socket_free(bNodeTree *UNUSED(ntree),
   }
 
   if (sock->default_value) {
+    if (sock->type == SOCK_OBJECT && do_id_user) {
+      bNodeSocketValueObject *default_value = sock->default_value;
+      id_us_min(&default_value->object->id);
+    }
     MEM_freeN(sock->default_value);
   }
 }
@@ -1295,6 +1303,13 @@ static void node_socket_copy(bNodeSocket *sock_dst, const bNodeSocket *sock_src,
 
   if (sock_src->default_value) {
     sock_dst->default_value = MEM_dupallocN(sock_src->default_value);
+
+    if (sock_dst->type == SOCK_OBJECT) {
+      if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
+        bNodeSocketValueObject *default_value = sock_dst->default_value;
+        id_us_plus(&default_value->object->id);
+      }
+    }
   }
 
   sock_dst->stack_index = 0;
@@ -2130,6 +2145,19 @@ void nodeRemoveNode(Main *bmain, bNodeTree *ntree, bNode *node, bool do_id_user)
     if (node->id) {
       id_us_min(node->id);
     }
+
+    LISTBASE_FOREACH (bNodeSocket *, sock, &node->inputs) {
+      if (sock->default_value && sock->type == SOCK_OBJECT) {
+        bNodeSocketValueObject *default_value = sock->default_value;
+        id_us_min(&default_value->object->id);
+      }
+    }
+    LISTBASE_FOREACH (bNodeSocket *, sock, &node->outputs) {
+      if (sock->default_value && sock->type == SOCK_OBJECT) {
+        bNodeSocketValueObject *default_value = sock->default_value;
+        id_us_min(&default_value->object->id);
+      }
+    }
   }
 
   /* Remove animation data. */
@@ -2156,6 +2184,11 @@ static void node_socket_interface_free(bNodeTree *UNUSED(ntree), bNodeSocket *so
   }
 
   if (sock->default_value) {
+    if (sock->type == SOCK_OBJECT) {
+      bNodeSocketValueObject *default_value = sock->default_value;
+      id_us_min(&default_value->object->id);
+    }
+
     MEM_freeN(sock->default_value);
   }
 }

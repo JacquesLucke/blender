@@ -3413,6 +3413,10 @@ static void std_node_socket_draw(
       uiItemR(row, ptr, "default_value", 0, "", 0);
       break;
     }
+    case SOCK_OBJECT: {
+      uiItemR(layout, ptr, "default_value", 0, text, 0);
+      break;
+    }
     default:
       node_socket_button_label(C, layout, ptr, node_ptr, text);
       break;

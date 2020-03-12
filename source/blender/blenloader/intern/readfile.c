@@ -3411,6 +3411,16 @@ static void lib_link_workspace_instance_hook(FileData *fd, WorkSpaceInstanceHook
 /** \name Read ID: Node Tree
  * \{ */
 
+static void lib_link_node_socket(FileData *fd, Library *lib, bNodeSocket *sock)
+{
+  IDP_LibLinkProperty(sock->prop, fd);
+
+  if (sock->type == SOCK_OBJECT) {
+    bNodeSocketValueObject *default_value = sock->default_value;
+    default_value->object = newlibadr(fd, lib, default_value->object);
+  }
+}
+
 /* Single node tree (also used for material/scene trees), ntree is not NULL */
 static void lib_link_ntree(FileData *fd, Library *lib, bNodeTree *ntree)
 {
@@ -3426,18 +3436,18 @@ static void lib_link_ntree(FileData *fd, Library *lib, bNodeTree *ntree)
     node->id = newlibadr(fd, lib, node->id);
 
     for (bNodeSocket *sock = node->inputs.first; sock; sock = sock->next) {
-      IDP_LibLinkProperty(sock->prop, fd);
+      lib_link_node_socket(fd, lib, sock);
     }
     for (bNodeSocket *sock = node->outputs.first; sock; sock = sock->next) {
-      IDP_LibLinkProperty(sock->prop, fd);
+      lib_link_node_socket(fd, lib, sock);
     }
   }
 
   for (bNodeSocket *sock = ntree->inputs.first; sock; sock = sock->next) {
-    IDP_LibLinkProperty(sock->prop, fd);
+    lib_link_node_socket(fd, lib, sock);
   }
   for (bNodeSocket *sock = ntree->outputs.first; sock; sock = sock->next) {
-    IDP_LibLinkProperty(sock->prop, fd);
+    lib_link_node_socket(fd, lib, sock);
   }
 
   /* Set node->typeinfo pointers. This is done in lib linking, after the
