@@ -477,9 +477,9 @@ class OptiXDevice : public CUDADevice {
     // Calculate maximum trace continuation stack size
     unsigned int trace_css = stack_size[PG_HITD].cssCH;
     // This is based on the maximum of closest-hit and any-hit/intersection programs
-    trace_css = max(trace_css, stack_size[PG_HITD].cssIS + stack_size[PG_HITD].cssAH);
-    trace_css = max(trace_css, stack_size[PG_HITL].cssIS + stack_size[PG_HITL].cssAH);
-    trace_css = max(trace_css, stack_size[PG_HITS].cssIS + stack_size[PG_HITS].cssAH);
+    trace_css = std::max(trace_css, stack_size[PG_HITD].cssIS + stack_size[PG_HITD].cssAH);
+    trace_css = std::max(trace_css, stack_size[PG_HITL].cssIS + stack_size[PG_HITL].cssAH);
+    trace_css = std::max(trace_css, stack_size[PG_HITS].cssIS + stack_size[PG_HITS].cssAH);
 
     OptixPipelineLinkOptions link_options;
     link_options.maxTraceDepth = 1;
@@ -548,8 +548,9 @@ class OptiXDevice : public CUDADevice {
                               &pipelines[PIP_SHADER_EVAL]));
 
       // Calculate continuation stack size based on the maximum of all ray generation stack sizes
-      const unsigned int css = max(stack_size[PG_BAKE].cssRG,
-                                   max(stack_size[PG_DISP].cssRG, stack_size[PG_BACK].cssRG)) +
+      const unsigned int css = std::max(stack_size[PG_BAKE].cssRG,
+                                        std::max(stack_size[PG_DISP].cssRG,
+                                                 stack_size[PG_BACK].cssRG)) +
                                link_options.maxTraceDepth * trace_css;
 
       check_result_optix_ret(optixPipelineSetStackSize(
@@ -627,7 +628,11 @@ class OptiXDevice : public CUDADevice {
 
     const int end_sample = rtile.start_sample + rtile.num_samples;
     // Keep this number reasonable to avoid running into TDRs
-    const int step_samples = (info.display_device ? 8 : 32);
+    int step_samples = (info.display_device ? 8 : 32);
+    if (task.adaptive_sampling.use) {
+      step_samples = task.adaptive_sampling.align_static_samples(step_samples);
+    }
+
     // Offset into launch params buffer so that streams use separate data
     device_ptr launch_params_ptr = launch_params.device_pointer +
                                    thread_index * launch_params.data_elements;
@@ -638,10 +643,9 @@ class OptiXDevice : public CUDADevice {
       // Copy work tile information to device
       wtile.num_samples = min(step_samples, end_sample - sample);
       wtile.start_sample = sample;
-      check_result_cuda(cuMemcpyHtoDAsync(launch_params_ptr + offsetof(KernelParams, tile),
-                                          &wtile,
-                                          sizeof(wtile),
-                                          cuda_stream[thread_index]));
+      device_ptr d_wtile_ptr = launch_params_ptr + offsetof(KernelParams, tile);
+      check_result_cuda(
+          cuMemcpyHtoDAsync(d_wtile_ptr, &wtile, sizeof(wtile), cuda_stream[thread_index]));
 
       OptixShaderBindingTable sbt_params = {};
       sbt_params.raygenRecord = sbt_data.device_pointer + PG_RGEN * sizeof(SbtRecord);
@@ -666,6 +670,12 @@ class OptiXDevice : public CUDADevice {
                                      wtile.h,
                                      1));
 
+      // Run the adaptive sampling kernels at selected samples aligned to step samples.
+      uint filter_sample = wtile.start_sample + wtile.num_samples - 1;
+      if (task.adaptive_sampling.use && task.adaptive_sampling.need_filter(filter_sample)) {
+        adaptive_sampling_filter(filter_sample, &wtile, d_wtile_ptr, cuda_stream[thread_index]);
+      }
+
       // Wait for launch to finish
       check_result_cuda(cuStreamSynchronize(cuda_stream[thread_index]));
 
@@ -676,6 +686,14 @@ class OptiXDevice : public CUDADevice {
 
       if (task.get_cancel() && !task.need_finish_queue)
         return;  // Cancel rendering
+    }
+
+    // Finalize adaptive sampling
+    if (task.adaptive_sampling.use) {
+      device_ptr d_wtile_ptr = launch_params_ptr + offsetof(KernelParams, tile);
+      adaptive_sampling_post(rtile, &wtile, d_wtile_ptr, cuda_stream[thread_index]);
+      check_result_cuda(cuStreamSynchronize(cuda_stream[thread_index]));
+      task.update_progress(&rtile, rtile.w * rtile.h * wtile.num_samples);
     }
   }
 

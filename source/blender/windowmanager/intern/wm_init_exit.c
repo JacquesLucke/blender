@@ -152,11 +152,9 @@ static void wm_init_reports(bContext *C)
 
   BKE_reports_init(reports, RPT_STORE);
 }
-static void wm_free_reports(bContext *C)
+static void wm_free_reports(wmWindowManager *wm)
 {
-  ReportList *reports = CTX_wm_reports(C);
-
-  BKE_reports_clear(reports);
+  BKE_reports_clear(&wm->reports);
 }
 
 static bool wm_start_with_console = false;
@@ -251,7 +249,6 @@ void WM_init(bContext *C, int argc, const char **argv)
 
   ED_undosys_type_init();
 
-  BKE_library_callback_free_window_manager_set(wm_close_and_free); /* lib_id.c */
   BKE_library_callback_free_notifier_reference_set(
       WM_main_remove_notifier_reference);                    /* lib_id.c */
   BKE_region_callback_free_gizmomap_set(wm_gizmomap_remove); /* screen.c */
@@ -362,7 +359,8 @@ void WM_init(bContext *C, int argc, const char **argv)
   /* allow a path of "", this is what happens when making a new file */
 #if 0
   if (BKE_main_blendfile_path_from_global()[0] == '\0') {
-    BLI_make_file_string("/", G_MAIN->name, BKE_appdir_folder_default(), "untitled.blend");
+    BLI_join_dirfile(
+        G_MAIN->name, sizeof(G_MAIN->name), BKE_appdir_folder_default(), "untitled.blend");
   }
 #endif
 
@@ -472,7 +470,7 @@ void wm_exit_schedule_delayed(const bContext *C)
   /* Use modal UI handler for now.
    * Could add separate WM handlers or so, but probably not worth it. */
   WM_event_add_ui_handler(C, &win->modalhandlers, wm_exit_handler, NULL, NULL, 0);
-  WM_event_add_mousemove(C); /* ensure handler actually gets called */
+  WM_event_add_mousemove(win); /* ensure handler actually gets called */
 }
 
 /**
@@ -499,7 +497,7 @@ void WM_exit_ex(bContext *C, const bool do_python)
         bool has_edited;
         int fileflags = G.fileflags & ~(G_FILE_COMPRESS | G_FILE_HISTORY);
 
-        BLI_make_file_string("/", filename, BKE_tempdir_base(), BLENDER_QUIT_FILE);
+        BLI_join_dirfile(filename, sizeof(filename), BKE_tempdir_base(), BLENDER_QUIT_FILE);
 
         has_edited = ED_editors_flush_edits(bmain);
 
@@ -560,9 +558,9 @@ void WM_exit_ex(bContext *C, const bool do_python)
 
   ED_preview_free_dbase(); /* frees a Main dbase, before BKE_blender_free! */
 
-  if (C && wm) {
+  if (wm) {
     /* Before BKE_blender_free! - since the ListBases get freed there. */
-    wm_free_reports(C);
+    wm_free_reports(wm);
   }
 
   BKE_sequencer_free_clipboard(); /* sequencer.c */

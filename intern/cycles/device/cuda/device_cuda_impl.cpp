@@ -208,6 +208,8 @@ CUDADevice::CUDADevice(DeviceInfo &info, Stats &stats, Profiler &profiler, bool 
   map_host_used = 0;
   can_map_host = 0;
 
+  functions.loaded = false;
+
   /* Intialize CUDA. */
   if (cuda_error(cuInit(0)))
     return;
@@ -531,7 +533,40 @@ bool CUDADevice::load_kernels(const DeviceRequestedFeatures &requested_features)
     reserve_local_memory(requested_features);
   }
 
+  load_functions();
+
   return (result == CUDA_SUCCESS);
+}
+
+void CUDADevice::load_functions()
+{
+  /* TODO: load all functions here. */
+  if (functions.loaded) {
+    return;
+  }
+  functions.loaded = true;
+
+  cuda_assert(cuModuleGetFunction(
+      &functions.adaptive_stopping, cuModule, "kernel_cuda_adaptive_stopping"));
+  cuda_assert(cuModuleGetFunction(
+      &functions.adaptive_filter_x, cuModule, "kernel_cuda_adaptive_filter_x"));
+  cuda_assert(cuModuleGetFunction(
+      &functions.adaptive_filter_y, cuModule, "kernel_cuda_adaptive_filter_y"));
+  cuda_assert(cuModuleGetFunction(
+      &functions.adaptive_scale_samples, cuModule, "kernel_cuda_adaptive_scale_samples"));
+
+  cuda_assert(cuFuncSetCacheConfig(functions.adaptive_stopping, CU_FUNC_CACHE_PREFER_L1));
+  cuda_assert(cuFuncSetCacheConfig(functions.adaptive_filter_x, CU_FUNC_CACHE_PREFER_L1));
+  cuda_assert(cuFuncSetCacheConfig(functions.adaptive_filter_y, CU_FUNC_CACHE_PREFER_L1));
+  cuda_assert(cuFuncSetCacheConfig(functions.adaptive_scale_samples, CU_FUNC_CACHE_PREFER_L1));
+
+  int unused_min_blocks;
+  cuda_assert(cuOccupancyMaxPotentialBlockSize(&unused_min_blocks,
+                                               &functions.adaptive_num_threads_per_block,
+                                               functions.adaptive_scale_samples,
+                                               NULL,
+                                               0,
+                                               0));
 }
 
 void CUDADevice::reserve_local_memory(const DeviceRequestedFeatures &requested_features)
@@ -1134,10 +1169,10 @@ void CUDADevice::tex_alloc(device_memory &mem)
   }
 
   /* Kepler+, bindless textures. */
-  int flat_slot = 0;
+  int slot = 0;
   if (string_startswith(mem.name, "__tex_image")) {
     int pos = string(mem.name).rfind("_");
-    flat_slot = atoi(mem.name + pos + 1);
+    slot = atoi(mem.name + pos + 1);
   }
   else {
     assert(0);
@@ -1179,15 +1214,16 @@ void CUDADevice::tex_alloc(device_memory &mem)
   cuda_assert(cuTexObjectCreate(&cmem->texobject, &resDesc, &texDesc, NULL));
 
   /* Resize once */
-  if (flat_slot >= texture_info.size()) {
+  if (slot >= texture_info.size()) {
     /* Allocate some slots in advance, to reduce amount
      * of re-allocations. */
-    texture_info.resize(flat_slot + 128);
+    texture_info.resize(slot + 128);
   }
 
   /* Set Mapping and tag that we need to (re-)upload to device */
-  TextureInfo &info = texture_info[flat_slot];
+  TextureInfo &info = texture_info[slot];
   info.data = (uint64_t)cmem->texobject;
+  info.data_type = mem.image_data_type;
   info.cl_buffer = 0;
   info.interpolation = mem.interpolation;
   info.extension = mem.extension;
@@ -1666,6 +1702,80 @@ void CUDADevice::denoise(RenderTile &rtile, DenoisingTask &denoising)
   denoising.run_denoising(&rtile);
 }
 
+void CUDADevice::adaptive_sampling_filter(uint filter_sample,
+                                          WorkTile *wtile,
+                                          CUdeviceptr d_wtile,
+                                          CUstream stream)
+{
+  const int num_threads_per_block = functions.adaptive_num_threads_per_block;
+
+  /* These are a series of tiny kernels because there is no grid synchronization
+   * from within a kernel, so multiple kernel launches it is. */
+  uint total_work_size = wtile->h * wtile->w;
+  void *args2[] = {&d_wtile, &filter_sample, &total_work_size};
+  uint num_blocks = divide_up(total_work_size, num_threads_per_block);
+  cuda_assert(cuLaunchKernel(functions.adaptive_stopping,
+                             num_blocks,
+                             1,
+                             1,
+                             num_threads_per_block,
+                             1,
+                             1,
+                             0,
+                             stream,
+                             args2,
+                             0));
+  total_work_size = wtile->h;
+  num_blocks = divide_up(total_work_size, num_threads_per_block);
+  cuda_assert(cuLaunchKernel(functions.adaptive_filter_x,
+                             num_blocks,
+                             1,
+                             1,
+                             num_threads_per_block,
+                             1,
+                             1,
+                             0,
+                             stream,
+                             args2,
+                             0));
+  total_work_size = wtile->w;
+  num_blocks = divide_up(total_work_size, num_threads_per_block);
+  cuda_assert(cuLaunchKernel(functions.adaptive_filter_y,
+                             num_blocks,
+                             1,
+                             1,
+                             num_threads_per_block,
+                             1,
+                             1,
+                             0,
+                             stream,
+                             args2,
+                             0));
+}
+
+void CUDADevice::adaptive_sampling_post(RenderTile &rtile,
+                                        WorkTile *wtile,
+                                        CUdeviceptr d_wtile,
+                                        CUstream stream)
+{
+  const int num_threads_per_block = functions.adaptive_num_threads_per_block;
+  uint total_work_size = wtile->h * wtile->w;
+
+  void *args[] = {&d_wtile, &rtile.start_sample, &rtile.sample, &total_work_size};
+  uint num_blocks = divide_up(total_work_size, num_threads_per_block);
+  cuda_assert(cuLaunchKernel(functions.adaptive_scale_samples,
+                             num_blocks,
+                             1,
+                             1,
+                             num_threads_per_block,
+                             1,
+                             1,
+                             0,
+                             stream,
+                             args,
+                             0));
+}
+
 void CUDADevice::path_trace(DeviceTask &task,
                             RenderTile &rtile,
                             device_vector<WorkTile> &work_tiles)
@@ -1715,6 +1825,9 @@ void CUDADevice::path_trace(DeviceTask &task,
   }
 
   uint step_samples = divide_up(min_blocks * num_threads_per_block, wtile->w * wtile->h);
+  if (task.adaptive_sampling.use) {
+    step_samples = task.adaptive_sampling.align_static_samples(step_samples);
+  }
 
   /* Render all samples. */
   int start_sample = rtile.start_sample;
@@ -1736,6 +1849,12 @@ void CUDADevice::path_trace(DeviceTask &task,
     cuda_assert(
         cuLaunchKernel(cuPathTrace, num_blocks, 1, 1, num_threads_per_block, 1, 1, 0, 0, args, 0));
 
+    /* Run the adaptive sampling kernels at selected samples aligned to step samples. */
+    uint filter_sample = sample + wtile->num_samples - 1;
+    if (task.adaptive_sampling.use && task.adaptive_sampling.need_filter(filter_sample)) {
+      adaptive_sampling_filter(filter_sample, wtile, d_work_tiles);
+    }
+
     cuda_assert(cuCtxSynchronize());
 
     /* Update progress. */
@@ -1746,6 +1865,14 @@ void CUDADevice::path_trace(DeviceTask &task,
       if (task.need_finish_queue == false)
         break;
     }
+  }
+
+  /* Finalize adaptive sampling. */
+  if (task.adaptive_sampling.use) {
+    CUdeviceptr d_work_tiles = (CUdeviceptr)work_tiles.device_pointer;
+    adaptive_sampling_post(rtile, wtile, d_work_tiles);
+    cuda_assert(cuCtxSynchronize());
+    task.update_progress(&rtile, rtile.w * rtile.h * wtile->num_samples);
   }
 }
 

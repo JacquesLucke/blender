@@ -1525,64 +1525,65 @@ static int sequencer_slip_invoke(bContext *C, wmOperator *op, const wmEvent *eve
 
 static bool sequencer_slip_recursively(Scene *scene, SlipData *data, int offset)
 {
+  /* Only data types supported for now. */
+  Editing *ed = BKE_sequencer_editing_get(scene, false);
+  bool changed = false;
 
-  /* only data types supported for now */
-  if (offset != 0) {
-    Editing *ed = BKE_sequencer_editing_get(scene, false);
-    int i;
+  /* We iterate in reverse so meta-strips are iterated after their children. */
+  for (int i = data->num_seq - 1; i >= 0; i--) {
+    Sequence *seq = data->seq_array[i];
+    int endframe;
+    /* We have the offset, apply the values to the sequence strips. */
 
-    /* we iterate in reverse so metastrips are iterated after their children */
-    for (i = data->num_seq - 1; i >= 0; i--) {
-      Sequence *seq = data->seq_array[i];
-      int endframe;
-      /* we have the offset, do the terrible math */
+    /* first, do the offset */
+    seq->start = data->ts[i].start + offset;
 
-      /* first, do the offset */
-      seq->start = data->ts[i].start + offset;
+    if (data->trim[i]) {
+      /* Find the end-frame. */
+      endframe = seq->start + seq->len;
 
-      if (data->trim[i]) {
-        /* find the endframe */
-        endframe = seq->start + seq->len;
-
-        /* now compute the terrible offsets */
-        if (endframe > seq->enddisp) {
-          seq->endstill = 0;
-          seq->endofs = endframe - seq->enddisp;
-        }
-        else if (endframe <= seq->enddisp) {
-          seq->endstill = seq->enddisp - endframe;
-          seq->endofs = 0;
-        }
-
-        if (seq->start > seq->startdisp) {
-          seq->startstill = seq->start - seq->startdisp;
-          seq->startofs = 0;
-        }
-        else if (seq->start <= seq->startdisp) {
-          seq->startstill = 0;
-          seq->startofs = seq->startdisp - seq->start;
-        }
+      /* Now compute the sequence offsets. */
+      if (endframe > seq->enddisp) {
+        seq->endstill = 0;
+        seq->endofs = endframe - seq->enddisp;
+        changed = true;
       }
-      else {
-        /* if no real trim, don't change the data, rather transform the strips themselves */
-        seq->startdisp = data->ts[i].startdisp + offset;
-        seq->enddisp = data->ts[i].enddisp + offset;
+      else if (endframe <= seq->enddisp) {
+        seq->endstill = seq->enddisp - endframe;
+        seq->endofs = 0;
+        changed = true;
       }
 
-      /* effects are only added if we they are in a meta-strip.
-       * In this case, dependent strips will just be transformed and
-       * we can skip calculating for effects.
-       * This way we can avoid an extra loop just for effects*/
-      if (!(seq->type & SEQ_TYPE_EFFECT)) {
-        BKE_sequence_calc(scene, seq);
+      if (seq->start > seq->startdisp) {
+        seq->startstill = seq->start - seq->startdisp;
+        seq->startofs = 0;
+        changed = true;
+      }
+      else if (seq->start <= seq->startdisp) {
+        seq->startstill = 0;
+        seq->startofs = seq->startdisp - seq->start;
+        changed = true;
       }
     }
-    BKE_sequencer_free_imbuf(scene, &ed->seqbase, false);
+    else {
+      /* If no real trim, don't change the data, rather transform the strips themselves. */
+      seq->startdisp = data->ts[i].startdisp + offset;
+      seq->enddisp = data->ts[i].enddisp + offset;
+      changed = true;
+    }
 
-    return true;
+    /* Effects are only added if we they are in a meta-strip.
+     * In this case, dependent strips will just be transformed and
+     * we can skip calculating for effects.
+     * This way we can avoid an extra loop just for effects*/
+    if (!(seq->type & SEQ_TYPE_EFFECT)) {
+      BKE_sequence_calc(scene, seq);
+    }
   }
-
-  return false;
+  if (changed) {
+    BKE_sequencer_free_imbuf(scene, &ed->seqbase, false);
+  }
+  return changed;
 }
 
 static int sequencer_slip_exec(bContext *C, wmOperator *op)
@@ -2478,9 +2479,9 @@ static int sequencer_delete_exec(bContext *C, wmOperator *UNUSED(op))
 
 static int sequencer_delete_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
-  ARegion *ar = CTX_wm_region(C);
+  ARegion *region = CTX_wm_region(C);
 
-  if (ar->regiontype == RGN_TYPE_WINDOW) {
+  if (region->regiontype == RGN_TYPE_WINDOW) {
     /* bounding box of 30 pixels is used for markers shortcuts,
      * prevent conflict with markers shortcuts here
      */
@@ -2899,13 +2900,13 @@ void SEQUENCER_OT_meta_separate(wmOperatorType *ot)
 /* view_all operator */
 static int sequencer_view_all_exec(bContext *C, wmOperator *op)
 {
-  ARegion *ar = CTX_wm_region(C);
+  ARegion *region = CTX_wm_region(C);
   rctf box;
 
   const int smooth_viewtx = WM_operator_smooth_viewtx_get(op);
 
   boundbox_seq(CTX_data_scene(C), &box);
-  UI_view2d_smooth_view(C, ar, &box, smooth_viewtx);
+  UI_view2d_smooth_view(C, region, &box, smooth_viewtx);
   return OPERATOR_FINISHED;
 }
 
@@ -2935,9 +2936,9 @@ static int sequencer_view_frame_exec(bContext *C, wmOperator *op)
 void SEQUENCER_OT_view_frame(wmOperatorType *ot)
 {
   /* identifiers */
-  ot->name = "View Frame";
+  ot->name = "Go to Current Frame";
   ot->idname = "SEQUENCER_OT_view_frame";
-  ot->description = "Reset viewable area to show range around current frame";
+  ot->description = "Move the view to the playhead";
 
   /* api callbacks */
   ot->exec = sequencer_view_frame_exec;
@@ -2953,7 +2954,7 @@ static int sequencer_view_all_preview_exec(bContext *C, wmOperator *UNUSED(op))
   bScreen *sc = CTX_wm_screen(C);
   ScrArea *area = CTX_wm_area(C);
 #if 0
-  ARegion *ar = CTX_wm_region(C);
+  ARegion *region = CTX_wm_region(C);
   SpaceSeq *sseq = area->spacedata.first;
   Scene *scene = CTX_data_scene(C);
 #endif
@@ -2968,8 +2969,8 @@ static int sequencer_view_all_preview_exec(bContext *C, wmOperator *UNUSED(op))
   float zoomX, zoomY;
   int width, height, imgwidth, imgheight;
 
-  width = ar->winx;
-  height = ar->winy;
+  width = region->winx;
+  height = region->winy;
 
   seq_reset_imageofs(sseq);
 
@@ -3102,7 +3103,7 @@ static int sequencer_view_selected_exec(bContext *C, wmOperator *op)
 {
   Scene *scene = CTX_data_scene(C);
   View2D *v2d = UI_view2d_fromcontext(C);
-  ARegion *ar = CTX_wm_region(C);
+  ARegion *region = CTX_wm_region(C);
   Editing *ed = BKE_sequencer_editing_get(scene, false);
   Sequence *last_seq = BKE_sequencer_active_get(scene);
   Sequence *seq;
@@ -3155,7 +3156,7 @@ static int sequencer_view_selected_exec(bContext *C, wmOperator *op)
       cur_new.ymax = ymid + (orig_height / 2);
     }
 
-    UI_view2d_smooth_view(C, ar, &cur_new, smooth_viewtx);
+    UI_view2d_smooth_view(C, region, &cur_new, smooth_viewtx);
 
     return OPERATOR_FINISHED;
   }

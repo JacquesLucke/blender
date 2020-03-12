@@ -636,7 +636,12 @@ static bool is_hidden_dot_filename(const char *filename, FileListInternEntry *fi
     BLI_strncpy(tmp_filename, filename, sizeof(tmp_filename));
     sep = tmp_filename + (sep - filename);
     while (sep) {
+      /* This happens when a path contains 'ALTSEP', '\' on Unix for e.g.
+       * Supporting alternate slashes in paths is a bigger task involving changes
+       * in many parts of the code, for now just prevent an assert, see T74579. */
+#if 0
       BLI_assert(sep[1] != '\0');
+#endif
       if (is_hidden_dot_filename(sep + 1, file)) {
         hidden = true;
         break;
@@ -854,9 +859,13 @@ void filelist_setfilter_options(FileList *filelist,
     filelist->filter_data.flags ^= FLF_HIDE_PARENT;
     update = true;
   }
-  if ((filelist->filter_data.filter != filter) || (filelist->filter_data.filter_id != filter_id)) {
+  if (filelist->filter_data.filter != filter) {
     filelist->filter_data.filter = filter;
-    filelist->filter_data.filter_id = (filter & FILE_TYPE_BLENDERLIB) ? filter_id : FILTER_ID_ALL;
+    update = true;
+  }
+  const uint64_t new_filter_id = (filter & FILE_TYPE_BLENDERLIB) ? filter_id : FILTER_ID_ALL;
+  if (filelist->filter_data.filter_id != new_filter_id) {
+    filelist->filter_data.filter_id = new_filter_id;
     update = true;
   }
   if (!STREQ(filelist->filter_data.filter_glob, filter_glob)) {
@@ -996,16 +1005,24 @@ static int filelist_geticon_ex(FileDirEntry *file,
       return (file->attributes & FILE_ATTR_ANY_LINK) ? ICON_FOLDER_REDIRECT : ICON_FILE_FOLDER;
     }
     else {
-      /* If this path is in System list then use that icon. */
+
+      /* If this path is in System list or path cache then use that icon. */
       struct FSMenu *fsmenu = ED_fsmenu_get();
-      FSMenuEntry *tfsm = ED_fsmenu_get_category(fsmenu, FS_CATEGORY_SYSTEM_BOOKMARKS);
-      char fullpath[FILE_MAX_LIBEXTRA];
-      BLI_join_dirfile(fullpath, sizeof(fullpath), root, file->relpath);
-      BLI_add_slash(fullpath);
-      for (; tfsm; tfsm = tfsm->next) {
-        if (STREQ(tfsm->path, fullpath)) {
-          /* Never want a little folder inside a large one. */
-          return (tfsm->icon == ICON_FILE_FOLDER) ? ICON_NONE : tfsm->icon;
+      FSMenuCategory categories[] = {
+          FS_CATEGORY_SYSTEM_BOOKMARKS,
+          FS_CATEGORY_OTHER,
+      };
+
+      for (int i = 0; i < ARRAY_SIZE(categories); i++) {
+        FSMenuEntry *tfsm = ED_fsmenu_get_category(fsmenu, categories[i]);
+        char fullpath[FILE_MAX_LIBEXTRA];
+        BLI_join_dirfile(fullpath, sizeof(fullpath), root, file->relpath);
+        BLI_add_slash(fullpath);
+        for (; tfsm; tfsm = tfsm->next) {
+          if (STREQ(tfsm->path, fullpath)) {
+            /* Never want a little folder inside a large one. */
+            return (tfsm->icon == ICON_FILE_FOLDER) ? ICON_NONE : tfsm->icon;
+          }
         }
       }
     }

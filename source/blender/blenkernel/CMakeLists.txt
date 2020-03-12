@@ -181,6 +181,7 @@ set(SRC
   intern/object_facemap.c
   intern/object_update.c
   intern/ocean.c
+  intern/ocean_spectrum.c
   intern/outliner_treehash.c
   intern/packedFile.c
   intern/paint.c
@@ -496,7 +497,7 @@ endif()
 
 if(WITH_CODEC_AVI)
   list(APPEND INC
-    ../avi
+    ../io/avi
   )
   add_definitions(-DWITH_AVI)
 endif()
@@ -617,7 +618,7 @@ endif()
 
 if(WITH_ALEMBIC)
   list(APPEND INC
-    ../alembic
+    ../io/alembic
   )
   add_definitions(-DWITH_ALEMBIC)
 endif()

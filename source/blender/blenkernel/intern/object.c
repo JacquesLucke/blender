@@ -233,7 +233,7 @@ static void object_copy_data(Main *bmain, ID *id_dst, const ID *id_src, const in
       BKE_pose_rebuild(bmain, ob_dst, ob_dst->data, do_pose_id_user);
     }
   }
-  defgroup_copy_list(&ob_dst->defbase, &ob_src->defbase);
+  BKE_defgroup_copy_list(&ob_dst->defbase, &ob_src->defbase);
   BKE_object_facemap_copy_list(&ob_dst->fmaps, &ob_src->fmaps);
   BKE_constraints_copy_ex(&ob_dst->constraints, &ob_src->constraints, flag_subdata, true);
 
@@ -272,7 +272,6 @@ static void object_copy_data(Main *bmain, ID *id_dst, const ID *id_src, const in
 static void object_free_data(ID *id)
 {
   Object *ob = (Object *)id;
-  BKE_animdata_free((ID *)ob, false);
 
   DRW_drawdata_free((ID *)ob);
 
@@ -729,8 +728,11 @@ void BKE_object_free_derived_caches(Object *ob)
   BKE_object_to_mesh_clear(ob);
   BKE_object_free_curve_cache(ob);
 
-  /* clear grease pencil data */
-  DRW_gpencil_freecache(ob);
+  /* Clear grease pencil data. */
+  if (ob->runtime.gpd_eval != NULL) {
+    BKE_gpencil_eval_delete(ob->runtime.gpd_eval);
+    ob->runtime.gpd_eval = NULL;
+  }
 }
 
 void BKE_object_free_caches(Object *object)
@@ -782,12 +784,6 @@ void BKE_object_free_caches(Object *object)
   }
 }
 
-/** Free (or release) any data used by this object (does not free the object itself). */
-void BKE_object_free(Object *ob)
-{
-  object_free_data(&ob->id);
-}
-
 /* actual check for internal data, not context or flags */
 bool BKE_object_is_in_editmode(const Object *ob)
 {
@@ -809,6 +805,9 @@ bool BKE_object_is_in_editmode(const Object *ob)
     case OB_SURF:
     case OB_CURVE:
       return ((Curve *)ob->data)->editnurb != NULL;
+    case OB_GPENCIL:
+      /* Grease Pencil object has no edit mode data. */
+      return GPENCIL_EDIT_MODE((bGPdata *)ob->data);
     default:
       return false;
   }
@@ -1026,6 +1025,26 @@ static const char *get_obdata_defname(int type)
   }
 }
 
+static void object_init(Object *ob, const short ob_type)
+{
+  object_init_data(&ob->id);
+
+  ob->type = ob_type;
+
+  if (ob->type != OB_EMPTY) {
+    zero_v2(ob->ima_ofs);
+  }
+
+  if (ELEM(ob->type, OB_LAMP, OB_CAMERA, OB_SPEAKER)) {
+    ob->trackflag = OB_NEGZ;
+    ob->upflag = OB_POSY;
+  }
+
+  if (ob->type == OB_GPENCIL) {
+    ob->dtx |= OB_USE_GPENCIL_LIGHTS;
+  }
+}
+
 void *BKE_object_obdata_add_from_type(Main *bmain, int type, const char *name)
 {
   if (name == NULL) {
@@ -1065,22 +1084,6 @@ void *BKE_object_obdata_add_from_type(Main *bmain, int type, const char *name)
   }
 }
 
-void BKE_object_init(Object *ob, const short ob_type)
-{
-  object_init_data(&ob->id);
-
-  ob->type = ob_type;
-
-  if (ob->type != OB_EMPTY) {
-    zero_v2(ob->ima_ofs);
-  }
-
-  if (ELEM(ob->type, OB_LAMP, OB_CAMERA, OB_SPEAKER)) {
-    ob->trackflag = OB_NEGZ;
-    ob->upflag = OB_POSY;
-  }
-}
-
 /* more general add: creates minimum required data, but without vertices etc. */
 Object *BKE_object_add_only_object(Main *bmain, int type, const char *name)
 {
@@ -1096,7 +1099,7 @@ Object *BKE_object_add_only_object(Main *bmain, int type, const char *name)
   id_us_min(&ob->id);
 
   /* default object vars */
-  BKE_object_init(ob, type);
+  object_init(ob, type);
 
   return ob;
 }
@@ -1537,21 +1540,6 @@ void BKE_object_transform_copy(Object *ob_tar, const Object *ob_src)
   copy_v3_v3(ob_tar->scale, ob_src->scale);
 }
 
-/**
- * Only copy internal data of Object ID from source
- * to already allocated/initialized destination.
- * You probably never want to use that directly,
- * use #BKE_id_copy or #BKE_id_copy_ex for typical needs.
- *
- * WARNING! This function will not handle ID user count!
- *
- * \param flag: Copying options (see BKE_lib_id.h's LIB_ID_COPY_... flags for more).
- */
-void BKE_object_copy_data(Main *bmain, Object *ob_dst, const Object *ob_src, const int flag)
-{
-  object_copy_data(bmain, &ob_dst->id, &ob_src->id, flag);
-}
-
 /* copy objects, will re-initialize cached simulation data */
 Object *BKE_object_copy(Main *bmain, const Object *ob)
 {
@@ -1829,11 +1817,6 @@ Object *BKE_object_duplicate(Main *bmain, const Object *ob, const int dupflag)
   return obn;
 }
 
-void BKE_object_make_local(Main *bmain, Object *ob, const int flags)
-{
-  object_make_local(bmain, &ob->id, flags);
-}
-
 /* Returns true if the Object is from an external blend file (libdata) */
 bool BKE_object_is_libdata(const Object *ob)
 {
@@ -1960,7 +1943,7 @@ void BKE_object_make_proxy(Main *bmain, Object *ob, Object *target, Object *cob)
   id_us_plus((ID *)ob->data); /* ensures lib data becomes LIB_TAG_EXTERN */
 
   /* copy vertex groups */
-  defgroup_copy_list(&ob->defbase, &target->defbase);
+  BKE_defgroup_copy_list(&ob->defbase, &target->defbase);
 
   /* copy material and index information */
   ob->actcol = ob->totcol = 0;
@@ -3989,7 +3972,6 @@ void BKE_object_runtime_reset_on_copy(Object *object, const int UNUSED(flag))
   runtime->data_eval = NULL;
   runtime->mesh_deform_eval = NULL;
   runtime->curve_cache = NULL;
-  runtime->gpencil_cache = NULL;
 }
 
 /*

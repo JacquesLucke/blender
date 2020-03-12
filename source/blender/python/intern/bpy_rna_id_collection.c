@@ -93,12 +93,12 @@ static int foreach_libblock_id_user_map_callback(LibraryIDLinkCallbackData *cb_d
     }
 
     if (cb_flag & IDWALK_CB_LOOPBACK) {
-      /* We skip loopback pointers like Object.proxy_from or Key.from here,
+      /* We skip loop-back pointers like Object.proxy_from or Key.from here,
        * since it's some internal pointer which is not relevant info for py/API level. */
       return IDWALK_RET_NOP;
     }
 
-    if (cb_flag & IDWALK_CB_PRIVATE) {
+    if (cb_flag & IDWALK_CB_EMBEDDED) {
       /* We skip private pointers themselves, like root node trees, we'll 'link' their own ID
        * pointers to their 'ID owner' instead. */
       return IDWALK_RET_NOP;

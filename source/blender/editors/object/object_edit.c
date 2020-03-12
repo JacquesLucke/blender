@@ -629,7 +629,7 @@ bool ED_object_editmode_enter_ex(Main *bmain, Scene *scene, Object *ob, int flag
     bArmature *arm = ob->data;
     ok = 1;
     ED_armature_to_edit(arm);
-    /* to ensure all goes in restposition and without striding */
+    /* To ensure all goes in rest-position and without striding. */
 
     arm->needs_flush_to_id = 0;
 
@@ -1370,7 +1370,8 @@ static const EnumPropertyItem *object_mode_set_itemsf(bContext *C,
                 OB_MODE_EDIT_GPENCIL,
                 OB_MODE_PAINT_GPENCIL,
                 OB_MODE_SCULPT_GPENCIL,
-                OB_MODE_WEIGHT_GPENCIL) &&
+                OB_MODE_WEIGHT_GPENCIL,
+                OB_MODE_VERTEX_GPENCIL) &&
            (ob->type == OB_GPENCIL)) ||
           (input->value == OB_MODE_OBJECT)) {
         RNA_enum_item_add(&item, &totitem, input);

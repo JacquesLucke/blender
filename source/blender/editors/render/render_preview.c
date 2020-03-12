@@ -615,7 +615,7 @@ static bool ed_preview_draw_rect(ScrArea *sa, int split, int first, rcti *rect, 
 
   if (rv && rv->rectf) {
 
-    if (ABS(rres.rectx - newx) < 2 && ABS(rres.recty - newy) < 2) {
+    if (abs(rres.rectx - newx) < 2 && abs(rres.recty - newy) < 2) {
 
       newrect->xmax = max_ii(newrect->xmax, rect->xmin + rres.rectx + offx);
       newrect->ymax = max_ii(newrect->ymax, rect->ymin + rres.recty);
@@ -694,7 +694,7 @@ void ED_preview_draw(const bContext *C, void *idp, void *parentp, void *slotp, r
      * or if the job is running and the size of preview changed */
     if ((sbuts != NULL && sbuts->preview) ||
         (!ok && !WM_jobs_test(wm, sa, WM_JOB_TYPE_RENDER_PREVIEW)) ||
-        (sp && (ABS(sp->sizex - newx) >= 2 || ABS(sp->sizey - newy) > 2))) {
+        (sp && (abs(sp->sizex - newx) >= 2 || abs(sp->sizey - newy) > 2))) {
       if (sbuts != NULL) {
         sbuts->preview = 0;
       }
@@ -958,23 +958,7 @@ static void preview_id_copy_free(ID *id)
     IDP_FreePropertyContent_ex(properties, false);
     MEM_freeN(properties);
   }
-  switch (GS(id->name)) {
-    case ID_MA:
-      BKE_material_free((Material *)id);
-      break;
-    case ID_TE:
-      BKE_texture_free((Tex *)id);
-      break;
-    case ID_LA:
-      BKE_light_free((Light *)id);
-      break;
-    case ID_WO:
-      BKE_world_free((World *)id);
-      break;
-    default:
-      BLI_assert(!"ID type preview not supported.");
-      break;
-  }
+  BKE_libblock_free_datablock(id, 0);
   MEM_freeN(id);
 }
 

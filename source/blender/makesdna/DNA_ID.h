@@ -31,6 +31,8 @@
 extern "C" {
 #endif
 
+#include "DNA_defs.h"
+
 struct FileData;
 struct GHash;
 struct GPUTexture;
@@ -243,7 +245,13 @@ typedef struct ID {
   int us;
   int icon_id;
   int recalc;
-  char _pad[4];
+
+  /**
+   * A session-wide unique identifier for a given ID, that remain the same across potential
+   * re-allocations (e.g. due to undo/redo steps).
+   */
+  unsigned int session_uuid;
+
   IDProperty *properties;
 
   /** Reference linked ID which this one overrides. */
@@ -457,16 +465,20 @@ typedef enum ID_Type {
   if ((a) && (a)->id.newid) \
   (a) = (void *)(a)->id.newid
 
-/* id->flag (persitent). */
+/** id->flag (persitent). */
 enum {
-  /* Don't delete the datablock even if unused. */
+  /** Don't delete the datablock even if unused. */
   LIB_FAKEUSER = 1 << 9,
-  /* The datablock structure is a sub-object of a different one.
-   * Direct persistent references are not allowed. */
-  LIB_PRIVATE_DATA = 1 << 10,
-  /* Datablock is from a library and linked indirectly, with LIB_TAG_INDIRECT
+  /**
+   * The data-block is a sub-data of another one.
+   * Direct persistent references are not allowed.
+   */
+  LIB_EMBEDDED_DATA = 1 << 10,
+  /**
+   * Datablock is from a library and linked indirectly, with LIB_TAG_INDIRECT
    * tag set. But the current .blend file also has a weak pointer to it that
-   * we want to restore if possible, and silently drop if it's missing. */
+   * we want to restore if possible, and silently drop if it's missing.
+   */
   LIB_INDIRECT_WEAK_LINK = 1 << 11,
 };
 

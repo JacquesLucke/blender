@@ -1,13 +1,13 @@
 #include "node_sim_util.h"
 
 static bNodeSocketTemplate sim_node_particle_time_step_event_in[] = {
-    {SOCK_CONTROL_FLOW, 1, N_("Execute")},
-    {-1, 0, ""},
+    {SOCK_CONTROL_FLOW, N_("Execute")},
+    {-1, ""},
 };
 
 static bNodeSocketTemplate sim_node_particle_time_step_event_out[] = {
-    {SOCK_EVENTS, 0, N_("Event")},
-    {-1, 0, ""},
+    {SOCK_EVENTS, N_("Event")},
+    {-1, ""},
 };
 
 void register_node_type_sim_particle_time_step_event()

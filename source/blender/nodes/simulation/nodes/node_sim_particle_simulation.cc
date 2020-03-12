@@ -1,14 +1,14 @@
 #include "node_sim_util.h"
 
 static bNodeSocketTemplate sim_node_particle_simulation_in[] = {
-    {SOCK_EMITTERS, 1000, N_("Emitters")},
-    {SOCK_EVENTS, 1000, N_("Events")},
-    {SOCK_FORCES, 1000, N_("Forces")},
-    {-1, 0, ""},
+    {SOCK_EMITTERS, N_("Emitters")},
+    {SOCK_EVENTS, N_("Events")},
+    {SOCK_FORCES, N_("Forces")},
+    {-1, ""},
 };
 
 static bNodeSocketTemplate sim_node_particle_simulation_out[] = {
-    {-1, 0, ""},
+    {-1, ""},
 };
 
 void register_node_type_sim_particle_simulation()

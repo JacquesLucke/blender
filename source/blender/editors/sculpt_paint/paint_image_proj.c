@@ -87,6 +87,7 @@
 #include "ED_screen.h"
 #include "ED_uvedit.h"
 #include "ED_view3d.h"
+#include "ED_view3d_offscreen.h"
 
 #include "GPU_extensions.h"
 #include "GPU_init_exit.h"
@@ -243,7 +244,7 @@ typedef struct LoopSeamData {
 typedef struct ProjPaintState {
   View3D *v3d;
   RegionView3D *rv3d;
-  ARegion *ar;
+  ARegion *region;
   Depsgraph *depsgraph;
   Scene *scene;
   /* PROJ_SRC_**** */
@@ -743,9 +744,11 @@ static bool project_paint_PickColor(const ProjPaintState *ps,
   ima = project_paint_face_paint_image(ps, tri_index);
   /** we must have got the imbuf before getting here. */
   int tile_number = project_paint_face_paint_tile(ima, lt_tri_uv[0]);
+  /* XXX get appropriate ImageUser instead */
   ImageUser iuser;
   BKE_imageuser_default(&iuser);
   iuser.tile = tile_number;
+  iuser.framenr = ima->lastframe;
   ibuf = BKE_image_acquire_ibuf(ima, &iuser, NULL);
   if (ibuf == NULL) {
     return false;
@@ -1349,7 +1352,7 @@ static void uv_image_outset(const ProjPaintState *ps,
 
       if (tri_ang > 0.0f) {
         const float dist = ps->seam_bleed_px * tanf(tri_ang);
-        seam_data->corner_dist_sq[i] = SQUARE(dist);
+        seam_data->corner_dist_sq[i] = square_f(dist);
       }
       else {
         seam_data->corner_dist_sq[i] = 0.0f;
@@ -1838,7 +1841,7 @@ static int project_paint_undo_subtiles(const TileInfo *tinf, int tx, int ty)
                                           pjIma->ima,
                                           pjIma->ibuf,
                                           tinf->tmpibuf,
-                                          pjIma->iuser.tile,
+                                          &pjIma->iuser,
                                           tx,
                                           ty,
                                           &pjIma->maskRect[tile_index],
@@ -1851,7 +1854,7 @@ static int project_paint_undo_subtiles(const TileInfo *tinf, int tx, int ty)
                                           pjIma->ima,
                                           pjIma->ibuf,
                                           tinf->tmpibuf,
-                                          pjIma->iuser.tile,
+                                          &pjIma->iuser,
                                           tx,
                                           ty,
                                           NULL,
@@ -3718,8 +3721,8 @@ static void proj_paint_state_viewport_init(ProjPaintState *ps, const char symmet
 
   if (ELEM(ps->source, PROJ_SRC_VIEW, PROJ_SRC_VIEW_FILL)) {
     /* normal drawing */
-    ps->winx = ps->ar->winx;
-    ps->winy = ps->ar->winy;
+    ps->winx = ps->region->winx;
+    ps->winy = ps->region->winy;
 
     copy_m4_m4(viewmat, ps->rv3d->viewmat);
     copy_m4_m4(viewinv, ps->rv3d->viewinv);
@@ -4264,7 +4267,7 @@ static bool project_paint_winclip(const ProjPaintState *ps, const ProjPaintFaceC
 typedef struct PrepareImageEntry {
   struct PrepareImageEntry *next, *prev;
   Image *ima;
-  int tile;
+  ImageUser iuser;
 } PrepareImageEntry;
 
 static void project_paint_build_proj_ima(ProjPaintState *ps,
@@ -4279,9 +4282,7 @@ static void project_paint_build_proj_ima(ProjPaintState *ps,
   projIma = ps->projImages = BLI_memarena_alloc(arena, sizeof(ProjPaintImage) * ps->image_tot);
 
   for (entry = used_images->first, i = 0; entry; entry = entry->next, i++, projIma++) {
-    memset(&projIma->iuser, 0, sizeof(ImageUser));
-    BKE_imageuser_default(&projIma->iuser);
-    projIma->iuser.tile = entry->tile;
+    projIma->iuser = entry->iuser;
     int size;
     projIma->ima = entry->ima;
     projIma->touch = 0;
@@ -4433,19 +4434,21 @@ static void project_paint_prepare_all_faces(ProjPaintState *ps,
       if (tpage_last != tpage || tile_last != tile) {
         image_index = 0;
         for (PrepareImageEntry *e = used_images.first; e; e = e->next, image_index++) {
-          if (e->ima == tpage && e->tile == tile) {
+          if (e->ima == tpage && e->iuser.tile == tile) {
             break;
           }
         }
 
         if (image_index == ps->image_tot) {
+          /* XXX get appropriate ImageUser instead */
           ImageUser iuser;
           BKE_imageuser_default(&iuser);
           iuser.tile = tile;
+          iuser.framenr = tpage->lastframe;
           if (BKE_image_has_ibuf(tpage, &iuser)) {
             PrepareImageEntry *e = MEM_callocN(sizeof(PrepareImageEntry), "PrepareImageEntry");
             e->ima = tpage;
-            e->tile = tile;
+            e->iuser = iuser;
             BLI_addtail(&used_images, e);
             ps->image_tot++;
           }
@@ -5781,18 +5784,18 @@ void paint_proj_stroke(const bContext *C,
     Scene *scene = ps_handle->scene;
     struct Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
     View3D *v3d = CTX_wm_view3d(C);
-    ARegion *ar = CTX_wm_region(C);
+    ARegion *region = CTX_wm_region(C);
     float *cursor = scene->cursor.location;
     int mval_i[2] = {(int)pos[0], (int)pos[1]};
 
     view3d_operator_needs_opengl(C);
 
-    if (!ED_view3d_autodist(depsgraph, ar, v3d, mval_i, cursor, false, NULL)) {
+    if (!ED_view3d_autodist(depsgraph, region, v3d, mval_i, cursor, false, NULL)) {
       return;
     }
 
     DEG_id_tag_update(&scene->id, ID_RECALC_COPY_ON_WRITE);
-    ED_region_tag_redraw(ar);
+    ED_region_tag_redraw(region);
 
     return;
   }
@@ -5846,7 +5849,7 @@ static void project_state_init(bContext *C, Object *ob, ProjPaintState *ps, int 
   /* these can be NULL */
   ps->v3d = CTX_wm_view3d(C);
   ps->rv3d = CTX_wm_region_view3d(C);
-  ps->ar = CTX_wm_region(C);
+  ps->region = CTX_wm_region(C);
 
   ps->depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   ps->scene = scene;
@@ -5885,7 +5888,7 @@ static void project_state_init(bContext *C, Object *ob, ProjPaintState *ps, int 
 #ifndef PROJ_DEBUG_NOSEAMBLEED
   /* pixel num to bleed */
   ps->seam_bleed_px = settings->imapaint.seam_bleed;
-  ps->seam_bleed_px_sq = SQUARE(settings->imapaint.seam_bleed);
+  ps->seam_bleed_px_sq = square_s(settings->imapaint.seam_bleed);
 #endif
 
   if (ps->do_mask_normal) {
@@ -6229,12 +6232,12 @@ static int texture_paint_image_from_view_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
 
-  ARegion *ar = BKE_area_find_region_active_win(sa);
-  if (!ar) {
+  ARegion *region = BKE_area_find_region_active_win(sa);
+  if (!region) {
     BKE_report(op->reports, RPT_ERROR, "No 3D viewport found to create image from");
     return OPERATOR_CANCELLED;
   }
-  RegionView3D *rv3d = ar->regiondata;
+  RegionView3D *rv3d = region->regiondata;
 
   RNA_string_get(op->ptr, "filepath", filename);
 
@@ -6266,7 +6269,7 @@ static int texture_paint_image_from_view_exec(bContext *C, wmOperator *op)
                                         scene,
                                         v3d_copy.shading.type,
                                         &v3d_copy,
-                                        ar,
+                                        region,
                                         w,
                                         h,
                                         IB_rect,

@@ -1327,8 +1327,8 @@ static int collection_instance_add_exec(bContext *C, wmOperator *op)
 
     if (0 == RNA_struct_property_is_set(op->ptr, "location")) {
       const wmEvent *event = CTX_wm_window(C)->eventstate;
-      ARegion *ar = CTX_wm_region(C);
-      const int mval[2] = {event->x - ar->winrct.xmin, event->y - ar->winrct.ymin};
+      ARegion *region = CTX_wm_region(C);
+      const int mval[2] = {event->x - region->winrct.xmin, event->y - region->winrct.ymin};
       ED_object_location_from_view(C, loc);
       ED_view3d_cursor3d_position(C, mval, false, loc);
       RNA_float_set_array(op->ptr, "location", loc);
@@ -1537,7 +1537,7 @@ static int object_delete_exec(bContext *C, wmOperator *op)
      *     Will also remove parent from grease pencil from other scenes,
      *     even when use_global is false... */
     for (bGPdata *gpd = bmain->gpencils.first; gpd; gpd = gpd->id.next) {
-      for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+      LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
         if (gpl->parent != NULL) {
           if (gpl->parent == ob) {
             gpl->parent = NULL;
@@ -2394,7 +2394,7 @@ static int convert_exec(bContext *C, wmOperator *op)
            * Nurbs Surface are not supported.
            */
           ushort local_view_bits = (v3d && v3d->localvd) ? v3d->local_view_uuid : 0;
-          gpencil_ob = ED_gpencil_add_object(C, scene, ob->loc, local_view_bits);
+          gpencil_ob = ED_gpencil_add_object(C, ob->loc, local_view_bits);
           copy_v3_v3(gpencil_ob->rot, ob->rot);
           copy_v3_v3(gpencil_ob->scale, ob->scale);
           BKE_gpencil_convert_curve(bmain, scene, gpencil_ob, ob, false, false, true);
@@ -2762,8 +2762,8 @@ static int add_named_exec(bContext *C, wmOperator *op)
   basen->object->restrictflag &= ~OB_RESTRICT_VIEWPORT;
 
   if (event) {
-    ARegion *ar = CTX_wm_region(C);
-    const int mval[2] = {event->x - ar->winrct.xmin, event->y - ar->winrct.ymin};
+    ARegion *region = CTX_wm_region(C);
+    const int mval[2] = {event->x - region->winrct.xmin, event->y - region->winrct.ymin};
     ED_object_location_from_view(C, basen->object->loc);
     ED_view3d_cursor3d_position(C, mval, false, basen->object->loc);
   }

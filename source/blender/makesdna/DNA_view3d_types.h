@@ -38,6 +38,7 @@ struct wmTimer;
 #include "DNA_image_types.h"
 #include "DNA_object_types.h"
 #include "DNA_movieclip_types.h"
+#include "DNA_view3d_enums.h"
 
 typedef struct RegionView3D {
 
@@ -210,9 +211,9 @@ typedef struct View3DOverlay {
   float vertex_paint_mode_opacity;
   float weight_paint_mode_opacity;
   float sculpt_mode_mask_opacity;
+  float sculpt_mode_face_sets_opacity;
 
   /** Armature edit/pose mode settings. */
-  int _pad3;
   float xray_alpha_bone;
 
   /** Other settings. */
@@ -223,6 +224,9 @@ typedef struct View3DOverlay {
   float gpencil_grid_opacity;
   float gpencil_fade_layer;
 
+  /** Factor for mixing vertex paint with original color */
+  float gpencil_vertex_paint_opacity;
+  char _pad4[4];
 } View3DOverlay;
 
 typedef struct View3D_Runtime {
@@ -414,20 +418,15 @@ enum {
 #define V3D_FLAG2_UNUSED_15 (1 << 15) /* cleared */
 
 /** #View3D.gp_flag (short) */
-#define V3D_GP_SHOW_PAPER (1 << 0) /* Activate paper to cover all viewport */
-#define V3D_GP_SHOW_GRID (1 << 1)  /* Activate paper grid */
+#define V3D_GP_FADE_OBJECTS (1 << 0) /* Fade all non GP objects */
+#define V3D_GP_SHOW_GRID (1 << 1)    /* Activate paper grid */
 #define V3D_GP_SHOW_EDIT_LINES (1 << 2)
 #define V3D_GP_SHOW_MULTIEDIT_LINES (1 << 3)
 #define V3D_GP_SHOW_ONION_SKIN (1 << 4)       /* main switch at view level */
 #define V3D_GP_FADE_NOACTIVE_LAYERS (1 << 5)  /* fade layers not active */
 #define V3D_GP_FADE_NOACTIVE_GPENCIL (1 << 6) /* Fade other GPencil objects */
-
-/** #View3DShading.light */
-enum {
-  V3D_LIGHTING_FLAT = 0,
-  V3D_LIGHTING_STUDIO = 1,
-  V3D_LIGHTING_MATCAP = 2,
-};
+#define V3D_GP_SHOW_STROKE_DIRECTION (1 << 7) /* Show Strokes Directions */
+#define V3D_GP_SHOW_MATERIAL_NAME (1 << 8)    /* Show Material names */
 
 /** #View3DShading.flag */
 enum {
@@ -445,27 +444,6 @@ enum {
   V3D_SHADING_DEPTH_OF_FIELD = (1 << 11),
   V3D_SHADING_SCENE_LIGHTS_RENDER = (1 << 12),
   V3D_SHADING_SCENE_WORLD_RENDER = (1 << 13),
-};
-
-/** #View3DShading.color_type */
-enum {
-  V3D_SHADING_MATERIAL_COLOR = 0,
-  V3D_SHADING_RANDOM_COLOR = 1,
-  V3D_SHADING_SINGLE_COLOR = 2,
-  V3D_SHADING_TEXTURE_COLOR = 3,
-  V3D_SHADING_OBJECT_COLOR = 4,
-  V3D_SHADING_VERTEX_COLOR = 5,
-
-  /* Is used to display the object using the error color. For example when in
-   * solid texture paint mode without any textures configured */
-  V3D_SHADING_ERROR_COLOR = 999,
-};
-
-/** #View3DShading.background_type */
-enum {
-  V3D_SHADING_BACKGROUND_THEME = 0,
-  V3D_SHADING_BACKGROUND_WORLD = 1,
-  V3D_SHADING_BACKGROUND_VIEWPORT = 2,
 };
 
 /** #View3DShading.cavity_type */
@@ -605,13 +583,6 @@ enum {
   /** Also used for ortho size. */
   V3D_GIZMO_SHOW_CAMERA_LENS = (1 << 0),
   V3D_GIZMO_SHOW_CAMERA_DOF_DIST = (1 << 2),
-};
-
-/** Settings for offscreen rendering */
-enum {
-  V3D_OFSDRAW_NONE = (0),
-  V3D_OFSDRAW_SHOW_ANNOTATION = (1 << 0),
-  V3D_OFSDRAW_OVERRIDE_SCENE_SETTINGS = (1 << 1),
 };
 
 #define RV3D_CAMZOOM_MIN -30

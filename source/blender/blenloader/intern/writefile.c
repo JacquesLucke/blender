@@ -963,6 +963,46 @@ static void write_CurveProfile(WriteData *wd, CurveProfile *profile)
   writestruct(wd, DATA, CurveProfilePoint, profile->path_len, profile->path);
 }
 
+static void write_node_socket_default_value(WriteData *wd, bNodeSocket *sock)
+{
+  if (sock->default_value == NULL) {
+    return;
+  }
+
+  switch ((eNodeSocketDatatype)sock->type) {
+    case SOCK_FLOAT:
+      writestruct(wd, DATA, bNodeSocketValueFloat, 1, sock->default_value);
+      break;
+    case SOCK_VECTOR:
+      writestruct(wd, DATA, bNodeSocketValueVector, 1, sock->default_value);
+      break;
+    case SOCK_RGBA:
+      writestruct(wd, DATA, bNodeSocketValueRGBA, 1, sock->default_value);
+      break;
+    case SOCK_BOOLEAN:
+      writestruct(wd, DATA, bNodeSocketValueBoolean, 1, sock->default_value);
+      break;
+    case SOCK_INT:
+      writestruct(wd, DATA, bNodeSocketValueInt, 1, sock->default_value);
+      break;
+    case SOCK_STRING:
+      writestruct(wd, DATA, bNodeSocketValueString, 1, sock->default_value);
+      break;
+    case __SOCK_MESH:
+    case SOCK_CUSTOM:
+    case SOCK_SHADER:
+    case SOCK_EMITTERS:
+    case SOCK_EVENTS:
+    case SOCK_FORCES:
+    case SOCK_CONTROL_FLOW:
+    case SOCK_OBJECT:
+    case SOCK_IMAGE:
+    case SOCK_SURFACE_HOOK:
+      BLI_assert(false);
+      break;
+  }
+}
+
 static void write_node_socket(WriteData *wd, bNodeSocket *sock)
 {
   /* actual socket writing */
@@ -972,9 +1012,7 @@ static void write_node_socket(WriteData *wd, bNodeSocket *sock)
     IDP_WriteProperty(sock->prop, wd);
   }
 
-  if (sock->default_value) {
-    writedata(wd, DATA, MEM_allocN_len(sock->default_value), sock->default_value);
-  }
+  write_node_socket_default_value(wd, sock);
 }
 static void write_node_socket_interface(WriteData *wd, bNodeSocket *sock)
 {
@@ -985,9 +1023,7 @@ static void write_node_socket_interface(WriteData *wd, bNodeSocket *sock)
     IDP_WriteProperty(sock->prop, wd);
   }
 
-  if (sock->default_value) {
-    writedata(wd, DATA, MEM_allocN_len(sock->default_value), sock->default_value);
-  }
+  write_node_socket_default_value(wd, sock);
 }
 /* this is only direct data, tree itself should have been written */
 static void write_nodetree_nolib(WriteData *wd, bNodeTree *ntree)
@@ -1832,11 +1868,51 @@ static void write_gpencil_modifiers(WriteData *wd, ListBase *modbase)
         write_curvemapping(wd, gpmd->curve_thickness);
       }
     }
+    else if (md->type == eGpencilModifierType_Noise) {
+      NoiseGpencilModifierData *gpmd = (NoiseGpencilModifierData *)md;
+
+      if (gpmd->curve_intensity) {
+        write_curvemapping(wd, gpmd->curve_intensity);
+      }
+    }
     else if (md->type == eGpencilModifierType_Hook) {
       HookGpencilModifierData *gpmd = (HookGpencilModifierData *)md;
 
       if (gpmd->curfalloff) {
         write_curvemapping(wd, gpmd->curfalloff);
+      }
+    }
+    else if (md->type == eGpencilModifierType_Vertexcolor) {
+      VertexcolorGpencilModifierData *gpmd = (VertexcolorGpencilModifierData *)md;
+      if (gpmd->colorband) {
+        writestruct(wd, DATA, ColorBand, 1, gpmd->colorband);
+      }
+      if (gpmd->curve_intensity) {
+        write_curvemapping(wd, gpmd->curve_intensity);
+      }
+    }
+    else if (md->type == eGpencilModifierType_Smooth) {
+      SmoothGpencilModifierData *gpmd = (SmoothGpencilModifierData *)md;
+      if (gpmd->curve_intensity) {
+        write_curvemapping(wd, gpmd->curve_intensity);
+      }
+    }
+    else if (md->type == eGpencilModifierType_Color) {
+      ColorGpencilModifierData *gpmd = (ColorGpencilModifierData *)md;
+      if (gpmd->curve_intensity) {
+        write_curvemapping(wd, gpmd->curve_intensity);
+      }
+    }
+    else if (md->type == eGpencilModifierType_Opacity) {
+      OpacityGpencilModifierData *gpmd = (OpacityGpencilModifierData *)md;
+      if (gpmd->curve_intensity) {
+        write_curvemapping(wd, gpmd->curve_intensity);
+      }
+    }
+    else if (md->type == eGpencilModifierType_Tint) {
+      TintGpencilModifierData *gpmd = (TintGpencilModifierData *)md;
+      if (gpmd->curve_intensity) {
+        write_curvemapping(wd, gpmd->curve_intensity);
       }
     }
   }
@@ -2121,6 +2197,10 @@ static void write_customdata(WriteData *wd,
       write_mdisps(wd, count, layer->data, layer->flag & CD_FLAG_EXTERNAL);
     }
     else if (layer->type == CD_PAINT_MASK) {
+      const float *layer_data = layer->data;
+      writedata(wd, DATA, sizeof(*layer_data) * count, layer_data);
+    }
+    else if (layer->type == CD_SCULPT_FACE_SETS) {
       const float *layer_data = layer->data;
       writedata(wd, DATA, sizeof(*layer_data) * count, layer_data);
     }
@@ -2544,6 +2624,18 @@ static void write_scene(WriteData *wd, Scene *sce)
     writestruct(wd, DATA, GpPaint, 1, tos->gp_paint);
     write_paint(wd, &tos->gp_paint->paint);
   }
+  if (tos->gp_vertexpaint) {
+    writestruct(wd, DATA, GpVertexPaint, 1, tos->gp_vertexpaint);
+    write_paint(wd, &tos->gp_vertexpaint->paint);
+  }
+  if (tos->gp_sculptpaint) {
+    writestruct(wd, DATA, GpSculptPaint, 1, tos->gp_sculptpaint);
+    write_paint(wd, &tos->gp_sculptpaint->paint);
+  }
+  if (tos->gp_weightpaint) {
+    writestruct(wd, DATA, GpWeightPaint, 1, tos->gp_weightpaint);
+    write_paint(wd, &tos->gp_weightpaint->paint);
+  }
   /* write grease-pencil custom ipo curve to file */
   if (tos->gp_interpolate.custom_ipo) {
     write_curvemapping(wd, tos->gp_interpolate.custom_ipo);
@@ -2713,9 +2805,9 @@ static void write_scene(WriteData *wd, Scene *sce)
   }
 
   /* Eevee Lightcache */
-  if (sce->eevee.light_cache && !wd->use_memfile) {
-    writestruct(wd, DATA, LightCache, 1, sce->eevee.light_cache);
-    write_lightcache(wd, sce->eevee.light_cache);
+  if (sce->eevee.light_cache_data && !wd->use_memfile) {
+    writestruct(wd, DATA, LightCache, 1, sce->eevee.light_cache_data);
+    write_lightcache(wd, sce->eevee.light_cache_data);
   }
 
   write_view3dshading(wd, &sce->display.shading);
@@ -2739,14 +2831,17 @@ static void write_gpencil(WriteData *wd, bGPdata *gpd)
 
     /* write grease-pencil layers to file */
     writelist(wd, DATA, bGPDlayer, &gpd->layers);
-    for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+    LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
+      /* Write mask list. */
+      writelist(wd, DATA, bGPDlayer_Mask, &gpl->mask_layers);
       /* write this layer's frames to file */
       writelist(wd, DATA, bGPDframe, &gpl->frames);
-      for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+      LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
         /* write strokes */
         writelist(wd, DATA, bGPDstroke, &gpf->strokes);
-        for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+        LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
           writestruct(wd, DATA, bGPDspoint, gps->totpoints, gps->points);
+          writestruct(wd, DATA, bGPDtriangle, gps->tot_triangles, gps->triangles);
           write_dverts(wd, gps->totpoints, gps->dvert);
         }
       }
@@ -2754,19 +2849,19 @@ static void write_gpencil(WriteData *wd, bGPdata *gpd)
   }
 }
 
-static void write_region(WriteData *wd, ARegion *ar, int spacetype)
+static void write_region(WriteData *wd, ARegion *region, int spacetype)
 {
-  writestruct(wd, DATA, ARegion, 1, ar);
+  writestruct(wd, DATA, ARegion, 1, region);
 
-  if (ar->regiondata) {
-    if (ar->flag & RGN_FLAG_TEMP_REGIONDATA) {
+  if (region->regiondata) {
+    if (region->flag & RGN_FLAG_TEMP_REGIONDATA) {
       return;
     }
 
     switch (spacetype) {
       case SPACE_VIEW3D:
-        if (ar->regiontype == RGN_TYPE_WINDOW) {
-          RegionView3D *rv3d = ar->regiondata;
+        if (region->regiontype == RGN_TYPE_WINDOW) {
+          RegionView3D *rv3d = region->regiondata;
           writestruct(wd, DATA, RegionView3D, 1, rv3d);
 
           if (rv3d->localvd) {
@@ -4094,9 +4189,9 @@ bool BLO_write_file(Main *mainvar,
     BLI_split_dir_part(mainvar->name, dir_src, sizeof(dir_src));
     BLI_split_dir_part(filepath, dir_dst, sizeof(dir_dst));
 
-    /* just in case there is some subtle difference */
-    BLI_cleanup_dir(mainvar->name, dir_dst);
-    BLI_cleanup_dir(mainvar->name, dir_src);
+    /* Just in case there is some subtle difference. */
+    BLI_cleanup_path(mainvar->name, dir_dst);
+    BLI_cleanup_path(mainvar->name, dir_src);
 
     if (G.relbase_valid && (BLI_path_cmp(dir_dst, dir_src) == 0)) {
       /* Saved to same path. Nothing to do. */

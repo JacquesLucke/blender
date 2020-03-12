@@ -89,6 +89,7 @@ extern char datatoc_common_hair_lib_glsl[];
 extern char datatoc_common_view_lib_glsl[];
 extern char datatoc_irradiance_lib_glsl[];
 extern char datatoc_octahedron_lib_glsl[];
+extern char datatoc_cubemap_lib_glsl[];
 extern char datatoc_lit_surface_frag_glsl[];
 extern char datatoc_lit_surface_vert_glsl[];
 extern char datatoc_raytrace_lib_glsl[];
@@ -618,6 +619,7 @@ void EEVEE_materials_init(EEVEE_ViewLayerData *sldata,
                                               datatoc_raytrace_lib_glsl,
                                               datatoc_ssr_lib_glsl,
                                               datatoc_octahedron_lib_glsl,
+                                              datatoc_cubemap_lib_glsl,
                                               datatoc_irradiance_lib_glsl,
                                               datatoc_lightprobe_lib_glsl,
                                               datatoc_ltc_lib_glsl,
@@ -641,6 +643,7 @@ void EEVEE_materials_init(EEVEE_ViewLayerData *sldata,
                                                 datatoc_bsdf_common_lib_glsl,
                                                 datatoc_ambient_occlusion_lib_glsl,
                                                 datatoc_octahedron_lib_glsl,
+                                                datatoc_cubemap_lib_glsl,
                                                 datatoc_irradiance_lib_glsl,
                                                 datatoc_lightprobe_lib_glsl,
                                                 datatoc_ltc_lib_glsl,
@@ -723,42 +726,24 @@ void EEVEE_materials_init(EEVEE_ViewLayerData *sldata,
   {
     /* Create RenderPass UBO */
     if (sldata->renderpass_ubo[0] == NULL) {
-      sldata->renderpass_data[0].renderPassDiffuse = true;
-      sldata->renderpass_data[0].renderPassDiffuseLight = true;
-      sldata->renderpass_data[0].renderPassGlossy = true;
-      sldata->renderpass_data[0].renderPassGlossyLight = true;
-      sldata->renderpass_data[0].renderPassEmit = true;
-      sldata->renderpass_data[0].renderPassSSSColor = false;
-      sldata->renderpass_data[1].renderPassDiffuse = true;
-      sldata->renderpass_data[1].renderPassDiffuseLight = false;
-      sldata->renderpass_data[1].renderPassGlossy = false;
-      sldata->renderpass_data[1].renderPassGlossyLight = false;
-      sldata->renderpass_data[1].renderPassEmit = false;
-      sldata->renderpass_data[1].renderPassSSSColor = true;
-      sldata->renderpass_data[2].renderPassDiffuse = true;
-      sldata->renderpass_data[2].renderPassDiffuseLight = true;
-      sldata->renderpass_data[2].renderPassGlossy = false;
-      sldata->renderpass_data[2].renderPassGlossyLight = false;
-      sldata->renderpass_data[2].renderPassEmit = false;
-      sldata->renderpass_data[2].renderPassSSSColor = false;
-      sldata->renderpass_data[3].renderPassDiffuse = false;
-      sldata->renderpass_data[3].renderPassDiffuseLight = false;
-      sldata->renderpass_data[3].renderPassGlossy = true;
-      sldata->renderpass_data[3].renderPassGlossyLight = false;
-      sldata->renderpass_data[3].renderPassEmit = false;
-      sldata->renderpass_data[3].renderPassSSSColor = false;
-      sldata->renderpass_data[4].renderPassDiffuse = false;
-      sldata->renderpass_data[4].renderPassDiffuseLight = false;
-      sldata->renderpass_data[4].renderPassGlossy = true;
-      sldata->renderpass_data[4].renderPassGlossyLight = true;
-      sldata->renderpass_data[4].renderPassEmit = false;
-      sldata->renderpass_data[4].renderPassSSSColor = false;
-      sldata->renderpass_data[5].renderPassDiffuse = false;
-      sldata->renderpass_data[5].renderPassDiffuseLight = false;
-      sldata->renderpass_data[5].renderPassGlossy = false;
-      sldata->renderpass_data[5].renderPassGlossyLight = false;
-      sldata->renderpass_data[5].renderPassEmit = true;
-      sldata->renderpass_data[5].renderPassSSSColor = false;
+      /* EEVEE_RENDER_PASS_COMBINED */
+      sldata->renderpass_data[0] = (const EEVEE_RenderPassData){
+          true, true, true, true, true, false};
+      /* EEVEE_RENDER_PASS_DIFFUSE_COLOR */
+      sldata->renderpass_data[1] = (const EEVEE_RenderPassData){
+          true, false, false, false, false, true};
+      /* EEVEE_RENDER_PASS_DIFFUSE_LIGHT */
+      sldata->renderpass_data[2] = (const EEVEE_RenderPassData){
+          true, true, false, false, false, false};
+      /* EEVEE_RENDER_PASS_SPECULAR_COLOR */
+      sldata->renderpass_data[3] = (const EEVEE_RenderPassData){
+          false, false, true, false, false, false};
+      /* EEVEE_RENDER_PASS_SPECULAR_LIGHT */
+      sldata->renderpass_data[4] = (const EEVEE_RenderPassData){
+          false, false, true, true, false, false};
+      /* EEVEE_RENDER_PASS_EMIT */
+      sldata->renderpass_data[5] = (const EEVEE_RenderPassData){
+          false, false, false, false, true, false};
 
       for (int i = 0; i < MAX_MATERIAL_RENDER_PASSES_UBO; i++) {
         sldata->renderpass_ubo[i] = DRW_uniformbuffer_create(sizeof(EEVEE_RenderPassData),
@@ -794,6 +779,7 @@ struct GPUMaterial *EEVEE_material_world_lightprobe_get(struct Scene *scene, Wor
                                       wo,
                                       engine,
                                       options,
+                                      false,
                                       e_data.vert_background_shader_str,
                                       NULL,
                                       e_data.frag_shader_lib,
@@ -814,6 +800,7 @@ struct GPUMaterial *EEVEE_material_world_background_get(struct Scene *scene, Wor
                                       wo,
                                       engine,
                                       options,
+                                      false,
                                       e_data.vert_background_shader_str,
                                       NULL,
                                       e_data.frag_shader_lib,
@@ -837,6 +824,7 @@ struct GPUMaterial *EEVEE_material_world_volume_get(struct Scene *scene, World *
                                      wo,
                                      engine,
                                      options,
+                                     true,
                                      e_data.vert_volume_shader_str,
                                      e_data.geom_volume_shader_str,
                                      e_data.volume_shader_lib,
@@ -871,6 +859,7 @@ struct GPUMaterial *EEVEE_material_mesh_get(struct Scene *scene,
                                         ma,
                                         engine,
                                         options,
+                                        false,
                                         e_data.vert_shader_str,
                                         NULL,
                                         e_data.frag_shader_lib,
@@ -898,6 +887,7 @@ struct GPUMaterial *EEVEE_material_mesh_volume_get(struct Scene *scene, Material
                                         ma,
                                         engine,
                                         options,
+                                        true,
                                         e_data.vert_volume_shader_str,
                                         e_data.geom_volume_shader_str,
                                         e_data.volume_shader_lib,
@@ -934,6 +924,7 @@ struct GPUMaterial *EEVEE_material_mesh_depth_get(struct Scene *scene,
                                         ma,
                                         engine,
                                         options,
+                                        false,
                                         (is_shadow) ? e_data.vert_shadow_shader_str :
                                                       e_data.vert_shader_str,
                                         NULL,
@@ -963,6 +954,7 @@ struct GPUMaterial *EEVEE_material_hair_get(struct Scene *scene, Material *ma)
                                         ma,
                                         engine,
                                         options,
+                                        false,
                                         e_data.vert_shader_str,
                                         NULL,
                                         e_data.frag_shader_lib,
@@ -1274,7 +1266,7 @@ void EEVEE_materials_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
     DRW_shgroup_call(grp, DRW_cache_fullscreen_quad_get(), NULL);
   }
 
-  if (LOOK_DEV_OVERLAY_ENABLED(draw_ctx->v3d)) {
+  if (eevee_hdri_preview_overlay_enabled(draw_ctx->v3d)) {
     DRWShadingGroup *shgrp;
 
     struct GPUBatch *sphere = DRW_cache_sphere_get();
@@ -1331,7 +1323,7 @@ void EEVEE_materials_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
     memset(psl->material_accum_pass, 0, sizeof(psl->material_accum_pass));
     for (int pass_index = 0; pass_index < stl->g_data->render_passes_material_count;
          pass_index++) {
-      DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_EQUAL | DRW_STATE_BLEND_ADD;
+      DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_EQUAL | DRW_STATE_BLEND_ADD_FULL;
       DRW_PASS_CREATE(psl->material_accum_pass[pass_index], state);
     }
   }
@@ -1937,7 +1929,7 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata,
      * to know if the material has a "volume nodetree".
      */
     bool use_volume_material = (gpumat_array[0] &&
-                                GPU_material_use_domain_volume(gpumat_array[0]));
+                                GPU_material_has_volume_output(gpumat_array[0]));
 
     if ((ob->dt >= OB_SOLID) || DRW_state_is_image_render()) {
       /* Get per-material split surface */
@@ -1986,7 +1978,7 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata,
           /* Do not render surface if we are rendering a volume object
            * and do not have a surface closure. */
           if (use_volume_material &&
-              (gpumat_array[i] && !GPU_material_use_domain_surface(gpumat_array[i]))) {
+              (gpumat_array[i] && !GPU_material_has_surface_output(gpumat_array[i]))) {
             continue;
           }
 

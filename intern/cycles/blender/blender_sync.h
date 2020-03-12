@@ -71,7 +71,9 @@ class BlenderSync {
                  int height,
                  void **python_thread_state);
   void sync_view_layer(BL::SpaceView3D &b_v3d, BL::ViewLayer &b_view_layer);
-  vector<Pass> sync_render_passes(BL::RenderLayer &b_render_layer, BL::ViewLayer &b_view_layer);
+  vector<Pass> sync_render_passes(BL::RenderLayer &b_render_layer,
+                                  BL::ViewLayer &b_view_layer,
+                                  bool adaptive_sampling);
   void sync_integrator();
   void sync_camera(BL::RenderSettings &b_render,
                    BL::Object &b_override,
@@ -234,6 +236,7 @@ class BlenderSync {
           use_background_ao(true),
           use_surfaces(true),
           use_hair(true),
+          use_volumes(true),
           samples(0),
           bound_samples(false)
     {
@@ -245,6 +248,7 @@ class BlenderSync {
     bool use_background_ao;
     bool use_surfaces;
     bool use_hair;
+    bool use_volumes;
     int samples;
     bool bound_samples;
   } view_layer;

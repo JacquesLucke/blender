@@ -1067,7 +1067,7 @@ void UI_context_active_but_prop_get_filebrowser(const bContext *C,
                                                 PropertyRNA **r_prop,
                                                 bool *r_is_undo)
 {
-  ARegion *ar = CTX_wm_menu(C) ? CTX_wm_menu(C) : CTX_wm_region(C);
+  ARegion *region = CTX_wm_menu(C) ? CTX_wm_menu(C) : CTX_wm_region(C);
   uiBlock *block;
   uiBut *but, *prevbut = NULL;
 
@@ -1075,11 +1075,11 @@ void UI_context_active_but_prop_get_filebrowser(const bContext *C,
   *r_prop = NULL;
   *r_is_undo = false;
 
-  if (!ar) {
+  if (!region) {
     return;
   }
 
-  for (block = ar->uiblocks.first; block; block = block->next) {
+  for (block = region->uiblocks.first; block; block = block->next) {
     for (but = block->buttons.first; but; but = but->next) {
       if (but && but->rnapoin.data) {
         if (RNA_property_type(but->rnaprop) == PROP_STRING) {
@@ -2183,7 +2183,11 @@ void uiItemFullR(uiLayout *layout,
     }
 
     if (flag & UI_ITEM_R_CHECKBOX_INVERT) {
-      if (ELEM(but->type, UI_BTYPE_CHECKBOX, UI_BTYPE_CHECKBOX_N)) {
+      if (ELEM(but->type,
+               UI_BTYPE_CHECKBOX,
+               UI_BTYPE_CHECKBOX_N,
+               UI_BTYPE_ICON_TOGGLE,
+               UI_BTYPE_ICON_TOGGLE_N)) {
         but->drawflag |= UI_BUT_CHECKBOX_INVERT;
       }
     }
@@ -2325,7 +2329,7 @@ void uiItemFullR_with_popover(uiLayout *layout,
   uiItemFullR(layout, ptr, prop, index, value, flag, name, icon);
   but = but->next;
   while (but) {
-    if (but->rnaprop == prop && but->type == UI_BTYPE_MENU) {
+    if (but->rnaprop == prop && ELEM(but->type, UI_BTYPE_MENU, UI_BTYPE_COLOR)) {
       ui_but_rna_menu_convert_to_panel_type(but, panel_type);
       break;
     }

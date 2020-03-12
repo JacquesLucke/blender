@@ -123,8 +123,8 @@ static FCurve *rna_Action_fcurve_new(bAction *act,
     return NULL;
   }
 
-  /* annoying, check if this exists */
-  if (verify_fcurve(bmain, act, group, NULL, data_path, index, 0)) {
+  /* Annoying, check if this exists. */
+  if (ED_action_fcurve_find(act, data_path, index)) {
     BKE_reportf(reports,
                 RPT_ERROR,
                 "F-Curve '%s[%d]' already exists in action '%s'",
@@ -133,7 +133,7 @@ static FCurve *rna_Action_fcurve_new(bAction *act,
                 act->id.name + 2);
     return NULL;
   }
-  return verify_fcurve(bmain, act, group, NULL, data_path, index, 1);
+  return ED_action_fcurve_ensure(bmain, act, group, NULL, data_path, index);
 }
 
 static FCurve *rna_Action_fcurve_find(bAction *act,
@@ -582,15 +582,6 @@ static void rna_def_dopesheet(BlenderRNA *brna)
   RNA_def_property_ui_text(
       prop, "Display Movie Clips", "Include visualization of movie clip related animation data");
   RNA_def_property_ui_icon(prop, ICON_TRACKER, 0);
-  RNA_def_property_update(prop, NC_ANIMATION | ND_ANIMCHAN | NA_EDITED, NULL);
-
-  /* GPencil Mode Settings */
-  prop = RNA_def_property(srna, "show_gpencil_3d_only", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, NULL, "filterflag", ADS_FILTER_GP_3DONLY);
-  RNA_def_property_ui_text(prop,
-                           "Active Scene Only",
-                           "Only show Grease Pencil data-blocks used as part of the active scene");
-  RNA_def_property_ui_icon(prop, ICON_SCENE_DATA, 0);
   RNA_def_property_update(prop, NC_ANIMATION | ND_ANIMCHAN | NA_EDITED, NULL);
 }
 

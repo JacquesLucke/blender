@@ -981,6 +981,8 @@ std::string MANTA::getRealValue(const std::string &varName, FluidModifierData *m
     ss << (mmd->domain->flags & FLUID_DOMAIN_USE_FRACTIONS ? "True" : "False");
   else if (varName == "DELETE_IN_OBSTACLE")
     ss << (mmd->domain->flags & FLUID_DOMAIN_DELETE_IN_OBSTACLE ? "True" : "False");
+  else if (varName == "USING_DIFFUSION")
+    ss << (mmd->domain->flags & FLUID_DOMAIN_USE_DIFFUSION ? "True" : "False");
   else
     std::cout << "ERROR: Unknown option: " << varName << std::endl;
   return ss.str();
@@ -2295,18 +2297,24 @@ static PyObject *callPythonFunction(std::string varName,
 
   // Get pyobject that holds result value
   main = PyImport_ImportModule("__main__");
-  if (!main)
+  if (!main) {
+    PyGILState_Release(gilstate);
     return nullptr;
+  }
 
   var = PyObject_GetAttrString(main, varName.c_str());
-  if (!var)
+  if (!var) {
+    PyGILState_Release(gilstate);
     return nullptr;
+  }
 
   func = PyObject_GetAttrString(var, functionName.c_str());
 
   Py_DECREF(var);
-  if (!func)
+  if (!func) {
+    PyGILState_Release(gilstate);
     return nullptr;
+  }
 
   if (!isAttribute) {
     returnedValue = PyObject_CallObject(func, nullptr);

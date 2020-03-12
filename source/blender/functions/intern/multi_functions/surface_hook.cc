@@ -309,7 +309,7 @@ void MF_GetWeightOnSurface::call(IndexMask mask, MFParams params, MFContext cont
             group_names,
             [&](const std::string &group, IndexMask indices_with_same_group) {
               MDeformVert *vertex_weights = mesh->dvert;
-              int group_index = defgroup_name_index(object, group.c_str());
+              int group_index = BKE_object_defgroup_name_index(object, group.c_str());
               if (group_index == -1 || vertex_weights == nullptr) {
                 r_weights.fill_indices(indices_on_same_surface, fallback);
                 return;
@@ -327,9 +327,9 @@ void MF_GetWeightOnSurface::call(IndexMask mask, MFParams params, MFContext cont
                 uint v2 = mesh->mloop[triangle.tri[1]].v;
                 uint v3 = mesh->mloop[triangle.tri[2]].v;
 
-                float3 corner_weights{defvert_find_weight(vertex_weights + v1, group_index),
-                                      defvert_find_weight(vertex_weights + v2, group_index),
-                                      defvert_find_weight(vertex_weights + v3, group_index)};
+                float3 corner_weights{BKE_defvert_find_weight(vertex_weights + v1, group_index),
+                                      BKE_defvert_find_weight(vertex_weights + v2, group_index),
+                                      BKE_defvert_find_weight(vertex_weights + v3, group_index)};
 
                 float weight = float3::dot(hook.bary_coords(), corner_weights);
                 r_weights[i] = weight;
@@ -509,13 +509,13 @@ static BLI_NOINLINE bool get_vertex_weights(Object *object,
   BLI_assert(r_vertex_weights.size() == mesh->totvert);
 
   MDeformVert *vertices = mesh->dvert;
-  int group_index = defgroup_name_index(object, group_name.data());
+  int group_index = BKE_object_defgroup_name_index(object, group_name.data());
   if (group_index == -1 || vertices == nullptr) {
     return false;
   }
 
   for (uint i : r_vertex_weights.index_range()) {
-    r_vertex_weights[i] = defvert_find_weight(vertices + i, group_index);
+    r_vertex_weights[i] = BKE_defvert_find_weight(vertices + i, group_index);
   }
   return true;
 }
