@@ -490,6 +490,7 @@ simulation_node_categories = [
     SimulationNodeCategory("EVENTS", "Events", items=[
         NodeItem("SimulationNodeParticleBirthEvent"),
         NodeItem("SimulationNodeParticleTimeStepEvent"),
+        NodeItem("SimulationNodeParticleMeshCollisionEvent"),
     ]),
     SimulationNodeCategory("FORCES", "Forces", items=[
         NodeItem("SimulationNodeForce"),
