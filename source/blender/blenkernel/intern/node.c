@@ -4205,6 +4205,7 @@ static void registerSimulationNodes(void)
   register_node_type_sim_particle_time_step_event();
   register_node_type_sim_execute_condition();
   register_node_type_sim_multi_execute();
+  register_node_type_sim_particle_mesh_emitter();
 }
 
 static void registerFunctionNodes(void)

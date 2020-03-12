@@ -265,6 +265,7 @@ DefNode(SimulationNode, SIM_NODE_PARTICLE_BIRTH_EVENT,   0,              "PARTIC
 DefNode(SimulationNode, SIM_NODE_PARTICLE_TIME_STEP_EVENT, def_sim_particle_time_step_event, "PARTICLE_TIME_STEP_EVENT", ParticleTimeStepEvent, "Particle Time Step Event", "")
 DefNode(SimulationNode, SIM_NODE_EXECUTE_CONDITION,   0,                 "EXECUTE_CONDITION",   ExecuteCondition,   "Execute Condition",    "")
 DefNode(SimulationNode, SIM_NODE_MULTI_EXECUTE,       0,                 "MULTI_EXECUTE",       MultiExecute,       "Multi Execute",        "")
+DefNode(SimulationNode, SIM_NODE_PARTICLE_MESH_EMITTER,  0,              "PARTICLE_MESH_EMITTER",  ParticleMeshEmitter,  "Particle Mesh Emitter", "")
 
 DefNode(FunctionNode, FN_NODE_COMBINE_VECTOR, 0, "COMBINE_VECTOR", CombineVector, "Combine Vector", "")
 

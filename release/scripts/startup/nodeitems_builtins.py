@@ -484,6 +484,9 @@ simulation_node_categories = [
     SimulationNodeCategory("SIM_OUTPUT", "Output", items=[
         NodeItem("SimulationNodeParticleSimulation"),
     ]),
+    SimulationNodeCategory("EMITTERS", "Emitters", items=[
+        NodeItem("SimulationNodeParticleMeshEmitter"),
+    ]),
     SimulationNodeCategory("EVENTS", "Events", items=[
         NodeItem("SimulationNodeParticleBirthEvent"),
         NodeItem("SimulationNodeParticleTimeStepEvent"),

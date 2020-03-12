@@ -230,6 +230,7 @@ set(SRC
   simulation/nodes/node_sim_force.cc
   simulation/nodes/node_sim_multi_execute.cc
   simulation/nodes/node_sim_particle_birth_event.cc
+  simulation/nodes/node_sim_particle_mesh_emitter.cc
   simulation/nodes/node_sim_particle_simulation.cc
   simulation/nodes/node_sim_particle_time_step_event.cc
   simulation/nodes/node_sim_set_particle_attribute.cc
