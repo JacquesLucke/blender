@@ -501,6 +501,9 @@ simulation_node_categories = [
         NodeItem("SimulationNodeExecuteCondition"),
         NodeItem("SimulationNodeMultiExecute"),
     ]),
+    SimulationNodeCategory("FUNCTION_INPUTS", "Function Inputs", items=[
+        NodeItem("SimulationNodeSimulationTimeInput"),
+    ]),
     FunctionNodeCategory("VECTOR", "Vector", items=[
         NodeItem("FunctionNodeCombineVector"),
     ]),
