@@ -11,7 +11,7 @@ static bNodeSocketTemplate sim_node_set_particle_attribute_out[] = {
     {-1, ""},
 };
 
-void register_node_type_set_particle_attribute()
+void register_node_type_sim_set_particle_attribute()
 {
   static bNodeType ntype;
 
