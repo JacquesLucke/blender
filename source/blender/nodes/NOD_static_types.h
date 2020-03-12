@@ -267,6 +267,7 @@ DefNode(SimulationNode, SIM_NODE_EXECUTE_CONDITION,   0,                 "EXECUT
 DefNode(SimulationNode, SIM_NODE_MULTI_EXECUTE,       0,                 "MULTI_EXECUTE",       MultiExecute,       "Multi Execute",        "")
 DefNode(SimulationNode, SIM_NODE_PARTICLE_MESH_EMITTER,  0,              "PARTICLE_MESH_EMITTER",  ParticleMeshEmitter,  "Particle Mesh Emitter", "")
 DefNode(SimulationNode, SIM_NODE_PARTICLE_MESH_COLLISION_EVENT, 0,       "PARTICLE_MESH_COLLISION_EVENT", ParticleMeshCollisionEvent, "Particle Mesh Collision Event", "")
+DefNode(SimulationNode, SIM_NODE_EMIT_PARTICLES, 0,                      "EMIT_PARTICLES",      EmitParticles,      "Emit Particles",       "")
 
 DefNode(FunctionNode, FN_NODE_COMBINE_VECTOR, 0, "COMBINE_VECTOR", CombineVector, "Combine Vector", "")
 
