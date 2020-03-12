@@ -63,7 +63,7 @@ static void id_type_init(void)
   INIT_TYPE(ID_LT);
   INIT_TYPE(ID_LA);
   INIT_TYPE(ID_CA);
-  // INIT_TYPE(ID_IP);
+  INIT_TYPE(ID_IP);
   INIT_TYPE(ID_KE);
   INIT_TYPE(ID_WO);
   INIT_TYPE(ID_SCR);
@@ -77,12 +77,12 @@ static void id_type_init(void)
   INIT_TYPE(ID_NT);
   INIT_TYPE(ID_BR);
   INIT_TYPE(ID_PA);
-  // INIT_TYPE(ID_GD);
+  INIT_TYPE(ID_GD);
   INIT_TYPE(ID_WM);
-  // INIT_TYPE(ID_MC);
-  // INIT_TYPE(ID_MSK);
-  // INIT_TYPE(ID_LS);
-  // INIT_TYPE(ID_PAL);
+  INIT_TYPE(ID_MC);
+  INIT_TYPE(ID_MSK);
+  INIT_TYPE(ID_LS);
+  INIT_TYPE(ID_PAL);
   INIT_TYPE(ID_PC);
   INIT_TYPE(ID_CF);
   INIT_TYPE(ID_WS);

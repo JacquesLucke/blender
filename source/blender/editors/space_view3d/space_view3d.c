@@ -1215,6 +1215,9 @@ void ED_view3d_buttons_region_layout_ex(const bContext *C,
     case CTX_MODE_WEIGHT_GPENCIL:
       ARRAY_SET_ITEMS(contexts, ".greasepencil_weight");
       break;
+    case CTX_MODE_VERTEX_GPENCIL:
+      ARRAY_SET_ITEMS(contexts, ".greasepencil_vertex");
+      break;
     default:
       break;
   }
@@ -1231,6 +1234,9 @@ void ED_view3d_buttons_region_layout_ex(const bContext *C,
       break;
     case CTX_MODE_EDIT_GPENCIL:
       ARRAY_SET_ITEMS(contexts, ".greasepencil_edit");
+      break;
+    case CTX_MODE_VERTEX_GPENCIL:
+      ARRAY_SET_ITEMS(contexts, ".greasepencil_vertex");
       break;
     default:
       break;
@@ -1416,7 +1422,7 @@ static void space_view3d_listener(wmWindow *UNUSED(win),
 static void space_view3d_refresh(const bContext *C, ScrArea *UNUSED(sa))
 {
   Scene *scene = CTX_data_scene(C);
-  LightCache *lcache = scene->eevee.light_cache;
+  LightCache *lcache = scene->eevee.light_cache_data;
 
   if (lcache && (lcache->flag & LIGHTCACHE_UPDATE_AUTO) != 0) {
     lcache->flag &= ~LIGHTCACHE_UPDATE_AUTO;
