@@ -130,6 +130,11 @@ set(SRC
   composite/node_composite_util.c
 
   function/nodes/node_fn_combine_xyz.cc
+  function/nodes/node_fn_separate_xyz.cc
+  function/nodes/node_fn_combine_rgb.cc
+  function/nodes/node_fn_separate_rgb.cc
+  function/nodes/node_fn_combine_hsv.cc
+  function/nodes/node_fn_separate_hsv.cc
   function/node_fn_util.cc
 
   shader/nodes/node_shader_add_shader.c

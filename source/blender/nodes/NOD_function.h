@@ -6,6 +6,11 @@ extern "C" {
 #endif
 
 void register_node_type_fn_combine_xyz(void);
+void register_node_type_fn_separate_xyz(void);
+void register_node_type_fn_combine_rgb(void);
+void register_node_type_fn_separate_rgb(void);
+void register_node_type_fn_combine_hsv(void);
+void register_node_type_fn_separate_hsv(void);
 
 #ifdef __cplusplus
 }

@@ -505,8 +505,13 @@ simulation_node_categories = [
         NodeItem("SimulationNodeSimulationTime"),
         NodeItem("SimulationNodeParticleAttribute"),
     ]),
-    FunctionNodeCategory("VECTOR", "Vector", items=[
+    FunctionNodeCategory("CONVERTER", "Converter", items=[
         NodeItem("FunctionNodeCombineXYZ"),
+        NodeItem("FunctionNodeSeparateXYZ"),
+        NodeItem("FunctionNodeCombineRGB"),
+        NodeItem("FunctionNodeSeparateRGB"),
+        NodeItem("FunctionNodeCombineHSV"),
+        NodeItem("FunctionNodeSeparateHSV"),
     ]),
 ]
 

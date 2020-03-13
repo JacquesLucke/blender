@@ -272,6 +272,11 @@ DefNode(SimulationNode, SIM_NODE_SIMULATION_TIME, 0,                     "SIMULA
 DefNode(SimulationNode, SIM_NODE_PARTICLE_ATTRIBUTE, 0,                  "PARTICLE_ATTRIBUTE",  ParticleAttribute,  "Particle Attribute",   "")
 
 DefNode(FunctionNode, FN_NODE_COMBINE_XYZ, 0, "COMBINE_XYZ", CombineXYZ, "Combine XYZ", "")
+DefNode(FunctionNode, FN_NODE_SEPARATE_XYZ, 0, "SEPARATE_XYZ", SeparateXYZ, "Separate XYZ", "")
+DefNode(FunctionNode, FN_NODE_COMBINE_RGB, 0, "COMBINE_RGB", CombineRGB, "Combine RGB", "")
+DefNode(FunctionNode, FN_NODE_SEPARATE_RGB, 0, "SEPARATE_RGB", SeparateRGB, "Separate RGB", "")
+DefNode(FunctionNode, FN_NODE_COMBINE_HSV, 0, "COMBINE_HSV", CombineHSV, "Combine HSV", "")
+DefNode(FunctionNode, FN_NODE_SEPARATE_HSV, 0, "SEPARATE_HSV", SeparateHSV, "Separate HSV", "")
 
 /* undefine macros */
 #undef DefNode
