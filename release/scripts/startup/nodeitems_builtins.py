@@ -503,6 +503,7 @@ simulation_node_categories = [
     ]),
     SimulationNodeCategory("FUNCTION_INPUTS", "Function Inputs", items=[
         NodeItem("SimulationNodeSimulationTime"),
+        NodeItem("SimulationNodeParticleAttribute"),
     ]),
     FunctionNodeCategory("VECTOR", "Vector", items=[
         NodeItem("FunctionNodeCombineVector"),

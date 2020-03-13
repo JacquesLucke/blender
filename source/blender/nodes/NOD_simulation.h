@@ -22,6 +22,7 @@ void register_node_type_sim_particle_mesh_emitter(void);
 void register_node_type_sim_particle_mesh_collision_event(void);
 void register_node_type_sim_emit_particles(void);
 void register_node_type_sim_simulation_time(void);
+void register_node_type_sim_particle_attribute(void);
 
 #ifdef __cplusplus
 }
