@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-void register_node_type_fn_combine_vector(void);
+void register_node_type_fn_combine_xyz(void);
 
 #ifdef __cplusplus
 }

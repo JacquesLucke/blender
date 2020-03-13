@@ -129,7 +129,7 @@ set(SRC
   composite/node_composite_tree.c
   composite/node_composite_util.c
 
-  function/nodes/node_fn_combine_vector.cc
+  function/nodes/node_fn_combine_xyz.cc
   function/node_fn_util.cc
 
   shader/nodes/node_shader_add_shader.c

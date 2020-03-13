@@ -4199,7 +4199,7 @@ static void registerSimulationNodes(void)
 
 static void registerFunctionNodes(void)
 {
-  register_node_type_fn_combine_vector();
+  register_node_type_fn_combine_xyz();
 }
 
 void init_nodesystem(void)

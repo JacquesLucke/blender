@@ -506,7 +506,7 @@ simulation_node_categories = [
         NodeItem("SimulationNodeParticleAttribute"),
     ]),
     FunctionNodeCategory("VECTOR", "Vector", items=[
-        NodeItem("FunctionNodeCombineVector"),
+        NodeItem("FunctionNodeCombineXYZ"),
     ]),
 ]
 
