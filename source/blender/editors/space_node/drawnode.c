@@ -3417,6 +3417,10 @@ static void std_node_socket_draw(
       uiItemR(layout, ptr, "default_value", 0, text, 0);
       break;
     }
+    case SOCK_IMAGE: {
+      uiItemR(layout, ptr, "default_value", 0, text, 0);
+      break;
+    }
     default:
       node_socket_button_label(C, layout, ptr, node_ptr, text);
       break;

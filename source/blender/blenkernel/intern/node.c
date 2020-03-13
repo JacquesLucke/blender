@@ -763,6 +763,10 @@ void nodeModifySocketType(
       bNodeSocketValueObject *default_value = sock->default_value;
       id_us_min(&default_value->object->id);
     }
+    else if (sock->type == SOCK_IMAGE) {
+      bNodeSocketValueImage *default_value = sock->default_value;
+      id_us_min(&default_value->image->id);
+    }
     MEM_freeN(sock->default_value);
     sock->default_value = NULL;
   }
@@ -1013,9 +1017,15 @@ static void node_socket_free(bNodeTree *UNUSED(ntree),
   }
 
   if (sock->default_value) {
-    if (sock->type == SOCK_OBJECT && do_id_user) {
-      bNodeSocketValueObject *default_value = sock->default_value;
-      id_us_min(&default_value->object->id);
+    if (do_id_user) {
+      if (sock->type == SOCK_OBJECT) {
+        bNodeSocketValueObject *default_value = sock->default_value;
+        id_us_min(&default_value->object->id);
+      }
+      else if (sock->type == SOCK_IMAGE) {
+        bNodeSocketValueImage *default_value = sock->default_value;
+        id_us_min(&default_value->image->id);
+      }
     }
     MEM_freeN(sock->default_value);
   }
@@ -1304,10 +1314,14 @@ static void node_socket_copy(bNodeSocket *sock_dst, const bNodeSocket *sock_src,
   if (sock_src->default_value) {
     sock_dst->default_value = MEM_dupallocN(sock_src->default_value);
 
-    if (sock_dst->type == SOCK_OBJECT) {
-      if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
+    if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
+      if (sock_dst->type == SOCK_OBJECT) {
         bNodeSocketValueObject *default_value = sock_dst->default_value;
         id_us_plus(&default_value->object->id);
+      }
+      else if (sock_dst->type == SOCK_IMAGE) {
+        bNodeSocketValueImage *default_value = sock_dst->default_value;
+        id_us_plus(&default_value->image->id);
       }
     }
   }
@@ -2132,15 +2146,23 @@ void nodeRemoveNode(Main *bmain, bNodeTree *ntree, bNode *node, bool do_id_user)
     }
 
     LISTBASE_FOREACH (bNodeSocket *, sock, &node->inputs) {
-      if (sock->default_value && sock->type == SOCK_OBJECT) {
+      if (sock->type == SOCK_OBJECT) {
         bNodeSocketValueObject *default_value = sock->default_value;
         id_us_min(&default_value->object->id);
       }
+      else if (sock->type == SOCK_IMAGE) {
+        bNodeSocketValueImage *default_value = sock->default_value;
+        id_us_min(&default_value->image->id);
+      }
     }
     LISTBASE_FOREACH (bNodeSocket *, sock, &node->outputs) {
-      if (sock->default_value && sock->type == SOCK_OBJECT) {
+      if (sock->type == SOCK_OBJECT) {
         bNodeSocketValueObject *default_value = sock->default_value;
         id_us_min(&default_value->object->id);
+      }
+      else if (sock->type == SOCK_IMAGE) {
+        bNodeSocketValueImage *default_value = sock->default_value;
+        id_us_min(&default_value->image->id);
       }
     }
   }
@@ -2172,6 +2194,10 @@ static void node_socket_interface_free(bNodeTree *UNUSED(ntree), bNodeSocket *so
     if (sock->type == SOCK_OBJECT) {
       bNodeSocketValueObject *default_value = sock->default_value;
       id_us_min(&default_value->object->id);
+    }
+    else if (sock->type == SOCK_IMAGE) {
+      bNodeSocketValueImage *default_value = sock->default_value;
+      id_us_min(&default_value->image->id);
     }
 
     MEM_freeN(sock->default_value);

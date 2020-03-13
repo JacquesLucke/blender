@@ -207,8 +207,12 @@ static void library_foreach_node_socket(LibraryForeachIDData *data, bNodeSocket 
   if (sock->type == SOCK_OBJECT) {
     bNodeSocketValueObject *default_value = sock->default_value;
     FOREACH_CALLBACK_INVOKE_ID_PP(data, (ID **)&default_value->object, IDWALK_CB_USER);
-    FOREACH_FINALIZE_VOID;
   }
+  else if (sock->type == SOCK_IMAGE) {
+    bNodeSocketValueImage *default_value = sock->default_value;
+    FOREACH_CALLBACK_INVOKE_ID_PP(data, (ID **)&default_value->image, IDWALK_CB_USER);
+  }
+  FOREACH_FINALIZE_VOID;
 }
 
 static void library_foreach_rigidbodyworldSceneLooper(struct RigidBodyWorld *UNUSED(rbw),

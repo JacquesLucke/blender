@@ -3419,6 +3419,10 @@ static void lib_link_node_socket(FileData *fd, Library *lib, bNodeSocket *sock)
     bNodeSocketValueObject *default_value = sock->default_value;
     default_value->object = newlibadr(fd, lib, default_value->object);
   }
+  else if (sock->type == SOCK_IMAGE) {
+    bNodeSocketValueImage *default_value = sock->default_value;
+    default_value->image = newlibadr(fd, lib, default_value->image);
+  }
 }
 
 /* Single node tree (also used for material/scene trees), ntree is not NULL */

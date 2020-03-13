@@ -267,6 +267,14 @@ void node_socket_init_default_value(bNodeSocket *sock)
       sock->default_value = dval;
       break;
     }
+    case SOCK_IMAGE: {
+      bNodeSocketValueImage *dval = MEM_callocN(sizeof(bNodeSocketValueImage),
+                                                "node socket value image");
+      dval->image = NULL;
+
+      sock->default_value = dval;
+      break;
+    }
   }
 }
 
@@ -329,6 +337,12 @@ void node_socket_copy_default_value(bNodeSocket *to, const bNodeSocket *from)
       /* Not sure how to handle user count here yet. For now just don't copy the pointer. */
       bNodeSocketValueObject *toval = to->default_value;
       toval->object = NULL;
+      break;
+    }
+    case SOCK_IMAGE: {
+      /* Not sure how to handle user count here yet. For now just don't copy the pointer. */
+      bNodeSocketValueImage *toval = to->default_value;
+      toval->image = NULL;
       break;
     }
   }
