@@ -4193,7 +4193,7 @@ static void registerSimulationNodes(void)
   register_node_type_sim_particle_mesh_emitter();
   register_node_type_sim_particle_mesh_collision_event();
   register_node_type_sim_emit_particles();
-  register_node_type_sim_simulation_time_input();
+  register_node_type_sim_simulation_time();
 }
 
 static void registerFunctionNodes(void)
