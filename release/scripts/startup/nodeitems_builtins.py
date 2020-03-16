@@ -515,9 +515,12 @@ simulation_node_categories = [
         NodeItem("FunctionNodeFloatMath"),
         NodeItem("FunctionNodeVectorMath"),
     ]),
+    SimulationNodeCategory("GROUPS", "Groups", items=node_group_items),
     SimulationNodeCategory("LAYOUT", "Layout", items=[
         NodeItem("NodeFrame"),
         NodeItem("NodeReroute"),
+        NodeItem("NodeGroupInput", poll=group_input_output_item_poll),
+        NodeItem("NodeGroupOutput", poll=group_input_output_item_poll),
     ]),
 ]
 
