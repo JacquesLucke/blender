@@ -269,7 +269,7 @@ DefNode(SimulationNode, SIM_NODE_PARTICLE_MESH_EMITTER,  0,              "PARTIC
 DefNode(SimulationNode, SIM_NODE_PARTICLE_MESH_COLLISION_EVENT, 0,       "PARTICLE_MESH_COLLISION_EVENT", ParticleMeshCollisionEvent, "Particle Mesh Collision Event", "")
 DefNode(SimulationNode, SIM_NODE_EMIT_PARTICLES, 0,                      "EMIT_PARTICLES",      EmitParticles,      "Emit Particles",       "")
 DefNode(SimulationNode, SIM_NODE_SIMULATION_TIME, 0,                     "SIMULATION_TIME",     SimulationTime,     "Simulation Time",      "")
-DefNode(SimulationNode, SIM_NODE_PARTICLE_ATTRIBUTE, 0,                  "PARTICLE_ATTRIBUTE",  ParticleAttribute,  "Particle Attribute",   "")
+DefNode(SimulationNode, SIM_NODE_PARTICLE_ATTRIBUTE, def_sim_particle_attribute, "PARTICLE_ATTRIBUTE",  ParticleAttribute,  "Particle Attribute",   "")
 
 DefNode(FunctionNode, FN_NODE_COMBINE_XYZ, 0, "COMBINE_XYZ", CombineXYZ, "Combine XYZ", "")
 DefNode(FunctionNode, FN_NODE_SEPARATE_XYZ, 0, "SEPARATE_XYZ", SeparateXYZ, "Separate XYZ", "")

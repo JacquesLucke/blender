@@ -91,6 +91,18 @@ static const EnumPropertyItem node_socket_type_items[] = {
     {0, NULL, 0, NULL, NULL},
 };
 
+static const EnumPropertyItem node_socket_particle_attribute_types[] = {
+    {SOCK_FLOAT, "FLOAT", 0, "Float", ""},
+    {SOCK_INT, "INT", 0, "Int", ""},
+    {SOCK_BOOLEAN, "BOOLEAN", 0, "Boolean", ""},
+    {SOCK_VECTOR, "VECTOR", 0, "Vector", ""},
+    {SOCK_RGBA, "RGBA", 0, "Color", ""},
+    {SOCK_OBJECT, "OBJECT", 0, "Object", ""},
+    {SOCK_IMAGE, "IMAGE", 0, "Image", ""},
+    {SOCK_SURFACE_HOOK, "SURFACE_HOOK", 0, "Surface Hook", ""},
+    {0, NULL, 0, NULL, NULL},
+};
+
 static const EnumPropertyItem node_quality_items[] = {
     {NTREE_QUALITY_HIGH, "HIGH", 0, "High", "High quality"},
     {NTREE_QUALITY_MEDIUM, "MEDIUM", 0, "Medium", "Medium quality"},
@@ -3656,6 +3668,15 @@ static void rna_ShaderNodeScript_update(Main *bmain, Scene *scene, PointerRNA *p
 }
 
 static void rna_ShaderNode_socket_update(Main *bmain, Scene *scene, PointerRNA *ptr)
+{
+  bNodeTree *ntree = (bNodeTree *)ptr->owner_id;
+  bNode *node = (bNode *)ptr->data;
+
+  nodeUpdate(ntree, node);
+  rna_Node_update(bmain, scene, ptr);
+}
+
+static void rna_SimulationNode_socket_update(Main *bmain, Scene *scene, PointerRNA *ptr)
 {
   bNodeTree *ntree = (bNodeTree *)ptr->owner_id;
   bNode *node = (bNode *)ptr->data;
@@ -8007,6 +8028,20 @@ static void def_sim_particle_time_step_event(StructRNA *srna)
   RNA_def_property_enum_items(prop, mode_items);
   RNA_def_property_ui_text(prop, "Mode", "When in each time step is the event triggered");
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
+}
+
+static void def_sim_particle_attribute(StructRNA *srna)
+{
+  PropertyRNA *prop;
+
+  prop = RNA_def_property(srna, "data_type", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_sdna(prop, NULL, "custom1");
+  RNA_def_property_enum_items(prop, node_socket_particle_attribute_types);
+  RNA_def_property_ui_text(
+      prop,
+      "Data Type",
+      "Expected type of the attribute. A default value is returned if the type is not correct");
+  RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_SimulationNode_socket_update");
 }
 
 /* -------------------------------------------------------------------------- */
