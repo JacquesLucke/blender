@@ -513,6 +513,10 @@ simulation_node_categories = [
         NodeItem("FunctionNodeCombineHSV"),
         NodeItem("FunctionNodeSeparateHSV"),
     ]),
+    SimulationNodeCategory("LAYOUT", "Layout", items=[
+        NodeItem("NodeFrame"),
+        NodeItem("NodeReroute"),
+    ]),
 ]
 
 
