@@ -212,8 +212,10 @@ static void workbench_cache_hair_populate(WORKBENCH_PrivateData *wpd,
   DRW_shgroup_hair_create_sub(ob, psys, md, grp);
 }
 
-/* Decide what colortype to draw the object with.
- * In some cases it can be overwritten by workbench_material_setup(). */
+/**
+ * Decide what color-type to draw the object with.
+ * In some cases it can be overwritten by #workbench_material_setup().
+ */
 static eV3DShadingColorType workbench_color_type_get(WORKBENCH_PrivateData *wpd,
                                                      Object *ob,
                                                      bool *r_sculpt_pbvh,
@@ -527,6 +529,8 @@ void workbench_draw_finish(void *ved)
 {
   WORKBENCH_Data *vedata = ved;
   workbench_volume_draw_finish(vedata);
+  /* Reset default view. */
+  DRW_view_set_active(NULL);
 }
 
 static void workbench_engine_free(void)
