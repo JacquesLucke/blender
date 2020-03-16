@@ -3139,6 +3139,13 @@ static void node_simulation_buts_particle_attribute(uiLayout *layout,
   uiItemR(layout, ptr, "data_type", 0, "", ICON_NONE);
 }
 
+static void node_simulation_buts_set_particle_attribute(uiLayout *layout,
+                                                        bContext *UNUSED(C),
+                                                        PointerRNA *ptr)
+{
+  uiItemR(layout, ptr, "data_type", 0, "", ICON_NONE);
+}
+
 static void node_simulation_set_butfunc(bNodeType *ntype)
 {
   switch (ntype->type) {
@@ -3147,6 +3154,9 @@ static void node_simulation_set_butfunc(bNodeType *ntype)
       break;
     case SIM_NODE_PARTICLE_ATTRIBUTE:
       ntype->draw_buttons = node_simulation_buts_particle_attribute;
+      break;
+    case SIM_NODE_SET_PARTICLE_ATTRIBUTE:
+      ntype->draw_buttons = node_simulation_buts_set_particle_attribute;
       break;
   }
 }
