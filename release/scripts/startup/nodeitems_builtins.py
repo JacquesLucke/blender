@@ -512,6 +512,8 @@ simulation_node_categories = [
         NodeItem("FunctionNodeSeparateRGB"),
         NodeItem("FunctionNodeCombineHSV"),
         NodeItem("FunctionNodeSeparateHSV"),
+        NodeItem("FunctionNodeFloatMath"),
+        NodeItem("FunctionNodeVectorMath"),
     ]),
     SimulationNodeCategory("LAYOUT", "Layout", items=[
         NodeItem("NodeFrame"),

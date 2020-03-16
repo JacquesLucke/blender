@@ -277,8 +277,10 @@ DefNode(FunctionNode, FN_NODE_COMBINE_RGB, 0, "COMBINE_RGB", CombineRGB, "Combin
 DefNode(FunctionNode, FN_NODE_SEPARATE_RGB, 0, "SEPARATE_RGB", SeparateRGB, "Separate RGB", "")
 DefNode(FunctionNode, FN_NODE_COMBINE_HSV, 0, "COMBINE_HSV", CombineHSV, "Combine HSV", "")
 DefNode(FunctionNode, FN_NODE_SEPARATE_HSV, 0, "SEPARATE_HSV", SeparateHSV, "Separate HSV", "")
+DefNode(FunctionNode, FN_NODE_FLOAT_MATH, def_math, "FLOAT_MATH", FloatMath, "Float Math", "");
+DefNode(FunctionNode, FN_NODE_VECTOR_MATH, def_vector_math, "VECTOR_MATH", VectorMath, "Vector Math", "");
 
 /* undefine macros */
 #undef DefNode
 
-    /* clang-format on */
+/* clang-format on */

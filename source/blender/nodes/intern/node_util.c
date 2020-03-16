@@ -173,6 +173,58 @@ void node_math_update(bNodeTree *UNUSED(ntree), bNode *node)
   }
 }
 
+void node_vector_math_update(bNodeTree *UNUSED(ntree), bNode *node)
+{
+  bNodeSocket *sockB = BLI_findlink(&node->inputs, 1);
+  bNodeSocket *sockC = BLI_findlink(&node->inputs, 2);
+  bNodeSocket *sockScale = nodeFindSocket(node, SOCK_IN, "Scale");
+
+  bNodeSocket *sockVector = nodeFindSocket(node, SOCK_OUT, "Vector");
+  bNodeSocket *sockValue = nodeFindSocket(node, SOCK_OUT, "Value");
+
+  nodeSetSocketAvailability(sockB,
+                            !ELEM(node->custom1,
+                                  NODE_VECTOR_MATH_SINE,
+                                  NODE_VECTOR_MATH_COSINE,
+                                  NODE_VECTOR_MATH_TANGENT,
+                                  NODE_VECTOR_MATH_CEIL,
+                                  NODE_VECTOR_MATH_SCALE,
+                                  NODE_VECTOR_MATH_FLOOR,
+                                  NODE_VECTOR_MATH_LENGTH,
+                                  NODE_VECTOR_MATH_ABSOLUTE,
+                                  NODE_VECTOR_MATH_FRACTION,
+                                  NODE_VECTOR_MATH_NORMALIZE));
+  nodeSetSocketAvailability(sockC, ELEM(node->custom1, NODE_VECTOR_MATH_WRAP));
+  nodeSetSocketAvailability(sockScale, node->custom1 == NODE_VECTOR_MATH_SCALE);
+  nodeSetSocketAvailability(sockVector,
+                            !ELEM(node->custom1,
+                                  NODE_VECTOR_MATH_LENGTH,
+                                  NODE_VECTOR_MATH_DISTANCE,
+                                  NODE_VECTOR_MATH_DOT_PRODUCT));
+  nodeSetSocketAvailability(sockValue,
+                            ELEM(node->custom1,
+                                 NODE_VECTOR_MATH_LENGTH,
+                                 NODE_VECTOR_MATH_DISTANCE,
+                                 NODE_VECTOR_MATH_DOT_PRODUCT));
+
+  /* Labels */
+  if (sockB->label[0] != '\0') {
+    sockB->label[0] = '\0';
+  }
+  if (sockC->label[0] != '\0') {
+    sockC->label[0] = '\0';
+  }
+  switch (node->custom1) {
+    case NODE_VECTOR_MATH_WRAP:
+      node_sock_label(sockB, "Max");
+      node_sock_label(sockC, "Min");
+      break;
+    case NODE_VECTOR_MATH_SNAP:
+      node_sock_label(sockB, "Increment");
+      break;
+  }
+}
+
 /**** Labels ****/
 
 void node_blend_label(bNodeTree *UNUSED(ntree), bNode *node, char *label, int maxlen)

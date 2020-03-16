@@ -4231,6 +4231,8 @@ static void registerFunctionNodes(void)
   register_node_type_fn_separate_rgb();
   register_node_type_fn_combine_hsv();
   register_node_type_fn_separate_hsv();
+  register_node_type_fn_float_math();
+  register_node_type_fn_vector_math();
 }
 
 void init_nodesystem(void)

@@ -1019,6 +1019,8 @@ void BKE_nodetree_remove_layer_n(struct bNodeTree *ntree,
 #define FN_NODE_SEPARATE_RGB 1103
 #define FN_NODE_COMBINE_HSV 1104
 #define FN_NODE_SEPARATE_HSV 1105
+#define FN_NODE_FLOAT_MATH 1106
+#define FN_NODE_VECTOR_MATH 1107
 
 /* custom defines options for Material node */
 // #define SH_NODE_MAT_DIFF 1

@@ -73,6 +73,7 @@ extern void *node_initexec_curves(struct bNodeExecContext *context,
 /**** Updates ****/
 void node_sock_label(struct bNodeSocket *sock, const char *name);
 void node_math_update(struct bNodeTree *ntree, struct bNode *node);
+void node_vector_math_update(struct bNodeTree *ntree, struct bNode *node);
 
 /**** Labels ****/
 void node_blend_label(struct bNodeTree *ntree, struct bNode *node, char *label, int maxlen);

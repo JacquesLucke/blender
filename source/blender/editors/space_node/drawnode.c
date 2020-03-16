@@ -3161,6 +3161,25 @@ static void node_simulation_set_butfunc(bNodeType *ntype)
   }
 }
 
+/* ****************** BUTTON CALLBACKS FOR FUNCTION NODES ***************** */
+
+static void node_function_buts_vector_math(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+{
+  uiItemR(layout, ptr, "operation", 0, "", ICON_NONE);
+}
+
+static void node_function_set_butfunc(bNodeType *ntype)
+{
+  switch (ntype->type) {
+    case FN_NODE_FLOAT_MATH:
+      ntype->draw_buttons = node_buts_math;
+      break;
+    case FN_NODE_VECTOR_MATH:
+      ntype->draw_buttons = node_function_buts_vector_math;
+      break;
+  }
+}
+
 /* ****** init draw callbacks for all tree types, only called in usiblender.c, once ************ */
 
 static void node_property_update_default(Main *bmain, Scene *UNUSED(scene), PointerRNA *ptr)
@@ -3270,6 +3289,7 @@ void ED_node_init_butfuncs(void)
     node_shader_set_butfunc(ntype);
     node_texture_set_butfunc(ntype);
     node_simulation_set_butfunc(ntype);
+    node_function_set_butfunc(ntype);
 
     /* define update callbacks for socket properties */
     node_template_properties_update(ntype);
