@@ -1,26 +1,26 @@
 #include "surface_hook.h"
 
-#include "BKE_surface_hook.h"
-#include "BKE_id_handle.h"
-#include "BKE_id_data_cache.h"
-#include "BKE_mesh_runtime.h"
-#include "BKE_deform.h"
 #include "BKE_customdata.h"
+#include "BKE_deform.h"
+#include "BKE_id_data_cache.h"
+#include "BKE_id_handle.h"
 #include "BKE_image.h"
+#include "BKE_mesh_runtime.h"
+#include "BKE_surface_hook.h"
 
 #include "IMB_imbuf_types.h"
 
 #include "DNA_customdata_types.h"
 
+#include "BLI_array_cxx.h"
+#include "BLI_color.h"
 #include "BLI_float2.h"
 #include "BLI_float3.h"
 #include "BLI_float4x4.h"
-#include "BLI_color.h"
-#include "BLI_array_cxx.h"
 #include "BLI_vector_adaptor.h"
 
-#include "util.h"
 #include "sampling_util.h"
+#include "util.h"
 
 namespace FN {
 

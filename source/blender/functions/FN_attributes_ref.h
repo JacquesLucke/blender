@@ -5,11 +5,11 @@
 #include "FN_generic_array_ref.h"
 
 #include "BLI_array_cxx.h"
+#include "BLI_linear_allocator.h"
+#include "BLI_optional.h"
+#include "BLI_string_map.h"
 #include "BLI_vector.h"
 #include "BLI_vector_set.h"
-#include "BLI_string_map.h"
-#include "BLI_optional.h"
-#include "BLI_linear_allocator.h"
 
 namespace FN {
 

@@ -25,13 +25,13 @@
 
 #include "intern/depsgraph_tag.h"
 
-#include <stdio.h>
 #include <cstring> /* required for memset */
 #include <queue>
+#include <stdio.h>
 
-#include "BLI_utildefines.h"
 #include "BLI_math_bits.h"
 #include "BLI_task.h"
+#include "BLI_utildefines.h"
 
 extern "C" {
 #include "DNA_anim_types.h"
@@ -62,8 +62,8 @@ extern "C" {
 
 #include "intern/builder/deg_builder.h"
 #include "intern/depsgraph.h"
-#include "intern/depsgraph_update.h"
 #include "intern/depsgraph_registry.h"
+#include "intern/depsgraph_update.h"
 #include "intern/eval/deg_eval_copy_on_write.h"
 #include "intern/eval/deg_eval_flush.h"
 #include "intern/node/deg_node.h"
@@ -89,7 +89,7 @@ void depsgraph_geometry_tag_to_component(const ID *id, NodeType *component_type)
 
 bool is_selectable_data_id_type(const ID_Type id_type)
 {
-  return ELEM(id_type, ID_ME, ID_CU, ID_MB, ID_LT, ID_GD);
+  return ELEM(id_type, ID_ME, ID_CU, ID_MB, ID_LT, ID_GD, ID_HA, ID_PT, ID_VO);
 }
 
 void depsgraph_select_tag_to_component_opcode(const ID *id,
@@ -582,6 +582,9 @@ NodeType geometry_tag_to_component(const ID *id)
         case OB_LATTICE:
         case OB_MBALL:
         case OB_GPENCIL:
+        case OB_HAIR:
+        case OB_POINTCLOUD:
+        case OB_VOLUME:
           return NodeType::GEOMETRY;
         case OB_ARMATURE:
           return NodeType::EVAL_POSE;
@@ -593,6 +596,9 @@ NodeType geometry_tag_to_component(const ID *id)
     case ID_CU:
     case ID_LT:
     case ID_MB:
+    case ID_HA:
+    case ID_PT:
+    case ID_VO:
       return NodeType::GEOMETRY;
     case ID_PA: /* Particles */
       return NodeType::UNDEFINED;
@@ -814,12 +820,16 @@ void DEG_ids_check_recalc(
 
 static void deg_graph_clear_id_recalc_flags(ID *id)
 {
+  /* Keep incremental track of used recalc flags, to get proper update when undoing. */
+  id->recalc_undo_accumulated |= id->recalc;
   id->recalc &= ~ID_RECALC_ALL;
   bNodeTree *ntree = ntreeFromID(id);
   /* Clear embedded node trees too. */
   if (ntree) {
+    ntree->id.recalc_undo_accumulated |= ntree->id.recalc;
     ntree->id.recalc &= ~ID_RECALC_ALL;
   }
+  /* XXX And what about scene's master collection here? */
 }
 
 void DEG_ids_clear_recalc(Main *UNUSED(bmain), Depsgraph *depsgraph)

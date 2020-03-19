@@ -24,13 +24,13 @@
  * as well as some generic operators and shared operator properties.
  */
 
-#include <float.h>
-#include <string.h>
-#include <ctype.h>
-#include <stdio.h>
-#include <stddef.h>
 #include <assert.h>
+#include <ctype.h>
 #include <errno.h>
+#include <float.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <string.h>
 
 #ifdef WIN32
 #  include "GHOST_C-api.h"
@@ -43,8 +43,8 @@
 #include "DNA_ID.h"
 #include "DNA_brush_types.h"
 #include "DNA_object_types.h"
-#include "DNA_screen_types.h"
 #include "DNA_scene_types.h"
+#include "DNA_screen_types.h"
 #include "DNA_userdef_types.h"
 #include "DNA_windowmanager_types.h"
 
@@ -1749,7 +1749,7 @@ static int wm_search_menu_exec(bContext *UNUSED(C), wmOperator *UNUSED(op))
 static int wm_search_menu_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
 {
   /* Exception for launching via spacebar */
-  if (event->type == SPACEKEY) {
+  if (event->type == EVT_SPACEKEY) {
     bool ok = true;
     ScrArea *sa = CTX_wm_area(C);
     if (sa) {
@@ -2815,7 +2815,7 @@ static int radial_control_modal(bContext *C, wmOperator *op, const wmEvent *even
   else {
     handled = false;
     switch (event->type) {
-      case ESCKEY:
+      case EVT_ESCKEY:
       case RIGHTMOUSE:
         /* canceled; restore original value */
         radial_control_set_value(rc, rc->initial_value);
@@ -2823,8 +2823,8 @@ static int radial_control_modal(bContext *C, wmOperator *op, const wmEvent *even
         break;
 
       case LEFTMOUSE:
-      case PADENTER:
-      case RETKEY:
+      case EVT_PADENTER:
+      case EVT_RETKEY:
         /* done; value already set */
         RNA_property_update(C, &rc->ptr, rc->prop);
         ret = OPERATOR_FINISHED;
@@ -2930,8 +2930,8 @@ static int radial_control_modal(bContext *C, wmOperator *op, const wmEvent *even
         }
         break;
 
-      case LEFTSHIFTKEY:
-      case RIGHTSHIFTKEY: {
+      case EVT_LEFTSHIFTKEY:
+      case EVT_RIGHTSHIFTKEY: {
         if (event->val == KM_PRESS) {
           rc->slow_mouse[0] = event->x;
           rc->slow_mouse[1] = event->y;
@@ -3645,6 +3645,84 @@ static void WM_OT_stereo3d_set(wmOperatorType *ot)
 
 /** \} */
 
+#ifdef WITH_XR_OPENXR
+
+static void wm_xr_session_update_screen(Main *bmain, const wmXrData *xr_data)
+{
+  const bool session_exists = WM_xr_session_exists(xr_data);
+
+  for (bScreen *screen = bmain->screens.first; screen; screen = screen->id.next) {
+    for (ScrArea *area = screen->areabase.first; area; area = area->next) {
+      for (SpaceLink *slink = area->spacedata.first; slink; slink = slink->next) {
+        if (slink->spacetype == SPACE_VIEW3D) {
+          View3D *v3d = (View3D *)slink;
+
+          if (v3d->flag & V3D_XR_SESSION_MIRROR) {
+            ED_view3d_xr_mirror_update(area, v3d, session_exists);
+          }
+
+          if (session_exists) {
+            wmWindowManager *wm = bmain->wm.first;
+            const Scene *scene = WM_windows_scene_get_from_screen(wm, screen);
+
+            ED_view3d_xr_shading_update(wm, v3d, scene);
+          }
+          /* Ensure no 3D View is tagged as session root. */
+          else {
+            v3d->runtime.flag &= ~V3D_RUNTIME_XR_SESSION_ROOT;
+          }
+        }
+      }
+    }
+  }
+}
+
+static void wm_xr_session_update_screen_on_exit_cb(const wmXrData *xr_data)
+{
+  /* Just use G_MAIN here, storing main isn't reliable enough on file read or exit. */
+  wm_xr_session_update_screen(G_MAIN, xr_data);
+}
+
+static int wm_xr_session_toggle_exec(bContext *C, wmOperator *UNUSED(op))
+{
+  Main *bmain = CTX_data_main(C);
+  wmWindowManager *wm = CTX_wm_manager(C);
+  View3D *v3d = CTX_wm_view3d(C);
+
+  /* Lazy-create xr context - tries to dynlink to the runtime, reading active_runtime.json. */
+  if (wm_xr_init(wm) == false) {
+    return OPERATOR_CANCELLED;
+  }
+
+  v3d->runtime.flag |= V3D_RUNTIME_XR_SESSION_ROOT;
+  wm_xr_session_toggle(wm, wm_xr_session_update_screen_on_exit_cb);
+  wm_xr_session_update_screen(bmain, &wm->xr);
+
+  WM_event_add_notifier(C, NC_WM | ND_XR_DATA_CHANGED, NULL);
+
+  return OPERATOR_FINISHED;
+}
+
+static void WM_OT_xr_session_toggle(wmOperatorType *ot)
+{
+  /* identifiers */
+  ot->name = "Toggle VR Session";
+  ot->idname = "WM_OT_xr_session_toggle";
+  ot->description =
+      "Open a view for use with virtual reality headsets, or close it if already "
+      "opened";
+
+  /* callbacks */
+  ot->exec = wm_xr_session_toggle_exec;
+  ot->poll = ED_operator_view3d_active;
+
+  /* XXX INTERNAL just to hide it from the search menu by default, an Add-on will expose it in the
+   * UI instead. Not meant as a permanent solution. */
+  ot->flag = OPTYPE_INTERNAL;
+}
+
+#endif /* WITH_XR_OPENXR */
+
 /* -------------------------------------------------------------------- */
 /** \name Operator Registration & Keymaps
  * \{ */
@@ -3686,6 +3764,9 @@ void wm_operatortypes_register(void)
   WM_operatortype_append(WM_OT_call_panel);
   WM_operatortype_append(WM_OT_radial_control);
   WM_operatortype_append(WM_OT_stereo3d_set);
+#ifdef WITH_XR_OPENXR
+  WM_operatortype_append(WM_OT_xr_session_toggle);
+#endif
 #if defined(WIN32)
   WM_operatortype_append(WM_OT_console_toggle);
 #endif

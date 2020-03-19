@@ -1,12 +1,12 @@
 #pragma once
 
-#include "BLI_static_class_ids.h"
 #include "BLI_index_mask.h"
+#include "BLI_static_class_ids.h"
 
-#include "particle_allocator.hpp"
 #include "emitter_interface.hpp"
 #include "event_interface.hpp"
 #include "offset_handler_interface.hpp"
+#include "particle_allocator.hpp"
 
 namespace BParticles {
 

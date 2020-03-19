@@ -24,21 +24,21 @@
 #include "DNA_anim_types.h"
 #include "DNA_armature_types.h"
 #include "DNA_collection_types.h"
-#include "DNA_gpencil_types.h"
+#include "DNA_constraint_types.h"
 #include "DNA_gpencil_modifier_types.h"
+#include "DNA_gpencil_types.h"
 #include "DNA_light_types.h"
 #include "DNA_lightprobe_types.h"
+#include "DNA_object_force_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_sequence_types.h"
-#include "DNA_constraint_types.h"
-#include "DNA_object_force_types.h"
 
-#include "BLI_math.h"
 #include "BLI_blenlib.h"
+#include "BLI_math.h"
+#include "BLI_mempool.h"
 #include "BLI_string_utils.h"
 #include "BLI_utildefines.h"
-#include "BLI_mempool.h"
 
 #include "BLT_translation.h"
 
@@ -2422,6 +2422,15 @@ TreeElementIcon tree_element_get_icon(TreeStoreElem *tselem, TreeElement *te)
         case OB_LIGHTPROBE:
           data.icon = ICON_OUTLINER_OB_LIGHTPROBE;
           break;
+        case OB_HAIR:
+          data.icon = ICON_OUTLINER_OB_HAIR;
+          break;
+        case OB_POINTCLOUD:
+          data.icon = ICON_OUTLINER_OB_POINTCLOUD;
+          break;
+        case OB_VOLUME:
+          data.icon = ICON_OUTLINER_OB_VOLUME;
+          break;
         case OB_EMPTY:
           if (ob->instance_collection && (ob->transflag & OB_DUPLICOLLECTION)) {
             data.icon = ICON_OUTLINER_OB_GROUP_INSTANCE;
@@ -2518,6 +2527,15 @@ TreeElementIcon tree_element_get_icon(TreeStoreElem *tselem, TreeElement *te)
           break;
         case ID_GR:
           data.icon = ICON_GROUP;
+          break;
+        case ID_HA:
+          data.icon = ICON_OUTLINER_DATA_HAIR;
+          break;
+        case ID_PT:
+          data.icon = ICON_OUTLINER_DATA_POINTCLOUD;
+          break;
+        case ID_VO:
+          data.icon = ICON_OUTLINER_DATA_VOLUME;
           break;
         case ID_LI:
           if (tselem->id->tag & LIB_TAG_MISSING) {

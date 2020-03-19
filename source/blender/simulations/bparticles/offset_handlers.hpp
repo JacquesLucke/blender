@@ -1,7 +1,7 @@
 #pragma once
 
-#include "particle_function.hpp"
 #include "offset_handler_interface.hpp"
+#include "particle_function.hpp"
 
 namespace BParticles {
 

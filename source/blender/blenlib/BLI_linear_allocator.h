@@ -24,11 +24,11 @@
 
 #pragma once
 
-#include "BLI_vector.h"
-#include "BLI_utility_mixins.h"
-#include "BLI_timeit.h"
 #include "BLI_stack_cxx.h"
 #include "BLI_string_ref.h"
+#include "BLI_timeit.h"
+#include "BLI_utility_mixins.h"
+#include "BLI_vector.h"
 
 namespace BLI {
 

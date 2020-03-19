@@ -19,34 +19,34 @@
  */
 
 #include <ctype.h>
-#include <stdlib.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "MEM_guardedalloc.h"
 
+#include "DNA_brush_types.h"
 #include "DNA_cachefile_types.h"
 #include "DNA_constraint_types.h"
-#include "DNA_node_types.h"
-#include "DNA_scene_types.h"
-#include "DNA_object_types.h"
-#include "DNA_object_force_types.h"
-#include "DNA_brush_types.h"
-#include "DNA_texture_types.h"
-#include "DNA_gpencil_modifier_types.h"
-#include "DNA_shader_fx_types.h"
 #include "DNA_curveprofile_types.h"
+#include "DNA_gpencil_modifier_types.h"
+#include "DNA_node_types.h"
+#include "DNA_object_force_types.h"
+#include "DNA_object_types.h"
+#include "DNA_scene_types.h"
+#include "DNA_shader_fx_types.h"
+#include "DNA_texture_types.h"
 
-#include "BLI_utildefines.h"
 #include "BLI_alloca.h"
-#include "BLI_string.h"
-#include "BLI_ghash.h"
-#include "BLI_rect.h"
-#include "BLI_math.h"
-#include "BLI_listbase.h"
 #include "BLI_fnmatch.h"
+#include "BLI_ghash.h"
+#include "BLI_listbase.h"
+#include "BLI_math.h"
 #include "BLI_path_util.h"
+#include "BLI_rect.h"
+#include "BLI_string.h"
 #include "BLI_timecode.h"
+#include "BLI_utildefines.h"
 
 #include "BLF_api.h"
 #include "BLT_translation.h"
@@ -56,6 +56,7 @@
 #include "BKE_colortools.h"
 #include "BKE_constraint.h"
 #include "BKE_context.h"
+#include "BKE_curveprofile.h"
 #include "BKE_global.h"
 #include "BKE_gpencil_modifier.h"
 #include "BKE_idcode.h"
@@ -70,7 +71,6 @@
 #include "BKE_packedFile.h"
 #include "BKE_paint.h"
 #include "BKE_particle.h"
-#include "BKE_curveprofile.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
@@ -80,9 +80,9 @@
 #include "DEG_depsgraph_build.h"
 
 #include "ED_fileselect.h"
-#include "ED_screen.h"
 #include "ED_object.h"
 #include "ED_render.h"
+#include "ED_screen.h"
 #include "ED_undo.h"
 
 #include "RNA_access.h"
@@ -668,6 +668,12 @@ static const char *template_id_browse_tip(const StructRNA *type)
         return N_("Browse Workspace to be linked");
       case ID_LP:
         return N_("Browse LightProbe to be linked");
+      case ID_HA:
+        return N_("Browse Hair Data to be linked");
+      case ID_PT:
+        return N_("Browse Point Cloud Data to be linked");
+      case ID_VO:
+        return N_("Browse Volume Data to be linked");
     }
   }
   return N_("Browse ID data to be linked");
@@ -730,7 +736,13 @@ static uiBut *template_id_def_new_but(uiBlock *block,
                             BLT_I18NCONTEXT_ID_GPENCIL,
                             BLT_I18NCONTEXT_ID_FREESTYLELINESTYLE,
                             BLT_I18NCONTEXT_ID_WORKSPACE,
-                            BLT_I18NCONTEXT_ID_LIGHTPROBE, );
+                            BLT_I18NCONTEXT_ID_LIGHTPROBE,
+                            BLT_I18NCONTEXT_ID_HAIR,
+                            BLT_I18NCONTEXT_ID_POINTCLOUD,
+                            BLT_I18NCONTEXT_ID_VOLUME, );
+  /* Note: BLT_I18N_MSGID_MULTI_CTXT takes a maximum number of parameters,
+   * check the definition to see if a new call must be added when the limit
+   * is exceeded. */
 
   if (newop) {
     but = uiDefIconTextButO(block,

@@ -1,5 +1,5 @@
-#include "testing/testing.h"
 #include "BLI_linear_allocator.h"
+#include "testing/testing.h"
 
 using namespace BLI;
 

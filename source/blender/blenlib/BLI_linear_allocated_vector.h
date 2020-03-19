@@ -1,8 +1,8 @@
 #pragma once
 
+#include "BLI_index_range.h"
 #include "BLI_linear_allocator.h"
 #include "BLI_memory_utils_cxx.h"
-#include "BLI_index_range.h"
 
 namespace BLI {
 

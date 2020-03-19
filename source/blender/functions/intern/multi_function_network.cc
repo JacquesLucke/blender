@@ -2,9 +2,9 @@
 
 #include "FN_multi_function_network.h"
 
+#include "BLI_dot_export.h"
 #include "BLI_set.h"
 #include "BLI_stack_cxx.h"
-#include "BLI_dot_export.h"
 
 extern "C" {
 void WM_clipboard_text_set(const char *buf, bool selection);

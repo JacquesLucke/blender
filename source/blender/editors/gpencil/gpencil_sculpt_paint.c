@@ -22,11 +22,11 @@
  * \ingroup edgpencil
  */
 
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stddef.h>
 #include <math.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "MEM_guardedalloc.h"
 
@@ -40,13 +40,13 @@
 
 #include "BLT_translation.h"
 
+#include "DNA_gpencil_types.h"
 #include "DNA_meshdata_types.h"
+#include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_space_types.h"
 #include "DNA_view3d_types.h"
-#include "DNA_gpencil_types.h"
-#include "DNA_object_types.h"
 
 #include "BKE_brush.h"
 #include "BKE_colortools.h"
@@ -2028,7 +2028,7 @@ static int gpsculpt_brush_modal(bContext *C, wmOperator *op, const wmEvent *even
       /* Abort painting if any of the usual things are tried */
       case MIDDLEMOUSE:
       case RIGHTMOUSE:
-      case ESCKEY:
+      case EVT_ESCKEY:
         gpsculpt_brush_exit(C, op);
         return OPERATOR_FINISHED;
     }
@@ -2050,7 +2050,7 @@ static int gpsculpt_brush_modal(bContext *C, wmOperator *op, const wmEvent *even
 
       /* Exit modal operator, based on the "standard" ops */
       case RIGHTMOUSE:
-      case ESCKEY:
+      case EVT_ESCKEY:
         gpsculpt_brush_exit(C, op);
         return OPERATOR_FINISHED;
 
@@ -2065,24 +2065,24 @@ static int gpsculpt_brush_modal(bContext *C, wmOperator *op, const wmEvent *even
         break;
 
         /* Change Frame - Allowed */
-      case LEFTARROWKEY:
-      case RIGHTARROWKEY:
-      case UPARROWKEY:
-      case DOWNARROWKEY:
+      case EVT_LEFTARROWKEY:
+      case EVT_RIGHTARROWKEY:
+      case EVT_UPARROWKEY:
+      case EVT_DOWNARROWKEY:
         return OPERATOR_PASS_THROUGH;
 
       /* Camera/View Gizmo's - Allowed */
       /* (See rationale in gpencil_paint.c -> gpencil_draw_modal()) */
-      case PAD0:
-      case PAD1:
-      case PAD2:
-      case PAD3:
-      case PAD4:
-      case PAD5:
-      case PAD6:
-      case PAD7:
-      case PAD8:
-      case PAD9:
+      case EVT_PAD0:
+      case EVT_PAD1:
+      case EVT_PAD2:
+      case EVT_PAD3:
+      case EVT_PAD4:
+      case EVT_PAD5:
+      case EVT_PAD6:
+      case EVT_PAD7:
+      case EVT_PAD8:
+      case EVT_PAD9:
         return OPERATOR_PASS_THROUGH;
 
       /* Unhandled event */

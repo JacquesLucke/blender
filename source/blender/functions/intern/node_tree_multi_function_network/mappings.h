@@ -1,8 +1,8 @@
 #pragma once
 
 #include "BLI_map.h"
-#include "BLI_string_map.h"
 #include "BLI_resource_collector.h"
+#include "BLI_string_map.h"
 
 #include "FN_node_tree_multi_function_network.h"
 

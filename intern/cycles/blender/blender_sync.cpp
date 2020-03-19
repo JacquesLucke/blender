@@ -16,6 +16,7 @@
 
 #include "render/background.h"
 #include "render/camera.h"
+#include "render/curves.h"
 #include "render/film.h"
 #include "render/graph.h"
 #include "render/integrator.h"
@@ -25,19 +26,18 @@
 #include "render/object.h"
 #include "render/scene.h"
 #include "render/shader.h"
-#include "render/curves.h"
 
 #include "device/device.h"
 
 #include "blender/blender_device.h"
-#include "blender/blender_sync.h"
 #include "blender/blender_session.h"
+#include "blender/blender_sync.h"
 #include "blender/blender_util.h"
 
 #include "util/util_debug.h"
 #include "util/util_foreach.h"
-#include "util/util_opengl.h"
 #include "util/util_hash.h"
+#include "util/util_opengl.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -178,6 +178,11 @@ void BlenderSync::sync_recalc(BL::Depsgraph &b_depsgraph, BL::SpaceView3D &b_v3d
         world_recalc = true;
       }
     }
+    /* Volume */
+    else if (b_id.is_a(&RNA_Volume)) {
+      BL::Volume b_volume(b_id);
+      geometry_map.set_recalc(b_volume);
+    }
   }
 
   BlenderViewportParameters new_viewport_parameters(b_v3d);
@@ -257,7 +262,8 @@ void BlenderSync::sync_integrator()
   integrator->transparent_max_bounce = get_int(cscene, "transparent_max_bounces");
 
   integrator->volume_max_steps = get_int(cscene, "volume_max_steps");
-  integrator->volume_step_size = get_float(cscene, "volume_step_size");
+  integrator->volume_step_rate = (preview) ? get_float(cscene, "volume_preview_step_rate") :
+                                             get_float(cscene, "volume_step_rate");
 
   integrator->caustics_reflective = get_boolean(cscene, "caustics_reflective");
   integrator->caustics_refractive = get_boolean(cscene, "caustics_refractive");

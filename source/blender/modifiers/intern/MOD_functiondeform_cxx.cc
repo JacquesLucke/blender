@@ -1,12 +1,12 @@
 #include "DNA_modifier_types.h"
 
-#include "FN_node_tree_multi_function_network_generation.h"
-#include "FN_multi_functions.h"
 #include "FN_multi_function_common_contexts.h"
 #include "FN_multi_function_dependencies.h"
+#include "FN_multi_functions.h"
+#include "FN_node_tree_multi_function_network_generation.h"
 
-#include "BKE_modifier.h"
 #include "BKE_id_data_cache.h"
+#include "BKE_modifier.h"
 
 #include "DEG_depsgraph_query.h"
 

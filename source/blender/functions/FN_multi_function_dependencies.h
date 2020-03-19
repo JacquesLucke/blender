@@ -3,8 +3,8 @@
 
 #include "BLI_set.h"
 
-#include "DNA_object_types.h"
 #include "DNA_image_types.h"
+#include "DNA_object_types.h"
 
 #include "FN_node_tree.h"
 

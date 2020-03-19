@@ -28,9 +28,9 @@
 #define __MATH_BASE_INLINE_C__
 
 #include <float.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <limits.h>
 
 #ifdef __SSE2__
 #  include <emmintrin.h>
@@ -248,7 +248,6 @@ MINLINE unsigned int log2_ceil_u(unsigned int x)
     return log2_floor_u(x) + 1;
   }
 }
-
 
 /* rounding and clamping */
 

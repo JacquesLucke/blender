@@ -1,13 +1,13 @@
 #ifndef __FN_MULTI_FUNCTION_CONTEXT_H__
 #define __FN_MULTI_FUNCTION_CONTEXT_H__
 
-#include "BLI_optional.h"
-#include "BLI_virtual_list_ref.h"
-#include "BLI_vector.h"
-#include "BLI_utility_mixins.h"
-#include "BLI_index_range.h"
-#include "BLI_static_class_ids.h"
 #include "BLI_buffer_cache.h"
+#include "BLI_index_range.h"
+#include "BLI_optional.h"
+#include "BLI_static_class_ids.h"
+#include "BLI_utility_mixins.h"
+#include "BLI_vector.h"
+#include "BLI_virtual_list_ref.h"
 
 #include "BKE_id_handle.h"
 

@@ -8,12 +8,12 @@
  * Preview: https://dreampuf.github.io/GraphvizOnline
  */
 
-#include "BLI_vector.h"
-#include "BLI_optional.h"
-#include "BLI_string_map.h"
 #include "BLI_map.h"
+#include "BLI_optional.h"
 #include "BLI_set.h"
+#include "BLI_string_map.h"
 #include "BLI_utility_mixins.h"
+#include "BLI_vector.h"
 
 #include "BLI_dot_export_attribute_enums.h"
 

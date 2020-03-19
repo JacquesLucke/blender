@@ -24,9 +24,9 @@
 #ifndef __DNA_MESH_TYPES_H__
 #define __DNA_MESH_TYPES_H__
 
-#include "DNA_defs.h"
 #include "DNA_ID.h"
 #include "DNA_customdata_types.h"
+#include "DNA_defs.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -78,8 +78,8 @@ struct MLoopTri_Store {
 
 /* not saved in file! */
 typedef struct Mesh_Runtime {
-  /* Evaluated mesh for objects which do not have effective modifiers. This mesh is sued as a
-   * result of modifier stack evaluation.
+  /* Evaluated mesh for objects which do not have effective modifiers.
+   * This mesh is used as a result of modifier stack evaluation.
    * Since modifier stack evaluation is threaded on object level we need some synchronization. */
   struct Mesh *mesh_eval;
   void *eval_mutex;

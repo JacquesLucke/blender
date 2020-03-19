@@ -39,6 +39,7 @@
 
 #include "BKE_effect.h"
 #include "BKE_fluid.h"
+#include "BKE_global.h"
 #include "BKE_lib_id.h"
 #include "BKE_modifier.h"
 #include "BKE_pointcache.h"
@@ -58,8 +59,8 @@
 #  include "DNA_scene_types.h"
 
 #  include "BLI_kdopbvh.h"
-#  include "BLI_threads.h"
 #  include "BLI_kdtree.h"
+#  include "BLI_threads.h"
 #  include "BLI_voxel.h"
 
 #  include "BKE_bvhutils.h"
@@ -1833,7 +1834,6 @@ static void sample_mesh(FluidFlowSettings *mfs,
   BVHTreeNearest nearest = {0};
 
   float volume_factor = 0.0f;
-  float emission_strength = 0.0f;
 
   hit.index = -1;
   hit.dist = PHI_MAX;
@@ -1847,6 +1847,11 @@ static void sample_mesh(FluidFlowSettings *mfs,
 
   bool is_gas_flow = (mfs->type == FLUID_FLOW_TYPE_SMOKE || mfs->type == FLUID_FLOW_TYPE_FIRE ||
                       mfs->type == FLUID_FLOW_TYPE_SMOKEFIRE);
+
+  /* Emission strength for gases will be computed below.
+   * For liquids it's not needed. Just set to non zero value
+   * to allow initial velocity computation. */
+  float emission_strength = (is_gas_flow) ? 0.0f : 1.0f;
 
   /* Emission inside the flow object. */
   if (is_gas_flow && mfs->volume_density) {
@@ -1892,40 +1897,6 @@ static void sample_mesh(FluidFlowSettings *mfs,
     v2 = mloop[mlooptri[f_index].tri[1]].v;
     v3 = mloop[mlooptri[f_index].tri[2]].v;
     interp_weights_tri_v3(weights, mvert[v1].co, mvert[v2].co, mvert[v3].co, nearest.co);
-
-    /* Initial velocity of flow object. */
-    if (mfs->flags & FLUID_FLOW_INITVELOCITY && velocity_map) {
-      /* Apply normal directional velocity. */
-      if (mfs->vel_normal) {
-        /* Interpolate vertex normal vectors to get nearest point normal. */
-        normal_short_to_float_v3(n1, mvert[v1].no);
-        normal_short_to_float_v3(n2, mvert[v2].no);
-        normal_short_to_float_v3(n3, mvert[v3].no);
-        interp_v3_v3v3v3(hit_normal, n1, n2, n3, weights);
-        normalize_v3(hit_normal);
-
-        /* Apply normal directional velocity. */
-        velocity_map[index * 3] += hit_normal[0] * mfs->vel_normal * 0.25f;
-        velocity_map[index * 3 + 1] += hit_normal[1] * mfs->vel_normal * 0.25f;
-        velocity_map[index * 3 + 2] += hit_normal[2] * mfs->vel_normal * 0.25f;
-      }
-      /* Apply object velocity. */
-      if (has_velocity && mfs->vel_multi) {
-        float hit_vel[3];
-        interp_v3_v3v3v3(
-            hit_vel, &vert_vel[v1 * 3], &vert_vel[v2 * 3], &vert_vel[v3 * 3], weights);
-        velocity_map[index * 3] += hit_vel[0] * mfs->vel_multi;
-        velocity_map[index * 3 + 1] += hit_vel[1] * mfs->vel_multi;
-        velocity_map[index * 3 + 2] += hit_vel[2] * mfs->vel_multi;
-#  ifdef DEBUG_PRINT
-        /* Debugging: Print flow object velocities. */
-        printf("adding flow object vel: [%f, %f, %f]\n", hit_vel[0], hit_vel[1], hit_vel[2]);
-#  endif
-      }
-      velocity_map[index * 3] += mfs->vel_coord[0];
-      velocity_map[index * 3 + 1] += mfs->vel_coord[1];
-      velocity_map[index * 3 + 2] += mfs->vel_coord[2];
-    }
 
     /* Compute emission strength for smoke flow. */
     if (is_gas_flow) {
@@ -1975,6 +1946,40 @@ static void sample_mesh(FluidFlowSettings *mfs,
         BKE_texture_get_value(NULL, mfs->noise_texture, tex_co, &texres, false);
         emission_strength *= texres.tin;
       }
+    }
+
+    /* Initial velocity of flow object. Only compute velocity if emission is present. */
+    if (mfs->flags & FLUID_FLOW_INITVELOCITY && velocity_map && emission_strength != 0.0) {
+      /* Apply normal directional velocity. */
+      if (mfs->vel_normal) {
+        /* Interpolate vertex normal vectors to get nearest point normal. */
+        normal_short_to_float_v3(n1, mvert[v1].no);
+        normal_short_to_float_v3(n2, mvert[v2].no);
+        normal_short_to_float_v3(n3, mvert[v3].no);
+        interp_v3_v3v3v3(hit_normal, n1, n2, n3, weights);
+        normalize_v3(hit_normal);
+
+        /* Apply normal directional velocity. */
+        velocity_map[index * 3] += hit_normal[0] * mfs->vel_normal * 0.25f;
+        velocity_map[index * 3 + 1] += hit_normal[1] * mfs->vel_normal * 0.25f;
+        velocity_map[index * 3 + 2] += hit_normal[2] * mfs->vel_normal * 0.25f;
+      }
+      /* Apply object velocity. */
+      if (has_velocity && mfs->vel_multi) {
+        float hit_vel[3];
+        interp_v3_v3v3v3(
+            hit_vel, &vert_vel[v1 * 3], &vert_vel[v2 * 3], &vert_vel[v3 * 3], weights);
+        velocity_map[index * 3] += hit_vel[0] * mfs->vel_multi;
+        velocity_map[index * 3 + 1] += hit_vel[1] * mfs->vel_multi;
+        velocity_map[index * 3 + 2] += hit_vel[2] * mfs->vel_multi;
+#  ifdef DEBUG_PRINT
+        /* Debugging: Print flow object velocities. */
+        printf("adding flow object vel: [%f, %f, %f]\n", hit_vel[0], hit_vel[1], hit_vel[2]);
+#  endif
+      }
+      velocity_map[index * 3] += mfs->vel_coord[0];
+      velocity_map[index * 3 + 1] += mfs->vel_coord[1];
+      velocity_map[index * 3 + 2] += mfs->vel_coord[2];
     }
   }
 
@@ -3524,7 +3529,7 @@ static Mesh *create_smoke_geometry(FluidDomainSettings *mds, Mesh *orgmesh, Obje
   return result;
 }
 
-static void manta_step(
+static int manta_step(
     Depsgraph *depsgraph, Scene *scene, Object *ob, Mesh *me, FluidModifierData *mmd, int frame)
 {
   FluidDomainSettings *mds = mmd->domain;
@@ -3532,17 +3537,22 @@ static void manta_step(
   float time_per_frame;
   bool init_resolution = true;
 
-  /* update object state */
+  /* Store baking success - bake might be aborted anytime by user. */
+  int result = 1;
+  int mode = mds->cache_type;
+  bool mode_replay = (mode == FLUID_DOMAIN_CACHE_REPLAY);
+
+  /* Update object state. */
   invert_m4_m4(mds->imat, ob->obmat);
   copy_m4_m4(mds->obmat, ob->obmat);
 
-  /* gas domain might use adaptive domain */
+  /* Gas domain might use adaptive domain. */
   if (mds->type == FLUID_DOMAIN_TYPE_GAS) {
     init_resolution = (mds->flags & FLUID_DOMAIN_USE_ADAPTIVE_DOMAIN) != 0;
   }
   manta_set_domain_from_mesh(mds, ob, me, init_resolution);
 
-  /* use local variables for adaptive loop, dt can change */
+  /* Use local variables for adaptive loop, dt can change. */
   frame_length = mds->frame_length;
   dt = mds->dt;
   time_per_frame = 0;
@@ -3550,26 +3560,38 @@ static void manta_step(
 
   BLI_mutex_lock(&object_update_lock);
 
-  /* loop as long as time_per_frame (sum of sub dt's) does not exceed actual framelength */
+  /* Loop as long as time_per_frame (sum of sub dt's) does not exceed actual framelength. */
   while (time_per_frame < frame_length) {
     manta_adapt_timestep(mds->fluid);
     dt = manta_get_timestep(mds->fluid);
 
-    /* save adapted dt so that MANTA object can access it (important when adaptive domain creates
-     * new MANTA object) */
+    /* Save adapted dt so that MANTA object can access it (important when adaptive domain creates
+     * new MANTA object). */
     mds->dt = dt;
 
-    /* count for how long this while loop is running */
+    /* Count for how long this while loop is running. */
     time_per_frame += dt;
     time_total += dt;
 
-    /* Calculate inflow geometry */
+    /* Calculate inflow geometry. */
     update_flowsfluids(depsgraph, scene, ob, mds, time_per_frame, frame_length, frame, dt);
+
+    /* If user requested stop, quit baking */
+    if (G.is_break && !mode_replay) {
+      result = 0;
+      break;
+    }
 
     manta_update_variables(mds->fluid, mmd);
 
-    /* Calculate obstacle geometry */
+    /* Calculate obstacle geometry. */
     update_obstacles(depsgraph, scene, ob, mds, time_per_frame, frame_length, frame, dt);
+
+    /* If user requested stop, quit baking */
+    if (G.is_break && !mode_replay) {
+      result = 0;
+      break;
+    }
 
     if (mds->total_cells > 1) {
       update_effectors(depsgraph, scene, ob, mds, dt);
@@ -3578,12 +3600,20 @@ static void manta_step(
       mds->time_per_frame = time_per_frame;
       mds->time_total = time_total;
     }
+
+    /* If user requested stop, quit baking */
+    if (G.is_break && !mode_replay) {
+      result = 0;
+      break;
+    }
   }
 
   if (mds->type == FLUID_DOMAIN_TYPE_GAS) {
     manta_smoke_calc_transparency(mds, DEG_get_evaluated_view_layer(depsgraph));
   }
   BLI_mutex_unlock(&object_update_lock);
+
+  return result;
 }
 
 static void manta_guiding(
@@ -3952,9 +3982,11 @@ static void BKE_fluid_modifier_processDomain(FluidModifierData *mmd,
       manta_guiding(depsgraph, scene, ob, mmd, scene_framenr);
     }
     if (baking_data) {
-      manta_step(depsgraph, scene, ob, me, mmd, scene_framenr);
-      manta_write_config(mds->fluid, mmd, scene_framenr);
-      manta_write_data(mds->fluid, mmd, scene_framenr);
+      /* Only save baked data if all of it completed successfully. */
+      if (manta_step(depsgraph, scene, ob, me, mmd, scene_framenr)) {
+        manta_write_config(mds->fluid, mmd, scene_framenr);
+        manta_write_data(mds->fluid, mmd, scene_framenr);
+      }
     }
     if (has_data || baking_data) {
       if (baking_noise && with_smoke && with_noise) {
@@ -4851,7 +4883,7 @@ void BKE_fluid_modifier_create_type_data(struct FluidModifierData *mmd)
 #else
     mmd->domain->openvdb_comp = VDB_COMPRESSION_ZIP;
 #endif
-    mmd->domain->clipping = 1e-3f;
+    mmd->domain->clipping = 1e-6f;
     mmd->domain->data_depth = 0;
   }
   else if (mmd->type & MOD_FLUID_TYPE_FLOW) {

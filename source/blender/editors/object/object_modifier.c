@@ -37,22 +37,23 @@
 #include "DNA_scene_types.h"
 
 #include "BLI_bitmap.h"
-#include "BLI_math.h"
 #include "BLI_listbase.h"
+#include "BLI_math.h"
+#include "BLI_path_util.h"
 #include "BLI_string.h"
 #include "BLI_string_utf8.h"
-#include "BLI_path_util.h"
 #include "BLI_utildefines.h"
 
-#include "BKE_animsys.h"
-#include "BKE_curve.h"
-#include "BKE_context.h"
 #include "BKE_DerivedMesh.h"
+#include "BKE_animsys.h"
+#include "BKE_context.h"
+#include "BKE_curve.h"
 #include "BKE_displist.h"
 #include "BKE_editmesh.h"
 #include "BKE_effect.h"
 #include "BKE_global.h"
 #include "BKE_gpencil_modifier.h"
+#include "BKE_hair.h"
 #include "BKE_key.h"
 #include "BKE_lattice.h"
 #include "BKE_lib_id.h"
@@ -67,9 +68,11 @@
 #include "BKE_ocean.h"
 #include "BKE_paint.h"
 #include "BKE_particle.h"
+#include "BKE_pointcloud.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_softbody.h"
+#include "BKE_volume.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
@@ -80,9 +83,9 @@
 #include "RNA_enum_types.h"
 
 #include "ED_armature.h"
+#include "ED_mesh.h"
 #include "ED_object.h"
 #include "ED_screen.h"
-#include "ED_mesh.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -115,6 +118,15 @@ static void object_force_modifier_update_for_bind(Depsgraph *depsgraph, Object *
   }
   else if (ob->type == OB_GPENCIL) {
     BKE_gpencil_modifiers_calc(depsgraph, scene_eval, ob_eval);
+  }
+  else if (ob->type == OB_HAIR) {
+    BKE_hair_data_update(depsgraph, scene_eval, ob);
+  }
+  else if (ob->type == OB_POINTCLOUD) {
+    BKE_pointcloud_data_update(depsgraph, scene_eval, ob);
+  }
+  else if (ob->type == OB_VOLUME) {
+    BKE_volume_data_update(depsgraph, scene_eval, ob);
   }
 }
 
@@ -656,6 +668,7 @@ static int modifier_apply_shape(Main *bmain,
     BKE_id_free(NULL, mesh_applied);
   }
   else {
+    /* TODO: implement for hair, pointclouds and volumes. */
     BKE_report(reports, RPT_ERROR, "Cannot apply modifier for this object type");
     return 0;
   }
@@ -734,6 +747,7 @@ static int modifier_apply_obdata(
     DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
   }
   else {
+    /* TODO: implement for hair, pointclouds and volumes. */
     BKE_report(reports, RPT_ERROR, "Cannot apply modifier for this object type");
     return 0;
   }
