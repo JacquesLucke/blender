@@ -129,6 +129,7 @@ set(SRC
   composite/node_composite_tree.c
   composite/node_composite_util.c
 
+  function/nodes/node_fn_closest_surface.cc
   function/nodes/node_fn_combine_hsv.cc
   function/nodes/node_fn_combine_rgb.cc
   function/nodes/node_fn_combine_xyz.cc
@@ -137,6 +138,10 @@ set(SRC
   function/nodes/node_fn_separate_rgb.cc
   function/nodes/node_fn_separate_xyz.cc
   function/nodes/node_fn_vector_math.cc
+  function/nodes/node_fn_surface_color.cc
+  function/nodes/node_fn_surface_normal.cc
+  function/nodes/node_fn_surface_position.cc
+  function/nodes/node_fn_surface_weight.cc
   function/node_fn_util.cc
 
   shader/nodes/node_shader_add_shader.c

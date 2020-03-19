@@ -515,6 +515,13 @@ simulation_node_categories = [
         NodeItem("FunctionNodeFloatMath"),
         NodeItem("FunctionNodeVectorMath"),
     ]),
+    FunctionNodeCategory("SURFACE", "Surface", items=[
+        NodeItem("FunctionNodeClosestSurface"),
+        NodeItem("FunctionNodeSurfaceColor"),
+        NodeItem("FunctionNodeSurfaceNormal"),
+        NodeItem("FunctionNodeSurfacePosition"),
+        NodeItem("FunctionNodeSurfaceWeight"),
+    ]),
     SimulationNodeCategory("GROUPS", "Groups", items=node_group_items),
     SimulationNodeCategory("LAYOUT", "Layout", items=[
         NodeItem("NodeFrame"),

@@ -278,9 +278,14 @@ DefNode(FunctionNode, FN_NODE_SEPARATE_RGB, 0, "SEPARATE_RGB", SeparateRGB, "Sep
 DefNode(FunctionNode, FN_NODE_COMBINE_HSV, 0, "COMBINE_HSV", CombineHSV, "Combine HSV", "")
 DefNode(FunctionNode, FN_NODE_SEPARATE_HSV, 0, "SEPARATE_HSV", SeparateHSV, "Separate HSV", "")
 DefNode(FunctionNode, FN_NODE_FLOAT_MATH, def_math, "FLOAT_MATH", FloatMath, "Float Math", "");
-DefNode(FunctionNode, FN_NODE_VECTOR_MATH, def_vector_math, "VECTOR_MATH", VectorMath, "Vector Math", "");
+DefNode(FunctionNode, FN_NODE_VECTOR_MATH, def_vector_math, "VECTOR_MATH", VectorMath, "Vector Math", "")
+DefNode(FunctionNode, FN_NODE_CLOSEST_SURFACE, 0, "CLOSEST_SURFACE", ClosestSurface, "Closest Surface", "")
+DefNode(FunctionNode, FN_NODE_SURFACE_COLOR, 0, "SURFACE_COLOR", SurfaceColor, "Surface Color", "")
+DefNode(FunctionNode, FN_NODE_SURFACE_NORMAL, 0, "SURFACE_NORMAL", SurfaceNormal, "Surface Normal", "")
+DefNode(FunctionNode, FN_NODE_SURFACE_POSITION, 0, "SURFACE_POSITION", SurfacePosition, "Surface Position", "")
+DefNode(FunctionNode, FN_NODE_SURFACE_WEIGHT, 0, "SURFACE_WEIGHT", SurfaceWeight, "Surface Weight", "")
 
 /* undefine macros */
 #undef DefNode
 
-/* clang-format on */
+    /* clang-format on */

@@ -65,11 +65,11 @@
 
 #include "NOD_common.h"
 #include "NOD_composite.h"
+#include "NOD_function.h"
 #include "NOD_shader.h"
+#include "NOD_simulation.h"
 #include "NOD_socket.h"
 #include "NOD_texture.h"
-#include "NOD_simulation.h"
-#include "NOD_function.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
@@ -4233,6 +4233,11 @@ static void registerFunctionNodes(void)
   register_node_type_fn_separate_hsv();
   register_node_type_fn_float_math();
   register_node_type_fn_vector_math();
+  register_node_type_fn_closest_surface();
+  register_node_type_fn_surface_color();
+  register_node_type_fn_surface_normal();
+  register_node_type_fn_surface_position();
+  register_node_type_fn_surface_weight();
 }
 
 void init_nodesystem(void)
