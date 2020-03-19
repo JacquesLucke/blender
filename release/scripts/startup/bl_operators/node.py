@@ -420,6 +420,65 @@ class NODE_OT_export_group_template(Operator):
         save_group_as_json(group, file_path)
         return {'FINISHED'}
 
+def get_or_create_node_group(directory, group_name):
+    main_file_path = os.path.join(directory, group_name + ".json")
+
+    with open(main_file_path, "r") as f:
+        json_str = f.read()
+    json_data = json.loads(json_str)
+
+    group = bpy.data.node_groups.new(json_data["name"], "SimulationNodeTree")
+
+    dependencies = {}
+    for dependency_name in json_data["dependencies"]:
+        dependencies[dependency_name] = get_or_create_node_group(directory, dependency_name)
+
+    for node_data in json_data["nodes"]:
+        node = group.nodes.new(node_data["bl_idname"])
+        node.name = node_data["name"]
+        node.location = node_data["location"]
+        node.select = False
+
+        if node.bl_idname in {"NodeGroupInput", "NodeGroupOutput"}:
+            pass
+        elif node.bl_idname == "SimulationNodeGroup":
+            node.node_tree = dependencies[node_data["group_name"]]
+        else:
+            for key, value in node_data["properties"].items():
+                setattr(node, key, value)
+
+            for sock_data, sock in zip(node_data["inputs"], node.inputs):
+                if hasattr(sock, "default_value"):
+                    sock.default_value = sock_data["default_value"]
+
+    for sock_data in json_data["inputs"]:
+        group.inputs.new(sock_data["bl_socket_idname"], sock_data["name"])
+
+    for sock_data in json_data["outputs"]:
+        group.outputs.new(sock_data["bl_socket_idname"], sock_data["name"])
+
+    for link_data in json_data["links"]:
+        from_socket = group.nodes[link_data["from"][0]].outputs[link_data["from"][2]]
+        to_socket = group.nodes[link_data["to"][0]].inputs[link_data["to"][2]]
+        group.links.new(from_socket, to_socket)
+
+    return group
+
+class NODE_OT_import_group_template(Operator):
+    bl_idname = "node.import_group_template"
+    bl_label = "Import Node Group Template"
+
+    directory: StringProperty()
+    filename: StringProperty()
+
+    def invoke(self, context, event):
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
+    def execute(self, context):
+        assert self.filename.endswith(".json")
+        get_or_create_node_group(self.directory, self.filename[:-len(".json")])
+        return {'FINISHED'}
 
 classes = (
     NodeSetting,
@@ -430,4 +489,5 @@ classes = (
     NODE_OT_collapse_hide_unused_toggle,
     NODE_OT_tree_path_parent,
     NODE_OT_export_group_template,
+    NODE_OT_import_group_template
 )
