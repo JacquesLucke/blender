@@ -1,7 +1,7 @@
 #include "FN_node_tree.h"
 
-#include "BLI_string.h"
 #include "BLI_dot_export.h"
+#include "BLI_string.h"
 
 extern "C" {
 void WM_clipboard_text_set(const char *buf, bool selection);

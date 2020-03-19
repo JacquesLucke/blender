@@ -1,8 +1,8 @@
 #ifndef __FN_VTREE_MULTI_FUNCTION_NETWORK_GENERATION_H__
 #define __FN_VTREE_MULTI_FUNCTION_NETWORK_GENERATION_H__
 
-#include "FN_node_tree_multi_function_network.h"
 #include "BLI_resource_collector.h"
+#include "FN_node_tree_multi_function_network.h"
 #include "intern/multi_functions/network.h"
 
 namespace FN {

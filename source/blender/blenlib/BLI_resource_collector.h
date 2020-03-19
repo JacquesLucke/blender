@@ -1,10 +1,10 @@
 #ifndef __BLI_OWNED_RESOURCES_H__
 #define __BLI_OWNED_RESOURCES_H__
 
-#include "BLI_vector.h"
-#include "BLI_utility_mixins.h"
-#include "BLI_string_ref.h"
 #include "BLI_linear_allocator.h"
+#include "BLI_string_ref.h"
+#include "BLI_utility_mixins.h"
+#include "BLI_vector.h"
 
 namespace BLI {
 

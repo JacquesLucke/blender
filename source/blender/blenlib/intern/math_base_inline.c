@@ -249,7 +249,6 @@ MINLINE unsigned int log2_ceil_u(unsigned int x)
   }
 }
 
-
 /* rounding and clamping */
 
 #define _round_clamp_fl_impl(arg, ty, min, max) \

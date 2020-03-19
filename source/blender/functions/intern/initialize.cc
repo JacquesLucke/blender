@@ -1,7 +1,7 @@
 #include "FN_initialize.h"
 #include "cpp_types.h"
-#include "node_tree_multi_function_network/mappings.h"
 #include "multi_functions/global_functions.h"
+#include "node_tree_multi_function_network/mappings.h"
 
 void FN_initialize(void)
 {

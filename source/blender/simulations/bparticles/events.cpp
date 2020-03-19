@@ -1,5 +1,5 @@
-#include "BLI_utildefines.h"
 #include "BLI_hash.h"
+#include "BLI_utildefines.h"
 
 #include "events.hpp"
 

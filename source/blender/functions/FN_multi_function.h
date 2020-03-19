@@ -1,16 +1,16 @@
 #ifndef __FN_MULTI_FUNCTION_H__
 #define __FN_MULTI_FUNCTION_H__
 
-#include <typeinfo>
 #include <memory>
+#include <typeinfo>
 
 #include "FN_generic_array_ref.h"
 #include "FN_generic_vector_array.h"
-#include "FN_generic_virtual_list_ref.h"
 #include "FN_generic_virtual_list_list_ref.h"
+#include "FN_generic_virtual_list_ref.h"
+#include "FN_multi_function_context.h"
 #include "FN_multi_function_data_type.h"
 #include "FN_multi_function_param_type.h"
-#include "FN_multi_function_context.h"
 
 #include "BLI_vector.h"
 

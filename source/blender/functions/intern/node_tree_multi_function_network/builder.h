@@ -1,7 +1,7 @@
 #pragma once
 
-#include "FN_node_tree_multi_function_network.h"
 #include "FN_multi_functions.h"
+#include "FN_node_tree_multi_function_network.h"
 
 #include "BLI_multi_map.h"
 

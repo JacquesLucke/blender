@@ -1,11 +1,11 @@
+#include "DNA_curve_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
-#include "DNA_curve_types.h"
 #include "DNA_object_types.h"
 
 #include "BKE_curve.h"
-#include "BKE_mesh_runtime.h"
 #include "BKE_deform.h"
+#include "BKE_mesh_runtime.h"
 #include "BKE_surface_hook.h"
 
 #include "BLI_math_geom.h"

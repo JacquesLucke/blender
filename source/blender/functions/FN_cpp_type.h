@@ -1,10 +1,10 @@
 #ifndef __FN_CPP_TYPE_H__
 #define __FN_CPP_TYPE_H__
 
+#include "BLI_index_mask.h"
 #include "BLI_string_ref.h"
 #include "BLI_utility_mixins.h"
 #include "BLI_vector.h"
-#include "BLI_index_mask.h"
 
 namespace FN {
 

@@ -2,8 +2,8 @@
 
 #include "BLI_array_cxx.h"
 
-#include "particle_action.hpp"
 #include "force_interface.hpp"
+#include "particle_action.hpp"
 
 #include "FN_multi_function.h"
 #include "FN_multi_function_common_contexts.h"

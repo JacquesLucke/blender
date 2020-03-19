@@ -2,10 +2,10 @@
 #include "FN_multi_function_network_optimization.h"
 #include "FN_multi_functions.h"
 
-#include "BLI_stack_cxx.h"
 #include "BLI_multi_map.h"
 #include "BLI_rand.h"
 #include "BLI_rand_cxx.h"
+#include "BLI_stack_cxx.h"
 
 namespace FN {
 

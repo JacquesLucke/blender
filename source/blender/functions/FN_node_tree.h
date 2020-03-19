@@ -3,9 +3,9 @@
 
 #include "BKE_virtual_node_tree.h"
 
+#include "BLI_linear_allocated_vector.h"
 #include "BLI_map.h"
 #include "BLI_multi_map.h"
-#include "BLI_linear_allocated_vector.h"
 
 namespace FN {
 

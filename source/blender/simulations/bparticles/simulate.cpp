@@ -1,8 +1,8 @@
 
-#include "BLI_timeit.h"
 #include "BLI_array_cxx.h"
-#include "BLI_vector_adaptor.h"
 #include "BLI_parallel.h"
+#include "BLI_timeit.h"
+#include "BLI_vector_adaptor.h"
 
 #include "FN_cpp_type.h"
 

@@ -1,5 +1,5 @@
-#include "mappings.h"
 #include "builder.h"
+#include "mappings.h"
 
 #include "FN_multi_functions.h"
 #include "FN_node_tree_multi_function_network_generation.h"

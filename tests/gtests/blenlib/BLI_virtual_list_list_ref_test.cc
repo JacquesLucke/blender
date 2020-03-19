@@ -1,7 +1,7 @@
-#include "testing/testing.h"
 #include "BLI_virtual_list_list_ref.h"
-#include <vector>
+#include "testing/testing.h"
 #include <array>
+#include <vector>
 
 using namespace BLI;
 

@@ -1,14 +1,14 @@
 #ifndef __BKE_VIRTUAL_NODE_TREE_H__
 #define __BKE_VIRTUAL_NODE_TREE_H__
 
-#include "BLI_vector.h"
-#include "BLI_utility_mixins.h"
 #include "BLI_array_cxx.h"
-#include "BLI_string_ref.h"
-#include "BLI_string_map.h"
-#include "BLI_resource_collector.h"
-#include "BLI_string_multi_map.h"
 #include "BLI_linear_allocated_vector.h"
+#include "BLI_resource_collector.h"
+#include "BLI_string_map.h"
+#include "BLI_string_multi_map.h"
+#include "BLI_string_ref.h"
+#include "BLI_utility_mixins.h"
+#include "BLI_vector.h"
 
 #include "DNA_node_types.h"
 

@@ -22,10 +22,10 @@
 
 #pragma once
 
-#include "BLI_map.h"
 #include "BLI_array_ref.h"
-#include "BLI_vector.h"
 #include "BLI_linear_allocator.h"
+#include "BLI_map.h"
+#include "BLI_vector.h"
 
 namespace BLI {
 
