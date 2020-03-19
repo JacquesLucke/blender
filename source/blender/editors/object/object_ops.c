@@ -266,6 +266,8 @@ void ED_operatortypes_object(void)
 
   WM_operatortype_append(OBJECT_OT_voxel_remesh);
   WM_operatortype_append(OBJECT_OT_quadriflow_remesh);
+
+  WM_operatortype_append(OBJECT_OT_obj_import_test);
 }
 
 void ED_operatormacros_object(void)

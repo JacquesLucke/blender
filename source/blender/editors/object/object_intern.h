@@ -297,6 +297,9 @@ void OBJECT_OT_quadriflow_remesh(struct wmOperatorType *ot);
 void OBJECT_OT_data_transfer(struct wmOperatorType *ot);
 void OBJECT_OT_datalayout_transfer(struct wmOperatorType *ot);
 
+/* object_obj_import.cc */
+void OBJECT_OT_obj_import_test(struct wmOperatorType *ot);
+
 #ifdef __cplusplus
 }
 #endif
