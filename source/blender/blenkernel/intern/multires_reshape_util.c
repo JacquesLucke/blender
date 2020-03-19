@@ -26,9 +26,9 @@
 #include "MEM_guardedalloc.h"
 
 #include "DNA_mesh_types.h"
-#include "DNA_scene_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
+#include "DNA_scene_types.h"
 
 #include "BLI_task.h"
 
@@ -36,16 +36,16 @@
 #include "BKE_mesh_runtime.h"
 #include "BKE_multires.h"
 #include "BKE_subdiv.h"
-#include "BKE_subdiv_eval.h"
 #include "BKE_subdiv_ccg.h"
+#include "BKE_subdiv_eval.h"
 #include "BKE_subdiv_foreach.h"
 #include "BKE_subdiv_mesh.h"
 
 #include "DEG_depsgraph_query.h"
 
-/* -------------------------------------------------------------------- */
-/** \name Construct/destruct reshape context.
- * \{ */
+/* ================================================================================================
+ * Construct/destruct reshape context.
+ */
 
 /* Create subdivision surface descriptor which is configured for surface evaluation at a given
  * multires modifier. */
@@ -53,21 +53,21 @@ Subdiv *multires_reshape_create_subdiv(Depsgraph *depsgraph,
                                        /*const*/ Object *object,
                                        const MultiresModifierData *mmd)
 {
-  Mesh *coarse_mesh;
+  Mesh *base_mesh;
 
   if (depsgraph != NULL) {
     Scene *scene_eval = DEG_get_evaluated_scene(depsgraph);
     Object *object_eval = DEG_get_evaluated_object(depsgraph, object);
-    coarse_mesh = mesh_get_eval_deform(depsgraph, scene_eval, object_eval, &CD_MASK_BAREMESH);
+    base_mesh = mesh_get_eval_deform(depsgraph, scene_eval, object_eval, &CD_MASK_BAREMESH);
   }
   else {
-    coarse_mesh = (Mesh *)object->data;
+    base_mesh = (Mesh *)object->data;
   }
 
   SubdivSettings subdiv_settings;
   BKE_multires_subdiv_settings_init(&subdiv_settings, mmd);
-  Subdiv *subdiv = BKE_subdiv_new_from_mesh(&subdiv_settings, coarse_mesh);
-  if (!BKE_subdiv_eval_update_from_mesh(subdiv, coarse_mesh, NULL)) {
+  Subdiv *subdiv = BKE_subdiv_new_from_mesh(&subdiv_settings, base_mesh);
+  if (!BKE_subdiv_eval_update_from_mesh(subdiv, base_mesh, NULL)) {
     BKE_subdiv_free(subdiv);
     return NULL;
   }
@@ -163,6 +163,10 @@ bool multires_reshape_context_create_from_object(MultiresReshapeContext *reshape
   Scene *scene_eval = DEG_get_evaluated_scene(depsgraph);
   Mesh *base_mesh = (Mesh *)object->data;
 
+  reshape_context->depsgraph = depsgraph;
+  reshape_context->object = object;
+  reshape_context->mmd = mmd;
+
   reshape_context->base_mesh = base_mesh;
 
   reshape_context->subdiv = multires_reshape_create_subdiv(depsgraph, object, mmd);
@@ -214,6 +218,7 @@ bool multires_reshape_context_create_from_subdivide(MultiresReshapeContext *resh
 
   Mesh *base_mesh = (Mesh *)object->data;
 
+  reshape_context->mmd = mmd;
   reshape_context->base_mesh = base_mesh;
 
   reshape_context->subdiv = multires_reshape_create_subdiv(NULL, object, mmd);
@@ -269,11 +274,9 @@ void multires_reshape_context_free(MultiresReshapeContext *reshape_context)
   MEM_freeN(reshape_context->grid_to_face_index);
 }
 
-/** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name Helper accessors.
- * \{ */
+/* ================================================================================================
+ * Helper accessors.
+ */
 
 /* For the given grid index get index of face it was created for. */
 int multires_reshape_grid_to_face_index(const MultiresReshapeContext *reshape_context,
@@ -303,8 +306,8 @@ int multires_reshape_grid_to_corner(const MultiresReshapeContext *reshape_contex
 
 bool multires_reshape_is_quad_face(const MultiresReshapeContext *reshape_context, int face_index)
 {
-  const MPoly *coarse_poly = &reshape_context->base_mesh->mpoly[face_index];
-  return (coarse_poly->totloop == 4);
+  const MPoly *base_poly = &reshape_context->base_mesh->mpoly[face_index];
+  return (base_poly->totloop == 4);
 }
 
 /* For the given grid index get index of corresponding ptex face. */
@@ -447,11 +450,9 @@ ReshapeConstGridElement multires_reshape_orig_grid_element_for_grid_coord(
   return grid_element;
 }
 
-/** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name Sample limit surface of the base mesh.
- * \{ */
+/* ================================================================================================
+ * Sample limit surface of the base mesh.
+ */
 
 void multires_reshape_evaluate_limit_at_grid(const MultiresReshapeContext *reshape_context,
                                              const GridCoord *grid_coord,
@@ -471,11 +472,9 @@ void multires_reshape_evaluate_limit_at_grid(const MultiresReshapeContext *resha
       reshape_context, face_index, corner, dPdu, dPdv, r_tangent_matrix);
 }
 
-/** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name Custom data preparation.
- * \{ */
+/* ================================================================================================
+ * Custom data preparation.
+ */
 
 static void allocate_displacement_grid(MDisps *displacement_grid, const int level)
 {
@@ -537,11 +536,9 @@ void multires_reshape_ensure_grids(Mesh *mesh, const int level)
   ensure_mask_grids(mesh, level);
 }
 
-/** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name Displacement, space conversion.
- * \{ */
+/* ================================================================================================
+ * Displacement, space conversion.
+ */
 
 void multires_reshape_store_original_grids(MultiresReshapeContext *reshape_context)
 {
@@ -678,13 +675,10 @@ void multires_reshape_object_grids_to_tangent_displacement(
                           NULL);
 }
 
-/** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name MDISPS.
- * \{ */
-
-/* TODO(sergey): Make foreach_grid_coordinate more accessible and move this functionality to
+/* ================================================================================================
+ * MDISPS
+ *
+ * TODO(sergey): Make foreach_grid_coordinate more accessible and move this functionality to
  * own file. */
 
 static void assign_final_coords_from_mdisps(const MultiresReshapeContext *reshape_context,
@@ -735,5 +729,3 @@ void multires_reshape_assign_final_coords_from_orig_mdisps(
   foreach_grid_coordinate(
       reshape_context, reshape_context->top.level, assign_final_coords_from_orig_mdisps, NULL);
 }
-
-/** \} */

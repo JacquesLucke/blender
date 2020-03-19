@@ -21,41 +21,41 @@
  * \ingroup bke
  */
 
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stddef.h>
 #include <math.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "CLG_log.h"
 
 #include "MEM_guardedalloc.h"
 
 #include "BLI_blenlib.h"
-#include "BLI_utildefines.h"
 #include "BLI_math_vector.h"
 #include "BLI_polyfill_2d.h"
 #include "BLI_string_utils.h"
+#include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
 
-#include "IMB_imbuf_types.h"
 #include "IMB_imbuf.h"
+#include "IMB_imbuf_types.h"
 
 #include "DNA_anim_types.h"
-#include "DNA_meshdata_types.h"
-#include "DNA_material_types.h"
 #include "DNA_gpencil_types.h"
-#include "DNA_userdef_types.h"
+#include "DNA_material_types.h"
+#include "DNA_meshdata_types.h"
+#include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_space_types.h"
-#include "DNA_object_types.h"
+#include "DNA_userdef_types.h"
 
 #include "BKE_action.h"
 #include "BKE_animsys.h"
-#include "BKE_curve.h"
 #include "BKE_collection.h"
 #include "BKE_colortools.h"
+#include "BKE_curve.h"
 #include "BKE_deform.h"
 #include "BKE_gpencil.h"
 #include "BKE_icons.h"
@@ -1118,6 +1118,32 @@ void BKE_gpencil_layer_mask_sort_all(bGPdata *gpd)
   LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
     BKE_gpencil_layer_mask_sort(gpd, gpl);
   }
+}
+
+static int gpencil_cb_cmp_frame(void *thunk, const void *a, const void *b)
+{
+  const bGPDframe *frame_a = a;
+  const bGPDframe *frame_b = b;
+
+  if (frame_a->framenum < frame_b->framenum) {
+    return -1;
+  }
+  if (frame_a->framenum > frame_b->framenum) {
+    return 1;
+  }
+  if (thunk != NULL) {
+    *((bool *)thunk) = true;
+  }
+  /* Sort selected last. */
+  if ((frame_a->flag & GP_FRAME_SELECT) && ((frame_b->flag & GP_FRAME_SELECT) == 0)) {
+    return 1;
+  }
+  return 0;
+}
+
+void BKE_gpencil_layer_frames_sort(struct bGPDlayer *gpl, bool *r_has_duplicate_frames)
+{
+  BLI_listbase_sort_r(&gpl->frames, gpencil_cb_cmp_frame, r_has_duplicate_frames);
 }
 
 /* get the active gp-layer for editing */
@@ -4008,42 +4034,35 @@ void BKE_gpencil_update_layer_parent(const Depsgraph *depsgraph, Object *ob)
   }
 
   bGPdata *gpd = (bGPdata *)ob->data;
-  bGPDspoint *pt;
-  int i;
-  float diff_mat[4][4];
   float cur_mat[4][4];
 
   LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
     if ((gpl->parent != NULL) && (gpl->actframe != NULL)) {
-      Object *ob_eval = DEG_get_evaluated_object(depsgraph, gpl->parent);
-
+      Object *ob_parent = DEG_get_evaluated_object(depsgraph, gpl->parent);
       /* calculate new matrix */
       if ((gpl->partype == PAROBJECT) || (gpl->partype == PARSKEL)) {
-        invert_m4_m4(cur_mat, ob_eval->obmat);
+        copy_m4_m4(cur_mat, ob_parent->obmat);
       }
       else if (gpl->partype == PARBONE) {
-        bPoseChannel *pchan = BKE_pose_channel_find_name(ob_eval->pose, gpl->parsubstr);
-        if (pchan) {
-          float tmp_mat[4][4];
-          mul_m4_m4m4(tmp_mat, ob_eval->obmat, pchan->pose_mat);
-          invert_m4_m4(cur_mat, tmp_mat);
+        bPoseChannel *pchan = BKE_pose_channel_find_name(ob_parent->pose, gpl->parsubstr);
+        if (pchan != NULL) {
+          copy_m4_m4(cur_mat, ob->imat);
+          mul_m4_m4m4(cur_mat, ob_parent->obmat, pchan->pose_mat);
+        }
+        else {
+          unit_m4(cur_mat);
         }
       }
       /* only redo if any change */
       if (!equals_m4m4(gpl->inverse, cur_mat)) {
-
-        /* first apply current transformation to all strokes */
-        BKE_gpencil_parent_matrix_get(depsgraph, ob, gpl, diff_mat);
-        /* undo local object */
-        sub_v3_v3(diff_mat[3], ob->obmat[3]);
-
         LISTBASE_FOREACH (bGPDstroke *, gps, &gpl->actframe->strokes) {
+          bGPDspoint *pt;
+          int i;
           for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
-            mul_m4_v3(diff_mat, &pt->x);
+            mul_m4_v3(gpl->inverse, &pt->x);
+            mul_m4_v3(cur_mat, &pt->x);
           }
         }
-        /* set new parent matrix */
-        copy_m4_m4(gpl->inverse, cur_mat);
       }
     }
   }
