@@ -420,12 +420,86 @@ class NODE_OT_export_group_template(Operator):
         save_group_as_json(group, file_path)
         return {'FINISHED'}
 
+def property_has_given_value(owner, prop_name, value):
+    prop = owner.bl_rna.properties[prop_name]
+    if prop.type in {'BOOLEAN', 'INT', 'STRING', 'ENUM'}:
+        return getattr(owner, prop_name) == value
+    elif prop.type == 'FLOAT':
+        if prop.array_length <= 1:
+            return getattr(owner, prop_name) == value
+        else:
+            return tuple(getattr(owner, prop_name)) == tuple(value)
+    else:
+        assert False
+
+def group_matches_json_data(group, json_data):
+    if len(group.nodes) != len(json_data["nodes"]):
+        return False
+    if len(group.links) != len(json_data["links"]):
+        return False
+    if len(group.inputs) != len(json_data["inputs"]):
+        return False
+    if len(group.outputs) != len(json_data["outputs"]):
+        return False
+
+    for node_data in json_data["nodes"]:
+        node = group.nodes.get(node_data["name"])
+        if node is None:
+            return False
+        if node.bl_idname != node_data["bl_idname"]:
+            return False
+
+        if node.bl_idname in {"NodeGroupInput", "NodeGroupOutput"}:
+            pass
+        elif node.bl_idname == "SimulationNodeGroup":
+            # TODO
+            ...
+        else:
+            for key, value in node_data["properties"].items():
+                if getattr(node, key) != value:
+                    return False
+            if len(node.inputs) != len(node_data["inputs"]):
+                return False
+            if len(node.outputs) != len(node_data["outputs"]):
+                return False
+            for sock_data, sock in zip(node_data["inputs"], node.inputs):
+                if hasattr(sock, "default_value"):
+                    if not property_has_given_value(sock, "default_value", sock_data["default_value"]):
+                        return False
+
+    for sock_data, sock in zip(json_data["inputs"], group.inputs):
+        if sock_data["bl_socket_idname"] != sock.bl_socket_idname:
+            return False
+        if sock_data["name"] != sock.name:
+            return False
+
+    for sock_data, sock in zip(json_data["outputs"], group.outputs):
+        if sock_data["bl_socket_idname"] != sock.bl_socket_idname:
+            return False
+        if sock_data["name"] != sock.name:
+            return False
+
+    link_cache = set()
+    for link in group.links:
+        link_cache.add((
+            link.from_node.name, list(link.from_node.outputs).index(link.from_socket),
+            link.to_node.name, list(link.to_node.inputs).index(link.to_socket)))
+    for link_data in json_data["links"]:
+        if (link_data["from"][0], link_data["from"][2], link_data["to"][0], link_data["to"][2]) not in link_cache:
+            return False
+
+    return True
+
 def get_or_create_node_group(directory, group_name):
     main_file_path = os.path.join(directory, group_name + ".json")
 
     with open(main_file_path, "r") as f:
         json_str = f.read()
     json_data = json.loads(json_str)
+
+    for potential_group in bpy.data.node_groups:
+        if group_matches_json_data(potential_group, json_data):
+            return potential_group
 
     group = bpy.data.node_groups.new(json_data["name"], "SimulationNodeTree")
 
