@@ -7,6 +7,7 @@
 #include "BKE_mesh.h"
 #include "BKE_object.h"
 #include "BLI_set.h"
+#include "BLI_string.h"
 #include "BLI_string_ref.h"
 #include "BLI_vector.h"
 #include "DNA_mesh_types.h"
@@ -129,10 +130,9 @@ struct ObjFileSegment {
 };
 
 struct ObjFileSegment_mtllib : public ObjFileSegment {
-  std::string file_name;
+  Vector<std::string> file_names;
 
-  ObjFileSegment_mtllib(StringRef file_name)
-      : ObjFileSegment(ObjFileSegmentType::mtllib), file_name(file_name)
+  ObjFileSegment_mtllib() : ObjFileSegment(ObjFileSegmentType::mtllib)
   {
   }
 };
@@ -228,6 +228,11 @@ static bool is_not_newline(char c)
   return c != '\n';
 }
 
+static bool is_newline(char c)
+{
+  return c == '\n';
+}
+
 static std::pair<uint, uint> find_next_word_in_line(StringRef str)
 {
   uint offset = 0;
@@ -249,74 +254,201 @@ static std::pair<uint, uint> find_next_word_in_line(StringRef str)
   return {offset, length};
 }
 
+class StringRefStream {
+ private:
+  const char *m_current;
+  const char *m_end;
+
+ public:
+  StringRefStream(StringRef str) : m_current(str.begin()), m_end(str.end())
+  {
+  }
+
+  bool has_remaining_chars() const
+  {
+    return m_current < m_end;
+  }
+
+  char peek_next() const
+  {
+    BLI_assert(this->has_remaining_chars());
+    return m_current[0];
+  }
+
+  StringRef remaining_str() const
+  {
+    return StringRef(m_current, m_end - m_current);
+  }
+
+  bool startswith(StringRef other) const
+  {
+    return this->remaining_str().startswith(other);
+  }
+
+  bool startswith_lower_ascii(StringRef other) const
+  {
+    return this->remaining_str().startswith_lower_ascii(other);
+  }
+
+  bool startswith_and_forward_over(StringRef other)
+  {
+    if (this->startswith(other)) {
+      m_current += other.size();
+      return true;
+    }
+    else {
+      return false;
+    }
+  }
+
+  /* Might not end with a newline character. */
+  StringRef extract_line()
+  {
+    const char *start = m_current;
+    while (m_current < m_end && *m_current != '\n') {
+      m_current++;
+    }
+    if (m_current < m_end) {
+      m_current++;
+    }
+    return StringRef(start, m_current - start);
+  }
+
+  StringRef extract_until(char c)
+  {
+    const char *start = m_current;
+    while (m_current < m_end && *m_current != c) {
+      m_current++;
+    }
+    return StringRef(start, m_current - start);
+  }
+
+  StringRef extract_quoted_string(char quote)
+  {
+    BLI_assert(this->peek_next() == quote);
+    m_current++;
+    StringRef str = this->extract_until(quote);
+    if (m_current < m_end) {
+      m_current++;
+    }
+    return str;
+  }
+
+  void forward_over_whitespace()
+  {
+    while (m_current < m_end && is_whitespace(*m_current)) {
+      m_current++;
+    }
+  }
+
+  void forward(uint i)
+  {
+    m_current += i;
+    BLI_assert(m_current <= m_end);
+  }
+
+  StringRef extract_including_ext(StringRef ext)
+  {
+    const char *start = m_current;
+    while (m_current < m_end) {
+      if (this->startswith_lower_ascii(ext)) {
+        m_current += ext.size();
+        if (m_current == m_end || ELEM(*m_current, ' ', '\t', '\r', '\n')) {
+          return StringRef(start, m_current - start);
+        }
+      }
+      else {
+        m_current++;
+      }
+    }
+    return "";
+  }
+};
+
+static void parse_file_names(StringRef str, StringRef ext, Vector<std::string> &r_names)
+{
+  if (str.endswith('\n')) {
+    str = str.drop_suffix("\n");
+  }
+  StringRefStream stream(str);
+  while (true) {
+    stream.forward_over_whitespace();
+    if (!stream.has_remaining_chars()) {
+      return;
+    }
+    if (stream.peek_next() == '"') {
+      StringRef name = stream.extract_quoted_string('"');
+      r_names.append(name);
+    }
+    else {
+      StringRef name = stream.extract_including_ext(ext);
+      r_names.append(name);
+    }
+  }
+}
+
 static std::unique_ptr<ObjFileSegments> parse_obj_lines(StringRef orig_str)
 {
-  uint offset = 0;
-  uint total_size = orig_str.size();
+  StringRefStream stream(orig_str);
 
   auto segments = BLI::make_unique<ObjFileSegments>();
 
-  while (offset < total_size) {
-    const char current_char = orig_str[offset];
-    switch (current_char) {
+  while (stream.has_remaining_chars()) {
+    StringRef line = stream.extract_line();
+    if (line.size() == 0) {
+      continue;
+    }
+    switch (line[0]) {
       case ' ':
       case '\t':
       case '\r': {
-        offset++;
         break;
       }
       case '#': {
-        offset += count_while(orig_str.drop_prefix(offset), is_not_newline) + 1;
         break;
       }
       case 'm': {
-        StringRef str = orig_str.drop_prefix(offset);
-        if (str.startswith("mtllib")) {
-          str = str.drop_prefix("mtllib");
-          std::pair<uint, uint> word_span = find_next_word_in_line(str);
-          StringRef file_name = str.substr(word_span.first, word_span.second);
-          auto segment = BLI::make_unique<ObjFileSegment_mtllib>(file_name);
-          segments->segments.append(std::move(segment));
-          offset += strlen("mtllib") + word_span.first + word_span.second;
+        if (line.startswith("mtllib")) {
+          auto segment = BLI::make_unique<ObjFileSegment_mtllib>();
+          parse_file_names(line.drop_prefix("mtllib"), ".mtl", segment->file_names);
+          segment->file_names.as_ref().print_as_lines("File Names");
         }
-
-        offset += count_while(orig_str.drop_prefix(offset), is_not_newline) + 1;
         break;
       }
       case 'o': {
-        StringRef str = orig_str.drop_prefix(offset + strlen("o"));
-        std::pair<uint, uint> word_span = find_next_word_in_line(str);
-        StringRef object_name = str.substr(word_span.first, word_span.second);
-        auto segment = BLI::make_unique<ObjFileSegment_o>(object_name);
-        segments->segments.append(std::move(segment));
-        offset += strlen("0") + word_span.first + word_span.second;
+        // StringRef str = orig_str.drop_prefix(offset + strlen("o"));
+        // std::pair<uint, uint> word_span = find_next_word_in_line(str);
+        // StringRef object_name = str.substr(word_span.first, word_span.second);
+        // auto segment = BLI::make_unique<ObjFileSegment_o>(object_name);
+        // segments->segments.append(std::move(segment));
+        // offset += strlen("0") + word_span.first + word_span.second;
 
-        offset += count_while(orig_str.drop_prefix(offset), is_not_newline) + 1;
+        // offset += count_while(orig_str.drop_prefix(offset), is_not_newline) + 1;
         break;
       }
       case 'v': {
-        StringRef str = orig_str.drop_prefix(offset);
-        if (str.startswith("v ")) {
-          str = str.drop_prefix(1);
+        // StringRef str = orig_str.drop_prefix(offset);
+        // if (str.startswith("v ")) {
+        //   str = str.drop_prefix(1);
 
-          std::pair<uint, uint> span1 = find_next_word_in_line(str);
-          StringRef str1 = str.substr(span1.first, span1.second);
-          str = str.drop_prefix(span1.first + span1.second);
+        //   std::pair<uint, uint> span1 = find_next_word_in_line(str);
+        //   StringRef str1 = str.substr(span1.first, span1.second);
+        //   str = str.drop_prefix(span1.first + span1.second);
 
-          std::pair<uint, uint> span2 = find_next_word_in_line(str);
-          StringRef str2 = str.substr(span2.first, span2.second);
-          str = str.drop_prefix(span2.first + span2.second);
+        //   std::pair<uint, uint> span2 = find_next_word_in_line(str);
+        //   StringRef str2 = str.substr(span2.first, span2.second);
+        //   str = str.drop_prefix(span2.first + span2.second);
 
-          std::pair<uint, uint> span3 = find_next_word_in_line(str);
-          StringRef str3 = str.substr(span3.first, span3.second);
-        }
-        else if (str.startswith("vt")) {
-          /* TODO */
-        }
-        else if (str.startswith("vn")) {
-          /* TODO */
-        }
-        offset += count_while(orig_str.drop_prefix(offset), is_not_newline) + 1;
+        //   std::pair<uint, uint> span3 = find_next_word_in_line(str);
+        //   StringRef str3 = str.substr(span3.first, span3.second);
+        // }
+        // else if (str.startswith("vt")) {
+        //   /* TODO */
+        // }
+        // else if (str.startswith("vn")) {
+        //   /* TODO */
+        // }
+        // offset += count_while(orig_str.drop_prefix(offset), is_not_newline) + 1;
         break;
       }
       default: {

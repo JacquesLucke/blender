@@ -33,6 +33,7 @@
 #include <string>
 
 #include "BLI_array_ref.h"
+#include "BLI_string.h"
 #include "BLI_utildefines.h"
 
 namespace BLI {
@@ -104,11 +105,14 @@ class StringRefBase {
    * Returns true when the string begins with the given prefix. Otherwise false.
    */
   bool startswith(StringRef prefix) const;
+  bool startswith(char c) const;
+  bool startswith_lower_ascii(StringRef prefix) const;
 
   /**
    * Returns true when the string ends with the given suffix. Otherwise false.
    */
   bool endswith(StringRef suffix) const;
+  bool endswith(char c) const;
 
   StringRef substr(uint start, uint size) const;
 };
@@ -182,6 +186,18 @@ class StringRef : public StringRefBase {
     BLI_assert(this->startswith(prefix));
     return this->drop_prefix(prefix.size());
   }
+
+  StringRef drop_suffix(uint n) const
+  {
+    BLI_assert(n < m_size);
+    return StringRef(m_data, m_size - n);
+  }
+
+  StringRef drop_suffix(StringRef suffix) const
+  {
+    BLI_assert(this->endswith(suffix));
+    return this->drop_suffix(suffix.size());
+  }
 };
 
 /* More inline functions
@@ -230,6 +246,42 @@ inline bool StringRefBase::startswith(StringRef prefix) const
   return true;
 }
 
+inline char tolower_ascii(char c)
+{
+  if (c >= 'A' && c <= 'Z') {
+    return c + ('a' - 'A');
+  }
+  return c;
+}
+
+inline bool StringRefBase::startswith_lower_ascii(StringRef prefix) const
+{
+#ifdef DEBUG
+  for (char c : prefix) {
+    char lower_c = tolower_ascii(c);
+    BLI_assert(c == lower_c);
+  }
+#endif
+  if (m_size < prefix.m_size) {
+    return false;
+  }
+  for (uint i = 0; i < prefix.m_size; i++) {
+    char c = tolower_ascii(m_data[i]);
+    if (c != prefix.m_data[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+inline bool StringRefBase::startswith(char c) const
+{
+  if (m_size == 0) {
+    return false;
+  }
+  return m_data[0] == c;
+}
+
 inline bool StringRefBase::endswith(StringRef suffix) const
 {
   if (m_size < suffix.m_size) {
@@ -242,6 +294,14 @@ inline bool StringRefBase::endswith(StringRef suffix) const
     }
   }
   return true;
+}
+
+inline bool StringRefBase::endswith(char c) const
+{
+  if (m_size == 0) {
+    return false;
+  }
+  return m_data[m_size - 1] == c;
 }
 
 inline StringRef StringRefBase::substr(uint start, uint size) const
