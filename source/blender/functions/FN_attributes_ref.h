@@ -5,18 +5,18 @@
 #include "FN_generic_array_ref.h"
 
 #include "BLI_array_cxx.h"
+#include "BLI_linear_allocator.h"
+#include "BLI_optional.h"
+#include "BLI_string_map.h"
 #include "BLI_vector.h"
 #include "BLI_vector_set.h"
-#include "BLI_string_map.h"
-#include "BLI_optional.h"
-#include "BLI_monotonic_allocator.h"
 
 namespace FN {
 
 using BLI::Array;
 using BLI::ArrayRef;
 using BLI::IndexRange;
-using BLI::MonotonicAllocator;
+using BLI::LinearAllocator;
 using BLI::MutableArrayRef;
 using BLI::Optional;
 using BLI::StringMap;
@@ -27,7 +27,7 @@ class AttributesInfo;
 
 class AttributesInfoBuilder : BLI::NonCopyable, BLI::NonMovable {
  private:
-  MonotonicAllocator<32> m_allocator;
+  LinearAllocator<> m_allocator;
   VectorSet<std::string> m_names;
   Vector<const CPPType *> m_types;
   Vector<void *> m_defaults;
@@ -47,7 +47,7 @@ class AttributesInfoBuilder : BLI::NonCopyable, BLI::NonMovable {
       m_types.append(&type);
       void *dst = m_allocator.allocate(type.size(), type.alignment());
       if (default_value == nullptr) {
-        type.construct_default(dst);
+        type.copy_to_uninitialized(type.default_value(), dst);
       }
       else {
         type.copy_to_uninitialized(default_value, dst);
@@ -100,7 +100,7 @@ class AttributesInfoBuilder : BLI::NonCopyable, BLI::NonMovable {
 
 class AttributesInfo : BLI::NonCopyable, BLI::NonMovable {
  private:
-  MonotonicAllocator<32> m_allocator;
+  LinearAllocator<> m_allocator;
   StringMap<int> m_index_by_name;
   Vector<std::string> m_name_by_index;
   Vector<const CPPType *> m_type_by_index;

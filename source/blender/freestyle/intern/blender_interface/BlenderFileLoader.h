@@ -21,6 +21,7 @@
  * \ingroup freestyle
  */
 
+/* clang-format off */
 #include <string.h>
 #include <float.h>
 
@@ -48,7 +49,7 @@ extern "C" {
 #include "render_types.h"
 
 #include "BKE_customdata.h"
-#include "BKE_library.h"
+#include "BKE_lib_id.h"
 #include "BKE_material.h"
 #include "BKE_mesh.h"
 #include "BKE_scene.h"
@@ -63,6 +64,7 @@ extern "C" {
 #ifdef WITH_CXX_GUARDEDALLOC
 #  include "MEM_guardedalloc.h"
 #endif
+/* clang-format on */
 
 namespace Freestyle {
 

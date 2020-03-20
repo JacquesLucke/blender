@@ -3,6 +3,7 @@
 
 #include "BKE_virtual_node_tree.h"
 
+#include "BLI_linear_allocated_vector.h"
 #include "BLI_map.h"
 #include "BLI_multi_map.h"
 
@@ -14,6 +15,7 @@ using BKE::VNode;
 using BKE::VOutputSocket;
 using BKE::VSocket;
 using BLI::ArrayRef;
+using BLI::LinearAllocatedVector;
 using BLI::Map;
 using BLI::MultiMap;
 using BLI::MutableArrayRef;
@@ -61,8 +63,8 @@ class FSocket : BLI::NonCopyable, BLI::NonMovable {
 
 class FInputSocket : public FSocket {
  private:
-  Vector<FOutputSocket *> m_linked_sockets;
-  Vector<FGroupInput *> m_linked_group_inputs;
+  LinearAllocatedVector<FOutputSocket *> m_linked_sockets;
+  LinearAllocatedVector<FGroupInput *> m_linked_group_inputs;
 
   friend FunctionTree;
 
@@ -76,7 +78,7 @@ class FInputSocket : public FSocket {
 
 class FOutputSocket : public FSocket {
  private:
-  Vector<FInputSocket *> m_linked_sockets;
+  LinearAllocatedVector<FInputSocket *> m_linked_sockets;
 
   friend FunctionTree;
 
@@ -89,7 +91,7 @@ class FGroupInput : BLI::NonCopyable, BLI::NonMovable {
  private:
   const VInputSocket *m_vsocket;
   FParentNode *m_parent;
-  Vector<FInputSocket *> m_linked_sockets;
+  LinearAllocatedVector<FInputSocket *> m_linked_sockets;
   uint m_id;
 
   friend FunctionTree;
@@ -106,8 +108,8 @@ class FNode : BLI::NonCopyable, BLI::NonMovable {
   const VNode *m_vnode;
   FParentNode *m_parent;
 
-  Vector<FInputSocket *> m_inputs;
-  Vector<FOutputSocket *> m_outputs;
+  LinearAllocatedVector<FInputSocket *> m_inputs;
+  LinearAllocatedVector<FOutputSocket *> m_outputs;
 
   /* Uniquely identifies this node in the inlined node tree. */
   uint m_id;
@@ -155,7 +157,7 @@ using BTreeVTreeMap = Map<bNodeTree *, std::unique_ptr<const VirtualNodeTree>>;
 
 class FunctionTree : BLI::NonCopyable, BLI::NonMovable {
  private:
-  BLI::MonotonicAllocator<> m_allocator;
+  BLI::LinearAllocator<> m_allocator;
   bNodeTree *m_btree;
   Vector<FNode *> m_node_by_id;
   Vector<FGroupInput *> m_group_inputs;

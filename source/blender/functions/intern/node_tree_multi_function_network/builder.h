@@ -1,7 +1,7 @@
 #pragma once
 
-#include "FN_node_tree_multi_function_network.h"
 #include "FN_multi_functions.h"
+#include "FN_node_tree_multi_function_network.h"
 
 #include "BLI_multi_map.h"
 
@@ -346,6 +346,12 @@ class FNodeMFBuilder : public CommonBuilderBase {
                                               Args &&... args)
   {
     const MultiFunction &base_fn = this->construct_fn<T>(std::forward<Args>(args)...);
+    this->set_vectorized_matching_fn(is_vectorized_prop_names, base_fn);
+  }
+
+  void set_vectorized_matching_fn(ArrayRef<const char *> is_vectorized_prop_names,
+                                  const MultiFunction &base_fn)
+  {
     const MultiFunction &fn = this->get_vectorized_function(base_fn, is_vectorized_prop_names);
     this->set_matching_fn(fn);
   }

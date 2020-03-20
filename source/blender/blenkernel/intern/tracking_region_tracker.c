@@ -28,14 +28,14 @@
 
 #include "DNA_movieclip_types.h"
 
-#include "BLI_utildefines.h"
 #include "BLI_threads.h"
+#include "BLI_utildefines.h"
 
-#include "BKE_tracking.h"
 #include "BKE_movieclip.h"
+#include "BKE_tracking.h"
 
-#include "IMB_imbuf_types.h"
 #include "IMB_imbuf.h"
+#include "IMB_imbuf_types.h"
 
 #include "libmv-capi.h"
 #include "tracking_private.h"
@@ -50,9 +50,7 @@ static void float_rgba_to_gray(const float *rgba,
                                float weight_green,
                                float weight_blue)
 {
-  int i;
-
-  for (i = 0; i < num_pixels; i++) {
+  for (int i = 0; i < num_pixels; i++) {
     const float *pixel = rgba + 4 * i;
 
     gray[i] = weight_red * pixel[0] + weight_green * pixel[1] + weight_blue * pixel[2];
@@ -66,9 +64,7 @@ static void uint8_rgba_to_float_gray(const unsigned char *rgba,
                                      float weight_green,
                                      float weight_blue)
 {
-  int i;
-
-  for (i = 0; i < num_pixels; i++) {
+  for (int i = 0; i < num_pixels; i++) {
     const unsigned char *pixel = rgba + i * 4;
 
     gray[i] = (weight_red * pixel[0] + weight_green * pixel[1] + weight_blue * pixel[2]) / 255.0f;

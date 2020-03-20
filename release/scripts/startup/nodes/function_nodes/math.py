@@ -4,7 +4,6 @@ from .. base import FunctionNode
 from .. node_builder import NodeBuilder
 
 def create_variadic_math_node(data_type, idname, label):
-
     class MathNode(bpy.types.Node, FunctionNode):
         bl_idname = idname
         bl_label = label

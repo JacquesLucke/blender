@@ -22,6 +22,7 @@
  * \brief Python Interpreter
  */
 
+/* clang-format off */
 #include <iostream>
 
 extern "C" {
@@ -39,7 +40,7 @@ extern "C" {
 
 #include "BKE_context.h"
 #include "BKE_global.h"
-#include "BKE_library.h"
+#include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_report.h"
 #include "BKE_text.h"
@@ -48,6 +49,7 @@ extern "C" {
 
 #include "bpy_capi_utils.h"
 }
+/* clang-format on */
 
 namespace Freestyle {
 

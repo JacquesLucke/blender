@@ -93,6 +93,8 @@ struct MANTA {
   int updateMeshStructures(FluidModifierData *mmd, int framenr);
   int updateFlipStructures(FluidModifierData *mmd, int framenr);
   int updateParticleStructures(FluidModifierData *mmd, int framenr);
+  int updateSmokeStructures(FluidModifierData *mmd, int framenr);
+  int updateNoiseStructures(FluidModifierData *mmd, int framenr);
   void updateVariables(FluidModifierData *mmd);
 
   // Bake cache
@@ -244,9 +246,9 @@ struct MANTA {
   {
     return mForceZ;
   }
-  inline int *getObstacle()
+  inline int *getFlags()
   {
-    return mObstacle;
+    return mFlags;
   }
   inline float *getNumObstacle()
   {
@@ -374,9 +376,17 @@ struct MANTA {
   {
     return mPhiIn;
   }
+  inline float *getPhiStaticIn()
+  {
+    return mPhiStaticIn;
+  }
   inline float *getPhiObsIn()
   {
     return mPhiObsIn;
+  }
+  inline float *getPhiObsStaticIn()
+  {
+    return mPhiObsStaticIn;
   }
   inline float *getPhiGuideIn()
   {
@@ -742,6 +752,8 @@ struct MANTA {
   bool mFlipFromFile;
   bool mMeshFromFile;
   bool mParticlesFromFile;
+  bool mSmokeFromFile;
+  bool mNoiseFromFile;
 
   int mResX;
   int mResY;
@@ -781,7 +793,7 @@ struct MANTA {
   float *mForceX;
   float *mForceY;
   float *mForceZ;
-  int *mObstacle;
+  int *mFlags;
   float *mNumObstacle;
   float *mNumGuide;
 
@@ -819,7 +831,9 @@ struct MANTA {
 
   // Liquid grids
   float *mPhiIn;
+  float *mPhiStaticIn;
   float *mPhiObsIn;
+  float *mPhiObsStaticIn;
   float *mPhiGuideIn;
   float *mPhiOutIn;
   float *mPhi;
@@ -852,8 +866,12 @@ struct MANTA {
   void updateMeshFromObj(const char *filename);
   void updateMeshFromUni(const char *filename);
   void updateParticlesFromUni(const char *filename, bool isSecondarySys, bool isVelData);
+  int updateGridFromUni(const char *filename, float *grid, bool isNoise);
+  int updateGridFromVDB(const char *filename, float *grid, bool isNoise);
+  int updateGridFromRaw(const char *filename, float *grid, bool isNoise);
   void updateMeshFromFile(const char *filename);
   void updateParticlesFromFile(const char *filename, bool isSecondarySys, bool isVelData);
+  int updateGridFromFile(const char *filename, float *grid, bool isNoise);
 };
 
 #endif

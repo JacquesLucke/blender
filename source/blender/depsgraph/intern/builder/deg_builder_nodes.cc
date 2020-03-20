@@ -47,16 +47,16 @@ extern "C" {
 #include "DNA_gpencil_types.h"
 #include "DNA_key_types.h"
 #include "DNA_light_types.h"
+#include "DNA_lightprobe_types.h"
 #include "DNA_linestyle_types.h"
-#include "DNA_material_types.h"
 #include "DNA_mask_types.h"
+#include "DNA_material_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meta_types.h"
 #include "DNA_movieclip_types.h"
 #include "DNA_node_types.h"
-#include "DNA_particle_types.h"
 #include "DNA_object_types.h"
-#include "DNA_lightprobe_types.h"
+#include "DNA_particle_types.h"
 #include "DNA_rigidbody_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_sequence_types.h"
@@ -66,8 +66,8 @@ extern "C" {
 #include "DNA_world_types.h"
 
 #include "BKE_action.h"
-#include "BKE_armature.h"
 #include "BKE_animsys.h"
+#include "BKE_armature.h"
 #include "BKE_cachefile.h"
 #include "BKE_collection.h"
 #include "BKE_constraint.h"
@@ -83,8 +83,8 @@ extern "C" {
 #include "BKE_layer.h"
 #include "BKE_mask.h"
 #include "BKE_material.h"
-#include "BKE_mesh.h"
 #include "BKE_mball.h"
+#include "BKE_mesh.h"
 #include "BKE_modifier.h"
 #include "BKE_movieclip.h"
 #include "BKE_node.h"
@@ -97,6 +97,7 @@ extern "C" {
 #include "BKE_shader_fx.h"
 #include "BKE_sound.h"
 #include "BKE_tracking.h"
+#include "BKE_volume.h"
 #include "BKE_world.h"
 
 #include "RNA_access.h"
@@ -108,12 +109,12 @@ extern "C" {
 
 #include "intern/builder/deg_builder.h"
 #include "intern/depsgraph.h"
+#include "intern/depsgraph_type.h"
 #include "intern/eval/deg_eval_copy_on_write.h"
 #include "intern/node/deg_node.h"
 #include "intern/node/deg_node_component.h"
 #include "intern/node/deg_node_id.h"
 #include "intern/node/deg_node_operation.h"
-#include "intern/depsgraph_type.h"
 
 namespace DEG {
 
@@ -319,6 +320,18 @@ void DepsgraphNodeBuilder::begin_build()
    * them for new ID nodes. */
   id_info_hash_ = BLI_ghash_ptr_new("Depsgraph id hash");
   for (IDNode *id_node : graph_->id_nodes) {
+    /* It is possible that the ID does not need to have CoW version in which case id_cow is the
+     * same as id_orig. Additionally, such ID might have been removed, which makes the check
+     * for whether id_cow is expanded to access freed memory. In order to deal with this we
+     * check whether CoW is needed based on a scalar value which does not lead to access of
+     * possibly deleted memory.
+     * Additionally, this saves some space in the map by skipping mapping for datablocks which
+     * do not need CoW, */
+    if (!deg_copy_on_write_is_needed(id_node->id_type)) {
+      id_node->id_cow = nullptr;
+      continue;
+    }
+
     IDInfo *id_info = (IDInfo *)MEM_mallocN(sizeof(IDInfo), "depsgraph id info");
     if (deg_copy_on_write_is_expanded(id_node->id_cow) && id_node->id_orig != id_node->id_cow) {
       id_info->id_cow = id_node->id_cow;
@@ -443,6 +456,9 @@ void DepsgraphNodeBuilder::build_id(ID *id)
     case ID_CU:
     case ID_MB:
     case ID_LT:
+    case ID_HA:
+    case ID_PT:
+    case ID_VO:
       /* TODO(sergey): Get visibility from a "parent" somehow.
        *
        * NOTE: Similarly to above, we don't want false-positives on
@@ -624,7 +640,9 @@ void DepsgraphNodeBuilder::build_object(int base_index,
     is_parent_collection_visible_ = is_visible;
     build_collection(nullptr, object->instance_collection);
     is_parent_collection_visible_ = is_current_parent_collection_visible;
-    add_operation_node(&object->id, NodeType::DUPLI, OperationCode::DUPLI);
+    OperationNode *op_node = add_operation_node(
+        &object->id, NodeType::DUPLI, OperationCode::DUPLI);
+    op_node->flag |= OperationFlag::DEPSOP_FLAG_PINNED;
   }
   /* Synchronization back to original object. */
   add_operation_node(&object->id,
@@ -686,6 +704,9 @@ void DepsgraphNodeBuilder::build_object_data(Object *object, bool is_object_visi
     case OB_MBALL:
     case OB_LATTICE:
     case OB_GPENCIL:
+    case OB_HAIR:
+    case OB_POINTCLOUD:
+    case OB_VOLUME:
       build_object_data_geometry(object, is_object_visible);
       break;
     case OB_ARMATURE:
@@ -717,9 +738,9 @@ void DepsgraphNodeBuilder::build_object_data(Object *object, bool is_object_visi
     }
   }
   /* Materials. */
-  Material ***materials_ptr = BKE_object_material_array(object);
+  Material ***materials_ptr = BKE_object_material_array_p(object);
   if (materials_ptr != nullptr) {
-    short *num_materials_ptr = BKE_object_material_num(object);
+    short *num_materials_ptr = BKE_object_material_len_p(object);
     build_materials(*materials_ptr, *num_materials_ptr);
   }
 }
@@ -895,7 +916,7 @@ void DepsgraphNodeBuilder::build_animation_images(ID *id)
   if (BKE_image_user_id_has_animation(id)) {
     ID *id_cow = get_cow_id(id);
     add_operation_node(id,
-                       NodeType::ANIMATION,
+                       NodeType::IMAGE_ANIMATION,
                        OperationCode::IMAGE_ANIMATION,
                        function_bind(BKE_image_user_id_eval_animation, _1, id_cow));
   }
@@ -989,6 +1010,12 @@ void DepsgraphNodeBuilder::build_parameters(ID *id)
   /* Explicit exit operation. */
   op_node = add_operation_node(id, NodeType::PARAMETERS, OperationCode::PARAMETERS_EXIT);
   op_node->set_as_exit();
+}
+
+void DepsgraphNodeBuilder::build_dimensions(Object *object)
+{
+  /* Object dimensions (bounding box) node. Will depend on both geometry and transform. */
+  add_operation_node(&object->id, NodeType::PARAMETERS, OperationCode::DIMENSIONS);
 }
 
 /* Recursively build graph for world */
@@ -1224,6 +1251,7 @@ void DepsgraphNodeBuilder::build_object_data_geometry(Object *object, bool is_ob
   build_object_pointcache(object);
   /* Geometry. */
   build_object_data_geometry_datablock((ID *)object->data, is_object_visible);
+  build_dimensions(object);
   /* Batch cache. */
   add_operation_node(&object->id,
                      NodeType::BATCH_CACHE,
@@ -1301,7 +1329,27 @@ void DepsgraphNodeBuilder::build_object_data_geometry_datablock(ID *obdata, bool
           obdata,
           NodeType::GEOMETRY,
           OperationCode::GEOMETRY_EVAL,
-          function_bind(BKE_gpencil_eval_geometry, _1, (bGPdata *)obdata_cow));
+          function_bind(BKE_gpencil_frame_active_set, _1, (bGPdata *)obdata_cow));
+      op_node->set_as_entry();
+      break;
+    }
+    case ID_HA: {
+      op_node = add_operation_node(obdata, NodeType::GEOMETRY, OperationCode::GEOMETRY_EVAL);
+      op_node->set_as_entry();
+      break;
+    }
+    case ID_PT: {
+      op_node = add_operation_node(obdata, NodeType::GEOMETRY, OperationCode::GEOMETRY_EVAL);
+      op_node->set_as_entry();
+      break;
+    }
+    case ID_VO: {
+      /* Volume frame update. */
+      op_node = add_operation_node(
+          obdata,
+          NodeType::GEOMETRY,
+          OperationCode::GEOMETRY_EVAL,
+          function_bind(BKE_volume_eval_geometry, _1, (Volume *)obdata_cow));
       op_node->set_as_entry();
       break;
     }

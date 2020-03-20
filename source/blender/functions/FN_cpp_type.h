@@ -1,10 +1,10 @@
 #ifndef __FN_CPP_TYPE_H__
 #define __FN_CPP_TYPE_H__
 
+#include "BLI_index_mask.h"
 #include "BLI_string_ref.h"
 #include "BLI_utility_mixins.h"
 #include "BLI_vector.h"
-#include "BLI_index_mask.h"
 
 namespace FN {
 
@@ -71,7 +71,8 @@ class CPPType {
           FillInitializedIndicesF fill_initialized_indices,
           FillUninitializedF fill_uninitialized,
           FillUninitializedIndicesF fill_uninitialized_indices,
-          uint32_t type_hash)
+          uint32_t type_hash,
+          const void *default_value)
       : m_size(size),
         m_alignment(alignment),
         m_trivially_destructible(trivially_destructible),
@@ -98,6 +99,7 @@ class CPPType {
         m_fill_uninitialized(fill_uninitialized),
         m_fill_uninitialized_indices(fill_uninitialized_indices),
         m_type_hash(type_hash),
+        m_default_value(default_value),
         m_name(name)
   {
     BLI_assert(is_power_of_2_i(m_alignment));
@@ -305,6 +307,11 @@ class CPPType {
     m_fill_uninitialized_indices(value, dst, index_mask);
   }
 
+  const void *default_value() const
+  {
+    return m_default_value;
+  }
+
   uint32_t type_hash() const
   {
     return m_type_hash;
@@ -357,10 +364,15 @@ class CPPType {
   FillUninitializedIndicesF m_fill_uninitialized_indices;
 
   uint32_t m_type_hash;
+  const void *m_default_value;
   std::string m_name;
 };
 
 template<typename T> const CPPType &CPP_TYPE();
+extern const CPPType &CPPType_float;
+extern const CPPType &CPPType_float3;
+extern const CPPType &CPPType_int32;
+extern const CPPType &CPPType_string;
 
 }  // namespace FN
 

@@ -23,8 +23,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "BLI_utildefines.h"
 #include "BLI_math.h"
+#include "BLI_utildefines.h"
 
 #include "GPU_immediate.h"
 #include "GPU_immediate_util.h"
@@ -314,6 +314,11 @@ static void imm_draw_circle_3D(
 void imm_draw_circle_wire_3d(uint pos, float x, float y, float rad, int nsegments)
 {
   imm_draw_circle_3D(GPU_PRIM_LINE_LOOP, pos, x, y, rad, nsegments);
+}
+
+void imm_draw_circle_dashed_3d(uint pos, float x, float y, float rad, int nsegments)
+{
+  imm_draw_circle_3D(GPU_PRIM_LINES, pos, x, y, rad, nsegments / 2);
 }
 
 void imm_draw_circle_fill_3d(uint pos, float x, float y, float rad, int nsegments)

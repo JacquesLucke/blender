@@ -36,9 +36,9 @@
 #include "DNA_space_types.h"
 #include "DNA_world_types.h"
 
-#include "BLI_utildefines.h"
 #include "BLI_listbase.h"
 #include "BLI_math_vector.h"
+#include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
 
@@ -51,7 +51,7 @@
 #include "BKE_global.h"
 #include "BKE_image.h"
 #include "BKE_layer.h"
-#include "BKE_library.h"
+#include "BKE_lib_id.h"
 #include "BKE_linestyle.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
@@ -76,10 +76,10 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
-#include "ED_object.h"
 #include "ED_curve.h"
 #include "ED_mesh.h"
 #include "ED_node.h"
+#include "ED_object.h"
 #include "ED_render.h"
 #include "ED_scene.h"
 #include "ED_screen.h"
@@ -217,13 +217,38 @@ static int material_slot_assign_exec(bContext *C, wmOperator *UNUSED(op))
   View3D *v3d = CTX_wm_view3d(C);
   bool changed_multi = false;
 
+  Object *obact = CTX_data_active_object(C);
+  const Material *mat_active = obact ? BKE_object_material_get(obact, obact->actcol) : NULL;
+
   uint objects_len = 0;
   Object **objects = object_array_for_shading(C, &objects_len);
   for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
     Object *ob = objects[ob_index];
-    if (ob->actcol <= 0) {
+    short mat_nr_active = -1;
+
+    if (ob->totcol == 0) {
       continue;
     }
+    if (obact && (mat_active == BKE_object_material_get(ob, obact->actcol))) {
+      /* Avoid searching since there may be multiple slots with the same material.
+       * For the active object or duplicates: match the material slot index first. */
+      mat_nr_active = obact->actcol - 1;
+    }
+    else {
+      /* Find the first matching material.
+       * Note: there may be multiple but that's not a common use case. */
+      for (short i = 0; i < ob->totcol; i++) {
+        const Material *mat = BKE_object_material_get(ob, i + 1);
+        if (mat_active == mat) {
+          mat_nr_active = i;
+          break;
+        }
+      }
+      if (mat_nr_active == -1) {
+        continue;
+      }
+    }
+
     bool changed = false;
     if (ob->type == OB_MESH) {
       BMEditMesh *em = BKE_editmesh_from_object(ob);
@@ -234,7 +259,7 @@ static int material_slot_assign_exec(bContext *C, wmOperator *UNUSED(op))
         BM_ITER_MESH (efa, &iter, em->bm, BM_FACES_OF_MESH) {
           if (BM_elem_flag_test(efa, BM_ELEM_SELECT)) {
             changed = true;
-            efa->mat_nr = ob->actcol - 1;
+            efa->mat_nr = mat_nr_active;
           }
         }
       }
@@ -247,7 +272,7 @@ static int material_slot_assign_exec(bContext *C, wmOperator *UNUSED(op))
         for (nu = nurbs->first; nu; nu = nu->next) {
           if (ED_curve_nurb_select_check(v3d, nu)) {
             changed = true;
-            nu->mat_nr = ob->actcol - 1;
+            nu->mat_nr = mat_nr_active;
           }
         }
       }
@@ -259,7 +284,7 @@ static int material_slot_assign_exec(bContext *C, wmOperator *UNUSED(op))
       if (ef && BKE_vfont_select_get(ob, &selstart, &selend)) {
         for (i = selstart; i <= selend; i++) {
           changed = true;
-          ef->textbufinfo[i].mat_nr = ob->actcol;
+          ef->textbufinfo[i].mat_nr = mat_nr_active + 1;
         }
       }
     }
@@ -441,12 +466,12 @@ static int material_slot_copy_exec(bContext *C, wmOperator *UNUSED(op))
   Object *ob = ED_object_context(C);
   Material ***matar;
 
-  if (!ob || !(matar = BKE_object_material_array(ob))) {
+  if (!ob || !(matar = BKE_object_material_array_p(ob))) {
     return OPERATOR_CANCELLED;
   }
 
   CTX_DATA_BEGIN (C, Object *, ob_iter, selected_editable_objects) {
-    if (ob != ob_iter && BKE_object_material_array(ob_iter)) {
+    if (ob != ob_iter && BKE_object_material_array_p(ob_iter)) {
       if (ob->data != ob_iter->data) {
         BKE_object_material_array_assign(bmain, ob_iter, matar, ob->totcol);
       }
@@ -513,7 +538,7 @@ static int material_slot_move_exec(bContext *C, wmOperator *op)
   slot_remap[index_pair[0]] = index_pair[1];
   slot_remap[index_pair[1]] = index_pair[0];
 
-  BKE_material_remap_object(ob, slot_remap);
+  BKE_object_material_remap(ob, slot_remap);
 
   MEM_freeN(slot_remap);
 
@@ -865,14 +890,14 @@ enum {
 
 static void light_cache_bake_tag_cache(Scene *scene, wmOperator *op)
 {
-  if (scene->eevee.light_cache != NULL) {
+  if (scene->eevee.light_cache_data != NULL) {
     int subset = RNA_enum_get(op->ptr, "subset");
     switch (subset) {
       case LIGHTCACHE_SUBSET_ALL:
-        scene->eevee.light_cache->flag |= LIGHTCACHE_UPDATE_GRID | LIGHTCACHE_UPDATE_CUBE;
+        scene->eevee.light_cache_data->flag |= LIGHTCACHE_UPDATE_GRID | LIGHTCACHE_UPDATE_CUBE;
         break;
       case LIGHTCACHE_SUBSET_CUBE:
-        scene->eevee.light_cache->flag |= LIGHTCACHE_UPDATE_CUBE;
+        scene->eevee.light_cache_data->flag |= LIGHTCACHE_UPDATE_CUBE;
         break;
       case LIGHTCACHE_SUBSET_DIRTY:
         /* Leave tag untouched. */
@@ -893,7 +918,7 @@ static int light_cache_bake_modal(bContext *C, wmOperator *op, const wmEvent *ev
 
   /* running render */
   switch (event->type) {
-    case ESCKEY:
+    case EVT_ESCKEY:
       return OPERATOR_RUNNING_MODAL;
   }
   return OPERATOR_PASS_THROUGH;
@@ -1021,7 +1046,7 @@ static bool light_cache_free_poll(bContext *C)
 {
   Scene *scene = CTX_data_scene(C);
 
-  return scene->eevee.light_cache;
+  return scene->eevee.light_cache_data;
 }
 
 static int light_cache_free_exec(bContext *C, wmOperator *UNUSED(op))
@@ -1032,12 +1057,12 @@ static int light_cache_free_exec(bContext *C, wmOperator *UNUSED(op))
   wmWindowManager *wm = CTX_wm_manager(C);
   WM_jobs_kill_type(wm, scene, WM_JOB_TYPE_LIGHT_BAKE);
 
-  if (!scene->eevee.light_cache) {
+  if (!scene->eevee.light_cache_data) {
     return OPERATOR_CANCELLED;
   }
 
-  EEVEE_lightcache_free(scene->eevee.light_cache);
-  scene->eevee.light_cache = NULL;
+  EEVEE_lightcache_free(scene->eevee.light_cache_data);
+  scene->eevee.light_cache_data = NULL;
 
   EEVEE_lightcache_info_update(&scene->eevee);
 

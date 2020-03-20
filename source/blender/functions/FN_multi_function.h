@@ -1,15 +1,16 @@
 #ifndef __FN_MULTI_FUNCTION_H__
 #define __FN_MULTI_FUNCTION_H__
 
+#include <memory>
 #include <typeinfo>
 
 #include "FN_generic_array_ref.h"
 #include "FN_generic_vector_array.h"
-#include "FN_generic_virtual_list_ref.h"
 #include "FN_generic_virtual_list_list_ref.h"
+#include "FN_generic_virtual_list_ref.h"
+#include "FN_multi_function_context.h"
 #include "FN_multi_function_data_type.h"
 #include "FN_multi_function_param_type.h"
-#include "FN_multi_function_context.h"
 
 #include "BLI_vector.h"
 
@@ -24,7 +25,6 @@ struct MFSignatureData {
   Vector<BLI::class_id_t> used_element_contexts;
   Vector<BLI::class_id_t> used_global_contexts;
   Vector<uint> param_data_indices;
-  Optional<uint32_t> operation_hash;
 
   uint data_index(uint param_index) const
   {
@@ -151,26 +151,6 @@ class MFSignatureBuilder {
         break;
     }
   }
-
-  /* Operation Hash */
-
-  void operation_hash(uint32_t hash)
-  {
-    m_data.operation_hash.set(hash);
-  }
-
-  void operation_hash(Optional<uint32_t> maybe_hash)
-  {
-    m_data.operation_hash = maybe_hash;
-  }
-
-  void operation_hash_per_class()
-  {
-    const std::type_info &type_info = typeid(*this);
-    uintptr_t ptr = (uintptr_t)&type_info;
-    uint32_t hash = (ptr * 56247945663) ^ (ptr >> 32);
-    this->operation_hash(hash);
-  }
 };
 
 class MFParams;
@@ -223,11 +203,6 @@ class MultiFunction {
   {
     BLI::class_id_t id = BLI::get_class_id<T>();
     return m_signature_data.used_global_contexts.contains(id);
-  }
-
-  Optional<uint32_t> operation_hash() const
-  {
-    return m_signature_data.operation_hash;
   }
 
  protected:

@@ -16,7 +16,6 @@
 
 #include <mutex>
 
-#include "BLI_lazy_init_cxx.h"
 #include "BLI_stack_cxx.h"
 
 struct FreeFunc {

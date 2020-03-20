@@ -34,10 +34,10 @@
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 
+#include "BKE_lib_query.h"
 #include "BKE_mesh.h"
 #include "BKE_modifier.h"
 #include "BKE_scene.h"
-#include "BKE_library_query.h"
 
 #include "BLI_math.h"
 

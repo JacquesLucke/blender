@@ -37,6 +37,7 @@ set(INC
   ../nodes
   ../physics
   ../shader_fx
+  ../simulations
   ../render/extern/include
   ../../../intern/ghost
   ../../../intern/glew-mx
@@ -120,6 +121,7 @@ set(SRC
   intern/freestyle.c
   intern/gpencil.c
   intern/gpencil_modifier.c
+  intern/hair.c
   intern/icons.c
   intern/icons_rasterize.c
   intern/idcode.c
@@ -127,6 +129,7 @@ set(SRC
   intern/idprop_utils.c
   intern/id_data_cache.cc
   intern/id_handle.cc
+  intern/idtype.c
   intern/image.c
   intern/image_gen.c
   intern/image_save.c
@@ -137,15 +140,17 @@ set(SRC
   intern/lattice.c
   intern/layer.c
   intern/layer_utils.c
+  intern/lib_id.c
+  intern/lib_id_delete.c
+  intern/lib_override.c
+  intern/lib_query.c
+  intern/lib_remap.c
   intern/library.c
-  intern/library_idmap.c
-  intern/library_override.c
-  intern/library_query.c
-  intern/library_remap.c
   intern/light.c
   intern/lightprobe.c
   intern/linestyle.c
   intern/main.c
+  intern/main_idmap.c
   intern/mask.c
   intern/mask_evaluate.c
   intern/mask_rasterize.c
@@ -168,6 +173,11 @@ set(SRC
   intern/movieclip.c
   intern/multires.c
   intern/multires_reshape.c
+  intern/multires_reshape_apply_base.c
+  intern/multires_reshape_ccg.c
+  intern/multires_reshape_smooth.c
+  intern/multires_reshape_util.c
+  intern/multires_reshape_vertcos.c
   intern/multires_subdiv.c
   intern/nla.c
   intern/node.c
@@ -177,6 +187,7 @@ set(SRC
   intern/object_facemap.c
   intern/object_update.c
   intern/ocean.c
+  intern/ocean_spectrum.c
   intern/outliner_treehash.c
   intern/packedFile.c
   intern/paint.c
@@ -189,6 +200,7 @@ set(SRC
   intern/pbvh_bmesh.c
   intern/pbvh_parallel.cc
   intern/pointcache.c
+  intern/pointcloud.c
   intern/report.c
   intern/rigidbody.c
   intern/scene.c
@@ -234,6 +246,8 @@ set(SRC
   intern/undo_system.c
   intern/unit.c
   intern/virtual_node_tree.cc
+  intern/volume.cc
+  intern/volume_render.cc
   intern/workspace.c
   intern/world.c
   intern/writeavi.c
@@ -291,28 +305,30 @@ set(SRC
   BKE_global.h
   BKE_gpencil.h
   BKE_gpencil_modifier.h
+  BKE_hair.h
   BKE_icons.h
   BKE_idcode.h
   BKE_idprop.h
   BKE_id_data_cache.h
   BKE_id_handle.h
+  BKE_idtype.h
   BKE_image.h
-  BKE_image_save.h
   BKE_ipo.h
   BKE_kelvinlet.h
   BKE_key.h
   BKE_keyconfig.h
   BKE_lattice.h
   BKE_layer.h
+  BKE_lib_id.h
+  BKE_lib_override.h
+  BKE_lib_query.h
+  BKE_lib_remap.h
   BKE_library.h
-  BKE_library_idmap.h
-  BKE_library_override.h
-  BKE_library_query.h
-  BKE_library_remap.h
   BKE_light.h
   BKE_lightprobe.h
   BKE_linestyle.h
   BKE_main.h
+  BKE_main_idmap.h
   BKE_mask.h
   BKE_material.h
   BKE_mball.h
@@ -340,6 +356,7 @@ set(SRC
   BKE_particle.h
   BKE_pbvh.h
   BKE_pointcache.h
+  BKE_pointcloud.h
   BKE_report.h
   BKE_rigidbody.h
   BKE_scene.h
@@ -367,6 +384,8 @@ set(SRC
   BKE_undo_system.h
   BKE_unit.h
   BKE_virtual_node_tree.h
+  BKE_volume.h
+  BKE_volume_render.h
   BKE_workspace.h
   BKE_world.h
   BKE_writeavi.h
@@ -378,7 +397,9 @@ set(SRC
   intern/CCGSubSurf_inline.h
   intern/CCGSubSurf_intern.h
   intern/data_transfer_intern.h
+  intern/lib_intern.h
   intern/multires_inline.h
+  intern/multires_reshape.h
   intern/pbvh_intern.h
   intern/subdiv_converter.h
   intern/subdiv_inline.h
@@ -489,7 +510,7 @@ endif()
 
 if(WITH_CODEC_AVI)
   list(APPEND INC
-    ../avi
+    ../io/avi
   )
   add_definitions(-DWITH_AVI)
 endif()
@@ -610,7 +631,7 @@ endif()
 
 if(WITH_ALEMBIC)
   list(APPEND INC
-    ../alembic
+    ../io/alembic
   )
   add_definitions(-DWITH_ALEMBIC)
 endif()
@@ -629,16 +650,14 @@ if(WITH_OPENVDB)
   list(APPEND INC
      ../../../intern/openvdb
   )
-  list(APPEND LIB
-     bf_intern_openvdb
+  list(APPEND INC_SYS
+    ${OPENVDB_INCLUDE_DIRS}
   )
-  add_definitions(-DWITH_OPENVDB)
-
-  if(WITH_OPENVDB_BLOSC)
-    add_definitions(
-      -DWITH_OPENVDB_BLOSC
-    )
-  endif()
+  list(APPEND LIB
+    bf_intern_openvdb
+    ${OPENVDB_LIBRARIES}
+  )
+  add_definitions(-DWITH_OPENVDB ${OPENVDB_DEFINITIONS})
 endif()
 
 if(WITH_QUADRIFLOW)
@@ -660,6 +679,10 @@ if(WITH_TBB)
   list(APPEND LIB
     ${TBB_LIBRARIES}
   )
+endif()
+
+if(WITH_XR_OPENXR)
+  add_definitions(-DWITH_XR_OPENXR)
 endif()
 
 # # Warnings as errors, this is too strict!

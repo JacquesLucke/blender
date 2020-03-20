@@ -21,18 +21,18 @@
  * \ingroup edinterface
  */
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 
 #include "DNA_object_types.h"
 #include "DNA_screen_types.h"
 
-#include "BLI_utildefines.h"
+#include "BLI_listbase.h"
 #include "BLI_math.h"
 #include "BLI_string.h"
-#include "BLI_listbase.h"
+#include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
 
@@ -525,7 +525,7 @@ int UI_calc_float_precision(int prec, double value)
    * this is so 0.00001 is not displayed as 0.00,
    * _but_, this is only for small values si 10.0001 will not get the same treatment.
    */
-  value = ABS(value);
+  value = fabs(value);
   if ((value < pow10_neg[prec]) && (value > (1.0 / max_pow))) {
     int value_i = (int)((value * max_pow) + 0.5);
     if (value_i != 0) {

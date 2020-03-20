@@ -26,8 +26,8 @@
 #include "intern/node/deg_node.h"
 #include "intern/node/deg_node_operation.h"
 
-#include "BLI_utildefines.h"
 #include "BLI_string.h"
+#include "BLI_utildefines.h"
 
 struct GHash;
 struct ID;
@@ -172,6 +172,7 @@ DEG_COMPONENT_NODE_DECLARE_NO_COW_TAG_ON_UPDATE(BatchCache);
 DEG_COMPONENT_NODE_DECLARE_GENERIC(Cache);
 DEG_COMPONENT_NODE_DECLARE_GENERIC(CopyOnWrite);
 DEG_COMPONENT_NODE_DECLARE_GENERIC(Geometry);
+DEG_COMPONENT_NODE_DECLARE_GENERIC(ImageAnimation);
 DEG_COMPONENT_NODE_DECLARE_GENERIC(LayerCollections);
 DEG_COMPONENT_NODE_DECLARE_GENERIC(Parameters);
 DEG_COMPONENT_NODE_DECLARE_GENERIC(Particles);

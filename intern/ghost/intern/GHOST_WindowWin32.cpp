@@ -23,13 +23,14 @@
 
 #define _USE_MATH_DEFINES
 
-#include "GHOST_WindowManager.h"
 #include "GHOST_WindowWin32.h"
-#include "GHOST_SystemWin32.h"
-#include "GHOST_DropTargetWin32.h"
+#include "GHOST_ContextD3D.h"
 #include "GHOST_ContextNone.h"
-#include "utfconv.h"
+#include "GHOST_DropTargetWin32.h"
+#include "GHOST_SystemWin32.h"
+#include "GHOST_WindowManager.h"
 #include "utf_winfunc.h"
+#include "utfconv.h"
 
 #if defined(WITH_GL_EGL)
 #  include "GHOST_ContextEGL.h"
@@ -40,10 +41,10 @@
 #  include <Dwmapi.h>
 #endif
 
-#include <windowsx.h>
+#include <assert.h>
 #include <math.h>
 #include <string.h>
-#include <assert.h>
+#include <windowsx.h>
 
 #ifndef GET_POINTERID_WPARAM
 #  define GET_POINTERID_WPARAM(wParam) (LOWORD(wParam))
@@ -749,6 +750,19 @@ GHOST_Context *GHOST_WindowWin32::newDrawingContext(GHOST_TDrawingContextType ty
 #else
 #  error  // must specify either core or compat at build time
 #endif
+  }
+  else if (type == GHOST_kDrawingContextTypeD3D) {
+    GHOST_Context *context;
+
+    context = new GHOST_ContextD3D(false, m_hWnd);
+    if (context->initializeDrawingContext()) {
+      return context;
+    }
+    else {
+      delete context;
+    }
+
+    return context;
   }
 
   return NULL;

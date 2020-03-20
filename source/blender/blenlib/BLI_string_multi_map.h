@@ -1,8 +1,8 @@
 #ifndef __BLI_STRING_MULTI_MAP_H__
 #define __BLI_STRING_MULTI_MAP_H__
 
-#include "BLI_string_ref.h"
 #include "BLI_string_map.h"
+#include "BLI_string_ref.h"
 #include "BLI_vector.h"
 
 namespace BLI {

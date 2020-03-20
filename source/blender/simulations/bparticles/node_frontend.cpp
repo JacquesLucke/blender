@@ -1,26 +1,26 @@
+#include "BLI_color.h"
+#include "BLI_multi_map.h"
+#include "BLI_set.h"
+#include "BLI_timeit.h"
+
 #include "BKE_deform.h"
-#include "BKE_surface_hook.h"
 #include "BKE_id_data_cache.h"
+#include "BKE_surface_hook.h"
 
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 
-#include "BLI_timeit.h"
-#include "BLI_multi_map.h"
-#include "BLI_set.h"
-#include "BLI_lazy_init_cxx.h"
-
-#include "FN_node_tree.h"
-#include "FN_multi_functions.h"
 #include "FN_generic_tuple.h"
-#include "FN_node_tree_multi_function_network_generation.h"
 #include "FN_multi_function_common_contexts.h"
 #include "FN_multi_function_dependencies.h"
+#include "FN_multi_functions.h"
+#include "FN_node_tree.h"
+#include "FN_node_tree_multi_function_network_generation.h"
 
-#include "node_frontend.hpp"
-#include "integrator.hpp"
 #include "emitters.hpp"
 #include "events.hpp"
+#include "integrator.hpp"
+#include "node_frontend.hpp"
 #include "offset_handlers.hpp"
 #include "simulate.hpp"
 
@@ -57,7 +57,7 @@ class InfluencesCollector;
 class FSocketActionBuilder;
 
 using ActionParserCallback = std::function<void(FSocketActionBuilder &builder)>;
-StringMap<ActionParserCallback> &get_action_parsers();
+extern StringMap<ActionParserCallback, BLI::RawAllocator> action_parsers_map;
 
 class InfluencesCollector {
  public:
@@ -507,8 +507,7 @@ ParticleAction *FunctionTreeData::build_action(InfluencesCollector &collector,
     return nullptr;
   }
 
-  StringMap<ActionParserCallback> &parsers = get_action_parsers();
-  ActionParserCallback *parser = parsers.lookup_ptr(execute_socket.node().idname());
+  ActionParserCallback *parser = action_parsers_map.lookup_ptr(execute_socket.node().idname());
   if (parser == nullptr) {
     std::cout << "Expected to find parser for: " << execute_socket.node().idname() << "\n";
     return nullptr;
@@ -606,16 +605,6 @@ static void ACTION_multi_execute(FSocketActionBuilder &builder)
 {
   ParticleAction &action = builder.build_input_action_list("Execute", builder.system_names());
   builder.set(action);
-}
-
-BLI_LAZY_INIT(StringMap<ActionParserCallback>, get_action_parsers)
-{
-  StringMap<ActionParserCallback> map;
-  map.add_new("fn_SpawnParticlesNode", ACTION_spawn);
-  map.add_new("fn_ParticleConditionNode", ACTION_condition);
-  map.add_new("fn_SetParticleAttributeNode", ACTION_set_attribute);
-  map.add_new("fn_MultiExecuteNode", ACTION_multi_execute);
-  return map;
 }
 
 class FNodeInfluencesBuilder {
@@ -855,13 +844,13 @@ static Vector<float> compute_emitter_vertex_weights(PointerRNA *node_rna,
     std::string group_name = inputs.relocate_out<std::string>(2, "Density Group");
 
     MDeformVert *vertices = mesh->dvert;
-    int group_index = defgroup_name_index(object, group_name.c_str());
+    int group_index = BKE_object_defgroup_name_index(object, group_name.c_str());
     if (group_index == -1 || vertices == nullptr) {
       vertex_weights.fill(0);
     }
     else {
       for (uint i = 0; i < mesh->totvert; i++) {
-        vertex_weights[i] = defvert_find_weight(vertices + i, group_index);
+        vertex_weights[i] = BKE_defvert_find_weight(vertices + i, group_index);
       }
     }
   }
@@ -1044,9 +1033,9 @@ static void PARSE_always_execute(FNodeInfluencesBuilder &builder)
   builder.add_offset_handler(system_names, offset_handler);
 }
 
-BLI_LAZY_INIT_STATIC(StringMap<ParseNodeCallback>, get_node_parsers)
+static StringMap<ParseNodeCallback, BLI::RawAllocator> create_node_parsers_map()
 {
-  StringMap<ParseNodeCallback> map;
+  StringMap<ParseNodeCallback, BLI::RawAllocator> map;
   map.add_new("fn_PointEmitterNode", PARSE_point_emitter);
   map.add_new("fn_CustomEmitterNode", PARSE_custom_emitter);
   map.add_new("fn_MeshEmitterNode", PARSE_mesh_emitter);
@@ -1061,6 +1050,21 @@ BLI_LAZY_INIT_STATIC(StringMap<ParseNodeCallback>, get_node_parsers)
   return map;
 }
 
+static StringMap<ActionParserCallback, BLI::RawAllocator> create_action_parsers_map()
+{
+  StringMap<ActionParserCallback, BLI::RawAllocator> map;
+  map.add_new("fn_SpawnParticlesNode", ACTION_spawn);
+  map.add_new("fn_ParticleConditionNode", ACTION_condition);
+  map.add_new("fn_SetParticleAttributeNode", ACTION_set_attribute);
+  map.add_new("fn_MultiExecuteNode", ACTION_multi_execute);
+  return map;
+}
+
+static StringMap<ParseNodeCallback, BLI::RawAllocator> node_parsers_map =
+    create_node_parsers_map();
+StringMap<ActionParserCallback, BLI::RawAllocator> action_parsers_map =
+    create_action_parsers_map();
+
 static void collect_influences(FunctionTreeData &function_tree_data,
                                WorldTransition &world_transition,
                                Vector<std::string> &r_system_names,
@@ -1068,8 +1072,6 @@ static void collect_influences(FunctionTreeData &function_tree_data,
                                StringMap<Integrator *> &r_integrators)
 {
   SCOPED_TIMER(__func__);
-
-  StringMap<ParseNodeCallback> &parsers = get_node_parsers();
 
   for (const FNode *fnode :
        function_tree_data.function_tree().nodes_with_idname(particle_system_idname)) {
@@ -1091,7 +1093,7 @@ static void collect_influences(FunctionTreeData &function_tree_data,
 
   for (const FNode *fnode : function_tree_data.function_tree().all_nodes()) {
     StringRef idname = fnode->idname();
-    ParseNodeCallback *callback = parsers.lookup_ptr(idname);
+    ParseNodeCallback *callback = node_parsers_map.lookup_ptr(idname);
     if (callback != nullptr) {
       FNodeInfluencesBuilder builder{collector, function_tree_data, world_transition, *fnode};
       (*callback)(builder);

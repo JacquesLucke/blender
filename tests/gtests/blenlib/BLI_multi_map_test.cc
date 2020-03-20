@@ -1,5 +1,5 @@
-#include "testing/testing.h"
 #include "BLI_multi_map.h"
+#include "testing/testing.h"
 
 using namespace BLI;
 

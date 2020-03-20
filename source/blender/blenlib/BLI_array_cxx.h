@@ -23,10 +23,11 @@
  * a template argument. Instead it can be specified at the construction time.
  */
 
-#include "BLI_utildefines.h"
 #include "BLI_allocator.h"
 #include "BLI_array_ref.h"
+#include "BLI_index_range.h"
 #include "BLI_memory_utils_cxx.h"
+#include "BLI_utildefines.h"
 
 namespace BLI {
 
@@ -227,15 +228,6 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ar
     return m_data == this->inline_storage();
   }
 };
-
-/**
- * Use this when the following assumptions hold:
- *   - The number of elements in the array is known.
- *   - The array is usually relatively large (so that it does not fit in inline storage).
- *   - Is used in the scope of some function. So it will be freed soon.
- *   - The scope is not in a recursive function.
- */
-template<typename T> using LargeScopedArray = Array<T, 4, TemporaryAllocator>;
 
 }  // namespace BLI
 

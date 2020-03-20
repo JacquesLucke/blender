@@ -104,7 +104,7 @@ struct OwnVectorValue : public Value {
 
 class NetworkEvaluationStorage {
  private:
-  MonotonicAllocator<256> m_allocator;
+  LinearAllocator<> m_allocator;
   BufferCache &m_buffer_cache;
   IndexMask m_mask;
   Array<Value *> m_value_per_output_id;
@@ -582,7 +582,7 @@ class NetworkEvaluationStorage {
     }
 
     BLI_assert(false);
-    return GenericVirtualListRef(CPP_TYPE<float>());
+    return GenericVirtualListRef(CPPType_float);
   }
 
   GenericVirtualListRef get_single_input__single(const MFInputSocket &socket)
@@ -609,7 +609,7 @@ class NetworkEvaluationStorage {
     }
 
     BLI_assert(false);
-    return GenericVirtualListRef(CPP_TYPE<float>());
+    return GenericVirtualListRef(CPPType_float);
   }
 
   GenericVirtualListListRef get_vector_input__full(const MFInputSocket &socket)
@@ -639,7 +639,7 @@ class NetworkEvaluationStorage {
     }
 
     BLI_assert(false);
-    return GenericVirtualListListRef::FromSingleArray(CPP_TYPE<float>(), nullptr, 0, 0);
+    return GenericVirtualListListRef::FromSingleArray(CPPType_float, nullptr, 0, 0);
   }
 
   GenericVirtualListListRef get_vector_input__single(const MFInputSocket &socket)
@@ -665,7 +665,7 @@ class NetworkEvaluationStorage {
     }
 
     BLI_assert(false);
-    return GenericVirtualListListRef::FromSingleArray(CPP_TYPE<float>(), nullptr, 0, 0);
+    return GenericVirtualListListRef::FromSingleArray(CPPType_float, nullptr, 0, 0);
   }
 };
 

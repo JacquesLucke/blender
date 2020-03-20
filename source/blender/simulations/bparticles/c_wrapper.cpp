@@ -1,15 +1,16 @@
 #include "BParticles.h"
-#include "simulate.hpp"
-#include "world_state.hpp"
-#include "simulation_state.hpp"
 #include "node_frontend.hpp"
+#include "simulate.hpp"
+#include "simulation_state.hpp"
+#include "world_state.hpp"
 
-#include "BLI_timeit.h"
-#include "BLI_string.h"
+#include "BLI_color.h"
 #include "BLI_parallel.h"
+#include "BLI_string.h"
+#include "BLI_timeit.h"
 
-#include "BKE_mesh.h"
 #include "BKE_customdata.h"
+#include "BKE_mesh.h"
 #include "FN_node_tree.h"
 
 #include "DEG_depsgraph_query.h"
@@ -317,18 +318,18 @@ void BParticles_modifier_cache_state(BParticlesModifierData *bpmd,
     strncpy(position_attribute.name, "Position", sizeof(position_attribute.name));
     position_attribute.values = (float *)MEM_malloc_arrayN(
         cached_type.particle_amount, sizeof(float3), __func__);
-    FN::CPP_TYPE<float3>().copy_to_uninitialized_n(particles.attributes().get("Position").buffer(),
-                                                   position_attribute.values,
-                                                   cached_type.particle_amount);
+    FN::CPPType_float3.copy_to_uninitialized_n(particles.attributes().get("Position").buffer(),
+                                               position_attribute.values,
+                                               cached_type.particle_amount);
 
     BParticlesAttributeCacheFloat &size_attribute = cached_type.attributes_float[1];
     size_attribute.floats_per_particle = 1;
     strncpy(size_attribute.name, "Size", sizeof(size_attribute.name));
     size_attribute.values = (float *)MEM_malloc_arrayN(
         cached_type.particle_amount, sizeof(float), __func__);
-    FN::CPP_TYPE<float>().copy_to_uninitialized_n(particles.attributes().get("Size").buffer(),
-                                                  size_attribute.values,
-                                                  cached_type.particle_amount);
+    FN::CPPType_float.copy_to_uninitialized_n(particles.attributes().get("Size").buffer(),
+                                              size_attribute.values,
+                                              cached_type.particle_amount);
 
     BParticlesAttributeCacheFloat &color_attribute = cached_type.attributes_float[2];
     color_attribute.floats_per_particle = 4;

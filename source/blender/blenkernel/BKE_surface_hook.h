@@ -1,8 +1,8 @@
 #ifndef __BKE_SURFACE_HOOK_H__
 #define __BKE_SURFACE_HOOK_H__
 
+#include "BLI_float3.h"
 #include "BLI_utildefines.h"
-#include "BLI_math_cxx.h"
 
 #include "BKE_id_handle.h"
 

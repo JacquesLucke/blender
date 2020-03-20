@@ -24,9 +24,9 @@
 #ifndef __DNA_MESH_TYPES_H__
 #define __DNA_MESH_TYPES_H__
 
-#include "DNA_defs.h"
 #include "DNA_ID.h"
 #include "DNA_customdata_types.h"
+#include "DNA_defs.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -78,8 +78,8 @@ struct MLoopTri_Store {
 
 /* not saved in file! */
 typedef struct Mesh_Runtime {
-  /* Evaluated mesh for objects which do not have effective modifiers. This mesh is sued as a
-   * result of modifier stack evaluation.
+  /* Evaluated mesh for objects which do not have effective modifiers.
+   * This mesh is used as a result of modifier stack evaluation.
    * Since modifier stack evaluation is threaded on object level we need some synchronization. */
   struct Mesh *mesh_eval;
   void *eval_mutex;
@@ -196,7 +196,14 @@ typedef struct Mesh {
   float remesh_voxel_size;
   float remesh_voxel_adaptivity;
   char remesh_mode;
+
   char _pad1[3];
+
+  int face_sets_color_seed;
+  /* Stores the initial Face Set to be rendered white. This way the overlay can be enabled by
+   * default and Face Sets can be used without affecting the color of the mesh. */
+  int face_sets_color_default;
+
   /** Deprecated multiresolution modeling data, only keep for loading old files. */
   struct Multires *mr DNA_DEPRECATED;
 
@@ -258,6 +265,7 @@ enum {
   ME_REMESH_REPROJECT_PAINT_MASK = 1 << 12,
   ME_REMESH_FIX_POLES = 1 << 13,
   ME_REMESH_REPROJECT_VOLUME = 1 << 14,
+  ME_REMESH_REPROJECT_SCULPT_FACE_SETS = 1 << 15,
 };
 
 /* me->cd_flag */

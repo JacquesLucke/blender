@@ -23,36 +23,36 @@
  * Functions for dealing with append/link operators and helpers.
  */
 
-#include <float.h>
-#include <string.h>
-#include <ctype.h>
-#include <stdio.h>
-#include <stddef.h>
 #include <assert.h>
+#include <ctype.h>
 #include <errno.h>
+#include <float.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "MEM_guardedalloc.h"
 
 #include "DNA_ID.h"
-#include "DNA_screen_types.h"
 #include "DNA_scene_types.h"
+#include "DNA_screen_types.h"
 #include "DNA_windowmanager_types.h"
 
-#include "BLI_blenlib.h"
 #include "BLI_bitmap.h"
+#include "BLI_blenlib.h"
+#include "BLI_ghash.h"
 #include "BLI_linklist.h"
 #include "BLI_math.h"
 #include "BLI_memarena.h"
 #include "BLI_utildefines.h"
-#include "BLI_ghash.h"
 
 #include "BLO_readfile.h"
 
 #include "BKE_context.h"
 #include "BKE_global.h"
 #include "BKE_layer.h"
-#include "BKE_library.h"
-#include "BKE_library_remap.h"
+#include "BKE_lib_id.h"
+#include "BKE_lib_remap.h"
 #include "BKE_main.h"
 #include "BKE_report.h"
 
@@ -623,13 +623,14 @@ void WM_OT_append(wmOperatorType *ot)
  *
  * \{ */
 
-ID *WM_file_append_datablock(bContext *C,
+ID *WM_file_append_datablock(Main *bmain,
+                             Scene *scene,
+                             ViewLayer *view_layer,
+                             View3D *v3d,
                              const char *filepath,
                              const short id_code,
                              const char *id_name)
 {
-  Main *bmain = CTX_data_main(C);
-
   /* Tag everything so we can make local only the new datablock. */
   BKE_main_id_tag_all(bmain, LIB_TAG_PRE_EXISTING, true);
 
@@ -641,9 +642,6 @@ ID *WM_file_append_datablock(bContext *C,
   BLI_BITMAP_ENABLE(item->libraries, 0);
 
   /* Link datablock. */
-  Scene *scene = CTX_data_scene(C);
-  ViewLayer *view_layer = CTX_data_view_layer(C);
-  View3D *v3d = CTX_wm_view3d(C);
   wm_link_do(lapp_data, NULL, bmain, scene, view_layer, v3d);
 
   /* Get linked datablock and free working data. */

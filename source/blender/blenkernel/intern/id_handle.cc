@@ -1,11 +1,11 @@
-#include "BLI_utildefines.h"
 #include "BLI_hash.h"
+#include "BLI_utildefines.h"
 
 #include "BKE_id_handle.h"
 
 #include "DNA_ID.h"
-#include "DNA_object_types.h"
 #include "DNA_image_types.h"
+#include "DNA_object_types.h"
 
 namespace BKE {
 

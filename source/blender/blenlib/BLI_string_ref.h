@@ -29,11 +29,11 @@
  */
 
 #include <cstring>
-#include <string>
 #include <sstream>
+#include <string>
 
-#include "BLI_utildefines.h"
 #include "BLI_array_ref.h"
+#include "BLI_utildefines.h"
 
 namespace BLI {
 
@@ -94,10 +94,26 @@ class StringRefBase {
     return m_data + m_size;
   }
 
-  void copy_to__with_null(char *dst) const
+  void unsafe_copy(char *dst) const
   {
     memcpy(dst, m_data, m_size);
     dst[m_size] = '\0';
+  }
+
+  void copy(char *dst, uint dst_size) const
+  {
+    if (m_size < dst_size) {
+      this->unsafe_copy(dst);
+    }
+    else {
+      BLI_assert(false);
+      dst[0] = '\0';
+    }
+  }
+
+  template<uint N> void copy(char (&dst)[N])
+  {
+    this->copy(dst, N);
   }
 
   /**
@@ -109,6 +125,8 @@ class StringRefBase {
    * Returns true when the string ends with the given suffix. Otherwise false.
    */
   bool endswith(StringRef suffix) const;
+
+  StringRef substr(uint start, uint size) const;
 };
 
 /**
@@ -240,6 +258,12 @@ inline bool StringRefBase::endswith(StringRef suffix) const
     }
   }
   return true;
+}
+
+inline StringRef StringRefBase::substr(uint start, uint size) const
+{
+  BLI_assert(start + size <= m_size);
+  return StringRef(m_data + start, size);
 }
 
 }  // namespace BLI

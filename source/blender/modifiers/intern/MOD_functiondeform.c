@@ -29,15 +29,15 @@
 #include "MEM_guardedalloc.h"
 
 #include "DNA_mesh_types.h"
-#include "DNA_modifier_types.h"
 #include "DNA_meshdata_types.h"
-#include "DNA_object_types.h"
+#include "DNA_modifier_types.h"
 #include "DNA_node_types.h"
+#include "DNA_object_types.h"
 
+#include "BKE_lib_query.h"
 #include "BKE_mesh.h"
 #include "BKE_modifier.h"
 #include "BKE_scene.h"
-#include "BKE_library_query.h"
 
 #include "BKE_global.h"
 #include "BKE_main.h"

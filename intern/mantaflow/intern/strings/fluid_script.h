@@ -96,9 +96,10 @@ gravity_s$ID$ = vec3($GRAVITY_X$, $GRAVITY_Y$, $GRAVITY_Z$)\n\
 gs_s$ID$      = vec3($RESX$, $RESY$, $RESZ$)\n\
 maxVel_s$ID$  = 0\n\
 \n\
-doOpen_s$ID$          = $DO_OPEN$\n\
-boundConditions_s$ID$ = '$BOUND_CONDITIONS$'\n\
-boundaryWidth_s$ID$   = $BOUNDARY_WIDTH$\n\
+doOpen_s$ID$           = $DO_OPEN$\n\
+boundConditions_s$ID$  = '$BOUND_CONDITIONS$'\n\
+boundaryWidth_s$ID$    = $BOUNDARY_WIDTH$\n\
+deleteInObstacle_s$ID$ = $DELETE_IN_OBSTACLE$\n\
 \n\
 using_smoke_s$ID$        = $USING_SMOKE$\n\
 using_liquid_s$ID$       = $USING_LIQUID$\n\
@@ -111,6 +112,7 @@ using_invel_s$ID$        = $USING_INVEL$\n\
 using_outflow_s$ID$      = $USING_OUTFLOW$\n\
 using_sndparts_s$ID$     = $USING_SNDPARTS$\n\
 using_speedvectors_s$ID$ = $USING_SPEEDVECTORS$\n\
+using_diffusion_s$ID$    = $USING_DIFFUSION$\n\
 \n\
 # Fluid time params\n\
 timeTotal_s$ID$    = $TIME_TOTAL$\n\
@@ -229,6 +231,7 @@ y_vel_s$ID$       = s$ID$.create(RealGrid)\n\
 z_vel_s$ID$       = s$ID$.create(RealGrid)\n\
 pressure_s$ID$    = s$ID$.create(RealGrid)\n\
 phiObs_s$ID$      = s$ID$.create(LevelsetGrid)\n\
+phiSIn_s$ID$      = s$ID$.create(LevelsetGrid) # helper for static flow objects\n\
 phiIn_s$ID$       = s$ID$.create(LevelsetGrid)\n\
 phiOut_s$ID$      = s$ID$.create(LevelsetGrid)\n\
 forces_s$ID$      = s$ID$.create(Vec3Grid)\n\
@@ -236,6 +239,12 @@ x_force_s$ID$     = s$ID$.create(RealGrid)\n\
 y_force_s$ID$     = s$ID$.create(RealGrid)\n\
 z_force_s$ID$     = s$ID$.create(RealGrid)\n\
 obvel_s$ID$       = None\n\
+\n\
+# Set some initial values\n\
+phiObs_s$ID$.setConst(9999)\n\
+phiSIn_s$ID$.setConst(9999)\n\
+phiIn_s$ID$.setConst(9999)\n\
+phiOut_s$ID$.setConst(9999)\n\
 \n\
 # Keep track of important objects in dict to load them later on\n\
 fluid_data_dict_final_s$ID$  = dict(vel=vel_s$ID$)\n\
@@ -245,12 +254,17 @@ const std::string fluid_alloc_obstacle =
     "\n\
 mantaMsg('Allocating obstacle data')\n\
 numObs_s$ID$     = s$ID$.create(RealGrid)\n\
+phiObsSIn_s$ID$  = s$ID$.create(LevelsetGrid) # helper for static obstacles\n\
 phiObsIn_s$ID$   = s$ID$.create(LevelsetGrid)\n\
 obvel_s$ID$      = s$ID$.create(MACGrid)\n\
 obvelC_s$ID$     = s$ID$.create(Vec3Grid)\n\
 x_obvel_s$ID$    = s$ID$.create(RealGrid)\n\
 y_obvel_s$ID$    = s$ID$.create(RealGrid)\n\
 z_obvel_s$ID$    = s$ID$.create(RealGrid)\n\
+\n\
+# Set some initial values\n\
+phiObsSIn_s$ID$.setConst(9999)\n\
+phiObsIn_s$ID$.setConst(9999)\n\
 \n\
 if 'fluid_data_dict_resume_s$ID$' in globals():\n\
     fluid_data_dict_resume_s$ID$.update(phiObsIn=phiObsIn_s$ID$)\n";
@@ -559,11 +573,8 @@ def bake_particles_$ID$(path_data, path_particles, framenr, format_data, format_
 
 const std::string fluid_bake_guiding =
     "\n\
-def bake_guiding_process_$ID$(framenr, format_guiding, path_guiding):\n\
+def bake_guiding_process_$ID$(framenr, format_guiding, path_guiding, resumable):\n\
     mantaMsg('Bake fluid guiding')\n\
-    \n\
-    if framenr>1:\n\
-        fluid_load_guiding_$ID$(path_guiding, framenr-1, format_guiding)\n\
     \n\
     # Average out velocities from multiple guiding objects at one cell\n\
     x_guidevel_s$ID$.safeDivide(numGuides_s$ID$)\n\
@@ -578,17 +589,17 @@ def bake_guiding_process_$ID$(framenr, format_guiding, path_guiding):\n\
     \n\
     mantaMsg('Extrapolating guiding velocity')\n\
     # ensure velocities inside of guiding object, slightly add guiding vels outside of object too\n\
-    extrapolateVec3Simple(vel=guidevelC_s$ID$, phi=phiGuideIn_s$ID$, distance=int(res_s$ID$/2), inside=True)\n\
-    extrapolateVec3Simple(vel=guidevelC_s$ID$, phi=phiGuideIn_s$ID$, distance=4, inside=False)\n\
+    extrapolateVec3Simple(vel=guidevelC_s$ID$, phi=phiGuideIn_s$ID$, distance=6, inside=True)\n\
+    extrapolateVec3Simple(vel=guidevelC_s$ID$, phi=phiGuideIn_s$ID$, distance=3, inside=False)\n\
     resampleVec3ToMac(source=guidevelC_s$ID$, target=guidevel_sg$ID$)\n\
     \n\
-    fluid_save_guiding_$ID$(path_guiding, framenr, format_guiding)\n\
+    fluid_save_guiding_$ID$(path_guiding, framenr, format_guiding, resumable)\n\
 \n\
-def bake_guiding_$ID$(path_guiding, framenr, format_guiding):\n\
+def bake_guiding_$ID$(path_guiding, framenr, format_guiding, resumable):\n\
     if not withMPBake or isWindows:\n\
-        bake_guiding_process_$ID$(framenr, format_guiding, path_guiding)\n\
+        bake_guiding_process_$ID$(framenr, format_guiding, path_guiding, resumable)\n\
     else:\n\
-        fluid_cache_multiprocessing_start_$ID$(function=bake_guiding_process_$ID$, framenr=framenr, format_guiding=format_guiding, path_guiding=path_guiding)\n";
+        fluid_cache_multiprocessing_start_$ID$(function=bake_guiding_process_$ID$, framenr=framenr, format_guiding=format_guiding, path_guiding=path_guiding, resumable=resumable)\n";
 
 //////////////////////////////////////////////////////////////////////
 // IMPORT
@@ -692,12 +703,12 @@ if (GUI):\n\
     gui.show()\n\
     gui.pause()\n\
 \n\
-cache_dir = '$CACHE_DIR$'\n\
-cache_resumable = $CACHE_RESUMABLE$\n\
-file_format_data      = '.uni'\n\
-file_format_noise     = '.uni'\n\
-file_format_particles = '.uni'\n\
-file_format_mesh      = '.bobj.gz'\n\
+cache_resumable       = $CACHE_RESUMABLE$\n\
+cache_dir             = '$CACHE_DIR$'\n\
+file_format_data      = '$CACHE_DATA_FORMAT$'\n\
+file_format_noise     = '$CACHE_NOISE_FORMAT$'\n\
+file_format_particles = '$CACHE_PARTICLE_FORMAT$'\n\
+file_format_mesh      = '$CACHE_MESH_FORMAT$'\n\
 \n\
 # Start and stop for simulation\n\
 current_frame  = $CURRENT_FRAME$\n\

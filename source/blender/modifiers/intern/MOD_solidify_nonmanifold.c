@@ -27,13 +27,13 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "BKE_deform.h"
 #include "BKE_mesh.h"
 #include "BKE_particle.h"
-#include "BKE_deform.h"
 
 #include "MOD_modifiertypes.h"
-#include "MOD_util.h"
 #include "MOD_solidify_util.h" /* Own include. */
+#include "MOD_util.h"
 
 #ifdef __GNUC__
 #  pragma GCC diagnostic error "-Wsign-conversion"
@@ -1595,10 +1595,10 @@ Mesh *MOD_solidify_nonmanifold_applyModifier(ModifierData *md,
             if (dvert) {
               MDeformVert *dv = &dvert[i];
               if (defgrp_invert) {
-                scalar_vgroup = 1.0f - defvert_find_weight(dv, defgrp_index);
+                scalar_vgroup = 1.0f - BKE_defvert_find_weight(dv, defgrp_index);
               }
               else {
-                scalar_vgroup = defvert_find_weight(dv, defgrp_index);
+                scalar_vgroup = BKE_defvert_find_weight(dv, defgrp_index);
               }
               scalar_vgroup = offset_fac_vg + (scalar_vgroup * offset_fac_vg_inv);
             }

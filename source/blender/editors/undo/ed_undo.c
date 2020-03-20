@@ -27,11 +27,11 @@
 
 #include "CLG_log.h"
 
-#include "DNA_scene_types.h"
 #include "DNA_object_types.h"
+#include "DNA_scene_types.h"
 
-#include "BLI_utildefines.h"
 #include "BLI_listbase.h"
+#include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
 
@@ -39,27 +39,27 @@
 #include "BKE_callbacks.h"
 #include "BKE_context.h"
 #include "BKE_global.h"
+#include "BKE_layer.h"
 #include "BKE_main.h"
+#include "BKE_paint.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
-#include "BKE_layer.h"
 #include "BKE_undo_system.h"
 #include "BKE_workspace.h"
-#include "BKE_paint.h"
 
 #include "BLO_blend_validate.h"
 
 #include "ED_gpencil.h"
-#include "ED_render.h"
 #include "ED_object.h"
 #include "ED_outliner.h"
+#include "ED_render.h"
 #include "ED_screen.h"
 #include "ED_undo.h"
 
 #include "WM_api.h"
-#include "WM_types.h"
 #include "WM_toolsystem.h"
+#include "WM_types.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -202,7 +202,8 @@ static int ed_undo_step_impl(
         if (ELEM(obact->mode,
                  OB_MODE_PAINT_GPENCIL,
                  OB_MODE_SCULPT_GPENCIL,
-                 OB_MODE_WEIGHT_GPENCIL)) {
+                 OB_MODE_WEIGHT_GPENCIL,
+                 OB_MODE_VERTEX_GPENCIL)) {
           ED_gpencil_toggle_brush_cursor(C, true, NULL);
         }
         else {
@@ -389,7 +390,7 @@ static int ed_undo_exec(bContext *C, wmOperator *op)
   int ret = ed_undo_step_direction(C, 1, op->reports);
   if (ret & OPERATOR_FINISHED) {
     /* Keep button under the cursor active. */
-    WM_event_add_mousemove(C);
+    WM_event_add_mousemove(CTX_wm_window(C));
   }
 
   ED_outliner_select_sync_from_all_tag(C);
@@ -418,7 +419,7 @@ static int ed_redo_exec(bContext *C, wmOperator *op)
   int ret = ed_undo_step_direction(C, -1, op->reports);
   if (ret & OPERATOR_FINISHED) {
     /* Keep button under the cursor active. */
-    WM_event_add_mousemove(C);
+    WM_event_add_mousemove(CTX_wm_window(C));
   }
 
   ED_outliner_select_sync_from_all_tag(C);
@@ -432,7 +433,7 @@ static int ed_undo_redo_exec(bContext *C, wmOperator *UNUSED(op))
   ret = ret ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
   if (ret & OPERATOR_FINISHED) {
     /* Keep button under the cursor active. */
-    WM_event_add_mousemove(C);
+    WM_event_add_mousemove(CTX_wm_window(C));
   }
   return ret;
 }

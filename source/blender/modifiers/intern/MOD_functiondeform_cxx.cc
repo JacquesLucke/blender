@@ -1,14 +1,12 @@
 #include "DNA_modifier_types.h"
 
-#include "FN_node_tree_multi_function_network_generation.h"
-#include "FN_multi_functions.h"
 #include "FN_multi_function_common_contexts.h"
 #include "FN_multi_function_dependencies.h"
+#include "FN_multi_functions.h"
+#include "FN_node_tree_multi_function_network_generation.h"
 
-#include "BLI_math_cxx.h"
-
-#include "BKE_modifier.h"
 #include "BKE_id_data_cache.h"
+#include "BKE_modifier.h"
 
 #include "DEG_depsgraph_query.h"
 
@@ -16,7 +14,6 @@ using BKE::VNode;
 using BLI::ArrayRef;
 using BLI::float3;
 using BLI::IndexRange;
-using BLI::LargeScopedVector;
 using BLI::Vector;
 using FN::FunctionTree;
 using FN::MFContext;
@@ -56,7 +53,7 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd,
   params_builder.add_readonly_single_input(&fdmd->control1);
   params_builder.add_readonly_single_input(&fdmd->control2);
 
-  LargeScopedVector<float3> output_vectors(numVerts);
+  Vector<float3> output_vectors(numVerts);
   params_builder.add_single_output<float3>(output_vectors);
 
   float current_time = DEG_get_ctime(ctx->depsgraph);

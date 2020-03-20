@@ -18,6 +18,7 @@
  * \ingroup freestyle
  */
 
+/* clang-format off */
 #include "BlenderStrokeRenderer.h"
 
 #include "../application/AppConfig.h"
@@ -45,7 +46,7 @@ extern "C" {
 #include "BKE_idprop.h"
 #include "BKE_global.h"
 #include "BKE_layer.h"
-#include "BKE_library.h" /* free_libblock */
+#include "BKE_lib_id.h" /* free_libblock */
 #include "BKE_material.h"
 #include "BKE_mesh.h"
 #include "BKE_node.h"
@@ -67,6 +68,7 @@ extern "C" {
 }
 
 #include <limits.h>
+/* clang-format on */
 
 namespace Freestyle {
 

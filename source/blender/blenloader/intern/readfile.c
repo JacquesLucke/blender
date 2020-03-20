@@ -23,21 +23,21 @@
 
 #include "zlib.h"
 
+#include <ctype.h> /* for isdigit. */
+#include <fcntl.h> /* for open flags (O_BINARY, O_RDONLY). */
 #include <limits.h>
-#include <stdlib.h> /* for atoi. */
-#include <stddef.h> /* for offsetof. */
-#include <fcntl.h>  /* for open flags (O_BINARY, O_RDONLY). */
 #include <stdarg.h> /* for va_start/end. */
+#include <stddef.h> /* for offsetof. */
+#include <stdlib.h> /* for atoi. */
 #include <time.h>   /* for gmtime. */
-#include <ctype.h>  /* for isdigit. */
 
 #include "BLI_utildefines.h"
 #ifndef WIN32
 #  include <unistd.h>  // for read close
 #else
-#  include <io.h>  // for open close read
-#  include "winsock2.h"
 #  include "BLI_winstuff.h"
+#  include "winsock2.h"
+#  include <io.h>  // for open close read
 #endif
 
 /* allow readfile to use deprecated functionality */
@@ -46,61 +46,65 @@
 #include "DNA_anim_types.h"
 #include "DNA_armature_types.h"
 #include "DNA_brush_types.h"
-#include "DNA_camera_types.h"
 #include "DNA_cachefile_types.h"
+#include "DNA_camera_types.h"
 #include "DNA_cloth_types.h"
 #include "DNA_collection_types.h"
 #include "DNA_constraint_types.h"
+#include "DNA_curveprofile_types.h"
 #include "DNA_dynamicpaint_types.h"
 #include "DNA_effect_types.h"
 #include "DNA_fileglobal_types.h"
+#include "DNA_fluid_types.h"
 #include "DNA_genfile.h"
-#include "DNA_gpencil_types.h"
 #include "DNA_gpencil_modifier_types.h"
-#include "DNA_shader_fx_types.h"
+#include "DNA_gpencil_types.h"
+#include "DNA_hair_types.h"
 #include "DNA_ipo_types.h"
 #include "DNA_key_types.h"
 #include "DNA_lattice_types.h"
 #include "DNA_layer_types.h"
 #include "DNA_light_types.h"
+#include "DNA_lightprobe_types.h"
 #include "DNA_linestyle_types.h"
-#include "DNA_meta_types.h"
+#include "DNA_mask_types.h"
 #include "DNA_material_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
+#include "DNA_meta_types.h"
+#include "DNA_movieclip_types.h"
 #include "DNA_nla_types.h"
 #include "DNA_node_types.h"
 #include "DNA_object_fluidsim_types.h"
 #include "DNA_object_types.h"
 #include "DNA_packedFile_types.h"
 #include "DNA_particle_types.h"
-#include "DNA_curveprofile_types.h"
-#include "DNA_lightprobe_types.h"
+#include "DNA_pointcloud_types.h"
 #include "DNA_rigidbody_types.h"
-#include "DNA_text_types.h"
-#include "DNA_view3d_types.h"
+#include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_sdna_types.h"
-#include "DNA_scene_types.h"
 #include "DNA_sequence_types.h"
-#include "DNA_fluid_types.h"
-#include "DNA_speaker_types.h"
+#include "DNA_shader_fx_types.h"
 #include "DNA_sound_types.h"
 #include "DNA_space_types.h"
+#include "DNA_speaker_types.h"
+#include "DNA_text_types.h"
 #include "DNA_vfont_types.h"
+#include "DNA_view3d_types.h"
+#include "DNA_volume_types.h"
 #include "DNA_workspace_types.h"
 #include "DNA_world_types.h"
-#include "DNA_movieclip_types.h"
-#include "DNA_mask_types.h"
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_endian_switch.h"
 #include "BLI_blenlib.h"
-#include "BLI_math.h"
-#include "BLI_threads.h"
-#include "BLI_mempool.h"
+#include "BLI_endian_switch.h"
 #include "BLI_ghash.h"
+#include "BLI_linklist.h"
+#include "BLI_math.h"
+#include "BLI_mempool.h"
+#include "BLI_threads.h"
 
 #include "BLT_translation.h"
 
@@ -117,14 +121,15 @@
 #include "BKE_fluid.h"
 #include "BKE_global.h"  // for G
 #include "BKE_gpencil_modifier.h"
+#include "BKE_hair.h"
 #include "BKE_idcode.h"
 #include "BKE_idprop.h"
 #include "BKE_layer.h"
-#include "BKE_library.h"
-#include "BKE_library_idmap.h"
-#include "BKE_library_override.h"
-#include "BKE_library_query.h"
+#include "BKE_lib_id.h"
+#include "BKE_lib_override.h"
+#include "BKE_lib_query.h"
 #include "BKE_main.h"  // for Main
+#include "BKE_main_idmap.h"
 #include "BKE_material.h"
 #include "BKE_mesh.h"  // for ME_ defines (patching)
 #include "BKE_mesh_runtime.h"
@@ -135,13 +140,14 @@
 #include "BKE_paint.h"
 #include "BKE_particle.h"
 #include "BKE_pointcache.h"
-#include "BKE_curveprofile.h"
+#include "BKE_pointcloud.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
 #include "BKE_sequencer.h"
 #include "BKE_shader_fx.h"
 #include "BKE_sound.h"
+#include "BKE_volume.h"
 #include "BKE_workspace.h"
 
 #include "DRW_engine.h"
@@ -156,6 +162,8 @@
 #include "BLO_undofile.h"
 
 #include "RE_engine.h"
+
+#include "engines/eevee/eevee_lightcache.h"
 
 #include "readfile.h"
 
@@ -259,6 +267,7 @@ typedef struct BHeadN {
   /** When set, the remainder of this allocation is the data, otherwise it needs to be read. */
   bool has_data;
 #endif
+  bool is_memchunk_identical;
   struct BHead bhead;
 } BHeadN;
 
@@ -680,6 +689,9 @@ static Main *blo_find_main(FileData *fd, const char *filepath, const char *relab
   /* Important, consistency with main ID reading code from read_libblock(). */
   lib->id.us = ID_FAKE_USERS(lib);
 
+  /* Matches lib_link_library(). */
+  id_us_ensure_real(&lib->id);
+
   BLI_strncpy(lib->name, filepath, sizeof(lib->name));
   BLI_strncpy(lib->filepath, name1, sizeof(lib->filepath));
 
@@ -789,7 +801,7 @@ static BHeadN *get_bhead(FileData *fd)
        */
       if (fd->flags & FD_FLAGS_FILE_POINTSIZE_IS_4) {
         bhead4.code = DATA;
-        readsize = fd->read(fd, &bhead4, sizeof(bhead4));
+        readsize = fd->read(fd, &bhead4, sizeof(bhead4), NULL);
 
         if (readsize == sizeof(bhead4) || bhead4.code == ENDB) {
           if (fd->flags & FD_FLAGS_SWITCH_ENDIAN) {
@@ -812,7 +824,7 @@ static BHeadN *get_bhead(FileData *fd)
       }
       else {
         bhead8.code = DATA;
-        readsize = fd->read(fd, &bhead8, sizeof(bhead8));
+        readsize = fd->read(fd, &bhead8, sizeof(bhead8), NULL);
 
         if (readsize == sizeof(bhead8) || bhead8.code == ENDB) {
           if (fd->flags & FD_FLAGS_SWITCH_ENDIAN) {
@@ -853,6 +865,7 @@ static BHeadN *get_bhead(FileData *fd)
           new_bhead->next = new_bhead->prev = NULL;
           new_bhead->file_offset = fd->file_offset;
           new_bhead->has_data = false;
+          new_bhead->is_memchunk_identical = false;
           new_bhead->bhead = bhead;
           off64_t seek_new = fd->seek(fd, bhead.len, SEEK_CUR);
           if (seek_new == -1) {
@@ -875,9 +888,10 @@ static BHeadN *get_bhead(FileData *fd)
           new_bhead->file_offset = 0; /* don't seek. */
           new_bhead->has_data = true;
 #endif
+          new_bhead->is_memchunk_identical = false;
           new_bhead->bhead = bhead;
 
-          readsize = fd->read(fd, new_bhead + 1, bhead.len);
+          readsize = fd->read(fd, new_bhead + 1, bhead.len, &new_bhead->is_memchunk_identical);
 
           if (readsize != bhead.len) {
             fd->is_eof = true;
@@ -967,7 +981,8 @@ static bool blo_bhead_read_data(FileData *fd, BHead *thisblock, void *buf)
     success = false;
   }
   else {
-    if (fd->read(fd, buf, new_bhead->bhead.len) != new_bhead->bhead.len) {
+    if (fd->read(fd, buf, new_bhead->bhead.len, &new_bhead->is_memchunk_identical) !=
+        new_bhead->bhead.len) {
       success = false;
     }
   }
@@ -984,6 +999,7 @@ static BHead *blo_bhead_read_full(FileData *fd, BHead *thisblock)
   new_bhead_data->bhead = new_bhead->bhead;
   new_bhead_data->file_offset = new_bhead->file_offset;
   new_bhead_data->has_data = true;
+  new_bhead_data->is_memchunk_identical = false;
   if (!blo_bhead_read_data(fd, thisblock, new_bhead_data + 1)) {
     MEM_freeN(new_bhead_data);
     return NULL;
@@ -1004,7 +1020,7 @@ static void decode_blender_header(FileData *fd)
   int readsize;
 
   /* read in the header data */
-  readsize = fd->read(fd, header, sizeof(header));
+  readsize = fd->read(fd, header, sizeof(header), NULL);
 
   if (readsize == sizeof(header) && STREQLEN(header, "BLENDER", 7) && ELEM(header[7], '_', '-') &&
       ELEM(header[8], 'v', 'V') &&
@@ -1136,7 +1152,10 @@ static int *read_file_thumbnail(FileData *fd)
 
 /* Regular file reading. */
 
-static int fd_read_data_from_file(FileData *filedata, void *buffer, uint size)
+static int fd_read_data_from_file(FileData *filedata,
+                                  void *buffer,
+                                  uint size,
+                                  bool *UNUSED(r_is_memchunck_identical))
 {
   int readsize = read(filedata->filedes, buffer, size);
 
@@ -1152,13 +1171,16 @@ static int fd_read_data_from_file(FileData *filedata, void *buffer, uint size)
 
 static off64_t fd_seek_data_from_file(FileData *filedata, off64_t offset, int whence)
 {
-  filedata->file_offset = lseek(filedata->filedes, offset, whence);
+  filedata->file_offset = BLI_lseek(filedata->filedes, offset, whence);
   return filedata->file_offset;
 }
 
 /* GZip file reading. */
 
-static int fd_read_gzip_from_file(FileData *filedata, void *buffer, uint size)
+static int fd_read_gzip_from_file(FileData *filedata,
+                                  void *buffer,
+                                  uint size,
+                                  bool *UNUSED(r_is_memchunck_identical))
 {
   int readsize = gzread(filedata->gzfiledes, buffer, size);
 
@@ -1174,7 +1196,10 @@ static int fd_read_gzip_from_file(FileData *filedata, void *buffer, uint size)
 
 /* Memory reading. */
 
-static int fd_read_from_memory(FileData *filedata, void *buffer, uint size)
+static int fd_read_from_memory(FileData *filedata,
+                               void *buffer,
+                               uint size,
+                               bool *UNUSED(r_is_memchunck_identical))
 {
   /* don't read more bytes then there are available in the buffer */
   int readsize = (int)MIN2(size, (uint)(filedata->buffersize - filedata->file_offset));
@@ -1187,7 +1212,10 @@ static int fd_read_from_memory(FileData *filedata, void *buffer, uint size)
 
 /* MemFile reading. */
 
-static int fd_read_from_memfile(FileData *filedata, void *buffer, uint size)
+static int fd_read_from_memfile(FileData *filedata,
+                                void *buffer,
+                                uint size,
+                                bool *r_is_memchunck_identical)
 {
   static size_t seek = SIZE_MAX; /* the current position */
   static size_t offset = 0;      /* size of previous chunks */
@@ -1243,6 +1271,15 @@ static int fd_read_from_memfile(FileData *filedata, void *buffer, uint size)
       totread += readsize;
       filedata->file_offset += readsize;
       seek += readsize;
+      if (r_is_memchunck_identical != NULL) {
+        /* `is_identical` of current chunk represent whether it changed compared to previous undo
+         * step. this is fine in redo case (filedata->undo_direction > 0), but not in undo case,
+         * where we need an extra flag defined when saving the next (future) step after the one we
+         * want to restore, as we are supposed to 'come from' that future undo step, and not the
+         * one before current one. */
+        *r_is_memchunck_identical = filedata->undo_direction > 0 ? chunk->is_identical :
+                                                                   chunk->is_identical_future;
+      }
     } while (totread < size);
 
     return totread;
@@ -1312,7 +1349,7 @@ static FileData *blo_filedata_from_file_descriptor(const char *filepath,
     return NULL;
   }
   else {
-    lseek(file, 0, SEEK_SET);
+    BLI_lseek(file, 0, SEEK_SET);
   }
 
   /* Regular file. */
@@ -1409,7 +1446,10 @@ static FileData *blo_filedata_from_file_minimal(const char *filepath)
   return NULL;
 }
 
-static int fd_read_gzip_from_memory(FileData *filedata, void *buffer, uint size)
+static int fd_read_gzip_from_memory(FileData *filedata,
+                                    void *buffer,
+                                    uint size,
+                                    bool *UNUSED(r_is_memchunck_identical))
 {
   int err;
 
@@ -1480,7 +1520,9 @@ FileData *blo_filedata_from_memory(const void *mem, int memsize, ReportList *rep
   }
 }
 
-FileData *blo_filedata_from_memfile(MemFile *memfile, ReportList *reports)
+FileData *blo_filedata_from_memfile(MemFile *memfile,
+                                    const struct BlendFileReadParams *params,
+                                    ReportList *reports)
 {
   if (!memfile) {
     BKE_report(reports, RPT_WARNING, "Unable to open blend <memory>");
@@ -1489,6 +1531,7 @@ FileData *blo_filedata_from_memfile(MemFile *memfile, ReportList *reports)
   else {
     FileData *fd = filedata_new();
     fd->memfile = memfile;
+    fd->undo_direction = params->undo_direction;
 
     fd->read = fd_read_from_memfile;
     fd->flags |= FD_FLAGS_NOT_MY_BUFFER;
@@ -1557,11 +1600,17 @@ void blo_filedata_free(FileData *fd)
     if (fd->soundmap) {
       oldnewmap_free(fd->soundmap);
     }
+    if (fd->volumemap) {
+      oldnewmap_free(fd->volumemap);
+    }
     if (fd->packedmap) {
       oldnewmap_free(fd->packedmap);
     }
     if (fd->libmap && !(fd->flags & FD_FLAGS_NOT_MY_LIBMAP)) {
       oldnewmap_free(fd->libmap);
+    }
+    if (fd->old_idmap != NULL) {
+      BKE_main_idmap_destroy(fd->old_idmap);
     }
     if (fd->bheadmap) {
       MEM_freeN(fd->bheadmap);
@@ -1765,6 +1814,15 @@ static void *newsoundadr(FileData *fd, const void *adr)
   return NULL;
 }
 
+/* used to restore volume data after undo */
+static void *newvolumeadr(FileData *fd, const void *adr)
+{
+  if (fd->volumemap && adr) {
+    return oldnewmap_lookup_and_inc(fd->volumemap, adr, true);
+  }
+  return NULL;
+}
+
 /* used to restore packed data after undo */
 static void *newpackedadr(FileData *fd, const void *adr)
 {
@@ -1788,31 +1846,6 @@ void *blo_do_versions_newlibadr(FileData *fd, const void *lib, const void *adr)
 }
 
 /* increases user number */
-static void *newlibadr_us(FileData *fd, const void *lib, const void *adr)
-{
-  ID *id = newlibadr(fd, lib, adr);
-
-  id_us_plus_no_lib(id);
-
-  return id;
-}
-
-/* increases user number */
-void *blo_do_versions_newlibadr_us(FileData *fd, const void *lib, const void *adr)
-{
-  return newlibadr_us(fd, lib, adr);
-}
-
-/* ensures real user */
-static void *newlibadr_real_us(FileData *fd, const void *lib, const void *adr)
-{
-  ID *id = newlibadr(fd, lib, adr);
-
-  id_us_ensure_real(id);
-
-  return id;
-}
-
 static void change_link_placeholder_to_real_ID_pointer_fd(FileData *fd, const void *old, void *new)
 {
   for (int i = 0; i < fd->libmap->nentries; i++) {
@@ -1874,8 +1907,8 @@ void blo_make_scene_pointer_map(FileData *fd, Main *oldmain)
   fd->scenemap = oldnewmap_new();
 
   for (; sce; sce = sce->id.next) {
-    if (sce->eevee.light_cache) {
-      struct LightCache *light_cache = sce->eevee.light_cache;
+    if (sce->eevee.light_cache_data) {
+      struct LightCache *light_cache = sce->eevee.light_cache_data;
       oldnewmap_insert(fd->scenemap, light_cache, light_cache, 0);
     }
   }
@@ -1895,7 +1928,7 @@ void blo_end_scene_pointer_map(FileData *fd, Main *oldmain)
   }
 
   for (; sce; sce = sce->id.next) {
-    sce->eevee.light_cache = newsceadr(fd, sce->eevee.light_cache);
+    sce->eevee.light_cache_data = newsceadr(fd, sce->eevee.light_cache_data);
   }
 }
 
@@ -1911,9 +1944,11 @@ void blo_make_image_pointer_map(FileData *fd, Main *oldmain)
     if (ima->cache) {
       oldnewmap_insert(fd->imamap, ima->cache, ima->cache, 0);
     }
-    for (a = 0; a < TEXTARGET_COUNT; a++) {
-      if (ima->gputexture[a] != NULL) {
-        oldnewmap_insert(fd->imamap, ima->gputexture[a], ima->gputexture[a], 0);
+    for (int eye = 0; eye < 2; eye++) {
+      for (a = 0; a < TEXTARGET_COUNT; a++) {
+        if (ima->gputexture[a][eye] != NULL) {
+          oldnewmap_insert(fd->imamap, ima->gputexture[a][eye], ima->gputexture[a][eye], 0);
+        }
       }
     }
     if (ima->rr) {
@@ -1957,8 +1992,10 @@ void blo_end_image_pointer_map(FileData *fd, Main *oldmain)
     if (ima->cache == NULL) {
       ima->gpuflag = 0;
       ima->gpuframenr = INT_MAX;
-      for (i = 0; i < TEXTARGET_COUNT; i++) {
-        ima->gputexture[i] = NULL;
+      for (int eye = 0; eye < 2; eye++) {
+        for (i = 0; i < TEXTARGET_COUNT; i++) {
+          ima->gputexture[i][eye] = NULL;
+        }
       }
       ima->rr = NULL;
     }
@@ -1966,8 +2003,10 @@ void blo_end_image_pointer_map(FileData *fd, Main *oldmain)
       slot->render = newimaadr(fd, slot->render);
     }
 
-    for (i = 0; i < TEXTARGET_COUNT; i++) {
-      ima->gputexture[i] = newimaadr(fd, ima->gputexture[i]);
+    for (int eye = 0; eye < 2; eye++) {
+      for (i = 0; i < TEXTARGET_COUNT; i++) {
+        ima->gputexture[i][eye] = newimaadr(fd, ima->gputexture[i][eye]);
+      }
     }
     ima->rr = newimaadr(fd, ima->rr);
   }
@@ -2090,6 +2129,37 @@ void blo_end_sound_pointer_map(FileData *fd, Main *oldmain)
   }
 }
 
+void blo_make_volume_pointer_map(FileData *fd, Main *oldmain)
+{
+  fd->volumemap = oldnewmap_new();
+
+  Volume *volume = oldmain->volumes.first;
+  for (; volume; volume = volume->id.next) {
+    if (volume->runtime.grids) {
+      oldnewmap_insert(fd->volumemap, volume->runtime.grids, volume->runtime.grids, 0);
+    }
+  }
+}
+
+/* set old main volume caches to zero if it has been restored */
+/* this works because freeing old main only happens after this call */
+void blo_end_volume_pointer_map(FileData *fd, Main *oldmain)
+{
+  OldNew *entry = fd->volumemap->entries;
+  Volume *volume = oldmain->volumes.first;
+  int i;
+
+  /* used entries were restored, so we put them to zero */
+  for (i = 0; i < fd->volumemap->nentries; i++, entry++) {
+    if (entry->nr > 0)
+      entry->newp = NULL;
+  }
+
+  for (; volume; volume = volume->id.next) {
+    volume->runtime.grids = newvolumeadr(fd, volume->runtime.grids);
+  }
+}
+
 /* XXX disabled this feature - packed files also belong in temp saves and quit.blend,
  * to make restore work. */
 
@@ -2104,6 +2174,7 @@ void blo_make_packed_pointer_map(FileData *fd, Main *oldmain)
   Image *ima;
   VFont *vfont;
   bSound *sound;
+  Volume *volume;
   Library *lib;
 
   fd->packedmap = oldnewmap_new();
@@ -2134,6 +2205,12 @@ void blo_make_packed_pointer_map(FileData *fd, Main *oldmain)
     }
   }
 
+  for (volume = oldmain->volumes.first; volume; volume = volume->id.next) {
+    if (volume->packedfile) {
+      insert_packedmap(fd, volume->packedfile);
+    }
+  }
+
   for (lib = oldmain->libraries.first; lib; lib = lib->id.next) {
     if (lib->packedfile) {
       insert_packedmap(fd, lib->packedfile);
@@ -2148,6 +2225,7 @@ void blo_end_packed_pointer_map(FileData *fd, Main *oldmain)
   Image *ima;
   VFont *vfont;
   bSound *sound;
+  Volume *volume;
   Library *lib;
   OldNew *entry = fd->packedmap->entries;
   int i;
@@ -2180,6 +2258,10 @@ void blo_end_packed_pointer_map(FileData *fd, Main *oldmain)
   for (lib = oldmain->libraries.first; lib; lib = lib->id.next) {
     lib->packedfile = newpackedadr(fd, lib->packedfile);
   }
+
+  for (volume = oldmain->volumes.first; volume; volume = volume->id.next) {
+    volume->packedfile = newpackedadr(fd, volume->packedfile);
+  }
 }
 
 /* undo file support: add all library pointers in lookup */
@@ -2199,6 +2281,16 @@ void blo_add_library_pointer_map(ListBase *old_mainlist, FileData *fd)
   }
 
   fd->old_mainlist = old_mainlist;
+}
+
+/* Build a GSet of old main (we only care about local data here, so we can do that after
+ * split_main() call. */
+void blo_make_old_idmap_from_main(FileData *fd, Main *bmain)
+{
+  if (fd->old_idmap != NULL) {
+    BKE_main_idmap_destroy(fd->old_idmap);
+  }
+  fd->old_idmap = BKE_main_idmap_create(bmain, false, NULL, MAIN_IDMAP_TYPE_UUID);
 }
 
 /** \} */
@@ -2280,6 +2372,10 @@ static void *read_struct(FileData *fd, BHead *bh, const char *blockname)
         memcpy(temp, (bh + 1), bh->len);
 #endif
       }
+    }
+
+    if (!BHEADN_FROM_BHEAD(bh)->is_memchunk_identical) {
+      fd->are_memchunks_identical = false;
     }
 #ifdef USE_BHEAD_READ_ON_DEMAND
     if (bh_orig != bh) {
@@ -2555,7 +2651,7 @@ static void IDP_LibLinkProperty(IDProperty *prop, FileData *fd)
   switch (prop->type) {
     case IDP_ID: /* PointerProperty */
     {
-      void *newaddr = newlibadr_us(fd, NULL, IDP_Id(prop));
+      void *newaddr = newlibadr(fd, NULL, IDP_Id(prop));
       if (IDP_Id(prop) && !newaddr && G.debug) {
         printf("Error while loading \"%s\". Data not found in file!\n", prop->name);
       }
@@ -2613,7 +2709,29 @@ static PreviewImage *direct_link_preview_image(FileData *fd, PreviewImage *old_p
 /** \name Read ID
  * \{ */
 
-static void lib_link_id(FileData *fd, Main *UNUSED(bmain), ID *id)
+static void lib_link_id(FileData *fd, Main *bmain, ID *id);
+static void lib_link_nodetree(FileData *fd, Main *bmain, bNodeTree *ntree);
+static void lib_link_collection(FileData *fd, Main *bmain, Collection *collection);
+
+static void lib_link_id_private_id(FileData *fd, Main *bmain, ID *id)
+{
+  /* Handle 'private IDs'. */
+  bNodeTree *nodetree = ntreeFromID(id);
+  if (nodetree != NULL) {
+    lib_link_id(fd, bmain, &nodetree->id);
+    lib_link_nodetree(fd, bmain, nodetree);
+  }
+
+  if (GS(id->name) == ID_SCE) {
+    Scene *scene = (Scene *)id;
+    if (scene->master_collection != NULL) {
+      lib_link_id(fd, bmain, &scene->master_collection->id);
+      lib_link_collection(fd, bmain, scene->master_collection);
+    }
+  }
+}
+
+static void lib_link_id(FileData *fd, Main *bmain, ID *id)
 {
   /* Note: WM IDProperties are never written to file, hence they should always be NULL here. */
   BLI_assert((GS(id->name) != ID_WM) || id->properties == NULL);
@@ -2625,9 +2743,11 @@ static void lib_link_id(FileData *fd, Main *UNUSED(bmain), ID *id)
   }
 
   if (id->override_library) {
-    id->override_library->reference = newlibadr_us(fd, id->lib, id->override_library->reference);
-    id->override_library->storage = newlibadr_us(fd, id->lib, id->override_library->storage);
+    id->override_library->reference = newlibadr(fd, id->lib, id->override_library->reference);
+    id->override_library->storage = newlibadr(fd, id->lib, id->override_library->storage);
   }
+
+  lib_link_id_private_id(fd, bmain, id);
 }
 
 static void direct_link_id_override_property_operation_cb(FileData *fd, void *data)
@@ -2646,7 +2766,33 @@ static void direct_link_id_override_property_cb(FileData *fd, void *data)
   link_list_ex(fd, &op->operations, direct_link_id_override_property_operation_cb);
 }
 
-static void direct_link_id(FileData *fd, ID *id)
+static void direct_link_id(FileData *fd, ID *id, ID *id_old);
+static void direct_link_nodetree(FileData *fd, bNodeTree *ntree);
+static void direct_link_collection(FileData *fd, Collection *collection);
+
+static void direct_link_id_private_id(FileData *fd, ID *id, ID *id_old)
+{
+  /* Handle 'private IDs'. */
+  bNodeTree **nodetree = BKE_ntree_ptr_from_id(id);
+  if (nodetree != NULL && *nodetree != NULL) {
+    *nodetree = newdataadr(fd, *nodetree);
+    direct_link_id(fd, (ID *)*nodetree, id_old != NULL ? (ID *)ntreeFromID(id_old) : NULL);
+    direct_link_nodetree(fd, *nodetree);
+  }
+
+  if (GS(id->name) == ID_SCE) {
+    Scene *scene = (Scene *)id;
+    if (scene->master_collection != NULL) {
+      scene->master_collection = newdataadr(fd, scene->master_collection);
+      direct_link_id(fd,
+                     &scene->master_collection->id,
+                     id_old != NULL ? &((Scene *)id_old)->master_collection->id : NULL);
+      direct_link_collection(fd, scene->master_collection);
+    }
+  }
+}
+
+static void direct_link_id(FileData *fd, ID *id, ID *id_old)
 {
   /*link direct data of ID properties*/
   if (id->properties) {
@@ -2670,8 +2816,34 @@ static void direct_link_id(FileData *fd, ID *id)
    *
    * But for regular file load we clear the flag, since the flags might have been changed since
    * the version the file has been saved with. */
-  if (!fd->memfile) {
+  if (fd->memfile == NULL) {
     id->recalc = 0;
+    id->recalc_undo_accumulated = 0;
+  }
+  else if ((fd->skip_flags & BLO_READ_SKIP_UNDO_OLD_MAIN) == 0) {
+    if (fd->undo_direction < 0) {
+      /* We are coming from the future (i.e. do an actual undo, and not a redo), and we found an
+       * old (aka existing) ID: we use its 'accumulated recalc flags since last memfile undo step
+       * saving' as recalc flags of our newly read ID. */
+      if (id_old != NULL) {
+        id->recalc = id_old->recalc_undo_accumulated;
+      }
+    }
+    else {
+      /* We are coming from the past (i.e. do a redo), we use saved 'accumulated
+       * recalc flags since last memfile undo step saving' as recalc flags of our newly read ID. */
+      id->recalc = id->recalc_undo_accumulated;
+    }
+    /* In any case, we need to flush the depsgraph's CoWs, as even if the ID address itself did not
+     * change, internal data most likely have. */
+    id->recalc |= ID_RECALC_COPY_ON_WRITE;
+
+    /* We need to 'accumulate' the accumulated recalc flags of all undo steps until we actually
+     * perform a depsgraph update, otherwise we'd only ever use the flags from one of the steps,
+     * and never get proper flags matching all others. */
+    if (id_old != NULL) {
+      id->recalc_undo_accumulated |= id_old->recalc_undo_accumulated;
+    }
   }
 
   /* Link direct data of overrides. */
@@ -2685,6 +2857,9 @@ static void direct_link_id(FileData *fd, ID *id)
   if (drawdata) {
     BLI_listbase_clear((ListBase *)drawdata);
   }
+
+  /* Handle 'private IDs'. */
+  direct_link_id_private_id(fd, id, id_old);
 }
 
 /** \} */
@@ -2731,16 +2906,16 @@ static void direct_link_curveprofile(FileData *fd, CurveProfile *profile)
 static void lib_link_brush(FileData *fd, Main *UNUSED(bmain), Brush *brush)
 {
   /* brush->(mask_)mtex.obj is ignored on purpose? */
-  brush->mtex.tex = newlibadr_us(fd, brush->id.lib, brush->mtex.tex);
-  brush->mask_mtex.tex = newlibadr_us(fd, brush->id.lib, brush->mask_mtex.tex);
+  brush->mtex.tex = newlibadr(fd, brush->id.lib, brush->mtex.tex);
+  brush->mask_mtex.tex = newlibadr(fd, brush->id.lib, brush->mask_mtex.tex);
   brush->clone.image = newlibadr(fd, brush->id.lib, brush->clone.image);
   brush->toggle_brush = newlibadr(fd, brush->id.lib, brush->toggle_brush);
-  brush->paint_curve = newlibadr_us(fd, brush->id.lib, brush->paint_curve);
+  brush->paint_curve = newlibadr(fd, brush->id.lib, brush->paint_curve);
 
   /* link default grease pencil palette */
   if (brush->gpencil_settings != NULL) {
     if (brush->gpencil_settings->flag & GP_BRUSH_MATERIAL_PINNED) {
-      brush->gpencil_settings->material = newlibadr_us(
+      brush->gpencil_settings->material = newlibadr(
           fd, brush->id.lib, brush->gpencil_settings->material);
 
       if (!brush->gpencil_settings->material) {
@@ -2882,7 +3057,7 @@ static void lib_link_nlastrips(FileData *fd, ID *id, ListBase *striplist)
 
   for (strip = striplist->first; strip; strip = strip->next) {
     strip->object = newlibadr(fd, id->lib, strip->object);
-    strip->act = newlibadr_us(fd, id->lib, strip->act);
+    strip->act = newlibadr(fd, id->lib, strip->act);
     strip->ipo = newlibadr(fd, id->lib, strip->ipo);
     for (amod = strip->modifiers.first; amod; amod = amod->next) {
       amod->ob = newlibadr(fd, id->lib, amod->ob);
@@ -2908,7 +3083,7 @@ static void lib_link_constraint_channels(FileData *fd, ID *id, ListBase *chanbas
   bConstraintChannel *chan;
 
   for (chan = chanbase->first; chan; chan = chan->next) {
-    chan->ipo = newlibadr_us(fd, id->lib, chan->ipo);
+    chan->ipo = newlibadr(fd, id->lib, chan->ipo);
   }
 }
 
@@ -3075,7 +3250,7 @@ static void lib_link_action(FileData *fd, Main *UNUSED(bmain), bAction *act)
 {
   // XXX deprecated - old animation system <<<
   for (bActionChannel *chan = act->chanbase.first; chan; chan = chan->next) {
-    chan->ipo = newlibadr_us(fd, act->id.lib, chan->ipo);
+    chan->ipo = newlibadr(fd, act->id.lib, chan->ipo);
     lib_link_constraint_channels(fd, &act->id, &chan->constraintChannels);
   }
   // >>> XXX deprecated - old animation system
@@ -3127,7 +3302,7 @@ static void lib_link_nladata_strips(FileData *fd, ID *id, ListBase *list)
     lib_link_fcurves(fd, id, &strip->fcurves);
 
     /* reassign the counted-reference to action */
-    strip->act = newlibadr_us(fd, id->lib, strip->act);
+    strip->act = newlibadr(fd, id->lib, strip->act);
 
     /* fix action id-root (i.e. if it comes from a pre 2.57 .blend file) */
     if ((strip->act) && (strip->act->idroot == 0)) {
@@ -3224,8 +3399,8 @@ static void lib_link_animdata(FileData *fd, ID *id, AnimData *adt)
   }
 
   /* link action data */
-  adt->action = newlibadr_us(fd, id->lib, adt->action);
-  adt->tmpact = newlibadr_us(fd, id->lib, adt->tmpact);
+  adt->action = newlibadr(fd, id->lib, adt->action);
+  adt->tmpact = newlibadr(fd, id->lib, adt->tmpact);
 
   /* fix action id-roots (i.e. if they come from a pre 2.57 .blend file) */
   if ((adt->action) && (adt->action->idroot == 0)) {
@@ -3311,7 +3486,7 @@ static void lib_link_workspaces(FileData *fd, Main *bmain, WorkSpace *workspace)
   id_us_ensure_real(id);
 
   for (WorkSpaceLayout *layout = layouts->first, *layout_next; layout; layout = layout_next) {
-    layout->screen = newlibadr_us(fd, id->lib, layout->screen);
+    layout->screen = newlibadr(fd, id->lib, layout->screen);
 
     layout_next = layout->next;
     if (layout->screen) {
@@ -3385,14 +3560,14 @@ static void lib_link_ntree(FileData *fd, Library *lib, bNodeTree *ntree)
 {
   ntree->id.lib = lib;
 
-  ntree->gpd = newlibadr_us(fd, lib, ntree->gpd);
+  ntree->gpd = newlibadr(fd, lib, ntree->gpd);
 
   for (bNode *node = ntree->nodes.first; node; node = node->next) {
     /* Link ID Properties -- and copy this comment EXACTLY for easy finding
      * of library blocks that implement this.*/
     IDP_LibLinkProperty(node->prop, fd);
 
-    node->id = newlibadr_us(fd, lib, node->id);
+    node->id = newlibadr(fd, lib, node->id);
 
     for (bNodeSocket *sock = node->inputs.first; sock; sock = sock->next) {
       IDP_LibLinkProperty(sock->prop, fd);
@@ -3580,23 +3755,23 @@ static void direct_link_nodetree(FileData *fd, bNodeTree *ntree)
   }
 
 #if 0
-  if (ntree->previews) {
-    bNodeInstanceHash *new_previews = BKE_node_instance_hash_new("node previews");
-    bNodeInstanceHashIterator iter;
+	if (ntree->previews) {
+		bNodeInstanceHash* new_previews = BKE_node_instance_hash_new("node previews");
+		bNodeInstanceHashIterator iter;
 
-    NODE_INSTANCE_HASH_ITER(iter, ntree->previews) {
-      bNodePreview *preview = BKE_node_instance_hash_iterator_get_value(&iter);
-      if (preview) {
-        bNodePreview *new_preview = newimaadr(fd, preview);
-        if (new_preview) {
-          bNodeInstanceKey key = BKE_node_instance_hash_iterator_get_key(&iter);
-          BKE_node_instance_hash_insert(new_previews, key, new_preview);
-        }
-      }
-    }
-    BKE_node_instance_hash_free(ntree->previews, NULL);
-    ntree->previews = new_previews;
-  }
+		NODE_INSTANCE_HASH_ITER(iter, ntree->previews) {
+			bNodePreview* preview = BKE_node_instance_hash_iterator_get_value(&iter);
+			if (preview) {
+				bNodePreview* new_preview = newimaadr(fd, preview);
+				if (new_preview) {
+					bNodeInstanceKey key = BKE_node_instance_hash_iterator_get_key(&iter);
+					BKE_node_instance_hash_insert(new_previews, key, new_preview);
+				}
+			}
+		}
+		BKE_node_instance_hash_free(ntree->previews, NULL);
+		ntree->previews = new_previews;
+	}
 #else
   /* XXX TODO */
   ntree->previews = NULL;
@@ -3624,10 +3799,10 @@ static void lib_link_constraint_cb(bConstraint *UNUSED(con),
 {
   tConstraintLinkData *cld = (tConstraintLinkData *)userdata;
 
-  /* for reference types, we need to increment the usercounts on load... */
+  /* for reference types, we need to increment the user-counts on load... */
   if (is_reference) {
     /* reference type - with usercount */
-    *idpoin = newlibadr_us(cld->fd, cld->id->lib, *idpoin);
+    *idpoin = newlibadr(cld->fd, cld->id->lib, *idpoin);
   }
   else {
     /* target type - no usercount needed */
@@ -3648,7 +3823,7 @@ static void lib_link_constraints(FileData *fd, ID *id, ListBase *conlist)
       con->type = CONSTRAINT_TYPE_NULL;
     }
     /* own ipo, all constraints have it */
-    con->ipo = newlibadr_us(fd, id->lib, con->ipo);  // XXX deprecated - old animation system
+    con->ipo = newlibadr(fd, id->lib, con->ipo);  // XXX deprecated - old animation system
 
     /* If linking from a library, clear 'local' library override flag. */
     if (id->lib != NULL) {
@@ -3759,7 +3934,7 @@ static void lib_link_pose(FileData *fd, Main *bmain, Object *ob, bPose *pose)
 
     IDP_LibLinkProperty(pchan->prop, fd);
 
-    pchan->custom = newlibadr_us(fd, arm->id.lib, pchan->custom);
+    pchan->custom = newlibadr(fd, arm->id.lib, pchan->custom);
     if (UNLIKELY(pchan->bone == NULL)) {
       rebuild = true;
     }
@@ -3844,14 +4019,14 @@ static void direct_link_armature(FileData *fd, bArmature *arm)
 
 static void lib_link_camera(FileData *fd, Main *UNUSED(bmain), Camera *ca)
 {
-  ca->ipo = newlibadr_us(fd, ca->id.lib, ca->ipo); /* deprecated, for versioning */
+  ca->ipo = newlibadr(fd, ca->id.lib, ca->ipo); /* deprecated, for versioning */
 
   ca->dof_ob = newlibadr(fd, ca->id.lib, ca->dof_ob); /* deprecated, for versioning */
   ca->dof.focus_object = newlibadr(fd, ca->id.lib, ca->dof.focus_object);
 
   for (CameraBGImage *bgpic = ca->bg_images.first; bgpic; bgpic = bgpic->next) {
-    bgpic->ima = newlibadr_us(fd, ca->id.lib, bgpic->ima);
-    bgpic->clip = newlibadr_us(fd, ca->id.lib, bgpic->clip);
+    bgpic->ima = newlibadr(fd, ca->id.lib, bgpic->ima);
+    bgpic->clip = newlibadr(fd, ca->id.lib, bgpic->clip);
   }
 }
 
@@ -3874,14 +4049,9 @@ static void direct_link_camera(FileData *fd, Camera *ca)
 /** \name Read ID: Light
  * \{ */
 
-static void lib_link_light(FileData *fd, Main *bmain, Light *la)
+static void lib_link_light(FileData *fd, Main *UNUSED(bmain), Light *la)
 {
-  la->ipo = newlibadr_us(fd, la->id.lib, la->ipo);  // XXX deprecated - old animation system
-
-  if (la->nodetree) {
-    lib_link_id(fd, bmain, &la->nodetree->id);
-    lib_link_ntree(fd, la->id.lib, la->nodetree);
-  }
+  la->ipo = newlibadr(fd, la->id.lib, la->ipo);  // XXX deprecated - old animation system
 }
 
 static void direct_link_light(FileData *fd, Light *la)
@@ -3892,12 +4062,6 @@ static void direct_link_light(FileData *fd, Light *la)
   la->curfalloff = newdataadr(fd, la->curfalloff);
   if (la->curfalloff) {
     direct_link_curvemapping(fd, la->curfalloff);
-  }
-
-  la->nodetree = newdataadr(fd, la->nodetree);
-  if (la->nodetree) {
-    direct_link_id(fd, &la->nodetree->id);
-    direct_link_nodetree(fd, la->nodetree);
   }
 
   la->preview = direct_link_preview_image(fd, la->preview);
@@ -3923,7 +4087,7 @@ static void lib_link_key(FileData *fd, Main *UNUSED(bmain), Key *key)
 {
   BLI_assert((key->id.tag & LIB_TAG_EXTERN) == 0);
 
-  key->ipo = newlibadr_us(fd, key->id.lib, key->ipo);  // XXX deprecated - old animation system
+  key->ipo = newlibadr(fd, key->id.lib, key->ipo);  // XXX deprecated - old animation system
   key->from = newlibadr(fd, key->id.lib, key->from);
 }
 
@@ -3985,10 +4149,10 @@ static void direct_link_key(FileData *fd, Key *key)
 static void lib_link_mball(FileData *fd, Main *UNUSED(bmain), MetaBall *mb)
 {
   for (int a = 0; a < mb->totcol; a++) {
-    mb->mat[a] = newlibadr_us(fd, mb->id.lib, mb->mat[a]);
+    mb->mat[a] = newlibadr(fd, mb->id.lib, mb->mat[a]);
   }
 
-  mb->ipo = newlibadr_us(fd, mb->id.lib, mb->ipo);  // XXX deprecated - old animation system
+  mb->ipo = newlibadr(fd, mb->id.lib, mb->ipo);  // XXX deprecated - old animation system
 }
 
 static void direct_link_mball(FileData *fd, MetaBall *mb)
@@ -4016,26 +4180,15 @@ static void direct_link_mball(FileData *fd, MetaBall *mb)
 /** \name Read ID: World
  * \{ */
 
-static void lib_link_world(FileData *fd, Main *bmain, World *wrld)
+static void lib_link_world(FileData *fd, Main *UNUSED(bmain), World *wrld)
 {
-  wrld->ipo = newlibadr_us(fd, wrld->id.lib, wrld->ipo);  // XXX deprecated - old animation system
-
-  if (wrld->nodetree) {
-    lib_link_id(fd, bmain, &wrld->nodetree->id);
-    lib_link_ntree(fd, wrld->id.lib, wrld->nodetree);
-  }
+  wrld->ipo = newlibadr(fd, wrld->id.lib, wrld->ipo);  // XXX deprecated - old animation system
 }
 
 static void direct_link_world(FileData *fd, World *wrld)
 {
   wrld->adt = newdataadr(fd, wrld->adt);
   direct_link_animdata(fd, wrld->adt);
-
-  wrld->nodetree = newdataadr(fd, wrld->nodetree);
-  if (wrld->nodetree) {
-    direct_link_id(fd, &wrld->nodetree->id);
-    direct_link_nodetree(fd, wrld->nodetree);
-  }
 
   wrld->preview = direct_link_preview_image(fd, wrld->preview);
   BLI_listbase_clear(&wrld->gpumaterial);
@@ -4077,10 +4230,10 @@ static void direct_link_text(FileData *fd, Text *text)
   text->compiled = NULL;
 
 #if 0
-  if (text->flags & TXT_ISEXT) {
-    BKE_text_reload(text);
-  }
-  /* else { */
+	if (text->flags & TXT_ISEXT) {
+		BKE_text_reload(text);
+	}
+	/* else { */
 #endif
 
   link_list(fd, &text->lines);
@@ -4131,14 +4284,18 @@ static void direct_link_image(FileData *fd, Image *ima)
   if (!ima->cache) {
     ima->gpuflag = 0;
     ima->gpuframenr = INT_MAX;
-    for (int i = 0; i < TEXTARGET_COUNT; i++) {
-      ima->gputexture[i] = NULL;
+    for (int eye = 0; eye < 2; eye++) {
+      for (int i = 0; i < TEXTARGET_COUNT; i++) {
+        ima->gputexture[i][eye] = NULL;
+      }
     }
     ima->rr = NULL;
   }
   else {
-    for (int i = 0; i < TEXTARGET_COUNT; i++) {
-      ima->gputexture[i] = newimaadr(fd, ima->gputexture[i]);
+    for (int eye = 0; eye < 2; eye++) {
+      for (int i = 0; i < TEXTARGET_COUNT; i++) {
+        ima->gputexture[i][eye] = newimaadr(fd, ima->gputexture[i][eye]);
+      }
     }
     ima->rr = newimaadr(fd, ima->rr);
   }
@@ -4187,19 +4344,19 @@ static void direct_link_image(FileData *fd, Image *ima)
 static void lib_link_curve(FileData *fd, Main *UNUSED(bmain), Curve *cu)
 {
   for (int a = 0; a < cu->totcol; a++) {
-    cu->mat[a] = newlibadr_us(fd, cu->id.lib, cu->mat[a]);
+    cu->mat[a] = newlibadr(fd, cu->id.lib, cu->mat[a]);
   }
 
   cu->bevobj = newlibadr(fd, cu->id.lib, cu->bevobj);
   cu->taperobj = newlibadr(fd, cu->id.lib, cu->taperobj);
   cu->textoncurve = newlibadr(fd, cu->id.lib, cu->textoncurve);
-  cu->vfont = newlibadr_us(fd, cu->id.lib, cu->vfont);
-  cu->vfontb = newlibadr_us(fd, cu->id.lib, cu->vfontb);
-  cu->vfonti = newlibadr_us(fd, cu->id.lib, cu->vfonti);
-  cu->vfontbi = newlibadr_us(fd, cu->id.lib, cu->vfontbi);
+  cu->vfont = newlibadr(fd, cu->id.lib, cu->vfont);
+  cu->vfontb = newlibadr(fd, cu->id.lib, cu->vfontb);
+  cu->vfonti = newlibadr(fd, cu->id.lib, cu->vfonti);
+  cu->vfontbi = newlibadr(fd, cu->id.lib, cu->vfontbi);
 
-  cu->ipo = newlibadr_us(fd, cu->id.lib, cu->ipo);  // XXX deprecated - old animation system
-  cu->key = newlibadr_us(fd, cu->id.lib, cu->key);
+  cu->ipo = newlibadr(fd, cu->id.lib, cu->ipo);  // XXX deprecated - old animation system
+  cu->key = newlibadr(fd, cu->id.lib, cu->key);
 }
 
 static void switch_endian_knots(Nurb *nu)
@@ -4278,15 +4435,10 @@ static void direct_link_curve(FileData *fd, Curve *cu)
 /** \name Read ID: Texture
  * \{ */
 
-static void lib_link_texture(FileData *fd, Main *bmain, Tex *tex)
+static void lib_link_texture(FileData *fd, Main *UNUSED(bmain), Tex *tex)
 {
-  tex->ima = newlibadr_us(fd, tex->id.lib, tex->ima);
-  tex->ipo = newlibadr_us(fd, tex->id.lib, tex->ipo);  // XXX deprecated - old animation system
-
-  if (tex->nodetree) {
-    lib_link_id(fd, bmain, &tex->nodetree->id);
-    lib_link_ntree(fd, tex->id.lib, tex->nodetree);
-  }
+  tex->ima = newlibadr(fd, tex->id.lib, tex->ima);
+  tex->ipo = newlibadr(fd, tex->id.lib, tex->ipo);  // XXX deprecated - old animation system
 }
 
 static void direct_link_texture(FileData *fd, Tex *tex)
@@ -4295,12 +4447,6 @@ static void direct_link_texture(FileData *fd, Tex *tex)
   direct_link_animdata(fd, tex->adt);
 
   tex->coba = newdataadr(fd, tex->coba);
-
-  tex->nodetree = newdataadr(fd, tex->nodetree);
-  if (tex->nodetree) {
-    direct_link_id(fd, &tex->nodetree->id);
-    direct_link_nodetree(fd, tex->nodetree);
-  }
 
   tex->preview = direct_link_preview_image(fd, tex->preview);
 
@@ -4314,23 +4460,18 @@ static void direct_link_texture(FileData *fd, Tex *tex)
 /** \name Read ID: Material
  * \{ */
 
-static void lib_link_material(FileData *fd, Main *bmain, Material *ma)
+static void lib_link_material(FileData *fd, Main *UNUSED(bmain), Material *ma)
 {
-  ma->ipo = newlibadr_us(fd, ma->id.lib, ma->ipo);  // XXX deprecated - old animation system
-
-  if (ma->nodetree) {
-    lib_link_id(fd, bmain, &ma->nodetree->id);
-    lib_link_ntree(fd, ma->id.lib, ma->nodetree);
-  }
+  ma->ipo = newlibadr(fd, ma->id.lib, ma->ipo);  // XXX deprecated - old animation system
 
   /* relink grease pencil settings */
   if (ma->gp_style != NULL) {
     MaterialGPencilStyle *gp_style = ma->gp_style;
     if (gp_style->sima != NULL) {
-      gp_style->sima = newlibadr_us(fd, ma->id.lib, gp_style->sima);
+      gp_style->sima = newlibadr(fd, ma->id.lib, gp_style->sima);
     }
     if (gp_style->ima != NULL) {
-      gp_style->ima = newlibadr_us(fd, ma->id.lib, gp_style->ima);
+      gp_style->ima = newlibadr(fd, ma->id.lib, gp_style->ima);
     }
   }
 }
@@ -4341,12 +4482,6 @@ static void direct_link_material(FileData *fd, Material *ma)
   direct_link_animdata(fd, ma->adt);
 
   ma->texpaintslot = NULL;
-
-  ma->nodetree = newdataadr(fd, ma->nodetree);
-  if (ma->nodetree) {
-    direct_link_id(fd, &ma->nodetree->id);
-    direct_link_nodetree(fd, ma->nodetree);
-  }
 
   ma->preview = direct_link_preview_image(fd, ma->preview);
   BLI_listbase_clear(&ma->gpumaterial);
@@ -4449,7 +4584,7 @@ static void direct_link_pointcache_list(FileData *fd,
 static void lib_link_partdeflect(FileData *fd, ID *id, PartDeflect *pd)
 {
   if (pd && pd->tex) {
-    pd->tex = newlibadr_us(fd, id->lib, pd->tex);
+    pd->tex = newlibadr(fd, id->lib, pd->tex);
   }
   if (pd && pd->f_source) {
     pd->f_source = newlibadr(fd, id->lib, pd->f_source);
@@ -4458,10 +4593,10 @@ static void lib_link_partdeflect(FileData *fd, ID *id, PartDeflect *pd)
 
 static void lib_link_particlesettings(FileData *fd, Main *UNUSED(bmain), ParticleSettings *part)
 {
-  part->ipo = newlibadr_us(fd, part->id.lib, part->ipo);  // XXX deprecated - old animation system
+  part->ipo = newlibadr(fd, part->id.lib, part->ipo);  // XXX deprecated - old animation system
 
   part->instance_object = newlibadr(fd, part->id.lib, part->instance_object);
-  part->instance_collection = newlibadr_us(fd, part->id.lib, part->instance_collection);
+  part->instance_collection = newlibadr(fd, part->id.lib, part->instance_collection);
   part->force_group = newlibadr(fd, part->id.lib, part->force_group);
   part->bb_ob = newlibadr(fd, part->id.lib, part->bb_ob);
   part->collision_group = newlibadr(fd, part->id.lib, part->collision_group);
@@ -4511,7 +4646,7 @@ static void lib_link_particlesettings(FileData *fd, Main *UNUSED(bmain), Particl
   for (int a = 0; a < MAX_MTEX; a++) {
     MTex *mtex = part->mtex[a];
     if (mtex) {
-      mtex->tex = newlibadr_us(fd, part->id.lib, mtex->tex);
+      mtex->tex = newlibadr(fd, part->id.lib, mtex->tex);
       mtex->object = newlibadr(fd, part->id.lib, mtex->object);
     }
   }
@@ -4584,7 +4719,7 @@ static void lib_link_particlesystems(FileData *fd, Object *ob, ID *id, ListBase 
   for (psys = particles->first; psys; psys = psysnext) {
     psysnext = psys->next;
 
-    psys->part = newlibadr_us(fd, id->lib, psys->part);
+    psys->part = newlibadr(fd, id->lib, psys->part);
     if (psys->part) {
       ParticleTarget *pt = psys->targets.first;
 
@@ -4716,16 +4851,16 @@ static void lib_link_mesh(FileData *fd, Main *UNUSED(bmain), Mesh *me)
   /* this check added for python created meshes */
   if (me->mat) {
     for (int i = 0; i < me->totcol; i++) {
-      me->mat[i] = newlibadr_us(fd, me->id.lib, me->mat[i]);
+      me->mat[i] = newlibadr(fd, me->id.lib, me->mat[i]);
     }
   }
   else {
     me->totcol = 0;
   }
 
-  me->ipo = newlibadr_us(fd, me->id.lib, me->ipo);  // XXX: deprecated: old anim sys
-  me->key = newlibadr_us(fd, me->id.lib, me->key);
-  me->texcomesh = newlibadr_us(fd, me->id.lib, me->texcomesh);
+  me->ipo = newlibadr(fd, me->id.lib, me->ipo);  // XXX: deprecated: old anim sys
+  me->key = newlibadr(fd, me->id.lib, me->key);
+  me->texcomesh = newlibadr(fd, me->id.lib, me->texcomesh);
 }
 
 static void direct_link_dverts(FileData *fd, int count, MDeformVert *mdverts)
@@ -4941,8 +5076,8 @@ static void direct_link_mesh(FileData *fd, Mesh *mesh)
 
 static void lib_link_latt(FileData *fd, Main *UNUSED(bmain), Lattice *lt)
 {
-  lt->ipo = newlibadr_us(fd, lt->id.lib, lt->ipo);  // XXX deprecated - old animation system
-  lt->key = newlibadr_us(fd, lt->id.lib, lt->key);
+  lt->ipo = newlibadr(fd, lt->id.lib, lt->ipo);  // XXX deprecated - old animation system
+  lt->key = newlibadr(fd, lt->id.lib, lt->key);
 }
 
 static void direct_link_latt(FileData *fd, Lattice *lt)
@@ -5018,17 +5153,17 @@ static void lib_link_object(FileData *fd, Main *bmain, Object *ob)
   int a;
 
   // XXX deprecated - old animation system <<<
-  ob->ipo = newlibadr_us(fd, ob->id.lib, ob->ipo);
-  ob->action = newlibadr_us(fd, ob->id.lib, ob->action);
+  ob->ipo = newlibadr(fd, ob->id.lib, ob->ipo);
+  ob->action = newlibadr(fd, ob->id.lib, ob->action);
   // >>> XXX deprecated - old animation system
 
   ob->parent = newlibadr(fd, ob->id.lib, ob->parent);
   ob->track = newlibadr(fd, ob->id.lib, ob->track);
-  ob->poselib = newlibadr_us(fd, ob->id.lib, ob->poselib);
+  ob->poselib = newlibadr(fd, ob->id.lib, ob->poselib);
 
   /* 2.8x drops support for non-empty dupli instances. */
   if (ob->type == OB_EMPTY) {
-    ob->instance_collection = newlibadr_us(fd, ob->id.lib, ob->instance_collection);
+    ob->instance_collection = newlibadr(fd, ob->id.lib, ob->instance_collection);
   }
   else {
     if (ob->instance_collection != NULL) {
@@ -5044,7 +5179,7 @@ static void lib_link_object(FileData *fd, Main *bmain, Object *ob)
     ob->transflag &= ~OB_DUPLICOLLECTION;
   }
 
-  ob->proxy = newlibadr_us(fd, ob->id.lib, ob->proxy);
+  ob->proxy = newlibadr(fd, ob->id.lib, ob->proxy);
   if (ob->proxy) {
     /* paranoia check, actually a proxy_from pointer should never be written... */
     if (ob->proxy->id.lib == NULL) {
@@ -5066,7 +5201,7 @@ static void lib_link_object(FileData *fd, Main *bmain, Object *ob)
   ob->proxy_group = newlibadr(fd, ob->id.lib, ob->proxy_group);
 
   void *poin = ob->data;
-  ob->data = newlibadr_us(fd, ob->id.lib, ob->data);
+  ob->data = newlibadr(fd, ob->id.lib, ob->data);
 
   if (ob->data == NULL && poin != NULL) {
     if (ob->id.lib) {
@@ -5086,7 +5221,7 @@ static void lib_link_object(FileData *fd, Main *bmain, Object *ob)
        * some leaked memory rather then crashing immediately
        * while bad this _is_ an exceptional case - campbell */
 #if 0
-          BKE_pose_free(ob->pose);
+			BKE_pose_free(ob->pose);
 #else
       MEM_freeN(ob->pose);
 #endif
@@ -5095,21 +5230,21 @@ static void lib_link_object(FileData *fd, Main *bmain, Object *ob)
     }
   }
   for (a = 0; a < ob->totcol; a++) {
-    ob->mat[a] = newlibadr_us(fd, ob->id.lib, ob->mat[a]);
+    ob->mat[a] = newlibadr(fd, ob->id.lib, ob->mat[a]);
   }
 
   /* When the object is local and the data is library its possible
    * the material list size gets out of sync. [#22663] */
   if (ob->data && ob->id.lib != ((ID *)ob->data)->lib) {
-    const short *totcol_data = BKE_object_material_num(ob);
+    const short *totcol_data = BKE_object_material_len_p(ob);
     /* Only expand so as not to loose any object materials that might be set. */
     if (totcol_data && (*totcol_data > ob->totcol)) {
       /* printf("'%s' %d -> %d\n", ob->id.name, ob->totcol, *totcol_data); */
-      BKE_material_resize_object(bmain, ob, *totcol_data, false);
+      BKE_object_material_resize(bmain, ob, *totcol_data, false);
     }
   }
 
-  ob->gpd = newlibadr_us(fd, ob->id.lib, ob->gpd);
+  ob->gpd = newlibadr(fd, ob->id.lib, ob->gpd);
 
   /* if id.us==0 a new base will be created later on */
 
@@ -5124,7 +5259,7 @@ static void lib_link_object(FileData *fd, Main *bmain, Object *ob)
 
   for (PartEff *paf = ob->effect.first; paf; paf = paf->next) {
     if (paf->type == EFF_PARTICLE) {
-      paf->group = newlibadr_us(fd, ob->id.lib, paf->group);
+      paf->group = newlibadr(fd, ob->id.lib, paf->group);
     }
   }
 
@@ -5133,7 +5268,7 @@ static void lib_link_object(FileData *fd, Main *bmain, Object *ob)
         ob, eModifierType_Fluidsim);
 
     if (fluidmd && fluidmd->fss) {
-      fluidmd->fss->ipo = newlibadr_us(
+      fluidmd->fss->ipo = newlibadr(
           fd, ob->id.lib, fluidmd->fss->ipo);  // XXX deprecated - old animation system
     }
   }
@@ -5381,8 +5516,7 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
       blo_reportf_wrap(
           fd->reports,
           RPT_WARNING,
-          TIP_(
-              "Possible data loss when saving this file! %s modifier is deprecated (Object: %s)."),
+          TIP_("Possible data loss when saving this file! %s modifier is deprecated (Object: %s)"),
           md->name,
           ob->id.name + 2);
       md = modifier_replace_with_fluid(fd, ob, lb, md);
@@ -5392,8 +5526,7 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
       blo_reportf_wrap(
           fd->reports,
           RPT_WARNING,
-          TIP_(
-              "Possible data loss when saving this file! %s modifier is deprecated (Object: %s)."),
+          TIP_("Possible data loss when saving this file! %s modifier is deprecated (Object: %s)"),
           md->name,
           ob->id.name + 2);
       md = modifier_replace_with_fluid(fd, ob, lb, md);
@@ -5456,7 +5589,8 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
 
         mmd->domain->fluid = NULL;
         mmd->domain->fluid_mutex = BLI_rw_mutex_alloc();
-        mmd->domain->tex = NULL;
+        mmd->domain->tex_density = NULL;
+        mmd->domain->tex_color = NULL;
         mmd->domain->tex_shadow = NULL;
         mmd->domain->tex_flame = NULL;
         mmd->domain->tex_flame_coba = NULL;
@@ -5557,15 +5691,15 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
     else if (md->type == eModifierType_Collision) {
       CollisionModifierData *collmd = (CollisionModifierData *)md;
 #if 0
-      // TODO: CollisionModifier should use pointcache
-      // + have proper reset events before enabling this
-      collmd->x = newdataadr(fd, collmd->x);
-      collmd->xnew = newdataadr(fd, collmd->xnew);
-      collmd->mfaces = newdataadr(fd, collmd->mfaces);
+			// TODO: CollisionModifier should use pointcache
+			// + have proper reset events before enabling this
+			collmd->x = newdataadr(fd, collmd->x);
+			collmd->xnew = newdataadr(fd, collmd->xnew);
+			collmd->mfaces = newdataadr(fd, collmd->mfaces);
 
-      collmd->current_x = MEM_calloc_arrayN(collmd->numverts, sizeof(MVert), "current_x");
-      collmd->current_xnew = MEM_calloc_arrayN(collmd->numverts, sizeof(MVert), "current_xnew");
-      collmd->current_v = MEM_calloc_arrayN(collmd->numverts, sizeof(MVert), "current_v");
+			collmd->current_x = MEM_calloc_arrayN(collmd->numverts, sizeof(MVert), "current_x");
+			collmd->current_xnew = MEM_calloc_arrayN(collmd->numverts, sizeof(MVert), "current_xnew");
+			collmd->current_v = MEM_calloc_arrayN(collmd->numverts, sizeof(MVert), "current_v");
 #endif
 
       collmd->x = NULL;
@@ -5793,14 +5927,56 @@ static void direct_link_gpencil_modifiers(FileData *fd, ListBase *lb)
         direct_link_curvemapping(fd, hmd->curfalloff);
       }
     }
+    else if (md->type == eGpencilModifierType_Noise) {
+      NoiseGpencilModifierData *gpmd = (NoiseGpencilModifierData *)md;
+
+      gpmd->curve_intensity = newdataadr(fd, gpmd->curve_intensity);
+      if (gpmd->curve_intensity) {
+        direct_link_curvemapping(fd, gpmd->curve_intensity);
+        /* initialize the curve. Maybe this could be moved to modififer logic */
+        BKE_curvemapping_initialize(gpmd->curve_intensity);
+      }
+    }
     else if (md->type == eGpencilModifierType_Thick) {
       ThickGpencilModifierData *gpmd = (ThickGpencilModifierData *)md;
 
       gpmd->curve_thickness = newdataadr(fd, gpmd->curve_thickness);
       if (gpmd->curve_thickness) {
         direct_link_curvemapping(fd, gpmd->curve_thickness);
-        /* initialize the curve. Maybe this could be moved to modififer logic */
         BKE_curvemapping_initialize(gpmd->curve_thickness);
+      }
+    }
+    else if (md->type == eGpencilModifierType_Tint) {
+      TintGpencilModifierData *gpmd = (TintGpencilModifierData *)md;
+      gpmd->colorband = newdataadr(fd, gpmd->colorband);
+      gpmd->curve_intensity = newdataadr(fd, gpmd->curve_intensity);
+      if (gpmd->curve_intensity) {
+        direct_link_curvemapping(fd, gpmd->curve_intensity);
+        BKE_curvemapping_initialize(gpmd->curve_intensity);
+      }
+    }
+    else if (md->type == eGpencilModifierType_Smooth) {
+      SmoothGpencilModifierData *gpmd = (SmoothGpencilModifierData *)md;
+      gpmd->curve_intensity = newdataadr(fd, gpmd->curve_intensity);
+      if (gpmd->curve_intensity) {
+        direct_link_curvemapping(fd, gpmd->curve_intensity);
+        BKE_curvemapping_initialize(gpmd->curve_intensity);
+      }
+    }
+    else if (md->type == eGpencilModifierType_Color) {
+      ColorGpencilModifierData *gpmd = (ColorGpencilModifierData *)md;
+      gpmd->curve_intensity = newdataadr(fd, gpmd->curve_intensity);
+      if (gpmd->curve_intensity) {
+        direct_link_curvemapping(fd, gpmd->curve_intensity);
+        BKE_curvemapping_initialize(gpmd->curve_intensity);
+      }
+    }
+    else if (md->type == eGpencilModifierType_Opacity) {
+      OpacityGpencilModifierData *gpmd = (OpacityGpencilModifierData *)md;
+      gpmd->curve_intensity = newdataadr(fd, gpmd->curve_intensity);
+      if (gpmd->curve_intensity) {
+        direct_link_curvemapping(fd, gpmd->curve_intensity);
+        BKE_curvemapping_initialize(gpmd->curve_intensity);
       }
     }
   }
@@ -6109,8 +6285,8 @@ static void lib_link_view_layer(FileData *fd, Library *lib, ViewLayer *view_laye
   }
 
   for (FreestyleLineSet *fls = view_layer->freestyle_config.linesets.first; fls; fls = fls->next) {
-    fls->linestyle = newlibadr_us(fd, lib, fls->linestyle);
-    fls->group = newlibadr_us(fd, lib, fls->group);
+    fls->linestyle = newlibadr(fd, lib, fls->linestyle);
+    fls->group = newlibadr(fd, lib, fls->group);
   }
 
   for (Base *base = view_layer->object_bases.first, *base_next = NULL; base; base = base_next) {
@@ -6134,7 +6310,7 @@ static void lib_link_view_layer(FileData *fd, Library *lib, ViewLayer *view_laye
     lib_link_layer_collection(fd, lib, layer_collection, true);
   }
 
-  view_layer->mat_override = newlibadr_us(fd, lib, view_layer->mat_override);
+  view_layer->mat_override = newlibadr(fd, lib, view_layer->mat_override);
 
   IDP_LibLinkProperty(view_layer->id_properties, fd);
 }
@@ -6159,7 +6335,7 @@ static void direct_link_scene_collection(FileData *fd, SceneCollection *sc)
 static void lib_link_scene_collection(FileData *fd, Library *lib, SceneCollection *sc)
 {
   for (LinkData *link = sc->objects.first; link; link = link->next) {
-    link->data = newlibadr_us(fd, lib, link->data);
+    link->data = newlibadr(fd, lib, link->data);
     BLI_assert(link->data);
   }
 
@@ -6199,7 +6375,7 @@ static void lib_link_collection_data(FileData *fd, Library *lib, Collection *col
 {
   for (CollectionObject *cob = collection->gobject.first, *cob_next = NULL; cob; cob = cob_next) {
     cob_next = cob->next;
-    cob->ob = newlibadr_us(fd, lib, cob->ob);
+    cob->ob = newlibadr(fd, lib, cob->ob);
 
     if (cob->ob == NULL) {
       BLI_freelinkN(&collection->gobject, cob);
@@ -6207,7 +6383,7 @@ static void lib_link_collection_data(FileData *fd, Library *lib, Collection *col
   }
 
   for (CollectionChild *child = collection->children.first; child != NULL; child = child->next) {
-    child->collection = newlibadr_us(fd, lib, child->collection);
+    child->collection = newlibadr(fd, lib, child->collection);
   }
 
   BKE_collection_parent_relations_rebuild(collection);
@@ -6249,13 +6425,13 @@ static void composite_patch(bNodeTree *ntree, Scene *scene)
 static void link_paint(FileData *fd, Scene *sce, Paint *p)
 {
   if (p) {
-    p->brush = newlibadr_us(fd, sce->id.lib, p->brush);
+    p->brush = newlibadr(fd, sce->id.lib, p->brush);
     for (int i = 0; i < p->tool_slots_len; i++) {
       if (p->tool_slots[i].brush != NULL) {
-        p->tool_slots[i].brush = newlibadr_us(fd, sce->id.lib, p->tool_slots[i].brush);
+        p->tool_slots[i].brush = newlibadr(fd, sce->id.lib, p->tool_slots[i].brush);
       }
     }
-    p->palette = newlibadr_us(fd, sce->id.lib, p->palette);
+    p->palette = newlibadr(fd, sce->id.lib, p->palette);
     p->paint_cursor = NULL;
 
     BKE_paint_runtime_init(sce->toolsettings, p);
@@ -6268,7 +6444,7 @@ static void lib_link_sequence_modifiers(FileData *fd, Scene *scene, ListBase *lb
 
   for (smd = lb->first; smd; smd = smd->next) {
     if (smd->mask_id) {
-      smd->mask_id = newlibadr_us(fd, scene->id.lib, smd->mask_id);
+      smd->mask_id = newlibadr(fd, scene->id.lib, smd->mask_id);
     }
   }
 }
@@ -6349,14 +6525,14 @@ static bool scene_validate_setscene__liblink(Scene *sce, const int totscene)
 }
 #endif
 
-static void lib_link_scene(FileData *fd, Main *bmain, Scene *sce)
+static void lib_link_scene(FileData *fd, Main *UNUSED(bmain), Scene *sce)
 {
   lib_link_keyingsets(fd, &sce->id, &sce->keyingsets);
 
   sce->camera = newlibadr(fd, sce->id.lib, sce->camera);
-  sce->world = newlibadr_us(fd, sce->id.lib, sce->world);
+  sce->world = newlibadr(fd, sce->id.lib, sce->world);
   sce->set = newlibadr(fd, sce->id.lib, sce->set);
-  sce->gpd = newlibadr_us(fd, sce->id.lib, sce->gpd);
+  sce->gpd = newlibadr(fd, sce->id.lib, sce->gpd);
 
   link_paint(fd, sce, &sce->toolsettings->imapaint.paint);
   if (sce->toolsettings->sculpt) {
@@ -6374,6 +6550,15 @@ static void lib_link_scene(FileData *fd, Main *bmain, Scene *sce)
   if (sce->toolsettings->gp_paint) {
     link_paint(fd, sce, &sce->toolsettings->gp_paint->paint);
   }
+  if (sce->toolsettings->gp_vertexpaint) {
+    link_paint(fd, sce, &sce->toolsettings->gp_vertexpaint->paint);
+  }
+  if (sce->toolsettings->gp_sculptpaint) {
+    link_paint(fd, sce, &sce->toolsettings->gp_sculptpaint->paint);
+  }
+  if (sce->toolsettings->gp_weightpaint) {
+    link_paint(fd, sce, &sce->toolsettings->gp_weightpaint->paint);
+  }
 
   if (sce->toolsettings->sculpt) {
     sce->toolsettings->sculpt->gravity_object = newlibadr(
@@ -6381,17 +6566,17 @@ static void lib_link_scene(FileData *fd, Main *bmain, Scene *sce)
   }
 
   if (sce->toolsettings->imapaint.stencil) {
-    sce->toolsettings->imapaint.stencil = newlibadr_us(
+    sce->toolsettings->imapaint.stencil = newlibadr(
         fd, sce->id.lib, sce->toolsettings->imapaint.stencil);
   }
 
   if (sce->toolsettings->imapaint.clone) {
-    sce->toolsettings->imapaint.clone = newlibadr_us(
+    sce->toolsettings->imapaint.clone = newlibadr(
         fd, sce->id.lib, sce->toolsettings->imapaint.clone);
   }
 
   if (sce->toolsettings->imapaint.canvas) {
-    sce->toolsettings->imapaint.canvas = newlibadr_us(
+    sce->toolsettings->imapaint.canvas = newlibadr(
         fd, sce->id.lib, sce->toolsettings->imapaint.canvas);
   }
 
@@ -6405,7 +6590,7 @@ static void lib_link_scene(FileData *fd, Main *bmain, Scene *sce)
        base_legacy = base_legacy_next) {
     base_legacy_next = base_legacy->next;
 
-    base_legacy->object = newlibadr_us(fd, sce->id.lib, base_legacy->object);
+    base_legacy->object = newlibadr(fd, sce->id.lib, base_legacy->object);
 
     if (base_legacy->object == NULL) {
       blo_reportf_wrap(
@@ -6423,7 +6608,7 @@ static void lib_link_scene(FileData *fd, Main *bmain, Scene *sce)
     IDP_LibLinkProperty(seq->prop, fd);
 
     if (seq->ipo) {
-      seq->ipo = newlibadr_us(fd, sce->id.lib, seq->ipo);  // XXX deprecated - old animation system
+      seq->ipo = newlibadr(fd, sce->id.lib, seq->ipo);  // XXX deprecated - old animation system
     }
     seq->scene_sound = NULL;
     if (seq->scene) {
@@ -6431,10 +6616,10 @@ static void lib_link_scene(FileData *fd, Main *bmain, Scene *sce)
       seq->scene_sound = NULL;
     }
     if (seq->clip) {
-      seq->clip = newlibadr_us(fd, sce->id.lib, seq->clip);
+      seq->clip = newlibadr(fd, sce->id.lib, seq->clip);
     }
     if (seq->mask) {
-      seq->mask = newlibadr_us(fd, sce->id.lib, seq->mask);
+      seq->mask = newlibadr(fd, sce->id.lib, seq->mask);
     }
     if (seq->scene_camera) {
       seq->scene_camera = newlibadr(fd, sce->id.lib, seq->scene_camera);
@@ -6454,7 +6639,7 @@ static void lib_link_scene(FileData *fd, Main *bmain, Scene *sce)
     }
     if (seq->type == SEQ_TYPE_TEXT) {
       TextVars *t = seq->effectdata;
-      t->text_font = newlibadr_us(fd, sce->id.lib, t->text_font);
+      t->text_font = newlibadr(fd, sce->id.lib, t->text_font);
     }
     BLI_listbase_clear(&seq->anims);
 
@@ -6483,34 +6668,27 @@ static void lib_link_scene(FileData *fd, Main *bmain, Scene *sce)
   }
 
   if (sce->nodetree) {
-    lib_link_id(fd, bmain, &sce->nodetree->id);
-    lib_link_ntree(fd, sce->id.lib, sce->nodetree);
     composite_patch(sce->nodetree, sce);
   }
 
   for (SceneRenderLayer *srl = sce->r.layers.first; srl; srl = srl->next) {
-    srl->mat_override = newlibadr_us(fd, sce->id.lib, srl->mat_override);
+    srl->mat_override = newlibadr(fd, sce->id.lib, srl->mat_override);
     for (FreestyleModuleConfig *fmc = srl->freestyleConfig.modules.first; fmc; fmc = fmc->next) {
       fmc->script = newlibadr(fd, sce->id.lib, fmc->script);
     }
     for (FreestyleLineSet *fls = srl->freestyleConfig.linesets.first; fls; fls = fls->next) {
-      fls->linestyle = newlibadr_us(fd, sce->id.lib, fls->linestyle);
-      fls->group = newlibadr_us(fd, sce->id.lib, fls->group);
+      fls->linestyle = newlibadr(fd, sce->id.lib, fls->linestyle);
+      fls->group = newlibadr(fd, sce->id.lib, fls->group);
     }
   }
   /* Motion Tracking */
-  sce->clip = newlibadr_us(fd, sce->id.lib, sce->clip);
+  sce->clip = newlibadr(fd, sce->id.lib, sce->clip);
 
 #ifdef USE_COLLECTION_COMPAT_28
   if (sce->collection) {
     lib_link_scene_collection(fd, sce->id.lib, sce->collection);
   }
 #endif
-
-  if (sce->master_collection) {
-    lib_link_id(fd, bmain, &sce->master_collection->id);
-    lib_link_collection_data(fd, sce->id.lib, sce->master_collection);
-  }
 
   for (ViewLayer *view_layer = sce->view_layers.first; view_layer; view_layer = view_layer->next) {
     lib_link_view_layer(fd, sce->id.lib, view_layer);
@@ -6651,11 +6829,21 @@ static void direct_link_scene(FileData *fd, Scene *sce)
 
   sce->toolsettings = newdataadr(fd, sce->toolsettings);
   if (sce->toolsettings) {
+
+    /* Reset last_location and last_hit, so they are not remembered across sessions. In some files
+     * these are also NaN, which could lead to crashes in painting. */
+    struct UnifiedPaintSettings *ups = &sce->toolsettings->unified_paint_settings;
+    zero_v3(ups->last_location);
+    ups->last_hit = 0;
+
     direct_link_paint_helper(fd, sce, (Paint **)&sce->toolsettings->sculpt);
     direct_link_paint_helper(fd, sce, (Paint **)&sce->toolsettings->vpaint);
     direct_link_paint_helper(fd, sce, (Paint **)&sce->toolsettings->wpaint);
     direct_link_paint_helper(fd, sce, (Paint **)&sce->toolsettings->uvsculpt);
     direct_link_paint_helper(fd, sce, (Paint **)&sce->toolsettings->gp_paint);
+    direct_link_paint_helper(fd, sce, (Paint **)&sce->toolsettings->gp_vertexpaint);
+    direct_link_paint_helper(fd, sce, (Paint **)&sce->toolsettings->gp_sculptpaint);
+    direct_link_paint_helper(fd, sce, (Paint **)&sce->toolsettings->gp_weightpaint);
 
     direct_link_paint(fd, sce, &sce->toolsettings->imapaint.paint);
 
@@ -6841,12 +7029,6 @@ static void direct_link_scene(FileData *fd, Scene *sce)
     link_list(fd, &(srl->freestyleConfig.linesets));
   }
 
-  sce->nodetree = newdataadr(fd, sce->nodetree);
-  if (sce->nodetree) {
-    direct_link_id(fd, &sce->nodetree->id);
-    direct_link_nodetree(fd, sce->nodetree);
-  }
-
   direct_link_view_settings(fd, &sce->view_settings);
 
   sce->rigidbody_world = newdataadr(fd, sce->rigidbody_world);
@@ -6902,13 +7084,6 @@ static void direct_link_scene(FileData *fd, Scene *sce)
   }
 #endif
 
-  if (sce->master_collection) {
-    sce->master_collection = newdataadr(fd, sce->master_collection);
-    /* Needed because this is an ID outside of Main. */
-    direct_link_id(fd, &sce->master_collection->id);
-    direct_link_collection(fd, sce->master_collection);
-  }
-
   /* insert into global old-new map for reading without UI (link_global accesses it again) */
   link_glob_list(fd, &sce->view_layers);
   for (view_layer = sce->view_layers.first; view_layer; view_layer = view_layer->next) {
@@ -6918,19 +7093,20 @@ static void direct_link_scene(FileData *fd, Scene *sce)
   if (fd->memfile) {
     /* If it's undo try to recover the cache. */
     if (fd->scenemap) {
-      sce->eevee.light_cache = newsceadr(fd, sce->eevee.light_cache);
+      sce->eevee.light_cache_data = newsceadr(fd, sce->eevee.light_cache_data);
     }
     else {
-      sce->eevee.light_cache = NULL;
+      sce->eevee.light_cache_data = NULL;
     }
   }
   else {
     /* else try to read the cache from file. */
-    sce->eevee.light_cache = newdataadr(fd, sce->eevee.light_cache);
-    if (sce->eevee.light_cache) {
-      direct_link_lightcache(fd, sce->eevee.light_cache);
+    sce->eevee.light_cache_data = newdataadr(fd, sce->eevee.light_cache_data);
+    if (sce->eevee.light_cache_data) {
+      direct_link_lightcache(fd, sce->eevee.light_cache_data);
     }
   }
+  EEVEE_lightcache_info_update(&sce->eevee);
 
   direct_link_view3dshading(fd, &sce->display.shading);
 
@@ -6949,23 +7125,20 @@ static void lib_link_gpencil(FileData *fd, Main *UNUSED(bmain), bGPdata *gpd)
 {
   /* Relink all data-lock linked by GP data-lock */
   /* Layers */
-  for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
     /* Layer -> Parent References */
     gpl->parent = newlibadr(fd, gpd->id.lib, gpl->parent);
   }
 
   /* materials */
   for (int a = 0; a < gpd->totcol; a++) {
-    gpd->mat[a] = newlibadr_us(fd, gpd->id.lib, gpd->mat[a]);
+    gpd->mat[a] = newlibadr(fd, gpd->id.lib, gpd->mat[a]);
   }
 }
 
 /* relinks grease-pencil data - used for direct_link and old file linkage */
 static void direct_link_gpencil(FileData *fd, bGPdata *gpd)
 {
-  bGPDlayer *gpl;
-  bGPDframe *gpf;
-  bGPDstroke *gps;
   bGPDpalette *palette;
 
   /* we must firstly have some grease-pencil data to link! */
@@ -6976,6 +7149,15 @@ static void direct_link_gpencil(FileData *fd, bGPdata *gpd)
   /* relink animdata */
   gpd->adt = newdataadr(fd, gpd->adt);
   direct_link_animdata(fd, gpd->adt);
+
+  /* Ensure full objectmode for linked grease pencil. */
+  if (gpd->id.lib != NULL) {
+    gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
+    gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
+    gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
+    gpd->flag &= ~GP_DATA_STROKE_WEIGHTMODE;
+    gpd->flag &= ~GP_DATA_STROKE_VERTEXMODE;
+  }
 
   /* init stroke buffer */
   gpd->runtime.sbuffer = NULL;
@@ -6998,7 +7180,7 @@ static void direct_link_gpencil(FileData *fd, bGPdata *gpd)
   /* relink layers */
   link_list(fd, &gpd->layers);
 
-  for (gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
     /* relink frames */
     link_list(fd, &gpl->frames);
 
@@ -7006,24 +7188,24 @@ static void direct_link_gpencil(FileData *fd, bGPdata *gpd)
 
     gpl->runtime.icon_id = 0;
 
-    for (gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+    /* Relink masks. */
+    link_list(fd, &gpl->mask_layers);
+
+    LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
       /* relink strokes (and their points) */
       link_list(fd, &gpf->strokes);
 
-      for (gps = gpf->strokes.first; gps; gps = gps->next) {
+      LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
         /* relink stroke points array */
         gps->points = newdataadr(fd, gps->points);
+        /* Relink geometry*/
+        gps->triangles = newdataadr(fd, gps->triangles);
 
         /* relink weight data */
         if (gps->dvert) {
           gps->dvert = newdataadr(fd, gps->dvert);
           direct_link_dverts(fd, gps->totpoints, gps->dvert);
         }
-
-        /* the triangulation is not saved, so need to be recalculated */
-        gps->triangles = NULL;
-        gps->tot_triangles = 0;
-        gps->flag |= GP_STROKE_RECALC_GEOMETRY;
       }
     }
   }
@@ -7047,38 +7229,38 @@ static void direct_link_panel_list(FileData *fd, ListBase *lb)
   }
 }
 
-static void direct_link_region(FileData *fd, ARegion *ar, int spacetype)
+static void direct_link_region(FileData *fd, ARegion *region, int spacetype)
 {
   uiList *ui_list;
 
-  direct_link_panel_list(fd, &ar->panels);
+  direct_link_panel_list(fd, &region->panels);
 
-  link_list(fd, &ar->panels_category_active);
+  link_list(fd, &region->panels_category_active);
 
-  link_list(fd, &ar->ui_lists);
+  link_list(fd, &region->ui_lists);
 
-  for (ui_list = ar->ui_lists.first; ui_list; ui_list = ui_list->next) {
+  for (ui_list = region->ui_lists.first; ui_list; ui_list = ui_list->next) {
     ui_list->type = NULL;
     ui_list->dyn_data = NULL;
     ui_list->properties = newdataadr(fd, ui_list->properties);
     IDP_DirectLinkGroup_OrFree(&ui_list->properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
   }
 
-  link_list(fd, &ar->ui_previews);
+  link_list(fd, &region->ui_previews);
 
   if (spacetype == SPACE_EMPTY) {
     /* unknown space type, don't leak regiondata */
-    ar->regiondata = NULL;
+    region->regiondata = NULL;
   }
-  else if (ar->flag & RGN_FLAG_TEMP_REGIONDATA) {
+  else if (region->flag & RGN_FLAG_TEMP_REGIONDATA) {
     /* Runtime data, don't use. */
-    ar->regiondata = NULL;
+    region->regiondata = NULL;
   }
   else {
-    ar->regiondata = newdataadr(fd, ar->regiondata);
-    if (ar->regiondata) {
+    region->regiondata = newdataadr(fd, region->regiondata);
+    if (region->regiondata) {
       if (spacetype == SPACE_VIEW3D) {
-        RegionView3D *rv3d = ar->regiondata;
+        RegionView3D *rv3d = region->regiondata;
 
         rv3d->localvd = newdataadr(fd, rv3d->localvd);
         rv3d->clipbb = newdataadr(fd, rv3d->clipbb);
@@ -7089,32 +7271,33 @@ static void direct_link_region(FileData *fd, ARegion *ar, int spacetype)
         rv3d->smooth_timer = NULL;
 
         rv3d->rflag &= ~(RV3D_NAVIGATING | RV3D_PAINTING);
+        rv3d->runtime_viewlock = 0;
       }
     }
   }
 
-  ar->v2d.tab_offset = NULL;
-  ar->v2d.tab_num = 0;
-  ar->v2d.tab_cur = 0;
-  ar->v2d.sms = NULL;
-  ar->v2d.alpha_hor = ar->v2d.alpha_vert = 255; /* visible by default */
-  BLI_listbase_clear(&ar->panels_category);
-  BLI_listbase_clear(&ar->handlers);
-  BLI_listbase_clear(&ar->uiblocks);
-  ar->headerstr = NULL;
-  ar->visible = 0;
-  ar->type = NULL;
-  ar->do_draw = 0;
-  ar->gizmo_map = NULL;
-  ar->regiontimer = NULL;
-  ar->draw_buffer = NULL;
-  memset(&ar->drawrct, 0, sizeof(ar->drawrct));
+  region->v2d.tab_offset = NULL;
+  region->v2d.tab_num = 0;
+  region->v2d.tab_cur = 0;
+  region->v2d.sms = NULL;
+  region->v2d.alpha_hor = region->v2d.alpha_vert = 255; /* visible by default */
+  BLI_listbase_clear(&region->panels_category);
+  BLI_listbase_clear(&region->handlers);
+  BLI_listbase_clear(&region->uiblocks);
+  region->headerstr = NULL;
+  region->visible = 0;
+  region->type = NULL;
+  region->do_draw = 0;
+  region->gizmo_map = NULL;
+  region->regiontimer = NULL;
+  region->draw_buffer = NULL;
+  memset(&region->drawrct, 0, sizeof(region->drawrct));
 }
 
 static void direct_link_area(FileData *fd, ScrArea *area)
 {
   SpaceLink *sl;
-  ARegion *ar;
+  ARegion *region;
 
   link_list(fd, &(area->spacedata));
   link_list(fd, &(area->regionbase));
@@ -7140,8 +7323,8 @@ static void direct_link_area(FileData *fd, ScrArea *area)
     area->spacetype = SPACE_EMPTY;
   }
 
-  for (ar = area->regionbase.first; ar; ar = ar->next) {
-    direct_link_region(fd, ar, area->spacetype);
+  for (region = area->regionbase.first; region; region = region->next) {
+    direct_link_region(fd, region, area->spacetype);
   }
 
   /* accident can happen when read/save new file with older version */
@@ -7165,8 +7348,8 @@ static void direct_link_area(FileData *fd, ScrArea *area)
       sl->spacetype = SPACE_EMPTY;
     }
 
-    for (ar = sl->regionbase.first; ar; ar = ar->next) {
-      direct_link_region(fd, ar, sl->spacetype);
+    for (region = sl->regionbase.first; region; region = region->next) {
+      direct_link_region(fd, region, sl->spacetype);
     }
 
     if (sl->spacetype == SPACE_VIEW3D) {
@@ -7179,7 +7362,10 @@ static void direct_link_area(FileData *fd, ScrArea *area)
         direct_link_gpencil(fd, v3d->gpd);
       }
       v3d->localvd = newdataadr(fd, v3d->localvd);
+
+      /* Runtime data */
       v3d->runtime.properties_storage = NULL;
+      v3d->runtime.flag = 0;
 
       /* render can be quite heavy, set to solid on load */
       if (v3d->shading.type == OB_RENDER) {
@@ -7244,10 +7430,10 @@ static void direct_link_area(FileData *fd, ScrArea *area)
        * so sacrifice a few old files for now to avoid crashes with new files!
        * committed: r28002 */
 #if 0
-      sima->gpd = newdataadr(fd, sima->gpd);
-      if (sima->gpd) {
-        direct_link_gpencil(fd, sima->gpd);
-      }
+			sima->gpd = newdataadr(fd, sima->gpd);
+			if (sima->gpd) {
+				direct_link_gpencil(fd, sima->gpd);
+			}
 #endif
     }
     else if (sl->spacetype == SPACE_NODE) {
@@ -7278,10 +7464,10 @@ static void direct_link_area(FileData *fd, ScrArea *area)
        * simple return NULL here (sergey)
        */
 #if 0
-      if (sseq->gpd) {
-        sseq->gpd = newdataadr(fd, sseq->gpd);
-        direct_link_gpencil(fd, sseq->gpd);
-      }
+			if (sseq->gpd) {
+				sseq->gpd = newdataadr(fd, sseq->gpd);
+				direct_link_gpencil(fd, sseq->gpd);
+			}
 #endif
       sseq->scopes.reference_ibuf = NULL;
       sseq->scopes.zebra_ibuf = NULL;
@@ -7289,7 +7475,6 @@ static void direct_link_area(FileData *fd, ScrArea *area)
       sseq->scopes.sep_waveform_ibuf = NULL;
       sseq->scopes.vector_ibuf = NULL;
       sseq->scopes.histogram_ibuf = NULL;
-      sseq->compositor = NULL;
     }
     else if (sl->spacetype == SPACE_PROPERTIES) {
       SpaceProperties *sbuts = (SpaceProperties *)sl;
@@ -7367,7 +7552,7 @@ static void lib_link_area(FileData *fd, ID *parent_id, ScrArea *area)
         View3D *v3d = (View3D *)sl;
 
         v3d->camera = newlibadr(fd, parent_id->lib, v3d->camera);
-        v3d->ob_centre = newlibadr(fd, parent_id->lib, v3d->ob_centre);
+        v3d->ob_center = newlibadr(fd, parent_id->lib, v3d->ob_center);
 
         if (v3d->localvd) {
           v3d->localvd->camera = newlibadr(fd, parent_id->lib, v3d->localvd->camera);
@@ -7409,13 +7594,13 @@ static void lib_link_area(FileData *fd, ID *parent_id, ScrArea *area)
       case SPACE_IMAGE: {
         SpaceImage *sima = (SpaceImage *)sl;
 
-        sima->image = newlibadr_real_us(fd, parent_id->lib, sima->image);
-        sima->mask_info.mask = newlibadr_real_us(fd, parent_id->lib, sima->mask_info.mask);
+        sima->image = newlibadr(fd, parent_id->lib, sima->image);
+        sima->mask_info.mask = newlibadr(fd, parent_id->lib, sima->mask_info.mask);
 
         /* NOTE: pre-2.5, this was local data not lib data, but now we need this as lib data
          * so fingers crossed this works fine!
          */
-        sima->gpd = newlibadr_us(fd, parent_id->lib, sima->gpd);
+        sima->gpd = newlibadr(fd, parent_id->lib, sima->gpd);
         break;
       }
       case SPACE_SEQ: {
@@ -7424,7 +7609,7 @@ static void lib_link_area(FileData *fd, ID *parent_id, ScrArea *area)
         /* NOTE: pre-2.5, this was local data not lib data, but now we need this as lib data
          * so fingers crossed this works fine!
          */
-        sseq->gpd = newlibadr_us(fd, parent_id->lib, sseq->gpd);
+        sseq->gpd = newlibadr(fd, parent_id->lib, sseq->gpd);
         break;
       }
       case SPACE_NLA: {
@@ -7483,7 +7668,7 @@ static void lib_link_area(FileData *fd, ID *parent_id, ScrArea *area)
         snode->from = newlibadr(fd, parent_id->lib, snode->from);
 
         ntree = snode->id ? ntreeFromID(snode->id) : NULL;
-        snode->nodetree = ntree ? ntree : newlibadr_us(fd, parent_id->lib, snode->nodetree);
+        snode->nodetree = ntree ? ntree : newlibadr(fd, parent_id->lib, snode->nodetree);
 
         for (path = snode->treepath.first; path; path = path->next) {
           if (path == snode->treepath.first) {
@@ -7491,7 +7676,7 @@ static void lib_link_area(FileData *fd, ID *parent_id, ScrArea *area)
             path->nodetree = snode->nodetree;
           }
           else {
-            path->nodetree = newlibadr_us(fd, parent_id->lib, path->nodetree);
+            path->nodetree = newlibadr(fd, parent_id->lib, path->nodetree);
           }
 
           if (!path->nodetree) {
@@ -7520,8 +7705,8 @@ static void lib_link_area(FileData *fd, ID *parent_id, ScrArea *area)
       }
       case SPACE_CLIP: {
         SpaceClip *sclip = (SpaceClip *)sl;
-        sclip->clip = newlibadr_real_us(fd, parent_id->lib, sclip->clip);
-        sclip->mask_info.mask = newlibadr_real_us(fd, parent_id->lib, sclip->mask_info.mask);
+        sclip->clip = newlibadr(fd, parent_id->lib, sclip->clip);
+        sclip->mask_info.mask = newlibadr(fd, parent_id->lib, sclip->mask_info.mask);
         break;
       }
       default:
@@ -7556,6 +7741,23 @@ static bool direct_link_area_map(FileData *fd, ScrAreaMap *area_map)
   }
 
   return true;
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name XR-data
+ * \{ */
+
+static void direct_link_wm_xr_data(FileData *fd, wmXrData *xr_data)
+{
+  direct_link_view3dshading(fd, &xr_data->session_settings.shading);
+}
+
+static void lib_link_wm_xr_data(FileData *fd, ID *parent_id, wmXrData *xr_data)
+{
+  xr_data->session_settings.base_pose_object = newlibadr(
+      fd, parent_id->lib, xr_data->session_settings.base_pose_object);
 }
 
 /** \} */
@@ -7613,6 +7815,8 @@ static void direct_link_windowmanager(FileData *fd, wmWindowManager *wm)
     }
   }
 
+  direct_link_wm_xr_data(fd, &wm->xr);
+
   BLI_listbase_clear(&wm->timers);
   BLI_listbase_clear(&wm->operators);
   BLI_listbase_clear(&wm->paintcursors);
@@ -7626,6 +7830,8 @@ static void direct_link_windowmanager(FileData *fd, wmWindowManager *wm)
   wm->undo_stack = NULL;
 
   wm->message_bus = NULL;
+
+  wm->xr.runtime = NULL;
 
   BLI_listbase_clear(&wm->jobs);
   BLI_listbase_clear(&wm->drags);
@@ -7650,6 +7856,8 @@ static void lib_link_windowmanager(FileData *fd, Main *UNUSED(bmain), wmWindowMa
     for (ScrArea *area = win->global_areas.areabase.first; area; area = area->next) {
       lib_link_area(fd, &wm->id, area);
     }
+
+    lib_link_wm_xr_data(fd, &wm->id, &wm->xr);
   }
 }
 
@@ -7723,8 +7931,8 @@ static void *restore_pointer_by_name_main(Main *mainp, ID *id, ePointerUserMode 
  * Only for undo files, or to restore a screen after reading without UI...
  *
  * \param user:
- * - USER_IGNORE: no usercount change
- * - USER_REAL: ensure a real user (even if a fake one is set)
+ * - USER_IGNORE: no user-count change.
+ * - USER_REAL: ensure a real user (even if a fake one is set).
  * \param id_map: lookup table, use when performing many lookups.
  * this could be made an optional argument (falling back to a full lookup),
  * however at the moment it's always available.
@@ -7773,12 +7981,11 @@ static void lib_link_clipboard_restore(struct IDNameLib_Map *id_map)
   BKE_sequencer_base_recursive_apply(&seqbase_clipboard, lib_link_seq_clipboard_cb, id_map);
 }
 
-static int lib_link_main_data_restore_cb(void *user_data,
-                                         ID *UNUSED(id_self),
-                                         ID **id_pointer,
-                                         int cb_flag)
+static int lib_link_main_data_restore_cb(LibraryIDLinkCallbackData *cb_data)
 {
-  if (cb_flag & IDWALK_CB_PRIVATE || *id_pointer == NULL) {
+  const int cb_flag = cb_data->cb_flag;
+  ID **id_pointer = cb_data->id_pointer;
+  if (cb_flag & IDWALK_CB_EMBEDDED || *id_pointer == NULL) {
     return IDWALK_RET_NOP;
   }
 
@@ -7788,15 +7995,18 @@ static int lib_link_main_data_restore_cb(void *user_data,
   if (GS((*id_pointer)->name) == ID_GR) {
     Collection *collection = (Collection *)*id_pointer;
     if (collection->flag & COLLECTION_IS_MASTER) {
+      /* We should never reach that point anymore, since master collection private ID should be
+       * properly tagged with IDWALK_CB_EMBEDDED. */
+      BLI_assert(0);
       return IDWALK_RET_NOP;
     }
   }
 
-  struct IDNameLib_Map *id_map = user_data;
+  struct IDNameLib_Map *id_map = cb_data->user_data;
 
   /* Note: Handling of usercount here is really bad, defining its own system...
    * Will have to be refactored at some point, but that is not top priority task for now.
-   * And all usercounts are properly recomputed at the end of the undo management code anyway. */
+   * And all user-counts are properly recomputed at the end of the undo management code anyway. */
   *id_pointer = restore_pointer_by_name(
       id_map, *id_pointer, (cb_flag & IDWALK_CB_USER_ONE) ? USER_REAL : USER_IGNORE);
 
@@ -7810,6 +8020,12 @@ static void lib_link_main_data_restore(struct IDNameLib_Map *id_map, Main *newma
     BKE_library_foreach_ID_link(newmain, id, lib_link_main_data_restore_cb, id_map, IDWALK_NOP);
   }
   FOREACH_MAIN_ID_END;
+}
+
+static void lib_link_wm_xr_data_restore(struct IDNameLib_Map *id_map, wmXrData *xr_data)
+{
+  xr_data->session_settings.base_pose_object = restore_pointer_by_name(
+      id_map, (ID *)xr_data->session_settings.base_pose_object, USER_REAL);
 }
 
 static void lib_link_window_scene_data_restore(wmWindow *win, Scene *scene, ViewLayer *view_layer)
@@ -7845,9 +8061,9 @@ static void lib_link_window_scene_data_restore(wmWindow *win, Scene *scene, View
             /* Regionbase storage is different depending if the space is active. */
             ListBase *regionbase = (sl == area->spacedata.first) ? &area->regionbase :
                                                                    &sl->regionbase;
-            for (ARegion *ar = regionbase->first; ar; ar = ar->next) {
-              if (ar->regiontype == RGN_TYPE_WINDOW) {
-                RegionView3D *rv3d = ar->regiondata;
+            for (ARegion *region = regionbase->first; region; region = region->next) {
+              if (region->regiontype == RGN_TYPE_WINDOW) {
+                RegionView3D *rv3d = region->regiondata;
                 if (rv3d->localvd) {
                   MEM_freeN(rv3d->localvd);
                   rv3d->localvd = NULL;
@@ -7873,16 +8089,16 @@ static void lib_link_workspace_layout_restore(struct IDNameLib_Map *id_map,
       for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
         if (sl->spacetype == SPACE_VIEW3D) {
           View3D *v3d = (View3D *)sl;
-          ARegion *ar;
+          ARegion *region;
 
           v3d->camera = restore_pointer_by_name(id_map, (ID *)v3d->camera, USER_REAL);
-          v3d->ob_centre = restore_pointer_by_name(id_map, (ID *)v3d->ob_centre, USER_REAL);
+          v3d->ob_center = restore_pointer_by_name(id_map, (ID *)v3d->ob_center, USER_REAL);
 
           /* Free render engines for now. */
           ListBase *regionbase = (sl == sa->spacedata.first) ? &sa->regionbase : &sl->regionbase;
-          for (ar = regionbase->first; ar; ar = ar->next) {
-            if (ar->regiontype == RGN_TYPE_WINDOW) {
-              RegionView3D *rv3d = ar->regiondata;
+          for (region = regionbase->first; region; region = region->next) {
+            if (region->regiontype == RGN_TYPE_WINDOW) {
+              RegionView3D *rv3d = region->regiondata;
               if (rv3d && rv3d->render_engine) {
                 RE_engine_free(rv3d->render_engine);
                 rv3d->render_engine = NULL;
@@ -7951,11 +8167,11 @@ static void lib_link_workspace_layout_restore(struct IDNameLib_Map *id_map,
           sima->iuser.scene = NULL;
 
 #if 0
-          /* Those are allocated and freed by space code, no need to handle them here. */
-          MEM_SAFE_FREE(sima->scopes.waveform_1);
-          MEM_SAFE_FREE(sima->scopes.waveform_2);
-          MEM_SAFE_FREE(sima->scopes.waveform_3);
-          MEM_SAFE_FREE(sima->scopes.vecscope);
+					/* Those are allocated and freed by space code, no need to handle them here. */
+					MEM_SAFE_FREE(sima->scopes.waveform_1);
+					MEM_SAFE_FREE(sima->scopes.waveform_2);
+					MEM_SAFE_FREE(sima->scopes.waveform_3);
+					MEM_SAFE_FREE(sima->scopes.vecscope);
 #endif
           sima->scopes.ok = 0;
 
@@ -8101,7 +8317,8 @@ void blo_lib_link_restore(Main *oldmain,
                           Scene *curscene,
                           ViewLayer *cur_view_layer)
 {
-  struct IDNameLib_Map *id_map = BKE_main_idmap_create(newmain, true, oldmain);
+  struct IDNameLib_Map *id_map = BKE_main_idmap_create(
+      newmain, true, oldmain, MAIN_IDMAP_TYPE_NAME);
 
   for (WorkSpace *workspace = newmain->workspaces.first; workspace;
        workspace = workspace->id.next) {
@@ -8141,6 +8358,8 @@ void blo_lib_link_restore(Main *oldmain,
     BLI_assert(win->screen == NULL);
   }
 
+  lib_link_wm_xr_data_restore(id_map, &curwm->xr);
+
   /* Restore all ID pointers in Main database itself
    * (especially IDProperties might point to some word-space of other 'weirdly unchanged' ID
    * pointers, see T69146).
@@ -8159,13 +8378,13 @@ void blo_lib_link_restore(Main *oldmain,
 /* and as patch for 2.48 and older */
 void blo_do_versions_view3d_split_250(View3D *v3d, ListBase *regions)
 {
-  ARegion *ar;
+  ARegion *region;
 
-  for (ar = regions->first; ar; ar = ar->next) {
-    if (ar->regiontype == RGN_TYPE_WINDOW && ar->regiondata == NULL) {
+  for (region = regions->first; region; region = region->next) {
+    if (region->regiontype == RGN_TYPE_WINDOW && region->regiondata == NULL) {
       RegionView3D *rv3d;
 
-      rv3d = ar->regiondata = MEM_callocN(sizeof(RegionView3D), "region v3d patch");
+      rv3d = region->regiondata = MEM_callocN(sizeof(RegionView3D), "region v3d patch");
       rv3d->persp = (char)v3d->persp;
       rv3d->view = (char)v3d->view;
       rv3d->dist = v3d->dist;
@@ -8316,7 +8535,7 @@ static void direct_link_lightprobe(FileData *fd, LightProbe *prb)
 
 static void lib_link_speaker(FileData *fd, Main *UNUSED(bmain), Speaker *spk)
 {
-  spk->sound = newlibadr_us(fd, spk->id.lib, spk->sound);
+  spk->sound = newlibadr(fd, spk->id.lib, spk->sound);
 }
 
 static void direct_link_speaker(FileData *fd, Speaker *spk)
@@ -8325,8 +8544,8 @@ static void direct_link_speaker(FileData *fd, Speaker *spk)
   direct_link_animdata(fd, spk->adt);
 
 #if 0
-  spk->sound = newdataadr(fd, spk->sound);
-  direct_link_sound(fd, spk->sound);
+	spk->sound = newdataadr(fd, spk->sound);
+	direct_link_sound(fd, spk->sound);
 #endif
 }
 
@@ -8368,8 +8587,7 @@ static void direct_link_sound(FileData *fd, bSound *sound)
 
 static void lib_link_sound(FileData *fd, Main *UNUSED(bmain), bSound *sound)
 {
-  sound->ipo = newlibadr_us(
-      fd, sound->id.lib, sound->ipo);  // XXX deprecated - old animation system
+  sound->ipo = newlibadr(fd, sound->id.lib, sound->ipo);  // XXX deprecated - old animation system
 }
 
 /** \} */
@@ -8467,7 +8685,7 @@ static void lib_link_movieTracks(FileData *fd, MovieClip *clip, ListBase *tracks
   MovieTrackingTrack *track;
 
   for (track = tracksbase->first; track; track = track->next) {
-    track->gpd = newlibadr_us(fd, clip->id.lib, track->gpd);
+    track->gpd = newlibadr(fd, clip->id.lib, track->gpd);
   }
 }
 
@@ -8476,7 +8694,7 @@ static void lib_link_moviePlaneTracks(FileData *fd, MovieClip *clip, ListBase *t
   MovieTrackingPlaneTrack *plane_track;
 
   for (plane_track = tracksbase->first; plane_track; plane_track = plane_track->next) {
-    plane_track->image = newlibadr_us(fd, clip->id.lib, plane_track->image);
+    plane_track->image = newlibadr(fd, clip->id.lib, plane_track->image);
   }
 }
 
@@ -8484,7 +8702,7 @@ static void lib_link_movieclip(FileData *fd, Main *UNUSED(bmain), MovieClip *cli
 {
   MovieTracking *tracking = &clip->tracking;
 
-  clip->gpd = newlibadr_us(fd, clip->id.lib, clip->gpd);
+  clip->gpd = newlibadr(fd, clip->id.lib, clip->gpd);
 
   lib_link_movieTracks(fd, clip, &tracking->tracks);
   lib_link_moviePlaneTracks(fd, clip, &tracking->plane_tracks);
@@ -8561,7 +8779,7 @@ static void direct_link_mask(FileData *fd, Mask *mask)
 
 static void lib_link_mask_parent(FileData *fd, Mask *mask, MaskParent *parent)
 {
-  parent->id = newlibadr_us(fd, mask->id.lib, parent->id);
+  parent->id = newlibadr(fd, mask->id.lib, parent->id);
 }
 
 static void lib_link_mask(FileData *fd, Main *UNUSED(bmain), Mask *mask)
@@ -8592,7 +8810,7 @@ static void lib_link_mask(FileData *fd, Main *UNUSED(bmain), Mask *mask)
 /** \name Read ID: Line Style
  * \{ */
 
-static void lib_link_linestyle(FileData *fd, Main *bmain, FreestyleLineStyle *linestyle)
+static void lib_link_linestyle(FileData *fd, Main *UNUSED(bmain), FreestyleLineStyle *linestyle)
 {
   LineStyleModifier *m;
 
@@ -8629,13 +8847,9 @@ static void lib_link_linestyle(FileData *fd, Main *bmain, FreestyleLineStyle *li
   for (int a = 0; a < MAX_MTEX; a++) {
     MTex *mtex = linestyle->mtex[a];
     if (mtex) {
-      mtex->tex = newlibadr_us(fd, linestyle->id.lib, mtex->tex);
+      mtex->tex = newlibadr(fd, linestyle->id.lib, mtex->tex);
       mtex->object = newlibadr(fd, linestyle->id.lib, mtex->object);
     }
-  }
-  if (linestyle->nodetree) {
-    lib_link_id(fd, bmain, &linestyle->nodetree->id);
-    lib_link_ntree(fd, linestyle->id.lib, linestyle->nodetree);
   }
 }
 
@@ -8827,11 +9041,89 @@ static void direct_link_linestyle(FileData *fd, FreestyleLineStyle *linestyle)
   for (a = 0; a < MAX_MTEX; a++) {
     linestyle->mtex[a] = newdataadr(fd, linestyle->mtex[a]);
   }
-  linestyle->nodetree = newdataadr(fd, linestyle->nodetree);
-  if (linestyle->nodetree) {
-    direct_link_id(fd, &linestyle->nodetree->id);
-    direct_link_nodetree(fd, linestyle->nodetree);
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Read ID: Hair
+ * \{ */
+
+static void lib_link_hair(FileData *fd, Main *UNUSED(main), Hair *hair)
+{
+  for (int a = 0; a < hair->totcol; a++) {
+    hair->mat[a] = newlibadr(fd, hair->id.lib, hair->mat[a]);
   }
+}
+
+static void direct_link_hair(FileData *fd, Hair *hair)
+{
+  hair->adt = newdataadr(fd, hair->adt);
+  direct_link_animdata(fd, hair->adt);
+
+  /* Geometry */
+  direct_link_customdata(fd, &hair->pdata, hair->totpoint);
+  direct_link_customdata(fd, &hair->cdata, hair->totcurve);
+  BKE_hair_update_customdata_pointers(hair);
+
+  /* Materials */
+  hair->mat = newdataadr(fd, hair->mat);
+  test_pointer_array(fd, (void **)&hair->mat);
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Read ID: Point Cloud
+ * \{ */
+
+static void lib_link_pointcloud(FileData *fd, Main *UNUSED(main), PointCloud *pointcloud)
+{
+  for (int a = 0; a < pointcloud->totcol; a++) {
+    pointcloud->mat[a] = newlibadr(fd, pointcloud->id.lib, pointcloud->mat[a]);
+  }
+}
+
+static void direct_link_pointcloud(FileData *fd, PointCloud *pointcloud)
+{
+  pointcloud->adt = newdataadr(fd, pointcloud->adt);
+  direct_link_animdata(fd, pointcloud->adt);
+
+  /* Geometry */
+  direct_link_customdata(fd, &pointcloud->pdata, pointcloud->totpoint);
+  BKE_pointcloud_update_customdata_pointers(pointcloud);
+
+  /* Materials */
+  pointcloud->mat = newdataadr(fd, pointcloud->mat);
+  test_pointer_array(fd, (void **)&pointcloud->mat);
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Read ID: Volume
+ * \{ */
+
+static void lib_link_volume(FileData *fd, Main *UNUSED(main), Volume *volume)
+{
+  for (int a = 0; a < volume->totcol; a++) {
+    volume->mat[a] = newlibadr(fd, volume->id.lib, volume->mat[a]);
+  }
+}
+
+static void direct_link_volume(FileData *fd, Volume *volume)
+{
+  volume->adt = newdataadr(fd, volume->adt);
+  direct_link_animdata(fd, volume->adt);
+
+  volume->packedfile = direct_link_packedfile(fd, volume->packedfile);
+  volume->runtime.grids = (fd->volumemap) ? newvolumeadr(fd, volume->runtime.grids) : NULL;
+  volume->runtime.frame = 0;
+  BKE_volume_init_grids(volume);
+
+  /* materials */
+  volume->mat = newdataadr(fd, volume->mat);
+  test_pointer_array(fd, (void **)&volume->mat);
 }
 
 /** \} */
@@ -8855,6 +9147,8 @@ static ID *create_placeholder(Main *mainvar, const short idcode, const char *idn
 
   BLI_addtail(lb, ph_id);
   id_sort_by_name(lb, ph_id, NULL);
+
+  BKE_lib_libblock_session_uuid_ensure(ph_id);
 
   return ph_id;
 }
@@ -8946,6 +9240,12 @@ static const char *dataname(short id_code)
       return "Data from CF";
     case ID_WS:
       return "Data from WS";
+    case ID_HA:
+      return "Data from HA";
+    case ID_PT:
+      return "Data from PT";
+    case ID_VO:
+      return "Data from VO";
   }
   return "Data from Lib Block";
 }
@@ -8957,12 +9257,12 @@ static BHead *read_data_into_oldnewmap(FileData *fd, BHead *bhead, const char *a
   while (bhead && bhead->code == DATA) {
     void *data;
 #if 0
-    /* XXX DUMB DEBUGGING OPTION TO GIVE NAMES for guarded malloc errors */
-    short *sp = fd->filesdna->structs[bhead->SDNAnr];
-    char *tmp = malloc(100);
-    allocname = fd->filesdna->types[sp[0]];
-    strcpy(tmp, allocname);
-    data = read_struct(fd, bhead, tmp);
+		/* XXX DUMB DEBUGGING OPTION TO GIVE NAMES for guarded malloc errors */
+		short* sp = fd->filesdna->structs[bhead->SDNAnr];
+		char* tmp = malloc(100);
+		allocname = fd->filesdna->types[sp[0]];
+		strcpy(tmp, allocname);
+		data = read_struct(fd, bhead, tmp);
 #else
     data = read_struct(fd, bhead, allocname);
 #endif
@@ -9057,17 +9357,165 @@ static BHead *read_libblock(FileData *fd,
   }
 
   /* read libblock */
+  fd->are_memchunks_identical = true;
   id = read_struct(fd, bhead, "lib block");
+  const short idcode = id != NULL ? GS(id->name) : 0;
 
-  if (id) {
-    const short idcode = GS(id->name);
+  BHead *id_bhead = bhead;
+  /* Used when undoing from memfile, we swap changed IDs into their old addresses when found. */
+  ID *id_old = NULL;
+  bool do_id_swap = false;
+
+  if (id != NULL) {
+    const bool do_partial_undo = (fd->skip_flags & BLO_READ_SKIP_UNDO_OLD_MAIN) == 0;
+
+    if (id_bhead->code != ID_LINK_PLACEHOLDER) {
+      /* need a name for the mallocN, just for debugging and sane prints on leaks */
+      allocname = dataname(idcode);
+
+      /* read all data into fd->datamap */
+      /* TODO: instead of building oldnewmap here we could just quickly check the bheads... could
+       * save some more ticks. Probably not worth it though, bottleneck is full depsgraph rebuild
+       * and evaluate, not actual file reading. */
+      bhead = read_data_into_oldnewmap(fd, id_bhead, allocname);
+
+      DEBUG_PRINTF(
+          "%s: ID %s is unchanged: %d\n", __func__, id->name, fd->are_memchunks_identical);
+
+      if (fd->memfile != NULL) {
+        BLI_assert(fd->old_idmap != NULL || !do_partial_undo);
+        /* This code should only ever be reached for local data-blocks. */
+        BLI_assert(main->curlib == NULL);
+
+        /* Find the 'current' existing ID we want to reuse instead of the one we would read from
+         * the undo memfile. */
+        DEBUG_PRINTF("\t Looking for ID %s with uuid %u instead of newly read one\n",
+                     id->name,
+                     id->session_uuid);
+        id_old = do_partial_undo ? BKE_main_idmap_lookup_uuid(fd->old_idmap, id->session_uuid) :
+                                   NULL;
+        bool can_finalize_and_return = false;
+
+        if (ELEM(idcode, ID_WM, ID_SCR, ID_WS)) {
+          /* Read WindowManager, Screen and WorkSpace IDs are never actually used during undo (see
+           * `setup_app_data()` in `blendfile.c`).
+           * So we can just abort here, just ensuring libmapping is set accordingly. */
+          can_finalize_and_return = true;
+        }
+        else if (id_old != NULL && fd->are_memchunks_identical) {
+          /* Do not add LIB_TAG_NEW here, this should not be needed/used in undo case anyway (as
+           * this is only for do_version-like code), but for sake of consistency, and also because
+           * it will tell us which ID is re-used from old Main, and which one is actually new. */
+          id_old->tag = tag | LIB_TAG_NEED_LINK | LIB_TAG_UNDO_OLD_ID_REUSED;
+          id_old->lib = main->curlib;
+          id_old->us = ID_FAKE_USERS(id_old);
+          /* Do not reset id->icon_id here, memory allocated for it remains valid. */
+          /* Needed because .blend may have been saved with crap value here... */
+          id_old->newid = NULL;
+          id_old->orig_id = NULL;
+
+          /* About recalc: since that ID did not change at all, we know that its recalc fields also
+           * remained unchanged, so no need to handle neither recalc nor recalc_undo_future here.
+           */
+
+          Main *old_bmain = fd->old_mainlist->first;
+          ListBase *old_lb = which_libbase(old_bmain, idcode);
+          ListBase *new_lb = which_libbase(main, idcode);
+          BLI_remlink(old_lb, id_old);
+          BLI_addtail(new_lb, id_old);
+
+          can_finalize_and_return = true;
+        }
+
+        if (can_finalize_and_return) {
+          DEBUG_PRINTF("Re-using existing ID %s instead of newly read one\n", id_old->name);
+          oldnewmap_insert(fd->libmap, id_bhead->old, id_old, id_bhead->code);
+          oldnewmap_insert(fd->libmap, id_old, id_old, id_bhead->code);
+
+          if (r_id) {
+            *r_id = id_old;
+          }
+
+          if (do_partial_undo) {
+            /* Even though we re-use the old ID as-is, it does not mean that we are 100% safe from
+             * needing some depsgraph updates for it (it could depend on another ID which address
+             * did
+             * not change, but which actual content might have been re-read from the memfile). */
+            if (fd->undo_direction < 0) {
+              /* We are coming from the future (i.e. do an actual undo, and not a redo), we use our
+               * old reused ID's 'accumulated recalc flags since last memfile undo step saving' as
+               * recalc flags. */
+              id_old->recalc = id_old->recalc_undo_accumulated;
+            }
+            else {
+              /* We are coming from the past (i.e. do a redo), we use the saved 'accumulated recalc
+               * flags since last memfile undo step saving' from the newly read ID as recalc flags.
+               */
+              id_old->recalc = id->recalc_undo_accumulated;
+            }
+            /* There is no need to flush the depsgraph's CoWs here, since that ID's data itself did
+             * not change. */
+
+            /* We need to 'accumulate' the accumulated recalc flags of all undo steps until we
+             * actually perform a depsgraph update, otherwise we'd only ever use the flags from one
+             * of the steps, and never get proper flags matching all others. */
+            id_old->recalc_undo_accumulated |= id->recalc_undo_accumulated;
+          }
+
+          MEM_freeN(id);
+          oldnewmap_free_unused(fd->datamap);
+          oldnewmap_clear(fd->datamap);
+
+          return bhead;
+        }
+      }
+    }
+
     /* do after read_struct, for dna reconstruct */
     lb = which_libbase(main, idcode);
     if (lb) {
+      /* Some re-used old IDs might also use newly read ones, so we have to check for old memory
+       * addresses for those as well. */
+      if (fd->memfile != NULL && do_partial_undo && id->lib == NULL) {
+        BLI_assert(fd->old_idmap != NULL);
+        DEBUG_PRINTF("\t Looking for ID %s with uuid %u instead of newly read one\n",
+                     id->name,
+                     id->session_uuid);
+        id_old = BKE_main_idmap_lookup_uuid(fd->old_idmap, id->session_uuid);
+        if (id_old != NULL) {
+          BLI_assert(MEM_allocN_len(id) == MEM_allocN_len(id_old));
+          /* UI IDs are always re-used from old bmain at higher-level calling code, so never swap
+           * those. Besides maybe custom properties, no other ID should have pointers to those
+           * anyway...
+           * And linked IDs are handled separately as well. */
+          do_id_swap = !ELEM(idcode, ID_WM, ID_SCR, ID_WS) &&
+                       !(id_bhead->code == ID_LINK_PLACEHOLDER);
+        }
+      }
+
+      /* At this point, we know we are going to keep that newly read & allocated ID, so we need to
+       * reallocate it to ensure we actually get a unique memory address for it. */
+      if (!do_id_swap) {
+        DEBUG_PRINTF("using newly-read ID %s to a new mem address\n", id->name);
+      }
+      else {
+        DEBUG_PRINTF("using newly-read ID %s to its old, already existing address\n", id->name);
+      }
+
       /* for ID_LINK_PLACEHOLDER check */
-      oldnewmap_insert(fd->libmap, bhead->old, id, bhead->code);
+      ID *id_target = do_id_swap ? id_old : id;
+      oldnewmap_insert(fd->libmap, id_bhead->old, id_target, id_bhead->code);
+      oldnewmap_insert(fd->libmap, id_old, id_target, id_bhead->code);
 
       BLI_addtail(lb, id);
+
+      if (fd->memfile == NULL) {
+        /* When actually reading a file , we do want to reset/re-generate session uuids.
+         * In unod case, we want to re-use existing ones. */
+        id->session_uuid = MAIN_ID_SESSION_UUID_UNSET;
+      }
+
+      BKE_lib_libblock_session_uuid_ensure(id);
     }
     else {
       /* unknown ID type */
@@ -9078,10 +9526,10 @@ static BHead *read_libblock(FileData *fd,
   }
 
   if (r_id) {
-    *r_id = id;
+    *r_id = do_id_swap ? id_old : id;
   }
   if (!id) {
-    return blo_bhead_next(fd, bhead);
+    return blo_bhead_next(fd, id_bhead);
   }
 
   id->lib = main->curlib;
@@ -9091,7 +9539,7 @@ static BHead *read_libblock(FileData *fd,
   id->orig_id = NULL;
 
   /* this case cannot be direct_linked: it's just the ID part */
-  if (bhead->code == ID_LINK_PLACEHOLDER) {
+  if (id_bhead->code == ID_LINK_PLACEHOLDER) {
     /* That way, we know which data-lock needs do_versions (required currently for linking). */
     id->tag = tag | LIB_TAG_ID_LINK_PLACEHOLDER | LIB_TAG_NEED_LINK | LIB_TAG_NEW;
 
@@ -9104,23 +9552,17 @@ static BHead *read_libblock(FileData *fd,
       }
     }
 
-    return blo_bhead_next(fd, bhead);
+    return blo_bhead_next(fd, id_bhead);
   }
 
-  /* need a name for the mallocN, just for debugging and sane prints on leaks */
-  allocname = dataname(GS(id->name));
-
-  /* read all data into fd->datamap */
-  bhead = read_data_into_oldnewmap(fd, bhead, allocname);
-
   /* init pointers direct data */
-  direct_link_id(fd, id);
+  direct_link_id(fd, id, id_old);
 
   /* That way, we know which data-lock needs do_versions (required currently for linking). */
-  /* Note: doing this after driect_link_id(), which resets that field. */
+  /* Note: doing this after direct_link_id(), which resets that field. */
   id->tag = tag | LIB_TAG_NEED_LINK | LIB_TAG_NEW;
 
-  switch (GS(id->name)) {
+  switch (idcode) {
     case ID_WM:
       direct_link_windowmanager(fd, (wmWindowManager *)id);
       break;
@@ -9229,6 +9671,15 @@ static BHead *read_libblock(FileData *fd,
     case ID_WS:
       direct_link_workspace(fd, (WorkSpace *)id, main);
       break;
+    case ID_HA:
+      direct_link_hair(fd, (Hair *)id);
+      break;
+    case ID_PT:
+      direct_link_pointcloud(fd, (PointCloud *)id);
+      break;
+    case ID_VO:
+      direct_link_volume(fd, (Volume *)id);
+      break;
   }
 
   oldnewmap_free_unused(fd->datamap);
@@ -9243,6 +9694,37 @@ static BHead *read_libblock(FileData *fd,
     if (r_id != NULL) {
       *r_id = NULL;
     }
+  }
+  else if (do_id_swap) {
+    /* During memfile undo, if an ID changed and we cannot directly re-use existing one from old
+     * bmain, we do a full read of the new id from the memfile, and then fully swap its content
+     * with the old id. This allows us to keep the same pointer even for modified data, which helps
+     * reducing further detected changes by the depsgraph (since unchanged IDs remain fully
+     * unchanged, even if they are using/pointing to a changed one). */
+
+    BLI_assert((fd->skip_flags & BLO_READ_SKIP_UNDO_OLD_MAIN) == 0);
+
+    Main *old_bmain = fd->old_mainlist->first;
+    BLI_assert(id_old != NULL);
+
+    ListBase *old_lb = which_libbase(old_bmain, idcode);
+    ListBase *new_lb = which_libbase(main, idcode);
+    BLI_remlink(old_lb, id_old);
+    BLI_remlink(new_lb, id);
+
+    /* We do not need any remapping from this call here, since no ID pointer is valid in the data
+     * currently (they are all pointing to old addresses, and need to go through `lib_link`
+     * process). So we can pass NULL for the Main pointer parameter. */
+    BKE_lib_id_swap_full(NULL, id, id_old);
+
+    BLI_addtail(new_lb, id_old);
+    BLI_addtail(old_lb, id);
+  }
+  else if (fd->memfile != NULL) {
+    DEBUG_PRINTF("We had to fully re-recreate ID %s (old addr: %p, new addr: %p)...\n",
+                 id->name,
+                 id_old,
+                 id);
   }
 
   return (bhead);
@@ -9353,11 +9835,6 @@ static void do_versions_userdef(FileData *fd, BlendFileData *bfd)
     user->walk_navigation.teleport_time = 0.2f; /* s */
   }
 
-  /* grease pencil multisamples */
-  if (!DNA_struct_elem_find(fd->filesdna, "UserDef", "short", "gpencil_multisamples")) {
-    user->gpencil_multisamples = 4;
-  }
-
   /* tablet pressure threshold */
   if (!DNA_struct_elem_find(fd->filesdna, "UserDef", "float", "pressure_threshold_max")) {
     user->pressure_threshold_max = 1.0f;
@@ -9420,6 +9897,8 @@ static void do_versions_after_linking(Main *main, ReportList *reports)
 
 static void lib_link_all(FileData *fd, Main *bmain)
 {
+  const bool do_partial_undo = (fd->skip_flags & BLO_READ_SKIP_UNDO_OLD_MAIN) == 0;
+
   ID *id;
   FOREACH_MAIN_ID_BEGIN (bmain, id) {
     if ((id->tag & LIB_TAG_NEED_LINK) == 0) {
@@ -9430,6 +9909,13 @@ static void lib_link_all(FileData *fd, Main *bmain)
     if (fd->memfile != NULL && GS(id->name) == ID_WM) {
       /* No load UI for undo memfiles.
        * Only WM currently, SCR needs it still (see below), and so does WS? */
+      continue;
+    }
+
+    if (fd->memfile != NULL && do_partial_undo && (id->tag & LIB_TAG_UNDO_OLD_ID_REUSED) != 0) {
+      /* This ID has been re-used from 'old' bmain. Since it was therefore unchanged across
+       * current undo step, and old IDs re-use their old memory address, we do not need to liblink
+       * it at all. */
       continue;
     }
 
@@ -9520,6 +10006,15 @@ static void lib_link_all(FileData *fd, Main *bmain)
         break;
       case ID_VF:
         lib_link_vfont(fd, bmain, (VFont *)id);
+        break;
+      case ID_HA:
+        lib_link_hair(fd, bmain, (Hair *)id);
+        break;
+      case ID_PT:
+        lib_link_pointcloud(fd, bmain, (PointCloud *)id);
+        break;
+      case ID_VO:
+        lib_link_volume(fd, bmain, (Volume *)id);
         break;
       case ID_MA:
         lib_link_material(fd, bmain, (Material *)id);
@@ -9766,7 +10261,7 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
           bhead = read_libblock(fd, libmain, bhead, 0, true, NULL);
         }
         break;
-      /* in 2.50+ files, the file identifier for screens is patched, forward compatibility */
+        /* in 2.50+ files, the file identifier for screens is patched, forward compatibility */
       case ID_SCRN:
         bhead->code = ID_SCR;
         /* pass on to default */
@@ -9801,6 +10296,15 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
 
     /* Skip in undo case. */
     if (fd->memfile == NULL) {
+      /* Note that we can't recompute user-counts at this point in undo case, we play too much with
+       * IDs from different memory realms, and Main database is not in a fully valid state yet.
+       */
+      /* Some versioning code does expect some proper user-reference-counting, e.g. in conversion
+       * from groups to collections... We could optimize out that first call when we are reading a
+       * current version file, but again this is really not a bottle neck currently.
+       * So not worth it. */
+      BKE_main_id_refcount_recompute(bfd->main, false);
+
       /* Yep, second splitting... but this is a very cheap operation, so no big deal. */
       blo_split_main(&mainlist, bfd->main);
       for (Main *mainvar = mainlist.first; mainvar; mainvar = mainvar->next) {
@@ -9808,6 +10312,11 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
         do_versions_after_linking(mainvar, fd->reports);
       }
       blo_join_main(&mainlist);
+
+      /* And we have to compute those user-reference-counts again, as `do_versions_after_linking()`
+       * does not always properly handle user counts, and/or that function does not take into
+       * account old, deprecated data. */
+      BKE_main_id_refcount_recompute(bfd->main, false);
 
       /* After all data has been read and versioned, uses LIB_TAG_NEW. */
       ntreeUpdateAllNew(bfd->main);
@@ -9821,7 +10330,7 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
      * we can re-generate overrides from their references. */
     if (fd->memfile == NULL) {
       /* Do not apply in undo case! */
-      BKE_main_override_library_update(bfd->main);
+      BKE_lib_override_library_main_update(bfd->main);
     }
 
     BKE_collections_after_lib_link(bfd->main);
@@ -9907,7 +10416,7 @@ static BHead *find_previous_lib(FileData *fd, BHead *bhead)
 static BHead *find_bhead(FileData *fd, void *old)
 {
 #if 0
-  BHead *bhead;
+	BHead* bhead;
 #endif
   struct BHeadSort *bhs, bhs_s;
 
@@ -9927,11 +10436,11 @@ static BHead *find_bhead(FileData *fd, void *old)
   }
 
 #if 0
-  for (bhead = blo_bhead_first(fd); bhead; bhead = blo_bhead_next(fd, bhead)) {
-    if (bhead->old == old) {
-      return bhead;
-    }
-  }
+	for (bhead = blo_bhead_first(fd); bhead; bhead = blo_bhead_next(fd, bhead)) {
+		if (bhead->old == old) {
+			return bhead;
+		}
+	}
 #endif
 
   return NULL;
@@ -10062,9 +10571,9 @@ static void expand_doit_library(void *fdhandle, Main *mainvar, void *old)
 
       /* Commented because this can print way too much. */
 #if 0
-      if (G.debug & G_DEBUG) {
-        printf("expand_doit: already linked: %s lib: %s\n", id->name, lib->name);
-      }
+			if (G.debug & G_DEBUG) {
+				printf("expand_doit: already linked: %s lib: %s\n", id->name, lib->name);
+			}
 #endif
     }
 
@@ -10120,39 +10629,6 @@ static void expand_constraint_channels(FileData *fd, Main *mainvar, ListBase *ch
   }
 }
 
-static void expand_id(FileData *fd, Main *mainvar, ID *id)
-{
-  if (id->override_library) {
-    expand_doit(fd, mainvar, id->override_library->reference);
-    expand_doit(fd, mainvar, id->override_library->storage);
-  }
-}
-
-static void expand_idprops(FileData *fd, Main *mainvar, IDProperty *prop)
-{
-  if (!prop) {
-    return;
-  }
-
-  switch (prop->type) {
-    case IDP_ID:
-      expand_doit(fd, mainvar, IDP_Id(prop));
-      break;
-    case IDP_IDPARRAY: {
-      IDProperty *idp_array = IDP_IDPArray(prop);
-      for (int i = 0; i < prop->len; i++) {
-        expand_idprops(fd, mainvar, &idp_array[i]);
-      }
-      break;
-    }
-    case IDP_GROUP:
-      for (IDProperty *loop = prop->data.group.first; loop; loop = loop->next) {
-        expand_idprops(fd, mainvar, loop);
-      }
-      break;
-  }
-}
-
 static void expand_fmodifiers(FileData *fd, Main *mainvar, ListBase *list)
 {
   FModifier *fcm;
@@ -10195,40 +10671,6 @@ static void expand_fcurves(FileData *fd, Main *mainvar, ListBase *list)
   }
 }
 
-static void expand_action(FileData *fd, Main *mainvar, bAction *act)
-{
-  bActionChannel *chan;
-
-  // XXX deprecated - old animation system --------------
-  for (chan = act->chanbase.first; chan; chan = chan->next) {
-    expand_doit(fd, mainvar, chan->ipo);
-    expand_constraint_channels(fd, mainvar, &chan->constraintChannels);
-  }
-  // ---------------------------------------------------
-
-  /* F-Curves in Action */
-  expand_fcurves(fd, mainvar, &act->curves);
-
-  for (TimeMarker *marker = act->markers.first; marker; marker = marker->next) {
-    if (marker->camera) {
-      expand_doit(fd, mainvar, marker->camera);
-    }
-  }
-}
-
-static void expand_keyingsets(FileData *fd, Main *mainvar, ListBase *list)
-{
-  KeyingSet *ks;
-  KS_Path *ksp;
-
-  /* expand the ID-pointers in KeyingSets's paths */
-  for (ks = list->first; ks; ks = ks->next) {
-    for (ksp = ks->paths.first; ksp; ksp = ksp->next) {
-      expand_doit(fd, mainvar, ksp->id);
-    }
-  }
-}
-
 static void expand_animdata_nlastrips(FileData *fd, Main *mainvar, ListBase *list)
 {
   NlaStrip *strip;
@@ -10265,6 +10707,104 @@ static void expand_animdata(FileData *fd, Main *mainvar, AnimData *adt)
   }
 }
 
+static void expand_idprops(FileData *fd, Main *mainvar, IDProperty *prop)
+{
+  if (!prop) {
+    return;
+  }
+
+  switch (prop->type) {
+    case IDP_ID:
+      expand_doit(fd, mainvar, IDP_Id(prop));
+      break;
+    case IDP_IDPARRAY: {
+      IDProperty *idp_array = IDP_IDPArray(prop);
+      for (int i = 0; i < prop->len; i++) {
+        expand_idprops(fd, mainvar, &idp_array[i]);
+      }
+      break;
+    }
+    case IDP_GROUP:
+      for (IDProperty *loop = prop->data.group.first; loop; loop = loop->next) {
+        expand_idprops(fd, mainvar, loop);
+      }
+      break;
+  }
+}
+
+static void expand_id(FileData *fd, Main *mainvar, ID *id);
+static void expand_nodetree(FileData *fd, Main *mainvar, bNodeTree *ntree);
+static void expand_collection(FileData *fd, Main *mainvar, Collection *collection);
+
+static void expand_id_private_id(FileData *fd, Main *mainvar, ID *id)
+{
+  /* Handle 'private IDs'. */
+  bNodeTree *nodetree = ntreeFromID(id);
+  if (nodetree != NULL) {
+    expand_id(fd, mainvar, &nodetree->id);
+    expand_nodetree(fd, mainvar, nodetree);
+  }
+
+  if (GS(id->name) == ID_SCE) {
+    Scene *scene = (Scene *)id;
+    if (scene->master_collection != NULL) {
+      expand_id(fd, mainvar, &scene->master_collection->id);
+      expand_collection(fd, mainvar, scene->master_collection);
+    }
+  }
+}
+
+static void expand_id(FileData *fd, Main *mainvar, ID *id)
+{
+  expand_idprops(fd, mainvar, id->properties);
+
+  if (id->override_library) {
+    expand_doit(fd, mainvar, id->override_library->reference);
+    expand_doit(fd, mainvar, id->override_library->storage);
+  }
+
+  AnimData *adt = BKE_animdata_from_id(id);
+  if (adt != NULL) {
+    expand_animdata(fd, mainvar, adt);
+  }
+
+  expand_id_private_id(fd, mainvar, id);
+}
+
+static void expand_action(FileData *fd, Main *mainvar, bAction *act)
+{
+  bActionChannel *chan;
+
+  // XXX deprecated - old animation system --------------
+  for (chan = act->chanbase.first; chan; chan = chan->next) {
+    expand_doit(fd, mainvar, chan->ipo);
+    expand_constraint_channels(fd, mainvar, &chan->constraintChannels);
+  }
+  // ---------------------------------------------------
+
+  /* F-Curves in Action */
+  expand_fcurves(fd, mainvar, &act->curves);
+
+  for (TimeMarker *marker = act->markers.first; marker; marker = marker->next) {
+    if (marker->camera) {
+      expand_doit(fd, mainvar, marker->camera);
+    }
+  }
+}
+
+static void expand_keyingsets(FileData *fd, Main *mainvar, ListBase *list)
+{
+  KeyingSet *ks;
+  KS_Path *ksp;
+
+  /* expand the ID-pointers in KeyingSets's paths */
+  for (ks = list->first; ks; ks = ks->next) {
+    for (ksp = ks->paths.first; ksp; ksp = ksp->next) {
+      expand_doit(fd, mainvar, ksp->id);
+    }
+  }
+}
+
 static void expand_particlesettings(FileData *fd, Main *mainvar, ParticleSettings *part)
 {
   int a;
@@ -10274,10 +10814,6 @@ static void expand_particlesettings(FileData *fd, Main *mainvar, ParticleSetting
   expand_doit(fd, mainvar, part->force_group);
   expand_doit(fd, mainvar, part->bb_ob);
   expand_doit(fd, mainvar, part->collision_group);
-
-  if (part->adt) {
-    expand_animdata(fd, mainvar, part->adt);
-  }
 
   for (a = 0; a < MAX_MTEX; a++) {
     if (part->mtex[a]) {
@@ -10342,20 +10878,12 @@ static void expand_collection(FileData *fd, Main *mainvar, Collection *collectio
 static void expand_key(FileData *fd, Main *mainvar, Key *key)
 {
   expand_doit(fd, mainvar, key->ipo);  // XXX deprecated - old animation system
-
-  if (key->adt) {
-    expand_animdata(fd, mainvar, key->adt);
-  }
 }
 
 static void expand_nodetree(FileData *fd, Main *mainvar, bNodeTree *ntree)
 {
   bNode *node;
   bNodeSocket *sock;
-
-  if (ntree->adt) {
-    expand_animdata(fd, mainvar, ntree->adt);
-  }
 
   if (ntree->gpd) {
     expand_doit(fd, mainvar, ntree->gpd);
@@ -10388,14 +10916,6 @@ static void expand_texture(FileData *fd, Main *mainvar, Tex *tex)
 {
   expand_doit(fd, mainvar, tex->ima);
   expand_doit(fd, mainvar, tex->ipo);  // XXX deprecated - old animation system
-
-  if (tex->adt) {
-    expand_animdata(fd, mainvar, tex->adt);
-  }
-
-  if (tex->nodetree) {
-    expand_nodetree(fd, mainvar, tex->nodetree);
-  }
 }
 
 static void expand_brush(FileData *fd, Main *mainvar, Brush *brush)
@@ -10413,14 +10933,6 @@ static void expand_material(FileData *fd, Main *mainvar, Material *ma)
 {
   expand_doit(fd, mainvar, ma->ipo);  // XXX deprecated - old animation system
 
-  if (ma->adt) {
-    expand_animdata(fd, mainvar, ma->adt);
-  }
-
-  if (ma->nodetree) {
-    expand_nodetree(fd, mainvar, ma->nodetree);
-  }
-
   if (ma->gp_style) {
     MaterialGPencilStyle *gp_style = ma->gp_style;
     expand_doit(fd, mainvar, gp_style->sima);
@@ -10431,37 +10943,17 @@ static void expand_material(FileData *fd, Main *mainvar, Material *ma)
 static void expand_light(FileData *fd, Main *mainvar, Light *la)
 {
   expand_doit(fd, mainvar, la->ipo);  // XXX deprecated - old animation system
-
-  if (la->adt) {
-    expand_animdata(fd, mainvar, la->adt);
-  }
-
-  if (la->nodetree) {
-    expand_nodetree(fd, mainvar, la->nodetree);
-  }
 }
 
 static void expand_lattice(FileData *fd, Main *mainvar, Lattice *lt)
 {
   expand_doit(fd, mainvar, lt->ipo);  // XXX deprecated - old animation system
   expand_doit(fd, mainvar, lt->key);
-
-  if (lt->adt) {
-    expand_animdata(fd, mainvar, lt->adt);
-  }
 }
 
 static void expand_world(FileData *fd, Main *mainvar, World *wrld)
 {
   expand_doit(fd, mainvar, wrld->ipo);  // XXX deprecated - old animation system
-
-  if (wrld->adt) {
-    expand_animdata(fd, mainvar, wrld->adt);
-  }
-
-  if (wrld->nodetree) {
-    expand_nodetree(fd, mainvar, wrld->nodetree);
-  }
 }
 
 static void expand_mball(FileData *fd, Main *mainvar, MetaBall *mb)
@@ -10470,10 +10962,6 @@ static void expand_mball(FileData *fd, Main *mainvar, MetaBall *mb)
 
   for (a = 0; a < mb->totcol; a++) {
     expand_doit(fd, mainvar, mb->mat[a]);
-  }
-
-  if (mb->adt) {
-    expand_animdata(fd, mainvar, mb->adt);
   }
 }
 
@@ -10494,19 +10982,11 @@ static void expand_curve(FileData *fd, Main *mainvar, Curve *cu)
   expand_doit(fd, mainvar, cu->bevobj);
   expand_doit(fd, mainvar, cu->taperobj);
   expand_doit(fd, mainvar, cu->textoncurve);
-
-  if (cu->adt) {
-    expand_animdata(fd, mainvar, cu->adt);
-  }
 }
 
 static void expand_mesh(FileData *fd, Main *mainvar, Mesh *me)
 {
   int a;
-
-  if (me->adt) {
-    expand_animdata(fd, mainvar, me->adt);
-  }
 
   for (a = 0; a < me->totcol; a++) {
     expand_doit(fd, mainvar, me->mat[a]);
@@ -10576,10 +11056,6 @@ static void expand_bones(FileData *fd, Main *mainvar, Bone *bone)
 
 static void expand_armature(FileData *fd, Main *mainvar, bArmature *arm)
 {
-  if (arm->adt) {
-    expand_animdata(fd, mainvar, arm->adt);
-  }
-
   for (Bone *curBone = arm->bonebase.first; curBone; curBone = curBone->next) {
     expand_bones(fd, mainvar, curBone);
   }
@@ -10665,10 +11141,6 @@ static void expand_object(FileData *fd, Main *mainvar, Object *ob)
   }
   // XXX deprecated - old animation system (for version patching only)
 
-  if (ob->adt) {
-    expand_animdata(fd, mainvar, ob->adt);
-  }
-
   for (a = 0; a < ob->totcol; a++) {
     expand_doit(fd, mainvar, ob->mat[a]);
   }
@@ -10744,17 +11216,10 @@ static void expand_scene(FileData *fd, Main *mainvar, Scene *sce)
   expand_doit(fd, mainvar, sce->camera);
   expand_doit(fd, mainvar, sce->world);
 
-  if (sce->adt) {
-    expand_animdata(fd, mainvar, sce->adt);
-  }
   expand_keyingsets(fd, mainvar, &sce->keyingsets);
 
   if (sce->set) {
     expand_doit(fd, mainvar, sce->set);
-  }
-
-  if (sce->nodetree) {
-    expand_nodetree(fd, mainvar, sce->nodetree);
   }
 
   for (srl = sce->r.layers.first; srl; srl = srl->next) {
@@ -10842,10 +11307,6 @@ static void expand_scene(FileData *fd, Main *mainvar, Scene *sce)
   }
 #endif
 
-  if (sce->master_collection) {
-    expand_collection(fd, mainvar, sce->master_collection);
-  }
-
   if (sce->r.bake.cage_object) {
     expand_doit(fd, mainvar, sce->r.bake.cage_object);
   }
@@ -10863,26 +11324,17 @@ static void expand_camera(FileData *fd, Main *mainvar, Camera *ca)
       expand_doit(fd, mainvar, bgpic->ima);
     }
   }
-
-  if (ca->adt) {
-    expand_animdata(fd, mainvar, ca->adt);
-  }
 }
 
-static void expand_cachefile(FileData *fd, Main *mainvar, CacheFile *cache_file)
+static void expand_cachefile(FileData *UNUSED(fd),
+                             Main *UNUSED(mainvar),
+                             CacheFile *UNUSED(cache_file))
 {
-  if (cache_file->adt) {
-    expand_animdata(fd, mainvar, cache_file->adt);
-  }
 }
 
 static void expand_speaker(FileData *fd, Main *mainvar, Speaker *spk)
 {
   expand_doit(fd, mainvar, spk->sound);
-
-  if (spk->adt) {
-    expand_animdata(fd, mainvar, spk->adt);
-  }
 }
 
 static void expand_sound(FileData *fd, Main *mainvar, bSound *snd)
@@ -10890,18 +11342,12 @@ static void expand_sound(FileData *fd, Main *mainvar, bSound *snd)
   expand_doit(fd, mainvar, snd->ipo);  // XXX deprecated - old animation system
 }
 
-static void expand_lightprobe(FileData *fd, Main *mainvar, LightProbe *prb)
+static void expand_lightprobe(FileData *UNUSED(fd), Main *UNUSED(mainvar), LightProbe *UNUSED(prb))
 {
-  if (prb->adt) {
-    expand_animdata(fd, mainvar, prb->adt);
-  }
 }
 
-static void expand_movieclip(FileData *fd, Main *mainvar, MovieClip *clip)
+static void expand_movieclip(FileData *UNUSED(fd), Main *UNUSED(mainvar), MovieClip *UNUSED(clip))
 {
-  if (clip->adt) {
-    expand_animdata(fd, mainvar, clip->adt);
-  }
 }
 
 static void expand_mask_parent(FileData *fd, Main *mainvar, MaskParent *parent)
@@ -10914,10 +11360,6 @@ static void expand_mask_parent(FileData *fd, Main *mainvar, MaskParent *parent)
 static void expand_mask(FileData *fd, Main *mainvar, Mask *mask)
 {
   MaskLayer *mask_layer;
-
-  if (mask->adt) {
-    expand_animdata(fd, mainvar, mask->adt);
-  }
 
   for (mask_layer = mask->masklayers.first; mask_layer; mask_layer = mask_layer->next) {
     MaskSpline *spline;
@@ -10947,13 +11389,7 @@ static void expand_linestyle(FileData *fd, Main *mainvar, FreestyleLineStyle *li
       expand_doit(fd, mainvar, linestyle->mtex[a]->object);
     }
   }
-  if (linestyle->nodetree) {
-    expand_nodetree(fd, mainvar, linestyle->nodetree);
-  }
 
-  if (linestyle->adt) {
-    expand_animdata(fd, mainvar, linestyle->adt);
-  }
   for (m = linestyle->color_modifiers.first; m; m = m->next) {
     if (m->type == LS_MODIFIER_DISTANCE_FROM_OBJECT) {
       expand_doit(fd, mainvar, ((LineStyleColorModifier_DistanceFromObject *)m)->target);
@@ -10973,11 +11409,7 @@ static void expand_linestyle(FileData *fd, Main *mainvar, FreestyleLineStyle *li
 
 static void expand_gpencil(FileData *fd, Main *mainvar, bGPdata *gpd)
 {
-  if (gpd->adt) {
-    expand_animdata(fd, mainvar, gpd->adt);
-  }
-
-  for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
     expand_doit(fd, mainvar, gpl->parent);
   }
 
@@ -10992,6 +11424,39 @@ static void expand_workspace(FileData *fd, Main *mainvar, WorkSpace *workspace)
 
   for (WorkSpaceLayout *layout = layouts->first; layout; layout = layout->next) {
     expand_doit(fd, mainvar, BKE_workspace_layout_screen_get(layout));
+  }
+}
+
+static void expand_hair(FileData *fd, Main *mainvar, Hair *hair)
+{
+  for (int a = 0; a < hair->totcol; a++) {
+    expand_doit(fd, mainvar, hair->mat[a]);
+  }
+
+  if (hair->adt) {
+    expand_animdata(fd, mainvar, hair->adt);
+  }
+}
+
+static void expand_pointcloud(FileData *fd, Main *mainvar, PointCloud *pointcloud)
+{
+  for (int a = 0; a < pointcloud->totcol; a++) {
+    expand_doit(fd, mainvar, pointcloud->mat[a]);
+  }
+
+  if (pointcloud->adt) {
+    expand_animdata(fd, mainvar, pointcloud->adt);
+  }
+}
+
+static void expand_volume(FileData *fd, Main *mainvar, Volume *volume)
+{
+  for (int a = 0; a < volume->totcol; a++) {
+    expand_doit(fd, mainvar, volume->mat[a]);
+  }
+
+  if (volume->adt) {
+    expand_animdata(fd, mainvar, volume->adt);
   }
 }
 
@@ -11029,7 +11494,6 @@ void BLO_expand_main(void *fdhandle, Main *mainvar)
       while (id) {
         if (id->tag & LIB_TAG_NEED_EXPAND) {
           expand_id(fd, mainvar, id);
-          expand_idprops(fd, mainvar, id->properties);
 
           switch (GS(id->name)) {
             case ID_OB:
@@ -11115,6 +11579,15 @@ void BLO_expand_main(void *fdhandle, Main *mainvar)
               break;
             case ID_WS:
               expand_workspace(fd, mainvar, (WorkSpace *)id);
+              break;
+            case ID_HA:
+              expand_hair(fd, mainvar, (Hair *)id);
+              break;
+            case ID_PT:
+              expand_pointcloud(fd, mainvar, (PointCloud *)id);
+              break;
+            case ID_VO:
+              expand_volume(fd, mainvar, (Volume *)id);
               break;
             default:
               break;
@@ -11378,7 +11851,7 @@ static ID *link_named_part(
 /**
  * Simple reader for copy/paste buffers.
  */
-int BLO_library_link_copypaste(Main *mainl, BlendHandle *bh, const unsigned int id_types_mask)
+int BLO_library_link_copypaste(Main *mainl, BlendHandle *bh, const uint64_t id_types_mask)
 {
   FileData *fd = (FileData *)(bh);
   BHead *bhead;
@@ -11580,6 +12053,13 @@ static void library_link_end(Main *mainl,
   mainl = NULL; /* blo_join_main free's mainl, cant use anymore */
 
   lib_link_all(*fd, mainvar);
+
+  /* Some versioning code does expect some proper userrefcounting, e.g. in conversion from
+   * groups to collections... We could optimize out that first call when we are reading a
+   * current version file, but again this is really not a bottle neck currently. so not worth
+   * it. */
+  BKE_main_id_refcount_recompute(mainvar, false);
+
   BKE_collections_after_lib_link(mainvar);
 
   /* Yep, second splitting... but this is a very cheap operation, so no big deal. */
@@ -11595,10 +12075,15 @@ static void library_link_end(Main *mainl,
 
     add_main_to_main(mainvar, main_newid);
   }
+
   BKE_main_free(main_newid);
   blo_join_main((*fd)->mainlist);
   mainvar = (*fd)->mainlist->first;
   MEM_freeN((*fd)->mainlist);
+
+  /* This does not take into account old, deprecated data, so we also have to do it after
+   * `do_versions_after_linking()`. */
+  BKE_main_id_refcount_recompute(mainvar, false);
 
   /* After all data has been read and versioned, uses LIB_TAG_NEW. */
   ntreeUpdateAllNew(mainvar);
@@ -11909,9 +12394,9 @@ static void read_libraries(FileData *basefd, ListBase *mainlist)
       /* Does this library have any more linked data-blocks we need to read? */
       if (has_linked_ids_to_read(mainptr)) {
 #if 0
-        printf("Reading linked data-blocks from %s (%s)\n",
-               mainptr->curlib->id.name,
-               mainptr->curlib->name);
+				printf("Reading linked data-blocks from %s (%s)\n",
+					mainptr->curlib->id.name,
+					mainptr->curlib->name);
 #endif
 
         /* Open file if it has not been done yet. */
@@ -11960,6 +12445,11 @@ static void read_libraries(FileData *basefd, ListBase *mainlist)
     if (mainptr->curlib->filedata) {
       lib_link_all(mainptr->curlib->filedata, mainptr);
     }
+
+    /* Note: No need to call `do_versions_after_linking()` or `BKE_main_id_refcount_recompute()`
+     * here, as this function is only called for library 'subset' data handling, as part of either
+     * full blendfile reading (`blo_read_file_internal()`), or libdata linking
+     * (`library_link_end()`). */
 
     /* Free file data we no longer need. */
     if (mainptr->curlib->filedata) {

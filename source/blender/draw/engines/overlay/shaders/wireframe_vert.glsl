@@ -101,8 +101,10 @@ void wire_object_color_get(out vec3 rim_col, out vec3 wire_col)
 
 void main()
 {
+  bool no_attrib = all(equal(nor, vec3(0)));
+  vec3 wnor = no_attrib ? ViewMatrixInverse[2].xyz : normalize(normal_object_to_world(nor));
+
   vec3 wpos = point_object_to_world(pos);
-  vec3 wnor = normalize(normal_object_to_world(nor));
 
   bool is_persp = (ProjectionMatrix[3][3] == 0.0);
   vec3 V = (is_persp) ? normalize(ViewMatrixInverse[3].xyz - wpos) : ViewMatrixInverse[2].xyz;
@@ -138,13 +140,16 @@ void main()
 
   facing = clamp(abs(facing), 0.0, 1.0);
 
-  vec3 final_front_col = mix(rim_col, wire_col, 0.4);
-  vec3 final_rim_col = mix(rim_col, wire_col, 0.1);
-  finalColor = mix(final_rim_col, final_front_col, facing);
+  /* Do interpolation in a non-linear space to have a better visual result. */
+  rim_col = pow(rim_col, vec3(1.0 / 2.2));
+  wire_col = pow(wire_col, vec3(1.0 / 2.2));
+  vec3 final_front_col = mix(rim_col, wire_col, 0.35);
+  finalColor = mix(rim_col, final_front_col, facing);
+  finalColor = pow(finalColor, vec3(2.2));
 #endif
 
   /* Cull flat edges below threshold. */
-  if (get_edge_sharpness(wd) < 0.0) {
+  if (!no_attrib && (get_edge_sharpness(wd) < 0.0)) {
     edgeStart = vec2(-1.0);
   }
 

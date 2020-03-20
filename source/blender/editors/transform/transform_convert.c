@@ -23,51 +23,53 @@
 
 #include "DNA_anim_types.h"
 #include "DNA_armature_types.h"
-#include "DNA_space_types.h"
 #include "DNA_constraint_types.h"
 #include "DNA_gpencil_types.h"
 #include "DNA_mask_types.h"
+#include "DNA_space_types.h"
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_math.h"
-#include "BLI_listbase.h"
-#include "BLI_string.h"
 #include "BLI_kdtree.h"
+#include "BLI_listbase.h"
+#include "BLI_math.h"
+#include "BLI_string.h"
 
 #include "BKE_animsys.h"
 #include "BKE_armature.h"
 #include "BKE_context.h"
+#include "BKE_editmesh.h"
 #include "BKE_fcurve.h"
 #include "BKE_global.h"
 #include "BKE_gpencil.h"
-#include "BKE_layer.h"
 #include "BKE_key.h"
+#include "BKE_layer.h"
 #include "BKE_main.h"
+#include "BKE_mask.h"
 #include "BKE_modifier.h"
 #include "BKE_nla.h"
 #include "BKE_node.h"
 #include "BKE_pointcache.h"
 #include "BKE_rigidbody.h"
 #include "BKE_scene.h"
-#include "BKE_editmesh.h"
 #include "BKE_tracking.h"
-#include "BKE_mask.h"
 
 #include "BIK_api.h"
 
 #include "ED_anim_api.h"
 #include "ED_armature.h"
-#include "ED_particle.h"
+#include "ED_clip.h"
 #include "ED_image.h"
-#include "ED_keyframing.h"
 #include "ED_keyframes_edit.h"
-#include "ED_object.h"
+#include "ED_keyframing.h"
 #include "ED_markers.h"
+#include "ED_mask.h"
 #include "ED_mesh.h"
 #include "ED_node.h"
-#include "ED_clip.h"
-#include "ED_mask.h"
+#include "ED_object.h"
+#include "ED_particle.h"
+
+#include "UI_view2d.h"
 
 #include "WM_api.h" /* for WM_event_add_notifier to deal with stabilization nodes */
 #include "WM_types.h"
@@ -79,6 +81,7 @@
 
 #include "transform.h"
 #include "transform_convert.h"
+#include "transform_mode.h"
 
 /**
  * Transforming around ourselves is no use, fallback to individual origins,
@@ -203,8 +206,8 @@ static void set_prop_dist(TransInfo *t, const bool with_dist)
   const bool use_island = transdata_check_local_islands(t, t->around);
 
   if (t->flag & T_PROP_PROJECTED) {
-    if (t->spacetype == SPACE_VIEW3D && t->ar && t->ar->regiontype == RGN_TYPE_WINDOW) {
-      RegionView3D *rv3d = t->ar->regiondata;
+    if (t->spacetype == SPACE_VIEW3D && t->region && t->region->regiontype == RGN_TYPE_WINDOW) {
+      RegionView3D *rv3d = t->region->regiondata;
       normalize_v3_v3(_proj_vec, rv3d->viewinv[2]);
       proj_vec = _proj_vec;
     }
@@ -786,6 +789,28 @@ void clipUVData(TransInfo *t)
 
 /* ********************* ANIMATION EDITORS (GENERAL) ************************* */
 
+/**
+ * For modal operation: `t->center_global` may not have been set yet.
+ */
+void transform_convert_center_global_v2(TransInfo *t, float r_center[2])
+{
+  if (t->flag & T_MODAL) {
+    UI_view2d_region_to_view(
+        (View2D *)t->view, t->mouse.imval[0], t->mouse.imval[1], &r_center[0], &r_center[1]);
+  }
+  else {
+    copy_v2_v2(r_center, t->center_global);
+  }
+}
+
+void transform_convert_center_global_v2_int(TransInfo *t, int r_center[2])
+{
+  float center[2];
+  transform_convert_center_global_v2(t, center);
+  r_center[0] = round_fl_to_int(center[0]);
+  r_center[1] = round_fl_to_int(center[1]);
+}
+
 /* This function tests if a point is on the "mouse" side of the cursor/frame-marking */
 bool FrameOnMouseSide(char side, float frame, float cframe)
 {
@@ -804,25 +829,6 @@ bool FrameOnMouseSide(char side, float frame, float cframe)
 }
 
 /* ********************* ACTION EDITOR ****************** */
-
-static int gpf_cmp_frame(void *thunk, const void *a, const void *b)
-{
-  const bGPDframe *frame_a = a;
-  const bGPDframe *frame_b = b;
-
-  if (frame_a->framenum < frame_b->framenum) {
-    return -1;
-  }
-  if (frame_a->framenum > frame_b->framenum) {
-    return 1;
-  }
-  *((bool *)thunk) = true;
-  /* selected last */
-  if ((frame_a->flag & GP_FRAME_SELECT) && ((frame_b->flag & GP_FRAME_SELECT) == 0)) {
-    return 1;
-  }
-  return 0;
-}
 
 static int masklay_shape_cmp_frame(void *thunk, const void *a, const void *b)
 {
@@ -856,13 +862,13 @@ static void posttrans_gpd_clean(bGPdata *gpd)
     bGPDframe *gpf, *gpfn;
     bool is_double = false;
 
-    BLI_listbase_sort_r(&gpl->frames, gpf_cmp_frame, &is_double);
+    BKE_gpencil_layer_frames_sort(gpl, &is_double);
 
     if (is_double) {
       for (gpf = gpl->frames.first; gpf; gpf = gpfn) {
         gpfn = gpf->next;
         if (gpfn && gpf->framenum == gpfn->framenum) {
-          BKE_gpencil_layer_delframe(gpl, gpf);
+          BKE_gpencil_layer_frame_delete(gpl, gpf);
         }
       }
     }
@@ -875,6 +881,8 @@ static void posttrans_gpd_clean(bGPdata *gpd)
   }
   /* set cache flag to dirty */
   DEG_id_tag_update(&gpd->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
+
+  WM_main_add_notifier(NC_GPENCIL | NA_EDITED, gpd);
 }
 
 static void posttrans_mask_clean(Mask *mask)
@@ -904,6 +912,8 @@ static void posttrans_mask_clean(Mask *mask)
     }
 #endif
   }
+
+  WM_main_add_notifier(NC_MASK | NA_EDITED, mask);
 }
 
 /* Time + Average value */
@@ -1395,10 +1405,10 @@ void autokeyframe_object(bContext *C, Scene *scene, ViewLayer *view_layer, Objec
     KeyingSet *active_ks = ANIM_scene_get_active_keyingset(scene);
     ListBase dsources = {NULL, NULL};
     float cfra = (float)CFRA;  // xxx this will do for now
-    short flag = 0;
+    eInsertKeyFlags flag = 0;
 
-    /* get flags used for inserting keyframes */
-    flag = ANIM_get_keyframing_flags(scene, 1);
+    /* Get flags used for inserting keyframes. */
+    flag = ANIM_get_keyframing_flags(scene, true);
 
     /* add datasource override for the object */
     ANIM_relative_keyingset_add_source(&dsources, id, NULL, NULL);
@@ -1417,7 +1427,6 @@ void autokeyframe_object(bContext *C, Scene *scene, ViewLayer *view_layer, Objec
       if (adt && adt->action) {
         ListBase nla_cache = {NULL, NULL};
         for (fcu = adt->action->curves.first; fcu; fcu = fcu->next) {
-          fcu->flag &= ~FCURVE_SELECTED;
           insert_keyframe(bmain,
                           reports,
                           id,
@@ -1538,14 +1547,14 @@ void autokeyframe_pose(bContext *C, Scene *scene, Object *ob, int tmode, short t
     KeyingSet *active_ks = ANIM_scene_get_active_keyingset(scene);
     ListBase nla_cache = {NULL, NULL};
     float cfra = (float)CFRA;
-    short flag = 0;
+    eInsertKeyFlags flag = 0;
 
     /* flag is initialized from UserPref keyframing settings
      * - special exception for targetless IK - INSERTKEY_MATRIX keyframes should get
      *   visual keyframes even if flag not set, as it's not that useful otherwise
      *   (for quick animation recording)
      */
-    flag = ANIM_get_keyframing_flags(scene, 1);
+    flag = ANIM_get_keyframing_flags(scene, true);
 
     if (targetless_ik) {
       flag |= INSERTKEY_MATRIX;
@@ -1870,13 +1879,9 @@ void special_aftertrans_update(bContext *C, TransInfo *t)
       }
       else {
         if (t->mode == TFM_EDGE_SLIDE) {
-          EdgeSlideParams *slp = t->custom.mode.data;
-          slp->perc = 0.0;
           projectEdgeSlideData(t, false);
         }
         else if (t->mode == TFM_VERT_SLIDE) {
-          EdgeSlideParams *slp = t->custom.mode.data;
-          slp->perc = 0.0;
           projectVertSlideData(t, false);
         }
       }
@@ -2015,15 +2020,24 @@ void special_aftertrans_update(bContext *C, TransInfo *t)
        *                            but we made duplicates, so get rid of these
        */
       if ((saction->flag & SACTION_NOTRANSKEYCULL) == 0 && ((canceled == 0) || (duplicate))) {
-        bGPdata *gpd;
+        ListBase anim_data = {NULL, NULL};
+        const int filter = ANIMFILTER_DATA_VISIBLE;
+        ANIM_animdata_filter(&ac, &anim_data, filter, ac.data, ac.datatype);
 
-        // XXX: BAD! this get gpencil datablocks directly from main db...
-        // but that's how this currently works :/
-        for (gpd = bmain->gpencils.first; gpd; gpd = gpd->id.next) {
-          if (ID_REAL_USERS(gpd)) {
-            posttrans_gpd_clean(gpd);
+        for (bAnimListElem *ale = anim_data.first; ale; ale = ale->next) {
+          if (ale->datatype == ALE_GPFRAME) {
+            ale->id->tag |= LIB_TAG_DOIT;
           }
         }
+        for (bAnimListElem *ale = anim_data.first; ale; ale = ale->next) {
+          if (ale->datatype == ALE_GPFRAME) {
+            if (ale->id->tag & LIB_TAG_DOIT) {
+              ale->id->tag &= ~LIB_TAG_DOIT;
+              posttrans_gpd_clean((bGPdata *)ale->id);
+            }
+          }
+        }
+        ANIM_animdata_freelist(&anim_data);
       }
     }
     else if (ac.datatype == ANIMCONT_MASK) {
@@ -2037,15 +2051,24 @@ void special_aftertrans_update(bContext *C, TransInfo *t)
        *    User canceled the transform, but we made duplicates, so get rid of these.
        */
       if ((saction->flag & SACTION_NOTRANSKEYCULL) == 0 && ((canceled == 0) || (duplicate))) {
-        Mask *mask;
+        ListBase anim_data = {NULL, NULL};
+        const int filter = ANIMFILTER_DATA_VISIBLE;
+        ANIM_animdata_filter(&ac, &anim_data, filter, ac.data, ac.datatype);
 
-        // XXX: BAD! this get gpencil datablocks directly from main db...
-        // but that's how this currently works :/
-        for (mask = bmain->masks.first; mask; mask = mask->id.next) {
-          if (ID_REAL_USERS(mask)) {
-            posttrans_mask_clean(mask);
+        for (bAnimListElem *ale = anim_data.first; ale; ale = ale->next) {
+          if (ale->datatype == ALE_MASKLAY) {
+            ale->id->tag |= LIB_TAG_DOIT;
           }
         }
+        for (bAnimListElem *ale = anim_data.first; ale; ale = ale->next) {
+          if (ale->datatype == ALE_MASKLAY) {
+            if (ale->id->tag & LIB_TAG_DOIT) {
+              ale->id->tag &= ~LIB_TAG_DOIT;
+              posttrans_mask_clean((Mask *)ale->id);
+            }
+          }
+        }
+        ANIM_animdata_freelist(&anim_data);
       }
     }
 
@@ -2074,7 +2097,7 @@ void special_aftertrans_update(bContext *C, TransInfo *t)
     }
 
     /* make sure all F-Curves are set correctly */
-    if (!ELEM(ac.datatype, ANIMCONT_GPENCIL, ANIMCONT_MASK)) {
+    if (!ELEM(ac.datatype, ANIMCONT_GPENCIL)) {
       ANIM_editkeyframes_refresh(&ac);
     }
 
@@ -2518,7 +2541,7 @@ void createTransData(bContext *C, TransInfo *t)
     t->obedit_type = -1;
 
     t->num.flag |= NUM_NO_FRACTION; /* sequencer has no use for floating point trasnform */
-    createTransSeqData(C, t);
+    createTransSeqData(t);
     countAndCleanTransDataContainer(t);
   }
   else if (t->spacetype == SPACE_GRAPH) {
@@ -2698,9 +2721,11 @@ void createTransData(bContext *C, TransInfo *t)
       has_transform_context = false;
     }
   }
-  else if ((ob) &&
-           (ELEM(
-               ob->mode, OB_MODE_PAINT_GPENCIL, OB_MODE_SCULPT_GPENCIL, OB_MODE_WEIGHT_GPENCIL))) {
+  else if ((ob) && (ELEM(ob->mode,
+                         OB_MODE_PAINT_GPENCIL,
+                         OB_MODE_SCULPT_GPENCIL,
+                         OB_MODE_WEIGHT_GPENCIL,
+                         OB_MODE_VERTEX_GPENCIL))) {
     /* In grease pencil all transformations must be canceled if not Object or Edit. */
     has_transform_context = false;
   }
@@ -2726,16 +2751,16 @@ void createTransData(bContext *C, TransInfo *t)
     }
 
     /* Check if we're transforming the camera from the camera */
-    if ((t->spacetype == SPACE_VIEW3D) && (t->ar->regiontype == RGN_TYPE_WINDOW)) {
+    if ((t->spacetype == SPACE_VIEW3D) && (t->region->regiontype == RGN_TYPE_WINDOW)) {
       View3D *v3d = t->view;
-      RegionView3D *rv3d = t->ar->regiondata;
+      RegionView3D *rv3d = t->region->regiondata;
       if ((rv3d->persp == RV3D_CAMOB) && v3d->camera) {
         /* we could have a flag to easily check an object is being transformed */
         if (v3d->camera->id.tag & LIB_TAG_DOIT) {
           t->flag |= T_CAMERA;
         }
       }
-      else if (v3d->ob_centre && v3d->ob_centre->id.tag & LIB_TAG_DOIT) {
+      else if (v3d->ob_center && v3d->ob_center->id.tag & LIB_TAG_DOIT) {
         t->flag |= T_CAMERA;
       }
     }

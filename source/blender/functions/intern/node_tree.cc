@@ -1,7 +1,7 @@
 #include "FN_node_tree.h"
 
-#include "BLI_string.h"
 #include "BLI_dot_export.h"
+#include "BLI_string.h"
 
 extern "C" {
 void WM_clipboard_text_set(const char *buf, bool selection);
@@ -172,8 +172,8 @@ BLI_NOINLINE void FunctionTree::expand_group__group_inputs_for_unlinked_inputs(
       group_input.m_vsocket = &input_socket->m_vsocket->as_input();
       group_input.m_parent = group_node.m_parent;
 
-      group_input.m_linked_sockets.append(input_socket);
-      input_socket->m_linked_group_inputs.append(&group_input);
+      group_input.m_linked_sockets.append(input_socket, m_allocator);
+      input_socket->m_linked_group_inputs.append(&group_input, m_allocator);
     }
   }
 }
@@ -205,13 +205,13 @@ BLI_NOINLINE void FunctionTree::expand_group__relink_inputs(const VirtualNodeTre
       inside_connected->m_linked_sockets.remove_first_occurrence_and_reorder(&inside_interface);
 
       for (FOutputSocket *outside_connected : outside_interface.m_linked_sockets) {
-        inside_connected->m_linked_sockets.append(outside_connected);
-        outside_connected->m_linked_sockets.append(inside_connected);
+        inside_connected->m_linked_sockets.append(outside_connected, m_allocator);
+        outside_connected->m_linked_sockets.append(inside_connected, m_allocator);
       }
 
       for (FGroupInput *outside_connected : outside_interface.m_linked_group_inputs) {
-        inside_connected->m_linked_group_inputs.append(outside_connected);
-        outside_connected->m_linked_sockets.append(inside_connected);
+        inside_connected->m_linked_group_inputs.append(outside_connected, m_allocator);
+        outside_connected->m_linked_sockets.append(inside_connected, m_allocator);
       }
     }
 
@@ -240,8 +240,8 @@ BLI_NOINLINE void FunctionTree::expand_group__relink_outputs(const VirtualNodeTr
       inside_connected->m_linked_sockets.remove_first_occurrence_and_reorder(&inside_interface);
 
       for (FInputSocket *outside_connected : outside_interface.m_linked_sockets) {
-        inside_connected->m_linked_sockets.append(outside_connected);
-        outside_connected->m_linked_sockets.append(inside_connected);
+        inside_connected->m_linked_sockets.append(outside_connected, m_allocator);
+        outside_connected->m_linked_sockets.append(inside_connected, m_allocator);
       }
     }
 
@@ -249,8 +249,8 @@ BLI_NOINLINE void FunctionTree::expand_group__relink_outputs(const VirtualNodeTr
       inside_connected->m_linked_sockets.remove_first_occurrence_and_reorder(&inside_interface);
 
       for (FInputSocket *outside_connected : outside_interface.m_linked_sockets) {
-        inside_connected->m_linked_sockets.append(outside_connected);
-        outside_connected->m_linked_group_inputs.append(inside_connected);
+        inside_connected->m_linked_sockets.append(outside_connected, m_allocator);
+        outside_connected->m_linked_group_inputs.append(inside_connected, m_allocator);
       }
     }
 
@@ -266,7 +266,7 @@ BLI_NOINLINE void FunctionTree::expand_group__relink_outputs(const VirtualNodeTr
 BLI_NOINLINE void FunctionTree::insert_linked_nodes_for_vtree_in_id_order(
     const VirtualNodeTree &vtree, Vector<FNode *> &all_nodes, FParentNode *parent)
 {
-  BLI::LargeScopedArray<FSocket *> sockets_map(vtree.socket_count());
+  BLI::Array<FSocket *> sockets_map(vtree.socket_count());
 
   /* Insert nodes of group. */
   for (const VNode *vnode : vtree.nodes()) {
@@ -280,8 +280,8 @@ BLI_NOINLINE void FunctionTree::insert_linked_nodes_for_vtree_in_id_order(
       FInputSocket *to_socket = (FInputSocket *)sockets_map[to_vsocket->id()];
       for (const VOutputSocket *from_vsocket : to_vsocket->linked_sockets()) {
         FOutputSocket *from_socket = (FOutputSocket *)sockets_map[from_vsocket->id()];
-        to_socket->m_linked_sockets.append(from_socket);
-        from_socket->m_linked_sockets.append(to_socket);
+        to_socket->m_linked_sockets.append(from_socket, m_allocator);
+        from_socket->m_linked_sockets.append(to_socket, m_allocator);
       }
     }
   }
@@ -303,7 +303,7 @@ BLI_NOINLINE FNode &FunctionTree::create_node(const VNode &vnode,
     new_socket.m_id = UINT32_MAX;
     new_socket.m_is_input = true;
 
-    new_node.m_inputs.append_and_get_index(&new_socket);
+    new_node.m_inputs.append_and_get_index(&new_socket, m_allocator);
     sockets_map[vsocket->id()] = &new_socket;
   }
 
@@ -314,7 +314,7 @@ BLI_NOINLINE FNode &FunctionTree::create_node(const VNode &vnode,
     new_socket.m_id = UINT32_MAX;
     new_socket.m_is_input = false;
 
-    new_node.m_outputs.append_and_get_index(&new_socket);
+    new_node.m_outputs.append_and_get_index(&new_socket, m_allocator);
     sockets_map[vsocket->id()] = &new_socket;
   }
 
@@ -388,8 +388,8 @@ std::string FunctionTree::to_dot() const
   BLI::DotExport::DirectedGraph digraph;
   digraph.set_rankdir(BLI::DotExport::Attr_rankdir::LeftToRight);
 
-  Map<const FNode *, BLI::DotExport::Utils::NodeWithSocketsWrapper> dot_nodes;
-  Map<const FGroupInput *, BLI::DotExport::Utils::NodeWithSocketsWrapper> dot_group_inputs;
+  Map<const FNode *, BLI::DotExport::NodeWithSocketsRef> dot_nodes;
+  Map<const FGroupInput *, BLI::DotExport::NodeWithSocketsRef> dot_group_inputs;
   Map<const FParentNode *, BLI::DotExport::Cluster *> dot_clusters;
 
   for (const FNode *fnode : m_node_by_id) {
@@ -407,7 +407,7 @@ std::string FunctionTree::to_dot() const
     }
 
     dot_nodes.add_new(fnode,
-                      BLI::DotExport::Utils::NodeWithSocketsWrapper(
+                      BLI::DotExport::NodeWithSocketsRef(
                           dot_node, fnode->vnode().name(), input_names, output_names));
 
     BLI::DotExport::Cluster *cluster = get_cluster_for_parent(
@@ -425,7 +425,7 @@ std::string FunctionTree::to_dot() const
 
           dot_group_inputs.add_new(
               group_input,
-              BLI::DotExport::Utils::NodeWithSocketsWrapper(
+              BLI::DotExport::NodeWithSocketsRef(
                   dot_group_input_node, "Group Input", {}, {group_input_name}));
 
           BLI::DotExport::Cluster *cluster = get_cluster_for_parent(

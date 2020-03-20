@@ -3,9 +3,9 @@
 
 #include <mutex>
 
-#include "BLI_map.h"
 #include "BLI_kdopbvh.h"
 #include "BLI_kdtree.h"
+#include "BLI_map.h"
 
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"

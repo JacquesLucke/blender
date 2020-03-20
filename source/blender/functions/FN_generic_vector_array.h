@@ -7,19 +7,19 @@
 
 #include "BLI_array_ref.h"
 #include "BLI_index_range.h"
-#include "BLI_monotonic_allocator.h"
+#include "BLI_linear_allocator.h"
 
 namespace FN {
 
 using BLI::ArrayRef;
 using BLI::IndexRange;
-using BLI::MonotonicAllocator;
+using BLI::LinearAllocator;
 using BLI::MutableArrayRef;
 
 class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
  private:
   BLI::GuardedAllocator m_slices_allocator;
-  MonotonicAllocator<> m_elements_allocator;
+  LinearAllocator<> m_elements_allocator;
   const CPPType &m_type;
   void **m_starts;
   uint *m_lengths;

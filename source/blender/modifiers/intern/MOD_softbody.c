@@ -25,9 +25,9 @@
 
 #include "BLI_utildefines.h"
 
-#include "DNA_scene_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_object_force_types.h"
+#include "DNA_scene_types.h"
 
 #include "BKE_layer.h"
 #include "BKE_particle.h"
@@ -69,6 +69,8 @@ static void updateDepsgraph(ModifierData *UNUSED(md), const ModifierUpdateDepsgr
     DEG_add_forcefield_relations(
         ctx->node, ctx->object, ctx->object->soft->effector_weights, true, 0, "Softbody Field");
   }
+  /* We need own transformation as well. */
+  DEG_add_modifier_to_transform_relation(ctx->node, "SoftBody Modifier");
 }
 
 ModifierTypeInfo modifierType_Softbody = {

@@ -129,8 +129,8 @@ int BKE_sequencer_cmp_time_startdisp(const void *a, const void *b);
 enum {
   DO_SINGLE_WIPE,
   DO_DOUBLE_WIPE,
-  DO_BOX_WIPE,
-  DO_CROSS_WIPE,
+  /* DO_BOX_WIPE, */   /* UNUSED */
+  /* DO_CROSS_WIPE, */ /* UNUSED */
   DO_IRIS_WIPE,
   DO_CLOCK_WIPE,
 };
@@ -211,9 +211,6 @@ struct SeqEffectHandle {
 double BKE_sequencer_rendersize_to_scale_factor(int size);
 
 struct ImBuf *BKE_sequencer_give_ibuf(const SeqRenderData *context, float cfra, int chanshown);
-struct ImBuf *BKE_sequencer_give_ibuf_threaded(const SeqRenderData *context,
-                                               float cfra,
-                                               int chanshown);
 struct ImBuf *BKE_sequencer_give_ibuf_direct(const SeqRenderData *context,
                                              float cfra,
                                              struct Sequence *seq);
@@ -221,9 +218,6 @@ struct ImBuf *BKE_sequencer_give_ibuf_seqbase(const SeqRenderData *context,
                                               float cfra,
                                               int chan_shown,
                                               struct ListBase *seqbasep);
-void BKE_sequencer_give_ibuf_prefetch_request(const SeqRenderData *context,
-                                              float cfra,
-                                              int chan_shown);
 
 /* **********************************************************************
  * sequencer.c
@@ -318,19 +312,22 @@ void BKE_sequencer_proxy_set(struct Sequence *seq, bool value);
 struct ImBuf *BKE_sequencer_cache_get(const SeqRenderData *context,
                                       struct Sequence *seq,
                                       float cfra,
-                                      int type);
+                                      int type,
+                                      bool skip_disk_cache);
 void BKE_sequencer_cache_put(const SeqRenderData *context,
                              struct Sequence *seq,
                              float cfra,
                              int type,
                              struct ImBuf *nval,
-                             float cost);
+                             float cost,
+                             bool skip_disk_cache);
 bool BKE_sequencer_cache_put_if_possible(const SeqRenderData *context,
                                          struct Sequence *seq,
                                          float cfra,
                                          int type,
                                          struct ImBuf *nval,
-                                         float cost);
+                                         float cost,
+                                         bool skip_disk_cache);
 bool BKE_sequencer_cache_recycle_item(struct Scene *scene);
 void BKE_sequencer_cache_free_temp_cache(struct Scene *scene, short id, int cfra);
 void BKE_sequencer_cache_destruct(struct Scene *scene);
@@ -344,6 +341,7 @@ void BKE_sequencer_cache_iterate(
     struct Scene *scene,
     void *userdata,
     bool callback(void *userdata, struct Sequence *seq, int cfra, int cache_type, float cost));
+size_t BKE_sequencer_cache_get_num_items(struct Scene *scene);
 bool BKE_sequencer_cache_is_full(struct Scene *scene);
 
 /* **********************************************************************
@@ -398,7 +396,7 @@ void BKE_sequence_single_fix(struct Sequence *seq);
 bool BKE_sequence_test_overlap(struct ListBase *seqbasep, struct Sequence *test);
 void BKE_sequence_translate(struct Scene *scene, struct Sequence *seq, int delta);
 void BKE_sequence_sound_init(struct Scene *scene, struct Sequence *seq);
-struct Sequence *BKE_sequencer_foreground_frame_get(struct Scene *scene, int frame);
+const struct Sequence *BKE_sequencer_foreground_frame_get(const struct Scene *scene, int frame);
 struct ListBase *BKE_sequence_seqbase(struct ListBase *seqbase, struct Sequence *seq);
 struct Sequence *BKE_sequence_metastrip(ListBase *seqbase /* = ed->seqbase */,
                                         struct Sequence *meta /* = NULL */,
@@ -525,21 +523,6 @@ struct Sequence *BKE_sequencer_add_sound_strip(struct bContext *C,
 struct Sequence *BKE_sequencer_add_movie_strip(struct bContext *C,
                                                ListBase *seqbasep,
                                                struct SeqLoadInfo *seq_load);
-
-typedef struct ImBuf *(*SequencerDrawView)(struct Depsgraph *depsgraph,
-                                           struct Scene *scene,
-                                           struct View3DShading *shading_override,
-                                           int drawtype,
-                                           struct Object *camera,
-                                           int width,
-                                           int height,
-                                           unsigned int flag,
-                                           unsigned int draw_flags,
-                                           int alpha_mode,
-                                           const char *viewname,
-                                           struct GPUOffScreen *ofs,
-                                           char err_out[256]);
-extern SequencerDrawView sequencer_view3d_cb;
 
 /* copy/paste */
 extern ListBase seqbase_clipboard;

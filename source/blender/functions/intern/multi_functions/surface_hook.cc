@@ -1,23 +1,26 @@
 #include "surface_hook.h"
 
-#include "BKE_surface_hook.h"
-#include "BKE_id_handle.h"
-#include "BKE_id_data_cache.h"
-#include "BKE_mesh_runtime.h"
-#include "BKE_deform.h"
 #include "BKE_customdata.h"
+#include "BKE_deform.h"
+#include "BKE_id_data_cache.h"
+#include "BKE_id_handle.h"
 #include "BKE_image.h"
+#include "BKE_mesh_runtime.h"
+#include "BKE_surface_hook.h"
 
 #include "IMB_imbuf_types.h"
 
 #include "DNA_customdata_types.h"
 
-#include "BLI_math_cxx.h"
 #include "BLI_array_cxx.h"
+#include "BLI_color.h"
+#include "BLI_float2.h"
+#include "BLI_float3.h"
+#include "BLI_float4x4.h"
 #include "BLI_vector_adaptor.h"
 
-#include "util.h"
 #include "sampling_util.h"
+#include "util.h"
 
 namespace FN {
 
@@ -26,10 +29,10 @@ using BKE::IDHandleLookup;
 using BKE::ImageIDHandle;
 using BKE::ObjectIDHandle;
 using BKE::SurfaceHook;
+using BLI::Array;
 using BLI::float2;
 using BLI::float3;
 using BLI::float4x4;
-using BLI::LargeScopedArray;
 using BLI::rgba_b;
 using BLI::rgba_f;
 using BLI::VectorAdaptor;
@@ -42,7 +45,6 @@ MF_ClosestSurfaceHookOnObject::MF_ClosestSurfaceHookOnObject()
   signature.single_input<ObjectIDHandle>("Object");
   signature.single_input<float3>("Position");
   signature.single_output<SurfaceHook>("Closest Location");
-  signature.operation_hash_per_class();
 }
 
 static BVHTreeNearest get_nearest_point(BVHTreeFromMesh *bvhtree_data, float3 point)
@@ -128,7 +130,6 @@ MF_GetPositionOnSurface::MF_GetPositionOnSurface()
   signature.use_global_context<IDHandleLookup>();
   signature.single_input<SurfaceHook>("Surface Hook");
   signature.single_output<float3>("Position");
-  signature.operation_hash_per_class();
 }
 
 void MF_GetPositionOnSurface::call(IndexMask mask, MFParams params, MFContext context) const
@@ -194,7 +195,6 @@ MF_GetNormalOnSurface::MF_GetNormalOnSurface()
   signature.use_global_context<IDHandleLookup>();
   signature.single_input<SurfaceHook>("Surface Hook");
   signature.single_output<float3>("Normal");
-  signature.operation_hash_per_class();
 }
 
 static float3 short_normal_to_float3(const short normal[3])
@@ -267,7 +267,6 @@ MF_GetWeightOnSurface::MF_GetWeightOnSurface()
   signature.single_input<SurfaceHook>("Surface Hook");
   signature.single_input<std::string>("Group Name");
   signature.single_output<float>("Weight");
-  signature.operation_hash_per_class();
 }
 
 void MF_GetWeightOnSurface::call(IndexMask mask, MFParams params, MFContext context) const
@@ -310,7 +309,7 @@ void MF_GetWeightOnSurface::call(IndexMask mask, MFParams params, MFContext cont
             group_names,
             [&](const std::string &group, IndexMask indices_with_same_group) {
               MDeformVert *vertex_weights = mesh->dvert;
-              int group_index = defgroup_name_index(object, group.c_str());
+              int group_index = BKE_object_defgroup_name_index(object, group.c_str());
               if (group_index == -1 || vertex_weights == nullptr) {
                 r_weights.fill_indices(indices_on_same_surface, fallback);
                 return;
@@ -328,9 +327,9 @@ void MF_GetWeightOnSurface::call(IndexMask mask, MFParams params, MFContext cont
                 uint v2 = mesh->mloop[triangle.tri[1]].v;
                 uint v3 = mesh->mloop[triangle.tri[2]].v;
 
-                float3 corner_weights{defvert_find_weight(vertex_weights + v1, group_index),
-                                      defvert_find_weight(vertex_weights + v2, group_index),
-                                      defvert_find_weight(vertex_weights + v3, group_index)};
+                float3 corner_weights{BKE_defvert_find_weight(vertex_weights + v1, group_index),
+                                      BKE_defvert_find_weight(vertex_weights + v2, group_index),
+                                      BKE_defvert_find_weight(vertex_weights + v3, group_index)};
 
                 float weight = float3::dot(hook.bary_coords(), corner_weights);
                 r_weights[i] = weight;
@@ -347,7 +346,6 @@ MF_GetImageColorOnSurface::MF_GetImageColorOnSurface()
   signature.single_input<SurfaceHook>("Surface Hook");
   signature.single_input<ImageIDHandle>("Image");
   signature.single_output<rgba_f>("Color");
-  signature.operation_hash_per_class();
 }
 
 static void get_colors_on_surface(IndexMask indices,
@@ -462,7 +460,6 @@ MF_SampleObjectSurface::MF_SampleObjectSurface(bool use_vertex_weights)
     signature.single_input<std::string>("Vertex Group Name");
   }
   signature.vector_output<SurfaceHook>("Surface Hooks");
-  signature.operation_hash_per_class();
 }
 
 static BLI_NOINLINE void compute_triangle_areas(Mesh *mesh,
@@ -512,13 +509,13 @@ static BLI_NOINLINE bool get_vertex_weights(Object *object,
   BLI_assert(r_vertex_weights.size() == mesh->totvert);
 
   MDeformVert *vertices = mesh->dvert;
-  int group_index = defgroup_name_index(object, group_name.data());
+  int group_index = BKE_object_defgroup_name_index(object, group_name.data());
   if (group_index == -1 || vertices == nullptr) {
     return false;
   }
 
   for (uint i : r_vertex_weights.index_range()) {
-    r_vertex_weights[i] = defvert_find_weight(vertices + i, group_index);
+    r_vertex_weights[i] = BKE_defvert_find_weight(vertices + i, group_index);
   }
   return true;
 }
@@ -586,13 +583,13 @@ void MF_SampleObjectSurface::call(IndexMask mask, MFParams params, MFContext con
       continue;
     }
 
-    LargeScopedArray<float> triangle_weights(triangles.size());
+    Array<float> triangle_weights(triangles.size());
     compute_triangle_areas(mesh, triangles, triangle_weights);
 
     if (m_use_vertex_weights) {
-      LargeScopedArray<float> vertex_weights(mesh->totvert);
+      Array<float> vertex_weights(mesh->totvert);
       if (get_vertex_weights(object, vertex_group_names[i], vertex_weights)) {
-        LargeScopedArray<float> vertex_weights_for_triangles(triangles.size());
+        Array<float> vertex_weights_for_triangles(triangles.size());
         vertex_weights_to_triangle_weights(
             mesh, triangles, vertex_weights, vertex_weights_for_triangles);
 
@@ -602,17 +599,17 @@ void MF_SampleObjectSurface::call(IndexMask mask, MFParams params, MFContext con
       }
     }
 
-    LargeScopedArray<float> cumulative_weights(triangle_weights.size() + 1);
+    Array<float> cumulative_weights(triangle_weights.size() + 1);
     float total_weight = compute_cumulative_distribution(triangle_weights, cumulative_weights);
     if (total_weight <= 0.0f) {
       continue;
     }
 
     BLI_rng_srandom(rng, seeds[i] + amount * 1000);
-    LargeScopedArray<uint> triangle_indices(amount);
+    Array<uint> triangle_indices(amount);
     sample_cumulative_distribution(rng, cumulative_weights, triangle_indices);
 
-    LargeScopedArray<float3> bary_coords(amount);
+    Array<float3> bary_coords(amount);
     compute_random_uniform_bary_coords(rng, bary_coords);
 
     MutableArrayRef<SurfaceHook> r_hooks = r_hooks_per_index.allocate_and_default_construct(

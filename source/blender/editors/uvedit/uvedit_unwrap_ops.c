@@ -21,38 +21,40 @@
  * \ingroup eduv
  */
 
-#include <string.h>
-#include <stdlib.h>
 #include <math.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "MEM_guardedalloc.h"
 
 #include "DNA_camera_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
+#include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
-#include "DNA_modifier_types.h"
 
-#include "BLI_utildefines.h"
 #include "BLI_alloca.h"
 #include "BLI_math.h"
-#include "BLI_uvproject.h"
 #include "BLI_string.h"
+#include "BLI_utildefines.h"
+#include "BLI_uvproject.h"
 
 #include "BLT_translation.h"
 
 #include "BKE_cdderivedmesh.h"
-#include "BKE_subsurf.h"
 #include "BKE_context.h"
 #include "BKE_customdata.h"
+#include "BKE_editmesh.h"
 #include "BKE_image.h"
+#include "BKE_layer.h"
+#include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
+#include "BKE_mesh.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
-#include "BKE_editmesh.h"
-#include "BKE_layer.h"
+#include "BKE_subsurf.h"
 
 #include "DEG_depsgraph.h"
 
@@ -500,11 +502,15 @@ static ParamHandle *construct_param_handle_subsurfed(const Scene *scene,
   smd.levels = smd_real->levels;
   smd.subdivType = smd_real->subdivType;
 
-  initialDerived = CDDM_from_editbmesh(em, false);
-  derivedMesh = subsurf_make_derived_from_derived(
-      initialDerived, &smd, scene, NULL, SUBSURF_IN_EDIT_MODE);
+  {
+    Mesh *me_from_em = BKE_mesh_from_bmesh_for_eval_nomain(em->bm, NULL, ob->data);
+    initialDerived = CDDM_from_mesh(me_from_em);
+    derivedMesh = subsurf_make_derived_from_derived(
+        initialDerived, &smd, scene, NULL, SUBSURF_IN_EDIT_MODE);
 
-  initialDerived->release(initialDerived);
+    initialDerived->release(initialDerived);
+    BKE_id_free(NULL, me_from_em);
+  }
 
   /* get the derived data */
   subsurfedVerts = derivedMesh->getVertArray(derivedMesh);
@@ -805,16 +811,16 @@ static int minimize_stretch_modal(bContext *C, wmOperator *op, const wmEvent *ev
   MinStretch *ms = op->customdata;
 
   switch (event->type) {
-    case ESCKEY:
+    case EVT_ESCKEY:
     case RIGHTMOUSE:
       minimize_stretch_exit(C, op, true);
       return OPERATOR_CANCELLED;
-    case RETKEY:
-    case PADENTER:
+    case EVT_RETKEY:
+    case EVT_PADENTER:
     case LEFTMOUSE:
       minimize_stretch_exit(C, op, false);
       return OPERATOR_FINISHED;
-    case PADPLUSKEY:
+    case EVT_PADPLUSKEY:
     case WHEELUPMOUSE:
       if (event->val == KM_PRESS) {
         if (ms->blend < 0.95f) {
@@ -825,7 +831,7 @@ static int minimize_stretch_modal(bContext *C, wmOperator *op, const wmEvent *ev
         }
       }
       break;
-    case PADMINUS:
+    case EVT_PADMINUS:
     case WHEELDOWNMOUSE:
       if (event->val == KM_PRESS) {
         if (ms->blend > 0.05f) {
@@ -1491,8 +1497,7 @@ static void uv_map_clip_correct_multi(const Scene *scene,
 
         BM_ITER_ELEM (l, &liter, efa, BM_LOOPS_OF_FACE) {
           luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
-          CLAMP(luv->uv[0], 0.0f, 1.0f);
-          CLAMP(luv->uv[1], 0.0f, 1.0f);
+          clamp_v2(luv->uv, 0.0f, 1.0f);
         }
       }
     }
@@ -1804,7 +1809,7 @@ static int uv_from_view_exec(bContext *C, wmOperator *op)
 {
   ViewLayer *view_layer = CTX_data_view_layer(C);
   const Scene *scene = CTX_data_scene(C);
-  ARegion *ar = CTX_wm_region(C);
+  ARegion *region = CTX_wm_region(C);
   View3D *v3d = CTX_wm_view3d(C);
   RegionView3D *rv3d = CTX_wm_region_view3d(C);
   Camera *camera = ED_view3d_camera_data_get(v3d, rv3d);
@@ -1896,7 +1901,8 @@ static int uv_from_view_exec(bContext *C, wmOperator *op)
 
         BM_ITER_ELEM (l, &liter, efa, BM_LOOPS_OF_FACE) {
           luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
-          BLI_uvproject_from_view(luv->uv, l->v->co, rv3d->persmat, rotmat, ar->winx, ar->winy);
+          BLI_uvproject_from_view(
+              luv->uv, l->v->co, rv3d->persmat, rotmat, region->winx, region->winy);
         }
         changed = true;
       }

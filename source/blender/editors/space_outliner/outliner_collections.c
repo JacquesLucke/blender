@@ -20,16 +20,16 @@
 
 #include <string.h>
 
-#include "BLI_utildefines.h"
 #include "BLI_listbase.h"
+#include "BLI_utildefines.h"
 
 #include "DNA_collection_types.h"
 #include "DNA_object_types.h"
 
-#include "BKE_context.h"
 #include "BKE_collection.h"
+#include "BKE_context.h"
 #include "BKE_layer.h"
-#include "BKE_library.h"
+#include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_report.h"
 
@@ -41,8 +41,8 @@
 #include "ED_screen.h"
 
 #include "WM_api.h"
-#include "WM_types.h"
 #include "WM_message.h"
+#include "WM_types.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -176,7 +176,7 @@ static TreeTraversalAction collection_find_selected_to_add(TreeElement *te, void
 static int collection_new_exec(bContext *C, wmOperator *op)
 {
   SpaceOutliner *soops = CTX_wm_space_outliner(C);
-  ARegion *ar = CTX_wm_region(C);
+  ARegion *region = CTX_wm_region(C);
   Main *bmain = CTX_data_main(C);
   Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
@@ -187,7 +187,7 @@ static int collection_new_exec(bContext *C, wmOperator *op)
   };
 
   if (RNA_boolean_get(op->ptr, "nested")) {
-    outliner_build_tree(bmain, scene, view_layer, soops, ar);
+    outliner_build_tree(bmain, scene, view_layer, soops, region);
 
     outliner_tree_traverse(
         soops, &soops->tree, 0, TSE_SELECTED, collection_find_selected_to_add, &data);

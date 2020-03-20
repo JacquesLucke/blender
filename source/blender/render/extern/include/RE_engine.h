@@ -25,9 +25,10 @@
 #define __RE_ENGINE_H__
 
 #include "DNA_listBase.h"
+#include "DNA_node_types.h"
 #include "DNA_scene_types.h"
-#include "RNA_types.h"
 #include "RE_bake.h"
+#include "RNA_types.h"
 
 #include "BLI_threads.h"
 
@@ -117,7 +118,7 @@ typedef void (*update_render_passes_cb_t)(void *userdata,
                                           const char *name,
                                           int channels,
                                           const char *chanid,
-                                          int type);
+                                          eNodeSocketDatatype type);
 
 typedef struct RenderEngine {
   RenderEngineType *type;
@@ -197,7 +198,7 @@ void RE_engine_set_error_message(RenderEngine *engine, const char *msg);
 
 int RE_engine_render(struct Render *re, int do_all);
 
-bool RE_engine_is_external(struct Render *re);
+bool RE_engine_is_external(const struct Render *re);
 
 void RE_engine_frame_set(struct RenderEngine *engine, int frame, float subframe);
 
@@ -212,7 +213,7 @@ void RE_engine_register_pass(struct RenderEngine *engine,
                              const char *name,
                              int channels,
                              const char *chanid,
-                             int type);
+                             eNodeSocketDatatype type);
 
 /* Engine Types */
 

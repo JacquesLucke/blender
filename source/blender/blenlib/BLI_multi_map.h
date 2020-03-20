@@ -22,10 +22,10 @@
 
 #pragma once
 
-#include "BLI_map.h"
 #include "BLI_array_ref.h"
+#include "BLI_linear_allocator.h"
+#include "BLI_map.h"
 #include "BLI_vector.h"
-#include "BLI_monotonic_allocator.h"
 
 namespace BLI {
 
@@ -37,7 +37,7 @@ template<typename KeyT, typename ValueT, uint N = 4> class MultiMap {
     uint capacity = 0;
   };
 
-  MonotonicAllocator<sizeof(ValueT) * N> m_allocator;
+  LinearAllocator<> m_allocator;
   Map<KeyT, Entry> m_map;
 
  public:

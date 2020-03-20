@@ -100,7 +100,7 @@ static void external_engine_init(void *vedata)
 {
   EXTERNAL_StorageList *stl = ((EXTERNAL_Data *)vedata)->stl;
   const DRWContextState *draw_ctx = DRW_context_state_get();
-  ARegion *ar = draw_ctx->ar;
+  ARegion *region = draw_ctx->region;
 
   /* Depth prepass */
   if (!e_data.depth_sh) {
@@ -117,7 +117,7 @@ static void external_engine_init(void *vedata)
 
   /* Progressive render samples are tagged with no rebuild, in that case we
    * can skip updating the depth buffer */
-  if (ar && (ar->do_draw & RGN_DRAW_NO_REBUILD)) {
+  if (region && (region->do_draw & RGN_DRAW_NO_REBUILD)) {
     stl->g_data->update_depth = false;
   }
 }
@@ -182,8 +182,8 @@ static void external_draw_scene_do(void *vedata)
   const DRWContextState *draw_ctx = DRW_context_state_get();
   Scene *scene = draw_ctx->scene;
   RegionView3D *rv3d = draw_ctx->rv3d;
-  ARegion *ar = draw_ctx->ar;
-  RenderEngineType *type;
+  ARegion *region = draw_ctx->region;
+  const RenderEngineType *type;
 
   DRW_state_reset_ex(DRW_STATE_DEFAULT & ~DRW_STATE_DEPTH_LESS_EQUAL);
 
@@ -205,7 +205,7 @@ static void external_draw_scene_do(void *vedata)
   /* Rendered draw. */
   GPU_matrix_push_projection();
   GPU_matrix_push();
-  ED_region_pixelspace(ar);
+  ED_region_pixelspace(region);
 
   /* Render result draw. */
   type = rv3d->render_engine->type;
@@ -236,6 +236,12 @@ static void external_draw_scene(void *vedata)
    * OpenGL render is used for quick preview (thumbnails or sequencer preview)
    * where using the rendering engine to preview doesn't make so much sense. */
   if (draw_ctx->evil_C) {
+    float clear_col[4] = {0, 0, 0, 0};
+    /* This is to keep compatibility with external engine. */
+    /* TODO(fclem) remove it eventually. */
+    GPU_framebuffer_bind(dfbl->default_fb);
+    GPU_framebuffer_clear_color(dfbl->default_fb, clear_col);
+
     external_draw_scene_do(vedata);
   }
 
@@ -266,7 +272,6 @@ static DrawEngineType draw_engine_external_type = {
     &external_cache_init,
     &external_cache_populate,
     &external_cache_finish,
-    NULL,
     &external_draw_scene,
     NULL,
     NULL,

@@ -20,21 +20,21 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_utildefines.h"
-#include "BLI_memarena.h"
-#include "BLI_math.h"
-#include "BLI_rand.h"
-#include "BLI_heap.h"
 #include "BLI_boxpack_2d.h"
 #include "BLI_convexhull_2d.h"
+#include "BLI_heap.h"
+#include "BLI_math.h"
+#include "BLI_memarena.h"
 #include "BLI_polyfill_2d.h"
 #include "BLI_polyfill_2d_beautify.h"
+#include "BLI_rand.h"
+#include "BLI_utildefines.h"
 
 #include "uvedit_parametrizer.h"
 
 #include <math.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "BLI_sys_types.h" /* for intptr_t support */
@@ -503,7 +503,7 @@ static void p_chart_uv_transform(PChart *chart, float mat[2][2])
   PVert *v;
 
   for (v = chart->verts; v; v = v->nextlink) {
-    mul_m2v2(mat, v->uv);
+    mul_m2_v2(mat, v->uv);
   }
 }
 

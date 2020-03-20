@@ -2,16 +2,16 @@
 #include "DNA_meshdata_types.h"
 #include "DNA_modifier_types.h"
 
+#include "BKE_id_data_cache.h"
 #include "BKE_mesh.h"
 #include "BKE_modifier.h"
-#include "BKE_id_data_cache.h"
 
 #include "BLI_math.h"
 
-#include "FN_node_tree_multi_function_network_generation.h"
-#include "FN_multi_functions.h"
 #include "FN_multi_function_common_contexts.h"
 #include "FN_multi_function_dependencies.h"
+#include "FN_multi_functions.h"
+#include "FN_node_tree_multi_function_network_generation.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
@@ -51,7 +51,7 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
   params_builder.add_readonly_single_input(&fpmd->control1);
   params_builder.add_readonly_single_input(&fpmd->control2);
 
-  FN::GenericVectorArray vector_array{FN::CPP_TYPE<float3>(), 1};
+  FN::GenericVectorArray vector_array{FN::CPPType_float3, 1};
   params_builder.add_vector_output(vector_array);
 
   FN::SceneTimeContext time_context;

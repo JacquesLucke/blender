@@ -21,8 +21,8 @@
  * \ingroup RNA
  */
 
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "BLI_utildefines.h"
 
@@ -33,9 +33,9 @@
 
 #include "DNA_screen_types.h"
 
-#include "UI_resources.h"
 #include "UI_interface.h"
 #include "UI_interface_icons.h"
+#include "UI_resources.h"
 
 #include "rna_internal.h"
 
@@ -152,8 +152,10 @@ static void rna_uiItemR_with_popover(uiLayout *layout,
     RNA_warning("property not found: %s.%s", RNA_struct_identifier(ptr->type), propname);
     return;
   }
-  if (RNA_property_type(prop) != PROP_ENUM) {
-    RNA_warning("property is not an enum: %s.%s", RNA_struct_identifier(ptr->type), propname);
+  if ((RNA_property_type(prop) != PROP_ENUM) &&
+      !ELEM(RNA_property_subtype(prop), PROP_COLOR, PROP_COLOR_GAMMA)) {
+    RNA_warning(
+        "property is not an enum or color: %s.%s", RNA_struct_identifier(ptr->type), propname);
     return;
   }
   int flag = 0;

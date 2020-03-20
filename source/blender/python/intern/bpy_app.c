@@ -27,6 +27,7 @@
 #include "bpy_app.h"
 
 #include "bpy_app_alembic.h"
+#include "bpy_app_build_options.h"
 #include "bpy_app_ffmpeg.h"
 #include "bpy_app_ocio.h"
 #include "bpy_app_oiio.h"
@@ -34,7 +35,6 @@
 #include "bpy_app_openvdb.h"
 #include "bpy_app_sdl.h"
 #include "bpy_app_usd.h"
-#include "bpy_app_build_options.h"
 
 #include "bpy_app_translations.h"
 
@@ -50,7 +50,7 @@
 #include "BKE_appdir.h"
 #include "BKE_blender_version.h"
 #include "BKE_global.h"
-#include "BKE_library_override.h"
+#include "BKE_lib_override.h"
 
 #include "DNA_ID.h"
 
@@ -66,7 +66,7 @@
 #ifdef BUILD_DATE
 extern char build_date[];
 extern char build_time[];
-extern unsigned long build_commit_timestamp;
+extern ulong build_commit_timestamp;
 extern char build_commit_date[];
 extern char build_commit_time[];
 extern char build_hash[];
@@ -396,7 +396,7 @@ PyDoc_STRVAR(bpy_app_use_override_library_doc,
              "Boolean, whether library override is exposed in UI or not.");
 static PyObject *bpy_app_use_override_library_get(PyObject *UNUSED(self), void *UNUSED(closure))
 {
-  return PyBool_FromLong((long)BKE_override_library_is_enabled());
+  return PyBool_FromLong((long)BKE_lib_override_library_is_enabled());
 }
 
 static int bpy_app_use_override_library_set(PyObject *UNUSED(self),
@@ -410,7 +410,7 @@ static int bpy_app_use_override_library_set(PyObject *UNUSED(self),
     return -1;
   }
 
-  BKE_override_library_enable((const bool)param);
+  BKE_lib_override_library_enable((const bool)param);
 
   return 0;
 }

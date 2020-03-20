@@ -8,12 +8,12 @@
  * Preview: https://dreampuf.github.io/GraphvizOnline
  */
 
-#include "BLI_vector.h"
-#include "BLI_optional.h"
-#include "BLI_string_map.h"
 #include "BLI_map.h"
+#include "BLI_optional.h"
 #include "BLI_set.h"
+#include "BLI_string_map.h"
 #include "BLI_utility_mixins.h"
+#include "BLI_vector.h"
 
 #include "BLI_dot_export_attribute_enums.h"
 
@@ -243,19 +243,17 @@ class UndirectedEdge : public Edge {
   void export__as_edge_statement(std::stringstream &ss) const;
 };
 
-namespace Utils {
-
 std::string color_attr_from_hsv(float h, float s, float v);
 
-class NodeWithSocketsWrapper {
+class NodeWithSocketsRef {
  private:
   Node *m_node;
 
  public:
-  NodeWithSocketsWrapper(Node &node,
-                         StringRef name,
-                         ArrayRef<std::string> input_names,
-                         ArrayRef<std::string> output_names);
+  NodeWithSocketsRef(Node &node,
+                     StringRef name,
+                     ArrayRef<std::string> input_names,
+                     ArrayRef<std::string> output_names);
 
   NodePort input(uint index) const
   {
@@ -269,8 +267,6 @@ class NodeWithSocketsWrapper {
     return NodePort(*m_node, port);
   }
 };
-
-}  // namespace Utils
 
 }  // namespace DotExport
 }  // namespace BLI

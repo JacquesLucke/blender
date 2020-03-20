@@ -34,6 +34,17 @@ float compatible_pow(float x, float y)
   return pow(x, y);
 }
 
+float wrap(float a, float b, float c)
+{
+  float range = b - c;
+  return (range != 0.0) ? a - (range * floor((a - c) / range)) : c;
+}
+
+vec3 wrap(vec3 a, vec3 b, vec3 c)
+{
+  return vec3(wrap(a.x, b.x, c.x), wrap(a.y, b.y, c.y), wrap(a.z, b.z, c.z));
+}
+
 float hypot(float x, float y)
 {
   return sqrt(x * x + y * y);
@@ -47,13 +58,6 @@ int floor_to_int(float x)
 int quick_floor(float x)
 {
   return int(x) - ((x < 0) ? 1 : 0);
-}
-
-float floorfrac(float x, out int i)
-{
-  float x_floor = floor(x);
-  i = int(x_floor);
-  return x - x_floor;
 }
 
 /* Vector Math */

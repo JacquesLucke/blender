@@ -1,13 +1,12 @@
-#include "FN_node_tree_multi_function_network_generation.h"
 #include "FN_multi_function_network_optimization.h"
 #include "FN_multi_functions.h"
+#include "FN_node_tree_multi_function_network_generation.h"
 
-#include "BLI_math_cxx.h"
-#include "BLI_string_map.h"
 #include "BLI_string.h"
+#include "BLI_string_map.h"
 
-#include "mappings.h"
 #include "builder.h"
+#include "mappings.h"
 
 namespace FN {
 namespace MFGeneration {

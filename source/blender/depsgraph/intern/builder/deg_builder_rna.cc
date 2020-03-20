@@ -27,9 +27,9 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_utildefines.h"
 #include "BLI_ghash.h"
 #include "BLI_listbase.h"
+#include "BLI_utildefines.h"
 
 extern "C" {
 #include "DNA_action_types.h"
@@ -44,8 +44,8 @@ extern "C" {
 
 #include "RNA_access.h"
 
-#include "intern/depsgraph.h"
 #include "intern/builder/deg_builder.h"
+#include "intern/depsgraph.h"
 #include "intern/node/deg_node.h"
 #include "intern/node/deg_node_component.h"
 #include "intern/node/deg_node_id.h"
@@ -318,7 +318,8 @@ RNANodeIdentifier RNANodeQuery::construct_node_identifier(const PointerRNA *ptr,
         return node_identifier;
       }
       else if (STREQ(prop_identifier, "dimensions")) {
-        node_identifier.type = NodeType::GEOMETRY;
+        node_identifier.type = NodeType::PARAMETERS;
+        node_identifier.operation_code = OperationCode::DIMENSIONS;
         return node_identifier;
       }
     }
@@ -361,7 +362,7 @@ RNANodeIdentifier RNANodeQuery::construct_node_identifier(const PointerRNA *ptr,
   }
   else if (RNA_struct_is_a(ptr->type, &RNA_ImageUser)) {
     if (GS(node_identifier.id->name) == ID_NT) {
-      node_identifier.type = NodeType::ANIMATION;
+      node_identifier.type = NodeType::IMAGE_ANIMATION;
       node_identifier.operation_code = OperationCode::IMAGE_ANIMATION;
       return node_identifier;
     }
