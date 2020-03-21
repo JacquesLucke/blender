@@ -300,7 +300,7 @@ class NODE_OT_tree_path_parent(Operator):
 def get_socket_value(sock):
     if sock.type in {"VALUE", "INT", "BOOLEAN", "STRING"}:
         return sock.default_value
-    elif sock.type in {"VECTOR", "COLOR"}:
+    elif sock.type in {"VECTOR", "RGBA"}:
         return tuple(sock.default_value)
     else:
         return None
@@ -341,7 +341,6 @@ def insert_node_data(node_data, node):
         node_data["properties"] = {}
         for prop in node.bl_rna.properties:
             if prop.identifier not in base_node_property_names:
-                print("Allow: ", prop.identifier)
                 node_data["properties"][prop.identifier] = getattr(node, prop.identifier)
 
         node_data["inputs"] = []
@@ -399,7 +398,7 @@ def node_group_to_json_data(group):
 def save_group_as_json(group, file_path):
     json_data = node_group_to_json_data(group)
     json_str = json.dumps(json_data, indent=1)
-    os.makedirs(os.path.dirname(file_path))
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
     with open(file_path, "w") as f:
         f.write(json_str)
 
