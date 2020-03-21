@@ -255,6 +255,9 @@ class FunctionNode(BaseNode):
 class SimulationNode(BaseNode):
     pass
 
+class GeometryNode(BaseNode):
+    pass
+
 class DataSocket(BaseSocket):
     def draw_self(self, layout, node, text):
         if not (self.is_linked or self.is_output) and hasattr(self, "draw_property"):

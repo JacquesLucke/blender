@@ -251,6 +251,8 @@ ForcesSocket = make_mockup_socket(
     "fn_ForcesSocket", (0.2, 0.8, 0.8), "DIAMOND")
 CollidersSocket = make_mockup_socket(
     "fn_CollidersSocket", (0.4, 0.6, 0.8), "DIAMOND")
+MeshSocket = make_mockup_socket(
+    "fn_MeshSocket", (0.4, 0.8, 0.3), "CIRCLE")
 
 
 class GeometrySocket(bpy.types.NodeSocket, BaseSocket):
