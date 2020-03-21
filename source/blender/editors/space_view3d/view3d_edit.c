@@ -46,7 +46,7 @@
 #include "BKE_camera.h"
 #include "BKE_context.h"
 #include "BKE_font.h"
-#include "BKE_gpencil.h"
+#include "BKE_gpencil_geom.h"
 #include "BKE_layer.h"
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
@@ -236,7 +236,7 @@ typedef struct ViewOpsData {
 } ViewOpsData;
 
 /**
- * Size of the sphere being dragged for trackball rotation withing the view bounds.
+ * Size of the sphere being dragged for trackball rotation within the view bounds.
  * also affects speed (smaller is faster).
  */
 #define TRACKBALLSIZE (1.1f)

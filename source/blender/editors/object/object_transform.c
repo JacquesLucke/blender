@@ -45,7 +45,8 @@
 #include "BKE_curve.h"
 #include "BKE_editmesh.h"
 #include "BKE_gpencil.h"
-#include "BKE_idcode.h"
+#include "BKE_gpencil_geom.h"
+#include "BKE_idtype.h"
 #include "BKE_lattice.h"
 #include "BKE_layer.h"
 #include "BKE_lib_id.h"
@@ -638,7 +639,7 @@ static int apply_objects_internal(bContext *C,
                     RPT_ERROR,
                     "Cannot apply to a multi user: Object \"%s\", %s \"%s\", aborting",
                     ob->id.name + 2,
-                    BKE_idcode_to_name(GS(obdata->name)),
+                    BKE_idtype_idcode_to_name(GS(obdata->name)),
                     obdata->name + 2);
         changed = false;
       }
@@ -648,7 +649,7 @@ static int apply_objects_internal(bContext *C,
                     RPT_ERROR,
                     "Cannot apply to library data: Object \"%s\", %s \"%s\", aborting",
                     ob->id.name + 2,
-                    BKE_idcode_to_name(GS(obdata->name)),
+                    BKE_idtype_idcode_to_name(GS(obdata->name)),
                     obdata->name + 2);
         changed = false;
       }
@@ -666,7 +667,7 @@ static int apply_objects_internal(bContext *C,
             RPT_ERROR,
             "Rotation/Location can't apply to a 2D curve: Object \"%s\", %s \"%s\", aborting",
             ob->id.name + 2,
-            BKE_idcode_to_name(GS(obdata->name)),
+            BKE_idtype_idcode_to_name(GS(obdata->name)),
             obdata->name + 2);
         changed = false;
       }
@@ -675,7 +676,7 @@ static int apply_objects_internal(bContext *C,
                     RPT_ERROR,
                     "Can't apply to a curve with shape-keys: Object \"%s\", %s \"%s\", aborting",
                     ob->id.name + 2,
-                    BKE_idcode_to_name(GS(obdata->name)),
+                    BKE_idtype_idcode_to_name(GS(obdata->name)),
                     obdata->name + 2);
         changed = false;
       }
@@ -711,7 +712,7 @@ static int apply_objects_internal(bContext *C,
                         "Can't apply to a GP datablock where all layers are parented: Object "
                         "\"%s\", %s \"%s\", aborting",
                         ob->id.name + 2,
-                        BKE_idcode_to_name(ID_GD),
+                        BKE_idtype_idcode_to_name(ID_GD),
                         gpd->id.name + 2);
             changed = false;
           }
@@ -723,7 +724,7 @@ static int apply_objects_internal(bContext *C,
               RPT_ERROR,
               "Can't apply to GP datablock with no layers: Object \"%s\", %s \"%s\", aborting",
               ob->id.name + 2,
-              BKE_idcode_to_name(ID_GD),
+              BKE_idtype_idcode_to_name(ID_GD),
               gpd->id.name + 2);
         }
       }

@@ -18,7 +18,7 @@
  */
 
 /** \file
- *  \ingroup modifiers
+ * \ingroup modifiers
  */
 
 #include <stdio.h>
@@ -41,6 +41,7 @@
 #include "BKE_context.h"
 #include "BKE_global.h"
 #include "BKE_gpencil.h"
+#include "BKE_gpencil_geom.h"
 #include "BKE_gpencil_modifier.h"
 #include "BKE_layer.h"
 #include "BKE_lib_query.h"
