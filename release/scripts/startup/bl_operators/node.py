@@ -399,11 +399,22 @@ def node_group_to_json_data(group):
 def save_group_as_json(group, file_path):
     json_data = node_group_to_json_data(group)
     json_str = json.dumps(json_data, indent=1)
+    os.makedirs(os.path.dirname(file_path))
     with open(file_path, "w") as f:
         f.write(json_str)
 
 
-group_template_directory = "/home/jacques/Documents/node_groups"
+node_group_template_directory = os.path.join(bpy.utils.resource_path("LOCAL"), "datafiles", "node_groups")
+
+def group_name_to_file_name(group_name):
+    return group_name.replace(" ", "_") + ".json"
+
+def file_name_to_group_name(file_name):
+    return file_name.replace("_", " ")[:-len(".json")]
+
+def group_name_to_file_path(group_name):
+    file_name = group_name_to_file_name(group_name)
+    return os.path.join(node_group_template_directory, file_name)
 
 class NODE_OT_export_group_template(Operator):
     bl_idname = "node.export_group_template"
@@ -416,7 +427,7 @@ class NODE_OT_export_group_template(Operator):
 
     def execute(self, context):
         group = context.space_data.edit_tree
-        file_path = os.path.join(group_template_directory, group.name + ".json")
+        file_path = group_name_to_file_path(group.name)
         save_group_as_json(group, file_path)
         return {'FINISHED'}
 
@@ -490,10 +501,9 @@ def group_matches_json_data(group, json_data):
 
     return True
 
-def get_or_create_node_group(directory, group_name):
-    main_file_path = os.path.join(directory, group_name + ".json")
-
-    with open(main_file_path, "r") as f:
+def get_or_create_node_group(group_name):
+    file_path = group_name_to_file_path(group_name)
+    with open(file_path, "r") as f:
         json_str = f.read()
     json_data = json.loads(json_str)
 
@@ -505,7 +515,7 @@ def get_or_create_node_group(directory, group_name):
 
     dependencies = {}
     for dependency_name in json_data["dependencies"]:
-        dependencies[dependency_name] = get_or_create_node_group(directory, dependency_name)
+        dependencies[dependency_name] = get_or_create_node_group(dependency_name)
 
     for node_data in json_data["nodes"]:
         node = group.nodes.new(node_data["bl_idname"])
@@ -541,18 +551,46 @@ def get_or_create_node_group(directory, group_name):
 class NODE_OT_import_group_template(Operator):
     bl_idname = "node.import_group_template"
     bl_label = "Import Node Group Template"
+    bl_options = {'INTERNAL'}
 
-    directory: StringProperty()
-    filename: StringProperty()
-
-    def invoke(self, context, event):
-        context.window_manager.fileselect_add(self)
-        return {'RUNNING_MODAL'}
+    group_name: StringProperty()
 
     def execute(self, context):
-        assert self.filename.endswith(".json")
-        get_or_create_node_group(self.directory, self.filename[:-len(".json")])
+        get_or_create_node_group(self.group_name)
         return {'FINISHED'}
+
+class NODE_OT_import_group_template_search(bpy.types.Operator):
+    bl_idname = "node.import_group_template_search"
+    bl_label = "Import Node Group Template Search"
+    bl_property = "item"
+
+    def get_group_name_items(self, context):
+        if not os.path.exists(node_group_template_directory):
+            return [('NONE', "None", "")]
+        items = []
+        for file_name in os.listdir(node_group_template_directory):
+            if not file_name.endswith(".json"):
+                continue
+            group_name = file_name_to_group_name(file_name)
+            items.append((file_name, group_name, ""))
+        if len(items) == 0:
+            items.append(('NONE', "None", ""))
+        return items
+
+
+    item: EnumProperty(items=get_group_name_items)
+
+    def invoke(self, context, event):
+        context.window_manager.invoke_search_popup(self)
+        return {'CANCELLED'}
+
+    def execute(self, context):
+        if self.item == "NONE":
+            return {'CANCELLED'}
+        else:
+            group_name = file_name_to_group_name(self.item)
+            bpy.ops.node.import_group_template(group_name=group_name)
+            return {'FINISHED'}
 
 classes = (
     NodeSetting,
@@ -563,5 +601,6 @@ classes = (
     NODE_OT_collapse_hide_unused_toggle,
     NODE_OT_tree_path_parent,
     NODE_OT_export_group_template,
-    NODE_OT_import_group_template
+    NODE_OT_import_group_template,
+    NODE_OT_import_group_template_search,
 )
