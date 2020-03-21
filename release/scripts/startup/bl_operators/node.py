@@ -442,7 +442,7 @@ def property_has_given_value(owner, prop_name, value):
     else:
         assert False
 
-def group_matches_json_data(group, json_data):
+def group_matches_json_data(group, json_data, loaded_group_by_name, json_data_by_group_name):
     if len(group.nodes) != len(json_data["nodes"]):
         return False
     if len(group.links) != len(json_data["links"]):
@@ -462,8 +462,16 @@ def group_matches_json_data(group, json_data):
         if node.bl_idname in {"NodeGroupInput", "NodeGroupOutput"}:
             pass
         elif node.bl_idname == "SimulationNodeGroup":
-            # TODO
-            ...
+            if node.node_tree is None:
+                return False
+            elif node.node_tree == loaded_group_by_name[node_data["group_name"]]:
+                pass
+            elif not group_matches_json_data(node.node_tree,
+                                             json_data_by_group_name[node_data["group_name"]],
+                                             loaded_group_by_name,
+                                             json_data_by_group_name):
+                return False
+
         else:
             for key, value in node_data["properties"].items():
                 if getattr(node, key) != value:
@@ -500,21 +508,12 @@ def group_matches_json_data(group, json_data):
 
     return True
 
-def get_or_create_node_group(group_name):
-    file_path = group_name_to_file_path(group_name)
-    with open(file_path, "r") as f:
-        json_str = f.read()
-    json_data = json.loads(json_str)
-
+def get_or_create_node_group(json_data, loaded_group_by_name, json_data_by_group_name):
     for potential_group in bpy.data.node_groups:
-        if group_matches_json_data(potential_group, json_data):
+        if group_matches_json_data(potential_group, json_data, loaded_group_by_name, json_data_by_group_name):
             return potential_group
 
     group = bpy.data.node_groups.new(json_data["name"], "SimulationNodeTree")
-
-    dependencies = {}
-    for dependency_name in json_data["dependencies"]:
-        dependencies[dependency_name] = get_or_create_node_group(dependency_name)
 
     for node_data in json_data["nodes"]:
         node = group.nodes.new(node_data["bl_idname"])
@@ -525,7 +524,7 @@ def get_or_create_node_group(group_name):
         if node.bl_idname in {"NodeGroupInput", "NodeGroupOutput"}:
             pass
         elif node.bl_idname == "SimulationNodeGroup":
-            node.node_tree = dependencies[node_data["group_name"]]
+            node.node_tree = loaded_group_by_name[node_data["group_name"]]
         else:
             for key, value in node_data["properties"].items():
                 setattr(node, key, value)
@@ -547,6 +546,28 @@ def get_or_create_node_group(group_name):
 
     return group
 
+from collections import OrderedDict
+
+def get_json_data_for_all_groups_to_load(main_group_name):
+    json_data_by_group_name = OrderedDict()
+
+    def load(group_name):
+        if group_name in json_data_by_group_name:
+            return
+        else:
+            file_path = group_name_to_file_path(group_name)
+            with open(file_path, "r") as f:
+                json_str = f.read()
+            json_data = json.loads(json_str)
+            assert group_name == json_data["name"]
+            for dependency_name in json_data["dependencies"]:
+                load(dependency_name)
+            json_data_by_group_name[group_name] = json_data
+
+    load(main_group_name)
+    return json_data_by_group_name
+
+
 class NODE_OT_import_group_template(Operator):
     bl_idname = "node.import_group_template"
     bl_label = "Import Node Group Template"
@@ -555,7 +576,13 @@ class NODE_OT_import_group_template(Operator):
     group_name: StringProperty()
 
     def execute(self, context):
-        get_or_create_node_group(self.group_name)
+        json_data_by_group_name = get_json_data_for_all_groups_to_load(self.group_name)
+        loaded_group_by_name = dict()
+
+        for group_name, json_data in json_data_by_group_name.items():
+            group = get_or_create_node_group(json_data, loaded_group_by_name, json_data_by_group_name)
+            loaded_group_by_name[group_name] = group
+
         return {'FINISHED'}
 
 class NODE_OT_import_group_template_search(bpy.types.Operator):
