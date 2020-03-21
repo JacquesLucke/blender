@@ -328,7 +328,7 @@ def insert_node_data(node_data, node):
     node_data["name"] = node.name
     node_data["bl_idname"] = node.bl_idname
     node_data["location"] = tuple(map(int, node.location))
-    node_data["width"] = node.width
+    node_data["width"] = int(node.width)
 
     # Don't compute this only once in the beginning, because addons might register more properties.
     base_node_property_names = {prop.identifier for prop in bpy.types.Node.bl_rna.properties}
@@ -520,6 +520,7 @@ def get_or_create_node_group(json_data, loaded_group_by_name, json_data_by_group
         node.name = node_data["name"]
         node.location = node_data["location"]
         node.select = False
+        node.width = node_data["width"]
 
         if node.bl_idname in {"NodeGroupInput", "NodeGroupOutput"}:
             pass
