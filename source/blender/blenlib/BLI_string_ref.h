@@ -189,7 +189,7 @@ class StringRef : public StringRefBase {
 
   StringRef drop_suffix(uint n) const
   {
-    BLI_assert(n < m_size);
+    BLI_assert(n <= m_size);
     return StringRef(m_data, m_size - n);
   }
 

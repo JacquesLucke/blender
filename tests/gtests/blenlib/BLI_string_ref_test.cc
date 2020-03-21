@@ -237,3 +237,54 @@ TEST(string_ref, Substr)
   EXPECT_EQ(ref.substr(3, 4), "lo w");
   EXPECT_EQ(ref.substr(6, 5), "world");
 }
+
+TEST(string_ref, StartsWithChar)
+{
+  StringRef ref("hello world");
+  EXPECT_TRUE(ref.startswith('h'));
+  EXPECT_FALSE(ref.startswith('a'));
+}
+
+TEST(string_ref, EndsWithChar)
+{
+  StringRef ref("hello world");
+  EXPECT_TRUE(ref.endswith('d'));
+  EXPECT_FALSE(ref.endswith('a'));
+}
+
+TEST(string_ref, StartsWithLowerAscii)
+{
+  {
+    StringRef ref("hello");
+    EXPECT_TRUE(ref.startswith_lower_ascii("hel"));
+    EXPECT_FALSE(ref.startswith_lower_ascii("el"));
+  }
+  {
+    StringRef ref("HELLO");
+    EXPECT_TRUE(ref.startswith_lower_ascii("hel"));
+    EXPECT_FALSE(ref.startswith_lower_ascii("el"));
+  }
+  {
+    StringRef ref("Hello");
+    EXPECT_TRUE(ref.startswith_lower_ascii("hel"));
+    EXPECT_FALSE(ref.startswith_lower_ascii("el"));
+  }
+}
+
+TEST(string_ref, DropSuffixN)
+{
+  StringRef ref1("hello world");
+  StringRef ref2 = ref1.drop_suffix(4);
+  StringRef ref3 = ref2.drop_suffix(7);
+  EXPECT_EQ(ref2, "hello w");
+  EXPECT_EQ(ref3, "");
+}
+
+TEST(string_ref, DropSuffix)
+{
+  StringRef ref1("hello world");
+  StringRef ref2 = ref1.drop_suffix("orld");
+  StringRef ref3 = ref2.drop_suffix("hello w");
+  EXPECT_EQ(ref2, "hello w");
+  EXPECT_EQ(ref3, "");
+}
