@@ -1,0 +1,207 @@
+{
+ "blender_version": [
+  2,
+  83,
+  10
+ ],
+ "name": "Particle Age",
+ "inputs": [],
+ "outputs": [
+  {
+   "name": "Value",
+   "identifier": "Output_1",
+   "default_value": 0.0,
+   "type": "VALUE",
+   "bl_socket_idname": "NodeSocketFloat"
+  }
+ ],
+ "nodes": [
+  {
+   "name": "Particle Attribute",
+   "bl_idname": "SimulationNodeParticleAttribute",
+   "location": [
+    -398,
+    -1
+   ],
+   "width": 184.53359985351562,
+   "properties": {
+    "data_type": "FLOAT"
+   },
+   "inputs": [
+    {
+     "name": "Name",
+     "identifier": "Name",
+     "default_value": "Birth Time",
+     "type": "STRING"
+    }
+   ],
+   "outputs": [
+    {
+     "name": "Float",
+     "identifier": "Float",
+     "default_value": 0.0,
+     "type": "VALUE"
+    },
+    {
+     "name": "Int",
+     "identifier": "Int",
+     "default_value": 0,
+     "type": "INT"
+    },
+    {
+     "name": "Boolean",
+     "identifier": "Boolean",
+     "default_value": false,
+     "type": "BOOLEAN"
+    },
+    {
+     "name": "Vector",
+     "identifier": "Vector",
+     "default_value": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "type": "VECTOR"
+    },
+    {
+     "name": "Color",
+     "identifier": "Color",
+     "default_value": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ],
+     "type": "RGBA"
+    },
+    {
+     "name": "Object",
+     "identifier": "Object",
+     "default_value": null,
+     "type": "OBJECT"
+    },
+    {
+     "name": "Image",
+     "identifier": "Image",
+     "default_value": null,
+     "type": "IMAGE"
+    },
+    {
+     "name": "Surface Hook",
+     "identifier": "Surface Hook",
+     "default_value": null,
+     "type": "SURFACE_HOOK"
+    }
+   ]
+  },
+  {
+   "name": "Simulation Time",
+   "bl_idname": "SimulationNodeSimulationTime",
+   "location": [
+    -352,
+    73
+   ],
+   "width": 140.0,
+   "properties": {},
+   "inputs": [],
+   "outputs": [
+    {
+     "name": "Simulation Time",
+     "identifier": "Simulation Time",
+     "default_value": 0.0,
+     "type": "VALUE"
+    }
+   ]
+  },
+  {
+   "name": "Float Math",
+   "bl_idname": "FunctionNodeFloatMath",
+   "location": [
+    -160,
+    120
+   ],
+   "width": 140.0,
+   "properties": {
+    "operation": "SUBTRACT",
+    "use_clamp": false
+   },
+   "inputs": [
+    {
+     "name": "Value",
+     "identifier": "Value",
+     "default_value": 0.5,
+     "type": "VALUE"
+    },
+    {
+     "name": "Value",
+     "identifier": "Value_001",
+     "default_value": 0.5,
+     "type": "VALUE"
+    },
+    {
+     "name": "Value",
+     "identifier": "Value_002",
+     "default_value": 0.0,
+     "type": "VALUE"
+    }
+   ],
+   "outputs": [
+    {
+     "name": "Value",
+     "identifier": "Value",
+     "default_value": 0.0,
+     "type": "VALUE"
+    }
+   ]
+  },
+  {
+   "name": "Group Output",
+   "bl_idname": "NodeGroupOutput",
+   "location": [
+    19,
+    113
+   ],
+   "width": 140.0
+  }
+ ],
+ "links": [
+  {
+   "from": [
+    "Simulation Time",
+    "Simulation Time",
+    0
+   ],
+   "to": [
+    "Float Math",
+    "Value",
+    0
+   ]
+  },
+  {
+   "from": [
+    "Particle Attribute",
+    "Float",
+    0
+   ],
+   "to": [
+    "Float Math",
+    "Value_001",
+    1
+   ]
+  },
+  {
+   "from": [
+    "Float Math",
+    "Value",
+    0
+   ],
+   "to": [
+    "Group Output",
+    "Output_1",
+    0
+   ]
+  }
+ ],
+ "dependencies": []
+}
