@@ -387,6 +387,11 @@ static void parse_file_names(StringRef str, StringRef ext, Vector<std::string> &
   }
 }
 
+static StringRef parse_object_name(StringRef str)
+{
+  return str.strip();
+}
+
 static std::unique_ptr<ObjFileSegments> parse_obj_lines(StringRef orig_str)
 {
   StringRefStream stream(orig_str);
@@ -416,14 +421,9 @@ static std::unique_ptr<ObjFileSegments> parse_obj_lines(StringRef orig_str)
         break;
       }
       case 'o': {
-        // StringRef str = orig_str.drop_prefix(offset + strlen("o"));
-        // std::pair<uint, uint> word_span = find_next_word_in_line(str);
-        // StringRef object_name = str.substr(word_span.first, word_span.second);
-        // auto segment = BLI::make_unique<ObjFileSegment_o>(object_name);
-        // segments->segments.append(std::move(segment));
-        // offset += strlen("0") + word_span.first + word_span.second;
-
-        // offset += count_while(orig_str.drop_prefix(offset), is_not_newline) + 1;
+        StringRef object_name = parse_object_name(line.drop_prefix("o"));
+        auto segment = BLI::make_unique<ObjFileSegment_o>(object_name);
+        segments->segments.append(std::move(segment));
         break;
       }
       case 'v': {
