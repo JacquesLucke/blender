@@ -115,6 +115,10 @@ class StringRefBase {
   bool endswith(char c) const;
 
   StringRef substr(uint start, uint size) const;
+
+  StringRef lstrip(ArrayRef<char> chars = {' ', '\t', '\n', '\r'}) const;
+  StringRef rstrip(ArrayRef<char> chars = {' ', '\t', '\n', '\r'}) const;
+  StringRef strip(ArrayRef<char> chars = {' ', '\t', '\n', '\r'}) const;
 };
 
 /**
@@ -140,6 +144,17 @@ class StringRefNull : public StringRefBase {
 
   StringRefNull(const std::string &str) : StringRefNull(str.data())
   {
+  }
+
+  StringRefNull lstrip(ArrayRef<char> chars = {' ', '\t', '\r', '\n'}) const
+  {
+    for (uint i = 0; i < m_size; i++) {
+      char c = m_data[i];
+      if (!chars.contains(c)) {
+        return StringRefNull(m_data + i, m_size - i);
+      }
+    }
+    return "";
   }
 };
 
@@ -308,6 +323,35 @@ inline StringRef StringRefBase::substr(uint start, uint size) const
 {
   BLI_assert(start + size <= m_size);
   return StringRef(m_data + start, size);
+}
+
+inline StringRef StringRefBase::lstrip(ArrayRef<char> chars) const
+{
+  for (uint i = 0; i < m_size; i++) {
+    char c = m_data[i];
+    if (!chars.contains(c)) {
+      return StringRef(m_data + i, m_size - i);
+    }
+  }
+  return "";
+}
+
+inline StringRef StringRefBase::rstrip(ArrayRef<char> chars) const
+{
+  for (int i = m_size - 1; i >= 0; i--) {
+    char c = m_data[i];
+    if (!chars.contains(c)) {
+      return StringRef(m_data, i + 1);
+    }
+  }
+  return "";
+}
+
+inline StringRef StringRefBase::strip(ArrayRef<char> chars) const
+{
+  StringRef lstripped = this->lstrip(chars);
+  StringRef stripped = lstripped.rstrip(chars);
+  return stripped;
 }
 
 }  // namespace BLI

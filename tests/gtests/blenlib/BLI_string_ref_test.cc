@@ -288,3 +288,20 @@ TEST(string_ref, DropSuffix)
   EXPECT_EQ(ref2, "hello w");
   EXPECT_EQ(ref3, "");
 }
+
+TEST(string_ref, Strip)
+{
+  StringRef ref("  \ttest \n ");
+  EXPECT_EQ(ref.lstrip(), "test \n ");
+  EXPECT_EQ(ref.rstrip(), "  \ttest");
+  EXPECT_EQ(ref.strip(), "test");
+  EXPECT_EQ(ref.lstrip({' ', '\t', 't'}), "est \n ");
+  EXPECT_EQ(ref.strip({' ', '\t', '\n', 't'}), "es");
+}
+
+TEST(string_ref_null, Strip)
+{
+  StringRefNull ref1("  test  ");
+  StringRefNull ref2 = ref1.lstrip();
+  EXPECT_EQ(ref2, "test  ");
+}
