@@ -202,10 +202,6 @@ struct ObjFileSegment_f : public ObjFileSegment {
   }
 };
 
-struct ObjFileSegments {
-  Vector<std::unique_ptr<ObjFileSegment>> segments;
-};
-
 template<typename FuncT> static uint count_while(StringRef str, const FuncT &func)
 {
   uint count = 0;
@@ -494,12 +490,11 @@ BLI_NOINLINE static void parse_faces(StringRefStream &stream, ObjFileSegment_f &
   }
 }
 
-BLI_NOINLINE static std::unique_ptr<ObjFileSegments> parse_obj_lines(StringRef orig_str)
+BLI_NOINLINE static void parse_obj_lines(StringRef orig_str,
+                                         Vector<std::unique_ptr<ObjFileSegment>> &r_segments)
 {
   SCOPED_TIMER(__func__);
   StringRefStream stream(orig_str);
-
-  auto segments = BLI::make_unique<ObjFileSegments>();
 
   while (stream.has_remaining_chars()) {
     StringRef first_word = stream.peek_word();
@@ -507,52 +502,50 @@ BLI_NOINLINE static std::unique_ptr<ObjFileSegments> parse_obj_lines(StringRef o
       StringRef line = stream.extract_line();
       auto segment = BLI::make_unique<ObjFileSegment_mtllib>();
       parse_file_names(line.drop_prefix("mtllib"), ".mtl", segment->file_names);
-      segments->segments.append(std::move(segment));
+      r_segments.append(std::move(segment));
     }
     else if (first_word == "o") {
       StringRef line = stream.extract_line();
       auto segment = BLI::make_unique<ObjFileSegment_o>();
       segment->object_name = parse_object_name(line.drop_prefix("o"));
-      segments->segments.append(std::move(segment));
+      r_segments.append(std::move(segment));
     }
     else if (first_word == "v") {
       auto segment = BLI::make_unique<ObjFileSegment_v>();
       parse_positions(stream, segment->positions);
-      segments->segments.append(std::move(segment));
+      r_segments.append(std::move(segment));
     }
     else if (first_word == "vn") {
       auto segment = BLI::make_unique<ObjFileSegment_vn>();
       parse_normals(stream, segment->normals);
-      segments->segments.append(std::move(segment));
+      r_segments.append(std::move(segment));
     }
     else if (first_word == "vt") {
       auto segment = BLI::make_unique<ObjFileSegment_vt>();
       parse_uvs(stream, segment->uvs);
-      segments->segments.append(std::move(segment));
+      r_segments.append(std::move(segment));
     }
     else if (first_word == "usemtl") {
       StringRef line = stream.extract_line();
       auto segment = BLI::make_unique<ObjFileSegment_usemtl>();
       segment->material_name = parse_material_name(line.drop_prefix("usemtl"));
-      segments->segments.append(std::move(segment));
+      r_segments.append(std::move(segment));
     }
     else if (first_word == "s") {
       StringRef line = stream.extract_line();
       auto segment = BLI::make_unique<ObjFileSegment_s>();
       segment->smoothing_group = parse_smoothing_group_name(line.drop_prefix("s"));
-      segments->segments.append(std::move(segment));
+      r_segments.append(std::move(segment));
     }
     else if (first_word == "f") {
       auto segment = BLI::make_unique<ObjFileSegment_f>();
       parse_faces(stream, *segment);
-      segments->segments.append(std::move(segment));
+      r_segments.append(std::move(segment));
     }
     else {
       stream.extract_line();
     }
   }
-
-  return segments;
 }
 
 BLI_NOINLINE static void import_obj(bContext *UNUSED(C), StringRef file_path)
@@ -562,10 +555,20 @@ BLI_NOINLINE static void import_obj(bContext *UNUSED(C), StringRef file_path)
 
   TextLinesReader reader(input_stream);
 
+  Vector<Vector<std::unique_ptr<ObjFileSegment>>> all_segments;
+
   while (!reader.eof()) {
     StringRef text = reader.read_next_line_chunk(50000000);
-    parse_obj_lines(text);
+    Vector<std::unique_ptr<ObjFileSegment>> segments;
+    parse_obj_lines(text, segments);
+    all_segments.append(std::move(segments));
     reader.free_chunk(text);
+  }
+
+  for (auto &segments : all_segments) {
+    for (auto &segment : segments) {
+      std::cout << (int)segment->type << '\n';
+    }
   }
 
   //   Main *bmain = CTX_data_main(C);
