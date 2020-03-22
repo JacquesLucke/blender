@@ -57,7 +57,7 @@ class TextLinesReader {
   }
 
   /* The returned string does not necessarily contain the final newline. */
-  StringRef read_next_line_chunk(uint approximate_size)
+  BLI_NOINLINE StringRef read_next_line_chunk(uint approximate_size)
   {
     SCOPED_TIMER(__func__);
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -195,9 +195,9 @@ struct ObjFileSegment_f : public ObjFileSegment {
   Vector<uint> face_offsets;
   Vector<uint> vertex_counts;
 
-  Vector<uint> position_indices;
-  Vector<uint> uv_indices;
-  Vector<uint> normal_indices;
+  Vector<int> v_indices;
+  Vector<int> vt_indices;
+  Vector<int> vn_indices;
 
   ObjFileSegment_f() : ObjFileSegment(ObjFileSegmentType::f)
   {
@@ -220,42 +220,6 @@ template<typename FuncT> static uint count_while(StringRef str, const FuncT &fun
     }
   }
   return count;
-}
-
-static bool is_whitespace(char c)
-{
-  return ELEM(c, ' ', '\t', '\r');
-}
-
-static bool is_not_newline(char c)
-{
-  return c != '\n';
-}
-
-static bool is_newline(char c)
-{
-  return c == '\n';
-}
-
-static std::pair<uint, uint> find_next_word_in_line(StringRef str)
-{
-  uint offset = 0;
-  for (char c : str) {
-    if (!is_whitespace(c)) {
-      break;
-    }
-    offset++;
-  }
-
-  uint length = 0;
-  for (char c : str.drop_prefix(offset)) {
-    if (is_whitespace(c) || c == '\n') {
-      break;
-    }
-    length++;
-  }
-
-  return {offset, length};
 }
 
 class StringRefStream {
@@ -369,9 +333,16 @@ class StringRefStream {
     return value;
   }
 
+  int extract_next_int(bool *r_success = nullptr)
+  {
+    StringRef str = this->extract_next_word();
+    int value = str.to_int(r_success);
+    return value;
+  }
+
   void forward_over_whitespace()
   {
-    while (m_current < m_end && is_whitespace(*m_current)) {
+    while (m_current < m_end && ELEM(*m_current, ' ', '\t', '\r')) {
       m_current++;
     }
   }
@@ -472,7 +443,60 @@ BLI_NOINLINE static void parse_uvs(StringRefStream &stream, Vector<float2> &r_uv
   }
 }
 
-static std::unique_ptr<ObjFileSegments> parse_obj_lines(StringRef orig_str)
+BLI_NOINLINE static void parse_faces(StringRefStream &stream, ObjFileSegment_f &segment)
+{
+  while (stream.peek_word() == "f") {
+    StringRefStream line = stream.extract_line().drop_prefix("f");
+    uint count = 0;
+
+    segment.face_offsets.append(segment.v_indices.size());
+
+    while (true) {
+      StringRef face_corner = line.extract_next_word();
+      if (face_corner.size() == 0) {
+        break;
+      }
+
+      int v_index, vt_index, vn_index;
+
+      if (face_corner.contains('/')) {
+        uint index1 = face_corner.first_index_of('/');
+        StringRef first_str = face_corner.substr(0, index1);
+        v_index = first_str.to_int();
+        StringRef remaining_str = face_corner.drop_prefix(index1 + 1);
+        int index2 = remaining_str.try_first_index_of('/');
+        if (index2 == -1) {
+          vt_index = remaining_str.to_int();
+          vn_index = -1;
+        }
+        else if (index2 == 0) {
+          StringRef second_str = remaining_str.drop_prefix('/');
+          vt_index = -1;
+          vn_index = second_str.to_int();
+        }
+        else {
+          StringRef second_str = remaining_str.substr(0, index2);
+          StringRef third_str = remaining_str.drop_prefix(index2 + 1);
+          vt_index = second_str.to_int();
+          vn_index = third_str.to_int();
+        }
+      }
+      else {
+        v_index = face_corner.to_int();
+        vt_index = -1;
+        vn_index = -1;
+      }
+
+      segment.v_indices.append(v_index);
+      segment.vt_indices.append(vt_index);
+      segment.vn_indices.append(vn_index);
+      count++;
+    }
+    segment.vertex_counts.append(count);
+  }
+}
+
+BLI_NOINLINE static std::unique_ptr<ObjFileSegments> parse_obj_lines(StringRef orig_str)
 {
   SCOPED_TIMER(__func__);
   StringRefStream stream(orig_str);
@@ -494,24 +518,18 @@ static std::unique_ptr<ObjFileSegments> parse_obj_lines(StringRef orig_str)
       segments->segments.append(std::move(segment));
     }
     else if (first_word == "v") {
-      Vector<float3> positions;
-      parse_positions(stream, positions);
       auto segment = BLI::make_unique<ObjFileSegment_v>();
-      segment->positions = std::move(positions);
+      parse_positions(stream, segment->positions);
       segments->segments.append(std::move(segment));
     }
     else if (first_word == "vn") {
-      Vector<float3> normals;
-      parse_normals(stream, normals);
       auto segment = BLI::make_unique<ObjFileSegment_vn>();
-      segment->normals = std::move(normals);
+      parse_normals(stream, segment->normals);
       segments->segments.append(std::move(segment));
     }
     else if (first_word == "vt") {
-      Vector<float2> uvs;
-      parse_uvs(stream, uvs);
       auto segment = BLI::make_unique<ObjFileSegment_vt>();
-      segment->uvs = std::move(uvs);
+      parse_uvs(stream, segment->uvs);
       segments->segments.append(std::move(segment));
     }
     else if (first_word == "usemtl") {
@@ -526,6 +544,11 @@ static std::unique_ptr<ObjFileSegments> parse_obj_lines(StringRef orig_str)
       auto segment = BLI::make_unique<ObjFileSegment_s>(smoothing_group_name);
       segments->segments.append(std::move(segment));
     }
+    else if (first_word == "f") {
+      auto segment = BLI::make_unique<ObjFileSegment_f>();
+      parse_faces(stream, *segment);
+      segments->segments.append(std::move(segment));
+    }
     else {
       stream.extract_line();
     }
@@ -534,7 +557,7 @@ static std::unique_ptr<ObjFileSegments> parse_obj_lines(StringRef orig_str)
   return segments;
 }
 
-static void import_obj(bContext *UNUSED(C), StringRef file_path)
+BLI_NOINLINE static void import_obj(bContext *UNUSED(C), StringRef file_path)
 {
   std::ifstream input_stream;
   input_stream.open(file_path, std::ios::binary);

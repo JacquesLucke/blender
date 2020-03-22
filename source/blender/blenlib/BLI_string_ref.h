@@ -121,6 +121,12 @@ class StringRefBase {
   StringRef strip(ArrayRef<char> chars = {' ', '\t', '\n', '\r'}) const;
 
   float to_float(bool *r_success = nullptr) const;
+  int to_int(bool *r_success = nullptr) const;
+
+  bool contains(char c) const;
+
+  uint first_index_of(char c, uint start = 0) const;
+  int try_first_index_of(char c, uint start = 0) const;
 };
 
 /**
@@ -366,6 +372,40 @@ inline float StringRefBase::to_float(bool *r_success) const
     *r_success = str_with_null != end;
   }
   return value;
+}
+
+inline int StringRefBase::to_int(bool *r_success) const
+{
+  char *str_with_null = (char *)alloca(m_size + 1);
+  this->copy_to__with_null(str_with_null);
+  char *end;
+  int value = std::strtol(str_with_null, &end, 10);
+  if (r_success) {
+    *r_success = str_with_null != end;
+  }
+  return value;
+}
+
+inline bool StringRefBase::contains(char c) const
+{
+  return this->try_first_index_of(c) >= 0;
+}
+
+inline uint StringRefBase::first_index_of(char c, uint start) const
+{
+  int index = this->try_first_index_of(c, start);
+  BLI_assert(index >= 0);
+  return (uint)index;
+}
+
+inline int StringRefBase::try_first_index_of(char c, uint start) const
+{
+  for (uint i = start; i < m_size; i++) {
+    if (m_data[i] == c) {
+      return i;
+    }
+  }
+  return -1;
 }
 
 }  // namespace BLI
