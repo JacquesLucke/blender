@@ -25,6 +25,8 @@
 #include "WM_types.h"
 #include "object_intern.h"
 
+#include "tbb/task_group.h"
+
 struct float3 {
   float x, y, z;
 };
@@ -709,19 +711,29 @@ BLI_NOINLINE static void import_obj(bContext *C, StringRef file_path)
 
   TextLinesReader reader(input_stream);
 
-  Vector<Vector<std::unique_ptr<ObjFileSegment>>> all_segments;
+  Vector<std::unique_ptr<Vector<std::unique_ptr<ObjFileSegment>>>> all_segments;
+
+  tbb::task_group tasks;
+  std::mutex mutex;
 
   while (!reader.eof()) {
-    StringRef text = reader.read_next_line_chunk(50000000);
-    Vector<std::unique_ptr<ObjFileSegment>> segments;
-    parse_obj_lines(text, segments);
+    StringRef text = reader.read_next_line_chunk(20 * 1024 * 1024);
+
+    auto segments = BLI::make_unique<Vector<std::unique_ptr<ObjFileSegment>>>();
+    auto segments_ptr = segments.get();
     all_segments.append(std::move(segments));
-    reader.free_chunk(text);
+
+    tasks.run([segments_ptr, text, &reader]() {
+      parse_obj_lines(text, *segments_ptr);
+      reader.free_chunk(text);
+    });
   }
+
+  tasks.wait();
 
   Vector<const ObjFileSegment *> flattened_segments;
   for (auto &segments : all_segments) {
-    for (auto &segment : segments) {
+    for (auto &segment : *segments) {
       flattened_segments.append(segment.get());
     }
   }
