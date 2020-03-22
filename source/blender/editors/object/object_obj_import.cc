@@ -548,7 +548,22 @@ BLI_NOINLINE static void parse_obj_lines(StringRef orig_str,
   }
 }
 
-BLI_NOINLINE static void import_obj(bContext *UNUSED(C), StringRef file_path)
+BLI_NOINLINE static void generate_objects_from_segments(bContext *UNUSED(C),
+                                                        ArrayRef<const ObjFileSegment *> segments)
+{
+  //   Main *bmain = CTX_data_main(C);
+  //   Collection *collection = CTX_data_collection(C);
+  //   Mesh *mesh = BKE_mesh_add(bmain, "My Mesh");
+  //   Object *object = BKE_object_add_only_object(bmain, OB_MESH, "My Object");
+  //   object->data = mesh;
+  //   BKE_collection_object_add(bmain, collection, object);
+
+  for (const ObjFileSegment *segment : segments) {
+    std::cout << "Segment: " << (int)segment->type << '\n';
+  }
+}
+
+BLI_NOINLINE static void import_obj(bContext *C, StringRef file_path)
 {
   std::ifstream input_stream;
   input_stream.open(file_path, std::ios::binary);
@@ -565,18 +580,14 @@ BLI_NOINLINE static void import_obj(bContext *UNUSED(C), StringRef file_path)
     reader.free_chunk(text);
   }
 
+  Vector<const ObjFileSegment *> flattened_segments;
   for (auto &segments : all_segments) {
     for (auto &segment : segments) {
-      std::cout << (int)segment->type << '\n';
+      flattened_segments.append(segment.get());
     }
   }
 
-  //   Main *bmain = CTX_data_main(C);
-  //   Collection *collection = CTX_data_collection(C);
-  //   Mesh *mesh = BKE_mesh_add(bmain, "My Mesh");
-  //   Object *object = BKE_object_add_only_object(bmain, OB_MESH, "My Object");
-  //   object->data = mesh;
-  //   BKE_collection_object_add(bmain, collection, object);
+  generate_objects_from_segments(C, flattened_segments);
 }
 
 static int obj_import_exec(bContext *C, wmOperator *UNUSED(op))
