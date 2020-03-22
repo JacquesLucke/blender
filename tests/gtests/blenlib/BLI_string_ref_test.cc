@@ -305,3 +305,28 @@ TEST(string_ref_null, Strip)
   StringRefNull ref2 = ref1.lstrip();
   EXPECT_EQ(ref2, "test  ");
 }
+
+static void test_valid_float_conversion(StringRef str, float expected)
+{
+  bool success = false;
+  float value = str.to_float(&success);
+  EXPECT_TRUE(success);
+  EXPECT_EQ(value, expected);
+}
+
+static void test_invalid_float_conversion(StringRef str)
+{
+  bool success = true;
+  float value = str.to_float(&success);
+  EXPECT_FALSE(success);
+  EXPECT_EQ(value, 0.0f);
+}
+
+TEST(string_ref, ToFloat)
+{
+  test_valid_float_conversion("25", 25.0f);
+  test_valid_float_conversion("2e3", 2000.0f);
+  test_valid_float_conversion("12.25", 12.25f);
+  test_invalid_float_conversion("abc");
+  test_invalid_float_conversion("");
+}

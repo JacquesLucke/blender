@@ -119,6 +119,8 @@ class StringRefBase {
   StringRef lstrip(ArrayRef<char> chars = {' ', '\t', '\n', '\r'}) const;
   StringRef rstrip(ArrayRef<char> chars = {' ', '\t', '\n', '\r'}) const;
   StringRef strip(ArrayRef<char> chars = {' ', '\t', '\n', '\r'}) const;
+
+  float to_float(bool *r_success = nullptr) const;
 };
 
 /**
@@ -352,6 +354,18 @@ inline StringRef StringRefBase::strip(ArrayRef<char> chars) const
   StringRef lstripped = this->lstrip(chars);
   StringRef stripped = lstripped.rstrip(chars);
   return stripped;
+}
+
+inline float StringRefBase::to_float(bool *r_success) const
+{
+  char *str_with_null = (char *)alloca(m_size + 1);
+  this->copy_to__with_null(str_with_null);
+  char *end;
+  float value = std::strtof(str_with_null, &end);
+  if (r_success) {
+    *r_success = str_with_null != end;
+  }
+  return value;
 }
 
 }  // namespace BLI
