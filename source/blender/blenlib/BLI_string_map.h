@@ -257,6 +257,14 @@ template<typename T, typename Allocator = GuardedAllocator> class StringMap {
     return const_cast<T &>(const_cast<const StringMap *>(this)->lookup(key));
   }
 
+  T &lookup_or_add_default(StringRef key)
+  {
+    if (!this->contains(key)) {
+      this->add_new(key, T());
+    }
+    return this->lookup(key);
+  }
+
   /**
    * Get a pointer to the value corresponding to the key. Return nullptr, if the key does not
    * exist.

@@ -9,6 +9,7 @@
 #include "BLI_array_ref.h"
 #include "BLI_set.h"
 #include "BLI_string.h"
+#include "BLI_string_map.h"
 #include "BLI_string_ref.h"
 #include "BLI_timeit.h"
 #include "BLI_vector.h"
@@ -30,6 +31,7 @@ struct float2 {
 
 using BLI::ArrayRef;
 using BLI::Set;
+using BLI::StringMap;
 using BLI::StringRef;
 using BLI::Vector;
 
@@ -548,6 +550,14 @@ BLI_NOINLINE static void parse_obj_lines(StringRef orig_str,
   }
 }
 
+struct ObjectDataCounts {
+  uint vertex_amount;
+  uint normal_amount;
+  uint uv_amount;
+  uint face_amount;
+  uint loop_amount;
+};
+
 BLI_NOINLINE static void generate_objects_from_segments(bContext *UNUSED(C),
                                                         ArrayRef<const ObjFileSegment *> segments)
 {
@@ -558,9 +568,57 @@ BLI_NOINLINE static void generate_objects_from_segments(bContext *UNUSED(C),
   //   object->data = mesh;
   //   BKE_collection_object_add(bmain, collection, object);
 
+  StringMap<ObjectDataCounts> object_data_counts;
+  StringRef current_object_name = "My Object";
+
   for (const ObjFileSegment *segment : segments) {
-    std::cout << "Segment: " << (int)segment->type << '\n';
+    switch (segment->type) {
+      case ObjFileSegmentType::o: {
+        auto segment_o = (const ObjFileSegment_o *)segment;
+        current_object_name = segment_o->object_name;
+        break;
+      }
+      case ObjFileSegmentType::f: {
+        auto segment_f = (const ObjFileSegment_f *)segment;
+        ObjectDataCounts &counts = object_data_counts.lookup_or_add_default(current_object_name);
+        counts.face_amount += segment_f->face_offsets.size();
+        counts.loop_amount += segment_f->v_indices.size();
+        break;
+      }
+      case ObjFileSegmentType::v: {
+        auto segment_v = (const ObjFileSegment_v *)segment;
+        ObjectDataCounts &counts = object_data_counts.lookup_or_add_default(current_object_name);
+        counts.vertex_amount += segment_v->positions.size();
+        break;
+      }
+      case ObjFileSegmentType::vn: {
+        auto segment_vn = (const ObjFileSegment_vn *)segment;
+        ObjectDataCounts &counts = object_data_counts.lookup_or_add_default(current_object_name);
+        counts.normal_amount += segment_vn->normals.size();
+        break;
+      }
+      case ObjFileSegmentType::vt: {
+        auto segment_vt = (const ObjFileSegment_vt *)segment;
+        ObjectDataCounts &counts = object_data_counts.lookup_or_add_default(current_object_name);
+        counts.uv_amount += segment_vt->uvs.size();
+        break;
+      }
+      case ObjFileSegmentType::mtllib:
+      case ObjFileSegmentType::s:
+      case ObjFileSegmentType::usemtl: {
+        break;
+      }
+    }
   }
+
+  object_data_counts.foreach_item([](StringRef key, const ObjectDataCounts &counts) {
+    std::cout << key << ":\n";
+    std::cout << " Vertex Amount: " << counts.vertex_amount << '\n';
+    std::cout << " Normal Amount: " << counts.normal_amount << '\n';
+    std::cout << " UV Amount:     " << counts.uv_amount << '\n';
+    std::cout << " Face Amount:   " << counts.face_amount << '\n';
+    std::cout << " Loop Amount:   " << counts.loop_amount << '\n';
+  });
 }
 
 BLI_NOINLINE static void import_obj(bContext *C, StringRef file_path)
@@ -593,7 +651,7 @@ BLI_NOINLINE static void import_obj(bContext *C, StringRef file_path)
 static int obj_import_exec(bContext *C, wmOperator *UNUSED(op))
 {
   char filepath[FILE_MAX];
-  strcpy(filepath, "/home/jacques/Documents/subdiv_cube.obj");
+  strcpy(filepath, "/home/jacques/Documents/icosphere.obj");
   //   RNA_string_get(op->ptr, "filepath", filepath);
   std::cout << "Open: " << filepath << '\n';
   import_obj(C, filepath);
