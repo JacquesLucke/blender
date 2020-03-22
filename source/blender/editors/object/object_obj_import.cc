@@ -6,9 +6,11 @@
 #include "BKE_context.h"
 #include "BKE_mesh.h"
 #include "BKE_object.h"
+#include "BLI_array_ref.h"
 #include "BLI_set.h"
 #include "BLI_string.h"
 #include "BLI_string_ref.h"
+#include "BLI_timeit.h"
 #include "BLI_vector.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
@@ -26,6 +28,7 @@ struct float2 {
   float x, y;
 };
 
+using BLI::ArrayRef;
 using BLI::Set;
 using BLI::StringRef;
 using BLI::Vector;
@@ -56,6 +59,7 @@ class TextLinesReader {
   /* The returned string does not necessarily contain the final newline. */
   StringRef read_next_line_chunk(uint approximate_size)
   {
+    SCOPED_TIMER(__func__);
     std::lock_guard<std::mutex> lock(m_mutex);
     StringRef chunk = this->read_next_line_chunk_internal(approximate_size);
     m_chunks.add_new(chunk.data());
@@ -275,6 +279,15 @@ class StringRefStream {
     return m_current[0];
   }
 
+  StringRef peek_word() const
+  {
+    const char *word_end = m_current;
+    while (word_end < m_end && !ELEM(*word_end, ' ', '\r', '\n', '\t')) {
+      word_end++;
+    }
+    return StringRef(m_current, word_end - m_current);
+  }
+
   StringRef remaining_str() const
   {
     return StringRef(m_current, m_end - m_current);
@@ -323,6 +336,15 @@ class StringRefStream {
     return StringRef(start, m_current - start);
   }
 
+  StringRef extract_until(ArrayRef<char> chars)
+  {
+    const char *start = m_current;
+    while (m_current < m_end && !chars.contains(*m_current)) {
+      m_current++;
+    }
+    return StringRef(start, m_current - start);
+  }
+
   StringRef extract_quoted_string(char quote)
   {
     BLI_assert(this->peek_next() == quote);
@@ -332,6 +354,19 @@ class StringRefStream {
       m_current++;
     }
     return str;
+  }
+
+  StringRef extract_next_word()
+  {
+    this->forward_over_whitespace();
+    return this->extract_until({' ', '\n', '\t', '\r'});
+  }
+
+  float extract_next_float(bool *r_success = nullptr)
+  {
+    StringRef str = this->extract_next_word();
+    float value = str.to_float(r_success);
+    return value;
   }
 
   void forward_over_whitespace()
@@ -392,68 +427,107 @@ static StringRef parse_object_name(StringRef str)
   return str.strip();
 }
 
+static StringRef parse_material_name(StringRef str)
+{
+  return str.strip();
+}
+
+static StringRef parse_smoothing_group_name(StringRef str)
+{
+  return str.strip();
+}
+
+BLI_NOINLINE static void parse_positions(StringRefStream &stream, Vector<float3> &r_positions)
+{
+  while (stream.peek_word() == "v") {
+    StringRefStream line = stream.extract_line().drop_prefix("v");
+    float3 position;
+    position.x = line.extract_next_float();
+    position.y = line.extract_next_float();
+    position.z = line.extract_next_float();
+    r_positions.append(position);
+  }
+}
+
+BLI_NOINLINE static void parse_normals(StringRefStream &stream, Vector<float3> &r_normals)
+{
+  while (stream.peek_word() == "vn") {
+    StringRefStream line = stream.extract_line().drop_prefix("vn");
+    float3 normal;
+    normal.x = line.extract_next_float();
+    normal.y = line.extract_next_float();
+    normal.z = line.extract_next_float();
+    r_normals.append(normal);
+  }
+}
+
+BLI_NOINLINE static void parse_uvs(StringRefStream &stream, Vector<float2> &r_uvs)
+{
+  while (stream.peek_word() == "vt") {
+    StringRefStream line = stream.extract_line().drop_prefix("vt");
+    float2 uv;
+    uv.x = line.extract_next_float();
+    uv.y = line.extract_next_float();
+    r_uvs.append(uv);
+  }
+}
+
 static std::unique_ptr<ObjFileSegments> parse_obj_lines(StringRef orig_str)
 {
+  SCOPED_TIMER(__func__);
   StringRefStream stream(orig_str);
 
   auto segments = BLI::make_unique<ObjFileSegments>();
 
   while (stream.has_remaining_chars()) {
-    StringRef line = stream.extract_line();
-    if (line.size() == 0) {
-      continue;
+    StringRef first_word = stream.peek_word();
+    if (first_word == "mtllib") {
+      StringRef line = stream.extract_line();
+      auto segment = BLI::make_unique<ObjFileSegment_mtllib>();
+      parse_file_names(line.drop_prefix("mtllib"), ".mtl", segment->file_names);
+      segments->segments.append(std::move(segment));
     }
-    switch (line[0]) {
-      case ' ':
-      case '\t':
-      case '\r': {
-        break;
-      }
-      case '#': {
-        break;
-      }
-      case 'm': {
-        if (line.startswith("mtllib")) {
-          auto segment = BLI::make_unique<ObjFileSegment_mtllib>();
-          parse_file_names(line.drop_prefix("mtllib"), ".mtl", segment->file_names);
-          segment->file_names.as_ref().print_as_lines("File Names");
-        }
-        break;
-      }
-      case 'o': {
-        StringRef object_name = parse_object_name(line.drop_prefix("o"));
-        auto segment = BLI::make_unique<ObjFileSegment_o>(object_name);
-        segments->segments.append(std::move(segment));
-        break;
-      }
-      case 'v': {
-        // StringRef str = orig_str.drop_prefix(offset);
-        // if (str.startswith("v ")) {
-        //   str = str.drop_prefix(1);
-
-        //   std::pair<uint, uint> span1 = find_next_word_in_line(str);
-        //   StringRef str1 = str.substr(span1.first, span1.second);
-        //   str = str.drop_prefix(span1.first + span1.second);
-
-        //   std::pair<uint, uint> span2 = find_next_word_in_line(str);
-        //   StringRef str2 = str.substr(span2.first, span2.second);
-        //   str = str.drop_prefix(span2.first + span2.second);
-
-        //   std::pair<uint, uint> span3 = find_next_word_in_line(str);
-        //   StringRef str3 = str.substr(span3.first, span3.second);
-        // }
-        // else if (str.startswith("vt")) {
-        //   /* TODO */
-        // }
-        // else if (str.startswith("vn")) {
-        //   /* TODO */
-        // }
-        // offset += count_while(orig_str.drop_prefix(offset), is_not_newline) + 1;
-        break;
-      }
-      default: {
-        break;
-      }
+    else if (first_word == "o") {
+      StringRef line = stream.extract_line();
+      StringRef object_name = parse_object_name(line.drop_prefix("o"));
+      auto segment = BLI::make_unique<ObjFileSegment_o>(object_name);
+      segments->segments.append(std::move(segment));
+    }
+    else if (first_word == "v") {
+      Vector<float3> positions;
+      parse_positions(stream, positions);
+      auto segment = BLI::make_unique<ObjFileSegment_v>();
+      segment->positions = std::move(positions);
+      segments->segments.append(std::move(segment));
+    }
+    else if (first_word == "vn") {
+      Vector<float3> normals;
+      parse_normals(stream, normals);
+      auto segment = BLI::make_unique<ObjFileSegment_vn>();
+      segment->normals = std::move(normals);
+      segments->segments.append(std::move(segment));
+    }
+    else if (first_word == "vt") {
+      Vector<float2> uvs;
+      parse_uvs(stream, uvs);
+      auto segment = BLI::make_unique<ObjFileSegment_vt>();
+      segment->uvs = std::move(uvs);
+      segments->segments.append(std::move(segment));
+    }
+    else if (first_word == "usemtl") {
+      StringRef line = stream.extract_line();
+      StringRef material_name = parse_material_name(line.drop_prefix("usemtl"));
+      auto segment = BLI::make_unique<ObjFileSegment_usemtl>(material_name);
+      segments->segments.append(std::move(segment));
+    }
+    else if (first_word == "s") {
+      StringRef line = stream.extract_line();
+      StringRef smoothing_group_name = parse_smoothing_group_name(line.drop_prefix("s"));
+      auto segment = BLI::make_unique<ObjFileSegment_s>(smoothing_group_name);
+      segments->segments.append(std::move(segment));
+    }
+    else {
+      stream.extract_line();
     }
   }
 
@@ -468,7 +542,7 @@ static void import_obj(bContext *UNUSED(C), StringRef file_path)
   TextLinesReader reader(input_stream);
 
   while (!reader.eof()) {
-    StringRef text = reader.read_next_line_chunk(200);
+    StringRef text = reader.read_next_line_chunk(50000000);
     parse_obj_lines(text);
     reader.free_chunk(text);
   }
@@ -484,7 +558,7 @@ static void import_obj(bContext *UNUSED(C), StringRef file_path)
 static int obj_import_exec(bContext *C, wmOperator *UNUSED(op))
 {
   char filepath[FILE_MAX];
-  strcpy(filepath, "/home/jacques/Documents/icosphere.obj");
+  strcpy(filepath, "/home/jacques/Documents/subdiv_cube.obj");
   //   RNA_string_get(op->ptr, "filepath", filepath);
   std::cout << "Open: " << filepath << '\n';
   import_obj(C, filepath);

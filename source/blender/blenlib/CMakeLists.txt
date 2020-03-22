@@ -253,6 +253,8 @@ set(SRC
   BLI_winstuff.h
   PIL_time.h
   PIL_time_utildefines.h
+
+  BLI_timeit.h
 )
 
 set(LIB
