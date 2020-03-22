@@ -142,9 +142,9 @@ struct ObjFileSegment_mtllib : public ObjFileSegment {
 };
 
 struct ObjFileSegment_o : public ObjFileSegment {
-  std::string name;
+  std::string object_name;
 
-  ObjFileSegment_o(StringRef name) : ObjFileSegment(ObjFileSegmentType::o), name(name)
+  ObjFileSegment_o() : ObjFileSegment(ObjFileSegmentType::o)
   {
   }
 };
@@ -176,8 +176,7 @@ struct ObjFileSegment_vn : public ObjFileSegment {
 struct ObjFileSegment_usemtl : public ObjFileSegment {
   std::string material_name;
 
-  ObjFileSegment_usemtl(StringRef material_name)
-      : ObjFileSegment(ObjFileSegmentType::usemtl), material_name(material_name)
+  ObjFileSegment_usemtl() : ObjFileSegment(ObjFileSegmentType::usemtl)
   {
   }
 };
@@ -185,8 +184,7 @@ struct ObjFileSegment_usemtl : public ObjFileSegment {
 struct ObjFileSegment_s : public ObjFileSegment {
   std::string smoothing_group;
 
-  ObjFileSegment_s(StringRef smoothing_group)
-      : ObjFileSegment(ObjFileSegmentType::s), smoothing_group(smoothing_group)
+  ObjFileSegment_s() : ObjFileSegment(ObjFileSegmentType::s)
   {
   }
 };
@@ -513,8 +511,8 @@ BLI_NOINLINE static std::unique_ptr<ObjFileSegments> parse_obj_lines(StringRef o
     }
     else if (first_word == "o") {
       StringRef line = stream.extract_line();
-      StringRef object_name = parse_object_name(line.drop_prefix("o"));
-      auto segment = BLI::make_unique<ObjFileSegment_o>(object_name);
+      auto segment = BLI::make_unique<ObjFileSegment_o>();
+      segment->object_name = parse_object_name(line.drop_prefix("o"));
       segments->segments.append(std::move(segment));
     }
     else if (first_word == "v") {
@@ -534,14 +532,14 @@ BLI_NOINLINE static std::unique_ptr<ObjFileSegments> parse_obj_lines(StringRef o
     }
     else if (first_word == "usemtl") {
       StringRef line = stream.extract_line();
-      StringRef material_name = parse_material_name(line.drop_prefix("usemtl"));
-      auto segment = BLI::make_unique<ObjFileSegment_usemtl>(material_name);
+      auto segment = BLI::make_unique<ObjFileSegment_usemtl>();
+      segment->material_name = parse_material_name(line.drop_prefix("usemtl"));
       segments->segments.append(std::move(segment));
     }
     else if (first_word == "s") {
       StringRef line = stream.extract_line();
-      StringRef smoothing_group_name = parse_smoothing_group_name(line.drop_prefix("s"));
-      auto segment = BLI::make_unique<ObjFileSegment_s>(smoothing_group_name);
+      auto segment = BLI::make_unique<ObjFileSegment_s>();
+      segment->smoothing_group = parse_smoothing_group_name(line.drop_prefix("s"));
       segments->segments.append(std::move(segment));
     }
     else if (first_word == "f") {
