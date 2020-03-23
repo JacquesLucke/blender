@@ -1,6 +1,7 @@
 import os
 import bpy
 import json
+from functools import lru_cache
 
 
 def get_socket_value(sock):
@@ -133,7 +134,9 @@ def property_has_given_value(owner, prop_name, value):
     else:
         assert False
 
-def group_matches_json_data(group, json_data, loaded_group_by_name, json_data_by_group_name):
+def group_matches_json_data(group, json_data, loaded_group_by_name):
+    groups_json_data = get_builtin_groups_data()
+
     if len(group.nodes) != len(json_data["nodes"]):
         return False
     if len(group.links) != len(json_data["links"]):
@@ -158,9 +161,8 @@ def group_matches_json_data(group, json_data, loaded_group_by_name, json_data_by
             elif node.node_tree == loaded_group_by_name[node_data["group_name"]]:
                 pass
             elif not group_matches_json_data(node.node_tree,
-                                             json_data_by_group_name[node_data["group_name"]],
-                                             loaded_group_by_name,
-                                             json_data_by_group_name):
+                                             groups_json_data[node_data["group_name"]],
+                                             loaded_group_by_name):
                 return False
 
         else:
@@ -199,9 +201,9 @@ def group_matches_json_data(group, json_data, loaded_group_by_name, json_data_by
 
     return True
 
-def get_or_create_node_group(json_data, loaded_group_by_name, json_data_by_group_name):
+def get_or_create_node_group(json_data, loaded_group_by_name):
     for potential_group in bpy.data.node_groups:
-        if group_matches_json_data(potential_group, json_data, loaded_group_by_name, json_data_by_group_name):
+        if group_matches_json_data(potential_group, json_data, loaded_group_by_name):
             return potential_group
 
     group = bpy.data.node_groups.new(json_data["name"], "SimulationNodeTree")
@@ -238,53 +240,66 @@ def get_or_create_node_group(json_data, loaded_group_by_name, json_data_by_group
 
     return group
 
-from collections import OrderedDict
-
-def get_json_data_for_all_groups_to_load(main_group_name):
-    json_data_by_group_name = OrderedDict()
-
-    def load(group_name):
-        if group_name in json_data_by_group_name:
-            return
-        else:
-            file_path = group_name_to_file_path(group_name)
-            with open(file_path, "r") as f:
-                json_str = f.read()
-            json_data = json.loads(json_str)
-            assert group_name == json_data["name"]
-            for dependency_name in json_data["dependencies"]:
-                load(dependency_name)
-            json_data_by_group_name[group_name] = json_data
-
-    load(main_group_name)
-    return json_data_by_group_name
-
 def export_builtin_node_group(group):
     file_path = group_name_to_file_path(group.name)
     save_group_as_json(group, file_path)
 
+@lru_cache()
+def get_builtin_groups_data():
+    json_data_by_group_name = dict()
+
+    if not os.path.exists(builtin_node_group_directory):
+        return json_data_by_group_name
+
+    for file_name in os.listdir(builtin_node_group_directory):
+        if not file_name.endswith(".json"):
+            continue
+        file_path = os.path.join(builtin_node_group_directory, file_name)
+        with open(file_path, "r") as f:
+            json_str = f.read()
+        json_data = json.loads(json_str)
+        group_name = json_data["name"]
+        json_data_by_group_name[group_name] = json_data
+
+    return json_data_by_group_name
+
+def get_sorted_group_names_to_load(main_group_name):
+    groups_json_data = get_builtin_groups_data()
+
+    sorted_group_names = []
+
+    def add_group(group_name):
+        if group_name in sorted_group_names:
+            return
+        json_data = groups_json_data[group_name]
+        for dependency_name in json_data["dependencies"]:
+            add_group(dependency_name)
+        sorted_group_names.append(group_name)
+
+    add_group(main_group_name)
+    return sorted_group_names
+
 def get_builtin_group_items_cb(node_tree_idname):
-    # TODO: save strings
     def items_generator(self, context):
-        if not os.path.exists(builtin_node_group_directory):
-            return [('NONE', "None", "")]
         items = []
-        for file_name in os.listdir(builtin_node_group_directory):
-            if not file_name.endswith(".json"):
-                continue
-            group_name = file_name_to_group_name(file_name)
-            items.append((file_name, group_name, ""))
-        if len(items) == 0:
-            items.append(('NONE', "None", ""))
+        for i, name in enumerate(get_builtin_groups_data().keys()):
+            items.append((str(i), name, ""))
         return items
     return items_generator
 
 def import_builtin_node_group_with_dependencies(group_name):
-    json_data_by_group_name = get_json_data_for_all_groups_to_load(group_name)
+    sorted_group_names = get_sorted_group_names_to_load(group_name)
+    groups_json_data = get_builtin_groups_data()
     loaded_group_by_name = dict()
 
-    for group_name, json_data in json_data_by_group_name.items():
-        group = get_or_create_node_group(json_data, loaded_group_by_name, json_data_by_group_name)
+    for group_name in sorted_group_names:
+        json_data = groups_json_data[group_name]
+        group = get_or_create_node_group(json_data, loaded_group_by_name)
         loaded_group_by_name[group_name] = group
 
     return loaded_group_by_name[group_name]
+
+def import_builtin_node_group_by_item_identifier(item_identifier):
+    index = int(item_identifier)
+    group_name = list(get_builtin_groups_data().keys())[index]
+    return import_builtin_node_group_with_dependencies(group_name)

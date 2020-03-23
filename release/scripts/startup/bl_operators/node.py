@@ -34,10 +34,9 @@ from bpy.props import (
     StringProperty,
 )
 from builtin_node_groups import (
-    file_name_to_group_name,
     export_builtin_node_group,
     get_builtin_group_items_cb,
-    import_builtin_node_group_with_dependencies,
+    import_builtin_node_group_by_item_identifier,
 )
 
 class NodeSetting(PropertyGroup):
@@ -333,8 +332,7 @@ class NODE_OT_import_group_template_search(bpy.types.Operator):
         if self.item == "NONE":
             return {'CANCELLED'}
         else:
-            group_name = file_name_to_group_name(self.item)
-            import_builtin_node_group_with_dependencies(group_name)
+            import_builtin_node_group_by_item_identifier(self.item)
             return {'FINISHED'}
 
 classes = (

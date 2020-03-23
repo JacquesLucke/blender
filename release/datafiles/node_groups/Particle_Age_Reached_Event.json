@@ -1,0 +1,170 @@
+{
+ "blender_version": [
+  2,
+  83,
+  10
+ ],
+ "name": "Particle Age Reached Event",
+ "inputs": [
+  {
+   "name": "Age",
+   "identifier": "Input_3",
+   "default_value": 0.5,
+   "type": "VALUE",
+   "bl_socket_idname": "NodeSocketFloat"
+  },
+  {
+   "name": "Execute",
+   "identifier": "Input_1",
+   "default_value": null,
+   "type": "CONTROL_FLOW",
+   "bl_socket_idname": "NodeSocketControlFlow"
+  }
+ ],
+ "outputs": [
+  {
+   "name": "Event",
+   "identifier": "Output_5",
+   "default_value": null,
+   "type": "EVENTS",
+   "bl_socket_idname": "NodeSocketEvents"
+  }
+ ],
+ "nodes": [
+  {
+   "name": "Execute Condition",
+   "bl_idname": "SimulationNodeExecuteCondition",
+   "location": [
+    -13,
+    -65
+   ],
+   "width": 140,
+   "properties": {},
+   "inputs": [
+    {
+     "name": "Condition",
+     "identifier": "Condition",
+     "default_value": false,
+     "type": "BOOLEAN"
+    },
+    {
+     "name": "If True",
+     "identifier": "If True",
+     "default_value": null,
+     "type": "CONTROL_FLOW"
+    },
+    {
+     "name": "If False",
+     "identifier": "If False",
+     "default_value": null,
+     "type": "CONTROL_FLOW"
+    }
+   ],
+   "outputs": [
+    {
+     "name": "Execute",
+     "identifier": "Execute",
+     "default_value": null,
+     "type": "CONTROL_FLOW"
+    }
+   ]
+  },
+  {
+   "name": "Group Input",
+   "bl_idname": "NodeGroupInput",
+   "location": [
+    -390,
+    -94
+   ],
+   "width": 140
+  },
+  {
+   "name": "Group",
+   "bl_idname": "SimulationNodeGroup",
+   "location": [
+    -384,
+    16
+   ],
+   "width": 140,
+   "group_name": "Particle Age"
+  },
+  {
+   "name": "Particle Time Step Event",
+   "bl_idname": "SimulationNodeParticleTimeStepEvent",
+   "location": [
+    168,
+    -60
+   ],
+   "width": 140,
+   "properties": {
+    "mode": "BEGIN"
+   },
+   "inputs": [
+    {
+     "name": "Execute",
+     "identifier": "Execute",
+     "default_value": null,
+     "type": "CONTROL_FLOW"
+    }
+   ],
+   "outputs": [
+    {
+     "name": "Event",
+     "identifier": "Event",
+     "default_value": null,
+     "type": "EVENTS"
+    }
+   ]
+  },
+  {
+   "name": "Group Output",
+   "bl_idname": "NodeGroupOutput",
+   "location": [
+    354,
+    -64
+   ],
+   "width": 140
+  }
+ ],
+ "links": [
+  {
+   "from": [
+    "Particle Time Step Event",
+    "Event",
+    0
+   ],
+   "to": [
+    "Group Output",
+    "Output_5",
+    0
+   ]
+  },
+  {
+   "from": [
+    "Group Input",
+    "Input_1",
+    1
+   ],
+   "to": [
+    "Execute Condition",
+    "If True",
+    1
+   ]
+  },
+  {
+   "from": [
+    "Execute Condition",
+    "Execute",
+    0
+   ],
+   "to": [
+    "Particle Time Step Event",
+    "Execute",
+    0
+   ]
+  }
+ ],
+ "dependencies": [
+  "Particle Age"
+ ]
+}
