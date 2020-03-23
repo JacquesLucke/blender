@@ -24,6 +24,9 @@ from nodeitems_utils import (
     NodeItem,
     NodeItemCustom,
 )
+from builtin_node_groups import (
+    get_builtin_groups_data,
+)
 
 
 # Subclasses for standard node types
@@ -122,6 +125,14 @@ def node_group_items(context):
                        group.name,
                        {"node_tree": "bpy.data.node_groups[%r]" % group.name})
 
+    def draw_builtin_node_groups(self, layout, context):
+        layout.separator()
+        groups_json_data = get_builtin_groups_data()
+        for group_name in groups_json_data.keys():
+            props = layout.operator("node.add_builtin_node_group", text=group_name)
+            props.group_name = group_name
+
+    yield NodeItemCustom(draw=draw_builtin_node_groups)
 
 # only show input/output nodes inside node groups
 def group_input_output_item_poll(context):

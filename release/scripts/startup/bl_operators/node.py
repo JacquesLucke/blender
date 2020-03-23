@@ -37,6 +37,7 @@ from builtin_node_groups import (
     export_builtin_node_group,
     get_builtin_group_items_cb,
     import_builtin_node_group_by_item_identifier,
+    import_builtin_node_group_with_dependencies,
 )
 
 class NodeSetting(PropertyGroup):
@@ -335,6 +336,26 @@ class NODE_OT_import_group_template_search(bpy.types.Operator):
             import_builtin_node_group_by_item_identifier(self.item)
             return {'FINISHED'}
 
+class NODE_OT_add_builtin_node_group(bpy.types.Operator):
+    bl_idname = "node.add_builtin_node_group"
+    bl_label = "Add Builtin Node Group"
+
+    group_name: StringProperty()
+
+    def invoke(self, context, event):
+        node_tree = context.space_data.edit_tree
+        for node in node_tree.nodes:
+            node.select = False
+
+        group = import_builtin_node_group_with_dependencies(self.group_name)
+        group_node = node_tree.nodes.new("SimulationNodeGroup")
+        group_node.node_tree = group
+        group_node.select = True
+        node_tree.nodes.active = group_node
+
+        bpy.ops.node.translate_attach('INVOKE_DEFAULT')
+        return {'FINISHED'}
+
 classes = (
     NodeSetting,
 
@@ -345,4 +366,5 @@ classes = (
     NODE_OT_tree_path_parent,
     NODE_OT_export_group_template,
     NODE_OT_import_group_template_search,
+    NODE_OT_add_builtin_node_group,
 )
