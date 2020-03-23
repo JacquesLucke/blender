@@ -353,7 +353,7 @@ class NODE_OT_add_builtin_node_group(bpy.types.Operator):
         group_node.select = True
         node_tree.nodes.active = group_node
 
-        bpy.ops.node.translate_attach('INVOKE_DEFAULT')
+        bpy.ops.node.translate_attach_remove_on_cancel('INVOKE_DEFAULT')
         return {'FINISHED'}
 
 classes = (
