@@ -258,3 +258,33 @@ def get_json_data_for_all_groups_to_load(main_group_name):
 
     load(main_group_name)
     return json_data_by_group_name
+
+def export_builtin_node_group(group):
+    file_path = group_name_to_file_path(group.name)
+    save_group_as_json(group, file_path)
+
+def get_builtin_group_items_cb(node_tree_idname):
+    # TODO: save strings
+    def items_generator(self, context):
+        if not os.path.exists(builtin_node_group_directory):
+            return [('NONE', "None", "")]
+        items = []
+        for file_name in os.listdir(builtin_node_group_directory):
+            if not file_name.endswith(".json"):
+                continue
+            group_name = file_name_to_group_name(file_name)
+            items.append((file_name, group_name, ""))
+        if len(items) == 0:
+            items.append(('NONE', "None", ""))
+        return items
+    return items_generator
+
+def import_builtin_node_group_with_dependencies(group_name):
+    json_data_by_group_name = get_json_data_for_all_groups_to_load(group_name)
+    loaded_group_by_name = dict()
+
+    for group_name, json_data in json_data_by_group_name.items():
+        group = get_or_create_node_group(json_data, loaded_group_by_name, json_data_by_group_name)
+        loaded_group_by_name[group_name] = group
+
+    return loaded_group_by_name[group_name]

@@ -34,12 +34,10 @@ from bpy.props import (
     StringProperty,
 )
 from builtin_node_groups import (
-    builtin_node_group_directory,
-    group_name_to_file_path,
-    get_json_data_for_all_groups_to_load,
-    get_or_create_node_group,
-    save_group_as_json,
     file_name_to_group_name,
+    export_builtin_node_group,
+    get_builtin_group_items_cb,
+    import_builtin_node_group_with_dependencies,
 )
 
 class NodeSetting(PropertyGroup):
@@ -317,28 +315,7 @@ class NODE_OT_export_group_template(Operator):
 
     def execute(self, context):
         group = context.space_data.edit_tree
-        file_path = group_name_to_file_path(group.name)
-        save_group_as_json(group, file_path)
-        return {'FINISHED'}
-
-
-
-
-class NODE_OT_import_group_template(Operator):
-    bl_idname = "node.import_group_template"
-    bl_label = "Import Node Group Template"
-    bl_options = {'INTERNAL'}
-
-    group_name: StringProperty()
-
-    def execute(self, context):
-        json_data_by_group_name = get_json_data_for_all_groups_to_load(self.group_name)
-        loaded_group_by_name = dict()
-
-        for group_name, json_data in json_data_by_group_name.items():
-            group = get_or_create_node_group(json_data, loaded_group_by_name, json_data_by_group_name)
-            loaded_group_by_name[group_name] = group
-
+        export_builtin_node_group(group)
         return {'FINISHED'}
 
 class NODE_OT_import_group_template_search(bpy.types.Operator):
@@ -346,21 +323,7 @@ class NODE_OT_import_group_template_search(bpy.types.Operator):
     bl_label = "Import Node Group Template Search"
     bl_property = "item"
 
-    def get_group_name_items(self, context):
-        if not os.path.exists(builtin_node_group_directory):
-            return [('NONE', "None", "")]
-        items = []
-        for file_name in os.listdir(builtin_node_group_directory):
-            if not file_name.endswith(".json"):
-                continue
-            group_name = file_name_to_group_name(file_name)
-            items.append((file_name, group_name, ""))
-        if len(items) == 0:
-            items.append(('NONE', "None", ""))
-        return items
-
-
-    item: EnumProperty(items=get_group_name_items)
+    item: EnumProperty(items=get_builtin_group_items_cb("SimulationNodeTree"))
 
     def invoke(self, context, event):
         context.window_manager.invoke_search_popup(self)
@@ -371,7 +334,7 @@ class NODE_OT_import_group_template_search(bpy.types.Operator):
             return {'CANCELLED'}
         else:
             group_name = file_name_to_group_name(self.item)
-            bpy.ops.node.import_group_template(group_name=group_name)
+            import_builtin_node_group_with_dependencies(group_name)
             return {'FINISHED'}
 
 classes = (
@@ -383,6 +346,5 @@ classes = (
     NODE_OT_collapse_hide_unused_toggle,
     NODE_OT_tree_path_parent,
     NODE_OT_export_group_template,
-    NODE_OT_import_group_template,
     NODE_OT_import_group_template_search,
 )
