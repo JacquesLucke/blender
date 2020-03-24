@@ -3050,7 +3050,7 @@ static int acf_dssimulation_setting_flag(bAnimContext *UNUSED(ac),
 
   switch (setting) {
     case ACHANNEL_SETTING_EXPAND: /* expanded */
-      return VO_DS_EXPAND;
+      return SIM_DS_EXPAND;
 
     case ACHANNEL_SETTING_MUTE: /* mute (only in NLA) */
       return ADT_NLA_EVAL_OFF;
