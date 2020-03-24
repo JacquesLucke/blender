@@ -681,7 +681,7 @@ static const char *template_id_browse_tip(const StructRNA *type)
         return N_("Browse Point Cloud Data to be linked");
       case ID_VO:
         return N_("Browse Volume Data to be linked");
-      case ID_SI:
+      case ID_SIM:
         return N_("Browser Simulation to be linked");
     }
   }

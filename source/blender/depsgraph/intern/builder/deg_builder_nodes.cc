@@ -481,7 +481,7 @@ void DepsgraphNodeBuilder::build_id(ID *id)
     case ID_SCE:
       build_scene_parameters((Scene *)id);
       break;
-    case ID_SI:
+    case ID_SIM:
       build_simulation((Simulation *)id);
       break;
     default:

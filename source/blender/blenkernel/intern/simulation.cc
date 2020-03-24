@@ -68,17 +68,17 @@ static void simulation_free_data(ID *id)
 
 void *BKE_simulation_add(Main *bmain, const char *name)
 {
-  Simulation *simulation = (Simulation *)BKE_libblock_alloc(bmain, ID_SI, name, 0);
+  Simulation *simulation = (Simulation *)BKE_libblock_alloc(bmain, ID_SIM, name, 0);
 
   simulation_init_data(&simulation->id);
 
   return simulation;
 }
 
-IDTypeInfo IDType_ID_SI = {
-    /* id_code */ ID_SI,
-    /* id_filter */ FILTER_ID_SI,
-    /* main_listbase_index */ INDEX_ID_SI,
+IDTypeInfo IDType_ID_SIM = {
+    /* id_code */ ID_SIM,
+    /* id_filter */ FILTER_ID_SIM,
+    /* main_listbase_index */ INDEX_ID_SIM,
     /* struct_size */ sizeof(Simulation),
     /* name */ "Simulation",
     /* name_plural */ "simulations",

@@ -5506,7 +5506,7 @@ static void rna_def_fileselect_idfilter(BlenderRNA *brna)
 #  endif
       {FILTER_ID_SCE, "filter_scene", ICON_SCENE_DATA, "Scenes", "Show Scene data-blocks"},
 #  ifdef WITH_SIMULATION_DATA_BLOCK_RNA
-      {FILTER_ID_SI,
+      {FILTER_ID_SIM,
        "filter_simulation",
        ICON_PHYSICS,
        "Simulations",

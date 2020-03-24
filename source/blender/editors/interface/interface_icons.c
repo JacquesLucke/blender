@@ -2326,7 +2326,7 @@ int UI_idcode_icon_get(const int idcode)
       return ICON_WORLD_DATA;
     case ID_WS:
       return ICON_WORKSPACE;
-    case ID_SI:
+    case ID_SIM:
       /* TODO: Use correct icon. */
       return ICON_PHYSICS;
     default:

@@ -774,7 +774,7 @@ static void outliner_add_id_contents(SpaceOutliner *soops,
         outliner_add_element(soops, &te->subtree, volume, te, TSE_ANIM_DATA, 0);
       break;
     }
-    case ID_SI: {
+    case ID_SIM: {
       Simulation *simulation = (Simulation *)id;
       if (outliner_animdata_test(simulation->adt)) {
         outliner_add_element(soops, &te->subtree, simulation, te, TSE_ANIM_DATA, 0);
