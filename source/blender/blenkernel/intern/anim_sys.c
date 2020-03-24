@@ -113,7 +113,7 @@ bool id_type_can_have_animdata(const short id_type)
     case ID_HA:
     case ID_PT:
     case ID_VO:
-    case ID_SI:
+    case ID_SIM:
       return true;
 
     /* no AnimData */

@@ -3811,7 +3811,7 @@ static void write_volume(WriteData *wd, Volume *volume)
 static void write_simulation(WriteData *wd, Simulation *simulation)
 {
   if (simulation->id.us > 0 || wd->use_memfile) {
-    writestruct(wd, ID_SI, Simulation, 1, simulation);
+    writestruct(wd, ID_SIM, Simulation, 1, simulation);
     write_iddata(wd, &simulation->id);
 
     if (simulation->adt) {
@@ -4134,7 +4134,7 @@ static bool write_file_handle(Main *mainvar,
           case ID_VO:
             write_volume(wd, (Volume *)id);
             break;
-          case ID_SI:
+          case ID_SIM:
             write_simulation(wd, (Simulation *)id);
             break;
           case ID_LI:

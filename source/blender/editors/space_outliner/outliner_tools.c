@@ -160,7 +160,7 @@ static void set_operation_types(SpaceOutliner *soops,
           case ID_HA:
           case ID_PT:
           case ID_VO:
-          case ID_SI:
+          case ID_SIM:
             is_standard_id = true;
             break;
           case ID_WM:

@@ -9244,8 +9244,8 @@ static const char *dataname(short id_code)
       return "Data from PT";
     case ID_VO:
       return "Data from VO";
-    case ID_SI:
-      return "Data from SI";
+    case ID_SIM:
+      return "Data from SIM";
   }
   return "Data from Lib Block";
 }
@@ -9680,7 +9680,7 @@ static BHead *read_libblock(FileData *fd,
     case ID_VO:
       direct_link_volume(fd, (Volume *)id);
       break;
-    case ID_SI:
+    case ID_SIM:
       direct_link_simulation(fd, (Simulation *)id);
       break;
   }
@@ -10044,7 +10044,7 @@ static void lib_link_all(FileData *fd, Main *bmain)
       case ID_AC:
         lib_link_action(fd, bmain, (bAction *)id);
         break;
-      case ID_SI:
+      case ID_SIM:
         lib_link_simulation(fd, bmain, (Simulation *)id);
         break;
       case ID_IP:
@@ -11602,7 +11602,7 @@ void BLO_expand_main(void *fdhandle, Main *mainvar)
             case ID_VO:
               expand_volume(fd, mainvar, (Volume *)id);
               break;
-            case ID_SI:
+            case ID_SIM:
               expand_simulation(fd, mainvar, (Simulation *)id);
               break;
             default:

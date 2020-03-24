@@ -800,7 +800,7 @@ RNA_MAIN_ID_TAG_FUNCS_DEF(pointclouds, pointclouds, ID_PT)
 #  endif
 RNA_MAIN_ID_TAG_FUNCS_DEF(volumes, volumes, ID_VO)
 #  ifdef WITH_SIMULATION_DATA_BLOCK_RNA
-RNA_MAIN_ID_TAG_FUNCS_DEF(simulations, simulations, ID_SI)
+RNA_MAIN_ID_TAG_FUNCS_DEF(simulations, simulations, ID_SIM)
 #  endif
 
 #  undef RNA_MAIN_ID_TAG_FUNCS_DEF
