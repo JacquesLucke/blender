@@ -1275,6 +1275,7 @@ static void library_foreach_ID_link(Main *bmain,
         }
         break;
       }
+
       case ID_SCR: {
         if (data.flag & IDWALK_INCLUDE_UI) {
           bScreen *screen = (bScreen *)id;
