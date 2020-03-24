@@ -310,11 +310,11 @@ def liquid_step_mesh_$ID$():\n\
     \n\
     # no upres: just use the loaded grids\n\
     if upres_sm$ID$ <= 1:\n\
-        phi_sm$ID$.copyFrom(phiTmp_s$ID$)\n\
+        phi_sm$ID$.copyFrom(phi_s$ID$)\n\
     \n\
     # with upres: recreate grids\n\
     else:\n\
-        interpolateGrid(target=phi_sm$ID$, source=phiTmp_s$ID$)\n\
+        interpolateGrid(target=phi_sm$ID$, source=phi_s$ID$)\n\
     \n\
     # create surface\n\
     pp_sm$ID$.readParticles(pp_s$ID$)\n\
@@ -361,7 +361,6 @@ def liquid_step_particles_$ID$():\n\
         interpolateGrid(target=phi_sp$ID$, source=phiTmp_s$ID$)\n\
         interpolateGrid(target=phiOut_sp$ID$, source=phiOut_s$ID$)\n\
     \n\
-    flags_sp$ID$.initDomain(boundaryWidth=1 if using_fractions_s$ID$ else 0, phiWalls=phiObs_sp$ID$, outflow=boundConditions_s$ID$)\n\
     setObstacleFlags(flags=flags_sp$ID$, phiObs=phiObs_sp$ID$, phiOut=None, phiIn=None) # phiIn not needed\n\
     flags_sp$ID$.updateFromLevelset(levelset=phi_sp$ID$)\n\
     \n\
