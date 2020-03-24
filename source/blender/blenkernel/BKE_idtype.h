@@ -165,6 +165,7 @@ extern IDTypeInfo IDType_ID_LP;
 extern IDTypeInfo IDType_ID_HA;
 extern IDTypeInfo IDType_ID_PT;
 extern IDTypeInfo IDType_ID_VO;
+extern IDTypeInfo IDType_ID_SI;
 
 extern IDTypeInfo IDType_ID_LINK_PLACEHOLDER;
 

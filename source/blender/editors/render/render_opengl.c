@@ -631,6 +631,7 @@ static int gather_frames_to_render_for_id(LibraryIDLinkCallbackData *cb_data)
     case ID_HA:  /* Hair */
     case ID_PT:  /* PointCloud */
     case ID_VO:  /* Volume */
+    case ID_SI:  /* Simulation */
       break;
 
       /* Blacklist: */

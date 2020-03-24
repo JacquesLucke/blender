@@ -610,6 +610,9 @@ NodeType geometry_tag_to_component(const ID *id)
       return NodeType::PARAMETERS;
     case ID_MSK:
       return NodeType::PARAMETERS;
+    case ID_SI:
+      /* TODO */
+      break;
     default:
       break;
   }

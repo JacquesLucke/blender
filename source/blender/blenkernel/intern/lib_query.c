@@ -49,6 +49,7 @@
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_sequence_types.h"
+#include "DNA_simulation_types.h"
 #include "DNA_sound_types.h"
 #include "DNA_space_types.h"
 #include "DNA_speaker_types.h"
@@ -1274,6 +1275,10 @@ static void library_foreach_ID_link(Main *bmain,
         }
         break;
       }
+      case ID_SI: {
+        /* TODO */
+        break;
+      }
 
       case ID_SCR: {
         if (data.flag & IDWALK_INCLUDE_UI) {
@@ -1446,6 +1451,9 @@ bool BKE_library_id_can_use_idtype(ID *id_owner, const short id_type_used)
       return ELEM(id_type_used, ID_MA);
     case ID_VO:
       return ELEM(id_type_used, ID_MA);
+    case ID_SI:
+      /* TODO */
+      return false;
     case ID_IM:
     case ID_VF:
     case ID_TXT:

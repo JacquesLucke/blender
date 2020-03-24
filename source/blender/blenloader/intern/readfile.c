@@ -86,6 +86,7 @@
 #include "DNA_sdna_types.h"
 #include "DNA_sequence_types.h"
 #include "DNA_shader_fx_types.h"
+#include "DNA_simulation_types.h"
 #include "DNA_sound_types.h"
 #include "DNA_space_types.h"
 #include "DNA_speaker_types.h"
@@ -146,6 +147,7 @@
 #include "BKE_screen.h"
 #include "BKE_sequencer.h"
 #include "BKE_shader_fx.h"
+#include "BKE_simulation.h"
 #include "BKE_sound.h"
 #include "BKE_volume.h"
 #include "BKE_workspace.h"
@@ -9107,6 +9109,24 @@ static void direct_link_volume(FileData *fd, Volume *volume)
 /** \} */
 
 /* -------------------------------------------------------------------- */
+/** \name Read ID: Simulation
+ * \{ */
+
+static void lib_link_simulation(FileData *UNUSED(fd),
+                                Main *UNUSED(main),
+                                Simulation *UNUSED(simulation))
+{
+}
+
+static void direct_link_simulation(FileData *fd, Simulation *simulation)
+{
+  simulation->adt = newdataadr(fd, simulation->adt);
+  direct_link_animdata(fd, simulation->adt);
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
 /** \name Read Library Data Block
  * \{ */
 
@@ -9224,6 +9244,8 @@ static const char *dataname(short id_code)
       return "Data from PT";
     case ID_VO:
       return "Data from VO";
+    case ID_SI:
+      return "Data from SI";
   }
   return "Data from Lib Block";
 }
@@ -9658,6 +9680,9 @@ static BHead *read_libblock(FileData *fd,
     case ID_VO:
       direct_link_volume(fd, (Volume *)id);
       break;
+    case ID_SI:
+      direct_link_simulation(fd, (Simulation *)id);
+      break;
   }
 
   oldnewmap_free_unused(fd->datamap);
@@ -10018,6 +10043,9 @@ static void lib_link_all(FileData *fd, Main *bmain)
         break;
       case ID_AC:
         lib_link_action(fd, bmain, (bAction *)id);
+        break;
+      case ID_SI:
+        lib_link_simulation(fd, bmain, (Simulation *)id);
         break;
       case ID_IP:
         /* XXX deprecated... still needs to be maintained for version patches still. */
@@ -11438,6 +11466,13 @@ static void expand_volume(FileData *fd, Main *mainvar, Volume *volume)
   }
 }
 
+static void expand_simulation(FileData *fd, Main *mainvar, Simulation *simulation)
+{
+  if (simulation->adt) {
+    expand_animdata(fd, mainvar, simulation->adt);
+  }
+}
+
 /**
  * Set the callback func used over all ID data found by \a BLO_expand_main func.
  *
@@ -11566,6 +11601,9 @@ void BLO_expand_main(void *fdhandle, Main *mainvar)
               break;
             case ID_VO:
               expand_volume(fd, mainvar, (Volume *)id);
+              break;
+            case ID_SI:
+              expand_simulation(fd, mainvar, (Simulation *)id);
               break;
             default:
               break;

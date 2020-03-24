@@ -133,6 +133,7 @@
 #include "DNA_sdna_types.h"
 #include "DNA_sequence_types.h"
 #include "DNA_shader_fx_types.h"
+#include "DNA_simulation_types.h"
 #include "DNA_sound_types.h"
 #include "DNA_space_types.h"
 #include "DNA_speaker_types.h"
@@ -3807,6 +3808,18 @@ static void write_volume(WriteData *wd, Volume *volume)
   }
 }
 
+static void write_simulation(WriteData *wd, Simulation *simulation)
+{
+  if (simulation->id.us > 0 || wd->use_memfile) {
+    writestruct(wd, ID_SI, Simulation, 1, simulation);
+    write_iddata(wd, &simulation->id);
+
+    if (simulation->adt) {
+      write_animdata(wd, simulation->adt);
+    }
+  }
+}
+
 /* Keep it last of write_foodata functions. */
 static void write_libraries(WriteData *wd, Main *main)
 {
@@ -4120,6 +4133,9 @@ static bool write_file_handle(Main *mainvar,
             break;
           case ID_VO:
             write_volume(wd, (Volume *)id);
+            break;
+          case ID_SI:
+            write_simulation(wd, (Simulation *)id);
             break;
           case ID_LI:
             /* Do nothing, handled below - and should never be reached. */
