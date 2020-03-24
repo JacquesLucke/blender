@@ -1275,11 +1275,6 @@ static void library_foreach_ID_link(Main *bmain,
         }
         break;
       }
-      case ID_SI: {
-        /* TODO */
-        break;
-      }
-
       case ID_SCR: {
         if (data.flag & IDWALK_INCLUDE_UI) {
           bScreen *screen = (bScreen *)id;
@@ -1299,6 +1294,7 @@ static void library_foreach_ID_link(Main *bmain,
       case ID_PAL:
       case ID_PC:
       case ID_CF:
+      case ID_SI:
         break;
 
       /* Deprecated. */
