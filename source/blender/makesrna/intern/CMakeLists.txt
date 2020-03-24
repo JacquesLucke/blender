@@ -103,7 +103,7 @@ if(WITH_NEW_OBJECT_TYPES)
   )
 endif()
 
-if (WITH_SIMULATION_DATA_BLOCK_RNA)
+if (WITH_NEW_SIMULATION_TYPE)
   list(APPEND DEFSRC
     rna_simulation.c
   )
@@ -349,8 +349,8 @@ if(WITH_NEW_OBJECT_TYPES)
   add_definitions(-DWITH_NEW_OBJECT_TYPES)
 endif()
 
-if (WITH_SIMULATION_DATA_BLOCK_RNA)
-  add_definitions(-DWITH_SIMULATION_DATA_BLOCK_RNA)
+if (WITH_NEW_SIMULATION_TYPE)
+  add_definitions(-DWITH_NEW_SIMULATION_TYPE)
 endif()
 
 

@@ -5505,7 +5505,7 @@ static void rna_def_fileselect_idfilter(BlenderRNA *brna)
        "Show/hide Point Cloud data-blocks"},
 #  endif
       {FILTER_ID_SCE, "filter_scene", ICON_SCENE_DATA, "Scenes", "Show Scene data-blocks"},
-#  ifdef WITH_SIMULATION_DATA_BLOCK_RNA
+#  ifdef WITH_NEW_SIMULATION_TYPE
       {FILTER_ID_SIM,
        "filter_simulation",
        ICON_PHYSICS,

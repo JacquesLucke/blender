@@ -324,8 +324,8 @@ option(WITH_NEW_OBJECT_TYPES "Enable new hair and pointcloud objects (use for de
 mark_as_advanced(WITH_NEW_OBJECT_TYPES)
 
 # New simulation data block
-option(WITH_SIMULATION_DATA_BLOCK_RNA "Enable simulation data block (use for development only, don't save in files)" OFF)
-mark_as_advanced(WITH_SIMULATION_DATA_BLOCK_RNA)
+option(WITH_NEW_SIMULATION_TYPE "Enable simulation data block (use for development only, don't save in files)" OFF)
+mark_as_advanced(WITH_NEW_SIMULATION_TYPE)
 
 # Misc
 if(WIN32)

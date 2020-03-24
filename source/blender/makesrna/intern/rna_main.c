@@ -134,7 +134,7 @@ RNA_MAIN_LISTBASE_FUNCS_DEF(pointclouds)
 RNA_MAIN_LISTBASE_FUNCS_DEF(scenes)
 RNA_MAIN_LISTBASE_FUNCS_DEF(screens)
 RNA_MAIN_LISTBASE_FUNCS_DEF(shapekeys)
-#  ifdef WITH_SIMULATION_DATA_BLOCK_RNA
+#  ifdef WITH_NEW_SIMULATION_TYPE
 RNA_MAIN_LISTBASE_FUNCS_DEF(simulations)
 #  endif
 RNA_MAIN_LISTBASE_FUNCS_DEF(sounds)
@@ -405,7 +405,7 @@ void RNA_def_main(BlenderRNA *brna)
        "Volumes",
        "Volume data-blocks",
        RNA_def_main_volumes},
-#  ifdef WITH_SIMULATION_DATA_BLOCK_RNA
+#  ifdef WITH_NEW_SIMULATION_TYPE
       {"simulations",
        "Simulation",
        "rna_Main_simulations_begin",
