@@ -740,6 +740,7 @@ static Volume *rna_Main_volumes_new(Main *bmain, const char *name)
   return volume;
 }
 
+#  ifdef WITH_SIMULATION_DATA_BLOCK_RNA
 static Simulation *rna_Main_simulations_new(Main *bmain, const char *name)
 {
   char safe_name[MAX_ID_NAME - 2];
@@ -749,6 +750,7 @@ static Simulation *rna_Main_simulations_new(Main *bmain, const char *name)
   id_us_min(&simulation->id);
   return simulation;
 }
+#  endif
 
 /* tag functions, all the same */
 #  define RNA_MAIN_ID_TAG_FUNCS_DEF(_func_name, _listbase_name, _id_type) \
@@ -797,7 +799,9 @@ RNA_MAIN_ID_TAG_FUNCS_DEF(hairs, hairs, ID_HA)
 RNA_MAIN_ID_TAG_FUNCS_DEF(pointclouds, pointclouds, ID_PT)
 #  endif
 RNA_MAIN_ID_TAG_FUNCS_DEF(volumes, volumes, ID_VO)
+#  ifdef WITH_SIMULATION_DATA_BLOCK_RNA
 RNA_MAIN_ID_TAG_FUNCS_DEF(simulations, simulations, ID_SI)
+#  endif
 
 #  undef RNA_MAIN_ID_TAG_FUNCS_DEF
 

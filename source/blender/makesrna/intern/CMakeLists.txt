@@ -77,7 +77,6 @@ set(DEFSRC
   rna_sculpt_paint.c
   rna_sequencer.c
   rna_shader_fx.c
-  rna_simulation.c
   rna_sound.c
   rna_space.c
   rna_speaker.c
@@ -103,6 +102,13 @@ if(WITH_NEW_OBJECT_TYPES)
     rna_pointcloud.c
   )
 endif()
+
+if (WITH_SIMULATION_DATA_BLOCK_RNA)
+  list(APPEND DEFSRC
+    rna_simulation.c
+  )
+endif()
+
 
 set(APISRC
   rna_action_api.c
@@ -342,6 +348,11 @@ endif()
 if(WITH_NEW_OBJECT_TYPES)
   add_definitions(-DWITH_NEW_OBJECT_TYPES)
 endif()
+
+if (WITH_SIMULATION_DATA_BLOCK_RNA)
+  add_definitions(-DWITH_SIMULATION_DATA_BLOCK_RNA)
+endif()
+
 
 # Build makesrna executable
 blender_include_dirs(
