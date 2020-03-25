@@ -253,18 +253,20 @@ CollidersSocket = make_mockup_socket(
     "fn_CollidersSocket", (0.4, 0.6, 0.8), "DIAMOND")
 MeshSocket = make_mockup_socket(
     "fn_MeshSocket", (0.4, 0.8, 0.3), "CIRCLE")
+GeometrySocket = make_mockup_socket(
+    "fn_GeometrySocket", (0.4, 0.9, 0.2), "CIRCLE")
 
 
-class GeometrySocket(bpy.types.NodeSocket, BaseSocket):
-    bl_idname = "fn_GeometrySocket"
-    bl_label = "Geometry Socket"
-    color = (0.5, 0.5, 0.5, 1)
-    default_shape = "CIRCLE"
+# class GeometrySocket(bpy.types.NodeSocket, BaseSocket):
+#     bl_idname = "fn_GeometrySocket"
+#     bl_label = "Geometry Socket"
+#     color = (0.5, 0.5, 0.5, 1)
+#     default_shape = "CIRCLE"
 
-    value: PointerProperty(type=bpy.types.Object)
+#     value: PointerProperty(type=bpy.types.Object)
 
-    def draw_self(self, layout, node, text):
-        if not (self.is_linked or self.is_output):
-            layout.prop(self, "value", text=text)
-        else:
-            layout.label(text=text)
+#     def draw_self(self, layout, node, text):
+#         if not (self.is_linked or self.is_output):
+#             layout.prop(self, "value", text=text)
+#         else:
+#             layout.label(text=text)
