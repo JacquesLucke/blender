@@ -71,3 +71,38 @@ class SetGeometryAttributeNode(bpy.types.Node, GeometryNode):
         builder.fixed_input("selection", "Selection", "Text")
         builder.fixed_input("value", "Value", "Text")
         builder.mockup_output("geometry", "Geometry", "fn_GeometrySocket")
+
+class CubeMeshNode(bpy.types.Node, GeometryNode):
+    bl_idname = "fn_CubeMeshNode"
+    bl_label = "Cube Mesh"
+
+    def declaration(self, builder: NodeBuilder):
+        builder.fixed_input("size", "Size", "Float", default=1)
+        builder.mockup_output("geometry", "Geometry", "fn_GeometrySocket")
+
+class SelectByNormalNode(bpy.types.Node, GeometryNode):
+    bl_idname = "fn_SelectByNormalNode"
+    bl_label = "Select by Normal"
+
+    mode: EnumProperty(items=mesh_element_items)
+
+    def draw(self, layout):
+        layout.prop(self, "mode", text="", expand=True)
+
+    def declaration(self, builder: NodeBuilder):
+        builder.mockup_input("geometry", "Geometry", "fn_GeometrySocket")
+        builder.fixed_input("normal", "Normal", "Vector", default=(0, 0, 1))
+        builder.fixed_input("threshold", "Threshold", "Float", default=0.2)
+        builder.mockup_output("geometry", "Geometry", "fn_GeometrySocket")
+        builder.fixed_output("selection", "Selection", "Text")
+
+class ExtrudeFacesNode(bpy.types.Node, GeometryNode):
+    bl_idname = "fn_ExtrudeFacesNode"
+    bl_label = "Extrude Faces"
+
+    def declaration(self, builder: NodeBuilder):
+        builder.mockup_input("geometry", "Geometry", "fn_GeometrySocket")
+        builder.fixed_input("strength", "Strength", "Float", default=0.2)
+        builder.fixed_input("selection", "Selection", "Text")
+        builder.mockup_output("geometry", "Geometry", "fn_GeometrySocket")
+        builder.fixed_output("new_faces", "New Faces", "Text")
