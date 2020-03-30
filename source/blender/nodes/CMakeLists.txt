@@ -140,6 +140,9 @@ set(SRC
   function/nodes/node_fn_separate_rgb.cc
   function/nodes/node_fn_separate_xyz.cc
   function/nodes/node_fn_surface_color.cc
+  function/nodes/node_fn_instance_identifier.cc
+  function/nodes/node_fn_string_concatenation.cc
+  function/nodes/node_fn_object_transforms.cc
   function/nodes/node_fn_surface_normal.cc
   function/nodes/node_fn_surface_position.cc
   function/nodes/node_fn_surface_weight.cc

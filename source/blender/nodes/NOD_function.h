@@ -20,6 +20,9 @@ void register_node_type_fn_surface_position(void);
 void register_node_type_fn_surface_weight(void);
 void register_node_type_fn_boolean_math(void);
 void register_node_type_fn_float_compare(void);
+void register_node_type_fn_instance_identifier(void);
+void register_node_type_fn_string_concatenation(void);
+void register_node_type_fn_object_transforms(void);
 
 #ifdef __cplusplus
 }

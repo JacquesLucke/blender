@@ -286,6 +286,9 @@ DefNode(FunctionNode, FN_NODE_SURFACE_POSITION, 0, "SURFACE_POSITION", SurfacePo
 DefNode(FunctionNode, FN_NODE_SURFACE_WEIGHT, 0, "SURFACE_WEIGHT", SurfaceWeight, "Surface Weight", "")
 DefNode(FunctionNode, FN_NODE_BOOLEAN_MATH, def_boolean_math, "BOOLEAN_MATH", BooleanMath, "Boolean Math", "");
 DefNode(FunctionNode, FN_NODE_FLOAT_COMPARE, def_float_compare, "FLOAT_COMPARE", FloatCompare, "Float Compare", "");
+DefNode(FunctionNode, FN_NODE_INSTANCE_IDENTIFIER, 0, "INSTANCE_IDENTIFIER", InstanceIdentifier, "Instance Identifier", "");
+DefNode(FunctionNode, FN_NODE_STRING_CONCATENATION, 0, "STRING_CONCATENATION", StringConcatenation, "String Concatenation", "");
+DefNode(FunctionNode, FN_NODE_OBJECT_TRANSFORMS, 0, "OBJECT_TRANSFORMS", ObjectTransforms, "Object Transforms", "");
 
 /* undefine macros */
 #undef DefNode

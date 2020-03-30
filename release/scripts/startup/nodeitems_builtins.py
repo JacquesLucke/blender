@@ -527,6 +527,9 @@ simulation_node_categories = [
         NodeItem("FunctionNodeVectorMath"),
         NodeItem("FunctionNodeBooleanMath"),
         NodeItem("FunctionNodeFloatCompare"),
+        NodeItem("FunctionNodeInstanceIdentifier"),
+        NodeItem("FunctionNodeStringConcatenation"),
+        NodeItem("FunctionNodeObjectTransforms"),
     ]),
     FunctionNodeCategory("SURFACE", "Surface", items=[
         NodeItem("FunctionNodeClosestSurface"),

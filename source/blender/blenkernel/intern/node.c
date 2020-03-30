@@ -4240,6 +4240,9 @@ static void registerFunctionNodes(void)
   register_node_type_fn_surface_weight();
   register_node_type_fn_boolean_math();
   register_node_type_fn_float_compare();
+  register_node_type_fn_instance_identifier();
+  register_node_type_fn_string_concatenation();
+  register_node_type_fn_object_transforms();
 }
 
 void init_nodesystem(void)
