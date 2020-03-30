@@ -1309,6 +1309,12 @@ enum {
   NODE_VECTOR_MATH_TANGENT = 23,
 };
 
+enum {
+  NODE_BOOLEAN_MATH_AND = 0,
+  NODE_BOOLEAN_MATH_OR = 1,
+  NODE_BOOLEAN_MATH_NOT = 2,
+};
+
 /* Clamp node types. */
 enum {
   NODE_CLAMP_MINMAX = 0,

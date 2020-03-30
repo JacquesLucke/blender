@@ -284,8 +284,9 @@ DefNode(FunctionNode, FN_NODE_SURFACE_COLOR, 0, "SURFACE_COLOR", SurfaceColor, "
 DefNode(FunctionNode, FN_NODE_SURFACE_NORMAL, 0, "SURFACE_NORMAL", SurfaceNormal, "Surface Normal", "")
 DefNode(FunctionNode, FN_NODE_SURFACE_POSITION, 0, "SURFACE_POSITION", SurfacePosition, "Surface Position", "")
 DefNode(FunctionNode, FN_NODE_SURFACE_WEIGHT, 0, "SURFACE_WEIGHT", SurfaceWeight, "Surface Weight", "")
+DefNode(FunctionNode, FN_NODE_BOOLEAN_MATH, def_boolean_math, "BOOLEAN_MATH", BooleanMath, "Boolean Math", "");
 
 /* undefine macros */
 #undef DefNode
 
-    /* clang-format on */
+/* clang-format on */

@@ -18,6 +18,7 @@ void register_node_type_fn_surface_color(void);
 void register_node_type_fn_surface_normal(void);
 void register_node_type_fn_surface_position(void);
 void register_node_type_fn_surface_weight(void);
+void register_node_type_fn_boolean_math(void);
 
 #ifdef __cplusplus
 }

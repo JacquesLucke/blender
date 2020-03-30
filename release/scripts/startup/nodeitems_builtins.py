@@ -525,6 +525,7 @@ simulation_node_categories = [
         NodeItem("FunctionNodeSeparateHSV"),
         NodeItem("FunctionNodeFloatMath"),
         NodeItem("FunctionNodeVectorMath"),
+        NodeItem("FunctionNodeBooleanMath"),
     ]),
     FunctionNodeCategory("SURFACE", "Surface", items=[
         NodeItem("FunctionNodeClosestSurface"),

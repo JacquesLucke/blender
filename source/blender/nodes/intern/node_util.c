@@ -225,6 +225,14 @@ void node_vector_math_update(bNodeTree *UNUSED(ntree), bNode *node)
   }
 }
 
+void node_boolean_math_update(bNodeTree *UNUSED(ntree), bNode *node)
+{
+  bNodeSocket *sockB = BLI_findlink(&node->inputs, 1);
+
+  nodeSetSocketAvailability(sockB,
+                            ELEM(node->custom1, NODE_BOOLEAN_MATH_AND, NODE_BOOLEAN_MATH_OR));
+}
+
 /**** Labels ****/
 
 void node_blend_label(bNodeTree *UNUSED(ntree), bNode *node, char *label, int maxlen)
@@ -268,6 +276,16 @@ void node_filter_label(bNodeTree *UNUSED(ntree), bNode *node, char *label, int m
 {
   const char *name;
   bool enum_label = RNA_enum_name(rna_enum_node_filter_items, node->custom1, &name);
+  if (!enum_label) {
+    name = "Unknown";
+  }
+  BLI_strncpy(label, IFACE_(name), maxlen);
+}
+
+void node_boolean_math_label(bNodeTree *UNUSED(ntree), bNode *node, char *label, int maxlen)
+{
+  const char *name;
+  bool enum_label = RNA_enum_name(rna_enum_node_boolean_math_items, node->custom1, &name);
   if (!enum_label) {
     name = "Unknown";
   }

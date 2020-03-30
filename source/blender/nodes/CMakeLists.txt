@@ -129,6 +129,7 @@ set(SRC
   composite/node_composite_tree.c
   composite/node_composite_util.c
 
+  function/nodes/node_fn_boolean_math.cc
   function/nodes/node_fn_closest_surface.cc
   function/nodes/node_fn_combine_hsv.cc
   function/nodes/node_fn_combine_rgb.cc

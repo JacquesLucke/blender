@@ -3169,6 +3169,11 @@ static void node_function_buts_vector_math(uiLayout *layout, bContext *UNUSED(C)
   uiItemR(layout, ptr, "operation", 0, "", ICON_NONE);
 }
 
+static void node_function_buts_boolean_math(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+{
+  uiItemR(layout, ptr, "operation", 0, "", ICON_NONE);
+}
+
 static void node_function_set_butfunc(bNodeType *ntype)
 {
   switch (ntype->type) {
@@ -3177,6 +3182,9 @@ static void node_function_set_butfunc(bNodeType *ntype)
       break;
     case FN_NODE_VECTOR_MATH:
       ntype->draw_buttons = node_function_buts_vector_math;
+      break;
+    case FN_NODE_BOOLEAN_MATH:
+      ntype->draw_buttons = node_function_buts_boolean_math;
       break;
   }
 }

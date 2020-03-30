@@ -4238,6 +4238,7 @@ static void registerFunctionNodes(void)
   register_node_type_fn_surface_normal();
   register_node_type_fn_surface_position();
   register_node_type_fn_surface_weight();
+  register_node_type_fn_boolean_math();
 }
 
 void init_nodesystem(void)
