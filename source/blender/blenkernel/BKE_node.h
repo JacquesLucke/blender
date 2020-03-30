@@ -1027,6 +1027,7 @@ void BKE_nodetree_remove_layer_n(struct bNodeTree *ntree,
 #define FN_NODE_SURFACE_WEIGHT 1111
 #define FN_NODE_CLOSEST_SURFACE 1112
 #define FN_NODE_BOOLEAN_MATH 1113
+#define FN_NODE_FLOAT_COMPARE 1114
 
 /* custom defines options for Material node */
 // #define SH_NODE_MAT_DIFF 1

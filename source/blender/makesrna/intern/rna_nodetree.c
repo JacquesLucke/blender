@@ -270,6 +270,40 @@ const EnumPropertyItem rna_enum_node_boolean_math_items[] = {
     {0, NULL, 0, NULL, NULL},
 };
 
+const EnumPropertyItem rna_enum_node_float_compare_items[] = {
+    {NODE_FLOAT_COMPARE_LESS_THAN,
+     "LESS_THAN",
+     0,
+     "A < B",
+     "True when the first input is smaller than second input"},
+    {NODE_FLOAT_COMPARE_LESS_EQUAL,
+     "LESS_EQUAL",
+     0,
+     "A <= B",
+     "True when the first input is smaller than the second input or equal"},
+    {NODE_FLOAT_COMPARE_GREATER_THAN,
+     "GREATER_THAN",
+     0,
+     "A > B",
+     "True when the first input is greater than the second input"},
+    {NODE_FLOAT_COMPARE_GREATER_EQUAL,
+     "GREATER_EQUAL",
+     0,
+     "A >= B",
+     "True when the first input is greater than the second input or equal"},
+    {NODE_FLOAT_COMPARE_EQUAL,
+     "EQUAL",
+     0,
+     "A = B",
+     "True when both inputs are approximately equal"},
+    {NODE_FLOAT_COMPARE_NOT_EQUAL,
+     "NOT_EQUAL",
+     0,
+     "A != B",
+     "True when both inputs are not approximately equal"},
+    {0, NULL, 0, NULL, NULL},
+};
+
 const EnumPropertyItem rna_enum_node_map_range_items[] = {
     {NODE_MAP_RANGE_LINEAR,
      "LINEAR",
@@ -4154,6 +4188,17 @@ static void def_boolean_math(StructRNA *srna)
   prop = RNA_def_property(srna, "operation", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_sdna(prop, NULL, "custom1");
   RNA_def_property_enum_items(prop, rna_enum_node_boolean_math_items);
+  RNA_def_property_ui_text(prop, "Operation", "");
+  RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_FunctionNode_socket_update");
+}
+
+static void def_float_compare(StructRNA *srna)
+{
+  PropertyRNA *prop;
+
+  prop = RNA_def_property(srna, "operation", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_sdna(prop, NULL, "custom1");
+  RNA_def_property_enum_items(prop, rna_enum_node_float_compare_items);
   RNA_def_property_ui_text(prop, "Operation", "");
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_FunctionNode_socket_update");
 }
