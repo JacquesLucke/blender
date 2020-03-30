@@ -3181,6 +3181,11 @@ static void node_function_buts_float_compare(uiLayout *layout,
   uiItemR(layout, ptr, "operation", 0, "", ICON_NONE);
 }
 
+static void node_function_buts_switch(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+{
+  uiItemR(layout, ptr, "data_type", 0, "", ICON_NONE);
+}
+
 static void node_function_set_butfunc(bNodeType *ntype)
 {
   switch (ntype->type) {
@@ -3195,6 +3200,9 @@ static void node_function_set_butfunc(bNodeType *ntype)
       break;
     case FN_NODE_FLOAT_COMPARE:
       ntype->draw_buttons = node_function_buts_float_compare;
+      break;
+    case FN_NODE_SWITCH:
+      ntype->draw_buttons = node_function_buts_switch;
       break;
   }
 }

@@ -4243,6 +4243,7 @@ static void registerFunctionNodes(void)
   register_node_type_fn_instance_identifier();
   register_node_type_fn_string_concatenation();
   register_node_type_fn_object_transforms();
+  register_node_type_fn_switch();
 }
 
 void init_nodesystem(void)

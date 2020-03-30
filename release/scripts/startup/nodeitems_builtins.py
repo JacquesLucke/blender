@@ -530,6 +530,7 @@ simulation_node_categories = [
         NodeItem("FunctionNodeInstanceIdentifier"),
         NodeItem("FunctionNodeStringConcatenation"),
         NodeItem("FunctionNodeObjectTransforms"),
+        NodeItem("FunctionNodeSwitch"),
     ]),
     FunctionNodeCategory("SURFACE", "Surface", items=[
         NodeItem("FunctionNodeClosestSurface"),

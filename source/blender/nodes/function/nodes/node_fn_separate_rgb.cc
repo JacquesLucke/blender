@@ -1,7 +1,7 @@
 #include "node_fn_util.h"
 
 static bNodeSocketTemplate fn_node_separate_rgb_in[] = {
-    {SOCK_RGBA, N_("Color")},
+    {SOCK_RGBA, N_("Color"), 0.8f, 0.8f, 0.8f, 1.0f},
     {-1, ""},
 };
 

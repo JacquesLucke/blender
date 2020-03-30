@@ -136,16 +136,17 @@ set(SRC
   function/nodes/node_fn_combine_xyz.cc
   function/nodes/node_fn_float_compare.cc
   function/nodes/node_fn_float_math.cc
+  function/nodes/node_fn_instance_identifier.cc
+  function/nodes/node_fn_object_transforms.cc
   function/nodes/node_fn_separate_hsv.cc
   function/nodes/node_fn_separate_rgb.cc
   function/nodes/node_fn_separate_xyz.cc
-  function/nodes/node_fn_surface_color.cc
-  function/nodes/node_fn_instance_identifier.cc
   function/nodes/node_fn_string_concatenation.cc
-  function/nodes/node_fn_object_transforms.cc
+  function/nodes/node_fn_surface_color.cc
   function/nodes/node_fn_surface_normal.cc
   function/nodes/node_fn_surface_position.cc
   function/nodes/node_fn_surface_weight.cc
+  function/nodes/node_fn_switch.cc
   function/nodes/node_fn_vector_math.cc
   function/node_fn_util.cc
 

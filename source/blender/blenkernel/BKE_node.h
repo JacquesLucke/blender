@@ -1031,6 +1031,7 @@ void BKE_nodetree_remove_layer_n(struct bNodeTree *ntree,
 #define FN_NODE_INSTANCE_IDENTIFIER 1115
 #define FN_NODE_STRING_CONCATENATION 1116
 #define FN_NODE_OBJECT_TRANSFORMS 1117
+#define FN_NODE_SWITCH 1118
 
 /* custom defines options for Material node */
 // #define SH_NODE_MAT_DIFF 1

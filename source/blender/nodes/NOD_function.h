@@ -23,6 +23,7 @@ void register_node_type_fn_float_compare(void);
 void register_node_type_fn_instance_identifier(void);
 void register_node_type_fn_string_concatenation(void);
 void register_node_type_fn_object_transforms(void);
+void register_node_type_fn_switch(void);
 
 #ifdef __cplusplus
 }

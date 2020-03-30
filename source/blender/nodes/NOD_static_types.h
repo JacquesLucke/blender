@@ -289,6 +289,7 @@ DefNode(FunctionNode, FN_NODE_FLOAT_COMPARE, def_float_compare, "FLOAT_COMPARE",
 DefNode(FunctionNode, FN_NODE_INSTANCE_IDENTIFIER, 0, "INSTANCE_IDENTIFIER", InstanceIdentifier, "Instance Identifier", "");
 DefNode(FunctionNode, FN_NODE_STRING_CONCATENATION, 0, "STRING_CONCATENATION", StringConcatenation, "String Concatenation", "");
 DefNode(FunctionNode, FN_NODE_OBJECT_TRANSFORMS, 0, "OBJECT_TRANSFORMS", ObjectTransforms, "Object Transforms", "");
+DefNode(FunctionNode, FN_NODE_SWITCH, def_fn_switch, "SWITCH", Switch, "Switch", "");
 
 /* undefine macros */
 #undef DefNode
