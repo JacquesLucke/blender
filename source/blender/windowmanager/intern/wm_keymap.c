@@ -911,9 +911,9 @@ wmKeyMap *WM_keymap_find_all_spaceid_or_empty(wmWindowManager *wm,
  * and filter the keys before sending to #wmOperatorType.modal callback.
  * \{ */
 
-wmKeyMap *WM_modalkeymap_add(wmKeyConfig *keyconf,
-                             const char *idname,
-                             const EnumPropertyItem *items)
+wmKeyMap *WM_modalkeymap_ensure(wmKeyConfig *keyconf,
+                                const char *idname,
+                                const EnumPropertyItem *items)
 {
   wmKeyMap *km = WM_keymap_ensure(keyconf, idname, 0, 0);
   km->flag |= KEYMAP_MODAL;
@@ -937,7 +937,7 @@ wmKeyMap *WM_modalkeymap_add(wmKeyConfig *keyconf,
   return km;
 }
 
-wmKeyMap *WM_modalkeymap_get(wmKeyConfig *keyconf, const char *idname)
+wmKeyMap *WM_modalkeymap_find(wmKeyConfig *keyconf, const char *idname)
 {
   wmKeyMap *km;
 
@@ -1900,6 +1900,8 @@ void WM_keyconfig_update(wmWindowManager *wm)
     addonmap = WM_keymap_list_find(&wm->addonconf->keymaps, km->idname, km->spaceid, km->regionid);
     usermap = WM_keymap_list_find(&U.user_keymaps, km->idname, km->spaceid, km->regionid);
 
+    /* For now only the default map defines modal key-maps,
+     * if we support modal keymaps for 'addonmap', these will need to be enabled too. */
     wm_user_modal_keymap_set_items(wm, defaultmap);
 
     /* add */

@@ -190,15 +190,16 @@ def liquid_adaptive_step_$ID$(framenr):\n\
     extrapolateLsSimple(phi=phiIn_s$ID$, distance=3)\n\
     phi_s$ID$.join(phiIn_s$ID$)\n\
     \n\
-    if using_obstacle_s$ID$:\n\
-        phi_s$ID$.subtract(o=phiObsIn_s$ID$, flags=flags_s$ID$, subtractType=FlagObstacle)\n\
-    \n\
     if using_outflow_s$ID$:\n\
         phiOut_s$ID$.join(phiOutIn_s$ID$)\n\
     \n\
     if using_fractions_s$ID$:\n\
         updateFractions(flags=flags_s$ID$, phiObs=phiObs_s$ID$, fractions=fractions_s$ID$, boundaryWidth=boundaryWidth_s$ID$, fracThreshold=fracThreshold_s$ID$)\n\
     setObstacleFlags(flags=flags_s$ID$, phiObs=phiObs_s$ID$, phiOut=phiOut_s$ID$, fractions=fractions_s$ID$, phiIn=phiIn_s$ID$)\n\
+    \n\
+    if using_obstacle_s$ID$:\n\
+        # TODO (sebbas): Enable flags check again, currently produces unstable particle behavior\n\
+        phi_s$ID$.subtract(o=phiObsIn_s$ID$) #, flags=flags_s$ID$, subtractType=FlagObstacle)\n\
     \n\
     # add initial velocity: set invel as source grid to ensure const vels in inflow region, sampling makes use of this\n\
     if using_invel_s$ID$:\n\
@@ -310,11 +311,11 @@ def liquid_step_mesh_$ID$():\n\
     \n\
     # no upres: just use the loaded grids\n\
     if upres_sm$ID$ <= 1:\n\
-        phi_sm$ID$.copyFrom(phiTmp_s$ID$)\n\
+        phi_sm$ID$.copyFrom(phi_s$ID$)\n\
     \n\
     # with upres: recreate grids\n\
     else:\n\
-        interpolateGrid(target=phi_sm$ID$, source=phiTmp_s$ID$)\n\
+        interpolateGrid(target=phi_sm$ID$, source=phi_s$ID$)\n\
     \n\
     # create surface\n\
     pp_sm$ID$.readParticles(pp_s$ID$)\n\
@@ -361,8 +362,8 @@ def liquid_step_particles_$ID$():\n\
         interpolateGrid(target=phi_sp$ID$, source=phiTmp_s$ID$)\n\
         interpolateGrid(target=phiOut_sp$ID$, source=phiOut_s$ID$)\n\
     \n\
-    flags_sp$ID$.initDomain(boundaryWidth=1 if using_fractions_s$ID$ else 0, phiWalls=phiObs_sp$ID$, outflow=boundConditions_s$ID$)\n\
-    setObstacleFlags(flags=flags_sp$ID$, phiObs=phiObs_sp$ID$, phiOut=None, phiIn=None) # phiIn not needed\n\
+    # phiIn not needed, bwidth to 0 because we are omitting flags.initDomain()\n\
+    setObstacleFlags(flags=flags_sp$ID$, phiObs=phiObs_sp$ID$, phiOut=None, phiIn=None, boundaryWidth=0)\n\
     flags_sp$ID$.updateFromLevelset(levelset=phi_sp$ID$)\n\
     \n\
     # Actual secondary particle simulation\n\

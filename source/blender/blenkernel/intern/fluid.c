@@ -36,6 +36,7 @@
 #include "DNA_fluid_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
+#include "DNA_rigidbody_types.h"
 
 #include "BKE_effect.h"
 #include "BKE_fluid.h"
@@ -497,6 +498,8 @@ static void manta_set_domain_gravity(Scene *scene, FluidDomainSettings *mds)
 
     copy_v3_v3(mds->gravity, gravity);
   }
+
+  mul_v3_fl(mds->gravity, mds->effector_weights->global_gravity);
 }
 
 static bool BKE_fluid_modifier_init(
@@ -571,7 +574,7 @@ static void update_distances(int index,
                              BVHTreeFromMesh *tree_data,
                              const float ray_start[3],
                              float surface_thickness,
-                             int use_plane_init);
+                             bool use_plane_init);
 
 static int get_light(ViewLayer *view_layer, float *light)
 {
@@ -640,6 +643,11 @@ static bool is_static_object(Object *ob)
              eModifierType_Softbody)) {
       return false;
     }
+  }
+
+  /* Active rigid body objects considered to be dynamic fluid objects. */
+  if (ob->rigidbody_object && ob->rigidbody_object->type == RBO_TYPE_ACTIVE) {
+    return false;
   }
 
   /* Finally, check if the object has animation data. If so, it is considered dynamic. */
@@ -770,7 +778,9 @@ static void bb_combineMaps(FluidObjectBB *output,
 
           /* Values. */
           output->numobjs[index_out] = bb1.numobjs[index_in];
-          output->influence[index_out] = bb1.influence[index_in];
+          if (output->influence && bb1.influence) {
+            output->influence[index_out] = bb1.influence[index_in];
+          }
           output->distances[index_out] = bb1.distances[index_in];
           if (output->velocity && bb1.velocity) {
             copy_v3_v3(&output->velocity[index_out * 3], &bb1.velocity[index_in * 3]);
@@ -785,12 +795,14 @@ static void bb_combineMaps(FluidObjectBB *output,
 
           /* Values. */
           output->numobjs[index_out] = MAX2(bb2->numobjs[index_in], output->numobjs[index_out]);
-          if (additive) {
-            output->influence[index_out] += bb2->influence[index_in] * sample_size;
-          }
-          else {
-            output->influence[index_out] = MAX2(bb2->influence[index_in],
-                                                output->influence[index_out]);
+          if (output->influence && bb2->influence) {
+            if (additive) {
+              output->influence[index_out] += bb2->influence[index_in] * sample_size;
+            }
+            else {
+              output->influence[index_out] = MAX2(bb2->influence[index_in],
+                                                  output->influence[index_out]);
+            }
           }
           output->distances[index_out] = MIN2(bb2->distances[index_in],
                                               output->distances[index_out]);
@@ -1717,16 +1729,25 @@ static void update_distances(int index,
                              BVHTreeFromMesh *tree_data,
                              const float ray_start[3],
                              float surface_thickness,
-                             int use_plane_init)
+                             bool use_plane_init)
 {
   float min_dist = PHI_MAX;
 
-  /* a) Planar initialization */
+  /* Planar initialization: Find nearest cells around mesh. */
   if (use_plane_init) {
     BVHTreeNearest nearest = {0};
     nearest.index = -1;
-    nearest.dist_sq = surface_thickness *
-                      surface_thickness; /* find_nearest uses squared distance */
+    /* Distance between two opposing vertices in a unit cube.
+     * I.e. the unit cube diagonal or sqrt(3).
+     * This value is our nearest neighbor search distance. */
+    const float surface_distance = 1.732;
+    nearest.dist_sq = surface_distance *
+                      surface_distance; /* find_nearest uses squared distance. */
+
+    /* Subtract optional surface thickness value and virtually increase the object size. */
+    if (surface_thickness) {
+      nearest.dist_sq += surface_thickness;
+    }
 
     if (BLI_bvhtree_find_nearest(
             tree_data->tree, ray_start, &nearest, tree_data->nearest_callback, tree_data) != -1) {
@@ -1734,76 +1755,73 @@ static void update_distances(int index,
       sub_v3_v3v3(ray, ray_start, nearest.co);
       min_dist = len_v3(ray);
       min_dist = (-1.0f) * fabsf(min_dist);
-      distance_map[index] = min_dist;
-    }
-    return;
-  }
-
-  /* b) Volumetric initialization: Ray-casts around mesh object. */
-
-  /* Ray-casts in 26 directions.
-   * (6 main axis + 12 quadrant diagonals (2D) + 8 octant diagonals (3D)). */
-  float ray_dirs[26][3] = {
-      {1.0f, 0.0f, 0.0f},   {0.0f, 1.0f, 0.0f},   {0.0f, 0.0f, 1.0f},  {-1.0f, 0.0f, 0.0f},
-      {0.0f, -1.0f, 0.0f},  {0.0f, 0.0f, -1.0f},  {1.0f, 1.0f, 0.0f},  {1.0f, -1.0f, 0.0f},
-      {-1.0f, 1.0f, 0.0f},  {-1.0f, -1.0f, 0.0f}, {1.0f, 0.0f, 1.0f},  {1.0f, 0.0f, -1.0f},
-      {-1.0f, 0.0f, 1.0f},  {-1.0f, 0.0f, -1.0f}, {0.0f, 1.0f, 1.0f},  {0.0f, 1.0f, -1.0f},
-      {0.0f, -1.0f, 1.0f},  {0.0f, -1.0f, -1.0f}, {1.0f, 1.0f, 1.0f},  {1.0f, -1.0f, 1.0f},
-      {-1.0f, 1.0f, 1.0f},  {-1.0f, -1.0f, 1.0f}, {1.0f, 1.0f, -1.0f}, {1.0f, -1.0f, -1.0f},
-      {-1.0f, 1.0f, -1.0f}, {-1.0f, -1.0f, -1.0f}};
-  size_t ray_cnt = sizeof ray_dirs / sizeof ray_dirs[0];
-
-  /* Count ray mesh misses (i.e. no face hit) and cases where the ray direction matches the face
-   * normal direction. From this information it can be derived whether a cell is inside or outside
-   * the mesh. */
-  int miss_cnt = 0, dir_cnt = 0;
-  min_dist = PHI_MAX;
-
-  for (int i = 0; i < ray_cnt; i++) {
-    BVHTreeRayHit hit_tree = {0};
-    hit_tree.index = -1;
-    hit_tree.dist = PHI_MAX;
-
-    normalize_v3(ray_dirs[i]);
-    BLI_bvhtree_ray_cast(tree_data->tree,
-                         ray_start,
-                         ray_dirs[i],
-                         0.0f,
-                         &hit_tree,
-                         tree_data->raycast_callback,
-                         tree_data);
-
-    /* Ray did not hit mesh.
-     * Current point definitely not inside mesh. Inside mesh as all rays have to hit. */
-    if (hit_tree.index == -1) {
-      miss_cnt++;
-      /* Skip this ray since nothing was hit. */
-      continue;
-    }
-
-    /* Ray and normal are pointing in opposite directions. */
-    if (dot_v3v3(ray_dirs[i], hit_tree.no) <= 0) {
-      dir_cnt++;
-    }
-
-    if (hit_tree.dist < min_dist) {
-      min_dist = hit_tree.dist;
     }
   }
+  /* Volumetric initialization: Ray-casts around mesh object. */
+  else {
+    /* Ray-casts in 26 directions.
+     * (6 main axis + 12 quadrant diagonals (2D) + 8 octant diagonals (3D)). */
+    float ray_dirs[26][3] = {
+        {1.0f, 0.0f, 0.0f},   {0.0f, 1.0f, 0.0f},   {0.0f, 0.0f, 1.0f},  {-1.0f, 0.0f, 0.0f},
+        {0.0f, -1.0f, 0.0f},  {0.0f, 0.0f, -1.0f},  {1.0f, 1.0f, 0.0f},  {1.0f, -1.0f, 0.0f},
+        {-1.0f, 1.0f, 0.0f},  {-1.0f, -1.0f, 0.0f}, {1.0f, 0.0f, 1.0f},  {1.0f, 0.0f, -1.0f},
+        {-1.0f, 0.0f, 1.0f},  {-1.0f, 0.0f, -1.0f}, {0.0f, 1.0f, 1.0f},  {0.0f, 1.0f, -1.0f},
+        {0.0f, -1.0f, 1.0f},  {0.0f, -1.0f, -1.0f}, {1.0f, 1.0f, 1.0f},  {1.0f, -1.0f, 1.0f},
+        {-1.0f, 1.0f, 1.0f},  {-1.0f, -1.0f, 1.0f}, {1.0f, 1.0f, -1.0f}, {1.0f, -1.0f, -1.0f},
+        {-1.0f, 1.0f, -1.0f}, {-1.0f, -1.0f, -1.0f}};
+    size_t ray_cnt = sizeof ray_dirs / sizeof ray_dirs[0];
 
-  /* Point lies inside mesh. Use negative sign for distance value.
-   * This "if statement" has 2 conditions that can be true for points outside mesh. */
-  if (!(miss_cnt > 0 || dir_cnt == ray_cnt)) {
-    min_dist = (-1.0f) * fabsf(min_dist);
+    /* Count ray mesh misses (i.e. no face hit) and cases where the ray direction matches the face
+     * normal direction. From this information it can be derived whether a cell is inside or
+     * outside the mesh. */
+    int miss_cnt = 0, dir_cnt = 0;
+
+    for (int i = 0; i < ray_cnt; i++) {
+      BVHTreeRayHit hit_tree = {0};
+      hit_tree.index = -1;
+      hit_tree.dist = PHI_MAX;
+
+      normalize_v3(ray_dirs[i]);
+      BLI_bvhtree_ray_cast(tree_data->tree,
+                           ray_start,
+                           ray_dirs[i],
+                           0.0f,
+                           &hit_tree,
+                           tree_data->raycast_callback,
+                           tree_data);
+
+      /* Ray did not hit mesh.
+       * Current point definitely not inside mesh. Inside mesh as all rays have to hit. */
+      if (hit_tree.index == -1) {
+        miss_cnt++;
+        /* Skip this ray since nothing was hit. */
+        continue;
+      }
+
+      /* Ray and normal are pointing in opposite directions. */
+      if (dot_v3v3(ray_dirs[i], hit_tree.no) <= 0) {
+        dir_cnt++;
+      }
+
+      if (hit_tree.dist < min_dist) {
+        min_dist = hit_tree.dist;
+      }
+    }
+
+    /* Point lies inside mesh. Use negative sign for distance value.
+     * This "if statement" has 2 conditions that can be true for points outside mesh. */
+    if (!(miss_cnt > 0 || dir_cnt == ray_cnt)) {
+      min_dist = (-1.0f) * fabsf(min_dist);
+    }
+
+    /* Subtract optional surface thickness value and virtually increase the object size. */
+    if (surface_thickness) {
+      min_dist -= surface_thickness;
+    }
   }
 
   /* Update global distance array but ensure that older entries are not overridden. */
   distance_map[index] = MIN2(distance_map[index], min_dist);
-
-  /* Subtract optional surface thickness value and virtually increase the object size. */
-  if (surface_thickness) {
-    distance_map[index] -= surface_thickness;
-  }
 
   /* Sanity check: Ensure that distances don't explode. */
   CLAMP(distance_map[index], -PHI_MAX, PHI_MAX);
@@ -5179,8 +5197,8 @@ void BKE_fluid_modifier_copy(const struct FluidModifierData *mmd,
 
     tmes->surface_distance = mes->surface_distance;
     tmes->type = mes->type;
-    tmes->flags = tmes->flags;
-    tmes->subframes = tmes->subframes;
+    tmes->flags = mes->flags;
+    tmes->subframes = mes->subframes;
 
     /* guide options */
     tmes->guide_mode = mes->guide_mode;
