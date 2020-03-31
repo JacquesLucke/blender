@@ -96,7 +96,9 @@ void transform_around_single_fallback(TransInfo *t)
   }
 }
 
-/* ************************** Functions *************************** */
+/* -------------------------------------------------------------------- */
+/** \name Proportional Editing
+ * \{ */
 
 static int trans_data_compare_dist(const void *a, const void *b)
 {
@@ -333,7 +335,11 @@ static void set_prop_dist(TransInfo *t, const bool with_dist)
   MEM_freeN(td_table);
 }
 
-/* ********************* pose mode ************* */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Pose Mode
+ * \{ */
 
 static short apply_targetless_ik(Object *ob)
 {
@@ -453,14 +459,19 @@ int count_set_pose_transflags(Object *ob,
 
   for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
     bone = pchan->bone;
-    bone->flag &= ~(BONE_TRANSFORM | BONE_TRANSFORM_MIRROR);
     if (PBONE_VISIBLE(arm, bone)) {
       if ((bone->flag & BONE_SELECTED)) {
         bone->flag |= BONE_TRANSFORM;
       }
+      else {
+        bone->flag &= ~BONE_TRANSFORM;
+      }
 
       bone->flag &= ~BONE_HINGE_CHILD_TRANSFORM;
       bone->flag &= ~BONE_TRANSFORM_CHILD;
+    }
+    else {
+      bone->flag &= ~BONE_TRANSFORM;
     }
   }
 
@@ -506,7 +517,11 @@ int count_set_pose_transflags(Object *ob,
   return total;
 }
 
-/* -------- Auto-IK ---------- */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Pose Mode (Auto-IK)
+ * \{ */
 
 /* adjust pose-channel's auto-ik chainlen */
 static bool pchan_autoik_adjust(bPoseChannel *pchan, short chainlen)
@@ -631,7 +646,11 @@ static void pose_grab_with_ik_clear(Main *bmain, Object *ob)
   }
 }
 
-/* ********************* curve/surface ********* */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Curve Surface
+ * \{ */
 
 void calc_distanceCurveVerts(TransData *head, TransData *tail)
 {
@@ -701,7 +720,11 @@ TransDataCurveHandleFlags *initTransDataCurveHandles(TransData *td, struct BezTr
   return hdata;
 }
 
-/* ********************* UV ****************** */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name UV Coordinates
+ * \{ */
 
 bool clipUVTransform(TransInfo *t, float vec[2], const bool resize)
 {
@@ -787,7 +810,11 @@ void clipUVData(TransInfo *t)
   }
 }
 
-/* ********************* ANIMATION EDITORS (GENERAL) ************************* */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Animation Editors (General)
+ * \{ */
 
 /**
  * For modal operation: `t->center_global` may not have been set yet.
@@ -828,7 +855,11 @@ bool FrameOnMouseSide(char side, float frame, float cframe)
   }
 }
 
-/* ********************* ACTION EDITOR ****************** */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Animation Editor
+ * \{ */
 
 static int masklay_shape_cmp_frame(void *thunk, const void *a, const void *b)
 {
@@ -1088,7 +1119,11 @@ static void posttrans_action_clean(bAnimContext *ac, bAction *act)
   ANIM_animdata_freelist(&anim_data);
 }
 
-/* ********************* GRAPH EDITOR ************************* */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Graph Editor
+ * \{ */
 
 /* struct for use in re-sorting BezTriples during Graph Editor transform */
 typedef struct BeztMap {
@@ -1259,6 +1294,12 @@ static void beztmap_to_data(TransInfo *t, FCurve *fcu, BeztMap *bezms, int totve
   MEM_freeN(adjusted);
 }
 
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Transform Utilities
+ * \{ */
+
 /* This function is called by recalcData during the Transform loop to recalculate
  * the handles of curves and sort the keyframes so that the curves draw correctly.
  * It is only called if some keyframes have moved out of order.
@@ -1296,8 +1337,6 @@ void remake_graph_transdata(TransInfo *t, ListBase *anim_data)
     }
   }
 }
-
-/* *********************** Transform data ******************* */
 
 /* Little helper function for ObjectToTransData used to give certain
  * constraints (ChildOf, FollowPath, and others that may be added)
@@ -1383,6 +1422,12 @@ bool constraints_list_needinv(TransInfo *t, ListBase *list)
   /* no appropriate candidates found */
   return false;
 }
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Transform (Auto-Keyframing)
+ * \{ */
 
 /**
  * Auto-keyframing feature - for objects
@@ -1541,137 +1586,7 @@ void autokeyframe_pose(bContext *C, Scene *scene, Object *ob, int tmode, short t
   FCurve *fcu;
 
   // TODO: this should probably be done per channel instead...
-  if (autokeyframe_cfra_can_key(scene, id)) {
-    ReportList *reports = CTX_wm_reports(C);
-    ToolSettings *ts = scene->toolsettings;
-    KeyingSet *active_ks = ANIM_scene_get_active_keyingset(scene);
-    ListBase nla_cache = {NULL, NULL};
-    float cfra = (float)CFRA;
-    eInsertKeyFlags flag = 0;
-
-    /* flag is initialized from UserPref keyframing settings
-     * - special exception for targetless IK - INSERTKEY_MATRIX keyframes should get
-     *   visual keyframes even if flag not set, as it's not that useful otherwise
-     *   (for quick animation recording)
-     */
-    flag = ANIM_get_keyframing_flags(scene, true);
-
-    if (targetless_ik) {
-      flag |= INSERTKEY_MATRIX;
-    }
-
-    for (pchan = pose->chanbase.first; pchan; pchan = pchan->next) {
-      if ((pchan->bone->flag & BONE_TRANSFORM) ||
-          ((pose->flag & POSE_MIRROR_EDIT) && (pchan->bone->flag & BONE_TRANSFORM_MIRROR))) {
-        ListBase dsources = {NULL, NULL};
-
-        /* clear any 'unkeyed' flag it may have */
-        pchan->bone->flag &= ~BONE_UNKEYED;
-
-        /* add datasource override for the camera object */
-        ANIM_relative_keyingset_add_source(&dsources, id, &RNA_PoseBone, pchan);
-
-        /* only insert into active keyingset? */
-        if (IS_AUTOKEY_FLAG(scene, ONLYKEYINGSET) && (active_ks)) {
-          /* run the active Keying Set on the current datasource */
-          ANIM_apply_keyingset(C, &dsources, NULL, active_ks, MODIFYKEY_MODE_INSERT, cfra);
-        }
-        /* only insert into available channels? */
-        else if (IS_AUTOKEY_FLAG(scene, INSERTAVAIL)) {
-          if (act) {
-            for (fcu = act->curves.first; fcu; fcu = fcu->next) {
-              /* only insert keyframes for this F-Curve if it affects the current bone */
-              if (strstr(fcu->rna_path, "bones")) {
-                char *pchanName = BLI_str_quoted_substrN(fcu->rna_path, "bones[");
-
-                /* only if bone name matches too...
-                 * NOTE: this will do constraints too, but those are ok to do here too?
-                 */
-                if (pchanName && STREQ(pchanName, pchan->name)) {
-                  insert_keyframe(bmain,
-                                  reports,
-                                  id,
-                                  act,
-                                  ((fcu->grp) ? (fcu->grp->name) : (NULL)),
-                                  fcu->rna_path,
-                                  fcu->array_index,
-                                  cfra,
-                                  ts->keyframe_type,
-                                  &nla_cache,
-                                  flag);
-                }
-
-                if (pchanName) {
-                  MEM_freeN(pchanName);
-                }
-              }
-            }
-          }
-        }
-        /* only insert keyframe if needed? */
-        else if (IS_AUTOKEY_FLAG(scene, INSERTNEEDED)) {
-          bool do_loc = false, do_rot = false, do_scale = false;
-
-          /* Filter the conditions when this happens
-           * (assume that 'curarea->spacetype == SPACE_VIEW3D'). */
-          if (tmode == TFM_TRANSLATION) {
-            if (targetless_ik) {
-              do_rot = true;
-            }
-            else {
-              do_loc = true;
-            }
-          }
-          else if (ELEM(tmode, TFM_ROTATION, TFM_TRACKBALL)) {
-            if (ELEM(scene->toolsettings->transform_pivot_point,
-                     V3D_AROUND_CURSOR,
-                     V3D_AROUND_ACTIVE)) {
-              do_loc = true;
-            }
-
-            if ((scene->toolsettings->transform_flag & SCE_XFORM_AXIS_ALIGN) == 0) {
-              do_rot = true;
-            }
-          }
-          else if (tmode == TFM_RESIZE) {
-            if (ELEM(scene->toolsettings->transform_pivot_point,
-                     V3D_AROUND_CURSOR,
-                     V3D_AROUND_ACTIVE)) {
-              do_loc = true;
-            }
-
-            if ((scene->toolsettings->transform_flag & SCE_XFORM_AXIS_ALIGN) == 0) {
-              do_scale = true;
-            }
-          }
-
-          if (do_loc) {
-            KeyingSet *ks = ANIM_builtin_keyingset_get_named(NULL, ANIM_KS_LOCATION_ID);
-            ANIM_apply_keyingset(C, &dsources, NULL, ks, MODIFYKEY_MODE_INSERT, cfra);
-          }
-          if (do_rot) {
-            KeyingSet *ks = ANIM_builtin_keyingset_get_named(NULL, ANIM_KS_ROTATION_ID);
-            ANIM_apply_keyingset(C, &dsources, NULL, ks, MODIFYKEY_MODE_INSERT, cfra);
-          }
-          if (do_scale) {
-            KeyingSet *ks = ANIM_builtin_keyingset_get_named(NULL, ANIM_KS_SCALING_ID);
-            ANIM_apply_keyingset(C, &dsources, NULL, ks, MODIFYKEY_MODE_INSERT, cfra);
-          }
-        }
-        /* insert keyframe in all (transform) channels */
-        else {
-          KeyingSet *ks = ANIM_builtin_keyingset_get_named(NULL, ANIM_KS_LOC_ROT_SCALE_ID);
-          ANIM_apply_keyingset(C, &dsources, NULL, ks, MODIFYKEY_MODE_INSERT, cfra);
-        }
-
-        /* free temp info */
-        BLI_freelistN(&dsources);
-      }
-    }
-
-    BKE_animsys_free_nla_keyframing_context_cache(&nla_cache);
-  }
-  else {
+  if (!autokeyframe_cfra_can_key(scene, id)) {
     /* tag channels that should have unkeyed data */
     for (pchan = pose->chanbase.first; pchan; pchan = pchan->next) {
       if (pchan->bone->flag & BONE_TRANSFORM) {
@@ -1679,8 +1594,147 @@ void autokeyframe_pose(bContext *C, Scene *scene, Object *ob, int tmode, short t
         pchan->bone->flag |= BONE_UNKEYED;
       }
     }
+    return;
   }
+
+  ReportList *reports = CTX_wm_reports(C);
+  ToolSettings *ts = scene->toolsettings;
+  KeyingSet *active_ks = ANIM_scene_get_active_keyingset(scene);
+  ListBase nla_cache = {NULL, NULL};
+  float cfra = (float)CFRA;
+  eInsertKeyFlags flag = 0;
+
+  /* flag is initialized from UserPref keyframing settings
+   * - special exception for targetless IK - INSERTKEY_MATRIX keyframes should get
+   *   visual keyframes even if flag not set, as it's not that useful otherwise
+   *   (for quick animation recording)
+   */
+  flag = ANIM_get_keyframing_flags(scene, true);
+
+  if (targetless_ik) {
+    flag |= INSERTKEY_MATRIX;
+  }
+
+  for (pchan = pose->chanbase.first; pchan; pchan = pchan->next) {
+    if ((pchan->bone->flag & BONE_TRANSFORM) == 0 &&
+        !((pose->flag & POSE_MIRROR_EDIT) && (pchan->bone->flag & BONE_TRANSFORM_MIRROR))) {
+      continue;
+    }
+
+    ListBase dsources = {NULL, NULL};
+
+    /* clear any 'unkeyed' flag it may have */
+    pchan->bone->flag &= ~BONE_UNKEYED;
+
+    /* add datasource override for the camera object */
+    ANIM_relative_keyingset_add_source(&dsources, id, &RNA_PoseBone, pchan);
+
+    /* only insert into active keyingset? */
+    if (IS_AUTOKEY_FLAG(scene, ONLYKEYINGSET) && (active_ks)) {
+      /* run the active Keying Set on the current datasource */
+      ANIM_apply_keyingset(C, &dsources, NULL, active_ks, MODIFYKEY_MODE_INSERT, cfra);
+    }
+    /* only insert into available channels? */
+    else if (IS_AUTOKEY_FLAG(scene, INSERTAVAIL)) {
+      if (act) {
+        for (fcu = act->curves.first; fcu; fcu = fcu->next) {
+          /* only insert keyframes for this F-Curve if it affects the current bone */
+          if (strstr(fcu->rna_path, "bones") == NULL) {
+            continue;
+          }
+          char *pchanName = BLI_str_quoted_substrN(fcu->rna_path, "bones[");
+
+          /* only if bone name matches too...
+           * NOTE: this will do constraints too, but those are ok to do here too?
+           */
+          if (pchanName && STREQ(pchanName, pchan->name)) {
+            insert_keyframe(bmain,
+                            reports,
+                            id,
+                            act,
+                            ((fcu->grp) ? (fcu->grp->name) : (NULL)),
+                            fcu->rna_path,
+                            fcu->array_index,
+                            cfra,
+                            ts->keyframe_type,
+                            &nla_cache,
+                            flag);
+          }
+
+          if (pchanName) {
+            MEM_freeN(pchanName);
+          }
+        }
+      }
+    }
+    /* only insert keyframe if needed? */
+    else if (IS_AUTOKEY_FLAG(scene, INSERTNEEDED)) {
+      bool do_loc = false, do_rot = false, do_scale = false;
+
+      /* Filter the conditions when this happens
+       * (assume that 'curarea->spacetype == SPACE_VIEW3D'). */
+      if (tmode == TFM_TRANSLATION) {
+        if (targetless_ik) {
+          do_rot = true;
+        }
+        else {
+          do_loc = true;
+        }
+      }
+      else if (ELEM(tmode, TFM_ROTATION, TFM_TRACKBALL)) {
+        if (ELEM(scene->toolsettings->transform_pivot_point,
+                 V3D_AROUND_CURSOR,
+                 V3D_AROUND_ACTIVE)) {
+          do_loc = true;
+        }
+
+        if ((scene->toolsettings->transform_flag & SCE_XFORM_AXIS_ALIGN) == 0) {
+          do_rot = true;
+        }
+      }
+      else if (tmode == TFM_RESIZE) {
+        if (ELEM(scene->toolsettings->transform_pivot_point,
+                 V3D_AROUND_CURSOR,
+                 V3D_AROUND_ACTIVE)) {
+          do_loc = true;
+        }
+
+        if ((scene->toolsettings->transform_flag & SCE_XFORM_AXIS_ALIGN) == 0) {
+          do_scale = true;
+        }
+      }
+
+      if (do_loc) {
+        KeyingSet *ks = ANIM_builtin_keyingset_get_named(NULL, ANIM_KS_LOCATION_ID);
+        ANIM_apply_keyingset(C, &dsources, NULL, ks, MODIFYKEY_MODE_INSERT, cfra);
+      }
+      if (do_rot) {
+        KeyingSet *ks = ANIM_builtin_keyingset_get_named(NULL, ANIM_KS_ROTATION_ID);
+        ANIM_apply_keyingset(C, &dsources, NULL, ks, MODIFYKEY_MODE_INSERT, cfra);
+      }
+      if (do_scale) {
+        KeyingSet *ks = ANIM_builtin_keyingset_get_named(NULL, ANIM_KS_SCALING_ID);
+        ANIM_apply_keyingset(C, &dsources, NULL, ks, MODIFYKEY_MODE_INSERT, cfra);
+      }
+    }
+    /* insert keyframe in all (transform) channels */
+    else {
+      KeyingSet *ks = ANIM_builtin_keyingset_get_named(NULL, ANIM_KS_LOC_ROT_SCALE_ID);
+      ANIM_apply_keyingset(C, &dsources, NULL, ks, MODIFYKEY_MODE_INSERT, cfra);
+    }
+
+    /* free temp info */
+    BLI_freelistN(&dsources);
+  }
+
+  BKE_animsys_free_nla_keyframing_context_cache(&nla_cache);
 }
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Transform (After-Transform Update)
+ * \{ */
 
 /* Return if we need to update motion paths, only if they already exist,
  * and we will insert a keyframe at the end of transform. */
@@ -2383,6 +2437,10 @@ int special_transform_moving(TransInfo *t)
 
 /** \} */
 
+/* -------------------------------------------------------------------- */
+/** \name Transform Data Create
+ * \{ */
+
 static int countAndCleanTransDataContainer(TransInfo *t)
 {
   BLI_assert(ELEM(t->data_len_all, 0, -1));
@@ -2777,3 +2835,5 @@ void createTransData(bContext *C, TransInfo *t)
 
   BLI_assert((!(t->flag & T_EDIT)) == (!(t->obedit_type != -1)));
 }
+
+/** \} */

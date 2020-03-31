@@ -3739,12 +3739,7 @@ static void ui_do_but_textedit(
 
       if (utf8_buf && utf8_buf[0]) {
         int utf8_buf_len = BLI_str_utf8_size(utf8_buf);
-        /* keep this printf until utf8 is well tested */
-        if (utf8_buf_len != 1) {
-          printf("%s: utf8 char '%.*s'\n", __func__, utf8_buf_len, utf8_buf);
-        }
-
-        // strcpy(utf8_buf, "12345");
+        BLI_assert(utf8_buf_len != -1);
         changed = ui_textedit_insert_buf(but, data, event->utf8_buf, utf8_buf_len);
       }
       else {
@@ -9694,21 +9689,29 @@ static int ui_handle_menu_event(bContext *C,
                 /* Apply scroll operation. */
                 if (scrolltype == MENU_SCROLL_DOWN) {
                   but = ui_but_next(but);
-                  if (but == NULL) {
-                    but = ui_but_first(block);
-                  }
                 }
                 else if (scrolltype == MENU_SCROLL_UP) {
                   but = ui_but_prev(but);
-                  if (but == NULL) {
-                    but = ui_but_last(block);
-                  }
                 }
                 else if (scrolltype == MENU_SCROLL_TOP) {
                   but = ui_but_first(block);
                 }
                 else if (scrolltype == MENU_SCROLL_BOTTOM) {
                   but = ui_but_last(block);
+                }
+              }
+
+              if (!but) {
+                /* wrap button or no active button*/
+                uiBut *but_wrap = NULL;
+                if (ELEM(scrolltype, MENU_SCROLL_UP, MENU_SCROLL_BOTTOM)) {
+                  but_wrap = ui_but_last(block);
+                }
+                else if (ELEM(scrolltype, MENU_SCROLL_DOWN, MENU_SCROLL_TOP)) {
+                  but_wrap = ui_but_first(block);
+                }
+                if (but_wrap) {
+                  but = but_wrap;
                 }
               }
 

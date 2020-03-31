@@ -393,7 +393,7 @@ class _draw_tool_settings_context_mode:
         }:
             # is_paint = False
             pass
-        elif tool.idname == "Cutter":
+        elif tool.idname == "builtin.cutter":
             row = layout.row(align=True)
             row.prop(context.tool_settings.gpencil_sculpt, "intersection_threshold")
             return False
@@ -1859,6 +1859,10 @@ class VIEW3D_MT_select_edit_armature(Menu):
 
         layout.separator()
 
+        layout.operator("armature.select_linked", text="Linked")
+
+        layout.separator()
+
         props = layout.operator("armature.select_hierarchy", text="Parent")
         props.extend = False
         props.direction = 'PARENT'
@@ -3135,6 +3139,13 @@ class VIEW3D_MT_face_sets(Menu):
         op = layout.operator("sculpt.face_sets_create", text='Face Set From Visible')
         op.mode = 'VISIBLE'
 
+        op = layout.operator("sculpt.face_sets_create", text='Face Set From Edit Mode Selection')
+        op.mode = 'SELECTION'
+
+        layout.separator()
+
+        layout.menu("VIEW3D_MT_face_sets_init", text="Init Face Sets")
+
         layout.separator()
 
         op = layout.operator("sculpt.face_set_change_visibility", text='Invert Visible Face Sets')
@@ -3168,6 +3179,37 @@ class VIEW3D_MT_sculpt_set_pivot(Menu):
 
         props = layout.operator("sculpt.set_pivot_position", text="Pivot to Surface Under Cursor")
         props.mode = 'SURFACE'
+
+class VIEW3D_MT_face_sets_init(Menu):
+    bl_label = "Face Sets Init"
+
+    def draw(self, _context):
+        layout = self.layout
+
+        op = layout.operator("sculpt.face_sets_init", text='By Loose Parts')
+        op.mode = 'LOOSE_PARTS'
+
+        op = layout.operator("sculpt.face_sets_init", text='By Materials')
+        op.mode = 'MATERIALS'
+
+        op = layout.operator("sculpt.face_sets_init", text='By Normals')
+        op.mode = 'NORMALS'
+
+        op = layout.operator("sculpt.face_sets_init", text='By UV Seams')
+        op.mode = 'UV_SEAMS'
+
+        op = layout.operator("sculpt.face_sets_init", text='By Edge Creases')
+        op.mode = 'CREASES'
+
+        op = layout.operator("sculpt.face_sets_init", text='By Edge Bevel Weight')
+        op.mode = 'BEVEL_WEIGHT'
+
+        op = layout.operator("sculpt.face_sets_init", text='By Sharp Edges')
+        op.mode = 'SHARP_EDGES'
+
+        op = layout.operator("sculpt.face_sets_init", text='By Face Maps')
+        op.mode = 'FACE_MAPS'
+
 
 
 class VIEW3D_MT_particle(Menu):
@@ -3570,7 +3612,15 @@ class VIEW3D_MT_edit_mesh(Menu):
 
         layout.operator("mesh.duplicate_move", text="Duplicate")
         layout.menu("VIEW3D_MT_edit_mesh_extrude")
-        layout.operator("mesh.split")
+
+        layout.separator()
+
+        layout.menu("VIEW3D_MT_edit_mesh_merge", text="Merge")
+        layout.menu("VIEW3D_MT_edit_mesh_split", text="Split")
+        layout.operator_menu_enum("mesh.separate", "type")
+
+        layout.separator()
+
         layout.operator("mesh.bisect")
         layout.operator("mesh.knife_project")
 
@@ -3592,7 +3642,6 @@ class VIEW3D_MT_edit_mesh(Menu):
         layout.separator()
 
         layout.menu("VIEW3D_MT_edit_mesh_showhide")
-        layout.operator_menu_enum("mesh.separate", "type")
         layout.menu("VIEW3D_MT_edit_mesh_clean")
 
         layout.separator()
@@ -3856,6 +3905,10 @@ class VIEW3D_MT_edit_mesh_extrude(Menu):
         for menu_id in self.extrude_options(context):
             self._extrude_funcs[menu_id](layout)
 
+        layout.separator()
+
+        layout.operator("mesh.extrude_repeat")
+
 
 class VIEW3D_MT_edit_mesh_vertices(Menu):
     bl_label = "Vertex"
@@ -3886,16 +3939,13 @@ class VIEW3D_MT_edit_mesh_vertices(Menu):
         layout.operator("transform.vert_slide", text="Slide Vertices")
         layout.operator_context = 'EXEC_DEFAULT'
         layout.operator("mesh.vertices_smooth", text="Smooth Vertices").factor = 0.5
+        layout.operator("mesh.vertices_smooth_laplacian", text="Smooth Vertices (Laplacian)")
         layout.operator_context = 'INVOKE_REGION_WIN'
 
         layout.separator()
 
         layout.operator("mesh.blend_from_shape")
         layout.operator("mesh.shape_propagate_to_all", text="Propagate to Shapes")
-
-        layout.separator()
-
-        layout.menu("VIEW3D_MT_edit_mesh_merge", text="Merge Vertices")
 
         layout.separator()
 
@@ -3955,6 +4005,7 @@ class VIEW3D_MT_edit_mesh_edges(Menu):
         layout.operator("mesh.extrude_edges_move", text="Extrude Edges")
         layout.operator("mesh.bevel", text="Bevel Edges").vertex_only = False
         layout.operator("mesh.bridge_edge_loops")
+        layout.operator("mesh.screw")
 
         layout.separator()
 
@@ -3970,7 +4021,6 @@ class VIEW3D_MT_edit_mesh_edges(Menu):
         layout.separator()
 
         layout.operator("transform.edge_slide")
-        layout.operator("mesh.edge_split")
 
         layout.separator()
 
@@ -4248,6 +4298,19 @@ class VIEW3D_MT_edit_mesh_merge(Menu):
         layout.operator("mesh.remove_doubles", text="By Distance")
 
 
+class VIEW3D_MT_edit_mesh_split(Menu):
+    bl_label = "Split"
+
+    def draw(self, _context):
+        layout = self.layout
+
+        layout.operator("mesh.split", text="Selection")
+
+        layout.separator()
+
+        layout.operator_enum("mesh.edge_split", "type")
+
+
 class VIEW3D_MT_edit_mesh_showhide(ShowHideMenu, Menu):
     _operator_name = "mesh"
 
@@ -4289,6 +4352,9 @@ def draw_curve(self, _context):
 
     layout.operator("curve.split")
     layout.operator("curve.separate")
+
+    layout.separator()
+
     layout.operator("curve.cyclic_toggle")
     layout.operator_menu_enum("curve.spline_type_set", "type")
 
@@ -4592,8 +4658,10 @@ class VIEW3D_MT_edit_armature(Menu):
             layout.operator("armature.extrude_forked")
 
         layout.operator("armature.duplicate_move")
-        layout.operator("armature.merge")
         layout.operator("armature.fill")
+
+        layout.separator()
+
         layout.operator("armature.split")
         layout.operator("armature.separate")
 
@@ -4666,7 +4734,6 @@ class VIEW3D_MT_armature_context_menu(Menu):
         # Remove
         layout.operator("armature.split")
         layout.operator("armature.separate")
-        layout.operator("armature.merge")
         layout.operator("armature.dissolve")
         layout.operator("armature.delete")
 
@@ -7335,6 +7402,7 @@ classes = (
     VIEW3D_MT_sculpt_set_pivot,
     VIEW3D_MT_mask,
     VIEW3D_MT_face_sets,
+    VIEW3D_MT_face_sets_init,
     VIEW3D_MT_particle,
     VIEW3D_MT_particle_context_menu,
     VIEW3D_MT_particle_showhide,
@@ -7372,6 +7440,7 @@ classes = (
     VIEW3D_MT_edit_mesh_clean,
     VIEW3D_MT_edit_mesh_delete,
     VIEW3D_MT_edit_mesh_merge,
+    VIEW3D_MT_edit_mesh_split,
     VIEW3D_MT_edit_mesh_showhide,
     VIEW3D_MT_paint_gpencil,
     VIEW3D_MT_assign_material,

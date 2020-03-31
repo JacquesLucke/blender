@@ -3142,7 +3142,7 @@ static void SCREEN_OT_screen_set(wmOperatorType *ot)
   ot->poll = ED_operator_screenactive;
 
   /* rna */
-  RNA_def_int(ot->srna, "delta", 0, INT_MIN, INT_MAX, "Delta", "", INT_MIN, INT_MAX);
+  RNA_def_int(ot->srna, "delta", 1, -1, 1, "Delta", "", -1, 1);
 }
 
 /** \} */
@@ -4796,9 +4796,9 @@ static void SCREEN_OT_box_select(wmOperatorType *ot)
 
 /* -------------------------------------------------------------------- */
 /** \name Full Screen Back Operator
+ *
+ * Use for generic full-screen 'back' button.
  * \{ */
-
-/* *********************** generic fullscreen 'back' button *************** */
 
 static int fullscreen_back_exec(bContext *C, wmOperator *op)
 {
@@ -5517,7 +5517,7 @@ static void keymap_modal_set(wmKeyConfig *keyconf)
   wmKeyMap *keymap;
 
   /* Standard Modal keymap ------------------------------------------------ */
-  keymap = WM_modalkeymap_add(keyconf, "Standard Modal Map", modal_items);
+  keymap = WM_modalkeymap_ensure(keyconf, "Standard Modal Map", modal_items);
 
   WM_modalkeymap_assign(keymap, "SCREEN_OT_area_move");
 }
@@ -5525,7 +5525,7 @@ static void keymap_modal_set(wmKeyConfig *keyconf)
 static bool blend_file_drop_poll(bContext *UNUSED(C),
                                  wmDrag *drag,
                                  const wmEvent *UNUSED(event),
-                                 const char **UNUSED(tooltip))
+                                 const char **UNUSED(r_tooltip))
 {
   if (drag->type == WM_DRAG_PATH) {
     if (drag->icon == ICON_FILE_BLEND) {

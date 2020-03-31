@@ -1379,7 +1379,8 @@ void GPENCIL_OT_copy(wmOperatorType *ot)
 
 static bool gp_strokes_paste_poll(bContext *C)
 {
-  if (CTX_wm_area(C)->spacetype != SPACE_VIEW3D) {
+  ScrArea *sa = CTX_wm_area(C);
+  if (!((sa != NULL) && (sa->spacetype == SPACE_VIEW3D))) {
     return false;
   }
   /* 1) Must have GP datablock to paste to
@@ -3545,7 +3546,7 @@ static int gp_strokes_reproject_exec(bContext *C, wmOperator *op)
                  GP_REPROJECT_TOP,
                  GP_REPROJECT_CURSOR)) {
           if (mode != GP_REPROJECT_CURSOR) {
-            ED_gpencil_drawing_reference_get(scene, ob, gpl, ts->gpencil_v3d_align, origin);
+            ED_gpencil_drawing_reference_get(scene, ob, ts->gpencil_v3d_align, origin);
           }
           else {
             copy_v3_v3(origin, scene->cursor.location);
@@ -4248,7 +4249,7 @@ static int gp_stroke_separate_exec(bContext *C, wmOperator *op)
             if (ED_gpencil_stroke_color_use(ob, gpl, gps) == false) {
               continue;
             }
-            /*  separate selected strokes */
+            /* Separate selected strokes. */
             if (gps->flag & GP_STROKE_SELECT) {
               /* add layer if not created before */
               if (gpl_dst == NULL) {
@@ -4421,7 +4422,7 @@ static int gp_stroke_split_exec(bContext *C, wmOperator *UNUSED(op))
           if (ED_gpencil_stroke_color_use(ob, gpl, gps) == false) {
             continue;
           }
-          /*  split selected strokes */
+          /* Split selected strokes. */
           if (gps->flag & GP_STROKE_SELECT) {
             /* make copy of source stroke */
             bGPDstroke *gps_dst = BKE_gpencil_stroke_duplicate(gps, true);

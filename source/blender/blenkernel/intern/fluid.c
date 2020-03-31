@@ -36,6 +36,7 @@
 #include "DNA_fluid_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
+#include "DNA_rigidbody_types.h"
 
 #include "BKE_effect.h"
 #include "BKE_fluid.h"
@@ -497,6 +498,8 @@ static void manta_set_domain_gravity(Scene *scene, FluidDomainSettings *mds)
 
     copy_v3_v3(mds->gravity, gravity);
   }
+
+  mul_v3_fl(mds->gravity, mds->effector_weights->global_gravity);
 }
 
 static bool BKE_fluid_modifier_init(
@@ -642,6 +645,11 @@ static bool is_static_object(Object *ob)
     }
   }
 
+  /* Active rigid body objects considered to be dynamic fluid objects. */
+  if (ob->rigidbody_object && ob->rigidbody_object->type == RBO_TYPE_ACTIVE) {
+    return false;
+  }
+
   /* Finally, check if the object has animation data. If so, it is considered dynamic. */
   return !BKE_object_moves_in_time(ob, true);
 }
@@ -770,7 +778,9 @@ static void bb_combineMaps(FluidObjectBB *output,
 
           /* Values. */
           output->numobjs[index_out] = bb1.numobjs[index_in];
-          output->influence[index_out] = bb1.influence[index_in];
+          if (output->influence && bb1.influence) {
+            output->influence[index_out] = bb1.influence[index_in];
+          }
           output->distances[index_out] = bb1.distances[index_in];
           if (output->velocity && bb1.velocity) {
             copy_v3_v3(&output->velocity[index_out * 3], &bb1.velocity[index_in * 3]);
@@ -785,12 +795,14 @@ static void bb_combineMaps(FluidObjectBB *output,
 
           /* Values. */
           output->numobjs[index_out] = MAX2(bb2->numobjs[index_in], output->numobjs[index_out]);
-          if (additive) {
-            output->influence[index_out] += bb2->influence[index_in] * sample_size;
-          }
-          else {
-            output->influence[index_out] = MAX2(bb2->influence[index_in],
-                                                output->influence[index_out]);
+          if (output->influence && bb2->influence) {
+            if (additive) {
+              output->influence[index_out] += bb2->influence[index_in] * sample_size;
+            }
+            else {
+              output->influence[index_out] = MAX2(bb2->influence[index_in],
+                                                  output->influence[index_out]);
+            }
           }
           output->distances[index_out] = MIN2(bb2->distances[index_in],
                                               output->distances[index_out]);

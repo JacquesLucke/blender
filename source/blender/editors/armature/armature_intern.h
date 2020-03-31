@@ -59,6 +59,7 @@ void ARMATURE_OT_select_mirror(struct wmOperatorType *ot);
 void ARMATURE_OT_select_more(struct wmOperatorType *ot);
 void ARMATURE_OT_select_less(struct wmOperatorType *ot);
 void ARMATURE_OT_select_hierarchy(struct wmOperatorType *ot);
+void ARMATURE_OT_select_linked_pick(struct wmOperatorType *ot);
 void ARMATURE_OT_select_linked(struct wmOperatorType *ot);
 void ARMATURE_OT_select_similar(struct wmOperatorType *ot);
 void ARMATURE_OT_shortest_path_pick(struct wmOperatorType *ot);
@@ -72,7 +73,6 @@ void ARMATURE_OT_hide(struct wmOperatorType *ot);
 void ARMATURE_OT_reveal(struct wmOperatorType *ot);
 void ARMATURE_OT_click_extrude(struct wmOperatorType *ot);
 void ARMATURE_OT_fill(struct wmOperatorType *ot);
-void ARMATURE_OT_merge(struct wmOperatorType *ot);
 void ARMATURE_OT_separate(struct wmOperatorType *ot);
 void ARMATURE_OT_split(struct wmOperatorType *ot);
 

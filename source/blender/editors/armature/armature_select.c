@@ -59,7 +59,9 @@
 #define EBONE_PREV_FLAG_GET(ebone) ((void)0, (ebone)->temp.i)
 #define EBONE_PREV_FLAG_SET(ebone, val) ((ebone)->temp.i = val)
 
-/* **************** PoseMode & EditMode Selection Buffer Queries *************************** */
+/* -------------------------------------------------------------------- */
+/** \name Select Buffer Queries for PoseMode & EditMode
+ * \{ */
 
 Base *ED_armature_base_and_ebone_from_select_buffer(Base **bases,
                                                     uint bases_len,
@@ -293,103 +295,244 @@ void *get_nearest_bone(bContext *C, const int xy[2], bool findunsel, Base **r_ba
   return NULL;
 }
 
-/* **************** EditMode stuff ********************** */
+/** \} */
 
-static int armature_select_linked_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+/* -------------------------------------------------------------------- */
+/** \name Select Linked Implementation
+ *
+ * Shared logic for select linked all/pick.
+ *
+ * Use #BONE_DONE flag to select linked.
+ * \{ */
+
+/**
+ * \param all_forks: Control how chains are stepped over.
+ * true: select all connected bones traveling up & down forks.
+ * false: select all parents and all children, but not the children of the root bone.
+ */
+static bool armature_select_linked_impl(Object *ob, const bool select, const bool all_forks)
 {
-  bArmature *arm;
-  EditBone *bone, *curBone, *next;
-  const bool sel = !RNA_boolean_get(op->ptr, "deselect");
+  bool changed = false;
+  bArmature *arm = ob->data;
 
-  view3d_operator_needs_opengl(C);
-  BKE_object_update_select_id(CTX_data_main(C));
+  /* Implementation note, this flood-fills selected bones with the 'TOUCH' flag,
+   * even though this is a loop-within a loop, walking up the parent chain only touches new bones.
+   * Bones that have been touched are skipped, so the complexity is OK. */
 
-  Base *base = NULL;
-  bone = get_nearest_bone(C, event->mval, true, &base);
+  enum {
+    /* Bone has been walked over, it's LINK value can be read. */
+    TOUCH = (1 << 0),
+    /* When TOUCH has been set, this flag can be checked to see if the bone is connected. */
+    LINK = (1 << 1),
+  };
 
-  if (!bone) {
-    return OPERATOR_CANCELLED;
+#define CHECK_PARENT(ebone) \
+  (((ebone)->flag & BONE_CONNECTED) && \
+   ((ebone)->parent ? EBONE_SELECTABLE(arm, (ebone)->parent) : false))
+
+  for (EditBone *ebone = arm->edbo->first; ebone; ebone = ebone->next) {
+    ebone->temp.i = 0;
   }
 
-  arm = base->object->data;
+  /* Select parents. */
+  for (EditBone *ebone_iter = arm->edbo->first; ebone_iter; ebone_iter = ebone_iter->next) {
+    if (ebone_iter->temp.i & TOUCH) {
+      continue;
+    }
+    if ((ebone_iter->flag & BONE_DONE) == 0) {
+      continue;
+    }
 
-  /* Select parents */
-  for (curBone = bone; curBone; curBone = next) {
-    if ((curBone->flag & BONE_UNSELECTABLE) == 0) {
-      if (sel) {
-        curBone->flag |= (BONE_SELECTED | BONE_TIPSEL | BONE_ROOTSEL);
+    ebone_iter->temp.i |= TOUCH | LINK;
+
+    /* We have an un-touched link. */
+    for (EditBone *ebone = ebone_iter; ebone; ebone = CHECK_PARENT(ebone) ? ebone->parent : NULL) {
+      ED_armature_ebone_select_set(ebone, select);
+      changed = true;
+
+      if (all_forks) {
+        ebone->temp.i |= (TOUCH | LINK);
       }
       else {
-        curBone->flag &= ~(BONE_SELECTED | BONE_TIPSEL | BONE_ROOTSEL);
+        ebone->temp.i |= TOUCH;
       }
-    }
-
-    if (curBone->flag & BONE_CONNECTED) {
-      next = curBone->parent;
-    }
-    else {
-      next = NULL;
+      /* Don't walk onto links (messes up 'all_forks' logic). */
+      if (ebone->parent && ebone->parent->temp.i & LINK) {
+        break;
+      }
     }
   }
 
-  /* Select children */
-  while (bone) {
-    for (curBone = arm->edbo->first; curBone; curBone = next) {
-      next = curBone->next;
-      if ((curBone->parent == bone) && (curBone->flag & BONE_UNSELECTABLE) == 0) {
-        if (curBone->flag & BONE_CONNECTED) {
-          if (sel) {
-            curBone->flag |= (BONE_SELECTED | BONE_TIPSEL | BONE_ROOTSEL);
-          }
-          else {
-            curBone->flag &= ~(BONE_SELECTED | BONE_TIPSEL | BONE_ROOTSEL);
-          }
-          bone = curBone;
-          break;
-        }
-        else {
-          bone = NULL;
-          break;
+  /* Select children. */
+  for (EditBone *ebone_iter = arm->edbo->first; ebone_iter; ebone_iter = ebone_iter->next) {
+    /* No need to 'touch' this bone as it won't be walked over when scanning up the chain. */
+    if (!CHECK_PARENT(ebone_iter)) {
+      continue;
+    }
+    if (ebone_iter->temp.i & TOUCH) {
+      continue;
+    }
+
+    /* First check if we're marked. */
+    EditBone *ebone_touched_parent = NULL;
+    for (EditBone *ebone = ebone_iter; ebone; ebone = CHECK_PARENT(ebone) ? ebone->parent : NULL) {
+      if (ebone->temp.i & TOUCH) {
+        ebone_touched_parent = ebone;
+        break;
+      }
+      ebone->temp.i |= TOUCH;
+    }
+
+    if ((ebone_touched_parent != NULL) && (ebone_touched_parent->temp.i & LINK)) {
+      for (EditBone *ebone = ebone_iter; ebone != ebone_touched_parent; ebone = ebone->parent) {
+        if ((ebone->temp.i & LINK) == 0) {
+          ebone->temp.i |= LINK;
+          ED_armature_ebone_select_set(ebone, select);
+          changed = true;
         }
       }
     }
-    if (!curBone) {
-      bone = NULL;
-    }
   }
 
-  ED_outliner_select_sync_from_edit_bone_tag(C);
+#undef CHECK_PARENT
 
-  ED_armature_edit_sync_selection(arm->edbo);
+  if (changed) {
+    ED_armature_edit_sync_selection(arm->edbo);
+    DEG_id_tag_update(&arm->id, ID_RECALC_COPY_ON_WRITE);
+    WM_main_add_notifier(NC_GPENCIL | ND_DATA | NA_EDITED, ob);
+  }
 
-  WM_event_add_notifier(C, NC_OBJECT | ND_BONE_SELECT, base->object);
-  DEG_id_tag_update(&arm->id, ID_RECALC_COPY_ON_WRITE);
-
-  return OPERATOR_FINISHED;
+  return changed;
 }
 
-static bool armature_select_linked_poll(bContext *C)
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Select Linked Operator
+ * \{ */
+
+static int armature_select_linked_exec(bContext *C, wmOperator *op)
 {
-  return (ED_operator_view3d_active(C) && ED_operator_editarmature(C));
+  const bool all_forks = RNA_boolean_get(op->ptr, "all_forks");
+
+  bool changed_multi = false;
+  ViewLayer *view_layer = CTX_data_view_layer(C);
+  uint objects_len = 0;
+  Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(
+      view_layer, CTX_wm_view3d(C), &objects_len);
+  for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
+    Object *ob = objects[ob_index];
+    bArmature *arm = ob->data;
+
+    bool found = false;
+    for (EditBone *ebone = arm->edbo->first; ebone; ebone = ebone->next) {
+      if (EBONE_VISIBLE(arm, ebone) &&
+          (ebone->flag & (BONE_SELECTED | BONE_ROOTSEL | BONE_TIPSEL))) {
+        ebone->flag |= BONE_DONE;
+        found = true;
+      }
+      else {
+        ebone->flag &= ~BONE_DONE;
+      }
+    }
+
+    if (found) {
+      if (armature_select_linked_impl(ob, true, all_forks)) {
+        changed_multi = true;
+      }
+    }
+  }
+  MEM_freeN(objects);
+
+  if (changed_multi) {
+    ED_outliner_select_sync_from_edit_bone_tag(C);
+  }
+  return OPERATOR_FINISHED;
 }
 
 void ARMATURE_OT_select_linked(wmOperatorType *ot)
 {
   /* identifiers */
-  ot->name = "Select Connected";
+  ot->name = "Select Linked All";
   ot->idname = "ARMATURE_OT_select_linked";
-  ot->description = "Select bones related to selected ones by parent/child relationships";
+  ot->description = "Select all bones linked by parent/child connections to the current selection";
+
+  /* api callbacks */
+  ot->exec = armature_select_linked_exec;
+  ot->poll = ED_operator_editarmature;
+
+  /* flags */
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+  /* Leave disabled by default as this matches pose mode. */
+  RNA_def_boolean(ot->srna, "all_forks", 0, "All Forks", "Follow forks in the parents chain");
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Select Linked (Cursor Pick) Operator
+ * \{ */
+
+static int armature_select_linked_pick_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+{
+  const bool select = !RNA_boolean_get(op->ptr, "deselect");
+  const bool all_forks = RNA_boolean_get(op->ptr, "all_forks");
+
+  view3d_operator_needs_opengl(C);
+  BKE_object_update_select_id(CTX_data_main(C));
+
+  Base *base = NULL;
+  EditBone *ebone_active = get_nearest_bone(C, event->mval, true, &base);
+  bArmature *arm = base->object->data;
+
+  if (ebone_active == NULL || !EBONE_SELECTABLE(arm, ebone_active)) {
+    return OPERATOR_CANCELLED;
+  }
+
+  /* Initialize flags. */
+  for (EditBone *ebone = arm->edbo->first; ebone; ebone = ebone->next) {
+    ebone->flag &= ~BONE_DONE;
+  }
+  ebone_active->flag |= BONE_DONE;
+
+  if (armature_select_linked_impl(base->object, select, all_forks)) {
+    ED_outliner_select_sync_from_edit_bone_tag(C);
+  }
+
+  return OPERATOR_FINISHED;
+}
+
+static bool armature_select_linked_pick_poll(bContext *C)
+{
+  return (ED_operator_view3d_active(C) && ED_operator_editarmature(C));
+}
+
+void ARMATURE_OT_select_linked_pick(wmOperatorType *ot)
+{
+  /* identifiers */
+  ot->name = "Select Linked";
+  ot->idname = "ARMATURE_OT_select_linked_pick";
+  ot->description = "(De)select bones linked by parent/child connections under the mouse cursor";
 
   /* api callbacks */
   /* leave 'exec' unset */
-  ot->invoke = armature_select_linked_invoke;
-  ot->poll = armature_select_linked_poll;
+  ot->invoke = armature_select_linked_pick_invoke;
+  ot->poll = armature_select_linked_pick_poll;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
   RNA_def_boolean(ot->srna, "deselect", 0, "Deselect", "");
+  /* Leave disabled by default as this matches pose mode. */
+  RNA_def_boolean(ot->srna, "all_forks", 0, "All Forks", "Follow forks in the parents chain");
 }
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Select Buffer Queries EditMode
+ * \{ */
 
 /* utility function for get_nearest_editbonepoint */
 static int selectbuffer_ret_hits_12(unsigned int *UNUSED(buffer), const int hits12)
@@ -595,6 +738,12 @@ cache_end:
   return NULL;
 }
 
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Select Utility Functions
+ * \{ */
+
 bool ED_armature_edit_deselect_all(Object *obedit)
 {
   bArmature *arm = obedit->data;
@@ -660,6 +809,12 @@ bool ED_armature_edit_deselect_all_visible_multi(bContext *C)
   MEM_freeN(bases);
   return changed_multi;
 }
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Cursor Picking API
+ * \{ */
 
 /* accounts for connected parents */
 static int ebone_select_flag(EditBone *ebone)
@@ -799,6 +954,8 @@ bool ED_armature_edit_select_pick(
 
   return false;
 }
+
+/** \} */
 
 /* -------------------------------------------------------------------- */
 /** \name Select Op From Tagged
@@ -984,7 +1141,9 @@ bool ED_armature_edit_select_op_from_tagged(bArmature *arm, const int sel_op)
 
 /** \} */
 
-/* ****************  Selections  ******************/
+/* -------------------------------------------------------------------- */
+/** \name (De)Select All Operator
+ * \{ */
 
 static int armature_de_select_all_exec(bContext *C, wmOperator *op)
 {
@@ -1003,7 +1162,7 @@ static int armature_de_select_all_exec(bContext *C, wmOperator *op)
     CTX_DATA_END;
   }
 
-  /*  Set the flags */
+  /* Set the flags. */
   CTX_DATA_BEGIN (C, EditBone *, ebone, visible_bones) {
     /* ignore bone if selection can't change */
     switch (action) {
@@ -1063,7 +1222,11 @@ void ARMATURE_OT_select_all(wmOperatorType *ot)
   WM_operator_properties_select_all(ot);
 }
 
-/**************** Select more/less **************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Select More/Less Implementation
+ * \{ */
 
 static void armature_select_more(bArmature *arm, EditBone *ebone)
 {
@@ -1150,6 +1313,12 @@ static void armature_select_more_less(Object *ob, bool more)
   ED_armature_edit_sync_selection(arm->edbo);
 }
 
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Select More Operator
+ * \{ */
+
 static int armature_de_select_more_exec(bContext *C, wmOperator *UNUSED(op))
 {
   ViewLayer *view_layer = CTX_data_view_layer(C);
@@ -1183,6 +1352,12 @@ void ARMATURE_OT_select_more(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Select Less Operator
+ * \{ */
+
 static int armature_de_select_less_exec(bContext *C, wmOperator *UNUSED(op))
 {
   ViewLayer *view_layer = CTX_data_view_layer(C);
@@ -1215,6 +1390,12 @@ void ARMATURE_OT_select_less(wmOperatorType *ot)
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Select Similar
+ * \{ */
 
 enum {
   SIMEDBONE_CHILDREN = 1,
@@ -1631,7 +1812,11 @@ void ARMATURE_OT_select_similar(wmOperatorType *ot)
   RNA_def_float(ot->srna, "threshold", 0.1f, 0.0f, 1.0f, "Threshold", "", 0.0f, 1.0f);
 }
 
-/* ********************* select hierarchy operator ************** */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Select Hierarchy Operator
+ * \{ */
 
 /* No need to convert to multi-objects. Just like we keep the non-active bones
  * selected we then keep the non-active objects untouched (selected/unselected). */
@@ -1737,7 +1922,11 @@ void ARMATURE_OT_select_hierarchy(wmOperatorType *ot)
   RNA_def_boolean(ot->srna, "extend", false, "Extend", "Extend the selection");
 }
 
-/****************** Mirror Select ****************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Select Mirror Operator
+ * \{ */
 
 /**
  * \note clone of #pose_select_mirror_exec keep in sync
@@ -1822,7 +2011,11 @@ void ARMATURE_OT_select_mirror(wmOperatorType *ot)
   RNA_def_boolean(ot->srna, "extend", false, "Extend", "Extend the selection");
 }
 
-/****************** Select Path ****************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Select Path Operator
+ * \{ */
 
 static bool armature_shortest_path_select(
     bArmature *arm, EditBone *ebone_parent, EditBone *ebone_child, bool use_parent, bool is_test)
@@ -1948,3 +2141,5 @@ void ARMATURE_OT_shortest_path_pick(wmOperatorType *ot)
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
+
+/** \} */
