@@ -1859,6 +1859,10 @@ class VIEW3D_MT_select_edit_armature(Menu):
 
         layout.separator()
 
+        layout.operator("armature.select_linked", text="Linked")
+
+        layout.separator()
+
         props = layout.operator("armature.select_hierarchy", text="Parent")
         props.extend = False
         props.direction = 'PARENT'
@@ -3612,7 +3616,15 @@ class VIEW3D_MT_edit_mesh(Menu):
 
         layout.operator("mesh.duplicate_move", text="Duplicate")
         layout.menu("VIEW3D_MT_edit_mesh_extrude")
-        layout.operator("mesh.split")
+
+        layout.separator()
+
+        layout.menu("VIEW3D_MT_edit_mesh_merge", text="Merge")
+        layout.menu("VIEW3D_MT_edit_mesh_split", text="Split")
+        layout.operator_menu_enum("mesh.separate", "type")
+
+        layout.separator()
+
         layout.operator("mesh.bisect")
         layout.operator("mesh.knife_project")
 
@@ -3634,7 +3646,6 @@ class VIEW3D_MT_edit_mesh(Menu):
         layout.separator()
 
         layout.menu("VIEW3D_MT_edit_mesh_showhide")
-        layout.operator_menu_enum("mesh.separate", "type")
         layout.menu("VIEW3D_MT_edit_mesh_clean")
 
         layout.separator()
@@ -3942,10 +3953,6 @@ class VIEW3D_MT_edit_mesh_vertices(Menu):
 
         layout.separator()
 
-        layout.menu("VIEW3D_MT_edit_mesh_merge", text="Merge Vertices")
-
-        layout.separator()
-
         layout.menu("VIEW3D_MT_vertex_group")
         layout.menu("VIEW3D_MT_hook")
 
@@ -4018,7 +4025,6 @@ class VIEW3D_MT_edit_mesh_edges(Menu):
         layout.separator()
 
         layout.operator("transform.edge_slide")
-        layout.operator("mesh.edge_split")
 
         layout.separator()
 
@@ -4296,6 +4302,19 @@ class VIEW3D_MT_edit_mesh_merge(Menu):
         layout.operator("mesh.remove_doubles", text="By Distance")
 
 
+class VIEW3D_MT_edit_mesh_split(Menu):
+    bl_label = "Split"
+
+    def draw(self, _context):
+        layout = self.layout
+
+        layout.operator("mesh.split", text="Selection")
+
+        layout.separator()
+
+        layout.operator_enum("mesh.edge_split", "type")
+
+
 class VIEW3D_MT_edit_mesh_showhide(ShowHideMenu, Menu):
     _operator_name = "mesh"
 
@@ -4337,6 +4356,9 @@ def draw_curve(self, _context):
 
     layout.operator("curve.split")
     layout.operator("curve.separate")
+
+    layout.separator()
+
     layout.operator("curve.cyclic_toggle")
     layout.operator_menu_enum("curve.spline_type_set", "type")
 
@@ -4641,6 +4663,9 @@ class VIEW3D_MT_edit_armature(Menu):
 
         layout.operator("armature.duplicate_move")
         layout.operator("armature.fill")
+
+        layout.separator()
+
         layout.operator("armature.split")
         layout.operator("armature.separate")
 
@@ -7419,6 +7444,7 @@ classes = (
     VIEW3D_MT_edit_mesh_clean,
     VIEW3D_MT_edit_mesh_delete,
     VIEW3D_MT_edit_mesh_merge,
+    VIEW3D_MT_edit_mesh_split,
     VIEW3D_MT_edit_mesh_showhide,
     VIEW3D_MT_paint_gpencil,
     VIEW3D_MT_assign_material,
