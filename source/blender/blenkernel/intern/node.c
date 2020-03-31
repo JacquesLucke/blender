@@ -37,6 +37,7 @@
 #include "DNA_material_types.h"
 #include "DNA_node_types.h"
 #include "DNA_scene_types.h"
+#include "DNA_simulation_types.h"
 #include "DNA_texture_types.h"
 #include "DNA_world_types.h"
 
@@ -2266,6 +2267,8 @@ bNodeTree **BKE_ntree_ptr_from_id(ID *id)
       return &((Scene *)id)->nodetree;
     case ID_LS:
       return &((FreestyleLineStyle *)id)->nodetree;
+    case ID_SIM:
+      return &((Simulation *)id)->nodetree;
     default:
       return NULL;
   }

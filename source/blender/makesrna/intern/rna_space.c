@@ -44,6 +44,7 @@
 #include "DNA_node_types.h"
 #include "DNA_object_types.h"
 #include "DNA_sequence_types.h"
+#include "DNA_simulation_types.h"
 #include "DNA_space_types.h"
 #include "DNA_view3d_types.h"
 #include "DNA_workspace_types.h"
@@ -2163,6 +2164,23 @@ static bool rna_SpaceNodeEditor_node_tree_poll(PointerRNA *ptr, const PointerRNA
 static void rna_SpaceNodeEditor_node_tree_update(const bContext *C, PointerRNA *UNUSED(ptr))
 {
   ED_node_tree_update(C);
+}
+
+static void rna_SpaceNodeEditor_simulation_set(PointerRNA *ptr,
+                                               const PointerRNA value,
+                                               struct ReportList *UNUSED(reports))
+{
+  SpaceNode *snode = (SpaceNode *)ptr->data;
+  Simulation *sim = (Simulation *)value.data;
+  if (sim != NULL) {
+    bNodeTree *ntree = sim->nodetree;
+    ED_node_tree_start(snode, ntree, NULL, NULL);
+  }
+  else {
+    ED_node_tree_start(snode, NULL, NULL, NULL);
+  }
+  snode->simulation = sim;
+  snode->id = &sim->id;
 }
 
 static int rna_SpaceNodeEditor_tree_type_get(PointerRNA *ptr)
@@ -6202,6 +6220,12 @@ static void rna_def_space_node(BlenderRNA *brna)
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
   RNA_def_property_ui_text(
       prop, "ID From", "Data-block from which the edited data-block is linked");
+
+  prop = RNA_def_property(srna, "simulation", PROP_POINTER, PROP_NONE);
+  RNA_def_property_flag(prop, PROP_EDITABLE);
+  RNA_def_property_ui_text(prop, "Simulation", "Simulation that is being edited");
+  RNA_def_property_pointer_funcs(prop, NULL, "rna_SpaceNodeEditor_simulation_set", NULL, NULL);
+  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_NODE, NULL);
 
   prop = RNA_def_property(srna, "path", PROP_COLLECTION, PROP_NONE);
   RNA_def_property_collection_sdna(prop, NULL, "treepath", NULL);

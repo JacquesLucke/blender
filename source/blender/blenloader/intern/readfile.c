@@ -7647,6 +7647,8 @@ static void lib_link_area(FileData *fd, ID *parent_id, ScrArea *area)
         snode->id = newlibadr(fd, parent_id->lib, snode->id);
         snode->from = newlibadr(fd, parent_id->lib, snode->from);
 
+        snode->simulation = newlibadr(fd, parent_id->lib, snode->simulation);
+
         ntree = snode->id ? ntreeFromID(snode->id) : NULL;
         snode->nodetree = ntree ? ntree : newlibadr(fd, parent_id->lib, snode->nodetree);
 
