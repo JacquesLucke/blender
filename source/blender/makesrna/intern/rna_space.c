@@ -2166,6 +2166,12 @@ static void rna_SpaceNodeEditor_node_tree_update(const bContext *C, PointerRNA *
   ED_node_tree_update(C);
 }
 
+static PointerRNA rna_SpaceNodeEditor_simulation_get(PointerRNA *ptr)
+{
+  SpaceNode *snode = (SpaceNode *)ptr->data;
+  return rna_pointer_inherit_refine(ptr, &RNA_Simulation, snode->id);
+}
+
 static void rna_SpaceNodeEditor_simulation_set(PointerRNA *ptr,
                                                const PointerRNA value,
                                                struct ReportList *UNUSED(reports))
@@ -2179,7 +2185,6 @@ static void rna_SpaceNodeEditor_simulation_set(PointerRNA *ptr,
   else {
     ED_node_tree_start(snode, NULL, NULL, NULL);
   }
-  snode->simulation = sim;
   snode->id = &sim->id;
 }
 
@@ -6223,8 +6228,13 @@ static void rna_def_space_node(BlenderRNA *brna)
 
   prop = RNA_def_property(srna, "simulation", PROP_POINTER, PROP_NONE);
   RNA_def_property_flag(prop, PROP_EDITABLE);
+  RNA_def_property_struct_type(prop, "Simulation");
   RNA_def_property_ui_text(prop, "Simulation", "Simulation that is being edited");
-  RNA_def_property_pointer_funcs(prop, NULL, "rna_SpaceNodeEditor_simulation_set", NULL, NULL);
+  RNA_def_property_pointer_funcs(prop,
+                                 "rna_SpaceNodeEditor_simulation_get",
+                                 "rna_SpaceNodeEditor_simulation_set",
+                                 NULL,
+                                 NULL);
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_NODE, NULL);
 
   prop = RNA_def_property(srna, "path", PROP_COLLECTION, PROP_NONE);
