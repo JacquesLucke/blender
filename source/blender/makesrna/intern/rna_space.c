@@ -2170,7 +2170,13 @@ static void rna_SpaceNodeEditor_node_tree_update(const bContext *C, PointerRNA *
 static PointerRNA rna_SpaceNodeEditor_simulation_get(PointerRNA *ptr)
 {
   SpaceNode *snode = (SpaceNode *)ptr->data;
-  return rna_pointer_inherit_refine(ptr, &RNA_Simulation, snode->id);
+  ID *id = snode->id;
+  if (id && GS(id->name) == ID_SIM) {
+    return rna_pointer_inherit_refine(ptr, &RNA_Simulation, snode->id);
+  }
+  else {
+    return PointerRNA_NULL;
+  }
 }
 
 static void rna_SpaceNodeEditor_simulation_set(PointerRNA *ptr,
@@ -2178,6 +2184,10 @@ static void rna_SpaceNodeEditor_simulation_set(PointerRNA *ptr,
                                                struct ReportList *UNUSED(reports))
 {
   SpaceNode *snode = (SpaceNode *)ptr->data;
+  if (!STREQ(snode->tree_idname, "SimulationNodeTree")) {
+    return;
+  }
+
   Simulation *sim = (Simulation *)value.data;
   if (sim != NULL) {
     bNodeTree *ntree = sim->nodetree;
