@@ -152,7 +152,9 @@ class NODE_HT_header(Header):
                 layout.prop(snode_id, "use_nodes")
 
         elif snode.tree_type == 'SimulationNodeTree':
-            layout.prop(snode, "simulation")
+            row = layout.row(align=True)
+            row.prop(snode, "simulation", text="")
+            row.operator("simulation.new", text="", icon='ADD')
 
         else:
             # Custom node tree is edited as independent ID block
