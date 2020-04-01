@@ -1352,7 +1352,6 @@ typedef struct SpaceNode {
 
   /** Context, no need to save in file? well... pinning... */
   struct ID *id, *from;
-
   /** Menunr: browse id block in header. */
   short flag;
   char _pad1[2];
