@@ -712,44 +712,7 @@ static void write_fmodifiers(WriteData *wd, ListBase *fmodifiers)
 
 static void write_fcurves(WriteData *wd, ListBase *fcurves)
 {
-  FCurve *fcu;
-
-  writelist(wd, DATA, FCurve, fcurves);
-  for (fcu = fcurves->first; fcu; fcu = fcu->next) {
-    /* curve data */
-    if (fcu->bezt) {
-      writestruct(wd, DATA, BezTriple, fcu->totvert, fcu->bezt);
-    }
-    if (fcu->fpt) {
-      writestruct(wd, DATA, FPoint, fcu->totvert, fcu->fpt);
-    }
-
-    if (fcu->rna_path) {
-      writedata(wd, DATA, strlen(fcu->rna_path) + 1, fcu->rna_path);
-    }
-
-    /* driver data */
-    if (fcu->driver) {
-      ChannelDriver *driver = fcu->driver;
-      DriverVar *dvar;
-
-      writestruct(wd, DATA, ChannelDriver, 1, driver);
-
-      /* variables */
-      writelist(wd, DATA, DriverVar, &driver->variables);
-      for (dvar = driver->variables.first; dvar; dvar = dvar->next) {
-        DRIVER_TARGETS_USED_LOOPER_BEGIN (dvar) {
-          if (dtar->rna_path) {
-            writedata(wd, DATA, strlen(dtar->rna_path) + 1, dtar->rna_path);
-          }
-        }
-        DRIVER_TARGETS_LOOPER_END;
-      }
-    }
-
-    /* write F-Modifiers */
-    write_fmodifiers(wd, &fcu->modifiers);
-  }
+  BKE_fcurve_blend_write(wrap_writer(wd), fcurves);
 }
 
 static void write_action(WriteData *wd, bAction *act, const void *id_address)

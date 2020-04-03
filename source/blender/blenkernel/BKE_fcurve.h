@@ -374,6 +374,7 @@ float fcurve_samplingcb_evalcurve(struct FCurve *fcu, void *data, float evaltime
 void fcurve_store_samples(
     struct FCurve *fcu, void *data, int start, int end, FcuSampleFunc sample_cb);
 
+void BKE_fcurve_blend_write(struct BlendWriter *writer, struct ListBase *fcurves);
 void BKE_fcurve_blend_read_data(struct BlendReader *reader, struct ListBase *list);
 void BKE_fcurve_blend_read_lib(struct BlendReader *reader, struct ListBase *list, struct ID *id);
 

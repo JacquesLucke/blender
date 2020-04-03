@@ -3354,3 +3354,43 @@ void BKE_fcurve_blend_read_lib(BlendReader *reader, ListBase *list, ID *id)
     BKE_fcurve_modifiers_blend_read_lib(reader, &fcu->modifiers, id);
   }
 }
+
+void BKE_fcurve_blend_write(struct BlendWriter *writer, struct ListBase *fcurves)
+{
+  BLO_write_struct_list(writer, FCurve, fcurves);
+
+  for (FCurve *fcu = fcurves->first; fcu; fcu = fcu->next) {
+    /* curve data */
+    if (fcu->bezt) {
+      BLO_write_struct_array(writer, BezTriple, fcu->totvert, fcu->bezt);
+    }
+    if (fcu->fpt) {
+      BLO_write_struct_array(writer, FPoint, fcu->totvert, fcu->fpt);
+    }
+
+    if (fcu->rna_path) {
+      BLO_write_raw(writer, strlen(fcu->rna_path) + 1, fcu->rna_path);
+    }
+
+    /* driver data */
+    if (fcu->driver) {
+      ChannelDriver *driver = fcu->driver;
+
+      BLO_write_struct(writer, ChannelDriver, driver);
+
+      /* variables */
+      BLO_write_struct_list(writer, DriverVar, &driver->variables);
+      for (DriverVar *dvar = driver->variables.first; dvar; dvar = dvar->next) {
+        DRIVER_TARGETS_USED_LOOPER_BEGIN (dvar) {
+          if (dtar->rna_path) {
+            BLO_write_raw(writer, strlen(dtar->rna_path) + 1, dtar->rna_path);
+          }
+        }
+        DRIVER_TARGETS_LOOPER_END;
+      }
+    }
+
+    /* write F-Modifiers */
+    BKE_fcurve_modifiers_blend_write(writer, &fcu->modifiers);
+  }
+}
