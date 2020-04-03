@@ -4250,3 +4250,25 @@ void BKE_animsys_blend_read_lib(BlendReader *reader, AnimData *adt, ID *id)
   /* link NLA-data */
   BKE_nla_blend_read_lib(reader, &adt->nla_tracks, id);
 }
+
+void BKE_animsys_blend_write(BlendWriter *writer, AnimData *adt)
+{
+  /* firstly, just write the AnimData block */
+  BLO_write_struct(writer, AnimData, adt);
+
+  /* write drivers */
+  BKE_fcurve_blend_write(writer, &adt->drivers);
+
+  /* write overrides */
+  // FIXME: are these needed?
+  for (AnimOverride *aor = adt->overrides.first; aor; aor = aor->next) {
+    /* overrides consist of base data + rna_path */
+    BLO_write_struct(writer, AnimOverride, aor);
+    BLO_write_raw(writer, strlen(aor->rna_path) + 1, aor->rna_path);
+  }
+
+  // TODO write the remaps (if they are needed)
+
+  /* write NLA data */
+  BKE_nla_blend_write(writer, &adt->nla_tracks);
+}

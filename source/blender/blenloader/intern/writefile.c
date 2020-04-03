@@ -150,6 +150,7 @@
 #include "MEM_guardedalloc.h"  // MEM_freeN
 
 #include "BKE_action.h"
+#include "BKE_animsys.h"
 #include "BKE_blender_version.h"
 #include "BKE_bpath.h"
 #include "BKE_collection.h"
@@ -750,33 +751,9 @@ static void write_keyingsets(WriteData *wd, ListBase *list)
   }
 }
 
-static void write_nladata(WriteData *wd, ListBase *nlabase)
-{
-  BKE_nla_blend_write(wrap_writer(wd), nlabase);
-}
-
 static void write_animdata(WriteData *wd, AnimData *adt)
 {
-  AnimOverride *aor;
-
-  /* firstly, just write the AnimData block */
-  writestruct(wd, DATA, AnimData, 1, adt);
-
-  /* write drivers */
-  write_fcurves(wd, &adt->drivers);
-
-  /* write overrides */
-  // FIXME: are these needed?
-  for (aor = adt->overrides.first; aor; aor = aor->next) {
-    /* overrides consist of base data + rna_path */
-    writestruct(wd, DATA, AnimOverride, 1, aor);
-    writedata(wd, DATA, strlen(aor->rna_path) + 1, aor->rna_path);
-  }
-
-  // TODO write the remaps (if they are needed)
-
-  /* write NLA data */
-  write_nladata(wd, &adt->nla_tracks);
+  BKE_animsys_blend_write(wrap_writer(wd), adt);
 }
 
 static void write_curvemapping_curves(WriteData *wd, CurveMapping *cumap)
