@@ -23,12 +23,12 @@
 
 #include "intern/node/deg_node_id.h"
 
-#include <stdio.h>
 #include <cstring> /* required for STREQ later on. */
+#include <stdio.h>
 
-#include "BLI_utildefines.h"
 #include "BLI_ghash.h"
 #include "BLI_string.h"
+#include "BLI_utildefines.h"
 
 extern "C" {
 #include "DNA_ID.h"
@@ -41,8 +41,8 @@ extern "C" {
 #include "DEG_depsgraph.h"
 
 #include "intern/eval/deg_eval_copy_on_write.h"
-#include "intern/node/deg_node_factory.h"
 #include "intern/node/deg_node_component.h"
+#include "intern/node/deg_node_factory.h"
 #include "intern/node/deg_node_time.h"
 
 namespace DEG {
@@ -103,6 +103,7 @@ void IDNode::init(const ID *id, const char *UNUSED(subdata))
 {
   BLI_assert(id != nullptr);
   /* Store ID-pointer. */
+  id_type = GS(id->name);
   id_orig = (ID *)id;
   eval_flags = 0;
   previous_eval_flags = 0;

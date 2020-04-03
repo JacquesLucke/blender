@@ -105,7 +105,10 @@ typedef struct SoundInfo {
 bool BKE_sound_info_get(struct Main *main, struct bSound *sound, SoundInfo *sound_info);
 
 #if defined(WITH_AUDASPACE)
-AUD_Device *BKE_sound_mixdown(struct Scene *scene, AUD_DeviceSpecs specs, int start, float volume);
+AUD_Device *BKE_sound_mixdown(const struct Scene *scene,
+                              AUD_DeviceSpecs specs,
+                              int start,
+                              float volume);
 #endif
 
 void BKE_sound_reset_scene_runtime(struct Scene *scene);
@@ -113,6 +116,9 @@ void BKE_sound_create_scene(struct Scene *scene);
 void BKE_sound_ensure_scene(struct Scene *scene);
 
 void BKE_sound_destroy_scene(struct Scene *scene);
+
+void BKE_sound_lock(void);
+void BKE_sound_unlock(void);
 
 void BKE_sound_reset_scene_specs(struct Scene *scene);
 

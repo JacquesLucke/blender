@@ -30,15 +30,15 @@
 #include "MEM_guardedalloc.h"
 
 #include "BLI_blenlib.h"
-#include "BLI_math.h"
 #include "BLI_ghash.h"
+#include "BLI_math.h"
 #include "BLI_string_utils.h"
 
 #include "BKE_action.h"
 #include "BKE_constraint.h"
 #include "BKE_context.h"
-#include "BKE_idprop.h"
 #include "BKE_deform.h"
+#include "BKE_idprop.h"
 #include "BKE_layer.h"
 
 #include "RNA_access.h"
@@ -742,7 +742,7 @@ static int armature_symmetrize_exec(bContext *C, wmOperator *op)
       }
     }
 
-    /*  Find the selected bones and duplicate them as needed, with mirrored name */
+    /* Find the selected bones and duplicate them as needed, with mirrored name. */
     for (ebone_iter = arm->edbo->first; ebone_iter && ebone_iter != ebone_first_dupe;
          ebone_iter = ebone_iter->next) {
       if (EBONE_VISIBLE(arm, ebone_iter) && (ebone_iter->flag & BONE_SELECTED) &&
@@ -765,7 +765,7 @@ static int armature_symmetrize_exec(bContext *C, wmOperator *op)
       }
     }
 
-    /*  Run through the list and fix the pointers */
+    /* Run through the list and fix the pointers. */
     for (ebone_iter = arm->edbo->first; ebone_iter && ebone_iter != ebone_first_dupe;
          ebone_iter = ebone_iter->next) {
       if (ebone_iter->temp.ebone) {
@@ -1116,7 +1116,7 @@ static int armature_bone_primitive_add_exec(bContext *C, wmOperator *op)
 
   ED_armature_edit_deselect_all(obedit);
 
-  /*  Create a bone */
+  /* Create a bone. */
   bone = ED_armature_ebone_add(obedit->data, name);
 
   copy_v3_v3(bone->head, curs);

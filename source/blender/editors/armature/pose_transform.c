@@ -207,12 +207,12 @@ typedef struct ApplyArmature_ParentState {
 } ApplyArmature_ParentState;
 
 /* Recursive walk for Apply To Selected mode; pstate NULL unless child of an applied bone. */
-static void applyarmature_process_selected_rec(bArmature *arm,
-                                               bPose *pose,
-                                               bPose *pose_eval,
-                                               Bone *bone,
-                                               ListBase *selected,
-                                               ApplyArmature_ParentState *pstate)
+static void applyarmature_process_selected_recursive(bArmature *arm,
+                                                     bPose *pose,
+                                                     bPose *pose_eval,
+                                                     Bone *bone,
+                                                     ListBase *selected,
+                                                     ApplyArmature_ParentState *pstate)
 {
   bPoseChannel *pchan = BKE_pose_channel_find_name(pose, bone->name);
   const bPoseChannel *pchan_eval = BKE_pose_channel_find_name(pose_eval, bone->name);
@@ -334,7 +334,7 @@ static void applyarmature_process_selected_rec(bArmature *arm,
   }
 
   for (Bone *child = bone->childbase.first; child; child = child->next) {
-    applyarmature_process_selected_rec(arm, pose, pose_eval, child, selected, pstate);
+    applyarmature_process_selected_recursive(arm, pose, pose_eval, child, selected, pstate);
   }
 }
 
@@ -390,7 +390,8 @@ static int apply_armature_pose2bones_exec(bContext *C, wmOperator *op)
   if (use_selected) {
     /* The selected only mode requires a recursive walk to handle parent-child relations. */
     for (Bone *bone = arm->bonebase.first; bone; bone = bone->next) {
-      applyarmature_process_selected_rec(arm, pose, ob_eval->pose, bone, &selected_bones, NULL);
+      applyarmature_process_selected_recursive(
+          arm, pose, ob_eval->pose, bone, &selected_bones, NULL);
     }
 
     BLI_freelistN(&selected_bones);
@@ -710,6 +711,8 @@ static int pose_copy_exec(bContext *C, wmOperator *op)
    * any datablock expansion?
    */
   Main *temp_bmain = BKE_main_new();
+  STRNCPY(temp_bmain->name, BKE_main_blendfile_path_from_global());
+
   Object ob_copy = *ob;
   ob_copy.adt = NULL;
   bArmature arm_copy = *((bArmature *)ob->data);
@@ -773,6 +776,8 @@ static int pose_paste_exec(bContext *C, wmOperator *op)
   /* Read copy buffer .blend file. */
   char str[FILE_MAX];
   Main *tmp_bmain = BKE_main_new();
+  STRNCPY(tmp_bmain->name, BKE_main_blendfile_path_from_global());
+
   BLI_join_dirfile(str, sizeof(str), BKE_tempdir_base(), "copybuffer_pose.blend");
   if (!BKE_copybuffer_read(tmp_bmain, str, op->reports, FILTER_ID_OB)) {
     BKE_report(op->reports, RPT_ERROR, "Copy buffer is empty");

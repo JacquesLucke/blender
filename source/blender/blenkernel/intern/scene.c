@@ -30,6 +30,8 @@
 #include "DNA_anim_types.h"
 #include "DNA_collection_types.h"
 #include "DNA_curveprofile_types.h"
+#include "DNA_defaults.h"
+#include "DNA_gpencil_types.h"
 #include "DNA_linestyle_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_node_types.h"
@@ -43,28 +45,27 @@
 #include "DNA_view3d_types.h"
 #include "DNA_windowmanager_types.h"
 #include "DNA_workspace_types.h"
-#include "DNA_gpencil_types.h"
 #include "DNA_world_types.h"
-#include "DNA_defaults.h"
 
-#include "BLI_math.h"
-#include "BLI_blenlib.h"
-#include "BLI_utildefines.h"
 #include "BKE_callbacks.h"
+#include "BLI_blenlib.h"
+#include "BLI_math.h"
 #include "BLI_string.h"
 #include "BLI_string_utils.h"
-#include "BLI_threads.h"
 #include "BLI_task.h"
+#include "BLI_threads.h"
+#include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
 
+#include "BKE_action.h"
 #include "BKE_anim.h"
 #include "BKE_animsys.h"
-#include "BKE_action.h"
 #include "BKE_armature.h"
 #include "BKE_cachefile.h"
 #include "BKE_collection.h"
 #include "BKE_colortools.h"
+#include "BKE_curveprofile.h"
 #include "BKE_editmesh.h"
 #include "BKE_fcurve.h"
 #include "BKE_freestyle.h"
@@ -82,7 +83,6 @@
 #include "BKE_node.h"
 #include "BKE_object.h"
 #include "BKE_paint.h"
-#include "BKE_curveprofile.h"
 #include "BKE_rigidbody.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
@@ -201,72 +201,6 @@ static void scene_init_data(ID *id)
   BKE_color_managed_view_settings_init_render(
       &scene->r.bake.im_format.view_settings, &scene->r.bake.im_format.display_settings, "Filmic");
 
-  /* GP Sculpt brushes */
-  {
-    GP_Sculpt_Settings *gset = &scene->toolsettings->gp_sculpt;
-    GP_Sculpt_Data *gp_brush;
-    float curcolor_add[3], curcolor_sub[3];
-    ARRAY_SET_ITEMS(curcolor_add, 1.0f, 0.6f, 0.6f);
-    ARRAY_SET_ITEMS(curcolor_sub, 0.6f, 0.6f, 1.0f);
-
-    gp_brush = &gset->brush[GP_SCULPT_TYPE_SMOOTH];
-    gp_brush->size = 25;
-    gp_brush->strength = 0.3f;
-    gp_brush->flag = GP_SCULPT_FLAG_USE_FALLOFF | GP_SCULPT_FLAG_SMOOTH_PRESSURE |
-                     GP_SCULPT_FLAG_ENABLE_CURSOR;
-    copy_v3_v3(gp_brush->curcolor_add, curcolor_add);
-    copy_v3_v3(gp_brush->curcolor_sub, curcolor_sub);
-
-    gp_brush = &gset->brush[GP_SCULPT_TYPE_THICKNESS];
-    gp_brush->size = 25;
-    gp_brush->strength = 0.5f;
-    gp_brush->flag = GP_SCULPT_FLAG_USE_FALLOFF | GP_SCULPT_FLAG_ENABLE_CURSOR;
-    copy_v3_v3(gp_brush->curcolor_add, curcolor_add);
-    copy_v3_v3(gp_brush->curcolor_sub, curcolor_sub);
-
-    gp_brush = &gset->brush[GP_SCULPT_TYPE_STRENGTH];
-    gp_brush->size = 25;
-    gp_brush->strength = 0.5f;
-    gp_brush->flag = GP_SCULPT_FLAG_USE_FALLOFF | GP_SCULPT_FLAG_ENABLE_CURSOR;
-    copy_v3_v3(gp_brush->curcolor_add, curcolor_add);
-    copy_v3_v3(gp_brush->curcolor_sub, curcolor_sub);
-
-    gp_brush = &gset->brush[GP_SCULPT_TYPE_GRAB];
-    gp_brush->size = 50;
-    gp_brush->strength = 0.3f;
-    gp_brush->flag = GP_SCULPT_FLAG_USE_FALLOFF | GP_SCULPT_FLAG_ENABLE_CURSOR;
-    copy_v3_v3(gp_brush->curcolor_add, curcolor_add);
-    copy_v3_v3(gp_brush->curcolor_sub, curcolor_sub);
-
-    gp_brush = &gset->brush[GP_SCULPT_TYPE_PUSH];
-    gp_brush->size = 25;
-    gp_brush->strength = 0.3f;
-    gp_brush->flag = GP_SCULPT_FLAG_USE_FALLOFF | GP_SCULPT_FLAG_ENABLE_CURSOR;
-    copy_v3_v3(gp_brush->curcolor_add, curcolor_add);
-    copy_v3_v3(gp_brush->curcolor_sub, curcolor_sub);
-
-    gp_brush = &gset->brush[GP_SCULPT_TYPE_TWIST];
-    gp_brush->size = 50;
-    gp_brush->strength = 0.3f;
-    gp_brush->flag = GP_SCULPT_FLAG_USE_FALLOFF | GP_SCULPT_FLAG_ENABLE_CURSOR;
-    copy_v3_v3(gp_brush->curcolor_add, curcolor_add);
-    copy_v3_v3(gp_brush->curcolor_sub, curcolor_sub);
-
-    gp_brush = &gset->brush[GP_SCULPT_TYPE_PINCH];
-    gp_brush->size = 50;
-    gp_brush->strength = 0.5f;
-    gp_brush->flag = GP_SCULPT_FLAG_USE_FALLOFF | GP_SCULPT_FLAG_ENABLE_CURSOR;
-    copy_v3_v3(gp_brush->curcolor_add, curcolor_add);
-    copy_v3_v3(gp_brush->curcolor_sub, curcolor_sub);
-
-    gp_brush = &gset->brush[GP_SCULPT_TYPE_RANDOMIZE];
-    gp_brush->size = 25;
-    gp_brush->strength = 0.5f;
-    gp_brush->flag = GP_SCULPT_FLAG_USE_FALLOFF | GP_SCULPT_FLAG_ENABLE_CURSOR;
-    copy_v3_v3(gp_brush->curcolor_add, curcolor_add);
-    copy_v3_v3(gp_brush->curcolor_sub, curcolor_sub);
-  }
-
   /* Curve Profile */
   scene->toolsettings->custom_bevel_profile_preset = BKE_curveprofile_add(PROF_PRESET_LINE);
 
@@ -277,7 +211,7 @@ static void scene_init_data(ID *id)
   /* Master Collection */
   scene->master_collection = BKE_collection_master_add();
 
-  BKE_view_layer_add(scene, "View Layer");
+  BKE_view_layer_add(scene, "View Layer", NULL, VIEWLAYER_ADD_NEW);
 }
 
 static void scene_copy_data(Main *bmain, ID *id_dst, const ID *id_src, const int flag)
@@ -399,8 +333,6 @@ static void scene_free_data(ID *id)
   Scene *scene = (Scene *)id;
   const bool do_id_user = false;
 
-  BKE_animdata_free((ID *)scene, false);
-
   BKE_sequencer_editing_free(scene, do_id_user);
 
   BKE_keyingsets_free(&scene->keyingsets);
@@ -463,9 +395,9 @@ static void scene_free_data(ID *id)
     scene->master_collection = NULL;
   }
 
-  if (scene->eevee.light_cache) {
-    EEVEE_lightcache_free(scene->eevee.light_cache);
-    scene->eevee.light_cache = NULL;
+  if (scene->eevee.light_cache_data) {
+    EEVEE_lightcache_free(scene->eevee.light_cache_data);
+    scene->eevee.light_cache_data = NULL;
   }
 
   if (scene->display.shading.prop) {
@@ -560,6 +492,18 @@ ToolSettings *BKE_toolsettings_copy(ToolSettings *toolsettings, const int flag)
     ts->gp_paint = MEM_dupallocN(ts->gp_paint);
     BKE_paint_copy(&ts->gp_paint->paint, &ts->gp_paint->paint, flag);
   }
+  if (ts->gp_vertexpaint) {
+    ts->gp_vertexpaint = MEM_dupallocN(ts->gp_vertexpaint);
+    BKE_paint_copy(&ts->gp_vertexpaint->paint, &ts->gp_vertexpaint->paint, flag);
+  }
+  if (ts->gp_sculptpaint) {
+    ts->gp_sculptpaint = MEM_dupallocN(ts->gp_sculptpaint);
+    BKE_paint_copy(&ts->gp_sculptpaint->paint, &ts->gp_sculptpaint->paint, flag);
+  }
+  if (ts->gp_weightpaint) {
+    ts->gp_weightpaint = MEM_dupallocN(ts->gp_weightpaint);
+    BKE_paint_copy(&ts->gp_weightpaint->paint, &ts->gp_weightpaint->paint, flag);
+  }
 
   BKE_paint_copy(&ts->imapaint.paint, &ts->imapaint.paint, flag);
   ts->imapaint.paintcursor = NULL;
@@ -602,6 +546,18 @@ void BKE_toolsettings_free(ToolSettings *toolsettings)
     BKE_paint_free(&toolsettings->gp_paint->paint);
     MEM_freeN(toolsettings->gp_paint);
   }
+  if (toolsettings->gp_vertexpaint) {
+    BKE_paint_free(&toolsettings->gp_vertexpaint->paint);
+    MEM_freeN(toolsettings->gp_vertexpaint);
+  }
+  if (toolsettings->gp_sculptpaint) {
+    BKE_paint_free(&toolsettings->gp_sculptpaint->paint);
+    MEM_freeN(toolsettings->gp_sculptpaint);
+  }
+  if (toolsettings->gp_weightpaint) {
+    BKE_paint_free(&toolsettings->gp_weightpaint->paint);
+    MEM_freeN(toolsettings->gp_weightpaint);
+  }
   BKE_paint_free(&toolsettings->imapaint.paint);
 
   /* free Grease Pencil interpolation curve */
@@ -627,7 +583,7 @@ void BKE_scene_copy_data_eevee(Scene *sce_dst, const Scene *sce_src)
 {
   /* Copy eevee data between scenes. */
   sce_dst->eevee = sce_src->eevee;
-  sce_dst->eevee.light_cache = NULL;
+  sce_dst->eevee.light_cache_data = NULL;
   sce_dst->eevee.light_cache_info[0] = '\0';
   /* TODO Copy the cache. */
 }
@@ -784,7 +740,7 @@ bool BKE_scene_object_find(Scene *scene, Object *ob)
   return false;
 }
 
-Object *BKE_scene_object_find_by_name(Scene *scene, const char *name)
+Object *BKE_scene_object_find_by_name(const Scene *scene, const char *name)
 {
   for (ViewLayer *view_layer = scene->view_layers.first; view_layer;
        view_layer = view_layer->next) {
@@ -1043,10 +999,10 @@ bool BKE_scene_camera_switch_update(Scene *scene)
   return false;
 }
 
-char *BKE_scene_find_marker_name(Scene *scene, int frame)
+const char *BKE_scene_find_marker_name(const Scene *scene, int frame)
 {
-  ListBase *markers = &scene->markers;
-  TimeMarker *m1, *m2;
+  const ListBase *markers = &scene->markers;
+  const TimeMarker *m1, *m2;
 
   /* search through markers for match */
   for (m1 = markers->first, m2 = markers->last; m1 && m2; m1 = m1->next, m2 = m2->prev) {
@@ -1068,9 +1024,9 @@ char *BKE_scene_find_marker_name(Scene *scene, int frame)
 
 /* return the current marker for this frame,
  * we can have more than 1 marker per frame, this just returns the first :/ */
-char *BKE_scene_find_last_marker_name(Scene *scene, int frame)
+const char *BKE_scene_find_last_marker_name(const Scene *scene, int frame)
 {
-  TimeMarker *marker, *best_marker = NULL;
+  const TimeMarker *marker, *best_marker = NULL;
   int best_frame = -MAXFRAME * 2;
   for (marker = scene->markers.first; marker; marker = marker->next) {
     if (marker->frame == frame) {
@@ -2101,14 +2057,26 @@ void BKE_scene_free_depsgraph_hash(Scene *scene)
   scene->depsgraph_hash = NULL;
 }
 
+void BKE_scene_free_view_layer_depsgraph(Scene *scene, ViewLayer *view_layer)
+{
+  if (scene->depsgraph_hash != NULL) {
+    DepsgraphKey key = {view_layer};
+    BLI_ghash_remove(scene->depsgraph_hash, &key, depsgraph_key_free, depsgraph_key_value_free);
+  }
+}
+
 /* Query depsgraph for a specific contexts. */
 
-Depsgraph *BKE_scene_get_depsgraph(Main *bmain, Scene *scene, ViewLayer *view_layer, bool allocate)
+static Depsgraph **scene_get_depsgraph_p(Main *bmain,
+                                         Scene *scene,
+                                         ViewLayer *view_layer,
+                                         const bool allocate_ghash_entry,
+                                         const bool allocate_depsgraph)
 {
   BLI_assert(scene != NULL);
   BLI_assert(view_layer != NULL);
   /* Make sure hash itself exists. */
-  if (allocate) {
+  if (allocate_ghash_entry) {
     BKE_scene_ensure_depsgraph_hash(scene);
   }
   if (scene->depsgraph_hash == NULL) {
@@ -2119,29 +2087,121 @@ Depsgraph *BKE_scene_get_depsgraph(Main *bmain, Scene *scene, ViewLayer *view_la
    */
   DepsgraphKey key;
   key.view_layer = view_layer;
-  Depsgraph *depsgraph;
-  if (allocate) {
+  Depsgraph **depsgraph_ptr;
+  if (allocate_ghash_entry) {
     DepsgraphKey **key_ptr;
-    Depsgraph **depsgraph_ptr;
     if (!BLI_ghash_ensure_p_ex(
             scene->depsgraph_hash, &key, (void ***)&key_ptr, (void ***)&depsgraph_ptr)) {
       *key_ptr = MEM_mallocN(sizeof(DepsgraphKey), __func__);
       **key_ptr = key;
-      *depsgraph_ptr = DEG_graph_new(bmain, scene, view_layer, DAG_EVAL_VIEWPORT);
-      /* TODO(sergey): Would be cool to avoid string format print,
-       * but is a bit tricky because we can't know in advance  whether
-       * we will ever enable debug messages for this depsgraph.
-       */
-      char name[1024];
-      BLI_snprintf(name, sizeof(name), "%s :: %s", scene->id.name, view_layer->name);
-      DEG_debug_name_set(*depsgraph_ptr, name);
+      if (allocate_depsgraph) {
+        *depsgraph_ptr = DEG_graph_new(bmain, scene, view_layer, DAG_EVAL_VIEWPORT);
+        /* TODO(sergey): Would be cool to avoid string format print,
+         * but is a bit tricky because we can't know in advance  whether
+         * we will ever enable debug messages for this depsgraph.
+         */
+        char name[1024];
+        BLI_snprintf(name, sizeof(name), "%s :: %s", scene->id.name, view_layer->name);
+        DEG_debug_name_set(*depsgraph_ptr, name);
+      }
+      else {
+        *depsgraph_ptr = NULL;
+      }
     }
-    depsgraph = *depsgraph_ptr;
   }
   else {
-    depsgraph = BLI_ghash_lookup(scene->depsgraph_hash, &key);
+    depsgraph_ptr = (Depsgraph **)BLI_ghash_lookup_p(scene->depsgraph_hash, &key);
   }
-  return depsgraph;
+  return depsgraph_ptr;
+}
+
+Depsgraph *BKE_scene_get_depsgraph(Main *bmain, Scene *scene, ViewLayer *view_layer, bool allocate)
+{
+  Depsgraph **depsgraph_ptr = scene_get_depsgraph_p(bmain, scene, view_layer, allocate, allocate);
+  return (depsgraph_ptr != NULL) ? *depsgraph_ptr : NULL;
+}
+
+static char *scene_undo_depsgraph_gen_key(Scene *scene, ViewLayer *view_layer, char *key_full)
+{
+  if (key_full == NULL) {
+    key_full = MEM_callocN(MAX_ID_NAME + FILE_MAX + MAX_NAME, __func__);
+  }
+
+  size_t key_full_offset = BLI_strncpy_rlen(key_full, scene->id.name, MAX_ID_NAME);
+  if (scene->id.lib != NULL) {
+    key_full_offset += BLI_strncpy_rlen(key_full + key_full_offset, scene->id.lib->name, FILE_MAX);
+  }
+  key_full_offset += BLI_strncpy_rlen(key_full + key_full_offset, view_layer->name, MAX_NAME);
+  BLI_assert(key_full_offset < MAX_ID_NAME + FILE_MAX + MAX_NAME);
+
+  return key_full;
+}
+
+GHash *BKE_scene_undo_depsgraphs_extract(Main *bmain)
+{
+  GHash *depsgraph_extract = BLI_ghash_new(
+      BLI_ghashutil_strhash_p, BLI_ghashutil_strcmp, __func__);
+
+  for (Scene *scene = bmain->scenes.first; scene != NULL; scene = scene->id.next) {
+    if (scene->depsgraph_hash == NULL) {
+      /* In some cases, e.g. when undo has to perform multiple steps at once, no depsgraph will be
+       * built so this pointer may be NULL. */
+      continue;
+    }
+    for (ViewLayer *view_layer = scene->view_layers.first; view_layer != NULL;
+         view_layer = view_layer->next) {
+      DepsgraphKey key;
+      key.view_layer = view_layer;
+      Depsgraph **depsgraph = (Depsgraph **)BLI_ghash_lookup_p(scene->depsgraph_hash, &key);
+
+      if (depsgraph != NULL && *depsgraph != NULL) {
+        char *key_full = scene_undo_depsgraph_gen_key(scene, view_layer, NULL);
+
+        /* We steal the depsgraph from the scene. */
+        BLI_ghash_insert(depsgraph_extract, key_full, *depsgraph);
+        *depsgraph = NULL;
+      }
+    }
+  }
+
+  return depsgraph_extract;
+}
+
+void BKE_scene_undo_depsgraphs_restore(Main *bmain, GHash *depsgraph_extract)
+{
+  for (Scene *scene = bmain->scenes.first; scene != NULL; scene = scene->id.next) {
+    BLI_assert(scene->depsgraph_hash == NULL);
+
+    for (ViewLayer *view_layer = scene->view_layers.first; view_layer != NULL;
+         view_layer = view_layer->next) {
+      char key_full[MAX_ID_NAME + FILE_MAX + MAX_NAME] = {0};
+      scene_undo_depsgraph_gen_key(scene, view_layer, key_full);
+
+      Depsgraph **depsgraph_extract_ptr = (Depsgraph **)BLI_ghash_lookup_p(depsgraph_extract,
+                                                                           key_full);
+      if (depsgraph_extract_ptr == NULL) {
+        continue;
+      }
+      BLI_assert(*depsgraph_extract_ptr != NULL);
+
+      Depsgraph **depsgraph_scene_ptr = scene_get_depsgraph_p(
+          bmain, scene, view_layer, true, false);
+      BLI_assert(depsgraph_scene_ptr != NULL);
+      BLI_assert(*depsgraph_scene_ptr == NULL);
+
+      /* We steal the depsgraph back from our 'extract' storage to the scene. */
+      Depsgraph *depsgraph = *depsgraph_extract_ptr;
+
+      DEG_graph_replace_owners(depsgraph, bmain, scene, view_layer);
+
+      DEG_graph_tag_relations_update(depsgraph);
+
+      *depsgraph_scene_ptr = depsgraph;
+      *depsgraph_extract_ptr = NULL;
+    }
+  }
+
+  BLI_ghash_free(depsgraph_extract, MEM_freeN, depsgraph_key_value_free);
 }
 
 /* -------------------------------------------------------------------- */

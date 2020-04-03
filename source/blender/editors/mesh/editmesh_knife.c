@@ -29,14 +29,14 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_listbase.h"
-#include "BLI_string.h"
-#include "BLI_array.h"
 #include "BLI_alloca.h"
+#include "BLI_array.h"
 #include "BLI_linklist.h"
+#include "BLI_listbase.h"
 #include "BLI_math.h"
-#include "BLI_smallhash.h"
 #include "BLI_memarena.h"
+#include "BLI_smallhash.h"
+#include "BLI_string.h"
 
 #include "BLT_translation.h"
 
@@ -50,10 +50,10 @@
 #include "GPU_matrix.h"
 #include "GPU_state.h"
 
+#include "ED_mesh.h"
 #include "ED_screen.h"
 #include "ED_space_api.h"
 #include "ED_view3d.h"
-#include "ED_mesh.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -1579,7 +1579,7 @@ static void knife_find_line_hits(KnifeTool_OpData *kcd)
   float line_tol, line_tol_sq;
   float face_tol, face_tol_sq;
   int isect_kind;
-  unsigned int tot;
+  uint tot;
   int i;
   const bool use_hit_prev = true;
   const bool use_hit_curr = (kcd->is_drag_hold == false);
@@ -2419,7 +2419,7 @@ static void knife_make_face_cuts(KnifeTool_OpData *kcd, BMFace *f, ListBase *kfe
     edge_array_len = i;
 
 #ifdef USE_NET_ISLAND_CONNECT
-    unsigned int edge_array_holes_len;
+    uint edge_array_holes_len;
     BMEdge **edge_array_holes;
     if (BM_face_split_edgenet_connect_islands(bm,
                                               f,
@@ -2824,14 +2824,14 @@ wmKeyMap *knifetool_modal_keymap(wmKeyConfig *keyconf)
       {0, NULL, 0, NULL, NULL},
   };
 
-  wmKeyMap *keymap = WM_modalkeymap_get(keyconf, "Knife Tool Modal Map");
+  wmKeyMap *keymap = WM_modalkeymap_find(keyconf, "Knife Tool Modal Map");
 
   /* this function is called for each spacetype, only needs to add map once */
   if (keymap && keymap->modal_items) {
     return NULL;
   }
 
-  keymap = WM_modalkeymap_add(keyconf, "Knife Tool Modal Map", modal_items);
+  keymap = WM_modalkeymap_ensure(keyconf, "Knife Tool Modal Map", modal_items);
 
   WM_modalkeymap_assign(keymap, "MESH_OT_knife_tool");
 

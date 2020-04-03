@@ -21,10 +21,10 @@
  * \ingroup mantaflow
  */
 
-#include <sstream>
 #include <fstream>
-#include <iostream>
 #include <iomanip>
+#include <iostream>
+#include <sstream>
 #include <zlib.h>
 
 #if OPENVDB == 1
@@ -32,23 +32,32 @@
 #endif
 
 #include "MANTA_main.h"
-#include "manta.h"
 #include "Python.h"
 #include "fluid_script.h"
-#include "smoke_script.h"
 #include "liquid_script.h"
+#include "manta.h"
+#include "smoke_script.h"
 
+#include "BLI_fileops.h"
 #include "BLI_path_util.h"
 #include "BLI_utildefines.h"
-#include "BLI_fileops.h"
 
-#include "DNA_scene_types.h"
-#include "DNA_modifier_types.h"
 #include "DNA_fluid_types.h"
+#include "DNA_modifier_types.h"
+#include "DNA_scene_types.h"
+
+#include "MEM_guardedalloc.h"
 
 std::atomic<bool> MANTA::mantaInitialized(false);
 std::atomic<int> MANTA::solverID(0);
 int MANTA::with_debug(0);
+
+/* Number of particles that the cache reads at once (with zlib). */
+#define PARTICLE_CHUNK 20000
+/* Number of mesh nodes that the cache reads at once (with zlib). */
+#define NODE_CHUNK 20000
+/* Number of mesh triangles that the cache reads at once (with zlib). */
+#define TRIANGLE_CHUNK 20000
 
 MANTA::MANTA(int *res, FluidModifierData *mmd) : mCurrentID(++solverID)
 {
@@ -171,9 +180,8 @@ MANTA::MANTA(int *res, FluidModifierData *mmd) : mCurrentID(++solverID)
   mMeshFromFile = false;
   mParticlesFromFile = false;
 
-  // Only start Mantaflow once. No need to start whenever new FLUID objected is allocated
-  if (!mantaInitialized)
-    initializeMantaflow();
+  // Setup Mantaflow in Python
+  initializeMantaflow();
 
   // Initialize Mantaflow variables in Python
   // Liquid
@@ -838,6 +846,8 @@ std::string MANTA::getRealValue(const std::string &varName, FluidModifierData *m
     ss << mmd->domain->flame_smoke_color[2];
   else if (varName == "CURRENT_FRAME")
     ss << mmd->time;
+  else if (varName == "START_FRAME")
+    ss << mmd->domain->cache_frame_start;
   else if (varName == "END_FRAME")
     ss << mmd->domain->cache_frame_end;
   else if (varName == "CACHE_DATA_FORMAT")
@@ -1050,8 +1060,6 @@ int MANTA::updateFlipStructures(FluidModifierData *mmd, int framenr)
   std::string pformat = getCacheFileEnding(mmd->domain->cache_particle_format);
   BLI_path_join(
       cacheDir, sizeof(cacheDir), mmd->domain->cache_directory, FLUID_DOMAIN_DIR_DATA, nullptr);
-
-  // TODO (sebbas): Use pp_xl and pVel_xl when using upres simulation?
 
   ss << "pp_####" << pformat;
   BLI_join_dirfile(targetFile, sizeof(targetFile), cacheDir, ss.str().c_str());
@@ -2297,18 +2305,24 @@ static PyObject *callPythonFunction(std::string varName,
 
   // Get pyobject that holds result value
   main = PyImport_ImportModule("__main__");
-  if (!main)
+  if (!main) {
+    PyGILState_Release(gilstate);
     return nullptr;
+  }
 
   var = PyObject_GetAttrString(main, varName.c_str());
-  if (!var)
+  if (!var) {
+    PyGILState_Release(gilstate);
     return nullptr;
+  }
 
   func = PyObject_GetAttrString(var, functionName.c_str());
 
   Py_DECREF(var);
-  if (!func)
+  if (!func) {
+    PyGILState_Release(gilstate);
     return nullptr;
+  }
 
   if (!isAttribute) {
     returnedValue = PyObject_CallObject(func, nullptr);
@@ -2451,13 +2465,12 @@ void MANTA::updateMeshFromBobj(const char *filename)
     std::cout << "MANTA::updateMeshFromBobj()" << std::endl;
 
   gzFile gzf;
-  float fbuffer[3];
-  int ibuffer[3];
-  int numBuffer = 0;
 
   gzf = (gzFile)BLI_gzopen(filename, "rb1");  // do some compression
   if (!gzf)
     std::cerr << "updateMeshData: unable to open file: " << filename << std::endl;
+
+  int numBuffer = 0;
 
   // Num vertices
   gzread(gzf, &numBuffer, sizeof(int));
@@ -2465,15 +2478,46 @@ void MANTA::updateMeshFromBobj(const char *filename)
   if (with_debug)
     std::cout << "read mesh , num verts: " << numBuffer << " , in file: " << filename << std::endl;
 
+  int numChunks = (int)(ceil((float)numBuffer / NODE_CHUNK));
+  int readLen, readStart, readEnd, readBytes, k;
+
   if (numBuffer) {
     // Vertices
+    int todoVertices = numBuffer;
+    float *bufferVerts = (float *)MEM_malloc_arrayN(
+        NODE_CHUNK, sizeof(float) * 3, "fluid_mesh_vertices");
+
     mMeshNodes->resize(numBuffer);
-    for (std::vector<Node>::iterator it = mMeshNodes->begin(); it != mMeshNodes->end(); ++it) {
-      gzread(gzf, fbuffer, sizeof(float) * 3);
-      it->pos[0] = fbuffer[0];
-      it->pos[1] = fbuffer[1];
-      it->pos[2] = fbuffer[2];
+
+    for (int i = 0; i < numChunks && todoVertices > 0; ++i) {
+      readLen = NODE_CHUNK;
+      if (todoVertices < NODE_CHUNK) {
+        readLen = todoVertices;
+      }
+
+      readBytes = gzread(gzf, bufferVerts, readLen * sizeof(float) * 3);
+      if (!readBytes) {
+        if (with_debug)
+          std::cerr << "error while reading vertices" << std::endl;
+        MEM_freeN(bufferVerts);
+        gzclose(gzf);
+        return;
+      }
+
+      readStart = (numBuffer - todoVertices);
+      CLAMP(readStart, 0, numBuffer);
+      readEnd = readStart + readLen;
+      CLAMP(readEnd, 0, numBuffer);
+
+      k = 0;
+      for (std::vector<MANTA::Node>::size_type j = readStart; j < readEnd; j++, k += 3) {
+        mMeshNodes->at(j).pos[0] = bufferVerts[k];
+        mMeshNodes->at(j).pos[1] = bufferVerts[k + 1];
+        mMeshNodes->at(j).pos[2] = bufferVerts[k + 2];
+      }
+      todoVertices -= readLen;
     }
+    MEM_freeN(bufferVerts);
   }
 
   // Num normals
@@ -2485,14 +2529,42 @@ void MANTA::updateMeshFromBobj(const char *filename)
 
   if (numBuffer) {
     // Normals
+    int todoNormals = numBuffer;
+    float *bufferNormals = (float *)MEM_malloc_arrayN(
+        NODE_CHUNK, sizeof(float) * 3, "fluid_mesh_normals");
+
     if (!getNumVertices())
       mMeshNodes->resize(numBuffer);
-    for (std::vector<Node>::iterator it = mMeshNodes->begin(); it != mMeshNodes->end(); ++it) {
-      gzread(gzf, fbuffer, sizeof(float) * 3);
-      it->normal[0] = fbuffer[0];
-      it->normal[1] = fbuffer[1];
-      it->normal[2] = fbuffer[2];
+
+    for (int i = 0; i < numChunks && todoNormals > 0; ++i) {
+      readLen = NODE_CHUNK;
+      if (todoNormals < NODE_CHUNK) {
+        readLen = todoNormals;
+      }
+
+      readBytes = gzread(gzf, bufferNormals, readLen * sizeof(float) * 3);
+      if (!readBytes) {
+        if (with_debug)
+          std::cerr << "error while reading normals" << std::endl;
+        MEM_freeN(bufferNormals);
+        gzclose(gzf);
+        return;
+      }
+
+      readStart = (numBuffer - todoNormals);
+      CLAMP(readStart, 0, numBuffer);
+      readEnd = readStart + readLen;
+      CLAMP(readEnd, 0, numBuffer);
+
+      k = 0;
+      for (std::vector<MANTA::Node>::size_type j = readStart; j < readEnd; j++, k += 3) {
+        mMeshNodes->at(j).normal[0] = bufferNormals[k];
+        mMeshNodes->at(j).normal[1] = bufferNormals[k + 1];
+        mMeshNodes->at(j).normal[2] = bufferNormals[k + 2];
+      }
+      todoNormals -= readLen;
     }
+    MEM_freeN(bufferNormals);
   }
 
   // Num triangles
@@ -2502,18 +2574,45 @@ void MANTA::updateMeshFromBobj(const char *filename)
     std::cout << "read mesh , num triangles : " << numBuffer << " , in file: " << filename
               << std::endl;
 
+  numChunks = (int)(ceil((float)numBuffer / TRIANGLE_CHUNK));
+
   if (numBuffer) {
     // Triangles
+    int todoTriangles = numBuffer;
+    int *bufferTriangles = (int *)MEM_malloc_arrayN(
+        TRIANGLE_CHUNK, sizeof(int) * 3, "fluid_mesh_triangles");
+
     mMeshTriangles->resize(numBuffer);
-    MANTA::Triangle *bufferTriangle;
-    for (std::vector<Triangle>::iterator it = mMeshTriangles->begin(); it != mMeshTriangles->end();
-         ++it) {
-      gzread(gzf, ibuffer, sizeof(int) * 3);
-      bufferTriangle = (MANTA::Triangle *)ibuffer;
-      it->c[0] = bufferTriangle->c[0];
-      it->c[1] = bufferTriangle->c[1];
-      it->c[2] = bufferTriangle->c[2];
+
+    for (int i = 0; i < numChunks && todoTriangles > 0; ++i) {
+      readLen = TRIANGLE_CHUNK;
+      if (todoTriangles < TRIANGLE_CHUNK) {
+        readLen = todoTriangles;
+      }
+
+      readBytes = gzread(gzf, bufferTriangles, readLen * sizeof(int) * 3);
+      if (!readBytes) {
+        if (with_debug)
+          std::cerr << "error while reading triangles" << std::endl;
+        MEM_freeN(bufferTriangles);
+        gzclose(gzf);
+        return;
+      }
+
+      readStart = (numBuffer - todoTriangles);
+      CLAMP(readStart, 0, numBuffer);
+      readEnd = readStart + readLen;
+      CLAMP(readEnd, 0, numBuffer);
+
+      k = 0;
+      for (std::vector<MANTA::Triangle>::size_type j = readStart; j < readEnd; j++, k += 3) {
+        mMeshTriangles->at(j).c[0] = bufferTriangles[k];
+        mMeshTriangles->at(j).c[1] = bufferTriangles[k + 1];
+        mMeshTriangles->at(j).c[2] = bufferTriangles[k + 2];
+      }
+      todoTriangles -= readLen;
     }
+    MEM_freeN(bufferTriangles);
   }
   gzclose(gzf);
 }
@@ -2611,8 +2710,8 @@ void MANTA::updateMeshFromUni(const char *filename)
   if (!gzf)
     std::cout << "updateMeshFromUni: unable to open file" << std::endl;
 
-  char ID[5] = {0, 0, 0, 0, 0};
-  gzread(gzf, ID, 4);
+  char file_magic[5] = {0, 0, 0, 0, 0};
+  gzread(gzf, file_magic, 4);
 
   std::vector<pVel> *velocityPointer = mMeshVelocities;
 
@@ -2645,11 +2744,11 @@ void MANTA::updateMeshFromUni(const char *filename)
   }
 
   // Reading mesh
-  if (!strcmp(ID, "MB01")) {
+  if (!strcmp(file_magic, "MB01")) {
     // TODO (sebbas): Future update could add uni mesh support
   }
   // Reading mesh data file v1 with vec3
-  else if (!strcmp(ID, "MD01")) {
+  else if (!strcmp(file_magic, "MD01")) {
     numParticles = ibuffer[0];
 
     velocityPointer->resize(numParticles);
@@ -2696,18 +2795,17 @@ void MANTA::updateParticlesFromUni(const char *filename, bool isSecondarySys, bo
     std::cout << "MANTA::updateParticlesFromUni()" << std::endl;
 
   gzFile gzf;
-  float fbuffer[4];
   int ibuffer[4];
 
   gzf = (gzFile)BLI_gzopen(filename, "rb1");  // do some compression
   if (!gzf)
-    std::cout << "updateParticlesFromUni: unable to open file" << std::endl;
+    std::cerr << "updateParticlesFromUni: unable to open file" << std::endl;
 
-  char ID[5] = {0, 0, 0, 0, 0};
-  gzread(gzf, ID, 4);
+  char file_magic[5] = {0, 0, 0, 0, 0};
+  gzread(gzf, file_magic, 4);
 
-  if (!strcmp(ID, "PB01")) {
-    std::cout << "particle uni file format v01 not supported anymore" << std::endl;
+  if (!strcmp(file_magic, "PB01")) {
+    std::cerr << "particle uni file format v01 not supported anymore" << std::endl;
     gzclose(gzf);
     return;
   }
@@ -2750,48 +2848,131 @@ void MANTA::updateParticlesFromUni(const char *filename, bool isSecondarySys, bo
   }
   if (!ibuffer[0]) {  // Any particles present?
     if (with_debug)
-      std::cout << "no particles present yet" << std::endl;
+      std::cerr << "no particles present yet" << std::endl;
     gzclose(gzf);
     return;
   }
 
   numParticles = ibuffer[0];
 
+  const int numChunks = (int)(ceil((float)numParticles / PARTICLE_CHUNK));
+  int todoParticles, readLen;
+  int readStart, readEnd, readBytes;
+
   // Reading base particle system file v2
-  if (!strcmp(ID, "PB02")) {
-    dataPointer->resize(numParticles);
+  if (!strcmp(file_magic, "PB02")) {
     MANTA::pData *bufferPData;
-    for (std::vector<pData>::iterator it = dataPointer->begin(); it != dataPointer->end(); ++it) {
-      gzread(gzf, fbuffer, sizeof(float) * 3 + sizeof(int));
-      bufferPData = (MANTA::pData *)fbuffer;
-      it->pos[0] = bufferPData->pos[0];
-      it->pos[1] = bufferPData->pos[1];
-      it->pos[2] = bufferPData->pos[2];
-      it->flag = bufferPData->flag;
+    todoParticles = numParticles;
+    bufferPData = (MANTA::pData *)MEM_malloc_arrayN(
+        PARTICLE_CHUNK, sizeof(MANTA::pData), "fluid_particle_data");
+
+    dataPointer->resize(numParticles);
+
+    for (int i = 0; i < numChunks && todoParticles > 0; ++i) {
+      readLen = PARTICLE_CHUNK;
+      if (todoParticles < PARTICLE_CHUNK) {
+        readLen = todoParticles;
+      }
+
+      readBytes = gzread(gzf, bufferPData, readLen * sizeof(pData));
+      if (!readBytes) {
+        if (with_debug)
+          std::cerr << "error while reading particle data" << std::endl;
+        MEM_freeN(bufferPData);
+        gzclose(gzf);
+        return;
+      }
+
+      readStart = (numParticles - todoParticles);
+      CLAMP(readStart, 0, numParticles);
+      readEnd = readStart + readLen;
+      CLAMP(readEnd, 0, numParticles);
+
+      int k = 0;
+      for (std::vector<MANTA::pData>::size_type j = readStart; j < readEnd; j++, k++) {
+        dataPointer->at(j).pos[0] = bufferPData[k].pos[0];
+        dataPointer->at(j).pos[1] = bufferPData[k].pos[1];
+        dataPointer->at(j).pos[2] = bufferPData[k].pos[2];
+        dataPointer->at(j).flag = bufferPData[k].flag;
+      }
+      todoParticles -= readLen;
     }
+    MEM_freeN(bufferPData);
   }
   // Reading particle data file v1 with velocities
-  else if (!strcmp(ID, "PD01") && isVelData) {
-    velocityPointer->resize(numParticles);
+  else if (!strcmp(file_magic, "PD01") && isVelData) {
     MANTA::pVel *bufferPVel;
-    for (std::vector<pVel>::iterator it = velocityPointer->begin(); it != velocityPointer->end();
-         ++it) {
-      gzread(gzf, fbuffer, sizeof(float) * 3);
-      bufferPVel = (MANTA::pVel *)fbuffer;
-      it->pos[0] = bufferPVel->pos[0];
-      it->pos[1] = bufferPVel->pos[1];
-      it->pos[2] = bufferPVel->pos[2];
+    todoParticles = numParticles;
+    bufferPVel = (MANTA::pVel *)MEM_malloc_arrayN(
+        PARTICLE_CHUNK, sizeof(MANTA::pVel), "fluid_particle_velocity");
+
+    velocityPointer->resize(numParticles);
+
+    for (int i = 0; i < numChunks && todoParticles > 0; ++i) {
+      readLen = PARTICLE_CHUNK;
+      if (todoParticles < PARTICLE_CHUNK) {
+        readLen = todoParticles;
+      }
+
+      readBytes = gzread(gzf, bufferPVel, readLen * sizeof(pVel));
+      if (!readBytes) {
+        if (with_debug)
+          std::cerr << "error while reading particle velocities" << std::endl;
+        MEM_freeN(bufferPVel);
+        gzclose(gzf);
+        return;
+      }
+
+      readStart = (numParticles - todoParticles);
+      CLAMP(readStart, 0, numParticles);
+      readEnd = readStart + readLen;
+      CLAMP(readEnd, 0, numParticles);
+
+      int k = 0;
+      for (std::vector<MANTA::pVel>::size_type j = readStart; j < readEnd; j++, k++) {
+        velocityPointer->at(j).pos[0] = bufferPVel[k].pos[0];
+        velocityPointer->at(j).pos[1] = bufferPVel[k].pos[1];
+        velocityPointer->at(j).pos[2] = bufferPVel[k].pos[2];
+      }
+      todoParticles -= readLen;
     }
+    MEM_freeN(bufferPVel);
   }
   // Reading particle data file v1 with lifetime
-  else if (!strcmp(ID, "PD01")) {
-    lifePointer->resize(numParticles);
+  else if (!strcmp(file_magic, "PD01")) {
     float *bufferPLife;
-    for (std::vector<float>::iterator it = lifePointer->begin(); it != lifePointer->end(); ++it) {
-      gzread(gzf, fbuffer, sizeof(float));
-      bufferPLife = (float *)fbuffer;
-      *it = *bufferPLife;
+    todoParticles = numParticles;
+    bufferPLife = (float *)MEM_malloc_arrayN(PARTICLE_CHUNK, sizeof(float), "fluid_particle_life");
+
+    lifePointer->resize(numParticles);
+
+    for (int i = 0; i < numChunks && todoParticles > 0; ++i) {
+      readLen = PARTICLE_CHUNK;
+      if (todoParticles < PARTICLE_CHUNK) {
+        readLen = todoParticles;
+      }
+
+      readBytes = gzread(gzf, bufferPLife, readLen * sizeof(float));
+      if (!readBytes) {
+        if (with_debug)
+          std::cerr << "error while reading particle life" << std::endl;
+        MEM_freeN(bufferPLife);
+        gzclose(gzf);
+        return;
+      }
+
+      readStart = (numParticles - todoParticles);
+      CLAMP(readStart, 0, numParticles);
+      readEnd = readStart + readLen;
+      CLAMP(readEnd, 0, numParticles);
+
+      int k = 0;
+      for (std::vector<float>::size_type j = readStart; j < readEnd; j++, k++) {
+        lifePointer->at(j) = bufferPLife[k];
+      }
+      todoParticles -= readLen;
     }
+    MEM_freeN(bufferPLife);
   }
 
   gzclose(gzf);
@@ -2848,22 +3029,22 @@ int MANTA::updateGridFromUni(const char *filename, float *grid, bool isNoise)
     return 0;
   }
 
-  char ID[5] = {0, 0, 0, 0, 0};
-  gzread(gzf, ID, 4);
+  char file_magic[5] = {0, 0, 0, 0, 0};
+  gzread(gzf, file_magic, 4);
 
-  if (!strcmp(ID, "DDF2")) {
+  if (!strcmp(file_magic, "DDF2")) {
     std::cout << "MANTA::updateGridFromUni(): grid uni file format DDF2 not supported anymore"
               << std::endl;
     gzclose(gzf);
     return 0;
   }
-  if (!strcmp(ID, "MNT1")) {
+  if (!strcmp(file_magic, "MNT1")) {
     std::cout << "MANTA::updateGridFromUni(): grid uni file format MNT1 not supported anymore"
               << std::endl;
     gzclose(gzf);
     return 0;
   }
-  if (!strcmp(ID, "MNT2")) {
+  if (!strcmp(file_magic, "MNT2")) {
     std::cout << "MANTA::updateGridFromUni(): grid uni file format MNT2 not supported anymore"
               << std::endl;
     gzclose(gzf);
@@ -2902,7 +3083,7 @@ int MANTA::updateGridFromUni(const char *filename, float *grid, bool isNoise)
   }
 
   // Actual data reading
-  if (!strcmp(ID, "MNT3")) {
+  if (!strcmp(file_magic, "MNT3")) {
     gzread(gzf, grid, sizeof(float) * ibuffer[0] * ibuffer[1] * ibuffer[2]);
   }
 

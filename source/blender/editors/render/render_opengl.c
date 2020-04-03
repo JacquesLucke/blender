@@ -22,26 +22,26 @@
  */
 
 #include <math.h>
-#include <string.h>
 #include <stddef.h>
+#include <string.h>
 
 #include "MEM_guardedalloc.h"
 
-#include "DNA_camera_types.h"
 #include "BLI_bitmap.h"
+#include "BLI_blenlib.h"
 #include "BLI_math.h"
 #include "BLI_math_color_blend.h"
-#include "BLI_blenlib.h"
-#include "BLI_utildefines.h"
-#include "BLI_threads.h"
 #include "BLI_task.h"
+#include "BLI_threads.h"
+#include "BLI_utildefines.h"
+#include "DNA_camera_types.h"
 
-#include "DNA_anim_types.h"
 #include "DNA_action_types.h"
+#include "DNA_anim_types.h"
 #include "DNA_curve_types.h"
-#include "DNA_scene_types.h"
-#include "DNA_object_types.h"
 #include "DNA_gpencil_types.h"
+#include "DNA_object_types.h"
+#include "DNA_scene_types.h"
 
 #include "BKE_animsys.h"
 #include "BKE_camera.h"
@@ -65,15 +65,15 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
+#include "ED_gpencil.h"
 #include "ED_screen.h"
 #include "ED_view3d.h"
 #include "ED_view3d_offscreen.h"
-#include "ED_gpencil.h"
 
-#include "RE_pipeline.h"
-#include "IMB_imbuf_types.h"
-#include "IMB_imbuf.h"
 #include "IMB_colormanagement.h"
+#include "IMB_imbuf.h"
+#include "IMB_imbuf_types.h"
+#include "RE_pipeline.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -151,7 +151,7 @@ typedef struct OGLRender {
 
   eImageFormatDepth color_depth;
   SpinLock reports_lock;
-  unsigned int num_scheduled_frames;
+  uint num_scheduled_frames;
   ThreadMutex task_mutex;
   ThreadCondition task_condition;
 
@@ -296,7 +296,7 @@ static void screen_opengl_render_doit(const bContext *C, OGLRender *oglrender, R
   const short view_context = (v3d != NULL);
   bool draw_sky = (scene->r.alphamode == R_ADDSKY);
   float *rectf = NULL;
-  unsigned char *rect = NULL;
+  uchar *rect = NULL;
   const char *viewname = RE_GetActiveRenderView(oglrender->re);
   ImBuf *ibuf_result = NULL;
 
@@ -334,9 +334,8 @@ static void screen_opengl_render_doit(const bContext *C, OGLRender *oglrender, R
 
     if (gpd) {
       int i;
-      unsigned char *gp_rect;
-      unsigned char *render_rect =
-          (unsigned char *)RE_RenderViewGetById(rr, oglrender->view_id)->rect32;
+      uchar *gp_rect;
+      uchar *render_rect = (uchar *)RE_RenderViewGetById(rr, oglrender->view_id)->rect32;
 
       DRW_opengl_context_enable();
       GPU_offscreen_bind(oglrender->ofs, true);
@@ -352,7 +351,7 @@ static void screen_opengl_render_doit(const bContext *C, OGLRender *oglrender, R
       ED_annotation_draw_ex(scene, gpd, sizex, sizey, scene->r.cfra, SPACE_SEQ);
       G.f &= ~G_FLAG_RENDER_VIEWPORT;
 
-      gp_rect = MEM_mallocN(sizex * sizey * sizeof(unsigned char) * 4, "offscreen rect");
+      gp_rect = MEM_mallocN(sizex * sizey * sizeof(uchar) * 4, "offscreen rect");
       GPU_offscreen_read_pixels(oglrender->ofs, GL_UNSIGNED_BYTE, gp_rect);
 
       for (i = 0; i < sizex * sizey * 4; i += 4) {
@@ -414,7 +413,7 @@ static void screen_opengl_render_doit(const bContext *C, OGLRender *oglrender, R
         rectf = ibuf_view->rect_float;
       }
       else {
-        rect = (unsigned char *)ibuf_view->rect;
+        rect = (uchar *)ibuf_view->rect;
       }
     }
     else {
@@ -628,6 +627,9 @@ static int gather_frames_to_render_for_id(LibraryIDLinkCallbackData *cb_data)
     case ID_MC:  /* MovieClip */
     case ID_MSK: /* Mask */
     case ID_LP:  /* LightProbe */
+    case ID_HA:  /* Hair */
+    case ID_PT:  /* PointCloud */
+    case ID_VO:  /* Volume */
       break;
 
       /* Blacklist: */
@@ -1219,7 +1221,7 @@ static int screen_opengl_render_modal(bContext *C, wmOperator *op, const wmEvent
   bool ret;
 
   switch (event->type) {
-    case ESCKEY:
+    case EVT_ESCKEY:
       /* cancel */
       oglrender->pool_ok = false; /* Flag pool for cancel. */
       screen_opengl_render_end(C, op->customdata);

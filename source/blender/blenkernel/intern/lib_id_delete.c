@@ -25,27 +25,27 @@
 /* all types are needed here, in order to do memory operations */
 #include "DNA_armature_types.h"
 #include "DNA_brush_types.h"
-#include "DNA_camera_types.h"
 #include "DNA_cachefile_types.h"
+#include "DNA_camera_types.h"
 #include "DNA_collection_types.h"
 #include "DNA_gpencil_types.h"
 #include "DNA_ipo_types.h"
 #include "DNA_key_types.h"
-#include "DNA_light_types.h"
 #include "DNA_lattice_types.h"
+#include "DNA_light_types.h"
+#include "DNA_lightprobe_types.h"
 #include "DNA_linestyle_types.h"
+#include "DNA_mask_types.h"
 #include "DNA_material_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meta_types.h"
 #include "DNA_movieclip_types.h"
-#include "DNA_mask_types.h"
 #include "DNA_node_types.h"
 #include "DNA_object_types.h"
-#include "DNA_lightprobe_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
-#include "DNA_speaker_types.h"
 #include "DNA_sound_types.h"
+#include "DNA_speaker_types.h"
 #include "DNA_text_types.h"
 #include "DNA_vfont_types.h"
 #include "DNA_windowmanager_types.h"
@@ -57,10 +57,11 @@
 #include "BLI_listbase.h"
 
 #include "BKE_action.h"
+#include "BKE_animsys.h"
 #include "BKE_armature.h"
 #include "BKE_brush.h"
-#include "BKE_camera.h"
 #include "BKE_cachefile.h"
+#include "BKE_camera.h"
 #include "BKE_collection.h"
 #include "BKE_curve.h"
 #include "BKE_font.h"
@@ -70,28 +71,28 @@
 #include "BKE_image.h"
 #include "BKE_ipo.h"
 #include "BKE_key.h"
-#include "BKE_light.h"
 #include "BKE_lattice.h"
 #include "BKE_lib_id.h"
 #include "BKE_lib_override.h"
 #include "BKE_lib_remap.h"
 #include "BKE_library.h"
+#include "BKE_light.h"
+#include "BKE_lightprobe.h"
 #include "BKE_linestyle.h"
-#include "BKE_mesh.h"
-#include "BKE_material.h"
 #include "BKE_main.h"
 #include "BKE_mask.h"
+#include "BKE_material.h"
 #include "BKE_mball.h"
+#include "BKE_mesh.h"
 #include "BKE_movieclip.h"
 #include "BKE_node.h"
 #include "BKE_object.h"
 #include "BKE_paint.h"
 #include "BKE_particle.h"
-#include "BKE_lightprobe.h"
-#include "BKE_speaker.h"
-#include "BKE_sound.h"
-#include "BKE_screen.h"
 #include "BKE_scene.h"
+#include "BKE_screen.h"
+#include "BKE_sound.h"
+#include "BKE_speaker.h"
 #include "BKE_text.h"
 #include "BKE_texture.h"
 #include "BKE_workspace.h"
@@ -119,8 +120,7 @@ void BKE_libblock_free_data(ID *id, const bool do_id_user)
     BKE_lib_override_library_free(&id->override_library, do_id_user);
   }
 
-  /* XXX TODO remove animdata handling from each type's freeing func,
-   * and do it here, like for copy! */
+  BKE_animdata_free(id, do_id_user);
 }
 
 void BKE_libblock_free_datablock(ID *id, const int UNUSED(flag))
@@ -134,118 +134,7 @@ void BKE_libblock_free_datablock(ID *id, const int UNUSED(flag))
     return;
   }
 
-  const short type = GS(id->name);
-  switch (type) {
-    case ID_SCE:
-      BLI_assert(0);
-      break;
-    case ID_LI:
-      BLI_assert(0);
-      break;
-    case ID_OB:
-      BLI_assert(0);
-      break;
-    case ID_ME:
-      BLI_assert(0);
-      break;
-    case ID_CU:
-      BLI_assert(0);
-      break;
-    case ID_MB:
-      BLI_assert(0);
-      break;
-    case ID_MA:
-      BLI_assert(0);
-      break;
-    case ID_TE:
-      break;
-    case ID_IM:
-      BLI_assert(0);
-      break;
-    case ID_LT:
-      BLI_assert(0);
-      break;
-    case ID_LA:
-      BLI_assert(0);
-      break;
-    case ID_CA:
-      BLI_assert(0);
-      break;
-    case ID_IP: /* Deprecated. */
-      BKE_ipo_free((Ipo *)id);
-      break;
-    case ID_KE:
-      BLI_assert(0);
-      break;
-    case ID_WO:
-      BLI_assert(0);
-      break;
-    case ID_SCR:
-      BLI_assert(0);
-      break;
-    case ID_VF:
-      BLI_assert(0);
-      break;
-    case ID_TXT:
-      BLI_assert(0);
-      break;
-    case ID_SPK:
-      BLI_assert(0);
-      break;
-    case ID_LP:
-      BLI_assert(0);
-      break;
-    case ID_SO:
-      BLI_assert(0);
-      break;
-    case ID_GR:
-      BLI_assert(0);
-      break;
-    case ID_AR:
-      BLI_assert(0);
-      break;
-    case ID_AC:
-      BLI_assert(0);
-      break;
-    case ID_NT:
-      BLI_assert(0);
-      break;
-    case ID_BR:
-      BLI_assert(0);
-      break;
-    case ID_PA:
-      BKE_particlesettings_free((ParticleSettings *)id);
-      break;
-    case ID_WM:
-      if (free_windowmanager_cb) {
-        free_windowmanager_cb(NULL, (wmWindowManager *)id);
-      }
-      break;
-    case ID_GD:
-      BKE_gpencil_free((bGPdata *)id, true);
-      break;
-    case ID_MC:
-      BKE_movieclip_free((MovieClip *)id);
-      break;
-    case ID_MSK:
-      BKE_mask_free((Mask *)id);
-      break;
-    case ID_LS:
-      BKE_linestyle_free((FreestyleLineStyle *)id);
-      break;
-    case ID_PAL:
-      BKE_palette_free((Palette *)id);
-      break;
-    case ID_PC:
-      BKE_paint_curve_free((PaintCurve *)id);
-      break;
-    case ID_CF:
-      BKE_cachefile_free((CacheFile *)id);
-      break;
-    case ID_WS:
-      BKE_workspace_free((WorkSpace *)id);
-      break;
-  }
+  BLI_assert(!"IDType Missing IDTypeInfo");
 }
 
 /**

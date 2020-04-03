@@ -21,10 +21,10 @@
  * \ingroup spclip
  */
 
-#include <stddef.h>
 #include <errno.h>
-#include <sys/types.h>
 #include <fcntl.h>
+#include <stddef.h>
+#include <sys/types.h>
 
 #ifndef WIN32
 #  include <unistd.h>
@@ -36,11 +36,11 @@
 
 #include "DNA_mask_types.h"
 
-#include "BLI_utildefines.h"
 #include "BLI_fileops.h"
 #include "BLI_math.h"
 #include "BLI_rect.h"
 #include "BLI_task.h"
+#include "BLI_utildefines.h"
 
 #include "BKE_context.h"
 #include "BKE_global.h"
@@ -51,12 +51,12 @@
 #include "BKE_tracking.h"
 
 #include "IMB_colormanagement.h"
-#include "IMB_imbuf_types.h"
 #include "IMB_imbuf.h"
+#include "IMB_imbuf_types.h"
 
-#include "ED_screen.h"
 #include "ED_clip.h"
 #include "ED_mask.h"
+#include "ED_screen.h"
 #include "ED_select_utils.h"
 
 #include "WM_api.h"
@@ -188,7 +188,7 @@ void ED_space_clip_get_aspect_dimension_aware(SpaceClip *sc, float *aspx, float 
    * due to they're invariant to this stuff, but some transformation tools like rotation
    * should be aware of aspect correction caused by different resolution in different
    * directions.
-   * mainly this is sued for transformation stuff
+   * mainly this is used for transformation stuff
    */
 
   if (!sc->clip) {
@@ -282,7 +282,7 @@ bool ED_space_clip_color_sample(SpaceClip *sc, ARegion *region, int mval[2], flo
 
   if (fx >= 0.0f && fy >= 0.0f && fx < 1.0f && fy < 1.0f) {
     const float *fp;
-    unsigned char *cp;
+    uchar *cp;
     int x = (int)(fx * ibuf->x), y = (int)(fy * ibuf->y);
 
     CLAMP(x, 0, ibuf->x - 1);
@@ -294,7 +294,7 @@ bool ED_space_clip_color_sample(SpaceClip *sc, ARegion *region, int mval[2], flo
       ret = true;
     }
     else if (ibuf->rect) {
-      cp = (unsigned char *)(ibuf->rect + y * ibuf->x + x);
+      cp = (uchar *)(ibuf->rect + y * ibuf->x + x);
       rgb_uchar_to_float(r_col, cp);
       IMB_colormanagement_colorspace_to_scene_linear_v3(r_col, ibuf->rect_colorspace);
       ret = true;
@@ -744,7 +744,7 @@ static bool check_prefetch_break(void)
 }
 
 /* read file for specified frame number to the memory */
-static unsigned char *prefetch_read_file_to_memory(
+static uchar *prefetch_read_file_to_memory(
     MovieClip *clip, int current_frame, short render_size, short render_flag, size_t *r_size)
 {
   MovieClipUser user = {0};
@@ -766,7 +766,7 @@ static unsigned char *prefetch_read_file_to_memory(
     return NULL;
   }
 
-  unsigned char *mem = MEM_mallocN(size, "movieclip prefetch memory file");
+  uchar *mem = MEM_mallocN(size, "movieclip prefetch memory file");
   if (mem == NULL) {
     close(file);
     return NULL;
@@ -822,12 +822,12 @@ static int prefetch_find_uncached_frame(MovieClip *clip,
 }
 
 /* get memory buffer for first uncached frame within prefetch frame range */
-static unsigned char *prefetch_thread_next_frame(PrefetchQueue *queue,
-                                                 MovieClip *clip,
-                                                 size_t *r_size,
-                                                 int *r_current_frame)
+static uchar *prefetch_thread_next_frame(PrefetchQueue *queue,
+                                         MovieClip *clip,
+                                         size_t *r_size,
+                                         int *r_current_frame)
 {
-  unsigned char *mem = NULL;
+  uchar *mem = NULL;
 
   BLI_spin_lock(&queue->spin);
   if (!*queue->stop && !check_prefetch_break() &&
@@ -888,7 +888,7 @@ static void prefetch_task_func(TaskPool *__restrict pool, void *task_data, int U
 {
   PrefetchQueue *queue = (PrefetchQueue *)BLI_task_pool_userdata(pool);
   MovieClip *clip = (MovieClip *)task_data;
-  unsigned char *mem;
+  uchar *mem;
   size_t size;
   int current_frame;
 

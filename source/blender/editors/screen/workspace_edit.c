@@ -21,10 +21,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "BLI_utildefines.h"
 #include "BLI_fileops.h"
 #include "BLI_listbase.h"
 #include "BLI_path_util.h"
+#include "BLI_utildefines.h"
 
 #include "BKE_appdir.h"
 #include "BKE_blendfile.h"
@@ -266,8 +266,7 @@ static WorkSpace *workspace_context_get(bContext *C)
     return (WorkSpace *)id;
   }
 
-  wmWindow *win = CTX_wm_window(C);
-  return WM_window_get_active_workspace(win);
+  return CTX_wm_workspace(C);
 }
 
 static bool workspace_context_poll(bContext *C)

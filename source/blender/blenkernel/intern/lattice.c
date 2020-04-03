@@ -21,32 +21,32 @@
  * \ingroup bke
  */
 
-#include <stdio.h>
-#include <string.h>
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_utildefines.h"
-#include "BLI_listbase.h"
 #include "BLI_bitmap.h"
+#include "BLI_listbase.h"
 #include "BLI_math.h"
 #include "BLI_task.h"
+#include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
 
+#include "DNA_curve_types.h"
+#include "DNA_defaults.h"
+#include "DNA_key_types.h"
+#include "DNA_lattice_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
-#include "DNA_scene_types.h"
 #include "DNA_object_types.h"
-#include "DNA_lattice_types.h"
-#include "DNA_curve_types.h"
-#include "DNA_key_types.h"
-#include "DNA_defaults.h"
+#include "DNA_scene_types.h"
 
-#include "BKE_animsys.h"
 #include "BKE_anim.h"
+#include "BKE_animsys.h"
 #include "BKE_curve.h"
 #include "BKE_displist.h"
 #include "BKE_idtype.h"
@@ -98,8 +98,6 @@ static void lattice_copy_data(Main *bmain, ID *id_dst, const ID *id_src, const i
 static void lattice_free_data(ID *id)
 {
   Lattice *lattice = (Lattice *)id;
-
-  BKE_animdata_free(&lattice->id, false);
 
   BKE_lattice_batch_cache_free(lattice);
 

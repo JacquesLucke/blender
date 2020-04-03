@@ -23,10 +23,10 @@
 
 /* System includes ----------------------------------------------------- */
 
+#include <float.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
-#include <float.h>
 
 #include "BLI_blenlib.h"
 #include "BLI_math.h"
@@ -38,8 +38,8 @@
 #include "DNA_cachefile_types.h"
 #include "DNA_gpencil_types.h"
 #include "DNA_object_types.h"
-#include "DNA_screen_types.h"
 #include "DNA_scene_types.h"
+#include "DNA_screen_types.h"
 
 #include "BKE_action.h"
 #include "BKE_context.h"
@@ -141,9 +141,9 @@ void draw_channel_strips(bAnimContext *ac, SpaceAction *saction, ARegion *region
   bDopeSheet *ads = &saction->ads;
   AnimData *adt = NULL;
 
-  unsigned char col1[4], col2[4];
-  unsigned char col1a[4], col2a[4];
-  unsigned char col1b[4], col2b[4];
+  uchar col1[4], col2[4];
+  uchar col1a[4], col2a[4];
+  uchar col1b[4], col2b[4];
 
   const bool show_group_colors = !(saction->flag & SACTION_NODRAWGCOLORS);
 
@@ -212,10 +212,10 @@ void draw_channel_strips(bAnimContext *ac, SpaceAction *saction, ARegion *region
               bActionGroup *agrp = ale->data;
               if (show_group_colors && agrp->customCol) {
                 if (sel) {
-                  immUniformColor3ubvAlpha((unsigned char *)agrp->cs.select, col1a[3]);
+                  immUniformColor3ubvAlpha((uchar *)agrp->cs.select, col1a[3]);
                 }
                 else {
-                  immUniformColor3ubvAlpha((unsigned char *)agrp->cs.solid, col2a[3]);
+                  immUniformColor3ubvAlpha((uchar *)agrp->cs.solid, col2a[3]);
                 }
               }
               else {
@@ -226,8 +226,7 @@ void draw_channel_strips(bAnimContext *ac, SpaceAction *saction, ARegion *region
             case ANIMTYPE_FCURVE: {
               FCurve *fcu = ale->data;
               if (show_group_colors && fcu->grp && fcu->grp->customCol) {
-                immUniformColor3ubvAlpha((unsigned char *)fcu->grp->cs.active,
-                                         sel ? col1[3] : col2[3]);
+                immUniformColor3ubvAlpha((uchar *)fcu->grp->cs.active, sel ? col1[3] : col2[3]);
               }
               else {
                 immUniformColor4ubv(sel ? col1 : col2);
@@ -243,8 +242,8 @@ void draw_channel_strips(bAnimContext *ac, SpaceAction *saction, ARegion *region
           immRectf(pos, v2d->cur.xmin, ymin, v2d->cur.xmax + EXTRA_SCROLL_PAD, ymax);
         }
         else if (ac->datatype == ANIMCONT_GPENCIL) {
-          unsigned char *color;
-          unsigned char gpl_col[4];
+          uchar *color;
+          uchar gpl_col[4];
           if ((show_group_colors) && (ale->type == ANIMTYPE_GPLAYER)) {
             bGPDlayer *gpl = (bGPDlayer *)ale->data;
             rgb_float_to_uchar(gpl_col, gpl->color);
@@ -266,7 +265,7 @@ void draw_channel_strips(bAnimContext *ac, SpaceAction *saction, ARegion *region
         else if (ac->datatype == ANIMCONT_MASK) {
           /* TODO --- this is a copy of gpencil */
           /* frames less than one get less saturated background */
-          unsigned char *color = sel ? col1 : col2;
+          uchar *color = sel ? col1 : col2;
           immUniformColor4ubv(color);
           immRectf(pos, 0.0f, ymin, v2d->cur.xmin, ymax);
 

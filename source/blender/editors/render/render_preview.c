@@ -23,8 +23,8 @@
 
 /* global includes */
 
-#include <stdlib.h>
 #include <math.h>
+#include <stdlib.h>
 #include <string.h>
 
 #ifndef WIN32
@@ -34,37 +34,37 @@
 #endif
 #include "MEM_guardedalloc.h"
 
-#include "BLI_math.h"
 #include "BLI_blenlib.h"
+#include "BLI_math.h"
 #include "BLI_utildefines.h"
 
 #include "PIL_time.h"
 
 #include "BLO_readfile.h"
 
-#include "DNA_world_types.h"
+#include "DNA_brush_types.h"
 #include "DNA_camera_types.h"
 #include "DNA_collection_types.h"
+#include "DNA_light_types.h"
 #include "DNA_material_types.h"
 #include "DNA_node_types.h"
 #include "DNA_object_types.h"
-#include "DNA_light_types.h"
-#include "DNA_space_types.h"
 #include "DNA_scene_types.h"
-#include "DNA_brush_types.h"
 #include "DNA_screen_types.h"
+#include "DNA_space_types.h"
+#include "DNA_world_types.h"
 
 #include "BKE_appdir.h"
 #include "BKE_brush.h"
-#include "BKE_context.h"
 #include "BKE_colortools.h"
+#include "BKE_context.h"
 #include "BKE_global.h"
+#include "BKE_icons.h"
 #include "BKE_idprop.h"
 #include "BKE_image.h"
-#include "BKE_icons.h"
+#include "BKE_layer.h"
 #include "BKE_lib_id.h"
 #include "BKE_light.h"
-#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_node.h"
@@ -73,8 +73,8 @@
 #include "BKE_world.h"
 
 #include "DEG_depsgraph.h"
-#include "DEG_depsgraph_query.h"
 #include "DEG_depsgraph_build.h"
+#include "DEG_depsgraph_query.h"
 
 #include "IMB_imbuf.h"
 #include "IMB_imbuf_types.h"
@@ -82,11 +82,11 @@
 
 #include "BIF_glutil.h"
 
-#include "GPU_shader.h"
 #include "GPU_glew.h"
+#include "GPU_shader.h"
 
-#include "RE_pipeline.h"
 #include "RE_engine.h"
+#include "RE_pipeline.h"
 #include "RE_shader_ext.h"
 
 #include "WM_api.h"
@@ -167,7 +167,7 @@ typedef struct ShaderPreview {
   float color[4];
 
   int sizex, sizey;
-  unsigned int *pr_rect;
+  uint *pr_rect;
   int pr_method;
   bool own_id_copy;
 
@@ -178,7 +178,7 @@ typedef struct ShaderPreview {
 typedef struct IconPreviewSize {
   struct IconPreviewSize *next, *prev;
   int sizex, sizey;
-  unsigned int *rect;
+  uint *rect;
 } IconPreviewSize;
 
 typedef struct IconPreview {
@@ -615,20 +615,20 @@ static bool ed_preview_draw_rect(ScrArea *sa, int split, int first, rcti *rect, 
 
   if (rv && rv->rectf) {
 
-    if (ABS(rres.rectx - newx) < 2 && ABS(rres.recty - newy) < 2) {
+    if (abs(rres.rectx - newx) < 2 && abs(rres.recty - newy) < 2) {
 
       newrect->xmax = max_ii(newrect->xmax, rect->xmin + rres.rectx + offx);
       newrect->ymax = max_ii(newrect->ymax, rect->ymin + rres.recty);
 
       if (rres.rectx && rres.recty) {
-        unsigned char *rect_byte = MEM_mallocN(rres.rectx * rres.recty * sizeof(int),
-                                               "ed_preview_draw_rect");
+        uchar *rect_byte = MEM_mallocN(rres.rectx * rres.recty * sizeof(int),
+                                       "ed_preview_draw_rect");
         float fx = rect->xmin + offx;
         float fy = rect->ymin;
 
         /* material preview only needs monoscopy (view 0) */
         if (re) {
-          RE_AcquiredResultGet32(re, &rres, (unsigned int *)rect_byte, 0);
+          RE_AcquiredResultGet32(re, &rres, (uint *)rect_byte, 0);
         }
 
         IMMDrawPixelsTexState state = immDrawPixelsTexSetup(GPU_SHADER_2D_IMAGE_COLOR);
@@ -694,7 +694,7 @@ void ED_preview_draw(const bContext *C, void *idp, void *parentp, void *slotp, r
      * or if the job is running and the size of preview changed */
     if ((sbuts != NULL && sbuts->preview) ||
         (!ok && !WM_jobs_test(wm, sa, WM_JOB_TYPE_RENDER_PREVIEW)) ||
-        (sp && (ABS(sp->sizex - newx) >= 2 || ABS(sp->sizey - newy) > 2))) {
+        (sp && (abs(sp->sizex - newx) >= 2 || abs(sp->sizey - newy) > 2))) {
       if (sbuts != NULL) {
         sbuts->preview = 0;
       }
@@ -1014,10 +1014,10 @@ static void shader_preview_free(void *customdata)
 
 /* ************************* icon preview ********************** */
 
-static void icon_copy_rect(ImBuf *ibuf, unsigned int w, unsigned int h, unsigned int *rect)
+static void icon_copy_rect(ImBuf *ibuf, uint w, uint h, uint *rect)
 {
   struct ImBuf *ima;
-  unsigned int *drect, *srect;
+  uint *drect, *srect;
   float scaledx, scaledy;
   short ex, ey, dx, dy;
 
@@ -1144,7 +1144,7 @@ static void icon_preview_startjob(void *customdata, short *stop, short *do_updat
 
       br->icon_imbuf = get_brush_icon(br);
 
-      memset(sp->pr_rect, 0x88, sp->sizex * sp->sizey * sizeof(unsigned int));
+      memset(sp->pr_rect, 0x88, sp->sizex * sp->sizey * sizeof(uint));
 
       if (!(br->icon_imbuf) || !(br->icon_imbuf->rect)) {
         return;
@@ -1193,7 +1193,7 @@ static void common_preview_startjob(void *customdata,
 
 /* exported functions */
 
-static void icon_preview_add_size(IconPreview *ip, unsigned int *rect, int sizex, int sizey)
+static void icon_preview_add_size(IconPreview *ip, uint *rect, int sizex, int sizey)
 {
   IconPreviewSize *cur_size = ip->sizes.first, *new_size;
 
@@ -1324,8 +1324,7 @@ static void icon_preview_free(void *customdata)
   MEM_freeN(ip);
 }
 
-void ED_preview_icon_render(
-    Main *bmain, Scene *scene, ID *id, unsigned int *rect, int sizex, int sizey)
+void ED_preview_icon_render(Main *bmain, Scene *scene, ID *id, uint *rect, int sizex, int sizey)
 {
   IconPreview ip = {NULL};
   short stop = false, update = false;
@@ -1348,13 +1347,8 @@ void ED_preview_icon_render(
   BLI_freelistN(&ip.sizes);
 }
 
-void ED_preview_icon_job(const bContext *C,
-                         void *owner,
-                         ID *id,
-                         unsigned int *rect,
-                         int sizex,
-                         int sizey,
-                         const bool delay)
+void ED_preview_icon_job(
+    const bContext *C, void *owner, ID *id, uint *rect, int sizex, int sizey, const bool delay)
 {
   wmJob *wm_job;
   IconPreview *ip, *old_ip;

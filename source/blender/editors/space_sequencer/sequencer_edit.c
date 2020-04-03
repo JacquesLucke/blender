@@ -21,8 +21,8 @@
  * \ingroup spseq
  */
 
-#include <stdlib.h>
 #include <math.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "MEM_guardedalloc.h"
@@ -40,11 +40,11 @@
 
 #include "BKE_context.h"
 #include "BKE_global.h"
+#include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_report.h"
 #include "BKE_sequencer.h"
 #include "BKE_sound.h"
-#include "BKE_lib_id.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -57,12 +57,12 @@
 #include "ED_anim_api.h"
 #include "ED_numinput.h"
 #include "ED_screen.h"
-#include "ED_transform.h"
 #include "ED_sequencer.h"
 #include "ED_space_api.h"
+#include "ED_transform.h"
 
-#include "UI_view2d.h"
 #include "UI_interface.h"
+#include "UI_view2d.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
@@ -407,7 +407,7 @@ Sequence *find_nearest_seq(Scene *scene, View2D *v2d, int *hand, const int mval[
 
           /* clamp handles to defined size in pixel space */
 
-          handsize = seq->handsize;
+          handsize = 2.0f * sequence_handle_size_get_clamped(seq, pixelx);
           displen = (float)abs(seq->startdisp - seq->enddisp);
 
           /* don't even try to grab the handles of small strips */
@@ -551,15 +551,15 @@ bool ED_space_sequencer_check_show_strip(SpaceSeq *sseq)
 int seq_effect_find_selected(Scene *scene,
                              Sequence *activeseq,
                              int type,
-                             Sequence **selseq1,
-                             Sequence **selseq2,
-                             Sequence **selseq3,
-                             const char **error_str)
+                             Sequence **r_selseq1,
+                             Sequence **r_selseq2,
+                             Sequence **r_selseq3,
+                             const char **r_error_str)
 {
   Editing *ed = BKE_sequencer_editing_get(scene, false);
   Sequence *seq1 = NULL, *seq2 = NULL, *seq3 = NULL, *seq;
 
-  *error_str = NULL;
+  *r_error_str = NULL;
 
   if (!activeseq) {
     seq2 = BKE_sequencer_active_get(scene);
@@ -568,7 +568,7 @@ int seq_effect_find_selected(Scene *scene,
   for (seq = ed->seqbasep->first; seq; seq = seq->next) {
     if (seq->flag & SELECT) {
       if (seq->type == SEQ_TYPE_SOUND_RAM && BKE_sequence_effect_get_num_inputs(type) != 0) {
-        *error_str = N_("Cannot apply effects to audio sequence strips");
+        *r_error_str = N_("Cannot apply effects to audio sequence strips");
         return 0;
       }
       if ((seq != activeseq) && (seq != seq2)) {
@@ -582,7 +582,7 @@ int seq_effect_find_selected(Scene *scene,
           seq3 = seq;
         }
         else {
-          *error_str = N_("Cannot apply effect to more than 3 sequence strips");
+          *r_error_str = N_("Cannot apply effect to more than 3 sequence strips");
           return 0;
         }
       }
@@ -599,11 +599,11 @@ int seq_effect_find_selected(Scene *scene,
 
   switch (BKE_sequence_effect_get_num_inputs(type)) {
     case 0:
-      *selseq1 = *selseq2 = *selseq3 = NULL;
+      *r_selseq1 = *r_selseq2 = *r_selseq3 = NULL;
       return 1; /* success */
     case 1:
       if (seq2 == NULL) {
-        *error_str = N_("At least one selected sequence strip is needed");
+        *r_error_str = N_("At least one selected sequence strip is needed");
         return 0;
       }
       if (seq1 == NULL) {
@@ -615,7 +615,7 @@ int seq_effect_find_selected(Scene *scene,
       ATTR_FALLTHROUGH;
     case 2:
       if (seq1 == NULL || seq2 == NULL) {
-        *error_str = N_("2 selected sequence strips are needed");
+        *r_error_str = N_("2 selected sequence strips are needed");
         return 0;
       }
       if (seq3 == NULL) {
@@ -625,13 +625,13 @@ int seq_effect_find_selected(Scene *scene,
   }
 
   if (seq1 == NULL && seq2 == NULL && seq3 == NULL) {
-    *error_str = N_("TODO: in what cases does this happen?");
+    *r_error_str = N_("TODO: in what cases does this happen?");
     return 0;
   }
 
-  *selseq1 = seq1;
-  *selseq2 = seq2;
-  *selseq3 = seq3;
+  *r_selseq1 = seq1;
+  *r_selseq2 = seq2;
+  *r_selseq3 = seq3;
 
   return 1;
 }
@@ -1429,7 +1429,7 @@ static void transseq_restore(TransSeq *ts, Sequence *seq)
   seq->len = ts->len;
 }
 
-static int slip_add_sequences_rec(
+static int slip_add_sequences_recursive(
     ListBase *seqbasep, Sequence **seq_array, bool *trim, int offset, bool do_trim)
 {
   Sequence *seq;
@@ -1443,7 +1443,7 @@ static int slip_add_sequences_rec(
 
       if (seq->type == SEQ_TYPE_META) {
         /* trim the sub-sequences */
-        num_items += slip_add_sequences_rec(
+        num_items += slip_add_sequences_recursive(
             &seq->seqbase, seq_array, trim, num_items + offset, false);
       }
       else if (seq->type & SEQ_TYPE_EFFECT) {
@@ -1455,7 +1455,7 @@ static int slip_add_sequences_rec(
   return num_items;
 }
 
-static int slip_count_sequences_rec(ListBase *seqbasep, bool first_level)
+static int slip_count_sequences_recursive(ListBase *seqbasep, bool first_level)
 {
   Sequence *seq;
   int trimmed_sequences = 0;
@@ -1466,7 +1466,7 @@ static int slip_count_sequences_rec(ListBase *seqbasep, bool first_level)
 
       if (seq->type == SEQ_TYPE_META) {
         /* trim the sub-sequences */
-        trimmed_sequences += slip_count_sequences_rec(&seq->seqbase, false);
+        trimmed_sequences += slip_count_sequences_recursive(&seq->seqbase, false);
       }
     }
   }
@@ -1484,7 +1484,7 @@ static int sequencer_slip_invoke(bContext *C, wmOperator *op, const wmEvent *eve
   View2D *v2d = UI_view2d_fromcontext(C);
 
   /* first recursively count the trimmed elements */
-  num_seq = slip_count_sequences_rec(ed->seqbasep, true);
+  num_seq = slip_count_sequences_recursive(ed->seqbasep, true);
 
   if (num_seq == 0) {
     return OPERATOR_CANCELLED;
@@ -1502,7 +1502,7 @@ static int sequencer_slip_invoke(bContext *C, wmOperator *op, const wmEvent *eve
   data->num_input.unit_sys = USER_UNIT_NONE;
   data->num_input.unit_type[0] = 0;
 
-  slip_add_sequences_rec(ed->seqbasep, data->seq_array, data->trim, 0, true);
+  slip_add_sequences_recursive(ed->seqbasep, data->seq_array, data->trim, 0, true);
 
   for (i = 0; i < num_seq; i++) {
     transseq_backup(data->ts + i, data->seq_array[i]);
@@ -1525,64 +1525,65 @@ static int sequencer_slip_invoke(bContext *C, wmOperator *op, const wmEvent *eve
 
 static bool sequencer_slip_recursively(Scene *scene, SlipData *data, int offset)
 {
+  /* Only data types supported for now. */
+  Editing *ed = BKE_sequencer_editing_get(scene, false);
+  bool changed = false;
 
-  /* only data types supported for now */
-  if (offset != 0) {
-    Editing *ed = BKE_sequencer_editing_get(scene, false);
-    int i;
+  /* We iterate in reverse so meta-strips are iterated after their children. */
+  for (int i = data->num_seq - 1; i >= 0; i--) {
+    Sequence *seq = data->seq_array[i];
+    int endframe;
+    /* We have the offset, apply the values to the sequence strips. */
 
-    /* we iterate in reverse so metastrips are iterated after their children */
-    for (i = data->num_seq - 1; i >= 0; i--) {
-      Sequence *seq = data->seq_array[i];
-      int endframe;
-      /* we have the offset, do the terrible math */
+    /* first, do the offset */
+    seq->start = data->ts[i].start + offset;
 
-      /* first, do the offset */
-      seq->start = data->ts[i].start + offset;
+    if (data->trim[i]) {
+      /* Find the end-frame. */
+      endframe = seq->start + seq->len;
 
-      if (data->trim[i]) {
-        /* find the endframe */
-        endframe = seq->start + seq->len;
-
-        /* now compute the terrible offsets */
-        if (endframe > seq->enddisp) {
-          seq->endstill = 0;
-          seq->endofs = endframe - seq->enddisp;
-        }
-        else if (endframe <= seq->enddisp) {
-          seq->endstill = seq->enddisp - endframe;
-          seq->endofs = 0;
-        }
-
-        if (seq->start > seq->startdisp) {
-          seq->startstill = seq->start - seq->startdisp;
-          seq->startofs = 0;
-        }
-        else if (seq->start <= seq->startdisp) {
-          seq->startstill = 0;
-          seq->startofs = seq->startdisp - seq->start;
-        }
+      /* Now compute the sequence offsets. */
+      if (endframe > seq->enddisp) {
+        seq->endstill = 0;
+        seq->endofs = endframe - seq->enddisp;
+        changed = true;
       }
-      else {
-        /* if no real trim, don't change the data, rather transform the strips themselves */
-        seq->startdisp = data->ts[i].startdisp + offset;
-        seq->enddisp = data->ts[i].enddisp + offset;
+      else if (endframe <= seq->enddisp) {
+        seq->endstill = seq->enddisp - endframe;
+        seq->endofs = 0;
+        changed = true;
       }
 
-      /* effects are only added if we they are in a meta-strip.
-       * In this case, dependent strips will just be transformed and
-       * we can skip calculating for effects.
-       * This way we can avoid an extra loop just for effects*/
-      if (!(seq->type & SEQ_TYPE_EFFECT)) {
-        BKE_sequence_calc(scene, seq);
+      if (seq->start > seq->startdisp) {
+        seq->startstill = seq->start - seq->startdisp;
+        seq->startofs = 0;
+        changed = true;
+      }
+      else if (seq->start <= seq->startdisp) {
+        seq->startstill = 0;
+        seq->startofs = seq->startdisp - seq->start;
+        changed = true;
       }
     }
-    BKE_sequencer_free_imbuf(scene, &ed->seqbase, false);
+    else {
+      /* If no real trim, don't change the data, rather transform the strips themselves. */
+      seq->startdisp = data->ts[i].startdisp + offset;
+      seq->enddisp = data->ts[i].enddisp + offset;
+      changed = true;
+    }
 
-    return true;
+    /* Effects are only added if we they are in a meta-strip.
+     * In this case, dependent strips will just be transformed and
+     * we can skip calculating for effects.
+     * This way we can avoid an extra loop just for effects*/
+    if (!(seq->type & SEQ_TYPE_EFFECT)) {
+      BKE_sequence_calc(scene, seq);
+    }
   }
-
-  return false;
+  if (changed) {
+    BKE_sequencer_free_imbuf(scene, &ed->seqbase, false);
+  }
+  return changed;
 }
 
 static int sequencer_slip_exec(bContext *C, wmOperator *op)
@@ -1595,7 +1596,7 @@ static int sequencer_slip_exec(bContext *C, wmOperator *op)
   bool success = false;
 
   /* first recursively count the trimmed elements */
-  num_seq = slip_count_sequences_rec(ed->seqbasep, true);
+  num_seq = slip_count_sequences_recursive(ed->seqbasep, true);
 
   if (num_seq == 0) {
     return OPERATOR_CANCELLED;
@@ -1607,7 +1608,7 @@ static int sequencer_slip_exec(bContext *C, wmOperator *op)
   data->trim = MEM_mallocN(num_seq * sizeof(bool), "trimdata_trim");
   data->num_seq = num_seq;
 
-  slip_add_sequences_rec(ed->seqbasep, data->seq_array, data->trim, 0, true);
+  slip_add_sequences_recursive(ed->seqbasep, data->seq_array, data->trim, 0, true);
 
   for (i = 0; i < num_seq; i++) {
     transseq_backup(data->ts + i, data->seq_array[i]);
@@ -1706,8 +1707,8 @@ static int sequencer_slip_modal(bContext *C, wmOperator *op, const wmEvent *even
     }
 
     case LEFTMOUSE:
-    case RETKEY:
-    case SPACEKEY: {
+    case EVT_RETKEY:
+    case EVT_SPACEKEY: {
       MEM_freeN(data->seq_array);
       MEM_freeN(data->trim);
       MEM_freeN(data->ts);
@@ -1721,7 +1722,7 @@ static int sequencer_slip_modal(bContext *C, wmOperator *op, const wmEvent *even
       return OPERATOR_FINISHED;
     }
 
-    case ESCKEY:
+    case EVT_ESCKEY:
     case RIGHTMOUSE: {
       int i;
       Editing *ed = BKE_sequencer_editing_get(scene, false);
@@ -1753,8 +1754,8 @@ static int sequencer_slip_modal(bContext *C, wmOperator *op, const wmEvent *even
       return OPERATOR_CANCELLED;
     }
 
-    case RIGHTSHIFTKEY:
-    case LEFTSHIFTKEY:
+    case EVT_RIGHTSHIFTKEY:
+    case EVT_LEFTSHIFTKEY:
       if (!has_numInput) {
         if (event->val == KM_PRESS) {
           data->slow = true;
@@ -2935,9 +2936,9 @@ static int sequencer_view_frame_exec(bContext *C, wmOperator *op)
 void SEQUENCER_OT_view_frame(wmOperatorType *ot)
 {
   /* identifiers */
-  ot->name = "View Frame";
+  ot->name = "Go to Current Frame";
   ot->idname = "SEQUENCER_OT_view_frame";
-  ot->description = "Reset viewable area to show range around current frame";
+  ot->description = "Move the view to the playhead";
 
   /* api callbacks */
   ot->exec = sequencer_view_frame_exec;

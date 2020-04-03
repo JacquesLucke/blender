@@ -23,16 +23,16 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "DNA_object_types.h"
-#include "DNA_mesh_types.h"
 #include "DNA_material_types.h"
+#include "DNA_mesh_types.h"
+#include "DNA_object_types.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
 #include "RNA_enum_types.h"
 
-#include "BLI_listbase.h"
 #include "BLI_fileops.h"
+#include "BLI_listbase.h"
 #include "BLI_path_util.h"
 
 #include "BKE_context.h"
@@ -57,9 +57,9 @@
 #include "RE_engine.h"
 #include "RE_pipeline.h"
 
-#include "IMB_imbuf_types.h"
-#include "IMB_imbuf.h"
 #include "IMB_colormanagement.h"
+#include "IMB_imbuf.h"
+#include "IMB_imbuf_types.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -143,7 +143,7 @@ static int bake_modal(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
 
   /* running render */
   switch (event->type) {
-    case ESCKEY: {
+    case EVT_ESCKEY: {
       G.is_break = true;
       return OPERATOR_RUNNING_MODAL;
     }
@@ -234,7 +234,7 @@ static bool write_internal_bake_pixels(Image *image,
                                   ibuf->x);
     }
     else {
-      IMB_buffer_byte_from_float((unsigned char *)ibuf->rect,
+      IMB_buffer_byte_from_float((uchar *)ibuf->rect,
                                  buffer,
                                  ibuf->channels,
                                  ibuf->dither,
@@ -259,7 +259,7 @@ static bool write_internal_bake_pixels(Image *image,
                                        mask_buffer);
     }
     else {
-      IMB_buffer_byte_from_float_mask((unsigned char *)ibuf->rect,
+      IMB_buffer_byte_from_float_mask((uchar *)ibuf->rect,
                                       buffer,
                                       ibuf->channels,
                                       ibuf->dither,
@@ -359,7 +359,7 @@ static bool write_external_bake_pixels(const char *filepath,
           buffer, ibuf->x, ibuf->y, ibuf->channels, from_colorspace, to_colorspace, false);
     }
 
-    IMB_buffer_byte_from_float((unsigned char *)ibuf->rect,
+    IMB_buffer_byte_from_float((uchar *)ibuf->rect,
                                buffer,
                                ibuf->channels,
                                ibuf->dither,

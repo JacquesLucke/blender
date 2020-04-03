@@ -21,15 +21,15 @@
  * \ingroup edscr
  */
 
-#include <string.h>
 #include <math.h>
+#include <string.h>
 
 #include "MEM_guardedalloc.h"
 
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
-#include "DNA_workspace_types.h"
 #include "DNA_userdef_types.h"
+#include "DNA_workspace_types.h"
 
 #include "BLI_blenlib.h"
 #include "BLI_utildefines.h"
@@ -41,18 +41,18 @@
 #include "BKE_layer.h"
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
-#include "BKE_screen.h"
 #include "BKE_scene.h"
+#include "BKE_screen.h"
 #include "BKE_sound.h"
 #include "BKE_workspace.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
 
-#include "ED_screen.h"
-#include "ED_screen_types.h"
 #include "ED_clip.h"
 #include "ED_node.h"
+#include "ED_screen.h"
+#include "ED_screen_types.h"
 
 #include "UI_interface.h"
 
@@ -307,26 +307,26 @@ int area_getorientation(ScrArea *sa, ScrArea *sb)
   int tolerance = U.pixelsize * 4;
 
   if (saBL->vec.x == sbBR->vec.x && saTL->vec.x == sbTR->vec.x) { /* sa to right of sb = W */
-    if ((ABS(saBL->vec.y - sbBR->vec.y) <= tolerance) &&
-        (ABS(saTL->vec.y - sbTR->vec.y) <= tolerance)) {
+    if ((abs(saBL->vec.y - sbBR->vec.y) <= tolerance) &&
+        (abs(saTL->vec.y - sbTR->vec.y) <= tolerance)) {
       return 0;
     }
   }
   else if (saTL->vec.y == sbBL->vec.y && saTR->vec.y == sbBR->vec.y) { /* sa to bottom of sb = N */
-    if ((ABS(saTL->vec.x - sbBL->vec.x) <= tolerance) &&
-        (ABS(saTR->vec.x - sbBR->vec.x) <= tolerance)) {
+    if ((abs(saTL->vec.x - sbBL->vec.x) <= tolerance) &&
+        (abs(saTR->vec.x - sbBR->vec.x) <= tolerance)) {
       return 1;
     }
   }
   else if (saTR->vec.x == sbTL->vec.x && saBR->vec.x == sbBL->vec.x) { /* sa to left of sb = E */
-    if ((ABS(saTR->vec.y - sbTL->vec.y) <= tolerance) &&
-        (ABS(saBR->vec.y - sbBL->vec.y) <= tolerance)) {
+    if ((abs(saTR->vec.y - sbTL->vec.y) <= tolerance) &&
+        (abs(saBR->vec.y - sbBL->vec.y) <= tolerance)) {
       return 2;
     }
   }
   else if (saBL->vec.y == sbTL->vec.y && saBR->vec.y == sbTR->vec.y) { /* sa on top of sb = S*/
-    if ((ABS(saBL->vec.x - sbTL->vec.x) <= tolerance) &&
-        (ABS(saBR->vec.x - sbTR->vec.x) <= tolerance)) {
+    if ((abs(saBL->vec.x - sbTL->vec.x) <= tolerance) &&
+        (abs(saBR->vec.x - sbTR->vec.x) <= tolerance)) {
       return 3;
     }
   }
@@ -1666,7 +1666,7 @@ Scene *ED_screen_scene_find_with_window(const bScreen *screen,
     }
   }
 
-  BLI_assert(0);
+  /* Can by NULL when accessing a screen that isn't active. */
   return NULL;
 }
 

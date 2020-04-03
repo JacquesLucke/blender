@@ -37,10 +37,10 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
-#include "ED_space_api.h"
-#include "ED_screen.h"
-#include "ED_view3d.h"
 #include "ED_curve.h"
+#include "ED_screen.h"
+#include "ED_space_api.h"
+#include "ED_view3d.h"
 
 #include "GPU_batch.h"
 #include "GPU_batch_presets.h"
@@ -205,7 +205,7 @@ static bool stroke_elem_project(const struct CurveDrawData *cdd,
   }
   else {
     const ViewDepths *depths = rv3d->depths;
-    if (depths && ((unsigned int)mval_i[0] < depths->w) && ((unsigned int)mval_i[1] < depths->h)) {
+    if (depths && ((uint)mval_i[0] < depths->w) && ((uint)mval_i[1] < depths->h)) {
       const double depth = (double)ED_view3d_depth_read_cached(&cdd->vc, mval_i);
       if ((depth > depths->depth_range[0]) && (depth < depths->depth_range[1])) {
         if (ED_view3d_depth_unproject(region, mval_i, depth, r_location_world)) {
@@ -481,7 +481,7 @@ static void curve_draw_event_add(wmOperator *op, const wmEvent *event)
   if (cdd->sample.use_substeps && cdd->prev.selem) {
     const struct StrokeElem selem_target = *selem;
     struct StrokeElem *selem_new_last = selem;
-    if (len_sq >= SQUARE(STROKE_SAMPLE_DIST_MAX_PX)) {
+    if (len_sq >= square_f(STROKE_SAMPLE_DIST_MAX_PX)) {
       int n = (int)ceil(sqrt((double)len_sq)) / STROKE_SAMPLE_DIST_MAX_PX;
 
       for (int i = 1; i < n; i++) {
@@ -685,7 +685,7 @@ static void curve_draw_exec_precalc(wmOperator *op)
       }
 
       if (len_squared_v2v2(selem_first->mval, selem_last->mval) <=
-          SQUARE(STROKE_CYCLIC_DIST_PX * U.pixelsize)) {
+          square_f(STROKE_CYCLIC_DIST_PX * U.pixelsize)) {
         use_cyclic = true;
       }
     }
@@ -798,7 +798,7 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
     float *coords = MEM_mallocN(sizeof(*coords) * stroke_len * dims, __func__);
 
     float *cubic_spline = NULL;
-    unsigned int cubic_spline_len = 0;
+    uint cubic_spline_len = 0;
 
     /* error in object local space */
     const int fit_method = RNA_enum_get(op->ptr, "fit_method");
@@ -827,14 +827,14 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
       }
     }
 
-    unsigned int *corners = NULL;
-    unsigned int corners_len = 0;
+    uint *corners = NULL;
+    uint corners_len = 0;
 
     if ((fit_method == CURVE_PAINT_FIT_METHOD_SPLIT) && (corner_angle < (float)M_PI)) {
       /* this could be configurable... */
       const float corner_radius_min = error_threshold / 8;
       const float corner_radius_max = error_threshold * 2;
-      const unsigned int samples_max = 16;
+      const uint samples_max = 16;
 
       curve_fit_corners_detect_fl(coords,
                                   stroke_len,
@@ -847,9 +847,9 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
                                   &corners_len);
     }
 
-    unsigned int *corners_index = NULL;
-    unsigned int corners_index_len = 0;
-    unsigned int calc_flag = CURVE_FIT_CALC_HIGH_QUALIY;
+    uint *corners_index = NULL;
+    uint corners_index_len = 0;
+    uint calc_flag = CURVE_FIT_CALC_HIGH_QUALIY;
 
     if ((stroke_len > 2) && use_cyclic) {
       calc_flag |= CURVE_FIT_CALC_CYCLIC;
@@ -919,14 +919,14 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 
       if (corners_index) {
         /* ignore the first and last */
-        unsigned int i_start = 0, i_end = corners_index_len;
+        uint i_start = 0, i_end = corners_index_len;
 
         if ((corners_index_len >= 2) && (calc_flag & CURVE_FIT_CALC_CYCLIC) == 0) {
           i_start += 1;
           i_end -= 1;
         }
 
-        for (unsigned int i = i_start; i < i_end; i++) {
+        for (uint i = i_start; i < i_end; i++) {
           bezt = &nu->bezt[corners_index[i]];
           bezt->h1 = bezt->h2 = HD_FREE;
         }
@@ -1154,7 +1154,7 @@ static int curve_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
       return OPERATOR_FINISHED;
     }
   }
-  else if (ELEM(event->type, ESCKEY, RIGHTMOUSE)) {
+  else if (ELEM(event->type, EVT_ESCKEY, RIGHTMOUSE)) {
     ED_region_tag_redraw(cdd->vc.region);
     curve_draw_cancel(C, op);
     return OPERATOR_CANCELLED;
@@ -1167,7 +1167,7 @@ static int curve_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
   else if (ELEM(event->type, MOUSEMOVE, INBETWEEN_MOUSEMOVE)) {
     if (cdd->state == CURVE_DRAW_PAINTING) {
       const float mval_fl[2] = {UNPACK2(event->mval)};
-      if (len_squared_v2v2(mval_fl, cdd->prev.mouse) > SQUARE(STROKE_SAMPLE_DIST_MIN_PX)) {
+      if (len_squared_v2v2(mval_fl, cdd->prev.mouse) > square_f(STROKE_SAMPLE_DIST_MIN_PX)) {
         curve_draw_event_add(op, event);
       }
     }

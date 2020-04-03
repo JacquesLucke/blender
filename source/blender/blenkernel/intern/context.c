@@ -18,21 +18,21 @@
  * \ingroup bke
  */
 
-#include <string.h>
-#include <stdlib.h>
 #include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "MEM_guardedalloc.h"
 
 #include "DNA_collection_types.h"
+#include "DNA_gpencil_types.h"
+#include "DNA_linestyle_types.h"
+#include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_space_types.h"
 #include "DNA_view3d_types.h"
 #include "DNA_windowmanager_types.h"
-#include "DNA_object_types.h"
-#include "DNA_linestyle_types.h"
-#include "DNA_gpencil_types.h"
 #include "DNA_workspace_types.h"
 
 #include "DEG_depsgraph.h"
@@ -1124,6 +1124,9 @@ enum eContextObjectMode CTX_data_mode_enum_ex(const Object *obedit,
       else if (object_mode & OB_MODE_WEIGHT_GPENCIL) {
         return CTX_MODE_WEIGHT_GPENCIL;
       }
+      else if (object_mode & OB_MODE_VERTEX_GPENCIL) {
+        return CTX_MODE_VERTEX_GPENCIL;
+      }
     }
   }
 
@@ -1140,25 +1143,11 @@ enum eContextObjectMode CTX_data_mode_enum(const bContext *C)
 /* would prefer if we can use the enum version below over this one - Campbell */
 /* must be aligned with above enum  */
 static const char *data_mode_strings[] = {
-    "mesh_edit",
-    "curve_edit",
-    "surface_edit",
-    "text_edit",
-    "armature_edit",
-    "mball_edit",
-    "lattice_edit",
-    "posemode",
-    "sculpt_mode",
-    "weightpaint",
-    "vertexpaint",
-    "imagepaint",
-    "particlemode",
-    "objectmode",
-    "greasepencil_paint",
-    "greasepencil_edit",
-    "greasepencil_sculpt",
-    "greasepencil_weight",
-    NULL,
+    "mesh_edit",           "curve_edit",          "surface_edit",        "text_edit",
+    "armature_edit",       "mball_edit",          "lattice_edit",        "posemode",
+    "sculpt_mode",         "weightpaint",         "vertexpaint",         "imagepaint",
+    "particlemode",        "objectmode",          "greasepencil_paint",  "greasepencil_edit",
+    "greasepencil_sculpt", "greasepencil_weight", "greasepencil_vertex", NULL,
 };
 BLI_STATIC_ASSERT(ARRAY_SIZE(data_mode_strings) == CTX_MODE_NUM + 1,
                   "Must have a string for each context mode")

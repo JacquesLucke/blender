@@ -20,10 +20,10 @@
  * \ingroup spaction
  */
 
+#include <float.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
-#include <float.h>
 
 #include "MEM_guardedalloc.h"
 
@@ -34,27 +34,27 @@
 
 #include "DNA_anim_types.h"
 #include "DNA_gpencil_types.h"
+#include "DNA_mask_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
-#include "DNA_mask_types.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
 
-#include "BKE_fcurve.h"
-#include "BKE_nla.h"
 #include "BKE_context.h"
+#include "BKE_fcurve.h"
 #include "BKE_gpencil.h"
+#include "BKE_nla.h"
 
-#include "UI_view2d.h"
 #include "UI_interface.h"
+#include "UI_view2d.h"
 
 #include "ED_anim_api.h"
 #include "ED_gpencil.h"
-#include "ED_mask.h"
 #include "ED_keyframes_draw.h"
 #include "ED_keyframes_edit.h"
 #include "ED_markers.h"
+#include "ED_mask.h"
 #include "ED_screen.h"
 #include "ED_select_utils.h"
 
@@ -1759,8 +1759,8 @@ static int mouse_action_keys(bAnimContext *ac,
 
           gpl->flag |= GP_LAYER_SELECT;
           /* Update other layer status. */
-          if (BKE_gpencil_layer_getactive(gpd) != gpl) {
-            BKE_gpencil_layer_setactive(gpd, gpl);
+          if (BKE_gpencil_layer_active_get(gpd) != gpl) {
+            BKE_gpencil_layer_active_set(gpd, gpl);
             BKE_gpencil_layer_autolock_set(gpd, false);
             WM_main_add_notifier(NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
           }

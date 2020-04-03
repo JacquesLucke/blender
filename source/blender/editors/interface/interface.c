@@ -21,12 +21,12 @@
  * \ingroup edinterface
  */
 
+#include <ctype.h>
 #include <float.h>
 #include <limits.h>
 #include <math.h>
-#include <string.h>
-#include <ctype.h>
 #include <stddef.h> /* offsetof() */
+#include <string.h>
 
 #include "MEM_guardedalloc.h"
 
@@ -36,11 +36,11 @@
 #include "DNA_userdef_types.h"
 #include "DNA_workspace_types.h"
 
-#include "BLI_math.h"
 #include "BLI_listbase.h"
+#include "BLI_math.h"
+#include "BLI_rect.h"
 #include "BLI_string.h"
 #include "BLI_string_utf8.h"
-#include "BLI_rect.h"
 
 #include "BLI_utildefines.h"
 
@@ -65,15 +65,15 @@
 #include "IMB_imbuf.h"
 
 #include "WM_api.h"
-#include "WM_types.h"
 #include "WM_message.h"
+#include "WM_types.h"
 
 #include "RNA_access.h"
 
 #include "BPY_extern.h"
 
-#include "ED_screen.h"
 #include "ED_numinput.h"
+#include "ED_screen.h"
 
 #include "IMB_colormanagement.h"
 
@@ -366,7 +366,7 @@ void UI_block_translate(uiBlock *block, int x, int y)
 
 static void ui_block_bounds_calc_text(uiBlock *block, float offset)
 {
-  uiStyle *style = UI_style_get();
+  const uiStyle *style = UI_style_get();
   uiBut *bt, *init_col_bt, *col_bt;
   int i = 0, j, x1addval = offset;
 
@@ -3207,8 +3207,9 @@ static void ui_but_free(const bContext *C, uiBut *but)
     MEM_freeN(but->hold_argN);
   }
 
-  if (but->free_search_arg) {
-    MEM_SAFE_FREE(but->search_arg);
+  if (but->search_arg_free_func) {
+    but->search_arg_free_func(but->search_arg);
+    but->search_arg = NULL;
   }
 
   if (but->active) {
@@ -4115,9 +4116,9 @@ static void ui_def_but_rna__panel_type(bContext *C, uiLayout *layout, void *but_
 
 void ui_but_rna_menu_convert_to_panel_type(uiBut *but, const char *panel_type)
 {
-  BLI_assert(but->type == UI_BTYPE_MENU);
-  BLI_assert(but->menu_create_func == ui_def_but_rna__menu);
-  BLI_assert((void *)but->poin == but);
+  BLI_assert(ELEM(but->type, UI_BTYPE_MENU, UI_BTYPE_COLOR));
+  //  BLI_assert(but->menu_create_func == ui_def_but_rna__menu);
+  //  BLI_assert((void *)but->poin == but);
   but->menu_create_func = ui_def_but_rna__panel_type;
   but->func_argN = BLI_strdup(panel_type);
 }
@@ -4437,6 +4438,48 @@ uiBut *uiDefBut(uiBlock *block,
   ui_but_update(but);
 
   return but;
+}
+
+uiBut *uiDefButImage(
+    uiBlock *block, void *imbuf, int x, int y, short width, short height, const uchar color[4])
+{
+  uiBut *but = ui_def_but(
+      block, UI_BTYPE_IMAGE, 0, "", x, y, width, height, imbuf, 0, 0, 0, 0, "");
+  if (color) {
+    copy_v4_v4_uchar(but->col, color);
+  }
+  else {
+    but->col[0] = 255;
+    but->col[1] = 255;
+    but->col[2] = 255;
+    but->col[3] = 255;
+  }
+  ui_but_update(but);
+  return but;
+}
+
+uiBut *uiDefButAlert(uiBlock *block, int icon, int x, int y, short width, short height)
+{
+  struct ImBuf *ibuf = UI_alert_image(icon);
+
+  if (icon == ALERT_ICON_BLENDER) {
+    return uiDefButImage(block, ibuf, x, y, width, height, NULL);
+  }
+  else {
+    uchar icon_color[4];
+    ThemeColorID color_id = TH_INFO_WARNING;
+    if (icon == ALERT_ICON_ERROR) {
+      color_id = TH_INFO_ERROR;
+    }
+    else if (icon == ALERT_ICON_INFO) {
+      color_id = TH_INFO_INFO;
+    }
+    else if (icon == ALERT_ICON_QUESTION) {
+      color_id = TH_INFO_PROPERTY;
+    }
+    UI_GetThemeColorType4ubv(color_id, SPACE_INFO, icon_color);
+    return uiDefButImage(block, ibuf, x, y, width, height, icon_color);
+  }
 }
 
 /**
@@ -6294,7 +6337,7 @@ void UI_but_func_search_set(uiBut *but,
                             uiButSearchCreateFunc search_create_func,
                             uiButSearchFunc search_func,
                             void *arg,
-                            bool free_arg,
+                            uiButSearchArgFreeFunc search_arg_free_func,
                             uiButHandleFunc bfunc,
                             void *active)
 {
@@ -6304,14 +6347,16 @@ void UI_but_func_search_set(uiBut *but,
     search_create_func = ui_searchbox_create_generic;
   }
 
-  if (but->free_search_arg) {
-    MEM_SAFE_FREE(but->search_arg);
+  if (but->search_arg_free_func != NULL) {
+    but->search_arg_free_func(but->search_arg);
+    but->search_arg = NULL;
   }
 
   but->search_create_func = search_create_func;
   but->search_func = search_func;
+
   but->search_arg = arg;
-  but->free_search_arg = free_arg;
+  but->search_arg_free_func = search_arg_free_func;
 
   if (bfunc) {
 #ifdef DEBUG
@@ -6362,8 +6407,7 @@ static void operator_enum_search_cb(const struct bContext *C,
       /* note: need to give the index rather than the
        * identifier because the enum can be freed */
       if (BLI_strcasestr(item->name, str)) {
-        if (false ==
-            UI_search_item_add(items, item->name, POINTER_FROM_INT(item->value), item->icon)) {
+        if (!UI_search_item_add(items, item->name, POINTER_FROM_INT(item->value), item->icon, 0)) {
           break;
         }
       }
@@ -6420,7 +6464,7 @@ uiBut *uiDefSearchButO_ptr(uiBlock *block,
                          ui_searchbox_create_generic,
                          operator_enum_search_cb,
                          but,
-                         false,
+                         NULL,
                          operator_enum_call_cb,
                          NULL);
 

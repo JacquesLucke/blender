@@ -24,22 +24,22 @@
  * \ingroup bke
  */
 
-#include <string.h>
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "MEM_guardedalloc.h"
 
 #include "BLI_math.h" /* windows needs for M_PI */
+#include "BLI_path_util.h"
+#include "BLI_rect.h"
+#include "BLI_string.h"
 #include "BLI_threads.h"
 #include "BLI_utildefines.h"
-#include "BLI_rect.h"
-#include "BLI_path_util.h"
-#include "BLI_string.h"
 
+#include "DNA_anim_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_sequence_types.h"
-#include "DNA_anim_types.h"
 #include "DNA_space_types.h"
 
 #include "BKE_fcurve.h"
@@ -47,9 +47,9 @@
 #include "BKE_main.h"
 #include "BKE_sequencer.h"
 
-#include "IMB_imbuf_types.h"
-#include "IMB_imbuf.h"
 #include "IMB_colormanagement.h"
+#include "IMB_imbuf.h"
+#include "IMB_imbuf_types.h"
 #include "IMB_metadata.h"
 
 #include "BLI_math_color_blend.h"
@@ -2499,15 +2499,14 @@ static ImBuf *do_transform_effect(const SeqRenderData *context,
 /*********************** Glow *************************/
 
 static void RVBlurBitmap2_float(float *map, int width, int height, float blur, int quality)
-/*  MUUUCCH better than the previous blur. */
-/*  We do the blurring in two passes which is a whole lot faster. */
-/*  I changed the math around to implement an actual Gaussian */
-/*  distribution. */
-/* */
-/*  Watch out though, it tends to misbehaven with large blur values on */
-/*  a small bitmap.  Avoid avoid avoid. */
-/*=============================== */
 {
+  /* Much better than the previous blur!
+   * We do the blurring in two passes which is a whole lot faster.
+   * I changed the math around to implement an actual Gaussian distribution.
+   *
+   * Watch out though, it tends to misbehave with large blur values on
+   * a small bitmap. Avoid avoid! */
+
   float *temp = NULL, *swap;
   float *filter = NULL;
   int x, y, i, fx, fy;

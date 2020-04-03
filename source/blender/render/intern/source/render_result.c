@@ -21,22 +21,22 @@
  * \ingroup render
  */
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_utildefines.h"
 #include "BLI_ghash.h"
-#include "BLI_listbase.h"
 #include "BLI_hash_md5.h"
+#include "BLI_listbase.h"
 #include "BLI_path_util.h"
 #include "BLI_rect.h"
 #include "BLI_string.h"
 #include "BLI_string_utils.h"
 #include "BLI_threads.h"
+#include "BLI_utildefines.h"
 
 #include "BKE_appdir.h"
 #include "BKE_camera.h"
@@ -45,9 +45,9 @@
 #include "BKE_report.h"
 #include "BKE_scene.h"
 
+#include "IMB_colormanagement.h"
 #include "IMB_imbuf.h"
 #include "IMB_imbuf_types.h"
-#include "IMB_colormanagement.h"
 
 #include "intern/openexr/openexr_multi.h"
 
@@ -798,7 +798,7 @@ void render_result_view_new(RenderResult *rr, const char *viewname)
   BLI_strncpy(rv->name, viewname, sizeof(rv->name));
 }
 
-void render_result_views_new(RenderResult *rr, RenderData *rd)
+void render_result_views_new(RenderResult *rr, const RenderData *rd)
 {
   SceneRenderView *srv;
 
@@ -1206,7 +1206,7 @@ static void templates_register_pass_cb(void *userdata,
                                        const char *name,
                                        int channels,
                                        const char *chan_id,
-                                       int UNUSED(type))
+                                       eNodeSocketDatatype UNUSED(type))
 {
   ListBase *templates = userdata;
   RenderPass *pass = MEM_callocN(sizeof(RenderPass), "RenderPassTemplate");
@@ -1459,7 +1459,7 @@ bool render_result_exr_file_cache_read(Render *re)
 
 /*************************** Combined Pixel Rect *****************************/
 
-ImBuf *render_result_rect_to_ibuf(RenderResult *rr, RenderData *rd, const int view_id)
+ImBuf *render_result_rect_to_ibuf(RenderResult *rr, const RenderData *rd, const int view_id)
 {
   ImBuf *ibuf = IMB_allocImBuf(rr->rectx, rr->recty, rd->im_format.planes, 0);
   RenderView *rv = RE_RenderViewGetById(rr, view_id);

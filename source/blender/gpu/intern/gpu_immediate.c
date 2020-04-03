@@ -23,7 +23,9 @@
  * GPU immediate mode work-alike
  */
 
-#include "UI_resources.h"
+#ifndef GPU_STANDALONE
+#  include "UI_resources.h"
+#endif
 
 #include "GPU_attr_binding.h"
 #include "GPU_immediate.h"
@@ -34,8 +36,8 @@
 #include "gpu_shader_private.h"
 #include "gpu_vertex_format_private.h"
 
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* necessary functions from matrix API */
 extern void GPU_matrix_bind(const GPUShaderInterface *);
@@ -910,6 +912,8 @@ void immUniformColor4ubv(const uchar rgba[4])
   immUniformColor4ub(rgba[0], rgba[1], rgba[2], rgba[3]);
 }
 
+#ifndef GPU_STANDALONE
+
 void immUniformThemeColor(int color_id)
 {
   float color[4];
@@ -958,3 +962,5 @@ void immThemeColorShadeAlpha(int colorid, int coloffset, int alphaoffset)
   UI_GetThemeColorShadeAlpha4ubv(colorid, coloffset, alphaoffset, col);
   immUniformColor4ub(col[0], col[1], col[2], col[3]);
 }
+
+#endif /* GPU_STANDALONE */

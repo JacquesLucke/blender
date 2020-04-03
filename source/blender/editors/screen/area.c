@@ -21,18 +21,18 @@
  * \ingroup edscr
  */
 
-#include <string.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "MEM_guardedalloc.h"
 
 #include "DNA_userdef_types.h"
 
 #include "BLI_blenlib.h"
+#include "BLI_linklist_stack.h"
 #include "BLI_math.h"
 #include "BLI_rand.h"
 #include "BLI_utildefines.h"
-#include "BLI_linklist_stack.h"
 
 #include "BKE_context.h"
 #include "BKE_global.h"
@@ -44,20 +44,20 @@
 #include "RNA_types.h"
 
 #include "WM_api.h"
-#include "WM_types.h"
 #include "WM_message.h"
 #include "WM_toolsystem.h"
+#include "WM_types.h"
 
 #include "ED_screen.h"
 #include "ED_screen_types.h"
 #include "ED_space_api.h"
 #include "ED_time_scrub_ui.h"
 
+#include "GPU_framebuffer.h"
 #include "GPU_immediate.h"
 #include "GPU_immediate_util.h"
 #include "GPU_matrix.h"
 #include "GPU_state.h"
-#include "GPU_framebuffer.h"
 
 #include "BLF_api.h"
 
@@ -1382,6 +1382,7 @@ static void region_rect_recursive(
         region->winrct.ymax = region->winrct.ymin + prefsizey - 1;
         winrct->ymin = region->winrct.ymax + 1;
       }
+      BLI_rcti_sanitize(winrct);
     }
   }
   else if (ELEM(alignment, RGN_ALIGN_LEFT, RGN_ALIGN_RIGHT)) {
@@ -1407,6 +1408,7 @@ static void region_rect_recursive(
         region->winrct.xmax = region->winrct.xmin + prefsizex - 1;
         winrct->xmin = region->winrct.xmax + 1;
       }
+      BLI_rcti_sanitize(winrct);
     }
   }
   else if (alignment == RGN_ALIGN_VSPLIT || alignment == RGN_ALIGN_HSPLIT) {
@@ -1723,9 +1725,81 @@ static void ed_default_handlers(
         wm->defaultconf, "Grease Pencil Stroke Paint (Fill)", 0, 0);
     WM_event_add_keymap_handler(handlers, keymap_paint_fill);
 
+    wmKeyMap *keymap_paint_tint = WM_keymap_ensure(
+        wm->defaultconf, "Grease Pencil Stroke Paint (Tint)", 0, 0);
+    WM_event_add_keymap_handler(handlers, keymap_paint_tint);
+
     wmKeyMap *keymap_sculpt = WM_keymap_ensure(
         wm->defaultconf, "Grease Pencil Stroke Sculpt Mode", 0, 0);
     WM_event_add_keymap_handler(handlers, keymap_sculpt);
+
+    wmKeyMap *keymap_vertex = WM_keymap_ensure(
+        wm->defaultconf, "Grease Pencil Stroke Vertex Mode", 0, 0);
+    WM_event_add_keymap_handler(handlers, keymap_vertex);
+
+    wmKeyMap *keymap_vertex_draw = WM_keymap_ensure(
+        wm->defaultconf, "Grease Pencil Stroke Vertex (Draw)", 0, 0);
+    WM_event_add_keymap_handler(handlers, keymap_vertex_draw);
+
+    wmKeyMap *keymap_vertex_blur = WM_keymap_ensure(
+        wm->defaultconf, "Grease Pencil Stroke Vertex (Blur)", 0, 0);
+    WM_event_add_keymap_handler(handlers, keymap_vertex_blur);
+
+    wmKeyMap *keymap_vertex_average = WM_keymap_ensure(
+        wm->defaultconf, "Grease Pencil Stroke Vertex (Average)", 0, 0);
+    WM_event_add_keymap_handler(handlers, keymap_vertex_average);
+
+    wmKeyMap *keymap_vertex_smear = WM_keymap_ensure(
+        wm->defaultconf, "Grease Pencil Stroke Vertex (Smear)", 0, 0);
+    WM_event_add_keymap_handler(handlers, keymap_vertex_smear);
+
+    wmKeyMap *keymap_vertex_replace = WM_keymap_ensure(
+        wm->defaultconf, "Grease Pencil Stroke Vertex (Replace)", 0, 0);
+    WM_event_add_keymap_handler(handlers, keymap_vertex_replace);
+
+    wmKeyMap *keymap_sculpt_smooth = WM_keymap_ensure(
+        wm->defaultconf, "Grease Pencil Stroke Sculpt (Smooth)", 0, 0);
+    WM_event_add_keymap_handler(handlers, keymap_sculpt_smooth);
+
+    wmKeyMap *keymap_sculpt_thickness = WM_keymap_ensure(
+        wm->defaultconf, "Grease Pencil Stroke Sculpt (Thickness)", 0, 0);
+    WM_event_add_keymap_handler(handlers, keymap_sculpt_thickness);
+
+    wmKeyMap *keymap_sculpt_strength = WM_keymap_ensure(
+        wm->defaultconf, "Grease Pencil Stroke Sculpt (Strength)", 0, 0);
+    WM_event_add_keymap_handler(handlers, keymap_sculpt_strength);
+
+    wmKeyMap *keymap_sculpt_grab = WM_keymap_ensure(
+        wm->defaultconf, "Grease Pencil Stroke Sculpt (Grab)", 0, 0);
+    WM_event_add_keymap_handler(handlers, keymap_sculpt_grab);
+
+    wmKeyMap *keymap_sculpt_push = WM_keymap_ensure(
+        wm->defaultconf, "Grease Pencil Stroke Sculpt (Push)", 0, 0);
+    WM_event_add_keymap_handler(handlers, keymap_sculpt_push);
+
+    wmKeyMap *keymap_sculpt_twist = WM_keymap_ensure(
+        wm->defaultconf, "Grease Pencil Stroke Sculpt (Twist)", 0, 0);
+    WM_event_add_keymap_handler(handlers, keymap_sculpt_twist);
+
+    wmKeyMap *keymap_sculpt_pinch = WM_keymap_ensure(
+        wm->defaultconf, "Grease Pencil Stroke Sculpt (Pinch)", 0, 0);
+    WM_event_add_keymap_handler(handlers, keymap_sculpt_pinch);
+
+    wmKeyMap *keymap_sculpt_randomize = WM_keymap_ensure(
+        wm->defaultconf, "Grease Pencil Stroke Sculpt (Randomize)", 0, 0);
+    WM_event_add_keymap_handler(handlers, keymap_sculpt_randomize);
+
+    wmKeyMap *keymap_sculpt_clone = WM_keymap_ensure(
+        wm->defaultconf, "Grease Pencil Stroke Sculpt (Clone)", 0, 0);
+    WM_event_add_keymap_handler(handlers, keymap_sculpt_clone);
+
+    wmKeyMap *keymap_weight = WM_keymap_ensure(
+        wm->defaultconf, "Grease Pencil Stroke Weight Mode", 0, 0);
+    WM_event_add_keymap_handler(handlers, keymap_weight);
+
+    wmKeyMap *keymap_weight_draw = WM_keymap_ensure(
+        wm->defaultconf, "Grease Pencil Stroke Weight (Draw)", 0, 0);
+    WM_event_add_keymap_handler(handlers, keymap_weight_draw);
   }
 }
 
@@ -2277,7 +2351,7 @@ static void ed_panel_draw(const bContext *C,
                           int em,
                           bool vertical)
 {
-  uiStyle *style = UI_style_get_dpi();
+  const uiStyle *style = UI_style_get_dpi();
 
   /* draw panel */
   uiBlock *block = UI_block_begin(C, region, pt->idname, UI_EMBOSS);
@@ -2533,7 +2607,7 @@ void ED_region_panels_layout_ex(const bContext *C,
         region->sizey = size_dyn[1];
         sa->flag |= AREA_FLAG_REGION_SIZE_UPDATE;
       }
-      y = ABS(region->sizey * UI_DPI_FAC - 1);
+      y = fabsf(region->sizey * UI_DPI_FAC - 1);
     }
   }
   else if (vertical) {
@@ -2660,7 +2734,7 @@ void ED_region_panels_init(wmWindowManager *wm, ARegion *region)
 
 void ED_region_header_layout(const bContext *C, ARegion *region)
 {
-  uiStyle *style = UI_style_get_dpi();
+  const uiStyle *style = UI_style_get_dpi();
   uiBlock *block;
   uiLayout *layout;
   HeaderType *ht;
@@ -2886,7 +2960,7 @@ void ED_region_info_draw_multiline(ARegion *region,
                                    const bool full_redraw)
 {
   const int header_height = UI_UNIT_Y;
-  uiStyle *style = UI_style_get_dpi();
+  const uiStyle *style = UI_style_get_dpi();
   int fontid = style->widget.uifont_id;
   int scissor[4];
   int num_lines = 0;
@@ -3101,7 +3175,6 @@ static void metadata_draw_imbuf(ImBuf *ibuf, const rctf *rect, int fontid, const
     ctx.fontid = fontid;
     ctx.xmin = xmin;
     ctx.ymin = ymin;
-    ctx.vertical_offset = vertical_offset;
     ctx.current_y = ofs_y;
     ctx.vertical_offset = vertical_offset;
     IMB_metadata_foreach(ibuf, metadata_custom_draw_fields, &ctx);
@@ -3192,7 +3265,7 @@ void ED_region_image_metadata_draw(
 {
   float box_y;
   rctf rect;
-  uiStyle *style = UI_style_get_dpi();
+  const uiStyle *style = UI_style_get_dpi();
 
   if (!ibuf->metadata) {
     return;
@@ -3390,21 +3463,21 @@ static void region_visible_rect_calc(ARegion *region, rcti *rect)
 
         if (ELEM(alignment, RGN_ALIGN_LEFT, RGN_ALIGN_RIGHT)) {
           /* Overlap left, also check 1 pixel offset (2 regions on one side). */
-          if (ABS(rect->xmin - arn->winrct.xmin) < 2) {
+          if (abs(rect->xmin - arn->winrct.xmin) < 2) {
             rect->xmin = arn->winrct.xmax;
           }
 
           /* Overlap right. */
-          if (ABS(rect->xmax - arn->winrct.xmax) < 2) {
+          if (abs(rect->xmax - arn->winrct.xmax) < 2) {
             rect->xmax = arn->winrct.xmin;
           }
         }
         else if (ELEM(alignment, RGN_ALIGN_TOP, RGN_ALIGN_BOTTOM)) {
           /* Same logic as above for vertical regions. */
-          if (ABS(rect->ymin - arn->winrct.ymin) < 2) {
+          if (abs(rect->ymin - arn->winrct.ymin) < 2) {
             rect->ymin = arn->winrct.ymax;
           }
-          if (ABS(rect->ymax - arn->winrct.ymax) < 2) {
+          if (abs(rect->ymax - arn->winrct.ymax) < 2) {
             rect->ymax = arn->winrct.ymin;
           }
         }
@@ -3447,7 +3520,7 @@ void ED_region_cache_draw_background(ARegion *region)
 
 void ED_region_cache_draw_curfra_label(const int framenr, const float x, const float y)
 {
-  uiStyle *style = UI_style_get();
+  const uiStyle *style = UI_style_get();
   int fontid = style->widget.uifont_id;
   char numstr[32];
   float font_dims[2] = {0.0f, 0.0f};

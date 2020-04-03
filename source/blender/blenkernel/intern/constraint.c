@@ -21,35 +21,35 @@
  * \ingroup bke
  */
 
-#include <stdio.h>
-#include <stddef.h>
-#include <string.h>
-#include <math.h>
 #include <float.h>
+#include <math.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "MEM_guardedalloc.h"
 
 #include "BLI_blenlib.h"
-#include "BLI_math.h"
 #include "BLI_kdopbvh.h"
-#include "BLI_utildefines.h"
+#include "BLI_math.h"
 #include "BLI_string_utils.h"
+#include "BLI_utildefines.h"
 #include "BLT_translation.h"
 
+#include "DNA_action_types.h"
 #include "DNA_armature_types.h"
 #include "DNA_cachefile_types.h"
 #include "DNA_constraint_types.h"
-#include "DNA_modifier_types.h"
-#include "DNA_object_types.h"
-#include "DNA_action_types.h"
 #include "DNA_curve_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
+#include "DNA_modifier_types.h"
+#include "DNA_object_types.h"
 
 #include "DNA_lattice_types.h"
+#include "DNA_movieclip_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_tracking_types.h"
-#include "DNA_movieclip_types.h"
 
 #include "BKE_action.h"
 #include "BKE_anim.h" /* for the curve calculation part */
@@ -472,9 +472,9 @@ static void contarget_get_mesh_mat(Object *ob, const char *substring, float mat[
 
   /* derive the rotation from the average normal:
    * - code taken from transform_gizmo.c,
-   *   calc_gizmo_stats, V3D_ORIENT_NORMAL case
-   */
-  /*  we need the transpose of the inverse for a normal... */
+   *   calc_gizmo_stats, V3D_ORIENT_NORMAL case */
+
+  /* We need the transpose of the inverse for a normal. */
   copy_m3_m4(imat, ob->obmat);
 
   invert_m3_m3(tmat, imat);
@@ -485,7 +485,7 @@ static void contarget_get_mesh_mat(Object *ob, const char *substring, float mat[
   copy_v3_v3(plane, tmat[1]);
 
   cross_v3_v3v3(mat[0], normal, plane);
-  if (len_squared_v3(mat[0]) < SQUARE(1e-3f)) {
+  if (len_squared_v3(mat[0]) < square_f(1e-3f)) {
     copy_v3_v3(plane, tmat[0]);
     cross_v3_v3v3(mat[0], normal, plane);
   }
@@ -577,7 +577,7 @@ static void constraint_target_to_mat4(Object *ob,
     copy_m4_m4(mat, ob->obmat);
     BKE_constraint_mat_convertspace(ob, NULL, mat, from, to, false);
   }
-  /*  Case VERTEXGROUP */
+  /* Case VERTEXGROUP */
   /* Current method just takes the average location of all the points in the
    * VertexGroup, and uses that as the location value of the targets. Where
    * possible, the orientation will also be calculated, by calculating an
@@ -741,8 +741,8 @@ static void default_get_tarmat_full_bbone(struct Depsgraph *UNUSED(depsgraph),
 
 /* This following macro should be used for all standard single-target *_get_tars functions
  * to save typing and reduce maintenance woes.
- * (Hopefully all compilers will be happy with the lines with just a space on them. Those are
- *  really just to help this code easier to read)
+ * (Hopefully all compilers will be happy with the lines with just a space on them.
+ * Those are really just to help this code easier to read).
  */
 // TODO: cope with getting rotation order...
 #define SINGLETARGET_GET_TARS(con, datatar, datasubtarget, ct, list) \
@@ -4822,7 +4822,7 @@ static bConstraintTypeInfo CTI_FOLLOWTRACK = {
     followtrack_evaluate,           /* evaluate */
 };
 
-/* ----------- Camre Solver ------------- */
+/* ----------- Camera Solver ------------- */
 
 static void camerasolver_new_data(void *cdata)
 {
@@ -5314,9 +5314,6 @@ static bConstraint *add_new_constraint(Object *ob,
       }
       break;
     }
-    case CONSTRAINT_TYPE_TRANSFORM_CACHE:
-      con->ownspace = CONSTRAINT_SPACE_LOCAL;
-      break;
   }
 
   return con;
