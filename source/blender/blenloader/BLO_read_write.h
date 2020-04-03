@@ -41,6 +41,7 @@ void BLO_write_struct_array_by_id(BlendWriter *writer,
                                   int struct_id,
                                   int array_size,
                                   const void *data_ptr);
+void BLO_write_struct_list_by_id(BlendWriter *writer, int struct_id, struct ListBase *list);
 
 int BLO_get_struct_id_by_name(BlendWriter *writer, const char *struct_name);
 #define BLO_get_struct_id(writer, struct_name) BLO_get_struct_id_by_name(writer, #struct_name)
@@ -50,6 +51,8 @@ int BLO_get_struct_id_by_name(BlendWriter *writer, const char *struct_name);
 #define BLO_write_struct_array(writer, struct_name, array_size, data_ptr) \
   BLO_write_struct_array_by_id( \
       writer, BLO_get_struct_id(writer, struct_name), array_size, data_ptr)
+#define BLO_write_struct_list(writer, struct_name, list_ptr) \
+  BLO_write_struct_list_by_id(writer, BLO_get_struct_id(writer, struct_name), list_ptr)
 
 void BLO_write_int32_array(BlendWriter *writer, int size, const int32_t *data_ptr);
 void BLO_write_uint32_array(BlendWriter *writer, int size, const uint32_t *data_ptr);

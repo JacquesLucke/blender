@@ -707,54 +707,7 @@ static void write_previews(WriteData *wd, const PreviewImage *prv_orig)
 
 static void write_fmodifiers(WriteData *wd, ListBase *fmodifiers)
 {
-  FModifier *fcm;
-
-  /* Write all modifiers first (for faster reloading) */
-  writelist(wd, DATA, FModifier, fmodifiers);
-
-  /* Modifiers */
-  for (fcm = fmodifiers->first; fcm; fcm = fcm->next) {
-    const FModifierTypeInfo *fmi = fmodifier_get_typeinfo(fcm);
-
-    /* Write the specific data */
-    if (fmi && fcm->data) {
-      /* firstly, just write the plain fmi->data struct */
-      writestruct_id(wd, DATA, fmi->structName, 1, fcm->data);
-
-      /* do any modifier specific stuff */
-      switch (fcm->type) {
-        case FMODIFIER_TYPE_GENERATOR: {
-          FMod_Generator *data = fcm->data;
-
-          /* write coefficients array */
-          if (data->coefficients) {
-            writedata(wd, DATA, sizeof(float) * (data->arraysize), data->coefficients);
-          }
-
-          break;
-        }
-        case FMODIFIER_TYPE_ENVELOPE: {
-          FMod_Envelope *data = fcm->data;
-
-          /* write envelope data */
-          if (data->data) {
-            writestruct(wd, DATA, FCM_EnvelopeData, data->totvert, data->data);
-          }
-
-          break;
-        }
-        case FMODIFIER_TYPE_PYTHON: {
-          FMod_Python *data = fcm->data;
-
-          /* Write ID Properties -- and copy this comment EXACTLY for easy finding
-           * of library blocks that implement this.*/
-          IDP_WriteProperty(data->prop, wd);
-
-          break;
-        }
-      }
-    }
-  }
+  BKE_fcurve_modifiers_blend_write(wrap_writer(wd), fmodifiers);
 }
 
 static void write_fcurves(WriteData *wd, ListBase *fcurves)
@@ -4231,6 +4184,11 @@ void BLO_write_struct_array_by_id(BlendWriter *writer,
                                   const void *data_ptr)
 {
   writestruct_nr(unwrap_writer(writer), DATA, struct_id, array_size, data_ptr);
+}
+
+void BLO_write_struct_list_by_id(BlendWriter *writer, int struct_id, ListBase *list)
+{
+  writelist_nr(unwrap_writer(writer), DATA, struct_id, list);
 }
 
 int BLO_get_struct_id_by_name(BlendWriter *writer, const char *struct_name)

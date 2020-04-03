@@ -1605,3 +1605,53 @@ void BKE_fcurve_modifiers_blend_read_lib(BlendReader *reader, ListBase *list, ID
     }
   }
 }
+
+void BKE_fcurve_modifiers_blend_write(BlendWriter *writer, ListBase *fmodifiers)
+{
+  /* Write all modifiers first (for faster reloading) */
+  BLO_write_struct_list(writer, FModifier, fmodifiers);
+
+  /* Modifiers */
+  for (FModifier *fcm = fmodifiers->first; fcm; fcm = fcm->next) {
+    const FModifierTypeInfo *fmi = fmodifier_get_typeinfo(fcm);
+
+    /* Write the specific data */
+    if (fmi && fcm->data) {
+      /* firstly, just write the plain fmi->data struct */
+      BLO_write_struct_by_name(writer, fmi->structName, fcm->data);
+
+      /* do any modifier specific stuff */
+      switch (fcm->type) {
+        case FMODIFIER_TYPE_GENERATOR: {
+          FMod_Generator *data = fcm->data;
+
+          /* write coefficients array */
+          if (data->coefficients) {
+            BLO_write_raw(writer, sizeof(float) * data->arraysize, data->coefficients);
+          }
+
+          break;
+        }
+        case FMODIFIER_TYPE_ENVELOPE: {
+          FMod_Envelope *data = fcm->data;
+
+          /* write envelope data */
+          if (data->data) {
+            BLO_write_struct_array(writer, FCM_EvenlopeData, data->totvert, data->data);
+          }
+
+          break;
+        }
+        case FMODIFIER_TYPE_PYTHON: {
+          FMod_Python *data = fcm->data;
+
+          /* Write ID Properties -- and copy this comment EXACTLY for easy finding
+           * of library blocks that implement this.*/
+          IDP_BlendWrite(writer, data->prop);
+
+          break;
+        }
+      }
+    }
+  }
+}

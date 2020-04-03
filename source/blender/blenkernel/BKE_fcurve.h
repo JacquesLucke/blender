@@ -377,6 +377,7 @@ void fcurve_store_samples(
 void BKE_fcurve_blend_read_data(struct BlendReader *reader, struct ListBase *list);
 void BKE_fcurve_blend_read_lib(struct BlendReader *reader, struct ListBase *list, struct ID *id);
 
+void BKE_fcurve_modifiers_blend_write(struct BlendWriter *writer, struct ListBase *fmodifiers);
 void BKE_fcurve_modifiers_blend_read_data(struct BlendReader *reader,
                                           struct ListBase *list,
                                           struct FCurve *fcurve);
