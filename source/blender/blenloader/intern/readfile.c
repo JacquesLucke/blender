@@ -2978,11 +2978,6 @@ static void direct_link_action(FileData *fd, bAction *act)
   }
 }
 
-static void lib_link_nladata(FileData *fd, ID *id, ListBase *list)
-{
-  BKE_nla_blend_read_lib(wrap_reader(fd), list, id);
-}
-
 /* ------- */
 
 static void lib_link_keyingsets(FileData *fd, ID *id, ListBase *list)
@@ -3020,29 +3015,7 @@ static void direct_link_keyingsets(FileData *fd, ListBase *list)
 
 static void lib_link_animdata(FileData *fd, ID *id, AnimData *adt)
 {
-  if (adt == NULL) {
-    return;
-  }
-
-  /* link action data */
-  adt->action = newlibadr(fd, id->lib, adt->action);
-  adt->tmpact = newlibadr(fd, id->lib, adt->tmpact);
-
-  /* fix action id-roots (i.e. if they come from a pre 2.57 .blend file) */
-  if ((adt->action) && (adt->action->idroot == 0)) {
-    adt->action->idroot = GS(id->name);
-  }
-  if ((adt->tmpact) && (adt->tmpact->idroot == 0)) {
-    adt->tmpact->idroot = GS(id->name);
-  }
-
-  /* link drivers */
-  lib_link_fcurves(fd, id, &adt->drivers);
-
-  /* overrides don't have lib-link for now, so no need to do anything */
-
-  /* link NLA-data */
-  lib_link_nladata(fd, id, &adt->nla_tracks);
+  BKE_animsys_blend_read_lib(wrap_reader(fd), adt, id);
 }
 
 static void direct_link_animdata(FileData *fd, AnimData *adt)

@@ -4223,3 +4223,30 @@ void BKE_animsys_blend_read_data(BlendReader *reader, AnimData *adt)
   BLO_read_data_address(reader, &adt->act_track);
   BLO_read_data_address(reader, &adt->actstrip);
 }
+
+void BKE_animsys_blend_read_lib(BlendReader *reader, AnimData *adt, ID *id)
+{
+  if (adt == NULL) {
+    return;
+  }
+
+  /* link action data */
+  BLO_read_id_address(reader, id->lib, &adt->action);
+  BLO_read_id_address(reader, id->lib, &adt->tmpact);
+
+  /* fix action id-roots (i.e. if they come from a pre 2.57 .blend file) */
+  if ((adt->action) && (adt->action->idroot == 0)) {
+    adt->action->idroot = GS(id->name);
+  }
+  if ((adt->tmpact) && (adt->tmpact->idroot == 0)) {
+    adt->tmpact->idroot = GS(id->name);
+  }
+
+  /* link drivers */
+  BKE_fcurve_blend_read_lib(reader, &adt->drivers, id);
+
+  /* overrides don't have lib-link for now, so no need to do anything */
+
+  /* link NLA-data */
+  BKE_nla_blend_read_lib(reader, &adt->nla_tracks, id);
+}

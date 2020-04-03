@@ -309,6 +309,7 @@ void BKE_animsys_update_driver_array(struct ID *id);
 /* ************************************* */
 
 void BKE_animsys_blend_read_data(struct BlendReader *reader, struct AnimData *adt);
+void BKE_animsys_blend_read_lib(struct BlendReader *reader, struct AnimData *adt, struct ID *id);
 
 #ifdef __cplusplus
 }
