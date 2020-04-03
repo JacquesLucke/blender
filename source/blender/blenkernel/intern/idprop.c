@@ -34,6 +34,8 @@
 #include "BKE_idprop.h"
 #include "BKE_lib_id.h"
 
+#include "BLO_read_write.h"
+
 #include "CLG_log.h"
 
 #include "MEM_guardedalloc.h"
@@ -1131,3 +1133,119 @@ void IDP_Reset(IDProperty *prop, const IDProperty *reference)
 }
 
 /** \} */
+
+static void idp_read_array(BlendReader *reader, IDProperty *prop)
+{
+  /* Since we didn't save the extra buffer, set totallen to len. */
+  prop->totallen = prop->len;
+
+  if (prop->subtype == IDP_GROUP) {
+    BLO_read_pointer_array(reader, &prop->data.pointer);
+    IDProperty **array = prop->data.pointer;
+
+    for (int i = 0; i < prop->len; i++) {
+      IDP_DirectLinkProperty(reader, array[i]);
+    }
+  }
+  else if (prop->subtype == IDP_DOUBLE) {
+    BLO_read_double_array(reader, prop->len, (double **)&prop->data.pointer);
+  }
+  else if (prop->subtype == IDP_FLOAT) {
+    BLO_read_float_array(reader, prop->len, (float **)&prop->data.pointer);
+  }
+  else if (prop->subtype == IDP_INT) {
+    BLO_read_int32_array(reader, prop->len, (int32_t **)&prop->data.pointer);
+  }
+  else {
+    BLI_assert(false);
+  }
+}
+
+static void idp_read_string(BlendReader *reader, IDProperty *prop)
+{
+  /* Since we didn't save the extra string buffer, set totallen to len. */
+  prop->totallen = prop->len;
+  BLO_read_data_address(reader, &prop->data.pointer);
+}
+
+static void idp_read_group(BlendReader *reader, IDProperty *prop)
+{
+  BLO_read_list(reader, &prop->data.group, NULL);
+
+  /* Link child properties now. */
+  LISTBASE_FOREACH (IDProperty *, sub_prop, &prop->data.group) {
+    IDP_DirectLinkProperty(reader, sub_prop);
+  }
+}
+
+static void idp_read_idp_array(BlendReader *reader, IDProperty *prop)
+{
+  /* Since we didn't save the extra buffer, set totallen to len. */
+  prop->totallen = prop->len;
+  BLO_read_pointer_array(reader, &prop->data.pointer);
+
+  IDProperty *array = (IDProperty *)prop->data.pointer;
+
+  /* Note, idp-arrays didn't exist in 2.4x, so the pointer will be cleared.
+   * There is not really anything we can do to correct this, at least don't crash. */
+  if (array == NULL) {
+    prop->len = 0;
+    prop->totallen = 0;
+  }
+
+  for (int i = 0; i < prop->len; i++) {
+    IDP_DirectLinkProperty(reader, &array[i]);
+  }
+}
+
+static void idp_read_double(BlendReader *reader, IDProperty *prop)
+{
+  /* Workaround for doubles.
+   * They are stored in the same field as `int val, val2` in the IDPropertyData struct,
+   * they have to deal with endianness specifically.
+   *
+   * In theory, val and val2 would've already been swapped
+   * if switch_endian is true, so we have to first unswap
+   * them then re-swap them as a single 64-bit entity. */
+  if (BLO_read_requires_endian_switch(reader)) {
+    BLI_endian_switch_int32(&prop->data.val);
+    BLI_endian_switch_int32(&prop->data.val2);
+    BLI_endian_switch_int64((int64_t *)&prop->data.val);
+  }
+}
+
+void IDP_DirectLinkProperty(BlendReader *reader, IDProperty *prop)
+{
+  switch (prop->type) {
+    case IDP_GROUP:
+      idp_read_group(reader, prop);
+      break;
+    case IDP_STRING:
+      idp_read_string(reader, prop);
+      break;
+    case IDP_ARRAY:
+      idp_read_array(reader, prop);
+      break;
+    case IDP_IDPARRAY:
+      idp_read_idp_array(reader, prop);
+      break;
+    case IDP_DOUBLE:
+      idp_read_double(reader, prop);
+      break;
+    case IDP_INT:
+    case IDP_FLOAT:
+    case IDP_ID:
+      break; /* Nothing special to do here. */
+    default: {
+      /* Unknown IDP type, nuke it (we cannot handle unknown types everywhere in code,
+       * IDP are way too polymorphic to do it safely. */
+      printf(
+          "%s: found unknown IDProperty type %d, reset to Integer one !\n", __func__, prop->type);
+      /* Note: we do not attempt to free unknown prop, we have no way to know how to do that! */
+      prop->type = IDP_INT;
+      prop->subtype = 0;
+      IDP_Int(prop) = 0;
+      break;
+    }
+  }
+}

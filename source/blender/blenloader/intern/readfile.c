@@ -159,9 +159,9 @@
 
 #include "BLO_blend_defs.h"
 #include "BLO_blend_validate.h"
+#include "BLO_read_write.h"
 #include "BLO_readfile.h"
 #include "BLO_undofile.h"
-#include "BLO_read_write.h"
 
 #include "RE_engine.h"
 
@@ -2513,138 +2513,19 @@ static void test_pointer_array(FileData *fd, void **mat)
 /** \name Read ID Properties
  * \{ */
 
-static void IDP_DirectLinkProperty(IDProperty *prop, int switch_endian, FileData *fd);
 static void IDP_LibLinkProperty(IDProperty *prop, FileData *fd);
-
-static void IDP_DirectLinkIDPArray(IDProperty *prop, int switch_endian, FileData *fd)
-{
-  IDProperty *array;
-  int i;
-
-  /* since we didn't save the extra buffer, set totallen to len */
-  prop->totallen = prop->len;
-  prop->data.pointer = newdataadr(fd, prop->data.pointer);
-
-  array = (IDProperty *)prop->data.pointer;
-
-  /* note!, idp-arrays didn't exist in 2.4x, so the pointer will be cleared
-   * there's not really anything we can do to correct this, at least don't crash */
-  if (array == NULL) {
-    prop->len = 0;
-    prop->totallen = 0;
-  }
-
-  for (i = 0; i < prop->len; i++) {
-    IDP_DirectLinkProperty(&array[i], switch_endian, fd);
-  }
-}
-
-static void IDP_DirectLinkArray(IDProperty *prop, int switch_endian, FileData *fd)
-{
-  IDProperty **array;
-  int i;
-
-  /* since we didn't save the extra buffer, set totallen to len */
-  prop->totallen = prop->len;
-  prop->data.pointer = newdataadr(fd, prop->data.pointer);
-
-  if (prop->subtype == IDP_GROUP) {
-    test_pointer_array(fd, prop->data.pointer);
-    array = prop->data.pointer;
-
-    for (i = 0; i < prop->len; i++) {
-      IDP_DirectLinkProperty(array[i], switch_endian, fd);
-    }
-  }
-  else if (prop->subtype == IDP_DOUBLE) {
-    if (switch_endian) {
-      BLI_endian_switch_double_array(prop->data.pointer, prop->len);
-    }
-  }
-  else {
-    if (switch_endian) {
-      /* also used for floats */
-      BLI_endian_switch_int32_array(prop->data.pointer, prop->len);
-    }
-  }
-}
-
-static void IDP_DirectLinkString(IDProperty *prop, FileData *fd)
-{
-  /*since we didn't save the extra string buffer, set totallen to len.*/
-  prop->totallen = prop->len;
-  prop->data.pointer = newdataadr(fd, prop->data.pointer);
-}
-
-static void IDP_DirectLinkGroup(IDProperty *prop, int switch_endian, FileData *fd)
-{
-  ListBase *lb = &prop->data.group;
-  IDProperty *loop;
-
-  link_list(fd, lb);
-
-  /*Link child id properties now*/
-  for (loop = prop->data.group.first; loop; loop = loop->next) {
-    IDP_DirectLinkProperty(loop, switch_endian, fd);
-  }
-}
-
-static void IDP_DirectLinkProperty(IDProperty *prop, int switch_endian, FileData *fd)
-{
-  switch (prop->type) {
-    case IDP_GROUP:
-      IDP_DirectLinkGroup(prop, switch_endian, fd);
-      break;
-    case IDP_STRING:
-      IDP_DirectLinkString(prop, fd);
-      break;
-    case IDP_ARRAY:
-      IDP_DirectLinkArray(prop, switch_endian, fd);
-      break;
-    case IDP_IDPARRAY:
-      IDP_DirectLinkIDPArray(prop, switch_endian, fd);
-      break;
-    case IDP_DOUBLE:
-      /* Workaround for doubles.
-       * They are stored in the same field as `int val, val2` in the IDPropertyData struct,
-       * they have to deal with endianness specifically.
-       *
-       * In theory, val and val2 would've already been swapped
-       * if switch_endian is true, so we have to first unswap
-       * them then re-swap them as a single 64-bit entity. */
-      if (switch_endian) {
-        BLI_endian_switch_int32(&prop->data.val);
-        BLI_endian_switch_int32(&prop->data.val2);
-        BLI_endian_switch_int64((int64_t *)&prop->data.val);
-      }
-      break;
-    case IDP_INT:
-    case IDP_FLOAT:
-    case IDP_ID:
-      break; /* Nothing special to do here. */
-    default:
-      /* Unknown IDP type, nuke it (we cannot handle unknown types everywhere in code,
-       * IDP are way too polymorphic to do it safely. */
-      printf(
-          "%s: found unknown IDProperty type %d, reset to Integer one !\n", __func__, prop->type);
-      /* Note: we do not attempt to free unknown prop, we have no way to know how to do that! */
-      prop->type = IDP_INT;
-      prop->subtype = 0;
-      IDP_Int(prop) = 0;
-  }
-}
 
 #define IDP_DirectLinkGroup_OrFree(prop, switch_endian, fd) \
   _IDP_DirectLinkGroup_OrFree(prop, switch_endian, fd, __func__)
 
 static void _IDP_DirectLinkGroup_OrFree(IDProperty **prop,
-                                        int switch_endian,
+                                        int UNUSED(switch_endian),
                                         FileData *fd,
                                         const char *caller_func_id)
 {
   if (*prop) {
     if ((*prop)->type == IDP_GROUP) {
-      IDP_DirectLinkGroup(*prop, switch_endian, fd);
+      IDP_DirectLinkProperty(wrap_reader(fd), *prop);
     }
     else {
       /* corrupt file! */
@@ -12132,6 +12013,11 @@ void *BLO_read_get_new_data_address(BlendReader *reader, const void *old_address
   return newdataadr(unwrap_reader(reader), old_address);
 }
 
+ID *BLO_read_get_new_id_address(BlendReader *reader, Library *lib, ID *id)
+{
+  return newlibadr(unwrap_reader(reader), lib, id);
+}
+
 bool BLO_read_requires_endian_switch(BlendReader *reader)
 {
   return (unwrap_reader(reader)->flags & FD_FLAGS_SWITCH_ENDIAN) != 0;
@@ -12169,6 +12055,88 @@ void BLO_read_float_array(BlendReader *reader, int array_size, float **ptr_p)
 void BLO_read_float3_array(BlendReader *reader, int array_size, float **ptr_p)
 {
   BLO_read_float_array(reader, array_size * 3, ptr_p);
+}
+
+void BLO_read_double_array(BlendReader *reader, int array_size, double **ptr_p)
+{
+  BLO_read_data_address(reader, ptr_p);
+  if (BLO_read_requires_endian_switch(reader)) {
+    BLI_endian_switch_double_array(*ptr_p, array_size);
+  }
+}
+
+static void convert_pointer_array_64_to_32(BlendReader *reader,
+                                           uint array_size,
+                                           const uint64_t *src,
+                                           uint32_t *dst)
+{
+  /* Match pointer conversion rules from bh4_from_bh8 and cast_pointer. */
+  if (BLO_read_requires_endian_switch(reader)) {
+    for (int i = 0; i < array_size; i++) {
+      uint64_t ptr = src[i];
+      BLI_endian_switch_uint64(&ptr);
+      dst[i] = (uint32_t)(ptr >> 3);
+    }
+  }
+  else {
+    for (int i = 0; i < array_size; i++) {
+      dst[i] = (uint32_t)(src[i] >> 3);
+    }
+  }
+}
+
+static void convert_pointer_array_32_to_64(BlendReader *UNUSED(reader),
+                                           uint array_size,
+                                           const uint32_t *src,
+                                           uint64_t *dst)
+{
+  /* Match pointer conversion rules from bh8_from_bh4 and cast_pointer. */
+  for (int i = 0; i < array_size; i++) {
+    dst[i] = src[i];
+  }
+}
+
+void BLO_read_pointer_array(BlendReader *reader, void **ptr_p)
+{
+  FileData *fd = unwrap_reader(reader);
+
+  void *orig_array = newdataadr(fd, *ptr_p);
+  if (orig_array == NULL) {
+    *ptr_p = NULL;
+    return;
+  }
+
+  int file_pointer_size = fd->filesdna->pointer_size;
+  int current_pointer_size = fd->memsdna->pointer_size;
+
+  /* Overallocation is fine, but might be better to pass the length as parameter. */
+  int array_size = MEM_allocN_len(orig_array) / file_pointer_size;
+
+  void *final_array;
+
+  if (file_pointer_size == current_pointer_size) {
+    /* No pointer conversion necessary. */
+    final_array = orig_array;
+  }
+  else if (file_pointer_size == 8 && current_pointer_size == 4) {
+    /* Convert pointers from 64 to 32 bit. */
+    final_array = MEM_malloc_arrayN(array_size, 4, "new pointer array");
+    convert_pointer_array_64_to_32(
+        reader, array_size, (uint64_t *)orig_array, (uint32_t *)final_array);
+    MEM_freeN(orig_array);
+  }
+  else if (file_pointer_size == 4 && current_pointer_size == 8) {
+    /* Convert pointers from 32 to 64 bit. */
+    final_array = MEM_malloc_arrayN(array_size, 8, "new pointer array");
+    convert_pointer_array_32_to_64(
+        reader, array_size, (uint32_t *)orig_array, (uint64_t *)final_array);
+    MEM_freeN(orig_array);
+  }
+  else {
+    BLI_assert(false);
+  }
+
+  *ptr_p = final_array;
 }
 
 /** \} */
