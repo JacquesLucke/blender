@@ -188,7 +188,8 @@ void IDP_repr_fn(const IDProperty *prop,
                  void *user_data);
 void IDP_print(const struct IDProperty *prop);
 
-void IDP_DirectLinkProperty(struct BlendReader *reader, IDProperty *prop);
+void IDP_BlendReadData(struct BlendReader *reader, IDProperty *prop);
+void IDP_BlendReadLib(struct BlendReader *reader, IDProperty *prop);
 
 #ifdef __cplusplus
 }

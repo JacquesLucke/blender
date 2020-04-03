@@ -31,6 +31,7 @@
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
 
+#include "BKE_global.h"
 #include "BKE_idprop.h"
 #include "BKE_lib_id.h"
 
@@ -1144,7 +1145,7 @@ static void idp_read_array(BlendReader *reader, IDProperty *prop)
     IDProperty **array = prop->data.pointer;
 
     for (int i = 0; i < prop->len; i++) {
-      IDP_DirectLinkProperty(reader, array[i]);
+      IDP_BlendReadData(reader, array[i]);
     }
   }
   else if (prop->subtype == IDP_DOUBLE) {
@@ -1174,7 +1175,7 @@ static void idp_read_group(BlendReader *reader, IDProperty *prop)
 
   /* Link child properties now. */
   LISTBASE_FOREACH (IDProperty *, sub_prop, &prop->data.group) {
-    IDP_DirectLinkProperty(reader, sub_prop);
+    IDP_BlendReadData(reader, sub_prop);
   }
 }
 
@@ -1194,7 +1195,7 @@ static void idp_read_idp_array(BlendReader *reader, IDProperty *prop)
   }
 
   for (int i = 0; i < prop->len; i++) {
-    IDP_DirectLinkProperty(reader, &array[i]);
+    IDP_BlendReadData(reader, &array[i]);
   }
 }
 
@@ -1214,7 +1215,7 @@ static void idp_read_double(BlendReader *reader, IDProperty *prop)
   }
 }
 
-void IDP_DirectLinkProperty(BlendReader *reader, IDProperty *prop)
+void IDP_BlendReadData(BlendReader *reader, IDProperty *prop)
 {
   switch (prop->type) {
     case IDP_GROUP:
@@ -1247,5 +1248,41 @@ void IDP_DirectLinkProperty(BlendReader *reader, IDProperty *prop)
       IDP_Int(prop) = 0;
       break;
     }
+  }
+}
+
+void IDP_BlendReadLib(BlendReader *reader, IDProperty *prop)
+{
+  if (prop == NULL) {
+    return;
+  }
+
+  switch (prop->type) {
+    case IDP_ID: /* PointerProperty */
+    {
+      ID *new_address = BLO_read_get_new_id_address(reader, NULL, (ID *)prop->data.pointer);
+      if (IDP_Id(prop) && !new_address && G.debug) {
+        printf("Error while loading \"%s\". Data not found in file!\n", prop->name);
+      }
+      prop->data.pointer = new_address;
+      break;
+    }
+    case IDP_IDPARRAY: /* CollectionProperty */
+    {
+      IDProperty *idp_array = IDP_IDPArray(prop);
+      for (int i = 0; i < prop->len; i++) {
+        IDP_BlendReadLib(reader, &idp_array[i]);
+      }
+      break;
+    }
+    case IDP_GROUP: /* PointerProperty */
+    {
+      LISTBASE_FOREACH (IDProperty *, sub_prop, &prop->data.group) {
+        IDP_BlendReadLib(reader, sub_prop);
+      }
+      break;
+    }
+    default:
+      break; /* Nothing to do for other IDProps. */
   }
 }

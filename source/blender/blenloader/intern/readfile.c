@@ -2513,8 +2513,6 @@ static void test_pointer_array(FileData *fd, void **mat)
 /** \name Read ID Properties
  * \{ */
 
-static void IDP_LibLinkProperty(IDProperty *prop, FileData *fd);
-
 #define IDP_DirectLinkGroup_OrFree(prop, switch_endian, fd) \
   _IDP_DirectLinkGroup_OrFree(prop, switch_endian, fd, __func__)
 
@@ -2525,7 +2523,7 @@ static void _IDP_DirectLinkGroup_OrFree(IDProperty **prop,
 {
   if (*prop) {
     if ((*prop)->type == IDP_GROUP) {
-      IDP_DirectLinkProperty(wrap_reader(fd), *prop);
+      IDP_BlendReadData(wrap_reader(fd), *prop);
     }
     else {
       /* corrupt file! */
@@ -2539,38 +2537,7 @@ static void _IDP_DirectLinkGroup_OrFree(IDProperty **prop,
 
 static void IDP_LibLinkProperty(IDProperty *prop, FileData *fd)
 {
-  if (!prop) {
-    return;
-  }
-
-  switch (prop->type) {
-    case IDP_ID: /* PointerProperty */
-    {
-      void *newaddr = newlibadr(fd, NULL, IDP_Id(prop));
-      if (IDP_Id(prop) && !newaddr && G.debug) {
-        printf("Error while loading \"%s\". Data not found in file!\n", prop->name);
-      }
-      prop->data.pointer = newaddr;
-      break;
-    }
-    case IDP_IDPARRAY: /* CollectionProperty */
-    {
-      IDProperty *idp_array = IDP_IDPArray(prop);
-      for (int i = 0; i < prop->len; i++) {
-        IDP_LibLinkProperty(&(idp_array[i]), fd);
-      }
-      break;
-    }
-    case IDP_GROUP: /* PointerProperty */
-    {
-      for (IDProperty *loop = prop->data.group.first; loop; loop = loop->next) {
-        IDP_LibLinkProperty(loop, fd);
-      }
-      break;
-    }
-    default:
-      break; /* Nothing to do for other IDProps. */
-  }
+  IDP_BlendReadLib(wrap_reader(fd), prop);
 }
 
 /** \} */
