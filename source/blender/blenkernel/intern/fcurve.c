@@ -55,6 +55,8 @@
 #include "BKE_nla.h"
 #include "BKE_object.h"
 
+#include "BLO_read_write.h"
+
 #include "RNA_access.h"
 
 #include "atomic_ops.h"
@@ -3267,4 +3269,60 @@ float calculate_fcurve(PathResolvedRNA *anim_rna, FCurve *fcu, float evaltime)
   }
   fcu->curval = curval; /* debug display only, not thread safe! */
   return curval;
+}
+
+void BKE_fcurve_blend_read_data(BlendReader *reader, ListBase *list)
+{
+  /* link F-Curve data to F-Curve again (non ID-libs) */
+  for (FCurve *fcu = list->first; fcu; fcu = fcu->next) {
+    /* curve data */
+    BLO_read_data_address(reader, &fcu->bezt);
+    BLO_read_data_address(reader, &fcu->fpt);
+
+    /* rna path */
+    BLO_read_data_address(reader, &fcu->rna_path);
+
+    /* group */
+    BLO_read_data_address(reader, &fcu->grp);
+
+    /* clear disabled flag - allows disabled drivers to be tried again ([#32155]),
+     * but also means that another method for "reviving disabled F-Curves" exists
+     */
+    fcu->flag &= ~FCURVE_DISABLED;
+
+    /* driver */
+    BLO_read_data_address(reader, &fcu->driver);
+    if (fcu->driver) {
+      ChannelDriver *driver = fcu->driver;
+
+      /* Compiled expression data will need to be regenerated
+       * (old pointer may still be set here). */
+      driver->expr_comp = NULL;
+      driver->expr_simple = NULL;
+
+      /* give the driver a fresh chance - the operating environment may be different now
+       * (addons, etc. may be different) so the driver namespace may be sane now [#32155]
+       */
+      driver->flag &= ~DRIVER_FLAG_INVALID;
+
+      /* relink variables, targets and their paths */
+      BLO_read_list(reader, &driver->variables, NULL);
+      LISTBASE_FOREACH (DriverVar *, dvar, &driver->variables) {
+        DRIVER_TARGETS_LOOPER_BEGIN (dvar) {
+          /* only relink the targets being used */
+          if (tarIndex < dvar->num_targets) {
+            BLO_read_data_address(reader, &dtar->rna_path);
+          }
+          else {
+            dtar->rna_path = NULL;
+          }
+        }
+        DRIVER_TARGETS_LOOPER_END;
+      }
+    }
+
+    /* modifiers */
+    BLO_read_list(reader, &fcu->modifiers, NULL);
+    BKE_fcurve_modifiers_blend_read_data(reader, &fcu->modifiers, fcu);
+  }
 }

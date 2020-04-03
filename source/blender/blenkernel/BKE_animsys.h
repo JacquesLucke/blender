@@ -32,6 +32,8 @@ struct AnimData;
 struct Depsgraph;
 struct FCurve;
 struct ID;
+struct BlendWriter;
+struct BlendReader;
 struct KS_Path;
 struct KeyingSet;
 struct ListBase;
@@ -305,6 +307,8 @@ void BKE_animsys_eval_driver(struct Depsgraph *depsgraph,
 void BKE_animsys_update_driver_array(struct ID *id);
 
 /* ************************************* */
+
+void BKE_animsys_blend_read_data(struct BlendReader *reader, struct AnimData *adt);
 
 #ifdef __cplusplus
 }

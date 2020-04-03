@@ -188,8 +188,12 @@ void IDP_repr_fn(const IDProperty *prop,
                  void *user_data);
 void IDP_print(const struct IDProperty *prop);
 
-void IDP_BlendReadData(struct BlendReader *reader, IDProperty *prop);
-void IDP_BlendReadLib(struct BlendReader *reader, IDProperty *prop);
+void IDP_BlendReadData(struct BlendReader *reader, struct IDProperty *prop);
+void IDP_BlendReadLib(struct BlendReader *reader, struct IDProperty *prop);
+
+void IDP_Group_BlendReadData(struct BlendReader *reader,
+                             struct IDProperty **prop,
+                             const char *caller_func_id);
 
 #ifdef __cplusplus
 }

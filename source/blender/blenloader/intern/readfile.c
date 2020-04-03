@@ -2521,18 +2521,7 @@ static void _IDP_DirectLinkGroup_OrFree(IDProperty **prop,
                                         FileData *fd,
                                         const char *caller_func_id)
 {
-  if (*prop) {
-    if ((*prop)->type == IDP_GROUP) {
-      IDP_BlendReadData(wrap_reader(fd), *prop);
-    }
-    else {
-      /* corrupt file! */
-      printf("%s: found non group data, freeing type %d!\n", caller_func_id, (*prop)->type);
-      /* don't risk id, data's likely corrupt. */
-      // IDP_FreePropertyContent(*prop);
-      *prop = NULL;
-    }
-  }
+  IDP_Group_BlendReadData(wrap_reader(fd), prop, caller_func_id);
 }
 
 static void IDP_LibLinkProperty(IDProperty *prop, FileData *fd)
@@ -2985,105 +2974,9 @@ static void lib_link_fcurves(FileData *fd, ID *id, ListBase *list)
 }
 
 /* NOTE: this assumes that link_list has already been called on the list */
-static void direct_link_fmodifiers(FileData *fd, ListBase *list, FCurve *curve)
-{
-  FModifier *fcm;
-
-  for (fcm = list->first; fcm; fcm = fcm->next) {
-    /* relink general data */
-    fcm->data = newdataadr(fd, fcm->data);
-    fcm->curve = curve;
-
-    /* do relinking of data for specific types */
-    switch (fcm->type) {
-      case FMODIFIER_TYPE_GENERATOR: {
-        FMod_Generator *data = (FMod_Generator *)fcm->data;
-
-        data->coefficients = newdataadr(fd, data->coefficients);
-
-        if (fd->flags & FD_FLAGS_SWITCH_ENDIAN) {
-          BLI_endian_switch_float_array(data->coefficients, data->arraysize);
-        }
-
-        break;
-      }
-      case FMODIFIER_TYPE_ENVELOPE: {
-        FMod_Envelope *data = (FMod_Envelope *)fcm->data;
-
-        data->data = newdataadr(fd, data->data);
-
-        break;
-      }
-      case FMODIFIER_TYPE_PYTHON: {
-        FMod_Python *data = (FMod_Python *)fcm->data;
-
-        data->prop = newdataadr(fd, data->prop);
-        IDP_DirectLinkGroup_OrFree(&data->prop, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
-
-        break;
-      }
-    }
-  }
-}
-
-/* NOTE: this assumes that link_list has already been called on the list */
 static void direct_link_fcurves(FileData *fd, ListBase *list)
 {
-  FCurve *fcu;
-
-  /* link F-Curve data to F-Curve again (non ID-libs) */
-  for (fcu = list->first; fcu; fcu = fcu->next) {
-    /* curve data */
-    fcu->bezt = newdataadr(fd, fcu->bezt);
-    fcu->fpt = newdataadr(fd, fcu->fpt);
-
-    /* rna path */
-    fcu->rna_path = newdataadr(fd, fcu->rna_path);
-
-    /* group */
-    fcu->grp = newdataadr(fd, fcu->grp);
-
-    /* clear disabled flag - allows disabled drivers to be tried again ([#32155]),
-     * but also means that another method for "reviving disabled F-Curves" exists
-     */
-    fcu->flag &= ~FCURVE_DISABLED;
-
-    /* driver */
-    fcu->driver = newdataadr(fd, fcu->driver);
-    if (fcu->driver) {
-      ChannelDriver *driver = fcu->driver;
-      DriverVar *dvar;
-
-      /* Compiled expression data will need to be regenerated
-       * (old pointer may still be set here). */
-      driver->expr_comp = NULL;
-      driver->expr_simple = NULL;
-
-      /* give the driver a fresh chance - the operating environment may be different now
-       * (addons, etc. may be different) so the driver namespace may be sane now [#32155]
-       */
-      driver->flag &= ~DRIVER_FLAG_INVALID;
-
-      /* relink variables, targets and their paths */
-      link_list(fd, &driver->variables);
-      for (dvar = driver->variables.first; dvar; dvar = dvar->next) {
-        DRIVER_TARGETS_LOOPER_BEGIN (dvar) {
-          /* only relink the targets being used */
-          if (tarIndex < dvar->num_targets) {
-            dtar->rna_path = newdataadr(fd, dtar->rna_path);
-          }
-          else {
-            dtar->rna_path = NULL;
-          }
-        }
-        DRIVER_TARGETS_LOOPER_END;
-      }
-    }
-
-    /* modifiers */
-    link_list(fd, &fcu->modifiers);
-    direct_link_fmodifiers(fd, &fcu->modifiers, fcu);
-  }
+  BKE_fcurve_blend_read_data(wrap_reader(fd), list);
 }
 
 static void lib_link_action(FileData *fd, Main *UNUSED(bmain), bAction *act)
@@ -3161,42 +3054,6 @@ static void lib_link_nladata(FileData *fd, ID *id, ListBase *list)
   }
 }
 
-/* This handles Animato NLA-Strips linking
- * NOTE: this assumes that link_list has already been called on the list
- */
-static void direct_link_nladata_strips(FileData *fd, ListBase *list)
-{
-  NlaStrip *strip;
-
-  for (strip = list->first; strip; strip = strip->next) {
-    /* strip's child strips */
-    link_list(fd, &strip->strips);
-    direct_link_nladata_strips(fd, &strip->strips);
-
-    /* strip's F-Curves */
-    link_list(fd, &strip->fcurves);
-    direct_link_fcurves(fd, &strip->fcurves);
-
-    /* strip's F-Modifiers */
-    link_list(fd, &strip->modifiers);
-    direct_link_fmodifiers(fd, &strip->modifiers, NULL);
-  }
-}
-
-/* NOTE: this assumes that link_list has already been called on the list */
-static void direct_link_nladata(FileData *fd, ListBase *list)
-{
-  NlaTrack *nlt;
-
-  for (nlt = list->first; nlt; nlt = nlt->next) {
-    /* relink list of strips */
-    link_list(fd, &nlt->strips);
-
-    /* relink strip data */
-    direct_link_nladata_strips(fd, &nlt->strips);
-  }
-}
-
 /* ------- */
 
 static void lib_link_keyingsets(FileData *fd, ID *id, ListBase *list)
@@ -3261,31 +3118,7 @@ static void lib_link_animdata(FileData *fd, ID *id, AnimData *adt)
 
 static void direct_link_animdata(FileData *fd, AnimData *adt)
 {
-  /* NOTE: must have called newdataadr already before doing this... */
-  if (adt == NULL) {
-    return;
-  }
-
-  /* link drivers */
-  link_list(fd, &adt->drivers);
-  direct_link_fcurves(fd, &adt->drivers);
-  adt->driver_array = NULL;
-
-  /* link overrides */
-  // TODO...
-
-  /* link NLA-data */
-  link_list(fd, &adt->nla_tracks);
-  direct_link_nladata(fd, &adt->nla_tracks);
-
-  /* relink active track/strip - even though strictly speaking this should only be used
-   * if we're in 'tweaking mode', we need to be able to have this loaded back for
-   * undo, but also since users may not exit tweakmode before saving (#24535)
-   */
-  // TODO: it's not really nice that anyone should be able to save the file in this
-  //      state, but it's going to be too hard to enforce this single case...
-  adt->act_track = newdataadr(fd, adt->act_track);
-  adt->actstrip = newdataadr(fd, adt->actstrip);
+  BKE_animsys_blend_read_data(wrap_reader(fd), adt);
 }
 
 /** \} */

@@ -44,6 +44,8 @@
 #include "BKE_fcurve.h"
 #include "BKE_idprop.h"
 
+#include "BLO_read_write.h"
+
 static CLG_LogRef LOG = {"bke.fmodifier"};
 
 /* ******************************** F-Modifiers ********************************* */
@@ -1560,4 +1562,33 @@ void fcurve_bake_modifiers(FCurve *fcu, int start, int end)
 
   /* restore driver */
   fcu->driver = driver;
+}
+
+void BKE_fcurve_modifiers_blend_read_data(BlendReader *reader, ListBase *list, FCurve *fcurve)
+{
+  for (FModifier *fcm = list->first; fcm; fcm = fcm->next) {
+    /* relink general data */
+    BLO_read_data_address(reader, &fcm->data);
+    fcm->curve = fcurve;
+
+    /* do relinking of data for specific types */
+    switch (fcm->type) {
+      case FMODIFIER_TYPE_GENERATOR: {
+        FMod_Generator *data = (FMod_Generator *)fcm->data;
+        BLO_read_float_array(reader, data->arraysize, &data->coefficients);
+        break;
+      }
+      case FMODIFIER_TYPE_ENVELOPE: {
+        FMod_Envelope *data = (FMod_Envelope *)fcm->data;
+        BLO_read_data_address(reader, &data->data);
+        break;
+      }
+      case FMODIFIER_TYPE_PYTHON: {
+        FMod_Python *data = (FMod_Python *)fcm->data;
+        BLO_read_data_address(reader, &data->prop);
+        IDP_Group_BlendReadData(reader, &data->prop, __func__);
+        break;
+      }
+    }
+  }
 }

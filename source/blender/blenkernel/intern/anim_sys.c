@@ -55,6 +55,7 @@
 #include "BKE_context.h"
 #include "BKE_fcurve.h"
 #include "BKE_global.h"
+#include "BKE_idprop.h"
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
@@ -65,6 +66,8 @@
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
+
+#include "BLO_read_write.h"
 
 #include "RNA_access.h"
 
@@ -4192,4 +4195,31 @@ void BKE_animsys_eval_driver(Depsgraph *depsgraph, ID *id, int driver_index, FCu
       }
     }
   }
+}
+
+void BKE_animsys_blend_read_data(BlendReader *reader, AnimData *adt)
+{
+  if (adt == NULL) {
+    return;
+  }
+
+  BLO_read_list(reader, &adt->drivers, NULL);
+  BKE_fcurve_blend_read_data(reader, &adt->drivers);
+  adt->driver_array = NULL;
+
+  /* link overrides */
+  // TODO...
+
+  /* link NLA-data */
+  BLO_read_list(reader, &adt->nla_tracks, NULL);
+  BKE_nla_blend_read_data(reader, &adt->nla_tracks);
+
+  /* relink active track/strip - even though strictly speaking this should only be used
+   * if we're in 'tweaking mode', we need to be able to have this loaded back for
+   * undo, but also since users may not exit tweakmode before saving (#24535)
+   */
+  // TODO: it's not really nice that anyone should be able to save the file in this
+  //      state, but it's going to be too hard to enforce this single case...
+  BLO_read_data_address(reader, &adt->act_track);
+  BLO_read_data_address(reader, &adt->actstrip);
 }

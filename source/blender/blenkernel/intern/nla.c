@@ -53,6 +53,8 @@
 #include "BKE_nla.h"
 #include "BKE_sound.h"
 
+#include "BLO_read_write.h"
+
 #include "RNA_access.h"
 #include "nla_private.h"
 
@@ -2173,4 +2175,32 @@ void BKE_nla_tweakmode_exit(AnimData *adt)
   adt->act_track = NULL;
   adt->actstrip = NULL;
   adt->flag &= ~ADT_NLA_EDIT_ON;
+}
+
+static void direct_link_nladata_strips(BlendReader *reader, ListBase *list)
+{
+  for (NlaStrip *strip = list->first; strip; strip = strip->next) {
+    /* strip's child strips */
+    BLO_read_list(reader, &strip->strips, NULL);
+    direct_link_nladata_strips(reader, &strip->strips);
+
+    /* strip's F-Curves */
+    BLO_read_list(reader, &strip->fcurves, NULL);
+    BKE_fcurve_blend_read_data(reader, &strip->fcurves);
+
+    /* strip's F-Modifiers */
+    BLO_read_list(reader, &strip->modifiers, NULL);
+    BKE_fcurve_modifiers_blend_read_data(reader, &strip->modifiers, NULL);
+  }
+}
+
+void BKE_nla_blend_read_data(BlendReader *reader, ListBase *list)
+{
+  for (NlaTrack *nlt = list->first; nlt; nlt = nlt->next) {
+    /* relink list of strips */
+    BLO_read_list(reader, &nlt->strips, NULL);
+
+    /* relink strip data */
+    direct_link_nladata_strips(reader, &nlt->strips);
+  }
 }

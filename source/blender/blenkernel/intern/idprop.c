@@ -1286,3 +1286,22 @@ void IDP_BlendReadLib(BlendReader *reader, IDProperty *prop)
       break; /* Nothing to do for other IDProps. */
   }
 }
+
+void IDP_Group_BlendReadData(struct BlendReader *reader,
+                             struct IDProperty **prop,
+                             const char *caller_func_id)
+{
+  if (prop == NULL || *prop == NULL) {
+    return;
+  }
+  if ((*prop)->type == IDP_GROUP) {
+    IDP_BlendReadData(reader, *prop);
+  }
+  else {
+    /* corrupt file! */
+    printf("%s: found non group data, freeing type %d!\n", caller_func_id, (*prop)->type);
+    /* don't risk id, data's likely corrupt. */
+    // IDP_FreePropertyContent(*prop);
+    *prop = NULL;
+  }
+}
