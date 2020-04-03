@@ -166,6 +166,7 @@
 #include "BKE_lib_override.h"
 #include "BKE_main.h"
 #include "BKE_modifier.h"
+#include "BKE_nla.h"
 #include "BKE_node.h"
 #include "BKE_object.h"
 #include "BKE_pointcache.h"
@@ -705,11 +706,6 @@ static void write_previews(WriteData *wd, const PreviewImage *prv_orig)
   }
 }
 
-static void write_fmodifiers(WriteData *wd, ListBase *fmodifiers)
-{
-  BKE_fcurve_modifiers_blend_write(wrap_writer(wd), fmodifiers);
-}
-
 static void write_fcurves(WriteData *wd, ListBase *fcurves)
 {
   BKE_fcurve_blend_write(wrap_writer(wd), fcurves);
@@ -754,33 +750,9 @@ static void write_keyingsets(WriteData *wd, ListBase *list)
   }
 }
 
-static void write_nlastrips(WriteData *wd, ListBase *strips)
-{
-  NlaStrip *strip;
-
-  writelist(wd, DATA, NlaStrip, strips);
-  for (strip = strips->first; strip; strip = strip->next) {
-    /* write the strip's F-Curves and modifiers */
-    write_fcurves(wd, &strip->fcurves);
-    write_fmodifiers(wd, &strip->modifiers);
-
-    /* write the strip's children */
-    write_nlastrips(wd, &strip->strips);
-  }
-}
-
 static void write_nladata(WriteData *wd, ListBase *nlabase)
 {
-  NlaTrack *nlt;
-
-  /* write all the tracks */
-  for (nlt = nlabase->first; nlt; nlt = nlt->next) {
-    /* write the track first */
-    writestruct(wd, DATA, NlaTrack, 1, nlt);
-
-    /* write the track's strips */
-    write_nlastrips(wd, &nlt->strips);
-  }
+  BKE_nla_blend_write(wrap_writer(wd), nlabase);
 }
 
 static void write_animdata(WriteData *wd, AnimData *adt)

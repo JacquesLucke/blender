@@ -2231,3 +2231,31 @@ void BKE_nla_blend_read_lib(BlendReader *reader, ListBase *list, ID *id)
     lib_link_nladata_strips(reader, &nlt->strips, id);
   }
 }
+
+static void write_nlastrips(BlendWriter *writer, ListBase *strips)
+{
+  BLO_write_struct_list(writer, NlaStrip, strips);
+
+  for (NlaStrip *strip = strips->first; strip; strip = strip->next) {
+    /* write the strip's F-Curves and modifiers */
+    BKE_fcurve_blend_write(writer, &strip->fcurves);
+    BKE_fcurve_modifiers_blend_write(writer, &strip->modifiers);
+
+    /* write the strip's children */
+    write_nlastrips(writer, &strip->strips);
+  }
+}
+
+void BKE_nla_blend_write(BlendWriter *writer, ListBase *nlabase)
+{
+  NlaTrack *nlt;
+
+  /* write all the tracks */
+  for (nlt = nlabase->first; nlt; nlt = nlt->next) {
+    /* write the track first */
+    BLO_write_struct(writer, NlaTrack, nlt);
+
+    /* write the track's strips */
+    write_nlastrips(writer, &nlt->strips);
+  }
+}
