@@ -375,9 +375,14 @@ void fcurve_store_samples(
     struct FCurve *fcu, void *data, int start, int end, FcuSampleFunc sample_cb);
 
 void BKE_fcurve_blend_read_data(struct BlendReader *reader, struct ListBase *list);
+void BKE_fcurve_blend_read_lib(struct BlendReader *reader, struct ListBase *list, struct ID *id);
+
 void BKE_fcurve_modifiers_blend_read_data(struct BlendReader *reader,
                                           struct ListBase *list,
                                           struct FCurve *fcurve);
+void BKE_fcurve_modifiers_blend_read_lib(struct BlendReader *reader,
+                                         struct ListBase *list,
+                                         struct ID *id);
 
 #ifdef __cplusplus
 }

@@ -1592,3 +1592,16 @@ void BKE_fcurve_modifiers_blend_read_data(BlendReader *reader, ListBase *list, F
     }
   }
 }
+
+void BKE_fcurve_modifiers_blend_read_lib(BlendReader *reader, ListBase *list, ID *id)
+{
+  for (FModifier *fcm = list->first; fcm; fcm = fcm->next) {
+    switch (fcm->type) {
+      case FMODIFIER_TYPE_PYTHON: {
+        FMod_Python *data = (FMod_Python *)fcm->data;
+        BLO_read_id_address(reader, id->lib, &data->script);
+        break;
+      }
+    }
+  }
+}

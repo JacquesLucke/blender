@@ -2922,55 +2922,9 @@ static void lib_link_constraint_channels(FileData *fd, ID *id, ListBase *chanbas
 /** \name Read ID: Action
  * \{ */
 
-static void lib_link_fmodifiers(FileData *fd, ID *id, ListBase *list)
-{
-  FModifier *fcm;
-
-  for (fcm = list->first; fcm; fcm = fcm->next) {
-    /* data for specific modifiers */
-    switch (fcm->type) {
-      case FMODIFIER_TYPE_PYTHON: {
-        FMod_Python *data = (FMod_Python *)fcm->data;
-        data->script = newlibadr(fd, id->lib, data->script);
-
-        break;
-      }
-    }
-  }
-}
-
 static void lib_link_fcurves(FileData *fd, ID *id, ListBase *list)
 {
-  FCurve *fcu;
-
-  if (list == NULL) {
-    return;
-  }
-
-  /* relink ID-block references... */
-  for (fcu = list->first; fcu; fcu = fcu->next) {
-    /* driver data */
-    if (fcu->driver) {
-      ChannelDriver *driver = fcu->driver;
-      DriverVar *dvar;
-
-      for (dvar = driver->variables.first; dvar; dvar = dvar->next) {
-        DRIVER_TARGETS_LOOPER_BEGIN (dvar) {
-          /* only relink if still used */
-          if (tarIndex < dvar->num_targets) {
-            dtar->id = newlibadr(fd, id->lib, dtar->id);
-          }
-          else {
-            dtar->id = NULL;
-          }
-        }
-        DRIVER_TARGETS_LOOPER_END;
-      }
-    }
-
-    /* modifiers */
-    lib_link_fmodifiers(fd, id, &fcu->modifiers);
-  }
+  BKE_fcurve_blend_read_lib(wrap_reader(fd), list, id);
 }
 
 /* NOTE: this assumes that link_list has already been called on the list */

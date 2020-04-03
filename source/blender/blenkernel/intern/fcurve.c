@@ -3326,3 +3326,31 @@ void BKE_fcurve_blend_read_data(BlendReader *reader, ListBase *list)
     BKE_fcurve_modifiers_blend_read_data(reader, &fcu->modifiers, fcu);
   }
 }
+
+void BKE_fcurve_blend_read_lib(BlendReader *reader, ListBase *list, ID *id)
+{
+  if (list == NULL) {
+    return;
+  }
+
+  for (FCurve *fcu = list->first; fcu; fcu = fcu->next) {
+    if (fcu->driver) {
+      ChannelDriver *driver = fcu->driver;
+
+      for (DriverVar *dvar = driver->variables.first; dvar; dvar = dvar->next) {
+        DRIVER_TARGETS_LOOPER_BEGIN (dvar) {
+          /* only relink if still used */
+          if (tarIndex < dvar->num_targets) {
+            BLO_read_id_address(reader, id->lib, &dtar->id);
+          }
+          else {
+            dtar->id = NULL;
+          }
+        }
+        DRIVER_TARGETS_LOOPER_END;
+      }
+    }
+
+    BKE_fcurve_modifiers_blend_read_lib(reader, &fcu->modifiers, id);
+  }
+}
