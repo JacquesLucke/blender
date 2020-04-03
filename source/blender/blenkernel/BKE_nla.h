@@ -146,6 +146,7 @@ enum eNlaTime_ConvertModes {
 float BKE_nla_tweakedit_remap(struct AnimData *adt, float cframe, short mode);
 
 void BKE_nla_blend_read_data(struct BlendReader *reader, struct ListBase *list);
+void BKE_nla_blend_read_lib(struct BlendReader *reader, struct ListBase *list, struct ID *id);
 
 #ifdef __cplusplus
 }

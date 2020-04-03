@@ -2204,3 +2204,30 @@ void BKE_nla_blend_read_data(BlendReader *reader, ListBase *list)
     direct_link_nladata_strips(reader, &nlt->strips);
   }
 }
+
+static void lib_link_nladata_strips(BlendReader *reader, ListBase *list, ID *id)
+{
+  for (NlaStrip *strip = list->first; strip; strip = strip->next) {
+    /* check strip's children */
+    lib_link_nladata_strips(reader, &strip->strips, id);
+
+    /* check strip's F-Curves */
+    BKE_fcurve_blend_read_lib(reader, &strip->fcurves, id);
+
+    /* reassign the counted-reference to action */
+    BLO_read_id_address(reader, id->lib, &strip->act);
+
+    /* fix action id-root (i.e. if it comes from a pre 2.57 .blend file) */
+    if ((strip->act) && (strip->act->idroot == 0)) {
+      strip->act->idroot = GS(id->name);
+    }
+  }
+}
+
+void BKE_nla_blend_read_lib(BlendReader *reader, ListBase *list, ID *id)
+{
+  /* we only care about the NLA strips inside the tracks */
+  for (NlaTrack *nlt = list->first; nlt; nlt = nlt->next) {
+    lib_link_nladata_strips(reader, &nlt->strips, id);
+  }
+}

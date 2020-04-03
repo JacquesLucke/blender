@@ -136,6 +136,7 @@
 #include "BKE_mesh_runtime.h"
 #include "BKE_modifier.h"
 #include "BKE_multires.h"
+#include "BKE_nla.h"
 #include "BKE_node.h"  // for tree type defines
 #include "BKE_object.h"
 #include "BKE_paint.h"
@@ -2977,35 +2978,9 @@ static void direct_link_action(FileData *fd, bAction *act)
   }
 }
 
-static void lib_link_nladata_strips(FileData *fd, ID *id, ListBase *list)
-{
-  NlaStrip *strip;
-
-  for (strip = list->first; strip; strip = strip->next) {
-    /* check strip's children */
-    lib_link_nladata_strips(fd, id, &strip->strips);
-
-    /* check strip's F-Curves */
-    lib_link_fcurves(fd, id, &strip->fcurves);
-
-    /* reassign the counted-reference to action */
-    strip->act = newlibadr(fd, id->lib, strip->act);
-
-    /* fix action id-root (i.e. if it comes from a pre 2.57 .blend file) */
-    if ((strip->act) && (strip->act->idroot == 0)) {
-      strip->act->idroot = GS(id->name);
-    }
-  }
-}
-
 static void lib_link_nladata(FileData *fd, ID *id, ListBase *list)
 {
-  NlaTrack *nlt;
-
-  /* we only care about the NLA strips inside the tracks */
-  for (nlt = list->first; nlt; nlt = nlt->next) {
-    lib_link_nladata_strips(fd, id, &nlt->strips);
-  }
+  BKE_nla_blend_read_lib(wrap_reader(fd), list, id);
 }
 
 /* ------- */
