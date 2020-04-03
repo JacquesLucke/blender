@@ -68,7 +68,7 @@ void BKE_render_result_stamp_info(struct Scene *scene,
  * Fills in the static stamp data (i.e. everything except things that can change per frame).
  * The caller is responsible for freeing the allocated memory.
  */
-struct StampData *BKE_stamp_info_from_scene_static(struct Scene *scene);
+struct StampData *BKE_stamp_info_from_scene_static(const struct Scene *scene);
 bool BKE_stamp_is_known_field(const char *field_name);
 void BKE_imbuf_stamp_info(struct RenderResult *rr, struct ImBuf *ibuf);
 void BKE_stamp_info_from_imbuf(struct RenderResult *rr, struct ImBuf *ibuf);
@@ -322,12 +322,12 @@ struct ImageTile *BKE_image_get_tile_from_iuser(struct Image *ima, struct ImageU
 
 int BKE_image_get_tile_from_pos(struct Image *ima,
                                 const float uv[2],
-                                float new_uv[2],
-                                float ofs[2]);
+                                float r_uv[2],
+                                float r_ofs[2]);
 
-void BKE_image_get_size(struct Image *image, struct ImageUser *iuser, int *width, int *height);
-void BKE_image_get_size_fl(struct Image *image, struct ImageUser *iuser, float size[2]);
-void BKE_image_get_aspect(struct Image *image, float *aspx, float *aspy);
+void BKE_image_get_size(struct Image *image, struct ImageUser *iuser, int *r_width, int *r_height);
+void BKE_image_get_size_fl(struct Image *image, struct ImageUser *iuser, float r_size[2]);
+void BKE_image_get_aspect(struct Image *image, float *r_aspx, float *r_aspy);
 
 /* image_gen.c */
 void BKE_image_buf_fill_color(

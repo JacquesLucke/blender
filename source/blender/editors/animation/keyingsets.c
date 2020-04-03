@@ -21,11 +21,11 @@
  * \ingroup edanimation
  */
 
-#include <stdio.h>
-#include <stddef.h>
-#include <string.h>
-#include <math.h>
 #include <float.h>
+#include <math.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "MEM_guardedalloc.h"
 
@@ -33,12 +33,12 @@
 #include "BLI_utildefines.h"
 
 #include "DNA_anim_types.h"
-#include "DNA_scene_types.h"
 #include "DNA_object_types.h"
+#include "DNA_scene_types.h"
 
-#include "BKE_main.h"
 #include "BKE_animsys.h"
 #include "BKE_context.h"
+#include "BKE_main.h"
 #include "BKE_report.h"
 
 #include "DEG_depsgraph.h"
@@ -673,7 +673,7 @@ bool ANIM_keyingset_find_id(KeyingSet *ks, ID *id)
 /* Getters for Active/Indices ----------------------------- */
 
 /* Get the active Keying Set for the Scene provided */
-KeyingSet *ANIM_scene_get_active_keyingset(Scene *scene)
+KeyingSet *ANIM_scene_get_active_keyingset(const Scene *scene)
 {
   /* if no scene, we've got no hope of finding the Keying Set */
   if (scene == NULL) {
@@ -728,7 +728,7 @@ int ANIM_scene_get_keyingset_index(Scene *scene, KeyingSet *ks)
 }
 
 /* Get Keying Set to use for Auto-Keyframing some transforms */
-KeyingSet *ANIM_get_keyingset_for_autokeying(Scene *scene, const char *transformKSName)
+KeyingSet *ANIM_get_keyingset_for_autokeying(const Scene *scene, const char *transformKSName)
 {
   /* get KeyingSet to use
    * - use the active KeyingSet if defined (and user wants to use it for all autokeying),

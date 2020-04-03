@@ -72,18 +72,18 @@
  * - write #USER (#UserDef struct) if filename is ``~/.config/blender/X.XX/config/startup.blend``.
  */
 
-#include <math.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <math.h>
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 
 #ifdef WIN32
-#  include <zlib.h> /* odd include order-issue */
+#  include "BLI_winstuff.h"
 #  include "winsock2.h"
 #  include <io.h>
-#  include "BLI_winstuff.h"
+#  include <zlib.h> /* odd include order-issue */
 #else
 #  include <unistd.h> /* FreeBSD, for write() and close(). */
 #endif
@@ -101,50 +101,53 @@
 #include "DNA_cloth_types.h"
 #include "DNA_collection_types.h"
 #include "DNA_constraint_types.h"
+#include "DNA_curveprofile_types.h"
 #include "DNA_dynamicpaint_types.h"
-#include "DNA_genfile.h"
-#include "DNA_gpencil_types.h"
-#include "DNA_gpencil_modifier_types.h"
-#include "DNA_shader_fx_types.h"
 #include "DNA_fileglobal_types.h"
+#include "DNA_fluid_types.h"
+#include "DNA_genfile.h"
+#include "DNA_gpencil_modifier_types.h"
+#include "DNA_gpencil_types.h"
+#include "DNA_hair_types.h"
 #include "DNA_key_types.h"
 #include "DNA_lattice_types.h"
-#include "DNA_light_types.h"
 #include "DNA_layer_types.h"
+#include "DNA_light_types.h"
+#include "DNA_lightprobe_types.h"
 #include "DNA_linestyle_types.h"
-#include "DNA_meta_types.h"
+#include "DNA_mask_types.h"
+#include "DNA_material_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
-#include "DNA_material_types.h"
+#include "DNA_meta_types.h"
+#include "DNA_movieclip_types.h"
 #include "DNA_node_types.h"
-#include "DNA_object_types.h"
 #include "DNA_object_force_types.h"
+#include "DNA_object_types.h"
 #include "DNA_packedFile_types.h"
 #include "DNA_particle_types.h"
-#include "DNA_lightprobe_types.h"
+#include "DNA_pointcloud_types.h"
 #include "DNA_rigidbody_types.h"
 #include "DNA_scene_types.h"
+#include "DNA_screen_types.h"
 #include "DNA_sdna_types.h"
 #include "DNA_sequence_types.h"
-#include "DNA_fluid_types.h"
-#include "DNA_space_types.h"
-#include "DNA_screen_types.h"
-#include "DNA_speaker_types.h"
+#include "DNA_shader_fx_types.h"
 #include "DNA_sound_types.h"
+#include "DNA_space_types.h"
+#include "DNA_speaker_types.h"
 #include "DNA_text_types.h"
-#include "DNA_view3d_types.h"
 #include "DNA_vfont_types.h"
-#include "DNA_world_types.h"
+#include "DNA_view3d_types.h"
+#include "DNA_volume_types.h"
 #include "DNA_windowmanager_types.h"
 #include "DNA_workspace_types.h"
-#include "DNA_movieclip_types.h"
-#include "DNA_mask_types.h"
-#include "DNA_curveprofile_types.h"
+#include "DNA_world_types.h"
 
-#include "MEM_guardedalloc.h"  // MEM_freeN
 #include "BLI_bitmap.h"
 #include "BLI_blenlib.h"
 #include "BLI_mempool.h"
+#include "MEM_guardedalloc.h"  // MEM_freeN
 
 #include "BKE_action.h"
 #include "BKE_blender_version.h"
@@ -157,12 +160,13 @@
 #include "BKE_fcurve.h"
 #include "BKE_global.h"  // for G
 #include "BKE_gpencil_modifier.h"
-#include "BKE_idcode.h"
+#include "BKE_idtype.h"
 #include "BKE_layer.h"
 #include "BKE_lib_override.h"
 #include "BKE_main.h"
 #include "BKE_modifier.h"
 #include "BKE_node.h"
+#include "BKE_object.h"
 #include "BKE_pointcache.h"
 #include "BKE_report.h"
 #include "BKE_sequencer.h"
@@ -172,10 +176,10 @@
 
 #include "BLO_blend_defs.h"
 #include "BLO_blend_validate.h"
+#include "BLO_read_write.h"
 #include "BLO_readfile.h"
 #include "BLO_undofile.h"
 #include "BLO_writefile.h"
-#include "BLO_read_write.h"
 
 #include "readfile.h"
 
@@ -716,7 +720,7 @@ void IDP_WriteProperty(const IDProperty *prop, void *wd)
   IDP_WriteProperty_OnlyData(prop, wd);
 }
 
-static void write_iddata(void *wd, const ID *id)
+static void write_iddata(WriteData *wd, ID *id)
 {
   /* ID_WM's id->properties are considered runtime only, and never written in .blend file. */
   if (id->properties && !ELEM(GS(id->name), ID_WM)) {
@@ -864,10 +868,10 @@ static void write_fcurves(WriteData *wd, ListBase *fcurves)
   }
 }
 
-static void write_action(WriteData *wd, bAction *act)
+static void write_action(WriteData *wd, bAction *act, const void *id_address)
 {
   if (act->id.us > 0 || wd->use_memfile) {
-    writestruct(wd, ID_AC, bAction, 1, act);
+    writestruct_at_address(wd, ID_AC, bAction, 1, id_address, act);
     write_iddata(wd, &act->id);
 
     write_fcurves(wd, &act->curves);
@@ -1134,6 +1138,11 @@ static void write_nodetree_nolib(WriteData *wd, bNodeTree *ntree)
   for (sock = ntree->outputs.first; sock; sock = sock->next) {
     write_node_socket_interface(wd, sock);
   }
+
+  /* Clear the accumulated recalc flags in case of undo step saving. */
+  if (wd->use_memfile) {
+    ntree->id.recalc_undo_accumulated = 0;
+  }
 }
 
 /**
@@ -1332,11 +1341,11 @@ static void write_boid_state(WriteData *wd, BoidState *state)
 #endif
 }
 
-static void write_particlesettings(WriteData *wd, ParticleSettings *part)
+static void write_particlesettings(WriteData *wd, ParticleSettings *part, const void *id_address)
 {
   if (part->id.us > 0 || wd->use_memfile) {
     /* write LibData */
-    writestruct(wd, ID_PA, ParticleSettings, 1, part);
+    writestruct_at_address(wd, ID_PA, ParticleSettings, 1, id_address, part);
     write_iddata(wd, &part->id);
 
     if (part->adt) {
@@ -1669,11 +1678,45 @@ static void write_gpencil_modifiers(WriteData *wd, ListBase *modbase)
         write_curvemapping(wd, gpmd->curve_thickness);
       }
     }
+    else if (md->type == eGpencilModifierType_Noise) {
+      NoiseGpencilModifierData *gpmd = (NoiseGpencilModifierData *)md;
+
+      if (gpmd->curve_intensity) {
+        write_curvemapping(wd, gpmd->curve_intensity);
+      }
+    }
     else if (md->type == eGpencilModifierType_Hook) {
       HookGpencilModifierData *gpmd = (HookGpencilModifierData *)md;
 
       if (gpmd->curfalloff) {
         write_curvemapping(wd, gpmd->curfalloff);
+      }
+    }
+    else if (md->type == eGpencilModifierType_Tint) {
+      TintGpencilModifierData *gpmd = (TintGpencilModifierData *)md;
+      if (gpmd->colorband) {
+        writestruct(wd, DATA, ColorBand, 1, gpmd->colorband);
+      }
+      if (gpmd->curve_intensity) {
+        write_curvemapping(wd, gpmd->curve_intensity);
+      }
+    }
+    else if (md->type == eGpencilModifierType_Smooth) {
+      SmoothGpencilModifierData *gpmd = (SmoothGpencilModifierData *)md;
+      if (gpmd->curve_intensity) {
+        write_curvemapping(wd, gpmd->curve_intensity);
+      }
+    }
+    else if (md->type == eGpencilModifierType_Color) {
+      ColorGpencilModifierData *gpmd = (ColorGpencilModifierData *)md;
+      if (gpmd->curve_intensity) {
+        write_curvemapping(wd, gpmd->curve_intensity);
+      }
+    }
+    else if (md->type == eGpencilModifierType_Opacity) {
+      OpacityGpencilModifierData *gpmd = (OpacityGpencilModifierData *)md;
+      if (gpmd->curve_intensity) {
+        write_curvemapping(wd, gpmd->curve_intensity);
       }
     }
   }
@@ -1697,11 +1740,14 @@ static void write_shaderfxs(WriteData *wd, ListBase *fxbase)
   }
 }
 
-static void write_object(WriteData *wd, Object *ob)
+static void write_object(WriteData *wd, Object *ob, const void *id_address)
 {
   if (ob->id.us > 0 || wd->use_memfile) {
+    /* Clean up, important in undo case to reduce false detection of changed datablocks. */
+    BKE_object_runtime_reset(ob);
+
     /* write LibData */
-    writestruct(wd, ID_OB, Object, 1, ob);
+    writestruct_at_address(wd, ID_OB, Object, 1, id_address, ob);
     write_iddata(wd, &ob->id);
 
     if (ob->adt) {
@@ -1762,11 +1808,15 @@ static void write_object(WriteData *wd, Object *ob)
   }
 }
 
-static void write_vfont(WriteData *wd, VFont *vf)
+static void write_vfont(WriteData *wd, VFont *vf, const void *id_address)
 {
   if (vf->id.us > 0 || wd->use_memfile) {
+    /* Clean up, important in undo case to reduce false detection of changed datablocks. */
+    vf->data = NULL;
+    vf->temp_pf = NULL;
+
     /* write LibData */
-    writestruct(wd, ID_VF, VFont, 1, vf);
+    writestruct_at_address(wd, ID_VF, VFont, 1, id_address, vf);
     write_iddata(wd, &vf->id);
 
     /* direct data */
@@ -1778,11 +1828,11 @@ static void write_vfont(WriteData *wd, VFont *vf)
   }
 }
 
-static void write_key(WriteData *wd, Key *key)
+static void write_key(WriteData *wd, Key *key, const void *id_address)
 {
   if (key->id.us > 0 || wd->use_memfile) {
     /* write LibData */
-    writestruct(wd, ID_KE, Key, 1, key);
+    writestruct_at_address(wd, ID_KE, Key, 1, id_address, key);
     write_iddata(wd, &key->id);
 
     if (key->adt) {
@@ -1799,11 +1849,11 @@ static void write_key(WriteData *wd, Key *key)
   }
 }
 
-static void write_camera(WriteData *wd, Camera *cam)
+static void write_camera(WriteData *wd, Camera *cam, const void *id_address)
 {
   if (cam->id.us > 0 || wd->use_memfile) {
     /* write LibData */
-    writestruct(wd, ID_CA, Camera, 1, cam);
+    writestruct_at_address(wd, ID_CA, Camera, 1, id_address, cam);
     write_iddata(wd, &cam->id);
 
     if (cam->adt) {
@@ -1816,11 +1866,19 @@ static void write_camera(WriteData *wd, Camera *cam)
   }
 }
 
-static void write_mball(WriteData *wd, MetaBall *mb)
+static void write_mball(WriteData *wd, MetaBall *mb, const void *id_address)
 {
   if (mb->id.us > 0 || wd->use_memfile) {
+    /* Clean up, important in undo case to reduce false detection of changed datablocks. */
+    BLI_listbase_clear(&mb->disp);
+    mb->editelems = NULL;
+    /* Must always be cleared (meta's don't have their own edit-data). */
+    mb->needs_flush_to_id = 0;
+    mb->lastelem = NULL;
+    mb->batch_cache = NULL;
+
     /* write LibData */
-    writestruct(wd, ID_MB, MetaBall, 1, mb);
+    writestruct_at_address(wd, ID_MB, MetaBall, 1, id_address, mb);
     write_iddata(wd, &mb->id);
 
     /* direct data */
@@ -1835,11 +1893,16 @@ static void write_mball(WriteData *wd, MetaBall *mb)
   }
 }
 
-static void write_curve(WriteData *wd, Curve *cu)
+static void write_curve(WriteData *wd, Curve *cu, const void *id_address)
 {
   if (cu->id.us > 0 || wd->use_memfile) {
+    /* Clean up, important in undo case to reduce false detection of changed datablocks. */
+    cu->editnurb = NULL;
+    cu->editfont = NULL;
+    cu->batch_cache = NULL;
+
     /* write LibData */
-    writestruct(wd, ID_CU, Curve, 1, cu);
+    writestruct_at_address(wd, ID_CU, Curve, 1, id_address, cu);
     write_iddata(wd, &cu->id);
 
     /* direct data */
@@ -1992,19 +2055,14 @@ static void write_customdata(WriteData *wd,
   }
 }
 
-static void write_mesh(WriteData *wd, Mesh *mesh)
+static void write_mesh(WriteData *wd, Mesh *mesh, const void *id_address)
 {
   if (mesh->id.us > 0 || wd->use_memfile) {
-    /* Write a copy of the mesh with possibly reduced number of data layers.
-     * Don't edit the original since other threads might be reading it. */
-    Mesh *old_mesh = mesh;
-    Mesh copy_mesh = *mesh;
-    mesh = &copy_mesh;
-
     /* cache only - don't write */
     mesh->mface = NULL;
     mesh->totface = 0;
     memset(&mesh->fdata, 0, sizeof(mesh->fdata));
+    memset(&mesh->runtime, 0, sizeof(mesh->runtime));
 
     /* Reduce xdata layers, fill xlayers with layers to be written.
      * This makes xdata invalid for Blender, which is why we made a
@@ -2021,7 +2079,7 @@ static void write_mesh(WriteData *wd, Mesh *mesh)
     CustomData_file_write_prepare(&mesh->ldata, &llayers, llayers_buff, ARRAY_SIZE(llayers_buff));
     CustomData_file_write_prepare(&mesh->pdata, &players, players_buff, ARRAY_SIZE(players_buff));
 
-    writestruct_at_address(wd, ID_ME, Mesh, 1, old_mesh, mesh);
+    writestruct_at_address(wd, ID_ME, Mesh, 1, id_address, mesh);
     write_iddata(wd, &mesh->id);
 
     /* direct data */
@@ -2038,9 +2096,6 @@ static void write_mesh(WriteData *wd, Mesh *mesh)
     write_customdata(wd, &mesh->id, mesh->totface, &mesh->fdata, flayers, CD_MASK_MESH.fmask);
     write_customdata(wd, &mesh->id, mesh->totloop, &mesh->ldata, llayers, CD_MASK_MESH.lmask);
     write_customdata(wd, &mesh->id, mesh->totpoly, &mesh->pdata, players, CD_MASK_MESH.pmask);
-
-    /* restore pointer */
-    mesh = old_mesh;
 
     /* free temporary data */
     if (vlayers && vlayers != vlayers_buff) {
@@ -2061,11 +2116,15 @@ static void write_mesh(WriteData *wd, Mesh *mesh)
   }
 }
 
-static void write_lattice(WriteData *wd, Lattice *lt)
+static void write_lattice(WriteData *wd, Lattice *lt, const void *id_address)
 {
   if (lt->id.us > 0 || wd->use_memfile) {
+    /* Clean up, important in undo case to reduce false detection of changed datablocks. */
+    lt->editlatt = NULL;
+    lt->batch_cache = NULL;
+
     /* write LibData */
-    writestruct(wd, ID_LT, Lattice, 1, lt);
+    writestruct_at_address(wd, ID_LT, Lattice, 1, id_address, lt);
     write_iddata(wd, &lt->id);
 
     /* write animdata */
@@ -2080,7 +2139,7 @@ static void write_lattice(WriteData *wd, Lattice *lt)
   }
 }
 
-static void write_image(WriteData *wd, Image *ima)
+static void write_image(WriteData *wd, Image *ima, const void *id_address)
 {
   if (ima->id.us > 0 || wd->use_memfile) {
     ImagePackedFile *imapf;
@@ -2093,7 +2152,7 @@ static void write_image(WriteData *wd, Image *ima)
     }
 
     /* write LibData */
-    writestruct(wd, ID_IM, Image, 1, ima);
+    writestruct_at_address(wd, ID_IM, Image, 1, id_address, ima);
     write_iddata(wd, &ima->id);
 
     for (imapf = ima->packedfiles.first; imapf; imapf = imapf->next) {
@@ -2120,11 +2179,11 @@ static void write_image(WriteData *wd, Image *ima)
   }
 }
 
-static void write_texture(WriteData *wd, Tex *tex)
+static void write_texture(WriteData *wd, Tex *tex, const void *id_address)
 {
   if (tex->id.us > 0 || wd->use_memfile) {
     /* write LibData */
-    writestruct(wd, ID_TE, Tex, 1, tex);
+    writestruct_at_address(wd, ID_TE, Tex, 1, id_address, tex);
     write_iddata(wd, &tex->id);
 
     if (tex->adt) {
@@ -2146,11 +2205,15 @@ static void write_texture(WriteData *wd, Tex *tex)
   }
 }
 
-static void write_material(WriteData *wd, Material *ma)
+static void write_material(WriteData *wd, Material *ma, const void *id_address)
 {
   if (ma->id.us > 0 || wd->use_memfile) {
+    /* Clean up, important in undo case to reduce false detection of changed datablocks. */
+    ma->texpaintslot = NULL;
+    BLI_listbase_clear(&ma->gpumaterial);
+
     /* write LibData */
-    writestruct(wd, ID_MA, Material, 1, ma);
+    writestruct_at_address(wd, ID_MA, Material, 1, id_address, ma);
     write_iddata(wd, &ma->id);
 
     if (ma->adt) {
@@ -2172,11 +2235,14 @@ static void write_material(WriteData *wd, Material *ma)
   }
 }
 
-static void write_world(WriteData *wd, World *wrld)
+static void write_world(WriteData *wd, World *wrld, const void *id_address)
 {
   if (wrld->id.us > 0 || wd->use_memfile) {
+    /* Clean up, important in undo case to reduce false detection of changed datablocks. */
+    BLI_listbase_clear(&wrld->gpumaterial);
+
     /* write LibData */
-    writestruct(wd, ID_WO, World, 1, wrld);
+    writestruct_at_address(wd, ID_WO, World, 1, id_address, wrld);
     write_iddata(wd, &wrld->id);
 
     if (wrld->adt) {
@@ -2193,11 +2259,11 @@ static void write_world(WriteData *wd, World *wrld)
   }
 }
 
-static void write_light(WriteData *wd, Light *la)
+static void write_light(WriteData *wd, Light *la, const void *id_address)
 {
   if (la->id.us > 0 || wd->use_memfile) {
     /* write LibData */
-    writestruct(wd, ID_LA, Light, 1, la);
+    writestruct_at_address(wd, ID_LA, Light, 1, id_address, la);
     write_iddata(wd, &la->id);
 
     if (la->adt) {
@@ -2230,13 +2296,24 @@ static void write_collection_nolib(WriteData *wd, Collection *collection)
   for (CollectionChild *child = collection->children.first; child; child = child->next) {
     writestruct(wd, DATA, CollectionChild, 1, child);
   }
+
+  /* Clear the accumulated recalc flags in case of undo step saving. */
+  if (wd->use_memfile) {
+    collection->id.recalc_undo_accumulated = 0;
+  }
 }
 
-static void write_collection(WriteData *wd, Collection *collection)
+static void write_collection(WriteData *wd, Collection *collection, const void *id_address)
 {
   if (collection->id.us > 0 || wd->use_memfile) {
+    /* Clean up, important in undo case to reduce false detection of changed datablocks. */
+    collection->flag &= ~COLLECTION_HAS_OBJECT_CACHE;
+    collection->tag = 0;
+    BLI_listbase_clear(&collection->object_cache);
+    BLI_listbase_clear(&collection->parents);
+
     /* write LibData */
-    writestruct(wd, ID_GR, Collection, 1, collection);
+    writestruct_at_address(wd, ID_GR, Collection, 1, id_address, collection);
     write_iddata(wd, &collection->id);
 
     write_collection_nolib(wd, collection);
@@ -2351,10 +2428,10 @@ static void write_lightcache(WriteData *wd, LightCache *cache)
   writestruct(wd, DATA, LightProbeCache, cache->cube_len, cache->cube_data);
 }
 
-static void write_scene(WriteData *wd, Scene *sce)
+static void write_scene(WriteData *wd, Scene *sce, const void *id_address)
 {
   /* write LibData */
-  writestruct(wd, ID_SCE, Scene, 1, sce);
+  writestruct_at_address(wd, ID_SCE, Scene, 1, id_address, sce);
   write_iddata(wd, &sce->id);
 
   if (sce->adt) {
@@ -2384,6 +2461,18 @@ static void write_scene(WriteData *wd, Scene *sce)
   if (tos->gp_paint) {
     writestruct(wd, DATA, GpPaint, 1, tos->gp_paint);
     write_paint(wd, &tos->gp_paint->paint);
+  }
+  if (tos->gp_vertexpaint) {
+    writestruct(wd, DATA, GpVertexPaint, 1, tos->gp_vertexpaint);
+    write_paint(wd, &tos->gp_vertexpaint->paint);
+  }
+  if (tos->gp_sculptpaint) {
+    writestruct(wd, DATA, GpSculptPaint, 1, tos->gp_sculptpaint);
+    write_paint(wd, &tos->gp_sculptpaint->paint);
+  }
+  if (tos->gp_weightpaint) {
+    writestruct(wd, DATA, GpWeightPaint, 1, tos->gp_weightpaint);
+    write_paint(wd, &tos->gp_weightpaint->paint);
   }
   /* write grease-pencil custom ipo curve to file */
   if (tos->gp_interpolate.custom_ipo) {
@@ -2554,9 +2643,9 @@ static void write_scene(WriteData *wd, Scene *sce)
   }
 
   /* Eevee Lightcache */
-  if (sce->eevee.light_cache && !wd->use_memfile) {
-    writestruct(wd, DATA, LightCache, 1, sce->eevee.light_cache);
-    write_lightcache(wd, sce->eevee.light_cache);
+  if (sce->eevee.light_cache_data && !wd->use_memfile) {
+    writestruct(wd, DATA, LightCache, 1, sce->eevee.light_cache_data);
+    write_lightcache(wd, sce->eevee.light_cache_data);
   }
 
   write_view3dshading(wd, &sce->display.shading);
@@ -2565,11 +2654,19 @@ static void write_scene(WriteData *wd, Scene *sce)
   BLI_assert(sce->layer_properties == NULL);
 }
 
-static void write_gpencil(WriteData *wd, bGPdata *gpd)
+static void write_gpencil(WriteData *wd, bGPdata *gpd, const void *id_address)
 {
   if (gpd->id.us > 0 || wd->use_memfile) {
+    /* Clean up, important in undo case to reduce false detection of changed data-blocks. */
+    /* XXX not sure why the whole run-time data is not cleared in reading code,
+     * for now mimicking it here. */
+    gpd->runtime.sbuffer = NULL;
+    gpd->runtime.sbuffer_used = 0;
+    gpd->runtime.sbuffer_size = 0;
+    gpd->runtime.tot_cp_points = 0;
+
     /* write gpd data block to file */
-    writestruct(wd, ID_GD, bGPdata, 1, gpd);
+    writestruct_at_address(wd, ID_GD, bGPdata, 1, id_address, gpd);
     write_iddata(wd, &gpd->id);
 
     if (gpd->adt) {
@@ -2580,19 +2677,27 @@ static void write_gpencil(WriteData *wd, bGPdata *gpd)
 
     /* write grease-pencil layers to file */
     writelist(wd, DATA, bGPDlayer, &gpd->layers);
-    for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+    LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
+      /* Write mask list. */
+      writelist(wd, DATA, bGPDlayer_Mask, &gpl->mask_layers);
       /* write this layer's frames to file */
       writelist(wd, DATA, bGPDframe, &gpl->frames);
-      for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+      LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
         /* write strokes */
         writelist(wd, DATA, bGPDstroke, &gpf->strokes);
-        for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+        LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
           writestruct(wd, DATA, bGPDspoint, gps->totpoints, gps->points);
+          writestruct(wd, DATA, bGPDtriangle, gps->tot_triangles, gps->triangles);
           write_dverts(wd, gps->totpoints, gps->dvert);
         }
       }
     }
   }
+}
+
+static void write_wm_xr_data(WriteData *wd, wmXrData *xr_data)
+{
+  write_view3dshading(wd, &xr_data->session_settings.shading);
 }
 
 static void write_region(WriteData *wd, ARegion *region, int spacetype)
@@ -2837,10 +2942,11 @@ static void write_area_map(WriteData *wd, ScrAreaMap *area_map)
   }
 }
 
-static void write_windowmanager(WriteData *wd, wmWindowManager *wm)
+static void write_windowmanager(WriteData *wd, wmWindowManager *wm, const void *id_address)
 {
-  writestruct(wd, ID_WM, wmWindowManager, 1, wm);
+  writestruct_at_address(wd, ID_WM, wmWindowManager, 1, id_address, wm);
   write_iddata(wd, &wm->id);
+  write_wm_xr_data(wd, &wm->xr);
 
   for (wmWindow *win = wm->windows.first; win; win = win->next) {
 #ifndef WITH_GLOBAL_AREA_WRITING
@@ -2867,13 +2973,13 @@ static void write_windowmanager(WriteData *wd, wmWindowManager *wm)
   }
 }
 
-static void write_screen(WriteData *wd, bScreen *sc)
+static void write_screen(WriteData *wd, bScreen *sc, const void *id_address)
 {
   /* Screens are reference counted, only saved if used by a workspace. */
   if (sc->id.us > 0 || wd->use_memfile) {
     /* write LibData */
     /* in 2.50+ files, the file identifier for screens is patched, forward compatibility */
-    writestruct(wd, ID_SCRN, bScreen, 1, sc);
+    writestruct_at_address(wd, ID_SCRN, bScreen, 1, id_address, sc);
     write_iddata(wd, &sc->id);
 
     write_previews(wd, sc->preview);
@@ -2903,10 +3009,17 @@ static void write_bone(WriteData *wd, Bone *bone)
   }
 }
 
-static void write_armature(WriteData *wd, bArmature *arm)
+static void write_armature(WriteData *wd, bArmature *arm, const void *id_address)
 {
   if (arm->id.us > 0 || wd->use_memfile) {
-    writestruct(wd, ID_AR, bArmature, 1, arm);
+    /* Clean up, important in undo case to reduce false detection of changed datablocks. */
+    arm->bonehash = NULL;
+    arm->edbo = NULL;
+    /* Must always be cleared (armatures don't have their own edit-data). */
+    arm->needs_flush_to_id = 0;
+    arm->act_edbone = NULL;
+
+    writestruct_at_address(wd, ID_AR, bArmature, 1, id_address, arm);
     write_iddata(wd, &arm->id);
 
     if (arm->adt) {
@@ -2920,14 +3033,18 @@ static void write_armature(WriteData *wd, bArmature *arm)
   }
 }
 
-static void write_text(WriteData *wd, Text *text)
+static void write_text(WriteData *wd, Text *text, const void *id_address)
 {
+  /* Note: we are clearing local temp data here, *not* the flag in the actual 'real' ID. */
   if ((text->flags & TXT_ISMEM) && (text->flags & TXT_ISEXT)) {
     text->flags &= ~TXT_ISEXT;
   }
 
+  /* Clean up, important in undo case to reduce false detection of changed datablocks. */
+  text->compiled = NULL;
+
   /* write LibData */
-  writestruct(wd, ID_TXT, Text, 1, text);
+  writestruct_at_address(wd, ID_TXT, Text, 1, id_address, text);
   write_iddata(wd, &text->id);
 
   if (text->name) {
@@ -2946,11 +3063,11 @@ static void write_text(WriteData *wd, Text *text)
   }
 }
 
-static void write_speaker(WriteData *wd, Speaker *spk)
+static void write_speaker(WriteData *wd, Speaker *spk, const void *id_address)
 {
   if (spk->id.us > 0 || wd->use_memfile) {
     /* write LibData */
-    writestruct(wd, ID_SPK, Speaker, 1, spk);
+    writestruct_at_address(wd, ID_SPK, Speaker, 1, id_address, spk);
     write_iddata(wd, &spk->id);
 
     if (spk->adt) {
@@ -2959,11 +3076,17 @@ static void write_speaker(WriteData *wd, Speaker *spk)
   }
 }
 
-static void write_sound(WriteData *wd, bSound *sound)
+static void write_sound(WriteData *wd, bSound *sound, const void *id_address)
 {
   if (sound->id.us > 0 || wd->use_memfile) {
+    /* Clean up, important in undo case to reduce false detection of changed datablocks. */
+    sound->tags = 0;
+    sound->handle = NULL;
+    sound->playback_handle = NULL;
+    sound->spinlock = NULL;
+
     /* write LibData */
-    writestruct(wd, ID_SO, bSound, 1, sound);
+    writestruct_at_address(wd, ID_SO, bSound, 1, id_address, sound);
     write_iddata(wd, &sound->id);
 
     if (sound->packedfile) {
@@ -2974,11 +3097,11 @@ static void write_sound(WriteData *wd, bSound *sound)
   }
 }
 
-static void write_probe(WriteData *wd, LightProbe *prb)
+static void write_probe(WriteData *wd, LightProbe *prb, const void *id_address)
 {
   if (prb->id.us > 0 || wd->use_memfile) {
     /* write LibData */
-    writestruct(wd, ID_LP, LightProbe, 1, prb);
+    writestruct_at_address(wd, ID_LP, LightProbe, 1, id_address, prb);
     write_iddata(wd, &prb->id);
 
     if (prb->adt) {
@@ -2987,10 +3110,18 @@ static void write_probe(WriteData *wd, LightProbe *prb)
   }
 }
 
-static void write_nodetree(WriteData *wd, bNodeTree *ntree)
+static void write_nodetree(WriteData *wd, bNodeTree *ntree, const void *id_address)
 {
   if (ntree->id.us > 0 || wd->use_memfile) {
-    writestruct(wd, ID_NT, bNodeTree, 1, ntree);
+    /* Clean up, important in undo case to reduce false detection of changed datablocks. */
+    ntree->init = 0; /* to set callbacks and force setting types */
+    ntree->is_updating = false;
+    ntree->typeinfo = NULL;
+    ntree->interface_type = NULL;
+    ntree->progress = NULL;
+    ntree->execdata = NULL;
+
+    writestruct_at_address(wd, ID_NT, bNodeTree, 1, id_address, ntree);
     /* Note that trees directly used by other IDs (materials etc.) are not 'real' ID, they cannot
      * be linked, etc., so we write actual id data here only, for 'real' ID trees. */
     write_iddata(wd, &ntree->id);
@@ -2999,10 +3130,10 @@ static void write_nodetree(WriteData *wd, bNodeTree *ntree)
   }
 }
 
-static void write_brush(WriteData *wd, Brush *brush)
+static void write_brush(WriteData *wd, Brush *brush, const void *id_address)
 {
   if (brush->id.us > 0 || wd->use_memfile) {
-    writestruct(wd, ID_BR, Brush, 1, brush);
+    writestruct_at_address(wd, ID_BR, Brush, 1, id_address, brush);
     write_iddata(wd, &brush->id);
 
     if (brush->curve) {
@@ -3028,11 +3159,11 @@ static void write_brush(WriteData *wd, Brush *brush)
   }
 }
 
-static void write_palette(WriteData *wd, Palette *palette)
+static void write_palette(WriteData *wd, Palette *palette, const void *id_address)
 {
   if (palette->id.us > 0 || wd->use_memfile) {
     PaletteColor *color;
-    writestruct(wd, ID_PAL, Palette, 1, palette);
+    writestruct_at_address(wd, ID_PAL, Palette, 1, id_address, palette);
     write_iddata(wd, &palette->id);
 
     for (color = palette->colors.first; color; color = color->next) {
@@ -3041,10 +3172,10 @@ static void write_palette(WriteData *wd, Palette *palette)
   }
 }
 
-static void write_paintcurve(WriteData *wd, PaintCurve *pc)
+static void write_paintcurve(WriteData *wd, PaintCurve *pc, const void *id_address)
 {
   if (pc->id.us > 0 || wd->use_memfile) {
-    writestruct(wd, ID_PC, PaintCurve, 1, pc);
+    writestruct_at_address(wd, ID_PC, PaintCurve, 1, id_address, pc);
     write_iddata(wd, &pc->id);
 
     writestruct(wd, DATA, PaintCurvePoint, pc->tot_points, pc->points);
@@ -3090,13 +3221,18 @@ static void write_movieReconstruction(WriteData *wd, MovieTrackingReconstruction
   }
 }
 
-static void write_movieclip(WriteData *wd, MovieClip *clip)
+static void write_movieclip(WriteData *wd, MovieClip *clip, const void *id_address)
 {
   if (clip->id.us > 0 || wd->use_memfile) {
+    /* Clean up, important in undo case to reduce false detection of changed datablocks. */
+    clip->anim = NULL;
+    clip->tracking_context = NULL;
+    clip->tracking.stats = NULL;
+
     MovieTracking *tracking = &clip->tracking;
     MovieTrackingObject *object;
 
-    writestruct(wd, ID_MC, MovieClip, 1, clip);
+    writestruct_at_address(wd, ID_MC, MovieClip, 1, id_address, clip);
     write_iddata(wd, &clip->id);
 
     if (clip->adt) {
@@ -3120,12 +3256,12 @@ static void write_movieclip(WriteData *wd, MovieClip *clip)
   }
 }
 
-static void write_mask(WriteData *wd, Mask *mask)
+static void write_mask(WriteData *wd, Mask *mask, const void *id_address)
 {
   if (mask->id.us > 0 || wd->use_memfile) {
     MaskLayer *masklay;
 
-    writestruct(wd, ID_MSK, Mask, 1, mask);
+    writestruct_at_address(wd, ID_MSK, Mask, 1, id_address, mask);
     write_iddata(wd, &mask->id);
 
     if (mask->adt) {
@@ -3427,10 +3563,10 @@ static void write_linestyle_geometry_modifiers(WriteData *wd, ListBase *modifier
   }
 }
 
-static void write_linestyle(WriteData *wd, FreestyleLineStyle *linestyle)
+static void write_linestyle(WriteData *wd, FreestyleLineStyle *linestyle, const void *id_address)
 {
   if (linestyle->id.us > 0 || wd->use_memfile) {
-    writestruct(wd, ID_LS, FreestyleLineStyle, 1, linestyle);
+    writestruct_at_address(wd, ID_LS, FreestyleLineStyle, 1, id_address, linestyle);
     write_iddata(wd, &linestyle->id);
 
     if (linestyle->adt) {
@@ -3453,10 +3589,16 @@ static void write_linestyle(WriteData *wd, FreestyleLineStyle *linestyle)
   }
 }
 
-static void write_cachefile(WriteData *wd, CacheFile *cache_file)
+static void write_cachefile(WriteData *wd, CacheFile *cache_file, const void *id_address)
 {
   if (cache_file->id.us > 0 || wd->use_memfile) {
-    writestruct(wd, ID_CF, CacheFile, 1, cache_file);
+    /* Clean up, important in undo case to reduce false detection of changed datablocks. */
+    BLI_listbase_clear(&cache_file->object_paths);
+    cache_file->handle = NULL;
+    memset(cache_file->handle_filepath, 0, sizeof(cache_file->handle_filepath));
+    cache_file->handle_readers = NULL;
+
+    writestruct_at_address(wd, ID_CF, CacheFile, 1, id_address, cache_file);
 
     if (cache_file->adt) {
       write_animdata(wd, cache_file->adt);
@@ -3464,11 +3606,11 @@ static void write_cachefile(WriteData *wd, CacheFile *cache_file)
   }
 }
 
-static void write_workspace(WriteData *wd, WorkSpace *workspace)
+static void write_workspace(WriteData *wd, WorkSpace *workspace, const void *id_address)
 {
   ListBase *layouts = BKE_workspace_layouts_get(workspace);
 
-  writestruct(wd, ID_WS, WorkSpace, 1, workspace);
+  writestruct_at_address(wd, ID_WS, WorkSpace, 1, id_address, workspace);
   write_iddata(wd, &workspace->id);
   writelist(wd, DATA, WorkSpaceLayout, layouts);
   writelist(wd, DATA, WorkSpaceDataRelation, &workspace->hook_layout_relations);
@@ -3477,6 +3619,86 @@ static void write_workspace(WriteData *wd, WorkSpace *workspace)
   for (bToolRef *tref = workspace->tools.first; tref; tref = tref->next) {
     if (tref->properties) {
       IDP_WriteProperty(tref->properties, wd);
+    }
+  }
+}
+
+static void write_hair(WriteData *wd, Hair *hair, const void *id_address)
+{
+  if (hair->id.us > 0 || wd->use_memfile) {
+    CustomDataLayer *players = NULL, players_buff[CD_TEMP_CHUNK_SIZE];
+    CustomDataLayer *clayers = NULL, clayers_buff[CD_TEMP_CHUNK_SIZE];
+    CustomData_file_write_prepare(&hair->pdata, &players, players_buff, ARRAY_SIZE(players_buff));
+    CustomData_file_write_prepare(&hair->cdata, &clayers, clayers_buff, ARRAY_SIZE(clayers_buff));
+
+    /* Write LibData */
+    writestruct_at_address(wd, ID_HA, Hair, 1, id_address, hair);
+    write_iddata(wd, &hair->id);
+
+    /* Direct data */
+    write_customdata(wd, &hair->id, hair->totpoint, &hair->pdata, players, CD_MASK_ALL);
+    write_customdata(wd, &hair->id, hair->totcurve, &hair->cdata, clayers, CD_MASK_ALL);
+    writedata(wd, DATA, sizeof(void *) * hair->totcol, hair->mat);
+    if (hair->adt) {
+      write_animdata(wd, hair->adt);
+    }
+
+    /* Remove temporary data. */
+    if (players && players != players_buff) {
+      MEM_freeN(players);
+    }
+    if (clayers && clayers != clayers_buff) {
+      MEM_freeN(clayers);
+    }
+  }
+}
+
+static void write_pointcloud(WriteData *wd, PointCloud *pointcloud, const void *id_address)
+{
+  if (pointcloud->id.us > 0 || wd->use_memfile) {
+    CustomDataLayer *players = NULL, players_buff[CD_TEMP_CHUNK_SIZE];
+    CustomData_file_write_prepare(
+        &pointcloud->pdata, &players, players_buff, ARRAY_SIZE(players_buff));
+
+    /* Write LibData */
+    writestruct_at_address(wd, ID_PT, PointCloud, 1, id_address, pointcloud);
+    write_iddata(wd, &pointcloud->id);
+
+    /* Direct data */
+    write_customdata(
+        wd, &pointcloud->id, pointcloud->totpoint, &pointcloud->pdata, players, CD_MASK_ALL);
+    writedata(wd, DATA, sizeof(void *) * pointcloud->totcol, pointcloud->mat);
+    if (pointcloud->adt) {
+      write_animdata(wd, pointcloud->adt);
+    }
+
+    /* Remove temporary data. */
+    if (players && players != players_buff) {
+      MEM_freeN(players);
+    }
+  }
+}
+
+static void write_volume(WriteData *wd, Volume *volume, const void *id_address)
+{
+  if (volume->id.us > 0 || wd->use_memfile) {
+    /* Clean up, important in undo case to reduce false detection of changed datablocks. */
+    volume->runtime.grids = 0;
+
+    /* write LibData */
+    writestruct_at_address(wd, ID_VO, Volume, 1, id_address, volume);
+    write_iddata(wd, &volume->id);
+
+    /* direct data */
+    writedata(wd, DATA, sizeof(void *) * volume->totcol, volume->mat);
+    if (volume->adt) {
+      write_animdata(wd, volume->adt);
+    }
+
+    if (volume->packedfile) {
+      PackedFile *pf = volume->packedfile;
+      writestruct(wd, DATA, PackedFile, 1, pf);
+      writedata(wd, DATA, pf->size, pf->data);
     }
   }
 }
@@ -3535,7 +3757,7 @@ static void write_libraries(WriteData *wd, Main *main)
           if (id->us > 0 &&
               ((id->tag & LIB_TAG_EXTERN) ||
                ((id->tag & LIB_TAG_INDIRECT) && (id->flag & LIB_INDIRECT_WEAK_LINK)))) {
-            if (!BKE_idcode_is_linkable(GS(id->name))) {
+            if (!BKE_idtype_idcode_is_linkable(GS(id->name))) {
               printf(
                   "ERROR: write file: data-block '%s' from lib '%s' is not linkable "
                   "but is flagged as directly linked",
@@ -3657,6 +3879,7 @@ static bool write_file_handle(Main *mainvar,
   OverrideLibraryStorage *override_storage =
       wd->use_memfile ? NULL : BKE_lib_override_library_operations_store_initialize();
 
+#define ID_BUFFER_STATIC_SIZE 8192
   /* This outer loop allows to save first data-blocks from real mainvar,
    * then the temp ones from override process,
    * if needed, without duplicating whole code. */
@@ -3667,8 +3890,16 @@ static bool write_file_handle(Main *mainvar,
     while (a--) {
       ID *id = lbarray[a]->first;
 
-      if (id && GS(id->name) == ID_LI) {
+      if (id == NULL || GS(id->name) == ID_LI) {
         continue; /* Libraries are handled separately below. */
+      }
+
+      char id_buffer_static[ID_BUFFER_STATIC_SIZE];
+      void *id_buffer = id_buffer_static;
+      const size_t idtype_struct_size = BKE_idtype_get_info_from_id(id)->struct_size;
+      if (idtype_struct_size > ID_BUFFER_STATIC_SIZE) {
+        BLI_assert(0);
+        id_buffer = MEM_mallocN(idtype_struct_size, __func__);
       }
 
       for (; id; id = id->next) {
@@ -3683,108 +3914,121 @@ static bool write_file_handle(Main *mainvar,
           BKE_lib_override_library_operations_store_start(bmain, override_storage, id);
         }
 
+        memcpy(id_buffer, id, idtype_struct_size);
+
+        ((ID *)id_buffer)->tag = 0;
+
         switch ((ID_Type)GS(id->name)) {
           case ID_WM:
-            write_windowmanager(wd, (wmWindowManager *)id);
+            write_windowmanager(wd, (wmWindowManager *)id_buffer, id);
             break;
           case ID_WS:
-            write_workspace(wd, (WorkSpace *)id);
+            write_workspace(wd, (WorkSpace *)id_buffer, id);
             break;
           case ID_SCR:
-            write_screen(wd, (bScreen *)id);
+            write_screen(wd, (bScreen *)id_buffer, id);
             break;
           case ID_MC:
-            write_movieclip(wd, (MovieClip *)id);
+            write_movieclip(wd, (MovieClip *)id_buffer, id);
             break;
           case ID_MSK:
-            write_mask(wd, (Mask *)id);
+            write_mask(wd, (Mask *)id_buffer, id);
             break;
           case ID_SCE:
-            write_scene(wd, (Scene *)id);
+            write_scene(wd, (Scene *)id_buffer, id);
             break;
           case ID_CU:
-            write_curve(wd, (Curve *)id);
+            write_curve(wd, (Curve *)id_buffer, id);
             break;
           case ID_MB:
-            write_mball(wd, (MetaBall *)id);
+            write_mball(wd, (MetaBall *)id_buffer, id);
             break;
           case ID_IM:
-            write_image(wd, (Image *)id);
+            write_image(wd, (Image *)id_buffer, id);
             break;
           case ID_CA:
-            write_camera(wd, (Camera *)id);
+            write_camera(wd, (Camera *)id_buffer, id);
             break;
           case ID_LA:
-            write_light(wd, (Light *)id);
+            write_light(wd, (Light *)id_buffer, id);
             break;
           case ID_LT:
-            write_lattice(wd, (Lattice *)id);
+            write_lattice(wd, (Lattice *)id_buffer, id);
             break;
           case ID_VF:
-            write_vfont(wd, (VFont *)id);
+            write_vfont(wd, (VFont *)id_buffer, id);
             break;
           case ID_KE:
-            write_key(wd, (Key *)id);
+            write_key(wd, (Key *)id_buffer, id);
             break;
           case ID_WO:
-            write_world(wd, (World *)id);
+            write_world(wd, (World *)id_buffer, id);
             break;
           case ID_TXT:
-            write_text(wd, (Text *)id);
+            write_text(wd, (Text *)id_buffer, id);
             break;
           case ID_SPK:
-            write_speaker(wd, (Speaker *)id);
+            write_speaker(wd, (Speaker *)id_buffer, id);
             break;
           case ID_LP:
-            write_probe(wd, (LightProbe *)id);
+            write_probe(wd, (LightProbe *)id_buffer, id);
             break;
           case ID_SO:
-            write_sound(wd, (bSound *)id);
+            write_sound(wd, (bSound *)id_buffer, id);
             break;
           case ID_GR:
-            write_collection(wd, (Collection *)id);
+            write_collection(wd, (Collection *)id_buffer, id);
             break;
           case ID_AR:
-            write_armature(wd, (bArmature *)id);
+            write_armature(wd, (bArmature *)id_buffer, id);
             break;
           case ID_AC:
-            write_action(wd, (bAction *)id);
+            write_action(wd, (bAction *)id_buffer, id);
             break;
           case ID_OB:
-            write_object(wd, (Object *)id);
+            write_object(wd, (Object *)id_buffer, id);
             break;
           case ID_MA:
-            write_material(wd, (Material *)id);
+            write_material(wd, (Material *)id_buffer, id);
             break;
           case ID_TE:
-            write_texture(wd, (Tex *)id);
+            write_texture(wd, (Tex *)id_buffer, id);
             break;
           case ID_ME:
-            write_mesh(wd, (Mesh *)id);
+            write_mesh(wd, (Mesh *)id_buffer, id);
             break;
           case ID_PA:
-            write_particlesettings(wd, (ParticleSettings *)id);
+            write_particlesettings(wd, (ParticleSettings *)id_buffer, id);
             break;
           case ID_NT:
-            write_nodetree(wd, (bNodeTree *)id);
+            write_nodetree(wd, (bNodeTree *)id_buffer, id);
             break;
           case ID_BR:
-            write_brush(wd, (Brush *)id);
+            write_brush(wd, (Brush *)id_buffer, id);
             break;
           case ID_PAL:
-            write_palette(wd, (Palette *)id);
+            write_palette(wd, (Palette *)id_buffer, id);
             break;
           case ID_PC:
-            write_paintcurve(wd, (PaintCurve *)id);
+            write_paintcurve(wd, (PaintCurve *)id_buffer, id);
             break;
           case ID_GD:
-            write_gpencil(wd, (bGPdata *)id);
+            write_gpencil(wd, (bGPdata *)id_buffer, id);
             break;
           case ID_LS:
-            write_linestyle(wd, (FreestyleLineStyle *)id);
+            write_linestyle(wd, (FreestyleLineStyle *)id_buffer, id);
             break;
           case ID_CF:
-            write_cachefile(wd, (CacheFile *)id);
+            write_cachefile(wd, (CacheFile *)id_buffer, id);
+            break;
+          case ID_HA:
+            write_hair(wd, (Hair *)id_buffer, id);
+            break;
+          case ID_PT:
+            write_pointcloud(wd, (PointCloud *)id_buffer, id);
+            break;
+          case ID_VO:
+            write_volume(wd, (Volume *)id_buffer, id);
             break;
           case ID_LI:
             /* Do nothing, handled below - and should never be reached. */
@@ -3802,6 +4046,19 @@ static bool write_file_handle(Main *mainvar,
         if (do_override) {
           BKE_lib_override_library_operations_store_end(override_storage, id);
         }
+
+        if (wd->use_memfile) {
+          /* Very important to do it after every ID write now, otherwise we cannot know whether a
+           * specific ID changed or not. */
+          mywrite_flush(wd);
+
+          /* Clear the accumulated recalc flags in case of undo step saving. */
+          id->recalc_undo_accumulated = 0;
+        }
+      }
+
+      if (id_buffer != id_buffer_static) {
+        MEM_SAFE_FREE(id_buffer);
       }
 
       mywrite_flush(wd);

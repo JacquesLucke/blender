@@ -23,25 +23,25 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "DNA_key_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_object_types.h"
-#include "DNA_key_types.h"
 
-#include "BLI_math.h"
 #include "BLI_alloca.h"
 #include "BLI_buffer.h"
 #include "BLI_kdtree.h"
 #include "BLI_listbase.h"
+#include "BLI_math.h"
 
 #include "BKE_DerivedMesh.h"
 #include "BKE_context.h"
+#include "BKE_editmesh.h"
+#include "BKE_editmesh_bvh.h"
+#include "BKE_global.h"
 #include "BKE_main.h"
 #include "BKE_mesh.h"
 #include "BKE_mesh_mapping.h"
 #include "BKE_report.h"
-#include "BKE_editmesh.h"
-#include "BKE_editmesh_bvh.h"
-#include "BKE_global.h"
 
 #include "DEG_depsgraph.h"
 
@@ -539,7 +539,7 @@ UvVertMap *BM_uv_vert_map_create(BMesh *bm,
   UvVertMap *vmap;
   UvMapVert *buf;
   MLoopUV *luv;
-  unsigned int a;
+  uint a;
   int totverts, i, totuv, totfaces;
   const int cd_loop_uv_offset = CustomData_get_offset(&bm->ldata, CD_MLOOPUV);
   bool *winding = NULL;
@@ -669,7 +669,7 @@ UvVertMap *BM_uv_vert_map_create(BMesh *bm,
   return vmap;
 }
 
-UvMapVert *BM_uv_vert_map_at_index(UvVertMap *vmap, unsigned int v)
+UvMapVert *BM_uv_vert_map_at_index(UvVertMap *vmap, uint v)
 {
   return vmap->vert[v];
 }
@@ -832,7 +832,7 @@ UvElementMap *BM_uv_element_map_create(BMesh *bm,
   }
 
   if (do_islands) {
-    unsigned int *map;
+    uint *map;
     BMFace **stack;
     int stacksize = 0;
     UvElement *islandbuf;
@@ -1079,7 +1079,7 @@ void EDBM_verts_mirror_cache_begin_ex(BMEditMesh *em,
   BMVert *v;
   int cd_vmirr_offset = 0;
   int i;
-  const float maxdist_sq = SQUARE(maxdist);
+  const float maxdist_sq = square_f(maxdist);
 
   /* one or the other is used depending if topo is enabled */
   KDTree_3d *tree = NULL;
@@ -1224,7 +1224,7 @@ BMFace *EDBM_verts_mirror_get_face(BMEditMesh *em, BMFace *f)
   BMVert **v_mirr_arr = BLI_array_alloca(v_mirr_arr, f->len);
 
   BMLoop *l_iter, *l_first;
-  unsigned int i = 0;
+  uint i = 0;
 
   l_iter = l_first = BM_FACE_FIRST_LOOP(f);
   do {

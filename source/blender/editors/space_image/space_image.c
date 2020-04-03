@@ -22,12 +22,12 @@
  */
 
 #include "DNA_gpencil_types.h"
-#include "DNA_mesh_types.h"
+#include "DNA_image_types.h"
 #include "DNA_mask_types.h"
+#include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
-#include "DNA_image_types.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -59,23 +59,23 @@
 #include "ED_mesh.h"
 #include "ED_node.h"
 #include "ED_render.h"
-#include "ED_space_api.h"
 #include "ED_screen.h"
-#include "ED_uvedit.h"
+#include "ED_space_api.h"
 #include "ED_transform.h"
+#include "ED_uvedit.h"
 
 #include "WM_api.h"
-#include "WM_types.h"
 #include "WM_message.h"
+#include "WM_types.h"
 
-#include "UI_resources.h"
 #include "UI_interface.h"
+#include "UI_resources.h"
 #include "UI_view2d.h"
 
-#include "image_intern.h"
-#include "GPU_framebuffer.h"
 #include "GPU_batch_presets.h"
+#include "GPU_framebuffer.h"
 #include "GPU_viewport.h"
+#include "image_intern.h"
 
 /* TODO(fclem) remove bad level calls */
 #include "../draw/DRW_engine.h"
@@ -262,18 +262,22 @@ static void image_keymap(struct wmKeyConfig *keyconf)
 }
 
 /* dropboxes */
-static bool image_drop_poll(bContext *UNUSED(C),
+static bool image_drop_poll(bContext *C,
                             wmDrag *drag,
-                            const wmEvent *UNUSED(event),
-                            const char **UNUSED(tooltip))
+                            const wmEvent *event,
+                            const char **UNUSED(r_tooltip))
 {
+  ScrArea *area = CTX_wm_area(C);
+  if (ED_region_overlap_isect_any_xy(area, &event->x)) {
+    return false;
+  }
   if (drag->type == WM_DRAG_PATH) {
     /* rule might not work? */
     if (ELEM(drag->icon, 0, ICON_FILE_IMAGE, ICON_FILE_MOVIE, ICON_FILE_BLANK)) {
-      return 1;
+      return true;
     }
   }
-  return 0;
+  return false;
 }
 
 static void image_drop_copy(wmDrag *drag, wmDropBox *drop)
@@ -642,8 +646,7 @@ static void image_main_region_draw(const bContext *C, ARegion *region)
    * old context since we now use it for drawing the entire area. */
   gpu_batch_presets_reset();
 
-  GPUViewport *viewport =
-      region->draw_buffer->viewport[region->draw_buffer->stereo ? sima->iuser.multiview_eye : 0];
+  GPUViewport *viewport = region->draw_buffer->viewport;
   DefaultFramebufferList *fbl = GPU_viewport_framebuffer_list_get(viewport);
   GPU_framebuffer_bind(fbl->default_fb);
   GPU_clear_color(0.0f, 0.0f, 0.0f, 0.0f);

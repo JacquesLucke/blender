@@ -24,13 +24,13 @@
 #ifndef __SCULPT_INTERN_H__
 #define __SCULPT_INTERN_H__
 
+#include "DNA_key_types.h"
 #include "DNA_listBase.h"
 #include "DNA_vec_types.h"
-#include "DNA_key_types.h"
 
 #include "BLI_bitmap.h"
-#include "BLI_threads.h"
 #include "BLI_gsqueue.h"
+#include "BLI_threads.h"
 
 #include "BKE_paint.h"
 #include "BKE_pbvh.h"
@@ -102,7 +102,7 @@ void SCULPT_vertex_neighbors_get(struct SculptSession *ss,
                                  SculptVertexNeighborIter *iter);
 
 /* Iterator over neighboring vertices. */
-#define sculpt_vertex_neighbors_iter_begin(ss, v_index, neighbor_iterator) \
+#define SCULPT_VERTEX_NEIGHBORS_ITER_BEGIN(ss, v_index, neighbor_iterator) \
   SCULPT_vertex_neighbors_get(ss, v_index, false, &neighbor_iterator); \
   for (neighbor_iterator.i = 0; neighbor_iterator.i < neighbor_iterator.size; \
        neighbor_iterator.i++) { \
@@ -110,7 +110,7 @@ void SCULPT_vertex_neighbors_get(struct SculptSession *ss,
 
 /* Iterate over neighboring and duplicate vertices (for PBVH_GRIDS). Duplicates come
  * first since they are nearest for floodfill. */
-#define sculpt_vertex_duplicates_and_neighbors_iter_begin(ss, v_index, neighbor_iterator) \
+#define SCULPT_VERTEX_DUPLICATES_AND_NEIGHBORS_ITER_BEGIN(ss, v_index, neighbor_iterator) \
   SCULPT_vertex_neighbors_get(ss, v_index, true, &neighbor_iterator); \
   for (neighbor_iterator.i = neighbor_iterator.size - 1; neighbor_iterator.i >= 0; \
        neighbor_iterator.i--) { \
@@ -118,12 +118,15 @@ void SCULPT_vertex_neighbors_get(struct SculptSession *ss,
     neighbor_iterator.is_duplicate = (ni.i >= \
                                       neighbor_iterator.size - neighbor_iterator.num_duplicates);
 
-#define sculpt_vertex_neighbors_iter_end(neighbor_iterator) \
+#define SCULPT_VERTEX_NEIGHBORS_ITER_END(neighbor_iterator) \
   } \
   if (neighbor_iterator.neighbors != neighbor_iterator.neighbors_fixed) { \
     MEM_freeN(neighbor_iterator.neighbors); \
   } \
   ((void)0)
+
+int SCULPT_active_vertex_get(SculptSession *ss);
+const float *SCULPT_active_vertex_co_get(SculptSession *ss);
 
 /* Sculpt Original Data */
 typedef struct {
@@ -142,6 +145,11 @@ typedef struct {
 
 void SCULPT_orig_vert_data_init(SculptOrigVertData *data, Object *ob, PBVHNode *node);
 void SCULPT_orig_vert_data_update(SculptOrigVertData *orig_data, PBVHVertexIter *iter);
+
+/* Face Sets */
+int SCULPT_vertex_face_set_get(SculptSession *ss, int index);
+bool SCULPT_vertex_has_face_set(SculptSession *ss, int index, int face_set);
+bool SCULPT_vertex_has_unique_face_set(SculptSession *ss, int index);
 
 /* Dynamic topology */
 void sculpt_pbvh_clear(Object *ob);
@@ -196,12 +204,22 @@ void SCULPT_floodfill_add_active(struct Sculpt *sd,
                                  struct SculptSession *ss,
                                  SculptFloodFill *flood,
                                  float radius);
+void SCULPT_floodfill_add_initial_with_symmetry(struct Sculpt *sd,
+                                                struct Object *ob,
+                                                struct SculptSession *ss,
+                                                SculptFloodFill *flood,
+                                                int index,
+                                                float radius);
+void sculpt_floodfill_add_initial(SculptFloodFill *flood, int index);
 void SCULPT_floodfill_execute(
     struct SculptSession *ss,
     SculptFloodFill *flood,
     bool (*func)(SculptSession *ss, int from_v, int to_v, bool is_duplicate, void *userdata),
     void *userdata);
 void SCULPT_floodfill_free(SculptFloodFill *flood);
+
+/* Automasking. */
+float SCULPT_automasking_factor_get(SculptSession *ss, int vert);
 
 /* Brushes. */
 
@@ -257,6 +275,13 @@ void SCULPT_multiplane_scrape_preview_draw(const uint gpuattr,
                                            const float outline_col[3],
                                            const float outline_alpha);
 
+/* Slide/Relax */
+void SCULPT_relax_vertex(struct SculptSession *ss,
+                         struct PBVHVertexIter *vd,
+                         float factor,
+                         bool filter_boundary_face_sets,
+                         float *r_final_pos);
+
 /* Sculpt Visibility API */
 void SCULPT_visibility_sync_all_face_sets_to_vertices(struct SculptSession *ss);
 void SCULPT_visibility_sync_all_vertex_to_face_sets(struct SculptSession *ss);
@@ -273,6 +298,23 @@ typedef enum {
   SCULPT_UNDO_GEOMETRY,
   SCULPT_UNDO_FACE_SETS,
 } SculptUndoType;
+
+/* Storage of geometry for the undo node.
+ * Is used as a storage for either original or modified geometry. */
+typedef struct SculptUndoNodeGeometry {
+  /* Is used for sanity check, helping with ensuring that two and only two
+   * geometry pushes happened in the undo stack. */
+  bool is_initialized;
+
+  CustomData vdata;
+  CustomData edata;
+  CustomData ldata;
+  CustomData pdata;
+  int totvert;
+  int totedge;
+  int totloop;
+  int totpoly;
+} SculptUndoNodeGeometry;
 
 typedef struct SculptUndoNode {
   struct SculptUndoNode *next, *prev;
@@ -307,15 +349,17 @@ typedef struct SculptUndoNode {
   /* shape keys */
   char shapeName[sizeof(((KeyBlock *)0))->name];
 
-  /* geometry modification operations and bmesh enter data */
-  CustomData geom_vdata;
-  CustomData geom_edata;
-  CustomData geom_ldata;
-  CustomData geom_pdata;
-  int geom_totvert;
-  int geom_totedge;
-  int geom_totloop;
-  int geom_totpoly;
+  /* Geometry modification operations.
+   *
+   * Original geometry is stored before some modification is run and is used to restore state of
+   * the object when undoing the operation
+   *
+   * Modified geometry is stored after the modification and is used to redo the modification. */
+  SculptUndoNodeGeometry geometry_original;
+  SculptUndoNodeGeometry geometry_modified;
+
+  /* Geometry at the bmesh enter moment. */
+  SculptUndoNodeGeometry geometry_bmesh_enter;
 
   /* pivot */
   float pivot_pos[3];
@@ -431,6 +475,7 @@ typedef struct SculptThreadedTaskData {
 /*************** Brush testing declarations ****************/
 typedef struct SculptBrushTest {
   float radius_squared;
+  float radius;
   float location[3];
   float dist;
   int mirror_symmetry_pass;
@@ -507,7 +552,7 @@ bool SCULPT_pbvh_calc_area_normal(const struct Brush *brush,
  * For descriptions of these settings, check the operator properties.
  */
 
-#define CLAY_STABILIZER_LEN 10
+#define SCULPT_CLAY_STABILIZER_LEN 10
 
 typedef struct StrokeCache {
   /* Invariants */
@@ -524,6 +569,10 @@ typedef struct StrokeCache {
   float true_last_location[3];
   float location[3];
   float last_location[3];
+
+  /* Used for alternating between deformation in brushes that need to apply different ones to
+   * achieve certain effects. */
+  int iteration_count;
 
   /* Original pixel radius with the pressure curve applied for dyntopo detail size */
   float dyntopo_pixel_radius;
@@ -594,7 +643,7 @@ typedef struct StrokeCache {
   /* Angle of the front tilting plane of the brush to simulate clay accumulation. */
   float clay_thumb_front_angle;
   /* Stores pressure samples to get an stabilized strength and radius variation. */
-  float clay_pressure_stabilizer[CLAY_STABILIZER_LEN];
+  float clay_pressure_stabilizer[SCULPT_CLAY_STABILIZER_LEN];
   int clay_pressure_stabilizer_index;
 
   /* Cloth brush */
@@ -603,6 +652,10 @@ typedef struct StrokeCache {
   float true_initial_location[3];
   float initial_normal[3];
   float true_initial_normal[3];
+
+  /* Surface Smooth Brush */
+  /* Stores the displacement produced by the laplacian step of HC smooth. */
+  float (*surface_smooth_laplacian_disp)[3];
 
   float vertex_rotation; /* amount to rotate the vertices when using rotate brush */
   struct Dial *dial;
@@ -632,6 +685,15 @@ typedef struct FilterCache {
   bool enabled_axis[3];
   int random_seed;
 
+  /* Used for alternating between filter operations in filters that need to apply different ones to
+   * achieve certain effects. */
+  int iteration_count;
+
+  /* Stores the displacement produced by the laplacian step of HC smooth. */
+  float (*surface_smooth_laplacian_disp)[3];
+  float surface_smooth_shape_preservation;
+  float surface_smooth_current_vertex;
+
   /* unmasked nodes */
   PBVHNode **nodes;
   int totnode;
@@ -644,6 +706,9 @@ typedef struct FilterCache {
   float *edge_factor;
   float *prev_mask;
   float mask_expand_initial_co[3];
+
+  /* Used to prevent undesired results on certain mesh filters. */
+  float *automask;
 
   int new_face_set;
   int *prev_face_set;

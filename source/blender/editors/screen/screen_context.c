@@ -27,33 +27,34 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "DNA_object_types.h"
+#include "DNA_anim_types.h"
 #include "DNA_armature_types.h"
 #include "DNA_gpencil_types.h"
-#include "DNA_sequence_types.h"
+#include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
+#include "DNA_sequence_types.h"
 #include "DNA_space_types.h"
 #include "DNA_windowmanager_types.h"
 
 #include "BLI_utildefines.h"
 
-#include "BKE_context.h"
-#include "BKE_object.h"
 #include "BKE_action.h"
 #include "BKE_armature.h"
+#include "BKE_context.h"
 #include "BKE_gpencil.h"
 #include "BKE_layer.h"
+#include "BKE_object.h"
 #include "BKE_sequencer.h"
 
 #include "RNA_access.h"
 
+#include "ED_anim_api.h"
 #include "ED_armature.h"
 #include "ED_gpencil.h"
-#include "ED_anim_api.h"
 
-#include "WM_api.h"
 #include "UI_interface.h"
+#include "WM_api.h"
 
 #include "screen_intern.h"
 
@@ -88,6 +89,7 @@ const char *screen_context_dir[] = {
     "sequences",
     "selected_sequences",
     "selected_editable_sequences", /* sequencer */
+    "selected_nla_strips",         /* nla editor */
     "gpencil_data",
     "gpencil_data_owner", /* grease pencil data */
     "annotation_data",
@@ -503,6 +505,28 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
       return 1;
     }
   }
+  else if (CTX_data_equals(member, "selected_nla_strips")) {
+    bAnimContext ac;
+    if (ANIM_animdata_get_context(C, &ac) != 0) {
+      ListBase anim_data = {NULL, NULL};
+      bAnimListElem *ale;
+
+      ANIM_animdata_filter(&ac, &anim_data, ANIMFILTER_DATA_VISIBLE, ac.data, ac.datatype);
+      for (ale = anim_data.first; ale; ale = ale->next) {
+        NlaTrack *nlt = (NlaTrack *)ale->data;
+        NlaStrip *strip;
+        for (strip = nlt->strips.first; strip; strip = strip->next) {
+          if (strip->flag & NLASTRIP_FLAG_SELECT) {
+            CTX_data_list_add(result, &scene->id, &RNA_NlaStrip, strip);
+          }
+        }
+      }
+      ANIM_animdata_freelist(&anim_data);
+
+      CTX_data_type_set(result, CTX_DATA_TYPE_COLLECTION);
+      return 1;
+    }
+  }
   else if (CTX_data_equals(member, "gpencil_data")) {
     /* FIXME: for some reason, CTX_data_active_object(C) returns NULL when called from these
      * situations (as outlined above - see Campbell's #ifdefs).
@@ -555,7 +579,7 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
     bGPdata *gpd = ED_gpencil_data_get_active_direct(sa, obact);
 
     if (gpd) {
-      bGPDlayer *gpl = BKE_gpencil_layer_getactive(gpd);
+      bGPDlayer *gpl = BKE_gpencil_layer_active_get(gpd);
 
       if (gpl) {
         CTX_data_pointer_set(result, &gpd->id, &RNA_GPencilLayer, gpl);
@@ -567,7 +591,7 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
     bGPdata *gpd = ED_annotation_data_get_active_direct((ID *)sc, sa, scene);
 
     if (gpd) {
-      bGPDlayer *gpl = BKE_gpencil_layer_getactive(gpd);
+      bGPDlayer *gpl = BKE_gpencil_layer_active_get(gpd);
 
       if (gpl) {
         CTX_data_pointer_set(result, &gpd->id, &RNA_GPencilLayer, gpl);
@@ -579,7 +603,7 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
     bGPdata *gpd = ED_gpencil_data_get_active_direct(sa, obact);
 
     if (gpd) {
-      bGPDlayer *gpl = BKE_gpencil_layer_getactive(gpd);
+      bGPDlayer *gpl = BKE_gpencil_layer_active_get(gpd);
 
       if (gpl) {
         CTX_data_pointer_set(result, &gpd->id, &RNA_GPencilLayer, gpl->actframe);
@@ -609,7 +633,7 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
       bGPDlayer *gpl;
 
       for (gpl = gpd->layers.first; gpl; gpl = gpl->next) {
-        if (gpencil_layer_is_editable(gpl)) {
+        if (BKE_gpencil_layer_is_editable(gpl)) {
           CTX_data_list_add(result, &gpd->id, &RNA_GPencilLayer, gpl);
         }
       }
@@ -625,7 +649,7 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
       bGPDlayer *gpl;
 
       for (gpl = gpd->layers.first; gpl; gpl = gpl->next) {
-        if (gpencil_layer_is_editable(gpl) && (gpl->actframe)) {
+        if (BKE_gpencil_layer_is_editable(gpl) && (gpl->actframe)) {
           bGPDframe *gpf;
           bGPDstroke *gps;
           bGPDframe *init_gpf = gpl->actframe;

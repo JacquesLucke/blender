@@ -32,11 +32,11 @@
 extern "C" {
 #endif
 
-#include "DNA_listBase.h"
 #include "DNA_ID.h"
-#include "DNA_view2d_types.h"
-#include "DNA_vec_types.h"
+#include "DNA_listBase.h"
 #include "DNA_userdef_types.h" /* ThemeWireColor */
+#include "DNA_vec_types.h"
+#include "DNA_view2d_types.h"
 
 struct Collection;
 struct GHash;
@@ -764,10 +764,6 @@ typedef enum eDopeSheet_FilterFlag {
   /** show only F-Curves which are disabled/have errors - for debugging drivers */
   ADS_FILTER_ONLY_ERRORS = (1 << 28),
 
-  /* GPencil Mode */
-  /** GP Mode - Only show datablocks used in the scene */
-  ADS_FILTER_GP_3DONLY = (1 << 29),
-
 #if 0
   /** combination filters (some only used at runtime) */
   ADS_FILTER_NOOBDATA = (ADS_FILTER_NOCAM | ADS_FILTER_NOMAT | ADS_FILTER_NOLAM |
@@ -780,6 +776,9 @@ typedef enum eDopeSheet_FilterFlag {
 typedef enum eDopeSheet_FilterFlag2 {
   ADS_FILTER_NOCACHEFILES = (1 << 1),
   ADS_FILTER_NOMOVIECLIPS = (1 << 2),
+  ADS_FILTER_NOHAIR = (1 << 3),
+  ADS_FILTER_NOPOINTCLOUD = (1 << 4),
+  ADS_FILTER_NOVOLUME = (1 << 5),
 } eDopeSheet_FilterFlag2;
 
 /* DopeSheet general flags */

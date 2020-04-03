@@ -27,17 +27,17 @@
 
 #include "BLI_math.h"
 
-#include "DNA_scene_types.h"
+#include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_object_types.h"
-#include "DNA_mesh_types.h"
+#include "DNA_scene_types.h"
 
 #include "MEM_guardedalloc.h"
 
 #include "BKE_deform.h"
-#include "BKE_mesh.h"
 #include "BKE_editmesh.h"
 #include "BKE_lib_id.h"
+#include "BKE_mesh.h"
 
 #include "MOD_modifiertypes.h"
 #include "MOD_util.h"
@@ -66,6 +66,7 @@ static void initData(ModifierData *md)
   csmd->bind_coords_num = 0;
 
   csmd->lambda = 0.5f;
+  csmd->scale = 1.0f;
   csmd->repeat = 5;
   csmd->flag = 0;
   csmd->smooth_type = MOD_CORRECTIVESMOOTH_SMOOTH_SIMPLE;
@@ -720,7 +721,7 @@ static void correctivesmooth_modifier_do(ModifierData *md,
     uint i;
 
     float(*tangent_spaces)[3][3];
-
+    const float scale = csmd->scale;
     /* calloc, since values are accumulated */
     tangent_spaces = MEM_calloc_arrayN(numVerts, sizeof(float[3][3]), __func__);
 
@@ -734,7 +735,7 @@ static void correctivesmooth_modifier_do(ModifierData *md,
 #endif
 
       mul_v3_m3v3(delta, tangent_spaces[i], csmd->delta_cache.deltas[i]);
-      add_v3_v3(vertexCos[i], delta);
+      madd_v3_v3fl(vertexCos[i], delta, scale);
     }
 
     MEM_freeN(tangent_spaces);
@@ -763,7 +764,7 @@ static void deformVerts(ModifierData *md,
   correctivesmooth_modifier_do(
       md, ctx->depsgraph, ctx->object, mesh_src, vertexCos, (uint)numVerts, NULL);
 
-  if (mesh_src != mesh) {
+  if (!ELEM(mesh_src, NULL, mesh)) {
     BKE_id_free(NULL, mesh_src);
   }
 }
@@ -781,7 +782,7 @@ static void deformVertsEM(ModifierData *md,
   correctivesmooth_modifier_do(
       md, ctx->depsgraph, ctx->object, mesh_src, vertexCos, (uint)numVerts, editData);
 
-  if (mesh_src != mesh) {
+  if (!ELEM(mesh_src, NULL, mesh)) {
     BKE_id_free(NULL, mesh_src);
   }
 }

@@ -21,11 +21,11 @@
  * \ingroup spimage
  */
 
-#include <stddef.h>
-#include <string.h>
-#include <fcntl.h>
-#include <stdlib.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
 #ifndef WIN32
 #  include <unistd.h>
 #else
@@ -46,31 +46,31 @@
 #include "BLT_translation.h"
 
 #include "DNA_camera_types.h"
-#include "DNA_object_types.h"
 #include "DNA_node_types.h"
+#include "DNA_object_types.h"
 #include "DNA_packedFile_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
 
 #include "BKE_colortools.h"
 #include "BKE_context.h"
+#include "BKE_global.h"
 #include "BKE_icons.h"
 #include "BKE_image.h"
 #include "BKE_image_save.h"
-#include "BKE_global.h"
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_packedFile.h"
 #include "BKE_paint.h"
 #include "BKE_report.h"
-#include "BKE_screen.h"
 #include "BKE_scene.h"
+#include "BKE_screen.h"
 
 #include "DEG_depsgraph.h"
 
 #include "GPU_draw.h"
-#include "GPU_state.h"
 #include "GPU_immediate.h"
+#include "GPU_state.h"
 
 #include "IMB_colormanagement.h"
 #include "IMB_imbuf.h"
@@ -90,8 +90,8 @@
 #include "ED_render.h"
 #include "ED_screen.h"
 #include "ED_space_api.h"
-#include "ED_uvedit.h"
 #include "ED_util.h"
+#include "ED_uvedit.h"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -2351,7 +2351,7 @@ int ED_image_save_all_modified_info(const Main *bmain, ReportList *reports)
         else {
           BKE_reportf(reports,
                       RPT_WARNING,
-                      "Packed library image: %s from library %s can't be saved",
+                      "Packed library image can't be saved: \"%s\" from \"%s\"",
                       ima->id.name + 2,
                       ima->id.lib->name);
         }
@@ -2359,7 +2359,7 @@ int ED_image_save_all_modified_info(const Main *bmain, ReportList *reports)
       else if (!is_format_writable) {
         BKE_reportf(reports,
                     RPT_WARNING,
-                    "Image %s can't be saved automatically, must use a different file format",
+                    "Image can't be saved, use a different file format: \"%s\"",
                     ima->id.name + 2);
       }
       else {
@@ -2368,7 +2368,7 @@ int ED_image_save_all_modified_info(const Main *bmain, ReportList *reports)
           if (BLI_gset_haskey(unique_paths, ima->name)) {
             BKE_reportf(reports,
                         RPT_WARNING,
-                        "File path used by more than one saved image: %s",
+                        "Multiple images can't be saved to an identical path: \"%s\"",
                         ima->name);
           }
           else {
@@ -2376,11 +2376,8 @@ int ED_image_save_all_modified_info(const Main *bmain, ReportList *reports)
           }
         }
         else {
-          BKE_reportf(reports,
-                      RPT_WARNING,
-                      "Image %s can't be saved, no valid file path: %s",
-                      ima->id.name + 2,
-                      ima->name);
+          BKE_reportf(
+              reports, RPT_WARNING, "Image can't be saved, no valid file path: \"%s\"", ima->name);
         }
       }
     }
@@ -2751,7 +2748,7 @@ static int image_invert_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
 
-  ED_image_undo_push_begin_with_image(op->type->name, ima, ibuf, 0);
+  ED_image_undo_push_begin_with_image(op->type->name, ima, ibuf, &sima->iuser);
 
   if (is_paint) {
     ED_imapaint_clear_partial_redraw();
@@ -2895,7 +2892,7 @@ static int image_scale_exec(bContext *C, wmOperator *op)
     RNA_property_int_set_array(op->ptr, prop, size);
   }
 
-  ED_image_undo_push_begin_with_image(op->type->name, ima, ibuf, 0);
+  ED_image_undo_push_begin_with_image(op->type->name, ima, ibuf, &sima->iuser);
 
   ibuf->userflags |= IB_DISPLAY_BUFFER_INVALID;
   IMB_scaleImBuf(ibuf, size[0], size[1]);
@@ -3001,7 +2998,7 @@ static int image_unpack_exec(bContext *C, wmOperator *op)
   Image *ima = image_from_context(C);
   int method = RNA_enum_get(op->ptr, "method");
 
-  /* find the suppplied image by name */
+  /* find the supplied image by name */
   if (RNA_struct_property_is_set(op->ptr, "id")) {
     char imaname[MAX_ID_NAME - 2];
     RNA_string_get(op->ptr, "id", imaname);
@@ -3110,13 +3107,13 @@ typedef struct ImageSampleInfo {
   int width, height;
   int sample_size;
 
-  unsigned char col[4];
+  uchar col[4];
   float colf[4];
   float linearcol[4];
   int z;
   float zf;
 
-  unsigned char *colp;
+  uchar *colp;
   const float *colfp;
   int *zp;
   float *zfp;
@@ -3201,7 +3198,7 @@ bool ED_space_image_color_sample(SpaceImage *sima, ARegion *region, int mval[2],
 
   if (uv[0] >= 0.0f && uv[1] >= 0.0f && uv[0] < 1.0f && uv[1] < 1.0f) {
     const float *fp;
-    unsigned char *cp;
+    uchar *cp;
     int x = (int)(uv[0] * ibuf->x), y = (int)(uv[1] * ibuf->y);
 
     CLAMP(x, 0, ibuf->x - 1);
@@ -3213,7 +3210,7 @@ bool ED_space_image_color_sample(SpaceImage *sima, ARegion *region, int mval[2],
       ret = true;
     }
     else if (ibuf->rect) {
-      cp = (unsigned char *)(ibuf->rect + y * ibuf->x + x);
+      cp = (uchar *)(ibuf->rect + y * ibuf->x + x);
       rgb_uchar_to_float(r_col, cp);
       IMB_colormanagement_colorspace_to_scene_linear_v3(r_col, ibuf->rect_colorspace);
       ret = true;
@@ -3233,7 +3230,7 @@ static void image_sample_pixel_color_ubyte(const ImBuf *ibuf,
                                            uchar r_col[4],
                                            float r_col_linear[4])
 {
-  const uchar *cp = (unsigned char *)(ibuf->rect + coord[1] * ibuf->x + coord[0]);
+  const uchar *cp = (uchar *)(ibuf->rect + coord[1] * ibuf->x + coord[0]);
   copy_v4_v4_uchar(r_col, cp);
   rgba_uchar_to_float(r_col_linear, r_col);
   IMB_colormanagement_colorspace_to_scene_linear_v4(r_col_linear, false, ibuf->rect_colorspace);
@@ -3890,7 +3887,7 @@ static int change_frame_invoke(bContext *C, wmOperator *op, const wmEvent *event
 static int change_frame_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
   switch (event->type) {
-    case ESCKEY:
+    case EVT_ESCKEY:
       return OPERATOR_FINISHED;
 
     case MOUSEMOVE:
@@ -4067,7 +4064,9 @@ void IMAGE_OT_clear_render_border(wmOperatorType *ot)
 
 /** \} */
 
-/* ********************* Add tile operator ****************** */
+/* -------------------------------------------------------------------- */
+/** \name Add Tile Operator
+ * \{ */
 
 static bool do_fill_tile(PointerRNA *ptr, Image *ima, ImageTile *tile)
 {
@@ -4290,7 +4289,11 @@ void IMAGE_OT_tile_add(wmOperatorType *ot)
   def_fill_tile(ot->srna);
 }
 
-/* ********************* Remove tile operator ****************** */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Remove Tile Operator
+ * \{ */
 
 static bool tile_remove_poll(bContext *C)
 {
@@ -4331,7 +4334,11 @@ void IMAGE_OT_tile_remove(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-/* ********************* Fill tile operator ****************** */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Fill Tile Operator
+ * \{ */
 
 static bool tile_fill_poll(bContext *C)
 {

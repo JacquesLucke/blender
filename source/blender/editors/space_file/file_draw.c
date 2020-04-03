@@ -21,14 +21,14 @@
  * \ingroup spfile
  */
 
+#include <errno.h>
 #include <math.h>
 #include <string.h>
-#include <errno.h>
 
 #include "BLI_blenlib.h"
 #include "BLI_fileops_types.h"
-#include "BLI_utildefines.h"
 #include "BLI_math.h"
+#include "BLI_utildefines.h"
 
 #ifdef WIN32
 #  include "BLI_winstuff.h"
@@ -170,7 +170,6 @@ static void file_draw_string(int sx,
                              eFontStyle_Align align,
                              const uchar col[4])
 {
-  uiStyle *style;
   uiFontStyle fs;
   rcti rect;
   char fname[FILE_MAXFILE];
@@ -179,7 +178,7 @@ static void file_draw_string(int sx,
     return;
   }
 
-  style = UI_style_get();
+  const uiStyle *style = UI_style_get();
   fs = style->widgetlabel;
 
   BLI_strncpy(fname, string, FILE_MAXFILE);
@@ -377,13 +376,11 @@ static void file_draw_preview(uiBlock *block,
 
 static void renamebutton_cb(bContext *C, void *UNUSED(arg1), char *oldname)
 {
-  Main *bmain = CTX_data_main(C);
   char newname[FILE_MAX + 12];
   char orgname[FILE_MAX + 12];
   char filename[FILE_MAX + 12];
   wmWindowManager *wm = CTX_wm_manager(C);
   SpaceFile *sfile = (SpaceFile *)CTX_wm_space_data(C);
-  ScrArea *sa = CTX_wm_area(C);
   ARegion *region = CTX_wm_region(C);
 
   BLI_join_dirfile(orgname, sizeof(orgname), sfile->params->dir, oldname);
@@ -411,7 +408,7 @@ static void renamebutton_cb(bContext *C, void *UNUSED(arg1), char *oldname)
       }
 
       /* to make sure we show what is on disk */
-      ED_fileselect_clear(wm, sa, sfile);
+      ED_fileselect_clear(wm, CTX_data_scene(C), sfile);
     }
 
     ED_region_tag_redraw(region);
@@ -451,7 +448,7 @@ static void draw_dividers(FileLayout *layout, View2D *v2d)
 
   const int step = (layout->tile_w + 2 * layout->tile_border_x);
 
-  unsigned int vertex_len = 0;
+  uint vertex_len = 0;
   int sx = (int)v2d->tot.xmin;
   while (sx < v2d->cur.xmax) {
     sx += step;
@@ -460,7 +457,7 @@ static void draw_dividers(FileLayout *layout, View2D *v2d)
 
   if (vertex_len > 0) {
     int v1[2], v2[2];
-    unsigned char col_hi[3], col_lo[3];
+    uchar col_hi[3], col_lo[3];
 
     UI_GetThemeColorShade3ubv(TH_BACK, 30, col_hi);
     UI_GetThemeColorShade3ubv(TH_BACK, -30, col_lo);
@@ -688,7 +685,7 @@ void file_draw_list(const bContext *C, ARegion *region)
   bool is_icon;
   eFontStyle_Align align;
   bool do_drag;
-  unsigned char text_col[4];
+  uchar text_col[4];
   const bool draw_columnheader = (params->display == FILE_VERTICALDISPLAY);
   const float thumb_icon_aspect = MIN2(64.0f / (float)(params->thumbnail_size), 1.0f);
 
@@ -756,7 +753,7 @@ void file_draw_list(const bContext *C, ARegion *region)
   UI_GetThemeColor4ubv(TH_TEXT, text_col);
 
   for (i = offset; (i < numfiles) && (i < offset + numfiles_layout); i++) {
-    unsigned int file_selflag;
+    uint file_selflag;
     char path[FILE_MAX_LIBEXTRA];
     int padx = 0.1f * UI_UNIT_X;
     int icon_ofs = 0;

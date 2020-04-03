@@ -24,19 +24,19 @@
 #include <math.h>
 #include <stdlib.h>
 
+#include "DNA_material_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_object_types.h"
-#include "DNA_material_types.h"
 
-#include "DNA_scene_types.h"
 #include "DNA_brush_types.h"
+#include "DNA_scene_types.h"
 
+#include "BLI_listbase.h"
 #include "BLI_math.h"
 #include "BLI_math_color.h"
-#include "BLI_utildefines.h"
-#include "BLI_listbase.h"
 #include "BLI_rect.h"
+#include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
 
@@ -60,13 +60,13 @@
 #include "GPU_state.h"
 
 #include "IMB_colormanagement.h"
-#include "IMB_imbuf_types.h"
 #include "IMB_imbuf.h"
+#include "IMB_imbuf_types.h"
 
 #include "RE_render_ext.h"
 
-#include "ED_view3d.h"
 #include "ED_screen.h"
+#include "ED_view3d.h"
 
 #include "BLI_sys_types.h"
 #include "ED_mesh.h" /* for face mask functions */
@@ -294,12 +294,8 @@ static void imapaint_tri_weights(float matrix[4][4],
 }
 
 /* compute uv coordinates of mouse in face */
-static void imapaint_pick_uv(Mesh *me_eval,
-                             Scene *scene,
-                             Object *ob_eval,
-                             unsigned int faceindex,
-                             const int xy[2],
-                             float uv[2])
+static void imapaint_pick_uv(
+    Mesh *me_eval, Scene *scene, Object *ob_eval, uint faceindex, const int xy[2], float uv[2])
 {
   int i, findex;
   float p[2], w[3], absw, minabsw;
@@ -376,10 +372,7 @@ static void imapaint_pick_uv(Mesh *me_eval,
 }
 
 /* returns 0 if not found, otherwise 1 */
-static int imapaint_pick_face(ViewContext *vc,
-                              const int mval[2],
-                              unsigned int *r_index,
-                              unsigned int totpoly)
+static int imapaint_pick_face(ViewContext *vc, const int mval[2], uint *r_index, uint totpoly)
 {
   if (totpoly == 0) {
     return 0;
@@ -389,7 +382,7 @@ static int imapaint_pick_face(ViewContext *vc,
   ED_view3d_select_id_validate(vc);
   *r_index = DRW_select_buffer_sample_point(vc->depsgraph, vc->region, vc->v3d, mval);
 
-  if ((*r_index) == 0 || (*r_index) > (unsigned int)totpoly) {
+  if ((*r_index) == 0 || (*r_index) > (uint)totpoly) {
     return 0;
   }
 
@@ -464,8 +457,8 @@ void paint_sample_color(
   Palette *palette = BKE_paint_palette(paint);
   PaletteColor *color = NULL;
   Brush *br = BKE_paint_brush(BKE_paint_get_active_from_context(C));
-  unsigned int col;
-  const unsigned char *cp;
+  uint col;
+  const uchar *cp;
 
   CLAMP(x, 0, region->winx);
   CLAMP(y, 0, region->winy);
@@ -497,8 +490,8 @@ void paint_sample_color(
 
       ViewContext vc;
       const int mval[2] = {x, y};
-      unsigned int faceindex;
-      unsigned int totpoly = me->totpoly;
+      uint faceindex;
+      uint totpoly = me->totpoly;
 
       if (CustomData_has_layer(&me_eval->ldata, CD_MLOOPUV)) {
         ED_view3d_viewcontext_init(C, &vc, depsgraph);
@@ -518,8 +511,10 @@ void paint_sample_color(
           if (image) {
             float uv[2];
             float u, v;
+            /* XXX get appropriate ImageUser instead */
             ImageUser iuser;
             BKE_imageuser_default(&iuser);
+            iuser.framenr = image->lastframe;
 
             imapaint_pick_uv(me_eval, scene, ob_eval, faceindex, mval, uv);
 
@@ -561,7 +556,7 @@ void paint_sample_color(
                 }
               }
               else {
-                unsigned char rgba[4];
+                uchar rgba[4];
                 bilinear_interpolation_color_wrap(ibuf, rgba, NULL, u, v);
                 if (use_palette) {
                   rgb_uchar_to_float(color->rgb, rgba);
@@ -596,7 +591,7 @@ void paint_sample_color(
         x + region->winrct.xmin, y + region->winrct.ymin, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &col);
     glReadBuffer(GL_BACK);
   }
-  cp = (unsigned char *)&col;
+  cp = (uchar *)&col;
 
   if (use_palette) {
     rgb_uchar_to_float(color->rgb, cp);

@@ -25,23 +25,23 @@
 
 #include "MEM_guardedalloc.h"
 
-#include <stdlib.h>
-#include <stddef.h>
-#include <string.h>
 #include <limits.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "DNA_action_types.h"
 #include "DNA_anim_types.h"
 #include "DNA_light_types.h"
+#include "DNA_linestyle_types.h"
 #include "DNA_material_types.h"
 #include "DNA_node_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_texture_types.h"
 #include "DNA_world_types.h"
-#include "DNA_linestyle_types.h"
 
-#include "BLI_listbase.h"
 #include "BLI_ghash.h"
+#include "BLI_listbase.h"
 #include "BLI_math.h"
 #include "BLI_path_util.h"
 #include "BLI_string.h"
@@ -63,10 +63,10 @@
 #include "RNA_access.h"
 #include "RNA_define.h"
 
-#include "NOD_socket.h"
 #include "NOD_common.h"
 #include "NOD_composite.h"
 #include "NOD_shader.h"
+#include "NOD_socket.h"
 #include "NOD_texture.h"
 
 #include "DEG_depsgraph.h"
@@ -194,8 +194,6 @@ static void ntree_free_data(ID *id)
   bNodeTree *ntree = (bNodeTree *)id;
   bNode *node, *next;
   bNodeSocket *sock, *nextsock;
-
-  BKE_animdata_free((ID *)ntree, false);
 
   /* XXX hack! node trees should not store execution graphs at all.
    * This should be removed when old tree types no longer require it.
@@ -1656,7 +1654,7 @@ bNodeTree *ntreeAddTree(Main *bmain, const char *name, const char *idname)
   }
   else {
     ntree = MEM_callocN(sizeof(bNodeTree), "new node tree");
-    ntree->id.flag |= LIB_PRIVATE_DATA;
+    ntree->id.flag |= LIB_EMBEDDED_DATA;
     *((short *)ntree->id.name) = ID_NT;
     BLI_strncpy(ntree->id.name + 2, name, sizeof(ntree->id.name));
   }
@@ -1682,21 +1680,6 @@ bNodeTree *ntreeCopyTree_ex(const bNodeTree *ntree, Main *bmain, const bool do_i
 bNodeTree *ntreeCopyTree(Main *bmain, const bNodeTree *ntree)
 {
   return ntreeCopyTree_ex(ntree, bmain, true);
-}
-
-void ntreeUserIncrefID(bNodeTree *ntree)
-{
-  bNode *node;
-  for (node = ntree->nodes.first; node; node = node->next) {
-    id_us_plus(node->id);
-  }
-}
-void ntreeUserDecrefID(bNodeTree *ntree)
-{
-  bNode *node;
-  for (node = ntree->nodes.first; node; node = node->next) {
-    id_us_min(node->id);
-  }
 }
 
 /* *************** Node Preview *********** */
@@ -2156,6 +2139,7 @@ static void free_localized_node_groups(bNodeTree *ntree)
 void ntreeFreeTree(bNodeTree *ntree)
 {
   ntree_free_data(&ntree->id);
+  BKE_animdata_free(&ntree->id, false);
 }
 
 void ntreeFreeNestedTree(bNodeTree *ntree)

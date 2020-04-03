@@ -24,8 +24,8 @@
 #include <stdio.h>
 
 #include "BLI_blenlib.h"
-#include "BLI_math.h"
 #include "BLI_kdtree.h"
+#include "BLI_math.h"
 #include "BLI_string_utils.h"
 #include "BLI_task.h"
 #include "BLI_threads.h"
@@ -74,8 +74,8 @@
 #include "DEG_depsgraph_query.h"
 
 /* for image output */
-#include "IMB_imbuf_types.h"
 #include "IMB_imbuf.h"
+#include "IMB_imbuf_types.h"
 
 /* to read material/texture color */
 #include "RE_render_ext.h"
@@ -2705,7 +2705,7 @@ static void dynamic_paint_find_island_border(const DynamicPaintCreateUVSurfaceDa
       /* Check if it's close enough to likely touch the intended triangle. Any triangle
        * becomes thinner than a pixel at its vertices, so robustness requires some margin. */
       const float final_pt[2] = {((final_index % w) + 0.5f) / w, ((final_index / w) + 0.5f) / h};
-      const float threshold = SQUARE(0.7f) / (w * h);
+      const float threshold = square_f(0.7f) / (w * h);
 
       if (dist_squared_to_looptri_uv_edges(
               mlooptri, mloopuv, tempPoints[final_index].tri_index, final_pt) > threshold) {

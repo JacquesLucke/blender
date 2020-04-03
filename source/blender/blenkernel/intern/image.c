@@ -21,10 +21,10 @@
  * \ingroup bke
  */
 
-#include <stdio.h>
-#include <string.h>
 #include <fcntl.h>
 #include <math.h>
+#include <stdio.h>
+#include <string.h>
 #ifndef WIN32
 #  include <unistd.h>
 #else
@@ -38,26 +38,26 @@
 #include "MEM_guardedalloc.h"
 
 #include "IMB_colormanagement.h"
-#include "IMB_imbuf_types.h"
 #include "IMB_imbuf.h"
-#include "IMB_moviecache.h"
+#include "IMB_imbuf_types.h"
 #include "IMB_metadata.h"
+#include "IMB_moviecache.h"
 
 #ifdef WITH_OPENEXR
 #  include "intern/openexr/openexr_multi.h"
 #endif
 
-#include "DNA_packedFile_types.h"
-#include "DNA_scene_types.h"
-#include "DNA_object_types.h"
-#include "DNA_camera_types.h"
-#include "DNA_sequence_types.h"
 #include "DNA_brush_types.h"
+#include "DNA_camera_types.h"
+#include "DNA_defaults.h"
+#include "DNA_light_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
-#include "DNA_light_types.h"
+#include "DNA_object_types.h"
+#include "DNA_packedFile_types.h"
+#include "DNA_scene_types.h"
+#include "DNA_sequence_types.h"
 #include "DNA_world_types.h"
-#include "DNA_defaults.h"
 
 #include "BLI_blenlib.h"
 #include "BLI_math_vector.h"
@@ -76,10 +76,10 @@
 #include "BKE_image.h"
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
+#include "BKE_node.h"
 #include "BKE_packedFile.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
-#include "BKE_node.h"
 #include "BKE_sequencer.h" /* seq_foreground_frame_get() */
 #include "BKE_workspace.h"
 
@@ -99,8 +99,8 @@
 
 /* for image user iteration */
 #include "DNA_node_types.h"
-#include "DNA_space_types.h"
 #include "DNA_screen_types.h"
+#include "DNA_space_types.h"
 #include "DNA_view3d_types.h"
 
 static CLG_LogRef LOG = {"bke.image"};
@@ -145,8 +145,10 @@ static void image_copy_data(Main *UNUSED(bmain), ID *id_dst, const ID *id_src, c
 
   BLI_duplicatelist(&image_dst->tiles, &image_src->tiles);
 
-  for (int i = 0; i < TEXTARGET_COUNT; i++) {
-    image_dst->gputexture[i] = NULL;
+  for (int eye = 0; eye < 2; eye++) {
+    for (int i = 0; i < TEXTARGET_COUNT; i++) {
+      image_dst->gputexture[i][eye] = NULL;
+    }
   }
 
   if ((flag & LIB_ID_COPY_NO_PREVIEW) == 0) {
@@ -529,9 +531,11 @@ bool BKE_image_scale(Image *image, int width, int height)
 
 bool BKE_image_has_opengl_texture(Image *ima)
 {
-  for (int i = 0; i < TEXTARGET_COUNT; i++) {
-    if (ima->gputexture[i] != NULL) {
-      return true;
+  for (int eye = 0; eye < 2; eye++) {
+    for (int i = 0; i < TEXTARGET_COUNT; i++) {
+      if (ima->gputexture[i][eye] != NULL) {
+        return true;
+      }
     }
   }
   return false;
@@ -574,16 +578,16 @@ ImageTile *BKE_image_get_tile_from_iuser(Image *ima, ImageUser *iuser)
 
 int BKE_image_get_tile_from_pos(struct Image *ima,
                                 const float uv[2],
-                                float new_uv[2],
-                                float ofs[2])
+                                float r_uv[2],
+                                float r_ofs[2])
 {
   float local_ofs[2];
-  if (ofs == NULL) {
-    ofs = local_ofs;
+  if (r_ofs == NULL) {
+    r_ofs = local_ofs;
   }
 
-  copy_v2_v2(new_uv, uv);
-  zero_v2(ofs);
+  copy_v2_v2(r_uv, uv);
+  zero_v2(r_ofs);
 
   if ((ima->source != IMA_SRC_TILED) || uv[0] < 0.0f || uv[1] < 0.0f || uv[0] >= 10.0f) {
     return 0;
@@ -596,9 +600,9 @@ int BKE_image_get_tile_from_pos(struct Image *ima,
   if (BKE_image_get_tile(ima, tile_number) == NULL) {
     return 0;
   }
-  ofs[0] = ix;
-  ofs[1] = iy;
-  sub_v2_v2(new_uv, ofs);
+  r_ofs[0] = ix;
+  r_ofs[1] = iy;
+  sub_v2_v2(r_uv, r_ofs);
 
   return tile_number;
 }
@@ -1813,7 +1817,7 @@ typedef struct StampData {
  * \param use_dynamic: Also include data that can change on a per-frame basis.
  */
 static void stampdata(
-    Scene *scene, Object *camera, StampData *stamp_data, int do_prefix, bool use_dynamic)
+    const Scene *scene, Object *camera, StampData *stamp_data, int do_prefix, bool use_dynamic)
 {
   char text[256];
   struct tm *tl;
@@ -1935,7 +1939,7 @@ static void stampdata(
   }
 
   if (use_dynamic && scene->r.stamp & R_STAMP_SEQSTRIP) {
-    Sequence *seq = BKE_sequencer_foreground_frame_get(scene, scene->r.cfra);
+    const Sequence *seq = BKE_sequencer_foreground_frame_get(scene, scene->r.cfra);
 
     if (seq) {
       STRNCPY(text, seq->name + 2);
@@ -2479,7 +2483,7 @@ void BKE_render_result_stamp_info(Scene *scene,
   }
 }
 
-struct StampData *BKE_stamp_info_from_scene_static(Scene *scene)
+struct StampData *BKE_stamp_info_from_scene_static(const Scene *scene)
 {
   struct StampData *stamp_data;
 
@@ -3023,7 +3027,7 @@ Image *BKE_image_ensure_viewer(Main *bmain, int type, const char *name)
 
   /* happens on reload, imagewindow cannot be image user when hidden*/
   if (ima->id.us == 0) {
-    id_us_plus(&ima->id);
+    id_us_ensure_real(&ima->id);
   }
 
   return ima;
@@ -3318,9 +3322,11 @@ static void image_free_tile(Image *ima, ImageTile *tile)
       continue;
     }
 
-    if (ima->gputexture[i] != NULL) {
-      GPU_texture_free(ima->gputexture[i]);
-      ima->gputexture[i] = NULL;
+    for (int eye = 0; eye < 2; eye++) {
+      if (ima->gputexture[i][eye] != NULL) {
+        GPU_texture_free(ima->gputexture[i][eye]);
+        ima->gputexture[i][eye] = NULL;
+      }
     }
   }
 
@@ -3587,14 +3593,16 @@ ImageTile *BKE_image_add_tile(struct Image *ima, int tile_number, const char *la
     BLI_strncpy(tile->label, label, sizeof(tile->label));
   }
 
-  /* Reallocate GPU tile array. */
-  if (ima->gputexture[TEXTARGET_TEXTURE_2D_ARRAY] != NULL) {
-    GPU_texture_free(ima->gputexture[TEXTARGET_TEXTURE_2D_ARRAY]);
-    ima->gputexture[TEXTARGET_TEXTURE_2D_ARRAY] = NULL;
-  }
-  if (ima->gputexture[TEXTARGET_TEXTURE_TILE_MAPPING] != NULL) {
-    GPU_texture_free(ima->gputexture[TEXTARGET_TEXTURE_TILE_MAPPING]);
-    ima->gputexture[TEXTARGET_TEXTURE_TILE_MAPPING] = NULL;
+  for (int eye = 0; eye < 2; eye++) {
+    /* Reallocate GPU tile array. */
+    if (ima->gputexture[TEXTARGET_TEXTURE_2D_ARRAY][eye] != NULL) {
+      GPU_texture_free(ima->gputexture[TEXTARGET_TEXTURE_2D_ARRAY][eye]);
+      ima->gputexture[TEXTARGET_TEXTURE_2D_ARRAY][eye] = NULL;
+    }
+    if (ima->gputexture[TEXTARGET_TEXTURE_TILE_MAPPING][eye] != NULL) {
+      GPU_texture_free(ima->gputexture[TEXTARGET_TEXTURE_TILE_MAPPING][eye]);
+      ima->gputexture[TEXTARGET_TEXTURE_TILE_MAPPING][eye] = NULL;
+    }
   }
 
   return tile;
@@ -5333,7 +5341,7 @@ bool BKE_image_has_alpha(struct Image *image)
   }
 }
 
-void BKE_image_get_size(Image *image, ImageUser *iuser, int *width, int *height)
+void BKE_image_get_size(Image *image, ImageUser *iuser, int *r_width, int *r_height)
 {
   ImBuf *ibuf = NULL;
   void *lock;
@@ -5343,22 +5351,22 @@ void BKE_image_get_size(Image *image, ImageUser *iuser, int *width, int *height)
   }
 
   if (ibuf && ibuf->x > 0 && ibuf->y > 0) {
-    *width = ibuf->x;
-    *height = ibuf->y;
+    *r_width = ibuf->x;
+    *r_height = ibuf->y;
   }
   else if (image != NULL && image->type == IMA_TYPE_R_RESULT && iuser != NULL &&
            iuser->scene != NULL) {
     Scene *scene = iuser->scene;
-    *width = (scene->r.xsch * scene->r.size) / 100;
-    *height = (scene->r.ysch * scene->r.size) / 100;
+    *r_width = (scene->r.xsch * scene->r.size) / 100;
+    *r_height = (scene->r.ysch * scene->r.size) / 100;
     if ((scene->r.mode & R_BORDER) && (scene->r.mode & R_CROP)) {
-      *width *= BLI_rctf_size_x(&scene->r.border);
-      *height *= BLI_rctf_size_y(&scene->r.border);
+      *r_width *= BLI_rctf_size_x(&scene->r.border);
+      *r_height *= BLI_rctf_size_y(&scene->r.border);
     }
   }
   else {
-    *width = IMG_SIZE_FALLBACK;
-    *height = IMG_SIZE_FALLBACK;
+    *r_width = IMG_SIZE_FALLBACK;
+    *r_height = IMG_SIZE_FALLBACK;
   }
 
   if (image != NULL) {
@@ -5366,25 +5374,25 @@ void BKE_image_get_size(Image *image, ImageUser *iuser, int *width, int *height)
   }
 }
 
-void BKE_image_get_size_fl(Image *image, ImageUser *iuser, float size[2])
+void BKE_image_get_size_fl(Image *image, ImageUser *iuser, float r_size[2])
 {
   int width, height;
   BKE_image_get_size(image, iuser, &width, &height);
 
-  size[0] = (float)width;
-  size[1] = (float)height;
+  r_size[0] = (float)width;
+  r_size[1] = (float)height;
 }
 
-void BKE_image_get_aspect(Image *image, float *aspx, float *aspy)
+void BKE_image_get_aspect(Image *image, float *r_aspx, float *r_aspy)
 {
-  *aspx = 1.0;
+  *r_aspx = 1.0;
 
   /* x is always 1 */
   if (image) {
-    *aspy = image->aspy / image->aspx;
+    *r_aspy = image->aspy / image->aspx;
   }
   else {
-    *aspy = 1.0f;
+    *r_aspy = 1.0f;
   }
 }
 

@@ -22,16 +22,16 @@
  * \ingroup edscr
  */
 
-#include <string.h>
 #include <errno.h>
+#include <string.h>
 
 #include "MEM_guardedalloc.h"
 
 #include "BLI_blenlib.h"
 #include "BLI_utildefines.h"
 
-#include "IMB_imbuf_types.h"
 #include "IMB_imbuf.h"
+#include "IMB_imbuf_types.h"
 
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
@@ -48,13 +48,13 @@
 
 #include "UI_interface.h"
 
-#include "WM_types.h"
 #include "WM_api.h"
+#include "WM_types.h"
 
 #include "screen_intern.h"
 
 typedef struct ScreenshotData {
-  unsigned int *dumprect;
+  uint *dumprect;
   int dumpsx, dumpsy;
   rcti crop;
 

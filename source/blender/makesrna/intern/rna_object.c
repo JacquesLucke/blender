@@ -25,16 +25,16 @@
 #include "DNA_brush_types.h"
 #include "DNA_collection_types.h"
 #include "DNA_customdata_types.h"
+#include "DNA_gpencil_modifier_types.h"
 #include "DNA_lightprobe_types.h"
 #include "DNA_material_types.h"
 #include "DNA_mesh_types.h"
+#include "DNA_meta_types.h"
 #include "DNA_object_force_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
-#include "DNA_meta_types.h"
-#include "DNA_workspace_types.h"
-#include "DNA_gpencil_modifier_types.h"
 #include "DNA_shader_fx_types.h"
+#include "DNA_workspace_types.h"
 
 #include "BLI_utildefines.h"
 
@@ -42,12 +42,12 @@
 
 #include "BKE_camera.h"
 #include "BKE_collection.h"
-#include "BKE_paint.h"
 #include "BKE_editlattice.h"
 #include "BKE_editmesh.h"
 #include "BKE_layer.h"
 #include "BKE_object_deform.h"
 #include "BKE_object_facemap.h"
+#include "BKE_paint.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -85,6 +85,11 @@ const EnumPropertyItem rna_enum_object_mode_items[] = {
      ICON_GREASEPENCIL,
      "Draw",
      "Paint Grease Pencil Strokes"},
+    {OB_MODE_VERTEX_GPENCIL,
+     "VERTEX_GPENCIL",
+     ICON_VPAINT_HLT,
+     "Vertex Paint",
+     "Grease Pencil Vertex Paint Strokes"},
     {OB_MODE_WEIGHT_GPENCIL,
      "WEIGHT_GPENCIL",
      ICON_WPAINT_HLT,
@@ -118,6 +123,11 @@ const EnumPropertyItem rna_enum_workspace_object_mode_items[] = {
      ICON_GREASEPENCIL,
      "Grease Pencil Draw",
      "Paint Grease Pencil Strokes"},
+    {OB_MODE_VERTEX_GPENCIL,
+     "VERTEX_GPENCIL",
+     ICON_VPAINT_HLT,
+     "Grease Pencil Vertex Paint",
+     "Grease Pencil Vertex Paint Strokes"},
     {OB_MODE_WEIGHT_GPENCIL,
      "WEIGHT_GPENCIL",
      ICON_WPAINT_HLT,
@@ -224,6 +234,11 @@ const EnumPropertyItem rna_enum_object_type_items[] = {
     OBTYPE_CU_SURF,
     {OB_MBALL, "META", 0, "Meta", ""},
     OBTYPE_CU_FONT,
+#ifdef WITH_NEW_OBJECT_TYPES
+    {OB_HAIR, "HAIR", 0, "Hair", ""},
+    {OB_POINTCLOUD, "POINTCLOUD", 0, "PointCloud", ""},
+#endif
+    {OB_VOLUME, "VOLUME", 0, "Volume", ""},
     {0, "", 0, NULL, NULL},
     {OB_ARMATURE, "ARMATURE", 0, "Armature", ""},
     {OB_LATTICE, "LATTICE", 0, "Lattice", ""},
@@ -274,10 +289,10 @@ const EnumPropertyItem rna_enum_object_axis_items[] = {
 
 #  include "BLI_math.h"
 
-#  include "DNA_key_types.h"
+#  include "DNA_ID.h"
 #  include "DNA_constraint_types.h"
 #  include "DNA_gpencil_types.h"
-#  include "DNA_ID.h"
+#  include "DNA_key_types.h"
 #  include "DNA_lattice_types.h"
 #  include "DNA_node_types.h"
 
@@ -286,24 +301,24 @@ const EnumPropertyItem rna_enum_object_axis_items[] = {
 #  include "BKE_constraint.h"
 #  include "BKE_context.h"
 #  include "BKE_curve.h"
+#  include "BKE_deform.h"
 #  include "BKE_effect.h"
 #  include "BKE_global.h"
 #  include "BKE_key.h"
-#  include "BKE_object.h"
 #  include "BKE_material.h"
 #  include "BKE_mesh.h"
 #  include "BKE_modifier.h"
+#  include "BKE_object.h"
 #  include "BKE_particle.h"
 #  include "BKE_scene.h"
-#  include "BKE_deform.h"
 
 #  include "DEG_depsgraph.h"
 #  include "DEG_depsgraph_build.h"
 
-#  include "ED_object.h"
-#  include "ED_particle.h"
 #  include "ED_curve.h"
 #  include "ED_lattice.h"
+#  include "ED_object.h"
+#  include "ED_particle.h"
 
 static void rna_Object_internal_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
 {
@@ -340,6 +355,16 @@ static void rna_MaterialIndex_update(Main *UNUSED(bmain), Scene *UNUSED(scene), 
   if (ob && ob->type == OB_GPENCIL) {
     /* notifying material property in topbar */
     WM_main_add_notifier(NC_SPACE | ND_SPACE_VIEW3D, NULL);
+  }
+}
+
+static void rna_GPencil_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
+{
+  Object *ob = (Object *)ptr->owner_id;
+  if (ob && ob->type == OB_GPENCIL) {
+    bGPdata *gpd = (bGPdata *)ob->data;
+    DEG_id_tag_update(&gpd->id, ID_RECALC_GEOMETRY);
+    WM_main_add_notifier(NC_GPENCIL | NA_EDITED, NULL);
   }
 }
 
@@ -532,6 +557,14 @@ static StructRNA *rna_Object_data_typef(PointerRNA *ptr)
       return &RNA_LightProbe;
     case OB_GPENCIL:
       return &RNA_GreasePencil;
+#  ifdef WITH_NEW_OBJECT_TYPES
+    case OB_HAIR:
+      return &RNA_Hair;
+    case OB_POINTCLOUD:
+      return &RNA_PointCloud;
+#  endif
+    case OB_VOLUME:
+      return &RNA_Volume;
     default:
       return &RNA_ID;
   }
@@ -725,6 +758,24 @@ static PointerRNA rna_Object_active_vertex_group_get(PointerRNA *ptr)
   Object *ob = (Object *)ptr->owner_id;
   return rna_pointer_inherit_refine(
       ptr, &RNA_VertexGroup, BLI_findlink(&ob->defbase, ob->actdef - 1));
+}
+
+static void rna_Object_active_vertex_group_set(PointerRNA *ptr,
+                                               PointerRNA value,
+                                               struct ReportList *reports)
+{
+  Object *ob = (Object *)ptr->owner_id;
+  int index = BLI_findindex(&ob->defbase, value.data);
+  if (index == -1) {
+    BKE_reportf(reports,
+                RPT_ERROR,
+                "VertexGroup '%s' not found in object '%s'",
+                ((bDeformGroup *)value.data)->name,
+                ob->id.name + 2);
+    return;
+  }
+
+  ob->actdef = index + 1;
 }
 
 static int rna_Object_active_vertex_group_index_get(PointerRNA *ptr)
@@ -2300,6 +2351,7 @@ static void rna_def_object_vertex_groups(BlenderRNA *brna, PropertyRNA *cprop)
                                  "rna_Object_active_vertex_group_set",
                                  NULL,
                                  NULL);
+  RNA_def_property_flag(prop, PROP_EDITABLE);
   RNA_def_property_ui_text(prop, "Active Vertex Group", "Vertex groups of the object");
   RNA_def_property_update(prop, NC_GEOM | ND_DATA, "rna_Object_internal_update_data");
 
@@ -3067,6 +3119,13 @@ static void rna_def_object(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Display All Edges", "Display all edges for mesh objects");
   RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, NULL);
 
+  prop = RNA_def_property(srna, "use_grease_pencil_lights", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "dtx", OB_USE_GPENCIL_LIGHTS);
+  RNA_def_property_boolean_default(prop, true);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_ui_text(prop, "Use Lights", "Lights affect grease pencil object");
+  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_GPencil_update");
+
   prop = RNA_def_property(srna, "show_transparent", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "dtx", OB_DRAWTRANSP);
   RNA_def_property_ui_text(
@@ -3076,7 +3135,7 @@ static void rna_def_object(BlenderRNA *brna)
   prop = RNA_def_property(srna, "show_in_front", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "dtx", OB_DRAWXRAY);
   RNA_def_property_ui_text(prop, "In Front", "Make the object draw in front of others");
-  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, NULL);
+  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_GPencil_update");
 
   /* pose */
   prop = RNA_def_property(srna, "pose_library", PROP_POINTER, PROP_NONE);

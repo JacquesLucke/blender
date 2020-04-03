@@ -21,26 +21,26 @@
  * \ingroup edphys
  */
 
-#include <stdlib.h>
-#include <math.h>
-#include <string.h>
 #include <assert.h>
+#include <math.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "MEM_guardedalloc.h"
 
-#include "DNA_scene_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
-#include "DNA_view3d_types.h"
+#include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_space_types.h"
+#include "DNA_view3d_types.h"
 
-#include "BLI_math.h"
+#include "BLI_kdtree.h"
 #include "BLI_lasso_2d.h"
 #include "BLI_listbase.h"
-#include "BLI_rect.h"
-#include "BLI_kdtree.h"
+#include "BLI_math.h"
 #include "BLI_rand.h"
+#include "BLI_rect.h"
 #include "BLI_task.h"
 #include "BLI_utildefines.h"
 
@@ -59,10 +59,10 @@
 
 #include "DEG_depsgraph.h"
 
-#include "ED_object.h"
-#include "ED_physics.h"
 #include "ED_mesh.h"
+#include "ED_object.h"
 #include "ED_particle.h"
+#include "ED_physics.h"
 #include "ED_screen.h"
 #include "ED_select_utils.h"
 #include "ED_view3d.h"
@@ -74,9 +74,9 @@
 #include "UI_resources.h"
 
 #include "WM_api.h"
-#include "WM_types.h"
 #include "WM_message.h"
 #include "WM_toolsystem.h"
+#include "WM_types.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -4890,7 +4890,7 @@ static void point_inside_bvh_cb(void *userdata,
 }
 
 /* true if the point is inside the shape mesh */
-static bool shape_cut_test_point(PEData *data, ParticleCacheKey *key)
+static bool shape_cut_test_point(PEData *data, ParticleEditSettings *pset, ParticleCacheKey *key)
 {
   BVHTreeFromMesh *shape_bvh = &data->shape_bvh;
   const float dir[3] = {1.0f, 0.0f, 0.0f};
@@ -4899,8 +4899,11 @@ static bool shape_cut_test_point(PEData *data, ParticleCacheKey *key)
   userdata.bvhdata = data->shape_bvh;
   userdata.num_hits = 0;
 
+  float co_shape[3];
+  mul_v3_m4v3(co_shape, pset->shape_object->imat, key->co);
+
   BLI_bvhtree_ray_cast_all(
-      shape_bvh->tree, key->co, dir, 0.0f, BVH_RAYCAST_DIST_MAX, point_inside_bvh_cb, &userdata);
+      shape_bvh->tree, co_shape, dir, 0.0f, BVH_RAYCAST_DIST_MAX, point_inside_bvh_cb, &userdata);
 
   /* for any point inside a watertight mesh the number of hits is uneven */
   return (userdata.num_hits % 2) == 1;
@@ -4926,32 +4929,37 @@ static void shape_cut(PEData *data, int pa_index)
 
   /* check if root is inside the cut shape */
   key = edit->pathcache[pa_index];
-  if (!shape_cut_test_point(data, key)) {
+  if (!shape_cut_test_point(data, pset, key)) {
     cut_time = -1.0f;
     cut = true;
   }
   else {
     for (k = 0; k < totkeys; k++, key++) {
       BVHTreeRayHit hit;
-      float dir[3];
-      float len;
 
-      sub_v3_v3v3(dir, (key + 1)->co, key->co);
-      len = normalize_v3(dir);
+      float co_curr_shape[3], co_next_shape[3];
+      float dir_shape[3];
+      float len_shape;
+
+      mul_v3_m4v3(co_curr_shape, pset->shape_object->imat, key->co);
+      mul_v3_m4v3(co_next_shape, pset->shape_object->imat, (key + 1)->co);
+
+      sub_v3_v3v3(dir_shape, co_next_shape, co_curr_shape);
+      len_shape = normalize_v3(dir_shape);
 
       memset(&hit, 0, sizeof(hit));
       hit.index = -1;
-      hit.dist = len;
+      hit.dist = len_shape;
       BLI_bvhtree_ray_cast(data->shape_bvh.tree,
-                           key->co,
-                           dir,
+                           co_curr_shape,
+                           dir_shape,
                            0.0f,
                            &hit,
                            data->shape_bvh.raycast_callback,
                            &data->shape_bvh);
       if (hit.index >= 0) {
-        if (hit.dist < len) {
-          cut_time = (hit.dist / len + (float)k) / (float)totkeys;
+        if (hit.dist < len_shape) {
+          cut_time = ((hit.dist / len_shape) + (float)k) / (float)totkeys;
           cut = true;
           break;
         }

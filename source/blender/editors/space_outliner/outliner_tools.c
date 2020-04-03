@@ -26,27 +26,29 @@
 #include "DNA_anim_types.h"
 #include "DNA_armature_types.h"
 #include "DNA_collection_types.h"
+#include "DNA_constraint_types.h"
 #include "DNA_gpencil_types.h"
+#include "DNA_hair_types.h"
 #include "DNA_light_types.h"
 #include "DNA_linestyle_types.h"
 #include "DNA_material_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meta_types.h"
+#include "DNA_modifier_types.h"
+#include "DNA_object_types.h"
+#include "DNA_pointcloud_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_sequence_types.h"
+#include "DNA_volume_types.h"
 #include "DNA_world_types.h"
-#include "DNA_object_types.h"
-#include "DNA_constraint_types.h"
-#include "DNA_modifier_types.h"
 
 #include "BLI_blenlib.h"
 #include "BLI_utildefines.h"
 
 #include "BKE_animsys.h"
 #include "BKE_collection.h"
-#include "BKE_context.h"
 #include "BKE_constraint.h"
-#include "BKE_object.h"
+#include "BKE_context.h"
 #include "BKE_fcurve.h"
 #include "BKE_global.h"
 #include "BKE_layer.h"
@@ -54,6 +56,7 @@
 #include "BKE_lib_override.h"
 #include "BKE_lib_query.h"
 #include "BKE_main.h"
+#include "BKE_object.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
@@ -71,12 +74,12 @@
 #include "ED_undo.h"
 
 #include "WM_api.h"
-#include "WM_types.h"
 #include "WM_message.h"
+#include "WM_types.h"
 
 #include "UI_interface.h"
-#include "UI_view2d.h"
 #include "UI_resources.h"
+#include "UI_view2d.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -153,6 +156,9 @@ static void set_operation_types(SpaceOutliner *soops,
           case ID_CF:
           case ID_WS:
           case ID_LP:
+          case ID_HA:
+          case ID_PT:
+          case ID_VO:
             is_standard_id = true;
             break;
           case ID_WM:
@@ -229,6 +235,21 @@ static void unlink_material_cb(bContext *UNUSED(C),
     MetaBall *mb = (MetaBall *)tsep->id;
     totcol = mb->totcol;
     matar = mb->mat;
+  }
+  else if (GS(tsep->id->name) == ID_HA) {
+    Hair *hair = (Hair *)tsep->id;
+    totcol = hair->totcol;
+    matar = hair->mat;
+  }
+  else if (GS(tsep->id->name) == ID_PT) {
+    PointCloud *pointcloud = (PointCloud *)tsep->id;
+    totcol = pointcloud->totcol;
+    matar = pointcloud->mat;
+  }
+  else if (GS(tsep->id->name) == ID_VO) {
+    Volume *volume = (Volume *)tsep->id;
+    totcol = volume->totcol;
+    matar = volume->mat;
   }
   else {
     BLI_assert(0);
@@ -507,7 +528,7 @@ static void merged_element_search_cb_recursive(
 
         /* Don't allow duplicate named items */
         if (UI_search_items_find_index(items, name) == -1) {
-          if (!UI_search_item_add(items, name, te, iconid)) {
+          if (!UI_search_item_add(items, name, te, iconid, 0)) {
             break;
           }
         }
@@ -568,7 +589,7 @@ static uiBlock *merged_element_search_menu(bContext *C, ARegion *region, void *d
   but = uiDefSearchBut(
       block, search, 0, ICON_VIEWZOOM, sizeof(search), 10, 10, menu_width, UI_UNIT_Y, 0, 0, "");
   UI_but_func_search_set(
-      but, NULL, merged_element_search_cb, data, false, merged_element_search_call_cb, NULL);
+      but, NULL, merged_element_search_cb, data, NULL, merged_element_search_call_cb, NULL);
   UI_but_flag_enable(but, UI_BUT_ACTIVATE_ON_INIT);
 
   /* Fake button to hold space for search items */
@@ -678,8 +699,8 @@ static void object_delete_cb(bContext *C,
       return;
     }
 
-    // check also library later
-    if ((ob->mode && OB_MODE_EDIT) && BKE_object_is_in_editmode(ob)) {
+    /* Check also library later. */
+    if ((ob->mode & OB_MODE_EDIT) && BKE_object_is_in_editmode(ob)) {
       ED_object_editmode_exit_ex(bmain, scene, ob, EM_FREEDATA);
     }
     BKE_id_delete(bmain, ob);

@@ -21,18 +21,18 @@
  * \ingroup edgpencil
  */
 
-#include <stdio.h>
+#include <math.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 
 #include "MEM_guardedalloc.h"
 
 #include "BLI_blenlib.h"
 #include "BLI_math.h"
-#include "BLI_utildefines.h"
 #include "BLI_math_geom.h"
+#include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
 
@@ -48,17 +48,17 @@
 #include "BKE_screen.h"
 #include "BKE_tracking.h"
 
+#include "DNA_gpencil_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
-#include "DNA_gpencil_types.h"
 #include "DNA_windowmanager_types.h"
 
 #include "UI_view2d.h"
 
+#include "ED_clip.h"
 #include "ED_gpencil.h"
 #include "ED_screen.h"
 #include "ED_view3d.h"
-#include "ED_clip.h"
 
 #include "GPU_immediate.h"
 #include "GPU_immediate_util.h"
@@ -537,9 +537,7 @@ static short gp_stroke_addpoint(tGPsdata *p, const float mval[2], float pressure
       pts->pressure = pt->pressure;
       pts->strength = pt->strength;
       pts->time = pt->time;
-
-      /* force fill recalc */
-      gps->flag |= GP_STROKE_RECALC_GEOMETRY;
+      gps->tot_triangles = 0;
     }
 
     /* increment counters */
@@ -604,14 +602,13 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
   /* copy appropriate settings for stroke */
   gps->totpoints = totelem;
   gps->thickness = gpl->thickness;
-  gps->gradient_f = 1.0f;
-  gps->gradient_s[0] = 1.0f;
-  gps->gradient_s[1] = 1.0f;
+  gps->fill_opacity_fac = 1.0f;
+  gps->hardeness = 1.0f;
+  copy_v2_fl(gps->aspect_ratio, 1.0f);
+  gps->uv_scale = 1.0f;
   gps->flag = gpd->runtime.sbuffer_sflag;
   gps->inittime = p->inittime;
-
-  /* enable recalculation flag by default (only used if hq fill) */
-  gps->flag |= GP_STROKE_RECALC_GEOMETRY;
+  gps->tot_triangles = 0;
 
   /* allocate enough memory for a continuous array for storage points */
   gps->points = MEM_callocN(sizeof(bGPDspoint) * gps->totpoints, "gp_stroke_points");
@@ -819,7 +816,6 @@ static void gp_stroke_eraser_dostroke(tGPsdata *p,
                                       bGPDframe *gpf,
                                       bGPDstroke *gps,
                                       const float mval[2],
-                                      const float mvalo[2],
                                       const int radius,
                                       const rcti *rect)
 {
@@ -888,7 +884,7 @@ static void gp_stroke_eraser_dostroke(tGPsdata *p,
          * eraser region  (either within stroke painted, or on its lines)
          *  - this assumes that linewidth is irrelevant
          */
-        if (gp_stroke_inside_circle(mval, mvalo, radius, pc1[0], pc1[1], pc2[0], pc2[1])) {
+        if (gp_stroke_inside_circle(mval, radius, pc1[0], pc1[1], pc2[0], pc2[1])) {
           if ((gp_stroke_eraser_is_occluded(p, pt1, pc1[0], pc1[1]) == false) ||
               (gp_stroke_eraser_is_occluded(p, pt2, pc2[0], pc2[1]) == false)) {
             /* Edge is affected - Check individual points now */
@@ -941,7 +937,7 @@ static void gp_stroke_doeraser(tGPsdata *p)
      * (e.g. 2D space strokes in the 3D view, if the same datablock is shared)
      */
     if (ED_gpencil_stroke_can_use_direct(p->sa, gps)) {
-      gp_stroke_eraser_dostroke(p, gpf, gps, p->mval, p->mvalo, p->radius, &rect);
+      gp_stroke_eraser_dostroke(p, gpf, gps, p->mval, p->radius, &rect);
     }
   }
 }
@@ -1207,7 +1203,7 @@ static void gp_paint_initstroke(tGPsdata *p, eGPencil_PaintModes paintmode, Deps
   ToolSettings *ts = scene->toolsettings;
 
   /* get active layer (or add a new one if non-existent) */
-  p->gpl = BKE_gpencil_layer_getactive(p->gpd);
+  p->gpl = BKE_gpencil_layer_active_get(p->gpd);
   if (p->gpl == NULL) {
     /* tag for annotations */
     p->gpd->flag |= GP_DATA_ANNOTATIONS;
@@ -1235,7 +1231,7 @@ static void gp_paint_initstroke(tGPsdata *p, eGPencil_PaintModes paintmode, Deps
      */
     bool has_layer_to_erase = false;
 
-    if (gpencil_layer_is_editable(p->gpl)) {
+    if (BKE_gpencil_layer_is_editable(p->gpl)) {
       /* Ensure that there's stuff to erase here (not including selection mask below)... */
       if (p->gpl->actframe && p->gpl->actframe->strokes.first) {
         has_layer_to_erase = true;
@@ -1263,7 +1259,7 @@ static void gp_paint_initstroke(tGPsdata *p, eGPencil_PaintModes paintmode, Deps
       add_frame_mode = GP_GETFRAME_ADD_NEW;
     }
 
-    p->gpf = BKE_gpencil_layer_getframe(p->gpl, CFRA, add_frame_mode);
+    p->gpf = BKE_gpencil_layer_frame_get(p->gpl, CFRA, add_frame_mode);
 
     if (p->gpf == NULL) {
       p->status = GP_STATUS_ERROR;
@@ -2053,20 +2049,35 @@ static int gpencil_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
   /* We don't pass on key events, GP is used with key-modifiers -
    * prevents Dkey to insert drivers. */
   if (ISKEYBOARD(event->type)) {
-    if (ELEM(event->type, LEFTARROWKEY, DOWNARROWKEY, RIGHTARROWKEY, UPARROWKEY, ZKEY)) {
+    if (ELEM(event->type,
+             EVT_LEFTARROWKEY,
+             EVT_DOWNARROWKEY,
+             EVT_RIGHTARROWKEY,
+             EVT_UPARROWKEY,
+             EVT_ZKEY)) {
       /* allow some keys:
        *   - for frame changing [#33412]
        *   - for undo (during sketching sessions)
        */
     }
-    else if (ELEM(event->type, PAD0, PAD1, PAD2, PAD3, PAD4, PAD5, PAD6, PAD7, PAD8, PAD9)) {
+    else if (ELEM(event->type,
+                  EVT_PAD0,
+                  EVT_PAD1,
+                  EVT_PAD2,
+                  EVT_PAD3,
+                  EVT_PAD4,
+                  EVT_PAD5,
+                  EVT_PAD6,
+                  EVT_PAD7,
+                  EVT_PAD8,
+                  EVT_PAD9)) {
       /* allow numpad keys so that camera/view manipulations can still take place
        * - PAD0 in particular is really important for Grease Pencil drawing,
        *   as animators may be working "to camera", so having this working
        *   is essential for ensuring that they can quickly return to that view
        */
     }
-    else if ((event->type == BKEY) && (event->val == KM_RELEASE)) {
+    else if ((event->type == EVT_BKEY) && (event->val == KM_RELEASE)) {
       /* Add Blank Frame
        * - Since this operator is non-modal, we can just call it here, and keep going...
        * - This operator is especially useful when animating
@@ -2086,7 +2097,8 @@ static int gpencil_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
    * NOTE: cannot do RIGHTMOUSE (as is standard for canceling)
    * as that would break polyline T32647.
    */
-  if (event->val == KM_PRESS && ELEM(event->type, RETKEY, PADENTER, ESCKEY, SPACEKEY, EKEY)) {
+  if (event->val == KM_PRESS &&
+      ELEM(event->type, EVT_RETKEY, EVT_PADENTER, EVT_ESCKEY, EVT_SPACEKEY, EVT_EKEY)) {
     /* exit() ends the current stroke before cleaning up */
     /* printf("\t\tGP - end of paint op + end of stroke\n"); */
     p->status = GP_STATUS_DONE;
@@ -2264,19 +2276,19 @@ static int gpencil_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
     }
     /* eraser size */
     else if ((p->paintmode == GP_PAINTMODE_ERASER) &&
-             ELEM(event->type, WHEELUPMOUSE, WHEELDOWNMOUSE, PADPLUSKEY, PADMINUS)) {
+             ELEM(event->type, WHEELUPMOUSE, WHEELDOWNMOUSE, EVT_PADPLUSKEY, EVT_PADMINUS)) {
       /* just resize the brush (local version)
        * TODO: fix the hardcoded size jumps (set to make a visible difference) and hardcoded keys
        */
       /* printf("\t\tGP - resize eraser\n"); */
       switch (event->type) {
         case WHEELDOWNMOUSE: /* larger */
-        case PADPLUSKEY:
+        case EVT_PADPLUSKEY:
           p->radius += 5;
           break;
 
         case WHEELUPMOUSE: /* smaller */
-        case PADMINUS:
+        case EVT_PADMINUS:
           p->radius -= 5;
 
           if (p->radius <= 0) {

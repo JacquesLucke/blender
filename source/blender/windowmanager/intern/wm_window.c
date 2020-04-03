@@ -25,8 +25,8 @@
  */
 
 #include <math.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "DNA_listBase.h"
@@ -38,8 +38,8 @@
 
 #include "GHOST_C-api.h"
 
-#include "BLI_math.h"
 #include "BLI_blenlib.h"
+#include "BLI_math.h"
 #include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
@@ -60,32 +60,32 @@
 #include "WM_types.h"
 #include "wm.h"
 #include "wm_draw.h"
+#include "wm_event_system.h"
 #include "wm_files.h"
 #include "wm_platform_support.h"
 #include "wm_window.h"
 #include "wm_window_private.h"
-#include "wm_event_system.h"
 
 #include "ED_anim_api.h"
+#include "ED_fileselect.h"
 #include "ED_render.h"
 #include "ED_scene.h"
 #include "ED_screen.h"
-#include "ED_fileselect.h"
 
 #include "UI_interface.h"
 #include "UI_interface_icons.h"
 
 #include "PIL_time.h"
 
+#include "BLF_api.h"
 #include "GPU_batch.h"
 #include "GPU_batch_presets.h"
-#include "GPU_draw.h"
-#include "GPU_platform.h"
-#include "GPU_framebuffer.h"
-#include "GPU_init_exit.h"
-#include "GPU_immediate.h"
 #include "GPU_context.h"
-#include "BLF_api.h"
+#include "GPU_draw.h"
+#include "GPU_framebuffer.h"
+#include "GPU_immediate.h"
+#include "GPU_init_exit.h"
+#include "GPU_platform.h"
 
 #include "UI_resources.h"
 
@@ -414,7 +414,7 @@ void wm_quit_with_optional_confirmation_prompt(bContext *C, wmWindow *win)
 void wm_window_close(bContext *C, wmWindowManager *wm, wmWindow *win)
 {
   wmWindow *win_other;
-  const bool is_dialog = GHOST_IsDialogWindow(win->ghostwin);
+  const bool is_dialog = (G.background == false) ? GHOST_IsDialogWindow(win->ghostwin) : false;
 
   /* First check if there is another main window remaining. */
   for (win_other = wm->windows.first; win_other; win_other = win_other->next) {
@@ -434,9 +434,13 @@ void wm_window_close(bContext *C, wmWindowManager *wm, wmWindow *win)
     if (iter_win->parent == win) {
       wm_window_close(C, wm, iter_win);
     }
-    else if (is_dialog && iter_win != win && iter_win->parent &&
-             (GHOST_GetWindowState(iter_win->ghostwin) != GHOST_kWindowStateMinimized)) {
-      wm_window_raise(iter_win);
+    else {
+      if (G.background == false) {
+        if (is_dialog && iter_win != win && iter_win->parent &&
+            (GHOST_GetWindowState(iter_win->ghostwin) != GHOST_kWindowStateMinimized)) {
+          wm_window_raise(iter_win);
+        }
+      }
     }
   }
 
@@ -1631,6 +1635,11 @@ void wm_window_process_events(const bContext *C)
     GHOST_DispatchEvents(g_system);
   }
   hasevent |= wm_window_timer(C);
+#ifdef WITH_XR_OPENXR
+  /* XR events don't use the regular window queues. So here we don't only trigger
+   * processing/dispatching but also handling. */
+  hasevent |= wm_xr_events_handle(CTX_wm_manager(C));
+#endif
 
   /* no event, we sleep 5 milliseconds */
   if (hasevent == 0) {
@@ -1957,6 +1966,9 @@ void wm_window_raise(wmWindow *win)
 /** \name Window Buffers
  * \{ */
 
+/**
+ * \brief Push rendered buffer to the screen.
+ */
 void wm_window_swap_buffers(wmWindow *win)
 {
   GHOST_SwapWindowBuffers(win->ghostwin);
@@ -2167,21 +2179,9 @@ void WM_window_screen_rect_calc(const wmWindow *win, rcti *r_rect)
 
     switch (global_area->global->align) {
       case GLOBAL_AREA_ALIGN_TOP:
-        if ((screen_rect.ymax - height) > window_rect.ymin) {
-          height += U.pixelsize;
-        }
-        if (screen_rect.ymax < (window_rect.ymax - 1)) {
-          height += U.pixelsize;
-        }
         screen_rect.ymax -= height;
         break;
       case GLOBAL_AREA_ALIGN_BOTTOM:
-        if (screen_rect.ymin > window_rect.ymin) {
-          height += U.pixelsize;
-        }
-        if ((screen_rect.ymin + height) < (window_rect.ymax - 1)) {
-          height += U.pixelsize;
-        }
         screen_rect.ymin += height;
         break;
       default:

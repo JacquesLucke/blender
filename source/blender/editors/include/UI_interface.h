@@ -506,6 +506,9 @@ typedef void (*uiButSearchFunc)(const struct bContext *C,
                                 void *arg,
                                 const char *str,
                                 uiSearchItems *items);
+
+typedef void (*uiButSearchArgFreeFunc)(void *arg);
+
 /* Must return allocated string. */
 typedef char *(*uiButToolTipFunc)(struct bContext *C, void *argN, const char *tip);
 typedef int (*uiButPushedStateFunc)(struct bContext *C, void *arg);
@@ -1124,7 +1127,9 @@ uiBut *uiDefIconButO_ptr(uiBlock *block,
                          short width,
                          short height,
                          const char *tip);
-
+uiBut *uiDefButImage(
+    uiBlock *block, void *imbuf, int x, int y, short width, short height, const uchar color[4]);
+uiBut *uiDefButAlert(uiBlock *block, int icon, int x, int y, short width, short height);
 uiBut *uiDefIconTextBut(uiBlock *block,
                         int type,
                         int retval,
@@ -1563,13 +1568,13 @@ eAutoPropButsReturn uiDefAutoButsRNA(uiLayout *layout,
                                      const bool compact);
 
 /* use inside searchfunc to add items */
-bool UI_search_item_add(uiSearchItems *items, const char *name, void *poin, int iconid);
+bool UI_search_item_add(uiSearchItems *items, const char *name, void *poin, int iconid, int state);
 /* bfunc gets search item *poin as arg2, or if NULL the old string */
 void UI_but_func_search_set(uiBut *but,
                             uiButSearchCreateFunc cfunc,
                             uiButSearchFunc sfunc,
                             void *arg,
-                            bool free_arg,
+                            uiButSearchArgFreeFunc search_arg_free_func,
                             uiButHandleFunc bfunc,
                             void *active);
 /* height in pixels, it's using hardcoded values still */
@@ -1805,7 +1810,7 @@ uiLayout *UI_block_layout(uiBlock *block,
                           int size,
                           int em,
                           int padding,
-                          struct uiStyle *style);
+                          const struct uiStyle *style);
 void UI_block_layout_set_current(uiBlock *block, uiLayout *layout);
 void UI_block_layout_resolve(uiBlock *block, int *r_x, int *r_y);
 
@@ -2033,6 +2038,10 @@ void uiTemplateImageInfo(uiLayout *layout,
 void uiTemplateRunningJobs(uiLayout *layout, struct bContext *C);
 void UI_but_func_operator_search(uiBut *but);
 void uiTemplateOperatorSearch(uiLayout *layout);
+
+void UI_but_func_menu_search(uiBut *but);
+void uiTemplateMenuSearch(uiLayout *layout);
+
 eAutoPropButsReturn uiTemplateOperatorPropertyButs(const struct bContext *C,
                                                    uiLayout *layout,
                                                    struct wmOperator *op,
@@ -2353,7 +2362,7 @@ void UI_drop_color_copy(struct wmDrag *drag, struct wmDropBox *drop);
 bool UI_drop_color_poll(struct bContext *C,
                         struct wmDrag *drag,
                         const struct wmEvent *event,
-                        const char **tooltip);
+                        const char **r_tooltip);
 
 bool UI_context_copy_to_selected_list(struct bContext *C,
                                       struct PointerRNA *ptr,
@@ -2382,6 +2391,9 @@ struct ID *UI_context_active_but_get_tab_ID(struct bContext *C);
 
 uiBut *UI_region_active_but_get(struct ARegion *region);
 uiBut *UI_region_but_find_rect_over(const struct ARegion *region, const struct rcti *isect);
+uiBlock *UI_region_block_find_mouse_over(const struct ARegion *region,
+                                         const int xy[2],
+                                         bool only_clip);
 
 /* uiFontStyle.align */
 typedef enum eFontStyle_Align {
@@ -2428,8 +2440,8 @@ int UI_fontstyle_height_max(const struct uiFontStyle *fs);
 
 void UI_draw_icon_tri(float x, float y, char dir, const float[4]);
 
-struct uiStyle *UI_style_get(void);     /* use for fonts etc */
-struct uiStyle *UI_style_get_dpi(void); /* DPI scaled settings for drawing */
+const struct uiStyle *UI_style_get(void);     /* use for fonts etc */
+const struct uiStyle *UI_style_get_dpi(void); /* DPI scaled settings for drawing */
 
 /* linker workaround ack! */
 void UI_template_fix_linking(void);

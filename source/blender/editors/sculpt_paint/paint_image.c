@@ -24,14 +24,14 @@
  */
 
 #include <float.h>
-#include <string.h>
-#include <stdio.h>
 #include <math.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_math.h"
 #include "BLI_blenlib.h"
+#include "BLI_math.h"
 #include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
@@ -44,9 +44,9 @@
 #include "DNA_node_types.h"
 #include "DNA_object_types.h"
 
+#include "BKE_brush.h"
 #include "BKE_colorband.h"
 #include "BKE_context.h"
-#include "BKE_brush.h"
 #include "BKE_image.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
@@ -67,9 +67,9 @@
 #include "ED_view3d.h"
 
 #include "WM_api.h"
-#include "WM_types.h"
 #include "WM_message.h"
 #include "WM_toolsystem.h"
+#include "WM_types.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -120,7 +120,7 @@ void imapaint_region_tiles(
 }
 
 void ED_imapaint_dirty_region(
-    Image *ima, ImBuf *ibuf, int tile_number, int x, int y, int w, int h, bool find_old)
+    Image *ima, ImBuf *ibuf, ImageUser *iuser, int x, int y, int w, int h, bool find_old)
 {
   ImBuf *tmpibuf = NULL;
   int tilex, tiley, tilew, tileh, tx, ty;
@@ -153,7 +153,7 @@ void ED_imapaint_dirty_region(
   for (ty = tiley; ty <= tileh; ty++) {
     for (tx = tilex; tx <= tilew; tx++) {
       ED_image_paint_tile_push(
-          undo_tiles, ima, ibuf, &tmpibuf, tile_number, tx, ty, NULL, NULL, false, find_old);
+          undo_tiles, ima, ibuf, &tmpibuf, iuser, tx, ty, NULL, NULL, false, find_old);
     }
   }
 

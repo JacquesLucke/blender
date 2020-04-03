@@ -34,13 +34,13 @@
 
 #include "UI_interface.h"
 #include "UI_interface_icons.h"
-#include "UI_view2d.h"
 #include "UI_resources.h"
+#include "UI_view2d.h"
 
 #include "DNA_scene_types.h"
 
-#include "BLI_rect.h"
 #include "BLI_math.h"
+#include "BLI_rect.h"
 #include "BLI_string.h"
 #include "BLI_timecode.h"
 
@@ -95,7 +95,7 @@ static void draw_current_frame(const Scene *scene,
                                int current_frame)
 {
   const uiFontStyle *fstyle = UI_FSTYLE_WIDGET;
-  const unsigned char color[] = {255, 255, 255, 255};
+  const uchar color[] = {255, 255, 255, 255};
   int frame_x = UI_view2d_view_to_region_x(v2d, current_frame);
 
   char frame_str[64];

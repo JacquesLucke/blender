@@ -23,24 +23,24 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_math.h"
 #include "BLI_blenlib.h"
 #include "BLI_dial_2d.h"
-#include "BLI_gsqueue.h"
 #include "BLI_ghash.h"
+#include "BLI_gsqueue.h"
 #include "BLI_hash.h"
+#include "BLI_math.h"
 #include "BLI_task.h"
 #include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
 
+#include "DNA_brush_types.h"
 #include "DNA_customdata_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_node_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
-#include "DNA_brush_types.h"
 
 #include "BKE_brush.h"
 #include "BKE_ccg.h"
@@ -71,13 +71,13 @@
 #include "DEG_depsgraph.h"
 
 #include "WM_api.h"
-#include "WM_types.h"
 #include "WM_message.h"
 #include "WM_toolsystem.h"
+#include "WM_types.h"
 
-#include "ED_sculpt.h"
 #include "ED_object.h"
 #include "ED_screen.h"
+#include "ED_sculpt.h"
 #include "ED_view3d.h"
 #include "paint_intern.h"
 #include "sculpt_intern.h"
@@ -145,12 +145,11 @@ static void do_cloth_brush_build_constraints_task_cb_ex(
       int tot_indices = 0;
       build_indices[tot_indices] = vd.index;
       tot_indices++;
-      sculpt_vertex_neighbors_iter_begin(ss, vd.index, ni)
-      {
+      SCULPT_VERTEX_NEIGHBORS_ITER_BEGIN (ss, vd.index, ni) {
         build_indices[tot_indices] = ni.index;
         tot_indices++;
       }
-      sculpt_vertex_neighbors_iter_end(ni);
+      SCULPT_VERTEX_NEIGHBORS_ITER_END(ni);
 
       /* As we don't know the order of the neighbor vertices, we create all possible combinations
        * between the neighbor and the original vertex as length constraints. */
@@ -384,7 +383,8 @@ static void do_cloth_brush_solve_simulation_task_cb_ex(
       sub_v3_v3v3(pos_diff, cloth_sim->pos[i], cloth_sim->prev_pos[i]);
       mul_v3_fl(pos_diff, (1.0f - cloth_sim->damping));
 
-      const float mask_v = (1.0f - (vd.mask ? *vd.mask : 0.0f));
+      const float mask_v = (1.0f - (vd.mask ? *vd.mask : 0.0f)) *
+                           SCULPT_automasking_factor_get(ss, vd.index);
       madd_v3_v3fl(cloth_sim->pos[i], pos_diff, mask_v);
       madd_v3_v3fl(cloth_sim->pos[i], cloth_sim->acceleration[i], mask_v);
 
@@ -445,11 +445,20 @@ static void cloth_brush_satisfy_constraints(SculptSession *ss,
       const float constraint_distance = constraint->length +
                                         (cloth_sim->length_constraint_tweak[v1] * 0.5f) +
                                         (cloth_sim->length_constraint_tweak[v2] * 0.5f);
-      mul_v3_v3fl(correction_vector, v1_to_v2, 1.0f - (constraint_distance / current_distance));
+
+      if (current_distance > 0.0f) {
+        mul_v3_v3fl(correction_vector, v1_to_v2, 1.0f - (constraint_distance / current_distance));
+      }
+      else {
+        copy_v3_v3(correction_vector, v1_to_v2);
+      }
+
       mul_v3_v3fl(correction_vector_half, correction_vector, 0.5f);
 
-      const float mask_v1 = (1.0f - SCULPT_vertex_mask_get(ss, v1));
-      const float mask_v2 = (1.0f - SCULPT_vertex_mask_get(ss, v2));
+      const float mask_v1 = (1.0f - SCULPT_vertex_mask_get(ss, v1)) *
+                            SCULPT_automasking_factor_get(ss, v1);
+      const float mask_v2 = (1.0f - SCULPT_vertex_mask_get(ss, v2)) *
+                            SCULPT_automasking_factor_get(ss, v2);
 
       const float sim_factor_v1 = cloth_brush_simulation_falloff_get(
           brush, ss->cache->radius, ss->cache->initial_location, cloth_sim->init_pos[v1]);

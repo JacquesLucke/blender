@@ -23,8 +23,8 @@
 
 #include "BKE_context.h"
 
-#include "ED_screen.h"
 #include "ED_gizmo_library.h"
+#include "ED_screen.h"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -228,13 +228,13 @@ static void WIDGETGROUP_navigate_draw_prepare(const bContext *C, wmGizmoGroup *g
   int icon_mini_slot = 0;
 
   gz = navgroup->gz_array[GZ_INDEX_ZOOM];
-  gz->matrix_basis[3][0] = co[0];
-  gz->matrix_basis[3][1] = co[1] - (icon_offset_mini * icon_mini_slot++);
+  gz->matrix_basis[3][0] = roundf(co[0]);
+  gz->matrix_basis[3][1] = roundf(co[1] - (icon_offset_mini * icon_mini_slot++));
   WM_gizmo_set_flag(gz, WM_GIZMO_HIDDEN, false);
 
   gz = navgroup->gz_array[GZ_INDEX_MOVE];
-  gz->matrix_basis[3][0] = co[0];
-  gz->matrix_basis[3][1] = co[1] - (icon_offset_mini * icon_mini_slot++);
+  gz->matrix_basis[3][0] = roundf(co[0]);
+  gz->matrix_basis[3][1] = roundf(co[1] - (icon_offset_mini * icon_mini_slot++));
   WM_gizmo_set_flag(gz, WM_GIZMO_HIDDEN, false);
 }
 

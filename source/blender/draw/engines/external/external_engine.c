@@ -183,7 +183,7 @@ static void external_draw_scene_do(void *vedata)
   Scene *scene = draw_ctx->scene;
   RegionView3D *rv3d = draw_ctx->rv3d;
   ARegion *region = draw_ctx->region;
-  RenderEngineType *type;
+  const RenderEngineType *type;
 
   DRW_state_reset_ex(DRW_STATE_DEFAULT & ~DRW_STATE_DEPTH_LESS_EQUAL);
 
@@ -286,7 +286,7 @@ RenderEngineType DRW_engine_viewport_external_type = {
     NULL,
     EXTERNAL_ENGINE,
     N_("External"),
-    RE_INTERNAL,
+    RE_INTERNAL | RE_USE_STEREO_VIEWPORT,
     NULL,
     NULL,
     NULL,

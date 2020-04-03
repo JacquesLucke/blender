@@ -33,12 +33,12 @@
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 
-#include "BKE_pbvh.h"
 #include "BKE_ccg.h"
 #include "BKE_context.h"
 #include "BKE_mesh.h"
 #include "BKE_multires.h"
 #include "BKE_paint.h"
+#include "BKE_pbvh.h"
 #include "BKE_subsurf.h"
 
 #include "DEG_depsgraph.h"
@@ -403,6 +403,9 @@ static int hide_show_exec(bContext *C, wmOperator *op)
     BKE_mesh_flush_hidden_from_verts(me);
   }
 
+  SCULPT_visibility_sync_all_vertex_to_face_sets(ob->sculpt);
+
+  DEG_id_tag_update(&ob->id, ID_RECALC_SHADING);
   ED_region_tag_redraw(region);
 
   return OPERATOR_FINISHED;

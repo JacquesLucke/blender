@@ -20,17 +20,17 @@
 
 #include <math.h>
 
-#include "BLI_utildefines.h"
 #include "BLI_math_matrix.h"
 #include "BLI_math_vector.h"
 #include "BLI_rect.h"
+#include "BLI_utildefines.h"
 
 #include "BKE_context.h"
 #include "BKE_image.h"
 #include "BKE_main.h"
 
-#include "ED_screen.h"
 #include "ED_gizmo_library.h"
+#include "ED_screen.h"
 
 #include "IMB_imbuf_types.h"
 
@@ -459,7 +459,7 @@ static void WIDGETGROUP_node_sbeam_setup(const bContext *UNUSED(C), wmGizmoGroup
 
   RNA_enum_set(gz->ptr, "draw_style", ED_GIZMO_MOVE_STYLE_CROSS_2D);
 
-  gz->scale_basis = 0.05f;
+  gz->scale_basis = 0.05f / 75.0f;
 
   gzgroup->customdata = sbeam_group;
 }
@@ -566,7 +566,7 @@ static void WIDGETGROUP_node_corner_pin_setup(const bContext *UNUSED(C), wmGizmo
 
     RNA_enum_set(gz->ptr, "draw_style", ED_GIZMO_MOVE_STYLE_CROSS_2D);
 
-    gz->scale_basis = 0.01f;
+    gz->scale_basis = 0.01f / 75.0;
   }
 
   gzgroup->customdata = cpin_group;

@@ -24,15 +24,15 @@
 #include "DNA_movieclip_types.h"
 #include "DNA_scene_types.h"
 
-#include "BLI_utildefines.h"
 #include "BLI_math.h"
 #include "BLI_rect.h"
+#include "BLI_utildefines.h"
 
 #include "BKE_context.h"
 #include "BKE_movieclip.h"
 
-#include "ED_screen.h"
 #include "ED_clip.h"
+#include "ED_screen.h"
 
 #include "WM_types.h"
 
@@ -68,7 +68,7 @@ static void track_channel_color(MovieTrackingTrack *track, float default_color[3
 }
 
 static void draw_keyframe_shape(
-    float x, float y, bool sel, float alpha, unsigned int pos_id, unsigned int color_id)
+    float x, float y, bool sel, float alpha, uint pos_id, uint color_id)
 {
   float color[4] = {0.91f, 0.91f, 0.91f, alpha};
   if (sel) {
@@ -79,7 +79,7 @@ static void draw_keyframe_shape(
   immVertex2f(pos_id, x, y);
 }
 
-static void clip_draw_dopesheet_background(ARegion *region, MovieClip *clip, unsigned int pos_id)
+static void clip_draw_dopesheet_background(ARegion *region, MovieClip *clip, uint pos_id)
 {
   View2D *v2d = &region->v2d;
   MovieTracking *tracking = &clip->tracking;
@@ -296,7 +296,7 @@ void clip_draw_dopesheet_channels(const bContext *C, ARegion *region)
   SpaceClip *sc = CTX_wm_space_clip(C);
   View2D *v2d = &region->v2d;
   MovieClip *clip = ED_space_clip_get_clip(sc);
-  uiStyle *style = UI_style_get();
+  const uiStyle *style = UI_style_get();
   int fontid = style->widget.uifont_id;
 
   if (!clip) {

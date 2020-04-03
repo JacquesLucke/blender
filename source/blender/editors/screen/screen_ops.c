@@ -26,25 +26,25 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_math.h"
 #include "BLI_blenlib.h"
 #include "BLI_dlrbTree.h"
+#include "BLI_math.h"
 #include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
 
 #include "DNA_anim_types.h"
 #include "DNA_armature_types.h"
-#include "DNA_lattice_types.h"
-#include "DNA_object_types.h"
 #include "DNA_curve_types.h"
-#include "DNA_scene_types.h"
-#include "DNA_meta_types.h"
-#include "DNA_mesh_types.h"
+#include "DNA_lattice_types.h"
 #include "DNA_mask_types.h"
+#include "DNA_mesh_types.h"
+#include "DNA_meta_types.h"
 #include "DNA_node_types.h"
-#include "DNA_workspace_types.h"
+#include "DNA_object_types.h"
+#include "DNA_scene_types.h"
 #include "DNA_userdef_types.h"
+#include "DNA_workspace_types.h"
 
 #include "BKE_context.h"
 #include "BKE_editmesh.h"
@@ -77,8 +77,8 @@
 #include "ED_screen.h"
 #include "ED_screen_types.h"
 #include "ED_sequencer.h"
-#include "ED_util.h"
 #include "ED_undo.h"
+#include "ED_util.h"
 #include "ED_view3d.h"
 
 #include "RNA_access.h"
@@ -774,10 +774,10 @@ static AZone *area_actionzone_refresh_xy(ScrArea *sa, const int xy[2], const boo
             az->alpha = 1.0f;
           }
           else {
-            const int mouse_sq = SQUARE(xy[0] - az->x2) + SQUARE(xy[1] - az->y2);
-            const int spot_sq = SQUARE(AZONESPOTW);
-            const int fadein_sq = SQUARE(AZONEFADEIN);
-            const int fadeout_sq = SQUARE(AZONEFADEOUT);
+            const int mouse_sq = square_i(xy[0] - az->x2) + square_i(xy[1] - az->y2);
+            const int spot_sq = square_i(AZONESPOTW);
+            const int fadein_sq = square_i(AZONEFADEIN);
+            const int fadeout_sq = square_i(AZONEFADEOUT);
 
             if (mouse_sq < spot_sq) {
               az->alpha = 1.0f;
@@ -1014,7 +1014,7 @@ static int actionzone_modal(bContext *C, wmOperator *op, const wmEvent *event)
       const int delta_y = (event->y - sad->y);
 
       /* Movement in dominant direction. */
-      const int delta_max = max_ii(ABS(delta_x), ABS(delta_y));
+      const int delta_max = max_ii(abs(delta_x), abs(delta_y));
 
       /* Movement in dominant direction before action taken. */
       const int join_threshold = (0.6 * U.widget_unit);
@@ -1022,13 +1022,13 @@ static int actionzone_modal(bContext *C, wmOperator *op, const wmEvent *event)
       const int area_threshold = (0.1 * U.widget_unit);
 
       /* Calculate gesture cardinal direction. */
-      if (delta_y > ABS(delta_x)) {
+      if (delta_y > abs(delta_x)) {
         sad->gesture_dir = 'n';
       }
-      else if (delta_x >= ABS(delta_y)) {
+      else if (delta_x >= abs(delta_y)) {
         sad->gesture_dir = 'e';
       }
-      else if (delta_y < -ABS(delta_x)) {
+      else if (delta_y < -abs(delta_x)) {
         sad->gesture_dir = 's';
       }
       else {
@@ -1090,7 +1090,7 @@ static int actionzone_modal(bContext *C, wmOperator *op, const wmEvent *event)
       }
       break;
     }
-    case ESCKEY:
+    case EVT_ESCKEY:
       actionzone_exit(op);
       return OPERATOR_CANCELLED;
     case LEFTMOUSE:
@@ -1270,7 +1270,7 @@ static int area_swap_modal(bContext *C, wmOperator *op, const wmEvent *event)
       }
       break;
 
-    case ESCKEY:
+    case EVT_ESCKEY:
       area_swap_cancel(C, op);
       return OPERATOR_CANCELLED;
   }
@@ -2335,7 +2335,7 @@ static int area_split_modal(bContext *C, wmOperator *op, const wmEvent *event)
       break;
 
     case MIDDLEMOUSE:
-    case TABKEY:
+    case EVT_TABKEY:
       if (sd->previewmode == 0) {
         /* pass */
       }
@@ -2353,11 +2353,11 @@ static int area_split_modal(bContext *C, wmOperator *op, const wmEvent *event)
       break;
 
     case RIGHTMOUSE: /* cancel operation */
-    case ESCKEY:
+    case EVT_ESCKEY:
       area_split_cancel(C, op);
       return OPERATOR_CANCELLED;
 
-    case LEFTCTRLKEY:
+    case EVT_LEFTCTRLKEY:
       sd->do_snap = event->val == KM_PRESS;
       update_factor = true;
       break;
@@ -2677,7 +2677,7 @@ static int region_scale_modal(bContext *C, wmOperator *op, const wmEvent *event)
 
         if (rmd->region->type->snap_size) {
           short sizex_test = rmd->region->type->snap_size(rmd->region, rmd->region->sizex, 0);
-          if (ABS(rmd->region->sizex - sizex_test) < snap_size_threshold) {
+          if (abs(rmd->region->sizex - sizex_test) < snap_size_threshold) {
             rmd->region->sizex = sizex_test;
           }
         }
@@ -2710,7 +2710,7 @@ static int region_scale_modal(bContext *C, wmOperator *op, const wmEvent *event)
 
         if (rmd->region->type->snap_size) {
           short sizey_test = rmd->region->type->snap_size(rmd->region, rmd->region->sizey, 1);
-          if (ABS(rmd->region->sizey - sizey_test) < snap_size_threshold) {
+          if (abs(rmd->region->sizey - sizey_test) < snap_size_threshold) {
             rmd->region->sizey = sizey_test;
           }
         }
@@ -2757,7 +2757,7 @@ static int region_scale_modal(bContext *C, wmOperator *op, const wmEvent *event)
       }
       break;
 
-    case ESCKEY:
+    case EVT_ESCKEY:
       break;
   }
 
@@ -3142,7 +3142,7 @@ static void SCREEN_OT_screen_set(wmOperatorType *ot)
   ot->poll = ED_operator_screenactive;
 
   /* rna */
-  RNA_def_int(ot->srna, "delta", 0, INT_MIN, INT_MAX, "Delta", "", INT_MIN, INT_MAX);
+  RNA_def_int(ot->srna, "delta", 1, -1, 1, "Delta", "", -1, 1);
 }
 
 /** \} */
@@ -3473,7 +3473,7 @@ static int area_join_modal(bContext *C, wmOperator *op, const wmEvent *event)
       break;
 
     case RIGHTMOUSE:
-    case ESCKEY:
+    case EVT_ESCKEY:
       area_join_cancel(C, op);
       return OPERATOR_CANCELLED;
   }
@@ -3818,6 +3818,7 @@ static void region_quadview_init_rv3d(
   }
 
   rv3d->viewlock = viewlock;
+  rv3d->runtime_viewlock = 0;
   rv3d->view = view;
   rv3d->view_axis_roll = RV3D_VIEW_AXIS_ROLL_0;
   rv3d->persp = persp;
@@ -3915,7 +3916,7 @@ static int region_quadview_exec(bContext *C, wmOperator *op)
       RegionView3D *rv3d = region->regiondata;
       const char viewlock = (rv3d->viewlock_quad & RV3D_VIEWLOCK_INIT) ?
                                 (rv3d->viewlock_quad & ~RV3D_VIEWLOCK_INIT) :
-                                RV3D_LOCKED;
+                                RV3D_LOCK_ROTATION;
 
       region_quadview_init_rv3d(
           sa, region, viewlock, ED_view3d_lock_view_from_index(index_qsplit++), RV3D_ORTHO);
@@ -3991,7 +3992,7 @@ static bool region_toggle_poll(bContext *C)
 {
   ScrArea *area = CTX_wm_area(C);
 
-  /* don't flip anything around in topbar */
+  /* Don't flip anything around in top-bar. */
   if (area && area->spacetype == SPACE_TOPBAR) {
     CTX_wm_operator_poll_msg_set(C, "Toggling regions in the Top-bar is not allowed");
     return 0;
@@ -4059,7 +4060,7 @@ static bool region_flip_poll(bContext *C)
 {
   ScrArea *area = CTX_wm_area(C);
 
-  /* don't flip anything around in topbar */
+  /* Don't flip anything around in top-bar. */
   if (area && area->spacetype == SPACE_TOPBAR) {
     CTX_wm_operator_poll_msg_set(C, "Flipping regions in the Top-bar is not allowed");
     return 0;
@@ -4190,7 +4191,7 @@ void ED_screens_footer_tools_menu_create(bContext *C, uiLayout *layout, void *UN
 
   uiItemO(layout, but_flip_str, ICON_NONE, "SCREEN_OT_region_flip");
 
-  /* file browser should be fullscreen all the time, topbar should
+  /* File browser should be fullscreen all the time, top-bar should
    * never be. But other regions can be maximized/restored... */
   if (!ELEM(sa->spacetype, SPACE_FILE, SPACE_TOPBAR)) {
     uiItemS(layout);
@@ -4795,9 +4796,9 @@ static void SCREEN_OT_box_select(wmOperatorType *ot)
 
 /* -------------------------------------------------------------------- */
 /** \name Full Screen Back Operator
+ *
+ * Use for generic full-screen 'back' button.
  * \{ */
-
-/* *********************** generic fullscreen 'back' button *************** */
 
 static int fullscreen_back_exec(bContext *C, wmOperator *op)
 {
@@ -5516,7 +5517,7 @@ static void keymap_modal_set(wmKeyConfig *keyconf)
   wmKeyMap *keymap;
 
   /* Standard Modal keymap ------------------------------------------------ */
-  keymap = WM_modalkeymap_add(keyconf, "Standard Modal Map", modal_items);
+  keymap = WM_modalkeymap_ensure(keyconf, "Standard Modal Map", modal_items);
 
   WM_modalkeymap_assign(keymap, "SCREEN_OT_area_move");
 }
@@ -5524,7 +5525,7 @@ static void keymap_modal_set(wmKeyConfig *keyconf)
 static bool blend_file_drop_poll(bContext *UNUSED(C),
                                  wmDrag *drag,
                                  const wmEvent *UNUSED(event),
-                                 const char **UNUSED(tooltip))
+                                 const char **UNUSED(r_tooltip))
 {
   if (drag->type == WM_DRAG_PATH) {
     if (drag->icon == ICON_FILE_BLEND) {
