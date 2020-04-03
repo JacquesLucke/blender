@@ -1305,3 +1305,73 @@ void IDP_Group_BlendReadData(struct BlendReader *reader,
     *prop = NULL;
   }
 }
+
+static void idp_write_group(BlendWriter *writer, const IDProperty *prop)
+{
+  LISTBASE_FOREACH (const IDProperty *, sub_prop, &prop->data.group) {
+    IDP_BlendWrite(writer, sub_prop);
+  }
+}
+
+static void idp_write_string(BlendWriter *writer, const IDProperty *prop)
+{
+  /* Remember to set totallen to len in the linking code. */
+  BLO_write_raw(writer, prop->len, prop->data.pointer);
+}
+
+static void idp_write_array(BlendWriter *writer, const IDProperty *prop)
+{
+  if (prop->data.pointer == NULL) {
+    return;
+  }
+
+  /* Remember to set totallen to len in the linking code. */
+  BLO_write_raw(writer, (int)MEM_allocN_len(prop->data.pointer), prop->data.pointer);
+
+  if (prop->subtype == IDP_GROUP) {
+    IDProperty **array = prop->data.pointer;
+
+    for (int i = 0; i < prop->len; i++) {
+      IDP_BlendWrite(writer, array[i]);
+    }
+  }
+}
+
+static void idp_write_only_data(BlendWriter *writer, const IDProperty *prop);
+
+static void idp_write_idp_array(BlendWriter *writer, const IDProperty *prop)
+{
+  /* Remember to set totallen to len in the linking code. */
+  if (prop->data.pointer) {
+    const IDProperty *array = prop->data.pointer;
+    BLO_write_struct_array(writer, IDProperty, prop->len, array);
+
+    for (int i = 0; i < prop->len; i++) {
+      idp_write_only_data(writer, &array[i]);
+    }
+  }
+}
+
+static void idp_write_only_data(BlendWriter *writer, const IDProperty *prop)
+{
+  switch (prop->type) {
+    case IDP_GROUP:
+      idp_write_group(writer, prop);
+      break;
+    case IDP_STRING:
+      idp_write_string(writer, prop);
+      break;
+    case IDP_ARRAY:
+      idp_write_array(writer, prop);
+      break;
+    case IDP_IDPARRAY:
+      idp_write_idp_array(writer, prop);
+      break;
+  }
+}
+
+void IDP_BlendWrite(BlendWriter *writer, const IDProperty *prop)
+{
+  BLO_write_struct(writer, IDProperty, prop);
+  idp_write_only_data(writer, prop);
+}

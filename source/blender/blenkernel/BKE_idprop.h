@@ -195,6 +195,8 @@ void IDP_Group_BlendReadData(struct BlendReader *reader,
                              struct IDProperty **prop,
                              const char *caller_func_id);
 
+void IDP_BlendWrite(struct BlendWriter *writer, const struct IDProperty *prop);
+
 #ifdef __cplusplus
 }
 #endif
