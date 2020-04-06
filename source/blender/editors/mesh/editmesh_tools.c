@@ -731,8 +731,10 @@ static int edbm_collapse_edge_exec(bContext *C, wmOperator *op)
 void MESH_OT_edge_collapse(wmOperatorType *ot)
 {
   /* identifiers */
-  ot->name = "Edge Collapse";
-  ot->description = "Collapse selected edges";
+  ot->name = "Collapse Edges & Faces";
+  ot->description =
+      "Collapse isolated edges & faces regions, merging data such as UV's and vertex colors. "
+      "This can collapse edge-rings as well as regions of connected faces into vertices";
   ot->idname = "MESH_OT_edge_collapse";
 
   /* api callbacks */
@@ -754,7 +756,7 @@ static bool edbm_add_edge_face__smooth_get(BMesh *bm)
   BMEdge *e;
   BMIter iter;
 
-  unsigned int vote_on_smooth[2] = {0, 0};
+  uint vote_on_smooth[2] = {0, 0};
 
   BM_ITER_MESH (e, &iter, bm, BM_EDGES_OF_MESH) {
     if (BM_elem_flag_test(e, BM_ELEM_SELECT) && e->l) {
@@ -1902,12 +1904,12 @@ void MESH_OT_edge_split(wmOperatorType *ot)
 
   /* properties */
   static const EnumPropertyItem merge_type_items[] = {
-      {BM_EDGE, "EDGE", 0, "Edges", "Split along selected edges"},
+      {BM_EDGE, "EDGE", 0, "Faces by Edges", "Split faces along selected edges"},
       {BM_VERT,
        "VERT",
        0,
-       "Edges from Vertices",
-       "Split all edges connected to selected vertices"},
+       "Faces & Edges by Vertices",
+       "Split faces & edges connected to selected vertices"},
       {0, NULL, 0, NULL, NULL},
   };
 
@@ -6120,7 +6122,7 @@ static void sort_bmelem_flag(bContext *C,
                              const int flag,
                              const int action,
                              const int reverse,
-                             const unsigned int seed)
+                             const uint seed)
 {
   BMEditMesh *em = BKE_editmesh_from_object(ob);
 
@@ -6133,7 +6135,7 @@ static void sort_bmelem_flag(bContext *C,
   /* Just to mark protected elements. */
   char *pblock[3] = {NULL, NULL, NULL}, *pb;
   BMElemSort *sblock[3] = {NULL, NULL, NULL}, *sb;
-  unsigned int *map[3] = {NULL, NULL, NULL}, *mp;
+  uint *map[3] = {NULL, NULL, NULL}, *mp;
   int totelem[3] = {0, 0, 0};
   int affected[3] = {0, 0, 0};
   int i, j;
@@ -6310,7 +6312,7 @@ static void sort_bmelem_flag(bContext *C,
   }
 
   else if (action == SRT_SELECTED) {
-    unsigned int *tbuf[3] = {NULL, NULL, NULL}, *tb;
+    uint *tbuf[3] = {NULL, NULL, NULL}, *tb;
 
     if (totelem[0]) {
       tb = tbuf[0] = MEM_callocN(sizeof(int) * totelem[0], "sort_bmelem vert tbuf");
@@ -6574,7 +6576,7 @@ static int edbm_sort_elements_exec(bContext *C, wmOperator *op)
   const int action = RNA_enum_get(op->ptr, "type");
   PropertyRNA *prop_elem_types = RNA_struct_find_property(op->ptr, "elements");
   const bool use_reverse = RNA_boolean_get(op->ptr, "reverse");
-  unsigned int seed = RNA_int_get(op->ptr, "seed");
+  uint seed = RNA_int_get(op->ptr, "seed");
   int elem_types = 0;
 
   if (ELEM(action, SRT_VIEW_ZAXIS, SRT_VIEW_XAXIS)) {
