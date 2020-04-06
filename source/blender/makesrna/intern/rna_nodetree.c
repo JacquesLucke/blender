@@ -1818,7 +1818,7 @@ static StructRNA *rna_SimulationNode_register(Main *bmain,
   /* update while blender is running */
   WM_main_add_notifier(NC_NODE | NA_EDITED, NULL);
 
-  return nt->ext.srna;
+  return nt->rna_ext.srna;
 }
 
 static IDProperty *rna_Node_idprops(PointerRNA *ptr, bool create)
