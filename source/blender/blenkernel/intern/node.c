@@ -768,6 +768,10 @@ static void socket_id_user_increment(bNodeSocket *sock)
     case __SOCK_MESH:
     case SOCK_CUSTOM:
     case SOCK_SHADER:
+    case SOCK_EMITTERS:
+    case SOCK_EVENTS:
+    case SOCK_FORCES:
+    case SOCK_CONTROL_FLOW:
       break;
   }
 }
@@ -794,6 +798,10 @@ static void socket_id_user_decrement(bNodeSocket *sock)
     case __SOCK_MESH:
     case SOCK_CUSTOM:
     case SOCK_SHADER:
+    case SOCK_EMITTERS:
+    case SOCK_EVENTS:
+    case SOCK_FORCES:
+    case SOCK_CONTROL_FLOW:
       break;
   }
 }
@@ -917,6 +925,14 @@ const char *nodeStaticSocketType(int type, int subtype)
       return "NodeSocketObject";
     case SOCK_IMAGE:
       return "NodeSocketImage";
+    case SOCK_EMITTERS:
+      return "NodeSocketEmitters";
+    case SOCK_EVENTS:
+      return "NodeSocketEvents";
+    case SOCK_FORCES:
+      return "NodeSocketForces";
+    case SOCK_CONTROL_FLOW:
+      return "NodeSocketControlFlow";
   }
   return NULL;
 }
@@ -982,6 +998,14 @@ const char *nodeStaticSocketInterfaceType(int type, int subtype)
       return "NodeSocketInterfaceObject";
     case SOCK_IMAGE:
       return "NodeSocketInterfaceImage";
+    case SOCK_EMITTERS:
+      return "NodeSocketInterfaceEmitters";
+    case SOCK_EVENTS:
+      return "NodeSocketInterfaceEvents";
+    case SOCK_FORCES:
+      return "NodeSocketInterfaceForces";
+    case SOCK_CONTROL_FLOW:
+      return "NodeSocketInterfaceControlFlow";
   }
   return NULL;
 }
