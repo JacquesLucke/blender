@@ -259,6 +259,22 @@ void node_socket_init_default_value(bNodeSocket *sock)
       sock->default_value = dval;
       break;
     }
+    case SOCK_OBJECT: {
+      bNodeSocketValueObject *dval = MEM_callocN(sizeof(bNodeSocketValueObject),
+                                                 "node socket value object");
+      dval->value = NULL;
+
+      sock->default_value = dval;
+      break;
+    }
+    case SOCK_IMAGE: {
+      bNodeSocketValueImage *dval = MEM_callocN(sizeof(bNodeSocketValueImage),
+                                                "node socket value image");
+      dval->value = NULL;
+
+      sock->default_value = dval;
+      break;
+    }
   }
 }
 
@@ -315,6 +331,18 @@ void node_socket_copy_default_value(bNodeSocket *to, const bNodeSocket *from)
       bNodeSocketValueString *toval = to->default_value;
       bNodeSocketValueString *fromval = from->default_value;
       *toval = *fromval;
+      break;
+    }
+    case SOCK_OBJECT: {
+      /* Not sure how to handle user count here yet. For now just don't copy the pointer. */
+      bNodeSocketValueObject *toval = to->default_value;
+      toval->value = NULL;
+      break;
+    }
+    case SOCK_IMAGE: {
+      /* Not sure how to handle user count here yet. For now just don't copy the pointer. */
+      bNodeSocketValueImage *toval = to->default_value;
+      toval->value = NULL;
       break;
     }
   }
@@ -498,6 +526,10 @@ void register_standard_node_socket_types(void)
   nodeRegisterSocketType(make_standard_socket_type(SOCK_STRING, PROP_NONE));
 
   nodeRegisterSocketType(make_standard_socket_type(SOCK_SHADER, PROP_NONE));
+
+  nodeRegisterSocketType(make_standard_socket_type(SOCK_OBJECT, PROP_NONE));
+
+  nodeRegisterSocketType(make_standard_socket_type(SOCK_IMAGE, PROP_NONE));
 
   nodeRegisterSocketType(make_socket_type_virtual());
 }
