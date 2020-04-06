@@ -218,8 +218,8 @@ typedef struct SubdivCCG {
 
 /* Create CCG representation of subdivision surface.
  *
- * NOTE: CCG stores dense verticies in a grid-like storage. There is no edges or
- * polygons informations for the high-poly surface.
+ * NOTE: CCG stores dense vertices in a grid-like storage. There is no edges or
+ * polygons information's for the high-poly surface.
  *
  * NOTE: Subdiv is expected to be refined and ready for evaluation.
  * NOTE: CCG becomes an owner of subdiv.
@@ -304,6 +304,8 @@ void BKE_subdiv_ccg_neighbor_coords_get(const SubdivCCG *subdiv_ccg,
                                         const SubdivCCGCoord *coord,
                                         const bool include_duplicates,
                                         SubdivCCGNeighbors *r_neighbors);
+
+int BKE_subdiv_cgg_grid_to_face_index(const SubdivCCG *subdiv_ccg, const int grid_index);
 
 #ifdef __cplusplus
 }
