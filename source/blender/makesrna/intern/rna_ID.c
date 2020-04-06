@@ -96,7 +96,7 @@ const EnumPropertyItem rna_enum_id_type_items[] = {
 #  include "BLI_listbase.h"
 #  include "BLI_math_base.h"
 
-#  include "BKE_animsys.h"
+#  include "BKE_anim_data.h"
 #  include "BKE_font.h"
 #  include "BKE_global.h" /* XXX, remove me */
 #  include "BKE_idprop.h"
