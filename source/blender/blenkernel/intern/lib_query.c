@@ -1303,6 +1303,7 @@ static void library_foreach_ID_link(Main *bmain,
       case ID_PAL:
       case ID_PC:
       case ID_CF:
+        break;
 
       /* Deprecated. */
       case ID_IP:
