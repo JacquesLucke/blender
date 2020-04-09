@@ -9880,20 +9880,8 @@ static void expand_constraint_channels(FileData *fd, Main *mainvar, ListBase *ch
 
 static void expand_fmodifiers(FileData *fd, Main *mainvar, ListBase *list)
 {
-  FModifier *fcm;
-
-  for (fcm = list->first; fcm; fcm = fcm->next) {
-    /* library data for specific F-Modifier types */
-    switch (fcm->type) {
-      case FMODIFIER_TYPE_PYTHON: {
-        FMod_Python *data = (FMod_Python *)fcm->data;
-
-        expand_doit(fd, mainvar, data->script);
-
-        break;
-      }
-    }
-  }
+  BlendExpander expander = {wrap_reader(fd), mainvar};
+  BKE_fcurve_modifiers_blend_read_expand(&expander, list);
 }
 
 static void expand_fcurves(FileData *fd, Main *mainvar, ListBase *list)
@@ -11839,6 +11827,11 @@ void BLO_read_pointer_array(BlendReader *reader, void **ptr_p)
   }
 
   *ptr_p = final_array;
+}
+
+void BLO_expand_id(BlendExpander *expander, ID *id)
+{
+  expand_doit(unwrap_reader(expander->reader), expander->main, id);
 }
 
 /** \} */

@@ -26,6 +26,11 @@ extern "C" {
 typedef struct BlendWriter BlendWriter;
 typedef struct BlendReader BlendReader;
 
+typedef struct BlendExpander {
+  struct BlendReader *reader;
+  struct Main *main;
+} BlendExpander;
+
 /* API for file writing.
  **********************************************/
 
@@ -81,6 +86,10 @@ void BLO_read_float_array(BlendReader *reader, int array_size, float **ptr_p);
 void BLO_read_float3_array(BlendReader *reader, int array_size, float **ptr_p);
 void BLO_read_double_array(BlendReader *reader, int array_size, double **ptr_p);
 void BLO_read_pointer_array(BlendReader *reader, void **ptr_p);
+
+void BLO_expand_id(BlendExpander *expander, ID *id);
+
+#define BLO_expand(expander, id) BLO_expand_id(expander, (ID *)id)
 
 #ifdef __cplusplus
 }

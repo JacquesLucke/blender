@@ -36,6 +36,7 @@ struct FCurve;
 struct FModifier;
 
 struct AnimData;
+struct BlendExpander;
 struct BlendReader;
 struct BlendWriter;
 struct BezTriple;
@@ -385,6 +386,7 @@ void BKE_fcurve_modifiers_blend_read_data(struct BlendReader *reader,
 void BKE_fcurve_modifiers_blend_read_lib(struct BlendReader *reader,
                                          struct ListBase *list,
                                          struct ID *id);
+void BKE_fcurve_modifiers_blend_read_expand(struct BlendExpander *expander, struct ListBase *list);
 
 #ifdef __cplusplus
 }

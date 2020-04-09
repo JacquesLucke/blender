@@ -1606,6 +1606,18 @@ void BKE_fcurve_modifiers_blend_read_lib(BlendReader *reader, ListBase *list, ID
   }
 }
 
+void BKE_fcurve_modifiers_blend_read_expand(BlendExpander *expander, ListBase *list)
+{
+  LISTBASE_FOREACH (FModifier *, fcm, list) {
+    switch (fcm->type) {
+      case FMODIFIER_TYPE_PYTHON: {
+        FMod_Python *data = (FMod_Python *)fcm->data;
+        BLO_expand(expander, data->script);
+      }
+    }
+  }
+}
+
 void BKE_fcurve_modifiers_blend_write(BlendWriter *writer, ListBase *fmodifiers)
 {
   /* Write all modifiers first (for faster reloading) */
