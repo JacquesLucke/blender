@@ -30,6 +30,7 @@
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
 
+#include "BKE_lib_id.h"
 #include "BKE_node.h"
 
 #include "RNA_access.h"
@@ -334,15 +335,17 @@ void node_socket_copy_default_value(bNodeSocket *to, const bNodeSocket *from)
       break;
     }
     case SOCK_OBJECT: {
-      /* Not sure how to handle user count here yet. For now just don't copy the pointer. */
       bNodeSocketValueObject *toval = to->default_value;
-      toval->value = NULL;
+      bNodeSocketValueObject *fromval = from->default_value;
+      *toval = *fromval;
+      id_us_plus(&toval->value->id);
       break;
     }
     case SOCK_IMAGE: {
-      /* Not sure how to handle user count here yet. For now just don't copy the pointer. */
       bNodeSocketValueImage *toval = to->default_value;
-      toval->value = NULL;
+      bNodeSocketValueImage *fromval = from->default_value;
+      *toval = *fromval;
+      id_us_plus(&toval->value->id);
       break;
     }
   }

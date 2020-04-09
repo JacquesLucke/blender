@@ -88,7 +88,9 @@ static void ntree_set_typeinfo(bNodeTree *ntree, bNodeTreeType *typeinfo);
 static void node_socket_copy(bNodeSocket *sock_dst, const bNodeSocket *sock_src, const int flag);
 static void free_localized_node_groups(bNodeTree *ntree);
 static void node_free_node(bNodeTree *ntree, bNode *node);
-static void node_socket_interface_free(bNodeTree *UNUSED(ntree), bNodeSocket *sock);
+static void node_socket_interface_free(bNodeTree *UNUSED(ntree),
+                                       bNodeSocket *sock,
+                                       const bool do_id_user);
 
 static void ntree_init_data(ID *id)
 {
@@ -231,12 +233,12 @@ static void ntree_free_data(ID *id)
   /* free interface sockets */
   for (sock = ntree->inputs.first; sock; sock = nextsock) {
     nextsock = sock->next;
-    node_socket_interface_free(ntree, sock);
+    node_socket_interface_free(ntree, sock, false);
     MEM_freeN(sock);
   }
   for (sock = ntree->outputs.first; sock; sock = nextsock) {
     nextsock = sock->next;
-    node_socket_interface_free(ntree, sock);
+    node_socket_interface_free(ntree, sock, false);
     MEM_freeN(sock);
   }
 
@@ -2203,14 +2205,18 @@ void nodeRemoveNode(Main *bmain, bNodeTree *ntree, bNode *node, bool do_id_user)
   node_free_node(ntree, node);
 }
 
-static void node_socket_interface_free(bNodeTree *UNUSED(ntree), bNodeSocket *sock)
+static void node_socket_interface_free(bNodeTree *UNUSED(ntree),
+                                       bNodeSocket *sock,
+                                       const bool do_id_user)
 {
   if (sock->prop) {
-    IDP_FreeProperty(sock->prop);
+    IDP_FreeProperty_ex(sock->prop, do_id_user);
   }
 
   if (sock->default_value) {
-    socket_id_user_decrement(sock);
+    if (do_id_user) {
+      socket_id_user_decrement(sock);
+    }
     MEM_freeN(sock->default_value);
   }
 }
@@ -2633,7 +2639,7 @@ void ntreeRemoveSocketInterface(bNodeTree *ntree, bNodeSocket *sock)
   BLI_remlink(&ntree->inputs, sock);
   BLI_remlink(&ntree->outputs, sock);
 
-  node_socket_interface_free(ntree, sock);
+  node_socket_interface_free(ntree, sock, true);
   MEM_freeN(sock);
 
   ntree->update |= NTREE_UPDATE_GROUP;
@@ -4303,6 +4309,7 @@ void BKE_node_tree_iter_init(struct NodeTreeIterStore *ntreeiter, struct Main *b
   ntreeiter->light = bmain->lights.first;
   ntreeiter->world = bmain->worlds.first;
   ntreeiter->linestyle = bmain->linestyles.first;
+  ntreeiter->simulation = bmain->simulations.first;
 }
 bool BKE_node_tree_iter_step(struct NodeTreeIterStore *ntreeiter,
                              bNodeTree **r_nodetree,
@@ -4342,6 +4349,11 @@ bool BKE_node_tree_iter_step(struct NodeTreeIterStore *ntreeiter,
     *r_nodetree = ntreeiter->linestyle->nodetree;
     *r_id = (ID *)ntreeiter->linestyle;
     ntreeiter->linestyle = ntreeiter->linestyle->id.next;
+  }
+  else if (ntreeiter->simulation) {
+    *r_nodetree = ntreeiter->simulation->nodetree;
+    *r_id = (ID *)ntreeiter->simulation;
+    ntreeiter->simulation = ntreeiter->simulation->id.next;
   }
   else {
     return false;
