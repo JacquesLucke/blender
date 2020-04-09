@@ -3125,8 +3125,40 @@ static void node_texture_set_butfunc(bNodeType *ntype)
 
 /* ****************** BUTTON CALLBACKS FOR SIMULATION NODES ***************** */
 
-static void node_simulation_set_butfunc(bNodeType *UNUSED(ntype))
+static void node_simulation_buts_particle_time_step_event(uiLayout *layout,
+                                                          bContext *UNUSED(C),
+                                                          PointerRNA *ptr)
 {
+  uiItemR(layout, ptr, "mode", 0, "", ICON_NONE);
+}
+
+static void node_simulation_buts_particle_attribute(uiLayout *layout,
+                                                    bContext *UNUSED(C),
+                                                    PointerRNA *ptr)
+{
+  uiItemR(layout, ptr, "data_type", 0, "", ICON_NONE);
+}
+
+static void node_simulation_buts_set_particle_attribute(uiLayout *layout,
+                                                        bContext *UNUSED(C),
+                                                        PointerRNA *ptr)
+{
+  uiItemR(layout, ptr, "data_type", 0, "", ICON_NONE);
+}
+
+static void node_simulation_set_butfunc(bNodeType *ntype)
+{
+  switch (ntype->type) {
+    case SIM_NODE_PARTICLE_TIME_STEP_EVENT:
+      ntype->draw_buttons = node_simulation_buts_particle_time_step_event;
+      break;
+    case SIM_NODE_PARTICLE_ATTRIBUTE:
+      ntype->draw_buttons = node_simulation_buts_particle_attribute;
+      break;
+    case SIM_NODE_SET_PARTICLE_ATTRIBUTE:
+      ntype->draw_buttons = node_simulation_buts_set_particle_attribute;
+      break;
+  }
 }
 
 /* ****** init draw callbacks for all tree types, only called in usiblender.c, once ************ */
