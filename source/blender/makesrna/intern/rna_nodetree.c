@@ -9297,6 +9297,7 @@ static void rna_def_nodetree(BlenderRNA *brna)
       {NTREE_SHADER, "SHADER", ICON_MATERIAL, "Shader", "Shader nodes"},
       {NTREE_TEXTURE, "TEXTURE", ICON_TEXTURE, "Texture", "Texture nodes"},
       {NTREE_COMPOSIT, "COMPOSITING", ICON_RENDERLAYERS, "Compositing", "Compositing nodes"},
+      {NTREE_SIMULATION, "SIMULATION", ICON_PHYSICS, "Simulation", "Simulation nodes"},
       {0, NULL, 0, NULL, NULL},
   };
 
