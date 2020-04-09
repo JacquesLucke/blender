@@ -4203,6 +4203,7 @@ void BKE_node_tree_iter_init(struct NodeTreeIterStore *ntreeiter, struct Main *b
   ntreeiter->light = bmain->lights.first;
   ntreeiter->world = bmain->worlds.first;
   ntreeiter->linestyle = bmain->linestyles.first;
+  ntreeiter->simulation = bmain->simulations.first;
 }
 bool BKE_node_tree_iter_step(struct NodeTreeIterStore *ntreeiter,
                              bNodeTree **r_nodetree,
@@ -4242,6 +4243,11 @@ bool BKE_node_tree_iter_step(struct NodeTreeIterStore *ntreeiter,
     *r_nodetree = ntreeiter->linestyle->nodetree;
     *r_id = (ID *)ntreeiter->linestyle;
     ntreeiter->linestyle = ntreeiter->linestyle->id.next;
+  }
+  else if (ntreeiter->simulation) {
+    *r_nodetree = ntreeiter->simulation->nodetree;
+    *r_id = (ID *)ntreeiter->simulation;
+    ntreeiter->simulation = ntreeiter->simulation->id.next;
   }
   else {
     return false;
