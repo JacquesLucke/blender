@@ -90,36 +90,9 @@ void ED_node_tree_update(const bContext *C)
   }
 }
 
-/* id is supposed to contain a node tree */
-static bNodeTree *node_tree_from_ID(ID *id)
-{
-  if (id) {
-    short idtype = GS(id->name);
-
-    switch (idtype) {
-      case ID_NT:
-        return (bNodeTree *)id;
-      case ID_MA:
-        return ((Material *)id)->nodetree;
-      case ID_LA:
-        return ((Light *)id)->nodetree;
-      case ID_WO:
-        return ((World *)id)->nodetree;
-      case ID_SCE:
-        return ((Scene *)id)->nodetree;
-      case ID_TE:
-        return ((Tex *)id)->nodetree;
-      case ID_LS:
-        return ((FreestyleLineStyle *)id)->nodetree;
-    }
-  }
-
-  return NULL;
-}
-
 void ED_node_tag_update_id(ID *id)
 {
-  bNodeTree *ntree = node_tree_from_ID(id);
+  bNodeTree *ntree = ntreeFromID(id);
   if (id == NULL || ntree == NULL) {
     return;
   }

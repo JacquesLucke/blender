@@ -59,6 +59,7 @@ extern "C" {
 #include "DNA_object_force_types.h"
 #include "DNA_object_types.h"
 #include "DNA_particle_types.h"
+#include "DNA_pointcloud_types.h"
 #include "DNA_rigidbody_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_sequence_types.h"
@@ -2163,8 +2164,16 @@ void DepsgraphRelationBuilder::build_object_data_geometry_datablock(ID *obdata)
     }
     case ID_HA:
       break;
-    case ID_PT:
+    case ID_PT: {
+      PointCloud *pointcloud = (PointCloud *)obdata;
+      if (pointcloud->source_simulation != NULL) {
+        ComponentKey simulation_key(&pointcloud->source_simulation->id, NodeType::PARAMETERS);
+        ComponentKey geometry_key(obdata, NodeType::GEOMETRY);
+        add_relation(simulation_key, geometry_key, "Source Simulation");
+        build_simulation(pointcloud->source_simulation);
+      }
       break;
+    }
     case ID_VO: {
       Volume *volume = (Volume *)obdata;
       if (volume->is_sequence) {
@@ -2513,6 +2522,19 @@ void DepsgraphRelationBuilder::build_simulation(Simulation *simulation)
   }
   build_animdata(&simulation->id);
   build_parameters(&simulation->id);
+
+  TimeSourceKey time_key;
+  OperationKey simulation_key(
+      &simulation->id, NodeType::PARAMETERS, OperationCode::SIMULATION_EVAL);
+  add_relation(time_key, simulation_key, "Simulation time source");
+
+  OperationKey parameters_exit_key(
+      &simulation->id, NodeType::PARAMETERS, OperationCode::PARAMETERS_EXIT);
+  add_relation(simulation_key, parameters_exit_key, "Simulation exit relation");
+
+  build_nodetree(simulation->nodetree);
+  ComponentKey nodetree_key(&simulation->nodetree->id, NodeType::PARAMETERS);
+  add_relation(nodetree_key, simulation_key, "Simulation node tree");
 }
 
 void DepsgraphRelationBuilder::build_scene_sequencer(Scene *scene)

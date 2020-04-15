@@ -9131,6 +9131,7 @@ static void lib_link_pointcloud(FileData *fd, Main *UNUSED(main), PointCloud *po
   for (int a = 0; a < pointcloud->totcol; a++) {
     pointcloud->mat[a] = newlibadr(fd, pointcloud->id.lib, pointcloud->mat[a]);
   }
+  pointcloud->source_simulation = newlibadr(fd, pointcloud->id.lib, pointcloud->source_simulation);
 }
 
 static void direct_link_pointcloud(FileData *fd, PointCloud *pointcloud)
@@ -9145,6 +9146,8 @@ static void direct_link_pointcloud(FileData *fd, PointCloud *pointcloud)
   /* Materials */
   pointcloud->mat = newdataadr(fd, pointcloud->mat);
   test_pointer_array(fd, (void **)&pointcloud->mat);
+
+  pointcloud->batch_cache = NULL;
 }
 
 /** \} */

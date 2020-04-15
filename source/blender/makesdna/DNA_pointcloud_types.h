@@ -24,6 +24,8 @@
 #include "DNA_ID.h"
 #include "DNA_customdata_types.h"
 
+struct Simulation;
+
 typedef struct PointCloud {
   ID id;
   struct AnimData *adt; /* animation data (must be immediately after id) */
@@ -44,6 +46,8 @@ typedef struct PointCloud {
   struct Material **mat;
   short totcol;
   short _pad3[3];
+
+  struct Simulation *source_simulation;
 
   /* Draw Cache */
   void *batch_cache;

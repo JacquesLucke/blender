@@ -21,8 +21,11 @@
 #include "MEM_guardedalloc.h"
 
 #include "DNA_defaults.h"
+#include "DNA_node_types.h"
 #include "DNA_object_types.h"
 #include "DNA_pointcloud_types.h"
+#include "DNA_scene_types.h"
+#include "DNA_simulation_types.h"
 
 #include "BLI_listbase.h"
 #include "BLI_math.h"
@@ -48,24 +51,6 @@
 
 /* PointCloud datablock */
 
-static void pointcloud_random(PointCloud *pointcloud)
-{
-  pointcloud->totpoint = 400;
-  CustomData_realloc(&pointcloud->pdata, pointcloud->totpoint);
-  BKE_pointcloud_update_customdata_pointers(pointcloud);
-
-  RNG *rng = BLI_rng_new(0);
-
-  for (int i = 0; i < pointcloud->totpoint; i++) {
-    pointcloud->co[i][0] = 2.0f * BLI_rng_get_float(rng) - 1.0f;
-    pointcloud->co[i][1] = 2.0f * BLI_rng_get_float(rng) - 1.0f;
-    pointcloud->co[i][2] = 2.0f * BLI_rng_get_float(rng) - 1.0f;
-    pointcloud->radius[i] = 0.05f * BLI_rng_get_float(rng);
-  }
-
-  BLI_rng_free(rng);
-}
-
 static void pointcloud_init_data(ID *id)
 {
   PointCloud *pointcloud = (PointCloud *)id;
@@ -77,8 +62,6 @@ static void pointcloud_init_data(ID *id)
   CustomData_add_layer(&pointcloud->pdata, CD_LOCATION, CD_CALLOC, NULL, pointcloud->totpoint);
   CustomData_add_layer(&pointcloud->pdata, CD_RADIUS, CD_CALLOC, NULL, pointcloud->totpoint);
   BKE_pointcloud_update_customdata_pointers(pointcloud);
-
-  pointcloud_random(pointcloud);
 }
 
 void *BKE_pointcloud_add(Main *bmain, const char *name)
@@ -184,7 +167,7 @@ void BKE_pointcloud_update_customdata_pointers(PointCloud *pointcloud)
 
 PointCloud *BKE_pointcloud_new_for_eval(const PointCloud *pointcloud_src, int totpoint)
 {
-  PointCloud *pointcloud_dst = BKE_id_new_nomain(ID_HA, NULL);
+  PointCloud *pointcloud_dst = BKE_id_new_nomain(ID_PT, NULL);
 
   STRNCPY(pointcloud_dst->id.name, pointcloud_src->id.name);
   pointcloud_dst->mat = MEM_dupallocN(pointcloud_src->mat);
@@ -212,11 +195,35 @@ PointCloud *BKE_pointcloud_copy_for_eval(struct PointCloud *pointcloud_src, bool
 }
 
 static PointCloud *pointcloud_evaluate_modifiers(struct Depsgraph *UNUSED(depsgraph),
-                                                 struct Scene *UNUSED(scene),
+                                                 Scene *scene,
                                                  Object *UNUSED(object),
                                                  PointCloud *pointcloud_input)
 {
-  return pointcloud_input;
+  PointCloud *pointcloud = BKE_id_new_nomain(ID_PT, "New Point Cloud");
+
+  Simulation *simulation = pointcloud_input->source_simulation;
+  if (simulation == NULL) {
+    pointcloud->totpoint = 20;
+  }
+  else {
+    pointcloud->totpoint = BLI_listbase_count(&simulation->nodetree->nodes);
+  }
+  CustomData_realloc(&pointcloud->pdata, pointcloud->totpoint);
+  BKE_pointcloud_update_customdata_pointers(pointcloud);
+
+  RNG *rng = BLI_rng_new(45);
+
+  printf("PointCloud eval\n");
+
+  for (int i = 0; i < pointcloud->totpoint; i++) {
+    pointcloud->co[i][0] = 0.1f * scene->r.cfra;
+    pointcloud->co[i][1] = BLI_rng_get_float(rng);
+    pointcloud->co[i][2] = BLI_rng_get_float(rng);
+    pointcloud->radius[i] = 0.1f;
+  }
+
+  BLI_rng_free(rng);
+  return pointcloud;
 }
 
 void BKE_pointcloud_data_update(struct Depsgraph *depsgraph, struct Scene *scene, Object *object)

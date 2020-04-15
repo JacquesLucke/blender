@@ -37,6 +37,7 @@
 #  include "BKE_pointcloud.h"
 
 #  include "DEG_depsgraph.h"
+#  include "DEG_depsgraph_build.h"
 
 #  include "WM_api.h"
 #  include "WM_types.h"
@@ -101,6 +102,16 @@ static void rna_PointCloud_update_data(struct Main *UNUSED(bmain),
   }
 }
 
+static void rna_PointCloud_source_simulation_update(struct Main *bmain,
+                                                    struct Scene *UNUSED(scene),
+                                                    PointerRNA *ptr)
+{
+  ID *id = ptr->owner_id;
+
+  DEG_relations_tag_update(bmain);
+  WM_main_add_notifier(NC_GEOM | ND_DATA, id);
+}
+
 #else
 
 static void rna_def_point(BlenderRNA *brna)
@@ -155,6 +166,13 @@ static void rna_def_pointcloud(BlenderRNA *brna)
   RNA_def_property_srna(prop, "IDMaterials"); /* see rna_ID.c */
   RNA_def_property_collection_funcs(
       prop, NULL, NULL, NULL, NULL, NULL, NULL, NULL, "rna_IDMaterials_assign_int");
+
+  /* source_simulation */
+  prop = RNA_def_property(srna, "source_simulation", PROP_POINTER, PROP_NONE);
+  RNA_def_property_struct_type(prop, "Simulation");
+  RNA_def_property_ui_text(prop, "Source Simulation", "Simulation to define points source");
+  RNA_def_property_update(prop, 0, "rna_PointCloud_source_simulation_update");
+  RNA_def_property_flag(prop, PROP_EDITABLE);
 
   /* common */
   rna_def_animdata_common(srna);

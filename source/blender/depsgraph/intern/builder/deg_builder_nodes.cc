@@ -57,6 +57,7 @@ extern "C" {
 #include "DNA_node_types.h"
 #include "DNA_object_types.h"
 #include "DNA_particle_types.h"
+#include "DNA_pointcloud_types.h"
 #include "DNA_rigidbody_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_sequence_types.h"
@@ -1361,6 +1362,11 @@ void DepsgraphNodeBuilder::build_object_data_geometry_datablock(ID *obdata, bool
     case ID_PT: {
       op_node = add_operation_node(obdata, NodeType::GEOMETRY, OperationCode::GEOMETRY_EVAL);
       op_node->set_as_entry();
+
+      PointCloud *pointcloud = (PointCloud *)obdata;
+      if (pointcloud->source_simulation) {
+        build_simulation(pointcloud->source_simulation);
+      }
       break;
     }
     case ID_VO: {
@@ -1708,9 +1714,18 @@ void DepsgraphNodeBuilder::build_simulation(Simulation *simulation)
   if (built_map_.checkIsBuiltAndTag(simulation)) {
     return;
   }
+
+  {
+    add_operation_node(&simulation->id,
+                       NodeType::PARAMETERS,
+                       OperationCode::SIMULATION_EVAL,
+                       [](struct ::Depsgraph *depsgraph) { printf("Sim eval %p\n", depsgraph); });
+  }
+
   add_id_node(&simulation->id);
   build_animdata(&simulation->id);
   build_parameters(&simulation->id);
+  build_nodetree(simulation->nodetree);
 }
 
 void DepsgraphNodeBuilder::build_scene_sequencer(Scene *scene)

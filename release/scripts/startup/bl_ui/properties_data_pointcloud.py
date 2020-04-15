@@ -58,6 +58,8 @@ class DATA_PT_pointcloud(DataButtonsPanel, Panel):
     def draw(self, context):
         layout = self.layout
         pointcloud = context.pointcloud
+
+        layout.prop(pointcloud, "source_simulation")
         pass
 
 class DATA_PT_custom_props_pointcloud(DataButtonsPanel, PropertyPanel, Panel):
