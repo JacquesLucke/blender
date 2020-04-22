@@ -1713,7 +1713,7 @@ void DepsgraphNodeBuilder::build_simulation(Simulation *simulation)
 
   add_operation_node(&simulation->id,
                      NodeType::GENERIC_DATABLOCK,
-                     OperationCode::GENERIC_DATABLOCK_UPDATE,
+                     OperationCode::SIMULATION_EVAL,
                      [](struct ::Depsgraph *UNUSED(depsgraph)) { printf("Hello World\n"); });
 }
 

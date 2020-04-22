@@ -47,7 +47,7 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
 {
   SimulationAccessModifierData *samd = (SimulationAccessModifierData *)md;
   if (samd->simulation) {
-    DEG_add_generic_id_relation(ctx->node, &samd->simulation->id, "Accessed Simulation");
+    DEG_add_simulation_relation(ctx->node, samd->simulation, "Accessed Simulation");
   }
 }
 
