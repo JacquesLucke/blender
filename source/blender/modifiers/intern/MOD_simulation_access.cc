@@ -21,6 +21,9 @@
  * \ingroup modifiers
  */
 
+#include <iostream>
+#include <string>
+
 #include "MEM_guardedalloc.h"
 
 #include "BLI_utildefines.h"
@@ -72,7 +75,7 @@ static PointCloud *modifyPointCloud(ModifierData *md,
                                     PointCloud *pointcloud)
 {
   Scene *scene = DEG_get_input_scene(ctx->depsgraph);
-  printf("Run modifier in frame: %d\n", scene->r.cfra);
+  std::cout << "Eval Modifier\n";
   SimulationAccessModifierData *samd = (SimulationAccessModifierData *)md;
   UNUSED_VARS(samd);
   return pointcloud;

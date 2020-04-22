@@ -112,7 +112,7 @@ void DEG_add_simulation_relation(DepsNodeHandle *node_handle,
                                  const char *description)
 {
   DEG::OperationKey operation_key(
-      &simulation->id, DEG::NodeType::GENERIC_DATABLOCK, DEG::OperationCode::SIMULATION_EVAL);
+      &simulation->id, DEG::NodeType::SIMULATION, DEG::OperationCode::SIMULATION_EVAL);
   DEG::DepsNodeHandle *deg_node_handle = get_node_handle(node_handle);
   deg_node_handle->builder->add_node_handle_relation(operation_key, deg_node_handle, description);
 }

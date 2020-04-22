@@ -1712,9 +1712,9 @@ void DepsgraphNodeBuilder::build_simulation(Simulation *simulation)
   build_parameters(&simulation->id);
 
   add_operation_node(&simulation->id,
-                     NodeType::GENERIC_DATABLOCK,
+                     NodeType::SIMULATION,
                      OperationCode::SIMULATION_EVAL,
-                     [](struct ::Depsgraph *UNUSED(depsgraph)) { printf("Hello World\n"); });
+                     [](struct ::Depsgraph *UNUSED(depsgraph)) { printf("Eval Simulation\n"); });
 }
 
 void DepsgraphNodeBuilder::build_scene_sequencer(Scene *scene)

@@ -2521,7 +2521,7 @@ void DepsgraphRelationBuilder::build_simulation(Simulation *simulation)
   build_parameters(&simulation->id);
 
   OperationKey simulation_update_key(
-      &simulation->id, NodeType::GENERIC_DATABLOCK, OperationCode::SIMULATION_EVAL);
+      &simulation->id, NodeType::SIMULATION, OperationCode::SIMULATION_EVAL);
   TimeSourceKey time_src_key;
   add_relation(time_src_key, simulation_update_key, "TimeSrc -> Simulation");
 }
