@@ -1341,7 +1341,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         if md.mode == 'VOXEL':
             layout.prop(md, "voxel_size")
             layout.prop(md, "adaptivity")
-        else: 
+        else:
             row.prop(md, "octree_depth")
             row.prop(md, "scale")
 
@@ -1811,6 +1811,10 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop(md, "invert_vertex_group", text="", icon='ARROW_LEFTRIGHT')
         col.prop(md, "thresh", text="Threshold")
         col.prop(md, "face_influence")
+
+    def SIMULATION_ACCESS(self, layout, ob, md):
+        layout.prop(md, "simulation")
+        layout.prop(md, "data_path")
 
 
 class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):

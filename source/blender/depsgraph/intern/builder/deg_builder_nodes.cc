@@ -1710,6 +1710,11 @@ void DepsgraphNodeBuilder::build_simulation(Simulation *simulation)
   add_id_node(&simulation->id);
   build_animdata(&simulation->id);
   build_parameters(&simulation->id);
+
+  add_operation_node(&simulation->id,
+                     NodeType::GENERIC_DATABLOCK,
+                     OperationCode::GENERIC_DATABLOCK_UPDATE,
+                     [](struct ::Depsgraph *UNUSED(depsgraph)) { printf("Hello World\n"); });
 }
 
 void DepsgraphNodeBuilder::build_scene_sequencer(Scene *scene)

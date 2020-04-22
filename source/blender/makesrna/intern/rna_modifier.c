@@ -289,6 +289,11 @@ const EnumPropertyItem rna_enum_object_modifier_type_items[] = {
      "Spawn particles from the shape"},
     {eModifierType_Softbody, "SOFT_BODY", ICON_MOD_SOFT, "Soft Body", ""},
     {eModifierType_Surface, "SURFACE", ICON_MODIFIER, "Surface", ""},
+    {eModifierType_SimulationAccess,
+     "SIMULATION_ACCESS",
+     ICON_PHYSICS,
+     "Simulation Access",
+     ""}, /* TODO: Use correct icon. */
     {0, NULL, 0, NULL, NULL},
 };
 
@@ -716,6 +721,8 @@ static StructRNA *rna_Modifier_refine(struct PointerRNA *ptr)
       return &RNA_SurfaceDeformModifier;
     case eModifierType_WeightedNormal:
       return &RNA_WeightedNormalModifier;
+    case eModifierType_SimulationAccess:
+      return &RNA_SimulationAccessModifier;
     /* Default */
     case eModifierType_Fluidsim: /* deprecated */
     case eModifierType_None:
@@ -6546,6 +6553,27 @@ static void rna_def_modifier_weightednormal(BlenderRNA *brna)
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
+static void rna_def_modifier_simulation_access(BlenderRNA *brna)
+{
+  StructRNA *srna;
+  PropertyRNA *prop;
+
+  srna = RNA_def_struct(brna, "SimulationAccessModifier", "Modifier");
+  RNA_def_struct_ui_text(srna, "Simulation Access Modifier", "");
+  RNA_def_struct_sdna(srna, "SimulationAccessModifierData");
+  RNA_def_struct_ui_icon(srna, ICON_PHYSICS); /* TODO: Use correct icon. */
+
+  prop = RNA_def_property(srna, "simulation", PROP_POINTER, PROP_NONE);
+  RNA_def_property_ui_text(prop, "Simulation", "Simulation to access");
+  RNA_def_property_flag(prop, PROP_EDITABLE);
+  RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
+
+  prop = RNA_def_property(srna, "data_path", PROP_STRING, PROP_NONE);
+  RNA_def_property_ui_text(
+      prop, "Data Path", "Identifier of the simulation component that should be accessed");
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+}
+
 void RNA_def_modifier(BlenderRNA *brna)
 {
   StructRNA *srna;
@@ -6671,6 +6699,7 @@ void RNA_def_modifier(BlenderRNA *brna)
   rna_def_modifier_meshseqcache(brna);
   rna_def_modifier_surfacedeform(brna);
   rna_def_modifier_weightednormal(brna);
+  rna_def_modifier_simulation_access(brna);
 }
 
 #endif
