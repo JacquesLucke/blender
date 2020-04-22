@@ -1053,6 +1053,14 @@ install(
 )
 
 # -----------------------------------------------------------------------------
+# Node Groups
+install(
+  DIRECTORY
+    ${CMAKE_SOURCE_DIR}/release/datafiles/node_groups
+  DESTINATION ${TARGETDIR_VER}/datafiles
+)
+
+# -----------------------------------------------------------------------------
 # Setup link libs
 
 add_dependencies(blender makesdna)

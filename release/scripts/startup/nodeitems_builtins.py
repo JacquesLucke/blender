@@ -19,6 +19,7 @@
 # <pep8 compliant>
 import bpy
 import nodeitems_utils
+from builtin_node_groups import get_builtin_groups_data
 from nodeitems_utils import (
     NodeCategory,
     NodeItem,
@@ -116,6 +117,16 @@ def node_group_items(context):
         yield NodeItem(node_tree_group_type[group.bl_idname],
                        group.name,
                        {"node_tree": "bpy.data.node_groups[%r]" % group.name})
+
+def builtin_node_group_items(context):
+    def draw_builtin_node_groups(self, layout, context):
+        layout.separator()
+        groups_json_data = get_builtin_groups_data()
+        for group_name in groups_json_data.keys():
+            props = layout.operator("node.add_builtin_node_group", text=group_name)
+            props.group_name = group_name
+
+    yield NodeItemCustom(draw=draw_builtin_node_groups)
 
 
 # only show input/output nodes inside node groups
@@ -529,6 +540,7 @@ simulation_node_categories = [
         NodeItem("FunctionNodeSwitch"),
     ]),
     SimulationNodeCategory("SIM_GROUP", "Group", items=node_group_items),
+    SimulationNodeCategory("SIM_BUILTIN_GROUP", "Builtin Groups", items=builtin_node_group_items),
     SimulationNodeCategory("SIM_LAYOUT", "Layout", items=[
         NodeItem("NodeFrame"),
         NodeItem("NodeReroute"),

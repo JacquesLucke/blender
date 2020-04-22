@@ -1,0 +1,178 @@
+{
+ "bpy.app.version": [
+  2,
+  90,
+  0
+ ],
+ "bl_idname": "SimulationNodeTree",
+ "name": "Particle Age",
+ "inputs": [],
+ "outputs": [
+  {
+   "name": "Age",
+   "identifier": "Output_1",
+   "default_value": 0.0,
+   "type": "VALUE",
+   "bl_socket_idname": "NodeSocketFloat"
+  }
+ ],
+ "nodes": [
+  {
+   "name": "Time",
+   "bl_idname": "SimulationNodeTime",
+   "location": [
+    -99,
+    -74
+   ],
+   "width": 140,
+   "properties": {
+    "mode": "SIMULATION_TIME"
+   },
+   "inputs": [],
+   "outputs": [
+    {
+     "identifier": "Time",
+     "default_value": 0.0
+    }
+   ]
+  },
+  {
+   "name": "Particle Attribute",
+   "bl_idname": "SimulationNodeParticleAttribute",
+   "location": [
+    -122,
+    63
+   ],
+   "width": 181,
+   "properties": {
+    "data_type": "FLOAT"
+   },
+   "inputs": [
+    {
+     "identifier": "Name",
+     "default_value": "Birth Time"
+    }
+   ],
+   "outputs": [
+    {
+     "identifier": "Float",
+     "default_value": 0.0
+    },
+    {
+     "identifier": "Int",
+     "default_value": 0
+    },
+    {
+     "identifier": "Boolean",
+     "default_value": false
+    },
+    {
+     "identifier": "Vector",
+     "default_value": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "identifier": "Color",
+     "default_value": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "identifier": "Object",
+     "default_value": null
+    },
+    {
+     "identifier": "Image",
+     "default_value": null
+    }
+   ]
+  },
+  {
+   "name": "Math",
+   "bl_idname": "ShaderNodeMath",
+   "location": [
+    122,
+    74
+   ],
+   "width": 140,
+   "properties": {
+    "operation": "SUBTRACT",
+    "use_clamp": false
+   },
+   "inputs": [
+    {
+     "identifier": "Value",
+     "default_value": 0.5
+    },
+    {
+     "identifier": "Value_001",
+     "default_value": 0.5
+    },
+    {
+     "identifier": "Value_002",
+     "default_value": 0.0
+    }
+   ],
+   "outputs": [
+    {
+     "identifier": "Value",
+     "default_value": 0.0
+    }
+   ]
+  },
+  {
+   "name": "Group Output",
+   "bl_idname": "NodeGroupOutput",
+   "location": [
+    322,
+    69
+   ],
+   "width": 140
+  }
+ ],
+ "links": [
+  {
+   "from": [
+    "Particle Attribute",
+    "Float",
+    0
+   ],
+   "to": [
+    "Math",
+    "Value",
+    0
+   ]
+  },
+  {
+   "from": [
+    "Time",
+    "Time",
+    0
+   ],
+   "to": [
+    "Math",
+    "Value_001",
+    1
+   ]
+  },
+  {
+   "from": [
+    "Math",
+    "Value",
+    0
+   ],
+   "to": [
+    "Group Output",
+    "Output_1",
+    0
+   ]
+  }
+ ],
+ "dependencies": []
+}
