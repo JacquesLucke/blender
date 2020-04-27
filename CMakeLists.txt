@@ -433,6 +433,8 @@ endif()
 option(WITH_GTESTS "Enable GTest unit testing" OFF)
 option(WITH_OPENGL_RENDER_TESTS "Enable OpenGL render related unit testing (Experimental)" OFF)
 option(WITH_OPENGL_DRAW_TESTS "Enable OpenGL UI drawing related unit testing (Experimental)" OFF)
+set(TEST_PYTHON_EXE "" CACHE PATH "Python executable to run unit tests")
+mark_as_advanced(TEST_PYTHON_EXE)
 
 # Documentation
 if(UNIX AND NOT APPLE)
@@ -473,6 +475,8 @@ endif()
 if(CMAKE_COMPILER_IS_GNUCC)
   option(WITH_LINKER_GOLD "Use ld.gold linker which is usually faster than ld.bfd" ON)
   mark_as_advanced(WITH_LINKER_GOLD)
+  option(WITH_LINKER_LLD "Use ld.lld linker which is usually faster than ld.gold" OFF)
+  mark_as_advanced(WITH_LINKER_LLD)
 endif()
 
 if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
