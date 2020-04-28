@@ -57,9 +57,7 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
 static void foreachIDLink(ModifierData *md, Object *ob, IDWalkFunc walk, void *userData)
 {
   SimulationAccessModifierData *samd = (SimulationAccessModifierData *)md;
-  if (samd->simulation) {
-    walk(userData, ob, (ID **)&samd->simulation, IDWALK_CB_USER);
-  }
+  walk(userData, ob, (ID **)&samd->simulation, IDWALK_CB_USER);
 }
 
 static bool isDisabled(const struct Scene *UNUSED(scene),
