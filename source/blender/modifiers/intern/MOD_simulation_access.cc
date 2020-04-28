@@ -69,11 +69,9 @@ static bool isDisabled(const struct Scene *UNUSED(scene),
 }
 
 static PointCloud *modifyPointCloud(ModifierData *md,
-                                    const ModifierEvalContext *ctx,
+                                    const ModifierEvalContext *UNUSED(ctx),
                                     PointCloud *pointcloud)
 {
-  Scene *scene = DEG_get_input_scene(ctx->depsgraph);
-  std::cout << "Eval Modifier\n";
   SimulationAccessModifierData *samd = (SimulationAccessModifierData *)md;
   UNUSED_VARS(samd);
   return pointcloud;

@@ -112,7 +112,6 @@ IDTypeInfo IDType_ID_SIM = {
     /* make_local */ nullptr,
 };
 
-void BKE_simulation_data_update(Depsgraph *UNUSED(depsgraph), Scene *scene)
+void BKE_simulation_data_update(Depsgraph *UNUSED(depsgraph), Scene *UNUSED(scene))
 {
-  printf("Eval simulation: %d + %f\n", scene->r.cfra, scene->r.subframe);
 }
