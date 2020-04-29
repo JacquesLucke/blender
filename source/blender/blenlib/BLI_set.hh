@@ -343,6 +343,16 @@ class Set {
     }
   }
 
+  void print_stats() const
+  {
+    uint collisions_counter = 0;
+    for (const T &value : *this) {
+      collisions_counter += this->count_collisions(value);
+    }
+    std::cout << "Timer Average Collisions: " << ((float)collisions_counter / (float)this->size())
+              << "\n";
+  }
+
   class Iterator {
    private:
     const Set *m_set;

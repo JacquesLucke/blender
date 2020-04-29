@@ -26,7 +26,9 @@
 #include "MEM_guardedalloc.h"
 
 #include "BLI_listbase.h"
+#include "BLI_timeit.hh"
 #include "BLI_utildefines.h"
+#include "BLI_vector_set.hh"
 
 #include "PIL_time.h"
 #include "PIL_time_utildefines.h"
@@ -61,6 +63,8 @@ extern "C" {
 #include "intern/depsgraph_registry.h"
 #include "intern/depsgraph_relation.h"
 #include "intern/depsgraph_type.h"
+
+#include <unordered_set>
 
 /* ****************** */
 /* External Build API */
@@ -224,12 +228,64 @@ static void graph_build_finalize_common(DEG::Depsgraph *deg_graph, Main *bmain)
   deg_graph->need_update = false;
 }
 
+// struct IdHash {
+//   std::size_t operator()(const ID *value) const
+//   {
+//     uintptr_t ptr = (uintptr_t)value;
+//     return (uint32_t)(ptr >> 8);
+//   }
+// };
+
 /* Build depsgraph for the given scene layer, and dump results in given graph container. */
 void DEG_graph_build_from_view_layer(Depsgraph *graph,
                                      Main *bmain,
                                      Scene *scene,
                                      ViewLayer *view_layer)
 {
+  {
+    BLI::Vector<ID *> all_ids;
+    std::unordered_set<ID *> std_unordered_set;
+    BLI::Set<ID *> bli_set;
+    {
+      SCOPED_TIMER("find ids");
+      ID *id;
+      FOREACH_MAIN_ID_BEGIN (bmain, id) {
+        all_ids.append((ID *)id);
+      }
+      FOREACH_MAIN_ID_END;
+    }
+    {
+      SCOPED_TIMER("unordered_set");
+      for (ID *id : all_ids) {
+        std_unordered_set.insert(id);
+      }
+    }
+    {
+      SCOPED_TIMER("Set");
+      for (ID *id : all_ids) {
+        bli_set.add(id);
+      }
+    }
+    uint contains_counter_1 = 0;
+    uint contains_counter_2 = 0;
+    {
+      SCOPED_TIMER("lookup unordered_set");
+      for (ID *id : all_ids) {
+        contains_counter_1 += std_unordered_set.find(id) != std_unordered_set.end();
+      }
+    }
+    {
+      SCOPED_TIMER("lookup Set");
+      for (ID *id : all_ids) {
+        contains_counter_2 += bli_set.contains(id);
+      }
+    }
+    std::cout << "Timer " << all_ids.size() << " " << std_unordered_set.size() << " "
+              << bli_set.size() << " " << contains_counter_1 << " " << contains_counter_2 << "\n";
+    bli_set.print_stats();
+    // bli_set.print_table();
+  }
+
   double start_time = 0.0;
   if (G.debug & (G_DEBUG_DEPSGRAPH_BUILD | G_DEBUG_DEPSGRAPH_TIME)) {
     start_time = PIL_check_seconds_timer();

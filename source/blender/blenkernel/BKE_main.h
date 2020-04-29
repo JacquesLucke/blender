@@ -174,9 +174,9 @@ struct GSet *BKE_main_gset_create(struct Main *bmain, struct GSet *gset);
 
 #define FOREACH_MAIN_LISTBASE_ID_BEGIN(_lb, _id) \
   { \
-    ID *_id_next = (_lb)->first; \
+    ID *_id_next = (ID *)(_lb)->first; \
     for ((_id) = _id_next; (_id) != NULL; (_id) = _id_next) { \
-      _id_next = (_id)->next;
+      _id_next = (ID *)(_id)->next;
 
 #define FOREACH_MAIN_LISTBASE_ID_END \
   } \
