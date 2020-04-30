@@ -36,7 +36,6 @@
 
 #include "DNA_ID.h"
 #include "DNA_anim_types.h"
-#include "DNA_ipo_types.h"
 #include "DNA_key_types.h"
 #include "DNA_lattice_types.h"
 #include "DNA_mesh_types.h"
@@ -60,6 +59,11 @@
 #include "BLO_read_write.h"
 
 #include "RNA_access.h"
+
+/* old defines from DNA_ipo_types.h for data-type, stored in DNA - don't modify! */
+#define IPO_FLOAT 4
+#define IPO_BEZTRIPLE 100
+#define IPO_BPOINT 101
 
 static void shapekey_copy_data(Main *UNUSED(bmain),
                                ID *id_dst,
@@ -168,6 +172,21 @@ static void shapekey_blend_read_data(BlendDataReader *reader, ID *id)
   }
 }
 
+static void shapekey_blend_read_lib(BlendLibReader *reader, ID *id)
+{
+  Key *key = (Key *)id;
+  BLI_assert((key->id.tag & LIB_TAG_EXTERN) == 0);
+
+  BLO_read_id_address(reader, id->lib, &key->ipo);  // XXX deprecated - old animation system
+  BLO_read_id_address(reader, id->lib, &key->from);
+}
+
+static void shapekey_blend_expand(BlendExpander *expander, ID *id)
+{
+  Key *key = (Key *)id;
+  BLO_expand(expander, key->ipo);  // XXX deprecated - old animation system
+}
+
 IDTypeInfo IDType_ID_KE = {
     .id_code = ID_KE,
     .id_filter = 0,
@@ -185,18 +204,13 @@ IDTypeInfo IDType_ID_KE = {
 
     .blend_write = shapekey_blend_write,
     .blend_read_data = shapekey_blend_read_data,
-    .blend_read_lib = NULL,
-    .blend_expand = NULL,
+    .blend_read_lib = shapekey_blend_read_lib,
+    .blend_expand = shapekey_blend_expand,
 };
 
 #define KEY_MODE_DUMMY 0 /* use where mode isn't checked for */
 #define KEY_MODE_BPOINT 1
 #define KEY_MODE_BEZTRIPLE 2
-
-/* old defines from DNA_ipo_types.h for data-type, stored in DNA - don't modify! */
-#define IPO_FLOAT 4
-#define IPO_BEZTRIPLE 100
-#define IPO_BPOINT 101
 
 /* Internal use only. */
 typedef struct WeightsArrayCache {

@@ -3669,14 +3669,6 @@ void blo_do_versions_key_uidgen(Key *key)
   }
 }
 
-static void lib_link_key(FileData *fd, Main *UNUSED(bmain), Key *key)
-{
-  BLI_assert((key->id.tag & LIB_TAG_EXTERN) == 0);
-
-  key->ipo = newlibadr(fd, key->id.lib, key->ipo);  // XXX deprecated - old animation system
-  key->from = newlibadr(fd, key->id.lib, key->from);
-}
-
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -9260,9 +9252,6 @@ static void lib_link_all(FileData *fd, Main *bmain)
       case ID_PAL:
         lib_link_palette(fd, bmain, (Palette *)id);
         break;
-      case ID_KE:
-        lib_link_key(fd, bmain, (Key *)id);
-        break;
       case ID_AC:
         lib_link_action(fd, bmain, (bAction *)id);
         break;
@@ -10015,11 +10004,6 @@ static void expand_collection(FileData *fd, Main *mainvar, Collection *collectio
 #endif
 }
 
-static void expand_key(FileData *fd, Main *mainvar, Key *key)
-{
-  expand_doit(fd, mainvar, key->ipo);  // XXX deprecated - old animation system
-}
-
 static void expand_nodetree(FileData *fd, Main *mainvar, bNodeTree *ntree)
 {
   bNode *node;
@@ -10671,9 +10655,6 @@ void BLO_expand_main(void *fdhandle, Main *mainvar)
               break;
             case ID_LA:
               expand_light(fd, mainvar, (Light *)id);
-              break;
-            case ID_KE:
-              expand_key(fd, mainvar, (Key *)id);
               break;
             case ID_CA:
               expand_camera(fd, mainvar, (Camera *)id);
