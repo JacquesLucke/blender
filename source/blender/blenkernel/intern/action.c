@@ -172,6 +172,86 @@ static void action_blend_write(BlendWriter *writer, ID *id, const void *id_addre
   BLO_write_struct_list(writer, TimeMarker, &action->markers);
 }
 
+static void action_blend_read_data(BlendDataReader *reader, ID *id)
+{
+  bAction *action = (bAction *)id;
+
+  BLO_read_list(reader, &action->curves, NULL);
+  BLO_read_list(reader, &action->chanbase, NULL);
+  BLO_read_list(reader, &action->groups, NULL);
+  BLO_read_list(reader, &action->markers, NULL);
+
+  // XXX deprecated - old animation system <<<
+  for (bActionChannel *achan = action->chanbase.first; achan; achan = achan->next) {
+    BLO_read_data_address(reader, &achan->grp);
+
+    BLO_read_list(reader, &achan->constraintChannels, NULL);
+  }
+  // >>> XXX deprecated - old animation system
+
+  BKE_fcurve_blend_read_data(reader, &action->curves);
+
+  for (bActionGroup *agrp = action->groups.first; agrp; agrp = agrp->next) {
+    BLO_read_data_address(reader, &agrp->channels.first);
+    BLO_read_data_address(reader, &agrp->channels.last);
+  }
+}
+
+static void blend_read_lib_constraint_channels(BlendLibReader *reader, ID *id, ListBase *chanbase)
+{
+  for (bConstraintChannel *chan = chanbase->first; chan; chan = chan->next) {
+    BLO_read_id_address(reader, id->lib, &chan->ipo);
+  }
+}
+
+static void action_blend_read_lib(BlendLibReader *reader, ID *id)
+{
+  bAction *action = (bAction *)id;
+
+  // XXX deprecated - old animation system <<<
+  for (bActionChannel *chan = action->chanbase.first; chan; chan = chan->next) {
+    BLO_read_id_address(reader, id->lib, &chan->ipo);
+    blend_read_lib_constraint_channels(reader, &action->id, &chan->constraintChannels);
+  }
+  // >>> XXX deprecated - old animation system
+
+  BKE_fcurve_blend_read_lib(reader, &action->curves, id);
+
+  for (TimeMarker *marker = action->markers.first; marker; marker = marker->next) {
+    if (marker->camera) {
+      BLO_read_id_address(reader, id->lib, &marker->camera);
+    }
+  }
+}
+
+static void blend_expand_constraint_channels(BlendExpander *expander, ListBase *chanbase)
+{
+  for (bConstraintChannel *chan = chanbase->first; chan; chan = chan->next) {
+    BLO_expand(expander, chan->ipo);
+  }
+}
+
+static void action_blend_expand(BlendExpander *expander, ID *id)
+{
+  bAction *action = (bAction *)id;
+
+  // XXX deprecated - old animation system --------------
+  for (bActionChannel *chan = action->chanbase.first; chan; chan = chan->next) {
+    BLO_expand(expander, chan->ipo);
+    blend_expand_constraint_channels(expander, &chan->constraintChannels);
+  }
+  // ---------------------------------------------------
+
+  /* F-Curves in Action */
+  BKE_fcurve_blend_expand(expander, &action->curves);
+
+  for (TimeMarker *marker = action->markers.first; marker; marker = marker->next) {
+    if (marker->camera) {
+      BLO_expand(expander, marker->camera);
+    }
+  }
+}
+
 IDTypeInfo IDType_ID_AC = {
     .id_code = ID_AC,
     .id_filter = FILTER_ID_AC,
@@ -188,9 +268,9 @@ IDTypeInfo IDType_ID_AC = {
     .make_local = NULL,
 
     .blend_write = action_blend_write,
-    .blend_read_data = NULL,
-    .blend_read_lib = NULL,
-    .blend_expand = NULL,
+    .blend_read_data = action_blend_read_data,
+    .blend_read_lib = action_blend_read_lib,
+    .blend_expand = action_blend_expand,
 };
 
 /* ***************** Library data level operations on action ************** */

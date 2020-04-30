@@ -2930,65 +2930,6 @@ static void lib_link_constraint_channels(FileData *fd, ID *id, ListBase *chanbas
 /** \name Read ID: Action
  * \{ */
 
-static void lib_link_fcurves(FileData *fd, ID *id, ListBase *list)
-{
-  BlendLibReader reader = {fd, NULL};
-  BKE_fcurve_blend_read_lib(&reader, list, id);
-}
-
-/* NOTE: this assumes that link_list has already been called on the list */
-static void direct_link_fcurves(FileData *fd, ListBase *list)
-{
-  BlendDataReader reader = {fd};
-  BKE_fcurve_blend_read_data(&reader, list);
-}
-
-static void lib_link_action(FileData *fd, Main *UNUSED(bmain), bAction *act)
-{
-  // XXX deprecated - old animation system <<<
-  for (bActionChannel *chan = act->chanbase.first; chan; chan = chan->next) {
-    chan->ipo = newlibadr(fd, act->id.lib, chan->ipo);
-    lib_link_constraint_channels(fd, &act->id, &chan->constraintChannels);
-  }
-  // >>> XXX deprecated - old animation system
-
-  lib_link_fcurves(fd, &act->id, &act->curves);
-
-  for (TimeMarker *marker = act->markers.first; marker; marker = marker->next) {
-    if (marker->camera) {
-      marker->camera = newlibadr(fd, act->id.lib, marker->camera);
-    }
-  }
-}
-
-static void direct_link_action(FileData *fd, bAction *act)
-{
-  bActionChannel *achan;  // XXX deprecated - old animation system
-  bActionGroup *agrp;
-
-  link_list(fd, &act->curves);
-  link_list(fd, &act->chanbase);  // XXX deprecated - old animation system
-  link_list(fd, &act->groups);
-  link_list(fd, &act->markers);
-
-  // XXX deprecated - old animation system <<<
-  for (achan = act->chanbase.first; achan; achan = achan->next) {
-    achan->grp = newdataadr(fd, achan->grp);
-
-    link_list(fd, &achan->constraintChannels);
-  }
-  // >>> XXX deprecated - old animation system
-
-  direct_link_fcurves(fd, &act->curves);
-
-  for (agrp = act->groups.first; agrp; agrp = agrp->next) {
-    agrp->channels.first = newdataadr(fd, agrp->channels.first);
-    agrp->channels.last = newdataadr(fd, agrp->channels.last);
-  }
-}
-
-/* ------- */
-
 static void lib_link_keyingsets(FileData *fd, ID *id, ListBase *list)
 {
   KeyingSet *ks;
@@ -8846,9 +8787,6 @@ static BHead *read_libblock(FileData *fd,
     case ID_AR:
       direct_link_armature(fd, (bArmature *)id);
       break;
-    case ID_AC:
-      direct_link_action(fd, (bAction *)id);
-      break;
     case ID_NT:
       direct_link_nodetree(fd, (bNodeTree *)id);
       break;
@@ -9252,15 +9190,16 @@ static void lib_link_all(FileData *fd, Main *bmain)
       case ID_PAL:
         lib_link_palette(fd, bmain, (Palette *)id);
         break;
-      case ID_AC:
-        lib_link_action(fd, bmain, (bAction *)id);
-        break;
       case ID_IP:
         /* XXX deprecated... still needs to be maintained for version patches still. */
         lib_link_ipo(fd, bmain, (Ipo *)id);
         break;
       case ID_LI:
         lib_link_library(fd, bmain, (Library *)id); /* Only init users. */
+        break;
+      case ID_KE:
+      case ID_AC:
+        /* Do nothing. Handled in typeinfo callback. */
         break;
     }
 
@@ -9843,12 +9782,6 @@ static void expand_constraint_channels(FileData *fd, Main *mainvar, ListBase *ch
   }
 }
 
-static void expand_fcurves(FileData *fd, Main *mainvar, ListBase *list)
-{
-  BlendExpander expander = {fd, mainvar};
-  BKE_fcurve_blend_expand(&expander, list);
-}
-
 static void expand_animdata(FileData *fd, Main *mainvar, AnimData *adt)
 {
   BlendExpander expander = {fd, mainvar};
@@ -9898,27 +9831,6 @@ static void expand_id(FileData *fd, Main *mainvar, ID *id)
   }
 
   expand_id_private_id(fd, mainvar, id);
-}
-
-static void expand_action(FileData *fd, Main *mainvar, bAction *act)
-{
-  bActionChannel *chan;
-
-  // XXX deprecated - old animation system --------------
-  for (chan = act->chanbase.first; chan; chan = chan->next) {
-    expand_doit(fd, mainvar, chan->ipo);
-    expand_constraint_channels(fd, mainvar, &chan->constraintChannels);
-  }
-  // ---------------------------------------------------
-
-  /* F-Curves in Action */
-  expand_fcurves(fd, mainvar, &act->curves);
-
-  for (TimeMarker *marker = act->markers.first; marker; marker = marker->next) {
-    if (marker->camera) {
-      expand_doit(fd, mainvar, marker->camera);
-    }
-  }
 }
 
 static void expand_keyingsets(FileData *fd, Main *mainvar, ListBase *list)
@@ -10670,9 +10582,6 @@ void BLO_expand_main(void *fdhandle, Main *mainvar)
               break;
             case ID_AR:
               expand_armature(fd, mainvar, (bArmature *)id);
-              break;
-            case ID_AC:
-              expand_action(fd, mainvar, (bAction *)id);  // XXX deprecated - old animation system
               break;
             case ID_GR:
               expand_collection(fd, mainvar, (Collection *)id);
