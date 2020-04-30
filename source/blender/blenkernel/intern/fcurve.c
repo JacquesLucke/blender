@@ -3366,7 +3366,7 @@ void BKE_fcurve_blend_expand(BlendExpander *expander, ListBase *list)
       for (dvar = driver->variables.first; dvar; dvar = dvar->next) {
         DRIVER_TARGETS_LOOPER_BEGIN (dvar) {
           // TODO: only expand those that are going to get used?
-          BLO_expand_id(expander, dtar->id);
+          BLO_expand(expander, dtar->id);
         }
         DRIVER_TARGETS_LOOPER_END;
       }

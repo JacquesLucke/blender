@@ -9894,52 +9894,16 @@ static void expand_constraint_channels(FileData *fd, Main *mainvar, ListBase *ch
   }
 }
 
-static void expand_fmodifiers(FileData *fd, Main *mainvar, ListBase *list)
-{
-  BlendExpander expander = {fd, mainvar};
-  BKE_fcurve_modifiers_blend_expand(&expander, list);
-}
-
 static void expand_fcurves(FileData *fd, Main *mainvar, ListBase *list)
 {
   BlendExpander expander = {fd, mainvar};
   BKE_fcurve_blend_expand(&expander, list);
 }
 
-static void expand_animdata_nlastrips(FileData *fd, Main *mainvar, ListBase *list)
-{
-  NlaStrip *strip;
-
-  for (strip = list->first; strip; strip = strip->next) {
-    /* check child strips */
-    expand_animdata_nlastrips(fd, mainvar, &strip->strips);
-
-    /* check F-Curves */
-    expand_fcurves(fd, mainvar, &strip->fcurves);
-
-    /* check F-Modifiers */
-    expand_fmodifiers(fd, mainvar, &strip->modifiers);
-
-    /* relink referenced action */
-    expand_doit(fd, mainvar, strip->act);
-  }
-}
-
 static void expand_animdata(FileData *fd, Main *mainvar, AnimData *adt)
 {
-  NlaTrack *nlt;
-
-  /* own action */
-  expand_doit(fd, mainvar, adt->action);
-  expand_doit(fd, mainvar, adt->tmpact);
-
-  /* drivers - assume that these F-Curves have driver data to be in this list... */
-  expand_fcurves(fd, mainvar, &adt->drivers);
-
-  /* nla-data - referenced actions */
-  for (nlt = adt->nla_tracks.first; nlt; nlt = nlt->next) {
-    expand_animdata_nlastrips(fd, mainvar, &nlt->strips);
-  }
+  BlendExpander expander = {fd, mainvar};
+  BKE_animsys_blend_expand(&expander, adt);
 }
 
 static void expand_idprops(FileData *fd, Main *mainvar, IDProperty *prop)

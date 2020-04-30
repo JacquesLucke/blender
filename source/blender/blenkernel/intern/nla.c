@@ -2232,6 +2232,23 @@ void BKE_nla_blend_read_lib(BlendLibReader *reader, ListBase *list, ID *id)
   }
 }
 
+void BKE_nla_blend_expand(struct BlendExpander *expander, struct ListBase *list)
+{
+  for (NlaStrip *strip = list->first; strip; strip = strip->next) {
+    /* check child strips */
+    BKE_nla_blend_expand(expander, &strip->strips);
+
+    /* check F-Curves */
+    BKE_fcurve_blend_expand(expander, &strip->fcurves);
+
+    /* check F-Modifiers */
+    BKE_fcurve_modifiers_blend_expand(expander, &strip->modifiers);
+
+    /* relink referenced action */
+    BLO_expand(expander, strip->act);
+  }
+}
+
 static void write_nlastrips(BlendWriter *writer, ListBase *strips)
 {
   BLO_write_struct_list(writer, NlaStrip, strips);

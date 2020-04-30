@@ -91,9 +91,9 @@ ID *BLO_read_get_new_id_address(BlendLibReader *reader, struct Library *lib, str
 /* API for expand process.
  **********************************************/
 
-void BLO_expand_id(BlendExpander *expander, ID *id);
+void BLO_expand_id(BlendExpander *expander, struct ID *id);
 
-#define BLO_expand(expander, id) BLO_expand_id(expander, (ID *)id)
+#define BLO_expand(expander, id) BLO_expand_id(expander, (struct ID *)id)
 
 #ifdef __cplusplus
 }

@@ -4251,6 +4251,21 @@ void BKE_animsys_blend_read_lib(BlendLibReader *reader, AnimData *adt, ID *id)
   BKE_nla_blend_read_lib(reader, &adt->nla_tracks, id);
 }
 
+void BKE_animsys_blend_expand(BlendExpander *expander, AnimData *adt)
+{
+  /* own action */
+  BLO_expand(expander, adt->action);
+  BLO_expand(expander, adt->tmpact);
+
+  /* drivers - assume that these F-Curves have driver data to be in this list... */
+  BKE_fcurve_blend_expand(expander, &adt->drivers);
+
+  /* nla-data - referenced actions */
+  for (NlaTrack *nlt = adt->nla_tracks.first; nlt; nlt = nlt->next) {
+    BKE_nla_blend_expand(expander, &nlt->strips);
+  }
+}
+
 void BKE_animsys_blend_write(BlendWriter *writer, AnimData *adt)
 {
   /* firstly, just write the AnimData block */

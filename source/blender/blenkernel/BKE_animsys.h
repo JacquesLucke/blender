@@ -35,6 +35,7 @@ struct ID;
 struct BlendWriter;
 struct BlendDataReader;
 struct BlendLibReader;
+struct BlendExpander;
 struct KS_Path;
 struct KeyingSet;
 struct ListBase;
@@ -314,6 +315,7 @@ void BKE_animsys_blend_read_data(struct BlendDataReader *reader, struct AnimData
 void BKE_animsys_blend_read_lib(struct BlendLibReader *reader,
                                 struct AnimData *adt,
                                 struct ID *id);
+void BKE_animsys_blend_expand(struct BlendExpander *expander, struct AnimData *adt);
 
 #ifdef __cplusplus
 }
