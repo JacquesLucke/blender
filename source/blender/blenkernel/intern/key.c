@@ -56,6 +56,8 @@
 #include "BKE_mesh.h"
 #include "BKE_scene.h"
 
+#include "BLO_read_write.h"
+
 #include "RNA_access.h"
 
 static void shapekey_copy_data(Main *UNUSED(bmain),
@@ -92,6 +94,30 @@ static void shapekey_free_data(ID *id)
   }
 }
 
+static void shapekey_blend_write(BlendWriter *writer, ID *id, const void *id_address)
+{
+  Key *key = (Key *)id;
+  if (key->id.us == 0 && !BLO_write_is_undo(writer)) {
+    return;
+  }
+
+  /* write LibData */
+  BLO_write_id_struct(writer, Key, id_address, id);
+  BKE_iddata_blend_write(writer, id);
+
+  if (key->adt) {
+    BKE_animsys_blend_write(writer, key->adt);
+  }
+
+  /* direct data */
+  for (KeyBlock *kb = key->block.first; kb; kb = kb->next) {
+    BLO_write_struct(writer, KeyBlock, kb);
+    if (kb->data) {
+      BLO_write_raw(writer, kb->totelem * key->elemsize, kb->data);
+    }
+  }
+}
+
 IDTypeInfo IDType_ID_KE = {
     .id_code = ID_KE,
     .id_filter = 0,
@@ -107,7 +133,7 @@ IDTypeInfo IDType_ID_KE = {
     .free_data = shapekey_free_data,
     .make_local = NULL,
 
-    .blend_write = NULL,
+    .blend_write = shapekey_blend_write,
     .blend_read_data = NULL,
     .blend_read_lib = NULL,
     .blend_expand = NULL,

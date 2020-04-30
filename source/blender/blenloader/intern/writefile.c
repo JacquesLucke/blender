@@ -1603,27 +1603,6 @@ static void write_vfont(WriteData *wd, VFont *vf, const void *id_address)
   }
 }
 
-static void write_key(WriteData *wd, Key *key, const void *id_address)
-{
-  if (key->id.us > 0 || wd->use_memfile) {
-    /* write LibData */
-    writestruct_at_address(wd, ID_KE, Key, 1, id_address, key);
-    write_iddata(wd, &key->id);
-
-    if (key->adt) {
-      write_animdata(wd, key->adt);
-    }
-
-    /* direct data */
-    for (KeyBlock *kb = key->block.first; kb; kb = kb->next) {
-      writestruct(wd, DATA, KeyBlock, 1, kb);
-      if (kb->data) {
-        writedata(wd, DATA, kb->totelem * key->elemsize, kb->data);
-      }
-    }
-  }
-}
-
 static void write_camera(WriteData *wd, Camera *cam, const void *id_address)
 {
   if (cam->id.us > 0 || wd->use_memfile) {
@@ -3740,9 +3719,6 @@ static bool write_file_handle(Main *mainvar,
             break;
           case ID_VF:
             write_vfont(wd, (VFont *)id_buffer, id);
-            break;
-          case ID_KE:
-            write_key(wd, (Key *)id_buffer, id);
             break;
           case ID_WO:
             write_world(wd, (World *)id_buffer, id);
