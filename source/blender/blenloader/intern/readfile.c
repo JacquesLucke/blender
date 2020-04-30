@@ -716,15 +716,30 @@ static Main *blo_find_main(FileData *fd, const char *filepath, const char *relab
 /** \name File Parsing
  * \{ */
 
-static BlendReader *wrap_reader(FileData *fd)
+static BlendDataReader *wrap_data_reader(FileData *fd)
 {
-  return (BlendReader *)fd;
+  return (BlendDataReader *)fd;
 }
 
-static FileData *unwrap_reader(BlendReader *reader)
+static FileData *unwrap_data_reader(BlendDataReader *reader)
 {
   return (FileData *)reader;
 }
+
+static BlendLibReader *wrap_lib_reader(FileData *fd)
+{
+  return (BlendLibReader *)fd;
+}
+
+static FileData *unwrap_lib_reader(BlendLibReader *reader)
+{
+  return (FileData *)reader;
+}
+
+typedef struct BlendExpander {
+  FileData *fd;
+  Main *main;
+} BlendExpander;
 
 static void switch_endian_bh4(BHead4 *bhead)
 {
@@ -2522,12 +2537,12 @@ static void _IDP_DirectLinkGroup_OrFree(IDProperty **prop,
                                         FileData *fd,
                                         const char *caller_func_id)
 {
-  IDP_Group_BlendReadData(wrap_reader(fd), prop, caller_func_id);
+  IDP_Group_BlendReadData(wrap_data_reader(fd), prop, caller_func_id);
 }
 
 static void IDP_LibLinkProperty(IDProperty *prop, FileData *fd)
 {
-  IDP_BlendReadLib(wrap_reader(fd), prop);
+  IDP_BlendReadLib(wrap_lib_reader(fd), prop);
 }
 
 /** \} */
@@ -2723,7 +2738,7 @@ static void direct_link_id(FileData *fd, ID *id, ID *id_old)
 /* cuma itself has been read! */
 static void direct_link_curvemapping(FileData *fd, CurveMapping *cumap)
 {
-  BKE_curvemapping_blend_read(wrap_reader(fd), cumap);
+  BKE_curvemapping_blend_read(wrap_data_reader(fd), cumap);
 }
 
 /** \} */
@@ -2925,13 +2940,13 @@ static void lib_link_constraint_channels(FileData *fd, ID *id, ListBase *chanbas
 
 static void lib_link_fcurves(FileData *fd, ID *id, ListBase *list)
 {
-  BKE_fcurve_blend_read_lib(wrap_reader(fd), list, id);
+  BKE_fcurve_blend_read_lib(wrap_lib_reader(fd), list, id);
 }
 
 /* NOTE: this assumes that link_list has already been called on the list */
 static void direct_link_fcurves(FileData *fd, ListBase *list)
 {
-  BKE_fcurve_blend_read_data(wrap_reader(fd), list);
+  BKE_fcurve_blend_read_data(wrap_data_reader(fd), list);
 }
 
 static void lib_link_action(FileData *fd, Main *UNUSED(bmain), bAction *act)
@@ -3015,12 +3030,12 @@ static void direct_link_keyingsets(FileData *fd, ListBase *list)
 
 static void lib_link_animdata(FileData *fd, ID *id, AnimData *adt)
 {
-  BKE_animsys_blend_read_lib(wrap_reader(fd), adt, id);
+  BKE_animsys_blend_read_lib(wrap_lib_reader(fd), adt, id);
 }
 
 static void direct_link_animdata(FileData *fd, AnimData *adt)
 {
-  BKE_animsys_blend_read_data(wrap_reader(fd), adt);
+  BKE_animsys_blend_read_data(wrap_data_reader(fd), adt);
 }
 
 /** \} */
@@ -4075,7 +4090,7 @@ static void direct_link_pointcache_list(FileData *fd,
                                         PointCache **ocache,
                                         int force_disk)
 {
-  BKE_ptcache_blend_read(wrap_reader(fd), ptcaches, ocache, force_disk);
+  BKE_ptcache_blend_read(wrap_data_reader(fd), ptcaches, ocache, force_disk);
 }
 
 static void lib_link_partdeflect(FileData *fd, ID *id, PartDeflect *pd)
@@ -5039,7 +5054,7 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
       /* All the fields has been properly allocated. */
     }
     else if (mdi && mdi->blendRead) {
-      mdi->blendRead(wrap_reader(fd), md);
+      mdi->blendRead(wrap_data_reader(fd), md);
     }
     else if (md->type == eModifierType_Fluid) {
 
@@ -6125,7 +6140,8 @@ static void direct_link_scene(FileData *fd, Scene *sce)
     sce->toolsettings->custom_bevel_profile_preset = newdataadr(
         fd, sce->toolsettings->custom_bevel_profile_preset);
     if (sce->toolsettings->custom_bevel_profile_preset) {
-      BKE_curveprofile_blend_read(wrap_reader(fd), sce->toolsettings->custom_bevel_profile_preset);
+      BKE_curveprofile_blend_read(wrap_data_reader(fd),
+                                  sce->toolsettings->custom_bevel_profile_preset);
     }
   }
 
@@ -9880,7 +9896,7 @@ static void expand_constraint_channels(FileData *fd, Main *mainvar, ListBase *ch
 
 static void expand_fmodifiers(FileData *fd, Main *mainvar, ListBase *list)
 {
-  BlendExpander expander = {wrap_reader(fd), mainvar};
+  BlendExpander expander = {fd, mainvar};
   BKE_fcurve_modifiers_blend_read_expand(&expander, list);
 }
 
@@ -11698,27 +11714,27 @@ static void read_libraries(FileData *basefd, ListBase *mainlist)
   BKE_main_free(main_newid);
 }
 
-void *BLO_read_get_new_data_address(BlendReader *reader, const void *old_address)
+void *BLO_read_get_new_data_address(BlendDataReader *reader, const void *old_address)
 {
-  return newdataadr(unwrap_reader(reader), old_address);
+  return newdataadr(unwrap_data_reader(reader), old_address);
 }
 
-ID *BLO_read_get_new_id_address(BlendReader *reader, Library *lib, ID *id)
+ID *BLO_read_get_new_id_address(BlendLibReader *reader, Library *lib, ID *id)
 {
-  return newlibadr(unwrap_reader(reader), lib, id);
+  return newlibadr(unwrap_lib_reader(reader), lib, id);
 }
 
-bool BLO_read_requires_endian_switch(BlendReader *reader)
+bool BLO_read_requires_endian_switch(BlendDataReader *reader)
 {
-  return (unwrap_reader(reader)->flags & FD_FLAGS_SWITCH_ENDIAN) != 0;
+  return (unwrap_data_reader(reader)->flags & FD_FLAGS_SWITCH_ENDIAN) != 0;
 }
 
-void BLO_read_list(BlendReader *reader, struct ListBase *list, BlendReadListFn callback)
+void BLO_read_list(BlendDataReader *reader, struct ListBase *list, BlendReadListFn callback)
 {
-  link_list_ex(unwrap_reader(reader), list, (link_list_cb)callback);
+  link_list_ex(unwrap_data_reader(reader), list, (link_list_cb)callback);
 }
 
-void BLO_read_int32_array(BlendReader *reader, int array_size, int32_t **ptr_p)
+void BLO_read_int32_array(BlendDataReader *reader, int array_size, int32_t **ptr_p)
 {
   BLO_read_data_address(reader, ptr_p);
   if (BLO_read_requires_endian_switch(reader)) {
@@ -11726,7 +11742,7 @@ void BLO_read_int32_array(BlendReader *reader, int array_size, int32_t **ptr_p)
   }
 }
 
-void BLO_read_uint32_array(BlendReader *reader, int array_size, uint32_t **ptr_p)
+void BLO_read_uint32_array(BlendDataReader *reader, int array_size, uint32_t **ptr_p)
 {
   BLO_read_data_address(reader, ptr_p);
   if (BLO_read_requires_endian_switch(reader)) {
@@ -11734,7 +11750,7 @@ void BLO_read_uint32_array(BlendReader *reader, int array_size, uint32_t **ptr_p
   }
 }
 
-void BLO_read_float_array(BlendReader *reader, int array_size, float **ptr_p)
+void BLO_read_float_array(BlendDataReader *reader, int array_size, float **ptr_p)
 {
   BLO_read_data_address(reader, ptr_p);
   if (BLO_read_requires_endian_switch(reader)) {
@@ -11742,12 +11758,12 @@ void BLO_read_float_array(BlendReader *reader, int array_size, float **ptr_p)
   }
 }
 
-void BLO_read_float3_array(BlendReader *reader, int array_size, float **ptr_p)
+void BLO_read_float3_array(BlendDataReader *reader, int array_size, float **ptr_p)
 {
   BLO_read_float_array(reader, array_size * 3, ptr_p);
 }
 
-void BLO_read_double_array(BlendReader *reader, int array_size, double **ptr_p)
+void BLO_read_double_array(BlendDataReader *reader, int array_size, double **ptr_p)
 {
   BLO_read_data_address(reader, ptr_p);
   if (BLO_read_requires_endian_switch(reader)) {
@@ -11755,7 +11771,7 @@ void BLO_read_double_array(BlendReader *reader, int array_size, double **ptr_p)
   }
 }
 
-static void convert_pointer_array_64_to_32(BlendReader *reader,
+static void convert_pointer_array_64_to_32(BlendDataReader *reader,
                                            uint array_size,
                                            const uint64_t *src,
                                            uint32_t *dst)
@@ -11775,7 +11791,7 @@ static void convert_pointer_array_64_to_32(BlendReader *reader,
   }
 }
 
-static void convert_pointer_array_32_to_64(BlendReader *UNUSED(reader),
+static void convert_pointer_array_32_to_64(BlendDataReader *UNUSED(reader),
                                            uint array_size,
                                            const uint32_t *src,
                                            uint64_t *dst)
@@ -11786,9 +11802,9 @@ static void convert_pointer_array_32_to_64(BlendReader *UNUSED(reader),
   }
 }
 
-void BLO_read_pointer_array(BlendReader *reader, void **ptr_p)
+void BLO_read_pointer_array(BlendDataReader *reader, void **ptr_p)
 {
-  FileData *fd = unwrap_reader(reader);
+  FileData *fd = unwrap_data_reader(reader);
 
   void *orig_array = newdataadr(fd, *ptr_p);
   if (orig_array == NULL) {
@@ -11802,7 +11818,7 @@ void BLO_read_pointer_array(BlendReader *reader, void **ptr_p)
   /* Overallocation is fine, but might be better to pass the length as parameter. */
   int array_size = MEM_allocN_len(orig_array) / file_pointer_size;
 
-  void *final_array;
+  void *final_array = NULL;
 
   if (file_pointer_size == current_pointer_size) {
     /* No pointer conversion necessary. */
@@ -11831,7 +11847,7 @@ void BLO_read_pointer_array(BlendReader *reader, void **ptr_p)
 
 void BLO_expand_id(BlendExpander *expander, ID *id)
 {
-  expand_doit(unwrap_reader(expander->reader), expander->main, id);
+  expand_doit(expander->fd, expander->main, id);
 }
 
 /** \} */

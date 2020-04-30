@@ -35,7 +35,8 @@ struct NlaTrack;
 struct Scene;
 struct Speaker;
 struct bAction;
-struct BlendReader;
+struct BlendDataReader;
+struct BlendLibReader;
 struct BlendWriter;
 
 struct PointerRNA;
@@ -146,8 +147,8 @@ enum eNlaTime_ConvertModes {
 float BKE_nla_tweakedit_remap(struct AnimData *adt, float cframe, short mode);
 
 void BKE_nla_blend_write(struct BlendWriter *writer, struct ListBase *nlabase);
-void BKE_nla_blend_read_data(struct BlendReader *reader, struct ListBase *list);
-void BKE_nla_blend_read_lib(struct BlendReader *reader, struct ListBase *list, struct ID *id);
+void BKE_nla_blend_read_data(struct BlendDataReader *reader, struct ListBase *list);
+void BKE_nla_blend_read_lib(struct BlendLibReader *reader, struct ListBase *list, struct ID *id);
 
 #ifdef __cplusplus
 }

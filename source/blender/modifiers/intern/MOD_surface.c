@@ -92,7 +92,7 @@ static bool dependsOnTime(ModifierData *UNUSED(md))
   return true;
 }
 
-static void blendRead(BlendReader *UNUSED(reader), ModifierData *md)
+static void blendRead(BlendDataReader *UNUSED(reader), ModifierData *md)
 {
   SurfaceModifierData *surmd = (SurfaceModifierData *)md;
 

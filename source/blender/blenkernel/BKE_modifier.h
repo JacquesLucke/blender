@@ -41,7 +41,7 @@ struct Object;
 struct Scene;
 struct bArmature;
 struct BlendWriter;
-struct BlendReader;
+struct BlendDataReader;
 
 typedef enum {
   /* Should not be used, only for None modifier type */
@@ -354,7 +354,7 @@ typedef struct ModifierTypeInfo {
    * It can be used to update pointers to arrays and other structs. Furthermore, fields that have
    * not been written (e.g. runtime data) can be reset.
    */
-  void (*blendRead)(struct BlendReader *reader, struct ModifierData *md);
+  void (*blendRead)(struct BlendDataReader *reader, struct ModifierData *md);
 } ModifierTypeInfo;
 
 /* Initialize modifier's global data (type info and some common global storages). */

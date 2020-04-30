@@ -129,7 +129,7 @@ static void blendWrite(BlendWriter *writer, const ModifierData *md)
   }
 }
 
-static void blendRead(BlendReader *reader, ModifierData *md)
+static void blendRead(BlendDataReader *reader, ModifierData *md)
 {
   DynamicPaintModifierData *pmd = (DynamicPaintModifierData *)md;
 

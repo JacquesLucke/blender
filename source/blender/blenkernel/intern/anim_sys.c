@@ -4197,7 +4197,7 @@ void BKE_animsys_eval_driver(Depsgraph *depsgraph, ID *id, int driver_index, FCu
   }
 }
 
-void BKE_animsys_blend_read_data(BlendReader *reader, AnimData *adt)
+void BKE_animsys_blend_read_data(BlendDataReader *reader, AnimData *adt)
 {
   if (adt == NULL) {
     return;
@@ -4224,7 +4224,7 @@ void BKE_animsys_blend_read_data(BlendReader *reader, AnimData *adt)
   BLO_read_data_address(reader, &adt->actstrip);
 }
 
-void BKE_animsys_blend_read_lib(BlendReader *reader, AnimData *adt, ID *id)
+void BKE_animsys_blend_read_lib(BlendLibReader *reader, AnimData *adt, ID *id)
 {
   if (adt == NULL) {
     return;

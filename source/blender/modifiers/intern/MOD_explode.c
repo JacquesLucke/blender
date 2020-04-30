@@ -88,7 +88,7 @@ static void requiredDataMask(Object *UNUSED(ob),
   }
 }
 
-static void blendRead(BlendReader *UNUSED(reader), ModifierData *md)
+static void blendRead(BlendDataReader *UNUSED(reader), ModifierData *md)
 {
   ExplodeModifierData *psmd = (ExplodeModifierData *)md;
   psmd->facepa = NULL;

@@ -3404,7 +3404,7 @@ void BKE_ptcache_blend_write_list(BlendWriter *writer, ListBase *ptcaches)
   }
 }
 
-static void file_read_pointcache_cb(BlendReader *reader, void *data)
+static void file_read_pointcache_cb(BlendDataReader *reader, void *data)
 {
   PTCacheMem *pm = data;
   PTCacheExtra *extra;
@@ -3431,7 +3431,7 @@ static void file_read_pointcache_cb(BlendReader *reader, void *data)
   }
 }
 
-static void file_read_pointcache(BlendReader *reader, PointCache *cache)
+static void file_read_pointcache(BlendDataReader *reader, PointCache *cache)
 {
   if ((cache->flag & PTCACHE_DISK_CACHE) == 0) {
     BLO_read_list(reader, &cache->mem_cache, file_read_pointcache_cb);
@@ -3448,7 +3448,7 @@ static void file_read_pointcache(BlendReader *reader, PointCache *cache)
   cache->cached_frames_len = 0;
 }
 
-void BKE_ptcache_blend_read(struct BlendReader *reader,
+void BKE_ptcache_blend_read(struct BlendDataReader *reader,
                             struct ListBase *ptcaches,
                             struct PointCache **ocache,
                             int force_disk)

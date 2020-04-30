@@ -38,7 +38,7 @@ struct ImBuf;
 struct Scopes;
 struct rctf;
 struct BlendWriter;
-struct BlendReader;
+struct BlendDataReader;
 
 void BKE_curvemapping_set_defaults(
     struct CurveMapping *cumap, int tot, float minx, float miny, float maxx, float maxy);
@@ -55,7 +55,7 @@ void BKE_curvemapping_set_black_white(struct CurveMapping *cumap,
                                       const float white[3]);
 void BKE_curvemapping_blend_write(struct BlendWriter *writer, struct CurveMapping *cumap);
 void BKE_curvemapping_blend_write_content(struct BlendWriter *writer, struct CurveMapping *cumap);
-void BKE_curvemapping_blend_read(struct BlendReader *reader, struct CurveMapping *cumap);
+void BKE_curvemapping_blend_read(struct BlendDataReader *reader, struct CurveMapping *cumap);
 
 enum {
   CURVEMAP_SLOPE_NEGATIVE = 0,

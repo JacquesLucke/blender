@@ -273,7 +273,7 @@ static void blendWrite(BlendWriter *writer, const ModifierData *md)
   }
 }
 
-static void blendRead(BlendReader *reader, ModifierData *md)
+static void blendRead(BlendDataReader *reader, ModifierData *md)
 {
   BevelModifierData *bmd = (BevelModifierData *)md;
   BLO_read_data_address(reader, &bmd->custom_profile);

@@ -186,7 +186,7 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
   }
 }
 
-static void blendRead(BlendReader *UNUSED(reader), ModifierData *md)
+static void blendRead(BlendDataReader *UNUSED(reader), ModifierData *md)
 {
   MeshSeqCacheModifierData *msmcd = (MeshSeqCacheModifierData *)md;
   msmcd->reader = NULL;

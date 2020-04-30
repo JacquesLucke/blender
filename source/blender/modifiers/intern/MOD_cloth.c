@@ -265,7 +265,7 @@ static void blendWrite(BlendWriter *writer, const ModifierData *md)
   BKE_ptcache_blend_write_list(writer, &clmd->ptcaches);
 }
 
-static void blendRead(BlendReader *reader, ModifierData *md)
+static void blendRead(BlendDataReader *reader, ModifierData *md)
 {
   ClothModifierData *clmd = (ClothModifierData *)md;
 

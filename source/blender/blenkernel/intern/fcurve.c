@@ -3271,7 +3271,7 @@ float calculate_fcurve(PathResolvedRNA *anim_rna, FCurve *fcu, float evaltime)
   return curval;
 }
 
-void BKE_fcurve_blend_read_data(BlendReader *reader, ListBase *list)
+void BKE_fcurve_blend_read_data(BlendDataReader *reader, ListBase *list)
 {
   /* link F-Curve data to F-Curve again (non ID-libs) */
   for (FCurve *fcu = list->first; fcu; fcu = fcu->next) {
@@ -3327,7 +3327,7 @@ void BKE_fcurve_blend_read_data(BlendReader *reader, ListBase *list)
   }
 }
 
-void BKE_fcurve_blend_read_lib(BlendReader *reader, ListBase *list, ID *id)
+void BKE_fcurve_blend_read_lib(BlendLibReader *reader, ListBase *list, ID *id)
 {
   if (list == NULL) {
     return;

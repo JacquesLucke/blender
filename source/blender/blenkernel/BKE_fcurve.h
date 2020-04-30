@@ -37,7 +37,8 @@ struct FModifier;
 
 struct AnimData;
 struct BlendExpander;
-struct BlendReader;
+struct BlendDataReader;
+struct BlendLibReader;
 struct BlendWriter;
 struct BezTriple;
 struct PathResolvedRNA;
@@ -376,14 +377,16 @@ void fcurve_store_samples(
     struct FCurve *fcu, void *data, int start, int end, FcuSampleFunc sample_cb);
 
 void BKE_fcurve_blend_write(struct BlendWriter *writer, struct ListBase *fcurves);
-void BKE_fcurve_blend_read_data(struct BlendReader *reader, struct ListBase *list);
-void BKE_fcurve_blend_read_lib(struct BlendReader *reader, struct ListBase *list, struct ID *id);
+void BKE_fcurve_blend_read_data(struct BlendDataReader *reader, struct ListBase *list);
+void BKE_fcurve_blend_read_lib(struct BlendLibReader *reader,
+                               struct ListBase *list,
+                               struct ID *id);
 
 void BKE_fcurve_modifiers_blend_write(struct BlendWriter *writer, struct ListBase *fmodifiers);
-void BKE_fcurve_modifiers_blend_read_data(struct BlendReader *reader,
+void BKE_fcurve_modifiers_blend_read_data(struct BlendDataReader *reader,
                                           struct ListBase *list,
                                           struct FCurve *fcurve);
-void BKE_fcurve_modifiers_blend_read_lib(struct BlendReader *reader,
+void BKE_fcurve_modifiers_blend_read_lib(struct BlendLibReader *reader,
                                          struct ListBase *list,
                                          struct ID *id);
 void BKE_fcurve_modifiers_blend_read_expand(struct BlendExpander *expander, struct ListBase *list);

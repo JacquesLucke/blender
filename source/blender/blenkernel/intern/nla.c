@@ -2177,7 +2177,7 @@ void BKE_nla_tweakmode_exit(AnimData *adt)
   adt->flag &= ~ADT_NLA_EDIT_ON;
 }
 
-static void direct_link_nladata_strips(BlendReader *reader, ListBase *list)
+static void direct_link_nladata_strips(BlendDataReader *reader, ListBase *list)
 {
   for (NlaStrip *strip = list->first; strip; strip = strip->next) {
     /* strip's child strips */
@@ -2194,7 +2194,7 @@ static void direct_link_nladata_strips(BlendReader *reader, ListBase *list)
   }
 }
 
-void BKE_nla_blend_read_data(BlendReader *reader, ListBase *list)
+void BKE_nla_blend_read_data(BlendDataReader *reader, ListBase *list)
 {
   for (NlaTrack *nlt = list->first; nlt; nlt = nlt->next) {
     /* relink list of strips */
@@ -2205,7 +2205,7 @@ void BKE_nla_blend_read_data(BlendReader *reader, ListBase *list)
   }
 }
 
-static void lib_link_nladata_strips(BlendReader *reader, ListBase *list, ID *id)
+static void lib_link_nladata_strips(BlendDataReader *reader, ListBase *list, ID *id)
 {
   for (NlaStrip *strip = list->first; strip; strip = strip->next) {
     /* check strip's children */
@@ -2224,7 +2224,7 @@ static void lib_link_nladata_strips(BlendReader *reader, ListBase *list, ID *id)
   }
 }
 
-void BKE_nla_blend_read_lib(BlendReader *reader, ListBase *list, ID *id)
+void BKE_nla_blend_read_lib(BlendLibReader *reader, ListBase *list, ID *id)
 {
   /* we only care about the NLA strips inside the tracks */
   for (NlaTrack *nlt = list->first; nlt; nlt = nlt->next) {

@@ -1135,7 +1135,7 @@ void IDP_Reset(IDProperty *prop, const IDProperty *reference)
 
 /** \} */
 
-static void idp_read_array(BlendReader *reader, IDProperty *prop)
+static void idp_read_array(BlendDataReader *reader, IDProperty *prop)
 {
   /* Since we didn't save the extra buffer, set totallen to len. */
   prop->totallen = prop->len;
@@ -1162,14 +1162,14 @@ static void idp_read_array(BlendReader *reader, IDProperty *prop)
   }
 }
 
-static void idp_read_string(BlendReader *reader, IDProperty *prop)
+static void idp_read_string(BlendDataReader *reader, IDProperty *prop)
 {
   /* Since we didn't save the extra string buffer, set totallen to len. */
   prop->totallen = prop->len;
   BLO_read_data_address(reader, &prop->data.pointer);
 }
 
-static void idp_read_group(BlendReader *reader, IDProperty *prop)
+static void idp_read_group(BlendDataReader *reader, IDProperty *prop)
 {
   BLO_read_list(reader, &prop->data.group, NULL);
 
@@ -1179,7 +1179,7 @@ static void idp_read_group(BlendReader *reader, IDProperty *prop)
   }
 }
 
-static void idp_read_idp_array(BlendReader *reader, IDProperty *prop)
+static void idp_read_idp_array(BlendDataReader *reader, IDProperty *prop)
 {
   /* Since we didn't save the extra buffer, set totallen to len. */
   prop->totallen = prop->len;
@@ -1199,7 +1199,7 @@ static void idp_read_idp_array(BlendReader *reader, IDProperty *prop)
   }
 }
 
-static void idp_read_double(BlendReader *reader, IDProperty *prop)
+static void idp_read_double(BlendDataReader *reader, IDProperty *prop)
 {
   /* Workaround for doubles.
    * They are stored in the same field as `int val, val2` in the IDPropertyData struct,
@@ -1215,7 +1215,7 @@ static void idp_read_double(BlendReader *reader, IDProperty *prop)
   }
 }
 
-void IDP_BlendReadData(BlendReader *reader, IDProperty *prop)
+void IDP_BlendReadData(BlendDataReader *reader, IDProperty *prop)
 {
   switch (prop->type) {
     case IDP_GROUP:
@@ -1251,7 +1251,7 @@ void IDP_BlendReadData(BlendReader *reader, IDProperty *prop)
   }
 }
 
-void IDP_BlendReadLib(BlendReader *reader, IDProperty *prop)
+void IDP_BlendReadLib(BlendLibReader *reader, IDProperty *prop)
 {
   if (prop == NULL) {
     return;
@@ -1287,7 +1287,7 @@ void IDP_BlendReadLib(BlendReader *reader, IDProperty *prop)
   }
 }
 
-void IDP_Group_BlendReadData(struct BlendReader *reader,
+void IDP_Group_BlendReadData(struct BlendDataReader *reader,
                              struct IDProperty **prop,
                              const char *caller_func_id)
 {

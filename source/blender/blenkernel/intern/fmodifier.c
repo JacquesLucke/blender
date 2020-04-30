@@ -1564,7 +1564,7 @@ void fcurve_bake_modifiers(FCurve *fcu, int start, int end)
   fcu->driver = driver;
 }
 
-void BKE_fcurve_modifiers_blend_read_data(BlendReader *reader, ListBase *list, FCurve *fcurve)
+void BKE_fcurve_modifiers_blend_read_data(BlendDataReader *reader, ListBase *list, FCurve *fcurve)
 {
   for (FModifier *fcm = list->first; fcm; fcm = fcm->next) {
     /* relink general data */
@@ -1593,7 +1593,7 @@ void BKE_fcurve_modifiers_blend_read_data(BlendReader *reader, ListBase *list, F
   }
 }
 
-void BKE_fcurve_modifiers_blend_read_lib(BlendReader *reader, ListBase *list, ID *id)
+void BKE_fcurve_modifiers_blend_read_lib(BlendLibReader *reader, ListBase *list, ID *id)
 {
   for (FModifier *fcm = list->first; fcm; fcm = fcm->next) {
     switch (fcm->type) {

@@ -91,7 +91,8 @@ struct Scene;
 struct SoftBody;
 struct ViewLayer;
 struct BlendWriter;
-struct BlendReader;
+struct BlendDataReader;
+struct BlendLibReader;
 
 struct OpenVDBReader;
 struct OpenVDBWriter;
@@ -343,7 +344,7 @@ int BKE_ptcache_read(PTCacheID *pid, float cfra, bool no_extrapolate_old);
 int BKE_ptcache_write(PTCacheID *pid, unsigned int cfra);
 
 void BKE_ptcache_blend_write_list(struct BlendWriter *writer, struct ListBase *ptcaches);
-void BKE_ptcache_blend_read(struct BlendReader *reader,
+void BKE_ptcache_blend_read(struct BlendDataReader *reader,
                             struct ListBase *ptcaches,
                             struct PointCache **ocache,
                             int force_disk);
