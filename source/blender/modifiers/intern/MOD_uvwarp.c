@@ -285,5 +285,5 @@ ModifierTypeInfo modifierType_UVWarp = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* blendWrite */ NULL,
-    /* blendRead */ NULL,
+    /* blendReadData */ NULL,
 };

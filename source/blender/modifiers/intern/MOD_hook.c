@@ -135,14 +135,14 @@ static void blendWrite(BlendWriter *writer, const ModifierData *md)
   }
 }
 
-static void blendRead(BlendDataReader *reader, ModifierData *md)
+static void blendReadData(BlendDataReader *reader, ModifierData *md)
 {
   HookModifierData *hmd = (HookModifierData *)md;
 
   BLO_read_int32_array(reader, hmd->totindex, &hmd->indexar);
   BLO_read_data_address(reader, &hmd->curfalloff);
   if (hmd->curfalloff) {
-    BKE_curvemapping_blend_read(reader, hmd->curfalloff);
+    BKE_curvemapping_blend_read_data(reader, hmd->curfalloff);
   }
 }
 
@@ -438,5 +438,5 @@ ModifierTypeInfo modifierType_Hook = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* blendWrite */ blendWrite,
-    /* blendRead */ blendRead,
+    /* blendReadData */ blendReadData,
 };

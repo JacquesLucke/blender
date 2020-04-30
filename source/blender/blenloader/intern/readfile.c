@@ -2738,7 +2738,7 @@ static void direct_link_id(FileData *fd, ID *id, ID *id_old)
 /* cuma itself has been read! */
 static void direct_link_curvemapping(FileData *fd, CurveMapping *cumap)
 {
-  BKE_curvemapping_blend_read(wrap_data_reader(fd), cumap);
+  BKE_curvemapping_blend_read_data(wrap_data_reader(fd), cumap);
 }
 
 /** \} */
@@ -5053,8 +5053,8 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
     if (is_allocated) {
       /* All the fields has been properly allocated. */
     }
-    else if (mdi && mdi->blendRead) {
-      mdi->blendRead(wrap_data_reader(fd), md);
+    else if (mdi && mdi->blendReadData) {
+      mdi->blendReadData(wrap_data_reader(fd), md);
     }
     else if (md->type == eModifierType_Fluid) {
 
@@ -6140,8 +6140,8 @@ static void direct_link_scene(FileData *fd, Scene *sce)
     sce->toolsettings->custom_bevel_profile_preset = newdataadr(
         fd, sce->toolsettings->custom_bevel_profile_preset);
     if (sce->toolsettings->custom_bevel_profile_preset) {
-      BKE_curveprofile_blend_read(wrap_data_reader(fd),
-                                  sce->toolsettings->custom_bevel_profile_preset);
+      BKE_curveprofile_blend_read_data(wrap_data_reader(fd),
+                                       sce->toolsettings->custom_bevel_profile_preset);
     }
   }
 

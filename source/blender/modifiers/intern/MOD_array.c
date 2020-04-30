@@ -821,5 +821,5 @@ ModifierTypeInfo modifierType_Array = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* blendWrite */ NULL,
-    /* blendRead */ NULL,
+    /* blendReadData */ NULL,
 };

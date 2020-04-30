@@ -574,5 +574,5 @@ ModifierTypeInfo modifierType_ParticleInstance = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* blendWrite */ NULL,
-    /* blendRead */ NULL,
+    /* blendReadData */ NULL,
 };

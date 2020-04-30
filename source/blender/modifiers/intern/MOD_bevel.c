@@ -273,12 +273,12 @@ static void blendWrite(BlendWriter *writer, const ModifierData *md)
   }
 }
 
-static void blendRead(BlendDataReader *reader, ModifierData *md)
+static void blendReadData(BlendDataReader *reader, ModifierData *md)
 {
   BevelModifierData *bmd = (BevelModifierData *)md;
   BLO_read_data_address(reader, &bmd->custom_profile);
   if (bmd->custom_profile) {
-    BKE_curveprofile_blend_read(reader, bmd->custom_profile);
+    BKE_curveprofile_blend_read_data(reader, bmd->custom_profile);
   }
 }
 
@@ -307,5 +307,5 @@ ModifierTypeInfo modifierType_Bevel = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* blendWrite */ blendWrite,
-    /* blendRead */ blendRead,
+    /* blendReadData */ blendReadData,
 };

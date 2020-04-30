@@ -265,7 +265,7 @@ static void blendWrite(BlendWriter *writer, const ModifierData *md)
   BKE_ptcache_blend_write_list(writer, &clmd->ptcaches);
 }
 
-static void blendRead(BlendDataReader *reader, ModifierData *md)
+static void blendReadData(BlendDataReader *reader, ModifierData *md)
 {
   ClothModifierData *clmd = (ClothModifierData *)md;
 
@@ -322,5 +322,5 @@ ModifierTypeInfo modifierType_Cloth = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* blendWrite */ blendWrite,
-    /* blendRead */ blendRead,
+    /* blendReadData */ blendReadData,
 };

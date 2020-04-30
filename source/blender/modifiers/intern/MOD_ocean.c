@@ -185,7 +185,7 @@ static bool dependsOnNormals(ModifierData *md)
   return (omd->geometry_mode != MOD_OCEAN_GEOM_GENERATE);
 }
 
-static void blendRead(BlendDataReader *UNUSED(reader), ModifierData *md)
+static void blendReadData(BlendDataReader *UNUSED(reader), ModifierData *md)
 {
   OceanModifierData *omd = (OceanModifierData *)md;
   omd->oceancache = NULL;
@@ -532,5 +532,5 @@ ModifierTypeInfo modifierType_Ocean = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* blendWrite */ NULL,
-    /* blendRead */ blendRead,
+    /* blendReadData */ blendReadData,
 };

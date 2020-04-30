@@ -92,7 +92,7 @@ static void requiredDataMask(Object *UNUSED(ob),
   psys_emitter_customdata_mask(psmd->psys, r_cddata_masks);
 }
 
-static void blendRead(BlendDataReader *reader, ModifierData *md)
+static void blendReadData(BlendDataReader *reader, ModifierData *md)
 {
   ParticleSystemModifierData *psmd = (ParticleSystemModifierData *)md;
 
@@ -291,5 +291,5 @@ ModifierTypeInfo modifierType_ParticleSystem = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* blendWrite */ NULL,
-    /* blendRead */ blendRead,
+    /* blendReadData */ blendReadData,
 };

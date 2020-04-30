@@ -186,7 +186,7 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
   }
 }
 
-static void blendRead(BlendDataReader *UNUSED(reader), ModifierData *md)
+static void blendReadData(BlendDataReader *UNUSED(reader), ModifierData *md)
 {
   MeshSeqCacheModifierData *msmcd = (MeshSeqCacheModifierData *)md;
   msmcd->reader = NULL;
@@ -220,5 +220,5 @@ ModifierTypeInfo modifierType_MeshSequenceCache = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* blendWrite */ NULL,
-    /* blendRead */ blendRead,
+    /* blendReadData */ blendReadData,
 };

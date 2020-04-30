@@ -167,13 +167,13 @@ static void blendWrite(BlendWriter *writer, const ModifierData *md)
   }
 }
 
-static void blendRead(BlendDataReader *reader, ModifierData *md)
+static void blendReadData(BlendDataReader *reader, ModifierData *md)
 {
   WeightVGEditModifierData *wmd = (WeightVGEditModifierData *)md;
 
   BLO_read_data_address(reader, &wmd->cmap_curve);
   if (wmd->cmap_curve) {
-    BKE_curvemapping_blend_read(reader, wmd->cmap_curve);
+    BKE_curvemapping_blend_read_data(reader, wmd->cmap_curve);
   }
 }
 
@@ -341,5 +341,5 @@ ModifierTypeInfo modifierType_WeightVGEdit = {
     /* foreachTexLink */ foreachTexLink,
     /* freeRuntimeData */ NULL,
     /* blendWrite */ blendWrite,
-    /* blendRead */ blendRead,
+    /* blendReadData */ blendReadData,
 };

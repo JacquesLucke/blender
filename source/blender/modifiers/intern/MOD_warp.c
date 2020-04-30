@@ -194,13 +194,13 @@ static void blendWrite(BlendWriter *writer, const ModifierData *md)
   }
 }
 
-static void blendRead(BlendDataReader *reader, ModifierData *md)
+static void blendReadData(BlendDataReader *reader, ModifierData *md)
 {
   WarpModifierData *tmd = (WarpModifierData *)md;
 
   BLO_read_data_address(reader, &tmd->curfalloff);
   if (tmd->curfalloff) {
-    BKE_curvemapping_blend_read(reader, tmd->curfalloff);
+    BKE_curvemapping_blend_read_data(reader, tmd->curfalloff);
   }
 }
 
@@ -436,5 +436,5 @@ ModifierTypeInfo modifierType_Warp = {
     /* foreachTexLink */ foreachTexLink,
     /* freeRuntimeData */ NULL,
     /* blendWrite */ blendWrite,
-    /* blendRead */ blendRead,
+    /* blendReadData */ blendReadData,
 };

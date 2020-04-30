@@ -2177,12 +2177,12 @@ void BKE_nla_tweakmode_exit(AnimData *adt)
   adt->flag &= ~ADT_NLA_EDIT_ON;
 }
 
-static void direct_link_nladata_strips(BlendDataReader *reader, ListBase *list)
+static void nla_strips_blend_read_data(BlendDataReader *reader, ListBase *list)
 {
   for (NlaStrip *strip = list->first; strip; strip = strip->next) {
     /* strip's child strips */
     BLO_read_list(reader, &strip->strips, NULL);
-    direct_link_nladata_strips(reader, &strip->strips);
+    nla_strips_blend_read_data(reader, &strip->strips);
 
     /* strip's F-Curves */
     BLO_read_list(reader, &strip->fcurves, NULL);
@@ -2201,15 +2201,15 @@ void BKE_nla_blend_read_data(BlendDataReader *reader, ListBase *list)
     BLO_read_list(reader, &nlt->strips, NULL);
 
     /* relink strip data */
-    direct_link_nladata_strips(reader, &nlt->strips);
+    nla_strips_blend_read_data(reader, &nlt->strips);
   }
 }
 
-static void lib_link_nladata_strips(BlendDataReader *reader, ListBase *list, ID *id)
+static void nla_strips_blend_read_lib(BlendLibReader *reader, ListBase *list, ID *id)
 {
   for (NlaStrip *strip = list->first; strip; strip = strip->next) {
     /* check strip's children */
-    lib_link_nladata_strips(reader, &strip->strips, id);
+    nla_strips_blend_read_lib(reader, &strip->strips, id);
 
     /* check strip's F-Curves */
     BKE_fcurve_blend_read_lib(reader, &strip->fcurves, id);
@@ -2228,7 +2228,7 @@ void BKE_nla_blend_read_lib(BlendLibReader *reader, ListBase *list, ID *id)
 {
   /* we only care about the NLA strips inside the tracks */
   for (NlaTrack *nlt = list->first; nlt; nlt = nlt->next) {
-    lib_link_nladata_strips(reader, &nlt->strips, id);
+    nla_strips_blend_read_lib(reader, &nlt->strips, id);
   }
 }
 

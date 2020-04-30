@@ -248,7 +248,7 @@ static void blendWrite(BlendWriter *writer, const ModifierData *md)
   }
 }
 
-static void blendRead(BlendDataReader *reader, ModifierData *md)
+static void blendReadData(BlendDataReader *reader, ModifierData *md)
 {
   SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *)md;
 
@@ -1463,5 +1463,5 @@ ModifierTypeInfo modifierType_SurfaceDeform = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* blendWrite */ blendWrite,
-    /* blendRead */ blendRead,
+    /* blendReadData */ blendReadData,
 };

@@ -193,7 +193,7 @@ void BKE_curvemapping_blend_write_content(BlendWriter *writer, CurveMapping *cum
   }
 }
 
-void BKE_curvemapping_blend_read(struct BlendDataReader *reader, struct CurveMapping *cumap)
+void BKE_curvemapping_blend_read_data(struct BlendDataReader *reader, struct CurveMapping *cumap)
 {
   cumap->flag &= ~CUMA_PREMULLED;
 

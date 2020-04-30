@@ -766,7 +766,7 @@ static void blendWrite(BlendWriter *writer, const ModifierData *md)
   BLO_write_float3_array(writer, lmd->total_verts, lmd->vertexco);
 }
 
-static void blendRead(BlendDataReader *reader, ModifierData *md)
+static void blendReadData(BlendDataReader *reader, ModifierData *md)
 {
   LaplacianDeformModifierData *lmd = (LaplacianDeformModifierData *)md;
 
@@ -845,5 +845,5 @@ ModifierTypeInfo modifierType_LaplacianDeform = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* blendWrite */ blendWrite,
-    /* blendRead */ blendRead,
+    /* blendReadData */ blendReadData,
 };

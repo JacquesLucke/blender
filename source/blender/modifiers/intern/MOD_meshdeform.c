@@ -179,7 +179,7 @@ static void blendWrite(BlendWriter *writer, const ModifierData *md)
   BLO_write_int32_array(writer, mmd->totvert, mmd->dynverts);
 }
 
-static void blendRead(BlendDataReader *reader, ModifierData *md)
+static void blendReadData(BlendDataReader *reader, ModifierData *md)
 {
   MeshDeformModifierData *mmd = (MeshDeformModifierData *)md;
 
@@ -611,5 +611,5 @@ ModifierTypeInfo modifierType_MeshDeform = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* blendWrite */ blendWrite,
-    /* blendRead */ blendRead,
+    /* blendReadData */ blendReadData,
 };

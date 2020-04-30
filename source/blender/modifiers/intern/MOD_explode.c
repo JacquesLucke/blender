@@ -88,7 +88,7 @@ static void requiredDataMask(Object *UNUSED(ob),
   }
 }
 
-static void blendRead(BlendDataReader *UNUSED(reader), ModifierData *md)
+static void blendReadData(BlendDataReader *UNUSED(reader), ModifierData *md)
 {
   ExplodeModifierData *psmd = (ExplodeModifierData *)md;
   psmd->facepa = NULL;
@@ -1208,5 +1208,5 @@ ModifierTypeInfo modifierType_Explode = {
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
     /* blendWrite */ NULL,
-    /* blendRead */ blendRead,
+    /* blendReadData */ blendReadData,
 };

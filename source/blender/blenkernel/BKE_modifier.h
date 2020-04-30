@@ -354,7 +354,7 @@ typedef struct ModifierTypeInfo {
    * It can be used to update pointers to arrays and other structs. Furthermore, fields that have
    * not been written (e.g. runtime data) can be reset.
    */
-  void (*blendRead)(struct BlendDataReader *reader, struct ModifierData *md);
+  void (*blendReadData)(struct BlendDataReader *reader, struct ModifierData *md);
 } ModifierTypeInfo;
 
 /* Initialize modifier's global data (type info and some common global storages). */
