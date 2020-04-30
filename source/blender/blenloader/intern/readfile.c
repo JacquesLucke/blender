@@ -726,15 +726,10 @@ static FileData *unwrap_data_reader(BlendDataReader *reader)
   return (FileData *)reader;
 }
 
-static BlendLibReader *wrap_lib_reader(FileData *fd)
-{
-  return (BlendLibReader *)fd;
-}
-
-static FileData *unwrap_lib_reader(BlendLibReader *reader)
-{
-  return (FileData *)reader;
-}
+typedef struct BlendLibReader {
+  FileData *fd;
+  Main *main;
+} BlendLibReader;
 
 typedef struct BlendExpander {
   FileData *fd;
@@ -2542,7 +2537,8 @@ static void _IDP_DirectLinkGroup_OrFree(IDProperty **prop,
 
 static void IDP_LibLinkProperty(IDProperty *prop, FileData *fd)
 {
-  IDP_BlendReadLib(wrap_lib_reader(fd), prop);
+  BlendLibReader reader = {fd, NULL};
+  IDP_BlendReadLib(&reader, prop);
 }
 
 /** \} */
@@ -2940,7 +2936,8 @@ static void lib_link_constraint_channels(FileData *fd, ID *id, ListBase *chanbas
 
 static void lib_link_fcurves(FileData *fd, ID *id, ListBase *list)
 {
-  BKE_fcurve_blend_read_lib(wrap_lib_reader(fd), list, id);
+  BlendLibReader reader = {fd, NULL};
+  BKE_fcurve_blend_read_lib(&reader, list, id);
 }
 
 /* NOTE: this assumes that link_list has already been called on the list */
@@ -3030,7 +3027,8 @@ static void direct_link_keyingsets(FileData *fd, ListBase *list)
 
 static void lib_link_animdata(FileData *fd, ID *id, AnimData *adt)
 {
-  BKE_animsys_blend_read_lib(wrap_lib_reader(fd), adt, id);
+  BlendLibReader reader = {fd, NULL};
+  BKE_animsys_blend_read_lib(&reader, adt, id);
 }
 
 static void direct_link_animdata(FileData *fd, AnimData *adt)
@@ -11648,7 +11646,7 @@ void *BLO_read_get_new_data_address(BlendDataReader *reader, const void *old_add
 
 ID *BLO_read_get_new_id_address(BlendLibReader *reader, Library *lib, ID *id)
 {
-  return newlibadr(unwrap_lib_reader(reader), lib, id);
+  return newlibadr(reader->fd, lib, id);
 }
 
 bool BLO_read_requires_endian_switch(BlendDataReader *reader)
