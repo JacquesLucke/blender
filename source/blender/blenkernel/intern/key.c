@@ -36,6 +36,7 @@
 
 #include "DNA_ID.h"
 #include "DNA_anim_types.h"
+#include "DNA_ipo_types.h"
 #include "DNA_key_types.h"
 #include "DNA_lattice_types.h"
 #include "DNA_mesh_types.h"
@@ -118,6 +119,55 @@ static void shapekey_blend_write(BlendWriter *writer, ID *id, const void *id_add
   }
 }
 
+static void switch_endian_keyblock(Key *key, KeyBlock *kb)
+{
+  int elemsize, a, b;
+  char *data;
+
+  elemsize = key->elemsize;
+  data = kb->data;
+
+  for (a = 0; a < kb->totelem; a++) {
+    const char *cp = key->elemstr;
+    char *poin = data;
+
+    while (cp[0]) {    /* cp[0] == amount */
+      switch (cp[1]) { /* cp[1] = type */
+        case IPO_FLOAT:
+        case IPO_BPOINT:
+        case IPO_BEZTRIPLE:
+          b = cp[0];
+          BLI_endian_switch_float_array((float *)poin, b);
+          poin += sizeof(float) * b;
+          break;
+      }
+
+      cp += 2;
+    }
+    data += elemsize;
+  }
+}
+
+static void shapekey_blend_read_data(BlendDataReader *reader, ID *id)
+{
+  Key *key = (Key *)id;
+
+  BLO_read_list(reader, &key->block, NULL);
+
+  BLO_read_data_address(reader, &key->adt);
+  BKE_animsys_blend_read_data(reader, key->adt);
+
+  BLO_read_data_address(reader, &key->refkey);
+
+  for (KeyBlock *kb = key->block.first; kb; kb = kb->next) {
+    BLO_read_data_address(reader, &kb->data);
+
+    if (BLO_read_requires_endian_switch(reader)) {
+      switch_endian_keyblock(key, kb);
+    }
+  }
+}
+
 IDTypeInfo IDType_ID_KE = {
     .id_code = ID_KE,
     .id_filter = 0,
@@ -134,7 +184,7 @@ IDTypeInfo IDType_ID_KE = {
     .make_local = NULL,
 
     .blend_write = shapekey_blend_write,
-    .blend_read_data = NULL,
+    .blend_read_data = shapekey_blend_read_data,
     .blend_read_lib = NULL,
     .blend_expand = NULL,
 };

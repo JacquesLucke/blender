@@ -3677,55 +3677,6 @@ static void lib_link_key(FileData *fd, Main *UNUSED(bmain), Key *key)
   key->from = newlibadr(fd, key->id.lib, key->from);
 }
 
-static void switch_endian_keyblock(Key *key, KeyBlock *kb)
-{
-  int elemsize, a, b;
-  char *data;
-
-  elemsize = key->elemsize;
-  data = kb->data;
-
-  for (a = 0; a < kb->totelem; a++) {
-    const char *cp = key->elemstr;
-    char *poin = data;
-
-    while (cp[0]) {    /* cp[0] == amount */
-      switch (cp[1]) { /* cp[1] = type */
-        case IPO_FLOAT:
-        case IPO_BPOINT:
-        case IPO_BEZTRIPLE:
-          b = cp[0];
-          BLI_endian_switch_float_array((float *)poin, b);
-          poin += sizeof(float) * b;
-          break;
-      }
-
-      cp += 2;
-    }
-    data += elemsize;
-  }
-}
-
-static void direct_link_key(FileData *fd, Key *key)
-{
-  KeyBlock *kb;
-
-  link_list(fd, &(key->block));
-
-  key->adt = newdataadr(fd, key->adt);
-  direct_link_animdata(fd, key->adt);
-
-  key->refkey = newdataadr(fd, key->refkey);
-
-  for (kb = key->block.first; kb; kb = kb->next) {
-    kb->data = newdataadr(fd, kb->data);
-
-    if (fd->flags & FD_FLAGS_SWITCH_ENDIAN) {
-      switch_endian_keyblock(key, kb);
-    }
-  }
-}
-
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -8827,6 +8778,12 @@ static BHead *read_libblock(FileData *fd,
   /* Note: doing this after direct_link_id(), which resets that field. */
   id->tag = tag | LIB_TAG_NEED_LINK | LIB_TAG_NEW;
 
+  const IDTypeInfo *type_info = BKE_idtype_get_info_from_id(id);
+  if (type_info->blend_read_data != NULL) {
+    BlendDataReader reader = {fd};
+    type_info->blend_read_data(&reader, id);
+  }
+
   switch (idcode) {
     case ID_WM:
       direct_link_windowmanager(fd, (wmWindowManager *)id);
@@ -8869,9 +8826,6 @@ static BHead *read_libblock(FileData *fd,
       break;
     case ID_IP:
       direct_link_ipo(fd, (Ipo *)id);
-      break;
-    case ID_KE:
-      direct_link_key(fd, (Key *)id);
       break;
     case ID_LT:
       direct_link_latt(fd, (Lattice *)id);
@@ -9185,6 +9139,12 @@ static void lib_link_all(FileData *fd, Main *bmain)
     }
 
     lib_link_id(fd, bmain, id);
+
+    const IDTypeInfo *type_info = BKE_idtype_get_info_from_id(id);
+    if (type_info->blend_read_lib != NULL) {
+      BlendLibReader reader = {fd, bmain};
+      type_info->blend_read_lib(&reader, id);
+    }
 
     /* Note: ID types are processed in reverse order as defined by INDEX_ID_XXX enums in DNA_ID.h.
      * This ensures handling of most dependencies in proper order, as elsewhere in code.
@@ -10674,6 +10634,12 @@ void BLO_expand_main(void *fdhandle, Main *mainvar)
       while (id) {
         if (id->tag & LIB_TAG_NEED_EXPAND) {
           expand_id(fd, mainvar, id);
+
+          const IDTypeInfo *type_info = BKE_idtype_get_info_from_id(id);
+          if (type_info->blend_expand != NULL) {
+            BlendExpander expander = {fd, mainvar};
+            type_info->blend_expand(&expander, id);
+          }
 
           switch (GS(id->name)) {
             case ID_OB:

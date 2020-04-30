@@ -3790,6 +3790,10 @@ static bool write_file_handle(Main *mainvar,
             /* Do nothing, handled below - and should never be reached. */
             BLI_assert(0);
             break;
+          case ID_KE:
+          case ID_AC:
+            /* Do nothing, handled in callback. */
+            break;
           case ID_IP:
             /* Do nothing, deprecated. */
             break;
