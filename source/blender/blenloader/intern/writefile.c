@@ -391,15 +391,9 @@ static void writedata_free(WriteData *wd)
   MEM_freeN(wd);
 }
 
-static BlendWriter *wrap_writer(WriteData *wd)
-{
-  return (BlendWriter *)wd;
-}
-
-static WriteData *unwrap_writer(BlendWriter *writer)
-{
-  return (WriteData *)writer;
-}
+typedef struct BlendWriter {
+  WriteData *wd;
+} BlendWriter;
 
 /** \} */
 
@@ -650,7 +644,8 @@ static void writelist_id(WriteData *wd, int filecode, const char *structname, co
 
 static void IDP_WriteProperty(const IDProperty *prop, void *wd)
 {
-  IDP_BlendWrite(wrap_writer(wd), prop);
+  BlendWriter writer = {wd};
+  IDP_BlendWrite(&writer, prop);
 }
 
 static void write_iddata(WriteData *wd, ID *id)
@@ -709,7 +704,8 @@ static void write_previews(WriteData *wd, const PreviewImage *prv_orig)
 
 static void write_fcurves(WriteData *wd, ListBase *fcurves)
 {
-  BKE_fcurve_blend_write(wrap_writer(wd), fcurves);
+  BlendWriter writer = {wd};
+  BKE_fcurve_blend_write(&writer, fcurves);
 }
 
 static void write_action(WriteData *wd, bAction *act, const void *id_address)
@@ -753,17 +749,20 @@ static void write_keyingsets(WriteData *wd, ListBase *list)
 
 static void write_animdata(WriteData *wd, AnimData *adt)
 {
-  BKE_animsys_blend_write(wrap_writer(wd), adt);
+  BlendWriter writer = {wd};
+  BKE_animsys_blend_write(&writer, adt);
 }
 
 static void write_curvemapping_curves(WriteData *wd, CurveMapping *cumap)
 {
-  BKE_curvemapping_blend_write_content(wrap_writer(wd), cumap);
+  BlendWriter writer = {wd};
+  BKE_curvemapping_blend_write_content(&writer, cumap);
 }
 
 static void write_curvemapping(WriteData *wd, CurveMapping *cumap)
 {
-  BKE_curvemapping_blend_write(wrap_writer(wd), cumap);
+  BlendWriter writer = {wd};
+  BKE_curvemapping_blend_write(&writer, cumap);
 }
 
 static void write_node_socket_default_value(WriteData *wd, bNodeSocket *sock)
@@ -1241,7 +1240,8 @@ static void write_particlesystems(WriteData *wd, ListBase *particles)
       writestruct(wd, DATA, ClothCollSettings, 1, psys->clmd->coll_parms);
     }
 
-    BKE_ptcache_blend_write_list(wrap_writer(wd), &psys->ptcaches);
+    BlendWriter writer = {wd};
+    BKE_ptcache_blend_write_list(&writer, &psys->ptcaches);
   }
 }
 
@@ -1395,7 +1395,8 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
     writestruct_id(wd, DATA, mti->structName, 1, md);
 
     if (mti->blendWrite != NULL) {
-      mti->blendWrite(wrap_writer(wd), md);
+      BlendWriter writer = {wd};
+      mti->blendWrite(&writer, md);
     }
 
     if (md->type == eModifierType_Fluid) {
@@ -1405,14 +1406,15 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
         writestruct(wd, DATA, FluidDomainSettings, 1, mmd->domain);
 
         if (mmd->domain) {
-          BKE_ptcache_blend_write_list(wrap_writer(wd), &(mmd->domain->ptcaches[0]));
+          BlendWriter writer = {wd};
+          BKE_ptcache_blend_write_list(&writer, &(mmd->domain->ptcaches[0]));
 
           /* create fake pointcache so that old blender versions can read it */
           mmd->domain->point_cache[1] = BKE_ptcache_add(&mmd->domain->ptcaches[1]);
           mmd->domain->point_cache[1]->flag |= PTCACHE_DISK_CACHE | PTCACHE_FAKE_SMOKE;
           mmd->domain->point_cache[1]->step = 1;
 
-          BKE_ptcache_blend_write_list(wrap_writer(wd), &(mmd->domain->ptcaches[1]));
+          BKE_ptcache_blend_write_list(&writer, &(mmd->domain->ptcaches[1]));
 
           if (mmd->domain->coba) {
             writestruct(wd, DATA, ColorBand, 1, mmd->domain->coba);
@@ -1576,7 +1578,8 @@ static void write_object(WriteData *wd, Object *ob, const void *id_address)
       ob->soft->ptcaches = ob->soft->shared->ptcaches;
       writestruct(wd, DATA, SoftBody, 1, ob->soft);
       writestruct(wd, DATA, SoftBody_Shared, 1, ob->soft->shared);
-      BKE_ptcache_blend_write_list(wrap_writer(wd), &(ob->soft->shared->ptcaches));
+      BlendWriter writer = {wd};
+      BKE_ptcache_blend_write_list(&writer, &(ob->soft->shared->ptcaches));
       writestruct(wd, DATA, EffectorWeights, 1, ob->soft->effector_weights);
     }
 
@@ -2284,7 +2287,8 @@ static void write_scene(WriteData *wd, Scene *sce, const void *id_address)
   }
   /* Write the curve profile to the file. */
   if (tos->custom_bevel_profile_preset) {
-    BKE_curveprofile_blend_write(wrap_writer(wd), tos->custom_bevel_profile_preset);
+    BlendWriter writer = {wd};
+    BKE_curveprofile_blend_write(&writer, tos->custom_bevel_profile_preset);
   }
 
   write_paint(wd, &tos->imapaint.paint);
@@ -2423,7 +2427,8 @@ static void write_scene(WriteData *wd, Scene *sce, const void *id_address)
 
     writestruct(wd, DATA, RigidBodyWorld_Shared, 1, sce->rigidbody_world->shared);
     writestruct(wd, DATA, EffectorWeights, 1, sce->rigidbody_world->effector_weights);
-    BKE_ptcache_blend_write_list(wrap_writer(wd), &(sce->rigidbody_world->shared->ptcaches));
+    BlendWriter writer = {wd};
+    BKE_ptcache_blend_write_list(&writer, &(sce->rigidbody_world->shared->ptcaches));
   }
 
   write_previews(wd, sce->preview);
@@ -3714,6 +3719,12 @@ static bool write_file_handle(Main *mainvar,
 
         ((ID *)id_buffer)->tag = 0;
 
+        const IDTypeInfo *type_info = BKE_idtype_get_info_from_id(id);
+        if (type_info->blend_write != NULL) {
+          BlendWriter writer = {wd};
+          type_info->blend_write(&writer, (ID *)id_buffer, id);
+        }
+
         switch ((ID_Type)GS(id->name)) {
           case ID_WM:
             write_windowmanager(wd, (wmWindowManager *)id_buffer, id);
@@ -4067,7 +4078,7 @@ bool BLO_write_file_mem(Main *mainvar, MemFile *compare, MemFile *current, int w
 
 void BLO_write_raw(BlendWriter *writer, int size_in_bytes, const void *data_ptr)
 {
-  writedata(unwrap_writer(writer), DATA, size_in_bytes, data_ptr);
+  writedata(writer->wd, DATA, size_in_bytes, data_ptr);
 }
 
 void BLO_write_struct_by_name(BlendWriter *writer, const char *struct_name, const void *data_ptr)
@@ -4087,7 +4098,7 @@ void BLO_write_struct_array_by_name(BlendWriter *writer,
 
 void BLO_write_struct_by_id(BlendWriter *writer, int struct_id, const void *data_ptr)
 {
-  writestruct_nr(unwrap_writer(writer), DATA, struct_id, 1, data_ptr);
+  writestruct_nr(writer->wd, DATA, struct_id, 1, data_ptr);
 }
 
 void BLO_write_struct_array_by_id(BlendWriter *writer,
@@ -4095,17 +4106,17 @@ void BLO_write_struct_array_by_id(BlendWriter *writer,
                                   int array_size,
                                   const void *data_ptr)
 {
-  writestruct_nr(unwrap_writer(writer), DATA, struct_id, array_size, data_ptr);
+  writestruct_nr(writer->wd, DATA, struct_id, array_size, data_ptr);
 }
 
 void BLO_write_struct_list_by_id(BlendWriter *writer, int struct_id, ListBase *list)
 {
-  writelist_nr(unwrap_writer(writer), DATA, struct_id, list);
+  writelist_nr(writer->wd, DATA, struct_id, list);
 }
 
 int BLO_get_struct_id_by_name(BlendWriter *writer, const char *struct_name)
 {
-  int struct_id = DNA_struct_find_nr(unwrap_writer(writer)->sdna, struct_name);
+  int struct_id = DNA_struct_find_nr(writer->wd->sdna, struct_name);
   BLI_assert(struct_id >= 0);
   return struct_id;
 }
