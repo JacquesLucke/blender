@@ -9897,7 +9897,7 @@ static void expand_constraint_channels(FileData *fd, Main *mainvar, ListBase *ch
 static void expand_fmodifiers(FileData *fd, Main *mainvar, ListBase *list)
 {
   BlendExpander expander = {fd, mainvar};
-  BKE_fcurve_modifiers_blend_read_expand(&expander, list);
+  BKE_fcurve_modifiers_blend_expand(&expander, list);
 }
 
 static void expand_fcurves(FileData *fd, Main *mainvar, ListBase *list)

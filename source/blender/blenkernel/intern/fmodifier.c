@@ -1606,7 +1606,7 @@ void BKE_fcurve_modifiers_blend_read_lib(BlendLibReader *reader, ListBase *list,
   }
 }
 
-void BKE_fcurve_modifiers_blend_read_expand(BlendExpander *expander, ListBase *list)
+void BKE_fcurve_modifiers_blend_expand(BlendExpander *expander, ListBase *list)
 {
   LISTBASE_FOREACH (FModifier *, fcm, list) {
     switch (fcm->type) {

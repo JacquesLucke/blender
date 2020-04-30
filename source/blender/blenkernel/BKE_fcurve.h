@@ -389,7 +389,7 @@ void BKE_fcurve_modifiers_blend_read_data(struct BlendDataReader *reader,
 void BKE_fcurve_modifiers_blend_read_lib(struct BlendLibReader *reader,
                                          struct ListBase *list,
                                          struct ID *id);
-void BKE_fcurve_modifiers_blend_read_expand(struct BlendExpander *expander, struct ListBase *list);
+void BKE_fcurve_modifiers_blend_expand(struct BlendExpander *expander, struct ListBase *list);
 
 #ifdef __cplusplus
 }
