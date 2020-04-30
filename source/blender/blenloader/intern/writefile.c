@@ -702,30 +702,6 @@ static void write_previews(WriteData *wd, const PreviewImage *prv_orig)
   }
 }
 
-static void write_fcurves(WriteData *wd, ListBase *fcurves)
-{
-  BlendWriter writer = {wd};
-  BKE_fcurve_blend_write(&writer, fcurves);
-}
-
-static void write_action(WriteData *wd, bAction *act, const void *id_address)
-{
-  if (act->id.us > 0 || wd->use_memfile) {
-    writestruct_at_address(wd, ID_AC, bAction, 1, id_address, act);
-    write_iddata(wd, &act->id);
-
-    write_fcurves(wd, &act->curves);
-
-    for (bActionGroup *grp = act->groups.first; grp; grp = grp->next) {
-      writestruct(wd, DATA, bActionGroup, 1, grp);
-    }
-
-    for (TimeMarker *marker = act->markers.first; marker; marker = marker->next) {
-      writestruct(wd, DATA, TimeMarker, 1, marker);
-    }
-  }
-}
-
 static void write_keyingsets(WriteData *wd, ListBase *list)
 {
   KeyingSet *ks;
@@ -3789,9 +3765,6 @@ static bool write_file_handle(Main *mainvar,
           case ID_AR:
             write_armature(wd, (bArmature *)id_buffer, id);
             break;
-          case ID_AC:
-            write_action(wd, (bAction *)id_buffer, id);
-            break;
           case ID_OB:
             write_object(wd, (Object *)id_buffer, id);
             break;
@@ -4114,6 +4087,11 @@ void BLO_write_struct_list_by_id(BlendWriter *writer, int struct_id, ListBase *l
   writelist_nr(writer->wd, DATA, struct_id, list);
 }
 
+void blo_write_id_struct(BlendWriter *writer, int struct_id, const void *id_address, const ID *id)
+{
+  writestruct_at_address_nr(writer->wd, GS(id->name), struct_id, 1, id_address, id);
+}
+
 int BLO_get_struct_id_by_name(BlendWriter *writer, const char *struct_name)
 {
   int struct_id = DNA_struct_find_nr(writer->wd->sdna, struct_name);
@@ -4139,6 +4117,18 @@ void BLO_write_float_array(BlendWriter *writer, int size, const float *data_ptr)
 void BLO_write_float3_array(BlendWriter *writer, int size, const float *data_ptr)
 {
   BLO_write_raw(writer, sizeof(float) * 3 * size, data_ptr);
+}
+
+void BLO_write_string(BlendWriter *writer, const char *str)
+{
+  if (str != NULL) {
+    BLO_write_raw(writer, strlen(str) + 1, str);
+  }
+}
+
+bool BLO_write_is_undo(BlendWriter *writer)
+{
+  return writer->wd->use_memfile;
 }
 
 /** \} */

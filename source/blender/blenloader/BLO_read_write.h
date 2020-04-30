@@ -38,12 +38,22 @@ void BLO_write_struct_array_by_name(BlendWriter *writer,
                                     const char *struct_name,
                                     int array_size,
                                     const void *data_ptr);
+void BLO_write_struct_by_id_at_address(BlendWriter *writer,
+                                       int struct_data,
+                                       const void *data_ptr,
+                                       const void *address);
+
 void BLO_write_struct_by_id(BlendWriter *writer, int struct_id, const void *data_ptr);
 void BLO_write_struct_array_by_id(BlendWriter *writer,
                                   int struct_id,
                                   int array_size,
                                   const void *data_ptr);
 void BLO_write_struct_list_by_id(BlendWriter *writer, int struct_id, struct ListBase *list);
+
+void blo_write_id_struct(BlendWriter *writer,
+                         int struct_id,
+                         const void *id_address,
+                         const struct ID *id);
 
 int BLO_get_struct_id_by_name(BlendWriter *writer, const char *struct_name);
 #define BLO_get_struct_id(writer, struct_name) BLO_get_struct_id_by_name(writer, #struct_name)
@@ -55,11 +65,16 @@ int BLO_get_struct_id_by_name(BlendWriter *writer, const char *struct_name);
       writer, BLO_get_struct_id(writer, struct_name), array_size, data_ptr)
 #define BLO_write_struct_list(writer, struct_name, list_ptr) \
   BLO_write_struct_list_by_id(writer, BLO_get_struct_id(writer, struct_name), list_ptr)
+#define BLO_write_id_struct(writer, struct_name, id_address, id) \
+  blo_write_id_struct(writer, BLO_get_struct_id(writer, struct_name), id_address, id)
 
 void BLO_write_int32_array(BlendWriter *writer, int size, const int32_t *data_ptr);
 void BLO_write_uint32_array(BlendWriter *writer, int size, const uint32_t *data_ptr);
 void BLO_write_float_array(BlendWriter *writer, int size, const float *data_ptr);
 void BLO_write_float3_array(BlendWriter *writer, int size, const float *data_ptr);
+void BLO_write_string(BlendWriter *writer, const char *str);
+
+bool BLO_write_is_undo(BlendWriter *writer);
 
 /* API for data pointer reading.
  **********************************************/
