@@ -9908,27 +9908,8 @@ static void expand_animdata(FileData *fd, Main *mainvar, AnimData *adt)
 
 static void expand_idprops(FileData *fd, Main *mainvar, IDProperty *prop)
 {
-  if (!prop) {
-    return;
-  }
-
-  switch (prop->type) {
-    case IDP_ID:
-      expand_doit(fd, mainvar, IDP_Id(prop));
-      break;
-    case IDP_IDPARRAY: {
-      IDProperty *idp_array = IDP_IDPArray(prop);
-      for (int i = 0; i < prop->len; i++) {
-        expand_idprops(fd, mainvar, &idp_array[i]);
-      }
-      break;
-    }
-    case IDP_GROUP:
-      for (IDProperty *loop = prop->data.group.first; loop; loop = loop->next) {
-        expand_idprops(fd, mainvar, loop);
-      }
-      break;
-  }
+  BlendExpander expander = {fd, mainvar};
+  IDP_BlendExpand(&expander, prop);
 }
 
 static void expand_id(FileData *fd, Main *mainvar, ID *id);

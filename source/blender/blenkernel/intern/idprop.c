@@ -1287,6 +1287,31 @@ void IDP_BlendReadLib(BlendLibReader *reader, IDProperty *prop)
   }
 }
 
+void IDP_BlendExpand(BlendExpander *expander, IDProperty *prop)
+{
+  if (!prop) {
+    return;
+  }
+
+  switch (prop->type) {
+    case IDP_ID:
+      BLO_expand(expander, IDP_Id(prop));
+      break;
+    case IDP_IDPARRAY: {
+      IDProperty *idp_array = IDP_IDPArray(prop);
+      for (int i = 0; i < prop->len; i++) {
+        IDP_BlendExpand(expander, &idp_array[i]);
+      }
+      break;
+    }
+    case IDP_GROUP:
+      for (IDProperty *loop = prop->data.group.first; loop; loop = loop->next) {
+        IDP_BlendExpand(expander, loop);
+      }
+      break;
+  }
+}
+
 void IDP_Group_BlendReadData(struct BlendDataReader *reader,
                              struct IDProperty **prop,
                              const char *caller_func_id)
