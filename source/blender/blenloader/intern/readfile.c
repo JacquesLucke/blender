@@ -716,15 +716,9 @@ static Main *blo_find_main(FileData *fd, const char *filepath, const char *relab
 /** \name File Parsing
  * \{ */
 
-static BlendDataReader *wrap_data_reader(FileData *fd)
-{
-  return (BlendDataReader *)fd;
-}
-
-static FileData *unwrap_data_reader(BlendDataReader *reader)
-{
-  return (FileData *)reader;
-}
+typedef struct BlendDataReader {
+  FileData *fd;
+} BlendDataReader;
 
 typedef struct BlendLibReader {
   FileData *fd;
@@ -2532,7 +2526,8 @@ static void _IDP_DirectLinkGroup_OrFree(IDProperty **prop,
                                         FileData *fd,
                                         const char *caller_func_id)
 {
-  IDP_Group_BlendReadData(wrap_data_reader(fd), prop, caller_func_id);
+  BlendDataReader reader = {fd};
+  IDP_Group_BlendReadData(&reader, prop, caller_func_id);
 }
 
 static void IDP_LibLinkProperty(IDProperty *prop, FileData *fd)
@@ -2734,7 +2729,8 @@ static void direct_link_id(FileData *fd, ID *id, ID *id_old)
 /* cuma itself has been read! */
 static void direct_link_curvemapping(FileData *fd, CurveMapping *cumap)
 {
-  BKE_curvemapping_blend_read_data(wrap_data_reader(fd), cumap);
+  BlendDataReader reader = {fd};
+  BKE_curvemapping_blend_read_data(&reader, cumap);
 }
 
 /** \} */
@@ -2943,7 +2939,8 @@ static void lib_link_fcurves(FileData *fd, ID *id, ListBase *list)
 /* NOTE: this assumes that link_list has already been called on the list */
 static void direct_link_fcurves(FileData *fd, ListBase *list)
 {
-  BKE_fcurve_blend_read_data(wrap_data_reader(fd), list);
+  BlendDataReader reader = {fd};
+  BKE_fcurve_blend_read_data(&reader, list);
 }
 
 static void lib_link_action(FileData *fd, Main *UNUSED(bmain), bAction *act)
@@ -3033,7 +3030,8 @@ static void lib_link_animdata(FileData *fd, ID *id, AnimData *adt)
 
 static void direct_link_animdata(FileData *fd, AnimData *adt)
 {
-  BKE_animsys_blend_read_data(wrap_data_reader(fd), adt);
+  BlendDataReader reader = {fd};
+  BKE_animsys_blend_read_data(&reader, adt);
 }
 
 /** \} */
@@ -4088,7 +4086,8 @@ static void direct_link_pointcache_list(FileData *fd,
                                         PointCache **ocache,
                                         int force_disk)
 {
-  BKE_ptcache_blend_read(wrap_data_reader(fd), ptcaches, ocache, force_disk);
+  BlendDataReader reader = {fd};
+  BKE_ptcache_blend_read(&reader, ptcaches, ocache, force_disk);
 }
 
 static void lib_link_partdeflect(FileData *fd, ID *id, PartDeflect *pd)
@@ -5052,7 +5051,9 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb, Object *ob)
       /* All the fields has been properly allocated. */
     }
     else if (mdi && mdi->blendReadData) {
-      mdi->blendReadData(wrap_data_reader(fd), md);
+      BlendDataReader reader;
+      reader.fd = fd;
+      mdi->blendReadData(&reader, md);
     }
     else if (md->type == eModifierType_Fluid) {
 
@@ -6138,8 +6139,9 @@ static void direct_link_scene(FileData *fd, Scene *sce)
     sce->toolsettings->custom_bevel_profile_preset = newdataadr(
         fd, sce->toolsettings->custom_bevel_profile_preset);
     if (sce->toolsettings->custom_bevel_profile_preset) {
-      BKE_curveprofile_blend_read_data(wrap_data_reader(fd),
-                                       sce->toolsettings->custom_bevel_profile_preset);
+      BlendDataReader reader;
+      reader.fd = fd;
+      BKE_curveprofile_blend_read_data(&reader, sce->toolsettings->custom_bevel_profile_preset);
     }
   }
 
@@ -11641,7 +11643,7 @@ static void read_libraries(FileData *basefd, ListBase *mainlist)
 
 void *BLO_read_get_new_data_address(BlendDataReader *reader, const void *old_address)
 {
-  return newdataadr(unwrap_data_reader(reader), old_address);
+  return newdataadr(reader->fd, old_address);
 }
 
 ID *BLO_read_get_new_id_address(BlendLibReader *reader, Library *lib, ID *id)
@@ -11651,12 +11653,31 @@ ID *BLO_read_get_new_id_address(BlendLibReader *reader, Library *lib, ID *id)
 
 bool BLO_read_requires_endian_switch(BlendDataReader *reader)
 {
-  return (unwrap_data_reader(reader)->flags & FD_FLAGS_SWITCH_ENDIAN) != 0;
+  return (reader->fd->flags & FD_FLAGS_SWITCH_ENDIAN) != 0;
 }
 
-void BLO_read_list(BlendDataReader *reader, struct ListBase *list, BlendReadListFn callback)
+void BLO_read_list(BlendDataReader *reader, ListBase *list, BlendReadListFn callback)
 {
-  link_list_ex(unwrap_data_reader(reader), list, (link_list_cb)callback);
+  if (BLI_listbase_is_empty(list)) {
+    return;
+  }
+
+  BLO_read_data_address(reader, &list->first);
+  if (callback != NULL) {
+    callback(reader, list->first);
+  }
+  Link *ln = list->first;
+  Link *prev = NULL;
+  while (ln) {
+    BLO_read_data_address(reader, &ln->next);
+    if (ln->next != NULL && callback != NULL) {
+      callback(reader, ln->next);
+    }
+    ln->prev = prev;
+    prev = ln;
+    ln = ln->next;
+  }
+  list->last = prev;
 }
 
 void BLO_read_int32_array(BlendDataReader *reader, int array_size, int32_t **ptr_p)
@@ -11729,7 +11750,7 @@ static void convert_pointer_array_32_to_64(BlendDataReader *UNUSED(reader),
 
 void BLO_read_pointer_array(BlendDataReader *reader, void **ptr_p)
 {
-  FileData *fd = unwrap_data_reader(reader);
+  FileData *fd = reader->fd;
 
   void *orig_array = newdataadr(fd, *ptr_p);
   if (orig_array == NULL) {
