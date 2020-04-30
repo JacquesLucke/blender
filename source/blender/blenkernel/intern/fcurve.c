@@ -3355,6 +3355,28 @@ void BKE_fcurve_blend_read_lib(BlendLibReader *reader, ListBase *list, ID *id)
   }
 }
 
+void BKE_fcurve_blend_expand(BlendExpander *expander, ListBase *list)
+{
+  for (FCurve *fcu = list->first; fcu; fcu = fcu->next) {
+    /* Driver targets if there is a driver */
+    if (fcu->driver) {
+      ChannelDriver *driver = fcu->driver;
+      DriverVar *dvar;
+
+      for (dvar = driver->variables.first; dvar; dvar = dvar->next) {
+        DRIVER_TARGETS_LOOPER_BEGIN (dvar) {
+          // TODO: only expand those that are going to get used?
+          BLO_expand_id(expander, dtar->id);
+        }
+        DRIVER_TARGETS_LOOPER_END;
+      }
+    }
+
+    /* F-Curve Modifiers */
+    BKE_fcurve_modifiers_blend_expand(expander, &fcu->modifiers);
+  }
+}
+
 void BKE_fcurve_blend_write(struct BlendWriter *writer, struct ListBase *fcurves)
 {
   BLO_write_struct_list(writer, FCurve, fcurves);

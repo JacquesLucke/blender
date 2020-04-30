@@ -381,6 +381,7 @@ void BKE_fcurve_blend_read_data(struct BlendDataReader *reader, struct ListBase 
 void BKE_fcurve_blend_read_lib(struct BlendLibReader *reader,
                                struct ListBase *list,
                                struct ID *id);
+void BKE_fcurve_blend_expand(struct BlendExpander *expander, struct ListBase *list);
 
 void BKE_fcurve_modifiers_blend_write(struct BlendWriter *writer, struct ListBase *fmodifiers);
 void BKE_fcurve_modifiers_blend_read_data(struct BlendDataReader *reader,

@@ -9902,26 +9902,8 @@ static void expand_fmodifiers(FileData *fd, Main *mainvar, ListBase *list)
 
 static void expand_fcurves(FileData *fd, Main *mainvar, ListBase *list)
 {
-  FCurve *fcu;
-
-  for (fcu = list->first; fcu; fcu = fcu->next) {
-    /* Driver targets if there is a driver */
-    if (fcu->driver) {
-      ChannelDriver *driver = fcu->driver;
-      DriverVar *dvar;
-
-      for (dvar = driver->variables.first; dvar; dvar = dvar->next) {
-        DRIVER_TARGETS_LOOPER_BEGIN (dvar) {
-          // TODO: only expand those that are going to get used?
-          expand_doit(fd, mainvar, dtar->id);
-        }
-        DRIVER_TARGETS_LOOPER_END;
-      }
-    }
-
-    /* F-Curve Modifiers */
-    expand_fmodifiers(fd, mainvar, &fcu->modifiers);
-  }
+  BlendExpander expander = {fd, mainvar};
+  BKE_fcurve_blend_expand(&expander, list);
 }
 
 static void expand_animdata_nlastrips(FileData *fd, Main *mainvar, ListBase *list)
