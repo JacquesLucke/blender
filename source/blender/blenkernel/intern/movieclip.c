@@ -121,6 +121,11 @@ IDTypeInfo IDType_ID_MC = {
     .copy_data = movie_clip_copy_data,
     .free_data = movie_clip_free_data,
     .make_local = NULL,
+
+    .blend_write = NULL,
+    .blend_read_data = NULL,
+    .blend_read_lib = NULL,
+    .blend_expand = NULL,
 };
 
 /*********************** movieclip buffer loaders *************************/

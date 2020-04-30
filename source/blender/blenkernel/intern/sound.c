@@ -127,6 +127,11 @@ IDTypeInfo IDType_ID_SO = {
     .copy_data = sound_copy_data,
     .free_data = sound_free_data,
     .make_local = NULL,
+
+    .blend_write = NULL,
+    .blend_read_data = NULL,
+    .blend_read_lib = NULL,
+    .blend_expand = NULL,
 };
 
 #ifdef WITH_AUDASPACE

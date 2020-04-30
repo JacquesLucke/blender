@@ -84,6 +84,11 @@ IDTypeInfo IDType_ID_WM = {
     .copy_data = NULL,
     .free_data = window_manager_free_data,
     .make_local = NULL,
+
+    .blend_write = NULL,
+    .blend_read_data = NULL,
+    .blend_read_lib = NULL,
+    .blend_expand = NULL,
 };
 
 #define MAX_OP_REGISTERED 32

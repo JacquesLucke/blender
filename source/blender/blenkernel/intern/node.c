@@ -261,6 +261,11 @@ IDTypeInfo IDType_ID_NT = {
     .copy_data = ntree_copy_data,
     .free_data = ntree_free_data,
     .make_local = NULL,
+
+    .blend_write = NULL,
+    .blend_read_data = NULL,
+    .blend_read_lib = NULL,
+    .blend_expand = NULL,
 };
 
 static void node_add_sockets_from_type(bNodeTree *ntree, bNode *node, bNodeType *ntype)

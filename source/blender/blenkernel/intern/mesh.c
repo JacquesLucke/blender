@@ -156,6 +156,11 @@ IDTypeInfo IDType_ID_ME = {
     .copy_data = mesh_copy_data,
     .free_data = mesh_free_data,
     .make_local = NULL,
+
+    .blend_write = NULL,
+    .blend_read_data = NULL,
+    .blend_read_lib = NULL,
+    .blend_expand = NULL,
 };
 
 enum {

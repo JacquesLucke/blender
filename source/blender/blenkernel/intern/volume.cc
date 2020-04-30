@@ -520,6 +520,11 @@ IDTypeInfo IDType_ID_VO = {
     /* copy_data */ volume_copy_data,
     /* free_data */ volume_free_data,
     /* make_local */ volume_make_local,
+
+    /* blend_write */ NULL,
+    /* blend_read_data */ NULL,
+    /* blend_read_lib */ NULL,
+    /* blend_expand */ NULL,
 };
 
 /* Sequence */

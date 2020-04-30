@@ -86,6 +86,11 @@ IDTypeInfo IDType_ID_SCR = {
     .copy_data = NULL,
     .free_data = screen_free_data,
     .make_local = NULL,
+
+    .blend_write = NULL,
+    .blend_read_data = NULL,
+    .blend_read_lib = NULL,
+    .blend_expand = NULL,
 };
 
 /* ************ Spacetype/regiontype handling ************** */

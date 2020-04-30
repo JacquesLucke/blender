@@ -136,6 +136,11 @@ IDTypeInfo IDType_ID_LT = {
     .copy_data = lattice_copy_data,
     .free_data = lattice_free_data,
     .make_local = NULL,
+
+    .blend_write = NULL,
+    .blend_read_data = NULL,
+    .blend_read_lib = NULL,
+    .blend_expand = NULL,
 };
 
 int BKE_lattice_index_from_uvw(Lattice *lt, const int u, const int v, const int w)

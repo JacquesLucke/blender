@@ -111,6 +111,11 @@ IDTypeInfo IDType_ID_GD = {
     .copy_data = greasepencil_copy_data,
     .free_data = greasepencil_free_data,
     .make_local = NULL,
+
+    .blend_write = NULL,
+    .blend_read_data = NULL,
+    .blend_read_lib = NULL,
+    .blend_expand = NULL,
 };
 
 /* ************************************************** */

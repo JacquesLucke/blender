@@ -98,6 +98,11 @@ IDTypeInfo IDType_ID_CF = {
     .copy_data = cache_file_copy_data,
     .free_data = cache_file_free_data,
     .make_local = NULL,
+
+    .blend_write = NULL,
+    .blend_read_data = NULL,
+    .blend_read_lib = NULL,
+    .blend_expand = NULL,
 };
 
 /* TODO: make this per cache file to avoid global locks. */

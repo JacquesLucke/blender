@@ -199,6 +199,11 @@ IDTypeInfo IDType_ID_IM = {
     .copy_data = image_copy_data,
     .free_data = image_free_data,
     .make_local = NULL,
+
+    .blend_write = NULL,
+    .blend_read_data = NULL,
+    .blend_read_lib = NULL,
+    .blend_expand = NULL,
 };
 
 /* prototypes */

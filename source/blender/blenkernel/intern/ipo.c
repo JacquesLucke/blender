@@ -122,6 +122,11 @@ IDTypeInfo IDType_ID_IP = {
     .copy_data = NULL,
     .free_data = ipo_free_data,
     .make_local = NULL,
+
+    .blend_write = NULL,
+    .blend_read_data = NULL,
+    .blend_read_lib = NULL,
+    .blend_expand = NULL,
 };
 
 /* *************************************************** */

@@ -173,6 +173,11 @@ IDTypeInfo IDType_ID_HA = {
     .copy_data = hair_copy_data,
     .free_data = hair_free_data,
     .make_local = hair_make_local,
+
+    .blend_write = NULL,
+    .blend_read_data = NULL,
+    .blend_read_lib = NULL,
+    .blend_expand = NULL,
 };
 
 BoundBox *BKE_hair_boundbox_get(Object *ob)

@@ -79,6 +79,11 @@ IDTypeInfo IDType_ID_WS = {
     .copy_data = NULL,
     .free_data = workspace_free_data,
     .make_local = NULL,
+
+    .blend_write = NULL,
+    .blend_read_data = NULL,
+    .blend_read_lib = NULL,
+    .blend_expand = NULL,
 };
 
 /** \name Internal Utils

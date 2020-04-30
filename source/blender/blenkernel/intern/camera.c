@@ -128,6 +128,11 @@ IDTypeInfo IDType_ID_CA = {
     .copy_data = camera_copy_data,
     .free_data = camera_free_data,
     .make_local = camera_make_local,
+
+    .blend_write = NULL,
+    .blend_read_data = NULL,
+    .blend_read_lib = NULL,
+    .blend_expand = NULL,
 };
 
 /******************************** Camera Usage *******************************/

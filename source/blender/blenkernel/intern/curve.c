@@ -132,6 +132,11 @@ IDTypeInfo IDType_ID_CU = {
     .copy_data = curve_copy_data,
     .free_data = curve_free_data,
     .make_local = NULL,
+
+    .blend_write = NULL,
+    .blend_read_data = NULL,
+    .blend_read_lib = NULL,
+    .blend_expand = NULL,
 };
 
 static int cu_isectLL(const float v1[3],

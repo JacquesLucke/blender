@@ -34,6 +34,10 @@ extern "C" {
 
 struct ID;
 struct Main;
+struct BlendWriter;
+struct BlendDataReader;
+struct BlendLibReader;
+struct BlendExpander;
 
 /** IDTypeInfo.flags. */
 enum {
@@ -59,6 +63,13 @@ typedef void (*IDTypeFreeDataFunction)(struct ID *id);
 
 /** \param flag: See BKE_lib_id.h's LIB_ID_MAKELOCAL_... flags. */
 typedef void (*IDTypeMakeLocalFunction)(struct Main *bmain, struct ID *id, const int flags);
+
+typedef void (*IDTypeBlendWriteFunction)(struct BlendWriter *writer,
+                                         struct ID *id,
+                                         const void *id_address);
+typedef void (*IDTypeBlendReadDataFunction)(struct BlendDataReader *reader, struct ID *);
+typedef void (*IDTypeBlendReadLibFunction)(struct BlendLibReader *reader, struct ID *);
+typedef void (*IDTypeBlendExpandFunction)(struct BlendExpander *expander, struct ID *);
 
 typedef struct IDTypeInfo {
   /* ********** General IDType data. ********** */
@@ -121,6 +132,28 @@ typedef struct IDTypeInfo {
    * `BKE_lib_id_make_local_generic()` is enough.
    */
   IDTypeMakeLocalFunction make_local;
+
+  /* ********** Blend file io callbacks ********** */
+
+  /**
+   * Write all structs that should be saved in a .blend file.
+   */
+  IDTypeBlendWriteFunction blend_write;
+
+  /**
+   * Update pointers for all structs directly owned by this data block.
+   */
+  IDTypeBlendReadDataFunction blend_read_data;
+
+  /**
+   * Update pointers to other id data blocks.
+   */
+  IDTypeBlendReadLibFunction blend_read_lib;
+
+  /**
+   * Specify which other id data blocks should be loaded when the current one is loaded.
+   */
+  IDTypeBlendExpandFunction blend_expand;
 } IDTypeInfo;
 
 /* ********** Declaration of each IDTypeInfo. ********** */

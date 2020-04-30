@@ -124,4 +124,9 @@ IDTypeInfo IDType_ID_LP = {
     .copy_data = lightprobe_copy_data,
     .free_data = NULL,
     .make_local = lightprobe_make_local,
+
+    .blend_write = NULL,
+    .blend_read_data = NULL,
+    .blend_read_lib = NULL,
+    .blend_expand = NULL,
 };

@@ -174,6 +174,11 @@ IDTypeInfo IDType_ID_BR = {
     .copy_data = brush_copy_data,
     .free_data = brush_free_data,
     .make_local = brush_make_local,
+
+    .blend_write = NULL,
+    .blend_read_data = NULL,
+    .blend_read_lib = NULL,
+    .blend_expand = NULL,
 };
 
 static RNG *brush_rng;

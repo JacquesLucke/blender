@@ -179,6 +179,11 @@ IDTypeInfo IDType_ID_WO = {
     .copy_data = world_copy_data,
     .free_data = world_free_data,
     .make_local = world_make_local,
+
+    .blend_write = NULL,
+    .blend_read_data = NULL,
+    .blend_read_lib = NULL,
+    .blend_expand = NULL,
 };
 
 void BKE_world_eval(struct Depsgraph *depsgraph, World *world)

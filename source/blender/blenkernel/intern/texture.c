@@ -137,6 +137,11 @@ IDTypeInfo IDType_ID_TE = {
     .copy_data = texture_copy_data,
     .free_data = texture_free_data,
     .make_local = NULL,
+
+    .blend_write = NULL,
+    .blend_read_data = NULL,
+    .blend_read_lib = NULL,
+    .blend_expand = NULL,
 };
 
 /* ****************** Mapping ******************* */

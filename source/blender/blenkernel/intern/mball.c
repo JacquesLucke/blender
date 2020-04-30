@@ -116,6 +116,11 @@ IDTypeInfo IDType_ID_MB = {
     .copy_data = metaball_copy_data,
     .free_data = metaball_free_data,
     .make_local = NULL,
+
+    .blend_write = NULL,
+    .blend_read_data = NULL,
+    .blend_read_lib = NULL,
+    .blend_expand = NULL,
 };
 
 /* Functions */

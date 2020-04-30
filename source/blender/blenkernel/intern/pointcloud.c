@@ -140,6 +140,11 @@ IDTypeInfo IDType_ID_PT = {
     .copy_data = pointcloud_copy_data,
     .free_data = pointcloud_free_data,
     .make_local = pointcloud_make_local,
+
+    .blend_write = NULL,
+    .blend_read_data = NULL,
+    .blend_read_lib = NULL,
+    .blend_expand = NULL,
 };
 
 BoundBox *BKE_pointcloud_boundbox_get(Object *ob)

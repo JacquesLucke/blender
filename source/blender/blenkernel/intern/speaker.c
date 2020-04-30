@@ -57,6 +57,11 @@ IDTypeInfo IDType_ID_SPK = {
     .copy_data = NULL,
     .free_data = NULL,
     .make_local = NULL,
+
+    .blend_write = NULL,
+    .blend_read_data = NULL,
+    .blend_read_lib = NULL,
+    .blend_expand = NULL,
 };
 
 void *BKE_speaker_add(Main *bmain, const char *name)

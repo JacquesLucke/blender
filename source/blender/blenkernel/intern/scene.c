@@ -425,6 +425,11 @@ IDTypeInfo IDType_ID_SCE = {
     /* For now default `BKE_lib_id_make_local_generic()` should work, may need more work though to
      * support all possible corner cases. */
     .make_local = NULL,
+
+    .blend_write = NULL,
+    .blend_read_data = NULL,
+    .blend_read_lib = NULL,
+    .blend_expand = NULL,
 };
 
 const char *RE_engine_id_BLENDER_EEVEE = "BLENDER_EEVEE";

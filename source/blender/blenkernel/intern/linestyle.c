@@ -159,6 +159,11 @@ IDTypeInfo IDType_ID_LS = {
     .copy_data = linestyle_copy_data,
     .free_data = linestyle_free_data,
     .make_local = NULL,
+
+    .blend_write = NULL,
+    .blend_read_data = NULL,
+    .blend_read_lib = NULL,
+    .blend_expand = NULL,
 };
 
 static const char *modifier_name[LS_MODIFIER_NUM] = {

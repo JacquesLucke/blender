@@ -154,6 +154,11 @@ IDTypeInfo IDType_ID_LINK_PLACEHOLDER = {
     .copy_data = NULL,
     .free_data = NULL,
     .make_local = NULL,
+
+    .blend_write = NULL,
+    .blend_read_data = NULL,
+    .blend_read_lib = NULL,
+    .blend_expand = NULL,
 };
 
 /* GS reads the memory pointed at in a specific ordering.

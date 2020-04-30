@@ -67,6 +67,11 @@ IDTypeInfo IDType_ID_LI = {
     .copy_data = NULL,
     .free_data = library_free_data,
     .make_local = NULL,
+
+    .blend_write = NULL,
+    .blend_read_data = NULL,
+    .blend_read_lib = NULL,
+    .blend_expand = NULL,
 };
 
 void BKE_library_filepath_set(Main *bmain, Library *lib, const char *filepath)
