@@ -106,8 +106,12 @@ template<typename T> struct DefaultHash<T *> {
   uint32_t operator()(const T *value) const
   {
     uintptr_t ptr = POINTER_AS_UINT(value);
-    uint32_t hash = (uint32_t)(ptr >> 3);
-    return hash;
+    // return ptr;
+    // return (uint32_t)(ptr >> 3);
+    // return ptr ^ (ptr % 1021);
+    // return (uint32_t)(ptr >> 8);
+    // return (uint32_t)((ptr * 84533) >> 8);
+    return (uint32_t)((ptr * 84533) >> 12);
   }
 };
 
