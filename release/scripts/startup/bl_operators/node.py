@@ -297,9 +297,10 @@ class NODE_OT_tree_path_parent(Operator):
 
         return {'FINISHED'}
 
-class NODE_OT_export_group_template(Operator):
-    bl_idname = "node.export_group_template"
-    bl_label = "Export Node Group Template"
+class NODE_OT_export_builtin_node_group(Operator):
+    '''Export the active node group into datafiles/node_groups'''
+    bl_idname = "node.export_builtin_node_group"
+    bl_label = "Export Builtin Node Group"
 
     @classmethod
     def poll(cls, context):
@@ -339,6 +340,6 @@ classes = (
     NODE_OT_add_search,
     NODE_OT_collapse_hide_unused_toggle,
     NODE_OT_tree_path_parent,
-    NODE_OT_export_group_template,
+    NODE_OT_export_builtin_node_group,
     NODE_OT_add_builtin_node_group,
 )
