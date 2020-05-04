@@ -131,7 +131,7 @@ def group_name_to_file_path(group_name):
 
 def property_has_given_value(owner, prop_name, value):
     prop = owner.bl_rna.properties[prop_name]
-    if prop.type in {'BOOLEAN', 'INT', 'STRING', 'ENUM'}:
+    if prop.type in {'BOOLEAN', 'INT', 'STRING', 'ENUM', 'POINTER'}:
         return getattr(owner, prop_name) == value
     elif prop.type == 'FLOAT':
         if prop.array_length <= 1:
@@ -235,7 +235,7 @@ def get_or_create_node_group(json_data, loaded_group_by_name):
                     sock.default_value = sock_data["default_value"]
 
     for sock_data in json_data["inputs"]:
-        group.inputs.new(sock_data["bl_socket_idname"], sock_data["name"])
+        sock = group.inputs.new(sock_data["bl_socket_idname"], sock_data["name"])
         if hasattr(sock, "default_value"):
             sock.default_value = sock_data["default_value"]
 
