@@ -1,7 +1,9 @@
+#include "BLI_pointer_set.hh"
 #include "BLI_set.hh"
 #include "BLI_vector.hh"
 #include "testing/testing.h"
 
+using BLI::PointerSet;
 using BLI::Set;
 using BLI::Vector;
 using IntSet = Set<int>;
@@ -11,6 +13,8 @@ TEST(set, Defaultconstructor)
   IntSet set;
   EXPECT_EQ(set.size(), 0);
   EXPECT_TRUE(set.is_empty());
+
+  PointerSet<int> my_set;
 }
 
 TEST(set, ContainsNotExistant)

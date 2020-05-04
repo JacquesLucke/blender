@@ -72,22 +72,36 @@ template<typename IntT> inline constexpr IntT floor_division(IntT x, IntT y)
   return x / y;
 }
 
+inline constexpr uint32_t compute_min_required_items(uint32_t min_usable_slots,
+                                                     uint32_t slots_per_item,
+                                                     uint32_t max_load_factor_numerator,
+                                                     uint32_t max_load_factor_denominator)
+{
+
+  // uint64_t min_total_slots = ceil_division((uint64_t)min_usable_slots *
+  //                                              (uint64_t)max_load_factor_denominator,
+  //                                          (uint64_t)max_load_factor_numerator);
+  // uint32_t min_total_items = (uint32_t)ceil_division(min_total_slots, (uint64_t)slots_per_item);
+  // return min_total_items;
+
+  return (uint32_t)ceil_division(
+      ceil_division((uint64_t)min_usable_slots * (uint64_t)max_load_factor_denominator,
+                    (uint64_t)max_load_factor_numerator),
+      (uint64_t)slots_per_item);
+}
+
+inline constexpr uint32_t next_power_of_2_constexpr(uint32_t x)
+{
+  return 1 << log2_ceil_u_constexpr(x);
+}
+
 inline constexpr uint8_t compute_item_exponent(uint32_t min_usable_slots,
                                                uint32_t slots_per_item,
                                                uint32_t max_load_factor_numerator,
                                                uint32_t max_load_factor_denominator)
 {
-  // uint64_t min_total_slots = ceil_division((uint64_t)min_usable_slots *
-  //                                              (uint64_t)max_load_factor_denominator,
-  //                                          (uint64_t)max_load_factor_numerator);
-  // uint32_t min_total_items = (uint32_t)ceil_division(min_total_slots, (uint64_t)slots_per_item);
-  // uint8_t item_exponent = (uint8_t)log2_ceil_u_constexpr(min_total_items);
-  // return item_exponent;
-
-  return (uint8_t)log2_ceil_u_constexpr((uint32_t)ceil_division(
-      ceil_division((uint64_t)min_usable_slots * (uint64_t)max_load_factor_denominator,
-                    (uint64_t)max_load_factor_numerator),
-      (uint64_t)slots_per_item));
+  return (uint8_t)log2_ceil_u_constexpr(compute_min_required_items(
+      min_usable_slots, slots_per_item, max_load_factor_numerator, max_load_factor_denominator));
 }
 
 /** \} */
