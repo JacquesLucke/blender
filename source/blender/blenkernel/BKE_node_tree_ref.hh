@@ -80,7 +80,7 @@ class SocketRef : BLI::NonCopyable, BLI::NonMovable {
 
   bNodeSocket *bsocket() const;
   bNode *bnode() const;
-  bNodeTree *ntree() const;
+  bNodeTree *btree() const;
 };
 
 class InputSocketRef final : public SocketRef {
@@ -133,7 +133,7 @@ class NodeTreeRef : BLI::NonCopyable, BLI::NonMovable {
   Vector<SocketRef *> m_sockets_by_id;
   Vector<InputSocketRef *> m_input_sockets;
   Vector<OutputSocketRef *> m_output_sockets;
-  StringMap<NodeRef *> m_nodes_by_idname;
+  StringMap<Vector<NodeRef *>> m_nodes_by_idname;
 
  public:
   NodeTreeRef(bNodeTree *btree);
@@ -148,6 +148,229 @@ class NodeTreeRef : BLI::NonCopyable, BLI::NonMovable {
 
   bNodeTree *btree() const;
 };
+
+/* --------------------------------------------------------------------
+ * SocketRef inline methods.
+ */
+
+inline ArrayRef<const SocketRef *> SocketRef::linked_sockets() const
+{
+  return m_linked_sockets.as_ref();
+}
+
+inline ArrayRef<const SocketRef *> SocketRef::directly_linked_sockets() const
+{
+  return m_directly_linked_sockets.as_ref();
+}
+
+inline bool SocketRef::is_linked() const
+{
+  return m_linked_sockets.size() > 0;
+}
+
+inline const NodeRef &SocketRef::node() const
+{
+  return *m_node;
+}
+
+inline const NodeTreeRef &SocketRef::tree() const
+{
+  return m_node->tree();
+}
+
+inline uint SocketRef::id() const
+{
+  return m_id;
+}
+
+inline uint SocketRef::index() const
+{
+  return m_index;
+}
+
+inline bool SocketRef::is_input() const
+{
+  return m_is_input;
+}
+
+inline bool SocketRef::is_output() const
+{
+  return !m_is_input;
+}
+
+inline const SocketRef &SocketRef::as_base() const
+{
+  return *this;
+}
+
+inline const InputSocketRef &SocketRef::as_input() const
+{
+  BLI_assert(this->is_input());
+  return *(const InputSocketRef *)this;
+}
+
+inline const OutputSocketRef &SocketRef::as_output() const
+{
+  BLI_assert(this->is_output());
+  return *(const OutputSocketRef *)this;
+}
+
+inline PointerRNA *SocketRef::rna() const
+{
+  return const_cast<PointerRNA *>(&m_rna);
+}
+
+inline StringRefNull SocketRef::idname() const
+{
+  return m_bsocket->idname;
+}
+
+inline StringRefNull SocketRef::name() const
+{
+  return m_bsocket->name;
+}
+
+inline bNodeSocket *SocketRef::bsocket() const
+{
+  return m_bsocket;
+}
+
+inline bNode *SocketRef::bnode() const
+{
+  return m_node->bnode();
+}
+
+inline bNodeTree *SocketRef::btree() const
+{
+  return m_node->btree();
+}
+
+/* --------------------------------------------------------------------
+ * InputSocketRef inline methods.
+ */
+
+inline ArrayRef<const OutputSocketRef *> InputSocketRef::linked_sockets() const
+{
+  return m_linked_sockets.as_ref().cast<const OutputSocketRef *>();
+}
+
+inline ArrayRef<const OutputSocketRef *> InputSocketRef::directly_linked_sockets() const
+{
+  return m_directly_linked_sockets.as_ref().cast<const OutputSocketRef *>();
+}
+
+/* --------------------------------------------------------------------
+ * OutputSocketRef inline methods.
+ */
+
+inline ArrayRef<const InputSocketRef *> OutputSocketRef::linked_sockets() const
+{
+  return m_linked_sockets.as_ref().cast<const InputSocketRef *>();
+}
+
+inline ArrayRef<const InputSocketRef *> OutputSocketRef::directly_linked_sockets() const
+{
+  return m_directly_linked_sockets.as_ref().cast<const InputSocketRef *>();
+}
+
+/* --------------------------------------------------------------------
+ * NodeRef inline methods.
+ */
+
+inline const NodeTreeRef &NodeRef::tree() const
+{
+  return *m_tree;
+}
+
+inline ArrayRef<const InputSocketRef *> NodeRef::inputs() const
+{
+  return m_inputs.as_ref();
+}
+
+inline ArrayRef<const OutputSocketRef *> NodeRef::outputs() const
+{
+  return m_outputs.as_ref();
+}
+
+inline const InputSocketRef &NodeRef::input(uint index) const
+{
+  return *m_inputs[index];
+}
+
+inline const OutputSocketRef &NodeRef::output(uint index) const
+{
+  return *m_outputs[index];
+}
+
+inline bNode *NodeRef::bnode() const
+{
+  return m_bnode;
+}
+
+inline bNodeTree *NodeRef::btree() const
+{
+  return m_tree->btree();
+}
+
+inline PointerRNA *NodeRef::rna() const
+{
+  return const_cast<PointerRNA *>(&m_rna);
+}
+
+inline StringRefNull NodeRef::idname() const
+{
+  return m_bnode->idname;
+}
+
+inline StringRefNull NodeRef::name() const
+{
+  return m_bnode->name;
+}
+
+inline uint NodeRef::id() const
+{
+  return m_id;
+}
+
+/* --------------------------------------------------------------------
+ * NodeRef inline methods.
+ */
+
+inline ArrayRef<const NodeRef *> NodeTreeRef::nodes() const
+{
+  return m_nodes_by_id.as_ref();
+}
+
+inline ArrayRef<const NodeRef *> NodeTreeRef::nodes_with_idname(StringRef idname) const
+{
+  const Vector<NodeRef *> *nodes = m_nodes_by_idname.lookup_ptr(idname);
+  if (nodes == nullptr) {
+    return {};
+  }
+  else {
+    return nodes->as_ref();
+  }
+}
+
+inline ArrayRef<const SocketRef *> NodeTreeRef::sockets() const
+{
+  return m_sockets_by_id.as_ref();
+}
+
+inline ArrayRef<const InputSocketRef *> NodeTreeRef::input_sockets() const
+{
+  return m_input_sockets.as_ref();
+}
+
+inline ArrayRef<const OutputSocketRef *> NodeTreeRef::output_sockets() const
+{
+  return m_output_sockets.as_ref();
+}
+
+inline bNodeTree *NodeTreeRef::btree() const
+{
+  return m_btree;
+}
 
 }  // namespace BKE
 
