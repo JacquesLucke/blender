@@ -21,8 +21,8 @@
    "name": "Time",
    "bl_idname": "SimulationNodeTime",
    "location": [
-    -99,
-    -74
+    -104,
+    57
    ],
    "width": 140,
    "properties": {
@@ -37,13 +37,55 @@
    ]
   },
   {
+   "name": "Math",
+   "bl_idname": "ShaderNodeMath",
+   "location": [
+    111,
+    27
+   ],
+   "width": 140,
+   "properties": {
+    "operation": "SUBTRACT",
+    "use_clamp": false
+   },
+   "inputs": [
+    {
+     "identifier": "Value",
+     "default_value": 0.5
+    },
+    {
+     "identifier": "Value_001",
+     "default_value": 0.5
+    },
+    {
+     "identifier": "Value_002",
+     "default_value": 0.0
+    }
+   ],
+   "outputs": [
+    {
+     "identifier": "Value",
+     "default_value": 0.0
+    }
+   ]
+  },
+  {
+   "name": "Group Input",
+   "bl_idname": "NodeGroupInput",
+   "location": [
+    -311,
+    0
+   ],
+   "width": 140
+  },
+  {
    "name": "Particle Attribute",
    "bl_idname": "SimulationNodeParticleAttribute",
    "location": [
-    -122,
-    63
+    -111,
+    -57
    ],
-   "width": 181,
+   "width": 140,
    "properties": {
     "data_type": "FLOAT"
    },
@@ -94,44 +136,11 @@
    ]
   },
   {
-   "name": "Math",
-   "bl_idname": "ShaderNodeMath",
-   "location": [
-    122,
-    74
-   ],
-   "width": 140,
-   "properties": {
-    "operation": "SUBTRACT",
-    "use_clamp": false
-   },
-   "inputs": [
-    {
-     "identifier": "Value",
-     "default_value": 0.5
-    },
-    {
-     "identifier": "Value_001",
-     "default_value": 0.5
-    },
-    {
-     "identifier": "Value_002",
-     "default_value": 0.0
-    }
-   ],
-   "outputs": [
-    {
-     "identifier": "Value",
-     "default_value": 0.0
-    }
-   ]
-  },
-  {
    "name": "Group Output",
    "bl_idname": "NodeGroupOutput",
    "location": [
-    322,
-    69
+    311,
+    0
    ],
    "width": 140
   }
@@ -139,8 +148,8 @@
  "links": [
   {
    "from": [
-    "Particle Attribute",
-    "Float",
+    "Time",
+    "Time",
     0
    ],
    "to": [
@@ -151,8 +160,8 @@
   },
   {
    "from": [
-    "Time",
-    "Time",
+    "Particle Attribute",
+    "Float",
     0
    ],
    "to": [

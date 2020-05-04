@@ -1,0 +1,630 @@
+{
+ "bpy.app.version": [
+  2,
+  90,
+  0
+ ],
+ "bl_idname": "SimulationNodeTree",
+ "name": "Age Reached Event",
+ "inputs": [
+  {
+   "name": "Age",
+   "identifier": "Input_1",
+   "default_value": 3.0,
+   "type": "VALUE",
+   "bl_socket_idname": "NodeSocketFloat"
+  },
+  {
+   "name": "Execute",
+   "identifier": "Input_3",
+   "default_value": null,
+   "type": "CONTROL_FLOW",
+   "bl_socket_idname": "NodeSocketControlFlow"
+  }
+ ],
+ "outputs": [
+  {
+   "name": "Event",
+   "identifier": "Output_5",
+   "default_value": null,
+   "type": "EVENTS",
+   "bl_socket_idname": "NodeSocketEvents"
+  }
+ ],
+ "nodes": [
+  {
+   "name": "Particle Time Step Event",
+   "bl_idname": "SimulationNodeParticleTimeStepEvent",
+   "location": [
+    532,
+    164
+   ],
+   "width": 140,
+   "properties": {
+    "mode": "END"
+   },
+   "inputs": [
+    {
+     "identifier": "Execute",
+     "default_value": null
+    }
+   ],
+   "outputs": [
+    {
+     "identifier": "Event",
+     "default_value": null
+    }
+   ]
+  },
+  {
+   "name": "Execute Condition",
+   "bl_idname": "SimulationNodeExecuteCondition",
+   "location": [
+    343,
+    161
+   ],
+   "width": 140,
+   "properties": {},
+   "inputs": [
+    {
+     "identifier": "Condition",
+     "default_value": false
+    },
+    {
+     "identifier": "If True",
+     "default_value": null
+    },
+    {
+     "identifier": "If False",
+     "default_value": null
+    }
+   ],
+   "outputs": [
+    {
+     "identifier": "Execute",
+     "default_value": null
+    }
+   ]
+  },
+  {
+   "name": "Group Output",
+   "bl_idname": "NodeGroupOutput",
+   "location": [
+    735,
+    227
+   ],
+   "width": 140
+  },
+  {
+   "name": "Particle Birth Event",
+   "bl_idname": "SimulationNodeParticleBirthEvent",
+   "location": [
+    532,
+    272
+   ],
+   "width": 140,
+   "properties": {},
+   "inputs": [
+    {
+     "identifier": "Execute",
+     "default_value": null
+    }
+   ],
+   "outputs": [
+    {
+     "identifier": "Event",
+     "default_value": null
+    }
+   ]
+  },
+  {
+   "name": "Particle Attribute.001",
+   "bl_idname": "SimulationNodeParticleAttribute",
+   "location": [
+    139,
+    148
+   ],
+   "width": 140,
+   "properties": {
+    "data_type": "BOOLEAN"
+   },
+   "inputs": [
+    {
+     "identifier": "Name",
+     "default_value": ""
+    }
+   ],
+   "outputs": [
+    {
+     "identifier": "Float",
+     "default_value": 0.0
+    },
+    {
+     "identifier": "Int",
+     "default_value": 0
+    },
+    {
+     "identifier": "Boolean",
+     "default_value": false
+    },
+    {
+     "identifier": "Vector",
+     "default_value": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "identifier": "Color",
+     "default_value": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "identifier": "Object",
+     "default_value": null
+    },
+    {
+     "identifier": "Image",
+     "default_value": null
+    }
+   ]
+  },
+  {
+   "name": "Set Particle Attribute",
+   "bl_idname": "SimulationNodeSetParticleAttribute",
+   "location": [
+    138,
+    302
+   ],
+   "width": 140,
+   "properties": {
+    "data_type": "BOOLEAN"
+   },
+   "inputs": [
+    {
+     "identifier": "Name",
+     "default_value": ""
+    },
+    {
+     "identifier": "Float",
+     "default_value": 0.0
+    },
+    {
+     "identifier": "Int",
+     "default_value": 0
+    },
+    {
+     "identifier": "Boolean",
+     "default_value": false
+    },
+    {
+     "identifier": "Vector",
+     "default_value": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "identifier": "Color",
+     "default_value": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "identifier": "Object",
+     "default_value": null
+    },
+    {
+     "identifier": "Image",
+     "default_value": null
+    }
+   ],
+   "outputs": [
+    {
+     "identifier": "Execute",
+     "default_value": null
+    }
+   ]
+  },
+  {
+   "name": "Group Instance ID",
+   "bl_idname": "FunctionNodeGroupInstanceID",
+   "location": [
+    -94,
+    200
+   ],
+   "width": 140,
+   "properties": {},
+   "inputs": [],
+   "outputs": [
+    {
+     "identifier": "Identifier",
+     "default_value": ""
+    }
+   ]
+  },
+  {
+   "name": "Execute Condition.001",
+   "bl_idname": "SimulationNodeExecuteCondition",
+   "location": [
+    111,
+    -29
+   ],
+   "width": 140,
+   "properties": {},
+   "inputs": [
+    {
+     "identifier": "Condition",
+     "default_value": false
+    },
+    {
+     "identifier": "If True",
+     "default_value": null
+    },
+    {
+     "identifier": "If False",
+     "default_value": null
+    }
+   ],
+   "outputs": [
+    {
+     "identifier": "Execute",
+     "default_value": null
+    }
+   ]
+  },
+  {
+   "name": "Boolean Math",
+   "bl_idname": "FunctionNodeFloatCompare",
+   "location": [
+    -90,
+    9
+   ],
+   "width": 140,
+   "properties": {
+    "operation": "GREATER_THAN"
+   },
+   "inputs": [
+    {
+     "identifier": "A",
+     "default_value": 0.0
+    },
+    {
+     "identifier": "B",
+     "default_value": 0.0
+    },
+    {
+     "identifier": "Epsilon",
+     "default_value": 0.0010000000474974513
+    }
+   ],
+   "outputs": [
+    {
+     "identifier": "Result",
+     "default_value": false
+    }
+   ]
+  },
+  {
+   "name": "Multi Execute",
+   "bl_idname": "SimulationNodeMultiExecute",
+   "location": [
+    -93,
+    -144
+   ],
+   "width": 140,
+   "properties": {},
+   "inputs": [
+    {
+     "identifier": "1",
+     "default_value": null
+    },
+    {
+     "identifier": "2",
+     "default_value": null
+    },
+    {
+     "identifier": "3",
+     "default_value": null
+    }
+   ],
+   "outputs": [
+    {
+     "identifier": "Execute",
+     "default_value": null
+    }
+   ]
+  },
+  {
+   "name": "Set Particle Attribute.001",
+   "bl_idname": "SimulationNodeSetParticleAttribute",
+   "location": [
+    -322,
+    -238
+   ],
+   "width": 140,
+   "properties": {
+    "data_type": "BOOLEAN"
+   },
+   "inputs": [
+    {
+     "identifier": "Name",
+     "default_value": ""
+    },
+    {
+     "identifier": "Float",
+     "default_value": 0.0
+    },
+    {
+     "identifier": "Int",
+     "default_value": 0
+    },
+    {
+     "identifier": "Boolean",
+     "default_value": true
+    },
+    {
+     "identifier": "Vector",
+     "default_value": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "identifier": "Color",
+     "default_value": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "identifier": "Object",
+     "default_value": null
+    },
+    {
+     "identifier": "Image",
+     "default_value": null
+    }
+   ],
+   "outputs": [
+    {
+     "identifier": "Execute",
+     "default_value": null
+    }
+   ]
+  },
+  {
+   "name": "Group Instance ID.001",
+   "bl_idname": "FunctionNodeGroupInstanceID",
+   "location": [
+    -516,
+    -289
+   ],
+   "width": 140,
+   "properties": {},
+   "inputs": [],
+   "outputs": [
+    {
+     "identifier": "Identifier",
+     "default_value": ""
+    }
+   ]
+  },
+  {
+   "name": "Group",
+   "bl_idname": "SimulationNodeGroup",
+   "location": [
+    -356,
+    11
+   ],
+   "width": 201,
+   "group_name": "Particle Age"
+  },
+  {
+   "name": "Group Input",
+   "bl_idname": "NodeGroupInput",
+   "location": [
+    -336,
+    -101
+   ],
+   "width": 140
+  }
+ ],
+ "links": [
+  {
+   "from": [
+    "Execute Condition",
+    "Execute",
+    0
+   ],
+   "to": [
+    "Particle Time Step Event",
+    "Execute",
+    0
+   ]
+  },
+  {
+   "from": [
+    "Group Instance ID",
+    "Identifier",
+    0
+   ],
+   "to": [
+    "Particle Attribute.001",
+    "Name",
+    0
+   ]
+  },
+  {
+   "from": [
+    "Particle Attribute.001",
+    "Boolean",
+    2
+   ],
+   "to": [
+    "Execute Condition",
+    "Condition",
+    0
+   ]
+  },
+  {
+   "from": [
+    "Execute Condition.001",
+    "Execute",
+    0
+   ],
+   "to": [
+    "Execute Condition",
+    "If False",
+    2
+   ]
+  },
+  {
+   "from": [
+    "Group Instance ID",
+    "Identifier",
+    0
+   ],
+   "to": [
+    "Set Particle Attribute",
+    "Name",
+    0
+   ]
+  },
+  {
+   "from": [
+    "Set Particle Attribute",
+    "Execute",
+    0
+   ],
+   "to": [
+    "Particle Birth Event",
+    "Execute",
+    0
+   ]
+  },
+  {
+   "from": [
+    "Boolean Math",
+    "Result",
+    0
+   ],
+   "to": [
+    "Execute Condition.001",
+    "Condition",
+    0
+   ]
+  },
+  {
+   "from": [
+    "Multi Execute",
+    "Execute",
+    0
+   ],
+   "to": [
+    "Execute Condition.001",
+    "If True",
+    1
+   ]
+  },
+  {
+   "from": [
+    "Set Particle Attribute.001",
+    "Execute",
+    0
+   ],
+   "to": [
+    "Multi Execute",
+    "1",
+    0
+   ]
+  },
+  {
+   "from": [
+    "Group Instance ID.001",
+    "Identifier",
+    0
+   ],
+   "to": [
+    "Set Particle Attribute.001",
+    "Name",
+    0
+   ]
+  },
+  {
+   "from": [
+    "Group Input",
+    "Input_1",
+    0
+   ],
+   "to": [
+    "Boolean Math",
+    "B",
+    1
+   ]
+  },
+  {
+   "from": [
+    "Group Input",
+    "Input_3",
+    1
+   ],
+   "to": [
+    "Multi Execute",
+    "2",
+    1
+   ]
+  },
+  {
+   "from": [
+    "Particle Time Step Event",
+    "Event",
+    0
+   ],
+   "to": [
+    "Group Output",
+    "Output_5",
+    0
+   ]
+  },
+  {
+   "from": [
+    "Particle Birth Event",
+    "Event",
+    0
+   ],
+   "to": [
+    "Group Output",
+    "Output_5",
+    0
+   ]
+  },
+  {
+   "from": [
+    "Group",
+    "Output_1",
+    0
+   ],
+   "to": [
+    "Boolean Math",
+    "A",
+    0
+   ]
+  }
+ ],
+ "dependencies": [
+  "Particle Age"
+ ]
+}
