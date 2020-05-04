@@ -18,12 +18,111 @@
 
 namespace BKE {
 
-NodeTreeRef::NodeTreeRef(bNodeTree *UNUSED(btree))
+NodeTreeRef::NodeTreeRef(bNodeTree *btree)
 {
+  Map<bNode *, NodeRef *> node_mapping;
+
+  LISTBASE_FOREACH (bNode *, bnode, &btree->nodes) {
+    NodeRef &node = *m_allocator.construct<NodeRef>();
+
+    node.m_tree = this;
+    node.m_bnode = bnode;
+    node.m_id = m_nodes_by_id.append_and_get_index(&node);
+    RNA_pointer_create(&btree->id, &RNA_Node, bnode, &node.m_rna);
+
+    LISTBASE_FOREACH (bNodeSocket *, bsocket, &bnode->inputs) {
+      InputSocketRef &socket = *m_allocator.construct<InputSocketRef>();
+      socket.m_node = &node;
+      socket.m_index = node.m_inputs.append_and_get_index(&socket);
+      socket.m_is_input = true;
+      socket.m_bsocket = bsocket;
+      socket.m_id = m_sockets_by_id.append_and_get_index(&socket);
+      RNA_pointer_create(&btree->id, &RNA_NodeSocket, bsocket, &socket.m_rna);
+    }
+
+    LISTBASE_FOREACH (bNodeSocket *, bsocket, &bnode->outputs) {
+      OutputSocketRef &socket = *m_allocator.construct<OutputSocketRef>();
+      socket.m_node = &node;
+      socket.m_index = node.m_outputs.append_and_get_index(&socket);
+      socket.m_is_input = false;
+      socket.m_bsocket = bsocket;
+      socket.m_id = m_sockets_by_id.append_and_get_index(&socket);
+      RNA_pointer_create(&btree->id, &RNA_NodeSocket, bsocket, &socket.m_rna);
+    }
+
+    m_input_sockets.extend(node.m_inputs);
+    m_output_sockets.extend(node.m_outputs);
+
+    node_mapping.add_new(bnode, &node);
+  }
+
+  LISTBASE_FOREACH (bNodeLink *, blink, &btree->links) {
+    OutputSocketRef &from_socket = this->find_output_socket(
+        node_mapping, blink->fromnode, blink->fromsock);
+    InputSocketRef &to_socket = this->find_input_socket(
+        node_mapping, blink->tonode, blink->tosock);
+
+    from_socket.m_directly_linked_sockets.append(&to_socket);
+    to_socket.m_directly_linked_sockets.append(&from_socket);
+  }
+
+  for (OutputSocketRef *socket : m_output_sockets) {
+    if (!socket->m_node->is_reroute()) {
+      this->find_targets_skipping_reroutes(*socket, socket->m_linked_sockets);
+      for (SocketRef *target : socket->m_linked_sockets) {
+        target->m_linked_sockets.append(socket);
+      }
+    }
+  }
+
+  for (NodeRef *node : m_nodes_by_id) {
+    m_nodes_by_idname.lookup_or_add_default(node->idname()).append(node);
+  }
 }
 
 NodeTreeRef::~NodeTreeRef()
 {
+}
+
+InputSocketRef &NodeTreeRef::find_input_socket(Map<bNode *, NodeRef *> &node_mapping,
+                                               bNode *bnode,
+                                               bNodeSocket *bsocket)
+{
+  NodeRef *node = node_mapping.lookup(bnode);
+  for (SocketRef *socket : node->m_inputs) {
+    if (socket->m_bsocket == bsocket) {
+      return *(InputSocketRef *)socket;
+    }
+  }
+  BLI_assert(false);
+  return *node->m_inputs[0];
+}
+
+OutputSocketRef &NodeTreeRef::find_output_socket(Map<bNode *, NodeRef *> &node_mapping,
+                                                 bNode *bnode,
+                                                 bNodeSocket *bsocket)
+{
+  NodeRef *node = node_mapping.lookup(bnode);
+  for (SocketRef *socket : node->m_outputs) {
+    if (socket->m_bsocket == bsocket) {
+      return *(OutputSocketRef *)socket;
+    }
+  }
+  BLI_assert(false);
+  return *node->m_outputs[0];
+}
+
+void NodeTreeRef::find_targets_skipping_reroutes(OutputSocketRef &socket,
+                                                 Vector<SocketRef *> &r_targets)
+{
+  for (SocketRef *direct_target : socket.m_directly_linked_sockets) {
+    if (direct_target->m_node->is_reroute()) {
+      this->find_targets_skipping_reroutes(*direct_target->m_node->m_outputs[0], r_targets);
+    }
+    else {
+      r_targets.append_non_duplicates(direct_target);
+    }
+  }
 }
 
 }  // namespace BKE

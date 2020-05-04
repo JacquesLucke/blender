@@ -18,10 +18,13 @@
 #define __BKE_NODE_TREE_REF_HH__
 
 #include "BLI_linear_allocator.hh"
+#include "BLI_map.hh"
 #include "BLI_string_map.hh"
 #include "BLI_string_ref.hh"
 #include "BLI_utility_mixins.hh"
 #include "BLI_vector.hh"
+
+#include "BKE_node.h"
 
 #include "DNA_node_types.h"
 
@@ -31,6 +34,7 @@ namespace BKE {
 
 using BLI::ArrayRef;
 using BLI::LinearAllocator;
+using BLI::Map;
 using BLI::StringMap;
 using BLI::StringRef;
 using BLI::StringRefNull;
@@ -123,6 +127,8 @@ class NodeRef : BLI::NonCopyable, BLI::NonMovable {
   StringRefNull name() const;
 
   uint id() const;
+
+  bool is_reroute() const;
 };
 
 class NodeTreeRef : BLI::NonCopyable, BLI::NonMovable {
@@ -147,6 +153,16 @@ class NodeTreeRef : BLI::NonCopyable, BLI::NonMovable {
   ArrayRef<const OutputSocketRef *> output_sockets() const;
 
   bNodeTree *btree() const;
+
+ private:
+  /* Utility functions used by constructor. */
+  InputSocketRef &find_input_socket(Map<bNode *, NodeRef *> &node_mapping,
+                                    bNode *bnode,
+                                    bNodeSocket *bsocket);
+  OutputSocketRef &find_output_socket(Map<bNode *, NodeRef *> &node_mapping,
+                                      bNode *bnode,
+                                      bNodeSocket *bsocket);
+  void find_targets_skipping_reroutes(OutputSocketRef &socket_ref, Vector<SocketRef *> &r_targets);
 };
 
 /* --------------------------------------------------------------------
@@ -330,6 +346,11 @@ inline StringRefNull NodeRef::name() const
 inline uint NodeRef::id() const
 {
   return m_id;
+}
+
+inline bool NodeRef::is_reroute() const
+{
+  return m_bnode->type == NODE_REROUTE;
 }
 
 /* --------------------------------------------------------------------
