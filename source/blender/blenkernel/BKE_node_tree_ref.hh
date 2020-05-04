@@ -154,6 +154,8 @@ class NodeTreeRef : BLI::NonCopyable, BLI::NonMovable {
 
   bNodeTree *btree() const;
 
+  std::string to_dot() const;
+
  private:
   /* Utility functions used by constructor. */
   InputSocketRef &find_input_socket(Map<bNode *, NodeRef *> &node_mapping,

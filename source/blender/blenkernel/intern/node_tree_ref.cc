@@ -16,6 +16,8 @@
 
 #include "BKE_node_tree_ref.hh"
 
+#include "BLI_dot_export.hh"
+
 namespace BKE {
 
 NodeTreeRef::NodeTreeRef(bNodeTree *btree)
@@ -123,6 +125,45 @@ void NodeTreeRef::find_targets_skipping_reroutes(OutputSocketRef &socket,
       r_targets.append_non_duplicates(direct_target);
     }
   }
+}
+
+std::string NodeTreeRef::to_dot() const
+{
+  namespace Dot = BLI::DotExport;
+
+  Dot::DirectedGraph digraph;
+  digraph.set_rankdir(Dot::Attr_rankdir::LeftToRight);
+
+  Map<const NodeRef *, Dot::NodeWithSocketsRef> dot_nodes;
+
+  for (const NodeRef *node : m_nodes_by_id) {
+    Dot::Node &dot_node = digraph.new_node("");
+    dot_node.set_background_color("white");
+
+    Vector<std::string> input_names;
+    Vector<std::string> output_names;
+    for (const InputSocketRef *socket : node->inputs()) {
+      input_names.append(socket->name());
+    }
+    for (const OutputSocketRef *socket : node->outputs()) {
+      output_names.append(socket->name());
+    }
+
+    dot_nodes.add_new(node,
+                      Dot::NodeWithSocketsRef(dot_node, node->name(), input_names, output_names));
+  }
+
+  for (const OutputSocketRef *from_socket : m_output_sockets) {
+    for (const InputSocketRef *to_socket : from_socket->directly_linked_sockets()) {
+      Dot::NodeWithSocketsRef &from_dot_node = dot_nodes.lookup(&from_socket->node());
+      Dot::NodeWithSocketsRef &to_dot_node = dot_nodes.lookup(&to_socket->node());
+
+      digraph.new_edge(from_dot_node.output(from_socket->index()),
+                       to_dot_node.input(to_socket->index()));
+    }
+  }
+
+  return digraph.to_dot_string();
 }
 
 }  // namespace BKE
