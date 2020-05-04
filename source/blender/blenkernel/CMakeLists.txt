@@ -116,6 +116,7 @@ set(SRC
   intern/editmesh_tangent.c
   intern/effect.c
   intern/fcurve.c
+  intern/fcurve_driver.c
   intern/fluid.c
   intern/fmodifier.c
   intern/font.c
@@ -175,9 +176,11 @@ set(SRC
   intern/multires_reshape_apply_base.c
   intern/multires_reshape_ccg.c
   intern/multires_reshape_smooth.c
+  intern/multires_reshape_subdivide.c
   intern/multires_reshape_util.c
   intern/multires_reshape_vertcos.c
   intern/multires_subdiv.c
+  intern/multires_unsubdivide.c
   intern/nla.c
   intern/node.c
   intern/node_tree_ref.cc
@@ -198,7 +201,6 @@ set(SRC
   intern/particle_system.c
   intern/pbvh.c
   intern/pbvh_bmesh.c
-  intern/pbvh_parallel.cc
   intern/pointcache.c
   intern/pointcloud.c
   intern/report.c
@@ -301,6 +303,7 @@ set(SRC
   BKE_editmesh_tangent.h
   BKE_effect.h
   BKE_fcurve.h
+  BKE_fcurve_driver.h
   BKE_fluid.h
   BKE_font.h
   BKE_freestyle.h
@@ -400,6 +403,7 @@ set(SRC
   intern/lib_intern.h
   intern/multires_inline.h
   intern/multires_reshape.h
+  intern/multires_unsubdivide.h
   intern/pbvh_intern.h
   intern/subdiv_converter.h
   intern/subdiv_inline.h

@@ -43,8 +43,6 @@
 #include "intern/debug/deg_debug.h"
 #include "intern/depsgraph_type.h"
 
-struct GHash;
-struct GSet;
 struct ID;
 struct Scene;
 struct ViewLayer;
@@ -119,7 +117,7 @@ struct Depsgraph {
   /* Quick-Access Temp Data ............. */
 
   /* Nodes which have been tagged as "directly modified". */
-  GSet *entry_tags;
+  Set<OperationNode *> entry_tags;
 
   /* Special entry tag for time source. Allows to tag invisible dependency graphs for update when
    * scene frame changes, so then when dependency graph becomes visible it is on a proper state. */

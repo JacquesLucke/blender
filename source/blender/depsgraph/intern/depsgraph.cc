@@ -31,7 +31,6 @@
 #include "MEM_guardedalloc.h"
 
 #include "BLI_console.h"
-#include "BLI_ghash.h"
 #include "BLI_hash.h"
 #include "BLI_utildefines.h"
 
@@ -60,12 +59,6 @@ extern "C" {
 
 namespace DEG {
 
-/* TODO(sergey): Find a better place for this. */
-template<typename T> static void remove_from_vector(vector<T> *vector, const T &value)
-{
-  vector->erase(std::remove(vector->begin(), vector->end(), value), vector->end());
-}
-
 Depsgraph::Depsgraph(Main *bmain, Scene *scene, ViewLayer *view_layer, eEvaluationMode mode)
     : time_source(nullptr),
       need_update(true),
@@ -81,7 +74,6 @@ Depsgraph::Depsgraph(Main *bmain, Scene *scene, ViewLayer *view_layer, eEvaluati
       is_render_pipeline_depsgraph(false)
 {
   BLI_spin_init(&lock);
-  entry_tags = BLI_gset_ptr_new("Depsgraph entry_tags");
   memset(id_type_updated, 0, sizeof(id_type_updated));
   memset(id_type_exist, 0, sizeof(id_type_exist));
   memset(physics_relations, 0, sizeof(physics_relations));
@@ -90,7 +82,6 @@ Depsgraph::Depsgraph(Main *bmain, Scene *scene, ViewLayer *view_layer, eEvaluati
 Depsgraph::~Depsgraph()
 {
   clear_id_nodes();
-  BLI_gset_free(entry_tags, nullptr);
   if (time_source != nullptr) {
     OBJECT_GUARDED_DELETE(time_source, TimeSourceNode);
   }
@@ -231,7 +222,7 @@ void Depsgraph::add_entry_tag(OperationNode *node)
    * from.
    * NOTE: this is necessary since we have several thousand nodes to play
    * with. */
-  BLI_gset_insert(entry_tags, node);
+  entry_tags.add(node);
 }
 
 void Depsgraph::clear_all_nodes()
@@ -318,9 +309,9 @@ void DEG_graph_free(Depsgraph *graph)
   OBJECT_GUARDED_DELETE(deg_depsgraph, Depsgraph);
 }
 
-bool DEG_is_evaluating(struct Depsgraph *depsgraph)
+bool DEG_is_evaluating(const struct Depsgraph *depsgraph)
 {
-  DEG::Depsgraph *deg_graph = reinterpret_cast<DEG::Depsgraph *>(depsgraph);
+  const DEG::Depsgraph *deg_graph = reinterpret_cast<const DEG::Depsgraph *>(depsgraph);
   return deg_graph->is_evaluating;
 }
 
