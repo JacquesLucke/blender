@@ -33,8 +33,6 @@ from bpy.props import (
 )
 from builtin_node_groups import (
     export_builtin_node_group,
-    get_builtin_group_items_cb,
-    import_builtin_node_group_by_item_identifier,
     import_builtin_node_group_with_dependencies,
 )
 
@@ -313,24 +311,6 @@ class NODE_OT_export_group_template(Operator):
         export_builtin_node_group(group)
         return {'FINISHED'}
 
-class NODE_OT_import_group_template_search(bpy.types.Operator):
-    bl_idname = "node.import_group_template_search"
-    bl_label = "Import Node Group Template Search"
-    bl_property = "item"
-
-    item: EnumProperty(items=get_builtin_group_items_cb("SimulationNodeTree"))
-
-    def invoke(self, context, event):
-        context.window_manager.invoke_search_popup(self)
-        return {'CANCELLED'}
-
-    def execute(self, context):
-        if self.item == "NONE":
-            return {'CANCELLED'}
-        else:
-            import_builtin_node_group_by_item_identifier(self.item)
-            return {'FINISHED'}
-
 class NODE_OT_add_builtin_node_group(bpy.types.Operator):
     bl_idname = "node.add_builtin_node_group"
     bl_label = "Add Builtin Node Group"
@@ -360,6 +340,5 @@ classes = (
     NODE_OT_collapse_hide_unused_toggle,
     NODE_OT_tree_path_parent,
     NODE_OT_export_group_template,
-    NODE_OT_import_group_template_search,
     NODE_OT_add_builtin_node_group,
 )

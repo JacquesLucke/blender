@@ -288,14 +288,6 @@ def get_sorted_group_names_to_load(main_group_name):
     add_group(main_group_name)
     return sorted_group_names
 
-def get_builtin_group_items_cb(node_tree_idname):
-    def items_generator(self, context):
-        items = []
-        for i, name in enumerate(get_builtin_groups_data().keys()):
-            items.append((str(i), name, ""))
-        return items
-    return items_generator
-
 def import_builtin_node_group_with_dependencies(group_name):
     sorted_group_names = get_sorted_group_names_to_load(group_name)
     groups_json_data = get_builtin_groups_data()
@@ -307,8 +299,3 @@ def import_builtin_node_group_with_dependencies(group_name):
         loaded_group_by_name[group_name] = group
 
     return loaded_group_by_name[group_name]
-
-def import_builtin_node_group_by_item_identifier(item_identifier):
-    index = int(item_identifier)
-    group_name = list(get_builtin_groups_data().keys())[index]
-    return import_builtin_node_group_with_dependencies(group_name)
