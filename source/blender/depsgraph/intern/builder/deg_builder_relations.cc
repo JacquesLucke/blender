@@ -28,7 +28,6 @@
 #include <cstring> /* required for STREQ later on. */
 #include <stdio.h>
 #include <stdlib.h>
-#include <unordered_set>
 
 #include "MEM_guardedalloc.h"
 
@@ -77,8 +76,9 @@ extern "C" {
 #include "BKE_constraint.h"
 #include "BKE_curve.h"
 #include "BKE_effect.h"
-#include "BKE_fcurve.h"
+#include "BKE_fcurve_driver.h"
 #include "BKE_gpencil_modifier.h"
+#include "BKE_idprop.h"
 #include "BKE_image.h"
 #include "BKE_key.h"
 #include "BKE_layer.h"
@@ -121,8 +121,6 @@ extern "C" {
 #include "intern/depsgraph_type.h"
 
 namespace DEG {
-
-using std::unordered_set;
 
 /* ***************** */
 /* Relations Builder */
@@ -569,6 +567,18 @@ void DepsgraphRelationBuilder::build_id(ID *id)
   }
 }
 
+static void build_idproperties_callback(IDProperty *id_property, void *user_data)
+{
+  DepsgraphRelationBuilder *builder = reinterpret_cast<DepsgraphRelationBuilder *>(user_data);
+  BLI_assert(id_property->type == IDP_ID);
+  builder->build_id(reinterpret_cast<ID *>(id_property->data.pointer));
+}
+
+void DepsgraphRelationBuilder::build_idproperties(IDProperty *id_property)
+{
+  IDP_foreach_property(id_property, IDP_TYPE_FILTER_ID, build_idproperties_callback, this);
+}
+
 void DepsgraphRelationBuilder::build_collection(LayerCollection *from_layer_collection,
                                                 Object *object,
                                                 Collection *collection)
@@ -582,6 +592,7 @@ void DepsgraphRelationBuilder::build_collection(LayerCollection *from_layer_coll
      * recurses into all the nested objects and collections. */
     return;
   }
+  build_idproperties(collection->id.properties);
   const bool group_done = built_map_.checkIsBuiltAndTag(collection);
   OperationKey object_transform_final_key(object != nullptr ? &object->id : nullptr,
                                           NodeType::TRANSFORM,
@@ -695,6 +706,7 @@ void DepsgraphRelationBuilder::build_object(Base *base, Object *object)
                  final_transform_key,
                  "Simulation -> Final Transform");
   }
+  build_idproperties(object->id.properties);
   /* Animation data */
   build_animdata(&object->id);
   /* Object data. */
@@ -1371,6 +1383,7 @@ void DepsgraphRelationBuilder::build_action(bAction *action)
   if (built_map_.checkIsBuiltAndTag(action)) {
     return;
   }
+  build_idproperties(action->id.properties);
   if (!BLI_listbase_is_empty(&action->curves)) {
     TimeSourceKey time_src_key;
     ComponentKey animation_key(&action->id, NodeType::ANIMATION);
@@ -1616,6 +1629,7 @@ void DepsgraphRelationBuilder::build_world(World *world)
   if (built_map_.checkIsBuiltAndTag(world)) {
     return;
   }
+  build_idproperties(world->id.properties);
   /* animation */
   build_animdata(&world->id);
   build_parameters(&world->id);
@@ -1894,6 +1908,7 @@ void DepsgraphRelationBuilder::build_shapekeys(Key *key)
   if (built_map_.checkIsBuiltAndTag(key)) {
     return;
   }
+  build_idproperties(key->id.properties);
   /* Attach animdata to geometry. */
   build_animdata(&key->id);
   build_parameters(&key->id);
@@ -2073,6 +2088,7 @@ void DepsgraphRelationBuilder::build_object_data_geometry_datablock(ID *obdata)
   if (built_map_.checkIsBuiltAndTag(obdata)) {
     return;
   }
+  build_idproperties(obdata->properties);
   /* Animation. */
   build_animdata(obdata);
   build_parameters(obdata);
@@ -2185,8 +2201,18 @@ void DepsgraphRelationBuilder::build_armature(bArmature *armature)
   if (built_map_.checkIsBuiltAndTag(armature)) {
     return;
   }
+  build_idproperties(armature->id.properties);
   build_animdata(&armature->id);
   build_parameters(&armature->id);
+  build_armature_bones(&armature->bonebase);
+}
+
+void DepsgraphRelationBuilder::build_armature_bones(ListBase *bones)
+{
+  LISTBASE_FOREACH (Bone *, bone, bones) {
+    build_idproperties(bone->prop);
+    build_armature_bones(&bone->childbase);
+  }
 }
 
 void DepsgraphRelationBuilder::build_camera(Camera *camera)
@@ -2194,6 +2220,7 @@ void DepsgraphRelationBuilder::build_camera(Camera *camera)
   if (built_map_.checkIsBuiltAndTag(camera)) {
     return;
   }
+  build_idproperties(camera->id.properties);
   build_animdata(&camera->id);
   build_parameters(&camera->id);
   if (camera->dof.focus_object != nullptr) {
@@ -2210,6 +2237,7 @@ void DepsgraphRelationBuilder::build_light(Light *lamp)
   if (built_map_.checkIsBuiltAndTag(lamp)) {
     return;
   }
+  build_idproperties(lamp->id.properties);
   build_animdata(&lamp->id);
   build_parameters(&lamp->id);
   /* light's nodetree */
@@ -2230,11 +2258,20 @@ void DepsgraphRelationBuilder::build_nodetree(bNodeTree *ntree)
   if (built_map_.checkIsBuiltAndTag(ntree)) {
     return;
   }
+  build_idproperties(ntree->id.properties);
   build_animdata(&ntree->id);
   build_parameters(&ntree->id);
   ComponentKey shading_key(&ntree->id, NodeType::SHADING);
   /* nodetree's nodes... */
   LISTBASE_FOREACH (bNode *, bnode, &ntree->nodes) {
+    build_idproperties(bnode->prop);
+    LISTBASE_FOREACH (bNodeSocket *, socket, &bnode->inputs) {
+      build_idproperties(socket->prop);
+    }
+    LISTBASE_FOREACH (bNodeSocket *, socket, &bnode->outputs) {
+      build_idproperties(socket->prop);
+    }
+
     ID *id = bnode->id;
     if (id == nullptr) {
       continue;
@@ -2299,6 +2336,13 @@ void DepsgraphRelationBuilder::build_nodetree(bNodeTree *ntree)
     }
   }
 
+  LISTBASE_FOREACH (bNodeSocket *, socket, &ntree->inputs) {
+    build_idproperties(socket->prop);
+  }
+  LISTBASE_FOREACH (bNodeSocket *, socket, &ntree->outputs) {
+    build_idproperties(socket->prop);
+  }
+
   OperationKey shading_update_key(&ntree->id, NodeType::SHADING, OperationCode::MATERIAL_UPDATE);
   OperationKey shading_parameters_key(
       &ntree->id, NodeType::SHADING_PARAMETERS, OperationCode::MATERIAL_UPDATE);
@@ -2318,6 +2362,7 @@ void DepsgraphRelationBuilder::build_material(Material *material)
   if (built_map_.checkIsBuiltAndTag(material)) {
     return;
   }
+  build_idproperties(material->id.properties);
   /* animation */
   build_animdata(&material->id);
   build_parameters(&material->id);
@@ -2350,6 +2395,7 @@ void DepsgraphRelationBuilder::build_texture(Tex *texture)
   }
   /* texture itself */
   ComponentKey texture_key(&texture->id, NodeType::GENERIC_DATABLOCK);
+  build_idproperties(texture->id.properties);
   build_animdata(&texture->id);
   build_parameters(&texture->id);
 
@@ -2378,6 +2424,7 @@ void DepsgraphRelationBuilder::build_image(Image *image)
   if (built_map_.checkIsBuiltAndTag(image)) {
     return;
   }
+  build_idproperties(image->id.properties);
   build_parameters(&image->id);
 }
 
@@ -2398,6 +2445,7 @@ void DepsgraphRelationBuilder::build_cachefile(CacheFile *cache_file)
   if (built_map_.checkIsBuiltAndTag(cache_file)) {
     return;
   }
+  build_idproperties(cache_file->id.properties);
   /* Animation. */
   build_animdata(&cache_file->id);
   build_parameters(&cache_file->id);
@@ -2427,6 +2475,7 @@ void DepsgraphRelationBuilder::build_mask(Mask *mask)
     return;
   }
   ID *mask_id = &mask->id;
+  build_idproperties(mask_id->properties);
   /* F-Curve animation. */
   build_animdata(mask_id);
   build_parameters(mask_id);
@@ -2465,6 +2514,7 @@ void DepsgraphRelationBuilder::build_freestyle_linestyle(FreestyleLineStyle *lin
 
   ID *linestyle_id = &linestyle->id;
   build_parameters(linestyle_id);
+  build_idproperties(linestyle_id->properties);
   build_animdata(linestyle_id);
   build_nodetree(linestyle->nodetree);
 }
@@ -2475,6 +2525,7 @@ void DepsgraphRelationBuilder::build_movieclip(MovieClip *clip)
     return;
   }
   /* Animation. */
+  build_idproperties(clip->id.properties);
   build_animdata(&clip->id);
   build_parameters(&clip->id);
 }
@@ -2484,6 +2535,7 @@ void DepsgraphRelationBuilder::build_lightprobe(LightProbe *probe)
   if (built_map_.checkIsBuiltAndTag(probe)) {
     return;
   }
+  build_idproperties(probe->id.properties);
   build_animdata(&probe->id);
   build_parameters(&probe->id);
 }
@@ -2493,6 +2545,7 @@ void DepsgraphRelationBuilder::build_speaker(Speaker *speaker)
   if (built_map_.checkIsBuiltAndTag(speaker)) {
     return;
   }
+  build_idproperties(speaker->id.properties);
   build_animdata(&speaker->id);
   build_parameters(&speaker->id);
   if (speaker->sound != nullptr) {
@@ -2508,6 +2561,7 @@ void DepsgraphRelationBuilder::build_sound(bSound *sound)
   if (built_map_.checkIsBuiltAndTag(sound)) {
     return;
   }
+  build_idproperties(sound->id.properties);
   build_animdata(&sound->id);
   build_parameters(&sound->id);
 }
@@ -2533,6 +2587,7 @@ void DepsgraphRelationBuilder::build_scene_sequencer(Scene *scene)
   Sequence *seq;
   bool has_audio_strips = false;
   SEQ_BEGIN (scene->ed, seq) {
+    build_idproperties(seq->prop);
     if (seq->sound != nullptr) {
       build_sound(seq->sound);
       ComponentKey sound_key(&seq->sound->id, NodeType::AUDIO);
@@ -2635,7 +2690,7 @@ void DepsgraphRelationBuilder::build_copy_on_write_relations(IDNode *id_node)
   Node *node_cow = find_node(copy_on_write_key);
   OperationNode *op_cow = node_cow->get_exit_operation();
   /* Plug any other components to this one. */
-  GHASH_FOREACH_BEGIN (ComponentNode *, comp_node, id_node->components) {
+  for (ComponentNode *comp_node : id_node->components.values()) {
     if (comp_node->type == NodeType::COPY_ON_WRITE) {
       /* Copy-on-write component never depends on itself. */
       continue;
@@ -2678,11 +2733,11 @@ void DepsgraphRelationBuilder::build_copy_on_write_relations(IDNode *id_node)
       rel->flag |= rel_flag;
     }
     /* All dangling operations should also be executed after copy-on-write. */
-    GHASH_FOREACH_BEGIN (OperationNode *, op_node, comp_node->operations_map) {
+    for (OperationNode *op_node : comp_node->operations_map->values()) {
       if (op_node == op_entry) {
         continue;
       }
-      if (op_node->inlinks.size() == 0) {
+      if (op_node->inlinks.is_empty()) {
         Relation *rel = graph_->add_new_relation(op_cow, op_node, "CoW Dependency");
         rel->flag |= rel_flag;
       }
@@ -2704,7 +2759,6 @@ void DepsgraphRelationBuilder::build_copy_on_write_relations(IDNode *id_node)
         }
       }
     }
-    GHASH_FOREACH_END();
     /* NOTE: We currently ignore implicit relations to an external
      * data-blocks for copy-on-write operations. This means, for example,
      * copy-on-write component of Object will not wait for copy-on-write
@@ -2713,7 +2767,6 @@ void DepsgraphRelationBuilder::build_copy_on_write_relations(IDNode *id_node)
      * evaluation step needs geometry, it will have transitive dependency
      * to Mesh copy-on-write already. */
   }
-  GHASH_FOREACH_END();
   /* TODO(sergey): This solves crash for now, but causes too many
    * updates potentially. */
   if (GS(id_orig->name) == ID_OB) {
@@ -2762,7 +2815,7 @@ static bool is_reachable(const Node *const from, const Node *const to)
   // Perform a graph walk from 'to' towards its incoming connections.
   // Walking from 'from' towards its outgoing connections is 10x slower on the Spring rig.
   deque<const Node *> queue;
-  unordered_set<const Node *> seen;
+  Set<const Node *> seen;
   queue.push_back(to);
   while (!queue.empty()) {
     // Visit the next node to inspect.
@@ -2776,7 +2829,7 @@ static bool is_reachable(const Node *const from, const Node *const to)
     // Queue all incoming relations that we haven't seen before.
     for (Relation *relation : visit->inlinks) {
       const Node *prev_node = relation->from;
-      if (seen.insert(prev_node).second) {
+      if (seen.add(prev_node)) {
         queue.push_back(prev_node);
       }
     }

@@ -31,12 +31,13 @@
 
 namespace BLI {
 
-template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Array {
+template<typename T, uint InlineBufferCapacity = 4, typename Allocator = GuardedAllocator>
+class Array {
  private:
   T *m_data;
   uint m_size;
   Allocator m_allocator;
-  AlignedBuffer<sizeof(T) * N, alignof(T)> m_inline_storage;
+  AlignedBuffer<sizeof(T) * InlineBufferCapacity, alignof(T)> m_inline_storage;
 
  public:
   Array()
@@ -79,7 +80,7 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ar
     m_allocator = other.m_allocator;
 
     m_data = this->get_buffer_for_size(other.size());
-    copy_n(other.begin(), m_size, m_data);
+    uninitialized_copy_n(other.begin(), m_size, m_data);
   }
 
   Array(Array &&other) noexcept
@@ -201,10 +202,15 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ar
     return IndexRange(m_size);
   }
 
+  Allocator &allocator()
+  {
+    return m_allocator;
+  }
+
  private:
   T *get_buffer_for_size(uint size)
   {
-    if (size <= N) {
+    if (size <= InlineBufferCapacity) {
       return this->inline_storage();
     }
     else {

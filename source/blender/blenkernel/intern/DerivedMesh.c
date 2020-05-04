@@ -901,16 +901,16 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
 
   /* Sculpt can skip certain modifiers. */
   MultiresModifierData *mmd = get_multires_modifier(scene, ob, 0);
-  const bool has_multires = (mmd && BKE_multires_sculpt_level_get(mmd) != 0);
+  const bool has_multires = (mmd && mmd->sculptlvl != 0);
   bool multires_applied = false;
   const bool sculpt_mode = ob->mode & OB_MODE_SCULPT && ob->sculpt && !use_render;
   const bool sculpt_dyntopo = (sculpt_mode && ob->sculpt->bm) && !use_render;
 
   /* Modifier evaluation contexts for different types of modifiers. */
-  ModifierApplyFlag app_render = use_render ? MOD_APPLY_RENDER : 0;
-  ModifierApplyFlag app_cache = use_cache ? MOD_APPLY_USECACHE : 0;
-  const ModifierEvalContext mectx = {depsgraph, ob, app_render | app_cache};
-  const ModifierEvalContext mectx_orco = {depsgraph, ob, app_render | MOD_APPLY_ORCO};
+  ModifierApplyFlag apply_render = use_render ? MOD_APPLY_RENDER : 0;
+  ModifierApplyFlag apply_cache = use_cache ? MOD_APPLY_USECACHE : 0;
+  const ModifierEvalContext mectx = {depsgraph, ob, apply_render | apply_cache};
+  const ModifierEvalContext mectx_orco = {depsgraph, ob, apply_render | MOD_APPLY_ORCO};
 
   /* Get effective list of modifiers to execute. Some effects like shape keys
    * are added as virtual modifiers before the user created modifiers. */
@@ -1020,8 +1020,7 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
     if (sculpt_mode && (!has_multires || multires_applied || sculpt_dyntopo)) {
       bool unsupported = false;
 
-      if (md->type == eModifierType_Multires &&
-          BKE_multires_sculpt_level_get((MultiresModifierData *)md) == 0) {
+      if (md->type == eModifierType_Multires && ((MultiresModifierData *)md)->sculptlvl == 0) {
         /* If multires is on level 0 skip it silently without warning message. */
         if (!sculpt_dyntopo) {
           continue;
@@ -1176,7 +1175,7 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
         }
       }
 
-      Mesh *mesh_next = modwrap_applyModifier(md, &mectx, mesh_final);
+      Mesh *mesh_next = modwrap_modifyMesh(md, &mectx, mesh_final);
       ASSERT_IS_VALID_MESH(mesh_next);
 
       if (mesh_next) {
@@ -1212,7 +1211,7 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
         CustomData_MeshMasks_update(&temp_cddata_masks, &nextmask);
         mesh_set_only_copy(mesh_orco, &temp_cddata_masks);
 
-        mesh_next = modwrap_applyModifier(md, &mectx_orco, mesh_orco);
+        mesh_next = modwrap_modifyMesh(md, &mectx_orco, mesh_orco);
         ASSERT_IS_VALID_MESH(mesh_next);
 
         if (mesh_next) {
@@ -1238,7 +1237,7 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
         nextmask.pmask |= CD_MASK_ORIGINDEX;
         mesh_set_only_copy(mesh_orco_cloth, &nextmask);
 
-        mesh_next = modwrap_applyModifier(md, &mectx_orco, mesh_orco_cloth);
+        mesh_next = modwrap_modifyMesh(md, &mectx_orco, mesh_orco_cloth);
         ASSERT_IS_VALID_MESH(mesh_next);
 
         if (mesh_next) {
@@ -1595,7 +1594,7 @@ static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
         mask.pmask |= CD_MASK_ORIGINDEX;
         mesh_set_only_copy(mesh_orco, &mask);
 
-        Mesh *mesh_next = modwrap_applyModifier(md, &mectx_orco, mesh_orco);
+        Mesh *mesh_next = modwrap_modifyMesh(md, &mectx_orco, mesh_orco);
         ASSERT_IS_VALID_MESH(mesh_next);
 
         if (mesh_next) {
@@ -1626,7 +1625,7 @@ static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
         }
       }
 
-      Mesh *mesh_next = modwrap_applyModifier(md, &mectx, mesh_final);
+      Mesh *mesh_next = modwrap_modifyMesh(md, &mectx, mesh_final);
       ASSERT_IS_VALID_MESH(mesh_next);
 
       if (mesh_next) {

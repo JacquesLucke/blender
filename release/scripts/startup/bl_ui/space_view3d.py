@@ -993,6 +993,7 @@ class VIEW3D_MT_transform(VIEW3D_MT_transform_base):
         layout = self.layout
         if context.mode == 'EDIT_MESH':
             layout.operator("transform.shrink_fatten", text="Shrink Fatten")
+            layout.operator("transform.skin_resize")
         elif context.mode == 'EDIT_CURVE':
             layout.operator("transform.transform", text="Radius").mode = 'CURVE_SHRINKFATTEN'
 
@@ -6048,15 +6049,16 @@ class VIEW3D_PT_overlay_guides(Panel):
         split = col.split()
         sub = split.column()
         sub.prop(overlay, "show_text", text="Text Info")
+        sub.prop(overlay, "show_stats", text="Statistics")
+
         sub = split.column()
         sub.prop(overlay, "show_cursor", text="3D Cursor")
+        sub.prop(overlay, "show_annotation", text="Annotations")
 
         if shading.type == 'MATERIAL':
             row = col.row()
             row.active = shading.render_pass == 'COMBINED'
             row.prop(overlay, "show_look_dev")
-
-        col.prop(overlay, "show_annotation", text="Annotations")
 
 
 class VIEW3D_PT_overlay_object(Panel):
@@ -7058,6 +7060,18 @@ def draw_gpencil_layer_active(context, layout):
             row.operator("gpencil.layer_remove", text="", icon='X')
 
 
+def draw_gpencil_material_active(context, layout):
+        ob = context.active_object
+        if ob and len(ob.material_slots) > 0 and ob.active_material_index >= 0:
+            ma = ob.material_slots[ob.active_material_index].material
+            if ma:
+                layout.label(text="Active Material")
+                row = layout.row(align=True)
+                row.operator_context = 'EXEC_REGION_WIN'
+                row.operator_menu_enum("gpencil.material_set", "slot", text="", icon='MATERIAL')
+                row.prop(ma, "name", text="")
+
+
 class VIEW3D_PT_gpencil_sculpt_context_menu(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'WINDOW'
@@ -7131,6 +7145,9 @@ class VIEW3D_PT_gpencil_draw_context_menu(Panel):
 
         # Layers
         draw_gpencil_layer_active(context, layout)
+        # Material
+        if not is_vertex:
+            draw_gpencil_material_active(context, layout)
 
 
 class VIEW3D_PT_gpencil_vertex_context_menu(Panel):

@@ -53,7 +53,11 @@ namespace BLI {
 
 // clang-format on
 
-template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> class Map {
+template<typename KeyT,
+         typename ValueT,
+         uint32_t InlineBufferCapacity = 4,
+         typename Allocator = GuardedAllocator>
+class Map {
  private:
   static constexpr uint OFFSET_MASK = 3;
   static constexpr uint OFFSET_SHIFT = 2;
@@ -65,8 +69,8 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
     static constexpr uint8_t IS_DUMMY = 2;
 
     uint8_t m_status[4];
-    char m_keys[4 * sizeof(KeyT)];
-    char m_values[4 * sizeof(ValueT)];
+    AlignedBuffer<4 * sizeof(KeyT), alignof(KeyT)> m_keys_buffer;
+    AlignedBuffer<4 * sizeof(ValueT), alignof(ValueT)> m_values_buffer;
 
    public:
     static constexpr uint slots_per_item = 4;
@@ -134,20 +138,18 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
 
     KeyT *key(uint offset) const
     {
-      return (KeyT *)(m_keys + offset * sizeof(KeyT));
+      return (KeyT *)m_keys_buffer.ptr() + offset;
     }
 
     ValueT *value(uint offset) const
     {
-      return (ValueT *)(m_values + offset * sizeof(ValueT));
+      return (ValueT *)m_values_buffer.ptr() + offset;
     }
 
     template<typename ForwardKeyT, typename ForwardValueT>
     void store(uint offset, ForwardKeyT &&key, ForwardValueT &&value)
     {
-      BLI_assert(m_status[offset] != IS_SET);
-      m_status[offset] = IS_SET;
-      new (this->key(offset)) KeyT(std::forward<ForwardKeyT>(key));
+      this->store_without_value(offset, std::forward<ForwardKeyT>(key));
       new (this->value(offset)) ValueT(std::forward<ForwardValueT>(value));
     }
 
@@ -167,7 +169,7 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
     }
   };
 
-  using ArrayType = OpenAddressingArray<Item, 1, Allocator>;
+  using ArrayType = OpenAddressingArray<Item, InlineBufferCapacity, Allocator>;
   ArrayType m_array;
 
  public:
@@ -351,6 +353,12 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
     ITER_SLOTS_END(offset);
   }
 
+  ValueT *lookup_ptr(const KeyT &key)
+  {
+    const Map *const_this = this;
+    return const_cast<ValueT *>(const_this->lookup_ptr(key));
+  }
+
   /**
    * Lookup the value that corresponds to the key.
    * Asserts when the key does not exist.
@@ -360,12 +368,6 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
     const ValueT *ptr = this->lookup_ptr(key);
     BLI_assert(ptr != nullptr);
     return *ptr;
-  }
-
-  ValueT *lookup_ptr(const KeyT &key)
-  {
-    const Map *const_this = this;
-    return const_cast<ValueT *>(const_this->lookup_ptr(key));
   }
 
   ValueT &lookup(const KeyT &key)
@@ -406,6 +408,19 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
   }
 
   /**
+   * Return the value that corresponds to the given key.
+   * If it does not exist yet, insert a new default constructed value and return that.
+   */
+  ValueT &lookup_or_add_default(const KeyT &key)
+  {
+    return this->lookup_or_add(key, []() { return ValueT(); });
+  }
+  ValueT &lookup_or_add_default(const KeyT &&key)
+  {
+    return this->lookup_or_add(std::move(key), []() { return ValueT(); });
+  }
+
+  /**
    * Get the number of elements in the map.
    */
   uint32_t size() const
@@ -413,6 +428,17 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
     return m_array.slots_set();
   }
 
+  /**
+   * Returns true if there are no elements in the map.
+   */
+  bool is_empty() const
+  {
+    return this->size() == 0;
+  }
+
+  /**
+   * Calls the given function for each key-value-pair.
+   */
   template<typename FuncT> void foreach_item(const FuncT &func) const
   {
     for (const Item &item : m_array) {

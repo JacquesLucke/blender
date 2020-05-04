@@ -23,7 +23,9 @@ set(INC
   ..
   ../../../source/blender/blenkernel
   ../../../source/blender/blenlib
+  ../../../source/blender/editors/include
   ../../../source/blender/makesdna
+  ../../../source/blender/makesrna
   ../../../intern/guardedalloc
   ../../../intern/atomic
 )
@@ -34,4 +36,9 @@ include_directories(${INC})
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${PLATFORM_LINKFLAGS}")
 set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} ${PLATFORM_LINKFLAGS_DEBUG}")
 
-BLENDER_TEST(BKE_armature "bf_blenloader;bf_blenkernel;bf_blenlib")
+if(WITH_BUILDINFO)
+  set(BUILDINFO buildinfoobj)
+endif()
+
+BLENDER_TEST(BKE_armature "bf_blenloader;bf_blenkernel;bf_blenlib;${BUILDINFO}")
+BLENDER_TEST(BKE_fcurve "bf_blenloader;bf_blenkernel;bf_editor_animation;${BUILDINFO}")

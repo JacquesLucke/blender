@@ -157,6 +157,7 @@
 #include "BKE_constraint.h"
 #include "BKE_curve.h"
 #include "BKE_fcurve.h"
+#include "BKE_fcurve_driver.h"
 #include "BKE_global.h"  // for G
 #include "BKE_gpencil_modifier.h"
 #include "BKE_idtype.h"
@@ -2205,7 +2206,7 @@ static void write_customdata(WriteData *wd,
         datasize = structnum * count;
         writestruct_id(wd, DATA, structname, datasize, layer->data);
       }
-      else {
+      else if (!wd->use_memfile) { /* Do not warn on undo. */
         printf("%s error: layer '%s':%d - can't be written to file\n",
                __func__,
                structname,
