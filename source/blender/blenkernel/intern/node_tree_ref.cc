@@ -84,6 +84,15 @@ NodeTreeRef::NodeTreeRef(bNodeTree *btree)
 
 NodeTreeRef::~NodeTreeRef()
 {
+  for (NodeRef *node : m_nodes_by_id) {
+    node->~NodeRef();
+  }
+  for (InputSocketRef *socket : m_input_sockets) {
+    socket->~InputSocketRef();
+  }
+  for (OutputSocketRef *socket : m_output_sockets) {
+    socket->~OutputSocketRef();
+  }
 }
 
 InputSocketRef &NodeTreeRef::find_input_socket(Map<bNode *, NodeRef *> &node_mapping,
