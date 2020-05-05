@@ -31,8 +31,14 @@ DerivedNodeTree::DerivedNodeTree(bNodeTree *btree, NodeTreeRefMap &node_tree_ref
   const NodeTreeRef &main_tree_ref = get_tree_ref(node_tree_refs, btree);
 
   Vector<DNode *> all_nodes;
+  Vector<DGroupInput *> all_group_inputs;
+  Vector<DParentNode *> all_parent_nodes;
 
   this->insert_nodes_and_links_in_id_order(main_tree_ref, nullptr, all_nodes);
+  this->expand_groups(all_nodes, all_group_inputs, all_parent_nodes, node_tree_refs);
+  this->remove_expanded_group_interfaces(all_nodes);
+  this->store_in_this_and_init_ids(
+      std::move(all_nodes), std::move(all_group_inputs), std::move(all_parent_nodes));
 }
 
 void DerivedNodeTree::insert_nodes_and_links_in_id_order(const NodeTreeRef &tree_ref,
@@ -249,6 +255,57 @@ void DerivedNodeTree::relink_group_outputs(const NodeTreeRef &group_ref,
 
     outside_group->m_linked_sockets.clear();
     inside_group->m_linked_sockets.clear();
+  }
+}
+
+void DerivedNodeTree::remove_expanded_group_interfaces(Vector<DNode *> &all_nodes)
+{
+  int index = 0;
+  while (index < all_nodes.size()) {
+    DNode &node = *all_nodes[index];
+    if (node.m_node_ref->is_group_related_node() && node.m_parent != nullptr) {
+      all_nodes.remove_and_reorder(index);
+      node.destruct_with_sockets();
+    }
+    else {
+      index++;
+    }
+  }
+}
+
+void DNode::destruct_with_sockets()
+{
+  for (DInputSocket *socket : m_inputs) {
+    socket->~DInputSocket();
+  }
+  for (DOutputSocket *socket : m_outputs) {
+    socket->~DOutputSocket();
+  }
+  this->~DNode();
+}
+
+void DerivedNodeTree::store_in_this_and_init_ids(Vector<DNode *> &&all_nodes,
+                                                 Vector<DGroupInput *> &&all_group_inputs,
+                                                 Vector<DParentNode *> &&all_parent_nodes)
+{
+  m_nodes_by_id = std::move(all_nodes);
+  m_group_inputs = std::move(all_group_inputs);
+  m_parent_nodes = std::move(all_parent_nodes);
+
+  for (uint node_index : m_nodes_by_id.index_range()) {
+    DNode *node = m_nodes_by_id[node_index];
+    node->m_id = node_index;
+
+    m_nodes_by_idname.lookup_or_add_default(node->idname()).append(node);
+
+    for (DInputSocket *socket : node->m_inputs) {
+      socket->m_id = m_sockets_by_id.append_and_get_index(socket);
+      m_input_sockets.append(socket);
+    }
+    for (DOutputSocket *socket : node->m_outputs) {
+      socket->m_id = m_sockets_by_id.append_and_get_index(socket);
+      m_output_sockets.append(socket);
+    }
   }
 }
 

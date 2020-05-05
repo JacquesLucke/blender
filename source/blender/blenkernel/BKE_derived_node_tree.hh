@@ -125,6 +125,9 @@ class DNode : BLI::NonCopyable, BLI::NonMovable {
   PointerRNA *rna() const;
   StringRefNull idname() const;
   StringRefNull name() const;
+
+ private:
+  void destruct_with_sockets();
 };
 
 class DParentNode : BLI::NonCopyable, BLI::NonMovable {
@@ -188,6 +191,10 @@ class DerivedNodeTree : BLI::NonCopyable, BLI::NonMovable {
   void relink_group_outputs(const NodeTreeRef &group_ref,
                             ArrayRef<DNode *> nodes_by_id,
                             DNode &group_node);
+  void remove_expanded_group_interfaces(Vector<DNode *> &all_nodes);
+  void store_in_this_and_init_ids(Vector<DNode *> &&all_nodes,
+                                  Vector<DGroupInput *> &&all_group_inputs,
+                                  Vector<DParentNode *> &&all_parent_nodes);
 };
 
 /* --------------------------------------------------------------------
