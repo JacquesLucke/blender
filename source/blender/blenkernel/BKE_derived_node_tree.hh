@@ -185,6 +185,9 @@ class DerivedNodeTree : BLI::NonCopyable, BLI::NonMovable {
   void relink_group_inputs(const NodeTreeRef &group_ref,
                            ArrayRef<DNode *> nodes_by_id,
                            DNode &group_node);
+  void relink_group_outputs(const NodeTreeRef &group_ref,
+                            ArrayRef<DNode *> nodes_by_id,
+                            DNode &group_node);
 };
 
 /* --------------------------------------------------------------------

@@ -138,6 +138,7 @@ void DerivedNodeTree::expand_group_node(DNode &group_node,
 
   this->create_group_inputs_for_unlinked_inputs(group_node, all_group_inputs);
   this->relink_group_inputs(group_ref, new_nodes_by_id, group_node);
+  this->relink_group_outputs(group_ref, new_nodes_by_id, group_node);
 }
 
 void DerivedNodeTree::create_group_inputs_for_unlinked_inputs(
@@ -173,13 +174,6 @@ void DerivedNodeTree::relink_group_inputs(const NodeTreeRef &group_ref,
   uint input_amount = group_node.inputs().size();
   BLI_assert(input_amount == input_node_ref.outputs().size() - 1);
 
-  /* Links Before:
-   *    outside_connected <----> outside_group
-   *    inside_connected  <----> inside_group
-   * Links After:
-   *    outside_connected <----> inside_connected
-   */
-
   for (uint input_index : IndexRange(input_amount)) {
     DInputSocket *outside_group = group_node.m_inputs[input_index];
     DOutputSocket *inside_group = input_node.m_outputs[input_index];
@@ -209,6 +203,52 @@ void DerivedNodeTree::relink_group_inputs(const NodeTreeRef &group_ref,
     inside_group->m_linked_sockets.clear();
     outside_group->m_linked_sockets.clear();
     outside_group->m_linked_group_inputs.clear();
+  }
+}
+
+void DerivedNodeTree::relink_group_outputs(const NodeTreeRef &group_ref,
+                                           ArrayRef<DNode *> nodes_by_id,
+                                           DNode &group_node)
+{
+  ArrayRef<const NodeRef *> node_refs = group_ref.nodes_with_idname("NodeGroupOutput");
+  if (node_refs.size() == 0) {
+    return;
+  }
+  /* TODO: Pick correct group output node if there are more than one. */
+  const NodeRef &output_node_ref = *node_refs[0];
+  DNode &output_node = *nodes_by_id[output_node_ref.id()];
+
+  uint output_amount = group_node.outputs().size();
+  BLI_assert(output_amount == output_node_ref.inputs().size() - 1);
+
+  for (uint output_index : IndexRange(output_amount)) {
+    DOutputSocket *outside_group = group_node.m_outputs[output_index];
+    DInputSocket *inside_group = output_node.m_inputs[output_index];
+
+    for (DInputSocket *outside_connected : outside_group->m_linked_sockets) {
+      outside_connected->m_linked_sockets.remove_first_occurrence_and_reorder(outside_group);
+    }
+
+    for (DOutputSocket *inside_connected : inside_group->m_linked_sockets) {
+      inside_connected->m_linked_sockets.remove_first_occurrence_and_reorder(inside_group);
+
+      for (DInputSocket *outside_connected : outside_group->m_linked_sockets) {
+        inside_connected->m_linked_sockets.append(outside_connected);
+        outside_connected->m_linked_sockets.append(inside_connected);
+      }
+    }
+
+    for (DGroupInput *inside_connected : inside_group->m_linked_group_inputs) {
+      inside_connected->m_linked_sockets.remove_first_occurrence_and_reorder(inside_group);
+
+      for (DInputSocket *outside_connected : outside_group->m_linked_sockets) {
+        inside_connected->m_linked_sockets.append(outside_connected);
+        outside_connected->m_linked_group_inputs.append(inside_connected);
+      }
+    }
+
+    outside_group->m_linked_sockets.clear();
+    inside_group->m_linked_sockets.clear();
   }
 }
 
