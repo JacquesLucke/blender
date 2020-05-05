@@ -34,6 +34,13 @@
 extern "C" {
 #endif
 
+void BLI_listbase_iter1(const ListBase *list, void (*callback)(void *ptr));
+void BLI_listbase_iter2(const ListBase *list, void (*callback)(void *ptr));
+void BLI_listbase_iter3(const ListBase *list, void (*callback)(void *ptr));
+void BLI_listbase_iter4(const ListBase *list, void (*callback)(void *ptr));
+void BLI_listbase_iter5(const ListBase *list, void (*callback)(void *ptr));
+void BLI_array_iter(void **start, uint size, void (*callback)(void *ptr));
+
 int BLI_findindex(const struct ListBase *listbase, const void *vlink) ATTR_WARN_UNUSED_RESULT
     ATTR_NONNULL(1);
 int BLI_findstringindex(const struct ListBase *listbase,
@@ -186,6 +193,46 @@ struct LinkData *BLI_genericNodeN(void *data);
   for (type var = (type)((list)->last), *var##_iter_prev; \
        ((var != NULL) ? ((void)(var##_iter_prev = (type)(((Link *)(var))->prev)), 1) : 0); \
        var = var##_iter_prev)
+
+/* clang-format off */
+
+#define LISTBASE_FOREACH_UNORDERED_BEGIN(type, var, list) \
+  do { \
+    if ((list)->first == NULL) { \
+      break; \
+    } \
+\
+    type front = (type)(list)->first; \
+    type back = (type)(list)->last; \
+\
+    bool state = true; \
+    type current = front; \
+    type other = back; \
+\
+    while (true) { \
+      type var = current;
+
+#define LISTBASE_FOREACH_UNORDERED_END \
+      if (current == other) { \
+        break; \
+      } \
+\
+      if (state) { \
+        front = (typeof(front))front->next; \
+        current = back; \
+        other = front; \
+      } \
+      else { \
+        back = (typeof(back))back->prev; \
+        current = front; \
+        other = back; \
+      } \
+\
+      state = !state; \
+    } \
+  } while (false)
+
+/* clang-format on */
 
 #ifdef __cplusplus
 }

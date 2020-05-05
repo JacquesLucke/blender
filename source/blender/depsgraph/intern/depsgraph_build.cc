@@ -26,6 +26,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "BLI_listbase.h"
+#include "BLI_timeit.hh"
 #include "BLI_utildefines.h"
 
 #include "PIL_time.h"
@@ -230,6 +231,61 @@ void DEG_graph_build_from_view_layer(Depsgraph *graph,
                                      Scene *scene,
                                      ViewLayer *view_layer)
 {
+  static int counter;
+  BLI::Vector<void *> pointers;
+  LISTBASE_FOREACH (Link *, link, &bmain->texts) {
+    pointers.append((void *)link);
+  }
+
+  for (int i : BLI::IndexRange(20)) {
+    counter = 0;
+    {
+      SCOPED_TIMER("array");
+      BLI_array_iter(pointers.begin(), pointers.size(), [](void *UNUSED(ptr)) { counter++; });
+    }
+    {
+      SCOPED_TIMER("inline array");
+      for (void *ptr : pointers) {
+        counter += (uintptr_t)ptr;
+      }
+    }
+    {
+      SCOPED_TIMER("foreach");
+      LISTBASE_FOREACH (Link *, link, &bmain->texts) {
+        counter++;
+      }
+    }
+    {
+      SCOPED_TIMER("foreach fast");
+      LISTBASE_FOREACH_UNORDERED_BEGIN(Link *, link, &bmain->texts)
+      {
+        counter++;
+      }
+      LISTBASE_FOREACH_UNORDERED_END;
+    }
+    {
+      SCOPED_TIMER("listbase 5");
+      BLI_listbase_iter5(&bmain->texts, [](void *UNUSED(ptr)) { counter++; });
+    }
+    {
+      SCOPED_TIMER("listbase 4");
+      BLI_listbase_iter4(&bmain->texts, [](void *UNUSED(ptr)) { counter++; });
+    }
+    {
+      SCOPED_TIMER("listbase 3");
+      BLI_listbase_iter3(&bmain->texts, [](void *UNUSED(ptr)) { counter++; });
+    }
+    {
+      SCOPED_TIMER("listbase 2");
+      BLI_listbase_iter2(&bmain->texts, [](void *UNUSED(ptr)) { counter++; });
+    }
+    {
+      SCOPED_TIMER("listbase 1");
+      BLI_listbase_iter1(&bmain->texts, [](void *UNUSED(ptr)) { counter++; });
+    }
+  }
+  std::cout << "Counter: " << counter << "\n";
+
   double start_time = 0.0;
   if (G.debug & (G_DEBUG_DEPSGRAPH_BUILD | G_DEBUG_DEPSGRAPH_TIME)) {
     start_time = PIL_check_seconds_timer();

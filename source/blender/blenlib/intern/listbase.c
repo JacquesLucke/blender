@@ -36,7 +36,140 @@
 
 #include "BLI_strict_flags.h"
 
+#include <xmmintrin.h>
+
 /* implementation */
+
+#define REMEMBER_SIZE 10
+
+void BLI_listbase_iter1(const ListBase *list, void (*callback)(void *ptr))
+{
+  for (Link *link = list->first; link; link = link->next) {
+    callback((void *)link);
+  }
+}
+
+void BLI_listbase_iter2(const ListBase *list, void (*callback)(void *ptr))
+{
+  Link *begin = list->first;
+  Link *end = list->last;
+
+  if (begin == NULL) {
+    return;
+  }
+  if (begin == end) {
+    callback((void *)begin);
+    return;
+  }
+
+  while (true) {
+    callback((void *)begin);
+    callback((void *)end);
+
+    if (begin->next == end) {
+      break;
+    }
+    else if (begin->next == end->prev) {
+      callback((void *)begin->next);
+      break;
+    }
+    else {
+      begin = begin->next;
+      end = end->prev;
+    }
+  }
+}
+
+void BLI_listbase_iter3(const ListBase *list, void (*callback)(void *ptr))
+{
+  for (Link *link = list->first; link; link = link->next) {
+    _mm_prefetch(link->next, _MM_HINT_T0);
+    callback((void *)link);
+  }
+}
+
+void BLI_listbase_iter4(const ListBase *list, void (*callback)(void *ptr))
+{
+  do {
+    Link *front = list->first;
+    Link *back = list->last;
+    bool next_is_front = true;
+
+    if (front == NULL) {
+      break;
+    }
+
+    while (true) {
+      Link **current_ptr;
+      Link *updated_current;
+      Link *other;
+      if (next_is_front) {
+        current_ptr = &front;
+        other = back;
+        updated_current = front->next;
+      }
+      else {
+        current_ptr = &back;
+        other = front;
+        updated_current = back->prev;
+      }
+
+      callback((void *)*current_ptr);
+
+      if (*current_ptr == other) {
+        break;
+      }
+      else {
+        *current_ptr = updated_current;
+        next_is_front = !next_is_front;
+      }
+    }
+  } while (false);
+}
+
+void BLI_listbase_iter5(const ListBase *list, void (*callback)(void *ptr))
+{
+  do {
+    if (list->first == NULL) {
+      break;
+    }
+
+    Link *front = list->first;
+    Link *back = list->last;
+
+    bool state = true;
+    Link *current = front;
+    Link *other = back;
+
+    while (true) {
+      callback((void *)current);
+
+      if (current == other) {
+        break;
+      }
+
+      if (state) {
+        front = front->next;
+        current = back;
+        other = front;
+      }
+      else {
+        back = back->prev;
+        current = front;
+        other = back;
+      }
+
+      state = !state;
+    }
+  } while (false);
+}
+
+void BLI_array_iter(void **start, uint size, void (*callback)(void *ptr))
+{
+  for (uint i = 0; i < size; i++) {
+    callback(start[i]);
+  }
+}
 
 /**
  * moves the entire contents of \a src onto the end of \a dst.
