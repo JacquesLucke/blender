@@ -106,6 +106,7 @@ set(SRC
   intern/customdata_file.c
   intern/data_transfer.c
   intern/deform.c
+  intern/derived_node_tree.cc
   intern/displist.c
   intern/displist_tangent.c
   intern/dynamicpaint.c
@@ -292,6 +293,7 @@ set(SRC
   BKE_customdata_file.h
   BKE_data_transfer.h
   BKE_deform.h
+  BKE_derived_node_tree.hh
   BKE_displist.h
   BKE_displist_tangent.h
   BKE_duplilist.h
