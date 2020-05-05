@@ -17,6 +17,7 @@
 #ifndef __BKE_NODE_TREE_REF_HH__
 #define __BKE_NODE_TREE_REF_HH__
 
+#include "BLI_array.hh"
 #include "BLI_linear_allocator.hh"
 #include "BLI_map.hh"
 #include "BLI_string_map.hh"
@@ -32,9 +33,11 @@
 
 namespace BKE {
 
+using BLI::Array;
 using BLI::ArrayRef;
 using BLI::LinearAllocator;
 using BLI::Map;
+using BLI::MutableArrayRef;
 using BLI::StringMap;
 using BLI::StringRef;
 using BLI::StringRefNull;
@@ -158,7 +161,7 @@ class NodeTreeRef : BLI::NonCopyable, BLI::NonMovable {
   std::string to_dot() const;
 
  private:
-  /* Utility functions used by constructor. */
+  /* Utility functions used during construction. */
   InputSocketRef &find_input_socket(Map<bNode *, NodeRef *> &node_mapping,
                                     bNode *bnode,
                                     bNodeSocket *bsocket);

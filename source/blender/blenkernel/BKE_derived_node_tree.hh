@@ -33,7 +33,6 @@ class DSocket : BLI::NonCopyable, BLI::NonMovable {
  protected:
   DNode *m_node;
   const SocketRef *m_socket_ref;
-  bool m_is_input;
   uint m_id;
 
   friend DerivedNodeTree;
@@ -104,8 +103,8 @@ class DNode : BLI::NonCopyable, BLI::NonMovable {
   const NodeRef *m_node_ref;
   DParentNode *m_parent;
 
-  Vector<DInputSocket *> m_inputs;
-  Vector<DOutputSocket *> m_outputs;
+  MutableArrayRef<DInputSocket *> m_inputs;
+  MutableArrayRef<DOutputSocket *> m_outputs;
 
   uint m_id;
 
@@ -163,6 +162,15 @@ class DerivedNodeTree : BLI::NonCopyable, BLI::NonMovable {
   ~DerivedNodeTree();
 
   ArrayRef<const DNode *> all_nodes() const;
+
+ private:
+  /* Utility functions used during construction. */
+  void insert_nodes_and_links_in_id_order(const NodeTreeRef &tree_ref,
+                                          DParentNode *parent,
+                                          Vector<DNode *> &r_nodes);
+  DNode &create_node(const NodeRef &node_ref,
+                     DParentNode *parent,
+                     MutableArrayRef<DSocket *> r_sockets_map);
 };
 
 /* --------------------------------------------------------------------
@@ -186,12 +194,12 @@ inline uint DSocket::index() const
 
 inline bool DSocket::is_input() const
 {
-  return m_is_input;
+  return m_socket_ref->is_input();
 }
 
 inline bool DSocket::is_output() const
 {
-  return !m_is_input;
+  return m_socket_ref->is_output();
 }
 
 inline const DSocket &DSocket::as_base() const

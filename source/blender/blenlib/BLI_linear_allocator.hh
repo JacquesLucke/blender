@@ -120,7 +120,7 @@ template<typename Allocator = GuardedAllocator> class LinearAllocator : NonCopya
   }
 
   template<typename T, typename... Args>
-  ArrayRef<T *> construct_elements_and_pointer_array(uint n, Args &&... args)
+  MutableArrayRef<T *> construct_elements_and_pointer_array(uint n, Args &&... args)
   {
     void *pointer_buffer = this->allocate(n * sizeof(T *), alignof(T *));
     void *element_buffer = this->allocate(n * sizeof(T), alignof(T));
