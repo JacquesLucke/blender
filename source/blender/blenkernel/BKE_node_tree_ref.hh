@@ -134,7 +134,8 @@ class NodeRef : BLI::NonCopyable, BLI::NonMovable {
 
   bool is_reroute_node() const;
   bool is_group_node() const;
-  bool is_group_related_node() const;
+  bool is_group_input_node() const;
+  bool is_group_output_node() const;
 };
 
 class NodeTreeRef : BLI::NonCopyable, BLI::NonMovable {
@@ -366,12 +367,14 @@ inline bool NodeRef::is_group_node() const
   return m_bnode->type == NODE_GROUP;
 }
 
-/**
- * Returns true when the node is a Group, Group Input or Group Output node.
- */
-inline bool NodeRef::is_group_related_node() const
+inline bool NodeRef::is_group_input_node() const
 {
-  return ELEM(m_bnode->type, NODE_GROUP, NODE_GROUP_INPUT, NODE_GROUP_OUTPUT);
+  return m_bnode->type == NODE_GROUP_INPUT;
+}
+
+inline bool NodeRef::is_group_output_node() const
+{
+  return m_bnode->type == NODE_GROUP_OUTPUT;
 }
 
 /* --------------------------------------------------------------------

@@ -96,6 +96,7 @@ class DGroupInput : BLI::NonCopyable, BLI::NonMovable {
   const DParentNode *parent() const;
   ArrayRef<const DInputSocket *> linked_sockets() const;
   uint id() const;
+  StringRefNull name() const;
 };
 
 class DNode : BLI::NonCopyable, BLI::NonMovable {
@@ -166,6 +167,8 @@ class DerivedNodeTree : BLI::NonCopyable, BLI::NonMovable {
 
   ArrayRef<const DNode *> all_nodes() const;
 
+  std::string to_dot() const;
+
  private:
   /* Utility functions used during construction. */
   void insert_nodes_and_links_in_id_order(const NodeTreeRef &tree_ref,
@@ -192,6 +195,7 @@ class DerivedNodeTree : BLI::NonCopyable, BLI::NonMovable {
                             ArrayRef<DNode *> nodes_by_id,
                             DNode &group_node);
   void remove_expanded_group_interfaces(Vector<DNode *> &all_nodes);
+  void remove_unused_group_inputs(Vector<DGroupInput *> &all_group_inputs);
   void store_in_this_and_init_ids(Vector<DNode *> &&all_nodes,
                                   Vector<DGroupInput *> &&all_group_inputs,
                                   Vector<DParentNode *> &&all_parent_nodes);
@@ -316,6 +320,11 @@ inline ArrayRef<const DInputSocket *> DGroupInput::linked_sockets() const
 inline uint DGroupInput::id() const
 {
   return m_id;
+}
+
+inline StringRefNull DGroupInput::name() const
+{
+  return m_socket_ref->name();
 }
 
 /* --------------------------------------------------------------------
