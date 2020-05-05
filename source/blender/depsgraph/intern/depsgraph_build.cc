@@ -264,6 +264,18 @@ void DEG_graph_build_from_view_layer(Depsgraph *graph,
       LISTBASE_FOREACH_UNORDERED_END;
     }
     {
+      SCOPED_TIMER("foreach fast array");
+      BLI::Vector<Link *, 50> links;
+      LISTBASE_FOREACH_UNORDERED_BEGIN(Link *, link, &bmain->texts)
+      {
+        links.append(link);
+      }
+      LISTBASE_FOREACH_UNORDERED_END;
+      for (Link *link : links) {
+        counter += (uintptr_t)link;
+      }
+    }
+    {
       SCOPED_TIMER("listbase 5");
       BLI_listbase_iter5(&bmain->texts, [](void *UNUSED(ptr)) { counter++; });
     }
