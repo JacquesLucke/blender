@@ -35,6 +35,7 @@ namespace BKE {
 
 using BLI::Array;
 using BLI::ArrayRef;
+using BLI::IndexRange;
 using BLI::LinearAllocator;
 using BLI::Map;
 using BLI::MutableArrayRef;

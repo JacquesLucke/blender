@@ -182,6 +182,9 @@ class DerivedNodeTree : BLI::NonCopyable, BLI::NonMovable {
                          NodeTreeRefMap &node_tree_refs);
   void create_group_inputs_for_unlinked_inputs(DNode &node,
                                                Vector<DGroupInput *> &all_group_inputs);
+  void relink_group_inputs(const NodeTreeRef &group_ref,
+                           ArrayRef<DNode *> nodes_by_id,
+                           DNode &group_node);
 };
 
 /* --------------------------------------------------------------------

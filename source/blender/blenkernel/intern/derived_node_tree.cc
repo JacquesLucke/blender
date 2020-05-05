@@ -137,6 +137,7 @@ void DerivedNodeTree::expand_group_node(DNode &group_node,
   ArrayRef<DNode *> new_nodes_by_id = all_nodes.as_ref().take_back(group_ref.nodes().size());
 
   this->create_group_inputs_for_unlinked_inputs(group_node, all_group_inputs);
+  this->relink_group_inputs(group_ref, new_nodes_by_id, group_node);
 }
 
 void DerivedNodeTree::create_group_inputs_for_unlinked_inputs(
@@ -154,6 +155,60 @@ void DerivedNodeTree::create_group_inputs_for_unlinked_inputs(
 
     group_input.m_linked_sockets.append(input_socket);
     input_socket->m_linked_group_inputs.append(&group_input);
+  }
+}
+
+void DerivedNodeTree::relink_group_inputs(const NodeTreeRef &group_ref,
+                                          ArrayRef<DNode *> nodes_by_id,
+                                          DNode &group_node)
+{
+  ArrayRef<const NodeRef *> node_refs = group_ref.nodes_with_idname("NodeGroupInput");
+  if (node_refs.size() == 0) {
+    return;
+  }
+  /* TODO: Pick correct group input node if there are more than one. */
+  const NodeRef &input_node_ref = *node_refs[0];
+  DNode &input_node = *nodes_by_id[input_node_ref.id()];
+
+  uint input_amount = group_node.inputs().size();
+  BLI_assert(input_amount == input_node_ref.outputs().size() - 1);
+
+  /* Links Before:
+   *    outside_connected <----> outside_group
+   *    inside_connected  <----> inside_group
+   * Links After:
+   *    outside_connected <----> inside_connected
+   */
+
+  for (uint input_index : IndexRange(input_amount)) {
+    DInputSocket *outside_group = group_node.m_inputs[input_index];
+    DOutputSocket *inside_group = input_node.m_outputs[input_index];
+
+    for (DOutputSocket *outside_connected : outside_group->m_linked_sockets) {
+      outside_connected->m_linked_sockets.remove_first_occurrence_and_reorder(outside_group);
+    }
+
+    for (DGroupInput *outside_connected : outside_group->m_linked_group_inputs) {
+      outside_connected->m_linked_sockets.remove_first_occurrence_and_reorder(outside_group);
+    }
+
+    for (DInputSocket *inside_connected : inside_group->m_linked_sockets) {
+      inside_connected->m_linked_sockets.remove_first_occurrence_and_reorder(inside_group);
+
+      for (DOutputSocket *outside_connected : outside_group->m_linked_sockets) {
+        inside_connected->m_linked_sockets.append(outside_connected);
+        outside_connected->m_linked_sockets.append(inside_connected);
+      }
+
+      for (DGroupInput *outside_connected : outside_group->m_linked_group_inputs) {
+        inside_connected->m_linked_group_inputs.append(outside_connected);
+        outside_connected->m_linked_sockets.append(inside_connected);
+      }
+    }
+
+    inside_group->m_linked_sockets.clear();
+    outside_group->m_linked_sockets.clear();
+    outside_group->m_linked_group_inputs.clear();
   }
 }
 
