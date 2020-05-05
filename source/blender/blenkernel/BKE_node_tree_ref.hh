@@ -128,7 +128,8 @@ class NodeRef : BLI::NonCopyable, BLI::NonMovable {
 
   uint id() const;
 
-  bool is_reroute() const;
+  bool is_reroute_node() const;
+  bool is_group_node() const;
 };
 
 class NodeTreeRef : BLI::NonCopyable, BLI::NonMovable {
@@ -350,9 +351,14 @@ inline uint NodeRef::id() const
   return m_id;
 }
 
-inline bool NodeRef::is_reroute() const
+inline bool NodeRef::is_reroute_node() const
 {
   return m_bnode->type == NODE_REROUTE;
+}
+
+inline bool NodeRef::is_group_node() const
+{
+  return m_bnode->type == NODE_GROUP;
 }
 
 /* --------------------------------------------------------------------

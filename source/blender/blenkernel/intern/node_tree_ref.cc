@@ -69,7 +69,7 @@ NodeTreeRef::NodeTreeRef(bNodeTree *btree)
   }
 
   for (OutputSocketRef *socket : m_output_sockets) {
-    if (!socket->m_node->is_reroute()) {
+    if (!socket->m_node->is_reroute_node()) {
       this->find_targets_skipping_reroutes(*socket, socket->m_linked_sockets);
       for (SocketRef *target : socket->m_linked_sockets) {
         target->m_linked_sockets.append(socket);
@@ -127,7 +127,7 @@ void NodeTreeRef::find_targets_skipping_reroutes(OutputSocketRef &socket,
                                                  Vector<SocketRef *> &r_targets)
 {
   for (SocketRef *direct_target : socket.m_directly_linked_sockets) {
-    if (direct_target->m_node->is_reroute()) {
+    if (direct_target->m_node->is_reroute_node()) {
       this->find_targets_skipping_reroutes(*direct_target->m_node->m_outputs[0], r_targets);
     }
     else {
