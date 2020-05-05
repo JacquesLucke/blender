@@ -104,8 +104,8 @@ class DNode : BLI::NonCopyable, BLI::NonMovable {
   const NodeRef *m_node_ref;
   DParentNode *m_parent;
 
-  MutableArrayRef<DInputSocket *> m_inputs;
-  MutableArrayRef<DOutputSocket *> m_outputs;
+  ArrayRef<DInputSocket *> m_inputs;
+  ArrayRef<DOutputSocket *> m_outputs;
 
   uint m_id;
 
@@ -343,12 +343,12 @@ inline const DParentNode *DNode::parent() const
 
 inline ArrayRef<const DInputSocket *> DNode::inputs() const
 {
-  return m_inputs.as_ref();
+  return m_inputs;
 }
 
 inline ArrayRef<const DOutputSocket *> DNode::outputs() const
 {
-  return m_outputs.as_ref();
+  return m_outputs;
 }
 
 inline const DInputSocket &DNode::input(uint index) const
