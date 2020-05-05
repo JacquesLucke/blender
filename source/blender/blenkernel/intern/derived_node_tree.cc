@@ -37,14 +37,14 @@ DerivedNodeTree::DerivedNodeTree(bNodeTree *btree, NodeTreeRefMap &node_tree_ref
 
 void DerivedNodeTree::insert_nodes_and_links_in_id_order(const NodeTreeRef &tree_ref,
                                                          DParentNode *parent,
-                                                         Vector<DNode *> &r_nodes)
+                                                         Vector<DNode *> &all_nodes)
 {
   Array<DSocket *, 64> sockets_map(tree_ref.sockets().size());
 
   /* Insert nodes. */
   for (const NodeRef *node_ref : tree_ref.nodes()) {
     DNode &node = this->create_node(*node_ref, parent, sockets_map);
-    r_nodes.append(&node);
+    all_nodes.append(&node);
   }
 
   /* Insert links. */
@@ -97,6 +97,64 @@ DNode &DerivedNodeTree::create_node(const NodeRef &node_ref,
   }
 
   return node;
+}
+
+void DerivedNodeTree::expand_groups(Vector<DNode *> &all_nodes,
+                                    Vector<DGroupInput *> &all_group_inputs,
+                                    Vector<DParentNode *> &all_parent_nodes,
+                                    NodeTreeRefMap &node_tree_refs)
+{
+  for (uint i = 0; i < all_nodes.size(); i++) {
+    DNode &node = *all_nodes[i];
+    if (node.m_node_ref->is_group_node()) {
+      this->expand_group_node(node, all_nodes, all_group_inputs, all_parent_nodes, node_tree_refs);
+    }
+  }
+}
+
+void DerivedNodeTree::expand_group_node(DNode &group_node,
+                                        Vector<DNode *> &all_nodes,
+                                        Vector<DGroupInput *> &all_group_inputs,
+                                        Vector<DParentNode *> &all_parent_nodes,
+                                        NodeTreeRefMap &node_tree_refs)
+{
+  const NodeRef &group_node_ref = *group_node.m_node_ref;
+  BLI_assert(group_node_ref.is_group_node());
+
+  bNodeTree *btree = (bNodeTree *)group_node_ref.bnode()->id;
+  if (btree == nullptr) {
+    return;
+  }
+
+  const NodeTreeRef &group_ref = get_tree_ref(node_tree_refs, btree);
+
+  DParentNode &parent = *m_allocator.construct<DParentNode>();
+  parent.m_id = all_parent_nodes.append_and_get_index(&parent);
+  parent.m_parent = group_node.m_parent;
+  parent.m_node_ref = &group_node_ref;
+
+  this->insert_nodes_and_links_in_id_order(group_ref, &parent, all_nodes);
+  ArrayRef<DNode *> new_nodes_by_id = all_nodes.as_ref().take_back(group_ref.nodes().size());
+
+  this->create_group_inputs_for_unlinked_inputs(group_node, all_group_inputs);
+}
+
+void DerivedNodeTree::create_group_inputs_for_unlinked_inputs(
+    DNode &node, Vector<DGroupInput *> &all_group_inputs)
+{
+  for (DInputSocket *input_socket : node.m_inputs) {
+    if (input_socket->is_linked()) {
+      continue;
+    }
+
+    DGroupInput &group_input = *m_allocator.construct<DGroupInput>();
+    group_input.m_id = all_group_inputs.append_and_get_index(&group_input);
+    group_input.m_socket_ref = &input_socket->socket_ref();
+    group_input.m_parent = node.m_parent;
+
+    group_input.m_linked_sockets.append(input_socket);
+    input_socket->m_linked_group_inputs.append(&group_input);
+  }
 }
 
 DerivedNodeTree::~DerivedNodeTree()

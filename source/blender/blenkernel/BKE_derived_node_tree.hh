@@ -167,10 +167,21 @@ class DerivedNodeTree : BLI::NonCopyable, BLI::NonMovable {
   /* Utility functions used during construction. */
   void insert_nodes_and_links_in_id_order(const NodeTreeRef &tree_ref,
                                           DParentNode *parent,
-                                          Vector<DNode *> &r_nodes);
+                                          Vector<DNode *> &all_nodes);
   DNode &create_node(const NodeRef &node_ref,
                      DParentNode *parent,
                      MutableArrayRef<DSocket *> r_sockets_map);
+  void expand_groups(Vector<DNode *> &all_nodes,
+                     Vector<DGroupInput *> &all_group_inputs,
+                     Vector<DParentNode *> &all_parent_nodes,
+                     NodeTreeRefMap &node_tree_refs);
+  void expand_group_node(DNode &group_node,
+                         Vector<DNode *> &all_nodes,
+                         Vector<DGroupInput *> &all_group_inputs,
+                         Vector<DParentNode *> &all_parent_nodes,
+                         NodeTreeRefMap &node_tree_refs);
+  void create_group_inputs_for_unlinked_inputs(DNode &node,
+                                               Vector<DGroupInput *> &all_group_inputs);
 };
 
 /* --------------------------------------------------------------------
