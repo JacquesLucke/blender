@@ -26,7 +26,7 @@ static const NodeTreeRef &get_tree_ref(NodeTreeRefMap &node_tree_refs, bNodeTree
                                        [&]() { return BLI::make_unique<NodeTreeRef>(btree); });
 }
 
-DerivedNodeTree::DerivedNodeTree(bNodeTree *btree, NodeTreeRefMap &node_tree_refs)
+DerivedNodeTree::DerivedNodeTree(bNodeTree *btree, NodeTreeRefMap &node_tree_refs) : m_btree(btree)
 {
   const NodeTreeRef &main_tree_ref = get_tree_ref(node_tree_refs, btree);
 

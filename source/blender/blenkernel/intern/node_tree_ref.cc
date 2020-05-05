@@ -20,7 +20,7 @@
 
 namespace BKE {
 
-NodeTreeRef::NodeTreeRef(bNodeTree *btree)
+NodeTreeRef::NodeTreeRef(bNodeTree *btree) : m_btree(btree)
 {
   Map<bNode *, NodeRef *> node_mapping;
 
