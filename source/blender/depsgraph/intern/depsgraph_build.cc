@@ -237,63 +237,55 @@ void DEG_graph_build_from_view_layer(Depsgraph *graph,
     pointers.append((void *)link);
   }
 
+  auto callback = [](void *ptr) { counter += (uintptr_t)ptr; };
+
   for (int i : BLI::IndexRange(20)) {
+    std::cout << "\n";
+    UNUSED_VARS(i);
     counter = 0;
     {
       SCOPED_TIMER("array");
-      BLI_array_iter(pointers.begin(), pointers.size(), [](void *UNUSED(ptr)) { counter++; });
+      BLI_array_iter(pointers.begin(), pointers.size(), callback);
     }
     {
       SCOPED_TIMER("inline array");
       for (void *ptr : pointers) {
-        counter += (uintptr_t)ptr;
+        callback(ptr);
       }
     }
     {
       SCOPED_TIMER("foreach");
       LISTBASE_FOREACH (Link *, link, &bmain->texts) {
-        counter++;
+        callback((void *)link);
       }
     }
     {
-      SCOPED_TIMER("foreach fast");
+      SCOPED_TIMER("foreach unordered");
       LISTBASE_FOREACH_UNORDERED_BEGIN(Link *, link, &bmain->texts)
       {
-        counter++;
+        callback((void *)link);
       }
       LISTBASE_FOREACH_UNORDERED_END;
-    }
-    {
-      SCOPED_TIMER("foreach fast array");
-      BLI::Vector<Link *, 50> links;
-      LISTBASE_FOREACH_UNORDERED_BEGIN(Link *, link, &bmain->texts)
-      {
-        links.append(link);
-      }
-      LISTBASE_FOREACH_UNORDERED_END;
-      for (Link *link : links) {
-        counter += (uintptr_t)link;
-      }
     }
     {
       SCOPED_TIMER("listbase 5");
-      BLI_listbase_iter5(&bmain->texts, [](void *UNUSED(ptr)) { counter++; });
+      BLI_listbase_iter5(&bmain->texts, callback);
     }
     {
       SCOPED_TIMER("listbase 4");
-      BLI_listbase_iter4(&bmain->texts, [](void *UNUSED(ptr)) { counter++; });
+      BLI_listbase_iter4(&bmain->texts, callback);
     }
     {
       SCOPED_TIMER("listbase 3");
-      BLI_listbase_iter3(&bmain->texts, [](void *UNUSED(ptr)) { counter++; });
+      BLI_listbase_iter3(&bmain->texts, callback);
     }
     {
       SCOPED_TIMER("listbase 2");
-      BLI_listbase_iter2(&bmain->texts, [](void *UNUSED(ptr)) { counter++; });
+      BLI_listbase_iter2(&bmain->texts, callback);
     }
     {
       SCOPED_TIMER("listbase 1");
-      BLI_listbase_iter1(&bmain->texts, [](void *UNUSED(ptr)) { counter++; });
+      BLI_listbase_iter1(&bmain->texts, callback);
     }
   }
   std::cout << "Counter: " << counter << "\n";

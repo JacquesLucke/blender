@@ -88,45 +88,6 @@ void BLI_listbase_iter3(const ListBase *list, void (*callback)(void *ptr))
   }
 }
 
-void BLI_listbase_iter4(const ListBase *list, void (*callback)(void *ptr))
-{
-  do {
-    Link *front = list->first;
-    Link *back = list->last;
-    bool next_is_front = true;
-
-    if (front == NULL) {
-      break;
-    }
-
-    while (true) {
-      Link **current_ptr;
-      Link *updated_current;
-      Link *other;
-      if (next_is_front) {
-        current_ptr = &front;
-        other = back;
-        updated_current = front->next;
-      }
-      else {
-        current_ptr = &back;
-        other = front;
-        updated_current = back->prev;
-      }
-
-      callback((void *)*current_ptr);
-
-      if (*current_ptr == other) {
-        break;
-      }
-      else {
-        *current_ptr = updated_current;
-        next_is_front = !next_is_front;
-      }
-    }
-  } while (false);
-}
-
 void BLI_listbase_iter5(const ListBase *list, void (*callback)(void *ptr))
 {
   do {
