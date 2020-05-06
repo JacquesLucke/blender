@@ -40,6 +40,7 @@ void BLI_listbase_iter3(const ListBase *list, void (*callback)(void *ptr));
 void BLI_listbase_iter4(const ListBase *list, void (*callback)(void *ptr));
 void BLI_listbase_iter5(const ListBase *list, void (*callback)(void *ptr));
 void BLI_listbase_iter6(const ListBase *list, void (*callback)(void *ptr));
+void BLI_listbase_iter7(const ListBase *list, void (*callback)(void *ptr));
 void BLI_array_iter(void **start, uint size, void (*callback)(void *ptr));
 
 int BLI_findindex(const struct ListBase *listbase, const void *vlink) ATTR_WARN_UNUSED_RESULT
