@@ -256,6 +256,8 @@ ForEachMacros:
   - SEQ_BEGIN
   - SURFACE_QUAD_ITER_BEGIN
   - foreach
+  - LISTBASE_FOREACH_FAST_BEGIN
+  - LISTBASE_FOREACH_UNORDERED_BEGIN
 
 # Use once we bump the minimum version to version 8.
 # # Without this string literals that in-line 'STRINGIFY' behave strangely (a bug?).

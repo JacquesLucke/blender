@@ -243,10 +243,10 @@ void DEG_graph_build_from_view_layer(Depsgraph *graph,
     std::cout << "\n";
     UNUSED_VARS(i);
     counter = 42;
-    // {
-    //   SCOPED_TIMER("array");
-    //   BLI_array_iter(pointers.begin(), pointers.size(), callback);
-    // }
+    {
+      SCOPED_TIMER("array");
+      BLI_array_iter(pointers.begin(), pointers.size(), callback);
+    }
     {
       SCOPED_TIMER("inline array");
       for (void *ptr : pointers) {
@@ -261,16 +261,14 @@ void DEG_graph_build_from_view_layer(Depsgraph *graph,
     }
     {
       SCOPED_TIMER("foreach unordered");
-      LISTBASE_FOREACH_UNORDERED_BEGIN(Link *, link, &bmain->texts)
-      {
+      LISTBASE_FOREACH_UNORDERED_BEGIN (Link *, link, &bmain->texts) {
         callback((void *)link);
       }
       LISTBASE_FOREACH_UNORDERED_END;
     }
     {
       SCOPED_TIMER("foreach fast");
-      LISTBASE_FOREACH_FAST_BEGIN(Link *, link, &bmain->texts)
-      {
+      LISTBASE_FOREACH_FAST_BEGIN (Link *, link, &bmain->texts) {
         callback((void *)link);
       }
       LISTBASE_FOREACH_FAST_END;
@@ -299,10 +297,10 @@ void DEG_graph_build_from_view_layer(Depsgraph *graph,
       SCOPED_TIMER("listbase 2");
       BLI_listbase_iter2(&bmain->texts, callback);
     }
-    // {
-    //   SCOPED_TIMER("listbase 1");
-    //   BLI_listbase_iter1(&bmain->texts, callback);
-    // }
+    {
+      SCOPED_TIMER("listbase 1");
+      BLI_listbase_iter1(&bmain->texts, callback);
+    }
   }
   std::cout << "Counter: " << counter << "\n";
 
