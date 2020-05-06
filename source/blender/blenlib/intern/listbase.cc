@@ -120,7 +120,17 @@ void BLI_listbase_iter7(const ListBase *list, void (*callback)(void *ptr))
   bool use_array = false;
   int index = -1;
 
-  int counter = 0;
+#define DO_APPEND(link) \
+  if (UNLIKELY(current_link_array_size == current_link_array_capacity)) { \
+    current_link_array_index++; \
+    current_link_array_capacity = CAPACITY_OF_ARRAY(current_link_array_index); \
+    link_arrays[current_link_array_index] = (Link **)MEM_malloc_arrayN( \
+        current_link_array_capacity, sizeof(Link *), __func__); \
+    current_link_array = link_arrays[current_link_array_index]; \
+    current_link_array_size = 0; \
+  } \
+  current_link_array[current_link_array_size] = link; \
+  current_link_array_size++;
 
   while (true) {
     Link *current;
@@ -140,15 +150,15 @@ void BLI_listbase_iter7(const ListBase *list, void (*callback)(void *ptr))
       index--;
     }
     else {
-      if (front == back) {
-        // links.append(front);
+      if (UNLIKELY(front == back)) {
+        DO_APPEND(front);
         use_array = true;
         index = current_link_array_size - 1;
         continue;
       }
-      else if (front->next == back) {
-        // links.append(front);
-        // links.append(back);
+      else if (UNLIKELY(front->next == back)) {
+        DO_APPEND(back);
+        DO_APPEND(front);
         use_array = true;
         index = current_link_array_size - 1;
         continue;
@@ -156,26 +166,15 @@ void BLI_listbase_iter7(const ListBase *list, void (*callback)(void *ptr))
       current = front;
     }
 
-    counter++;
     callback((void *)current);
 
     if (!use_array) {
-      if (UNLIKELY(current_link_array_size == current_link_array_capacity)) {
-        current_link_array_index++;
-        current_link_array_capacity = CAPACITY_OF_ARRAY(current_link_array_index);
-        link_arrays[current_link_array_index] = (Link **)MEM_malloc_arrayN(
-            current_link_array_capacity, sizeof(Link *), __func__);
-        current_link_array = link_arrays[current_link_array_index];
-        current_link_array_size = 0;
-      }
-      current_link_array[current_link_array_size] = back;
-      current_link_array_size++;
+      DO_APPEND(back);
       front = front->next;
       back = back->prev;
     }
   }
 
-  std::cout << "Counted: " << counter << "\n\n";
-
+#undef DO_APPEND
 #undef LOCAL_CAPACITY
 }
