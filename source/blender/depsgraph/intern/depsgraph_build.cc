@@ -237,16 +237,16 @@ void DEG_graph_build_from_view_layer(Depsgraph *graph,
     pointers.append((void *)link);
   }
 
-  auto callback = [](void *ptr) { counter += (uintptr_t)ptr; };
+  auto callback = [](void *ptr) { counter ^= (uintptr_t)ptr; };
 
   for (int i : BLI::IndexRange(20)) {
     std::cout << "\n";
     UNUSED_VARS(i);
-    counter = 0;
-    {
-      SCOPED_TIMER("array");
-      BLI_array_iter(pointers.begin(), pointers.size(), callback);
-    }
+    counter = 42;
+    // {
+    //   SCOPED_TIMER("array");
+    //   BLI_array_iter(pointers.begin(), pointers.size(), callback);
+    // }
     {
       SCOPED_TIMER("inline array");
       for (void *ptr : pointers) {
