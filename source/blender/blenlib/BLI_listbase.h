@@ -234,6 +234,85 @@ struct LinkData *BLI_genericNodeN(void *data);
     } \
   } while (false)
 
+#define CAPACITY_OF_ARRAY(array_index) (1 << (array_index + 7))
+
+#define DO_APPEND(link) \
+  if (UNLIKELY(current_link_array_size == current_link_array_capacity)) { \
+    current_link_array_index++; \
+    current_link_array_capacity = CAPACITY_OF_ARRAY(current_link_array_index); \
+    link_arrays[current_link_array_index] = (Link **)MEM_malloc_arrayN( \
+        current_link_array_capacity, sizeof(Link *), __func__); \
+    current_link_array = link_arrays[current_link_array_index]; \
+    current_link_array_size = 0; \
+  } \
+  current_link_array[current_link_array_size] = link; \
+  current_link_array_size++; \
+  ((void)0)
+
+#define LISTBASE_FOREACH_FAST_BEGIN(type, var, list) \
+  do { \
+    if ((list)->first == nullptr) { \
+      break; \
+    } \
+\
+    Link *local_buffer[CAPACITY_OF_ARRAY(0)]; \
+    Link **link_arrays[32]; \
+    link_arrays[0] = local_buffer; \
+\
+    Link **current_link_array = local_buffer; \
+    int current_link_array_index = 0; \
+    int current_link_array_size = 0; \
+    int current_link_array_capacity = CAPACITY_OF_ARRAY(0); \
+\
+    Link *front = (Link *)(list)->first; \
+    Link *back = (Link *)(list)->last; \
+    bool use_array = false; \
+    int index = -1; \
+\
+    while (true) { \
+      Link *current; \
+      if (use_array) { \
+        if (UNLIKELY(index < 0)) { \
+          if (current_link_array_index == 0) { \
+            break; \
+          } \
+\
+          MEM_freeN(current_link_array); \
+\
+          current_link_array_index--; \
+          current_link_array = link_arrays[current_link_array_index]; \
+          index = CAPACITY_OF_ARRAY(current_link_array_index) - 1; \
+        } \
+        current = current_link_array[index]; \
+        index--; \
+      } \
+      else { \
+        if (UNLIKELY(front == back)) { \
+          DO_APPEND(front); \
+          use_array = true; \
+          index = current_link_array_size - 1; \
+          continue; \
+        } \
+        else if (UNLIKELY(front->next == back)) { \
+          DO_APPEND(back); \
+          DO_APPEND(front); \
+          use_array = true; \
+          index = current_link_array_size - 1; \
+          continue; \
+        } \
+        current = front; \
+      } \
+      type var = (type)current;
+
+#define LISTBASE_FOREACH_FAST_END \
+      if (!use_array) { \
+        DO_APPEND(back); \
+        front = front->next; \
+        back = back->prev; \
+      } \
+    } \
+  } while (false)
+
 /* clang-format on */
 
 #ifdef __cplusplus

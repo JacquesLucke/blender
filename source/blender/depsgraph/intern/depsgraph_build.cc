@@ -268,6 +268,14 @@ void DEG_graph_build_from_view_layer(Depsgraph *graph,
       LISTBASE_FOREACH_UNORDERED_END;
     }
     {
+      SCOPED_TIMER("foreach fast");
+      LISTBASE_FOREACH_FAST_BEGIN(Link *, link, &bmain->texts)
+      {
+        callback((void *)link);
+      }
+      LISTBASE_FOREACH_FAST_END;
+    }
+    {
       SCOPED_TIMER("listbase 7");
       BLI_listbase_iter7(&bmain->texts, callback);
     }
@@ -291,10 +299,10 @@ void DEG_graph_build_from_view_layer(Depsgraph *graph,
       SCOPED_TIMER("listbase 2");
       BLI_listbase_iter2(&bmain->texts, callback);
     }
-    {
-      SCOPED_TIMER("listbase 1");
-      BLI_listbase_iter1(&bmain->texts, callback);
-    }
+    // {
+    //   SCOPED_TIMER("listbase 1");
+    //   BLI_listbase_iter1(&bmain->texts, callback);
+    // }
   }
   std::cout << "Counter: " << counter << "\n";
 
