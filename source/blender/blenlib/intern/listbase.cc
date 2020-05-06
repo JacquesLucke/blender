@@ -49,3 +49,51 @@ void BLI_listbase_iter4(const ListBase *list, void (*callback)(void *ptr))
     callback((void *)links[i]);
   }
 }
+
+void BLI_listbase_iter6(const ListBase *list, void (*callback)(void *ptr))
+{
+  if (list->first == nullptr) {
+    return;
+  }
+
+  BLI::Vector<Link *, 128> links;
+  Link *front = (Link *)list->first;
+  Link *back = (Link *)list->last;
+  bool use_array = false;
+  int index = -1;
+
+  while (true) {
+    Link *current;
+    if (use_array) {
+      if (index < 0) {
+        break;
+      }
+      current = links[index];
+      index--;
+    }
+    else {
+      if (front == back) {
+        links.append(front);
+        use_array = true;
+        index = (int)links.size() - 1;
+        continue;
+      }
+      else if (front->next == back) {
+        links.append(front);
+        links.append(back);
+        use_array = true;
+        index = (int)links.size() - 1;
+        continue;
+      }
+      current = front;
+    }
+
+    callback((void *)current);
+
+    if (!use_array) {
+      links.append(back);
+      front = front->next;
+      back = back->prev;
+    }
+  }
+}
