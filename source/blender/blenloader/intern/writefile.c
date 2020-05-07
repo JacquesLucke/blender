@@ -1817,6 +1817,16 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
         write_CurveProfile(wd, bmd->custom_profile);
       }
     }
+    else if (md->type == eModifierType_RigidDeform) {
+      RigidDeformModifierData *rdmd = (RigidDeformModifierData *)md;
+      RigidDeformModifierBindData *bind = rdmd->bind_data;
+      writestruct(wd, DATA, RigidDeformModifierBindData, 1, bind);
+
+      if (bind) {
+        writedata(wd, DATA, sizeof(float) * 3 * bind->vertex_amount, bind->initial_positions);
+        writedata(wd, DATA, sizeof(int) * bind->anchor_amount, bind->anchor_indices);
+      }
+    }
   }
 }
 
