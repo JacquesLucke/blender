@@ -498,10 +498,10 @@ if(WIN32)
 endif()
 
 # Compiler toolchain
-if(CMAKE_COMPILER_IS_GNUCC)
-  option(WITH_LINKER_GOLD "Use ld.gold linker which is usually faster than ld.bfd" ON)
+if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
+  option(WITH_LINKER_GOLD "Use ld.gold linker which is usually faster than ld.bfd" OFF)
   mark_as_advanced(WITH_LINKER_GOLD)
-  option(WITH_LINKER_LLD "Use ld.lld linker which is usually faster than ld.gold" OFF)
+  option(WITH_LINKER_LLD "Use ld.lld linker which is usually faster than ld.gold" ON)
   mark_as_advanced(WITH_LINKER_LLD)
 endif()
 

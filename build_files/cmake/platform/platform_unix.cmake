@@ -580,7 +580,7 @@ endif()
 # Compilers
 
 # GNU Compiler
-if(CMAKE_COMPILER_IS_GNUCC)
+if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
   set(PLATFORM_CFLAGS "-pipe -fPIC -funsigned-char -fno-strict-aliasing")
 
   if(WITH_LINKER_GOLD)
@@ -596,7 +596,7 @@ if(CMAKE_COMPILER_IS_GNUCC)
     unset(LD_VERSION)
   endif()
 
-  if(WITH_LINKER_LLD)
+  elseif(WITH_LINKER_LLD)
     execute_process(
       COMMAND ${CMAKE_C_COMPILER} -fuse-ld=lld -Wl,--version
       ERROR_QUIET OUTPUT_VARIABLE LD_VERSION)
@@ -611,7 +611,7 @@ if(CMAKE_COMPILER_IS_GNUCC)
 
 # CLang is the same as GCC for now.
 elseif(CMAKE_C_COMPILER_ID MATCHES "Clang")
-  set(PLATFORM_CFLAGS "-pipe -fPIC -funsigned-char -fno-strict-aliasing")
+# set(PLATFORM_CFLAGS "-pipe -fPIC -funsigned-char -fno-strict-aliasing")
 # Intel C++ Compiler
 elseif(CMAKE_C_COMPILER_ID MATCHES "Intel")
   # think these next two are broken
