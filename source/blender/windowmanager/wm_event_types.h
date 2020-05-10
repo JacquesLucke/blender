@@ -31,6 +31,7 @@ enum {
   EVT_DATA_TIMER = 2,
   EVT_DATA_DRAGDROP = 3,
   EVT_DATA_NDOF_MOTION = 4,
+  EVT_DATA_SCHEDULED_OPERATOR = 5,
 };
 
 /* tablet active, matches GHOST_TTabletMode */
@@ -337,6 +338,8 @@ enum {
 
   /* could become gizmo callback */
   EVT_GIZMO_UPDATE = 0x5025, /* 20517 */
+
+  EVT_SCHEDULED_OPERATOR = 0x5026, /* 20518 */
   /* ********** End of Blender internal events. ********** */
 };
 

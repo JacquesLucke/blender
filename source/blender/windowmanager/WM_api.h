@@ -212,6 +212,8 @@ void WM_cursor_compatible_xy(wmWindow *win, int *x, int *y);
 
 /* handlers */
 
+void WM_event_add_script_handler(ListBase *handlers);
+
 typedef bool (*EventHandlerPoll)(const ARegion *region, const struct wmEvent *event);
 struct wmEventHandler_Keymap *WM_event_add_keymap_handler(ListBase *handlers, wmKeyMap *keymap);
 struct wmEventHandler_Keymap *WM_event_add_keymap_handler_poll(ListBase *handlers,
@@ -879,6 +881,11 @@ bool WM_xr_session_state_viewer_pose_matrix_info_get(const wmXrData *xr,
                                                      float r_viewmat[4][4],
                                                      float *r_focal_len);
 #endif
+
+void WM_schedule_operator_call(const char *idname,
+                               struct wmWindow *window,
+                               struct ScrArea *area,
+                               struct ARegion *region);
 
 #ifdef __cplusplus
 }

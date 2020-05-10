@@ -3267,6 +3267,17 @@ void wm_event_do_handlers(bContext *C)
       /* builtin tweak, if action is break it removes tweak */
       wm_tweakevent_test(C, event, action);
 
+      if (event->type == EVT_SCHEDULED_OPERATOR) {
+        wmScheduledOperator *element = event->customdata;
+        ScrArea *area_prev = CTX_wm_area(C);
+        ARegion *region_prev = CTX_wm_region(C);
+        CTX_wm_area_set(C, element->area);
+        CTX_wm_region_set(C, element->region);
+        WM_operator_name_call(C, element->idname, WM_OP_EXEC_DEFAULT, NULL);
+        CTX_wm_area_set(C, area_prev);
+        CTX_wm_region_set(C, region_prev);
+      }
+
       if ((action & WM_HANDLER_BREAK) == 0) {
         ARegion *region;
 

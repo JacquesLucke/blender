@@ -40,6 +40,7 @@
 
 #include "BLI_blenlib.h"
 #include "BLI_math.h"
+#include "BLI_threads.h"
 #include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
@@ -1630,6 +1631,40 @@ static int wm_window_timer(const bContext *C)
   return retval;
 }
 
+static ListBase scheduled_operators = {0};
+
+void WM_schedule_operator_call(const char *idname,
+                               wmWindow *window,
+                               ScrArea *area,
+                               ARegion *region)
+{
+  wmScheduledOperator *element = MEM_callocN(sizeof(*element), __func__);
+  BLI_strncpy(element->idname, idname, sizeof(element->idname));
+  element->window = window;
+  element->area = area;
+  element->region = region;
+  BLI_addtail(&scheduled_operators, element);
+}
+
+static bool wm_scheduled_operators()
+{
+  bool added_event = false;
+
+  LISTBASE_FOREACH (wmScheduledOperator *, element, &scheduled_operators) {
+    wmEvent event = {0};
+    event.type = EVT_SCHEDULED_OPERATOR;
+    event.val = KM_NOTHING;
+    event.custom = EVT_DATA_SCHEDULED_OPERATOR;
+    event.customdata = element;
+    event.customdatafree = true;
+    wm_event_add(element->window, &event);
+    added_event = true;
+  }
+  BLI_listbase_clear(&scheduled_operators);
+
+  return added_event;
+}
+
 void wm_window_process_events(const bContext *C)
 {
   int hasevent;
@@ -1647,6 +1682,8 @@ void wm_window_process_events(const bContext *C)
    * processing/dispatching but also handling. */
   hasevent |= wm_xr_events_handle(CTX_wm_manager(C));
 #endif
+
+  hasevent |= wm_scheduled_operators();
 
   /* no event, we sleep 5 milliseconds */
   if (hasevent == 0) {

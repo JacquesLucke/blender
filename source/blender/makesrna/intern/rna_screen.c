@@ -62,6 +62,8 @@ const EnumPropertyItem rna_enum_region_type_items[] = {
 
 #  include "UI_view2d.h"
 
+#  include "BLI_listbase.h"
+
 #  ifdef WITH_PYTHON
 #    include "BPY_extern.h"
 #  endif
@@ -100,6 +102,24 @@ static bool rna_Screen_fullscreen_get(PointerRNA *ptr)
 {
   bScreen *screen = (bScreen *)ptr->data;
   return (screen->state == SCREENMAXIMIZED);
+}
+
+static void rna_Region_exec_operator(ARegion *region, Main *bmain, const char *idname)
+{
+  wmWindowManager *wm = bmain->wm.first;
+  LISTBASE_FOREACH (wmWindow *, window, &wm->windows) {
+    bScreen *screen = BKE_workspace_active_screen_get(window->workspace_hook);
+    ED_screen_areas_iter(window, screen, area)
+    {
+      LISTBASE_FOREACH (ARegion *, other_region, &area->regionbase) {
+        if (region == other_region) {
+          WM_schedule_operator_call(idname, window, area, region);
+          return;
+        }
+      }
+    }
+  }
+  BLI_assert(false);
 }
 
 /* UI compatible list: should not be needed, but for now we need to keep EMPTY
@@ -456,6 +476,8 @@ static void rna_def_region(BlenderRNA *brna)
 {
   StructRNA *srna;
   PropertyRNA *prop;
+  FunctionRNA *func;
+  PropertyRNA *parm;
 
   static const EnumPropertyItem alignment_types[] = {
       {RGN_ALIGN_NONE, "NONE", 0, "None", "Don't use any fixed alignment, fill available space"},
@@ -523,6 +545,12 @@ static void rna_def_region(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Alignment", "Alignment of the region within the area");
 
   RNA_def_function(srna, "tag_redraw", "ED_region_tag_redraw");
+
+  func = RNA_def_function(srna, "exec_operator", "rna_Region_exec_operator");
+  RNA_def_function_ui_description(func, "Schedule an operator call in this region");
+  RNA_def_function_flag(func, FUNC_USE_MAIN);
+  parm = RNA_def_string(func, "idname", NULL, 64, "Id Name", "Identifier of the operator");
+  RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 }
 
 static void rna_def_screen(BlenderRNA *brna)

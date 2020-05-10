@@ -160,4 +160,14 @@ void wm_dropbox_free(void);
 void wm_drags_check_ops(bContext *C, const wmEvent *event);
 void wm_drags_draw(bContext *C, wmWindow *win, rcti *rect);
 
+typedef struct wmScheduledOperator {
+  struct wmScheduledOperator *next;
+  struct wmScheduledOperator *prev;
+
+  char idname[64];
+  struct wmWindow *window;
+  struct ScrArea *area;
+  struct ARegion *region;
+} wmScheduledOperator;
+
 #endif /* __WM_EVENT_SYSTEM_H__ */
