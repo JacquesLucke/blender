@@ -108,7 +108,7 @@ static void rna_Region_exec_operator(ARegion *region, Main *bmain, const char *i
 {
   wmWindowManager *wm = bmain->wm.first;
   LISTBASE_FOREACH (wmWindow *, window, &wm->windows) {
-    bScreen *screen = BKE_workspace_active_screen_get(window->workspace_hook);
+    bScreen *screen = WM_window_get_active_screen(window);
     ED_screen_areas_iter (window, screen, area) {
       LISTBASE_FOREACH (ARegion *, other_region, &area->regionbase) {
         if (region == other_region) {
