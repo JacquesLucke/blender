@@ -62,8 +62,6 @@ const EnumPropertyItem rna_enum_region_type_items[] = {
 
 #  include "UI_view2d.h"
 
-#  include "BLI_listbase.h"
-
 #  ifdef WITH_PYTHON
 #    include "BPY_extern.h"
 #  endif
