@@ -1645,7 +1645,7 @@ void WM_schedule_operator_call(const char *idname,
   BLI_addtail(&scheduled_operators, element);
 }
 
-static bool wm_scheduled_operators()
+static bool wm_scheduled_operators(void)
 {
   bool added_event = false;
 
