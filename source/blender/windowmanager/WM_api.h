@@ -212,8 +212,6 @@ void WM_cursor_compatible_xy(wmWindow *win, int *x, int *y);
 
 /* handlers */
 
-void WM_event_add_script_handler(ListBase *handlers);
-
 typedef bool (*EventHandlerPoll)(const ARegion *region, const struct wmEvent *event);
 struct wmEventHandler_Keymap *WM_event_add_keymap_handler(ListBase *handlers, wmKeyMap *keymap);
 struct wmEventHandler_Keymap *WM_event_add_keymap_handler_poll(ListBase *handlers,
