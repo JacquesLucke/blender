@@ -14,4 +14,28 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
+#ifndef __FN_CPP_TYPES_HH__
+#define __FN_CPP_TYPES_HH__
+
 #include "FN_cpp_type.hh"
+
+namespace FN {
+
+extern const CPPType &CPPType_bool;
+
+extern const CPPType &CPPType_float;
+extern const CPPType &CPPType_float3;
+extern const CPPType &CPPType_float4x4;
+
+extern const CPPType &CPPType_int32;
+extern const CPPType &CPPType_uint32;
+extern const CPPType &CPPType_uint8;
+
+extern const CPPType &CPPType_Color4f;
+extern const CPPType &CPPType_Color4b;
+
+extern const CPPType &CPPType_string;
+
+}  // namespace FN
+
+#endif /* __FN_CPP_TYPES_HH__ */

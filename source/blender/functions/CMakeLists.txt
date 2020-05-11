@@ -19,13 +19,14 @@
 set(INC
   .
   ../blenlib
+  ../makesdna
 )
 
 set(INC_SYS
 )
 
 set(SRC
-  intern/core_cpp_types.cc
+  intern/cpp_types.cc
 )
 
 set(LIB

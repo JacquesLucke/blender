@@ -73,6 +73,7 @@
 namespace FN {
 
 using BLI::IndexMask;
+using BLI::StringRef;
 using BLI::StringRefNull;
 
 class CPPType {
@@ -483,6 +484,8 @@ class CPPType {
     return !(&a == &b);
   }
 
+  template<typename T> static const CPPType &get();
+
  private:
   uint m_size;
   uint m_alignment;
@@ -522,6 +525,201 @@ class CPPType {
   const void *m_default_value;
   std::string m_name;
 };
+
+/* --------------------------------------------------------------------
+ * Utility for creating CPPType instances for C++ types.
+ */
+
+namespace CPPTypeUtil {
+
+template<typename T> void construct_default_cb(void *ptr)
+{
+  BLI::construct_default((T *)ptr);
+}
+template<typename T> void construct_default_n_cb(void *ptr, uint n)
+{
+  for (uint i = 0; i < n; i++) {
+    BLI::construct_default((T *)ptr + i);
+  }
+}
+template<typename T> void construct_default_indices_cb(void *ptr, IndexMask index_mask)
+{
+  index_mask.foreach_index([=](uint i) { BLI::construct_default((T *)ptr + i); });
+}
+
+template<typename T> void destruct_cb(void *ptr)
+{
+  BLI::destruct((T *)ptr);
+}
+template<typename T> void destruct_n_cb(void *ptr, uint n)
+{
+  BLI::destruct_n((T *)ptr, n);
+}
+template<typename T> void destruct_indices_cb(void *ptr, IndexMask index_mask)
+{
+  index_mask.foreach_index([=](uint i) { BLI::destruct((T *)ptr + i); });
+}
+
+template<typename T> void copy_to_initialized_cb(const void *src, void *dst)
+{
+  *(T *)dst = *(T *)src;
+}
+template<typename T> void copy_to_initialized_n_cb(const void *src, void *dst, uint n)
+{
+  const T *src_ = (const T *)src;
+  T *dst_ = (T *)dst;
+
+  for (uint i = 0; i < n; i++) {
+    dst_[i] = src_[i];
+  }
+}
+template<typename T>
+void copy_to_initialized_indices_cb(const void *src, void *dst, IndexMask index_mask)
+{
+  const T *src_ = (const T *)src;
+  T *dst_ = (T *)dst;
+
+  index_mask.foreach_index([=](uint i) { dst_[i] = src_[i]; });
+}
+
+template<typename T> void copy_to_uninitialized_cb(const void *src, void *dst)
+{
+  BLI::uninitialized_copy_n((T *)src, 1, (T *)dst);
+}
+template<typename T> void copy_to_uninitialized_n_cb(const void *src, void *dst, uint n)
+{
+  BLI::uninitialized_copy_n((T *)src, n, (T *)dst);
+}
+template<typename T>
+void copy_to_uninitialized_indices_cb(const void *src, void *dst, IndexMask index_mask)
+{
+  const T *src_ = (const T *)src;
+  T *dst_ = (T *)dst;
+
+  index_mask.foreach_index([=](uint i) { new (dst_ + i) T(src_[i]); });
+}
+
+template<typename T> void relocate_to_initialized_cb(void *src, void *dst)
+{
+  BLI::relocate((T *)src, (T *)dst);
+}
+template<typename T> void relocate_to_initialized_n_cb(void *src, void *dst, uint n)
+{
+  BLI::relocate_n((T *)src, n, (T *)dst);
+}
+template<typename T>
+void relocate_to_initialized_indices_cb(void *src, void *dst, IndexMask index_mask)
+{
+  T *src_ = (T *)src;
+  T *dst_ = (T *)dst;
+
+  index_mask.foreach_index([=](uint i) {
+    dst_[i] = std::move(src_[i]);
+    src_[i].~T();
+  });
+}
+
+template<typename T> void relocate_to_uninitialized_cb(void *src, void *dst)
+{
+  BLI::uninitialized_relocate((T *)src, (T *)dst);
+}
+template<typename T> void relocate_to_uninitialized_n_cb(void *src, void *dst, uint n)
+{
+  BLI::uninitialized_relocate_n((T *)src, n, (T *)dst);
+}
+template<typename T>
+void relocate_to_uninitialized_indices_cb(void *src, void *dst, IndexMask index_mask)
+{
+  T *src_ = (T *)src;
+  T *dst_ = (T *)dst;
+
+  index_mask.foreach_index([=](uint i) {
+    new (dst_ + i) T(std::move(src_[i]));
+    src_[i].~T();
+  });
+}
+
+template<typename T> void fill_initialized_cb(const void *value, void *dst, uint n)
+{
+  const T &value_ = *(const T *)value;
+  T *dst_ = (T *)dst;
+
+  for (uint i = 0; i < n; i++) {
+    dst_[i] = value_;
+  }
+}
+template<typename T>
+void fill_initialized_indices_cb(const void *value, void *dst, IndexMask index_mask)
+{
+  const T &value_ = *(const T *)value;
+  T *dst_ = (T *)dst;
+
+  index_mask.foreach_index([=](uint i) { dst_[i] = value_; });
+}
+
+template<typename T> void fill_uninitialized_cb(const void *value, void *dst, uint n)
+{
+  const T &value_ = *(const T *)value;
+  T *dst_ = (T *)dst;
+
+  for (uint i = 0; i < n; i++) {
+    new (dst_ + i) T(value_);
+  }
+}
+template<typename T>
+void fill_uninitialized_indices_cb(const void *value, void *dst, IndexMask index_mask)
+{
+  const T &value_ = *(const T *)value;
+  T *dst_ = (T *)dst;
+
+  index_mask.foreach_index([=](uint i) { new (dst_ + i) T(value_); });
+}
+
+}  // namespace CPPTypeUtil
+
+template<typename T>
+static std::unique_ptr<const CPPType> create_cpp_type(StringRef name, const T &default_value)
+{
+  using namespace CPPTypeUtil;
+  const CPPType *type = new CPPType(name,
+                                    sizeof(T),
+                                    alignof(T),
+                                    std::is_trivially_destructible<T>::value,
+                                    construct_default_cb<T>,
+                                    construct_default_n_cb<T>,
+                                    construct_default_indices_cb<T>,
+                                    destruct_cb<T>,
+                                    destruct_n_cb<T>,
+                                    destruct_indices_cb<T>,
+                                    copy_to_initialized_cb<T>,
+                                    copy_to_initialized_n_cb<T>,
+                                    copy_to_initialized_indices_cb<T>,
+                                    copy_to_uninitialized_cb<T>,
+                                    copy_to_uninitialized_n_cb<T>,
+                                    copy_to_uninitialized_indices_cb<T>,
+                                    relocate_to_initialized_cb<T>,
+                                    relocate_to_initialized_n_cb<T>,
+                                    relocate_to_initialized_indices_cb<T>,
+                                    relocate_to_uninitialized_cb<T>,
+                                    relocate_to_uninitialized_n_cb<T>,
+                                    relocate_to_uninitialized_indices_cb<T>,
+                                    fill_initialized_cb<T>,
+                                    fill_initialized_indices_cb<T>,
+                                    fill_uninitialized_cb<T>,
+                                    fill_uninitialized_indices_cb<T>,
+                                    (const void *)&default_value);
+  return std::unique_ptr<const CPPType>(type);
+}
+
+#define MAKE_CPP_TYPE(IDENTIFIER, TYPE_NAME) \
+  static TYPE_NAME default_value_##IDENTIFIER; \
+  static std::unique_ptr<const FN::CPPType> CPPTYPE_##IDENTIFIER##_owner = \
+      create_cpp_type<TYPE_NAME>(STRINGIFY(IDENTIFIER), default_value_##IDENTIFIER); \
+  const CPPType &CPPType_##IDENTIFIER = *CPPTYPE_##IDENTIFIER##_owner; \
+  template<> const FN::CPPType &CPPType::get<TYPE_NAME>() \
+  { \
+    return CPPType_##IDENTIFIER; \
+  }
 
 }  // namespace FN
 
