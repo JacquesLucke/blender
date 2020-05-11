@@ -166,211 +166,313 @@ class CPPType {
     m_alignment_mask = (uintptr_t)m_alignment - (uintptr_t)1;
   }
 
+  /**
+   * Returns the name of the type for debugging purposes. This name should not be used as
+   * identifier.
+   */
   StringRefNull name() const
   {
     return m_name;
   }
 
+  /**
+   * Required memory in bytes for an instance of this type.
+   *
+   * C++ equivalent:
+   *   sizeof(T);
+   */
   uint size() const
   {
     return m_size;
   }
 
+  /**
+   * Required memory alignment for an instance of this type.
+   *
+   * C++ equivalent:
+   *   alignof(T);
+   */
   uint alignment() const
   {
     return m_alignment;
   }
 
+  /**
+   * When true, the destructor does not have to be called on this type. This can sometimes be used
+   * for optimization purposes.
+   *
+   * C++ equivalent:
+   *   std::is_trivially_destructible<T>::value;
+   */
   bool is_trivially_destructible() const
   {
     return m_is_trivially_destructible;
   }
 
+  /**
+   * Returns true, when the given pointer fullfills the alignment requirement of this type.
+   */
   bool pointer_has_valid_alignment(const void *ptr) const
   {
     return ((uintptr_t)ptr & m_alignment_mask) == 0;
   }
 
+  bool pointer_can_point_to_instance(const void *ptr) const
+  {
+    return ptr != nullptr && pointer_has_valid_alignment(ptr);
+  }
+
+  /**
+   * Call the default constructor at the given memory location.
+   * The memory should be uninitialized before this method is called.
+   * For some trivial types (like int), this method does nothing.
+   *
+   * C++ equivalent:
+   *   new (ptr) T();
+   */
   void construct_default(void *ptr) const
   {
-    BLI_assert(this->pointer_has_valid_alignment(ptr));
+    BLI_assert(this->pointer_can_point_to_instance(ptr));
 
     m_construct_default(ptr);
   }
 
   void construct_default_n(void *ptr, uint n) const
   {
-    BLI_assert(this->pointer_has_valid_alignment(ptr));
+    BLI_assert(this->pointer_can_point_to_instance(ptr));
 
     m_construct_default_n(ptr, n);
   }
 
   void construct_default_indices(void *ptr, IndexMask index_mask) const
   {
-    BLI_assert(this->pointer_has_valid_alignment(ptr));
+    BLI_assert(this->pointer_can_point_to_instance(ptr));
 
     m_construct_default_indices(ptr, index_mask);
   }
 
+  /**
+   * Call the destructor on the given instance of this type. The pointer must not be nullptr.
+   *
+   * For some trivial types, this does nothing.
+   *
+   * C++ equivalent:
+   *   ptr->~T();
+   */
   void destruct(void *ptr) const
   {
-    BLI_assert(this->pointer_has_valid_alignment(ptr));
+    BLI_assert(this->pointer_can_point_to_instance(ptr));
 
     m_destruct(ptr);
   }
 
   void destruct_n(void *ptr, uint n) const
   {
-    BLI_assert(this->pointer_has_valid_alignment(ptr));
+    BLI_assert(this->pointer_can_point_to_instance(ptr));
 
     m_destruct_n(ptr, n);
   }
 
   void destruct_indices(void *ptr, IndexMask index_mask) const
   {
-    BLI_assert(this->pointer_has_valid_alignment(ptr));
+    BLI_assert(this->pointer_can_point_to_instance(ptr));
 
     m_destruct_indices(ptr, index_mask);
   }
 
-  DestructF destruct_cb() const
-  {
-    return m_destruct;
-  }
-
+  /**
+   * Copy an instance of this type from src to dst.
+   *
+   * C++ equivalent:
+   *   dst = src;
+   */
   void copy_to_initialized(const void *src, void *dst) const
   {
-    BLI_assert(this->pointer_has_valid_alignment(src));
-    BLI_assert(this->pointer_has_valid_alignment(dst));
+    BLI_assert(src != dst);
+    BLI_assert(this->pointer_can_point_to_instance(src));
+    BLI_assert(this->pointer_can_point_to_instance(dst));
 
     m_copy_to_initialized(src, dst);
   }
 
   void copy_to_initialized_n(const void *src, void *dst, uint n) const
   {
-    BLI_assert(this->pointer_has_valid_alignment(src));
-    BLI_assert(this->pointer_has_valid_alignment(dst));
+    BLI_assert(src != dst);
+    BLI_assert(this->pointer_can_point_to_instance(src));
+    BLI_assert(this->pointer_can_point_to_instance(dst));
 
     m_copy_to_initialized_n(src, dst, n);
   }
 
   void copy_to_initialized_indices(const void *src, void *dst, IndexMask index_mask) const
   {
-    BLI_assert(this->pointer_has_valid_alignment(src));
-    BLI_assert(this->pointer_has_valid_alignment(dst));
+    BLI_assert(src != dst);
+    BLI_assert(this->pointer_can_point_to_instance(src));
+    BLI_assert(this->pointer_can_point_to_instance(dst));
 
     m_copy_to_initialized_indices(src, dst, index_mask);
   }
 
+  /**
+   * Copy an instance of this type from src to dst.
+   *
+   * The memory pointed to by dst should be uninitialized.
+   *
+   * C++ equivalent:
+   *   new (dst) T(src);
+   */
   void copy_to_uninitialized(const void *src, void *dst) const
   {
-    BLI_assert(this->pointer_has_valid_alignment(src));
-    BLI_assert(this->pointer_has_valid_alignment(dst));
+    BLI_assert(src != dst);
+    BLI_assert(this->pointer_can_point_to_instance(src));
+    BLI_assert(this->pointer_can_point_to_instance(dst));
 
     m_copy_to_uninitialized(src, dst);
   }
 
   void copy_to_uninitialized_n(const void *src, void *dst, uint n) const
   {
-    BLI_assert(this->pointer_has_valid_alignment(src));
-    BLI_assert(this->pointer_has_valid_alignment(dst));
+    BLI_assert(src != dst);
+    BLI_assert(this->pointer_can_point_to_instance(src));
+    BLI_assert(this->pointer_can_point_to_instance(dst));
 
     m_copy_to_uninitialized_n(src, dst, n);
   }
 
   void copy_to_uninitialized_indices(const void *src, void *dst, IndexMask index_mask) const
   {
-    BLI_assert(this->pointer_has_valid_alignment(src));
-    BLI_assert(this->pointer_has_valid_alignment(dst));
+    BLI_assert(src != dst);
+    BLI_assert(this->pointer_can_point_to_instance(src));
+    BLI_assert(this->pointer_can_point_to_instance(dst));
 
     m_copy_to_uninitialized_indices(src, dst, index_mask);
   }
 
+  /**
+   * Relocates an instance of this type from src to dst. src will point to uninitialized memory
+   * afterwards.
+   *
+   * C++ equivalent:
+   *   dst = std::move(src);
+   *   src->~T();
+   */
   void relocate_to_initialized(void *src, void *dst) const
   {
-    BLI_assert(this->pointer_has_valid_alignment(src));
-    BLI_assert(this->pointer_has_valid_alignment(dst));
+    BLI_assert(src != dst);
+    BLI_assert(this->pointer_can_point_to_instance(src));
+    BLI_assert(this->pointer_can_point_to_instance(dst));
 
     m_relocate_to_initialized(src, dst);
   }
 
   void relocate_to_initialized_n(void *src, void *dst, uint n) const
   {
-    BLI_assert(this->pointer_has_valid_alignment(src));
-    BLI_assert(this->pointer_has_valid_alignment(dst));
+    BLI_assert(src != dst);
+    BLI_assert(this->pointer_can_point_to_instance(src));
+    BLI_assert(this->pointer_can_point_to_instance(dst));
 
     m_relocate_to_initialized_n(src, dst, n);
   }
 
   void relocate_to_initialized_indices(void *src, void *dst, IndexMask index_mask) const
   {
-    BLI_assert(this->pointer_has_valid_alignment(src));
-    BLI_assert(this->pointer_has_valid_alignment(dst));
+    BLI_assert(src != dst);
+    BLI_assert(this->pointer_can_point_to_instance(src));
+    BLI_assert(this->pointer_can_point_to_instance(dst));
 
     m_relocate_to_initialized_indices(src, dst, index_mask);
   }
 
+  /**
+   * Relocates an instance of this type from src to dst. src will point to uninitialized memory
+   * afterwards.
+   *
+   * C++ equivalent:
+   *   new (dst) T(std::move(src))
+   *   src->~T();
+   */
   void relocate_to_uninitialized(void *src, void *dst) const
   {
-    BLI_assert(this->pointer_has_valid_alignment(src));
-    BLI_assert(this->pointer_has_valid_alignment(dst));
+    BLI_assert(src != dst);
+    BLI_assert(this->pointer_can_point_to_instance(src));
+    BLI_assert(this->pointer_can_point_to_instance(dst));
 
     m_relocate_to_uninitialized(src, dst);
   }
 
   void relocate_to_uninitialized_n(void *src, void *dst, uint n) const
   {
-    BLI_assert(this->pointer_has_valid_alignment(src));
-    BLI_assert(this->pointer_has_valid_alignment(dst));
+    BLI_assert(src != dst);
+    BLI_assert(this->pointer_can_point_to_instance(src));
+    BLI_assert(this->pointer_can_point_to_instance(dst));
 
     m_relocate_to_uninitialized_n(src, dst, n);
   }
 
   void relocate_to_uninitialized_indices(void *src, void *dst, IndexMask index_mask) const
   {
-    BLI_assert(this->pointer_has_valid_alignment(src));
-    BLI_assert(this->pointer_has_valid_alignment(dst));
+    BLI_assert(src != dst);
+    BLI_assert(this->pointer_can_point_to_instance(src));
+    BLI_assert(this->pointer_can_point_to_instance(dst));
 
     m_relocate_to_uninitialized_indices(src, dst, index_mask);
   }
 
+  /**
+   * Copy the given value to the first n elements in an array starting at dst.
+   *
+   * Other instances of the same type should live in the array before this method is called.
+   */
   void fill_initialized(const void *value, void *dst, uint n) const
   {
-    BLI_assert(this->pointer_has_valid_alignment(value));
-    BLI_assert(this->pointer_has_valid_alignment(dst));
+    BLI_assert(this->pointer_can_point_to_instance(value));
+    BLI_assert(this->pointer_can_point_to_instance(dst));
 
     m_fill_initialized(value, dst, n);
   }
 
   void fill_initialized_indices(const void *value, void *dst, IndexMask index_mask) const
   {
-    BLI_assert(this->pointer_has_valid_alignment(value));
-    BLI_assert(this->pointer_has_valid_alignment(dst));
+    BLI_assert(this->pointer_can_point_to_instance(value));
+    BLI_assert(this->pointer_can_point_to_instance(dst));
 
     m_fill_initialized_indices(value, dst, index_mask);
   }
 
+  /**
+   * Copy the given value to the first n elements in an array starting at dst.
+   *
+   * The array should be uninitialized before this method is called.
+   */
   void fill_uninitialized(const void *value, void *dst, uint n) const
   {
-    BLI_assert(this->pointer_has_valid_alignment(value));
-    BLI_assert(this->pointer_has_valid_alignment(dst));
+    BLI_assert(this->pointer_can_point_to_instance(value));
+    BLI_assert(this->pointer_can_point_to_instance(dst));
 
     m_fill_uninitialized(value, dst, n);
   }
 
   void fill_uninitialized_indices(const void *value, void *dst, IndexMask index_mask) const
   {
-    BLI_assert(this->pointer_has_valid_alignment(value));
-    BLI_assert(this->pointer_has_valid_alignment(dst));
+    BLI_assert(this->pointer_can_point_to_instance(value));
+    BLI_assert(this->pointer_can_point_to_instance(dst));
 
     m_fill_uninitialized_indices(value, dst, index_mask);
   }
 
+  /**
+   * Get a pointer to a constant value of this type. The specific value depends on the type.
+   * It is usually a zero-initialized or default constructed value.
+   */
   const void *default_value() const
   {
     return m_default_value;
   }
 
+  /**
+   * Two types only compare equal when their pointer is equal. No two instances of CPPType for the
+   * same C++ type should be created.
+   */
   friend bool operator==(const CPPType &a, const CPPType &b)
   {
     return &a == &b;
