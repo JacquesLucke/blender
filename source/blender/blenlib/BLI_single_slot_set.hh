@@ -123,8 +123,10 @@ template<typename Value,
 class MySet {
  private:
   using Slot = DefaultMySetSlot<Value, Hash>;
-  using SlotArray = Array<Slot, 4, Allocator>;
+  using SlotArray = Array<Slot, 16, Allocator>;
   SlotArray m_slots;
+
+  static constexpr uint32_t s_linear_probing = 2;
 
   uint32_t m_usable_slots;
   uint32_t m_set_or_dummy_slots;
@@ -134,7 +136,7 @@ class MySet {
  public:
   MySet()
   {
-    m_slots = SlotArray(4);
+    m_slots = SlotArray(16);
 
     m_set_or_dummy_slots = 0;
     m_dummy_slots = 0;
@@ -142,7 +144,10 @@ class MySet {
     m_slot_mask = m_slots.size() - 1;
   }
 
-  ~MySet() = default;
+  ~MySet()
+  {
+    // this->print_collision_stats();
+  }
 
   MySet(const std::initializer_list<Value> &list) : MySet()
   {
@@ -340,16 +345,8 @@ class MySet {
     uint32_t perturb = real_hash;
 
     do {
-      {
-        uint32_t slot_index = hash & new_slot_mask;
-        Slot &slot = new_slots[slot_index];
-        if (slot.is_empty()) {
-          slot.set_and_destruct_other(old_slot, real_hash);
-          return;
-        }
-      }
-      {
-        uint32_t slot_index = (hash + 1) & new_slot_mask;
+      for (uint32_t i = 0; i < s_linear_probing; i++) {
+        uint32_t slot_index = (hash + i) & new_slot_mask;
         Slot &slot = new_slots[slot_index];
         if (slot.is_empty()) {
           slot.set_and_destruct_other(old_slot, real_hash);
@@ -369,18 +366,9 @@ class MySet {
     uint32_t perturb = real_hash;
 
     do {
-      {
-        uint32_t slot_index = hash & m_slot_mask;
-        const Slot &slot = m_slots[slot_index];
-        if (slot.is_empty()) {
-          return false;
-        }
-        if (slot.contains(value, real_hash)) {
-          return true;
-        }
-      }
-      {
-        uint32_t slot_index = (hash + 1) & m_slot_mask;
+
+      for (uint32_t i = 0; i < s_linear_probing; i++) {
+        uint32_t slot_index = (hash + i) & m_slot_mask;
         const Slot &slot = m_slots[slot_index];
         if (slot.is_empty()) {
           return false;
@@ -405,16 +393,8 @@ class MySet {
     m_set_or_dummy_slots++;
 
     do {
-      {
-        uint32_t slot_index = hash & m_slot_mask;
-        Slot &slot = m_slots[slot_index];
-        if (slot.is_empty()) {
-          slot.set(std::forward<ForwardValue>(value), real_hash);
-          return;
-        }
-      }
-      {
-        uint32_t slot_index = (hash + 1) & m_slot_mask;
+      for (uint32_t i = 0; i < s_linear_probing; i++) {
+        uint32_t slot_index = (hash + i) & m_slot_mask;
         Slot &slot = m_slots[slot_index];
         if (slot.is_empty()) {
           slot.set(std::forward<ForwardValue>(value), real_hash);
@@ -435,20 +415,8 @@ class MySet {
     this->ensure_can_add();
 
     do {
-      {
-        uint32_t slot_index = hash & m_slot_mask;
-        Slot &slot = m_slots[slot_index];
-        if (slot.is_empty()) {
-          slot.set(std::forward<ForwardValue>(value), real_hash);
-          m_set_or_dummy_slots++;
-          return true;
-        }
-        if (slot.contains(std::forward<ForwardValue>(value), real_hash)) {
-          return false;
-        }
-      }
-      {
-        uint32_t slot_index = (hash + 1) & m_slot_mask;
+      for (uint32_t i = 0; i < s_linear_probing; i++) {
+        uint32_t slot_index = (hash + i) & m_slot_mask;
         Slot &slot = m_slots[slot_index];
         if (slot.is_empty()) {
           slot.set(std::forward<ForwardValue>(value), real_hash);
@@ -473,16 +441,8 @@ class MySet {
     m_dummy_slots++;
 
     do {
-      {
-        uint32_t slot_index = hash & m_slot_mask;
-        Slot &slot = m_slots[slot_index];
-        if (slot.contains(value, real_hash)) {
-          slot.set_to_dummy();
-          return;
-        }
-      }
-      {
-        uint32_t slot_index = (hash + 1) & m_slot_mask;
+      for (uint32_t i = 0; i < s_linear_probing; i++) {
+        uint32_t slot_index = (hash + i) & m_slot_mask;
         Slot &slot = m_slots[slot_index];
         if (slot.contains(value, real_hash)) {
           slot.set_to_dummy();
@@ -504,7 +464,7 @@ class MySet {
     uint32_t collisions = 0;
 
     do {
-      for (uint32_t i = 0; i < 2; i++) {
+      for (uint32_t i = 0; i < s_linear_probing; i++) {
         uint32_t slot_index = (hash + i) & m_slot_mask;
         const Slot &slot = m_slots[slot_index];
         if (slot.contains(value, real_hash)) {
