@@ -144,7 +144,11 @@ class Set {
 
     Iterator &operator++()
     {
-      m_current_slot = this->next_set_slot_index(m_current_slot);
+      while (++m_current_slot < m_total_slots) {
+        if (m_slots[m_current_slot].is_set()) {
+          break;
+        }
+      }
       return *this;
     }
 
@@ -158,17 +162,6 @@ class Set {
       BLI_assert(a.m_slots == b.m_slots);
       BLI_assert(a.m_total_slots == b.m_total_slots);
       return a.m_current_slot != b.m_current_slot;
-    }
-
-   private:
-    uint32_t next_set_slot_index(uint32_t slot_index) const
-    {
-      while (++slot_index < m_total_slots) {
-        if (m_slots[slot_index].is_set()) {
-          return slot_index;
-        }
-      }
-      return slot_index;
     }
   };
 
@@ -275,7 +268,8 @@ class Set {
     } while (true);
   }
 
-  template<typename OtherKey> bool contains__impl(const OtherKey &key, uint32_t real_hash) const
+  template<typename ForwardKey>
+  bool contains__impl(const ForwardKey &key, uint32_t real_hash) const
   {
     uint32_t hash = real_hash;
     uint32_t perturb = real_hash;
@@ -347,7 +341,7 @@ class Set {
     } while (true);
   }
 
-  template<typename OtherKey> void remove__impl(const OtherKey &key, uint32_t real_hash)
+  template<typename ForwardKey> void remove__impl(const ForwardKey &key, uint32_t real_hash)
   {
     uint32_t hash = real_hash;
     uint32_t perturb = real_hash;
@@ -489,7 +483,7 @@ template<typename Key> class SimpleSetSlot {
     other.key()->~Key();
   }
 
-  template<typename OtherKey> bool contains(const OtherKey &key, uint32_t UNUSED(hash)) const
+  template<typename ForwardKey> bool contains(const ForwardKey &key, uint32_t UNUSED(hash)) const
   {
     if (m_state == s_is_set) {
       return key == *this->key();
@@ -589,7 +583,7 @@ template<typename Key> class HashedSetSlot {
     other.key()->~Key();
   }
 
-  template<typename OtherKey> bool contains(const OtherKey &key, uint32_t hash) const
+  template<typename ForwardKey> bool contains(const ForwardKey &key, uint32_t hash) const
   {
     if (m_hash == hash) {
       if (m_state == s_is_set) {
