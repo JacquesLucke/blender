@@ -99,14 +99,13 @@ template<> struct DefaultHash<StringRefNull> {
 };
 
 /**
- * While we cannot guarantee that the lower 3 bits or a pointer are zero, it is safe to assume
- * this in the general case. MEM_malloc only returns 8 byte aligned addresses on 64-bit systems.
+ * While we cannot guarantee that the lower 4 bits of a pointer are zero, it is often the case.
  */
 template<typename T> struct DefaultHash<T *> {
   uint32_t operator()(const T *value) const
   {
-    uintptr_t ptr = POINTER_AS_UINT(value);
-    uint32_t hash = (uint32_t)(ptr >> 3);
+    uintptr_t ptr = (uintptr_t)value;
+    uint32_t hash = (uint32_t)(ptr >> 4);
     return hash;
   }
 };

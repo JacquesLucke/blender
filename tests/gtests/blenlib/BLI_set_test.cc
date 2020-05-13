@@ -203,3 +203,26 @@ TEST(set, Clear)
   set.clear();
   EXPECT_EQ(set.size(), 0);
 }
+
+TEST(set, StringSet)
+{
+  MySet<std::string> set;
+  set.add("hello");
+  set.add("world");
+  EXPECT_EQ(set.size(), 2);
+  EXPECT_TRUE(set.contains("hello"));
+  EXPECT_TRUE(set.contains("world"));
+  EXPECT_FALSE(set.contains("world2"));
+}
+
+TEST(set, PointerSet)
+{
+  int a, b, c;
+  MySet<int *> set;
+  set.add(&a);
+  set.add(&b);
+  EXPECT_EQ(set.size(), 2);
+  EXPECT_TRUE(set.contains(&a));
+  EXPECT_TRUE(set.contains(&b));
+  EXPECT_FALSE(set.contains(&c));
+}

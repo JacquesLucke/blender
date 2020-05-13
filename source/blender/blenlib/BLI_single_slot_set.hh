@@ -25,7 +25,7 @@
 
 namespace BLI {
 
-template<typename Value, typename Hash> class DefaultSetSlot {
+template<typename Value, typename Hash> class SimpleSetSlot {
  private:
   static constexpr uint8_t s_is_empty = 0;
   static constexpr uint8_t s_is_set = 1;
@@ -35,19 +35,19 @@ template<typename Value, typename Hash> class DefaultSetSlot {
   AlignedBuffer<sizeof(Value), alignof(Value)> m_buffer;
 
  public:
-  DefaultSetSlot()
+  SimpleSetSlot()
   {
     m_state = s_is_empty;
   }
 
-  ~DefaultSetSlot()
+  ~SimpleSetSlot()
   {
     if (m_state == s_is_set) {
       this->value()->~Value();
     }
   }
 
-  DefaultSetSlot(const DefaultSetSlot &other)
+  SimpleSetSlot(const SimpleSetSlot &other)
   {
     m_state = other.m_state;
     if (other.m_state == s_is_set) {
@@ -55,7 +55,7 @@ template<typename Value, typename Hash> class DefaultSetSlot {
     }
   }
 
-  DefaultSetSlot(DefaultSetSlot &&other) noexcept
+  SimpleSetSlot(SimpleSetSlot &&other) noexcept
   {
     m_state = other.m_state;
     if (other.m_state == s_is_set) {
@@ -84,7 +84,7 @@ template<typename Value, typename Hash> class DefaultSetSlot {
     return Hash{}(*this->value());
   }
 
-  void set_and_destruct_other(DefaultSetSlot &other, uint32_t UNUSED(hash))
+  void set_and_destruct_other(SimpleSetSlot &other, uint32_t UNUSED(hash))
   {
     BLI_assert(!this->is_set());
     BLI_assert(other.is_set());
@@ -116,7 +116,7 @@ template<typename Value, typename Hash> class DefaultSetSlot {
   }
 };
 
-template<typename Value, typename Hash> class SetSlotWithHash {
+template<typename Value, typename Hash> class HashedSetSlot {
  private:
   static constexpr uint8_t s_is_empty = 0;
   static constexpr uint8_t s_is_set = 1;
@@ -127,19 +127,19 @@ template<typename Value, typename Hash> class SetSlotWithHash {
   AlignedBuffer<sizeof(Value), alignof(Value)> m_buffer;
 
  public:
-  SetSlotWithHash()
+  HashedSetSlot()
   {
     m_state = s_is_empty;
   }
 
-  ~SetSlotWithHash()
+  ~HashedSetSlot()
   {
     if (m_state == s_is_set) {
       this->value()->~Value();
     }
   }
 
-  SetSlotWithHash(const SetSlotWithHash &other)
+  HashedSetSlot(const HashedSetSlot &other)
   {
     m_state = other.m_state;
     if (other.m_state == s_is_set) {
@@ -148,7 +148,7 @@ template<typename Value, typename Hash> class SetSlotWithHash {
     }
   }
 
-  SetSlotWithHash(SetSlotWithHash &&other)
+  HashedSetSlot(HashedSetSlot &&other)
   {
     m_state = other.m_state;
     if (other.m_state == s_is_set) {
@@ -178,7 +178,7 @@ template<typename Value, typename Hash> class SetSlotWithHash {
     return m_hash;
   }
 
-  void set_and_destruct_other(SetSlotWithHash &other, uint32_t hash)
+  void set_and_destruct_other(HashedSetSlot &other, uint32_t hash)
   {
     BLI_assert(!this->is_set());
     BLI_assert(other.is_set());
@@ -263,15 +263,16 @@ template<typename Value, typename Hash> class PointerSetSlot {
     m_value = other.m_value;
   }
 
-  bool contains(Value value, uint32_t UNUSED(hash))
+  bool contains(Value value, uint32_t UNUSED(hash)) const
   {
-    BLI_assert(value > s_max_special_value);
+    BLI_assert((uintptr_t)value > s_max_special_value);
     return (uintptr_t)value == m_value;
   }
 
   void set(Value value, uint32_t UNUSED(hash))
   {
     BLI_assert(!this->is_set());
+    BLI_assert((uintptr_t)value > s_max_special_value);
     m_value = (uintptr_t)value;
   }
 
@@ -282,10 +283,22 @@ template<typename Value, typename Hash> class PointerSetSlot {
   }
 };
 
+template<typename Value, typename Hash> struct DefaultSetSlot {
+  using type = SimpleSetSlot<Value, Hash>;
+};
+
+template<typename Hash> struct DefaultSetSlot<std::string, Hash> {
+  using type = HashedSetSlot<std::string, Hash>;
+};
+
+template<typename Value, typename Hash> struct DefaultSetSlot<Value *, Hash> {
+  using type = PointerSetSlot<Value *, Hash>;
+};
+
 template<typename Value,
          uint32_t InlineBufferCapacity = 4,
          typename Hash = DefaultHash<Value>,
-         typename Slot = DefaultSetSlot<Value, Hash>,
+         typename Slot = typename DefaultSetSlot<Value, Hash>::type,
          typename Allocator = GuardedAllocator>
 class MySet {
  private:
