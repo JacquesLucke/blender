@@ -122,11 +122,11 @@ template<typename Value,
          typename Allocator = GuardedAllocator>
 class MySet {
  private:
-  using Slot = DefaultMySetSlot<Value, Hash>;
-  using SlotArray = Array<Slot, 16, Allocator>;
-  SlotArray m_slots;
-
   static constexpr uint32_t s_linear_probing = 2;
+  static constexpr uint32_t s_default_slot_array_size = 16;
+  using Slot = DefaultMySetSlot<Value, Hash>;
+  using SlotArray = Array<Slot, s_default_slot_array_size, Allocator>;
+  SlotArray m_slots;
 
   uint32_t m_usable_slots;
   uint32_t m_set_or_dummy_slots;
@@ -136,7 +136,7 @@ class MySet {
  public:
   MySet()
   {
-    m_slots = SlotArray(16);
+    m_slots = SlotArray(s_default_slot_array_size);
 
     m_set_or_dummy_slots = 0;
     m_dummy_slots = 0;
@@ -144,10 +144,7 @@ class MySet {
     m_slot_mask = m_slots.size() - 1;
   }
 
-  ~MySet()
-  {
-    // this->print_collision_stats();
-  }
+  ~MySet() = default;
 
   MySet(const std::initializer_list<Value> &list) : MySet()
   {
@@ -279,10 +276,14 @@ class MySet {
   {
     Vector<uint32_t> stats = this->get_collision_stats();
     std::cout << "Collisions stats:\n";
+    if (this->size() == 0) {
+      std::cout << "  <empty>\n";
+      return;
+    }
     uint total_collisions = 0;
     for (uint32_t i : stats.index_range()) {
       std::cout << "  " << i << " Collisions: " << stats[i] << "\n";
-      total_collisions += stats[i];
+      total_collisions += stats[i] * i;
     }
     std::cout << "  Average Collisions: " << (float)total_collisions / (float)this->size() << "\n";
   }
