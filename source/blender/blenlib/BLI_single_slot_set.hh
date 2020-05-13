@@ -25,12 +25,12 @@
 
 namespace BLI {
 
-template<typename Value> struct DefaultSetSlot;
+template<typename Key> struct DefaultSetSlot;
 
-template<typename Value,
+template<typename Key,
          uint32_t InlineBufferCapacity = 4,
-         typename Hash = DefaultHash<Value>,
-         typename Slot = typename DefaultSetSlot<Value>::type,
+         typename Hash = DefaultHash<Key>,
+         typename Slot = typename DefaultSetSlot<Key>::type,
          typename Allocator = GuardedAllocator>
 class Set {
  private:
@@ -42,9 +42,9 @@ class Set {
   using SlotArray = Array<Slot, s_default_slot_array_size, Allocator>;
   SlotArray m_slots;
 
-  uint32_t m_usable_slots;
-  uint32_t m_set_or_dummy_slots;
   uint32_t m_dummy_slots;
+  uint32_t m_set_or_dummy_slots;
+  uint32_t m_usable_slots;
   uint32_t m_slot_mask;
 
  public:
@@ -52,25 +52,26 @@ class Set {
   {
     m_slots = SlotArray(power_of_2_max_u(s_default_slot_array_size));
 
-    m_set_or_dummy_slots = 0;
     m_dummy_slots = 0;
+    m_set_or_dummy_slots = 0;
     m_usable_slots = m_slots.size() / 2;
     m_slot_mask = m_slots.size() - 1;
   }
 
   ~Set() = default;
 
-  Set(const std::initializer_list<Value> &list) : Set()
+  Set(const std::initializer_list<Key> &list) : Set()
   {
     this->add_multiple(list);
   }
 
   Set(const Set &other) = default;
+
   Set(Set &&other)
       : m_slots(std::move(other.m_slots)),
-        m_usable_slots(other.m_usable_slots),
-        m_set_or_dummy_slots(other.m_set_or_dummy_slots),
         m_dummy_slots(other.m_dummy_slots),
+        m_set_or_dummy_slots(other.m_set_or_dummy_slots),
+        m_usable_slots(other.m_usable_slots),
         m_slot_mask(other.m_slot_mask)
   {
     other.~Set();
@@ -87,46 +88,46 @@ class Set {
     return m_set_or_dummy_slots == m_dummy_slots;
   }
 
-  void add_new(const Value &value)
+  void add_new(const Key &key)
   {
-    this->add_new__impl(value, Hash{}(value));
+    this->add_new__impl(key, Hash{}(key));
   }
-  void add_new(Value &&value)
+  void add_new(Key &&key)
   {
-    this->add_new__impl(std::move(value), Hash{}(value));
-  }
-
-  bool add(const Value &value)
-  {
-    return this->add__impl(value, Hash{}(value));
-  }
-  bool add(Value &&value)
-  {
-    return this->add__impl(std::move(value), Hash{}(value));
+    this->add_new__impl(std::move(key), Hash{}(key));
   }
 
-  void add_multiple(ArrayRef<Value> values)
+  bool add(const Key &key)
   {
-    for (const Value &value : values) {
-      this->add(value);
+    return this->add__impl(key, Hash{}(key));
+  }
+  bool add(Key &&key)
+  {
+    return this->add__impl(std::move(key), Hash{}(key));
+  }
+
+  void add_multiple(ArrayRef<Key> keys)
+  {
+    for (const Key &key : keys) {
+      this->add(key);
     }
   }
 
-  void add_multiple_new(ArrayRef<Value> values)
+  void add_multiple_new(ArrayRef<Key> keys)
   {
-    for (const Value &value : values) {
-      this->add_new(value);
+    for (const Key &key : keys) {
+      this->add_new(key);
     }
   }
 
-  bool contains(const Value &value) const
+  bool contains(const Key &key) const
   {
-    return this->contains__impl(value, Hash{}(value));
+    return this->contains__impl(key, Hash{}(key));
   }
 
-  void remove(const Value &value)
+  void remove(const Key &key)
   {
-    return this->remove__impl(value, Hash{}(value));
+    return this->remove__impl(key, Hash{}(key));
   }
 
   class Iterator {
@@ -147,9 +148,9 @@ class Set {
       return *this;
     }
 
-    const Value &operator*() const
+    const Key &operator*() const
     {
-      return *m_slots[m_current_slot].value();
+      return *m_slots[m_current_slot].key();
     }
 
     friend bool operator!=(const Iterator &a, const Iterator &b)
@@ -215,8 +216,8 @@ class Set {
       return Intersects(b, a);
     }
 
-    for (const Value &value : a) {
-      if (b.contains(value)) {
+    for (const Key &key : a) {
+      if (b.contains(key)) {
         return true;
       }
     }
@@ -274,8 +275,7 @@ class Set {
     } while (true);
   }
 
-  template<typename OtherValue>
-  bool contains__impl(const OtherValue &value, uint32_t real_hash) const
+  template<typename OtherKey> bool contains__impl(const OtherKey &key, uint32_t real_hash) const
   {
     uint32_t hash = real_hash;
     uint32_t perturb = real_hash;
@@ -287,7 +287,7 @@ class Set {
         if (slot.is_empty()) {
           return false;
         }
-        if (slot.contains(value, real_hash)) {
+        if (slot.contains(key, real_hash)) {
           return true;
         }
       }
@@ -297,9 +297,9 @@ class Set {
     } while (true);
   }
 
-  template<typename ForwardValue> void add_new__impl(ForwardValue &&value, uint32_t real_hash)
+  template<typename ForwardKey> void add_new__impl(ForwardKey &&key, uint32_t real_hash)
   {
-    BLI_assert(!this->contains(value));
+    BLI_assert(!this->contains(key));
     uint32_t hash = real_hash;
     uint32_t perturb = real_hash;
 
@@ -311,7 +311,7 @@ class Set {
         uint32_t slot_index = (hash + i) & m_slot_mask;
         Slot &slot = m_slots[slot_index];
         if (slot.is_empty()) {
-          slot.set(std::forward<ForwardValue>(value), real_hash);
+          slot.set(std::forward<ForwardKey>(key), real_hash);
           return;
         }
       }
@@ -321,7 +321,7 @@ class Set {
     } while (true);
   }
 
-  template<typename ForwardValue> bool add__impl(ForwardValue &&value, uint32_t real_hash)
+  template<typename ForwardKey> bool add__impl(ForwardKey &&key, uint32_t real_hash)
   {
     uint32_t hash = real_hash;
     uint32_t perturb = real_hash;
@@ -333,11 +333,11 @@ class Set {
         uint32_t slot_index = (hash + i) & m_slot_mask;
         Slot &slot = m_slots[slot_index];
         if (slot.is_empty()) {
-          slot.set(std::forward<ForwardValue>(value), real_hash);
+          slot.set(std::forward<ForwardKey>(key), real_hash);
           m_set_or_dummy_slots++;
           return true;
         }
-        if (slot.contains(std::forward<ForwardValue>(value), real_hash)) {
+        if (slot.contains(std::forward<ForwardKey>(key), real_hash)) {
           return false;
         }
       }
@@ -347,7 +347,7 @@ class Set {
     } while (true);
   }
 
-  template<typename OtherValue> void remove__impl(const OtherValue &value, uint32_t real_hash)
+  template<typename OtherKey> void remove__impl(const OtherKey &key, uint32_t real_hash)
   {
     uint32_t hash = real_hash;
     uint32_t perturb = real_hash;
@@ -358,7 +358,7 @@ class Set {
       for (uint32_t i = 0; i < s_linear_probing_steps; i++) {
         uint32_t slot_index = (hash + i) & m_slot_mask;
         Slot &slot = m_slots[slot_index];
-        if (slot.contains(value, real_hash)) {
+        if (slot.contains(key, real_hash)) {
           slot.set_to_dummy();
           return;
         }
@@ -369,9 +369,9 @@ class Set {
     } while (true);
   }
 
-  uint32_t count_collisions(const Value &value) const
+  uint32_t count_collisions(const Key &key) const
   {
-    uint32_t real_hash = Hash{}(value);
+    uint32_t real_hash = Hash{}(key);
     uint32_t hash = real_hash;
     uint32_t perturb = real_hash;
 
@@ -381,7 +381,7 @@ class Set {
       for (uint32_t i = 0; i < s_linear_probing_steps; i++) {
         uint32_t slot_index = (hash + i) & m_slot_mask;
         const Slot &slot = m_slots[slot_index];
-        if (slot.contains(value, real_hash)) {
+        if (slot.contains(key, real_hash)) {
           return collisions;
         }
         if (slot.is_empty()) {
@@ -398,8 +398,8 @@ class Set {
   Vector<uint32_t> get_collision_stats() const
   {
     Vector<uint32_t> stats;
-    for (const Value &value : *this) {
-      uint32_t collisions = this->count_collisions(value);
+    for (const Key &key : *this) {
+      uint32_t collisions = this->count_collisions(key);
       if (stats.size() <= collisions) {
         stats.append_n_times(0, collisions - stats.size() + 1);
       }
@@ -416,14 +416,14 @@ class Set {
   }
 };
 
-template<typename Value> class SimpleSetSlot {
+template<typename Key> class SimpleSetSlot {
  private:
   static constexpr uint8_t s_is_empty = 0;
   static constexpr uint8_t s_is_set = 1;
   static constexpr uint8_t s_is_dummy = 2;
 
   uint8_t m_state;
-  AlignedBuffer<sizeof(Value), alignof(Value)> m_buffer;
+  AlignedBuffer<sizeof(Key), alignof(Key)> m_buffer;
 
  public:
   SimpleSetSlot()
@@ -434,7 +434,7 @@ template<typename Value> class SimpleSetSlot {
   ~SimpleSetSlot()
   {
     if (m_state == s_is_set) {
-      this->value()->~Value();
+      this->key()->~Key();
     }
   }
 
@@ -442,7 +442,7 @@ template<typename Value> class SimpleSetSlot {
   {
     m_state = other.m_state;
     if (other.m_state == s_is_set) {
-      new (this->value()) Value(*other.value());
+      new (this->key()) Key(*other.key());
     }
   }
 
@@ -450,18 +450,18 @@ template<typename Value> class SimpleSetSlot {
   {
     m_state = other.m_state;
     if (other.m_state == s_is_set) {
-      new (this->value()) Value(std::move(*other.value()));
+      new (this->key()) Key(std::move(*other.key()));
     }
   }
 
-  Value *value()
+  Key *key()
   {
-    return (Value *)m_buffer.ptr();
+    return (Key *)m_buffer.ptr();
   }
 
-  const Value *value() const
+  const Key *key() const
   {
-    return (const Value *)m_buffer.ptr();
+    return (const Key *)m_buffer.ptr();
   }
 
   bool is_set() const
@@ -477,7 +477,7 @@ template<typename Value> class SimpleSetSlot {
   template<typename Hash> uint32_t get_hash(const Hash &hash) const
   {
     BLI_assert(this->is_set());
-    return hash(*this->value());
+    return hash(*this->key());
   }
 
   void set_and_destruct_other(SimpleSetSlot &other, uint32_t UNUSED(hash))
@@ -485,34 +485,34 @@ template<typename Value> class SimpleSetSlot {
     BLI_assert(!this->is_set());
     BLI_assert(other.is_set());
     m_state = s_is_set;
-    new (this->value()) Value(std::move(*other.value()));
-    other.value()->~Value();
+    new (this->key()) Key(std::move(*other.key()));
+    other.key()->~Key();
   }
 
-  template<typename OtherValue> bool contains(const OtherValue &value, uint32_t UNUSED(hash)) const
+  template<typename OtherKey> bool contains(const OtherKey &key, uint32_t UNUSED(hash)) const
   {
     if (m_state == s_is_set) {
-      return value == *this->value();
+      return key == *this->key();
     }
     return false;
   }
 
-  template<typename ForwardValue> void set(ForwardValue &&value, uint32_t UNUSED(hash))
+  template<typename ForwardKey> void set(ForwardKey &&key, uint32_t UNUSED(hash))
   {
     BLI_assert(!this->is_set());
     m_state = s_is_set;
-    new (this->value()) Value(std::forward<ForwardValue>(value));
+    new (this->key()) Key(std::forward<ForwardKey>(key));
   }
 
   void set_to_dummy()
   {
     BLI_assert(this->is_set());
     m_state = s_is_dummy;
-    this->value()->~Value();
+    this->key()->~Key();
   }
 };
 
-template<typename Value> class HashedSetSlot {
+template<typename Key> class HashedSetSlot {
  private:
   static constexpr uint8_t s_is_empty = 0;
   static constexpr uint8_t s_is_set = 1;
@@ -520,7 +520,7 @@ template<typename Value> class HashedSetSlot {
 
   uint32_t m_hash;
   uint8_t m_state;
-  AlignedBuffer<sizeof(Value), alignof(Value)> m_buffer;
+  AlignedBuffer<sizeof(Key), alignof(Key)> m_buffer;
 
  public:
   HashedSetSlot()
@@ -531,7 +531,7 @@ template<typename Value> class HashedSetSlot {
   ~HashedSetSlot()
   {
     if (m_state == s_is_set) {
-      this->value()->~Value();
+      this->key()->~Key();
     }
   }
 
@@ -540,7 +540,7 @@ template<typename Value> class HashedSetSlot {
     m_state = other.m_state;
     if (other.m_state == s_is_set) {
       m_hash = other.m_hash;
-      new (this->value()) Value(*other.value());
+      new (this->key()) Key(*other.key());
     }
   }
 
@@ -549,18 +549,18 @@ template<typename Value> class HashedSetSlot {
     m_state = other.m_state;
     if (other.m_state == s_is_set) {
       m_hash = other.m_hash;
-      new (this->value()) Value(std::move(*other.value()));
+      new (this->key()) Key(std::move(*other.key()));
     }
   }
 
-  Value *value()
+  Key *key()
   {
-    return (Value *)m_buffer.ptr();
+    return (Key *)m_buffer.ptr();
   }
 
-  const Value *value() const
+  const Key *key() const
   {
-    return (const Value *)m_buffer.ptr();
+    return (const Key *)m_buffer.ptr();
   }
 
   bool is_set() const
@@ -585,120 +585,120 @@ template<typename Value> class HashedSetSlot {
     BLI_assert(other.is_set());
     m_state = s_is_set;
     m_hash = hash;
-    new (this->value()) Value(std::move(*other.value()));
-    other.value()->~Value();
+    new (this->key()) Key(std::move(*other.key()));
+    other.key()->~Key();
   }
 
-  template<typename OtherValue> bool contains(const OtherValue &value, uint32_t hash) const
+  template<typename OtherKey> bool contains(const OtherKey &key, uint32_t hash) const
   {
     if (m_hash == hash) {
       if (m_state == s_is_set) {
-        return value == *this->value();
+        return key == *this->key();
       }
     }
     return false;
   }
 
-  template<typename ForwardValue> void set(ForwardValue &&value, uint32_t hash)
+  template<typename ForwardKey> void set(ForwardKey &&key, uint32_t hash)
   {
     BLI_assert(!this->is_set());
     m_state = s_is_set;
     m_hash = hash;
-    new (this->value()) Value(std::forward<ForwardValue>(value));
+    new (this->key()) Key(std::forward<ForwardKey>(key));
   }
 
   void set_to_dummy()
   {
     BLI_assert(this->is_set());
     m_state = s_is_dummy;
-    this->value()->~Value();
+    this->key()->~Key();
   }
 };
 
-template<typename Value> class PointerSetSlot {
+template<typename Key> class PointerSetSlot {
  private:
-  BLI_STATIC_ASSERT(std::is_pointer<Value>::value, "");
+  BLI_STATIC_ASSERT(std::is_pointer<Key>::value, "");
 
-  /* Note: nullptr is not a valid value. */
+  /* Note: nullptr is not a valid key. */
   static constexpr uintptr_t s_is_empty = 0;
   static constexpr uintptr_t s_is_dummy = 1;
   static constexpr uintptr_t s_max_special_value = s_is_dummy;
 
-  uintptr_t m_value;
+  uintptr_t m_key;
 
  public:
   PointerSetSlot()
   {
-    m_value = s_is_empty;
+    m_key = s_is_empty;
   }
 
   ~PointerSetSlot() = default;
   PointerSetSlot(const PointerSetSlot &other) = default;
   PointerSetSlot(PointerSetSlot &&other) = default;
 
-  Value *value()
+  Key *key()
   {
-    return (Value *)&m_value;
+    return (Key *)&m_key;
   }
 
-  const Value *value() const
+  const Key *key() const
   {
-    return (const Value *)&m_value;
+    return (const Key *)&m_key;
   }
 
   bool is_set() const
   {
-    return m_value > s_max_special_value;
+    return m_key > s_max_special_value;
   }
 
   bool is_empty() const
   {
-    return m_value == s_is_empty;
+    return m_key == s_is_empty;
   }
 
   template<typename Hash> uint32_t get_hash(const Hash &hash) const
   {
     BLI_assert(this->is_set());
-    return hash((Value)m_value);
+    return hash((Key)m_key);
   }
 
   void set_and_destruct_other(PointerSetSlot &other, uint32_t UNUSED(hash))
   {
     BLI_assert(!this->is_set());
     BLI_assert(other.is_set());
-    m_value = other.m_value;
+    m_key = other.m_key;
   }
 
-  bool contains(Value value, uint32_t UNUSED(hash)) const
+  bool contains(Key key, uint32_t UNUSED(hash)) const
   {
-    BLI_assert((uintptr_t)value > s_max_special_value);
-    return (uintptr_t)value == m_value;
+    BLI_assert((uintptr_t)key > s_max_special_value);
+    return (uintptr_t)key == m_key;
   }
 
-  void set(Value value, uint32_t UNUSED(hash))
+  void set(Key key, uint32_t UNUSED(hash))
   {
     BLI_assert(!this->is_set());
-    BLI_assert((uintptr_t)value > s_max_special_value);
-    m_value = (uintptr_t)value;
+    BLI_assert((uintptr_t)key > s_max_special_value);
+    m_key = (uintptr_t)key;
   }
 
   void set_to_dummy()
   {
     BLI_assert(this->is_set());
-    m_value = s_is_dummy;
+    m_key = s_is_dummy;
   }
 };
 
-template<typename Value> struct DefaultSetSlot {
-  using type = SimpleSetSlot<Value>;
+template<typename Key> struct DefaultSetSlot {
+  using type = SimpleSetSlot<Key>;
 };
 
 template<> struct DefaultSetSlot<std::string> {
   using type = HashedSetSlot<std::string>;
 };
 
-template<typename Value> struct DefaultSetSlot<Value *> {
-  using type = PointerSetSlot<Value *>;
+template<typename Key> struct DefaultSetSlot<Key *> {
+  using type = PointerSetSlot<Key *>;
 };
 
 }  // namespace BLI
