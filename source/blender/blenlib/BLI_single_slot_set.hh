@@ -25,275 +25,7 @@
 
 namespace BLI {
 
-template<typename Value, typename Hash> class SimpleSetSlot {
- private:
-  static constexpr uint8_t s_is_empty = 0;
-  static constexpr uint8_t s_is_set = 1;
-  static constexpr uint8_t s_is_dummy = 2;
-
-  uint8_t m_state;
-  AlignedBuffer<sizeof(Value), alignof(Value)> m_buffer;
-
- public:
-  SimpleSetSlot()
-  {
-    m_state = s_is_empty;
-  }
-
-  ~SimpleSetSlot()
-  {
-    if (m_state == s_is_set) {
-      this->value()->~Value();
-    }
-  }
-
-  SimpleSetSlot(const SimpleSetSlot &other)
-  {
-    m_state = other.m_state;
-    if (other.m_state == s_is_set) {
-      new (this->value()) Value(*other.value());
-    }
-  }
-
-  SimpleSetSlot(SimpleSetSlot &&other) noexcept
-  {
-    m_state = other.m_state;
-    if (other.m_state == s_is_set) {
-      new (this->value()) Value(std::move(*other.value()));
-    }
-  }
-
-  Value *value() const
-  {
-    return (Value *)m_buffer.ptr();
-  }
-
-  bool is_set() const
-  {
-    return m_state == s_is_set;
-  }
-
-  bool is_empty() const
-  {
-    return m_state == s_is_empty;
-  }
-
-  uint32_t get_hash() const
-  {
-    BLI_assert(this->is_set());
-    return Hash{}(*this->value());
-  }
-
-  void set_and_destruct_other(SimpleSetSlot &other, uint32_t UNUSED(hash))
-  {
-    BLI_assert(!this->is_set());
-    BLI_assert(other.is_set());
-    m_state = s_is_set;
-    new (this->value()) Value(std::move(*other.value()));
-    other.value()->~Value();
-  }
-
-  template<typename OtherValue> bool contains(const OtherValue &value, uint32_t UNUSED(hash)) const
-  {
-    if (m_state == s_is_set) {
-      return value == *this->value();
-    }
-    return false;
-  }
-
-  template<typename ForwardValue> void set(ForwardValue &&value, uint32_t UNUSED(hash))
-  {
-    BLI_assert(!this->is_set());
-    m_state = s_is_set;
-    new (this->value()) Value(std::forward<ForwardValue>(value));
-  }
-
-  void set_to_dummy()
-  {
-    BLI_assert(this->is_set());
-    m_state = s_is_dummy;
-    this->value()->~Value();
-  }
-};
-
-template<typename Value, typename Hash> class HashedSetSlot {
- private:
-  static constexpr uint8_t s_is_empty = 0;
-  static constexpr uint8_t s_is_set = 1;
-  static constexpr uint8_t s_is_dummy = 2;
-
-  uint32_t m_hash;
-  uint8_t m_state;
-  AlignedBuffer<sizeof(Value), alignof(Value)> m_buffer;
-
- public:
-  HashedSetSlot()
-  {
-    m_state = s_is_empty;
-  }
-
-  ~HashedSetSlot()
-  {
-    if (m_state == s_is_set) {
-      this->value()->~Value();
-    }
-  }
-
-  HashedSetSlot(const HashedSetSlot &other)
-  {
-    m_state = other.m_state;
-    if (other.m_state == s_is_set) {
-      m_hash = other.m_hash;
-      new (this->value()) Value(*other.value());
-    }
-  }
-
-  HashedSetSlot(HashedSetSlot &&other)
-  {
-    m_state = other.m_state;
-    if (other.m_state == s_is_set) {
-      m_hash = other.m_hash;
-      new (this->value()) Value(std::move(*other.value()));
-    }
-  }
-
-  Value *value() const
-  {
-    return (Value *)m_buffer.ptr();
-  }
-
-  bool is_set() const
-  {
-    return m_state == s_is_set;
-  }
-
-  bool is_empty() const
-  {
-    return m_state == s_is_empty;
-  }
-
-  uint32_t get_hash() const
-  {
-    BLI_assert(this->is_set());
-    return m_hash;
-  }
-
-  void set_and_destruct_other(HashedSetSlot &other, uint32_t hash)
-  {
-    BLI_assert(!this->is_set());
-    BLI_assert(other.is_set());
-    m_state = s_is_set;
-    m_hash = hash;
-    new (this->value()) Value(std::move(*other.value()));
-    other.value()->~Value();
-  }
-
-  template<typename OtherValue> bool contains(const OtherValue &value, uint32_t hash) const
-  {
-    if (m_hash == hash) {
-      if (m_state == s_is_set) {
-        return value == *this->value();
-      }
-    }
-    return false;
-  }
-
-  template<typename ForwardValue> void set(ForwardValue &&value, uint32_t hash)
-  {
-    BLI_assert(!this->is_set());
-    m_state = s_is_set;
-    m_hash = hash;
-    new (this->value()) Value(std::forward<ForwardValue>(value));
-  }
-
-  void set_to_dummy()
-  {
-    BLI_assert(this->is_set());
-    m_state = s_is_dummy;
-    this->value()->~Value();
-  }
-};
-
-template<typename Value, typename Hash> class PointerSetSlot {
- private:
-  BLI_STATIC_ASSERT(std::is_pointer<Value>::value, "");
-
-  /* Note: nullptr is not a valid value. */
-  static constexpr uintptr_t s_is_empty = 0;
-  static constexpr uintptr_t s_is_dummy = 1;
-  static constexpr uintptr_t s_max_special_value = s_is_dummy;
-
-  uintptr_t m_value;
-
- public:
-  PointerSetSlot()
-  {
-    m_value = s_is_empty;
-  }
-
-  ~PointerSetSlot() = default;
-  PointerSetSlot(const PointerSetSlot &other) = default;
-  PointerSetSlot(PointerSetSlot &&other) = default;
-
-  Value *value() const
-  {
-    return (Value *)&m_value;
-  }
-
-  bool is_set() const
-  {
-    return m_value > s_max_special_value;
-  }
-
-  bool is_empty() const
-  {
-    return m_value == s_is_empty;
-  }
-
-  uint32_t get_hash() const
-  {
-    BLI_assert(this->is_set());
-    return Hash{}((Value)m_value);
-  }
-
-  void set_and_destruct_other(PointerSetSlot &other, uint32_t UNUSED(hash))
-  {
-    BLI_assert(!this->is_set());
-    BLI_assert(other.is_set());
-    m_value = other.m_value;
-  }
-
-  bool contains(Value value, uint32_t UNUSED(hash)) const
-  {
-    BLI_assert((uintptr_t)value > s_max_special_value);
-    return (uintptr_t)value == m_value;
-  }
-
-  void set(Value value, uint32_t UNUSED(hash))
-  {
-    BLI_assert(!this->is_set());
-    BLI_assert((uintptr_t)value > s_max_special_value);
-    m_value = (uintptr_t)value;
-  }
-
-  void set_to_dummy()
-  {
-    BLI_assert(this->is_set());
-    m_value = s_is_dummy;
-  }
-};
-
-template<typename Value, typename Hash> struct DefaultSetSlot {
-  using type = SimpleSetSlot<Value, Hash>;
-};
-
-template<typename Hash> struct DefaultSetSlot<std::string, Hash> {
-  using type = HashedSetSlot<std::string, Hash>;
-};
-
-template<typename Value, typename Hash> struct DefaultSetSlot<Value *, Hash> {
-  using type = PointerSetSlot<Value *, Hash>;
-};
+template<typename Value, typename Hash> struct DefaultSetSlot;
 
 template<typename Value,
          uint32_t InlineBufferCapacity = 4,
@@ -683,6 +415,276 @@ class MySet {
       this->grow(this->size() + 1);
     }
   }
+};
+
+template<typename Value, typename Hash> class SimpleSetSlot {
+ private:
+  static constexpr uint8_t s_is_empty = 0;
+  static constexpr uint8_t s_is_set = 1;
+  static constexpr uint8_t s_is_dummy = 2;
+
+  uint8_t m_state;
+  AlignedBuffer<sizeof(Value), alignof(Value)> m_buffer;
+
+ public:
+  SimpleSetSlot()
+  {
+    m_state = s_is_empty;
+  }
+
+  ~SimpleSetSlot()
+  {
+    if (m_state == s_is_set) {
+      this->value()->~Value();
+    }
+  }
+
+  SimpleSetSlot(const SimpleSetSlot &other)
+  {
+    m_state = other.m_state;
+    if (other.m_state == s_is_set) {
+      new (this->value()) Value(*other.value());
+    }
+  }
+
+  SimpleSetSlot(SimpleSetSlot &&other) noexcept
+  {
+    m_state = other.m_state;
+    if (other.m_state == s_is_set) {
+      new (this->value()) Value(std::move(*other.value()));
+    }
+  }
+
+  Value *value() const
+  {
+    return (Value *)m_buffer.ptr();
+  }
+
+  bool is_set() const
+  {
+    return m_state == s_is_set;
+  }
+
+  bool is_empty() const
+  {
+    return m_state == s_is_empty;
+  }
+
+  uint32_t get_hash() const
+  {
+    BLI_assert(this->is_set());
+    return Hash{}(*this->value());
+  }
+
+  void set_and_destruct_other(SimpleSetSlot &other, uint32_t UNUSED(hash))
+  {
+    BLI_assert(!this->is_set());
+    BLI_assert(other.is_set());
+    m_state = s_is_set;
+    new (this->value()) Value(std::move(*other.value()));
+    other.value()->~Value();
+  }
+
+  template<typename OtherValue> bool contains(const OtherValue &value, uint32_t UNUSED(hash)) const
+  {
+    if (m_state == s_is_set) {
+      return value == *this->value();
+    }
+    return false;
+  }
+
+  template<typename ForwardValue> void set(ForwardValue &&value, uint32_t UNUSED(hash))
+  {
+    BLI_assert(!this->is_set());
+    m_state = s_is_set;
+    new (this->value()) Value(std::forward<ForwardValue>(value));
+  }
+
+  void set_to_dummy()
+  {
+    BLI_assert(this->is_set());
+    m_state = s_is_dummy;
+    this->value()->~Value();
+  }
+};
+
+template<typename Value, typename Hash> class HashedSetSlot {
+ private:
+  static constexpr uint8_t s_is_empty = 0;
+  static constexpr uint8_t s_is_set = 1;
+  static constexpr uint8_t s_is_dummy = 2;
+
+  uint32_t m_hash;
+  uint8_t m_state;
+  AlignedBuffer<sizeof(Value), alignof(Value)> m_buffer;
+
+ public:
+  HashedSetSlot()
+  {
+    m_state = s_is_empty;
+  }
+
+  ~HashedSetSlot()
+  {
+    if (m_state == s_is_set) {
+      this->value()->~Value();
+    }
+  }
+
+  HashedSetSlot(const HashedSetSlot &other)
+  {
+    m_state = other.m_state;
+    if (other.m_state == s_is_set) {
+      m_hash = other.m_hash;
+      new (this->value()) Value(*other.value());
+    }
+  }
+
+  HashedSetSlot(HashedSetSlot &&other)
+  {
+    m_state = other.m_state;
+    if (other.m_state == s_is_set) {
+      m_hash = other.m_hash;
+      new (this->value()) Value(std::move(*other.value()));
+    }
+  }
+
+  Value *value() const
+  {
+    return (Value *)m_buffer.ptr();
+  }
+
+  bool is_set() const
+  {
+    return m_state == s_is_set;
+  }
+
+  bool is_empty() const
+  {
+    return m_state == s_is_empty;
+  }
+
+  uint32_t get_hash() const
+  {
+    BLI_assert(this->is_set());
+    return m_hash;
+  }
+
+  void set_and_destruct_other(HashedSetSlot &other, uint32_t hash)
+  {
+    BLI_assert(!this->is_set());
+    BLI_assert(other.is_set());
+    m_state = s_is_set;
+    m_hash = hash;
+    new (this->value()) Value(std::move(*other.value()));
+    other.value()->~Value();
+  }
+
+  template<typename OtherValue> bool contains(const OtherValue &value, uint32_t hash) const
+  {
+    if (m_hash == hash) {
+      if (m_state == s_is_set) {
+        return value == *this->value();
+      }
+    }
+    return false;
+  }
+
+  template<typename ForwardValue> void set(ForwardValue &&value, uint32_t hash)
+  {
+    BLI_assert(!this->is_set());
+    m_state = s_is_set;
+    m_hash = hash;
+    new (this->value()) Value(std::forward<ForwardValue>(value));
+  }
+
+  void set_to_dummy()
+  {
+    BLI_assert(this->is_set());
+    m_state = s_is_dummy;
+    this->value()->~Value();
+  }
+};
+
+template<typename Value, typename Hash> class PointerSetSlot {
+ private:
+  BLI_STATIC_ASSERT(std::is_pointer<Value>::value, "");
+
+  /* Note: nullptr is not a valid value. */
+  static constexpr uintptr_t s_is_empty = 0;
+  static constexpr uintptr_t s_is_dummy = 1;
+  static constexpr uintptr_t s_max_special_value = s_is_dummy;
+
+  uintptr_t m_value;
+
+ public:
+  PointerSetSlot()
+  {
+    m_value = s_is_empty;
+  }
+
+  ~PointerSetSlot() = default;
+  PointerSetSlot(const PointerSetSlot &other) = default;
+  PointerSetSlot(PointerSetSlot &&other) = default;
+
+  Value *value() const
+  {
+    return (Value *)&m_value;
+  }
+
+  bool is_set() const
+  {
+    return m_value > s_max_special_value;
+  }
+
+  bool is_empty() const
+  {
+    return m_value == s_is_empty;
+  }
+
+  uint32_t get_hash() const
+  {
+    BLI_assert(this->is_set());
+    return Hash{}((Value)m_value);
+  }
+
+  void set_and_destruct_other(PointerSetSlot &other, uint32_t UNUSED(hash))
+  {
+    BLI_assert(!this->is_set());
+    BLI_assert(other.is_set());
+    m_value = other.m_value;
+  }
+
+  bool contains(Value value, uint32_t UNUSED(hash)) const
+  {
+    BLI_assert((uintptr_t)value > s_max_special_value);
+    return (uintptr_t)value == m_value;
+  }
+
+  void set(Value value, uint32_t UNUSED(hash))
+  {
+    BLI_assert(!this->is_set());
+    BLI_assert((uintptr_t)value > s_max_special_value);
+    m_value = (uintptr_t)value;
+  }
+
+  void set_to_dummy()
+  {
+    BLI_assert(this->is_set());
+    m_value = s_is_dummy;
+  }
+};
+
+template<typename Value, typename Hash> struct DefaultSetSlot {
+  using type = SimpleSetSlot<Value, Hash>;
+};
+
+template<typename Hash> struct DefaultSetSlot<std::string, Hash> {
+  using type = HashedSetSlot<std::string, Hash>;
+};
+
+template<typename Value, typename Hash> struct DefaultSetSlot<Value *, Hash> {
+  using type = PointerSetSlot<Value *, Hash>;
 };
 
 }  // namespace BLI
