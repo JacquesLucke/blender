@@ -32,7 +32,7 @@ template<typename Value,
          typename Hash = DefaultHash<Value>,
          typename Slot = typename DefaultSetSlot<Value, Hash>::type,
          typename Allocator = GuardedAllocator>
-class MySet {
+class Set {
  private:
   static constexpr uint32_t s_linear_probing_steps = 2;
 
@@ -48,7 +48,7 @@ class MySet {
   uint32_t m_slot_mask;
 
  public:
-  MySet()
+  Set()
   {
     m_slots = SlotArray(power_of_2_max_u(s_default_slot_array_size));
 
@@ -58,23 +58,23 @@ class MySet {
     m_slot_mask = m_slots.size() - 1;
   }
 
-  ~MySet() = default;
+  ~Set() = default;
 
-  MySet(const std::initializer_list<Value> &list) : MySet()
+  Set(const std::initializer_list<Value> &list) : Set()
   {
     this->add_multiple(list);
   }
 
-  MySet(const MySet &other) = default;
-  MySet(MySet &&other)
+  Set(const Set &other) = default;
+  Set(Set &&other)
       : m_slots(std::move(other.m_slots)),
         m_usable_slots(other.m_usable_slots),
         m_set_or_dummy_slots(other.m_set_or_dummy_slots),
         m_dummy_slots(other.m_dummy_slots),
         m_slot_mask(other.m_slot_mask)
   {
-    other.~MySet();
-    new (&other) MySet();
+    other.~Set();
+    new (&other) Set();
   }
 
   uint32_t size() const
@@ -204,11 +204,11 @@ class MySet {
 
   void clear()
   {
-    this->~MySet();
-    new (this) MySet();
+    this->~Set();
+    new (this) Set();
   }
 
-  static bool Intersects(const MySet &a, const MySet &b)
+  static bool Intersects(const Set &a, const Set &b)
   {
     /* Make sure we iterate over the shorter set. */
     if (a.size() > b.size()) {
@@ -223,7 +223,7 @@ class MySet {
     return false;
   }
 
-  static bool Disjoint(const MySet &a, const MySet &b)
+  static bool Disjoint(const Set &a, const Set &b)
   {
     return !Intersects(a, b);
   }

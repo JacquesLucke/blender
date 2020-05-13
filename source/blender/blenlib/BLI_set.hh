@@ -27,7 +27,10 @@
 #include "BLI_open_addressing.hh"
 #include "BLI_vector.hh"
 
-#include "BLI_single_slot_set.hh"
+#define USE_NEW_SET
+#ifdef USE_NEW_SET
+#  include "BLI_single_slot_set.hh"
+#else
 
 namespace BLI {
 
@@ -486,9 +489,11 @@ class Set {
   }
 };
 
-#undef ITER_SLOTS_BEGIN
-#undef ITER_SLOTS_END
+#  undef ITER_SLOTS_BEGIN
+#  undef ITER_SLOTS_END
 
 }  // namespace BLI
+
+#endif /* USE_NEW_SET */
 
 #endif /* __BLI_SET_HH__ */

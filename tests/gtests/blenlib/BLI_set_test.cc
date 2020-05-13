@@ -2,10 +2,9 @@
 #include "BLI_vector.hh"
 #include "testing/testing.h"
 
-using BLI::MySet;
 using BLI::Set;
 using BLI::Vector;
-using IntSet = MySet<int>;
+using IntSet = Set<int>;
 
 TEST(set, Defaultconstructor)
 {
@@ -187,7 +186,7 @@ TEST(set, OftenAddRemove)
 
 TEST(set, UniquePtrValues)
 {
-  MySet<std::unique_ptr<int>> set;
+  Set<std::unique_ptr<int>> set;
   set.add_new(std::unique_ptr<int>(new int()));
   auto value1 = std::unique_ptr<int>(new int());
   set.add_new(std::move(value1));
@@ -198,7 +197,7 @@ TEST(set, UniquePtrValues)
 
 TEST(set, Clear)
 {
-  MySet<int> set = {3, 4, 6, 7};
+  Set<int> set = {3, 4, 6, 7};
   EXPECT_EQ(set.size(), 4);
   set.clear();
   EXPECT_EQ(set.size(), 0);
@@ -206,7 +205,7 @@ TEST(set, Clear)
 
 TEST(set, StringSet)
 {
-  MySet<std::string> set;
+  Set<std::string> set;
   set.add("hello");
   set.add("world");
   EXPECT_EQ(set.size(), 2);
@@ -218,7 +217,7 @@ TEST(set, StringSet)
 TEST(set, PointerSet)
 {
   int a, b, c;
-  MySet<int *> set;
+  Set<int *> set;
   set.add(&a);
   set.add(&b);
   EXPECT_EQ(set.size(), 2);
