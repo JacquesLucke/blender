@@ -27,6 +27,8 @@
 #include "BLI_open_addressing.hh"
 #include "BLI_vector.hh"
 
+#include "BLI_single_slot_set.hh"
+
 namespace BLI {
 
 // clang-format off

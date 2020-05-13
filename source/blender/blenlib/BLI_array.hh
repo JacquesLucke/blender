@@ -207,6 +207,11 @@ class Array {
     return m_allocator;
   }
 
+  void clear_without_destruct()
+  {
+    m_size = 0;
+  }
+
  private:
   T *get_buffer_for_size(uint size)
   {
