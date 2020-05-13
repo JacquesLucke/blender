@@ -96,9 +96,7 @@ template<typename Value, typename Hash> class DefaultSetSlot {
     if (m_state == s_is_set) {
       return value == *this->value();
     }
-    else {
-      return false;
-    }
+    return false;
   }
 
   template<typename ForwardValue> void set(ForwardValue &&value, uint32_t UNUSED(hash))
@@ -111,6 +109,104 @@ template<typename Value, typename Hash> class DefaultSetSlot {
   void set_to_dummy()
   {
     BLI_assert(m_state == s_is_set);
+    m_state = s_is_dummy;
+    this->value()->~Value();
+  }
+};
+
+template<typename Value, typename Hash> class SetSlotWithHash {
+ private:
+  static constexpr uint8_t s_is_empty = 0;
+  static constexpr uint8_t s_is_set = 1;
+  static constexpr uint8_t s_is_dummy = 2;
+
+  uint32_t m_hash;
+  uint8_t m_state;
+  AlignedBuffer<sizeof(Value), alignof(Value)> m_buffer;
+
+ public:
+  SetSlotWithHash()
+  {
+    m_state = s_is_empty;
+  }
+
+  ~SetSlotWithHash()
+  {
+    if (m_state == s_is_set) {
+      this->value()->~Value();
+    }
+  }
+
+  SetSlotWithHash(const SetSlotWithHash &other)
+  {
+    m_state = other.m_state;
+    if (other.m_state == s_is_set) {
+      m_hash = other.m_hash;
+      new (this->value()) Value(*other.value());
+    }
+  }
+
+  SetSlotWithHash(SetSlotWithHash &&other)
+  {
+    m_state = other.m_state;
+    if (other.m_state == s_is_set) {
+      m_hash = other.m_hash;
+      new (this->value()) Value(std::move(*other.value()));
+    }
+  }
+
+  Value *value() const
+  {
+    return (Value *)m_buffer.ptr();
+  }
+
+  bool is_set() const
+  {
+    return m_state == s_is_set;
+  }
+
+  bool is_empty() const
+  {
+    return m_state == s_is_empty;
+  }
+
+  uint32_t get_hash() const
+  {
+    BLI_assert(m_state == s_is_set);
+    return m_hash;
+  }
+
+  void set_and_destruct_other(SetSlotWithHash &other, uint32_t hash)
+  {
+    BLI_assert(m_state != s_is_set);
+    BLI_assert(other.m_state == s_is_set);
+    m_state = s_is_set;
+    m_hash = hash;
+    new (this->value()) Value(std::move(*other.value()));
+    other.value()->~Value();
+  }
+
+  template<typename OtherValue> bool contains(const OtherValue &value, uint32_t hash) const
+  {
+    if (m_hash == hash) {
+      if (m_state == s_is_set) {
+        return value == *this->value();
+      }
+    }
+    return false;
+  }
+
+  template<typename ForwardValue> void set(ForwardValue &&value, uint32_t hash)
+  {
+    BLI_assert(m_state != s_is_set);
+    m_state = s_is_set;
+    m_hash = hash;
+    new (this->value()) Value(std::forward<ForwardValue>(value));
+  }
+
+  void set_to_dummy()
+  {
+    BLI_assert(m_state = s_is_set);
     m_state = s_is_dummy;
     this->value()->~Value();
   }
