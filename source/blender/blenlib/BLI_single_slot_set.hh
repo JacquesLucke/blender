@@ -454,9 +454,14 @@ template<typename Value> class SimpleSetSlot {
     }
   }
 
-  Value *value() const
+  Value *value()
   {
     return (Value *)m_buffer.ptr();
+  }
+
+  const Value *value() const
+  {
+    return (const Value *)m_buffer.ptr();
   }
 
   bool is_set() const
@@ -548,9 +553,14 @@ template<typename Value> class HashedSetSlot {
     }
   }
 
-  Value *value() const
+  Value *value()
   {
     return (Value *)m_buffer.ptr();
+  }
+
+  const Value *value() const
+  {
+    return (const Value *)m_buffer.ptr();
   }
 
   bool is_set() const
@@ -626,9 +636,14 @@ template<typename Value> class PointerSetSlot {
   PointerSetSlot(const PointerSetSlot &other) = default;
   PointerSetSlot(PointerSetSlot &&other) = default;
 
-  Value *value() const
+  Value *value()
   {
     return (Value *)&m_value;
+  }
+
+  const Value *value() const
+  {
+    return (const Value *)&m_value;
   }
 
   bool is_set() const
