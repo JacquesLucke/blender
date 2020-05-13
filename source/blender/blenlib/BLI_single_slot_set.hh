@@ -25,12 +25,12 @@
 
 namespace BLI {
 
-template<typename Value, typename Hash> struct DefaultSetSlot;
+template<typename Value> struct DefaultSetSlot;
 
 template<typename Value,
          uint32_t InlineBufferCapacity = 4,
          typename Hash = DefaultHash<Value>,
-         typename Slot = typename DefaultSetSlot<Value, Hash>::type,
+         typename Slot = typename DefaultSetSlot<Value>::type,
          typename Allocator = GuardedAllocator>
 class Set {
  private:
@@ -255,7 +255,7 @@ class Set {
                                        SlotArray &new_slots,
                                        uint32_t new_slot_mask)
   {
-    uint32_t real_hash = old_slot.get_hash();
+    uint32_t real_hash = old_slot.get_hash(Hash());
     uint32_t hash = real_hash;
     uint32_t perturb = real_hash;
 
@@ -281,7 +281,6 @@ class Set {
     uint32_t perturb = real_hash;
 
     do {
-
       for (uint32_t i = 0; i < s_linear_probing_steps; i++) {
         uint32_t slot_index = (hash + i) & m_slot_mask;
         const Slot &slot = m_slots[slot_index];
@@ -417,7 +416,7 @@ class Set {
   }
 };
 
-template<typename Value, typename Hash> class SimpleSetSlot {
+template<typename Value> class SimpleSetSlot {
  private:
   static constexpr uint8_t s_is_empty = 0;
   static constexpr uint8_t s_is_set = 1;
@@ -470,10 +469,10 @@ template<typename Value, typename Hash> class SimpleSetSlot {
     return m_state == s_is_empty;
   }
 
-  uint32_t get_hash() const
+  template<typename Hash> uint32_t get_hash(const Hash &hash) const
   {
     BLI_assert(this->is_set());
-    return Hash{}(*this->value());
+    return hash(*this->value());
   }
 
   void set_and_destruct_other(SimpleSetSlot &other, uint32_t UNUSED(hash))
@@ -508,7 +507,7 @@ template<typename Value, typename Hash> class SimpleSetSlot {
   }
 };
 
-template<typename Value, typename Hash> class HashedSetSlot {
+template<typename Value> class HashedSetSlot {
  private:
   static constexpr uint8_t s_is_empty = 0;
   static constexpr uint8_t s_is_set = 1;
@@ -564,7 +563,7 @@ template<typename Value, typename Hash> class HashedSetSlot {
     return m_state == s_is_empty;
   }
 
-  uint32_t get_hash() const
+  template<typename Hash> uint32_t get_hash(const Hash &UNUSED(hash)) const
   {
     BLI_assert(this->is_set());
     return m_hash;
@@ -606,7 +605,7 @@ template<typename Value, typename Hash> class HashedSetSlot {
   }
 };
 
-template<typename Value, typename Hash> class PointerSetSlot {
+template<typename Value> class PointerSetSlot {
  private:
   BLI_STATIC_ASSERT(std::is_pointer<Value>::value, "");
 
@@ -642,10 +641,10 @@ template<typename Value, typename Hash> class PointerSetSlot {
     return m_value == s_is_empty;
   }
 
-  uint32_t get_hash() const
+  template<typename Hash> uint32_t get_hash(const Hash &hash) const
   {
     BLI_assert(this->is_set());
-    return Hash{}((Value)m_value);
+    return hash((Value)m_value);
   }
 
   void set_and_destruct_other(PointerSetSlot &other, uint32_t UNUSED(hash))
@@ -675,16 +674,16 @@ template<typename Value, typename Hash> class PointerSetSlot {
   }
 };
 
-template<typename Value, typename Hash> struct DefaultSetSlot {
-  using type = SimpleSetSlot<Value, Hash>;
+template<typename Value> struct DefaultSetSlot {
+  using type = SimpleSetSlot<Value>;
 };
 
-template<typename Hash> struct DefaultSetSlot<std::string, Hash> {
-  using type = HashedSetSlot<std::string, Hash>;
+template<> struct DefaultSetSlot<std::string> {
+  using type = HashedSetSlot<std::string>;
 };
 
-template<typename Value, typename Hash> struct DefaultSetSlot<Value *, Hash> {
-  using type = PointerSetSlot<Value *, Hash>;
+template<typename Value> struct DefaultSetSlot<Value *> {
+  using type = PointerSetSlot<Value *>;
 };
 
 }  // namespace BLI
