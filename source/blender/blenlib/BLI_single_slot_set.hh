@@ -23,7 +23,7 @@
 
 namespace BLI {
 
-template<typename Value, typename Hash> class DefaultMySetSlot {
+template<typename Value, typename Hash> class DefaultSetSlot {
  private:
   static constexpr uint8_t s_is_empty = 0;
   static constexpr uint8_t s_is_set = 1;
@@ -33,19 +33,19 @@ template<typename Value, typename Hash> class DefaultMySetSlot {
   AlignedBuffer<sizeof(Value), alignof(Value)> m_buffer;
 
  public:
-  DefaultMySetSlot()
+  DefaultSetSlot()
   {
     m_state = s_is_empty;
   }
 
-  ~DefaultMySetSlot()
+  ~DefaultSetSlot()
   {
     if (m_state == s_is_set) {
       this->value()->~Value();
     }
   }
 
-  DefaultMySetSlot(const DefaultMySetSlot &other)
+  DefaultSetSlot(const DefaultSetSlot &other)
   {
     m_state = other.m_state;
     if (other.m_state == s_is_set) {
@@ -53,7 +53,7 @@ template<typename Value, typename Hash> class DefaultMySetSlot {
     }
   }
 
-  DefaultMySetSlot(DefaultMySetSlot &&other) noexcept
+  DefaultSetSlot(DefaultSetSlot &&other) noexcept
   {
     m_state = other.m_state;
     if (other.m_state == s_is_set) {
@@ -82,7 +82,7 @@ template<typename Value, typename Hash> class DefaultMySetSlot {
     return Hash{}(*this->value());
   }
 
-  void set_and_destruct_other(DefaultMySetSlot &other, uint32_t UNUSED(hash))
+  void set_and_destruct_other(DefaultSetSlot &other, uint32_t UNUSED(hash))
   {
     BLI_assert(m_state != s_is_set);
     BLI_assert(other.m_state == s_is_set);
@@ -117,14 +117,17 @@ template<typename Value, typename Hash> class DefaultMySetSlot {
 };
 
 template<typename Value,
+         uint32_t InlineBufferCapacity = 4,
          typename Hash = DefaultHash<Value>,
-         //  typename Slot = DefaultMySetSlot<Value, Hash>,
+         typename Slot = DefaultSetSlot<Value, Hash>,
          typename Allocator = GuardedAllocator>
 class MySet {
  private:
-  static constexpr uint32_t s_linear_probing = 2;
-  static constexpr uint32_t s_default_slot_array_size = 16;
-  using Slot = DefaultMySetSlot<Value, Hash>;
+  static constexpr uint32_t s_linear_probing_steps = 2;
+
+  /* TODO: Round up to power of two. */
+  static constexpr uint32_t s_default_slot_array_size = InlineBufferCapacity * 2;
+
   using SlotArray = Array<Slot, s_default_slot_array_size, Allocator>;
   SlotArray m_slots;
 
@@ -136,7 +139,7 @@ class MySet {
  public:
   MySet()
   {
-    m_slots = SlotArray(s_default_slot_array_size);
+    m_slots = SlotArray(power_of_2_max_u(s_default_slot_array_size));
 
     m_set_or_dummy_slots = 0;
     m_dummy_slots = 0;
@@ -346,7 +349,7 @@ class MySet {
     uint32_t perturb = real_hash;
 
     do {
-      for (uint32_t i = 0; i < s_linear_probing; i++) {
+      for (uint32_t i = 0; i < s_linear_probing_steps; i++) {
         uint32_t slot_index = (hash + i) & new_slot_mask;
         Slot &slot = new_slots[slot_index];
         if (slot.is_empty()) {
@@ -368,7 +371,7 @@ class MySet {
 
     do {
 
-      for (uint32_t i = 0; i < s_linear_probing; i++) {
+      for (uint32_t i = 0; i < s_linear_probing_steps; i++) {
         uint32_t slot_index = (hash + i) & m_slot_mask;
         const Slot &slot = m_slots[slot_index];
         if (slot.is_empty()) {
@@ -394,7 +397,7 @@ class MySet {
     m_set_or_dummy_slots++;
 
     do {
-      for (uint32_t i = 0; i < s_linear_probing; i++) {
+      for (uint32_t i = 0; i < s_linear_probing_steps; i++) {
         uint32_t slot_index = (hash + i) & m_slot_mask;
         Slot &slot = m_slots[slot_index];
         if (slot.is_empty()) {
@@ -416,7 +419,7 @@ class MySet {
     this->ensure_can_add();
 
     do {
-      for (uint32_t i = 0; i < s_linear_probing; i++) {
+      for (uint32_t i = 0; i < s_linear_probing_steps; i++) {
         uint32_t slot_index = (hash + i) & m_slot_mask;
         Slot &slot = m_slots[slot_index];
         if (slot.is_empty()) {
@@ -442,7 +445,7 @@ class MySet {
     m_dummy_slots++;
 
     do {
-      for (uint32_t i = 0; i < s_linear_probing; i++) {
+      for (uint32_t i = 0; i < s_linear_probing_steps; i++) {
         uint32_t slot_index = (hash + i) & m_slot_mask;
         Slot &slot = m_slots[slot_index];
         if (slot.contains(value, real_hash)) {
@@ -465,7 +468,7 @@ class MySet {
     uint32_t collisions = 0;
 
     do {
-      for (uint32_t i = 0; i < s_linear_probing; i++) {
+      for (uint32_t i = 0; i < s_linear_probing_steps; i++) {
         uint32_t slot_index = (hash + i) & m_slot_mask;
         const Slot &slot = m_slots[slot_index];
         if (slot.contains(value, real_hash)) {
