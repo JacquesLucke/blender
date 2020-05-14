@@ -17,6 +17,27 @@
 #ifndef __BLI_SINGLE_SLOT_SET_HH__
 #define __BLI_SINGLE_SLOT_SET_HH__
 
+/** \file
+ * \ingroup bli
+ *
+ * A `BLI::Set<Key>` is an unordered container for elements of type `Key`. It is designed to be a
+ * more convenient and efficient replacement for `std::unordered_set`. All core operations (add,
+ * remove and contains) can be done in O(1) expected time.
+ *
+ * In most cases, your default choice for a hash set in Blender should be `BLI::Set`.
+ *
+ * The implementation uses open addressing in a flat array. Probing is done using a combination of
+ * linear probing and rehashing. The number of slots is always a power of two. `&` is used to
+ * compute the slot index based the initial hash. Therefore, the hash function is expected to
+ * provide a good distribution in the lower bits. If it does not do so, rehashing will kick in
+ * after x linear probing steps. Then higher bits will be taken into account as well.
+ *
+ * TODO:
+ *  - Round up inline buffer capacity.
+ *  - Dynamic default for inline buffer capacity (depending on size of key).
+ *  - Simple way to find bad uses of the Set (too many collisions).
+ */
+
 #include <type_traits>
 
 #include "BLI_array.hh"
