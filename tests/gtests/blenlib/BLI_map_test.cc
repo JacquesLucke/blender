@@ -3,8 +3,7 @@
 #include "testing/testing.h"
 
 using BLI::Map;
-using BLI::MyMap;
-using IntFloatMap = MyMap<int, float>;
+using IntFloatMap = Map<int, float>;
 
 TEST(map, DefaultConstructor)
 {

@@ -29,7 +29,11 @@
 #include "BLI_array_ref.hh"
 #include "BLI_hash.hh"
 #include "BLI_open_addressing.hh"
-#include "BLI_single_slot_map.hh"
+
+#define USE_NEW_MAP
+#ifdef USE_NEW_MAP
+#  include "BLI_single_slot_map.hh"
+#else
 
 namespace BLI {
 
@@ -755,9 +759,11 @@ class Map {
   }
 };
 
-#undef ITER_SLOTS_BEGIN
-#undef ITER_SLOTS_END
+#  undef ITER_SLOTS_BEGIN
+#  undef ITER_SLOTS_END
 
 }  // namespace BLI
+
+#endif /* USE_NEW_MAP */
 
 #endif /* __BLI_MAP_HH__ */

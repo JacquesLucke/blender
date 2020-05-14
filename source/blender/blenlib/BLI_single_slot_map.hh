@@ -144,9 +144,9 @@ template<typename Key, typename Value> class SimpleMapSlot {
 
 template<typename Key,
          typename Value,
-         typename Hash = DefaultHash<Value>,
+         typename Hash = DefaultHash<Key>,
          typename Allocator = GuardedAllocator>
-class MyMap {
+class Map {
  private:
   static constexpr uint32_t s_linear_probing_steps = 2;
 
@@ -162,7 +162,7 @@ class MyMap {
   uint32_t m_slot_mask;
 
  public:
-  MyMap()
+  Map()
   {
     m_slots = SlotArray(power_of_2_max_u(s_default_slot_array_size));
 
@@ -172,19 +172,19 @@ class MyMap {
     m_slot_mask = m_slots.size() - 1;
   }
 
-  ~MyMap() = default;
+  ~Map() = default;
 
-  MyMap(const MyMap &other) = default;
+  Map(const Map &other) = default;
 
-  MyMap(MyMap &&other)
+  Map(Map &&other)
       : m_slots(std::move(other.m_slots)),
         m_dummy_slots(other.m_dummy_slots),
         m_set_or_dummy_slots(other.m_set_or_dummy_slots),
         m_usable_slots(other.m_usable_slots),
         m_slot_mask(other.m_slot_mask)
   {
-    other.~MyMap();
-    new (&other) MyMap();
+    other.~Map();
+    new (&other) Map();
   }
 
   uint32_t size() const
@@ -204,8 +204,8 @@ class MyMap {
 
   void clear()
   {
-    this->~MyMap();
-    new (this) MyMap();
+    this->~Map();
+    new (this) Map();
   }
 
   void add_new(const Key &key, const Value &value)
@@ -290,7 +290,7 @@ class MyMap {
 
   Value *lookup_ptr(const Key &key)
   {
-    const MyMap *const_this = this;
+    const Map *const_this = this;
     return const_cast<Value *>(const_this->lookup_ptr(key));
   }
 
@@ -383,7 +383,7 @@ class MyMap {
     SubIterator begin() const
     {
       for (uint32_t i = 0; i < m_total_slots; i++) {
-        if (m_slots[m_current_slot].is_set()) {
+        if (m_slots[i].is_set()) {
           return SubIterator(m_slots, m_total_slots, i);
         }
       }
