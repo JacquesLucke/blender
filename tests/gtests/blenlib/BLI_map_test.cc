@@ -286,12 +286,27 @@ TEST(map, MoveAssignment)
   IntFloatMap map1;
   map1.add(1, 2.0f);
   map1.add(4, 1.0f);
-  IntFloatMap map2 = std::move(map1);
+  IntFloatMap map2;
+  map2 = std::move(map1);
   EXPECT_EQ(map2.size(), 2);
   EXPECT_EQ(map2.lookup(1), 2.0f);
   EXPECT_EQ(map2.lookup(4), 1.0f);
   EXPECT_EQ(map1.size(), 0);
   EXPECT_EQ(map1.lookup_ptr(4), nullptr);
+}
+
+TEST(map, CopyAssignment)
+{
+  IntFloatMap map1;
+  map1.add(1, 2.0f);
+  map1.add(4, 1.0f);
+  IntFloatMap map2;
+  map2 = map1;
+  EXPECT_EQ(map2.size(), 2);
+  EXPECT_EQ(map2.lookup(1), 2.0f);
+  EXPECT_EQ(map2.lookup(4), 1.0f);
+  EXPECT_EQ(map1.size(), 2);
+  EXPECT_EQ(*map1.lookup_ptr(4), 1.0f);
 }
 
 TEST(map, Clear)

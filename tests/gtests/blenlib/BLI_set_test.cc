@@ -61,7 +61,7 @@ TEST(set, CopyConstructor)
   EXPECT_TRUE(set.contains(3));
   EXPECT_FALSE(set.contains(4));
 
-  IntSet set2 = set;
+  IntSet set2(set);
   set2.add(4);
   EXPECT_TRUE(set2.contains(3));
   EXPECT_TRUE(set2.contains(4));
@@ -73,7 +73,32 @@ TEST(set, MoveConstructor)
 {
   IntSet set = {1, 2, 3};
   EXPECT_EQ(set.size(), 3);
-  IntSet set2 = std::move(set);
+  IntSet set2(std::move(set));
+  EXPECT_EQ(set.size(), 0);
+  EXPECT_EQ(set2.size(), 3);
+}
+
+TEST(set, CopyAssignment)
+{
+  IntSet set = {3};
+  EXPECT_TRUE(set.contains(3));
+  EXPECT_FALSE(set.contains(4));
+
+  IntSet set2;
+  set2 = set;
+  set2.add(4);
+  EXPECT_TRUE(set2.contains(3));
+  EXPECT_TRUE(set2.contains(4));
+
+  EXPECT_FALSE(set.contains(4));
+}
+
+TEST(set, MoveAssignment)
+{
+  IntSet set = {1, 2, 3};
+  EXPECT_EQ(set.size(), 3);
+  IntSet set2;
+  set2 = std::move(set);
   EXPECT_EQ(set.size(), 0);
   EXPECT_EQ(set2.size(), 3);
 }

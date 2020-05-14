@@ -78,6 +78,30 @@ class Set {
     new (&other) Set();
   }
 
+  Set &operator=(const Set &other)
+  {
+    if (this == &other) {
+      return *this;
+    }
+
+    this->~Set();
+    new (this) Set(other);
+
+    return *this;
+  }
+
+  Set &operator=(Set &&other)
+  {
+    if (this == &other) {
+      return *this;
+    }
+
+    this->~Set();
+    new (this) Set(std::move(other));
+
+    return *this;
+  }
+
   uint32_t size() const
   {
     return m_set_or_dummy_slots - m_dummy_slots;

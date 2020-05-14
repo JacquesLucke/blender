@@ -68,6 +68,30 @@ class Map {
     new (&other) Map();
   }
 
+  Map &operator=(const Map &other)
+  {
+    if (this == &other) {
+      return *this;
+    }
+
+    this->~Map();
+    new (this) Map(other);
+
+    return *this;
+  }
+
+  Map &operator=(Map &&other)
+  {
+    if (this == &other) {
+      return *this;
+    }
+
+    this->~Map();
+    new (this) Map(std::move(other));
+
+    return *this;
+  }
+
   uint32_t size() const
   {
     return m_set_or_dummy_slots - m_dummy_slots;
