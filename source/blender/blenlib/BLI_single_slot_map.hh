@@ -351,116 +351,157 @@ class MyMap {
     }
   }
 
-  // template<typename SubIterator> class BaseIterator {
-  //  protected:
-  //   const Slot *m_slots;
-  //   uint32_t m_total_slots;
-  //   uint32_t m_current_slot;
+  template<typename SubIterator> struct BaseIterator {
+    Slot *m_slots;
+    uint32_t m_total_slots;
+    uint32_t m_current_slot;
 
-  //  public:
-  //   BaseIterator(const Slot *slots, uint32_t total_slots, uint32_t current_slot)
-  //       : m_slots(slots), m_total_slots(total_slots), m_current_slot(current_slot)
-  //   {
-  //   }
+    BaseIterator(const Slot *slots, uint32_t total_slots, uint32_t current_slot)
+        : m_slots(const_cast<Slot *>(slots)),
+          m_total_slots(total_slots),
+          m_current_slot(current_slot)
+    {
+    }
 
-  //   BaseIterator &operator++()
-  //   {
-  //     while (++m_current_slot < m_total_slots) {
-  //       if (m_slots[m_current_slot].is_set()) {
-  //         break;
-  //       }
-  //     }
-  //     return *this;
-  //   }
+    BaseIterator &operator++()
+    {
+      while (++m_current_slot < m_total_slots) {
+        if (m_slots[m_current_slot].is_set()) {
+          break;
+        }
+      }
+      return *this;
+    }
 
-  //   friend bool operator!=(const BaseIterator &a, const BaseIterator &b)
-  //   {
-  //     BLI_assert(a.m_slots == b.m_slots);
-  //     BLI_assert(a.m_total_slots == b.m_total_slots);
-  //     return a.m_current_slot == b.m_current_slot;
-  //   }
+    friend bool operator!=(const BaseIterator &a, const BaseIterator &b)
+    {
+      BLI_assert(a.m_slots == b.m_slots);
+      BLI_assert(a.m_total_slots == b.m_total_slots);
+      return a.m_current_slot != b.m_current_slot;
+    }
 
-  //   SubIterator begin() const
-  //   {
-  //     for (uint32_t i = 0; i < m_total_slots; i++) {
-  //       if (m_slots[m_current_slot].is_set()) {
-  //         return SubIterator(m_slots, m_total_slots, i);
-  //       }
-  //     }
-  //     return this->end();
-  //   }
+    SubIterator begin() const
+    {
+      for (uint32_t i = 0; i < m_total_slots; i++) {
+        if (m_slots[m_current_slot].is_set()) {
+          return SubIterator(m_slots, m_total_slots, i);
+        }
+      }
+      return this->end();
+    }
 
-  //   SubIterator end() const
-  //   {
-  //     return SubIterator(m_slots, m_total_slots, m_total_slots);
-  //   }
-  // };
+    SubIterator end() const
+    {
+      return SubIterator(m_slots, m_total_slots, m_total_slots);
+    }
 
-  // class KeyIterator final : public BaseIterator<KeyIterator> {
-  //  public:
-  //   KeyIterator(const Slot *slots, uint32_t total_slots, uint32_t current_slot)
-  //       : BaseIterator<KeyIterator>(slots, total_slots, current_slot)
-  //   {
-  //   }
+    Slot &current_slot() const
+    {
+      return m_slots[m_current_slot];
+    }
+  };
 
-  //   const Key &operator*() const
-  //   {
-  //     return *m_slots[m_current_slot].key();
-  //   }
-  // };
+  class KeyIterator final : public BaseIterator<KeyIterator> {
+   public:
+    KeyIterator(const Slot *slots, uint32_t total_slots, uint32_t current_slot)
+        : BaseIterator<KeyIterator>(slots, total_slots, current_slot)
+    {
+    }
 
-  // class ValueIterator final : public BaseIterator<ValueIterator> {
-  //  public:
-  //   ValueIterator(const Slot *slots, uint32_t total_slots, uint32_t current_slot)
-  //       : BaseIterator<ValueIterator>(slots, total_slots, current_slot)
-  //   {
-  //   }
+    const Key &operator*() const
+    {
+      return *this->current_slot().key();
+    }
+  };
 
-  //   const Value &operator*() const
-  //   {
-  //     return *m_slots[m_current_slot].value();
-  //   }
-  // };
+  class ValueIterator final : public BaseIterator<ValueIterator> {
+   public:
+    ValueIterator(const Slot *slots, uint32_t total_slots, uint32_t current_slot)
+        : BaseIterator<ValueIterator>(slots, total_slots, current_slot)
+    {
+    }
 
-  // class ItemIterator final : public BaseIterator<ItemIterator> {
-  //  public:
-  //   ItemIterator(const Slot *slots, uint32_t total_slots, uint32_t current_slot)
-  //       : BaseIterator<ItemIterator>(slots, total_slots, current_slot)
-  //   {
-  //   }
+    const Value &operator*() const
+    {
+      return *this->current_slot().value();
+    }
+  };
 
-  //   struct Item {
-  //     const Key &key;
-  //     const Value &value;
+  class MutableValueIterator final : public BaseIterator<MutableValueIterator> {
+   public:
+    MutableValueIterator(const Slot *slots, uint32_t total_slots, uint32_t current_slot)
+        : BaseIterator<MutableValueIterator>(slots, total_slots, current_slot)
+    {
+    }
 
-  //     friend std::ostream &operator<<(std::ostream &Stream, const Item &item)
-  //     {
-  //       stream << item.key << " -> " << item.value;
-  //       return stream;
-  //     }
-  //   };
+    Value &operator*()
+    {
+      return *this->current_slot().value();
+    }
+  };
 
-  //   Item operator*() const
-  //   {
-  //     const Slot &slot = m_slots[m_current_slot];
-  //     return {*slot.key(), *slot.value()};
-  //   }
-  // };
+  class ItemIterator final : public BaseIterator<ItemIterator> {
+   public:
+    ItemIterator(const Slot *slots, uint32_t total_slots, uint32_t current_slot)
+        : BaseIterator<ItemIterator>(slots, total_slots, current_slot)
+    {
+    }
 
-  // KeyIterator keys() const
-  // {
-  //   return KeyIterator(m_slots.begin(), m_slots.size(), 0);
-  // }
+    struct Item {
+      const Key &key;
+      const Value &value;
+    };
 
-  // ValueIterator values() const
-  // {
-  //   return ValueIterator(m_slots.begin(), m_slots.size(), 0);
-  // }
+    Item operator*() const
+    {
+      const Slot &slot = this->current_slot();
+      return {*slot.key(), *slot.value()};
+    }
+  };
 
-  // ItemIterator items() const
-  // {
-  //   return ItemIterator(m_slots.begin(), m_slots.size(), 0);
-  // }
+  class MutableItemIterator final : public BaseIterator<MutableItemIterator> {
+   public:
+    MutableItemIterator(const Slot *slots, uint32_t total_slots, uint32_t current_slot)
+        : BaseIterator<MutableItemIterator>(slots, total_slots, current_slot)
+    {
+    }
+
+    struct Item {
+      const Key &key;
+      Value &value;
+    };
+
+    Item operator*() const
+    {
+      Slot &slot = this->current_slot();
+      return {*slot.key(), *slot.value()};
+    }
+  };
+
+  KeyIterator keys() const
+  {
+    return KeyIterator(m_slots.begin(), m_slots.size(), 0);
+  }
+
+  ValueIterator values() const
+  {
+    return ValueIterator(m_slots.begin(), m_slots.size(), 0);
+  }
+
+  MutableValueIterator values()
+  {
+    return MutableValueIterator(m_slots.begin(), m_slots.size(), 0);
+  }
+
+  ItemIterator items() const
+  {
+    return ItemIterator(m_slots.begin(), m_slots.size(), 0);
+  }
+
+  MutableItemIterator items()
+  {
+    return MutableItemIterator(m_slots.begin(), m_slots.size(), 0);
+  }
 
  private:
   BLI_NOINLINE void grow(uint32_t min_usable_slots)
