@@ -297,9 +297,6 @@ class Set {
 
   // clang-format off
 
-#define USED_VARIANT 0
-
-#if USED_VARIANT == 0
 #define ITER_SLOTS_BEGIN(HASH, MASK, R_SLOT_INDEX) \
   uint32_t current_hash = HASH; \
   uint32_t perturb = HASH; \
@@ -307,6 +304,7 @@ class Set {
   do { \
     do { \
       uint32_t R_SLOT_INDEX = (current_hash + linear_offset) & MASK;
+
 #define ITER_SLOTS_END() \
     } while (--linear_offset > 0); \
     if (perturb != 0) {\
@@ -318,44 +316,6 @@ class Set {
     } \
     linear_offset = s_linear_probing_steps; \
   } while (true)
-#endif
-
-#if USED_VARIANT == 1
-#define ITER_SLOTS_BEGIN(HASH, MASK, R_SLOT_INDEX) \
-  uint32_t current_hash = HASH; \
-  uint32_t iterations = 0; \
-  uint32_t linear_offset = s_linear_probing_steps; \
-  do { \
-    do { \
-      uint32_t R_SLOT_INDEX = (current_hash + linear_offset) & MASK;
-#define ITER_SLOTS_END() \
-    } while (--linear_offset > 0); \
-    if (iterations < 2) {\
-      current_hash = ((current_hash >> 16) ^ current_hash) * 0x45d9f3b; \
-      iterations++; \
-    } \
-    else { \
-      current_hash = current_hash * 5 + 1; \
-    } \
-    linear_offset = s_linear_probing_steps; \
-  } while (true)
-#endif
-
-#if USED_VARIANT == 2
-#define ITER_SLOTS_BEGIN(HASH, MASK, R_SLOT_INDEX) \
-  uint32_t current_hash = HASH; \
-  uint32_t perturb = HASH; \
-  uint32_t linear_offset = s_linear_probing_steps; \
-  do { \
-    do { \
-      uint32_t R_SLOT_INDEX = (current_hash + linear_offset) & MASK;
-#define ITER_SLOTS_END() \
-    } while (--linear_offset > 0); \
-    perturb >>= 5; \
-    current_hash = current_hash * 5 + 1 + perturb; \
-    linear_offset = s_linear_probing_steps; \
-  } while (true)
-#endif
 
   // clang-format on
 
