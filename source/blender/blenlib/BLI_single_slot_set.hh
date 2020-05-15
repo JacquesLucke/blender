@@ -290,148 +290,120 @@ class Set {
     m_slot_mask = new_slot_mask;
   }
 
+  // clang-format off
+
+#define ITER_SLOTS_BEGIN(HASH, MASK, R_SLOT_INDEX) \
+  uint32_t current_hash = HASH; \
+  uint32_t perturb = HASH; \
+  uint32_t linear_offset = s_linear_probing_steps; \
+  do { \
+    do { \
+      uint32_t R_SLOT_INDEX = (current_hash + linear_offset) & MASK;
+
+#define ITER_SLOTS_END() \
+    } while (--linear_offset > 0); \
+    perturb >>= 5; \
+    current_hash = current_hash * 5 + 1 + perturb; \
+    linear_offset = s_linear_probing_steps; \
+  } while (true)
+
+  // clang-format on
+
   void add_after_grow_and_destruct_old(Slot &old_slot,
                                        SlotArray &new_slots,
                                        uint32_t new_slot_mask)
   {
-    uint32_t real_hash = old_slot.get_hash(Hash());
-    uint32_t hash = real_hash;
-    uint32_t perturb = real_hash;
+    uint32_t hash = old_slot.get_hash(Hash());
 
-    do {
-      for (uint32_t i = 0; i < s_linear_probing_steps; i++) {
-        uint32_t slot_index = (hash + i) & new_slot_mask;
-        Slot &slot = new_slots[slot_index];
-        if (slot.is_empty()) {
-          slot.set_and_destruct_other(old_slot, real_hash);
-          return;
-        }
+    ITER_SLOTS_BEGIN (hash, new_slot_mask, slot_index) {
+      Slot &slot = new_slots[slot_index];
+      if (slot.is_empty()) {
+        slot.set_and_destruct_other(old_slot, hash);
+        return;
       }
-
-      perturb >>= 5;
-      hash = hash * 5 + 1 + perturb;
-    } while (true);
+    }
+    ITER_SLOTS_END();
   }
 
-  template<typename ForwardKey>
-  bool contains__impl(const ForwardKey &key, uint32_t real_hash) const
+  template<typename ForwardKey> bool contains__impl(const ForwardKey &key, uint32_t hash) const
   {
-    uint32_t hash = real_hash;
-    uint32_t perturb = real_hash;
-
-    do {
-      for (uint32_t i = 0; i < s_linear_probing_steps; i++) {
-        uint32_t slot_index = (hash + i) & m_slot_mask;
-        const Slot &slot = m_slots[slot_index];
-        if (slot.is_empty()) {
-          return false;
-        }
-        if (slot.contains(key, real_hash)) {
-          return true;
-        }
+    ITER_SLOTS_BEGIN (hash, m_slot_mask, slot_index) {
+      const Slot &slot = m_slots[slot_index];
+      if (slot.is_empty()) {
+        return false;
       }
-
-      perturb >>= 5;
-      hash = hash * 5 + 1 + perturb;
-    } while (true);
+      if (slot.contains(key, hash)) {
+        return true;
+      }
+    }
+    ITER_SLOTS_END();
   }
 
-  template<typename ForwardKey> void add_new__impl(ForwardKey &&key, uint32_t real_hash)
+  template<typename ForwardKey> void add_new__impl(ForwardKey &&key, uint32_t hash)
   {
     BLI_assert(!this->contains(key));
-    uint32_t hash = real_hash;
-    uint32_t perturb = real_hash;
 
     this->ensure_can_add();
     m_set_or_dummy_slots++;
 
-    do {
-      for (uint32_t i = 0; i < s_linear_probing_steps; i++) {
-        uint32_t slot_index = (hash + i) & m_slot_mask;
-        Slot &slot = m_slots[slot_index];
-        if (slot.is_empty()) {
-          slot.set(std::forward<ForwardKey>(key), real_hash);
-          return;
-        }
+    ITER_SLOTS_BEGIN (hash, m_slot_mask, slot_index) {
+      Slot &slot = m_slots[slot_index];
+      if (slot.is_empty()) {
+        slot.set(std::forward<ForwardKey>(key), hash);
+        return;
       }
-
-      perturb >>= 5;
-      hash = hash * 5 + 1 + perturb;
-    } while (true);
+    }
+    ITER_SLOTS_END();
   }
 
-  template<typename ForwardKey> bool add__impl(ForwardKey &&key, uint32_t real_hash)
+  template<typename ForwardKey> bool add__impl(ForwardKey &&key, uint32_t hash)
   {
-    uint32_t hash = real_hash;
-    uint32_t perturb = real_hash;
-
     this->ensure_can_add();
 
-    do {
-      for (uint32_t i = 0; i < s_linear_probing_steps; i++) {
-        uint32_t slot_index = (hash + i) & m_slot_mask;
-        Slot &slot = m_slots[slot_index];
-        if (slot.is_empty()) {
-          slot.set(std::forward<ForwardKey>(key), real_hash);
-          m_set_or_dummy_slots++;
-          return true;
-        }
-        if (slot.contains(std::forward<ForwardKey>(key), real_hash)) {
-          return false;
-        }
+    ITER_SLOTS_BEGIN (hash, m_slot_mask, slot_index) {
+      Slot &slot = m_slots[slot_index];
+      if (slot.is_empty()) {
+        slot.set(std::forward<ForwardKey>(key), hash);
+        m_set_or_dummy_slots++;
+        return true;
       }
-
-      perturb >>= 5;
-      hash = hash * 5 + 1 + perturb;
-    } while (true);
+      if (slot.contains(std::forward<ForwardKey>(key), hash)) {
+        return false;
+      }
+    }
+    ITER_SLOTS_END();
   }
 
-  template<typename ForwardKey> void remove__impl(const ForwardKey &key, uint32_t real_hash)
+  template<typename ForwardKey> void remove__impl(const ForwardKey &key, uint32_t hash)
   {
-    uint32_t hash = real_hash;
-    uint32_t perturb = real_hash;
-
     m_dummy_slots++;
 
-    do {
-      for (uint32_t i = 0; i < s_linear_probing_steps; i++) {
-        uint32_t slot_index = (hash + i) & m_slot_mask;
-        Slot &slot = m_slots[slot_index];
-        if (slot.contains(key, real_hash)) {
-          slot.set_to_dummy();
-          return;
-        }
+    ITER_SLOTS_BEGIN (hash, m_slot_mask, slot_index) {
+      Slot &slot = m_slots[slot_index];
+      if (slot.contains(key, hash)) {
+        slot.set_to_dummy();
+        return;
       }
-
-      perturb >>= 5;
-      hash = hash * 5 + 1 + perturb;
-    } while (true);
+    }
+    ITER_SLOTS_END();
   }
 
   uint32_t count_collisions(const Key &key) const
   {
-    uint32_t real_hash = Hash{}(key);
-    uint32_t hash = real_hash;
-    uint32_t perturb = real_hash;
-
+    uint32_t hash = Hash{}(key);
     uint32_t collisions = 0;
 
-    do {
-      for (uint32_t i = 0; i < s_linear_probing_steps; i++) {
-        uint32_t slot_index = (hash + i) & m_slot_mask;
-        const Slot &slot = m_slots[slot_index];
-        if (slot.contains(key, real_hash)) {
-          return collisions;
-        }
-        if (slot.is_empty()) {
-          return collisions;
-        }
-        collisions++;
+    ITER_SLOTS_BEGIN (hash, m_slot_mask, slot_index) {
+      const Slot &slot = m_slots[slot_index];
+      if (slot.contains(key, hash)) {
+        return collisions;
       }
-
-      perturb >>= 5;
-      hash = hash * 5 + 1 + perturb;
-    } while (true);
+      if (slot.is_empty()) {
+        return collisions;
+      }
+      collisions++;
+    }
+    ITER_SLOTS_END();
   }
 
   Vector<uint32_t> get_collision_stats() const
@@ -453,6 +425,9 @@ class Set {
       this->grow(this->size() + 1);
     }
   }
+
+#undef ITER_SLOTS_BEGIN
+#undef ITER_SLOTS_END
 };
 
 template<typename Key> class SimpleSetSlot {
