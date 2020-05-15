@@ -73,7 +73,7 @@ void deg_foreach_dependent_operation(const Depsgraph *UNUSED(graph),
   }
   /* Start with scheduling all operations from ID node. */
   TraversalQueue queue;
-  Set<OperationNode *> scheduled;
+  Set<OperationNode *, 8> scheduled;
   for (ComponentNode *comp_node : target_id_node->components.values()) {
     if (source_component_type != DEG_OB_COMP_ANY &&
         nodeTypeToObjectComponent(comp_node->type) != source_component_type) {
