@@ -225,10 +225,10 @@ class Set {
     return Iterator(m_slots.begin(), m_slots.size(), m_slots.size());
   }
 
-  void print_collision_stats() const
+  void print_collision_stats(StringRef name = "") const
   {
     Vector<uint32_t> stats = this->get_collision_stats();
-    std::cout << "Collisions stats:\n";
+    std::cout << "Collisions stats: " << name << "\n";
     if (this->size() == 0) {
       std::cout << "  <empty>\n";
       return;
@@ -310,7 +310,7 @@ class Set {
 #define ITER_SLOTS_END() \
     } while (--linear_offset > 0); \
     if (perturb != 0) {\
-      perturb >>= 11; \
+      perturb >>= 10; \
       current_hash = ((current_hash >> 16) ^ current_hash) * 0x45d9f3b + perturb; \
     } \
     else { \
