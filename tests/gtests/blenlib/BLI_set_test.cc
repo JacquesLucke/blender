@@ -1,3 +1,4 @@
+#include "BLI_rand.h"
 #include "BLI_set.hh"
 #include "BLI_vector.hh"
 #include "testing/testing.h"
@@ -250,3 +251,56 @@ TEST(set, PointerSet)
   EXPECT_TRUE(set.contains(&b));
   EXPECT_FALSE(set.contains(&c));
 }
+
+#if 0
+TEST(set, CollisionsTest)
+{
+  Set<uint32_t> set;
+  RNG *rng = BLI_rng_new(0);
+  uint32_t amount = 1 << 20;
+
+  for (uint i = 0; i < amount; i++) {
+    set.add(i);
+  }
+  set.print_collision_stats("Consecutive");
+  set.clear();
+
+  for (uint i = 0; i < amount; i++) {
+    set.add(i << 4);
+  }
+  set.print_collision_stats("Consecutive << 4");
+  set.clear();
+
+  for (uint i = 0; i < amount; i++) {
+    set.add(i << 12);
+  }
+  set.print_collision_stats("Consecutive << 12");
+  set.clear();
+
+  for (uint i = 0; i < amount; i++) {
+    set.add(BLI_rng_get_uint(rng));
+  }
+  set.print_collision_stats("Random");
+  set.clear();
+
+  for (uint i = 0; i < amount; i++) {
+    set.add(BLI_rng_get_uint(rng) << 2);
+  }
+  set.print_collision_stats("Random << 2");
+  set.clear();
+
+  for (uint i = 0; i < amount; i++) {
+    set.add(BLI_rng_get_uint(rng) << 12);
+  }
+  set.print_collision_stats("Random << 12");
+  set.clear();
+
+  for (uint i = 0; i < amount; i++) {
+    set.add(i * 11);
+  }
+  set.print_collision_stats("Multiples of 11");
+  set.clear();
+
+  BLI_rng_free(rng);
+}
+#endif
