@@ -239,6 +239,11 @@ class Set {
       total_collisions += stats[i] * i;
     }
     std::cout << "  Average Collisions: " << (float)total_collisions / (float)this->size() << "\n";
+    std::cout << "  Total Slots: " << m_slots.size() << "\n";
+    std::cout << "  Used Slots:  " << this->size() << " ("
+              << (float)this->size() / (float)m_slots.size() * 100.0f << " %)\n";
+    std::cout << "  Dummy Slots: " << m_dummy_slots << " ("
+              << (float)m_dummy_slots / (float)m_slots.size() * 100.0f << " %)\n";
   }
 
   void clear()
