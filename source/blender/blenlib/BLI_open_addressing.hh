@@ -221,13 +221,13 @@ using DefaultProbingStrategy = ShuffleProbingStrategy;
 #define SLOT_PROBING_BEGIN(HASH, MASK, R_SLOT_INDEX) \
   ProbingStrategy probing_strategy(HASH); \
   do { \
-    uint32_t linear_offset = probing_strategy.linear_steps(); \
+    uint32_t linear_offset = 0; \
     uint32_t current_hash = probing_strategy.get(); \
     do { \
       uint32_t R_SLOT_INDEX = (current_hash + linear_offset) & MASK;
 
 #define SLOT_PROBING_END() \
-    } while (--linear_offset > 0); \
+    } while (++linear_offset < probing_strategy.linear_steps()); \
     probing_strategy.next(); \
   } while (true)
 
