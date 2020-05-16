@@ -155,7 +155,7 @@ class QuadraticProbingStrategy {
   }
 };
 
-class PythonProbingStrategy {
+template<uint32_t LinearSteps = 1> class PythonProbingStrategy {
  private:
   uint32_t m_hash;
   uint32_t m_perturb;
@@ -178,11 +178,11 @@ class PythonProbingStrategy {
 
   uint32_t linear_steps() const
   {
-    return 1;
+    return LinearSteps;
   }
 };
 
-class ShuffleProbingStrategy {
+template<uint32_t LinearSteps = 2> class ShuffleProbingStrategy {
  private:
   uint32_t m_hash;
   uint32_t m_perturb;
@@ -210,11 +210,11 @@ class ShuffleProbingStrategy {
 
   uint32_t linear_steps() const
   {
-    return 2;
+    return LinearSteps;
   }
 };
 
-using DefaultProbingStrategy = ShuffleProbingStrategy;
+using DefaultProbingStrategy = ShuffleProbingStrategy<>;
 
 // clang-format off
 
