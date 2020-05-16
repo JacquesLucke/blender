@@ -17,84 +17,25 @@
 #ifndef __BLI_VECTOR_SET_HH__
 #define __BLI_VECTOR_SET_HH__
 
+/** \file
+ * \ingroup bli
+ *
+ * Todo:
+ * - print stats
+ */
+
 #include "BLI_array.hh"
 #include "BLI_hash.hh"
 #include "BLI_open_addressing.hh"
 
 namespace BLI {
 
-template<typename Key> class SimpleVectorSetSlot {
- private:
-  static constexpr int32_t s_is_empty = -1;
-  static constexpr int32_t s_is_dummy = -2;
-
-  int32_t m_state = s_is_empty;
-
- public:
-  bool is_set() const
-  {
-    return m_state >= 0;
-  }
-
-  bool is_empty() const
-  {
-    return m_state == s_is_empty;
-  }
-
-  uint32_t index() const
-  {
-    BLI_assert(this->is_set());
-    return m_state;
-  }
-
-  template<typename ForwardKey>
-  bool contains(const ForwardKey &key, uint32_t UNUSED(hash), const Key *keys) const
-  {
-    if (m_state >= 0) {
-      return key == keys[m_state];
-    }
-    return false;
-  }
-
-  void set_and_destruct_other(SimpleVectorSetSlot &other, uint32_t UNUSED(hash))
-  {
-    BLI_assert(!this->is_set());
-    BLI_assert(other.is_set());
-    m_state = other.m_state;
-  }
-
-  void set(uint32_t index, uint32_t UNUSED(hash))
-  {
-    BLI_assert(!this->is_set());
-    m_state = (int32_t)index;
-  }
-
-  void update_index(uint32_t index)
-  {
-    BLI_assert(this->is_set());
-    m_state = (int32_t)index;
-  }
-
-  void set_to_dummy()
-  {
-    m_state = s_is_dummy;
-  }
-
-  bool has_index(uint32_t index) const
-  {
-    return (uint32_t)m_state == index;
-  }
-
-  template<typename Hash> uint32_t get_hash(const Key &key, const Hash &hash) const
-  {
-    BLI_assert(this->is_set());
-    return hash(key);
-  }
-};
+template<typename Key> struct DefaultVectorSetSlot;
 
 template<typename Key,
          uint32_t InlineBufferCapacity = 4,
          typename Hash = DefaultHash<Key>,
+         typename Slot = typename DefaultVectorSetSlot<Key>::type,
          typename ProbingStrategy = DefaultProbingStrategy,
          typename Allocator = GuardedAllocator>
 class VectorSet {
@@ -104,7 +45,6 @@ class VectorSet {
   static constexpr uint32_t s_default_slot_array_size = total_slot_amount_for_usable_slots(
       InlineBufferCapacity, s_max_load_factor_numerator, s_max_load_factor_denominator);
 
-  using Slot = SimpleVectorSetSlot<Key>;
   using SlotArray = Array<Slot, s_default_slot_array_size, Allocator>;
   SlotArray m_slots;
   Key *m_keys;
@@ -489,6 +429,79 @@ class VectorSet {
   {
     m_slots.allocator().deallocate(keys);
   }
+};
+
+template<typename Key> class SimpleVectorSetSlot {
+ private:
+  static constexpr int32_t s_is_empty = -1;
+  static constexpr int32_t s_is_dummy = -2;
+
+  int32_t m_state = s_is_empty;
+
+ public:
+  bool is_set() const
+  {
+    return m_state >= 0;
+  }
+
+  bool is_empty() const
+  {
+    return m_state == s_is_empty;
+  }
+
+  uint32_t index() const
+  {
+    BLI_assert(this->is_set());
+    return m_state;
+  }
+
+  template<typename ForwardKey>
+  bool contains(const ForwardKey &key, uint32_t UNUSED(hash), const Key *keys) const
+  {
+    if (m_state >= 0) {
+      return key == keys[m_state];
+    }
+    return false;
+  }
+
+  void set_and_destruct_other(SimpleVectorSetSlot &other, uint32_t UNUSED(hash))
+  {
+    BLI_assert(!this->is_set());
+    BLI_assert(other.is_set());
+    m_state = other.m_state;
+  }
+
+  void set(uint32_t index, uint32_t UNUSED(hash))
+  {
+    BLI_assert(!this->is_set());
+    m_state = (int32_t)index;
+  }
+
+  void update_index(uint32_t index)
+  {
+    BLI_assert(this->is_set());
+    m_state = (int32_t)index;
+  }
+
+  void set_to_dummy()
+  {
+    m_state = s_is_dummy;
+  }
+
+  bool has_index(uint32_t index) const
+  {
+    return (uint32_t)m_state == index;
+  }
+
+  template<typename Hash> uint32_t get_hash(const Key &key, const Hash &hash) const
+  {
+    BLI_assert(this->is_set());
+    return hash(key);
+  }
+};
+
+template<typename Key> struct DefaultVectorSetSlot {
+  using type = SimpleVectorSetSlot<Key>;
 };
 
 }  // namespace BLI

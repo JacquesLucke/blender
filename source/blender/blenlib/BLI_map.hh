@@ -17,6 +17,13 @@
 #ifndef __BLI_MAP_HH__
 #define __BLI_MAP_HH__
 
+/** \file
+ * \ingroup bli
+ *
+ * Todo:
+ * - print stats
+ */
+
 #include "BLI_array.hh"
 #include "BLI_hash.hh"
 #include "BLI_open_addressing.hh"

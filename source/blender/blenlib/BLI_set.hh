@@ -31,10 +31,6 @@
  * compute the slot index based the initial hash. Therefore, the hash function is expected to
  * provide a good distribution in the lower bits. If it does not do so, rehashing will kick in
  * after x linear probing steps. Then higher bits will be taken into account as well.
- *
- * TODO:
- *  - Dynamic default for inline buffer capacity (depending on size of key).
- *  - Simple way to find bad uses of the Set (too many collisions).
  */
 
 #include <type_traits>
