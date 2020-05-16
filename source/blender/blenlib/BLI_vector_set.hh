@@ -19,6 +19,9 @@
 
 /** \file
  * \ingroup bli
+ *
+ * TODO:
+ * - Small buffer optimization for the keys.
  */
 
 #include "BLI_array.hh"
