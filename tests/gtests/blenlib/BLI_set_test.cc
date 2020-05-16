@@ -1,10 +1,14 @@
+#include <set>
+#include <unordered_set>
+
+#include "BLI_ghash.h"
 #include "BLI_rand.h"
 #include "BLI_set.hh"
+#include "BLI_timeit.hh"
 #include "BLI_vector.hh"
 #include "testing/testing.h"
 
-using BLI::Set;
-using BLI::Vector;
+using namespace BLI;
 using IntSet = Set<int>;
 
 TEST(set, DefaultConstructor)
@@ -302,5 +306,64 @@ TEST(set, CollisionsTest)
   set.clear();
 
   BLI_rng_free(rng);
+}
+#endif
+
+#if 0
+TEST(set, Benchmark)
+{
+  RNG *rng = BLI_rng_new(0);
+  Vector<char *> values;
+  for (uint i : IndexRange(20000000)) {
+    UNUSED_VARS(i);
+    values.append(new char());
+  }
+  BLI_rng_free(rng);
+
+  uint counter = 0;
+
+  for (uint iteration : IndexRange(3)) {
+    UNUSED_VARS(iteration);
+    // {
+    //   SCOPED_TIMER("std::set");
+    //   std::set<char *> set;
+    //   for (auto &value : values) {
+    //     set.insert(value);
+    //   }
+    //   counter += set.size();
+    // }
+    // {
+    //   SCOPED_TIMER("std::unordered_set");
+    //   std::unordered_set<char *> set;
+    //   for (auto &value : values) {
+    //     set.insert(value);
+    //   }
+    //   counter += set.size();
+    // }
+    {
+      SCOPED_TIMER("BLI::Set Add");
+      Set<char *> set;
+      set.reserve(values.size());
+
+      for (auto &value : values) {
+        set.add(value);
+      }
+
+      counter += set.size();
+    }
+    {
+      SCOPED_TIMER("GSet");
+      GSet *set = BLI_gset_ptr_new_ex("benchmark", values.size());
+      for (auto &value : values) {
+        // BLI_gset_add(set, value);
+        BLI_gset_insert(set, value);
+      }
+      counter += BLI_gset_len(set);
+      BLI_gset_free(set, nullptr);
+    }
+    std::cout << "\n";
+  }
+
+  std::cout << "Counter: " << counter << "\n";
 }
 #endif

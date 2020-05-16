@@ -136,6 +136,13 @@ class Set {
     return m_set_or_dummy_slots == m_dummy_slots;
   }
 
+  void reserve(uint32_t min_usable_slots)
+  {
+    if (m_usable_slots < min_usable_slots) {
+      this->grow(min_usable_slots);
+    }
+  }
+
   void add_new(const Key &key)
   {
     this->add_new__impl(key, Hash{}(key));
@@ -335,12 +342,12 @@ class Set {
     BLI_assert(!this->contains(key));
 
     this->ensure_can_add();
-    m_set_or_dummy_slots++;
 
     SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
       Slot &slot = m_slots[slot_index];
       if (slot.is_empty()) {
         slot.set(std::forward<ForwardKey>(key), hash);
+        m_set_or_dummy_slots++;
         return;
       }
     }
