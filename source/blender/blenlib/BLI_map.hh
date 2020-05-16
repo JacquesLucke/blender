@@ -116,6 +116,26 @@ class Map {
     return m_set_or_dummy_slots == m_dummy_slots;
   }
 
+  uint32_t capacity() const
+  {
+    return m_slots.size();
+  }
+
+  uint32_t dummy_amount() const
+  {
+    return m_dummy_slots;
+  }
+
+  uint32_t size_per_element() const
+  {
+    return sizeof(Slot);
+  }
+
+  uint32_t size_in_bytes() const
+  {
+    return sizeof(Slot) * m_slots.size();
+  }
+
   bool contains(const Key &key) const
   {
     return this->contains__impl(key, Hash{}(key));
@@ -420,6 +440,30 @@ class Map {
   MutableItemIterator items()
   {
     return MutableItemIterator(m_slots.begin(), m_slots.size(), 0);
+  }
+
+  void print_stats(StringRef name = "") const
+  {
+    HashTableStats stats(*this, this->keys());
+    stats.print();
+  }
+
+  uint32_t count_collisions(const Key &key) const
+  {
+    uint32_t hash = Hash{}(key);
+    uint32_t collisions = 0;
+
+    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+      const Slot &slot = m_slots[slot_index];
+      if (slot.contains(key, hash)) {
+        return collisions;
+      }
+      if (slot.is_empty()) {
+        return collisions;
+      }
+      collisions++;
+    }
+    SLOT_PROBING_END();
   }
 
  private:

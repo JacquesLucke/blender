@@ -142,9 +142,14 @@ class Set {
     return m_dummy_slots;
   }
 
+  uint32_t size_per_element() const
+  {
+    return sizeof(Slot);
+  }
+
   uint32_t size_in_bytes() const
   {
-    return m_slots.size() * sizeof(Slot);
+    return sizeof(Slot) * m_slots.size();
   }
 
   void reserve(uint32_t min_usable_slots)
@@ -246,7 +251,7 @@ class Set {
     return Iterator(m_slots.begin(), m_slots.size(), m_slots.size());
   }
 
-  void print_collision_stats(StringRef name = "") const
+  void print_stats(StringRef name = "") const
   {
     HashTableStats stats(*this, *this);
     stats.print();

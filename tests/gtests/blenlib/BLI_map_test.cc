@@ -57,7 +57,8 @@ TEST(map, AddMany)
 {
   IntFloatMap map;
   for (int i = 0; i < 100; i++) {
-    map.add(i, i);
+    map.add(i * 30, i);
+    map.add(i * 31, i);
   }
 }
 

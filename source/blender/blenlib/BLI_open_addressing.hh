@@ -245,8 +245,8 @@ class HashTableStats {
   uint32_t m_dummy_amount;
   float m_load_factor;
   float m_dummy_load_factor;
+  uint32_t m_size_per_element;
   uint32_t m_size_in_bytes;
-  uint32_t m_size_per_slot;
 
  public:
   /**
@@ -255,6 +255,7 @@ class HashTableStats {
    * - size() -> uint32_t
    * - capacity() -> uint32_t
    * - dummy_amount() -> uint32_t
+   * - size_per_element() -> uint32_t
    * - size_in_bytes() -> uint32_t
    */
   template<typename HashTable, typename Keys>
@@ -264,6 +265,7 @@ class HashTableStats {
     m_size = hash_table.size();
     m_capacity = hash_table.capacity();
     m_dummy_amount = hash_table.dummy_amount();
+    m_size_per_element = hash_table.size_per_element();
     m_size_in_bytes = hash_table.size_in_bytes();
 
     for (const auto &key : keys) {
@@ -279,7 +281,6 @@ class HashTableStats {
     m_average_collisions = (m_size == 0) ? 0 : (float)m_total_collisions / (float)m_size;
     m_load_factor = (float)m_size / (float)m_capacity;
     m_dummy_load_factor = (float)m_dummy_amount / (float)m_capacity;
-    m_size_per_slot = m_size_in_bytes / m_capacity;
   }
 
   void print(StringRef name = "")
@@ -293,7 +294,7 @@ class HashTableStats {
     char memory_size_str[15];
     BLI_str_format_byte_unit(memory_size_str, m_size_in_bytes, true);
     std::cout << "  Size: ~" << memory_size_str << "\n";
-    std::cout << "  Size per Slot: " << m_size_per_slot << " bytes\n";
+    std::cout << "  Size per Slot: " << m_size_per_element << " bytes\n";
 
     std::cout << "  Average Collisions: " << m_average_collisions << "\n";
     for (uint32_t collision_count : m_keys_by_collision_count.index_range()) {
