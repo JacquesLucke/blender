@@ -240,7 +240,6 @@ set(SRC
   BLI_strict_flags.h
   BLI_string.h
   BLI_string_cursor_utf8.h
-  BLI_string_map.hh
   BLI_string_ref.hh
   BLI_string_utf8.h
   BLI_string_utils.h

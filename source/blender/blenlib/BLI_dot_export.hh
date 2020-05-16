@@ -27,7 +27,6 @@
 #include "BLI_map.hh"
 #include "BLI_optional.hh"
 #include "BLI_set.hh"
-#include "BLI_string_map.hh"
 #include "BLI_utility_mixins.hh"
 #include "BLI_vector.hh"
 
