@@ -7,7 +7,7 @@ using BLI::Set;
 using BLI::Vector;
 using IntSet = Set<int>;
 
-TEST(set, Defaultconstructor)
+TEST(set, DefaultConstructor)
 {
   IntSet set;
   EXPECT_EQ(set.size(), 0);
