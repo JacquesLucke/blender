@@ -58,8 +58,22 @@ TRIVIAL_DEFAULT_INT_HASH(int16_t);
 TRIVIAL_DEFAULT_INT_HASH(uint16_t);
 TRIVIAL_DEFAULT_INT_HASH(int32_t);
 TRIVIAL_DEFAULT_INT_HASH(uint32_t);
-TRIVIAL_DEFAULT_INT_HASH(int64_t);
-TRIVIAL_DEFAULT_INT_HASH(uint64_t);
+
+template<> struct DefaultHash<uint64_t> {
+  uint32_t operator()(uint64_t value) const
+  {
+    uint32_t low = value;
+    uint32_t high = value >> 32;
+    return low ^ (high * 0x45d9f3b);
+  }
+};
+
+template<> struct DefaultHash<int64_t> {
+  uint32_t operator()(uint64_t value) const
+  {
+    return DefaultHash<uint64_t>{}((uint64_t)value);
+  }
+};
 
 template<> struct DefaultHash<float> {
   uint32_t operator()(float value) const
