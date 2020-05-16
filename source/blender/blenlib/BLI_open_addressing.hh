@@ -173,13 +173,13 @@ class PythonProbingStrategy {
   }
 };
 
-class MyProbingStrategy {
+class ShuffleProbingStrategy {
  private:
   uint32_t m_hash;
   uint32_t m_perturb;
 
  public:
-  MyProbingStrategy(uint32_t hash) : m_hash(hash), m_perturb(hash)
+  ShuffleProbingStrategy(uint32_t hash) : m_hash(hash), m_perturb(hash)
   {
   }
 
@@ -205,7 +205,7 @@ class MyProbingStrategy {
   }
 };
 
-using DefaultProbingStrategy = MyProbingStrategy;
+using DefaultProbingStrategy = ShuffleProbingStrategy;
 
 // clang-format off
 
