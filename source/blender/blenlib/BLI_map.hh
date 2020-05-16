@@ -14,8 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#ifndef __BLI_SINGLE_SLOT_MAP_HH__
-#define __BLI_SINGLE_SLOT_MAP_HH__
+#ifndef __BLI_MAP_HH__
+#define __BLI_MAP_HH__
 
 #include "BLI_array.hh"
 #include "BLI_hash.hh"
@@ -746,4 +746,4 @@ template<typename Key, typename Value> struct DefaultMapSlot {
 
 }  // namespace BLI
 
-#endif /* __BLI_SINGLE_SLOT_MAP_HH__ */
+#endif /* __BLI_MAP_HH__ */

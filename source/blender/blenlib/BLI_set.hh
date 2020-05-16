@@ -14,8 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#ifndef __BLI_SINGLE_SLOT_SET_HH__
-#define __BLI_SINGLE_SLOT_SET_HH__
+#ifndef __BLI_SET_HH__
+#define __BLI_SET_HH__
 
 /** \file
  * \ingroup bli
@@ -701,4 +701,4 @@ template<typename Key> struct DefaultSetSlot<Key *> {
 
 }  // namespace BLI
 
-#endif /* __BLI_SINGLE_SLOT_SET_HH__ */
+#endif /* __BLI_SET_HH__ */
