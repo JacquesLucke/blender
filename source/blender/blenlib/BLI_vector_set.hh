@@ -17,141 +17,150 @@
 #ifndef __BLI_VECTOR_SET_HH__
 #define __BLI_VECTOR_SET_HH__
 
-/** \file
- * \ingroup bli
- *
- * A VectorSet is a set built on top of a vector. The elements are stored in a continuous array,
- * but every element exists at most once. The insertion order is maintained, as long as there are
- * no deletes. The expected time to check if a value is in the VectorSet is O(1).
- */
-
+#include "BLI_array.hh"
 #include "BLI_hash.hh"
 #include "BLI_open_addressing.hh"
-#include "BLI_vector.hh"
 
 namespace BLI {
 
-// clang-format off
-
-#define ITER_SLOTS_BEGIN(VALUE, ARRAY, OPTIONAL_CONST, R_SLOT) \
-  uint32_t hash = DefaultHash<T>{}(VALUE); \
-  uint32_t perturb = hash; \
-  while (true) { \
-    for (uint i = 0; i < 4; i++) {\
-      uint32_t slot_index = (hash + i) & ARRAY.slot_mask(); \
-      OPTIONAL_CONST Slot &R_SLOT = ARRAY.item(slot_index);
-
-#define ITER_SLOTS_END \
-    } \
-    perturb >>= 5; \
-    hash = hash * 5 + 1 + perturb; \
-  } ((void)0)
-
-// clang-format on
-
-template<typename T, typename Allocator = GuardedAllocator> class VectorSet {
+template<typename Key> class SimpleVectorSetSlot {
  private:
-  static constexpr int32_t IS_EMPTY = -1;
-  static constexpr int32_t IS_DUMMY = -2;
+  static constexpr int32_t s_is_empty = -1;
+  static constexpr int32_t s_is_dummy = -2;
 
-  class Slot {
-   private:
-    int32_t m_value = IS_EMPTY;
+  int32_t m_state = s_is_empty;
 
-   public:
-    static constexpr uint slots_per_item = 1;
+ public:
+  bool is_set() const
+  {
+    return m_state >= 0;
+  }
 
-    bool is_set() const
-    {
-      return m_value >= 0;
+  bool is_empty() const
+  {
+    return m_state == s_is_empty;
+  }
+
+  uint32_t index() const
+  {
+    BLI_assert(this->is_set());
+    return m_state;
+  }
+
+  template<typename ForwardKey>
+  bool contains(const ForwardKey &key, uint32_t UNUSED(hash), const Key *keys) const
+  {
+    if (m_state >= 0) {
+      return key == keys[m_state];
     }
+    return false;
+  }
 
-    bool is_empty() const
-    {
-      return m_value == IS_EMPTY;
-    }
+  void set_and_destruct_other(SimpleVectorSetSlot &other, uint32_t UNUSED(hash))
+  {
+    BLI_assert(!this->is_set());
+    BLI_assert(other.is_set());
+    m_state = other.m_state;
+  }
 
-    bool is_dummy() const
-    {
-      return m_value == IS_DUMMY;
-    }
+  void set(uint32_t index, uint32_t UNUSED(hash))
+  {
+    BLI_assert(!this->is_set());
+    m_state = (int32_t)index;
+  }
 
-    bool has_value(const T &value, const T *elements) const
-    {
-      return this->is_set() && elements[this->index()] == value;
-    }
+  void update_index(uint32_t index)
+  {
+    BLI_assert(this->is_set());
+    m_state = (int32_t)index;
+  }
 
-    bool has_index(uint index) const
-    {
-      return m_value == (int32_t)index;
-    }
+  void set_to_dummy()
+  {
+    m_state = s_is_dummy;
+  }
 
-    uint index() const
-    {
-      BLI_assert(this->is_set());
-      return (uint)m_value;
-    }
+  bool has_index(uint32_t index) const
+  {
+    return (uint32_t)m_state == index;
+  }
 
-    int32_t &index_ref()
-    {
-      return m_value;
-    }
+  template<typename Hash> uint32_t get_hash(const Key &key, const Hash &hash) const
+  {
+    BLI_assert(this->is_set());
+    return hash(key);
+  }
+};
 
-    void set_index(uint index)
-    {
-      BLI_assert(!this->is_set());
-      m_value = (int32_t)index;
-    }
+template<typename Key,
+         typename Hash = DefaultHash<Key>,
+         typename ProbingStrategy = DefaultProbingStrategy,
+         typename Allocator = GuardedAllocator>
+class VectorSet {
+ private:
+  static constexpr uint32_t s_default_slot_array_size = 8;
 
-    void set_dummy()
-    {
-      BLI_assert(this->is_set());
-      m_value = IS_DUMMY;
-    }
-  };
+  using Slot = SimpleVectorSetSlot<Key>;
+  using SlotArray = Array<Slot, 4, Allocator>;
+  SlotArray m_slots;
+  Key *m_keys;
 
-  using ArrayType = OpenAddressingArray<Slot, 4, Allocator>;
-  ArrayType m_array;
-
-  /* The capacity of the array should always be at least m_array.slots_usable(). */
-  T *m_elements = nullptr;
+  uint32_t m_dummy_slots;
+  uint32_t m_set_or_dummy_slots;
+  uint32_t m_usable_slots;
+  uint32_t m_slot_mask;
 
  public:
   VectorSet()
   {
-    m_elements = this->allocate_elements_array(m_array.slots_usable());
+    m_slots = SlotArray(power_of_2_max_u(s_default_slot_array_size));
+
+    m_dummy_slots = 0;
+    m_set_or_dummy_slots = 0;
+    m_usable_slots = m_slots.size() / 2;
+    m_slot_mask = m_slots.size() - 1;
+
+    m_keys = this->allocate_keys_array(m_usable_slots);
   }
 
-  VectorSet(ArrayRef<T> values) : VectorSet()
+  VectorSet(const std::initializer_list<Key> &keys) : VectorSet()
   {
-    this->add_multiple(values);
-  }
-
-  VectorSet(const std::initializer_list<T> &values) : VectorSet()
-  {
-    this->add_multiple(values);
-  }
-
-  VectorSet(const Vector<T> &values) : VectorSet()
-  {
-    this->add_multiple(values);
-  }
-
-  VectorSet(const VectorSet &other) : m_array(other.m_array)
-  {
-    m_elements = this->allocate_elements_array(m_array.slots_usable());
-    copy_n(other.m_elements, m_array.slots_set(), m_elements);
-  }
-
-  VectorSet(VectorSet &&other) : m_array(std::move(other.m_array)), m_elements(other.m_elements)
-  {
-    other.m_elements = other.allocate_elements_array(other.m_array.slots_usable());
+    this->add_multiple(keys);
   }
 
   ~VectorSet()
   {
-    destruct_n(m_elements, this->size());
-    this->deallocate_elements_array(m_elements);
+    destruct_n(m_keys, this->size());
+    this->deallocate_keys_array(m_keys);
+  }
+
+  VectorSet(const VectorSet &other)
+      : m_slots(other.m_slots),
+        m_dummy_slots(other.m_dummy_slots),
+        m_set_or_dummy_slots(other.m_set_or_dummy_slots),
+        m_usable_slots(other.m_usable_slots),
+        m_slot_mask(other.m_slot_mask)
+  {
+    m_keys = this->allocate_keys_array(m_usable_slots);
+    uninitialized_copy_n(other.m_keys, other.size(), m_keys);
+  }
+
+  VectorSet(VectorSet &&other)
+      : m_slots(std::move(other.m_slots)),
+        m_keys(other.m_keys),
+        m_dummy_slots(other.m_dummy_slots),
+        m_set_or_dummy_slots(other.m_set_or_dummy_slots),
+        m_usable_slots(other.m_usable_slots),
+        m_slot_mask(other.m_slot_mask)
+  {
+    other.m_slots = SlotArray(power_of_2_max_u(s_default_slot_array_size));
+
+    other.m_dummy_slots = 0;
+    other.m_set_or_dummy_slots = 0;
+    other.m_usable_slots = other.m_slots.size() / 2;
+    other.m_slot_mask = other.m_slots.size() - 1;
+
+    other.m_keys = this->allocate_keys_array(other.m_usable_slots);
   }
 
   VectorSet &operator=(const VectorSet &other)
@@ -159,8 +168,10 @@ template<typename T, typename Allocator = GuardedAllocator> class VectorSet {
     if (this == &other) {
       return *this;
     }
+
     this->~VectorSet();
     new (this) VectorSet(other);
+
     return *this;
   }
 
@@ -169,318 +180,308 @@ template<typename T, typename Allocator = GuardedAllocator> class VectorSet {
     if (this == &other) {
       return *this;
     }
+
     this->~VectorSet();
     new (this) VectorSet(std::move(other));
+
     return *this;
   }
 
-  /**
-   * Allocate memory such that at least min_usable_slots can be added without having to grow again.
-   */
-  void reserve(uint min_usable_slots)
+  uint32_t size() const
   {
-    if (m_array.slots_usable() < min_usable_slots) {
-      this->grow(min_usable_slots);
-    }
-  }
-
-  /**
-   * Add a new element. The method assumes that the value did not exist before.
-   */
-  void add_new(const T &value)
-  {
-    this->add_new__impl(value);
-  }
-  void add_new(T &&value)
-  {
-    this->add_new__impl(std::move(value));
-  }
-
-  /**
-   * Add a new element if it does not exist yet. Does not add the value again if it exists already.
-   */
-  bool add(const T &value)
-  {
-    return this->add__impl(value);
-  }
-  bool add(T &&value)
-  {
-    return this->add__impl(std::move(value));
-  }
-
-  /**
-   * Add multiple values. Duplicates will not be inserted.
-   */
-  void add_multiple(ArrayRef<T> values)
-  {
-    for (const T &value : values) {
-      this->add(value);
-    }
-  }
-
-  /**
-   * Returns true when the value is in the set-vector, otherwise false.
-   */
-  bool contains(const T &value) const
-  {
-    ITER_SLOTS_BEGIN (value, m_array, const, slot) {
-      if (slot.is_empty()) {
-        return false;
-      }
-      else if (slot.has_value(value, m_elements)) {
-        return true;
-      }
-    }
-    ITER_SLOTS_END;
-  }
-
-  /**
-   * Remove a value from the set-vector. The method assumes that the value exists.
-   */
-  void remove(const T &value)
-  {
-    BLI_assert(this->contains(value));
-    ITER_SLOTS_BEGIN (value, m_array, , slot) {
-      if (slot.has_value(value, m_elements)) {
-        uint old_index = this->size() - 1;
-        uint new_index = slot.index();
-
-        if (new_index < old_index) {
-          m_elements[new_index] = std::move(m_elements[old_index]);
-          this->update_slot_index(m_elements[new_index], old_index, new_index);
-        }
-
-        destruct(m_elements + old_index);
-        slot.set_dummy();
-        m_array.update__set_to_dummy();
-        return;
-      }
-    }
-    ITER_SLOTS_END;
-  }
-
-  /**
-   * Get and remove the last element of the vector.
-   */
-  T pop()
-  {
-    BLI_assert(this->size() > 0);
-    uint index_to_pop = this->size() - 1;
-    T value = std::move(m_elements[index_to_pop]);
-    destruct(m_elements + index_to_pop);
-
-    ITER_SLOTS_BEGIN (value, m_array, , slot) {
-      if (slot.has_index(index_to_pop)) {
-        slot.set_dummy();
-        m_array.update__set_to_dummy();
-        return value;
-      }
-    }
-    ITER_SLOTS_END;
-  }
-
-  /**
-   * Get the index of the value in the vector. It is assumed that the value is in the vector.
-   */
-  uint index(const T &value) const
-  {
-    BLI_assert(this->contains(value));
-    ITER_SLOTS_BEGIN (value, m_array, const, slot) {
-      if (slot.has_value(value, m_elements)) {
-        return slot.index();
-      }
-    }
-    ITER_SLOTS_END;
-  }
-
-  /**
-   * Get the index of the value in the vector. If it does not exist return -1.
-   */
-  int index_try(const T &value) const
-  {
-    ITER_SLOTS_BEGIN (value, m_array, const, slot) {
-      if (slot.has_value(value, m_elements)) {
-        return slot.index();
-      }
-      else if (slot.is_empty()) {
-        return -1;
-      }
-    }
-    ITER_SLOTS_END;
-  }
-
-  /**
-   * Get the number of elements in the set-vector.
-   */
-  uint size() const
-  {
-    return m_array.slots_set();
+    return m_set_or_dummy_slots - m_dummy_slots;
   }
 
   bool is_empty() const
   {
-    return this->size() == 0;
+    return m_set_or_dummy_slots == m_dummy_slots;
   }
 
-  const T *begin() const
+  void reserve(uint32_t min_usable_slots)
   {
-    return m_elements;
+    if (m_usable_slots < min_usable_slots) {
+      this->grow(min_usable_slots);
+    }
   }
 
-  const T *end() const
+  void add_new(const Key &key)
   {
-    return m_elements + this->size();
+    this->add_new__impl(key, Hash{}(key));
+  }
+  void add_new(Key &&key)
+  {
+    this->add_new__impl(std::move(key), Hash{}(key));
   }
 
-  const T &operator[](uint index) const
+  void add(const Key &key)
+  {
+    this->add__impl(key, Hash{}(key));
+  }
+  void add(Key &&key)
+  {
+    this->add__impl(std::move(key), Hash{}(key));
+  }
+
+  void add_multiple(ArrayRef<Key> keys)
+  {
+    for (const Key &key : keys) {
+      this->add(key);
+    }
+  }
+
+  bool contains(const Key &key) const
+  {
+    return this->contains__impl(key, Hash{}(key));
+  }
+
+  void remove(const Key &key)
+  {
+    this->remove__impl(key, Hash{}(key));
+  }
+
+  Key pop()
+  {
+    return this->pop__impl();
+  }
+
+  uint32_t index(const Key &key) const
+  {
+    return this->index__impl(key, Hash{}(key));
+  }
+
+  int32_t index_try(const Key &key) const
+  {
+    return this->index_try__impl(key, Hash{}(key));
+  }
+
+  const Key *begin() const
+  {
+    return m_keys;
+  }
+
+  const Key *end() const
+  {
+    return m_keys + this->size();
+  }
+
+  const Key &operator[](uint32_t index) const
   {
     BLI_assert(index <= this->size());
-    return m_elements[index];
+    return m_keys[index];
   }
 
-  ArrayRef<T> as_ref() const
+  operator ArrayRef<Key>() const
+  {
+    return ArrayRef<Key>(m_keys, this->size());
+  }
+
+  ArrayRef<Key> as_ref() const
   {
     return *this;
   }
 
-  operator ArrayRef<T>() const
-  {
-    return ArrayRef<T>(m_elements, this->size());
-  }
-
-  void print_stats() const
-  {
-    std::cout << "VectorSet at " << (void *)this << ":\n";
-    std::cout << "  Size: " << this->size() << "\n";
-    std::cout << "  Usable Slots: " << m_array.slots_usable() << "\n";
-    std::cout << "  Total Slots: " << m_array.slots_total() << "\n";
-    std::cout << "  Average Collisions: " << this->compute_average_collisions() << "\n";
-  }
-
  private:
-  void update_slot_index(T &value, uint old_index, uint new_index)
+  BLI_NOINLINE void grow(uint32_t min_usable_slots)
   {
-    ITER_SLOTS_BEGIN (value, m_array, , slot) {
-      int32_t &stored_index = slot.index_ref();
-      if (stored_index == old_index) {
-        stored_index = new_index;
+    min_usable_slots = power_of_2_max_u(min_usable_slots);
+    uint32_t total_slots = min_usable_slots * 2;
+
+    SlotArray new_slots(total_slots);
+    uint32_t new_slot_mask = total_slots - 1;
+
+    for (Slot &slot : m_slots) {
+      if (slot.is_set()) {
+        this->add_after_grow_and_destruct_old(slot, new_slots, new_slot_mask);
+      }
+    }
+
+    Key *new_keys = this->allocate_keys_array(min_usable_slots);
+    relocate_n(m_keys, this->size(), new_keys);
+    this->deallocate_keys_array(m_keys);
+
+    m_slots.clear_without_destruct();
+    m_slots = std::move(new_slots);
+    m_keys = new_keys;
+    m_set_or_dummy_slots -= m_dummy_slots;
+    m_usable_slots = min_usable_slots;
+    m_dummy_slots = 0;
+    m_slot_mask = new_slot_mask;
+  }
+
+  void add_after_grow_and_destruct_old(Slot &old_slot,
+                                       SlotArray &new_slots,
+                                       uint32_t new_slot_mask)
+  {
+    const Key &key = m_keys[old_slot.index()];
+    uint32_t hash = old_slot.get_hash(key, Hash());
+
+    SLOT_PROBING_BEGIN (hash, new_slot_mask, slot_index) {
+      Slot &slot = new_slots[slot_index];
+      if (slot.is_empty()) {
+        slot.set_and_destruct_other(old_slot, hash);
         return;
       }
     }
-    ITER_SLOTS_END;
+    SLOT_PROBING_END();
   }
 
-  template<typename ForwardT> void add_new_in_slot(Slot &slot, ForwardT &&value)
+  template<typename ForwardKey> bool contains__impl(const ForwardKey &key, uint32_t hash) const
   {
-    uint index = this->size();
-    slot.set_index(index);
-    new (m_elements + index) T(std::forward<ForwardT>(value));
-    m_array.update__empty_to_set();
+    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+      const Slot &slot = m_slots[slot_index];
+      if (slot.is_empty()) {
+        return false;
+      }
+      if (slot.contains(key, hash, m_keys)) {
+        return true;
+      }
+    }
+    SLOT_PROBING_END();
+  }
+
+  template<typename ForwardKey> void add_new__impl(ForwardKey &&key, uint32_t hash)
+  {
+    BLI_assert(!this->contains(key));
+
+    this->ensure_can_add();
+
+    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+      Slot &slot = m_slots[slot_index];
+      if (slot.is_empty()) {
+        uint32_t index = this->size();
+        new (m_keys + index) Key(std::forward<ForwardKey>(key));
+        slot.set(index, hash);
+        m_set_or_dummy_slots++;
+        return;
+      }
+    }
+    SLOT_PROBING_END();
+  }
+
+  template<typename ForwardKey> bool add__impl(ForwardKey &&key, uint32_t hash)
+  {
+    this->ensure_can_add();
+
+    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+      Slot &slot = m_slots[slot_index];
+      if (slot.is_empty()) {
+        uint32_t index = this->size();
+        new (m_keys + index) Key(std::forward<ForwardKey>(key));
+        m_set_or_dummy_slots++;
+        slot.set(index, hash);
+        return true;
+      }
+      if (slot.contains(key, hash, m_keys)) {
+        return false;
+      }
+    }
+    SLOT_PROBING_END();
+  }
+
+  template<typename ForwardKey> uint32_t index__impl(const ForwardKey &key, uint32_t hash) const
+  {
+    BLI_assert(this->contains(key));
+
+    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+      const Slot &slot = m_slots[slot_index];
+      if (slot.contains(key, hash, m_keys)) {
+        return slot.index();
+      }
+    }
+    SLOT_PROBING_END();
+  }
+
+  template<typename ForwardKey> int32_t index_try__impl(const ForwardKey &key, uint32_t hash) const
+  {
+    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+      const Slot &slot = m_slots[slot_index];
+      if (slot.contains(key, hash, m_keys)) {
+        return slot.index();
+      }
+      if (slot.is_empty()) {
+        return -1;
+      }
+    }
+    SLOT_PROBING_END();
+  }
+
+  Key pop__impl()
+  {
+    BLI_assert(this->size() > 0);
+
+    uint32_t index_to_pop = this->size() - 1;
+    Key key = std::move(m_keys[index_to_pop]);
+    destruct(m_keys + index_to_pop);
+    uint32_t hash = Hash{}(key);
+
+    m_dummy_slots++;
+
+    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+      Slot &slot = m_slots[slot_index];
+      if (slot.has_index(index_to_pop)) {
+        slot.set_to_dummy();
+        return key;
+      }
+    }
+    SLOT_PROBING_END();
+  }
+
+  template<typename ForwardKey> void remove__impl(const ForwardKey &key, uint32_t hash)
+  {
+    BLI_assert(this->contains(key));
+
+    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+      Slot &slot = m_slots[slot_index];
+      if (slot.contains(key, hash, m_keys)) {
+        uint32_t index_to_remove = slot.index();
+        uint32_t size = this->size();
+        uint32_t last_element_index = size - 1;
+
+        if (index_to_remove < last_element_index) {
+          m_keys[index_to_remove] = std::move(m_keys[last_element_index]);
+          this->update_slot_index(m_keys[index_to_remove], last_element_index, index_to_remove);
+        }
+
+        destruct(m_keys + last_element_index);
+        slot.set_to_dummy();
+        m_dummy_slots++;
+        return;
+      }
+    }
+    SLOT_PROBING_END();
+  }
+
+  void update_slot_index(const Key &key, uint32_t old_index, uint32_t new_index)
+  {
+    uint32_t hash = Hash{}(key);
+    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+      Slot &slot = m_slots[slot_index];
+      if (slot.has_index(old_index)) {
+        slot.update_index(new_index);
+        return;
+      }
+    }
+    SLOT_PROBING_END();
   }
 
   void ensure_can_add()
   {
-    if (UNLIKELY(m_array.should_grow())) {
+    if (m_set_or_dummy_slots >= m_usable_slots) {
       this->grow(this->size() + 1);
     }
   }
 
-  BLI_NOINLINE void grow(uint min_usable_slots)
+  Key *allocate_keys_array(uint32_t size)
   {
-    uint size = this->size();
-
-    ArrayType new_array = m_array.init_reserved(min_usable_slots);
-    T *new_elements = this->allocate_elements_array(new_array.slots_usable());
-
-    for (uint i : IndexRange(size)) {
-      this->add_after_grow(i, new_array);
-    }
-
-    uninitialized_relocate_n(m_elements, size, new_elements);
-    this->deallocate_elements_array(m_elements);
-
-    m_array = std::move(new_array);
-    m_elements = new_elements;
+    return (Key *)m_slots.allocator().allocate_aligned(
+        (uint32_t)sizeof(Key) * size, alignof(Key), __func__);
   }
 
-  void add_after_grow(uint index, ArrayType &new_array)
+  void deallocate_keys_array(Key *keys)
   {
-    const T &value = m_elements[index];
-    ITER_SLOTS_BEGIN (value, new_array, , slot) {
-      if (slot.is_empty()) {
-        slot.set_index(index);
-        return;
-      }
-    }
-    ITER_SLOTS_END;
-  }
-
-  float compute_average_collisions() const
-  {
-    if (this->size() == 0) {
-      return 0.0f;
-    }
-
-    uint collisions_sum = 0;
-    for (const T &value : this->as_ref()) {
-      collisions_sum += this->count_collisions(value);
-    }
-    return (float)collisions_sum / (float)this->size();
-  }
-
-  uint count_collisions(const T &value) const
-  {
-    uint collisions = 0;
-    ITER_SLOTS_BEGIN (value, m_array, const, slot) {
-      if (slot.is_empty() || slot.has_value(value, m_elements)) {
-        return collisions;
-      }
-      collisions++;
-    }
-    ITER_SLOTS_END;
-  }
-
-  template<typename ForwardT> void add_new__impl(ForwardT &&value)
-  {
-    BLI_assert(!this->contains(value));
-    this->ensure_can_add();
-    ITER_SLOTS_BEGIN (value, m_array, , slot) {
-      if (slot.is_empty()) {
-        this->add_new_in_slot(slot, std::forward<ForwardT>(value));
-        return;
-      }
-    }
-    ITER_SLOTS_END;
-  }
-
-  template<typename ForwardT> bool add__impl(ForwardT &&value)
-  {
-    this->ensure_can_add();
-    ITER_SLOTS_BEGIN (value, m_array, , slot) {
-      if (slot.is_empty()) {
-        this->add_new_in_slot(slot, std::forward<ForwardT>(value));
-        return true;
-      }
-      else if (slot.has_value(value, m_elements)) {
-        return false;
-      }
-    }
-    ITER_SLOTS_END;
-  }
-
-  T *allocate_elements_array(uint size)
-  {
-    return (T *)m_array.allocator().allocate_aligned((uint)sizeof(T) * size, alignof(T), __func__);
-  }
-
-  void deallocate_elements_array(T *elements)
-  {
-    m_array.allocator().deallocate(elements);
+    m_slots.allocator().deallocate(keys);
   }
 };
-
-#undef ITER_SLOTS_BEGIN
-#undef ITER_SLOTS_END
 
 }  // namespace BLI
 

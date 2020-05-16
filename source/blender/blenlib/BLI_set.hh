@@ -36,6 +36,7 @@
  *  - Round up inline buffer capacity.
  *  - Dynamic default for inline buffer capacity (depending on size of key).
  *  - Simple way to find bad uses of the Set (too many collisions).
+ *  - Adjustable load factor.
  */
 
 #include <type_traits>
@@ -311,8 +312,7 @@ class Set {
     SLOT_PROBING_END();
   }
 
-  template<typename ForwardKey>
-  BLI_NOINLINE bool contains__impl(const ForwardKey &key, uint32_t hash) const
+  template<typename ForwardKey> bool contains__impl(const ForwardKey &key, uint32_t hash) const
   {
     SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
       const Slot &slot = m_slots[slot_index];
@@ -354,7 +354,7 @@ class Set {
         m_set_or_dummy_slots++;
         return true;
       }
-      if (slot.contains(std::forward<ForwardKey>(key), hash)) {
+      if (slot.contains(key, hash)) {
         return false;
       }
     }
@@ -363,6 +363,7 @@ class Set {
 
   template<typename ForwardKey> void remove__impl(const ForwardKey &key, uint32_t hash)
   {
+    BLI_assert(this->contains(key));
     m_dummy_slots++;
 
     SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
