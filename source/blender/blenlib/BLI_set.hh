@@ -33,10 +33,8 @@
  * after x linear probing steps. Then higher bits will be taken into account as well.
  *
  * TODO:
- *  - Round up inline buffer capacity.
  *  - Dynamic default for inline buffer capacity (depending on size of key).
  *  - Simple way to find bad uses of the Set (too many collisions).
- *  - Adjustable load factor.
  */
 
 #include <type_traits>
@@ -58,8 +56,10 @@ template<typename Key,
          typename Allocator = GuardedAllocator>
 class Set {
  private:
-  /* TODO: Round up to power of two. */
-  static constexpr uint32_t s_default_slot_array_size = InlineBufferCapacity * 2;
+  static constexpr uint32_t s_max_load_factor_numerator = 1;
+  static constexpr uint32_t s_max_load_factor_denominator = 2;
+  static constexpr uint32_t s_default_slot_array_size = total_slot_amount_for_usable_slots(
+      InlineBufferCapacity, s_max_load_factor_numerator, s_max_load_factor_denominator);
 
   using SlotArray = Array<Slot, s_default_slot_array_size, Allocator>;
   SlotArray m_slots;
@@ -72,11 +72,13 @@ class Set {
  public:
   Set()
   {
-    m_slots = SlotArray(power_of_2_max_u(s_default_slot_array_size));
+    BLI_assert(is_power_of_2_i((int)s_default_slot_array_size));
+    m_slots = SlotArray(s_default_slot_array_size);
 
     m_dummy_slots = 0;
     m_set_or_dummy_slots = 0;
-    m_usable_slots = m_slots.size() / 2;
+    m_usable_slots = floor_multiplication_with_fraction(
+        m_slots.size(), s_max_load_factor_numerator, s_max_load_factor_denominator);
     m_slot_mask = m_slots.size() - 1;
   }
 
@@ -276,8 +278,10 @@ class Set {
  private:
   BLI_NOINLINE void grow(uint32_t min_usable_slots)
   {
-    min_usable_slots = power_of_2_max_u(min_usable_slots);
-    uint32_t total_slots = min_usable_slots * 2;
+    uint32_t total_slots = total_slot_amount_for_usable_slots(
+        min_usable_slots, s_max_load_factor_numerator, s_max_load_factor_denominator);
+    uint32_t usable_slots = floor_multiplication_with_fraction(
+        total_slots, s_max_load_factor_numerator, s_max_load_factor_denominator);
 
     SlotArray new_slots(total_slots);
     uint32_t new_slot_mask = total_slots - 1;
@@ -291,7 +295,7 @@ class Set {
     m_slots.clear_without_destruct();
     m_slots = std::move(new_slots);
     m_set_or_dummy_slots -= m_dummy_slots;
-    m_usable_slots = min_usable_slots;
+    m_usable_slots = usable_slots;
     m_dummy_slots = 0;
     m_slot_mask = new_slot_mask;
   }

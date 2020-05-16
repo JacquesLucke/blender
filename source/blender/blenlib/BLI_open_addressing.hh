@@ -60,6 +60,11 @@ inline constexpr uint32_t log2_ceil_u_constexpr(uint32_t x)
                                                log2_floor_u_constexpr(x) + 1;
 }
 
+inline constexpr uint32_t power_of_2_max_u_constexpr(uint32_t x)
+{
+  return 1 << log2_ceil_u_constexpr(x);
+}
+
 template<typename IntT> inline constexpr IntT ceil_division(IntT x, IntT y)
 {
   BLI_STATIC_ASSERT(!std::is_signed<IntT>::value, "");
@@ -72,22 +77,26 @@ template<typename IntT> inline constexpr IntT floor_division(IntT x, IntT y)
   return x / y;
 }
 
-inline constexpr uint8_t compute_item_exponent(uint32_t min_usable_slots,
-                                               uint32_t slots_per_item,
-                                               uint32_t max_load_factor_numerator,
-                                               uint32_t max_load_factor_denominator)
+inline constexpr uint32_t ceil_division_by_fraction(uint32_t x,
+                                                    uint32_t numerator,
+                                                    uint32_t denominator)
 {
-  // uint64_t min_total_slots = ceil_division((uint64_t)min_usable_slots *
-  //                                              (uint64_t)max_load_factor_denominator,
-  //                                          (uint64_t)max_load_factor_numerator);
-  // uint32_t min_total_items = (uint32_t)ceil_division(min_total_slots, (uint64_t)slots_per_item);
-  // uint8_t item_exponent = (uint8_t)log2_ceil_u_constexpr(min_total_items);
-  // return item_exponent;
+  return (uint32_t)ceil_division((uint64_t)x * (uint64_t)denominator, (uint64_t)numerator);
+}
 
-  return (uint8_t)log2_ceil_u_constexpr((uint32_t)ceil_division(
-      ceil_division((uint64_t)min_usable_slots * (uint64_t)max_load_factor_denominator,
-                    (uint64_t)max_load_factor_numerator),
-      (uint64_t)slots_per_item));
+inline constexpr uint32_t floor_multiplication_with_fraction(uint32_t x,
+                                                             uint32_t numerator,
+                                                             uint32_t denominator)
+{
+  return (uint32_t)((uint64_t)x * (uint64_t)numerator / (uint64_t)denominator);
+}
+
+inline constexpr uint32_t total_slot_amount_for_usable_slots(uint32_t min_usable_slots,
+                                                             uint32_t max_load_factor_numerator,
+                                                             uint32_t max_load_factor_denominator)
+{
+  return power_of_2_max_u_constexpr(ceil_division_by_fraction(
+      min_usable_slots, max_load_factor_numerator, max_load_factor_denominator));
 }
 
 /** \} */
