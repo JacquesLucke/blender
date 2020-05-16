@@ -37,7 +37,9 @@
 #include "BLI_array.hh"
 #include "BLI_math_base.h"
 #include "BLI_memory_utils.hh"
+#include "BLI_string.h"
 #include "BLI_utildefines.h"
+#include "BLI_vector.hh"
 
 namespace BLI {
 
@@ -232,6 +234,74 @@ using DefaultProbingStrategy = ShuffleProbingStrategy<>;
   } while (true)
 
 // clang-format on
+
+class HashTableStats {
+ private:
+  Vector<uint32_t> m_keys_by_collision_count;
+  uint32_t m_total_collisions;
+  float m_average_collisions;
+  uint32_t m_size;
+  uint32_t m_capacity;
+  uint32_t m_dummy_amount;
+  float m_load_factor;
+  float m_dummy_load_factor;
+  uint32_t m_size_in_bytes;
+  uint32_t m_size_per_slot;
+
+ public:
+  /**
+   * Requires that the hash table has the following methods:
+   * - count_collisions(key) -> uint32_t
+   * - size() -> uint32_t
+   * - capacity() -> uint32_t
+   * - dummy_amount() -> uint32_t
+   * - size_in_bytes() -> uint32_t
+   */
+  template<typename HashTable, typename Keys>
+  HashTableStats(const HashTable &hash_table, const Keys &keys)
+  {
+    m_total_collisions = 0;
+    m_size = hash_table.size();
+    m_capacity = hash_table.capacity();
+    m_dummy_amount = hash_table.dummy_amount();
+    m_size_in_bytes = hash_table.size_in_bytes();
+
+    for (const auto &key : keys) {
+      uint32_t collisions = hash_table.count_collisions(key);
+      if (m_keys_by_collision_count.size() <= collisions) {
+        m_keys_by_collision_count.append_n_times(
+            0, collisions - m_keys_by_collision_count.size() + 1);
+      }
+      m_keys_by_collision_count[collisions]++;
+      m_total_collisions += collisions;
+    }
+
+    m_average_collisions = (m_size == 0) ? 0 : (float)m_total_collisions / (float)m_size;
+    m_load_factor = (float)m_size / (float)m_capacity;
+    m_dummy_load_factor = (float)m_dummy_amount / (float)m_capacity;
+    m_size_per_slot = m_size_in_bytes / m_capacity;
+  }
+
+  void print(StringRef name = "")
+  {
+    std::cout << "Collisions stats: " << name << "\n";
+    std::cout << "  Total Slots: " << m_capacity << "\n";
+    std::cout << "  Used Slots:  " << m_size << " (" << m_load_factor * 100.0f << " %)\n";
+    std::cout << "  Dummy Slots: " << m_dummy_amount << " (" << m_dummy_load_factor * 100.0f
+              << " %)\n";
+
+    char memory_size_str[15];
+    BLI_str_format_byte_unit(memory_size_str, m_size_in_bytes, true);
+    std::cout << "  Size: ~" << memory_size_str << "\n";
+    std::cout << "  Size per Slot: " << m_size_per_slot << " bytes\n";
+
+    std::cout << "  Average Collisions: " << m_average_collisions << "\n";
+    for (uint32_t collision_count : m_keys_by_collision_count.index_range()) {
+      std::cout << "  " << collision_count
+                << " Collisions: " << m_keys_by_collision_count[collision_count] << "\n";
+    }
+  }
+};
 
 }  // namespace BLI
 

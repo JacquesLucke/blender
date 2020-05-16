@@ -132,6 +132,21 @@ class Set {
     return m_set_or_dummy_slots == m_dummy_slots;
   }
 
+  uint32_t capacity() const
+  {
+    return m_slots.size();
+  }
+
+  uint32_t dummy_amount() const
+  {
+    return m_dummy_slots;
+  }
+
+  uint32_t size_in_bytes() const
+  {
+    return m_slots.size() * sizeof(Slot);
+  }
+
   void reserve(uint32_t min_usable_slots)
   {
     if (m_usable_slots < min_usable_slots) {
@@ -233,23 +248,26 @@ class Set {
 
   void print_collision_stats(StringRef name = "") const
   {
-    Vector<uint32_t> stats = this->get_collision_stats();
-    std::cout << "Collisions stats: " << name << "\n";
-    if (this->size() == 0) {
-      std::cout << "  <empty>\n";
-      return;
+    HashTableStats stats(*this, *this);
+    stats.print();
+  }
+
+  uint32_t count_collisions(const Key &key) const
+  {
+    uint32_t hash = Hash{}(key);
+    uint32_t collisions = 0;
+
+    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+      const Slot &slot = m_slots[slot_index];
+      if (slot.contains(key, hash)) {
+        return collisions;
+      }
+      if (slot.is_empty()) {
+        return collisions;
+      }
+      collisions++;
     }
-    uint total_collisions = 0;
-    for (uint32_t i : stats.index_range()) {
-      std::cout << "  " << i << " Collisions: " << stats[i] << "\n";
-      total_collisions += stats[i] * i;
-    }
-    std::cout << "  Average Collisions: " << (float)total_collisions / (float)this->size() << "\n";
-    std::cout << "  Total Slots: " << m_slots.size() << "\n";
-    std::cout << "  Used Slots:  " << this->size() << " ("
-              << (float)this->size() / (float)m_slots.size() * 100.0f << " %)\n";
-    std::cout << "  Dummy Slots: " << m_dummy_slots << " ("
-              << (float)m_dummy_slots / (float)m_slots.size() * 100.0f << " %)\n";
+    SLOT_PROBING_END();
   }
 
   void clear()
@@ -381,37 +399,6 @@ class Set {
       }
     }
     SLOT_PROBING_END();
-  }
-
-  uint32_t count_collisions(const Key &key) const
-  {
-    uint32_t hash = Hash{}(key);
-    uint32_t collisions = 0;
-
-    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
-      const Slot &slot = m_slots[slot_index];
-      if (slot.contains(key, hash)) {
-        return collisions;
-      }
-      if (slot.is_empty()) {
-        return collisions;
-      }
-      collisions++;
-    }
-    SLOT_PROBING_END();
-  }
-
-  Vector<uint32_t> get_collision_stats() const
-  {
-    Vector<uint32_t> stats;
-    for (const Key &key : *this) {
-      uint32_t collisions = this->count_collisions(key);
-      if (stats.size() <= collisions) {
-        stats.append_n_times(0, collisions - stats.size() + 1);
-      }
-      stats[collisions]++;
-    }
-    return stats;
   }
 
   void ensure_can_add()
