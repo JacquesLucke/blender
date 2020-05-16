@@ -46,17 +46,131 @@
 
 namespace BLI {
 
+class LinearProbingStrategy {
+ private:
+  uint32_t m_hash;
+
+ public:
+  LinearProbingStrategy(uint32_t hash) : m_hash(hash)
+  {
+  }
+
+  void next()
+  {
+    m_hash++;
+  }
+
+  uint32_t get() const
+  {
+    return m_hash;
+  }
+
+  uint32_t linear_steps() const
+  {
+    return 1;
+  }
+};
+
+class QuadraticProbingStrategy {
+ private:
+  uint32_t m_original_hash;
+  uint32_t m_current_hash;
+  uint32_t m_iteration;
+
+ public:
+  QuadraticProbingStrategy(uint32_t hash)
+      : m_original_hash(hash), m_current_hash(hash), m_iteration(1)
+  {
+  }
+
+  void next()
+  {
+    m_current_hash = m_original_hash + ((m_iteration * m_iteration + m_iteration) >> 1);
+    m_iteration++;
+  }
+
+  uint32_t get() const
+  {
+    return m_current_hash;
+  }
+
+  uint32_t linear_steps() const
+  {
+    return 1;
+  }
+};
+
+class PythonProbingStrategy {
+ private:
+  uint32_t m_hash;
+  uint32_t m_perturb;
+
+ public:
+  PythonProbingStrategy(uint32_t hash) : m_hash(hash), m_perturb(hash)
+  {
+  }
+
+  void next()
+  {
+    m_perturb >>= 5;
+    m_hash = 5 * m_hash + 1 + m_perturb;
+  }
+
+  uint32_t get() const
+  {
+    return m_hash;
+  }
+
+  uint32_t linear_steps() const
+  {
+    return 1;
+  }
+};
+
+class MyProbingStrategy {
+ private:
+  uint32_t m_hash;
+  uint32_t m_perturb;
+
+ public:
+  MyProbingStrategy(uint32_t hash) : m_hash(hash), m_perturb(hash)
+  {
+  }
+
+  void next()
+  {
+    if (m_perturb != 0) {
+      m_perturb >>= 10;
+      m_hash = ((m_hash >> 16) ^ m_hash) * 0x45d9f3b + m_perturb;
+    }
+    else {
+      m_hash = 5 * m_hash + 1;
+    }
+  }
+
+  uint32_t get() const
+  {
+    return m_hash;
+  }
+
+  uint32_t linear_steps() const
+  {
+    return 2;
+  }
+};
+
 template<typename Key> struct DefaultSetSlot;
+
+using DefaultProbingStrategy = MyProbingStrategy;
 
 template<typename Key,
          uint32_t InlineBufferCapacity = 4,
          typename Hash = DefaultHash<Key>,
          typename Slot = typename DefaultSetSlot<Key>::type,
+         typename ProbingStrategy = DefaultProbingStrategy,
          typename Allocator = GuardedAllocator>
 class Set {
  private:
-  static constexpr uint32_t s_linear_probing_steps = 2;
-
   /* TODO: Round up to power of two. */
   static constexpr uint32_t s_default_slot_array_size = InlineBufferCapacity * 2;
 
@@ -298,23 +412,16 @@ class Set {
   // clang-format off
 
 #define ITER_SLOTS_BEGIN(HASH, MASK, R_SLOT_INDEX) \
-  uint32_t current_hash = HASH; \
-  uint32_t perturb = HASH; \
-  uint32_t linear_offset = s_linear_probing_steps; \
+  ProbingStrategy probing_strategy(HASH); \
   do { \
+    uint32_t linear_offset = probing_strategy.linear_steps(); \
+    uint32_t current_hash = probing_strategy.get(); \
     do { \
       uint32_t R_SLOT_INDEX = (current_hash + linear_offset) & MASK;
 
 #define ITER_SLOTS_END() \
     } while (--linear_offset > 0); \
-    if (perturb != 0) {\
-      perturb >>= 10; \
-      current_hash = ((current_hash >> 16) ^ current_hash) * 0x45d9f3b + perturb; \
-    } \
-    else { \
-      current_hash = current_hash * 5 + 1; \
-    } \
-    linear_offset = s_linear_probing_steps; \
+    probing_strategy.next(); \
   } while (true)
 
   // clang-format on
@@ -335,7 +442,8 @@ class Set {
     ITER_SLOTS_END();
   }
 
-  template<typename ForwardKey> bool contains__impl(const ForwardKey &key, uint32_t hash) const
+  template<typename ForwardKey>
+  BLI_NOINLINE bool contains__impl(const ForwardKey &key, uint32_t hash) const
   {
     ITER_SLOTS_BEGIN (hash, m_slot_mask, slot_index) {
       const Slot &slot = m_slots[slot_index];
