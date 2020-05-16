@@ -19,9 +19,6 @@
 
 /** \file
  * \ingroup bli
- *
- * Todo:
- * - print stats
  */
 
 #include "BLI_array.hh"
