@@ -125,6 +125,17 @@ TEST(vector_set, Remove)
   EXPECT_EQ(set.size(), 0);
 }
 
+TEST(vector_set, AddMultipleTimes)
+{
+  IntVectorSet set;
+  for (int i = 0; i < 100; i++) {
+    EXPECT_FALSE(set.contains(i * 13));
+    set.add(i * 12);
+    set.add(i * 13);
+    EXPECT_TRUE(set.contains(i * 13));
+  }
+}
+
 TEST(vector_set, UniquePtrValue)
 {
   VectorSet<std::unique_ptr<int>> set;
