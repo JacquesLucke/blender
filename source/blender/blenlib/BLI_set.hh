@@ -42,126 +42,12 @@
 
 #include "BLI_array.hh"
 #include "BLI_hash.hh"
+#include "BLI_open_addressing.hh"
 #include "BLI_vector.hh"
 
 namespace BLI {
 
-class LinearProbingStrategy {
- private:
-  uint32_t m_hash;
-
- public:
-  LinearProbingStrategy(uint32_t hash) : m_hash(hash)
-  {
-  }
-
-  void next()
-  {
-    m_hash++;
-  }
-
-  uint32_t get() const
-  {
-    return m_hash;
-  }
-
-  uint32_t linear_steps() const
-  {
-    return 1;
-  }
-};
-
-class QuadraticProbingStrategy {
- private:
-  uint32_t m_original_hash;
-  uint32_t m_current_hash;
-  uint32_t m_iteration;
-
- public:
-  QuadraticProbingStrategy(uint32_t hash)
-      : m_original_hash(hash), m_current_hash(hash), m_iteration(1)
-  {
-  }
-
-  void next()
-  {
-    m_current_hash = m_original_hash + ((m_iteration * m_iteration + m_iteration) >> 1);
-    m_iteration++;
-  }
-
-  uint32_t get() const
-  {
-    return m_current_hash;
-  }
-
-  uint32_t linear_steps() const
-  {
-    return 1;
-  }
-};
-
-class PythonProbingStrategy {
- private:
-  uint32_t m_hash;
-  uint32_t m_perturb;
-
- public:
-  PythonProbingStrategy(uint32_t hash) : m_hash(hash), m_perturb(hash)
-  {
-  }
-
-  void next()
-  {
-    m_perturb >>= 5;
-    m_hash = 5 * m_hash + 1 + m_perturb;
-  }
-
-  uint32_t get() const
-  {
-    return m_hash;
-  }
-
-  uint32_t linear_steps() const
-  {
-    return 1;
-  }
-};
-
-class MyProbingStrategy {
- private:
-  uint32_t m_hash;
-  uint32_t m_perturb;
-
- public:
-  MyProbingStrategy(uint32_t hash) : m_hash(hash), m_perturb(hash)
-  {
-  }
-
-  void next()
-  {
-    if (m_perturb != 0) {
-      m_perturb >>= 10;
-      m_hash = ((m_hash >> 16) ^ m_hash) * 0x45d9f3b + m_perturb;
-    }
-    else {
-      m_hash = 5 * m_hash + 1;
-    }
-  }
-
-  uint32_t get() const
-  {
-    return m_hash;
-  }
-
-  uint32_t linear_steps() const
-  {
-    return 2;
-  }
-};
-
 template<typename Key> struct DefaultSetSlot;
-
-using DefaultProbingStrategy = MyProbingStrategy;
 
 template<typename Key,
          uint32_t InlineBufferCapacity = 4,
@@ -409,43 +295,26 @@ class Set {
     m_slot_mask = new_slot_mask;
   }
 
-  // clang-format off
-
-#define ITER_SLOTS_BEGIN(HASH, MASK, R_SLOT_INDEX) \
-  ProbingStrategy probing_strategy(HASH); \
-  do { \
-    uint32_t linear_offset = probing_strategy.linear_steps(); \
-    uint32_t current_hash = probing_strategy.get(); \
-    do { \
-      uint32_t R_SLOT_INDEX = (current_hash + linear_offset) & MASK;
-
-#define ITER_SLOTS_END() \
-    } while (--linear_offset > 0); \
-    probing_strategy.next(); \
-  } while (true)
-
-  // clang-format on
-
   void add_after_grow_and_destruct_old(Slot &old_slot,
                                        SlotArray &new_slots,
                                        uint32_t new_slot_mask)
   {
     uint32_t hash = old_slot.get_hash(Hash());
 
-    ITER_SLOTS_BEGIN (hash, new_slot_mask, slot_index) {
+    SLOT_PROBING_BEGIN (hash, new_slot_mask, slot_index) {
       Slot &slot = new_slots[slot_index];
       if (slot.is_empty()) {
         slot.set_and_destruct_other(old_slot, hash);
         return;
       }
     }
-    ITER_SLOTS_END();
+    SLOT_PROBING_END();
   }
 
   template<typename ForwardKey>
   BLI_NOINLINE bool contains__impl(const ForwardKey &key, uint32_t hash) const
   {
-    ITER_SLOTS_BEGIN (hash, m_slot_mask, slot_index) {
+    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
       const Slot &slot = m_slots[slot_index];
       if (slot.is_empty()) {
         return false;
@@ -454,7 +323,7 @@ class Set {
         return true;
       }
     }
-    ITER_SLOTS_END();
+    SLOT_PROBING_END();
   }
 
   template<typename ForwardKey> void add_new__impl(ForwardKey &&key, uint32_t hash)
@@ -464,21 +333,21 @@ class Set {
     this->ensure_can_add();
     m_set_or_dummy_slots++;
 
-    ITER_SLOTS_BEGIN (hash, m_slot_mask, slot_index) {
+    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
       Slot &slot = m_slots[slot_index];
       if (slot.is_empty()) {
         slot.set(std::forward<ForwardKey>(key), hash);
         return;
       }
     }
-    ITER_SLOTS_END();
+    SLOT_PROBING_END();
   }
 
   template<typename ForwardKey> bool add__impl(ForwardKey &&key, uint32_t hash)
   {
     this->ensure_can_add();
 
-    ITER_SLOTS_BEGIN (hash, m_slot_mask, slot_index) {
+    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
       Slot &slot = m_slots[slot_index];
       if (slot.is_empty()) {
         slot.set(std::forward<ForwardKey>(key), hash);
@@ -489,21 +358,21 @@ class Set {
         return false;
       }
     }
-    ITER_SLOTS_END();
+    SLOT_PROBING_END();
   }
 
   template<typename ForwardKey> void remove__impl(const ForwardKey &key, uint32_t hash)
   {
     m_dummy_slots++;
 
-    ITER_SLOTS_BEGIN (hash, m_slot_mask, slot_index) {
+    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
       Slot &slot = m_slots[slot_index];
       if (slot.contains(key, hash)) {
         slot.set_to_dummy();
         return;
       }
     }
-    ITER_SLOTS_END();
+    SLOT_PROBING_END();
   }
 
   uint32_t count_collisions(const Key &key) const
@@ -511,7 +380,7 @@ class Set {
     uint32_t hash = Hash{}(key);
     uint32_t collisions = 0;
 
-    ITER_SLOTS_BEGIN (hash, m_slot_mask, slot_index) {
+    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
       const Slot &slot = m_slots[slot_index];
       if (slot.contains(key, hash)) {
         return collisions;
@@ -521,7 +390,7 @@ class Set {
       }
       collisions++;
     }
-    ITER_SLOTS_END();
+    SLOT_PROBING_END();
   }
 
   Vector<uint32_t> get_collision_stats() const
@@ -543,9 +412,6 @@ class Set {
       this->grow(this->size() + 1);
     }
   }
-
-#undef ITER_SLOTS_BEGIN
-#undef ITER_SLOTS_END
 };
 
 template<typename Key> class SimpleSetSlot {

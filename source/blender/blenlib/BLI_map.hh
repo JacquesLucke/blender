@@ -19,6 +19,7 @@
 
 #include "BLI_array.hh"
 #include "BLI_hash.hh"
+#include "BLI_open_addressing.hh"
 
 namespace BLI {
 
@@ -28,10 +29,10 @@ template<typename Key,
          typename Value,
          typename Hash = DefaultHash<Key>,
          typename Slot = typename DefaultMapSlot<Key, Value>::type,
+         typename ProbingStrategy = DefaultProbingStrategy,
          typename Allocator = GuardedAllocator>
 class Map {
  private:
-  static constexpr uint32_t s_linear_probing_steps = 2;
   static constexpr uint32_t s_default_slot_array_size = 4;
 
   using SlotArray = Array<Slot, s_default_slot_array_size, Allocator>;
@@ -435,154 +436,106 @@ class Map {
                                        SlotArray &new_slots,
                                        uint32_t new_slot_mask)
   {
-    uint32_t real_hash = old_slot.get_hash(Hash());
-    uint32_t hash = real_hash;
-    uint32_t perturb = real_hash;
-
-    do {
-      for (uint32_t i = 0; i < s_linear_probing_steps; i++) {
-        uint32_t slot_index = (hash + i) & new_slot_mask;
-        Slot &slot = new_slots[slot_index];
-        if (slot.is_empty()) {
-          slot.set_and_destruct_other(old_slot, real_hash);
-          return;
-        }
+    uint32_t hash = old_slot.get_hash(Hash());
+    SLOT_PROBING_BEGIN (hash, new_slot_mask, slot_index) {
+      Slot &slot = new_slots[slot_index];
+      if (slot.is_empty()) {
+        slot.set_and_destruct_other(old_slot, hash);
+        return;
       }
-
-      perturb >>= 5;
-      hash = hash * 5 + 1 + perturb;
-    } while (true);
+    }
+    SLOT_PROBING_END();
   }
 
-  template<typename ForwardKey>
-  bool contains__impl(const ForwardKey &key, uint32_t real_hash) const
+  template<typename ForwardKey> bool contains__impl(const ForwardKey &key, uint32_t hash) const
   {
-    uint32_t hash = real_hash;
-    uint32_t perturb = real_hash;
-
-    do {
-      for (uint32_t i = 0; i < s_linear_probing_steps; i++) {
-        uint32_t slot_index = (hash + i) & m_slot_mask;
-        const Slot &slot = m_slots[slot_index];
-        if (slot.is_empty()) {
-          return false;
-        }
-        if (slot.contains(key, real_hash)) {
-          return true;
-        }
+    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+      const Slot &slot = m_slots[slot_index];
+      if (slot.is_empty()) {
+        return false;
       }
-
-      perturb >>= 5;
-      hash = hash * 5 + 1 + perturb;
-    } while (true);
+      if (slot.contains(key, hash)) {
+        return true;
+      }
+    }
+    SLOT_PROBING_END();
   }
 
   template<typename ForwardKey, typename ForwardValue>
-  void add_new__impl(ForwardKey &&key, ForwardValue &&value, uint32_t real_hash)
+  void add_new__impl(ForwardKey &&key, ForwardValue &&value, uint32_t hash)
   {
     BLI_assert(!this->contains(key));
-    uint32_t hash = real_hash;
-    uint32_t perturb = real_hash;
 
     this->ensure_can_add();
     m_set_or_dummy_slots++;
 
-    do {
-      for (uint32_t i = 0; i < s_linear_probing_steps; i++) {
-        uint32_t slot_index = (hash + i) & m_slot_mask;
-        Slot &slot = m_slots[slot_index];
-        if (slot.is_empty()) {
-          slot.set(std::forward<ForwardKey>(key), std::forward<ForwardValue>(value), real_hash);
-          return;
-        }
+    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+      Slot &slot = m_slots[slot_index];
+      if (slot.is_empty()) {
+        slot.set(std::forward<ForwardKey>(key), std::forward<ForwardValue>(value), hash);
+        return;
       }
-
-      perturb >>= 5;
-      hash = hash * 5 + 1 + perturb;
-    } while (true);
+    }
+    SLOT_PROBING_END();
   }
 
   template<typename ForwardKey, typename ForwardValue>
-  bool add__impl(ForwardKey &&key, ForwardValue &&value, uint32_t real_hash)
+  bool add__impl(ForwardKey &&key, ForwardValue &&value, uint32_t hash)
   {
-    uint32_t hash = real_hash;
-    uint32_t perturb = real_hash;
-
     this->ensure_can_add();
 
-    do {
-      for (uint32_t i = 0; i < s_linear_probing_steps; i++) {
-        uint32_t slot_index = (hash + i) & m_slot_mask;
-        Slot &slot = m_slots[slot_index];
-        if (slot.is_empty()) {
-          slot.set(std::forward<ForwardKey>(key), std::forward<ForwardValue>(value), real_hash);
-          m_set_or_dummy_slots++;
-          return true;
-        }
-        if (slot.contains(std::forward<ForwardKey>(key), real_hash)) {
-          return false;
-        }
+    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+      Slot &slot = m_slots[slot_index];
+      if (slot.is_empty()) {
+        slot.set(std::forward<ForwardKey>(key), std::forward<ForwardValue>(value), hash);
+        m_set_or_dummy_slots++;
+        return true;
       }
-
-      perturb >>= 5;
-      hash = hash * 5 + 1 + perturb;
-    } while (true);
+      if (slot.contains(std::forward<ForwardKey>(key), hash)) {
+        return false;
+      }
+    }
+    SLOT_PROBING_END();
   }
 
-  template<typename ForwardKey> void remove__impl(const ForwardKey &key, uint32_t real_hash)
+  template<typename ForwardKey> void remove__impl(const ForwardKey &key, uint32_t hash)
   {
     BLI_assert(this->contains(key));
 
-    uint32_t hash = real_hash;
-    uint32_t perturb = real_hash;
-
     m_dummy_slots++;
 
-    do {
-      for (uint32_t i = 0; i < s_linear_probing_steps; i++) {
-        uint32_t slot_index = (hash + i) & m_slot_mask;
-        Slot &slot = m_slots[slot_index];
-        if (slot.contains(key, real_hash)) {
-          slot.set_to_dummy();
-          return;
-        }
+    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+      Slot &slot = m_slots[slot_index];
+      if (slot.contains(key, hash)) {
+        slot.set_to_dummy();
+        return;
       }
-
-      perturb >>= 5;
-      hash = hash * 5 + 1 + perturb;
-    } while (true);
+    }
+    SLOT_PROBING_END();
   }
 
-  template<typename ForwardKey> Value pop__impl(const ForwardKey &key, uint32_t real_hash)
+  template<typename ForwardKey> Value pop__impl(const ForwardKey &key, uint32_t hash)
   {
     BLI_assert(this->contains(key));
 
-    uint32_t hash = real_hash;
-    uint32_t perturb = real_hash;
-
     m_dummy_slots++;
 
-    do {
-      for (uint32_t i = 0; i < s_linear_probing_steps; i++) {
-        uint32_t slot_index = (hash + i) & m_slot_mask;
-        Slot &slot = m_slots[slot_index];
-        if (slot.contains(key, real_hash)) {
-          Value value = *slot.value();
-          slot.set_to_dummy();
-          return value;
-        }
+    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+      Slot &slot = m_slots[slot_index];
+      if (slot.contains(key, hash)) {
+        Value value = *slot.value();
+        slot.set_to_dummy();
+        return value;
       }
-
-      perturb >>= 5;
-      hash = hash * 5 + 1 + perturb;
-    } while (true);
+    }
+    SLOT_PROBING_END();
   }
 
   template<typename ForwardKey, typename CreateValueF, typename ModifyValueF>
   auto add_or_modify__impl(ForwardKey &&key,
                            const CreateValueF &create_value,
                            const ModifyValueF &modify_value,
-                           uint32_t real_hash) -> decltype(create_value(nullptr))
+                           uint32_t hash) -> decltype(create_value(nullptr))
   {
     using CreateReturnT = decltype(create_value(nullptr));
     using ModifyReturnT = decltype(modify_value(nullptr));
@@ -591,63 +544,45 @@ class Map {
 
     this->ensure_can_add();
 
-    uint32_t hash = real_hash;
-    uint32_t perturb = real_hash;
+    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+      Slot &slot = m_slots[slot_index];
 
-    do {
-      for (uint32_t i = 0; i < s_linear_probing_steps; i++) {
-        uint32_t slot_index = (hash + i) & m_slot_mask;
-        Slot &slot = m_slots[slot_index];
-
-        if (slot.is_empty()) {
-          m_set_or_dummy_slots++;
-          slot.set_without_value(std::forward<ForwardKey>(key), real_hash);
-          Value *value_ptr = slot.value();
-          return create_value(value_ptr);
-        }
-        if (slot.contains(std::forward<Key>(key), real_hash)) {
-          Value *value_ptr = slot.value();
-          return modify_value(value_ptr);
-        }
+      if (slot.is_empty()) {
+        m_set_or_dummy_slots++;
+        slot.set_without_value(std::forward<ForwardKey>(key), hash);
+        Value *value_ptr = slot.value();
+        return create_value(value_ptr);
       }
-
-      perturb >>= 5;
-      hash = hash * 5 + 1 + perturb;
-    } while (true);
+      if (slot.contains(std::forward<Key>(key), hash)) {
+        Value *value_ptr = slot.value();
+        return modify_value(value_ptr);
+      }
+    }
+    SLOT_PROBING_END();
   }
 
   template<typename ForwardKey, typename CreateValueF>
-  Value &lookup_or_add__impl(ForwardKey &&key,
-                             const CreateValueF &create_value,
-                             uint32_t real_hash)
+  Value &lookup_or_add__impl(ForwardKey &&key, const CreateValueF &create_value, uint32_t hash)
   {
     this->ensure_can_add();
 
-    uint32_t hash = real_hash;
-    uint32_t perturb = real_hash;
+    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+      Slot &slot = m_slots[slot_index];
 
-    do {
-      for (uint32_t i = 0; i < s_linear_probing_steps; i++) {
-        uint32_t slot_index = (hash + i) & m_slot_mask;
-        Slot &slot = m_slots[slot_index];
-
-        if (slot.is_empty()) {
-          slot.set(std::forward<ForwardKey>(key), create_value(), real_hash);
-          m_set_or_dummy_slots++;
-          return *slot.value();
-        }
-        if (slot.contains(std::forward<ForwardKey>(key), real_hash)) {
-          return *slot.value();
-        }
+      if (slot.is_empty()) {
+        slot.set(std::forward<ForwardKey>(key), create_value(), hash);
+        m_set_or_dummy_slots++;
+        return *slot.value();
       }
-
-      perturb >>= 5;
-      hash = hash * 5 + 1 + perturb;
-    } while (true);
+      if (slot.contains(std::forward<ForwardKey>(key), hash)) {
+        return *slot.value();
+      }
+    }
+    SLOT_PROBING_END();
   }
 
   template<typename ForwardKey, typename ForwardValue>
-  bool add_override__impl(ForwardKey &&key, ForwardValue &&value, uint32_t real_hash)
+  bool add_override__impl(ForwardKey &&key, ForwardValue &&value, uint32_t hash)
   {
     auto create_func = [&](Value *ptr) {
       new (ptr) Value(std::forward<ForwardValue>(value));
@@ -658,31 +593,23 @@ class Map {
       return false;
     };
     return this->add_or_modify__impl(
-        std::forward<ForwardKey>(key), create_func, modify_func, real_hash);
+        std::forward<ForwardKey>(key), create_func, modify_func, hash);
   }
 
   template<typename ForwardKey>
-  const Value *lookup_ptr__impl(const ForwardKey &key, uint32_t real_hash) const
+  const Value *lookup_ptr__impl(const ForwardKey &key, uint32_t hash) const
   {
-    uint32_t hash = real_hash;
-    uint32_t perturb = real_hash;
+    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+      const Slot &slot = m_slots[slot_index];
 
-    do {
-      for (uint32_t i = 0; i < s_linear_probing_steps; i++) {
-        uint32_t slot_index = (hash + i) & m_slot_mask;
-        const Slot &slot = m_slots[slot_index];
-
-        if (slot.is_empty()) {
-          return nullptr;
-        }
-        if (slot.contains(key, real_hash)) {
-          return slot.value();
-        }
+      if (slot.is_empty()) {
+        return nullptr;
       }
-
-      perturb >>= 5;
-      hash = hash * 5 + 1 + perturb;
-    } while (true);
+      if (slot.contains(key, hash)) {
+        return slot.value();
+      }
+    }
+    SLOT_PROBING_END();
   }
 
   void ensure_can_add()

@@ -311,6 +311,138 @@ class OpenAddressingArray {
   }
 };
 
+class LinearProbingStrategy {
+ private:
+  uint32_t m_hash;
+
+ public:
+  LinearProbingStrategy(uint32_t hash) : m_hash(hash)
+  {
+  }
+
+  void next()
+  {
+    m_hash++;
+  }
+
+  uint32_t get() const
+  {
+    return m_hash;
+  }
+
+  uint32_t linear_steps() const
+  {
+    return 1;
+  }
+};
+
+class QuadraticProbingStrategy {
+ private:
+  uint32_t m_original_hash;
+  uint32_t m_current_hash;
+  uint32_t m_iteration;
+
+ public:
+  QuadraticProbingStrategy(uint32_t hash)
+      : m_original_hash(hash), m_current_hash(hash), m_iteration(1)
+  {
+  }
+
+  void next()
+  {
+    m_current_hash = m_original_hash + ((m_iteration * m_iteration + m_iteration) >> 1);
+    m_iteration++;
+  }
+
+  uint32_t get() const
+  {
+    return m_current_hash;
+  }
+
+  uint32_t linear_steps() const
+  {
+    return 1;
+  }
+};
+
+class PythonProbingStrategy {
+ private:
+  uint32_t m_hash;
+  uint32_t m_perturb;
+
+ public:
+  PythonProbingStrategy(uint32_t hash) : m_hash(hash), m_perturb(hash)
+  {
+  }
+
+  void next()
+  {
+    m_perturb >>= 5;
+    m_hash = 5 * m_hash + 1 + m_perturb;
+  }
+
+  uint32_t get() const
+  {
+    return m_hash;
+  }
+
+  uint32_t linear_steps() const
+  {
+    return 1;
+  }
+};
+
+class MyProbingStrategy {
+ private:
+  uint32_t m_hash;
+  uint32_t m_perturb;
+
+ public:
+  MyProbingStrategy(uint32_t hash) : m_hash(hash), m_perturb(hash)
+  {
+  }
+
+  void next()
+  {
+    if (m_perturb != 0) {
+      m_perturb >>= 10;
+      m_hash = ((m_hash >> 16) ^ m_hash) * 0x45d9f3b + m_perturb;
+    }
+    else {
+      m_hash = 5 * m_hash + 1;
+    }
+  }
+
+  uint32_t get() const
+  {
+    return m_hash;
+  }
+
+  uint32_t linear_steps() const
+  {
+    return 2;
+  }
+};
+
+using DefaultProbingStrategy = MyProbingStrategy;
+
+// clang-format off
+
+#define SLOT_PROBING_BEGIN(HASH, MASK, R_SLOT_INDEX) \
+  ProbingStrategy probing_strategy(HASH); \
+  do { \
+    uint32_t linear_offset = probing_strategy.linear_steps(); \
+    uint32_t current_hash = probing_strategy.get(); \
+    do { \
+      uint32_t R_SLOT_INDEX = (current_hash + linear_offset) & MASK;
+
+#define SLOT_PROBING_END() \
+    } while (--linear_offset > 0); \
+    probing_strategy.next(); \
+  } while (true)
+
+// clang-format on
+
 }  // namespace BLI
 
 #endif /* __BLI_OPEN_ADDRESSING_HH__ */
