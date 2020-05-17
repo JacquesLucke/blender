@@ -157,7 +157,7 @@ class QuadraticProbingStrategy {
   }
 };
 
-template<uint32_t LinearSteps = 1> class PythonProbingStrategy {
+template<uint32_t LinearSteps = 1, bool PreShuffle = false> class PythonProbingStrategy {
  private:
   uint32_t m_hash;
   uint32_t m_perturb;
@@ -165,6 +165,9 @@ template<uint32_t LinearSteps = 1> class PythonProbingStrategy {
  public:
   PythonProbingStrategy(uint32_t hash) : m_hash(hash), m_perturb(hash)
   {
+    if (PreShuffle) {
+      this->next();
+    }
   }
 
   void next()
@@ -184,7 +187,7 @@ template<uint32_t LinearSteps = 1> class PythonProbingStrategy {
   }
 };
 
-template<uint32_t LinearSteps = 2> class ShuffleProbingStrategy {
+template<uint32_t LinearSteps = 2, bool PreShuffle = false> class ShuffleProbingStrategy {
  private:
   uint32_t m_hash;
   uint32_t m_perturb;
@@ -192,6 +195,9 @@ template<uint32_t LinearSteps = 2> class ShuffleProbingStrategy {
  public:
   ShuffleProbingStrategy(uint32_t hash) : m_hash(hash), m_perturb(hash)
   {
+    if (PreShuffle) {
+      this->next();
+    }
   }
 
   void next()
