@@ -19,16 +19,6 @@
 
 /** \file
  * \ingroup bli
- *
- * This class offers a useful abstraction for other containers that implement hash tables using
- * open addressing. It handles the following aspects:
- *   - Allocation and deallocation of the open addressing array.
- *   - Optional small object optimization.
- *   - Keeps track of how many elements and dummies are in the table.
- *
- * The nice thing about this abstraction is that it does not get in the way of any performance
- * optimizations. The data that is actually stored in the table is still fully defined by the
- * actual hash table implementation.
  */
 
 #include <cmath>
@@ -43,7 +33,10 @@
 
 namespace BLI {
 
-/** \name Constexpr utility functions.
+/* -------------------------------------------------------------------- */
+/** \name Constexpr Utility Functions
+ *
+ * Those should eventually be deduplicated with functions in BLI_math_base.h.
  * \{ */
 
 inline constexpr int is_power_of_2_i_constexpr(int n)
@@ -103,6 +96,48 @@ inline constexpr uint32_t total_slot_amount_for_usable_slots(uint32_t min_usable
 
 /** \} */
 
+/* -------------------------------------------------------------------- */
+/** \name Probing Strategies
+ *
+ * This section implements different probing strategies. Those can be used by different hash table
+ * implementations like BLI::Set and BLI::Map. A probing strategy produces a sequence of values,
+ * based on an initial hash value. The hash table implementation is responsible for mapping these
+ * values to slot/bucket indices.
+ *
+ * A probing strategy has to implement the following methods:
+ * - Constructor(uint32_t hash): Start a new probing sequence based on the given hash.
+ * - get() const -> uint32_t: Get the current value in the sequence.
+ * - next() -> void: Update the internal state, so that the next value can be accessed with get().
+ * - linear_steps() -> uint32_t: Returns number of linear probing steps that should be done.
+ *
+ * Using linear probing steps between larger jumps can result in better performance, due to
+ * improved cache usage. However, more linear steps can also make things slower when there are many
+ * collisions.
+ *
+ * Every probing strategy has to guarantee, that every possible uint32_t is returned eventually.
+ * This is necessary for correctness. If this is not the case, empty slots might not be found in
+ * some cases.
+ *
+ * The SLOT_PROBING_BEGIN and SLOT_PROBING_END macros can be used to implement a loop that iterates
+ * over a probing sequence.
+ *
+ * Probing strategies can be evaluated with many different criterions. Different use cases often
+ * have different optimal strategies. Examples:
+ * - If the hash function generates a well distributed initial hash value, the constructor should
+ *   be as short as possible. This is because the hash value can be used as slot index almost
+ *   immediately, without too many collisions.
+ * - If the hash function is bad, it can help if the probing strategy remixes the hash value,
+ *   before the first slot is accessed.
+ * - Different next() methods can remix the hash value in different ways. Depending on which bits
+ *   of the hash value contain the most information, different rehashing strategies work best.
+ *
+ * \{ */
+
+/**
+ * The simplest probing strategy. It's bad in most cases, because it produces clusters in the hash
+ * table, which result in many collisions. However, if the hash function is very good or the hash
+ * table is small, this strategy might even work best.
+ */
 class LinearProbingStrategy {
  private:
   uint32_t m_hash;
@@ -124,10 +159,21 @@ class LinearProbingStrategy {
 
   uint32_t linear_steps() const
   {
-    return 1;
+    return UINT32_MAX;
   }
 };
 
+/**
+ * A slightly adapted quadratic probing strategy. The distance to the original slot increases
+ * quadratically. This method also leads to clustering. Another disadvantage is that not all bits
+ * of the original hash are used.
+ *
+ * The distance i*i is not used, because it does not guarantee, that every slot is hit. Instead (i
+ * * i + i) / 2 is used.
+ *
+ * In the first few steps, this strategy can have good cache performance. It largely depends on how
+ * many keys fit into a cache line in the hash table.
+ */
 class QuadraticProbingStrategy {
  private:
   uint32_t m_original_hash;
@@ -157,6 +203,16 @@ class QuadraticProbingStrategy {
   }
 };
 
+/**
+ * This is the probing strategy used by CPython (in 2020).
+ *
+ * It is very fast when the original hash value is good. If there are collisions, more bits of the
+ * hash value are taken into account.
+ *
+ * LinearSteps: Can be set to something larger than 1 for improved cache performance in some cases.
+ * PreShuffle: When true, the initial call to next() will be done to the constructor. This can help
+ *   against bad hash functions.
+ */
 template<uint32_t LinearSteps = 1, bool PreShuffle = false> class PythonProbingStrategy {
  private:
   uint32_t m_hash;
@@ -187,6 +243,11 @@ template<uint32_t LinearSteps = 1, bool PreShuffle = false> class PythonProbingS
   }
 };
 
+/**
+ * Similar to the Python probing strategy. However, it does a bit more shuffling in the next()
+ * method. This way more bits are taken into account earlier. After a couple of collisions (that
+ * should happen rarely), it will fallback to a sequence that hits every slot.
+ */
 template<uint32_t LinearSteps = 2, bool PreShuffle = false> class ShuffleProbingStrategy {
  private:
   uint32_t m_hash;
@@ -222,7 +283,10 @@ template<uint32_t LinearSteps = 2, bool PreShuffle = false> class ShuffleProbing
   }
 };
 
-using DefaultProbingStrategy = ShuffleProbingStrategy<>;
+/**
+ * Having a specified default is convenient.
+ */
+using DefaultProbingStrategy = PythonProbingStrategy<>;
 
 // clang-format off
 
@@ -240,6 +304,8 @@ using DefaultProbingStrategy = ShuffleProbingStrategy<>;
   } while (true)
 
 // clang-format on
+
+/** \} */
 
 class HashTableStats {
  private:
