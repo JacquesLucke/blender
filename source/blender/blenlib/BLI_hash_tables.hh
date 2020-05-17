@@ -288,8 +288,23 @@ template<uint32_t LinearSteps = 2, bool PreShuffle = false> class ShuffleProbing
  */
 using DefaultProbingStrategy = PythonProbingStrategy<>;
 
+/* Turning off clang format here, because otherwise it will mess up the alignment between the
+ * macros. */
 // clang-format off
 
+/**
+ * Both macros together form a loop that iterates over slot indices in a hash table with a
+ * power-of-2 size. The macro assumes that `ProbingStrategy` is a name for a class
+ * implementing the probing strategy interface.
+ *
+ * You must not `break` out of this loop. Only `return` is permitted. If you don't return
+ * out of the loop, it will be an infinite loop. These loops should not be nested within the
+ * same function.
+ *
+ * HASH: The initial hash as produced by a hash function.
+ * MASK: A bit mask such that (hash & MASK) is a valid slot index.
+ * R_SLOT_INDEX: Name of the variable that will contain the slot index.
+ */
 #define SLOT_PROBING_BEGIN(HASH, MASK, R_SLOT_INDEX) \
   ProbingStrategy probing_strategy(HASH); \
   do { \
@@ -306,6 +321,16 @@ using DefaultProbingStrategy = PythonProbingStrategy<>;
 // clang-format on
 
 /** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Hash Table Stats
+ *
+ * A utility class that makes it easier for hash table implementations to provide statistics to the
+ * developer. These statistics can be helpful when trying to figure out why a hash table is slow.
+ *
+ * To use this utility, a hash table has to implement various methods, that are explained below.
+ *
+ * \{ */
 
 class HashTableStats {
  private:
@@ -375,6 +400,8 @@ class HashTableStats {
     }
   }
 };
+
+/** \} */
 
 }  // namespace BLI
 
