@@ -328,7 +328,7 @@ using DefaultProbingStrategy = PythonProbingStrategy<>;
  * A utility class that makes it easier for hash table implementations to provide statistics to the
  * developer. These statistics can be helpful when trying to figure out why a hash table is slow.
  *
- * To use this utility, a hash table has to implement various methods, that are explained below.
+ * To use this utility, a hash table has to implement various methods, that are mentioned below.
  *
  * \{ */
 

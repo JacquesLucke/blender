@@ -203,6 +203,7 @@ set(SRC
   BLI_listbase.h
   BLI_listbase_wrapper.hh
   BLI_map.hh
+  BLI_map_slots.hh
   BLI_math.h
   BLI_math_base.h
   BLI_math_bits.h
@@ -232,6 +233,7 @@ set(SRC
   BLI_rect.h
   BLI_scanfill.h
   BLI_set.hh
+  BLI_set_slots.hh
   BLI_smallhash.h
   BLI_sort.h
   BLI_sort_utils.h
@@ -258,6 +260,7 @@ set(SRC
   BLI_uvproject.h
   BLI_vector.hh
   BLI_vector_set.hh
+  BLI_vector_set_slots.hh
   BLI_vfontdata.h
   BLI_voronoi_2d.h
   BLI_voxel.h

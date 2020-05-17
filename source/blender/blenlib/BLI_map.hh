@@ -27,6 +27,7 @@
 
 namespace BLI {
 
+/* This is defined in BLI_map_slots.hh. */
 template<typename Key, typename Value> struct DefaultMapSlot;
 
 template<typename Key,
@@ -676,130 +677,8 @@ class Map {
   }
 };
 
-template<typename Key, typename Value> class SimpleMapSlot {
- private:
-  static constexpr uint8_t s_is_empty = 0;
-  static constexpr uint8_t s_is_set = 1;
-  static constexpr uint8_t s_is_dummy = 2;
-
-  uint8_t m_state;
-  AlignedBuffer<sizeof(Key), alignof(Key)> m_key_buffer;
-  AlignedBuffer<sizeof(Value), alignof(Value)> m_value_buffer;
-
- public:
-  SimpleMapSlot()
-  {
-    m_state = s_is_empty;
-  }
-
-  ~SimpleMapSlot()
-  {
-    if (m_state == s_is_set) {
-      this->key()->~Key();
-      this->value()->~Value();
-    }
-  }
-
-  SimpleMapSlot(const SimpleMapSlot &other)
-  {
-    m_state = other.m_state;
-    if (other.m_state == s_is_set) {
-      new (this->key()) Key(*other.key());
-      new (this->value()) Value(*other.value());
-    }
-  }
-
-  SimpleMapSlot(SimpleMapSlot &&other)
-  {
-    m_state = other.m_state;
-    if (other.m_state == s_is_set) {
-      new (this->key()) Key(std::move(*other.key()));
-      new (this->value()) Value(std::move(*other.value()));
-    }
-  }
-
-  Key *key()
-  {
-    return (Key *)m_key_buffer.ptr();
-  }
-
-  const Key *key() const
-  {
-    return (const Key *)m_key_buffer.ptr();
-  }
-
-  Value *value()
-  {
-    return (Value *)m_value_buffer.ptr();
-  }
-
-  const Value *value() const
-  {
-    return (const Value *)m_value_buffer.ptr();
-  }
-
-  bool is_set() const
-  {
-    return m_state == s_is_set;
-  }
-
-  bool is_empty() const
-  {
-    return m_state == s_is_empty;
-  }
-
-  void set_and_destruct_other(SimpleMapSlot &other, uint32_t UNUSED(hash))
-  {
-    BLI_assert(!this->is_set());
-    BLI_assert(other.is_set());
-    m_state = s_is_set;
-    new (this->key()) Key(std::move(*other.key()));
-    new (this->value()) Value(std::move(*other.value()));
-    other.key()->~Key();
-    other.value()->~Value();
-  }
-
-  template<typename Hash> uint32_t get_hash(const Hash &hash)
-  {
-    return hash(*this->key());
-  }
-
-  template<typename ForwardKey> bool contains(const ForwardKey &key, uint32_t UNUSED(hash)) const
-  {
-    if (m_state == s_is_set) {
-      return key == *this->key();
-    }
-    return false;
-  }
-
-  template<typename ForwardKey, typename ForwardValue>
-  void set(ForwardKey &&key, ForwardValue &&value, uint32_t hash)
-  {
-    BLI_assert(!this->is_set());
-    this->set_without_value(std::forward<ForwardKey>(key), hash);
-    new (this->value()) Value(std::forward<ForwardValue>(value));
-  }
-
-  template<typename ForwardKey> void set_without_value(ForwardKey &&key, uint32_t UNUSED(hash))
-  {
-    BLI_assert(!this->is_set());
-    m_state = s_is_set;
-    new (this->key()) Key(std::forward<ForwardKey>(key));
-  }
-
-  void set_to_dummy()
-  {
-    BLI_assert(this->is_set());
-    m_state = s_is_dummy;
-    this->key()->~Key();
-    this->value()->~Value();
-  }
-};
-
-template<typename Key, typename Value> struct DefaultMapSlot {
-  using type = SimpleMapSlot<Key, Value>;
-};
-
 }  // namespace BLI
+
+#include "BLI_map_slots.hh"
 
 #endif /* __BLI_MAP_HH__ */
