@@ -321,7 +321,7 @@ class Set {
 
     uint32_t old_total_slots = m_slots.size();
 
-    if (old_total_slots < 32) {
+    if (old_total_slots <= 8192) {
       for (Slot &slot : m_slots) {
         if (slot.is_set()) {
           this->add_after_grow_and_destruct_old(slot, new_slots, new_slot_mask);
