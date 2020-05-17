@@ -38,6 +38,7 @@
 #include "BLI_array.hh"
 #include "BLI_hash.hh"
 #include "BLI_open_addressing.hh"
+#include "BLI_timeit.hh"
 #include "BLI_vector.hh"
 
 namespace BLI {
@@ -279,6 +280,11 @@ class Set {
   {
     this->~Set();
     new (this) Set();
+  }
+
+  void rehash()
+  {
+    this->grow(this->size());
   }
 
   static bool Intersects(const Set &a, const Set &b)
