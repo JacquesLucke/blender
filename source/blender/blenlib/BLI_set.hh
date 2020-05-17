@@ -37,8 +37,8 @@
 
 #include "BLI_array.hh"
 #include "BLI_hash.hh"
+#include "BLI_hash_tables.hh"
 #include "BLI_math_bits.h"
-#include "BLI_open_addressing.hh"
 #include "BLI_timeit.hh"
 #include "BLI_vector.hh"
 

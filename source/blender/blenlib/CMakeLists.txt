@@ -186,6 +186,7 @@ set(SRC
   BLI_hash_md5.h
   BLI_hash_mm2a.h
   BLI_hash_mm3.h
+  BLI_hash_tables.hh
   BLI_heap.h
   BLI_heap_simple.h
   BLI_index_range.hh
@@ -222,7 +223,6 @@ set(SRC
   BLI_memory_utils.hh
   BLI_mempool.h
   BLI_noise.h
-  BLI_open_addressing.hh
   BLI_optional.hh
   BLI_path_util.h
   BLI_polyfill_2d.h

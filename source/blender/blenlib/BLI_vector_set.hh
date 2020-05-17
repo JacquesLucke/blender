@@ -26,7 +26,7 @@
 
 #include "BLI_array.hh"
 #include "BLI_hash.hh"
-#include "BLI_open_addressing.hh"
+#include "BLI_hash_tables.hh"
 
 namespace BLI {
 
