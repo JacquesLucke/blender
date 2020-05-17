@@ -77,8 +77,7 @@ MINLINE int bitscan_reverse_i(int a)
 MINLINE unsigned int bitscan_reverse_clear_uint(unsigned int *a)
 {
   unsigned int i = bitscan_reverse_uint(*a);
-  /* TODO(sergey): This could probably be optimized. */
-  *a &= ~(1 << (sizeof(unsigned int) * 8 - i - 1));
+  *a &= ~(0x80000000 >> i);
   return i;
 }
 

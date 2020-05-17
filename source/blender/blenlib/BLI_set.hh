@@ -37,6 +37,7 @@
 
 #include "BLI_array.hh"
 #include "BLI_hash.hh"
+#include "BLI_math_bits.h"
 #include "BLI_open_addressing.hh"
 #include "BLI_timeit.hh"
 #include "BLI_vector.hh"
@@ -318,9 +319,28 @@ class Set {
     SlotArray new_slots(total_slots);
     uint32_t new_slot_mask = total_slots - 1;
 
-    for (Slot &slot : m_slots) {
-      if (slot.is_set()) {
-        this->add_after_grow_and_destruct_old(slot, new_slots, new_slot_mask);
+    uint32_t old_total_slots = m_slots.size();
+
+    if (old_total_slots < 32) {
+      for (Slot &slot : m_slots) {
+        if (slot.is_set()) {
+          this->add_after_grow_and_destruct_old(slot, new_slots, new_slot_mask);
+        }
+      }
+    }
+    else {
+      for (uint32_t chunk_start = 0; chunk_start < old_total_slots; chunk_start += 32) {
+        uint32_t set_slot_mask = 0;
+        uint32_t chunk_end = chunk_start + 32;
+        for (uint32_t i = chunk_start; i < chunk_end; i++) {
+          set_slot_mask <<= 1;
+          set_slot_mask |= m_slots[i].is_set();
+        }
+        while (set_slot_mask) {
+          uint32_t i = bitscan_reverse_clear_uint(&set_slot_mask);
+          this->add_after_grow_and_destruct_old(
+              m_slots[chunk_start + i], new_slots, new_slot_mask);
+        }
       }
     }
 
