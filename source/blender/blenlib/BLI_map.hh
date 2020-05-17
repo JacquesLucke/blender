@@ -32,9 +32,9 @@ template<typename Key, typename Value> struct DefaultMapSlot;
 template<typename Key,
          typename Value,
          uint32_t InlineBufferCapacity = 4,
+         typename ProbingStrategy = DefaultProbingStrategy,
          typename Hash = DefaultHash<Key>,
          typename Slot = typename DefaultMapSlot<Key, Value>::type,
-         typename ProbingStrategy = DefaultProbingStrategy,
          typename Allocator = GuardedAllocator>
 class Map {
  private:

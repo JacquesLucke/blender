@@ -34,9 +34,9 @@ template<typename Key> struct DefaultVectorSetSlot;
 
 template<typename Key,
          uint32_t InlineBufferCapacity = 4,
+         typename ProbingStrategy = DefaultProbingStrategy,
          typename Hash = DefaultHash<Key>,
          typename Slot = typename DefaultVectorSetSlot<Key>::type,
-         typename ProbingStrategy = DefaultProbingStrategy,
          typename Allocator = GuardedAllocator>
 class VectorSet {
  private:
