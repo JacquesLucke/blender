@@ -19,6 +19,10 @@
 
 /** \file
  * \ingroup bli
+ *
+ * This file contains different slot types that are supposed to be used with BLI::Set.
+ *
+ * Every slot type has to be able to hold a value of the Key type and state information.
  */
 
 #include "BLI_memory_utils.hh"

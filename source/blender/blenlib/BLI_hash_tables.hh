@@ -19,6 +19,8 @@
 
 /** \file
  * \ingroup bli
+ *
+ * This file contains code that can be shared between different hash table implementations.
  */
 
 #include <cmath>
