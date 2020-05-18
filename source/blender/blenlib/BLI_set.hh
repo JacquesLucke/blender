@@ -87,10 +87,10 @@ class Set {
    */
   static constexpr uint32_t s_max_load_factor_numerator = 1;
   static constexpr uint32_t s_max_load_factor_denominator = 2;
-  static constexpr uint32_t s_default_slot_array_size = total_slot_amount_for_usable_slots(
+  static constexpr uint32_t s_inline_slots_capacity = total_slot_amount_for_usable_slots(
       InlineBufferCapacity, s_max_load_factor_numerator, s_max_load_factor_denominator);
 
-  using SlotArray = Array<Slot, s_default_slot_array_size, Allocator>;
+  using SlotArray = Array<Slot, s_inline_slots_capacity, Allocator>;
 
   /**
    * This is the array that contains the actual slots. There is always at least one slot and the
@@ -124,14 +124,12 @@ class Set {
    */
   Set()
   {
-    BLI_assert(is_power_of_2_i((int)s_default_slot_array_size));
-    m_slots = SlotArray(s_default_slot_array_size);
+    m_slots = SlotArray(1);
 
     m_dummy_slots = 0;
     m_set_or_dummy_slots = 0;
-    m_usable_slots = floor_multiplication_with_fraction(
-        m_slots.size(), s_max_load_factor_numerator, s_max_load_factor_denominator);
-    m_slot_mask = m_slots.size() - 1;
+    m_usable_slots = 0;
+    m_slot_mask = 0;
   }
 
   ~Set() = default;
@@ -452,12 +450,26 @@ class Set {
   {
     uint32_t total_slots = total_slot_amount_for_usable_slots(
         min_usable_slots, s_max_load_factor_numerator, s_max_load_factor_denominator);
+    total_slots = std::max(total_slots, s_inline_slots_capacity);
     uint32_t usable_slots = floor_multiplication_with_fraction(
         total_slots, s_max_load_factor_numerator, s_max_load_factor_denominator);
+    uint32_t new_slot_mask = total_slots - 1;
+
+    /**
+     * Optimize the case when the set was empty beforehand. We can avoid some copies here.
+     */
+    if (this->size() == 0) {
+      m_slots.~Array();
+      new (&m_slots) SlotArray(total_slots);
+      m_dummy_slots = 0;
+      m_set_or_dummy_slots = 0;
+      m_usable_slots = usable_slots;
+      m_slot_mask = new_slot_mask;
+      return;
+    }
 
     /* The grown array that we insert the keys into. */
     SlotArray new_slots(total_slots);
-    uint32_t new_slot_mask = total_slots - 1;
 
     uint32_t old_total_slots = m_slots.size();
 
