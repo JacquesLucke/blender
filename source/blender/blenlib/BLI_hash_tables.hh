@@ -296,19 +296,19 @@ using DefaultProbingStrategy = PythonProbingStrategy<>;
 
 /**
  * Both macros together form a loop that iterates over slot indices in a hash table with a
- * power-of-2 size. The macro assumes that `ProbingStrategy` is a name for a class
- * implementing the probing strategy interface.
+ * power-of-2 size.
  *
  * You must not `break` out of this loop. Only `return` is permitted. If you don't return
  * out of the loop, it will be an infinite loop. These loops should not be nested within the
  * same function.
  *
+ * PROBING_STRATEGY: Class describing that probing strategy.
  * HASH: The initial hash as produced by a hash function.
  * MASK: A bit mask such that (hash & MASK) is a valid slot index.
  * R_SLOT_INDEX: Name of the variable that will contain the slot index.
  */
-#define SLOT_PROBING_BEGIN(HASH, MASK, R_SLOT_INDEX) \
-  ProbingStrategy probing_strategy(HASH); \
+#define SLOT_PROBING_BEGIN(PROBING_STRATEGY, HASH, MASK, R_SLOT_INDEX) \
+  PROBING_STRATEGY probing_strategy(HASH); \
   do { \
     uint32_t linear_offset = 0; \
     uint32_t current_hash = probing_strategy.get(); \

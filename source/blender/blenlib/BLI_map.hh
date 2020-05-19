@@ -52,6 +52,10 @@ class Map {
   uint32_t m_usable_slots;
   uint32_t m_slot_mask;
 
+#define MAP_SLOT_PROBING_BEGIN(HASH, R_SLOT_INDEX) \
+  SLOT_PROBING_BEGIN (ProbingStrategy, HASH, m_slot_mask, R_SLOT_INDEX)
+#define MAP_SLOT_PROBING_END() SLOT_PROBING_END()
+
  public:
   Map()
   {
@@ -451,7 +455,7 @@ class Map {
     uint32_t hash = Hash{}(key);
     uint32_t collisions = 0;
 
-    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+    MAP_SLOT_PROBING_BEGIN (hash, slot_index) {
       const Slot &slot = m_slots[slot_index];
       if (slot.contains(key, hash)) {
         return collisions;
@@ -461,7 +465,7 @@ class Map {
       }
       collisions++;
     }
-    SLOT_PROBING_END();
+    MAP_SLOT_PROBING_END();
   }
 
  private:
@@ -494,7 +498,7 @@ class Map {
                                        uint32_t new_slot_mask)
   {
     uint32_t hash = old_slot.get_hash(Hash());
-    SLOT_PROBING_BEGIN (hash, new_slot_mask, slot_index) {
+    SLOT_PROBING_BEGIN (ProbingStrategy, hash, new_slot_mask, slot_index) {
       Slot &slot = new_slots[slot_index];
       if (slot.is_empty()) {
         slot.set_and_destruct_other(old_slot, hash);
@@ -506,7 +510,7 @@ class Map {
 
   template<typename ForwardKey> bool contains__impl(const ForwardKey &key, uint32_t hash) const
   {
-    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+    MAP_SLOT_PROBING_BEGIN (hash, slot_index) {
       const Slot &slot = m_slots[slot_index];
       if (slot.is_empty()) {
         return false;
@@ -515,7 +519,7 @@ class Map {
         return true;
       }
     }
-    SLOT_PROBING_END();
+    MAP_SLOT_PROBING_END();
   }
 
   template<typename ForwardKey, typename ForwardValue>
@@ -526,14 +530,14 @@ class Map {
     this->ensure_can_add();
     m_set_or_dummy_slots++;
 
-    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+    MAP_SLOT_PROBING_BEGIN (hash, slot_index) {
       Slot &slot = m_slots[slot_index];
       if (slot.is_empty()) {
         slot.set(std::forward<ForwardKey>(key), std::forward<ForwardValue>(value), hash);
         return;
       }
     }
-    SLOT_PROBING_END();
+    MAP_SLOT_PROBING_END();
   }
 
   template<typename ForwardKey, typename ForwardValue>
@@ -541,7 +545,7 @@ class Map {
   {
     this->ensure_can_add();
 
-    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+    MAP_SLOT_PROBING_BEGIN (hash, slot_index) {
       Slot &slot = m_slots[slot_index];
       if (slot.is_empty()) {
         slot.set(std::forward<ForwardKey>(key), std::forward<ForwardValue>(value), hash);
@@ -552,7 +556,7 @@ class Map {
         return false;
       }
     }
-    SLOT_PROBING_END();
+    MAP_SLOT_PROBING_END();
   }
 
   template<typename ForwardKey> void remove__impl(const ForwardKey &key, uint32_t hash)
@@ -561,14 +565,14 @@ class Map {
 
     m_dummy_slots++;
 
-    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+    MAP_SLOT_PROBING_BEGIN (hash, slot_index) {
       Slot &slot = m_slots[slot_index];
       if (slot.contains(key, hash)) {
         slot.set_to_dummy();
         return;
       }
     }
-    SLOT_PROBING_END();
+    MAP_SLOT_PROBING_END();
   }
 
   template<typename ForwardKey> Value pop__impl(const ForwardKey &key, uint32_t hash)
@@ -577,7 +581,7 @@ class Map {
 
     m_dummy_slots++;
 
-    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+    MAP_SLOT_PROBING_BEGIN (hash, slot_index) {
       Slot &slot = m_slots[slot_index];
       if (slot.contains(key, hash)) {
         Value value = *slot.value();
@@ -585,7 +589,7 @@ class Map {
         return value;
       }
     }
-    SLOT_PROBING_END();
+    MAP_SLOT_PROBING_END();
   }
 
   template<typename ForwardKey, typename CreateValueF, typename ModifyValueF>
@@ -601,7 +605,7 @@ class Map {
 
     this->ensure_can_add();
 
-    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+    MAP_SLOT_PROBING_BEGIN (hash, slot_index) {
       Slot &slot = m_slots[slot_index];
 
       if (slot.is_empty()) {
@@ -615,7 +619,7 @@ class Map {
         return modify_value(value_ptr);
       }
     }
-    SLOT_PROBING_END();
+    MAP_SLOT_PROBING_END();
   }
 
   template<typename ForwardKey, typename CreateValueF>
@@ -623,7 +627,7 @@ class Map {
   {
     this->ensure_can_add();
 
-    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+    MAP_SLOT_PROBING_BEGIN (hash, slot_index) {
       Slot &slot = m_slots[slot_index];
 
       if (slot.is_empty()) {
@@ -635,7 +639,7 @@ class Map {
         return *slot.value();
       }
     }
-    SLOT_PROBING_END();
+    MAP_SLOT_PROBING_END();
   }
 
   template<typename ForwardKey, typename ForwardValue>
@@ -656,7 +660,7 @@ class Map {
   template<typename ForwardKey>
   const Value *lookup_ptr__impl(const ForwardKey &key, uint32_t hash) const
   {
-    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+    MAP_SLOT_PROBING_BEGIN (hash, slot_index) {
       const Slot &slot = m_slots[slot_index];
 
       if (slot.is_empty()) {
@@ -666,7 +670,7 @@ class Map {
         return slot.value();
       }
     }
-    SLOT_PROBING_END();
+    MAP_SLOT_PROBING_END();
   }
 
   void ensure_can_add()

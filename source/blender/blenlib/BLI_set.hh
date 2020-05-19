@@ -117,6 +117,10 @@ class Set {
    */
   uint32_t m_slot_mask;
 
+#define SET_SLOT_PROBING_BEGIN(HASH, R_SLOT_INDEX) \
+  SLOT_PROBING_BEGIN (ProbingStrategy, HASH, m_slot_mask, R_SLOT_INDEX)
+#define SET_SLOT_PROBING_END() SLOT_PROBING_END()
+
  public:
   /**
    * Initialize an empty set. The number of reserved slots depends on the InlineBufferCapacity
@@ -388,7 +392,7 @@ class Set {
     uint32_t hash = Hash{}(key);
     uint32_t collisions = 0;
 
-    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+    SET_SLOT_PROBING_BEGIN (hash, slot_index) {
       const Slot &slot = m_slots[slot_index];
       if (slot.contains(key, hash)) {
         return collisions;
@@ -398,7 +402,7 @@ class Set {
       }
       collisions++;
     }
-    SLOT_PROBING_END();
+    SET_SLOT_PROBING_END();
   }
 
   /**
@@ -521,7 +525,7 @@ class Set {
   {
     uint32_t hash = old_slot.get_hash(Hash());
 
-    SLOT_PROBING_BEGIN (hash, new_slot_mask, slot_index) {
+    SLOT_PROBING_BEGIN (ProbingStrategy, hash, new_slot_mask, slot_index) {
       Slot &slot = new_slots[slot_index];
       if (slot.is_empty()) {
         slot.set_and_destruct_other(old_slot, hash);
@@ -533,7 +537,7 @@ class Set {
 
   template<typename ForwardKey> bool contains__impl(const ForwardKey &key, uint32_t hash) const
   {
-    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+    SET_SLOT_PROBING_BEGIN (hash, slot_index) {
       const Slot &slot = m_slots[slot_index];
       if (slot.is_empty()) {
         return false;
@@ -542,7 +546,7 @@ class Set {
         return true;
       }
     }
-    SLOT_PROBING_END();
+    SET_SLOT_PROBING_END();
   }
 
   template<typename ForwardKey> void add_new__impl(ForwardKey &&key, uint32_t hash)
@@ -551,7 +555,7 @@ class Set {
 
     this->ensure_can_add();
 
-    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+    SET_SLOT_PROBING_BEGIN (hash, slot_index) {
       Slot &slot = m_slots[slot_index];
       if (slot.is_empty()) {
         slot.set(std::forward<ForwardKey>(key), hash);
@@ -559,14 +563,14 @@ class Set {
         return;
       }
     }
-    SLOT_PROBING_END();
+    SET_SLOT_PROBING_END();
   }
 
   template<typename ForwardKey> bool add__impl(ForwardKey &&key, uint32_t hash)
   {
     this->ensure_can_add();
 
-    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+    SET_SLOT_PROBING_BEGIN (hash, slot_index) {
       Slot &slot = m_slots[slot_index];
       if (slot.is_empty()) {
         slot.set(std::forward<ForwardKey>(key), hash);
@@ -577,7 +581,7 @@ class Set {
         return false;
       }
     }
-    SLOT_PROBING_END();
+    SET_SLOT_PROBING_END();
   }
 
   template<typename ForwardKey> void remove__impl(const ForwardKey &key, uint32_t hash)
@@ -585,14 +589,14 @@ class Set {
     BLI_assert(this->contains(key));
     m_dummy_slots++;
 
-    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+    SET_SLOT_PROBING_BEGIN (hash, slot_index) {
       Slot &slot = m_slots[slot_index];
       if (slot.contains(key, hash)) {
         slot.set_to_dummy();
         return;
       }
     }
-    SLOT_PROBING_END();
+    SET_SLOT_PROBING_END();
   }
 
   void ensure_can_add()

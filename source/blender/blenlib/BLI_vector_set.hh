@@ -55,6 +55,10 @@ class VectorSet {
   uint32_t m_usable_slots;
   uint32_t m_slot_mask;
 
+#define VECTOR_SET_SLOT_PROBING_BEGIN(HASH, R_SLOT_INDEX) \
+  SLOT_PROBING_BEGIN (ProbingStrategy, HASH, m_slot_mask, R_SLOT_INDEX)
+#define VECTOR_SET_SLOT_PROBING_END() SLOT_PROBING_END()
+
  public:
   VectorSet()
   {
@@ -258,7 +262,7 @@ class VectorSet {
     uint32_t hash = Hash{}(key);
     uint32_t collisions = 0;
 
-    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+    VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot_index) {
       const Slot &slot = m_slots[slot_index];
       if (slot.contains(key, hash, m_keys)) {
         return collisions;
@@ -268,7 +272,7 @@ class VectorSet {
       }
       collisions++;
     }
-    SLOT_PROBING_END();
+    VECTOR_SET_SLOT_PROBING_END();
   }
 
  private:
@@ -308,7 +312,7 @@ class VectorSet {
     const Key &key = m_keys[old_slot.index()];
     uint32_t hash = old_slot.get_hash(key, Hash());
 
-    SLOT_PROBING_BEGIN (hash, new_slot_mask, slot_index) {
+    SLOT_PROBING_BEGIN (ProbingStrategy, hash, new_slot_mask, slot_index) {
       Slot &slot = new_slots[slot_index];
       if (slot.is_empty()) {
         slot.set_and_destruct_other(old_slot, hash);
@@ -320,7 +324,7 @@ class VectorSet {
 
   template<typename ForwardKey> bool contains__impl(const ForwardKey &key, uint32_t hash) const
   {
-    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+    VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot_index) {
       const Slot &slot = m_slots[slot_index];
       if (slot.is_empty()) {
         return false;
@@ -329,7 +333,7 @@ class VectorSet {
         return true;
       }
     }
-    SLOT_PROBING_END();
+    VECTOR_SET_SLOT_PROBING_END();
   }
 
   template<typename ForwardKey> void add_new__impl(ForwardKey &&key, uint32_t hash)
@@ -338,7 +342,7 @@ class VectorSet {
 
     this->ensure_can_add();
 
-    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+    VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot_index) {
       Slot &slot = m_slots[slot_index];
       if (slot.is_empty()) {
         uint32_t index = this->size();
@@ -348,14 +352,14 @@ class VectorSet {
         return;
       }
     }
-    SLOT_PROBING_END();
+    VECTOR_SET_SLOT_PROBING_END();
   }
 
   template<typename ForwardKey> bool add__impl(ForwardKey &&key, uint32_t hash)
   {
     this->ensure_can_add();
 
-    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+    VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot_index) {
       Slot &slot = m_slots[slot_index];
       if (slot.is_empty()) {
         uint32_t index = this->size();
@@ -368,25 +372,25 @@ class VectorSet {
         return false;
       }
     }
-    SLOT_PROBING_END();
+    VECTOR_SET_SLOT_PROBING_END();
   }
 
   template<typename ForwardKey> uint32_t index__impl(const ForwardKey &key, uint32_t hash) const
   {
     BLI_assert(this->contains(key));
 
-    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+    VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot_index) {
       const Slot &slot = m_slots[slot_index];
       if (slot.contains(key, hash, m_keys)) {
         return slot.index();
       }
     }
-    SLOT_PROBING_END();
+    VECTOR_SET_SLOT_PROBING_END();
   }
 
   template<typename ForwardKey> int32_t index_try__impl(const ForwardKey &key, uint32_t hash) const
   {
-    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+    VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot_index) {
       const Slot &slot = m_slots[slot_index];
       if (slot.contains(key, hash, m_keys)) {
         return slot.index();
@@ -395,7 +399,7 @@ class VectorSet {
         return -1;
       }
     }
-    SLOT_PROBING_END();
+    VECTOR_SET_SLOT_PROBING_END();
   }
 
   Key pop__impl()
@@ -409,21 +413,21 @@ class VectorSet {
 
     m_dummy_slots++;
 
-    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+    VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot_index) {
       Slot &slot = m_slots[slot_index];
       if (slot.has_index(index_to_pop)) {
         slot.set_to_dummy();
         return key;
       }
     }
-    SLOT_PROBING_END();
+    VECTOR_SET_SLOT_PROBING_END();
   }
 
   template<typename ForwardKey> void remove__impl(const ForwardKey &key, uint32_t hash)
   {
     BLI_assert(this->contains(key));
 
-    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+    VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot_index) {
       Slot &slot = m_slots[slot_index];
       if (slot.contains(key, hash, m_keys)) {
         uint32_t index_to_remove = slot.index();
@@ -441,20 +445,20 @@ class VectorSet {
         return;
       }
     }
-    SLOT_PROBING_END();
+    VECTOR_SET_SLOT_PROBING_END();
   }
 
   void update_slot_index(const Key &key, uint32_t old_index, uint32_t new_index)
   {
     uint32_t hash = Hash{}(key);
-    SLOT_PROBING_BEGIN (hash, m_slot_mask, slot_index) {
+    VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot_index) {
       Slot &slot = m_slots[slot_index];
       if (slot.has_index(old_index)) {
         slot.update_index(new_index);
         return;
       }
     }
-    SLOT_PROBING_END();
+    VECTOR_SET_SLOT_PROBING_END();
   }
 
   void ensure_can_add()
