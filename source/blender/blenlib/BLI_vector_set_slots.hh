@@ -31,12 +31,12 @@ namespace BLI {
 template<typename Key> class SimpleVectorSetSlot {
  private:
   static constexpr int32_t s_is_empty = -1;
-  static constexpr int32_t s_is_dummy = -2;
+  static constexpr int32_t s_is_occupied = -2;
 
   int32_t m_state = s_is_empty;
 
  public:
-  bool is_set() const
+  bool is_occupied() const
   {
     return m_state >= 0;
   }
@@ -48,7 +48,7 @@ template<typename Key> class SimpleVectorSetSlot {
 
   uint32_t index() const
   {
-    BLI_assert(this->is_set());
+    BLI_assert(this->is_occupied());
     return m_state;
   }
 
@@ -61,28 +61,28 @@ template<typename Key> class SimpleVectorSetSlot {
     return false;
   }
 
-  void set_and_destruct_other(SimpleVectorSetSlot &other, uint32_t UNUSED(hash))
+  void relocate_occupied_here(SimpleVectorSetSlot &other, uint32_t UNUSED(hash))
   {
-    BLI_assert(!this->is_set());
-    BLI_assert(other.is_set());
+    BLI_assert(!this->is_occupied());
+    BLI_assert(other.is_occupied());
     m_state = other.m_state;
   }
 
-  void set(uint32_t index, uint32_t UNUSED(hash))
+  void occupy(uint32_t index, uint32_t UNUSED(hash))
   {
-    BLI_assert(!this->is_set());
+    BLI_assert(!this->is_occupied());
     m_state = (int32_t)index;
   }
 
   void update_index(uint32_t index)
   {
-    BLI_assert(this->is_set());
+    BLI_assert(this->is_occupied());
     m_state = (int32_t)index;
   }
 
-  void set_to_dummy()
+  void remove()
   {
-    m_state = s_is_dummy;
+    m_state = s_is_occupied;
   }
 
   bool has_index(uint32_t index) const
@@ -92,7 +92,7 @@ template<typename Key> class SimpleVectorSetSlot {
 
   template<typename Hash> uint32_t get_hash(const Key &key, const Hash &hash) const
   {
-    BLI_assert(this->is_set());
+    BLI_assert(this->is_occupied());
     return hash(key);
   }
 };
