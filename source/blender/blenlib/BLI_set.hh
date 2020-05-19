@@ -46,7 +46,7 @@ template<typename Key> struct DefaultSetSlot;
 
 template<
     /**
-     * Type of of the elements that are stored in this set. It has to be movable.
+     * Type of the elements that are stored in this set. It has to be movable.
      */
     typename Key,
     /**
