@@ -67,8 +67,8 @@ template<
     typename Hash = DefaultHash<Key>,
     /**
      * This is what will actually be stored in the hash table array. At a minimum a slot has to
-     * be able to hold a key and information about whether the slot is empty, set or a dummy. Using
-     * a non-standard slot type can improve performance or reduce the memory footprint. For
+     * be able to hold a key and information about whether the slot is empty, occupied or removed.
+     * Using a non-standard slot type can improve performance or reduce the memory footprint. For
      * example, a hash can be stored in the slot, to make inequality checks more efficient. Some
      * types have special values that can represent an empty or dummy state, eliminating the need
      * for an additional variable.
@@ -99,15 +99,15 @@ class Set {
   SlotArray m_slots;
 
   /**
-   * Slots are either empty, set or dummy. The number of set slots can be computed by subtracting
-   * the dummy slots from the set-or-dummy slots.
+   * Slots are either empty, occupied or removed. The number of occupied slots can be computed by
+   * subtracting the removed slots from the occupied-and-removed slots.
    */
-  uint32_t m_dummy_slots;
-  uint32_t m_set_or_dummy_slots;
+  uint32_t m_removed_slots;
+  uint32_t m_occupied_and_removed_slots;
 
   /**
-   * The maximum number of slots that can be used (either set or dummy) until the set has to grow.
-   * This is the number of total slots times the max load factor.
+   * The maximum number of slots that can be used (either occupied or removed) until the set has to
+   * grow. This is the number of total slots times the max load factor.
    */
   uint32_t m_usable_slots;
 
@@ -123,15 +123,14 @@ class Set {
 
  public:
   /**
-   * Initialize an empty set. The number of reserved slots depends on the InlineBufferCapacity
-   * parameter.
+   * Initialize an empty set.
    */
   Set()
   {
     m_slots = SlotArray(1);
 
-    m_dummy_slots = 0;
-    m_set_or_dummy_slots = 0;
+    m_removed_slots = 0;
+    m_occupied_and_removed_slots = 0;
     m_usable_slots = 0;
     m_slot_mask = 0;
   }
@@ -150,8 +149,8 @@ class Set {
 
   Set(Set &&other)
       : m_slots(std::move(other.m_slots)),
-        m_dummy_slots(other.m_dummy_slots),
-        m_set_or_dummy_slots(other.m_set_or_dummy_slots),
+        m_removed_slots(other.m_removed_slots),
+        m_occupied_and_removed_slots(other.m_occupied_and_removed_slots),
         m_usable_slots(other.m_usable_slots),
         m_slot_mask(other.m_slot_mask)
   {
@@ -188,7 +187,7 @@ class Set {
    */
   uint32_t size() const
   {
-    return m_set_or_dummy_slots - m_dummy_slots;
+    return m_occupied_and_removed_slots - m_removed_slots;
   }
 
   /**
@@ -196,7 +195,7 @@ class Set {
    */
   bool is_empty() const
   {
-    return m_set_or_dummy_slots == m_dummy_slots;
+    return m_occupied_and_removed_slots == m_removed_slots;
   }
 
   /**
@@ -208,11 +207,11 @@ class Set {
   }
 
   /**
-   * Returns the amount of dummy slots in the set. This is mostly for debugging purposes.
+   * Returns the amount of removed slots in the set. This is mostly for debugging purposes.
    */
   uint32_t dummy_amount() const
   {
-    return m_dummy_slots;
+    return m_removed_slots;
   }
 
   /**
@@ -339,7 +338,7 @@ class Set {
     Iterator &operator++()
     {
       while (++m_current_slot < m_total_slots) {
-        if (m_slots[m_current_slot].is_set()) {
+        if (m_slots[m_current_slot].is_occupied()) {
           break;
         }
       }
@@ -362,7 +361,7 @@ class Set {
   Iterator begin() const
   {
     for (uint32_t i = 0; i < m_slots.size(); i++) {
-      if (m_slots[i].is_set()) {
+      if (m_slots[i].is_occupied()) {
         return Iterator(m_slots.begin(), m_slots.size(), i);
       }
     }
@@ -465,8 +464,8 @@ class Set {
     if (this->size() == 0) {
       m_slots.~Array();
       new (&m_slots) SlotArray(total_slots);
-      m_dummy_slots = 0;
-      m_set_or_dummy_slots = 0;
+      m_removed_slots = 0;
+      m_occupied_and_removed_slots = 0;
       m_usable_slots = usable_slots;
       m_slot_mask = new_slot_mask;
       return;
@@ -485,7 +484,7 @@ class Set {
        * have to determine a better check for which algorithm will work better.
        */
       for (Slot &slot : m_slots) {
-        if (slot.is_set()) {
+        if (slot.is_occupied()) {
           this->add_after_grow_and_destruct_old(slot, new_slots, new_slot_mask);
         }
       }
@@ -501,7 +500,7 @@ class Set {
         uint32_t chunk_end = chunk_start + 32;
         for (uint32_t i = chunk_start; i < chunk_end; i++) {
           set_slot_mask <<= 1;
-          set_slot_mask |= m_slots[i].is_set();
+          set_slot_mask |= m_slots[i].is_occupied();
         }
         while (set_slot_mask) {
           uint32_t i = bitscan_reverse_clear_uint(&set_slot_mask);
@@ -513,9 +512,9 @@ class Set {
 
     m_slots.clear_without_destruct();
     m_slots = std::move(new_slots);
-    m_set_or_dummy_slots -= m_dummy_slots;
+    m_occupied_and_removed_slots -= m_removed_slots;
     m_usable_slots = usable_slots;
-    m_dummy_slots = 0;
+    m_removed_slots = 0;
     m_slot_mask = new_slot_mask;
   }
 
@@ -528,7 +527,7 @@ class Set {
     SLOT_PROBING_BEGIN (ProbingStrategy, hash, new_slot_mask, slot_index) {
       Slot &slot = new_slots[slot_index];
       if (slot.is_empty()) {
-        slot.set_and_destruct_other(old_slot, hash);
+        slot.relocate_occupied_here(old_slot, hash);
         return;
       }
     }
@@ -558,8 +557,8 @@ class Set {
     SET_SLOT_PROBING_BEGIN (hash, slot_index) {
       Slot &slot = m_slots[slot_index];
       if (slot.is_empty()) {
-        slot.set(std::forward<ForwardKey>(key), hash);
-        m_set_or_dummy_slots++;
+        slot.occupy(std::forward<ForwardKey>(key), hash);
+        m_occupied_and_removed_slots++;
         return;
       }
     }
@@ -573,8 +572,8 @@ class Set {
     SET_SLOT_PROBING_BEGIN (hash, slot_index) {
       Slot &slot = m_slots[slot_index];
       if (slot.is_empty()) {
-        slot.set(std::forward<ForwardKey>(key), hash);
-        m_set_or_dummy_slots++;
+        slot.occupy(std::forward<ForwardKey>(key), hash);
+        m_occupied_and_removed_slots++;
         return true;
       }
       if (slot.contains(key, hash)) {
@@ -587,12 +586,12 @@ class Set {
   template<typename ForwardKey> void remove__impl(const ForwardKey &key, uint32_t hash)
   {
     BLI_assert(this->contains(key));
-    m_dummy_slots++;
+    m_removed_slots++;
 
     SET_SLOT_PROBING_BEGIN (hash, slot_index) {
       Slot &slot = m_slots[slot_index];
       if (slot.contains(key, hash)) {
-        slot.set_to_dummy();
+        slot.remove();
         return;
       }
     }
@@ -601,7 +600,7 @@ class Set {
 
   void ensure_can_add()
   {
-    if (m_set_or_dummy_slots >= m_usable_slots) {
+    if (m_occupied_and_removed_slots >= m_usable_slots) {
       this->grow(this->size() + 1);
     }
   }
