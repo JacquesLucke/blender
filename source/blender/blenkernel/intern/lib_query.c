@@ -79,6 +79,7 @@
 #include "BKE_node.h"
 #include "BKE_particle.h"
 #include "BKE_rigidbody.h"
+#include "BKE_screen.h"
 #include "BKE_sequencer.h"
 #include "BKE_shader_fx.h"
 #include "BKE_texture.h"
@@ -197,6 +198,11 @@ bool BKE_lib_query_foreachid_process(LibraryForeachIDData *data, ID **id_pp, int
   else {
     return false;
   }
+}
+
+int BKE_lib_query_foreachid_process_flags_get(LibraryForeachIDData *data)
+{
+  return data->flag;
 }
 
 static void library_foreach_ID_link(Main *bmain,
@@ -365,148 +371,6 @@ static void library_foreach_collection(LibraryForeachIDData *data, Collection *c
                              IDWALK_CB_NOP);
     FOREACH_CALLBACK_INVOKE(
         data, parent->collection, IDWALK_CB_NEVER_SELF | IDWALK_CB_LOOPBACK | cb_flag);
-  }
-
-  FOREACH_FINALIZE_VOID;
-}
-
-static void library_foreach_dopesheet(LibraryForeachIDData *data, bDopeSheet *ads)
-{
-  if (ads != NULL) {
-    FOREACH_CALLBACK_INVOKE_ID(data, ads->source, IDWALK_CB_NOP);
-    FOREACH_CALLBACK_INVOKE(data, ads->filter_grp, IDWALK_CB_NOP);
-  }
-
-  FOREACH_FINALIZE_VOID;
-}
-
-static void library_foreach_screen_area(LibraryForeachIDData *data, ScrArea *area)
-{
-  FOREACH_CALLBACK_INVOKE(data, area->full, IDWALK_CB_NOP);
-
-  LISTBASE_FOREACH (SpaceLink *, sl, &area->spacedata) {
-    switch (sl->spacetype) {
-      case SPACE_VIEW3D: {
-        View3D *v3d = (View3D *)sl;
-
-        FOREACH_CALLBACK_INVOKE(data, v3d->camera, IDWALK_CB_NOP);
-        FOREACH_CALLBACK_INVOKE(data, v3d->ob_center, IDWALK_CB_NOP);
-
-        if (v3d->localvd) {
-          FOREACH_CALLBACK_INVOKE(data, v3d->localvd->camera, IDWALK_CB_NOP);
-        }
-        break;
-      }
-      case SPACE_GRAPH: {
-        SpaceGraph *sipo = (SpaceGraph *)sl;
-
-        library_foreach_dopesheet(data, sipo->ads);
-        break;
-      }
-      case SPACE_PROPERTIES: {
-        SpaceProperties *sbuts = (SpaceProperties *)sl;
-
-        FOREACH_CALLBACK_INVOKE_ID(data, sbuts->pinid, IDWALK_CB_NOP);
-        break;
-      }
-      case SPACE_FILE:
-        break;
-      case SPACE_ACTION: {
-        SpaceAction *saction = (SpaceAction *)sl;
-
-        library_foreach_dopesheet(data, &saction->ads);
-        FOREACH_CALLBACK_INVOKE(data, saction->action, IDWALK_CB_NOP);
-        break;
-      }
-      case SPACE_IMAGE: {
-        SpaceImage *sima = (SpaceImage *)sl;
-
-        FOREACH_CALLBACK_INVOKE(data, sima->image, IDWALK_CB_USER_ONE);
-        FOREACH_CALLBACK_INVOKE(data, sima->mask_info.mask, IDWALK_CB_USER_ONE);
-        FOREACH_CALLBACK_INVOKE(data, sima->gpd, IDWALK_CB_USER);
-        break;
-      }
-      case SPACE_SEQ: {
-        SpaceSeq *sseq = (SpaceSeq *)sl;
-
-        FOREACH_CALLBACK_INVOKE(data, sseq->gpd, IDWALK_CB_USER);
-        break;
-      }
-      case SPACE_NLA: {
-        SpaceNla *snla = (SpaceNla *)sl;
-
-        library_foreach_dopesheet(data, snla->ads);
-        break;
-      }
-      case SPACE_TEXT: {
-        SpaceText *st = (SpaceText *)sl;
-
-        FOREACH_CALLBACK_INVOKE(data, st->text, IDWALK_CB_NOP);
-        break;
-      }
-      case SPACE_SCRIPT: {
-        SpaceScript *scpt = (SpaceScript *)sl;
-
-        FOREACH_CALLBACK_INVOKE(data, scpt->script, IDWALK_CB_NOP);
-        break;
-      }
-      case SPACE_OUTLINER: {
-        SpaceOutliner *so = (SpaceOutliner *)sl;
-
-        FOREACH_CALLBACK_INVOKE_ID(data, so->search_tse.id, IDWALK_CB_NOP);
-
-        if (so->treestore != NULL) {
-          TreeStoreElem *tselem;
-          BLI_mempool_iter iter;
-
-          BLI_mempool_iternew(so->treestore, &iter);
-          while ((tselem = BLI_mempool_iterstep(&iter))) {
-            FOREACH_CALLBACK_INVOKE_ID(data, tselem->id, IDWALK_CB_NOP);
-          }
-        }
-        break;
-      }
-      case SPACE_NODE: {
-        SpaceNode *snode = (SpaceNode *)sl;
-
-        const bool is_private_nodetree = snode->id != NULL &&
-                                         ntreeFromID(snode->id) == snode->nodetree;
-
-        FOREACH_CALLBACK_INVOKE_ID(data, snode->id, IDWALK_CB_NOP);
-        FOREACH_CALLBACK_INVOKE_ID(data, snode->from, IDWALK_CB_NOP);
-
-        FOREACH_CALLBACK_INVOKE(
-            data, snode->nodetree, is_private_nodetree ? IDWALK_CB_EMBEDDED : IDWALK_CB_USER_ONE);
-
-        LISTBASE_FOREACH (bNodeTreePath *, path, &snode->treepath) {
-          if (path == snode->treepath.first) {
-            /* first nodetree in path is same as snode->nodetree */
-            FOREACH_CALLBACK_INVOKE(data,
-                                    path->nodetree,
-                                    is_private_nodetree ? IDWALK_CB_EMBEDDED : IDWALK_CB_USER_ONE);
-          }
-          else {
-            FOREACH_CALLBACK_INVOKE(data, path->nodetree, IDWALK_CB_USER_ONE);
-          }
-
-          if (path->nodetree == NULL) {
-            break;
-          }
-        }
-
-        FOREACH_CALLBACK_INVOKE(data, snode->edittree, IDWALK_CB_NOP);
-        break;
-      }
-      case SPACE_CLIP: {
-        SpaceClip *sclip = (SpaceClip *)sl;
-
-        FOREACH_CALLBACK_INVOKE(data, sclip->clip, IDWALK_CB_USER_ONE);
-        FOREACH_CALLBACK_INVOKE(data, sclip->mask_info.mask, IDWALK_CB_USER_ONE);
-        break;
-      }
-      default:
-        break;
-    }
   }
 
   FOREACH_FINALIZE_VOID;
@@ -962,175 +826,37 @@ static void library_foreach_ID_link(Main *bmain,
       }
 
       case ID_PA: {
-        ParticleSettings *psett = (ParticleSettings *)id;
-        CALLBACK_INVOKE(psett->instance_collection, IDWALK_CB_USER);
-        CALLBACK_INVOKE(psett->instance_object, IDWALK_CB_NOP);
-        CALLBACK_INVOKE(psett->bb_ob, IDWALK_CB_NOP);
-        CALLBACK_INVOKE(psett->collision_group, IDWALK_CB_NOP);
-
-        for (i = 0; i < MAX_MTEX; i++) {
-          if (psett->mtex[i]) {
-            BKE_texture_mtex_foreach_id(&data, psett->mtex[i]);
-          }
-        }
-
-        if (psett->effector_weights) {
-          CALLBACK_INVOKE(psett->effector_weights->group, IDWALK_CB_NOP);
-        }
-
-        if (psett->pd) {
-          CALLBACK_INVOKE(psett->pd->tex, IDWALK_CB_USER);
-          CALLBACK_INVOKE(psett->pd->f_source, IDWALK_CB_NOP);
-        }
-        if (psett->pd2) {
-          CALLBACK_INVOKE(psett->pd2->tex, IDWALK_CB_USER);
-          CALLBACK_INVOKE(psett->pd2->f_source, IDWALK_CB_NOP);
-        }
-
-        if (psett->boids) {
-          LISTBASE_FOREACH (BoidState *, state, &psett->boids->states) {
-            LISTBASE_FOREACH (BoidRule *, rule, &state->rules) {
-              if (rule->type == eBoidRuleType_Avoid) {
-                BoidRuleGoalAvoid *gabr = (BoidRuleGoalAvoid *)rule;
-                CALLBACK_INVOKE(gabr->ob, IDWALK_CB_NOP);
-              }
-              else if (rule->type == eBoidRuleType_FollowLeader) {
-                BoidRuleFollowLeader *flbr = (BoidRuleFollowLeader *)rule;
-                CALLBACK_INVOKE(flbr->ob, IDWALK_CB_NOP);
-              }
-            }
-          }
-        }
-
-        LISTBASE_FOREACH (ParticleDupliWeight *, dw, &psett->instance_weights) {
-          CALLBACK_INVOKE(dw->ob, IDWALK_CB_NOP);
-        }
+        BLI_assert(0);
         break;
       }
 
       case ID_MC: {
-        MovieClip *clip = (MovieClip *)id;
-        MovieTracking *tracking = &clip->tracking;
-
-        CALLBACK_INVOKE(clip->gpd, IDWALK_CB_USER);
-
-        LISTBASE_FOREACH (MovieTrackingTrack *, track, &tracking->tracks) {
-          CALLBACK_INVOKE(track->gpd, IDWALK_CB_USER);
-        }
-        LISTBASE_FOREACH (MovieTrackingObject *, object, &tracking->objects) {
-          LISTBASE_FOREACH (MovieTrackingTrack *, track, &object->tracks) {
-            CALLBACK_INVOKE(track->gpd, IDWALK_CB_USER);
-          }
-        }
-
-        LISTBASE_FOREACH (MovieTrackingPlaneTrack *, plane_track, &tracking->plane_tracks) {
-          CALLBACK_INVOKE(plane_track->image, IDWALK_CB_USER);
-        }
+        BLI_assert(0);
         break;
       }
 
       case ID_MSK: {
-        Mask *mask = (Mask *)id;
-
-        LISTBASE_FOREACH (MaskLayer *, mask_layer, &mask->masklayers) {
-          LISTBASE_FOREACH (MaskSpline *, mask_spline, &mask_layer->splines) {
-            for (i = 0; i < mask_spline->tot_point; i++) {
-              MaskSplinePoint *point = &mask_spline->points[i];
-              CALLBACK_INVOKE_ID(point->parent.id, IDWALK_CB_USER);
-            }
-          }
-        }
+        BLI_assert(0);
         break;
       }
 
       case ID_LS: {
-        FreestyleLineStyle *linestyle = (FreestyleLineStyle *)id;
-
-        for (i = 0; i < MAX_MTEX; i++) {
-          if (linestyle->mtex[i]) {
-            BKE_texture_mtex_foreach_id(&data, linestyle->mtex[i]);
-          }
-        }
-        if (linestyle->nodetree) {
-          /* nodetree **are owned by IDs**, treat them as mere sub-data and not real ID! */
-          BKE_library_foreach_ID_embedded(&data, (ID **)&linestyle->nodetree);
-        }
-
-        LISTBASE_FOREACH (LineStyleModifier *, lsm, &linestyle->color_modifiers) {
-          if (lsm->type == LS_MODIFIER_DISTANCE_FROM_OBJECT) {
-            LineStyleColorModifier_DistanceFromObject *p =
-                (LineStyleColorModifier_DistanceFromObject *)lsm;
-            if (p->target) {
-              CALLBACK_INVOKE(p->target, IDWALK_CB_NOP);
-            }
-          }
-        }
-        LISTBASE_FOREACH (LineStyleModifier *, lsm, &linestyle->alpha_modifiers) {
-          if (lsm->type == LS_MODIFIER_DISTANCE_FROM_OBJECT) {
-            LineStyleAlphaModifier_DistanceFromObject *p =
-                (LineStyleAlphaModifier_DistanceFromObject *)lsm;
-            if (p->target) {
-              CALLBACK_INVOKE(p->target, IDWALK_CB_NOP);
-            }
-          }
-        }
-        LISTBASE_FOREACH (LineStyleModifier *, lsm, &linestyle->thickness_modifiers) {
-          if (lsm->type == LS_MODIFIER_DISTANCE_FROM_OBJECT) {
-            LineStyleThicknessModifier_DistanceFromObject *p =
-                (LineStyleThicknessModifier_DistanceFromObject *)lsm;
-            if (p->target) {
-              CALLBACK_INVOKE(p->target, IDWALK_CB_NOP);
-            }
-          }
-        }
+        BLI_assert(0);
         break;
       }
 
       case ID_AC: {
-        bAction *act = (bAction *)id;
-
-        LISTBASE_FOREACH (TimeMarker *, marker, &act->markers) {
-          CALLBACK_INVOKE(marker->camera, IDWALK_CB_NOP);
-        }
+        BLI_assert(0);
         break;
       }
 
       case ID_WM: {
-        wmWindowManager *wm = (wmWindowManager *)id;
-
-        LISTBASE_FOREACH (wmWindow *, win, &wm->windows) {
-          CALLBACK_INVOKE(win->scene, IDWALK_CB_USER_ONE);
-
-          /* This pointer can be NULL during old files reading, better be safe than sorry. */
-          if (win->workspace_hook != NULL) {
-            ID *workspace = (ID *)BKE_workspace_active_get(win->workspace_hook);
-            CALLBACK_INVOKE_ID(workspace, IDWALK_CB_NOP);
-            /* allow callback to set a different workspace */
-            BKE_workspace_active_set(win->workspace_hook, (WorkSpace *)workspace);
-          }
-          if (data.flag & IDWALK_INCLUDE_UI) {
-            LISTBASE_FOREACH (ScrArea *, area, &win->global_areas.areabase) {
-              library_foreach_screen_area(&data, area);
-            }
-          }
-        }
+        BLI_assert(0);
         break;
       }
 
       case ID_WS: {
-        WorkSpace *workspace = (WorkSpace *)id;
-        ListBase *layouts = BKE_workspace_layouts_get(workspace);
-
-        LISTBASE_FOREACH (WorkSpaceLayout *, layout, layouts) {
-          bScreen *screen = BKE_workspace_layout_screen_get(layout);
-
-          /* CALLBACK_INVOKE expects an actual pointer, not a variable holding the pointer.
-           * However we can't access layout->screen here
-           * since we are outside the workspace project. */
-          CALLBACK_INVOKE(screen, IDWALK_CB_USER);
-          /* allow callback to set a different screen */
-          BKE_workspace_layout_screen_set(layout, screen);
-        }
+        BLI_assert(0);
         break;
       }
 
@@ -1170,13 +896,7 @@ static void library_foreach_ID_link(Main *bmain,
       }
 
       case ID_SCR: {
-        if (data.flag & IDWALK_INCLUDE_UI) {
-          bScreen *screen = (bScreen *)id;
-
-          LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
-            library_foreach_screen_area(&data, area);
-          }
-        }
+        BLI_assert(0);
         break;
       }
       case ID_SIM: {

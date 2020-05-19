@@ -202,6 +202,8 @@ static void blo_update_defaults_screen(bScreen *screen,
       if (v3d->shading.background_type != V3D_SHADING_BACKGROUND_VIEWPORT) {
         copy_v3_fl(v3d->shading.background_color, 0.05f);
       }
+      /* Disable Curve Normals. */
+      v3d->overlay.edit_flag &= ~V3D_OVERLAY_EDIT_CU_NORMALS;
     }
     else if (area->spacetype == SPACE_CLIP) {
       SpaceClip *sclip = area->spacedata.first;
@@ -463,7 +465,7 @@ void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
 
     /* Reset all grease pencil brushes. */
     Scene *scene = bmain->scenes.first;
-    BKE_brush_gpencil_paint_presets(bmain, scene->toolsettings);
+    BKE_brush_gpencil_paint_presets(bmain, scene->toolsettings, true);
 
     /* Ensure new Paint modes. */
     BKE_paint_ensure_from_paintmode(scene, PAINT_MODE_VERTEX_GPENCIL);
