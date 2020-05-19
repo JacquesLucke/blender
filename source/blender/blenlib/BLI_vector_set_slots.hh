@@ -31,7 +31,7 @@ namespace BLI {
 template<typename Key> class SimpleVectorSetSlot {
  private:
   static constexpr int32_t s_is_empty = -1;
-  static constexpr int32_t s_is_occupied = -2;
+  static constexpr int32_t s_is_removed = -2;
 
   int32_t m_state = s_is_empty;
 
@@ -82,7 +82,7 @@ template<typename Key> class SimpleVectorSetSlot {
 
   void remove()
   {
-    m_state = s_is_occupied;
+    m_state = s_is_removed;
   }
 
   bool has_index(uint32_t index) const

@@ -23,30 +23,42 @@
  * This file contains different slot types that are supposed to be used with BLI::Set.
  *
  * Every slot type has to be able to hold a value of the Key type and state information.
+ * A set slot has three possible states: Empty, Occupied and Removed.
+ *
+ * Only when a slot is occupied, it stores an instance of type Key.
+ *
+ * A set slot type has to implement a couple of methods that are explained in SimpleSetSlot.
  */
 
 #include "BLI_memory_utils.hh"
 
 namespace BLI {
 
+/**
+ * The simplest possible set slot. It stores the slot state and the optional key instance in
+ * separate variables. Depending on the alignment requirement of the key, many bytes might be
+ * wasted.
+ */
 template<typename Key> class SimpleSetSlot {
  private:
-  static constexpr uint8_t s_is_empty = 0;
-  static constexpr uint8_t s_is_occupied = 1;
-  static constexpr uint8_t s_is_removed = 2;
+  enum State : uint8_t {
+    Empty = 0,
+    Occupied = 1,
+    Removed = 2,
+  };
 
-  uint8_t m_state;
+  State m_state;
   AlignedBuffer<sizeof(Key), alignof(Key)> m_buffer;
 
  public:
   SimpleSetSlot()
   {
-    m_state = s_is_empty;
+    m_state = Empty;
   }
 
   ~SimpleSetSlot()
   {
-    if (m_state == s_is_occupied) {
+    if (m_state == Occupied) {
       this->key()->~Key();
     }
   }
@@ -54,7 +66,7 @@ template<typename Key> class SimpleSetSlot {
   SimpleSetSlot(const SimpleSetSlot &other)
   {
     m_state = other.m_state;
-    if (other.m_state == s_is_occupied) {
+    if (other.m_state == Occupied) {
       new (this->key()) Key(*other.key());
     }
   }
@@ -62,7 +74,7 @@ template<typename Key> class SimpleSetSlot {
   SimpleSetSlot(SimpleSetSlot &&other) noexcept
   {
     m_state = other.m_state;
-    if (other.m_state == s_is_occupied) {
+    if (other.m_state == Occupied) {
       new (this->key()) Key(std::move(*other.key()));
     }
   }
@@ -79,12 +91,12 @@ template<typename Key> class SimpleSetSlot {
 
   bool is_occupied() const
   {
-    return m_state == s_is_occupied;
+    return m_state == Occupied;
   }
 
   bool is_empty() const
   {
-    return m_state == s_is_empty;
+    return m_state == Empty;
   }
 
   template<typename Hash> uint32_t get_hash(const Hash &hash) const
@@ -97,14 +109,14 @@ template<typename Key> class SimpleSetSlot {
   {
     BLI_assert(!this->is_occupied());
     BLI_assert(other.is_occupied());
-    m_state = s_is_occupied;
+    m_state = Occupied;
     new (this->key()) Key(std::move(*other.key()));
     other.key()->~Key();
   }
 
   template<typename ForwardKey> bool contains(const ForwardKey &key, uint32_t UNUSED(hash)) const
   {
-    if (m_state == s_is_occupied) {
+    if (m_state == Occupied) {
       return key == *this->key();
     }
     return false;
@@ -113,37 +125,39 @@ template<typename Key> class SimpleSetSlot {
   template<typename ForwardKey> void occupy(ForwardKey &&key, uint32_t UNUSED(hash))
   {
     BLI_assert(!this->is_occupied());
-    m_state = s_is_occupied;
+    m_state = Occupied;
     new (this->key()) Key(std::forward<ForwardKey>(key));
   }
 
   void remove()
   {
     BLI_assert(this->is_occupied());
-    m_state = s_is_removed;
+    m_state = Removed;
     this->key()->~Key();
   }
 };
 
 template<typename Key> class HashedSetSlot {
  private:
-  static constexpr uint8_t s_is_empty = 0;
-  static constexpr uint8_t s_is_occupied = 1;
-  static constexpr uint8_t s_is_removed = 2;
+  enum State : uint8_t {
+    Empty = 0,
+    Occupied = 1,
+    Removed = 2,
+  };
 
   uint32_t m_hash;
-  uint8_t m_state;
+  State m_state;
   AlignedBuffer<sizeof(Key), alignof(Key)> m_buffer;
 
  public:
   HashedSetSlot()
   {
-    m_state = s_is_empty;
+    m_state = Empty;
   }
 
   ~HashedSetSlot()
   {
-    if (m_state == s_is_occupied) {
+    if (m_state == Occupied) {
       this->key()->~Key();
     }
   }
@@ -151,7 +165,7 @@ template<typename Key> class HashedSetSlot {
   HashedSetSlot(const HashedSetSlot &other)
   {
     m_state = other.m_state;
-    if (other.m_state == s_is_occupied) {
+    if (other.m_state == Occupied) {
       m_hash = other.m_hash;
       new (this->key()) Key(*other.key());
     }
@@ -160,7 +174,7 @@ template<typename Key> class HashedSetSlot {
   HashedSetSlot(HashedSetSlot &&other)
   {
     m_state = other.m_state;
-    if (other.m_state == s_is_occupied) {
+    if (other.m_state == Occupied) {
       m_hash = other.m_hash;
       new (this->key()) Key(std::move(*other.key()));
     }
@@ -178,12 +192,12 @@ template<typename Key> class HashedSetSlot {
 
   bool is_occupied() const
   {
-    return m_state == s_is_occupied;
+    return m_state == Occupied;
   }
 
   bool is_empty() const
   {
-    return m_state == s_is_empty;
+    return m_state == Empty;
   }
 
   template<typename Hash> uint32_t get_hash(const Hash &UNUSED(hash)) const
@@ -196,7 +210,7 @@ template<typename Key> class HashedSetSlot {
   {
     BLI_assert(!this->is_occupied());
     BLI_assert(other.is_occupied());
-    m_state = s_is_occupied;
+    m_state = Occupied;
     m_hash = hash;
     new (this->key()) Key(std::move(*other.key()));
     other.key()->~Key();
@@ -205,7 +219,7 @@ template<typename Key> class HashedSetSlot {
   template<typename ForwardKey> bool contains(const ForwardKey &key, uint32_t hash) const
   {
     if (m_hash == hash) {
-      if (m_state == s_is_occupied) {
+      if (m_state == Occupied) {
         return key == *this->key();
       }
     }
@@ -215,7 +229,7 @@ template<typename Key> class HashedSetSlot {
   template<typename ForwardKey> void occupy(ForwardKey &&key, uint32_t hash)
   {
     BLI_assert(!this->is_occupied());
-    m_state = s_is_occupied;
+    m_state = Occupied;
     m_hash = hash;
     new (this->key()) Key(std::forward<ForwardKey>(key));
   }
@@ -223,7 +237,7 @@ template<typename Key> class HashedSetSlot {
   void remove()
   {
     BLI_assert(this->is_occupied());
-    m_state = s_is_removed;
+    m_state = Removed;
     this->key()->~Key();
   }
 };
