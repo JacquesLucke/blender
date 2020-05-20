@@ -24,6 +24,7 @@ set(INC
   ../../depsgraph
   ../../io/alembic
   ../../io/collada
+  ../../io/obj
   ../../io/usd
   ../../makesdna
   ../../makesrna
@@ -39,12 +40,14 @@ set(SRC
   io_alembic.c
   io_cache.c
   io_collada.c
+  io_obj.c
   io_ops.c
   io_usd.c
 
   io_alembic.h
   io_cache.h
   io_collada.h
+  io_obj.h
   io_ops.h
   io_usd.h
 )
@@ -52,6 +55,7 @@ set(SRC
 set(LIB
   bf_blenkernel
   bf_blenlib
+  bf_obj
 )
 
 if(WITH_OPENCOLLADA)
