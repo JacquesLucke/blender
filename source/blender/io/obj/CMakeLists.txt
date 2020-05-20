@@ -14,24 +14,29 @@
 # along with this program; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
-# The Original Code is Copyright (C) 2020, Blender Foundation
+# The Original Code is Copyright (C) 2006, Blender Foundation
 # All rights reserved.
 # ***** END GPL LICENSE BLOCK *****
 
-if(WITH_ALEMBIC)
-  add_subdirectory(alembic)
-endif()
+set(INC
+  .
+../../blenlib
+../../makesrna
+  ../../../../intern/guardedalloc
+)
 
-if(WITH_CODEC_AVI)
-  add_subdirectory(avi)
-endif()
+set(INC_SYS
 
-if(WITH_OPENCOLLADA)
-  add_subdirectory(collada)
-endif()
+)
 
-if(WITH_USD)
-  add_subdirectory(usd)
-endif()
+set(SRC
+  obj.cpp
 
-add_subdirectory(obj)
+  obj.h
+)
+
+set(LIB
+
+)
+
+blender_add_lib(bf_obj "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
