@@ -73,6 +73,7 @@ static int wm_obj_export_invoke(bContext *C, wmOperator *op, const wmEvent *even
     RNA_string_set(op->ptr, "filepath", filepath);
   }
   
+  WM_event_add_fileselect(C, op);
   return OPERATOR_RUNNING_MODAL;
   
   UNUSED_VARS(event);
@@ -98,15 +99,19 @@ static void ui_obj_export_settings(uiLayout *layout, PointerRNA *imfptr)
   uiLayout *row;
   
   box = uiLayoutBox(layout);
-  row = uiLayoutRow(layout, false);
-  uiItemL(layout, "Print Name?", ICON_NONE);
+  row = uiLayoutRow(box, false);
+  uiItemL(row, IFACE_("Some Options"), ICON_NONE);
   
-  row = uiLayoutRow(layout, false);
-  uiItemL(layout, "Print a Float", ICON_NONE);
+  row = uiLayoutRow(box, false);
+  uiItemR(row, imfptr, "print_name", 0, NULL, ICON_NONE);
+  
+  row = uiLayoutRow(box, false);
+  uiItemR(row, imfptr, "print_the_float", 0, NULL,  ICON_NONE);
 }
 
 static void wm_obj_export_draw(bContext *UNUSED(C), wmOperator *op ){
   PointerRNA ptr;
+  RNA_pointer_create(NULL, op->type->srna, op->properties, &ptr);
   ui_obj_export_settings(op->layout, &ptr);
 }
 
@@ -122,7 +127,7 @@ void WM_OT_obj_export(struct wmOperatorType *ot){
   ot->ui = wm_obj_export_draw;
   
   WM_operator_properties_filesel(ot,
-                                 FILE_TYPE_FOLDER | FILE_TYPE_OBJ,
+                                 FILE_TYPE_FOLDER | FILE_TYPE_OBJECT_IO,
                                  FILE_BLENDER,
                                  FILE_SAVE,
                                  WM_FILESEL_FILEPATH | WM_FILESEL_SHOW_PROPS,
@@ -130,7 +135,7 @@ void WM_OT_obj_export(struct wmOperatorType *ot){
                                  FILE_SORT_ALPHA);
   
   RNA_def_boolean(ot->srna, "print_name", 0, "Print Name?", "If enabled, prints name of OP");
-  RNA_def_float(ot->srna, "print_the_float", 4.56, 0.0f, 10.0f, "Print a Float", "Prints given Float", 1.0f, 9.0f);
+  RNA_def_float(ot->srna, "print_the_float", 4.56, 0.0f, 10.0f, "Print the Float", "Prints the given Float", 1.0f, 9.0f);
 }
 
 
@@ -157,7 +162,7 @@ void WM_OT_obj_import(struct wmOperatorType *ot)
   ot->ui = wm_obj_import_draw;
 
   WM_operator_properties_filesel(ot,
-                                 FILE_TYPE_FOLDER | FILE_TYPE_OBJ,
+                                 FILE_TYPE_FOLDER | FILE_TYPE_OBJECT_IO,
                                  FILE_BLENDER,
                                  FILE_SAVE,
                                  WM_FILESEL_FILEPATH | WM_FILESEL_SHOW_PROPS,

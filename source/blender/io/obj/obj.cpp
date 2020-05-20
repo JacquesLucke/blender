@@ -1,8 +1,8 @@
 #include "obj.h"
 
-bool export_obj(bContext *C, OBJExportParams * a){
+bool obj_export(bContext *C, OBJExportParams * a){
   if (a->print_name) {
-    printf("\n Ankit");
+    printf("\n OP");
   }
   if (a->number) {
     printf("\n%f\n",a->number);
