@@ -28,6 +28,8 @@
  * Only when a slot is occupied, it stores an instance of type Key.
  *
  * A set slot type has to implement a couple of methods that are explained in SimpleSetSlot.
+ * It is assumed to be trivially destructable, when it is not in occupied state. So the destructor
+ * might not be called in that case.
  */
 
 #include "BLI_memory_utils.hh"
@@ -51,11 +53,17 @@ template<typename Key> class SimpleSetSlot {
   AlignedBuffer<sizeof(Key), alignof(Key)> m_buffer;
 
  public:
+  /**
+   * After the default constructor has run, the slot has to be in the empty state.
+   */
   SimpleSetSlot()
   {
     m_state = Empty;
   }
 
+  /**
+   * The destructor also has to destruct the key, if the slot is currently occupied.
+   */
   ~SimpleSetSlot()
   {
     if (m_state == Occupied) {
@@ -63,6 +71,10 @@ template<typename Key> class SimpleSetSlot {
     }
   }
 
+  /**
+   * The copy constructor has to copy the state. If the other slot was occupied, a copy of the key
+   * has to be made as well.
+   */
   SimpleSetSlot(const SimpleSetSlot &other)
   {
     m_state = other.m_state;
@@ -71,6 +83,11 @@ template<typename Key> class SimpleSetSlot {
     }
   }
 
+  /**
+   * The move constructor has to copy the state. If the other slot was occupied, the key from the
+   * other slot has to be moved as well. The other slot stays in the state it was in before and its
+   * optionally stored key remains in a moved-from state.
+   */
   SimpleSetSlot(SimpleSetSlot &&other) noexcept
   {
     m_state = other.m_state;
@@ -79,32 +96,53 @@ template<typename Key> class SimpleSetSlot {
     }
   }
 
+  /**
+   * Get a non-const pointer to the position where the key is stored.
+   */
   Key *key()
   {
     return (Key *)m_buffer.ptr();
   }
 
+  /**
+   * Get a const pointer to the position where the key is stored.
+   */
   const Key *key() const
   {
     return (const Key *)m_buffer.ptr();
   }
 
+  /**
+   * Return true if the slot currently contains a key.
+   */
   bool is_occupied() const
   {
     return m_state == Occupied;
   }
 
+  /**
+   * Return true if the slot is empty, i.e. it does not contain a key is not in removed state.
+   */
   bool is_empty() const
   {
     return m_state == Empty;
   }
 
+  /**
+   * Return the hash of the currently stored key. The hash function is guaranteed to stay the same
+   * during the lifetime of a slot. In this simple set slot implementation, we just compute the
+   * hash here. Other implementations might store the hash in the slot instead.
+   */
   template<typename Hash> uint32_t get_hash(const Hash &hash) const
   {
     BLI_assert(this->is_occupied());
     return hash(*this->key());
   }
 
+  /**
+   * Move the other slot into this slot and destruct it. We do destruction here, because this way
+   * we can avoid a comparison with the state, since we know the slot is occupied.
+   */
   void relocate_occupied_here(SimpleSetSlot &other, uint32_t UNUSED(hash))
   {
     BLI_assert(!this->is_occupied());
@@ -114,6 +152,10 @@ template<typename Key> class SimpleSetSlot {
     other.key()->~Key();
   }
 
+  /**
+   * Return true, when this slot is occupied and contains a key that compares equal to the given
+   * key. The hash is used by other slot implementations to determine inequality faster.
+   */
   template<typename ForwardKey> bool contains(const ForwardKey &key, uint32_t UNUSED(hash)) const
   {
     if (m_state == Occupied) {
@@ -122,6 +164,10 @@ template<typename Key> class SimpleSetSlot {
     return false;
   }
 
+  /**
+   * Change the state of this slot from empty/removed to occupied. The key has to be constructed
+   * by calling the constructor with the given key as parameter.
+   */
   template<typename ForwardKey> void occupy(ForwardKey &&key, uint32_t UNUSED(hash))
   {
     BLI_assert(!this->is_occupied());
@@ -129,6 +175,9 @@ template<typename Key> class SimpleSetSlot {
     new (this->key()) Key(std::forward<ForwardKey>(key));
   }
 
+  /**
+   * Change the state of this slot from occupied to removed. The key has to be destructed as well.
+   */
   void remove()
   {
     BLI_assert(this->is_occupied());
@@ -137,6 +186,10 @@ template<typename Key> class SimpleSetSlot {
   }
 };
 
+/**
+ * This set slot implementation stores the hash of the key within the slot. This helps when
+ * computing the hash or an equality check is expensive.
+ */
 template<typename Key> class HashedSetSlot {
  private:
   enum State : uint8_t {
@@ -242,6 +295,9 @@ template<typename Key> class HashedSetSlot {
   }
 };
 
+/**
+ * Pointers have special values that can be expected not to be used as keys.
+ */
 template<typename Key> class PointerSetSlot {
  private:
   BLI_STATIC_ASSERT(std::is_pointer<Key>::value, "");

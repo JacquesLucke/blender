@@ -170,8 +170,8 @@ class LinearProbingStrategy {
  * quadratically. This method also leads to clustering. Another disadvantage is that not all bits
  * of the original hash are used.
  *
- * The distance i*i is not used, because it does not guarantee, that every slot is hit. Instead (i
- * * i + i) / 2 is used.
+ * The distance i*i is not used, because it does not guarantee, that every slot is hit.
+ * Instead (i * i + i) / 2 is used.
  *
  * In the first few steps, this strategy can have good cache performance. It largely depends on how
  * many keys fit into a cache line in the hash table.
