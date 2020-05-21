@@ -52,8 +52,7 @@ template<
     /**
      * The minimum number of elements that can be stored in this Set without doing a heap
      * allocation. This is useful when you expect to have many small sets. However, keep in mind
-     * that (other than in a vector) initializing a set has a O(n) cost in the number of elements
-     * that will be stored.
+     * that (other than in a vector) initializing a set has a O(n) cost in the number of slots.
      */
     uint32_t InlineBufferCapacity = 4,
     /**

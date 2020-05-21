@@ -19,6 +19,16 @@
 
 /** \file
  * \ingroup bli
+ *
+ * A `BLI::Map<Key, Value>` is an unordered container that stores key-value pairs. The keys have to
+ * be unique. It is designed to be a more convenient and efficient replacement for
+ * `std::unordered_map`. All core operations (add, lookup, remove and contains) can be done in O(1)
+ * expected time.
+ *
+ * In most cases, your default choice for a hash map in Blender should be `BLI::Map`.
+ *
+ * The implementation uses open addressing in a flat array. The number of slots is always a power
+ * of two. More implementation details depend on the used template parameters.
  */
 
 #include "BLI_array.hh"
@@ -30,15 +40,48 @@ namespace BLI {
 /* This is defined in BLI_map_slots.hh. */
 template<typename Key, typename Value> struct DefaultMapSlot;
 
-template<typename Key,
-         typename Value,
-         uint32_t InlineBufferCapacity = 4,
-         typename ProbingStrategy = DefaultProbingStrategy,
-         typename Hash = DefaultHash<Key>,
-         typename Slot = typename DefaultMapSlot<Key, Value>::type,
-         typename Allocator = GuardedAllocator>
+template<
+    /**
+     * Type of the keys stored in the map. Keys have to be hashable and movable.
+     */
+    typename Key,
+    /**
+     * Type of the value that is stored per key. It has to be movable as well.
+     */
+    typename Value,
+    /**
+     * The minimum number of elements that can be stored in this Map without doing a heap
+     * allocation. This is usefule when you expect to have many small sets. However, keep in mind
+     * that (other than in a vector) initializing a map has a O(n) cost in the number of slots.
+     */
+    uint32_t InlineBufferCapacity = 4,
+    /**
+     * The strategy used to deal with collistions. They are defined in BLI_hash_tables.hh.
+     */
+    typename ProbingStrategy = DefaultProbingStrategy,
+    /**
+     * The hash function used to hash the keys. There is a default for many types. See BLI_hash.hh
+     * for examples on how to define a custom hash function.
+     */
+    typename Hash = DefaultHash<Key>,
+    /**
+     * This is what will actually be stored in the hash table array. At a minimum a slot has to be
+     * able to hold a key, a value and information about whether the slot is empty, occupied or
+     * removed. Using a non-standard slot type can improve performance or reduce the memory
+     * footprint for some types.
+     */
+    typename Slot = typename DefaultMapSlot<Key, Value>::type,
+    /**
+     * The allocator used by this set. Should rarely be changed, except when you don't want that
+     * MEM_mallocN etc. is used internally.
+     */
+    typename Allocator = GuardedAllocator>
 class Map {
  private:
+  /**
+   * Specify the max load factor as fraction. We can still try different values like 3/4. I got
+   * better performance with some values. I'm not sure yet if this should be exposed as parameter.
+   */
   static constexpr uint32_t s_max_load_factor_numerator = 1;
   static constexpr uint32_t s_max_load_factor_denominator = 2;
   static constexpr uint32_t s_default_slot_array_size = total_slot_amount_for_usable_slots(
