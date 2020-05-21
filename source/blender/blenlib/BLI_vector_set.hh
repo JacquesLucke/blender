@@ -42,10 +42,11 @@ template<typename Key,
          typename Allocator = GuardedAllocator>
 class VectorSet {
  private:
-  static constexpr uint32_t s_max_load_factor_numerator = 1;
-  static constexpr uint32_t s_max_load_factor_denominator = 2;
-  static constexpr uint32_t s_default_slot_array_size = total_slot_amount_for_usable_slots(
-      InlineBufferCapacity, s_max_load_factor_numerator, s_max_load_factor_denominator);
+#define s_max_load_factor_numerator 1
+#define s_max_load_factor_denominator 2
+#define s_default_slot_array_size \
+  total_slot_amount_for_usable_slots( \
+      InlineBufferCapacity, s_max_load_factor_numerator, s_max_load_factor_denominator)
 
   using SlotArray = Array<Slot, s_default_slot_array_size, Allocator>;
   SlotArray m_slots;
@@ -479,6 +480,10 @@ class VectorSet {
   {
     m_slots.allocator().deallocate(keys);
   }
+
+#undef s_max_load_factor_numerator
+#undef s_max_load_factor_denominator
+#undef s_default_slot_array_size
 };
 
 }  // namespace BLI

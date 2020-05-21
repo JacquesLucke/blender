@@ -103,8 +103,7 @@ template<typename T> using destruct_ptr = std::unique_ptr<T, DestructValueAtAddr
 template<size_t Size, size_t Alignment> class alignas(Alignment) AlignedBuffer {
  private:
   /* Don't create an empty array. This causes problems with some compilers. */
-  static constexpr size_t ActualSize = (Size > 0) ? Size : 1;
-  char m_buffer[ActualSize];
+  char m_buffer[(Size > 0) ? Size : 1];
 
  public:
   void *ptr()

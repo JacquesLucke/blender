@@ -30,8 +30,8 @@ namespace BLI {
 
 template<typename Key> class SimpleVectorSetSlot {
  private:
-  static constexpr int32_t s_is_empty = -1;
-  static constexpr int32_t s_is_removed = -2;
+#define s_is_empty -1
+#define s_is_removed -2
 
   int32_t m_state = s_is_empty;
 
@@ -95,6 +95,9 @@ template<typename Key> class SimpleVectorSetSlot {
     BLI_assert(this->is_occupied());
     return hash(key);
   }
+
+#undef s_is_empty
+#undef s_is_removed
 };
 
 template<typename Key> struct DefaultVectorSetSlot {

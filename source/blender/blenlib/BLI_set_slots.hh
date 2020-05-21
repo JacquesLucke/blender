@@ -304,9 +304,9 @@ template<typename Key> class PointerSetSlot {
  private:
   BLI_STATIC_ASSERT(std::is_pointer<Key>::value, "");
 
-  static constexpr uintptr_t s_is_empty = UINTPTR_MAX;
-  static constexpr uintptr_t s_is_removed = UINTPTR_MAX - 1;
-  static constexpr uintptr_t s_min_special_value = s_is_removed;
+#define s_is_empty UINTPTR_MAX
+#define s_is_removed (UINTPTR_MAX - 1)
+#define s_min_special_value s_is_removed
 
   uintptr_t m_state;
 
@@ -371,6 +371,10 @@ template<typename Key> class PointerSetSlot {
     BLI_assert(this->is_occupied());
     m_state = s_is_removed;
   }
+
+#undef s_is_empty
+#undef s_is_removed
+#undef s_min_special_value
 };
 
 template<typename Key> struct DefaultSetSlot {

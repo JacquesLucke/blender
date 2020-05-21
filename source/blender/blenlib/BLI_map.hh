@@ -79,14 +79,15 @@ template<
     typename Allocator = GuardedAllocator>
 class Map {
  private:
-  /**
-   * Specify the max load factor as fraction. We can still try different values like 3/4. I got
-   * better performance with some values. I'm not sure yet if this should be exposed as parameter.
-   */
-  static constexpr uint32_t s_max_load_factor_numerator = 1;
-  static constexpr uint32_t s_max_load_factor_denominator = 2;
-  static constexpr uint32_t s_default_slot_array_size = total_slot_amount_for_usable_slots(
-      InlineBufferCapacity, s_max_load_factor_numerator, s_max_load_factor_denominator);
+/**
+ * Specify the max load factor as fraction. We can still try different values like 3/4. I got
+ * better performance with some values. I'm not sure yet if this should be exposed as parameter.
+ */
+#define s_max_load_factor_numerator 1
+#define s_max_load_factor_denominator 2
+#define s_default_slot_array_size \
+  total_slot_amount_for_usable_slots( \
+      InlineBufferCapacity, s_max_load_factor_numerator, s_max_load_factor_denominator)
 
   using SlotArray = Array<Slot, s_default_slot_array_size, Allocator>;
   SlotArray m_slots;
@@ -860,6 +861,10 @@ class Map {
       this->grow(this->size() + 1);
     }
   }
+
+#undef s_max_load_factor_numerator
+#undef s_max_load_factor_denominator
+#undef s_default_slot_array_size
 };
 
 }  // namespace BLI
