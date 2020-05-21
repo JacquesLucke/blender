@@ -27,6 +27,7 @@
 #include "BLI_array.hh"
 #include "BLI_hash.hh"
 #include "BLI_hash_tables.hh"
+#include "BLI_probing_strategies.hh"
 
 namespace BLI {
 

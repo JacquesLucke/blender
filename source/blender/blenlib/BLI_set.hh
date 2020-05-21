@@ -36,6 +36,7 @@
 #include "BLI_hash.hh"
 #include "BLI_hash_tables.hh"
 #include "BLI_math_bits.h"
+#include "BLI_probing_strategies.hh"
 #include "BLI_timeit.hh"
 #include "BLI_vector.hh"
 
@@ -56,7 +57,7 @@ template<
      */
     uint32_t InlineBufferCapacity = 4,
     /**
-     * The strategy used to deal with collisions. They are defined in BLI_hash_tables.hh.
+     * The strategy used to deal with collisions. They are defined in BLI_probing_strategies.hh.
      */
     typename ProbingStrategy = DefaultProbingStrategy,
     /**

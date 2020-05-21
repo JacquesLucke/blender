@@ -228,6 +228,7 @@ set(SRC
   BLI_path_util.h
   BLI_polyfill_2d.h
   BLI_polyfill_2d_beautify.h
+  BLI_probing_strategies.hh
   BLI_quadric.h
   BLI_rand.h
   BLI_rect.h
