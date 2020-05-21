@@ -120,26 +120,28 @@ enable_testing()
 
 #------------------------------------------------------------------------------
 # ccache https://crascit.com/2016/04/09/using-ccache-with-cmake/
-
+# Revert 3cfb3360ca63 and 781b74589a78 locally. See lld changes too below.
+# or use the `AND 0` here and for lld.
 find_program(CCACHE_PROGRAM ccache)
 
-# Set up wrapper scripts
-set(C_LAUNCHER   "${CCACHE_PROGRAM}")
-set(CXX_LAUNCHER "${CCACHE_PROGRAM}")
-configure_file(/Users/ankitkumar/blender-build/resources/launch-c.in   /Users/ankitkumar/blender-build/resources/launch-c)
-configure_file(/Users/ankitkumar/blender-build/resources/launch-cxx.in /Users/ankitkumar/blender-build/resources/launch-cxx)
-execute_process(COMMAND chmod a+rx "/Users/ankitkumar/blender-build/resources/launch-c" "/Users/ankitkumar/blender-build/resources/launch-cxx")
-
-# Set Xcode project attributes to route compilation and linking
-# through our scripts
-set(CMAKE_XCODE_ATTRIBUTE_CC         "/Users/ankitkumar/blender-build/resources/launch-c")
-set(CMAKE_XCODE_ATTRIBUTE_CXX        "/Users/ankitkumar/blender-build/resources/launch-cxx")
-set(CMAKE_XCODE_ATTRIBUTE_LD         "/Users/ankitkumar/blender-build/resources/launch-c")
-set(CMAKE_XCODE_ATTRIBUTE_LDPLUSPLUS "/Users/ankitkumar/blender-build/resources/launch-cxx")
-# Support Unix Makefiles and Ninja
-set(CMAKE_C_COMPILER_LAUNCHER   "/Users/ankitkumar/blender-build/resources/launch-c")
-set(CMAKE_CXX_COMPILER_LAUNCHER "/Users/ankitkumar/blender-build/resources/launch-cxx")
-
+if(CCACHE_PROGRAM AND 1)
+	# Set up wrapper scripts
+	set(C_LAUNCHER   "${CCACHE_PROGRAM}")
+	set(CXX_LAUNCHER "${CCACHE_PROGRAM}")
+	configure_file(/Users/ankitkumar/blender-build/resources/launch-c.in   /Users/ankitkumar/blender-build/resources/launch-c)
+	configure_file(/Users/ankitkumar/blender-build/resources/launch-cxx.in /Users/ankitkumar/blender-build/resources/launch-cxx)
+	execute_process(COMMAND chmod a+rx "/Users/ankitkumar/blender-build/resources/launch-c" "/Users/ankitkumar/blender-build/resources/launch-cxx")
+  
+	# Set Xcode project attributes to route compilation and linking
+	# through our scripts
+	set(CMAKE_XCODE_ATTRIBUTE_CC         "/Users/ankitkumar/blender-build/resources/launch-c")
+	set(CMAKE_XCODE_ATTRIBUTE_CXX        "/Users/ankitkumar/blender-build/resources/launch-cxx")
+	set(CMAKE_XCODE_ATTRIBUTE_LD         "/Users/ankitkumar/blender-build/resources/launch-c")
+	set(CMAKE_XCODE_ATTRIBUTE_LDPLUSPLUS "/Users/ankitkumar/blender-build/resources/launch-cxx")
+	# Support Unix Makefiles and Ninja
+	set(CMAKE_C_COMPILER_LAUNCHER   "/Users/ankitkumar/blender-build/resources/launch-c")
+	set(CMAKE_CXX_COMPILER_LAUNCHER "/Users/ankitkumar/blender-build/resources/launch-cxx")
+endif()
 
 #-----------------------------------------------------------------------------
 # Redirect output files
@@ -498,11 +500,20 @@ if(WIN32)
 endif()
 
 # Compiler toolchain
+# Use `AND 0` to avoid changes. See ccache changes above too.
 if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
-  option(WITH_LINKER_GOLD "Use ld.gold linker which is usually faster than ld.bfd" OFF)
-  mark_as_advanced(WITH_LINKER_GOLD)
-  option(WITH_LINKER_LLD "Use ld.lld linker which is usually faster than ld.gold" ON)
-  mark_as_advanced(WITH_LINKER_LLD)
+  find_program(LLD_FOUND lld)
+  if(LLD_FOUND AND 1)
+    option(WITH_LINKER_GOLD "Use ld.gold linker which is usually faster than ld.bfd" OFF)
+    mark_as_advanced(WITH_LINKER_GOLD)
+    option(WITH_LINKER_LLD "Use ld.lld linker which is usually faster than ld.gold" ON)
+    mark_as_advanced(WITH_LINKER_LLD)
+  else()
+    option(WITH_LINKER_GOLD "Use ld.gold linker which is usually faster than ld.bfd" ON)
+    mark_as_advanced(WITH_LINKER_GOLD)
+    option(WITH_LINKER_LLD "Use ld.lld linker which is usually faster than ld.gold" OFF)
+    mark_as_advanced(WITH_LINKER_LLD)
+  endif()
 endif()
 
 if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
