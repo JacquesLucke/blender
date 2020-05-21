@@ -100,10 +100,10 @@ template<typename T> struct DestructValueAtAddress {
 
 template<typename T> using destruct_ptr = std::unique_ptr<T, DestructValueAtAddress<T>>;
 
-template<uint Size, uint Alignment> class alignas(Alignment) AlignedBuffer {
+template<size_t Size, size_t Alignment> class alignas(Alignment) AlignedBuffer {
  private:
   /* Don't create an empty array. This causes problems with some compilers. */
-  static constexpr uint ActualSize = (Size > 0) ? Size : 1;
+  static constexpr size_t ActualSize = (Size > 0) ? Size : 1;
   char m_buffer[ActualSize];
 
  public:

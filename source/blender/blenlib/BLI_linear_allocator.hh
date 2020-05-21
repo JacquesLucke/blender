@@ -186,7 +186,7 @@ template<typename Allocator = GuardedAllocator> class LinearAllocator : NonCopya
     m_unused_borrowed_buffers.append(ArrayRef<char>((char *)buffer, size));
   }
 
-  template<uint Size, uint Alignment>
+  template<size_t Size, size_t Alignment>
   void provide_buffer(AlignedBuffer<Size, Alignment> &aligned_buffer)
   {
     this->provide_buffer(aligned_buffer.ptr(), Size);

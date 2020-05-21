@@ -40,14 +40,11 @@ namespace BLI {
 class StringRef;
 
 class StringRefBase {
- public:
-  using size_type = size_t;
-
  protected:
   const char *m_data;
-  size_type m_size;
+  uint m_size;
 
-  StringRefBase(const char *data, size_type size) : m_data(data), m_size(size)
+  StringRefBase(const char *data, uint size) : m_data(data), m_size(size)
   {
   }
 
@@ -55,7 +52,7 @@ class StringRefBase {
   /**
    * Return the (byte-)length of the referenced string, without any null-terminator.
    */
-  size_type size() const
+  uint size() const
   {
     return m_size;
   }
@@ -68,7 +65,7 @@ class StringRefBase {
     return m_data;
   }
 
-  char operator[](size_type index) const
+  char operator[](uint index) const
   {
     BLI_assert(index <= m_size);
     return m_data[index];
@@ -139,13 +136,13 @@ class StringRefNull : public StringRefBase {
   {
   }
 
-  StringRefNull(const char *str) : StringRefBase(str, strlen(str))
+  StringRefNull(const char *str) : StringRefBase(str, (uint)strlen(str))
   {
     BLI_assert(str != NULL);
     BLI_assert(m_data[m_size] == '\0');
   }
 
-  StringRefNull(const char *str, size_type size) : StringRefBase(str, size)
+  StringRefNull(const char *str, uint size) : StringRefBase(str, size)
   {
     BLI_assert(str[size] == '\0');
   }
@@ -168,15 +165,15 @@ class StringRef : public StringRefBase {
   {
   }
 
-  StringRef(const char *str) : StringRefBase(str, str ? strlen(str) : 0)
+  StringRef(const char *str) : StringRefBase(str, str ? (uint)strlen(str) : 0)
   {
   }
 
-  StringRef(const char *str, size_type length) : StringRefBase(str, length)
+  StringRef(const char *str, uint length) : StringRefBase(str, length)
   {
   }
 
-  StringRef(const std::string &str) : StringRefBase(str.data(), str.size())
+  StringRef(const std::string &str) : StringRefBase(str.data(), (uint)str.size())
   {
   }
 

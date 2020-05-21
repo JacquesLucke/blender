@@ -4,10 +4,8 @@
 #include <algorithm>
 #include <vector>
 
-extern "C" {
 #include "BLI_edgehash.h"
 #include "BLI_utildefines.h"
-}
 
 #define VALUE_1 POINTER_FROM_INT(1)
 #define VALUE_2 POINTER_FROM_INT(2)

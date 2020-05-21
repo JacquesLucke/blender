@@ -62,8 +62,8 @@ TRIVIAL_DEFAULT_INT_HASH(uint32_t);
 template<> struct DefaultHash<uint64_t> {
   uint32_t operator()(uint64_t value) const
   {
-    uint32_t low = value;
-    uint32_t high = value >> 32;
+    uint32_t low = (uint32_t)value;
+    uint32_t high = (uint32_t)(value >> 32);
     return low ^ (high * 0x45d9f3b);
   }
 };
