@@ -296,7 +296,9 @@ template<typename Key> class HashedSetSlot {
 };
 
 /**
- * Pointers have special values that can be expected not to be used as keys.
+ * Pointers have special values that can be expected not to be used as keys. This set slot will use
+ * those values to represent the empty and removed state. This saves memory and makes some
+ * operations faster.
  */
 template<typename Key> class PointerSetSlot {
  private:
