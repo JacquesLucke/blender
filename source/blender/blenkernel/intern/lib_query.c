@@ -352,30 +352,6 @@ static void library_foreach_layer_collection(LibraryForeachIDData *data, ListBas
   FOREACH_FINALIZE_VOID;
 }
 
-/* Used by both real Collection data-blocks, and the fake horror of master collection from Scene.
- */
-static void library_foreach_collection(LibraryForeachIDData *data, Collection *collection)
-{
-  LISTBASE_FOREACH (CollectionObject *, cob, &collection->gobject) {
-    FOREACH_CALLBACK_INVOKE(data, cob->ob, IDWALK_CB_USER);
-  }
-  LISTBASE_FOREACH (CollectionChild *, child, &collection->children) {
-    FOREACH_CALLBACK_INVOKE(data, child->collection, IDWALK_CB_NEVER_SELF | IDWALK_CB_USER);
-  }
-  LISTBASE_FOREACH (CollectionParent *, parent, &collection->parents) {
-    /* XXX This is very weak. The whole idea of keeping pointers to private IDs is very bad
-     * anyway... */
-    const int cb_flag = ((parent->collection != NULL &&
-                          (parent->collection->id.flag & LIB_EMBEDDED_DATA) != 0) ?
-                             IDWALK_CB_EMBEDDED :
-                             IDWALK_CB_NOP);
-    FOREACH_CALLBACK_INVOKE(
-        data, parent->collection, IDWALK_CB_NEVER_SELF | IDWALK_CB_LOOPBACK | cb_flag);
-  }
-
-  FOREACH_FINALIZE_VOID;
-}
-
 bool BKE_library_foreach_ID_embedded(LibraryForeachIDData *data, ID **id_pp)
 {
   /* Needed e.g. for callbacks handling relationships... This call shall be absolutely readonly. */
@@ -564,7 +540,7 @@ static void library_foreach_ID_link(Main *bmain,
 
         /* This pointer can be NULL during old files reading, better be safe than sorry. */
         if (scene->master_collection != NULL) {
-          library_foreach_collection(&data, scene->master_collection);
+          BKE_library_foreach_ID_embedded(&data, (ID **)&scene->master_collection);
         }
 
         LISTBASE_FOREACH (ViewLayer *, view_layer, &scene->view_layers) {
@@ -810,8 +786,7 @@ static void library_foreach_ID_link(Main *bmain,
       }
 
       case ID_GR: {
-        Collection *collection = (Collection *)id;
-        library_foreach_collection(&data, collection);
+        BLI_assert(0);
         break;
       }
 
@@ -861,37 +836,19 @@ static void library_foreach_ID_link(Main *bmain,
       }
 
       case ID_GD: {
-        bGPdata *gpencil = (bGPdata *)id;
-        /* materials */
-        for (i = 0; i < gpencil->totcol; i++) {
-          CALLBACK_INVOKE(gpencil->mat[i], IDWALK_CB_USER);
-        }
-
-        LISTBASE_FOREACH (bGPDlayer *, gplayer, &gpencil->layers) {
-          CALLBACK_INVOKE(gplayer->parent, IDWALK_CB_NOP);
-        }
-
+        BLI_assert(0);
         break;
       }
       case ID_HA: {
-        Hair *hair = (Hair *)id;
-        for (i = 0; i < hair->totcol; i++) {
-          CALLBACK_INVOKE(hair->mat[i], IDWALK_CB_USER);
-        }
+        BLI_assert(0);
         break;
       }
       case ID_PT: {
-        PointCloud *pointcloud = (PointCloud *)id;
-        for (i = 0; i < pointcloud->totcol; i++) {
-          CALLBACK_INVOKE(pointcloud->mat[i], IDWALK_CB_USER);
-        }
+        BLI_assert(0);
         break;
       }
       case ID_VO: {
-        Volume *volume = (Volume *)id;
-        for (i = 0; i < volume->totcol; i++) {
-          CALLBACK_INVOKE(volume->mat[i], IDWALK_CB_USER);
-        }
+        BLI_assert(0);
         break;
       }
 
@@ -900,11 +857,7 @@ static void library_foreach_ID_link(Main *bmain,
         break;
       }
       case ID_SIM: {
-        Simulation *simulation = (Simulation *)id;
-        if (simulation->nodetree) {
-          /* nodetree **are owned by IDs**, treat them as mere sub-data and not real ID! */
-          BKE_library_foreach_ID_embedded(&data, (ID **)&simulation->nodetree);
-        }
+        BLI_assert(0);
         break;
       }
 
