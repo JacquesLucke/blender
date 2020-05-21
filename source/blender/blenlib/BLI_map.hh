@@ -152,47 +152,79 @@ class Map {
     return *this;
   }
 
+  /**
+   * Return the number of key-value-pairs that are stored in the map.
+   */
   uint32_t size() const
   {
     return m_occupied_and_removed_slots - m_removed_slots;
   }
 
+  /**
+   * Returns true if there are no elements in the map.
+   *
+   * This is similar to std::unordered_map::empty.
+   */
   bool is_empty() const
   {
     return m_occupied_and_removed_slots == m_removed_slots;
   }
 
+  /**
+   * Returns the number of available slots. This is mostly for debugging purposes.
+   */
   uint32_t capacity() const
   {
     return m_slots.size();
   }
 
+  /**
+   * Returns the amount of removed slots in the set. This is mostly for debugging purposes.
+   */
   uint32_t dummy_amount() const
   {
     return m_removed_slots;
   }
 
+  /**
+   * Returns the bytes required per element. This is mostly for debugging purposes.
+   */
   uint32_t size_per_element() const
   {
     return sizeof(Slot);
   }
 
+  /**
+   * Returns the approximage memory requirements of the set in bytes. This is more correct for
+   * larger sets.
+   */
   uint32_t size_in_bytes() const
   {
     return sizeof(Slot) * m_slots.size();
   }
 
+  /**
+   * Returns true there is a value that corresponds to the given key in the map.
+   *
+   * This is similar to std::unordered_map::contains.
+   */
   bool contains(const Key &key) const
   {
     return this->contains__impl(key, Hash{}(key));
   }
 
+  /**
+   * Removes all key-value-pairs from the map.
+   */
   void clear()
   {
     this->~Map();
     new (this) Map();
   }
 
+  /**
+   * Insert a new key-value-pair into the map. It is expected that the key is not yet in the map.
+   */
   void add_new(const Key &key, const Value &value)
   {
     this->add_new__impl(key, value, Hash{}(key));
@@ -210,6 +242,13 @@ class Map {
     this->add_new__impl(std::move(key), std::move(value), Hash{}(key));
   }
 
+  /**
+   * Add a key-value-pair to the map. If the map contains the key already, nothing is changed.
+   * If you want to replace the currently stored value, use `add_overwrite`.
+   * Returns true when the key has been newly added.
+   *
+   * This is similar to std::unordered_map::insert.
+   */
   bool add(const Key &key, const Value &value)
   {
     return this->add__impl(key, value, Hash{}(key));
@@ -227,16 +266,70 @@ class Map {
     return this->add__impl(std::move(key), std::move(value), Hash{}(key));
   }
 
+  /**
+   * Adds a key-value-pair to the map. If the map contained the key already, the corresponding
+   * value will be replaced.
+   * Returns true when the key has been newly added.
+   *
+   * This is similar to std::unordered_map::insert_or_assign.
+   */
+  bool add_overwrite(const Key &key, const Value &value)
+  {
+    return this->add_overwrite__impl(key, value, Hash{}(key));
+  }
+  bool add_overwrite(const Key &key, Value &&value)
+  {
+    return this->add_overwrite__impl(key, std::move(value), Hash{}(key));
+  }
+  bool add_overwrite(Key &&key, const Value &value)
+  {
+    return this->add_overwrite__impl(std::move(key), value, Hash{}(key));
+  }
+  bool add_overwrite(Key &&key, Value &&value)
+  {
+    return this->add_overwrite__impl(std::move(key), std::move(value), Hash{}(key));
+  }
+
+  /**
+   * Deletes the key-value-pair with the given key. This will fail if the key is not in the map
+   * beforehand.
+   *
+   * This is similar to std::unordered_map::erase.
+   */
   void remove(const Key &key)
   {
     this->remove__impl(key, Hash{}(key));
   }
 
+  /**
+   * Get the value that is stored for the given key and remove it from the map. This will fail if
+   * the key is not in the map.
+   */
   Value pop(const Key &key)
   {
     return this->pop__impl(key, Hash{}(key));
   }
 
+  /**
+   * This method can be used to implement more complex custom behavior without having to make a
+   * lookup multiple times.
+   *
+   * When the key did not yet exist in the map, the create_value function is called. Otherwise the
+   * modify_value function is called.
+   *
+   * Both functions are expected to take a single parameter of type `Value *`. In create_value,
+   * this pointer will point to uninitialized memory that has to be initialized by the function. In
+   * modify_value, it will point to an already initialized value.
+   *
+   * The function returns whatever is returned from the create_value or modify_value callback.
+   * Therefore, both callbacks have to have the same return type.
+   *
+   * In this example an integer is stored for every key. The initial value is five and we want to
+   * increase it every time the same key is used.
+   *   map.add_or_modify(key,
+   *                     [](int *value) { *value = 5; },
+   *                     [](int *value) { (*value)++; });
+   */
   template<typename CreateValueF, typename ModifyValueF>
   auto add_or_modify(const Key &key,
                      const CreateValueF &create_value,
@@ -251,41 +344,32 @@ class Map {
     return this->add_or_modify__impl(std::move(key), create_value, modify_value, Hash{}(key));
   }
 
-  bool add_override(const Key &key, const Value &value)
-  {
-    return this->add_override__impl(key, value, Hash{}(key));
-  }
-  bool add_override(const Key &key, Value &&value)
-  {
-    return this->add_override__impl(key, std::move(value), Hash{}(key));
-  }
-  bool add_override(Key &&key, const Value &value)
-  {
-    return this->add_override__impl(std::move(key), value, Hash{}(key));
-  }
-  bool add_override(Key &&key, Value &&value)
-  {
-    return this->add_override__impl(std::move(key), std::move(value), Hash{}(key));
-  }
-
+  /**
+   * Returns a pointer to the value that corresponds to the given key. If the key is not in the
+   * map, nullptr is returned.
+   *
+   * This is similar to std::unordered_map::find.
+   */
   const Value *lookup_ptr(const Key &key) const
   {
     return this->lookup_ptr__impl(key, Hash{}(key));
   }
-
   Value *lookup_ptr(const Key &key)
   {
     const Map *const_this = this;
     return const_cast<Value *>(const_this->lookup_ptr(key));
   }
 
+  /**
+   * Returns a reference to the value that corresponds to the given key. This will fail if the key
+   * is not in the map.
+   */
   const Value &lookup(const Key &key) const
   {
     const Value *ptr = this->lookup_ptr(key);
     BLI_assert(ptr != nullptr);
     return *ptr;
   }
-
   Value &lookup(const Key &key)
   {
     Value *ptr = this->lookup_ptr(key);
@@ -293,6 +377,10 @@ class Map {
     return *ptr;
   }
 
+  /**
+   * Returns a copy of the value that corresponds to the given key. If the key is not in the map,
+   * the provided default_value is returned.
+   */
   Value lookup_default(const Key &key, Value default_value) const
   {
     const Value *ptr = this->lookup_ptr(key);
@@ -304,6 +392,13 @@ class Map {
     }
   }
 
+  /**
+   * Returns a reference to the value that corresponds to the given key. If the key is not yet in
+   * the map, it will be newly added.
+   *
+   * The create_value callback is only called when the key did not exist yet. It is expected to
+   * take no parameters and return the value to be inserted.
+   */
   template<typename CreateValueF>
   Value &lookup_or_add(const Key &key, const CreateValueF &create_value)
   {
@@ -314,6 +409,11 @@ class Map {
     return this->lookup_or_add__impl(std::move(key), create_value, Hash{}(key));
   }
 
+  /**
+   * Returns a reference to the value that corresponds to the given key. If the key is not yet in
+   * the map, it will be newly added. The newly added value will be default constructed.
+   *
+   */
   Value &lookup_or_add_default(const Key &key)
   {
     return this->lookup_or_add(key, []() { return Value(); });
@@ -323,6 +423,10 @@ class Map {
     return this->lookup_or_add(std::move(key), []() { return Value(); });
   }
 
+  /**
+   * Calls the provided callback for every key-value-pair in the map. The callback is expected
+   * to take a `const Key &` as first and a `const Value &` as second parameter.
+   */
   template<typename FuncT> void foreach_item(const FuncT &func) const
   {
     uint32_t size = this->size();
@@ -336,6 +440,10 @@ class Map {
     }
   }
 
+  /**
+   * A utiltiy iterator that saves code when implementing the actual iterators. This uses
+   * the "curiously recurring template pattern" (CRTP).
+   */
   template<typename SubIterator> struct BaseIterator {
     Slot *m_slots;
     uint32_t m_total_slots;
@@ -463,37 +571,66 @@ class Map {
     }
   };
 
+  /**
+   * Allows writing a range-for loop that iterates over all keys. The iterator is invalidated, when
+   * the map is changed.
+   */
   KeyIterator keys() const
   {
     return KeyIterator(m_slots.begin(), m_slots.size(), 0);
   }
 
+  /**
+   * Returns an iterator over all values in the map. The iterator is invalidated, when the map is
+   * changed.
+   */
   ValueIterator values() const
   {
     return ValueIterator(m_slots.begin(), m_slots.size(), 0);
   }
 
+  /**
+   * Returns an iterator over all values in the map and allows you to change the values. The
+   * iterator is invalidated, when the map is changed.
+   */
   MutableValueIterator values()
   {
     return MutableValueIterator(m_slots.begin(), m_slots.size(), 0);
   }
 
+  /**
+   * Returns an iterator over all key-value-pairs in the map. The key-value-pairs are stored in
+   * a temporary struct with a .key and a .value field.
+   */
   ItemIterator items() const
   {
     return ItemIterator(m_slots.begin(), m_slots.size(), 0);
   }
 
+  /**
+   * Returns an iterator over all key-value-pairs in the map. The key-value-pairs are stored in
+   * a temporary struct with a .key and a .value field.
+   *
+   * This iterator also allows you to modify the value (but not the key).
+   */
   MutableItemIterator items()
   {
     return MutableItemIterator(m_slots.begin(), m_slots.size(), 0);
   }
 
+  /**
+   * Print common statistics like size and collision count. This is mostly for debugging purposes.
+   */
   void print_stats(StringRef name = "") const
   {
     HashTableStats stats(*this, this->keys());
     stats.print();
   }
 
+  /**
+   * Get the number of collisions that the probing strategy has to go through to find the key or
+   * determine that it is not in the map.
+   */
   uint32_t count_collisions(const Key &key) const
   {
     uint32_t hash = Hash{}(key);
@@ -687,7 +824,7 @@ class Map {
   }
 
   template<typename ForwardKey, typename ForwardValue>
-  bool add_override__impl(ForwardKey &&key, ForwardValue &&value, uint32_t hash)
+  bool add_overwrite__impl(ForwardKey &&key, ForwardValue &&value, uint32_t hash)
   {
     auto create_func = [&](Value *ptr) {
       new (ptr) Value(std::forward<ForwardValue>(value));

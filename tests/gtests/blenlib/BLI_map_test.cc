@@ -232,13 +232,13 @@ TEST(map, AddOrModify)
   EXPECT_EQ(map.lookup(1), 15.0f);
 }
 
-TEST(map, AddOverride)
+TEST(map, AddOverwrite)
 {
   IntFloatMap map;
   EXPECT_FALSE(map.contains(3));
-  EXPECT_TRUE(map.add_override(3, 6.0f));
+  EXPECT_TRUE(map.add_overwrite(3, 6.0f));
   EXPECT_EQ(map.lookup(3), 6.0f);
-  EXPECT_FALSE(map.add_override(3, 7.0f));
+  EXPECT_FALSE(map.add_overwrite(3, 7.0f));
   EXPECT_EQ(map.lookup(3), 7.0f);
   EXPECT_FALSE(map.add(3, 8.0f));
   EXPECT_EQ(map.lookup(3), 7.0f);
@@ -338,11 +338,11 @@ TEST(map, UniquePtrValue)
   Map<int, std::unique_ptr<int>> map;
   map.add_new(1, std::move(value1));
   map.add(2, std::move(value2));
-  map.add_override(3, std::move(value3));
+  map.add_overwrite(3, std::move(value3));
   map.lookup_or_add(4, []() { return std::unique_ptr<int>(new int()); });
   map.add_new(5, std::unique_ptr<int>(new int()));
   map.add(6, std::unique_ptr<int>(new int()));
-  map.add_override(7, std::unique_ptr<int>(new int()));
+  map.add_overwrite(7, std::unique_ptr<int>(new int()));
 
   EXPECT_EQ(map.lookup(1).get(), value1_ptr);
   EXPECT_EQ(map.lookup_ptr(100), nullptr);

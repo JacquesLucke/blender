@@ -56,7 +56,7 @@ class AttributeList {
 
   void set(StringRef key, StringRef value)
   {
-    m_attributes.add_override(key, value);
+    m_attributes.add_overwrite(key, value);
   }
 };
 
