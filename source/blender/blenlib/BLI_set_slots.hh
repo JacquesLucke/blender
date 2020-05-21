@@ -302,17 +302,16 @@ template<typename Key> class PointerSetSlot {
  private:
   BLI_STATIC_ASSERT(std::is_pointer<Key>::value, "");
 
-  /* Note: nullptr is not a valid key. */
-  static constexpr uintptr_t s_is_empty = 0;
-  static constexpr uintptr_t s_is_removed = 1;
-  static constexpr uintptr_t s_max_special_value = s_is_removed;
+  static constexpr uintptr_t s_is_empty = UINTPTR_MAX;
+  static constexpr uintptr_t s_is_removed = UINTPTR_MAX - 1;
+  static constexpr uintptr_t s_min_special_value = s_is_removed;
 
-  uintptr_t m_key;
+  uintptr_t m_state;
 
  public:
   PointerSetSlot()
   {
-    m_key = s_is_empty;
+    m_state = s_is_empty;
   }
 
   ~PointerSetSlot() = default;
@@ -321,54 +320,54 @@ template<typename Key> class PointerSetSlot {
 
   Key *key()
   {
-    return (Key *)&m_key;
+    return (Key *)&m_state;
   }
 
   const Key *key() const
   {
-    return (const Key *)&m_key;
+    return (const Key *)&m_state;
   }
 
   bool is_occupied() const
   {
-    return m_key > s_max_special_value;
+    return m_state < s_min_special_value;
   }
 
   bool is_empty() const
   {
-    return m_key == s_is_empty;
+    return m_state == s_is_empty;
   }
 
   template<typename Hash> uint32_t get_hash(const Hash &hash) const
   {
     BLI_assert(this->is_occupied());
-    return hash((Key)m_key);
+    return hash((Key)m_state);
   }
 
   void relocate_occupied_here(PointerSetSlot &other, uint32_t UNUSED(hash))
   {
     BLI_assert(!this->is_occupied());
     BLI_assert(other.is_occupied());
-    m_key = other.m_key;
+    m_state = other.m_state;
   }
 
   bool contains(Key key, uint32_t UNUSED(hash)) const
   {
-    BLI_assert((uintptr_t)key > s_max_special_value);
-    return (uintptr_t)key == m_key;
+    BLI_assert((uintptr_t)key < s_min_special_value);
+    return (uintptr_t)key == m_state;
   }
 
   void occupy(Key key, uint32_t UNUSED(hash))
   {
     BLI_assert(!this->is_occupied());
-    BLI_assert((uintptr_t)key > s_max_special_value);
-    m_key = (uintptr_t)key;
+    BLI_assert((uintptr_t)key < s_min_special_value);
+    m_state = (uintptr_t)key;
   }
 
   void remove()
   {
     BLI_assert(this->is_occupied());
-    m_key = s_is_removed;
+    m_state = s_is_removed;
   }
 };
 
