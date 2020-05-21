@@ -96,10 +96,10 @@ MINLINE unsigned int highest_order_bit_uint(unsigned int n)
 
 MINLINE unsigned short highest_order_bit_s(unsigned short n)
 {
-  n |= (n >> 1);
-  n |= (n >> 2);
-  n |= (n >> 4);
-  n |= (n >> 8);
+  n |= (unsigned short)(n >> 1);
+  n |= (unsigned short)(n >> 2);
+  n |= (unsigned short)(n >> 4);
+  n |= (unsigned short)(n >> 8);
   return (unsigned short)(n - (n >> 1));
 }
 
