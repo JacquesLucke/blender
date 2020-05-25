@@ -9240,6 +9240,35 @@ static void lib_link_simulation(FileData *UNUSED(fd),
 {
 }
 
+static void read_simulation_particle_cache(FileData *fd, ParticleSimulationCache *particle_cache)
+{
+  particle_cache->frames = newdataadr(fd, particle_cache->frames);
+  test_pointer_array(fd, (void **)&particle_cache->frames);
+
+  for (int frame_index = 0; frame_index < particle_cache->tot_frames; frame_index++) {
+    ParticleSimulationFrameCache *frame_cache = newdataadr(fd,
+                                                           particle_cache->frames[frame_index]);
+    particle_cache->frames[frame_index] = frame_cache;
+    frame_cache->attributes = newdataadr(fd, frame_cache->attributes);
+    test_pointer_array(fd, (void **)&frame_cache->attributes);
+    for (int attribute_index = 0; attribute_index < frame_cache->tot_attributes;
+         attribute_index++) {
+      SimulationAttributeData *attribute = newdataadr(fd,
+                                                      frame_cache->attributes[attribute_index]);
+      frame_cache->attributes[attribute_index] = attribute;
+      switch ((eSimulationAttributeType)attribute->type) {
+        case SIM_ATTRIBUTE_FLOAT3: {
+          attribute->data = newdataadr(fd, attribute->data);
+          if (fd->flags & FD_FLAGS_SWITCH_ENDIAN) {
+            BLI_endian_switch_float_array((float *)attribute->data, 3 * frame_cache->len);
+          }
+          break;
+        }
+      }
+    }
+  }
+}
+
 static void direct_link_simulation(FileData *fd, Simulation *simulation)
 {
   simulation->adt = newdataadr(fd, simulation->adt);
@@ -9256,6 +9285,8 @@ static void direct_link_simulation(FileData *fd, Simulation *simulation)
 
       switch ((eSimulationCacheType)cache->type) {
         case SIM_CACHE_TYPE_PARTICLES: {
+          ParticleSimulationCache *particle_cache = (ParticleSimulationCache *)cache;
+          read_simulation_particle_cache(fd, particle_cache);
           break;
         }
       }

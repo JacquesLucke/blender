@@ -45,7 +45,28 @@ typedef struct SimulationCache {
 
 typedef struct ParticleSimulationCache {
   SimulationCache head;
+  int _pad;
+  int tot_frames;
+  /* The frame caches are expected to be sorted by frame number. */
+  struct ParticleSimulationFrameCache **frames;
 } ParticleSimulationCache;
+
+typedef struct ParticleSimulationFrameCache {
+  int frame;
+  int len;
+  int _pad;
+  int tot_attributes;
+  struct SimulationAttributeData **attributes;
+} ParticleSimulationFrameCache;
+
+/* Should be deduplicated with CustomData eventually (T76659). */
+typedef struct SimulationAttributeData {
+  /* eSimulationAttributeType */
+  int type;
+  int _pad;
+  char name[64];
+  void *data;
+} SimulationAttributeData;
 
 /* Simulation.flag */
 enum {
@@ -56,5 +77,9 @@ enum {
 typedef enum eSimulationCacheType {
   SIM_CACHE_TYPE_PARTICLES = 0,
 } eSimulationCacheType;
+
+typedef enum eSimulationAttributeType {
+  SIM_ATTRIBUTE_FLOAT3 = 0,
+} eSimulationAttributeType;
 
 #endif /* __DNA_SIMULATION_TYPES_H__ */

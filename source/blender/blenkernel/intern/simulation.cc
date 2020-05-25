@@ -27,7 +27,9 @@
 #include "DNA_scene_types.h"
 #include "DNA_simulation_types.h"
 
+#include "BLI_array_ref.hh"
 #include "BLI_compiler_compat.h"
+#include "BLI_float3.hh"
 #include "BLI_listbase.h"
 #include "BLI_math.h"
 #include "BLI_string.h"
@@ -49,6 +51,9 @@
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
+
+using BLI::ArrayRef;
+using BLI::float3;
 
 static void simulation_init_data(ID *id)
 {
@@ -75,6 +80,9 @@ static void simulation_copy_data(Main *bmain, ID *id_dst, const ID *id_src, cons
                    (ID **)&simulation_dst->nodetree,
                    flag_private_id_data);
   }
+
+  simulation_dst->caches = NULL;
+  simulation_dst->tot_caches = 0;
 }
 
 static void simulation_free_data(ID *id)
@@ -88,6 +96,28 @@ static void simulation_free_data(ID *id)
     MEM_freeN(simulation->nodetree);
     simulation->nodetree = nullptr;
   }
+
+  for (SimulationCache *cache : BLI::ref_c_array(simulation->caches, simulation->tot_caches)) {
+    switch ((eSimulationCacheType)cache->type) {
+      case SIM_CACHE_TYPE_PARTICLES: {
+        ParticleSimulationCache *particle_cache = (ParticleSimulationCache *)cache;
+        for (ParticleSimulationFrameCache *frame_cache :
+             BLI::ref_c_array(particle_cache->frames, particle_cache->tot_frames)) {
+          for (SimulationAttributeData *attribute :
+               BLI::ref_c_array(frame_cache->attributes, frame_cache->tot_attributes)) {
+            MEM_freeN(attribute->data);
+            MEM_freeN(attribute);
+          }
+          MEM_SAFE_FREE(frame_cache->attributes);
+          MEM_freeN(frame_cache);
+        }
+        MEM_SAFE_FREE(particle_cache->frames);
+        break;
+      }
+    }
+    MEM_freeN(cache);
+  }
+  MEM_SAFE_FREE(simulation->caches);
 }
 
 static void simulation_foreach_id(ID *id, LibraryForeachIDData *data)
@@ -125,8 +155,100 @@ void *BKE_simulation_add(Main *bmain, const char *name)
   return simulation;
 }
 
-void BKE_simulation_data_update(Depsgraph *UNUSED(depsgraph),
-                                Scene *UNUSED(scene),
-                                Simulation *UNUSED(simulation))
+static ParticleSimulationFrameCache *find_particle_frame_cache(
+    ParticleSimulationCache *particle_cache, int frame)
 {
+  for (int i = 0; i < particle_cache->tot_frames; i++) {
+    if (particle_cache->frames[i]->frame == frame) {
+      return particle_cache->frames[i];
+    }
+  }
+  return nullptr;
+}
+
+static void append_particle_frame_cache(ParticleSimulationCache *particle_cache,
+                                        ParticleSimulationFrameCache *frame_cache)
+{
+  particle_cache->tot_frames++;
+  particle_cache->frames = (ParticleSimulationFrameCache **)MEM_reallocN(
+      particle_cache->frames, sizeof(ParticleSimulationFrameCache *) * particle_cache->tot_frames);
+  particle_cache->frames[particle_cache->tot_frames - 1] = frame_cache;
+}
+
+static void append_attribute(ParticleSimulationFrameCache *frame_cache,
+                             SimulationAttributeData *attribute)
+{
+  frame_cache->tot_attributes++;
+  frame_cache->attributes = (SimulationAttributeData **)MEM_reallocN(
+      frame_cache->attributes, sizeof(SimulationAttributeData *) * frame_cache->tot_attributes);
+  frame_cache->attributes[frame_cache->tot_attributes - 1] = attribute;
+}
+
+void BKE_simulation_data_update(Depsgraph *UNUSED(depsgraph), Scene *scene, Simulation *simulation)
+{
+  Simulation *simulation_orig = (Simulation *)DEG_get_original_id(&simulation->id);
+  int current_frame = scene->r.cfra;
+
+  if (simulation_orig->tot_caches == 0) {
+    simulation_orig->tot_caches = 1;
+    simulation_orig->caches = (SimulationCache **)MEM_callocN(sizeof(SimulationCache *) * 1,
+                                                              __func__);
+    simulation_orig->caches[0] = (SimulationCache *)MEM_callocN(sizeof(ParticleSimulationCache),
+                                                                __func__);
+  }
+
+  ParticleSimulationCache *particle_cache = (ParticleSimulationCache *)simulation_orig->caches[0];
+  ParticleSimulationFrameCache *current_frame_cache = find_particle_frame_cache(particle_cache,
+                                                                                current_frame);
+  if (current_frame_cache != nullptr) {
+    return;
+  }
+
+  if (current_frame == 1) {
+    current_frame_cache = (ParticleSimulationFrameCache *)MEM_callocN(
+        sizeof(ParticleSimulationFrameCache), __func__);
+    current_frame_cache->frame = current_frame;
+
+    int initial_particle_count = 100;
+    float3 *positions = (float3 *)MEM_mallocN(sizeof(float3) * initial_particle_count, __func__);
+
+    for (int i = 0; i < initial_particle_count; i++) {
+      positions[i].x = i / 20.0f;
+    }
+
+    SimulationAttributeData *attribute = (SimulationAttributeData *)MEM_callocN(
+        sizeof(SimulationAttributeData), __func__);
+    strcpy(attribute->name, "Position");
+    attribute->type = SIM_ATTRIBUTE_FLOAT3;
+    attribute->data = (float *)positions;
+
+    append_attribute(current_frame_cache, attribute);
+    append_particle_frame_cache(particle_cache, current_frame_cache);
+    return;
+  }
+
+  ParticleSimulationFrameCache *prev_frame_cache = find_particle_frame_cache(particle_cache,
+                                                                             current_frame - 1);
+  if (prev_frame_cache == nullptr) {
+    return;
+  }
+
+  int particle_count = prev_frame_cache->len;
+  current_frame_cache = (ParticleSimulationFrameCache *)MEM_callocN(
+      sizeof(ParticleSimulationCache), __func__);
+  current_frame_cache->frame = current_frame;
+  float3 *old_positions = (float3 *)prev_frame_cache->attributes[0]->data;
+
+  float3 *new_positions = (float3 *)MEM_mallocN(sizeof(float3) * particle_count, __func__);
+  for (int i = 0; i < particle_count; i++) {
+    new_positions[i] = old_positions[i] + float3(0, 0, 0.2f);
+  }
+
+  SimulationAttributeData *attribute = (SimulationAttributeData *)MEM_callocN(
+      sizeof(SimulationAttributeData), __func__);
+  strcpy(attribute->name, "Position");
+  attribute->type = SIM_ATTRIBUTE_FLOAT3;
+  attribute->data = (float *)new_positions;
+  append_attribute(current_frame_cache, attribute);
+  append_particle_frame_cache(particle_cache, current_frame_cache);
 }
