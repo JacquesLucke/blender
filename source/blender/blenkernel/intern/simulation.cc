@@ -195,6 +195,10 @@ const ParticleSimulationFrameCache *BKE_simulation_try_find_particle_state(Simul
   return find_particle_frame_cache(particle_cache, frame);
 }
 
+/**
+ * This is not doing anything useful currently. It just fills the cache structure with some
+ * particle data that can then be accessed by the simulation point cloud modifier.
+ */
 void BKE_simulation_data_update(Depsgraph *UNUSED(depsgraph), Scene *scene, Simulation *simulation)
 {
   Simulation *simulation_orig = (Simulation *)DEG_get_original_id(&simulation->id);
