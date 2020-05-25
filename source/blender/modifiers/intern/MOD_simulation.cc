@@ -21,6 +21,7 @@
  * \ingroup modifiers
  */
 
+#include <cstring>
 #include <iostream>
 #include <string>
 
@@ -40,6 +41,8 @@
 #include "BKE_lib_query.h"
 #include "BKE_mesh.h"
 #include "BKE_modifier.h"
+#include "BKE_pointcloud.h"
+#include "BKE_simulation.h"
 
 #include "DEG_depsgraph_build.h"
 #include "DEG_depsgraph_query.h"
@@ -69,12 +72,32 @@ static bool isDisabled(const struct Scene *UNUSED(scene),
 }
 
 static PointCloud *modifyPointCloud(ModifierData *md,
-                                    const ModifierEvalContext *UNUSED(ctx),
+                                    const ModifierEvalContext *ctx,
                                     PointCloud *pointcloud)
 {
   SimulationModifierData *smd = (SimulationModifierData *)md;
-  UNUSED_VARS(smd);
-  return pointcloud;
+  if (smd->simulation == nullptr) {
+    return pointcloud;
+  }
+
+  Scene *scene = DEG_get_input_scene(ctx->depsgraph);
+  int current_frame = scene->r.cfra;
+  const ParticleSimulationFrameCache *frame_cache = BKE_simulation_try_find_particle_state(
+      smd->simulation, current_frame);
+
+  if (frame_cache == nullptr) {
+    return pointcloud;
+  }
+
+  PointCloud *new_pointcloud = BKE_pointcloud_new_for_eval(pointcloud, frame_cache->len);
+  memcpy(
+      new_pointcloud->co, frame_cache->attributes[0]->data, sizeof(float) * 3 * frame_cache->len);
+
+  for (int i = 0; i < frame_cache->len; i++) {
+    new_pointcloud->radius[i] = 0.05f;
+  }
+
+  return new_pointcloud;
 }
 
 ModifierTypeInfo modifierType_Simulation = {

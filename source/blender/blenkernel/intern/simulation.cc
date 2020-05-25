@@ -184,6 +184,17 @@ static void append_attribute(ParticleSimulationFrameCache *frame_cache,
   frame_cache->attributes[frame_cache->tot_attributes - 1] = attribute;
 }
 
+const ParticleSimulationFrameCache *BKE_simulation_try_find_particle_state(Simulation *simulation,
+                                                                           int frame)
+{
+  Simulation *simulation_orig = (Simulation *)DEG_get_original_id(&simulation->id);
+  if (simulation_orig->tot_caches == 0) {
+    return nullptr;
+  }
+  ParticleSimulationCache *particle_cache = (ParticleSimulationCache *)simulation_orig->caches[0];
+  return find_particle_frame_cache(particle_cache, frame);
+}
+
 void BKE_simulation_data_update(Depsgraph *UNUSED(depsgraph), Scene *scene, Simulation *simulation)
 {
   Simulation *simulation_orig = (Simulation *)DEG_get_original_id(&simulation->id);
@@ -205,12 +216,14 @@ void BKE_simulation_data_update(Depsgraph *UNUSED(depsgraph), Scene *scene, Simu
   }
 
   if (current_frame == 1) {
+    int initial_particle_count = 100;
+
     current_frame_cache = (ParticleSimulationFrameCache *)MEM_callocN(
         sizeof(ParticleSimulationFrameCache), __func__);
+    current_frame_cache->len = initial_particle_count;
     current_frame_cache->frame = current_frame;
 
-    int initial_particle_count = 100;
-    float3 *positions = (float3 *)MEM_mallocN(sizeof(float3) * initial_particle_count, __func__);
+    float3 *positions = (float3 *)MEM_callocN(sizeof(float3) * initial_particle_count, __func__);
 
     for (int i = 0; i < initial_particle_count; i++) {
       positions[i].x = i / 20.0f;
@@ -237,6 +250,7 @@ void BKE_simulation_data_update(Depsgraph *UNUSED(depsgraph), Scene *scene, Simu
   current_frame_cache = (ParticleSimulationFrameCache *)MEM_callocN(
       sizeof(ParticleSimulationCache), __func__);
   current_frame_cache->frame = current_frame;
+  current_frame_cache->len = particle_count;
   float3 *old_positions = (float3 *)prev_frame_cache->attributes[0]->data;
 
   float3 *new_positions = (float3 *)MEM_mallocN(sizeof(float3) * particle_count, __func__);

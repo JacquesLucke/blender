@@ -24,12 +24,16 @@ extern "C" {
 struct Main;
 struct Simulation;
 struct Depsgraph;
+struct ParticleSimulationFrameCache;
 
 void *BKE_simulation_add(struct Main *bmain, const char *name);
 
 void BKE_simulation_data_update(struct Depsgraph *depsgraph,
                                 struct Scene *scene,
                                 struct Simulation *simulation);
+
+const struct ParticleSimulationFrameCache *BKE_simulation_try_find_particle_state(
+    struct Simulation *simulation, int frame);
 
 #ifdef __cplusplus
 }
