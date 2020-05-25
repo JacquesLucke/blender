@@ -30,12 +30,31 @@ typedef struct Simulation {
   struct bNodeTree *nodetree;
 
   int flag;
-  int _pad1[1];
+
+  int tot_caches;
+  struct SimulationCache **caches;
+
 } Simulation;
+
+typedef struct SimulationCache {
+  /* eSimulationCacheType */
+  int type;
+  int _pad;
+  char name[64];
+} SimulationCache;
+
+typedef struct ParticleSimulationCache {
+  SimulationCache head;
+} ParticleSimulationCache;
 
 /* Simulation.flag */
 enum {
   SIM_DS_EXPAND = (1 << 0),
 };
+
+/* SimulationCache.type */
+typedef enum eSimulationCacheType {
+  SIM_CACHE_TYPE_PARTICLES = 0,
+} eSimulationCacheType;
 
 #endif /* __DNA_SIMULATION_TYPES_H__ */

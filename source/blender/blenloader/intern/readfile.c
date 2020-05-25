@@ -9244,6 +9244,23 @@ static void direct_link_simulation(FileData *fd, Simulation *simulation)
 {
   simulation->adt = newdataadr(fd, simulation->adt);
   direct_link_animdata(fd, simulation->adt);
+
+  /* Read simulation caches. */
+  if (simulation->tot_caches > 0) {
+    simulation->caches = newdataadr(fd, simulation->caches);
+    test_pointer_array(fd, (void **)&simulation->caches);
+
+    for (int i = 0; i < simulation->tot_caches; i++) {
+      SimulationCache *cache = newdataadr(fd, simulation->caches[i]);
+      simulation->caches[i] = cache;
+
+      switch ((eSimulationCacheType)cache->type) {
+        case SIM_CACHE_TYPE_PARTICLES: {
+          break;
+        }
+      }
+    }
+  }
 }
 
 /** \} */

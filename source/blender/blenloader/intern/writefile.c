@@ -3899,6 +3899,18 @@ static void write_simulation(WriteData *wd, Simulation *simulation)
       writestruct(wd, DATA, bNodeTree, 1, simulation->nodetree);
       write_nodetree_nolib(wd, simulation->nodetree);
     }
+
+    /* Write simulation caches. */
+    writedata(wd, DATA, sizeof(SimulationCache *) * simulation->tot_caches, simulation->caches);
+    for (int i = 0; i < simulation->tot_caches; i++) {
+      SimulationCache *cache = simulation->caches[i];
+      switch ((eSimulationCacheType)cache->type) {
+        case SIM_CACHE_TYPE_PARTICLES: {
+          writestruct(wd, DATA, ParticleSimulationCache, 1, cache);
+          break;
+        }
+      }
+    }
   }
 }
 
