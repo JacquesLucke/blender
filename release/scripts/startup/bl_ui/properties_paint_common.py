@@ -619,10 +619,12 @@ def brush_settings(layout, context, brush, popover=False):
 
         if brush.sculpt_tool == 'POSE':
             layout.separator()
+            layout.prop(brush, "pose_deform_type")
             layout.prop(brush, "pose_origin_type")
             layout.prop(brush, "pose_offset")
             layout.prop(brush, "pose_smooth_iterations")
-            layout.prop(brush, "pose_ik_segments")
+            if brush.pose_deform_type == 'ROTATE_TWIST':
+              layout.prop(brush, "pose_ik_segments")
             layout.prop(brush, "use_pose_ik_anchored")
             layout.separator()
 
@@ -820,7 +822,7 @@ def brush_settings_advanced(layout, context, brush, popover=False):
 
         # boundary edges/face sets automasking
         col.prop(brush, "use_automasking_boundary_edges", text="Mesh Boundary")
-        col.prop(brush, "use_automasking_boundary_face_sets", text="Face Sets")
+        col.prop(brush, "use_automasking_boundary_face_sets", text="Face Sets Boundary")
         col.prop(brush, "automasking_boundary_edges_propagation_steps")
 
         layout.separator()

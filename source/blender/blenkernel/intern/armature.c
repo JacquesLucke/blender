@@ -61,11 +61,13 @@
 #include "BKE_idtype.h"
 #include "BKE_lattice.h"
 #include "BKE_lib_id.h"
+#include "BKE_lib_query.h"
 #include "BKE_main.h"
 #include "BKE_object.h"
 #include "BKE_scene.h"
 
 #include "DEG_depsgraph_build.h"
+#include "DEG_depsgraph_query.h"
 
 #include "BIK_api.h"
 
@@ -150,6 +152,24 @@ static void armature_free_data(struct ID *id)
   }
 }
 
+static void armature_foreach_id_bone(Bone *bone, LibraryForeachIDData *data)
+{
+  IDP_foreach_property(
+      bone->prop, IDP_TYPE_FILTER_ID, BKE_lib_query_idpropertiesForeachIDLink_callback, data);
+
+  LISTBASE_FOREACH (Bone *, curbone, &bone->childbase) {
+    armature_foreach_id_bone(curbone, data);
+  }
+}
+
+static void armature_foreach_id(ID *id, LibraryForeachIDData *data)
+{
+  bArmature *arm = (bArmature *)id;
+  LISTBASE_FOREACH (Bone *, bone, &arm->bonebase) {
+    armature_foreach_id_bone(bone, data);
+  }
+}
+
 IDTypeInfo IDType_ID_AR = {
     .id_code = ID_AR,
     .id_filter = FILTER_ID_AR,
@@ -164,6 +184,7 @@ IDTypeInfo IDType_ID_AR = {
     .copy_data = armature_copy_data,
     .free_data = armature_free_data,
     .make_local = NULL,
+    .foreach_id = armature_foreach_id,
 };
 
 /* **************** Generic Functions, data level *************** */
@@ -480,14 +501,21 @@ static void armature_refresh_layer_used_recursive(bArmature *arm, ListBase *bone
   }
 }
 
-/* Update the layers_used variable after bones are moved between layer
- * NOTE: Used to be done in drawing code in 2.7, but that won't work with
- *       Copy-on-Write, as drawing uses evaluated copies.
- */
-void BKE_armature_refresh_layer_used(bArmature *arm)
+void BKE_armature_refresh_layer_used(struct Depsgraph *depsgraph, struct bArmature *arm)
 {
+  if (arm->edbo != NULL) {
+    /* Don't perform this update when the armature is in edit mode. In that case it should be
+     * handled by ED_armature_edit_refresh_layer_used(). */
+    return;
+  }
+
   arm->layer_used = 0;
   armature_refresh_layer_used_recursive(arm, &arm->bonebase);
+
+  if (depsgraph == NULL || DEG_is_active(depsgraph)) {
+    bArmature *arm_orig = (bArmature *)DEG_get_original_id(&arm->id);
+    arm_orig->layer_used = arm->layer_used;
+  }
 }
 
 /* Finds the best possible extension to the name on a particular axis. (For renaming, check for

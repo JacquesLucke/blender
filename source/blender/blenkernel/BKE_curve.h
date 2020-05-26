@@ -173,7 +173,8 @@ void BKE_nurbList_handles_recalculate(struct ListBase *editnurb,
                                       const char flag);
 
 void BKE_nurbList_handles_autocalc(ListBase *editnurb, int flag);
-void BKE_nurbList_flag_set(ListBase *editnurb, short flag);
+void BKE_nurbList_flag_set(ListBase *editnurb, short flag, bool set);
+bool BKE_nurbList_flag_set_from_flag(ListBase *editnurb, short from_flag, short flag);
 
 void BKE_nurb_free(struct Nurb *nu);
 struct Nurb *BKE_nurb_duplicate(const struct Nurb *nu);
@@ -261,8 +262,9 @@ void BKE_nurb_handles_calc(struct Nurb *nu);
 void BKE_nurb_handles_autocalc(struct Nurb *nu, int flag);
 void BKE_nurb_bezt_handle_test(struct BezTriple *bezt,
                                const eBezTriple_Flag__Alias sel_flag,
-                               const bool use_handle);
-void BKE_nurb_handles_test(struct Nurb *nu, const bool use_handles);
+                               const bool use_handle,
+                               const bool use_around_local);
+void BKE_nurb_handles_test(struct Nurb *nu, const bool use_handles, const bool use_around_local);
 
 /* **** Depsgraph evaluation **** */
 

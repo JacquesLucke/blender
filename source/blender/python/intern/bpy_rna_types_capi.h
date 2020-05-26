@@ -12,31 +12,15 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2014 Blender Foundation.
- * All rights reserved.
  */
 
-struct VertexData {
-  vec4 position;
-  vec3 normal;
-  vec2 uv;
-};
+/** \file
+ * \ingroup pythonintern
+ */
 
-in vec3 normal;
-in vec4 position;
+#ifndef __BPY_RNA_TYPES_CAPI_H__
+#define __BPY_RNA_TYPES_CAPI_H__
 
-uniform mat4 modelViewMatrix;
-uniform mat3 normalMatrix;
+void BPY_rna_types_extend_capi(void);
 
-out block
-{
-  VertexData v;
-}
-outpt;
-
-void main()
-{
-  outpt.v.position = modelViewMatrix * position;
-  outpt.v.normal = normalize(normalMatrix * normal);
-}
+#endif /* __BPY_RNA_TYPES_CAPI_H__ */

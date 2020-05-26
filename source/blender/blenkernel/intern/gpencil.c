@@ -55,6 +55,7 @@
 #include "BKE_idtype.h"
 #include "BKE_image.h"
 #include "BKE_lib_id.h"
+#include "BKE_lib_query.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_paint.h"
@@ -97,6 +98,19 @@ static void greasepencil_free_data(ID *id)
   BKE_gpencil_free((bGPdata *)id, true);
 }
 
+static void greasepencil_foreach_id(ID *id, LibraryForeachIDData *data)
+{
+  bGPdata *gpencil = (bGPdata *)id;
+  /* materials */
+  for (int i = 0; i < gpencil->totcol; i++) {
+    BKE_LIB_FOREACHID_PROCESS(data, gpencil->mat[i], IDWALK_CB_USER);
+  }
+
+  LISTBASE_FOREACH (bGPDlayer *, gplayer, &gpencil->layers) {
+    BKE_LIB_FOREACHID_PROCESS(data, gplayer->parent, IDWALK_CB_NOP);
+  }
+}
+
 IDTypeInfo IDType_ID_GD = {
     .id_code = ID_GD,
     .id_filter = FILTER_ID_GD,
@@ -111,6 +125,7 @@ IDTypeInfo IDType_ID_GD = {
     .copy_data = greasepencil_copy_data,
     .free_data = greasepencil_free_data,
     .make_local = NULL,
+    .foreach_id = greasepencil_foreach_id,
 };
 
 /* ************************************************** */
@@ -1748,7 +1763,18 @@ void BKE_gpencil_palette_ensure(Main *bmain, Scene *scene)
   GpPaint *gp_paint = ts->gp_paint;
   Paint *paint = &gp_paint->paint;
 
+  if (paint->palette != NULL) {
+    return;
+  }
+
   paint->palette = BLI_findstring(&bmain->palettes, "Palette", offsetof(ID, name) + 2);
+  /* Try with first palette. */
+  if (bmain->palettes.first != NULL) {
+    paint->palette = bmain->palettes.first;
+    ts->gp_vertexpaint->paint.palette = paint->palette;
+    return;
+  }
+
   if (paint->palette == NULL) {
     paint->palette = BKE_palette_add(bmain, "Palette");
     ts->gp_vertexpaint->paint.palette = paint->palette;

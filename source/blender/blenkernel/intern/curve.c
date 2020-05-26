@@ -52,6 +52,7 @@
 #include "BKE_idtype.h"
 #include "BKE_key.h"
 #include "BKE_lib_id.h"
+#include "BKE_lib_query.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_object.h"
@@ -117,6 +118,22 @@ static void curve_free_data(ID *id)
   MEM_SAFE_FREE(curve->tb);
 }
 
+static void curve_foreach_id(ID *id, LibraryForeachIDData *data)
+{
+  Curve *curve = (Curve *)id;
+  BKE_LIB_FOREACHID_PROCESS(data, curve->bevobj, IDWALK_CB_NOP);
+  BKE_LIB_FOREACHID_PROCESS(data, curve->taperobj, IDWALK_CB_NOP);
+  BKE_LIB_FOREACHID_PROCESS(data, curve->textoncurve, IDWALK_CB_NOP);
+  BKE_LIB_FOREACHID_PROCESS(data, curve->key, IDWALK_CB_USER);
+  for (int i = 0; i < curve->totcol; i++) {
+    BKE_LIB_FOREACHID_PROCESS(data, curve->mat[i], IDWALK_CB_USER);
+  }
+  BKE_LIB_FOREACHID_PROCESS(data, curve->vfont, IDWALK_CB_USER);
+  BKE_LIB_FOREACHID_PROCESS(data, curve->vfontb, IDWALK_CB_USER);
+  BKE_LIB_FOREACHID_PROCESS(data, curve->vfonti, IDWALK_CB_USER);
+  BKE_LIB_FOREACHID_PROCESS(data, curve->vfontbi, IDWALK_CB_USER);
+}
+
 IDTypeInfo IDType_ID_CU = {
     .id_code = ID_CU,
     .id_filter = FILTER_ID_CU,
@@ -131,6 +148,7 @@ IDTypeInfo IDType_ID_CU = {
     .copy_data = curve_copy_data,
     .free_data = curve_free_data,
     .make_local = NULL,
+    .foreach_id = curve_foreach_id,
 };
 
 static int cu_isectLL(const float v1[3],
@@ -4151,7 +4169,8 @@ void BKE_nurb_handle_calc_simple_auto(Nurb *nu, BezTriple *bezt)
  */
 void BKE_nurb_bezt_handle_test(BezTriple *bezt,
                                const eBezTriple_Flag__Alias sel_flag,
-                               const bool use_handle)
+                               const bool use_handle,
+                               const bool use_around_local)
 {
   short flag = 0;
 
@@ -4172,6 +4191,10 @@ void BKE_nurb_bezt_handle_test(BezTriple *bezt,
   }
   else {
     flag = (bezt->f2 & sel_flag) ? (SEL_F1 | SEL_F2 | SEL_F3) : 0;
+  }
+
+  if (use_around_local) {
+    flag &= ~SEL_F2;
   }
 
   /* check for partial selection */
@@ -4200,7 +4223,7 @@ void BKE_nurb_bezt_handle_test(BezTriple *bezt,
 #undef SEL_F3
 }
 
-void BKE_nurb_handles_test(Nurb *nu, const bool use_handle)
+void BKE_nurb_handles_test(Nurb *nu, const bool use_handle, const bool use_around_local)
 {
   BezTriple *bezt;
   int a;
@@ -4212,7 +4235,7 @@ void BKE_nurb_handles_test(Nurb *nu, const bool use_handle)
   bezt = nu->bezt;
   a = nu->pntsu;
   while (a--) {
-    BKE_nurb_bezt_handle_test(bezt, SELECT, use_handle);
+    BKE_nurb_bezt_handle_test(bezt, SELECT, use_handle, use_around_local);
     bezt++;
   }
 
@@ -4462,7 +4485,7 @@ void BKE_nurbList_handles_recalculate(ListBase *editnurb, const bool calc_length
   }
 }
 
-void BKE_nurbList_flag_set(ListBase *editnurb, short flag)
+void BKE_nurbList_flag_set(ListBase *editnurb, short flag, bool set)
 {
   Nurb *nu;
   BezTriple *bezt;
@@ -4474,7 +4497,16 @@ void BKE_nurbList_flag_set(ListBase *editnurb, short flag)
       a = nu->pntsu;
       bezt = nu->bezt;
       while (a--) {
-        bezt->f1 = bezt->f2 = bezt->f3 = flag;
+        if (set) {
+          bezt->f1 |= flag;
+          bezt->f2 |= flag;
+          bezt->f3 |= flag;
+        }
+        else {
+          bezt->f1 &= ~flag;
+          bezt->f2 &= ~flag;
+          bezt->f3 &= ~flag;
+        }
         bezt++;
       }
     }
@@ -4482,11 +4514,45 @@ void BKE_nurbList_flag_set(ListBase *editnurb, short flag)
       a = nu->pntsu * nu->pntsv;
       bp = nu->bp;
       while (a--) {
-        bp->f1 = flag;
+        SET_FLAG_FROM_TEST(bp->f1, set, flag);
         bp++;
       }
     }
   }
+}
+
+/**
+ * Set \a flag for every point that already has \a from_flag set.
+ */
+bool BKE_nurbList_flag_set_from_flag(ListBase *editnurb, short from_flag, short flag)
+{
+  bool changed = false;
+
+  for (Nurb *nu = editnurb->first; nu; nu = nu->next) {
+    if (nu->type == CU_BEZIER) {
+      for (int i = 0; i < nu->pntsu; i++) {
+        BezTriple *bezt = &nu->bezt[i];
+        int old_f1 = bezt->f1, old_f2 = bezt->f2, old_f3 = bezt->f3;
+
+        SET_FLAG_FROM_TEST(bezt->f1, bezt->f1 & from_flag, flag);
+        SET_FLAG_FROM_TEST(bezt->f2, bezt->f2 & from_flag, flag);
+        SET_FLAG_FROM_TEST(bezt->f3, bezt->f3 & from_flag, flag);
+
+        changed |= (old_f1 != bezt->f1) || (old_f2 != bezt->f2) || (old_f3 != bezt->f3);
+      }
+    }
+    else {
+      for (int i = 0; i < nu->pntsu * nu->pntsv; i++) {
+        BPoint *bp = &nu->bp[i];
+        int old_f1 = bp->f1;
+
+        SET_FLAG_FROM_TEST(bp->f1, bp->f1 & from_flag, flag);
+        changed |= (old_f1 != bp->f1);
+      }
+    }
+  }
+
+  return changed;
 }
 
 void BKE_nurb_direction_switch(Nurb *nu)

@@ -141,7 +141,7 @@ static int node_view_all_exec(bContext *C, wmOperator *op)
 void NODE_OT_view_all(wmOperatorType *ot)
 {
   /* identifiers */
-  ot->name = "View All";
+  ot->name = "Frame All";
   ot->idname = "NODE_OT_view_all";
   ot->description = "Resize view so you can see all nodes";
 
@@ -209,6 +209,7 @@ static int snode_bg_viewmove_modal(bContext *C, wmOperator *op, const wmEvent *e
 
       ED_region_tag_redraw(region);
       WM_main_add_notifier(NC_NODE | ND_DISPLAY, NULL);
+      WM_main_add_notifier(NC_SPACE | ND_SPACE_NODE_VIEW, NULL);
 
       break;
 
@@ -354,6 +355,7 @@ static int backimage_fit_exec(bContext *C, wmOperator *UNUSED(op))
 
   ED_region_tag_redraw(region);
   WM_main_add_notifier(NC_NODE | ND_DISPLAY, NULL);
+  WM_main_add_notifier(NC_SPACE | ND_SPACE_NODE_VIEW, NULL);
 
   return OPERATOR_FINISHED;
 }

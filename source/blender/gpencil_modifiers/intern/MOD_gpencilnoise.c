@@ -44,6 +44,8 @@
 #include "BKE_gpencil.h"
 #include "BKE_gpencil_geom.h"
 #include "BKE_gpencil_modifier.h"
+#include "BKE_lib_query.h"
+#include "BKE_modifier.h"
 #include "BKE_object.h"
 
 #include "DEG_depsgraph.h"
@@ -59,9 +61,7 @@ static void initData(GpencilModifierData *md)
   gpmd->flag |= GP_NOISE_FULL_STROKE;
   gpmd->flag |= GP_NOISE_USE_RANDOM;
   gpmd->factor = 0.5f;
-  gpmd->layername[0] = '\0';
-  gpmd->materialname[0] = '\0';
-  gpmd->vgname[0] = '\0';
+  gpmd->material = NULL;
   gpmd->step = 4;
   gpmd->seed = 1;
   gpmd->curve_intensity = BKE_curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
@@ -135,7 +135,7 @@ static void deformStroke(GpencilModifierData *md,
 
   if (!is_stroke_affected_by_modifier(ob,
                                       mmd->layername,
-                                      mmd->materialname,
+                                      mmd->material,
                                       mmd->pass_index,
                                       mmd->layer_pass,
                                       1,
@@ -170,9 +170,12 @@ static void deformStroke(GpencilModifierData *md,
   float *noise_table_thickness = (mmd->factor_thickness > 0.0f) ? noise_table(len, seed) : NULL;
   float *noise_table_uvs = (mmd->factor_uvs > 0.0f) ? noise_table(len, seed + 4) : NULL;
 
-  /* calculate stroke normal*/
+  /* Calculate stroke normal. */
   if (gps->totpoints > 2) {
     BKE_gpencil_stroke_normal(gps, normal);
+    if (is_zero_v3(normal)) {
+      copy_v3_fl(normal, 1.0f);
+    }
   }
   else {
     copy_v3_fl(normal, 1.0f);
@@ -259,6 +262,13 @@ static void bakeModifier(struct Main *UNUSED(bmain),
   }
 }
 
+static void foreachIDLink(GpencilModifierData *md, Object *ob, IDWalkFunc walk, void *userData)
+{
+  NoiseGpencilModifierData *mmd = (NoiseGpencilModifierData *)md;
+
+  walk(userData, ob, (ID **)&mmd->material, IDWALK_CB_USER);
+}
+
 GpencilModifierTypeInfo modifierType_Gpencil_Noise = {
     /* name */ "Noise",
     /* structName */ "NoiseGpencilModifierData",
@@ -279,6 +289,6 @@ GpencilModifierTypeInfo modifierType_Gpencil_Noise = {
     /* updateDepsgraph */ NULL,
     /* dependsOnTime */ dependsOnTime,
     /* foreachObjectLink */ NULL,
-    /* foreachIDLink */ NULL,
+    /* foreachIDLink */ foreachIDLink,
     /* foreachTexLink */ NULL,
 };

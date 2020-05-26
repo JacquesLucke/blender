@@ -2411,11 +2411,14 @@ bool UI_context_copy_to_selected_list(struct bContext *C,
 
 /* Helpers for Operators */
 uiBut *UI_context_active_but_get(const struct bContext *C);
+uiBut *UI_context_active_but_get_respect_menu(const struct bContext *C);
 uiBut *UI_context_active_but_prop_get(const struct bContext *C,
                                       struct PointerRNA *r_ptr,
                                       struct PropertyRNA **r_prop,
                                       int *r_index);
 void UI_context_active_but_prop_handle(struct bContext *C);
+void UI_context_active_but_clear(struct bContext *C, struct wmWindow *win, struct ARegion *region);
+
 struct wmOperator *UI_context_active_operator_get(const struct bContext *C);
 void UI_context_update_anim_flag(const struct bContext *C);
 void UI_context_active_but_prop_get_filebrowser(const struct bContext *C,

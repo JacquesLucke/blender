@@ -829,18 +829,17 @@ class VIEW3D_HT_header(Header):
 
         # While exposing 'shading.show_xray(_wireframe)' is correct.
         # this hides the key shortcut from users: T70433.
+        if has_pose_mode:
+            draw_depressed = overlay.show_xray_bone
+        elif shading.type == 'WIREFRAME':
+            draw_depressed = shading.show_xray_wireframe
+        else:
+            draw_depressed = shading.show_xray
         row.operator(
             "view3d.toggle_xray",
             text="",
             icon='XRAY',
-            depress=(
-                overlay.show_xray_bone if has_pose_mode else
-                getattr(
-                    shading,
-                    "show_xray_wireframe" if shading.type == 'WIREFRAME' else
-                    "show_xray"
-                )
-            ),
+            depress=draw_depressed,
         )
 
         row = layout.row(align=True)
@@ -1164,7 +1163,7 @@ class VIEW3D_MT_view(Menu):
         if view.region_quadviews:
             layout.operator("view3d.view_selected", text="Frame Selected (Quad View)").use_all_regions = True
 
-        layout.operator("view3d.view_all", text="Frame All").center = False
+        layout.operator("view3d.view_all").center = False
         layout.operator("view3d.view_persportho", text="Perspective/Orthographic")
         layout.menu("VIEW3D_MT_view_local")
 
@@ -1295,7 +1294,7 @@ class VIEW3D_MT_view_align(Menu):
 
         layout.separator()
 
-        layout.operator("view3d.view_all", text="Center Cursor and View All").center = True
+        layout.operator("view3d.view_all", text="Center Cursor and Frame All").center = True
         layout.operator("view3d.view_center_cursor")
 
         layout.separator()
@@ -3184,7 +3183,6 @@ class VIEW3D_MT_face_sets_init(Menu):
         op.mode = 'FACE_MAPS'
 
 
-
 class VIEW3D_MT_particle(Menu):
     bl_label = "Particle"
 
@@ -4004,6 +4002,7 @@ class VIEW3D_MT_edit_mesh_edges(Menu):
         layout.separator()
 
         layout.operator("transform.edge_slide")
+        layout.operator("mesh.offset_edge_loops_slide")
 
         layout.separator()
 
@@ -5280,6 +5279,7 @@ class VIEW3D_MT_sculpt_mask_edit_pie(Menu):
         op.mode = 'INVERT'
         op = pie.operator("paint.mask_flood_fill", text='Clear Mask')
         op.mode = 'VALUE'
+        op.value = 0.0
         op = pie.operator("sculpt.mask_filter", text='Smooth Mask')
         op.filter_type = 'SMOOTH'
         op.auto_iteration_count = True
@@ -6379,7 +6379,7 @@ class VIEW3D_PT_overlay_edit_curve(Panel):
         col.active = display_all
 
         row = col.row()
-        row.prop(overlay, "show_curve_handles", text="Handles")
+        row.prop(overlay, "display_handle", text="Handles")
 
         row = col.row()
         row.prop(overlay, "show_curve_normals", text="")
@@ -6736,9 +6736,10 @@ class VIEW3D_PT_overlay_gpencil_options(Panel):
         col = layout.column()
         row = col.row()
         row.prop(overlay, "use_gpencil_grid", text="")
-        sub = row.row()
+        sub = row.row(align=True)
         sub.active = overlay.use_gpencil_grid
         sub.prop(overlay, "gpencil_grid_opacity", text="Canvas", slider=True)
+        sub.prop(overlay, "use_gpencil_canvas_xray", text="", icon='XRAY')
 
         row = col.row()
         row.prop(overlay, "use_gpencil_fade_layers", text="")

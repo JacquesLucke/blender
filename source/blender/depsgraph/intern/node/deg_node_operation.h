@@ -170,6 +170,7 @@ enum class OperationCode {
   /* Shading. ------------------------------------------------------------- */
   SHADING,
   MATERIAL_UPDATE,
+  LIGHT_UPDATE,
   WORLD_UPDATE,
 
   /* Batch caches. -------------------------------------------------------- */
@@ -198,6 +199,9 @@ enum class OperationCode {
 
   /* Duplication/instancing system. --------------------------------------- */
   DUPLI,
+
+  /* Simulation. ---------------------------------------------------------- */
+  SIMULATION_EVAL,
 };
 const char *operationCodeAsString(OperationCode opcode);
 

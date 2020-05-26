@@ -202,6 +202,8 @@ static void blo_update_defaults_screen(bScreen *screen,
       if (v3d->shading.background_type != V3D_SHADING_BACKGROUND_VIEWPORT) {
         copy_v3_fl(v3d->shading.background_color, 0.05f);
       }
+      /* Disable Curve Normals. */
+      v3d->overlay.edit_flag &= ~V3D_OVERLAY_EDIT_CU_NORMALS;
     }
     else if (area->spacetype == SPACE_CLIP) {
       SpaceClip *sclip = area->spacedata.first;
@@ -231,19 +233,17 @@ static void blo_update_defaults_screen(bScreen *screen,
   /* 2D animation template. */
   if (app_template && STREQ(app_template, "2D_Animation")) {
     LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
-      LISTBASE_FOREACH (ARegion *, region, &area->regionbase) {
-        if (area->spacetype == SPACE_ACTION) {
-          SpaceAction *saction = area->spacedata.first;
-          /* Enable Sliders. */
-          saction->flag |= SACTION_SLIDERS;
-        }
-        else if (area->spacetype == SPACE_VIEW3D) {
-          View3D *v3d = area->spacedata.first;
-          /* Set Material Color by default. */
-          v3d->shading.color_type = V3D_SHADING_MATERIAL_COLOR;
-          /* Enable Annotations. */
-          v3d->flag2 |= V3D_SHOW_ANNOTATION;
-        }
+      if (area->spacetype == SPACE_ACTION) {
+        SpaceAction *saction = area->spacedata.first;
+        /* Enable Sliders. */
+        saction->flag |= SACTION_SLIDERS;
+      }
+      else if (area->spacetype == SPACE_VIEW3D) {
+        View3D *v3d = area->spacedata.first;
+        /* Set Material Color by default. */
+        v3d->shading.color_type = V3D_SHADING_MATERIAL_COLOR;
+        /* Enable Annotations. */
+        v3d->flag2 |= V3D_SHOW_ANNOTATION;
       }
     }
   }
@@ -465,7 +465,7 @@ void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
 
     /* Reset all grease pencil brushes. */
     Scene *scene = bmain->scenes.first;
-    BKE_brush_gpencil_paint_presets(bmain, scene->toolsettings);
+    BKE_brush_gpencil_paint_presets(bmain, scene->toolsettings, true);
 
     /* Ensure new Paint modes. */
     BKE_paint_ensure_from_paintmode(scene, PAINT_MODE_VERTEX_GPENCIL);

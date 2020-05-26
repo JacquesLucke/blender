@@ -339,7 +339,7 @@ bool ED_operator_console_active(bContext *C)
   return ed_spacetype_test(C, SPACE_CONSOLE);
 }
 
-static bool ed_object_hidden(Object *ob)
+static bool ed_object_hidden(const Object *ob)
 {
   /* if hidden but in edit mode, we still display, can happen with animation */
   return ((ob->restrictflag & OB_RESTRICT_VIEWPORT) && !(ob->mode & OB_MODE_EDIT));
@@ -351,10 +351,15 @@ bool ED_operator_object_active(bContext *C)
   return ((ob != NULL) && !ed_object_hidden(ob));
 }
 
+bool ED_operator_object_active_editable_ex(bContext *UNUSED(C), const Object *ob)
+{
+  return ((ob != NULL) && !ID_IS_LINKED(ob) && !ed_object_hidden(ob));
+}
+
 bool ED_operator_object_active_editable(bContext *C)
 {
   Object *ob = ED_object_active_context(C);
-  return ((ob != NULL) && !ID_IS_LINKED(ob) && !ed_object_hidden(ob));
+  return ED_operator_object_active_editable_ex(C, ob);
 }
 
 bool ED_operator_object_active_editable_mesh(bContext *C)
@@ -3869,6 +3874,10 @@ static int region_quadview_exec(bContext *C, wmOperator *op)
       rv3d->viewlock_quad = RV3D_VIEWLOCK_INIT;
       rv3d->viewlock = 0;
 
+      /* FIXME: This fixes missing update to workbench TAA. (see T76216)
+       * However, it would be nice if the tagging should be done in a more conventional way. */
+      rv3d->rflag |= RV3D_GPULIGHT_UPDATE;
+
       /* Accumulate locks, in case they're mixed. */
       for (region_iter = area->regionbase.first; region_iter; region_iter = region_iter->next) {
         if (region_iter->regiontype == RGN_TYPE_WINDOW) {
@@ -4433,10 +4442,29 @@ static int screen_animation_step(bContext *C, wmOperator *UNUSED(op), const wmEv
     }
     else {
       if (sync) {
-        /* note: this is very simplistic,
-         * its has problem that it may skip too many frames.
-         * however at least this gives a less jittery playback */
-        const int step = max_ii(1, floor((wt->duration - sad->last_duration) * FPS));
+        /* Try to keep the playback in realtime by dropping frames. */
+
+        /* How much time (in frames) has passed since the last frame was drawn? */
+        double delta_frames = wt->delta * FPS;
+
+        /* Add the remaining fraction from the last time step. */
+        delta_frames += sad->lagging_frame_count;
+
+        if (delta_frames < 1.0) {
+          /* We can render faster than the scene frame rate. However skipping or delaying frames
+           * here seems to in practice lead to jittery playback so just step forward a minimum of
+           * one frame. (Even though this can lead to too fast playback, the jitteryness is more
+           * annoying)
+           */
+          delta_frames = 1.0f;
+          sad->lagging_frame_count = 0;
+        }
+        else {
+          /* Extract the delta frame fractions that will be skipped when converting to int. */
+          sad->lagging_frame_count = delta_frames - (int)delta_frames;
+        }
+
+        const int step = delta_frames;
 
         /* skip frames */
         if (sad->flag & ANIMPLAY_FLAG_REVERSE) {
@@ -4456,8 +4484,6 @@ static int screen_animation_step(bContext *C, wmOperator *UNUSED(op), const wmEv
         }
       }
     }
-
-    sad->last_duration = wt->duration;
 
     /* reset 'jumped' flag before checking if we need to jump... */
     sad->flag &= ~ANIMPLAY_FLAG_JUMPED;
@@ -4840,8 +4866,11 @@ static void SCREEN_OT_back_to_previous(struct wmOperatorType *ot)
 /** \name Show User Preferences Operator
  * \{ */
 
-static int userpref_show_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+static int userpref_show_exec(bContext *C, wmOperator *op)
 {
+  wmWindow *win_cur = CTX_wm_window(C);
+  /* Use eventstate, not event from _invoke, so this can be called through exec(). */
+  const wmEvent *event = win_cur->eventstate;
   int sizex = (500 + UI_NAVIGATION_REGION_WIDTH) * UI_DPI_FAC;
   int sizey = 520 * UI_DPI_FAC;
 
@@ -4878,7 +4907,7 @@ static void SCREEN_OT_userpref_show(struct wmOperatorType *ot)
   ot->idname = "SCREEN_OT_userpref_show";
 
   /* api callbacks */
-  ot->invoke = userpref_show_invoke;
+  ot->exec = userpref_show_exec;
   ot->poll = ED_operator_screenactive;
 }
 
@@ -4888,8 +4917,11 @@ static void SCREEN_OT_userpref_show(struct wmOperatorType *ot)
 /** \name Show Drivers Editor Operator
  * \{ */
 
-static int drivers_editor_show_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+static int drivers_editor_show_exec(bContext *C, wmOperator *op)
 {
+  wmWindow *win_cur = CTX_wm_window(C);
+  /* Use eventstate, not event from _invoke, so this can be called through exec(). */
+  const wmEvent *event = win_cur->eventstate;
   PointerRNA ptr = {NULL};
   PropertyRNA *prop = NULL;
   int index = -1;
@@ -4953,7 +4985,7 @@ static void SCREEN_OT_drivers_editor_show(struct wmOperatorType *ot)
   ot->idname = "SCREEN_OT_drivers_editor_show";
 
   /* api callbacks */
-  ot->invoke = drivers_editor_show_invoke;
+  ot->exec = drivers_editor_show_exec;
   ot->poll = ED_operator_screenactive;
 }
 
@@ -4963,8 +4995,11 @@ static void SCREEN_OT_drivers_editor_show(struct wmOperatorType *ot)
 /** \name Show Info Log Operator
  * \{ */
 
-static int info_log_show_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+static int info_log_show_exec(bContext *C, wmOperator *op)
 {
+  wmWindow *win_cur = CTX_wm_window(C);
+  /* Use eventstate, not event from _invoke, so this can be called through exec(). */
+  const wmEvent *event = win_cur->eventstate;
   int sizex = 900 * UI_DPI_FAC;
   int sizey = 580 * UI_DPI_FAC;
   int shift_y = 480;
@@ -4994,7 +5029,7 @@ static void SCREEN_OT_info_log_show(struct wmOperatorType *ot)
   ot->idname = "SCREEN_OT_info_log_show";
 
   /* api callbacks */
-  ot->invoke = info_log_show_invoke;
+  ot->exec = info_log_show_exec;
   ot->poll = ED_operator_screenactive;
 }
 

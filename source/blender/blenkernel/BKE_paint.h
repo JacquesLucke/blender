@@ -239,6 +239,7 @@ typedef struct SculptPoseIKChainSegment {
   float initial_orig[3];
   float initial_head[3];
   float len;
+  float scale;
   float rot[4];
   float *weights;
 
@@ -402,7 +403,7 @@ typedef struct SculptSession {
     /* TODO: identify sculpt-only fields */
     // struct { ... } sculpt;
   } mode;
-  int mode_type;
+  eObjectMode mode_type;
 
   /* This flag prevents PBVH from being freed when creating the vp_handle for texture paint. */
   bool building_vp_handle;

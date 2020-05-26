@@ -381,6 +381,9 @@ typedef struct uiHandleButtonData {
   uiSelectContextStore select_others;
 #endif
 
+  /* Text field undo. */
+  struct uiUndoStack_Text *undo_stack_text;
+
   /* post activate */
   uiButtonActivateType posttype;
   uiBut *postbut;
@@ -3308,6 +3311,10 @@ static void ui_textedit_begin(bContext *C, uiBut *but, uiHandleButtonData *data)
   but->selsta = 0;
   but->selend = len;
 
+  /* Initialize undo history tracking. */
+  data->undo_stack_text = ui_textedit_undo_stack_create();
+  ui_textedit_undo_push(data->undo_stack_text, but->editstr, but->pos);
+
   /* optional searchbox */
   if (but->type == UI_BTYPE_SEARCH_MENU) {
     data->searchbox = but->search->create_fn(C, data->region, but);
@@ -3350,6 +3357,9 @@ static void ui_textedit_end(bContext *C, uiBut *but, uiHandleButtonData *data)
 
           /* ensure menu (popup) too is closed! */
           data->escapecancel = true;
+
+          WM_reportf(RPT_ERROR, "Failed to find '%s'", but->editstr);
+          WM_report_banner_show();
         }
       }
 
@@ -3362,6 +3372,10 @@ static void ui_textedit_end(bContext *C, uiBut *but, uiHandleButtonData *data)
   }
 
   WM_cursor_modal_restore(win);
+
+  /* Free text undo history text blocks. */
+  ui_textedit_undo_stack_destroy(data->undo_stack_text);
+  data->undo_stack_text = NULL;
 
 #ifdef WITH_INPUT_IME
   if (win->ime_data) {
@@ -3442,7 +3456,7 @@ static void ui_do_but_textedit(
     bContext *C, uiBlock *block, uiBut *but, uiHandleButtonData *data, const wmEvent *event)
 {
   int retval = WM_UI_HANDLER_CONTINUE;
-  bool changed = false, inbox = false, update = false;
+  bool changed = false, inbox = false, update = false, skip_undo_push = false;
 
 #ifdef WITH_INPUT_IME
   wmWindow *win = CTX_wm_window(C);
@@ -3674,6 +3688,32 @@ static void ui_do_but_textedit(
         }
         retval = WM_UI_HANDLER_BREAK;
         break;
+      case EVT_ZKEY: {
+        /* Ctrl-Z or Ctrl-Shift-Z: Undo/Redo (allowing for OS-Key on Apple). */
+
+        const bool is_redo = (event->shift != 0);
+        if (
+#if defined(__APPLE__)
+            (event->oskey && !IS_EVENT_MOD(event, alt, ctrl)) ||
+#endif
+            (event->ctrl && !IS_EVENT_MOD(event, alt, oskey))) {
+          int undo_pos;
+          const char *undo_str = ui_textedit_undo(
+              data->undo_stack_text, is_redo ? 1 : -1, &undo_pos);
+          if (undo_str != NULL) {
+            ui_textedit_string_set(but, data, undo_str);
+
+            /* Set the cursor & clear selection. */
+            but->pos = undo_pos;
+            but->selsta = but->pos;
+            but->selend = but->pos;
+            changed = true;
+          }
+          retval = WM_UI_HANDLER_BREAK;
+          skip_undo_push = true;
+        }
+        break;
+      }
     }
 
     if ((event->ascii || event->utf8_buf[0]) && (retval == WM_UI_HANDLER_CONTINUE)
@@ -3727,6 +3767,11 @@ static void ui_do_but_textedit(
 #endif
 
   if (changed) {
+    /* The undo stack may be NULL if an event exits editing. */
+    if ((skip_undo_push == false) && (data->undo_stack_text != NULL)) {
+      ui_textedit_undo_push(data->undo_stack_text, data->str, but->pos);
+    }
+
     /* only do live update when but flag request it (UI_BUT_TEXTEDIT_UPDATE). */
     if (update && data->interactive) {
       ui_apply_but(C, block, but, data, true);
@@ -4401,7 +4446,8 @@ static int ui_do_but_TOG(bContext *C, uiBut *but, uiHandleButtonData *data, cons
         do_activate = (event->val == KM_RELEASE);
       }
       else {
-        do_activate = (event->val == KM_PRESS);
+        /* Also use double-clicks to prevent fast clicks to leak to other handlers (T76481). */
+        do_activate = ELEM(event->val, KM_PRESS, KM_DBL_CLICK);
       }
     }
 
@@ -5513,7 +5559,7 @@ static int ui_do_but_BLOCK(bContext *C, uiBut *but, uiHandleButtonData *data, co
     }
     else if (but->type == UI_BTYPE_MENU) {
       if (ELEM(event->type, WHEELDOWNMOUSE, WHEELUPMOUSE) && event->ctrl) {
-        const int direction = (event->type == WHEELDOWNMOUSE) ? -1 : 1;
+        const int direction = (event->type == WHEELDOWNMOUSE) ? 1 : -1;
 
         data->value = ui_but_menu_step(but, direction);
 
@@ -8217,9 +8263,20 @@ static uiBut *ui_context_rna_button_active(const bContext *C)
   return ui_context_button_active(CTX_wm_region(C), ui_context_rna_button_active_test);
 }
 
-uiBut *UI_context_active_but_get(const struct bContext *C)
+uiBut *UI_context_active_but_get(const bContext *C)
 {
   return ui_context_button_active(CTX_wm_region(C), NULL);
+}
+
+/*
+ * Version of #UI_context_active_get() that uses the result of #CTX_wm_menu()
+ * if set. Does not traverse into parent menus, which may be wanted in some
+ * cases.
+ */
+uiBut *UI_context_active_but_get_respect_menu(const bContext *C)
+{
+  ARegion *ar_menu = CTX_wm_menu(C);
+  return ui_context_button_active(ar_menu ? ar_menu : CTX_wm_region(C), NULL);
 }
 
 uiBut *UI_region_active_but_get(ARegion *region)
@@ -8278,6 +8335,11 @@ void UI_context_active_but_prop_handle(bContext *C)
       block->handle_func(C, block->handle_func_arg, activebut->retval);
     }
   }
+}
+
+void UI_context_active_but_clear(bContext *C, wmWindow *win, ARegion *region)
+{
+  wm_event_handler_ui_cancel_ex(C, win, region, false);
 }
 
 wmOperator *UI_context_active_operator_get(const struct bContext *C)
@@ -8811,14 +8873,14 @@ static int ui_handle_button_event(bContext *C, const wmEvent *event, uiBut *but)
     if (post_but) {
       button_activate_init(C, region, post_but, post_type);
     }
-    else {
+    else if (!((event->type == EVT_BUT_CANCEL) && (event->val == 1))) {
       /* XXX issue is because WM_event_add_mousemove(wm) is a bad hack and not reliable,
        * if that gets coded better this bypass can go away too.
        *
        * This is needed to make sure if a button was active,
        * it stays active while the mouse is over it.
        * This avoids adding mousemoves, see: [#33466] */
-      if (ELEM(state_orig, BUTTON_STATE_INIT, BUTTON_STATE_HIGHLIGHT)) {
+      if (ELEM(state_orig, BUTTON_STATE_INIT, BUTTON_STATE_HIGHLIGHT, BUTTON_STATE_WAIT_DRAG)) {
         if (ui_but_find_mouse_over(region, event) == but) {
           button_activate_init(C, region, but, BUTTON_ACTIVATE_OVER);
         }

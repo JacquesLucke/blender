@@ -225,9 +225,9 @@ void *ED_image_paint_tile_push(ListBase *paint_tiles,
                                         "PaintTile.mask");
   }
 
-  ptile->rect.pt = MEM_mapallocN((ibuf->rect_float ? sizeof(float[4]) : sizeof(char[4])) *
-                                     square_i(ED_IMAGE_UNDO_TILE_SIZE),
-                                 "PaintTile.rect");
+  ptile->rect.pt = MEM_callocN((ibuf->rect_float ? sizeof(float[4]) : sizeof(char[4])) *
+                                   square_i(ED_IMAGE_UNDO_TILE_SIZE),
+                               "PaintTile.rect");
 
   ptile->use_float = has_float;
   ptile->valid = true;
@@ -1083,6 +1083,7 @@ void ED_image_undo_push_end(void)
 {
   UndoStack *ustack = ED_undo_stack_get();
   BKE_undosys_step_push(ustack, NULL, NULL);
+  BKE_undosys_stack_limit_steps_and_memory_defaults(ustack);
   WM_file_tag_modified();
 }
 

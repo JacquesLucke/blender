@@ -63,11 +63,11 @@
 #include "ED_space_api.h"
 #include "ED_view3d.h"
 
-#include "GPU_draw.h"
 #include "GPU_extensions.h"
 #include "GPU_framebuffer.h"
 #include "GPU_immediate.h"
 #include "GPU_matrix.h"
+#include "GPU_state.h"
 #include "GPU_uniformbuffer.h"
 #include "GPU_viewport.h"
 
@@ -1506,6 +1506,8 @@ void DRW_draw_render_loop_ex(struct Depsgraph *depsgraph,
 
   /* Fix 3D view being "laggy" on macos and win+nvidia. (See T56996, T61474) */
   GPU_flush();
+
+  DRW_stats_reset();
 
   DRW_draw_callbacks_post_scene();
 

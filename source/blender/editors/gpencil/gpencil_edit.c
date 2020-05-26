@@ -369,12 +369,20 @@ static int gpencil_paintmode_toggle_exec(bContext *C, wmOperator *op)
   }
 
   if (mode == OB_MODE_PAINT_GPENCIL) {
-    /* be sure we have brushes */
+    /* Be sure we have brushes and Paint settings.
+     * Need Draw and Vertex (used fro Tint). */
     BKE_paint_ensure(ts, (Paint **)&ts->gp_paint);
+    BKE_paint_ensure(ts, (Paint **)&ts->gp_vertexpaint);
+
+    BKE_brush_gpencil_paint_presets(bmain, ts, false);
+
+    /* Ensure Palette by default. */
+    BKE_gpencil_palette_ensure(bmain, CTX_data_scene(C));
+
     Paint *paint = &ts->gp_paint->paint;
     /* if not exist, create a new one */
     if ((paint->brush == NULL) || (paint->brush->gpencil_settings == NULL)) {
-      BKE_brush_gpencil_paint_presets(bmain, ts);
+      BKE_brush_gpencil_paint_presets(bmain, ts, true);
     }
     BKE_paint_toolslots_brush_validate(bmain, &ts->gp_paint->paint);
   }
@@ -480,6 +488,8 @@ static int gpencil_sculptmode_toggle_exec(bContext *C, wmOperator *op)
     /* be sure we have brushes */
     BKE_paint_ensure(ts, (Paint **)&ts->gp_sculptpaint);
     BKE_paint_toolslots_brush_validate(bmain, &ts->gp_sculptpaint->paint);
+
+    BKE_brush_gpencil_sculpt_presets(bmain, ts, false);
   }
 
   /* setup other modes */
@@ -585,6 +595,8 @@ static int gpencil_weightmode_toggle_exec(bContext *C, wmOperator *op)
     /* be sure we have brushes */
     BKE_paint_ensure(ts, (Paint **)&ts->gp_weightpaint);
     BKE_paint_toolslots_brush_validate(bmain, &ts->gp_weightpaint->paint);
+
+    BKE_brush_gpencil_weight_presets(bmain, ts, false);
   }
 
   /* setup other modes */
@@ -687,6 +699,11 @@ static int gpencil_vertexmode_toggle_exec(bContext *C, wmOperator *op)
     /* be sure we have brushes */
     BKE_paint_ensure(ts, (Paint **)&ts->gp_vertexpaint);
     BKE_paint_toolslots_brush_validate(bmain, &ts->gp_vertexpaint->paint);
+
+    BKE_brush_gpencil_vertex_presets(bmain, ts, false);
+
+    /* Ensure Palette by default. */
+    BKE_gpencil_palette_ensure(bmain, CTX_data_scene(C));
   }
 
   /* setup other modes */

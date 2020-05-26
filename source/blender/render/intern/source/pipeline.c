@@ -187,23 +187,20 @@ static int default_break(void *UNUSED(arg))
 
 static void stats_background(void *UNUSED(arg), RenderStats *rs)
 {
-  uintptr_t mem_in_use, mmap_in_use, peak_memory;
-  float megs_used_memory, mmap_used_memory, megs_peak_memory;
+  uintptr_t mem_in_use, peak_memory;
+  float megs_used_memory, megs_peak_memory;
   char info_time_str[32];
 
   mem_in_use = MEM_get_memory_in_use();
-  mmap_in_use = MEM_get_mapped_memory_in_use();
   peak_memory = MEM_get_peak_memory();
 
-  megs_used_memory = (mem_in_use - mmap_in_use) / (1024.0 * 1024.0);
-  mmap_used_memory = (mmap_in_use) / (1024.0 * 1024.0);
+  megs_used_memory = (mem_in_use) / (1024.0 * 1024.0);
   megs_peak_memory = (peak_memory) / (1024.0 * 1024.0);
 
   fprintf(stdout,
-          TIP_("Fra:%d Mem:%.2fM (%.2fM, Peak %.2fM) "),
+          TIP_("Fra:%d Mem:%.2fM (Peak %.2fM) "),
           rs->cfra,
           megs_used_memory,
-          mmap_used_memory,
           megs_peak_memory);
 
   if (rs->curfield) {
@@ -1819,42 +1816,42 @@ bool RE_is_rendering_allowed(Scene *scene,
     }
   }
 
-  if (scemode & R_DOCOMP) {
-    if (scene->use_nodes) {
-      if (!scene->nodetree) {
-        BKE_report(reports, RPT_ERROR, "No node tree in scene");
-        return 0;
-      }
-
-      if (!check_composite_output(scene)) {
-        BKE_report(reports, RPT_ERROR, "No render output node in scene");
-        return 0;
-      }
-
-      if (scemode & R_FULL_SAMPLE) {
-        if (composite_needs_render(scene, 0) == 0) {
-          BKE_report(reports, RPT_ERROR, "Full sample AA not supported without 3D rendering");
-          return 0;
-        }
-      }
-    }
-  }
-
-  /* check valid camera, without camera render is OK (compo, seq) */
-  if (!check_valid_camera(scene, camera_override, reports)) {
-    return 0;
-  }
-
   if (RE_seq_render_active(scene, &scene->r)) {
+    /* Sequencer */
     if (scene->r.mode & R_BORDER) {
       BKE_report(reports, RPT_ERROR, "Border rendering is not supported by sequencer");
       return false;
     }
   }
+  else if ((scemode & R_DOCOMP) && scene->use_nodes) {
+    /* Compositor */
+    if (!scene->nodetree) {
+      BKE_report(reports, RPT_ERROR, "No node tree in scene");
+      return 0;
+    }
 
-  /* layer flag tests */
-  if (!render_scene_has_layers_to_render(scene, single_layer)) {
-    BKE_report(reports, RPT_ERROR, "All render layers are disabled");
+    if (!check_composite_output(scene)) {
+      BKE_report(reports, RPT_ERROR, "No render output node in scene");
+      return 0;
+    }
+
+    if (scemode & R_FULL_SAMPLE) {
+      if (composite_needs_render(scene, 0) == 0) {
+        BKE_report(reports, RPT_ERROR, "Full sample AA not supported without 3D rendering");
+        return 0;
+      }
+    }
+  }
+  else {
+    /* Regular Render */
+    if (!render_scene_has_layers_to_render(scene, single_layer)) {
+      BKE_report(reports, RPT_ERROR, "All render layers are disabled");
+      return 0;
+    }
+  }
+
+  /* check valid camera, without camera render is OK (compo, seq) */
+  if (!check_valid_camera(scene, camera_override, reports)) {
     return 0;
   }
 
@@ -2955,5 +2952,5 @@ RenderPass *RE_create_gp_pass(RenderResult *rr, const char *layername, const cha
     BLI_freelinkN(&rl->passes, rp);
   }
   /* create a totally new pass */
-  return gp_add_pass(rr, rl, 4, RE_PASSNAME_COMBINED, viewname);
+  return render_layer_add_pass(rr, rl, 4, RE_PASSNAME_COMBINED, viewname, "RGBA");
 }

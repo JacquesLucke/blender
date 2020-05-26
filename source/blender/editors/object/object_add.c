@@ -146,7 +146,7 @@ static const EnumPropertyItem field_type_items[] = {
     {PFIELD_BOID, "BOID", ICON_FORCE_BOID, "Boid", ""},
     {PFIELD_TURBULENCE, "TURBULENCE", ICON_FORCE_TURBULENCE, "Turbulence", ""},
     {PFIELD_DRAG, "DRAG", ICON_FORCE_DRAG, "Drag", ""},
-    {PFIELD_SMOKEFLOW, "SMOKE", ICON_FORCE_SMOKEFLOW, "Smoke Flow", ""},
+    {PFIELD_FLUIDFLOW, "FLUID", ICON_FORCE_FLUIDFLOW, "Fluid Flow", ""},
     {0, NULL, 0, NULL, NULL},
 };
 
@@ -303,10 +303,15 @@ void ED_object_add_unit_props_size(wmOperatorType *ot)
       ot->srna, "size", 2.0f, 0.0, OBJECT_ADD_SIZE_MAXF, "Size", "", 0.001, 100.00);
 }
 
-void ED_object_add_unit_props_radius(wmOperatorType *ot)
+void ED_object_add_unit_props_radius_ex(wmOperatorType *ot, float default_value)
 {
   RNA_def_float_distance(
-      ot->srna, "radius", 1.0f, 0.0, OBJECT_ADD_SIZE_MAXF, "Radius", "", 0.001, 100.00);
+      ot->srna, "radius", default_value, 0.0, OBJECT_ADD_SIZE_MAXF, "Radius", "", 0.001, 100.00);
+}
+
+void ED_object_add_unit_props_radius(wmOperatorType *ot)
+{
+  ED_object_add_unit_props_radius_ex(ot, 1.0f);
 }
 
 void ED_object_add_generic_props(wmOperatorType *ot, bool do_editmode)
@@ -814,7 +819,10 @@ static int object_metaball_add_exec(bContext *C, wmOperator *op)
   }
 
   ED_object_new_primitive_matrix(C, obedit, loc, rot, mat);
-  dia = RNA_float_get(op->ptr, "radius");
+  /* Halving here is done to account for constant values from #BKE_mball_element_add.
+   * While the default radius of the resulting meta element is 2,
+   * we want to pass in 1 so other values such as resolution are scaled by 1.0. */
+  dia = RNA_float_get(op->ptr, "radius") / 2;
 
   ED_mball_add_primitive(C, obedit, mat, dia, RNA_enum_get(op->ptr, "type"));
 
@@ -845,7 +853,7 @@ void OBJECT_OT_metaball_add(wmOperatorType *ot)
 
   ot->prop = RNA_def_enum(ot->srna, "type", rna_enum_metaelem_type_items, 0, "Primitive", "");
 
-  ED_object_add_unit_props_radius(ot);
+  ED_object_add_unit_props_radius_ex(ot, 2.0f);
   ED_object_add_generic_props(ot, true);
 }
 
@@ -1357,6 +1365,7 @@ static int collection_instance_add_exec(bContext *C, wmOperator *op)
     Object *ob = ED_object_add_type(
         C, OB_EMPTY, collection->id.name + 2, loc, rot, false, local_view_bits);
     ob->instance_collection = collection;
+    ob->empty_drawsize = U.collection_instance_empty_size;
     ob->transflag |= OB_DUPLICOLLECTION;
     id_us_plus(&collection->id);
 
@@ -2539,7 +2548,12 @@ static int convert_exec(bContext *C, wmOperator *op)
     }
 
     if (!keep_original && (ob->flag & OB_DONE)) {
-      DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
+      /* NOTE: Tag transform for update because object parenting to curve with path is handled
+       * differently from all other cases. Converting curve to mesh and mesh to curve will likely
+       * affect the way children are evaluated.
+       * It is not enough to tag only geometry and rely on the curve parenting relations because
+       * this relation is lost when curve is converted to mesh. */
+      DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY | ID_RECALC_TRANSFORM);
       ((ID *)ob->data)->tag &= ~LIB_TAG_DOIT; /* flag not to convert this datablock again */
     }
   }

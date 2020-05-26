@@ -617,9 +617,6 @@ bool WM_file_read(bContext *C, const char *filepath, ReportList *reports)
 
   UI_view2d_zoom_cache_reset();
 
-  /* Reset session-wise ID UUID counter. */
-  BKE_lib_libblock_session_uuid_reset();
-
   /* first try to append data from exotic file formats... */
   /* it throws error box when file doesn't exist and returns -1 */
   /* note; it should set some error message somewhere... (ton) */
@@ -926,9 +923,6 @@ void wm_homefile_read(bContext *C,
     }
   }
 
-  /* Reset session-wise ID UUID counter. */
-  BKE_lib_libblock_session_uuid_reset();
-
   if (!use_factory_settings || (filepath_startup[0] != '\0')) {
     if (BLI_access(filepath_startup, R_OK) == 0) {
       success = BKE_blendfile_read(C,
@@ -1218,6 +1212,7 @@ static ImBuf *blend_file_thumb(const bContext *C,
   ImBuf *ibuf;
   BlendThumbnail *thumb;
   wmWindowManager *wm = CTX_wm_manager(C);
+  const float pixelsize_old = U.pixelsize;
   wmWindow *windrawable_old = wm->windrawable;
   char err_out[256] = "unknown";
 
@@ -1252,6 +1247,10 @@ static ImBuf *blend_file_thumb(const bContext *C,
   /* gets scaled to BLEN_THUMB_SIZE */
   Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
 
+  /* Note that with scaling, this ends up being 0.5,
+   * as it's a thumbnail, we don't need object centers and friends to be 1:1 size. */
+  U.pixelsize = 1.0f;
+
   if (scene->camera) {
     ibuf = ED_view3d_draw_offscreen_imbuf_simple(depsgraph,
                                                  scene,
@@ -1281,6 +1280,8 @@ static ImBuf *blend_file_thumb(const bContext *C,
                                           NULL,
                                           err_out);
   }
+
+  U.pixelsize = pixelsize_old;
 
   /* Reset to old drawable. */
   if (windrawable_old) {

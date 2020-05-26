@@ -93,7 +93,7 @@ struct GPUBatch *DRW_curve_batch_cache_get_wire_edge(struct Curve *cu);
 struct GPUBatch *DRW_curve_batch_cache_get_normal_edge(struct Curve *cu);
 struct GPUBatch *DRW_curve_batch_cache_get_edge_detection(struct Curve *cu, bool *r_is_manifold);
 struct GPUBatch *DRW_curve_batch_cache_get_edit_edges(struct Curve *cu);
-struct GPUBatch *DRW_curve_batch_cache_get_edit_verts(struct Curve *cu, bool handles);
+struct GPUBatch *DRW_curve_batch_cache_get_edit_verts(struct Curve *cu);
 
 struct GPUBatch *DRW_curve_batch_cache_get_triangles_with_normals(struct Curve *cu);
 struct GPUBatch **DRW_curve_batch_cache_get_surface_shaded(struct Curve *cu,
@@ -208,6 +208,7 @@ enum {
   VFLAG_EDGE_SEAM = 1 << 4,
   VFLAG_EDGE_SHARP = 1 << 5,
   VFLAG_EDGE_FREESTYLE = 1 << 6,
+  VFLAG_HANDLE_SELECTED = 1 << 7,
   /* Beware to not go over 1 << 7 (it's a byte flag)
    * (see gpu_shader_edit_mesh_overlay_geom.glsl) */
 };
