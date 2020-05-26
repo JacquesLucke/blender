@@ -22,6 +22,7 @@
 namespace FN {
 
 using BLI::ArrayRef;
+using BLI::MutableArrayRef;
 
 template<typename T> class VirtualArrayRef {
  private:
@@ -54,41 +55,31 @@ template<typename T> class VirtualArrayRef {
     m_data.full_array.data = nullptr;
   }
 
-  static VirtualArrayRef FromSingle(const T *data, uint virtual_size)
+  VirtualArrayRef(ArrayRef<T> values)
+  {
+    m_virtual_size = values.size();
+    m_category = FullArray;
+    m_data.full_array.data = values.begin();
+  }
+
+  VirtualArrayRef(MutableArrayRef<T> values) : VirtualArrayRef(ArrayRef<T>(values))
+  {
+  }
+
+  VirtualArrayRef(ArrayRef<const T *> values)
+  {
+    m_virtual_size = values.size();
+    m_category = FullPointerArray;
+    m_data.full_pointer_array.data = values.begin();
+  }
+
+  static VirtualArrayRef FromSingle(const T *value, uint virtual_size)
   {
     VirtualArrayRef ref;
     ref.m_virtual_size = virtual_size;
     ref.m_category = Single;
-    ref.m_data.single.data = data;
+    ref.m_data.single.data = value;
     return ref;
-  }
-
-  static VirtualArrayRef FromFullArray(const T *data, uint size)
-  {
-    VirtualArrayRef ref;
-    ref.m_virtual_size = size;
-    ref.m_category = FullArray;
-    ref.m_data.full_array.data = data;
-    return ref;
-  }
-
-  static VirtualArrayRef FromFullArray(ArrayRef<T> data)
-  {
-    return VirtualArrayRef::FromFullArray(data.begin(), data.size());
-  }
-
-  static VirtualArrayRef FromFullPointerArray(const T *const *data, uint size)
-  {
-    VirtualArrayRef ref;
-    ref.m_virtual_size = size;
-    ref.m_category = FullPointerArray;
-    ref.m_data.full_pointer_array.data = data;
-    return ref;
-  }
-
-  static VirtualArrayRef FromFullPointerArray(ArrayRef<const T *> data)
-  {
-    return VirtualArrayRef::FromFullPointerArray(data.begin(), data.size());
   }
 
   const T &operator[](uint index) const

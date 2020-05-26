@@ -20,6 +20,7 @@ set(INC
   .
   ../blenlib
   ../makesdna
+  ../../../intern/guardedalloc
 )
 
 set(INC_SYS
@@ -32,6 +33,7 @@ set(SRC
   FN_cpp_types.hh
   FN_generic_array_ref.hh
   FN_generic_vector_array.hh
+  FN_generic_virtual_array_ref.hh
   FN_virtual_array_ref.hh
 )
 
