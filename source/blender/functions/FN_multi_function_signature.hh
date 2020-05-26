@@ -25,7 +25,7 @@ namespace FN {
 
 using BLI::Vector;
 
-struct MFSignatureData {
+struct MFSignature {
   std::string function_name;
   Vector<std::string> param_names;
   Vector<MFParamType> param_types;
@@ -39,14 +39,14 @@ struct MFSignatureData {
 
 class MFSignatureBuilder {
  private:
-  MFSignatureData &m_data;
+  MFSignature &m_data;
   uint m_array_ref_count = 0;
   uint m_virtual_array_ref_count = 0;
   uint m_virtual_vector_array_ref_count = 0;
   uint m_vector_array_count = 0;
 
  public:
-  MFSignatureBuilder(MFSignatureData &data) : m_data(data)
+  MFSignatureBuilder(MFSignature &data) : m_data(data)
   {
     BLI_assert(data.param_names.is_empty());
     BLI_assert(data.param_types.is_empty());

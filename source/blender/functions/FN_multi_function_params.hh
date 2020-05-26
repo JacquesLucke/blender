@@ -26,7 +26,7 @@ namespace FN {
 
 class MFParamsBuilder {
  private:
-  const MFSignatureData *m_signature;
+  const MFSignature *m_signature;
   uint m_min_array_size;
   Vector<GenericVirtualArrayRef> m_virtual_array_refs;
   Vector<GenericMutableArrayRef> m_mutable_array_refs;
@@ -36,10 +36,12 @@ class MFParamsBuilder {
   friend class MFParams;
 
  public:
-  MFParamsBuilder(const MFSignatureData &signature, uint min_array_size)
+  MFParamsBuilder(const MFSignature &signature, uint min_array_size)
       : m_signature(&signature), m_min_array_size(min_array_size)
   {
   }
+
+  MFParamsBuilder(const class MultiFunction &fn, uint min_array_size);
 
   void add_readonly_single_input(GenericVirtualArrayRef ref)
   {
