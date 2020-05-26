@@ -48,6 +48,36 @@ class MFParamType {
   {
   }
 
+  static MFParamType ForSingleInput(const CPPType &type)
+  {
+    return MFParamType(InterfaceType::Input, MFDataType::ForSingle(type));
+  }
+
+  static MFParamType ForVectorInput(const CPPType &base_type)
+  {
+    return MFParamType(InterfaceType::Input, MFDataType::ForVector(base_type));
+  }
+
+  static MFParamType ForSingleOutput(const CPPType &type)
+  {
+    return MFParamType(InterfaceType::Output, MFDataType::ForSingle(type));
+  }
+
+  static MFParamType ForVectorOutput(const CPPType &base_type)
+  {
+    return MFParamType(InterfaceType::Output, MFDataType::ForVector(base_type));
+  }
+
+  static MFParamType ForMutableSingle(const CPPType &type)
+  {
+    return MFParamType(InterfaceType::Mutable, MFDataType::ForSingle(type));
+  }
+
+  static MFParamType ForMutableVector(const CPPType &base_type)
+  {
+    return MFParamType(InterfaceType::Mutable, MFDataType::ForVector(base_type));
+  }
+
   MFDataType data_type() const
   {
     return m_data_type;
