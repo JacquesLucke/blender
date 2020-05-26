@@ -14,8 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#ifndef __FN_MULTI_FUNCTION_CONTEXT_HH__
-#define __FN_MULTI_FUNCTION_CONTEXT_HH__
+#ifndef __FN_MULTI_FUNCTION_SIGNATURE_HH__
+#define __FN_MULTI_FUNCTION_SIGNATURE_HH__
 
 #include "FN_multi_function_param_type.hh"
 
@@ -121,15 +121,15 @@ class MFSignatureBuilder {
 
   /* Mutable Param Types */
 
-  void mutable_single(StringRef name, const CPPType &type)
+  void single_mutable(StringRef name, const CPPType &type)
   {
-    this->mutable_param(name, MFDataType::ForSingle(type));
+    this->mutable_(name, MFDataType::ForSingle(type));
   }
-  void mutable_vector(StringRef name, const CPPType &base_type)
+  void vector_mutable(StringRef name, const CPPType &base_type)
   {
-    this->mutable_param(name, MFDataType::ForVector(base_type));
+    this->mutable_(name, MFDataType::ForVector(base_type));
   }
-  void mutable_param(StringRef name, MFDataType data_type)
+  void mutable_(StringRef name, MFDataType data_type)
   {
     m_data.param_names.append(name);
     m_data.param_types.append(MFParamType(MFParamType::Mutable, data_type));
@@ -147,4 +147,4 @@ class MFSignatureBuilder {
 
 }  // namespace FN
 
-#endif /* __FN_MULTI_FUNCTION_CONTEXT_HH__ */
+#endif /* __FN_MULTI_FUNCTION_SIGNATURE_HH__ */

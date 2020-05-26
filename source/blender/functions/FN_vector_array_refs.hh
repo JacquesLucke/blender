@@ -146,6 +146,11 @@ class GenericVirtualVectorArrayRef {
     return m_virtual_size;
   }
 
+  const CPPType &type() const
+  {
+    return *m_type;
+  }
+
   GenericVirtualArrayRef operator[](uint index) const
   {
     BLI_assert(index < m_virtual_size);

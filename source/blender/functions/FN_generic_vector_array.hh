@@ -29,15 +29,14 @@ namespace FN {
 using BLI::Array;
 using BLI::LinearAllocator;
 
-template<typename Allocator = BLI::GuardedAllocator>
 class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
  private:
   const CPPType &m_type;
   uint m_element_size;
-  Array<void *, 1, Allocator> m_starts;
-  Array<uint, 1, Allocator> m_lengths;
-  Array<uint, 1, Allocator> m_capacities;
-  LinearAllocator<Allocator> m_allocator;
+  Array<void *, 1> m_starts;
+  Array<uint, 1> m_lengths;
+  Array<uint, 1> m_capacities;
+  LinearAllocator<> m_allocator;
 
  public:
   GenericVectorArray() = delete;
@@ -77,7 +76,7 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
 
   ArrayRef<const void *> starts() const
   {
-    return m_starts;
+    return m_starts.as_ref();
   }
 
   ArrayRef<uint> lengths() const
