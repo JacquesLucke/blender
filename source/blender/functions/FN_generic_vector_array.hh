@@ -17,8 +17,8 @@
 #ifndef __FN_GENERIC_VECTOR_ARRAY_HH__
 #define __FN_GENERIC_VECTOR_ARRAY_HH__
 
+#include "FN_array_refs.hh"
 #include "FN_cpp_type.hh"
-#include "FN_generic_array_ref.hh"
 
 #include "BLI_array.hh"
 #include "BLI_linear_allocator.hh"

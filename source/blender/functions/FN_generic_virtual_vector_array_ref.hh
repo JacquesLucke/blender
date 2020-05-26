@@ -17,7 +17,7 @@
 #ifndef __FN_GENERIC_VIRTUAL_VECTOR_ARRAY_REF_HH__
 #define __FN_GENERIC_VIRTUAL_VECTOR_ARRAY_REF_HH__
 
-#include "FN_generic_virtual_array_ref.hh"
+#include "FN_array_refs.hh"
 #include "FN_virtual_vector_array_ref.hh"
 
 namespace FN {
