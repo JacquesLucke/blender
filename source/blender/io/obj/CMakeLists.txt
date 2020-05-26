@@ -20,9 +20,19 @@
 
 set(INC
   .
-../../blenlib
-../../makesrna
+  ../../blenkernel
+  ../../blenlib
+  ../../blentranslation
+  ../../depsgraph
+  ../../editors/include
+  ../../imbuf
+  ../../makesdna
+  ../../makesrna
+  ../../windowmanager
   ../../../../intern/guardedalloc
+  ../../ikplugin
+  ../../../../intern/iksolver/extern
+  ../../bmesh
 )
 
 set(INC_SYS
@@ -31,8 +41,14 @@ set(INC_SYS
 
 set(SRC
   obj.cpp
+  obj_exporter.cpp
+  obj_file_handler.cpp
+  obj_importer.cpp
 
   obj.h
+  obj_exporter.h
+  obj_file_handler.h
+  obj_importer.h
 )
 
 set(LIB

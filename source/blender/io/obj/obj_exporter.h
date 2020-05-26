@@ -12,39 +12,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * The Original Code is Copyright (C) 2008 Blender Foundation.
+ * All rights reserved.
  */
 
 /** \file
  * \ingroup obj
  */
 
-#include <stdlib.h>
-
 #include "BKE_context.h"
-#include "BLI_linklist.h"
-#include "BLI_path_util.h"
-#include "RNA_types.h"
+#include "DEG_depsgraph.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-struct OBJExportParams {
-  bool print_name;
-  float number;
-};
-struct OBJImportParams {
-  bool print_name;
-  float number;
-};
-
-/*
- * both return 1 on success, 0 on error
- */
-bool OBJ_import(struct bContext *C, const char *filename, struct OBJImportParams *import_settings);
-
-bool OBJ_export(struct bContext *C, const char *filename, struct OBJExportParams *export_settings);
-
-#ifdef __cplusplus
-}
-#endif
+bool exporter_main(bContext *C, const char *filepath);
