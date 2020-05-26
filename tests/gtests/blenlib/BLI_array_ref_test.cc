@@ -318,3 +318,19 @@ TEST(array_ref, CastLargerSize)
   EXPECT_EQ(a_ref.size(), 4);
   EXPECT_EQ(new_a_ref.size(), 2);
 }
+
+TEST(array_ref, ConstructFromArray)
+{
+  int array[42] = {0};
+  ArrayRef<int> ref = array;
+  EXPECT_EQ(ref.size(), 42);
+}
+
+TEST(mutable_array_ref, ConstructFromArray)
+{
+  int array[42] = {0};
+  MutableArrayRef<int> ref = array;
+  EXPECT_EQ(ref.size(), 42);
+  ref[2] = 10;
+  EXPECT_EQ(ref[2], 10);
+}

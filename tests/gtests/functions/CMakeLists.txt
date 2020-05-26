@@ -37,3 +37,4 @@ if(WITH_BUILDINFO)
 endif()
 
 BLENDER_TEST(FN_cpp_type "bf_blenlib;bf_functions;${BUILDINFO}")
+BLENDER_TEST(FN_array_refs "bf_blenlib;bf_functions;${BUILDINFO}")

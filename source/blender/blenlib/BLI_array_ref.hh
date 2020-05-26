@@ -78,6 +78,10 @@ template<typename T> class ArrayRef {
   {
   }
 
+  template<uint N> ArrayRef(T (&array)[N]) : ArrayRef(array, N)
+  {
+  }
+
   /**
    * ArrayRef<T *> -> ArrayRef<const T *>
    * ArrayRef<Derived *> -> ArrayRef<Base *>
@@ -383,6 +387,10 @@ template<typename T> class MutableArrayRef {
 
   template<std::size_t N>
   MutableArrayRef(std::array<T, N> &array) : MutableArrayRef(array.data(), N)
+  {
+  }
+
+  template<uint N> MutableArrayRef(T (&array)[N]) : MutableArrayRef(array, N)
   {
   }
 
