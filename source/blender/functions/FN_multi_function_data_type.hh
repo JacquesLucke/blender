@@ -84,15 +84,8 @@ class MFDataType {
     return *m_type;
   }
 
-  friend bool operator==(const MFDataType &a, const MFDataType &b)
-  {
-    return a.m_category == b.m_category && a.m_type == b.m_type;
-  }
-
-  friend bool operator!=(const MFDataType &a, const MFDataType &b)
-  {
-    return !(a == b);
-  }
+  friend bool operator==(const MFDataType &a, const MFDataType &b);
+  friend bool operator!=(const MFDataType &a, const MFDataType &b);
 
   std::string to_string() const
   {
@@ -106,6 +99,16 @@ class MFDataType {
     return "";
   }
 };
+
+inline bool operator==(const MFDataType &a, const MFDataType &b)
+{
+  return a.m_category == b.m_category && a.m_type == b.m_type;
+}
+
+inline bool operator!=(const MFDataType &a, const MFDataType &b)
+{
+  return !(a == b);
+}
 
 }  // namespace FN
 

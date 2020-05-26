@@ -88,16 +88,19 @@ class MFParamType {
     return SingleInput;
   }
 
-  friend bool operator==(const MFParamType &a, const MFParamType &b)
-  {
-    return a.m_interface_type == b.m_interface_type && a.m_data_type == b.m_data_type;
-  }
-
-  friend bool operator!=(const MFParamType &a, const MFParamType &b)
-  {
-    return !(a == b);
-  }
+  friend bool operator==(const MFParamType &a, const MFParamType &b);
+  friend bool operator!=(const MFParamType &a, const MFParamType &b);
 };
+
+inline bool operator==(const MFParamType &a, const MFParamType &b)
+{
+  return a.m_interface_type == b.m_interface_type && a.m_data_type == b.m_data_type;
+}
+
+inline bool operator!=(const MFParamType &a, const MFParamType &b)
+{
+  return !(a == b);
+}
 
 }  // namespace FN
 
