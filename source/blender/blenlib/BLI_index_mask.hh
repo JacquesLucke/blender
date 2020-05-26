@@ -77,6 +77,20 @@ class IndexMask {
   }
 
   /**
+   * Construct an IndexMask from a sorted list of indices. Note, the created IndexMask is only
+   * valid as long as the initializer_list is valid.
+   *
+   * Don't do this:
+   *   IndexMask mask = {3, 4, 5};
+   *
+   * Do this:
+   *   do_something_with_an_index_mask({3, 4, 5});
+   */
+  IndexMask(const std::initializer_list<uint> &indices) : IndexMask(ArrayRef<uint>(indices))
+  {
+  }
+
+  /**
    * Creates an IndexMask that references the indices [0, n-1].
    */
   explicit IndexMask(uint n) : IndexMask(IndexRange(n))
