@@ -33,8 +33,7 @@ set(SRC
   FN_cpp_type.hh
   FN_cpp_types.hh
   FN_generic_vector_array.hh
-  FN_generic_virtual_vector_array_ref.hh
-  FN_virtual_vector_array_ref.hh
+  FN_vector_array_refs.hh
 )
 
 set(LIB

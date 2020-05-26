@@ -14,24 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#include "FN_array_refs.hh"
 #include "FN_cpp_types.hh"
-#include "FN_generic_vector_array.hh"
-#include "FN_generic_virtual_vector_array_ref.hh"
-#include "FN_virtual_vector_array_ref.hh"
 
-/*
-              ArrayRef
-       GenericArrayRef
-       VirtualArrayRef
-GenericVirtualArrayRef
-
-GenericVectorArray
-
-              VectorArrayRef
-       GenericVectorArrayRef
-GenericVirtualVectorArrayRef
-*/
 #include "BLI_color.hh"
 #include "BLI_float2.hh"
 #include "BLI_float3.hh"
