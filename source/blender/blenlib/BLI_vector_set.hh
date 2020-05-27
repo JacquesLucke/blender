@@ -132,18 +132,18 @@ class VectorSet {
 #define VECTOR_SET_SLOT_PROBING_END() SLOT_PROBING_END()
 
  public:
+  /**
+   * Initialize an empty vector set.
+   */
   VectorSet()
   {
-    BLI_assert(is_power_of_2_i((int)s_default_slot_array_size));
-    m_slots = SlotArray(s_default_slot_array_size);
+    m_slots = SlotArray(1);
 
     m_removed_slots = 0;
     m_occupied_and_removed_slots = 0;
-    m_usable_slots = floor_multiplication_with_fraction(
-        m_slots.size(), s_max_load_factor_numerator, s_max_load_factor_denominator);
-    m_slot_mask = m_slots.size() - 1;
-
-    m_keys = this->allocate_keys_array(m_usable_slots);
+    m_usable_slots = 0;
+    m_slot_mask = 0;
+    m_keys = nullptr;
   }
 
   VectorSet(const std::initializer_list<Key> &keys) : VectorSet()
@@ -154,7 +154,9 @@ class VectorSet {
   ~VectorSet()
   {
     destruct_n(m_keys, this->size());
-    this->deallocate_keys_array(m_keys);
+    if (m_keys != nullptr) {
+      this->deallocate_keys_array(m_keys);
+    }
   }
 
   VectorSet(const VectorSet &other)
@@ -354,9 +356,23 @@ class VectorSet {
         min_usable_slots, s_max_load_factor_numerator, s_max_load_factor_denominator);
     uint32_t usable_slots = floor_multiplication_with_fraction(
         total_slots, s_max_load_factor_numerator, s_max_load_factor_denominator);
+    uint32_t new_slot_mask = total_slots - 1;
+
+    /**
+     * Optimize the case when the set was empty beforehand. We can avoid some copies here.
+     */
+    if (this->size() == 0) {
+      m_slots.~Array();
+      new (&m_slots) SlotArray(total_slots);
+      m_removed_slots = 0;
+      m_occupied_and_removed_slots = 0;
+      m_usable_slots = usable_slots;
+      m_slot_mask = new_slot_mask;
+      m_keys = this->allocate_keys_array(usable_slots);
+      return;
+    }
 
     SlotArray new_slots(total_slots);
-    uint32_t new_slot_mask = total_slots - 1;
 
     for (Slot &slot : m_slots) {
       if (slot.is_occupied()) {
