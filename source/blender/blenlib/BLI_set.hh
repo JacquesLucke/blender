@@ -84,10 +84,10 @@ template<
     typename Allocator = GuardedAllocator>
 class Set {
  private:
-/**
- * Specify the max load factor as fraction. We can still try different values like 3/4. I got
- * better performance with some values. I'm not sure yet if this should be exposed as parameter.
- */
+  /**
+   * Specify the max load factor as fraction. We can still try different values like 3/4. I got
+   * better performance with some values. I'm not sure yet if this should be exposed as parameter.
+   */
 #define s_max_load_factor_numerator 1
 #define s_max_load_factor_denominator 2
 #define s_inline_slots_capacity \
@@ -97,8 +97,8 @@ class Set {
   using SlotArray = Array<Slot, s_inline_slots_capacity, Allocator>;
 
   /**
-   * This is the array that contains the actual slots. There is always at least one slot and the
-   * size of the array is a power of two.
+   * This is the array that contains the actual slots. There is always at least one empty slot and
+   * the size of the array is a power of two.
    */
   SlotArray m_slots;
 
@@ -121,6 +121,9 @@ class Set {
    */
   uint32_t m_slot_mask;
 
+  /**
+   * Iterate over a slot index sequence for a given hash.
+   */
 #define SET_SLOT_PROBING_BEGIN(HASH, R_SLOT_INDEX) \
   SLOT_PROBING_BEGIN (ProbingStrategy, HASH, m_slot_mask, R_SLOT_INDEX)
 #define SET_SLOT_PROBING_END() SLOT_PROBING_END()

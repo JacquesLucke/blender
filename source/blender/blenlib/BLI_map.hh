@@ -82,10 +82,10 @@ template<
     typename Allocator = GuardedAllocator>
 class Map {
  private:
-/**
- * Specify the max load factor as fraction. We can still try different values like 3/4. I got
- * better performance with some values. I'm not sure yet if this should be exposed as parameter.
- */
+  /**
+   * Specify the max load factor as fraction. We can still try different values like 3/4. I got
+   * better performance with some values. I'm not sure yet if this should be exposed as parameter.
+   */
 #define s_max_load_factor_numerator 1
 #define s_max_load_factor_denominator 2
 #define s_default_slot_array_size \
@@ -93,13 +93,35 @@ class Map {
       InlineBufferCapacity, s_max_load_factor_numerator, s_max_load_factor_denominator)
 
   using SlotArray = Array<Slot, s_default_slot_array_size, Allocator>;
+
+  /**
+   * This is the array that contains the actual slots. There is always at least one empty slot and
+   * the size of the array is a power of two.
+   */
   SlotArray m_slots;
 
+  /**
+   * Slots are either empty, occupied or removed. The number of occupied slots can be computed by
+   * subtracting the removed slots from the occupied-and-removed slots.
+   */
   uint32_t m_removed_slots;
   uint32_t m_occupied_and_removed_slots;
+
+  /**
+   * The maximum number of slots that can be used (either occupied or removed) until the set has to
+   * grow. This is the number of total slots times the max load factor.
+   */
   uint32_t m_usable_slots;
+
+  /**
+   * The number of slots minus one. This is a bit mask that can be used to turn any integer into a
+   * valid slot index efficiently.
+   */
   uint32_t m_slot_mask;
 
+  /**
+   * Iterate over a slot index sequence for a given hash.
+   */
 #define MAP_SLOT_PROBING_BEGIN(HASH, R_SLOT_INDEX) \
   SLOT_PROBING_BEGIN (ProbingStrategy, HASH, m_slot_mask, R_SLOT_INDEX)
 #define MAP_SLOT_PROBING_END() SLOT_PROBING_END()
