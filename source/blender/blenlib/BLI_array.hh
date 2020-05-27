@@ -29,10 +29,6 @@
 #include "BLI_memory_utils.hh"
 #include "BLI_utildefines.h"
 
-/* Quiet top level deprecation message, unrelated to API usage here. */
-#define TBB_SUPPRESS_DEPRECATED_MESSAGES 1
-#include <tbb/tbb.h>
-
 namespace BLI {
 
 template<typename T, uint InlineBufferCapacity = 4, typename Allocator = GuardedAllocator>
@@ -65,16 +61,6 @@ class Array {
   {
     m_size = size;
     m_data = this->get_buffer_for_size(size);
-
-    /* Use multiple threads for a large array. */
-    if (size > 100000 && !std::is_trivially_constructible<T>::value) {
-      tbb::parallel_for(tbb::blocked_range<uint>(0, size), [&](tbb::blocked_range<uint> range) {
-        for (uint i = range.begin(); i < range.end(); i++) {
-          new (m_data + i) T();
-        }
-      });
-      return;
-    }
 
     for (uint i = 0; i < m_size; i++) {
       new (m_data + i) T();

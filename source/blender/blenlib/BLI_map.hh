@@ -127,16 +127,17 @@ class Map {
 #define MAP_SLOT_PROBING_END() SLOT_PROBING_END()
 
  public:
+  /**
+   * Initialize an empty map.
+   */
   Map()
   {
-    BLI_assert(is_power_of_2_i((int)s_default_slot_array_size));
-    m_slots = SlotArray(s_default_slot_array_size);
+    m_slots = SlotArray(1);
 
     m_removed_slots = 0;
     m_occupied_and_removed_slots = 0;
-    m_usable_slots = floor_multiplication_with_fraction(
-        m_slots.size(), s_max_load_factor_numerator, s_max_load_factor_denominator);
-    m_slot_mask = m_slots.size() - 1;
+    m_usable_slots = 0;
+    m_slot_mask = 0;
   }
 
   ~Map() = default;
@@ -682,9 +683,22 @@ class Map {
         min_usable_slots, s_max_load_factor_numerator, s_max_load_factor_denominator);
     uint32_t usable_slots = floor_multiplication_with_fraction(
         total_slots, s_max_load_factor_numerator, s_max_load_factor_denominator);
+    uint32_t new_slot_mask = total_slots - 1;
+
+    /**
+     * Optimize the case when the map was empty beforehand. We can avoid some copies here.
+     */
+    if (this->size() == 0) {
+      m_slots.~Array();
+      new (&m_slots) SlotArray(total_slots);
+      m_removed_slots = 0;
+      m_occupied_and_removed_slots = 0;
+      m_usable_slots = usable_slots;
+      m_slot_mask = new_slot_mask;
+      return;
+    }
 
     SlotArray new_slots(total_slots);
-    uint32_t new_slot_mask = total_slots - 1;
 
     for (Slot &slot : m_slots) {
       if (slot.is_occupied()) {
