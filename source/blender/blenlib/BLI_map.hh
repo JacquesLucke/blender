@@ -29,6 +29,9 @@
  *
  * The implementation uses open addressing in a flat array. The number of slots is always a power
  * of two. More implementation details depend on the used template parameters.
+ *
+ * TODO:
+ * - Support lookups using other key types without conversion.
  */
 
 #include "BLI_array.hh"

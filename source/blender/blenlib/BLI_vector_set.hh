@@ -20,8 +20,28 @@
 /** \file
  * \ingroup bli
  *
+ * A `BLI::VectorSet<Key>` is an ordered container for elements of type `Key`. It has the same
+ * interface as `BLI::Set` with the following extensions:
+ * - The insertion order of keys is maintained as long as no elements are removed.
+ * - The keys are stored in a continuous array.
+ *
+ * All core operations (add, remove and contains) can be done in O(1) expected time.
+ *
+ * Using a VectorSet instead of a normal Set can be benefitial in any of the following
+ * circumstances:
+ * - The insertion order is important.
+ * - Iteration over all keys has to be fast.
+ * - The keys in the set are supposed to be passed to a function that does not have to know that
+ *   the keys are stored in a set. With a VectorSet, one can get an ArrayRef containing all keys
+ *   without additional copies.
+ *
+ * The implementation uses open addressing in a flat array. The number of slots is always a power
+ * of two. Every slot contains state information and an index into the key array. A slot is either
+ * empty, occupied or removed. More implementation details depend on the used template parameters.
+ *
  * TODO:
  * - Small buffer optimization for the keys.
+ * - Support lookups using other key types without conversion.
  */
 
 #include "BLI_array.hh"
@@ -34,19 +54,37 @@ namespace BLI {
 /* This is defined in BLI_vector_set_slots.hh. */
 template<typename Key> struct DefaultVectorSetSlot;
 
-template<typename Key,
-         uint32_t InlineBufferCapacity = 4,
-         typename ProbingStrategy = DefaultProbingStrategy,
-         typename Hash = DefaultHash<Key>,
-         typename Slot = typename DefaultVectorSetSlot<Key>::type,
-         typename Allocator = GuardedAllocator>
+template<
+    /**
+     * Type of the elements that are stored in this set. It has to be movable.
+     */
+    typename Key,
+    /**
+     * The strategy used to deal with collisions. They are defined in BLI_probing_strategies.hh.
+     */
+    typename ProbingStrategy = DefaultProbingStrategy,
+    /**
+     * The hash function used to hash the keys. There is a default for many types. See BLI_hash.hh
+     * for examples on how to define a custom hash function.
+     */
+    typename Hash = DefaultHash<Key>,
+    /**
+     * This is what will actually be stored in the hash table array. At a minimum a slot has to be
+     * able to hold an array index and information about whether the slot is empty, occupied or
+     * removed. Using a non-standard slot type can improve performance for some types.
+     */
+    typename Slot = typename DefaultVectorSetSlot<Key>::type,
+    /**
+     * The allocator used by this set. Should rarely be changed, except when you don't want that
+     * MEM_mallocN etc. is used internally.
+     */
+    typename Allocator = GuardedAllocator>
 class VectorSet {
  private:
 #define s_max_load_factor_numerator 1
 #define s_max_load_factor_denominator 2
 #define s_default_slot_array_size \
-  total_slot_amount_for_usable_slots( \
-      InlineBufferCapacity, s_max_load_factor_numerator, s_max_load_factor_denominator)
+  total_slot_amount_for_usable_slots(4, s_max_load_factor_numerator, s_max_load_factor_denominator)
 
   using SlotArray = Array<Slot, s_default_slot_array_size, Allocator>;
   SlotArray m_slots;
