@@ -29,8 +29,14 @@
  * The implementation uses open addressing in a flat array. The number of slots is always a power
  * of two. More implementation details depend on the used template parameters.
  *
- * TODO:
- *  - Support lookups using other key types without conversion.
+ * Possible Improvements:
+ * - Support lookups using other key types without conversion.
+ * - Branchless loop over slots in grow function (measured ~10% performance improvement in some
+ *   cases).
+ * - Optimize add_multiple_(new) with software prefetching (measured up to ~30% performance
+ *   improvement in some cases).
+ * - Provide an api function to lookup multiple keys and optimize that with software prefetching.
+ * - Try different load factors.
  */
 
 #include <type_traits>
@@ -483,37 +489,9 @@ class Set {
 
     uint32_t old_total_slots = m_slots.size();
 
-    if (old_total_slots <= 8192) {
-      /**
-       * Depending on the distribution of the keys, the branch below is hard to predict for the
-       * CPU. Therefore there is a more branch-less version below that has the same semantics.
-       * I found an up to 10% grow performance improvement using the branch-less variant. I still
-       * have to determine a better check for which algorithm will work better.
-       */
-      for (Slot &slot : m_slots) {
-        if (slot.is_occupied()) {
-          this->add_after_grow_and_destruct_old(slot, new_slots, new_slot_mask);
-        }
-      }
-    }
-    else {
-      /**
-       * A branch-less version of the loop above. Slots are processed in chunks of size 32. The
-       * trick is to create a bit mask that contains a one for the slots that are set and a zero
-       * otherwise. Then we can use compiler intrinsics to iterate over the 1-bits.
-       */
-      for (uint32_t chunk_start = 0; chunk_start < old_total_slots; chunk_start += 32) {
-        uint32_t set_slot_mask = 0;
-        uint32_t chunk_end = chunk_start + 32;
-        for (uint32_t i = chunk_start; i < chunk_end; i++) {
-          set_slot_mask <<= 1;
-          set_slot_mask |= m_slots[i].is_occupied();
-        }
-        while (set_slot_mask) {
-          uint32_t i = bitscan_reverse_clear_uint(&set_slot_mask);
-          this->add_after_grow_and_destruct_old(
-              m_slots[chunk_start + i], new_slots, new_slot_mask);
-        }
+    for (Slot &slot : m_slots) {
+      if (slot.is_occupied()) {
+        this->add_after_grow_and_destruct_old(slot, new_slots, new_slot_mask);
       }
     }
 

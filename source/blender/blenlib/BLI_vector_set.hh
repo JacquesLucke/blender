@@ -39,7 +39,7 @@
  * of two. Every slot contains state information and an index into the key array. A slot is either
  * empty, occupied or removed. More implementation details depend on the used template parameters.
  *
- * TODO:
+ * Possible Improvements:
  * - Small buffer optimization for the keys.
  * - Support lookups using other key types without conversion.
  */
