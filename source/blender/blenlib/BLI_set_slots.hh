@@ -33,6 +33,7 @@
  */
 
 #include "BLI_memory_utils.hh"
+#include "BLI_string_ref.hh"
 
 namespace BLI {
 
@@ -381,8 +382,18 @@ template<typename Key> struct DefaultSetSlot {
   using type = SimpleSetSlot<Key>;
 };
 
+/**
+ * Store the hash of a string in the slot by default. Recomputing the hash or doing string
+ * comparisons can be relatively costly.
+ */
 template<> struct DefaultSetSlot<std::string> {
   using type = HashedSetSlot<std::string>;
+};
+template<> struct DefaultSetSlot<StringRef> {
+  using type = HashedSetSlot<StringRef>;
+};
+template<> struct DefaultSetSlot<StringRefNull> {
+  using type = HashedSetSlot<StringRefNull>;
 };
 
 template<typename Key> struct DefaultSetSlot<Key *> {
