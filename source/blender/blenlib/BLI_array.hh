@@ -37,12 +37,12 @@ class Array {
   T *m_data;
   uint m_size;
   Allocator m_allocator;
-  AlignedBuffer<sizeof(T) * InlineBufferCapacity, alignof(T)> m_inline_storage;
+  AlignedBuffer<sizeof(T) * InlineBufferCapacity, alignof(T)> m_inline_buffer;
 
  public:
   Array()
   {
-    m_data = this->inline_storage();
+    m_data = this->inline_buffer();
     m_size = 0;
   }
 
@@ -88,7 +88,7 @@ class Array {
     m_size = other.m_size;
     m_allocator = other.m_allocator;
 
-    if (!other.uses_inline_storage()) {
+    if (!other.uses_inline_buffer()) {
       m_data = other.m_data;
     }
     else {
@@ -96,14 +96,14 @@ class Array {
       uninitialized_relocate_n(other.m_data, m_size, m_data);
     }
 
-    other.m_data = other.inline_storage();
+    other.m_data = other.inline_buffer();
     other.m_size = 0;
   }
 
   ~Array()
   {
     destruct_n(m_data, m_size);
-    if (!this->uses_inline_storage()) {
+    if (!this->uses_inline_buffer()) {
       m_allocator.deallocate((void *)m_data);
     }
   }
@@ -216,16 +216,16 @@ class Array {
   T *get_buffer_for_size(uint size)
   {
     if (size <= InlineBufferCapacity) {
-      return this->inline_storage();
+      return this->inline_buffer();
     }
     else {
       return this->allocate(size);
     }
   }
 
-  T *inline_storage() const
+  T *inline_buffer() const
   {
-    return (T *)m_inline_storage.ptr();
+    return (T *)m_inline_buffer.ptr();
   }
 
   T *allocate(uint size)
@@ -234,9 +234,9 @@ class Array {
         size * sizeof(T), std::alignment_of<T>::value, __func__);
   }
 
-  bool uses_inline_storage() const
+  bool uses_inline_buffer() const
   {
-    return m_data == this->inline_storage();
+    return m_data == this->inline_buffer();
   }
 };
 

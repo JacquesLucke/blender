@@ -88,7 +88,7 @@ class Vector {
   /**
    * A placeholder buffer that will remain uninitialized until it is used.
    */
-  AlignedBuffer<(uint)sizeof(T) * InlineBufferCapacity, (uint)alignof(T)> m_small_buffer;
+  AlignedBuffer<(uint)sizeof(T) * InlineBufferCapacity, (uint)alignof(T)> m_inline_buffer;
 
   /**
    * Store the size of the vector explicitely in debug builds. Otherwise you'd always have to call
@@ -117,7 +117,7 @@ class Vector {
    */
   Vector()
   {
-    m_begin = this->small_buffer();
+    m_begin = this->inline_buffer();
     m_end = m_begin;
     m_capacity_end = m_begin + InlineBufferCapacity;
     UPDATE_VECTOR_SIZE(this);
@@ -223,10 +223,10 @@ class Vector {
   {
     uint size = other.size();
 
-    if (other.is_small()) {
+    if (other.is_inline()) {
       if (size <= InlineBufferCapacity) {
         /* Copy between inline buffers. */
-        m_begin = this->small_buffer();
+        m_begin = this->inline_buffer();
         m_end = m_begin + size;
         m_capacity_end = m_begin + InlineBufferCapacity;
         uninitialized_relocate_n(other.m_begin, size, m_begin);
@@ -248,7 +248,7 @@ class Vector {
       m_capacity_end = other.m_capacity_end;
     }
 
-    other.m_begin = other.small_buffer();
+    other.m_begin = other.inline_buffer();
     other.m_end = other.m_begin;
     other.m_capacity_end = other.m_begin + OtherInlineBufferCapacity;
     UPDATE_VECTOR_SIZE(this);
@@ -258,7 +258,7 @@ class Vector {
   ~Vector()
   {
     destruct_n(m_begin, this->size());
-    if (!this->is_small()) {
+    if (!this->is_inline()) {
       m_allocator.deallocate(m_begin);
     }
   }
@@ -334,14 +334,14 @@ class Vector {
    * Afterwards the vector has 0 elements and any allocated memory
    * will be freed.
    */
-  void clear_and_make_small()
+  void clear_and_make_inline()
   {
     destruct_n(m_begin, this->size());
-    if (!this->is_small()) {
+    if (!this->is_inline()) {
       m_allocator.deallocate(m_begin);
     }
 
-    m_begin = this->small_buffer();
+    m_begin = this->inline_buffer();
     m_end = m_begin;
     m_capacity_end = m_begin + InlineBufferCapacity;
     UPDATE_VECTOR_SIZE(this);
@@ -635,7 +635,7 @@ class Vector {
 
   void print_stats() const
   {
-    std::cout << "Small Vector at " << (void *)this << ":" << std::endl;
+    std::cout << "Vector at " << (void *)this << ":" << std::endl;
     std::cout << "  Elements: " << this->size() << std::endl;
     std::cout << "  Capacity: " << (m_capacity_end - m_begin) << std::endl;
     std::cout << "  Inline Capacity: " << InlineBufferCapacity << std::endl;
@@ -646,14 +646,14 @@ class Vector {
   }
 
  private:
-  T *small_buffer() const
+  T *inline_buffer() const
   {
-    return (T *)m_small_buffer.ptr();
+    return (T *)m_inline_buffer.ptr();
   }
 
-  bool is_small() const
+  bool is_inline() const
   {
-    return m_begin == this->small_buffer();
+    return m_begin == this->inline_buffer();
   }
 
   void ensure_space_for_one()
@@ -679,7 +679,7 @@ class Vector {
         min_capacity * (uint)sizeof(T), std::alignment_of<T>::value, "grow BLI::Vector");
     uninitialized_relocate_n(m_begin, size, new_array);
 
-    if (!this->is_small()) {
+    if (!this->is_inline()) {
       m_allocator.deallocate(m_begin);
     }
 
@@ -700,7 +700,7 @@ class Vector {
     uint capacity = size;
 
     if (size <= InlineBufferCapacity) {
-      m_begin = this->small_buffer();
+      m_begin = this->inline_buffer();
       capacity = InlineBufferCapacity;
     }
     else {
