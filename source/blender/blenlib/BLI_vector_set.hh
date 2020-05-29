@@ -25,7 +25,7 @@
  * - The insertion order of keys is maintained as long as no elements are removed.
  * - The keys are stored in a continuous array.
  *
- * All core operations (add, remove and contains) can be done in O(1) expected time.
+ * All core operations (add, remove and contains) can be done in O(1) amortized expected time.
  *
  * Using a VectorSet instead of a normal Set can be benefitial in any of the following
  * circumstances:

@@ -22,7 +22,7 @@
  *
  * A `BLI::Set<Key>` is an unordered container for elements of type `Key`. It is designed to be a
  * more convenient and efficient replacement for `std::unordered_set`. All core operations (add,
- * remove and contains) can be done in O(1) expected time.
+ * remove and contains) can be done in O(1) amortized expected time.
  *
  * In most cases, your default choice for a hash set in Blender should be `BLI::Set`.
  *

@@ -23,7 +23,7 @@
  * A `BLI::Map<Key, Value>` is an unordered container that stores key-value pairs. The keys have to
  * be unique. It is designed to be a more convenient and efficient replacement for
  * `std::unordered_map`. All core operations (add, lookup, remove and contains) can be done in O(1)
- * expected time.
+ * amortized expected time.
  *
  * In most cases, your default choice for a hash map in Blender should be `BLI::Map`.
  *
@@ -55,7 +55,7 @@ template<
     typename Value,
     /**
      * The minimum number of elements that can be stored in this Map without doing a heap
-     * allocation. This is usefule when you expect to have many small sets. However, keep in mind
+     * allocation. This is useful when you expect to have many small maps. However, keep in mind
      * that (other than in a vector) initializing a map has a O(n) cost in the number of slots.
      */
     uint32_t InlineBufferCapacity = 4,
@@ -76,7 +76,7 @@ template<
      */
     typename Slot = typename DefaultMapSlot<Key, Value>::type,
     /**
-     * The allocator used by this set. Should rarely be changed, except when you don't want that
+     * The allocator used by this map. Should rarely be changed, except when you don't want that
      * MEM_mallocN etc. is used internally.
      */
     typename Allocator = GuardedAllocator>

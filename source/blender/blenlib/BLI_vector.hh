@@ -20,9 +20,23 @@
 /** \file
  * \ingroup bli
  *
- * This vector wraps a dynamically sized array of a specific type. It supports small object
- * optimization. That means, when the vector only contains a few elements, no memory allocation is
- * performed. Instead, those elements are stored directly in the vector.
+ * A `BLI::Vector<T>` is a dynamically growing continuous array for values of type T. It is
+ * designed to be a more convenient and efficient replacement for `std::vector`. Note that the term
+ * "vector" has nothing to do with a vector from computer graphics here.
+ *
+ * The improved efficiency is mainly achieved by supporting small buffer optimization. As long as
+ * the number of elements in the vector does not become larger than InlineBufferCapacity, no memory
+ * allocation is done. As a consequence, iterators are invalidated when a BLI::Vector is moved
+ * (iterators of std::vector remain valid when the vector is moved).
+ *
+ * `BLI::Vector` should be your default choice for a vector data structure in Blender.
+ *
+ * Possible Improvements:
+ * - Make the default of the small buffer size a bit more dynamic. When T is very large, we might
+ *   not want it to be stored in the vector directly, because this can use up a lot of stack space.
+ * - Improve the way reserve works. Currently, the vector size is always rounded up to a power of
+ *   two. This is to avoid quadratic running time for use cases when reserve is called often with
+ *   small increments in size.
  */
 
 #include <algorithm>
@@ -43,15 +57,43 @@
 
 namespace BLI {
 
-template<typename T, uint InlineBufferCapacity = 4, typename Allocator = GuardedAllocator>
+template<
+    /**
+     * Type of the values stored in this vector. They have to be movable.
+     */
+    typename T,
+    /**
+     * The number of values that can be stored in this vector, without doing a heap allocation.
+     * Sometimes it makes sense to increase this value a lot. The memory in the inline buffer is
+     * not initialized when it is not needed.
+     */
+    uint InlineBufferCapacity = 4,
+    /**
+     * The allocator used by this vector. Should rarely be changed, except when you don't want that
+     * MEM_mallocN etc. is used internally.
+     */
+    typename Allocator = GuardedAllocator>
 class Vector {
  private:
+  /**
+   * Use pointers instead of storing the size explicitely. This reduces the number of instructions
+   * in `append`.
+   */
   T *m_begin;
   T *m_end;
   T *m_capacity_end;
   Allocator m_allocator;
+
+  /**
+   * A placeholder buffer that will remain uninitialized until it is used.
+   */
   AlignedBuffer<(uint)sizeof(T) * InlineBufferCapacity, (uint)alignof(T)> m_small_buffer;
 
+  /**
+   * Store the size of the vector explicitely in debug builds. Otherwise you'd always have to call
+   * the `size` function or do the math to compute it from the pointers manually. This is rather
+   * annoying. Knowing the size of a vector is often quite essential when debugging some code.
+   */
 #ifndef NDEBUG
   /* Storing size in debug builds, because it makes debugging much easier sometimes. */
   uint m_debug_size;
@@ -60,7 +102,12 @@ class Vector {
 #  define UPDATE_VECTOR_SIZE(ptr) ((void)0)
 #endif
 
-  template<typename OtherT, uint OtherN, typename OtherAllocator> friend class Vector;
+  /**
+   * Be a friend with other vector instanciations. This is necessary to implement some memory
+   * management logic.
+   */
+  template<typename OtherT, uint OtherInlineBufferCapacity, typename OtherAllocator>
+  friend class Vector;
 
  public:
   /**
@@ -77,7 +124,7 @@ class Vector {
 
   /**
    * Create a vector with a specific size.
-   * The elements will be default initialized.
+   * The elements will be default constructed.
    */
   explicit Vector(uint size) : Vector()
   {
@@ -99,14 +146,17 @@ class Vector {
   }
 
   /**
-   * Create a vector from an initializer list.
+   * Create a vector that contains copys of the values in the initialized list.
+   *
+   * This allows you to write code like:
+   * Vector<int> vec = {3, 4, 5};
    */
-  Vector(std::initializer_list<T> values) : Vector(ArrayRef<T>(values))
+  Vector(const std::initializer_list<T> &values) : Vector(ArrayRef<T>(values))
   {
   }
 
   /**
-   * Create a vector from an array ref.
+   * Create a vector from an array ref. The values in the vector are copy constructed.
    */
   Vector(ArrayRef<T> values) : Vector()
   {
@@ -129,38 +179,46 @@ class Vector {
   }
 
   /**
-   * Create a vector from a ListBase.
+   * Create a vector from a ListBase. The caller has to make sure that the values in the linked
+   * list have the correct type.
+   *
+   * Example Usage:
+   *  Vector<ModifierData *> modifiers(ob->modifiers);
    */
   Vector(ListBase &values) : Vector()
   {
-    for (T value : ListBaseWrapper<typename std::remove_pointer<T>::type>(values)) {
+    LISTBASE_FOREACH (T, value, &values) {
       this->append(value);
     }
   }
 
   /**
-   * Create a copy of another vector.
-   * The other vector will not be changed.
-   * If the other vector has less than InlineBufferCapacity elements, no allocation will be made.
+   * Create a copy of another vector. The other vector will not be changed. If the other vector has
+   * less than InlineBufferCapacity elements, no allocation will be made.
    */
   Vector(const Vector &other) : m_allocator(other.m_allocator)
   {
     this->init_copy_from_other_vector(other);
   }
 
-  template<uint OtherN>
-  Vector(const Vector<T, OtherN, Allocator> &other) : m_allocator(other.m_allocator)
+  /**
+   * Create a copy of a vector with a different InlineBufferCapacity. This needs to be handled
+   * separately, so that the other one is a valid copy constructor.
+   */
+  template<uint OtherInlineBufferCapacity>
+  Vector(const Vector<T, OtherInlineBufferCapacity, Allocator> &other)
+      : m_allocator(other.m_allocator)
   {
     this->init_copy_from_other_vector(other);
   }
 
   /**
-   * Steal the elements from another vector.
-   * This does not do an allocation.
-   * The other vector will have zero elements afterwards.
+   * Steal the elements from another vector. This does not do an allocation. The other vector will
+   * have zero elements afterwards.
    */
-  template<uint OtherN>
-  Vector(Vector<T, OtherN, Allocator> &&other) noexcept : m_allocator(other.m_allocator)
+  template<uint OtherInlineBufferCapacity>
+  Vector(Vector<T, OtherInlineBufferCapacity, Allocator> &&other) noexcept
+      : m_allocator(other.m_allocator)
   {
     uint size = other.size();
 
@@ -191,7 +249,7 @@ class Vector {
 
     other.m_begin = other.small_buffer();
     other.m_end = other.m_begin;
-    other.m_capacity_end = other.m_begin + OtherN;
+    other.m_capacity_end = other.m_begin + OtherInlineBufferCapacity;
     UPDATE_VECTOR_SIZE(this);
     UPDATE_VECTOR_SIZE(&other);
   }
@@ -629,7 +687,8 @@ class Vector {
   /**
    * Initialize all properties, except for m_allocator, which has to be initialized beforehand.
    */
-  template<uint OtherN> void init_copy_from_other_vector(const Vector<T, OtherN, Allocator> &other)
+  template<uint OtherInlineBufferCapacity>
+  void init_copy_from_other_vector(const Vector<T, OtherInlineBufferCapacity, Allocator> &other)
   {
     m_allocator = other.m_allocator;
 
