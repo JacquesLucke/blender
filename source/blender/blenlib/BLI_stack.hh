@@ -21,6 +21,11 @@
  * \ingroup bli
  *
  * Basic stack implementation with support for small object optimization.
+ *
+ * Possible Improvements:
+ * - Optimize push_multiple.
+ * - Optimize copy constructor.
+ * - Optimize move constructor.
  */
 
 #include "BLI_vector.hh"
@@ -73,10 +78,40 @@ class Stack {
     this->push_multiple(values);
   }
 
+  Stack(const std::initializer_list<T> &values) : Stack(ArrayRef<T>(values))
+  {
+  }
+
+  Stack(const Stack &other) : Stack()
+  {
+    for (const Chunk *chunk = &other.m_inline_chunk; chunk; chunk = chunk->above) {
+      const T *begin = chunk->begin;
+      const T *end = (chunk == other.m_top_chunk) ? other.m_top : chunk->capacity_end;
+      this->push_multiple(ArrayRef<T>(begin, end - begin));
+    }
+  }
+
+  Stack(Stack &&other) : Stack()
+  {
+    for (Chunk *chunk = &other.m_inline_chunk; chunk; chunk = chunk->above) {
+      T *begin = chunk->begin;
+      T *end = (chunk == other.m_top_chunk) ? other.m_top : chunk->capacity_end;
+      for (T *value = begin; value != end; value++) {
+        this->push(std::move(*value));
+        value->~T();
+      }
+    }
+    other.m_size = 0;
+    other.m_top_chunk = &other.m_inline_chunk;
+    other.m_top = other.m_top_chunk->begin;
+  }
+
   ~Stack()
   {
     this->destruct_all_elements();
-    for (Chunk *chunk = m_top_chunk; chunk != &m_inline_chunk; chunk = chunk->below) {
+    Chunk *above_chunk;
+    for (Chunk *chunk = m_inline_chunk.above; chunk; chunk = above_chunk) {
+      above_chunk = chunk->above;
       m_allocator.deallocate(chunk);
     }
   }
