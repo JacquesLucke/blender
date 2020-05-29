@@ -2,11 +2,10 @@
 #include "testing/testing.h"
 
 using BLI::Stack;
-using IntStack = Stack<int>;
 
 TEST(stack, DefaultConstructor)
 {
-  IntStack stack;
+  Stack<int> stack;
   EXPECT_EQ(stack.size(), 0);
   EXPECT_TRUE(stack.is_empty());
 }
@@ -14,7 +13,7 @@ TEST(stack, DefaultConstructor)
 TEST(stack, ArrayRefConstructor)
 {
   std::array<int, 3> array = {4, 7, 2};
-  IntStack stack(array);
+  Stack<int> stack(array);
   EXPECT_EQ(stack.size(), 3);
   EXPECT_EQ(stack.pop(), 2);
   EXPECT_EQ(stack.pop(), 7);
@@ -24,7 +23,7 @@ TEST(stack, ArrayRefConstructor)
 
 TEST(stack, Push)
 {
-  IntStack stack;
+  Stack<int> stack;
   EXPECT_EQ(stack.size(), 0);
   stack.push(3);
   EXPECT_EQ(stack.size(), 1);
@@ -34,7 +33,7 @@ TEST(stack, Push)
 
 TEST(stack, PushMultiple)
 {
-  IntStack stack;
+  Stack<int> stack;
   EXPECT_EQ(stack.size(), 0);
   stack.push_multiple({1, 2, 3});
   EXPECT_EQ(stack.size(), 3);
@@ -43,9 +42,30 @@ TEST(stack, PushMultiple)
   EXPECT_EQ(stack.pop(), 1);
 }
 
+TEST(stack, PushPopMany)
+{
+  Stack<int> stack;
+  for (int i = 0; i < 1000; i++) {
+    stack.push(i);
+    EXPECT_EQ(stack.size(), i + 1);
+  }
+  for (int i = 999; i > 50; i--) {
+    EXPECT_EQ(stack.pop(), i);
+    EXPECT_EQ(stack.size(), i);
+  }
+  for (int i = 51; i < 5000; i++) {
+    stack.push(i);
+    EXPECT_EQ(stack.size(), i + 1);
+  }
+  for (int i = 4999; i >= 0; i--) {
+    EXPECT_EQ(stack.pop(), i);
+    EXPECT_EQ(stack.size(), i);
+  }
+}
+
 TEST(stack, Pop)
 {
-  IntStack stack;
+  Stack<int> stack;
   stack.push(4);
   stack.push(6);
   EXPECT_EQ(stack.pop(), 6);
@@ -54,7 +74,7 @@ TEST(stack, Pop)
 
 TEST(stack, Peek)
 {
-  IntStack stack;
+  Stack<int> stack;
   stack.push(3);
   stack.push(4);
   EXPECT_EQ(stack.peek(), 4);

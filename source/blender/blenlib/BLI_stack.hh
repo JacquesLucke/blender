@@ -27,122 +27,168 @@
 
 namespace BLI {
 
+template<typename T> struct alignas(alignof(T)) StackChunk {
+  StackChunk *below;
+  StackChunk *above;
+  T *begin;
+  T *capacity_end;
+
+  uint capacity() const
+  {
+    return capacity_end - begin;
+  }
+};
+
 template<typename T, uint InlineBufferCapacity = 4, typename Allocator = GuardedAllocator>
 class Stack {
  private:
-  Vector<T, InlineBufferCapacity, Allocator> m_elements;
+  using Chunk = StackChunk<T>;
+
+  T *m_top;
+  Chunk *m_top_chunk;
+  uint m_size;
+
+  AlignedBuffer<sizeof(T) * InlineBufferCapacity, alignof(T)> m_inline_buffer;
+  Chunk m_inline_chunk;
+
+  Allocator m_allocator;
 
  public:
-  Stack() = default;
-
-  /**
-   * Construct a stack from an array ref. The elements will be pushed in the same order they are in
-   * the array.
-   */
-  Stack(ArrayRef<T> values) : m_elements(values)
+  Stack()
   {
+    T *inline_buffer = this->inline_buffer();
+
+    m_inline_chunk.below = nullptr;
+    m_inline_chunk.above = nullptr;
+    m_inline_chunk.begin = inline_buffer;
+    m_inline_chunk.capacity_end = inline_buffer + InlineBufferCapacity;
+
+    m_top = inline_buffer;
+    m_top_chunk = &m_inline_chunk;
+    m_size = 0;
   }
 
-  operator ArrayRef<T>()
+  Stack(ArrayRef<T> values) : Stack()
   {
-    return m_elements;
+    this->push_multiple(values);
   }
 
-  /**
-   * Return the number of elements in the stack.
-   */
-  uint size() const
+  ~Stack()
   {
-    return m_elements.size();
+    this->destruct_all_elements();
+    for (Chunk *chunk = m_top_chunk; chunk != &m_inline_chunk; chunk = chunk->below) {
+      m_allocator.deallocate(chunk);
+    }
   }
 
-  /**
-   * Return true when the stack is empty, otherwise false.
-   */
-  bool is_empty() const
-  {
-    return this->size() == 0;
-  }
-
-  /**
-   * Add a new element to the top of the stack.
-   */
   void push(const T &value)
   {
-    m_elements.append(value);
+    if (m_top == m_top_chunk->capacity_end) {
+      this->grow();
+    }
+    new (m_top) T(value);
+    m_top++;
+    m_size++;
   }
 
   void push(T &&value)
   {
-    m_elements.append(std::move(value));
+    if (m_top == m_top_chunk->capacity_end) {
+      this->grow();
+    }
+    new (m_top) T(std::move(value));
+    m_top++;
+    m_size++;
+  }
+
+  T pop()
+  {
+    BLI_assert(m_size > 0);
+    m_top--;
+    T value = std::move(*m_top);
+    m_top->~T();
+    m_size--;
+
+    if (m_top == m_top_chunk->begin) {
+      if (m_top_chunk->below != nullptr) {
+        m_top_chunk = m_top_chunk->below;
+        m_top = m_top_chunk->capacity_end;
+      }
+    }
+    return value;
+  }
+
+  T &peek()
+  {
+    BLI_assert(m_size > 0);
+    BLI_assert(m_top > m_top_chunk->begin);
+    return *(m_top - 1);
+  }
+
+  const T &peek() const
+  {
+    BLI_assert(m_size > 0);
+    BLI_assert(m_top > m_top_chunk->begin);
+    return *(m_top - 1);
   }
 
   void push_multiple(ArrayRef<T> values)
   {
-    m_elements.extend(values);
+    for (const T &value : values) {
+      this->push(value);
+    }
   }
 
-  /**
-   * Remove the element from the top of the stack and return it.
-   * This will assert when the stack is empty.
-   */
-  T pop()
+  bool is_empty() const
   {
-    return m_elements.pop_last();
+    return m_size == 0;
   }
 
-  /**
-   * Return a reference to the value a the top of the stack.
-   * This will assert when the stack is empty.
-   */
-  T &peek()
+  uint size() const
   {
-    BLI_assert(!this->is_empty());
-    return m_elements[this->size() - 1];
+    return m_size;
   }
 
-  T *begin()
-  {
-    return m_elements.begin();
-  }
-
-  T *end()
-  {
-    return m_elements.end();
-  }
-
-  const T *begin() const
-  {
-    return m_elements.begin();
-  }
-
-  const T *end() const
-  {
-    return m_elements.end();
-  }
-
-  /**
-   * Remove all elements from the stack but keep the memory.
-   */
   void clear()
   {
-    m_elements.clear();
+    this->destruct_all_elements();
+    m_top_chunk = &m_inline_chunk;
+    m_top = m_top_chunk->begin;
   }
 
-  /**
-   * Remove all elements and free any allocated memory.
-   */
-  void clear_and_make_small()
+ private:
+  T *inline_buffer() const
   {
-    m_elements.clear_and_make_small();
+    return (T *)m_inline_buffer.ptr();
   }
 
-  /**
-   * Does a linear search to check if the value is in the stack.
-   */
-  bool contains(const T &value)
+  void grow()
   {
-    return m_elements.contains(value);
+    if (m_top_chunk->above == nullptr) {
+      uint new_capacity = m_top_chunk->capacity() * 2 + 10;
+      void *buffer = m_allocator.allocate_aligned(
+          sizeof(Chunk) + sizeof(T) * new_capacity, alignof(Chunk), "grow stack");
+      Chunk *new_chunk = new (buffer) Chunk();
+      new_chunk->begin = (T *)POINTER_OFFSET(buffer, sizeof(Chunk));
+      new_chunk->capacity_end = new_chunk->begin + new_capacity;
+      new_chunk->above = nullptr;
+      new_chunk->below = m_top_chunk;
+      m_top_chunk->above = new_chunk;
+    }
+    m_top_chunk = m_top_chunk->above;
+    m_top = m_top_chunk->begin;
+  }
+
+  void destruct_all_elements()
+  {
+    for (T *value = m_top_chunk->begin; value != m_top; value++) {
+      value->~T();
+    }
+    for (Chunk *chunk = m_top_chunk->below; chunk; chunk = chunk->below) {
+      for (T *value = chunk->begin; value != chunk->capacity_end; value++) {
+        value->~T();
+      }
+    }
   }
 };
 
