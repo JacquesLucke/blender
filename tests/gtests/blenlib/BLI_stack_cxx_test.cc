@@ -48,6 +48,36 @@ TEST(stack, MoveConstructor)
   }
 }
 
+TEST(stack, CopyAssignment)
+{
+  Stack<int> stack1 = {1, 2, 3, 4, 5, 6, 7};
+  Stack<int> stack2 = {2, 3, 4, 5, 6, 7};
+  stack2 = stack1;
+
+  EXPECT_EQ(stack1.size(), 7);
+  EXPECT_EQ(stack2.size(), 7);
+  for (int i = 7; i >= 1; i--) {
+    EXPECT_FALSE(stack1.is_empty());
+    EXPECT_FALSE(stack2.is_empty());
+    EXPECT_EQ(stack1.pop(), i);
+    EXPECT_EQ(stack2.pop(), i);
+  }
+  EXPECT_TRUE(stack1.is_empty());
+  EXPECT_TRUE(stack2.is_empty());
+}
+
+TEST(stack, MoveAssignment)
+{
+  Stack<int> stack1 = {1, 2, 3, 4, 5, 6, 7};
+  Stack<int> stack2 = {5, 3, 7, 2, 2};
+  stack2 = std::move(stack1);
+  EXPECT_EQ(stack1.size(), 0);
+  EXPECT_EQ(stack2.size(), 7);
+  for (int i = 7; i >= 1; i--) {
+    EXPECT_EQ(stack2.pop(), i);
+  }
+}
+
 TEST(stack, Push)
 {
   Stack<int> stack;

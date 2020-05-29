@@ -116,6 +116,30 @@ class Stack {
     }
   }
 
+  Stack &operator=(const Stack &stack)
+  {
+    if (this == &stack) {
+      return *this;
+    }
+
+    this->~Stack();
+    new (this) Stack(stack);
+
+    return *this;
+  }
+
+  Stack &operator=(Stack &&stack)
+  {
+    if (this == &stack) {
+      return *this;
+    }
+
+    this->~Stack();
+    new (this) Stack(std::move(stack));
+
+    return *this;
+  }
+
   void push(const T &value)
   {
     if (m_top == m_top_chunk->capacity_end) {
