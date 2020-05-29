@@ -257,8 +257,8 @@ class Set {
 
   /**
    * Add a new key to the set. This method will fail if the key already exists in the set. When you
-   * know for certain that a key is not in the set yet, use this method for better performance and
-   * intend specification.
+   * know for certain that a key is not in the set yet, use this method for better performance.
+   * This also expresses the intend better.
    */
   void add_new(const Key &key)
   {
@@ -486,8 +486,6 @@ class Set {
 
     /* The grown array that we insert the keys into. */
     SlotArray new_slots(total_slots);
-
-    uint32_t old_total_slots = m_slots.size();
 
     for (Slot &slot : m_slots) {
       if (slot.is_occupied()) {
