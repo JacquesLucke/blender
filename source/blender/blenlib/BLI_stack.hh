@@ -21,13 +21,11 @@
  * \ingroup bli
  *
  * Basic stack implementation with support for small object optimization.
- *
- * Possible Improvements:
- * - Optimize copy constructor.
- * - Optimize move constructor.
  */
 
-#include "BLI_vector.hh"
+#include "BLI_allocator.hh"
+#include "BLI_array_ref.hh"
+#include "BLI_memory_utils.hh"
 
 namespace BLI {
 
@@ -92,15 +90,24 @@ class Stack {
 
   Stack(Stack &&other) : Stack()
   {
-    for (Chunk *chunk = &other.m_inline_chunk; chunk; chunk = chunk->above) {
-      T *begin = chunk->begin;
-      T *end = (chunk == other.m_top_chunk) ? other.m_top : chunk->capacity_end;
-      for (T *value = begin; value != end; value++) {
-        this->push(std::move(*value));
-        value->~T();
-      }
+    uninitialized_relocate_n(other.inline_buffer(),
+                             std::min(other.m_size, InlineBufferCapacity),
+                             this->inline_buffer());
+
+    m_inline_chunk.above = other.m_inline_chunk.above;
+    m_size = other.m_size;
+
+    if (m_size <= InlineBufferCapacity) {
+      m_top_chunk = &m_inline_chunk;
+      m_top = this->inline_buffer() + m_size;
     }
+    else {
+      m_top_chunk = other.m_top_chunk;
+      m_top = other.m_top;
+    }
+
     other.m_size = 0;
+    other.m_inline_chunk.above = nullptr;
     other.m_top_chunk = &other.m_inline_chunk;
     other.m_top = other.m_top_chunk->begin;
   }
@@ -235,8 +242,11 @@ class Stack {
   {
     if (m_top_chunk->above == nullptr) {
       uint new_capacity = std::max(min_new_elements, m_top_chunk->capacity() * 2 + 10);
+
+      BLI_STATIC_ASSERT(sizeof(Chunk) % alignof(T) == 0, "");
       void *buffer = m_allocator.allocate_aligned(
           sizeof(Chunk) + sizeof(T) * new_capacity, alignof(Chunk), "grow stack");
+
       Chunk *new_chunk = new (buffer) Chunk();
       new_chunk->begin = (T *)POINTER_OFFSET(buffer, sizeof(Chunk));
       new_chunk->capacity_end = new_chunk->begin + new_capacity;
