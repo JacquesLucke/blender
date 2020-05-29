@@ -130,10 +130,8 @@ class Map {
   /**
    * Initialize an empty map.
    */
-  Map()
+  Map() : m_slots(1)
   {
-    m_slots = SlotArray(1);
-
     m_removed_slots = 0;
     m_occupied_and_removed_slots = 0;
     m_usable_slots = 0;

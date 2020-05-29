@@ -138,10 +138,8 @@ class Set {
   /**
    * Initialize an empty set.
    */
-  Set()
+  Set() : m_slots(1)
   {
-    m_slots = SlotArray(1);
-
     m_removed_slots = 0;
     m_occupied_and_removed_slots = 0;
     m_usable_slots = 0;

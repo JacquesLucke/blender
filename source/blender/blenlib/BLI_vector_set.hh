@@ -135,10 +135,8 @@ class VectorSet {
   /**
    * Initialize an empty vector set.
    */
-  VectorSet()
+  VectorSet() : m_slots(1)
   {
-    m_slots = SlotArray(1);
-
     m_removed_slots = 0;
     m_occupied_and_removed_slots = 0;
     m_usable_slots = 0;
@@ -146,6 +144,9 @@ class VectorSet {
     m_keys = nullptr;
   }
 
+  /**
+   * Construct a vetor set that contains the given keys. Duplicates will be removed automatically.
+   */
   VectorSet(const std::initializer_list<Key> &keys) : VectorSet()
   {
     this->add_multiple(keys);
@@ -212,36 +213,59 @@ class VectorSet {
     return *this;
   }
 
+  /**
+   * Returns the number of keys stored in the vector set.
+   */
   uint32_t size() const
   {
     return m_occupied_and_removed_slots - m_removed_slots;
   }
 
+  /**
+   * Returns true if no keys are stored.
+   */
   bool is_empty() const
   {
     return m_occupied_and_removed_slots == m_removed_slots;
   }
 
+  /**
+   * Returns the number of available slots. This is mostly for debugging purposes.
+   */
   uint32_t capacity() const
   {
     return m_slots.size();
   }
 
+  /**
+   * Returns the amount of removed slots in the set. This is mostly for debugging purposes.
+   */
   uint32_t dummy_amount() const
   {
     return m_removed_slots;
   }
 
+  /**
+   * Returns the bytes required per element. This is mostly for debugging purposes.
+   */
   uint32_t size_per_element() const
   {
     return sizeof(Slot) + sizeof(Key);
   }
 
+  /**
+   * Returns the approximage memory requirements of the set in bytes. This is more correct for
+   * larger sets.
+   */
   uint32_t size_in_bytes() const
   {
     return sizeof(Slot) * m_slots.size() + sizeof(Key) * m_usable_slots;
   }
 
+  /**
+   * Potentially resize the vector set such that the specified number of keys can be added without
+   * another grow operation.
+   */
   void reserve(uint32_t min_usable_slots)
   {
     if (m_usable_slots < min_usable_slots) {
@@ -249,6 +273,11 @@ class VectorSet {
     }
   }
 
+  /**
+   * Add a new key to the vector set. This method will fail if the key already exists in the set.
+   * When you know for certain that a key is not in the set yet, use this method for better
+   * performance. This also expresses the intend better.
+   */
   void add_new(const Key &key)
   {
     this->add_new__impl(key, Hash{}(key));
@@ -258,6 +287,12 @@ class VectorSet {
     this->add_new__impl(std::move(key), Hash{}(key));
   }
 
+  /**
+   * Add a key to the vector set. If the key exists in the set already, nothing is done. The return
+   * value is true if the key was newly.
+   *
+   * This is similar to std::unordered_set::insert.
+   */
   void add(const Key &key)
   {
     this->add__impl(key, Hash{}(key));
@@ -267,6 +302,13 @@ class VectorSet {
     this->add__impl(std::move(key), Hash{}(key));
   }
 
+  /**
+   * Convenience function to add many keys to the vector set at once. Duplicates are removed
+   * automatically.
+   *
+   * We might be able to make this faster than sequentially adding all keys, but that is not
+   * implemented yet.
+   */
   void add_multiple(ArrayRef<Key> keys)
   {
     for (const Key &key : keys) {
@@ -274,26 +316,49 @@ class VectorSet {
     }
   }
 
+  /**
+   * Returns true if the key is in the vector set.
+   *
+   * This is similar to std::unordered_set::find() != std::unordered_set::end().
+   */
   bool contains(const Key &key) const
   {
     return this->contains__impl(key, Hash{}(key));
   }
 
+  /**
+   * Deletes the key from the set. This will fail if the key is not in the set beforehand.
+   * This might change the order of elements in the vector.
+   *
+   * This is similar to std::unordered_set::erase.
+   */
   void remove(const Key &key)
   {
     this->remove__impl(key, Hash{}(key));
   }
 
+  /**
+   * Delete and return a key from the set. This will remove the last element in the vector. The
+   * order of the remaining elements in the set is not changed.
+   */
   Key pop()
   {
     return this->pop__impl();
   }
 
+  /**
+   * Return the location of the key in the vector. It is assumed, that the key is in the vector
+   * set. If this is not necessarily the case, use `index_try`.
+   */
   uint32_t index(const Key &key) const
   {
     return this->index__impl(key, Hash{}(key));
   }
 
+  /**
+   * Return the location of the key in the vector. If the key is not in the set, -1 is returned.
+   * If you know for sure that the key is in the set, it is better to use `index` instead.
+   */
   int32_t index_try(const Key &key) const
   {
     return this->index_try__impl(key, Hash{}(key));
@@ -309,6 +374,9 @@ class VectorSet {
     return m_keys + this->size();
   }
 
+  /**
+   * Get the key stored at the given position in the vector.
+   */
   const Key &operator[](uint32_t index) const
   {
     BLI_assert(index <= this->size());
@@ -320,17 +388,28 @@ class VectorSet {
     return ArrayRef<Key>(m_keys, this->size());
   }
 
+  /**
+   * Get an ArrayRef referencing the keys vector. The referenced memory buffer is only valid as
+   * long as the vector set is not changed.
+   */
   ArrayRef<Key> as_ref() const
   {
     return *this;
   }
 
+  /**
+   * Print common statistics like size and collision count. This is mostly for debugging purposes.
+   */
   void print_stats(StringRef name = "") const
   {
     HashTableStats stats(*this, this->as_ref());
     stats.print();
   }
 
+  /**
+   * Get the number of collisions that the probing strategy has to go through to find the key or
+   * determine that it is not in the set.
+   */
   uint32_t count_collisions(const Key &key) const
   {
     uint32_t hash = Hash{}(key);
@@ -381,7 +460,7 @@ class VectorSet {
     }
 
     Key *new_keys = this->allocate_keys_array(usable_slots);
-    relocate_n(m_keys, this->size(), new_keys);
+    uninitialized_relocate_n(m_keys, this->size(), new_keys);
     this->deallocate_keys_array(m_keys);
 
     m_slots.clear_without_destruct();
