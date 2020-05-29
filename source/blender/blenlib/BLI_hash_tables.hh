@@ -115,9 +115,9 @@ class HashTableStats {
   float m_average_collisions;
   uint32_t m_size;
   uint32_t m_capacity;
-  uint32_t m_dummy_amount;
+  uint32_t m_removed_amount;
   float m_load_factor;
-  float m_dummy_load_factor;
+  float m_removed_load_factor;
   uint32_t m_size_per_element;
   uint32_t m_size_in_bytes;
 
@@ -127,7 +127,7 @@ class HashTableStats {
    * - count_collisions(key) -> uint32_t
    * - size() -> uint32_t
    * - capacity() -> uint32_t
-   * - dummy_amount() -> uint32_t
+   * - removed_amount() -> uint32_t
    * - size_per_element() -> uint32_t
    * - size_in_bytes() -> uint32_t
    */
@@ -137,7 +137,7 @@ class HashTableStats {
     m_total_collisions = 0;
     m_size = hash_table.size();
     m_capacity = hash_table.capacity();
-    m_dummy_amount = hash_table.dummy_amount();
+    m_removed_amount = hash_table.removed_amount();
     m_size_per_element = hash_table.size_per_element();
     m_size_in_bytes = hash_table.size_in_bytes();
 
@@ -153,15 +153,15 @@ class HashTableStats {
 
     m_average_collisions = (m_size == 0) ? 0 : (float)m_total_collisions / (float)m_size;
     m_load_factor = (float)m_size / (float)m_capacity;
-    m_dummy_load_factor = (float)m_dummy_amount / (float)m_capacity;
+    m_removed_load_factor = (float)m_removed_amount / (float)m_capacity;
   }
 
   void print(StringRef name = "")
   {
     std::cout << "Collisions stats: " << name << "\n";
     std::cout << "  Total Slots: " << m_capacity << "\n";
-    std::cout << "  Used Slots:  " << m_size << " (" << m_load_factor * 100.0f << " %)\n";
-    std::cout << "  Dummy Slots: " << m_dummy_amount << " (" << m_dummy_load_factor * 100.0f
+    std::cout << "  Occupied Slots:  " << m_size << " (" << m_load_factor * 100.0f << " %)\n";
+    std::cout << "  Removed Slots: " << m_removed_amount << " (" << m_removed_load_factor * 100.0f
               << " %)\n";
 
     char memory_size_str[15];

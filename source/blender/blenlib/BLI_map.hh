@@ -206,7 +206,7 @@ class Map {
   /**
    * Returns the amount of removed slots in the set. This is mostly for debugging purposes.
    */
-  uint32_t dummy_amount() const
+  uint32_t removed_amount() const
   {
     return m_removed_slots;
   }
