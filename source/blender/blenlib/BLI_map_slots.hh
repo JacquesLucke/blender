@@ -153,9 +153,8 @@ template<typename Key, typename Value> class SimpleMapSlot {
   }
 
   /**
-   * Return the hash of the currently stored key. The hash function is guaranteed to stay the same
-   * during the lifetime of a slot. In this simple map slot implementation, we just computed the
-   * hash here. Other implementations might store the hash in the slot instead.
+   * Return the hash of the currently stored key. In this simple map slot implementation, we just
+   * computed the hash here. Other implementations might store the hash in the slot instead.
    */
   template<typename Hash> uint32_t get_hash(const Hash &hash)
   {
