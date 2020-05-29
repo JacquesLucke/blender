@@ -30,6 +30,10 @@
  * A map slot type has to implement a couple of methods that are explained in SimpleMap Slot.
  * A slot type is assumed to be trivially destructable, when it is not in occupied state. So the
  * destructor might not be called in that case.
+ *
+ * Possible Improvements:
+ * - Implement slot type that stores the hash.
+ * - Implement slot type specialized for pointer keys, similar to PointerSetSlot.
  */
 
 #include "BLI_memory_utils.hh"
