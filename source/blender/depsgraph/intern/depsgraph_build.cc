@@ -26,6 +26,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "BLI_listbase.h"
+#include "BLI_profile.h"
 #include "BLI_utildefines.h"
 
 #include "PIL_time.h"
@@ -239,6 +240,7 @@ void DEG_graph_build_from_view_layer(Depsgraph *graph,
                                      Scene *scene,
                                      ViewLayer *view_layer)
 {
+  BLI_PROFILE_BEGIN();
   double start_time = 0.0;
   if (G.debug & (G_DEBUG_DEPSGRAPH_BUILD | G_DEBUG_DEPSGRAPH_TIME)) {
     start_time = PIL_check_seconds_timer();
@@ -266,6 +268,7 @@ void DEG_graph_build_from_view_layer(Depsgraph *graph,
   if (G.debug & (G_DEBUG_DEPSGRAPH_BUILD | G_DEBUG_DEPSGRAPH_TIME)) {
     printf("Depsgraph built in %f seconds.\n", PIL_check_seconds_timer() - start_time);
   }
+  BLI_PROFILE_END();
 }
 
 void DEG_graph_build_for_render_pipeline(Depsgraph *graph,

@@ -104,6 +104,7 @@ set(SRC
   intern/path_util.c
   intern/polyfill_2d.c
   intern/polyfill_2d_beautify.c
+  intern/profile.cc
   intern/quadric.c
   intern/rand.c
   intern/rct.c
@@ -228,6 +229,7 @@ set(SRC
   BLI_path_util.h
   BLI_polyfill_2d.h
   BLI_polyfill_2d_beautify.h
+  BLI_profile.h
   BLI_quadric.h
   BLI_rand.h
   BLI_rect.h

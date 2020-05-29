@@ -23,10 +23,10 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_utildefines.h"
-
 #include "BLI_ghash.h"
 #include "BLI_listbase.h"
+#include "BLI_profile.h"
+#include "BLI_utildefines.h"
 
 #include "DNA_armature_types.h"
 #include "DNA_mesh_types.h"
@@ -295,6 +295,7 @@ static void copy_masked_polys_to_new_mesh(const Mesh &src_mesh,
  */
 static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *mesh)
 {
+  BLI_PROFILE_FUNCTION();
   MaskModifierData *mmd = (MaskModifierData *)md;
   Object *ob = ctx->object;
   const bool invert_mask = mmd->flag & MOD_MASK_INV;
