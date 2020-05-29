@@ -28,8 +28,8 @@
  * Only when a slot is occupied, it stores an instance of type Key.
  *
  * A set slot type has to implement a couple of methods that are explained in SimpleSetSlot.
- * It is assumed to be trivially destructable, when it is not in occupied state. So the destructor
- * might not be called in that case.
+ * A slot type is assumed to be trivially destructable, when it is not in occupied state. So the
+ * destructor might not be called in that case.
  */
 
 #include "BLI_memory_utils.hh"
@@ -85,7 +85,7 @@ template<typename Key> class SimpleSetSlot {
 
   /**
    * The move constructor has to copy the state. If the other slot was occupied, the key from the
-   * other slot has to be moved as well. The other slot stays in the state it was in before and its
+   * other slot has to be moved as well. The other slot stays in the state it was in before. Its
    * optionally stored key remains in a moved-from state.
    */
   SimpleSetSlot(SimpleSetSlot &&other) noexcept
@@ -121,7 +121,7 @@ template<typename Key> class SimpleSetSlot {
   }
 
   /**
-   * Return true if the slot is empty, i.e. it does not contain a key is not in removed state.
+   * Return true if the slot is empty, i.e. it does not contain a key and is not in removed state.
    */
   bool is_empty() const
   {

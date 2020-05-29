@@ -391,6 +391,8 @@ class VectorSet {
   /**
    * Get an ArrayRef referencing the keys vector. The referenced memory buffer is only valid as
    * long as the vector set is not changed.
+   *
+   * The keys must not be changed, because this would change their hash value.
    */
   ArrayRef<Key> as_ref() const
   {
