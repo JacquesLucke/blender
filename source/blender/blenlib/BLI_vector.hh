@@ -51,6 +51,7 @@
 #include "BLI_listbase_wrapper.hh"
 #include "BLI_math_base.h"
 #include "BLI_memory_utils.hh"
+#include "BLI_string.h"
 #include "BLI_utildefines.h"
 
 #include "MEM_guardedalloc.h"
@@ -637,8 +638,11 @@ class Vector {
     std::cout << "Small Vector at " << (void *)this << ":" << std::endl;
     std::cout << "  Elements: " << this->size() << std::endl;
     std::cout << "  Capacity: " << (m_capacity_end - m_begin) << std::endl;
-    std::cout << "  Small Elements: " << InlineBufferCapacity
-              << "  Size on Stack: " << sizeof(*this) << std::endl;
+    std::cout << "  Inline Capacity: " << InlineBufferCapacity << std::endl;
+
+    char memory_size_str[15];
+    BLI_str_format_byte_unit(memory_size_str, sizeof(*this), true);
+    std::cout << "  Size on Stack: " << memory_size_str << std::endl;
   }
 
  private:
