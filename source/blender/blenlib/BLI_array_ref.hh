@@ -180,6 +180,14 @@ template<typename T> class ArrayRef {
   }
 
   /**
+   * Return true if the size is zero.
+   */
+  bool is_empty() const
+  {
+    return m_size == 0;
+  }
+
+  /**
    * Return the number of bytes referenced by this ArrayRef.
    */
   uint byte_size() const

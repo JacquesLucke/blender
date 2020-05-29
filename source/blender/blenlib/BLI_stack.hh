@@ -23,7 +23,6 @@
  * Basic stack implementation with support for small object optimization.
  *
  * Possible Improvements:
- * - Optimize push_multiple.
  * - Optimize copy constructor.
  * - Optimize move constructor.
  */
@@ -193,9 +192,20 @@ class Stack {
 
   void push_multiple(ArrayRef<T> values)
   {
-    for (const T &value : values) {
-      this->push(value);
+    uint remaining_capacity = this->remaining_capacity_in_top_chunk();
+    uint amount = std::min(values.size(), remaining_capacity);
+    uninitialized_copy_n(values.begin(), amount, m_top);
+    m_top += amount;
+
+    ArrayRef<T> remaining_values = values.drop_front(amount);
+    uint remaining_amount = remaining_values.size();
+    if (remaining_amount > 0) {
+      this->grow(remaining_amount);
+      uninitialized_copy_n(remaining_values.begin(), remaining_amount, m_top);
+      m_top += remaining_amount;
     }
+
+    m_size += values.size();
   }
 
   bool is_empty() const
@@ -248,6 +258,11 @@ class Stack {
         value->~T();
       }
     }
+  }
+
+  uint remaining_capacity_in_top_chunk() const
+  {
+    return m_top_chunk->capacity_end - m_top;
   }
 };
 
