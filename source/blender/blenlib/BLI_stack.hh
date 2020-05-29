@@ -20,7 +20,17 @@
 /** \file
  * \ingroup bli
  *
- * Basic stack implementation with support for small object optimization.
+ * A `BLI::Stack<T>` is a dynamically growing FILO (first-in, last-out) data structure. It is
+ * designed to be a more convenient and efficient replacement for `std::stack`.
+ *
+ * The improved efficiency is mainly achieved by supporting small buffer optimization. As long as
+ * the number of elements added to the stack stays below InlineBufferCapacity, no heap allocation
+ * is done. Consequently, values stored in the stack have to be movable and they might be moved,
+ * when the stack is moved.
+ *
+ * The implementation stores the elements in potentially multiple continuous chunks. The individual
+ * chunks are connected by a double linked list. All, except the top-most chunk are always
+ * completely full.
  */
 
 #include "BLI_allocator.hh"
@@ -29,10 +39,21 @@
 
 namespace BLI {
 
+/**
+ * A StackChunk references a continuous memory buffer. Multiple StackChunk instances are linked in
+ * a double linked list.
+ *
+ * The alignment of StackChunk is at least the alignment of T, because that makes it simpler to
+ * allocate a StackChunk and the referenced memory in a single heap allocation.
+ */
 template<typename T> struct alignas(alignof(T)) StackChunk {
+  /** The below chunk contains the elements that have been pushed on the stack before. */
   StackChunk *below;
+  /** The above chunk contains the elements that have been pushed on the stack afterwards. */
   StackChunk *above;
+  /** Pointer to the first element of the referenced buffer. */
   T *begin;
+  /** Pointer to one element past the end of the referenced buffer. */
   T *capacity_end;
 
   uint capacity() const
@@ -41,7 +62,20 @@ template<typename T> struct alignas(alignof(T)) StackChunk {
   }
 };
 
-template<typename T, uint InlineBufferCapacity = 4, typename Allocator = GuardedAllocator>
+template<
+    /** Type of the elements that are stored in the stack. */
+    typename T,
+    /**
+     * The number of values that can be stored in this stack, without doing a heap allocation.
+     * Sometimes it can make sense to increase this value a lot. The memory in the inline buffer is
+     * not initialized when it is not needed.
+     */
+    uint InlineBufferCapacity = 4,
+    /**
+     * The allocator used by this stack. Should rarely be changed, except when you don't want that
+     * MEM_mallocN etc. is used internally.
+     */
+    typename Allocator = GuardedAllocator>
 class Stack {
  private:
   using Chunk = StackChunk<T>;
