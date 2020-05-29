@@ -143,7 +143,7 @@ class Stack {
   void push(const T &value)
   {
     if (m_top == m_top_chunk->capacity_end) {
-      this->grow();
+      this->grow(1);
     }
     new (m_top) T(value);
     m_top++;
@@ -153,7 +153,7 @@ class Stack {
   void push(T &&value)
   {
     if (m_top == m_top_chunk->capacity_end) {
-      this->grow();
+      this->grow(1);
     }
     new (m_top) T(std::move(value));
     m_top++;
@@ -221,10 +221,10 @@ class Stack {
     return (T *)m_inline_buffer.ptr();
   }
 
-  void grow()
+  void grow(uint min_new_elements)
   {
     if (m_top_chunk->above == nullptr) {
-      uint new_capacity = m_top_chunk->capacity() * 2 + 10;
+      uint new_capacity = std::max(min_new_elements, m_top_chunk->capacity() * 2 + 10);
       void *buffer = m_allocator.allocate_aligned(
           sizeof(Chunk) + sizeof(T) * new_capacity, alignof(Chunk), "grow stack");
       Chunk *new_chunk = new (buffer) Chunk();
