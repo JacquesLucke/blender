@@ -59,9 +59,7 @@
 namespace BLI {
 
 template<
-    /**
-     * Type of the values stored in this vector. They have to be movable.
-     */
+    /** Type of the values stored in this vector. They have to be movable. */
     typename T,
     /**
      * The number of values that can be stored in this vector, without doing a heap allocation.
@@ -85,9 +83,7 @@ class Vector {
   T *m_capacity_end;
   Allocator m_allocator;
 
-  /**
-   * A placeholder buffer that will remain uninitialized until it is used.
-   */
+  /** A placeholder buffer that will remain uninitialized until it is used. */
   AlignedBuffer<(uint)sizeof(T) * InlineBufferCapacity, (uint)alignof(T)> m_inline_buffer;
 
   /**
@@ -96,7 +92,6 @@ class Vector {
    * annoying. Knowing the size of a vector is often quite essential when debugging some code.
    */
 #ifndef NDEBUG
-  /* Storing size in debug builds, because it makes debugging much easier sometimes. */
   uint m_debug_size;
 #  define UPDATE_VECTOR_SIZE(ptr) (ptr)->m_debug_size = (uint)((ptr)->m_end - (ptr)->m_begin)
 #else
