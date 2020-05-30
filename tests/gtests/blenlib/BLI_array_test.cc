@@ -102,7 +102,11 @@ TEST(array, MoveAssignment)
   EXPECT_EQ(new_array[2], 3);
 }
 
-TEST(array, SizeConstructorWithTriviallyConstructableTypesIsNoop)
+/**
+ * Tests that the trivially constructable types are not zero-initialized. We do not want that for
+ * performance reasons.
+ */
+TEST(array, TrivialTypeSizeConstructor)
 {
   Array<char, 1> *array = new Array<char, 1>();
   char *ptr = &(*array)[0];

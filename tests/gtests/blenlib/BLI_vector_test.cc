@@ -17,6 +17,26 @@ TEST(vector, SizeConstructor)
   EXPECT_EQ(vec.size(), 3);
 }
 
+/**
+ * Tests that the trivially constructable types are not zero-initialized. We do not want that for
+ * performance reasons.
+ */
+TEST(vector, TrivialTypeSizeConstructor)
+{
+  Vector<char, 1> *vec = new Vector<char, 1>();
+  char *ptr = &(*vec)[0];
+  vec->~Vector();
+
+  const char magic = 42;
+  *ptr = magic;
+  EXPECT_EQ(*ptr, magic);
+
+  new (vec) Vector<char, 1>(1);
+  EXPECT_EQ((*vec)[0], magic);
+  EXPECT_EQ(*ptr, magic);
+  delete vec;
+}
+
 TEST(vector, SizeValueConstructor)
 {
   Vector<int> vec(4, 10);
