@@ -83,16 +83,40 @@ class Stack {
  private:
   using Chunk = StackChunk<T>;
 
+  /**
+   * Points to one element after top-most value in the stack.
+   *
+   * Invariant:
+   *  If m_size == 0
+   *    then: m_top == m_inline_chunk.begin
+   *    else: &peek() == m_top - 1;
+   */
   T *m_top;
+
+  /** Points to the chunk that references the memory pointed to by m_top. */
   Chunk *m_top_chunk;
+
+  /**
+   * Number of elements in the entire stack. The sum of initialized element counts in the chunks.
+   */
   uint m_size;
 
+  /** The buffer used to implement small object optimization. */
   AlignedBuffer<sizeof(T) * InlineBufferCapacity, alignof(T)> m_inline_buffer;
+
+  /**
+   * A chunk referencing the inline buffer. This is always the bottom-most chunk.
+   * So m_inline_chunk.below == nullptr.
+   */
   Chunk m_inline_chunk;
 
+  /** Used for allocations when the inline buffer is not large enough. */
   Allocator m_allocator;
 
  public:
+  /**
+   * Initialize an empty stack. No heap allocation is done.
+   */
   Stack()
   {
     T *inline_buffer = this->inline_buffer();
@@ -107,11 +131,24 @@ class Stack {
     m_size = 0;
   }
 
+  /**
+   * Create a new stack that contains the given elements. The values are pushed to the stack in
+   * the order they are in the array.
+   */
   Stack(ArrayRef<T> values) : Stack()
   {
     this->push_multiple(values);
   }
 
+  /**
+   * Create a new stack that contains the given elements. The values are pushed to the stack in the
+   * order they are in the array.
+   *
+   * Example:
+   *  Stack<int> stack = {4, 5, 6};
+   *  assert(stack.pop() == 6);
+   *  assert(stack.pop() == 5);
+   */
   Stack(const std::initializer_list<T> &values) : Stack(ArrayRef<T>(values))
   {
   }
@@ -183,6 +220,9 @@ class Stack {
     return *this;
   }
 
+  /**
+   * Add a new element to the top of the stack.
+   */
   void push(const T &value)
   {
     if (m_top == m_top_chunk->capacity_end) {
@@ -192,7 +232,6 @@ class Stack {
     m_top++;
     m_size++;
   }
-
   void push(T &&value)
   {
     if (m_top == m_top_chunk->capacity_end) {
@@ -203,6 +242,9 @@ class Stack {
     m_size++;
   }
 
+  /**
+   * Remove and return the top-most element from the stack. This will fail when the stack is empty.
+   */
   T pop()
   {
     BLI_assert(m_size > 0);
@@ -220,13 +262,16 @@ class Stack {
     return value;
   }
 
+  /**
+   * Get a reference to the top-most element without removing it from the stack. This will fail
+   * when the stack is empty.
+   */
   T &peek()
   {
     BLI_assert(m_size > 0);
     BLI_assert(m_top > m_top_chunk->begin);
     return *(m_top - 1);
   }
-
   const T &peek() const
   {
     BLI_assert(m_size > 0);
@@ -234,13 +279,20 @@ class Stack {
     return *(m_top - 1);
   }
 
+  /**
+   * Add multiple elements to the stack. The values are pushed in the order they are in the array.
+   * This method is more efficient than pushing multiple elements individually and might cause less
+   * heap allocations.
+   */
   void push_multiple(ArrayRef<T> values)
   {
+    /* First fill up any remaining capacity in the current chunk. */
     uint remaining_capacity = this->remaining_capacity_in_top_chunk();
     uint amount = std::min(values.size(), remaining_capacity);
     uninitialized_copy_n(values.begin(), amount, m_top);
     m_top += amount;
 
+    /* If there are values left, allocate a new chunk that is large enough to hold them all. */
     ArrayRef<T> remaining_values = values.drop_front(amount);
     uint remaining_amount = remaining_values.size();
     if (remaining_amount > 0) {
@@ -252,16 +304,26 @@ class Stack {
     m_size += values.size();
   }
 
+  /**
+   * Returns true when the size is zero.
+   */
   bool is_empty() const
   {
     return m_size == 0;
   }
 
+  /**
+   * Returns the number of elements on the stack.
+   */
   uint size() const
   {
     return m_size;
   }
 
+  /**
+   * Remove all elements from the stack. The memory is not freed, so it is more efficient to reuse
+   * the stack than to create a new one.
+   */
   void clear()
   {
     this->destruct_all_elements();
