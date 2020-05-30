@@ -19,8 +19,19 @@
 /** \file
  * \ingroup bli
  *
- * This is a container that contains a fixed size array. Note however, the size of the array is not
- * a template argument. Instead it can be specified at the construction time.
+ * A `BLI::Array<T>` is a container for a fixed size array. Other than `std::array<T, N>`, the size
+ * does not have to be known at compile time. If it is known, std::array should probably be used
+ * instead. BLI::Array also supports small object optimization. That makes it more efficient when
+ * the size turns out to be small at run-time.
+ *
+ * BLI::Array should be used instead of BLI::Vector whenever the size of the array is known at
+ * construction time. Note however, that BLI::Array will default construct all elements when
+ * initialized with the size-constructor. For trivial types, this is a noop, but it can add
+ * overhead in general. If this becomes a problem, a different constructor which does not do
+ * default construction can be added.
+ *
+ * A main benefit of using Array over Vector is that it expresses the intend of the developer
+ * better. It indicates that the size of the data structure is not expected to change.
  */
 
 #include "BLI_allocator.hh"
@@ -31,21 +42,50 @@
 
 namespace BLI {
 
-template<typename T, uint InlineBufferCapacity = 4, typename Allocator = GuardedAllocator>
+template<
+    /**
+     * The type of the values stored in the array.
+     */
+    typename T,
+    /**
+     * The number of values that can be stored in the array, without doing a heap allocation.
+     *
+     * When T is large, the small buffer optimization is disabled by default to avoid large
+     * unexpected allocations on the stack. It can still be enabled explicitely though.
+     */
+    uint InlineBufferCapacity = (sizeof(T) < 100) ? 4 : 0,
+    /**
+     * The allocator used by this array. Should rarely be changed, except when you don't want that
+     * MEM_mallocN etc. is used internally.
+     */
+    typename Allocator = GuardedAllocator>
 class Array {
  private:
+  /** The beginning of the array. It might point into the inline buffer. */
   T *m_data;
+
+  /** Number of elements in the array. */
   uint m_size;
+
+  /** Used for allocations when the inline buffer is too small. */
   Allocator m_allocator;
+
+  /** A placeholder buffer that will remain uninitialized until it is used. */
   AlignedBuffer<sizeof(T) * InlineBufferCapacity, alignof(T)> m_inline_buffer;
 
  public:
+  /**
+   * By default an empty array is created.
+   */
   Array()
   {
     m_data = this->inline_buffer();
     m_size = 0;
   }
 
+  /**
+   * Create a new array that contains copies of all values.
+   */
   Array(ArrayRef<T> values)
   {
     m_size = values.size();
@@ -53,17 +93,24 @@ class Array {
     uninitialized_copy_n(values.begin(), m_size, m_data);
   }
 
+  /**
+   * Create a new array that contains copies of all values.
+   */
   Array(const std::initializer_list<T> &values) : Array(ArrayRef<T>(values))
   {
   }
 
+  /**
+   * Create a new array with the given size. All values will be default constructed. For trivial
+   * types like int, default construction is a noop.
+   */
   explicit Array(uint size)
   {
     m_size = size;
     m_data = this->get_buffer_for_size(size);
 
     for (uint i = 0; i < m_size; i++) {
-      new (m_data + i) T();
+      new (m_data + i) T;
     }
   }
 

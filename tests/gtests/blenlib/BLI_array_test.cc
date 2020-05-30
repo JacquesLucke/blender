@@ -101,3 +101,19 @@ TEST(array, MoveAssignment)
   EXPECT_EQ(new_array[1], 2);
   EXPECT_EQ(new_array[2], 3);
 }
+
+TEST(array, SizeConstructorWithTriviallyConstructableTypesIsNoop)
+{
+  Array<char, 1> *array = new Array<char, 1>();
+  char *ptr = &(*array)[0];
+  array->~Array();
+
+  const char magic = 42;
+  *ptr = magic;
+  EXPECT_EQ(*ptr, magic);
+
+  new (array) Array<char, 1>(1);
+  EXPECT_EQ((*array)[0], magic);
+  EXPECT_EQ(*ptr, magic);
+  delete array;
+}

@@ -76,6 +76,8 @@ class Vector {
   /**
    * Use pointers instead of storing the size explicitely. This reduces the number of instructions
    * in `append`.
+   *
+   * The pointers might point to the memory in the inline buffer.
    */
   T *m_begin;
   T *m_end;
