@@ -23,6 +23,9 @@
  * Allows passing iterators over ranges of integers without actually allocating an array or passing
  * separate values. A range always has a step of one. If other step sizes are required in some
  * cases, a separate data structure should be used.
+ *
+ * Todo:
+ * - Describe benefits of looping over an index range.
  */
 
 #include <algorithm>

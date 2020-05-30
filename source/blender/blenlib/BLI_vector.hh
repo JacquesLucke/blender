@@ -34,9 +34,6 @@
  * Possible Improvements:
  * - Make the default of the small buffer size a bit more dynamic. When T is very large, we might
  *   not want it to be stored in the vector directly, because this can use up a lot of stack space.
- * - Improve the way reserve works. Currently, the vector size is always rounded up to a power of
- *   two. This is to avoid quadratic running time for use cases when reserve is called often with
- *   small increments in size.
  */
 
 #include <algorithm>
@@ -52,6 +49,7 @@
 #include "BLI_math_base.h"
 #include "BLI_memory_utils.hh"
 #include "BLI_string.h"
+#include "BLI_string_ref.hh"
 #include "BLI_utildefines.h"
 
 #include "MEM_guardedalloc.h"
@@ -60,7 +58,7 @@ namespace BLI {
 
 template<
     /**
-     * Type of the values stored in this vector. They have to be movable.
+     * Type of the values stored in this vector. It has to be movable.
      */
     typename T,
     /**
@@ -355,13 +353,16 @@ class Vector {
     this->ensure_space_for_one();
     this->append_unchecked(value);
   }
-
   void append(T &&value)
   {
     this->ensure_space_for_one();
     this->append_unchecked(std::move(value));
   }
 
+  /**
+   * Append the value to the vector and return the index that can be used to access the newly
+   * added value.
+   */
   uint append_and_get_index(const T &value)
   {
     uint index = this->size();
@@ -369,6 +370,11 @@ class Vector {
     return index;
   }
 
+  /**
+   * Append the value if it is not yet in the vector. This has to do a linear search to check if
+   * the value is in the vector. Therefore, this should only be called when it is known that the
+   * vector is small.
+   */
   void append_non_duplicates(const T &value)
   {
     if (!this->contains(value)) {
@@ -376,6 +382,11 @@ class Vector {
     }
   }
 
+  /**
+   * Append the value and assume that vector has enough memory reserved. This will fail when not
+   * enough memory has been reserved beforehand. Only use this in absolutely performance critical
+   * code.
+   */
   void append_unchecked(const T &value)
   {
     BLI_assert(m_end < m_capacity_end);
@@ -383,7 +394,6 @@ class Vector {
     m_end++;
     UPDATE_VECTOR_SIZE(this);
   }
-
   void append_unchecked(T &&value)
   {
     BLI_assert(m_end < m_capacity_end);
@@ -403,6 +413,12 @@ class Vector {
     this->increase_size_unchecked(n);
   }
 
+  /**
+   * Enlarges the size of the internal buffer that is considered to be initialized. This won't work
+   * when the new size is larger than the previously reserved size. The method can be useful when
+   * you want to call constructors in the vector yourself. This should only be done in very rare
+   * cases and has to be justified every time.
+   */
   void increase_size_unchecked(uint n)
   {
     BLI_assert(m_end + n <= m_capacity_end);
@@ -417,13 +433,17 @@ class Vector {
   {
     this->extend(array.begin(), array.size());
   }
-
   void extend(const T *start, uint amount)
   {
     this->reserve(this->size() + amount);
     this->extend_unchecked(start, amount);
   }
 
+  /**
+   * Adds all elements from the array that are not already in the vector. This is an expensive
+   * operation when the vector is large, but can be very cheap when it is known that the vector is
+   * small.
+   */
   void extend_non_duplicates(ArrayRef<T> array)
   {
     for (const T &value : array) {
@@ -431,11 +451,14 @@ class Vector {
     }
   }
 
+  /**
+   * Extend the vector without bounds checking. It is assumed that enough memory has been reserved
+   * beforehand. Only use this in performance critical code.
+   */
   void extend_unchecked(ArrayRef<T> array)
   {
     this->extend_unchecked(array.begin(), array.size());
   }
-
   void extend_unchecked(const T *start, uint amount)
   {
     BLI_assert(m_begin + amount <= m_capacity_end);
@@ -453,7 +476,6 @@ class Vector {
     BLI_assert(this->size() > 0);
     return *(m_end - 1);
   }
-
   T &last()
   {
     BLI_assert(this->size() > 0);
@@ -468,6 +490,9 @@ class Vector {
     std::fill(m_begin, m_end, value);
   }
 
+  /**
+   * Copy the value to all positions specified by the indices array.
+   */
   void fill_indices(ArrayRef<uint> indices, const T &value)
   {
     MutableArrayRef<T>(*this).fill_indices(indices, value);
@@ -491,8 +516,8 @@ class Vector {
   }
 
   /**
-   * Deconstructs the last element and decreases the size by one.
-   * This will assert when the vector is empty.
+   * Deconstructs the last element and decreases the size by one. This will fail when the vector is
+   * empty.
    */
   void remove_last()
   {
@@ -503,7 +528,8 @@ class Vector {
   }
 
   /**
-   * Remove the last element from the vector and return it.
+   * Remove the last element from the vector and return it. This will fail when the vector is
+   * empty.
    */
   T pop_last()
   {
@@ -516,8 +542,8 @@ class Vector {
   }
 
   /**
-   * Delete any element in the vector.
-   * The empty space will be filled by the previously last element.
+   * Delete any element in the vector. The empty space will be filled by the previously last
+   * element. This takes O(1) time.
    */
   void remove_and_reorder(uint index)
   {
@@ -531,6 +557,10 @@ class Vector {
     UPDATE_VECTOR_SIZE(this);
   }
 
+  /**
+   * Finds the first occurence of the value, removes it and copies the last element to the hole in
+   * the vector. This takes O(n) time.
+   */
   void remove_first_occurrence_and_reorder(const T &value)
   {
     uint index = this->index(value);
@@ -572,8 +602,7 @@ class Vector {
   }
 
   /**
-   * Compare vectors element-wise.
-   * Return true when they have the same length and all elements
+   * Compare vectors element-wise. Return true when they have the same length and all elements
    * compare equal, otherwise false.
    */
   static bool all_equal(const Vector &a, const Vector &b)
@@ -620,28 +649,42 @@ class Vector {
   }
 
   /**
-   * Get the current capacity of the vector.
+   * Get the current capacity of the vector, i.e. the maximum number of elements the vector can
+   * hold, before it has to reallocate.
    */
   uint capacity() const
   {
     return (uint)(m_capacity_end - m_begin);
   }
 
+  /**
+   * Get an index range that makes looping over all indices more convenient and less error prone.
+   * Obviously, this should only be used when you actually need the index in the loop.
+   *
+   * Example:
+   *  for (uint i : myvector.index_range()) {
+   *    do_something(i, my_vector[i]);
+   *  }
+   */
   IndexRange index_range() const
   {
     return IndexRange(this->size());
   }
 
-  void print_stats() const
+  /**
+   * Print some debug information about the vector.
+   */
+  void print_stats(StringRef name = "") const
   {
-    std::cout << "Vector at " << (void *)this << ":" << std::endl;
-    std::cout << "  Elements: " << this->size() << std::endl;
-    std::cout << "  Capacity: " << (m_capacity_end - m_begin) << std::endl;
-    std::cout << "  Inline Capacity: " << InlineBufferCapacity << std::endl;
+    std::cout << "Vector Stats: " << name << "\n";
+    std::cout << "  Address: " << this << "\n";
+    std::cout << "  Elements: " << this->size() << "\n";
+    std::cout << "  Capacity: " << (m_capacity_end - m_begin) << "\n";
+    std::cout << "  Inline Capacity: " << InlineBufferCapacity << "\n";
 
     char memory_size_str[15];
     BLI_str_format_byte_unit(memory_size_str, sizeof(*this), true);
-    std::cout << "  Size on Stack: " << memory_size_str << std::endl;
+    std::cout << "  Size on Stack: " << memory_size_str << "\n";
   }
 
  private:
@@ -658,24 +701,25 @@ class Vector {
   void ensure_space_for_one()
   {
     if (UNLIKELY(m_end >= m_capacity_end)) {
-      this->grow(std::max(this->size() * 2, (uint)1));
+      this->grow(this->size() + 1);
     }
   }
 
-  BLI_NOINLINE void grow(uint min_capacity)
+  BLI_NOINLINE void grow(uint required_capacity)
   {
-    if (this->capacity() >= min_capacity) {
+    if (this->capacity() >= required_capacity) {
       return;
     }
 
-    /* Round up to the next power of two. Otherwise consecutive calls to grow can cause a
-     * reallocation every time even though the min_capacity only increments. */
-    min_capacity = power_of_2_max_u(min_capacity);
+    /* At least double the size of the previous allocation. Otherwise consecutive calls to grow can
+     * cause a reallocation every time even though min_capacity only increments.  */
+    uint min_new_capacity = power_of_2_max_u(this->size());
 
+    uint new_capacity = std::max(required_capacity, min_new_capacity);
     uint size = this->size();
 
     T *new_array = (T *)m_allocator.allocate_aligned(
-        min_capacity * (uint)sizeof(T), std::alignment_of<T>::value, "grow BLI::Vector");
+        new_capacity * (uint)sizeof(T), std::alignment_of<T>::value, "grow BLI::Vector");
     uninitialized_relocate_n(m_begin, size, new_array);
 
     if (!this->is_inline()) {
@@ -684,7 +728,7 @@ class Vector {
 
     m_begin = new_array;
     m_end = m_begin + size;
-    m_capacity_end = m_begin + min_capacity;
+    m_capacity_end = m_begin + new_capacity;
   }
 
   /**
