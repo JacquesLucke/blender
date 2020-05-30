@@ -125,8 +125,9 @@ class Map {
   /**
    * Iterate over a slot index sequence for a given hash.
    */
-#define MAP_SLOT_PROBING_BEGIN(HASH, R_SLOT_INDEX) \
-  SLOT_PROBING_BEGIN (ProbingStrategy, HASH, m_slot_mask, R_SLOT_INDEX)
+#define MAP_SLOT_PROBING_BEGIN(HASH, R_SLOT) \
+  SLOT_PROBING_BEGIN (ProbingStrategy, HASH, m_slot_mask, SLOT_INDEX) \
+    auto &R_SLOT = m_slots[SLOT_INDEX];
 #define MAP_SLOT_PROBING_END() SLOT_PROBING_END()
 
  public:
@@ -666,8 +667,7 @@ class Map {
     uint32_t hash = Hash{}(key);
     uint32_t collisions = 0;
 
-    MAP_SLOT_PROBING_BEGIN (hash, slot_index) {
-      const Slot &slot = m_slots[slot_index];
+    MAP_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.contains(key, hash)) {
         return collisions;
       }
@@ -734,8 +734,7 @@ class Map {
 
   template<typename ForwardKey> bool contains__impl(const ForwardKey &key, uint32_t hash) const
   {
-    MAP_SLOT_PROBING_BEGIN (hash, slot_index) {
-      const Slot &slot = m_slots[slot_index];
+    MAP_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.is_empty()) {
         return false;
       }
@@ -754,8 +753,7 @@ class Map {
     this->ensure_can_add();
     m_occupied_and_removed_slots++;
 
-    MAP_SLOT_PROBING_BEGIN (hash, slot_index) {
-      Slot &slot = m_slots[slot_index];
+    MAP_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.is_empty()) {
         slot.occupy(std::forward<ForwardKey>(key), std::forward<ForwardValue>(value), hash);
         return;
@@ -769,8 +767,7 @@ class Map {
   {
     this->ensure_can_add();
 
-    MAP_SLOT_PROBING_BEGIN (hash, slot_index) {
-      Slot &slot = m_slots[slot_index];
+    MAP_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.is_empty()) {
         slot.occupy(std::forward<ForwardKey>(key), std::forward<ForwardValue>(value), hash);
         m_occupied_and_removed_slots++;
@@ -789,8 +786,7 @@ class Map {
 
     m_removed_slots++;
 
-    MAP_SLOT_PROBING_BEGIN (hash, slot_index) {
-      Slot &slot = m_slots[slot_index];
+    MAP_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.contains(key, hash)) {
         slot.remove();
         return;
@@ -805,8 +801,7 @@ class Map {
 
     m_removed_slots++;
 
-    MAP_SLOT_PROBING_BEGIN (hash, slot_index) {
-      Slot &slot = m_slots[slot_index];
+    MAP_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.contains(key, hash)) {
         Value value = *slot.value();
         slot.remove();
@@ -829,9 +824,7 @@ class Map {
 
     this->ensure_can_add();
 
-    MAP_SLOT_PROBING_BEGIN (hash, slot_index) {
-      Slot &slot = m_slots[slot_index];
-
+    MAP_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.is_empty()) {
         m_occupied_and_removed_slots++;
         slot.occupy_without_value(std::forward<ForwardKey>(key), hash);
@@ -851,9 +844,7 @@ class Map {
   {
     this->ensure_can_add();
 
-    MAP_SLOT_PROBING_BEGIN (hash, slot_index) {
-      Slot &slot = m_slots[slot_index];
-
+    MAP_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.is_empty()) {
         slot.occupy(std::forward<ForwardKey>(key), create_value(), hash);
         m_occupied_and_removed_slots++;
@@ -884,9 +875,7 @@ class Map {
   template<typename ForwardKey>
   const Value *lookup_ptr__impl(const ForwardKey &key, uint32_t hash) const
   {
-    MAP_SLOT_PROBING_BEGIN (hash, slot_index) {
-      const Slot &slot = m_slots[slot_index];
-
+    MAP_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.is_empty()) {
         return nullptr;
       }

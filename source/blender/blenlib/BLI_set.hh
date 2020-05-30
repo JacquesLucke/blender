@@ -140,8 +140,9 @@ class Set {
   uint32_t m_slot_mask;
 
   /** Iterate over a slot index sequence for a given hash. */
-#define SET_SLOT_PROBING_BEGIN(HASH, R_SLOT_INDEX) \
-  SLOT_PROBING_BEGIN (ProbingStrategy, HASH, m_slot_mask, R_SLOT_INDEX)
+#define SET_SLOT_PROBING_BEGIN(HASH, R_SLOT) \
+  SLOT_PROBING_BEGIN (ProbingStrategy, HASH, m_slot_mask, SLOT_INDEX) \
+    auto &R_SLOT = m_slots[SLOT_INDEX];
 #define SET_SLOT_PROBING_END() SLOT_PROBING_END()
 
  public:
@@ -422,8 +423,7 @@ class Set {
     uint32_t hash = Hash{}(key);
     uint32_t collisions = 0;
 
-    SET_SLOT_PROBING_BEGIN (hash, slot_index) {
-      const Slot &slot = m_slots[slot_index];
+    SET_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.contains(key, hash)) {
         return collisions;
       }
@@ -537,8 +537,7 @@ class Set {
 
   template<typename ForwardKey> bool contains__impl(const ForwardKey &key, uint32_t hash) const
   {
-    SET_SLOT_PROBING_BEGIN (hash, slot_index) {
-      const Slot &slot = m_slots[slot_index];
+    SET_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.is_empty()) {
         return false;
       }
@@ -555,8 +554,7 @@ class Set {
 
     this->ensure_can_add();
 
-    SET_SLOT_PROBING_BEGIN (hash, slot_index) {
-      Slot &slot = m_slots[slot_index];
+    SET_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.is_empty()) {
         slot.occupy(std::forward<ForwardKey>(key), hash);
         m_occupied_and_removed_slots++;
@@ -570,8 +568,7 @@ class Set {
   {
     this->ensure_can_add();
 
-    SET_SLOT_PROBING_BEGIN (hash, slot_index) {
-      Slot &slot = m_slots[slot_index];
+    SET_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.is_empty()) {
         slot.occupy(std::forward<ForwardKey>(key), hash);
         m_occupied_and_removed_slots++;
@@ -589,8 +586,7 @@ class Set {
     BLI_assert(this->contains(key));
     m_removed_slots++;
 
-    SET_SLOT_PROBING_BEGIN (hash, slot_index) {
-      Slot &slot = m_slots[slot_index];
+    SET_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.contains(key, hash)) {
         slot.remove();
         return;
@@ -601,8 +597,7 @@ class Set {
 
   template<typename ForwardKey> bool discard__impl(const ForwardKey &key, uint32_t hash)
   {
-    SET_SLOT_PROBING_BEGIN (hash, slot_index) {
-      Slot &slot = m_slots[slot_index];
+    SET_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.contains(key, hash)) {
         slot.remove();
         m_removed_slots++;
