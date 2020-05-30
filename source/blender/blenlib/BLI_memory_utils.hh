@@ -21,13 +21,20 @@
  * \ingroup bli
  */
 
-#include <algorithm>
 #include <memory>
 
 #include "BLI_utildefines.h"
 
 namespace BLI {
 
+/**
+ * Call the destructor on n consecutive values.
+ *
+ * Before:
+ *  ptr: initialized
+ * After:
+ *  ptr: uninitialized
+ */
 template<typename T> void destruct_n(T *ptr, uint n)
 {
   for (uint i = 0; i < n; i++) {
@@ -35,6 +42,16 @@ template<typename T> void destruct_n(T *ptr, uint n)
   }
 }
 
+/**
+ * Copy n values from src to dst.
+ *
+ * Before:
+ *  src: initialized
+ *  dst: initialized
+ * After:
+ *  src: initialized
+ *  dst: initialized
+ */
 template<typename T> void initialized_copy_n(const T *src, uint n, T *dst)
 {
   for (uint i = 0; i < n; i++) {
@@ -42,6 +59,16 @@ template<typename T> void initialized_copy_n(const T *src, uint n, T *dst)
   }
 }
 
+/**
+ * Copy n values from src to dst.
+ *
+ * Before:
+ *  src: initialized
+ *  dst: uninitialized
+ * After:
+ *  src: initialized
+ *  dst: initialized
+ */
 template<typename T> void uninitialized_copy_n(const T *src, uint n, T *dst)
 {
   for (uint i = 0; i < n; i++) {
@@ -49,27 +76,16 @@ template<typename T> void uninitialized_copy_n(const T *src, uint n, T *dst)
   }
 }
 
-template<typename T> void uninitialized_fill_n(T *dst, uint n, const T &value)
-{
-  for (uint i = 0; i < n; i++) {
-    new (dst + i) T(value);
-  }
-}
-
-template<typename T> void initialized_fill_n(T *dst, uint n, const T &value)
-{
-  for (uint i = 0; i < n; i++) {
-    dst[i] = value;
-  }
-}
-
-template<typename T> void uninitialized_move_n(T *src, uint n, T *dst)
-{
-  for (uint i = 0; i < n; i++) {
-    new (dst + i) T(std::move(src[i]));
-  }
-}
-
+/**
+ * Move n values from src to dst.
+ *
+ * Before:
+ *  src: initialized
+ *  dst: initialized
+ * After:
+ *  src: initialized, moved-from
+ *  dst: initialized
+ */
 template<typename T> void initialized_move_n(T *src, uint n, T *dst)
 {
   for (uint i = 0; i < n; i++) {
@@ -77,18 +93,90 @@ template<typename T> void initialized_move_n(T *src, uint n, T *dst)
   }
 }
 
-template<typename T> void uninitialized_relocate_n(T *src, uint n, T *dst)
+/**
+ * Move n values from src to dst.
+ *
+ * Before:
+ *  src: initialized
+ *  dst: uninitialized
+ * After:
+ *  src: initialized, moved-from
+ *  dst: initialized
+ */
+template<typename T> void uninitialized_move_n(T *src, uint n, T *dst)
 {
-  uninitialized_move_n(src, n, dst);
-  destruct_n(src, n);
+  for (uint i = 0; i < n; i++) {
+    new (dst + i) T(std::move(src[i]));
+  }
 }
 
+/**
+ * Relocate n values from src to dst. Relocation is a move followed by destruction of the src
+ * value.
+ *
+ * Before:
+ *  src: initialized
+ *  dst: initialized
+ * After:
+ *  src: uninitialized
+ *  dst: initialized
+ */
 template<typename T> void initialized_relocate_n(T *src, uint n, T *dst)
 {
   initialized_move_n(src, n, dst);
   destruct_n(src, n);
 }
 
+/**
+ * Relocate n values from src to dst. Relocation is a move followed by destruction of the src
+ * value.
+ *
+ * Before:
+ *  src: initialized
+ *  dst: uinitialized
+ * After:
+ *  src: uninitialized
+ *  dst: initialized
+ */
+template<typename T> void uninitialized_relocate_n(T *src, uint n, T *dst)
+{
+  uninitialized_move_n(src, n, dst);
+  destruct_n(src, n);
+}
+
+/**
+ * Copy the value to n consecutive elements.
+ *
+ * Before:
+ *  dst: initialized
+ * After:
+ *  dst: initialized
+ */
+template<typename T> void initialized_fill_n(T *dst, uint n, const T &value)
+{
+  for (uint i = 0; i < n; i++) {
+    dst[i] = value;
+  }
+}
+
+/**
+ * Copy the value to n consecutive elements.
+ *
+ * Before:
+ *  dst: uninitialized
+ * After:
+ *  dst: initialized
+ */
+template<typename T> void uninitialized_fill_n(T *dst, uint n, const T &value)
+{
+  for (uint i = 0; i < n; i++) {
+    new (dst + i) T(value);
+  }
+}
+
+/**
+ * The same as std::unique_ptr. This can be removed when we start using C++14.
+ */
 template<typename T, typename... Args> std::unique_ptr<T> make_unique(Args &&... args)
 {
   return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
@@ -101,8 +189,20 @@ template<typename T> struct DestructValueAtAddress {
   }
 };
 
+/**
+ * A destruct_ptr is like unique_ptr, but it will only call the destructor and will not free the
+ * memory. This is useful when using custom allocators.
+ */
 template<typename T> using destruct_ptr = std::unique_ptr<T, DestructValueAtAddress<T>>;
 
+/**
+ * An `AlignedBuffer` is simply a byte array with the given size and alignment. The buffer will not
+ * be initialized by the default constructor.
+ *
+ * This can be used to reserve memory for C++ objects whose lifetime is different from the lifetime
+ * of the object they are embedded in. It's used by containers with small buffer optimization and
+ * hash table implementations.
+ */
 template<size_t Size, size_t Alignment> class alignas(Alignment) AlignedBuffer {
  private:
   /* Don't create an empty array. This causes problems with some compilers. */
