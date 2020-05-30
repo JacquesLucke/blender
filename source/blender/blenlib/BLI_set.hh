@@ -55,9 +55,7 @@ namespace BLI {
 template<typename Key> struct DefaultSetSlot;
 
 template<
-    /**
-     * Type of the elements that are stored in this set. It has to be movable.
-     */
+    /** Type of the elements that are stored in this set. It has to be movable. */
     typename Key,
     /**
      * The minimum number of elements that can be stored in this Set without doing a heap
@@ -127,16 +125,16 @@ class Set {
    */
   uint32_t m_slot_mask;
 
-  /**
-   * Iterate over a slot index sequence for a given hash.
-   */
+  /** Iterate over a slot index sequence for a given hash. */
 #define SET_SLOT_PROBING_BEGIN(HASH, R_SLOT_INDEX) \
   SLOT_PROBING_BEGIN (ProbingStrategy, HASH, m_slot_mask, R_SLOT_INDEX)
 #define SET_SLOT_PROBING_END() SLOT_PROBING_END()
 
  public:
   /**
-   * Initialize an empty set.
+   * Initialize an empty set. This is a cheap operation no matter how large the inline buffer is.
+   * This is necessary to avoid a high cost when no elements are added at all. An optimized grow
+   * operation is performed on the first insertion.
    */
   Set() : m_slots(1)
   {

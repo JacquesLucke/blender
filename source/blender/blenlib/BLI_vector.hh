@@ -59,7 +59,9 @@
 namespace BLI {
 
 template<
-    /** Type of the values stored in this vector. They have to be movable. */
+    /**
+     * Type of the values stored in this vector. They have to be movable.
+     */
     typename T,
     /**
      * The number of values that can be stored in this vector, without doing a heap allocation.
@@ -81,6 +83,8 @@ class Vector {
   T *m_begin;
   T *m_end;
   T *m_capacity_end;
+
+  /** Used for allocations when the inline buffer is too small. */
   Allocator m_allocator;
 
   /** A placeholder buffer that will remain uninitialized until it is used. */

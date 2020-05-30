@@ -133,7 +133,9 @@ class VectorSet {
 
  public:
   /**
-   * Initialize an empty vector set.
+   * Initialize an empty vector set. This is a cheap operation and won't do an allocation. This is
+   * necessary to avoid a high cost when no elements are added at all. An optimized grow operation
+   * is performed on the first insertion.
    */
   VectorSet() : m_slots(1)
   {
@@ -439,9 +441,7 @@ class VectorSet {
         total_slots, s_max_load_factor_numerator, s_max_load_factor_denominator);
     uint32_t new_slot_mask = total_slots - 1;
 
-    /**
-     * Optimize the case when the set was empty beforehand. We can avoid some copies here.
-     */
+    /* Optimize the case when the set was empty beforehand. We can avoid some copies here. */
     if (this->size() == 0) {
       m_slots.~Array();
       new (&m_slots) SlotArray(total_slots);

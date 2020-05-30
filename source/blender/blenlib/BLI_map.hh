@@ -128,7 +128,9 @@ class Map {
 
  public:
   /**
-   * Initialize an empty map.
+   * Initialize an empty map. This is a cheap operation no matter how large the inline buffer is.
+   * This is necessary to avoid a high cost when no elements are added at all. An optimized grow
+   * operation is performed on the first insertion.
    */
   Map() : m_slots(1)
   {
