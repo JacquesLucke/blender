@@ -465,6 +465,8 @@ class VectorSet {
     uninitialized_relocate_n(m_keys, this->size(), new_keys);
     this->deallocate_keys_array(m_keys);
 
+    /* All occupied slots have been destructed already and empty/removed slots are assumed to be
+     * trivially destructable. */
     m_slots.clear_without_destruct();
     m_slots = std::move(new_slots);
     m_keys = new_keys;

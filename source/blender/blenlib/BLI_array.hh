@@ -114,6 +114,10 @@ class Array {
     }
   }
 
+  /**
+   * Create a new array with the given size. All values will be initialized by copying the given
+   * default.
+   */
   Array(uint size, const T &value)
   {
     m_size = size;
@@ -209,16 +213,25 @@ class Array {
     return m_data[index];
   }
 
+  /**
+   * Returns the number of elements in the array.
+   */
   uint size() const
   {
     return m_size;
   }
 
+  /**
+   * Copies the value to all indices in the array.
+   */
   void fill(const T &value)
   {
     MutableArrayRef<T>(*this).fill(value);
   }
 
+  /**
+   * Copies the value to the given indices in the array.
+   */
   void fill_indices(ArrayRef<uint> indices, const T &value)
   {
     MutableArrayRef<T>(*this).fill_indices(indices, value);
@@ -244,19 +257,28 @@ class Array {
     return m_data + m_size;
   }
 
+  /**
+   * Get an index range containing all valid indices for this array.
+   */
   IndexRange index_range() const
   {
     return IndexRange(m_size);
   }
 
-  Allocator &allocator()
-  {
-    return m_allocator;
-  }
-
+  /**
+   * Sets the size to zero. This should be used carefully to avoid memory leaks.
+   */
   void clear_without_destruct()
   {
     m_size = 0;
+  }
+
+  /**
+   * Access the allocator used by this array.
+   */
+  Allocator &allocator()
+  {
+    return m_allocator;
   }
 
  private:
