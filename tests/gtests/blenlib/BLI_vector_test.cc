@@ -15,9 +15,6 @@ TEST(vector, SizeConstructor)
 {
   Vector<int> vec(3);
   EXPECT_EQ(vec.size(), 3);
-  EXPECT_EQ(vec[0], 0);
-  EXPECT_EQ(vec[1], 0);
-  EXPECT_EQ(vec[2], 0);
 }
 
 TEST(vector, SizeValueConstructor)

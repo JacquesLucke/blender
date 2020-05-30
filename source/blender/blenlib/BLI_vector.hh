@@ -130,7 +130,7 @@ class Vector {
     this->reserve(size);
     this->increase_size_unchecked(size);
     for (T *current = m_begin; current != m_end; current++) {
-      new (current) T();
+      new (current) T;
     }
   }
 
