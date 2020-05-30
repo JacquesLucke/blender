@@ -572,7 +572,7 @@ class VectorSet {
 
     uint32_t index_to_pop = this->size() - 1;
     Key key = std::move(m_keys[index_to_pop]);
-    destruct(m_keys + index_to_pop);
+    m_keys[index_to_pop].~Key();
     uint32_t hash = Hash{}(key);
 
     m_removed_slots++;
@@ -601,7 +601,7 @@ class VectorSet {
           this->update_slot_index(m_keys[index_to_remove], last_element_index, index_to_remove);
         }
 
-        destruct(m_keys + last_element_index);
+        m_keys[last_element_index].~Key();
         slot.remove();
         m_removed_slots++;
         return;

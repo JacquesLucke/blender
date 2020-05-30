@@ -522,7 +522,7 @@ class Vector {
   {
     BLI_assert(!this->is_empty());
     m_end--;
-    destruct(m_end);
+    m_end->~T();
     UPDATE_VECTOR_SIZE(this);
   }
 
@@ -535,7 +535,7 @@ class Vector {
     BLI_assert(!this->is_empty());
     m_end--;
     T value = std::move(*m_end);
-    destruct(m_end);
+    m_end->~T();
     UPDATE_VECTOR_SIZE(this);
     return value;
   }
@@ -552,7 +552,7 @@ class Vector {
     if (element_to_remove < m_end) {
       *element_to_remove = std::move(*m_end);
     }
-    destruct(m_end);
+    m_end->~T();
     UPDATE_VECTOR_SIZE(this);
   }
 
@@ -754,7 +754,7 @@ class Vector {
     m_end = m_begin + size;
     m_capacity_end = m_begin + capacity;
 
-    uninitialized_copy(other.begin(), other.end(), m_begin);
+    uninitialized_copy_n(other.begin(), size, m_begin);
     UPDATE_VECTOR_SIZE(this);
   }
 };
