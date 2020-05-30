@@ -61,8 +61,11 @@ template<
      * The minimum number of elements that can be stored in this Set without doing a heap
      * allocation. This is useful when you expect to have many small sets. However, keep in mind
      * that (other than in a vector) initializing a set has a O(n) cost in the number of slots.
+     *
+     * When Key is large, the small buffer optimization is disabled by default to avoid large
+     * unexpected allocations on the stack. It can still be enabled explicitely though.
      */
-    uint32_t InlineBufferCapacity = 4,
+    uint32_t InlineBufferCapacity = (sizeof(Key) < 100) ? 4 : 0,
     /**
      * The strategy used to deal with collisions. They are defined in BLI_probing_strategies.hh.
      */

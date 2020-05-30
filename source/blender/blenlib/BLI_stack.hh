@@ -69,8 +69,11 @@ template<
      * The number of values that can be stored in this stack, without doing a heap allocation.
      * Sometimes it can make sense to increase this value a lot. The memory in the inline buffer is
      * not initialized when it is not needed.
+     *
+     * When T is large, the small buffer optimization is disabled by default to avoid large
+     * unexpected allocations on the stack. It can still be enabled explicitely though.
      */
-    uint InlineBufferCapacity = 4,
+    uint InlineBufferCapacity = (sizeof(T) < 100) ? 4 : 0,
     /**
      * The allocator used by this stack. Should rarely be changed, except when you don't want that
      * MEM_mallocN etc. is used internally.

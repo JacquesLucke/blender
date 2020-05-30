@@ -30,10 +30,6 @@
  * (iterators of std::vector remain valid when the vector is moved).
  *
  * `BLI::Vector` should be your default choice for a vector data structure in Blender.
- *
- * Possible Improvements:
- * - Make the default of the small buffer size a bit more dynamic. When T is very large, we might
- *   not want it to be stored in the vector directly, because this can use up a lot of stack space.
  */
 
 #include <algorithm>
@@ -65,8 +61,11 @@ template<
      * The number of values that can be stored in this vector, without doing a heap allocation.
      * Sometimes it makes sense to increase this value a lot. The memory in the inline buffer is
      * not initialized when it is not needed.
+     *
+     * When T is large, the small buffer optimization is disabled by default to avoid large
+     * unexpected allocations on the stack. It can still be enabled explicitely though.
      */
-    uint InlineBufferCapacity = 4,
+    uint InlineBufferCapacity = (sizeof(T) < 100) ? 4 : 0,
     /**
      * The allocator used by this vector. Should rarely be changed, except when you don't want that
      * MEM_mallocN etc. is used internally.
