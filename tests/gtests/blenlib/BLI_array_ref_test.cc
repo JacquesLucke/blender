@@ -202,19 +202,6 @@ TEST(array_ref, FillIndices)
   EXPECT_EQ(a[4], 0);
 }
 
-TEST(array_ref, CopyFrom)
-{
-  std::array<int, 3> a = {3, 4, 5};
-  MutableIntArrayRef a_ref(a);
-  EXPECT_EQ(a[0], 3);
-  EXPECT_EQ(a[1], 4);
-  EXPECT_EQ(a[2], 5);
-  a_ref.copy_from({1, 2, 3});
-  EXPECT_EQ(a[0], 1);
-  EXPECT_EQ(a[1], 2);
-  EXPECT_EQ(a[2], 3);
-}
-
 TEST(array_ref, ByteSize)
 {
   std::array<int, 10> a;

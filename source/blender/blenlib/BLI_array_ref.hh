@@ -20,19 +20,30 @@
 /** \file
  * \ingroup bli
  *
- * These classes offer a convenient way to work with continuous chunks of memory of a certain type.
- * We differentiate #ArrayRef and #MutableArrayRef. The elements in the former are const while the
- * elements in the other are not.
+ * A `BLI::ArrayRef<T>` references an array that is owned by someone else. Since the memory is not
+ * owned, ArrayRef should not be used to transfer ownership. The array cannot be modified through
+ * the ArrayRef. However, if T is a non-const pointer, the pointed to elements can be modified.
  *
- * Passing array references as parameters has multiple benefits:
- *   - Less templates are used because the function does not have to work with different
- *     container types.
- *   - It encourages an Struct-of-Arrays data layout which is often beneficial when
- *     writing high performance code. Also it makes it easier to reuse code.
- *   - Array references offer convenient ways of slicing and other operations.
+ * There is also `BLI::MutableArrayRef<T>`. It is mostly the same as ArrayRef, but allows that the
+ * array to be modified.
  *
- * The instances of #ArrayRef and #MutableArrayRef are very small and should be passed by value.
- * Since array references do not own any memory, it is generally not save to store them.
+ * `BLI::ArrayRef<T>` should be your default choice when you have to pass a read-only array into a
+ * function. It is better than passing a `const Vector &`, because then the function only works for
+ * vectors and not for e.g. arrays. Using ArrayRef as function parameter makes it usable in more
+ * contexts, better expresses the intend and does not sacrifice performance. It is also better than
+ * passing a raw pointer and size separately, because it is more convenient and safe.
+ *
+ * `BLI::MutableArrayRef<T>` should be your default choice when a function has to return an array,
+ * the size of which is known before the function is called. The MutableArrayRef should then be an
+ * output parameter at the end of the function signature. This way the caller is responsible for
+ * allocating and freeing memory. Furthermore, the function can focus on its actual task and does
+ * not have to worry about memory allocation. In some cases it more convenient to return an Array
+ * or Vector from a function instead. It has to be decided on a case by case basis.
+ *
+ * Since the arrays are only referenced, it is generally not save to store them. When you store
+ * them, you should know who owns the memory.
+ *
+ * Instances of ArrayRef and MutableArrayRef are small and should be passed by value.
  */
 
 #include <algorithm>
@@ -48,7 +59,7 @@
 namespace BLI {
 
 /**
- * References an array of data. The elements in the array should not be changed.
+ * References an array of type T. The data in the array cannot be modified.
  */
 template<typename T> class ArrayRef {
  private:
@@ -79,8 +90,9 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * ArrayRef<T *> -> ArrayRef<const T *>
-   * ArrayRef<Derived *> -> ArrayRef<Base *>
+   * Support implicit conversions like the ones below:
+   *   ArrayRef<T *> -> ArrayRef<const T *>
+   *   ArrayRef<Derived *> -> ArrayRef<Base *>
    */
   template<typename U,
            typename std::enable_if<std::is_convertible<U *, T>::value>::type * = nullptr>
@@ -285,6 +297,10 @@ template<typename T> class ArrayRef {
     return false;
   }
 
+  /**
+   * Returns true when this and the other array have an element in common. This should only be
+   * called on small arrays, because it has a running time of O(n^2).
+   */
   bool intersects__linear_search(ArrayRef other) const
   {
     /* The size should really be smaller than that. If it is not, the calling code should be
@@ -300,6 +316,10 @@ template<typename T> class ArrayRef {
     return false;
   }
 
+  /**
+   * Get the index of the first occurrence of the given value. It is assumed that the value is in
+   * the array.
+   */
   uint first_index(const T &search_value) const
   {
     int index = this->first_index_try(search_value);
@@ -307,6 +327,9 @@ template<typename T> class ArrayRef {
     return (uint)index;
   }
 
+  /**
+   * Get the index of the first occurrence of the given value or -1 if it does not exist.
+   */
   int first_index_try(const T &search_value) const
   {
     for (uint i = 0; i < m_size; i++) {
@@ -315,16 +338,6 @@ template<typename T> class ArrayRef {
       }
     }
     return -1;
-  }
-
-  template<typename PredicateT> bool any(const PredicateT predicate)
-  {
-    for (uint i = 0; i < m_size; i++) {
-      if (predicate(m_start[i])) {
-        return true;
-      }
-    }
-    return false;
   }
 
   /**
@@ -360,6 +373,10 @@ template<typename T> class ArrayRef {
     }
   }
 
+  /**
+   * A debug utility to print the content of the array ref. Every element be printed on a separate
+   * line.
+   */
   void print_as_lines(std::string name) const
   {
     this->print_as_lines(name, [](const T &value) { std::cout << value; });
@@ -423,20 +440,6 @@ template<typename T> class MutableArrayRef {
     for (uint i : indices) {
       m_start[i] = element;
     }
-  }
-
-  /**
-   * Copy the values from another array into the references array.
-   */
-  void copy_from(const T *ptr)
-  {
-    initialized_copy_n(ptr, m_size, m_start);
-  }
-
-  void copy_from(ArrayRef<T> other)
-  {
-    BLI_assert(this->size() == other.size());
-    this->copy_from(other.begin());
   }
 
   T *begin() const
@@ -511,6 +514,9 @@ template<typename T> class MutableArrayRef {
     return IndexRange(m_size);
   }
 
+  /**
+   * Get a reference to the last element. This will fail when the array is empty.
+   */
   const T &last() const
   {
     BLI_assert(m_size > 0);
@@ -536,6 +542,9 @@ template<typename T> ArrayRef<T> ref_c_array(const T *array, uint size)
   return ArrayRef<T>(array, size);
 }
 
+/**
+ * Utilities to check that arrays have the same in debug builds.
+ */
 template<typename T1, typename T2> void assert_same_size(const T1 &v1, const T2 &v2)
 {
   UNUSED_VARS_NDEBUG(v1, v2);
