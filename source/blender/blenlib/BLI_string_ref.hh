@@ -20,12 +20,26 @@
 /** \file
  * \ingroup bli
  *
- * A StringRef is a pointer to a string somewhere in memory. It should not be used to transfer
- * ownership of that string. When a function gets a StringRef as input, it cannot expect, that
- * the string will still exist after the function ends.
+ * A `BLI::StringRef` references a const char array owned by someone else. Since the memory is not
+ * owned, StringRef should not be used to transfer ownership of the string. The data referenced by
+ * a StringRef cannot be mutated through it.
  *
- * There are two types of string references: One that guarantees null termination and one that does
- * not.
+ * A StringRef is NOT null-terminated. This makes it much more powerful within C++, because we can
+ * also cut off parts of the end without creating a copy. When interfacing with C code that expects
+ * null-terminated strings, `BLI::StringRefNull` can be used. It is essentially the same as
+ * StringRef, but with the restriction that the string has to be null-terminated.
+ *
+ * Whenever possible, string parameters should be of type StringRef and the string return type
+ * should be StringRefNull. Don't forget that the StringRefNull does not own the string, so don't
+ * return it when the string exists only in the scope of the function. This convention makes
+ * functions usable in the most contexts.
+ *
+ * BLI::StringRef vs. std::string_view:
+ *   Both types are certainly very similar. The main benefit of using StringRef in Blender is that
+ *   this allows us to add convenience methods at any time. Especially, when doing a lot of string
+ *   manipulation, this can help keep to keep the code clean. Furthermore, we need StringRefNull
+ *   anyway, because there is a lot of C code that expects null-terminated strings. Once we use
+ *   C++17, implicit to and from string_view can be added.
  */
 
 #include <cstring>
@@ -39,6 +53,10 @@ namespace BLI {
 
 class StringRef;
 
+/**
+ * A common base class for StringRef and StringRefNull. This should never be used in other files.
+ * It only exists to avoid some code duplication.
+ */
 class StringRefBase {
  protected:
   const char *m_data;
@@ -65,17 +83,15 @@ class StringRefBase {
     return m_data;
   }
 
-  char operator[](uint index) const
-  {
-    BLI_assert(index <= m_size);
-    return m_data[index];
-  }
-
   operator ArrayRef<char>() const
   {
     return ArrayRef<char>(m_data, m_size);
   }
 
+  /**
+   * Implicitely convert to std::string. This is convenient in most cases, but you have to be a bit
+   * careful not to convert to std::string accidentally.
+   */
   operator std::string() const
   {
     return std::string(m_data, m_size);
@@ -91,12 +107,21 @@ class StringRefBase {
     return m_data + m_size;
   }
 
+  /**
+   * Copy the string into a buffer. The buffer has to be one byte larger than the size of the
+   * string, because the copied string will be null-terminated. Only use this when you are
+   * absolutely sure that the buffer is large enough.
+   */
   void unsafe_copy(char *dst) const
   {
     memcpy(dst, m_data, m_size);
     dst[m_size] = '\0';
   }
 
+  /**
+   * Copy the string into a buffer. This will fail when the buffer is not large enough. The copied
+   * string will be null-terminated.
+   */
   void copy(char *dst, uint dst_size) const
   {
     if (m_size < dst_size) {
@@ -108,6 +133,9 @@ class StringRefBase {
     }
   }
 
+  /**
+   * Copy the string into a char array. The copied string will be null-terminated.
+   */
   template<uint N> void copy(char (&dst)[N])
   {
     this->copy(dst, N);
@@ -127,7 +155,7 @@ class StringRefBase {
 };
 
 /**
- * References a null-terminated char array.
+ * References a null-terminated const char array.
  */
 class StringRefNull : public StringRefBase {
 
@@ -136,24 +164,45 @@ class StringRefNull : public StringRefBase {
   {
   }
 
+  /**
+   * Construct a StringRefNull from a null terminated c-string. The pointer must not point to NULL.
+   */
   StringRefNull(const char *str) : StringRefBase(str, (uint)strlen(str))
   {
     BLI_assert(str != NULL);
     BLI_assert(m_data[m_size] == '\0');
   }
 
+  /**
+   * Construct a StringRefNull from a null terminated c-string. The size is expected to be the
+   * correct size of the string.
+   */
   StringRefNull(const char *str, uint size) : StringRefBase(str, size)
   {
-    BLI_assert(str[size] == '\0');
+    BLI_assert((uint)strlen(str) == size);
   }
 
+  /**
+   * Reference a std::string. Remember that when the std::string is destructed, the StringRefNull
+   * will point to uninitialized memory.
+   */
   StringRefNull(const std::string &str) : StringRefNull(str.data())
   {
+  }
+
+  /**
+   * Get the char at the given index.
+   */
+  char operator[](uint index) const
+  {
+    /* Use '<=' instead of just '<', so that the null character can be accessed as well. */
+    BLI_assert(index <= m_size);
+    return m_data[index];
   }
 };
 
 /**
- * References a char array. It might not be null terminated.
+ * References a const char array. It might not be null terminated.
  */
 class StringRef : public StringRefBase {
  public:
@@ -161,10 +210,16 @@ class StringRef : public StringRefBase {
   {
   }
 
+  /**
+   * StringRefNull can be converted into StringRef, but not the other way around.
+   */
   StringRef(StringRefNull other) : StringRefBase(other.data(), other.size())
   {
   }
 
+  /**
+   * Create a StringRef from a null-terminated c-string.
+   */
   StringRef(const char *str) : StringRefBase(str, str ? (uint)strlen(str) : 0)
   {
   }
@@ -173,6 +228,10 @@ class StringRef : public StringRefBase {
   {
   }
 
+  /**
+   * Reference a std::string. Remember that when the std::string is destructed, the StringRef
+   * will point to uninitialized memory.
+   */
   StringRef(const std::string &str) : StringRefBase(str.data(), (uint)str.size())
   {
   }
@@ -195,6 +254,15 @@ class StringRef : public StringRefBase {
     BLI_assert(this->startswith(prefix));
     return this->drop_prefix(prefix.size());
   }
+
+  /**
+   * Get the char at the given index.
+   */
+  char operator[](uint index) const
+  {
+    BLI_assert(index < m_size);
+    return m_data[index];
+  }
 };
 
 /* More inline functions
@@ -212,6 +280,10 @@ inline std::ostream &operator<<(std::ostream &stream, StringRefNull ref)
   return stream;
 }
 
+/**
+ * Adding two StringRefs will allocate an std::string. This is not efficient, but convenient in
+ * most cases.
+ */
 inline std::string operator+(StringRef a, StringRef b)
 {
   return std::string(a) + std::string(b);
@@ -230,6 +302,9 @@ inline bool operator!=(StringRef a, StringRef b)
   return !(a == b);
 }
 
+/**
+ * Return true when the string starts with the given prefix.
+ */
 inline bool StringRefBase::startswith(StringRef prefix) const
 {
   if (m_size < prefix.m_size) {
@@ -243,6 +318,9 @@ inline bool StringRefBase::startswith(StringRef prefix) const
   return true;
 }
 
+/**
+ * Return true when the string ends with the given suffix.
+ */
 inline bool StringRefBase::endswith(StringRef suffix) const
 {
   if (m_size < suffix.m_size) {
@@ -257,6 +335,9 @@ inline bool StringRefBase::endswith(StringRef suffix) const
   return true;
 }
 
+/**
+ * Return a new StringRef containing only a substring of the original string.
+ */
 inline StringRef StringRefBase::substr(uint start, uint size) const
 {
   BLI_assert(start + size <= m_size);
