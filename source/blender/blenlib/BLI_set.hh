@@ -29,6 +29,16 @@
  * The implementation uses open addressing in a flat array. The number of slots is always a power
  * of two. More implementation details depend on the used template parameters.
  *
+ * Benchmarking hash tables is hard. There are many things that influence how well a hash table
+ * performs. It depends on the hash function, probing strategy, max load factor, element type, slot
+ * type and of course the actual distribution of the data. Changing just one of these can make the
+ * hash table perform very badly. BLI::Set is designed to be relatively fast in all cases, but it's
+ * also quite adjustable and can be optimized for a specific use case.
+ *
+ * Rudimentary benchmarks can be enabled in BLI_set_test.cc. The results of that benchmark are
+ * there as well. The numbers show that in this specific case BLI::Set outperforms
+ * std::unordered_set consistently. Usually by a factor between 2-4.
+ *
  * Possible Improvements:
  * - Support lookups using other key types without conversion.
  * - Branchless loop over slots in grow function (measured ~10% performance improvement in some
@@ -40,6 +50,7 @@
  */
 
 #include <type_traits>
+#include <unordered_set>
 
 #include "BLI_array.hh"
 #include "BLI_hash.hh"
@@ -325,7 +336,15 @@ class Set {
    */
   void remove(const Key &key)
   {
-    return this->remove__impl(key, Hash{}(key));
+    this->remove__impl(key, Hash{}(key));
+  }
+
+  /**
+   * Deletes the key from the set. Returns true when the key did exist beforehand, otherwise false.
+   */
+  bool discard(const Key &key)
+  {
+    return this->discard__impl(key, Hash{}(key));
   }
 
   /**
@@ -580,6 +599,22 @@ class Set {
     SET_SLOT_PROBING_END();
   }
 
+  template<typename ForwardKey> bool discard__impl(const ForwardKey &key, uint32_t hash)
+  {
+    SET_SLOT_PROBING_BEGIN (hash, slot_index) {
+      Slot &slot = m_slots[slot_index];
+      if (slot.contains(key, hash)) {
+        slot.remove();
+        m_removed_slots++;
+        return true;
+      }
+      if (slot.is_empty()) {
+        return false;
+      }
+    }
+    SET_SLOT_PROBING_END();
+  }
+
   void ensure_can_add()
   {
     if (m_occupied_and_removed_slots >= m_usable_slots) {
@@ -590,6 +625,86 @@ class Set {
 #undef s_max_load_factor_numerator
 #undef s_max_load_factor_denominator
 #undef s_inline_slots_capacity
+};
+
+/**
+ * A wrapper for std::unordered_set with the API of BLI::Set. This can be used for benchmarking.
+ */
+template<typename Key> class StdUnorderedSetWrapper {
+ private:
+  using SetType = std::unordered_set<Key, BLI::DefaultHash<Key>>;
+  SetType m_set;
+
+ public:
+  uint32_t size() const
+  {
+    return (uint32_t)m_set.size();
+  }
+
+  bool is_empty() const
+  {
+    return m_set.empty();
+  }
+
+  void reserve(uint32_t n)
+  {
+    m_set.reserve(n);
+  }
+
+  void add_new(const Key &key)
+  {
+    m_set.insert(key);
+  }
+  void add_new(Key &&key)
+  {
+    m_set.insert(std::move(key));
+  }
+
+  bool add(const Key &key)
+  {
+    return m_set.insert(key).second;
+  }
+  bool add(Key &&key)
+  {
+    return m_set.insert(std::move(key)).second;
+  }
+
+  void add_multiple(ArrayRef<Key> keys)
+  {
+    for (const Key &key : keys) {
+      m_set.insert(key);
+    }
+  }
+
+  bool contains(const Key &key) const
+  {
+    return m_set.find(key) != m_set.end();
+  }
+
+  void remove(const Key &key)
+  {
+    m_set.erase(key);
+  }
+
+  bool discard(const Key &key)
+  {
+    return (bool)m_set.erase(key);
+  }
+
+  void clear()
+  {
+    m_set.clear();
+  }
+
+  typename SetType::iterator begin() const
+  {
+    return m_set.begin();
+  }
+
+  typename SetType::iterator end() const
+  {
+    return m_set.end();
+  }
 };
 
 }  // namespace BLI

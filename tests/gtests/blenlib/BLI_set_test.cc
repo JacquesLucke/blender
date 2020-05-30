@@ -256,114 +256,120 @@ TEST(set, PointerSet)
   EXPECT_FALSE(set.contains(&c));
 }
 
-#if 0
-TEST(set, CollisionsTest)
+TEST(set, Discard)
 {
-  Set<uint32_t> set;
-  RNG *rng = BLI_rng_new(0);
-  uint32_t amount = 1 << 20;
-
-  for (uint i = 0; i < amount; i++) {
-    set.add(i);
-  }
-  set.print_collision_stats("Consecutive");
-  set.clear();
-
-  for (uint i = 0; i < amount; i++) {
-    set.add(i << 4);
-  }
-  set.print_collision_stats("Consecutive << 4");
-  set.clear();
-
-  for (uint i = 0; i < amount; i++) {
-    set.add(i << 12);
-  }
-  set.print_collision_stats("Consecutive << 12");
-  set.clear();
-
-  for (uint i = 0; i < amount; i++) {
-    set.add(BLI_rng_get_uint(rng));
-  }
-  set.print_collision_stats("Random");
-  set.clear();
-
-  for (uint i = 0; i < amount; i++) {
-    set.add(BLI_rng_get_uint(rng) << 2);
-  }
-  set.print_collision_stats("Random << 2");
-  set.clear();
-
-  for (uint i = 0; i < amount; i++) {
-    set.add(BLI_rng_get_uint(rng) << 12);
-  }
-  set.print_collision_stats("Random << 12");
-  set.clear();
-
-  for (uint i = 0; i < amount; i++) {
-    set.add(i * 11);
-  }
-  set.print_collision_stats("Multiples of 11");
-  set.clear();
-
-  BLI_rng_free(rng);
+  Set<int> set = {1, 2, 3, 4, 5, 6};
+  EXPECT_EQ(set.size(), 6);
+  EXPECT_TRUE(set.discard(2));
+  EXPECT_EQ(set.size(), 5);
+  EXPECT_FALSE(set.contains(2));
+  EXPECT_FALSE(set.discard(2));
+  EXPECT_EQ(set.size(), 5);
+  EXPECT_TRUE(set.discard(5));
+  EXPECT_EQ(set.size(), 4);
 }
-#endif
 
 #if 0
+template<typename SetT>
+BLI_NOINLINE void benchmark_random_ints(StringRef name, uint amount, uint factor)
+{
+  RNG *rng = BLI_rng_new(0);
+  Vector<int> values;
+  for (uint i = 0; i < amount; i++) {
+    values.append(BLI_rng_get_int(rng) * factor);
+  }
+  BLI_rng_free(rng);
+
+  SetT set;
+  {
+    SCOPED_TIMER(name + " Add");
+    for (int value : values) {
+      set.add(value);
+    }
+  }
+  int count = 0;
+  {
+    SCOPED_TIMER(name + " Contains");
+    for (int value : values) {
+      count += set.contains(value);
+    }
+  }
+  {
+    SCOPED_TIMER(name + " Discard");
+    for (int value : values) {
+      count += set.discard(value);
+    }
+  }
+
+  /* Print the value for simple error checking and to avoid some compiler optimizations. */
+  std::cout << "Count: " << count << "\n";
+}
+
 TEST(set, Benchmark)
 {
-  RNG *rng = BLI_rng_new(0);
-  Vector<char *> values;
-  for (uint i : IndexRange(20000000)) {
-    UNUSED_VARS(i);
-    values.append(new char());
+  for (uint i = 0; i < 3; i++) {
+    benchmark_random_ints<BLI::Set<int>>("BLI::Set          ", 100000, 1);
+    benchmark_random_ints<BLI::StdUnorderedSetWrapper<int>>("std::unordered_set", 100000, 1);
   }
-  BLI_rng_free(rng);
-
-  uint counter = 0;
-
-  for (uint iteration : IndexRange(3)) {
-    UNUSED_VARS(iteration);
-    // {
-    //   SCOPED_TIMER("std::set");
-    //   std::set<char *> set;
-    //   for (auto &value : values) {
-    //     set.insert(value);
-    //   }
-    //   counter += set.size();
-    // }
-    // {
-    //   SCOPED_TIMER("std::unordered_set");
-    //   std::unordered_set<char *> set;
-    //   for (auto &value : values) {
-    //     set.insert(value);
-    //   }
-    //   counter += set.size();
-    // }
-    {
-      SCOPED_TIMER("BLI::Set Add");
-      Set<char *> set;
-      set.reserve(values.size());
-
-      for (auto &value : values) {
-        set.add(value);
-      }
-
-      counter += set.size();
-    }
-    {
-      SCOPED_TIMER("GSet");
-      GSet *set = BLI_gset_ptr_new_ex("benchmark", values.size());
-      for (auto &value : values) {
-        // BLI_gset_add(set, value);
-        BLI_gset_insert(set, value);
-      }
-      counter += BLI_gset_len(set);
-      BLI_gset_free(set, nullptr);
-    }
-    std::cout << "\n";
+  std::cout << "\n";
+  for (uint i = 0; i < 3; i++) {
+    uint32_t factor = (3 << 10);
+    benchmark_random_ints<BLI::Set<int>>("BLI::Set          ", 100000, factor);
+    benchmark_random_ints<BLI::StdUnorderedSetWrapper<int>>("std::unordered_set", 100000, factor);
   }
-
-  std::cout << "Counter: " << counter << "\n";
 }
+/**
+ * Output of the rudimentary benchmark above on my hardware.
+ *
+ * Timer 'BLI::Set           Add' took 5.5573 ms
+ * Timer 'BLI::Set           Contains' took 0.807384 ms
+ * Timer 'BLI::Set           Discard' took 0.953436 ms
+ * Count: 199998
+ * Timer 'std::unordered_set Add' took 12.551 ms
+ * Timer 'std::unordered_set Contains' took 2.3323 ms
+ * Timer 'std::unordered_set Discard' took 5.07082 ms
+ * Count: 199998
+ * Timer 'BLI::Set           Add' took 2.62526 ms
+ * Timer 'BLI::Set           Contains' took 0.407499 ms
+ * Timer 'BLI::Set           Discard' took 0.472981 ms
+ * Count: 199998
+ * Timer 'std::unordered_set Add' took 6.26945 ms
+ * Timer 'std::unordered_set Contains' took 1.17236 ms
+ * Timer 'std::unordered_set Discard' took 3.77402 ms
+ * Count: 199998
+ * Timer 'BLI::Set           Add' took 2.59152 ms
+ * Timer 'BLI::Set           Contains' took 0.415254 ms
+ * Timer 'BLI::Set           Discard' took 0.477559 ms
+ * Count: 199998
+ * Timer 'std::unordered_set Add' took 6.28129 ms
+ * Timer 'std::unordered_set Contains' took 1.17562 ms
+ * Timer 'std::unordered_set Discard' took 3.77811 ms
+ * Count: 199998
+ *
+ * Timer 'BLI::Set           Add' took 3.16514 ms
+ * Timer 'BLI::Set           Contains' took 0.732895 ms
+ * Timer 'BLI::Set           Discard' took 1.08171 ms
+ * Count: 198790
+ * Timer 'std::unordered_set Add' took 6.57377 ms
+ * Timer 'std::unordered_set Contains' took 1.17008 ms
+ * Timer 'std::unordered_set Discard' took 3.7946 ms
+ * Count: 198790
+ * Timer 'BLI::Set           Add' took 3.11439 ms
+ * Timer 'BLI::Set           Contains' took 0.740159 ms
+ * Timer 'BLI::Set           Discard' took 1.06749 ms
+ * Count: 198790
+ * Timer 'std::unordered_set Add' took 6.35597 ms
+ * Timer 'std::unordered_set Contains' took 1.17713 ms
+ * Timer 'std::unordered_set Discard' took 3.77826 ms
+ * Count: 198790
+ * Timer 'BLI::Set           Add' took 3.09876 ms
+ * Timer 'BLI::Set           Contains' took 0.742072 ms
+ * Timer 'BLI::Set           Discard' took 1.06622 ms
+ * Count: 198790
+ * Timer 'std::unordered_set Add' took 6.4469 ms
+ * Timer 'std::unordered_set Contains' took 1.16515 ms
+ * Timer 'std::unordered_set Discard' took 3.80639 ms
+ * Count: 198790
+ */
+
 #endif
