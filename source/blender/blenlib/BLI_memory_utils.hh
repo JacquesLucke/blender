@@ -28,7 +28,14 @@
 
 namespace BLI {
 
-template<typename T> void copy_n(const T *src, uint n, T *dst)
+template<typename T> void destruct_n(T *ptr, uint n)
+{
+  for (uint i = 0; i < n; i++) {
+    ptr[i].~T();
+  }
+}
+
+template<typename T> void initialized_copy_n(const T *src, uint n, T *dst)
 {
   for (uint i = 0; i < n; i++) {
     dst[i] = src[i];
@@ -49,21 +56,25 @@ template<typename T> void uninitialized_fill_n(T *dst, uint n, const T &value)
   }
 }
 
-template<typename T> void destruct_n(T *ptr, uint n)
+template<typename T> void initialized_fill_n(T *dst, uint n, const T &value)
 {
   for (uint i = 0; i < n; i++) {
-    ptr[i].~T();
+    dst[i] = value;
   }
 }
 
 template<typename T> void uninitialized_move_n(T *src, uint n, T *dst)
 {
-  std::uninitialized_copy_n(std::make_move_iterator(src), n, dst);
+  for (uint i = 0; i < n; i++) {
+    new (dst + i) T(std::move(src[i]));
+  }
 }
 
-template<typename T> void move_n(T *src, uint n, T *dst)
+template<typename T> void initialized_move_n(T *src, uint n, T *dst)
 {
-  std::copy_n(std::make_move_iterator(src), n, dst);
+  for (uint i = 0; i < n; i++) {
+    dst[i] = std::move(src[i]);
+  }
 }
 
 template<typename T> void uninitialized_relocate_n(T *src, uint n, T *dst)
@@ -72,9 +83,9 @@ template<typename T> void uninitialized_relocate_n(T *src, uint n, T *dst)
   destruct_n(src, n);
 }
 
-template<typename T> void relocate_n(T *src, uint n, T *dst)
+template<typename T> void initialized_relocate_n(T *src, uint n, T *dst)
 {
-  move_n(src, n, dst);
+  initialized_move_n(src, n, dst);
   destruct_n(src, n);
 }
 

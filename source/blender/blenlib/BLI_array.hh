@@ -230,8 +230,7 @@ class Array {
 
   T *allocate(uint size)
   {
-    return (T *)m_allocator.allocate_aligned(
-        size * sizeof(T), std::alignment_of<T>::value, __func__);
+    return (T *)m_allocator.allocate_aligned(size * sizeof(T), alignof(T), __func__);
   }
 
   bool uses_inline_buffer() const

@@ -148,7 +148,7 @@ template<typename T> class ArrayRef {
    */
   void copy_to(T *ptr) const
   {
-    BLI::copy_n(m_start, m_size, ptr);
+    initialized_copy_n(m_start, m_size, ptr);
   }
 
   const T *begin() const
@@ -430,7 +430,7 @@ template<typename T> class MutableArrayRef {
    */
   void copy_from(const T *ptr)
   {
-    BLI::copy_n(ptr, m_size, m_start);
+    initialized_copy_n(ptr, m_size, m_start);
   }
 
   void copy_from(ArrayRef<T> other)
