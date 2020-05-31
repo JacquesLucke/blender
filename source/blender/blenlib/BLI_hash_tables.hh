@@ -130,6 +130,7 @@ class LoadFactor {
     total_slots = std::max(total_slots, min_total_slots);
     uint32_t usable_slots = floor_multiplication_with_fraction(
         total_slots, m_numerator, m_denominator);
+    BLI_assert(min_usable_slots <= usable_slots);
 
     *r_total_slots = total_slots;
     *r_usable_slots = usable_slots;

@@ -269,6 +269,9 @@ TEST(set, Discard)
   EXPECT_EQ(set.size(), 4);
 }
 
+/**
+ * Set this to 1 to activate the benchmark. It is disabled by default, because it prints a lot.
+ */
 #if 0
 template<typename SetT>
 BLI_NOINLINE void benchmark_random_ints(StringRef name, uint amount, uint factor)

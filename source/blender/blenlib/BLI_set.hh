@@ -123,7 +123,6 @@ class Set {
 
 #define LOAD_FACTOR 1, 2
   LoadFactor m_load_factor = LoadFactor(LOAD_FACTOR);
-
   using SlotArray =
       Array<Slot, LoadFactor::compute_total_slots(InlineBufferCapacity, LOAD_FACTOR), Allocator>;
 #undef LOAD_FACTOR
@@ -609,6 +608,7 @@ class Set {
   {
     if (m_occupied_and_removed_slots >= m_usable_slots) {
       this->grow(this->size() + 1);
+      BLI_assert(m_occupied_and_removed_slots < m_usable_slots);
     }
   }
 };

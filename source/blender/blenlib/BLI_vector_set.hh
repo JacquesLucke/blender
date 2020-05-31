@@ -82,30 +82,6 @@ template<
 class VectorSet {
  private:
   /**
-   * Specify the max load factor as fraction. We can still try different values like 3/4. I got
-   * better performance with some values. I'm not sure yet if this should be exposed as parameter.
-   */
-#define s_max_load_factor_numerator 1
-#define s_max_load_factor_denominator 2
-#define s_default_slot_array_size \
-  total_slot_amount_for_usable_slots(4, s_max_load_factor_numerator, s_max_load_factor_denominator)
-
-  using SlotArray = Array<Slot, s_default_slot_array_size, Allocator>;
-
-  /**
-   * This is the array that contains the actual slots. There is always at least one empty slot and
-   * the size of the array is a power of two.
-   */
-  SlotArray m_slots;
-
-  /**
-   * Pointer to an array that contains all keys. The keys are sorted by insertion order as long as
-   * no keys are removed. The first ->size() elements in this array are initialized. The capacity
-   * of the array is m_usable_slots.
-   */
-  Key *m_keys;
-
-  /**
    * Slots are either empty, occupied or removed. The number of occupied slots can be computed by
    * subtracting the removed slots from the occupied-and-removed slots.
    */
@@ -124,6 +100,24 @@ class VectorSet {
    */
   uint32_t m_slot_mask;
 
+#define LOAD_FACTOR 1, 2
+  LoadFactor m_load_factor = LoadFactor(LOAD_FACTOR);
+  using SlotArray = Array<Slot, LoadFactor::compute_total_slots(4, LOAD_FACTOR), Allocator>;
+#undef LOAD_FACTOR
+
+  /**
+   * This is the array that contains the actual slots. There is always at least one empty slot and
+   * the size of the array is a power of two.
+   */
+  SlotArray m_slots;
+
+  /**
+   * Pointer to an array that contains all keys. The keys are sorted by insertion order as long as
+   * no keys are removed. The first ->size() elements in this array are initialized. The capacity
+   * of the array is m_usable_slots.
+   */
+  Key *m_keys;
+
   /**
    * Iterate over a slot index sequence for a given hash.
    */
@@ -138,13 +132,14 @@ class VectorSet {
    * necessary to avoid a high cost when no elements are added at all. An optimized grow operation
    * is performed on the first insertion.
    */
-  VectorSet() : m_slots(1)
+  VectorSet()
+      : m_removed_slots(0),
+        m_occupied_and_removed_slots(0),
+        m_usable_slots(0),
+        m_slot_mask(0),
+        m_slots(1),
+        m_keys(nullptr)
   {
-    m_removed_slots = 0;
-    m_occupied_and_removed_slots = 0;
-    m_usable_slots = 0;
-    m_slot_mask = 0;
-    m_keys = nullptr;
   }
 
   /**
@@ -164,32 +159,30 @@ class VectorSet {
   }
 
   VectorSet(const VectorSet &other)
-      : m_slots(other.m_slots),
-        m_removed_slots(other.m_removed_slots),
+      : m_removed_slots(other.m_removed_slots),
         m_occupied_and_removed_slots(other.m_occupied_and_removed_slots),
         m_usable_slots(other.m_usable_slots),
-        m_slot_mask(other.m_slot_mask)
+        m_slot_mask(other.m_slot_mask),
+        m_slots(other.m_slots)
   {
     m_keys = this->allocate_keys_array(m_usable_slots);
     uninitialized_copy_n(other.m_keys, other.size(), m_keys);
   }
 
   VectorSet(VectorSet &&other)
-      : m_slots(std::move(other.m_slots)),
-        m_keys(other.m_keys),
-        m_removed_slots(other.m_removed_slots),
+      : m_removed_slots(other.m_removed_slots),
         m_occupied_and_removed_slots(other.m_occupied_and_removed_slots),
         m_usable_slots(other.m_usable_slots),
-        m_slot_mask(other.m_slot_mask)
+        m_slot_mask(other.m_slot_mask),
+        m_slots(std::move(other.m_slots)),
+        m_keys(other.m_keys)
   {
-    other.m_slots = SlotArray(power_of_2_max_u(s_default_slot_array_size));
-
     other.m_removed_slots = 0;
     other.m_occupied_and_removed_slots = 0;
-    other.m_usable_slots = other.m_slots.size() / 2;
-    other.m_slot_mask = other.m_slots.size() - 1;
-
-    other.m_keys = this->allocate_keys_array(other.m_usable_slots);
+    other.m_usable_slots = 0;
+    other.m_slot_mask = 0;
+    other.m_slots = SlotArray(1);
+    other.m_keys = nullptr;
   }
 
   VectorSet &operator=(const VectorSet &other)
@@ -435,10 +428,9 @@ class VectorSet {
  private:
   BLI_NOINLINE void grow(uint32_t min_usable_slots)
   {
-    uint32_t total_slots = total_slot_amount_for_usable_slots(
-        min_usable_slots, s_max_load_factor_numerator, s_max_load_factor_denominator);
-    uint32_t usable_slots = floor_multiplication_with_fraction(
-        total_slots, s_max_load_factor_numerator, s_max_load_factor_denominator);
+    uint32_t total_slots, usable_slots;
+    m_load_factor.compute_total_and_usable_slots(
+        SlotArray::inline_buffer_capacity(), min_usable_slots, &total_slots, &usable_slots);
     uint32_t new_slot_mask = total_slots - 1;
 
     /* Optimize the case when the set was empty beforehand. We can avoid some copies here. */
@@ -628,6 +620,7 @@ class VectorSet {
   {
     if (m_occupied_and_removed_slots >= m_usable_slots) {
       this->grow(this->size() + 1);
+      BLI_assert(m_occupied_and_removed_slots < m_usable_slots);
     }
   }
 
@@ -641,10 +634,6 @@ class VectorSet {
   {
     m_slots.allocator().deallocate(keys);
   }
-
-#undef s_max_load_factor_numerator
-#undef s_max_load_factor_denominator
-#undef s_default_slot_array_size
 };
 
 }  // namespace BLI
