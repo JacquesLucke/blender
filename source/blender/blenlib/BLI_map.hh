@@ -130,12 +130,13 @@ class Map {
    * This is necessary to avoid a high cost when no elements are added at all. An optimized grow
    * operation is performed on the first insertion.
    */
-  Map() : m_slots(1)
+  Map()
+      : m_removed_slots(0),
+        m_occupied_and_removed_slots(0),
+        m_usable_slots(0),
+        m_slot_mask(0),
+        m_slots(1)
   {
-    m_removed_slots = 0;
-    m_occupied_and_removed_slots = 0;
-    m_usable_slots = 0;
-    m_slot_mask = 0;
   }
 
   ~Map() = default;
