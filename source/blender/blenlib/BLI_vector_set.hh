@@ -101,7 +101,7 @@ class VectorSet {
   uint32_t m_slot_mask;
 
 #define LOAD_FACTOR 1, 2
-  LoadFactor m_load_factor = LoadFactor(LOAD_FACTOR);
+  LoadFactor m_max_load_factor = LoadFactor(LOAD_FACTOR);
   using SlotArray = Array<Slot, LoadFactor::compute_total_slots(4, LOAD_FACTOR), Allocator>;
 #undef LOAD_FACTOR
 
@@ -429,7 +429,7 @@ class VectorSet {
   BLI_NOINLINE void grow(uint32_t min_usable_slots)
   {
     uint32_t total_slots, usable_slots;
-    m_load_factor.compute_total_and_usable_slots(
+    m_max_load_factor.compute_total_and_usable_slots(
         SlotArray::inline_buffer_capacity(), min_usable_slots, &total_slots, &usable_slots);
     uint32_t new_slot_mask = total_slots - 1;
 
