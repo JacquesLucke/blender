@@ -46,7 +46,6 @@
  * - Optimize add_multiple_(new) with software prefetching (measured up to ~30% performance
  *   improvement in some cases).
  * - Provide an api function to lookup multiple keys and optimize that with software prefetching.
- * - Try different load factors.
  */
 
 #include <type_traits>
