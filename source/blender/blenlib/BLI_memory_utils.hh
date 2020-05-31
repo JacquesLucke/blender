@@ -28,7 +28,30 @@
 namespace BLI {
 
 /**
- * Call the destructor on n consecutive values.
+ * Call the default constructor on n consecutive elements. For trivially constructible types, this
+ * does nothing.
+ *
+ * Before:
+ *  ptr: uninitialized
+ * After:
+ *  ptr: initialized
+ */
+template<typename T> void default_construct_n(T *ptr, uint n)
+{
+  /* This is not strictly necessary, because the loop below will be optimized away anyway. It is
+   * nice to make behavior this explicitely, though. */
+  if (std::is_trivially_constructible<T>::value) {
+    return;
+  }
+
+  for (uint i = 0; i < n; i++) {
+    new (ptr + i) T;
+  }
+}
+
+/**
+ * Call the destructor on n consecutive values. For trivially destructible types, this does
+ * nothing.
  *
  * Before:
  *  ptr: initialized
@@ -37,6 +60,12 @@ namespace BLI {
  */
 template<typename T> void destruct_n(T *ptr, uint n)
 {
+  /* This is not strictly necessary, because the loop below will be optimized away anyway. It is
+   * nice to make behavior this explicitely, though. */
+  if (std::is_trivially_destructible<T>::value) {
+    return;
+  }
+
   for (uint i = 0; i < n; i++) {
     ptr[i].~T();
   }
@@ -196,12 +225,12 @@ template<typename T> struct DestructValueAtAddress {
 template<typename T> using destruct_ptr = std::unique_ptr<T, DestructValueAtAddress<T>>;
 
 /**
- * An `AlignedBuffer` is simply a byte array with the given size and alignment. The buffer will not
- * be initialized by the default constructor.
+ * An `AlignedBuffer` is simply a byte array with the given size and alignment. The buffer will
+ * not be initialized by the default constructor.
  *
- * This can be used to reserve memory for C++ objects whose lifetime is different from the lifetime
- * of the object they are embedded in. It's used by containers with small buffer optimization and
- * hash table implementations.
+ * This can be used to reserve memory for C++ objects whose lifetime is different from the
+ * lifetime of the object they are embedded in. It's used by containers with small buffer
+ * optimization and hash table implementations.
  */
 template<size_t Size, size_t Alignment> class alignas(Alignment) AlignedBuffer {
  private:

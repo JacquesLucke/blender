@@ -18,12 +18,12 @@ TEST(vector, SizeConstructor)
 }
 
 /**
- * Tests that the trivially constructable types are not zero-initialized. We do not want that for
+ * Tests that the trivially constructible types are not zero-initialized. We do not want that for
  * performance reasons.
  */
 TEST(vector, TrivialTypeSizeConstructor)
 {
-  Vector<char, 1> *vec = new Vector<char, 1>();
+  Vector<char, 1> *vec = new Vector<char, 1>(1);
   char *ptr = &(*vec)[0];
   vec->~Vector();
 
@@ -541,4 +541,25 @@ TEST(vector, LargeVectorMoveCallsNoConstructor)
   EXPECT_TRUE(dst[0].default_constructed);
   EXPECT_FALSE(dst[0].move_constructed);
   EXPECT_FALSE(dst[0].copy_constructed);
+}
+
+TEST(vector, Resize)
+{
+  std::string long_string = "012345678901234567890123456789";
+  Vector<std::string> vec;
+  EXPECT_EQ(vec.size(), 0);
+  vec.resize(2);
+  EXPECT_EQ(vec.size(), 2);
+  EXPECT_EQ(vec[0], "");
+  EXPECT_EQ(vec[1], "");
+  vec.resize(5, long_string);
+  EXPECT_EQ(vec.size(), 5);
+  EXPECT_EQ(vec[0], "");
+  EXPECT_EQ(vec[1], "");
+  EXPECT_EQ(vec[2], long_string);
+  EXPECT_EQ(vec[3], long_string);
+  EXPECT_EQ(vec[4], long_string);
+  vec.resize(1);
+  EXPECT_EQ(vec.size(), 1);
+  EXPECT_EQ(vec[0], "");
 }

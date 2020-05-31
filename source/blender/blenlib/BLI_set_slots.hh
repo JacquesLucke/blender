@@ -28,7 +28,7 @@
  * Only when a slot is occupied, it stores an instance of type Key.
  *
  * A set slot type has to implement a couple of methods that are explained in SimpleSetSlot.
- * A slot type is assumed to be trivially destructable, when it is not in occupied state. So the
+ * A slot type is assumed to be trivially destructible, when it is not in occupied state. So the
  * destructor might not be called in that case.
  */
 

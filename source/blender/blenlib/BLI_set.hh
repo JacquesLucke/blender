@@ -536,7 +536,7 @@ class Set {
     }
 
     /* All occupied slots have been destructed already and empty/removed slots are assumed to be
-     * trivially destructable. */
+     * trivially destructible. */
     m_slots.clear_without_destruct();
     m_slots = std::move(new_slots);
     m_occupied_and_removed_slots -= m_removed_slots;

@@ -103,12 +103,12 @@ TEST(array, MoveAssignment)
 }
 
 /**
- * Tests that the trivially constructable types are not zero-initialized. We do not want that for
+ * Tests that the trivially constructible types are not zero-initialized. We do not want that for
  * performance reasons.
  */
 TEST(array, TrivialTypeSizeConstructor)
 {
-  Array<char, 1> *array = new Array<char, 1>();
+  Array<char, 1> *array = new Array<char, 1>(1);
   char *ptr = &(*array)[0];
   array->~Array();
 

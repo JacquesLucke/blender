@@ -124,14 +124,11 @@ class Vector {
   /**
    * Create a vector with a specific size.
    * The elements will be default constructed.
+   * If T is trivially constructible, the elements in the vector are not touched.
    */
   explicit Vector(uint size) : Vector()
   {
-    this->reserve(size);
-    this->increase_size_unchecked(size);
-    for (T *current = m_begin; current != m_end; current++) {
-      new (current) T;
-    }
+    this->resize(size);
   }
 
   /**
@@ -308,13 +305,55 @@ class Vector {
   }
 
   /**
-   * Make sure that enough memory is allocated to hold size elements.
-   * This won't necessarily make an allocation when size is small.
+   * Make sure that enough memory is allocated to hold count elements.
+   * This won't necessarily make an allocation when count is small.
    * The actual size of the vector does not change.
    */
-  void reserve(uint size)
+  void reserve(uint count)
   {
-    this->grow(size);
+    if (count > this->capacity()) {
+      this->grow(count);
+    }
+  }
+
+  /**
+   * Change the size of the vector so that it contains count elements.
+   * If count is smaller than the old size, the elements at the end of the vector are destructed.
+   * If count is larger than the old size, the new elements are default constructed.
+   * Trivially constructible types are not touched.
+   */
+  void resize(uint count)
+  {
+    uint old_size = this->size();
+    if (count > old_size) {
+      this->reserve(count);
+      default_construct_n(m_begin + old_size, count - old_size);
+    }
+    else {
+      destruct_n(m_begin + count, old_size - count);
+    }
+    m_end = m_begin + count;
+    UPDATE_VECTOR_SIZE(this);
+  }
+
+  /**
+   * Change the size of the vector so that it contains count elements.
+   * If count is smaller than the old size, the elements at the end of the vector are destructed.
+   * If count is larger than the old size, the new elements will be copy constructed from the given
+   * value.
+   */
+  void resize(uint count, const T &value)
+  {
+    uint old_size = this->size();
+    if (count > old_size) {
+      this->reserve(count);
+      uninitialized_fill_n(m_begin + old_size, count - old_size, value);
+    }
+    else {
+      destruct_n(m_begin + count, old_size - count);
+    }
+    m_end = m_begin + count;
+    UPDATE_VECTOR_SIZE(this);
   }
 
   /**
@@ -348,6 +387,8 @@ class Vector {
   /**
    * Insert a new element at the end of the vector.
    * This might cause a reallocation with the capacity is exceeded.
+   *
+   * This is similar to std::vector::push_back.
    */
   void append(const T &value)
   {
@@ -429,6 +470,8 @@ class Vector {
 
   /**
    * Copy the elements of another array to the end of this vector.
+   *
+   * This can be used to emulate parts of std::vector::insert.
    */
   void extend(ArrayRef<T> array)
   {
@@ -510,6 +553,8 @@ class Vector {
 
   /**
    * Returns true when the vector contains no elements, otherwise false.
+   *
+   * This is the same as std::vector::empty.
    */
   bool is_empty() const
   {
@@ -531,6 +576,8 @@ class Vector {
   /**
    * Remove the last element from the vector and return it. This will fail when the vector is
    * empty.
+   *
+   * This is similar to std::vector::pop_back.
    */
   T pop_last()
   {

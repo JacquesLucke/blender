@@ -27,7 +27,7 @@
  *
  * A vector slot type has to implement a couple of methods that are explained in
  * SimpleVectorSetSlot.
- * A vector slot type is assumed to be trivially destructable, when it is in empty or removed
+ * A vector slot type is assumed to be trivially destructible, when it is in empty or removed
  * state.
  *
  * Possible Improvements:

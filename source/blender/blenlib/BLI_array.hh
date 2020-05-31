@@ -108,10 +108,7 @@ class Array {
   {
     m_size = size;
     m_data = this->get_buffer_for_size(size);
-
-    for (uint i = 0; i < m_size; i++) {
-      new (m_data + i) T;
-    }
+    default_construct_n(m_data, size);
   }
 
   /**
