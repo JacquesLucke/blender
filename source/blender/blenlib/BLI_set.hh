@@ -103,24 +103,6 @@ template<
 class Set {
  private:
   /**
-   * Specify the max load factor as fraction. We can still try different values like 3/4. I got
-   * better performance with some values. I'm not sure yet if this should be exposed as parameter.
-   */
-#define s_max_load_factor_numerator 1
-#define s_max_load_factor_denominator 2
-#define s_inline_slots_capacity \
-  total_slot_amount_for_usable_slots( \
-      InlineBufferCapacity, s_max_load_factor_numerator, s_max_load_factor_denominator)
-
-  using SlotArray = Array<Slot, s_inline_slots_capacity, Allocator>;
-
-  /**
-   * This is the array that contains the actual slots. There is always at least one empty slot and
-   * the size of the array is a power of two.
-   */
-  SlotArray m_slots;
-
-  /**
    * Slots are either empty, occupied or removed. The number of occupied slots can be computed by
    * subtracting the removed slots from the occupied-and-removed slots.
    */
@@ -139,6 +121,19 @@ class Set {
    */
   uint32_t m_slot_mask;
 
+#define LOAD_FACTOR 1, 2
+  LoadFactor m_load_factor = LoadFactor(LOAD_FACTOR);
+
+  using SlotArray =
+      Array<Slot, LoadFactor::compute_total_slots(InlineBufferCapacity, LOAD_FACTOR), Allocator>;
+#undef LOAD_FACTOR
+
+  /**
+   * This is the array that contains the actual slots. There is always at least one empty slot and
+   * the size of the array is a power of two.
+   */
+  SlotArray m_slots;
+
   /** Iterate over a slot index sequence for a given hash. */
 #define SET_SLOT_PROBING_BEGIN(HASH, R_SLOT) \
   SLOT_PROBING_BEGIN (ProbingStrategy, HASH, m_slot_mask, SLOT_INDEX) \
@@ -147,9 +142,9 @@ class Set {
 
  public:
   /**
-   * Initialize an empty set. This is a cheap operation no matter how large the inline buffer is.
-   * This is necessary to avoid a high cost when no elements are added at all. An optimized grow
-   * operation is performed on the first insertion.
+   * Initialize an empty set. This is a cheap operation no matter how large the inline buffer
+   * is. This is necessary to avoid a high cost when no elements are added at all. An optimized
+   * grow operation is performed on the first insertion.
    */
   Set() : m_slots(1)
   {
@@ -172,11 +167,11 @@ class Set {
   Set(const Set &other) = default;
 
   Set(Set &&other)
-      : m_slots(std::move(other.m_slots)),
-        m_removed_slots(other.m_removed_slots),
+      : m_removed_slots(other.m_removed_slots),
         m_occupied_and_removed_slots(other.m_occupied_and_removed_slots),
         m_usable_slots(other.m_usable_slots),
-        m_slot_mask(other.m_slot_mask)
+        m_slot_mask(other.m_slot_mask),
+        m_slots(std::move(other.m_slots))
   {
     other.~Set();
     new (&other) Set();
@@ -482,11 +477,9 @@ class Set {
  private:
   BLI_NOINLINE void grow(uint32_t min_usable_slots)
   {
-    uint32_t total_slots = total_slot_amount_for_usable_slots(
-        min_usable_slots, s_max_load_factor_numerator, s_max_load_factor_denominator);
-    total_slots = std::max(total_slots, s_inline_slots_capacity);
-    uint32_t usable_slots = floor_multiplication_with_fraction(
-        total_slots, s_max_load_factor_numerator, s_max_load_factor_denominator);
+    uint32_t total_slots, usable_slots;
+    m_load_factor.compute_total_and_usable_slots(
+        SlotArray::inline_buffer_capacity(), min_usable_slots, &total_slots, &usable_slots);
     uint32_t new_slot_mask = total_slots - 1;
 
     /**
@@ -618,10 +611,6 @@ class Set {
       this->grow(this->size() + 1);
     }
   }
-
-#undef s_max_load_factor_numerator
-#undef s_max_load_factor_denominator
-#undef s_inline_slots_capacity
 };
 
 /**

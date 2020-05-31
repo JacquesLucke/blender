@@ -99,6 +99,53 @@ inline constexpr uint32_t total_slot_amount_for_usable_slots(uint32_t min_usable
 /** \} */
 
 /* -------------------------------------------------------------------- */
+/** \name Load Factor
+ *
+ * This is an abstraction for a fractional load factor. The hash table using this class is assumed
+ * to use arrays with a size that is a power of two.
+ *
+ * \{ */
+
+class LoadFactor {
+ private:
+  uint8_t m_numerator;
+  uint8_t m_denominator;
+
+ public:
+  LoadFactor(uint8_t numerator, uint8_t denominator)
+      : m_numerator(numerator), m_denominator(denominator)
+  {
+    BLI_assert(numerator > 0);
+    BLI_assert(numerator < denominator);
+  }
+
+  void compute_total_and_usable_slots(uint32_t min_total_slots,
+                                      uint32_t min_usable_slots,
+                                      uint32_t *r_total_slots,
+                                      uint32_t *r_usable_slots) const
+  {
+    BLI_assert(is_power_of_2_i((int)min_total_slots));
+
+    uint32_t total_slots = this->compute_total_slots(min_usable_slots, m_numerator, m_denominator);
+    total_slots = std::max(total_slots, min_total_slots);
+    uint32_t usable_slots = floor_multiplication_with_fraction(
+        total_slots, m_numerator, m_denominator);
+
+    *r_total_slots = total_slots;
+    *r_usable_slots = usable_slots;
+  }
+
+  static constexpr uint32_t compute_total_slots(uint32_t min_usable_slots,
+                                                uint8_t numerator,
+                                                uint8_t denominator)
+  {
+    return total_slot_amount_for_usable_slots(min_usable_slots, numerator, denominator);
+  }
+};
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
 /** \name Hash Table Stats
  *
  * A utility class that makes it easier for hash table implementations to provide statistics to the

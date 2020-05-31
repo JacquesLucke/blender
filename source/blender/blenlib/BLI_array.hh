@@ -281,6 +281,15 @@ class Array {
     return m_allocator;
   }
 
+  /**
+   * Get the value of the InlineBufferCapacity template argument. This is the number of elements
+   * that can be stored without doing an allocation.
+   */
+  static uint inline_buffer_capacity()
+  {
+    return InlineBufferCapacity;
+  }
+
  private:
   T *get_buffer_for_size(uint size)
   {
