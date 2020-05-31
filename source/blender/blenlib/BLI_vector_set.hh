@@ -72,6 +72,11 @@ template<
      */
     typename Hash = DefaultHash<Key>,
     /**
+     * The equality operator used to compare keys. By default it will simply compare keys using the
+     * `==` operator.
+     */
+    typename IsEqual = DefaultEquality<Key>,
+    /**
      * This is what will actually be stored in the hash table array. At a minimum a slot has to be
      * able to hold an array index and information about whether the slot is empty, occupied or
      * removed. Using a non-standard slot type can improve performance for some types.
@@ -471,7 +476,7 @@ class VectorSet {
     uint32_t collisions = 0;
 
     VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot) {
-      if (slot.contains(key, hash, m_keys)) {
+      if (slot.contains(key, IsEqual{}, hash, m_keys)) {
         return collisions;
       }
       if (slot.is_empty()) {
@@ -548,7 +553,7 @@ class VectorSet {
       if (slot.is_empty()) {
         return false;
       }
-      if (slot.contains(key, hash, m_keys)) {
+      if (slot.contains(key, IsEqual{}, hash, m_keys)) {
         return true;
       }
     }
@@ -585,7 +590,7 @@ class VectorSet {
         slot.occupy(index, hash);
         return true;
       }
-      if (slot.contains(key, hash, m_keys)) {
+      if (slot.contains(key, IsEqual{}, hash, m_keys)) {
         return false;
       }
     }
@@ -597,7 +602,7 @@ class VectorSet {
     BLI_assert(this->contains_as(key));
 
     VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot) {
-      if (slot.contains(key, hash, m_keys)) {
+      if (slot.contains(key, IsEqual{}, hash, m_keys)) {
         return slot.index();
       }
     }
@@ -607,7 +612,7 @@ class VectorSet {
   template<typename ForwardKey> int32_t index_try__impl(const ForwardKey &key, uint32_t hash) const
   {
     VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot) {
-      if (slot.contains(key, hash, m_keys)) {
+      if (slot.contains(key, IsEqual{}, hash, m_keys)) {
         return slot.index();
       }
       if (slot.is_empty()) {
@@ -642,7 +647,7 @@ class VectorSet {
     BLI_assert(this->contains_as(key));
 
     VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot) {
-      if (slot.contains(key, hash, m_keys)) {
+      if (slot.contains(key, IsEqual{}, hash, m_keys)) {
         this->remove_key_internal(slot);
         return;
       }
@@ -653,7 +658,7 @@ class VectorSet {
   template<typename ForwardKey> bool discard__impl(const ForwardKey &key, uint32_t hash)
   {
     VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot) {
-      if (slot.contains(key, hash, m_keys)) {
+      if (slot.contains(key, IsEqual{}, hash, m_keys)) {
         this->remove_key_internal(slot);
         return true;
       }

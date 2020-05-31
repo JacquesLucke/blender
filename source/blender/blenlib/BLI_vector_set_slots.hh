@@ -85,11 +85,14 @@ template<typename Key> class SimpleVectorSetSlot {
    * Return true if the slot contains the given key, i.e. its index points to a key that compares
    * equal to it. The hash can be used by other implementations to determine inequality faster.
    */
-  template<typename ForwardKey>
-  bool contains(const ForwardKey &key, uint32_t UNUSED(hash), const Key *keys) const
+  template<typename ForwardKey, typename IsEqual>
+  bool contains(const ForwardKey &key,
+                const IsEqual &is_equal,
+                uint32_t UNUSED(hash),
+                const Key *keys) const
   {
     if (m_state >= 0) {
-      return key == keys[m_state];
+      return is_equal(key, keys[m_state]);
     }
     return false;
   }
