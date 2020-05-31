@@ -324,20 +324,35 @@ class Set {
     return this->contains__impl(key, Hash{}(key));
   }
 
+  template<typename ForwardKey> bool contains_as(const ForwardKey &key)
+  {
+    return this->contains__impl(key, Hash{}(key));
+  }
+
   /**
    * Deletes the key from the set. This will fail if the key is not in the set beforehand.
-   *
-   * This is similar to std::unordered_set::erase.
    */
   void remove(const Key &key)
   {
     this->remove__impl(key, Hash{}(key));
   }
 
+  template<typename ForwardKey> void remove_as(const ForwardKey &key)
+  {
+    this->remove__impl(key, Hash{}(key));
+  }
+
   /**
    * Deletes the key from the set. Returns true when the key did exist beforehand, otherwise false.
+   *
+   * This is similar to std::unordered_set::erase.
    */
   bool discard(const Key &key)
+  {
+    return this->discard__impl(key, Hash{}(key));
+  }
+
+  template<typename ForwardKey> bool discard_as(const ForwardKey &key)
   {
     return this->discard__impl(key, Hash{}(key));
   }

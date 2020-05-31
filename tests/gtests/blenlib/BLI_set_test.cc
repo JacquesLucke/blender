@@ -269,6 +269,71 @@ TEST(set, Discard)
   EXPECT_EQ(set.size(), 4);
 }
 
+struct Type1 {
+  int value;
+};
+
+struct Type2 {
+  int value;
+};
+
+bool operator==(const Type1 &a, const Type1 &b)
+{
+  return a.value == b.value;
+}
+bool operator==(const Type1 &a, const Type2 &b)
+{
+  return a.value == b.value;
+}
+bool operator==(const Type2 &a, const Type1 &b)
+{
+  return a.value == b.value;
+}
+
+template<> struct BLI::DefaultHash<Type1> {
+  uint32_t operator()(const Type1 &value) const
+  {
+    return value.value;
+  }
+
+  uint32_t operator()(const Type2 &value) const
+  {
+    return value.value;
+  }
+};
+
+TEST(set, ContainsAs)
+{
+  Set<Type1> set;
+  set.add(Type1{5});
+  EXPECT_TRUE(set.contains_as(Type1{5}));
+  EXPECT_TRUE(set.contains_as(Type2{5}));
+  EXPECT_FALSE(set.contains_as(Type1{6}));
+  EXPECT_FALSE(set.contains_as(Type2{6}));
+}
+
+TEST(set, RemoveAs)
+{
+  Set<Type1> set;
+  set.add(Type1{5});
+  EXPECT_TRUE(set.contains_as(Type2{5}));
+  set.remove_as(Type2{5});
+  EXPECT_FALSE(set.contains_as(Type2{5}));
+}
+
+TEST(set, DiscardAs)
+{
+  Set<Type1> set;
+  set.add(Type1{5});
+  EXPECT_TRUE(set.contains_as(Type2{5}));
+  set.discard_as(Type2{6});
+  EXPECT_TRUE(set.contains_as(Type2{5}));
+  set.discard_as(Type2{5});
+  EXPECT_FALSE(set.contains_as(Type2{5}));
+  set.discard_as(Type2{5});
+  EXPECT_FALSE(set.contains_as(Type2{5}));
+}
+
 /**
  * Set this to 1 to activate the benchmark. It is disabled by default, because it prints a lot.
  */
