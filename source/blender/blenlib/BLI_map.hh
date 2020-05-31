@@ -319,12 +319,21 @@ class Map {
   /**
    * Deletes the key-value-pair with the given key. This will fail if the key is not in the map
    * beforehand.
-   *
-   * This is similar to std::unordered_map::erase.
    */
   void remove(const Key &key)
   {
     this->remove__impl(key, Hash{}(key));
+  }
+
+  /**
+   * Deletes the key-value-pair with the given key. Nothing is done when the key does not exist in
+   * the map.
+   *
+   * This is similar to std::unordered_map::erase.
+   */
+  bool discard(const Key &key)
+  {
+    return this->discard__impl(key, Hash{}(key));
   }
 
   /**
@@ -786,6 +795,21 @@ class Map {
       if (slot.contains(key, hash)) {
         slot.remove();
         return;
+      }
+    }
+    MAP_SLOT_PROBING_END();
+  }
+
+  template<typename ForwardKey> bool discard__impl(const ForwardKey &key, uint32_t hash)
+  {
+    MAP_SLOT_PROBING_BEGIN (hash, slot) {
+      if (slot.contains(key, hash)) {
+        slot.remove();
+        m_removed_slots++;
+        return true;
+      }
+      if (slot.is_empty()) {
+        return false;
       }
     }
     MAP_SLOT_PROBING_END();

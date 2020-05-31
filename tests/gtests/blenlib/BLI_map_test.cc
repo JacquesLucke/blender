@@ -347,3 +347,14 @@ TEST(map, UniquePtrValue)
   EXPECT_EQ(map.lookup(1).get(), value1_ptr);
   EXPECT_EQ(map.lookup_ptr(100), nullptr);
 }
+
+TEST(map, Discard)
+{
+  Map<int, int> map;
+  map.add(2, 4);
+  EXPECT_EQ(map.size(), 1);
+  EXPECT_FALSE(map.discard(3));
+  EXPECT_EQ(map.size(), 1);
+  EXPECT_TRUE(map.discard(2));
+  EXPECT_EQ(map.size(), 0);
+}
