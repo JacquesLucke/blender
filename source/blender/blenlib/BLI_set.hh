@@ -29,10 +29,9 @@
  * The implementation uses open addressing in a flat array. The number of slots is always a power
  * of two. More implementation details depend on the used template parameters.
  *
- * Some methods like `contains` have a variant like `contains_as` that accepts keys of a
- * different type. This can improve performance by avoiding conversions on every lookup. This is
- * commonly used when std::string is used as key, but lookups are done using StringRef. The hash
- * function has to be able to hash those other types as well.
+ * Lookup operations with other types than Key can be done using the methods with the suffix "_as".
+ * This is commonly used when std::string is used as key, but lookups are done using StringRef. The
+ * hash function has to be able to hash those other types as well.
  *
  * Benchmarking hash tables is hard. There are many things that influence how well a hash table
  * performs. It depends on the hash function, probing strategy, max load factor, element type, slot
@@ -325,13 +324,13 @@ class Set {
    */
   bool contains(const Key &key) const
   {
-    return this->contains__impl(key, Hash{}(key));
+    return this->contains_as(key);
   }
 
   /**
-   * Same as `contains`, but accepts other key types to avoid conversions.
+   * Same as `contains`, but accepts other key types that are supported by the hash function.
    */
-  template<typename ForwardKey> bool contains_as(const ForwardKey &key)
+  template<typename ForwardKey> bool contains_as(const ForwardKey &key) const
   {
     return this->contains__impl(key, Hash{}(key));
   }
@@ -341,11 +340,11 @@ class Set {
    */
   void remove(const Key &key)
   {
-    this->remove__impl(key, Hash{}(key));
+    this->remove_as(key);
   }
 
   /**
-   * Same as `remove`, but accepts other key types to avoid conversions.
+   * Same as `remove`, but accepts other key types that are supported by the hash function.
    */
   template<typename ForwardKey> void remove_as(const ForwardKey &key)
   {
@@ -359,11 +358,11 @@ class Set {
    */
   bool discard(const Key &key)
   {
-    return this->discard__impl(key, Hash{}(key));
+    return this->discard_as(key);
   }
 
   /**
-   * Same as `discard`, but accepts other key types to avoid conversions.
+   * Same as `discard`, but accepts other key types that are supported by the hash function.
    */
   template<typename ForwardKey> bool discard_as(const ForwardKey &key)
   {
