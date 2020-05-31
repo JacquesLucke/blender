@@ -156,10 +156,11 @@ template<typename Key> class SimpleSetSlot {
    * Return true, when this slot is occupied and contains a key that compares equal to the given
    * key. The hash is used by other slot implementations to determine inequality faster.
    */
-  template<typename ForwardKey> bool contains(const ForwardKey &key, uint32_t UNUSED(hash)) const
+  template<typename ForwardKey, typename IsEqual>
+  bool contains(const ForwardKey &key, const IsEqual &is_equal, uint32_t UNUSED(hash)) const
   {
     if (m_state == Occupied) {
-      return key == *this->key();
+      return is_equal(key, *this->key());
     }
     return false;
   }
@@ -269,11 +270,12 @@ template<typename Key> class HashedSetSlot {
     other.key()->~Key();
   }
 
-  template<typename ForwardKey> bool contains(const ForwardKey &key, uint32_t hash) const
+  template<typename ForwardKey, typename IsEqual>
+  bool contains(const ForwardKey &key, const IsEqual &is_equal, uint32_t hash) const
   {
     if (m_hash == hash) {
       if (m_state == Occupied) {
-        return key == *this->key();
+        return is_equal(key, *this->key());
       }
     }
     return false;
@@ -353,9 +355,11 @@ template<typename Key> class PointerSetSlot {
     m_state = other.m_state;
   }
 
-  bool contains(Key key, uint32_t UNUSED(hash)) const
+  template<typename IsEqual>
+  bool contains(Key key, const IsEqual &UNUSED(is_equal), uint32_t UNUSED(hash)) const
   {
     BLI_assert((uintptr_t)key < s_min_special_value);
+    BLI_STATIC_ASSERT((std::is_same<IsEqual, DefaultEquality<Key>>::value), "");
     return (uintptr_t)key == m_state;
   }
 

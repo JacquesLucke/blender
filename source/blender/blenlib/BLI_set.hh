@@ -89,6 +89,11 @@ template<
      */
     typename Hash = DefaultHash<Key>,
     /**
+     * The equality operator used to compare keys. By default it will simply compare keys using the
+     * `==` operator.
+     */
+    typename IsEqual = DefaultEquality<Key>,
+    /**
      * This is what will actually be stored in the hash table array. At a minimum a slot has to
      * be able to hold a key and information about whether the slot is empty, occupied or removed.
      * Using a non-standard slot type can improve performance or reduce the memory footprint. For
@@ -562,7 +567,7 @@ class Set {
       if (slot.is_empty()) {
         return false;
       }
-      if (slot.contains(key, hash)) {
+      if (slot.contains(key, IsEqual{}, hash)) {
         return true;
       }
     }
@@ -595,7 +600,7 @@ class Set {
         m_occupied_and_removed_slots++;
         return true;
       }
-      if (slot.contains(key, hash)) {
+      if (slot.contains(key, IsEqual{}, hash)) {
         return false;
       }
     }
@@ -608,7 +613,7 @@ class Set {
     m_removed_slots++;
 
     SET_SLOT_PROBING_BEGIN (hash, slot) {
-      if (slot.contains(key, hash)) {
+      if (slot.contains(key, IsEqual{}, hash)) {
         slot.remove();
         return;
       }
@@ -619,7 +624,7 @@ class Set {
   template<typename ForwardKey> bool discard__impl(const ForwardKey &key, uint32_t hash)
   {
     SET_SLOT_PROBING_BEGIN (hash, slot) {
-      if (slot.contains(key, hash)) {
+      if (slot.contains(key, IsEqual{}, hash)) {
         slot.remove();
         m_removed_slots++;
         return true;
