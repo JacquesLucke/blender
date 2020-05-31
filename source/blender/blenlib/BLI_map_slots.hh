@@ -180,10 +180,11 @@ template<typename Key, typename Value> class SimpleMapSlot {
    * Return true, when this slot is occupied and contains a key that compares equal to the given
    * key. The hash can be used by other slot implementations to determine inequality faster.
    */
-  template<typename ForwardKey> bool contains(const ForwardKey &key, uint32_t UNUSED(hash)) const
+  template<typename ForwardKey, typename IsEqual>
+  bool contains(const ForwardKey &key, const IsEqual &is_equal, uint32_t UNUSED(hash)) const
   {
     if (m_state == Occupied) {
-      return key == *this->key();
+      return is_equal(key, *this->key());
     }
     return false;
   }

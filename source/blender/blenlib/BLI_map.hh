@@ -73,6 +73,11 @@ template<
      */
     typename Hash = DefaultHash<Key>,
     /**
+     * The equality operator used to compare keys. By default it will simply compare keys using the
+     * `==` operator.
+     */
+    typename IsEqual = DefaultEquality<Key>,
+    /**
      * This is what will actually be stored in the hash table array. At a minimum a slot has to be
      * able to hold a key, a value and information about whether the slot is empty, occupied or
      * removed. Using a non-standard slot type can improve performance or reduce the memory
@@ -776,7 +781,7 @@ class Map {
     uint32_t collisions = 0;
 
     MAP_SLOT_PROBING_BEGIN (hash, slot) {
-      if (slot.contains(key, hash)) {
+      if (slot.contains(key, IsEqual{}, hash)) {
         return collisions;
       }
       if (slot.is_empty()) {
@@ -847,7 +852,7 @@ class Map {
       if (slot.is_empty()) {
         return false;
       }
-      if (slot.contains(key, hash)) {
+      if (slot.contains(key, IsEqual{}, hash)) {
         return true;
       }
     }
@@ -882,7 +887,7 @@ class Map {
         m_occupied_and_removed_slots++;
         return true;
       }
-      if (slot.contains(std::forward<ForwardKey>(key), hash)) {
+      if (slot.contains(key, IsEqual{}, hash)) {
         return false;
       }
     }
@@ -896,7 +901,7 @@ class Map {
     m_removed_slots++;
 
     MAP_SLOT_PROBING_BEGIN (hash, slot) {
-      if (slot.contains(key, hash)) {
+      if (slot.contains(key, IsEqual{}, hash)) {
         slot.remove();
         return;
       }
@@ -907,7 +912,7 @@ class Map {
   template<typename ForwardKey> bool discard__impl(const ForwardKey &key, uint32_t hash)
   {
     MAP_SLOT_PROBING_BEGIN (hash, slot) {
-      if (slot.contains(key, hash)) {
+      if (slot.contains(key, IsEqual{}, hash)) {
         slot.remove();
         m_removed_slots++;
         return true;
@@ -926,7 +931,7 @@ class Map {
     m_removed_slots++;
 
     MAP_SLOT_PROBING_BEGIN (hash, slot) {
-      if (slot.contains(key, hash)) {
+      if (slot.contains(key, IsEqual{}, hash)) {
         Value value = *slot.value();
         slot.remove();
         return value;
@@ -955,7 +960,7 @@ class Map {
         Value *value_ptr = slot.value();
         return create_value(value_ptr);
       }
-      if (slot.contains(std::forward<Key>(key), hash)) {
+      if (slot.contains(key, IsEqual{}, hash)) {
         Value *value_ptr = slot.value();
         return modify_value(value_ptr);
       }
@@ -974,7 +979,7 @@ class Map {
         m_occupied_and_removed_slots++;
         return *slot.value();
       }
-      if (slot.contains(std::forward<ForwardKey>(key), hash)) {
+      if (slot.contains(key, IsEqual{}, hash)) {
         return *slot.value();
       }
     }
@@ -1003,7 +1008,7 @@ class Map {
       if (slot.is_empty()) {
         return nullptr;
       }
-      if (slot.contains(key, hash)) {
+      if (slot.contains(key, IsEqual{}, hash)) {
         return slot.value();
       }
     }
