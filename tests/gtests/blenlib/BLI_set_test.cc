@@ -343,6 +343,35 @@ TEST(set, DiscardAs)
   EXPECT_FALSE(set.contains_as(Type2{5}));
 }
 
+template<uint N> struct EqualityIntModN {
+  bool operator()(uint a, uint b) const
+  {
+    return (a % N) == (b % N);
+  }
+};
+
+template<uint N> struct HashIntModN {
+  uint32_t operator()(uint value) const
+  {
+    return value % N;
+  }
+};
+
+TEST(set, CustomizeHashAndEquality)
+{
+  Set<uint, 0, DefaultProbingStrategy, HashIntModN<10>, EqualityIntModN<10>> set;
+  set.add(4);
+  EXPECT_TRUE(set.contains(4));
+  EXPECT_TRUE(set.contains(14));
+  EXPECT_TRUE(set.contains(104));
+  EXPECT_FALSE(set.contains(5));
+  set.add(55);
+  EXPECT_TRUE(set.contains(5));
+  EXPECT_TRUE(set.contains(14));
+  set.discard(1004);
+  EXPECT_FALSE(set.contains(14));
+}
+
 /**
  * Set this to 1 to activate the benchmark. It is disabled by default, because it prints a lot.
  */
