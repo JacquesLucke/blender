@@ -55,7 +55,7 @@ TEST(array, CopyConstructor)
 
   EXPECT_EQ(array.size(), 4);
   EXPECT_EQ(new_array.size(), 4);
-  EXPECT_NE(array.begin(), new_array.begin());
+  EXPECT_NE(array.data(), new_array.data());
   EXPECT_EQ(new_array[0], 5);
   EXPECT_EQ(new_array[1], 6);
   EXPECT_EQ(new_array[2], 7);
@@ -83,7 +83,7 @@ TEST(array, CopyAssignment)
   new_array = array;
   EXPECT_EQ(new_array.size(), 3);
   EXPECT_EQ(array.size(), 3);
-  EXPECT_NE(array.begin(), new_array.begin());
+  EXPECT_NE(array.data(), new_array.data());
   EXPECT_EQ(new_array[0], 1);
   EXPECT_EQ(new_array[1], 2);
   EXPECT_EQ(new_array[2], 3);

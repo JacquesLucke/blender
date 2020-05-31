@@ -716,7 +716,7 @@ class Map {
    */
   KeyIterator keys() const
   {
-    return KeyIterator(m_slots.begin(), m_slots.size(), 0);
+    return KeyIterator(m_slots.data(), m_slots.size(), 0);
   }
 
   /**
@@ -725,7 +725,7 @@ class Map {
    */
   ValueIterator values() const
   {
-    return ValueIterator(m_slots.begin(), m_slots.size(), 0);
+    return ValueIterator(m_slots.data(), m_slots.size(), 0);
   }
 
   /**
@@ -734,7 +734,7 @@ class Map {
    */
   MutableValueIterator values()
   {
-    return MutableValueIterator(m_slots.begin(), m_slots.size(), 0);
+    return MutableValueIterator(m_slots.data(), m_slots.size(), 0);
   }
 
   /**
@@ -743,7 +743,7 @@ class Map {
    */
   ItemIterator items() const
   {
-    return ItemIterator(m_slots.begin(), m_slots.size(), 0);
+    return ItemIterator(m_slots.data(), m_slots.size(), 0);
   }
 
   /**
@@ -754,7 +754,7 @@ class Map {
    */
   MutableItemIterator items()
   {
-    return MutableItemIterator(m_slots.begin(), m_slots.size(), 0);
+    return MutableItemIterator(m_slots.data(), m_slots.size(), 0);
   }
 
   /**

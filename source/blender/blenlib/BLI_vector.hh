@@ -159,9 +159,10 @@ class Vector {
    */
   Vector(ArrayRef<T> values) : Vector()
   {
-    this->reserve(values.size());
-    this->increase_size_unchecked(values.size());
-    BLI::uninitialized_copy_n(values.begin(), values.size(), this->begin());
+    uint size = values.size();
+    this->reserve(size);
+    this->increase_size_unchecked(size);
+    BLI::uninitialized_copy_n(values.data(), size, m_begin);
   }
 
   /**
@@ -431,7 +432,7 @@ class Vector {
    */
   void extend(ArrayRef<T> array)
   {
-    this->extend(array.begin(), array.size());
+    this->extend(array.data(), array.size());
   }
   void extend(const T *start, uint amount)
   {
@@ -457,7 +458,7 @@ class Vector {
    */
   void extend_unchecked(ArrayRef<T> array)
   {
-    this->extend_unchecked(array.begin(), array.size());
+    this->extend_unchecked(array.data(), array.size());
   }
   void extend_unchecked(const T *start, uint amount)
   {
@@ -630,6 +631,22 @@ class Vector {
     return m_begin[index];
   }
 
+  /**
+   * Get access to the underlying array.
+   */
+  T *data()
+  {
+    return m_begin;
+  }
+
+  /**
+   * Get access to the underlying array.
+   */
+  const T *data() const
+  {
+    return m_begin;
+  }
+
   T *begin()
   {
     return m_begin;
@@ -754,7 +771,7 @@ class Vector {
     m_end = m_begin + size;
     m_capacity_end = m_begin + capacity;
 
-    uninitialized_copy_n(other.begin(), size, m_begin);
+    uninitialized_copy_n(other.data(), size, m_begin);
     UPDATE_VECTOR_SIZE(this);
   }
 };

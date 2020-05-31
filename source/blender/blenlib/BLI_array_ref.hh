@@ -96,7 +96,7 @@ template<typename T> class ArrayRef {
    */
   template<typename U,
            typename std::enable_if<std::is_convertible<U *, T>::value>::type * = nullptr>
-  ArrayRef(ArrayRef<U *> array) : ArrayRef((T *)array.begin(), array.size())
+  ArrayRef(ArrayRef<U *> array) : ArrayRef((T *)array.data(), array.size())
   {
   }
 
@@ -161,6 +161,11 @@ template<typename T> class ArrayRef {
   void copy_to(T *ptr) const
   {
     initialized_copy_n(m_start, m_size, ptr);
+  }
+
+  const T *data() const
+  {
+    return m_start;
   }
 
   const T *begin() const
@@ -440,6 +445,11 @@ template<typename T> class MutableArrayRef {
     for (uint i : indices) {
       m_start[i] = element;
     }
+  }
+
+  T *data() const
+  {
+    return m_start;
   }
 
   T *begin() const

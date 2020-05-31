@@ -105,7 +105,7 @@ TEST(linear_allocator, ConstructArrayCopy)
   Vector<int> values = {1, 2, 3};
   MutableArrayRef<int> array1 = allocator.construct_array_copy(values.as_ref());
   MutableArrayRef<int> array2 = allocator.construct_array_copy(values.as_ref());
-  EXPECT_NE(array1.begin(), array2.begin());
+  EXPECT_NE(array1.data(), array2.data());
   EXPECT_EQ(array1.size(), 3);
   EXPECT_EQ(array2.size(), 3);
   EXPECT_EQ(array1[1], 2);

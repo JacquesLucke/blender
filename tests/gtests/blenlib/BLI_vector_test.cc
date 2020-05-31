@@ -119,7 +119,7 @@ TEST(vector, CopyConstructor2)
 
   EXPECT_EQ(vec1.size(), 4);
   EXPECT_EQ(vec2.size(), 4);
-  EXPECT_NE(vec1.begin(), vec2.begin());
+  EXPECT_NE(vec1.data(), vec2.data());
   EXPECT_EQ(vec2[0], 1);
   EXPECT_EQ(vec2[1], 2);
   EXPECT_EQ(vec2[2], 3);
@@ -133,7 +133,7 @@ TEST(vector, CopyConstructor3)
 
   EXPECT_EQ(vec1.size(), 4);
   EXPECT_EQ(vec2.size(), 4);
-  EXPECT_NE(vec1.begin(), vec2.begin());
+  EXPECT_NE(vec1.data(), vec2.data());
   EXPECT_EQ(vec2[2], 3);
 }
 
@@ -144,7 +144,7 @@ TEST(vector, CopyConstructor4)
 
   EXPECT_EQ(vec1.size(), 4);
   EXPECT_EQ(vec2.size(), 4);
-  EXPECT_NE(vec1.begin(), vec2.begin());
+  EXPECT_NE(vec1.data(), vec2.data());
   EXPECT_EQ(vec2[3], 4);
 }
 

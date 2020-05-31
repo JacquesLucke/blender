@@ -415,7 +415,7 @@ class Set {
   {
     for (uint32_t i = 0; i < m_slots.size(); i++) {
       if (m_slots[i].is_occupied()) {
-        return Iterator(m_slots.begin(), m_slots.size(), i);
+        return Iterator(m_slots.data(), m_slots.size(), i);
       }
     }
     return this->end();
@@ -423,7 +423,7 @@ class Set {
 
   Iterator end() const
   {
-    return Iterator(m_slots.begin(), m_slots.size(), m_slots.size());
+    return Iterator(m_slots.data(), m_slots.size(), m_slots.size());
   }
 
   /**

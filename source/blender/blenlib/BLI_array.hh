@@ -90,7 +90,7 @@ class Array {
   {
     m_size = values.size();
     m_data = this->get_buffer_for_size(values.size());
-    uninitialized_copy_n(values.begin(), m_size, m_data);
+    uninitialized_copy_n(values.data(), m_size, m_data);
   }
 
   /**
@@ -131,7 +131,7 @@ class Array {
     m_allocator = other.m_allocator;
 
     m_data = this->get_buffer_for_size(other.size());
-    uninitialized_copy_n(other.begin(), m_size, m_data);
+    uninitialized_copy_n(other.data(), m_size, m_data);
   }
 
   Array(Array &&other) noexcept
@@ -235,6 +235,16 @@ class Array {
   void fill_indices(ArrayRef<uint> indices, const T &value)
   {
     MutableArrayRef<T>(*this).fill_indices(indices, value);
+  }
+
+  const T *data() const
+  {
+    return m_data;
+  }
+
+  T *data()
+  {
+    return m_data;
   }
 
   const T *begin() const

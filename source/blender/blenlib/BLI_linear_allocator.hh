@@ -130,7 +130,7 @@ template<typename Allocator = GuardedAllocator> class LinearAllocator : NonCopya
   template<typename T> MutableArrayRef<T> construct_array_copy(ArrayRef<T> src)
   {
     MutableArrayRef<T> dst = this->allocate_array<T>(src.size());
-    uninitialized_copy_n(src.begin(), src.size(), dst.begin());
+    uninitialized_copy_n(src.data(), src.size(), dst.data());
     return dst;
   }
 

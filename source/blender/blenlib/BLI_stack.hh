@@ -289,7 +289,7 @@ class Stack {
     /* First fill up any remaining capacity in the current chunk. */
     uint remaining_capacity = this->remaining_capacity_in_top_chunk();
     uint amount = std::min(values.size(), remaining_capacity);
-    uninitialized_copy_n(values.begin(), amount, m_top);
+    uninitialized_copy_n(values.data(), amount, m_top);
     m_top += amount;
 
     /* If there are values left, allocate a new chunk that is large enough to hold them all. */
@@ -297,7 +297,7 @@ class Stack {
     uint remaining_amount = remaining_values.size();
     if (remaining_amount > 0) {
       this->grow(remaining_amount);
-      uninitialized_copy_n(remaining_values.begin(), remaining_amount, m_top);
+      uninitialized_copy_n(remaining_values.data(), remaining_amount, m_top);
       m_top += remaining_amount;
     }
 

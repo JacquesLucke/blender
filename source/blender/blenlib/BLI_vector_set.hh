@@ -412,6 +412,11 @@ class VectorSet {
     return this->index_try__impl(key, Hash{}(key));
   }
 
+  const Key *data() const
+  {
+    return m_keys;
+  }
+
   const Key *begin() const
   {
     return m_keys;
