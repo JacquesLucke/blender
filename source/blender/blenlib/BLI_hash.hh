@@ -92,21 +92,21 @@ inline uint32_t hash_string(StringRef str)
 }
 
 template<> struct DefaultHash<std::string> {
-  uint32_t operator()(const std::string &value) const
+  uint32_t operator()(StringRef value) const
   {
     return hash_string(value);
   }
 };
 
 template<> struct DefaultHash<StringRef> {
-  uint32_t operator()(const StringRef &value) const
+  uint32_t operator()(StringRef value) const
   {
     return hash_string(value);
   }
 };
 
 template<> struct DefaultHash<StringRefNull> {
-  uint32_t operator()(const StringRefNull &value) const
+  uint32_t operator()(StringRef value) const
   {
     return hash_string(value);
   }

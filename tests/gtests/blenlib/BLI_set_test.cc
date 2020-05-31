@@ -311,6 +311,16 @@ TEST(set, ContainsAs)
   EXPECT_FALSE(set.contains_as(Type2{6}));
 }
 
+TEST(set, ContainsAsString)
+{
+  Set<std::string> set;
+  set.add("test");
+  EXPECT_TRUE(set.contains_as("test"));
+  EXPECT_TRUE(set.contains_as(StringRef("test")));
+  EXPECT_FALSE(set.contains_as("string"));
+  EXPECT_FALSE(set.contains_as(StringRef("string")));
+}
+
 TEST(set, RemoveAs)
 {
   Set<Type1> set;

@@ -29,6 +29,11 @@
  * The implementation uses open addressing in a flat array. The number of slots is always a power
  * of two. More implementation details depend on the used template parameters.
  *
+ * Some methods like `contains` have a variant like `contains_as` that accepts keys of a
+ * different type. This can improve performance by avoiding conversions on every lookup. This is
+ * commonly used when std::string is used as key, but lookups are done using StringRef. The hash
+ * function has to be able to hash those other types as well.
+ *
  * Benchmarking hash tables is hard. There are many things that influence how well a hash table
  * performs. It depends on the hash function, probing strategy, max load factor, element type, slot
  * type and of course the actual distribution of the data. Changing just one of these can make the
@@ -40,7 +45,6 @@
  * std::unordered_set consistently. Usually by a factor between 2-4.
  *
  * Possible Improvements:
- * - Support lookups using other key types without conversion.
  * - Branchless loop over slots in grow function (measured ~10% performance improvement in some
  *   cases).
  * - Optimize add_multiple_(new) with software prefetching (measured up to ~30% performance
@@ -324,6 +328,9 @@ class Set {
     return this->contains__impl(key, Hash{}(key));
   }
 
+  /**
+   * Same as `contains`, but accepts other key types to avoid conversions.
+   */
   template<typename ForwardKey> bool contains_as(const ForwardKey &key)
   {
     return this->contains__impl(key, Hash{}(key));
@@ -337,6 +344,9 @@ class Set {
     this->remove__impl(key, Hash{}(key));
   }
 
+  /**
+   * Same as `remove`, but accepts other key types to avoid conversions.
+   */
   template<typename ForwardKey> void remove_as(const ForwardKey &key)
   {
     this->remove__impl(key, Hash{}(key));
@@ -352,6 +362,9 @@ class Set {
     return this->discard__impl(key, Hash{}(key));
   }
 
+  /**
+   * Same as `discard`, but accepts other key types to avoid conversions.
+   */
   template<typename ForwardKey> bool discard_as(const ForwardKey &key)
   {
     return this->discard__impl(key, Hash{}(key));
@@ -592,7 +605,7 @@ class Set {
 
   template<typename ForwardKey> void remove__impl(const ForwardKey &key, uint32_t hash)
   {
-    BLI_assert(this->contains(key));
+    BLI_assert(this->contains_as(key));
     m_removed_slots++;
 
     SET_SLOT_PROBING_BEGIN (hash, slot) {
