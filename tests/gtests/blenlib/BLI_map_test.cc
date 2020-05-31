@@ -3,18 +3,17 @@
 #include "testing/testing.h"
 
 using BLI::Map;
-using IntFloatMap = Map<int, float>;
 
 TEST(map, DefaultConstructor)
 {
-  IntFloatMap map;
+  Map<int, float> map;
   EXPECT_EQ(map.size(), 0);
   EXPECT_TRUE(map.is_empty());
 }
 
 TEST(map, AddIncreasesSize)
 {
-  IntFloatMap map;
+  Map<int, float> map;
   EXPECT_EQ(map.size(), 0);
   EXPECT_TRUE(map.is_empty());
   map.add(2, 5.0f);
@@ -27,7 +26,7 @@ TEST(map, AddIncreasesSize)
 
 TEST(map, Contains)
 {
-  IntFloatMap map;
+  Map<int, float> map;
   EXPECT_FALSE(map.contains(4));
   map.add(5, 6.0f);
   EXPECT_FALSE(map.contains(4));
@@ -37,7 +36,7 @@ TEST(map, Contains)
 
 TEST(map, LookupExisting)
 {
-  IntFloatMap map;
+  Map<int, float> map;
   map.add(2, 6.0f);
   map.add(4, 1.0f);
   EXPECT_EQ(map.lookup(2), 6.0f);
@@ -46,7 +45,7 @@ TEST(map, LookupExisting)
 
 TEST(map, LookupNotExisting)
 {
-  IntFloatMap map;
+  Map<int, float> map;
   map.add(2, 4.0f);
   map.add(1, 1.0f);
   EXPECT_EQ(map.lookup_ptr(0), nullptr);
@@ -55,7 +54,7 @@ TEST(map, LookupNotExisting)
 
 TEST(map, AddMany)
 {
-  IntFloatMap map;
+  Map<int, float> map;
   for (int i = 0; i < 100; i++) {
     map.add(i * 30, i);
     map.add(i * 31, i);
@@ -64,7 +63,7 @@ TEST(map, AddMany)
 
 TEST(map, PopItem)
 {
-  IntFloatMap map;
+  Map<int, float> map;
   map.add(2, 3.0f);
   map.add(1, 9.0f);
   EXPECT_TRUE(map.contains(2));
@@ -81,7 +80,7 @@ TEST(map, PopItem)
 
 TEST(map, PopItemMany)
 {
-  IntFloatMap map;
+  Map<int, float> map;
   for (uint i = 0; i < 100; i++) {
     map.add_new(i, i);
   }
@@ -95,7 +94,7 @@ TEST(map, PopItemMany)
 
 TEST(map, ValueIterator)
 {
-  IntFloatMap map;
+  Map<int, float> map;
   map.add(3, 5.0f);
   map.add(1, 2.0f);
   map.add(7, -2.0f);
@@ -116,7 +115,7 @@ TEST(map, ValueIterator)
 
 TEST(map, KeyIterator)
 {
-  IntFloatMap map;
+  Map<int, float> map;
   map.add(6, 3.0f);
   map.add(2, 4.0f);
   map.add(1, 3.0f);
@@ -137,7 +136,7 @@ TEST(map, KeyIterator)
 
 TEST(map, ItemIterator)
 {
-  IntFloatMap map;
+  Map<int, float> map;
   map.add(5, 3.0f);
   map.add(2, 9.0f);
   map.add(1, 0.0f);
@@ -163,7 +162,7 @@ TEST(map, ItemIterator)
 
 TEST(map, MutableValueIterator)
 {
-  IntFloatMap map;
+  Map<int, float> map;
   map.add(3, 6.0f);
   map.add(2, 1.0f);
 
@@ -177,7 +176,7 @@ TEST(map, MutableValueIterator)
 
 TEST(map, MutableItemIterator)
 {
-  IntFloatMap map;
+  Map<int, float> map;
   map.add(3, 6.0f);
   map.add(2, 1.0f);
 
@@ -196,7 +195,7 @@ static float return_42()
 
 TEST(map, LookupOrAdd_SeparateFunction)
 {
-  IntFloatMap map;
+  Map<int, float> map;
   EXPECT_EQ(map.lookup_or_add(0, return_42), 42.0f);
   EXPECT_EQ(map.lookup(0), 42);
 
@@ -205,7 +204,7 @@ TEST(map, LookupOrAdd_SeparateFunction)
 
 TEST(map, LookupOrAdd_Lambdas)
 {
-  IntFloatMap map;
+  Map<int, float> map;
   auto lambda1 = []() { return 11.0f; };
   EXPECT_EQ(map.lookup_or_add(0, lambda1), 11.0f);
   auto lambda2 = []() { return 20.0f; };
@@ -217,7 +216,7 @@ TEST(map, LookupOrAdd_Lambdas)
 
 TEST(map, AddOrModify)
 {
-  IntFloatMap map;
+  Map<int, float> map;
   auto create_func = [](float *value) {
     *value = 10.0f;
     return true;
@@ -234,7 +233,7 @@ TEST(map, AddOrModify)
 
 TEST(map, AddOverwrite)
 {
-  IntFloatMap map;
+  Map<int, float> map;
   EXPECT_FALSE(map.contains(3));
   EXPECT_TRUE(map.add_overwrite(3, 6.0f));
   EXPECT_EQ(map.lookup(3), 6.0f);
@@ -246,7 +245,7 @@ TEST(map, AddOverwrite)
 
 TEST(map, LookupOrAddDefault)
 {
-  IntFloatMap map;
+  Map<int, float> map;
   map.lookup_or_add_default(3) = 6;
   EXPECT_EQ(map.lookup(3), 6);
   map.lookup_or_add_default(5) = 2;
@@ -257,10 +256,10 @@ TEST(map, LookupOrAddDefault)
 
 TEST(map, MoveConstructorSmall)
 {
-  IntFloatMap map1;
+  Map<int, float> map1;
   map1.add(1, 2.0f);
   map1.add(4, 1.0f);
-  IntFloatMap map2(std::move(map1));
+  Map<int, float> map2(std::move(map1));
   EXPECT_EQ(map2.size(), 2);
   EXPECT_EQ(map2.lookup(1), 2.0f);
   EXPECT_EQ(map2.lookup(4), 1.0f);
@@ -270,11 +269,11 @@ TEST(map, MoveConstructorSmall)
 
 TEST(map, MoveConstructorLarge)
 {
-  IntFloatMap map1;
+  Map<int, float> map1;
   for (uint i = 0; i < 100; i++) {
     map1.add_new(i, i);
   }
-  IntFloatMap map2(std::move(map1));
+  Map<int, float> map2(std::move(map1));
   EXPECT_EQ(map2.size(), 100);
   EXPECT_EQ(map2.lookup(1), 1.0f);
   EXPECT_EQ(map2.lookup(4), 4.0f);
@@ -284,10 +283,10 @@ TEST(map, MoveConstructorLarge)
 
 TEST(map, MoveAssignment)
 {
-  IntFloatMap map1;
+  Map<int, float> map1;
   map1.add(1, 2.0f);
   map1.add(4, 1.0f);
-  IntFloatMap map2;
+  Map<int, float> map2;
   map2 = std::move(map1);
   EXPECT_EQ(map2.size(), 2);
   EXPECT_EQ(map2.lookup(1), 2.0f);
@@ -298,10 +297,10 @@ TEST(map, MoveAssignment)
 
 TEST(map, CopyAssignment)
 {
-  IntFloatMap map1;
+  Map<int, float> map1;
   map1.add(1, 2.0f);
   map1.add(4, 1.0f);
-  IntFloatMap map2;
+  Map<int, float> map2;
   map2 = map1;
   EXPECT_EQ(map2.size(), 2);
   EXPECT_EQ(map2.lookup(1), 2.0f);
@@ -312,7 +311,7 @@ TEST(map, CopyAssignment)
 
 TEST(map, Clear)
 {
-  IntFloatMap map;
+  Map<int, float> map;
   map.add(1, 1.0f);
   map.add(2, 5.0f);
 
