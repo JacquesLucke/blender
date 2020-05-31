@@ -323,14 +323,23 @@ class VectorSet {
   }
 
   /**
-   * Deletes the key from the set. This will fail if the key is not in the set beforehand.
-   * This might change the order of elements in the vector.
-   *
-   * This is similar to std::unordered_set::erase.
+   * Deletes the key from the set. This will fail if the key is not in the set beforehand. This
+   * might change the order of elements in the vector.
    */
   void remove(const Key &key)
   {
     this->remove__impl(key, Hash{}(key));
+  }
+
+  /**
+   * Deletes the key from the set. If the key is not in the set, nothing is done. This might change
+   * the order of elements in the vector.
+   *
+   * This is similar to std::unordered_set::erase.
+   */
+  bool discard(const Key &key)
+  {
+    return this->discard__impl(key, Hash{}(key));
   }
 
   /**
@@ -586,22 +595,42 @@ class VectorSet {
 
     VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.contains(key, hash, m_keys)) {
-        uint32_t index_to_remove = slot.index();
-        uint32_t size = this->size();
-        uint32_t last_element_index = size - 1;
-
-        if (index_to_remove < last_element_index) {
-          m_keys[index_to_remove] = std::move(m_keys[last_element_index]);
-          this->update_slot_index(m_keys[index_to_remove], last_element_index, index_to_remove);
-        }
-
-        m_keys[last_element_index].~Key();
-        slot.remove();
-        m_removed_slots++;
+        this->remove_key_internal(slot);
         return;
       }
     }
     VECTOR_SET_SLOT_PROBING_END();
+  }
+
+  template<typename ForwardKey> bool discard__impl(const ForwardKey &key, uint32_t hash)
+  {
+    VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot) {
+      if (slot.contains(key, hash, m_keys)) {
+        this->remove_key_internal(slot);
+        return true;
+      }
+      if (slot.is_empty()) {
+        return false;
+      }
+    }
+    VECTOR_SET_SLOT_PROBING_END();
+  }
+
+  void remove_key_internal(Slot &slot)
+  {
+    uint32_t index_to_remove = slot.index();
+    uint32_t size = this->size();
+    uint32_t last_element_index = size - 1;
+
+    if (index_to_remove < last_element_index) {
+      m_keys[index_to_remove] = std::move(m_keys[last_element_index]);
+      this->update_slot_index(m_keys[index_to_remove], last_element_index, index_to_remove);
+    }
+
+    m_keys[last_element_index].~Key();
+    slot.remove();
+    m_removed_slots++;
+    return;
   }
 
   void update_slot_index(const Key &key, uint32_t old_index, uint32_t new_index)
