@@ -28,7 +28,7 @@
  * is done. Consequently, values stored in the stack have to be movable and they might be moved,
  * when the stack is moved.
  *
- * The implementation stores the elements in potentially multiple continuous chunks. The individual
+ * The implementation stores the elements in potentially multiple contiguous chunks. The individual
  * chunks are connected by a double linked list. All, except the top-most chunk are always
  * completely full.
  */
@@ -40,7 +40,7 @@
 namespace BLI {
 
 /**
- * A StackChunk references a continuous memory buffer. Multiple StackChunk instances are linked in
+ * A StackChunk references a contiguous memory buffer. Multiple StackChunk instances are linked in
  * a double linked list.
  *
  * The alignment of StackChunk is at least the alignment of T, because that makes it simpler to

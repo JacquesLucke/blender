@@ -23,7 +23,7 @@
  * A `BLI::VectorSet<Key>` is an ordered container for elements of type `Key`. It has the same
  * interface as `BLI::Set` with the following extensions:
  * - The insertion order of keys is maintained as long as no elements are removed.
- * - The keys are stored in a continuous array.
+ * - The keys are stored in a contiguous array.
  *
  * All core operations (add, remove and contains) can be done in O(1) amortized expected time.
  *

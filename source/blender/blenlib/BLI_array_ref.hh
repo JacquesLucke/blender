@@ -101,7 +101,7 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Return a continuous part of the array.
+   * Return a contiguous part of the array.
    * Asserts that the slice stays within the array.
    */
   ArrayRef slice(uint start, uint size) const
@@ -459,7 +459,7 @@ template<typename T> class MutableArrayRef {
   }
 
   /**
-   * Return a continuous part of the array.
+   * Return a contiguous part of the array.
    * Asserts that the slice stays in the array bounds.
    */
   MutableArrayRef slice(uint start, uint length) const

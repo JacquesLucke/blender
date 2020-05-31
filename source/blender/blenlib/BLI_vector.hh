@@ -20,7 +20,7 @@
 /** \file
  * \ingroup bli
  *
- * A `BLI::Vector<T>` is a dynamically growing continuous array for values of type T. It is
+ * A `BLI::Vector<T>` is a dynamically growing contiguous array for values of type T. It is
  * designed to be a more convenient and efficient replacement for `std::vector`. Note that the term
  * "vector" has nothing to do with a vector from computer graphics here.
  *
