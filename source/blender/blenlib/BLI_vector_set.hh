@@ -39,9 +39,12 @@
  * of two. Every slot contains state information and an index into the key array. A slot is either
  * empty, occupied or removed. More implementation details depend on the used template parameters.
  *
+ * Lookup operations with other types than Key can be done using the methods with the suffix "_as".
+ * This is commonly used when std::string is used as key, but lookups are done using StringRef. The
+ * hash function has to be able to hash those other types as well.
+ *
  * Possible Improvements:
  * - Small buffer optimization for the keys.
- * - Support lookups using other key types without conversion.
  */
 
 #include "BLI_array.hh"
@@ -319,6 +322,14 @@ class VectorSet {
    */
   bool contains(const Key &key) const
   {
+    return this->contains_as(key);
+  }
+
+  /**
+   * Same as `contains`, but accepts other key types that are supported by the hash function.
+   */
+  template<typename ForwardKey> bool contains_as(const ForwardKey &key) const
+  {
     return this->contains__impl(key, Hash{}(key));
   }
 
@@ -327,6 +338,14 @@ class VectorSet {
    * might change the order of elements in the vector.
    */
   void remove(const Key &key)
+  {
+    this->remove_as(key);
+  }
+
+  /**
+   * Same as `remove`, but accepts other key types that are supported by the hash function.
+   */
+  template<typename ForwardKey> void remove_as(const ForwardKey &key)
   {
     this->remove__impl(key, Hash{}(key));
   }
@@ -338,6 +357,14 @@ class VectorSet {
    * This is similar to std::unordered_set::erase.
    */
   bool discard(const Key &key)
+  {
+    return this->discard_as(key);
+  }
+
+  /**
+   * Same as `discard`, but accepts other key types that are supported by the hash function.
+   */
+  template<typename ForwardKey> bool discard_as(const ForwardKey &key)
   {
     return this->discard__impl(key, Hash{}(key));
   }
@@ -357,6 +384,14 @@ class VectorSet {
    */
   uint32_t index(const Key &key) const
   {
+    return this->index_as(key);
+  }
+
+  /**
+   * Same as `index`, but accepts other key types that are supported by the hash function.
+   */
+  template<typename ForwardKey> uint32_t index_as(const ForwardKey &key) const
+  {
     return this->index__impl(key, Hash{}(key));
   }
 
@@ -365,6 +400,14 @@ class VectorSet {
    * If you know for sure that the key is in the set, it is better to use `index` instead.
    */
   int32_t index_try(const Key &key) const
+  {
+    return this->index_try_as(key);
+  }
+
+  /**
+   * Same as `index_try`, but accepts other key types that are supported by the hash function.
+   */
+  template<typename ForwardKey> uint32_t index_try_as(const ForwardKey &key) const
   {
     return this->index_try__impl(key, Hash{}(key));
   }
@@ -509,7 +552,7 @@ class VectorSet {
 
   template<typename ForwardKey> void add_new__impl(ForwardKey &&key, uint32_t hash)
   {
-    BLI_assert(!this->contains(key));
+    BLI_assert(!this->contains_as(key));
 
     this->ensure_can_add();
 
@@ -546,7 +589,7 @@ class VectorSet {
 
   template<typename ForwardKey> uint32_t index__impl(const ForwardKey &key, uint32_t hash) const
   {
-    BLI_assert(this->contains(key));
+    BLI_assert(this->contains_as(key));
 
     VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.contains(key, hash, m_keys)) {
@@ -591,7 +634,7 @@ class VectorSet {
 
   template<typename ForwardKey> void remove__impl(const ForwardKey &key, uint32_t hash)
   {
-    BLI_assert(this->contains(key));
+    BLI_assert(this->contains_as(key));
 
     VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.contains(key, hash, m_keys)) {

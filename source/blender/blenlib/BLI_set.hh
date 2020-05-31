@@ -571,7 +571,7 @@ class Set {
 
   template<typename ForwardKey> void add_new__impl(ForwardKey &&key, uint32_t hash)
   {
-    BLI_assert(!this->contains(key));
+    BLI_assert(!this->contains_as(key));
 
     this->ensure_can_add();
 

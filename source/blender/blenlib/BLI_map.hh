@@ -857,7 +857,7 @@ class Map {
   template<typename ForwardKey, typename ForwardValue>
   void add_new__impl(ForwardKey &&key, ForwardValue &&value, uint32_t hash)
   {
-    BLI_assert(!this->contains(key));
+    BLI_assert(!this->contains_as(key));
 
     this->ensure_can_add();
     m_occupied_and_removed_slots++;
@@ -891,7 +891,7 @@ class Map {
 
   template<typename ForwardKey> void remove__impl(const ForwardKey &key, uint32_t hash)
   {
-    BLI_assert(this->contains(key));
+    BLI_assert(this->contains_as(key));
 
     m_removed_slots++;
 
@@ -921,7 +921,7 @@ class Map {
 
   template<typename ForwardKey> Value pop__impl(const ForwardKey &key, uint32_t hash)
   {
-    BLI_assert(this->contains(key));
+    BLI_assert(this->contains_as(key));
 
     m_removed_slots++;
 
