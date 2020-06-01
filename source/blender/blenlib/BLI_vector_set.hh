@@ -108,6 +108,12 @@ class VectorSet {
    */
   uint32_t m_slot_mask;
 
+  /** This is called to hash incoming keys. */
+  Hash m_hash;
+
+  /** This is called to check equality of two keys. */
+  IsEqual m_is_equal;
+
 #define LOAD_FACTOR 1, 2
   LoadFactor m_max_load_factor = LoadFactor(LOAD_FACTOR);
   using SlotArray = Array<Slot, LoadFactor::compute_total_slots(4, LOAD_FACTOR), Allocator>;
@@ -224,11 +230,11 @@ class VectorSet {
    */
   void add_new(const Key &key)
   {
-    this->add_new__impl(key, Hash{}(key));
+    this->add_new__impl(key, m_hash(key));
   }
   void add_new(Key &&key)
   {
-    this->add_new__impl(std::move(key), Hash{}(key));
+    this->add_new__impl(std::move(key), m_hash(key));
   }
 
   /**
@@ -248,7 +254,7 @@ class VectorSet {
 
   template<typename ForwardKey> bool add_as(ForwardKey &&key)
   {
-    return this->add__impl(std::forward<ForwardKey>(key), Hash{}(key));
+    return this->add__impl(std::forward<ForwardKey>(key), m_hash(key));
   }
 
   /**
@@ -280,7 +286,7 @@ class VectorSet {
    */
   template<typename ForwardKey> bool contains_as(const ForwardKey &key) const
   {
-    return this->contains__impl(key, Hash{}(key));
+    return this->contains__impl(key, m_hash(key));
   }
 
   /**
@@ -297,7 +303,7 @@ class VectorSet {
    */
   template<typename ForwardKey> void remove_as(const ForwardKey &key)
   {
-    this->remove__impl(key, Hash{}(key));
+    this->remove__impl(key, m_hash(key));
   }
 
   /**
@@ -316,7 +322,7 @@ class VectorSet {
    */
   template<typename ForwardKey> bool discard_as(const ForwardKey &key)
   {
-    return this->discard__impl(key, Hash{}(key));
+    return this->discard__impl(key, m_hash(key));
   }
 
   /**
@@ -342,7 +348,7 @@ class VectorSet {
    */
   template<typename ForwardKey> uint32_t index_as(const ForwardKey &key) const
   {
-    return this->index__impl(key, Hash{}(key));
+    return this->index__impl(key, m_hash(key));
   }
 
   /**
@@ -359,7 +365,7 @@ class VectorSet {
    */
   template<typename ForwardKey> uint32_t index_try_as(const ForwardKey &key) const
   {
-    return this->index_try__impl(key, Hash{}(key));
+    return this->index_try__impl(key, m_hash(key));
   }
 
   const Key *data() const
@@ -477,7 +483,7 @@ class VectorSet {
    */
   uint32_t count_collisions(const Key &key) const
   {
-    return this->count_collisions__impl(key, Hash{}(key));
+    return this->count_collisions__impl(key, m_hash(key));
   }
 
  private:
@@ -546,7 +552,7 @@ class VectorSet {
       if (slot.is_empty()) {
         return false;
       }
-      if (slot.contains(key, IsEqual{}, hash, m_keys)) {
+      if (slot.contains(key, m_is_equal, hash, m_keys)) {
         return true;
       }
     }
@@ -583,7 +589,7 @@ class VectorSet {
         slot.occupy(index, hash);
         return true;
       }
-      if (slot.contains(key, IsEqual{}, hash, m_keys)) {
+      if (slot.contains(key, m_is_equal, hash, m_keys)) {
         return false;
       }
     }
@@ -595,7 +601,7 @@ class VectorSet {
     BLI_assert(this->contains_as(key));
 
     VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot) {
-      if (slot.contains(key, IsEqual{}, hash, m_keys)) {
+      if (slot.contains(key, m_is_equal, hash, m_keys)) {
         return slot.index();
       }
     }
@@ -605,7 +611,7 @@ class VectorSet {
   template<typename ForwardKey> int32_t index_try__impl(const ForwardKey &key, uint32_t hash) const
   {
     VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot) {
-      if (slot.contains(key, IsEqual{}, hash, m_keys)) {
+      if (slot.contains(key, m_is_equal, hash, m_keys)) {
         return slot.index();
       }
       if (slot.is_empty()) {
@@ -622,7 +628,7 @@ class VectorSet {
     uint32_t index_to_pop = this->size() - 1;
     Key key = std::move(m_keys[index_to_pop]);
     m_keys[index_to_pop].~Key();
-    uint32_t hash = Hash{}(key);
+    uint32_t hash = m_hash(key);
 
     m_removed_slots++;
 
@@ -640,7 +646,7 @@ class VectorSet {
     BLI_assert(this->contains_as(key));
 
     VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot) {
-      if (slot.contains(key, IsEqual{}, hash, m_keys)) {
+      if (slot.contains(key, m_is_equal, hash, m_keys)) {
         this->remove_key_internal(slot);
         return;
       }
@@ -651,7 +657,7 @@ class VectorSet {
   template<typename ForwardKey> bool discard__impl(const ForwardKey &key, uint32_t hash)
   {
     VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot) {
-      if (slot.contains(key, IsEqual{}, hash, m_keys)) {
+      if (slot.contains(key, m_is_equal, hash, m_keys)) {
         this->remove_key_internal(slot);
         return true;
       }
@@ -681,7 +687,7 @@ class VectorSet {
 
   void update_slot_index(const Key &key, uint32_t old_index, uint32_t new_index)
   {
-    uint32_t hash = Hash{}(key);
+    uint32_t hash = m_hash(key);
     VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.has_index(old_index)) {
         slot.update_index(new_index);
@@ -697,7 +703,7 @@ class VectorSet {
     uint32_t collisions = 0;
 
     VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot) {
-      if (slot.contains(key, IsEqual{}, hash, m_keys)) {
+      if (slot.contains(key, m_is_equal, hash, m_keys)) {
         return collisions;
       }
       if (slot.is_empty()) {

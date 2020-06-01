@@ -36,6 +36,10 @@
 namespace BLI {
 
 template<typename T> struct DefaultHash {
+  uint32_t operator()(const T &value) const
+  {
+    return value.hash();
+  }
 };
 
 #define TRIVIAL_DEFAULT_INT_HASH(TYPE) \

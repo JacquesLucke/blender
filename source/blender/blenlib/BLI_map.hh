@@ -110,6 +110,12 @@ class Map {
    */
   uint32_t m_slot_mask;
 
+  /** This is called to hash incoming keys. */
+  Hash m_hash;
+
+  /** This is called to check equality of two keys. */
+  IsEqual m_is_equal;
+
 #define LOAD_FACTOR 1, 2
   LoadFactor m_max_load_factor = LoadFactor(LOAD_FACTOR);
   using SlotArray =
@@ -141,6 +147,8 @@ class Map {
         m_occupied_and_removed_slots(0),
         m_usable_slots(0),
         m_slot_mask(0),
+        m_hash(),
+        m_is_equal(),
         m_slots(1)
   {
   }
@@ -154,6 +162,8 @@ class Map {
         m_occupied_and_removed_slots(other.m_occupied_and_removed_slots),
         m_usable_slots(other.m_usable_slots),
         m_slot_mask(other.m_slot_mask),
+        m_hash(std::move(other.m_hash)),
+        m_is_equal(std::move(other.m_is_equal)),
         m_slots(std::move(other.m_slots))
   {
     other.~Map();
@@ -189,19 +199,19 @@ class Map {
    */
   void add_new(const Key &key, const Value &value)
   {
-    this->add_new__impl(key, value, Hash{}(key));
+    this->add_new__impl(key, value, m_hash(key));
   }
   void add_new(const Key &key, Value &&value)
   {
-    this->add_new__impl(key, std::move(value), Hash{}(key));
+    this->add_new__impl(key, std::move(value), m_hash(key));
   }
   void add_new(Key &&key, const Value &value)
   {
-    this->add_new__impl(std::move(key), value, Hash{}(key));
+    this->add_new__impl(std::move(key), value, m_hash(key));
   }
   void add_new(Key &&key, Value &&value)
   {
-    this->add_new__impl(std::move(key), std::move(value), Hash{}(key));
+    this->add_new__impl(std::move(key), std::move(value), m_hash(key));
   }
 
   /**
@@ -235,7 +245,7 @@ class Map {
   bool add_as(ForwardKey &&key, ForwardValue &&value)
   {
     return this->add__impl(
-        std::forward<ForwardKey>(key), std::forward<ForwardValue>(value), Hash{}(key));
+        std::forward<ForwardKey>(key), std::forward<ForwardValue>(value), m_hash(key));
   }
 
   /**
@@ -269,7 +279,7 @@ class Map {
   bool add_overwrite_as(ForwardKey &&key, ForwardValue &&value)
   {
     return this->add_overwrite__impl(
-        std::forward<ForwardKey>(key), std::forward<ForwardValue>(value), Hash{}(key));
+        std::forward<ForwardKey>(key), std::forward<ForwardValue>(value), m_hash(key));
   }
 
   /**
@@ -287,7 +297,7 @@ class Map {
    */
   template<typename ForwardKey> bool contains_as(const ForwardKey &key) const
   {
-    return this->contains__impl(key, Hash{}(key));
+    return this->contains__impl(key, m_hash(key));
   }
 
   /**
@@ -304,7 +314,7 @@ class Map {
    */
   template<typename ForwardKey> void remove_as(const ForwardKey &key)
   {
-    this->remove__impl(key, Hash{}(key));
+    this->remove__impl(key, m_hash(key));
   }
 
   /**
@@ -323,7 +333,7 @@ class Map {
    */
   template<typename ForwardKey> bool discard_as(const ForwardKey &key)
   {
-    return this->discard__impl(key, Hash{}(key));
+    return this->discard__impl(key, m_hash(key));
   }
 
   /**
@@ -340,7 +350,7 @@ class Map {
    */
   template<typename ForwardKey> Value pop_as(const ForwardKey &key)
   {
-    return this->pop__impl(key, Hash{}(key));
+    return this->pop__impl(key, m_hash(key));
   }
 
   /**
@@ -386,7 +396,7 @@ class Map {
                         const ModifyValueF &modify_value) -> decltype(create_value(nullptr))
   {
     return this->add_or_modify__impl(
-        std::forward<Key>(key), create_value, modify_value, Hash{}(key));
+        std::forward<Key>(key), create_value, modify_value, m_hash(key));
   }
 
   /**
@@ -406,11 +416,11 @@ class Map {
 
   template<typename ForwardKey> const Value *lookup_ptr_as(const ForwardKey &key) const
   {
-    return this->lookup_ptr__impl(key, Hash{}(key));
+    return this->lookup_ptr__impl(key, m_hash(key));
   }
   template<typename ForwardKey> Value *lookup_ptr_as(const ForwardKey &key)
   {
-    return const_cast<Value *>(this->lookup_ptr__impl(key, Hash{}(key)));
+    return const_cast<Value *>(this->lookup_ptr__impl(key, m_hash(key)));
   }
 
   /**
@@ -489,7 +499,7 @@ class Map {
   template<typename ForwardKey, typename CreateValueF>
   Value &lookup_or_add_as(ForwardKey &&key, const CreateValueF &create_value)
   {
-    return this->lookup_or_add__impl(std::forward<ForwardKey>(key), create_value, Hash{}(key));
+    return this->lookup_or_add__impl(std::forward<ForwardKey>(key), create_value, m_hash(key));
   }
 
   /**
@@ -785,7 +795,7 @@ class Map {
    */
   uint32_t count_collisions(const Key &key) const
   {
-    return this->count_collisions__impl(key, Hash{}(key));
+    return this->count_collisions__impl(key, m_hash(key));
   }
 
  private:
@@ -848,7 +858,7 @@ class Map {
       if (slot.is_empty()) {
         return false;
       }
-      if (slot.contains(key, IsEqual{}, hash)) {
+      if (slot.contains(key, m_is_equal, hash)) {
         return true;
       }
     }
@@ -883,7 +893,7 @@ class Map {
         m_occupied_and_removed_slots++;
         return true;
       }
-      if (slot.contains(key, IsEqual{}, hash)) {
+      if (slot.contains(key, m_is_equal, hash)) {
         return false;
       }
     }
@@ -897,7 +907,7 @@ class Map {
     m_removed_slots++;
 
     MAP_SLOT_PROBING_BEGIN (hash, slot) {
-      if (slot.contains(key, IsEqual{}, hash)) {
+      if (slot.contains(key, m_is_equal, hash)) {
         slot.remove();
         return;
       }
@@ -908,7 +918,7 @@ class Map {
   template<typename ForwardKey> bool discard__impl(const ForwardKey &key, uint32_t hash)
   {
     MAP_SLOT_PROBING_BEGIN (hash, slot) {
-      if (slot.contains(key, IsEqual{}, hash)) {
+      if (slot.contains(key, m_is_equal, hash)) {
         slot.remove();
         m_removed_slots++;
         return true;
@@ -927,7 +937,7 @@ class Map {
     m_removed_slots++;
 
     MAP_SLOT_PROBING_BEGIN (hash, slot) {
-      if (slot.contains(key, IsEqual{}, hash)) {
+      if (slot.contains(key, m_is_equal, hash)) {
         Value value = *slot.value();
         slot.remove();
         return value;
@@ -956,7 +966,7 @@ class Map {
         Value *value_ptr = slot.value();
         return create_value(value_ptr);
       }
-      if (slot.contains(key, IsEqual{}, hash)) {
+      if (slot.contains(key, m_is_equal, hash)) {
         Value *value_ptr = slot.value();
         return modify_value(value_ptr);
       }
@@ -975,7 +985,7 @@ class Map {
         m_occupied_and_removed_slots++;
         return *slot.value();
       }
-      if (slot.contains(key, IsEqual{}, hash)) {
+      if (slot.contains(key, m_is_equal, hash)) {
         return *slot.value();
       }
     }
@@ -1004,7 +1014,7 @@ class Map {
       if (slot.is_empty()) {
         return nullptr;
       }
-      if (slot.contains(key, IsEqual{}, hash)) {
+      if (slot.contains(key, m_is_equal, hash)) {
         return slot.value();
       }
     }
@@ -1017,7 +1027,7 @@ class Map {
     uint32_t collisions = 0;
 
     MAP_SLOT_PROBING_BEGIN (hash, slot) {
-      if (slot.contains(key, IsEqual{}, hash)) {
+      if (slot.contains(key, m_is_equal, hash)) {
         return collisions;
       }
       if (slot.is_empty()) {
