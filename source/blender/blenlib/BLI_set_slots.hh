@@ -363,60 +363,16 @@ template<typename Key, typename KeyInfo> class IntrusiveSetSlot {
   }
 };
 
-template<typename Pointer> struct PointerKeyInfo {
-  static Pointer get_empty()
-  {
-    return (Pointer)UINTPTR_MAX;
-  }
+/**
+ * This exists just to make it more convenient to define which special integer values can be used
+ * to indicate an empty and removed value.
+ */
+template<typename Int, Int EmptyValue, Int RemovedValue>
+using IntegerSetSlot = IntrusiveSetSlot<Int, TemplatedKeyInfo<Int, EmptyValue, RemovedValue>>;
 
-  static void remove(Pointer &pointer)
-  {
-    pointer = (Pointer)(UINTPTR_MAX - 1);
-  }
-
-  static bool is_empty(Pointer pointer)
-  {
-    return (uintptr_t)pointer == UINTPTR_MAX;
-  }
-
-  static bool is_removed(Pointer pointer)
-  {
-    return (uintptr_t)pointer == UINTPTR_MAX - 1;
-  }
-
-  static bool is_not_empty_or_removed(Pointer pointer)
-  {
-    return (uintptr_t)pointer < UINTPTR_MAX - 1;
-  }
-};
-
-template<typename Key, Key EmptyValue, Key RemovedValue> struct TemplatedKeyInfo {
-  static Key get_empty()
-  {
-    return EmptyValue;
-  }
-
-  static void remove(Key &key)
-  {
-    key = RemovedValue;
-  }
-
-  static bool is_empty(const Key &key)
-  {
-    return key == EmptyValue;
-  }
-
-  static bool is_removed(const Key &key)
-  {
-    return key == RemovedValue;
-  }
-
-  static bool is_not_empty_or_removed(const Key &key)
-  {
-    return key != EmptyValue && key != RemovedValue;
-  }
-};
-
+/**
+ * Use SimpleSetSlot by default, because it is the smallest slot type that works for all key types.
+ */
 template<typename Key> struct DefaultSetSlot {
   using type = SimpleSetSlot<Key>;
 };
@@ -435,6 +391,10 @@ template<> struct DefaultSetSlot<StringRefNull> {
   using type = HashedSetSlot<StringRefNull>;
 };
 
+/**
+ * Use a special slot type for pointer keys, because we can store whether a slot is empty or
+ * removed with special pointer values.
+ */
 template<typename Key> struct DefaultSetSlot<Key *> {
   using type = IntrusiveSetSlot<Key *, PointerKeyInfo<Key *>>;
 };

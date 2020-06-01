@@ -388,7 +388,7 @@ TEST(set, IntrusiveIntKey)
       DefaultProbingStrategy,
       DefaultHash<int>,
       DefaultEquality<int>,
-      IntrusiveSetSlot<int, TemplatedKeyInfo<int, -1, -2>>>
+      IntegerSetSlot<int, 100, 200>>
       set;
   EXPECT_TRUE(set.add(4));
   EXPECT_TRUE(set.add(3));

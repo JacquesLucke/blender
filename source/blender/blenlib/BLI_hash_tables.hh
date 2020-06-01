@@ -147,6 +147,90 @@ class LoadFactor {
 /** \} */
 
 /* -------------------------------------------------------------------- */
+/** \name Intrusive Key Info
+ *
+ * A hash table slot has to maintain state about whether the slot is empty, occupied or removed.
+ * Usually, this state information is stored in its own variable. While it only needs two bits in
+ * theory, in practice often 4 or 8 bytes are used, due to alignment requirements.
+ *
+ * One solution to deal with this problem is to embed the state information in the key. That means,
+ * two values of the key type are selected to indicate whether the slot is empty or removed.
+ *
+ * The classes below tell a slot implementation which special key values it can use. They can be
+ * used as KeyInfo in slot types like IntrusiveSetSlot.
+ *
+ * \{ */
+
+/**
+ * The template arguments EmptyValue and RemovedValue define which special are used. This can be
+ * used when a hash table has integer keys and there are two specific integers that will never be
+ * used as keys.
+ */
+template<typename Key, Key EmptyValue, Key RemovedValue> struct TemplatedKeyInfo {
+  static Key get_empty()
+  {
+    return EmptyValue;
+  }
+
+  static void remove(Key &key)
+  {
+    key = RemovedValue;
+  }
+
+  static bool is_empty(const Key &key)
+  {
+    return key == EmptyValue;
+  }
+
+  static bool is_removed(const Key &key)
+  {
+    return key == RemovedValue;
+  }
+
+  static bool is_not_empty_or_removed(const Key &key)
+  {
+    return key != EmptyValue && key != RemovedValue;
+  }
+};
+
+/**
+ * 0xffff...ffff indicates an empty slot.
+ * 0xffff...fffe indicates a removed slot.
+ *
+ * Those specific values are used, because with them a single comparison is enough to check whether
+ * a slot is occupied. The keys 0x0000...0000 and 0x0000...0001 also satisfy this constraint.
+ * However, nullptr is much more likely to be used as valid key.
+ */
+template<typename Pointer> struct PointerKeyInfo {
+  static Pointer get_empty()
+  {
+    return (Pointer)UINTPTR_MAX;
+  }
+
+  static void remove(Pointer &pointer)
+  {
+    pointer = (Pointer)(UINTPTR_MAX - 1);
+  }
+
+  static bool is_empty(Pointer pointer)
+  {
+    return (uintptr_t)pointer == UINTPTR_MAX;
+  }
+
+  static bool is_removed(Pointer pointer)
+  {
+    return (uintptr_t)pointer == UINTPTR_MAX - 1;
+  }
+
+  static bool is_not_empty_or_removed(Pointer pointer)
+  {
+    return (uintptr_t)pointer < UINTPTR_MAX - 1;
+  }
+};
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
 /** \name Hash Table Stats
  *
  * A utility class that makes it easier for hash table implementations to provide statistics to the
