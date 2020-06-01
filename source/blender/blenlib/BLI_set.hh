@@ -26,29 +26,46 @@
  *
  * In most cases, your default choice for a hash set in Blender should be `BLI::Set`.
  *
- * The implementation uses open addressing in a flat array. The number of slots is always a power
- * of two. More implementation details depend on the used template parameters.
+ * The Set is implemented using a open addressing in a flat slot array with a power-of-two size.
+ * Every slot is in one of three states: empty, occupied or removed. If a slot is occupied, it
+ * contains an instance of the key type.
  *
- * Lookup operations with other types than Key can be done using the methods with the suffix "_as".
- * This is commonly used when std::string is used as key, but lookups are done using StringRef. The
- * hash function has to be able to hash those other types as well.
+ * Benchmarking and comparing hash tables is hard, because many factors influence the result. The
+ * performance of a hash table depends on the hash function, probing strategy, max load factor, key
+ * type, slot type and the data distribution. This implementation is designed to be relatively fast
+ * by default in call cases. However, it also offers many customization points that allow it to be
+ * optimized for a specific use case.
  *
- * Benchmarking hash tables is hard. There are many things that influence how well a hash table
- * performs. It depends on the hash function, probing strategy, max load factor, element type, slot
- * type and of course the actual distribution of the data. Changing just one of these can make the
- * hash table perform very badly. BLI::Set is designed to be relatively fast in all cases, but it's
- * also quite adjustable and can be optimized for a specific use case.
- *
- * Rudimentary benchmarks can be enabled in BLI_set_test.cc. The results of that benchmark are
+ * A rudimentary benchmark can be found in BLI_set_test.cc. The results of that benchmark are
  * there as well. The numbers show that in this specific case BLI::Set outperforms
- * std::unordered_set consistently. Usually by a factor between 2-4.
+ * std::unordered_set consistently. Usually by a factor between 2 and 4.
+ *
+ * Some noteworthy information:
+ * - Keys must be movable, but not necessarily copyable.
+ * - The hash function can be customized. See BLI_hash.hh for details.
+ * - The probing strategy can be customized. See BLI_probing_stragies.hh for details.
+ * - The slot type can be customized. See BLI_set_slots.hh for details.
+ * - Small buffer optimization is enabled by default, if the key is not too large.
+ * - The methods `add_new` and `remove_contained` should be used instead of `add` and `remove`
+ *   whenever appropriate. Assumptions and intention are described better this way.
+ * - Lookups can be performed using types other than Key without conversion. For that use the
+ *   methods ending with `_as`. The template parameters Hash and IsEqual have to support the other
+ *   key type. This can greatly improve performance when the set contains strings.
+ * - Pointers to keys are potentially invalidated when the set is changed or moved.
+ * - The default constructor is cheap, even when a large InlineBufferCapacity is used. The large
+ *   slot array will only be initialized when the first key is added.
+ * - The `print_stats` method can be used to get information about the distribution of keys and
+ *   memory usage of the set.
+ * - The method names don't follow the std::unordered_set names in many cases. Searching for such
+ *   names in this file will usually let you discover the new name.
  *
  * Possible Improvements:
- * - Branchless loop over slots in grow function (measured ~10% performance improvement in some
- *   cases).
+ * - Branchless loop over slots in grow function (measured ~10% performance improvement when the
+ *   distribution is occupied slots is suffiently random).
  * - Optimize add_multiple_(new) with software prefetching (measured up to ~30% performance
- *   improvement in some cases).
+ *   improvement on large hash tables).
  * - Provide an api function to lookup multiple keys and optimize that with software prefetching.
+ * - Support max load factor customization.
  */
 
 #include <type_traits>
