@@ -213,19 +213,29 @@ class Map {
    */
   bool add(const Key &key, const Value &value)
   {
-    return this->add__impl(key, value, Hash{}(key));
+    return this->add_as(key, value);
   }
   bool add(const Key &key, Value &&value)
   {
-    return this->add__impl(key, std::move(value), Hash{}(key));
+    return this->add_as(key, std::move(value));
   }
   bool add(Key &&key, const Value &value)
   {
-    return this->add__impl(std::move(key), value, Hash{}(key));
+    return this->add_as(std::move(key), value);
   }
   bool add(Key &&key, Value &&value)
   {
-    return this->add__impl(std::move(key), std::move(value), Hash{}(key));
+    return this->add_as(std::move(key), std::move(value));
+  }
+
+  /**
+   * Same as `add`, but accepts other key types that are supported by the hash function.
+   */
+  template<typename ForwardKey, typename ForwardValue>
+  bool add_as(ForwardKey &&key, ForwardValue &&value)
+  {
+    return this->add__impl(
+        std::forward<ForwardKey>(key), std::forward<ForwardValue>(value), Hash{}(key));
   }
 
   /**
@@ -255,13 +265,11 @@ class Map {
   /**
    * Same as `add_overwrite`, but accepts other key types that are supported by the hash function.
    */
-  template<typename ForwardKey> bool add_overwrite_as(ForwardKey &&key, const Value &value)
+  template<typename ForwardKey, typename ForwardValue>
+  bool add_overwrite_as(ForwardKey &&key, ForwardValue &&value)
   {
-    return this->add_overwrite__impl(std::forward<ForwardKey>(key), value, Hash{}(key));
-  }
-  template<typename ForwardKey> bool add_overwrite_as(ForwardKey &&key, Value &&value)
-  {
-    return this->add_overwrite__impl(std::forward<ForwardKey>(key), std::move(value), Hash{}(key));
+    return this->add_overwrite__impl(
+        std::forward<ForwardKey>(key), std::forward<ForwardValue>(value), Hash{}(key));
   }
 
   /**
@@ -446,15 +454,15 @@ class Map {
   /**
    * Same as `lookup_default`, but accepts other key types that are supported by the hash function.
    */
-  template<typename ForwardKey>
-  Value lookup_default_as(const ForwardKey &key, const Value &default_value) const
+  template<typename ForwardKey, typename ForwardValue>
+  Value lookup_default_as(const ForwardKey &key, ForwardValue &&default_value) const
   {
     const Value *ptr = this->lookup_ptr_as(key);
     if (ptr != nullptr) {
       return *ptr;
     }
     else {
-      return default_value;
+      return std::forward<ForwardValue>(default_value);
     }
   }
 

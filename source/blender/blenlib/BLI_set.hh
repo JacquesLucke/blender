@@ -230,11 +230,19 @@ class Set {
    */
   bool add(const Key &key)
   {
-    return this->add__impl(key, Hash{}(key));
+    return this->add_as(key);
   }
   bool add(Key &&key)
   {
-    return this->add__impl(std::move(key), Hash{}(key));
+    return this->add_as(std::move(key));
+  }
+
+  /**
+   * Same as `add`, but accepts other key types that are supported by the hash function.
+   */
+  template<typename ForwardKey> bool add_as(ForwardKey &&key)
+  {
+    return this->add__impl(std::forward<ForwardKey>(key), Hash{}(key));
   }
 
   /**

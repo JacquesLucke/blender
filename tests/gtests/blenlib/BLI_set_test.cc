@@ -343,6 +343,15 @@ TEST(set, DiscardAs)
   EXPECT_FALSE(set.contains_as(Type2{5}));
 }
 
+TEST(set, AddAs)
+{
+  Set<std::string> set;
+  EXPECT_TRUE(set.add_as("test"));
+  EXPECT_TRUE(set.add_as(StringRef("qwe")));
+  EXPECT_FALSE(set.add_as(StringRef("test")));
+  EXPECT_FALSE(set.add_as("qwe"));
+}
+
 template<uint N> struct EqualityIntModN {
   bool operator()(uint a, uint b) const
   {

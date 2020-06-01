@@ -81,9 +81,9 @@ TEST(vector_set, AddExistingDoesNotIncreaseSize)
 {
   VectorSet<int> set;
   EXPECT_EQ(set.size(), 0);
-  set.add(5);
+  EXPECT_TRUE(set.add(5));
   EXPECT_EQ(set.size(), 1);
-  set.add(5);
+  EXPECT_FALSE(set.add(5));
   EXPECT_EQ(set.size(), 1);
 }
 
@@ -148,12 +148,12 @@ TEST(vector_set, UniquePtrValue)
 TEST(vector_set, Discard)
 {
   VectorSet<int> set;
-  set.add(5);
+  EXPECT_TRUE(set.add(5));
   EXPECT_TRUE(set.contains(5));
-  set.discard(6);
+  EXPECT_FALSE(set.discard(6));
   EXPECT_TRUE(set.contains(5));
-  set.discard(5);
+  EXPECT_TRUE(set.discard(5));
   EXPECT_FALSE(set.contains(5));
-  set.discard(5);
+  EXPECT_FALSE(set.discard(5));
   EXPECT_FALSE(set.contains(5));
 }

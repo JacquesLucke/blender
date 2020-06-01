@@ -237,13 +237,18 @@ class VectorSet {
    *
    * This is similar to std::unordered_set::insert.
    */
-  void add(const Key &key)
+  bool add(const Key &key)
   {
-    this->add__impl(key, Hash{}(key));
+    return this->add_as(key);
   }
-  void add(Key &&key)
+  bool add(Key &&key)
   {
-    this->add__impl(std::move(key), Hash{}(key));
+    return this->add_as(std::move(key));
+  }
+
+  template<typename ForwardKey> bool add_as(ForwardKey &&key)
+  {
+    return this->add__impl(std::forward<ForwardKey>(key), Hash{}(key));
   }
 
   /**
