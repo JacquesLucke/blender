@@ -107,34 +107,34 @@ TEST(set, MoveAssignment)
   EXPECT_EQ(set2.size(), 3);
 }
 
-TEST(set, Remove)
+TEST(set, RemoveContained)
 {
   Set<int> set = {3, 4, 5};
   EXPECT_TRUE(set.contains(3));
   EXPECT_TRUE(set.contains(4));
   EXPECT_TRUE(set.contains(5));
-  set.remove(4);
+  set.remove_contained(4);
   EXPECT_TRUE(set.contains(3));
   EXPECT_FALSE(set.contains(4));
   EXPECT_TRUE(set.contains(5));
-  set.remove(3);
+  set.remove_contained(3);
   EXPECT_FALSE(set.contains(3));
   EXPECT_FALSE(set.contains(4));
   EXPECT_TRUE(set.contains(5));
-  set.remove(5);
+  set.remove_contained(5);
   EXPECT_FALSE(set.contains(3));
   EXPECT_FALSE(set.contains(4));
   EXPECT_FALSE(set.contains(5));
 }
 
-TEST(set, RemoveMany)
+TEST(set, RemoveContainedMany)
 {
   Set<int> set;
   for (uint i = 0; i < 1000; i++) {
     set.add(i);
   }
   for (uint i = 100; i < 1000; i++) {
-    set.remove(i);
+    set.remove_contained(i);
   }
   for (uint i = 900; i < 1000; i++) {
     set.add(i);
@@ -202,13 +202,13 @@ TEST(set, Iterator)
   EXPECT_TRUE(vec.contains(4));
 }
 
-TEST(set, OftenAddRemove)
+TEST(set, OftenAddRemoveContained)
 {
   Set<int> set;
   for (int i = 0; i < 100; i++) {
     set.add(42);
     EXPECT_EQ(set.size(), 1);
-    set.remove(42);
+    set.remove_contained(42);
     EXPECT_EQ(set.size(), 0);
   }
 }
@@ -255,16 +255,16 @@ TEST(set, PointerSet)
   EXPECT_FALSE(set.contains(&c));
 }
 
-TEST(set, Discard)
+TEST(set, Remove)
 {
   Set<int> set = {1, 2, 3, 4, 5, 6};
   EXPECT_EQ(set.size(), 6);
-  EXPECT_TRUE(set.discard(2));
+  EXPECT_TRUE(set.remove(2));
   EXPECT_EQ(set.size(), 5);
   EXPECT_FALSE(set.contains(2));
-  EXPECT_FALSE(set.discard(2));
+  EXPECT_FALSE(set.remove(2));
   EXPECT_EQ(set.size(), 5);
-  EXPECT_TRUE(set.discard(5));
+  EXPECT_TRUE(set.remove(5));
   EXPECT_EQ(set.size(), 4);
 }
 
@@ -321,25 +321,25 @@ TEST(set, ContainsAsString)
   EXPECT_FALSE(set.contains_as(StringRef("string")));
 }
 
+TEST(set, RemoveContainedAs)
+{
+  Set<Type1> set;
+  set.add(Type1{5});
+  EXPECT_TRUE(set.contains_as(Type2{5}));
+  set.remove_contained_as(Type2{5});
+  EXPECT_FALSE(set.contains_as(Type2{5}));
+}
+
 TEST(set, RemoveAs)
 {
   Set<Type1> set;
   set.add(Type1{5});
   EXPECT_TRUE(set.contains_as(Type2{5}));
+  set.remove_as(Type2{6});
+  EXPECT_TRUE(set.contains_as(Type2{5}));
   set.remove_as(Type2{5});
   EXPECT_FALSE(set.contains_as(Type2{5}));
-}
-
-TEST(set, DiscardAs)
-{
-  Set<Type1> set;
-  set.add(Type1{5});
-  EXPECT_TRUE(set.contains_as(Type2{5}));
-  set.discard_as(Type2{6});
-  EXPECT_TRUE(set.contains_as(Type2{5}));
-  set.discard_as(Type2{5});
-  EXPECT_FALSE(set.contains_as(Type2{5}));
-  set.discard_as(Type2{5});
+  set.remove_as(Type2{5});
   EXPECT_FALSE(set.contains_as(Type2{5}));
 }
 
@@ -377,7 +377,7 @@ TEST(set, CustomizeHashAndEquality)
   set.add(55);
   EXPECT_TRUE(set.contains(5));
   EXPECT_TRUE(set.contains(14));
-  set.discard(1004);
+  set.remove(1004);
   EXPECT_FALSE(set.contains(14));
 }
 
@@ -410,9 +410,9 @@ BLI_NOINLINE void benchmark_random_ints(StringRef name, uint amount, uint factor
     }
   }
   {
-    SCOPED_TIMER(name + " Discard");
+    SCOPED_TIMER(name + " Remove");
     for (int value : values) {
-      count += set.discard(value);
+      count += set.remove(value);
     }
   }
 
@@ -438,52 +438,52 @@ TEST(set, Benchmark)
  *
  * Timer 'BLI::Set           Add' took 5.5573 ms
  * Timer 'BLI::Set           Contains' took 0.807384 ms
- * Timer 'BLI::Set           Discard' took 0.953436 ms
+ * Timer 'BLI::Set           Remove' took 0.953436 ms
  * Count: 199998
  * Timer 'std::unordered_set Add' took 12.551 ms
  * Timer 'std::unordered_set Contains' took 2.3323 ms
- * Timer 'std::unordered_set Discard' took 5.07082 ms
+ * Timer 'std::unordered_set Remove' took 5.07082 ms
  * Count: 199998
  * Timer 'BLI::Set           Add' took 2.62526 ms
  * Timer 'BLI::Set           Contains' took 0.407499 ms
- * Timer 'BLI::Set           Discard' took 0.472981 ms
+ * Timer 'BLI::Set           Remove' took 0.472981 ms
  * Count: 199998
  * Timer 'std::unordered_set Add' took 6.26945 ms
  * Timer 'std::unordered_set Contains' took 1.17236 ms
- * Timer 'std::unordered_set Discard' took 3.77402 ms
+ * Timer 'std::unordered_set Remove' took 3.77402 ms
  * Count: 199998
  * Timer 'BLI::Set           Add' took 2.59152 ms
  * Timer 'BLI::Set           Contains' took 0.415254 ms
- * Timer 'BLI::Set           Discard' took 0.477559 ms
+ * Timer 'BLI::Set           Remove' took 0.477559 ms
  * Count: 199998
  * Timer 'std::unordered_set Add' took 6.28129 ms
  * Timer 'std::unordered_set Contains' took 1.17562 ms
- * Timer 'std::unordered_set Discard' took 3.77811 ms
+ * Timer 'std::unordered_set Remove' took 3.77811 ms
  * Count: 199998
  *
  * Timer 'BLI::Set           Add' took 3.16514 ms
  * Timer 'BLI::Set           Contains' took 0.732895 ms
- * Timer 'BLI::Set           Discard' took 1.08171 ms
+ * Timer 'BLI::Set           Remove' took 1.08171 ms
  * Count: 198790
  * Timer 'std::unordered_set Add' took 6.57377 ms
  * Timer 'std::unordered_set Contains' took 1.17008 ms
- * Timer 'std::unordered_set Discard' took 3.7946 ms
+ * Timer 'std::unordered_set Remove' took 3.7946 ms
  * Count: 198790
  * Timer 'BLI::Set           Add' took 3.11439 ms
  * Timer 'BLI::Set           Contains' took 0.740159 ms
- * Timer 'BLI::Set           Discard' took 1.06749 ms
+ * Timer 'BLI::Set           Remove' took 1.06749 ms
  * Count: 198790
  * Timer 'std::unordered_set Add' took 6.35597 ms
  * Timer 'std::unordered_set Contains' took 1.17713 ms
- * Timer 'std::unordered_set Discard' took 3.77826 ms
+ * Timer 'std::unordered_set Remove' took 3.77826 ms
  * Count: 198790
  * Timer 'BLI::Set           Add' took 3.09876 ms
  * Timer 'BLI::Set           Contains' took 0.742072 ms
- * Timer 'BLI::Set           Discard' took 1.06622 ms
+ * Timer 'BLI::Set           Remove' took 1.06622 ms
  * Count: 198790
  * Timer 'std::unordered_set Add' took 6.4469 ms
  * Timer 'std::unordered_set Contains' took 1.16515 ms
- * Timer 'std::unordered_set Discard' took 3.80639 ms
+ * Timer 'std::unordered_set Remove' took 3.80639 ms
  * Count: 198790
  */
 

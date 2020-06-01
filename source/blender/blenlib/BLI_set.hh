@@ -297,37 +297,38 @@ class Set {
   }
 
   /**
-   * Deletes the key from the set. This will fail if the key is not in the set beforehand.
+   * Deletes the key from the set. Returns true when the key did exist beforehand, otherwise false.
+   *
+   * This is similar to std::unordered_set::erase.
    */
-  void remove(const Key &key)
+  bool remove(const Key &key)
   {
-    this->remove_as(key);
+    return this->remove_as(key);
   }
 
   /**
    * Same as `remove`, but accepts other key types that are supported by the hash function.
    */
-  template<typename ForwardKey> void remove_as(const ForwardKey &key)
+  template<typename ForwardKey> bool remove_as(const ForwardKey &key)
   {
-    this->remove__impl(key, m_hash(key));
+    return this->remove__impl(key, m_hash(key));
   }
 
   /**
-   * Deletes the key from the set. Returns true when the key did exist beforehand, otherwise false.
-   *
-   * This is similar to std::unordered_set::erase.
+   * Deletes the key from the set. This will fail if the key is not contained in the set.
    */
-  bool discard(const Key &key)
+  void remove_contained(const Key &key)
   {
-    return this->discard_as(key);
+    this->remove_contained_as(key);
   }
 
   /**
-   * Same as `discard`, but accepts other key types that are supported by the hash function.
+   * Same as `remove_contained`, but accepts other key types that are supported by the hash
+   * function.
    */
-  template<typename ForwardKey> bool discard_as(const ForwardKey &key)
+  template<typename ForwardKey> void remove_contained_as(const ForwardKey &key)
   {
-    return this->discard__impl(key, m_hash(key));
+    this->remove_contained__impl(key, m_hash(key));
   }
 
   /**
@@ -611,21 +612,7 @@ class Set {
     SET_SLOT_PROBING_END();
   }
 
-  template<typename ForwardKey> void remove__impl(const ForwardKey &key, uint32_t hash)
-  {
-    BLI_assert(this->contains_as(key));
-    m_removed_slots++;
-
-    SET_SLOT_PROBING_BEGIN (hash, slot) {
-      if (slot.contains(key, m_is_equal, hash)) {
-        slot.remove();
-        return;
-      }
-    }
-    SET_SLOT_PROBING_END();
-  }
-
-  template<typename ForwardKey> bool discard__impl(const ForwardKey &key, uint32_t hash)
+  template<typename ForwardKey> bool remove__impl(const ForwardKey &key, uint32_t hash)
   {
     SET_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.contains(key, m_is_equal, hash)) {
@@ -635,6 +622,20 @@ class Set {
       }
       if (slot.is_empty()) {
         return false;
+      }
+    }
+    SET_SLOT_PROBING_END();
+  }
+
+  template<typename ForwardKey> void remove_contained__impl(const ForwardKey &key, uint32_t hash)
+  {
+    BLI_assert(this->contains_as(key));
+    m_removed_slots++;
+
+    SET_SLOT_PROBING_BEGIN (hash, slot) {
+      if (slot.contains(key, m_is_equal, hash)) {
+        slot.remove();
+        return;
       }
     }
     SET_SLOT_PROBING_END();
@@ -720,14 +721,14 @@ template<typename Key> class StdUnorderedSetWrapper {
     return m_set.find(key) != m_set.end();
   }
 
-  void remove(const Key &key)
-  {
-    m_set.erase(key);
-  }
-
-  bool discard(const Key &key)
+  bool remove(const Key &key)
   {
     return (bool)m_set.erase(key);
+  }
+
+  void remove_contained(const Key &key)
+  {
+    return m_set.erase(key);
   }
 
   void clear()
