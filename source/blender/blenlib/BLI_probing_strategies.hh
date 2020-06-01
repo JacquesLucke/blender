@@ -21,7 +21,7 @@
  * \ingroup bli
  *
  * This file implements different probing strategies. Those can be used by different hash table
- * implementations like BLI::Set and BLI::Map. A probing strategy produces a sequence of values,
+ * implementations like BLI::Set and BLI::Map. A probing strategy produces a sequence of values
  * based on an initial hash value.
  *
  * A probing strategy has to implement the following methods:
@@ -31,12 +31,12 @@
  * - linear_steps() -> uint32_t: Returns number of linear probing steps that should be done.
  *
  * Using linear probing steps between larger jumps can result in better performance, due to
- * improved cache usage. However, more linear steps can also make things slower when there are many
- * collisions.
+ * improved cache usage. It's a way of getting the benefits or linear probing without the
+ * clustering issues. However, more linear steps can also make things slower when the initial hash
+ * produces many collisions.
  *
  * Every probing strategy has to guarantee, that every possible uint32_t is returned eventually.
- * This is necessary for correctness. If this is not the case, empty slots might not be found in
- * some cases.
+ * This is necessary for correctness. If this is not the case, empty slots might not be found.
  *
  * The SLOT_PROBING_BEGIN and SLOT_PROBING_END macros can be used to implement a loop that iterates
  * over a probing sequence.
@@ -45,11 +45,13 @@
  * have different optimal strategies. Examples:
  * - If the hash function generates a well distributed initial hash value, the constructor should
  *   be as short as possible. This is because the hash value can be used as slot index almost
- *   immediately, without too many collisions.
+ *   immediately, without too many collisions. This is also a perfect use case for linear steps.
  * - If the hash function is bad, it can help if the probing strategy remixes the hash value,
  *   before the first slot is accessed.
  * - Different next() methods can remix the hash value in different ways. Depending on which bits
  *   of the hash value contain the most information, different rehashing strategies work best.
+ * - When the hash table is very small, having a trivial hash function and then doing linear
+ *   probing might work best.
  */
 
 #include "BLI_sys_types.h"
@@ -91,8 +93,8 @@ class LinearProbingStrategy {
  * quadratically. This method also leads to clustering. Another disadvantage is that not all bits
  * of the original hash are used.
  *
- * The distance i*i is not used, because it does not guarantee, that every slot is hit.
- * Instead (i * i + i) / 2 is used.
+ * The distance i * i is not used, because it does not guarantee, that every slot is hit.
+ * Instead (i * i + i) / 2 is used, which has this desired property.
  *
  * In the first few steps, this strategy can have good cache performance. It largely depends on how
  * many keys fit into a cache line in the hash table.
@@ -134,7 +136,7 @@ class QuadraticProbingStrategy {
  *
  * LinearSteps: Can be set to something larger than 1 for improved cache performance in some cases.
  * PreShuffle: When true, the initial call to next() will be done to the constructor. This can help
- *   against bad hash functions.
+ *   when the hash function has put little information into the lower bits.
  */
 template<uint32_t LinearSteps = 1, bool PreShuffle = false> class PythonProbingStrategy {
  private:
@@ -217,13 +219,13 @@ using DefaultProbingStrategy = PythonProbingStrategy<>;
 
 /**
  * Both macros together form a loop that iterates over slot indices in a hash table with a
- * power-of-2 size.
+ * power-of-two size.
  *
  * You must not `break` out of this loop. Only `return` is permitted. If you don't return
  * out of the loop, it will be an infinite loop. These loops should not be nested within the
  * same function.
  *
- * PROBING_STRATEGY: Class describing that probing strategy.
+ * PROBING_STRATEGY: Class describing the probing strategy.
  * HASH: The initial hash as produced by a hash function.
  * MASK: A bit mask such that (hash & MASK) is a valid slot index.
  * R_SLOT_INDEX: Name of the variable that will contain the slot index.
