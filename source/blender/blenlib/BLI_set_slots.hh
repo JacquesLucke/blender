@@ -344,10 +344,8 @@ template<typename Key, typename KeyInfo> class IntrusiveSetSlot {
   template<typename ForwardKey, typename IsEqual>
   bool contains(const ForwardKey &key, const IsEqual &is_equal, uint32_t UNUSED(hash)) const
   {
-    if (KeyInfo::is_real_key(m_key)) {
-      return is_equal(key, m_key);
-    }
-    return false;
+    BLI_assert(KeyInfo::is_real_key(m_key));
+    return is_equal(m_key, key);
   }
 
   template<typename ForwardKey> void occupy(ForwardKey &&key, uint32_t UNUSED(hash))
