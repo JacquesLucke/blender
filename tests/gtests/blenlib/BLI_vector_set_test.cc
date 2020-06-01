@@ -104,23 +104,23 @@ TEST(vector_set, IndexTry)
   EXPECT_EQ(set.index_try(2), -1);
 }
 
-TEST(vector_set, Remove)
+TEST(vector_set, RemoveContained)
 {
   VectorSet<int> set = {4, 5, 6, 7};
   EXPECT_EQ(set.size(), 4);
-  set.remove(5);
+  set.remove_contained(5);
   EXPECT_EQ(set.size(), 3);
   EXPECT_EQ(set[0], 4);
   EXPECT_EQ(set[1], 7);
   EXPECT_EQ(set[2], 6);
-  set.remove(6);
+  set.remove_contained(6);
   EXPECT_EQ(set.size(), 2);
   EXPECT_EQ(set[0], 4);
   EXPECT_EQ(set[1], 7);
-  set.remove(4);
+  set.remove_contained(4);
   EXPECT_EQ(set.size(), 1);
   EXPECT_EQ(set[0], 7);
-  set.remove(7);
+  set.remove_contained(7);
   EXPECT_EQ(set.size(), 0);
 }
 
@@ -145,15 +145,15 @@ TEST(vector_set, UniquePtrValue)
   UNUSED_VARS(value);
 }
 
-TEST(vector_set, Discard)
+TEST(vector_set, Remove)
 {
   VectorSet<int> set;
   EXPECT_TRUE(set.add(5));
   EXPECT_TRUE(set.contains(5));
-  EXPECT_FALSE(set.discard(6));
+  EXPECT_FALSE(set.remove(6));
   EXPECT_TRUE(set.contains(5));
-  EXPECT_TRUE(set.discard(5));
+  EXPECT_TRUE(set.remove(5));
   EXPECT_FALSE(set.contains(5));
-  EXPECT_FALSE(set.discard(5));
+  EXPECT_FALSE(set.remove(5));
   EXPECT_FALSE(set.contains(5));
 }

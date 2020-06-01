@@ -290,39 +290,40 @@ class VectorSet {
   }
 
   /**
-   * Deletes the key from the set. This will fail if the key is not in the set beforehand. This
-   * might change the order of elements in the vector.
+   * Deletes the key from the set. Returns true when the key existed in the set and is now removed.
+   * This might change the order of elements in the vector.
+   *
+   * This is similar to std::unordered_set::erase.
    */
-  void remove(const Key &key)
+  bool remove(const Key &key)
   {
-    this->remove_as(key);
+    return this->remove_as(key);
   }
 
   /**
    * Same as `remove`, but accepts other key types that are supported by the hash function.
    */
-  template<typename ForwardKey> void remove_as(const ForwardKey &key)
+  template<typename ForwardKey> bool remove_as(const ForwardKey &key)
   {
-    this->remove__impl(key, m_hash(key));
+    return this->remove__impl(key, m_hash(key));
   }
 
   /**
-   * Deletes the key from the set. If the key is not in the set, nothing is done. This might change
+   * Deletes the key from the set. This will fail when the key is not in the set. This might change
    * the order of elements in the vector.
-   *
-   * This is similar to std::unordered_set::erase.
    */
-  bool discard(const Key &key)
+  void remove_contained(const Key &key)
   {
-    return this->discard_as(key);
+    this->remove_contained_as(key);
   }
 
   /**
-   * Same as `discard`, but accepts other key types that are supported by the hash function.
+   * Same as `remove_contained`, but accepts other key types that are supported by the hash
+   * function.
    */
-  template<typename ForwardKey> bool discard_as(const ForwardKey &key)
+  template<typename ForwardKey> void remove_contained_as(const ForwardKey &key)
   {
-    return this->discard__impl(key, m_hash(key));
+    this->remove_contained__impl(key, m_hash(key));
   }
 
   /**
@@ -641,20 +642,7 @@ class VectorSet {
     VECTOR_SET_SLOT_PROBING_END();
   }
 
-  template<typename ForwardKey> void remove__impl(const ForwardKey &key, uint32_t hash)
-  {
-    BLI_assert(this->contains_as(key));
-
-    VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot) {
-      if (slot.contains(key, m_is_equal, hash, m_keys)) {
-        this->remove_key_internal(slot);
-        return;
-      }
-    }
-    VECTOR_SET_SLOT_PROBING_END();
-  }
-
-  template<typename ForwardKey> bool discard__impl(const ForwardKey &key, uint32_t hash)
+  template<typename ForwardKey> bool remove__impl(const ForwardKey &key, uint32_t hash)
   {
     VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.contains(key, m_is_equal, hash, m_keys)) {
@@ -663,6 +651,19 @@ class VectorSet {
       }
       if (slot.is_empty()) {
         return false;
+      }
+    }
+    VECTOR_SET_SLOT_PROBING_END();
+  }
+
+  template<typename ForwardKey> void remove_contained__impl(const ForwardKey &key, uint32_t hash)
+  {
+    BLI_assert(this->contains_as(key));
+
+    VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot) {
+      if (slot.contains(key, m_is_equal, hash, m_keys)) {
+        this->remove_key_internal(slot);
+        return;
       }
     }
     VECTOR_SET_SLOT_PROBING_END();
