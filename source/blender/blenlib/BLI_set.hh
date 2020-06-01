@@ -58,6 +58,8 @@
  *   memory usage of the set.
  * - The method names don't follow the std::unordered_set names in many cases. Searching for such
  *   names in this file will usually let you discover the new name.
+ * - There is a StdUnorderedSetWrapper class, that wraps std::unordered_set and gives it the same
+ *   interface as BLI::Set. This is useful for benchmarking.
  *
  * Possible Improvements:
  * - Branchless loop over slots in grow function (measured ~10% performance improvement when the
