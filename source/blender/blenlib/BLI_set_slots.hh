@@ -297,88 +297,98 @@ template<typename Key> class HashedSetSlot {
   }
 };
 
-/**
- * Pointers have special values that can be expected not to be used as keys. This set slot will use
- * those values to represent the empty and removed state. This saves memory and makes some
- * operations faster.
- */
-template<typename Key> class PointerSetSlot {
+template<typename Key, typename KeyInfo> class IntrusiveSetSlot {
  private:
-  BLI_STATIC_ASSERT(std::is_pointer<Key>::value, "");
-
-#define s_is_empty UINTPTR_MAX
-#define s_is_removed (UINTPTR_MAX - 1)
-#define s_min_special_value s_is_removed
-
-  uintptr_t m_state;
+  Key m_key = KeyInfo::get_empty();
 
  public:
-  PointerSetSlot()
-  {
-    m_state = s_is_empty;
-  }
-
-  ~PointerSetSlot() = default;
-  PointerSetSlot(const PointerSetSlot &other) = default;
-  PointerSetSlot(PointerSetSlot &&other) = default;
+  IntrusiveSetSlot() = default;
+  ~IntrusiveSetSlot() = default;
+  IntrusiveSetSlot(const IntrusiveSetSlot &other) = default;
+  IntrusiveSetSlot(IntrusiveSetSlot &&other) = default;
 
   Key *key()
   {
-    return (Key *)&m_state;
+    return &m_key;
   }
 
   const Key *key() const
   {
-    return (const Key *)&m_state;
+    return &m_key;
   }
 
   bool is_occupied() const
   {
-    return m_state < s_min_special_value;
+    return KeyInfo::is_real_key(m_key);
   }
 
   bool is_empty() const
   {
-    return m_state == s_is_empty;
+    return KeyInfo::is_empty(m_key);
   }
 
   template<typename Hash> uint32_t get_hash(const Hash &hash) const
   {
     BLI_assert(this->is_occupied());
-    return hash((Key)m_state);
+    return hash(m_key);
   }
 
-  void relocate_occupied_here(PointerSetSlot &other, uint32_t UNUSED(hash))
+  void relocate_occupied_here(IntrusiveSetSlot &other, uint32_t UNUSED(hash))
   {
     BLI_assert(!this->is_occupied());
     BLI_assert(other.is_occupied());
-    m_state = other.m_state;
+    m_key = std::move(other.m_key);
+    other.m_key.~Key();
   }
 
-  template<typename IsEqual>
-  bool contains(Key key, const IsEqual &UNUSED(is_equal), uint32_t UNUSED(hash)) const
+  template<typename ForwardKey, typename IsEqual>
+  bool contains(const ForwardKey &key, const IsEqual &is_equal, uint32_t UNUSED(hash)) const
   {
-    BLI_assert((uintptr_t)key < s_min_special_value);
-    BLI_STATIC_ASSERT((std::is_same<IsEqual, DefaultEquality<Key>>::value), "");
-    return (uintptr_t)key == m_state;
+    if (KeyInfo::is_real_key(m_key)) {
+      return is_equal(key, m_key);
+    }
+    return false;
   }
 
-  void occupy(Key key, uint32_t UNUSED(hash))
+  template<typename ForwardKey> void occupy(ForwardKey &&key, uint32_t UNUSED(hash))
   {
     BLI_assert(!this->is_occupied());
-    BLI_assert((uintptr_t)key < s_min_special_value);
-    m_state = (uintptr_t)key;
+    BLI_assert(KeyInfo::is_real_key(key));
+    m_key = std::forward<ForwardKey>(key);
   }
 
   void remove()
   {
     BLI_assert(this->is_occupied());
-    m_state = s_is_removed;
+    KeyInfo::remove(m_key);
+  }
+};
+
+template<typename Pointer> struct PointerKeyInfo {
+  static Pointer get_empty()
+  {
+    return (Pointer)UINTPTR_MAX;
   }
 
-#undef s_is_empty
-#undef s_is_removed
-#undef s_min_special_value
+  static void remove(Pointer &pointer)
+  {
+    pointer = (Pointer)(UINTPTR_MAX - 1);
+  }
+
+  static bool is_empty(Pointer pointer)
+  {
+    return (uintptr_t)pointer == UINTPTR_MAX;
+  }
+
+  static bool is_removed(Pointer pointer)
+  {
+    return (uintptr_t)pointer == UINTPTR_MAX - 1;
+  }
+
+  static bool is_real_key(Pointer pointer)
+  {
+    return (uintptr_t)pointer < UINTPTR_MAX - 1;
+  }
 };
 
 template<typename Key> struct DefaultSetSlot {
@@ -400,7 +410,7 @@ template<> struct DefaultSetSlot<StringRefNull> {
 };
 
 template<typename Key> struct DefaultSetSlot<Key *> {
-  using type = PointerSetSlot<Key *>;
+  using type = IntrusiveSetSlot<Key *, PointerKeyInfo<Key *>>;
 };
 
 }  // namespace BLI
