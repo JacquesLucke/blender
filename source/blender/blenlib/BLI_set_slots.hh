@@ -319,7 +319,7 @@ template<typename Key, typename KeyInfo> class IntrusiveSetSlot {
 
   bool is_occupied() const
   {
-    return KeyInfo::is_real_key(m_key);
+    return KeyInfo::is_not_empty_or_removed(m_key);
   }
 
   bool is_empty() const
@@ -344,14 +344,15 @@ template<typename Key, typename KeyInfo> class IntrusiveSetSlot {
   template<typename ForwardKey, typename IsEqual>
   bool contains(const ForwardKey &key, const IsEqual &is_equal, uint32_t UNUSED(hash)) const
   {
-    BLI_assert(KeyInfo::is_real_key(m_key));
+    BLI_assert(KeyInfo::is_not_empty_or_removed(key));
     return is_equal(m_key, key);
   }
 
   template<typename ForwardKey> void occupy(ForwardKey &&key, uint32_t UNUSED(hash))
   {
     BLI_assert(!this->is_occupied());
-    BLI_assert(KeyInfo::is_real_key(key));
+    BLI_assert(KeyInfo::is_not_empty_or_removed(key));
+
     m_key = std::forward<ForwardKey>(key);
   }
 
@@ -383,9 +384,36 @@ template<typename Pointer> struct PointerKeyInfo {
     return (uintptr_t)pointer == UINTPTR_MAX - 1;
   }
 
-  static bool is_real_key(Pointer pointer)
+  static bool is_not_empty_or_removed(Pointer pointer)
   {
     return (uintptr_t)pointer < UINTPTR_MAX - 1;
+  }
+};
+
+template<typename Key, Key EmptyValue, Key RemovedValue> struct TemplatedKeyInfo {
+  static Key get_empty()
+  {
+    return EmptyValue;
+  }
+
+  static void remove(Key &key)
+  {
+    key = RemovedValue;
+  }
+
+  static bool is_empty(const Key &key)
+  {
+    return key == EmptyValue;
+  }
+
+  static bool is_removed(const Key &key)
+  {
+    return key == RemovedValue;
+  }
+
+  static bool is_not_empty_or_removed(const Key &key)
+  {
+    return key != EmptyValue && key != RemovedValue;
   }
 };
 

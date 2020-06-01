@@ -381,6 +381,27 @@ TEST(set, CustomizeHashAndEquality)
   EXPECT_FALSE(set.contains(14));
 }
 
+TEST(set, IntrusiveIntKey)
+{
+  Set<int,
+      2,
+      DefaultProbingStrategy,
+      DefaultHash<int>,
+      DefaultEquality<int>,
+      IntrusiveSetSlot<int, TemplatedKeyInfo<int, -1, -2>>>
+      set;
+  EXPECT_TRUE(set.add(4));
+  EXPECT_TRUE(set.add(3));
+  EXPECT_TRUE(set.add(11));
+  EXPECT_TRUE(set.add(8));
+  EXPECT_FALSE(set.add(3));
+  EXPECT_FALSE(set.add(4));
+  EXPECT_TRUE(set.remove(4));
+  EXPECT_FALSE(set.remove(7));
+  EXPECT_TRUE(set.add(4));
+  EXPECT_TRUE(set.remove(4));
+}
+
 /**
  * Set this to 1 to activate the benchmark. It is disabled by default, because it prints a lot.
  */
