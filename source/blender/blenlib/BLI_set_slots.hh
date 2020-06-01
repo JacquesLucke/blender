@@ -297,6 +297,10 @@ template<typename Key> class HashedSetSlot {
   }
 };
 
+/**
+ * An IntrusiveSetSlot uses two special values of the key to indicate whether the slot is empty or
+ * removed. This saves some memory in all cases and is more efficient in many cases.
+ */
 template<typename Key, typename KeyInfo> class IntrusiveSetSlot {
  private:
   Key m_key = KeyInfo::get_empty();

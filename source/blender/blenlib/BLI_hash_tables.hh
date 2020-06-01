@@ -159,6 +159,9 @@ class LoadFactor {
  * The classes below tell a slot implementation which special key values it can use. They can be
  * used as KeyInfo in slot types like IntrusiveSetSlot.
  *
+ * A KeyInfo type has to implement a couple of static methods that are descriped in
+ * TemplatedKeyInfo.
+ *
  * \{ */
 
 /**
@@ -167,26 +170,41 @@ class LoadFactor {
  * used as keys.
  */
 template<typename Key, Key EmptyValue, Key RemovedValue> struct TemplatedKeyInfo {
+  /**
+   * Get the value that indicates that the slot is empty. This is used to indicate new slots.
+   */
   static Key get_empty()
   {
     return EmptyValue;
   }
 
+  /**
+   * Modify the given key so that it represents a removed slot.
+   */
   static void remove(Key &key)
   {
     key = RemovedValue;
   }
 
+  /**
+   * Return true, when the given key indicates that the slot is empty.
+   */
   static bool is_empty(const Key &key)
   {
     return key == EmptyValue;
   }
 
+  /**
+   * Return true, when the given key indicates that the slot is removed.
+   */
   static bool is_removed(const Key &key)
   {
     return key == RemovedValue;
   }
 
+  /**
+   * Return true, when the key is valid, i.e. it can be contained in an occupied slot.
+   */
   static bool is_not_empty_or_removed(const Key &key)
   {
     return key != EmptyValue && key != RemovedValue;
