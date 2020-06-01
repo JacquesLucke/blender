@@ -128,6 +128,12 @@ class Set {
    */
   uint32_t m_slot_mask;
 
+  /** This is called to hash incoming keys. */
+  Hash m_hash;
+
+  /** This is called to check equality of two keys. */
+  IsEqual m_is_equal;
+
 #define LOAD_FACTOR 1, 2
   LoadFactor m_max_load_factor = LoadFactor(LOAD_FACTOR);
   using SlotArray =
@@ -178,6 +184,8 @@ class Set {
         m_occupied_and_removed_slots(other.m_occupied_and_removed_slots),
         m_usable_slots(other.m_usable_slots),
         m_slot_mask(other.m_slot_mask),
+        m_hash(std::move(other.m_hash)),
+        m_is_equal(std::move(other.m_is_equal)),
         m_slots(std::move(other.m_slots))
   {
     other.~Set();
@@ -215,11 +223,11 @@ class Set {
    */
   void add_new(const Key &key)
   {
-    this->add_new__impl(key, Hash{}(key));
+    this->add_new__impl(key, m_hash(key));
   }
   void add_new(Key &&key)
   {
-    this->add_new__impl(std::move(key), Hash{}(key));
+    this->add_new__impl(std::move(key), m_hash(key));
   }
 
   /**
@@ -242,7 +250,7 @@ class Set {
    */
   template<typename ForwardKey> bool add_as(ForwardKey &&key)
   {
-    return this->add__impl(std::forward<ForwardKey>(key), Hash{}(key));
+    return this->add__impl(std::forward<ForwardKey>(key), m_hash(key));
   }
 
   /**
@@ -285,7 +293,7 @@ class Set {
    */
   template<typename ForwardKey> bool contains_as(const ForwardKey &key) const
   {
-    return this->contains__impl(key, Hash{}(key));
+    return this->contains__impl(key, m_hash(key));
   }
 
   /**
@@ -301,7 +309,7 @@ class Set {
    */
   template<typename ForwardKey> void remove_as(const ForwardKey &key)
   {
-    this->remove__impl(key, Hash{}(key));
+    this->remove__impl(key, m_hash(key));
   }
 
   /**
@@ -319,7 +327,7 @@ class Set {
    */
   template<typename ForwardKey> bool discard_as(const ForwardKey &key)
   {
-    return this->discard__impl(key, Hash{}(key));
+    return this->discard__impl(key, m_hash(key));
   }
 
   /**
@@ -394,7 +402,7 @@ class Set {
    */
   uint32_t count_collisions(const Key &key) const
   {
-    return this->count_collisions__impl(key, Hash{}(key));
+    return this->count_collisions__impl(key, m_hash(key));
   }
 
   /**
@@ -563,7 +571,7 @@ class Set {
       if (slot.is_empty()) {
         return false;
       }
-      if (slot.contains(key, IsEqual{}, hash)) {
+      if (slot.contains(key, m_is_equal, hash)) {
         return true;
       }
     }
@@ -596,7 +604,7 @@ class Set {
         m_occupied_and_removed_slots++;
         return true;
       }
-      if (slot.contains(key, IsEqual{}, hash)) {
+      if (slot.contains(key, m_is_equal, hash)) {
         return false;
       }
     }
@@ -609,7 +617,7 @@ class Set {
     m_removed_slots++;
 
     SET_SLOT_PROBING_BEGIN (hash, slot) {
-      if (slot.contains(key, IsEqual{}, hash)) {
+      if (slot.contains(key, m_is_equal, hash)) {
         slot.remove();
         return;
       }
@@ -620,7 +628,7 @@ class Set {
   template<typename ForwardKey> bool discard__impl(const ForwardKey &key, uint32_t hash)
   {
     SET_SLOT_PROBING_BEGIN (hash, slot) {
-      if (slot.contains(key, IsEqual{}, hash)) {
+      if (slot.contains(key, m_is_equal, hash)) {
         slot.remove();
         m_removed_slots++;
         return true;
