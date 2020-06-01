@@ -209,66 +209,6 @@ class Set {
   }
 
   /**
-   * Returns the number of keys stored in the set.
-   */
-  uint32_t size() const
-  {
-    return m_occupied_and_removed_slots - m_removed_slots;
-  }
-
-  /**
-   * Returns true if no keys are stored.
-   */
-  bool is_empty() const
-  {
-    return m_occupied_and_removed_slots == m_removed_slots;
-  }
-
-  /**
-   * Returns the number of available slots. This is mostly for debugging purposes.
-   */
-  uint32_t capacity() const
-  {
-    return m_slots.size();
-  }
-
-  /**
-   * Returns the amount of removed slots in the set. This is mostly for debugging purposes.
-   */
-  uint32_t removed_amount() const
-  {
-    return m_removed_slots;
-  }
-
-  /**
-   * Returns the bytes required per element. This is mostly for debugging purposes.
-   */
-  uint32_t size_per_element() const
-  {
-    return sizeof(Slot);
-  }
-
-  /**
-   * Returns the approximage memory requirements of the set in bytes. This is more correct for
-   * larger sets.
-   */
-  uint32_t size_in_bytes() const
-  {
-    return sizeof(Slot) * m_slots.size();
-  }
-
-  /**
-   * Potentially resize the set such that the specified number of keys can be added without another
-   * grow operation.
-   */
-  void reserve(uint32_t min_usable_slots)
-  {
-    if (m_usable_slots < min_usable_slots) {
-      this->grow(min_usable_slots);
-    }
-  }
-
-  /**
    * Add a new key to the set. This method will fail if the key already exists in the set. When you
    * know for certain that a key is not in the set yet, use this method for better performance.
    * This also expresses the intend better.
@@ -446,19 +386,7 @@ class Set {
    */
   uint32_t count_collisions(const Key &key) const
   {
-    uint32_t hash = Hash{}(key);
-    uint32_t collisions = 0;
-
-    SET_SLOT_PROBING_BEGIN (hash, slot) {
-      if (slot.contains(key, hash)) {
-        return collisions;
-      }
-      if (slot.is_empty()) {
-        return collisions;
-      }
-      collisions++;
-    }
-    SET_SLOT_PROBING_END();
+    return this->count_collisions__impl(key, Hash{}(key));
   }
 
   /**
@@ -477,6 +405,66 @@ class Set {
   void rehash()
   {
     this->grow(this->size());
+  }
+
+  /**
+   * Returns the number of keys stored in the set.
+   */
+  uint32_t size() const
+  {
+    return m_occupied_and_removed_slots - m_removed_slots;
+  }
+
+  /**
+   * Returns true if no keys are stored.
+   */
+  bool is_empty() const
+  {
+    return m_occupied_and_removed_slots == m_removed_slots;
+  }
+
+  /**
+   * Returns the number of available slots. This is mostly for debugging purposes.
+   */
+  uint32_t capacity() const
+  {
+    return m_slots.size();
+  }
+
+  /**
+   * Returns the amount of removed slots in the set. This is mostly for debugging purposes.
+   */
+  uint32_t removed_amount() const
+  {
+    return m_removed_slots;
+  }
+
+  /**
+   * Returns the bytes required per element. This is mostly for debugging purposes.
+   */
+  uint32_t size_per_element() const
+  {
+    return sizeof(Slot);
+  }
+
+  /**
+   * Returns the approximage memory requirements of the set in bytes. This is more correct for
+   * larger sets.
+   */
+  uint32_t size_in_bytes() const
+  {
+    return sizeof(Slot) * m_slots.size();
+  }
+
+  /**
+   * Potentially resize the set such that the specified number of keys can be added without another
+   * grow operation.
+   */
+  void reserve(uint32_t min_usable_slots)
+  {
+    if (m_usable_slots < min_usable_slots) {
+      this->grow(min_usable_slots);
+    }
   }
 
   /**
@@ -632,6 +620,23 @@ class Set {
       if (slot.is_empty()) {
         return false;
       }
+    }
+    SET_SLOT_PROBING_END();
+  }
+
+  template<typename ForwardKey>
+  uint32_t count_collisions__impl(const ForwardKey &key, uint32_t hash) const
+  {
+    uint32_t collisions = 0;
+
+    SET_SLOT_PROBING_BEGIN (hash, slot) {
+      if (slot.contains(key, hash)) {
+        return collisions;
+      }
+      if (slot.is_empty()) {
+        return collisions;
+      }
+      collisions++;
     }
     SET_SLOT_PROBING_END();
   }
