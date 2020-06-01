@@ -301,39 +301,39 @@ class Map {
   }
 
   /**
-   * Deletes the key-value-pair with the given key. This will fail if the key is not in the map
-   * beforehand.
+   * Deletes the key-value-pair with the given key. Returns true when the key was contained and is
+   * now removed, otherwise false.
+   *
+   * This is similar to std::unordered_map::erase.
    */
-  void remove(const Key &key)
+  bool remove(const Key &key)
   {
-    this->remove_as(key);
+    return this->remove_as(key);
   }
 
   /**
    * Same as `remove`, but accepts other key types that are supported by the hash function.
    */
-  template<typename ForwardKey> void remove_as(const ForwardKey &key)
+  template<typename ForwardKey> bool remove_as(const ForwardKey &key)
   {
-    this->remove__impl(key, m_hash(key));
+    return this->remove__impl(key, m_hash(key));
   }
 
   /**
-   * Deletes the key-value-pair with the given key. Nothing is done when the key does not exist in
-   * the map.
-   *
-   * This is similar to std::unordered_map::erase.
+   * Deletes the key-value-pair with the given key. This fails when when the key is not contained
+   * in the map.
    */
-  bool discard(const Key &key)
+  void remove_contained(const Key &key)
   {
-    return this->discard_as(key);
+    this->remove_contained_as(key);
   }
 
   /**
    * Same as `discard`, but accepts other key types that are supported by the hash function.
    */
-  template<typename ForwardKey> bool discard_as(const ForwardKey &key)
+  template<typename ForwardKey> void remove_contained_as(const ForwardKey &key)
   {
-    return this->discard__impl(key, m_hash(key));
+    this->remove_contained__impl(key, m_hash(key));
   }
 
   /**
@@ -900,22 +900,7 @@ class Map {
     MAP_SLOT_PROBING_END();
   }
 
-  template<typename ForwardKey> void remove__impl(const ForwardKey &key, uint32_t hash)
-  {
-    BLI_assert(this->contains_as(key));
-
-    m_removed_slots++;
-
-    MAP_SLOT_PROBING_BEGIN (hash, slot) {
-      if (slot.contains(key, m_is_equal, hash)) {
-        slot.remove();
-        return;
-      }
-    }
-    MAP_SLOT_PROBING_END();
-  }
-
-  template<typename ForwardKey> bool discard__impl(const ForwardKey &key, uint32_t hash)
+  template<typename ForwardKey> bool remove__impl(const ForwardKey &key, uint32_t hash)
   {
     MAP_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.contains(key, m_is_equal, hash)) {
@@ -925,6 +910,21 @@ class Map {
       }
       if (slot.is_empty()) {
         return false;
+      }
+    }
+    MAP_SLOT_PROBING_END();
+  }
+
+  template<typename ForwardKey> void remove_contained__impl(const ForwardKey &key, uint32_t hash)
+  {
+    BLI_assert(this->contains_as(key));
+
+    m_removed_slots++;
+
+    MAP_SLOT_PROBING_BEGIN (hash, slot) {
+      if (slot.contains(key, m_is_equal, hash)) {
+        slot.remove();
+        return;
       }
     }
     MAP_SLOT_PROBING_END();
