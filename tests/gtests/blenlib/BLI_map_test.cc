@@ -357,3 +357,22 @@ TEST(map, Remove)
   EXPECT_TRUE(map.remove(2));
   EXPECT_EQ(map.size(), 0);
 }
+
+TEST(map, PointerKeys)
+{
+  char a, b, c, d;
+
+  Map<char *, int> map;
+  EXPECT_TRUE(map.add(&a, 5));
+  EXPECT_FALSE(map.add(&a, 4));
+  map.add_new(&b, 1);
+  map.add_new(&c, 1);
+  EXPECT_EQ(map.size(), 3);
+  EXPECT_TRUE(map.remove(&b));
+  EXPECT_TRUE(map.add(&b, 8));
+  EXPECT_FALSE(map.remove(&d));
+  EXPECT_TRUE(map.remove(&a));
+  EXPECT_TRUE(map.remove(&b));
+  EXPECT_TRUE(map.remove(&c));
+  EXPECT_TRUE(map.is_empty());
+}

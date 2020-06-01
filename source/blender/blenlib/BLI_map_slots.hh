@@ -158,6 +158,7 @@ template<typename Key, typename Value> class SimpleMapSlot {
    */
   template<typename Hash> uint32_t get_hash(const Hash &hash)
   {
+    BLI_assert(this->is_occupied());
     return hash(*this->key());
   }
 
@@ -225,8 +226,131 @@ template<typename Key, typename Value> class SimpleMapSlot {
   }
 };
 
+/**
+ * An IntrusiveMapSlot uses two special values of the key to indicate whether the slot is empty or
+ * removed. This saves some memory in all cases and is more efficient in many cases. The KeyInfo
+ * type indicates which specific values are used. An example for a KeyInfo implementation is
+ * PointerKeyInfo.
+ */
+template<typename Key, typename Value, typename KeyInfo> class IntrusiveMapSlot {
+ private:
+  Key m_key = KeyInfo::get_empty();
+  AlignedBuffer<sizeof(Value), alignof(Value)> m_value_buffer;
+
+ public:
+  IntrusiveMapSlot() = default;
+
+  ~IntrusiveMapSlot()
+  {
+    if (KeyInfo::is_not_empty_or_removed(m_key)) {
+      this->value()->~Value();
+    }
+  }
+
+  IntrusiveMapSlot(const IntrusiveMapSlot &other) : m_key(other.m_key)
+  {
+    if (KeyInfo::is_not_empty_or_removed(m_key)) {
+      new (this->value()) Value(*other.value());
+    }
+  }
+
+  IntrusiveMapSlot(IntrusiveMapSlot &&other) : m_key(other.m_key)
+  {
+    if (KeyInfo::is_not_empty_or_removed(m_key)) {
+      new (this->value()) Value(std::move(*other.value()));
+    }
+  }
+
+  Key *key()
+  {
+    return &m_key;
+  }
+
+  const Key *key() const
+  {
+    return &m_key;
+  }
+
+  Value *value()
+  {
+    return (Value *)m_value_buffer.ptr();
+  }
+
+  const Value *value() const
+  {
+    return (const Value *)m_value_buffer.ptr();
+  }
+
+  bool is_occupied() const
+  {
+    return KeyInfo::is_not_empty_or_removed(m_key);
+  }
+
+  bool is_empty() const
+  {
+    return KeyInfo::is_empty(m_key);
+  }
+
+  template<typename Hash> uint32_t get_hash(const Hash &hash)
+  {
+    BLI_assert(this->is_occupied());
+    return hash(*this->key());
+  }
+
+  void relocate_occupied_here(IntrusiveMapSlot &other, uint32_t UNUSED(hash))
+  {
+    BLI_assert(!this->is_occupied());
+    BLI_assert(other.is_occupied());
+    m_key = std::move(other.m_key);
+    new (this->value()) Value(std::move(*other.value()));
+    other.m_key.~Key();
+    other.value()->~Value();
+  }
+
+  template<typename ForwardKey, typename IsEqual>
+  bool contains(const ForwardKey &key, const IsEqual &is_equal, uint32_t UNUSED(hash)) const
+  {
+    BLI_assert(KeyInfo::is_not_empty_or_removed(key));
+    return is_equal(key, m_key);
+  }
+
+  template<typename ForwardKey, typename ForwardValue>
+  void occupy(ForwardKey &&key, ForwardValue &&value, uint32_t hash)
+  {
+    BLI_assert(!this->is_occupied());
+    BLI_assert(KeyInfo::is_not_empty_or_removed(key));
+    this->occupy_without_value(std::forward<ForwardKey>(key), hash);
+    new (this->value()) Value(std::forward<ForwardValue>(value));
+  }
+
+  template<typename ForwardKey> void occupy_without_value(ForwardKey &&key, uint32_t UNUSED(hash))
+  {
+    BLI_assert(!this->is_occupied());
+    BLI_assert(KeyInfo::is_not_empty_or_removed(key));
+    m_key = std::forward<ForwardKey>(key);
+  }
+
+  void remove()
+  {
+    BLI_assert(this->is_occupied());
+    KeyInfo::remove(m_key);
+    this->value()->~Value();
+  }
+};
+
+/**
+ * Use SimpleMapSlot by default, because it is the smallest slot type, that works for all keys.
+ */
 template<typename Key, typename Value> struct DefaultMapSlot {
   using type = SimpleMapSlot<Key, Value>;
+};
+
+/**
+ * Use a special slot type for pointer keys, because we can store whether a slot is empty or
+ * removed with special pointer values.
+ */
+template<typename Key, typename Value> struct DefaultMapSlot<Key *, Value> {
+  using type = IntrusiveMapSlot<Key *, Value, PointerKeyInfo<Key *>>;
 };
 
 }  // namespace BLI

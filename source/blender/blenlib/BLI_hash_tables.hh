@@ -291,7 +291,7 @@ class HashTableStats {
     m_removed_amount = hash_table.removed_amount();
     m_size_per_element = hash_table.size_per_element();
     m_size_in_bytes = hash_table.size_in_bytes();
-    m_address = (const void *)hash_table;
+    m_address = (const void *)&hash_table;
 
     for (const auto &key : keys) {
       uint32_t collisions = hash_table.count_collisions(key);
