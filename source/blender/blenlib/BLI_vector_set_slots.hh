@@ -23,7 +23,7 @@
  * This file contains slot types that are supposed to be used with BLI::VectorSet.
  *
  * Every slot type has to be able to hold an integer index and state information.
- * A vector set slot has three possible states: Empty, Occupied and Removed.
+ * A vector set slot has three possible states: empty, occupied and removed.
  *
  * A vector slot type has to implement a couple of methods that are explained in
  * SimpleVectorSetSlot.

@@ -23,7 +23,7 @@
  * This file contains different slot types that are supposed to be used with BLI::Set.
  *
  * Every slot type has to be able to hold a value of the Key type and state information.
- * A set slot has three possible states: Empty, Occupied and Removed.
+ * A set slot has three possible states: empty, occupied and removed.
  *
  * Only when a slot is occupied, it stores an instance of type Key.
  *

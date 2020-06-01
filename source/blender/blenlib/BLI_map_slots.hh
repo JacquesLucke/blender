@@ -23,7 +23,7 @@
  * This file contains slot types that are supposed to be used with BLI::Map.
  *
  * Every slot type has to be able to hold a value of type Key, a value of type Value and state
- * information. A map slot has three possible states: Empty, Occupied and Removed.
+ * information. A map slot has three possible states: empty, occupied and removed.
  *
  * Only when a slot is occupied, it stores instances of type Key and Value.
  *
