@@ -332,6 +332,19 @@ class HashTableStats {
 
 /** \} */
 
+/**
+ * This struct provides an equality operator that returns true for all objects that compare equal
+ * when one would use the `==` operator. This is different from std::equal_to<T>, because that
+ * requires the parameters to be of type T. Our hash tables support lookups using other types
+ * without conversion, therefore DefaultEquality needs to be more generic.
+ */
+struct DefaultEquality {
+  template<typename T1, typename T2> bool operator()(const T1 &a, const T2 &b) const
+  {
+    return a == b;
+  }
+};
+
 }  // namespace BLI
 
 #endif /* __BLI_OPEN_ADDRESSING_HH__ */

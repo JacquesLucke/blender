@@ -75,7 +75,7 @@ template<
      * The equality operator used to compare keys. By default it will simply compare keys using the
      * `==` operator.
      */
-    typename IsEqual = DefaultEquality<Key>,
+    typename IsEqual = DefaultEquality,
     /**
      * This is what will actually be stored in the hash table array. At a minimum a slot has to be
      * able to hold an array index and information about whether the slot is empty, occupied or

@@ -144,13 +144,6 @@ template<typename T1, typename T2> struct DefaultHash<std::pair<T1, T2>> {
   }
 };
 
-template<typename T> struct DefaultEquality {
-  template<typename T1, typename T2> bool operator()(const T1 &a, const T2 &b) const
-  {
-    return a == b;
-  }
-};
-
 }  // namespace BLI
 
 #endif /* __BLI_HASH_HH__ */
