@@ -105,6 +105,7 @@ static void simulation_free_data(ID *id)
       case SIM_STATE_TYPE_PARTICLES: {
         ParticleSimulationState *particle_state = (ParticleSimulationState *)state;
         CustomData_free(&particle_state->attributes, particle_state->tot_particles);
+        BKE_ptcache_free_list(&particle_state->ptcaches);
         break;
       }
     }
@@ -172,15 +173,27 @@ void BKE_simulation_data_update(Depsgraph *UNUSED(depsgraph), Scene *scene, Simu
         sizeof(ParticleSimulationState), __func__);
     CustomData_reset(&state->attributes);
     state->tot_particles = 0;
+    state->point_cache = BKE_ptcache_add(&state->ptcaches);
 
     BLI_addtail(&simulation_orig->states, state);
   }
 
   ParticleSimulationState *state = (ParticleSimulationState *)simulation_orig->states.first;
+
+  PTCacheID pid;
+  BKE_ptcache_id_from_sim_particles(&pid, simulation_orig, state);
+  BKE_ptcache_id_time(&pid, scene, current_frame, nullptr, nullptr, nullptr);
+
   if (current_frame == state->current_frame) {
     return;
   }
-  else if (current_frame == 1) {
+
+  int cache_result = BKE_ptcache_read(&pid, current_frame, true);
+  if (cache_result == PTCACHE_READ_EXACT) {
+    return;
+  }
+
+  if (current_frame == 1) {
     state->tot_particles = 100;
     state->current_frame = 1;
     CustomData_realloc(&state->attributes, state->tot_particles);
@@ -190,6 +203,8 @@ void BKE_simulation_data_update(Depsgraph *UNUSED(depsgraph), Scene *scene, Simu
     for (uint i : positions.index_range()) {
       positions[i] = {i / 10.0f, 0, 0};
     }
+
+    BKE_ptcache_write(&pid, current_frame);
   }
   else if (current_frame == state->current_frame + 1) {
     state->current_frame = current_frame;
@@ -198,10 +213,7 @@ void BKE_simulation_data_update(Depsgraph *UNUSED(depsgraph), Scene *scene, Simu
     for (float3 &position : positions) {
       position.z += 0.1f;
     }
-  }
-  else {
-    state->current_frame = current_frame;
-    CustomData_free(&state->attributes, state->tot_particles);
-    state->tot_particles = 0;
+
+    BKE_ptcache_write(&pid, current_frame);
   }
 }
