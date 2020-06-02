@@ -82,22 +82,10 @@ static PointCloud *modifyPointCloud(ModifierData *md,
 
   Scene *scene = DEG_get_input_scene(ctx->depsgraph);
   int current_frame = scene->r.cfra;
-  const ParticleSimulationFrameCache *frame_cache = BKE_simulation_try_find_particle_state(
-      smd->simulation, current_frame);
 
-  if (frame_cache == nullptr) {
-    return pointcloud;
-  }
+  UNUSED_VARS(scene, current_frame);
 
-  PointCloud *new_pointcloud = BKE_pointcloud_new_for_eval(pointcloud, frame_cache->len);
-  memcpy(
-      new_pointcloud->co, frame_cache->attributes[0]->data, sizeof(float) * 3 * frame_cache->len);
-
-  for (int i = 0; i < frame_cache->len; i++) {
-    new_pointcloud->radius[i] = 0.05f;
-  }
-
-  return new_pointcloud;
+  return pointcloud;
 }
 
 ModifierTypeInfo modifierType_Simulation = {

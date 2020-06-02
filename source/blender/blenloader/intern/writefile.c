@@ -3882,28 +3882,6 @@ static void write_volume(WriteData *wd, Volume *volume, const void *id_address)
   }
 }
 
-static void write_simulation_particle_cache(WriteData *wd, ParticleSimulationCache *particle_cache)
-{
-  writestruct(wd, DATA, ParticleSimulationCache, 1, particle_cache);
-  writedata(wd, DATA, sizeof(void *) * particle_cache->tot_frames, particle_cache->frames);
-  for (int frame_index = 0; frame_index < particle_cache->tot_frames; frame_index++) {
-    ParticleSimulationFrameCache *frame_cache = particle_cache->frames[frame_index];
-    writestruct(wd, DATA, ParticleSimulationFrameCache, 1, frame_cache);
-    writedata(wd, DATA, sizeof(void *) * frame_cache->tot_attributes, frame_cache->attributes);
-    for (int attribute_index = 0; attribute_index < frame_cache->tot_attributes;
-         attribute_index++) {
-      SimulationAttributeData *attribute = frame_cache->attributes[attribute_index];
-      writestruct(wd, DATA, SimulationAttributeData, 1, attribute);
-      switch ((eSimulationAttributeType)attribute->type) {
-        case SIM_ATTRIBUTE_FLOAT3: {
-          writedata(wd, DATA, sizeof(float) * 3 * frame_cache->len, attribute->data);
-          break;
-        }
-      }
-    }
-  }
-}
-
 static void write_simulation(WriteData *wd, Simulation *simulation)
 {
   if (simulation->id.us > 0 || wd->use_memfile) {
@@ -3918,19 +3896,6 @@ static void write_simulation(WriteData *wd, Simulation *simulation)
     if (simulation->nodetree) {
       writestruct(wd, DATA, bNodeTree, 1, simulation->nodetree);
       write_nodetree_nolib(wd, simulation->nodetree);
-    }
-
-    /* Write simulation caches. */
-    writedata(wd, DATA, sizeof(void *) * simulation->tot_caches, simulation->caches);
-    for (int cache_index = 0; cache_index < simulation->tot_caches; cache_index++) {
-      SimulationCache *cache = simulation->caches[cache_index];
-      switch ((eSimulationCacheType)cache->type) {
-        case SIM_CACHE_TYPE_PARTICLES: {
-          ParticleSimulationCache *particle_cache = (ParticleSimulationCache *)cache;
-          write_simulation_particle_cache(wd, particle_cache);
-          break;
-        }
-      }
     }
   }
 }
