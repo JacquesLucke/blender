@@ -43,6 +43,7 @@
 #include "BKE_lib_remap.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
+#include "BKE_pointcache.h"
 #include "BKE_simulation.h"
 
 #include "NOD_simulation.h"

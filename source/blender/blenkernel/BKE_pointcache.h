@@ -64,6 +64,7 @@ extern "C" {
 #define PTCACHE_TYPE_SMOKE_HIGHRES 4
 #define PTCACHE_TYPE_DYNAMICPAINT 5
 #define PTCACHE_TYPE_RIGIDBODY 6
+#define PTCACHE_TYPE_SIMULATION 7
 
 /* high bits reserved for flags that need to be stored in file */
 #define PTCACHE_TYPEFLAG_COMPRESS (1 << 16)
@@ -88,6 +89,7 @@ struct ParticleSystem;
 struct PointCache;
 struct RigidBodyWorld;
 struct Scene;
+struct Simulation;
 struct SoftBody;
 struct ViewLayer;
 
@@ -131,6 +133,7 @@ typedef struct PTCacheID {
   struct Object *ob;
   void *calldata;
   unsigned int type, file_type;
+  /** Index in the modifier stack. */
   unsigned int stack_index;
   unsigned int flag;
 
@@ -292,6 +295,7 @@ void BKE_ptcache_id_from_dynamicpaint(PTCacheID *pid,
                                       struct Object *ob,
                                       struct DynamicPaintSurface *surface);
 void BKE_ptcache_id_from_rigidbody(PTCacheID *pid, struct Object *ob, struct RigidBodyWorld *rbw);
+void BKE_ptcache_id_from_simulation(PTCacheID *pid, struct Simulation *simulation);
 
 PTCacheID BKE_ptcache_id_find(struct Object *ob, struct Scene *scene, struct PointCache *cache);
 void BKE_ptcache_ids_from_object(struct ListBase *lb,

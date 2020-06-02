@@ -41,6 +41,7 @@
 #include "DNA_particle_types.h"
 #include "DNA_rigidbody_types.h"
 #include "DNA_scene_types.h"
+#include "DNA_simulation_types.h"
 
 #include "BLI_blenlib.h"
 #include "BLI_math.h"
@@ -1826,6 +1827,18 @@ void BKE_ptcache_id_from_rigidbody(PTCacheID *pid, Object *ob, RigidBodyWorld *r
   pid->default_step = 1;
   pid->max_step = 1;
   pid->file_type = PTCACHE_FILE_PTCACHE;
+}
+
+void BKE_ptcache_id_from_simulation(PTCacheID *pid, Simulation *simulation)
+{
+  UNUSED_VARS(pid, simulation);
+  // memset(pid, 0, sizeof(PTCacheID));
+
+  // pid->calldata = simulation;
+  // pid->cache = simulation->point_cache;
+  // pid->type = PTCACHE_TYPE_SIMULATION;
+  // pid->totpoint = pid->totwrite = ptcache_simulation_totpoint;
+  // pid->error = ptcache_simulation_error;
 }
 
 /**

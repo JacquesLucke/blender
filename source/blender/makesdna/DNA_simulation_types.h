@@ -22,6 +22,7 @@
 #define __DNA_SIMULATION_TYPES_H__
 
 #include "DNA_ID.h"
+#include "DNA_customdata_types.h"
 
 typedef struct Simulation {
   ID id;
@@ -31,11 +32,43 @@ typedef struct Simulation {
 
   int flag;
   int _pad;
+
+  /** List containing SimulationState objects. */
+  struct ListBase states;
 } Simulation;
+
+typedef struct SimulationState {
+  struct SimulationState *next;
+  struct SimulationState *prev;
+
+  /** eSimulationStateType */
+  int type;
+  int _pad;
+
+  char name[64];
+} SimulationState;
+
+typedef struct ParticleSimulationState {
+  SimulationState head;
+
+  /** Contains the current state of the particles. */
+  int _pad;
+  int tot_particles;
+  struct CustomData attributes;
+
+  /** Caches the state of the particles over time. */
+  struct PointCache *point_cache;
+  struct ListBase ptcaches;
+} ParticleSimulationState;
 
 /* Simulation.flag */
 enum {
   SIM_DS_EXPAND = (1 << 0),
 };
+
+/* SimulationCache.type */
+typedef enum eSimulationStateType {
+  SIM_STATE_TYPE_PARTICLES = 0,
+} eSimulationStateType;
 
 #endif /* __DNA_SIMULATION_TYPES_H__ */

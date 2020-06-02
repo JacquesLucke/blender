@@ -9222,6 +9222,19 @@ static void direct_link_simulation(FileData *fd, Simulation *simulation)
 {
   simulation->adt = newdataadr(fd, simulation->adt);
   direct_link_animdata(fd, simulation->adt);
+
+  link_list(fd, &simulation->states);
+  LISTBASE_FOREACH (SimulationState *, state, &simulation->states) {
+    switch (state->type) {
+      case SIM_STATE_TYPE_PARTICLES: {
+        ParticleSimulationState *particle_state = (ParticleSimulationState *)state;
+        direct_link_customdata(fd, &particle_state->attributes, particle_state->tot_particles);
+        direct_link_pointcache_list(
+            fd, &particle_state->ptcaches, &particle_state->point_cache, 0);
+        break;
+      };
+    }
+  }
 }
 
 /** \} */
@@ -9632,12 +9645,11 @@ static void read_libblock_undo_restore_identical(
   id_old->recalc_after_undo_push = 0;
 
   /* As usual, proxies require some special love...
-   * In `blo_clear_proxy_pointers_from_lib()` we clear all `proxy_from` pointers to local IDs, for
-   * undo. This is required since we do not re-read linked data in that case, so we also do not
-   * re-'lib_link' their pointers.
-   * Those `proxy_from` pointers are then re-defined properly when lib_linking the newly read local
-   * object. However, in case of re-used data 'as-is', we never lib_link it again, so we have to
-   * fix those backward pointers here. */
+   * In `blo_clear_proxy_pointers_from_lib()` we clear all `proxy_from` pointers to local IDs,
+   * for undo. This is required since we do not re-read linked data in that case, so we also do
+   * not re-'lib_link' their pointers. Those `proxy_from` pointers are then re-defined properly
+   * when lib_linking the newly read local object. However, in case of re-used data 'as-is', we
+   * never lib_link it again, so we have to fix those backward pointers here. */
   if (GS(id_old->name) == ID_OB) {
     Object *ob = (Object *)id_old;
     if (ob->proxy != NULL) {
@@ -9660,7 +9672,8 @@ static void read_libblock_undo_restore_at_old_address(FileData *fd, Main *main, 
   const short idcode = GS(id->name);
 
   /* XXX 3DCursor (witch is UI data and as such should not be affected by undo) is stored in
-   * Scene... So this requires some special handling, previously done in `blo_lib_link_restore()`,
+   * Scene... So this requires some special handling, previously done in
+   * `blo_lib_link_restore()`,
    * but this cannot work anymore when we overwrite existing memory... */
   if (idcode == ID_SCE) {
     Scene *scene_old = (Scene *)id_old;
@@ -9731,14 +9744,14 @@ static bool read_libblock_undo_restore(
     /* Do not add LIB_TAG_NEW here, this should not be needed/used in undo case anyway (as
      * this is only for do_version-like code), but for sake of consistency, and also because
      * it will tell us which ID is re-used from old Main, and which one is actually new. */
-    /* Also do not add LIB_TAG_NEED_LINK, those IDs will never be re-liblinked, hence that tag will
-     * never be cleared, leading to critical issue in link/append code. */
+    /* Also do not add LIB_TAG_NEED_LINK, those IDs will never be re-liblinked, hence that tag
+     * will never be cleared, leading to critical issue in link/append code. */
     const int id_tag = tag | LIB_TAG_UNDO_OLD_ID_REUSED;
     read_libblock_undo_restore_identical(fd, main, id, id_old, id_tag);
 
-    /* Insert into library map for lookup by newly read datablocks (with pointer value bhead->old).
-     * Note that existing datablocks in memory (which pointer value would be id_old) are not
-     * remapped anymore, so no need to store this info here. */
+    /* Insert into library map for lookup by newly read datablocks (with pointer value
+     * bhead->old). Note that existing datablocks in memory (which pointer value would be id_old)
+     * are not remapped anymore, so no need to store this info here. */
     oldnewmap_insert(fd->libmap, bhead->old, id_old, bhead->code);
 
     *r_id_old = id_old;
@@ -9811,8 +9824,8 @@ static BHead *read_libblock(FileData *fd,
   BLI_addtail(lb, id);
 
   /* Insert into library map for lookup by newly read datablocks (with pointer value bhead->old).
-   * Note that existing datablocks in memory (which pointer value would be id_old) are not remapped
-   * remapped anymore, so no need to store this info here. */
+   * Note that existing datablocks in memory (which pointer value would be id_old) are not
+   * remapped remapped anymore, so no need to store this info here. */
   ID *id_target = id_old ? id_old : id;
   oldnewmap_insert(fd->libmap, bhead->old, id_target, bhead->code);
 
@@ -10062,17 +10075,17 @@ static void lib_link_all(FileData *fd, Main *bmain)
 
     if (fd->memfile != NULL && do_partial_undo && (id->tag & LIB_TAG_UNDO_OLD_ID_REUSED) != 0) {
       /* This ID has been re-used from 'old' bmain. Since it was therefore unchanged across
-       * current undo step, and old IDs re-use their old memory address, we do not need to liblink
-       * it at all. */
+       * current undo step, and old IDs re-use their old memory address, we do not need to
+       * liblink it at all. */
       continue;
     }
 
     lib_link_id(fd, bmain, id);
 
-    /* Note: ID types are processed in reverse order as defined by INDEX_ID_XXX enums in DNA_ID.h.
-     * This ensures handling of most dependencies in proper order, as elsewhere in code.
-     * Please keep order of entries in that switch matching that order, it's easier to quickly see
-     * whether something is wrong then. */
+    /* Note: ID types are processed in reverse order as defined by INDEX_ID_XXX enums in
+     * DNA_ID.h. This ensures handling of most dependencies in proper order, as elsewhere in
+     * code. Please keep order of entries in that switch matching that order, it's easier to
+     * quickly see whether something is wrong then. */
     switch (GS(id->name)) {
       case ID_MSK:
         lib_link_mask(fd, bmain, (Mask *)id);
@@ -10174,7 +10187,8 @@ static void lib_link_all(FileData *fd, Main *bmain)
         lib_link_image(fd, bmain, (Image *)id);
         break;
       case ID_NT:
-        /* Has to be done after node users (scene/materials/...), this will verify group nodes. */
+        /* Has to be done after node users (scene/materials/...), this will verify group nodes.
+         */
         lib_link_nodetree(fd, bmain, (bNodeTree *)id);
         break;
       case ID_GD:
@@ -10213,21 +10227,20 @@ static void lib_link_all(FileData *fd, Main *bmain)
   BLO_main_validate_shapekeys(bmain, NULL);
 
   if (fd->memfile != NULL) {
-    /* When doing redo, we perform a tremendous amount of esoteric magic tricks to avoid having to
-     * re-read all library data-blocks.
-     * Unfortunately, that means that we do not clear Collections' parents lists, which then get
-     * improperly extended in some cases by lib_link_scene() and lib_link_collection() calls above
-     * (when one local collection is parent of linked ones).
-     * I do not really see a way to address that issue, besides brute force call below which
-     * invalidates and re-creates all parenting relationships between collections. Yet another
-     * example of why it is such a bad idea to keep that kind of double-linked relationships info
-     * 'permanently' in our data structures... */
+    /* When doing redo, we perform a tremendous amount of esoteric magic tricks to avoid having
+     * to re-read all library data-blocks. Unfortunately, that means that we do not clear
+     * Collections' parents lists, which then get improperly extended in some cases by
+     * lib_link_scene() and lib_link_collection() calls above (when one local collection is
+     * parent of linked ones). I do not really see a way to address that issue, besides brute
+     * force call below which invalidates and re-creates all parenting relationships between
+     * collections. Yet another example of why it is such a bad idea to keep that kind of
+     * double-linked relationships info 'permanently' in our data structures... */
     BKE_main_collections_parent_relations_rebuild(bmain);
   }
 
 #ifndef NDEBUG
-  /* Double check we do not have any 'need link' tag remaining, this should never be the case once
-   * this function has run. */
+  /* Double check we do not have any 'need link' tag remaining, this should never be the case
+   * once this function has run. */
   FOREACH_MAIN_ID_BEGIN (bmain, id) {
     BLI_assert((id->tag & LIB_TAG_NEED_LINK) == 0);
   }
@@ -10459,13 +10472,14 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
 
     /* Skip in undo case. */
     if (fd->memfile == NULL) {
-      /* Note that we can't recompute user-counts at this point in undo case, we play too much with
-       * IDs from different memory realms, and Main database is not in a fully valid state yet.
+      /* Note that we can't recompute user-counts at this point in undo case, we play too much
+       * with IDs from different memory realms, and Main database is not in a fully valid state
+       * yet.
        */
       /* Some versioning code does expect some proper user-reference-counting, e.g. in conversion
-       * from groups to collections... We could optimize out that first call when we are reading a
-       * current version file, but again this is really not a bottle neck currently.
-       * So not worth it. */
+       * from groups to collections... We could optimize out that first call when we are reading
+       * a current version file, but again this is really not a bottle neck currently. So not
+       * worth it. */
       BKE_main_id_refcount_recompute(bfd->main, false);
 
       /* Yep, second splitting... but this is a very cheap operation, so no big deal. */
@@ -10476,9 +10490,9 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
       }
       blo_join_main(&mainlist);
 
-      /* And we have to compute those user-reference-counts again, as `do_versions_after_linking()`
-       * does not always properly handle user counts, and/or that function does not take into
-       * account old, deprecated data. */
+      /* And we have to compute those user-reference-counts again, as
+       * `do_versions_after_linking()` does not always properly handle user counts, and/or that
+       * function does not take into account old, deprecated data. */
       BKE_main_id_refcount_recompute(bfd->main, false);
 
       /* After all data has been read and versioned, uses LIB_TAG_NEW. */
@@ -12653,8 +12667,8 @@ static void read_libraries(FileData *basefd, ListBase *mainlist)
     }
 
     /* Note: No need to call `do_versions_after_linking()` or `BKE_main_id_refcount_recompute()`
-     * here, as this function is only called for library 'subset' data handling, as part of either
-     * full blendfile reading (`blo_read_file_internal()`), or libdata linking
+     * here, as this function is only called for library 'subset' data handling, as part of
+     * either full blendfile reading (`blo_read_file_internal()`), or libdata linking
      * (`library_link_end()`). */
 
     /* Free file data we no longer need. */

@@ -3897,6 +3897,30 @@ static void write_simulation(WriteData *wd, Simulation *simulation)
       writestruct(wd, DATA, bNodeTree, 1, simulation->nodetree);
       write_nodetree_nolib(wd, simulation->nodetree);
     }
+
+    LISTBASE_FOREACH (SimulationState *, state, &simulation->states) {
+      switch (state->type) {
+        case SIM_STATE_TYPE_PARTICLES: {
+          ParticleSimulationState *particle_state = (ParticleSimulationState *)state;
+          writestruct(wd, DATA, ParticleSimulationState, 1, particle_state);
+
+          CustomDataLayer *layers = NULL;
+          CustomDataLayer layers_buff[CD_TEMP_CHUNK_SIZE];
+          CustomData_file_write_prepare(
+              &particle_state->attributes, &layers, layers_buff, ARRAY_SIZE(layers_buff));
+
+          write_customdata(wd,
+                           &simulation->id,
+                           particle_state->tot_particles,
+                           &particle_state->attributes,
+                           layers,
+                           CD_MASK_ALL);
+
+          write_pointcaches(wd, &particle_state->ptcaches);
+          break;
+        }
+      }
+    }
   }
 }
 
