@@ -57,7 +57,6 @@
 using BLI::ArrayRef;
 using BLI::float3;
 using BLI::MutableArrayRef;
-using BLI::ref_c_array;
 
 static void simulation_init_data(ID *id)
 {
