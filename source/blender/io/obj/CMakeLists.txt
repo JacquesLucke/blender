@@ -40,10 +40,10 @@ set(INC_SYS
 )
 
 set(SRC
-  obj.cpp
-  obj_exporter.cpp
-  obj_file_handler.cpp
-  obj_importer.cpp
+  obj.cc
+  obj_exporter.cc
+  obj_file_handler.cc
+  obj_importer.cc
 
   obj.h
   obj_exporter.h

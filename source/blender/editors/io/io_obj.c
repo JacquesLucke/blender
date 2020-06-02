@@ -83,8 +83,8 @@ static int wm_obj_export_exec(bContext *C, wmOperator *op)
   RNA_string_get(op->ptr, "filepath", filepath);
   a.print_name = RNA_boolean_get(op->ptr, "print_name");
   a.number = RNA_float_get(op->ptr, "print_the_float");
-
-  bool ok = OBJ_export(C, filepath, &a);
+  a.filepath = filepath;
+  bool ok = OBJ_export(C, &a);
   return ok ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
 }
 

@@ -21,7 +21,13 @@
  * \ingroup obj
  */
 
-#include "BKE_context.h"
-#include "DEG_depsgraph.h"
+#ifndef __OBJ_EXPORTER_H__
+#define __OBJ_EXPORTER_H__
 
-bool exporter_main(bContext *C, const char *filepath);
+#include "obj.h"
+
+void prepare_vertices(Object *ob_eval, OBJ_data_to_export *data_to_export);
+
+bool exporter_main(bContext *C, OBJExportParams *export_params);
+
+#endif

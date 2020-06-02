@@ -18,18 +18,36 @@
  * \ingroup obj
  */
 
-#include <stdlib.h>
+#ifndef __OBJ_H__
+#define __OBJ_H__
 
 #include "BKE_context.h"
-#include "BLI_linklist.h"
-#include "BLI_path_util.h"
-#include "RNA_types.h"
 
 #ifdef __cplusplus
+#  include <vector>
+struct faces {
+  int total_vertices_per_face;
+  std::vector<int> vertex_references;
+  std::vector<int> vertex_normal_references;
+};
+
+struct OBJ_data_to_export {
+  int tot_vertices;
+  std::vector<struct MVert> vertices;
+  std::vector<std::array<float, 3>> normals;
+  int tot_faces;
+  std::vector<struct faces> faces_list;
+};
 extern "C" {
 #endif
 
 struct OBJExportParams {
+  const char *filepath;
+
+  bContext *C;
+  Depsgraph *depsgraph;
+  Scene *scene;
+
   bool print_name;
   float number;
 };
@@ -38,13 +56,12 @@ struct OBJImportParams {
   float number;
 };
 
-/*
- * both return 1 on success, 0 on error
- */
-bool OBJ_import(struct bContext *C, const char *filename, struct OBJImportParams *import_settings);
+bool OBJ_import(struct bContext *C, const char *filepath, struct OBJImportParams *import_params);
 
-bool OBJ_export(struct bContext *C, const char *filename, struct OBJExportParams *export_settings);
+bool OBJ_export(struct bContext *C, struct OBJExportParams *export_params);
 
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* __OBJ_H__ */

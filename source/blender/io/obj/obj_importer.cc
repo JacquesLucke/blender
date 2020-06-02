@@ -21,36 +21,4 @@
  * \ingroup obj
  */
 
-#include <stdio.h>
-
 #include "obj_file_handler.h"
-#include "obj_exporter.h"
-
-#include "BKE_context.h"
-#include "BLI_linklist.h"
-#include "BKE_object.h"
-#include "DEG_depsgraph.h"
-#include "DEG_depsgraph_query.h"
-#include "DNA_layer_types.h"
-#include "DNA_object_types.h"
-#include "DNA_mesh_types.h"
-#include "DNA_meshdata_types.h"
-
-bool exporter_main(bContext *C, const char *filepath){
-  
-  const Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
-  Object *ob = CTX_data_active_object(C);
-  Object *ob_eval = DEG_get_evaluated_object(depsgraph, ob);
-  
-  printf("\n%d\n", ob_eval->type & OB_MESH);
-  Mesh *me_eval = BKE_object_get_evaluated_mesh(ob_eval);
-  int numVerts = me_eval->totvert;
-  for (int i=0; i < numVerts; i++) {
-    for (int j=0 ; j<3; j++) {
-      printf("%f ", me_eval->mvert[i].co[j]);
-    }
-    printf("\n");
-  }
-  
-  return  true;
-}

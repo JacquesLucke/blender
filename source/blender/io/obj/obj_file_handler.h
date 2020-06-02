@@ -20,5 +20,14 @@
 /** \file
  * \ingroup obj
  */
+#ifndef __OBJ_FILE_HANDLER_H__
+#define __OBJ_FILE_HANDLER_H__
 
+#include <fstream>
+#include <stdio.h>
 
+#include "obj.h"
+
+void write_prepared_data(const char *filepath, OBJ_data_to_export *data_to_export);
+
+#endif

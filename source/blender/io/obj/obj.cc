@@ -21,5 +21,22 @@
  * \ingroup obj
  */
 
-#include "obj_file_handler.h"
+#include "obj.h"
+#include "obj_exporter.h"
 
+bool OBJ_export(bContext *C, OBJExportParams *export_params)
+{
+  if (export_params->print_name) {
+    printf("\n OP");
+  }
+  if (export_params->number) {
+    printf("\n%f\n", export_params->number);
+  }
+  exporter_main(C, export_params);
+  return true;
+}
+
+bool OBJ_import(bContext *C, const char *filepath, OBJImportParams *import_params)
+{
+  return true;
+}
