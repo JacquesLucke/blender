@@ -527,6 +527,10 @@ template<typename T> ArrayRef<T> ref_c_array(const T *array, uint size)
 {
   return ArrayRef<T>(array, size);
 }
+template<typename T> MutableArrayRef<T> ref_c_array(T *array, uint size)
+{
+  return MutableArrayRef<T>(array, size);
+}
 
 template<typename T1, typename T2> void assert_same_size(const T1 &v1, const T2 &v2)
 {

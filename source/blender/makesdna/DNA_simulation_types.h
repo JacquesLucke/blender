@@ -51,8 +51,8 @@ typedef struct SimulationState {
 typedef struct ParticleSimulationState {
   SimulationState head;
 
-  /** Contains the current state of the particles. */
-  int _pad;
+  /** Contains the state of the particles at time current_frame. */
+  float current_frame;
   int tot_particles;
   struct CustomData attributes;
 

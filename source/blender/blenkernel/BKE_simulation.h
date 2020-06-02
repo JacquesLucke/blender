@@ -24,7 +24,6 @@ extern "C" {
 struct Depsgraph;
 struct Main;
 struct Simulation;
-struct ParticleSimulationFrameCache;
 
 void *BKE_simulation_add(struct Main *bmain, const char *name);
 

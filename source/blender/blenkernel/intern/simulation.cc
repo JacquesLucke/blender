@@ -37,6 +37,7 @@
 
 #include "BKE_anim_data.h"
 #include "BKE_animsys.h"
+#include "BKE_customdata.h"
 #include "BKE_idtype.h"
 #include "BKE_lib_id.h"
 #include "BKE_lib_query.h"
@@ -55,6 +56,8 @@
 
 using BLI::ArrayRef;
 using BLI::float3;
+using BLI::MutableArrayRef;
+using BLI::ref_c_array;
 
 static void simulation_init_data(ID *id)
 {
@@ -81,6 +84,8 @@ static void simulation_copy_data(Main *bmain, ID *id_dst, const ID *id_src, cons
                    (ID **)&simulation_dst->nodetree,
                    flag_private_id_data);
   }
+
+  BLI_listbase_clear(&simulation_dst->states);
 }
 
 static void simulation_free_data(ID *id)
@@ -93,6 +98,17 @@ static void simulation_free_data(ID *id)
     ntreeFreeEmbeddedTree(simulation->nodetree);
     MEM_freeN(simulation->nodetree);
     simulation->nodetree = nullptr;
+  }
+
+  LISTBASE_FOREACH_MUTABLE (SimulationState *, state, &simulation->states) {
+    switch (state->type) {
+      case SIM_STATE_TYPE_PARTICLES: {
+        ParticleSimulationState *particle_state = (ParticleSimulationState *)state;
+        CustomData_free(&particle_state->attributes, particle_state->tot_particles);
+        break;
+      }
+    }
+    MEM_freeN(state);
   }
 }
 
@@ -131,10 +147,61 @@ void *BKE_simulation_add(Main *bmain, const char *name)
   return simulation;
 }
 
+static MutableArrayRef<float3> get_particle_positions(ParticleSimulationState *state)
+{
+  return MutableArrayRef<float3>(
+      (float3 *)CustomData_get_layer_named(&state->attributes, CD_LOCATION, "Position"),
+      state->tot_particles);
+}
+
+static void ensure_attributes_exist(ParticleSimulationState *state)
+{
+  if (CustomData_get_layer_named(&state->attributes, CD_LOCATION, "Position") == nullptr) {
+    CustomData_add_layer_named(
+        &state->attributes, CD_LOCATION, CD_CALLOC, nullptr, state->tot_particles, "Position");
+  }
+}
+
 void BKE_simulation_data_update(Depsgraph *UNUSED(depsgraph), Scene *scene, Simulation *simulation)
 {
   Simulation *simulation_orig = (Simulation *)DEG_get_original_id(&simulation->id);
   int current_frame = scene->r.cfra;
 
-  UNUSED_VARS(simulation_orig, current_frame);
+  if (BLI_listbase_is_empty(&simulation_orig->states)) {
+    ParticleSimulationState *state = (ParticleSimulationState *)MEM_callocN(
+        sizeof(ParticleSimulationState), __func__);
+    CustomData_reset(&state->attributes);
+    state->tot_particles = 0;
+
+    BLI_addtail(&simulation_orig->states, state);
+  }
+
+  ParticleSimulationState *state = (ParticleSimulationState *)simulation_orig->states.first;
+  if (current_frame == state->current_frame) {
+    return;
+  }
+  else if (current_frame == 1) {
+    state->tot_particles = 100;
+    state->current_frame = 1;
+    CustomData_realloc(&state->attributes, state->tot_particles);
+    ensure_attributes_exist(state);
+
+    MutableArrayRef<float3> positions = get_particle_positions(state);
+    for (uint i : positions.index_range()) {
+      positions[i] = {i / 10.0f, 0, 0};
+    }
+  }
+  else if (current_frame == state->current_frame + 1) {
+    state->current_frame = current_frame;
+    ensure_attributes_exist(state);
+    MutableArrayRef<float3> positions = get_particle_positions(state);
+    for (float3 &position : positions) {
+      position.z += 0.1f;
+    }
+  }
+  else {
+    state->current_frame = current_frame;
+    CustomData_free(&state->attributes, state->tot_particles);
+    state->tot_particles = 0;
+  }
 }
