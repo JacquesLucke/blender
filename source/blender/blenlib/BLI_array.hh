@@ -26,12 +26,13 @@
  *
  * BLI::Array should be used instead of BLI::Vector whenever the size of the array is known at
  * construction time. Note however, that BLI::Array will default construct all elements when
- * initialized with the size-constructor. For trivial types, this is a noop, but it can add
+ * initialized with the size-constructor. For trivial types, this does nothing, but it can add
  * overhead in general. If this becomes a problem, a different constructor which does not do
  * default construction can be added.
  *
  * A main benefit of using Array over Vector is that it expresses the intend of the developer
- * better. It indicates that the size of the data structure is not expected to change.
+ * better. It indicates that the size of the data structure is not expected to change. Furthermore,
+ * you can be more certain that an array does not overallocate.
  */
 
 #include "BLI_allocator.hh"
