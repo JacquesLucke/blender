@@ -27,12 +27,32 @@
  *
  * In most cases, your default choice for a hash map in Blender should be `BLI::Map`.
  *
- * The implementation uses open addressing in a flat array. The number of slots is always a power
- * of two. More implementation details depend on the used template parameters.
+ * BLI::Map is implemented using open addressing in a slot array with a power-of-two size. Every
+ * slot is in one of three states: empty, occupied or removed. If a slot is occupied, it contains
+ * a Key and Value instance.
  *
- * Lookup operations with other types than Key can be done using the methods with the suffix "_as".
- * This is commonly used when std::string is used as key, but lookups are done using StringRef. The
- * hash function has to be able to hash those other types as well.
+ * Some noteworthy information:
+ * - Key and Value must be movable types.
+ * - The hash function can be customized, See BLI_hash.hh for details.
+ * - The probing strategy can be customized. See BLI_probing_strategies.hh for details.
+ * - The slot type can be customized. See BLI_map_slots.hh for details.
+ * - Small buffer optimization is enabled by default, if Key and Value are not too large.
+ * - The methods `add_new` and `remove_contained` should be used instead of `add` and `remove`
+ *   whenever appropriate. Assumptions and intention are described better this way.
+ * - There are multiple methods to add and lookup keys for different use cases.
+ * - You cannot use a range-for loop on the map directly. Instead use the keys(), values() or
+ *   items() iterators. If your map is non-const, you can also change the values with those
+ *   iterators (but not the keys).
+ * - Lookups can be performed using types other than Key without conversion. For that use the
+ *   methods ending with `_as`. The template parameters Hash and IsEqual have to support the other
+ *   key type. This can greatly improve performance when the map uses strings as keys.
+ * - Pointers to keys and values are potentially invalidated when the map is changed or moved.
+ * - The default constructor is cheap, even when a large InlineBufferCapacity is used. The large
+ *   slot array will only be initialized when the first element is added.
+ * - The `print_stats` method can be used to get information about the distribution of keys and
+ *   memory usage of the map.
+ * - The method names don't follow the std::unordered_map names in many cases. Searching for such
+ *   names in this file will usually let you discover the new name.
  */
 
 #include "BLI_array.hh"

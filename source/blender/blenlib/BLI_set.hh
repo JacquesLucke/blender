@@ -26,9 +26,9 @@
  *
  * In most cases, your default choice for a hash set in Blender should be `BLI::Set`.
  *
- * The Set is implemented using a open addressing in a flat slot array with a power-of-two size.
- * Every slot is in one of three states: empty, occupied or removed. If a slot is occupied, it
- * contains an instance of the key type.
+ * BLI::Set is implemented using open addressing in a slot array with a power-of-two size. Every
+ * slot is in one of three states: empty, occupied or removed. If a slot is occupied, it contains
+ * an instance of the key type.
  *
  * Benchmarking and comparing hash tables is hard, because many factors influence the result. The
  * performance of a hash table depends on the hash function, probing strategy, max load factor, key
