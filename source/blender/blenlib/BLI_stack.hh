@@ -343,7 +343,7 @@ class Stack {
       uint new_capacity = std::max(min_new_elements, m_top_chunk->capacity() * 2 + 10);
 
       BLI_STATIC_ASSERT(sizeof(Chunk) % alignof(T) == 0, "");
-      void *buffer = m_allocator.allocate_aligned(
+      void *buffer = m_allocator.allocate(
           sizeof(Chunk) + sizeof(T) * new_capacity, alignof(Chunk), "grow stack");
 
       Chunk *new_chunk = new (buffer) Chunk();

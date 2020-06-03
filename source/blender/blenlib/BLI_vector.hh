@@ -230,7 +230,7 @@ class Vector {
       else {
         /* Copy from inline buffer to newly allocated buffer. */
         uint capacity = size;
-        m_begin = (T *)m_allocator.allocate_aligned(sizeof(T) * capacity, alignof(T), __func__);
+        m_begin = (T *)m_allocator.allocate(sizeof(T) * capacity, alignof(T), __func__);
         m_end = m_begin + size;
         m_capacity_end = m_begin + capacity;
         uninitialized_relocate_n(other.m_begin, size, m_begin);
@@ -782,7 +782,7 @@ class Vector {
     uint new_capacity = std::max(required_capacity, min_new_capacity);
     uint size = this->size();
 
-    T *new_array = (T *)m_allocator.allocate_aligned(
+    T *new_array = (T *)m_allocator.allocate(
         new_capacity * (uint)sizeof(T), alignof(T), "grow BLI::Vector");
     uninitialized_relocate_n(m_begin, size, new_array);
 
@@ -811,7 +811,7 @@ class Vector {
       capacity = InlineBufferCapacity;
     }
     else {
-      m_begin = (T *)m_allocator.allocate_aligned(sizeof(T) * size, alignof(T), __func__);
+      m_begin = (T *)m_allocator.allocate(sizeof(T) * size, alignof(T), __func__);
       capacity = size;
     }
 

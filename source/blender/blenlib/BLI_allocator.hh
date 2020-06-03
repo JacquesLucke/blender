@@ -45,12 +45,7 @@ namespace BLI {
  */
 class GuardedAllocator {
  public:
-  void *allocate(uint size, const char *name)
-  {
-    return MEM_mallocN(size, name);
-  }
-
-  void *allocate_aligned(uint size, uint alignment, const char *name)
+  void *allocate(size_t size, size_t alignment, const char *name)
   {
     return MEM_mallocN_aligned(size, alignment, name);
   }
@@ -72,14 +67,7 @@ class RawAllocator {
   };
 
  public:
-  void *allocate(uint size, const char *UNUSED(name))
-  {
-    void *ptr = malloc(size + sizeof(MemHead));
-    ((MemHead *)ptr)->offset = sizeof(MemHead);
-    return POINTER_OFFSET(ptr, sizeof(MemHead));
-  }
-
-  void *allocate_aligned(uint size, uint alignment, const char *UNUSED(name))
+  void *allocate(size_t size, size_t alignment, const char *UNUSED(name))
   {
     BLI_assert(is_power_of_2_i((int)alignment));
     void *ptr = malloc(size + alignment + sizeof(MemHead));
