@@ -31,14 +31,14 @@
  * an instance of the key type.
  *
  * Benchmarking and comparing hash tables is hard, because many factors influence the result. The
- * performance of a hash table depends on the hash function, probing strategy, max load factor, key
- * type, slot type and the data distribution. This implementation is designed to be relatively fast
- * by default in call cases. However, it also offers many customization points that allow it to be
- * optimized for a specific use case.
+ * performance of a hash table depends on the combination of the hash function, probing strategy,
+ * max load factor, key type, slot type and the data distribution. This implementation is designed
+ * to be relatively fast by default in all cases. However, it also offers many customization
+ * points that allow it to be optimized for a specific use case.
  *
  * A rudimentary benchmark can be found in BLI_set_test.cc. The results of that benchmark are
  * there as well. The numbers show that in this specific case BLI::Set outperforms
- * std::unordered_set consistently. Usually by a factor between 2 and 4.
+ * std::unordered_set consistently by a good amount.
  *
  * Some noteworthy information:
  * - Key must be a movable type.

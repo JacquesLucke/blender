@@ -454,6 +454,7 @@ TEST(set, Benchmark)
     benchmark_random_ints<BLI::StdUnorderedSetWrapper<int>>("std::unordered_set", 100000, factor);
   }
 }
+
 /**
  * Output of the rudimentary benchmark above on my hardware.
  *
@@ -508,4 +509,4 @@ TEST(set, Benchmark)
  * Count: 198790
  */
 
-#endif
+#endif /* Benchmark */

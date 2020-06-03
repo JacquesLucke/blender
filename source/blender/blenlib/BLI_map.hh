@@ -31,6 +31,16 @@
  * slot is in one of three states: empty, occupied or removed. If a slot is occupied, it contains
  * a Key and Value instance.
  *
+ * Benchmarking and comparing hash tables is hard, because many factors influence the result. The
+ * performance of a hash table depends on the combination of the hash function, probing strategy,
+ * max load factor, data types, slot type and data distribution. This implementation is designed to
+ * be relatively fast by default in all cases. However, it also offers many customization points
+ * that allow it to be optimized for a specific use case.
+ *
+ * A rudimentary benchmark can be found in BLI_map_test.cc. The results of that benchmark are there
+ * as well. The numbers show that in this specific case BLI::Map outperforms std::unordered_map
+ * consistently by a good amount.
+ *
  * Some noteworthy information:
  * - Key and Value must be movable types.
  * - The hash function can be customized. See BLI_hash.hh for details.
@@ -53,7 +63,11 @@
  *   memory usage of the map.
  * - The method names don't follow the std::unordered_map names in many cases. Searching for such
  *   names in this file will usually let you discover the new name.
+ * - There is a StdUnorderedMapWrapper class, that wraps std::unordered_map and gives it the same
+ *   interface as BLI::Map. This is useful for benchmarking.
  */
+
+#include <unordered_map>
 
 #include "BLI_array.hh"
 #include "BLI_hash.hh"
@@ -1065,6 +1079,72 @@ class Map {
       this->grow(this->size() + 1);
       BLI_assert(m_occupied_and_removed_slots < m_usable_slots);
     }
+  }
+};
+
+/**
+ * A wrapper for std::unordered_map with the API of BLI::Map. This can be used for benchmarking.
+ */
+template<typename Key, typename Value> class StdUnorderedMapWrapper {
+ private:
+  using MapType = std::unordered_map<Key, Value, BLI::DefaultHash<Key>>;
+  MapType m_map;
+
+ public:
+  uint32_t size() const
+  {
+    return (uint32_t)m_map.size();
+  }
+
+  bool is_empty() const
+  {
+    return m_map.empty();
+  }
+
+  void reserve(uint32_t n)
+  {
+    m_map.reserve(n);
+  }
+
+  template<typename ForwardKey, typename ForwardValue>
+  void add_new(ForwardKey &&key, ForwardValue &&value)
+  {
+    m_map.insert({std::forward<ForwardKey>(key), std::forward<ForwardValue>(value)});
+  }
+
+  template<typename ForwardKey, typename ForwardValue>
+  bool add(ForwardKey &&key, ForwardValue &&value)
+  {
+    return m_map.insert({std::forward<ForwardKey>(key), std::forward<ForwardValue>(value)}).second;
+  }
+
+  bool contains(const Key &key) const
+  {
+    return m_map.find(key) != m_map.end();
+  }
+
+  bool remove(const Key &key)
+  {
+    return (bool)m_map.erase(key);
+  }
+
+  Value &lookup(const Key &key)
+  {
+    return m_map.find(key)->second;
+  }
+
+  const Value &lookup(const Key &key) const
+  {
+    return m_map.find(key)->second;
+  }
+
+  void clear()
+  {
+    m_map.clear();
+  }
+
+  void print_stats(StringRef UNUSED(name) = "") const
+  {
   }
 };
 
