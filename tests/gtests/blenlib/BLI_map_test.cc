@@ -383,7 +383,7 @@ TEST(map, PointerKeys)
 /**
  * Set this to 1 to activate the benchmark. It is disabled by default, because it prints a lot.
  */
-#if 1
+#if 0
 template<typename MapT>
 BLI_NOINLINE void benchmark_random_ints(StringRef name, uint amount, uint factor)
 {
