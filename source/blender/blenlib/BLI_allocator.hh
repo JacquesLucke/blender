@@ -19,14 +19,19 @@
 /** \file
  * \ingroup bli
  *
- * This file offers a couple of memory allocators that can be used with containers such as Vector
- * and Map. Note that these allocators are not designed to work with standard containers like
- * std::vector.
+ * An `Allocator` can allocate and deallocate memory. It is used by containers such as BLI::Vector.
  *
- * Also see http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2007/n2271.html for why the standard
- * allocators are not a good fit applications like Blender. The current implementations in this
- * file are fairly simple still, more complexity can be added when necessary. For now they do their
- * job good enough.
+ * Every allocator has to implement two methods:
+ *   void *allocate(size_t size, size_t alignment, const char *name);
+ *   void deallocate(void *ptr);
+ *
+ * We don't use the std::allocator interface, because it does more than is really necessary for an
+ * allocator and has some other quirks. It mixes the concepts of allocation and construction. It is
+ * essentially forced to be a template, even though the allocator should not care about the type.
+ * Also see http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2007/n2271.html#std_allocator.
+ *
+ * The allocator interface dictated by this file is very simplistic, but for now that is all we
+ * need. More complexity can be added later when it seems necessary.
  */
 
 #include <algorithm>
@@ -47,6 +52,7 @@ class GuardedAllocator {
  public:
   void *allocate(size_t size, size_t alignment, const char *name)
   {
+    /* Should we use MEM_mallocN, when alignment is small? If yes, how small must alignment be? */
     return MEM_mallocN_aligned(size, alignment, name);
   }
 
@@ -57,8 +63,9 @@ class GuardedAllocator {
 };
 
 /**
- * This is a simple wrapper around malloc/free. Only use this when the GuardedAllocator cannot be
- * used. This can be the case when the allocated element might live longer than Blenders Allocator.
+ * This is a wrapper around malloc/free. Only use this when the GuardedAllocator cannot be
+ * used. This can be the case when the allocated memory might live longer than Blender's
+ * allocator. For example, when it is owned by static variables.
  */
 class RawAllocator {
  private:
