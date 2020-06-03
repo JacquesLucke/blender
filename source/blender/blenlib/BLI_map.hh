@@ -33,7 +33,7 @@
  *
  * Some noteworthy information:
  * - Key and Value must be movable types.
- * - The hash function can be customized, See BLI_hash.hh for details.
+ * - The hash function can be customized. See BLI_hash.hh for details.
  * - The probing strategy can be customized. See BLI_probing_strategies.hh for details.
  * - The slot type can be customized. See BLI_map_slots.hh for details.
  * - Small buffer optimization is enabled by default, if Key and Value are not too large.

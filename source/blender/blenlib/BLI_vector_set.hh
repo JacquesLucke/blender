@@ -35,13 +35,26 @@
  *   the keys are stored in a set. With a VectorSet, one can get an ArrayRef containing all keys
  *   without additional copies.
  *
- * The implementation uses open addressing in a flat array. The number of slots is always a power
- * of two. Every slot contains state information and an index into the key array. A slot is either
- * empty, occupied or removed. More implementation details depend on the used template parameters.
+ * BLI::VectorSet is implemented using open addressing in a slot array with a power-of-two size.
+ * Other than in BLI::Set, a slot does not contain the key though. Instead it only contains an
+ * index into an array of keys that is stored separately.
  *
- * Lookup operations with other types than Key can be done using the methods with the suffix "_as".
- * This is commonly used when std::string is used as key, but lookups are done using StringRef. The
- * hash function has to be able to hash those other types as well.
+ * Some noteworthy information:
+ * - Key must be a movable type.
+ * - The hash function can be customized. See BLI_hash.hh for details.
+ * - The probing strategy can be customized. See BLI_probing_strategies.hh for details.
+ * - The slot type can be customized. See BLI_vector_set_slots.hh for details.
+ * - The methods `add_new` and `remove_contained` should be used instead of `add` and `remove`
+ *   whenever appropriate. Assumptions and intention are described better this way.
+ * - Using a range-for loop over a vector set, is as efficient as iterating over an array (because
+ *   it is the same thing).
+ * - Lookups can be performed using types other than Key without conversion. For that use the
+ *   methods ending with `_as`. The template parameters Hash and IsEqual have to support the other
+ *   key type. This can greatly improve performance when the strings are used as keys.
+ * - Pointers to keys are potentially invalidated, when the vector set is changed or moved.
+ * - The default constructor is cheap.
+ * - The `print_stats` method can be used to get information about the distribution of keys and
+ *   memory usage.
  *
  * Possible Improvements:
  * - Small buffer optimization for the keys.

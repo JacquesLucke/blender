@@ -41,7 +41,7 @@
  * std::unordered_set consistently. Usually by a factor between 2 and 4.
  *
  * Some noteworthy information:
- * - Keys must be movable, but not necessarily copyable.
+ * - Key must be a movable type.
  * - The hash function can be customized. See BLI_hash.hh for details.
  * - The probing strategy can be customized. See BLI_probing_stragies.hh for details.
  * - The slot type can be customized. See BLI_set_slots.hh for details.
