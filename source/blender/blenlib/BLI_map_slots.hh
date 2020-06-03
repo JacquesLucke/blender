@@ -33,7 +33,6 @@
  *
  * Possible Improvements:
  * - Implement slot type that stores the hash.
- * - Implement slot type specialized for pointer keys, similar to PointerSetSlot.
  */
 
 #include "BLI_memory_utils.hh"
