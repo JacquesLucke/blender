@@ -64,6 +64,7 @@
 #include "BLI_hash.hh"
 #include "BLI_hash_tables.hh"
 #include "BLI_probing_strategies.hh"
+#include "BLI_vector_set_slots.hh"
 
 namespace BLI {
 
@@ -748,7 +749,5 @@ class VectorSet {
 };
 
 }  // namespace BLI
-
-#include "BLI_vector_set_slots.hh"
 
 #endif /* __BLI_VECTOR_SET_HH__ */

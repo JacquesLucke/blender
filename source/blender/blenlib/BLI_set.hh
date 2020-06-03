@@ -70,16 +70,13 @@
  * - Support max load factor customization.
  */
 
-#include <type_traits>
 #include <unordered_set>
 
 #include "BLI_array.hh"
 #include "BLI_hash.hh"
 #include "BLI_hash_tables.hh"
-#include "BLI_math_bits.h"
 #include "BLI_probing_strategies.hh"
-#include "BLI_timeit.hh"
-#include "BLI_vector.hh"
+#include "BLI_set_slots.hh"
 
 namespace BLI {
 
@@ -767,7 +764,5 @@ template<typename Key> class StdUnorderedSetWrapper {
 };
 
 }  // namespace BLI
-
-#include "BLI_set_slots.hh"
 
 #endif /* __BLI_SET_HH__ */
