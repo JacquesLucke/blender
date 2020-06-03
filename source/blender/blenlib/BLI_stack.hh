@@ -28,9 +28,10 @@
  * is done. Consequently, values stored in the stack have to be movable and they might be moved,
  * when the stack is moved.
  *
- * The implementation stores the elements in potentially multiple contiguous chunks. The individual
- * chunks are connected by a double linked list. All, except the top-most chunk are always
- * completely full.
+ * BLI::Stack is implemented using a double linked list of chunks. Each chunk contains an array of
+ * elements. The chunk size increases exponentially with every new chunk that is required. All
+ * chunks, except the top-most one, are always completely full. The lowest chunk, i.e. that is used
+ * for the first few pushed elements, is embedded into the stack.
  */
 
 #include "BLI_allocator.hh"
