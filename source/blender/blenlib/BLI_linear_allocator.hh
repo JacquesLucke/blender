@@ -208,7 +208,7 @@ template<typename Allocator = GuardedAllocator> class LinearAllocator : NonCopya
     uint size_in_bytes = power_of_2_min_u(std::max(min_allocation_size, m_next_min_alloc_size));
     m_next_min_alloc_size = size_in_bytes * 2;
 
-    void *buffer = m_allocator.allocate(size_in_bytes, 8, __func__);
+    void *buffer = m_allocator.allocate(size_in_bytes, 8, AT);
     m_owned_buffers.append(buffer);
     m_current_begin = (uintptr_t)buffer;
     m_current_end = m_current_begin + size_in_bytes;

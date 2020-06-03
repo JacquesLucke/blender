@@ -344,7 +344,7 @@ class Stack {
 
       BLI_STATIC_ASSERT(sizeof(Chunk) % alignof(T) == 0, "");
       void *buffer = m_allocator.allocate(
-          sizeof(Chunk) + sizeof(T) * new_capacity, alignof(Chunk), "grow stack");
+          sizeof(Chunk) + sizeof(T) * new_capacity, alignof(Chunk), AT);
 
       Chunk *new_chunk = new (buffer) Chunk();
       new_chunk->begin = (T *)POINTER_OFFSET(buffer, sizeof(Chunk));

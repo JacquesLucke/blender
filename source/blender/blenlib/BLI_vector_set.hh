@@ -725,8 +725,7 @@ class VectorSet {
 
   Key *allocate_keys_array(uint32_t size)
   {
-    return (Key *)m_slots.allocator().allocate(
-        (uint32_t)sizeof(Key) * size, alignof(Key), __func__);
+    return (Key *)m_slots.allocator().allocate((uint32_t)sizeof(Key) * size, alignof(Key), AT);
   }
 
   void deallocate_keys_array(Key *keys)

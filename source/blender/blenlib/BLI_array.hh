@@ -315,7 +315,7 @@ class Array {
 
   T *allocate(uint size)
   {
-    return (T *)m_allocator.allocate(size * sizeof(T), alignof(T), __func__);
+    return (T *)m_allocator.allocate(size * sizeof(T), alignof(T), AT);
   }
 
   bool uses_inline_buffer() const
