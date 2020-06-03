@@ -20,9 +20,10 @@
 /** \file
  * \ingroup bli
  *
- * A `BLI::ArrayRef<T>` references an array that is owned by someone else. Since the memory is not
- * owned, ArrayRef should not be used to transfer ownership. The array cannot be modified through
- * the ArrayRef. However, if T is a non-const pointer, the pointed to elements can be modified.
+ * A `BLI::ArrayRef<T>` references an array that is owned by someone else. It is just a pointer and
+ * a size. Since the memory is not owned, ArrayRef should not be used to transfer ownership. The
+ * array cannot be modified through the ArrayRef. However, if T is a non-const pointer, the
+ * pointed-to elements can be modified.
  *
  * There is also `BLI::MutableArrayRef<T>`. It is mostly the same as ArrayRef, but allows that the
  * array to be modified.

@@ -48,15 +48,15 @@
  * There are three main ways to provide a hash table implementation with a custom hash function.
  *
  * - When you want to provide a default hash function for your own custom type: Add a `hash`
- *   member function to the object. The function should return `uint32_t`. This method will be
- *   called by the default implementation of DefaultHash. It will automatically be used by hash
- *   table implementations.
+ *   member function to it. The function should return `uint32_t` and take no arguments. This
+ *   method will be called by the default implementation of DefaultHash. It will automatically be
+ *   used by hash table implementations.
  *
  * - When you want to provide a default hash function for a type that you cannot modify: Add a new
  *   specialization to the DefaultHash struct. This can be done by writing code like below in
  *   either global or BLI namespace.
  *
- *     template<> struct DefaultHash<TheType> {
+ *     template<> struct BLI::DefaultHash<TheType> {
  *       uint32_t operator()(const TheType &value) const {
  *         return ...;
  *       }

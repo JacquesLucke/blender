@@ -20,9 +20,9 @@
 /** \file
  * \ingroup bli
  *
- * A `BLI::StringRef` references a const char array owned by someone else. Since the memory is not
- * owned, StringRef should not be used to transfer ownership of the string. The data referenced by
- * a StringRef cannot be mutated through it.
+ * A `BLI::StringRef` references a const char array owned by someone else. It is just a pointer and
+ * a size. Since the memory is not owned, StringRef should not be used to transfer ownership of the
+ * string. The data referenced by a StringRef cannot be mutated through it.
  *
  * A StringRef is NOT null-terminated. This makes it much more powerful within C++, because we can
  * also cut off parts of the end without creating a copy. When interfacing with C code that expects
@@ -37,9 +37,9 @@
  * BLI::StringRef vs. std::string_view:
  *   Both types are certainly very similar. The main benefit of using StringRef in Blender is that
  *   this allows us to add convenience methods at any time. Especially, when doing a lot of string
- *   manipulation, this can help keep to keep the code clean. Furthermore, we need StringRefNull
- *   anyway, because there is a lot of C code that expects null-terminated strings. Once we use
- *   C++17, implicit to and from string_view can be added.
+ *   manipulation, this can help keep the code clean. Furthermore, we need StringRefNull anyway,
+ *   because there is a lot of C code that expects null-terminated strings. Once we use C++17,
+ *   implicit conversions to and from string_view can be added.
  */
 
 #include <cstring>
