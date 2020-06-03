@@ -816,6 +816,17 @@ class Map {
   }
 
   /**
+   * Potentially resize the map such that the specified number of elements can be added without
+   * another grow operation.
+   */
+  void reserve(uint32_t n)
+  {
+    if (m_usable_slots < n) {
+      this->grow(n);
+    }
+  }
+
+  /**
    * Removes all key-value-pairs from the map.
    */
   void clear()

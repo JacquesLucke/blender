@@ -485,10 +485,10 @@ class VectorSet {
    * Potentially resize the vector set such that the specified number of keys can be added without
    * another grow operation.
    */
-  void reserve(uint32_t min_usable_slots)
+  void reserve(uint32_t n)
   {
-    if (m_usable_slots < min_usable_slots) {
-      this->grow(min_usable_slots);
+    if (m_usable_slots < n) {
+      this->grow(n);
     }
   }
 
