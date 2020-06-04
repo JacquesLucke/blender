@@ -437,7 +437,7 @@ class Set {
    */
   void rehash()
   {
-    this->grow(this->size());
+    this->realloc_and_reinsert(this->size());
   }
 
   /**
@@ -496,7 +496,7 @@ class Set {
   void reserve(uint32_t n)
   {
     if (m_usable_slots < n) {
-      this->grow(n);
+      this->realloc_and_reinsert(n);
     }
   }
 
@@ -527,7 +527,7 @@ class Set {
   }
 
  private:
-  BLI_NOINLINE void grow(uint32_t min_usable_slots)
+  BLI_NOINLINE void realloc_and_reinsert(uint32_t min_usable_slots)
   {
     uint32_t total_slots, usable_slots;
     m_max_load_factor.compute_total_and_usable_slots(
@@ -677,7 +677,7 @@ class Set {
   void ensure_can_add()
   {
     if (m_occupied_and_removed_slots >= m_usable_slots) {
-      this->grow(this->size() + 1);
+      this->realloc_and_reinsert(this->size() + 1);
       BLI_assert(m_occupied_and_removed_slots < m_usable_slots);
     }
   }
