@@ -386,7 +386,6 @@ void deg_graph_clear_tags(Depsgraph *graph)
     node->flag &= ~(DEPSOP_FLAG_DIRECTLY_MODIFIED | DEPSOP_FLAG_NEEDS_UPDATE |
                     DEPSOP_FLAG_USER_MODIFIED);
   }
-  // graph->entry_tags.print_collision_stats();
   /* Clear any entry tags which haven't been flushed. */
   graph->entry_tags.clear();
 }

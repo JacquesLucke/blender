@@ -42,8 +42,6 @@
 
 #include "DEG_depsgraph_query.h"
 
-#include "time.h"
-
 #include "transform.h"
 #include "transform_convert.h"
 
@@ -356,9 +354,6 @@ static void set_trans_object_base_flags(TransInfo *t)
   DEG_graph_relations_update(depsgraph, bmain, scene, view_layer);
   /* Clear all flags we need. It will be used to detect dependencies. */
   trans_object_base_deps_flag_prepare(view_layer);
-
-  clock_t start_time = clock();
-
   /* Traverse all bases and set all possible flags. */
   LISTBASE_FOREACH (Base *, base, &view_layer->object_bases) {
     base->flag_legacy &= ~(BA_WAS_SEL | BA_TRANSFORM_LOCKED_IN_PLACE);
@@ -391,10 +386,6 @@ static void set_trans_object_base_flags(TransInfo *t)
       flush_trans_object_base_deps_flag(depsgraph, ob);
     }
   }
-
-  clock_t end_time = clock();
-  printf("Time: %f ms\n", (end_time - start_time) * 1000 / (float)CLOCKS_PER_SEC);
-
   /* Store temporary bits in base indicating that base is being modified
    * (directly or indirectly) by transforming objects.
    */
