@@ -636,6 +636,7 @@ class Vector {
     }
     m_begin[last_index].~T();
     m_end--;
+    UPDATE_VECTOR_SIZE(this);
   }
 
   /**
