@@ -373,13 +373,13 @@ class VectorSet {
    */
   int32_t index_of_try(const Key &key) const
   {
-    return this->index_of_try_as(key);
+    return (int32_t)this->index_of_try_as(key);
   }
 
   /**
    * Same as `index_of_try`, but accepts other key types that are supported by the hash function.
    */
-  template<typename ForwardKey> uint32_t index_of_try_as(const ForwardKey &key) const
+  template<typename ForwardKey> int32_t index_of_try_as(const ForwardKey &key) const
   {
     return this->index_of_try__impl(key, m_hash(key));
   }
@@ -631,7 +631,7 @@ class VectorSet {
   {
     VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.contains(key, m_is_equal, hash, m_keys)) {
-        return slot.index();
+        return (int32_t)slot.index();
       }
       if (slot.is_empty()) {
         return -1;

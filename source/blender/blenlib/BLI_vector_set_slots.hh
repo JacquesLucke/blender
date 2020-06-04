@@ -78,7 +78,7 @@ template<typename Key> class SimpleVectorSetSlot {
   uint32_t index() const
   {
     BLI_assert(this->is_occupied());
-    return m_state;
+    return (uint32_t)m_state;
   }
 
   /**
