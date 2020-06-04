@@ -29,9 +29,9 @@
  * when the stack is moved.
  *
  * BLI::Stack is implemented using a double linked list of chunks. Each chunk contains an array of
- * elements. The chunk size increases exponentially with every new chunk that is required. All
- * chunks, except the top-most one, are always completely full. The lowest chunk, i.e. that is used
- * for the first few pushed elements, is embedded into the stack.
+ * elements. The chunk size increases exponentially with every new chunk that is required. The
+ * lowest chunk, i.e. the one that is used for the first few pushed elements, is embedded into the
+ * stack.
  */
 
 #include "BLI_allocator.hh"
@@ -77,7 +77,7 @@ template<
     uint InlineBufferCapacity = (sizeof(T) < 100) ? 4 : 0,
     /**
      * The allocator used by this stack. Should rarely be changed, except when you don't want that
-     * MEM_mallocN etc. is used internally.
+     * MEM_* is used internally.
      */
     typename Allocator = GuardedAllocator>
 class Stack {
@@ -313,7 +313,7 @@ class Stack {
   }
 
   /**
-   * Returns the number of elements on the stack.
+   * Returns the number of elements in the stack.
    */
   uint size() const
   {
@@ -321,7 +321,7 @@ class Stack {
   }
 
   /**
-   * Remove all elements from the stack. The memory is not freed, so it is more efficient to reuse
+   * Removes all elements from the stack. The memory is not freed, so it is more efficient to reuse
    * the stack than to create a new one.
    */
   void clear()
@@ -339,8 +339,8 @@ class Stack {
 
   /**
    * Changes m_top_chunk to point to a new chunk that is above the current one. The new chunk might
-   * be small than the given size_hint. This happens when a chunk that has been allocated before is
-   * reused. The size of the new chunk will be at least one.
+   * be smaller than the given size_hint. This happens when a chunk that has been allocated before
+   * is reused. The size of the new chunk will be at least one.
    *
    * This fails when the current top chunk is not full.
    */

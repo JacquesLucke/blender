@@ -73,7 +73,7 @@ template<
     uint InlineBufferCapacity = (sizeof(T) < 100) ? 4 : 0,
     /**
      * The allocator used by this vector. Should rarely be changed, except when you don't want that
-     * MEM_mallocN etc. is used internally.
+     * MEM_* is used internally.
      */
     typename Allocator = GuardedAllocator>
 class Vector {
