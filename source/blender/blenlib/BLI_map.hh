@@ -20,12 +20,12 @@
 /** \file
  * \ingroup bli
  *
- * A `BLI::Map<Key, Value>` is an unordered container that stores key-value pairs. The keys have to
- * be unique. It is designed to be a more convenient and efficient replacement for
+ * A `BLI::Map<Key, Value>` is an unordered assoziative container that stores key-value pairs. The
+ * keys have to be unique. It is designed to be a more convenient and efficient replacement for
  * `std::unordered_map`. All core operations (add, lookup, remove and contains) can be done in O(1)
  * amortized expected time.
  *
- * In most cases, your default choice for a hash map in Blender should be `BLI::Map`.
+ * Your default choice for a hash map in Blender should be `BLI::Map`.
  *
  * BLI::Map is implemented using open addressing in a slot array with a power-of-two size. Every
  * slot is in one of three states: empty, occupied or removed. If a slot is occupied, it contains
@@ -43,6 +43,7 @@
  *
  * Some noteworthy information:
  * - Key and Value must be movable types.
+ * - Pointers to keys and values might be invalidated when the map is changed or moved.
  * - The hash function can be customized. See BLI_hash.hh for details.
  * - The probing strategy can be customized. See BLI_probing_strategies.hh for details.
  * - The slot type can be customized. See BLI_map_slots.hh for details.
@@ -50,14 +51,13 @@
  * - The methods `add_new` and `remove_contained` should be used instead of `add` and `remove`
  *   whenever appropriate. Assumptions and intention are described better this way.
  * - There are multiple methods to add and lookup keys for different use cases.
- * - You cannot use a range-for loop on the map directly. Instead use the keys(), values() or
- *   items() iterators. If your map is non-const, you can also change the values with those
+ * - You cannot use a range-for loop on the map directly. Instead use the keys(), values() and
+ *   items() iterators. If your map is non-const, you can also change the values through those
  *   iterators (but not the keys).
  * - Lookups can be performed using types other than Key without conversion. For that use the
  *   methods ending with `_as`. The template parameters Hash and IsEqual have to support the other
  *   key type. This can greatly improve performance when the map uses strings as keys.
- * - Pointers to keys and values are potentially invalidated when the map is changed or moved.
- * - The default constructor is cheap, even when a large InlineBufferCapacity is used. The large
+ * - The default constructor is cheap, even when a large InlineBufferCapacity is used. A large
  *   slot array will only be initialized when the first element is added.
  * - The `print_stats` method can be used to get information about the distribution of keys and
  *   memory usage of the map.
@@ -77,12 +77,10 @@
 
 namespace BLI {
 
-/* This is defined in BLI_map_slots.hh. */
-template<typename Key, typename Value> struct DefaultMapSlot;
-
 template<
     /**
-     * Type of the keys stored in the map. Keys have to be hashable and movable.
+     * Type of the keys stored in the map. Keys have to be movable. Furthermore, the hash function
+     * and equality checker have to support it.
      */
     typename Key,
     /**
@@ -116,12 +114,12 @@ template<
      * This is what will actually be stored in the hash table array. At a minimum a slot has to be
      * able to hold a key, a value and information about whether the slot is empty, occupied or
      * removed. Using a non-standard slot type can improve performance or reduce the memory
-     * footprint for some types.
+     * footprint for some types. Slot types are defined in BLI_map_slots.hh
      */
     typename Slot = typename DefaultMapSlot<Key, Value>::type,
     /**
      * The allocator used by this map. Should rarely be changed, except when you don't want that
-     * MEM_mallocN etc. is used internally.
+     * MEM_* is used internally.
      */
     typename Allocator = GuardedAllocator>
 class Map {
@@ -151,6 +149,7 @@ class Map {
   /** This is called to check equality of two keys. */
   IsEqual m_is_equal;
 
+  /** The max load factor is 1/2 = 50% by default. */
 #define LOAD_FACTOR 1, 2
   LoadFactor m_max_load_factor = LoadFactor(LOAD_FACTOR);
   using SlotArray =
@@ -163,9 +162,7 @@ class Map {
    */
   SlotArray m_slots;
 
-  /**
-   * Iterate over a slot index sequence for a given hash.
-   */
+  /** Iterate over a slot index sequence for a given hash. */
 #define MAP_SLOT_PROBING_BEGIN(HASH, R_SLOT) \
   SLOT_PROBING_BEGIN (ProbingStrategy, HASH, m_slot_mask, SLOT_INDEX) \
     auto &R_SLOT = m_slots[SLOT_INDEX];
@@ -318,7 +315,7 @@ class Map {
   }
 
   /**
-   * Returns true there is a value that corresponds to the given key in the map.
+   * Returns true if there is a key in the map that compares equal to the given key.
    *
    * This is similar to std::unordered_map::contains.
    */
@@ -364,7 +361,8 @@ class Map {
   }
 
   /**
-   * Same as `discard`, but accepts other key types that are supported by the hash function.
+   * Same as `remove_contained`, but accepts other key types that are supported by the hash
+   * function.
    */
   template<typename ForwardKey> void remove_contained_as(const ForwardKey &key)
   {
@@ -389,8 +387,8 @@ class Map {
   }
 
   /**
-   * This method can be used to implement more complex custom behavior without having to make a
-   * lookup multiple times.
+   * This method can be used to implement more complex custom behavior without having to do
+   * multiple lookups
    *
    * When the key did not yet exist in the map, the create_value function is called. Otherwise the
    * modify_value function is called.
@@ -449,6 +447,9 @@ class Map {
     return this->lookup_ptr_as(key);
   }
 
+  /**
+   * Same as `lookup_ptr`, but accepts other key types that are supported by the hash function.
+   */
   template<typename ForwardKey> const Value *lookup_ptr_as(const ForwardKey &key) const
   {
     return this->lookup_ptr__impl(key, m_hash(key));
@@ -540,7 +541,6 @@ class Map {
   /**
    * Returns a reference to the value that corresponds to the given key. If the key is not yet in
    * the map, it will be newly added. The newly added value will be default constructed.
-   *
    */
   Value &lookup_or_add_default(const Key &key)
   {
@@ -578,8 +578,8 @@ class Map {
   }
 
   /**
-   * A utiltiy iterator that saves code when implementing the actual iterators. This uses
-   * the "curiously recurring template pattern" (CRTP).
+   * A utility iterator that reduces the amount of code when implementing the actual iterators.
+   * This uses the "curiously recurring template pattern" (CRTP).
    */
   template<typename SubIterator> struct BaseIterator {
     Slot *m_slots;
@@ -737,7 +737,8 @@ class Map {
 
   /**
    * Returns an iterator over all key-value-pairs in the map. The key-value-pairs are stored in
-   * a temporary struct with a .key and a .value field.
+   * a temporary struct with a .key and a .value field.The iterator is invalidated, when the map is
+   * changed.
    */
   ItemIterator items() const
   {
@@ -746,7 +747,8 @@ class Map {
 
   /**
    * Returns an iterator over all key-value-pairs in the map. The key-value-pairs are stored in
-   * a temporary struct with a .key and a .value field.
+   * a temporary struct with a .key and a .value field. The iterator is invalidated, when the map
+   * is changed.
    *
    * This iterator also allows you to modify the value (but not the key).
    */
@@ -807,8 +809,8 @@ class Map {
   }
 
   /**
-   * Returns the approximage memory requirements of the set in bytes. This is more correct for
-   * larger sets.
+   * Returns the approximate memory requirements of the map in bytes. This becomes more exact the
+   * larger the map becomes.
    */
   uint32_t size_in_bytes() const
   {

@@ -42,6 +42,7 @@
  *
  * Some noteworthy information:
  * - Key must be a movable type.
+ * - Pointers to keys might be invalidated when the set is changed or moved.
  * - The hash function can be customized. See BLI_hash.hh for details.
  * - The probing strategy can be customized. See BLI_probing_stragies.hh for details.
  * - The slot type can be customized. See BLI_set_slots.hh for details.
@@ -51,7 +52,6 @@
  * - Lookups can be performed using types other than Key without conversion. For that use the
  *   methods ending with `_as`. The template parameters Hash and IsEqual have to support the other
  *   key type. This can greatly improve performance when the set contains strings.
- * - Pointers to keys are potentially invalidated when the set is changed or moved.
  * - The default constructor is cheap, even when a large InlineBufferCapacity is used. The large
  *   slot array will only be initialized when the first key is added.
  * - The `print_stats` method can be used to get information about the distribution of keys and

@@ -337,6 +337,8 @@ template<typename Key, typename Value, typename KeyInfo> class IntrusiveMapSlot 
   }
 };
 
+template<typename Key, typename Value> struct DefaultMapSlot;
+
 /**
  * Use SimpleMapSlot by default, because it is the smallest slot type, that works for all keys.
  */
