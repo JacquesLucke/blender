@@ -1,7 +1,8 @@
 #include "BLI_stack.hh"
+#include "BLI_vector.hh"
 #include "testing/testing.h"
 
-using BLI::Stack;
+using namespace BLI;
 
 TEST(stack, DefaultConstructor)
 {
@@ -117,6 +118,28 @@ TEST(stack, PushPopMany)
   for (int i = 4999; i >= 0; i--) {
     EXPECT_EQ(stack.pop(), i);
     EXPECT_EQ(stack.size(), i);
+  }
+}
+
+TEST(stack, PushMultipleAfterPop)
+{
+  Stack<int> stack;
+  for (int i = 0; i < 1000; i++) {
+    stack.push(i);
+  }
+  for (int i = 999; i >= 0; i--) {
+    EXPECT_EQ(stack.pop(), i);
+  }
+
+  Vector<int> values;
+  for (int i = 0; i < 5000; i++) {
+    values.append(i);
+  }
+  stack.push_multiple(values);
+  EXPECT_EQ(stack.size(), 5000);
+
+  for (int i = 4999; i >= 0; i--) {
+    EXPECT_EQ(stack.pop(), i);
   }
 }
 

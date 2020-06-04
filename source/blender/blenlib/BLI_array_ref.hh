@@ -134,7 +134,7 @@ template<typename T> class ArrayRef {
    * Returns a new ArrayRef with n elements removed from the beginning. This fails when the array
    * is too small.
    */
-  ArrayRef drop_front(uint n = 1) const
+  ArrayRef drop_front(uint n) const
   {
     BLI_assert(n <= this->size());
     return this->slice(n, this->size() - n);
@@ -144,7 +144,7 @@ template<typename T> class ArrayRef {
    * Returns a new ArrayRef with n elements removed from the beginning. This fails when the array
    * is too small.
    */
-  ArrayRef drop_back(uint n = 1) const
+  ArrayRef drop_back(uint n) const
   {
     BLI_assert(n <= this->size());
     return this->slice(0, this->size() - n);

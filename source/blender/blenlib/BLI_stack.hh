@@ -118,7 +118,7 @@ class Stack {
   /**
    * Initialize an empty stack. No heap allocation is done.
    */
-  Stack()
+  Stack(Allocator allocator = {}) : m_allocator(allocator)
   {
     T *inline_buffer = this->inline_buffer();
 
@@ -154,7 +154,7 @@ class Stack {
   {
   }
 
-  Stack(const Stack &other) : Stack()
+  Stack(const Stack &other) : Stack(other.m_allocator)
   {
     for (const Chunk *chunk = &other.m_inline_chunk; chunk; chunk = chunk->above) {
       const T *begin = chunk->begin;
@@ -163,7 +163,7 @@ class Stack {
     }
   }
 
-  Stack(Stack &&other) : Stack()
+  Stack(Stack &&other) noexcept : Stack(other.m_allocator)
   {
     uninitialized_relocate_n(other.inline_buffer(),
                              std::min(other.m_size, InlineBufferCapacity),
@@ -227,7 +227,7 @@ class Stack {
   void push(const T &value)
   {
     if (m_top == m_top_chunk->capacity_end) {
-      this->grow(1);
+      this->activate_next_chunk(1);
     }
     new (m_top) T(value);
     m_top++;
@@ -236,7 +236,7 @@ class Stack {
   void push(T &&value)
   {
     if (m_top == m_top_chunk->capacity_end) {
-      this->grow(1);
+      this->activate_next_chunk(1);
     }
     new (m_top) T(std::move(value));
     m_top++;
@@ -287,19 +287,18 @@ class Stack {
    */
   void push_multiple(ArrayRef<T> values)
   {
-    /* First fill up any remaining capacity in the current chunk. */
-    uint remaining_capacity = this->remaining_capacity_in_top_chunk();
-    uint amount = std::min(values.size(), remaining_capacity);
-    uninitialized_copy_n(values.data(), amount, m_top);
-    m_top += amount;
+    ArrayRef<T> remaining_values = values;
+    while (!remaining_values.is_empty()) {
+      if (m_top == m_top_chunk->capacity_end) {
+        this->activate_next_chunk(remaining_values.size());
+      }
 
-    /* If there are values left, allocate a new chunk that is large enough to hold them all. */
-    ArrayRef<T> remaining_values = values.drop_front(amount);
-    uint remaining_amount = remaining_values.size();
-    if (remaining_amount > 0) {
-      this->grow(remaining_amount);
-      uninitialized_copy_n(remaining_values.data(), remaining_amount, m_top);
-      m_top += remaining_amount;
+      uint remaining_capacity = m_top_chunk->capacity_end - m_top;
+      uint amount = std::min(remaining_values.size(), remaining_capacity);
+      uninitialized_copy_n(remaining_values.data(), amount, m_top);
+      m_top += amount;
+
+      remaining_values = remaining_values.drop_front(amount);
     }
 
     m_size += values.size();
@@ -338,10 +337,18 @@ class Stack {
     return (T *)m_inline_buffer.ptr();
   }
 
-  void grow(uint min_new_elements)
+  /**
+   * Changes m_top_chunk to point to a new chunk that is above the current one. The new chunk might
+   * be small than the given size_hint. This happens when a chunk that has been allocated before is
+   * reused. The size of the new chunk will be at least one.
+   *
+   * This fails when the current top chunk is not full.
+   */
+  void activate_next_chunk(uint size_hint)
   {
+    BLI_assert(m_top == m_top_chunk->capacity_end);
     if (m_top_chunk->above == nullptr) {
-      uint new_capacity = std::max(min_new_elements, m_top_chunk->capacity() * 2 + 10);
+      uint new_capacity = std::max(size_hint, m_top_chunk->capacity() * 2 + 10);
 
       BLI_STATIC_ASSERT(sizeof(Chunk) % alignof(T) == 0, "");
       void *buffer = m_allocator.allocate(
@@ -368,11 +375,6 @@ class Stack {
         value->~T();
       }
     }
-  }
-
-  uint remaining_capacity_in_top_chunk() const
-  {
-    return m_top_chunk->capacity_end - m_top;
   }
 };
 
