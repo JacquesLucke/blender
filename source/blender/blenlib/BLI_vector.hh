@@ -630,11 +630,11 @@ class Vector {
   void remove(uint index)
   {
     BLI_assert(index < this->size());
-    uint old_size = this->size();
-    for (uint i = index; i < old_size - 1; i++) {
+    uint last_index = this->size() - 1;
+    for (uint i = index; i < last_index; i++) {
       m_begin[i] = std::move(m_begin[i + 1]);
     }
-    m_begin[old_size - 1].~T();
+    m_begin[last_index].~T();
     m_end--;
   }
 
