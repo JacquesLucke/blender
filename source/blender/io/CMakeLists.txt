@@ -34,4 +34,4 @@ if(WITH_USD)
   add_subdirectory(usd)
 endif()
 
-add_subdirectory(obj)
+add_subdirectory(wavefront_obj)

@@ -40,19 +40,19 @@ set(INC_SYS
 )
 
 set(SRC
-  obj.cc
-  obj_exporter.cc
-  obj_file_handler.cc
-  obj_importer.cc
+  intern/wavefront_obj.cc
+  intern/wavefront_obj_exporter.cc
+  intern/wavefront_obj_file_handler.cc
+  intern/wavefront_obj_importer.cc
 
-  obj.h
-  obj_exporter.h
-  obj_file_handler.h
-  obj_importer.h
+  intern/wavefront_obj.h
+  intern/wavefront_obj_exporter.h
+  intern/wavefront_obj_file_handler.h
+  intern/wavefront_obj_importer.h
 )
 
 set(LIB
 
 )
 
-blender_add_lib(bf_obj "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+blender_add_lib(bf_wavefront_obj "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")

@@ -21,7 +21,7 @@
  * \ingroup obj
  */
 
-#ifndef __OBJ_IMPORTER_H__
-#define __OBJ_IMPORTER_H__
+#ifndef __WAVEFRONT_OBJ_IMPORTER_H__
+#define __WAVEFRONT_OBJ_IMPORTER_H__
 
 #endif

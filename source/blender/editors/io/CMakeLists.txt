@@ -24,7 +24,7 @@ set(INC
   ../../depsgraph
   ../../io/alembic
   ../../io/collada
-  ../../io/obj
+  ../../io/wavefront_obj
   ../../io/usd
   ../../makesdna
   ../../makesrna
@@ -55,7 +55,7 @@ set(SRC
 set(LIB
   bf_blenkernel
   bf_blenlib
-  bf_obj
+  bf_wavefront_obj
 )
 
 if(WITH_OPENCOLLADA)

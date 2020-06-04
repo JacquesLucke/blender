@@ -47,7 +47,7 @@
 #include "DEG_depsgraph.h"
 
 #include "io_obj.h"
-#include "obj.h"
+#include "IO_wavefront_obj.h"
 
 static int wm_obj_export_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {

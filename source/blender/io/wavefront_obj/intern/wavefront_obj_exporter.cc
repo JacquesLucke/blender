@@ -21,8 +21,8 @@
  * \ingroup obj
  */
 
-#include "obj_exporter.h"
-#include "obj_file_handler.h"
+#include "wavefront_obj_exporter.h"
+#include "wavefront_obj_file_handler.h"
 
 #include <array>
 #include <fstream>

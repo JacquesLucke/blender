@@ -21,4 +21,4 @@
  * \ingroup obj
  */
 
-#include "obj_file_handler.h"
+#include "wavefront_obj_file_handler.h"

@@ -18,8 +18,8 @@
  * \ingroup obj
  */
 
-#ifndef __OBJ_H__
-#define __OBJ_H__
+#ifndef __IO_WAVEFRONT_OBJ_H__
+#define __IO_WAVEFRONT_OBJ_H__
 
 #include "BKE_context.h"
 
@@ -40,28 +40,28 @@ struct OBJ_data_to_export {
 };
 extern "C" {
 #endif
-
-struct OBJExportParams {
-  const char *filepath;
-
-  bContext *C;
-  Depsgraph *depsgraph;
-  Scene *scene;
-
-  bool print_name;
-  float number;
-};
-struct OBJImportParams {
-  bool print_name;
-  float number;
-};
-
-bool OBJ_import(struct bContext *C, const char *filepath, struct OBJImportParams *import_params);
-
-bool OBJ_export(struct bContext *C, struct OBJExportParams *export_params);
-
+  
+  struct OBJExportParams {
+    const char *filepath;
+    
+    bContext *C;
+    Depsgraph *depsgraph;
+    Scene *scene;
+    
+    bool print_name;
+    float number;
+  };
+  struct OBJImportParams {
+    bool print_name;
+    float number;
+  };
+  
+  bool OBJ_import(struct bContext *C, const char *filepath, struct OBJImportParams *import_params);
+  
+  bool OBJ_export(struct bContext *C, struct OBJExportParams *export_params);
+  
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __OBJ_H__ */
+#endif /* __IO_WAVEFRONT_OBJ_H__ */
