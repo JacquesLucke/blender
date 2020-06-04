@@ -173,3 +173,12 @@ TEST(stack, UniquePtrValues)
   std::unique_ptr<int> &b = stack.peek();
   UNUSED_VARS(a, b);
 }
+
+TEST(stack, OveralignedValues)
+{
+  Stack<AlignedBuffer<1, 512>, 2> stack;
+  for (int i = 0; i < 100; i++) {
+    stack.push({});
+    EXPECT_EQ((uintptr_t)&stack.peek() % 512, 0);
+  }
+}

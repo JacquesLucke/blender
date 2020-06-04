@@ -43,11 +43,8 @@ namespace BLI {
 /**
  * A StackChunk references a contiguous memory buffer. Multiple StackChunk instances are linked in
  * a double linked list.
- *
- * The alignment of StackChunk is at least the alignment of T, because that makes it simpler to
- * allocate a StackChunk and the referenced memory in a single heap allocation.
  */
-template<typename T> struct alignas(std::max(alignof(T), alignof(void *))) StackChunk {
+template<typename T> struct StackChunk {
   /** The below chunk contains the elements that have been pushed on the stack before. */
   StackChunk *below;
   /** The above chunk contains the elements that have been pushed on the stack afterwards. */
@@ -350,12 +347,15 @@ class Stack {
     if (m_top_chunk->above == nullptr) {
       uint new_capacity = std::max(size_hint, m_top_chunk->capacity() * 2 + 10);
 
-      BLI_STATIC_ASSERT(sizeof(Chunk) % alignof(T) == 0, "");
+      /* Do a single memory allocation for the Chunk and the array it references. */
       void *buffer = m_allocator.allocate(
-          sizeof(Chunk) + sizeof(T) * new_capacity, alignof(Chunk), AT);
+          sizeof(Chunk) + sizeof(T) * new_capacity + alignof(T), alignof(Chunk), AT);
+      void *chunk_buffer = buffer;
+      void *data_buffer = (void *)(((uintptr_t)buffer + sizeof(Chunk) + alignof(T) - 1) &
+                                   ~(alignof(T) - 1));
 
-      Chunk *new_chunk = new (buffer) Chunk();
-      new_chunk->begin = (T *)POINTER_OFFSET(buffer, sizeof(Chunk));
+      Chunk *new_chunk = new (chunk_buffer) Chunk();
+      new_chunk->begin = (T *)data_buffer;
       new_chunk->capacity_end = new_chunk->begin + new_capacity;
       new_chunk->above = nullptr;
       new_chunk->below = m_top_chunk;

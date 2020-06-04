@@ -627,3 +627,12 @@ TEST(vector, FirstIndexTryOf)
   EXPECT_EQ(vec.first_index_of_try(9), 5);
   EXPECT_EQ(vec.first_index_of_try(1), -1);
 }
+
+TEST(vector, OveralignedValues)
+{
+  Vector<AlignedBuffer<1, 64>, 2> vec;
+  for (int i = 0; i < 100; i++) {
+    vec.append({});
+    EXPECT_EQ((uintptr_t)&vec.last() % 512, 0);
+  }
+}
