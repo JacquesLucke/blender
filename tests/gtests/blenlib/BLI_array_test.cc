@@ -7,12 +7,14 @@ TEST(array, DefaultConstructor)
 {
   Array<int> array;
   EXPECT_EQ(array.size(), 0);
+  EXPECT_TRUE(array.is_empty());
 }
 
 TEST(array, SizeConstructor)
 {
   Array<int> array(5);
   EXPECT_EQ(array.size(), 5);
+  EXPECT_FALSE(array.is_empty());
 }
 
 TEST(array, FillConstructor)

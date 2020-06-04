@@ -94,7 +94,7 @@ template<typename Key, typename Value> class SimpleMapSlot {
    * from the other have to moved as well. The other slot stays in the state it was in before. Its
    * optionally stored key and value remain in a moved-from state.
    */
-  SimpleMapSlot(SimpleMapSlot &&other)
+  SimpleMapSlot(SimpleMapSlot &&other) noexcept
   {
     m_state = other.m_state;
     if (other.m_state == Occupied) {
@@ -253,7 +253,7 @@ template<typename Key, typename Value, typename KeyInfo> class IntrusiveMapSlot 
     }
   }
 
-  IntrusiveMapSlot(IntrusiveMapSlot &&other) : m_key(other.m_key)
+  IntrusiveMapSlot(IntrusiveMapSlot &&other) noexcept : m_key(other.m_key)
   {
     if (KeyInfo::is_not_empty_or_removed(m_key)) {
       new (this->value()) Value(std::move(*other.value()));

@@ -195,7 +195,7 @@ class Set {
 
   Set(const Set &other) = default;
 
-  Set(Set &&other)
+  Set(Set &&other) noexcept
       : m_removed_slots(other.m_removed_slots),
         m_occupied_and_removed_slots(other.m_occupied_and_removed_slots),
         m_usable_slots(other.m_usable_slots),

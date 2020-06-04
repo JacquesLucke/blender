@@ -192,7 +192,7 @@ class Map {
 
   Map(const Map &other) = default;
 
-  Map(Map &&other)
+  Map(Map &&other) noexcept
       : m_removed_slots(other.m_removed_slots),
         m_occupied_and_removed_slots(other.m_occupied_and_removed_slots),
         m_usable_slots(other.m_usable_slots),

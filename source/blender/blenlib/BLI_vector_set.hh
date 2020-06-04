@@ -197,7 +197,7 @@ class VectorSet {
     uninitialized_copy_n(other.m_keys, other.size(), m_keys);
   }
 
-  VectorSet(VectorSet &&other)
+  VectorSet(VectorSet &&other) noexcept
       : m_removed_slots(other.m_removed_slots),
         m_occupied_and_removed_slots(other.m_occupied_and_removed_slots),
         m_usable_slots(other.m_usable_slots),

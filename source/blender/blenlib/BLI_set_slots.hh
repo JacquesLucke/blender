@@ -225,7 +225,7 @@ template<typename Key> class HashedSetSlot {
     }
   }
 
-  HashedSetSlot(HashedSetSlot &&other)
+  HashedSetSlot(HashedSetSlot &&other) noexcept
   {
     m_state = other.m_state;
     if (other.m_state == Occupied) {
@@ -311,7 +311,7 @@ template<typename Key, typename KeyInfo> class IntrusiveSetSlot {
   IntrusiveSetSlot() = default;
   ~IntrusiveSetSlot() = default;
   IntrusiveSetSlot(const IntrusiveSetSlot &other) = default;
-  IntrusiveSetSlot(IntrusiveSetSlot &&other) = default;
+  IntrusiveSetSlot(IntrusiveSetSlot &&other) noexcept = default;
 
   Key *key()
   {

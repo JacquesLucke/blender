@@ -19,20 +19,23 @@
 /** \file
  * \ingroup bli
  *
- * A `BLI::Array<T>` is a container for a fixed size array. Other than `std::array<T, N>`, the size
- * does not have to be known at compile time. If it is known, std::array should probably be used
- * instead. BLI::Array also supports small object optimization. That makes it more efficient when
- * the size turns out to be small at run-time.
+ * A `BLI::Array<T>` is a container for a fixed size array the size of which is NOT known at
+ * compile time.
  *
- * BLI::Array should be used instead of BLI::Vector whenever the size of the array is known at
- * construction time. Note however, that BLI::Array will default construct all elements when
- * initialized with the size-constructor. For trivial types, this does nothing, but it can add
- * overhead in general. If this becomes a problem, a different constructor which does not do
+ * If the size is known at compile time, `std::array<T, N>` should be used instead.
+ *
+ * BLI::Array should usually be used instead of BLI::Vector whenever the number of elements is
+ * known at construction time. Note however, that BLI::Array will default construct all elements
+ * when initialized with the size-constructor. For trivial types, this does nothing. In all other
+ * cases, this adds overhead. If this becomes a problem, a different constructor which does not do
  * default construction can be added.
  *
  * A main benefit of using Array over Vector is that it expresses the intend of the developer
  * better. It indicates that the size of the data structure is not expected to change. Furthermore,
  * you can be more certain that an array does not overallocate.
+ *
+ * BLI::Array supports small object optimization to improve performance when the size turns out to
+ * be small at run-time.
  */
 
 #include "BLI_allocator.hh"
@@ -57,7 +60,7 @@ template<
     uint InlineBufferCapacity = (sizeof(T) < 100) ? 4 : 0,
     /**
      * The allocator used by this array. Should rarely be changed, except when you don't want that
-     * MEM_mallocN etc. is used internally.
+     * MEM_* functions are used internally.
      */
     typename Allocator = GuardedAllocator>
 class Array {
@@ -103,7 +106,11 @@ class Array {
 
   /**
    * Create a new array with the given size. All values will be default constructed. For trivial
-   * types like int, default construction is a noop.
+   * types like int, default construction does nothing.
+   *
+   * We might want another version of this in the future, that does not do default construction
+   * even for non-trivial types. This should not be the default though, because one can easily mess
+   * up when dealing with uninitialized memory.
    */
   explicit Array(uint size)
   {
@@ -123,19 +130,17 @@ class Array {
     uninitialized_fill_n(m_data, m_size, value);
   }
 
-  Array(const Array &other)
+  Array(const Array &other) : m_allocator(other.m_allocator)
   {
     m_size = other.size();
-    m_allocator = other.m_allocator;
 
     m_data = this->get_buffer_for_size(other.size());
     uninitialized_copy_n(other.data(), m_size, m_data);
   }
 
-  Array(Array &&other) noexcept
+  Array(Array &&other) noexcept : m_allocator(other.m_allocator)
   {
     m_size = other.m_size;
-    m_allocator = other.m_allocator;
 
     if (!other.uses_inline_buffer()) {
       m_data = other.m_data;
@@ -220,11 +225,19 @@ class Array {
   }
 
   /**
+   * Returns true when the number of elements in the array is zero.
+   */
+  bool is_empty() const
+  {
+    return m_size == 0;
+  }
+
+  /**
    * Copies the value to all indices in the array.
    */
   void fill(const T &value)
   {
-    MutableArrayRef<T>(*this).fill(value);
+    initialized_fill_n(m_data, m_size, value);
   }
 
   /**
@@ -235,11 +248,13 @@ class Array {
     MutableArrayRef<T>(*this).fill_indices(indices, value);
   }
 
+  /**
+   * Get a pointer to the beginning of the array.
+   */
   const T *data() const
   {
     return m_data;
   }
-
   T *data()
   {
     return m_data;
@@ -274,7 +289,8 @@ class Array {
   }
 
   /**
-   * Sets the size to zero. This should be used carefully to avoid memory leaks.
+   * Sets the size to zero. This should only be used when you have manually destructed all elements
+   * in the array beforehand. Use with care.
    */
   void clear_without_destruct()
   {
