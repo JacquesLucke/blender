@@ -317,42 +317,42 @@ class Vector {
   }
 
   /**
-   * Change the size of the vector so that it contains count elements.
-   * If count is smaller than the old size, the elements at the end of the vector are destructed.
-   * If count is larger than the old size, the new elements are default constructed.
+   * Change the size of the vector so that it contains new_size elements.
+   * If new_size is smaller than the old size, the elements at the end of the vector are
+   * destructed. If new_size is larger than the old size, the new elements are default constructed.
    * Trivially constructible types are not touched.
    */
-  void resize(uint count)
+  void resize(uint new_size)
   {
     uint old_size = this->size();
-    if (count > old_size) {
-      this->reserve(count);
-      default_construct_n(m_begin + old_size, count - old_size);
+    if (new_size > old_size) {
+      this->reserve(new_size);
+      default_construct_n(m_begin + old_size, new_size - old_size);
     }
     else {
-      destruct_n(m_begin + count, old_size - count);
+      destruct_n(m_begin + new_size, old_size - new_size);
     }
-    m_end = m_begin + count;
+    m_end = m_begin + new_size;
     UPDATE_VECTOR_SIZE(this);
   }
 
   /**
-   * Change the size of the vector so that it contains count elements.
-   * If count is smaller than the old size, the elements at the end of the vector are destructed.
-   * If count is larger than the old size, the new elements will be copy constructed from the given
-   * value.
+   * Change the size of the vector so that it contains new_size elements.
+   * If new_size is smaller than the old size, the elements at the end of the vector are
+   * destructed. If new_size is larger than the old size, the new elements will be copy constructed
+   * from the given value.
    */
-  void resize(uint count, const T &value)
+  void resize(uint new_size, const T &value)
   {
     uint old_size = this->size();
-    if (count > old_size) {
-      this->reserve(count);
-      uninitialized_fill_n(m_begin + old_size, count - old_size, value);
+    if (new_size > old_size) {
+      this->reserve(new_size);
+      uninitialized_fill_n(m_begin + old_size, new_size - old_size, value);
     }
     else {
-      destruct_n(m_begin + count, old_size - count);
+      destruct_n(m_begin + new_size, old_size - new_size);
     }
-    m_end = m_begin + count;
+    m_end = m_begin + new_size;
     UPDATE_VECTOR_SIZE(this);
   }
 
