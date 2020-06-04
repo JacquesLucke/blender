@@ -4,6 +4,7 @@
 #include "BLI_ghash.h"
 #include "BLI_rand.h"
 #include "BLI_set.hh"
+#include "BLI_strict_flags.h"
 #include "BLI_timeit.hh"
 #include "BLI_vector.hh"
 #include "testing/testing.h"
@@ -130,17 +131,17 @@ TEST(set, RemoveContained)
 TEST(set, RemoveContainedMany)
 {
   Set<int> set;
-  for (uint i = 0; i < 1000; i++) {
+  for (int i = 0; i < 1000; i++) {
     set.add(i);
   }
-  for (uint i = 100; i < 1000; i++) {
+  for (int i = 100; i < 1000; i++) {
     set.remove_contained(i);
   }
-  for (uint i = 900; i < 1000; i++) {
+  for (int i = 900; i < 1000; i++) {
     set.add(i);
   }
 
-  for (uint i = 0; i < 1000; i++) {
+  for (int i = 0; i < 1000; i++) {
     if (i < 100 || i >= 900) {
       EXPECT_TRUE(set.contains(i));
     }
@@ -269,11 +270,11 @@ TEST(set, Remove)
 }
 
 struct Type1 {
-  int value;
+  uint32_t value;
 };
 
 struct Type2 {
-  int value;
+  uint32_t value;
 };
 
 bool operator==(const Type1 &a, const Type1 &b)

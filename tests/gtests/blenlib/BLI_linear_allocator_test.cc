@@ -1,11 +1,12 @@
 #include "BLI_linear_allocator.hh"
+#include "BLI_strict_flags.h"
 #include "testing/testing.h"
 
 using namespace BLI;
 
 static bool is_aligned(void *ptr, uint alignment)
 {
-  BLI_assert(is_power_of_2_i(alignment));
+  BLI_assert(is_power_of_2_i((int)alignment));
   return (POINTER_AS_UINT(ptr) & (alignment - 1)) == 0;
 }
 

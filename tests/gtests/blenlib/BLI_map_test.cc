@@ -1,6 +1,7 @@
 #include "BLI_map.hh"
 #include "BLI_rand.h"
 #include "BLI_set.hh"
+#include "BLI_strict_flags.h"
 #include "BLI_timeit.hh"
 #include "BLI_vector.hh"
 #include "testing/testing.h"
@@ -57,7 +58,7 @@ TEST(map, LookupNotExisting)
 
 TEST(map, AddMany)
 {
-  Map<int, float> map;
+  Map<int, int> map;
   for (int i = 0; i < 100; i++) {
     map.add(i * 30, i);
     map.add(i * 31, i);
@@ -83,14 +84,14 @@ TEST(map, PopItem)
 
 TEST(map, PopItemMany)
 {
-  Map<int, float> map;
-  for (uint i = 0; i < 100; i++) {
+  Map<int, int> map;
+  for (int i = 0; i < 100; i++) {
     map.add_new(i, i);
   }
-  for (uint i = 25; i < 80; i++) {
+  for (int i = 25; i < 80; i++) {
     EXPECT_EQ(map.pop(i), i);
   }
-  for (uint i = 0; i < 100; i++) {
+  for (int i = 0; i < 100; i++) {
     EXPECT_EQ(map.contains(i), i < 25 || i >= 80);
   }
 }
@@ -165,23 +166,23 @@ TEST(map, ItemIterator)
 
 TEST(map, MutableValueIterator)
 {
-  Map<int, float> map;
-  map.add(3, 6.0f);
-  map.add(2, 1.0f);
+  Map<int, int> map;
+  map.add(3, 6);
+  map.add(2, 1);
 
-  for (float &value : map.values()) {
-    value += 10.0f;
+  for (int &value : map.values()) {
+    value += 10;
   }
 
-  EXPECT_EQ(map.lookup(3), 16.0f);
-  EXPECT_EQ(map.lookup(2), 11.0f);
+  EXPECT_EQ(map.lookup(3), 16);
+  EXPECT_EQ(map.lookup(2), 11);
 }
 
 TEST(map, MutableItemIterator)
 {
-  Map<int, float> map;
-  map.add(3, 6.0f);
-  map.add(2, 1.0f);
+  Map<int, int> map;
+  map.add(3, 6);
+  map.add(2, 1);
 
   for (auto item : map.items()) {
     item.value += item.key;
@@ -272,14 +273,14 @@ TEST(map, MoveConstructorSmall)
 
 TEST(map, MoveConstructorLarge)
 {
-  Map<int, float> map1;
-  for (uint i = 0; i < 100; i++) {
+  Map<int, int> map1;
+  for (int i = 0; i < 100; i++) {
     map1.add_new(i, i);
   }
-  Map<int, float> map2(std::move(map1));
+  Map<int, int> map2(std::move(map1));
   EXPECT_EQ(map2.size(), 100);
-  EXPECT_EQ(map2.lookup(1), 1.0f);
-  EXPECT_EQ(map2.lookup(4), 4.0f);
+  EXPECT_EQ(map2.lookup(1), 1);
+  EXPECT_EQ(map2.lookup(4), 4);
   EXPECT_EQ(map1.size(), 0);
   EXPECT_EQ(map1.lookup_ptr(4), nullptr);
 }

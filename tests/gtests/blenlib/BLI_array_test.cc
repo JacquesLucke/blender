@@ -1,4 +1,5 @@
 #include "BLI_array.hh"
+#include "BLI_strict_flags.h"
 #include "testing/testing.h"
 
 using namespace BLI;

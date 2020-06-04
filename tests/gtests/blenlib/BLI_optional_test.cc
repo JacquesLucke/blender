@@ -1,4 +1,5 @@
 #include "BLI_optional.hh"
+#include "BLI_strict_flags.h"
 #include "testing/testing.h"
 #include <string>
 

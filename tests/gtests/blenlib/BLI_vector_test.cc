@@ -1,3 +1,4 @@
+#include "BLI_strict_flags.h"
 #include "BLI_type_construct_mock.hh"
 #include "BLI_vector.hh"
 #include "testing/testing.h"
@@ -305,7 +306,7 @@ TEST(vector, BecomeLarge)
     vec.append(i * 5);
   }
   EXPECT_EQ(vec.size(), 100);
-  for (int i = 0; i < 100; i++) {
+  for (uint i = 0; i < 100; i++) {
     EXPECT_EQ(vec[i], i * 5);
   }
 }

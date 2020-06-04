@@ -1,3 +1,4 @@
+#include "BLI_strict_flags.h"
 #include "BLI_vector_set.hh"
 #include "testing/testing.h"
 

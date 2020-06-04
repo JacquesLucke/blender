@@ -1,4 +1,5 @@
 #include "BLI_array_ref.hh"
+#include "BLI_strict_flags.h"
 #include "BLI_vector.hh"
 #include "testing/testing.h"
 
