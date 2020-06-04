@@ -20,14 +20,14 @@
 /** \file
  * \ingroup obj
  */
-#ifndef __WAVEFRONT_OBJ_FILE_HANDLER_H__
-#define __WAVEFRONT_OBJ_FILE_HANDLER_H__
 
-#include <fstream>
-#include <stdio.h>
+#ifndef __WAVEFRONT_OBJ_EXPORTER_HH__
+#define __WAVEFRONT_OBJ_EXPORTER_HH__
 
-#include "wavefront_obj.h"
+#include "wavefront_obj.hh"
 
-void write_prepared_data(const char *filepath, OBJ_data_to_export *data_to_export);
+void prepare_vertices(Object *ob_eval, OBJ_data_to_export *data_to_export);
+
+bool exporter_main(bContext *C, OBJExportParams *export_params);
 
 #endif

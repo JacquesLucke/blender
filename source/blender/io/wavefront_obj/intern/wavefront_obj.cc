@@ -21,8 +21,8 @@
  * \ingroup obj
  */
 
-#include "wavefront_obj.h"
-#include "wavefront_obj_exporter.h"
+#include "wavefront_obj.hh"
+#include "wavefront_obj_exporter.hh"
 
 bool OBJ_export(bContext *C, OBJExportParams *export_params)
 {

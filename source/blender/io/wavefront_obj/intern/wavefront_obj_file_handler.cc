@@ -27,7 +27,7 @@
 #include <stdio.h>
 #include <vector>
 
-#include "wavefront_obj_file_handler.h"
+#include "wavefront_obj_file_handler.hh"
 
 #include "DNA_meshdata_types.h"
 

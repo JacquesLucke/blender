@@ -21,13 +21,7 @@
  * \ingroup obj
  */
 
-#ifndef __WAVEFRONT_OBJ_EXPORTER_H__
-#define __WAVEFRONT_OBJ_EXPORTER_H__
-
-#include "wavefront_obj.h"
-
-void prepare_vertices(Object *ob_eval, OBJ_data_to_export *data_to_export);
-
-bool exporter_main(bContext *C, OBJExportParams *export_params);
+#ifndef __WAVEFRONT_OBJ_IMPORTER_HH__
+#define __WAVEFRONT_OBJ_IMPORTER_HH__
 
 #endif

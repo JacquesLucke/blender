@@ -18,8 +18,8 @@
  * \ingroup obj
  */
 
-#ifndef __WAVEFRONT_OBJ_H__
-#define __WAVEFRONT_OBJ_H__
+#ifndef __WAVEFRONT_OBJ_HH__
+#define __WAVEFRONT_OBJ_HH__
 
 #include "BKE_context.h"
 
@@ -64,4 +64,4 @@ bool OBJ_export(struct bContext *C, struct OBJExportParams *export_params);
 }
 #endif
 
-#endif /* __WAVEFRONT_OBJ_H__ */
+#endif /* __WAVEFRONT_OBJ_HH__ */

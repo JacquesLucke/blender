@@ -45,10 +45,10 @@ set(SRC
   intern/wavefront_obj_file_handler.cc
   intern/wavefront_obj_importer.cc
 
-  intern/wavefront_obj.h
-  intern/wavefront_obj_exporter.h
-  intern/wavefront_obj_file_handler.h
-  intern/wavefront_obj_importer.h
+  intern/wavefront_obj.hh
+  intern/wavefront_obj_exporter.hh
+  intern/wavefront_obj_file_handler.hh
+  intern/wavefront_obj_importer.hh
 )
 
 set(LIB
