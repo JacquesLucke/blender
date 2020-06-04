@@ -160,6 +160,8 @@ template<typename Key> class SimpleVectorSetSlot {
 #undef s_is_removed
 };
 
+template<typename Key> struct DefaultVectorSetSlot;
+
 template<typename Key> struct DefaultVectorSetSlot {
   using type = SimpleVectorSetSlot<Key>;
 };

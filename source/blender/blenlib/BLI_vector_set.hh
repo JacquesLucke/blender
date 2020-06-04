@@ -68,12 +68,10 @@
 
 namespace BLI {
 
-/* This is defined in BLI_vector_set_slots.hh. */
-template<typename Key> struct DefaultVectorSetSlot;
-
 template<
     /**
-     * Type of the elements that are stored in this set. It has to be movable.
+     * Type of the elements that are stored in this set. It has to be movable. Furthermore, the
+     * hash and is-equal functions have to support it.
      */
     typename Key,
     /**
@@ -94,11 +92,12 @@ template<
      * This is what will actually be stored in the hash table array. At a minimum a slot has to be
      * able to hold an array index and information about whether the slot is empty, occupied or
      * removed. Using a non-standard slot type can improve performance for some types.
+     * Also see BLI_vector_set_slots.hh.
      */
     typename Slot = typename DefaultVectorSetSlot<Key>::type,
     /**
      * The allocator used by this set. Should rarely be changed, except when you don't want that
-     * MEM_mallocN etc. is used internally.
+     * MEM_* etc. is used internally.
      */
     typename Allocator = GuardedAllocator>
 class VectorSet {
@@ -112,7 +111,7 @@ class VectorSet {
 
   /**
    * The maximum number of slots that can be used (either occupied or removed) until the set has to
-   * grow. This is the number of total slots times the max load factor.
+   * grow. This is the total number of slots times the max load factor.
    */
   uint32_t m_usable_slots;
 
@@ -128,6 +127,7 @@ class VectorSet {
   /** This is called to check equality of two keys. */
   IsEqual m_is_equal;
 
+  /** The max load factor is 1/2 = 50% by default. */
 #define LOAD_FACTOR 1, 2
   LoadFactor m_max_load_factor = LoadFactor(LOAD_FACTOR);
   using SlotArray = Array<Slot, LoadFactor::compute_total_slots(4, LOAD_FACTOR), Allocator>;
@@ -141,14 +141,12 @@ class VectorSet {
 
   /**
    * Pointer to an array that contains all keys. The keys are sorted by insertion order as long as
-   * no keys are removed. The first ->size() elements in this array are initialized. The capacity
-   * of the array is m_usable_slots.
+   * no keys are removed. The first set->size() elements in this array are initialized. The
+   * capacity of the array is m_usable_slots.
    */
   Key *m_keys;
 
-  /**
-   * Iterate over a slot index sequence for a given hash.
-   */
+  /** Iterate over a slot index sequence for a given hash. */
 #define VECTOR_SET_SLOT_PROBING_BEGIN(HASH, R_SLOT) \
   SLOT_PROBING_BEGIN (ProbingStrategy, HASH, m_slot_mask, SLOT_INDEX) \
     auto &R_SLOT = m_slots[SLOT_INDEX];
@@ -171,7 +169,7 @@ class VectorSet {
   }
 
   /**
-   * Construct a vetor set that contains the given keys. Duplicates will be removed automatically.
+   * Construct a vector set that contains the given keys. Duplicates will be removed automatically.
    */
   VectorSet(const std::initializer_list<Key> &keys) : VectorSet()
   {
@@ -253,7 +251,7 @@ class VectorSet {
 
   /**
    * Add a key to the vector set. If the key exists in the set already, nothing is done. The return
-   * value is true if the key was newly.
+   * value is true if the key was newly added.
    *
    * This is similar to std::unordered_set::insert.
    */
@@ -266,6 +264,9 @@ class VectorSet {
     return this->add_as(std::move(key));
   }
 
+  /**
+   * Same as `add`, but accepts other key types that are supported by the hash function.
+   */
   template<typename ForwardKey> bool add_as(ForwardKey &&key)
   {
     return this->add__impl(std::forward<ForwardKey>(key), m_hash(key));
@@ -383,6 +384,9 @@ class VectorSet {
     return this->index_try__impl(key, m_hash(key));
   }
 
+  /**
+   * Get a pointer to the beginning of the array containing all keys.
+   */
   const Key *data() const
   {
     return m_keys;
@@ -482,8 +486,7 @@ class VectorSet {
   }
 
   /**
-   * Potentially resize the vector set such that the specified number of keys can be added without
-   * another grow operation.
+   * Potentially resize the vector set such that it can hold n elements without doing another grow.
    */
   void reserve(uint32_t n)
   {

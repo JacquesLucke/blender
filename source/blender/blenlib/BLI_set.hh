@@ -82,7 +82,8 @@ namespace BLI {
 
 template<
     /** Type of the elements that are stored in this set. It has to be movable. Furthermore, the
-     * hash and is-equal functions have to support it. */
+     * hash and is-equal functions have to support it.
+     */
     typename Key,
     /**
      * The minimum number of elements that can be stored in this Set without doing a heap
@@ -132,7 +133,7 @@ class Set {
 
   /**
    * The maximum number of slots that can be used (either occupied or removed) until the set has to
-   * grow. This is the number of total slots times the max load factor.
+   * grow. This is the total number of slots times the max load factor.
    */
   uint32_t m_usable_slots;
 
