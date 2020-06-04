@@ -21,22 +21,22 @@
  * \ingroup obj
  */
 
+#include "IO_wavefront_obj.h"
+
 #include "wavefront_obj.hh"
 #include "wavefront_obj_exporter.hh"
 
-bool OBJ_export(bContext *C, OBJExportParams *export_params)
+/**
+ * Called from io_obj.c. Calls internal functions in IO:OBJ.
+ * When more preferences are there, will be used to set appropriate flags.
+ */
+void OBJ_export(bContext *C, const OBJExportParams *export_params)
 {
-  if (export_params->print_name) {
-    printf("\n OP");
-  }
-  if (export_params->number) {
-    printf("\n%f\n", export_params->number);
-  }
-  exporter_main(C, export_params);
-  return true;
+  IO::OBJ::exporter_main(C, export_params);
 }
-
-bool OBJ_import(bContext *C, const char *filepath, OBJImportParams *import_params)
+/**
+ * Called from io_obj.c. Currently not implemented.
+ */
+void OBJ_import(bContext *C, const OBJImportParams *import_params)
 {
-  return true;
 }

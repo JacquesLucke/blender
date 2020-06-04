@@ -22,8 +22,10 @@
  */
 
 #include "wavefront_obj_file_handler.hh"
+#include "wavefront_obj_importer.hh"
 
 namespace IO {
 namespace OBJ {
+  /* Currently not implemented. */
 }
 }  // namespace IO

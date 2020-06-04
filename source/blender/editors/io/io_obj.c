@@ -78,14 +78,11 @@ static int wm_obj_export_exec(bContext *C, wmOperator *op)
     BKE_report(op->reports, RPT_ERROR, "No filename given");
     return OPERATOR_CANCELLED;
   }
-  struct OBJExportParams a;
-  char filepath[FILE_MAX];
-  RNA_string_get(op->ptr, "filepath", filepath);
-  a.print_name = RNA_boolean_get(op->ptr, "print_name");
-  a.number = RNA_float_get(op->ptr, "print_the_float");
-  a.filepath = filepath;
-  bool ok = OBJ_export(C, &a);
-  return ok ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
+  struct OBJExportParams export_params;
+  RNA_string_get(op->ptr, "filepath", export_params.filepath);
+  OBJ_export(C, &export_params);
+
+  return OPERATOR_FINISHED;
 }
 
 static void ui_obj_export_settings(uiLayout *layout, PointerRNA *imfptr)
@@ -154,14 +151,12 @@ static int wm_obj_import_exec(bContext *C, wmOperator *op)
     BKE_report(op->reports, RPT_ERROR, "No filename given");
     return OPERATOR_CANCELLED;
   }
-  char filepath[FILE_MAX];
-  RNA_string_get(op->ptr, "filepath", filepath);
-  struct OBJImportParams a;
-  a.number = 3.0f;
-  a.print_name = 1;
-  bool ok = OBJ_import(C, filepath, &a);
+  /* Import functions and structs are incomplete now. Only dummy functions are written. */
+  struct OBJImportParams import_params;
+  RNA_string_get(op->ptr, "filepath", import_params.filepath);
+  OBJ_import(C, &import_params);
 
-  return ok ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
+  return OPERATOR_FINISHED;
 }
 static void wm_obj_import_draw(bContext *UNUSED(C), wmOperator *UNUSED(op))
 {
