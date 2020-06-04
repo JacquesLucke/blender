@@ -64,10 +64,10 @@
  * Possible Improvements:
  * - Branchless loop over slots in grow function (measured ~10% performance improvement when the
  *   distribution is occupied slots is suffiently random).
- * - Optimize add_multiple_(new) with software prefetching (measured up to ~30% performance
- *   improvement on large hash tables).
- * - Provide an api function to lookup multiple keys and optimize that with software prefetching.
  * - Support max load factor customization.
+ * - Improve performance with large data sets through software prefetching. I got fairly
+ *   significant improvements in simple tests (~30% faster). It still needs to be investigated how
+ *   to make a nice interface for this functionality.
  */
 
 #include <unordered_set>
