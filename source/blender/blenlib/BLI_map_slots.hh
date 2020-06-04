@@ -25,9 +25,9 @@
  * Every slot type has to be able to hold a value of type Key, a value of type Value and state
  * information. A map slot has three possible states: empty, occupied and removed.
  *
- * Only when a slot is occupied, it stores instances of type Key and Value.
+ * When a slot is occupied, it stores instances of type Key and Value.
  *
- * A map slot type has to implement a couple of methods that are explained in SimpleMap Slot.
+ * A map slot type has to implement a couple of methods that are explained in SimpleMapSlot.
  * A slot type is assumed to be trivially destructible, when it is not in occupied state. So the
  * destructor might not be called in that case.
  *
@@ -230,6 +230,8 @@ template<typename Key, typename Value> class SimpleMapSlot {
  * removed. This saves some memory in all cases and is more efficient in many cases. The KeyInfo
  * type indicates which specific values are used. An example for a KeyInfo implementation is
  * PointerKeyInfo.
+ *
+ * The special key values are expected to be trivially destructible.
  */
 template<typename Key, typename Value, typename KeyInfo> class IntrusiveMapSlot {
  private:

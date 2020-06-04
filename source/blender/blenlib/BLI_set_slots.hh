@@ -303,6 +303,8 @@ template<typename Key> class HashedSetSlot {
  * removed. This saves some memory in all cases and is more efficient in many cases. The KeyInfo
  * type indicates which specific values are used. An example for a KeyInfo implementation is
  * PointerKeyInfo.
+ *
+ * The special key values are expected to be trivially destructible.
  */
 template<typename Key, typename KeyInfo> class IntrusiveSetSlot {
  private:
