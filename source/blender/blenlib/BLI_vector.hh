@@ -305,14 +305,14 @@ class Vector {
   }
 
   /**
-   * Make sure that enough memory is allocated to hold count elements.
-   * This won't necessarily make an allocation when count is small.
+   * Make sure that enough memory is allocated to hold min_capacity elements.
+   * This won't necessarily make an allocation when min_capacity is small.
    * The actual size of the vector does not change.
    */
-  void reserve(uint count)
+  void reserve(uint min_capacity)
   {
-    if (count > this->capacity()) {
-      this->grow(count);
+    if (min_capacity > this->capacity()) {
+      this->realloc_to_at_least(min_capacity);
     }
   }
 
@@ -765,21 +765,23 @@ class Vector {
   void ensure_space_for_one()
   {
     if (UNLIKELY(m_end >= m_capacity_end)) {
-      this->grow(this->size() + 1);
+      this->realloc_to_at_least(this->size() + 1);
     }
+    std::vector<int> a;
+    a.push_back(4);
   }
 
-  BLI_NOINLINE void grow(uint required_capacity)
+  BLI_NOINLINE void realloc_to_at_least(uint min_capacity)
   {
-    if (this->capacity() >= required_capacity) {
+    if (this->capacity() >= min_capacity) {
       return;
     }
 
     /* At least double the size of the previous allocation. Otherwise consecutive calls to grow can
      * cause a reallocation every time even though min_capacity only increments.  */
-    uint min_new_capacity = power_of_2_max_u(this->size());
+    uint min_new_capacity = this->capacity() * 2;
 
-    uint new_capacity = std::max(required_capacity, min_new_capacity);
+    uint new_capacity = std::max(min_capacity, min_new_capacity);
     uint size = this->size();
 
     T *new_array = (T *)m_allocator.allocate(new_capacity * (uint)sizeof(T), alignof(T), AT);
