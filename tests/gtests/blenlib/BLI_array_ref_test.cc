@@ -202,24 +202,12 @@ TEST(array_ref, FillIndices)
   EXPECT_EQ(a[4], 0);
 }
 
-TEST(array_ref, ByteSize)
+TEST(array_ref, SizeInBytes)
 {
   std::array<int, 10> a;
   IntArrayRef a_ref(a);
-  EXPECT_EQ(a_ref.byte_size(), sizeof(a));
-  EXPECT_EQ(a_ref.byte_size(), 40);
-}
-
-TEST(array_ref, CopyTo)
-{
-  std::array<int, 3> a = {5, 6, 7};
-  int b[3] = {0};
-  IntArrayRef a_ref(a);
-  a_ref.copy_to(b);
-
-  EXPECT_EQ(b[0], 5);
-  EXPECT_EQ(b[1], 6);
-  EXPECT_EQ(b[2], 7);
+  EXPECT_EQ(a_ref.size_in_bytes(), sizeof(a));
+  EXPECT_EQ(a_ref.size_in_bytes(), 40);
 }
 
 TEST(array_ref, FirstLast)

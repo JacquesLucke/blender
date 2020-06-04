@@ -25,8 +25,8 @@
  * array cannot be modified through the ArrayRef. However, if T is a non-const pointer, the
  * pointed-to elements can be modified.
  *
- * There is also `BLI::MutableArrayRef<T>`. It is mostly the same as ArrayRef, but allows that the
- * array to be modified.
+ * There is also `BLI::MutableArrayRef<T>`. It is mostly the same as ArrayRef, but allows the array
+ * to be modified.
  *
  * `BLI::ArrayRef<T>` should be your default choice when you have to pass a read-only array into a
  * function. It is better than passing a `const Vector &`, because then the function only works for
@@ -34,15 +34,18 @@
  * contexts, better expresses the intend and does not sacrifice performance. It is also better than
  * passing a raw pointer and size separately, because it is more convenient and safe.
  *
- * `BLI::MutableArrayRef<T>` should be your default choice when a function has to return an array,
- * the size of which is known before the function is called. The MutableArrayRef should then be an
- * output parameter at the end of the function signature. This way the caller is responsible for
- * allocating and freeing memory. Furthermore, the function can focus on its actual task and does
- * not have to worry about memory allocation. In some cases it more convenient to return an Array
- * or Vector from a function instead. It has to be decided on a case by case basis.
+ * `BLI::MutableArrayRef<T>` can be used when a function is supposed to return an array, the size
+ * of which is known before the function is called. One advantage of this approach is that the
+ * caller is responsible for allocation and deallocation. Furthermore, the function can focus on
+ * its task, without having to worry about memory allocation. Alternatively, a function could
+ * return an Array or Vector.
  *
- * Since the arrays are only referenced, it is generally not save to store them. When you store
- * them, you should know who owns the memory.
+ * Note: When a function has a MutableArrayRef<T> output parameter and T is not a trivial type,
+ * then the function has to specify whether the referenced array is expected to be initialized or
+ * not.
+ *
+ * Since the arrays are only referenced, it is generally not save to store an ArrayRef. When you
+ * store one, you should know who owns the memory.
  *
  * Instances of ArrayRef and MutableArrayRef are small and should be passed by value.
  */
@@ -60,7 +63,8 @@
 namespace BLI {
 
 /**
- * References an array of type T. The data in the array cannot be modified.
+ * References an array of type T that is owned by someone else. The data in the array cannot be
+ * modified.
  */
 template<typename T> class ArrayRef {
  private:
@@ -70,7 +74,6 @@ template<typename T> class ArrayRef {
  public:
   /**
    * Create a reference to an empty array.
-   * The pointer is allowed to be nullptr.
    */
   ArrayRef() = default;
 
@@ -78,6 +81,17 @@ template<typename T> class ArrayRef {
   {
   }
 
+  /**
+   * Reference an initializer_list. Note that the data in the initializer_list is only valid until
+   * the expression containing it is fully computed.
+   *
+   * Do:
+   *  call_function_with_array({1, 2, 3, 4});
+   *
+   * Don't:
+   *  ArrayRef<int> ref = {1, 2, 3, 4};
+   *  call_function_with_array(ref);
+   */
   ArrayRef(const std::initializer_list<T> &list) : ArrayRef(list.begin(), list.size())
   {
   }
@@ -102,8 +116,8 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Return a contiguous part of the array.
-   * Asserts that the slice stays within the array.
+   * Returns a contiguous part of the array. This fails when the slice does not stay within the
+   * bounds of the array.
    */
   ArrayRef slice(uint start, uint size) const
   {
@@ -117,8 +131,8 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Return a new ArrayRef with n elements removed from the beginning.
-   * Asserts that the array contains enough elements.
+   * Returns a new ArrayRef with n elements removed from the beginning. This fails when the array
+   * is too small.
    */
   ArrayRef drop_front(uint n = 1) const
   {
@@ -127,8 +141,8 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Return a new ArrayRef with n elements removed from the beginning.
-   * Asserts that the array contains enough elements.
+   * Returns a new ArrayRef with n elements removed from the beginning. This fails when the array
+   * is too small.
    */
   ArrayRef drop_back(uint n = 1) const
   {
@@ -137,8 +151,8 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Return a new ArrayRef that only contains the first n elements.
-   * Asserts that the array contains enough elements.
+   * Returns a new ArrayRef that only contains the first n elements. This fails when the array
+   * is too small.
    */
   ArrayRef take_front(uint n) const
   {
@@ -147,8 +161,8 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Return a new ArrayRef that only contains the last n elements.
-   * Asserts that the array contains enough elements.
+   * Returns a new ArrayRef that only contains the last n elements. This fails when the array
+   * is too small.
    */
   ArrayRef take_back(uint n) const
   {
@@ -157,13 +171,9 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Copy the values in this array to another array.
+   * Returns the pointer to the beginning of the referenced array. This may be nullptr when the
+   * size is zero.
    */
-  void copy_to(T *ptr) const
-  {
-    initialized_copy_n(m_start, m_size, ptr);
-  }
-
   const T *data() const
   {
     return m_start;
@@ -180,8 +190,7 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Access an element in the array.
-   * Asserts that the index is in the bounds of the array.
+   * Access an element in the array. This fails when the index is out of bounds.
    */
   const T &operator[](uint index) const
   {
@@ -190,7 +199,7 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Return the number of elements in the referenced array.
+   * Returns the number of elements in the referenced array.
    */
   uint size() const
   {
@@ -198,7 +207,7 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Return true if the size is zero.
+   * Returns true if the size is zero.
    */
   bool is_empty() const
   {
@@ -206,16 +215,16 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Return the number of bytes referenced by this ArrayRef.
+   * Returns the number of bytes referenced by this ArrayRef.
    */
-  uint byte_size() const
+  uint size_in_bytes() const
   {
     return sizeof(T) * m_size;
   }
 
   /**
    * Does a linear search to see of the value is in the array.
-   * Return true if it is, otherwise false.
+   * Returns true if it is, otherwise false.
    */
   bool contains(const T &value) const
   {
@@ -228,7 +237,7 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Does a constant time check to see if the pointer is within the referenced array.
+   * Does a constant time check to see if the pointer points to a value in the referenced array.
    * Return true if it is, otherwise false.
    */
   bool contains_ptr(const T *ptr) const
@@ -252,8 +261,7 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Return a reference to the first element in the array.
-   * Asserts that the array is not empty.
+   * Return a reference to the first element in the array. This fails when the array is empty.
    */
   const T &first() const
   {
@@ -262,8 +270,7 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Return a reference to the last element in the array.
-   * Asserts that the array is not empty.
+   * Returns a reference to the last element in the array. This fails when the array is empty.
    */
   const T &last() const
   {
@@ -305,7 +312,8 @@ template<typename T> class ArrayRef {
 
   /**
    * Returns true when this and the other array have an element in common. This should only be
-   * called on small arrays, because it has a running time of O(n^2).
+   * called on small arrays, because it has a running time of O(n*m) where n and m are the sizes of
+   * the arrays.
    */
   bool intersects__linear_search(ArrayRef other) const
   {
@@ -323,7 +331,7 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Get the index of the first occurrence of the given value. It is assumed that the value is in
+   * Get the index of the first occurrence of the given value. This fails when the value is not in
    * the array.
    */
   uint first_index(const T &search_value) const
@@ -356,7 +364,7 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Get a new array ref to the same underlying memory buffer. No conversions are done.
+   * Get a new ArrayRef to the same underlying memory buffer. No conversions are done.
    */
   template<typename NewT> ArrayRef<NewT> cast() const
   {
@@ -366,7 +374,7 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * A debug utility to print the content of the array ref. Every element will be printed on a
+   * A debug utility to print the content of the ArrayRef. Every element will be printed on a
    * separate line using the given callback.
    */
   template<typename PrintLineF> void print_as_lines(std::string name, PrintLineF print_line) const
@@ -390,7 +398,8 @@ template<typename T> class ArrayRef {
 };
 
 /**
- * Mostly the same as ArrayRef, except that one can change the array elements via this reference.
+ * Mostly the same as ArrayRef, except that one can change the array elements through a
+ * MutableArrayRef.
  */
 template<typename T> class MutableArrayRef {
  private:
@@ -404,6 +413,17 @@ template<typename T> class MutableArrayRef {
   {
   }
 
+  /**
+   * Reference an initializer_list. Note that the data in the initializer_list is only valid until
+   * the expression containing it is fully computed.
+   *
+   * Do:
+   *  call_function_with_array({1, 2, 3, 4});
+   *
+   * Don't:
+   *  MutableArrayRef<int> ref = {1, 2, 3, 4};
+   *  call_function_with_array(ref);
+   */
   MutableArrayRef(std::initializer_list<T> &list) : MutableArrayRef(list.begin(), list.size())
   {
   }
@@ -433,21 +453,27 @@ template<typename T> class MutableArrayRef {
   /**
    * Replace all elements in the referenced array with the given value.
    */
-  void fill(const T &element)
+  void fill(const T &value)
   {
-    std::fill_n(m_start, m_size, element);
+    initialized_fill_n(m_start, m_size, value);
   }
 
   /**
-   * Replace a subset of all elements with the given value.
+   * Replace a subset of all elements with the given value. This fails when an index is out of
+   * bounds.
    */
-  void fill_indices(ArrayRef<uint> indices, const T &element)
+  void fill_indices(ArrayRef<uint> indices, const T &value)
   {
     for (uint i : indices) {
-      m_start[i] = element;
+      BLI_assert(i < m_size);
+      m_start[i] = value;
     }
   }
 
+  /**
+   * Get a pointer to the beginning of the referenced array. This may be nullptr, when the size is
+   * zero.
+   */
   T *data() const
   {
     return m_start;
@@ -470,8 +496,7 @@ template<typename T> class MutableArrayRef {
   }
 
   /**
-   * Return a contiguous part of the array.
-   * Asserts that the slice stays in the array bounds.
+   * Returns a contiguous part of the array. This fails when the slice would go out of bounds.
    */
   MutableArrayRef slice(uint start, uint length) const
   {
@@ -480,25 +505,28 @@ template<typename T> class MutableArrayRef {
   }
 
   /**
-   * Return a new MutableArrayRef with n elements removed from the beginning.
+   * Returns a new MutableArrayRef with n elements removed from the beginning. This fails when the
+   * array is too small.
    */
-  MutableArrayRef drop_front(uint n = 1) const
+  MutableArrayRef drop_front(uint n) const
   {
     BLI_assert(n <= this->size());
     return this->slice(n, this->size() - n);
   }
 
   /**
-   * Return a new MutableArrayRef with n elements removed from the beginning.
+   * Returns a new MutableArrayRef with n elements removed from the end. This fails when the array
+   * is too small.
    */
-  MutableArrayRef drop_back(uint n = 1) const
+  MutableArrayRef drop_back(uint n) const
   {
     BLI_assert(n <= this->size());
     return this->slice(0, this->size() - n);
   }
 
   /**
-   * Return a new MutableArrayRef that only contains the first n elements.
+   * Returns a new MutableArrayRef that only contains the first n elements. This fails when the
+   * array is too small.
    */
   MutableArrayRef take_front(uint n) const
   {
@@ -507,7 +535,8 @@ template<typename T> class MutableArrayRef {
   }
 
   /**
-   * Return a new MutableArrayRef that only contains the last n elements.
+   * Return a new MutableArrayRef that only contains the last n elements. This fails when the array
+   * is too small.
    */
   MutableArrayRef take_back(uint n) const
   {
@@ -515,11 +544,19 @@ template<typename T> class MutableArrayRef {
     return this->slice(this->size() - n, n);
   }
 
+  /**
+   * Get an (immutable) ArrayRef that references the same array. This is usually not needed, due to
+   * implicit conversions. However, sometimes automatic type deduction needs some help.
+   */
   ArrayRef<T> as_ref() const
   {
     return ArrayRef<T>(m_start, m_size);
   }
 
+  /**
+   * Utility to make it more convenient to iterate over all indices that can be used with this
+   * array.
+   */
   IndexRange index_range() const
   {
     return IndexRange(m_size);
@@ -554,7 +591,7 @@ template<typename T> ArrayRef<T> ref_c_array(const T *array, uint size)
 }
 
 /**
- * Utilities to check that arrays have the same in debug builds.
+ * Utilities to check that arrays have the same size in debug builds.
  */
 template<typename T1, typename T2> void assert_same_size(const T1 &v1, const T2 &v2)
 {
