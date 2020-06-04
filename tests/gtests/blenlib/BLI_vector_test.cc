@@ -1,5 +1,4 @@
 #include "BLI_strict_flags.h"
-#include "BLI_type_construct_mock.hh"
 #include "BLI_vector.hh"
 #include "testing/testing.h"
 #include <forward_list>
@@ -483,6 +482,47 @@ TEST(vector, UniquePtrValue)
 
   UNUSED_VARS(a, b);
 }
+
+class TypeConstructMock {
+ public:
+  bool default_constructed = false;
+  bool copy_constructed = false;
+  bool move_constructed = false;
+  bool copy_assigned = false;
+  bool move_assigned = false;
+
+  TypeConstructMock() : default_constructed(true)
+  {
+  }
+
+  TypeConstructMock(const TypeConstructMock &other) : copy_constructed(true)
+  {
+  }
+
+  TypeConstructMock(TypeConstructMock &&other) : move_constructed(true)
+  {
+  }
+
+  TypeConstructMock &operator=(const TypeConstructMock &other)
+  {
+    if (this == &other) {
+      return *this;
+    }
+
+    copy_assigned = true;
+    return *this;
+  }
+
+  TypeConstructMock &operator=(TypeConstructMock &&other)
+  {
+    if (this == &other) {
+      return *this;
+    }
+
+    move_assigned = true;
+    return *this;
+  }
+};
 
 TEST(vector, SizeConstructorCallsDefaultConstructor)
 {
