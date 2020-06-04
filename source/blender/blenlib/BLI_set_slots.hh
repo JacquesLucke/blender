@@ -376,6 +376,8 @@ template<typename Key, typename KeyInfo> class IntrusiveSetSlot {
 template<typename Int, Int EmptyValue, Int RemovedValue>
 using IntegerSetSlot = IntrusiveSetSlot<Int, TemplatedKeyInfo<Int, EmptyValue, RemovedValue>>;
 
+template<typename Key> struct DefaultSetSlot;
+
 /**
  * Use SimpleSetSlot by default, because it is the smallest slot type that works for all key types.
  */

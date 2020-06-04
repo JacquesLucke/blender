@@ -20,9 +20,9 @@
 /** \file
  * \ingroup bli
  *
- * A `BLI::Set<Key>` is an unordered container for elements of type `Key`. It is designed to be a
- * more convenient and efficient replacement for `std::unordered_set`. All core operations (add,
- * remove and contains) can be done in O(1) amortized expected time.
+ * A `BLI::Set<Key>` is an unordered container for unique elements of type `Key`. It is designed to
+ * be a more convenient and efficient replacement for `std::unordered_set`. All core operations
+ * (add, remove and contains) can be done in O(1) amortized expected time.
  *
  * In most cases, your default choice for a hash set in Blender should be `BLI::Set`.
  *
@@ -52,7 +52,7 @@
  * - Lookups can be performed using types other than Key without conversion. For that use the
  *   methods ending with `_as`. The template parameters Hash and IsEqual have to support the other
  *   key type. This can greatly improve performance when the set contains strings.
- * - The default constructor is cheap, even when a large InlineBufferCapacity is used. The large
+ * - The default constructor is cheap, even when a large InlineBufferCapacity is used. A large
  *   slot array will only be initialized when the first key is added.
  * - The `print_stats` method can be used to get information about the distribution of keys and
  *   memory usage of the set.
@@ -62,8 +62,8 @@
  *   interface as BLI::Set. This is useful for benchmarking.
  *
  * Possible Improvements:
- * - Branchless loop over slots in grow function (measured ~10% performance improvement when the
- *   distribution is occupied slots is suffiently random).
+ * - Use a branchless loop over slots in grow function (measured ~10% performance improvement when
+ *   the distribution of occupied slots is suffiently random).
  * - Support max load factor customization.
  * - Improve performance with large data sets through software prefetching. I got fairly
  *   significant improvements in simple tests (~30% faster). It still needs to be investigated how
@@ -80,11 +80,9 @@
 
 namespace BLI {
 
-/* This is defined in BLI_set_slots.hh. */
-template<typename Key> struct DefaultSetSlot;
-
 template<
-    /** Type of the elements that are stored in this set. It has to be movable. */
+    /** Type of the elements that are stored in this set. It has to be movable. Furthermore, the
+     * hash and is-equal functions have to support it. */
     typename Key,
     /**
      * The minimum number of elements that can be stored in this Set without doing a heap
@@ -114,13 +112,13 @@ template<
      * be able to hold a key and information about whether the slot is empty, occupied or removed.
      * Using a non-standard slot type can improve performance or reduce the memory footprint. For
      * example, a hash can be stored in the slot, to make inequality checks more efficient. Some
-     * types have special values that can represent an empty or dummy state, eliminating the need
-     * for an additional variable.
+     * types have special values that can represent an empty or removed state, eliminating the need
+     * for an additional variable. Also see BLI_set_slots.hh.
      */
     typename Slot = typename DefaultSetSlot<Key>::type,
     /**
      * The allocator used by this set. Should rarely be changed, except when you don't want that
-     * MEM_mallocN etc. is used internally.
+     * MEM_* is used internally.
      */
     typename Allocator = GuardedAllocator>
 class Set {
@@ -150,6 +148,7 @@ class Set {
   /** This is called to check equality of two keys. */
   IsEqual m_is_equal;
 
+  /** The max load factor is 1/2 = 50% by default. */
 #define LOAD_FACTOR 1, 2
   LoadFactor m_max_load_factor = LoadFactor(LOAD_FACTOR);
   using SlotArray =
@@ -351,8 +350,8 @@ class Set {
    * An iterator that can iterate over all keys in the set. The iterator is invalidated when the
    * set is moved or when it is grown.
    *
-   * Keys returned by this iterator are always const. They should not change, since this might also
-   * change their hash.
+   * Keys returned by this iterator are always const. They should not change, because this might
+   * also change their hash.
    */
   class Iterator {
    private:
@@ -405,7 +404,7 @@ class Set {
   }
 
   /**
-   * Print common statistics like size and collision count. This is mostly for debugging purposes.
+   * Print common statistics like size and collision count. This is useful for debugging purposes.
    */
   void print_stats(StringRef name = "") const
   {
@@ -481,7 +480,7 @@ class Set {
   }
 
   /**
-   * Returns the approximage memory requirements of the set in bytes. This is more correct for
+   * Returns the approximate memory requirements of the set in bytes. This is more correct for
    * larger sets.
    */
   uint32_t size_in_bytes() const
@@ -490,7 +489,7 @@ class Set {
   }
 
   /**
-   * Potentially resize the set such that the specified number of keys can be added without another
+   * Potentially resize the set such that it can hold the specified number of keys without another
    * grow operation.
    */
   void reserve(uint32_t n)

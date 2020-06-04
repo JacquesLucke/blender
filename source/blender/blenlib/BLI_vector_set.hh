@@ -424,7 +424,7 @@ class VectorSet {
   }
 
   /**
-   * Print common statistics like size and collision count. This is mostly for debugging purposes.
+   * Print common statistics like size and collision count. This is useful for debugging purposes.
    */
   void print_stats(StringRef name = "") const
   {
@@ -473,7 +473,7 @@ class VectorSet {
   }
 
   /**
-   * Returns the approximage memory requirements of the set in bytes. This is more correct for
+   * Returns the approximate memory requirements of the set in bytes. This is more correct for
    * larger sets.
    */
   uint32_t size_in_bytes() const

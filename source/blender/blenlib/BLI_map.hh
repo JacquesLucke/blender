@@ -79,8 +79,8 @@ namespace BLI {
 
 template<
     /**
-     * Type of the keys stored in the map. Keys have to be movable. Furthermore, the hash function
-     * and equality checker have to support it.
+     * Type of the keys stored in the map. Keys have to be movable. Furthermore, the hash and
+     * is-equal functions have to support it.
      */
     typename Key,
     /**
@@ -758,7 +758,7 @@ class Map {
   }
 
   /**
-   * Print common statistics like size and collision count. This is mostly for debugging purposes.
+   * Print common statistics like size and collision count. This is useful for debugging purposes.
    */
   void print_stats(StringRef name = "") const
   {
