@@ -568,3 +568,21 @@ TEST(vector, Resize)
   EXPECT_EQ(vec.size(), 1);
   EXPECT_EQ(vec[0], "");
 }
+
+TEST(vector, FirstIndexOf)
+{
+  Vector<int> vec = {2, 3, 5, 7, 5, 9};
+  EXPECT_EQ(vec.first_index_of(2), 0);
+  EXPECT_EQ(vec.first_index_of(5), 2);
+  EXPECT_EQ(vec.first_index_of(9), 5);
+}
+
+TEST(vector, FirstIndexTryOf)
+{
+  Vector<int> vec = {2, 3, 5, 7, 5, 9};
+  EXPECT_EQ(vec.first_index_of_try(2), 0);
+  EXPECT_EQ(vec.first_index_of_try(4), -1);
+  EXPECT_EQ(vec.first_index_of_try(5), 2);
+  EXPECT_EQ(vec.first_index_of_try(9), 5);
+  EXPECT_EQ(vec.first_index_of_try(1), -1);
+}

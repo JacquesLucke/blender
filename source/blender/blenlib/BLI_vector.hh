@@ -616,7 +616,7 @@ class Vector {
    */
   void remove_first_occurrence_and_reorder(const T &value)
   {
-    uint index = this->index(value);
+    uint index = this->first_index_of(value);
     this->remove_and_reorder((uint)index);
   }
 
@@ -643,7 +643,7 @@ class Vector {
    * Do a linear search to find the value in the vector.
    * When found, return the first index, otherwise return -1.
    */
-  int index_try(const T &value) const
+  int first_index_of_try(const T &value) const
   {
     for (T *current = m_begin; current != m_end; current++) {
       if (*current == value) {
@@ -657,9 +657,9 @@ class Vector {
    * Do a linear search to find the value in the vector.
    * When found, return the first index, otherwise fail.
    */
-  uint index(const T &value) const
+  uint first_index_of(const T &value) const
   {
-    int index = this->index_try(value);
+    int index = this->first_index_of_try(value);
     BLI_assert(index >= 0);
     return (uint)index;
   }
@@ -670,7 +670,7 @@ class Vector {
    */
   bool contains(const T &value) const
   {
-    return this->index_try(value) != -1;
+    return this->first_index_of_try(value) != -1;
   }
 
   const T &operator[](uint index) const
