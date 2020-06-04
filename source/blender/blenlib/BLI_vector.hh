@@ -647,7 +647,7 @@ class Vector {
   {
     for (T *current = m_begin; current != m_end; current++) {
       if (*current == value) {
-        return current - m_begin;
+        return (int)(current - m_begin);
       }
     }
     return -1;

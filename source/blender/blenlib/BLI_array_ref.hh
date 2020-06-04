@@ -92,11 +92,11 @@ template<typename T> class ArrayRef {
    *  ArrayRef<int> ref = {1, 2, 3, 4};
    *  call_function_with_array(ref);
    */
-  ArrayRef(const std::initializer_list<T> &list) : ArrayRef(list.begin(), list.size())
+  ArrayRef(const std::initializer_list<T> &list) : ArrayRef(list.begin(), (uint)list.size())
   {
   }
 
-  ArrayRef(const std::vector<T> &vector) : ArrayRef(vector.data(), vector.size())
+  ArrayRef(const std::vector<T> &vector) : ArrayRef(vector.data(), (uint)vector.size())
   {
   }
 
