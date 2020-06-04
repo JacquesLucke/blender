@@ -352,36 +352,36 @@ class VectorSet {
 
   /**
    * Return the location of the key in the vector. It is assumed, that the key is in the vector
-   * set. If this is not necessarily the case, use `index_try`.
+   * set. If this is not necessarily the case, use `index_of_try`.
    */
-  uint32_t index(const Key &key) const
+  uint32_t index_of(const Key &key) const
   {
-    return this->index_as(key);
+    return this->index_of_as(key);
   }
 
   /**
-   * Same as `index`, but accepts other key types that are supported by the hash function.
+   * Same as `index_of`, but accepts other key types that are supported by the hash function.
    */
-  template<typename ForwardKey> uint32_t index_as(const ForwardKey &key) const
+  template<typename ForwardKey> uint32_t index_of_as(const ForwardKey &key) const
   {
-    return this->index__impl(key, m_hash(key));
+    return this->index_of__impl(key, m_hash(key));
   }
 
   /**
    * Return the location of the key in the vector. If the key is not in the set, -1 is returned.
-   * If you know for sure that the key is in the set, it is better to use `index` instead.
+   * If you know for sure that the key is in the set, it is better to use `index_of` instead.
    */
-  int32_t index_try(const Key &key) const
+  int32_t index_of_try(const Key &key) const
   {
-    return this->index_try_as(key);
+    return this->index_of_try_as(key);
   }
 
   /**
-   * Same as `index_try`, but accepts other key types that are supported by the hash function.
+   * Same as `index_of_try`, but accepts other key types that are supported by the hash function.
    */
-  template<typename ForwardKey> uint32_t index_try_as(const ForwardKey &key) const
+  template<typename ForwardKey> uint32_t index_of_try_as(const ForwardKey &key) const
   {
-    return this->index_try__impl(key, m_hash(key));
+    return this->index_of_try__impl(key, m_hash(key));
   }
 
   /**
@@ -614,7 +614,7 @@ class VectorSet {
     VECTOR_SET_SLOT_PROBING_END();
   }
 
-  template<typename ForwardKey> uint32_t index__impl(const ForwardKey &key, uint32_t hash) const
+  template<typename ForwardKey> uint32_t index_of__impl(const ForwardKey &key, uint32_t hash) const
   {
     BLI_assert(this->contains_as(key));
 
@@ -626,7 +626,8 @@ class VectorSet {
     VECTOR_SET_SLOT_PROBING_END();
   }
 
-  template<typename ForwardKey> int32_t index_try__impl(const ForwardKey &key, uint32_t hash) const
+  template<typename ForwardKey>
+  int32_t index_of_try__impl(const ForwardKey &key, uint32_t hash) const
   {
     VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.contains(key, m_is_equal, hash, m_keys)) {

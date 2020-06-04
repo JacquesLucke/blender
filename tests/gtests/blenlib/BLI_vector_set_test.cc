@@ -35,8 +35,8 @@ TEST(vector_set, Copy)
   VectorSet<int> set2 = set1;
   EXPECT_EQ(set1.size(), 3);
   EXPECT_EQ(set2.size(), 3);
-  EXPECT_EQ(set1.index(2), 1);
-  EXPECT_EQ(set2.index(2), 1);
+  EXPECT_EQ(set1.index_of(2), 1);
+  EXPECT_EQ(set2.index_of(2), 1);
 }
 
 TEST(vector_set, CopyAssignment)
@@ -46,8 +46,8 @@ TEST(vector_set, CopyAssignment)
   set2 = set1;
   EXPECT_EQ(set1.size(), 3);
   EXPECT_EQ(set2.size(), 3);
-  EXPECT_EQ(set1.index(2), 1);
-  EXPECT_EQ(set2.index(2), 1);
+  EXPECT_EQ(set1.index_of(2), 1);
+  EXPECT_EQ(set2.index_of(2), 1);
 }
 
 TEST(vector_set, Move)
@@ -90,18 +90,18 @@ TEST(vector_set, AddExistingDoesNotIncreaseSize)
 TEST(vector_set, Index)
 {
   VectorSet<int> set = {3, 6, 4};
-  EXPECT_EQ(set.index(6), 1);
-  EXPECT_EQ(set.index(3), 0);
-  EXPECT_EQ(set.index(4), 2);
+  EXPECT_EQ(set.index_of(6), 1);
+  EXPECT_EQ(set.index_of(3), 0);
+  EXPECT_EQ(set.index_of(4), 2);
 }
 
 TEST(vector_set, IndexTry)
 {
   VectorSet<int> set = {3, 6, 4};
-  EXPECT_EQ(set.index_try(5), -1);
-  EXPECT_EQ(set.index_try(3), 0);
-  EXPECT_EQ(set.index_try(6), 1);
-  EXPECT_EQ(set.index_try(2), -1);
+  EXPECT_EQ(set.index_of_try(5), -1);
+  EXPECT_EQ(set.index_of_try(3), 0);
+  EXPECT_EQ(set.index_of_try(6), 1);
+  EXPECT_EQ(set.index_of_try(2), -1);
 }
 
 TEST(vector_set, RemoveContained)
@@ -140,7 +140,7 @@ TEST(vector_set, UniquePtrValue)
   VectorSet<std::unique_ptr<int>> set;
   set.add_new(std::unique_ptr<int>(new int()));
   set.add(std::unique_ptr<int>(new int()));
-  set.index_try(std::unique_ptr<int>(new int()));
+  set.index_of_try(std::unique_ptr<int>(new int()));
   std::unique_ptr<int> value = set.pop();
   UNUSED_VARS(value);
 }
