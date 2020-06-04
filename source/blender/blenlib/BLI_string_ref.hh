@@ -37,7 +37,7 @@
  * BLI::StringRef vs. std::string_view:
  *   Both types are certainly very similar. The main benefit of using StringRef in Blender is that
  *   this allows us to add convenience methods at any time. Especially, when doing a lot of string
- *   manipulation, this can help keep the code clean. Furthermore, we need StringRefNull anyway,
+ *   manipulation, this helps to keep the code clean. Furthermore, we need StringRefNull anyway,
  *   because there is a lot of C code that expects null-terminated strings. Once we use C++17,
  *   implicit conversions to and from string_view can be added.
  */

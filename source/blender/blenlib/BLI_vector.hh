@@ -324,8 +324,8 @@ class Vector {
   /**
    * Change the size of the vector so that it contains new_size elements.
    * If new_size is smaller than the old size, the elements at the end of the vector are
-   * destructed. If new_size is larger than the old size, the new elements are default constructed.
-   * Trivially constructible types are not touched.
+   * destructed. If new_size is larger than the old size, the new elements at the end are default
+   * constructed. If T is trivially constructible, the memory is not touched by this function.
    */
   void resize(uint new_size)
   {
