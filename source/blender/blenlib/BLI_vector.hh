@@ -24,6 +24,11 @@
  * designed to be a more convenient and efficient replacement for `std::vector`. Note that the term
  * "vector" has nothing to do with a vector from computer graphics here.
  *
+ * A vector supports efficient insertion and removal at the end (O(1) amortized). Removal in other
+ * places takes O(n) time, because all elements afterwards have to be moved. If the order of
+ * elements is not important, `remove_and_reorder` can be used instead of `remove` for better
+ * performance.
+ *
  * The improved efficiency is mainly achieved by supporting small buffer optimization. As long as
  * the number of elements in the vector does not become larger than InlineBufferCapacity, no memory
  * allocation is done. As a consequence, iterators are invalidated when a BLI::Vector is moved
@@ -616,6 +621,24 @@ class Vector {
   }
 
   /**
+   * Remove the element at the given index and move all values coming after it one towards the
+   * front. This takes O(n) time. If the order is not important, remove_and_reorder should be used
+   * instead.
+   *
+   * This is similar to std::vector::erase.
+   */
+  void remove(uint index)
+  {
+    BLI_assert(index < this->size());
+    uint old_size = this->size();
+    for (uint i = index; i < old_size - 1; i++) {
+      m_begin[i] = std::move(m_begin[i + 1]);
+    }
+    m_begin[old_size - 1].~T();
+    m_end--;
+  }
+
+  /**
    * Do a linear search to find the value in the vector.
    * When found, return the first index, otherwise return -1.
    */
@@ -647,23 +670,6 @@ class Vector {
   bool contains(const T &value) const
   {
     return this->index_try(value) != -1;
-  }
-
-  /**
-   * Compare vectors element-wise. Return true when they have the same length and all elements
-   * compare equal, otherwise false.
-   */
-  static bool all_equal(const Vector &a, const Vector &b)
-  {
-    if (a.size() != b.size()) {
-      return false;
-    }
-    for (uint i = 0; i < a.size(); i++) {
-      if (a[i] != b[i]) {
-        return false;
-      }
-    }
-    return true;
   }
 
   const T &operator[](uint index) const

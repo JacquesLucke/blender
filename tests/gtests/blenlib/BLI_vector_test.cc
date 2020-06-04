@@ -3,7 +3,7 @@
 #include "testing/testing.h"
 #include <forward_list>
 
-using BLI::Vector;
+using namespace BLI;
 
 TEST(vector, DefaultConstructor)
 {
@@ -404,20 +404,21 @@ TEST(vector, RemoveFirstOccurrenceAndReorder)
   EXPECT_EQ(vec.size(), 0);
 }
 
-TEST(vector, AllEqual_False)
+TEST(vector, Remove)
 {
-  Vector<int> a = {1, 2, 3};
-  Vector<int> b = {1, 2, 4};
-  bool result = Vector<int>::all_equal(a, b);
-  EXPECT_FALSE(result);
-}
-
-TEST(vector, AllEqual_True)
-{
-  Vector<int> a = {4, 5, 6};
-  Vector<int> b = {4, 5, 6};
-  bool result = Vector<int>::all_equal(a, b);
-  EXPECT_TRUE(result);
+  Vector<int> vec = {1, 2, 3, 4, 5, 6};
+  vec.remove(3);
+  EXPECT_TRUE(std::equal(vec.begin(), vec.end(), ArrayRef<int>({1, 2, 3, 5, 6}).begin()));
+  vec.remove(0);
+  EXPECT_TRUE(std::equal(vec.begin(), vec.end(), ArrayRef<int>({2, 3, 5, 6}).begin()));
+  vec.remove(3);
+  EXPECT_TRUE(std::equal(vec.begin(), vec.end(), ArrayRef<int>({2, 3, 5}).begin()));
+  vec.remove(1);
+  EXPECT_TRUE(std::equal(vec.begin(), vec.end(), ArrayRef<int>({2, 5}).begin()));
+  vec.remove(1);
+  EXPECT_TRUE(std::equal(vec.begin(), vec.end(), ArrayRef<int>({2}).begin()));
+  vec.remove(0);
+  EXPECT_TRUE(std::equal(vec.begin(), vec.end(), ArrayRef<int>({}).begin()));
 }
 
 TEST(vector, ExtendSmallVector)
@@ -470,10 +471,14 @@ TEST(vector, UniquePtrValue)
   vec.append(std::unique_ptr<int>(new int()));
   vec.append(std::unique_ptr<int>(new int()));
   vec.append(std::unique_ptr<int>(new int()));
+  vec.append(std::unique_ptr<int>(new int()));
+  EXPECT_EQ(vec.size(), 4);
 
   std::unique_ptr<int> &a = vec.last();
   std::unique_ptr<int> b = vec.pop_last();
   vec.remove_and_reorder(0);
+  vec.remove(0);
+  EXPECT_EQ(vec.size(), 1);
 
   UNUSED_VARS(a, b);
 }

@@ -136,14 +136,6 @@ TEST(array_ref, Count)
   EXPECT_EQ(a_ref.count(5), 0);
 }
 
-TEST(array_ref, ToSmallVector)
-{
-  IntVector a = {1, 2, 3, 4};
-  IntArrayRef a_ref = a;
-  IntVector b = a_ref;
-  IntVector::all_equal(a, b);
-}
-
 static void test_ref_from_initializer_list(IntArrayRef ref)
 {
   EXPECT_EQ(ref.size(), 4);
