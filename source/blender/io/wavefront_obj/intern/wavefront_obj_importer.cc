@@ -22,3 +22,8 @@
  */
 
 #include "wavefront_obj_file_handler.hh"
+
+namespace IO {
+namespace OBJ {
+}
+}  // namespace IO

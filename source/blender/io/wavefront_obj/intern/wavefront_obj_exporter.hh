@@ -26,8 +26,14 @@
 
 #include "wavefront_obj.hh"
 
-void prepare_vertices(Object *ob_eval, OBJ_data_to_export *data_to_export);
+namespace IO {
+namespace OBJ {
+/**
+ * Central internal function to call data preparation & writer functions.
+ * Recieves export_settings from obj.cc.
+ */
+void exporter_main(bContext *C, const OBJExportParams *export_params);
 
-bool exporter_main(bContext *C, OBJExportParams *export_params);
-
+}  // namespace OBJ
+}  // namespace IO
 #endif

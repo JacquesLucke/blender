@@ -23,45 +23,51 @@
 
 #include "BKE_context.h"
 
-#ifdef __cplusplus
-#  include <vector>
-struct faces {
-  int total_vertices_per_face;
-  std::vector<int> vertex_references;
-  std::vector<int> vertex_normal_references;
+#include "BLI_array.hh"
+#include "BLI_vector.hh"
+#include "DNA_meshdata_types.h"
+
+namespace IO {
+namespace OBJ {
+
+/**
+ * Polygon stores the data of one face of the mesh.
+ * f v1/vt1/vn1 v2/vt2/vn2 .. (n)
+ */
+struct Polygon {
+  /** Total vertices in one polgon face. n above. */
+  uint total_vertices_per_poly;
+  /**
+   * Vertex indices of this polygon. v1, v2 .. above.
+   * The index corresponds to the pre-defined vertex list.
+   */
+  BLI::Vector<uint> vertex_index;
+  /**
+   * Face normal indices of this polygon. vn1, vn2 .. above.
+   * The index corresponds to the pre-defined face normal list.
+   */
+  BLI::Vector<uint> face_normal_index;
 };
 
+/**
+ * Stores geometry of one object to be exported.
+ * TODO (ankitm): Extend it to contain multiple objects' geometry.
+ */
 struct OBJ_data_to_export {
-  int tot_vertices;
-  std::vector<struct MVert> vertices;
-  std::vector<std::array<float, 3>> normals;
-  int tot_faces;
-  std::vector<struct faces> faces_list;
-};
-extern "C" {
-#endif
-
-struct OBJExportParams {
-  const char *filepath;
-
   bContext *C;
   Depsgraph *depsgraph;
-  Scene *scene;
 
-  bool print_name;
-  float number;
+  /** Vertices in a mesh to export. */
+  MVert *mvert;
+  /** Number of vertices in a mesh to export. */
+  uint tot_vertices;
+
+  /** Polygons in a mesh to export. */
+  BLI::Vector<IO::OBJ::Polygon> polygon_list;
+  /** Number of polygons in a mesh to export. */
+  uint tot_faces;
 };
-struct OBJImportParams {
-  bool print_name;
-  float number;
-};
-
-bool OBJ_import(struct bContext *C, const char *filepath, struct OBJImportParams *import_params);
-
-bool OBJ_export(struct bContext *C, struct OBJExportParams *export_params);
-
-#ifdef __cplusplus
-}
-#endif
+}  // namespace OBJ
+}  // namespace IO
 
 #endif /* __WAVEFRONT_OBJ_HH__ */

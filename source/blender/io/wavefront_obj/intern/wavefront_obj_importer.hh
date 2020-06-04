@@ -24,4 +24,10 @@
 #ifndef __WAVEFRONT_OBJ_IMPORTER_HH__
 #define __WAVEFRONT_OBJ_IMPORTER_HH__
 
+namespace IO {
+namespace OBJ {
+  /* Currently not implemented. */
+}
+}  // namespace IO
+
 #endif

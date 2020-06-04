@@ -22,44 +22,27 @@
 #define __IO_WAVEFRONT_OBJ_H__
 
 #include "BKE_context.h"
+#include <stdio.h>
 
 #ifdef __cplusplus
-#  include <vector>
-struct faces {
-  int total_vertices_per_face;
-  std::vector<int> vertex_references;
-  std::vector<int> vertex_normal_references;
-};
-
-struct OBJ_data_to_export {
-  int tot_vertices;
-  std::vector<struct MVert> vertices;
-  std::vector<std::array<float, 3>> normals;
-  int tot_faces;
-  std::vector<struct faces> faces_list;
-};
 extern "C" {
 #endif
-  
-  struct OBJExportParams {
-    const char *filepath;
-    
-    bContext *C;
-    Depsgraph *depsgraph;
-    Scene *scene;
-    
-    bool print_name;
-    float number;
-  };
-  struct OBJImportParams {
-    bool print_name;
-    float number;
-  };
-  
-  bool OBJ_import(struct bContext *C, const char *filepath, struct OBJImportParams *import_params);
-  
-  bool OBJ_export(struct bContext *C, struct OBJExportParams *export_params);
-  
+
+struct OBJExportParams {
+  /** Full path to the destination OBJ file to export. */
+  char filepath[FILENAME_MAX];
+  /* Preferences will be added here when there is an actual setting to use. */
+};
+
+struct OBJImportParams {
+  /** Full path to the source OBJ file to import. */
+  char filepath[FILENAME_MAX];
+};
+
+void OBJ_import(bContext *C, const struct OBJImportParams *import_params);
+
+void OBJ_export(bContext *C, const struct OBJExportParams *export_params);
+
 #ifdef __cplusplus
 }
 #endif
