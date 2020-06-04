@@ -67,7 +67,7 @@ set(SRC
   intern/dot_export.cc
   intern/dynlib.c
   intern/easing.c
-  intern/edgehash.cc
+  intern/edgehash.c
   intern/endian_switch.c
   intern/expr_pylike_eval.c
   intern/fileops.c

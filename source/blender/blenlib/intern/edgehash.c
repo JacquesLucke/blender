@@ -168,9 +168,8 @@ BLI_INLINE bool edgehash_ensure_can_insert(EdgeHash *eh)
     eh->capacity_exp++;
     UPDATE_SLOT_MASK(eh);
     eh->dummy_count = 0;
-    eh->entries = (EdgeHashEntry *)MEM_reallocN(eh->entries,
-                                                sizeof(EdgeHashEntry) * ENTRIES_CAPACITY(eh));
-    eh->map = (int32_t *)MEM_reallocN(eh->map, sizeof(int32_t) * MAP_CAPACITY(eh));
+    eh->entries = MEM_reallocN(eh->entries, sizeof(EdgeHashEntry) * ENTRIES_CAPACITY(eh));
+    eh->map = MEM_reallocN(eh->map, sizeof(int32_t) * MAP_CAPACITY(eh));
     CLEAR_MAP(eh);
     for (uint i = 0; i < eh->length; i++) {
       edgehash_insert_index(eh, eh->entries[i].edge, i);
@@ -225,14 +224,13 @@ BLI_INLINE void edgehash_change_index(EdgeHash *eh, Edge edge, int new_index)
 
 EdgeHash *BLI_edgehash_new_ex(const char *info, const uint reserve)
 {
-  EdgeHash *eh = (EdgeHash *)MEM_mallocN(sizeof(EdgeHash), info);
+  EdgeHash *eh = MEM_mallocN(sizeof(EdgeHash), info);
   eh->capacity_exp = calc_capacity_exp_for_reserve(reserve);
   UPDATE_SLOT_MASK(eh);
   eh->length = 0;
   eh->dummy_count = 0;
-  eh->entries = (EdgeHashEntry *)MEM_calloc_arrayN(
-      sizeof(EdgeHashEntry), ENTRIES_CAPACITY(eh), "eh entries");
-  eh->map = (int32_t *)MEM_malloc_arrayN(sizeof(int32_t), MAP_CAPACITY(eh), "eh map");
+  eh->entries = MEM_calloc_arrayN(sizeof(EdgeHashEntry), ENTRIES_CAPACITY(eh), "eh entries");
+  eh->map = MEM_malloc_arrayN(sizeof(int32_t), MAP_CAPACITY(eh), "eh map");
   CLEAR_MAP(eh);
   return eh;
 }
@@ -471,7 +469,7 @@ void BLI_edgehash_clear(EdgeHash *eh, EdgeHashFreeFP free_value)
  */
 EdgeHashIterator *BLI_edgehashIterator_new(EdgeHash *eh)
 {
-  EdgeHashIterator *ehi = (EdgeHashIterator *)MEM_mallocN(sizeof(EdgeHashIterator), __func__);
+  EdgeHashIterator *ehi = MEM_mallocN(sizeof(EdgeHashIterator), __func__);
   BLI_edgehashIterator_init(ehi, eh);
   return ehi;
 }
@@ -512,12 +510,12 @@ void BLI_edgehashIterator_free(EdgeHashIterator *ehi)
 
 EdgeSet *BLI_edgeset_new_ex(const char *info, const uint reserve)
 {
-  EdgeSet *es = (EdgeSet *)MEM_mallocN(sizeof(EdgeSet), info);
+  EdgeSet *es = MEM_mallocN(sizeof(EdgeSet), info);
   es->capacity_exp = calc_capacity_exp_for_reserve(reserve);
   UPDATE_SLOT_MASK(es);
   es->length = 0;
-  es->entries = (Edge *)MEM_malloc_arrayN(sizeof(Edge), ENTRIES_CAPACITY(es), "es entries");
-  es->map = (int32_t *)MEM_malloc_arrayN(sizeof(int32_t), MAP_CAPACITY(es), "es map");
+  es->entries = MEM_malloc_arrayN(sizeof(Edge), ENTRIES_CAPACITY(es), "es entries");
+  es->map = MEM_malloc_arrayN(sizeof(int32_t), MAP_CAPACITY(es), "es map");
   CLEAR_MAP(es);
   return es;
 }
@@ -554,8 +552,8 @@ BLI_INLINE void edgeset_ensure_can_insert(EdgeSet *es)
   if (UNLIKELY(ENTRIES_CAPACITY(es) <= es->length)) {
     es->capacity_exp++;
     UPDATE_SLOT_MASK(es);
-    es->entries = (Edge *)MEM_reallocN(es->entries, sizeof(Edge) * ENTRIES_CAPACITY(es));
-    es->map = (int32_t *)MEM_reallocN(es->map, sizeof(int32_t) * MAP_CAPACITY(es));
+    es->entries = MEM_reallocN(es->entries, sizeof(Edge) * ENTRIES_CAPACITY(es));
+    es->map = MEM_reallocN(es->map, sizeof(int32_t) * MAP_CAPACITY(es));
     CLEAR_MAP(es);
     for (uint i = 0; i < es->length; i++) {
       edgeset_insert_index(es, es->entries[i], i);
@@ -625,7 +623,7 @@ bool BLI_edgeset_haskey(EdgeSet *es, uint v0, uint v1)
 
 EdgeSetIterator *BLI_edgesetIterator_new(EdgeSet *es)
 {
-  EdgeSetIterator *esi = (EdgeSetIterator *)MEM_mallocN(sizeof(EdgeSetIterator), __func__);
+  EdgeSetIterator *esi = MEM_mallocN(sizeof(EdgeSetIterator), __func__);
   esi->edges = es->entries;
   esi->length = es->length;
   esi->index = 0;
