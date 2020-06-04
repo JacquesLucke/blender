@@ -47,7 +47,7 @@ namespace BLI {
  * The alignment of StackChunk is at least the alignment of T, because that makes it simpler to
  * allocate a StackChunk and the referenced memory in a single heap allocation.
  */
-template<typename T> struct alignas(alignof(T)) StackChunk {
+template<typename T> struct alignas(std::max(alignof(T), alignof(void *))) StackChunk {
   /** The below chunk contains the elements that have been pushed on the stack before. */
   StackChunk *below;
   /** The above chunk contains the elements that have been pushed on the stack afterwards. */
