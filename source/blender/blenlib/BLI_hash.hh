@@ -31,19 +31,20 @@
  *   uint32_t hash = hash_function(value);
  *
  * Hash table implementations like BLI::Set support heterogeneous key lookups. That means that one
- * can do a lookup of a key of type A in a hash table that stores keys of type B. This is commonly
- * done when B is std::string, because the conversion from e.g. a StringRef to std::string can be
- * costly and is unnecessary. To make this work values of type A and B, that compare equal, have to
- * have the same hash value. This is achieved by defining potentially multiple `operator()` in a
- * specialization of DefaultHash. All those methods have to compute the same hash for values that
- * compare equal.
+ * can do a lookup with a key of type A in a hash table that stores keys of type B. This is
+ * commonly done when B is std::string, because the conversion from e.g. a StringRef to std::string
+ * can be costly and is unnecessary. To make this work, values of type A and B that compare equal
+ * have to have the same hash value. This is achieved by defining potentially multiple `operator()`
+ * in a specialization of DefaultHash. All those methods have to compute the same hash for values
+ * that compare equal.
  *
  * The computed hash is an unsigned 32 bit integer. Ideally, the hash function would generate
  * uniformly random hash values for a set of keys. However, in many cases trivial hash functions
- * are faster and produce a good enough distribution. By choosing a good probing strategy, the
- * effects of a bad hash function are less noticable. In this context a good probing strategy is
- * one that takes all bits of the hash into account eventually. One has to check on a case by case
- * basis to see if a better but more expensive or trivial hash function works better.
+ * are faster and produce a good enough distribution. In general it is better when more information
+ * is in the lower bits of the hash. By choosing a good probing strategy, the effects of a bad hash
+ * function are less noticable though. In this context a good probing strategy is one that takes
+ * all bits of the hash into account eventually. One has to check on a case by case basis to see if
+ * a better but more expensive or trivial hash function works better.
  *
  * There are three main ways to provide a hash table implementation with a custom hash function.
  *
@@ -106,7 +107,7 @@ template<typename T> struct DefaultHash {
 
 /**
  * We cannot make any assumptions about the distribution of keys, so use a trivial hash function by
- * default. The hash table implementations are designed to take all bits of the hash into account
+ * default. The default probing strategy is designed to take all bits of the hash into account
  * to avoid worst case behavior when the lower bits are all zero. Special hash functions can be
  * implemented when more knowledge about a specific key distribution is available.
  */
