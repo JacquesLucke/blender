@@ -21,7 +21,7 @@
  *
  * An `Allocator` can allocate and deallocate memory. It is used by containers such as BLI::Vector.
  * The allocators defined in this file do not work with standard library containers such as
- * std::Vector.
+ * std::vector.
  *
  * Every allocator has to implement two methods:
  *   void *allocate(size_t size, size_t alignment, const char *name);

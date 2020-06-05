@@ -31,7 +31,7 @@
  * `BLI::ArrayRef<T>` should be your default choice when you have to pass a read-only array into a
  * function. It is better than passing a `const Vector &`, because then the function only works for
  * vectors and not for e.g. arrays. Using ArrayRef as function parameter makes it usable in more
- * contexts, better expresses the intend and does not sacrifice performance. It is also better than
+ * contexts, better expresses the intent and does not sacrifice performance. It is also better than
  * passing a raw pointer and size separately, because it is more convenient and safe.
  *
  * `BLI::MutableArrayRef<T>` can be used when a function is supposed to return an array, the size
@@ -44,7 +44,7 @@
  * then the function has to specify whether the referenced array is expected to be initialized or
  * not.
  *
- * Since the arrays are only referenced, it is generally not save to store an ArrayRef. When you
+ * Since the arrays are only referenced, it is generally not safe to store an ArrayRef. When you
  * store one, you should know who owns the memory.
  *
  * Instances of ArrayRef and MutableArrayRef are small and should be passed by value.
@@ -282,7 +282,8 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Get element at the given index. If the index is out of range, return the fallback value.
+   * Returns the element at the given index. If the index is out of range, return the fallback
+   * value.
    */
   T get(uint index, const T &fallback) const
   {
@@ -334,8 +335,8 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Get the index of the first occurrence of the given value. This invokes undefined behavior when
-   * the value is not in the array.
+   * Returns the index of the first occurrence of the given value. This invokes undefined behavior
+   * when the value is not in the array.
    */
   uint first_index(const T &search_value) const
   {
@@ -345,7 +346,7 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Get the index of the first occurrence of the given value or -1 if it does not exist.
+   * Returns the index of the first occurrence of the given value or -1 if it does not exist.
    */
   int first_index_try(const T &search_value) const
   {
@@ -367,7 +368,7 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Get a new ArrayRef to the same underlying memory buffer. No conversions are done.
+   * Returns a new ArrayRef to the same underlying memory buffer. No conversions are done.
    */
   template<typename NewT> ArrayRef<NewT> cast() const
   {
@@ -446,7 +447,7 @@ template<typename T> class MutableArrayRef {
   }
 
   /**
-   * Get the number of elements in the array.
+   * Returns the number of elements in the array.
    */
   uint size() const
   {
@@ -474,8 +475,8 @@ template<typename T> class MutableArrayRef {
   }
 
   /**
-   * Get a pointer to the beginning of the referenced array. This may be nullptr, when the size is
-   * zero.
+   * Returns a pointer to the beginning of the referenced array. This may be nullptr, when the size
+   * is zero.
    */
   T *data() const
   {
@@ -549,8 +550,8 @@ template<typename T> class MutableArrayRef {
   }
 
   /**
-   * Get an (immutable) ArrayRef that references the same array. This is usually not needed, due to
-   * implicit conversions. However, sometimes automatic type deduction needs some help.
+   * Returns an (immutable) ArrayRef that references the same array. This is usually not needed,
+   * due to implicit conversions. However, sometimes automatic type deduction needs some help.
    */
   ArrayRef<T> as_ref() const
   {
@@ -567,7 +568,8 @@ template<typename T> class MutableArrayRef {
   }
 
   /**
-   * Get a reference to the last element. This invokes undefined behavior when the array is empty.
+   * Returns a reference to the last element. This invokes undefined behavior when the array is
+   * empty.
    */
   const T &last() const
   {
@@ -576,7 +578,7 @@ template<typename T> class MutableArrayRef {
   }
 
   /**
-   * Get a new array ref to the same underlying memory buffer. No conversions are done.
+   * Returns a new array ref to the same underlying memory buffer. No conversions are done.
    */
   template<typename NewT> MutableArrayRef<NewT> cast() const
   {

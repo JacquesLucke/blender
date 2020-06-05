@@ -104,7 +104,7 @@ template<typename Key, typename Value> class SimpleMapSlot {
   }
 
   /**
-   * Get a non-const pointer to the position where the key is stored.
+   * Returns a non-const pointer to the position where the key is stored.
    */
   Key *key()
   {
@@ -112,7 +112,7 @@ template<typename Key, typename Value> class SimpleMapSlot {
   }
 
   /**
-   * Get a const pointer to the position where the key is stored.
+   * Returns a const pointer to the position where the key is stored.
    */
   const Key *key() const
   {
@@ -120,7 +120,7 @@ template<typename Key, typename Value> class SimpleMapSlot {
   }
 
   /**
-   * Get a non-const pointer to the position where the value is stored.
+   * Returns a non-const pointer to the position where the value is stored.
    */
   Value *value()
   {
@@ -128,7 +128,7 @@ template<typename Key, typename Value> class SimpleMapSlot {
   }
 
   /**
-   * Get a const pointer to the position where the value is stored.
+   * Returns a const pointer to the position where the value is stored.
    */
   const Value *value() const
   {
@@ -136,7 +136,7 @@ template<typename Key, typename Value> class SimpleMapSlot {
   }
 
   /**
-   * Return true if the slot currently contains a key and a value.
+   * Returns true if the slot currently contains a key and a value.
    */
   bool is_occupied() const
   {
@@ -144,7 +144,7 @@ template<typename Key, typename Value> class SimpleMapSlot {
   }
 
   /**
-   * Return true if the slot is empty, i.e. it does not contain a key and is not in removed state.
+   * Returns true if the slot is empty, i.e. it does not contain a key and is not in removed state.
    */
   bool is_empty() const
   {
@@ -152,7 +152,7 @@ template<typename Key, typename Value> class SimpleMapSlot {
   }
 
   /**
-   * Return the hash of the currently stored key. In this simple map slot implementation, we just
+   * Returns the hash of the currently stored key. In this simple map slot implementation, we just
    * computed the hash here. Other implementations might store the hash in the slot instead.
    */
   template<typename Hash> uint32_t get_hash(const Hash &hash)
@@ -177,7 +177,7 @@ template<typename Key, typename Value> class SimpleMapSlot {
   }
 
   /**
-   * Return true, when this slot is occupied and contains a key that compares equal to the given
+   * Returns true, when this slot is occupied and contains a key that compares equal to the given
    * key. The hash can be used by other slot implementations to determine inequality faster.
    */
   template<typename ForwardKey, typename IsEqual>

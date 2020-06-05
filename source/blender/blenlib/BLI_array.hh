@@ -30,7 +30,7 @@
  * cases, this adds overhead. If this becomes a problem, a different constructor which does not do
  * default construction can be added.
  *
- * A main benefit of using Array over Vector is that it expresses the intend of the developer
+ * A main benefit of using Array over Vector is that it expresses the intent of the developer
  * better. It indicates that the size of the data structure is not expected to change. Furthermore,
  * you can be more certain that an array does not overallocate.
  *

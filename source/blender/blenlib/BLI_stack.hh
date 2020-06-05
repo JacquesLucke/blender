@@ -28,6 +28,12 @@
  * is done. Consequently, values stored in the stack have to be movable and they might be moved,
  * when the stack is moved.
  *
+ * A Vector can be used to emulate a stack. However, this stack implementation is more efficient
+ * when all you have to do is to push and pop elements. That is because a vector guarantees that
+ * all elements are in a contiguous array. Therefore, it has to copy all elements to a new buffer
+ * when it grows. This stack implementation does not have to copy all previously pushed elements
+ * when it grows.
+ *
  * BLI::Stack is implemented using a double linked list of chunks. Each chunk contains an array of
  * elements. The chunk size increases exponentially with every new chunk that is required. The
  * lowest chunk, i.e. the one that is used for the first few pushed elements, is embedded into the

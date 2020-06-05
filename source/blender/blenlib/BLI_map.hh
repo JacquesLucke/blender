@@ -90,7 +90,7 @@ template<
     /**
      * The minimum number of elements that can be stored in this Map without doing a heap
      * allocation. This is useful when you expect to have many small maps. However, keep in mind
-     * that (other than in a vector) initializing a map has a O(n) cost in the number of slots.
+     * that (unlike vector) initializing a map has a O(n) cost in the number of slots.
      *
      * When Key or Value are large, the small buffer optimization is disabled by default to avoid
      * large unexpected allocations on the stack. It can still be enabled explicitely though.

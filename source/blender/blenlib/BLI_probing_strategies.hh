@@ -41,7 +41,7 @@
  * The SLOT_PROBING_BEGIN and SLOT_PROBING_END macros can be used to implement a loop that iterates
  * over a probing sequence.
  *
- * Probing strategies can be evaluated with many different criterions. Different use cases often
+ * Probing strategies can be evaluated with many different criteria. Different use cases often
  * have different optimal strategies. Examples:
  * - If the hash function generates a well distributed initial hash value, the constructor should
  *   be as short as possible. This is because the hash value can be used as slot index almost
