@@ -236,9 +236,9 @@ class VectorSet {
   }
 
   /**
-   * Add a new key to the vector set. This method will fail if the key already exists in the set.
-   * When you know for certain that a key is not in the set yet, use this method for better
-   * performance. This also expresses the intend better.
+   * Add a new key to the vector set. This invokes undefined behavior when the key is in the set
+   * already. When you know for certain that a key is not in the set yet, use this method for
+   * better performance. This also expresses the intend better.
    */
   void add_new(const Key &key)
   {
@@ -324,8 +324,8 @@ class VectorSet {
   }
 
   /**
-   * Deletes the key from the set. This will fail when the key is not in the set. This might change
-   * the order of elements in the vector.
+   * Deletes the key from the set. This invokes undefined behavior when the key is not in the set.
+   * It might change the order of elements in the vector.
    */
   void remove_contained(const Key &key)
   {

@@ -116,8 +116,8 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Returns a contiguous part of the array. This fails when the slice does not stay within the
-   * bounds of the array.
+   * Returns a contiguous part of the array. This invokes undefined behavior when the slice does
+   * not stay within the bounds of the array.
    */
   ArrayRef slice(uint start, uint size) const
   {
@@ -131,8 +131,8 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Returns a new ArrayRef with n elements removed from the beginning. This fails when the array
-   * is too small.
+   * Returns a new ArrayRef with n elements removed from the beginning. This invokes undefined
+   * behavior when the array is too small.
    */
   ArrayRef drop_front(uint n) const
   {
@@ -141,8 +141,8 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Returns a new ArrayRef with n elements removed from the beginning. This fails when the array
-   * is too small.
+   * Returns a new ArrayRef with n elements removed from the beginning. This invokes undefined
+   * behavior when the array is too small.
    */
   ArrayRef drop_back(uint n) const
   {
@@ -151,8 +151,8 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Returns a new ArrayRef that only contains the first n elements. This fails when the array
-   * is too small.
+   * Returns a new ArrayRef that only contains the first n elements. This invokes undefined
+   * behavior when the array is too small.
    */
   ArrayRef take_front(uint n) const
   {
@@ -161,8 +161,8 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Returns a new ArrayRef that only contains the last n elements. This fails when the array
-   * is too small.
+   * Returns a new ArrayRef that only contains the last n elements. This invokes undefined
+   * behavior when the array is too small.
    */
   ArrayRef take_back(uint n) const
   {
@@ -190,7 +190,8 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Access an element in the array. This fails when the index is out of bounds.
+   * Access an element in the array. This invokes undefined behavior when the index is out of
+   * bounds.
    */
   const T &operator[](uint index) const
   {
@@ -261,7 +262,8 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Return a reference to the first element in the array. This fails when the array is empty.
+   * Return a reference to the first element in the array. This invokes undefined behavior when the
+   * array is empty.
    */
   const T &first() const
   {
@@ -270,7 +272,8 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Returns a reference to the last element in the array. This fails when the array is empty.
+   * Returns a reference to the last element in the array. This invokes undefined behavior when the
+   * array is empty.
    */
   const T &last() const
   {
@@ -331,8 +334,8 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Get the index of the first occurrence of the given value. This fails when the value is not in
-   * the array.
+   * Get the index of the first occurrence of the given value. This invokes undefined behavior when
+   * the value is not in the array.
    */
   uint first_index(const T &search_value) const
   {
@@ -459,8 +462,8 @@ template<typename T> class MutableArrayRef {
   }
 
   /**
-   * Replace a subset of all elements with the given value. This fails when an index is out of
-   * bounds.
+   * Replace a subset of all elements with the given value. This invokes undefined behavior when
+   * one of the indices is out of bounds.
    */
   void fill_indices(ArrayRef<uint> indices, const T &value)
   {
@@ -496,7 +499,8 @@ template<typename T> class MutableArrayRef {
   }
 
   /**
-   * Returns a contiguous part of the array. This fails when the slice would go out of bounds.
+   * Returns a contiguous part of the array. This invokes undefined behavior when the slice would
+   * go out of bounds.
    */
   MutableArrayRef slice(uint start, uint length) const
   {
@@ -505,8 +509,8 @@ template<typename T> class MutableArrayRef {
   }
 
   /**
-   * Returns a new MutableArrayRef with n elements removed from the beginning. This fails when the
-   * array is too small.
+   * Returns a new MutableArrayRef with n elements removed from the beginning. This invokes
+   * undefined behavior when the array is too small.
    */
   MutableArrayRef drop_front(uint n) const
   {
@@ -515,8 +519,8 @@ template<typename T> class MutableArrayRef {
   }
 
   /**
-   * Returns a new MutableArrayRef with n elements removed from the end. This fails when the array
-   * is too small.
+   * Returns a new MutableArrayRef with n elements removed from the end. This invokes undefined
+   * behavior when the array is too small.
    */
   MutableArrayRef drop_back(uint n) const
   {
@@ -525,8 +529,8 @@ template<typename T> class MutableArrayRef {
   }
 
   /**
-   * Returns a new MutableArrayRef that only contains the first n elements. This fails when the
-   * array is too small.
+   * Returns a new MutableArrayRef that only contains the first n elements. This invokes undefined
+   * behavior when the array is too small.
    */
   MutableArrayRef take_front(uint n) const
   {
@@ -535,8 +539,8 @@ template<typename T> class MutableArrayRef {
   }
 
   /**
-   * Return a new MutableArrayRef that only contains the last n elements. This fails when the array
-   * is too small.
+   * Return a new MutableArrayRef that only contains the last n elements. This invokes undefined
+   * behavior when the array is too small.
    */
   MutableArrayRef take_back(uint n) const
   {
@@ -563,7 +567,7 @@ template<typename T> class MutableArrayRef {
   }
 
   /**
-   * Get a reference to the last element. This will fail when the array is empty.
+   * Get a reference to the last element. This invokes undefined behavior when the array is empty.
    */
   const T &last() const
   {

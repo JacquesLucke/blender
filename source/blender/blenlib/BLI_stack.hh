@@ -241,7 +241,8 @@ class Stack {
   }
 
   /**
-   * Remove and return the top-most element from the stack. This will fail when the stack is empty.
+   * Remove and return the top-most element from the stack. This invokes undefined behavior when
+   * the stack is empty.
    */
   T pop()
   {
@@ -261,8 +262,8 @@ class Stack {
   }
 
   /**
-   * Get a reference to the top-most element without removing it from the stack. This will fail
-   * when the stack is empty.
+   * Get a reference to the top-most element without removing it from the stack. This invokes
+   * undefined behavior when the stack is empty.
    */
   T &peek()
   {
@@ -339,7 +340,7 @@ class Stack {
    * be smaller than the given size_hint. This happens when a chunk that has been allocated before
    * is reused. The size of the new chunk will be at least one.
    *
-   * This fails when the current top chunk is not full.
+   * This invokes undefined behavior when the currently active chunk is not full.
    */
   void activate_next_chunk(uint size_hint)
   {

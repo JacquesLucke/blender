@@ -119,8 +119,8 @@ class StringRefBase {
   }
 
   /**
-   * Copy the string into a buffer. This will fail when the buffer is not large enough. The copied
-   * string will be null-terminated.
+   * Copy the string into a buffer. The copied string will be null-terminated. This invokes
+   * undefined behavior when dst_size is too small. (Should we define the behavior?)
    */
   void copy(char *dst, uint dst_size) const
   {
@@ -134,7 +134,8 @@ class StringRefBase {
   }
 
   /**
-   * Copy the string into a char array. The copied string will be null-terminated.
+   * Copy the string into a char array. The copied string will be null-terminated. This invokes
+   * undefined behavior when dst is too small.
    */
   template<uint N> void copy(char (&dst)[N])
   {
@@ -174,8 +175,8 @@ class StringRefNull : public StringRefBase {
   }
 
   /**
-   * Construct a StringRefNull from a null terminated c-string. The size is expected to be the
-   * correct size of the string.
+   * Construct a StringRefNull from a null terminated c-string. This invokes undefined behavior
+   * when the given size is not the correct size of the string.
    */
   StringRefNull(const char *str, uint size) : StringRefBase(str, size)
   {

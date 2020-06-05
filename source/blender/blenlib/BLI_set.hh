@@ -233,9 +233,9 @@ class Set {
   }
 
   /**
-   * Add a new key to the set. This method will fail if the key already exists in the set. When you
-   * know for certain that a key is not in the set yet, use this method for better performance.
-   * This also expresses the intend better.
+   * Add a new key to the set. This invokes undefined behavior when the key is in the set already.
+   * When you know for certain that a key is not in the set yet, use this method for better
+   * performance. This also expresses the intend better.
    */
   void add_new(const Key &key)
   {
@@ -331,7 +331,7 @@ class Set {
   }
 
   /**
-   * Deletes the key from the set. This will fail if the key is not contained in the set.
+   * Deletes the key from the set. This invokes undefined behavior when the key is not in the map.
    */
   void remove_contained(const Key &key)
   {

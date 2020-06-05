@@ -142,7 +142,7 @@ class Vector {
   Vector(uint size, const T &value) : Vector()
   {
     this->reserve(size);
-    this->increase_size_unchecked(size);
+    this->increase_size_by_unchecked(size);
     BLI::uninitialized_fill_n(m_begin, size, value);
   }
 
@@ -163,7 +163,7 @@ class Vector {
   {
     uint size = values.size();
     this->reserve(size);
-    this->increase_size_unchecked(size);
+    this->increase_size_by_unchecked(size);
     BLI::uninitialized_copy_n(values.data(), size, m_begin);
   }
 
@@ -301,8 +301,8 @@ class Vector {
       return *this;
     }
 
-    /* This can fail, when the vector is used to build a recursive data structure.
-       See https://youtu.be/7Qgd9B1KuMQ?t=840. */
+    /* This can be incorrect, when the vector is used to build a recursive data structure. However,
+       we don't take care of it at this low level. See https://youtu.be/7Qgd9B1KuMQ?t=840. */
     this->~Vector();
     new (this) Vector(std::move(other));
 
@@ -430,9 +430,9 @@ class Vector {
   }
 
   /**
-   * Append the value and assume that vector has enough memory reserved. This will fail when not
-   * enough memory has been reserved beforehand. Only use this in absolutely performance critical
-   * code.
+   * Append the value and assume that vector has enough memory reserved. This invokes undefined
+   * behavior when not enough capacity has been reserved beforehand. Only use this in performance
+   * critical code.
    */
   void append_unchecked(const T &value)
   {
@@ -457,16 +457,16 @@ class Vector {
   {
     this->reserve(this->size() + n);
     BLI::uninitialized_fill_n(m_end, n, value);
-    this->increase_size_unchecked(n);
+    this->increase_size_by_unchecked(n);
   }
 
   /**
-   * Enlarges the size of the internal buffer that is considered to be initialized. This won't work
-   * when the new size is larger than the previously reserved size. The method can be useful when
-   * you want to call constructors in the vector yourself. This should only be done in very rare
-   * cases and has to be justified every time.
+   * Enlarges the size of the internal buffer that is considered to be initialized. This invokes
+   * undefined behavior when when the new size is larger than the capacity. The method can be
+   * useful when you want to call constructors in the vector yourself. This should only be done in
+   * very rare cases and has to be justified every time.
    */
-  void increase_size_unchecked(uint n)
+  void increase_size_by_unchecked(uint n)
   {
     BLI_assert(m_end + n <= m_capacity_end);
     m_end += n;
@@ -567,8 +567,8 @@ class Vector {
   }
 
   /**
-   * Deconstructs the last element and decreases the size by one. This will fail when the vector is
-   * empty.
+   * Destructs the last element and decreases the size by one. This invokes undefined behavior when
+   * the vector is empty.
    */
   void remove_last()
   {
@@ -579,8 +579,8 @@ class Vector {
   }
 
   /**
-   * Remove the last element from the vector and return it. This will fail when the vector is
-   * empty.
+   * Remove the last element from the vector and return it. This invokes undefined behavior when
+   * the vector is empty.
    *
    * This is similar to std::vector::pop_back.
    */
@@ -654,8 +654,8 @@ class Vector {
   }
 
   /**
-   * Do a linear search to find the value in the vector.
-   * When found, return the first index, otherwise fail.
+   * Do a linear search to find the value in the vector and return the found index. This invokes
+   * undefined behavior when the value is not in the vector.
    */
   uint first_index_of(const T &value) const
   {
@@ -673,6 +673,10 @@ class Vector {
     return this->first_index_of_try(value) != -1;
   }
 
+  /**
+   * Get the value at the given index. This invokes undefined behavior when the index is out of
+   * bounds.
+   */
   const T &operator[](uint index) const
   {
     BLI_assert(index < this->size());

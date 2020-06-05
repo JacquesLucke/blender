@@ -227,7 +227,8 @@ class Map {
   }
 
   /**
-   * Insert a new key-value-pair into the map. It is expected that the key is not yet in the map.
+   * Insert a new key-value-pair into the map. This invokes undefined behavior when the key is in
+   * the map already.
    */
   void add_new(const Key &key, const Value &value)
   {
@@ -352,8 +353,8 @@ class Map {
   }
 
   /**
-   * Deletes the key-value-pair with the given key. This fails when when the key is not contained
-   * in the map.
+   * Deletes the key-value-pair with the given key. This invokes undefined behavior when the key is
+   * not in the map.
    */
   void remove_contained(const Key &key)
   {
@@ -370,8 +371,8 @@ class Map {
   }
 
   /**
-   * Get the value that is stored for the given key and remove it from the map. This will fail if
-   * the key is not in the map.
+   * Get the value that is stored for the given key and remove it from the map. This invokes
+   * undefined behavior when the key is not in the map.
    */
   Value pop(const Key &key)
   {
@@ -460,8 +461,8 @@ class Map {
   }
 
   /**
-   * Returns a reference to the value that corresponds to the given key. This will fail if the key
-   * is not in the map.
+   * Returns a reference to the value that corresponds to the given key. This invokes undefined
+   * behavior when the key is not in the map.
    */
   const Value &lookup(const Key &key) const
   {
