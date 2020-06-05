@@ -20,7 +20,7 @@
 /** \file
  * \ingroup bli
  *
- * A `BLI::Map<Key, Value>` is an unordered assoziative container that stores key-value pairs. The
+ * A `BLI::Map<Key, Value>` is an unordered associative container that stores key-value pairs. The
  * keys have to be unique. It is designed to be a more convenient and efficient replacement for
  * `std::unordered_map`. All core operations (add, lookup, remove and contains) can be done in O(1)
  * amortized expected time.

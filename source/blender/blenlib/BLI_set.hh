@@ -235,7 +235,7 @@ class Set {
   /**
    * Add a new key to the set. This invokes undefined behavior when the key is in the set already.
    * When you know for certain that a key is not in the set yet, use this method for better
-   * performance. This also expresses the intend better.
+   * performance. This also expresses the intent better.
    */
   void add_new(const Key &key)
   {
