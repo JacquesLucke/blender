@@ -485,6 +485,21 @@ static void rna_uiTemplateAnyID(uiLayout *layout,
   uiTemplateAnyID(layout, ptr, propname, proptypename, name);
 }
 
+static void rna_uiTemplateCacheFile(uiLayout *layout,
+                                    bContext *C,
+                                    PointerRNA *ptr,
+                                    const char *propname)
+{
+  PropertyRNA *prop = RNA_struct_find_property(ptr, propname);
+
+  if (!prop) {
+    RNA_warning("property not found: %s.%s", RNA_struct_identifier(ptr->type), propname);
+    return;
+  }
+
+  uiTemplateCacheFile(layout, C, ptr, propname);
+}
+
 static void rna_uiTemplatePathBuilder(uiLayout *layout,
                                       PointerRNA *ptr,
                                       const char *propname,
@@ -1194,13 +1209,9 @@ void RNA_api_ui_layout(StructRNA *srna)
   RNA_def_parameter_flags(parm, 0, PARM_REQUIRED | PARM_RNAPTR);
   api_ui_item_common_text(func);
 
-  func = RNA_def_function(srna, "template_modifier", "uiTemplateModifier");
+  func = RNA_def_function(srna, "template_modifiers", "uiTemplateModifiers");
   RNA_def_function_flag(func, FUNC_USE_CONTEXT);
-  RNA_def_function_ui_description(func, "Generates the UI layout for modifiers");
-  parm = RNA_def_pointer(func, "data", "Modifier", "", "Modifier data");
-  RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
-  parm = RNA_def_pointer(func, "layout", "UILayout", "", "Sub-layout to put items in");
-  RNA_def_function_return(func, parm);
+  RNA_def_function_ui_description(func, "Generates the UI layout for the modifier stack");
 
   func = RNA_def_function(srna, "template_greasepencil_modifier", "uiTemplateGpencilModifier");
   RNA_def_function_flag(func, FUNC_USE_CONTEXT);
@@ -1577,7 +1588,7 @@ void RNA_api_ui_layout(StructRNA *srna)
   RNA_def_float_array(
       func, "color", 4, node_socket_color_default, 0.0f, 1.0f, "Color", "", 0.0f, 1.0f);
 
-  func = RNA_def_function(srna, "template_cache_file", "uiTemplateCacheFile");
+  func = RNA_def_function(srna, "template_cache_file", "rna_uiTemplateCacheFile");
   RNA_def_function_ui_description(
       func, "Item(s). User interface for selecting cache files and their source paths");
   RNA_def_function_flag(func, FUNC_USE_CONTEXT);

@@ -1785,17 +1785,17 @@ def km_sequencer(params):
              )
         ),
         ("sequencer.select", {"type": 'LEFTMOUSE', "value": 'PRESS'},
-         {"properties": [("extend", False), ("deselect_all", True), ("linked_handle", False), ("left_right", 'NONE'), ("linked_time", False)]}),
+         {"properties": [("deselect_all", True)]}),
         ("sequencer.select", {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True},
-         {"properties": [("extend", True), ("linked_handle", False), ("left_right", 'NONE'), ("linked_time", False)]}),
+         {"properties": [("extend", True)]}),
         ("sequencer.select", {"type": 'LEFTMOUSE', "value": 'PRESS', "alt": True},
-         {"properties": [("extend", False), ("linked_handle", True), ("left_right", 'NONE'), ("linked_time", False)]}),
+         {"properties": [("linked_handle", True)]}),
         ("sequencer.select", {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True, "alt": True},
-         {"properties": [("extend", True), ("linked_handle", True), ("left_right", 'NONE'), ("linked_time", False)]}),
+         {"properties": [("extend", True), ("linked_handle", True)]}),
         ("sequencer.select", {"type": 'LEFTMOUSE', "value": 'PRESS', "ctrl": True},
-         {"properties": [("extend", False), ("linked_handle", False), ("left_right", 'MOUSE'), ("linked_time", True)]}),
+         {"properties": [("side_of_frame", True), ("linked_time", True)]}),
         ("sequencer.select", {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True, "ctrl": True},
-         {"properties": [("extend", True), ("linked_handle", False), ("left_right", 'NONE'), ("linked_time", True)]}),
+         {"properties": [("extend", True), ("side_of_frame", True), ("linked_time", True)]}),
         ("sequencer.select_more", {"type": 'UP_ARROW', "value": 'PRESS'}, None),
         ("sequencer.select_less", {"type": 'DOWN_ARROW', "value": 'PRESS'}, None),
         ("sequencer.select_linked_pick", {"type": 'RIGHT_BRACKET', "value": 'PRESS'},
@@ -3768,6 +3768,8 @@ def km_object_non_modal(params):
     )
 
     items.extend([
+        ("object.mode_set",{"type": 'ONE', "value": 'PRESS'},
+         {"properties": [("mode", 'PAINT_GPENCIL')]}),
         ("object.mode_set",{"type": 'THREE', "value": 'PRESS'},
          {"properties": [("mode", 'POSE')]}),
         ("object.mode_set_with_submode",{"type": 'ONE', "value": 'PRESS'},
@@ -3790,11 +3792,11 @@ def km_object_non_modal(params):
          {"properties": [("mode", 'TEXTURE_PAINT')]}),
         ("object.mode_set",{"type": 'TWO', "value": 'PRESS'},
          {"properties": [("mode", 'EDIT_GPENCIL')]}),
-        ("object.mode_set",{"type": 'THREE', "value": 'PRESS'},
-         {"properties": [("mode", 'SCULPT_GPENCIL')]}),
-        ("object.mode_set",{"type": 'FOUR', "value": 'PRESS'},
-         {"properties": [("mode", 'PAINT_GPENCIL')]}),
         ("object.mode_set",{"type": 'FIVE', "value": 'PRESS'},
+         {"properties": [("mode", 'SCULPT_GPENCIL')]}),
+        ("object.mode_set",{"type": 'SIX', "value": 'PRESS'},
+         {"properties": [("mode", 'VERTEX_GPENCIL')]}),
+        ("object.mode_set",{"type": 'SEVEN', "value": 'PRESS'},
          {"properties": [("mode", 'WEIGHT_GPENCIL')]}),
 
     ])

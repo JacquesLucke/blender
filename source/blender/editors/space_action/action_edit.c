@@ -218,7 +218,7 @@ static bool get_keyframe_extents(bAnimContext *ac, float *min, float *max, const
         float tmin, tmax;
 
         /* get range and apply necessary scaling before processing */
-        if (calc_fcurve_range(fcu, &tmin, &tmax, onlySel, false)) {
+        if (BKE_fcurve_calc_range(fcu, &tmin, &tmax, onlySel, false)) {
 
           if (adt) {
             tmin = BKE_nla_tweakedit_remap(adt, tmin, NLATIME_CONVERT_MAP);
@@ -490,7 +490,7 @@ void ACTION_OT_view_frame(wmOperatorType *ot)
   /* identifiers */
   ot->name = "Go to Current Frame";
   ot->idname = "ACTION_OT_view_frame";
-  ot->description = "Move the view to the playhead";
+  ot->description = "Move the view to the current frame";
 
   /* api callbacks */
   ot->exec = actkeys_view_frame_exec;

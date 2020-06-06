@@ -31,6 +31,7 @@
 
 #include "DNA_anim_types.h"
 #include "DNA_object_types.h"
+#include "DNA_text_types.h"
 
 #include "BLI_blenlib.h"
 #include "BLI_easing.h"
@@ -43,6 +44,8 @@
 #include "BKE_fcurve.h"
 #include "BKE_fcurve_driver.h"
 #include "BKE_global.h"
+#include "BKE_idprop.h"
+#include "BKE_lib_query.h"
 #include "BKE_nla.h"
 
 #include "RNA_access.h"
@@ -55,11 +58,15 @@
 static CLG_LogRef LOG = {"bke.fcurve"};
 
 /* ************************** Data-Level Functions ************************* */
-
+FCurve *BKE_fcurve_create(void)
+{
+  FCurve *fcu = MEM_callocN(sizeof(FCurve), __func__);
+  return fcu;
+}
 /* ---------------------- Freeing --------------------------- */
 
 /* Frees the F-Curve itself too, so make sure BLI_remlink is called before calling this... */
-void free_fcurve(FCurve *fcu)
+void BKE_fcurve_free(FCurve *fcu)
 {
   if (fcu == NULL) {
     return;
@@ -81,7 +88,7 @@ void free_fcurve(FCurve *fcu)
 }
 
 /* Frees a list of F-Curves */
-void free_fcurves(ListBase *list)
+void BKE_fcurves_free(ListBase *list)
 {
   FCurve *fcu, *fcn;
 
@@ -96,7 +103,7 @@ void free_fcurves(ListBase *list)
    */
   for (fcu = list->first; fcu; fcu = fcn) {
     fcn = fcu->next;
-    free_fcurve(fcu);
+    BKE_fcurve_free(fcu);
   }
 
   /* clear pointers just in case */
@@ -106,7 +113,7 @@ void free_fcurves(ListBase *list)
 /* ---------------------- Copy --------------------------- */
 
 /* duplicate an F-Curve */
-FCurve *copy_fcurve(const FCurve *fcu)
+FCurve *BKE_fcurve_copy(const FCurve *fcu)
 {
   FCurve *fcu_d;
 
@@ -139,7 +146,7 @@ FCurve *copy_fcurve(const FCurve *fcu)
 }
 
 /* duplicate a list of F-Curves */
-void copy_fcurves(ListBase *dst, ListBase *src)
+void BKE_fcurves_copy(ListBase *dst, ListBase *src)
 {
   FCurve *dfcu, *sfcu;
 
@@ -153,8 +160,40 @@ void copy_fcurves(ListBase *dst, ListBase *src)
 
   /* copy one-by-one */
   for (sfcu = src->first; sfcu; sfcu = sfcu->next) {
-    dfcu = copy_fcurve(sfcu);
+    dfcu = BKE_fcurve_copy(sfcu);
     BLI_addtail(dst, dfcu);
+  }
+}
+
+/** Callback used by lib_query to walk over all ID usages (mimics `foreach_id` callback of
+ * `IDTypeInfo` structure). */
+void BKE_fcurve_foreach_id(FCurve *fcu, LibraryForeachIDData *data)
+{
+  ChannelDriver *driver = fcu->driver;
+
+  if (driver != NULL) {
+    LISTBASE_FOREACH (DriverVar *, dvar, &driver->variables) {
+      /* only used targets */
+      DRIVER_TARGETS_USED_LOOPER_BEGIN (dvar) {
+        BKE_LIB_FOREACHID_PROCESS_ID(data, dtar->id, IDWALK_CB_NOP);
+      }
+      DRIVER_TARGETS_LOOPER_END;
+    }
+  }
+
+  LISTBASE_FOREACH (FModifier *, fcm, &fcu->modifiers) {
+    switch (fcm->type) {
+      case FMODIFIER_TYPE_PYTHON: {
+        FMod_Python *fcm_py = (FMod_Python *)fcm->data;
+        BKE_LIB_FOREACHID_PROCESS(data, fcm_py->script, IDWALK_CB_NOP);
+
+        IDP_foreach_property(fcm_py->prop,
+                             IDP_TYPE_FILTER_ID,
+                             BKE_lib_query_idpropertiesForeachIDLink_callback,
+                             data);
+        break;
+      }
+    }
   }
 }
 
@@ -195,12 +234,12 @@ FCurve *id_data_find_fcurve(
 
   /* animation takes priority over drivers */
   if (adt->action && adt->action->curves.first) {
-    fcu = list_find_fcurve(&adt->action->curves, path, index);
+    fcu = BKE_fcurve_find(&adt->action->curves, path, index);
   }
 
   /* if not animated, check if driven */
   if (fcu == NULL && adt->drivers.first) {
-    fcu = list_find_fcurve(&adt->drivers, path, index);
+    fcu = BKE_fcurve_find(&adt->drivers, path, index);
     if (fcu && r_driven) {
       *r_driven = true;
     }
@@ -214,7 +253,7 @@ FCurve *id_data_find_fcurve(
 
 /* Find the F-Curve affecting the given RNA-access path + index,
  * in the list of F-Curves provided. */
-FCurve *list_find_fcurve(ListBase *list, const char rna_path[], const int array_index)
+FCurve *BKE_fcurve_find(ListBase *list, const char rna_path[], const int array_index)
 {
   FCurve *fcu;
 
@@ -239,7 +278,7 @@ FCurve *list_find_fcurve(ListBase *list, const char rna_path[], const int array_
 }
 
 /* quick way to loop over all fcurves of a given 'path' */
-FCurve *iter_step_fcurve(FCurve *fcu_iter, const char rna_path[])
+FCurve *BKE_fcurve_iter_step(FCurve *fcu_iter, const char rna_path[])
 {
   FCurve *fcu;
 
@@ -272,10 +311,7 @@ FCurve *iter_step_fcurve(FCurve *fcu_iter, const char rna_path[])
  * - dataPrefix: i.e. 'pose.bones[' or 'nodes['
  * - dataName: name of entity within "" immediately following the prefix
  */
-int list_find_data_fcurves(ListBase *dst,
-                           ListBase *src,
-                           const char *dataPrefix,
-                           const char *dataName)
+int BKE_fcurves_filter(ListBase *dst, ListBase *src, const char *dataPrefix, const char *dataName)
 {
   FCurve *fcu;
   int matches = 0;
@@ -317,26 +353,26 @@ int list_find_data_fcurves(ListBase *dst,
   return matches;
 }
 
-FCurve *rna_get_fcurve(PointerRNA *ptr,
-                       PropertyRNA *prop,
-                       int rnaindex,
-                       AnimData **r_adt,
-                       bAction **r_action,
-                       bool *r_driven,
-                       bool *r_special)
+FCurve *BKE_fcurve_find_by_rna(PointerRNA *ptr,
+                               PropertyRNA *prop,
+                               int rnaindex,
+                               AnimData **r_adt,
+                               bAction **r_action,
+                               bool *r_driven,
+                               bool *r_special)
 {
-  return rna_get_fcurve_context_ui(
+  return BKE_fcurve_find_by_rna_context_ui(
       NULL, ptr, prop, rnaindex, r_adt, r_action, r_driven, r_special);
 }
 
-FCurve *rna_get_fcurve_context_ui(bContext *C,
-                                  PointerRNA *ptr,
-                                  PropertyRNA *prop,
-                                  int rnaindex,
-                                  AnimData **r_animdata,
-                                  bAction **r_action,
-                                  bool *r_driven,
-                                  bool *r_special)
+FCurve *BKE_fcurve_find_by_rna_context_ui(bContext *C,
+                                          PointerRNA *ptr,
+                                          PropertyRNA *prop,
+                                          int rnaindex,
+                                          AnimData **r_animdata,
+                                          bAction **r_action,
+                                          bool *r_driven,
+                                          bool *r_special)
 {
   FCurve *fcu = NULL;
   PointerRNA tptr = *ptr;
@@ -361,7 +397,7 @@ FCurve *rna_get_fcurve_context_ui(bContext *C,
     *r_special = true;
 
     /* The F-Curve either exists or it doesn't here... */
-    fcu = list_find_fcurve(&strip->fcurves, RNA_property_identifier(prop), rnaindex);
+    fcu = BKE_fcurve_find(&strip->fcurves, RNA_property_identifier(prop), rnaindex);
     return fcu;
   }
 
@@ -397,7 +433,7 @@ FCurve *rna_get_fcurve_context_ui(bContext *C,
       // XXX: the logic here is duplicated with a function up above
       /* animation takes priority over drivers */
       if (adt->action && adt->action->curves.first) {
-        fcu = list_find_fcurve(&adt->action->curves, path, rnaindex);
+        fcu = BKE_fcurve_find(&adt->action->curves, path, rnaindex);
 
         if (fcu && r_action) {
           *r_action = adt->action;
@@ -406,7 +442,7 @@ FCurve *rna_get_fcurve_context_ui(bContext *C,
 
       /* if not animated, check if driven */
       if (!fcu && (adt->drivers.first)) {
-        fcu = list_find_fcurve(&adt->drivers, path, rnaindex);
+        fcu = BKE_fcurve_find(&adt->drivers, path, rnaindex);
 
         if (fcu) {
           if (r_animdata) {
@@ -596,13 +632,13 @@ static short get_fcurve_end_keyframes(FCurve *fcu,
 }
 
 /* Calculate the extents of F-Curve's data */
-bool calc_fcurve_bounds(FCurve *fcu,
-                        float *xmin,
-                        float *xmax,
-                        float *ymin,
-                        float *ymax,
-                        const bool do_sel_only,
-                        const bool include_handles)
+bool BKE_fcurve_calc_bounds(FCurve *fcu,
+                            float *xmin,
+                            float *xmax,
+                            float *ymin,
+                            float *ymax,
+                            const bool do_sel_only,
+                            const bool include_handles)
 {
   float xminv = 999999999.0f, xmaxv = -999999999.0f;
   float yminv = 999999999.0f, ymaxv = -999999999.0f;
@@ -726,7 +762,7 @@ bool calc_fcurve_bounds(FCurve *fcu,
 }
 
 /* Calculate the extents of F-Curve's keyframes */
-bool calc_fcurve_range(
+bool BKE_fcurve_calc_range(
     FCurve *fcu, float *start, float *end, const bool do_sel_only, const bool do_min_length)
 {
   float min = 999999999.0f, max = -999999999.0f;
@@ -779,7 +815,7 @@ bool calc_fcurve_range(
  * Usability of keyframes refers to whether they should be displayed,
  * and also whether they will have any influence on the final result.
  */
-bool fcurve_are_keyframes_usable(FCurve *fcu)
+bool BKE_fcurve_are_keyframes_usable(FCurve *fcu)
 {
   /* F-Curve must exist */
   if (fcu == NULL) {
@@ -847,10 +883,10 @@ bool BKE_fcurve_is_protected(FCurve *fcu)
 /* Can keyframes be added to F-Curve?
  * Keyframes can only be added if they are already visible
  */
-bool fcurve_is_keyframable(FCurve *fcu)
+bool BKE_fcurve_is_keyframable(FCurve *fcu)
 {
   /* F-Curve's keyframes must be "usable" (i.e. visible + have an effect on final result) */
-  if (fcurve_are_keyframes_usable(fcu) == 0) {
+  if (BKE_fcurve_are_keyframes_usable(fcu) == 0) {
     return false;
   }
 
@@ -1447,8 +1483,8 @@ static float fcurve_eval_keyframes_extrapolate(
     return endpoint_bezt->vec[1][1] - (fac * dx);
   }
 
-  /* Use the gradient of the second handle (later) of neighbour to calculate the gradient and thus
-   * the value of the curve at evaltime */
+  /* Use the gradient of the second handle (later) of neighbor to calculate the gradient and thus
+   * the value of the curve at evaluation time. */
   int handle = direction_to_neighbor > 0 ? 0 : 2;
   float dx = endpoint_bezt->vec[1][0] - evaltime;
   float fac = endpoint_bezt->vec[1][0] - endpoint_bezt->vec[handle][0];

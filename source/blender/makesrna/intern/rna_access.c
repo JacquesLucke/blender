@@ -2182,7 +2182,7 @@ bool RNA_property_animated(PointerRNA *ptr, PropertyRNA *prop)
   }
 
   for (index = 0; index < len; index++) {
-    if (rna_get_fcurve(ptr, prop, index, NULL, NULL, &driven, &special)) {
+    if (BKE_fcurve_find_by_rna(ptr, prop, index, NULL, NULL, &driven, &special)) {
       return true;
     }
   }
@@ -4386,8 +4386,8 @@ static int rna_raw_access(ReportList *reports,
     /* check type */
     itemtype = RNA_property_type(itemprop);
 
-    if (!ELEM(itemtype, PROP_BOOLEAN, PROP_INT, PROP_FLOAT)) {
-      BKE_report(reports, RPT_ERROR, "Only boolean, int and float properties supported");
+    if (!ELEM(itemtype, PROP_BOOLEAN, PROP_INT, PROP_FLOAT, PROP_ENUM)) {
+      BKE_report(reports, RPT_ERROR, "Only boolean, int float and enum properties supported");
       return 0;
     }
 

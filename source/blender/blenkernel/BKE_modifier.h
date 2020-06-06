@@ -28,6 +28,7 @@
 extern "C" {
 #endif
 
+struct ARegionType;
 struct BMEditMesh;
 struct CustomData_MeshMasks;
 struct DepsNodeHandle;
@@ -101,6 +102,9 @@ typedef enum {
   /* For modifiers that use CD_PREVIEW_MCOL for preview. */
   eModifierTypeFlag_UsesPreview = (1 << 9),
   eModifierTypeFlag_AcceptsVertexCosOnly = (1 << 10),
+
+  /** Accepts #BMesh input (without conversion). */
+  eModifierTypeFlag_AcceptsBMesh = (1 << 11),
 } ModifierTypeFlag;
 
 /* IMPORTANT! Keep ObjectWalkFunc and IDWalkFunc signatures compatible. */
@@ -211,10 +215,10 @@ typedef struct ModifierTypeInfo {
 
   /********************* Non-deform modifier functions *********************/
 
-  /* For non-deform types: apply the modifier and return a mesh datablock.
+  /* For non-deform types: apply the modifier and return a mesh data-block.
    *
    * The mesh argument should always be non-NULL; the modifier should use the
-   * passed in mesh datablock rather than object->data, as it contains the mesh
+   * passed in mesh data-block rather than object->data, as it contains the mesh
    * with modifier applied up to this point.
    *
    * The modifier may modify and return the mesh argument, but must not free it
@@ -348,12 +352,21 @@ typedef struct ModifierTypeInfo {
    *    more like "ensure the data is freed".
    */
   void (*freeRuntimeData)(void *runtime_data);
+
+  /* Register the panel types for the modifier's UI. */
+  void (*panelRegister)(struct ARegionType *region_type);
 } ModifierTypeInfo;
+
+/* Used to find a modifier's panel type. */
+#define MODIFIER_TYPE_PANEL_PREFIX "MOD_PT_"
 
 /* Initialize modifier's global data (type info and some common global storages). */
 void BKE_modifier_init(void);
 
 const ModifierTypeInfo *BKE_modifier_get_info(ModifierType type);
+
+/* For modifier UI panels. */
+void BKE_modifier_type_panel_id(ModifierType type, char *r_idname);
 
 /* Modifier utility calls, do call through type pointer and return
  * default values if pointer is optional.
@@ -390,7 +403,7 @@ void BKE_modifiers_foreach_ID_link(struct Object *ob, IDWalkFunc walk, void *use
 void BKE_modifiers_foreach_tex_link(struct Object *ob, TexWalkFunc walk, void *userData);
 
 struct ModifierData *BKE_modifiers_findby_type(struct Object *ob, ModifierType type);
-struct ModifierData *BKE_modifiers_findny_name(struct Object *ob, const char *name);
+struct ModifierData *BKE_modifiers_findby_name(struct Object *ob, const char *name);
 void BKE_modifiers_clear_errors(struct Object *ob);
 int BKE_modifiers_get_cage_index(struct Scene *scene,
                                  struct Object *ob,

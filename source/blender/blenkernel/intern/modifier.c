@@ -50,6 +50,7 @@
 #include "BKE_DerivedMesh.h"
 #include "BKE_appdir.h"
 #include "BKE_editmesh.h"
+#include "BKE_editmesh_cache.h"
 #include "BKE_global.h"
 #include "BKE_idtype.h"
 #include "BKE_key.h"
@@ -115,6 +116,17 @@ const ModifierTypeInfo *BKE_modifier_get_info(ModifierType type)
   }
 }
 
+/**
+ * Get the idname of the modifier type's panel, which was defined in the #panelRegister callback.
+ */
+void BKE_modifier_type_panel_id(ModifierType type, char *r_idname)
+{
+  const ModifierTypeInfo *mti = BKE_modifier_get_info(type);
+
+  strcpy(r_idname, MODIFIER_TYPE_PANEL_PREFIX);
+  strcat(r_idname, mti->name);
+}
+
 /***/
 
 ModifierData *BKE_modifier_new(int type)
@@ -126,8 +138,9 @@ ModifierData *BKE_modifier_new(int type)
   BLI_strncpy(md->name, DATA_(mti->name), sizeof(md->name));
 
   md->type = type;
-  md->mode = eModifierMode_Realtime | eModifierMode_Render | eModifierMode_Expanded;
+  md->mode = eModifierMode_Realtime | eModifierMode_Render;
   md->flag = eModifierFlag_OverrideLibrary_Local;
+  md->ui_expand_flag = 1; /* Only open the main panel at the beginning, not the subpanels. */
 
   if (mti->flags & eModifierTypeFlag_EnableInEditmode) {
     md->mode |= eModifierMode_Editmode;
@@ -235,7 +248,7 @@ ModifierData *BKE_modifiers_findby_type(Object *ob, ModifierType type)
   return md;
 }
 
-ModifierData *BKE_modifiers_findny_name(Object *ob, const char *name)
+ModifierData *BKE_modifiers_findby_name(Object *ob, const char *name)
 {
   return BLI_findstring(&(ob->modifiers), name, offsetof(ModifierData, name));
 }
@@ -341,6 +354,7 @@ void BKE_modifier_copydata_ex(ModifierData *md, ModifierData *target, const int 
 
   target->mode = md->mode;
   target->flag = md->flag;
+  target->ui_expand_flag = md->ui_expand_flag;
 
   if (mti->copyData) {
     mti->copyData(md, target, flag);
@@ -934,6 +948,30 @@ void BKE_modifier_path_init(char *path, int path_maxlen, const char *name)
   BLI_join_dirfile(path, path_maxlen, G.relbase_valid ? "//" : BKE_tempdir_session(), name);
 }
 
+/**
+ * Call when #ModifierTypeInfo.dependsOnNormals callback requests normals.
+ */
+static void modwrap_dependsOnNormals(Mesh *me)
+{
+  switch ((eMeshWrapperType)me->runtime.wrapper_type) {
+    case ME_WRAPPER_TYPE_BMESH: {
+      EditMeshData *edit_data = me->runtime.edit_data;
+      if (edit_data->vertexCos) {
+        /* Note that 'ensure' is acceptable here since these values aren't modified in-place.
+         * If that changes we'll need to recalculate. */
+        BKE_editmesh_cache_ensure_vert_normals(me->edit_mesh, edit_data);
+      }
+      else {
+        BM_mesh_normals_update(me->edit_mesh->bm);
+      }
+      break;
+    }
+    case ME_WRAPPER_TYPE_MDATA:
+      BKE_mesh_calc_normals(me);
+      break;
+  }
+}
+
 /* wrapper around ModifierTypeInfo.modifyMesh that ensures valid normals */
 
 struct Mesh *BKE_modifier_modify_mesh(ModifierData *md,
@@ -943,8 +981,14 @@ struct Mesh *BKE_modifier_modify_mesh(ModifierData *md,
   const ModifierTypeInfo *mti = BKE_modifier_get_info(md->type);
   BLI_assert(CustomData_has_layer(&me->pdata, CD_NORMAL) == false);
 
+  if (me->runtime.wrapper_type == ME_WRAPPER_TYPE_BMESH) {
+    if ((mti->flags & eModifierTypeFlag_AcceptsBMesh) == 0) {
+      BKE_mesh_wrapper_ensure_mdata(me);
+    }
+  }
+
   if (mti->dependsOnNormals && mti->dependsOnNormals(md)) {
-    BKE_mesh_calc_normals(me);
+    modwrap_dependsOnNormals(me);
   }
   return mti->modifyMesh(md, ctx, me);
 }
@@ -959,7 +1003,7 @@ void BKE_modifier_deform_verts(ModifierData *md,
   BLI_assert(!me || CustomData_has_layer(&me->pdata, CD_NORMAL) == false);
 
   if (me && mti->dependsOnNormals && mti->dependsOnNormals(md)) {
-    BKE_mesh_calc_normals(me);
+    modwrap_dependsOnNormals(me);
   }
   mti->deformVerts(md, ctx, me, vertexCos, numVerts);
 }
@@ -1030,5 +1074,5 @@ struct ModifierData *BKE_modifier_get_evaluated(Depsgraph *depsgraph,
   if (object_eval == object) {
     return md;
   }
-  return BKE_modifiers_findny_name(object_eval, md->name);
+  return BKE_modifiers_findby_name(object_eval, md->name);
 }

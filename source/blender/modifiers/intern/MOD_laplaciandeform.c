@@ -29,16 +29,28 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "BLT_translation.h"
+
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
+#include "DNA_screen_types.h"
 
+#include "BKE_context.h"
 #include "BKE_deform.h"
 #include "BKE_editmesh.h"
 #include "BKE_lib_id.h"
+#include "BKE_mesh.h"
 #include "BKE_mesh_mapping.h"
 #include "BKE_mesh_runtime.h"
 #include "BKE_particle.h"
+#include "BKE_screen.h"
 
+#include "UI_interface.h"
+#include "UI_resources.h"
+
+#include "RNA_access.h"
+
+#include "MOD_ui_common.h"
 #include "MOD_util.h"
 
 #include "eigen_capi.h"
@@ -783,6 +795,11 @@ static void deformVertsEM(ModifierData *md,
   Mesh *mesh_src = MOD_deform_mesh_eval_get(
       ctx->object, editData, mesh, NULL, numVerts, false, false);
 
+  /* TODO(Campbell): use edit-mode data only (remove this line). */
+  if (mesh_src != NULL) {
+    BKE_mesh_wrapper_ensure_mdata(mesh_src);
+  }
+
   LaplacianDeformModifier_do(
       (LaplacianDeformModifierData *)md, ctx->object, mesh_src, vertexCos, numVerts);
 
@@ -800,6 +817,41 @@ static void freeData(ModifierData *md)
   }
   MEM_SAFE_FREE(lmd->vertexco);
   lmd->total_verts = 0;
+}
+
+static void panel_draw(const bContext *C, Panel *panel)
+{
+  uiLayout *row;
+  uiLayout *layout = panel->layout;
+
+  PointerRNA ptr;
+  PointerRNA ob_ptr;
+  modifier_panel_get_property_pointers(C, panel, &ob_ptr, &ptr);
+
+  bool is_bind = RNA_boolean_get(&ptr, "is_bind");
+  bool has_vertex_group = RNA_string_length(&ptr, "vertex_group") != 0;
+
+  uiLayoutSetPropSep(layout, true);
+
+  uiItemR(layout, &ptr, "iterations", 0, NULL, ICON_NONE);
+
+  modifier_vgroup_ui(layout, &ptr, &ob_ptr, "vertex_group", "invert_vertex_group", NULL);
+
+  uiItemS(layout);
+
+  row = uiLayoutRow(layout, true);
+  uiLayoutSetEnabled(row, has_vertex_group);
+  uiItemO(row,
+          is_bind ? IFACE_("Unbind") : IFACE_("Bind"),
+          ICON_NONE,
+          "OBJECT_OT_laplaciandeform_bind");
+
+  modifier_panel_end(layout, &ptr);
+}
+
+static void panelRegister(ARegionType *region_type)
+{
+  modifier_panel_register(region_type, eModifierType_LaplacianDeform, panel_draw);
 }
 
 ModifierTypeInfo modifierType_LaplacianDeform = {
@@ -830,4 +882,5 @@ ModifierTypeInfo modifierType_LaplacianDeform = {
     /* foreachIDLink */ NULL,
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ NULL,
+    /* panelRegister */ panelRegister,
 };

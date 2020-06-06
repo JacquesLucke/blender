@@ -116,7 +116,7 @@ static void action_copy_data(Main *UNUSED(bmain),
 
     /* XXX TODO pass subdata flag?
      * But surprisingly does not seem to be doing any ID refcounting... */
-    fcurve_dst = copy_fcurve(fcurve_src);
+    fcurve_dst = BKE_fcurve_copy(fcurve_src);
 
     BLI_addtail(&action_dst->curves, fcurve_dst);
 
@@ -146,7 +146,7 @@ static void action_free_data(struct ID *id)
   /* No animdata here. */
 
   /* Free F-Curves. */
-  free_fcurves(&action->curves);
+  BKE_fcurves_free(&action->curves);
 
   /* Free groups. */
   BLI_freelistN(&action->groups);
@@ -158,6 +158,10 @@ static void action_free_data(struct ID *id)
 static void action_foreach_id(ID *id, LibraryForeachIDData *data)
 {
   bAction *act = (bAction *)id;
+
+  LISTBASE_FOREACH (FCurve *, fcu, &act->curves) {
+    BKE_fcurve_foreach_id(fcu, data);
+  }
 
   LISTBASE_FOREACH (TimeMarker *, marker, &act->markers) {
     BKE_LIB_FOREACHID_PROCESS(data, marker->camera, IDWALK_CB_NOP);
@@ -1306,7 +1310,7 @@ void calc_action_range(const bAction *act, float *start, float *end, short incl_
          *   single-keyframe curves will increase the overall length by
          *   a phantom frame (T50354)
          */
-        calc_fcurve_range(fcu, &nmin, &nmax, false, false);
+        BKE_fcurve_calc_range(fcu, &nmin, &nmax, false, false);
 
         /* compare to the running tally */
         min = min_ff(min, nmin);
