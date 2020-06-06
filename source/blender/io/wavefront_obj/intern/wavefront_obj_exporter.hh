@@ -26,14 +26,14 @@
 
 #include "wavefront_obj.hh"
 
-namespace IO {
-namespace OBJ {
+namespace io {
+namespace obj {
 /**
  * Central internal function to call data preparation & writer functions.
  * Recieves export_settings from obj.cc.
  */
 void exporter_main(bContext *C, const OBJExportParams *export_params);
 
-}  // namespace OBJ
-}  // namespace IO
+}  // namespace obj
+}  // namespace io
 #endif

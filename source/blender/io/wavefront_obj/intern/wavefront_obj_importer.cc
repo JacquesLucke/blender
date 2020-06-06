@@ -21,11 +21,12 @@
  * \ingroup obj
  */
 
-#include "wavefront_obj_file_handler.hh"
 #include "wavefront_obj_importer.hh"
+#include "wavefront_obj_file_handler.hh"
 
-namespace IO {
-namespace OBJ {
-  /* Currently not implemented. */
+namespace io {
+namespace obj {
+/* Currently not implemented. */
+
 }
-}  // namespace IO
+}  // namespace io

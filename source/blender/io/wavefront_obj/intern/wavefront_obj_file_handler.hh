@@ -25,14 +25,14 @@
 
 #include "wavefront_obj.hh"
 
-namespace IO {
-namespace OBJ {
+namespace io {
+namespace obj {
 /**
  * Low level writer to the OBJ file at filepath.
  * data_to_export is filled in obj_exporter.cc.
  */
-void write_obj_data(const char *filepath, IO::OBJ::OBJ_data_to_export *data_to_export);
+void write_obj_data(const char *filepath, io::obj::OBJ_data_to_export *data_to_export);
 
-}  // namespace OBJ
-}  // namespace IO
+}  // namespace obj
+}  // namespace io
 #endif

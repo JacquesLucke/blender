@@ -27,8 +27,9 @@
 #include "wavefront_obj.hh"
 #include "wavefront_obj_file_handler.hh"
 
-namespace IO {
-namespace OBJ {
+namespace io {
+namespace obj {
+
 /**
  * File writer to the OBJ file at filepath.
  * data_to_export is filled in obj_exporter.cc.
@@ -63,5 +64,5 @@ void write_obj_data(const char *filepath, OBJ_data_to_export *data_to_export)
   }
 }
 
-}  // namespace OBJ
-}  // namespace IO
+}  // namespace obj
+}  // namespace io

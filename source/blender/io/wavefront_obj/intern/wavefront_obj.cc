@@ -32,7 +32,7 @@
  */
 void OBJ_export(bContext *C, const OBJExportParams *export_params)
 {
-  IO::OBJ::exporter_main(C, export_params);
+  io::obj::exporter_main(C, export_params);
 }
 /**
  * Called from io_obj.c. Currently not implemented.

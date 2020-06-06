@@ -48,8 +48,8 @@
 #include "wavefront_obj_exporter.hh"
 #include "wavefront_obj_file_handler.hh"
 
-namespace IO {
-namespace OBJ {
+namespace io {
+namespace obj {
 
 /**
  * Store the mesh vertex coordinates in data_to_export, in world coordinates.
@@ -136,8 +136,8 @@ void exporter_main(bContext *C, const OBJExportParams *export_params)
 
   get_geometry_per_object(export_params, &data_to_export);
 
-  IO::OBJ::write_obj_data(filepath, &data_to_export);
+  io::obj::write_obj_data(filepath, &data_to_export);
   MEM_freeN(data_to_export.mvert);
 }
-}  // namespace OBJ
-}  // namespace IO
+}  // namespace obj
+}  // namespace io

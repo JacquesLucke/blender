@@ -46,8 +46,8 @@
 
 #include "DEG_depsgraph.h"
 
-#include "io_obj.h"
 #include "IO_wavefront_obj.h"
+#include "io_obj.h"
 
 static int wm_obj_export_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
@@ -95,10 +95,10 @@ static void ui_obj_export_settings(uiLayout *layout, PointerRNA *imfptr)
   uiItemL(row, IFACE_("Some Options"), ICON_NONE);
 
   row = uiLayoutRow(box, false);
-  uiItemR(row, imfptr, "print_name", 0, NULL, ICON_NONE);
+  uiItemR(row, imfptr, "dummy_checkbox", 0, NULL, ICON_NONE);
 
   row = uiLayoutRow(box, false);
-  uiItemR(row, imfptr, "print_the_float", 0, NULL, ICON_NONE);
+  uiItemR(row, imfptr, "dummy_slider", 0, NULL, ICON_NONE);
 }
 
 static void wm_obj_export_draw(bContext *UNUSED(C), wmOperator *op)
@@ -127,14 +127,14 @@ void WM_OT_obj_export(struct wmOperatorType *ot)
                                  FILE_DEFAULTDISPLAY,
                                  FILE_SORT_ALPHA);
 
-  RNA_def_boolean(ot->srna, "print_name", 0, "Print Name?", "If enabled, prints name of OP");
+  RNA_def_boolean(ot->srna, "dummy_checkbox", 0, "Dummy Checkbox", "");
   RNA_def_float(ot->srna,
-                "print_the_float",
+                "dummy_slider",
                 4.56,
                 0.0f,
                 10.0f,
-                "Print the Float",
-                "Prints the given Float",
+                "Dummy Slider",
+                "",
                 1.0f,
                 9.0f);
 }

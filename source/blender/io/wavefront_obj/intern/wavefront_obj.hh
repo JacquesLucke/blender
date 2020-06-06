@@ -27,8 +27,8 @@
 #include "BLI_vector.hh"
 #include "DNA_meshdata_types.h"
 
-namespace IO {
-namespace OBJ {
+namespace io {
+namespace obj {
 
 /**
  * Polygon stores the data of one face of the mesh.
@@ -63,11 +63,11 @@ struct OBJ_data_to_export {
   uint tot_vertices;
 
   /** Polygons in a mesh to export. */
-  BLI::Vector<IO::OBJ::Polygon> polygon_list;
+  BLI::Vector<io::obj::Polygon> polygon_list;
   /** Number of polygons in a mesh to export. */
   uint tot_faces;
 };
-}  // namespace OBJ
-}  // namespace IO
+}  // namespace obj
+}  // namespace io
 
 #endif /* __WAVEFRONT_OBJ_HH__ */
