@@ -294,6 +294,79 @@ class Set {
     }
   }
 
+  struct AddState {
+    bool active;
+    uint32_t hash;
+    ProbingStrategy probing;
+    const Key *key;
+  };
+
+  void add_multiple2(ArrayRef<Key> keys)
+  {
+    this->reserve(this->size() + keys.size());
+    BLI_assert(keys.size() >= 4);
+
+    uint32_t hash0 = m_hash(keys[0]);
+    uint32_t hash1 = m_hash(keys[1]);
+    uint32_t hash2 = m_hash(keys[2]);
+    uint32_t hash3 = m_hash(keys[3]);
+
+    AddState states[4] = {
+        {true, hash0, ProbingStrategy(hash0), &keys[0]},
+        {true, hash1, ProbingStrategy(hash1), &keys[1]},
+        {true, hash2, ProbingStrategy(hash2), &keys[2]},
+        {true, hash3, ProbingStrategy(hash3), &keys[3]},
+    };
+    uint32_t next_key_index = 4;
+
+    uint state_index = 0;
+    uint consecutive_inactive = 0;
+    while (true) {
+      AddState &state = states[state_index];
+
+      if (!state.active) {
+        consecutive_inactive++;
+        if (consecutive_inactive == 4) {
+          break;
+        }
+        continue;
+      }
+      consecutive_inactive = 0;
+
+      uint32_t current_hash = state.probing.get();
+      uint32_t slot_index = current_hash & m_slot_mask;
+      Slot &slot = m_slots[slot_index];
+      if (slot.is_empty()) {
+        slot.occupy(*state.key, state.hash);
+        m_occupied_and_removed_slots++;
+
+        if (next_key_index < keys.size()) {
+          uint32_t hash = m_hash(keys[next_key_index]);
+          states[state_index] = {true, hash, ProbingStrategy(hash), &keys[next_key_index]};
+          next_key_index++;
+        }
+        else {
+          states[state_index].active = false;
+        }
+      }
+      else if (slot.contains(*state.key, m_is_equal, state.hash)) {
+        if (next_key_index < keys.size()) {
+          uint32_t hash = m_hash(keys[next_key_index]);
+          states[state_index] = {true, hash, ProbingStrategy(hash), &keys[next_key_index]};
+          next_key_index++;
+        }
+        else {
+          states[state_index].active = false;
+        }
+      }
+      else {
+        state.probing.next();
+      }
+
+      state_index = (state_index + 1) & 3;
+    }
+  }
+
   /**
    * Returns true if the key is in the set.
    *

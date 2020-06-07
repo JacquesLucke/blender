@@ -188,6 +188,13 @@ TEST(set, AddMultipleNew)
   EXPECT_TRUE(a.contains(6));
 }
 
+TEST(set, AddMultipleNew2)
+{
+  Set<int> set;
+  set.add_multiple2({5, 4, 5, 2, 1, 8, 7, 1, 9});
+  EXPECT_EQ(set.size(), 7);
+}
+
 TEST(set, Iterator)
 {
   Set<int> set = {1, 3, 2, 5, 4};
