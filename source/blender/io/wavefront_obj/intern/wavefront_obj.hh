@@ -63,7 +63,7 @@ struct OBJ_data_to_export {
   uint tot_vertices;
 
   /** Polygons in a mesh to export. */
-  BLI::Vector<io::obj::Polygon> polygon_list;
+  BLI::Vector<Polygon> polygon_list;
   /** Number of polygons in a mesh to export. */
   uint tot_faces;
 };

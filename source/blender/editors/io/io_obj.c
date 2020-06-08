@@ -128,15 +128,7 @@ void WM_OT_obj_export(struct wmOperatorType *ot)
                                  FILE_SORT_ALPHA);
 
   RNA_def_boolean(ot->srna, "dummy_checkbox", 0, "Dummy Checkbox", "");
-  RNA_def_float(ot->srna,
-                "dummy_slider",
-                4.56,
-                0.0f,
-                10.0f,
-                "Dummy Slider",
-                "",
-                1.0f,
-                9.0f);
+  RNA_def_float(ot->srna, "dummy_slider", 4.56, 0.0f, 10.0f, "Dummy Slider", "", 1.0f, 9.0f);
 }
 
 static int wm_obj_import_invoke(bContext *C, wmOperator *op, const wmEvent *event)

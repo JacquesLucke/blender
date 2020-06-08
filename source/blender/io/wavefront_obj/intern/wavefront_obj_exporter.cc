@@ -124,8 +124,7 @@ static void get_geometry_per_object(const OBJExportParams *export_params,
 }
 
 /**
- * Central internal function to call data preparation & writer functions.
- * Recieves export_settings from obj.cc.
+ * Central internal function to call geometry data preparation & writer functions.
  */
 void exporter_main(bContext *C, const OBJExportParams *export_params)
 {
@@ -136,7 +135,7 @@ void exporter_main(bContext *C, const OBJExportParams *export_params)
 
   get_geometry_per_object(export_params, &data_to_export);
 
-  io::obj::write_obj_data(filepath, &data_to_export);
+  write_obj_data(filepath, &data_to_export);
   MEM_freeN(data_to_export.mvert);
 }
 }  // namespace obj

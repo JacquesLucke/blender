@@ -31,7 +31,7 @@ namespace io {
 namespace obj {
 
 /**
- * File writer to the OBJ file at filepath.
+ * Low level writer to the OBJ file at filepath.
  * data_to_export is filled in obj_exporter.cc.
  */
 void write_obj_data(const char *filepath, OBJ_data_to_export *data_to_export)
@@ -40,25 +40,24 @@ void write_obj_data(const char *filepath, OBJ_data_to_export *data_to_export)
   outfile << "# Blender 2.90 \n";
 
   /** Write v x y z for all vertices. */
+  MVert *vertex = data_to_export->mvert;
   for (int i = 0; i < data_to_export->tot_vertices; i++) {
     outfile << "v ";
-    outfile << data_to_export->mvert[i].co[0] << " " << data_to_export->mvert[i].co[1] << " "
-            << data_to_export->mvert[i].co[2] << "\n";
+    outfile << vertex[i].co[0] << " " << vertex[i].co[1] << " " << vertex[i].co[2] << "\n";
   }
 
-  /** Write vn n1 n2 n3 for all face normals. */
+  /** Write vn nx ny nz for all face normals. */
   for (int i = 0; i < data_to_export->tot_faces; i++) {
     outfile << "vn ";
-    outfile << data_to_export->mvert[i].no[0] << " " << data_to_export->mvert[i].no[1] << " "
-            << data_to_export->mvert[i].no[2] << "\n";
+    outfile << vertex[i].no[0] << " " << vertex[i].no[1] << " " << vertex[i].no[2] << "\n";
   }
 
   /** Write f v1/vt1/vn1 .. total_vertices_per_poly , for all polygons. */
+  BLI::Vector<Polygon> &polygon = data_to_export->polygon_list;
   for (int i = 0; i < data_to_export->tot_faces; i++) {
     outfile << "f ";
-    for (int j = 0; j < data_to_export->polygon_list[i].total_vertices_per_poly; j++) {
-      outfile << data_to_export->polygon_list[i].vertex_index[j] << "//"
-              << data_to_export->polygon_list[i].face_normal_index[j] << " ";
+    for (int j = 0; j < polygon[i].total_vertices_per_poly; j++) {
+      outfile << polygon[i].vertex_index[j] << "//" << polygon[i].face_normal_index[j] << " ";
     }
     outfile << "\n";
   }

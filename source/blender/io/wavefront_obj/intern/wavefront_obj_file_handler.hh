@@ -31,7 +31,7 @@ namespace obj {
  * Low level writer to the OBJ file at filepath.
  * data_to_export is filled in obj_exporter.cc.
  */
-void write_obj_data(const char *filepath, io::obj::OBJ_data_to_export *data_to_export);
+void write_obj_data(const char *filepath, OBJ_data_to_export *data_to_export);
 
 }  // namespace obj
 }  // namespace io
