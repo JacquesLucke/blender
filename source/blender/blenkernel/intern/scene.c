@@ -158,7 +158,7 @@ static void scene_init_data(ID *id)
   scene->unit.mass_unit = (uchar)bUnit_GetBaseUnitOfType(USER_UNIT_METRIC, B_UNIT_MASS);
   scene->unit.time_unit = (uchar)bUnit_GetBaseUnitOfType(USER_UNIT_METRIC, B_UNIT_TIME);
 
-  /* Anti-aliasing threshold. */
+  /* Anti-Aliasing threshold. */
   scene->grease_pencil_settings.smaa_threshold = 1.0f;
 
   {
@@ -621,7 +621,7 @@ static void remove_sequencer_fcurves(Scene *sce)
 
       if ((fcu->rna_path) && strstr(fcu->rna_path, "sequences_all")) {
         action_groups_remove_channel(adt->action, fcu);
-        free_fcurve(fcu);
+        BKE_fcurve_free(fcu);
       }
     }
   }
@@ -668,7 +668,6 @@ ToolSettings *BKE_toolsettings_copy(ToolSettings *toolsettings, const int flag)
   }
 
   BKE_paint_copy(&ts->imapaint.paint, &ts->imapaint.paint, flag);
-  ts->imapaint.paintcursor = NULL;
   ts->particle.paintcursor = NULL;
   ts->particle.scene = NULL;
   ts->particle.object = NULL;
@@ -1249,9 +1248,7 @@ bool BKE_scene_validate_setscene(Main *bmain, Scene *sce)
 }
 
 /**
- * This function is needed to cope with fractional frames - including two Blender rendering
- * features mblur (motion blur that renders 'subframes' and blurs them together),
- * and fields rendering.
+ * This function is needed to cope with fractional frames, needed for motion blur & physics.
  */
 float BKE_scene_frame_get(const Scene *scene)
 {

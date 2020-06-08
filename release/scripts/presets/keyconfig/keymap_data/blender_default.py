@@ -2463,7 +2463,7 @@ def km_sequencer(params):
          {"properties": [("all", False)]}),
         ("sequencer.gap_remove", {"type": 'BACK_SPACE', "value": 'PRESS', "shift": True},
          {"properties": [("all", True)]}),
-        ("sequencer.gap_insert", {"type": 'EQUAL', "value": 'PRESS', "shift": True}, None),
+        ("sequencer.gap_insert", {"type": 'BACK_SPACE', "value": 'PRESS', "ctrl": True}, None),
         ("sequencer.snap", {"type": 'S', "value": 'PRESS', "shift": True}, None),
         ("sequencer.swap_inputs", {"type": 'S', "value": 'PRESS', "alt": True}, None),
         *(
@@ -2474,21 +2474,19 @@ def km_sequencer(params):
              )
         ),
         ("sequencer.select", {"type": params.select_mouse, "value": 'PRESS'},
-         {"properties": [
-             ("extend", False), ("deselect_all", True),
-             ("linked_handle", False), ("left_right", 'NONE'), ("linked_time", False)]}),
+         {"properties": [("deselect_all", True)]}),
         ("sequencer.select", {"type": params.select_mouse, "value": 'PRESS', "shift": True},
-         {"properties": [("extend", True), ("linked_handle", False), ("left_right", 'NONE'), ("linked_time", False)]}),
+         {"properties": [("extend", True)]}),
         ("sequencer.select", {"type": params.select_mouse, "value": 'PRESS', "alt": True},
-         {"properties": [("extend", False), ("linked_handle", True), ("left_right", 'NONE'), ("linked_time", False)]}),
+         {"properties": [("linked_handle", True)]}),
         ("sequencer.select", {"type": params.select_mouse, "value": 'PRESS', "shift": True, "alt": True},
-         {"properties": [("extend", True), ("linked_handle", True), ("left_right", 'NONE'), ("linked_time", False)]}),
+         {"properties": [("extend", True), ("linked_handle", True)]}),
         ("sequencer.select",
          {"type": params.select_mouse, "value": 'PRESS' if params.legacy else 'CLICK', "ctrl": True},
-         {"properties": [("linked_handle", False), ("left_right", 'MOUSE'), ("linked_time", True), ("extend", False)]}),
+         {"properties": [("side_of_frame", True), ("linked_time", True)]}),
         ("sequencer.select",
          {"type": params.select_mouse, "value": 'PRESS' if params.legacy else 'CLICK', "ctrl": True, "shift": True},
-         {"properties": [("linked_handle", False), ("left_right", 'MOUSE'), ("linked_time", True), ("extend", True)]}),
+         {"properties": [("side_of_frame", True), ("linked_time", True), ("extend", True)]}),
         ("sequencer.select_more", {"type": 'NUMPAD_PLUS', "value": 'PRESS', "ctrl": True}, None),
         ("sequencer.select_less", {"type": 'NUMPAD_MINUS', "value": 'PRESS', "ctrl": True}, None),
         ("sequencer.select_linked_pick", {"type": 'L', "value": 'PRESS'},
@@ -2517,10 +2515,19 @@ def km_sequencer(params):
          {"properties": [("mode", 'TIME_EXTEND')]}),
         ("marker.add", {"type": 'M', "value": 'PRESS'}, None),
         ("marker.rename", {"type": 'M', "value": 'PRESS', "ctrl": True}, None),
-        ("sequencer.select", {"type": 'LEFT_BRACKET', "value": 'PRESS'},
-         {"properties": [("left_right", 'LEFT'), ("linked_time", True)]}),
-        ("sequencer.select", {"type": 'RIGHT_BRACKET', "value": 'PRESS'},
-         {"properties": [("left_right", 'RIGHT'), ("linked_time", True)]}),
+        ("sequencer.select_side_of_frame", {"type": 'LEFT_BRACKET', "value": 'PRESS'},
+         {"properties": [("side", 'LEFT')]}),
+        ("sequencer.select_side_of_frame", {"type": 'RIGHT_BRACKET', "value": 'PRESS'},
+         {"properties": [("side", 'RIGHT')]}),
+        ("sequencer.select_side_of_frame", {"type": 'EQUAL', "value": 'PRESS'},
+         {"properties": [("side", 'OVERLAP')]}),
+        ("sequencer.select_side_of_frame", {"type": 'LEFT_BRACKET', "value": 'PRESS', "shift": True},
+         {"properties": [("side", 'LEFT'), ("extend", True)]}),
+        ("sequencer.select_side_of_frame", {"type": 'RIGHT_BRACKET', "value": 'PRESS', "shift": True},
+         {"properties": [("side", 'RIGHT'), ("extend", True)]}),
+        ("sequencer.select_side_of_frame", {"type": 'EQUAL', "value": 'PRESS', "shift": True},
+         {"properties": [("side", 'OVERLAP'), ("extend", True)]}),
+
         *_template_items_context_menu("SEQUENCER_MT_context_menu", params.context_menu_event),
     ])
 
@@ -4945,6 +4952,32 @@ def km_transform_modal_map(_params):
     return keymap
 
 
+def km_view3d_interactive_add_tool_modal_map(_params):
+    items = []
+    keymap = (
+        "View3D Placement Modal Map",
+        {"space_type": 'EMPTY', "region_type": 'WINDOW', "modal": True},
+        {"items": items},
+    )
+
+    items.extend([
+        ("PIVOT_CENTER_ON", {"type": 'LEFT_ALT', "value": 'PRESS', "any": True}, None),
+        ("PIVOT_CENTER_OFF", {"type": 'LEFT_ALT', "value": 'RELEASE', "any": True}, None),
+        ("PIVOT_CENTER_ON", {"type": 'RIGHT_ALT', "value": 'PRESS', "any": True}, None),
+        ("PIVOT_CENTER_OFF", {"type": 'RIGHT_ALT', "value": 'RELEASE', "any": True}, None),
+        ("FIXED_ASPECT_ON", {"type": 'LEFT_SHIFT', "value": 'PRESS', "any": True}, None),
+        ("FIXED_ASPECT_OFF", {"type": 'LEFT_SHIFT', "value": 'RELEASE', "any": True}, None),
+        ("FIXED_ASPECT_ON", {"type": 'RIGHT_SHIFT', "value": 'PRESS', "any": True}, None),
+        ("FIXED_ASPECT_OFF", {"type": 'RIGHT_SHIFT', "value": 'RELEASE', "any": True}, None),
+        ("SNAP_ON", {"type": 'LEFT_CTRL', "value": 'PRESS', "any": True}, None),
+        ("SNAP_OFF", {"type": 'LEFT_CTRL', "value": 'RELEASE', "any": True}, None),
+        ("SNAP_ON", {"type": 'RIGHT_CTRL', "value": 'PRESS', "any": True}, None),
+        ("SNAP_OFF", {"type": 'RIGHT_CTRL', "value": 'RELEASE', "any": True}, None),
+    ])
+
+    return keymap
+
+
 def km_view3d_gesture_circle(_params):
     items = []
     keymap = (
@@ -5855,13 +5888,13 @@ def km_3d_view_tool_edit_armature_extrude_to_cursor(params):
     )
 
 
-def km_3d_view_tool_edit_mesh_add_cube(params):
+def km_3d_view_tool_interactive_add(params):
     return (
-        "3D View Tool: Edit Mesh, Add Cube",
+        "3D View Tool: Object, Add Primitive",
         {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
         {"items": [
-            ("view3d.cursor3d", {"type": params.tool_mouse, "value": 'CLICK'}, None),
-            ("mesh.primitive_cube_add_gizmo", {"type": params.tool_tweak, "value": 'ANY'}, None),
+            ("view3d.interactive_add", {"type": params.tool_tweak, "value": 'ANY', "any": True},
+             {"properties": [("wait_for_input", False)]}),
         ]},
     )
 
@@ -6233,6 +6266,16 @@ def km_3d_view_tool_sculpt_mesh_filter(params):
         {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
         {"items": [
             ("sculpt.mesh_filter", {"type": params.tool_tweak, "value": 'ANY'},
+             None)
+        ]},
+    )
+
+def km_3d_view_tool_sculpt_cloth_filter(params):
+    return (
+        "3D View Tool: Sculpt, Cloth Filter",
+        {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
+        {"items": [
+            ("sculpt.cloth_filter", {"type": params.tool_tweak, "value": 'ANY'},
              None)
         ]},
     )
@@ -6674,6 +6717,7 @@ def generate_keymaps(params=None):
         km_eyedropper_modal_map(params),
         km_eyedropper_colorramp_pointsampling_map(params),
         km_transform_modal_map(params),
+        km_view3d_interactive_add_tool_modal_map(params),
         km_view3d_gesture_circle(params),
         km_gesture_border(params),
         km_gesture_zoom_border(params),
@@ -6733,6 +6777,7 @@ def generate_keymaps(params=None):
         km_3d_view_tool_scale(params),
         km_3d_view_tool_shear(params),
         km_3d_view_tool_measure(params),
+        km_3d_view_tool_interactive_add(params),
         km_3d_view_tool_pose_breakdowner(params),
         km_3d_view_tool_pose_push(params),
         km_3d_view_tool_pose_relax(params),
@@ -6741,7 +6786,6 @@ def generate_keymaps(params=None):
         km_3d_view_tool_edit_armature_bone_envelope(params),
         km_3d_view_tool_edit_armature_extrude(params),
         km_3d_view_tool_edit_armature_extrude_to_cursor(params),
-        km_3d_view_tool_edit_mesh_add_cube(params),
         km_3d_view_tool_edit_mesh_extrude_region(params),
         km_3d_view_tool_edit_mesh_extrude_dissolve_and_intersect(params),
         km_3d_view_tool_edit_mesh_extrude_along_normals(params),
@@ -6775,6 +6819,7 @@ def generate_keymaps(params=None):
         km_3d_view_tool_sculpt_box_mask(params),
         km_3d_view_tool_sculpt_lasso_mask(params),
         km_3d_view_tool_sculpt_mesh_filter(params),
+        km_3d_view_tool_sculpt_cloth_filter(params),
         km_3d_view_tool_paint_weight_sample_weight(params),
         km_3d_view_tool_paint_weight_sample_vertex_group(params),
         km_3d_view_tool_paint_weight_gradient(params),

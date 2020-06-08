@@ -71,7 +71,10 @@
 /* Own include. */
 #include "sequencer_intern.h"
 
-/* XXX */
+/* -------------------------------------------------------------------- */
+/** \name Structs & Enums
+ * \{ */
+
 /* RNA Enums, used in multiple files. */
 EnumPropertyItem sequencer_prop_effect_types[] = {
     {SEQ_TYPE_CROSS, "CROSS", 0, "Crossfade", "Crossfade effect strip type"},
@@ -122,9 +125,11 @@ typedef struct TransSeq {
   int len;
 } TransSeq;
 
-/* ********************************************************************** */
+/** \} */
 
-/* ***************** proxy job manager ********************** */
+/* -------------------------------------------------------------------- */
+/** \name Proxy Job Manager
+ * \{ */
 
 typedef struct ProxyBuildJob {
   struct Main *main;
@@ -214,20 +219,41 @@ static void seq_proxy_build_job(const bContext *C, ReportList *reports)
   }
 
   file_list = BLI_gset_new(BLI_ghashutil_strhash_p, BLI_ghashutil_strcmp, "file list");
+  bool selected = false; /* Check for no selected strips */
+
   SEQP_BEGIN (ed, seq) {
-    if ((seq->flag & SELECT)) {
-      bool success = BKE_sequencer_proxy_rebuild_context(
-          pj->main, pj->depsgraph, pj->scene, seq, file_list, &pj->queue);
-      if (!success) {
-        BKE_reportf(reports, RPT_ERROR, "Could not build proxy for strip %s", seq->name);
-      }
+    if (!ELEM(seq->type, SEQ_TYPE_MOVIE, SEQ_TYPE_IMAGE, SEQ_TYPE_META) ||
+        (seq->flag & SELECT) == 0) {
+      continue;
+    }
+
+    selected = true;
+    if (!(seq->flag & SEQ_USE_PROXY)) {
+      BKE_reportf(reports, RPT_WARNING, "Proxy is not enabled for %s, skipping.", seq->name);
+      continue;
+    }
+    else if (seq->strip->proxy->build_size_flags == 0) {
+      BKE_reportf(reports, RPT_WARNING, "Resolution is not selected for %s, skipping.", seq->name);
+      continue;
+    }
+
+    bool success = BKE_sequencer_proxy_rebuild_context(
+        pj->main, pj->depsgraph, pj->scene, seq, file_list, &pj->queue);
+
+    if (!success && (seq->strip->proxy->build_flags & SEQ_PROXY_SKIP_EXISTING) != 0) {
+      BKE_reportf(reports, RPT_WARNING, "Overwrite is not checked for %s, skipping.", seq->name);
     }
   }
   SEQ_END;
 
+  if (!selected) {
+    BKE_reportf(reports, RPT_WARNING, "Select movie or image strips.");
+    return;
+  }
+
   BLI_gset_free(file_list, MEM_freeN);
 
-  if (!WM_jobs_is_running(wm_job)) {
+  if (selected && !WM_jobs_is_running(wm_job)) {
     G.is_break = false;
     WM_jobs_start(CTX_wm_manager(C), wm_job);
   }
@@ -235,7 +261,11 @@ static void seq_proxy_build_job(const bContext *C, ReportList *reports)
   ED_area_tag_redraw(area);
 }
 
-/* ********************************************************************** */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Sequence Query Utilities
+ * \{ */
 
 void seq_rectf(Sequence *seq, rctf *rect)
 {
@@ -290,7 +320,7 @@ static int mouse_frame_side(View2D *v2d, short mouse_x, int frame)
   mval[0] = mouse_x;
   mval[1] = 0;
 
-  /* Choose the side based on which side of the playhead the mouse is on. */
+  /* Choose the side based on which side of the current frame the mouse is on. */
   UI_view2d_region_to_view(v2d, mval[0], mval[1], &mouseloc[0], &mouseloc[1]);
 
   return mouseloc[0] > frame ? SEQ_SIDE_RIGHT : SEQ_SIDE_LEFT;
@@ -466,6 +496,12 @@ static bool seq_is_predecessor(Sequence *pred, Sequence *seq)
   return 0;
 }
 
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Selection Utilities
+ * \{ */
+
 void ED_sequencer_deselect_all(Scene *scene)
 {
   Sequence *seq;
@@ -506,6 +542,12 @@ void recurs_sel_seq(Sequence *seqm)
   }
 }
 
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Public Context Checks
+ * \{ */
+
 bool ED_space_sequencer_maskedit_mask_poll(bContext *C)
 {
   return ED_space_sequencer_maskedit_poll(C);
@@ -544,6 +586,12 @@ bool ED_space_sequencer_check_show_strip(SpaceSeq *sseq)
   return (ELEM(sseq->view, SEQ_VIEW_SEQUENCE, SEQ_VIEW_SEQUENCE_PREVIEW) &&
           ELEM(sseq->mainb, SEQ_DRAW_SEQUENCE, SEQ_DRAW_IMG_IMBUF));
 }
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Find Selected Strips as Inputs to an Effects Strip
+ * \{ */
 
 int seq_effect_find_selected(Scene *scene,
                              Sequence *activeseq,
@@ -632,6 +680,12 @@ int seq_effect_find_selected(Scene *scene,
 
   return 1;
 }
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Delete Utilities
+ * \{ */
 
 static Sequence *del_seq_find_replace_recurs(Scene *scene, Sequence *seq)
 {
@@ -726,6 +780,12 @@ static void recurs_del_seq_flag(Scene *scene, ListBase *lb, short flag, short de
     seq = seqn;
   }
 }
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Split (Hard) Utility
+ * \{ */
 
 static Sequence *split_seq_hard(
     Main *bmain, Scene *scene, Sequence *seq, ListBase *new_seq_list, int split_frame)
@@ -843,6 +903,12 @@ static Sequence *split_seq_hard(
   }
   return seqn;
 }
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Split (Soft) Utility
+ * \{ */
 
 static Sequence *split_seq_soft(
     Main *UNUSED(bmain), Scene *scene, Sequence *seq, ListBase *new_seq_list, int split_frame)
@@ -1109,6 +1175,12 @@ static void UNUSED_FUNCTION(seq_remap_paths)(Scene *scene)
   SEQ_END;
 }
 
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Remove Gaps Operator
+ * \{ */
+
 static int sequencer_gap_remove_exec(bContext *C, wmOperator *op)
 {
   Scene *scene = CTX_data_scene(C);
@@ -1177,6 +1249,12 @@ void SEQUENCER_OT_gap_remove(struct wmOperatorType *ot)
   RNA_def_boolean(ot->srna, "all", 0, "All Gaps", "Do all gaps to right of current frame");
 }
 
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Insert Gaps Operator
+ * \{ */
+
 static int sequencer_gap_insert_exec(bContext *C, wmOperator *op)
 {
   Scene *scene = CTX_data_scene(C);
@@ -1216,6 +1294,12 @@ void SEQUENCER_OT_gap_insert(struct wmOperatorType *ot)
               0,
               1000);
 }
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Shared Poll Functions
+ * \{ */
 
 #if 0
 static int seq_get_snaplimit(View2D *v2d)
@@ -1277,7 +1361,12 @@ bool sequencer_view_strips_poll(bContext *C)
   return 0;
 }
 
-/* Snap operator. */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Snap Strips to the Current Frame Operator
+ * \{ */
+
 static int sequencer_snap_exec(bContext *C, wmOperator *op)
 {
   Scene *scene = CTX_data_scene(C);
@@ -1355,7 +1444,7 @@ static int sequencer_snap_invoke(bContext *C, wmOperator *op, const wmEvent *UNU
 void SEQUENCER_OT_snap(struct wmOperatorType *ot)
 {
   /* Identifiers. */
-  ot->name = "Snap Strips to Playhead";
+  ot->name = "Snap Strips to the Current Frame";
   ot->idname = "SEQUENCER_OT_snap";
   ot->description = "Frame where selected strips will be snapped";
 
@@ -1377,6 +1466,12 @@ void SEQUENCER_OT_snap(struct wmOperatorType *ot)
               INT_MIN,
               INT_MAX);
 }
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Trim Strips Operator
+ * \{ */
 
 typedef struct SlipData {
   int init_mouse[2];
@@ -1652,10 +1747,10 @@ static void sequencer_slip_update_header(Scene *scene, ScrArea *area, SlipData *
     if (hasNumInput(&data->num_input)) {
       char num_str[NUM_STR_REP_LEN];
       outputNumInput(&data->num_input, num_str, &scene->unit);
-      BLI_snprintf(msg, sizeof(msg), TIP_("Trim offset: %s"), num_str);
+      BLI_snprintf(msg, sizeof(msg), TIP_("Slip offset: %s"), num_str);
     }
     else {
-      BLI_snprintf(msg, sizeof(msg), TIP_("Trim offset: %d"), offset);
+      BLI_snprintf(msg, sizeof(msg), TIP_("Slip offset: %d"), offset);
     }
   }
 
@@ -1706,7 +1801,7 @@ static int sequencer_slip_modal(bContext *C, wmOperator *op, const wmEvent *even
           mouse_x = event->mval[0];
         }
 
-        /* Choose the side based on which side of the playhead the mouse is. */
+        /* Choose the side based on which side of the current frame the mouse is. */
         UI_view2d_region_to_view(v2d, mouse_x, 0, &mouseloc[0], &mouseloc[1]);
         offset = mouseloc[0] - data->init_mouseloc[0];
 
@@ -1834,7 +1929,12 @@ void SEQUENCER_OT_slip(struct wmOperatorType *ot)
               INT32_MAX);
 }
 
-/* Mute operator. */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Mute Strips Operator
+ * \{ */
+
 static int sequencer_mute_exec(bContext *C, wmOperator *op)
 {
   Scene *scene = CTX_data_scene(C);
@@ -1885,7 +1985,12 @@ void SEQUENCER_OT_mute(struct wmOperatorType *ot)
       ot->srna, "unselected", 0, "Unselected", "Mute unselected rather than selected strips");
 }
 
-/* Unmute operator. */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Unmute Strips Operator
+ * \{ */
+
 static int sequencer_unmute_exec(bContext *C, wmOperator *op)
 {
   Scene *scene = CTX_data_scene(C);
@@ -1936,7 +2041,12 @@ void SEQUENCER_OT_unmute(struct wmOperatorType *ot)
       ot->srna, "unselected", 0, "Unselected", "Unmute unselected rather than selected strips");
 }
 
-/* Lock operator. */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Lock Strips Operator
+ * \{ */
+
 static int sequencer_lock_exec(bContext *C, wmOperator *UNUSED(op))
 {
   Scene *scene = CTX_data_scene(C);
@@ -1969,7 +2079,12 @@ void SEQUENCER_OT_lock(struct wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-/* Unlock operator. */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Unlock Strips Operator
+ * \{ */
+
 static int sequencer_unlock_exec(bContext *C, wmOperator *UNUSED(op))
 {
   Scene *scene = CTX_data_scene(C);
@@ -2002,7 +2117,12 @@ void SEQUENCER_OT_unlock(struct wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-/* Reload operator. */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Reload Strips Operator
+ * \{ */
+
 static int sequencer_reload_exec(bContext *C, wmOperator *op)
 {
   Main *bmain = CTX_data_main(C);
@@ -2053,7 +2173,12 @@ void SEQUENCER_OT_reload(struct wmOperatorType *ot)
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
-/* Reload operator. */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Refresh Sequencer Operator
+ * \{ */
+
 static bool sequencer_refresh_all_poll(bContext *C)
 {
   if (G.is_rendering) {
@@ -2085,6 +2210,12 @@ void SEQUENCER_OT_refresh_all(struct wmOperatorType *ot)
   ot->exec = sequencer_refresh_all_exec;
   ot->poll = sequencer_refresh_all_poll;
 }
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Reassign Inputs Operator
+ * \{ */
 
 static int sequencer_reassign_inputs_exec(bContext *C, wmOperator *op)
 {
@@ -2145,6 +2276,12 @@ void SEQUENCER_OT_reassign_inputs(struct wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Swap Inputs Operator
+ * \{ */
+
 static int sequencer_swap_inputs_exec(bContext *C, wmOperator *op)
 {
   Scene *scene = CTX_data_scene(C);
@@ -2180,7 +2317,12 @@ void SEQUENCER_OT_swap_inputs(struct wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-/* Split operator. */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Split Strips Operator
+ * \{ */
+
 static const EnumPropertyItem prop_split_types[] = {
     {SEQ_SPLIT_SOFT, "SOFT", 0, "Soft", ""},
     {SEQ_SPLIT_HARD, "HARD", 0, "Hard", ""},
@@ -2353,7 +2495,7 @@ void SEQUENCER_OT_split(struct wmOperatorType *ot)
                   "use_cursor_position",
                   0,
                   "Use Cursor Position",
-                  "Split at position of the cursor instead of playhead");
+                  "Split at position of the cursor instead of current frame");
 
   prop = RNA_def_enum(ot->srna,
                       "side",
@@ -2376,7 +2518,12 @@ void SEQUENCER_OT_split(struct wmOperatorType *ot)
 
 #undef SEQ_SIDE_MOUSE
 
-/* Duplicate operator. */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Duplicate Strips Operator
+ * \{ */
+
 static int apply_unique_name_fn(Sequence *seq, void *arg_pt)
 {
   Scene *scene = (Scene *)arg_pt;
@@ -2432,7 +2579,12 @@ void SEQUENCER_OT_duplicate(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-/* Delete operator. */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Erase Strips Operator
+ * \{ */
+
 static int sequencer_delete_exec(bContext *C, wmOperator *UNUSED(op))
 {
   Main *bmain = CTX_data_main(C);
@@ -2508,7 +2660,7 @@ static int sequencer_delete_invoke(bContext *C, wmOperator *op, const wmEvent *e
     }
   }
 
-  return WM_operator_confirm(C, op, event);
+  return sequencer_delete_exec(C, op);
 }
 
 void SEQUENCER_OT_delete(wmOperatorType *ot)
@@ -2528,7 +2680,12 @@ void SEQUENCER_OT_delete(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-/* Offset clear operator. */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Clear Strip Offset Operator
+ * \{ */
+
 static int sequencer_offset_clear_exec(bContext *C, wmOperator *UNUSED(op))
 {
   Scene *scene = CTX_data_scene(C);
@@ -2578,7 +2735,12 @@ void SEQUENCER_OT_offset_clear(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-/* Separate_images operator. */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Separate Images Operator
+ * \{ */
+
 static int sequencer_separate_images_exec(bContext *C, wmOperator *op)
 {
   Scene *scene = CTX_data_scene(C);
@@ -2677,9 +2839,12 @@ void SEQUENCER_OT_images_separate(wmOperatorType *ot)
   RNA_def_int(ot->srna, "length", 1, 1, INT_MAX, "Length", "Length of each frame", 1, 1000);
 }
 
-/* META Operators. */
+/** \} */
 
-/* Separate_meta_toggle operator. */
+/* -------------------------------------------------------------------- */
+/** \name Toggle Meta Strip Operator
+ * \{ */
+
 static int sequencer_meta_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 {
   Scene *scene = CTX_data_scene(C);
@@ -2765,7 +2930,12 @@ void SEQUENCER_OT_meta_toggle(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-/* Separate_meta_make operator. */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Make Meta Strip Operator
+ * \{ */
+
 static int sequencer_meta_make_exec(bContext *C, wmOperator *op)
 {
   Scene *scene = CTX_data_scene(C);
@@ -2829,6 +2999,12 @@ void SEQUENCER_OT_meta_make(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name UnMeta Strip Operator
+ * \{ */
+
 static int seq_depends_on_meta(Sequence *seq, Sequence *seqm)
 {
   if (seq == seqm) {
@@ -2848,7 +3024,6 @@ static int seq_depends_on_meta(Sequence *seq, Sequence *seqm)
   }
 }
 
-/* Separate_meta_make operator. */
 static int sequencer_meta_separate_exec(bContext *C, wmOperator *UNUSED(op))
 {
   Scene *scene = CTX_data_scene(C);
@@ -2914,7 +3089,12 @@ void SEQUENCER_OT_meta_separate(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-/* View_all operator. */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Sequencer Frame All Operator
+ * \{ */
+
 static int sequencer_view_all_exec(bContext *C, wmOperator *op)
 {
   ARegion *region = CTX_wm_region(C);
@@ -2942,6 +3122,12 @@ void SEQUENCER_OT_view_all(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER;
 }
 
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Go to Current Frame Operator
+ * \{ */
+
 static int sequencer_view_frame_exec(bContext *C, wmOperator *op)
 {
   const int smooth_viewtx = WM_operator_smooth_viewtx_get(op);
@@ -2955,7 +3141,7 @@ void SEQUENCER_OT_view_frame(wmOperatorType *ot)
   /* Identifiers. */
   ot->name = "Go to Current Frame";
   ot->idname = "SEQUENCER_OT_view_frame";
-  ot->description = "Move the view to the playhead";
+  ot->description = "Move the view to the current frame";
 
   /* Api callbacks. */
   ot->exec = sequencer_view_frame_exec;
@@ -2965,7 +3151,12 @@ void SEQUENCER_OT_view_frame(wmOperatorType *ot)
   ot->flag = 0;
 }
 
-/* View_all operator. */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Preview Frame All Operator
+ * \{ */
+
 static int sequencer_view_all_preview_exec(bContext *C, wmOperator *UNUSED(op))
 {
   bScreen *screen = CTX_wm_screen(C);
@@ -3029,6 +3220,12 @@ void SEQUENCER_OT_view_all_preview(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER;
 }
 
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Sequencer View Zoom Ratio Operator
+ * \{ */
+
 static int sequencer_view_zoom_ratio_exec(bContext *C, wmOperator *op)
 {
   RenderData *rd = &CTX_data_scene(C)->r;
@@ -3072,6 +3269,12 @@ void SEQUENCER_OT_view_zoom_ratio(wmOperatorType *ot)
                 FLT_MAX);
 }
 
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name View Toggle Operator
+ * \{ */
+
 #if 0
 static const EnumPropertyItem view_type_items[] = {
     {SEQ_VIEW_SEQUENCE, "SEQUENCER", ICON_SEQ_SEQUENCER, "Sequencer", ""},
@@ -3085,7 +3288,6 @@ static const EnumPropertyItem view_type_items[] = {
 };
 #endif
 
-/* View_all operator. */
 static int sequencer_view_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 {
   SpaceSeq *sseq = (SpaceSeq *)CTX_wm_space_data(C);
@@ -3115,7 +3317,12 @@ void SEQUENCER_OT_view_toggle(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER;
 }
 
-/* View_selected operator. */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Frame Selected Operator
+ * \{ */
+
 static int sequencer_view_selected_exec(bContext *C, wmOperator *op)
 {
   Scene *scene = CTX_data_scene(C);
@@ -3197,6 +3404,12 @@ void SEQUENCER_OT_view_selected(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER;
 }
 
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Jump to Strip Operator
+ * \{ */
+
 static bool strip_jump_internal(Scene *scene,
                                 const short side,
                                 const bool do_skip_mute,
@@ -3224,7 +3437,6 @@ static bool sequencer_strip_jump_poll(bContext *C)
   return sequencer_edit_poll(C);
 }
 
-/* Jump frame to edit point operator. */
 static int sequencer_strip_jump_exec(bContext *C, wmOperator *op)
 {
   Scene *scene = CTX_data_scene(C);
@@ -3259,6 +3471,12 @@ void SEQUENCER_OT_strip_jump(wmOperatorType *ot)
   RNA_def_boolean(ot->srna, "next", true, "Next Strip", "");
   RNA_def_boolean(ot->srna, "center", true, "Use strip center", "");
 }
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Swap Strip Operator
+ * \{ */
 
 static void swap_sequence(Scene *scene, Sequence *seqa, Sequence *seqb)
 {
@@ -3380,6 +3598,12 @@ void SEQUENCER_OT_swap(wmOperatorType *ot)
       ot->srna, "side", prop_side_lr_types, SEQ_SIDE_RIGHT, "Side", "Side of the strip to swap");
 }
 
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Set Render Size Operator
+ * \{ */
+
 static int sequencer_rendersize_exec(bContext *C, wmOperator *UNUSED(op))
 {
   int retval = OPERATOR_CANCELLED;
@@ -3435,6 +3659,12 @@ void SEQUENCER_OT_rendersize(wmOperatorType *ot)
   /* Flags. */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Copy Operator
+ * \{ */
 
 static void seq_copy_del_sound(Scene *scene, Sequence *seq)
 {
@@ -3495,6 +3725,12 @@ void SEQUENCER_OT_copy(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER;
 }
 
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Paste Operator
+ * \{ */
+
 static int sequencer_paste_exec(bContext *C, wmOperator *UNUSED(op))
 {
   Main *bmain = CTX_data_main(C);
@@ -3550,6 +3786,12 @@ void SEQUENCER_OT_paste(wmOperatorType *ot)
   /* Flags. */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Sequencer Swap Data Operator
+ * \{ */
 
 static int sequencer_swap_data_exec(bContext *C, wmOperator *op)
 {
@@ -3612,7 +3854,12 @@ void SEQUENCER_OT_swap_data(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-/* Box select operator. */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Border Offset View Operator
+ * \{ */
+
 static int view_ghost_border_exec(bContext *C, wmOperator *op)
 {
   Scene *scene = CTX_data_scene(C);
@@ -3668,7 +3915,12 @@ void SEQUENCER_OT_view_ghost_border(wmOperatorType *ot)
   WM_operator_properties_gesture_box(ot);
 }
 
-/* Rebuild_proxy operator. */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Rebuild Proxy and Timecode Indices Operator
+ * \{ */
+
 static int sequencer_rebuild_proxy_invoke(bContext *C,
                                           wmOperator *op,
                                           const wmEvent *UNUSED(event))
@@ -3732,6 +3984,12 @@ void SEQUENCER_OT_rebuild_proxy(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER;
 }
 
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Set Selected Strip Proxies Operator
+ * \{ */
+
 static int sequencer_enable_proxies_invoke(bContext *C,
                                            wmOperator *op,
                                            const wmEvent *UNUSED(event))
@@ -3757,12 +4015,7 @@ static int sequencer_enable_proxies_exec(bContext *C, wmOperator *op)
 
   SEQP_BEGIN (ed, seq) {
     if ((seq->flag & SELECT)) {
-      if (ELEM(seq->type,
-               SEQ_TYPE_MOVIE,
-               SEQ_TYPE_IMAGE,
-               SEQ_TYPE_META,
-               SEQ_TYPE_SCENE,
-               SEQ_TYPE_MULTICAM)) {
+      if (ELEM(seq->type, SEQ_TYPE_MOVIE, SEQ_TYPE_IMAGE, SEQ_TYPE_META)) {
         BKE_sequencer_proxy_set(seq, turnon);
         if (seq->strip->proxy == NULL) {
           continue;
@@ -3833,7 +4086,12 @@ void SEQUENCER_OT_enable_proxies(wmOperatorType *ot)
   RNA_def_boolean(ot->srna, "overwrite", false, "Overwrite", "");
 }
 
-/* Change effect inputs operator. */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Change Effect Input Operator
+ * \{ */
+
 static const EnumPropertyItem prop_change_effect_input_types[] = {
     {0, "A_B", 0, "A -> B", ""},
     {1, "B_C", 0, "B -> C", ""},
@@ -3898,7 +4156,12 @@ void SEQUENCER_OT_change_effect_input(struct wmOperatorType *ot)
       ot->srna, "swap", prop_change_effect_input_types, 0, "Swap", "The effect inputs to swap");
 }
 
-/* Change effect type operator. */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Change Effect Type Operator
+ * \{ */
+
 static int sequencer_change_effect_type_exec(bContext *C, wmOperator *op)
 {
   Scene *scene = CTX_data_scene(C);
@@ -3960,7 +4223,12 @@ void SEQUENCER_OT_change_effect_type(struct wmOperatorType *ot)
                           "Sequencer effect type");
 }
 
-/* Change path operator. */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Change Data/Files Operator
+ * \{ */
+
 static int sequencer_change_path_exec(bContext *C, wmOperator *op)
 {
   Main *bmain = CTX_data_main(C);
@@ -4108,7 +4376,12 @@ void SEQUENCER_OT_change_path(struct wmOperatorType *ot)
                   "Use placeholders for missing frames of the strip");
 }
 
-/* Export subtitles operator. */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Export Subtitles Operator
+ * \{ */
+
 static int sequencer_export_subtitles_invoke(bContext *C,
                                              wmOperator *op,
                                              const wmEvent *UNUSED(event))
@@ -4243,7 +4516,12 @@ void SEQUENCER_OT_export_subtitles(struct wmOperatorType *ot)
                                  FILE_SORT_ALPHA);
 }
 
-/* Set range to strips operator. */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Set Range to Strips Operator
+ * \{ */
+
 static int sequencer_set_range_to_strips_exec(bContext *C, wmOperator *op)
 {
   Scene *scene = CTX_data_scene(C);
@@ -4307,3 +4585,5 @@ void SEQUENCER_OT_set_range_to_strips(struct wmOperatorType *ot)
   prop = RNA_def_boolean(ot->srna, "preview", false, "Preview", "Set the preview range instead");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE | PROP_HIDDEN);
 }
+
+/** \} */

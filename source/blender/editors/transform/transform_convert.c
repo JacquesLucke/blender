@@ -111,8 +111,10 @@ void transform_around_single_fallback(TransInfo *t)
           }
           if (tc->data_len == 3) {
             const TransData *td = tc->data;
-            if ((td[0].loc == td[1].loc) && (td[1].loc == td[2].loc)) {
-              is_data_single = true;
+            if ((td[0].flag | td[1].flag | td[2].flag) & TD_BEZTRIPLE) {
+              if ((td[0].loc == td[1].loc) && (td[1].loc == td[2].loc)) {
+                is_data_single = true;
+              }
             }
           }
           break;
@@ -827,10 +829,6 @@ void clipUVData(TransInfo *t)
   FOREACH_TRANS_DATA_CONTAINER (t, tc) {
     TransData *td = tc->data;
     for (int a = 0; a < tc->data_len; a++, td++) {
-      if (td->flag & TD_NOACTION) {
-        break;
-      }
-
       if ((td->flag & TD_SKIP) || (!td->loc)) {
         continue;
       }
@@ -2389,10 +2387,6 @@ void special_aftertrans_update(bContext *C, TransInfo *t)
       ListBase pidlist;
       PTCacheID *pid;
       ob = td->ob;
-
-      if (td->flag & TD_NOACTION) {
-        break;
-      }
 
       if (td->flag & TD_SKIP) {
         continue;

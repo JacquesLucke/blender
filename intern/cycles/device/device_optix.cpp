@@ -924,7 +924,8 @@ class OptiXDevice : public CUDADevice {
                              &rtiles[9].h,
                              &rtiles[9].offset,
                              &rtiles[9].stride,
-                             &task.pass_stride};
+                             &task.pass_stride,
+                             &rtile.sample};
       launch_filter_kernel(
           "kernel_cuda_filter_convert_from_rgb", rtiles[9].w, rtiles[9].h, output_args);
 #  endif
@@ -1536,34 +1537,22 @@ bool device_optix_init()
 
 void device_optix_info(const vector<DeviceInfo> &cuda_devices, vector<DeviceInfo> &devices)
 {
+  devices.reserve(cuda_devices.size());
+
   // Simply add all supported CUDA devices as OptiX devices again
-  for (const DeviceInfo &cuda_info : cuda_devices) {
-    DeviceInfo info = cuda_info;
+  for (DeviceInfo info : cuda_devices) {
     assert(info.type == DEVICE_CUDA);
+
+    int major;
+    cuDeviceGetAttribute(&major, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, info.num);
+    if (major < 5) {
+      continue;  // Only Maxwell and up are supported by OptiX
+    }
+
     info.type = DEVICE_OPTIX;
     info.id += "_OptiX";
 
-    // Figure out RTX support
-    CUdevice cuda_device = 0;
-    CUcontext cuda_context = NULL;
-    unsigned int rtcore_version = 0;
-    if (cuDeviceGet(&cuda_device, info.num) == CUDA_SUCCESS &&
-        cuDevicePrimaryCtxRetain(&cuda_context, cuda_device) == CUDA_SUCCESS) {
-      OptixDeviceContext optix_context = NULL;
-      if (optixDeviceContextCreate(cuda_context, nullptr, &optix_context) == OPTIX_SUCCESS) {
-        optixDeviceContextGetProperty(optix_context,
-                                      OPTIX_DEVICE_PROPERTY_RTCORE_VERSION,
-                                      &rtcore_version,
-                                      sizeof(rtcore_version));
-        optixDeviceContextDestroy(optix_context);
-      }
-      cuDevicePrimaryCtxRelease(cuda_device);
-    }
-
-    // Only add devices with RTX support
-    if (rtcore_version != 0 || getenv("CYCLES_OPTIX_TEST")) {
-      devices.push_back(info);
-    }
+    devices.push_back(info);
   }
 }
 

@@ -49,6 +49,7 @@
 #include "ED_space_api.h"
 
 #include "WM_api.h"
+#include "WM_message.h"
 #include "WM_types.h"
 
 #include "UI_interface_icons.h"
@@ -1195,7 +1196,7 @@ int transformEvent(TransInfo *t, const wmEvent *event)
               stopConstraint(t);
             }
             else {
-              initSelectConstraint(t, event->shift);
+              initSelectConstraint(t);
               postSelectConstraint(t);
             }
           }
@@ -1672,11 +1673,14 @@ void saveTransform(bContext *C, TransInfo *t, wmOperator *op)
   if (t->flag & T_MODAL) {
     /* do we check for parameter? */
     if (transformModeUseSnap(t)) {
-      if (t->modifiers & MOD_SNAP) {
-        ts->snap_flag |= SCE_SNAP;
-      }
-      else {
-        ts->snap_flag &= ~SCE_SNAP;
+      if (!(t->modifiers & MOD_SNAP) != !(ts->snap_flag & SCE_SNAP)) {
+        if (t->modifiers & MOD_SNAP) {
+          ts->snap_flag |= SCE_SNAP;
+        }
+        else {
+          ts->snap_flag &= ~SCE_SNAP;
+        }
+        WM_msg_publish_rna_prop(t->mbus, &t->scene->id, ts, ToolSettings, use_snap);
       }
     }
   }
@@ -1884,62 +1888,38 @@ bool initTransform(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
         t->region->type, drawTransformView, t, REGION_DRAW_POST_VIEW);
     t->draw_handle_pixel = ED_region_draw_cb_activate(
         t->region->type, drawTransformPixel, t, REGION_DRAW_POST_PIXEL);
-    t->draw_handle_cursor = WM_paint_cursor_activate(CTX_wm_manager(C),
-                                                     SPACE_TYPE_ANY,
-                                                     RGN_TYPE_ANY,
-                                                     transform_draw_cursor_poll,
-                                                     transform_draw_cursor_draw,
-                                                     t);
+    t->draw_handle_cursor = WM_paint_cursor_activate(
+        SPACE_TYPE_ANY, RGN_TYPE_ANY, transform_draw_cursor_poll, transform_draw_cursor_draw, t);
   }
   else if (t->spacetype == SPACE_IMAGE) {
     t->draw_handle_view = ED_region_draw_cb_activate(
         t->region->type, drawTransformView, t, REGION_DRAW_POST_VIEW);
-    t->draw_handle_cursor = WM_paint_cursor_activate(CTX_wm_manager(C),
-                                                     SPACE_TYPE_ANY,
-                                                     RGN_TYPE_ANY,
-                                                     transform_draw_cursor_poll,
-                                                     transform_draw_cursor_draw,
-                                                     t);
+    t->draw_handle_cursor = WM_paint_cursor_activate(
+        SPACE_TYPE_ANY, RGN_TYPE_ANY, transform_draw_cursor_poll, transform_draw_cursor_draw, t);
   }
   else if (t->spacetype == SPACE_CLIP) {
     t->draw_handle_view = ED_region_draw_cb_activate(
         t->region->type, drawTransformView, t, REGION_DRAW_POST_VIEW);
-    t->draw_handle_cursor = WM_paint_cursor_activate(CTX_wm_manager(C),
-                                                     SPACE_TYPE_ANY,
-                                                     RGN_TYPE_ANY,
-                                                     transform_draw_cursor_poll,
-                                                     transform_draw_cursor_draw,
-                                                     t);
+    t->draw_handle_cursor = WM_paint_cursor_activate(
+        SPACE_TYPE_ANY, RGN_TYPE_ANY, transform_draw_cursor_poll, transform_draw_cursor_draw, t);
   }
   else if (t->spacetype == SPACE_NODE) {
     t->draw_handle_view = ED_region_draw_cb_activate(
         t->region->type, drawTransformView, t, REGION_DRAW_POST_VIEW);
-    t->draw_handle_cursor = WM_paint_cursor_activate(CTX_wm_manager(C),
-                                                     SPACE_TYPE_ANY,
-                                                     RGN_TYPE_ANY,
-                                                     transform_draw_cursor_poll,
-                                                     transform_draw_cursor_draw,
-                                                     t);
+    t->draw_handle_cursor = WM_paint_cursor_activate(
+        SPACE_TYPE_ANY, RGN_TYPE_ANY, transform_draw_cursor_poll, transform_draw_cursor_draw, t);
   }
   else if (t->spacetype == SPACE_GRAPH) {
     t->draw_handle_view = ED_region_draw_cb_activate(
         t->region->type, drawTransformView, t, REGION_DRAW_POST_VIEW);
-    t->draw_handle_cursor = WM_paint_cursor_activate(CTX_wm_manager(C),
-                                                     SPACE_TYPE_ANY,
-                                                     RGN_TYPE_ANY,
-                                                     transform_draw_cursor_poll,
-                                                     transform_draw_cursor_draw,
-                                                     t);
+    t->draw_handle_cursor = WM_paint_cursor_activate(
+        SPACE_TYPE_ANY, RGN_TYPE_ANY, transform_draw_cursor_poll, transform_draw_cursor_draw, t);
   }
   else if (t->spacetype == SPACE_ACTION) {
     t->draw_handle_view = ED_region_draw_cb_activate(
         t->region->type, drawTransformView, t, REGION_DRAW_POST_VIEW);
-    t->draw_handle_cursor = WM_paint_cursor_activate(CTX_wm_manager(C),
-                                                     SPACE_TYPE_ANY,
-                                                     RGN_TYPE_ANY,
-                                                     transform_draw_cursor_poll,
-                                                     transform_draw_cursor_draw,
-                                                     t);
+    t->draw_handle_cursor = WM_paint_cursor_activate(
+        SPACE_TYPE_ANY, RGN_TYPE_ANY, transform_draw_cursor_poll, transform_draw_cursor_draw, t);
   }
 
   createTransData(C, t);  // make TransData structs from selection
