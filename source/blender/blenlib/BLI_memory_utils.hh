@@ -37,7 +37,7 @@ using std::uninitialized_fill_n;
 
 template<typename T> void construct_default(T *ptr)
 {
-  new (ptr) T();
+  new (ptr) T;
 }
 
 template<typename T> void destruct(T *ptr)

@@ -22,8 +22,8 @@
  *
  * The CPPType class is the core of the runtime-type-system used by the functions system. An
  * instance of this class can represent any C++ type, that is default-constructable, destructable,
- * movable and copyable. This restrictions might need to be removed in the future, but for now
- * every required type has these properties.
+ * movable and copyable. Therefore it also works for all C types. This restrictions might need to
+ * be removed in the future, but for now every required type has these properties.
  *
  * Every type has a size and an alignment. Every function dealing with C++ types in a generic way,
  * has to make sure that alignment rules are followed. The methods provided by a CPPType instance
@@ -31,7 +31,7 @@
  *
  * Every type has a name that is for debugging purposes only. It should not be used as identifier.
  *
- * To check if two instances of CPPType represent the same type, only their pointer has to be
+ * To check if two instances of CPPType represent the same type, only their pointers have to be
  * compared. Any C++ type has at most one corresponding CPPType instance.
  *
  * A CPPType instance comes with many methods that allow dealing with types in a generic way. Most
