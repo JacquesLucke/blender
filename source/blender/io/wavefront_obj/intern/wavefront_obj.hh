@@ -21,10 +21,15 @@
 #ifndef __WAVEFRONT_OBJ_HH__
 #define __WAVEFRONT_OBJ_HH__
 
+#include <stdio.h>
+
 #include "BKE_context.h"
+#include "BKE_object.h"
 
 #include "BLI_array.hh"
 #include "BLI_vector.hh"
+
+#include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 
 namespace io {
@@ -41,12 +46,7 @@ struct Polygon {
    * Vertex indices of this polygon. v1, v2 .. above.
    * The index corresponds to the pre-defined vertex list.
    */
-  BLI::Vector<uint> vertex_index;
-  /**
-   * Face normal indices of this polygon. vn1, vn2 .. above.
-   * The index corresponds to the pre-defined face normal list.
-   */
-  BLI::Vector<uint> face_normal_index;
+  std::vector<uint> vertex_index;
 };
 
 /**
@@ -56,6 +56,7 @@ struct Polygon {
 struct OBJ_data_to_export {
   bContext *C;
   Depsgraph *depsgraph;
+  Object *ob_eval;
 
   /** Vertices in a mesh to export. */
   MVert *mvert;
@@ -63,9 +64,10 @@ struct OBJ_data_to_export {
   uint tot_vertices;
 
   /** Polygons in a mesh to export. */
-  BLI::Vector<Polygon> polygon_list;
+  /* TODO (ankitm): Replace vector with BLI::Vector. See D7931 */
+  std::vector<Polygon> polygon_list;
   /** Number of polygons in a mesh to export. */
-  uint tot_faces;
+  uint tot_poly;
 };
 }  // namespace obj
 }  // namespace io

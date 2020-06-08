@@ -24,23 +24,17 @@
 #include "MEM_guardedalloc.h"
 
 #include <stdio.h>
+#include <vector>
 
-#include "BKE_context.h"
 #include "BKE_mesh.h"
 #include "BKE_mesh_runtime.h"
-#include "BKE_object.h"
 #include "BKE_scene.h"
 
-#include "BLI_iterator.h"
-#include "BLI_linklist.h"
 #include "BLI_math.h"
 #include "BLI_vector.hh"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
-
-#include "DNA_mesh_types.h"
-#include "DNA_meshdata_types.h"
 
 #include "IO_wavefront_obj.h"
 
@@ -73,39 +67,39 @@ static void get_transformed_mesh_vertices(Mesh *me_eval,
 /**
  * Store the mesh vertex normals in data_to_export, in world coordinates.
  */
-static void get_transformed_vertex_normals(Mesh *me_eval, OBJ_data_to_export *data_to_export)
+static void get_transformed_vertex_normals(Mesh *me_eval,
+                                           Object *ob_eval,
+                                           OBJ_data_to_export *data_to_export)
 {
+  BKE_mesh_ensure_normals(me_eval);
   float transformed_normal[3];
-  const MLoop *mloop;
-  const MPoly *mpoly = me_eval->mpoly;
-  const MVert *mvert = me_eval->mvert;
-
-  for (uint i = 0; i < me_eval->totpoly; i++, mpoly++) {
-    mloop = &me_eval->mloop[mpoly->loopstart];
-    BKE_mesh_calc_poly_normal(mpoly, mloop, mvert, transformed_normal);
+  for (uint i = 0; i < me_eval->totvert; i++) {
+    normal_short_to_float_v3(transformed_normal, me_eval->mvert[i].no);
+    mul_mat3_m4_v3(ob_eval->obmat, transformed_normal);
     normal_float_to_short_v3(data_to_export->mvert[i].no, transformed_normal);
   }
 }
 
 /**
- * Store a polygon's vertex indices and normal indices, indexing into the pre-defined
- * vertex coordinates and vertex normals list.
+ * Store a polygon's vertex indices, indexing into the pre-defined
+ * vertex coordinates list.
  */
 static void get_polygon_vert_indices(Mesh *me_eval, OBJ_data_to_export *data_to_export)
 {
   const MLoop *mloop;
   const MPoly *mpoly = me_eval->mpoly;
 
-  data_to_export->tot_faces = me_eval->totpoly;
-  data_to_export->polygon_list.increase_size_unchecked(me_eval->totpoly);
+  data_to_export->tot_poly = me_eval->totpoly;
+  data_to_export->polygon_list.resize(me_eval->totpoly);
 
   for (uint i = 0; i < me_eval->totpoly; i++, mpoly++) {
     mloop = &me_eval->mloop[mpoly->loopstart];
     data_to_export->polygon_list[i].total_vertices_per_poly = mpoly->totloop;
 
+    data_to_export->polygon_list[i].vertex_index.resize(mpoly->totloop);
+
     for (int j = 0; j < mpoly->totloop; j++) {
-      data_to_export->polygon_list[i].vertex_index.append((mloop + j)->v + 1);
-      data_to_export->polygon_list[i].face_normal_index.append(i + 1);
+      data_to_export->polygon_list[i].vertex_index[j] = (mloop + j)->v + 1;
     }
   }
 }
@@ -115,11 +109,11 @@ static void get_geometry_per_object(const OBJExportParams *export_params,
 {
   Depsgraph *depsgraph = data_to_export->depsgraph;
   Object *ob = CTX_data_active_object(data_to_export->C);
-  Object *ob_eval = DEG_get_evaluated_object(depsgraph, ob);
+  Object *ob_eval = data_to_export->ob_eval = DEG_get_evaluated_object(depsgraph, ob);
   Mesh *me_eval = BKE_object_get_evaluated_mesh(ob_eval);
 
   get_transformed_mesh_vertices(me_eval, ob_eval, data_to_export);
-  get_transformed_vertex_normals(me_eval, data_to_export);
+  get_transformed_vertex_normals(me_eval, ob_eval, data_to_export);
   get_polygon_vert_indices(me_eval, data_to_export);
 }
 
@@ -135,7 +129,9 @@ void exporter_main(bContext *C, const OBJExportParams *export_params)
 
   get_geometry_per_object(export_params, &data_to_export);
 
+  /* Comment out either one of the following. */
   write_obj_data(filepath, &data_to_export);
+  //  write_obj_data_in_fprintf(filepath, &data_to_export);
   MEM_freeN(data_to_export.mvert);
 }
 }  // namespace obj

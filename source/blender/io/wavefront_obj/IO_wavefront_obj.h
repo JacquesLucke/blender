@@ -22,7 +22,7 @@
 #define __IO_WAVEFRONT_OBJ_H__
 
 #include "BKE_context.h"
-#include <stdio.h>
+#include <stdio.h> /* For FILENAME_MAX. */
 
 #ifdef __cplusplus
 extern "C" {

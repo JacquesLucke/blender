@@ -33,6 +33,12 @@ namespace obj {
  */
 void write_obj_data(const char *filepath, OBJ_data_to_export *data_to_export);
 
+/**
+ * Same functionality as write_obj_data except it uses fprintf to write
+ * to the file.
+ */
+void write_obj_data_fprintf(const char *filepath, OBJ_data_to_export *data_to_export);
+
 }  // namespace obj
 }  // namespace io
 #endif

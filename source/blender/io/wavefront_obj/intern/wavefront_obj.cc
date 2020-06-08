@@ -22,6 +22,7 @@
  */
 
 #include "IO_wavefront_obj.h"
+#include <chrono>
 
 #include "wavefront_obj.hh"
 #include "wavefront_obj_exporter.hh"
@@ -32,7 +33,12 @@
  */
 void OBJ_export(bContext *C, const OBJExportParams *export_params)
 {
+  std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
   io::obj::exporter_main(C, export_params);
+  std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+  std::cout << "-------- \n Time difference = "
+            << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[us]"
+            << std::endl;
 }
 /**
  * Called from io_obj.c. Currently not implemented.
