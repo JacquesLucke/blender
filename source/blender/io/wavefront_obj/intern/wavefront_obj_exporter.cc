@@ -66,6 +66,7 @@ static void get_transformed_mesh_vertices(Mesh *me_eval,
 
 /**
  * Store the mesh vertex normals in data_to_export, in world coordinates.
+ * Memory for data_to_export->mvert pre-allocated in get_transformed_mesh_vertices.
  */
 static void get_transformed_vertex_normals(Mesh *me_eval,
                                            Object *ob_eval,

@@ -32,15 +32,18 @@
 namespace io {
 namespace obj {
 
+#define AXIS_X 0
+#define AXIS_Y 1
+#define AXIS_Z 2
 /**
  * Calculate a face normal's axis component by averaging over its vertex normals.
  */
 MALWAYS_INLINE short face_normal_axis_component(const Polygon &poly_to_write,
-                                                int axis,
+                                                short axis,
                                                 MVert *vertex_list)
 {
   float sum = 0;
-  for (int i = 0; i < poly_to_write.total_vertices_per_poly; i++) {
+  for (uint i = 0; i < poly_to_write.total_vertices_per_poly; i++) {
     sum += vertex_list[poly_to_write.vertex_index[i] - 1].no[axis];
   }
   return short(sum / poly_to_write.total_vertices_per_poly);
@@ -63,19 +66,19 @@ void write_obj_data(const char *filepath, OBJ_data_to_export *data_to_export)
   outfile << "o " << data_to_export->ob_eval->id.name + 2 << "\n";
 
   /** Write v x y z for all vertices. */
-  for (int i = 0; i < data_to_export->tot_vertices; i++) {
+  for (uint i = 0; i < data_to_export->tot_vertices; i++) {
     MVert *vertex = &data_to_export->mvert[i];
     outfile << "v ";
     outfile << vertex->co[0] << " " << vertex->co[1] << " " << vertex->co[2] << "\n";
   }
 
   /** Write vn nx ny nz for all face normals. */
-  for (int i = 0; i < data_to_export->tot_poly; i++) {
+  for (uint i = 0; i < data_to_export->tot_poly; i++) {
     MVert *vertex_list = data_to_export->mvert;
     const Polygon &polygon = data_to_export->polygon_list[i];
-    outfile << "vn " << face_normal_axis_component(polygon, 0, vertex_list) << " "
-            << face_normal_axis_component(polygon, 1, vertex_list) << " "
-            << face_normal_axis_component(polygon, 2, vertex_list) << "\n";
+    outfile << "vn " << face_normal_axis_component(polygon, AXIS_X, vertex_list) << " "
+            << face_normal_axis_component(polygon, AXIS_Y, vertex_list) << " "
+            << face_normal_axis_component(polygon, AXIS_Z, vertex_list) << "\n";
   }
 
   /**
@@ -83,7 +86,7 @@ void write_obj_data(const char *filepath, OBJ_data_to_export *data_to_export)
    * i-th vn is always i + 1, guaranteed by face normal loop above.
    * Both loop over the same polygon list.
    */
-  for (int i = 0; i < data_to_export->tot_poly; i++) {
+  for (uint i = 0; i < data_to_export->tot_poly; i++) {
     const Polygon &polygon = data_to_export->polygon_list[i];
     outfile << "f ";
     for (int j = 0; j < polygon.total_vertices_per_poly; j++) {
@@ -108,7 +111,7 @@ void write_obj_data_fprintf(const char *filepath, OBJ_data_to_export *data_to_ex
   fprintf(outfile, "# Blender 2.90\n");
   fprintf(outfile, "o %s\n", data_to_export->ob_eval->id.name + 2);
 
-  for (int i = 0; i < data_to_export->tot_vertices; i++) {
+  for (uint i = 0; i < data_to_export->tot_vertices; i++) {
     MVert *vertex = &data_to_export->mvert[i];
     fprintf(outfile, "v ");
     fprintf(outfile, "%f ", vertex->co[0]);
@@ -116,16 +119,16 @@ void write_obj_data_fprintf(const char *filepath, OBJ_data_to_export *data_to_ex
     fprintf(outfile, "%f\n", vertex->co[2]);
   }
 
-  for (int i = 0; i < data_to_export->tot_poly; i++) {
+  for (uint i = 0; i < data_to_export->tot_poly; i++) {
     MVert *vertex_list = data_to_export->mvert;
     const Polygon &polygon = data_to_export->polygon_list[i];
     fprintf(outfile, "vn ");
-    fprintf(outfile, "%hd ", face_normal_axis_component(polygon, 0, vertex_list));
-    fprintf(outfile, "%hd ", face_normal_axis_component(polygon, 1, vertex_list));
-    fprintf(outfile, "%hd \n", face_normal_axis_component(polygon, 2, vertex_list));
+    fprintf(outfile, "%hd ", face_normal_axis_component(polygon, AXIS_X, vertex_list));
+    fprintf(outfile, "%hd ", face_normal_axis_component(polygon, AXIS_Y, vertex_list));
+    fprintf(outfile, "%hd\n", face_normal_axis_component(polygon, AXIS_Z, vertex_list));
   }
 
-  for (int i = 0; i < data_to_export->tot_poly; i++) {
+  for (uint i = 0; i < data_to_export->tot_poly; i++) {
     const Polygon &polygon = data_to_export->polygon_list[i];
     fprintf(outfile, "f ");
     for (int j = 0; j < polygon.total_vertices_per_poly; j++) {
