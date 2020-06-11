@@ -47,6 +47,10 @@ struct Polygon {
    * The index corresponds to the pre-defined vertex list.
    */
   std::vector<uint> vertex_index;
+  /**
+   * UV vertex indices of this polygon. vt1, vt2 .. above.
+   */
+  std::vector<uint> uv_vertex_index;
 };
 
 /**
@@ -68,6 +72,11 @@ struct OBJ_data_to_export {
   std::vector<Polygon> polygon_list;
   /** Number of polygons in a mesh to export. */
   uint tot_poly;
+
+  /** UV vertex coordinates of a mesh in texture map. */
+  std::vector<std::array<float, 2>> uv_coords;
+  /** Number of UV vertices of a mesh in texture map. */
+  uint tot_uv_vertices;
 };
 }  // namespace obj
 }  // namespace io

@@ -72,6 +72,14 @@ void write_obj_data(const char *filepath, OBJ_data_to_export *data_to_export)
     outfile << vertex->co[0] << " " << vertex->co[1] << " " << vertex->co[2] << "\n";
   }
 
+  /**
+   * Write texture coordinates, vt u v for all vertices in a object's texture space.
+   */
+  for (uint i = 0; i < data_to_export->tot_uv_vertices; i++) {
+    std::array<float, 2> &uv_vertex = data_to_export->uv_coords[i];
+    outfile << "vt " << uv_vertex[0] << " " << uv_vertex[1] << "\n";
+  }
+
   /** Write vn nx ny nz for all face normals. */
   for (uint i = 0; i < data_to_export->tot_poly; i++) {
     MVert *vertex_list = data_to_export->mvert;
@@ -90,7 +98,9 @@ void write_obj_data(const char *filepath, OBJ_data_to_export *data_to_export)
     const Polygon &polygon = data_to_export->polygon_list[i];
     outfile << "f ";
     for (int j = 0; j < polygon.total_vertices_per_poly; j++) {
-      outfile << polygon.vertex_index[j] << "//" << i + 1 << " ";
+      /* This loop index is 0-based. Indices in OBJ start from 1. */
+      outfile << polygon.vertex_index[j] << "/" << polygon.uv_vertex_index[j] + 1 << "/" << i + 1
+              << " ";
     }
     outfile << "\n";
   }
@@ -119,6 +129,13 @@ void write_obj_data_fprintf(const char *filepath, OBJ_data_to_export *data_to_ex
     fprintf(outfile, "%f\n", vertex->co[2]);
   }
 
+  for (uint i = 0; i < data_to_export->tot_uv_vertices; i++) {
+    std::array<float, 2> &uv_vertex = data_to_export->uv_coords[i];
+    fprintf(outfile, "vt ");
+    fprintf(outfile, "%f ", uv_vertex[0]);
+    fprintf(outfile, "%f\n", uv_vertex[1]);
+  }
+
   for (uint i = 0; i < data_to_export->tot_poly; i++) {
     MVert *vertex_list = data_to_export->mvert;
     const Polygon &polygon = data_to_export->polygon_list[i];
@@ -132,7 +149,9 @@ void write_obj_data_fprintf(const char *filepath, OBJ_data_to_export *data_to_ex
     const Polygon &polygon = data_to_export->polygon_list[i];
     fprintf(outfile, "f ");
     for (int j = 0; j < polygon.total_vertices_per_poly; j++) {
-      fprintf(outfile, "%d//%d ", polygon.vertex_index[j], i + 1);
+      /* This loop index is 0-based. Indices in OBJ start from 1. */
+      fprintf(
+          outfile, "%d/%d/%d ", polygon.vertex_index[j], polygon.uv_vertex_index[j] + 1, i + 1);
     }
     fprintf(outfile, "\n");
   }
