@@ -128,7 +128,7 @@ static void get_uv_coordinates(Mesh *me_eval, OBJ_data_to_export *data_to_export
     UvVertMap *uv_vert_map = BKE_mesh_uv_vert_map_create(
         mpoly, mloop, mloopuv, me_eval->totpoly, me_eval->totvert, limit, false, false);
 
-    data_to_export->tot_uv_vertices = 0;
+    data_to_export->tot_uv_vertices = -1;
     for (int vertex_index = 0; vertex_index < me_eval->totvert; vertex_index++) {
       const UvMapVert *uv_vert = BKE_mesh_uv_vert_map_get_vert(uv_vert_map, vertex_index);
       while (uv_vert != NULL) {
@@ -155,6 +155,7 @@ static void get_uv_coordinates(Mesh *me_eval, OBJ_data_to_export *data_to_export
         uv_vert = uv_vert->next;
       }
     }
+    data_to_export->tot_uv_vertices++;
     BKE_mesh_uv_vert_map_free(uv_vert_map);
     /* No need to go over other layers. */
     break;
