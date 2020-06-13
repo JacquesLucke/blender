@@ -105,7 +105,7 @@ static void write_geomtery_per_object(FILE *outfile,
  * Low level writer to the OBJ file at filepath.
  */
 void write_object_fprintf(const char *filepath,
-                          std::vector<OBJ_object_to_export> &object_to_export)
+                          std::vector<OBJ_object_to_export> &objects_to_export)
 {
   FILE *outfile = fopen(filepath, "w");
   if (outfile == NULL) {
@@ -120,11 +120,11 @@ void write_object_fprintf(const char *filepath,
   uint index_offset[3] = {0, 0, 0};
 
   fprintf(outfile, "# Blender 2.90\n");
-  for (uint i = 0; i < object_to_export.size(); i++) {
-    write_geomtery_per_object(outfile, object_to_export[i], index_offset);
-    index_offset[0] += object_to_export[i].tot_vertices;
-    index_offset[1] += object_to_export[i].tot_uv_vertices;
-    index_offset[2] += object_to_export[i].tot_poly;
+  for (uint i = 0; i < objects_to_export.size(); i++) {
+    write_geomtery_per_object(outfile, objects_to_export[i], index_offset);
+    index_offset[0] += objects_to_export[i].tot_vertices;
+    index_offset[1] += objects_to_export[i].tot_uv_vertices;
+    index_offset[2] += objects_to_export[i].tot_poly;
   }
   fclose(outfile);
 }

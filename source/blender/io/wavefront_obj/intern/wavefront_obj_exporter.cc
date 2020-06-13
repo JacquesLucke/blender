@@ -48,13 +48,15 @@
 namespace io {
 namespace obj {
 
-static void object_is_exportable(Object *object,
-                                 std::vector<OBJ_object_to_export> &object_to_export)
+/**
+ * Check object type to filter only exportable types.
+ */
+static void check_object_type(Object *object, std::vector<OBJ_object_to_export> &objects_to_export)
 {
   switch (object->type) {
     case OB_MESH:
-      object_to_export.push_back(OBJ_object_to_export());
-      object_to_export.back().object = object;
+      objects_to_export.push_back(OBJ_object_to_export());
+      objects_to_export.back().object = object;
       break;
       /* Do nothing for all other cases for now. */
     default:
@@ -206,7 +208,7 @@ void exporter_main(bContext *C, const OBJExportParams *export_params)
   Base *base = static_cast<Base *>(view_layer->object_bases.first);
   for (; base; base = base->next) {
     Object *object_in_layer = base->object;
-    object_is_exportable(object_in_layer, exportable_objects);
+    check_object_type(object_in_layer, exportable_objects);
   }
 
   for (uint i = 0; i < exportable_objects.size(); i++) {

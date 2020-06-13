@@ -30,7 +30,6 @@ namespace obj {
 
 /**
  * Low level writer to the OBJ file at filepath.
- * object_to_export is filled in obj_exporter.cc.
  */
 void write_object_fprintf(const char *filepath,
                           std::vector<OBJ_object_to_export> &object_to_export);
