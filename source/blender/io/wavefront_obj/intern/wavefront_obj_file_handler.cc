@@ -49,7 +49,9 @@ MALWAYS_INLINE short face_normal_axis_component(const Polygon &poly_to_write,
   return short(sum / poly_to_write.total_vertices_per_poly);
 }
 
-static void write_geomtery_per_object(FILE *outfile, OBJ_object_to_export &object_to_export)
+static void write_geomtery_per_object(FILE *outfile,
+                                      OBJ_object_to_export &object_to_export,
+                                      uint offset[3])
 {
   /** Write object name, as seen in outliner. First two characters are ID code, so skipped. */
   fprintf(outfile, "o %s\n", object_to_export.object->id.name + 2);
@@ -88,9 +90,12 @@ static void write_geomtery_per_object(FILE *outfile, OBJ_object_to_export &objec
     const Polygon &polygon = object_to_export.polygon_list[i];
     fprintf(outfile, "f ");
     for (int j = 0; j < polygon.total_vertices_per_poly; j++) {
-      /* This loop index is 0-based. Indices in OBJ start from 1. */
-      fprintf(
-          outfile, "%d/%d/%d ", polygon.vertex_index[j], polygon.uv_vertex_index[j] + 1, i + 1);
+      /* + 1: This loop index is 0-based. Indices in OBJ start from 1. */
+      fprintf(outfile,
+              "%d/%d/%d ",
+              polygon.vertex_index[j] + offset[0],
+              polygon.uv_vertex_index[j] + 1 + offset[1],
+              i + 1 + offset[2]);
     }
     fprintf(outfile, "\n");
   }
@@ -108,9 +113,18 @@ void write_object_fprintf(const char *filepath,
     return;
   }
 
+  /**
+   * index_offset[x]: All previous vertex, uv vertex and normal indices are added in subsequent
+   * objects' indices.
+   */
+  uint index_offset[3] = {0, 0, 0};
+
   fprintf(outfile, "# Blender 2.90\n");
   for (uint i = 0; i < object_to_export.size(); i++) {
-    write_geomtery_per_object(outfile, object_to_export[i]);
+    write_geomtery_per_object(outfile, object_to_export[i], index_offset);
+    index_offset[0] += object_to_export[i].tot_vertices;
+    index_offset[1] += object_to_export[i].tot_uv_vertices;
+    index_offset[2] += object_to_export[i].tot_poly;
   }
   fclose(outfile);
 }
