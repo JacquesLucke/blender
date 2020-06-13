@@ -49,44 +49,34 @@ MALWAYS_INLINE short face_normal_axis_component(const Polygon &poly_to_write,
   return short(sum / poly_to_write.total_vertices_per_poly);
 }
 
-/**
- * Low level writer to the OBJ file at filepath.
- */
-void write_obj_data(const char *filepath, OBJ_data_to_export *data_to_export)
+static void write_geomtery_per_object(FILE *outfile, OBJ_object_to_export &object_to_export)
 {
-  std::ofstream outfile(filepath, std::ios::binary | std::ios::trunc);
-  if (outfile.is_open() == false) {
-    printf("Error opening file.");
-    return;
-  }
-
-  outfile << "# Blender 2.90 \n";
-
   /** Write object name, as seen in outliner. First two characters are ID code, so skipped. */
-  outfile << "o " << data_to_export->ob_eval->id.name + 2 << "\n";
+  fprintf(outfile, "o %s\n", object_to_export.object->id.name + 2);
 
   /** Write v x y z for all vertices. */
-  for (uint i = 0; i < data_to_export->tot_vertices; i++) {
-    MVert *vertex = &data_to_export->mvert[i];
-    outfile << "v ";
-    outfile << vertex->co[0] << " " << vertex->co[1] << " " << vertex->co[2] << "\n";
+  for (uint i = 0; i < object_to_export.tot_vertices; i++) {
+    MVert *vertex = &object_to_export.mvert[i];
+    fprintf(outfile, "v %f %f %f\n", vertex->co[0], vertex->co[1], vertex->co[2]);
   }
 
   /**
    * Write texture coordinates, vt u v for all vertices in a object's texture space.
    */
-  for (uint i = 0; i < data_to_export->tot_uv_vertices; i++) {
-    std::array<float, 2> &uv_vertex = data_to_export->uv_coords[i];
-    outfile << "vt " << uv_vertex[0] << " " << uv_vertex[1] << "\n";
+  for (uint i = 0; i < object_to_export.tot_uv_vertices; i++) {
+    std::array<float, 2> &uv_vertex = object_to_export.uv_coords[i];
+    fprintf(outfile, "vt %f %f\n", uv_vertex[0], uv_vertex[1]);
   }
 
   /** Write vn nx ny nz for all face normals. */
-  for (uint i = 0; i < data_to_export->tot_poly; i++) {
-    MVert *vertex_list = data_to_export->mvert;
-    const Polygon &polygon = data_to_export->polygon_list[i];
-    outfile << "vn " << face_normal_axis_component(polygon, AXIS_X, vertex_list) << " "
-            << face_normal_axis_component(polygon, AXIS_Y, vertex_list) << " "
-            << face_normal_axis_component(polygon, AXIS_Z, vertex_list) << "\n";
+  for (uint i = 0; i < object_to_export.tot_poly; i++) {
+    MVert *vertex_list = object_to_export.mvert;
+    const Polygon &polygon = object_to_export.polygon_list[i];
+    fprintf(outfile,
+            "vn %hd %hd %d\n",
+            face_normal_axis_component(polygon, AXIS_X, vertex_list),
+            face_normal_axis_component(polygon, AXIS_Y, vertex_list),
+            face_normal_axis_component(polygon, AXIS_Z, vertex_list));
   }
 
   /**
@@ -94,23 +84,23 @@ void write_obj_data(const char *filepath, OBJ_data_to_export *data_to_export)
    * i-th vn is always i + 1, guaranteed by face normal loop above.
    * Both loop over the same polygon list.
    */
-  for (uint i = 0; i < data_to_export->tot_poly; i++) {
-    const Polygon &polygon = data_to_export->polygon_list[i];
-    outfile << "f ";
+  for (uint i = 0; i < object_to_export.tot_poly; i++) {
+    const Polygon &polygon = object_to_export.polygon_list[i];
+    fprintf(outfile, "f ");
     for (int j = 0; j < polygon.total_vertices_per_poly; j++) {
       /* This loop index is 0-based. Indices in OBJ start from 1. */
-      outfile << polygon.vertex_index[j] << "/" << polygon.uv_vertex_index[j] + 1 << "/" << i + 1
-              << " ";
+      fprintf(
+          outfile, "%d/%d/%d ", polygon.vertex_index[j], polygon.uv_vertex_index[j] + 1, i + 1);
     }
-    outfile << "\n";
+    fprintf(outfile, "\n");
   }
 }
 
 /**
- * Same functionality as write_obj_data except it uses fprintf to write
- * to the file.
+ * Low level writer to the OBJ file at filepath.
  */
-void write_obj_data_fprintf(const char *filepath, OBJ_data_to_export *data_to_export)
+void write_object_fprintf(const char *filepath,
+                          std::vector<OBJ_object_to_export> &object_to_export)
 {
   FILE *outfile = fopen(filepath, "w");
   if (outfile == NULL) {
@@ -119,41 +109,8 @@ void write_obj_data_fprintf(const char *filepath, OBJ_data_to_export *data_to_ex
   }
 
   fprintf(outfile, "# Blender 2.90\n");
-  fprintf(outfile, "o %s\n", data_to_export->ob_eval->id.name + 2);
-
-  for (uint i = 0; i < data_to_export->tot_vertices; i++) {
-    MVert *vertex = &data_to_export->mvert[i];
-    fprintf(outfile, "v ");
-    fprintf(outfile, "%f ", vertex->co[0]);
-    fprintf(outfile, "%f ", vertex->co[1]);
-    fprintf(outfile, "%f\n", vertex->co[2]);
-  }
-
-  for (uint i = 0; i < data_to_export->tot_uv_vertices; i++) {
-    std::array<float, 2> &uv_vertex = data_to_export->uv_coords[i];
-    fprintf(outfile, "vt ");
-    fprintf(outfile, "%f ", uv_vertex[0]);
-    fprintf(outfile, "%f\n", uv_vertex[1]);
-  }
-
-  for (uint i = 0; i < data_to_export->tot_poly; i++) {
-    MVert *vertex_list = data_to_export->mvert;
-    const Polygon &polygon = data_to_export->polygon_list[i];
-    fprintf(outfile, "vn ");
-    fprintf(outfile, "%hd ", face_normal_axis_component(polygon, AXIS_X, vertex_list));
-    fprintf(outfile, "%hd ", face_normal_axis_component(polygon, AXIS_Y, vertex_list));
-    fprintf(outfile, "%hd\n", face_normal_axis_component(polygon, AXIS_Z, vertex_list));
-  }
-
-  for (uint i = 0; i < data_to_export->tot_poly; i++) {
-    const Polygon &polygon = data_to_export->polygon_list[i];
-    fprintf(outfile, "f ");
-    for (int j = 0; j < polygon.total_vertices_per_poly; j++) {
-      /* This loop index is 0-based. Indices in OBJ start from 1. */
-      fprintf(
-          outfile, "%d/%d/%d ", polygon.vertex_index[j], polygon.uv_vertex_index[j] + 1, i + 1);
-    }
-    fprintf(outfile, "\n");
+  for (uint i = 0; i < object_to_export.size(); i++) {
+    write_geomtery_per_object(outfile, object_to_export[i]);
   }
   fclose(outfile);
 }

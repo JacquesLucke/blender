@@ -31,6 +31,7 @@
 
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
+#include "DNA_object_types.h"
 
 namespace io {
 namespace obj {
@@ -55,12 +56,11 @@ struct Polygon {
 
 /**
  * Stores geometry of one object to be exported.
- * TODO (ankitm): Extend it to contain multiple objects' geometry.
  */
-struct OBJ_data_to_export {
+typedef struct OBJ_object_to_export {
   bContext *C;
   Depsgraph *depsgraph;
-  Object *ob_eval;
+  Object *object;
 
   /** Vertices in a mesh to export. */
   MVert *mvert;
@@ -77,7 +77,7 @@ struct OBJ_data_to_export {
   std::vector<std::array<float, 2>> uv_coords;
   /** Number of UV vertices of a mesh in texture map. */
   uint tot_uv_vertices;
-};
+} OBJ_object_to_export;
 }  // namespace obj
 }  // namespace io
 

@@ -27,17 +27,13 @@
 
 namespace io {
 namespace obj {
-/**
- * Low level writer to the OBJ file at filepath.
- * data_to_export is filled in obj_exporter.cc.
- */
-void write_obj_data(const char *filepath, OBJ_data_to_export *data_to_export);
 
 /**
- * Same functionality as write_obj_data except it uses fprintf to write
- * to the file.
+ * Low level writer to the OBJ file at filepath.
+ * object_to_export is filled in obj_exporter.cc.
  */
-void write_obj_data_fprintf(const char *filepath, OBJ_data_to_export *data_to_export);
+void write_object_fprintf(const char *filepath,
+                          std::vector<OBJ_object_to_export> &object_to_export);
 
 }  // namespace obj
 }  // namespace io
