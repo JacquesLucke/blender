@@ -14,8 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#ifndef __FN_VECTOR_ARRAY_REFS_HH__
-#define __FN_VECTOR_ARRAY_REFS_HH__
+#ifndef __FN_ARRAY_SPANS_HH__
+#define __FN_ARRAY_SPANS_HH__
 
 /** \file
  * \ingroup fn
@@ -217,4 +217,4 @@ class GVArraySpan {
 }  // namespace fn
 }  // namespace blender
 
-#endif /* __FN_VECTOR_ARRAY_REFS_HH__ */
+#endif /* __FN_ARRAY_SPANS_HH__ */
