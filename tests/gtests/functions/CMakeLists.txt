@@ -37,4 +37,5 @@ if(WITH_BUILDINFO)
 endif()
 
 BLENDER_TEST(FN_cpp_type "bf_blenlib;bf_functions;${BUILDINFO}")
+BLENDER_TEST(FN_generic_vector_array "bf_blenlib;bf_functions;${BUILDINFO}")
 BLENDER_TEST(FN_spans "bf_blenlib;bf_functions;${BUILDINFO}")
