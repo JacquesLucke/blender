@@ -162,6 +162,20 @@ class GVArraySpan {
     return *m_type;
   }
 
+  template<typename T> VArraySpan<T> typed() const
+  {
+    BLI_assert(CPPType::get<T>() == *m_type);
+    switch (m_category) {
+      case SingleArray:
+        return VArraySpan<T>(
+            Span<T>((const T *)m_data.single_array.values, m_data.single_array.size));
+      case StartsAndSizes:
+        return VArraySpan<T>(
+            Span<const T *>((const T *const *)m_data.starts_and_sizes.starts, m_virtual_size),
+            Span<uint>(m_data.starts_and_sizes.sizes, m_virtual_size));
+    }
+  }
+
   GVSpan operator[](uint index) const
   {
     BLI_assert(index < m_virtual_size);

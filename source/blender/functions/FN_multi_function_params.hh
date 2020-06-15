@@ -129,6 +129,10 @@ class MFParams {
   {
   }
 
+  template<typename T> VSpan<T> readonly_single_input(uint param_index, StringRef name = "")
+  {
+    return this->readonly_single_input(param_index, name).typed<T>();
+  }
   GVSpan readonly_single_input(uint param_index, StringRef name = "")
   {
     this->assert_correct_param(param_index, name, MFParamType::SingleInput);
@@ -136,6 +140,11 @@ class MFParams {
     return m_builder->m_virtual_spans[data_index];
   }
 
+  template<typename T>
+  MutableSpan<T> uninitialized_single_output(uint param_index, StringRef name = "")
+  {
+    return this->uninitialized_single_output(param_index, name).typed<T>();
+  }
   GMutableSpan uninitialized_single_output(uint param_index, StringRef name = "")
   {
     this->assert_correct_param(param_index, name, MFParamType::SingleOutput);
@@ -143,6 +152,10 @@ class MFParams {
     return m_builder->m_mutable_spans[data_index];
   }
 
+  template<typename T> VArraySpan<T> readonly_vector_input(uint param_index, StringRef name = "")
+  {
+    return this->readonly_vector_input(param_index, name).typed<T>();
+  }
   GVArraySpan readonly_vector_input(uint param_index, StringRef name = "")
   {
     this->assert_correct_param(param_index, name, MFParamType::VectorInput);
@@ -157,6 +170,10 @@ class MFParams {
     return *m_builder->m_vector_arrays[data_index];
   }
 
+  template<typename T> MutableSpan<T> single_mutable(uint param_index, StringRef name = "")
+  {
+    return this->single_mutable(param_index, name).typed<T>();
+  }
   GMutableSpan single_mutable(uint param_index, StringRef name = "")
   {
     this->assert_correct_param(param_index, name, MFParamType::SingleMutable);

@@ -33,9 +33,9 @@ class AddFunction : public MultiFunction {
 
   void call(IndexMask mask, MFParams params, MFContext context) const override
   {
-    VSpan<int> a = params.readonly_single_input(0, "A").typed<int>();
-    VSpan<int> b = params.readonly_single_input(1, "B").typed<int>();
-    MutableSpan<int> result = params.uninitialized_single_output(2, "Result").typed<int>();
+    VSpan<int> a = params.readonly_single_input<int>(0, "A");
+    VSpan<int> b = params.readonly_single_input<int>(1, "B");
+    MutableSpan<int> result = params.uninitialized_single_output<int>(2, "Result");
 
     for (uint i : mask) {
       result[i] = a[i] + b[i];
