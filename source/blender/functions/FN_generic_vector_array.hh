@@ -19,6 +19,10 @@
 
 /** \file
  * \ingroup fn
+ *
+ * A `GVectorArray` is a container for a fixed amount of dynamically growing arrays with a generic
+ * type. Its main use case is store many small vectors with few separate allocations. Using this
+ * structure is generally more efficient than allocating each small vector separately.
  */
 
 #include "FN_array_spans.hh"
