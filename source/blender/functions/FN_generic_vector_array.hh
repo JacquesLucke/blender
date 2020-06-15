@@ -147,7 +147,7 @@ template<typename T> class GVectorArrayRef {
  public:
   GVectorArrayRef(GVectorArray &vector_array) : m_vector_array(&vector_array)
   {
-    BLI_assert(*vector_array.m_type == CPPType::get<T>());
+    BLI_assert(vector_array.m_type == CPPType::get<T>());
   }
 
   void append(uint index, const T &value)
@@ -157,7 +157,7 @@ template<typename T> class GVectorArrayRef {
 
   MutableSpan<T> operator[](uint index)
   {
-    BLI_assert(index < m_starts.size());
+    BLI_assert(index < m_vector_array->m_starts.size());
     return MutableSpan<T>((T *)m_vector_array->m_starts[index], m_vector_array->m_lengths[index]);
   }
 
