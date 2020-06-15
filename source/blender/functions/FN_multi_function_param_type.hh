@@ -20,7 +20,7 @@
 #include "FN_multi_function_data_type.hh"
 
 namespace blender {
-namespace FN {
+namespace fn {
 
 class MFParamType {
  public:
@@ -133,7 +133,7 @@ inline bool operator!=(const MFParamType &a, const MFParamType &b)
   return !(a == b);
 }
 
-}  // namespace FN
+}  // namespace fn
 }  // namespace blender
 
 #endif /* __FN_MULTI_FUNCTION_PARAM_TYPE_HH__ */

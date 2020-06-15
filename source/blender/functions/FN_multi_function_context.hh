@@ -18,7 +18,7 @@
 #define __FN_MULTI_FUNCTION_CONTEXT_HH__
 
 namespace blender {
-namespace FN {
+namespace fn {
 
 class MFContextBuilder {
 };
@@ -33,7 +33,7 @@ class MFContext {
   }
 };
 
-}  // namespace FN
+}  // namespace fn
 }  // namespace blender
 
 #endif /* __FN_MULTI_FUNCTION_CONTEXT_HH__ */

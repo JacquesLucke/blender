@@ -20,7 +20,7 @@
 #include "FN_cpp_type.hh"
 
 namespace blender {
-namespace FN {
+namespace fn {
 
 class MFDataType {
  public:
@@ -111,7 +111,7 @@ inline bool operator!=(const MFDataType &a, const MFDataType &b)
   return !(a == b);
 }
 
-}  // namespace FN
+}  // namespace fn
 }  // namespace blender
 
 #endif /* __FN_MULTI_FUNCTION_DATA_TYPE_HH__ */
