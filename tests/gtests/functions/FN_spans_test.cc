@@ -24,7 +24,7 @@ namespace fn {
 
 TEST(generic_span, TypeConstructor)
 {
-  GenericSpan span(CPPType_float);
+  GSpan span(CPPType_float);
   EXPECT_EQ(span.size(), 0);
   EXPECT_EQ(span.typed<float>().size(), 0);
   EXPECT_TRUE(span.is_empty());
@@ -34,7 +34,7 @@ TEST(generic_span, BufferAndSizeConstructor)
 {
   int values[4] = {6, 7, 3, 2};
   void *buffer = (void *)values;
-  GenericSpan span(CPPType_int32, buffer, 4);
+  GSpan span(CPPType_int32, buffer, 4);
   EXPECT_EQ(span.size(), 4);
   EXPECT_FALSE(span.is_empty());
   EXPECT_EQ(span.typed<int>().size(), 4);
@@ -46,7 +46,7 @@ TEST(generic_span, BufferAndSizeConstructor)
 
 TEST(generic_mutable_span, TypeConstructor)
 {
-  GenericMutableSpan span(CPPType_int32);
+  GMutableSpan span(CPPType_int32);
   EXPECT_EQ(span.size(), 0);
   EXPECT_TRUE(span.is_empty());
 }
@@ -55,7 +55,7 @@ TEST(generic_mutable_span, BufferAndSizeConstructor)
 {
   int values[4] = {4, 7, 3, 5};
   void *buffer = (void *)values;
-  GenericMutableSpan span(CPPType_int32, buffer, 4);
+  GMutableSpan span(CPPType_int32, buffer, 4);
   EXPECT_EQ(span.size(), 4);
   EXPECT_FALSE(span.is_empty());
   EXPECT_EQ(span.typed<int>().size(), 4);
@@ -68,7 +68,7 @@ TEST(generic_mutable_span, BufferAndSizeConstructor)
 
 TEST(virtual_span, EmptyConstructor)
 {
-  VirtualSpan<int> span;
+  VSpan<int> span;
   EXPECT_EQ(span.size(), 0);
   EXPECT_TRUE(span.is_empty());
 }
@@ -77,7 +77,7 @@ TEST(virtual_span, SpanConstructor)
 {
   std::array<int, 5> values = {7, 3, 8, 6, 4};
   Span<int> span = values;
-  VirtualSpan<int> virtual_span = span;
+  VSpan<int> virtual_span = span;
   EXPECT_EQ(virtual_span.size(), 5);
   EXPECT_FALSE(virtual_span.is_empty());
   EXPECT_EQ(virtual_span[0], 7);
@@ -91,7 +91,7 @@ TEST(virtual_span, PointerSpanConstructor)
   int x1 = 6;
   int x2 = 7;
   std::array<const int *, 3> pointers = {&x0, &x2, &x1};
-  VirtualSpan<int> span = Span<const int *>(pointers);
+  VSpan<int> span = Span<const int *>(pointers);
   EXPECT_EQ(span.size(), 3);
   EXPECT_FALSE(span.is_empty());
   EXPECT_EQ(span[0], 3);
@@ -103,7 +103,7 @@ TEST(virtual_span, PointerSpanConstructor)
 TEST(virtual_span, SingleConstructor)
 {
   int value = 5;
-  VirtualSpan<int> span = VirtualSpan<int>::FromSingle(&value, 3);
+  VSpan<int> span = VSpan<int>::FromSingle(&value, 3);
   EXPECT_EQ(span.size(), 3);
   EXPECT_FALSE(span.is_empty());
   EXPECT_EQ(span[0], 5);
@@ -116,7 +116,7 @@ TEST(virtual_span, SingleConstructor)
 
 TEST(generic_virtual_span, TypeConstructor)
 {
-  GenericVirtualSpan span(CPPType_int32);
+  GVSpan span(CPPType_int32);
   EXPECT_EQ(span.size(), 0);
   EXPECT_TRUE(span.is_empty());
 }
@@ -124,7 +124,7 @@ TEST(generic_virtual_span, TypeConstructor)
 TEST(generic_virtual_span, GenericSpanConstructor)
 {
   int values[4] = {3, 4, 5, 6};
-  GenericVirtualSpan span{GenericSpan(CPPType_int32, values, 4)};
+  GVSpan span{GSpan(CPPType_int32, values, 4)};
   EXPECT_EQ(span.size(), 4);
   EXPECT_FALSE(span.is_empty());
   EXPECT_EQ(span[0], &values[0]);
@@ -136,7 +136,7 @@ TEST(generic_virtual_span, GenericSpanConstructor)
 TEST(generic_virtual_span, SpanConstructor)
 {
   std::array<int, 3> values = {6, 7, 8};
-  GenericVirtualSpan span{Span<int>(values)};
+  GVSpan span{Span<int>(values)};
   EXPECT_EQ(span.type(), CPPType_int32);
   EXPECT_EQ(span.size(), 3);
   EXPECT_EQ(span[0], &values[0]);
@@ -147,7 +147,7 @@ TEST(generic_virtual_span, SpanConstructor)
 TEST(generic_virtual_span, SingleConstructor)
 {
   int value = 5;
-  GenericVirtualSpan span = GenericVirtualSpan::FromSingle(CPPType_int32, &value, 3);
+  GVSpan span = GVSpan::FromSingle(CPPType_int32, &value, 3);
   EXPECT_EQ(span.size(), 3);
   EXPECT_FALSE(span.is_empty());
   EXPECT_EQ(span[0], &value);

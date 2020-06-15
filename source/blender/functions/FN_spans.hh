@@ -24,27 +24,26 @@
 namespace blender {
 namespace fn {
 
-class GenericSpan {
+class GSpan {
  private:
   const CPPType *m_type;
   const void *m_buffer;
   uint m_size;
 
  public:
-  GenericSpan(const CPPType &type, const void *buffer, uint size)
+  GSpan(const CPPType &type, const void *buffer, uint size)
       : m_type(&type), m_buffer(buffer), m_size(size)
   {
     BLI_assert(buffer != nullptr || size == 0);
     BLI_assert(type.pointer_has_valid_alignment(buffer));
   }
 
-  GenericSpan(const CPPType &type) : GenericSpan(type, nullptr, 0)
+  GSpan(const CPPType &type) : GSpan(type, nullptr, 0)
   {
   }
 
   template<typename T>
-  GenericSpan(Span<T> array)
-      : GenericSpan(CPPType::get<T>(), (const void *)array.begin(), array.size())
+  GSpan(Span<T> array) : GSpan(CPPType::get<T>(), (const void *)array.begin(), array.size())
   {
   }
 
@@ -81,33 +80,33 @@ class GenericSpan {
   }
 };
 
-class GenericMutableSpan {
+class GMutableSpan {
  private:
   const CPPType *m_type;
   void *m_buffer;
   uint m_size;
 
  public:
-  GenericMutableSpan(const CPPType &type, void *buffer, uint size)
+  GMutableSpan(const CPPType &type, void *buffer, uint size)
       : m_type(&type), m_buffer(buffer), m_size(size)
   {
     BLI_assert(buffer != nullptr || size == 0);
     BLI_assert(type.pointer_has_valid_alignment(buffer));
   }
 
-  GenericMutableSpan(const CPPType &type) : GenericMutableSpan(type, nullptr, 0)
+  GMutableSpan(const CPPType &type) : GMutableSpan(type, nullptr, 0)
   {
   }
 
   template<typename T>
-  GenericMutableSpan(MutableSpan<T> array)
-      : GenericMutableSpan(CPPType::get<T>(), (void *)array.begin(), array.size())
+  GMutableSpan(MutableSpan<T> array)
+      : GMutableSpan(CPPType::get<T>(), (void *)array.begin(), array.size())
   {
   }
 
-  operator GenericSpan() const
+  operator GSpan() const
   {
-    return GenericSpan(*m_type, m_buffer, m_size);
+    return GSpan(*m_type, m_buffer, m_size);
   }
 
   const CPPType &type() const
@@ -143,7 +142,7 @@ class GenericMutableSpan {
   }
 };
 
-template<typename T> class VirtualSpan {
+template<typename T> class VSpan {
  private:
   enum Category {
     Single,
@@ -167,34 +166,34 @@ template<typename T> class VirtualSpan {
   } m_data;
 
  public:
-  VirtualSpan()
+  VSpan()
   {
     m_virtual_size = 0;
     m_category = FullArray;
     m_data.full_array.data = nullptr;
   }
 
-  VirtualSpan(Span<T> values)
+  VSpan(Span<T> values)
   {
     m_virtual_size = values.size();
     m_category = FullArray;
     m_data.full_array.data = values.begin();
   }
 
-  VirtualSpan(MutableSpan<T> values) : VirtualSpan(Span<T>(values))
+  VSpan(MutableSpan<T> values) : VSpan(Span<T>(values))
   {
   }
 
-  VirtualSpan(Span<const T *> values)
+  VSpan(Span<const T *> values)
   {
     m_virtual_size = values.size();
     m_category = FullPointerArray;
     m_data.full_pointer_array.data = values.begin();
   }
 
-  static VirtualSpan FromSingle(const T *value, uint virtual_size)
+  static VSpan FromSingle(const T *value, uint virtual_size)
   {
-    VirtualSpan ref;
+    VSpan ref;
     ref.m_virtual_size = virtual_size;
     ref.m_category = Single;
     ref.m_data.single.data = value;
@@ -227,7 +226,7 @@ template<typename T> class VirtualSpan {
   }
 };
 
-class GenericVirtualSpan {
+class GVSpan {
  private:
   enum Category {
     Single,
@@ -251,10 +250,10 @@ class GenericVirtualSpan {
     } full_pointer_array;
   } m_data;
 
-  GenericVirtualSpan() = default;
+  GVSpan() = default;
 
  public:
-  GenericVirtualSpan(const CPPType &type)
+  GVSpan(const CPPType &type)
   {
     m_type = &type;
     m_virtual_size = 0;
@@ -262,7 +261,7 @@ class GenericVirtualSpan {
     m_data.full_array.data = nullptr;
   }
 
-  GenericVirtualSpan(GenericSpan values)
+  GVSpan(GSpan values)
   {
     m_type = &values.type();
     m_virtual_size = values.size();
@@ -270,22 +269,21 @@ class GenericVirtualSpan {
     m_data.full_array.data = values.buffer();
   }
 
-  GenericVirtualSpan(GenericMutableSpan values) : GenericVirtualSpan(GenericSpan(values))
+  GVSpan(GMutableSpan values) : GVSpan(GSpan(values))
   {
   }
 
-  template<typename T> GenericVirtualSpan(Span<T> values) : GenericVirtualSpan(GenericSpan(values))
+  template<typename T> GVSpan(Span<T> values) : GVSpan(GSpan(values))
   {
   }
 
-  template<typename T>
-  GenericVirtualSpan(MutableSpan<T> values) : GenericVirtualSpan(GenericSpan(values))
+  template<typename T> GVSpan(MutableSpan<T> values) : GVSpan(GSpan(values))
   {
   }
 
-  static GenericVirtualSpan FromSingle(const CPPType &type, const void *value, uint virtual_size)
+  static GVSpan FromSingle(const CPPType &type, const void *value, uint virtual_size)
   {
-    GenericVirtualSpan ref;
+    GVSpan ref;
     ref.m_type = &type;
     ref.m_virtual_size = virtual_size;
     ref.m_category = Single;
@@ -293,11 +291,9 @@ class GenericVirtualSpan {
     return ref;
   }
 
-  static GenericVirtualSpan FromFullPointerArray(const CPPType &type,
-                                                 const void *const *values,
-                                                 uint size)
+  static GVSpan FromFullPointerArray(const CPPType &type, const void *const *values, uint size)
   {
-    GenericVirtualSpan ref;
+    GVSpan ref;
     ref.m_type = &type;
     ref.m_virtual_size = size;
     ref.m_category = FullPointerArray;
@@ -335,16 +331,16 @@ class GenericVirtualSpan {
     return m_data.single.data;
   }
 
-  template<typename T> VirtualSpan<T> typed() const
+  template<typename T> VSpan<T> typed() const
   {
     BLI_assert(CPPType::get<T>() == *m_type);
     switch (m_category) {
       case Single:
-        return VirtualSpan<T>::FromSingle((const T *)m_data.single.data, m_virtual_size);
+        return VSpan<T>::FromSingle((const T *)m_data.single.data, m_virtual_size);
       case FullArray:
-        return VirtualSpan<T>(Span<T>((const T *)m_data.full_array.data, m_virtual_size));
+        return VSpan<T>(Span<T>((const T *)m_data.full_array.data, m_virtual_size));
       case FullPointerArray:
-        return VirtualSpan<T>(
+        return VSpan<T>(
             Span<const T *>((const T *const *)m_data.full_pointer_array.data, m_virtual_size));
     }
     BLI_assert(false);

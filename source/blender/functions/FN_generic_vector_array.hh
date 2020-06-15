@@ -27,7 +27,7 @@
 namespace blender {
 namespace fn {
 
-class GenericVectorArray : NonCopyable, NonMovable {
+class GVectorArray : NonCopyable, NonMovable {
  private:
   const CPPType &m_type;
   uint m_element_size;
@@ -37,9 +37,9 @@ class GenericVectorArray : NonCopyable, NonMovable {
   LinearAllocator<> m_allocator;
 
  public:
-  GenericVectorArray() = delete;
+  GVectorArray() = delete;
 
-  GenericVectorArray(const CPPType &type, uint array_size)
+  GVectorArray(const CPPType &type, uint array_size)
       : m_type(type),
         m_element_size(type.size()),
         m_starts(array_size),
@@ -51,7 +51,7 @@ class GenericVectorArray : NonCopyable, NonMovable {
     m_capacities.fill(0);
   }
 
-  ~GenericVectorArray()
+  ~GVectorArray()
   {
     if (m_type.is_trivially_destructible()) {
       return;
@@ -94,10 +94,10 @@ class GenericVectorArray : NonCopyable, NonMovable {
     m_lengths[index]++;
   }
 
-  GenericMutableSpan operator[](uint index)
+  GMutableSpan operator[](uint index)
   {
     BLI_assert(index < m_starts.size());
-    return GenericMutableSpan(m_type, m_starts[index], m_lengths[index]);
+    return GMutableSpan(m_type, m_starts[index], m_lengths[index]);
   }
 
  private:

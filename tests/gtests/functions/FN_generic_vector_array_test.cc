@@ -24,7 +24,7 @@ namespace fn {
 
 TEST(generic_vector_array, Constructor)
 {
-  GenericVectorArray vectors{CPPType_int32, 3};
+  GVectorArray vectors{CPPType_int32, 3};
   EXPECT_EQ(vectors.size(), 3);
   EXPECT_EQ(vectors.lengths().size(), 3);
   EXPECT_EQ(vectors.starts().size(), 3);
@@ -36,7 +36,7 @@ TEST(generic_vector_array, Constructor)
 
 TEST(generic_vector_array, Append)
 {
-  GenericVectorArray vectors{CPPType_string, 3};
+  GVectorArray vectors{CPPType_string, 3};
   std::string value = "hello";
   vectors.append(0, &value);
   value = "world";
