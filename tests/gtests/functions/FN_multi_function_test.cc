@@ -100,7 +100,7 @@ TEST(multi_function, AddPrefixFunction)
   std::string prefix = "AB";
 
   MFParamsBuilder params(fn, strings.size());
-  params.add_readonly_single_input(GVSpan::FromSingle(CPPType_string, &prefix, strings.size()));
+  params.add_readonly_single_input(&prefix);
   params.add_single_mutable(strings.as_mutable_span());
 
   MFContextBuilder context;

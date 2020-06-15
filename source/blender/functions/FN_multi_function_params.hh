@@ -51,6 +51,11 @@ class MFParamsBuilder {
 
   MFParamsBuilder(const class MultiFunction &fn, uint min_array_size);
 
+  template<typename T> void add_readonly_single_input(const T *value)
+  {
+    this->add_readonly_single_input(
+        GVSpan::FromSingle(CPPType::get<T>(), value, m_min_array_size));
+  }
   void add_readonly_single_input(GVSpan ref)
   {
     this->assert_current_param_type(MFParamType::ForSingleInput(ref.type()));
