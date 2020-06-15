@@ -35,6 +35,8 @@
 namespace blender {
 namespace fn {
 
+template<typename T> class GVectorArrayRef;
+
 class GVectorArray : NonCopyable, NonMovable {
  private:
   const CPPType &m_type;
@@ -43,6 +45,8 @@ class GVectorArray : NonCopyable, NonMovable {
   Array<uint, 1> m_lengths;
   Array<uint, 1> m_capacities;
   LinearAllocator<> m_allocator;
+
+  template<typename T> friend class GVectorArrayRef;
 
  public:
   GVectorArray() = delete;
@@ -117,43 +121,9 @@ class GVectorArray : NonCopyable, NonMovable {
     BLI_assert(index < m_starts.size());
     return GMutableSpan(m_type, m_starts[index], m_lengths[index]);
   }
-
-  template<typename T> class Typed {
-   private:
-    GVectorArray *m_vector_array;
-
-   public:
-    Typed(GVectorArray &vector_array) : m_vector_array(&vector_array)
-    {
-      BLI_assert(*vector_array.m_type == CPPType::get<T>());
-    }
-
-    void append(uint index, const T &value)
-    {
-      m_vector_array->append(index, &value);
-    }
-
-    MutableSpan<T> operator[](uint index)
-    {
-      BLI_assert(index < m_starts.size());
-      return MutableSpan<T>((T *)m_vector_array->m_starts[index],
-                            m_vector_array->m_lengths[index]);
-    }
-
-    uint size() const
-    {
-      return m_vector_array->size();
-    }
-
-    bool is_empty() const
-    {
-      return m_vector_array->is_empty();
-    }
-  };
-
-  template<typename T> Typed<T> typed()
+  template<typename T> GVectorArrayRef<T> typed()
   {
-    return Typed<T>(*this);
+    return GVectorArrayRef<T>(*this);
   }
 
  private:
@@ -167,6 +137,38 @@ class GVectorArray : NonCopyable, NonMovable {
 
     m_starts[index] = new_buffer;
     m_capacities[index] = new_capacity;
+  }
+};
+
+template<typename T> class GVectorArrayRef {
+ private:
+  GVectorArray *m_vector_array;
+
+ public:
+  GVectorArrayRef(GVectorArray &vector_array) : m_vector_array(&vector_array)
+  {
+    BLI_assert(*vector_array.m_type == CPPType::get<T>());
+  }
+
+  void append(uint index, const T &value)
+  {
+    m_vector_array->append(index, &value);
+  }
+
+  MutableSpan<T> operator[](uint index)
+  {
+    BLI_assert(index < m_starts.size());
+    return MutableSpan<T>((T *)m_vector_array->m_starts[index], m_vector_array->m_lengths[index]);
+  }
+
+  uint size() const
+  {
+    return m_vector_array->size();
+  }
+
+  bool is_empty() const
+  {
+    return m_vector_array->is_empty();
   }
 };
 

@@ -73,28 +73,28 @@ TEST(generic_vector_array, AsArraySpan)
   EXPECT_EQ(span[2].typed<int>()[0], 5);
 }
 
-TEST(generic_vector_array, Typed)
+TEST(generic_vector_array, TypedRef)
 {
   GVectorArray vectors{CPPType_int32, 4};
-  GVectorArray::Typed<int> typed = vectors.typed<int>();
-  typed.append(0, 2);
-  typed.append(0, 6);
-  typed.append(0, 7);
-  typed.append(2, 1);
-  typed.append(2, 1);
-  typed.append(3, 5);
-  typed.append(3, 6);
+  GVectorArrayRef<int> ref = vectors.typed<int>();
+  ref.append(0, 2);
+  ref.append(0, 6);
+  ref.append(0, 7);
+  ref.append(2, 1);
+  ref.append(2, 1);
+  ref.append(3, 5);
+  ref.append(3, 6);
 
-  EXPECT_EQ(typed[0].size(), 3);
+  EXPECT_EQ(ref[0].size(), 3);
   EXPECT_EQ(vectors[0].size(), 3);
-  EXPECT_EQ(typed[0][0], 2);
-  EXPECT_EQ(typed[0][1], 6);
-  EXPECT_EQ(typed[0][2], 7);
-  EXPECT_EQ(typed[1].size(), 0);
-  EXPECT_EQ(typed[2][0], 1);
-  EXPECT_EQ(typed[2][1], 1);
-  EXPECT_EQ(typed[3][0], 5);
-  EXPECT_EQ(typed[3][1], 6);
+  EXPECT_EQ(ref[0][0], 2);
+  EXPECT_EQ(ref[0][1], 6);
+  EXPECT_EQ(ref[0][2], 7);
+  EXPECT_EQ(ref[1].size(), 0);
+  EXPECT_EQ(ref[2][0], 1);
+  EXPECT_EQ(ref[2][1], 1);
+  EXPECT_EQ(ref[3][0], 5);
+  EXPECT_EQ(ref[3][1], 6);
 }
 
 }  // namespace fn
