@@ -41,6 +41,7 @@
 #include "DNA_layer_types.h"
 #include "DNA_scene_types.h"
 
+#include "ED_object.h"
 #include "IO_wavefront_obj.h"
 
 #include "wavefront_obj.hh"
@@ -233,6 +234,7 @@ static void export_frame(bContext *C, const OBJExportParams *export_params, cons
  */
 void exporter_main(bContext *C, const OBJExportParams *export_params)
 {
+  ED_object_editmode_exit(C, EM_FREEDATA);
   Scene *scene = CTX_data_scene(C);
   const char *filepath = export_params->filepath;
 
