@@ -21,8 +21,11 @@
  * \ingroup fn
  *
  * A `GVectorArray` is a container for a fixed amount of dynamically growing arrays with a generic
- * type. Its main use case is store many small vectors with few separate allocations. Using this
+ * type. Its main use case is to store many small vectors with few separate allocations. Using this
  * structure is generally more efficient than allocating each small vector separately.
+ *
+ * `GVectorArrayRef<T>` is a typed reference to a GVectorArray and makes it easier and safer to
+ * work with the class when the type is known at compile time.
  */
 
 #include "FN_array_spans.hh"

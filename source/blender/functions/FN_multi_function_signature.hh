@@ -46,9 +46,9 @@ struct MFSignature {
 class MFSignatureBuilder {
  private:
   MFSignature &m_data;
-  uint m_array_ref_count = 0;
-  uint m_virtual_array_ref_count = 0;
-  uint m_virtual_vector_array_ref_count = 0;
+  uint m_span_count = 0;
+  uint m_virtual_span_count = 0;
+  uint m_virtual_array_span_count = 0;
   uint m_vector_array_count = 0;
 
  public:
@@ -84,10 +84,10 @@ class MFSignatureBuilder {
 
     switch (data_type.category()) {
       case MFDataType::Single:
-        m_data.param_data_indices.append(m_virtual_array_ref_count++);
+        m_data.param_data_indices.append(m_virtual_span_count++);
         break;
       case MFDataType::Vector:
-        m_data.param_data_indices.append(m_virtual_vector_array_ref_count++);
+        m_data.param_data_indices.append(m_virtual_array_span_count++);
         break;
     }
   }
@@ -117,7 +117,7 @@ class MFSignatureBuilder {
 
     switch (data_type.category()) {
       case MFDataType::Single:
-        m_data.param_data_indices.append(m_array_ref_count++);
+        m_data.param_data_indices.append(m_span_count++);
         break;
       case MFDataType::Vector:
         m_data.param_data_indices.append(m_vector_array_count++);
@@ -146,7 +146,7 @@ class MFSignatureBuilder {
 
     switch (data_type.category()) {
       case MFDataType::Single:
-        m_data.param_data_indices.append(m_array_ref_count++);
+        m_data.param_data_indices.append(m_span_count++);
         break;
       case MFDataType::Vector:
         m_data.param_data_indices.append(m_vector_array_count++);
