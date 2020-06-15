@@ -75,6 +75,11 @@ class GVectorArray : NonCopyable, NonMovable {
     return GVArraySpan(m_type, m_starts.as_span(), m_lengths);
   }
 
+  bool is_empty() const
+  {
+    return m_starts.size() == 0;
+  }
+
   uint size() const
   {
     return m_starts.size();
@@ -111,6 +116,44 @@ class GVectorArray : NonCopyable, NonMovable {
   {
     BLI_assert(index < m_starts.size());
     return GMutableSpan(m_type, m_starts[index], m_lengths[index]);
+  }
+
+  template<typename T> class Typed {
+   private:
+    GVectorArray *m_vector_array;
+
+   public:
+    Typed(GVectorArray &vector_array) : m_vector_array(&vector_array)
+    {
+      BLI_assert(*vector_array.m_type == CPPType::get<T>());
+    }
+
+    void append(uint index, const T &value)
+    {
+      m_vector_array->append(index, &value);
+    }
+
+    MutableSpan<T> operator[](uint index)
+    {
+      BLI_assert(index < m_starts.size());
+      return MutableSpan<T>((T *)m_vector_array->m_starts[index],
+                            m_vector_array->m_lengths[index]);
+    }
+
+    uint size() const
+    {
+      return m_vector_array->size();
+    }
+
+    bool is_empty() const
+    {
+      return m_vector_array->is_empty();
+    }
+  };
+
+  template<typename T> Typed<T> typed()
+  {
+    return Typed<T>(*this);
   }
 
  private:
