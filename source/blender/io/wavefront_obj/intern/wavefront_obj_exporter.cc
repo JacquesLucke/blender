@@ -32,12 +32,14 @@
 #include "BKE_scene.h"
 
 #include "BLI_math.h"
+#include "BLI_path_util.h"
 #include "BLI_vector.hh"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
 
 #include "DNA_layer_types.h"
+#include "DNA_scene_types.h"
 
 #include "IO_wavefront_obj.h"
 
@@ -47,22 +49,6 @@
 
 namespace io {
 namespace obj {
-
-/**
- * Check object type to filter only exportable types.
- */
-static void check_object_type(Object *object, std::vector<OBJ_object_to_export> &objects_to_export)
-{
-  switch (object->type) {
-    case OB_MESH:
-      objects_to_export.push_back(OBJ_object_to_export());
-      objects_to_export.back().object = object;
-      break;
-      /* Do nothing for all other cases for now. */
-    default:
-      break;
-  }
-}
 
 /**
  * Store the mesh vertex coordinates in object_to_export, in world coordinates.
@@ -124,6 +110,7 @@ static void get_polygon_vert_indices(Mesh *me_eval, OBJ_object_to_export &object
     }
   }
 }
+
 /**
  * Store UV vertex coordinates in object_to_export.uv_coords as well as their indices, in
  * a polygon[i].uv_vertex_index.
@@ -196,11 +183,26 @@ static void get_geometry_per_object(const OBJExportParams *export_params,
 }
 
 /**
- * Central internal function to call geometry data preparation & writer functions.
+ * Check object type to filter only exportable objects.
  */
-void exporter_main(bContext *C, const OBJExportParams *export_params)
+static void check_object_type(Object *object, std::vector<OBJ_object_to_export> &objects_to_export)
 {
-  const char *filepath = export_params->filepath;
+  switch (object->type) {
+    case OB_MESH:
+      objects_to_export.push_back(OBJ_object_to_export());
+      objects_to_export.back().object = object;
+      break;
+      /* Do nothing for all other cases for now. */
+    default:
+      break;
+  }
+}
+
+/**
+ * Exports a single frame to a single file in an animation.
+ */
+static void export_frame(bContext *C, const OBJExportParams *export_params, const char *filepath)
+{
   std::vector<OBJ_object_to_export> exportable_objects;
 
   ViewLayer *view_layer = CTX_data_view_layer(C);
@@ -224,6 +226,39 @@ void exporter_main(bContext *C, const OBJExportParams *export_params)
   for (uint i = 0; i < exportable_objects.size(); i++) {
     MEM_freeN(exportable_objects[i].mvert);
   }
+}
+
+/**
+ * Central internal function to call Scene update & writer functions.
+ */
+void exporter_main(bContext *C, const OBJExportParams *export_params)
+{
+  Scene *scene = CTX_data_scene(C);
+  const char *filepath = export_params->filepath;
+  short start_frame = export_params->start_frame;
+  short end_frame = export_params->end_frame;
+  char filepath_with_frames[FILE_MAX];
+
+  /* To reset the Scene to its original state. */
+  int original_frame = CFRA;
+
+  for (short frame = start_frame; frame <= end_frame; frame++) {
+    BLI_strncpy(filepath_with_frames, filepath, FILE_MAX);
+    /* 0 + 4 digits for frame number + 4 for extension + 1 null. */
+    char frame_ext[10];
+    BLI_snprintf(frame_ext, 10, "0%hd.obj", frame);
+    bool filepath_ok = BLI_path_extension_replace(filepath_with_frames, FILE_MAX, frame_ext);
+    if (filepath_ok == false) {
+      printf("Error: File Path too long.");
+      return;
+    }
+
+    CFRA = frame;
+    BKE_scene_graph_update_for_newframe(CTX_data_ensure_evaluated_depsgraph(C), CTX_data_main(C));
+    printf("Writing %s\n", filepath_with_frames);
+    export_frame(C, export_params, filepath_with_frames);
+  }
+  CFRA = original_frame;
 }
 }  // namespace obj
 }  // namespace io

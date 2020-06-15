@@ -31,7 +31,10 @@ extern "C" {
 struct OBJExportParams {
   /** Full path to the destination OBJ file to export. */
   char filepath[FILENAME_MAX];
-  /* Preferences will be added here when there is an actual setting to use. */
+  /** The first frame to be exported. */
+  short start_frame;
+  /** The last frame to be exported. */
+  short end_frame;
 };
 
 struct OBJImportParams {
