@@ -31,6 +31,8 @@ set(SRC
 
   FN_cpp_type.hh
   FN_cpp_types.hh
+  FN_multi_function_data_type.hh
+  FN_multi_function_param_type.hh
 )
 
 set(LIB

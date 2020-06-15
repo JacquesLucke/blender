@@ -73,10 +73,6 @@
 namespace blender {
 namespace FN {
 
-using blender::IndexMask;
-using blender::StringRef;
-using blender::StringRefNull;
-
 class CPPType {
  public:
   using ConstructDefaultF = void (*)(void *ptr);
