@@ -19,6 +19,9 @@
 
 /** \file
  * \ingroup fn
+ *
+ * An ArraySpan is a span where every element contains an array (instead of a single element as is
+ * the case in a normal span). It's main use case is to reference many small arrays.
  */
 
 #include "FN_spans.hh"
@@ -26,8 +29,16 @@
 namespace blender {
 namespace fn {
 
+/**
+ * A virtual array span. Every element of this span contains a virtual span. So it behaves like a
+ * blender::Span, but might not be backed up by an actual array.
+ */
 template<typename T> class VArraySpan {
  private:
+  /**
+   * Depending on the use case, the referenced data might have a different structure. More
+   * categories can be added when necessary.
+   */
   enum Category {
     SingleArray,
     StartsAndSizes,
@@ -98,8 +109,16 @@ template<typename T> class VArraySpan {
   }
 };
 
+/**
+ * A generic virtual array span. It's just like a VArraySpan, but the type is only known at
+ * run-time.
+ */
 class GVArraySpan {
  private:
+  /**
+   * Depending on the use case, the referenced data might have a different structure. More
+   * categories can be added when necessary.
+   */
   enum Category {
     SingleArray,
     StartsAndSizes,
