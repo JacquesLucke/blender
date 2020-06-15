@@ -52,5 +52,26 @@ TEST(generic_vector_array, Append)
   EXPECT_EQ(vectors[2].typed<std::string>()[0], "world");
 }
 
+TEST(generic_vector_array, AsArraySpan)
+{
+  GVectorArray vectors{CPPType_int32, 3};
+  int value = 3;
+  vectors.append(0, &value);
+  vectors.append(0, &value);
+  value = 5;
+  vectors.append(2, &value);
+  vectors.append(2, &value);
+  vectors.append(2, &value);
+
+  GVArraySpan span = vectors;
+  EXPECT_EQ(span.type(), CPPType_int32);
+  EXPECT_EQ(span.size(), 3);
+  EXPECT_EQ(span[0].size(), 2);
+  EXPECT_EQ(span[1].size(), 0);
+  EXPECT_EQ(span[2].size(), 3);
+  EXPECT_EQ(span[0].typed<int>()[1], 3);
+  EXPECT_EQ(span[2].typed<int>()[0], 5);
+}
+
 }  // namespace fn
 }  // namespace blender

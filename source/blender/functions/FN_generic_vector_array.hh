@@ -17,8 +17,8 @@
 #ifndef __FN_GENERIC_VECTOR_ARRAY_HH__
 #define __FN_GENERIC_VECTOR_ARRAY_HH__
 
+#include "FN_array_spans.hh"
 #include "FN_cpp_type.hh"
-#include "FN_spans.hh"
 
 #include "BLI_array.hh"
 #include "BLI_linear_allocator.hh"
@@ -60,6 +60,11 @@ class GVectorArray : NonCopyable, NonMovable {
     for (uint i : m_starts.index_range()) {
       m_type.destruct_n(m_starts[i], m_lengths[i]);
     }
+  }
+
+  operator GVArraySpan() const
+  {
+    return GVArraySpan(m_type, m_starts.as_span(), m_lengths);
   }
 
   uint size() const
