@@ -21,9 +21,6 @@
  * \ingroup obj
  */
 
-#include <fstream>
-#include <iostream>
-
 #include "DNA_object_types.h"
 
 #include "wavefront_obj.hh"
@@ -90,7 +87,7 @@ static void write_geomtery_per_object(FILE *outfile,
     const Polygon &polygon = object_to_export.polygon_list[i];
     fprintf(outfile, "f ");
     for (int j = 0; j < polygon.total_vertices_per_poly; j++) {
-      /* + 1: This loop index is 0-based. Indices in OBJ start from 1. */
+      /* i + 1: This loop index is 0-based. Indices in OBJ start from 1. */
       fprintf(outfile,
               "%d/%d/%d ",
               polygon.vertex_index[j] + offset[0],
@@ -114,7 +111,7 @@ void write_object_fprintf(const char *filepath,
   }
 
   /**
-   * index_offset[x]: All previous vertex, uv vertex and normal indices are added in subsequent
+   * index_offset[x]: All previous vertex, UV vertex and normal indices are added in subsequent
    * objects' indices.
    */
   uint index_offset[3] = {0, 0, 0};
