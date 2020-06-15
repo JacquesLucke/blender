@@ -177,6 +177,10 @@ class MFParams {
     return m_builder->m_virtual_array_spans[data_index];
   }
 
+  template<typename T> GVectorArrayRef<T> vector_output(uint param_index, StringRef name = "")
+  {
+    return this->vector_output(param_index, name).typed<T>();
+  }
   GVectorArray &vector_output(uint param_index, StringRef name = "")
   {
     this->assert_correct_param(param_index, name, MFParamType::VectorOutput);

@@ -113,5 +113,57 @@ TEST(multi_function, AddPrefixFunction)
   EXPECT_EQ(strings[3], "ABAnother much longer string to trigger an allocation");
 }
 
+class CreateRangeFunction : public MultiFunction {
+ public:
+  CreateRangeFunction()
+  {
+    MFSignatureBuilder builder = this->get_builder("Create Range");
+    builder.single_input<uint>("Size");
+    builder.vector_output<uint>("Range");
+  }
+
+  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
+  {
+    VSpan<uint> sizes = params.readonly_single_input<uint>(0, "Size");
+    GVectorArrayRef<uint> ranges = params.vector_output<uint>(1, "Range");
+
+    for (uint i : mask) {
+      uint size = sizes[i];
+      for (uint j : IndexRange(size)) {
+        ranges.append(i, j);
+      }
+    }
+  }
+};
+
+TEST(multi_function, CreateRangeFunction)
+{
+  CreateRangeFunction fn;
+
+  GVectorArray ranges(CPPType_uint32, 5);
+  GVectorArrayRef<uint> ranges_ref(ranges);
+  Array<uint> sizes = {3, 0, 6, 1, 4};
+
+  MFParamsBuilder params(fn, ranges.size());
+  params.add_readonly_single_input(sizes.as_span());
+  params.add_vector_output(ranges);
+
+  MFContextBuilder context;
+
+  fn.call({0, 1, 2, 3}, params, context);
+
+  EXPECT_EQ(ranges_ref[0].size(), 3);
+  EXPECT_EQ(ranges_ref[1].size(), 0);
+  EXPECT_EQ(ranges_ref[2].size(), 6);
+  EXPECT_EQ(ranges_ref[3].size(), 1);
+  EXPECT_EQ(ranges_ref[4].size(), 0);
+
+  EXPECT_EQ(ranges_ref[0][0], 0);
+  EXPECT_EQ(ranges_ref[0][1], 1);
+  EXPECT_EQ(ranges_ref[0][2], 2);
+  EXPECT_EQ(ranges_ref[2][0], 0);
+  EXPECT_EQ(ranges_ref[2][1], 1);
+}
+
 }  // namespace fn
 }  // namespace blender
