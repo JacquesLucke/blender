@@ -19,6 +19,30 @@
 
 /** \file
  * \ingroup fn
+ *
+ * A `MultiFunction` encapsulates a function that is optimized for throughput (instead of latency).
+ * The throughput is optimized by always processing many elements at once, instead of each element
+ * separately. This is ideal for functions that are evaluated often (e.g. for every particle).
+ *
+ * By processing a lot of data at once, individual functions become easier to optimize for humans
+ * and for the compiler. Furthermore, performance profiles become easier to understand and show
+ * better where bottlenecks are.
+ *
+ * Every multi-function has a name and an ordered list of parameters. Parameters are used for input
+ * and output. In fact, there are three kinds of parameters: inputs, outputs and mutable (which is
+ * combination of input and output).
+ *
+ * To call a multi-function, one has to provide three things:
+ * - `MFParams`: This references the input and output arrays that the function works with. The
+ *      arrays are not owned by MFParams.
+ * - `IndexMask`: An array of indices indicating which indices in the provided arrays should be
+ *      touched/processed.
+ * - `MFContext`: Further information for the called function.
+ *
+ * A new multi-function is generally implemented as follows:
+ * 1. Create a new subclass of MultiFunction.
+ * 2. Implement a constructor that initialized the signature of the function.
+ * 3. Override the `call` function.
  */
 
 #include "FN_multi_function_context.hh"
