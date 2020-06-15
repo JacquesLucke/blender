@@ -29,6 +29,7 @@ set(INC_SYS
 set(SRC
   intern/cpp_types.cc
 
+  FN_array_spans.hh
   FN_cpp_type.hh
   FN_cpp_types.hh
   FN_multi_function_context.hh
