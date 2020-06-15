@@ -19,6 +19,24 @@
 
 /** \file
  * \ingroup fn
+ *
+ * This file implements multiple variants of a span for different use cases. There are two
+ * requirements of the function system that require span implementations other from
+ * blender::Span<T>.
+ * 1. The function system works with a run-time type system (see `CPPType`). Therefore, it has to
+ *   deal with types in a generic way. The type of a Span<T> has to be known at compile time.
+ * 2. Span<T> expects an underlying memory buffer that is as large as the span. However, sometimes
+ *   we can save some memory and processing when we know that all elements are the same.
+ *
+ * The first requirement is solved with generic spans, which use the "G" prefix. Those
+ * store a CPPType instance to keep track of the type that is currently stored.
+ *
+ * The second requirement is solved with virtual spans. A virtual span behaves like a normal span,
+ * but it might not be backed up by an actual array. Elements in a virtual span are always
+ * immutable.
+ *
+ * Different use cases require different combinations of these properties and therefore use
+ * different data structures.
  */
 
 #include "BLI_span.hh"
@@ -28,6 +46,9 @@
 namespace blender {
 namespace fn {
 
+/**
+ * A generic span. It behaves just like a blender::Span<T>, but the type is only known at run-time.
+ */
 class GSpan {
  private:
   const CPPType *m_type;
@@ -84,6 +105,10 @@ class GSpan {
   }
 };
 
+/**
+ * A generic mutable span. It behaves just like a blender::MutableSpan<T>, but the type is only
+ * known at run-time.
+ */
 class GMutableSpan {
  private:
   const CPPType *m_type;
@@ -146,6 +171,10 @@ class GMutableSpan {
   }
 };
 
+/**
+ * A virtual span. It behaves like a blender::Span<T>, but might not be backed up by an actual
+ * array.
+ */
 template<typename T> class VSpan {
  private:
   enum Category {
@@ -230,6 +259,10 @@ template<typename T> class VSpan {
   }
 };
 
+/**
+ * A generic virtual span. It behaves like a blender::Span<T>, but the type is only known at
+ * run-time and it might not be backed up by an actual array.
+ */
 class GVSpan {
  private:
   enum Category {
