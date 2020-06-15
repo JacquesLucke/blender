@@ -127,6 +127,10 @@ class MFSignatureBuilder {
 
   /* Mutable Param Types */
 
+  template<typename T> void single_mutable(StringRef name)
+  {
+    this->single_mutable(name, CPPType::get<T>());
+  }
   void single_mutable(StringRef name, const CPPType &type)
   {
     this->mutable_(name, MFDataType::ForSingle(type));
