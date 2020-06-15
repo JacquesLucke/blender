@@ -17,6 +17,10 @@
 #ifndef __FN_SPANS_HH__
 #define __FN_SPANS_HH__
 
+/** \file
+ * \ingroup fn
+ */
+
 #include "BLI_span.hh"
 
 #include "FN_cpp_type.hh"

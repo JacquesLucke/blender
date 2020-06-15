@@ -17,6 +17,10 @@
 #ifndef __FN_MULTI_FUNCTION_DATA_TYPE_HH__
 #define __FN_MULTI_FUNCTION_DATA_TYPE_HH__
 
+/** \file
+ * \ingroup fn
+ */
+
 #include "FN_cpp_type.hh"
 
 namespace blender {

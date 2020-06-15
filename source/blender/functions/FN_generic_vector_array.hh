@@ -17,6 +17,10 @@
 #ifndef __FN_GENERIC_VECTOR_ARRAY_HH__
 #define __FN_GENERIC_VECTOR_ARRAY_HH__
 
+/** \file
+ * \ingroup fn
+ */
+
 #include "FN_array_spans.hh"
 #include "FN_cpp_type.hh"
 

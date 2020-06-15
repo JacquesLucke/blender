@@ -17,6 +17,10 @@
 #ifndef __FN_MULTI_FUNCTION_PARAMS_HH__
 #define __FN_MULTI_FUNCTION_PARAMS_HH__
 
+/** \file
+ * \ingroup fn
+ */
+
 #include "FN_generic_vector_array.hh"
 #include "FN_multi_function_signature.hh"
 

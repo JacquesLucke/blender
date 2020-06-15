@@ -17,6 +17,10 @@
 #ifndef __FN_MULTI_FUNCTION_CONTEXT_HH__
 #define __FN_MULTI_FUNCTION_CONTEXT_HH__
 
+/** \file
+ * \ingroup fn
+ */
+
 namespace blender {
 namespace fn {
 

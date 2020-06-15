@@ -17,6 +17,10 @@
 #ifndef __FN_MULTI_FUNCTION_SIGNATURE_HH__
 #define __FN_MULTI_FUNCTION_SIGNATURE_HH__
 
+/** \file
+ * \ingroup fn
+ */
+
 #include "FN_multi_function_param_type.hh"
 
 #include "BLI_vector.hh"

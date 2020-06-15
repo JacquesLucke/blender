@@ -17,6 +17,10 @@
 #ifndef __FN_MULTI_FUNCTION_HH__
 #define __FN_MULTI_FUNCTION_HH__
 
+/** \file
+ * \ingroup fn
+ */
+
 #include "FN_multi_function_context.hh"
 #include "FN_multi_function_params.hh"
 

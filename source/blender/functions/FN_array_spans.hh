@@ -17,6 +17,10 @@
 #ifndef __FN_VECTOR_ARRAY_REFS_HH__
 #define __FN_VECTOR_ARRAY_REFS_HH__
 
+/** \file
+ * \ingroup fn
+ */
+
 #include "FN_spans.hh"
 
 namespace blender {
