@@ -73,25 +73,6 @@ static int wm_obj_export_invoke(bContext *C, wmOperator *op, const wmEvent *even
   UNUSED_VARS(event);
 }
 
-static bool wm_obj_export_check(bContext *UNUSED(C), wmOperator *op)
-{
-  char filepath[FILE_MAX];
-  RNA_string_get(op->ptr, "filepath", filepath);
-
-  if (!BLI_path_extension_check(filepath, ".obj")) {
-    BLI_path_extension_ensure(filepath, FILE_MAX, ".obj");
-    RNA_string_set(op->ptr, "filepath", filepath);
-    return true;
-  }
-
-  /* End frame should be greater than or equal to start frame. */
-  if (RNA_int_get(op->ptr, "start_frame") > RNA_int_get(op->ptr, "end_frame")) {
-    RNA_int_set(op->ptr, "end_frame", RNA_int_get(op->ptr, "start_frame"));
-    return true;
-  }
-  return false;
-}
-
 static int wm_obj_export_exec(bContext *C, wmOperator *op)
 {
   if (!RNA_struct_property_is_set(op->ptr, "filepath")) {
@@ -100,8 +81,10 @@ static int wm_obj_export_exec(bContext *C, wmOperator *op)
   }
   struct OBJExportParams export_params;
   RNA_string_get(op->ptr, "filepath", export_params.filepath);
+  export_params.export_animation = RNA_boolean_get(op->ptr, "export_animation");
   export_params.start_frame = RNA_int_get(op->ptr, "start_frame");
   export_params.end_frame = RNA_int_get(op->ptr, "end_frame");
+
   OBJ_export(C, &export_params);
 
   return OPERATOR_FINISHED;
@@ -111,16 +94,22 @@ static void ui_obj_export_settings(uiLayout *layout, PointerRNA *imfptr)
 {
   uiLayout *box;
   uiLayout *row;
+  bool export_animation = RNA_boolean_get(imfptr, "export_animation");
 
   box = uiLayoutBox(layout);
   row = uiLayoutRow(box, false);
-  uiItemL(row, IFACE_("Animation "), ICON_NONE);
+  uiItemL(row, IFACE_("Animation"), ICON_NONE);
+
+  row = uiLayoutRow(box, false);
+  uiItemR(row, imfptr, "export_animation", 0, NULL, ICON_NONE);
 
   row = uiLayoutRow(box, false);
   uiItemR(row, imfptr, "start_frame", 0, NULL, ICON_NONE);
+  uiLayoutSetEnabled(row, export_animation);
 
   row = uiLayoutRow(box, false);
   uiItemR(row, imfptr, "end_frame", 0, NULL, ICON_NONE);
+  uiLayoutSetEnabled(row, export_animation);
 }
 
 static void wm_obj_export_draw(bContext *UNUSED(C), wmOperator *op)
@@ -128,6 +117,34 @@ static void wm_obj_export_draw(bContext *UNUSED(C), wmOperator *op)
   PointerRNA ptr;
   RNA_pointer_create(NULL, op->type->srna, op->properties, &ptr);
   ui_obj_export_settings(op->layout, &ptr);
+}
+
+static bool wm_obj_export_check(bContext *C, wmOperator *op)
+{
+  char filepath[FILE_MAX];
+  Scene *scene = CTX_data_scene(C);
+  bool ret = false;
+  RNA_string_get(op->ptr, "filepath", filepath);
+
+  if (!BLI_path_extension_check(filepath, ".obj")) {
+    BLI_path_extension_ensure(filepath, FILE_MAX, ".obj");
+    RNA_string_set(op->ptr, "filepath", filepath);
+    ret = true;
+  }
+
+  /* Set the default export frames to the current one in viewport. */
+  if (RNA_int_get(op->ptr, "start_frame") == INT_MAX) {
+    RNA_int_set(op->ptr, "start_frame", CFRA);
+    RNA_int_set(op->ptr, "end_frame", CFRA);
+    ret = true;
+  }
+
+  /* End frame should be greater than or equal to start frame. */
+  if (RNA_int_get(op->ptr, "start_frame") > RNA_int_get(op->ptr, "end_frame")) {
+    RNA_int_set(op->ptr, "end_frame", RNA_int_get(op->ptr, "start_frame"));
+    ret = true;
+  }
+  return ret;
 }
 
 void WM_OT_obj_export(struct wmOperatorType *ot)
@@ -150,17 +167,30 @@ void WM_OT_obj_export(struct wmOperatorType *ot)
                                  FILE_DEFAULTDISPLAY,
                                  FILE_SORT_ALPHA);
 
+  RNA_def_boolean(ot->srna,
+                  "export_animation",
+                  false,
+                  "Export Animation",
+                  "Write selected range of frames to individual files. If unchecked, exports the "
+                  "current viewport frame ");
   RNA_def_int(ot->srna,
               "start_frame",
-              1,
-              0,
-              1000,
+              INT_MAX,
+              -INT_MAX,
+              INT_MAX,
               "Start Frame",
               "The first frame to be exported",
               0,
               250);
-  RNA_def_int(
-      ot->srna, "end_frame", 1, 0, 1000, "End Frame", "The last frame to be exported", 0, 250);
+  RNA_def_int(ot->srna,
+              "end_frame",
+              1,
+              -INT_MAX,
+              INT_MAX,
+              "End Frame",
+              "The last frame to be exported",
+              0,
+              250);
 }
 
 static int wm_obj_import_invoke(bContext *C, wmOperator *op, const wmEvent *event)

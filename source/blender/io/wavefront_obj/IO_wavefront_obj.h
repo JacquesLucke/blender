@@ -31,10 +31,12 @@ extern "C" {
 struct OBJExportParams {
   /** Full path to the destination OBJ file to export. */
   char filepath[FILENAME_MAX];
+  /** Whether mutiple frames are to be exported or not. */
+  bool export_animation;
   /** The first frame to be exported. */
-  short start_frame;
+  int start_frame;
   /** The last frame to be exported. */
-  short end_frame;
+  int end_frame;
 };
 
 struct OBJImportParams {

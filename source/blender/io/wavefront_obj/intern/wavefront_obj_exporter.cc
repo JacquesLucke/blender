@@ -235,18 +235,24 @@ void exporter_main(bContext *C, const OBJExportParams *export_params)
 {
   Scene *scene = CTX_data_scene(C);
   const char *filepath = export_params->filepath;
-  short start_frame = export_params->start_frame;
-  short end_frame = export_params->end_frame;
-  char filepath_with_frames[FILE_MAX];
 
+  /* Single frame export. */
+  if (!export_params->export_animation) {
+    export_frame(C, export_params, filepath);
+    return;
+  }
+
+  int start_frame = export_params->start_frame;
+  int end_frame = export_params->end_frame;
+  char filepath_with_frames[FILE_MAX];
   /* To reset the Scene to its original state. */
   int original_frame = CFRA;
 
-  for (short frame = start_frame; frame <= end_frame; frame++) {
+  for (int frame = start_frame; frame <= end_frame; frame++) {
     BLI_strncpy(filepath_with_frames, filepath, FILE_MAX);
-    /* 0 + 4 digits for frame number + 4 for extension + 1 null. */
-    char frame_ext[10];
-    BLI_snprintf(frame_ext, 10, "0%hd.obj", frame);
+    /* 1 _ + 11 digits for frame number (INT_MAX + sign) + 4 for extension + 1 null. */
+    char frame_ext[17];
+    BLI_snprintf(frame_ext, 17, "_%d.obj", frame);
     bool filepath_ok = BLI_path_extension_replace(filepath_with_frames, FILE_MAX, frame_ext);
     if (filepath_ok == false) {
       printf("Error: File Path too long.");

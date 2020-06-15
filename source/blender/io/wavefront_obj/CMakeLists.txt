@@ -45,6 +45,7 @@ set(SRC
   intern/wavefront_obj_file_handler.cc
   intern/wavefront_obj_importer.cc
 
+  IO_wavefront_obj.h
   intern/wavefront_obj.hh
   intern/wavefront_obj_exporter.hh
   intern/wavefront_obj_file_handler.hh
