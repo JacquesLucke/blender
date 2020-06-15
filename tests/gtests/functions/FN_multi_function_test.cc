@@ -165,5 +165,58 @@ TEST(multi_function, CreateRangeFunction)
   EXPECT_EQ(ranges_ref[2][1], 1);
 }
 
+class GenericAppendFunction : public MultiFunction {
+ public:
+  GenericAppendFunction(const CPPType &type)
+  {
+    MFSignatureBuilder builder = this->get_builder("Append");
+    builder.vector_mutable("Vector", type);
+    builder.single_input("Value", type);
+  }
+
+  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
+  {
+    GVectorArray &vectors = params.vector_mutable(0, "Vector");
+    GVSpan values = params.readonly_single_input(1, "Value");
+
+    for (uint i : mask) {
+      vectors.append(i, values[i]);
+    }
+  }
+};
+
+TEST(multi_function, GenericAppendFunction)
+{
+  GenericAppendFunction fn(CPPType_int32);
+
+  GVectorArray vectors(CPPType_int32, 4);
+  GVectorArrayRef<int> vectors_ref(vectors);
+  vectors_ref.append(0, 1);
+  vectors_ref.append(0, 2);
+  vectors_ref.append(2, 6);
+  Array<int> values = {5, 7, 3, 1};
+
+  MFParamsBuilder params(fn, vectors.size());
+  params.add_vector_mutable(vectors);
+  params.add_readonly_single_input(values.as_span());
+
+  MFContextBuilder context;
+
+  fn.call(IndexRange(vectors.size()), params, context);
+
+  EXPECT_EQ(vectors_ref[0].size(), 3);
+  EXPECT_EQ(vectors_ref[1].size(), 1);
+  EXPECT_EQ(vectors_ref[2].size(), 2);
+  EXPECT_EQ(vectors_ref[3].size(), 1);
+
+  EXPECT_EQ(vectors_ref[0][0], 1);
+  EXPECT_EQ(vectors_ref[0][1], 2);
+  EXPECT_EQ(vectors_ref[0][2], 5);
+  EXPECT_EQ(vectors_ref[1][0], 7);
+  EXPECT_EQ(vectors_ref[2][0], 6);
+  EXPECT_EQ(vectors_ref[2][1], 3);
+  EXPECT_EQ(vectors_ref[3][0], 1);
+}
+
 }  // namespace fn
 }  // namespace blender
