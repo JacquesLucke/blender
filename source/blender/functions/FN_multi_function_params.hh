@@ -19,6 +19,11 @@
 
 /** \file
  * \ingroup fn
+ *
+ * This file provides an MFParams and MFParamsBuilder structure.
+ *
+ * `MFParamsBuilder` is used by a function caller to be prepare all parameters that are passed into
+ * the function. `MFParams` is then used inside the called function to access the parameters.
  */
 
 #include "FN_generic_vector_array.hh"

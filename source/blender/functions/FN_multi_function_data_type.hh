@@ -19,6 +19,10 @@
 
 /** \file
  * \ingroup fn
+ *
+ * A MFDataType describes what type of data a multi-function gets as input, outputs or mutates.
+ * Currently, only individual elements or vectors of elements are supported. Adding more data types
+ * is possible when necessary.
  */
 
 #include "FN_cpp_type.hh"
