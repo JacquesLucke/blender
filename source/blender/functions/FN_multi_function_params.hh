@@ -65,7 +65,7 @@ class MFParamsBuilder {
     m_virtual_array_spans.append(ref);
   }
 
-  void add_single_output(GMutableSpan ref)
+  void add_uninitialized_single_output(GMutableSpan ref)
   {
     this->assert_current_param_type(MFParamType::ForSingleOutput(ref.type()));
     BLI_assert(ref.size() >= m_min_array_size);

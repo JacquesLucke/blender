@@ -54,7 +54,7 @@ TEST(multi_function, AddFunction)
   MFParamsBuilder params(fn, 3);
   params.add_readonly_single_input(input1.as_span());
   params.add_readonly_single_input(input2.as_span());
-  params.add_single_output(output.as_mutable_span());
+  params.add_uninitialized_single_output(output.as_mutable_span());
 
   MFContextBuilder context;
 
