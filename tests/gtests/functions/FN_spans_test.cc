@@ -71,6 +71,7 @@ TEST(virtual_span, EmptyConstructor)
   VSpan<int> span;
   EXPECT_EQ(span.size(), 0);
   EXPECT_TRUE(span.is_empty());
+  EXPECT_FALSE(span.is_single_element());
 }
 
 TEST(virtual_span, SpanConstructor)
@@ -83,6 +84,7 @@ TEST(virtual_span, SpanConstructor)
   EXPECT_EQ(virtual_span[0], 7);
   EXPECT_EQ(virtual_span[2], 8);
   EXPECT_EQ(virtual_span[3], 6);
+  EXPECT_FALSE(virtual_span.is_single_element());
 }
 
 TEST(virtual_span, PointerSpanConstructor)
@@ -98,6 +100,7 @@ TEST(virtual_span, PointerSpanConstructor)
   EXPECT_EQ(span[1], 7);
   EXPECT_EQ(span[2], 6);
   EXPECT_EQ(&span[1], &x2);
+  EXPECT_FALSE(span.is_single_element());
 }
 
 TEST(virtual_span, SingleConstructor)
@@ -112,6 +115,7 @@ TEST(virtual_span, SingleConstructor)
   EXPECT_EQ(&span[0], &value);
   EXPECT_EQ(&span[1], &value);
   EXPECT_EQ(&span[2], &value);
+  EXPECT_TRUE(span.is_single_element());
 }
 
 TEST(generic_virtual_span, TypeConstructor)
@@ -119,6 +123,7 @@ TEST(generic_virtual_span, TypeConstructor)
   GVSpan span(CPPType_int32);
   EXPECT_EQ(span.size(), 0);
   EXPECT_TRUE(span.is_empty());
+  EXPECT_FALSE(span.is_single_element());
 }
 
 TEST(generic_virtual_span, GenericSpanConstructor)
@@ -131,6 +136,14 @@ TEST(generic_virtual_span, GenericSpanConstructor)
   EXPECT_EQ(span[1], &values[1]);
   EXPECT_EQ(span[2], &values[2]);
   EXPECT_EQ(span[3], &values[3]);
+  EXPECT_FALSE(span.is_single_element());
+
+  int materialized[4] = {0};
+  span.materialize_to_uninitialized(materialized);
+  EXPECT_EQ(materialized[0], 3);
+  EXPECT_EQ(materialized[1], 4);
+  EXPECT_EQ(materialized[2], 5);
+  EXPECT_EQ(materialized[3], 6);
 }
 
 TEST(generic_virtual_span, SpanConstructor)
@@ -142,6 +155,13 @@ TEST(generic_virtual_span, SpanConstructor)
   EXPECT_EQ(span[0], &values[0]);
   EXPECT_EQ(span[1], &values[1]);
   EXPECT_EQ(span[2], &values[2]);
+  EXPECT_FALSE(span.is_single_element());
+
+  int materialized[3] = {0};
+  span.materialize_to_uninitialized(materialized);
+  EXPECT_EQ(materialized[0], 6);
+  EXPECT_EQ(materialized[1], 7);
+  EXPECT_EQ(materialized[2], 8);
 }
 
 TEST(generic_virtual_span, SingleConstructor)
@@ -153,6 +173,14 @@ TEST(generic_virtual_span, SingleConstructor)
   EXPECT_EQ(span[0], &value);
   EXPECT_EQ(span[1], &value);
   EXPECT_EQ(span[2], &value);
+  EXPECT_TRUE(span.is_single_element());
+  EXPECT_EQ(span.as_single_element(), &value);
+
+  int materialized[3] = {0};
+  span.materialize_to_uninitialized({1, 2}, materialized);
+  EXPECT_EQ(materialized[0], 0);
+  EXPECT_EQ(materialized[1], 5);
+  EXPECT_EQ(materialized[2], 5);
 }
 
 }  // namespace fn

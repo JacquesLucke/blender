@@ -18,6 +18,9 @@
 
 #include "FN_array_spans.hh"
 #include "FN_cpp_types.hh"
+#include "FN_generic_vector_array.hh"
+
+#include "BLI_array.hh"
 
 namespace blender {
 namespace fn {
@@ -86,6 +89,23 @@ TEST(generic_virtual_array_span, GSpanConstructor)
   EXPECT_EQ(span[0].size(), 3);
   EXPECT_EQ(span[2].size(), 3);
   EXPECT_EQ(*(std::string *)span[3][1], "world");
+}
+
+TEST(generic_virtual_array_span, IsSingleArray1)
+{
+  Array<int> values = {5, 6, 7};
+  GVArraySpan span{GSpan(values.as_span()), 4};
+  EXPECT_TRUE(span.is_single_array());
+}
+
+TEST(generic_virtual_array_span, IsSingleArray2)
+{
+  GVectorArray vectors{CPPType_int32, 3};
+  GVectorArrayRef<int> vectors_ref = vectors;
+  vectors_ref.append(1, 4);
+
+  GVArraySpan span = vectors;
+  EXPECT_FALSE(span.is_single_array());
 }
 
 }  // namespace fn

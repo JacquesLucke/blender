@@ -68,7 +68,7 @@ class GSpan {
   }
 
   template<typename T>
-  GSpan(Span<T> array) : GSpan(CPPType::get<T>(), (const void *)array.begin(), array.size())
+  GSpan(Span<T> array) : GSpan(CPPType::get<T>(), (const void *)array.data(), array.size())
   {
   }
 
@@ -257,6 +257,20 @@ template<typename T> class VSpan {
   {
     return m_virtual_size;
   }
+
+  bool is_single_element() const
+  {
+    switch (m_category) {
+      case Single:
+        return true;
+      case FullArray:
+        return m_virtual_size == 1;
+      case FullPointerArray:
+        return m_virtual_size == 1;
+    }
+    BLI_assert(false);
+    return false;
+  }
 };
 
 /**
@@ -382,6 +396,41 @@ class GVSpan {
     }
     BLI_assert(false);
     return {};
+  }
+
+  bool is_single_element() const
+  {
+    switch (m_category) {
+      case Single:
+        return true;
+      case FullArray:
+        return m_virtual_size == 1;
+      case FullPointerArray:
+        return m_virtual_size == 1;
+    }
+    BLI_assert(false);
+    return false;
+  }
+
+  const void *as_single_element() const
+  {
+    BLI_assert(this->is_single_element());
+    return (*this)[0];
+  }
+
+  void materialize_to_uninitialized(void *dst) const
+  {
+    this->materialize_to_uninitialized(IndexRange(m_virtual_size), dst);
+  }
+
+  void materialize_to_uninitialized(IndexMask mask, void *dst) const
+  {
+    BLI_assert(this->size() >= mask.min_array_size());
+
+    uint element_size = m_type->size();
+    for (uint i : mask) {
+      m_type->copy_to_uninitialized((*this)[i], POINTER_OFFSET(dst, element_size * i));
+    }
   }
 };
 

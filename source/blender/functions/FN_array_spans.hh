@@ -212,6 +212,18 @@ class GVArraySpan {
     BLI_assert(false);
     return GVSpan(*m_type);
   }
+
+  bool is_single_array() const
+  {
+    switch (m_category) {
+      case Category::SingleArray:
+        return true;
+      case Category::StartsAndSizes:
+        return m_virtual_size == 1;
+    }
+    BLI_assert(false);
+    return false;
+  }
 };
 
 }  // namespace fn
