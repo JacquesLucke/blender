@@ -49,6 +49,24 @@
 #include "IO_wavefront_obj.h"
 #include "io_obj.h"
 
+const EnumPropertyItem io_obj_transform_axis_forward[] = {
+    {OBJ_AXIS_X_FORWARD, "X_FORWARD", 0, "X", "Positive X-axis"},
+    {OBJ_AXIS_Y_FORWARD, "Y_FORWARD", 0, "Y", "Positive Y-axis"},
+    {OBJ_AXIS_Z_FORWARD, "Z_FORWARD", 0, "Z", "Positive Z-axis"},
+    {OBJ_AXIS_NEGATIVE_X_FORWARD, "NEGATIVE_X_FORWARD", 0, "-X", "Negative X-axis"},
+    {OBJ_AXIS_NEGATIVE_Y_FORWARD, "NEGATIVE_Y_FORWARD", 0, "-Y (Default)", "Negative Y-axis"},
+    {OBJ_AXIS_NEGATIVE_Z_FORWARD, "NEGATIVE_Z_FORWARD", 0, "-Z", "Negative Z-axis"},
+    {0, NULL, 0, NULL, NULL}};
+
+const EnumPropertyItem io_obj_transform_axis_up[] = {
+    {OBJ_AXIS_X_UP, "X_UP", 0, "X", "Positive X-axis"},
+    {OBJ_AXIS_Y_UP, "Y_UP", 0, "Y", "Positive Y-axis"},
+    {OBJ_AXIS_Z_UP, "Z_UP", 0, "Z (Default)", "Positive Z-axis"},
+    {OBJ_AXIS_NEGATIVE_X_UP, "NEGATIVE_X_UP", 0, "-X", "Negative X-axis"},
+    {OBJ_AXIS_NEGATIVE_Y_UP, "NEGATIVE_Y_UP", 0, "-Y", "Negative Y-axis"},
+    {OBJ_AXIS_NEGATIVE_Z_UP, "NEGATIVE_Z_UP", 0, "-Z", "Negative Z-axis"},
+    {0, NULL, 0, NULL, NULL}};
+
 static int wm_obj_export_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
 
@@ -85,6 +103,9 @@ static int wm_obj_export_exec(bContext *C, wmOperator *op)
   export_params.start_frame = RNA_int_get(op->ptr, "start_frame");
   export_params.end_frame = RNA_int_get(op->ptr, "end_frame");
 
+  export_params.forward_axis = RNA_enum_get(op->ptr, "forward_axis");
+  export_params.up_axis = RNA_enum_get(op->ptr, "up_axis");
+
   OBJ_export(C, &export_params);
 
   return OPERATOR_FINISHED;
@@ -98,6 +119,7 @@ static void ui_obj_export_settings(uiLayout *layout, PointerRNA *imfptr)
 
   box = uiLayoutBox(layout);
   row = uiLayoutRow(box, false);
+  /* Animation options. */
   uiItemL(row, IFACE_("Animation"), ICON_NONE);
 
   row = uiLayoutRow(box, false);
@@ -110,6 +132,16 @@ static void ui_obj_export_settings(uiLayout *layout, PointerRNA *imfptr)
   row = uiLayoutRow(box, false);
   uiItemR(row, imfptr, "end_frame", 0, NULL, ICON_NONE);
   uiLayoutSetEnabled(row, export_animation);
+
+  /* Transform options. */
+  box = uiLayoutBox(layout);
+  row = uiLayoutRow(box, false);
+  uiItemL(row, IFACE_("Transform"), ICON_NONE);
+
+  row = uiLayoutRow(box, false);
+  uiItemR(row, imfptr, "forward_axis", 0, NULL, ICON_NONE);
+  row = uiLayoutRow(box, 1);
+  uiItemR(row, imfptr, "up_axis", 0, NULL, ICON_NONE);
 }
 
 static void wm_obj_export_draw(bContext *UNUSED(C), wmOperator *op)
@@ -144,6 +176,12 @@ static bool wm_obj_export_check(bContext *C, wmOperator *op)
     RNA_int_set(op->ptr, "end_frame", RNA_int_get(op->ptr, "start_frame"));
     ret = true;
   }
+
+  /* Both forward and up axes cannot be the same (or same except opposite sign). */
+  if ((RNA_enum_get(op->ptr, "forward_axis")) % 3 == (RNA_enum_get(op->ptr, "up_axis")) % 3) {
+    /* TODO (ankitm) Show a warning here. */
+    RNA_enum_set(op->ptr, "up_axis", RNA_enum_get(op->ptr, "up_axis") % 3 + 1);
+  }
   return ret;
 }
 
@@ -172,7 +210,7 @@ void WM_OT_obj_export(struct wmOperatorType *ot)
                   false,
                   "Export Animation",
                   "Write selected range of frames to individual files. If unchecked, exports the "
-                  "current viewport frame ");
+                  "current viewport frame");
   RNA_def_int(ot->srna,
               "start_frame",
               INT_MAX,
@@ -191,6 +229,13 @@ void WM_OT_obj_export(struct wmOperatorType *ot)
               "The last frame to be exported",
               0,
               250);
+  RNA_def_enum(ot->srna,
+               "forward_axis",
+               io_obj_transform_axis_forward,
+               OBJ_AXIS_NEGATIVE_Y_FORWARD,
+               "Forward",
+               "");
+  RNA_def_enum(ot->srna, "up_axis", io_obj_transform_axis_up, OBJ_AXIS_Z_UP, "Up", "");
 }
 
 static int wm_obj_import_invoke(bContext *C, wmOperator *op, const wmEvent *event)

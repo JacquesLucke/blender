@@ -28,15 +28,38 @@
 extern "C" {
 #endif
 
+typedef enum {
+  OBJ_AXIS_X_UP = 0,
+  OBJ_AXIS_Y_UP = 1,
+  OBJ_AXIS_Z_UP = 2,
+  OBJ_AXIS_NEGATIVE_X_UP = 3,
+  OBJ_AXIS_NEGATIVE_Y_UP = 4,
+  OBJ_AXIS_NEGATIVE_Z_UP = 5,
+} eTransformAxisUp;
+
+typedef enum {
+  OBJ_AXIS_X_FORWARD = 0,
+  OBJ_AXIS_Y_FORWARD = 1,
+  OBJ_AXIS_Z_FORWARD = 2,
+  OBJ_AXIS_NEGATIVE_X_FORWARD = 3,
+  OBJ_AXIS_NEGATIVE_Y_FORWARD = 4,
+  OBJ_AXIS_NEGATIVE_Z_FORWARD = 5,
+} eTransformAxisForward;
+
 struct OBJExportParams {
   /** Full path to the destination OBJ file to export. */
   char filepath[FILENAME_MAX];
+
   /** Whether mutiple frames are to be exported or not. */
   bool export_animation;
   /** The first frame to be exported. */
   int start_frame;
   /** The last frame to be exported. */
   int end_frame;
+
+  /** Geometry Transform options */
+  int forward_axis;
+  int up_axis;
 };
 
 struct OBJImportParams {

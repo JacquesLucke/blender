@@ -36,6 +36,11 @@
 namespace io {
 namespace obj {
 
+/* -Y */
+#define DEFAULT_AXIS_FORWARD 4
+/* Z */
+#define DEFAULT_AXIS_UP 2
+
 /**
  * Polygon stores the data of one face of the mesh.
  * f v1/vt1/vn1 v2/vt2/vn2 .. (n)
@@ -77,6 +82,9 @@ typedef struct OBJ_object_to_export {
   std::vector<std::array<float, 2>> uv_coords;
   /** Number of UV vertices of a mesh in texture map. */
   uint tot_uv_vertices;
+
+  int forward_axis;
+  int up_axis;
 } OBJ_object_to_export;
 }  // namespace obj
 }  // namespace io

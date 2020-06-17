@@ -59,14 +59,22 @@ static void get_transformed_mesh_vertices(Mesh *me_eval,
                                           OBJ_object_to_export &object_to_export)
 {
   uint num_verts = object_to_export.tot_vertices = me_eval->totvert;
-  float transformed_co[3];
   object_to_export.mvert = (MVert *)MEM_callocN(num_verts * sizeof(MVert),
                                                 "OBJ object vertex coordinates & normals");
+  float axes_transform[3][3];
+  unit_m3(axes_transform);
+  mat3_from_axis_conversion(DEFAULT_AXIS_FORWARD,
+                            DEFAULT_AXIS_UP,
+                            object_to_export.forward_axis,
+                            object_to_export.up_axis,
+                            axes_transform);
 
+  float world_transform[4][4];
+  copy_m4_m4(world_transform, ob_eval->obmat);
+  mul_m4_m3m4(world_transform, axes_transform, world_transform);
   for (uint i = 0; i < num_verts; i++) {
-    copy_v3_v3(transformed_co, me_eval->mvert[i].co);
-    mul_m4_v3(ob_eval->obmat, transformed_co);
-    copy_v3_v3(object_to_export.mvert[i].co, transformed_co);
+    copy_v3_v3(object_to_export.mvert[i].co, me_eval->mvert[i].co);
+    mul_m4_v3(world_transform, object_to_export.mvert[i].co);
   }
 }
 
@@ -219,6 +227,9 @@ static void export_frame(bContext *C, const OBJExportParams *export_params, cons
 
     object_to_export.C = C;
     object_to_export.depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
+    object_to_export.forward_axis = export_params->forward_axis;
+    object_to_export.up_axis = export_params->up_axis;
+
     get_geometry_per_object(export_params, object_to_export);
   }
 
