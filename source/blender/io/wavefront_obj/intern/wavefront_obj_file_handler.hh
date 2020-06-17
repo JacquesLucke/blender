@@ -23,6 +23,7 @@
 #ifndef __WAVEFRONT_OBJ_FILE_HANDLER_HH__
 #define __WAVEFRONT_OBJ_FILE_HANDLER_HH__
 
+#include "IO_wavefront_obj.h"
 #include "wavefront_obj.hh"
 
 namespace io {
@@ -32,7 +33,8 @@ namespace obj {
  * Low level writer to the OBJ file at filepath.
  */
 void write_object_fprintf(const char *filepath,
-                          std::vector<OBJ_object_to_export> &object_to_export);
+                          std::vector<OBJ_object_to_export> &object_to_export,
+                          const OBJExportParams *export_params);
 
 }  // namespace obj
 }  // namespace io

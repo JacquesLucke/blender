@@ -61,6 +61,10 @@ struct OBJExportParams {
   int forward_axis;
   int up_axis;
   float scaling_factor;
+
+  /** File Write Options */
+  bool export_uv;
+  bool export_normals;
 };
 
 struct OBJImportParams {

@@ -187,9 +187,13 @@ static void get_geometry_per_object(const OBJExportParams *export_params,
   Mesh *me_eval = BKE_object_get_evaluated_mesh(ob_eval);
 
   get_transformed_mesh_vertices(me_eval, ob_eval, object_to_export);
-  get_transformed_vertex_normals(me_eval, ob_eval, object_to_export);
   get_polygon_vert_indices(me_eval, object_to_export);
-  get_uv_coordinates(me_eval, object_to_export);
+  if (export_params->export_normals) {
+    get_transformed_vertex_normals(me_eval, ob_eval, object_to_export);
+  }
+  if (export_params->export_uv) {
+    get_uv_coordinates(me_eval, object_to_export);
+  }
 }
 
 /**
@@ -235,7 +239,7 @@ static void export_frame(bContext *C, const OBJExportParams *export_params, cons
     get_geometry_per_object(export_params, object_to_export);
   }
 
-  write_object_fprintf(filepath, exportable_objects);
+  write_object_fprintf(filepath, exportable_objects, export_params);
 
   for (uint i = 0; i < exportable_objects.size(); i++) {
     MEM_freeN(exportable_objects[i].mvert);

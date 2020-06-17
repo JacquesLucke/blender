@@ -106,6 +106,8 @@ static int wm_obj_export_exec(bContext *C, wmOperator *op)
   export_params.forward_axis = RNA_enum_get(op->ptr, "forward_axis");
   export_params.up_axis = RNA_enum_get(op->ptr, "up_axis");
   export_params.scaling_factor = RNA_float_get(op->ptr, "scaling_factor");
+  export_params.export_uv = RNA_boolean_get(op->ptr, "export_uv");
+  export_params.export_normals = RNA_boolean_get(op->ptr, "export_normals");
 
   OBJ_export(C, &export_params);
 
@@ -147,6 +149,17 @@ static void ui_obj_export_settings(uiLayout *layout, PointerRNA *imfptr)
 
   row = uiLayoutRow(box, false);
   uiItemR(row, imfptr, "scaling_factor", 0, NULL, ICON_NONE);
+
+  /* File write options. */
+  box = uiLayoutBox(layout);
+  row = uiLayoutRow(box, false);
+  uiItemL(row, IFACE_("File Writer Options"), ICON_NONE);
+
+  row = uiLayoutRow(box, false);
+  uiItemR(row, imfptr, "export_uv", 0, NULL, ICON_NONE);
+
+  row = uiLayoutRow(box, false);
+  uiItemR(row, imfptr, "export_normals", 0, NULL, ICON_NONE);
 }
 
 static void wm_obj_export_draw(bContext *UNUSED(C), wmOperator *op)
@@ -186,6 +199,7 @@ static bool wm_obj_export_check(bContext *C, wmOperator *op)
   if ((RNA_enum_get(op->ptr, "forward_axis")) % 3 == (RNA_enum_get(op->ptr, "up_axis")) % 3) {
     /* TODO (ankitm) Show a warning here. */
     RNA_enum_set(op->ptr, "up_axis", RNA_enum_get(op->ptr, "up_axis") % 3 + 1);
+    ret = true;
   }
   return ret;
 }
@@ -250,6 +264,9 @@ void WM_OT_obj_export(struct wmOperatorType *ot)
                 "Scaling Factor: both position and object size are affected",
                 0.01,
                 1000.000f);
+  RNA_def_boolean(ot->srna, "export_uv", true, "Export UVs", "Export UV coordinates");
+  RNA_def_boolean(
+      ot->srna, "export_normals", true, "Export normals", "Export per face per vertex normals");
 }
 
 static int wm_obj_import_invoke(bContext *C, wmOperator *op, const wmEvent *event)
