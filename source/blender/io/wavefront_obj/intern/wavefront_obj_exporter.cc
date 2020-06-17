@@ -75,6 +75,7 @@ static void get_transformed_mesh_vertices(Mesh *me_eval,
   for (uint i = 0; i < num_verts; i++) {
     copy_v3_v3(object_to_export.mvert[i].co, me_eval->mvert[i].co);
     mul_m4_v3(world_transform, object_to_export.mvert[i].co);
+    mul_v3_fl(object_to_export.mvert[i].co, object_to_export.scaling_factor);
   }
 }
 
@@ -229,6 +230,7 @@ static void export_frame(bContext *C, const OBJExportParams *export_params, cons
     object_to_export.depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
     object_to_export.forward_axis = export_params->forward_axis;
     object_to_export.up_axis = export_params->up_axis;
+    object_to_export.scaling_factor = export_params->scaling_factor;
 
     get_geometry_per_object(export_params, object_to_export);
   }

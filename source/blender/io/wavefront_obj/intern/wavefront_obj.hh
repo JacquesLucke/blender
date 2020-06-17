@@ -85,6 +85,7 @@ typedef struct OBJ_object_to_export {
 
   int forward_axis;
   int up_axis;
+  float scaling_factor;
 } OBJ_object_to_export;
 }  // namespace obj
 }  // namespace io

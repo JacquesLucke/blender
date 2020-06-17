@@ -105,6 +105,7 @@ static int wm_obj_export_exec(bContext *C, wmOperator *op)
 
   export_params.forward_axis = RNA_enum_get(op->ptr, "forward_axis");
   export_params.up_axis = RNA_enum_get(op->ptr, "up_axis");
+  export_params.scaling_factor = RNA_float_get(op->ptr, "scaling_factor");
 
   OBJ_export(C, &export_params);
 
@@ -136,12 +137,16 @@ static void ui_obj_export_settings(uiLayout *layout, PointerRNA *imfptr)
   /* Transform options. */
   box = uiLayoutBox(layout);
   row = uiLayoutRow(box, false);
-  uiItemL(row, IFACE_("Transform"), ICON_NONE);
+  uiItemL(row, IFACE_("Geometry Transform"), ICON_NONE);
 
   row = uiLayoutRow(box, false);
   uiItemR(row, imfptr, "forward_axis", 0, NULL, ICON_NONE);
+
   row = uiLayoutRow(box, 1);
   uiItemR(row, imfptr, "up_axis", 0, NULL, ICON_NONE);
+
+  row = uiLayoutRow(box, false);
+  uiItemR(row, imfptr, "scaling_factor", 0, NULL, ICON_NONE);
 }
 
 static void wm_obj_export_draw(bContext *UNUSED(C), wmOperator *op)
@@ -236,6 +241,15 @@ void WM_OT_obj_export(struct wmOperatorType *ot)
                "Forward",
                "");
   RNA_def_enum(ot->srna, "up_axis", io_obj_transform_axis_up, OBJ_AXIS_Z_UP, "Up", "");
+  RNA_def_float(ot->srna,
+                "scaling_factor",
+                1.000f,
+                0.001f,
+                10 * 1000.000f,
+                "Scale",
+                "Scaling Factor: both position and object size are affected",
+                0.01,
+                1000.000f);
 }
 
 static int wm_obj_import_invoke(bContext *C, wmOperator *op, const wmEvent *event)

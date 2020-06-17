@@ -60,6 +60,7 @@ struct OBJExportParams {
   /** Geometry Transform options */
   int forward_axis;
   int up_axis;
+  float scaling_factor;
 };
 
 struct OBJImportParams {
