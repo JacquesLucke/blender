@@ -46,17 +46,17 @@ MALWAYS_INLINE short face_normal_axis_component(const Polygon &poly_to_write,
   return short(sum / poly_to_write.total_vertices_per_poly);
 }
 
-static void write_geomtery_per_object(FILE *outfile,
-                                      OBJ_object_to_export &object_to_export,
-                                      uint offset[3],
-                                      const OBJExportParams *export_params)
+static void write_geomtery_per_mesh(FILE *outfile,
+                                    OBJ_obmesh_to_export &obmesh_to_export,
+                                    uint offset[3],
+                                    const OBJExportParams *export_params)
 {
   /** Write object name, as seen in outliner. First two characters are ID code, so skipped. */
-  fprintf(outfile, "o %s\n", object_to_export.object->id.name + 2);
+  fprintf(outfile, "o %s\n", obmesh_to_export.object->id.name + 2);
 
   /** Write v x y z for all vertices. */
-  for (uint i = 0; i < object_to_export.tot_vertices; i++) {
-    MVert *vertex = &object_to_export.mvert[i];
+  for (uint i = 0; i < obmesh_to_export.tot_vertices; i++) {
+    MVert *vertex = &obmesh_to_export.mvert[i];
     fprintf(outfile, "v %f %f %f\n", vertex->co[0], vertex->co[1], vertex->co[2]);
   }
 
@@ -64,17 +64,17 @@ static void write_geomtery_per_object(FILE *outfile,
    * Write texture coordinates, vt u v for all vertices in a object's texture space.
    */
   if (export_params->export_uv) {
-    for (uint i = 0; i < object_to_export.tot_uv_vertices; i++) {
-      std::array<float, 2> &uv_vertex = object_to_export.uv_coords[i];
+    for (uint i = 0; i < obmesh_to_export.tot_uv_vertices; i++) {
+      std::array<float, 2> &uv_vertex = obmesh_to_export.uv_coords[i];
       fprintf(outfile, "vt %f %f\n", uv_vertex[0], uv_vertex[1]);
     }
   }
 
   /** Write vn nx ny nz for all face normals. */
   if (export_params->export_normals) {
-    for (uint i = 0; i < object_to_export.tot_poly; i++) {
-      MVert *vertex_list = object_to_export.mvert;
-      const Polygon &polygon = object_to_export.polygon_list[i];
+    for (uint i = 0; i < obmesh_to_export.tot_poly; i++) {
+      MVert *vertex_list = obmesh_to_export.mvert;
+      const Polygon &polygon = obmesh_to_export.polygon_list[i];
       fprintf(outfile,
               "vn %hd %hd %d\n",
               face_normal_axis_component(polygon, AXIS_X, vertex_list),
@@ -91,8 +91,8 @@ static void write_geomtery_per_object(FILE *outfile,
   if (export_params->export_normals) {
     if (export_params->export_uv) {
       /* Write both normals and UV. f v1/vt1/vn1 */
-      for (uint i = 0; i < object_to_export.tot_poly; i++) {
-        const Polygon &polygon = object_to_export.polygon_list[i];
+      for (uint i = 0; i < obmesh_to_export.tot_poly; i++) {
+        const Polygon &polygon = obmesh_to_export.polygon_list[i];
         fprintf(outfile, "f ");
         for (int j = 0; j < polygon.total_vertices_per_poly; j++) {
           fprintf(outfile,
@@ -106,8 +106,8 @@ static void write_geomtery_per_object(FILE *outfile,
     }
     else {
       /* Write normals but not UV. f v1//vn1 */
-      for (uint i = 0; i < object_to_export.tot_poly; i++) {
-        const Polygon &polygon = object_to_export.polygon_list[i];
+      for (uint i = 0; i < obmesh_to_export.tot_poly; i++) {
+        const Polygon &polygon = obmesh_to_export.polygon_list[i];
         fprintf(outfile, "f ");
         for (int j = 0; j < polygon.total_vertices_per_poly; j++) {
           fprintf(outfile, "%d//%d ", polygon.vertex_index[j] + offset[0], i + 1 + offset[2]);
@@ -119,8 +119,8 @@ static void write_geomtery_per_object(FILE *outfile,
   else {
     if (export_params->export_uv) {
       /* Write UV but not normals. f v1/vt1 */
-      for (uint i = 0; i < object_to_export.tot_poly; i++) {
-        const Polygon &polygon = object_to_export.polygon_list[i];
+      for (uint i = 0; i < obmesh_to_export.tot_poly; i++) {
+        const Polygon &polygon = obmesh_to_export.polygon_list[i];
         fprintf(outfile, "f ");
         for (int j = 0; j < polygon.total_vertices_per_poly; j++) {
           fprintf(outfile,
@@ -133,8 +133,8 @@ static void write_geomtery_per_object(FILE *outfile,
     }
     else {
       /* Write neither normals nor UV. f v1 */
-      for (uint i = 0; i < object_to_export.tot_poly; i++) {
-        const Polygon &polygon = object_to_export.polygon_list[i];
+      for (uint i = 0; i < obmesh_to_export.tot_poly; i++) {
+        const Polygon &polygon = obmesh_to_export.polygon_list[i];
         fprintf(outfile, "f ");
         for (int j = 0; j < polygon.total_vertices_per_poly; j++) {
           fprintf(outfile, "%d ", polygon.vertex_index[j] + offset[0]);
@@ -149,7 +149,7 @@ static void write_geomtery_per_object(FILE *outfile,
  * Low level writer to the OBJ file at filepath.
  */
 void write_object_fprintf(const char *filepath,
-                          std::vector<OBJ_object_to_export> &objects_to_export,
+                          std::vector<OBJ_obmesh_to_export> &meshes_to_export,
                           const OBJExportParams *export_params)
 {
   FILE *outfile = fopen(filepath, "w");
@@ -165,11 +165,11 @@ void write_object_fprintf(const char *filepath,
   uint index_offset[3] = {0, 0, 0};
 
   fprintf(outfile, "# Blender 2.90\n");
-  for (uint i = 0; i < objects_to_export.size(); i++) {
-    write_geomtery_per_object(outfile, objects_to_export[i], index_offset, export_params);
-    index_offset[0] += objects_to_export[i].tot_vertices;
-    index_offset[1] += objects_to_export[i].tot_uv_vertices;
-    index_offset[2] += objects_to_export[i].tot_poly;
+  for (uint i = 0; i < meshes_to_export.size(); i++) {
+    write_geomtery_per_mesh(outfile, meshes_to_export[i], index_offset, export_params);
+    index_offset[0] += meshes_to_export[i].tot_vertices;
+    index_offset[1] += meshes_to_export[i].tot_uv_vertices;
+    index_offset[2] += meshes_to_export[i].tot_poly;
   }
   fclose(outfile);
 }

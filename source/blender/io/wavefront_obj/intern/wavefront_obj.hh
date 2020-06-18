@@ -60,9 +60,9 @@ struct Polygon {
 };
 
 /**
- * Stores geometry of one object to be exported.
+ * Stores geometry of one mesh object to be exported.
  */
-typedef struct OBJ_object_to_export {
+typedef struct OBJ_obmesh_to_export {
   bContext *C;
   Depsgraph *depsgraph;
   Object *object;
@@ -86,7 +86,7 @@ typedef struct OBJ_object_to_export {
   int forward_axis;
   int up_axis;
   float scaling_factor;
-} OBJ_object_to_export;
+} OBJ_obmesh_to_export;
 }  // namespace obj
 }  // namespace io
 
