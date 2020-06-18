@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <vector>
 
+#include "BKE_lib_id.h"
 #include "BKE_mesh.h"
 #include "BKE_mesh_mapping.h"
 #include "BKE_mesh_runtime.h"
@@ -35,13 +36,18 @@
 #include "BLI_path_util.h"
 #include "BLI_vector.hh"
 
+#include "bmesh.h"
+#include "bmesh_tools.h"
+
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
 
 #include "DNA_layer_types.h"
+#include "DNA_modifier_types.h"
 #include "DNA_scene_types.h"
 
 #include "ED_object.h"
+
 #include "IO_wavefront_obj.h"
 
 #include "wavefront_obj.hh"
@@ -186,6 +192,35 @@ static void get_geometry_per_object(const OBJExportParams *export_params,
   Object *ob_eval = DEG_get_evaluated_object(depsgraph, ob);
   Mesh *me_eval = BKE_object_get_evaluated_mesh(ob_eval);
 
+  /* Defined here to free it outside the following if-block. */
+  Mesh *triangulated;
+  /* Obtain triangulated mesh to later evaluate its face vertices and indices. */
+  if (export_params->export_triangulated) {
+    struct BMeshCreateParams bm_create_params {
+      .use_toolflags = false
+    };
+    struct BMeshFromMeshParams bm_convert_params {
+      /* If false, it triggers BLI_assert(BM_face_is_normal_valid(f))
+       * We don't need the face normals it calculates.
+       */
+      .calc_face_normal = true, 0, 0, 0
+    };
+    int triangulate_min_verts = 4;
+    BMesh *bmesh = BKE_mesh_to_bmesh_ex(me_eval, &bm_create_params, &bm_convert_params);
+
+    BM_mesh_triangulate(bmesh,
+                        MOD_TRIANGULATE_NGON_BEAUTY,
+                        MOD_TRIANGULATE_QUAD_SHORTEDGE,
+                        triangulate_min_verts,
+                        false,
+                        NULL,
+                        NULL,
+                        NULL);
+    triangulated = BKE_mesh_from_bmesh_for_eval_nomain(bmesh, NULL, me_eval);
+    me_eval = triangulated;
+    BM_mesh_free(bmesh);
+  }
+
   get_transformed_mesh_vertices(me_eval, ob_eval, object_to_export);
   get_polygon_vert_indices(me_eval, object_to_export);
   if (export_params->export_normals) {
@@ -193,6 +228,9 @@ static void get_geometry_per_object(const OBJExportParams *export_params,
   }
   if (export_params->export_uv) {
     get_uv_coordinates(me_eval, object_to_export);
+  }
+  if (export_params->export_triangulated) {
+    BKE_id_free(NULL, triangulated);
   }
 }
 

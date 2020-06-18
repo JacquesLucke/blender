@@ -106,8 +106,10 @@ static int wm_obj_export_exec(bContext *C, wmOperator *op)
   export_params.forward_axis = RNA_enum_get(op->ptr, "forward_axis");
   export_params.up_axis = RNA_enum_get(op->ptr, "up_axis");
   export_params.scaling_factor = RNA_float_get(op->ptr, "scaling_factor");
+
   export_params.export_uv = RNA_boolean_get(op->ptr, "export_uv");
   export_params.export_normals = RNA_boolean_get(op->ptr, "export_normals");
+  export_params.export_triangulated = RNA_boolean_get(op->ptr, "export_triangulated_mesh");
 
   OBJ_export(C, &export_params);
 
@@ -136,7 +138,7 @@ static void ui_obj_export_settings(uiLayout *layout, PointerRNA *imfptr)
   uiItemR(row, imfptr, "end_frame", 0, NULL, ICON_NONE);
   uiLayoutSetEnabled(row, export_animation);
 
-  /* Transform options. */
+  /* Geometry Transform options. */
   box = uiLayoutBox(layout);
   row = uiLayoutRow(box, false);
   uiItemL(row, IFACE_("Geometry Transform"), ICON_NONE);
@@ -153,13 +155,16 @@ static void ui_obj_export_settings(uiLayout *layout, PointerRNA *imfptr)
   /* File write options. */
   box = uiLayoutBox(layout);
   row = uiLayoutRow(box, false);
-  uiItemL(row, IFACE_("File Writer Options"), ICON_NONE);
+  uiItemL(row, IFACE_("File Write Options"), ICON_NONE);
 
   row = uiLayoutRow(box, false);
   uiItemR(row, imfptr, "export_uv", 0, NULL, ICON_NONE);
 
   row = uiLayoutRow(box, false);
   uiItemR(row, imfptr, "export_normals", 0, NULL, ICON_NONE);
+
+  row = uiLayoutRow(box, false);
+  uiItemR(row, imfptr, "export_triangulated_mesh", 0, NULL, ICON_NONE);
 }
 
 static void wm_obj_export_draw(bContext *UNUSED(C), wmOperator *op)
@@ -267,6 +272,13 @@ void WM_OT_obj_export(struct wmOperatorType *ot)
   RNA_def_boolean(ot->srna, "export_uv", true, "Export UVs", "Export UV coordinates");
   RNA_def_boolean(
       ot->srna, "export_normals", true, "Export normals", "Export per face per vertex normals");
+  RNA_def_boolean(
+      ot->srna,
+      "export_triangulated_mesh",
+      false,
+      "Export Triangulated Mesh",
+      "The mesh in viewport will not be affected. Behaves the same as Triangulate Modifier with "
+      "ngon-method: \"Beauty\", quad-method: \"Shortest Diagonal\", min vertices: 4");
 }
 
 static int wm_obj_import_invoke(bContext *C, wmOperator *op, const wmEvent *event)

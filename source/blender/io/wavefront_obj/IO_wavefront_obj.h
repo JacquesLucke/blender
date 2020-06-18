@@ -65,6 +65,7 @@ struct OBJExportParams {
   /** File Write Options */
   bool export_uv;
   bool export_normals;
+  bool export_triangulated;
 };
 
 struct OBJImportParams {
