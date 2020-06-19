@@ -34,6 +34,7 @@ namespace obj {
  */
 void write_mesh_objects(const char *filepath,
                         const std::vector<OBJ_obmesh_to_export> &meshes_to_export,
+                        const std::vector<OBJ_obcurve_to_export> &curves_to_export,
                         const OBJExportParams *export_params);
 
 }  // namespace obj

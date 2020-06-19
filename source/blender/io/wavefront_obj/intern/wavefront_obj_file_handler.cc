@@ -53,6 +53,25 @@ MALWAYS_INLINE void face_no_from_vert_no(const Polygon &poly_to_write,
   face_no[2] = (short)sum[2] / poly_to_write.total_vertices_per_poly;
 }
 
+static void write_geomtery_per_curve(FILE *outfile,
+                                     const OBJ_obcurve_to_export &ob_curve,
+                                     const uint offset[3],
+                                     const OBJExportParams *export_params)
+{
+  fprintf(outfile, "o %s\n", ob_curve.object->id.name + 2);
+
+  /** Write v x y z for all vertices. */
+  for (uint i = 0; i < ob_curve.tot_vertices; i++) {
+    const MVert &vertex = ob_curve.mvert[i];
+    fprintf(outfile, "v %f %f %f\n", vertex.co[0], vertex.co[1], vertex.co[2]);
+  }
+
+  for (uint i = 0; i < ob_curve.tot_edges; i++) {
+    fprintf(
+        outfile, "l %d %d\n", ob_curve.edge_vert_indices[i][0], ob_curve.edge_vert_indices[i][1]);
+  }
+}
+
 static void write_geomtery_per_mesh(FILE *outfile,
                                     const OBJ_obmesh_to_export &ob_mesh,
                                     const uint offset[3],
@@ -155,6 +174,7 @@ static void write_geomtery_per_mesh(FILE *outfile,
  */
 void write_mesh_objects(const char *filepath,
                         const std::vector<OBJ_obmesh_to_export> &meshes_to_export,
+                        const std::vector<OBJ_obcurve_to_export> &curves_to_export,
                         const OBJExportParams *export_params)
 {
   FILE *outfile = fopen(filepath, "w");
@@ -164,10 +184,11 @@ void write_mesh_objects(const char *filepath,
   }
 
   /**
-   * index_offset[x]: All previous vertex, UV vertex and normal indices are added in subsequent
+   * index_offset[x]: All previous vertex, UV vertex etc are added in subsequent
    * objects' indices.
+   * Number of: vertex coords, UV vertex coords, polygons, curve edges respectively.
    */
-  uint index_offset[3] = {0, 0, 0};
+  uint index_offset[4] = {0, 0, 0, 0};
 
   fprintf(outfile, "# Blender %s\n", BKE_blender_version_string());
   for (uint i = 0; i < meshes_to_export.size(); i++) {
@@ -175,6 +196,11 @@ void write_mesh_objects(const char *filepath,
     index_offset[0] += meshes_to_export[i].tot_vertices;
     index_offset[1] += meshes_to_export[i].tot_uv_vertices;
     index_offset[2] += meshes_to_export[i].tot_poly;
+  }
+  for (uint i = 0; i < curves_to_export.size(); i++) {
+    write_geomtery_per_curve(outfile, curves_to_export[i], index_offset, export_params);
+    index_offset[0] += curves_to_export[i].tot_vertices;
+    index_offset[3] += curves_to_export[i].tot_edges;
   }
   fclose(outfile);
 }

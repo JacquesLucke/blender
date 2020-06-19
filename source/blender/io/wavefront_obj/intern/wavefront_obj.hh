@@ -86,6 +86,27 @@ typedef struct OBJ_obmesh_to_export {
   int up_axis;
   float scaling_factor;
 } OBJ_obmesh_to_export;
+
+typedef struct OBJ_obcurve_to_export {
+  bContext *C;
+  Depsgraph *depsgraph;
+  Object *object;
+
+  /** Vertices in a mesh made from a curve to export. */
+  MVert *mvert;
+  /** Number of vertices in a curve to export. */
+  uint tot_vertices;
+
+  /** Vertex indices of an edge of a mesh made from a curve. */
+  std::vector<std::array<uint, 2>> edge_vert_indices;
+  /** Number of edges in a curve to export. */
+  uint tot_edges;
+
+  int forward_axis;
+  int up_axis;
+  float scaling_factor;
+  bool export_curves_as_nurbs;
+} OBJ_obcurve_to_export;
 }  // namespace obj
 }  // namespace io
 

@@ -66,6 +66,7 @@ struct OBJExportParams {
   bool export_uv;
   bool export_normals;
   bool export_triangulated_mesh;
+  bool export_curves_as_nurbs;
 };
 
 struct OBJImportParams {

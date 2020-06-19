@@ -110,6 +110,7 @@ static int wm_obj_export_exec(bContext *C, wmOperator *op)
   export_params.export_uv = RNA_boolean_get(op->ptr, "export_uv");
   export_params.export_normals = RNA_boolean_get(op->ptr, "export_normals");
   export_params.export_triangulated_mesh = RNA_boolean_get(op->ptr, "export_triangulated_mesh");
+  export_params.export_curves_as_nurbs = RNA_boolean_get(op->ptr, "export_curves_as_nurbs");
 
   OBJ_export(C, &export_params);
 
@@ -165,6 +166,9 @@ static void ui_obj_export_settings(uiLayout *layout, PointerRNA *imfptr)
 
   row = uiLayoutRow(box, false);
   uiItemR(row, imfptr, "export_triangulated_mesh", 0, NULL, ICON_NONE);
+
+  row = uiLayoutRow(box, false);
+  uiItemR(row, imfptr, "export_curves_as_nurbs", 0, NULL, ICON_NONE);
 }
 
 static void wm_obj_export_draw(bContext *UNUSED(C), wmOperator *op)
@@ -279,6 +283,11 @@ void WM_OT_obj_export(struct wmOperatorType *ot)
       "Export Triangulated Mesh",
       "The mesh in viewport will not be affected. Behaves the same as Triangulate Modifier with "
       "ngon-method: \"Beauty\", quad-method: \"Shortest Diagonal\", min vertices: 4");
+  RNA_def_boolean(ot->srna,
+                  "export_curves_as_nurbs",
+                  false,
+                  "Export curves as NURBS",
+                  "If false, writes the curve as a mesh withouth modifying the scene");
 }
 
 static int wm_obj_import_invoke(bContext *C, wmOperator *op, const wmEvent *event)

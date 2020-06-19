@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <vector>
 
+#include "BKE_curve.h"
 #include "BKE_lib_id.h"
 #include "BKE_mesh.h"
 #include "BKE_mesh_mapping.h"
@@ -42,6 +43,7 @@
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
 
+#include "DNA_curve_types.h"
 #include "DNA_layer_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_scene_types.h"
@@ -159,8 +161,7 @@ static void store_uv_coordinates(Mesh *me_eval, OBJ_obmesh_to_export &ob_mesh)
         polygon_of_uv_vert.uv_vertex_index.resize(vertices_in_poly);
 
         /* Fill up UV vertex index for current polygon's one vertex. */
-        polygon_of_uv_vert.uv_vertex_index[uv_vert->loop_of_poly_index] =
-            ob_mesh.tot_uv_vertices;
+        polygon_of_uv_vert.uv_vertex_index[uv_vert->loop_of_poly_index] = ob_mesh.tot_uv_vertices;
 
         /* Fill up UV vertices' coordinates. We don't know how many unique vertices are there, so
          * need to push back everytime. */
@@ -179,6 +180,48 @@ static void store_uv_coordinates(Mesh *me_eval, OBJ_obmesh_to_export &ob_mesh)
     /* No need to go over other layers. */
     break;
   }
+}
+
+static void store_curve_vertices(const OBJExportParams *export_params,
+                                 OBJ_obcurve_to_export &ob_curve)
+{
+  /* Mesh representation of the curve object. Only vertex coordinates and edge indices, indexing
+   * into those coordinates are needed.
+   */
+  Mesh *curve_mesh = BKE_mesh_new_from_object(ob_curve.depsgraph, ob_curve.object, true);
+  ob_curve.mvert = (MVert *)MEM_callocN(curve_mesh->totvert * sizeof(MVert),
+                                        "OBJ curve object vertex coordinates");
+  ob_curve.edge_vert_indices.resize(curve_mesh->totedge);
+  ob_curve.tot_vertices = curve_mesh->totvert;
+  ob_curve.tot_edges = curve_mesh->totedge;
+
+  float axes_transform[3][3];
+  unit_m3(axes_transform);
+  mat3_from_axis_conversion(DEFAULT_AXIS_FORWARD,
+                            DEFAULT_AXIS_UP,
+                            ob_curve.forward_axis,
+                            ob_curve.up_axis,
+                            axes_transform);
+  float world_transform[4][4];
+  copy_m4_m4(world_transform, ob_curve.object->obmat);
+  mul_m4_m3m4(world_transform, axes_transform, world_transform);
+  for (int i = 0; i < curve_mesh->totvert; i++) {
+    copy_v3_v3(ob_curve.mvert[i].co, curve_mesh->mvert[i].co);
+    mul_m4_v3(world_transform, ob_curve.mvert[i].co);
+    mul_v3_fl(ob_curve.mvert[i].co, ob_curve.scaling_factor);
+  }
+
+  for (int i = 0; i < curve_mesh->totedge; i++) {
+    ob_curve.edge_vert_indices[i][0] = i + 1;
+    ob_curve.edge_vert_indices[i][1] = i + 2;
+  }
+  /* Last edge's second vertex depends on whether curve is cyclic or not. */
+  ob_curve.edge_vert_indices[curve_mesh->totedge - 1][1] = curve_mesh->totvert ==
+                                                                   curve_mesh->totedge ?
+                                                               1 :
+                                                               curve_mesh->totvert;
+
+  BKE_id_free(NULL, curve_mesh);
 }
 
 static void triangulate_mesh(Mesh *&me_eval, Mesh *&triangulated)
@@ -224,7 +267,7 @@ static void store_geometry_per_obmesh(const OBJExportParams *export_params,
 
   /* Allocate memory for all vertices' coordinates and normals. */
   ob_mesh.mvert = (MVert *)MEM_callocN(me_eval->totvert * sizeof(MVert),
-                                                "OBJ mesh object vertex coordinates & normals");
+                                       "OBJ mesh object vertex coordinates & normals");
   store_transformed_mesh_vertices(me_eval, ob_eval, ob_mesh);
   store_polygon_vert_indices(me_eval, ob_mesh);
   if (export_params->export_normals) {
@@ -242,13 +285,19 @@ static void store_geometry_per_obmesh(const OBJExportParams *export_params,
 /**
  * Check object type to filter only exportable objects.
  */
-static void check_object_type(Object *object, std::vector<OBJ_obmesh_to_export> &meshes_to_export)
+static void check_object_type(Object *object,
+                              std::vector<OBJ_obmesh_to_export> &meshes_to_export,
+                              std::vector<OBJ_obcurve_to_export> &curves_to_export)
 {
   switch (object->type) {
     case OB_MESH:
       meshes_to_export.push_back(OBJ_obmesh_to_export());
       meshes_to_export.back().object = object;
       break;
+    case OB_CURVE:
+    case OB_SURF:
+      curves_to_export.push_back(OBJ_obcurve_to_export());
+      curves_to_export.back().object = object;
       /* Do nothing for all other cases for now. */
     default:
       break;
@@ -261,13 +310,14 @@ static void check_object_type(Object *object, std::vector<OBJ_obmesh_to_export> 
 static void export_frame(bContext *C, const OBJExportParams *export_params, const char *filepath)
 {
   std::vector<OBJ_obmesh_to_export> exportable_meshes;
+  std::vector<OBJ_obcurve_to_export> exportable_curves;
 
   ViewLayer *view_layer = CTX_data_view_layer(C);
 
   Base *base = static_cast<Base *>(view_layer->object_bases.first);
   for (; base; base = base->next) {
     Object *object_in_layer = base->object;
-    check_object_type(object_in_layer, exportable_meshes);
+    check_object_type(object_in_layer, exportable_meshes, exportable_curves);
   }
 
   for (uint i = 0; i < exportable_meshes.size(); i++) {
@@ -281,11 +331,32 @@ static void export_frame(bContext *C, const OBJExportParams *export_params, cons
 
     store_geometry_per_obmesh(export_params, ob_mesh);
   }
+  for (uint i = 0; i < exportable_curves.size(); i++) {
+    OBJ_obcurve_to_export &ob_curve = exportable_curves[i];
 
-  write_mesh_objects(filepath, exportable_meshes, export_params);
+    ob_curve.C = C;
+    ob_curve.depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
+    ob_curve.forward_axis = export_params->forward_axis;
+    ob_curve.up_axis = export_params->up_axis;
+    ob_curve.scaling_factor = export_params->scaling_factor;
+    ob_curve.export_curves_as_nurbs = export_params->export_curves_as_nurbs ||
+                                      ob_curve.object->type == OB_SURF;
+
+    if (ob_curve.export_curves_as_nurbs) {
+      continue;
+    }
+    else {
+      store_curve_vertices(export_params, ob_curve);
+    }
+  }
+
+  write_mesh_objects(filepath, exportable_meshes, exportable_curves, export_params);
 
   for (uint i = 0; i < exportable_meshes.size(); i++) {
     MEM_freeN(exportable_meshes[i].mvert);
+  }
+  for (uint i = 0; i < exportable_curves.size(); i++) {
+    MEM_freeN(exportable_curves[i].mvert);
   }
 }
 
