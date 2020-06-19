@@ -29,8 +29,7 @@
 namespace io {
 namespace obj {
 /**
- * Central internal function to call data preparation & writer functions.
- * Recieves export_settings from obj.cc.
+ * Central internal function to call scene update & writer functions.
  */
 void exporter_main(bContext *C, const OBJExportParams *export_params);
 

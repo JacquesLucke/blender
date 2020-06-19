@@ -22,7 +22,7 @@
  */
 
 #include "IO_wavefront_obj.h"
-#include <chrono>
+#include "PIL_time.h"
 
 #include "wavefront_obj.hh"
 #include "wavefront_obj_exporter.hh"
@@ -33,12 +33,10 @@
  */
 void OBJ_export(bContext *C, const OBJExportParams *export_params)
 {
-  std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+  double start_time = PIL_check_seconds_timer();
   io::obj::exporter_main(C, export_params);
-  std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-  std::cout << "--------\nExport Time = "
-            << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "[ms]"
-            << std::endl;
+  double end_time = PIL_check_seconds_timer();
+  std::cout << "\nOBJ export time: " << (end_time - start_time) * 1000 << " milliseconds\n";
 }
 /**
  * Called from io_obj.c. Currently not implemented.

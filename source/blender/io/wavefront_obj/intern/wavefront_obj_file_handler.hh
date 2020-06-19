@@ -32,9 +32,9 @@ namespace obj {
 /**
  * Low level writer to the OBJ file at filepath.
  */
-void write_object_fprintf(const char *filepath,
-                          std::vector<OBJ_obmesh_to_export> &obmesh_to_export,
-                          const OBJExportParams *export_params);
+void write_mesh_objects(const char *filepath,
+                        const std::vector<OBJ_obmesh_to_export> &meshes_to_export,
+                        const OBJExportParams *export_params);
 
 }  // namespace obj
 }  // namespace io

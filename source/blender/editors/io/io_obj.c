@@ -109,7 +109,7 @@ static int wm_obj_export_exec(bContext *C, wmOperator *op)
 
   export_params.export_uv = RNA_boolean_get(op->ptr, "export_uv");
   export_params.export_normals = RNA_boolean_get(op->ptr, "export_normals");
-  export_params.export_triangulated = RNA_boolean_get(op->ptr, "export_triangulated_mesh");
+  export_params.export_triangulated_mesh = RNA_boolean_get(op->ptr, "export_triangulated_mesh");
 
   OBJ_export(C, &export_params);
 

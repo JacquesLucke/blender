@@ -22,7 +22,7 @@
 #define __IO_WAVEFRONT_OBJ_H__
 
 #include "BKE_context.h"
-#include <stdio.h> /* For FILENAME_MAX. */
+#include "BLI_path_util.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -48,7 +48,7 @@ typedef enum {
 
 struct OBJExportParams {
   /** Full path to the destination OBJ file to export. */
-  char filepath[FILENAME_MAX];
+  char filepath[FILE_MAX];
 
   /** Whether mutiple frames are to be exported or not. */
   bool export_animation;
@@ -65,12 +65,12 @@ struct OBJExportParams {
   /** File Write Options */
   bool export_uv;
   bool export_normals;
-  bool export_triangulated;
+  bool export_triangulated_mesh;
 };
 
 struct OBJImportParams {
   /** Full path to the source OBJ file to import. */
-  char filepath[FILENAME_MAX];
+  char filepath[FILE_MAX];
 };
 
 void OBJ_import(bContext *C, const struct OBJImportParams *import_params);

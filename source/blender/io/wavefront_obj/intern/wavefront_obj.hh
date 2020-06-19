@@ -50,7 +50,6 @@ struct Polygon {
   uint total_vertices_per_poly;
   /**
    * Vertex indices of this polygon. v1, v2 .. above.
-   * The index corresponds to the pre-defined vertex list.
    */
   std::vector<uint> vertex_index;
   /**
