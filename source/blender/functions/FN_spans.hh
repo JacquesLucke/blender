@@ -207,6 +207,16 @@ template<typename T> struct VSpanBase {
     BLI_assert(false);
     return false;
   }
+
+  bool is_empty() const
+  {
+    return this->m_virtual_size == 0;
+  }
+
+  uint size() const
+  {
+    return this->m_virtual_size;
+  }
 };
 
 BLI_STATIC_ASSERT((sizeof(VSpanBase<void>) == sizeof(VSpanBase<AlignedBuffer<64, 64>>)),
@@ -273,16 +283,6 @@ template<typename T> class VSpan : public VSpanBase<T> {
     BLI_assert(false);
     return *this->m_data.single.data;
   }
-
-  bool is_empty() const
-  {
-    return this->m_virtual_size == 0;
-  }
-
-  uint size() const
-  {
-    return this->m_virtual_size;
-  }
 };
 
 /**
@@ -348,16 +348,6 @@ class GVSpan : public VSpanBase<void> {
     ref.m_category = VSpanCategory::FullPointerArray;
     ref.m_data.full_pointer_array.data = values;
     return ref;
-  }
-
-  bool is_empty() const
-  {
-    return this->m_virtual_size == 0;
-  }
-
-  uint size() const
-  {
-    return this->m_virtual_size;
   }
 
   const CPPType &type() const

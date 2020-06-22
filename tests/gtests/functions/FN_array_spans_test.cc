@@ -30,6 +30,10 @@ TEST(virtual_array_span, EmptyConstructor)
   VArraySpan<int> span;
   EXPECT_EQ(span.size(), 0);
   EXPECT_TRUE(span.is_empty());
+
+  GVArraySpan converted(span);
+  EXPECT_EQ(converted.type(), CPPType::get<int>());
+  EXPECT_EQ(converted.size(), 0);
 }
 
 TEST(virtual_array_span, SingleArrayConstructor)
@@ -47,6 +51,13 @@ TEST(virtual_array_span, SingleArrayConstructor)
   EXPECT_EQ(span[0][3], 6);
   EXPECT_EQ(span[1][3], 6);
   EXPECT_EQ(span[2][1], 4);
+
+  GVArraySpan converted(span);
+  EXPECT_EQ(converted.type(), CPPType::get<int>());
+  EXPECT_EQ(converted.size(), 3);
+  EXPECT_EQ(converted[0].size(), 4);
+  EXPECT_EQ(converted[1].size(), 4);
+  EXPECT_EQ(converted[1][2], &values[2]);
 }
 
 TEST(virtual_array_span, MultipleArrayConstructor)
@@ -68,6 +79,15 @@ TEST(virtual_array_span, MultipleArrayConstructor)
   EXPECT_EQ(&span[2][0], values2.data());
   EXPECT_EQ(span[2][0], 8);
   EXPECT_EQ(span[1][1], 7);
+
+  GVArraySpan converted(span);
+  EXPECT_EQ(converted.type(), CPPType::get<int>());
+  EXPECT_EQ(converted.size(), 3);
+  EXPECT_EQ(converted[0].size(), 4);
+  EXPECT_EQ(converted[1].size(), 2);
+  EXPECT_EQ(converted[2].size(), 1);
+  EXPECT_EQ(converted[0][0], values0.data());
+  EXPECT_EQ(converted[1][1], values1.data() + 1);
 }
 
 TEST(generic_virtual_array_span, TypeConstructor)
@@ -75,6 +95,9 @@ TEST(generic_virtual_array_span, TypeConstructor)
   GVArraySpan span{CPPType_int32};
   EXPECT_EQ(span.size(), 0);
   EXPECT_TRUE(span.is_empty());
+
+  VArraySpan converted = span.typed<int>();
+  EXPECT_EQ(converted.size(), 0);
 }
 
 TEST(generic_virtual_array_span, GSpanConstructor)
@@ -89,6 +112,14 @@ TEST(generic_virtual_array_span, GSpanConstructor)
   EXPECT_EQ(span[0].size(), 3);
   EXPECT_EQ(span[2].size(), 3);
   EXPECT_EQ(*(std::string *)span[3][1], "world");
+
+  VArraySpan converted = span.typed<std::string>();
+  EXPECT_EQ(converted.size(), 5);
+  EXPECT_EQ(converted[0][0], "hello");
+  EXPECT_EQ(converted[1][0], "hello");
+  EXPECT_EQ(converted[4][0], "hello");
+  EXPECT_EQ(converted[0].size(), 3);
+  EXPECT_EQ(converted[2].size(), 3);
 }
 
 TEST(generic_virtual_array_span, IsSingleArray1)
@@ -96,6 +127,9 @@ TEST(generic_virtual_array_span, IsSingleArray1)
   Array<int> values = {5, 6, 7};
   GVArraySpan span{GSpan(values.as_span()), 4};
   EXPECT_TRUE(span.is_single_array());
+
+  VArraySpan converted = span.typed<int>();
+  EXPECT_TRUE(converted.is_single_array());
 }
 
 TEST(generic_virtual_array_span, IsSingleArray2)
@@ -106,6 +140,9 @@ TEST(generic_virtual_array_span, IsSingleArray2)
 
   GVArraySpan span = vectors;
   EXPECT_FALSE(span.is_single_array());
+
+  VArraySpan converted = span.typed<int>();
+  EXPECT_FALSE(converted.is_single_array());
 }
 
 }  // namespace fn
