@@ -217,6 +217,13 @@ BLI_STATIC_ASSERT((sizeof(VSpanBase<void>) == sizeof(VSpanBase<AlignedBuffer<64,
  * array.
  */
 template<typename T> class VSpan : public VSpanBase<T> {
+  friend class GVSpan;
+
+  VSpan(const VSpanBase<void> &values)
+  {
+    memcpy(this, &values, sizeof(VSpanBase<void>));
+  }
+
  public:
   VSpan()
   {
@@ -309,6 +316,12 @@ class GVSpan : public VSpanBase<void> {
   {
   }
 
+  template<typename T> GVSpan(const VSpanBase<T> &values)
+  {
+    this->m_type = &CPPType::get<T>();
+    memcpy(this, &values, sizeof(VSpanBase<void>));
+  }
+
   template<typename T> GVSpan(Span<T> values) : GVSpan(GSpan(values))
   {
   }
@@ -370,17 +383,7 @@ class GVSpan : public VSpanBase<void> {
   template<typename T> VSpan<T> typed() const
   {
     BLI_assert(CPPType::get<T>() == *m_type);
-    switch (this->m_category) {
-      case VSpanCategory::Single:
-        return VSpan<T>::FromSingle((const T *)this->m_data.single.data, m_virtual_size);
-      case VSpanCategory::FullArray:
-        return VSpan<T>(Span<T>((const T *)this->m_data.full_array.data, m_virtual_size));
-      case VSpanCategory::FullPointerArray:
-        return VSpan<T>(Span<const T *>((const T *const *)this->m_data.full_pointer_array.data,
-                                        m_virtual_size));
-    }
-    BLI_assert(false);
-    return {};
+    return VSpan<T>(*this);
   }
 
   const void *as_single_element() const
