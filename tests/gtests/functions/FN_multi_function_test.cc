@@ -264,5 +264,25 @@ TEST(multi_function, CustomFunction_SI_SI_SO)
   EXPECT_EQ(outputs[3], 90);
 }
 
+TEST(multi_function, CustomFunction_SM)
+{
+  CustomFunction_SM<std::string> fn("AddSuffix", [](std::string &value) { value += " test"; });
+
+  Array<std::string> values = {"a", "b", "c", "d", "e"};
+
+  MFParamsBuilder params(fn, values.size());
+  params.add_single_mutable(values.as_mutable_span());
+
+  MFContextBuilder context;
+
+  fn.call({1, 2, 3}, params, context);
+
+  EXPECT_EQ(values[0], "a");
+  EXPECT_EQ(values[1], "b test");
+  EXPECT_EQ(values[2], "c test");
+  EXPECT_EQ(values[3], "d test");
+  EXPECT_EQ(values[4], "e");
+}
+
 }  // namespace fn
 }  // namespace blender

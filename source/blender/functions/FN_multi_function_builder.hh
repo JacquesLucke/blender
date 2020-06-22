@@ -115,6 +115,42 @@ class CustomFunction_SI_SI_SO : public MultiFunction {
   }
 };
 
+/**
+ * Generates a multi-function with the following parameters:
+ * 1. single mutable (SM) of type Mut1
+ */
+template<typename Mut1> class CustomFunction_SM : public MultiFunction {
+ private:
+  using FunctionT = std::function<void(IndexMask, MutableSpan<Mut1>)>;
+  FunctionT m_function;
+
+ public:
+  CustomFunction_SM(StringRef name, FunctionT function) : m_function(std::move(function))
+  {
+    MFSignatureBuilder signature = this->get_builder(name);
+    signature.single_mutable<Mut1>("Mut1");
+  }
+
+  template<typename ElementFuncT>
+  CustomFunction_SM(StringRef name, ElementFuncT element_fn)
+      : CustomFunction_SM(name, CustomFunction_SM::create_function(element_fn))
+  {
+  }
+
+  template<typename ElementFuncT> static FunctionT create_function(ElementFuncT element_fn)
+  {
+    return [=](IndexMask mask, MutableSpan<Mut1> mut1) {
+      mask.foreach_index([&](uint i) { element_fn(mut1[i]); });
+    };
+  }
+
+  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
+  {
+    MutableSpan<Mut1> mut1 = params.single_mutable<Mut1>(0);
+    m_function(mask, mut1);
+  }
+};
+
 }  // namespace fn
 }  // namespace blender
 
