@@ -21,9 +21,8 @@
 #ifndef __WAVEFRONT_OBJ_HH__
 #define __WAVEFRONT_OBJ_HH__
 
-#include <stdio.h>
-
 #include "BKE_context.h"
+#include "BKE_mesh.h"
 #include "BKE_object.h"
 
 #include "BLI_array.hh"
@@ -33,6 +32,8 @@
 #include "DNA_meshdata_types.h"
 #include "DNA_object_types.h"
 
+#include "IO_wavefront_obj.h"
+
 namespace io {
 namespace obj {
 
@@ -41,72 +42,71 @@ namespace obj {
 /* Z */
 #define DEFAULT_AXIS_UP 2
 
-/**
- * Polygon stores the data of one face of the mesh.
- * f v1/vt1/vn1 v2/vt2/vn2 .. (n)
- */
-struct Polygon {
-  /** Total vertices in one polgon face. n above. */
-  uint total_vertices_per_poly;
-  /**
-   * Vertex indices of this polygon. v1, v2 .. above.
+class OBJMesh {
+ public:
+  const OBJExportParams *export_params;
+  bContext *C;
+
+  Object *object;
+  Mesh *me_eval;
+  /** For curves and triangulated meshes, a new mesh is allocated which needs to be freed later. */
+  bool me_eval_needs_free = false;
+
+  /** Total vertices in a mesh. */
+  uint tot_vertices;
+  /** Total polygons (and thus normals) in a mesh. */
+  uint tot_poly_normals;
+  /** Total UV vertices in a mesh's texture map. */
+  uint tot_uv_vertices;
+  /** Only for curve-like meshes: total edges in a mesh. */
+  uint tot_edges;
+  /** Final transform of an object obtained from export settings (up_axis, forward_axis) and world
+   * transform matrix.
    */
-  std::vector<uint> vertex_index;
+  float world_and_axes_transform[4][4];
+
   /**
-   * UV vertex indices of this polygon. vt1, vt2 .. above.
+   * Store evaluated object and mesh pointers depending on object type.
+   * New meshes are created for curves and triangulated meshes.
    */
-  std::vector<uint> uv_vertex_index;
+  void get_mesh_eval();
+  /**
+   * Store the product of export axes settings and an object's world transform matrix in
+   * world_and_axes_transform[4][4].
+   */
+  void store_world_axes_transform();
+  /**
+   * Calculate coordinates of the vertex at given index.
+   */
+  void calc_vertex_coords(float coords[3], uint vert_index);
+  /**
+   * Calculate vertex indices of all vertices of a polygon.
+   */
+  void calc_poly_vertex_indices(std::vector<uint> &poly_vertex_indices, uint poly_index);
+  /**
+   * Store UV vertex coordinates as well as their indices.
+   */
+  void store_uv_coords_and_indices(std::vector<std::array<float, 2>> &uv_coords,
+                                   std::vector<std::vector<uint>> &uv_indices);
+  /**
+   * Calculate face normal of the polygon at given index.
+   */
+  void calc_poly_normal(float poly_normal[3], uint poly_index);
+  /**
+   * Calculate face normal indices of all polygons.
+   */
+  void calc_poly_normal_indices(std::vector<uint> &normal_indices, uint poly_indices);
+  /**
+   * Only for curve-like meshes: calculate vertex indices of one edge.
+   */
+  void calc_edge_vert_indices(std::array<uint, 2> &vert_indices, uint edge_index);
 };
 
-/**
- * Stores geometry of one mesh object to be exported.
- */
-typedef struct OBJ_obmesh_to_export {
-  bContext *C;
-  Depsgraph *depsgraph;
-  Object *object;
+class OBJNurbs {
+  /*TODO ankitm to be done*/
+ public:
+};
 
-  /** Vertices in a mesh to export. */
-  MVert *mvert;
-  /** Number of vertices in a mesh to export. */
-  uint tot_vertices;
-
-  /** Polygons in a mesh to export. */
-  /* TODO (ankitm): Replace vector with BLI::Vector. See D7931 */
-  std::vector<Polygon> polygon_list;
-  /** Number of polygons in a mesh to export. */
-  uint tot_poly;
-
-  /** UV vertex coordinates of a mesh in texture map. */
-  std::vector<std::array<float, 2>> uv_coords;
-  /** Number of UV vertices of a mesh in texture map. */
-  uint tot_uv_vertices;
-
-  int forward_axis;
-  int up_axis;
-  float scaling_factor;
-} OBJ_obmesh_to_export;
-
-typedef struct OBJ_obcurve_to_export {
-  bContext *C;
-  Depsgraph *depsgraph;
-  Object *object;
-
-  /** Vertices in a mesh made from a curve to export. */
-  MVert *mvert;
-  /** Number of vertices in a curve to export. */
-  uint tot_vertices;
-
-  /** Vertex indices of an edge of a mesh made from a curve. */
-  std::vector<std::array<uint, 2>> edge_vert_indices;
-  /** Number of edges in a curve to export. */
-  uint tot_edges;
-
-  int forward_axis;
-  int up_axis;
-  float scaling_factor;
-  bool export_curves_as_nurbs;
-} OBJ_obcurve_to_export;
 }  // namespace obj
 }  // namespace io
 

@@ -60,78 +60,54 @@ namespace io {
 namespace obj {
 
 /**
- * Store the mesh vertex coordinates in obmesh, in world coordinates.
+ * Store the product of export axes settings and an object's world transform matrix in
+ * world_and_axes_transform[4][4].
  */
-static void store_transformed_mesh_vertices(const Mesh *me_eval,
-                                            const Object *ob_eval,
-                                            OBJ_obmesh_to_export &ob_mesh)
+void OBJMesh::store_world_axes_transform()
 {
-  uint num_verts = ob_mesh.tot_vertices = me_eval->totvert;
   float axes_transform[3][3];
   unit_m3(axes_transform);
   mat3_from_axis_conversion(DEFAULT_AXIS_FORWARD,
                             DEFAULT_AXIS_UP,
-                            ob_mesh.forward_axis,
-                            ob_mesh.up_axis,
+                            export_params->forward_axis,
+                            export_params->up_axis,
                             axes_transform);
+  mul_m4_m3m4(world_and_axes_transform, axes_transform, object->obmat);
+  /* mul_m4_m3m4 does not copy last row of obmat, i.e. location data. */
+  copy_v4_v4(world_and_axes_transform[3], object->obmat[3]);
+}
 
-  float world_transform[4][4];
-  copy_m4_m4(world_transform, ob_eval->obmat);
-  mul_m4_m3m4(world_transform, axes_transform, world_transform);
-  for (uint i = 0; i < num_verts; i++) {
-    copy_v3_v3(ob_mesh.mvert[i].co, me_eval->mvert[i].co);
-    mul_m4_v3(world_transform, ob_mesh.mvert[i].co);
-    mul_v3_fl(ob_mesh.mvert[i].co, ob_mesh.scaling_factor);
+/**
+ * Calculate coordinates of the vertex at given index.
+ */
+void OBJMesh::calc_vertex_coords(float coords[3], uint vert_index)
+{
+  copy_v3_v3(coords, me_eval->mvert[vert_index].co);
+  mul_m4_v3(world_and_axes_transform, coords);
+  mul_v3_fl(coords, export_params->scaling_factor);
+}
+
+/**
+ * Calculate vertex indices of all vertices of a polygon.
+ */
+void OBJMesh::calc_poly_vertex_indices(std::vector<uint> &poly_vertex_indices, uint poly_index)
+{
+  const MPoly &mpoly = me_eval->mpoly[poly_index];
+  const MLoop *mloop = &me_eval->mloop[mpoly.loopstart];
+  poly_vertex_indices.resize(mpoly.totloop);
+  for (uint loop_index = 0; loop_index < mpoly.totloop; loop_index++) {
+    poly_vertex_indices[loop_index] = (mloop + loop_index)->v + 1;
   }
 }
 
 /**
- * Store the mesh's per-face per-vertex normals in ob_mesh, in world coordinates.
+ * Store UV vertex coordinates as well as their indices.
  */
-static void store_transformed_vertex_normals(Mesh *me_eval,
-                                             const Object *ob_eval,
-                                             OBJ_obmesh_to_export &ob_mesh)
+void OBJMesh::store_uv_coords_and_indices(std::vector<std::array<float, 2>> &uv_coords,
+                                          std::vector<std::vector<uint>> &uv_indices)
 {
-  BKE_mesh_ensure_normals(me_eval);
-  float transformed_normal[3];
-  for (uint i = 0; i < me_eval->totvert; i++) {
-    normal_short_to_float_v3(transformed_normal, me_eval->mvert[i].no);
-    mul_mat3_m4_v3(ob_eval->obmat, transformed_normal);
-    normal_float_to_short_v3(ob_mesh.mvert[i].no, transformed_normal);
-  }
-}
-
-/**
- * Store the vertex indices of all loops in all polygons of a mesh.
- */
-static void store_polygon_vert_indices(const Mesh *me_eval, OBJ_obmesh_to_export &ob_mesh)
-{
-  const MLoop *mloop;
-  const MPoly *mpoly = me_eval->mpoly;
-
-  ob_mesh.tot_poly = me_eval->totpoly;
-  ob_mesh.polygon_list.resize(me_eval->totpoly);
-
-  for (uint poly_index = 0; poly_index < me_eval->totpoly; poly_index++, mpoly++) {
-    mloop = &me_eval->mloop[mpoly->loopstart];
-    Polygon &poly = ob_mesh.polygon_list[poly_index];
-
-    poly.total_vertices_per_poly = mpoly->totloop;
-    poly.vertex_index.resize(mpoly->totloop);
-
-    for (int loop_index = 0; loop_index < mpoly->totloop; loop_index++) {
-      /* mloop->v is 0-based index. Indices in OBJ start from 1. */
-      poly.vertex_index[loop_index] = (mloop + loop_index)->v + 1;
-    }
-  }
-}
-
-/**
- * Store UV vertex coordinates in ob_mesh.uv_coords as well as their indices, in
- * a polygon[i].uv_vertex_index.
- */
-static void store_uv_coordinates(Mesh *me_eval, OBJ_obmesh_to_export &ob_mesh)
-{
+  Mesh *me_eval = this->me_eval;
+  OBJMesh *ob_mesh = this;
   const CustomData *ldata = &me_eval->ldata;
 
   for (int layer_idx = 0; layer_idx < ldata->totlayer; layer_idx++) {
@@ -144,100 +120,115 @@ static void store_uv_coordinates(Mesh *me_eval, OBJ_obmesh_to_export &ob_mesh)
     const MLoop *mloop = me_eval->mloop;
     const MLoopUV *mloopuv = static_cast<MLoopUV *>(layer->data);
     const float limit[2] = {STD_UV_CONNECT_LIMIT, STD_UV_CONNECT_LIMIT};
-
     UvVertMap *uv_vert_map = BKE_mesh_uv_vert_map_create(
         mpoly, mloop, mloopuv, me_eval->totpoly, me_eval->totvert, limit, false, false);
 
-    ob_mesh.tot_uv_vertices = -1;
+    uv_indices.resize(me_eval->totpoly);
+    /* TODO ankitm check if pre-emptively reserving space for uv coords improves timing or not.
+     * It is guaranteed that there will be at least me_eval->totvert vertices.
+     */
+    ob_mesh->tot_uv_vertices = -1;
+
     for (int vertex_index = 0; vertex_index < me_eval->totvert; vertex_index++) {
       const UvMapVert *uv_vert = BKE_mesh_uv_vert_map_get_vert(uv_vert_map, vertex_index);
       while (uv_vert != NULL) {
         if (uv_vert->separate) {
-          ob_mesh.tot_uv_vertices++;
+          ob_mesh->tot_uv_vertices++;
         }
-        Polygon &polygon_of_uv_vert = ob_mesh.polygon_list[uv_vert->poly_index];
-        const uint vertices_in_poly = polygon_of_uv_vert.total_vertices_per_poly;
+        const uint vertices_in_poly = me_eval->mpoly[uv_vert->poly_index].totloop;
         /* Resize UV vertices index list. */
-        polygon_of_uv_vert.uv_vertex_index.resize(vertices_in_poly);
-
-        /* Fill up UV vertex index for current polygon's one vertex. */
-        polygon_of_uv_vert.uv_vertex_index[uv_vert->loop_of_poly_index] = ob_mesh.tot_uv_vertices;
+        uv_indices[uv_vert->poly_index].resize(vertices_in_poly);
+        /* Fill up UV vertex index for the polygon's one vertex. */
+        uv_indices[uv_vert->poly_index][uv_vert->loop_of_poly_index] = ob_mesh->tot_uv_vertices +
+                                                                       1;
 
         /* Fill up UV vertices' coordinates. We don't know how many unique vertices are there, so
          * need to push back everytime. */
-        ob_mesh.uv_coords.push_back(std::array<float, 2>());
-        ob_mesh.uv_coords[ob_mesh.tot_uv_vertices][0] =
+        uv_coords.push_back(std::array<float, 2>());
+        uv_coords[ob_mesh->tot_uv_vertices][0] =
             mloopuv[mpoly[uv_vert->poly_index].loopstart + uv_vert->loop_of_poly_index].uv[0];
-        ob_mesh.uv_coords[ob_mesh.tot_uv_vertices][1] =
+        uv_coords[ob_mesh->tot_uv_vertices][1] =
             mloopuv[mpoly[uv_vert->poly_index].loopstart + uv_vert->loop_of_poly_index].uv[1];
 
         uv_vert = uv_vert->next;
       }
     }
-    /* Actual number of total UV vertices is 1-based, as opposed to the index: 0-based. */
-    ob_mesh.tot_uv_vertices += 1;
+
+    /* Actual number of total UV vertices is 1-based. */
+    ob_mesh->tot_uv_vertices += 1;
     BKE_mesh_uv_vert_map_free(uv_vert_map);
     /* No need to go over other layers. */
     break;
   }
 }
 
-static void store_curve_vertices(const OBJExportParams *export_params,
-                                 OBJ_obcurve_to_export &ob_curve)
+/**
+ * Calculate face normal of the polygon at given index.
+ */
+void OBJMesh::calc_poly_normal(float poly_normal[3], uint poly_index)
 {
-  /* Mesh representation of the curve object. Only vertex coordinates and edge indices, indexing
-   * into those coordinates are needed.
-   */
-  Mesh *curve_mesh = BKE_mesh_new_from_object(ob_curve.depsgraph, ob_curve.object, true);
-  ob_curve.mvert = (MVert *)MEM_callocN(curve_mesh->totvert * sizeof(MVert),
-                                        "OBJ curve object vertex coordinates");
-  ob_curve.edge_vert_indices.resize(curve_mesh->totedge);
-  ob_curve.tot_vertices = curve_mesh->totvert;
-  ob_curve.tot_edges = curve_mesh->totedge;
+  float sum[3] = {0, 0, 0};
+  const MPoly &poly_to_write = me_eval->mpoly[poly_index];
+  const MLoop *mloop = &me_eval->mloop[poly_to_write.loopstart];
 
-  float axes_transform[3][3];
-  unit_m3(axes_transform);
-  mat3_from_axis_conversion(DEFAULT_AXIS_FORWARD,
-                            DEFAULT_AXIS_UP,
-                            ob_curve.forward_axis,
-                            ob_curve.up_axis,
-                            axes_transform);
-  float world_transform[4][4];
-  copy_m4_m4(world_transform, ob_curve.object->obmat);
-  mul_m4_m3m4(world_transform, axes_transform, world_transform);
-  for (int i = 0; i < curve_mesh->totvert; i++) {
-    copy_v3_v3(ob_curve.mvert[i].co, curve_mesh->mvert[i].co);
-    mul_m4_v3(world_transform, ob_curve.mvert[i].co);
-    mul_v3_fl(ob_curve.mvert[i].co, ob_curve.scaling_factor);
+  /* Sum all vertex normals to get a face normal. */
+  for (uint i = 0; i < poly_to_write.totloop; i++) {
+    sum[0] += me_eval->mvert[(mloop + i)->v].no[0];
+    sum[1] += me_eval->mvert[(mloop + i)->v].no[1];
+    sum[2] += me_eval->mvert[(mloop + i)->v].no[2];
   }
 
-  for (int i = 0; i < curve_mesh->totedge; i++) {
-    ob_curve.edge_vert_indices[i][0] = i + 1;
-    ob_curve.edge_vert_indices[i][1] = i + 2;
-  }
-  /* Last edge's second vertex depends on whether curve is cyclic or not. */
-  ob_curve.edge_vert_indices[curve_mesh->totedge - 1][1] = curve_mesh->totvert ==
-                                                                   curve_mesh->totedge ?
-                                                               1 :
-                                                               curve_mesh->totvert;
-
-  BKE_id_free(NULL, curve_mesh);
+  mul_mat3_m4_v3(world_and_axes_transform, sum);
+  copy_v3_v3(poly_normal, sum);
+  normalize_v3(poly_normal);
 }
 
-static void triangulate_mesh(Mesh *&me_eval, Mesh *&triangulated)
+/**
+ * Calculate face normal indices of all polygons.
+ */
+void OBJMesh::calc_poly_normal_indices(std::vector<uint> &normal_indices, uint poly_index)
+{
+  normal_indices.resize(me_eval->mpoly[poly_index].totloop);
+  for (uint i = 0; i < normal_indices.size(); i++) {
+    normal_indices[i] = poly_index + 1;
+  }
+}
+
+/**
+ * Only for curve-like meshes: calculate vertex indices of one edge.
+ */
+void OBJMesh::calc_edge_vert_indices(std::array<uint, 2> &vert_indices, uint edge_index)
+{
+  vert_indices[0] = edge_index + 1;
+  vert_indices[1] = edge_index + 2;
+  /* TODO ankitm: check if this causes a slow down. If not, keep it here for consistency in the
+   * writer. Last edge depends on whether the curve is cyclic or not.
+   */
+  if (edge_index == me_eval->totedge) {
+    vert_indices[0] = edge_index + 1;
+    vert_indices[1] = me_eval->totvert == me_eval->totedge ? 1 : me_eval->totvert;
+  }
+}
+
+/**
+ * Create a new mesh from given one and triangulate it.
+ * \note The new mesh created here needs to be freed.
+ * \return Pointer to the triangulated mesh.
+ */
+static Mesh *triangulate_mesh(Mesh *me_eval)
 {
   struct BMeshCreateParams bm_create_params {
     .use_toolflags = false
   };
   struct BMeshFromMeshParams bm_convert_params {
-    /* If false, calc_face_normal triggers BLI_assert(BM_face_is_normal_valid(f)).
-     * We don't need the face normals it calculates.
-     */
+    /* If calc_face_normal is false, it triggers BLI_assert(BM_face_is_normal_valid(f)). */
     .calc_face_normal = true, 0, 0, 0
   };
+  /* Lower threshold where triangulation of a face starts, i.e. a quadrilateral will be
+   * triangulated here. */
   int triangulate_min_verts = 4;
-  BMesh *bmesh = BKE_mesh_to_bmesh_ex(me_eval, &bm_create_params, &bm_convert_params);
 
+  BMesh *bmesh = BKE_mesh_to_bmesh_ex(me_eval, &bm_create_params, &bm_convert_params);
   BM_mesh_triangulate(bmesh,
                       MOD_TRIANGULATE_NGON_BEAUTY,
                       MOD_TRIANGULATE_QUAD_SHORTEDGE,
@@ -246,122 +237,112 @@ static void triangulate_mesh(Mesh *&me_eval, Mesh *&triangulated)
                       NULL,
                       NULL,
                       NULL);
-  triangulated = BKE_mesh_from_bmesh_for_eval_nomain(bmesh, NULL, me_eval);
-  me_eval = triangulated;
+  Mesh *triangulated = BKE_mesh_from_bmesh_for_eval_nomain(bmesh, NULL, me_eval);
+
   BM_mesh_free(bmesh);
-}
-
-static void store_geometry_per_obmesh(const OBJExportParams *export_params,
-                                      OBJ_obmesh_to_export &ob_mesh)
-{
-  Depsgraph *depsgraph = ob_mesh.depsgraph;
-  Object *ob = ob_mesh.object;
-  Object *ob_eval = DEG_get_evaluated_object(depsgraph, ob);
-  Mesh *me_eval = BKE_object_get_evaluated_mesh(ob_eval);
-
-  Mesh *triangulated;
-  /* Obtain triangulated mesh  */
-  if (export_params->export_triangulated_mesh) {
-    triangulate_mesh(me_eval, triangulated);
-  }
-
-  /* Allocate memory for all vertices' coordinates and normals. */
-  ob_mesh.mvert = (MVert *)MEM_callocN(me_eval->totvert * sizeof(MVert),
-                                       "OBJ mesh object vertex coordinates & normals");
-  store_transformed_mesh_vertices(me_eval, ob_eval, ob_mesh);
-  store_polygon_vert_indices(me_eval, ob_mesh);
-  if (export_params->export_normals) {
-    store_transformed_vertex_normals(me_eval, ob_eval, ob_mesh);
-  }
-  if (export_params->export_uv) {
-    store_uv_coordinates(me_eval, ob_mesh);
-  }
-
-  if (export_params->export_triangulated_mesh) {
-    BKE_id_free(NULL, triangulated);
-  }
+  return triangulated;
 }
 
 /**
- * Check object type to filter only exportable objects.
+ * Store evaluated object and mesh pointers depending on object type.
+ * New meshes are created for curves and triangulated meshes.
  */
-static void check_object_type(Object *object,
-                              std::vector<OBJ_obmesh_to_export> &meshes_to_export,
-                              std::vector<OBJ_obcurve_to_export> &curves_to_export)
+void OBJMesh::get_mesh_eval()
 {
-  switch (object->type) {
-    case OB_MESH:
-      meshes_to_export.push_back(OBJ_obmesh_to_export());
-      meshes_to_export.back().object = object;
-      break;
-    case OB_CURVE:
-    case OB_SURF:
-      curves_to_export.push_back(OBJ_obcurve_to_export());
-      curves_to_export.back().object = object;
-      /* Do nothing for all other cases for now. */
-    default:
-      break;
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
+  object = DEG_get_evaluated_object(depsgraph, object);
+  me_eval = BKE_object_get_evaluated_mesh(object);
+  me_eval_needs_free = false;
+
+  if (me_eval && me_eval->totpoly > 0) {
+    if (export_params->export_triangulated_mesh) {
+      me_eval = triangulate_mesh(me_eval);
+      me_eval_needs_free = true;
+    }
+  }
+
+  /* Curves need a new mesh to be exported in the form of vertices and edges.
+   * For primitive circle, new mesh is redundant, but it behaves more like curves, so kept it here.
+   */
+  else if (object->type == OB_CURVE && !export_params->export_curves_as_nurbs) {
+    me_eval = BKE_mesh_new_from_object(depsgraph, object, true);
+    me_eval_needs_free = true;
   }
 }
 
 /**
- * Exports a single frame to a single file in an animation.
+ * Traverses over and exports a single frame to a single OBJ file.
  */
 static void export_frame(bContext *C, const OBJExportParams *export_params, const char *filepath)
 {
-  std::vector<OBJ_obmesh_to_export> exportable_meshes;
-  std::vector<OBJ_obcurve_to_export> exportable_curves;
-
+  std::vector<OBJMesh> export_mesh;
+  /** TODO ankitm Unused now; to be done. */
+  std::vector<OBJNurbs> export_nurbs;
   ViewLayer *view_layer = CTX_data_view_layer(C);
-
   Base *base = static_cast<Base *>(view_layer->object_bases.first);
+
   for (; base; base = base->next) {
     Object *object_in_layer = base->object;
-    check_object_type(object_in_layer, exportable_meshes, exportable_curves);
+    switch (object_in_layer->type) {
+      case OB_MESH:
+        export_mesh.push_back(OBJMesh());
+        export_mesh.back().object = object_in_layer;
+        export_mesh.back().export_params = export_params;
+        export_mesh.back().C = C;
+        break;
+      case OB_CURVE:
+        /* TODO (ankitm) Conditionally push to export_nurbs too. */
+        export_mesh.push_back(OBJMesh());
+        export_mesh.back().object = object_in_layer;
+        export_mesh.back().export_params = export_params;
+        export_mesh.back().C = C;
+      default:
+        break;
+    }
   }
 
-  for (uint i = 0; i < exportable_meshes.size(); i++) {
-    OBJ_obmesh_to_export &ob_mesh = exportable_meshes[i];
+  OBJWriter frame_writer;
 
-    ob_mesh.C = C;
-    ob_mesh.depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
-    ob_mesh.forward_axis = export_params->forward_axis;
-    ob_mesh.up_axis = export_params->up_axis;
-    ob_mesh.scaling_factor = export_params->scaling_factor;
-
-    store_geometry_per_obmesh(export_params, ob_mesh);
+  if (!frame_writer.open_file(export_params->filepath)) {
+    fprintf(stderr, "Error in creating the file: %s\n", export_params->filepath);
+    return;
   }
-  for (uint i = 0; i < exportable_curves.size(); i++) {
-    OBJ_obcurve_to_export &ob_curve = exportable_curves[i];
 
-    ob_curve.C = C;
-    ob_curve.depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
-    ob_curve.forward_axis = export_params->forward_axis;
-    ob_curve.up_axis = export_params->up_axis;
-    ob_curve.scaling_factor = export_params->scaling_factor;
-    ob_curve.export_curves_as_nurbs = export_params->export_curves_as_nurbs ||
-                                      ob_curve.object->type == OB_SURF;
+  frame_writer.write_header();
 
-    if (ob_curve.export_curves_as_nurbs) {
-      continue;
+  for (uint ob_iter = 0; ob_iter < export_mesh.size(); ob_iter++) {
+    OBJMesh &mesh_to_export = export_mesh[ob_iter];
+    mesh_to_export.get_mesh_eval();
+    mesh_to_export.store_world_axes_transform();
+
+    frame_writer.write_object_name(mesh_to_export);
+    frame_writer.write_vertex_coords(mesh_to_export);
+
+    if (mesh_to_export.me_eval->totpoly == 0) {
+      /* For curves and primitive circle. */
+      frame_writer.write_curve_edges(mesh_to_export);
     }
     else {
-      store_curve_vertices(export_params, ob_curve);
+      std::vector<std::vector<uint>> uv_indices;
+      if (mesh_to_export.export_params->export_uv) {
+        frame_writer.write_uv_coords(mesh_to_export, uv_indices);
+      }
+      if (mesh_to_export.export_params->export_normals) {
+        frame_writer.write_poly_normals(mesh_to_export);
+      }
+      frame_writer.write_poly_indices(mesh_to_export, uv_indices);
+    }
+    frame_writer.update_index_offsets(mesh_to_export);
+
+    if (mesh_to_export.me_eval_needs_free) {
+      BKE_id_free(NULL, mesh_to_export.me_eval);
     }
   }
-
-  write_mesh_objects(filepath, exportable_meshes, exportable_curves, export_params);
-
-  for (uint i = 0; i < exportable_meshes.size(); i++) {
-    MEM_freeN(exportable_meshes[i].mvert);
-  }
-  for (uint i = 0; i < exportable_curves.size(); i++) {
-    MEM_freeN(exportable_curves[i].mvert);
-  }
+  frame_writer.close_file();
 }
 
 /**
- * Central internal function to call Scene update & writer functions.
+ * Central internal function to call scene update & writer functions.
  */
 void exporter_main(bContext *C, const OBJExportParams *export_params)
 {
@@ -369,7 +350,7 @@ void exporter_main(bContext *C, const OBJExportParams *export_params)
   Scene *scene = CTX_data_scene(C);
   const char *filepath = export_params->filepath;
 
-  /* Single frame export. */
+  /* Single frame export, i.e. no amimation is to be exported. */
   if (!export_params->export_animation) {
     export_frame(C, export_params, filepath);
     printf("Writing to %s\n", filepath);
@@ -378,6 +359,7 @@ void exporter_main(bContext *C, const OBJExportParams *export_params)
 
   int start_frame = export_params->start_frame;
   int end_frame = export_params->end_frame;
+  /* Insert frame number (with "-" if frame is negative) in the filename. */
   char filepath_with_frames[FILE_MAX];
   /* To reset the Scene to its original state. */
   int original_frame = CFRA;

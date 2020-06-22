@@ -33,177 +33,205 @@
 namespace io {
 namespace obj {
 
-/**
- * Calculate a face normal by averaging over its vertex normals.
- */
-MALWAYS_INLINE void face_no_from_vert_no(const Polygon &poly_to_write,
-                                         short *face_no,
-                                         MVert *vertex_list)
+/** Write one line of polygon indices as f v1/vt1/vn1 v2/vt2/vn2 .... */
+void OBJWriter::write_vert_uv_normal_indices(std::vector<uint> &vert_indices,
+                                             std::vector<uint> &uv_indices,
+                                             std::vector<uint> &normal_indices,
+                                             const MPoly &poly_to_write)
 {
-  /* Per axis sum of normals. */
-  float sum[3] = {0, 0, 0};
-  for (uint i = 0; i < poly_to_write.total_vertices_per_poly; i++) {
-    sum[0] += vertex_list[poly_to_write.vertex_index[i] - 1].no[0];
-    sum[1] += vertex_list[poly_to_write.vertex_index[i] - 1].no[1];
-    sum[2] += vertex_list[poly_to_write.vertex_index[i] - 1].no[2];
+  fprintf(outfile, "f ");
+  for (int j = 0; j < poly_to_write.totloop; j++) {
+    fprintf(outfile,
+            "%d/%d/%d ",
+            vert_indices[j] + index_offset[vertex_off],
+            uv_indices[j] + index_offset[uv_vertex_off],
+            normal_indices[j] + index_offset[normal_off]);
   }
-  /* Averaging the face normal. */
-  face_no[0] = (short)sum[0] / poly_to_write.total_vertices_per_poly;
-  face_no[1] = (short)sum[1] / poly_to_write.total_vertices_per_poly;
-  face_no[2] = (short)sum[2] / poly_to_write.total_vertices_per_poly;
+  fprintf(outfile, "\n");
 }
 
-static void write_geomtery_per_curve(FILE *outfile,
-                                     const OBJ_obcurve_to_export &ob_curve,
-                                     const uint offset[3],
-                                     const OBJExportParams *export_params)
+/** Write one line of polygon indices as f v1//vn1 v2//vn2 .... */
+void OBJWriter::write_vert_normal_indices(std::vector<uint> &vert_indices,
+                                          std::vector<uint> &normal_indices,
+                                          const MPoly &poly_to_write)
 {
-  fprintf(outfile, "o %s\n", ob_curve.object->id.name + 2);
-
-  /** Write v x y z for all vertices. */
-  for (uint i = 0; i < ob_curve.tot_vertices; i++) {
-    const MVert &vertex = ob_curve.mvert[i];
-    fprintf(outfile, "v %f %f %f\n", vertex.co[0], vertex.co[1], vertex.co[2]);
+  fprintf(outfile, "f ");
+  for (int j = 0; j < poly_to_write.totloop; j++) {
+    fprintf(outfile,
+            "%d//%d ",
+            vert_indices[j] + index_offset[vertex_off],
+            normal_indices[j] + index_offset[normal_off]);
   }
-
-  for (uint i = 0; i < ob_curve.tot_edges; i++) {
-    fprintf(
-        outfile, "l %d %d\n", ob_curve.edge_vert_indices[i][0], ob_curve.edge_vert_indices[i][1]);
-  }
+  fprintf(outfile, "\n");
 }
 
-static void write_geomtery_per_mesh(FILE *outfile,
-                                    const OBJ_obmesh_to_export &ob_mesh,
-                                    const uint offset[3],
-                                    const OBJExportParams *export_params)
+/** Write one line of polygon indices as f v1/vt1 v2/vt2 .... */
+void OBJWriter::write_vert_uv_indices(std::vector<uint> &vert_indices,
+                                      std::vector<uint> &uv_indices,
+                                      const MPoly &poly_to_write)
 {
-  /** Write object name, as seen in outliner. */
+  fprintf(outfile, "f ");
+  for (int j = 0; j < poly_to_write.totloop; j++) {
+    fprintf(outfile,
+            "%d/%d ",
+            vert_indices[j] + index_offset[vertex_off],
+            uv_indices[j] + 1 + index_offset[uv_vertex_off]);
+  }
+  fprintf(outfile, "\n");
+}
+
+/** Write one line of polygon indices as f v1 v2 .... */
+void OBJWriter::write_vert_indices(std::vector<uint> &vert_indices, const MPoly &poly_to_write)
+{
+  fprintf(outfile, "f ");
+  for (int j = 0; j < poly_to_write.totloop; j++) {
+    fprintf(outfile, "%d ", vert_indices[j] + index_offset[vertex_off]);
+  }
+  fprintf(outfile, "\n");
+}
+
+/** Try to open an empty OBJ file at filepath. */
+bool OBJWriter::open_file(const char filepath[FILE_MAX])
+{
+  outfile = fopen(filepath, "w");
+  if (!outfile) {
+    return false;
+  }
+  return true;
+}
+
+/** Close the OBJ file. */
+void OBJWriter::close_file()
+{
+  fclose(outfile);
+}
+
+/** Write Blender version as a comment in the file. */
+void OBJWriter::write_header()
+{
+  fprintf(outfile, "# Blender %s\n", BKE_blender_version_string());
+}
+
+/** Write object name as it appears in the outliner. */
+void OBJWriter::write_object_name(OBJMesh &ob_mesh)
+{
   fprintf(outfile, "o %s\n", ob_mesh.object->id.name + 2);
+}
 
-  /** Write v x y z for all vertices. */
+/** Write vertex coordinates for all vertices as v x y z */
+void OBJWriter::write_vertex_coords(OBJMesh &ob_mesh)
+{
+  ob_mesh.tot_vertices = ob_mesh.me_eval->totvert;
+  float vertex[3];
   for (uint i = 0; i < ob_mesh.tot_vertices; i++) {
-    const MVert &vertex = ob_mesh.mvert[i];
-    fprintf(outfile, "v %f %f %f\n", vertex.co[0], vertex.co[1], vertex.co[2]);
+    ob_mesh.calc_vertex_coords(vertex, i);
+    fprintf(outfile, "v %f %f %f\n", vertex[0], vertex[1], vertex[2]);
   }
+}
 
-  /**
-   * Write texture coordinates, vt u v for all vertices in a object's texture space.
-   */
-  if (export_params->export_uv) {
-    for (uint i = 0; i < ob_mesh.tot_uv_vertices; i++) {
-      const std::array<float, 2> &uv_vertex = ob_mesh.uv_coords[i];
-      fprintf(outfile, "vt %f %f\n", uv_vertex[0], uv_vertex[1]);
-    }
+/** Write UV vertex coordinates for all vertices as vt u v
+ * \note UV indices are stored here, but written later.
+ */
+void OBJWriter::write_uv_coords(OBJMesh &ob_mesh, std::vector<std::vector<uint>> &uv_indices)
+{
+  std::vector<std::array<float, 2>> uv_coords;
+
+  ob_mesh.store_uv_coords_and_indices(uv_coords, uv_indices);
+  for (uint i = 0; i < ob_mesh.tot_uv_vertices; i++) {
+    const std::array<float, 2> &uv_vertex = uv_coords[i];
+    fprintf(outfile, "vt %f %f\n", uv_vertex[0], uv_vertex[1]);
   }
+}
 
-  /** Write vn nx ny nz for all face normals. */
-  if (export_params->export_normals) {
-    for (uint i = 0; i < ob_mesh.tot_poly; i++) {
-      MVert *vertex_list = ob_mesh.mvert;
-      const Polygon &polygon = ob_mesh.polygon_list[i];
-      short face_no[3];
-      face_no_from_vert_no(polygon, face_no, vertex_list),
-          fprintf(outfile, "vn %hd %hd %d\n", face_no[0], face_no[1], face_no[2]);
-    }
+/** Write face normals for all polygons as vn x y z */
+void OBJWriter::write_poly_normals(OBJMesh &ob_mesh)
+{
+  ob_mesh.tot_poly_normals = ob_mesh.me_eval->totpoly;
+  float poly_normal[3];
+  BKE_mesh_ensure_normals(ob_mesh.me_eval);
+  for (uint i = 0; i < ob_mesh.tot_poly_normals; i++) {
+    ob_mesh.calc_poly_normal(poly_normal, i);
+    fprintf(outfile, "vn %f %f %f\n", poly_normal[0], poly_normal[1], poly_normal[2]);
   }
+}
 
-  /**
-   * Write f v1/vt1/vn1 .. total_vertices_per_poly , for all polygons.
-   * i-th vn is always i + 1, guaranteed by face normal loop above.
-   * Both loop over the same polygon list.
-   */
-  if (export_params->export_normals) {
-    if (export_params->export_uv) {
-      /* Write both normals and UV. f v1/vt1/vn1 */
-      for (uint i = 0; i < ob_mesh.tot_poly; i++) {
-        const Polygon &polygon = ob_mesh.polygon_list[i];
-        fprintf(outfile, "f ");
-        for (int j = 0; j < polygon.total_vertices_per_poly; j++) {
-          fprintf(outfile,
-                  "%d/%d/%d ",
-                  polygon.vertex_index[j] + offset[0],
-                  polygon.uv_vertex_index[j] + 1 + offset[1],
-                  i + 1 + offset[2]);
-        }
-        fprintf(outfile, "\n");
+/** Define and write a face with at least vertex indices, and conditionally with UV vertex indices
+ * and face normal indices.
+ * \note UV indices are stored while writing UV vertices.
+ */
+void OBJWriter::write_poly_indices(OBJMesh &ob_mesh, std::vector<std::vector<uint>> &uv_indices)
+{
+  ob_mesh.tot_poly_normals = ob_mesh.me_eval->totpoly;
+  std::vector<uint> vertex_indices;
+  std::vector<uint> normal_indices;
+
+  if (ob_mesh.export_params->export_normals) {
+    if (ob_mesh.export_params->export_uv) {
+      /* Write both normals and UV indices. */
+      for (uint i = 0; i < ob_mesh.tot_poly_normals; i++) {
+        ob_mesh.calc_poly_vertex_indices(vertex_indices, i);
+        ob_mesh.calc_poly_normal_indices(normal_indices, i);
+        const MPoly &poly_to_write = ob_mesh.me_eval->mpoly[i];
+
+        write_vert_uv_normal_indices(vertex_indices, uv_indices[i], normal_indices, poly_to_write);
       }
     }
     else {
-      /* Write normals but not UV. f v1//vn1 */
-      for (uint i = 0; i < ob_mesh.tot_poly; i++) {
-        const Polygon &polygon = ob_mesh.polygon_list[i];
-        fprintf(outfile, "f ");
-        for (int j = 0; j < polygon.total_vertices_per_poly; j++) {
-          fprintf(outfile, "%d//%d ", polygon.vertex_index[j] + offset[0], i + 1 + offset[2]);
-        }
-        fprintf(outfile, "\n");
+      /* Write normals indices. */
+      for (uint i = 0; i < ob_mesh.tot_poly_normals; i++) {
+        ob_mesh.calc_poly_vertex_indices(vertex_indices, i);
+        ob_mesh.calc_poly_normal_indices(normal_indices, i);
+        const MPoly &poly_to_write = ob_mesh.me_eval->mpoly[i];
+
+        write_vert_normal_indices(vertex_indices, normal_indices, poly_to_write);
       }
     }
   }
   else {
-    if (export_params->export_uv) {
-      /* Write UV but not normals. f v1/vt1 */
-      for (uint i = 0; i < ob_mesh.tot_poly; i++) {
-        const Polygon &polygon = ob_mesh.polygon_list[i];
-        fprintf(outfile, "f ");
-        for (int j = 0; j < polygon.total_vertices_per_poly; j++) {
-          fprintf(outfile,
-                  "%d/%d ",
-                  polygon.vertex_index[j] + offset[0],
-                  polygon.uv_vertex_index[j] + 1 + offset[1]);
-        }
-        fprintf(outfile, "\n");
+    /* Write UV indices. */
+    if (ob_mesh.export_params->export_uv) {
+      for (uint i = 0; i < ob_mesh.tot_poly_normals; i++) {
+        ob_mesh.calc_poly_vertex_indices(vertex_indices, i);
+        const MPoly &poly_to_write = ob_mesh.me_eval->mpoly[i];
+
+        write_vert_uv_indices(vertex_indices, uv_indices[i], poly_to_write);
       }
     }
     else {
-      /* Write neither normals nor UV. f v1 */
-      for (uint i = 0; i < ob_mesh.tot_poly; i++) {
-        const Polygon &polygon = ob_mesh.polygon_list[i];
-        fprintf(outfile, "f ");
-        for (int j = 0; j < polygon.total_vertices_per_poly; j++) {
-          fprintf(outfile, "%d ", polygon.vertex_index[j] + offset[0]);
-        }
-        fprintf(outfile, "\n");
+      /* Write neither normals nor UV indices. */
+      for (uint i = 0; i < ob_mesh.tot_poly_normals; i++) {
+        ob_mesh.calc_poly_vertex_indices(vertex_indices, i);
+        const MPoly &poly_to_write = ob_mesh.me_eval->mpoly[i];
+
+        write_vert_indices(vertex_indices, poly_to_write);
       }
     }
   }
 }
 
-/**
- * Low level writer to the OBJ file at filepath.
- */
-void write_mesh_objects(const char *filepath,
-                        const std::vector<OBJ_obmesh_to_export> &meshes_to_export,
-                        const std::vector<OBJ_obcurve_to_export> &curves_to_export,
-                        const OBJExportParams *export_params)
+/** Define and write an edge of a curve or a "circle" mesh as l v1 v2 */
+void OBJWriter::write_curve_edges(OBJMesh &ob_mesh)
 {
-  FILE *outfile = fopen(filepath, "w");
-  if (outfile == NULL) {
-    printf("Error in creating the file: %s\n", filepath);
-    return;
+  ob_mesh.tot_edges = ob_mesh.me_eval->totedge;
+  std::array<uint, 2> vertex_indices;
+  for (uint edge_index = 0; edge_index < ob_mesh.tot_edges; edge_index++) {
+    ob_mesh.calc_edge_vert_indices(vertex_indices, edge_index);
+    fprintf(outfile,
+            "l %d %d\n",
+            vertex_indices[0] + index_offset[vertex_off],
+            vertex_indices[1] + index_offset[vertex_off]);
   }
-
-  /**
-   * index_offset[x]: All previous vertex, UV vertex etc are added in subsequent
-   * objects' indices.
-   * Number of: vertex coords, UV vertex coords, polygons, curve edges respectively.
-   */
-  uint index_offset[4] = {0, 0, 0, 0};
-
-  fprintf(outfile, "# Blender %s\n", BKE_blender_version_string());
-  for (uint i = 0; i < meshes_to_export.size(); i++) {
-    write_geomtery_per_mesh(outfile, meshes_to_export[i], index_offset, export_params);
-    index_offset[0] += meshes_to_export[i].tot_vertices;
-    index_offset[1] += meshes_to_export[i].tot_uv_vertices;
-    index_offset[2] += meshes_to_export[i].tot_poly;
-  }
-  for (uint i = 0; i < curves_to_export.size(); i++) {
-    write_geomtery_per_curve(outfile, curves_to_export[i], index_offset, export_params);
-    index_offset[0] += curves_to_export[i].tot_vertices;
-    index_offset[3] += curves_to_export[i].tot_edges;
-  }
-  fclose(outfile);
 }
 
+/** When there are multiple objects in a frame, the indices of previous objects' coordinates or
+ * normals add up.
+ */
+void OBJWriter::update_index_offsets(OBJMesh &ob_mesh)
+{
+  Mesh *exported_mesh = ob_mesh.me_eval;
+  index_offset[vertex_off] += exported_mesh->totvert;
+  index_offset[uv_vertex_off] += ob_mesh.tot_uv_vertices;
+  index_offset[normal_off] += exported_mesh->totpoly;
+}
 }  // namespace obj
 }  // namespace io
