@@ -42,7 +42,8 @@ static PyObject *Matrix_copy_notest(MatrixObject *self, const float *matrix);
 static PyObject *Matrix_copy(MatrixObject *self);
 static PyObject *Matrix_deepcopy(MatrixObject *self, PyObject *args);
 static int Matrix_ass_slice(MatrixObject *self, int begin, int end, PyObject *value);
-static PyObject *matrix__apply_to_copy(PyNoArgsFunction matrix_func, MatrixObject *self);
+static PyObject *matrix__apply_to_copy(PyObject *(*matrix_func)(MatrixObject *),
+                                       MatrixObject *self);
 static PyObject *MatrixAccess_CreatePyObject(MatrixObject *matrix, const eMatrixAccess_t type);
 
 static int matrix_row_vector_check(MatrixObject *mat, VectorObject *vec, int row)
@@ -395,14 +396,15 @@ static PyObject *Matrix_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   return NULL;
 }
 
-static PyObject *matrix__apply_to_copy(PyNoArgsFunction matrix_func, MatrixObject *self)
+static PyObject *matrix__apply_to_copy(PyObject *(*matrix_func)(MatrixObject *),
+                                       MatrixObject *self)
 {
   PyObject *ret = Matrix_copy(self);
   if (ret) {
-    PyObject *ret_dummy = matrix_func(ret);
+    PyObject *ret_dummy = matrix_func((MatrixObject *)ret);
     if (ret_dummy) {
       Py_DECREF(ret_dummy);
-      return (PyObject *)ret;
+      return ret;
     }
     else { /* error */
       Py_DECREF(ret);
@@ -1634,16 +1636,17 @@ static PyObject *Matrix_inverted_noargs(MatrixObject *self)
   Py_RETURN_NONE;
 }
 
-PyDoc_STRVAR(Matrix_invert_safe_doc,
-             ".. method:: invert_safe()\n"
-             "\n"
-             "   Set the matrix to its inverse, will never error.\n"
-             "   If degenerated (e.g. zero scale on an axis), add some epsilon to its diagonal, "
-             "to get an invertible one.\n"
-             "   If tweaked matrix is still degenerated, set to the identity matrix instead.\n"
-             "\n"
-             "   .. seealso:: `Inverse Matrix <https://en.wikipedia.org/wiki/Inverse_matrix>`__ on "
-             "Wikipedia.\n");
+PyDoc_STRVAR(
+    Matrix_invert_safe_doc,
+    ".. method:: invert_safe()\n"
+    "\n"
+    "   Set the matrix to its inverse, will never error.\n"
+    "   If degenerated (e.g. zero scale on an axis), add some epsilon to its diagonal, "
+    "to get an invertible one.\n"
+    "   If tweaked matrix is still degenerated, set to the identity matrix instead.\n"
+    "\n"
+    "   .. seealso:: `Inverse Matrix <https://en.wikipedia.org/wiki/Inverse_matrix>`__ on "
+    "Wikipedia.\n");
 static PyObject *Matrix_invert_safe(MatrixObject *self)
 {
   if (BaseMath_ReadCallback_ForWrite(self) == -1) {
@@ -1737,7 +1740,7 @@ PyDoc_STRVAR(
     "   .. note:: When the matrix cant be adjugated a :exc:`ValueError` exception is raised.\n");
 static PyObject *Matrix_adjugated(MatrixObject *self)
 {
-  return matrix__apply_to_copy((PyNoArgsFunction)Matrix_adjugate, self);
+  return matrix__apply_to_copy(Matrix_adjugate, self);
 }
 
 PyDoc_STRVAR(
@@ -1945,7 +1948,7 @@ PyDoc_STRVAR(Matrix_transposed_doc,
              "   :rtype: :class:`Matrix`\n");
 static PyObject *Matrix_transposed(MatrixObject *self)
 {
-  return matrix__apply_to_copy((PyNoArgsFunction)Matrix_transpose, self);
+  return matrix__apply_to_copy(Matrix_transpose, self);
 }
 
 /*---------------------------matrix.normalize() ------------------*/
@@ -1991,7 +1994,7 @@ PyDoc_STRVAR(Matrix_normalized_doc,
              "   :rtype: :class:`Matrix`\n");
 static PyObject *Matrix_normalized(MatrixObject *self)
 {
-  return matrix__apply_to_copy((PyNoArgsFunction)Matrix_normalize, self);
+  return matrix__apply_to_copy(Matrix_normalize, self);
 }
 
 /*---------------------------matrix.zero() -----------------------*/

@@ -695,9 +695,12 @@ def km_user_interface(_params):
         ("ui.copy_data_path_button", {"type": 'C', "value": 'PRESS', "shift": True, "ctrl": True, "alt": True},
          {"properties": [("full_path", True)]}),
         # Keyframes and drivers
-        ("anim.keyframe_insert_button", {"type": 'I', "value": 'PRESS'}, None),
-        ("anim.keyframe_delete_button", {"type": 'I', "value": 'PRESS', "alt": True}, None),
-        ("anim.keyframe_clear_button", {"type": 'I', "value": 'PRESS', "shift": True, "alt": True}, None),
+        ("anim.keyframe_insert_button", {"type": 'I', "value": 'PRESS'},
+         {"properties": [("all", True)]}),
+        ("anim.keyframe_delete_button", {"type": 'I', "value": 'PRESS', "alt": True},
+         {"properties": [("all", True)]}),
+        ("anim.keyframe_clear_button", {"type": 'I', "value": 'PRESS', "shift": True, "alt": True},
+         {"properties": [("all", True)]}),
         ("anim.driver_button_add", {"type": 'D', "value": 'PRESS', "ctrl": True}, None),
         ("anim.driver_button_remove", {"type": 'D', "value": 'PRESS', "ctrl": True, "alt": True}, None),
         ("anim.keyingset_button_add", {"type": 'K', "value": 'PRESS'}, None),
@@ -2464,7 +2467,7 @@ def km_sequencer(params):
          {"properties": [("all", False)]}),
         ("sequencer.gap_remove", {"type": 'BACK_SPACE', "value": 'PRESS', "shift": True},
          {"properties": [("all", True)]}),
-        ("sequencer.gap_insert", {"type": 'BACK_SPACE', "value": 'PRESS', "ctrl": True}, None),
+        ("sequencer.gap_insert", {"type": 'EQUAL', "value": 'PRESS', "shift": True}, None),
         ("sequencer.snap", {"type": 'S', "value": 'PRESS', "shift": True}, None),
         ("sequencer.swap_inputs", {"type": 'S', "value": 'PRESS', "alt": True}, None),
         *(
@@ -2520,14 +2523,6 @@ def km_sequencer(params):
          {"properties": [("side", 'LEFT')]}),
         ("sequencer.select_side_of_frame", {"type": 'RIGHT_BRACKET', "value": 'PRESS'},
          {"properties": [("side", 'RIGHT')]}),
-        ("sequencer.select_side_of_frame", {"type": 'EQUAL', "value": 'PRESS'},
-         {"properties": [("side", 'OVERLAP')]}),
-        ("sequencer.select_side_of_frame", {"type": 'LEFT_BRACKET', "value": 'PRESS', "shift": True},
-         {"properties": [("side", 'LEFT'), ("extend", True)]}),
-        ("sequencer.select_side_of_frame", {"type": 'RIGHT_BRACKET', "value": 'PRESS', "shift": True},
-         {"properties": [("side", 'RIGHT'), ("extend", True)]}),
-        ("sequencer.select_side_of_frame", {"type": 'EQUAL', "value": 'PRESS', "shift": True},
-         {"properties": [("side", 'OVERLAP'), ("extend", True)]}),
 
         *_template_items_context_menu("SEQUENCER_MT_context_menu", params.context_menu_event),
     ])
@@ -6215,9 +6210,9 @@ def km_3d_view_tool_edit_curve_extrude(params):
     )
 
 
-def km_3d_view_tool_edit_curve_extrude_cursor(params):
+def km_3d_view_tool_edit_curve_extrude_to_cursor(params):
     return (
-        "3D View Tool: Edit Curve, Extrude Cursor",
+        "3D View Tool: Edit Curve, Extrude to Cursor",
         {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
         {"items": [
             ("curve.vertex_add", {"type": params.tool_mouse, "value": 'PRESS'}, None),
@@ -6819,7 +6814,7 @@ def generate_keymaps(params=None):
         km_3d_view_tool_edit_curve_tilt(params),
         km_3d_view_tool_edit_curve_randomize(params),
         km_3d_view_tool_edit_curve_extrude(params),
-        km_3d_view_tool_edit_curve_extrude_cursor(params),
+        km_3d_view_tool_edit_curve_extrude_to_cursor(params),
         km_3d_view_tool_sculpt_box_hide(params),
         km_3d_view_tool_sculpt_box_mask(params),
         km_3d_view_tool_sculpt_lasso_mask(params),
