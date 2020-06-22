@@ -170,6 +170,16 @@ void MFNetwork::add_link(MFOutputSocket &from, MFInputSocket &to)
   to.m_origin = &from;
 }
 
+MFOutputSocket &MFNetwork::add_input(StringRef name, MFDataType data_type)
+{
+  return this->add_dummy(name, {}, {data_type}, {}, {name}).output(0);
+}
+
+MFInputSocket &MFNetwork::add_output(StringRef name, MFDataType data_type)
+{
+  return this->add_dummy(name, {data_type}, {}, {name}, {}).input(0);
+}
+
 std::string MFNetwork::to_dot() const
 {
   namespace Dot = blender::DotExport;
@@ -188,10 +198,10 @@ std::string MFNetwork::to_dot() const
 
     Vector<std::string> input_names, output_names;
     for (const MFInputSocket *socket : node->m_inputs) {
-      input_names.append(socket->name());
+      input_names.append(socket->name() + "(" + socket->data_type().to_string() + ")");
     }
     for (const MFOutputSocket *socket : node->m_outputs) {
-      output_names.append(socket->name());
+      output_names.append(socket->name() + " (" + socket->data_type().to_string() + ")");
     }
 
     Dot::NodeWithSocketsRef dot_node_ref{dot_node, node->name(), input_names, output_names};

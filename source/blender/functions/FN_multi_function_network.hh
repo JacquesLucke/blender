@@ -181,6 +181,9 @@ class MFNetwork : NonCopyable, NonMovable {
                          Span<StringRef> output_names);
   void add_link(MFOutputSocket &from, MFInputSocket &to);
 
+  MFOutputSocket &add_input(StringRef name, MFDataType data_type);
+  MFInputSocket &add_output(StringRef name, MFDataType data_type);
+
   uint max_socket_id() const;
 
   std::string to_dot() const;
