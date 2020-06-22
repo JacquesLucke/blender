@@ -178,7 +178,7 @@ enum class VSpanCategory {
 };
 
 template<typename T> struct VSpanBase {
- public:
+ protected:
   uint m_virtual_size;
   VSpanCategory m_category;
   union {
@@ -192,6 +192,21 @@ template<typename T> struct VSpanBase {
       const T *const *data;
     } full_pointer_array;
   } m_data;
+
+ public:
+  bool is_single_element() const
+  {
+    switch (m_category) {
+      case VSpanCategory::Single:
+        return true;
+      case VSpanCategory::FullArray:
+        return m_virtual_size == 1;
+      case VSpanCategory::FullPointerArray:
+        return m_virtual_size == 1;
+    }
+    BLI_assert(false);
+    return false;
+  }
 };
 
 BLI_STATIC_ASSERT((sizeof(VSpanBase<void>) == sizeof(VSpanBase<AlignedBuffer<64, 64>>)),
@@ -260,20 +275,6 @@ template<typename T> class VSpan : public VSpanBase<T> {
   uint size() const
   {
     return this->m_virtual_size;
-  }
-
-  bool is_single_element() const
-  {
-    switch (this->m_category) {
-      case VSpanCategory::Single:
-        return true;
-      case VSpanCategory::FullArray:
-        return this->m_virtual_size == 1;
-      case VSpanCategory::FullPointerArray:
-        return this->m_virtual_size == 1;
-    }
-    BLI_assert(false);
-    return false;
   }
 };
 
@@ -380,20 +381,6 @@ class GVSpan : public VSpanBase<void> {
     }
     BLI_assert(false);
     return {};
-  }
-
-  bool is_single_element() const
-  {
-    switch (this->m_category) {
-      case VSpanCategory::Single:
-        return true;
-      case VSpanCategory::FullArray:
-        return this->m_virtual_size == 1;
-      case VSpanCategory::FullPointerArray:
-        return this->m_virtual_size == 1;
-    }
-    BLI_assert(false);
-    return false;
   }
 
   const void *as_single_element() const
