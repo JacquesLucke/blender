@@ -124,9 +124,6 @@ void OBJMesh::store_uv_coords_and_indices(std::vector<std::array<float, 2>> &uv_
         mpoly, mloop, mloopuv, me_eval->totpoly, me_eval->totvert, limit, false, false);
 
     uv_indices.resize(me_eval->totpoly);
-    /* TODO ankitm check if pre-emptively reserving space for uv coords improves timing or not.
-     * It is guaranteed that there will be at least me_eval->totvert vertices.
-     */
     ob_mesh->tot_uv_vertices = -1;
 
     for (int vertex_index = 0; vertex_index < me_eval->totvert; vertex_index++) {
@@ -201,9 +198,7 @@ void OBJMesh::calc_edge_vert_indices(std::array<uint, 2> &vert_indices, uint edg
 {
   vert_indices[0] = edge_index + 1;
   vert_indices[1] = edge_index + 2;
-  /* TODO ankitm: check if this causes a slow down. If not, keep it here for consistency in the
-   * writer. Last edge depends on whether the curve is cyclic or not.
-   */
+  /* Last edge's second vertex depends on whether the curve is cyclic or not. */
   if (edge_index == me_eval->totedge) {
     vert_indices[0] = edge_index + 1;
     vert_indices[1] = me_eval->totvert == me_eval->totedge ? 1 : me_eval->totvert;
