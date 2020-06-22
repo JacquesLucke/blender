@@ -82,12 +82,12 @@ class OBJMesh {
   /**
    * Calculate vertex indices of all vertices of a polygon.
    */
-  void calc_poly_vertex_indices(std::vector<uint> &poly_vertex_indices, uint poly_index);
+  void calc_poly_vertex_indices(blender::Vector<uint> &poly_vertex_indices, uint poly_index);
   /**
    * Store UV vertex coordinates as well as their indices.
    */
-  void store_uv_coords_and_indices(std::vector<std::array<float, 2>> &uv_coords,
-                                   std::vector<std::vector<uint>> &uv_indices);
+  void store_uv_coords_and_indices(blender::Vector<std::array<float, 2>> &uv_coords,
+                                   blender::Vector<blender::Vector<uint>> &uv_indices);
   /**
    * Calculate face normal of the polygon at given index.
    */
@@ -95,11 +95,11 @@ class OBJMesh {
   /**
    * Calculate face normal indices of all polygons.
    */
-  void calc_poly_normal_indices(std::vector<uint> &normal_indices, uint poly_indices);
+  void calc_poly_normal_indices(blender::Vector<uint> &normal_indices, uint poly_indices);
   /**
    * Only for curve-like meshes: calculate vertex indices of one edge.
    */
-  void calc_edge_vert_indices(std::array<uint, 2> &vert_indices, uint edge_index);
+  void calc_edge_vert_indices(blender::Array<uint, 2> &vert_indices, uint edge_index);
 };
 
 class OBJNurbs {

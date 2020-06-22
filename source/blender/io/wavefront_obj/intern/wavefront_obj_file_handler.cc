@@ -34,9 +34,9 @@ namespace io {
 namespace obj {
 
 /** Write one line of polygon indices as f v1/vt1/vn1 v2/vt2/vn2 .... */
-void OBJWriter::write_vert_uv_normal_indices(std::vector<uint> &vert_indices,
-                                             std::vector<uint> &uv_indices,
-                                             std::vector<uint> &normal_indices,
+void OBJWriter::write_vert_uv_normal_indices(blender::Vector<uint> &vert_indices,
+                                             blender::Vector<uint> &uv_indices,
+                                             blender::Vector<uint> &normal_indices,
                                              const MPoly &poly_to_write)
 {
   fprintf(outfile, "f ");
@@ -51,8 +51,8 @@ void OBJWriter::write_vert_uv_normal_indices(std::vector<uint> &vert_indices,
 }
 
 /** Write one line of polygon indices as f v1//vn1 v2//vn2 .... */
-void OBJWriter::write_vert_normal_indices(std::vector<uint> &vert_indices,
-                                          std::vector<uint> &normal_indices,
+void OBJWriter::write_vert_normal_indices(blender::Vector<uint> &vert_indices,
+                                          blender::Vector<uint> &normal_indices,
                                           const MPoly &poly_to_write)
 {
   fprintf(outfile, "f ");
@@ -66,8 +66,8 @@ void OBJWriter::write_vert_normal_indices(std::vector<uint> &vert_indices,
 }
 
 /** Write one line of polygon indices as f v1/vt1 v2/vt2 .... */
-void OBJWriter::write_vert_uv_indices(std::vector<uint> &vert_indices,
-                                      std::vector<uint> &uv_indices,
+void OBJWriter::write_vert_uv_indices(blender::Vector<uint> &vert_indices,
+                                      blender::Vector<uint> &uv_indices,
                                       const MPoly &poly_to_write)
 {
   fprintf(outfile, "f ");
@@ -81,7 +81,7 @@ void OBJWriter::write_vert_uv_indices(std::vector<uint> &vert_indices,
 }
 
 /** Write one line of polygon indices as f v1 v2 .... */
-void OBJWriter::write_vert_indices(std::vector<uint> &vert_indices, const MPoly &poly_to_write)
+void OBJWriter::write_vert_indices(blender::Vector<uint> &vert_indices, const MPoly &poly_to_write)
 {
   fprintf(outfile, "f ");
   for (int j = 0; j < poly_to_write.totloop; j++) {
@@ -132,9 +132,9 @@ void OBJWriter::write_vertex_coords(OBJMesh &ob_mesh)
 /** Write UV vertex coordinates for all vertices as vt u v
  * \note UV indices are stored here, but written later.
  */
-void OBJWriter::write_uv_coords(OBJMesh &ob_mesh, std::vector<std::vector<uint>> &uv_indices)
+void OBJWriter::write_uv_coords(OBJMesh &ob_mesh, blender::Vector<blender::Vector<uint>> &uv_indices)
 {
-  std::vector<std::array<float, 2>> uv_coords;
+  blender::Vector<std::array<float, 2>> uv_coords;
 
   ob_mesh.store_uv_coords_and_indices(uv_coords, uv_indices);
   for (uint i = 0; i < ob_mesh.tot_uv_vertices; i++) {
@@ -159,11 +159,11 @@ void OBJWriter::write_poly_normals(OBJMesh &ob_mesh)
  * and face normal indices.
  * \note UV indices are stored while writing UV vertices.
  */
-void OBJWriter::write_poly_indices(OBJMesh &ob_mesh, std::vector<std::vector<uint>> &uv_indices)
+void OBJWriter::write_poly_indices(OBJMesh &ob_mesh, blender::Vector<blender::Vector<uint>> &uv_indices)
 {
   ob_mesh.tot_poly_normals = ob_mesh.me_eval->totpoly;
-  std::vector<uint> vertex_indices;
-  std::vector<uint> normal_indices;
+  blender::Vector<uint> vertex_indices;
+  blender::Vector<uint> normal_indices;
 
   if (ob_mesh.export_params->export_normals) {
     if (ob_mesh.export_params->export_uv) {
@@ -213,7 +213,7 @@ void OBJWriter::write_poly_indices(OBJMesh &ob_mesh, std::vector<std::vector<uin
 void OBJWriter::write_curve_edges(OBJMesh &ob_mesh)
 {
   ob_mesh.tot_edges = ob_mesh.me_eval->totedge;
-  std::array<uint, 2> vertex_indices;
+  blender::Array<uint, 2> vertex_indices;
   for (uint edge_index = 0; edge_index < ob_mesh.tot_edges; edge_index++) {
     ob_mesh.calc_edge_vert_indices(vertex_indices, edge_index);
     fprintf(outfile,

@@ -24,7 +24,6 @@
 #include "MEM_guardedalloc.h"
 
 #include <stdio.h>
-#include <vector>
 
 #include "BKE_curve.h"
 #include "BKE_lib_id.h"
@@ -90,7 +89,7 @@ void OBJMesh::calc_vertex_coords(float coords[3], uint vert_index)
 /**
  * Calculate vertex indices of all vertices of a polygon.
  */
-void OBJMesh::calc_poly_vertex_indices(std::vector<uint> &poly_vertex_indices, uint poly_index)
+void OBJMesh::calc_poly_vertex_indices(blender::Vector<uint> &poly_vertex_indices, uint poly_index)
 {
   const MPoly &mpoly = me_eval->mpoly[poly_index];
   const MLoop *mloop = &me_eval->mloop[mpoly.loopstart];
@@ -103,8 +102,8 @@ void OBJMesh::calc_poly_vertex_indices(std::vector<uint> &poly_vertex_indices, u
 /**
  * Store UV vertex coordinates as well as their indices.
  */
-void OBJMesh::store_uv_coords_and_indices(std::vector<std::array<float, 2>> &uv_coords,
-                                          std::vector<std::vector<uint>> &uv_indices)
+void OBJMesh::store_uv_coords_and_indices(blender::Vector<std::array<float, 2>> &uv_coords,
+                                          blender::Vector<blender::Vector<uint>> &uv_indices)
 {
   Mesh *me_eval = this->me_eval;
   OBJMesh *ob_mesh = this;
@@ -133,15 +132,13 @@ void OBJMesh::store_uv_coords_and_indices(std::vector<std::array<float, 2>> &uv_
           ob_mesh->tot_uv_vertices++;
         }
         const uint vertices_in_poly = me_eval->mpoly[uv_vert->poly_index].totloop;
-        /* Resize UV vertices index list. */
         uv_indices[uv_vert->poly_index].resize(vertices_in_poly);
-        /* Fill up UV vertex index for the polygon's one vertex. */
+        /* Fill up UV vertex index. The indices in OBJ are 1-based, so added 1. */
         uv_indices[uv_vert->poly_index][uv_vert->loop_of_poly_index] = ob_mesh->tot_uv_vertices +
                                                                        1;
 
-        /* Fill up UV vertices' coordinates. We don't know how many unique vertices are there, so
-         * need to push back everytime. */
-        uv_coords.push_back(std::array<float, 2>());
+        /* Fill up UV vertices' coordinates. */
+        uv_coords.append(std::array<float, 2>());
         uv_coords[ob_mesh->tot_uv_vertices][0] =
             mloopuv[mpoly[uv_vert->poly_index].loopstart + uv_vert->loop_of_poly_index].uv[0];
         uv_coords[ob_mesh->tot_uv_vertices][1] =
@@ -183,7 +180,7 @@ void OBJMesh::calc_poly_normal(float poly_normal[3], uint poly_index)
 /**
  * Calculate face normal indices of all polygons.
  */
-void OBJMesh::calc_poly_normal_indices(std::vector<uint> &normal_indices, uint poly_index)
+void OBJMesh::calc_poly_normal_indices(blender::Vector<uint> &normal_indices, uint poly_index)
 {
   normal_indices.resize(me_eval->mpoly[poly_index].totloop);
   for (uint i = 0; i < normal_indices.size(); i++) {
@@ -194,7 +191,7 @@ void OBJMesh::calc_poly_normal_indices(std::vector<uint> &normal_indices, uint p
 /**
  * Only for curve-like meshes: calculate vertex indices of one edge.
  */
-void OBJMesh::calc_edge_vert_indices(std::array<uint, 2> &vert_indices, uint edge_index)
+void OBJMesh::calc_edge_vert_indices(blender::Array<uint, 2> &vert_indices, uint edge_index)
 {
   vert_indices[0] = edge_index + 1;
   vert_indices[1] = edge_index + 2;
@@ -270,9 +267,9 @@ void OBJMesh::get_mesh_eval()
  */
 static void export_frame(bContext *C, const OBJExportParams *export_params, const char *filepath)
 {
-  std::vector<OBJMesh> export_mesh;
+  blender::Vector<OBJMesh> export_mesh;
   /** TODO ankitm Unused now; to be done. */
-  std::vector<OBJNurbs> export_nurbs;
+  blender::Vector<OBJNurbs> export_nurbs;
   ViewLayer *view_layer = CTX_data_view_layer(C);
   Base *base = static_cast<Base *>(view_layer->object_bases.first);
 
@@ -280,17 +277,17 @@ static void export_frame(bContext *C, const OBJExportParams *export_params, cons
     Object *object_in_layer = base->object;
     switch (object_in_layer->type) {
       case OB_MESH:
-        export_mesh.push_back(OBJMesh());
-        export_mesh.back().object = object_in_layer;
-        export_mesh.back().export_params = export_params;
-        export_mesh.back().C = C;
+        export_mesh.append(OBJMesh());
+        export_mesh.last().object = object_in_layer;
+        export_mesh.last().export_params = export_params;
+        export_mesh.last().C = C;
         break;
       case OB_CURVE:
         /* TODO (ankitm) Conditionally push to export_nurbs too. */
-        export_mesh.push_back(OBJMesh());
-        export_mesh.back().object = object_in_layer;
-        export_mesh.back().export_params = export_params;
-        export_mesh.back().C = C;
+        export_mesh.append(OBJMesh());
+        export_mesh.last().object = object_in_layer;
+        export_mesh.last().export_params = export_params;
+        export_mesh.last().C = C;
       default:
         break;
     }
@@ -318,7 +315,7 @@ static void export_frame(bContext *C, const OBJExportParams *export_params, cons
       frame_writer.write_curve_edges(mesh_to_export);
     }
     else {
-      std::vector<std::vector<uint>> uv_indices;
+      blender::Vector<blender::Vector<uint>> uv_indices;
       if (mesh_to_export.export_params->export_uv) {
         frame_writer.write_uv_coords(mesh_to_export, uv_indices);
       }
