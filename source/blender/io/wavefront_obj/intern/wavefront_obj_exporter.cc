@@ -123,6 +123,9 @@ void OBJMesh::store_uv_coords_and_indices(blender::Vector<std::array<float, 2>> 
         mpoly, mloop, mloopuv, me_eval->totpoly, me_eval->totvert, limit, false, false);
 
     uv_indices.resize(me_eval->totpoly);
+    /* We know that at least totvert many vertices in a mesh will be present in its texture map. So
+     * reserve them in the start to let append be less costly later in terms of time. */
+    uv_coords.reserve(me_eval->totvert);
     ob_mesh->tot_uv_vertices = -1;
 
     for (int vertex_index = 0; vertex_index < me_eval->totvert; vertex_index++) {
@@ -196,7 +199,7 @@ void OBJMesh::calc_edge_vert_indices(blender::Array<uint, 2> &vert_indices, uint
   vert_indices[0] = edge_index + 1;
   vert_indices[1] = edge_index + 2;
   /* Last edge's second vertex depends on whether the curve is cyclic or not. */
-  if (edge_index == me_eval->totedge) {
+  if (UNLIKELY(edge_index == me_eval->totedge)) {
     vert_indices[0] = edge_index + 1;
     vert_indices[1] = me_eval->totvert == me_eval->totedge ? 1 : me_eval->totvert;
   }
