@@ -42,6 +42,11 @@ void MFNode::destruct_sockets()
   }
 }
 
+/**
+ * Add a new function node to the network. The caller keeps the ownership of the function. The
+ * function should not be freed before the network. A reference to the new node is returned. The
+ * node is owned by the network.
+ */
 MFFunctionNode &MFNetwork::add_function(const MultiFunction &function)
 {
   Vector<uint, 16> input_param_indices, output_param_indices;
@@ -111,6 +116,9 @@ MFFunctionNode &MFNetwork::add_function(const MultiFunction &function)
   return node;
 }
 
+/**
+ * Add a dummy node with the given input and output sockets.
+ */
 MFDummyNode &MFNetwork::add_dummy(StringRef name,
                                   Span<MFDataType> input_types,
                                   Span<MFDataType> output_types,
@@ -161,6 +169,11 @@ MFDummyNode &MFNetwork::add_dummy(StringRef name,
   return node;
 }
 
+/**
+ * Connect two sockets. This invokes undefined behavior if the sockets belong to different
+ * networks, the sockets have a different data type, or the `to` socket is connected to something
+ * else already.
+ */
 void MFNetwork::add_link(MFOutputSocket &from, MFInputSocket &to)
 {
   BLI_assert(to.m_origin == nullptr);

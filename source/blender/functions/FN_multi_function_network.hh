@@ -19,6 +19,27 @@
 
 /** \file
  * \ingroup fn
+ *
+ * A multi-function network (`MFNetwork`) allows you to connect multiple multi-functions. The
+ * `MFNetworkEvaluator` is a multi-function that wraps an entire network into a new multi-function
+ * (which can be used in another network and so on).
+ *
+ * A MFNetwork is a graph data structure with two kinds of nodes:
+ * - MFFunctionNode: Represents a multi-function. Its input and output sockets correspond to
+ *       parameters of the referenced multi-function.
+ * - MFDummyNode: Does not reference a multi-function. Instead it just has sockets that can be
+ *       used to represent node group inputs and outputs.
+ *
+ * Links represent data flow. Unlinked input sockets have no value. In order to execute a function
+ * node, all its inputs have to be connected to something.
+ *
+ * Links are only allowed between sockets with the exact same MFDataType. There are no implicit
+ * conversions.
+ *
+ * Every input and output parameter of a multi-function corresponds to exactly one input or output
+ * socket respectively. A multiple parameter belongs to exactly one input AND one output socket.
+ *
+ * There is an .to_dot() method that generates a graph in dot format for debugging purposes.
  */
 
 #include "FN_multi_function.hh"

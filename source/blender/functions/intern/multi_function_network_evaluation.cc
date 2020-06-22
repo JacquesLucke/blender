@@ -14,6 +14,27 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
+/** \file
+ * \ingroup fn
+ *
+ * The `MFNetworkEvaluator` class is a multi-function that consists of potentially many smaller
+ * multi-functions. When called, it traverses the underlying MFNetwork and executes the required
+ * function nodes.
+ *
+ * There are many possible approaches to evaluate a function network. The approach implemented
+ * below has the following features:
+ * - It does not use recursion. Those could become problematic with long node chains.
+ * - It can handle all existing parameter types (including mutable parameters).
+ * - Avoids data copies in many cases.
+ * - Every node is executed at most once.
+ * - Can compute subfunctions on a single element, when the result is the same for all elements.
+ *
+ * Possible improvements:
+ * - Cache and reuse buffers.
+ * - Use "deepest depth first" heuristic to decide which order the inputs of a node should be
+ *   computed. This reduces the number of required temporary buffers when they are reused.
+ */
+
 #include "FN_multi_function_network_evaluation.hh"
 
 #include "BLI_stack.hh"
@@ -201,6 +222,7 @@ BLI_NOINLINE void MFNetworkEvaluator::evaluate_network_to_compute_outputs(
 
   Vector<const MFOutputSocket *, 32> missing_sockets;
 
+  /* This is the main loop that traverses the MFNetwork. */
   while (!sockets_to_compute.is_empty()) {
     const MFOutputSocket &socket = *sockets_to_compute.peek();
     const MFNode &node = socket.node();
@@ -239,6 +261,8 @@ BLI_NOINLINE void MFNetworkEvaluator::evaluate_function(MFContext &global_contex
   // std::cout << "Function: " << function.name() << "\n";
 
   if (this->can_do_single_value_evaluation(function_node, storage)) {
+    /* The function output would be the same for all elements. Therefore, it is enough to call the
+     * function only on a single element. This can avoid many duplicate computations. */
     MFParamsBuilder params{function, 1};
 
     for (uint param_index : function.param_indices()) {
