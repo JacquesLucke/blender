@@ -191,12 +191,15 @@ class GVArraySpan {
     switch (m_category) {
       case SingleArray:
         return VArraySpan<T>(
-            Span<T>((const T *)m_data.single_array.values, m_data.single_array.size));
+            Span<T>((const T *)m_data.single_array.values, m_data.single_array.size),
+            m_virtual_size);
       case StartsAndSizes:
         return VArraySpan<T>(
             Span<const T *>((const T *const *)m_data.starts_and_sizes.starts, m_virtual_size),
             Span<uint>(m_data.starts_and_sizes.sizes, m_virtual_size));
     }
+    BLI_assert(false);
+    return {};
   }
 
   GVSpan operator[](uint index) const

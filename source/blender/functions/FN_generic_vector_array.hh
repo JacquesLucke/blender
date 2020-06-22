@@ -180,6 +180,11 @@ template<typename T> class GVectorArrayRef {
     m_vector_array->extend(index, values);
   }
 
+  void extend(uint index, VSpan<T> values)
+  {
+    m_vector_array->extend(index, GVSpan(values));
+  }
+
   MutableSpan<T> operator[](uint index)
   {
     BLI_assert(index < m_vector_array->m_starts.size());
