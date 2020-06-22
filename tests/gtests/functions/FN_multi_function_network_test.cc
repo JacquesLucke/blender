@@ -206,6 +206,7 @@ TEST(multi_function_network, Test2)
   // std::cout << network.to_dot() << "\n\n";
 
   MFNetworkEvaluator network_fn{{&input1, &input2}, {&output1, &output2}};
+
   {
     Array<int> input_value_1 = {3, 6};
     int input_value_2 = 4;
@@ -223,23 +224,46 @@ TEST(multi_function_network, Test2)
 
     network_fn.call({1, 2, 4}, params, context);
 
-    GVectorArrayRef<int> output_value_ref_1 = output_value_1.typed<int>();
-    for (int i : {1, 2, 4}) {
-      Array<int> expected_output_1 = {3, 6, 0, 1, 2, 3, 4, 5, 6};
-      EXPECT_EQ(output_value_ref_1[i].size(), expected_output_1.size());
-      for (int j : expected_output_1.index_range()) {
-        EXPECT_EQ(output_value_ref_1[i][j], expected_output_1[j]);
-      }
-    }
-    for (int i : {0, 3}) {
-      EXPECT_EQ(output_value_ref_1[i].size(), 0);
-    }
+    EXPECT_EQ(output_value_1[0].size(), 0);
+    EXPECT_EQ(output_value_1[1].size(), 9);
+    EXPECT_EQ(output_value_1[2].size(), 9);
+    EXPECT_EQ(output_value_1[3].size(), 0);
+    EXPECT_EQ(output_value_1[4].size(), 9);
 
     EXPECT_EQ(output_value_2[0], -1);
     EXPECT_EQ(output_value_2[1], 39);
     EXPECT_EQ(output_value_2[2], 39);
     EXPECT_EQ(output_value_2[3], -1);
     EXPECT_EQ(output_value_2[4], 39);
+  }
+  {
+    GVectorArray input_value_1(CPPType_int32, 3);
+    GVectorArrayRef<int> input_value_ref_1 = input_value_1;
+    input_value_ref_1.extend(0, {3, 4, 5});
+    input_value_ref_1.extend(1, {1, 2});
+
+    Array<int> input_value_2 = {4, 2, 3};
+
+    GVectorArray output_value_1(CPPType_int32, 3);
+    Array<int> output_value_2(3, -1);
+
+    MFParamsBuilder params(network_fn, 3);
+    params.add_readonly_vector_input(input_value_1);
+    params.add_readonly_single_input(input_value_2.as_span());
+    params.add_vector_output(output_value_1);
+    params.add_uninitialized_single_output(output_value_2.as_mutable_span());
+
+    MFContextBuilder context;
+
+    network_fn.call({0, 1, 2}, params, context);
+
+    EXPECT_EQ(output_value_1[0].size(), 10);
+    EXPECT_EQ(output_value_1[1].size(), 7);
+    EXPECT_EQ(output_value_1[2].size(), 6);
+
+    EXPECT_EQ(output_value_2[0], 45);
+    EXPECT_EQ(output_value_2[1], 16);
+    EXPECT_EQ(output_value_2[2], 15);
   }
 }
 
