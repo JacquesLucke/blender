@@ -257,6 +257,25 @@ void OBJMesh::calc_edge_vert_indices(uint r_vert_indices[2], uint edge_index)
   }
 }
 
+  void OBJNurbs::calc_vertex_coords(float coords[3], uint vert_index)
+  {
+    Nurb *nu = (Nurb *)curve->nurb.first;
+    BPoint *bpoint = nu->bp;
+    bpoint += vert_index;
+    copy_v3_v3(coords, bpoint->vec);
+  }
+  
+  const char *OBJNurbs::get_curve_info(int *nurbs_degree, int *curv_num)
+  {
+    Nurb *nurb = (Nurb *)curve->nurb.first;
+    *nurbs_degree = nurb->orderu - 1;
+    *curv_num = nurb->pntsv * nurb->pntsu;
+    if (nurb->flagu & CU_NURB_CYCLIC) {
+      *curv_num += *nurbs_degree;
+    }
+    return object->id.name + 2;
+  }
+
 /**
  * Traverses over and exports a single frame to a single OBJ file.
  */
@@ -273,8 +292,15 @@ static void export_frame(bContext *C, const OBJExportParams *export_params, cons
         exportable_meshes.append(OBJMesh(C, export_params, object_in_layer));
         break;
       case OB_CURVE:
-        /* TODO (ankitm) Conditionally push to export_nurbs too. */
+        if (export_params->export_curves_as_nurbs) {
+          export_nurbs.append(OBJNurbs());
+          export_nurbs.last().object = object_in_layer;
+          export_nurbs.last().export_params = export_params;
+          export_nurbs.last().C = C;
+        }
+        else {
         exportable_meshes.append(OBJMesh(C, export_params, object_in_layer));
+        }
       default:
         break;
     }
@@ -310,6 +336,12 @@ static void export_frame(bContext *C, const OBJExportParams *export_params, cons
 
     mesh_to_export.destruct();
   }
+  for (uint ob_iter = 0; ob_iter < export_nurbs.size(); ob_iter++) {
+    OBJNurbs &nurbs_to_export = export_nurbs[ob_iter];
+    nurbs_to_export.curve = (Curve *)nurbs_to_export.object->data;
+    frame_writer.write_nurbs_info(nurbs_to_export);
+  }
+  frame_writer.close_file();
 }
 
 /**

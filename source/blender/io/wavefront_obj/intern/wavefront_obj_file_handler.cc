@@ -212,6 +212,48 @@ void OBJWriter::write_curve_edges(OBJMesh &obj_mesh_data)
   }
 }
 
+void OBJWriter::write_nurbs_info(OBJNurbs &ob_nurbs)
+{
+  // todo object name max is 64.
+  Nurb *nurb = (Nurb *)ob_nurbs.curve->nurb.first;
+  uint tot_points = nurb->pntsv * nurb->pntsu;
+  float point_coord[3];
+  for (uint point_idx = 0; point_idx < tot_points; point_idx++) {
+    ob_nurbs.calc_vertex_coords(point_coord, point_idx);
+    fprintf(outfile, "v %f %f %f\n", point_coord[0], point_coord[1], point_coord[2]);
+  }
+
+  const char *nurbs_name;
+  int nurbs_degree;
+  /** Number of vertices in the curve + degree of the curve if it is cyclic. */
+  int curv_num;
+  nurbs_name = ob_nurbs.get_curve_info(&nurbs_degree, &curv_num);
+
+  fprintf(outfile, "g %s\ncstype bspline\n deg %d\n", nurbs_name, nurbs_degree);
+
+  /**
+   * curv_num refers to the vertices above written in relative indices.
+   * 0.0 1.0 -1 -2 -3 -4 for a non-cyclic curve with 4 points.
+   * 0.0 1.0 -1 -2 -3 -4 -1 -2 -3 for a cyclic curve with 4 points.
+   */
+  fprintf(outfile, "curv 0.0 1.0 ");
+  for (int i = 0; i < curv_num; i++) {
+    fprintf(outfile, "%d ", -1 * ((i % tot_points) + 1));
+  }
+  fprintf(outfile, "\n");
+
+  /**
+   * In parm u, between 0 and 1, curv_num + 2 equidistant numbers are inserted.
+   */
+  fprintf(outfile, "parm u 0.000000 ");
+  for (int i = 1; i <= curv_num + 2; i++) {
+    fprintf(outfile, "%f ", 1.0f * i / (curv_num + 2 + 1));
+  }
+  fprintf(outfile, "1.000000\n");
+
+  fprintf(outfile, "end\n");
+}
+
 /** When there are multiple objects in a frame, the indices of previous objects' coordinates or
  * normals add up.
  */

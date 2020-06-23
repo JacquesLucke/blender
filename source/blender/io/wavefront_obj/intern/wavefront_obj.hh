@@ -23,11 +23,13 @@
 
 #include "BKE_context.h"
 #include "BKE_lib_id.h"
+#include "BKE_curve.h"
 #include "BKE_mesh.h"
 #include "BKE_object.h"
 
 #include "BLI_vector.hh"
 
+#include "DNA_curve_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_object_types.h"
@@ -158,8 +160,14 @@ class OBJMesh {
 };
 
 class OBJNurbs {
-  /*TODO ankitm to be done*/
  public:
+  bContext *C;
+  const OBJExportParams *export_params;
+
+  Object *object;
+  Curve *curve;
+  void calc_vertex_coords(float coord[3], uint point_index);
+  const char *get_curve_info(int *nurbs_degree, int *curv_num);
 };
 
 }  // namespace obj
