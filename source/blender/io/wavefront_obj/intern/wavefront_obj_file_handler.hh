@@ -29,50 +29,55 @@
 namespace io {
 namespace obj {
 
-/* Macros for index offsets. */
-#define vertex_off 0
-#define uv_vertex_off 1
-#define normal_off 2
+/* Types of index offsets. */
+enum index_offsets {
+  vertex_off = 0,
+  uv_vertex_off = 1,
+  normal_off = 2,
+};
 
 class OBJWriter {
  public:
-  /** Destination OBJ file for one frame, and one writer instance. */
-  FILE *outfile;
-  const OBJExportParams *export_params;
-
-  /** Vertex offset, UV vertex offset, face normal offset respetively. */
-  uint index_offset[3] = {0, 0, 0};
+  OBJWriter(const OBJExportParams *export_params) : _export_params(export_params)
+  {
+  }
+  ~OBJWriter()
+  {
+    fclose(_outfile);
+  }
+  bool init_writer();
   /** When there are multiple objects in a frame, the indices of previous objects' coordinates or
    * normals add up. So one vertex or normal is referenced by only one object.
    */
-  void update_index_offsets(OBJMesh &ob_mesh);
-
-  /** Try to open an empty OBJ file at filepath. */
-  bool open_file(const char filepath[FILE_MAX]);
-  /** Close the OBJ file. */
-  void close_file();
-  /** Write Blender version as a comment in the file. */
-  void write_header();
+  void update_index_offsets(OBJMesh &obj_mesh_data);
 
   /** Write object name as it appears in the outliner. */
-  void write_object_name(OBJMesh &ob_mesh);
+  void write_object_name(OBJMesh &obj_mesh_data);
   /** Write vertex coordinates for all vertices as v x y z */
-  void write_vertex_coords(OBJMesh &ob_mesh);
+  void write_vertex_coords(OBJMesh &obj_mesh_data);
   /** Write UV vertex coordinates for all vertices as vt u v
    * \note UV indices are stored here, but written later.
    */
-  void write_uv_coords(OBJMesh &ob_mesh, blender::Vector<blender::Vector<uint>> &uv_indices);
+  void write_uv_coords(OBJMesh &obj_mesh_data, blender::Vector<blender::Vector<uint>> &uv_indices);
   /** Write face normals for all polygons as vn x y z */
-  void write_poly_normals(OBJMesh &ob_mesh);
+  void write_poly_normals(OBJMesh &obj_mesh_data);
   /** Define and write a face with at least vertex indices, and conditionally with UV vertex
    * indices and face normal indices. \note UV indices are stored while writing UV vertices.
    */
-  void write_poly_indices(OBJMesh &ob_mesh, blender::Vector<blender::Vector<uint>> &uv_indices);
+  void write_poly_indices(OBJMesh &obj_mesh_data,
+                          blender::Vector<blender::Vector<uint>> &uv_indices);
 
-  /** Define and write an edge of a curve or a "circle" mesh as l v1 v2 */
-  void write_curve_edges(OBJMesh &ob_mesh);
+  /** Define and write an edge of a curve converted to mesh or a primitive circle as l v1 v2 */
+  void write_curve_edges(OBJMesh &obj_mesh_data);
 
  private:
+  /** Destination OBJ file for one frame, and one writer instance. */
+  FILE *_outfile;
+  const OBJExportParams *_export_params;
+
+  /** Vertex offset, UV vertex offset, face normal offset respetively. */
+  uint _index_offset[3] = {0, 0, 0};
+
   /** Write one line of polygon indices as f v1 v2 .... */
   void write_vert_indices(blender::Vector<uint> &vert_indices, const MPoly &poly_to_write);
   /** Write one line of polygon indices as f v1//vn1 v2//vn2 .... */

@@ -26,6 +26,7 @@
 #include <stdio.h>
 
 #include "BKE_curve.h"
+#include "BKE_customdata.h"
 #include "BKE_lib_id.h"
 #include "BKE_mesh.h"
 #include "BKE_mesh_mapping.h"
@@ -59,166 +60,47 @@ namespace io {
 namespace obj {
 
 /**
- * Store the product of export axes settings and an object's world transform matrix in
- * world_and_axes_transform[4][4].
+ * Store evaluated object and mesh pointers depending on object type.
+ * New meshes are created for curves converted to meshes and triangulated meshes.
  */
-void OBJMesh::store_world_axes_transform()
+void OBJMesh::init_export_mesh(Object *export_object)
 {
-  float axes_transform[3][3];
-  unit_m3(axes_transform);
-  mat3_from_axis_conversion(DEFAULT_AXIS_FORWARD,
-                            DEFAULT_AXIS_UP,
-                            export_params->forward_axis,
-                            export_params->up_axis,
-                            axes_transform);
-  mul_m4_m3m4(world_and_axes_transform, axes_transform, object->obmat);
-  /* mul_m4_m3m4 does not copy last row of obmat, i.e. location data. */
-  copy_v4_v4(world_and_axes_transform[3], object->obmat[3]);
-}
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(_C);
+  _export_object_eval = DEG_get_evaluated_object(depsgraph, export_object);
+  _export_mesh_eval = BKE_object_get_evaluated_mesh(_export_object_eval);
+  _me_eval_needs_free = false;
 
-/**
- * Calculate coordinates of the vertex at given index.
- */
-void OBJMesh::calc_vertex_coords(float coords[3], uint vert_index)
-{
-  copy_v3_v3(coords, me_eval->mvert[vert_index].co);
-  mul_m4_v3(world_and_axes_transform, coords);
-  mul_v3_fl(coords, export_params->scaling_factor);
-}
-
-/**
- * Calculate vertex indices of all vertices of a polygon.
- */
-void OBJMesh::calc_poly_vertex_indices(blender::Vector<uint> &poly_vertex_indices, uint poly_index)
-{
-  const MPoly &mpoly = me_eval->mpoly[poly_index];
-  const MLoop *mloop = &me_eval->mloop[mpoly.loopstart];
-  poly_vertex_indices.resize(mpoly.totloop);
-  for (uint loop_index = 0; loop_index < mpoly.totloop; loop_index++) {
-    poly_vertex_indices[loop_index] = (mloop + loop_index)->v + 1;
-  }
-}
-
-/**
- * Store UV vertex coordinates as well as their indices.
- */
-void OBJMesh::store_uv_coords_and_indices(blender::Vector<std::array<float, 2>> &uv_coords,
-                                          blender::Vector<blender::Vector<uint>> &uv_indices)
-{
-  Mesh *me_eval = this->me_eval;
-  OBJMesh *ob_mesh = this;
-  const CustomData *ldata = &me_eval->ldata;
-
-  for (int layer_idx = 0; layer_idx < ldata->totlayer; layer_idx++) {
-    const CustomDataLayer *layer = &ldata->layers[layer_idx];
-    if (layer->type != CD_MLOOPUV) {
-      continue;
+  if (_export_mesh_eval && _export_mesh_eval->totpoly > 0) {
+    if (_export_params->export_triangulated_mesh) {
+      triangulate_mesh(_export_mesh_eval);
+      _me_eval_needs_free = true;
     }
+    _tot_vertices = _export_mesh_eval->totvert;
+    _tot_poly_normals = _export_mesh_eval->totpoly;
+    store_world_axes_transform();
+  }
 
-    const MPoly *mpoly = me_eval->mpoly;
-    const MLoop *mloop = me_eval->mloop;
-    const MLoopUV *mloopuv = static_cast<MLoopUV *>(layer->data);
-    const float limit[2] = {STD_UV_CONNECT_LIMIT, STD_UV_CONNECT_LIMIT};
-    UvVertMap *uv_vert_map = BKE_mesh_uv_vert_map_create(
-        mpoly, mloop, mloopuv, me_eval->totpoly, me_eval->totvert, limit, false, false);
-
-    uv_indices.resize(me_eval->totpoly);
-    /* We know that at least totvert many vertices in a mesh will be present in its texture map. So
-     * reserve them in the start to let append be less costly later in terms of time. */
-    uv_coords.reserve(me_eval->totvert);
-    ob_mesh->tot_uv_vertices = -1;
-
-    for (int vertex_index = 0; vertex_index < me_eval->totvert; vertex_index++) {
-      const UvMapVert *uv_vert = BKE_mesh_uv_vert_map_get_vert(uv_vert_map, vertex_index);
-      while (uv_vert != NULL) {
-        if (uv_vert->separate) {
-          ob_mesh->tot_uv_vertices++;
-        }
-        const uint vertices_in_poly = me_eval->mpoly[uv_vert->poly_index].totloop;
-        uv_indices[uv_vert->poly_index].resize(vertices_in_poly);
-        /* Fill up UV vertex index. The indices in OBJ are 1-based, so added 1. */
-        uv_indices[uv_vert->poly_index][uv_vert->loop_of_poly_index] = ob_mesh->tot_uv_vertices +
-                                                                       1;
-
-        /* Fill up UV vertices' coordinates. */
-        uv_coords.append(std::array<float, 2>());
-        uv_coords[ob_mesh->tot_uv_vertices][0] =
-            mloopuv[mpoly[uv_vert->poly_index].loopstart + uv_vert->loop_of_poly_index].uv[0];
-        uv_coords[ob_mesh->tot_uv_vertices][1] =
-            mloopuv[mpoly[uv_vert->poly_index].loopstart + uv_vert->loop_of_poly_index].uv[1];
-
-        uv_vert = uv_vert->next;
-      }
-    }
-
-    /* Actual number of total UV vertices is 1-based. */
-    ob_mesh->tot_uv_vertices += 1;
-    BKE_mesh_uv_vert_map_free(uv_vert_map);
-    /* No need to go over other layers. */
-    break;
+  /* Curves need a new mesh when exported in the form of vertices and edges.
+   * For primitive circle, new mesh is redundant, but it behaves more like curves, so kept it here.
+   */
+  else if (_export_object_eval->type == OB_CURVE && !_export_params->export_curves_as_nurbs) {
+    _export_mesh_eval = BKE_mesh_new_from_object(depsgraph, _export_object_eval, true);
+    _me_eval_needs_free = true;
+    _tot_vertices = _export_mesh_eval->totvert;
+    _tot_edges = _export_mesh_eval->totedge;
+    store_world_axes_transform();
   }
 }
 
 /**
- * Calculate face normal of the polygon at given index.
- */
-void OBJMesh::calc_poly_normal(float poly_normal[3], uint poly_index)
-{
-  float sum[3] = {0, 0, 0};
-  const MPoly &poly_to_write = me_eval->mpoly[poly_index];
-  const MLoop *mloop = &me_eval->mloop[poly_to_write.loopstart];
-
-  /* Sum all vertex normals to get a face normal. */
-  for (uint i = 0; i < poly_to_write.totloop; i++) {
-    sum[0] += me_eval->mvert[(mloop + i)->v].no[0];
-    sum[1] += me_eval->mvert[(mloop + i)->v].no[1];
-    sum[2] += me_eval->mvert[(mloop + i)->v].no[2];
-  }
-
-  mul_mat3_m4_v3(world_and_axes_transform, sum);
-  copy_v3_v3(poly_normal, sum);
-  normalize_v3(poly_normal);
-}
-
-/**
- * Calculate face normal indices of all polygons.
- */
-void OBJMesh::calc_poly_normal_indices(blender::Vector<uint> &normal_indices, uint poly_index)
-{
-  normal_indices.resize(me_eval->mpoly[poly_index].totloop);
-  for (uint i = 0; i < normal_indices.size(); i++) {
-    normal_indices[i] = poly_index + 1;
-  }
-}
-
-/**
- * Only for curve-like meshes: calculate vertex indices of one edge.
- */
-void OBJMesh::calc_edge_vert_indices(blender::Array<uint, 2> &vert_indices, uint edge_index)
-{
-  vert_indices[0] = edge_index + 1;
-  vert_indices[1] = edge_index + 2;
-  /* Last edge's second vertex depends on whether the curve is cyclic or not. */
-  if (UNLIKELY(edge_index == me_eval->totedge)) {
-    vert_indices[0] = edge_index + 1;
-    vert_indices[1] = me_eval->totvert == me_eval->totedge ? 1 : me_eval->totvert;
-  }
-}
-
-/**
- * Create a new mesh from given one and triangulate it.
+ * Triangulate given mesh and update _export_mesh_eval.
  * \note The new mesh created here needs to be freed.
- * \return Pointer to the triangulated mesh.
  */
-static Mesh *triangulate_mesh(Mesh *me_eval)
+void OBJMesh::triangulate_mesh(Mesh *me_eval)
 {
-  struct BMeshCreateParams bm_create_params {
-    .use_toolflags = false
-  };
-  struct BMeshFromMeshParams bm_convert_params {
-    /* If calc_face_normal is false, it triggers BLI_assert(BM_face_is_normal_valid(f)). */
-    .calc_face_normal = true, 0, 0, 0
-  };
+  struct BMeshCreateParams bm_create_params = {false};
+  /* If calc_face_normal is false, it triggers BLI_assert(BM_face_is_normal_valid(f)). */
+  struct BMeshFromMeshParams bm_convert_params = {true, 0, 0, 0};
   /* Lower threshold where triangulation of a face starts, i.e. a quadrilateral will be
    * triangulated here. */
   int triangulate_min_verts = 4;
@@ -232,36 +114,146 @@ static Mesh *triangulate_mesh(Mesh *me_eval)
                       NULL,
                       NULL,
                       NULL);
-  Mesh *triangulated = BKE_mesh_from_bmesh_for_eval_nomain(bmesh, NULL, me_eval);
-
+  _export_mesh_eval = BKE_mesh_from_bmesh_for_eval_nomain(bmesh, NULL, me_eval);
   BM_mesh_free(bmesh);
-  return triangulated;
 }
 
 /**
- * Store evaluated object and mesh pointers depending on object type.
- * New meshes are created for curves and triangulated meshes.
+ * Store the product of export axes settings and an object's world transform matrix in
+ * world_and_axes_transform[4][4].
  */
-void OBJMesh::get_mesh_eval()
+void OBJMesh::store_world_axes_transform()
 {
-  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
-  object = DEG_get_evaluated_object(depsgraph, object);
-  me_eval = BKE_object_get_evaluated_mesh(object);
-  me_eval_needs_free = false;
+  float axes_transform[3][3];
+  unit_m3(axes_transform);
+  mat3_from_axis_conversion(DEFAULT_AXIS_FORWARD,
+                            DEFAULT_AXIS_UP,
+                            _export_params->forward_axis,
+                            _export_params->up_axis,
+                            axes_transform);
+  mul_m4_m3m4(_world_and_axes_transform, axes_transform, _export_object_eval->obmat);
+  /* mul_m4_m3m4 does not copy last row of obmat, i.e. location data. */
+  copy_v4_v4(_world_and_axes_transform[3], _export_object_eval->obmat[3]);
+}
 
-  if (me_eval && me_eval->totpoly > 0) {
-    if (export_params->export_triangulated_mesh) {
-      me_eval = triangulate_mesh(me_eval);
-      me_eval_needs_free = true;
+void OBJMesh::get_object_name(const char **r_object_name)
+{
+  *r_object_name = _export_object_eval->id.name + 2;
+}
+
+/**
+ * Calculate coordinates of the vertex at given index.
+ */
+void OBJMesh::calc_vertex_coords(float r_coords[3], uint point_index)
+{
+  copy_v3_v3(r_coords, _export_mesh_eval->mvert[point_index].co);
+  mul_m4_v3(_world_and_axes_transform, r_coords);
+  mul_v3_fl(r_coords, _export_params->scaling_factor);
+}
+
+/**
+ * Calculate vertex indices of all vertices of a polygon.
+ */
+void OBJMesh::calc_poly_vertex_indices(blender::Vector<uint> &r_poly_vertex_indices,
+                                       uint poly_index)
+{
+  const MPoly &mpoly = _export_mesh_eval->mpoly[poly_index];
+  const MLoop *mloop = &_export_mesh_eval->mloop[mpoly.loopstart];
+  r_poly_vertex_indices.resize(mpoly.totloop);
+  for (uint loop_index = 0; loop_index < mpoly.totloop; loop_index++) {
+    r_poly_vertex_indices[loop_index] = (mloop + loop_index)->v + 1;
+  }
+}
+
+/**
+ * Store UV vertex coordinates as well as their indices.
+ */
+void OBJMesh::store_uv_coords_and_indices(blender::Vector<std::array<float, 2>> &r_uv_coords,
+                                          blender::Vector<blender::Vector<uint>> &r_uv_indices)
+{
+  const MPoly *mpoly = _export_mesh_eval->mpoly;
+  const MLoop *mloop = _export_mesh_eval->mloop;
+  const int totpoly = _export_mesh_eval->totpoly;
+  const int totvert = _export_mesh_eval->totvert;
+  const MLoopUV *mloopuv = (MLoopUV *)CustomData_get_layer(&_export_mesh_eval->ldata, CD_MLOOPUV);
+  const float limit[2] = {STD_UV_CONNECT_LIMIT, STD_UV_CONNECT_LIMIT};
+
+  UvVertMap *uv_vert_map = BKE_mesh_uv_vert_map_create(
+      mpoly, mloop, mloopuv, totpoly, totvert, limit, false, false);
+
+  r_uv_indices.resize(totpoly);
+  /* We know that at least totvert many vertices in a mesh will be present in its texture map. So
+   * reserve them in the start to let append be less time costly later. */
+  r_uv_coords.reserve(totvert);
+
+  for (int vertex_index = 0; vertex_index < totvert; vertex_index++) {
+    const UvMapVert *uv_vert = BKE_mesh_uv_vert_map_get_vert(uv_vert_map, vertex_index);
+    while (uv_vert != NULL) {
+      const uint vertices_in_poly = mpoly[uv_vert->poly_index].totloop;
+
+      /* Fill up UV vertices' coordinates. */
+      const int loopstart = mpoly[uv_vert->poly_index].loopstart;
+      const float(&vert_uv_coords)[2] = mloopuv[loopstart + uv_vert->loop_of_poly_index].uv;
+      r_uv_coords.append({vert_uv_coords[0], vert_uv_coords[1]});
+
+      /* Fill up UV vertex index. The indices in OBJ are 1-based, so added 1. */
+      r_uv_indices[uv_vert->poly_index].resize(vertices_in_poly);
+      r_uv_indices[uv_vert->poly_index][uv_vert->loop_of_poly_index] = r_uv_coords.size() + 1;
+
+      uv_vert = uv_vert->next;
     }
   }
+  /* Needed to update the index offsets after a mesh is written. */
+  _tot_uv_vertices = r_uv_coords.size();
+  BKE_mesh_uv_vert_map_free(uv_vert_map);
+}
 
-  /* Curves need a new mesh to be exported in the form of vertices and edges.
-   * For primitive circle, new mesh is redundant, but it behaves more like curves, so kept it here.
-   */
-  else if (object->type == OB_CURVE && !export_params->export_curves_as_nurbs) {
-    me_eval = BKE_mesh_new_from_object(depsgraph, object, true);
-    me_eval_needs_free = true;
+/**
+ * Calculate face normal of the polygon at given index.
+ */
+void OBJMesh::calc_poly_normal(float r_poly_normal[3], uint poly_index)
+{
+  /* TODO ankitm: Find an existing method to calculate a face's normals from its vertex normals. */
+  const MPoly &poly_to_write = _export_mesh_eval->mpoly[poly_index];
+  const MLoop *mloop = &_export_mesh_eval->mloop[poly_to_write.loopstart];
+
+  /* Sum all vertex normals to get a face normal. */
+  for (uint i = 0; i < poly_to_write.totloop; i++) {
+    short(&vert_no)[3] = _export_mesh_eval->mvert[(mloop + i)->v].no;
+    r_poly_normal[0] += vert_no[0];
+    r_poly_normal[1] += vert_no[1];
+    r_poly_normal[2] += vert_no[2];
+  }
+
+  mul_mat3_m4_v3(_world_and_axes_transform, r_poly_normal);
+  normalize_v3(r_poly_normal);
+}
+
+/**
+ * Calculate face normal indices of all polygons.
+ */
+void OBJMesh::calc_poly_normal_indices(blender::Vector<uint> &r_normal_indices, uint poly_index)
+{
+  r_normal_indices.resize(_export_mesh_eval->mpoly[poly_index].totloop);
+  for (uint i = 0; i < r_normal_indices.size(); i++) {
+    r_normal_indices[i] = poly_index + 1;
+  }
+}
+
+/**
+ * Only for curve converted to meshes and primitive circle: calculate vertex indices of one edge.
+ */
+void OBJMesh::calc_edge_vert_indices(uint r_vert_indices[2], uint edge_index)
+{
+  r_vert_indices[0] = edge_index + 1;
+  r_vert_indices[1] = edge_index + 2;
+
+  /* Last edge's second vertex depends on whether the curve is cyclic or not. */
+  if (UNLIKELY(edge_index == _export_mesh_eval->totedge)) {
+    r_vert_indices[0] = edge_index + 1;
+    r_vert_indices[1] = _export_mesh_eval->totvert == _export_mesh_eval->totedge ?
+                            1 :
+                            _export_mesh_eval->totvert;
   }
 }
 
@@ -270,70 +262,54 @@ void OBJMesh::get_mesh_eval()
  */
 static void export_frame(bContext *C, const OBJExportParams *export_params, const char *filepath)
 {
-  blender::Vector<OBJMesh> export_mesh;
+  blender::Vector<OBJMesh> exportable_meshes;
   /** TODO ankitm Unused now; to be done. */
-  blender::Vector<OBJNurbs> export_nurbs;
+  blender::Vector<OBJNurbs> exportable_nurbs;
   ViewLayer *view_layer = CTX_data_view_layer(C);
-  Base *base = static_cast<Base *>(view_layer->object_bases.first);
-
-  for (; base; base = base->next) {
+  LISTBASE_FOREACH (Base *, base, &view_layer->object_bases) {
     Object *object_in_layer = base->object;
     switch (object_in_layer->type) {
       case OB_MESH:
-        export_mesh.append(OBJMesh());
-        export_mesh.last().object = object_in_layer;
-        export_mesh.last().export_params = export_params;
-        export_mesh.last().C = C;
+        exportable_meshes.append(OBJMesh(C, export_params, object_in_layer));
         break;
       case OB_CURVE:
         /* TODO (ankitm) Conditionally push to export_nurbs too. */
-        export_mesh.append(OBJMesh());
-        export_mesh.last().object = object_in_layer;
-        export_mesh.last().export_params = export_params;
-        export_mesh.last().C = C;
+        exportable_meshes.append(OBJMesh(C, export_params, object_in_layer));
       default:
         break;
     }
   }
 
-  OBJWriter frame_writer;
-
-  if (!frame_writer.open_file(export_params->filepath)) {
+  OBJWriter frame_writer(export_params);
+  if (!frame_writer.init_writer()) {
     fprintf(stderr, "Error in creating the file: %s\n", export_params->filepath);
     return;
   }
 
-  frame_writer.write_header();
-
-  for (uint ob_iter = 0; ob_iter < export_mesh.size(); ob_iter++) {
-    OBJMesh &mesh_to_export = export_mesh[ob_iter];
-    mesh_to_export.get_mesh_eval();
-    mesh_to_export.store_world_axes_transform();
+  for (uint ob_iter = 0; ob_iter < exportable_meshes.size(); ob_iter++) {
+    OBJMesh &mesh_to_export = exportable_meshes[ob_iter];
 
     frame_writer.write_object_name(mesh_to_export);
     frame_writer.write_vertex_coords(mesh_to_export);
 
-    if (mesh_to_export.me_eval->totpoly == 0) {
-      /* For curves and primitive circle. */
+    /* For curves converted to mesh and primitive circle. */
+    if (mesh_to_export.tot_poly_normals() == 0) {
       frame_writer.write_curve_edges(mesh_to_export);
     }
     else {
       blender::Vector<blender::Vector<uint>> uv_indices;
-      if (mesh_to_export.export_params->export_uv) {
-        frame_writer.write_uv_coords(mesh_to_export, uv_indices);
-      }
-      if (mesh_to_export.export_params->export_normals) {
+      if (export_params->export_normals) {
         frame_writer.write_poly_normals(mesh_to_export);
+      }
+      if (export_params->export_uv) {
+        frame_writer.write_uv_coords(mesh_to_export, uv_indices);
       }
       frame_writer.write_poly_indices(mesh_to_export, uv_indices);
     }
     frame_writer.update_index_offsets(mesh_to_export);
 
-    if (mesh_to_export.me_eval_needs_free) {
-      BKE_id_free(NULL, mesh_to_export.me_eval);
-    }
+    mesh_to_export.destruct();
   }
-  frame_writer.close_file();
 }
 
 /**
