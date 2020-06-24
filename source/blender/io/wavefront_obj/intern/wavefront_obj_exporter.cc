@@ -123,6 +123,7 @@ void OBJMesh::triangulate_mesh(Mesh *me_eval)
   _export_mesh_eval = BKE_mesh_from_bmesh_for_eval_nomain(bmesh, NULL, me_eval);
   BM_mesh_free(bmesh);
 }
+
 /**
  * Initialise nurbs curve object.
  */
@@ -283,7 +284,7 @@ void OBJNurbs::get_curve_name(const char **r_object_name)
   *r_object_name = _export_object_eval->id.name + 2;
 }
 
-  /** Get coordinates of a vertex at given point index. */
+/** Get coordinates of a vertex at given point index. */
 void OBJNurbs::calc_point_coords(float r_coords[3], uint vert_index, Nurb *nurb)
 {
   BPoint *bpoint = nurb->bp;
@@ -291,7 +292,7 @@ void OBJNurbs::calc_point_coords(float r_coords[3], uint vert_index, Nurb *nurb)
   copy_v3_v3(r_coords, bpoint->vec);
 }
 
-  /** Get nurbs' degree and number of "curv" points of a nurb. */
+/** Get nurbs' degree and number of "curv" points of a nurb. */
 void OBJNurbs::get_curve_info(int *r_nurbs_degree, int *r_curv_num, Nurb *nurb)
 {
   *r_nurbs_degree = nurb->orderu - 1;
