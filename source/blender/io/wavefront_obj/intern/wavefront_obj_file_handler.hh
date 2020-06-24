@@ -70,8 +70,8 @@ class OBJWriter {
   /** Define and write an edge of a curve converted to mesh or a primitive circle as l v1 v2 */
   void write_curve_edges(OBJMesh &obj_mesh_data);
 
-  /** Write one nurb of a curve. */
-  void write_nurbs_info(OBJNurbs &ob_nurbs);
+  /** Write one nurbs of a curve. */
+  void write_nurbs_curve(OBJNurbs &obj_nurbs_data);
 
  private:
   /** Destination OBJ file for one frame, and one writer instance. */

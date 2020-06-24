@@ -22,8 +22,8 @@
 #define __WAVEFRONT_OBJ_HH__
 
 #include "BKE_context.h"
-#include "BKE_lib_id.h"
 #include "BKE_curve.h"
+#include "BKE_lib_id.h"
 #include "BKE_mesh.h"
 #include "BKE_object.h"
 
@@ -161,13 +161,26 @@ class OBJMesh {
 
 class OBJNurbs {
  public:
-  bContext *C;
-  const OBJExportParams *export_params;
+  OBJNurbs(bContext *C, Object *export_object) : _C(C), _export_object_eval(export_object)
+  {
+    init_nurbs_curve(export_object);
+  }
+  void get_curve_name(const char **r_object_name);
+  /** Getter for export curve. Used to obtain a curve's nurbs in OBJWriter class. */
+  const Curve *export_curve()
+  {
+    return _export_curve;
+  }
+  /** Get coordinates of a vertex at given point index. */
+  void calc_point_coords(float r_coords[3], uint point_index, Nurb *nurb);
+  /** Get nurbs' degree and number of "curv" points of a nurb. */
+  void get_curve_info(int *r_nurbs_degree, int *r_curv_num, Nurb *nurb);
 
-  Object *object;
-  Curve *curve;
-  void calc_vertex_coords(float coord[3], uint point_index);
-  const char *get_curve_info(int *nurbs_degree, int *curv_num);
+ private:
+  bContext *_C;
+  Object *_export_object_eval;
+  Curve *_export_curve;
+  void init_nurbs_curve(Object *export_object);
 };
 
 }  // namespace obj

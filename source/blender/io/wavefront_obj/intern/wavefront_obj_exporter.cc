@@ -77,19 +77,25 @@ void OBJMesh::init_export_mesh(Object *export_object)
     }
     _tot_vertices = _export_mesh_eval->totvert;
     _tot_poly_normals = _export_mesh_eval->totpoly;
-    store_world_axes_transform();
   }
-
-  /* Curves need a new mesh when exported in the form of vertices and edges.
+  /* Curves and nurbs surfaces need a new mesh when exported in the form of vertices and edges.
    * For primitive circle, new mesh is redundant, but it behaves more like curves, so kept it here.
    */
-  else if (_export_object_eval->type == OB_CURVE && !_export_params->export_curves_as_nurbs) {
+  else {
     _export_mesh_eval = BKE_mesh_new_from_object(depsgraph, _export_object_eval, true);
     _me_eval_needs_free = true;
-    _tot_vertices = _export_mesh_eval->totvert;
-    _tot_edges = _export_mesh_eval->totedge;
-    store_world_axes_transform();
+    if (_export_object_eval->type == OB_CURVE || _export_mesh_eval->totpoly == 0) {
+      /* Don't export polygon normals when there are no polygons. */
+      _tot_poly_normals = 0;
+      _tot_vertices = _export_mesh_eval->totvert;
+      _tot_edges = _export_mesh_eval->totedge;
+    }
+    else if (_export_object_eval->type == OB_SURF) {
+      _tot_vertices = _export_mesh_eval->totvert;
+      _tot_poly_normals = _export_mesh_eval->totpoly;
+    }
   }
+  store_world_axes_transform();
 }
 
 /**
@@ -116,6 +122,15 @@ void OBJMesh::triangulate_mesh(Mesh *me_eval)
                       NULL);
   _export_mesh_eval = BKE_mesh_from_bmesh_for_eval_nomain(bmesh, NULL, me_eval);
   BM_mesh_free(bmesh);
+}
+/**
+ * Initialise nurbs curve object.
+ */
+void OBJNurbs::init_nurbs_curve(Object *export_object)
+{
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(_C);
+  _export_object_eval = DEG_get_evaluated_object(depsgraph, export_object);
+  _export_curve = (Curve *)_export_object_eval->data;
 }
 
 /**
@@ -257,24 +272,29 @@ void OBJMesh::calc_edge_vert_indices(uint r_vert_indices[2], uint edge_index)
   }
 }
 
-  void OBJNurbs::calc_vertex_coords(float coords[3], uint vert_index)
-  {
-    Nurb *nu = (Nurb *)curve->nurb.first;
-    BPoint *bpoint = nu->bp;
-    bpoint += vert_index;
-    copy_v3_v3(coords, bpoint->vec);
+void OBJNurbs::get_curve_name(const char **r_object_name)
+{
+  *r_object_name = _export_object_eval->id.name + 2;
+}
+
+  /** Get coordinates of a vertex at given point index. */
+void OBJNurbs::calc_point_coords(float r_coords[3], uint vert_index, Nurb *nurb)
+{
+  BPoint *bpoint = nurb->bp;
+  bpoint += vert_index;
+  copy_v3_v3(r_coords, bpoint->vec);
+}
+
+  /** Get nurbs' degree and number of "curv" points of a nurb. */
+void OBJNurbs::get_curve_info(int *r_nurbs_degree, int *r_curv_num, Nurb *nurb)
+{
+  *r_nurbs_degree = nurb->orderu - 1;
+  /* "curv_num" are number of control points in a nurbs. If it is cyclic, degree also adds up. */
+  *r_curv_num = nurb->pntsv * nurb->pntsu;
+  if (nurb->flagu & CU_NURB_CYCLIC) {
+    *r_curv_num += *r_nurbs_degree;
   }
-  
-  const char *OBJNurbs::get_curve_info(int *nurbs_degree, int *curv_num)
-  {
-    Nurb *nurb = (Nurb *)curve->nurb.first;
-    *nurbs_degree = nurb->orderu - 1;
-    *curv_num = nurb->pntsv * nurb->pntsu;
-    if (nurb->flagu & CU_NURB_CYCLIC) {
-      *curv_num += *nurbs_degree;
-    }
-    return object->id.name + 2;
-  }
+}
 
 /**
  * Traverses over and exports a single frame to a single OBJ file.
@@ -288,19 +308,28 @@ static void export_frame(bContext *C, const OBJExportParams *export_params, cons
   LISTBASE_FOREACH (Base *, base, &view_layer->object_bases) {
     Object *object_in_layer = base->object;
     switch (object_in_layer->type) {
-      case OB_MESH:
+      case OB_SURF:
+      case OB_MESH: {
         exportable_meshes.append(OBJMesh(C, export_params, object_in_layer));
         break;
-      case OB_CURVE:
-        if (export_params->export_curves_as_nurbs) {
-          export_nurbs.append(OBJNurbs());
-          export_nurbs.last().object = object_in_layer;
-          export_nurbs.last().export_params = export_params;
-          export_nurbs.last().C = C;
+      }
+      case OB_CURVE: {
+        Curve *curve = (Curve *)object_in_layer->data;
+        Nurb *nurb = (Nurb *)curve->nurb.first;
+        if (nurb->type == CU_NURBS) {
+          if (export_params->export_curves_as_nurbs) {
+            exportable_nurbs.append(OBJNurbs(C, object_in_layer));
+          }
+          else {
+            exportable_meshes.append(OBJMesh(C, export_params, object_in_layer));
+          }
         }
-        else {
-        exportable_meshes.append(OBJMesh(C, export_params, object_in_layer));
+        if (nurb->type == CU_BEZIER) {
+          exportable_meshes.append(OBJMesh(C, export_params, object_in_layer));
         }
+        /* Other types of curves are not supported.  */
+        break;
+      }
       default:
         break;
     }
@@ -336,12 +365,11 @@ static void export_frame(bContext *C, const OBJExportParams *export_params, cons
 
     mesh_to_export.destruct();
   }
-  for (uint ob_iter = 0; ob_iter < export_nurbs.size(); ob_iter++) {
-    OBJNurbs &nurbs_to_export = export_nurbs[ob_iter];
-    nurbs_to_export.curve = (Curve *)nurbs_to_export.object->data;
-    frame_writer.write_nurbs_info(nurbs_to_export);
+  /* Export nurbs in parm form, not as vertices and edges. */
+  for (uint ob_iter = 0; ob_iter < exportable_nurbs.size(); ob_iter++) {
+    OBJNurbs &nurbs_to_export = exportable_nurbs[ob_iter];
+    frame_writer.write_nurbs_curve(nurbs_to_export);
   }
-  frame_writer.close_file();
 }
 
 /**
