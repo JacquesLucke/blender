@@ -201,25 +201,31 @@ void OBJMesh::store_uv_coords_and_indices(blender::Vector<std::array<float, 2>> 
    * reserve them in the start to let append be less time costly later. */
   r_uv_coords.reserve(totvert);
 
+  _tot_uv_vertices = -1;
   for (int vertex_index = 0; vertex_index < totvert; vertex_index++) {
     const UvMapVert *uv_vert = BKE_mesh_uv_vert_map_get_vert(uv_vert_map, vertex_index);
     while (uv_vert != NULL) {
+      if (uv_vert->separate) {
+        _tot_uv_vertices += 1;
+      }
       const uint vertices_in_poly = mpoly[uv_vert->poly_index].totloop;
 
       /* Fill up UV vertices' coordinates. */
+      r_uv_coords.resize(_tot_uv_vertices + 1);
       const int loopstart = mpoly[uv_vert->poly_index].loopstart;
-      const float(&vert_uv_coords)[2] = mloopuv[loopstart + uv_vert->loop_of_poly_index].uv;
-      r_uv_coords.append({vert_uv_coords[0], vert_uv_coords[1]});
+      const float *vert_uv_coords = mloopuv[loopstart + uv_vert->loop_of_poly_index].uv;
+      r_uv_coords[_tot_uv_vertices][0] = vert_uv_coords[0];
+      r_uv_coords[_tot_uv_vertices][1] = vert_uv_coords[1];
 
       /* Fill up UV vertex index. The indices in OBJ are 1-based, so added 1. */
       r_uv_indices[uv_vert->poly_index].resize(vertices_in_poly);
-      r_uv_indices[uv_vert->poly_index][uv_vert->loop_of_poly_index] = r_uv_coords.size() + 1;
+      r_uv_indices[uv_vert->poly_index][uv_vert->loop_of_poly_index] = _tot_uv_vertices;
 
       uv_vert = uv_vert->next;
     }
   }
   /* Needed to update the index offsets after a mesh is written. */
-  _tot_uv_vertices = r_uv_coords.size();
+  _tot_uv_vertices += 1;
   BKE_mesh_uv_vert_map_free(uv_vert_map);
 }
 
