@@ -21,8 +21,11 @@
  * \ingroup obj
  */
 
-#include "IO_wavefront_obj.h"
+#include <iostream>
+
 #include "PIL_time.h"
+
+#include "IO_wavefront_obj.h"
 
 #include "wavefront_obj.hh"
 #include "wavefront_obj_exporter.hh"

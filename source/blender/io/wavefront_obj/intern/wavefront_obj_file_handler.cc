@@ -27,7 +27,6 @@
 
 #include "DNA_object_types.h"
 
-#include "wavefront_obj.hh"
 #include "wavefront_obj_file_handler.hh"
 
 namespace io {

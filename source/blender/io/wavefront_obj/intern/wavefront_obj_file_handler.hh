@@ -20,11 +20,16 @@
 /** \file
  * \ingroup obj
  */
+
 #ifndef __WAVEFRONT_OBJ_FILE_HANDLER_HH__
 #define __WAVEFRONT_OBJ_FILE_HANDLER_HH__
 
+#include <stdio.h>
+
 #include "IO_wavefront_obj.h"
-#include "wavefront_obj.hh"
+
+#include "wavefront_obj_exporter_mesh.hh"
+#include "wavefront_obj_exporter_nurbs.hh"
 
 namespace io {
 namespace obj {

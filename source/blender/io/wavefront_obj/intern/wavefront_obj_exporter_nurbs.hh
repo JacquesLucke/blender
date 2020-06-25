@@ -21,19 +21,40 @@
  * \ingroup obj
  */
 
-#ifndef __WAVEFRONT_OBJ_EXPORTER_HH__
-#define __WAVEFRONT_OBJ_EXPORTER_HH__
+#ifndef __WAVEFRONT_OBJ_EXPORTER_NURBS_HH__
+#define __WAVEFRONT_OBJ_EXPORTER_NURBS_HH__
 
 #include "BKE_context.h"
+#include "BKE_curve.h"
 
-#include "IO_wavefront_obj.h"
+#include "DNA_curve_types.h"
 
 namespace io {
 namespace obj {
-/**
- * Central internal function to call scene update & writer functions.
- */
-void exporter_main(bContext *C, const OBJExportParams *export_params);
+
+class OBJNurbs {
+ public:
+  OBJNurbs(bContext *C, Object *export_object) : _C(C), _export_object_eval(export_object)
+  {
+    init_nurbs_curve(export_object);
+  }
+  void get_curve_name(const char **r_object_name);
+  /** Getter for export curve. Used to obtain a curve's nurbs in OBJWriter class. */
+  const Curve *export_curve()
+  {
+    return _export_curve;
+  }
+  /** Get coordinates of a vertex at given point index. */
+  void calc_point_coords(float r_coords[3], uint point_index, Nurb *nurb);
+  /** Get nurbs' degree and number of "curv" points of a nurb. */
+  void get_curve_info(int *r_nurbs_degree, int *r_curv_num, Nurb *nurb);
+
+ private:
+  bContext *_C;
+  Object *_export_object_eval;
+  Curve *_export_curve;
+  void init_nurbs_curve(Object *export_object);
+};
 
 }  // namespace obj
 }  // namespace io
