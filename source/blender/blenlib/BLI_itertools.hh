@@ -94,9 +94,9 @@ Enumerate<Int, Container> enumerate(Container &&container, Int start = 0)
   return {std::forward<Container>(container), start};
 }
 
-template<typename... Container> class ZipEqual {
+template<typename... Containers> class ZipEqual {
  private:
-  std::tuple<Container...> m_containers;
+  std::tuple<Containers...> m_containers;
 
  public:
   template<typename... T>
@@ -104,11 +104,11 @@ template<typename... Container> class ZipEqual {
   {
   }
 
-  using Item = std::tuple<decltype(*std::declval<Container>().begin())...>;
+  using Item = std::tuple<decltype(*std::declval<Containers>().begin())...>;
 
   class Iterator {
    private:
-    using Iterators = std::tuple<decltype(std::declval<Container>().begin())...>;
+    using Iterators = std::tuple<decltype(std::declval<Containers>().begin())...>;
     Iterators m_current;
 
    public:
@@ -144,9 +144,9 @@ template<typename... Container> class ZipEqual {
   }
 };
 
-template<typename... Container> ZipEqual<Container...> zip_equal(Container &&... args)
+template<typename... Containers> ZipEqual<Containers...> zip_equal(Containers &&... containers)
 {
-  return {std::forward<Container>(args)...};
+  return {std::forward<Containers>(containers)...};
 }
 
 }  // namespace blender
