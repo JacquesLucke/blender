@@ -136,10 +136,15 @@ TEST(itertools, ZipEqual4)
   vec3.append(std::make_unique<int>(12));
   Vector<int> vec4 = {20, 21, 22};
 
-  for (auto item : zip_equal(vec1, vec2, vec3, vec4)) {
-    std::cout << std::get<0>(item) << ", " << std::get<1>(item) << ", " << *std::get<2>(item)
-              << ", " << std::get<3>(item) << "\n";
+  int counter = 0;
+  for (auto [i, zipped] : enumerate(zip_equal(vec1, vec2, vec3, vec4))) {
+    EXPECT_EQ(vec1[i], std::get<0>(zipped));
+    EXPECT_EQ(vec2[i], std::get<1>(zipped));
+    EXPECT_EQ(vec3[i], std::get<2>(zipped));
+    EXPECT_EQ(vec4[i], std::get<3>(zipped));
+    counter++;
   }
+  EXPECT_EQ(counter, vec1.size());
 }
 
 }  // namespace blender
