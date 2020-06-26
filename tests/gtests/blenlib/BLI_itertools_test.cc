@@ -6,45 +6,67 @@
 
 namespace blender {
 
-template<typename Container> class Wrapper {
-  Container m_container;
-
- public:
-  // Wrapper(Container container) : m_container(container)
-  // {
-  // }
-
-  template<typename T> Wrapper(const T &container) : m_container(container)
-  {
-  }
-
-  template<typename T> Wrapper(T &&container) : m_container(std::forward<T>(container))
-  {
-  }
-};
-
-template<typename T> Wrapper(const T &)->Wrapper<const T &>;
-template<typename T> Wrapper(T &&)->Wrapper<T>;
-
-TEST(itertools, EnumerateVector)
+TEST(itertools, EnumerateConstVector)
 {
-  auto variable = Vector<int>({4, 6, 7});
-  // auto &&other = std::move(variable);
+  Vector<std::unique_ptr<int>> vec;
+  vec.append(std::make_unique<int>(3));
+  vec.append(std::make_unique<int>(4));
+  vec.append(std::make_unique<int>(5));
+  const Vector<std::unique_ptr<int>> &const_vec = vec;
 
-  Wrapper wrapper{variable};
+  Vector<uint> indices;
+  Vector<int> values;
+  for (auto item : enumerate(const_vec)) {
+    indices.append(item.index);
+    values.append(*item.value);
+  }
 
-  // Vector<Vector<int>> a;
-  // a.append(std::forward<decltype(other)>(other));
+  EXPECT_EQ(indices.size(), 3);
+  EXPECT_EQ(values.size(), 3);
+  EXPECT_EQ(indices[0], 0);
+  EXPECT_EQ(indices[1], 1);
+  EXPECT_EQ(indices[2], 2);
+  EXPECT_EQ(values[0], 3);
+  EXPECT_EQ(values[1], 4);
+  EXPECT_EQ(values[2], 5);
+}
 
-  // std::cout << a.size() << "\n";
-  // std::cout << other.size() << "\n";
+TEST(itertools, EnumerateMutableVector)
+{
+  Vector<std::unique_ptr<int>> vec;
+  vec.append(std::make_unique<int>(3));
+  vec.append(std::make_unique<int>(4));
+  vec.append(std::make_unique<int>(5));
 
-  // for (auto &&[i, auto &&[first, second]] : enumerate(values)) {
-  //   std::cout << i << " "
-  //             << "\n";
-  // }
+  for (auto item : enumerate<int>(vec, 10)) {
+    *item.value += item.index;
+  }
 
-  // auto &&a = 5;
+  EXPECT_EQ(*vec[0], 13);
+  EXPECT_EQ(*vec[1], 15);
+  EXPECT_EQ(*vec[2], 17);
+}
+
+TEST(itertools, EnumerateRValueVector)
+{
+  for (auto item : enumerate(Vector<int>({6, 7, 8}))) {
+    EXPECT_EQ(item.index + 6, item.value);
+  }
+}
+
+TEST(itertools, EnumerateMultipleTimes)
+{
+  Vector<int> vec = {6, 7, 8};
+  for (auto item : enumerate(enumerate(enumerate(vec)))) {
+    EXPECT_EQ(item.index, item.value.index);
+    EXPECT_EQ(item.index, item.value.value.index);
+    EXPECT_EQ(item.index + 6, item.value.value.value);
+    item.value.value.value += 10;
+  }
+
+  EXPECT_EQ(vec[0], 16);
+  EXPECT_EQ(vec[1], 17);
+  EXPECT_EQ(vec[2], 18);
 }
 
 }  // namespace blender

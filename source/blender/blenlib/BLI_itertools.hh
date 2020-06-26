@@ -19,67 +19,78 @@
 
 #include "BLI_utildefines.h"
 
+#include <iostream>
+
 namespace blender {
 
-template<typename Int, typename Value, typename Iterator> class EnumerateIterator {
+template<typename Int, typename Container> class Enumerate {
  private:
-  uint m_index;
-  Iterator m_current;
+  Container m_container;
+  Int m_start;
 
  public:
+  template<typename T>
+  Enumerate(T &&container, Int start) : m_container(std::forward<T>(container)), m_start(start)
+  {
+  }
+
+  using Iter = decltype(m_container.begin());
+  using Value = decltype(*m_container.begin());
+
   struct Item {
-    const Int index;
-    const Value &value;
+    Int index;
+    Value value;
+
+    friend std::ostream &operator<<(std::ostream &stream, const Item &item)
+    {
+      stream << "(" << item.index << ", " << item.value << ")";
+      return stream;
+    }
   };
 
-  EnumerateIterator(Iterator current) : m_index(0), m_current(current)
+  class Iterator {
+   private:
+    Int m_index;
+    Iter m_current;
+
+   public:
+    Iterator(Int index, Iter current) : m_index(index), m_current(current)
+    {
+    }
+
+    Iterator &operator++()
+    {
+      ++m_current;
+      ++m_index;
+      return *this;
+    }
+
+    Item operator*() const
+    {
+      return {m_index, *m_current};
+    }
+
+    friend bool operator!=(const Iterator &a, const Iterator &b)
+    {
+      return a.m_current != b.m_current;
+    }
+  };
+
+  Iterator begin()
   {
+    return Iterator(m_start, m_container.begin());
   }
 
-  Item operator*() const
+  Iterator end()
   {
-    return {m_index, *m_current};
-  }
-
-  EnumerateIterator &operator++()
-  {
-    ++m_index;
-    ++m_current;
-    return *this;
-  }
-
-  friend bool operator!=(const EnumerateIterator &a, const EnumerateIterator &b)
-  {
-    return a.m_current != b.m_current;
-  }
-};
-
-template<typename Iterator> class AnyRange {
- private:
-  Iterator m_begin;
-  Iterator m_end;
-
- public:
-  AnyRange(Iterator begin, Iterator end) : m_begin(begin), m_end(end)
-  {
-  }
-
-  Iterator begin() const
-  {
-    return m_begin;
-  }
-
-  Iterator end() const
-  {
-    return m_end;
+    return Iterator(0, m_container.end());
   }
 };
 
-template<typename Int = uint, typename Container = void> auto enumerate(const Container &container)
+template<typename Int = uint, typename Container = void>
+Enumerate<Int, Container> enumerate(Container &&container, Int start = 0)
 {
-  using Iterator =
-      EnumerateIterator<Int, decltype(*container.begin()), decltype(container.begin())>;
-  return AnyRange(Iterator(container.begin()), Iterator(container.end()));
+  return {std::forward<Container>(container), start};
 }
 
 }  // namespace blender
