@@ -185,11 +185,6 @@ template<typename... Container> class ZipEqual {
     using Iterators = std::tuple<decltype(std::declval<Container>().begin())...>;
     Iterators m_current;
 
-    template<std::size_t... I> Item star_operator(std::index_sequence<I...>) const
-    {
-      return Item((*std::get<I>(m_current))...);
-    }
-
    public:
     Iterator(Iterators current) : m_current(current)
     {
@@ -203,7 +198,7 @@ template<typename... Container> class ZipEqual {
 
     Item operator*() const
     {
-      return this->star_operator(std::make_index_sequence<sizeof...(Container)>());
+      return std::apply([](auto &... x) { return Item(*x...); }, m_current);
     }
 
     friend bool operator!=(const Iterator &a, const Iterator &b)
@@ -214,23 +209,12 @@ template<typename... Container> class ZipEqual {
 
   Iterator begin()
   {
-    return this->begin_impl(std::make_index_sequence<sizeof...(Container)>());
+    return {std::apply([](auto &... x) { return std::make_tuple(x.begin()...); }, m_containers)};
   }
 
   Iterator end()
   {
-    return this->end_impl(std::make_index_sequence<sizeof...(Container)>());
-  }
-
- private:
-  template<std::size_t... I> Iterator begin_impl(std::index_sequence<I...>)
-  {
-    return Iterator(std::make_tuple(std::get<I>(m_containers).begin()...));
-  }
-
-  template<std::size_t... I> Iterator end_impl(std::index_sequence<I...>)
-  {
-    return Iterator(std::make_tuple(std::get<I>(m_containers).end()...));
+    return {std::apply([](auto &... x) { return std::make_tuple(x.end()...); }, m_containers)};
   }
 };
 
