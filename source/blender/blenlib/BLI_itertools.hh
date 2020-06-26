@@ -20,6 +20,7 @@
 #include "BLI_utildefines.h"
 
 #include <iostream>
+#include <tuple>
 
 namespace blender {
 
@@ -161,10 +162,81 @@ template<typename Container1, typename Container2> class ZipEqual2 {
   }
 };
 
-template<typename Container1, typename Container2>
-ZipEqual2<Container1, Container2> zip_equal(Container1 &&container1, Container2 &&container2)
+// template<typename Container1, typename Container2>
+// ZipEqual2<Container1, Container2> zip_equal(Container1 &&container1, Container2 &&container2)
+// {
+//   return {std::forward<Container1>(container1), std::forward<Container2>(container2)};
+// }
+
+template<typename... Container> class ZipEqual {
+ private:
+  std::tuple<Container...> m_containers;
+
+ public:
+  template<typename... T>
+  ZipEqual(T &&... containers) : m_containers(std::forward<T>(containers)...)
+  {
+  }
+
+  using Item = std::tuple<decltype(*std::declval<Container>().begin())...>;
+
+  class Iterator {
+   private:
+    using Iterators = std::tuple<decltype(std::declval<Container>().begin())...>;
+    Iterators m_current;
+
+    template<std::size_t... I> Item star_operator(std::index_sequence<I...>) const
+    {
+      return Item((*std::get<I>(m_current))...);
+    }
+
+   public:
+    Iterator(Iterators current) : m_current(current)
+    {
+    }
+
+    Iterator &operator++()
+    {
+      std::apply([](auto &... current) { ((++current), ...); }, m_current);
+      return *this;
+    }
+
+    Item operator*() const
+    {
+      return this->star_operator(std::make_index_sequence<sizeof...(Container)>());
+    }
+
+    friend bool operator!=(const Iterator &a, const Iterator &b)
+    {
+      return std::get<0>(a.m_current) != std::get<0>(b.m_current);
+    }
+  };
+
+  Iterator begin()
+  {
+    return this->begin_impl(std::make_index_sequence<sizeof...(Container)>());
+  }
+
+  Iterator end()
+  {
+    return this->end_impl(std::make_index_sequence<sizeof...(Container)>());
+  }
+
+ private:
+  template<std::size_t... I> Iterator begin_impl(std::index_sequence<I...>)
+  {
+    return Iterator(std::make_tuple(std::get<I>(m_containers).begin()...));
+  }
+
+  template<std::size_t... I> Iterator end_impl(std::index_sequence<I...>)
+  {
+    return Iterator(std::make_tuple(std::get<I>(m_containers).end()...));
+  }
+};
+
+template<typename... Container> ZipEqual<Container...> zip_equal(Container &&... args)
 {
-  return {std::forward<Container1>(container1), std::forward<Container2>(container2)};
+  return {std::forward<Container>(args)...};
 }
 
 }  // namespace blender

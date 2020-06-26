@@ -76,9 +76,9 @@ TEST(itertools, ZipEqual2)
 
   Vector<int> vec1_new;
   Vector<std::string> vec2_new;
-  for (auto item : zip_equal(vec1, vec2)) {
-    vec1_new.append(item.value1);
-    vec2_new.append(item.value2);
+  for (auto &&[a, b] : zip_equal(vec1, vec2)) {
+    vec1_new.append(a);
+    vec2_new.append(b);
   }
 
   EXPECT_EQ(vec1_new.size(), 3);
@@ -103,27 +103,43 @@ TEST(itertools, EnumerateZipEqual2)
   {
     auto item = *current;
     EXPECT_EQ(item.index, 10);
-    EXPECT_EQ(item.value.value1, 6);
-    EXPECT_EQ(item.value.value2, 3);
+    EXPECT_EQ(std::get<0>(item.value), 6);
+    EXPECT_EQ(std::get<1>(item.value), 3);
   }
   ++current;
   EXPECT_NE(current, range.end());
   {
     auto item = *current;
     EXPECT_EQ(item.index, 11);
-    EXPECT_EQ(item.value.value1, 7);
-    EXPECT_EQ(item.value.value2, 4);
+    EXPECT_EQ(std::get<0>(item.value), 7);
+    EXPECT_EQ(std::get<1>(item.value), 4);
   }
   ++current;
   EXPECT_NE(current, range.end());
   {
     auto item = *current;
     EXPECT_EQ(item.index, 12);
-    EXPECT_EQ(item.value.value1, 8);
-    EXPECT_EQ(item.value.value2, 5);
+    EXPECT_EQ(std::get<0>(item.value), 8);
+    EXPECT_EQ(std::get<1>(item.value), 5);
   }
   ++current;
   EXPECT_FALSE(current != range.end());
+}
+
+TEST(itertools, ZipEqual4)
+{
+  Vector<int> vec1 = {4, 5, 6};
+  Vector<std::string> vec2 = {"hello", "world", "test"};
+  Vector<std::unique_ptr<int>> vec3;
+  vec3.append(std::make_unique<int>(10));
+  vec3.append(std::make_unique<int>(11));
+  vec3.append(std::make_unique<int>(12));
+  Vector<int> vec4 = {20, 21, 22};
+
+  for (auto item : zip_equal(vec1, vec2, vec3, vec4)) {
+    std::cout << std::get<0>(item) << ", " << std::get<1>(item) << ", " << *std::get<2>(item)
+              << ", " << std::get<3>(item) << "\n";
+  }
 }
 
 }  // namespace blender
