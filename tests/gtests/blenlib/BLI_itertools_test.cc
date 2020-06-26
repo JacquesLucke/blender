@@ -69,4 +69,61 @@ TEST(itertools, EnumerateMultipleTimes)
   EXPECT_EQ(vec[2], 18);
 }
 
+TEST(itertools, ZipEqual2)
+{
+  Vector<int> vec1 = {6, 10, 50};
+  Vector<std::string> vec2 = {"hello", "world", "test"};
+
+  Vector<int> vec1_new;
+  Vector<std::string> vec2_new;
+  for (auto item : zip_equal(vec1, vec2)) {
+    vec1_new.append(item.value1);
+    vec2_new.append(item.value2);
+  }
+
+  EXPECT_EQ(vec1_new.size(), 3);
+  EXPECT_EQ(vec2_new.size(), 3);
+  EXPECT_EQ(vec1_new[0], 6);
+  EXPECT_EQ(vec1_new[1], 10);
+  EXPECT_EQ(vec1_new[2], 50);
+  EXPECT_EQ(vec2_new[0], "hello");
+  EXPECT_EQ(vec2_new[1], "world");
+  EXPECT_EQ(vec2_new[2], "test");
+}
+
+TEST(itertools, EnumerateZipEqual2)
+{
+  Vector<int> vec1 = {6, 7, 8};
+  Vector<int> vec2 = {3, 4, 5};
+
+  auto range = enumerate(zip_equal(vec1, vec2), 10);
+
+  auto current = range.begin();
+  EXPECT_NE(current, range.end());
+  {
+    auto item = *current;
+    EXPECT_EQ(item.index, 10);
+    EXPECT_EQ(item.value.value1, 6);
+    EXPECT_EQ(item.value.value2, 3);
+  }
+  ++current;
+  EXPECT_NE(current, range.end());
+  {
+    auto item = *current;
+    EXPECT_EQ(item.index, 11);
+    EXPECT_EQ(item.value.value1, 7);
+    EXPECT_EQ(item.value.value2, 4);
+  }
+  ++current;
+  EXPECT_NE(current, range.end());
+  {
+    auto item = *current;
+    EXPECT_EQ(item.index, 12);
+    EXPECT_EQ(item.value.value1, 8);
+    EXPECT_EQ(item.value.value2, 5);
+  }
+  ++current;
+  EXPECT_FALSE(current != range.end());
+}
+
 }  // namespace blender
