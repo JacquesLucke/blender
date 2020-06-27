@@ -33,6 +33,7 @@
 #include "DEG_depsgraph_query.h"
 
 #include "DNA_layer_types.h"
+#include "DNA_material_types.h"
 #include "DNA_modifier_types.h"
 
 #include "wavefront_obj_exporter_mesh.hh"
@@ -220,6 +221,15 @@ void OBJMesh::calc_poly_normal(float r_poly_normal[3], uint poly_index)
 
   mul_mat3_m4_v3(_world_and_axes_transform, r_poly_normal);
   normalize_v3(r_poly_normal);
+}
+
+/**
+ * Set argument pointer to the name of an object's active material.
+ */
+void OBJMesh::get_material_name(const char **r_mat_name)
+{
+  Material *mat = BKE_object_material_get(_export_object_eval, _export_object_eval->actcol);
+  *r_mat_name = mat->id.name + 2;
 }
 
 /**

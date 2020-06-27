@@ -109,6 +109,7 @@ static int wm_obj_export_exec(bContext *C, wmOperator *op)
 
   export_params.export_uv = RNA_boolean_get(op->ptr, "export_uv");
   export_params.export_normals = RNA_boolean_get(op->ptr, "export_normals");
+  export_params.export_materials = RNA_boolean_get(op->ptr, "export_materials");
   export_params.export_triangulated_mesh = RNA_boolean_get(op->ptr, "export_triangulated_mesh");
   export_params.export_curves_as_nurbs = RNA_boolean_get(op->ptr, "export_curves_as_nurbs");
 
@@ -163,6 +164,9 @@ static void ui_obj_export_settings(uiLayout *layout, PointerRNA *imfptr)
 
   row = uiLayoutRow(box, false);
   uiItemR(row, imfptr, "export_normals", 0, NULL, ICON_NONE);
+
+  row = uiLayoutRow(box, false);
+  uiItemR(row, imfptr, "export_materials", 0, NULL, ICON_NONE);
 
   row = uiLayoutRow(box, false);
   uiItemR(row, imfptr, "export_triangulated_mesh", 0, NULL, ICON_NONE);
@@ -276,6 +280,12 @@ void WM_OT_obj_export(struct wmOperatorType *ot)
   RNA_def_boolean(ot->srna, "export_uv", true, "Export UVs", "Export UV coordinates");
   RNA_def_boolean(
       ot->srna, "export_normals", true, "Export normals", "Export per face per vertex normals");
+  RNA_def_boolean(
+      ot->srna,
+      "export_materials",
+      true,
+      "Export Materials",
+      "Export Materials and texture images' names collected from Principled BSDF and linked nodes of the object");
   RNA_def_boolean(
       ot->srna,
       "export_triangulated_mesh",

@@ -36,6 +36,7 @@
 
 #include "wavefront_obj_exporter.hh"
 #include "wavefront_obj_exporter_mesh.hh"
+#include "wavefront_obj_exporter_mtl.hh"
 #include "wavefront_obj_exporter_nurbs.hh"
 #include "wavefront_obj_file_handler.hh"
 
@@ -86,6 +87,11 @@ static void export_frame(bContext *C, const OBJExportParams *export_params, cons
     return;
   }
 
+  if (export_params->export_materials) {
+    /* Write MTL filename to the OBJ file. Also create an empty MTL file of the same name as the
+     * OBJ*/
+    frame_writer.write_mtllib(filepath);
+  }
   for (uint ob_iter = 0; ob_iter < exportable_meshes.size(); ob_iter++) {
     OBJMesh &mesh_to_export = exportable_meshes[ob_iter];
 
@@ -103,6 +109,12 @@ static void export_frame(bContext *C, const OBJExportParams *export_params, cons
       }
       if (export_params->export_uv) {
         frame_writer.write_uv_coords(mesh_to_export, uv_indices);
+      }
+      if (export_params->export_materials) {
+        /* Write material name just before face elements. */
+        frame_writer.write_usemtl(mesh_to_export);
+        MTLWriter mtl_writer(filepath);
+        mtl_writer.append_material(mesh_to_export);
       }
       frame_writer.write_poly_indices(mesh_to_export, uv_indices);
     }

@@ -23,12 +23,14 @@
 #define __WAVEFRONT_OBJ_EXPORTER_MESH_HH__
 
 #include "BKE_lib_id.h"
+#include "BKE_material.h"
 #include "BKE_mesh.h"
 
 #include "BLI_vector.hh"
 
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
+#include "DNA_object_types.h"
 
 #include "IO_wavefront_obj.h"
 
@@ -84,6 +86,15 @@ class OBJMesh {
   {
     return _export_mesh_eval->mpoly[i];
   }
+
+  /** Return active material of the object. */
+  Material *export_object_material(){
+    return BKE_object_material_get(_export_object_eval, _export_object_eval->actcol);
+  }
+  /**
+   * Set argument pointer to the name of an object's active material.
+   */
+  void get_material_name(const char **r_mat_name);
 
   void get_object_name(const char **object_name);
   /**

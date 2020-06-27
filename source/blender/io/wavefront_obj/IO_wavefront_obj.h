@@ -65,6 +65,7 @@ struct OBJExportParams {
   /** File Write Options */
   bool export_uv;
   bool export_normals;
+  bool export_materials;
   bool export_triangulated_mesh;
   bool export_curves_as_nurbs;
 };

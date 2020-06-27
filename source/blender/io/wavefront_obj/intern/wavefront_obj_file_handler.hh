@@ -58,6 +58,10 @@ class OBJWriter {
 
   /** Write object name as it appears in the outliner. */
   void write_object_name(OBJMesh &obj_mesh_data);
+  /** Write file name of Material Library in OBJ file.
+   * Also create an empty Material library file, or truncate the existing one.
+   */
+  void write_mtllib(const char *obj_filepath);
   /** Write vertex coordinates for all vertices as v x y z */
   void write_vertex_coords(OBJMesh &obj_mesh_data);
   /** Write UV vertex coordinates for all vertices as vt u v
@@ -66,6 +70,10 @@ class OBJWriter {
   void write_uv_coords(OBJMesh &obj_mesh_data, blender::Vector<blender::Vector<uint>> &uv_indices);
   /** Write face normals for all polygons as vn x y z */
   void write_poly_normals(OBJMesh &obj_mesh_data);
+  /** Write name of an object's active material in the OBJ file.
+   * \note It doesn't write to the material library, MTL file.
+   */
+  void write_usemtl(OBJMesh &obj_mesh_data);
   /** Define and write a face with at least vertex indices, and conditionally with UV vertex
    * indices and face normal indices. \note UV indices are stored while writing UV vertices.
    */

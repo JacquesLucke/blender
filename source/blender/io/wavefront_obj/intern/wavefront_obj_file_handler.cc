@@ -101,6 +101,26 @@ bool OBJWriter::init_writer()
   return true;
 }
 
+/**
+ * Write file name of Material Library in OBJ file.
+ * Also create an empty Material Library file, or truncate the existing one.
+ */
+void OBJWriter::write_mtllib(const char *obj_filepath)
+{
+  char mtl_filepath[PATH_MAX];
+  BLI_strncpy(mtl_filepath, obj_filepath, PATH_MAX);
+  BLI_path_extension_replace(mtl_filepath, PATH_MAX, ".mtl");
+
+  FILE *mtl_outfile = fopen(mtl_filepath, "w");
+  fclose(mtl_outfile);
+
+  /* Split MTL file path into parent directory and filename. */
+  char mtl_file_name[FILE_MAXFILE];
+  char mtl_dir_name[FILE_MAXDIR];
+  BLI_split_dirfile(mtl_filepath, mtl_dir_name, mtl_file_name, FILE_MAXDIR, FILE_MAXFILE);
+  fprintf(_outfile, "mtllib %s", mtl_file_name);
+}
+
 /** Write object name as it appears in the outliner. */
 void OBJWriter::write_object_name(OBJMesh &obj_mesh_data)
 {
@@ -143,6 +163,17 @@ void OBJWriter::write_poly_normals(OBJMesh &obj_mesh_data)
     obj_mesh_data.calc_poly_normal(poly_normal, i);
     fprintf(_outfile, "vn %f %f %f\n", poly_normal[0], poly_normal[1], poly_normal[2]);
   }
+}
+
+/**
+ * Write material name of an object in the OBJ file.
+ * \note It doesn't write to the material library.
+ */
+void OBJWriter::write_usemtl(OBJMesh &obj_mesh_data)
+{
+  const char *mat_name;
+  obj_mesh_data.get_material_name(&mat_name);
+  fprintf(_outfile, "usemtl %s\n", mat_name);
 }
 
 /** Define and write a face with at least vertex indices, and conditionally with UV vertex indices
