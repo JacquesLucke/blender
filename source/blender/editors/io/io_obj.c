@@ -280,12 +280,12 @@ void WM_OT_obj_export(struct wmOperatorType *ot)
   RNA_def_boolean(ot->srna, "export_uv", true, "Export UVs", "Export UV coordinates");
   RNA_def_boolean(
       ot->srna, "export_normals", true, "Export normals", "Export per face per vertex normals");
-  RNA_def_boolean(
-      ot->srna,
-      "export_materials",
-      true,
-      "Export Materials",
-      "Export Materials and texture images' names collected from Principled BSDF and linked nodes of the object");
+  RNA_def_boolean(ot->srna,
+                  "export_materials",
+                  true,
+                  "Export Materials",
+                  "Export Materials and texture images' names collected from Principled BSDF and "
+                  "linked nodes of the object");
   RNA_def_boolean(
       ot->srna,
       "export_triangulated_mesh",

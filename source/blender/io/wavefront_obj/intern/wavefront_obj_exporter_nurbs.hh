@@ -29,6 +29,7 @@
 
 #include "DNA_curve_types.h"
 
+namespace blender {
 namespace io {
 namespace obj {
 
@@ -58,4 +59,5 @@ class OBJNurbs {
 
 }  // namespace obj
 }  // namespace io
+}  // namespace blender
 #endif

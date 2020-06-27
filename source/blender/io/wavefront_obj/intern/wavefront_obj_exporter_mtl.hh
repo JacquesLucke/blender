@@ -31,6 +31,7 @@
 
 #include "wavefront_obj_exporter_mesh.hh"
 
+namespace blender {
 namespace io {
 namespace obj {
 
@@ -85,4 +86,5 @@ class MTLWriter {
 
 }  // namespace obj
 }  // namespace io
+}  // namespace blender
 #endif

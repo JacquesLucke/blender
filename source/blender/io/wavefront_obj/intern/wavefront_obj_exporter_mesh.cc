@@ -38,6 +38,7 @@
 
 #include "wavefront_obj_exporter_mesh.hh"
 
+namespace blender {
 namespace io {
 namespace obj {
 
@@ -262,3 +263,4 @@ void OBJMesh::calc_edge_vert_indices(uint r_vert_indices[2], uint edge_index)
 
 }  // namespace obj
 }  // namespace io
+}  // namespace blender

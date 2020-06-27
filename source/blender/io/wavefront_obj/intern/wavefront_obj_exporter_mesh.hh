@@ -34,6 +34,7 @@
 
 #include "IO_wavefront_obj.h"
 
+namespace blender {
 namespace io {
 namespace obj {
 /* -Y */
@@ -88,7 +89,8 @@ class OBJMesh {
   }
 
   /** Return active material of the object. */
-  Material *export_object_material(){
+  Material *export_object_material()
+  {
     return BKE_object_material_get(_export_object_eval, _export_object_eval->actcol);
   }
   /**
@@ -166,5 +168,6 @@ class OBJMesh {
 };
 }  // namespace obj
 }  // namespace io
+}  // namespace blender
 
 #endif /* __WAVEFRONT_OBJ_HH__ */

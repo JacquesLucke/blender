@@ -23,6 +23,7 @@
 
 #include "IO_wavefront_obj.h"
 
+namespace blender {
 namespace io {
 namespace obj {
 
@@ -38,5 +39,6 @@ void OBJ_import(bContext *C, const OBJImportParams *import_params);
 
 }  // namespace obj
 }  // namespace io
+}  // namespace blender
 
 #endif /* __WAVEFRONT_OBJ_HH__ */

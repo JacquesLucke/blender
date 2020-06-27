@@ -25,8 +25,8 @@
 #include "BKE_node.h"
 #include "BKE_node_tree_ref.hh"
 
-#include "BLI_math.h"
 #include "BLI_map.hh"
+#include "BLI_math.h"
 
 #include "DNA_material_types.h"
 #include "DNA_node_types.h"
@@ -34,6 +34,7 @@
 #include "wavefront_obj_exporter_mtl.hh"
 
 using namespace BKE;
+namespace blender {
 namespace io {
 namespace obj {
 
@@ -237,7 +238,8 @@ void MTLWriter::append_material(OBJMesh &mesh_to_export)
   blender::Vector<const OutputSocketRef *> linked_sockets;
   for (auto const &map_type : texture_map_types.keys()) {
     /* Find sockets linked to destination socket of interest in p-bsdf node. */
-    linked_sockets_to_dest_id(&linked_sockets, _bsdf_node, node_tree, texture_map_types.lookup(map_type));
+    linked_sockets_to_dest_id(
+        &linked_sockets, _bsdf_node, node_tree, texture_map_types.lookup(map_type));
     /* From the linked sockets, find Image Texture shader node. */
     tex_node = linked_node_of_type(linked_sockets, SH_NODE_TEX_IMAGE);
     tex_image_filepath = get_image_filepath(tex_node);
@@ -267,3 +269,4 @@ void MTLWriter::append_material(OBJMesh &mesh_to_export)
 
 }  // namespace obj
 }  // namespace io
+}  // namespace blender

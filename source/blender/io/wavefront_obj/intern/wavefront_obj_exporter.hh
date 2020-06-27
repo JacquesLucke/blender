@@ -28,6 +28,7 @@
 
 #include "IO_wavefront_obj.h"
 
+namespace blender {
 namespace io {
 namespace obj {
 /**
@@ -37,4 +38,5 @@ void exporter_main(bContext *C, const OBJExportParams *export_params);
 
 }  // namespace obj
 }  // namespace io
+}  // namespace blender
 #endif

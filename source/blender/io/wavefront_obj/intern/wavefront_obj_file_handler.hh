@@ -31,6 +31,7 @@
 #include "wavefront_obj_exporter_mesh.hh"
 #include "wavefront_obj_exporter_nurbs.hh"
 
+namespace blender {
 namespace io {
 namespace obj {
 
@@ -113,4 +114,5 @@ class OBJWriter {
 
 }  // namespace obj
 }  // namespace io
+}  // namespace blender
 #endif

@@ -40,6 +40,7 @@
 #include "wavefront_obj_exporter_nurbs.hh"
 #include "wavefront_obj_file_handler.hh"
 
+namespace blender {
 namespace io {
 namespace obj {
 
@@ -173,3 +174,4 @@ void exporter_main(bContext *C, const OBJExportParams *export_params)
 
 }  // namespace obj
 }  // namespace io
+}  // namespace blender

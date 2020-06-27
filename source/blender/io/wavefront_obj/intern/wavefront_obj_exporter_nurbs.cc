@@ -29,6 +29,7 @@
 
 #include "wavefront_obj_exporter_nurbs.hh"
 
+namespace blender {
 namespace io {
 namespace obj {
 
@@ -68,3 +69,4 @@ void OBJNurbs::get_curve_info(int *r_nurbs_degree, int *r_curv_num, Nurb *nurb)
 
 }  // namespace obj
 }  // namespace io
+}  // namespace blender

@@ -28,7 +28,7 @@
 #include "DNA_object_types.h"
 
 #include "wavefront_obj_file_handler.hh"
-
+namespace blender {
 namespace io {
 namespace obj {
 
@@ -297,3 +297,4 @@ void OBJWriter::update_index_offsets(OBJMesh &obj_mesh_data)
 }
 }  // namespace obj
 }  // namespace io
+}  // namespace blender

@@ -24,9 +24,11 @@
 #include "wavefront_obj_importer.hh"
 #include "wavefront_obj_file_handler.hh"
 
+namespace blender {
 namespace io {
 namespace obj {
 /* Currently not implemented. */
 
 }
 }  // namespace io
+}  // namespace blender
