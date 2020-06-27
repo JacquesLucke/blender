@@ -115,7 +115,7 @@ class AttributesInfo : NonCopyable, NonMovable {
 
   template<typename T> const T &default_of(uint index) const
   {
-    BLI_assert(*m_type_by_index[index] == CPPType::get<T>());
+    BLI_assert(m_type_by_index[index]->is<T>());
     return *(T *)m_defaults[index];
   }
 
@@ -200,7 +200,7 @@ class MutableAttributesRef {
 
   template<typename T> MutableSpan<T> get(uint index) const
   {
-    BLI_assert(m_info->type_of(index) == CPPType::get<T>());
+    BLI_assert(m_info->type_of(index).is<T>());
     return MutableSpan<T>((T *)m_buffers[index] + m_range.start(), m_range.size());
   }
 
