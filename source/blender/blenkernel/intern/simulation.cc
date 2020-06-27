@@ -34,6 +34,7 @@
 #include "BLI_span.hh"
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
+#include "BLI_vector.hh"
 
 #include "BKE_anim_data.h"
 #include "BKE_animsys.h"
@@ -54,9 +55,16 @@
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
 
+#include "FN_attributes_ref.hh"
+
 using blender::float3;
+using blender::IndexRange;
 using blender::MutableSpan;
 using blender::Span;
+using blender::Vector;
+using blender::fn::AttributesInfo;
+using blender::fn::AttributesInfoBuilder;
+using blender::fn::MutableAttributesRef;
 
 static void simulation_init_data(ID *id)
 {
@@ -168,13 +176,6 @@ void *BKE_simulation_add(Main *bmain, const char *name)
   return simulation;
 }
 
-static MutableSpan<float3> get_particle_positions(ParticleSimulationState *state)
-{
-  return MutableSpan<float3>(
-      (float3 *)CustomData_get_layer_named(&state->attributes, CD_LOCATION, "Position"),
-      state->tot_particles);
-}
-
 static void ensure_attributes_exist(ParticleSimulationState *state)
 {
   if (CustomData_get_layer_named(&state->attributes, CD_LOCATION, "Position") == nullptr) {
@@ -196,6 +197,39 @@ static void copy_particle_state_to_cow(ParticleSimulationState *state_orig,
   state_cow->current_frame = state_orig->current_frame;
   state_cow->tot_particles = state_orig->tot_particles;
 }
+
+class CustomDataAttributesRef {
+ private:
+  AttributesInfo m_info;
+  uint m_size;
+  Vector<void *, 16> m_buffers;
+
+ public:
+  CustomDataAttributesRef(CustomData &custom_data, uint size) : m_size(size)
+  {
+    AttributesInfoBuilder info_builder;
+    for (const CustomDataLayer &layer :
+         blender::ref_c_array(custom_data.layers, custom_data.totlayer)) {
+      switch (layer.type) {
+        case CD_LOCATION: {
+          info_builder.add<float3>(layer.name, {0, 0, 0});
+          break;
+        }
+        default:
+          BLI_assert(false);
+          break;
+      }
+      m_buffers.append(layer.data);
+    }
+    m_info.~AttributesInfo();
+    new (&m_info) AttributesInfo(info_builder);
+  }
+
+  operator MutableAttributesRef()
+  {
+    return MutableAttributesRef{m_info, m_buffers, m_size};
+  }
+};
 
 void BKE_simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulation *simulation)
 {
@@ -239,7 +273,11 @@ void BKE_simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulation *
     CustomData_realloc(&state_orig->attributes, state_orig->tot_particles);
     ensure_attributes_exist(state_orig);
 
-    MutableSpan<float3> positions = get_particle_positions(state_orig);
+    CustomDataAttributesRef custom_data_attributes{state_orig->attributes,
+                                                   (uint)state_orig->tot_particles};
+    MutableAttributesRef attributes_ref = custom_data_attributes;
+
+    MutableSpan<float3> positions = attributes_ref.get<float3>("Position");
     for (uint i : positions.index_range()) {
       positions[i] = {i / 10.0f, 0, 0};
     }
@@ -250,7 +288,12 @@ void BKE_simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulation *
   else if (current_frame == state_orig->current_frame + 1) {
     state_orig->current_frame = current_frame;
     ensure_attributes_exist(state_orig);
-    MutableSpan<float3> positions = get_particle_positions(state_orig);
+
+    CustomDataAttributesRef custom_data_attributes{state_orig->attributes,
+                                                   (uint)state_orig->tot_particles};
+    MutableAttributesRef attributes_ref = custom_data_attributes;
+
+    MutableSpan<float3> positions = attributes_ref.get<float3>("Position");
     for (float3 &position : positions) {
       position.z += 0.1f;
     }
