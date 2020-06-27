@@ -185,6 +185,8 @@ class DerivedNodeTree : blender::NonCopyable, blender::NonMovable {
   Span<const DInputSocket *> input_sockets() const;
   Span<const DOutputSocket *> output_sockets() const;
 
+  Span<const DGroupInput *> group_inputs() const;
+
   std::string to_dot() const;
 
  private:
@@ -446,6 +448,11 @@ inline Span<const DInputSocket *> DerivedNodeTree::input_sockets() const
 inline Span<const DOutputSocket *> DerivedNodeTree::output_sockets() const
 {
   return m_output_sockets.as_span();
+}
+
+inline Span<const DGroupInput *> DerivedNodeTree::group_inputs() const
+{
+  return m_group_inputs.as_span();
 }
 
 }  // namespace BKE
