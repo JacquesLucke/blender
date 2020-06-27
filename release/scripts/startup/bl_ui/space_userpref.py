@@ -45,7 +45,7 @@ class USERPREF_HT_header(Header):
             # Show '*' to let users know the preferences have been modified.
             layout.operator(
                 "wm.save_userpref",
-                text="Save Preferences{:s}".format(" *" if prefs.is_dirty else ""),
+                text="Save Preferences" + (" *" if prefs.is_dirty else ""),
             )
 
     def draw(self, context):
@@ -1903,8 +1903,10 @@ class USERPREF_PT_addons(AddOnPanel, Panel):
                                 "wm.url_open", text="Report a Bug", icon='URL',
                             ).url = info["tracker_url"]
                         elif not user_addon:
-                            addon_info = ("Name: {} {}\nAuthor: {}\n").format(
-                                info["name"], info["version"], info["author"])
+                            addon_info = (
+                                "Name: %s %s\n"
+                                "Author: %s\n"
+                            ) % (info["name"], str(info["version"]), info["author"])
                             props = sub.operator(
                                 "wm.url_open_preset", text="Report a Bug", icon='URL',
                             )
@@ -1987,7 +1989,7 @@ class StudioLightPanelMixin:
             for studio_light in lights:
                 self.draw_studio_light(flow, studio_light)
         else:
-            layout.label(text="No custom {} configured".format(self.bl_label))
+            layout.label(text="No custom %s configured" % self.bl_label)
 
     def draw_studio_light(self, layout, studio_light):
         box = layout.box()
@@ -2112,8 +2114,10 @@ class ExperimentalPanel:
             split = layout.split(factor=0.66)
             col = split.split()
             col.prop(experimental, **prop_keywords)
-            col = split.split()
-            col.operator("wm.url_open", text=task, icon='URL').url = self.url_prefix + task
+
+            if task:
+                col = split.split()
+                col.operator("wm.url_open", text=task, icon='URL').url = self.url_prefix + task
 
 """
 # Example panel, leave it here so we always have a template to follow even
@@ -2132,15 +2136,36 @@ class USERPREF_PT_experimental_virtual_reality(ExperimentalPanel, Panel):
 """
 
 
-class USERPREF_PT_experimental_system(ExperimentalPanel, Panel):
-    bl_label = "System"
+class USERPREF_PT_experimental_new_features(ExperimentalPanel, Panel):
+    bl_label = "New Features"
+
+    def draw(self, context):
+        self._draw_items(
+            context, (
+                ({"property": "use_new_particle_system"}, "T73324"),
+            ),
+        )
+
+
+class USERPREF_PT_experimental_prototypes(ExperimentalPanel, Panel):
+    bl_label = "Prototypes"
+
+    def draw(self, context):
+        self._draw_items(
+            context, (
+                ({"property": "use_new_hair_type"}, "T68981"),
+            ),
+        )
+
+
+class USERPREF_PT_experimental_debugging(ExperimentalPanel, Panel):
+    bl_label = "Debugging"
 
     def draw(self, context):
         self._draw_items(
             context, (
                 ({"property": "use_undo_legacy"}, "T60695"),
-                ({"property": "use_new_particle_system"}, "T73324"),
-                ({"property": "use_new_hair_type"}, "T68981"),
+                ({"property": "use_cycles_debug"}, None),
             ),
         )
 
@@ -2235,7 +2260,9 @@ classes = (
     # Popovers.
     USERPREF_PT_ndof_settings,
 
-    USERPREF_PT_experimental_system,
+    USERPREF_PT_experimental_new_features,
+    USERPREF_PT_experimental_prototypes,
+    USERPREF_PT_experimental_debugging,
 
     # Add dynamically generated editor theme panels last,
     # so they show up last in the theme section.

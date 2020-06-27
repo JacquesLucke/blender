@@ -21,7 +21,7 @@
  * \ingroup functions
  *
  * The CPPType class is the core of the runtime-type-system used by the functions system. An
- * instance of this class can represent any C++ type, that is default-constructable, destructable,
+ * instance of this class can represent any C++ type, that is default-constructible, destructible,
  * movable and copyable. Therefore it also works for all C types. This restrictions might need to
  * be removed in the future, but for now every required type has these properties.
  *
@@ -482,6 +482,11 @@ class CPPType {
   }
 
   template<typename T> static const CPPType &get();
+
+  template<typename T> bool is() const
+  {
+    return this == &CPPType::get<T>();
+  }
 
  private:
   uint m_size;

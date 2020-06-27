@@ -160,7 +160,7 @@ static void lib_id_clear_library_data_ex(Main *bmain, ID *id)
   BKE_lib_libblock_session_uuid_renew(id);
 
   /* We need to tag this IDs and all of its users, conceptually new local ID and original linked
-   * ones are two completely different data-blocks that were virtually remaped, even though in
+   * ones are two completely different data-blocks that were virtually remapped, even though in
    * reality they remain the same data. For undo this info is critical now. */
   DEG_id_tag_update_ex(bmain, id, ID_RECALC_COPY_ON_WRITE);
   ID *id_iter;
@@ -446,9 +446,9 @@ void BKE_lib_id_make_local_generic(Main *bmain, ID *id, const int flags)
 /**
  * Calls the appropriate make_local method for the block, unless test is set.
  *
- * \note Always set ID->newid pointer in case it gets duplicated...
+ * \note Always set #ID.newid pointer in case it gets duplicated.
  *
- * \param lib_local: Special flag used when making a whole library's content local,
+ * \param flags: Special flag used when making a whole library's content local,
  * it needs specific handling.
  *
  * \return true if the block can be made local.

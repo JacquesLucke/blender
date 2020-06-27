@@ -365,7 +365,7 @@ def smoke_step_$ID$():\n\
     mantaMsg('Advecting velocity')\n\
     advectSemiLagrange(flags=flags_s$ID$, vel=vel_s$ID$, grid=vel_s$ID$, order=2)\n\
     \n\
-    if doOpen_s$ID$ or using_outflow_s$ID$:\n\
+    if not domainClosed_s$ID$ or using_outflow_s$ID$:\n\
         resetOutflow(flags=flags_s$ID$, real=density_s$ID$)\n\
     \n\
     mantaMsg('Vorticity')\n\
@@ -406,10 +406,10 @@ def smoke_step_$ID$():\n\
     mantaMsg('Using preconditioner: ' + str(preconditioner_s$ID$))\n\
     if using_guiding_s$ID$:\n\
         mantaMsg('Guiding and pressure')\n\
-        PD_fluid_guiding(vel=vel_s$ID$, velT=velT_s$ID$, flags=flags_s$ID$, weight=weightGuide_s$ID$, blurRadius=beta_sg$ID$, pressure=pressure_s$ID$, tau=tau_sg$ID$, sigma=sigma_sg$ID$, theta=theta_sg$ID$, preconditioner=preconditioner_s$ID$, zeroPressureFixing=not doOpen_s$ID$)\n\
+        PD_fluid_guiding(vel=vel_s$ID$, velT=velT_s$ID$, flags=flags_s$ID$, weight=weightGuide_s$ID$, blurRadius=beta_sg$ID$, pressure=pressure_s$ID$, tau=tau_sg$ID$, sigma=sigma_sg$ID$, theta=theta_sg$ID$, preconditioner=preconditioner_s$ID$, zeroPressureFixing=domainClosed_s$ID$)\n\
     else:\n\
         mantaMsg('Pressure')\n\
-        solvePressure(flags=flags_s$ID$, vel=vel_s$ID$, pressure=pressure_s$ID$, preconditioner=preconditioner_s$ID$, zeroPressureFixing=not doOpen_s$ID$) # closed domains require pressure fixing\n\
+        solvePressure(flags=flags_s$ID$, vel=vel_s$ID$, pressure=pressure_s$ID$, preconditioner=preconditioner_s$ID$, zeroPressureFixing=domainClosed_s$ID$) # closed domains require pressure fixing\n\
 \n\
 def process_burn_$ID$():\n\
     mantaMsg('Process burn')\n\
@@ -551,7 +551,7 @@ const std::string smoke_load_noise =
     "\n\
 def smoke_load_noise_$ID$(path, framenr, file_format, resumable):\n\
     mantaMsg('Smoke load noise')\n\
-    dict = { **smoke_noise_dict_final_s$ID$, **smoke_data_dict_resume_s$ID$ } if resumable else { **smoke_noise_dict_final_s$ID$ } \n\
+    dict = { **smoke_noise_dict_final_s$ID$, **smoke_noise_dict_resume_s$ID$ } if resumable else { **smoke_noise_dict_final_s$ID$ } \n\
     fluid_file_import_s$ID$(dict=dict, path=path, framenr=framenr, file_format=file_format, file_name=file_noise_s$ID$)\n\
     \n\
     if resumable:\n\

@@ -416,16 +416,12 @@ static Collection *collection_duplicate_recursive(Main *bmain,
 }
 
 /**
- * Make a deep copy (aka duplicate) of the given collection and all of its children, recusrsively.
+ * Make a deep copy (aka duplicate) of the given collection and all of its children, recursively.
  *
  * \warning This functions will clear all \a bmain #ID.idnew pointers, unless \a
- * LIB_ID_DUPLICATE_IS_SUBPROCESS duplicate option is passed on, in which case caller is reponsible
- * to reconstruct collection dependencies informations (i.e. call #BKE_main_collection_sync).
- *
- * \param do_objects: If true, it will also make copies of objects.
- * \param do_obdata: If true, it will also make duplicates of objects,
- * using behavior defined in user settings (#U.dupflag).
- * This one does nothing if \a do_objects is not set.
+ * #LIB_ID_DUPLICATE_IS_SUBPROCESS duplicate option is passed on, in which case caller is
+ * responsible to reconstruct collection dependencies information's
+ * (i.e. call #BKE_main_collection_sync).
  */
 Collection *BKE_collection_duplicate(Main *bmain,
                                      Collection *parent,
@@ -444,8 +440,8 @@ Collection *BKE_collection_duplicate(Main *bmain,
       bmain, parent, collection, duplicate_flags, duplicate_options);
 
   if (!is_subprocess) {
-    /* `collection_duplicate_recursive` will also tag our 'root' collection, whic is not required
-     * unless its duplication is a subprocess of another one. */
+    /* `collection_duplicate_recursive` will also tag our 'root' collection, which is not required
+     * unless its duplication is a sub-process of another one. */
     collection_new->id.tag &= ~LIB_TAG_NEW;
 
     /* This code will follow into all ID links using an ID tagged with LIB_TAG_NEW.*/
@@ -924,7 +920,7 @@ bool BKE_collection_object_remove(Main *bmain,
 
 /**
  * Remove object from all collections of scene
- * \param scene_collection_skip: Don't remove base from this collection.
+ * \param collection_skip: Don't remove base from this collection.
  */
 static bool scene_collections_object_remove(
     Main *bmain, Scene *scene, Object *ob, const bool free_us, Collection *collection_skip)
