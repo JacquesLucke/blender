@@ -19,6 +19,9 @@
 
 /** \file
  * \ingroup fn
+ *
+ * An AttributesRef references multiple arrays of equal length. Each array has a corresponding name
+ * and index.
  */
 
 #include "FN_spans.hh"
@@ -70,6 +73,10 @@ class AttributesInfoBuilder : NonCopyable, NonMovable {
   }
 };
 
+/**
+ * Stores which attributes are in an AttributesRef. Every attribute has a unique index, a unique
+ * name, a type and a default value.
+ */
 class AttributesInfo : NonCopyable, NonMovable {
  private:
   LinearAllocator<> m_allocator;
@@ -159,6 +166,10 @@ class AttributesInfo : NonCopyable, NonMovable {
   }
 };
 
+/**
+ * References multiple arrays that match the description of an AttributesInfo instance. This class
+ * is supposed to be relatively cheap to copy. It does not own any of the arrays itself.
+ */
 class MutableAttributesRef {
  private:
   const AttributesInfo *m_info;
