@@ -1311,7 +1311,7 @@ static void paint_mesh_restore_co(Sculpt *sd, Object *ob)
 
   /**
    * Disable OpenMP when dynamic-topology is enabled. Otherwise, new entries might be inserted by
-   * #sculpt_undo_push_node() into the GHash used internally by #BM_log_original_vert_co()
+   * #SCULPT_undo_push_node() into the #GHash used internally by #BM_log_original_vert_co()
    * by a different thread. See T33787. */
   SculptThreadedTaskData data = {
       .sd = sd,
@@ -4713,7 +4713,7 @@ static void do_clay_strips_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int t
    * artifacts, this displaces the test cube space in relation to the plane in order to
    * deform more vertices that may be below it. */
   /* The 0.7 and 1.25 factors are arbitrary and don't have any relation between them, they were set
-   * by doing multiple tests using the defaul Clay Strips brush preset. */
+   * by doing multiple tests using the default "Clay Strips" brush preset. */
   float area_co_displaced[3];
   madd_v3_v3v3fl(area_co_displaced, area_co, area_no, -radius * 0.7f);
 
@@ -8121,6 +8121,9 @@ static int sculpt_sample_color_invoke(bContext *C,
   brush->rgb[1] = active_vertex_color[1];
   brush->rgb[2] = active_vertex_color[2];
   brush->alpha = active_vertex_color[3];
+
+  WM_event_add_notifier(C, NC_BRUSH | NA_EDITED, brush);
+
   return OPERATOR_FINISHED;
 }
 

@@ -755,7 +755,7 @@ void MANTA::initializeRNAMap(FluidModifierData *mmd)
   mRNAMap["USING_OUTFLOW"] = getBooleanString(mds->active_fields & FLUID_DOMAIN_ACTIVE_OUTFLOW);
   mRNAMap["USING_LOG_DISSOLVE"] = getBooleanString(mds->flags & FLUID_DOMAIN_USE_DISSOLVE_LOG);
   mRNAMap["USING_DISSOLVE"] = getBooleanString(mds->flags & FLUID_DOMAIN_USE_DISSOLVE);
-  mRNAMap["DO_OPEN"] = getBooleanString(mds->border_collisions == 0);
+  mRNAMap["DOMAIN_CLOSED"] = getBooleanString(borderCollisions.compare("") == 0);
   mRNAMap["CACHE_RESUMABLE"] = getBooleanString(mds->flags & FLUID_DOMAIN_USE_RESUMABLE_CACHE);
   mRNAMap["USING_ADAPTIVETIME"] = getBooleanString(mds->flags & FLUID_DOMAIN_USE_ADAPTIVE_TIME);
   mRNAMap["USING_SPEEDVECTORS"] = getBooleanString(mds->flags & FLUID_DOMAIN_USE_SPEED_VECTORS);
@@ -1280,7 +1280,7 @@ bool MANTA::readNoise(FluidModifierData *mmd, int framenr, bool resumable)
   FluidDomainSettings *mds = mmd->domain;
 
   string directory = getDirectory(mmd, FLUID_DOMAIN_DIR_NOISE);
-  string resumable_cache = (resumable) ? "False" : "True";
+  string resumable_cache = (!resumable) ? "False" : "True";
 
   /* Support older caches which had more granular file format control. */
   char format = (!strcmp(mds->cache_id, FLUID_CACHE_VERSION)) ? mds->cache_data_format :
