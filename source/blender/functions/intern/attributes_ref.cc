@@ -26,6 +26,24 @@ AttributesInfoBuilder::~AttributesInfoBuilder()
   }
 }
 
+void AttributesInfoBuilder::add(StringRef name, const CPPType &type, const void *default_value)
+{
+  if (m_names.add_as(name)) {
+    m_types.append(&type);
+
+    if (default_value == nullptr) {
+      default_value = type.default_value();
+    }
+    void *dst = m_allocator.allocate(type.size(), type.alignment());
+    type.copy_to_uninitialized(default_value, dst);
+    m_defaults.append(dst);
+  }
+  else {
+    /* The same name can be added more than once as long as the type is always the same. */
+    BLI_assert(m_types[m_names.index_of_as(name)] == &type);
+  }
+}
+
 AttributesInfo::AttributesInfo(const AttributesInfoBuilder &builder)
 {
   for (uint i : builder.m_types.index_range()) {

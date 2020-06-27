@@ -54,23 +54,7 @@ class AttributesInfoBuilder : NonCopyable, NonMovable {
     this->add(name, CPPType::get<T>(), (const void *)&default_value);
   }
 
-  void add(StringRef name, const CPPType &type, const void *default_value = nullptr)
-  {
-    if (m_names.add_as(name)) {
-      m_types.append(&type);
-
-      if (default_value == nullptr) {
-        default_value = type.default_value();
-      }
-      void *dst = m_allocator.allocate(type.size(), type.alignment());
-      type.copy_to_uninitialized(default_value, dst);
-      m_defaults.append(dst);
-    }
-    else {
-      /* The same name can be added more than once as long as the type is always the same. */
-      BLI_assert(m_types[m_names.index_of_as(name)] == &type);
-    }
-  }
+  void add(StringRef name, const CPPType &type, const void *default_value = nullptr);
 };
 
 /**
