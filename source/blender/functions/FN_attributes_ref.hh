@@ -226,8 +226,11 @@ class MutableAttributesRef {
     if (index == -1) {
       return {};
     }
-    else {
+    else if (m_info->type_of((uint)index).is<T>()) {
       return this->get<T>((uint)index);
+    }
+    else {
+      return {};
     }
   }
 

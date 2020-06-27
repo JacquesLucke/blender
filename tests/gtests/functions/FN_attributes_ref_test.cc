@@ -14,7 +14,9 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
+#include "BLI_float3.hh"
 #include "FN_attributes_ref.hh"
+#include "FN_cpp_types.hh"
 
 #include "testing/testing.h"
 
@@ -61,6 +63,51 @@ TEST(attributes_info, BuildWithGivenDefault)
   const void *default_value = info.default_of("A");
   EXPECT_EQ(*(const std::string *)default_value, "hello world");
   EXPECT_EQ(info.type_of("A"), CPPType::get<std::string>());
+}
+
+TEST(mutable_attributes_ref, ComplexTest)
+{
+  AttributesInfoBuilder info_builder;
+  info_builder.add<float3>("Position", {0, 0, 10});
+  info_builder.add<uint>("ID", 0);
+  info_builder.add<float>("Size", 0.5f);
+  info_builder.add<std::string>("Name", "<no name>");
+  AttributesInfo info{info_builder};
+
+  uint amount = 5;
+  Array<float3> positions(amount);
+  Array<uint> ids(amount, 0);
+  Array<float> sizes(amount);
+  Array<std::string> names(amount);
+
+  Array<void *> buffers = {positions.data(), ids.data(), sizes.data(), names.data()};
+  MutableAttributesRef attributes{info, buffers, IndexRange(1, 3)};
+  EXPECT_EQ(attributes.size(), 3);
+  EXPECT_EQ(attributes.info().size(), 4);
+  EXPECT_EQ(attributes.get("Position").buffer(), positions.data() + 1);
+  EXPECT_EQ(attributes.get("ID").buffer(), ids.data() + 1);
+  EXPECT_EQ(attributes.get("Size").buffer(), sizes.data() + 1);
+  EXPECT_EQ(attributes.get("Name").buffer(), names.data() + 1);
+
+  EXPECT_EQ(attributes.get("ID").size(), 3);
+  EXPECT_EQ(attributes.get<uint>("ID").size(), 3);
+
+  EXPECT_EQ(ids[2], 0);
+  MutableSpan<uint> ids_span = attributes.get<uint>("ID");
+  ids_span[1] = 42;
+  EXPECT_EQ(ids[2], 42);
+
+  EXPECT_FALSE(attributes.try_get<int>("not existant").has_value());
+  EXPECT_FALSE(attributes.try_get<int>("Position").has_value());
+  EXPECT_TRUE(attributes.try_get<float3>("Position").has_value());
+  EXPECT_FALSE(attributes.try_get("not existant", CPPType::get<int>()).has_value());
+  EXPECT_FALSE(attributes.try_get("Position", CPPType::get<int>()).has_value());
+  EXPECT_TRUE(attributes.try_get("Position", CPPType::get<float3>()).has_value());
+
+  MutableAttributesRef sliced = attributes.slice(IndexRange(1, 2));
+  EXPECT_EQ(sliced.size(), 2);
+  sliced.get<uint>("ID")[0] = 100;
+  EXPECT_EQ(ids[2], 100);
 }
 
 }  // namespace fn
