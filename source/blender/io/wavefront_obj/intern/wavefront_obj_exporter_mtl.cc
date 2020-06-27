@@ -235,7 +235,7 @@ void MTLWriter::append_material(OBJMesh &mesh_to_export)
   fprintf(_mtl_outfile, "illum %d\n", illum);
 
   /* Image Textures. */
-  Map<const char *, const char *> texture_map_types;
+  Map<const std::string, const std::string> texture_map_types;
   texture_map_types.add("map_Kd", "Base Color");
   texture_map_types.add("map_Ks", "Specular");
   texture_map_types.add("map_Ns", "Roughness");
@@ -255,11 +255,11 @@ void MTLWriter::append_material(OBJMesh &mesh_to_export)
    */
   NodeTreeRef node_tree(_export_mtl->nodetree);
   Vector<const OutputSocketRef *> linked_sockets;
-  for (auto const &map_type : texture_map_types.keys()) {
+
+  for (Map<const std::string, const std::string>::Item map_type_id : texture_map_types.items()) {
     /* Find sockets linked to destination socket of interest in p-bsdf node. */
-    linked_sockets_to_dest_id(
-        &linked_sockets, _bsdf_node, node_tree, texture_map_types.lookup(map_type));
-    /* From the linked sockets, find Image Texture shader node. */
+    linked_sockets_to_dest_id(&linked_sockets, _bsdf_node, node_tree, map_type_id.value.c_str());
+    /* Among the linked sockets, find Image Texture shader node. */
     tex_node = linked_node_of_type(linked_sockets, SH_NODE_TEX_IMAGE);
 
     /* Find "Mapping" node if connected to texture node. */
@@ -272,7 +272,7 @@ void MTLWriter::append_material(OBJMesh &mesh_to_export)
     if (tex_image_filepath) {
       fprintf(_mtl_outfile,
               "%s -o %.6f %.6f %.6f -s %.6f %.6f %.6f %s\n",
-              map_type,
+              map_type_id.key.c_str(),
               map_translation[0],
               map_translation[1],
               map_translation[2],
@@ -290,12 +290,12 @@ void MTLWriter::append_material(OBJMesh &mesh_to_export)
 
   /* Find sockets linked to destination "Normal" socket in p-bsdf node. */
   linked_sockets_to_dest_id(&linked_sockets, _bsdf_node, node_tree, "Normal");
-  /* From the linked sockets, find Normal Map shader node. */
+  /* Among the linked sockets, find Normal Map shader node. */
   const bNode *normal_map_node = linked_node_of_type(linked_sockets, SH_NODE_NORMAL_MAP);
 
   /* Find sockets linked to "Color" socket in normal map node. */
   linked_sockets_to_dest_id(&linked_sockets, normal_map_node, node_tree, "Color");
-  /* From the linked sockets, find Image Texture shader node. */
+  /* Among the linked sockets, find Image Texture shader node. */
   tex_node = linked_node_of_type(linked_sockets, SH_NODE_TEX_IMAGE);
 
   /* Find "Mapping" node if connected to the texture node. */
