@@ -112,6 +112,7 @@ void OBJWriter::write_mtllib(const char *obj_filepath)
   BLI_path_extension_replace(mtl_filepath, PATH_MAX, ".mtl");
 
   FILE *mtl_outfile = fopen(mtl_filepath, "w");
+  fprintf(mtl_outfile, "# Blender %s\nwww.blender.org\n", BKE_blender_version_string());
   fclose(mtl_outfile);
 
   /* Split MTL file path into parent directory and filename. */

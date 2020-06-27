@@ -66,10 +66,17 @@ void MTLWriter::float_property_from_node(float *r_property,
                                          const bNode *curr_node,
                                          const char *identifier)
 {
-  if (!_bsdf_node) {
+  if (!curr_node) {
     return;
   }
-  bNodeSocket *socket = (bNodeSocket *)nodeFindSocket(_bsdf_node, SOCK_IN, identifier);
+  bNodeSocket *socket = nullptr;
+  /* TODO ankitm replace it with nodeFindSocket when D8142 is committed. */
+  LISTBASE_FOREACH (bNodeSocket *, curr_socket, (ListBase *)&curr_node->inputs) {
+    if (STREQ(curr_socket->identifier, identifier)) {
+      socket = curr_socket;
+      break;
+    }
+  }
   if (socket) {
     bNodeSocketValueFloat *socket_def_value = (bNodeSocketValueFloat *)socket->default_value;
     *r_property = socket_def_value->value;
@@ -84,10 +91,17 @@ void MTLWriter::float3_property_from_node(float *r_property,
                                           const bNode *curr_node,
                                           const char *identifier)
 {
-  if (!_bsdf_node) {
+  if (!curr_node) {
     return;
   }
-  bNodeSocket *socket = (bNodeSocket *)nodeFindSocket(_bsdf_node, SOCK_IN, identifier);
+  bNodeSocket *socket = nullptr;
+  /* TODO ankitm replace it with nodeFindSocket when D8142 is committed. */
+  LISTBASE_FOREACH (bNodeSocket *, curr_socket, (ListBase *)&curr_node->inputs) {
+    if (STREQ(curr_socket->identifier, identifier)) {
+      socket = curr_socket;
+      break;
+    }
+  }
   if (socket) {
     bNodeSocketValueRGBA *socket_def_value = (bNodeSocketValueRGBA *)socket->default_value;
     copy_v3_v3(r_property, socket_def_value->value);
@@ -112,6 +126,7 @@ void MTLWriter::linked_sockets_to_dest_id(
   for (const InputSocketRef *curr_socket : dest_inputs) {
     if (STREQ(curr_socket->bsocket()->identifier, dest_socket_id)) {
       dest_socket = curr_socket;
+      break;
     }
   }
   if (dest_socket) {
@@ -220,7 +235,7 @@ void MTLWriter::append_material(OBJMesh &mesh_to_export)
   fprintf(_mtl_outfile, "d %.6f\n", dissolved);
   fprintf(_mtl_outfile, "illum %d\n", illum);
 
-  /* Image Textures */
+  /* Image Textures. */
   blender::Map<const char *, const char *> texture_map_types;
   texture_map_types.add("map_Kd", "Base Color");
   texture_map_types.add("map_Ks", "Specular");
@@ -231,8 +246,13 @@ void MTLWriter::append_material(OBJMesh &mesh_to_export)
 
   const char *tex_image_filepath = nullptr;
   const bNode *tex_node;
+  /* Texture transform options. We only support translation (origin offset, "-o") and scale ("-o").
+   */
+  float map_translation[3] = {0.0f, 0.0f, 0.0f};
+  float map_scale[3] = {1.0f, 1.0f, 1.0f};
+
   /* Need to create a NodeTreeRef for a faster way to find which two sockets are linked, as
-   * compared to looping over all links in the node tree to match with two sockets of out interest.
+   * compared to looping over all links in the node tree to match with two sockets of our interest.
    */
   NodeTreeRef node_tree(_export_mtl->nodetree);
   blender::Vector<const OutputSocketRef *> linked_sockets;
@@ -242,26 +262,63 @@ void MTLWriter::append_material(OBJMesh &mesh_to_export)
         &linked_sockets, _bsdf_node, node_tree, texture_map_types.lookup(map_type));
     /* From the linked sockets, find Image Texture shader node. */
     tex_node = linked_node_of_type(linked_sockets, SH_NODE_TEX_IMAGE);
+
+    /* Find "Mapping" node if connected to texture node. */
+    linked_sockets_to_dest_id(&linked_sockets, tex_node, node_tree, "Vector");
+    const bNode *mapping = linked_node_of_type(linked_sockets, SH_NODE_MAPPING);
+    float3_property_from_node(map_translation, mapping, "Location");
+    float3_property_from_node(map_scale, mapping, "Scale");
+
     tex_image_filepath = get_image_filepath(tex_node);
     if (tex_image_filepath) {
-      fprintf(_mtl_outfile, "%s %s\n", map_type, tex_image_filepath);
+      fprintf(_mtl_outfile,
+              "%s -o %.6f %.6f %.6f -s %.6f %.6f %.6f %s\n",
+              map_type,
+              map_translation[0],
+              map_translation[1],
+              map_translation[2],
+              map_scale[0],
+              map_scale[1],
+              map_scale[2],
+              tex_image_filepath);
     }
   }
+
+  /* Normal Map Texture has two extra tasks of:
+   * - finding a Normal Map node before finding a texture node.
+   * - finding "Strength" property of the node for `-bm` option.
+   */
 
   /* Find sockets linked to destination "Normal" socket in p-bsdf node. */
   linked_sockets_to_dest_id(&linked_sockets, _bsdf_node, node_tree, "Normal");
   /* From the linked sockets, find Normal Map shader node. */
   const bNode *normal_map_node = linked_node_of_type(linked_sockets, SH_NODE_NORMAL_MAP);
+
   /* Find sockets linked to "Color" socket in normal map node. */
   linked_sockets_to_dest_id(&linked_sockets, normal_map_node, node_tree, "Color");
   /* From the linked sockets, find Image Texture shader node. */
   tex_node = linked_node_of_type(linked_sockets, SH_NODE_TEX_IMAGE);
+
+  /* Find "Mapping" node if connected to the texture node. */
+  linked_sockets_to_dest_id(&linked_sockets, tex_node, node_tree, "Vector");
+  const bNode *mapping = linked_node_of_type(linked_sockets, SH_NODE_MAPPING);
+  float normal_map_strength = 1.0;
+  float3_property_from_node(map_translation, mapping, "Location");
+  float3_property_from_node(map_scale, mapping, "Scale");
+  float_property_from_node(&normal_map_strength, normal_map_node, "Strength");
+
   tex_image_filepath = get_image_filepath(tex_node);
   if (tex_image_filepath) {
-    fprintf(_mtl_outfile, "map_Bump %s", tex_image_filepath);
-    float normal_map_strength = 1.0;
-    float_property_from_node(&normal_map_strength, normal_map_node, "Strength");
-    fprintf(_mtl_outfile, "-bm %f\n", normal_map_strength);
+    fprintf(_mtl_outfile,
+            "map_Bump -o %.6f %.6f %.6f -s %.6f %.6f %.6f -bm %.6f %s\n",
+            map_translation[0],
+            map_translation[1],
+            map_translation[2],
+            map_scale[0],
+            map_scale[1],
+            map_scale[2],
+            normal_map_strength,
+            tex_image_filepath);
   }
 
   fclose(_mtl_outfile);
