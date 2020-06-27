@@ -143,8 +143,7 @@ void OBJMesh::calc_vertex_coords(float r_coords[3], uint point_index)
 /**
  * Calculate vertex indices of all vertices of a polygon.
  */
-void OBJMesh::calc_poly_vertex_indices(blender::Vector<uint> &r_poly_vertex_indices,
-                                       uint poly_index)
+void OBJMesh::calc_poly_vertex_indices(Vector<uint> &r_poly_vertex_indices, uint poly_index)
 {
   const MPoly &mpoly = _export_mesh_eval->mpoly[poly_index];
   const MLoop *mloop = &_export_mesh_eval->mloop[mpoly.loopstart];
@@ -157,8 +156,8 @@ void OBJMesh::calc_poly_vertex_indices(blender::Vector<uint> &r_poly_vertex_indi
 /**
  * Store UV vertex coordinates as well as their indices.
  */
-void OBJMesh::store_uv_coords_and_indices(blender::Vector<std::array<float, 2>> &r_uv_coords,
-                                          blender::Vector<blender::Vector<uint>> &r_uv_indices)
+void OBJMesh::store_uv_coords_and_indices(Vector<std::array<float, 2>> &r_uv_coords,
+                                          Vector<Vector<uint>> &r_uv_indices)
 {
   const MPoly *mpoly = _export_mesh_eval->mpoly;
   const MLoop *mloop = _export_mesh_eval->mloop;
@@ -236,7 +235,7 @@ void OBJMesh::get_material_name(const char **r_mat_name)
 /**
  * Calculate face normal indices of all polygons.
  */
-void OBJMesh::calc_poly_normal_indices(blender::Vector<uint> &r_normal_indices, uint poly_index)
+void OBJMesh::calc_poly_normal_indices(Vector<uint> &r_normal_indices, uint poly_index)
 {
   r_normal_indices.resize(_export_mesh_eval->mpoly[poly_index].totloop);
   for (uint i = 0; i < r_normal_indices.size(); i++) {

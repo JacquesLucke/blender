@@ -49,8 +49,8 @@ namespace obj {
  */
 static void export_frame(bContext *C, const OBJExportParams *export_params, const char *filepath)
 {
-  blender::Vector<OBJMesh> exportable_meshes;
-  blender::Vector<OBJNurbs> exportable_nurbs;
+  Vector<OBJMesh> exportable_meshes;
+  Vector<OBJNurbs> exportable_nurbs;
   ViewLayer *view_layer = CTX_data_view_layer(C);
   LISTBASE_FOREACH (Base *, base, &view_layer->object_bases) {
     Object *object_in_layer = base->object;
@@ -104,7 +104,7 @@ static void export_frame(bContext *C, const OBJExportParams *export_params, cons
       frame_writer.write_curve_edges(mesh_to_export);
     }
     else {
-      blender::Vector<blender::Vector<uint>> uv_indices;
+      Vector<Vector<uint>> uv_indices;
       if (export_params->export_normals) {
         frame_writer.write_poly_normals(mesh_to_export);
       }

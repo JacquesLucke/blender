@@ -111,11 +111,10 @@ void MTLWriter::float3_property_from_node(float *r_property,
 /**
  * Collect all the source sockets linked to the destination socket in a destination node.
  */
-void MTLWriter::linked_sockets_to_dest_id(
-    blender::Vector<const OutputSocketRef *> *r_linked_sockets,
-    const bNode *dest_node,
-    NodeTreeRef &node_tree,
-    const char *dest_socket_id)
+void MTLWriter::linked_sockets_to_dest_id(Vector<const OutputSocketRef *> *r_linked_sockets,
+                                          const bNode *dest_node,
+                                          NodeTreeRef &node_tree,
+                                          const char *dest_socket_id)
 {
   if (!dest_node) {
     return;
@@ -141,8 +140,8 @@ void MTLWriter::linked_sockets_to_dest_id(
 /**
  * From a list of sockets, get the parent node which is of the given node type.
  */
-const bNode *MTLWriter::linked_node_of_type(
-    const blender::Vector<const OutputSocketRef *> &sockets_list, uint sh_node_type)
+const bNode *MTLWriter::linked_node_of_type(const Vector<const OutputSocketRef *> &sockets_list,
+                                            uint sh_node_type)
 {
   for (const SocketRef *sock : sockets_list) {
     const bNode *curr_node = sock->bnode();
@@ -236,7 +235,7 @@ void MTLWriter::append_material(OBJMesh &mesh_to_export)
   fprintf(_mtl_outfile, "illum %d\n", illum);
 
   /* Image Textures. */
-  blender::Map<const char *, const char *> texture_map_types;
+  Map<const char *, const char *> texture_map_types;
   texture_map_types.add("map_Kd", "Base Color");
   texture_map_types.add("map_Ks", "Specular");
   texture_map_types.add("map_Ns", "Roughness");
@@ -255,7 +254,7 @@ void MTLWriter::append_material(OBJMesh &mesh_to_export)
    * compared to looping over all links in the node tree to match with two sockets of our interest.
    */
   NodeTreeRef node_tree(_export_mtl->nodetree);
-  blender::Vector<const OutputSocketRef *> linked_sockets;
+  Vector<const OutputSocketRef *> linked_sockets;
   for (auto const &map_type : texture_map_types.keys()) {
     /* Find sockets linked to destination socket of interest in p-bsdf node. */
     linked_sockets_to_dest_id(

@@ -67,7 +67,7 @@ class MTLWriter {
   /**
    * Collect all the source sockets linked to the destination socket in a destination node.
    */
-  void linked_sockets_to_dest_id(blender::Vector<const BKE::OutputSocketRef *> *r_linked_sockets,
+  void linked_sockets_to_dest_id(Vector<const BKE::OutputSocketRef *> *r_linked_sockets,
                                  const bNode *dest_node,
                                  BKE::NodeTreeRef &node_tree,
                                  const char *dest_socket_id);
@@ -75,8 +75,8 @@ class MTLWriter {
   /**
    * From a list of sockets, get the parent node which is of the given node type.
    */
-  const bNode *linked_node_of_type(
-      const blender::Vector<const BKE::OutputSocketRef *> &sockets_list, uint sh_node_type);
+  const bNode *linked_node_of_type(const Vector<const BKE::OutputSocketRef *> &sockets_list,
+                                   uint sh_node_type);
   /**
    * From a texture image shader node, get the image's filepath.
    * Filepath is the exact string the node contains, relative or absolute.
