@@ -19,6 +19,9 @@
 
 #include "RNA_enum_types.h"
 
+#include "FN_multi_function_builder.hh"
+#include "FN_multi_function_generation.hh"
+
 #include "node_function_util.h"
 
 static bNodeSocketTemplate fn_node_boolean_math_in[] = {
@@ -50,6 +53,30 @@ static void node_boolean_math_label(bNodeTree *UNUSED(ntree), bNode *node, char 
   BLI_strncpy(label, IFACE_(name), maxlen);
 }
 
+static void node_boolean_build_mf_network(blender::fn::NodeMFNetworkBuilder &builder)
+{
+  static blender::fn::CustomFunction_SI_SI_SO<bool, bool, bool> and_fn{
+      "And", [](bool a, bool b) { return a && b; }};
+  static blender::fn::CustomFunction_SI_SI_SO<bool, bool, bool> or_fn{
+      "Or", [](bool a, bool b) { return a || b; }};
+  static blender::fn::CustomFunction_SI_SO<bool, bool> not_fn{"Not", [](bool a) { return !a; }};
+
+  switch (builder.bnode().custom1) {
+    case NODE_BOOLEAN_MATH_AND: {
+      builder.set_matching_fn(and_fn);
+      break;
+    }
+    case NODE_BOOLEAN_MATH_OR: {
+      builder.set_matching_fn(or_fn);
+      break;
+    }
+    case NODE_BOOLEAN_MATH_NOT: {
+      builder.set_matching_fn(not_fn);
+      break;
+    }
+  }
+}
+
 void register_node_type_fn_boolean_math()
 {
   static bNodeType ntype;
@@ -58,5 +85,6 @@ void register_node_type_fn_boolean_math()
   node_type_socket_templates(&ntype, fn_node_boolean_math_in, fn_node_boolean_math_out);
   node_type_label(&ntype, node_boolean_math_label);
   node_type_update(&ntype, node_boolean_math_update);
+  ntype.build_mf_network = (void *)node_boolean_build_mf_network;
   nodeRegisterType(&ntype);
 }

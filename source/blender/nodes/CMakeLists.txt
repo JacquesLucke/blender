@@ -30,6 +30,7 @@ set(INC
   ../blenlib
   ../blentranslation
   ../depsgraph
+  ../functions
   ../gpu
   ../imbuf
   ../makesdna
@@ -296,6 +297,7 @@ set(SRC
 )
 
 set(LIB
+  bf_functions
 )
 
 if(WITH_PYTHON)

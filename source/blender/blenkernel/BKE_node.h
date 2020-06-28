@@ -267,6 +267,8 @@ typedef struct bNodeType {
   /* gpu */
   NodeGPUExecFunction gpufunc;
 
+  const void *build_mf_network;
+
   /* RNA integration */
   ExtensionRNA rna_ext;
 } bNodeType;

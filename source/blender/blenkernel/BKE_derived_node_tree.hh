@@ -66,6 +66,8 @@ class DSocket : blender::NonCopyable, blender::NonMovable {
   PointerRNA *rna() const;
   StringRefNull idname() const;
   StringRefNull name() const;
+
+  const SocketRef &socket_ref() const;
 };
 
 class DInputSocket : public DSocket {
@@ -278,6 +280,11 @@ inline StringRefNull DSocket::idname() const
 inline StringRefNull DSocket::name() const
 {
   return m_socket_ref->name();
+}
+
+inline const SocketRef &DSocket::socket_ref() const
+{
+  return *m_socket_ref;
 }
 
 /* --------------------------------------------------------------------

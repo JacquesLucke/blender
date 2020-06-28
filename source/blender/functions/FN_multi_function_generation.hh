@@ -24,6 +24,12 @@
 namespace blender {
 namespace fn {
 
+inline bool is_data_socket(const bNodeSocket *UNUSED(bsocket))
+{
+  /* TODO */
+  return true;
+}
+
 class MFSocketByDSocketMap {
  private:
   Array<Vector<MFSocket *, 1>> m_sockets_by_dsocket_id;
@@ -34,6 +40,12 @@ class MFSocketByDSocketMap {
       : m_sockets_by_dsocket_id(tree.sockets().size()),
         m_socket_by_group_input_id(tree.group_inputs().size(), nullptr)
   {
+  }
+
+  void add(const BKE::DSocket &dsocket, MFSocket &socket)
+  {
+    BLI_assert(dsocket.is_input() == socket.is_input());
+    m_sockets_by_dsocket_id[dsocket.id()].append(&socket);
   }
 
   void add(const BKE::DInputSocket &dsocket, MFInputSocket &socket)
@@ -68,6 +80,29 @@ class MFSocketByDSocketMap {
     m_socket_by_group_input_id[group_input.id()] = &socket;
   }
 
+  void add_try_match(const BKE::DNode &dnode, MFNode &node)
+  {
+    this->add_try_match(dnode.inputs(), node.inputs());
+    this->add_try_match(dnode.outputs(), node.outputs());
+  }
+
+  void add_try_match(Span<const BKE::DSocket *> dsockets, Span<MFSocket *> sockets)
+  {
+    uint used_sockets = 0;
+    for (const BKE::DSocket *dsocket : dsockets) {
+      bNodeSocket *bsocket = dsocket->socket_ref().bsocket();
+      if (bsocket->flag & SOCK_UNAVAIL) {
+        continue;
+      }
+      if (!is_data_socket(bsocket)) {
+        continue;
+      }
+      MFSocket *socket = sockets[used_sockets];
+      this->add(*dsocket, *socket);
+      used_sockets++;
+    }
+  }
+
   MFOutputSocket &lookup(const BKE::DGroupInput &group_input)
   {
     MFOutputSocket *socket = m_socket_by_group_input_id[group_input.id()];
@@ -97,10 +132,18 @@ class NodeMFNetworkBuilder {
  private:
   ResourceCollector &m_resources;
   MFNetwork &m_network;
-  Map<const BKE::DSocket *, MFSocket *> &m_dummy_socket_map;
+  MFSocketByDSocketMap &m_socket_map;
   const BKE::DNode &m_node;
 
  public:
+  NodeMFNetworkBuilder(ResourceCollector &resources,
+                       MFNetwork &network,
+                       MFSocketByDSocketMap &socket_map,
+                       const BKE::DNode &node)
+      : m_resources(resources), m_network(network), m_socket_map(socket_map), m_node(node)
+  {
+  }
+
   void add_link(MFOutputSocket &from, MFInputSocket &to)
   {
     m_network.add_link(from, to);
@@ -109,6 +152,26 @@ class NodeMFNetworkBuilder {
   MFFunctionNode &add_function(const MultiFunction &function)
   {
     return m_network.add_function(function);
+  }
+
+  template<typename T, typename... Args> T &construct_fn(Args &&... args)
+  {
+    BLI_STATIC_ASSERT((std::is_base_of_v<MultiFunction, T>), "");
+    void *buffer = m_resources.allocate(sizeof(T), alignof(T));
+    T *fn = new (buffer) T(std::forward<Args>(args)...);
+    m_resources.add(destruct_ptr<T>(fn), fn->name().data());
+    return *fn;
+  }
+
+  void set_matching_fn(const MultiFunction &function)
+  {
+    MFFunctionNode &node = this->add_function(function);
+    m_socket_map.add_try_match(m_node, node);
+  }
+
+  bNode &bnode()
+  {
+    return *m_node.node_ref().bnode();
   }
 };
 
