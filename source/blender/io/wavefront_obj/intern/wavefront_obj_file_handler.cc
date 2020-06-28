@@ -33,9 +33,9 @@ namespace io {
 namespace obj {
 
 /** Write one line of polygon indices as f v1/vt1/vn1 v2/vt2/vn2 .... */
-void OBJWriter::write_vert_uv_normal_indices(Vector<uint> &vert_indices,
-                                             Vector<uint> &uv_indices,
-                                             Vector<uint> &normal_indices,
+void OBJWriter::write_vert_uv_normal_indices(Span<uint> vert_indices,
+                                             Span<uint> uv_indices,
+                                             Span<uint> normal_indices,
                                              const MPoly &poly_to_write)
 {
   fprintf(_outfile, "f ");
@@ -50,8 +50,8 @@ void OBJWriter::write_vert_uv_normal_indices(Vector<uint> &vert_indices,
 }
 
 /** Write one line of polygon indices as f v1//vn1 v2//vn2 .... */
-void OBJWriter::write_vert_normal_indices(Vector<uint> &vert_indices,
-                                          Vector<uint> &normal_indices,
+void OBJWriter::write_vert_normal_indices(Span<uint> vert_indices,
+                                          Span<uint> normal_indices,
                                           const MPoly &poly_to_write)
 {
   fprintf(_outfile, "f ");
@@ -65,8 +65,8 @@ void OBJWriter::write_vert_normal_indices(Vector<uint> &vert_indices,
 }
 
 /** Write one line of polygon indices as f v1/vt1 v2/vt2 .... */
-void OBJWriter::write_vert_uv_indices(Vector<uint> &vert_indices,
-                                      Vector<uint> &uv_indices,
+void OBJWriter::write_vert_uv_indices(Span<uint> vert_indices,
+                                      Span<uint> uv_indices,
                                       const MPoly &poly_to_write)
 {
   fprintf(_outfile, "f ");
@@ -80,7 +80,7 @@ void OBJWriter::write_vert_uv_indices(Vector<uint> &vert_indices,
 }
 
 /** Write one line of polygon indices as f v1 v2 .... */
-void OBJWriter::write_vert_indices(Vector<uint> &vert_indices, const MPoly &poly_to_write)
+void OBJWriter::write_vert_indices(Span<uint> vert_indices, const MPoly &poly_to_write)
 {
   fprintf(_outfile, "f ");
   for (int j = 0; j < poly_to_write.totloop; j++) {
@@ -180,7 +180,7 @@ void OBJWriter::write_usemtl(OBJMesh &obj_mesh_data)
  * and face normal indices.
  * \note UV indices are stored while writing UV vertices.
  */
-void OBJWriter::write_poly_indices(OBJMesh &obj_mesh_data, Vector<Vector<uint>> &uv_indices)
+void OBJWriter::write_poly_indices(OBJMesh &obj_mesh_data, Span<Vector<uint>> uv_indices)
 {
   Vector<uint> vertex_indices;
   Vector<uint> normal_indices;

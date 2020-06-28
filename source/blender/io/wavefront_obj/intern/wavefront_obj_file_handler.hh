@@ -78,7 +78,7 @@ class OBJWriter {
   /** Define and write a face with at least vertex indices, and conditionally with UV vertex
    * indices and face normal indices. \note UV indices are stored while writing UV vertices.
    */
-  void write_poly_indices(OBJMesh &obj_mesh_data, Vector<Vector<uint>> &uv_indices);
+  void write_poly_indices(OBJMesh &obj_mesh_data, Span<Vector<uint>> uv_indices);
 
   /** Define and write an edge of a curve converted to mesh or a primitive circle as l v1 v2 */
   void write_curve_edges(OBJMesh &obj_mesh_data);
@@ -95,19 +95,19 @@ class OBJWriter {
   uint _index_offset[3] = {0, 0, 0};
 
   /** Write one line of polygon indices as f v1 v2 .... */
-  void write_vert_indices(Vector<uint> &vert_indices, const MPoly &poly_to_write);
+  void write_vert_indices(Span<uint> vert_indices, const MPoly &poly_to_write);
   /** Write one line of polygon indices as f v1//vn1 v2//vn2 .... */
-  void write_vert_normal_indices(Vector<uint> &vert_indices,
-                                 Vector<uint> &normal_indices,
+  void write_vert_normal_indices(Span<uint> vert_indices,
+                                 Span<uint> normal_indices,
                                  const MPoly &poly_to_write);
   /** Write one line of polygon indices as f v1/vt1 v2/vt2 .... */
-  void write_vert_uv_indices(Vector<uint> &vert_indices,
-                             Vector<uint> &uv_indices,
+  void write_vert_uv_indices(Span<uint> vert_indices,
+                             Span<uint> uv_indices,
                              const MPoly &poly_to_write);
   /** Write one line of polygon indices as f v1/vt1/vn1 v2/vt2/vn2 .... */
-  void write_vert_uv_normal_indices(Vector<uint> &vert_indices,
-                                    Vector<uint> &uv_indices,
-                                    Vector<uint> &normal_indices,
+  void write_vert_uv_normal_indices(Span<uint> vert_indices,
+                                    Span<uint> uv_indices,
+                                    Span<uint> normal_indices,
                                     const MPoly &poly_to_write);
 };
 
