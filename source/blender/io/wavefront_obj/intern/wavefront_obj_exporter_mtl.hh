@@ -53,7 +53,7 @@ class MTLWriter {
 
   /** First bsdf node encountered in the object's nodes. */
   bNode *_bsdf_node;
-  void init_bsdf_node();
+  void init_bsdf_node(const char *object_name);
 
   /** Copy the float property from the bNode to given buffer. */
   void float_property_from_node(float *r_property, const bNode *curr_node, const char *identifier);

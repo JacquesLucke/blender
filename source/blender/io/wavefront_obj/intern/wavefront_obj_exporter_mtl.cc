@@ -41,10 +41,11 @@ namespace obj {
 /**
  * Find and initialiase the Principled-BSDF from the object's material.
  */
-void MTLWriter::init_bsdf_node()
+void MTLWriter::init_bsdf_node(const char *object_name)
 {
   if (_export_mtl->use_nodes == false) {
-    fprintf(stderr, "No Principled-BSDF node found in the material Node tree.\n");
+    fprintf(
+        stderr, "No Principled-BSDF node found in the material Node tree of: %s.\n", object_name);
     _bsdf_node = nullptr;
     return;
   }
@@ -55,7 +56,8 @@ void MTLWriter::init_bsdf_node()
       return;
     }
   }
-  fprintf(stderr, "No Principled-BSDF node found in the material Node tree.\n");
+  fprintf(
+      stderr, "No Principled-BSDF node found in the material Node tree of: %s.\n", object_name);
   _bsdf_node = nullptr;
 }
 
@@ -174,14 +176,16 @@ void MTLWriter::append_material(OBJMesh &mesh_to_export)
     return;
   }
 
+  const char *object_name;
+  mesh_to_export.get_object_name(&object_name);
   _export_mtl = mesh_to_export.export_object_material();
   if (!_export_mtl) {
-    fprintf(stderr, "No material active for the object.\n");
+    fprintf(stderr, "No active material for the object: %s.\n", object_name);
     return;
   }
   fprintf(_mtl_outfile, "\nnewmtl %s\n", _export_mtl->id.name + 2);
 
-  init_bsdf_node();
+  init_bsdf_node(object_name);
 
   /* Empirical, and copied from original python exporter. */
   float spec_exponent = (1.0 - _export_mtl->roughness) * 30;
