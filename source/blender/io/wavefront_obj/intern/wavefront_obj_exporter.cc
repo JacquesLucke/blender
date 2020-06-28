@@ -54,6 +54,9 @@ static void export_frame(bContext *C, const OBJExportParams *export_params, cons
   ViewLayer *view_layer = CTX_data_view_layer(C);
   LISTBASE_FOREACH (Base *, base, &view_layer->object_bases) {
     Object *object_in_layer = base->object;
+    if (export_params->export_selected_objects && !(object_in_layer->base_flag & BASE_SELECTED)) {
+      continue;
+    }
     switch (object_in_layer->type) {
       case OB_SURF:
       case OB_MESH: {

@@ -107,6 +107,7 @@ static int wm_obj_export_exec(bContext *C, wmOperator *op)
   export_params.up_axis = RNA_enum_get(op->ptr, "up_axis");
   export_params.scaling_factor = RNA_float_get(op->ptr, "scaling_factor");
 
+  export_params.export_selected_objects = RNA_boolean_get(op->ptr, "export_selected_objects");
   export_params.export_uv = RNA_boolean_get(op->ptr, "export_uv");
   export_params.export_normals = RNA_boolean_get(op->ptr, "export_normals");
   export_params.export_materials = RNA_boolean_get(op->ptr, "export_materials");
@@ -158,6 +159,9 @@ static void ui_obj_export_settings(uiLayout *layout, PointerRNA *imfptr)
   box = uiLayoutBox(layout);
   row = uiLayoutRow(box, false);
   uiItemL(row, IFACE_("File Write Options"), ICON_NONE);
+
+  row = uiLayoutRow(box, false);
+  uiItemR(row, imfptr, "export_selected_objects", 0, NULL, ICON_NONE);
 
   row = uiLayoutRow(box, false);
   uiItemR(row, imfptr, "export_uv", 0, NULL, ICON_NONE);
@@ -237,6 +241,7 @@ void WM_OT_obj_export(struct wmOperatorType *ot)
                                  FILE_DEFAULTDISPLAY,
                                  FILE_SORT_ALPHA);
 
+  /* Animation options. */
   RNA_def_boolean(ot->srna,
                   "export_animation",
                   false,
@@ -261,6 +266,7 @@ void WM_OT_obj_export(struct wmOperatorType *ot)
               "The last frame to be exported",
               0,
               250);
+  /* Object transform options. */
   RNA_def_enum(ot->srna,
                "forward_axis",
                io_obj_transform_axis_forward,
@@ -277,6 +283,13 @@ void WM_OT_obj_export(struct wmOperatorType *ot)
                 "Scaling Factor: both position and object size are affected",
                 0.01,
                 1000.000f);
+  /* File Writer options. */
+  RNA_def_boolean(ot->srna,
+                  "export_selected_objects",
+                  false,
+                  "Export selected objects",
+                  "If checked, export selected objects only. If unchecked, export all the "
+                  "objects in the scene");
   RNA_def_boolean(ot->srna, "export_uv", true, "Export UVs", "Export UV coordinates");
   RNA_def_boolean(
       ot->srna, "export_normals", true, "Export normals", "Export per face per vertex normals");

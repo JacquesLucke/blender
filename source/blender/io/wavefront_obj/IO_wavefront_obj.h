@@ -63,6 +63,7 @@ struct OBJExportParams {
   float scaling_factor;
 
   /** File Write Options */
+  bool export_selected_objects;
   bool export_uv;
   bool export_normals;
   bool export_materials;
