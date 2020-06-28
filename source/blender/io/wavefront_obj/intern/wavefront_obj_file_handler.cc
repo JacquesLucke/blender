@@ -97,7 +97,7 @@ bool OBJWriter::init_writer()
     return false;
   }
   /** Write Blender version and website as a comment in the file. */
-  fprintf(_outfile, "# Blender %s\nwww.blender.org\n", BKE_blender_version_string());
+  fprintf(_outfile, "# Blender %s\n# www.blender.org\n", BKE_blender_version_string());
   return true;
 }
 
@@ -112,14 +112,14 @@ void OBJWriter::write_mtllib(const char *obj_filepath)
   BLI_path_extension_replace(mtl_filepath, PATH_MAX, ".mtl");
 
   FILE *mtl_outfile = fopen(mtl_filepath, "w");
-  fprintf(mtl_outfile, "# Blender %s\nwww.blender.org\n", BKE_blender_version_string());
+  fprintf(mtl_outfile, "# Blender %s\n# www.blender.org\n", BKE_blender_version_string());
   fclose(mtl_outfile);
 
   /* Split MTL file path into parent directory and filename. */
   char mtl_file_name[FILE_MAXFILE];
   char mtl_dir_name[FILE_MAXDIR];
   BLI_split_dirfile(mtl_filepath, mtl_dir_name, mtl_file_name, FILE_MAXDIR, FILE_MAXFILE);
-  fprintf(_outfile, "mtllib %s", mtl_file_name);
+  fprintf(_outfile, "mtllib %s\n", mtl_file_name);
 }
 
 /** Write object name as it appears in the outliner. */
