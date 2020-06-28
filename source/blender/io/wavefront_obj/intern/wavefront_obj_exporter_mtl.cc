@@ -39,7 +39,7 @@ namespace io {
 namespace obj {
 
 /**
- * Find and initialiase the Principled-BSDF from the object's material.
+ * Find and initialise the Principled-BSDF from the object's material.
  */
 void MTLWriter::init_bsdf_node(const char *object_name)
 {
@@ -71,14 +71,7 @@ void MTLWriter::float_property_from_node(float *r_property,
   if (!curr_node) {
     return;
   }
-  bNodeSocket *socket = nullptr;
-  /* TODO ankitm replace it with nodeFindSocket when D8142 is committed. */
-  LISTBASE_FOREACH (bNodeSocket *, curr_socket, (ListBase *)&curr_node->inputs) {
-    if (STREQ(curr_socket->identifier, identifier)) {
-      socket = curr_socket;
-      break;
-    }
-  }
+  bNodeSocket *socket = nodeFindSocket(curr_node, SOCK_IN, identifier);
   if (socket) {
     bNodeSocketValueFloat *socket_def_value = (bNodeSocketValueFloat *)socket->default_value;
     *r_property = socket_def_value->value;
@@ -96,14 +89,7 @@ void MTLWriter::float3_property_from_node(float *r_property,
   if (!curr_node) {
     return;
   }
-  bNodeSocket *socket = nullptr;
-  /* TODO ankitm replace it with nodeFindSocket when D8142 is committed. */
-  LISTBASE_FOREACH (bNodeSocket *, curr_socket, (ListBase *)&curr_node->inputs) {
-    if (STREQ(curr_socket->identifier, identifier)) {
-      socket = curr_socket;
-      break;
-    }
-  }
+  bNodeSocket *socket = nodeFindSocket(curr_node, SOCK_IN, identifier);
   if (socket) {
     bNodeSocketValueRGBA *socket_def_value = (bNodeSocketValueRGBA *)socket->default_value;
     copy_v3_v3(r_property, socket_def_value->value);
