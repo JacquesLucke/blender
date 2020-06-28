@@ -62,37 +62,34 @@ void MTLWriter::init_bsdf_node(const char *object_name)
 }
 
 /**
- * Copy the float property from the bNode to given buffer.
+ * Copy the property of given type from the bNode to given buffer.
  */
-void MTLWriter::float_property_from_node(float *r_property,
-                                         const bNode *curr_node,
-                                         const char *identifier)
+void MTLWriter::copy_property_from_node(float *r_property,
+                                        eNodeSocketDatatype property_type,
+                                        const bNode *curr_node,
+                                        const char *identifier)
 {
   if (!curr_node) {
     return;
   }
   bNodeSocket *socket = nodeFindSocket(curr_node, SOCK_IN, identifier);
   if (socket) {
-    bNodeSocketValueFloat *socket_def_value = (bNodeSocketValueFloat *)socket->default_value;
-    *r_property = socket_def_value->value;
-  }
-}
-
-/**
- * Copy the float3 property from the bNode to given buffer.
- * Mostly used for color, without alpha.
- */
-void MTLWriter::float3_property_from_node(float *r_property,
-                                          const bNode *curr_node,
-                                          const char *identifier)
-{
-  if (!curr_node) {
-    return;
-  }
-  bNodeSocket *socket = nodeFindSocket(curr_node, SOCK_IN, identifier);
-  if (socket) {
-    bNodeSocketValueRGBA *socket_def_value = (bNodeSocketValueRGBA *)socket->default_value;
-    copy_v3_v3(r_property, socket_def_value->value);
+    switch (property_type) {
+      case SOCK_FLOAT: {
+        bNodeSocketValueFloat *socket_def_value = (bNodeSocketValueFloat *)socket->default_value;
+        r_property[0] = socket_def_value->value;
+      } break;
+      case SOCK_RGBA: {
+        bNodeSocketValueRGBA *socket_def_value = (bNodeSocketValueRGBA *)socket->default_value;
+        copy_v3_v3(r_property, socket_def_value->value);
+      } break;
+      case SOCK_VECTOR: {
+        bNodeSocketValueVector *socket_def_value = (bNodeSocketValueVector *)socket->default_value;
+        copy_v3_v3(r_property, socket_def_value->value);
+      } break;
+      default:
+        break;
+    }
   }
 }
 
@@ -177,19 +174,19 @@ void MTLWriter::append_material(OBJMesh &mesh_to_export)
   float spec_exponent = (1.0 - _export_mtl->roughness) * 30;
   spec_exponent *= spec_exponent;
   float specular = _export_mtl->spec;
-  float_property_from_node(&specular, _bsdf_node, "Specular");
+  copy_property_from_node(&specular, SOCK_FLOAT, _bsdf_node, "Specular");
   float metallic = _export_mtl->metallic;
-  float_property_from_node(&metallic, _bsdf_node, "Metallic");
+  copy_property_from_node(&metallic, SOCK_FLOAT, _bsdf_node, "Metallic");
   float refraction_index = 1.0f;
-  float_property_from_node(&refraction_index, _bsdf_node, "IOR");
+  copy_property_from_node(&refraction_index, SOCK_FLOAT, _bsdf_node, "IOR");
   float dissolved = _export_mtl->a;
-  float_property_from_node(&dissolved, _bsdf_node, "Alpha");
+  copy_property_from_node(&dissolved, SOCK_FLOAT, _bsdf_node, "Alpha");
   bool transparent = dissolved != 1.0f;
 
   float diffuse_col[3] = {_export_mtl->r, _export_mtl->g, _export_mtl->b};
-  float_property_from_node(diffuse_col, _bsdf_node, "Base Color");
+  copy_property_from_node(diffuse_col, SOCK_RGBA, _bsdf_node, "Base Color");
   float emission_col[3] = {0.0f, 0.0f, 0.0f};
-  float3_property_from_node(emission_col, _bsdf_node, "Emission");
+  copy_property_from_node(emission_col, SOCK_RGBA, _bsdf_node, "Emission");
 
   /* See https://wikipedia.org/wiki/Wavefront_.obj_file for all possible values of illum. */
   /* Highlight on. */
@@ -235,10 +232,6 @@ void MTLWriter::append_material(OBJMesh &mesh_to_export)
 
   const char *tex_image_filepath = nullptr;
   const bNode *tex_node;
-  /* Texture transform options. We only support translation (origin offset, "-o") and scale ("-o").
-   */
-  float map_translation[3] = {0.0f, 0.0f, 0.0f};
-  float map_scale[3] = {1.0f, 1.0f, 1.0f};
 
   /* Need to create a NodeTreeRef for a faster way to find which two sockets are linked, as
    * compared to looping over all links in the node tree to match with two sockets of our interest.
@@ -255,8 +248,13 @@ void MTLWriter::append_material(OBJMesh &mesh_to_export)
     /* Find "Mapping" node if connected to texture node. */
     linked_sockets_to_dest_id(&linked_sockets, tex_node, node_tree, "Vector");
     const bNode *mapping = linked_node_of_type(linked_sockets, SH_NODE_MAPPING);
-    float3_property_from_node(map_translation, mapping, "Location");
-    float3_property_from_node(map_scale, mapping, "Scale");
+    /* Texture transform options. We only support translation (origin offset, "-o") and scale
+     * ("-o").
+     */
+    float map_translation[3] = {0.0f, 0.0f, 0.0f};
+    float map_scale[3] = {1.0f, 1.0f, 1.0f};
+    copy_property_from_node(map_translation, SOCK_VECTOR, mapping, "Location");
+    copy_property_from_node(map_scale, SOCK_VECTOR, mapping, "Scale");
 
     tex_image_filepath = get_image_filepath(tex_node);
     if (tex_image_filepath) {
@@ -291,10 +289,12 @@ void MTLWriter::append_material(OBJMesh &mesh_to_export)
   /* Find "Mapping" node if connected to the texture node. */
   linked_sockets_to_dest_id(&linked_sockets, tex_node, node_tree, "Vector");
   const bNode *mapping = linked_node_of_type(linked_sockets, SH_NODE_MAPPING);
+  float map_translation[3] = {0.0f, 0.0f, 0.0f};
+  float map_scale[3] = {1.0f, 1.0f, 1.0f};
   float normal_map_strength = 1.0;
-  float3_property_from_node(map_translation, mapping, "Location");
-  float3_property_from_node(map_scale, mapping, "Scale");
-  float_property_from_node(&normal_map_strength, normal_map_node, "Strength");
+  copy_property_from_node(map_translation, SOCK_VECTOR, mapping, "Location");
+  copy_property_from_node(map_scale, SOCK_VECTOR, mapping, "Scale");
+  copy_property_from_node(&normal_map_strength, SOCK_FLOAT, normal_map_node, "Strength");
 
   tex_image_filepath = get_image_filepath(tex_node);
   if (tex_image_filepath) {

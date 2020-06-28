@@ -55,14 +55,12 @@ class MTLWriter {
   bNode *_bsdf_node;
   void init_bsdf_node(const char *object_name);
 
-  /** Copy the float property from the bNode to given buffer. */
-  void float_property_from_node(float *r_property, const bNode *curr_node, const char *identifier);
-  /** Copy the float3 property from the bNode to given buffer.
-   * Mostly used for color, without alpha.
+  /** Copy the property of given type from the bNode to the buffer.
    */
-  void float3_property_from_node(float *r_property,
-                                 const bNode *curr_node,
-                                 const char *identifier);
+  void copy_property_from_node(float *r_property,
+                               eNodeSocketDatatype property_type,
+                               const bNode *curr_node,
+                               const char *identifier);
 
   /**
    * Collect all the source sockets linked to the destination socket in a destination node.
