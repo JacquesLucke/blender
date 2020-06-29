@@ -184,7 +184,7 @@ void OBJWriter::write_poly_normals(OBJMesh &obj_mesh_data)
  */
 void OBJWriter::write_poly_material(short &last_face_mat_nr, OBJMesh &obj_mesh_data, short mat_nr)
 {
-  if (_export_params->export_materials == false) {
+  if (_export_params->export_materials == false || !(obj_mesh_data.tot_col() > 0)) {
     return;
   }
   /* Whenever a face with a new material is encountered, write its material and group, otherwise
