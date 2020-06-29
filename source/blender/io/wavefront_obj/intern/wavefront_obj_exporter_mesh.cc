@@ -115,8 +115,9 @@ void OBJMesh::store_world_axes_transform()
 {
   float axes_transform[3][3];
   unit_m3(axes_transform);
-  mat3_from_axis_conversion(DEFAULT_AXIS_FORWARD,
-                            DEFAULT_AXIS_UP,
+  /* -Y-forward and +Z-up are the default Blender axis settings. */
+  mat3_from_axis_conversion(OBJ_AXIS_NEGATIVE_Y_FORWARD,
+                            OBJ_AXIS_Z_UP,
                             _export_params->forward_axis,
                             _export_params->up_axis,
                             axes_transform);

@@ -37,11 +37,6 @@
 namespace blender {
 namespace io {
 namespace obj {
-/* -Y */
-#define DEFAULT_AXIS_FORWARD 4
-/* Z */
-#define DEFAULT_AXIS_UP 2
-
 class OBJMesh {
  public:
   OBJMesh(bContext *C, const OBJExportParams *export_params, Object *export_object)
