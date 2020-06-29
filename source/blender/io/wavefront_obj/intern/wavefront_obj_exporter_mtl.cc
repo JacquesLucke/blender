@@ -33,7 +33,7 @@
 
 #include "wavefront_obj_exporter_mtl.hh"
 
-using namespace BKE;
+using namespace blender::bke;
 namespace blender {
 namespace io {
 namespace obj {
