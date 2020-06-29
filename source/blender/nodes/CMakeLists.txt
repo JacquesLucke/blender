@@ -274,7 +274,7 @@ set(SRC
 
   intern/node_common.c
   intern/node_exec.c
-  intern/node_socket.c
+  intern/node_socket.cc
   intern/node_util.c
 
   composite/node_composite_util.h

@@ -2148,8 +2148,7 @@ static float brush_strength(const Sculpt *sd,
       final_pressure = pressure * pressure;
       return final_pressure * overlap * feather;
     case SCULPT_TOOL_SMEAR:
-      final_pressure = pressure * pressure;
-      return final_pressure * overlap * feather;
+      return pressure * overlap * feather;
     case SCULPT_TOOL_CLAY_STRIPS:
       /* Clay Strips needs less strength to compensate the curve. */
       final_pressure = powf(pressure, 1.5f);
@@ -8109,6 +8108,7 @@ static int sculpt_sample_color_invoke(bContext *C,
                                       const wmEvent *UNUSED(e))
 {
   Sculpt *sd = CTX_data_tool_settings(C)->sculpt;
+  Scene *scene = CTX_data_scene(C);
   Object *ob = CTX_data_active_object(C);
   Brush *brush = BKE_paint_brush(&sd->paint);
   SculptSession *ss = ob->sculpt;
@@ -8117,10 +8117,9 @@ static int sculpt_sample_color_invoke(bContext *C,
   if (!active_vertex_color) {
     return OPERATOR_CANCELLED;
   }
-  brush->rgb[0] = active_vertex_color[0];
-  brush->rgb[1] = active_vertex_color[1];
-  brush->rgb[2] = active_vertex_color[2];
-  brush->alpha = active_vertex_color[3];
+
+  BKE_brush_color_set(scene, brush, active_vertex_color);
+  BKE_brush_alpha_set(scene, brush, active_vertex_color[3]);
 
   WM_event_add_notifier(C, NC_BRUSH | NA_EDITED, brush);
 
