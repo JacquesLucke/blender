@@ -93,12 +93,13 @@ class OBJMesh {
   {
     return BKE_object_material_get(_export_object_eval, _export_object_eval->actcol);
   }
-  /**
-   * Set argument pointer to the name of an object's active material.
-   */
-  void get_material_name(const char **r_mat_name);
 
-  void get_object_name(const char **object_name);
+  /**
+   * Set argument pointer to an object's name, as it appears in outliner.
+   */
+  void set_object_name(const char **object_name);
+  void set_object_data_name(const char **r_object_data_name);
+  void set_object_material_name(const char **r_mat_name);
   /**
    * Calculate coordinates of the vertex at given index.
    */

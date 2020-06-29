@@ -125,9 +125,14 @@ void OBJMesh::store_world_axes_transform()
   copy_v4_v4(_world_and_axes_transform[3], _export_object_eval->obmat[3]);
 }
 
-void OBJMesh::get_object_name(const char **r_object_name)
+void OBJMesh::set_object_name(const char **r_object_name)
 {
   *r_object_name = _export_object_eval->id.name + 2;
+}
+
+void OBJMesh::set_object_data_name(const char **r_object_data_name)
+{
+  *r_object_data_name = _export_mesh_eval->id.name + 2;
 }
 
 /**
@@ -226,7 +231,7 @@ void OBJMesh::calc_poly_normal(float r_poly_normal[3], uint poly_index)
 /**
  * Set argument pointer to the name of an object's active material.
  */
-void OBJMesh::get_material_name(const char **r_mat_name)
+void OBJMesh::set_object_material_name(const char **r_mat_name)
 {
   Material *mat = BKE_object_material_get(_export_object_eval, _export_object_eval->actcol);
   *r_mat_name = mat->id.name + 2;

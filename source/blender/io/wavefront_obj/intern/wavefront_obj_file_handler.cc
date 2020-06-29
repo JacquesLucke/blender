@@ -126,8 +126,16 @@ void OBJWriter::write_mtllib(const char *obj_filepath)
 void OBJWriter::write_object_name(OBJMesh &obj_mesh_data)
 {
   const char *object_name;
-  obj_mesh_data.get_object_name(&object_name);
-  fprintf(_outfile, "o %s\n", object_name);
+  obj_mesh_data.set_object_name(&object_name);
+
+  if (_export_params->export_object_groups) {
+    const char *object_data_name;
+    obj_mesh_data.set_object_data_name(&object_data_name);
+    fprintf(_outfile, "g %s_%s\n", object_name, object_data_name);
+  }
+  else {
+    fprintf(_outfile, "o %s\n", object_name);
+  }
 }
 
 /** Write vertex coordinates for all vertices as v x y z */
@@ -172,7 +180,7 @@ void OBJWriter::write_poly_normals(OBJMesh &obj_mesh_data)
 void OBJWriter::write_usemtl(OBJMesh &obj_mesh_data)
 {
   const char *mat_name;
-  obj_mesh_data.get_material_name(&mat_name);
+  obj_mesh_data.set_object_material_name(&mat_name);
   fprintf(_outfile, "usemtl %s\n", mat_name);
 }
 

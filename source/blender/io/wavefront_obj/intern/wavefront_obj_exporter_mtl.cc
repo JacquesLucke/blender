@@ -160,7 +160,7 @@ void MTLWriter::append_material(OBJMesh &mesh_to_export)
   }
 
   const char *object_name;
-  mesh_to_export.get_object_name(&object_name);
+  mesh_to_export.set_object_name(&object_name);
   _export_mtl = mesh_to_export.export_object_material();
   if (!_export_mtl) {
     fprintf(stderr, "No active material for the object: %s.\n", object_name);

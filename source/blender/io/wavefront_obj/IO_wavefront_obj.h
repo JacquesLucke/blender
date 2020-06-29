@@ -69,6 +69,9 @@ struct OBJExportParams {
   bool export_materials;
   bool export_triangulated_mesh;
   bool export_curves_as_nurbs;
+
+  /** Grouping options */
+  bool export_object_groups;
 };
 
 struct OBJImportParams {
