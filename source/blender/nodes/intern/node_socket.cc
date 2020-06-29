@@ -32,6 +32,7 @@
 
 #include "BKE_lib_id.h"
 #include "BKE_node.h"
+#include "BKE_node_tree_function.hh"
 
 #include "RNA_access.h"
 #include "RNA_types.h"
@@ -511,6 +512,14 @@ static bNodeSocketType *make_socket_type_control_flow(int type)
   return stype;
 }
 
+static bNodeSocketType *make_socket_type_bool()
+{
+  bNodeSocketType *socktype = make_standard_socket_type(SOCK_BOOLEAN, PROP_NONE);
+  socktype->get_mf_data_type = []() { return blender::fn::MFDataType::ForSingle<bool>(); };
+  socktype->build_mf_network = nullptr;
+  return socktype;
+}
+
 void register_standard_node_socket_types(void)
 {
   /* draw callbacks are set in drawnode.c to avoid bad-level calls */
@@ -527,7 +536,7 @@ void register_standard_node_socket_types(void)
   nodeRegisterSocketType(make_standard_socket_type(SOCK_INT, PROP_PERCENTAGE));
   nodeRegisterSocketType(make_standard_socket_type(SOCK_INT, PROP_FACTOR));
 
-  nodeRegisterSocketType(make_standard_socket_type(SOCK_BOOLEAN, PROP_NONE));
+  nodeRegisterSocketType(make_socket_type_bool());
 
   nodeRegisterSocketType(make_standard_socket_type(SOCK_VECTOR, PROP_NONE));
   nodeRegisterSocketType(make_standard_socket_type(SOCK_VECTOR, PROP_TRANSLATION));

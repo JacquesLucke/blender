@@ -26,17 +26,21 @@
 namespace blender {
 namespace bke {
 
-inline bool is_data_socket(const bNodeSocket *UNUSED(bsocket))
+inline bool is_data_socket(const bNodeSocket *bsocket)
 {
-  /* TODO */
-  return true;
+  if (bsocket->typeinfo->get_mf_data_type != nullptr) {
+    BLI_assert(bsocket->typeinfo->build_mf_network != nullptr);
+    return true;
+  }
+  return false;
 }
 
-inline std::optional<fn::MFDataType> try_get_data_type_of_socket(
-    const bNodeSocket *UNUSED(bsocket))
+inline std::optional<fn::MFDataType> try_get_data_type_of_socket(const bNodeSocket *bsocket)
 {
-  /* TODO */
-  return fn::MFDataType::ForSingle<bool>();
+  if (bsocket->typeinfo->get_mf_data_type == nullptr) {
+    return {};
+  }
+  return bsocket->typeinfo->get_mf_data_type();
 }
 
 class MFNetworkTreeMap {
