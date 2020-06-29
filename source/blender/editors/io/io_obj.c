@@ -115,6 +115,7 @@ static int wm_obj_export_exec(bContext *C, wmOperator *op)
   export_params.export_curves_as_nurbs = RNA_boolean_get(op->ptr, "export_curves_as_nurbs");
 
   export_params.export_object_groups = RNA_boolean_get(op->ptr, "export_object_groups");
+  export_params.export_material_groups = RNA_boolean_get(op->ptr, "export_material_groups");
 
   OBJ_export(C, &export_params);
 
@@ -186,6 +187,9 @@ static void ui_obj_export_settings(uiLayout *layout, PointerRNA *imfptr)
 
   row = uiLayoutRow(box, false);
   uiItemR(row, imfptr, "export_object_groups", 0, NULL, ICON_NONE);
+
+  row = uiLayoutRow(box, false);
+  uiItemR(row, imfptr, "export_material_groups", 0, NULL, ICON_NONE);
 }
 
 static void wm_obj_export_draw(bContext *UNUSED(C), wmOperator *op)
@@ -321,12 +325,17 @@ void WM_OT_obj_export(struct wmOperatorType *ot)
                   "Export curves as NURBS",
                   "If false, writes the curve as a mesh withouth modifying the scene");
 
+  RNA_def_boolean(ot->srna,
+                  "export_object_groups",
+                  false,
+                  "Export object groups",
+                  "If checked, writes object name with its mesh name too, separated by a '_' ");
   RNA_def_boolean(
       ot->srna,
-      "export_object_groups",
+      "export_material_groups",
       false,
-      "Export objects as groups",
-      "If checked, writes object name with its mesh name too, separated by a '_' ");
+      "Export material groups",
+      "If checked, writes object name with its mesh and material name too, separated by a '_'");
 }
 
 static int wm_obj_import_invoke(bContext *C, wmOperator *op, const wmEvent *event)

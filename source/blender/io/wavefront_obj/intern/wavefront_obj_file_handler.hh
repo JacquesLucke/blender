@@ -71,7 +71,7 @@ class OBJWriter {
   void write_uv_coords(OBJMesh &obj_mesh_data, Vector<Vector<uint>> &uv_indices);
   /** Write face normals for all polygons as vn x y z */
   void write_poly_normals(OBJMesh &obj_mesh_data);
-  /** Write name of an object's active material in the OBJ file.
+  /** Write material name and material group of an object in the OBJ file.
    * \note It doesn't write to the material library, MTL file.
    */
   void write_usemtl(OBJMesh &obj_mesh_data);

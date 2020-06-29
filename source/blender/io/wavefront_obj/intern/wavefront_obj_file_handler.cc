@@ -174,13 +174,20 @@ void OBJWriter::write_poly_normals(OBJMesh &obj_mesh_data)
 }
 
 /**
- * Write material name of an object in the OBJ file.
+ * Write material name and material group of an object in the OBJ file.
  * \note It doesn't write to the material library.
  */
 void OBJWriter::write_usemtl(OBJMesh &obj_mesh_data)
 {
   const char *mat_name;
   obj_mesh_data.set_object_material_name(&mat_name);
+  if (_export_params->export_material_groups) {
+    const char *object_name;
+    const char *object_data_name;
+    obj_mesh_data.set_object_name(&object_name);
+    obj_mesh_data.set_object_data_name(&object_data_name);
+    fprintf(_outfile, "g %s_%s_%s\n", object_name, object_data_name, mat_name);
+  }
   fprintf(_outfile, "usemtl %s\n", mat_name);
 }
 
