@@ -45,7 +45,7 @@ void MTLWriter::init_bsdf_node(const char *object_name)
 {
   if (_export_mtl->use_nodes == false) {
     fprintf(
-        stderr, "No Principled-BSDF node found in the material Node tree of: %s.\n", object_name);
+        stderr, "No Principled-BSDF node found in the material node tree of: %s.\n", object_name);
     _bsdf_node = nullptr;
     return;
   }
@@ -57,7 +57,7 @@ void MTLWriter::init_bsdf_node(const char *object_name)
     }
   }
   fprintf(
-      stderr, "No Principled-BSDF node found in the material Node tree of: %s.\n", object_name);
+      stderr, "No Principled-BSDF node found in the material node tree of: %s.\n", object_name);
   _bsdf_node = nullptr;
 }
 
@@ -145,7 +145,9 @@ const char *MTLWriter::get_image_filepath(const bNode *tex_node)
 {
   if (tex_node) {
     Image *tex_image = (Image *)tex_node->id;
-    return tex_image->filepath;
+    if (tex_image) {
+      return tex_image->filepath;
+    }
   }
   return nullptr;
 }
