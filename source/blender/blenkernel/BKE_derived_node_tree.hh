@@ -448,6 +448,11 @@ inline Span<const DNode *> DerivedNodeTree::nodes_with_idname(StringRef idname) 
   }
 }
 
+inline Span<const DSocket *> DerivedNodeTree::sockets() const
+{
+  return m_sockets_by_id.as_span();
+}
+
 inline Span<const DInputSocket *> DerivedNodeTree::input_sockets() const
 {
   return m_input_sockets.as_span();

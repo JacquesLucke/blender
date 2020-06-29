@@ -19,10 +19,149 @@
 namespace blender {
 namespace bke {
 
+static void insert_dummy_node(CommonMFNetworkBuilderData &common, const DNode &dnode)
+{
+  constexpr uint stack_capacity = 10;
+
+  Vector<fn::MFDataType, stack_capacity> input_types;
+  Vector<StringRef, stack_capacity> input_names;
+  Vector<const DInputSocket *, stack_capacity> input_dsockets;
+
+  for (const DInputSocket *dsocket : dnode.inputs()) {
+    std::optional<fn::MFDataType> data_type = try_get_data_type_of_socket(
+        dsocket->socket_ref().bsocket());
+    if (data_type.has_value()) {
+      input_types.append(*data_type);
+      input_names.append(dsocket->name());
+      input_dsockets.append(dsocket);
+    }
+  }
+
+  Vector<fn::MFDataType, stack_capacity> output_types;
+  Vector<StringRef, stack_capacity> output_names;
+  Vector<const DOutputSocket *, stack_capacity> output_dsockets;
+
+  for (const DOutputSocket *dsocket : dnode.outputs()) {
+    std::optional<fn::MFDataType> data_type = try_get_data_type_of_socket(
+        dsocket->socket_ref().bsocket());
+    if (data_type.has_value()) {
+      output_types.append(*data_type);
+      output_names.append(dsocket->name());
+      output_dsockets.append(dsocket);
+    }
+  }
+
+  fn::MFDummyNode &dummy_node = common.network.add_dummy(
+      dnode.name(), input_types, output_types, input_names, output_names);
+
+  common.network_map.add(input_dsockets, dummy_node.inputs());
+  common.network_map.add(output_dsockets, dummy_node.outputs());
+}
+
+static bool has_data_sockets(const DNode &dnode)
+{
+  for (const DInputSocket *socket : dnode.inputs()) {
+    if (is_data_socket(socket->socket_ref().bsocket())) {
+      return true;
+    }
+  }
+  for (const DOutputSocket *socket : dnode.outputs()) {
+    if (is_data_socket(socket->socket_ref().bsocket())) {
+      return true;
+    }
+  }
+  return false;
+}
+
+using InsertNodeFunction = void (*)(NodeMFNetworkBuilder &builder);
+
+static void insert_nodes(CommonMFNetworkBuilderData &common)
+{
+  for (const DNode *dnode : common.tree.nodes()) {
+    const bNodeType *node_type = dnode->node_ref().bnode()->typeinfo;
+    if (node_type->build_mf_network != nullptr) {
+      NodeMFNetworkBuilder builder{common, *dnode};
+      InsertNodeFunction build = (InsertNodeFunction)node_type->build_mf_network;
+      build(builder);
+    }
+    else if (has_data_sockets(*dnode)) {
+      insert_dummy_node(common, *dnode);
+    }
+  }
+}
+
+static void insert_group_inputs(CommonMFNetworkBuilderData &UNUSED(common))
+{
+  /* TODO */
+}
+
+static fn::MFOutputSocket *try_find_origin(CommonMFNetworkBuilderData &common,
+                                           const DInputSocket &to_dsocket)
+{
+  Span<const DOutputSocket *> from_dsockets = to_dsocket.linked_sockets();
+  Span<const DGroupInput *> from_group_inputs = to_dsocket.linked_group_inputs();
+  uint total_linked_amount = from_dsockets.size() + from_group_inputs.size();
+  BLI_assert(total_linked_amount <= 1);
+
+  if (total_linked_amount == 0) {
+    return nullptr;
+  }
+
+  if (from_dsockets.size() == 1) {
+    return &common.network_map.lookup(*from_dsockets[0]);
+  }
+  else {
+    return &common.network_map.lookup(*from_group_inputs[0]);
+  }
+}
+
+static void insert_links(CommonMFNetworkBuilderData &common)
+{
+  for (const DInputSocket *to_dsocket : common.tree.input_sockets()) {
+    if (!is_data_socket(to_dsocket->socket_ref().bsocket())) {
+      continue;
+    }
+
+    fn::MFOutputSocket *from_socket = try_find_origin(common, *to_dsocket);
+    if (from_socket == nullptr) {
+      continue;
+    }
+
+    Span<fn::MFInputSocket *> to_sockets = common.network_map.lookup(*to_dsocket);
+    BLI_assert(to_sockets.size() >= 1);
+
+    fn::MFDataType from_type = from_socket->data_type();
+    fn::MFDataType to_type = to_sockets[0]->data_type();
+
+    if (from_type != to_type) {
+      /* Todo: Try inserting implicit conversion. */
+    }
+
+    for (fn::MFInputSocket *to_socket : to_sockets) {
+      common.network.add_link(*from_socket, *to_socket);
+    }
+  }
+}
+
+static void insert_unlinked_inputs(CommonMFNetworkBuilderData &UNUSED(common))
+{
+  /* TODO */
+}
+
 MFNetworkTreeMap insert_node_tree_into_mf_network(fn::MFNetwork &network,
                                                   const DerivedNodeTree &tree,
                                                   ResourceCollector &resources)
 {
+  MFNetworkTreeMap network_map{tree};
+
+  CommonMFNetworkBuilderData common{resources, network, network_map, tree};
+
+  insert_nodes(common);
+  insert_group_inputs(common);
+  insert_links(common);
+  insert_unlinked_inputs(common);
+
+  return network_map;
 }
 
 }  // namespace bke

@@ -44,6 +44,7 @@
 #include "BKE_lib_remap.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
+#include "BKE_node_tree_function.hh"
 #include "BKE_pointcache.h"
 #include "BKE_simulation.h"
 
@@ -206,6 +207,14 @@ static void simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulatio
   if (current_frame == state_cow->current_frame) {
     return;
   }
+
+  NodeTreeRefMap tree_refs;
+  DerivedNodeTree tree{((Simulation *)DEG_get_original_id(&simulation->id))->nodetree, tree_refs};
+
+  fn::MFNetwork network;
+  ResourceCollector resources;
+  insert_node_tree_into_mf_network(network, tree, resources);
+  std::cout << network.to_dot() << "\n";
 
   /* Number of particles should be stored in the cache, but for now assume it is constant. */
   state_cow->tot_particles = state_orig->tot_particles;

@@ -32,6 +32,13 @@ inline bool is_data_socket(const bNodeSocket *UNUSED(bsocket))
   return true;
 }
 
+inline std::optional<fn::MFDataType> try_get_data_type_of_socket(
+    const bNodeSocket *UNUSED(bsocket))
+{
+  /* TODO */
+  return fn::MFDataType::ForSingle<bool>();
+}
+
 class MFNetworkTreeMap {
  private:
   Array<Vector<fn::MFSocket *, 1>> m_sockets_by_dsocket_id;
@@ -130,45 +137,47 @@ class MFNetworkTreeMap {
   }
 };
 
+struct CommonMFNetworkBuilderData {
+  ResourceCollector &resources;
+  fn::MFNetwork &network;
+  MFNetworkTreeMap &network_map;
+  const DerivedNodeTree &tree;
+};
+
 class NodeMFNetworkBuilder {
  private:
-  ResourceCollector &m_resources;
-  fn::MFNetwork &m_network;
-  MFNetworkTreeMap &m_tree_map;
+  CommonMFNetworkBuilderData &m_common;
   const bke::DNode &m_node;
 
  public:
-  NodeMFNetworkBuilder(ResourceCollector &resources,
-                       fn::MFNetwork &network,
-                       MFNetworkTreeMap &socket_map,
-                       const bke::DNode &node)
-      : m_resources(resources), m_network(network), m_tree_map(socket_map), m_node(node)
+  NodeMFNetworkBuilder(CommonMFNetworkBuilderData &common, const bke::DNode &node)
+      : m_common(common), m_node(node)
   {
   }
 
   void add_link(fn::MFOutputSocket &from, fn::MFInputSocket &to)
   {
-    m_network.add_link(from, to);
+    m_common.network.add_link(from, to);
   }
 
   fn::MFFunctionNode &add_function(const fn::MultiFunction &function)
   {
-    return m_network.add_function(function);
+    return m_common.network.add_function(function);
   }
 
   template<typename T, typename... Args> T &construct_fn(Args &&... args)
   {
     BLI_STATIC_ASSERT((std::is_base_of_v<fn::MultiFunction, T>), "");
-    void *buffer = m_resources.allocate(sizeof(T), alignof(T));
+    void *buffer = m_common.resources.allocate(sizeof(T), alignof(T));
     T *fn = new (buffer) T(std::forward<Args>(args)...);
-    m_resources.add(destruct_ptr<T>(fn), fn->name().data());
+    m_common.resources.add(destruct_ptr<T>(fn), fn->name().data());
     return *fn;
   }
 
   void set_matching_fn(const fn::MultiFunction &function)
   {
     fn::MFFunctionNode &node = this->add_function(function);
-    m_tree_map.add_try_match(m_node, node);
+    m_common.network_map.add_try_match(m_node, node);
   }
 
   bNode &bnode()
