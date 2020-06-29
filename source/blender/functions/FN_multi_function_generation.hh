@@ -36,29 +36,29 @@ class MFSocketByDSocketMap {
   Array<MFOutputSocket *> m_socket_by_group_input_id;
 
  public:
-  MFSocketByDSocketMap(const BKE::DerivedNodeTree &tree)
+  MFSocketByDSocketMap(const bke::DerivedNodeTree &tree)
       : m_sockets_by_dsocket_id(tree.sockets().size()),
         m_socket_by_group_input_id(tree.group_inputs().size(), nullptr)
   {
   }
 
-  void add(const BKE::DSocket &dsocket, MFSocket &socket)
+  void add(const bke::DSocket &dsocket, MFSocket &socket)
   {
     BLI_assert(dsocket.is_input() == socket.is_input());
     m_sockets_by_dsocket_id[dsocket.id()].append(&socket);
   }
 
-  void add(const BKE::DInputSocket &dsocket, MFInputSocket &socket)
+  void add(const bke::DInputSocket &dsocket, MFInputSocket &socket)
   {
     m_sockets_by_dsocket_id[dsocket.id()].append(&socket);
   }
 
-  void add(const BKE::DOutputSocket &dsocket, MFOutputSocket &socket)
+  void add(const bke::DOutputSocket &dsocket, MFOutputSocket &socket)
   {
     m_sockets_by_dsocket_id[dsocket.id()].append(&socket);
   }
 
-  void add(Span<const BKE::DInputSocket *> dsockets, Span<MFInputSocket *> sockets)
+  void add(Span<const bke::DInputSocket *> dsockets, Span<MFInputSocket *> sockets)
   {
     assert_same_size(dsockets, sockets);
     for (uint i : dsockets.index_range()) {
@@ -66,7 +66,7 @@ class MFSocketByDSocketMap {
     }
   }
 
-  void add(Span<const BKE::DOutputSocket *> dsockets, Span<MFOutputSocket *> sockets)
+  void add(Span<const bke::DOutputSocket *> dsockets, Span<MFOutputSocket *> sockets)
   {
     assert_same_size(dsockets, sockets);
     for (uint i : dsockets.index_range()) {
@@ -74,22 +74,22 @@ class MFSocketByDSocketMap {
     }
   }
 
-  void add(const BKE::DGroupInput &group_input, MFOutputSocket &socket)
+  void add(const bke::DGroupInput &group_input, MFOutputSocket &socket)
   {
     BLI_assert(m_socket_by_group_input_id[group_input.id()] == nullptr);
     m_socket_by_group_input_id[group_input.id()] = &socket;
   }
 
-  void add_try_match(const BKE::DNode &dnode, MFNode &node)
+  void add_try_match(const bke::DNode &dnode, MFNode &node)
   {
     this->add_try_match(dnode.inputs(), node.inputs());
     this->add_try_match(dnode.outputs(), node.outputs());
   }
 
-  void add_try_match(Span<const BKE::DSocket *> dsockets, Span<MFSocket *> sockets)
+  void add_try_match(Span<const bke::DSocket *> dsockets, Span<MFSocket *> sockets)
   {
     uint used_sockets = 0;
-    for (const BKE::DSocket *dsocket : dsockets) {
+    for (const bke::DSocket *dsocket : dsockets) {
       bNodeSocket *bsocket = dsocket->socket_ref().bsocket();
       if (bsocket->flag & SOCK_UNAVAIL) {
         continue;
@@ -103,26 +103,26 @@ class MFSocketByDSocketMap {
     }
   }
 
-  MFOutputSocket &lookup(const BKE::DGroupInput &group_input)
+  MFOutputSocket &lookup(const bke::DGroupInput &group_input)
   {
     MFOutputSocket *socket = m_socket_by_group_input_id[group_input.id()];
     BLI_assert(socket != nullptr);
     return *socket;
   }
 
-  MFOutputSocket &lookup(const BKE::DOutputSocket &dsocket)
+  MFOutputSocket &lookup(const bke::DOutputSocket &dsocket)
   {
     auto &sockets = m_sockets_by_dsocket_id[dsocket.id()];
     BLI_assert(sockets.size() == 1);
     return sockets[0]->as_output();
   }
 
-  Span<MFInputSocket *> lookup(const BKE::DInputSocket &dsocket)
+  Span<MFInputSocket *> lookup(const bke::DInputSocket &dsocket)
   {
     return m_sockets_by_dsocket_id[dsocket.id()].as_span().cast<MFInputSocket *>();
   }
 
-  bool is_mapped(const BKE::DSocket &dsocket) const
+  bool is_mapped(const bke::DSocket &dsocket) const
   {
     return m_sockets_by_dsocket_id[dsocket.id()].size() >= 1;
   }
@@ -133,13 +133,13 @@ class NodeMFNetworkBuilder {
   ResourceCollector &m_resources;
   MFNetwork &m_network;
   MFSocketByDSocketMap &m_socket_map;
-  const BKE::DNode &m_node;
+  const bke::DNode &m_node;
 
  public:
   NodeMFNetworkBuilder(ResourceCollector &resources,
                        MFNetwork &network,
                        MFSocketByDSocketMap &socket_map,
-                       const BKE::DNode &node)
+                       const bke::DNode &node)
       : m_resources(resources), m_network(network), m_socket_map(socket_map), m_node(node)
   {
   }
