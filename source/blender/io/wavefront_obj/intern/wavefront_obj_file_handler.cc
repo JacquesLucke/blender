@@ -216,7 +216,7 @@ void OBJWriter::write_poly_indices(OBJMesh &obj_mesh_data, Span<Vector<uint>> uv
   short last_face_mat_nr = -1;
 
   if (_export_params->export_normals) {
-    if (_export_params->export_uv) {
+    if (_export_params->export_uv && (obj_mesh_data.tot_uv_vertices() > 0)) {
       /* Write both normals and UV indices. */
       for (uint i = 0; i < obj_mesh_data.tot_poly_normals(); i++) {
         obj_mesh_data.calc_poly_vertex_indices(vertex_indices, i);
@@ -241,7 +241,7 @@ void OBJWriter::write_poly_indices(OBJMesh &obj_mesh_data, Span<Vector<uint>> uv
   }
   else {
     /* Write UV indices. */
-    if (_export_params->export_uv) {
+    if (_export_params->export_uv && (obj_mesh_data.tot_uv_vertices() > 0)) {
       for (uint i = 0; i < obj_mesh_data.tot_poly_normals(); i++) {
         obj_mesh_data.calc_poly_vertex_indices(vertex_indices, i);
         const MPoly &poly_to_write = obj_mesh_data.get_ith_poly(i);

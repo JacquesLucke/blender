@@ -169,6 +169,10 @@ void OBJMesh::store_uv_coords_and_indices(Vector<std::array<float, 2>> &r_uv_coo
   const int totpoly = _export_mesh_eval->totpoly;
   const int totvert = _export_mesh_eval->totvert;
   const MLoopUV *mloopuv = (MLoopUV *)CustomData_get_layer(&_export_mesh_eval->ldata, CD_MLOOPUV);
+  if (!mloopuv) {
+    _tot_uv_vertices = 0;
+    return;
+  }
   const float limit[2] = {STD_UV_CONNECT_LIMIT, STD_UV_CONNECT_LIMIT};
 
   UvVertMap *uv_vert_map = BKE_mesh_uv_vert_map_create(
