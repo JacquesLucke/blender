@@ -309,13 +309,11 @@ void MTLWriter::append_materials(OBJMesh &mesh_to_export)
   }
 
   const char *object_name;
-  mesh_to_export.set_object_name(&object_name);
+  object_name = mesh_to_export.get_object_name();
   for (int curr_mat = 0; curr_mat < mesh_to_export.tot_col(); curr_mat++) {
     _export_mtl = mesh_to_export.get_export_object_material(curr_mat + 1);
     write_curr_material(object_name);
   }
-
-  fclose(_mtl_outfile);
 }
 
 }  // namespace obj

@@ -42,6 +42,11 @@ class MTLWriter {
     BLI_strncpy(_mtl_filepath, obj_filepath, PATH_MAX);
     BLI_path_extension_replace(_mtl_filepath, PATH_MAX, ".mtl");
   }
+
+  ~MTLWriter(){
+    fclose(_mtl_outfile);
+  }
+
   /** Append an object's materials to the .mtl file. */
   void append_materials(OBJMesh &mesh_to_export);
 

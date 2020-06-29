@@ -37,9 +37,9 @@ namespace obj {
 
 /* Types of index offsets. */
 enum index_offsets {
-  vertex_off = 0,
-  uv_vertex_off = 1,
-  normal_off = 2,
+  VERTEX_OFF = 0,
+  UV_VERTEX_OFF = 1,
+  NORMAL_OFF = 2,
 };
 
 class OBJWriter {
@@ -63,13 +63,13 @@ class OBJWriter {
    * Also create an empty Material library file, or truncate the existing one.
    */
   void write_mtllib(const char *obj_filepath);
-  /** Write vertex coordinates for all vertices as v x y z */
+  /** Write vertex coordinates for all vertices as v x y z . */
   void write_vertex_coords(OBJMesh &obj_mesh_data);
   /** Write UV vertex coordinates for all vertices as vt u v
    * \note UV indices are stored here, but written later.
    */
   void write_uv_coords(OBJMesh &obj_mesh_data, Vector<Vector<uint>> &uv_indices);
-  /** Write face normals for all polygons as vn x y z */
+  /** Write face normals for all polygons as vn x y z . */
   void write_poly_normals(OBJMesh &obj_mesh_data);
   /** Write material name and material group of a face in the OBJ file.
    * \note It doesn't write to the material library, MTL file.
@@ -80,7 +80,7 @@ class OBJWriter {
    */
   void write_poly_indices(OBJMesh &obj_mesh_data, Span<Vector<uint>> uv_indices);
 
-  /** Define and write an edge of a curve converted to mesh or a primitive circle as l v1 v2 */
+  /** Define and write an edge of a curve converted to mesh or a primitive circle as l v1 v2 . */
   void write_curve_edges(OBJMesh &obj_mesh_data);
 
   /** Write one nurbs of a curve. */
@@ -96,15 +96,15 @@ class OBJWriter {
 
   /** Write one line of polygon indices as f v1 v2 .... */
   void write_vert_indices(Span<uint> vert_indices, const MPoly &poly_to_write);
-  /** Write one line of polygon indices as f v1//vn1 v2//vn2 .... */
+  /** Write one line of polygon indices as f v1//vn1 v2//vn2 ... . */
   void write_vert_normal_indices(Span<uint> vert_indices,
                                  Span<uint> normal_indices,
                                  const MPoly &poly_to_write);
-  /** Write one line of polygon indices as f v1/vt1 v2/vt2 .... */
+  /** Write one line of polygon indices as f v1/vt1 v2/vt2 ... . */
   void write_vert_uv_indices(Span<uint> vert_indices,
                              Span<uint> uv_indices,
                              const MPoly &poly_to_write);
-  /** Write one line of polygon indices as f v1/vt1/vn1 v2/vt2/vn2 .... */
+  /** Write one line of polygon indices as f v1/vt1/vn1 v2/vt2/vn2 ... . */
   void write_vert_uv_normal_indices(Span<uint> vert_indices,
                                     Span<uint> uv_indices,
                                     Span<uint> normal_indices,

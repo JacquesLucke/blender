@@ -93,7 +93,7 @@ static void export_frame(bContext *C, const OBJExportParams *export_params, cons
 
   if (export_params->export_materials) {
     /* Write MTL filename to the OBJ file. Also create an empty MTL file of the same name as the
-     * OBJ*/
+     * OBJ. */
     frame_writer.write_mtllib(filepath);
   }
   for (uint ob_iter = 0; ob_iter < exportable_meshes.size(); ob_iter++) {
@@ -122,7 +122,7 @@ static void export_frame(bContext *C, const OBJExportParams *export_params, cons
     }
     frame_writer.update_index_offsets(mesh_to_export);
 
-    mesh_to_export.destruct();
+    mesh_to_export.~OBJMesh();
   }
   /* Export nurbs in parm form, not as vertices and edges. */
   for (uint ob_iter = 0; ob_iter < exportable_nurbs.size(); ob_iter++) {

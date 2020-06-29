@@ -39,12 +39,14 @@ class OBJNurbs {
   {
     init_nurbs_curve(export_object);
   }
-  void get_curve_name(const char **r_object_name);
+
+  const char *get_curve_name();
   /** Getter for export curve. Used to obtain a curve's nurbs in OBJWriter class. */
   const Curve *export_curve()
   {
     return _export_curve;
   }
+
   /** Get coordinates of a vertex at given point index. */
   void calc_point_coords(float r_coords[3], uint point_index, Nurb *nurb);
   /** Get nurbs' degree and number of "curv" points of a nurb. */

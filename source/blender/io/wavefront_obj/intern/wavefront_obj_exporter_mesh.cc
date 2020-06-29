@@ -125,14 +125,31 @@ void OBJMesh::store_world_axes_transform()
   copy_v4_v4(_world_and_axes_transform[3], _export_object_eval->obmat[3]);
 }
 
-void OBJMesh::set_object_name(const char **r_object_name)
+const char *OBJMesh::get_object_name()
 {
-  *r_object_name = _export_object_eval->id.name + 2;
+  return _export_object_eval->id.name + 2;
 }
 
-void OBJMesh::set_object_data_name(const char **r_object_data_name)
+const char *OBJMesh::get_object_data_name()
 {
-  *r_object_data_name = _export_mesh_eval->id.name + 2;
+  return _export_mesh_eval->id.name + 2;
+}
+
+const char *OBJMesh::get_object_material_name(short mat_nr)
+{
+  Material *mat = BKE_object_material_get(_export_object_eval, mat_nr);
+  return mat->id.name + 2;
+}
+
+void OBJMesh::ensure_normals()
+{
+  BKE_mesh_ensure_normals(_export_mesh_eval);
+}
+
+/** Return mat_nr-th material of the object. */
+Material *OBJMesh::get_export_object_material(short mat_nr)
+{
+  return BKE_object_material_get(_export_object_eval, mat_nr);
 }
 
 /**
@@ -230,15 +247,6 @@ void OBJMesh::calc_poly_normal(float r_poly_normal[3], uint poly_index)
 
   mul_mat3_m4_v3(_world_and_axes_transform, r_poly_normal);
   normalize_v3(r_poly_normal);
-}
-
-/**
- * Set argument pointer to the name of an object's mat_nr-th index material.
- */
-void OBJMesh::set_object_material_name(const char **r_mat_name, short mat_nr)
-{
-  Material *mat = BKE_object_material_get(_export_object_eval, mat_nr);
-  *r_mat_name = mat->id.name + 2;
 }
 
 /**

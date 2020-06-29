@@ -57,12 +57,12 @@ struct OBJExportParams {
   /** The last frame to be exported. */
   int end_frame;
 
-  /** Geometry Transform options */
+  /** Geometry Transform options. */
   int forward_axis;
   int up_axis;
   float scaling_factor;
 
-  /** File Write Options */
+  /** File Write Options. */
   bool export_selected_objects;
   bool export_uv;
   bool export_normals;
@@ -70,7 +70,7 @@ struct OBJExportParams {
   bool export_triangulated_mesh;
   bool export_curves_as_nurbs;
 
-  /** Grouping options */
+  /** Grouping options. */
   bool export_object_groups;
   bool export_material_groups;
 };

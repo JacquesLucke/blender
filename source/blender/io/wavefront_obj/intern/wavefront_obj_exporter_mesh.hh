@@ -51,7 +51,7 @@ class OBJMesh {
   }
 
   /** Free new meshes we allocate for triangulated meshes, and curves converted to meshes. */
-  void destruct()
+  ~OBJMesh()
   {
     if (_me_eval_needs_free) {
       BKE_id_free(NULL, _export_mesh_eval);
@@ -84,54 +84,45 @@ class OBJMesh {
     return _export_mesh_eval->totcol;
   }
 
-  Mesh *export_mesh_eval()
-  {
-    return _export_mesh_eval;
-  }
-
   const MPoly &get_ith_poly(uint i)
   {
     return _export_mesh_eval->mpoly[i];
   }
 
+  void ensure_normals();
   /** Return mat_nr-th material of the object. */
-  Material *get_export_object_material(short mat_nr)
-  {
-    return BKE_object_material_get(_export_object_eval, mat_nr);
-  }
+  Material *get_export_object_material(short mat_nr);
 
-  /**
-   * Set argument pointer to an object's name, as it appears in outliner.
-   */
-  void set_object_name(const char **object_name);
-  void set_object_data_name(const char **r_object_data_name);
-  void set_object_material_name(const char **r_mat_name, short mat_nr);
+  /* Names as they appear in the outliner. */
+  const char *get_object_name();
+  const char *get_object_data_name();
+  const char *get_object_material_name(short mat_nr);
 
   /**
    * Calculate coordinates of the vertex at given index.
    */
-  void calc_vertex_coords(float coords[3], uint vert_index);
+  void calc_vertex_coords(float r_coords[3], uint vert_index);
   /**
    * Calculate vertex indices of all vertices of a polygon.
    */
-  void calc_poly_vertex_indices(Vector<uint> &poly_vertex_indices, uint poly_index);
+  void calc_poly_vertex_indices(Vector<uint> &r_poly_vertex_indices, uint poly_index);
   /**
    * Store UV vertex coordinates as well as their indices.
    */
-  void store_uv_coords_and_indices(Vector<std::array<float, 2>> &uv_coords,
-                                   Vector<Vector<uint>> &uv_indices);
+  void store_uv_coords_and_indices(Vector<std::array<float, 2>> &r_uv_coords,
+                                   Vector<Vector<uint>> &r_uv_indices);
   /**
    * Calculate face normal of the polygon at given index.
    */
-  void calc_poly_normal(float poly_normal[3], uint poly_index);
+  void calc_poly_normal(float r_poly_normal[3], uint poly_index);
   /**
    * Calculate face normal indices of all polygons.
    */
-  void calc_poly_normal_indices(Vector<uint> &normal_indices, uint poly_indices);
+  void calc_poly_normal_indices(Vector<uint> &r_normal_indices, uint poly_indices);
   /**
    * Only for curve converted to meshes: calculate vertex indices of one edge.
    */
-  void calc_edge_vert_indices(uint vert_indices[2], uint edge_index);
+  void calc_edge_vert_indices(uint r_vert_indices[2], uint edge_index);
 
  private:
   bContext *_C;

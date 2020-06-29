@@ -43,9 +43,9 @@ void OBJNurbs::init_nurbs_curve(Object *export_object)
   _export_curve = (Curve *)_export_object_eval->data;
 }
 
-void OBJNurbs::get_curve_name(const char **r_object_name)
+const char *OBJNurbs::get_curve_name()
 {
-  *r_object_name = _export_object_eval->id.name + 2;
+  return _export_object_eval->id.name + 2;
 }
 
 /** Get coordinates of a vertex at given point index. */
