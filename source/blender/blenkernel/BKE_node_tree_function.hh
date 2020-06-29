@@ -144,6 +144,9 @@ struct CommonMFNetworkBuilderData {
   const DerivedNodeTree &tree;
 };
 
+class SocketMFNetworkBuilder {
+};
+
 class NodeMFNetworkBuilder {
  private:
   CommonMFNetworkBuilderData &m_common;

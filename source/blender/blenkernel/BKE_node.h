@@ -101,6 +101,28 @@ typedef struct bNodeSocketTemplate {
   char identifier[64];      /* generated from name */
 } bNodeSocketTemplate;
 
+/* Use `void *` for callbacks that require C++. */
+#ifdef __cplusplus
+namespace blender {
+namespace bke {
+class SocketMFNetworkBuilder;
+class NodeMFNetworkBuilder;
+}  // namespace bke
+namespace fn {
+class MFDataType;
+}
+}  // namespace blender
+
+using NodeBuildMFNetworkFunction = void (*)(blender::bke::NodeMFNetworkBuilder &builder);
+using SocketGetMFDataTypeFunction = blender::fn::MFDataType (*)();
+using SocketBuildMFNetworkFunction = void (*)(blender::bke::SocketMFNetworkBuilder &builder);
+
+#else
+typedef void *NodeBuildMFNetworkFunction;
+typedef void *SocketGetMFDataTypeFunction;
+typedef void *SocketBuildMFNetworkFunction;
+#endif
+
 /**
  * \brief Defines a socket type.
  *
@@ -153,6 +175,10 @@ typedef struct bNodeSocketType {
 
   /* Callback to free the socket type. */
   void (*free_self)(struct bNodeSocketType *stype);
+
+  /* Multi-function integration */
+  SocketGetMFDataTypeFunction get_mf_data_type;
+  SocketBuildMFNetworkFunction build_mf_network;
 } bNodeSocketType;
 
 typedef void *(*NodeInitExecFunction)(struct bNodeExecContext *context,
@@ -170,15 +196,6 @@ typedef int (*NodeGPUExecFunction)(struct GPUMaterial *mat,
                                    struct bNodeExecData *execdata,
                                    struct GPUNodeStack *in,
                                    struct GPUNodeStack *out);
-
-#ifdef __cplusplus
-namespace blender::bke {
-class NodeMFNetworkBuilder;
-}
-using NodeBuildMFNetworkFunction = void (*)(blender::bke::NodeMFNetworkBuilder &builder);
-#else
-typedef void *NodeBuildMFNetworkFunction;
-#endif
 
 /**
  * \brief Defines a node type.
@@ -276,6 +293,7 @@ typedef struct bNodeType {
   /* gpu */
   NodeGPUExecFunction gpufunc;
 
+  /* Multi-function integration */
   NodeBuildMFNetworkFunction build_mf_network;
 
   /* RNA integration */
