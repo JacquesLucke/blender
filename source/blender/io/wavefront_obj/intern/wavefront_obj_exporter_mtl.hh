@@ -42,15 +42,18 @@ class MTLWriter {
     BLI_strncpy(_mtl_filepath, obj_filepath, PATH_MAX);
     BLI_path_extension_replace(_mtl_filepath, PATH_MAX, ".mtl");
   }
-  /** Append an object's material to the .mtl file. */
-  void append_material(OBJMesh &mesh_to_export);
+  /** Append an object's materials to the .mtl file. */
+  void append_materials(OBJMesh &mesh_to_export);
 
  private:
   FILE *_mtl_outfile;
   char _mtl_filepath[PATH_MAX];
-  /** An object's material, to be exported. */
-  Material *_export_mtl;
 
+  /** Write _one_ material to the MTL file. */
+  void write_curr_material(const char *object_name);
+
+  /** One of the object's materials, to be exported. */
+  Material *_export_mtl;
   /** First bsdf node encountered in the object's nodes. */
   bNode *_bsdf_node;
   void init_bsdf_node(const char *object_name);

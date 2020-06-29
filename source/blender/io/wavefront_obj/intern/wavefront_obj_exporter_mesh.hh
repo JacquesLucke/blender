@@ -78,6 +78,12 @@ class OBJMesh {
     return _tot_edges;
   }
 
+  /** Total materials in the object to export. */
+  uint tot_col()
+  {
+    return _export_mesh_eval->totcol;
+  }
+
   Mesh *export_mesh_eval()
   {
     return _export_mesh_eval;
@@ -88,10 +94,10 @@ class OBJMesh {
     return _export_mesh_eval->mpoly[i];
   }
 
-  /** Return active material of the object. */
-  Material *export_object_material()
+  /** Return mat_nr-th material of the object. */
+  Material *get_export_object_material(short mat_nr)
   {
-    return BKE_object_material_get(_export_object_eval, _export_object_eval->actcol);
+    return BKE_object_material_get(_export_object_eval, mat_nr);
   }
 
   /**
@@ -99,7 +105,8 @@ class OBJMesh {
    */
   void set_object_name(const char **object_name);
   void set_object_data_name(const char **r_object_data_name);
-  void set_object_material_name(const char **r_mat_name);
+  void set_object_material_name(const char **r_mat_name, short mat_nr);
+
   /**
    * Calculate coordinates of the vertex at given index.
    */

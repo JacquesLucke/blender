@@ -150,22 +150,8 @@ const char *MTLWriter::get_image_filepath(const bNode *tex_node)
   return nullptr;
 }
 
-/** Append an object's material to the .mtl file. */
-void MTLWriter::append_material(OBJMesh &mesh_to_export)
+void MTLWriter::write_curr_material(const char *object_name)
 {
-  _mtl_outfile = fopen(_mtl_filepath, "a");
-  if (!_mtl_outfile) {
-    fprintf(stderr, "Error in opening file at %s\n", _mtl_filepath);
-    return;
-  }
-
-  const char *object_name;
-  mesh_to_export.set_object_name(&object_name);
-  _export_mtl = mesh_to_export.export_object_material();
-  if (!_export_mtl) {
-    fprintf(stderr, "No active material for the object: %s.\n", object_name);
-    return;
-  }
   fprintf(_mtl_outfile, "\nnewmtl %s\n", _export_mtl->id.name + 2);
 
   init_bsdf_node(object_name);
@@ -308,6 +294,23 @@ void MTLWriter::append_material(OBJMesh &mesh_to_export)
             map_scale[2],
             normal_map_strength,
             tex_image_filepath);
+  }
+}
+
+/** Append an object's materials to the .mtl file. */
+void MTLWriter::append_materials(OBJMesh &mesh_to_export)
+{
+  _mtl_outfile = fopen(_mtl_filepath, "a");
+  if (!_mtl_outfile) {
+    fprintf(stderr, "Error in opening file at %s\n", _mtl_filepath);
+    return;
+  }
+
+  const char *object_name;
+  mesh_to_export.set_object_name(&object_name);
+  for (int curr_mat = 0; curr_mat < mesh_to_export.tot_col(); curr_mat++) {
+    _export_mtl = mesh_to_export.get_export_object_material(curr_mat + 1);
+    write_curr_material(object_name);
   }
 
   fclose(_mtl_outfile);

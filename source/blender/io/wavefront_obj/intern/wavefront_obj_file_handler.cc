@@ -112,6 +112,11 @@ void OBJWriter::write_mtllib(const char *obj_filepath)
   BLI_path_extension_replace(mtl_filepath, PATH_MAX, ".mtl");
 
   FILE *mtl_outfile = fopen(mtl_filepath, "w");
+  if (!mtl_outfile) {
+    fprintf(stderr, "Error opening Material Library file:%s", mtl_filepath);
+    return;
+  }
+  fprintf(stderr, "Material Library: %s\n", mtl_filepath);
   fprintf(mtl_outfile, "# Blender %s\n# www.blender.org\n", BKE_blender_version_string());
   fclose(mtl_outfile);
 
@@ -174,21 +179,29 @@ void OBJWriter::write_poly_normals(OBJMesh &obj_mesh_data)
 }
 
 /**
- * Write material name and material group of an object in the OBJ file.
+ * Write material name and material group of a face in the OBJ file.
  * \note It doesn't write to the material library.
  */
-void OBJWriter::write_usemtl(OBJMesh &obj_mesh_data)
+void OBJWriter::write_poly_material(short &last_face_mat_nr, OBJMesh &obj_mesh_data, short mat_nr)
 {
-  const char *mat_name;
-  obj_mesh_data.set_object_material_name(&mat_name);
-  if (_export_params->export_material_groups) {
-    const char *object_name;
-    const char *object_data_name;
-    obj_mesh_data.set_object_name(&object_name);
-    obj_mesh_data.set_object_data_name(&object_data_name);
-    fprintf(_outfile, "g %s_%s_%s\n", object_name, object_data_name, mat_name);
+  if (_export_params->export_materials == false) {
+    return;
   }
-  fprintf(_outfile, "usemtl %s\n", mat_name);
+  /* Whenever a face with a new material is encountered, write its material and group, otherwise
+   * pass. */
+  if (UNLIKELY(last_face_mat_nr != mat_nr)) {
+    const char *mat_name;
+    obj_mesh_data.set_object_material_name(&mat_name, mat_nr + 1);
+    if (_export_params->export_material_groups) {
+      const char *object_name;
+      const char *object_data_name;
+      obj_mesh_data.set_object_name(&object_name);
+      obj_mesh_data.set_object_data_name(&object_data_name);
+      fprintf(_outfile, "g %s_%s_%s\n", object_name, object_data_name, mat_name);
+    }
+    fprintf(_outfile, "usemtl %s\n", mat_name);
+    last_face_mat_nr = mat_nr;
+  }
 }
 
 /** Define and write a face with at least vertex indices, and conditionally with UV vertex indices
@@ -200,6 +213,8 @@ void OBJWriter::write_poly_indices(OBJMesh &obj_mesh_data, Span<Vector<uint>> uv
   Vector<uint> vertex_indices;
   Vector<uint> normal_indices;
 
+  short last_face_mat_nr = -1;
+
   if (_export_params->export_normals) {
     if (_export_params->export_uv) {
       /* Write both normals and UV indices. */
@@ -207,6 +222,8 @@ void OBJWriter::write_poly_indices(OBJMesh &obj_mesh_data, Span<Vector<uint>> uv
         obj_mesh_data.calc_poly_vertex_indices(vertex_indices, i);
         obj_mesh_data.calc_poly_normal_indices(normal_indices, i);
         const MPoly &poly_to_write = obj_mesh_data.get_ith_poly(i);
+
+        write_poly_material(last_face_mat_nr, obj_mesh_data, poly_to_write.mat_nr);
         write_vert_uv_normal_indices(vertex_indices, uv_indices[i], normal_indices, poly_to_write);
       }
     }
@@ -217,6 +234,7 @@ void OBJWriter::write_poly_indices(OBJMesh &obj_mesh_data, Span<Vector<uint>> uv
         obj_mesh_data.calc_poly_normal_indices(normal_indices, i);
         const MPoly &poly_to_write = obj_mesh_data.get_ith_poly(i);
 
+        write_poly_material(last_face_mat_nr, obj_mesh_data, poly_to_write.mat_nr);
         write_vert_normal_indices(vertex_indices, normal_indices, poly_to_write);
       }
     }
@@ -228,6 +246,7 @@ void OBJWriter::write_poly_indices(OBJMesh &obj_mesh_data, Span<Vector<uint>> uv
         obj_mesh_data.calc_poly_vertex_indices(vertex_indices, i);
         const MPoly &poly_to_write = obj_mesh_data.get_ith_poly(i);
 
+        write_poly_material(last_face_mat_nr, obj_mesh_data, poly_to_write.mat_nr);
         write_vert_uv_indices(vertex_indices, uv_indices[i], poly_to_write);
       }
     }
@@ -237,6 +256,7 @@ void OBJWriter::write_poly_indices(OBJMesh &obj_mesh_data, Span<Vector<uint>> uv
         obj_mesh_data.calc_poly_vertex_indices(vertex_indices, i);
         const MPoly &poly_to_write = obj_mesh_data.get_ith_poly(i);
 
+        write_poly_material(last_face_mat_nr, obj_mesh_data, poly_to_write.mat_nr);
         write_vert_indices(vertex_indices, poly_to_write);
       }
     }

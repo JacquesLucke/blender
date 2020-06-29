@@ -115,10 +115,8 @@ static void export_frame(bContext *C, const OBJExportParams *export_params, cons
         frame_writer.write_uv_coords(mesh_to_export, uv_indices);
       }
       if (export_params->export_materials) {
-        /* Write material name just before face elements. */
-        frame_writer.write_usemtl(mesh_to_export);
         MTLWriter mtl_writer(filepath);
-        mtl_writer.append_material(mesh_to_export);
+        mtl_writer.append_materials(mesh_to_export);
       }
       frame_writer.write_poly_indices(mesh_to_export, uv_indices);
     }
@@ -138,14 +136,16 @@ static void export_frame(bContext *C, const OBJExportParams *export_params, cons
  */
 void exporter_main(bContext *C, const OBJExportParams *export_params)
 {
+  /* TODO ankitm: find a better way to exit edit mode that doesn't hit assert
+   * https://hastebin.com/mitihetagi in file F8653460 */
   ED_object_editmode_exit(C, EM_FREEDATA);
   Scene *scene = CTX_data_scene(C);
   const char *filepath = export_params->filepath;
 
   /* Single frame export, i.e. no amimation is to be exported. */
   if (!export_params->export_animation) {
-    export_frame(C, export_params, filepath);
     fprintf(stderr, "Writing to %s\n", filepath);
+    export_frame(C, export_params, filepath);
     return;
   }
 
