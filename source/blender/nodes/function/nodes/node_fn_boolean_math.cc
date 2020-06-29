@@ -25,6 +25,9 @@
 
 #include "node_function_util.h"
 
+namespace blender {
+namespace node {
+
 static bNodeSocketTemplate fn_node_boolean_math_in[] = {
     {SOCK_BOOLEAN, N_("Boolean")},
     {SOCK_BOOLEAN, N_("Boolean")},
@@ -78,14 +81,18 @@ static void node_boolean_build_mf_network(blender::bke::NodeMFNetworkBuilder &bu
   }
 }
 
+}  // namespace node
+}  // namespace blender
+
 void register_node_type_fn_boolean_math()
 {
   static bNodeType ntype;
 
   fn_node_type_base(&ntype, FN_NODE_BOOLEAN_MATH, "Boolean Math", 0, 0);
-  node_type_socket_templates(&ntype, fn_node_boolean_math_in, fn_node_boolean_math_out);
-  node_type_label(&ntype, node_boolean_math_label);
-  node_type_update(&ntype, node_boolean_math_update);
-  ntype.build_mf_network = (void *)node_boolean_build_mf_network;
+  node_type_socket_templates(
+      &ntype, blender::node::fn_node_boolean_math_in, blender::node::fn_node_boolean_math_out);
+  node_type_label(&ntype, blender::node::node_boolean_math_label);
+  node_type_update(&ntype, blender::node::node_boolean_math_update);
+  ntype.build_mf_network = (void *)blender::node::node_boolean_build_mf_network;
   nodeRegisterType(&ntype);
 }
