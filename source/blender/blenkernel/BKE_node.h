@@ -171,6 +171,15 @@ typedef int (*NodeGPUExecFunction)(struct GPUMaterial *mat,
                                    struct GPUNodeStack *in,
                                    struct GPUNodeStack *out);
 
+#ifdef __cplusplus
+namespace blender::bke {
+class NodeMFNetworkBuilder;
+}
+using NodeBuildMFNetworkFunction = void (*)(blender::bke::NodeMFNetworkBuilder &builder);
+#else
+typedef void *NodeBuildMFNetworkFunction;
+#endif
+
 /**
  * \brief Defines a node type.
  *
@@ -267,7 +276,7 @@ typedef struct bNodeType {
   /* gpu */
   NodeGPUExecFunction gpufunc;
 
-  const void *build_mf_network;
+  NodeBuildMFNetworkFunction build_mf_network;
 
   /* RNA integration */
   ExtensionRNA rna_ext;

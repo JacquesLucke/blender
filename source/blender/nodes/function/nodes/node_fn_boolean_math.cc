@@ -93,6 +93,6 @@ void register_node_type_fn_boolean_math()
       &ntype, blender::node::fn_node_boolean_math_in, blender::node::fn_node_boolean_math_out);
   node_type_label(&ntype, blender::node::node_boolean_math_label);
   node_type_update(&ntype, blender::node::node_boolean_math_update);
-  ntype.build_mf_network = (void *)blender::node::node_boolean_build_mf_network;
+  ntype.build_mf_network = blender::node::node_boolean_build_mf_network;
   nodeRegisterType(&ntype);
 }

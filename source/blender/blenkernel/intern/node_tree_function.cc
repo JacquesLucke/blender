@@ -81,8 +81,7 @@ static void insert_nodes(CommonMFNetworkBuilderData &common)
     const bNodeType *node_type = dnode->node_ref().bnode()->typeinfo;
     if (node_type->build_mf_network != nullptr) {
       NodeMFNetworkBuilder builder{common, *dnode};
-      InsertNodeFunction build = (InsertNodeFunction)node_type->build_mf_network;
-      build(builder);
+      node_type->build_mf_network(builder);
     }
     else if (has_data_sockets(*dnode)) {
       insert_dummy_node(common, *dnode);
