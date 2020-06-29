@@ -20,7 +20,8 @@
 #include "RNA_enum_types.h"
 
 #include "FN_multi_function_builder.hh"
-#include "FN_multi_function_generation.hh"
+
+#include "BKE_node_tree_function.hh"
 
 #include "node_function_util.h"
 
@@ -53,7 +54,7 @@ static void node_boolean_math_label(bNodeTree *UNUSED(ntree), bNode *node, char 
   BLI_strncpy(label, IFACE_(name), maxlen);
 }
 
-static void node_boolean_build_mf_network(blender::fn::NodeMFNetworkBuilder &builder)
+static void node_boolean_build_mf_network(blender::bke::NodeMFNetworkBuilder &builder)
 {
   static blender::fn::CustomFunction_SI_SI_SO<bool, bool, bool> and_fn{
       "And", [](bool a, bool b) { return a && b; }};
