@@ -203,6 +203,9 @@ template<typename Mut1> class CustomMF_SM : public MultiFunction {
   }
 };
 
+/**
+ * Generates a multi-function that outputs a constant value.
+ */
 template<typename T> class CustomMF_Constant : public MultiFunction {
  private:
   T m_value;
