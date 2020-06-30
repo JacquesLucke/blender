@@ -219,10 +219,10 @@ TEST(multi_function, GenericAppendFunction)
   EXPECT_EQ(vectors_ref[3][0], 1);
 }
 
-TEST(multi_function, CustomFunction_SI_SO)
+TEST(multi_function, CustomMF_SI_SO)
 {
-  CustomFunction_SI_SO<std::string, uint> fn("strlen",
-                                             [](const std::string &str) { return str.size(); });
+  CustomMF_SI_SO<std::string, uint> fn("strlen",
+                                       [](const std::string &str) { return str.size(); });
 
   Array<std::string> strings = {"hello", "world", "test", "another test"};
   Array<uint> sizes(strings.size(), 0);
@@ -241,9 +241,9 @@ TEST(multi_function, CustomFunction_SI_SO)
   EXPECT_EQ(sizes[3], 12);
 }
 
-TEST(multi_function, CustomFunction_SI_SI_SO)
+TEST(multi_function, CustomMF_SI_SI_SO)
 {
-  CustomFunction_SI_SI_SO<int, int, int> fn("mul", [](int a, int b) { return a * b; });
+  CustomMF_SI_SI_SO<int, int, int> fn("mul", [](int a, int b) { return a * b; });
 
   Array<int> values_a = {4, 6, 8, 9};
   int value_b = 10;
@@ -264,9 +264,9 @@ TEST(multi_function, CustomFunction_SI_SI_SO)
   EXPECT_EQ(outputs[3], 90);
 }
 
-TEST(multi_function, CustomFunction_SI_SI_SI_SO)
+TEST(multi_function, CustomMF_SI_SI_SI_SO)
 {
-  CustomFunction_SI_SI_SI_SO<int, std::string, bool, uint> fn{
+  CustomMF_SI_SI_SI_SO<int, std::string, bool, uint> fn{
       "custom",
       [](int a, const std::string &b, bool c) { return (uint)((uint)a + b.size() + (uint)c); }};
 
@@ -291,9 +291,9 @@ TEST(multi_function, CustomFunction_SI_SI_SI_SO)
   EXPECT_EQ(outputs[3], 13);
 }
 
-TEST(multi_function, CustomFunction_SM)
+TEST(multi_function, CustomMF_SM)
 {
-  CustomFunction_SM<std::string> fn("AddSuffix", [](std::string &value) { value += " test"; });
+  CustomMF_SM<std::string> fn("AddSuffix", [](std::string &value) { value += " test"; });
 
   Array<std::string> values = {"a", "b", "c", "d", "e"};
 

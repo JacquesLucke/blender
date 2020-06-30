@@ -65,17 +65,17 @@ static void node_float_compare_label(bNodeTree *UNUSED(ntree),
 
 static const fn::MultiFunction &get_multi_function(bNode &node)
 {
-  static fn::CustomFunction_SI_SI_SO<float, float, bool> less_than_fn{
+  static fn::CustomMF_SI_SI_SO<float, float, bool> less_than_fn{
       "Less Than", [](float a, float b) { return a < b; }};
-  static fn::CustomFunction_SI_SI_SO<float, float, bool> less_equal_fn{
+  static fn::CustomMF_SI_SI_SO<float, float, bool> less_equal_fn{
       "Less Equal", [](float a, float b) { return a <= b; }};
-  static fn::CustomFunction_SI_SI_SO<float, float, bool> greater_than_fn{
+  static fn::CustomMF_SI_SI_SO<float, float, bool> greater_than_fn{
       "Greater Than", [](float a, float b) { return a > b; }};
-  static fn::CustomFunction_SI_SI_SO<float, float, bool> greater_equal_fn{
+  static fn::CustomMF_SI_SI_SO<float, float, bool> greater_equal_fn{
       "Greater Equal", [](float a, float b) { return a >= b; }};
-  static fn::CustomFunction_SI_SI_SI_SO<float, float, float, bool> equal_fn{
+  static fn::CustomMF_SI_SI_SI_SO<float, float, float, bool> equal_fn{
       "Equal", [](float a, float b, float epsilon) { return std::abs(a - b) <= epsilon; }};
-  static fn::CustomFunction_SI_SI_SI_SO<float, float, float, bool> not_equal_fn{
+  static fn::CustomMF_SI_SI_SI_SO<float, float, float, bool> not_equal_fn{
       "Not Equal", [](float a, float b, float epsilon) { return std::abs(a - b) > epsilon; }};
 
   switch (node.custom1) {

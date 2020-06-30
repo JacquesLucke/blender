@@ -36,15 +36,15 @@ namespace fn {
  * 2. single output (SO) of type Out1
  *
  * This example creates a function that adds 10 to the incoming values:
- *  CustomFunction_SI_SO<int, int> fn("add 10", [](int value) { return value + 10; });
+ *  CustomMF_SI_SO<int, int> fn("add 10", [](int value) { return value + 10; });
  */
-template<typename In1, typename Out1> class CustomFunction_SI_SO : public MultiFunction {
+template<typename In1, typename Out1> class CustomMF_SI_SO : public MultiFunction {
  private:
   using FunctionT = std::function<void(IndexMask, VSpan<In1>, MutableSpan<Out1>)>;
   FunctionT m_function;
 
  public:
-  CustomFunction_SI_SO(StringRef name, FunctionT function) : m_function(std::move(function))
+  CustomMF_SI_SO(StringRef name, FunctionT function) : m_function(std::move(function))
   {
     MFSignatureBuilder signature = this->get_builder(name);
     signature.single_input<In1>("In1");
@@ -52,8 +52,8 @@ template<typename In1, typename Out1> class CustomFunction_SI_SO : public MultiF
   }
 
   template<typename ElementFuncT>
-  CustomFunction_SI_SO(StringRef name, ElementFuncT element_fn)
-      : CustomFunction_SI_SO(name, CustomFunction_SI_SO::create_function(element_fn))
+  CustomMF_SI_SO(StringRef name, ElementFuncT element_fn)
+      : CustomMF_SI_SO(name, CustomMF_SI_SO::create_function(element_fn))
   {
   }
 
@@ -79,13 +79,13 @@ template<typename In1, typename Out1> class CustomFunction_SI_SO : public MultiF
  * 3. single output (SO) of type Out1
  */
 template<typename In1, typename In2, typename Out1>
-class CustomFunction_SI_SI_SO : public MultiFunction {
+class CustomMF_SI_SI_SO : public MultiFunction {
  private:
   using FunctionT = std::function<void(IndexMask, VSpan<In1>, VSpan<In2>, MutableSpan<Out1>)>;
   FunctionT m_function;
 
  public:
-  CustomFunction_SI_SI_SO(StringRef name, FunctionT function) : m_function(std::move(function))
+  CustomMF_SI_SI_SO(StringRef name, FunctionT function) : m_function(std::move(function))
   {
     MFSignatureBuilder signature = this->get_builder(name);
     signature.single_input<In1>("In1");
@@ -94,8 +94,8 @@ class CustomFunction_SI_SI_SO : public MultiFunction {
   }
 
   template<typename ElementFuncT>
-  CustomFunction_SI_SI_SO(StringRef name, ElementFuncT element_fn)
-      : CustomFunction_SI_SI_SO(name, CustomFunction_SI_SI_SO::create_function(element_fn))
+  CustomMF_SI_SI_SO(StringRef name, ElementFuncT element_fn)
+      : CustomMF_SI_SI_SO(name, CustomMF_SI_SI_SO::create_function(element_fn))
   {
   }
 
@@ -123,14 +123,14 @@ class CustomFunction_SI_SI_SO : public MultiFunction {
  * 4. single output (SO) of type Out1
  */
 template<typename In1, typename In2, typename In3, typename Out1>
-class CustomFunction_SI_SI_SI_SO : public MultiFunction {
+class CustomMF_SI_SI_SI_SO : public MultiFunction {
  private:
   using FunctionT =
       std::function<void(IndexMask, VSpan<In1>, VSpan<In2>, VSpan<In3>, MutableSpan<Out1>)>;
   FunctionT m_function;
 
  public:
-  CustomFunction_SI_SI_SI_SO(StringRef name, FunctionT function) : m_function(std::move(function))
+  CustomMF_SI_SI_SI_SO(StringRef name, FunctionT function) : m_function(std::move(function))
   {
     MFSignatureBuilder signature = this->get_builder(name);
     signature.single_input<In1>("In1");
@@ -140,8 +140,8 @@ class CustomFunction_SI_SI_SI_SO : public MultiFunction {
   }
 
   template<typename ElementFuncT>
-  CustomFunction_SI_SI_SI_SO(StringRef name, ElementFuncT element_fn)
-      : CustomFunction_SI_SI_SI_SO(name, CustomFunction_SI_SI_SI_SO::create_function(element_fn))
+  CustomMF_SI_SI_SI_SO(StringRef name, ElementFuncT element_fn)
+      : CustomMF_SI_SI_SI_SO(name, CustomMF_SI_SI_SI_SO::create_function(element_fn))
   {
   }
 
@@ -171,21 +171,21 @@ class CustomFunction_SI_SI_SI_SO : public MultiFunction {
  * Generates a multi-function with the following parameters:
  * 1. single mutable (SM) of type Mut1
  */
-template<typename Mut1> class CustomFunction_SM : public MultiFunction {
+template<typename Mut1> class CustomMF_SM : public MultiFunction {
  private:
   using FunctionT = std::function<void(IndexMask, MutableSpan<Mut1>)>;
   FunctionT m_function;
 
  public:
-  CustomFunction_SM(StringRef name, FunctionT function) : m_function(std::move(function))
+  CustomMF_SM(StringRef name, FunctionT function) : m_function(std::move(function))
   {
     MFSignatureBuilder signature = this->get_builder(name);
     signature.single_mutable<Mut1>("Mut1");
   }
 
   template<typename ElementFuncT>
-  CustomFunction_SM(StringRef name, ElementFuncT element_fn)
-      : CustomFunction_SM(name, CustomFunction_SM::create_function(element_fn))
+  CustomMF_SM(StringRef name, ElementFuncT element_fn)
+      : CustomMF_SM(name, CustomMF_SM::create_function(element_fn))
   {
   }
 

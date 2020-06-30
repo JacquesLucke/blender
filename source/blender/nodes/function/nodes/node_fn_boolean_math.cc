@@ -59,11 +59,11 @@ static void node_boolean_math_label(bNodeTree *UNUSED(ntree), bNode *node, char 
 
 static const fn::MultiFunction &get_multi_function(bNode &bnode)
 {
-  static fn::CustomFunction_SI_SI_SO<bool, bool, bool> and_fn{
-      "And", [](bool a, bool b) { return a && b; }};
-  static fn::CustomFunction_SI_SI_SO<bool, bool, bool> or_fn{
-      "Or", [](bool a, bool b) { return a || b; }};
-  static fn::CustomFunction_SI_SO<bool, bool> not_fn{"Not", [](bool a) { return !a; }};
+  static fn::CustomMF_SI_SI_SO<bool, bool, bool> and_fn{"And",
+                                                        [](bool a, bool b) { return a && b; }};
+  static fn::CustomMF_SI_SI_SO<bool, bool, bool> or_fn{"Or",
+                                                       [](bool a, bool b) { return a || b; }};
+  static fn::CustomMF_SI_SO<bool, bool> not_fn{"Not", [](bool a) { return !a; }};
 
   switch (bnode.custom1) {
     case NODE_BOOLEAN_MATH_AND:
