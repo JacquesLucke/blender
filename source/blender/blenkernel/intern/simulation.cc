@@ -55,6 +55,8 @@
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
 
+#include "FN_multi_function_network_evaluation.hh"
+
 static void simulation_init_data(ID *id)
 {
   Simulation *simulation = (Simulation *)id;
@@ -213,8 +215,18 @@ static void simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulatio
 
   fn::MFNetwork network;
   ResourceCollector resources;
-  insert_node_tree_into_mf_network(network, tree, resources);
+  MFNetworkTreeMap network_map = insert_node_tree_into_mf_network(network, tree, resources);
   std::cout << network.to_dot() << "\n";
+
+  Span<const DNode *> force_nodes = tree.nodes_by_type("SimulationNodeForce");
+  if (force_nodes.size() != 1) {
+    return;
+  }
+
+  const DNode &force_node = *force_nodes[0];
+  fn::MFInputSocket &force_input_socket = network_map.lookup_dummy(force_node.input(0));
+
+  fn::MFNetworkEvaluator offset_fn{{}, {&force_input_socket}};
 
   /* Number of particles should be stored in the cache, but for now assume it is constant. */
   state_cow->tot_particles = state_orig->tot_particles;
@@ -258,9 +270,18 @@ static void simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulatio
   else if (current_frame == state_orig->current_frame + 1) {
     state_orig->current_frame = current_frame;
     ensure_attributes_exist(state_orig);
+
+    Array<float3> offsets{(uint)state_orig->tot_particles};
+    fn::MFParamsBuilder params{offset_fn, (uint)state_orig->tot_particles};
+    params.add_uninitialized_single_output(offsets.as_mutable_span());
+
+    fn::MFContextBuilder context;
+
+    offset_fn.call(IndexRange(state_orig->tot_particles), params, context);
+
     MutableSpan<float3> positions = get_particle_positions(state_orig);
-    for (float3 &position : positions) {
-      position.z += 0.1f;
+    for (uint i : positions.index_range()) {
+      positions[i] += offsets[i];
     }
 
     BKE_ptcache_write(&pid_orig, current_frame);

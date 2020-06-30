@@ -136,6 +136,22 @@ class MFNetworkTreeMap {
     return m_sockets_by_dsocket_id[dsocket.id()].as_span().cast<fn::MFInputSocket *>();
   }
 
+  fn::MFInputSocket &lookup_dummy(const DInputSocket &dsocket)
+  {
+    Span<fn::MFInputSocket *> sockets = this->lookup(dsocket);
+    BLI_assert(sockets.size() == 1);
+    fn::MFInputSocket &socket = *sockets[0];
+    BLI_assert(socket.node().is_dummy());
+    return socket;
+  }
+
+  fn::MFOutputSocket &lookup_dummy(const DOutputSocket &dsocket)
+  {
+    fn::MFOutputSocket &socket = this->lookup(dsocket);
+    BLI_assert(socket.node().is_dummy());
+    return socket;
+  }
+
   bool is_mapped(const DSocket &dsocket) const
   {
     return m_sockets_by_dsocket_id[dsocket.id()].size() >= 1;
