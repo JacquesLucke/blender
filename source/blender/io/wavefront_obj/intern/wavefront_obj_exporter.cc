@@ -121,8 +121,6 @@ static void export_frame(bContext *C, const OBJExportParams *export_params, cons
       frame_writer.write_poly_indices(mesh_to_export, uv_indices);
     }
     frame_writer.update_index_offsets(mesh_to_export);
-
-    mesh_to_export.~OBJMesh();
   }
   /* Export nurbs in parm form, not as vertices and edges. */
   for (uint ob_iter = 0; ob_iter < exportable_nurbs.size(); ob_iter++) {
