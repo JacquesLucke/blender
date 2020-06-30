@@ -48,9 +48,10 @@ class OBJMesh {
   /** Free new meshes we allocate for triangulated meshes, and curves converted to meshes. */
   ~OBJMesh()
   {
+    fprintf(stderr, "Called destructor.\n");
     /** TODO ankitm remove this debug fprintf. */
     if (_me_eval_needs_free) {
-      fprintf(stderr, "Freed a curve converted to mesh at\n%s\n", AT);
+      fprintf(stderr, "Freed a curve converted to mesh.\n");
       BKE_id_free(NULL, _export_mesh_eval);
     }
   }
