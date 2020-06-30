@@ -43,7 +43,7 @@ class DParentNode;
 class DGroupInput;
 class DerivedNodeTree;
 
-class DSocket : blender::NonCopyable, blender::NonMovable {
+class DSocket : NonCopyable, NonMovable {
  protected:
   DNode *m_node;
   const SocketRef *m_socket_ref;
@@ -98,7 +98,7 @@ class DOutputSocket : public DSocket {
   Span<const DInputSocket *> linked_sockets() const;
 };
 
-class DGroupInput : blender::NonCopyable, blender::NonMovable {
+class DGroupInput : NonCopyable, NonMovable {
  private:
   const InputSocketRef *m_socket_ref;
   DParentNode *m_parent;
@@ -115,7 +115,7 @@ class DGroupInput : blender::NonCopyable, blender::NonMovable {
   StringRefNull name() const;
 };
 
-class DNode : blender::NonCopyable, blender::NonMovable {
+class DNode : NonCopyable, NonMovable {
  private:
   const NodeRef *m_node_ref;
   DParentNode *m_parent;
@@ -147,7 +147,7 @@ class DNode : blender::NonCopyable, blender::NonMovable {
   void destruct_with_sockets();
 };
 
-class DParentNode : blender::NonCopyable, blender::NonMovable {
+class DParentNode : NonCopyable, NonMovable {
  private:
   const NodeRef *m_node_ref;
   DParentNode *m_parent;
@@ -163,7 +163,7 @@ class DParentNode : blender::NonCopyable, blender::NonMovable {
 
 using NodeTreeRefMap = Map<bNodeTree *, std::unique_ptr<const NodeTreeRef>>;
 
-class DerivedNodeTree : blender::NonCopyable, blender::NonMovable {
+class DerivedNodeTree : NonCopyable, NonMovable {
  private:
   LinearAllocator<> m_allocator;
   bNodeTree *m_btree;
