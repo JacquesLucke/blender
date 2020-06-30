@@ -104,7 +104,7 @@ void MTLWriter::linked_sockets_to_dest_id(Vector<const OutputSocketRef *> *r_lin
   if (!dest_node) {
     return;
   }
-  Span<const NodeRef *> object_dest_nodes = node_tree.nodes_with_idname(dest_node->idname);
+  Span<const NodeRef *> object_dest_nodes = node_tree.nodes_by_type(dest_node->idname);
   Span<const InputSocketRef *> dest_inputs = object_dest_nodes.first()->inputs();
   const InputSocketRef *dest_socket = nullptr;
   for (const InputSocketRef *curr_socket : dest_inputs) {
