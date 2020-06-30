@@ -228,6 +228,30 @@ static void simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulatio
 
   fn::MFNetworkEvaluator offset_fn{{}, {&force_input_socket}};
 
+  Span<const DNode *> attribute_input_nodes = tree.nodes_by_type(
+      "SimulationNodeParticleAttribute");
+  Vector<const fn::MFInputSocket *> attribute_name_inputs;
+  for (const DNode *dnode : attribute_input_nodes) {
+    attribute_name_inputs.append(&network_map.lookup_dummy(dnode->input(0)));
+  }
+
+  fn::MFNetworkEvaluator attribute_names_fn{{}, attribute_name_inputs};
+  Array<std::string> attribute_names{attribute_input_nodes.size(), NoInitializationTag()};
+
+  {
+    fn::MFParamsBuilder params{attribute_names_fn, 1};
+    for (std::string &attribute_name : attribute_names) {
+      params.add_uninitialized_single_output(
+          fn::GMutableSpan(fn::CPPType::get<std::string>(), &attribute_name, 1));
+    }
+
+    fn::MFContextBuilder context;
+
+    attribute_names_fn.call({0}, params, context);
+  }
+
+  attribute_names.as_span().print_as_lines("Attribute Names");
+
   /* Number of particles should be stored in the cache, but for now assume it is constant. */
   state_cow->tot_particles = state_orig->tot_particles;
   CustomData_realloc(&state_cow->attributes, state_orig->tot_particles);
