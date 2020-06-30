@@ -236,7 +236,7 @@ static void simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulatio
   }
 
   fn::MFNetworkEvaluator attribute_names_fn{{}, attribute_name_inputs};
-  Array<std::string> attribute_names{attribute_input_nodes.size(), NoInitializationTag()};
+  Array<std::string> attribute_names{attribute_input_nodes.size(), NoInitialization()};
 
   {
     fn::MFParamsBuilder params{attribute_names_fn, 1};

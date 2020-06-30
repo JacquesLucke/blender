@@ -242,7 +242,11 @@ template<size_t Size, size_t Alignment> class alignas(Alignment) AlignedBuffer {
   }
 };
 
-struct NoInitializationTag {
+/**
+ * This can be used by container constructors. A parameter of this type should be used to indicate
+ * that the constructor does not construct the elements.
+ */
+class NoInitialization {
 };
 
 }  // namespace blender
