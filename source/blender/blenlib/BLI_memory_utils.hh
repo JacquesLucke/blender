@@ -242,6 +242,9 @@ template<size_t Size, size_t Alignment> class alignas(Alignment) AlignedBuffer {
   }
 };
 
+struct NoInitializationTag {
+};
+
 }  // namespace blender
 
 #endif /* __BLI_MEMORY_UTILS_HH__ */

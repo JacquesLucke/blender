@@ -130,6 +130,12 @@ class Array {
     uninitialized_fill_n(m_data, m_size, value);
   }
 
+  Array(uint size, NoInitializationTag)
+  {
+    m_size = size;
+    m_data = this->get_buffer_for_size(size);
+  }
+
   Array(const Array &other) : m_allocator(other.m_allocator)
   {
     m_size = other.size();
