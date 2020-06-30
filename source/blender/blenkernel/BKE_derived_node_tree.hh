@@ -43,7 +43,7 @@ class DParentNode;
 class DGroupInput;
 class DerivedNodeTree;
 
-class DSocket : blender::NonCopyable, blender::NonMovable {
+class DSocket : NonCopyable, NonMovable {
  protected:
   DNode *m_node;
   const SocketRef *m_socket_ref;
@@ -96,7 +96,7 @@ class DOutputSocket : public DSocket {
   Span<const DInputSocket *> linked_sockets() const;
 };
 
-class DGroupInput : blender::NonCopyable, blender::NonMovable {
+class DGroupInput : NonCopyable, NonMovable {
  private:
   const InputSocketRef *m_socket_ref;
   DParentNode *m_parent;
@@ -113,7 +113,7 @@ class DGroupInput : blender::NonCopyable, blender::NonMovable {
   StringRefNull name() const;
 };
 
-class DNode : blender::NonCopyable, blender::NonMovable {
+class DNode : NonCopyable, NonMovable {
  private:
   const NodeRef *m_node_ref;
   DParentNode *m_parent;
@@ -145,7 +145,7 @@ class DNode : blender::NonCopyable, blender::NonMovable {
   void destruct_with_sockets();
 };
 
-class DParentNode : blender::NonCopyable, blender::NonMovable {
+class DParentNode : NonCopyable, NonMovable {
  private:
   const NodeRef *m_node_ref;
   DParentNode *m_parent;
@@ -161,7 +161,7 @@ class DParentNode : blender::NonCopyable, blender::NonMovable {
 
 using NodeTreeRefMap = Map<bNodeTree *, std::unique_ptr<const NodeTreeRef>>;
 
-class DerivedNodeTree : blender::NonCopyable, blender::NonMovable {
+class DerivedNodeTree : NonCopyable, NonMovable {
  private:
   LinearAllocator<> m_allocator;
   bNodeTree *m_btree;
@@ -173,14 +173,15 @@ class DerivedNodeTree : blender::NonCopyable, blender::NonMovable {
   Vector<DInputSocket *> m_input_sockets;
   Vector<DOutputSocket *> m_output_sockets;
 
-  Map<std::string, Vector<DNode *>> m_nodes_by_idname;
+  Map<const bNodeType *, Vector<DNode *>> m_nodes_by_type;
 
  public:
   DerivedNodeTree(bNodeTree *btree, NodeTreeRefMap &node_tree_refs);
   ~DerivedNodeTree();
 
   Span<const DNode *> nodes() const;
-  Span<const DNode *> nodes_with_idname(StringRef idname) const;
+  Span<const DNode *> nodes_by_type(StringRefNull idname) const;
+  Span<const DNode *> nodes_by_type(const bNodeType *nodetype) const;
 
   Span<const DSocket *> sockets() const;
   Span<const DInputSocket *> input_sockets() const;
@@ -428,9 +429,15 @@ inline Span<const DNode *> DerivedNodeTree::nodes() const
   return m_nodes_by_id.as_span();
 }
 
-inline Span<const DNode *> DerivedNodeTree::nodes_with_idname(StringRef idname) const
+inline Span<const DNode *> DerivedNodeTree::nodes_by_type(StringRefNull idname) const
 {
-  const Vector<DNode *> *nodes = m_nodes_by_idname.lookup_ptr(idname);
+  const bNodeType *nodetype = nodeTypeFind(idname.data());
+  return this->nodes_by_type(nodetype);
+}
+
+inline Span<const DNode *> DerivedNodeTree::nodes_by_type(const bNodeType *nodetype) const
+{
+  const Vector<DNode *> *nodes = m_nodes_by_type.lookup_ptr(nodetype);
   if (nodes == nullptr) {
     return {};
   }
