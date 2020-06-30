@@ -38,10 +38,10 @@ void OBJWriter::write_vert_uv_normal_indices(Span<uint> vert_indices,
                                              Span<uint> normal_indices,
                                              const MPoly &poly_to_write)
 {
-  fprintf(_outfile, "f ");
-  for (int j = 0; j < poly_to_write.totloop; j++) {
+  fprintf(_outfile, "f");
+  for (uint j = 0; j < poly_to_write.totloop; j++) {
     fprintf(_outfile,
-            "%d/%d/%d ",
+            " %u/%u/%u",
             vert_indices[j] + _index_offset[VERTEX_OFF],
             uv_indices[j] + _index_offset[UV_VERTEX_OFF],
             normal_indices[j] + _index_offset[NORMAL_OFF]);
@@ -54,10 +54,10 @@ void OBJWriter::write_vert_normal_indices(Span<uint> vert_indices,
                                           Span<uint> normal_indices,
                                           const MPoly &poly_to_write)
 {
-  fprintf(_outfile, "f ");
-  for (int j = 0; j < poly_to_write.totloop; j++) {
+  fprintf(_outfile, "f");
+  for (uint j = 0; j < poly_to_write.totloop; j++) {
     fprintf(_outfile,
-            "%d//%d ",
+            " %u//%u ",
             vert_indices[j] + _index_offset[VERTEX_OFF],
             normal_indices[j] + _index_offset[NORMAL_OFF]);
   }
@@ -69,10 +69,10 @@ void OBJWriter::write_vert_uv_indices(Span<uint> vert_indices,
                                       Span<uint> uv_indices,
                                       const MPoly &poly_to_write)
 {
-  fprintf(_outfile, "f ");
-  for (int j = 0; j < poly_to_write.totloop; j++) {
+  fprintf(_outfile, "f");
+  for (uint j = 0; j < poly_to_write.totloop; j++) {
     fprintf(_outfile,
-            "%d/%d ",
+            " %u/%u",
             vert_indices[j] + _index_offset[VERTEX_OFF],
             uv_indices[j] + 1 + _index_offset[UV_VERTEX_OFF]);
   }
@@ -82,9 +82,9 @@ void OBJWriter::write_vert_uv_indices(Span<uint> vert_indices,
 /** Write one line of polygon indices as f v1 v2 ... . */
 void OBJWriter::write_vert_indices(Span<uint> vert_indices, const MPoly &poly_to_write)
 {
-  fprintf(_outfile, "f ");
-  for (int j = 0; j < poly_to_write.totloop; j++) {
-    fprintf(_outfile, "%d ", vert_indices[j] + _index_offset[VERTEX_OFF]);
+  fprintf(_outfile, "f");
+  for (uint j = 0; j < poly_to_write.totloop; j++) {
+    fprintf(_outfile, " %u", vert_indices[j] + _index_offset[VERTEX_OFF]);
   }
   fprintf(_outfile, "\n");
 }
@@ -184,7 +184,7 @@ void OBJWriter::write_poly_normals(OBJMesh &obj_mesh_data)
  */
 void OBJWriter::write_poly_material(short &last_face_mat_nr, OBJMesh &obj_mesh_data, short mat_nr)
 {
-  if (_export_params->export_materials == false || !(obj_mesh_data.tot_col() > 0)) {
+  if (!_export_params->export_materials || obj_mesh_data.tot_col() <= 0) {
     return;
   }
   /* Whenever a face with a new material is encountered, write its material and group, otherwise
@@ -271,7 +271,7 @@ void OBJWriter::write_curve_edges(OBJMesh &obj_mesh_data)
   for (uint edge_index = 0; edge_index < obj_mesh_data.tot_edges(); edge_index++) {
     obj_mesh_data.calc_edge_vert_indices(vertex_indices, edge_index);
     fprintf(_outfile,
-            "l %d %d\n",
+            "l %u %u\n",
             vertex_indices[0] + _index_offset[VERTEX_OFF],
             vertex_indices[1] + _index_offset[VERTEX_OFF]);
   }
@@ -298,13 +298,13 @@ void OBJWriter::write_nurbs_curve(OBJNurbs &obj_nurbs_data)
 
     fprintf(_outfile, "g %s\ncstype bspline\ndeg %d\n", nurbs_name, nurbs_degree);
     /**
-     * curv_num refers to the vertices above written in relative indices.
+     * curv_num indices into the point vertices above, in relative indices.
      * 0.0 1.0 -1 -2 -3 -4 for a non-cyclic curve with 4 points.
      * 0.0 1.0 -1 -2 -3 -4 -1 -2 -3 for a cyclic curve with 4 points.
      */
-    fprintf(_outfile, "curv 0.0 1.0 ");
+    fprintf(_outfile, "curv 0.0 1.0");
     for (int i = 0; i < curv_num; i++) {
-      fprintf(_outfile, "%d ", -1 * ((i % tot_points) + 1));
+      fprintf(_outfile, " -%u", (i % tot_points) + 1);
     }
     fprintf(_outfile, "\n");
 

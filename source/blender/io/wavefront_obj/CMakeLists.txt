@@ -59,7 +59,7 @@ set(SRC
 )
 
 set(LIB
-
+  bf_blenkernel
 )
 
 blender_add_lib(bf_wavefront_obj "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")

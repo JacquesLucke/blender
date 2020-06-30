@@ -43,7 +43,7 @@ namespace obj {
  */
 void MTLWriter::init_bsdf_node(const char *object_name)
 {
-  if (_export_mtl->use_nodes == false) {
+  if (!_export_mtl->use_nodes) {
     fprintf(
         stderr, "No Principled-BSDF node found in the material node tree of: %s.\n", object_name);
     _bsdf_node = nullptr;

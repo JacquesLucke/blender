@@ -162,7 +162,7 @@ void exporter_main(bContext *C, const OBJExportParams *export_params)
     char frame_ext[17];
     BLI_snprintf(frame_ext, 17, "_%d.obj", frame);
     bool filepath_ok = BLI_path_extension_replace(filepath_with_frames, FILE_MAX, frame_ext);
-    if (filepath_ok == false) {
+    if (!filepath_ok) {
       fprintf(stderr, "Error: File Path too long.\n%s\n", filepath_with_frames);
       return;
     }

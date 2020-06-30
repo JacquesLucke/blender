@@ -43,7 +43,8 @@ class MTLWriter {
     BLI_path_extension_replace(_mtl_filepath, PATH_MAX, ".mtl");
   }
 
-  ~MTLWriter(){
+  ~MTLWriter()
+  {
     fclose(_mtl_outfile);
   }
 

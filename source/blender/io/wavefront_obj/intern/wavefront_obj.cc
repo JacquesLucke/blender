@@ -44,6 +44,6 @@ void OBJ_export(bContext *C, const OBJExportParams *export_params)
 /**
  * Called from io_obj.c. Currently not implemented.
  */
-void OBJ_import(bContext *C, const OBJImportParams *import_params)
+void OBJ_import(bContext *UNUSED(C), const OBJImportParams *UNUSED(import_params))
 {
 }
