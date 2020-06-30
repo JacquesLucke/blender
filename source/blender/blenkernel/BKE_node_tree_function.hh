@@ -17,6 +17,7 @@
 #ifndef __BKE_NODE_TREE_FUNCTION_HH__
 #define __BKE_NODE_TREE_FUNCTION_HH__
 
+#include "FN_multi_function_builder.hh"
 #include "FN_multi_function_network.hh"
 
 #include "BKE_derived_node_tree.hh"
@@ -49,29 +50,29 @@ class MFNetworkTreeMap {
   Array<fn::MFOutputSocket *> m_socket_by_group_input_id;
 
  public:
-  MFNetworkTreeMap(const bke::DerivedNodeTree &tree)
+  MFNetworkTreeMap(const DerivedNodeTree &tree)
       : m_sockets_by_dsocket_id(tree.sockets().size()),
         m_socket_by_group_input_id(tree.group_inputs().size(), nullptr)
   {
   }
 
-  void add(const bke::DSocket &dsocket, fn::MFSocket &socket)
+  void add(const DSocket &dsocket, fn::MFSocket &socket)
   {
     BLI_assert(dsocket.is_input() == socket.is_input());
     m_sockets_by_dsocket_id[dsocket.id()].append(&socket);
   }
 
-  void add(const bke::DInputSocket &dsocket, fn::MFInputSocket &socket)
+  void add(const DInputSocket &dsocket, fn::MFInputSocket &socket)
   {
     m_sockets_by_dsocket_id[dsocket.id()].append(&socket);
   }
 
-  void add(const bke::DOutputSocket &dsocket, fn::MFOutputSocket &socket)
+  void add(const DOutputSocket &dsocket, fn::MFOutputSocket &socket)
   {
     m_sockets_by_dsocket_id[dsocket.id()].append(&socket);
   }
 
-  void add(Span<const bke::DInputSocket *> dsockets, Span<fn::MFInputSocket *> sockets)
+  void add(Span<const DInputSocket *> dsockets, Span<fn::MFInputSocket *> sockets)
   {
     assert_same_size(dsockets, sockets);
     for (uint i : dsockets.index_range()) {
@@ -79,7 +80,7 @@ class MFNetworkTreeMap {
     }
   }
 
-  void add(Span<const bke::DOutputSocket *> dsockets, Span<fn::MFOutputSocket *> sockets)
+  void add(Span<const DOutputSocket *> dsockets, Span<fn::MFOutputSocket *> sockets)
   {
     assert_same_size(dsockets, sockets);
     for (uint i : dsockets.index_range()) {
@@ -87,22 +88,22 @@ class MFNetworkTreeMap {
     }
   }
 
-  void add(const bke::DGroupInput &group_input, fn::MFOutputSocket &socket)
+  void add(const DGroupInput &group_input, fn::MFOutputSocket &socket)
   {
     BLI_assert(m_socket_by_group_input_id[group_input.id()] == nullptr);
     m_socket_by_group_input_id[group_input.id()] = &socket;
   }
 
-  void add_try_match(const bke::DNode &dnode, fn::MFNode &node)
+  void add_try_match(const DNode &dnode, fn::MFNode &node)
   {
     this->add_try_match(dnode.inputs(), node.inputs());
     this->add_try_match(dnode.outputs(), node.outputs());
   }
 
-  void add_try_match(Span<const bke::DSocket *> dsockets, Span<fn::MFSocket *> sockets)
+  void add_try_match(Span<const DSocket *> dsockets, Span<fn::MFSocket *> sockets)
   {
     uint used_sockets = 0;
-    for (const bke::DSocket *dsocket : dsockets) {
+    for (const DSocket *dsocket : dsockets) {
       bNodeSocket *bsocket = dsocket->socket_ref().bsocket();
       if (bsocket->flag & SOCK_UNAVAIL) {
         continue;
@@ -116,26 +117,26 @@ class MFNetworkTreeMap {
     }
   }
 
-  fn::MFOutputSocket &lookup(const bke::DGroupInput &group_input)
+  fn::MFOutputSocket &lookup(const DGroupInput &group_input)
   {
     fn::MFOutputSocket *socket = m_socket_by_group_input_id[group_input.id()];
     BLI_assert(socket != nullptr);
     return *socket;
   }
 
-  fn::MFOutputSocket &lookup(const bke::DOutputSocket &dsocket)
+  fn::MFOutputSocket &lookup(const DOutputSocket &dsocket)
   {
     auto &sockets = m_sockets_by_dsocket_id[dsocket.id()];
     BLI_assert(sockets.size() == 1);
     return sockets[0]->as_output();
   }
 
-  Span<fn::MFInputSocket *> lookup(const bke::DInputSocket &dsocket)
+  Span<fn::MFInputSocket *> lookup(const DInputSocket &dsocket)
   {
     return m_sockets_by_dsocket_id[dsocket.id()].as_span().cast<fn::MFInputSocket *>();
   }
 
-  bool is_mapped(const bke::DSocket &dsocket) const
+  bool is_mapped(const DSocket &dsocket) const
   {
     return m_sockets_by_dsocket_id[dsocket.id()].size() >= 1;
   }
@@ -148,17 +149,12 @@ struct CommonMFNetworkBuilderData {
   const DerivedNodeTree &tree;
 };
 
-class SocketMFNetworkBuilder {
-};
-
-class NodeMFNetworkBuilder {
- private:
+class MFNetworkBuilderBase {
+ protected:
   CommonMFNetworkBuilderData &m_common;
-  const bke::DNode &m_node;
 
  public:
-  NodeMFNetworkBuilder(CommonMFNetworkBuilderData &common, const bke::DNode &node)
-      : m_common(common), m_node(node)
+  MFNetworkBuilderBase(CommonMFNetworkBuilderData &common) : m_common(common)
   {
   }
 
@@ -179,6 +175,61 @@ class NodeMFNetworkBuilder {
     T *fn = new (buffer) T(std::forward<Args>(args)...);
     m_common.resources.add(destruct_ptr<T>(fn), fn->name().data());
     return *fn;
+  }
+};
+
+class SocketMFNetworkBuilder : public MFNetworkBuilderBase {
+ private:
+  const DSocket &m_socket;
+  fn::MFOutputSocket *m_built_socket = nullptr;
+
+ public:
+  SocketMFNetworkBuilder(CommonMFNetworkBuilderData &common, const DSocket &socket)
+      : MFNetworkBuilderBase(common), m_socket(socket)
+  {
+  }
+
+  bNodeSocket &bsocket()
+  {
+    return *m_socket.socket_ref().bsocket();
+  }
+
+  template<typename T> T *socket_default_value()
+  {
+    return (T *)m_socket.socket_ref().bsocket()->default_value;
+  }
+
+  template<typename T> void set_constant_value(T &value)
+  {
+    const fn::MultiFunction &fn = this->construct_fn<fn::CustomMF_Constant<T>>(std::move(value));
+    this->set_generator_fn(fn);
+  }
+
+  void set_generator_fn(const fn::MultiFunction &fn)
+  {
+    fn::MFFunctionNode &node = this->add_function(fn);
+    this->set_socket(node.output(0));
+  }
+
+  void set_socket(fn::MFOutputSocket &socket)
+  {
+    m_built_socket = &socket;
+  }
+
+  fn::MFOutputSocket *built_socket()
+  {
+    return m_built_socket;
+  }
+};
+
+class NodeMFNetworkBuilder : public MFNetworkBuilderBase {
+ private:
+  const DNode &m_node;
+
+ public:
+  NodeMFNetworkBuilder(CommonMFNetworkBuilderData &common, const DNode &node)
+      : MFNetworkBuilderBase(common), m_node(node)
+  {
   }
 
   void set_matching_fn(const fn::MultiFunction &function)

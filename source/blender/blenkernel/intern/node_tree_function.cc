@@ -142,9 +142,32 @@ static void insert_links(CommonMFNetworkBuilderData &common)
   }
 }
 
-static void insert_unlinked_inputs(CommonMFNetworkBuilderData &UNUSED(common))
+static void insert_unlinked_inputs(CommonMFNetworkBuilderData &common)
 {
-  /* TODO */
+  Vector<const DInputSocket *> unlinked_data_inputs;
+  for (const DInputSocket *dsocket : common.tree.input_sockets()) {
+    if (is_data_socket(dsocket->socket_ref().bsocket())) {
+      if (!dsocket->is_linked()) {
+        unlinked_data_inputs.append(dsocket);
+      }
+    }
+  }
+
+  for (const DInputSocket *dsocket : unlinked_data_inputs) {
+    bNodeSocket *bsocket = dsocket->socket_ref().bsocket();
+    bNodeSocketType *socktype = bsocket->typeinfo;
+    BLI_assert(socktype->build_mf_network != nullptr);
+
+    SocketMFNetworkBuilder builder{common, *dsocket};
+    socktype->build_mf_network(builder);
+
+    fn::MFOutputSocket *from_socket = builder.built_socket();
+    BLI_assert(from_socket != nullptr);
+
+    for (fn::MFInputSocket *to_socket : common.network_map.lookup(*dsocket)) {
+      common.network.add_link(*from_socket, *to_socket);
+    }
+  }
 }
 
 MFNetworkTreeMap insert_node_tree_into_mf_network(fn::MFNetwork &network,

@@ -516,7 +516,10 @@ static bNodeSocketType *make_socket_type_bool()
 {
   bNodeSocketType *socktype = make_standard_socket_type(SOCK_BOOLEAN, PROP_NONE);
   socktype->get_mf_data_type = []() { return blender::fn::MFDataType::ForSingle<bool>(); };
-  socktype->build_mf_network = nullptr;
+  socktype->build_mf_network = [](blender::bke::SocketMFNetworkBuilder &builder) {
+    bool value = builder.socket_default_value<bNodeSocketValueBoolean>()->value;
+    builder.set_constant_value(value);
+  };
   return socktype;
 }
 
@@ -524,7 +527,10 @@ static bNodeSocketType *make_socket_type_float(PropertySubType subtype)
 {
   bNodeSocketType *socktype = make_standard_socket_type(SOCK_FLOAT, subtype);
   socktype->get_mf_data_type = []() { return blender::fn::MFDataType::ForSingle<float>(); };
-  socktype->build_mf_network = nullptr;
+  socktype->build_mf_network = [](blender::bke::SocketMFNetworkBuilder &builder) {
+    float value = builder.socket_default_value<bNodeSocketValueFloat>()->value;
+    builder.set_constant_value(value);
+  };
   return socktype;
 }
 
