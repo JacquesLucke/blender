@@ -49,8 +49,8 @@ namespace obj {
  */
 static void export_frame(bContext *C, const OBJExportParams *export_params, const char *filepath)
 {
-  Vector<OBJMesh> exportable_meshes;
-  Vector<OBJNurbs> exportable_nurbs;
+  Vector<std::unique_ptr<OBJMesh>> exportable_meshes;
+  Vector<std::unique_ptr<OBJNurbs>> exportable_nurbs;
   ViewLayer *view_layer = CTX_data_view_layer(C);
   LISTBASE_FOREACH (Base *, base, &view_layer->object_bases) {
     Object *object_in_layer = base->object;
@@ -60,7 +60,8 @@ static void export_frame(bContext *C, const OBJExportParams *export_params, cons
     switch (object_in_layer->type) {
       case OB_SURF:
       case OB_MESH: {
-        exportable_meshes.append(OBJMesh(C, export_params, object_in_layer));
+        OBJMesh *objmesh = new OBJMesh(C, export_params, object_in_layer);
+        exportable_meshes.append(std::unique_ptr<OBJMesh>(objmesh));
         break;
       }
       case OB_CURVE: {
@@ -68,14 +69,17 @@ static void export_frame(bContext *C, const OBJExportParams *export_params, cons
         Nurb *nurb = (Nurb *)curve->nurb.first;
         if (nurb->type == CU_NURBS) {
           if (export_params->export_curves_as_nurbs) {
-            exportable_nurbs.append(OBJNurbs(C, object_in_layer));
+            OBJNurbs *objnurb = new OBJNurbs(C, object_in_layer);
+            exportable_nurbs.append(std::unique_ptr<OBJNurbs>(objnurb));
           }
           else {
-            exportable_meshes.append(OBJMesh(C, export_params, object_in_layer));
+            OBJMesh *objmesh = new OBJMesh(C, export_params, object_in_layer);
+            exportable_meshes.append(std::unique_ptr<OBJMesh>(objmesh));
           }
         }
         if (nurb->type == CU_BEZIER) {
-          exportable_meshes.append(OBJMesh(C, export_params, object_in_layer));
+          OBJMesh *objmesh = new OBJMesh(C, export_params, object_in_layer);
+          exportable_meshes.append(std::unique_ptr<OBJMesh>(objmesh));
         }
         /* Other types of curves are not supported.  */
         break;
@@ -96,36 +100,34 @@ static void export_frame(bContext *C, const OBJExportParams *export_params, cons
      * OBJ. */
     frame_writer.write_mtllib(filepath);
   }
-  for (uint ob_iter = 0; ob_iter < exportable_meshes.size(); ob_iter++) {
-    OBJMesh &mesh_to_export = exportable_meshes[ob_iter];
+  for (std::unique_ptr<OBJMesh> &mesh_to_export : exportable_meshes) {
 
-    frame_writer.write_object_name(mesh_to_export);
-    frame_writer.write_vertex_coords(mesh_to_export);
+    frame_writer.write_object_name(*mesh_to_export);
+    frame_writer.write_vertex_coords(*mesh_to_export);
 
     /* For curves converted to mesh and primitive circle. */
-    if (mesh_to_export.tot_poly_normals() == 0) {
-      frame_writer.write_curve_edges(mesh_to_export);
+    if (mesh_to_export->tot_poly_normals() == 0) {
+      frame_writer.write_curve_edges(*mesh_to_export);
     }
     else {
       Vector<Vector<uint>> uv_indices;
       if (export_params->export_normals) {
-        frame_writer.write_poly_normals(mesh_to_export);
+        frame_writer.write_poly_normals(*mesh_to_export);
       }
       if (export_params->export_uv) {
-        frame_writer.write_uv_coords(mesh_to_export, uv_indices);
+        frame_writer.write_uv_coords(*mesh_to_export, uv_indices);
       }
       if (export_params->export_materials) {
         MTLWriter mtl_writer(filepath);
-        mtl_writer.append_materials(mesh_to_export);
+        mtl_writer.append_materials(*mesh_to_export);
       }
-      frame_writer.write_poly_indices(mesh_to_export, uv_indices);
+      frame_writer.write_poly_indices(*mesh_to_export, uv_indices);
     }
-    frame_writer.update_index_offsets(mesh_to_export);
+    frame_writer.update_index_offsets(*mesh_to_export);
   }
   /* Export nurbs in parm form, not as vertices and edges. */
-  for (uint ob_iter = 0; ob_iter < exportable_nurbs.size(); ob_iter++) {
-    OBJNurbs &nurbs_to_export = exportable_nurbs[ob_iter];
-    frame_writer.write_nurbs_curve(nurbs_to_export);
+  for (std::unique_ptr<OBJNurbs> &nurbs_to_export : exportable_nurbs) {
+    frame_writer.write_nurbs_curve(*nurbs_to_export);
   }
 }
 

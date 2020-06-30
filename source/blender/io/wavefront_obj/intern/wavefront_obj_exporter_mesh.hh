@@ -26,6 +26,7 @@
 #include "BKE_material.h"
 #include "BKE_mesh.h"
 
+#include "BLI_utility_mixins.hh"
 #include "BLI_vector.hh"
 
 #include "DNA_mesh_types.h"
@@ -37,7 +38,7 @@
 namespace blender {
 namespace io {
 namespace obj {
-class OBJMesh {
+class OBJMesh : NonMovable, NonCopyable {
  public:
   OBJMesh(bContext *C, const OBJExportParams *export_params, Object *export_object)
       : _C(C), _export_params(export_params), _export_object_eval(export_object)
@@ -48,10 +49,7 @@ class OBJMesh {
   /** Free new meshes we allocate for triangulated meshes, and curves converted to meshes. */
   ~OBJMesh()
   {
-    fprintf(stderr, "Called destructor.\n");
-    /** TODO ankitm remove this debug fprintf. */
     if (_me_eval_needs_free) {
-      fprintf(stderr, "Freed a curve converted to mesh.\n");
       BKE_id_free(NULL, _export_mesh_eval);
     }
   }

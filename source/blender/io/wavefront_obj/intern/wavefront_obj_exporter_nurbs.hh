@@ -27,13 +27,15 @@
 #include "BKE_context.h"
 #include "BKE_curve.h"
 
+#include "BLI_utility_mixins.hh"
+
 #include "DNA_curve_types.h"
 
 namespace blender {
 namespace io {
 namespace obj {
 
-class OBJNurbs {
+class OBJNurbs : NonMovable, NonCopyable {
  public:
   OBJNurbs(bContext *C, Object *export_object) : _C(C), _export_object_eval(export_object)
   {
