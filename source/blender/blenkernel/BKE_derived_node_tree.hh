@@ -69,6 +69,8 @@ class DSocket : NonCopyable, NonMovable {
   StringRefNull name() const;
 
   const SocketRef &socket_ref() const;
+
+  bool is_available() const;
 };
 
 class DInputSocket : public DSocket {
@@ -286,6 +288,11 @@ inline StringRefNull DSocket::name() const
 inline const SocketRef &DSocket::socket_ref() const
 {
   return *m_socket_ref;
+}
+
+inline bool DSocket::is_available() const
+{
+  return (m_socket_ref->bsocket()->flag & SOCK_UNAVAIL) == 0;
 }
 
 /* --------------------------------------------------------------------
