@@ -203,6 +203,26 @@ template<typename Mut1> class CustomMF_SM : public MultiFunction {
   }
 };
 
+template<typename T> class CustomMF_Constant : public MultiFunction {
+ private:
+  T m_value;
+
+ public:
+  template<typename U> CustomMF_Constant(U &&value) : m_value(std::forward<U>(value))
+  {
+    MFSignatureBuilder signature = this->get_builder("Constant");
+    std::stringstream ss;
+    ss << m_value;
+    signature.single_output<T>(ss.str());
+  }
+
+  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
+  {
+    MutableSpan<T> output = params.uninitialized_single_output<T>(0);
+    mask.foreach_index([&](uint i) { new (&output[i]) T(m_value); });
+  }
+};
+
 }  // namespace fn
 }  // namespace blender
 

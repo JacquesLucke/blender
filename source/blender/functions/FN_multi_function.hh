@@ -88,9 +88,9 @@ class MultiFunction {
   }
 
  protected:
-  MFSignatureBuilder get_builder(StringRef function_name)
+  MFSignatureBuilder get_builder(std::string function_name)
   {
-    m_signature.function_name = function_name;
+    m_signature.function_name = std::move(function_name);
     return MFSignatureBuilder(m_signature);
   }
 };

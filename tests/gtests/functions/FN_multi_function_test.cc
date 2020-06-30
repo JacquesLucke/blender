@@ -311,5 +311,24 @@ TEST(multi_function, CustomMF_SM)
   EXPECT_EQ(values[4], "e");
 }
 
+TEST(multi_function, CustomMF_Constant)
+{
+  CustomMF_Constant<int> fn{42};
+
+  Array<int> outputs(4, 0);
+
+  MFParamsBuilder params(fn, outputs.size());
+  params.add_uninitialized_single_output(outputs.as_mutable_span());
+
+  MFContextBuilder context;
+
+  fn.call({0, 2, 3}, params, context);
+
+  EXPECT_EQ(outputs[0], 42);
+  EXPECT_EQ(outputs[1], 0);
+  EXPECT_EQ(outputs[2], 42);
+  EXPECT_EQ(outputs[3], 42);
+}
+
 }  // namespace fn
 }  // namespace blender
