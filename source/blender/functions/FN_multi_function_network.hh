@@ -214,6 +214,10 @@ class MFNetwork : NonCopyable, NonMovable {
   MFOutputSocket &add_input(StringRef name, MFDataType data_type);
   MFInputSocket &add_output(StringRef name, MFDataType data_type);
 
+  void relink(MFOutputSocket &old_output, MFOutputSocket &new_output);
+
+  void remove(MFNode &node);
+
   uint max_socket_id() const;
 
   std::string to_dot() const;

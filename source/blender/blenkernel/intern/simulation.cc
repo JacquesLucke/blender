@@ -216,7 +216,6 @@ static void simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulatio
   fn::MFNetwork network;
   ResourceCollector resources;
   MFNetworkTreeMap network_map = insert_node_tree_into_mf_network(network, tree, resources);
-  std::cout << network.to_dot() << "\n";
 
   Span<const DNode *> force_nodes = tree.nodes_by_type("SimulationNodeForce");
   if (force_nodes.size() != 1) {
@@ -225,8 +224,6 @@ static void simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulatio
 
   const DNode &force_node = *force_nodes[0];
   fn::MFInputSocket &force_input_socket = network_map.lookup_dummy(force_node.input(0));
-
-  fn::MFNetworkEvaluator offset_fn{{}, {&force_input_socket}};
 
   Span<const DNode *> attribute_input_nodes = tree.nodes_by_type(
       "SimulationNodeParticleAttribute");
@@ -237,6 +234,8 @@ static void simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulatio
 
   fn::MFNetworkEvaluator attribute_names_fn{{}, attribute_name_inputs};
   Array<std::string> attribute_names{attribute_input_nodes.size(), NoInitialization()};
+
+  Map<std::string, Vector<fn::MFDummyNode *>> attribute_nodes_by_name;
 
   {
     fn::MFParamsBuilder params{attribute_names_fn, 1};
@@ -250,7 +249,26 @@ static void simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulatio
     attribute_names_fn.call({0}, params, context);
   }
 
+  for (uint i : attribute_names.index_range()) {
+    attribute_nodes_by_name.lookup_or_add_default(attribute_names[i])
+        .append(&network_map.lookup_dummy(attribute_input_nodes[i]->input(0)).node().as_dummy());
+  }
+
+  for (auto &&[attribute_name, nodes_with_attribute] : attribute_nodes_by_name.items()) {
+    BLI_assert(nodes_with_attribute.size() >= 1);
+    fn::MFDummyNode &node_to_keep = *nodes_with_attribute[0];
+    Span<fn::MFDummyNode *> nodes_to_remove = nodes_with_attribute.as_span().drop_front(1);
+    for (fn::MFDummyNode *node_to_remove : nodes_to_remove) {
+      network.relink(node_to_remove->output(0), node_to_keep.output(0));
+    }
+  }
+
   attribute_names.as_span().print_as_lines("Attribute Names");
+  std::cout << network.to_dot() << "\n";
+
+  fn::MFNetworkEvaluator offset_fn{{}, {&force_input_socket}};
+
+  return;
 
   /* Number of particles should be stored in the cache, but for now assume it is constant. */
   state_cow->tot_particles = state_orig->tot_particles;
