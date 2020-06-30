@@ -57,28 +57,31 @@ static void node_boolean_math_label(bNodeTree *UNUSED(ntree), bNode *node, char 
   BLI_strncpy(label, IFACE_(name), maxlen);
 }
 
-static void node_boolean_build_mf_network(blender::bke::NodeMFNetworkBuilder &builder)
+static const fn::MultiFunction &get_multi_function(bNode &bnode)
 {
-  static blender::fn::CustomFunction_SI_SI_SO<bool, bool, bool> and_fn{
+  static fn::CustomFunction_SI_SI_SO<bool, bool, bool> and_fn{
       "And", [](bool a, bool b) { return a && b; }};
-  static blender::fn::CustomFunction_SI_SI_SO<bool, bool, bool> or_fn{
+  static fn::CustomFunction_SI_SI_SO<bool, bool, bool> or_fn{
       "Or", [](bool a, bool b) { return a || b; }};
-  static blender::fn::CustomFunction_SI_SO<bool, bool> not_fn{"Not", [](bool a) { return !a; }};
+  static fn::CustomFunction_SI_SO<bool, bool> not_fn{"Not", [](bool a) { return !a; }};
 
-  switch (builder.bnode().custom1) {
-    case NODE_BOOLEAN_MATH_AND: {
-      builder.set_matching_fn(and_fn);
-      break;
-    }
-    case NODE_BOOLEAN_MATH_OR: {
-      builder.set_matching_fn(or_fn);
-      break;
-    }
-    case NODE_BOOLEAN_MATH_NOT: {
-      builder.set_matching_fn(not_fn);
-      break;
-    }
+  switch (bnode.custom1) {
+    case NODE_BOOLEAN_MATH_AND:
+      return and_fn;
+    case NODE_BOOLEAN_MATH_OR:
+      return or_fn;
+    case NODE_BOOLEAN_MATH_NOT:
+      return not_fn;
   }
+
+  BLI_assert(false);
+  return fn::dummy_multi_function;
+}
+
+static void node_boolean_build_mf_network(bke::NodeMFNetworkBuilder &builder)
+{
+  const fn::MultiFunction &fn = get_multi_function(builder.bnode());
+  builder.set_matching_fn(fn);
 }
 
 }  // namespace node

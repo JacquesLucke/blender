@@ -520,16 +520,24 @@ static bNodeSocketType *make_socket_type_bool()
   return socktype;
 }
 
+static bNodeSocketType *make_socket_type_float(PropertySubType subtype)
+{
+  bNodeSocketType *socktype = make_standard_socket_type(SOCK_FLOAT, subtype);
+  socktype->get_mf_data_type = []() { return blender::fn::MFDataType::ForSingle<float>(); };
+  socktype->build_mf_network = nullptr;
+  return socktype;
+}
+
 void register_standard_node_socket_types(void)
 {
   /* draw callbacks are set in drawnode.c to avoid bad-level calls */
 
-  nodeRegisterSocketType(make_standard_socket_type(SOCK_FLOAT, PROP_NONE));
-  nodeRegisterSocketType(make_standard_socket_type(SOCK_FLOAT, PROP_UNSIGNED));
-  nodeRegisterSocketType(make_standard_socket_type(SOCK_FLOAT, PROP_PERCENTAGE));
-  nodeRegisterSocketType(make_standard_socket_type(SOCK_FLOAT, PROP_FACTOR));
-  nodeRegisterSocketType(make_standard_socket_type(SOCK_FLOAT, PROP_ANGLE));
-  nodeRegisterSocketType(make_standard_socket_type(SOCK_FLOAT, PROP_TIME));
+  nodeRegisterSocketType(make_socket_type_float(PROP_NONE));
+  nodeRegisterSocketType(make_socket_type_float(PROP_UNSIGNED));
+  nodeRegisterSocketType(make_socket_type_float(PROP_PERCENTAGE));
+  nodeRegisterSocketType(make_socket_type_float(PROP_FACTOR));
+  nodeRegisterSocketType(make_socket_type_float(PROP_ANGLE));
+  nodeRegisterSocketType(make_socket_type_float(PROP_TIME));
 
   nodeRegisterSocketType(make_standard_socket_type(SOCK_INT, PROP_NONE));
   nodeRegisterSocketType(make_standard_socket_type(SOCK_INT, PROP_UNSIGNED));
