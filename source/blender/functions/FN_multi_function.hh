@@ -100,6 +100,8 @@ inline MFParamsBuilder::MFParamsBuilder(const class MultiFunction &fn, uint min_
 {
 }
 
+extern const MultiFunction &dummy_multi_function;
+
 }  // namespace fn
 }  // namespace blender
 
