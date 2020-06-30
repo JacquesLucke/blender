@@ -89,9 +89,22 @@ static void insert_nodes(CommonMFNetworkBuilderData &common)
   }
 }
 
-static void insert_group_inputs(CommonMFNetworkBuilderData &UNUSED(common))
+static void insert_group_inputs(CommonMFNetworkBuilderData &common)
 {
-  /* TODO */
+  for (const DGroupInput *group_input : common.tree.group_inputs()) {
+    bNodeSocket *bsocket = group_input->socket_ref().bsocket();
+    if (is_data_socket(bsocket)) {
+      bNodeSocketType *socktype = bsocket->typeinfo;
+      BLI_assert(socktype->build_mf_network != nullptr);
+
+      SocketMFNetworkBuilder builder{common, *group_input};
+      socktype->build_mf_network(builder);
+
+      fn::MFOutputSocket *from_socket = builder.built_socket();
+      BLI_assert(from_socket != nullptr);
+      common.network_map.add(*group_input, *from_socket);
+    }
+  }
 }
 
 static fn::MFOutputSocket *try_find_origin(CommonMFNetworkBuilderData &common,

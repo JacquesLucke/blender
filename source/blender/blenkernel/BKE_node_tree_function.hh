@@ -180,23 +180,34 @@ class MFNetworkBuilderBase {
 
 class SocketMFNetworkBuilder : public MFNetworkBuilderBase {
  private:
-  const DSocket &m_socket;
+  const DSocket *m_dsocket = nullptr;
+  const DGroupInput *m_group_input = nullptr;
+  bNodeSocket *m_bsocket;
   fn::MFOutputSocket *m_built_socket = nullptr;
 
  public:
-  SocketMFNetworkBuilder(CommonMFNetworkBuilderData &common, const DSocket &socket)
-      : MFNetworkBuilderBase(common), m_socket(socket)
+  SocketMFNetworkBuilder(CommonMFNetworkBuilderData &common, const DSocket &dsocket)
+      : MFNetworkBuilderBase(common),
+        m_dsocket(&dsocket),
+        m_bsocket(dsocket.socket_ref().bsocket())
+  {
+  }
+
+  SocketMFNetworkBuilder(CommonMFNetworkBuilderData &common, const DGroupInput &group_input)
+      : MFNetworkBuilderBase(common),
+        m_group_input(&group_input),
+        m_bsocket(group_input.socket_ref().bsocket())
   {
   }
 
   bNodeSocket &bsocket()
   {
-    return *m_socket.socket_ref().bsocket();
+    return *m_bsocket;
   }
 
   template<typename T> T *socket_default_value()
   {
-    return (T *)m_socket.socket_ref().bsocket()->default_value;
+    return (T *)m_bsocket->default_value;
   }
 
   template<typename T> void set_constant_value(T &value)
