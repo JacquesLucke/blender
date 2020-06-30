@@ -243,6 +243,12 @@ class NodeMFNetworkBuilder : public MFNetworkBuilderBase {
   {
   }
 
+  template<typename T, typename... Args> void construct_and_set_matching_fn(Args &&... args)
+  {
+    const fn::MultiFunction &function = this->construct_fn<T>(std::forward<Args>(args)...);
+    this->set_matching_fn(function);
+  }
+
   void set_matching_fn(const fn::MultiFunction &function)
   {
     fn::MFFunctionNode &node = this->add_function(function);
@@ -252,6 +258,11 @@ class NodeMFNetworkBuilder : public MFNetworkBuilderBase {
   bNode &bnode()
   {
     return *m_node.node_ref().bnode();
+  }
+
+  const DNode &dnode() const
+  {
+    return m_node;
   }
 };
 
