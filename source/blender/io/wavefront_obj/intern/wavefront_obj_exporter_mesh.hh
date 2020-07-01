@@ -94,7 +94,7 @@ class OBJMesh : NonMovable, NonCopyable {
    * If there's a tie between two or more vertices, group name depends on the implementation
    * of max_element.
    */
-  const char *get_object_deform_vert(const MPoly &mpoly);
+  const char *get_object_deform_vert(const MPoly &mpoly, short &r_last_vertex_group);
 
   /* Names as they appear in the outliner. */
   const char *get_object_name();

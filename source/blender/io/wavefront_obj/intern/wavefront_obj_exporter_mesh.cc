@@ -270,7 +270,7 @@ void OBJMesh::calc_poly_normal_indices(Vector<uint> &r_normal_indices, uint poly
  * If there's a tie between two or more vertices, group name depends on the implementation
  * of max_element.
  */
-const char *OBJMesh::get_object_deform_vert(const MPoly &mpoly)
+const char *OBJMesh::get_object_deform_vert(const MPoly &mpoly, short &r_last_vertex_group)
 {
   const MLoop *mloop = &_export_mesh_eval->mloop[mpoly.loopstart];
   /* Indices index into deform groups; values are the number of vertices in one deform group. */
@@ -293,12 +293,24 @@ const char *OBJMesh::get_object_deform_vert(const MPoly &mpoly)
     }
   }
   if (!found_group) {
+    if (r_last_vertex_group == -1) {
+      /* "off" has already been written and this face also belongs to no vertex group. */
+      return nullptr;
+    }
+    r_last_vertex_group = -1;
     return "off";
   }
   /* Index to the group with maximum vertices. */
-  int max_idx = *std::max_element(deform_group_indices.begin(), deform_group_indices.end());
-  bDeformGroup *vertex_group = (bDeformGroup *)BLI_findlink(
-      (ListBase *)(&_export_object_eval->defbase), deform_group_indices[max_idx]);
+  int max_idx = std::max_element(deform_group_indices.begin(), deform_group_indices.end()) -
+                deform_group_indices.begin();
+  if (max_idx == r_last_vertex_group) {
+    /* No need to update the name, since it won't be printed. */
+    return nullptr;
+  }
+  r_last_vertex_group = max_idx;
+  const bDeformGroup *vertex_group = (bDeformGroup *)BLI_findlink(
+      (ListBase *)(&_export_object_eval->defbase), max_idx);
+
   return vertex_group->name;
 }
 
