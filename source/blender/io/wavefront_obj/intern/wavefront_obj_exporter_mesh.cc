@@ -273,9 +273,13 @@ void OBJMesh::calc_poly_normal_indices(Vector<uint> &r_normal_indices, uint poly
 const char *OBJMesh::get_object_deform_vert(const MPoly &mpoly)
 {
   const MLoop *mloop = &_export_mesh_eval->mloop[mpoly.loopstart];
+  /* Indices index into deform groups; values are the number of vertices in one deform group. */
   Vector<int> deform_group_indices;
-  deform_group_indices.resize(mpoly.totloop, 0);
-  bool has_group = false;
+  int tot_deform_groups = BLI_listbase_count(&_export_object_eval->defbase);
+  deform_group_indices.resize(tot_deform_groups, 0);
+  /* Whether at least one vertex in the polygon belongs to any group. */
+  bool found_group = false;
+
   for (uint loop_index = 0; loop_index < mpoly.totloop; loop_index++) {
     const MDeformVert dvert = _export_mesh_eval->dvert[(mloop + loop_index)->v];
     const MDeformWeight *curr_weight = dvert.dw;
@@ -284,13 +288,14 @@ const char *OBJMesh::get_object_deform_vert(const MPoly &mpoly)
           (ListBase *)(&_export_object_eval->defbase), curr_weight->def_nr);
       if (vertex_group) {
         deform_group_indices[curr_weight->def_nr] += 1;
-        has_group = true;
+        found_group = true;
       }
     }
   }
-  if (!has_group) {
+  if (!found_group) {
     return "off";
   }
+  /* Index to the group with maximum vertices. */
   int max_idx = *std::max_element(deform_group_indices.begin(), deform_group_indices.end());
   bDeformGroup *vertex_group = (bDeformGroup *)BLI_findlink(
       (ListBase *)(&_export_object_eval->defbase), deform_group_indices[max_idx]);
