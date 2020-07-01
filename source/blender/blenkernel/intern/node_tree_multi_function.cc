@@ -19,6 +19,16 @@
 namespace blender {
 namespace bke {
 
+/* Maybe this should be moved to BKE_node.h. */
+static std::optional<fn::MFDataType> try_get_multi_function_data_type_of_socket(
+    const bNodeSocket *bsocket)
+{
+  if (bsocket->typeinfo->get_mf_data_type == nullptr) {
+    return {};
+  }
+  return bsocket->typeinfo->get_mf_data_type();
+}
+
 static void insert_dummy_node(CommonMFNetworkBuilderData &common, const DNode &dnode)
 {
   constexpr uint stack_capacity = 10;
@@ -165,6 +175,23 @@ static void insert_links(CommonMFNetworkBuilderData &common)
   }
 }
 
+static void insert_unlinked_input(CommonMFNetworkBuilderData &common, const DInputSocket &dsocket)
+{
+  bNodeSocket *bsocket = dsocket.bsocket();
+  bNodeSocketType *socktype = bsocket->typeinfo;
+  BLI_assert(socktype->expand_in_mf_network != nullptr);
+
+  SocketMFNetworkBuilder builder{common, dsocket};
+  socktype->expand_in_mf_network(builder);
+
+  fn::MFOutputSocket *from_socket = builder.built_socket();
+  BLI_assert(from_socket != nullptr);
+
+  for (fn::MFInputSocket *to_socket : common.network_map.lookup(dsocket)) {
+    common.network.add_link(*from_socket, *to_socket);
+  }
+}
+
 static void insert_unlinked_inputs(CommonMFNetworkBuilderData &common)
 {
   Vector<const DInputSocket *> unlinked_data_inputs;
@@ -172,25 +199,9 @@ static void insert_unlinked_inputs(CommonMFNetworkBuilderData &common)
     if (dsocket->is_available()) {
       if (is_multi_function_data_socket(dsocket->bsocket())) {
         if (!dsocket->is_linked()) {
-          unlinked_data_inputs.append(dsocket);
+          insert_unlinked_input(common, *dsocket);
         }
       }
-    }
-  }
-
-  for (const DInputSocket *dsocket : unlinked_data_inputs) {
-    bNodeSocket *bsocket = dsocket->bsocket();
-    bNodeSocketType *socktype = bsocket->typeinfo;
-    BLI_assert(socktype->expand_in_mf_network != nullptr);
-
-    SocketMFNetworkBuilder builder{common, *dsocket};
-    socktype->expand_in_mf_network(builder);
-
-    fn::MFOutputSocket *from_socket = builder.built_socket();
-    BLI_assert(from_socket != nullptr);
-
-    for (fn::MFInputSocket *to_socket : common.network_map.lookup(*dsocket)) {
-      common.network.add_link(*from_socket, *to_socket);
     }
   }
 }

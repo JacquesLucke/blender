@@ -43,16 +43,6 @@ inline bool is_multi_function_data_socket(const bNodeSocket *bsocket)
   return false;
 }
 
-/* Maybe this should be moved to BKE_node.h. */
-inline std::optional<fn::MFDataType> try_get_multi_function_data_type_of_socket(
-    const bNodeSocket *bsocket)
-{
-  if (bsocket->typeinfo->get_mf_data_type == nullptr) {
-    return {};
-  }
-  return bsocket->typeinfo->get_mf_data_type();
-}
-
 /**
  * A MFNetworkTreeMap maps various various components of a bke::DerivedNodeTree to components of a
  * fn::MFNetwork. This is necessary for further processing of a multi-function network that has
