@@ -176,8 +176,9 @@ typedef struct bNodeSocketType {
   /* Callback to free the socket type. */
   void (*free_self)(struct bNodeSocketType *stype);
 
-  /* Multi-function integration */
+  /* Returns the multi-function data type of this socket type. */
   SocketGetMFDataTypeFunction get_mf_data_type;
+  /* Expands the socket into a multi-function node that outputs the socket value. */
   SocketBuildMFNetworkFunction build_mf_network;
 } bNodeSocketType;
 
@@ -293,7 +294,7 @@ typedef struct bNodeType {
   /* gpu */
   NodeGPUExecFunction gpufunc;
 
-  /* Multi-function integration */
+  /* Expands the bNode into nodes in a multi-function network, which will be evaluated later on. */
   NodeBuildMFNetworkFunction build_mf_network;
 
   /* RNA integration */
