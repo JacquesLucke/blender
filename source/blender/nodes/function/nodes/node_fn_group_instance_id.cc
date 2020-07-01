@@ -12,7 +12,7 @@ static bNodeSocketTemplate fn_node_group_instance_id_out[] = {
     {-1, ""},
 };
 
-static void fn_node_group_instance_id_build_mf_network(bke::NodeMFNetworkBuilder &builder)
+static void fn_node_group_instance_id_expand_in_mf_network(bke::NodeMFNetworkBuilder &builder)
 {
   const bke::DNode &node = builder.dnode();
   std::string id = "/";
@@ -31,6 +31,6 @@ void register_node_type_fn_group_instance_id()
 
   fn_node_type_base(&ntype, FN_NODE_GROUP_INSTANCE_ID, "Group Instance ID", 0, 0);
   node_type_socket_templates(&ntype, nullptr, blender::node::fn_node_group_instance_id_out);
-  ntype.build_mf_network = blender::node::fn_node_group_instance_id_build_mf_network;
+  ntype.expand_in_mf_network = blender::node::fn_node_group_instance_id_expand_in_mf_network;
   nodeRegisterType(&ntype);
 }

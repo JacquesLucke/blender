@@ -80,7 +80,7 @@ class MF_SeparateXYZ : public fn::MultiFunction {
   }
 };
 
-static void sh_node_sepxyz_build_mf_network(bke::NodeMFNetworkBuilder &builder)
+static void sh_node_sepxyz_expand_in_mf_network(bke::NodeMFNetworkBuilder &builder)
 {
   static MF_SeparateXYZ separate_fn;
   builder.set_matching_fn(separate_fn);
@@ -131,7 +131,7 @@ class MF_CombineXYZ : public fn::MultiFunction {
   }
 };
 
-static void sh_node_combxyz_build_mf_network(bke::NodeMFNetworkBuilder &builder)
+static void sh_node_combxyz_expand_in_mf_network(bke::NodeMFNetworkBuilder &builder)
 {
   static MF_CombineXYZ combine_fn;
   builder.set_matching_fn(combine_fn);
@@ -148,7 +148,7 @@ void register_node_type_sh_sepxyz(void)
   node_type_socket_templates(
       &ntype, blender::node::sh_node_sepxyz_in, blender::node::sh_node_sepxyz_out);
   node_type_gpu(&ntype, blender::node::gpu_shader_sepxyz);
-  ntype.build_mf_network = blender::node::sh_node_sepxyz_build_mf_network;
+  ntype.expand_in_mf_network = blender::node::sh_node_sepxyz_expand_in_mf_network;
 
   nodeRegisterType(&ntype);
 }
@@ -161,7 +161,7 @@ void register_node_type_sh_combxyz(void)
   node_type_socket_templates(
       &ntype, blender::node::sh_node_combxyz_in, blender::node::sh_node_combxyz_out);
   node_type_gpu(&ntype, blender::node::gpu_shader_combxyz);
-  ntype.build_mf_network = blender::node::sh_node_combxyz_build_mf_network;
+  ntype.expand_in_mf_network = blender::node::sh_node_combxyz_expand_in_mf_network;
 
   nodeRegisterType(&ntype);
 }

@@ -97,7 +97,7 @@ static const fn::MultiFunction &get_multi_function(bNode &node)
   return fn::dummy_multi_function;
 }
 
-static void node_float_compare_build_mf_network(bke::NodeMFNetworkBuilder &builder)
+static void node_float_compare_expand_in_mf_network(bke::NodeMFNetworkBuilder &builder)
 {
   const fn::MultiFunction &fn = get_multi_function(builder.bnode());
   builder.set_matching_fn(fn);
@@ -115,6 +115,6 @@ void register_node_type_fn_float_compare()
       &ntype, blender::node::fn_node_float_compare_in, blender::node::fn_node_float_compare_out);
   node_type_label(&ntype, blender::node::node_float_compare_label);
   node_type_update(&ntype, blender::node::node_float_compare_update);
-  ntype.build_mf_network = blender::node::node_float_compare_build_mf_network;
+  ntype.expand_in_mf_network = blender::node::node_float_compare_expand_in_mf_network;
   nodeRegisterType(&ntype);
 }

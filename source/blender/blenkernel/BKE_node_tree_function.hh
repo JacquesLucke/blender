@@ -31,7 +31,7 @@ namespace bke {
 inline bool is_multi_function_data_socket(const bNodeSocket *bsocket)
 {
   if (bsocket->typeinfo->get_mf_data_type != nullptr) {
-    BLI_assert(bsocket->typeinfo->build_mf_network != nullptr);
+    BLI_assert(bsocket->typeinfo->expand_in_mf_network != nullptr);
     return true;
   }
   return false;

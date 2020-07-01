@@ -18,7 +18,7 @@ static bNodeSocketTemplate fn_node_combine_strings_out[] = {
     {-1, ""},
 };
 
-static void fn_node_combine_strings_build_mf_network(bke::NodeMFNetworkBuilder &builder)
+static void fn_node_combine_strings_expand_in_mf_network(bke::NodeMFNetworkBuilder &builder)
 {
   static fn::CustomMF_SI_SI_SO<std::string, std::string, std::string> combine_fn{
       "Combine Strings", [](const std::string &a, const std::string &b) { return a + b; }};
@@ -36,6 +36,6 @@ void register_node_type_fn_combine_strings()
   node_type_socket_templates(&ntype,
                              blender::node::fn_node_combine_strings_in,
                              blender::node::fn_node_combine_strings_out);
-  ntype.build_mf_network = blender::node::fn_node_combine_strings_build_mf_network;
+  ntype.expand_in_mf_network = blender::node::fn_node_combine_strings_expand_in_mf_network;
   nodeRegisterType(&ntype);
 }

@@ -113,14 +113,14 @@ class MFDataType;
 }
 }  // namespace blender
 
-using NodeBuildMFNetworkFunction = void (*)(blender::bke::NodeMFNetworkBuilder &builder);
+using NodeExpandInMFNetworkFunction = void (*)(blender::bke::NodeMFNetworkBuilder &builder);
 using SocketGetMFDataTypeFunction = blender::fn::MFDataType (*)();
-using SocketBuildMFNetworkFunction = void (*)(blender::bke::SocketMFNetworkBuilder &builder);
+using SocketExpandInMFNetworkFunction = void (*)(blender::bke::SocketMFNetworkBuilder &builder);
 
 #else
-typedef void *NodeBuildMFNetworkFunction;
+typedef void *NodeExpandInMFNetworkFunction;
 typedef void *SocketGetMFDataTypeFunction;
-typedef void *SocketBuildMFNetworkFunction;
+typedef void *SocketExpandInMFNetworkFunction;
 #endif
 
 /**
@@ -179,7 +179,7 @@ typedef struct bNodeSocketType {
   /* Returns the multi-function data type of this socket type. */
   SocketGetMFDataTypeFunction get_mf_data_type;
   /* Expands the socket into a multi-function node that outputs the socket value. */
-  SocketBuildMFNetworkFunction build_mf_network;
+  SocketExpandInMFNetworkFunction expand_in_mf_network;
 } bNodeSocketType;
 
 typedef void *(*NodeInitExecFunction)(struct bNodeExecContext *context,
@@ -295,7 +295,7 @@ typedef struct bNodeType {
   NodeGPUExecFunction gpufunc;
 
   /* Expands the bNode into nodes in a multi-function network, which will be evaluated later on. */
-  NodeBuildMFNetworkFunction build_mf_network;
+  NodeExpandInMFNetworkFunction expand_in_mf_network;
 
   /* RNA integration */
   ExtensionRNA rna_ext;
