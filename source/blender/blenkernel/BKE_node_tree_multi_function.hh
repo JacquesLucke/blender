@@ -44,7 +44,7 @@ inline bool is_multi_function_data_socket(const bNodeSocket *bsocket)
 }
 
 /**
- * A MFNetworkTreeMap maps various various components of a bke::DerivedNodeTree to components of a
+ * A MFNetworkTreeMap maps various components of a bke::DerivedNodeTree to components of a
  * fn::MFNetwork. This is necessary for further processing of a multi-function network that has
  * been generated from a node tree.
  */
