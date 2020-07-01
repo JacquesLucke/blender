@@ -187,7 +187,7 @@ class MFNetworkBuilderBase {
   template<typename T, typename... Args> T &construct_fn(Args &&... args)
   {
     BLI_STATIC_ASSERT((std::is_base_of_v<fn::MultiFunction, T>), "");
-    void *buffer = m_common.resources.allocate(sizeof(T), alignof(T));
+    void *buffer = m_common.resources.linear_allocator().allocate(sizeof(T), alignof(T));
     T *fn = new (buffer) T(std::forward<Args>(args)...);
     m_common.resources.add(destruct_ptr<T>(fn), fn->name().data());
     return *fn;

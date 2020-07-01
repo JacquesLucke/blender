@@ -23,6 +23,9 @@
  * A ResourceCollector holds an arbitrary set of resources, that will be destructed and/or freed
  * when the ResourceCollector is destructed. This is useful when some object has to take ownership
  * of other objects, but it does not know the type of those other objects.
+ *
+ * Resources owned by the ResourceCollector will be freed in reverse order. That allows resources
+ * that are added later to depend on resources that have been added before.
  */
 
 #include "BLI_linear_allocator.hh"
@@ -55,8 +58,8 @@ class ResourceCollector : NonCopyable, NonMovable {
   }
 
   /**
-   * Add another object that will be freed when this container is freed. Objects are freed in
-   * reverse order.
+   * Pass ownership of the resource to the ResourceCollector. It will be destructed and freed when
+   * the collector is destructed.
    */
   template<typename T> void add(std::unique_ptr<T> resource, const char *name)
   {
@@ -70,6 +73,10 @@ class ResourceCollector : NonCopyable, NonMovable {
         name);
   }
 
+  /**
+   * Pass ownership of the resource to the ResourceCollector. It will be destructed when the
+   * collector is destructed.
+   */
   template<typename T> void add(destruct_ptr<T> resource, const char *name)
   {
     BLI_assert(resource.get() != nullptr);
@@ -82,23 +89,10 @@ class ResourceCollector : NonCopyable, NonMovable {
         name);
   }
 
-  void *allocate(uint size, uint alignment)
-  {
-    return m_allocator.allocate(size, alignment);
-  }
-
-  LinearAllocator<> &allocator()
-  {
-    return m_allocator;
-  }
-
-  template<typename T, typename... Args> T &construct(const char *name, Args &&... args)
-  {
-    T *value = m_allocator.construct<T>(std::forward<Args>(args)...);
-    this->add(destruct_ptr<T>(value), name);
-    return *value;
-  }
-
+  /**
+   * Pass ownership of some resource to the ResourceCollector. The given free function will be
+   * calld when the collector is destructed.
+   */
   void add(void *userdata, void (*free)(void *), const char *name)
   {
     ResourceData data;
@@ -108,6 +102,29 @@ class ResourceCollector : NonCopyable, NonMovable {
     m_resources.append(data);
   }
 
+  /**
+   * Returns a reference to a linear allocator that is owned by the ResourcesCollector. Memory
+   * allocated through this allocator will be freed when the collector is destructed.
+   */
+  LinearAllocator<> &linear_allocator()
+  {
+    return m_allocator;
+  }
+
+  /**
+   * Utility method to construct an instance of type T that will be owned by the ResourceCollector.
+   */
+  template<typename T, typename... Args> T &construct(const char *name, Args &&... args)
+  {
+    T *value = m_allocator.construct<T>(std::forward<Args>(args)...);
+    this->add(destruct_ptr<T>(value), name);
+    return *value;
+  }
+
+  /**
+   * Print the names of all the resources that are owned by this ResourceCollector. This can be
+   * useful for debugging.
+   */
   void print(StringRef name) const
   {
     if (m_resources.size() == 0) {
