@@ -171,6 +171,9 @@ class MFNetworkTreeMap {
   }
 };
 
+/**
+ * This data is necessary throughout the generation of a MFNetwork from a node tree.
+ */
 struct CommonMFNetworkBuilderData {
   ResourceCollector &resources;
   fn::MFNetwork &network;
@@ -187,16 +190,34 @@ class MFNetworkBuilderBase {
   {
   }
 
-  void add_link(fn::MFOutputSocket &from, fn::MFInputSocket &to)
+  /**
+   * Returns the network that is currently being built.
+   */
+  fn::MFNetwork &network()
   {
-    m_common.network.add_link(from, to);
+    return m_common.network;
   }
 
-  fn::MFFunctionNode &add_function(const fn::MultiFunction &function)
+  /**
+   * Returns the map between the node tree and the multi-function network that is being built.
+   */
+  MFNetworkTreeMap &network_map()
   {
-    return m_common.network.add_function(function);
+    return m_common.network_map;
   }
 
+  /**
+   * Returns a resource collector that will only be destructed after the multi-function network is
+   * destructed.
+   */
+  ResourceCollector &resources()
+  {
+    return m_common.resources;
+  }
+
+  /**
+   * Constructs a new function that will live at least as long as the MFNetwork.
+   */
   template<typename T, typename... Args> T &construct_fn(Args &&... args)
   {
     BLI_STATIC_ASSERT((std::is_base_of_v<fn::MultiFunction, T>), "");
@@ -207,6 +228,10 @@ class MFNetworkBuilderBase {
   }
 };
 
+/**
+ * This class is used by socket implementations to define how an unlinked input socket is handled
+ * in a multi-function network.
+ */
 class SocketMFNetworkBuilder : public MFNetworkBuilderBase {
  private:
   const DSocket *m_dsocket = nullptr;
@@ -225,28 +250,43 @@ class SocketMFNetworkBuilder : public MFNetworkBuilderBase {
   {
   }
 
+  /**
+   * Returns the socket that is currently being built.
+   */
   bNodeSocket &bsocket()
   {
     return *m_bsocket;
   }
 
+  /**
+   * Utility method that returns bsocket->default_value for the current socket.
+   */
   template<typename T> T *socket_default_value()
   {
     return (T *)m_bsocket->default_value;
   }
 
-  template<typename T> void set_constant_value(T &value)
+  /**
+   * Builds a function node for that socket that outputs the given constant value.
+   */
+  template<typename T> void set_constant_value(T value)
   {
     const fn::MultiFunction &fn = this->construct_fn<fn::CustomMF_Constant<T>>(std::move(value));
     this->set_generator_fn(fn);
   }
 
+  /**
+   * Uses the first output of the given multi-function as value of the socket.
+   */
   void set_generator_fn(const fn::MultiFunction &fn)
   {
-    fn::MFFunctionNode &node = this->add_function(fn);
+    fn::MFFunctionNode &node = m_common.network.add_function(fn);
     this->set_socket(node.output(0));
   }
 
+  /**
+   * Define a multi-function socket that outputs the value of the bsocket.
+   */
   void set_socket(fn::MFOutputSocket &socket)
   {
     m_built_socket = &socket;
@@ -258,6 +298,10 @@ class SocketMFNetworkBuilder : public MFNetworkBuilderBase {
   }
 };
 
+/**
+ * This class is used by node implementations to define how a user-level node expands into
+ * multi-function nodes internally.
+ */
 class NodeMFNetworkBuilder : public MFNetworkBuilderBase {
  private:
   const DNode &m_node;
@@ -268,23 +312,37 @@ class NodeMFNetworkBuilder : public MFNetworkBuilderBase {
   {
   }
 
+  /**
+   * Tells the builder to build a function that corresponds to the node that is being built. It
+   * will try to match up sockets.
+   */
   template<typename T, typename... Args> void construct_and_set_matching_fn(Args &&... args)
   {
     const fn::MultiFunction &function = this->construct_fn<T>(std::forward<Args>(args)...);
     this->set_matching_fn(function);
   }
 
+  /**
+   * Tells the builder that the given function corresponds to the node that is being built. It will
+   * try to match up sockets. For that it skips unavailable and non-data sockets.
+   */
   void set_matching_fn(const fn::MultiFunction &function)
   {
-    fn::MFFunctionNode &node = this->add_function(function);
+    fn::MFFunctionNode &node = m_common.network.add_function(function);
     m_common.network_map.add_try_match(m_node, node);
   }
 
+  /**
+   * Returns the node that is currently being built.
+   */
   bNode &bnode()
   {
     return *m_node.node_ref().bnode();
   }
 
+  /**
+   * Returns the node that is currently being built.
+   */
   const DNode &dnode() const
   {
     return m_node;
