@@ -17,6 +17,12 @@
 #ifndef __BKE_NODE_TREE_FUNCTION_HH__
 #define __BKE_NODE_TREE_FUNCTION_HH__
 
+/** \file
+ * \ingroup bke
+ *
+ * This file allows you to generate a multi-function network from a user-generated node tree.
+ */
+
 #include "FN_multi_function_builder.hh"
 #include "FN_multi_function_network.hh"
 
