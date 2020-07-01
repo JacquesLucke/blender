@@ -1,6 +1,6 @@
 #include "FN_multi_function_builder.hh"
 
-#include "BKE_node_tree_function.hh"
+#include "BKE_node_tree_multi_function.hh"
 
 #include "node_function_util.h"
 

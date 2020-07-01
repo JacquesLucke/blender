@@ -34,7 +34,7 @@
 
 #include "BKE_lib_id.h"
 #include "BKE_node.h"
-#include "BKE_node_tree_function.hh"
+#include "BKE_node_tree_multi_function.hh"
 
 #include "RNA_access.h"
 #include "RNA_types.h"

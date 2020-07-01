@@ -14,7 +14,7 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#include "BKE_node_tree_function.hh"
+#include "BKE_node_tree_multi_function.hh"
 
 namespace blender {
 namespace bke {
