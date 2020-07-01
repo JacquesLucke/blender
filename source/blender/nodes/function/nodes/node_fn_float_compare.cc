@@ -21,11 +21,7 @@
 
 #include "RNA_enum_types.h"
 
-#include "FN_multi_function_builder.hh"
-
-#include "BKE_node_tree_multi_function.hh"
-
-#include "node_function_util.h"
+#include "node_function_util.hh"
 
 namespace blender {
 namespace node {

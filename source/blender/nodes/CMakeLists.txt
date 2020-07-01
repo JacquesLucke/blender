@@ -278,7 +278,7 @@ set(SRC
   intern/node_util.c
 
   composite/node_composite_util.h
-  function/node_function_util.h
+  function/node_function_util.hh
   shader/node_shader_util.h
   simulation/node_simulation_util.h
   texture/node_texture_util.h
