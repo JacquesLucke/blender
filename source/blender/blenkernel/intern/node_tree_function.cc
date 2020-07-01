@@ -29,8 +29,8 @@ static void insert_dummy_node(CommonMFNetworkBuilderData &common, const DNode &d
 
   for (const DInputSocket *dsocket : dnode.inputs()) {
     if (dsocket->is_available()) {
-      std::optional<fn::MFDataType> data_type = try_get_data_type_of_socket(
-          dsocket->socket_ref().bsocket());
+      std::optional<fn::MFDataType> data_type = try_get_multi_function_data_type_of_socket(
+          dsocket->bsocket());
       if (data_type.has_value()) {
         input_types.append(*data_type);
         input_names.append(dsocket->name());
@@ -45,8 +45,8 @@ static void insert_dummy_node(CommonMFNetworkBuilderData &common, const DNode &d
 
   for (const DOutputSocket *dsocket : dnode.outputs()) {
     if (dsocket->is_available()) {
-      std::optional<fn::MFDataType> data_type = try_get_data_type_of_socket(
-          dsocket->socket_ref().bsocket());
+      std::optional<fn::MFDataType> data_type = try_get_multi_function_data_type_of_socket(
+          dsocket->bsocket());
       if (data_type.has_value()) {
         output_types.append(*data_type);
         output_names.append(dsocket->name());
@@ -65,12 +65,12 @@ static void insert_dummy_node(CommonMFNetworkBuilderData &common, const DNode &d
 static bool has_data_sockets(const DNode &dnode)
 {
   for (const DInputSocket *socket : dnode.inputs()) {
-    if (is_data_socket(socket->socket_ref().bsocket())) {
+    if (is_multi_function_data_socket(socket->bsocket())) {
       return true;
     }
   }
   for (const DOutputSocket *socket : dnode.outputs()) {
-    if (is_data_socket(socket->socket_ref().bsocket())) {
+    if (is_multi_function_data_socket(socket->bsocket())) {
       return true;
     }
   }
@@ -96,8 +96,8 @@ static void insert_nodes(CommonMFNetworkBuilderData &common)
 static void insert_group_inputs(CommonMFNetworkBuilderData &common)
 {
   for (const DGroupInput *group_input : common.tree.group_inputs()) {
-    bNodeSocket *bsocket = group_input->socket_ref().bsocket();
-    if (is_data_socket(bsocket)) {
+    bNodeSocket *bsocket = group_input->bsocket();
+    if (is_multi_function_data_socket(bsocket)) {
       bNodeSocketType *socktype = bsocket->typeinfo;
       BLI_assert(socktype->build_mf_network != nullptr);
 
@@ -138,7 +138,7 @@ static void insert_links(CommonMFNetworkBuilderData &common)
       continue;
     }
 
-    if (!is_data_socket(to_dsocket->socket_ref().bsocket())) {
+    if (!is_multi_function_data_socket(to_dsocket->bsocket())) {
       continue;
     }
 
@@ -168,7 +168,7 @@ static void insert_unlinked_inputs(CommonMFNetworkBuilderData &common)
   Vector<const DInputSocket *> unlinked_data_inputs;
   for (const DInputSocket *dsocket : common.tree.input_sockets()) {
     if (dsocket->is_available()) {
-      if (is_data_socket(dsocket->socket_ref().bsocket())) {
+      if (is_multi_function_data_socket(dsocket->bsocket())) {
         if (!dsocket->is_linked()) {
           unlinked_data_inputs.append(dsocket);
         }
@@ -177,7 +177,7 @@ static void insert_unlinked_inputs(CommonMFNetworkBuilderData &common)
   }
 
   for (const DInputSocket *dsocket : unlinked_data_inputs) {
-    bNodeSocket *bsocket = dsocket->socket_ref().bsocket();
+    bNodeSocket *bsocket = dsocket->bsocket();
     bNodeSocketType *socktype = bsocket->typeinfo;
     BLI_assert(socktype->build_mf_network != nullptr);
 

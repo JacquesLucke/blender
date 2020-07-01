@@ -27,7 +27,8 @@
 namespace blender {
 namespace bke {
 
-inline bool is_data_socket(const bNodeSocket *bsocket)
+/* Maybe this should be moved to BKE_node.h. */
+inline bool is_multi_function_data_socket(const bNodeSocket *bsocket)
 {
   if (bsocket->typeinfo->get_mf_data_type != nullptr) {
     BLI_assert(bsocket->typeinfo->build_mf_network != nullptr);
@@ -36,7 +37,9 @@ inline bool is_data_socket(const bNodeSocket *bsocket)
   return false;
 }
 
-inline std::optional<fn::MFDataType> try_get_data_type_of_socket(const bNodeSocket *bsocket)
+/* Maybe this should be moved to BKE_node.h. */
+inline std::optional<fn::MFDataType> try_get_multi_function_data_type_of_socket(
+    const bNodeSocket *bsocket)
 {
   if (bsocket->typeinfo->get_mf_data_type == nullptr) {
     return {};
@@ -44,8 +47,19 @@ inline std::optional<fn::MFDataType> try_get_data_type_of_socket(const bNodeSock
   return bsocket->typeinfo->get_mf_data_type();
 }
 
+/**
+ * A MFNetworkTreeMap maps various various components of a bke::DerivedNodeTree to components of a
+ * fn::MFNetwork. This is necessary for further processing of a multi-function network that has
+ * been generated from a node tree.
+ */
 class MFNetworkTreeMap {
  private:
+  /**
+   * Store by id instead of using a hash table to avoid unnecessary hash table lookups.
+   *
+   * Input sockets in a node tree can have multiple corresponding sockets in the generated
+   * MFNetwork. This is because nodes are allowed to expand into multiple multi-function nodes.
+   */
   Array<Vector<fn::MFSocket *, 1>> m_sockets_by_dsocket_id;
   Array<fn::MFOutputSocket *> m_socket_by_group_input_id;
 
@@ -104,11 +118,10 @@ class MFNetworkTreeMap {
   {
     uint used_sockets = 0;
     for (const DSocket *dsocket : dsockets) {
-      bNodeSocket *bsocket = dsocket->socket_ref().bsocket();
-      if (bsocket->flag & SOCK_UNAVAIL) {
+      if (!dsocket->is_available()) {
         continue;
       }
-      if (!is_data_socket(bsocket)) {
+      if (!is_multi_function_data_socket(dsocket->bsocket())) {
         continue;
       }
       fn::MFSocket *socket = sockets[used_sockets];
@@ -203,16 +216,12 @@ class SocketMFNetworkBuilder : public MFNetworkBuilderBase {
 
  public:
   SocketMFNetworkBuilder(CommonMFNetworkBuilderData &common, const DSocket &dsocket)
-      : MFNetworkBuilderBase(common),
-        m_dsocket(&dsocket),
-        m_bsocket(dsocket.socket_ref().bsocket())
+      : MFNetworkBuilderBase(common), m_dsocket(&dsocket), m_bsocket(dsocket.bsocket())
   {
   }
 
   SocketMFNetworkBuilder(CommonMFNetworkBuilderData &common, const DGroupInput &group_input)
-      : MFNetworkBuilderBase(common),
-        m_group_input(&group_input),
-        m_bsocket(group_input.socket_ref().bsocket())
+      : MFNetworkBuilderBase(common), m_group_input(&group_input), m_bsocket(group_input.bsocket())
   {
   }
 
