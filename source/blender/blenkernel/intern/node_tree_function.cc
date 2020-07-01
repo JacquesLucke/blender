@@ -77,6 +77,10 @@ static bool has_data_sockets(const DNode &dnode)
   return false;
 }
 
+/**
+ * Expands all function nodes in the multi-function network. Nodes that don't have an expand
+ * function, but do have data sockets, will get corresponding dummy nodes.
+ */
 static void insert_nodes(CommonMFNetworkBuilderData &common)
 {
   for (const DNode *dnode : common.tree.nodes()) {
