@@ -44,7 +44,6 @@
 #include "BKE_lib_remap.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
-#include "BKE_node_tree_multi_function.hh"
 #include "BKE_pointcache.h"
 #include "BKE_simulation.h"
 
@@ -54,8 +53,6 @@
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
-
-#include "FN_multi_function_network_evaluation.hh"
 
 static void simulation_init_data(ID *id)
 {
@@ -210,66 +207,6 @@ static void simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulatio
     return;
   }
 
-  NodeTreeRefMap tree_refs;
-  DerivedNodeTree tree{((Simulation *)DEG_get_original_id(&simulation->id))->nodetree, tree_refs};
-
-  fn::MFNetwork network;
-  ResourceCollector resources;
-  MFNetworkTreeMap network_map = insert_node_tree_into_mf_network(network, tree, resources);
-
-  Span<const DNode *> force_nodes = tree.nodes_by_type("SimulationNodeForce");
-  if (force_nodes.size() != 1) {
-    return;
-  }
-
-  const DNode &force_node = *force_nodes[0];
-  fn::MFInputSocket &force_input_socket = network_map.lookup_dummy(force_node.input(0));
-
-  Span<const DNode *> attribute_input_nodes = tree.nodes_by_type(
-      "SimulationNodeParticleAttribute");
-  Vector<const fn::MFInputSocket *> attribute_name_inputs;
-  for (const DNode *dnode : attribute_input_nodes) {
-    attribute_name_inputs.append(&network_map.lookup_dummy(dnode->input(0)));
-  }
-
-  fn::MFNetworkEvaluator attribute_names_fn{{}, attribute_name_inputs};
-  Array<std::string> attribute_names{attribute_input_nodes.size(), NoInitialization()};
-
-  Map<std::string, Vector<fn::MFDummyNode *>> attribute_nodes_by_name;
-
-  {
-    fn::MFParamsBuilder params{attribute_names_fn, 1};
-    for (std::string &attribute_name : attribute_names) {
-      params.add_uninitialized_single_output(
-          fn::GMutableSpan(fn::CPPType::get<std::string>(), &attribute_name, 1));
-    }
-
-    fn::MFContextBuilder context;
-
-    attribute_names_fn.call({0}, params, context);
-  }
-
-  for (uint i : attribute_names.index_range()) {
-    attribute_nodes_by_name.lookup_or_add_default(attribute_names[i])
-        .append(&network_map.lookup_dummy(attribute_input_nodes[i]->input(0)).node().as_dummy());
-  }
-
-  for (auto &&[attribute_name, nodes_with_attribute] : attribute_nodes_by_name.items()) {
-    BLI_assert(nodes_with_attribute.size() >= 1);
-    fn::MFDummyNode &node_to_keep = *nodes_with_attribute[0];
-    Span<fn::MFDummyNode *> nodes_to_remove = nodes_with_attribute.as_span().drop_front(1);
-    for (fn::MFDummyNode *node_to_remove : nodes_to_remove) {
-      network.relink(node_to_remove->output(0), node_to_keep.output(0));
-    }
-  }
-
-  attribute_names.as_span().print_as_lines("Attribute Names");
-  std::cout << network.to_dot() << "\n";
-
-  fn::MFNetworkEvaluator offset_fn{{}, {&force_input_socket}};
-
-  return;
-
   /* Number of particles should be stored in the cache, but for now assume it is constant. */
   state_cow->tot_particles = state_orig->tot_particles;
   CustomData_realloc(&state_cow->attributes, state_orig->tot_particles);
@@ -312,18 +249,9 @@ static void simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulatio
   else if (current_frame == state_orig->current_frame + 1) {
     state_orig->current_frame = current_frame;
     ensure_attributes_exist(state_orig);
-
-    Array<float3> offsets{(uint)state_orig->tot_particles};
-    fn::MFParamsBuilder params{offset_fn, (uint)state_orig->tot_particles};
-    params.add_uninitialized_single_output(offsets.as_mutable_span());
-
-    fn::MFContextBuilder context;
-
-    offset_fn.call(IndexRange(state_orig->tot_particles), params, context);
-
     MutableSpan<float3> positions = get_particle_positions(state_orig);
-    for (uint i : positions.index_range()) {
-      positions[i] += offsets[i];
+    for (float3 &position : positions) {
+      position.z += 0.1f;
     }
 
     BKE_ptcache_write(&pid_orig, current_frame);
