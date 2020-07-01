@@ -74,6 +74,8 @@
 
 #include "DEG_depsgraph.h"
 
+#include "IMB_colormanagement.h"
+
 #include "WM_api.h"
 #include "WM_message.h"
 #include "WM_toolsystem.h"
@@ -194,6 +196,23 @@ void SCULPT_vertex_normal_get(SculptSession *ss, int index, float no[3])
       break;
     }
   }
+}
+
+static const float *sculpt_vertex_persistent_co_get(SculptSession *ss, int index)
+{
+  if (ss->persistent_base) {
+    return ss->persistent_base[index].co;
+  }
+  return SCULPT_vertex_co_get(ss, index);
+}
+
+static void sculpt_vertex_persistent_normal_get(SculptSession *ss, int index, float no[3])
+{
+  if (ss->persistent_base) {
+    copy_v3_v3(no, ss->persistent_base[index].no);
+    return;
+  }
+  SCULPT_vertex_normal_get(ss, index, no);
 }
 
 float SCULPT_vertex_mask_get(SculptSession *ss, int index)
@@ -4134,7 +4153,7 @@ static void do_layer_brush_task_cb_ex(void *__restrict userdata,
   Sculpt *sd = data->sd;
   const Brush *brush = data->brush;
 
-  const bool use_persistent_base = ss->layer_base && brush->flag & BRUSH_PERSISTENT;
+  const bool use_persistent_base = ss->persistent_base && brush->flag & BRUSH_PERSISTENT;
 
   PBVHVertexIter vd;
   SculptOrigVertData orig_data;
@@ -4164,7 +4183,7 @@ static void do_layer_brush_task_cb_ex(void *__restrict userdata,
       const int vi = vd.index;
       float *disp_factor;
       if (use_persistent_base) {
-        disp_factor = &ss->layer_base[vi].disp;
+        disp_factor = &ss->persistent_base[vi].disp;
       }
       else {
         disp_factor = &ss->cache->layer_displacement_factor[vi];
@@ -4194,9 +4213,9 @@ static void do_layer_brush_task_cb_ex(void *__restrict userdata,
       float normal[3];
 
       if (use_persistent_base) {
-        copy_v3_v3(normal, ss->layer_base[vi].no);
+        sculpt_vertex_persistent_normal_get(ss, vi, normal);
         mul_v3_fl(normal, brush->height);
-        madd_v3_v3v3fl(final_co, ss->layer_base[vi].co, normal, *disp_factor);
+        madd_v3_v3v3fl(final_co, sculpt_vertex_persistent_co_get(ss, vi), normal, *disp_factor);
       }
       else {
         normal_short_to_float_v3(normal, orig_data.no);
@@ -7455,16 +7474,16 @@ static int sculpt_set_persistent_base_exec(bContext *C, wmOperator *UNUSED(op))
     SCULPT_vertex_random_access_init(ss);
     BKE_sculpt_update_object_for_edit(depsgraph, ob, false, false, false);
 
-    MEM_SAFE_FREE(ss->layer_base);
+    MEM_SAFE_FREE(ss->persistent_base);
 
     const int totvert = SCULPT_vertex_count_get(ss);
-    ss->layer_base = MEM_mallocN(sizeof(SculptLayerPersistentBase) * totvert,
-                                 "layer persistent base");
+    ss->persistent_base = MEM_mallocN(sizeof(SculptPersistentBase) * totvert,
+                                      "layer persistent base");
 
     for (int i = 0; i < totvert; i++) {
-      copy_v3_v3(ss->layer_base[i].co, SCULPT_vertex_co_get(ss, i));
-      SCULPT_vertex_normal_get(ss, i, ss->layer_base[i].no);
-      ss->layer_base[i].disp = 0.0f;
+      copy_v3_v3(ss->persistent_base[i].co, SCULPT_vertex_co_get(ss, i));
+      SCULPT_vertex_normal_get(ss, i, ss->persistent_base[i].no);
+      ss->persistent_base[i].disp = 0.0f;
     }
   }
 
@@ -8134,7 +8153,10 @@ static int sculpt_sample_color_invoke(bContext *C,
     return OPERATOR_CANCELLED;
   }
 
-  BKE_brush_color_set(scene, brush, active_vertex_color);
+  float color_srgb[3];
+  copy_v3_v3(color_srgb, active_vertex_color);
+  IMB_colormanagement_scene_linear_to_srgb_v3(color_srgb);
+  BKE_brush_color_set(scene, brush, color_srgb);
   BKE_brush_alpha_set(scene, brush, active_vertex_color[3]);
 
   WM_event_add_notifier(C, NC_BRUSH | NA_EDITED, brush);
@@ -8320,7 +8342,7 @@ static bool SCULPT_connected_components_floodfill_cb(
   return true;
 }
 
-void SCULPT_connected_components_ensure(Object *ob)
+static void sculpt_connected_components_ensure(Object *ob)
 {
   SculptSession *ss = ob->sculpt;
 
@@ -8364,7 +8386,7 @@ void SCULPT_fake_neighbors_ensure(Sculpt *sd, Object *ob, const float max_dist)
     return;
   }
 
-  SCULPT_connected_components_ensure(ob);
+  sculpt_connected_components_ensure(ob);
   SCULPT_fake_neighbor_init(ss, max_dist);
 
   for (int i = 0; i < totvert; i++) {
