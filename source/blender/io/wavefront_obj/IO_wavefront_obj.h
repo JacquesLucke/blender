@@ -73,6 +73,7 @@ struct OBJExportParams {
   /** Grouping options. */
   bool export_object_groups;
   bool export_material_groups;
+  bool export_vertex_groups;
 };
 
 struct OBJImportParams {

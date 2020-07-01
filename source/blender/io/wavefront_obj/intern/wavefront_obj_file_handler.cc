@@ -205,6 +205,18 @@ void OBJWriter::write_poly_material(short &last_face_mat_nr, OBJMesh &obj_mesh_d
 }
 
 /**
+ * Write the deform vertex group name to which maximum number of vertices of a face belong.
+ */
+void OBJWriter::write_vertex_group(OBJMesh &obj_mesh_data, const MPoly &mpoly)
+{
+  if (!_export_params->export_vertex_groups) {
+    return;
+  }
+  const char *def_group_name = obj_mesh_data.get_object_deform_vert(mpoly);
+  fprintf(_outfile, "g %s\n", def_group_name);
+}
+
+/**
  * Define and write a face with at least vertex indices, and conditionally with UV vertex indices
  * and face normal indices.
  * \note UV indices are stored while writing UV vertices.
@@ -224,6 +236,7 @@ void OBJWriter::write_poly_indices(OBJMesh &obj_mesh_data, Span<Vector<uint>> uv
         obj_mesh_data.calc_poly_normal_indices(normal_indices, i);
         const MPoly &poly_to_write = obj_mesh_data.get_ith_poly(i);
 
+        write_vertex_group(obj_mesh_data, poly_to_write);
         write_poly_material(last_face_mat_nr, obj_mesh_data, poly_to_write.mat_nr);
         write_vert_uv_normal_indices(vertex_indices, uv_indices[i], normal_indices, poly_to_write);
       }
@@ -235,6 +248,7 @@ void OBJWriter::write_poly_indices(OBJMesh &obj_mesh_data, Span<Vector<uint>> uv
         obj_mesh_data.calc_poly_normal_indices(normal_indices, i);
         const MPoly &poly_to_write = obj_mesh_data.get_ith_poly(i);
 
+        write_vertex_group(obj_mesh_data, poly_to_write);
         write_poly_material(last_face_mat_nr, obj_mesh_data, poly_to_write.mat_nr);
         write_vert_normal_indices(vertex_indices, normal_indices, poly_to_write);
       }
@@ -247,6 +261,7 @@ void OBJWriter::write_poly_indices(OBJMesh &obj_mesh_data, Span<Vector<uint>> uv
         obj_mesh_data.calc_poly_vertex_indices(vertex_indices, i);
         const MPoly &poly_to_write = obj_mesh_data.get_ith_poly(i);
 
+        write_vertex_group(obj_mesh_data, poly_to_write);
         write_poly_material(last_face_mat_nr, obj_mesh_data, poly_to_write.mat_nr);
         write_vert_uv_indices(vertex_indices, uv_indices[i], poly_to_write);
       }
@@ -257,6 +272,7 @@ void OBJWriter::write_poly_indices(OBJMesh &obj_mesh_data, Span<Vector<uint>> uv
         obj_mesh_data.calc_poly_vertex_indices(vertex_indices, i);
         const MPoly &poly_to_write = obj_mesh_data.get_ith_poly(i);
 
+        write_vertex_group(obj_mesh_data, poly_to_write);
         write_poly_material(last_face_mat_nr, obj_mesh_data, poly_to_write.mat_nr);
         write_vert_indices(vertex_indices, poly_to_write);
       }

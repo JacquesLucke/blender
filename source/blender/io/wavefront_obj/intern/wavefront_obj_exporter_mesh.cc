@@ -22,9 +22,12 @@
  */
 
 #include "BKE_customdata.h"
+#include "BKE_deform.h"
 #include "BKE_mesh_mapping.h"
 #include "BKE_object.h"
 
+#include "BLI_listbase.h"
+#include "BLI_map.hh"
 #include "BLI_math.h"
 
 #include "bmesh.h"
@@ -148,7 +151,7 @@ void OBJMesh::ensure_normals()
 }
 
 /** Return mat_nr-th material of the object. */
-Material *OBJMesh::get_export_object_material(short mat_nr)
+Material *OBJMesh::get_object_material(short mat_nr)
 {
   return BKE_object_material_get(_export_object_eval, mat_nr);
 }
@@ -259,6 +262,39 @@ void OBJMesh::calc_poly_normal_indices(Vector<uint> &r_normal_indices, uint poly
   for (uint i = 0; i < r_normal_indices.size(); i++) {
     r_normal_indices[i] = poly_index + 1;
   }
+}
+
+/**
+ * Find the name of the group to which maximum number of vertices of a poly belong.
+ * If no vertex belongs to any group, name is "off".
+ * If there's a tie between two or more vertices, group name depends on the implementation
+ * of max_element.
+ */
+const char *OBJMesh::get_object_deform_vert(const MPoly &mpoly)
+{
+  const MLoop *mloop = &_export_mesh_eval->mloop[mpoly.loopstart];
+  Vector<int> deform_group_indices;
+  deform_group_indices.resize(mpoly.totloop, 0);
+  bool has_group = false;
+  for (uint loop_index = 0; loop_index < mpoly.totloop; loop_index++) {
+    const MDeformVert dvert = _export_mesh_eval->dvert[(mloop + loop_index)->v];
+    const MDeformWeight *curr_weight = dvert.dw;
+    if (curr_weight) {
+      bDeformGroup *vertex_group = (bDeformGroup *)BLI_findlink(
+          (ListBase *)(&_export_object_eval->defbase), curr_weight->def_nr);
+      if (vertex_group) {
+        deform_group_indices[curr_weight->def_nr] += 1;
+        has_group = true;
+      }
+    }
+  }
+  if (!has_group) {
+    return "off";
+  }
+  int max_idx = *std::max_element(deform_group_indices.begin(), deform_group_indices.end());
+  bDeformGroup *vertex_group = (bDeformGroup *)BLI_findlink(
+      (ListBase *)(&_export_object_eval->defbase), deform_group_indices[max_idx]);
+  return vertex_group->name;
 }
 
 /**

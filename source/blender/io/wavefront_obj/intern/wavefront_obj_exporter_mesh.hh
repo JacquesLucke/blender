@@ -87,7 +87,14 @@ class OBJMesh : NonMovable, NonCopyable {
 
   void ensure_normals();
   /** Return mat_nr-th material of the object. */
-  Material *get_export_object_material(short mat_nr);
+  Material *get_object_material(short mat_nr);
+  /**
+   * Find the name of the group to which maximum number of vertices of a poly belong.
+   * If no vertex belongs to any group, name is "off".
+   * If there's a tie between two or more vertices, group name depends on the implementation
+   * of max_element.
+   */
+  const char *get_object_deform_vert(const MPoly &mpoly);
 
   /* Names as they appear in the outliner. */
   const char *get_object_name();

@@ -75,6 +75,10 @@ class OBJWriter {
    * \note It doesn't write to the material library, MTL file.
    */
   void write_poly_material(short &last_face_mat_nr, OBJMesh &obj_mesh_data, short mat_nr);
+  /**
+   * Write the deform vertex group name to which maximum number of vertices of a face belong.
+   */
+  void write_vertex_group(OBJMesh &obj_mesh_data, const MPoly &mpoly);
   /** Define and write a face with at least vertex indices, and conditionally with UV vertex
    * indices and face normal indices. \note UV indices are stored while writing UV vertices.
    */
