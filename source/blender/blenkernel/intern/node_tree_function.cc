@@ -77,8 +77,6 @@ static bool has_data_sockets(const DNode &dnode)
   return false;
 }
 
-using InsertNodeFunction = void (*)(NodeMFNetworkBuilder &builder);
-
 static void insert_nodes(CommonMFNetworkBuilderData &common)
 {
   for (const DNode *dnode : common.tree.nodes()) {
@@ -193,6 +191,13 @@ static void insert_unlinked_inputs(CommonMFNetworkBuilderData &common)
   }
 }
 
+/**
+ * Expands all function nodes contained in the given node tree within the given multi-function
+ * network.
+ *
+ * Returns a mapping between the original node tree and the generated nodes/sockets for further
+ * processing.
+ */
 MFNetworkTreeMap insert_node_tree_into_mf_network(fn::MFNetwork &network,
                                                   const DerivedNodeTree &tree,
                                                   ResourceCollector &resources)
