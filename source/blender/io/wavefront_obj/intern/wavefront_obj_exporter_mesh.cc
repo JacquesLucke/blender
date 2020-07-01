@@ -285,10 +285,16 @@ const char *OBJMesh::get_poly_deform_group_name(const MPoly &mpoly, short &r_las
   /* Whether at least one vertex in the polygon belongs to any group. */
   bool found_group = false;
 
-  const MDeformVert *dvert;
+  const MDeformVert *dvert_orig = (MDeformVert *)CustomData_get_layer(&_export_mesh_eval->vdata,
+                                                                      CD_MDEFORMVERT);
+  if (!dvert_orig) {
+    return nullptr;
+  }
+
   const MDeformWeight *curr_weight;
+  const MDeformVert *dvert;
   for (uint loop_index = 0; loop_index < mpoly.totloop; loop_index++) {
-    dvert = &_export_mesh_eval->dvert[(mloop + loop_index)->v];
+    dvert = &dvert_orig[(mloop + loop_index)->v];
     curr_weight = dvert->dw;
     if (curr_weight) {
       bDeformGroup *vertex_group = (bDeformGroup *)BLI_findlink(
@@ -299,6 +305,7 @@ const char *OBJMesh::get_poly_deform_group_name(const MPoly &mpoly, short &r_las
       }
     }
   }
+
   if (!found_group) {
     if (r_last_vertex_group == -1) {
       /* "off" has already been written and this face also belongs to no vertex group. */
