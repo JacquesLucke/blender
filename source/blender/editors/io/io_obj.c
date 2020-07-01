@@ -345,7 +345,8 @@ void WM_OT_obj_export(struct wmOperatorType *ot)
       "export_vertex_groups",
       false,
       "Export vertex groups",
-      "If checked, writes the name of the vertex group to which a face's maximum vertices belong");
+      "If checked, writes the name of the vertex group of a face. It is approximated "
+      "by choosing the vertex group with the most members among the vertices of a face");
 }
 
 static int wm_obj_import_invoke(bContext *C, wmOperator *op, const wmEvent *event)

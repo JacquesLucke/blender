@@ -88,13 +88,6 @@ class OBJMesh : NonMovable, NonCopyable {
   void ensure_normals();
   /** Return mat_nr-th material of the object. */
   Material *get_object_material(short mat_nr);
-  /**
-   * Find the name of the group to which maximum number of vertices of a poly belong.
-   * If no vertex belongs to any group, name is "off".
-   * If there's a tie between two or more vertices, group name depends on the implementation
-   * of max_element.
-   */
-  const char *get_object_deform_vert(const MPoly &mpoly, short &r_last_vertex_group);
 
   /* Names as they appear in the outliner. */
   const char *get_object_name();
@@ -122,6 +115,19 @@ class OBJMesh : NonMovable, NonCopyable {
    * Calculate face normal indices of all polygons.
    */
   void calc_poly_normal_indices(Vector<uint> &r_normal_indices, uint poly_indices);
+  /**
+   * Find the name of the vertex group with the maximum number of vertices in a poly.
+   * If no vertex belongs to any group, returned name is "off".
+   * If two or more groups have the same number of vertices (maximum), group name depends on the
+   * implementation of std::max_element.
+   * If the group corresponding to r_last_vertex_group shows up on another polygon, return nullptr
+   * so that caller can skip that group.
+   *
+   * \param r_last_vertex_group stores the index of the vertex group found in last iteration,
+   * indexing into Object->defbase.
+   */
+  const char *get_poly_deform_group_name(const MPoly &mpoly, short &r_last_vertex_group);
+
   /**
    * Only for curve converted to meshes: calculate vertex indices of one edge.
    */

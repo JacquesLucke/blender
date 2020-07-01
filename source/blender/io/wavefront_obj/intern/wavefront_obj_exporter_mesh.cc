@@ -265,12 +265,17 @@ void OBJMesh::calc_poly_normal_indices(Vector<uint> &r_normal_indices, uint poly
 }
 
 /**
- * Find the name of the group to which maximum number of vertices of a poly belong.
- * If no vertex belongs to any group, name is "off".
- * If there's a tie between two or more vertices, group name depends on the implementation
- * of max_element.
+ * Find the name of the vertex group with the maximum number of vertices in a poly.
+ * If no vertex belongs to any group, returned name is "off".
+ * If two or more groups have the same number of vertices (maximum), group name depends on the
+ * implementation of std::max_element.
+ * If the group corresponding to r_last_vertex_group shows up on another polygon, return nullptr so
+ * that caller can skip that group.
+ *
+ * \param r_last_vertex_group stores the index of the vertex group found in last iteration,
+ * indexing into Object->defbase.
  */
-const char *OBJMesh::get_object_deform_vert(const MPoly &mpoly, short &r_last_vertex_group)
+const char *OBJMesh::get_poly_deform_group_name(const MPoly &mpoly, short &r_last_vertex_group)
 {
   const MLoop *mloop = &_export_mesh_eval->mloop[mpoly.loopstart];
   /* Indices index into deform groups; values are the number of vertices in one deform group. */
@@ -280,9 +285,11 @@ const char *OBJMesh::get_object_deform_vert(const MPoly &mpoly, short &r_last_ve
   /* Whether at least one vertex in the polygon belongs to any group. */
   bool found_group = false;
 
+  const MDeformVert *dvert;
+  const MDeformWeight *curr_weight;
   for (uint loop_index = 0; loop_index < mpoly.totloop; loop_index++) {
-    const MDeformVert dvert = _export_mesh_eval->dvert[(mloop + loop_index)->v];
-    const MDeformWeight *curr_weight = dvert.dw;
+    dvert = &_export_mesh_eval->dvert[(mloop + loop_index)->v];
+    curr_weight = dvert->dw;
     if (curr_weight) {
       bDeformGroup *vertex_group = (bDeformGroup *)BLI_findlink(
           (ListBase *)(&_export_object_eval->defbase), curr_weight->def_nr);
@@ -304,7 +311,8 @@ const char *OBJMesh::get_object_deform_vert(const MPoly &mpoly, short &r_last_ve
   int max_idx = std::max_element(deform_group_indices.begin(), deform_group_indices.end()) -
                 deform_group_indices.begin();
   if (max_idx == r_last_vertex_group) {
-    /* No need to update the name, since it won't be printed. */
+    /* No need to update the name, r_last_vertex_group indicates that it has been written already.
+     */
     return nullptr;
   }
   r_last_vertex_group = max_idx;

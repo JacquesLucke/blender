@@ -217,7 +217,7 @@ void OBJWriter::write_vertex_group(OBJMesh &obj_mesh_data,
   if (!_export_params->export_vertex_groups) {
     return;
   }
-  const char *def_group_name = obj_mesh_data.get_object_deform_vert(mpoly, last_face_vertex_group);
+  const char *def_group_name = obj_mesh_data.get_poly_deform_group_name(mpoly, last_face_vertex_group);
   if (!def_group_name) {
     /* Don't write the name of the group again. If set once, the group name changes only when a new
      * one is encountered. */
