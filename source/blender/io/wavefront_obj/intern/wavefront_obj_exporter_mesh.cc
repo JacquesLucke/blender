@@ -237,20 +237,11 @@ void OBJMesh::store_uv_coords_and_indices(Vector<std::array<float, 2>> &r_uv_coo
  */
 void OBJMesh::calc_poly_normal(float r_poly_normal[3], uint poly_index)
 {
-  /* TODO ankitm: Find an existing method to calculate a face's normals from its vertex normals. */
-  const MPoly &poly_to_write = _export_mesh_eval->mpoly[poly_index];
-  const MLoop *mloop = &_export_mesh_eval->mloop[poly_to_write.loopstart];
-
-  /* Sum all vertex normals to get a face normal. */
-  for (uint i = 0; i < poly_to_write.totloop; i++) {
-    short(&vert_no)[3] = _export_mesh_eval->mvert[(mloop + i)->v].no;
-    r_poly_normal[0] += vert_no[0];
-    r_poly_normal[1] += vert_no[1];
-    r_poly_normal[2] += vert_no[2];
-  }
-
+  const MPoly *poly_to_write = &_export_mesh_eval->mpoly[poly_index];
+  const MLoop *mloop = &_export_mesh_eval->mloop[poly_to_write->loopstart];
+  const MVert *mvert = _export_mesh_eval->mvert;
+  BKE_mesh_calc_poly_normal(poly_to_write, mloop, mvert, r_poly_normal);
   mul_mat3_m4_v3(_world_and_axes_transform, r_poly_normal);
-  normalize_v3(r_poly_normal);
 }
 
 /**
