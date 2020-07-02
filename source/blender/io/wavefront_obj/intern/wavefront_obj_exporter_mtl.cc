@@ -146,7 +146,9 @@ const char *MTLWriter::get_image_filepath(const bNode *tex_node)
   if (tex_node) {
     Image *tex_image = (Image *)tex_node->id;
     if (tex_image) {
-      return tex_image->filepath;
+      if (tex_image->filepath || tex_image->filepath[0] != '\0') {
+        return tex_image->filepath;
+      }
     }
   }
   return nullptr;
