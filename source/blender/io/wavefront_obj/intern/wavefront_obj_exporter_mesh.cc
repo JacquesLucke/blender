@@ -245,13 +245,31 @@ void OBJMesh::calc_poly_normal(float r_poly_normal[3], uint poly_index)
 }
 
 /**
+ * Calculate vertex normal indices of all vertices.
+ */
+void OBJMesh::calc_vertex_normal(float r_vertex_normal[3], uint vert_index)
+{
+  normal_short_to_float_v3(r_vertex_normal, _export_mesh_eval->mvert[vert_index].no);
+  mul_mat3_m4_v3(_world_and_axes_transform, r_vertex_normal);
+}
+
+/**
  * Calculate face normal indices of all polygons.
  */
 void OBJMesh::calc_poly_normal_indices(Vector<uint> &r_normal_indices, uint poly_index)
 {
   r_normal_indices.resize(_export_mesh_eval->mpoly[poly_index].totloop);
-  for (uint i = 0; i < r_normal_indices.size(); i++) {
-    r_normal_indices[i] = poly_index + 1;
+  if (_export_params->export_smooth_group && this->is_shaded_smooth()) {
+    const MPoly &mpoly = _export_mesh_eval->mpoly[poly_index];
+    const MLoop *mloop = &_export_mesh_eval->mloop[mpoly.loopstart];
+    for (uint i = 0; i < r_normal_indices.size(); i++) {
+      r_normal_indices[i] = (mloop + i)->v + 1;
+    }
+  }
+  else {
+    for (uint i = 0; i < r_normal_indices.size(); i++) {
+      r_normal_indices[i] = poly_index + 1;
+    }
   }
 }
 

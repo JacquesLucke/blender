@@ -71,6 +71,10 @@ class OBJWriter {
   void write_uv_coords(OBJMesh &obj_mesh_data, Vector<Vector<uint>> &uv_indices);
   /** Write face normals for all polygons as vn x y z . */
   void write_poly_normals(OBJMesh &obj_mesh_data);
+  /**
+   * Write smooth group if mesh is shaded smooth and export settings specify so.
+   */
+  void write_smooth_group(OBJMesh &obj_mesh_data);
   /** Write material name and material group of a face in the OBJ file.
    * \note It doesn't write to the material library, MTL file.
    */

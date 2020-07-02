@@ -117,6 +117,7 @@ static int wm_obj_export_exec(bContext *C, wmOperator *op)
   export_params.export_object_groups = RNA_boolean_get(op->ptr, "export_object_groups");
   export_params.export_material_groups = RNA_boolean_get(op->ptr, "export_material_groups");
   export_params.export_vertex_groups = RNA_boolean_get(op->ptr, "export_vertex_groups");
+  export_params.export_smooth_group = RNA_boolean_get(op->ptr, "export_smooth_group");
 
   OBJ_export(C, &export_params);
 
@@ -194,6 +195,9 @@ static void ui_obj_export_settings(uiLayout *layout, PointerRNA *imfptr)
 
   row = uiLayoutRow(box, false);
   uiItemR(row, imfptr, "export_vertex_groups", 0, NULL, ICON_NONE);
+
+  row = uiLayoutRow(box, false);
+  uiItemR(row, imfptr, "export_smooth_group", 0, NULL, ICON_NONE);
 }
 
 static void wm_obj_export_draw(bContext *UNUSED(C), wmOperator *op)
@@ -347,6 +351,12 @@ void WM_OT_obj_export(struct wmOperatorType *ot)
       "Export vertex groups",
       "If checked, writes the name of the vertex group of a face. It is approximated "
       "by choosing the vertex group with the most members among the vertices of a face");
+  RNA_def_boolean(ot->srna,
+                  "export_smooth_group",
+                  false,
+                  "Export smooth groups",
+                  "If checked, writes per-vertex normal instead of per-face normal if the mesh "
+                  "is shaded smooth");
 }
 
 static int wm_obj_import_invoke(bContext *C, wmOperator *op, const wmEvent *event)

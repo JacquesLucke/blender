@@ -87,6 +87,11 @@ class OBJMesh : NonMovable, NonCopyable {
     return _export_mesh_eval->mpoly[i];
   }
 
+  bool is_shaded_smooth()
+  {
+    return ((_export_mesh_eval->flag & ME_SMOOTH) == 0);
+  }
+
   void ensure_normals();
   /** Return mat_nr-th material of the object. */
   Material *get_object_material(short mat_nr);
@@ -113,6 +118,10 @@ class OBJMesh : NonMovable, NonCopyable {
    * Calculate face normal of the polygon at given index.
    */
   void calc_poly_normal(float r_poly_normal[3], uint poly_index);
+  /**
+   * Calculate vertex normal of a vertex at the given index.
+   */
+  void calc_vertex_normal(float r_vertex_normal[3], uint vertex_index);
   /**
    * Calculate face normal indices of all polygons.
    */

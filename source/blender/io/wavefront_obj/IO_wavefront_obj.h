@@ -77,6 +77,11 @@ struct OBJExportParams {
   bool export_object_groups;
   bool export_material_groups;
   bool export_vertex_groups;
+  /**
+   * Export vertex normals instead of face normals if mesh is shaded smooth and this option is
+   * true.
+   */
+  bool export_smooth_group;
 };
 
 struct OBJImportParams {

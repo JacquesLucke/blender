@@ -167,14 +167,40 @@ void OBJWriter::write_uv_coords(OBJMesh &obj_mesh_data, Vector<Vector<uint>> &uv
   }
 }
 
-/** Write face normals for all polygons as vn x y z . */
+/**
+ * Write all face normals or all vertex normals as vn x y z .
+ */
 void OBJWriter::write_poly_normals(OBJMesh &obj_mesh_data)
 {
-  float poly_normal[3];
   obj_mesh_data.ensure_normals();
-  for (uint i = 0; i < obj_mesh_data.tot_poly_normals(); i++) {
-    obj_mesh_data.calc_poly_normal(poly_normal, i);
-    fprintf(_outfile, "vn %f %f %f\n", poly_normal[0], poly_normal[1], poly_normal[2]);
+  if (_export_params->export_smooth_group && obj_mesh_data.is_shaded_smooth()) {
+    float vertex_normal[3];
+    for (uint i = 0; i < obj_mesh_data.tot_vertices(); i++) {
+      obj_mesh_data.calc_vertex_normal(vertex_normal, i);
+      fprintf(_outfile, "vn %f %f %f\n", vertex_normal[0], vertex_normal[1], vertex_normal[2]);
+    }
+  }
+  else {
+    float poly_normal[3];
+    for (uint i = 0; i < obj_mesh_data.tot_poly_normals(); i++) {
+      obj_mesh_data.calc_poly_normal(poly_normal, i);
+      fprintf(_outfile, "vn %f %f %f\n", poly_normal[0], poly_normal[1], poly_normal[2]);
+    }
+  }
+}
+
+/**
+ * Write smooth group if mesh is shaded smooth and export settings specify so.
+ */
+void OBJWriter::write_smooth_group(OBJMesh &obj_mesh_data)
+{
+  if (_export_params->export_smooth_group) {
+    if (obj_mesh_data.is_shaded_smooth()) {
+      fprintf(_outfile, "s 1\n");
+    }
+    else {
+      fprintf(_outfile, "s off\n");
+    }
   }
 }
 
@@ -242,6 +268,7 @@ void OBJWriter::write_poly_indices(OBJMesh &obj_mesh_data, Span<Vector<uint>> uv
   short last_face_vertex_group = -2;
 
   if (_export_params->export_normals) {
+    write_smooth_group(obj_mesh_data);
     if (_export_params->export_uv && (obj_mesh_data.tot_uv_vertices() > 0)) {
       /* Write both normals and UV indices. */
       for (uint i = 0; i < obj_mesh_data.tot_poly_normals(); i++) {
