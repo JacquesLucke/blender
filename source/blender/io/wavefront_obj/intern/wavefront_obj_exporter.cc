@@ -45,12 +45,14 @@ namespace io {
 namespace obj {
 
 /**
- * Traverses over and exports a single frame to a single OBJ file.
+ * Scan objects in a scene to find exportable objects, as per export_params and object types, and
+ * add them to the given Vectors.
  */
-static void export_frame(bContext *C, const OBJExportParams *export_params, const char *filepath)
+static void filter_exportable_objects(bContext *C,
+                                      const OBJExportParams *export_params,
+                                      Vector<std::unique_ptr<OBJMesh>> &exportable_meshes,
+                                      Vector<std::unique_ptr<OBJNurbs>> &exportable_nurbs)
 {
-  Vector<std::unique_ptr<OBJMesh>> exportable_meshes;
-  Vector<std::unique_ptr<OBJNurbs>> exportable_nurbs;
   ViewLayer *view_layer = CTX_data_view_layer(C);
   LISTBASE_FOREACH (Base *, base, &view_layer->object_bases) {
     Object *object_in_layer = base->object;
@@ -88,12 +90,22 @@ static void export_frame(bContext *C, const OBJExportParams *export_params, cons
         break;
     }
   }
+}
 
+/**
+ * Traverses over and exports a single frame to a single OBJ file.
+ */
+static void export_frame(bContext *C, const OBJExportParams *export_params, const char *filepath)
+{
   OBJWriter frame_writer(export_params);
   if (!frame_writer.init_writer()) {
     fprintf(stderr, "Error in creating the file: %s\n", export_params->filepath);
     return;
   }
+
+  Vector<std::unique_ptr<OBJMesh>> exportable_meshes;
+  Vector<std::unique_ptr<OBJNurbs>> exportable_nurbs;
+  filter_exportable_objects(C, export_params, exportable_meshes, exportable_nurbs);
 
   if (export_params->export_materials) {
     /* Write MTL filename to the OBJ file. Also create an empty MTL file of the same name as the
