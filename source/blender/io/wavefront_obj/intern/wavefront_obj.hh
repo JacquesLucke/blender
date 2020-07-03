@@ -24,24 +24,4 @@
 #ifndef __WAVEFRONT_OBJ_HH__
 #define __WAVEFRONT_OBJ_HH__
 
-#include "IO_wavefront_obj.h"
-
-namespace blender {
-namespace io {
-namespace obj {
-
-/**
- * Called from io_obj.c. Calls internal functions in IO:OBJ.
- * When more preferences are there, will be used to set appropriate flags.
- */
-void OBJ_export(bContext *C, const OBJExportParams *export_params);
-/**
- * Called from io_obj.c. Currently not implemented.
- */
-void OBJ_import(bContext *C, const OBJImportParams *import_params);
-
-}  // namespace obj
-}  // namespace io
-}  // namespace blender
-
 #endif /* __WAVEFRONT_OBJ_HH__ */

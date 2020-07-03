@@ -31,18 +31,19 @@
 #include "wavefront_obj_exporter.hh"
 
 /**
- * Called from io_obj.c. Calls internal functions in IO:OBJ.
- * When more preferences are there, will be used to set appropriate flags.
+ * Time the full export process.
+ * TODO ankitm Collect errors in the export process and notify the user here.
  */
 void OBJ_export(bContext *C, const OBJExportParams *export_params)
 {
   double start_time = PIL_check_seconds_timer();
-  blender::io::obj::exporter_main(C, export_params);
+  blender::io::obj::exporter_main(C, *export_params);
   double end_time = PIL_check_seconds_timer();
   std::cout << "\nOBJ export time: " << (end_time - start_time) * 1000 << " milliseconds\n";
 }
+
 /**
- * Called from io_obj.c. Currently not implemented.
+ * Currently not implemented.
  */
 void OBJ_import(bContext *UNUSED(C), const OBJImportParams *UNUSED(import_params))
 {

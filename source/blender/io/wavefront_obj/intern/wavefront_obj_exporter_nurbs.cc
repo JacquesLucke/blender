@@ -29,44 +29,49 @@
 
 #include "wavefront_obj_exporter_nurbs.hh"
 
-namespace blender {
-namespace io {
-namespace obj {
-
+namespace blender::io::obj {
 /**
- * Initialise nurbs curve object.
+ * Store NURBS curves that will be exported in parameter form, not converted to meshes.
  */
-void OBJNurbs::init_nurbs_curve(Object *export_object)
+OBJNurbs::OBJNurbs(Depsgraph *depsgraph, Object *export_object)
+    : depsgraph_(depsgraph), export_object_eval_(export_object)
 {
-  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(_C);
-  _export_object_eval = DEG_get_evaluated_object(depsgraph, export_object);
-  _export_curve = (Curve *)_export_object_eval->data;
+  export_object_eval_ = DEG_get_evaluated_object(depsgraph_, export_object);
+  export_curve_ = (Curve *)export_object_eval_->data;
 }
 
 const char *OBJNurbs::get_curve_name()
 {
-  return _export_object_eval->id.name + 2;
+  return export_object_eval_->id.name + 2;
 }
 
-/** Get coordinates of a vertex at given point index. */
-void OBJNurbs::calc_point_coords(float r_coords[3], uint vert_index, Nurb *nurb)
+const ListBase *OBJNurbs::curve_nurbs()
+{
+  return &export_curve_->nurb;
+}
+
+/**
+ * Get coordinates of a vertex at given point index.
+ */
+void OBJNurbs::calc_point_coords(float r_coords[3], int vert_index, const Nurb *nurb)
 {
   BPoint *bpoint = nurb->bp;
   bpoint += vert_index;
   copy_v3_v3(r_coords, bpoint->vec);
 }
 
-/** Get nurbs' degree and number of "curv" points of a nurb. */
-void OBJNurbs::get_curve_info(int *r_nurbs_degree, int *r_curv_num, Nurb *nurb)
+/**
+ * Get nurbs' degree and number of "curv" points of a nurb.
+ */
+void OBJNurbs::get_curve_info(int &r_nurbs_degree, int &r_curv_num, const Nurb *nurb)
 {
-  *r_nurbs_degree = nurb->orderu - 1;
-  /* "curv_num" are number of control points in a nurbs. If it is cyclic, degree also adds up. */
-  *r_curv_num = nurb->pntsv * nurb->pntsu;
+  r_nurbs_degree = nurb->orderu - 1;
+  /* "curv_num" is the number of control points in a nurbs.
+   * If it is cyclic, degree also adds up. */
+  r_curv_num = nurb->pntsv * nurb->pntsu;
   if (nurb->flagu & CU_NURB_CYCLIC) {
-    *r_curv_num += *r_nurbs_degree;
+    r_curv_num += r_nurbs_degree;
   }
 }
 
-}  // namespace obj
-}  // namespace io
-}  // namespace blender
+}  // namespace blender::io::obj

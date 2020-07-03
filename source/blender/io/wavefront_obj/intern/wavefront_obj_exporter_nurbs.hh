@@ -31,37 +31,21 @@
 
 #include "DNA_curve_types.h"
 
-namespace blender {
-namespace io {
-namespace obj {
-
+namespace blender::io::obj {
 class OBJNurbs : NonMovable, NonCopyable {
+private:
+  Depsgraph *depsgraph_;
+  Object *export_object_eval_;
+  Curve *export_curve_;
+
  public:
-  OBJNurbs(bContext *C, Object *export_object) : _C(C), _export_object_eval(export_object)
-  {
-    init_nurbs_curve(export_object);
-  }
-
+  OBJNurbs(Depsgraph *depsgraph, Object *export_object);
+  
   const char *get_curve_name();
-  /** Getter for export curve. Used to obtain a curve's nurbs in OBJWriter class. */
-  const Curve *export_curve()
-  {
-    return _export_curve;
-  }
-
-  /** Get coordinates of a vertex at given point index. */
-  void calc_point_coords(float r_coords[3], uint point_index, Nurb *nurb);
-  /** Get nurbs' degree and number of "curv" points of a nurb. */
-  void get_curve_info(int *r_nurbs_degree, int *r_curv_num, Nurb *nurb);
-
- private:
-  bContext *_C;
-  Object *_export_object_eval;
-  Curve *_export_curve;
-  void init_nurbs_curve(Object *export_object);
+  const ListBase *curve_nurbs();
+  void calc_point_coords(float r_coords[3], int point_index, const Nurb *nurb);
+  void get_curve_info(int &r_nurbs_degree, int &r_curv_num, const Nurb *nurb);
 };
 
-}  // namespace obj
-}  // namespace io
-}  // namespace blender
+}  // namespace blender::io::obj
 #endif

@@ -37,156 +37,75 @@
 
 #include "IO_wavefront_obj.h"
 
-namespace blender {
-namespace io {
-namespace obj {
+namespace blender::io::obj {
 class OBJMesh : NonMovable, NonCopyable {
- public:
-  OBJMesh(bContext *C, const OBJExportParams *export_params, Object *export_object)
-      : _C(C), _export_params(export_params), _export_object_eval(export_object)
-  {
-    init_export_mesh(export_object);
-  }
-
-  /** Free new meshes we allocate for triangulated meshes, and curves converted to meshes. */
-  ~OBJMesh()
-  {
-    if (_me_eval_needs_free) {
-      BKE_id_free(NULL, _export_mesh_eval);
-    }
-  }
-
-  uint tot_vertices()
-  {
-    return _tot_vertices;
-  }
-
-  uint tot_poly_normals()
-  {
-    return _tot_poly_normals;
-  }
-
-  uint tot_uv_vertices()
-  {
-    return _tot_uv_vertices;
-  }
-
-  uint tot_edges()
-  {
-    return _tot_edges;
-  }
-
-  /** Total materials in the object to export. */
-  uint tot_col()
-  {
-    return _export_mesh_eval->totcol;
-  }
-
-  const MPoly &get_ith_poly(uint i)
-  {
-    return _export_mesh_eval->mpoly[i];
-  }
-
-  bool is_shaded_smooth()
-  {
-    return ((_export_mesh_eval->flag & ME_SMOOTH) == 0);
-  }
-
-  void ensure_normals();
-  /** Return mat_nr-th material of the object. */
-  Material *get_object_material(short mat_nr);
-
-  /* Names as they appear in the outliner. */
-  const char *get_object_name();
-  const char *get_object_data_name();
-  const char *get_object_material_name(short mat_nr);
-
-  /**
-   * Calculate coordinates of the vertex at given index.
-   */
-  void calc_vertex_coords(float r_coords[3], uint vert_index);
-  /**
-   * Calculate vertex indices of all vertices of a polygon.
-   */
-  void calc_poly_vertex_indices(Vector<uint> &r_poly_vertex_indices, uint poly_index);
-  /**
-   * Store UV vertex coordinates as well as their indices.
-   */
-  void store_uv_coords_and_indices(Vector<std::array<float, 2>> &r_uv_coords,
-                                   Vector<Vector<uint>> &r_uv_indices);
-  /**
-   * Calculate face normal of the polygon at given index.
-   */
-  void calc_poly_normal(float r_poly_normal[3], uint poly_index);
-  /**
-   * Calculate vertex normal of a vertex at the given index.
-   */
-  void calc_vertex_normal(float r_vertex_normal[3], uint vertex_index);
-  /**
-   * Calculate face normal indices of all polygons.
-   */
-  void calc_poly_normal_indices(Vector<uint> &r_normal_indices, uint poly_indices);
-  /**
-   * Find the name of the vertex group with the maximum number of vertices in a poly.
-   * If no vertex belongs to any group, returned name is "off".
-   * If two or more groups have the same number of vertices (maximum), group name depends on the
-   * implementation of std::max_element.
-   * If the group corresponding to r_last_vertex_group shows up on another polygon, return nullptr
-   * so that caller can skip that group.
-   *
-   * \param r_last_vertex_group stores the index of the vertex group found in last iteration,
-   * indexing into Object->defbase.
-   */
-  const char *get_poly_deform_group_name(const MPoly &mpoly, short &r_last_vertex_group);
-
-  /**
-   * Only for curve converted to meshes: calculate vertex indices of one edge.
-   */
-  void calc_edge_vert_indices(uint r_vert_indices[2], uint edge_index);
-
  private:
-  bContext *_C;
-  const OBJExportParams *_export_params;
+  Depsgraph *depsgraph_;
+  const OBJExportParams &export_params_;
 
-  Object *_export_object_eval;
-  Mesh *_export_mesh_eval;
-  /**
-   * Store evaluated object and mesh pointers depending on object type.
-   * New meshes are created for curves converted to meshes and triangulated meshes.
-   */
-  void init_export_mesh(Object *export_object);
-  /**
-   * Triangulate given mesh and update _export_mesh_eval.
-   * \note The new mesh created here needs to be freed.
-   */
-  void triangulate_mesh(Mesh *me_eval);
+  Object *export_object_eval_;
+  Mesh *export_mesh_eval_;
   /**
    * For curves which are converted to mesh, and triangulated meshes, a new mesh is allocated
    * which needs to be freed later.
    */
-  bool _me_eval_needs_free = false;
-
+  bool mesh_eval_needs_free_ = false;
   /**
-   * Store the product of export axes settings and an object's world transform matrix in
-   * world_and_axes_transform[4][4].
-   */
-  void store_world_axes_transform();
-  /** Final transform of an object obtained from export settings (up_axis, forward_axis) and world
+   * Final transform of an object obtained from export settings (up_axis, forward_axis) and world
    * transform matrix.
    */
-  float _world_and_axes_transform[4][4];
+  float world_and_axes_transform_[4][4];
 
-  /** Total vertices in a mesh. */
-  uint _tot_vertices;
-  /** Total polygons (and thus normals) in a mesh. */
-  uint _tot_poly_normals;
-  /** Total UV vertices in a mesh's texture map. */
-  uint _tot_uv_vertices;
-  /** Only for curve converted to meshes: total edges in a mesh. */
-  uint _tot_edges;
+  /**
+   * Total vertices in a mesh.
+   */
+  uint tot_vertices_;
+  /**
+   * Total polygons (and thus normals) in a mesh.
+   */
+  uint tot_poly_normals_;
+  /**
+   * Total UV vertices in a mesh's texture map.
+   */
+  uint tot_uv_vertices_;
+  /**
+   * Only for curve converted to meshes: total edges in a mesh.
+   */
+  uint tot_edges_;
+
+ public:
+  OBJMesh(Depsgraph *depsgraph, const OBJExportParams &export_params, Object *export_object);
+  ~OBJMesh();
+
+  const uint tot_vertices();
+  const uint tot_polygons();
+  const uint tot_uv_vertices();
+  const uint tot_edges();
+  const uint tot_col();
+  const bool is_shaded_smooth();
+
+  void ensure_mesh_normals();
+  Material *get_object_material(short mat_nr);
+  const MPoly &get_ith_poly(uint i);
+
+  const char *get_object_name();
+  const char *get_object_data_name();
+  const char *get_object_material_name(short mat_nr);
+
+  void calc_vertex_coords(float r_coords[3], uint vert_index);
+  void calc_poly_vertex_indices(Vector<uint> &r_poly_vertex_indices, uint poly_index);
+  void store_uv_coords_and_indices(Vector<std::array<float, 2>> &r_uv_coords,
+                                   Vector<Vector<uint>> &r_uv_indices);
+  void calc_poly_normal(float r_poly_normal[3], uint poly_index);
+  void calc_vertex_normal(float r_vertex_normal[3], uint vertex_index);
+  void calc_poly_normal_indices(Vector<uint> &r_normal_indices, uint poly_index);
+  const char *get_poly_deform_group_name(const MPoly &mpoly, short &r_last_vertex_group);
+  void calc_edge_vert_indices(uint r_vert_indices[2], uint edge_index);
+
+ private:
+  void triangulate_mesh_eval();
+  void store_world_axes_transform();
 };
-}  // namespace obj
-}  // namespace io
-}  // namespace blender
+}  // namespace blender::io::obj
 
 #endif /* __WAVEFRONT_OBJ_HH__ */

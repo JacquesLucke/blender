@@ -41,55 +41,75 @@
 
 #include "wavefront_obj_exporter_mesh.hh"
 
-namespace blender {
-namespace io {
-namespace obj {
-
+namespace blender::io::obj {
 /**
  * Store evaluated object and mesh pointers depending on object type.
- * New meshes are created for curves converted to meshes and triangulated meshes.
+ * New meshes are created for supported curves converted to meshes, and triangulated
+ * meshes.
  */
-void OBJMesh::init_export_mesh(Object *export_object)
+OBJMesh::OBJMesh(Depsgraph *depsgraph, const OBJExportParams &export_params, Object *export_object)
+    : depsgraph_(depsgraph), export_params_(export_params), export_object_eval_(export_object)
 {
-  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(_C);
-  _export_object_eval = DEG_get_evaluated_object(depsgraph, export_object);
-  _export_mesh_eval = BKE_object_get_evaluated_mesh(_export_object_eval);
-  _me_eval_needs_free = false;
+  export_object_eval_ = DEG_get_evaluated_object(depsgraph_, export_object);
+  export_mesh_eval_ = BKE_object_get_evaluated_mesh(export_object_eval_);
+  mesh_eval_needs_free_ = false;
 
-  if (_export_mesh_eval && _export_mesh_eval->totpoly > 0) {
-    if (_export_params->export_triangulated_mesh) {
-      triangulate_mesh(_export_mesh_eval);
-      _me_eval_needs_free = true;
-    }
-    _tot_vertices = _export_mesh_eval->totvert;
-    _tot_poly_normals = _export_mesh_eval->totpoly;
+  if (!export_mesh_eval_) {
+    /* Curves and nurbs surfaces need a new mesh when exported in the form of vertices and edges.
+     */
+    export_mesh_eval_ = BKE_mesh_new_from_object(depsgraph_, export_object_eval_, true);
+    /* Since new mesh been allocated, needs to be freed in destructor. */
+    mesh_eval_needs_free_ = true;
   }
-  /* Curves and nurbs surfaces need a new mesh when exported in the form of vertices and edges.
-   * For primitive circle, new mesh is redundant, but it behaves more like curves, so kept it here.
-   */
-  else {
-    _export_mesh_eval = BKE_mesh_new_from_object(depsgraph, _export_object_eval, true);
-    _me_eval_needs_free = true;
-    if (_export_object_eval->type == OB_CURVE || _export_mesh_eval->totpoly == 0) {
-      /* Don't export polygon normals when there are no polygons. */
-      _tot_poly_normals = 0;
-      _tot_vertices = _export_mesh_eval->totvert;
-      _tot_edges = _export_mesh_eval->totedge;
+
+  switch (export_object_eval_->type) {
+    case OB_SURF:
+      ATTR_FALLTHROUGH;
+    case OB_MESH: {
+      if (export_params_.export_triangulated_mesh) {
+        triangulate_mesh_eval();
+      }
+      tot_poly_normals_ = export_mesh_eval_->totpoly;
+      tot_edges_ = 0;
+      if (tot_poly_normals_ <= 0) {
+        tot_poly_normals_ = 0;
+        tot_edges_ = export_mesh_eval_->totedge;
+      }
+      break;
     }
-    else if (_export_object_eval->type == OB_SURF) {
-      _tot_vertices = _export_mesh_eval->totvert;
-      _tot_poly_normals = _export_mesh_eval->totpoly;
+    case OB_CURVE: {
+      tot_poly_normals_ = 0;
+      tot_edges_ = export_mesh_eval_->totedge;
+      break;
+    }
+    default: {
+      break;
     }
   }
+  tot_vertices_ = export_mesh_eval_->totvert;
   store_world_axes_transform();
 }
 
 /**
- * Triangulate given mesh and update _export_mesh_eval.
+ * Free new meshes allocated for triangulated meshes, and curves converted to meshes.
+ */
+OBJMesh::~OBJMesh()
+{
+  if (mesh_eval_needs_free_) {
+    BKE_id_free(NULL, export_mesh_eval_);
+  }
+}
+
+/**
+ * Triangulate and update _export_mesh_eval.
  * \note The new mesh created here needs to be freed.
  */
-void OBJMesh::triangulate_mesh(Mesh *me_eval)
+void OBJMesh::triangulate_mesh_eval()
 {
+  if (export_mesh_eval_->totpoly <= 0) {
+    mesh_eval_needs_free_ = false;
+    return;
+  }
   struct BMeshCreateParams bm_create_params = {false};
   /* If calc_face_normal is false, it triggers BLI_assert(BM_face_is_normal_valid(f)). */
   struct BMeshFromMeshParams bm_convert_params = {true, 0, 0, 0};
@@ -97,7 +117,7 @@ void OBJMesh::triangulate_mesh(Mesh *me_eval)
    * triangulated here. */
   int triangulate_min_verts = 4;
 
-  BMesh *bmesh = BKE_mesh_to_bmesh_ex(me_eval, &bm_create_params, &bm_convert_params);
+  BMesh *bmesh = BKE_mesh_to_bmesh_ex(export_mesh_eval_, &bm_create_params, &bm_convert_params);
   BM_mesh_triangulate(bmesh,
                       MOD_TRIANGULATE_NGON_BEAUTY,
                       MOD_TRIANGULATE_QUAD_SHORTEDGE,
@@ -106,7 +126,8 @@ void OBJMesh::triangulate_mesh(Mesh *me_eval)
                       NULL,
                       NULL,
                       NULL);
-  _export_mesh_eval = BKE_mesh_from_bmesh_for_eval_nomain(bmesh, NULL, me_eval);
+  export_mesh_eval_ = BKE_mesh_from_bmesh_for_eval_nomain(bmesh, NULL, export_mesh_eval_);
+  mesh_eval_needs_free_ = true;
   BM_mesh_free(bmesh);
 }
 
@@ -121,77 +142,129 @@ void OBJMesh::store_world_axes_transform()
   /* -Y-forward and +Z-up are the default Blender axis settings. */
   mat3_from_axis_conversion(OBJ_AXIS_NEGATIVE_Y_FORWARD,
                             OBJ_AXIS_Z_UP,
-                            _export_params->forward_axis,
-                            _export_params->up_axis,
+                            export_params_.forward_axis,
+                            export_params_.up_axis,
                             axes_transform);
-  mul_m4_m3m4(_world_and_axes_transform, axes_transform, _export_object_eval->obmat);
+  mul_m4_m3m4(world_and_axes_transform_, axes_transform, export_object_eval_->obmat);
   /* mul_m4_m3m4 does not copy last row of obmat, i.e. location data. */
-  copy_v4_v4(_world_and_axes_transform[3], _export_object_eval->obmat[3]);
+  copy_v4_v4(world_and_axes_transform_[3], export_object_eval_->obmat[3]);
 }
 
+const uint OBJMesh::tot_vertices()
+{
+  return tot_vertices_;
+}
+
+const uint OBJMesh::tot_polygons()
+{
+  return tot_poly_normals_;
+}
+
+const uint OBJMesh::tot_uv_vertices()
+{
+  return tot_uv_vertices_;
+}
+
+const uint OBJMesh::tot_edges()
+{
+  return tot_edges_;
+}
+
+/**
+ * Total materials in the object to export.
+ */
+const uint OBJMesh::tot_col()
+{
+  return (uint)export_mesh_eval_->totcol;
+}
+
+/**
+ * Return true if the object is shaded smooth.
+ */
+const bool OBJMesh::is_shaded_smooth()
+{
+  return ((export_mesh_eval_->flag & ME_SMOOTH) == 0);
+}
+
+void OBJMesh::ensure_mesh_normals()
+{
+  BKE_mesh_ensure_normals(export_mesh_eval_);
+}
+
+/**
+ * Return mat_nr-th material of the object.
+ */
+Material *OBJMesh::get_object_material(short mat_nr)
+{
+  return BKE_object_material_get(export_object_eval_, mat_nr);
+}
+
+const MPoly &OBJMesh::get_ith_poly(uint i)
+{
+  return export_mesh_eval_->mpoly[i];
+}
+
+/**
+ * Get object name as it appears in the outliner.
+ */
 const char *OBJMesh::get_object_name()
 {
-  return _export_object_eval->id.name + 2;
+  return export_object_eval_->id.name + 2;
 }
 
+/**
+ * Get object's mesh name.
+ */
 const char *OBJMesh::get_object_data_name()
 {
-  return _export_mesh_eval->id.name + 2;
+  return export_mesh_eval_->id.name + 2;
 }
 
+/**
+ * Get object's material (at the given index) name.
+ */
 const char *OBJMesh::get_object_material_name(short mat_nr)
 {
-  Material *mat = BKE_object_material_get(_export_object_eval, mat_nr);
+  Material *mat = BKE_object_material_get(export_object_eval_, mat_nr);
   return mat->id.name + 2;
 }
 
-void OBJMesh::ensure_normals()
-{
-  BKE_mesh_ensure_normals(_export_mesh_eval);
-}
-
-/** Return mat_nr-th material of the object. */
-Material *OBJMesh::get_object_material(short mat_nr)
-{
-  return BKE_object_material_get(_export_object_eval, mat_nr);
-}
-
 /**
- * Calculate coordinates of the vertex at given index.
+ * Calculate coordinates of a vertex at the given index.
  */
 void OBJMesh::calc_vertex_coords(float r_coords[3], uint point_index)
 {
-  copy_v3_v3(r_coords, _export_mesh_eval->mvert[point_index].co);
-  mul_m4_v3(_world_and_axes_transform, r_coords);
-  mul_v3_fl(r_coords, _export_params->scaling_factor);
+  copy_v3_v3(r_coords, export_mesh_eval_->mvert[point_index].co);
+  mul_m4_v3(world_and_axes_transform_, r_coords);
+  mul_v3_fl(r_coords, export_params_.scaling_factor);
 }
 
 /**
- * Calculate vertex indices of all vertices of a polygon.
+ * Calculate vertex indices of all vertices of a polygon at the given index.
  */
 void OBJMesh::calc_poly_vertex_indices(Vector<uint> &r_poly_vertex_indices, uint poly_index)
 {
-  const MPoly &mpoly = _export_mesh_eval->mpoly[poly_index];
-  const MLoop *mloop = &_export_mesh_eval->mloop[mpoly.loopstart];
+  const MPoly &mpoly = export_mesh_eval_->mpoly[poly_index];
+  const MLoop *mloop = &export_mesh_eval_->mloop[mpoly.loopstart];
   r_poly_vertex_indices.resize(mpoly.totloop);
   for (uint loop_index = 0; loop_index < mpoly.totloop; loop_index++) {
-    r_poly_vertex_indices[loop_index] = (mloop + loop_index)->v + 1;
+    r_poly_vertex_indices[loop_index] = mloop[loop_index].v + 1;
   }
 }
 
 /**
- * Store UV vertex coordinates as well as their indices.
+ * Store UV vertex coordinates of an object as well as their indices.
  */
 void OBJMesh::store_uv_coords_and_indices(Vector<std::array<float, 2>> &r_uv_coords,
                                           Vector<Vector<uint>> &r_uv_indices)
 {
-  const MPoly *mpoly = _export_mesh_eval->mpoly;
-  const MLoop *mloop = _export_mesh_eval->mloop;
-  const int totpoly = _export_mesh_eval->totpoly;
-  const int totvert = _export_mesh_eval->totvert;
-  const MLoopUV *mloopuv = (MLoopUV *)CustomData_get_layer(&_export_mesh_eval->ldata, CD_MLOOPUV);
+  const MPoly *mpoly = export_mesh_eval_->mpoly;
+  const MLoop *mloop = export_mesh_eval_->mloop;
+  const uint totpoly = export_mesh_eval_->totpoly;
+  const uint totvert = export_mesh_eval_->totvert;
+  const MLoopUV *mloopuv = (MLoopUV *)CustomData_get_layer(&export_mesh_eval_->ldata, CD_MLOOPUV);
   if (!mloopuv) {
-    _tot_uv_vertices = 0;
+    tot_uv_vertices_ = 0;
     return;
   }
   const float limit[2] = {STD_UV_CONNECT_LIMIT, STD_UV_CONNECT_LIMIT};
@@ -200,70 +273,70 @@ void OBJMesh::store_uv_coords_and_indices(Vector<std::array<float, 2>> &r_uv_coo
       mpoly, mloop, mloopuv, totpoly, totvert, limit, false, false);
 
   r_uv_indices.resize(totpoly);
-  /* We know that at least totvert many vertices in a mesh will be present in its texture map. So
-   * reserve them in the start to let append be less time costly later. */
+  /* At least total vertices of a mesh will be present in its texture map. So
+   * reserve minimum space early. */
   r_uv_coords.reserve(totvert);
 
-  _tot_uv_vertices = -1;
-  for (int vertex_index = 0; vertex_index < totvert; vertex_index++) {
+  tot_uv_vertices_ = 0;
+  for (uint vertex_index = 0; vertex_index < totvert; vertex_index++) {
     const UvMapVert *uv_vert = BKE_mesh_uv_vert_map_get_vert(uv_vert_map, vertex_index);
-    while (uv_vert != NULL) {
+    for (; uv_vert; uv_vert = uv_vert->next) {
       if (uv_vert->separate) {
-        _tot_uv_vertices += 1;
+        tot_uv_vertices_ += 1;
       }
-      const uint vertices_in_poly = mpoly[uv_vert->poly_index].totloop;
+      if (UNLIKELY(tot_uv_vertices_ == 0)) {
+        return;
+      }
+      const uint vertices_in_poly = (uint)mpoly[uv_vert->poly_index].totloop;
 
-      /* Fill up UV vertices' coordinates. */
-      r_uv_coords.resize(_tot_uv_vertices + 1);
+      /* Fill up UV vertex's coordinates. */
+      r_uv_coords.resize(tot_uv_vertices_);
       const int loopstart = mpoly[uv_vert->poly_index].loopstart;
-      const float *vert_uv_coords = mloopuv[loopstart + uv_vert->loop_of_poly_index].uv;
-      r_uv_coords[_tot_uv_vertices][0] = vert_uv_coords[0];
-      r_uv_coords[_tot_uv_vertices][1] = vert_uv_coords[1];
+      const float(&vert_uv_coords)[2] = mloopuv[loopstart + uv_vert->loop_of_poly_index].uv;
+      r_uv_coords[tot_uv_vertices_ - 1][0] = vert_uv_coords[0];
+      r_uv_coords[tot_uv_vertices_ - 1][1] = vert_uv_coords[1];
 
-      /* Fill up UV vertex index. The indices in OBJ are 1-based, so added 1. */
       r_uv_indices[uv_vert->poly_index].resize(vertices_in_poly);
-      r_uv_indices[uv_vert->poly_index][uv_vert->loop_of_poly_index] = _tot_uv_vertices;
-
-      uv_vert = uv_vert->next;
+      r_uv_indices[uv_vert->poly_index][uv_vert->loop_of_poly_index] = tot_uv_vertices_;
     }
   }
-  /* Needed to update the index offsets after a mesh is written. */
-  _tot_uv_vertices += 1;
   BKE_mesh_uv_vert_map_free(uv_vert_map);
 }
 
 /**
- * Calculate face normal of the polygon at given index.
+ * Calculate face normal of a polygon at given index.
  */
 void OBJMesh::calc_poly_normal(float r_poly_normal[3], uint poly_index)
 {
-  const MPoly *poly_to_write = &_export_mesh_eval->mpoly[poly_index];
-  const MLoop *mloop = &_export_mesh_eval->mloop[poly_to_write->loopstart];
-  const MVert *mvert = _export_mesh_eval->mvert;
-  BKE_mesh_calc_poly_normal(poly_to_write, mloop, mvert, r_poly_normal);
-  mul_mat3_m4_v3(_world_and_axes_transform, r_poly_normal);
+  const MPoly &poly_to_write = export_mesh_eval_->mpoly[poly_index];
+  const MLoop &mloop = export_mesh_eval_->mloop[poly_to_write.loopstart];
+  const MVert &mvert = *(export_mesh_eval_->mvert);
+  BKE_mesh_calc_poly_normal(&poly_to_write, &mloop, &mvert, r_poly_normal);
+  mul_mat3_m4_v3(world_and_axes_transform_, r_poly_normal);
 }
 
 /**
- * Calculate vertex normal indices of all vertices.
+ * Calculate vertex normal of a vertex at the given index.
+ *
+ * Should be used when a mesh is shaded smooth.
  */
 void OBJMesh::calc_vertex_normal(float r_vertex_normal[3], uint vert_index)
 {
-  normal_short_to_float_v3(r_vertex_normal, _export_mesh_eval->mvert[vert_index].no);
-  mul_mat3_m4_v3(_world_and_axes_transform, r_vertex_normal);
+  normal_short_to_float_v3(r_vertex_normal, export_mesh_eval_->mvert[vert_index].no);
+  mul_mat3_m4_v3(world_and_axes_transform_, r_vertex_normal);
 }
 
 /**
- * Calculate face normal indices of all polygons.
+ * Calculate face normal indices of all vertices in a polygon.
  */
 void OBJMesh::calc_poly_normal_indices(Vector<uint> &r_normal_indices, uint poly_index)
 {
-  r_normal_indices.resize(_export_mesh_eval->mpoly[poly_index].totloop);
-  if (_export_params->export_smooth_group && this->is_shaded_smooth()) {
-    const MPoly &mpoly = _export_mesh_eval->mpoly[poly_index];
-    const MLoop *mloop = &_export_mesh_eval->mloop[mpoly.loopstart];
+  r_normal_indices.resize(export_mesh_eval_->mpoly[poly_index].totloop);
+  if (export_params_.export_smooth_group && this->is_shaded_smooth()) {
+    const MPoly &mpoly = export_mesh_eval_->mpoly[poly_index];
+    const MLoop *mloop = &export_mesh_eval_->mloop[mpoly.loopstart];
     for (uint i = 0; i < r_normal_indices.size(); i++) {
-      r_normal_indices[i] = (mloop + i)->v + 1;
+      r_normal_indices[i] = mloop[i].v + 1;
     }
   }
   else {
@@ -275,10 +348,11 @@ void OBJMesh::calc_poly_normal_indices(Vector<uint> &r_normal_indices, uint poly
 
 /**
  * Find the name of the vertex group with the maximum number of vertices in a poly.
+ *
  * If no vertex belongs to any group, returned name is "off".
  * If two or more groups have the same number of vertices (maximum), group name depends on the
  * implementation of std::max_element.
- * If the group corresponding to r_last_vertex_group shows up on another polygon, return nullptr so
+ * If the group corresponding to r_last_vertex_group shows up on current polygon, return nullptr so
  * that caller can skip that group.
  *
  * \param r_last_vertex_group stores the index of the vertex group found in last iteration,
@@ -286,15 +360,16 @@ void OBJMesh::calc_poly_normal_indices(Vector<uint> &r_normal_indices, uint poly
  */
 const char *OBJMesh::get_poly_deform_group_name(const MPoly &mpoly, short &r_last_vertex_group)
 {
-  const MLoop *mloop = &_export_mesh_eval->mloop[mpoly.loopstart];
-  /* Indices index into deform groups; values are the number of vertices in one deform group. */
-  Vector<int> deform_group_indices;
-  int tot_deform_groups = BLI_listbase_count(&_export_object_eval->defbase);
-  deform_group_indices.resize(tot_deform_groups, 0);
+  const MLoop *mloop = &export_mesh_eval_->mloop[mpoly.loopstart];
+  /* Indices of the vector index into deform groups of an object; values are the number of vertex
+   * members in one deform group. */
+  Vector<int> deform_group_members;
+  uint tot_deform_groups = BLI_listbase_count(&export_object_eval_->defbase);
+  deform_group_members.resize(tot_deform_groups, 0);
   /* Whether at least one vertex in the polygon belongs to any group. */
   bool found_group = false;
 
-  const MDeformVert *dvert_orig = (MDeformVert *)CustomData_get_layer(&_export_mesh_eval->vdata,
+  const MDeformVert *dvert_orig = (MDeformVert *)CustomData_get_layer(&export_mesh_eval_->vdata,
                                                                       CD_MDEFORMVERT);
   if (!dvert_orig) {
     return nullptr;
@@ -307,9 +382,9 @@ const char *OBJMesh::get_poly_deform_group_name(const MPoly &mpoly, short &r_las
     curr_weight = dvert->dw;
     if (curr_weight) {
       bDeformGroup *vertex_group = (bDeformGroup *)BLI_findlink(
-          (ListBase *)(&_export_object_eval->defbase), curr_weight->def_nr);
+          (ListBase *)(&export_object_eval_->defbase), curr_weight->def_nr);
       if (vertex_group) {
-        deform_group_indices[curr_weight->def_nr] += 1;
+        deform_group_members[curr_weight->def_nr] += 1;
         found_group = true;
       }
     }
@@ -317,25 +392,28 @@ const char *OBJMesh::get_poly_deform_group_name(const MPoly &mpoly, short &r_las
 
   if (!found_group) {
     if (r_last_vertex_group == -1) {
-      /* "off" has already been written and this face also belongs to no vertex group. */
+      /* No vertex group found in this face, just like in the last iteration. */
       return nullptr;
     }
+    /* -1 indicates deform group having no vertices in it. */
     r_last_vertex_group = -1;
     return "off";
   }
-  /* Index to the group with maximum vertices. */
-  int max_idx = std::max_element(deform_group_indices.begin(), deform_group_indices.end()) -
-                deform_group_indices.begin();
+
+  /* Index of the group with maximum vertices. */
+  short max_idx = (short)(std::max_element(deform_group_members.begin(),
+                                           deform_group_members.end()) -
+                          deform_group_members.begin());
   if (max_idx == r_last_vertex_group) {
-    /* No need to update the name, r_last_vertex_group indicates that it has been written already.
-     */
+    /* No need to update the name, this is the same as the group name in the last iteration. */
     return nullptr;
   }
-  r_last_vertex_group = max_idx;
-  const bDeformGroup *vertex_group = (bDeformGroup *)BLI_findlink(
-      (ListBase *)(&_export_object_eval->defbase), max_idx);
 
-  return vertex_group->name;
+  r_last_vertex_group = max_idx;
+  const bDeformGroup &vertex_group = *(
+      (bDeformGroup *)BLI_findlink((ListBase *)(&export_object_eval_->defbase), max_idx));
+
+  return vertex_group.name;
 }
 
 /**
@@ -347,14 +425,11 @@ void OBJMesh::calc_edge_vert_indices(uint r_vert_indices[2], uint edge_index)
   r_vert_indices[1] = edge_index + 2;
 
   /* Last edge's second vertex depends on whether the curve is cyclic or not. */
-  if (UNLIKELY(edge_index == _export_mesh_eval->totedge)) {
+  if (UNLIKELY(edge_index == export_mesh_eval_->totedge)) {
     r_vert_indices[0] = edge_index + 1;
-    r_vert_indices[1] = _export_mesh_eval->totvert == _export_mesh_eval->totedge ?
+    r_vert_indices[1] = export_mesh_eval_->totvert == export_mesh_eval_->totedge ?
                             1 :
-                            _export_mesh_eval->totvert;
+                            export_mesh_eval_->totvert;
   }
 }
-
-}  // namespace obj
-}  // namespace io
-}  // namespace blender
+}  // namespace blender::io::obj

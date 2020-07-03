@@ -30,67 +30,48 @@
 
 #include "wavefront_obj_exporter_mesh.hh"
 
-namespace blender {
-namespace io {
-namespace obj {
-
+namespace blender::io::obj {
 class MTLWriter {
+ private:
+  FILE *mtl_outfile_;
+  char mtl_filepath_[PATH_MAX];
+  /**
+   * One of the object's materials, to be exported.
+   */
+  Material *export_mtl_;
+  /**
+   * First Principled-BSDF node encountered in the object's node tree.
+   */
+  bNode *bsdf_node_;
+
  public:
   MTLWriter(const char *obj_filepath)
   {
-    BLI_strncpy(_mtl_filepath, obj_filepath, PATH_MAX);
-    BLI_path_extension_replace(_mtl_filepath, PATH_MAX, ".mtl");
+    BLI_strncpy(mtl_filepath_, obj_filepath, PATH_MAX);
+    BLI_path_extension_replace(mtl_filepath_, PATH_MAX, ".mtl");
   }
 
   ~MTLWriter()
   {
-    fclose(_mtl_outfile);
+    fclose(mtl_outfile_);
   }
 
-  /** Append an object's materials to the .mtl file. */
   void append_materials(OBJMesh &mesh_to_export);
 
  private:
-  FILE *_mtl_outfile;
-  char _mtl_filepath[PATH_MAX];
-
-  /** Write _one_ material to the MTL file. */
   void write_curr_material(const char *object_name);
-
-  /** One of the object's materials, to be exported. */
-  Material *_export_mtl;
-  /** First bsdf node encountered in the object's nodes. */
-  bNode *_bsdf_node;
   void init_bsdf_node(const char *object_name);
 
-  /** Copy the property of given type from the bNode to the buffer.
-   */
   void copy_property_from_node(float *r_property,
                                eNodeSocketDatatype property_type,
                                const bNode *curr_node,
                                const char *identifier);
-
-  /**
-   * Collect all the source sockets linked to the destination socket in a destination node.
-   */
-  void linked_sockets_to_dest_id(Vector<const bke::OutputSocketRef *> *r_linked_sockets,
+  void linked_sockets_to_dest_id(Vector<const bke::OutputSocketRef *> &r_linked_sockets,
                                  const bNode *dest_node,
                                  bke::NodeTreeRef &node_tree,
                                  const char *dest_socket_id);
-
-  /**
-   * From a list of sockets, get the parent node which is of the given node type.
-   */
-  const bNode *linked_node_of_type(const Vector<const bke::OutputSocketRef *> &sockets_list,
-                                   uint sh_node_type);
-  /**
-   * From a texture image shader node, get the image's filepath.
-   * Filepath is the exact string the node contains, relative or absolute.
-   */
+  const bNode *get_node_of_type(Span<const bke::OutputSocketRef *> sockets_list, int sh_node_type);
   const char *get_image_filepath(const bNode *tex_node);
 };
-
-}  // namespace obj
-}  // namespace io
-}  // namespace blender
+}  // namespace blender::io::obj
 #endif
