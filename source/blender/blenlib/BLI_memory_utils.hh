@@ -293,6 +293,16 @@ template<typename T, size_t Size> class TypedAlignedBuffer {
   AlignedBuffer<sizeof(T) * Size, alignof(T)> buffer_;
 
  public:
+  operator T *()
+  {
+    return this->ptr();
+  }
+
+  operator const T *() const
+  {
+    return this->ptr();
+  }
+
   T *ptr()
   {
     return (T *)buffer_.ptr();
