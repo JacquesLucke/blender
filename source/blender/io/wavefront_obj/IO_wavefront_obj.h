@@ -81,7 +81,11 @@ struct OBJExportParams {
    * Export vertex normals instead of face normals if mesh is shaded smooth and this option is
    * true.
    */
-  bool export_smooth_group;
+  bool export_smooth_groups;
+  /**
+   * If true, generate bitflags for smooth groups' IDs. Generates upto 32 but usually much less.
+   */
+  bool smooth_groups_bitflags;
 };
 
 struct OBJImportParams {

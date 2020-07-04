@@ -179,11 +179,11 @@ const uint OBJMesh::tot_col()
 }
 
 /**
- * Return true if the object is shaded smooth.
+ * Total smooth groups in the object to export.
  */
-const bool OBJMesh::is_shaded_smooth()
+const uint OBJMesh::tot_smooth_groups()
 {
-  return ((export_mesh_eval_->flag & ME_SMOOTH) == 0);
+  return tot_smooth_groups_;
 }
 
 void OBJMesh::ensure_mesh_normals()
@@ -332,7 +332,7 @@ void OBJMesh::calc_vertex_normal(float r_vertex_normal[3], uint vert_index)
 void OBJMesh::calc_poly_normal_indices(Vector<uint> &r_normal_indices, uint poly_index)
 {
   r_normal_indices.resize(export_mesh_eval_->mpoly[poly_index].totloop);
-  if (export_params_.export_smooth_group && this->is_shaded_smooth()) {
+  if (export_params_.export_smooth_groups && tot_smooth_groups_ > 0) {
     const MPoly &mpoly = export_mesh_eval_->mpoly[poly_index];
     const MLoop *mloop = &export_mesh_eval_->mloop[mpoly.loopstart];
     for (uint i = 0; i < r_normal_indices.size(); i++) {
@@ -344,6 +344,30 @@ void OBJMesh::calc_poly_normal_indices(Vector<uint> &r_normal_indices, uint poly
       r_normal_indices[i] = poly_index + 1;
     }
   }
+}
+
+/**
+ * Calculate smooth groups of a smooth shaded object.
+ * \return A polygon aligned array of smooth group numbers or bitflags if export
+ * settings specify so.
+ */
+int *OBJMesh::calc_smooth_groups()
+{
+  if (!export_params_.export_smooth_groups) {
+    return nullptr;
+  }
+  int tot_smooth_groups = 0;
+  bool use_bitflags = export_params_.smooth_groups_bitflags;
+  int *groups_array = BKE_mesh_calc_smoothgroups(export_mesh_eval_->medge,
+                                                 export_mesh_eval_->totedge,
+                                                 export_mesh_eval_->mpoly,
+                                                 export_mesh_eval_->totpoly,
+                                                 export_mesh_eval_->mloop,
+                                                 export_mesh_eval_->totloop,
+                                                 &tot_smooth_groups,
+                                                 use_bitflags);
+  tot_smooth_groups_ = tot_smooth_groups;
+  return groups_array;
 }
 
 /**

@@ -68,11 +68,14 @@ class OBJWriter {
   void write_vertex_coords(OBJMesh &obj_mesh_data);
   void write_uv_coords(OBJMesh &obj_mesh_data, Vector<Vector<uint>> &uv_indices);
   void write_poly_normals(OBJMesh &obj_mesh_data);
-  void write_smooth_group(OBJMesh &obj_mesh_data);
-  void write_poly_material(OBJMesh &obj_mesh_data, short &r_last_face_mat_nr, const MPoly &mpoly);
+  void write_smooth_group(OBJMesh &obj_mesh_data,
+                          int &r_last_face_smooth_group,
+                          const int *poly_smooth_groups,
+                          uint poly_index);
+  void write_poly_material(OBJMesh &obj_mesh_data, short &r_last_face_mat_nr, uint poly_index);
   void write_vertex_group(OBJMesh &obj_mesh_data,
                           short &r_last_face_vertex_group,
-                          const MPoly &mpoly);
+                          uint poly_index);
   void write_poly_elements(OBJMesh &obj_mesh_data, Span<Vector<uint>> uv_indices);
   void write_curve_edges(OBJMesh &obj_mesh_data);
   void write_nurbs_curve(OBJNurbs &obj_nurbs_data);
