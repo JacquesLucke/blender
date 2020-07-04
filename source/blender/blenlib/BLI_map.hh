@@ -936,8 +936,7 @@ class Map {
      * Optimize the case when the map was empty beforehand. We can avoid some copies here.
      */
     if (this->size() == 0) {
-      slots_.~Array();
-      new (&slots_) SlotArray(total_slots);
+      slots_.reinitialize(total_slots);
       removed_slots_ = 0;
       occupied_and_removed_slots_ = 0;
       usable_slots_ = usable_slots;
@@ -997,11 +996,11 @@ class Map {
     BLI_assert(!this->contains_as(key));
 
     this->ensure_can_add();
-    occupied_and_removed_slots_++;
 
     MAP_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.is_empty()) {
         slot.occupy(std::forward<ForwardKey>(key), std::forward<ForwardValue>(value), hash);
+        occupied_and_removed_slots_++;
         return;
       }
     }
@@ -1045,11 +1044,10 @@ class Map {
   {
     BLI_assert(this->contains_as(key));
 
-    removed_slots_++;
-
     MAP_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.contains(key, is_equal_, hash)) {
         slot.remove();
+        removed_slots_++;
         return;
       }
     }
@@ -1060,12 +1058,11 @@ class Map {
   {
     BLI_assert(this->contains_as(key));
 
-    removed_slots_++;
-
     MAP_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.contains(key, is_equal_, hash)) {
         Value value = std::move(*slot.value());
         slot.remove();
+        removed_slots_++;
         return value;
       }
     }
@@ -1121,10 +1118,9 @@ class Map {
 
     MAP_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.is_empty()) {
+        auto return_value = slot.occupy_cb(std::forward<ForwardKey>(key), create_value, hash);
         occupied_and_removed_slots_++;
-        slot.occupy_without_value(std::forward<ForwardKey>(key), hash);
-        Value *value_ptr = slot.value();
-        return create_value(value_ptr);
+        return return_value;
       }
       if (slot.contains(key, is_equal_, hash)) {
         Value *value_ptr = slot.value();
