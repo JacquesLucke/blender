@@ -166,9 +166,8 @@ class Stack {
 
   Stack(Stack &&other) noexcept : Stack(other.allocator_)
   {
-    uninitialized_relocate_n(other.inline_buffer_.ptr(),
-                             std::min(other.size_, InlineBufferCapacity),
-                             inline_buffer_.ptr());
+    uninitialized_relocate_n<T>(
+        other.inline_buffer_, std::min(other.size_, InlineBufferCapacity), inline_buffer_);
 
     inline_chunk_.above = other.inline_chunk_.above;
     size_ = other.size_;
@@ -210,7 +209,7 @@ class Stack {
     return *this;
   }
 
-  Stack &operator=(Stack &&stack)
+  Stack &operator=(Stack &&stack) noexcept
   {
     if (this == &stack) {
       return *this;
@@ -299,11 +298,10 @@ class Stack {
       const uint amount = std::min(remaining_values.size(), remaining_capacity);
       uninitialized_copy_n(remaining_values.data(), amount, top_);
       top_ += amount;
+      size_ += amount;
 
       remaining_values = remaining_values.drop_front(amount);
     }
-
-    size_ += values.size();
   }
 
   /**
