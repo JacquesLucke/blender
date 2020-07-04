@@ -53,8 +53,8 @@ template<typename Key, typename Value> class SimpleMapSlot {
   };
 
   State state_;
-  AlignedBuffer<sizeof(Key), alignof(Key)> key_buffer_;
-  AlignedBuffer<sizeof(Value), alignof(Value)> value_buffer_;
+  TypedAlignedBuffer<Key> key_buffer_;
+  TypedAlignedBuffer<Value> value_buffer_;
 
  public:
   /**
@@ -108,7 +108,7 @@ template<typename Key, typename Value> class SimpleMapSlot {
    */
   Key *key()
   {
-    return (Key *)key_buffer_.ptr();
+    return key_buffer_;
   }
 
   /**
@@ -116,7 +116,7 @@ template<typename Key, typename Value> class SimpleMapSlot {
    */
   const Key *key() const
   {
-    return (const Key *)key_buffer_.ptr();
+    return key_buffer_;
   }
 
   /**
@@ -124,7 +124,7 @@ template<typename Key, typename Value> class SimpleMapSlot {
    */
   Value *value()
   {
-    return (Value *)value_buffer_.ptr();
+    return value_buffer_;
   }
 
   /**
@@ -132,7 +132,7 @@ template<typename Key, typename Value> class SimpleMapSlot {
    */
   const Value *value() const
   {
-    return (const Value *)value_buffer_.ptr();
+    return value_buffer_;
   }
 
   /**
@@ -236,7 +236,7 @@ template<typename Key, typename Value> class SimpleMapSlot {
 template<typename Key, typename Value, typename KeyInfo> class IntrusiveMapSlot {
  private:
   Key key_ = KeyInfo::get_empty();
-  AlignedBuffer<sizeof(Value), alignof(Value)> value_buffer_;
+  TypedAlignedBuffer<Value> value_buffer_;
 
  public:
   IntrusiveMapSlot() = default;
@@ -274,12 +274,12 @@ template<typename Key, typename Value, typename KeyInfo> class IntrusiveMapSlot 
 
   Value *value()
   {
-    return (Value *)value_buffer_.ptr();
+    return value_buffer_;
   }
 
   const Value *value() const
   {
-    return (const Value *)value_buffer_.ptr();
+    return value_buffer_;
   }
 
   bool is_occupied() const
