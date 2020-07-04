@@ -159,4 +159,17 @@ TEST(vector_set, Remove)
   EXPECT_FALSE(set.contains(5));
 }
 
+TEST(vector_set, AddRemoveOften)
+{
+  VectorSet<int> set;
+  for (int i = 0; i < 1000; i++) {
+    set.add(42);
+    EXPECT_TRUE(set.contains(42));
+    EXPECT_EQ(set.index_of(42), 0);
+    set.remove(42);
+    EXPECT_FALSE(set.contains(42));
+    EXPECT_EQ(set.index_of_try(42), -1);
+  }
+}
+
 }  // namespace blender
