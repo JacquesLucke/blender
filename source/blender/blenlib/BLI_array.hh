@@ -80,20 +80,25 @@ class Array {
   /**
    * By default an empty array is created.
    */
-  Array()
+  Array(Allocator allocator = {}) noexcept : allocator_(allocator)
   {
     data_ = this->inline_buffer_;
     size_ = 0;
   }
 
+  Array(NoExceptConstructor, Allocator allocator = {}) noexcept : Array(allocator)
+  {
+  }
+
   /**
    * Create a new array that contains copies of all values.
    */
-  Array(Span<T> values)
+  Array(Span<T> values) : Array(NoExceptConstructor())
   {
-    size_ = values.size();
+
     data_ = this->get_buffer_for_size(values.size());
-    uninitialized_copy_n(values.data(), size_, data_);
+    uninitialized_copy_n(values.data(), values.size(), data_);
+    size_ = values.size();
   }
 
   /**
@@ -111,22 +116,22 @@ class Array {
    * even for non-trivial types. This should not be the default though, because one can easily mess
    * up when dealing with uninitialized memory.
    */
-  explicit Array(uint size)
+  explicit Array(uint size) : Array(NoExceptConstructor())
   {
-    size_ = size;
     data_ = this->get_buffer_for_size(size);
     default_construct_n(data_, size);
+    size_ = size;
   }
 
   /**
    * Create a new array with the given size. All values will be initialized by copying the given
    * default.
    */
-  Array(uint size, const T &value)
+  Array(uint size, const T &value) : Array(NoExceptConstructor())
   {
-    size_ = size;
     data_ = this->get_buffer_for_size(size);
-    uninitialized_fill_n(data_, size_, value);
+    uninitialized_fill_n(data_, size, value);
+    size_ = size;
   }
 
   /**
@@ -143,16 +148,12 @@ class Array {
    */
   Array(uint size, NoInitialization)
   {
-    size_ = size;
     data_ = this->get_buffer_for_size(size);
+    size_ = size;
   }
 
-  Array(const Array &other) : allocator_(other.allocator_)
+  Array(const Array &other) : Array(other.as_span())
   {
-    size_ = other.size();
-
-    data_ = this->get_buffer_for_size(other.size());
-    uninitialized_copy_n(other.data(), size_, data_);
   }
 
   Array(Array &&other) noexcept : allocator_(other.allocator_)
@@ -185,12 +186,12 @@ class Array {
       return *this;
     }
 
-    this->~Array();
-    new (this) Array(other);
+    Array copied_array{other};
+    *this = std::move(copied_array);
     return *this;
   }
 
-  Array &operator=(Array &&other)
+  Array &operator=(Array &&other) noexcept
   {
     if (this == &other) {
       return *this;
@@ -201,34 +202,34 @@ class Array {
     return *this;
   }
 
-  T &operator[](uint index)
+  T &operator[](uint index) noexcept
   {
     BLI_assert(index < size_);
     return data_[index];
   }
 
-  const T &operator[](uint index) const
+  const T &operator[](uint index) const noexcept
   {
     BLI_assert(index < size_);
     return data_[index];
   }
 
-  operator Span<T>() const
+  operator Span<T>() const noexcept
   {
     return Span<T>(data_, size_);
   }
 
-  operator MutableSpan<T>()
+  operator MutableSpan<T>() noexcept
   {
     return MutableSpan<T>(data_, size_);
   }
 
-  Span<T> as_span() const
+  Span<T> as_span() const noexcept
   {
     return *this;
   }
 
-  MutableSpan<T> as_mutable_span()
+  MutableSpan<T> as_mutable_span() noexcept
   {
     return *this;
   }
@@ -236,7 +237,7 @@ class Array {
   /**
    * Returns the number of elements in the array.
    */
-  uint size() const
+  uint size() const noexcept
   {
     return size_;
   }
@@ -244,7 +245,7 @@ class Array {
   /**
    * Returns true when the number of elements in the array is zero.
    */
-  bool is_empty() const
+  bool is_empty() const noexcept
   {
     return size_ == 0;
   }
@@ -268,31 +269,31 @@ class Array {
   /**
    * Get a pointer to the beginning of the array.
    */
-  const T *data() const
+  const T *data() const noexcept
   {
     return data_;
   }
-  T *data()
-  {
-    return data_;
-  }
-
-  const T *begin() const
+  T *data() noexcept
   {
     return data_;
   }
 
-  const T *end() const
+  const T *begin() const noexcept
+  {
+    return data_;
+  }
+
+  const T *end() const noexcept
   {
     return data_ + size_;
   }
 
-  T *begin()
+  T *begin() noexcept
   {
     return data_;
   }
 
-  T *end()
+  T *end() noexcept
   {
     return data_ + size_;
   }
@@ -300,7 +301,7 @@ class Array {
   /**
    * Get an index range containing all valid indices for this array.
    */
-  IndexRange index_range() const
+  IndexRange index_range() const noexcept
   {
     return IndexRange(size_);
   }
@@ -309,7 +310,7 @@ class Array {
    * Sets the size to zero. This should only be used when you have manually destructed all elements
    * in the array beforehand. Use with care.
    */
-  void clear_without_destruct()
+  void clear_without_destruct() noexcept
   {
     size_ = 0;
   }
@@ -317,7 +318,7 @@ class Array {
   /**
    * Access the allocator used by this array.
    */
-  Allocator &allocator()
+  Allocator &allocator() noexcept
   {
     return allocator_;
   }
@@ -326,7 +327,7 @@ class Array {
    * Get the value of the InlineBufferCapacity template argument. This is the number of elements
    * that can be stored without doing an allocation.
    */
-  static uint inline_buffer_capacity()
+  static uint inline_buffer_capacity() noexcept
   {
     return InlineBufferCapacity;
   }
@@ -347,7 +348,7 @@ class Array {
     return (T *)allocator_.allocate(size * sizeof(T), alignof(T), AT);
   }
 
-  bool uses_inline_buffer() const
+  bool uses_inline_buffer() const noexcept
   {
     return data_ == inline_buffer_;
   }

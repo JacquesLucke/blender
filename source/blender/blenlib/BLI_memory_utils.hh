@@ -321,6 +321,15 @@ template<typename T, size_t Size = 1> class TypedAlignedBuffer {
 class NoInitialization {
 };
 
+/**
+ * This can be used to mark a constructor of an object that does not throw exceptions. Other
+ * constructors can delegate to this constructor to make sure that the object lifetime starts.
+ * With this, the destructor of the object will be called, even when the remaining constructor
+ * throws.
+ */
+class NoExceptConstructor {
+};
+
 }  // namespace blender
 
 #endif /* __BLI_MEMORY_UTILS_HH__ */
