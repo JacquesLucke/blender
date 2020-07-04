@@ -172,8 +172,8 @@ template<typename Key> class SimpleSetSlot {
   template<typename ForwardKey> void occupy(ForwardKey &&key, uint32_t UNUSED(hash))
   {
     BLI_assert(!this->is_occupied());
-    state_ = Occupied;
     new ((void *)this->key()) Key(std::forward<ForwardKey>(key));
+    state_ = Occupied;
   }
 
   /**
@@ -285,9 +285,9 @@ template<typename Key> class HashedSetSlot {
   template<typename ForwardKey> void occupy(ForwardKey &&key, const uint32_t hash)
   {
     BLI_assert(!this->is_occupied());
-    state_ = Occupied;
-    hash_ = hash;
     new ((void *)this->key()) Key(std::forward<ForwardKey>(key));
+    hash_ = hash;
+    state_ = Occupied;
   }
 
   void remove()

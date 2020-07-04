@@ -214,13 +214,13 @@ class Set {
       return *this;
     }
 
-    this->~Set();
-    new (this) Set(other);
+    Set copied_set{other};
+    *this = std::move(copied_set);
 
     return *this;
   }
 
-  Set &operator=(Set &&other)
+  Set &operator=(Set &&other) noexcept
   {
     if (this == &other) {
       return *this;
@@ -538,8 +538,7 @@ class Set {
      * Optimize the case when the set was empty beforehand. We can avoid some copies here.
      */
     if (this->size() == 0) {
-      slots_.~Array();
-      new (&slots_) SlotArray(total_slots);
+      slots_.reinitialize(total_slots);
       removed_slots_ = 0;
       occupied_and_removed_slots_ = 0;
       usable_slots_ = usable_slots;
@@ -648,11 +647,11 @@ class Set {
   void remove_contained__impl(const ForwardKey &key, const uint32_t hash)
   {
     BLI_assert(this->contains_as(key));
-    removed_slots_++;
 
     SET_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.contains(key, is_equal_, hash)) {
         slot.remove();
+        removed_slots_++;
         return;
       }
     }
