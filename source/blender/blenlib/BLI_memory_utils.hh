@@ -36,7 +36,7 @@ namespace blender {
  * Call the destructor on n consecutive values. For trivially destructible types, this does
  * nothing.
  *
- * Exception Safety: Destructors shouldn't really throw exceptions.
+ * Exception Safety: Destructors shouldn't throw exceptions.
  *
  * Before:
  *  ptr: initialized
@@ -45,6 +45,9 @@ namespace blender {
  */
 template<typename T> void destruct_n(T *ptr, uint n) noexcept(std::is_nothrow_destructible_v<T>)
 {
+  static_assert(std::is_nothrow_destructible_v<T>,
+                "This should be true for all types. Destructors are noexcept by default.");
+
   /* This is not strictly necessary, because the loop below will be optimized away anyway. It is
    * nice to make behavior this explicitly, though. */
   if (std::is_trivially_destructible<T>::value) {
@@ -166,6 +169,11 @@ template<typename T> void initialized_move_n(T *src, uint n, T *dst)
 template<typename T>
 void uninitialized_move_n(T *src, uint n, T *dst) noexcept(std::is_nothrow_move_constructible_v<T>)
 {
+  static_assert(
+      std::is_nothrow_move_constructible_v<T>,
+      "All types should have this property. It is currently expected to be true in a "
+      "couple of places. We might have to remove this limitation of a real reason comes up.");
+
   for (uint i = 0; i < n; i++) {
     new ((void *)(dst + i)) T(std::move(src[i]));
   }
