@@ -47,8 +47,8 @@ namespace blender {
  */
 template<typename Key> class SimpleVectorSetSlot {
  private:
-#define s_is_empty -1
-#define s_is_removed -2
+  static inline constexpr int32_t s_is_empty = -1;
+  static inline constexpr int32_t s_is_removed = -2;
 
   /**
    * After the default constructor has run, the slot has to be in the empty state.
@@ -155,9 +155,6 @@ template<typename Key> class SimpleVectorSetSlot {
     BLI_assert(this->is_occupied());
     return hash(key);
   }
-
-#undef s_is_empty
-#undef s_is_removed
 };
 
 template<typename Key> struct DefaultVectorSetSlot;
