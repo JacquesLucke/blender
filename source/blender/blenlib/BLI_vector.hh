@@ -118,7 +118,7 @@ class Vector {
    * Create an empty vector.
    * This does not do any memory allocation.
    */
-  Vector()
+  Vector(Allocator allocator = {}) noexcept : allocator_(allocator)
   {
     begin_ = inline_buffer_;
     end_ = begin_;
@@ -126,12 +126,16 @@ class Vector {
     UPDATE_VECTOR_SIZE(this);
   }
 
+  Vector(NoExceptConstructor, Allocator allocator = {}) noexcept : Vector(allocator)
+  {
+  }
+
   /**
    * Create a vector with a specific size.
    * The elements will be default constructed.
    * If T is trivially constructible, the elements in the vector are not touched.
    */
-  explicit Vector(uint size) : Vector()
+  explicit Vector(uint size) : Vector(NoExceptConstructor())
   {
     this->resize(size);
   }
@@ -139,11 +143,11 @@ class Vector {
   /**
    * Create a vector filled with a specific value.
    */
-  Vector(uint size, const T &value) : Vector()
+  Vector(uint size, const T &value) : Vector(NoExceptConstructor())
   {
     this->reserve(size);
+    uninitialized_fill_n(begin_, size, value);
     this->increase_size_by_unchecked(size);
-    blender::uninitialized_fill_n(begin_, size, value);
   }
 
   /**
@@ -159,12 +163,12 @@ class Vector {
   /**
    * Create a vector from an array ref. The values in the vector are copy constructed.
    */
-  Vector(Span<T> values) : Vector()
+  Vector(Span<T> values) : Vector(NoExceptConstructor())
   {
     const uint size = values.size();
     this->reserve(size);
+    uninitialized_copy_n(values.data(), size, begin_);
     this->increase_size_by_unchecked(size);
-    blender::uninitialized_copy_n(values.data(), size, begin_);
   }
 
   /**
@@ -187,7 +191,7 @@ class Vector {
    * Example Usage:
    *  Vector<ModifierData *> modifiers(ob->modifiers);
    */
-  Vector(ListBase &values) : Vector()
+  Vector(ListBase &values) : Vector(NoExceptConstructor())
   {
     LISTBASE_FOREACH (T, value, &values) {
       this->append(value);
@@ -198,7 +202,7 @@ class Vector {
    * Create a copy of another vector. The other vector will not be changed. If the other vector has
    * less than InlineBufferCapacity elements, no allocation will be made.
    */
-  Vector(const Vector &other) : allocator_(other.allocator_)
+  Vector(const Vector &other) : Vector(NoExceptConstructor(), other.allocator_)
   {
     this->init_copy_from_other_vector(other);
   }
@@ -209,7 +213,7 @@ class Vector {
    */
   template<uint OtherInlineBufferCapacity>
   Vector(const Vector<T, OtherInlineBufferCapacity, Allocator> &other)
-      : allocator_(other.allocator_)
+      : Vector(NoExceptConstructor(), other.allocator_)
   {
     this->init_copy_from_other_vector(other);
   }
@@ -269,13 +273,12 @@ class Vector {
       return *this;
     }
 
-    this->~Vector();
-    new (this) Vector(other);
-
+    Vector copied_vector{other};
+    *this = std::move(copied_vector);
     return *this;
   }
 
-  Vector &operator=(Vector &&other)
+  Vector &operator=(Vector &&other) noexcept
   {
     if (this == &other) {
       return *this;
@@ -293,34 +296,34 @@ class Vector {
    * Get the value at the given index. This invokes undefined behavior when the index is out of
    * bounds.
    */
-  const T &operator[](uint index) const
+  const T &operator[](uint index) const noexcept
   {
     BLI_assert(index < this->size());
     return begin_[index];
   }
 
-  T &operator[](uint index)
+  T &operator[](uint index) noexcept
   {
     BLI_assert(index < this->size());
     return begin_[index];
   }
 
-  operator Span<T>() const
+  operator Span<T>() const noexcept
   {
     return Span<T>(begin_, this->size());
   }
 
-  operator MutableSpan<T>()
+  operator MutableSpan<T>() noexcept
   {
     return MutableSpan<T>(begin_, this->size());
   }
 
-  Span<T> as_span() const
+  Span<T> as_span() const noexcept
   {
     return *this;
   }
 
-  MutableSpan<T> as_mutable_span()
+  MutableSpan<T> as_mutable_span() noexcept
   {
     return *this;
   }
@@ -381,7 +384,7 @@ class Vector {
    * Afterwards the vector has 0 elements, but will still have
    * memory to be refilled again.
    */
-  void clear()
+  void clear() noexcept
   {
     destruct_n(begin_, this->size());
     end_ = begin_;
@@ -392,7 +395,7 @@ class Vector {
    * Afterwards the vector has 0 elements and any allocated memory
    * will be freed.
    */
-  void clear_and_make_inline()
+  void clear_and_make_inline() noexcept
   {
     destruct_n(begin_, this->size());
     if (!this->is_inline()) {
@@ -482,7 +485,7 @@ class Vector {
    * useful when you want to call constructors in the vector yourself. This should only be done in
    * very rare cases and has to be justified every time.
    */
-  void increase_size_by_unchecked(const uint n)
+  void increase_size_by_unchecked(const uint n) noexcept
   {
     BLI_assert(end_ + n <= capacity_end_);
     end_ += n;
@@ -536,12 +539,12 @@ class Vector {
    * Return a reference to the last element in the vector.
    * This will assert when the vector is empty.
    */
-  const T &last() const
+  const T &last() const noexcept
   {
     BLI_assert(this->size() > 0);
     return *(end_ - 1);
   }
-  T &last()
+  T &last() noexcept
   {
     BLI_assert(this->size() > 0);
     return *(end_ - 1);
@@ -566,7 +569,7 @@ class Vector {
   /**
    * Return how many values are currently stored in the vector.
    */
-  uint size() const
+  uint size() const noexcept
   {
     BLI_assert(debug_size_ == (uint)(end_ - begin_));
     return (uint)(end_ - begin_);
@@ -692,7 +695,7 @@ class Vector {
   /**
    * Get access to the underlying array.
    */
-  T *data()
+  T *data() noexcept
   {
     return begin_;
   }
@@ -700,25 +703,25 @@ class Vector {
   /**
    * Get access to the underlying array.
    */
-  const T *data() const
+  const T *data() const noexcept
   {
     return begin_;
   }
 
-  T *begin()
+  T *begin() noexcept
   {
     return begin_;
   }
-  T *end()
+  T *end() noexcept
   {
     return end_;
   }
 
-  const T *begin() const
+  const T *begin() const noexcept
   {
     return begin_;
   }
-  const T *end() const
+  const T *end() const noexcept
   {
     return end_;
   }
@@ -727,7 +730,7 @@ class Vector {
    * Get the current capacity of the vector, i.e. the maximum number of elements the vector can
    * hold, before it has to reallocate.
    */
-  uint capacity() const
+  uint capacity() const noexcept
   {
     return (uint)(capacity_end_ - begin_);
   }
@@ -741,7 +744,7 @@ class Vector {
    *    do_something(i, my_vector[i]);
    *  }
    */
-  IndexRange index_range() const
+  IndexRange index_range() const noexcept
   {
     return IndexRange(this->size());
   }
