@@ -211,7 +211,7 @@ void OBJWriter::write_smooth_group(OBJMesh &obj_mesh_data,
                                    const int *poly_smooth_groups,
                                    uint poly_index)
 {
-  if (!export_params_.export_smooth_groups) {
+  if (!export_params_.export_smooth_groups || !poly_smooth_groups) {
     return;
   }
   if ((obj_mesh_data.get_ith_poly(poly_index).flag & ME_SMOOTH) == true) {
@@ -297,8 +297,7 @@ void OBJWriter::write_poly_elements(OBJMesh &obj_mesh_data, Span<Vector<uint>> u
 {
   Vector<uint> vertex_indices;
   Vector<uint> normal_indices;
-  int *poly_smooth_groups = nullptr;
-  poly_smooth_groups = obj_mesh_data.calc_smooth_groups();
+  int *poly_smooth_groups = obj_mesh_data.calc_smooth_groups();
 
   int last_face_smooth_group = -1;
   /* -1 is used for a face having no vertex group. It could have been any _other_ negative
@@ -362,7 +361,7 @@ void OBJWriter::write_poly_elements(OBJMesh &obj_mesh_data, Span<Vector<uint>> u
     }
   }
 
-  if (export_params_.export_smooth_groups && poly_smooth_groups) {
+  if (poly_smooth_groups) {
     MEM_freeN(poly_smooth_groups);
   }
 }
