@@ -175,9 +175,7 @@ class Array {
   ~Array()
   {
     destruct_n(data_, size_);
-    if (!this->uses_inline_buffer()) {
-      allocator_.deallocate((void *)data_);
-    }
+    this->deallocate_if_not_inline(data_);
   }
 
   Array &operator=(const Array &other)
@@ -267,6 +265,36 @@ class Array {
   }
 
   /**
+   * Destruct values and create a new array of the given size. The values in the new array are
+   * default constructed.
+   */
+  void reinitialize(const uint new_size)
+  {
+    uint old_size = size_;
+
+    destruct_n(data_, size_);
+    size_ = 0;
+
+    if (new_size <= old_size) {
+      default_construct_n(data_, new_size);
+    }
+    else {
+      T *new_data = this->get_buffer_for_size(new_size);
+      try {
+        default_construct_n(new_data, new_size);
+      }
+      catch (...) {
+        this->deallocate_if_not_inline(new_data);
+        throw;
+      }
+      this->deallocate_if_not_inline(data_);
+      data_ = new_data;
+    }
+
+    size_ = new_size;
+  }
+
+  /**
    * Get a pointer to the beginning of the array.
    */
   const T *data() const noexcept
@@ -346,6 +374,13 @@ class Array {
   T *allocate(uint size)
   {
     return (T *)allocator_.allocate(size * sizeof(T), alignof(T), AT);
+  }
+
+  void deallocate_if_not_inline(T *ptr)
+  {
+    if (ptr != inline_buffer_) {
+      allocator_.deallocate(ptr);
+    }
   }
 
   bool uses_inline_buffer() const noexcept

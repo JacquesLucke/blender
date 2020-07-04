@@ -160,4 +160,26 @@ TEST(array, NoInitializationSizeConstructor)
   }
 }
 
+TEST(array, Reinitialize)
+{
+  Array<std::string> array;
+  EXPECT_EQ(array.size(), 0);
+  array.reinitialize(10);
+  EXPECT_EQ(array.size(), 10);
+  EXPECT_EQ(array[0], "");
+  array[0] = "hello";
+  EXPECT_EQ(array[0], "hello");
+  array.reinitialize(10);
+  EXPECT_EQ(array.size(), 10);
+  EXPECT_EQ(array[0], "");
+  array[0] = "hello";
+  array.reinitialize(5);
+  EXPECT_EQ(array.size(), 5);
+  EXPECT_EQ(array[0], "");
+  array[0] = "hello";
+  array.reinitialize(15);
+  EXPECT_EQ(array.size(), 15);
+  EXPECT_EQ(array[0], "");
+}
+
 }  // namespace blender
