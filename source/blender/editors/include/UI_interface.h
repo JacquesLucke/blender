@@ -65,7 +65,6 @@ struct uiWidgetColors;
 struct wmDrag;
 struct wmDropBox;
 struct wmEvent;
-struct wmEvent;
 struct wmGizmo;
 struct wmKeyConfig;
 struct wmKeyMap;
@@ -174,13 +173,6 @@ enum {
   UI_RETURN_UPDATE = 1 << 4,
   /** Popup is ok to be handled. */
   UI_RETURN_POPUP_OK = 1 << 5,
-};
-
-/* panel controls */
-enum {
-  UI_PNL_SOLID = 1 << 1,
-  UI_PNL_CLOSE = 1 << 5,
-  UI_PNL_SCALE = 1 << 9,
 };
 
 /* but->flag - general state flags. */
