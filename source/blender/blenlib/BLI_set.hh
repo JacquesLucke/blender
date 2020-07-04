@@ -183,6 +183,10 @@ class Set {
   {
   }
 
+  Set(NoExceptConstructor) : Set()
+  {
+  }
+
   ~Set() = default;
 
   /**
@@ -205,7 +209,7 @@ class Set {
         slots_(std::move(other.slots_))
   {
     other.~Set();
-    new (&other) Set();
+    new (&other) Set(NoExceptConstructor());
   }
 
   Set &operator=(const Set &other)

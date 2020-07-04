@@ -209,13 +209,13 @@ class Map {
       return *this;
     }
 
-    this->~Map();
-    new (this) Map(other);
+    Map copied_map = other;
+    *this = std::move(copied_map);
 
     return *this;
   }
 
-  Map &operator=(Map &&other)
+  Map &operator=(Map &&other) noexcept
   {
     if (this == &other) {
       return *this;

@@ -168,6 +168,10 @@ class VectorSet {
   {
   }
 
+  VectorSet(NoExceptConstructor) : VectorSet()
+  {
+  }
+
   /**
    * Construct a vector set that contains the given keys. Duplicates will be removed automatically.
    */
@@ -184,15 +188,24 @@ class VectorSet {
     }
   }
 
-  VectorSet(const VectorSet &other)
-      : removed_slots_(other.removed_slots_),
-        occupied_and_removed_slots_(other.occupied_and_removed_slots_),
-        usable_slots_(other.usable_slots_),
-        slot_mask_(other.slot_mask_),
-        slots_(other.slots_)
+  VectorSet(const VectorSet &other) : VectorSet(NoExceptConstructor())
   {
-    keys_ = this->allocate_keys_array(usable_slots_);
-    uninitialized_copy_n(other.keys_, other.size(), keys_);
+    slots_ = other.slots_;
+
+    keys_ = this->allocate_keys_array(other.usable_slots_);
+    try {
+      uninitialized_copy_n(other.keys_, other.size(), keys_);
+    }
+    catch (...) {
+      this->deallocate_keys_array(keys_);
+      keys_ = nullptr;
+      throw;
+    }
+
+    removed_slots_ = other.removed_slots_;
+    occupied_and_removed_slots_ = other.occupied_and_removed_slots_;
+    usable_slots_ = other.usable_slots_;
+    slot_mask_ = other.slot_mask_;
   }
 
   VectorSet(VectorSet &&other) noexcept
@@ -217,13 +230,13 @@ class VectorSet {
       return *this;
     }
 
-    this->~VectorSet();
-    new (this) VectorSet(other);
+    VectorSet copied_set{other};
+    *this = std::move(copied_set);
 
     return *this;
   }
 
-  VectorSet &operator=(VectorSet &&other)
+  VectorSet &operator=(VectorSet &&other) noexcept
   {
     if (this == &other) {
       return *this;
@@ -514,12 +527,15 @@ class VectorSet {
 
     /* Optimize the case when the set was empty beforehand. We can avoid some copies here. */
     if (this->size() == 0) {
-      slots_.~Array();
-      new (&slots_) SlotArray(total_slots);
+      slots_.reinitialize(total_slots);
       removed_slots_ = 0;
       occupied_and_removed_slots_ = 0;
       usable_slots_ = usable_slots;
       slot_mask_ = new_slot_mask;
+      if (keys_ != nullptr) {
+        this->deallocate_keys_array(keys_);
+        keys_ = nullptr;
+      }
       keys_ = this->allocate_keys_array(usable_slots);
       return;
     }
@@ -604,8 +620,8 @@ class VectorSet {
       if (slot.is_empty()) {
         uint32_t index = this->size();
         new (keys_ + index) Key(std::forward<ForwardKey>(key));
-        occupied_and_removed_slots_++;
         slot.occupy(index, hash);
+        occupied_and_removed_slots_++;
         return true;
       }
       if (slot.contains(key, is_equal_, hash, keys_)) {
@@ -651,11 +667,10 @@ class VectorSet {
     keys_[index_to_pop].~Key();
     const uint32_t hash = hash_(key);
 
-    removed_slots_++;
-
     VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.has_index(index_to_pop)) {
         slot.remove();
+        removed_slots_++;
         return key;
       }
     }
