@@ -288,7 +288,7 @@ template<size_t Size, size_t Alignment> class alignas(Alignment) AlignedBuffer {
   }
 };
 
-template<typename T, size_t Size> class TypedAlignedBuffer {
+template<typename T, size_t Size = 1> class TypedAlignedBuffer {
  private:
   AlignedBuffer<sizeof(T) * Size, alignof(T)> buffer_;
 

@@ -51,7 +51,7 @@ template<typename Key> class SimpleSetSlot {
   };
 
   State state_;
-  AlignedBuffer<sizeof(Key), alignof(Key)> buffer_;
+  TypedAlignedBuffer<Key> buffer_;
 
  public:
   /**
@@ -102,7 +102,7 @@ template<typename Key> class SimpleSetSlot {
    */
   Key *key()
   {
-    return (Key *)buffer_.ptr();
+    return buffer_;
   }
 
   /**
@@ -110,7 +110,7 @@ template<typename Key> class SimpleSetSlot {
    */
   const Key *key() const
   {
-    return (const Key *)buffer_.ptr();
+    return buffer_;
   }
 
   /**
@@ -201,7 +201,7 @@ template<typename Key> class HashedSetSlot {
 
   uint32_t hash_;
   State state_;
-  AlignedBuffer<sizeof(Key), alignof(Key)> buffer_;
+  TypedAlignedBuffer<Key> buffer_;
 
  public:
   HashedSetSlot()
@@ -236,12 +236,12 @@ template<typename Key> class HashedSetSlot {
 
   Key *key()
   {
-    return (Key *)buffer_.ptr();
+    return buffer_;
   }
 
   const Key *key() const
   {
-    return (const Key *)buffer_.ptr();
+    return buffer_;
   }
 
   bool is_occupied() const
