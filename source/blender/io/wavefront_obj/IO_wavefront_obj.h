@@ -26,6 +26,7 @@
 
 #include "BKE_context.h"
 #include "BLI_path_util.h"
+#include "DEG_depsgraph.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -67,6 +68,7 @@ struct OBJExportParams {
 
   /** File Write Options. */
   bool export_selected_objects;
+  eEvaluationMode export_eval_mode;
   bool export_uv;
   bool export_normals;
   bool export_materials;

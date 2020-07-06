@@ -180,9 +180,11 @@ void exporter_main(bContext *C, const OBJExportParams &export_params)
    * https://hastebin.com/mitihetagi in file F8653460 */
   ED_object_editmode_exit(C, EM_FREEDATA);
   Scene *scene = CTX_data_scene(C);
-  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Main *bmain = CTX_data_main(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
+  Depsgraph *depsgraph = export_params.export_eval_mode == DAG_EVAL_RENDER ?
+                             DEG_graph_new(bmain, scene, view_layer, DAG_EVAL_RENDER) :
+                             CTX_data_ensure_evaluated_depsgraph(C);
   const char *filepath = export_params.filepath;
 
   /* Single frame export, i.e. no amimation is to be exported. */

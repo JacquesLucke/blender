@@ -67,6 +67,19 @@ const EnumPropertyItem io_obj_transform_axis_up[] = {
     {OBJ_AXIS_NEGATIVE_Z_UP, "NEGATIVE_Z_UP", 0, "-Z", "Negative Z-axis"},
     {0, NULL, 0, NULL, NULL}};
 
+const EnumPropertyItem io_obj_export_evaluation_mode[] = {
+    {DAG_EVAL_RENDER,
+     "DAG_EVAL_RENDER",
+     0,
+     "Render properties",
+     "Modifiers need to be applied for render properties to take effect"},
+    {DAG_EVAL_VIEWPORT,
+     "DAG_EVAL_VIEWPORT",
+     0,
+     "Viewport properties (Default)",
+     "Export objects as they appear in the viewport"},
+    {0, NULL, 0, NULL, NULL}};
+
 static int wm_obj_export_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
 
@@ -106,6 +119,7 @@ static int wm_obj_export_exec(bContext *C, wmOperator *op)
   export_params.forward_axis = RNA_enum_get(op->ptr, "forward_axis");
   export_params.up_axis = RNA_enum_get(op->ptr, "up_axis");
   export_params.scaling_factor = RNA_float_get(op->ptr, "scaling_factor");
+  export_params.export_eval_mode = RNA_enum_get(op->ptr, "export_eval_mode");
 
   export_params.export_selected_objects = RNA_boolean_get(op->ptr, "export_selected_objects");
   export_params.export_uv = RNA_boolean_get(op->ptr, "export_uv");
@@ -161,6 +175,9 @@ static void ui_obj_export_settings(uiLayout *layout, PointerRNA *imfptr)
 
   row = uiLayoutRow(box, false);
   uiItemR(row, imfptr, "scaling_factor", 0, NULL, ICON_NONE);
+
+  row = uiLayoutRow(box, false);
+  uiItemR(row, imfptr, "export_eval_mode", 0, NULL, ICON_NONE);
 
   /* File write options. */
   box = uiLayoutBox(layout);
@@ -311,6 +328,12 @@ void WM_OT_obj_export(struct wmOperatorType *ot)
                 0.01,
                 1000.000f);
   /* File Writer options. */
+  RNA_def_enum(ot->srna,
+               "export_eval_mode",
+               io_obj_export_evaluation_mode,
+               DAG_EVAL_VIEWPORT,
+               "Modifiers",
+               "Use modifiers' viewport or render properties");
   RNA_def_boolean(ot->srna,
                   "export_selected_objects",
                   false,
