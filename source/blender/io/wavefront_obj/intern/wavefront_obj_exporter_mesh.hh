@@ -85,7 +85,7 @@ class OBJMesh : NonMovable, NonCopyable {
   const uint tot_polygons();
   const uint tot_uv_vertices();
   const uint tot_edges();
-  const uint tot_col();
+  const short tot_col();
   const uint tot_smooth_groups();
 
   void ensure_mesh_normals();

@@ -174,9 +174,9 @@ const uint OBJMesh::tot_edges()
 /**
  * Total materials in the object to export.
  */
-const uint OBJMesh::tot_col()
+const short OBJMesh::tot_col()
 {
-  return (uint)export_mesh_eval_->totcol;
+  return export_mesh_eval_->totcol;
 }
 
 /**
