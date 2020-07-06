@@ -55,10 +55,11 @@ OBJMesh::OBJMesh(Depsgraph *depsgraph, const OBJExportParams &export_params, Obj
   mesh_eval_needs_free_ = false;
 
   if (!export_mesh_eval_) {
-    /* Curves and nurbs surfaces need a new mesh when exported in the form of vertices and edges.
+    /* Curves and nurbs surfaces need a new mesh when they're exported in the form of vertices and
+     * edges.
      */
     export_mesh_eval_ = BKE_mesh_new_from_object(depsgraph_, export_object_eval_, true);
-    /* Since new mesh been allocated, needs to be freed in destructor. */
+    /* Since a new mesh been allocated, it needs to be freed in the destructor. */
     mesh_eval_needs_free_ = true;
   }
 
@@ -101,7 +102,7 @@ OBJMesh::~OBJMesh()
 }
 
 /**
- * Triangulate and update _export_mesh_eval.
+ * Triangulate and update OBJMesh evaluated mesh.
  * \note The new mesh created here needs to be freed.
  */
 void OBJMesh::triangulate_mesh_eval()
