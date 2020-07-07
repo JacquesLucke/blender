@@ -23,9 +23,6 @@
 
 #include "node_function_util.hh"
 
-namespace blender {
-namespace node {
-
 static bNodeSocketTemplate fn_node_float_compare_in[] = {
     {SOCK_FLOAT, N_("A"), 0.0f, 0.0f, 0.0f, 0.0f, -10000.0f, 10000.0f},
     {SOCK_FLOAT, N_("B"), 0.0f, 0.0f, 0.0f, 0.0f, -10000.0f, 10000.0f},
@@ -59,19 +56,19 @@ static void node_float_compare_label(bNodeTree *UNUSED(ntree),
   BLI_strncpy(label, IFACE_(name), maxlen);
 }
 
-static const fn::MultiFunction &get_multi_function(bNode &node)
+static const blender::fn::MultiFunction &get_multi_function(bNode &node)
 {
-  static fn::CustomMF_SI_SI_SO<float, float, bool> less_than_fn{
+  static blender::fn::CustomMF_SI_SI_SO<float, float, bool> less_than_fn{
       "Less Than", [](float a, float b) { return a < b; }};
-  static fn::CustomMF_SI_SI_SO<float, float, bool> less_equal_fn{
+  static blender::fn::CustomMF_SI_SI_SO<float, float, bool> less_equal_fn{
       "Less Equal", [](float a, float b) { return a <= b; }};
-  static fn::CustomMF_SI_SI_SO<float, float, bool> greater_than_fn{
+  static blender::fn::CustomMF_SI_SI_SO<float, float, bool> greater_than_fn{
       "Greater Than", [](float a, float b) { return a > b; }};
-  static fn::CustomMF_SI_SI_SO<float, float, bool> greater_equal_fn{
+  static blender::fn::CustomMF_SI_SI_SO<float, float, bool> greater_equal_fn{
       "Greater Equal", [](float a, float b) { return a >= b; }};
-  static fn::CustomMF_SI_SI_SI_SO<float, float, float, bool> equal_fn{
+  static blender::fn::CustomMF_SI_SI_SI_SO<float, float, float, bool> equal_fn{
       "Equal", [](float a, float b, float epsilon) { return std::abs(a - b) <= epsilon; }};
-  static fn::CustomMF_SI_SI_SI_SO<float, float, float, bool> not_equal_fn{
+  static blender::fn::CustomMF_SI_SI_SI_SO<float, float, float, bool> not_equal_fn{
       "Not Equal", [](float a, float b, float epsilon) { return std::abs(a - b) > epsilon; }};
 
   switch (node.custom1) {
@@ -90,27 +87,23 @@ static const fn::MultiFunction &get_multi_function(bNode &node)
   }
 
   BLI_assert(false);
-  return fn::dummy_multi_function;
+  return blender::fn::dummy_multi_function;
 }
 
-static void node_float_compare_expand_in_mf_network(bke::NodeMFNetworkBuilder &builder)
+static void node_float_compare_expand_in_mf_network(blender::bke::NodeMFNetworkBuilder &builder)
 {
-  const fn::MultiFunction &fn = get_multi_function(builder.bnode());
+  const blender::fn::MultiFunction &fn = get_multi_function(builder.bnode());
   builder.set_matching_fn(fn);
 }
-
-}  // namespace node
-}  // namespace blender
 
 void register_node_type_fn_float_compare()
 {
   static bNodeType ntype;
 
   fn_node_type_base(&ntype, FN_NODE_FLOAT_COMPARE, "Boolean Math", 0, 0);
-  node_type_socket_templates(
-      &ntype, blender::node::fn_node_float_compare_in, blender::node::fn_node_float_compare_out);
-  node_type_label(&ntype, blender::node::node_float_compare_label);
-  node_type_update(&ntype, blender::node::node_float_compare_update);
-  ntype.expand_in_mf_network = blender::node::node_float_compare_expand_in_mf_network;
+  node_type_socket_templates(&ntype, fn_node_float_compare_in, fn_node_float_compare_out);
+  node_type_label(&ntype, node_float_compare_label);
+  node_type_update(&ntype, node_float_compare_update);
+  ntype.expand_in_mf_network = node_float_compare_expand_in_mf_network;
   nodeRegisterType(&ntype);
 }

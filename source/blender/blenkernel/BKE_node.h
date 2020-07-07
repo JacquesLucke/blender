@@ -101,7 +101,9 @@ typedef struct bNodeSocketTemplate {
   char identifier[64];      /* generated from name */
 } bNodeSocketTemplate;
 
-/* Use `void *` for callbacks that require C++. */
+/* Use `void *` for callbacks that require C++. This is rather ugly, but works well for now. This
+ * would not be necessary if we would use bNodeSocketType and bNodeType only in C++ code.
+ * However, achieving this requires quite a few changes currently. */
 #ifdef __cplusplus
 namespace blender {
 namespace bke {
