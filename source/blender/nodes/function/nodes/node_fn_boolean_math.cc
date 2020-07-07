@@ -57,6 +57,7 @@ static const blender::fn::MultiFunction &get_multi_function(bNode &bnode)
   static blender::fn::CustomMF_SI_SI_SO<bool, bool, bool> or_fn{
       "Or", [](bool a, bool b) { return a || b; }};
   static blender::fn::CustomMF_SI_SO<bool, bool> not_fn{"Not", [](bool a) { return !a; }};
+
   switch (bnode.custom1) {
     case NODE_BOOLEAN_MATH_AND:
       return and_fn;
@@ -67,7 +68,6 @@ static const blender::fn::MultiFunction &get_multi_function(bNode &bnode)
   }
 
   BLI_assert(false);
-
   return blender::fn::dummy_multi_function;
 }
 

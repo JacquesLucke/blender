@@ -88,6 +88,8 @@ void register_node_type_sh_sepxyz(void)
   node_type_socket_templates(&ntype, sh_node_sepxyz_in, sh_node_sepxyz_out);
   node_type_gpu(&ntype, gpu_shader_sepxyz);
   ntype.expand_in_mf_network = sh_node_sepxyz_expand_in_mf_network;
+
+  nodeRegisterType(&ntype);
 }
 
 /* **************** COMBINE XYZ ******************** */
