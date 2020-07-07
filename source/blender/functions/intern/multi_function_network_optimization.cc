@@ -41,19 +41,25 @@ static Array<bool> find_nodes_to_the_left_of__inclusive__mask(MFNetwork &network
                                                               Span<MFNode *> nodes)
 {
   Array<bool> is_to_the_left(network.node_id_amount(), false);
+  Stack<MFNode *> nodes_to_check;
 
   for (MFNode *node : nodes) {
     is_to_the_left[node->id()] = true;
+    nodes_to_check.push(node);
   }
 
-  Stack<MFNode *> nodes_to_check = nodes;
   while (!nodes_to_check.is_empty()) {
     MFNode &node = *nodes_to_check.pop();
-    node.foreach_origin_node([&](MFNode &other_node) {
-      if (set_tag_and_check_if_modified(is_to_the_left[other_node.id()], true)) {
-        nodes_to_check.push(&other_node);
+
+    for (MFInputSocket *input_socket : node.inputs()) {
+      MFOutputSocket *origin = input_socket->origin();
+      if (origin != nullptr) {
+        MFNode &origin_node = origin->node();
+        if (set_tag_and_check_if_modified(is_to_the_left[origin_node.id()], true)) {
+          nodes_to_check.push(&origin_node);
+        }
       }
-    });
+    }
   }
 
   return is_to_the_left;
@@ -63,19 +69,24 @@ static Array<bool> find_nodes_to_the_right_of__inclusive__mask(MFNetwork &networ
                                                                Span<MFNode *> nodes)
 {
   Array<bool> is_to_the_right(network.node_id_amount(), false);
+  Stack<MFNode *> nodes_to_check;
 
   for (MFNode *node : nodes) {
     is_to_the_right[node->id()] = true;
+    nodes_to_check.push(node);
   }
 
-  Stack<MFNode *> nodes_to_check = nodes;
   while (!nodes_to_check.is_empty()) {
     MFNode &node = *nodes_to_check.pop();
-    node.foreach_target_node([&](MFNode &other_node) {
-      if (set_tag_and_check_if_modified(is_to_the_right[other_node.id()], true)) {
-        nodes_to_check.push(&other_node);
+
+    for (MFOutputSocket *output_socket : node.outputs()) {
+      for (MFInputSocket *target_socket : output_socket->targets()) {
+        MFNode &target_node = target_socket->node();
+        if (set_tag_and_check_if_modified(is_to_the_right[target_node.id()], true)) {
+          nodes_to_check.push(&target_node);
+        }
       }
-    });
+    }
   }
 
   return is_to_the_right;
