@@ -333,6 +333,7 @@ TEST(multi_function, CustomMF_GenericConstant)
 {
   int value = 42;
   CustomMF_GenericConstant fn{CPPType_int32, (const void *)&value};
+  EXPECT_EQ(fn.param_name(0), "42");
 
   Array<int> outputs(4, 0);
 
@@ -353,6 +354,7 @@ TEST(multi_function, CustomMF_GenericConstantArray)
 {
   std::array<int, 4> values = {3, 4, 5, 6};
   CustomMF_GenericConstantArray fn{GSpan(Span(values))};
+  EXPECT_EQ(fn.param_name(0), "[3, 4, 5, 6, ]");
 
   GVectorArray g_vector_array{CPPType_int32, 4};
   GVectorArrayRef<int> vector_array = g_vector_array;
