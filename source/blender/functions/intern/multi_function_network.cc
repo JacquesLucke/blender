@@ -245,6 +245,10 @@ std::string MFNetwork::to_dot() const
   for (const MFNode *node : all_nodes) {
     dot::Node &dot_node = digraph.new_node("");
 
+    if (node->is_dummy()) {
+      dot_node.set_background_color("#77EE77");
+    }
+
     Vector<std::string> input_names, output_names;
     for (const MFInputSocket *socket : node->m_inputs) {
       input_names.append(socket->name() + "(" + socket->data_type().to_string() + ")");
