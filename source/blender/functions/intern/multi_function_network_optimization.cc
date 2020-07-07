@@ -106,6 +106,9 @@ static Vector<MFNode *> find_nodes_based_on_mask(MFNetwork &network,
   return nodes;
 }
 
+/**
+ * Unused nodes are all those nodes that no dummy node depends upon.
+ */
 void optimize_network__remove_unused_nodes(MFNetwork &network)
 {
   Array<bool> node_is_used_mask = mask_nodes_to_the_left(network, network.dummy_nodes());
@@ -205,6 +208,9 @@ static Array<MFOutputSocket *> add_constant_folded_sockets(const MultiFunction &
   return folded_sockets;
 }
 
+/**
+ * Find function nodes that always output the same value and replace those with constant nodes.
+ */
 void optimize_network__constant_folding(MFNetwork &network, ResourceCollector &resources)
 {
   Span<MFNode *> non_constant_nodes = network.dummy_nodes();
