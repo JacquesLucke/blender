@@ -238,7 +238,9 @@ class CustomMF_GenericConstant : public MultiFunction {
   CustomMF_GenericConstant(const CPPType &type, const void *value) : type_(type), value_(value)
   {
     MFSignatureBuilder signature = this->get_builder("Constant");
-    signature.single_output("Value", type);
+    std::stringstream ss;
+    type.debug_print(value, ss);
+    signature.single_output(ss.str(), type);
   }
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
