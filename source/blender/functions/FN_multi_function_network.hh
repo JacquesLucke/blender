@@ -346,7 +346,7 @@ template<typename FuncT> void MFNode::foreach_origin_socket(const FuncT &func) c
 
 template<typename FuncT> void MFNode::foreach_origin_node(const FuncT &func)
 {
-  for (MFInputSocket *socket : m_inputs) {
+  for (MFInputSocket *socket : inputs_) {
     MFOutputSocket *origin = socket->origin();
     if (origin != nullptr) {
       func(origin->node());
