@@ -366,4 +366,17 @@ class NoInitialization {
 
 }  // namespace blender
 
+template<typename T>
+inline void *operator new(std::size_t size, blender::TypedBuffer<T, 1> &buffer) noexcept
+{
+  BLI_assert(sizeof(T) == size);
+  UNUSED_VARS_NDEBUG(size);
+  return (void *)&buffer;
+}
+
+template<typename T>
+inline void operator delete(void *, blender::TypedBuffer<T, 1> &UNUSED(buffer)) noexcept
+{
+}
+
 #endif /* __BLI_MEMORY_UTILS_HH__ */

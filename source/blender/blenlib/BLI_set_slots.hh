@@ -80,7 +80,7 @@ template<typename Key> class SimpleSetSlot {
   {
     state_ = other.state_;
     if (other.state_ == Occupied) {
-      new (&key_buffer_) Key(*other.key_buffer_);
+      new (key_buffer_) Key(*other.key_buffer_);
     }
   }
 
@@ -93,7 +93,7 @@ template<typename Key> class SimpleSetSlot {
   {
     state_ = other.state_;
     if (other.state_ == Occupied) {
-      new (&key_buffer_) Key(std::move(*other.key_buffer_));
+      new (key_buffer_) Key(std::move(*other.key_buffer_));
     }
   }
 
@@ -148,7 +148,7 @@ template<typename Key> class SimpleSetSlot {
     BLI_assert(!this->is_occupied());
     BLI_assert(other.is_occupied());
     state_ = Occupied;
-    new (&key_buffer_) Key(std::move(*other.key_buffer_));
+    new (key_buffer_) Key(std::move(*other.key_buffer_));
     other.key_buffer_.ref().~Key();
   }
 
@@ -173,7 +173,7 @@ template<typename Key> class SimpleSetSlot {
   {
     BLI_assert(!this->is_occupied());
     state_ = Occupied;
-    new (&key_buffer_) Key(std::forward<ForwardKey>(key));
+    new (key_buffer_) Key(std::forward<ForwardKey>(key));
   }
 
   /**
@@ -221,7 +221,7 @@ template<typename Key> class HashedSetSlot {
     state_ = other.state_;
     if (other.state_ == Occupied) {
       hash_ = other.hash_;
-      new (&key_buffer_) Key(*other.key_buffer_);
+      new (key_buffer_) Key(*other.key_buffer_);
     }
   }
 
@@ -230,7 +230,7 @@ template<typename Key> class HashedSetSlot {
     state_ = other.state_;
     if (other.state_ == Occupied) {
       hash_ = other.hash_;
-      new (&key_buffer_) Key(std::move(*other.key_buffer_));
+      new (key_buffer_) Key(std::move(*other.key_buffer_));
     }
   }
 
@@ -266,7 +266,7 @@ template<typename Key> class HashedSetSlot {
     BLI_assert(other.is_occupied());
     state_ = Occupied;
     hash_ = hash;
-    new (&key_buffer_) Key(std::move(*other.key_buffer_));
+    new (key_buffer_) Key(std::move(*other.key_buffer_));
     key_buffer_.ref().~Key();
   }
 
@@ -287,7 +287,7 @@ template<typename Key> class HashedSetSlot {
     BLI_assert(!this->is_occupied());
     state_ = Occupied;
     hash_ = hash;
-    new (&key_buffer_) Key(std::forward<ForwardKey>(key));
+    new (key_buffer_) Key(std::forward<ForwardKey>(key));
   }
 
   void remove()
