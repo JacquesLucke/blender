@@ -92,18 +92,13 @@ static Array<bool> find_nodes_to_the_right_of__inclusive__mask(MFNetwork &networ
   return is_to_the_right;
 }
 
-static void invert_bool_array(MutableSpan<bool> array)
-{
-  for (bool &value : array) {
-    value = !value;
-  }
-}
-
-static Vector<MFNode *> find_valid_nodes_by_mask(MFNetwork &network, Span<bool> id_mask)
+static Vector<MFNode *> find_nodes_based_on_id_mask(MFNetwork &network,
+                                                    Span<bool> id_mask,
+                                                    bool mask_value)
 {
   Vector<MFNode *> nodes;
   for (uint id : id_mask.index_range()) {
-    if (id_mask[id]) {
+    if (id_mask[id] == mask_value) {
       MFNode *node = network.node_or_null_by_id(id);
       if (node != nullptr) {
         nodes.append(node);
@@ -117,8 +112,7 @@ static Vector<MFNode *> find_nodes_not_to_the_left_of__exclusive(MFNetwork &netw
                                                                  Span<MFNode *> nodes)
 {
   Array<bool> masked_nodes = find_nodes_to_the_left_of__inclusive__mask(network, nodes);
-  invert_bool_array(masked_nodes);
-  Vector<MFNode *> result = find_valid_nodes_by_mask(network, masked_nodes);
+  Vector<MFNode *> result = find_nodes_based_on_id_mask(network, masked_nodes, false);
   return result;
 }
 
@@ -133,9 +127,10 @@ void optimize_network__remove_unused_nodes(MFNetwork &network)
 void optimize_network__constant_folding(MFNetwork &network, ResourceCollector &resources)
 {
   Span<MFNode *> non_constant_nodes = network.dummy_nodes();
-  Array<bool> node_mask = find_nodes_to_the_right_of__inclusive__mask(network, non_constant_nodes);
-  invert_bool_array(node_mask);
-  Vector<MFNode *> constant_nodes = find_valid_nodes_by_mask(network, node_mask);
+  Array<bool> is_not_const_id_mask = find_nodes_to_the_right_of__inclusive__mask(
+      network, non_constant_nodes);
+  Vector<MFNode *> constant_nodes = find_nodes_based_on_id_mask(
+      network, is_not_const_id_mask, false);
 
   // std::cout << network.to_dot(constant_nodes.as_span()) << "\n";
 
@@ -150,7 +145,7 @@ void optimize_network__constant_folding(MFNetwork &network, ResourceCollector &r
 
       for (MFInputSocket *target_socket : output_socket->targets()) {
         MFNode &target_node = target_socket->node();
-        if (node_mask[target_node.id()]) {
+        if (!is_not_const_id_mask[target_node.id()]) {
           continue;
         }
         MFInputSocket &dummy_socket = network.add_output("Dummy", data_type);
