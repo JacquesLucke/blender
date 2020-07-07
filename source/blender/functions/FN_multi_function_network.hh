@@ -97,6 +97,7 @@ class MFNode : NonCopyable, NonMovable {
 
   template<typename FuncT> void foreach_origin_socket(const FuncT &func) const;
   template<typename FuncT> void foreach_origin_node(const FuncT &func);
+  template<typename FuncT> void foreach_target_node(const FuncT &func);
 
   bool all_inputs_have_origin() const;
 
@@ -228,7 +229,7 @@ class MFNetwork : NonCopyable, NonMovable {
   MFNode *node_or_null_by_id(uint id);
   const MFNode *node_or_null_by_id(uint id) const;
 
-  std::string to_dot() const;
+  std::string to_dot(Span<const MFNode *> marked_nodes = {}) const;
 };
 
 /* --------------------------------------------------------------------
@@ -334,7 +335,7 @@ inline Span<const MFOutputSocket *> MFNode::outputs() const
   return outputs_;
 }
 
-template<typename FuncT> void MFNode::foreach_origin_socket(const FuncT &func) const
+template<typename FuncT> inline void MFNode::foreach_origin_socket(const FuncT &func) const
 {
   for (const MFInputSocket *socket : inputs_) {
     const MFOutputSocket *origin = socket->origin();
@@ -344,12 +345,21 @@ template<typename FuncT> void MFNode::foreach_origin_socket(const FuncT &func) c
   }
 }
 
-template<typename FuncT> void MFNode::foreach_origin_node(const FuncT &func)
+template<typename FuncT> inline void MFNode::foreach_origin_node(const FuncT &func)
 {
   for (MFInputSocket *socket : inputs_) {
     MFOutputSocket *origin = socket->origin();
     if (origin != nullptr) {
       func(origin->node());
+    }
+  }
+}
+
+template<typename FuncT> inline void MFNode::foreach_target_node(const FuncT &func)
+{
+  for (MFOutputSocket *socket : outputs_) {
+    for (MFInputSocket *other_socket : socket->targets()) {
+      func(other_socket->node());
     }
   }
 }

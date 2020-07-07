@@ -19,10 +19,13 @@
 
 #include "FN_multi_function_network.hh"
 
+#include "BLI_resource_collector.hh"
+
 namespace blender::fn {
 
 void optimize_network__remove_unused_nodes(MFNetwork &network);
+void optimize_network__constant_folding(MFNetwork &network, ResourceCollector &resources);
 
-}
+}  // namespace blender::fn
 
 #endif /* __FN_MULTI_FUNCTION_NETWORK_OPTIMIZATION_HH__ */

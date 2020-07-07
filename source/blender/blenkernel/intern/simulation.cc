@@ -209,6 +209,7 @@ static void simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulatio
   fn::MFNetwork network;
   ResourceCollector resources;
   insert_node_tree_into_mf_network(network, tree, resources);
+  fn::optimize_network__constant_folding(network, resources);
   fn::optimize_network__remove_unused_nodes(network);
 
   // std::cout << "\n\n" << network.to_dot() << "\n\n";

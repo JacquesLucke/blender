@@ -235,19 +235,17 @@ class CustomMF_GenericConstant : public MultiFunction {
   const void *value_;
 
  public:
-  CustomMF_GenericConstant(const CPPType &type, const void *value) : type_(type), value_(value)
-  {
-    MFSignatureBuilder signature = this->get_builder("Constant");
-    std::stringstream ss;
-    type.debug_print(value, ss);
-    signature.single_output(ss.str(), type);
-  }
+  CustomMF_GenericConstant(const CPPType &type, const void *value);
+  void call(IndexMask mask, MFParams params, MFContext context) const override;
+};
 
-  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
-  {
-    GMutableSpan output = params.uninitialized_single_output(0);
-    type_.fill_uninitialized_indices(value_, output.buffer(), mask);
-  }
+class CustomMF_GenericConstantArray : public MultiFunction {
+ private:
+  GSpan array_;
+
+ public:
+  CustomMF_GenericConstantArray(GSpan array);
+  void call(IndexMask mask, MFParams params, MFContext context) const override;
 };
 
 }  // namespace blender::fn

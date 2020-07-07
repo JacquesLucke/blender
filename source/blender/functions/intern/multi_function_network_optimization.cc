@@ -18,6 +18,8 @@
  * \ingroup fn
  */
 
+#include "FN_multi_function_builder.hh"
+#include "FN_multi_function_network_evaluation.hh"
 #include "FN_multi_function_network_optimization.hh"
 
 #include "BLI_stack.hh"
@@ -47,16 +49,36 @@ static Array<bool> find_nodes_to_the_left_of__inclusive__mask(MFNetwork &network
   Stack<MFNode *> nodes_to_check = nodes;
   while (!nodes_to_check.is_empty()) {
     MFNode &node = *nodes_to_check.pop();
-    if (is_to_the_left[node.id()]) {
-      node.foreach_origin_node([&](MFNode &other_node) {
-        if (set_tag_and_check_if_modified(is_to_the_left[other_node.id()], true)) {
-          nodes_to_check.push(&other_node);
-        }
-      });
-    }
+    node.foreach_origin_node([&](MFNode &other_node) {
+      if (set_tag_and_check_if_modified(is_to_the_left[other_node.id()], true)) {
+        nodes_to_check.push(&other_node);
+      }
+    });
   }
 
   return is_to_the_left;
+}
+
+static Array<bool> find_nodes_to_the_right_of__inclusive__mask(MFNetwork &network,
+                                                               Span<MFNode *> nodes)
+{
+  Array<bool> is_to_the_right(network.node_id_amount(), false);
+
+  for (MFNode *node : nodes) {
+    is_to_the_right[node->id()] = true;
+  }
+
+  Stack<MFNode *> nodes_to_check = nodes;
+  while (!nodes_to_check.is_empty()) {
+    MFNode &node = *nodes_to_check.pop();
+    node.foreach_target_node([&](MFNode &other_node) {
+      if (set_tag_and_check_if_modified(is_to_the_right[other_node.id()], true)) {
+        nodes_to_check.push(&other_node);
+      }
+    });
+  }
+
+  return is_to_the_right;
 }
 
 static void invert_bool_array(MutableSpan<bool> array)
@@ -95,6 +117,105 @@ void optimize_network__remove_unused_nodes(MFNetwork &network)
   Vector<MFNode *> nodes_to_remove = find_nodes_not_to_the_left_of__exclusive(network,
                                                                               dummy_nodes);
   network.remove(nodes_to_remove);
+}
+
+void optimize_network__constant_folding(MFNetwork &network, ResourceCollector &resources)
+{
+  Span<MFNode *> non_constant_nodes = network.dummy_nodes();
+  Array<bool> node_mask = find_nodes_to_the_right_of__inclusive__mask(network, non_constant_nodes);
+  invert_bool_array(node_mask);
+  Vector<MFNode *> constant_nodes = find_valid_nodes_by_mask(network, node_mask);
+
+  // std::cout << network.to_dot(constant_nodes.as_span()) << "\n";
+
+  Vector<MFInputSocket *> dummy_sockets_to_compute;
+  for (MFNode *node : constant_nodes) {
+    if (node->inputs().size() == 0) {
+      continue;
+    }
+
+    for (MFOutputSocket *output_socket : node->outputs()) {
+      MFDataType data_type = output_socket->data_type();
+
+      for (MFInputSocket *target_socket : output_socket->targets()) {
+        MFNode &target_node = target_socket->node();
+        if (node_mask[target_node.id()]) {
+          continue;
+        }
+        MFInputSocket &dummy_socket = network.add_output("Dummy", data_type);
+        network.add_link(*output_socket, dummy_socket);
+        dummy_sockets_to_compute.append(&dummy_socket);
+        break;
+      }
+    }
+  }
+
+  if (dummy_sockets_to_compute.size() == 0) {
+    return;
+  }
+
+  MFNetworkEvaluator network_fn{{},
+                                dummy_sockets_to_compute.as_span().cast<const MFInputSocket *>()};
+
+  MFContextBuilder context;
+  MFParamsBuilder params{network_fn, 1};
+
+  for (uint param_index : network_fn.param_indices()) {
+    MFParamType param_type = network_fn.param_type(param_index);
+    MFDataType data_type = param_type.data_type();
+
+    switch (data_type.category()) {
+      case MFDataType::Single: {
+        const CPPType &cpp_type = data_type.single_type();
+        void *buffer = resources.linear_allocator().allocate(cpp_type.size(),
+                                                             cpp_type.alignment());
+        GMutableSpan array{cpp_type, buffer, 1};
+        params.add_uninitialized_single_output(array);
+        break;
+      }
+      case MFDataType::Vector: {
+        const CPPType &cpp_type = data_type.vector_base_type();
+        GVectorArray &vector_array = resources.construct<GVectorArray>(AT, cpp_type, 1);
+        params.add_vector_output(vector_array);
+        break;
+      }
+    }
+  }
+
+  network_fn.call({0}, params, context);
+
+  for (uint param_index : network_fn.param_indices()) {
+    MFParamType param_type = network_fn.param_type(param_index);
+    MFDataType data_type = param_type.data_type();
+
+    const MultiFunction *constant_fn = nullptr;
+
+    switch (data_type.category()) {
+      case MFDataType::Single: {
+        const CPPType &cpp_type = data_type.single_type();
+        GMutableSpan array = params.computed_array(param_index);
+        void *buffer = array.buffer();
+        resources.add(buffer, array.type().destruct_cb(), AT);
+
+        constant_fn = &resources.construct<CustomMF_GenericConstant>(AT, cpp_type, buffer);
+        break;
+      }
+      case MFDataType::Vector: {
+        GVectorArray &vector_array = params.computed_vector_array(param_index);
+        GSpan array = vector_array[0];
+        constant_fn = &resources.construct<CustomMF_GenericConstantArray>(AT, array);
+        break;
+      }
+    }
+
+    MFFunctionNode &folded_node = network.add_function(*constant_fn);
+    MFOutputSocket &original_socket = *dummy_sockets_to_compute[param_index]->origin();
+    network.relink(original_socket, folded_node.output(0));
+  }
+
+  for (MFInputSocket *socket : dummy_sockets_to_compute) {
+    network.remove(socket->node());
+  }
 }
 
 }  // namespace blender::fn

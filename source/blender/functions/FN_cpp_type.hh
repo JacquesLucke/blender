@@ -281,6 +281,11 @@ class CPPType {
     destruct_indices_(ptr, index_mask);
   }
 
+  DestructF destruct_cb() const
+  {
+    return destruct_;
+  }
+
   /**
    * Copy an instance of this type from src to dst.
    *
