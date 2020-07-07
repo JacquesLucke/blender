@@ -113,13 +113,12 @@ void optimize_network__remove_unused_nodes(MFNetwork &network)
   network.remove(nodes_to_remove);
 }
 
-void optimize_network__constant_folding(MFNetwork &network, ResourceCollector &resources)
+static void add_sockets_to_compute_for_constant_folding(
+    MFNetwork &network,
+    Span<MFNode *> constant_nodes,
+    Span<bool> is_not_const_mask,
+    Vector<MFInputSocket *> &r_sockets_to_compute)
 {
-  Span<MFNode *> non_constant_nodes = network.dummy_nodes();
-  Array<bool> is_not_const_mask = mask_nodes_to_the_right(network, non_constant_nodes);
-  Vector<MFNode *> constant_nodes = find_nodes_based_on_mask(network, is_not_const_mask, false);
-
-  Vector<MFInputSocket *> dummy_sockets_to_compute;
   for (MFNode *node : constant_nodes) {
     if (node->inputs().size() == 0) {
       continue;
@@ -135,11 +134,22 @@ void optimize_network__constant_folding(MFNetwork &network, ResourceCollector &r
         }
         MFInputSocket &dummy_socket = network.add_output("Dummy", data_type);
         network.add_link(*output_socket, dummy_socket);
-        dummy_sockets_to_compute.append(&dummy_socket);
+        r_sockets_to_compute.append(&dummy_socket);
         break;
       }
     }
   }
+}
+
+void optimize_network__constant_folding(MFNetwork &network, ResourceCollector &resources)
+{
+  Span<MFNode *> non_constant_nodes = network.dummy_nodes();
+  Array<bool> is_not_const_mask = mask_nodes_to_the_right(network, non_constant_nodes);
+  Vector<MFNode *> constant_nodes = find_nodes_based_on_mask(network, is_not_const_mask, false);
+
+  Vector<MFInputSocket *> dummy_sockets_to_compute;
+  add_sockets_to_compute_for_constant_folding(
+      network, constant_nodes, is_not_const_mask, dummy_sockets_to_compute);
 
   if (dummy_sockets_to_compute.size() == 0) {
     return;
