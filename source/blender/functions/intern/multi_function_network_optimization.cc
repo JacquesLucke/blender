@@ -37,8 +37,7 @@ static bool set_tag_and_check_if_modified(bool &tag, bool new_value)
   }
 }
 
-static Array<bool> find_nodes_to_the_left_of__inclusive__mask(MFNetwork &network,
-                                                              Span<MFNode *> nodes)
+static Array<bool> mask_nodes_to_the_left(MFNetwork &network, Span<MFNode *> nodes)
 {
   Array<bool> is_to_the_left(network.node_id_amount(), false);
   Stack<MFNode *> nodes_to_check;
@@ -65,8 +64,7 @@ static Array<bool> find_nodes_to_the_left_of__inclusive__mask(MFNetwork &network
   return is_to_the_left;
 }
 
-static Array<bool> find_nodes_to_the_right_of__inclusive__mask(MFNetwork &network,
-                                                               Span<MFNode *> nodes)
+static Array<bool> mask_nodes_to_the_right(MFNetwork &network, Span<MFNode *> nodes)
 {
   Array<bool> is_to_the_right(network.node_id_amount(), false);
   Stack<MFNode *> nodes_to_check;
@@ -92,9 +90,9 @@ static Array<bool> find_nodes_to_the_right_of__inclusive__mask(MFNetwork &networ
   return is_to_the_right;
 }
 
-static Vector<MFNode *> find_nodes_based_on_id_mask(MFNetwork &network,
-                                                    Span<bool> id_mask,
-                                                    bool mask_value)
+static Vector<MFNode *> find_nodes_based_on_mask(MFNetwork &network,
+                                                 Span<bool> id_mask,
+                                                 bool mask_value)
 {
   Vector<MFNode *> nodes;
   for (uint id : id_mask.index_range()) {
@@ -108,31 +106,18 @@ static Vector<MFNode *> find_nodes_based_on_id_mask(MFNetwork &network,
   return nodes;
 }
 
-static Vector<MFNode *> find_nodes_not_to_the_left_of__exclusive(MFNetwork &network,
-                                                                 Span<MFNode *> nodes)
-{
-  Array<bool> masked_nodes = find_nodes_to_the_left_of__inclusive__mask(network, nodes);
-  Vector<MFNode *> result = find_nodes_based_on_id_mask(network, masked_nodes, false);
-  return result;
-}
-
 void optimize_network__remove_unused_nodes(MFNetwork &network)
 {
-  Span<MFNode *> dummy_nodes = network.dummy_nodes();
-  Vector<MFNode *> nodes_to_remove = find_nodes_not_to_the_left_of__exclusive(network,
-                                                                              dummy_nodes);
+  Array<bool> node_is_used_mask = mask_nodes_to_the_left(network, network.dummy_nodes());
+  Vector<MFNode *> nodes_to_remove = find_nodes_based_on_mask(network, node_is_used_mask, false);
   network.remove(nodes_to_remove);
 }
 
 void optimize_network__constant_folding(MFNetwork &network, ResourceCollector &resources)
 {
   Span<MFNode *> non_constant_nodes = network.dummy_nodes();
-  Array<bool> is_not_const_id_mask = find_nodes_to_the_right_of__inclusive__mask(
-      network, non_constant_nodes);
-  Vector<MFNode *> constant_nodes = find_nodes_based_on_id_mask(
-      network, is_not_const_id_mask, false);
-
-  // std::cout << network.to_dot(constant_nodes.as_span()) << "\n";
+  Array<bool> is_not_const_mask = mask_nodes_to_the_right(network, non_constant_nodes);
+  Vector<MFNode *> constant_nodes = find_nodes_based_on_mask(network, is_not_const_mask, false);
 
   Vector<MFInputSocket *> dummy_sockets_to_compute;
   for (MFNode *node : constant_nodes) {
@@ -145,7 +130,7 @@ void optimize_network__constant_folding(MFNetwork &network, ResourceCollector &r
 
       for (MFInputSocket *target_socket : output_socket->targets()) {
         MFNode &target_node = target_socket->node();
-        if (!is_not_const_id_mask[target_node.id()]) {
+        if (!is_not_const_mask[target_node.id()]) {
           continue;
         }
         MFInputSocket &dummy_socket = network.add_output("Dummy", data_type);
