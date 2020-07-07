@@ -226,8 +226,8 @@ template<typename T> class CustomMF_Constant : public MultiFunction {
 };
 
 /**
- * The value is not owned by this function. The caller has to make sure that the value lives longer
- * than this multi-function.
+ * A multi-function that outputs the same value every time. The value is not owned by an instance
+ * of this function. The caller is responsible for destructing and freeing the value.
  */
 class CustomMF_GenericConstant : public MultiFunction {
  private:
@@ -239,6 +239,10 @@ class CustomMF_GenericConstant : public MultiFunction {
   void call(IndexMask mask, MFParams params, MFContext context) const override;
 };
 
+/**
+ * A multi-function that outputs the same array every time. The array is not owned by in instance
+ * of this function. The caller is responsible for destructing and freeing the values.
+ */
 class CustomMF_GenericConstantArray : public MultiFunction {
  private:
   GSpan array_;
