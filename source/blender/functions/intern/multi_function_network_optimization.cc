@@ -141,26 +141,10 @@ static void add_sockets_to_compute_for_constant_folding(
   }
 }
 
-void optimize_network__constant_folding(MFNetwork &network, ResourceCollector &resources)
+static void prepare_params_for_constant_folding(const MultiFunction &network_fn,
+                                                MFParamsBuilder &params,
+                                                ResourceCollector &resources)
 {
-  Span<MFNode *> non_constant_nodes = network.dummy_nodes();
-  Array<bool> is_not_const_mask = mask_nodes_to_the_right(network, non_constant_nodes);
-  Vector<MFNode *> constant_nodes = find_nodes_based_on_mask(network, is_not_const_mask, false);
-
-  Vector<MFInputSocket *> dummy_sockets_to_compute;
-  add_sockets_to_compute_for_constant_folding(
-      network, constant_nodes, is_not_const_mask, dummy_sockets_to_compute);
-
-  if (dummy_sockets_to_compute.size() == 0) {
-    return;
-  }
-
-  MFNetworkEvaluator network_fn{{},
-                                dummy_sockets_to_compute.as_span().cast<const MFInputSocket *>()};
-
-  MFContextBuilder context;
-  MFParamsBuilder params{network_fn, 1};
-
   for (uint param_index : network_fn.param_indices()) {
     MFParamType param_type = network_fn.param_type(param_index);
     MFDataType data_type = param_type.data_type();
@@ -182,8 +166,14 @@ void optimize_network__constant_folding(MFNetwork &network, ResourceCollector &r
       }
     }
   }
+}
 
-  network_fn.call({0}, params, context);
+static Array<MFOutputSocket *> add_constant_folded_sockets(const MultiFunction &network_fn,
+                                                           MFParamsBuilder &params,
+                                                           ResourceCollector &resources,
+                                                           MFNetwork &network)
+{
+  Array<MFOutputSocket *> folded_sockets{network_fn.param_indices().size(), nullptr};
 
   for (uint param_index : network_fn.param_indices()) {
     MFParamType param_type = network_fn.param_type(param_index);
@@ -210,8 +200,41 @@ void optimize_network__constant_folding(MFNetwork &network, ResourceCollector &r
     }
 
     MFFunctionNode &folded_node = network.add_function(*constant_fn);
-    MFOutputSocket &original_socket = *dummy_sockets_to_compute[param_index]->origin();
-    network.relink(original_socket, folded_node.output(0));
+    folded_sockets[param_index] = &folded_node.output(0);
+  }
+  return folded_sockets;
+}
+
+void optimize_network__constant_folding(MFNetwork &network, ResourceCollector &resources)
+{
+  Span<MFNode *> non_constant_nodes = network.dummy_nodes();
+  Array<bool> is_not_const_mask = mask_nodes_to_the_right(network, non_constant_nodes);
+  Vector<MFNode *> constant_nodes = find_nodes_based_on_mask(network, is_not_const_mask, false);
+
+  Vector<MFInputSocket *> dummy_sockets_to_compute;
+  add_sockets_to_compute_for_constant_folding(
+      network, constant_nodes, is_not_const_mask, dummy_sockets_to_compute);
+
+  if (dummy_sockets_to_compute.size() == 0) {
+    return;
+  }
+
+  MFNetworkEvaluator network_fn{{},
+                                dummy_sockets_to_compute.as_span().cast<const MFInputSocket *>()};
+
+  MFContextBuilder context;
+  MFParamsBuilder params{network_fn, 1};
+
+  prepare_params_for_constant_folding(network_fn, params, resources);
+
+  network_fn.call({0}, params, context);
+
+  Array<MFOutputSocket *> folded_sockets = add_constant_folded_sockets(
+      network_fn, params, resources, network);
+
+  for (uint i : dummy_sockets_to_compute.index_range()) {
+    MFOutputSocket &original_socket = *dummy_sockets_to_compute[i]->origin();
+    network.relink(original_socket, *folded_sockets[i]);
   }
 
   for (MFInputSocket *socket : dummy_sockets_to_compute) {
