@@ -76,9 +76,15 @@ typedef void (*IDTypeMakeLocalFunction)(struct Main *bmain, struct ID *id, const
 
 typedef void (*IDTypeForeachIDFunction)(struct ID *id, struct LibraryForeachIDData *data);
 
+typedef enum eIDTypeInfoCacheCallbackFlags {
+  /** Indicates to the callback that that cache may be stored in the .blend file, so its pointer
+   * should not be cleared at read-time. */
+  IDTYPE_CACHE_CB_FLAGS_PERSISTENT = 1 << 0,
+} eIDTypeInfoCacheCallbackFlags;
 typedef void (*IDTypeForeachCacheFunctionCallback)(struct ID *id,
                                                    const struct IDCacheKey *cache_key,
                                                    void **cache_p,
+                                                   uint flags,
                                                    void *user_data);
 typedef void (*IDTypeForeachCacheFunction)(struct ID *id,
                                            IDTypeForeachCacheFunctionCallback function_callback,
@@ -228,6 +234,14 @@ int BKE_idtype_idcode_to_index(const short idcode);
 short BKE_idtype_idcode_from_index(const int index);
 
 short BKE_idtype_idcode_iter_step(int *index);
+
+/* Some helpers/wrappers around callbacks defined in #IDTypeInfo, dealing e.g. with embedded IDs.
+ * XXX Ideally those would rather belong to #BKE_lib_id, but using callback function pointers makes
+ * this hard to do properly if we want to avoid headers includes in headers. */
+
+void BKE_idtype_id_foreach_cache(struct ID *id,
+                                 IDTypeForeachCacheFunctionCallback function_callback,
+                                 void *user_data);
 
 #ifdef __cplusplus
 }
