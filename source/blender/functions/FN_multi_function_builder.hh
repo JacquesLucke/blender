@@ -226,6 +226,29 @@ template<typename T> class CustomMF_Constant : public MultiFunction {
   }
 };
 
+/**
+ * The value is not owned by this function. The caller has to make sure that the value lives longer
+ * than this multi-function.
+ */
+class CustomMF_GenericConstant : public MultiFunction {
+ private:
+  const CPPType &m_type;
+  const void *m_value;
+
+ public:
+  CustomMF_GenericConstant(const CPPType &type, const void *value) : m_type(type), m_value(value)
+  {
+    MFSignatureBuilder signature = this->get_builder("Constant");
+    signature.single_output("Value", type);
+  }
+
+  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
+  {
+    GMutableSpan output = params.uninitialized_single_output(0);
+    m_type.fill_uninitialized_indices(m_value, output.buffer(), mask);
+  }
+};
+
 }  // namespace fn
 }  // namespace blender
 
