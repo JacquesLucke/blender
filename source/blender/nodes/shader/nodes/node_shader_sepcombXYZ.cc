@@ -88,21 +88,6 @@ void register_node_type_sh_sepxyz(void)
   node_type_socket_templates(&ntype, sh_node_sepxyz_in, sh_node_sepxyz_out);
   node_type_gpu(&ntype, gpu_shader_sepxyz);
   ntype.expand_in_mf_network = sh_node_sepxyz_expand_in_mf_network;
-
-  for (uint i : mask) {
-    float3 xyz = vectors[i];
-    xs[i] = xyz.x;
-    ys[i] = xyz.y;
-    zs[i] = xyz.z;
-  }
-}
-}
-;  // namespace node
-
-static void sh_node_sepxyz_expand_in_mf_network(bke::NodeMFNetworkBuilder &builder)
-{
-  static MF_SeparateXYZ separate_fn;
-  builder.set_matching_fn(separate_fn);
 }
 
 /* **************** COMBINE XYZ ******************** */
