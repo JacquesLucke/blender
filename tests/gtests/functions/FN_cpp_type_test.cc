@@ -18,8 +18,7 @@
 
 #include "FN_cpp_type.hh"
 
-namespace blender {
-namespace fn {
+namespace blender::fn {
 
 static const int default_constructed_value = 1;
 static const int copy_constructed_value = 2;
@@ -51,7 +50,7 @@ struct TestType {
     other.value = copy_constructed_from_value;
   }
 
-  TestType(TestType &&other)
+  TestType(TestType &&other) noexcept
   {
     value = move_constructed_value;
     other.value = move_constructed_from_value;
@@ -64,7 +63,7 @@ struct TestType {
     return *this;
   }
 
-  TestType &operator=(TestType &&other)
+  TestType &operator=(TestType &&other) noexcept
   {
     value = move_assigned_value;
     other.value = move_assigned_from_value;
@@ -306,5 +305,4 @@ TEST(cpp_type, FillUninitialized)
   EXPECT_EQ(buffer2[9], 0);
 }
 
-}  // namespace fn
-}  // namespace blender
+}  // namespace blender::fn

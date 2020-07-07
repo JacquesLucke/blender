@@ -1276,6 +1276,24 @@ class _defs_sculpt:
             draw_settings=draw_settings,
         )
 
+    @ToolDef.from_fn
+    def mask_by_color():
+        def draw_settings(_context, layout, tool):
+            props = tool.operator_properties("sculpt.mask_by_color")
+            layout.prop(props, "threshold")
+            layout.prop(props, "contiguous")
+            layout.prop(props, "invert")
+            layout.prop(props, "preserve_previous_mask")
+
+        return dict(
+            idname="builtin.mask_by_color",
+            label="Mask By Color",
+            icon="ops.sculpt.mask_by_color",
+            widget=None,
+            keymap=(),
+            draw_settings=draw_settings,
+        )
+
 
 class _defs_vertex_paint:
 
@@ -1558,6 +1576,20 @@ class _defs_image_uv_select:
             keymap=(),
             draw_settings=draw_settings,
             draw_cursor=draw_cursor,
+        )
+
+
+class _defs_image_uv_edit:
+
+    @ToolDef.from_fn
+    def rip_region():
+        return dict(
+            idname="builtin.rip_region",
+            label="Rip Region",
+            icon="ops.mesh.rip",
+            # TODO: generic operator (UV version of `VIEW3D_GGT_tool_generic_handle_free`).
+            widget=None,
+            keymap=(),
         )
 
 
@@ -2155,6 +2187,8 @@ class IMAGE_PT_tools_active(ToolSelectPanelHelper, Panel):
             None,
             *_tools_annotate,
             None,
+            _defs_image_uv_edit.rip_region,
+            None,
             lambda context: (
                 _defs_image_uv_sculpt.generate_from_brushes(context)
                 if _defs_image_generic.poll_uvedit(context)
@@ -2452,6 +2486,8 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
             _defs_sculpt.mesh_filter,
             _defs_sculpt.cloth_filter,
             _defs_sculpt.color_filter,
+            None,
+            _defs_sculpt.mask_by_color,
             None,
             _defs_transform.translate,
             _defs_transform.rotate,
