@@ -44,6 +44,7 @@
 #include "BKE_lib_remap.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
+#include "BKE_node_tree_multi_function.hh"
 #include "BKE_pointcache.h"
 #include "BKE_simulation.h"
 
@@ -51,8 +52,14 @@
 
 #include "BLT_translation.h"
 
+#include "FN_multi_function_network_optimization.hh"
+
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
+
+extern "C" {
+void WM_clipboard_text_set(const char *buf, bool selection);
+}
 
 static void simulation_init_data(ID *id)
 {
@@ -198,6 +205,16 @@ static void copy_particle_state_to_cow(ParticleSimulationState *state_orig,
 
 static void simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulation *simulation)
 {
+  NodeTreeRefMap tree_refs;
+  DerivedNodeTree tree{((Simulation *)DEG_get_original_id(&simulation->id))->nodetree, tree_refs};
+  fn::MFNetwork network;
+  ResourceCollector resources;
+  insert_node_tree_into_mf_network(network, tree, resources);
+  fn::optimize_network__remove_unused_nodes(network);
+
+  // std::cout << "\n\n" << network.to_dot() << "\n\n";
+  WM_clipboard_text_set(network.to_dot().c_str(), false);
+
   int current_frame = scene->r.cfra;
 
   ParticleSimulationState *state_cow = (ParticleSimulationState *)simulation->states.first;

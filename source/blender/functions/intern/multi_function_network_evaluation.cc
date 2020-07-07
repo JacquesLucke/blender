@@ -59,7 +59,7 @@ class MFNetworkEvaluationStorage {
   uint m_min_array_size;
 
  public:
-  MFNetworkEvaluationStorage(IndexMask mask, uint max_socket_id);
+  MFNetworkEvaluationStorage(IndexMask mask, uint socket_id_amount);
   ~MFNetworkEvaluationStorage();
 
   /* Add the values that have been provided by the caller of the multi-function network. */
@@ -143,7 +143,7 @@ void MFNetworkEvaluator::call(IndexMask mask, MFParams params, MFContext context
   }
 
   const MFNetwork &network = m_outputs[0]->node().network();
-  Storage storage(mask, network.max_socket_id());
+  Storage storage(mask, network.socket_id_amount());
 
   Vector<const MFInputSocket *> outputs_to_initialize_in_the_end;
 
@@ -508,9 +508,9 @@ struct OwnVectorValue : public Value {
 /** \name Storage methods
  * \{ */
 
-MFNetworkEvaluationStorage::MFNetworkEvaluationStorage(IndexMask mask, uint max_socket_id)
+MFNetworkEvaluationStorage::MFNetworkEvaluationStorage(IndexMask mask, uint socket_id_amount)
     : m_mask(mask),
-      m_value_per_output_id(max_socket_id + 1, nullptr),
+      m_value_per_output_id(socket_id_amount, nullptr),
       m_min_array_size(mask.min_array_size())
 {
 }

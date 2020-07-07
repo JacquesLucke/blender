@@ -97,6 +97,7 @@ class MFNode : NonCopyable, NonMovable {
   Span<const MFOutputSocket *> outputs() const;
 
   template<typename FuncT> void foreach_origin_socket(const FuncT &func) const;
+  template<typename FuncT> void foreach_origin_node(const FuncT &func);
 
   bool all_inputs_have_origin() const;
 
@@ -217,8 +218,16 @@ class MFNetwork : NonCopyable, NonMovable {
   void relink(MFOutputSocket &old_output, MFOutputSocket &new_output);
 
   void remove(MFNode &node);
+  void remove(Span<MFNode *> nodes);
 
-  uint max_socket_id() const;
+  uint socket_id_amount() const;
+  uint node_id_amount() const;
+
+  Span<MFDummyNode *> dummy_nodes();
+  Span<MFFunctionNode *> function_nodes();
+
+  MFNode *node_or_null_by_id(uint id);
+  const MFNode *node_or_null_by_id(uint id) const;
 
   std::string to_dot() const;
 };
@@ -332,6 +341,16 @@ template<typename FuncT> void MFNode::foreach_origin_socket(const FuncT &func) c
     const MFOutputSocket *origin = socket->origin();
     if (origin != nullptr) {
       func(*origin);
+    }
+  }
+}
+
+template<typename FuncT> void MFNode::foreach_origin_node(const FuncT &func)
+{
+  for (MFInputSocket *socket : m_inputs) {
+    MFOutputSocket *origin = socket->origin();
+    if (origin != nullptr) {
+      func(origin->node());
     }
   }
 }
@@ -484,9 +503,34 @@ inline Span<const MFInputSocket *> MFOutputSocket::targets() const
  * MFNetwork inline methods.
  */
 
-inline uint MFNetwork::max_socket_id() const
+inline Span<MFDummyNode *> MFNetwork::dummy_nodes()
 {
-  return m_socket_or_null_by_id.size() - 1;
+  return m_dummy_nodes;
+}
+
+inline Span<MFFunctionNode *> MFNetwork::function_nodes()
+{
+  return m_function_nodes;
+}
+
+inline MFNode *MFNetwork::node_or_null_by_id(uint id)
+{
+  return m_node_or_null_by_id[id];
+}
+
+inline const MFNode *MFNetwork::node_or_null_by_id(uint id) const
+{
+  return m_node_or_null_by_id[id];
+}
+
+inline uint MFNetwork::socket_id_amount() const
+{
+  return m_socket_or_null_by_id.size();
+}
+
+inline uint MFNetwork::node_id_amount() const
+{
+  return m_node_or_null_by_id.size();
 }
 
 }  // namespace fn

@@ -231,6 +231,13 @@ void MFNetwork::remove(MFNode &node)
   m_node_or_null_by_id[node.m_id] = nullptr;
 }
 
+void MFNetwork::remove(Span<MFNode *> nodes)
+{
+  for (MFNode *node : nodes) {
+    this->remove(*node);
+  }
+}
+
 std::string MFNetwork::to_dot() const
 {
   dot::DirectedGraph digraph;
