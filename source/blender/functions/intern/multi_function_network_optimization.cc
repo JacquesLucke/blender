@@ -306,43 +306,33 @@ void constant_folding(MFNetwork &network, ResourceCollector &resources)
 static bool functions_are_equal(const MultiFunction &a, const MultiFunction &b)
 {
   if (&a == &b) {
-    return false;
+    return true;
   }
-  bool have_same_type = typeid(a) == typeid(b);
-  if (!have_same_type) {
-    return false;
+  if (typeid(a) == typeid(b)) {
+    return a.equals(b);
   }
-  return a.equals(b);
+  return false;
 }
 
-static bool outputs_have_same_value(DisjointSet &cache,
-                                    const MFOutputSocket &a,
-                                    const MFOutputSocket &b)
+static bool nodes_are_same(DisjointSet &cache, const MFNode &a, const MFNode &b)
 {
   if (cache.joined(a.id(), b.id())) {
     return true;
   }
 
-  if (a.index() != b.index()) {
+  if (a.is_dummy() || b.is_dummy()) {
     return false;
   }
-
-  const MFNode &a_node = a.node();
-  const MFNode &b_node = b.node();
-
-  if (a_node.is_dummy() || b_node.is_dummy()) {
+  if (!functions_are_equal(a.as_function().function(), b.as_function().function())) {
     return false;
   }
-  if (!functions_are_equal(a_node.as_function().function(), b_node.as_function().function())) {
-    return false;
-  }
-  for (uint i : a_node.inputs().index_range()) {
-    const MFOutputSocket *origin_a = a_node.input(i).origin();
-    const MFOutputSocket *origin_b = b_node.input(i).origin();
+  for (uint i : a.inputs().index_range()) {
+    const MFOutputSocket *origin_a = a.input(i).origin();
+    const MFOutputSocket *origin_b = b.input(i).origin();
     if (origin_a == nullptr || origin_b == nullptr) {
       return false;
     }
-    if (!outputs_have_same_value(cache, *origin_a, *origin_b)) {
+    if (!nodes_are_same(cache, origin_a->node(), origin_b->node())) {
       return false;
     }
   }
@@ -353,17 +343,15 @@ static bool outputs_have_same_value(DisjointSet &cache,
 
 void common_subnetwork_elimination(MFNetwork &network)
 {
-  Array<uint32_t> output_socket_hashes(network.socket_id_amount());
-  Array<bool> node_outputs_are_hashed(network.node_id_amount(), false);
+  Array<uint32_t> node_hashes(network.node_id_amount());
+  Array<bool> node_is_hashed(network.node_id_amount(), false);
 
   RNG *rng = BLI_rng_new(0);
 
   for (MFDummyNode *node : network.dummy_nodes()) {
-    for (MFOutputSocket *output_socket : node->outputs()) {
-      uint32_t output_hash = BLI_rng_get_uint(rng);
-      output_socket_hashes[output_socket->id()] = output_hash;
-    }
-    node_outputs_are_hashed[node->id()] = true;
+    uint32_t node_hash = BLI_rng_get_uint(rng);
+    node_hashes[node->id()] = node_hash;
+    node_is_hashed[node->id()] = true;
   }
 
   Stack<MFFunctionNode *> nodes_to_check;
@@ -371,7 +359,7 @@ void common_subnetwork_elimination(MFNetwork &network)
 
   while (!nodes_to_check.is_empty()) {
     MFFunctionNode &node = *nodes_to_check.peek();
-    if (node_outputs_are_hashed[node.id()]) {
+    if (node_is_hashed[node.id()]) {
       nodes_to_check.pop();
       continue;
     }
@@ -381,7 +369,7 @@ void common_subnetwork_elimination(MFNetwork &network)
       MFOutputSocket *origin_socket = input_socket->origin();
       if (origin_socket != nullptr) {
         MFNode &origin_node = origin_socket->node();
-        if (!node_outputs_are_hashed[origin_node.id()]) {
+        if (!node_is_hashed[origin_node.id()]) {
           all_dependencies_ready = false;
           nodes_to_check.push(&origin_node.as_function());
         }
@@ -400,56 +388,50 @@ void common_subnetwork_elimination(MFNetwork &network)
         input_hash = BLI_rng_get_uint(rng);
       }
       else {
-        input_hash = output_socket_hashes[origin_socket->id()];
+        input_hash = BLI_ghashutil_combine_hash(node_hashes[origin_socket->node().id()],
+                                                origin_socket->index());
       }
       combined_inputs_hash = BLI_ghashutil_combine_hash(combined_inputs_hash, input_hash);
     }
 
     uint32_t function_hash = node.function().hash();
     uint32_t node_hash = BLI_ghashutil_combine_hash(combined_inputs_hash, function_hash);
-
-    for (MFOutputSocket *output_socket : node.outputs()) {
-      uint32_t output_hash = BLI_ghashutil_combine_hash(node_hash, output_socket->index());
-      output_socket_hashes[output_socket->id()] = output_hash;
-    }
-
+    node_hashes[node.id()] = node_hash;
+    node_is_hashed[node.id()] = true;
     nodes_to_check.pop();
-    node_outputs_are_hashed[node.id()] = true;
   }
 
-  Map<uint32_t, Vector<MFOutputSocket *, 1>> outputs_by_hash;
-  for (uint id : IndexRange(network.socket_id_amount())) {
-    MFSocket *socket = network.socket_or_null_by_id(id);
-    if (socket != nullptr) {
-      if (socket->is_output()) {
-        uint32_t output_hash = output_socket_hashes[id];
-        outputs_by_hash.lookup_or_add_default(output_hash).append(&socket->as_output());
-      }
+  Map<uint32_t, Vector<MFNode *, 1>> nodes_by_hash;
+  for (uint id : IndexRange(network.node_id_amount())) {
+    MFNode *node = network.node_or_null_by_id(id);
+    if (node != nullptr) {
+      uint32_t node_hash = node_hashes[id];
+      nodes_by_hash.lookup_or_add_default(node_hash).append(node);
     }
   }
 
-  Vector<MFOutputSocket *> remaining_sockets;
-  DisjointSet same_socket_value_cache{network.socket_id_amount()};
+  DisjointSet same_node_cache{network.node_id_amount()};
 
-  for (Span<MFOutputSocket *> outputs_with_same_hash : outputs_by_hash.values()) {
-    if (outputs_with_same_hash.size() <= 1) {
+  for (Span<MFNode *> nodes_with_same_hash : nodes_by_hash.values()) {
+    if (nodes_with_same_hash.size() <= 1) {
       continue;
     }
 
-    remaining_sockets.clear();
-    Span<MFOutputSocket *> outputs_to_check = outputs_with_same_hash;
-    while (outputs_to_check.size() >= 2) {
-      MFOutputSocket &deduplicated_output = *outputs_to_check[0];
-      for (MFOutputSocket *socket : outputs_to_check.drop_front(1)) {
-        if (outputs_have_same_value(same_socket_value_cache, deduplicated_output, *socket)) {
-          network.relink(*socket, deduplicated_output);
+    Vector<MFNode *, 16> nodes_to_check = nodes_with_same_hash;
+    Vector<MFNode *, 16> remaining_nodes;
+    while (nodes_to_check.size() >= 2) {
+      MFNode &deduplicated_node = *nodes_to_check[0];
+      for (MFNode *node : nodes_to_check.as_span().drop_front(1)) {
+        if (nodes_are_same(same_node_cache, deduplicated_node, *node)) {
+          for (uint i : deduplicated_node.outputs().index_range()) {
+            network.relink(node->output(i), deduplicated_node.output(i));
+          }
         }
         else {
-          remaining_sockets.append(socket);
+          remaining_nodes.append(node);
         }
       }
-
-      outputs_to_check = remaining_sockets;
+      nodes_to_check = remaining_nodes;
     }
   }
 
