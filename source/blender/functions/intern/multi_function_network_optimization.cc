@@ -24,7 +24,7 @@
 
 #include "BLI_stack.hh"
 
-namespace blender::fn {
+namespace blender::fn::mf_network_optimization {
 
 static bool set_tag_and_check_if_modified(bool &tag, bool new_value)
 {
@@ -109,39 +109,11 @@ static Vector<MFNode *> find_nodes_based_on_mask(MFNetwork &network,
 /**
  * Unused nodes are all those nodes that no dummy node depends upon.
  */
-void optimize_network__remove_unused_nodes(MFNetwork &network)
+void dead_node_removal(MFNetwork &network)
 {
   Array<bool> node_is_used_mask = mask_nodes_to_the_left(network, network.dummy_nodes());
   Vector<MFNode *> nodes_to_remove = find_nodes_based_on_mask(network, node_is_used_mask, false);
   network.remove(nodes_to_remove);
-}
-
-static void add_sockets_to_compute_for_constant_folding(
-    MFNetwork &network,
-    Span<MFNode *> constant_nodes,
-    Span<bool> is_not_const_mask,
-    Vector<MFInputSocket *> &r_sockets_to_compute)
-{
-  for (MFNode *node : constant_nodes) {
-    if (node->inputs().size() == 0) {
-      continue;
-    }
-
-    for (MFOutputSocket *output_socket : node->outputs()) {
-      MFDataType data_type = output_socket->data_type();
-
-      for (MFInputSocket *target_socket : output_socket->targets()) {
-        MFNode &target_node = target_socket->node();
-        if (!is_not_const_mask[target_node.id()]) {
-          continue;
-        }
-        MFInputSocket &dummy_socket = network.add_output("Dummy", data_type);
-        network.add_link(*output_socket, dummy_socket);
-        r_sockets_to_compute.append(&dummy_socket);
-        break;
-      }
-    }
-  }
 }
 
 static void prepare_params_for_constant_folding(const MultiFunction &network_fn,
@@ -208,25 +180,47 @@ static Array<MFOutputSocket *> add_constant_folded_sockets(const MultiFunction &
   return folded_sockets;
 }
 
+static Vector<MFInputSocket *> find_inputs_to_fold(MFNetwork &network)
+{
+  Span<MFNode *> non_constant_nodes = network.dummy_nodes();
+  Array<bool> is_not_constant_mask = mask_nodes_to_the_right(network, non_constant_nodes);
+  Vector<MFNode *> constant_nodes = find_nodes_based_on_mask(network, is_not_constant_mask, false);
+
+  Vector<MFInputSocket *> sockets_to_compute;
+  for (MFNode *node : constant_nodes) {
+    if (node->inputs().size() == 0) {
+      continue;
+    }
+
+    for (MFOutputSocket *output_socket : node->outputs()) {
+      MFDataType data_type = output_socket->data_type();
+
+      for (MFInputSocket *target_socket : output_socket->targets()) {
+        MFNode &target_node = target_socket->node();
+        if (!is_not_constant_mask[target_node.id()]) {
+          continue;
+        }
+        MFInputSocket &dummy_socket = network.add_output("Dummy", data_type);
+        network.add_link(*output_socket, dummy_socket);
+        sockets_to_compute.append(&dummy_socket);
+        break;
+      }
+    }
+  }
+  return sockets_to_compute;
+}
+
 /**
  * Find function nodes that always output the same value and replace those with constant nodes.
  */
-void optimize_network__constant_folding(MFNetwork &network, ResourceCollector &resources)
+void constant_folding(MFNetwork &network, ResourceCollector &resources)
 {
-  Span<MFNode *> non_constant_nodes = network.dummy_nodes();
-  Array<bool> is_not_const_mask = mask_nodes_to_the_right(network, non_constant_nodes);
-  Vector<MFNode *> constant_nodes = find_nodes_based_on_mask(network, is_not_const_mask, false);
-
-  Vector<MFInputSocket *> dummy_sockets_to_compute;
-  add_sockets_to_compute_for_constant_folding(
-      network, constant_nodes, is_not_const_mask, dummy_sockets_to_compute);
-
-  if (dummy_sockets_to_compute.size() == 0) {
+  Vector<MFInputSocket *> inputs_to_fold = find_inputs_to_fold(network);
+  if (inputs_to_fold.size() == 0) {
     return;
   }
 
-  MFNetworkEvaluator network_fn{{},
-                                dummy_sockets_to_compute.as_span().cast<const MFInputSocket *>()};
+  MFNetworkEvaluator network_fn{{}, inputs_to_fold.as_span().cast<const MFInputSocket *>()};
 
   MFContextBuilder context;
   MFParamsBuilder params{network_fn, 1};
@@ -238,14 +232,14 @@ void optimize_network__constant_folding(MFNetwork &network, ResourceCollector &r
   Array<MFOutputSocket *> folded_sockets = add_constant_folded_sockets(
       network_fn, params, resources, network);
 
-  for (uint i : dummy_sockets_to_compute.index_range()) {
-    MFOutputSocket &original_socket = *dummy_sockets_to_compute[i]->origin();
+  for (uint i : inputs_to_fold.index_range()) {
+    MFOutputSocket &original_socket = *inputs_to_fold[i]->origin();
     network.relink(original_socket, *folded_sockets[i]);
   }
 
-  for (MFInputSocket *socket : dummy_sockets_to_compute) {
+  for (MFInputSocket *socket : inputs_to_fold) {
     network.remove(socket->node());
   }
 }
 
-}  // namespace blender::fn
+}  // namespace blender::fn::mf_network_optimization
