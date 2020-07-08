@@ -231,9 +231,11 @@ template<typename T> class CustomMF_Constant : public MultiFunction {
 
   bool equals(const MultiFunction &other) const override
   {
-    const CustomMF_Constant *other_ = dynamic_cast<const CustomMF_Constant *>(&other);
-    BLI_assert(other_ != nullptr);
-    return value_ == other_->value_;
+    const CustomMF_Constant *_other = dynamic_cast<const CustomMF_Constant *>(&other);
+    if (_other == nullptr) {
+      return false;
+    }
+    return value_ == _other->value_;
   }
 };
 
@@ -249,6 +251,8 @@ class CustomMF_GenericConstant : public MultiFunction {
  public:
   CustomMF_GenericConstant(const CPPType &type, const void *value);
   void call(IndexMask mask, MFParams params, MFContext context) const override;
+  virtual uint32_t hash() const override;
+  bool equals(const MultiFunction &other) const override;
 };
 
 /**

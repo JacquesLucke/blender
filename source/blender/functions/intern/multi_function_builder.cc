@@ -14,7 +14,11 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
+#include "FN_cpp_types.hh"
 #include "FN_multi_function_builder.hh"
+
+#include "BLI_float3.hh"
+#include "BLI_hash.hh"
 
 namespace blender::fn {
 
@@ -33,6 +37,42 @@ void CustomMF_GenericConstant::call(IndexMask mask,
 {
   GMutableSpan output = params.uninitialized_single_output(0);
   type_.fill_uninitialized_indices(value_, output.buffer(), mask);
+}
+
+uint CustomMF_GenericConstant::hash() const
+{
+  if (type_ == CPPType_float3) {
+    return DefaultHash<float3>{}(*(float3 *)value_);
+  }
+  if (type_ == CPPType_int32) {
+    return DefaultHash<int32_t>{}(*(int32_t *)value_);
+  }
+  if (type_ == CPPType_float) {
+    return DefaultHash<float>{}(*(float *)value_);
+  }
+  return MultiFunction::hash();
+}
+
+bool CustomMF_GenericConstant::equals(const MultiFunction &other) const
+{
+  const CustomMF_GenericConstant *_other = dynamic_cast<const CustomMF_GenericConstant *>(&other);
+  if (_other == nullptr) {
+    return false;
+  }
+  if (type_ != _other->type_) {
+    return false;
+  }
+
+  if (type_ == CPPType_float3) {
+    return *(float3 *)value_ == *(float3 *)_other->value_;
+  }
+  if (type_ == CPPType_int32) {
+    return *(int *)value_ == *(int *)_other->value_;
+  }
+  if (type_ == CPPType_float) {
+    return *(float *)value_ == *(float *)_other->value_;
+  }
+  return false;
 }
 
 static std::string gspan_to_string(GSpan array)
