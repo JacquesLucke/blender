@@ -223,6 +223,18 @@ template<typename T> class CustomMF_Constant : public MultiFunction {
     MutableSpan<T> output = params.uninitialized_single_output<T>(0);
     mask.foreach_index([&](uint i) { new (&output[i]) T(value_); });
   }
+
+  uint32_t hash() const override
+  {
+    return DefaultHash<T>{}(value_);
+  }
+
+  bool equals(const MultiFunction &other) const override
+  {
+    const CustomMF_Constant *other_ = dynamic_cast<const CustomMF_Constant *>(&other);
+    BLI_assert(other_ != nullptr);
+    return value_ == other_->value_;
+  }
 };
 
 /**

@@ -178,6 +178,14 @@ struct float3 {
     z = -z;
   }
 
+  uint32_t hash() const
+  {
+    uint32_t x1 = *(uint32_t *)&x;
+    uint32_t x2 = *(uint32_t *)&y;
+    uint32_t x3 = *(uint32_t *)&z;
+    return (x1 * 435109) ^ (x2 * 380867) ^ (x3 * 1059217);
+  }
+
   static float dot(const float3 &a, const float3 &b)
   {
     return a.x * b.x + a.y * b.y + a.z * b.z;

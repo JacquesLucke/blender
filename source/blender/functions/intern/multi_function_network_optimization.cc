@@ -18,10 +18,16 @@
  * \ingroup fn
  */
 
+#include <typeinfo>
+
 #include "FN_multi_function_builder.hh"
 #include "FN_multi_function_network_evaluation.hh"
 #include "FN_multi_function_network_optimization.hh"
 
+#include "BLI_disjoint_set.hh"
+#include "BLI_ghash.h"
+#include "BLI_map.hh"
+#include "BLI_rand.h"
 #include "BLI_stack.hh"
 
 namespace blender::fn::mf_network_optimization {
@@ -288,6 +294,166 @@ void constant_folding(MFNetwork &network, ResourceCollector &resources)
   }
 
   network.remove(temporary_nodes.as_span());
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Common Subnetwork Elimination
+ *
+ * \{ */
+
+static bool functions_are_equal(const MultiFunction &a, const MultiFunction &b)
+{
+  if (&a == &b) {
+    return false;
+  }
+  bool have_same_type = typeid(a) == typeid(b);
+  if (!have_same_type) {
+    return false;
+  }
+  return a.equals(b);
+}
+
+static bool outputs_have_same_value(DisjointSet &cache,
+                                    const MFOutputSocket &a,
+                                    const MFOutputSocket &b)
+{
+  if (cache.joined(a.id(), b.id())) {
+    return true;
+  }
+
+  if (a.index() != b.index()) {
+    return false;
+  }
+
+  const MFNode &a_node = a.node();
+  const MFNode &b_node = b.node();
+
+  if (a_node.is_dummy() || b_node.is_dummy()) {
+    return false;
+  }
+  if (!functions_are_equal(a_node.as_function().function(), b_node.as_function().function())) {
+    return false;
+  }
+  for (uint i : a_node.inputs().index_range()) {
+    const MFOutputSocket *origin_a = a_node.input(i).origin();
+    const MFOutputSocket *origin_b = b_node.input(i).origin();
+    if (origin_a == nullptr || origin_b == nullptr) {
+      return false;
+    }
+    if (!outputs_have_same_value(cache, *origin_a, *origin_b)) {
+      return false;
+    }
+  }
+
+  cache.join(a.id(), b.id());
+  return true;
+}
+
+void common_subnetwork_elimination(MFNetwork &network)
+{
+  Array<uint32_t> output_socket_hashes(network.socket_id_amount());
+  Array<bool> node_outputs_are_hashed(network.node_id_amount(), false);
+
+  RNG *rng = BLI_rng_new(0);
+
+  for (MFDummyNode *node : network.dummy_nodes()) {
+    for (MFOutputSocket *output_socket : node->outputs()) {
+      uint32_t output_hash = BLI_rng_get_uint(rng);
+      output_socket_hashes[output_socket->id()] = output_hash;
+    }
+    node_outputs_are_hashed[node->id()] = true;
+  }
+
+  Stack<MFFunctionNode *> nodes_to_check;
+  nodes_to_check.push_multiple(network.function_nodes());
+
+  while (!nodes_to_check.is_empty()) {
+    MFFunctionNode &node = *nodes_to_check.peek();
+    if (node_outputs_are_hashed[node.id()]) {
+      nodes_to_check.pop();
+      continue;
+    }
+
+    bool all_dependencies_ready = true;
+    for (MFInputSocket *input_socket : node.inputs()) {
+      MFOutputSocket *origin_socket = input_socket->origin();
+      if (origin_socket != nullptr) {
+        MFNode &origin_node = origin_socket->node();
+        if (!node_outputs_are_hashed[origin_node.id()]) {
+          all_dependencies_ready = false;
+          nodes_to_check.push(&origin_node.as_function());
+        }
+      }
+    }
+
+    if (!all_dependencies_ready) {
+      continue;
+    }
+
+    uint32_t combined_inputs_hash = 394659347u;
+    for (MFInputSocket *input_socket : node.inputs()) {
+      MFOutputSocket *origin_socket = input_socket->origin();
+      uint32_t input_hash;
+      if (origin_socket == nullptr) {
+        input_hash = BLI_rng_get_uint(rng);
+      }
+      else {
+        input_hash = output_socket_hashes[origin_socket->id()];
+      }
+      combined_inputs_hash = BLI_ghashutil_combine_hash(combined_inputs_hash, input_hash);
+    }
+
+    uint32_t function_hash = node.function().hash();
+    uint32_t node_hash = BLI_ghashutil_combine_hash(combined_inputs_hash, function_hash);
+
+    for (MFOutputSocket *output_socket : node.outputs()) {
+      uint32_t output_hash = BLI_ghashutil_combine_hash(node_hash, output_socket->index());
+      output_socket_hashes[output_socket->id()] = output_hash;
+    }
+
+    nodes_to_check.pop();
+    node_outputs_are_hashed[node.id()] = true;
+  }
+
+  Map<uint32_t, Vector<MFOutputSocket *, 1>> outputs_by_hash;
+  for (uint id : IndexRange(network.socket_id_amount())) {
+    MFSocket *socket = network.socket_or_null_by_id(id);
+    if (socket != nullptr) {
+      if (socket->is_output()) {
+        uint32_t output_hash = output_socket_hashes[id];
+        outputs_by_hash.lookup_or_add_default(output_hash).append(&socket->as_output());
+      }
+    }
+  }
+
+  Vector<MFOutputSocket *> remaining_sockets;
+  DisjointSet same_socket_value_cache{network.socket_id_amount()};
+
+  for (Span<MFOutputSocket *> outputs_with_same_hash : outputs_by_hash.values()) {
+    if (outputs_with_same_hash.size() <= 1) {
+      continue;
+    }
+
+    remaining_sockets.clear();
+    Span<MFOutputSocket *> outputs_to_check = outputs_with_same_hash;
+    while (outputs_to_check.size() >= 2) {
+      MFOutputSocket &deduplicated_output = *outputs_to_check[0];
+      for (MFOutputSocket *socket : outputs_to_check.drop_front(1)) {
+        if (outputs_have_same_value(same_socket_value_cache, deduplicated_output, *socket)) {
+          network.relink(*socket, deduplicated_output);
+        }
+        else {
+          remaining_sockets.append(socket);
+        }
+      }
+
+      outputs_to_check = remaining_sockets;
+    }
+  }
+
+  BLI_rng_free(rng);
 }
 
 /** \} */
