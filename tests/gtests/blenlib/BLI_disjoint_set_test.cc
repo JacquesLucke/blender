@@ -11,7 +11,7 @@ TEST(disjoint_set, Test)
   EXPECT_FALSE(disjoint_set.joined(1, 2));
   EXPECT_FALSE(disjoint_set.joined(5, 3));
   EXPECT_TRUE(disjoint_set.joined(2, 2));
-  EXPECT_EQ(disjoint_set.find(3), 3);
+  EXPECT_EQ(disjoint_set.find(3), 3u);
 
   disjoint_set.join(1, 2);
 
