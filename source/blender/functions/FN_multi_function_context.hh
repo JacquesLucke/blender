@@ -31,6 +31,30 @@
 
 namespace blender::fn {
 
+class MFElementContextIndices {
+ public:
+  uint operator[](uint index) const
+  {
+    return index;
+  }
+};
+
+template<typename T> struct MFElementContext {
+  const T &data;
+  const MFElementContextIndices &indices;
+};
+
+class MFElementContexts {
+ private:
+  struct ElementContext {
+    std::string name;
+    const void *data;
+    MFElementContextIndices indices;
+  };
+
+  Vector<ElementContext> element_contexts_;
+};
+
 class MFContextBuilder {
 };
 
