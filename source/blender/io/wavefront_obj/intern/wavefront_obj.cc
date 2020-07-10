@@ -29,6 +29,7 @@
 
 #include "wavefront_obj.hh"
 #include "wavefront_obj_exporter.hh"
+#include "wavefront_obj_importer.hh"
 
 /**
  * Time the full export process.
@@ -43,8 +44,9 @@ void OBJ_export(bContext *C, const OBJExportParams *export_params)
 }
 
 /**
- * Currently not implemented.
+ *
  */
-void OBJ_import(bContext *UNUSED(C), const OBJImportParams *UNUSED(import_params))
+void OBJ_import(bContext *C, const OBJImportParams *import_params)
 {
+  blender::io::obj::importer_main(C, *import_params);
 }

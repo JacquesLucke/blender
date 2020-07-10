@@ -24,13 +24,68 @@
 #ifndef __WAVEFRONT_OBJ_IMPORTER_HH__
 #define __WAVEFRONT_OBJ_IMPORTER_HH__
 
-namespace blender {
-namespace io {
-namespace obj {
-/* Currently not implemented. */
+#include <fstream>
+#include <iostream>
 
-}
-}  // namespace io
-}  // namespace blender
+#include "BKE_context.h"
+
+#include "bmesh.h"
+
+#include "BLI_float3.hh"
+#include "BLI_float2.hh"
+#include "BLI_string_ref.hh"
+#include "BLI_utility_mixins.hh"
+#include "BLI_vector.hh"
+
+#include "DNA_meshdata_types.h"
+#include "IO_wavefront_obj.h"
+
+namespace blender::io::obj {
+
+typedef struct OBJFaceCorner {
+  int vert_index;
+  int tex_vert_index = -1;
+} OBJFaceCorner;
+
+class OBJRawObject {
+ public:
+  OBJRawObject(StringRef ob_name) : object_name(ob_name.data()){};
+
+  std::string object_name;
+  Vector<MVert> vertices;
+  Vector<MLoopUV> texture_vertices;
+  Vector<Vector<OBJFaceCorner>> face_elements;
+  uint tot_normals = 0;
+  uint tot_loop = 0;
+  bool is_shaded_smooth;
+  Vector<std::string> material_name;
+};
+
+class OBJParentCollection {
+ public:
+  OBJParentCollection(Main *bmain, Scene *scene);
+  void add_object_to_parent(OBJRawObject &ob_to_add, Mesh *mesh);
+
+ private:
+  Main *bmain_;
+  Scene *scene_;
+  Collection *parent_collection_;
+};
+
+class OBJImporter {
+ private:
+  const OBJImportParams &import_params_;
+  std::ifstream infile_;
+  uint index_offsets[2] = {0, 0};
+
+ public:
+  OBJImporter(const OBJImportParams &import_params);
+  void parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_objects);
+  void print_obj_data(Vector<std::unique_ptr<OBJRawObject>> &list_of_objects);
+  void make_objects(Main *bmain, Scene *scene, Vector<std::unique_ptr<OBJRawObject>> &list_of_objects);
+};
+
+void importer_main(bContext *C, const OBJImportParams &import_params);
+}  // namespace blender::io::obj
 
 #endif
