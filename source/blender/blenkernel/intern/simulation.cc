@@ -386,6 +386,10 @@ static void update_simulation_state_list(Simulation *simulation, const DerivedNo
   add_missing_particle_states(simulation, state_names);
 }
 
+struct GlobalSolverContext {
+  Map<std::string, SimulationState *> states;
+};
+
 static void simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulation *simulation_cow)
 {
   int current_frame = scene->r.cfra;
@@ -412,6 +416,13 @@ static void simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulatio
   fn::mf_network_optimization::dead_node_removal(network);
   UNUSED_VARS(attribute_node_map);
   // WM_clipboard_text_set(network.to_dot().c_str(), false);
+
+  update_simulation_state_list(simulation_orig, tree);
+
+  GlobalSolverContext solver_context;
+  LISTBASE_FOREACH (SimulationState *, state, &simulation_orig->states) {
+    solver_context.states.add_new(state->name, state);
+  }
 
   if (current_frame == 1) {
     reinitialize_empty_simulation_states(simulation_orig, tree);
@@ -442,7 +453,6 @@ static void simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulatio
     copy_states_to_cow(simulation_orig, simulation_cow);
   }
   else if (current_frame == simulation_orig->current_frame + 1) {
-    update_simulation_state_list(simulation_orig, tree);
     float time_step = 1.0f / 24.0f;
     simulation_orig->current_frame = current_frame;
 
