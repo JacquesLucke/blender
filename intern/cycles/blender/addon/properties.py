@@ -209,6 +209,7 @@ def enum_preview_denoiser(self, context):
 def enum_denoiser(self, context):
     items = [('NLM', "NLM", "Cycles native non-local means denoiser, running on any compute device", 1)]
     items += enum_optix_denoiser(self, context)
+    items += enum_openimagedenoise_denoiser(self, context)
     return items
 
 enum_denoising_optix_input_passes = (
@@ -272,7 +273,7 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
         name="Denoiser",
         description="Denoise the image with the selected denoiser. "
         "For denoising the image after rendering, denoising data render passes "
-        "also adapt to the selected denoiser.",
+        "also adapt to the selected denoiser",
         items=enum_denoiser,
         default=1,
         update=update_render_passes,

@@ -15,6 +15,8 @@
  */
 
 #include "BLI_dot_export.hh"
+#include "BLI_stack.hh"
+
 #include "FN_multi_function_network.hh"
 
 namespace blender::fn {
@@ -184,12 +186,12 @@ void MFNetwork::add_link(MFOutputSocket &from, MFInputSocket &to)
 
 MFOutputSocket &MFNetwork::add_input(StringRef name, MFDataType data_type)
 {
-  return this->add_dummy(name, {}, {data_type}, {}, {name}).output(0);
+  return this->add_dummy(name, {}, {data_type}, {}, {"Value"}).output(0);
 }
 
 MFInputSocket &MFNetwork::add_output(StringRef name, MFDataType data_type)
 {
-  return this->add_dummy(name, {data_type}, {}, {name}, {}).input(0);
+  return this->add_dummy(name, {data_type}, {}, {"Value"}, {}).input(0);
 }
 
 void MFNetwork::relink(MFOutputSocket &old_output, MFOutputSocket &new_output)
@@ -230,7 +232,43 @@ void MFNetwork::remove(MFNode &node)
   node_or_null_by_id_[node.id_] = nullptr;
 }
 
-std::string MFNetwork::to_dot() const
+void MFNetwork::remove(Span<MFNode *> nodes)
+{
+  for (MFNode *node : nodes) {
+    this->remove(*node);
+  }
+}
+
+void MFNetwork::find_dependencies(Span<const MFInputSocket *> sockets,
+                                  VectorSet<const MFOutputSocket *> &r_dummy_sockets,
+                                  VectorSet<const MFInputSocket *> &r_unlinked_inputs) const
+{
+  Set<const MFNode *> visited_nodes;
+  Stack<const MFInputSocket *> sockets_to_check;
+  sockets_to_check.push_multiple(sockets);
+
+  while (!sockets_to_check.is_empty()) {
+    const MFInputSocket &socket = *sockets_to_check.pop();
+    const MFOutputSocket *origin_socket = socket.origin();
+    if (origin_socket == nullptr) {
+      r_unlinked_inputs.add(&socket);
+      continue;
+    }
+
+    const MFNode &origin_node = origin_socket->node();
+
+    if (origin_node.is_dummy()) {
+      r_dummy_sockets.add(origin_socket);
+      continue;
+    }
+
+    if (visited_nodes.add(&origin_node)) {
+      sockets_to_check.push_multiple(origin_node.inputs());
+    }
+  }
+}
+
+std::string MFNetwork::to_dot(Span<const MFNode *> marked_nodes) const
 {
   dot::DirectedGraph digraph;
   digraph.set_rankdir(dot::Attr_rankdir::LeftToRight);
@@ -254,6 +292,13 @@ std::string MFNetwork::to_dot() const
 
     dot::NodeWithSocketsRef dot_node_ref{dot_node, node->name(), input_names, output_names};
     dot_nodes.add_new(node, dot_node_ref);
+  }
+
+  for (const MFDummyNode *node : dummy_nodes_) {
+    dot_nodes.lookup(node).node().set_background_color("#77EE77");
+  }
+  for (const MFNode *node : marked_nodes) {
+    dot_nodes.lookup(node).node().set_background_color("#7777EE");
   }
 
   for (const MFNode *to_node : all_nodes) {

@@ -118,7 +118,7 @@ class Vector {
    * Create an empty vector.
    * This does not do any memory allocation.
    */
-  Vector()
+  Vector(Allocator allocator = {}) : allocator_(allocator)
   {
     begin_ = inline_buffer_;
     end_ = begin_;
@@ -141,9 +141,19 @@ class Vector {
    */
   Vector(uint size, const T &value) : Vector()
   {
+    this->resize(size, value);
+  }
+
+  /**
+   * Create a vector from an array ref. The values in the vector are copy constructed.
+   */
+  template<typename U, typename std::enable_if_t<std::is_convertible_v<U, T>> * = nullptr>
+  Vector(Span<U> values, Allocator allocator = {}) : Vector(allocator)
+  {
+    const uint size = values.size();
     this->reserve(size);
     this->increase_size_by_unchecked(size);
-    blender::uninitialized_fill_n(begin_, size, value);
+    uninitialized_convert_n<U, T>(values.data(), size, begin_);
   }
 
   /**
@@ -152,24 +162,21 @@ class Vector {
    * This allows you to write code like:
    * Vector<int> vec = {3, 4, 5};
    */
-  Vector(const std::initializer_list<T> &values) : Vector(Span<T>(values))
+  template<typename U, typename std::enable_if_t<std::is_convertible_v<U, T>> * = nullptr>
+  Vector(const std::initializer_list<U> &values) : Vector(Span<U>(values))
+  {
+  }
+
+  template<typename U,
+           size_t N,
+           typename std::enable_if_t<std::is_convertible_v<U, T>> * = nullptr>
+  Vector(const std::array<U, N> &values) : Vector(Span(values))
   {
   }
 
   /**
-   * Create a vector from an array ref. The values in the vector are copy constructed.
-   */
-  Vector(Span<T> values) : Vector()
-  {
-    const uint size = values.size();
-    this->reserve(size);
-    this->increase_size_by_unchecked(size);
-    blender::uninitialized_copy_n(values.data(), size, begin_);
-  }
-
-  /**
-   * Create a vector from any container. It must be possible to use the container in a range-for
-   * loop.
+   * Create a vector from any container. It must be possible to use the container in a
+   * range-for loop.
    */
   template<typename ContainerT> static Vector FromContainer(const ContainerT &container)
   {
@@ -198,9 +205,8 @@ class Vector {
    * Create a copy of another vector. The other vector will not be changed. If the other vector has
    * less than InlineBufferCapacity elements, no allocation will be made.
    */
-  Vector(const Vector &other) : allocator_(other.allocator_)
+  Vector(const Vector &other) : Vector(other.as_span(), other.allocator_)
   {
-    this->init_copy_from_other_vector(other);
   }
 
   /**
@@ -209,9 +215,8 @@ class Vector {
    */
   template<uint OtherInlineBufferCapacity>
   Vector(const Vector<T, OtherInlineBufferCapacity, Allocator> &other)
-      : allocator_(other.allocator_)
+      : Vector(other.as_span(), other.allocator_)
   {
-    this->init_copy_from_other_vector(other);
   }
 
   /**
@@ -313,6 +318,18 @@ class Vector {
   operator MutableSpan<T>()
   {
     return MutableSpan<T>(begin_, this->size());
+  }
+
+  template<typename U, typename std::enable_if_t<is_convertible_pointer_v<T, U>> * = nullptr>
+  operator Span<U>() const
+  {
+    return Span<U>(begin_, this->size());
+  }
+
+  template<typename U, typename std::enable_if_t<is_convertible_pointer_v<T, U>> * = nullptr>
+  operator MutableSpan<U>()
+  {
+    return MutableSpan<U>(begin_, this->size());
   }
 
   Span<T> as_span() const
@@ -799,43 +816,9 @@ class Vector {
     end_ = begin_ + size;
     capacity_end_ = begin_ + new_capacity;
   }
-
-  /**
-   * Initialize all properties, except for allocator_, which has to be initialized beforehand.
-   */
-  template<uint OtherInlineBufferCapacity>
-  void init_copy_from_other_vector(const Vector<T, OtherInlineBufferCapacity, Allocator> &other)
-  {
-    allocator_ = other.allocator_;
-
-    const uint size = other.size();
-    uint capacity;
-
-    if (size <= InlineBufferCapacity) {
-      begin_ = inline_buffer_;
-      capacity = InlineBufferCapacity;
-    }
-    else {
-      begin_ = (T *)allocator_.allocate(sizeof(T) * size, alignof(T), AT);
-      capacity = size;
-    }
-
-    end_ = begin_ + size;
-    capacity_end_ = begin_ + capacity;
-
-    uninitialized_copy_n(other.data(), size, begin_);
-    UPDATE_VECTOR_SIZE(this);
-  }
 };
 
 #undef UPDATE_VECTOR_SIZE
-
-/**
- * Use when the vector is used in the local scope of a function. It has a larger inline storage by
- * default to make allocations less likely.
- */
-template<typename T, uint InlineBufferCapacity = 20>
-using ScopedVector = Vector<T, InlineBufferCapacity, GuardedAllocator>;
 
 } /* namespace blender */
 
