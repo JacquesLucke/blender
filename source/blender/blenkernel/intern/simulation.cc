@@ -390,6 +390,56 @@ struct GlobalSolverContext {
   Map<std::string, SimulationState *> states;
 };
 
+static Vector<const DNode *> find_particle_force_dnodes(const DNode &particle_simulation_dnode)
+{
+  Vector<const DNode *> force_nodes;
+  for (const DOutputSocket *origin :
+       particle_simulation_dnode.input(2, "Forces").linked_sockets()) {
+    if (origin->node().idname() == "SimulationNodeForce") {
+      force_nodes.append(&origin->node());
+    }
+  }
+  return force_nodes;
+}
+
+static const fn::MultiFunction *create_force_function(MFNetworkTreeMap &network_map,
+                                                      ResourceCollector &resources,
+                                                      const DNode &particle_simulation_dnode)
+{
+  Vector<const DNode *> force_dnodes = find_particle_force_dnodes(particle_simulation_dnode);
+  if (force_dnodes.is_empty()) {
+    return nullptr;
+  }
+
+  Vector<const fn::MFInputSocket *> force_input_sockets;
+  for (const DNode *force_dnode : force_dnodes) {
+    force_input_sockets.append(&network_map.lookup_dummy(force_dnode->input(0)));
+  }
+
+  VectorSet<const fn::MFInputSocket *> unlinked_inputs;
+  VectorSet<const fn::MFOutputSocket *> dummy_sockets;
+  network_map.network().find_dependencies(force_input_sockets, dummy_sockets, unlinked_inputs);
+
+  if (!unlinked_inputs.is_empty() || !dummy_sockets.is_empty()) {
+    return nullptr;
+  }
+
+  fn::MFNetworkEvaluator &network_fn = resources.construct<fn::MFNetworkEvaluator>(
+      "Force Function", dummy_sockets.as_span(), force_input_sockets.as_span());
+  return &network_fn;
+}
+
+static Map<std::string, const fn::MultiFunction *> create_force_functions(
+    MFNetworkTreeMap &network_map, ResourceCollector &resources)
+{
+  Map<std::string, const fn::MultiFunction *> force_functions;
+  for (const DNode *dnode : network_map.tree().nodes_by_type("SimulationNodeParticleSimulation")) {
+    force_functions.add_new(dnode_to_path(*dnode),
+                            create_force_function(network_map, resources, *dnode));
+  }
+  return force_functions;
+}
+
 static void simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulation *simulation_cow)
 {
   int current_frame = scene->r.cfra;
@@ -423,6 +473,8 @@ static void simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulatio
   LISTBASE_FOREACH (SimulationState *, state, &simulation_orig->states) {
     solver_context.states.add_new(state->name, state);
   }
+
+  auto force_functions = create_force_functions(network_map, resources);
 
   if (current_frame == 1) {
     reinitialize_empty_simulation_states(simulation_orig, tree);
@@ -466,8 +518,31 @@ static void simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulatio
       MutableSpan<float3> positions = attributes.get<float3>("Position");
       MutableSpan<float3> velocities = attributes.get<float3>("Velocity");
 
+      const fn::MultiFunction *force_function = force_functions.lookup_default_as(state->head.name,
+                                                                                  nullptr);
+
+      Array<float3> force{(uint)state->tot_particles, {0, 0, 0}};
+      if (force_function != nullptr) {
+        fn::MFParamsBuilder params{*force_function, (uint)state->tot_particles};
+        fn::MFContextBuilder context;
+
+        Array<Array<float3>> forces_array{force_function->param_indices().size()};
+        for (Array<float3> &force_array : forces_array) {
+          force_array = Array<float3>(state->tot_particles);
+          params.add_uninitialized_single_output(force_array.as_mutable_span());
+        }
+
+        force_function->call(IndexRange((uint)state->tot_particles), params, context);
+
+        for (Span<float3> force_array : forces_array) {
+          for (uint i : force_array.index_range()) {
+            force[i] += force_array[i];
+          }
+        }
+      }
+
       for (uint i : positions.index_range()) {
-        velocities[i].z += -1.0f * time_step;
+        velocities[i] += force[i] * time_step;
         positions[i] += velocities[i] * time_step;
       }
     }
