@@ -136,19 +136,21 @@ void OBJImporter::print_obj_data(Vector<std::unique_ptr<OBJRawObject>> &list_of_
 
 static Mesh *mesh_from_raw_obj(Main *bmain, OBJRawObject &curr_object)
 {
+  /* verts_len is 0 since BMVerts will be added later. So avoid duplication of vertices in
+   * BM_mesh_bm_from_me */
   Mesh *mesh = BKE_mesh_new_nomain(
-      curr_object.vertices.size(), 0, 0, curr_object.tot_loop, curr_object.face_elements.size());
+      0, 0, 0, curr_object.tot_loop, curr_object.face_elements.size());
 
   /* -------------------- */
   struct BMeshFromMeshParams bm_convert_params = {true, 0, 0, 0};
-  BMAllocTemplate bat = {static_cast<int>(curr_object.vertices.size()),
+  BMAllocTemplate bat = {0,
                          0,
                          static_cast<int>(curr_object.tot_loop),
                          static_cast<int>(curr_object.face_elements.size())};
   BMeshCreateParams bcp = {1};
   BMesh *bm_new = BM_mesh_create(&bat, &bcp);
   BM_mesh_bm_from_me(bm_new, mesh, &bm_convert_params);
-
+  //  BKE_mesh_free(mesh);
   /* Vertex creation. */
   Array<BMVert *> all_vertices(curr_object.vertices.size());
   for (int i = 0; i < curr_object.vertices.size(); i++) {
@@ -173,6 +175,8 @@ static Mesh *mesh_from_raw_obj(Main *bmain, OBJRawObject &curr_object)
   /* Add mesh to object. */
   BMeshToMeshParams bmtmp = {0, 0, {0, 0, 0, 0, 0}};
   BM_mesh_bm_to_me(bmain, bm_new, mesh, &bmtmp);
+  //  Mesh *mesh1 = BKE_mesh_new_nomain(0, 0, 0, 0, 0);
+  //  BM_mesh_bm_to_me_for_eval(bm_new, mesh, NULL);
   BM_mesh_free(bm_new);
 
   return mesh;
