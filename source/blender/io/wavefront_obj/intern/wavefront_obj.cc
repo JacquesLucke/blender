@@ -23,6 +23,7 @@
 
 #include <iostream>
 
+#include "BLI_timeit.hh"
 #include "PIL_time.h"
 
 #include "IO_wavefront_obj.h"
@@ -48,5 +49,6 @@ void OBJ_export(bContext *C, const OBJExportParams *export_params)
  */
 void OBJ_import(bContext *C, const OBJImportParams *import_params)
 {
+  SCOPED_TIMER(__func__);
   blender::io::obj::importer_main(C, *import_params);
 }

@@ -64,12 +64,26 @@ class OBJRawObject {
 class OBJParentCollection {
  public:
   OBJParentCollection(Main *bmain, Scene *scene);
-  void add_object_to_parent(OBJRawObject &ob_to_add, Mesh *mesh);
+  void add_object_to_parent(OBJRawObject &ob_to_add, std::unique_ptr<Mesh> mesh);
 
  private:
   Main *bmain_;
   Scene *scene_;
   Collection *parent_collection_;
+};
+
+class OBJMeshToBmesh : NonMovable, NonCopyable {
+ public:
+  OBJMeshToBmesh(OBJRawObject &curr_object);
+  ~OBJMeshToBmesh();
+  BMesh *getter_bmesh()
+  {
+    return bm_new_.get();
+  }
+
+ private:
+  std::unique_ptr<Mesh> template_mesh_;
+  std::unique_ptr<BMesh> bm_new_;
 };
 
 class OBJImporter {
@@ -80,9 +94,12 @@ class OBJImporter {
 
  public:
   OBJImporter(const OBJImportParams &import_params);
+
   void parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_objects);
   void print_obj_data(Vector<std::unique_ptr<OBJRawObject>> &list_of_objects);
-  void make_objects(Main *bmain, Scene *scene, Vector<std::unique_ptr<OBJRawObject>> &list_of_objects);
+  void make_objects(Main *bmain,
+                    Scene *scene,
+                    Vector<std::unique_ptr<OBJRawObject>> &list_of_objects);
 };
 
 void importer_main(bContext *C, const OBJImportParams &import_params);

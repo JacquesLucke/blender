@@ -134,73 +134,62 @@ void OBJImporter::print_obj_data(Vector<std::unique_ptr<OBJRawObject>> &list_of_
   }
 }
 
-static Mesh *mesh_from_raw_obj(Main *bmain, OBJRawObject &curr_object)
+OBJMeshToBmesh::OBJMeshToBmesh(OBJRawObject &curr_object)
 {
-  /* verts_len is 0 since BMVerts will be added later. So avoid duplication of vertices in
-   * BM_mesh_bm_from_me */
-  Mesh *mesh = BKE_mesh_new_nomain(
-      0, 0, 0, curr_object.tot_loop, curr_object.face_elements.size());
+  template_mesh_ = std::unique_ptr<Mesh>(
+      BKE_mesh_new_nomain(0, 0, 0, curr_object.tot_loop, curr_object.face_elements.size()));
 
-  /* -------------------- */
   struct BMeshFromMeshParams bm_convert_params = {true, 0, 0, 0};
   BMAllocTemplate bat = {0,
                          0,
                          static_cast<int>(curr_object.tot_loop),
                          static_cast<int>(curr_object.face_elements.size())};
   BMeshCreateParams bcp = {1};
-  BMesh *bm_new = BM_mesh_create(&bat, &bcp);
-  BM_mesh_bm_from_me(bm_new, mesh, &bm_convert_params);
-  //  BKE_mesh_free(mesh);
+  bm_new_ = std::unique_ptr<BMesh>(BM_mesh_create(&bat, &bcp));
+  BM_mesh_bm_from_me(bm_new_.get(), template_mesh_.get(), &bm_convert_params);
+};
+
+OBJMeshToBmesh::~OBJMeshToBmesh()
+{
+  if (bm_new_.get()) {
+    BM_mesh_free(bm_new_.release());
+  }
+  if (template_mesh_.get()) {
+    BKE_id_free(NULL, template_mesh_.release());
+  }
+}
+
+static std::unique_ptr<Mesh> mesh_from_raw_obj(Main *bmain, OBJRawObject &curr_object)
+{
+
+  OBJMeshToBmesh P{curr_object};
   /* Vertex creation. */
   Array<BMVert *> all_vertices(curr_object.vertices.size());
   for (int i = 0; i < curr_object.vertices.size(); i++) {
     MVert &curr_vert = curr_object.vertices[i];
-    all_vertices[i] = BM_vert_create(bm_new, curr_vert.co, NULL, BM_CREATE_SKIP_CD);
+    all_vertices[i] = BM_vert_create(P.getter_bmesh(), curr_vert.co, NULL, BM_CREATE_SKIP_CD);
   }
-
-  BM_mesh_elem_table_ensure(bm_new, BM_VERT);
 
   /* Face and edge creation. */
   for (const Vector<OBJFaceCorner> &curr_face : curr_object.face_elements) {
-
+    /* Collect vertices of one face from a pool of BMVerts. */
     Array<BMVert *> verts_of_face(curr_face.size());
     for (int i = 0; i < curr_face.size(); i++) {
-      //      verts_of_face[i] = BM_vert_at_index(bm_new, curr_face[i].vert_index);
       verts_of_face[i] = all_vertices[curr_face[i].vert_index];
     }
-    BM_face_create_ngon_verts(
-        bm_new, &verts_of_face[0], verts_of_face.size(), NULL, BM_CREATE_SKIP_CD, false, true);
+
+    BM_face_create_ngon_verts(P.getter_bmesh(),
+                              &verts_of_face[0],
+                              verts_of_face.size(),
+                              NULL,
+                              BM_CREATE_SKIP_CD,
+                              false,
+                              true);
   }
 
-  /* Add mesh to object. */
-  BMeshToMeshParams bmtmp = {0, 0, {0, 0, 0, 0, 0}};
-  BM_mesh_bm_to_me(bmain, bm_new, mesh, &bmtmp);
-  //  Mesh *mesh1 = BKE_mesh_new_nomain(0, 0, 0, 0, 0);
-  //  BM_mesh_bm_to_me_for_eval(bm_new, mesh, NULL);
-  BM_mesh_free(bm_new);
-
-  return mesh;
-  /* -------------------- */
-  /* Vertex creation. */
-  for (int i = 0; i < curr_object.vertices.size(); i++) {
-    MVert &curr_vert = curr_object.vertices[i];
-    copy_v3_v3(mesh->mvert[i].co, curr_vert.co);
-  }
-
-  /* Face and loop creation. */
-  for (int i = 0; i < curr_object.face_elements.size(); i++) {
-    const Vector<OBJFaceCorner> &curr_face = curr_object.face_elements[i];
-    MPoly &mpoly = mesh->mpoly[i];
-    mpoly.loopstart = curr_face[0].vert_index;
-    mpoly.totloop = curr_face.size();
-
-    MLoop *mloop = mesh->mloop;
-    for (int j = 0; j < mpoly.totloop; j++) {
-      mloop[mpoly.loopstart + j].v = curr_face[j].vert_index;
-    }
-  }
-
-  return mesh;
+  std::unique_ptr<Mesh> mesh1{(Mesh *)BKE_id_new_nomain(ID_ME, NULL)};
+  BM_mesh_bm_to_me_for_eval(P.getter_bmesh(), mesh1.get(), NULL);
+  return mesh1;
 }
 
 OBJParentCollection::OBJParentCollection(Main *bmain, Scene *scene) : bmain_(bmain), scene_(scene)
@@ -209,15 +198,17 @@ OBJParentCollection::OBJParentCollection(Main *bmain, Scene *scene) : bmain_(bma
       bmain_, scene_->master_collection, "OBJ import collection");
 }
 
-void OBJParentCollection::add_object_to_parent(OBJRawObject &ob_to_add, Mesh *mesh)
+void OBJParentCollection::add_object_to_parent(OBJRawObject &ob_to_add, std::unique_ptr<Mesh> mesh)
 {
-  Object *b_object = BKE_object_add_only_object(bmain_, OB_MESH, ob_to_add.object_name.c_str());
+  std::unique_ptr<Object> b_object{
+      BKE_object_add_only_object(bmain_, OB_MESH, ob_to_add.object_name.c_str())};
   b_object->data = BKE_object_obdata_add_from_type(bmain_, OB_MESH, ob_to_add.object_name.c_str());
 
   //  BKE_mesh_validate(mesh, false, true);
-  BKE_mesh_nomain_to_mesh(mesh, (Mesh *)b_object->data, b_object, &CD_MASK_EVERYTHING, true);
+  BKE_mesh_nomain_to_mesh(
+      mesh.release(), (Mesh *)b_object->data, b_object.get(), &CD_MASK_EVERYTHING, true);
 
-  BKE_collection_object_add(bmain_, parent_collection_, b_object);
+  BKE_collection_object_add(bmain_, parent_collection_, b_object.release());
   id_fake_user_set(&parent_collection_->id);
 
   DEG_id_tag_update(&parent_collection_->id, ID_RECALC_COPY_ON_WRITE);
@@ -230,9 +221,9 @@ void OBJImporter::make_objects(Main *bmain,
 {
   OBJParentCollection parent{bmain, scene};
   for (std::unique_ptr<OBJRawObject> &curr_object : list_of_objects) {
-    Mesh *mesh = mesh_from_raw_obj(bmain, *curr_object);
+    std::unique_ptr<Mesh> mesh = mesh_from_raw_obj(bmain, *curr_object);
 
-    parent.add_object_to_parent(*curr_object, mesh);
+    parent.add_object_to_parent(*curr_object, std::move(mesh));
   }
 }
 
@@ -243,7 +234,7 @@ void importer_main(bContext *C, const OBJImportParams &import_params)
   Vector<std::unique_ptr<OBJRawObject>> list_of_objects;
   OBJImporter importer = OBJImporter(import_params);
   importer.parse_and_store(list_of_objects);
-  importer.print_obj_data(list_of_objects);
+  //  importer.print_obj_data(list_of_objects);
   importer.make_objects(bmain, scene, list_of_objects);
 }
 }  // namespace blender::io::obj
