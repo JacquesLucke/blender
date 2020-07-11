@@ -134,7 +134,7 @@ void OBJImporter::print_obj_data(Vector<std::unique_ptr<OBJRawObject>> &list_of_
   }
 }
 
-OBJRawToBmesh::OBJRawToBmesh(OBJRawObject &curr_object)
+OBJBmeshFromRaw::OBJBmeshFromRaw(const OBJRawObject &curr_object)
 {
   template_mesh_ = std::unique_ptr<Mesh>(
       BKE_mesh_new_nomain(0, 0, 0, curr_object.tot_loop, curr_object.face_elements.size()));
@@ -149,7 +149,7 @@ OBJRawToBmesh::OBJRawToBmesh(OBJRawObject &curr_object)
   BM_mesh_bm_from_me(bm_new_.get(), template_mesh_.get(), &bm_convert_params);
 };
 
-OBJRawToBmesh::~OBJRawToBmesh()
+OBJBmeshFromRaw::~OBJBmeshFromRaw()
 {
   if (bm_new_.get()) {
     BM_mesh_free(bm_new_.release());
@@ -159,36 +159,39 @@ OBJRawToBmesh::~OBJRawToBmesh()
   }
 }
 
-static std::unique_ptr<Mesh> mesh_from_raw_obj(Main *bmain, OBJRawObject &curr_object)
+BMVert *OBJBmeshFromRaw::add_bmvert(float3 coords)
+{
+  return BM_vert_create(bm_new_.get(), coords, NULL, BM_CREATE_SKIP_CD);
+}
+
+void OBJBmeshFromRaw::add_polygon_from_verts(BMVert **verts_of_face, uint tot_verts_per_poly)
+{
+  BM_face_create_ngon_verts(
+      bm_new_.get(), verts_of_face, tot_verts_per_poly, NULL, BM_CREATE_SKIP_CD, false, true);
+}
+
+static std::unique_ptr<Mesh> mesh_from_raw_obj(Main *bmain, const OBJRawObject &curr_object)
 {
 
-  OBJRawToBmesh P{curr_object};
-  /* Vertex creation. */
+  OBJBmeshFromRaw bm_from_raw{curr_object};
+
   Array<BMVert *> all_vertices(curr_object.vertices.size());
   for (int i = 0; i < curr_object.vertices.size(); i++) {
-    MVert &curr_vert = curr_object.vertices[i];
-    all_vertices[i] = BM_vert_create(P.getter_bmesh(), curr_vert.co, NULL, BM_CREATE_SKIP_CD);
+    const MVert &curr_vert = curr_object.vertices[i];
+    all_vertices[i] = bm_from_raw.add_bmvert(curr_vert.co);
   }
 
-  /* Face and edge creation. */
   for (const Vector<OBJFaceCorner> &curr_face : curr_object.face_elements) {
-    /* Collect vertices of one face from a pool of BMVerts. */
+    /* Collect vertices of one face from a pool of BMesh vertices. */
     Array<BMVert *> verts_of_face(curr_face.size());
     for (int i = 0; i < curr_face.size(); i++) {
       verts_of_face[i] = all_vertices[curr_face[i].vert_index];
     }
-
-    BM_face_create_ngon_verts(P.getter_bmesh(),
-                              &verts_of_face[0],
-                              verts_of_face.size(),
-                              NULL,
-                              BM_CREATE_SKIP_CD,
-                              false,
-                              true);
+    bm_from_raw.add_polygon_from_verts(&verts_of_face[0], curr_face.size());
   }
 
   std::unique_ptr<Mesh> mesh1{(Mesh *)BKE_id_new_nomain(ID_ME, NULL)};
-  BM_mesh_bm_to_me_for_eval(P.getter_bmesh(), mesh1.get(), NULL);
+  BM_mesh_bm_to_me_for_eval(bm_from_raw.getter_bmesh(), mesh1.get(), NULL);
   return mesh1;
 }
 

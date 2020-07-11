@@ -72,14 +72,17 @@ class OBJParentCollection {
   Collection *parent_collection_;
 };
 
-class OBJRawToBmesh : NonMovable, NonCopyable {
+class OBJBmeshFromRaw : NonMovable, NonCopyable {
  public:
-  OBJRawToBmesh(OBJRawObject &curr_object);
-  ~OBJRawToBmesh();
+  OBJBmeshFromRaw(const OBJRawObject &curr_object);
+  ~OBJBmeshFromRaw();
   BMesh *getter_bmesh()
   {
     return bm_new_.get();
   }
+
+  BMVert *add_bmvert(float3 coords);
+  void add_polygon_from_verts(BMVert **verts_of_face, uint tot_verts_per_poly);
 
  private:
   std::unique_ptr<Mesh> template_mesh_;
