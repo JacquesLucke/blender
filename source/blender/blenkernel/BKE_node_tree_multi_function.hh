@@ -82,7 +82,7 @@ class MFNetworkTreeMap {
 
   fn::MFNetwork &network()
   {
-    return m_network;
+    return network_;
   }
 
   void add(const DSocket &dsocket, fn::MFSocket &socket)
