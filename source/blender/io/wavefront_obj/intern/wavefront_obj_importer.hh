@@ -72,10 +72,10 @@ class OBJParentCollection {
   Collection *parent_collection_;
 };
 
-class OBJMeshToBmesh : NonMovable, NonCopyable {
+class OBJRawToBmesh : NonMovable, NonCopyable {
  public:
-  OBJMeshToBmesh(OBJRawObject &curr_object);
-  ~OBJMeshToBmesh();
+  OBJRawToBmesh(OBJRawObject &curr_object);
+  ~OBJRawToBmesh();
   BMesh *getter_bmesh()
   {
     return bm_new_.get();

@@ -134,7 +134,7 @@ void OBJImporter::print_obj_data(Vector<std::unique_ptr<OBJRawObject>> &list_of_
   }
 }
 
-OBJMeshToBmesh::OBJMeshToBmesh(OBJRawObject &curr_object)
+OBJRawToBmesh::OBJRawToBmesh(OBJRawObject &curr_object)
 {
   template_mesh_ = std::unique_ptr<Mesh>(
       BKE_mesh_new_nomain(0, 0, 0, curr_object.tot_loop, curr_object.face_elements.size()));
@@ -149,7 +149,7 @@ OBJMeshToBmesh::OBJMeshToBmesh(OBJRawObject &curr_object)
   BM_mesh_bm_from_me(bm_new_.get(), template_mesh_.get(), &bm_convert_params);
 };
 
-OBJMeshToBmesh::~OBJMeshToBmesh()
+OBJRawToBmesh::~OBJRawToBmesh()
 {
   if (bm_new_.get()) {
     BM_mesh_free(bm_new_.release());
@@ -162,7 +162,7 @@ OBJMeshToBmesh::~OBJMeshToBmesh()
 static std::unique_ptr<Mesh> mesh_from_raw_obj(Main *bmain, OBJRawObject &curr_object)
 {
 
-  OBJMeshToBmesh P{curr_object};
+  OBJRawToBmesh P{curr_object};
   /* Vertex creation. */
   Array<BMVert *> all_vertices(curr_object.vertices.size());
   for (int i = 0; i < curr_object.vertices.size(); i++) {
