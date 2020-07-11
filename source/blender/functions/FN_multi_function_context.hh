@@ -29,6 +29,8 @@
 
 #include "BLI_utildefines.h"
 
+#include "BLI_vector.hh"
+
 namespace blender::fn {
 
 class MFElementContextIndices {

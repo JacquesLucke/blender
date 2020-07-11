@@ -465,7 +465,8 @@ static void simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulatio
   fn::mf_network_optimization::common_subnetwork_elimination(network);
   fn::mf_network_optimization::dead_node_removal(network);
   UNUSED_VARS(attribute_node_map);
-  // WM_clipboard_text_set(network.to_dot().c_str(), false);
+  WM_clipboard_text_set(network.to_dot().c_str(), false);
+  return;
 
   update_simulation_state_list(simulation_orig, tree);
 
