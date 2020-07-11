@@ -211,7 +211,7 @@ static void copy_states_to_cow(Simulation *simulation_orig, Simulation *simulati
   }
 }
 
-using AttributeInputSockets = Map<fn::MFOutputSocket *, std::pair<std::string, fn::MFDataType>>;
+using AttributeInputSockets = Map<fn::MFOutputSocket *, std::string>;
 
 static AttributeInputSockets deduplicate_attribute_nodes(MFNetworkTreeMap &network_map)
 {
@@ -246,7 +246,7 @@ static AttributeInputSockets deduplicate_attribute_nodes(MFNetworkTreeMap &netwo
       attribute_nodes_by_name_and_type;
   for (uint i : IndexRange(amount)) {
     attribute_nodes_by_name_and_type
-        .lookup_or_add_default({attribute_names[i], name_sockets[i]->data_type()})
+        .lookup_or_add_default({attribute_names[i], name_sockets[i]->node().output(0).data_type()})
         .append(&name_sockets[i]->node());
   }
 
@@ -264,7 +264,7 @@ static AttributeInputSockets deduplicate_attribute_nodes(MFNetworkTreeMap &netwo
     }
     network.remove(nodes);
 
-    final_attribute_nodes.add_new(&new_attribute_socket, item.key);
+    final_attribute_nodes.add_new(&new_attribute_socket, item.key.first);
   }
 
   return final_attribute_nodes;
@@ -390,6 +390,68 @@ struct GlobalSolverContext {
   Map<std::string, SimulationState *> states;
 };
 
+class ParticleFunctionInputProvider {
+ public:
+  virtual ~ParticleFunctionInputProvider() = default;
+  virtual void add_input(fn::AttributesRef attributes, fn::MFParamsBuilder &params) const = 0;
+};
+
+class ParticleFunction {
+ private:
+  const fn::MultiFunction &fn_;
+  Vector<std::unique_ptr<ParticleFunctionInputProvider>> input_providers_;
+  uint output_amount_;
+
+ public:
+  ParticleFunction(const fn::MultiFunction &fn,
+                   Vector<std::unique_ptr<ParticleFunctionInputProvider>> input_providers,
+                   uint output_amount)
+      : fn_(fn), input_providers_(std::move(input_providers)), output_amount_(output_amount)
+  {
+  }
+
+  const fn::MultiFunction &fn() const
+  {
+    return fn_;
+  }
+
+  void prepare_inputs(fn::AttributesRef attributes, fn::MFParamsBuilder &params) const
+  {
+    for (auto &provider : input_providers_) {
+      provider->add_input(attributes, params);
+    }
+  }
+
+  uint output_amount() const
+  {
+    return output_amount_;
+  }
+};
+
+class ParticleAttributeInput : public ParticleFunctionInputProvider {
+ private:
+  std::string name_;
+  const fn::CPPType &type_;
+
+ public:
+  ParticleAttributeInput(std::string name, const fn::CPPType &type)
+      : name_(std::move(name)), type_(type)
+  {
+  }
+
+  void add_input(fn::AttributesRef attributes, fn::MFParamsBuilder &params) const override
+  {
+    std::optional<fn::GSpan> span = attributes.try_get(name_, type_);
+    if (span.has_value()) {
+      params.add_readonly_single_input(*span);
+    }
+    else {
+      params.add_readonly_single_input(
+          fn::GVSpan::FromSingleWithMaxSize(type_, type_.default_value()));
+    }
+  }
+};
+
 static Vector<const DNode *> find_particle_force_dnodes(const DNode &particle_simulation_dnode)
 {
   Vector<const DNode *> force_nodes;
@@ -402,9 +464,10 @@ static Vector<const DNode *> find_particle_force_dnodes(const DNode &particle_si
   return force_nodes;
 }
 
-static const fn::MultiFunction *create_force_function(MFNetworkTreeMap &network_map,
-                                                      ResourceCollector &resources,
-                                                      const DNode &particle_simulation_dnode)
+static const ParticleFunction *create_force_function(MFNetworkTreeMap &network_map,
+                                                     ResourceCollector &resources,
+                                                     const DNode &particle_simulation_dnode,
+                                                     const AttributeInputSockets &attribute_inputs)
 {
   Vector<const DNode *> force_dnodes = find_particle_force_dnodes(particle_simulation_dnode);
   if (force_dnodes.is_empty()) {
@@ -420,22 +483,42 @@ static const fn::MultiFunction *create_force_function(MFNetworkTreeMap &network_
   VectorSet<const fn::MFOutputSocket *> dummy_sockets;
   network_map.network().find_dependencies(force_input_sockets, dummy_sockets, unlinked_inputs);
 
-  if (!unlinked_inputs.is_empty() || !dummy_sockets.is_empty()) {
+  if (!unlinked_inputs.is_empty()) {
     return nullptr;
   }
 
-  fn::MFNetworkEvaluator &network_fn = resources.construct<fn::MFNetworkEvaluator>(
+  Vector<std::unique_ptr<ParticleFunctionInputProvider>> input_providers;
+  for (const fn::MFOutputSocket *socket : dummy_sockets) {
+    const std::string *attribute_name = attribute_inputs.lookup_ptr(
+        const_cast<fn::MFOutputSocket *>(socket));
+    if (attribute_name != nullptr) {
+      input_providers.append(std::make_unique<ParticleAttributeInput>(
+          *attribute_name, socket->data_type().single_type()));
+    }
+    else {
+      return nullptr;
+    }
+  }
+
+  fn::MultiFunction &network_fn = resources.construct<fn::MFNetworkEvaluator>(
       "Force Function", dummy_sockets.as_span(), force_input_sockets.as_span());
-  return &network_fn;
+
+  ParticleFunction &particle_function = resources.construct<ParticleFunction>(
+      AT, network_fn, std::move(input_providers), force_dnodes.size());
+
+  return &particle_function;
 }
 
-static Map<std::string, const fn::MultiFunction *> create_force_functions(
-    MFNetworkTreeMap &network_map, ResourceCollector &resources)
+static Map<std::string, const ParticleFunction *> create_force_functions(
+    MFNetworkTreeMap &network_map,
+    ResourceCollector &resources,
+    const AttributeInputSockets &attribute_inputs)
 {
-  Map<std::string, const fn::MultiFunction *> force_functions;
+  Map<std::string, const ParticleFunction *> force_functions;
   for (const DNode *dnode : network_map.tree().nodes_by_type("SimulationNodeParticleSimulation")) {
-    force_functions.add_new(dnode_to_path(*dnode),
-                            create_force_function(network_map, resources, *dnode));
+    force_functions.add_new(
+        dnode_to_path(*dnode),
+        create_force_function(network_map, resources, *dnode, attribute_inputs));
   }
   return force_functions;
 }
@@ -460,13 +543,11 @@ static void simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulatio
   fn::MFNetwork network;
   ResourceCollector resources;
   MFNetworkTreeMap network_map = insert_node_tree_into_mf_network(network, tree, resources);
-  AttributeInputSockets attribute_node_map = deduplicate_attribute_nodes(network_map);
+  AttributeInputSockets attribute_input_sockets = deduplicate_attribute_nodes(network_map);
   fn::mf_network_optimization::constant_folding(network, resources);
   fn::mf_network_optimization::common_subnetwork_elimination(network);
   fn::mf_network_optimization::dead_node_removal(network);
-  UNUSED_VARS(attribute_node_map);
   WM_clipboard_text_set(network.to_dot().c_str(), false);
-  return;
 
   update_simulation_state_list(simulation_orig, tree);
 
@@ -475,7 +556,7 @@ static void simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulatio
     solver_context.states.add_new(state->name, state);
   }
 
-  auto force_functions = create_force_functions(network_map, resources);
+  auto force_functions = create_force_functions(network_map, resources, attribute_input_sockets);
 
   if (current_frame == 1) {
     reinitialize_empty_simulation_states(simulation_orig, tree);
@@ -519,21 +600,23 @@ static void simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulatio
       MutableSpan<float3> positions = attributes.get<float3>("Position");
       MutableSpan<float3> velocities = attributes.get<float3>("Velocity");
 
-      const fn::MultiFunction *force_function = force_functions.lookup_default_as(state->head.name,
-                                                                                  nullptr);
+      const ParticleFunction *force_function = force_functions.lookup_default_as(state->head.name,
+                                                                                 nullptr);
 
       Array<float3> force{(uint)state->tot_particles, {0, 0, 0}};
       if (force_function != nullptr) {
-        fn::MFParamsBuilder params{*force_function, (uint)state->tot_particles};
+        fn::MFParamsBuilder params{force_function->fn(), (uint)state->tot_particles};
         fn::MFContextBuilder context;
 
-        Array<Array<float3>> forces_array{force_function->param_indices().size()};
+        force_function->prepare_inputs(attributes, params);
+
+        Array<Array<float3>> forces_array{force_function->output_amount()};
         for (Array<float3> &force_array : forces_array) {
           force_array = Array<float3>(state->tot_particles);
           params.add_uninitialized_single_output(force_array.as_mutable_span());
         }
 
-        force_function->call(IndexRange((uint)state->tot_particles), params, context);
+        force_function->fn().call(IndexRange((uint)state->tot_particles), params, context);
 
         for (Span<float3> force_array : forces_array) {
           for (uint i : force_array.index_range()) {
