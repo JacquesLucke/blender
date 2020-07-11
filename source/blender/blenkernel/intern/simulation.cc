@@ -460,8 +460,7 @@ static void simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulatio
   fn::MFNetwork network;
   ResourceCollector resources;
   MFNetworkTreeMap network_map = insert_node_tree_into_mf_network(network, tree, resources);
-  AttributeInputSockets attribute_node_map = deduplicate_attribute_nodes(
-      network, network_map, tree);
+  AttributeInputSockets attribute_node_map = deduplicate_attribute_nodes(network_map);
   fn::mf_network_optimization::constant_folding(network, resources);
   fn::mf_network_optimization::common_subnetwork_elimination(network);
   fn::mf_network_optimization::dead_node_removal(network);
