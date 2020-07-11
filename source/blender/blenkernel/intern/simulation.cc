@@ -211,13 +211,12 @@ static void copy_states_to_cow(Simulation *simulation_orig, Simulation *simulati
   }
 }
 
-using AttributeNodeMap = Map<fn::MFDummyNode *, std::pair<std::string, fn::MFDataType>>;
+using AttributeInputSockets = Map<fn::MFOutputSocket *, std::pair<std::string, fn::MFDataType>>;
 
-static AttributeNodeMap deduplicate_attribute_nodes(fn::MFNetwork &network,
-                                                    MFNetworkTreeMap &network_map,
-                                                    const DerivedNodeTree &tree)
+static AttributeInputSockets deduplicate_attribute_nodes(MFNetworkTreeMap &network_map)
 {
-  Span<const DNode *> attribute_dnodes = tree.nodes_by_type("SimulationNodeParticleAttribute");
+  Span<const DNode *> attribute_dnodes = network_map.tree().nodes_by_type(
+      "SimulationNodeParticleAttribute");
   uint amount = attribute_dnodes.size();
   if (amount == 0) {
     return {};
@@ -251,12 +250,13 @@ static AttributeNodeMap deduplicate_attribute_nodes(fn::MFNetwork &network,
         .append(&name_sockets[i]->node());
   }
 
-  AttributeNodeMap final_attribute_nodes;
+  AttributeInputSockets final_attribute_nodes;
   for (auto item : attribute_nodes_by_name_and_type.items()) {
     StringRef attribute_name = item.key.first;
     fn::MFDataType data_type = item.key.second;
     Span<fn::MFNode *> nodes = item.value;
 
+    fn::MFNetwork &network = network_map.network();
     fn::MFOutputSocket &new_attribute_socket = network.add_input(
         "Attribute '" + attribute_name + "'", data_type);
     for (fn::MFNode *node : nodes) {
@@ -264,7 +264,7 @@ static AttributeNodeMap deduplicate_attribute_nodes(fn::MFNetwork &network,
     }
     network.remove(nodes);
 
-    final_attribute_nodes.add_new(&new_attribute_socket.node().as_dummy(), item.key);
+    final_attribute_nodes.add_new(&new_attribute_socket, item.key);
   }
 
   return final_attribute_nodes;
@@ -460,7 +460,8 @@ static void simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulatio
   fn::MFNetwork network;
   ResourceCollector resources;
   MFNetworkTreeMap network_map = insert_node_tree_into_mf_network(network, tree, resources);
-  AttributeNodeMap attribute_node_map = deduplicate_attribute_nodes(network, network_map, tree);
+  AttributeInputSockets attribute_node_map = deduplicate_attribute_nodes(
+      network, network_map, tree);
   fn::mf_network_optimization::constant_folding(network, resources);
   fn::mf_network_optimization::common_subnetwork_elimination(network);
   fn::mf_network_optimization::dead_node_removal(network);

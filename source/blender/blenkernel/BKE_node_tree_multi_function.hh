@@ -80,6 +80,11 @@ class MFNetworkTreeMap {
     return m_network;
   }
 
+  fn::MFNetwork &network()
+  {
+    return m_network;
+  }
+
   void add(const DSocket &dsocket, fn::MFSocket &socket)
   {
     BLI_assert(dsocket.is_input() == socket.is_input());
