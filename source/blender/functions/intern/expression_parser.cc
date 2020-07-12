@@ -22,11 +22,6 @@ class TokensToAstBuilder {
     BLI_assert(token_types.last() == TokenType::EndOfString);
   }
 
-  LinearAllocator<> &allocator()
-  {
-    return allocator_;
-  }
-
   TokenType next_type() const
   {
     return token_types_[current_];
@@ -112,211 +107,203 @@ class TokensToAstBuilder {
     AstNode *node = allocator_.construct<AstNode>(children, node_type);
     return node;
   }
-};
 
-static bool is_comparison_token(TokenType token_type)
-{
-  int type = (int)token_type;
-  return type >= (int)TokenType::IsLess && type <= (int)TokenType::IsGreaterOrEqual;
-}
-
-static AstNodeType get_comparison_node_type(TokenType token_type)
-{
-  switch (token_type) {
-    case TokenType::IsLess:
-      return AstNodeType::IsLess;
-    case TokenType::IsGreater:
-      return AstNodeType::IsGreater;
-    case TokenType::IsEqual:
-      return AstNodeType::IsEqual;
-    case TokenType::IsLessOrEqual:
-      return AstNodeType::IsLessOrEqual;
-    case TokenType::IsGreaterOrEqual:
-      return AstNodeType::IsGreaterOrEqual;
-    default:
-      BLI_assert(false);
-      return AstNodeType::Error;
+  bool is_comparison_token(TokenType token_type)
+  {
+    int type = (int)token_type;
+    return type >= (int)TokenType::IsLess && type <= (int)TokenType::IsGreaterOrEqual;
   }
-}
 
-static bool is_add_sub_token(TokenType token_type)
-{
-  return ELEM(token_type, TokenType::Plus, TokenType::Minus);
-}
-
-static AstNodeType get_add_sub_node_type(TokenType token_type)
-{
-  switch (token_type) {
-    case TokenType::Plus:
-      return AstNodeType::Plus;
-    case TokenType::Minus:
-      return AstNodeType::Minus;
-    default:
-      BLI_assert(false);
-      return AstNodeType::Error;
-  }
-}
-
-static bool is_mul_div_token(TokenType token_type)
-{
-  return ELEM(token_type, TokenType::Asterix, TokenType::ForwardSlash);
-}
-
-static AstNodeType get_mul_div_node_type(TokenType token_type)
-{
-  switch (token_type) {
-    case TokenType::Asterix:
-      return AstNodeType::Multiply;
-    case TokenType::ForwardSlash:
-      return AstNodeType::Divide;
-    default:
-      BLI_assert(false);
-      return AstNodeType::Error;
-  }
-}
-
-static AstNode *parse_expression(TokensToAstBuilder &builder);
-static AstNode *parse_expression__comparison_level(TokensToAstBuilder &builder);
-static AstNode *parse_expression__add_sub_level(TokensToAstBuilder &builder);
-static AstNode *parse_expression__mul_div_level(TokensToAstBuilder &builder);
-static AstNode *parse_expression__power_level(TokensToAstBuilder &builder);
-static AstNode *parse_expression__attribute_level(TokensToAstBuilder &builder);
-static AstNode *parse_expression__atolevel_(TokensToAstBuilder &builder);
-
-static AstNode *parse_expression(TokensToAstBuilder &builder)
-{
-  return parse_expression__comparison_level(builder);
-}
-
-static AstNode *parse_expression__comparison_level(TokensToAstBuilder &builder)
-{
-  AstNode *left_expr = parse_expression__add_sub_level(builder);
-  if (is_comparison_token(builder.next_type())) {
-    AstNodeType node_type = get_comparison_node_type(builder.next_type());
-    builder.consume();
-    AstNode *right_expr = parse_expression__add_sub_level(builder);
-    return builder.construct_binary_node(node_type, left_expr, right_expr);
-  }
-  else {
-    return left_expr;
-  }
-}
-
-static AstNode *parse_expression__add_sub_level(TokensToAstBuilder &builder)
-{
-  AstNode *left_expr = parse_expression__mul_div_level(builder);
-  while (is_add_sub_token(builder.next_type())) {
-    AstNodeType node_type = get_add_sub_node_type(builder.next_type());
-    builder.consume();
-    AstNode *right_expr = parse_expression__mul_div_level(builder);
-    left_expr = builder.construct_binary_node(node_type, left_expr, right_expr);
-  }
-  return left_expr;
-}
-
-static AstNode *parse_expression__mul_div_level(TokensToAstBuilder &builder)
-{
-  AstNode *left_expr = parse_expression__power_level(builder);
-  while (is_mul_div_token(builder.next_type())) {
-    AstNodeType node_type = get_mul_div_node_type(builder.next_type());
-    builder.consume();
-    AstNode *right_expr = parse_expression__power_level(builder);
-    left_expr = builder.construct_binary_node(node_type, left_expr, right_expr);
-  }
-  return left_expr;
-}
-
-static AstNode *parse_expression__power_level(TokensToAstBuilder &builder)
-{
-  AstNode *base_expr = parse_expression__attribute_level(builder);
-  if (builder.next_type() == TokenType::DoubleAsterix) {
-    builder.consume();
-    AstNode *exponent_expr = parse_expression__attribute_level(builder);
-    return builder.construct_binary_node(AstNodeType::Power, base_expr, exponent_expr);
-  }
-  else {
-    return base_expr;
-  }
-}
-
-static void parse_argument_list(TokensToAstBuilder &builder, Vector<AstNode *> &r_args)
-{
-  builder.consume(TokenType::ParenOpen);
-  while (builder.next_type() != TokenType::ParenClose) {
-    r_args.append(parse_expression(builder));
-    if (builder.next_type() == TokenType::Comma) {
-      builder.consume();
+  AstNodeType get_comparison_node_type(TokenType token_type)
+  {
+    switch (token_type) {
+      case TokenType::IsLess:
+        return AstNodeType::IsLess;
+      case TokenType::IsGreater:
+        return AstNodeType::IsGreater;
+      case TokenType::IsEqual:
+        return AstNodeType::IsEqual;
+      case TokenType::IsLessOrEqual:
+        return AstNodeType::IsLessOrEqual;
+      case TokenType::IsGreaterOrEqual:
+        return AstNodeType::IsGreaterOrEqual;
+      default:
+        BLI_assert(false);
+        return AstNodeType::Error;
     }
   }
-  builder.consume(TokenType::ParenClose);
-}
 
-static AstNode *parse_expression__attribute_level(TokensToAstBuilder &builder)
-{
-  AstNode *expr = parse_expression__atolevel_(builder);
-  if (builder.next_type() == TokenType::Dot) {
-    builder.consume();
-    BLI_assert(builder.next_type() == TokenType::Identifier);
-    StringRef token_str = builder.consume_next_str();
-    StringRefNull name = builder.allocator().copy_string(token_str);
-    if (builder.next_type() == TokenType::ParenOpen) {
-      Vector<AstNode *> args;
-      args.append(expr);
-      parse_argument_list(builder, args);
-      MutableSpan<AstNode *> children = builder.allocator().construct_array_copy(args.as_span());
-      return builder.allocator().construct<MethodCallNode>(name, children);
+  bool is_add_sub_token(TokenType token_type)
+  {
+    return ELEM(token_type, TokenType::Plus, TokenType::Minus);
+  }
+
+  AstNodeType get_add_sub_node_type(TokenType token_type)
+  {
+    switch (token_type) {
+      case TokenType::Plus:
+        return AstNodeType::Plus;
+      case TokenType::Minus:
+        return AstNodeType::Minus;
+      default:
+        BLI_assert(false);
+        return AstNodeType::Error;
+    }
+  }
+
+  bool is_mul_div_token(TokenType token_type)
+  {
+    return ELEM(token_type, TokenType::Asterix, TokenType::ForwardSlash);
+  }
+
+  AstNodeType get_mul_div_node_type(TokenType token_type)
+  {
+    switch (token_type) {
+      case TokenType::Asterix:
+        return AstNodeType::Multiply;
+      case TokenType::ForwardSlash:
+        return AstNodeType::Divide;
+      default:
+        BLI_assert(false);
+        return AstNodeType::Error;
+    }
+  }
+
+  AstNode *parse_expression()
+  {
+    return this->parse_expression__comparison_level();
+  }
+
+  AstNode *parse_expression__comparison_level()
+  {
+    AstNode *left_expr = this->parse_expression__add_sub_level();
+    if (this->is_comparison_token(this->next_type())) {
+      AstNodeType node_type = this->get_comparison_node_type(this->next_type());
+      this->consume();
+      AstNode *right_expr = this->parse_expression__add_sub_level();
+      return this->construct_binary_node(node_type, left_expr, right_expr);
     }
     else {
-      MutableSpan<AstNode *> children = builder.allocator().allocate_array<AstNode *>(1);
-      children[0] = expr;
-      return builder.allocator().construct<AttributeNode>(name, children);
+      return left_expr;
     }
   }
-  else {
-    return expr;
-  }
-}
 
-static AstNode *parse_expression__atolevel_(TokensToAstBuilder &builder)
-{
-  switch (builder.next_type()) {
-    case TokenType::Identifier: {
-      StringRef token_str = builder.consume_next_str();
-      StringRefNull identifier = builder.allocator().copy_string(token_str);
-      if (builder.next_type() == TokenType::ParenOpen) {
+  AstNode *parse_expression__add_sub_level()
+  {
+    AstNode *left_expr = this->parse_expression__mul_div_level();
+    while (this->is_add_sub_token(this->next_type())) {
+      AstNodeType node_type = this->get_add_sub_node_type(this->next_type());
+      this->consume();
+      AstNode *right_expr = this->parse_expression__mul_div_level();
+      left_expr = this->construct_binary_node(node_type, left_expr, right_expr);
+    }
+    return left_expr;
+  }
+
+  AstNode *parse_expression__mul_div_level()
+  {
+    AstNode *left_expr = this->parse_expression__power_level();
+    while (is_mul_div_token(this->next_type())) {
+      AstNodeType node_type = this->get_mul_div_node_type(this->next_type());
+      this->consume();
+      AstNode *right_expr = this->parse_expression__power_level();
+      left_expr = this->construct_binary_node(node_type, left_expr, right_expr);
+    }
+    return left_expr;
+  }
+
+  AstNode *parse_expression__power_level()
+  {
+    AstNode *base_expr = this->parse_expression__attribute_level();
+    if (this->next_type() == TokenType::DoubleAsterix) {
+      this->consume();
+      AstNode *exponent_expr = this->parse_expression__attribute_level();
+      return this->construct_binary_node(AstNodeType::Power, base_expr, exponent_expr);
+    }
+    else {
+      return base_expr;
+    }
+  }
+
+  void parse_argument_list(Vector<AstNode *> &r_args)
+  {
+    this->consume(TokenType::ParenOpen);
+    while (this->next_type() != TokenType::ParenClose) {
+      r_args.append(parse_expression());
+      if (this->next_type() == TokenType::Comma) {
+        this->consume();
+      }
+    }
+    this->consume(TokenType::ParenClose);
+  }
+
+  AstNode *parse_expression__attribute_level()
+  {
+    AstNode *expr = parse_expression__atom_level();
+    if (this->next_type() == TokenType::Dot) {
+      this->consume();
+      BLI_assert(this->next_type() == TokenType::Identifier);
+      StringRef token_str = this->consume_next_str();
+      StringRefNull name = allocator_.copy_string(token_str);
+      if (this->next_type() == TokenType::ParenOpen) {
         Vector<AstNode *> args;
-        parse_argument_list(builder, args);
-        MutableSpan<AstNode *> children = builder.allocator().construct_array_copy(args.as_span());
-        return builder.allocator().construct<CallNode>(identifier, children);
+        args.append(expr);
+        this->parse_argument_list(args);
+        MutableSpan<AstNode *> children = allocator_.construct_array_copy(args.as_span());
+        return allocator_.construct<MethodCallNode>(name, children);
       }
       else {
-        return builder.allocator().construct<IdentifierNode>(identifier);
+        MutableSpan<AstNode *> children = allocator_.allocate_array<AstNode *>(1);
+        children[0] = expr;
+        return allocator_.construct<AttributeNode>(name, children);
       }
     }
-    case TokenType::IntLiteral:
-      return builder.consume_constant_int();
-    case TokenType::FloatLiteral:
-      return builder.consume_constant_float();
-    case TokenType::Minus: {
-      builder.consume();
-      AstNode *expr = parse_expression__mul_div_level(builder);
-      return builder.construct_unary_node(AstNodeType::Negate, expr);
-    }
-    case TokenType::Plus: {
-      builder.consume();
-      return parse_expression__mul_div_level(builder);
-    }
-    case TokenType::ParenOpen: {
-      builder.consume();
-      AstNode *expr = parse_expression(builder);
-      builder.consume(TokenType::ParenClose);
+    else {
       return expr;
     }
-    default:
-      BLI_assert(false);
-      return nullptr;
   }
-}
+
+  AstNode *parse_expression__atom_level()
+  {
+    switch (this->next_type()) {
+      case TokenType::Identifier: {
+        StringRef token_str = this->consume_next_str();
+        StringRefNull identifier = allocator_.copy_string(token_str);
+        if (this->next_type() == TokenType::ParenOpen) {
+          Vector<AstNode *> args;
+          this->parse_argument_list(args);
+          MutableSpan<AstNode *> children = allocator_.construct_array_copy(args.as_span());
+          return allocator_.construct<CallNode>(identifier, children);
+        }
+        else {
+          return allocator_.construct<IdentifierNode>(identifier);
+        }
+      }
+      case TokenType::IntLiteral:
+        return this->consume_constant_int();
+      case TokenType::FloatLiteral:
+        return this->consume_constant_float();
+      case TokenType::Minus: {
+        this->consume();
+        AstNode *expr = this->parse_expression__mul_div_level();
+        return this->construct_unary_node(AstNodeType::Negate, expr);
+      }
+      case TokenType::Plus: {
+        this->consume();
+        return this->parse_expression__mul_div_level();
+      }
+      case TokenType::ParenOpen: {
+        this->consume();
+        AstNode *expr = this->parse_expression();
+        this->consume(TokenType::ParenClose);
+        return expr;
+      }
+      default:
+        BLI_assert(false);
+        return nullptr;
+    }
+  }
+};
 
 AstNode &parse_expression(StringRef str, LinearAllocator<> &allocator)
 {
@@ -329,7 +316,7 @@ AstNode &parse_expression(StringRef str, LinearAllocator<> &allocator)
 
   tokens.types.append(TokenType::EndOfString);
   TokensToAstBuilder builder(str, tokens.types, tokens.ranges, allocator);
-  AstNode &node = *parse_expression(builder);
+  AstNode &node = *builder.parse_expression();
   BLI_assert(builder.is_at_end());
   return node;
 }
