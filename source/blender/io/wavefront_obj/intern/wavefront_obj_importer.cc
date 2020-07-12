@@ -136,28 +136,24 @@ void OBJImporter::print_obj_data(Vector<std::unique_ptr<OBJRawObject>> &list_of_
 
 OBJBmeshFromRaw::OBJBmeshFromRaw(const OBJRawObject &curr_object)
 {
-  template_mesh_ = std::unique_ptr<Mesh>(
-      BKE_mesh_new_nomain(0, 0, 0, curr_object.tot_loop, curr_object.face_elements.size()));
+  auto creator_mesh = [&]() {
+    return BKE_mesh_new_nomain(0, 0, 0, curr_object.tot_loop, curr_object.face_elements.size());
+  };
+  auto deleter_mesh = [](Mesh *mesh_to_delete) { BKE_id_free(NULL, mesh_to_delete); };
+  std::unique_ptr<Mesh, decltype(deleter_mesh)> template_mesh(creator_mesh(), deleter_mesh);
 
+  auto creator_bmesh = [&]() {
+    BMAllocTemplate bat = {0,
+                           0,
+                           static_cast<int>(curr_object.tot_loop),
+                           static_cast<int>(curr_object.face_elements.size())};
+    BMeshCreateParams bcp = {1};
+    return BM_mesh_create(&bat, &bcp);
+  };
+  bm_new_.reset(creator_bmesh());
   struct BMeshFromMeshParams bm_convert_params = {true, 0, 0, 0};
-  BMAllocTemplate bat = {0,
-                         0,
-                         static_cast<int>(curr_object.tot_loop),
-                         static_cast<int>(curr_object.face_elements.size())};
-  BMeshCreateParams bcp = {1};
-  bm_new_ = std::unique_ptr<BMesh>(BM_mesh_create(&bat, &bcp));
-  BM_mesh_bm_from_me(bm_new_.get(), template_mesh_.get(), &bm_convert_params);
+  BM_mesh_bm_from_me(bm_new_.get(), template_mesh.get(), &bm_convert_params);
 };
-
-OBJBmeshFromRaw::~OBJBmeshFromRaw()
-{
-  if (bm_new_.get()) {
-    BM_mesh_free(bm_new_.release());
-  }
-  if (template_mesh_.get()) {
-    BKE_id_free(NULL, template_mesh_.release());
-  }
-}
 
 BMVert *OBJBmeshFromRaw::add_bmvert(float3 coords)
 {

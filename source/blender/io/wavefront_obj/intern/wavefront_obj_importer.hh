@@ -75,7 +75,6 @@ class OBJParentCollection {
 class OBJBmeshFromRaw : NonMovable, NonCopyable {
  public:
   OBJBmeshFromRaw(const OBJRawObject &curr_object);
-  ~OBJBmeshFromRaw();
   BMesh *getter_bmesh()
   {
     return bm_new_.get();
@@ -85,8 +84,14 @@ class OBJBmeshFromRaw : NonMovable, NonCopyable {
   void add_polygon_from_verts(BMVert **verts_of_face, uint tot_verts_per_poly);
 
  private:
-  std::unique_ptr<Mesh> template_mesh_;
-  std::unique_ptr<BMesh> bm_new_;
+  struct deleter_bmesh {
+    void operator()(BMesh *t)
+    {
+      BM_mesh_free(t);
+    }
+  };
+
+  std::unique_ptr<BMesh, deleter_bmesh()> bm_new_;
 };
 
 class OBJImporter {
