@@ -91,7 +91,7 @@ class OBJBmeshFromRaw : NonMovable, NonCopyable {
     }
   };
 
-  std::unique_ptr<BMesh, deleter_bmesh()> bm_new_;
+  std::unique_ptr<BMesh, deleter_bmesh> bm_new_;
 };
 
 class OBJImporter {
