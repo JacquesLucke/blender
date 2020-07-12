@@ -30,6 +30,7 @@ set(SRC
   intern/attributes_ref.cc
   intern/cpp_types.cc
   intern/expression_lexer.cc
+  intern/expression_multi_function.cc
   intern/expression_parser.cc
   intern/multi_function.cc
   intern/multi_function_builder.cc
@@ -42,6 +43,7 @@ set(SRC
   FN_cpp_type.hh
   FN_cpp_types.hh
   FN_expression_lexer.hh
+  FN_expression_multi_function.hh
   FN_expression_parser.hh
   FN_multi_function.hh
   FN_multi_function_builder.hh
