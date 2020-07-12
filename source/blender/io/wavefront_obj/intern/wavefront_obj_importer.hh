@@ -28,11 +28,11 @@
 #include <iostream>
 
 #include "BKE_context.h"
-
+#include "BKE_lib_id.h"
 #include "bmesh.h"
 
-#include "BLI_float3.hh"
 #include "BLI_float2.hh"
+#include "BLI_float3.hh"
 #include "BLI_string_ref.hh"
 #include "BLI_utility_mixins.hh"
 #include "BLI_vector.hh"
@@ -92,7 +92,7 @@ class OBJParentCollection {
 class OBJBmeshFromRaw : NonMovable, NonCopyable {
  public:
   OBJBmeshFromRaw(const OBJRawObject &curr_object);
-  BMesh *getter_bmesh()
+  BMesh *bm_getter()
   {
     return bm_new_.get();
   }

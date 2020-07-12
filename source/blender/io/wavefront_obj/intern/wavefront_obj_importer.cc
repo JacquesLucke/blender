@@ -24,8 +24,8 @@
 #include <cstdio>
 #include <fstream>
 #include <iostream>
-#include <string>
 #include <optional>
+#include <string>
 
 #include "BKE_collection.h"
 #include "BKE_customdata.h"
@@ -140,44 +140,43 @@ OBJBmeshFromRaw::OBJBmeshFromRaw(const OBJRawObject &curr_object)
     return BKE_mesh_new_nomain(0, 0, 0, curr_object.tot_loop, curr_object.face_elements.size());
   };
   auto creator_bmesh = [&]() {
-    BMAllocTemplate bat = {0,
-                           0,
-                           static_cast<int>(curr_object.tot_loop),
-                           static_cast<int>(curr_object.face_elements.size())};
-    BMeshCreateParams bcp = {1};
+    BMAllocTemplate bat{0,
+                        0,
+                        static_cast<int>(curr_object.tot_loop),
+                        static_cast<int>(curr_object.face_elements.size())};
+    BMeshCreateParams bcp{1};
     return BM_mesh_create(&bat, &bcp);
   };
+
   bm_new_.reset(creator_bmesh());
-  struct BMeshFromMeshParams bm_convert_params = {true, 0, 0, 0};
   unique_mesh_ptr template_mesh{creator_mesh()};
+  BMeshFromMeshParams bm_convert_params{true, 0, 0, 0};
   BM_mesh_bm_from_me(bm_new_.get(), template_mesh.get(), &bm_convert_params);
 };
 
 BMVert *OBJBmeshFromRaw::add_bmvert(float3 coords)
 {
-  return BM_vert_create(bm_new_.get(), coords, NULL, BM_CREATE_SKIP_CD);
+  return BM_vert_create(bm_new_.get(), coords, nullptr, BM_CREATE_SKIP_CD);
 }
 
 void OBJBmeshFromRaw::add_polygon_from_verts(BMVert **verts_of_face, uint tot_verts_per_poly)
 {
   BM_face_create_ngon_verts(
-      bm_new_.get(), verts_of_face, tot_verts_per_poly, NULL, BM_CREATE_SKIP_CD, false, true);
+      bm_new_.get(), verts_of_face, tot_verts_per_poly, nullptr, BM_CREATE_SKIP_CD, false, true);
 }
 
 static unique_mesh_ptr mesh_from_raw_obj(Main *bmain, const OBJRawObject &curr_object)
 {
-
   OBJBmeshFromRaw bm_from_raw{curr_object};
 
-  Array<BMVert *> all_vertices(curr_object.vertices.size());
+  Array<BMVert *> all_vertices{curr_object.vertices.size()};
   for (int i = 0; i < curr_object.vertices.size(); i++) {
-    const MVert &curr_vert = curr_object.vertices[i];
-    all_vertices[i] = bm_from_raw.add_bmvert(curr_vert.co);
+    all_vertices[i] = bm_from_raw.add_bmvert(curr_object.vertices[i].co);
   }
 
   for (const Vector<OBJFaceCorner> &curr_face : curr_object.face_elements) {
     /* Collect vertices of one face from a pool of BMesh vertices. */
-    Array<BMVert *> verts_of_face(curr_face.size());
+    Array<BMVert *> verts_of_face{curr_face.size()};
     for (int i = 0; i < curr_face.size(); i++) {
       verts_of_face[i] = all_vertices[curr_face[i].vert_index];
     }
@@ -201,7 +200,7 @@ void OBJParentCollection::add_object_to_parent(const OBJRawObject &ob_to_add, un
       BKE_object_add_only_object(bmain_, OB_MESH, ob_to_add.object_name.c_str())};
   b_object->data = BKE_object_obdata_add_from_type(bmain_, OB_MESH, ob_to_add.object_name.c_str());
 
-  //  BKE_mesh_validate(mesh, false, true);
+  BKE_mesh_validate(mesh.get(), false, true);
   BKE_mesh_nomain_to_mesh(
       mesh.release(), (Mesh *)b_object->data, b_object.get(), &CD_MASK_EVERYTHING, true);
 
@@ -229,7 +228,8 @@ void importer_main(bContext *C, const OBJImportParams &import_params)
   Main *bmain = CTX_data_main(C);
   Scene *scene = CTX_data_scene(C);
   Vector<std::unique_ptr<OBJRawObject>> list_of_objects;
-  OBJImporter importer = OBJImporter(import_params);
+  OBJImporter importer{import_params};
+
   importer.parse_and_store(list_of_objects);
   //  importer.print_obj_data(list_of_objects);
   importer.make_objects(bmain, scene, list_of_objects);
