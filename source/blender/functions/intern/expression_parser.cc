@@ -35,40 +35,40 @@ class TokensToAstBuilder {
  private:
   AstNode &parse_expression__comparison_level()
   {
-    AstNode &left_expr = this->parse_expression__add_sub_level();
+    AstNode *left_expr = &this->parse_expression__add_sub_level();
     if (this->is_comparison_token(this->next_type())) {
       AstNodeType node_type = this->get_comparison_node_type(this->next_type());
       this->consume();
       AstNode &right_expr = this->parse_expression__add_sub_level();
-      return this->construct_binary_node(node_type, left_expr, right_expr);
+      return this->construct_binary_node(node_type, *left_expr, right_expr);
     }
     else {
-      return left_expr;
+      return *left_expr;
     }
   }
 
   AstNode &parse_expression__add_sub_level()
   {
-    AstNode &left_expr = this->parse_expression__mul_div_level();
+    AstNode *left_expr = &this->parse_expression__mul_div_level();
     while (this->is_add_sub_token(this->next_type())) {
       AstNodeType node_type = this->get_add_sub_node_type(this->next_type());
       this->consume();
       AstNode &right_expr = this->parse_expression__mul_div_level();
-      left_expr = this->construct_binary_node(node_type, left_expr, right_expr);
+      left_expr = &this->construct_binary_node(node_type, *left_expr, right_expr);
     }
-    return left_expr;
+    return *left_expr;
   }
 
   AstNode &parse_expression__mul_div_level()
   {
-    AstNode &left_expr = this->parse_expression__power_level();
+    AstNode *left_expr = &this->parse_expression__power_level();
     while (is_mul_div_token(this->next_type())) {
       AstNodeType node_type = this->get_mul_div_node_type(this->next_type());
       this->consume();
       AstNode &right_expr = this->parse_expression__power_level();
-      left_expr = this->construct_binary_node(node_type, left_expr, right_expr);
+      left_expr = &this->construct_binary_node(node_type, *left_expr, right_expr);
     }
-    return left_expr;
+    return *left_expr;
   }
 
   AstNode &parse_expression__power_level()
@@ -130,6 +130,8 @@ class TokensToAstBuilder {
         return this->consume_constant_int();
       case TokenType::FloatLiteral:
         return this->consume_constant_float();
+      case TokenType::StringLiteral:
+        return this->consume_constant_string();
       case TokenType::Minus: {
         this->consume();
         AstNode &expr = this->parse_expression__mul_div_level();
@@ -145,8 +147,11 @@ class TokensToAstBuilder {
         this->consume(TokenType::ParenClose);
         return expr;
       }
+      case TokenType::EndOfString: {
+        throw std::runtime_error("unexpected end of string");
+      }
       default:
-        throw std::runtime_error("unexpected token");
+        throw std::runtime_error("unexpected token: " + token_type_to_string(this->next_type()));
     }
   }
 
@@ -235,7 +240,7 @@ class TokensToAstBuilder {
     return *node;
   }
 
-  AstNode &construct_unary_node(AstNodeType node_type, AstNode sub_node)
+  AstNode &construct_unary_node(AstNodeType node_type, AstNode &sub_node)
   {
     MutableSpan<AstNode *> children = allocator_.allocate_array<AstNode *>(1);
     children[0] = &sub_node;

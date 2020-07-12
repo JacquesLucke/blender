@@ -54,7 +54,7 @@ enum class AstNodeType : uchar {
 
 StringRefNull node_type_to_string(AstNodeType node_type);
 
-struct AstNode {
+struct AstNode : NonCopyable, NonMovable {
   MutableSpan<AstNode *> children;
   AstNodeType type;
 
