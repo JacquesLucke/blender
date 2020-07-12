@@ -139,9 +139,6 @@ OBJBmeshFromRaw::OBJBmeshFromRaw(const OBJRawObject &curr_object)
   auto creator_mesh = [&]() {
     return BKE_mesh_new_nomain(0, 0, 0, curr_object.tot_loop, curr_object.face_elements.size());
   };
-  auto deleter_mesh = [](Mesh *mesh_to_delete) { BKE_id_free(NULL, mesh_to_delete); };
-  std::unique_ptr<Mesh, decltype(deleter_mesh)> template_mesh(creator_mesh(), deleter_mesh);
-
   auto creator_bmesh = [&]() {
     BMAllocTemplate bat = {0,
                            0,
@@ -152,6 +149,7 @@ OBJBmeshFromRaw::OBJBmeshFromRaw(const OBJRawObject &curr_object)
   };
   bm_new_.reset(creator_bmesh());
   struct BMeshFromMeshParams bm_convert_params = {true, 0, 0, 0};
+  unique_mesh_ptr template_mesh{creator_mesh()};
   BM_mesh_bm_from_me(bm_new_.get(), template_mesh.get(), &bm_convert_params);
 };
 
@@ -166,7 +164,7 @@ void OBJBmeshFromRaw::add_polygon_from_verts(BMVert **verts_of_face, uint tot_ve
       bm_new_.get(), verts_of_face, tot_verts_per_poly, NULL, BM_CREATE_SKIP_CD, false, true);
 }
 
-static std::unique_ptr<Mesh> mesh_from_raw_obj(Main *bmain, const OBJRawObject &curr_object)
+static unique_mesh_ptr mesh_from_raw_obj(Main *bmain, const OBJRawObject &curr_object)
 {
 
   OBJBmeshFromRaw bm_from_raw{curr_object};
@@ -186,9 +184,9 @@ static std::unique_ptr<Mesh> mesh_from_raw_obj(Main *bmain, const OBJRawObject &
     bm_from_raw.add_polygon_from_verts(&verts_of_face[0], curr_face.size());
   }
 
-  std::unique_ptr<Mesh> mesh1{(Mesh *)BKE_id_new_nomain(ID_ME, NULL)};
-  BM_mesh_bm_to_me_for_eval(bm_from_raw.getter_bmesh(), mesh1.get(), NULL);
-  return mesh1;
+  unique_mesh_ptr bm_to_me{(Mesh *)BKE_id_new_nomain(ID_ME, nullptr)};
+  BM_mesh_bm_to_me_for_eval(bm_from_raw.bm_getter(), bm_to_me.get(), nullptr);
+  return bm_to_me;
 }
 
 OBJParentCollection::OBJParentCollection(Main *bmain, Scene *scene) : bmain_(bmain), scene_(scene)
@@ -197,8 +195,7 @@ OBJParentCollection::OBJParentCollection(Main *bmain, Scene *scene) : bmain_(bma
       bmain_, scene_->master_collection, "OBJ import collection");
 }
 
-void OBJParentCollection::add_object_to_parent(const OBJRawObject &ob_to_add,
-                                               std::unique_ptr<Mesh> mesh)
+void OBJParentCollection::add_object_to_parent(const OBJRawObject &ob_to_add, unique_mesh_ptr mesh)
 {
   std::unique_ptr<Object> b_object{
       BKE_object_add_only_object(bmain_, OB_MESH, ob_to_add.object_name.c_str())};
@@ -221,7 +218,7 @@ void OBJImporter::make_objects(Main *bmain,
 {
   OBJParentCollection parent{bmain, scene};
   for (std::unique_ptr<OBJRawObject> &curr_object : list_of_objects) {
-    std::unique_ptr<Mesh> mesh = mesh_from_raw_obj(bmain, *curr_object);
+    unique_mesh_ptr mesh{mesh_from_raw_obj(bmain, *curr_object)};
 
     parent.add_object_to_parent(*curr_object, std::move(mesh));
   }

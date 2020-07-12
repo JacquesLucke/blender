@@ -42,6 +42,23 @@
 
 namespace blender::io::obj {
 
+struct UniqueMeshDeleter {
+  void operator()(Mesh *mesh)
+  {
+    BKE_id_free(nullptr, mesh);
+  }
+};
+
+struct UniqueBMeshDeleter {
+  void operator()(BMesh *t)
+  {
+    BM_mesh_free(t);
+  }
+};
+
+using unique_mesh_ptr = std::unique_ptr<Mesh, UniqueMeshDeleter>;
+using unique_bmesh_ptr = std::unique_ptr<BMesh, UniqueBMeshDeleter>;
+
 typedef struct OBJFaceCorner {
   int vert_index;
   int tex_vert_index = -1;
@@ -64,7 +81,7 @@ class OBJRawObject {
 class OBJParentCollection {
  public:
   OBJParentCollection(Main *bmain, Scene *scene);
-  void add_object_to_parent(const OBJRawObject &ob_to_add, std::unique_ptr<Mesh> mesh);
+  void add_object_to_parent(const OBJRawObject &ob_to_add, unique_mesh_ptr mesh);
 
  private:
   Main *bmain_;
@@ -84,14 +101,7 @@ class OBJBmeshFromRaw : NonMovable, NonCopyable {
   void add_polygon_from_verts(BMVert **verts_of_face, uint tot_verts_per_poly);
 
  private:
-  struct deleter_bmesh {
-    void operator()(BMesh *t)
-    {
-      BM_mesh_free(t);
-    }
-  };
-
-  std::unique_ptr<BMesh, deleter_bmesh> bm_new_;
+  unique_bmesh_ptr bm_new_;
 };
 
 class OBJImporter {
