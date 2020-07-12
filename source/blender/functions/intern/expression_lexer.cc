@@ -69,8 +69,10 @@ static void tokenize_identifier(StringRef str, uint &r_token_size, TokenType &r_
   r_token_type = TokenType::Identifier;
 }
 
-void tokenize(StringRef str, Vector<TokenType> &r_token_types, Vector<TokenRange> &r_token_ranges)
+TokenizeResult tokenize(StringRef str)
 {
+  TokenizeResult result;
+
   uint offset = 0;
   uint total_size = str.size();
 
@@ -116,16 +118,11 @@ void tokenize(StringRef str, Vector<TokenType> &r_token_types, Vector<TokenRange
           if (next_char == '*') {
             token_size = 2;
             token_type = TokenType::DoubleAsterix;
-          }
-          else {
-            token_size = 1;
-            token_type = TokenType::Asterix;
+            break;
           }
         }
-        else {
-          token_size = 1;
-          token_type = TokenType::Asterix;
-        }
+        token_size = 1;
+        token_type = TokenType::Asterix;
         break;
       }
       case '/': {
@@ -154,31 +151,34 @@ void tokenize(StringRef str, Vector<TokenType> &r_token_types, Vector<TokenRange
         break;
       }
       case '=': {
-        BLI_assert(str[offset + 1] == '=');
-        token_size = 2;
+        if (offset + 1 < total_size) {
+          char next_char = str[offset + 1];
+          if (next_char == '=') {
+            token_size = 2;
+            token_type = TokenType::IsEqual;
+            break;
+          }
+        }
+        token_size = 1;
         token_type = TokenType::Equal;
         break;
       }
       case '<': {
         if (offset + 1 < total_size) {
           char next_char = str[offset + 1];
-          if (str[next_char] == '=') {
+          if (next_char == '=') {
             token_size = 2;
-            token_type = TokenType::LessOrEqual;
+            token_type = TokenType::IsLessOrEqual;
+            break;
           }
-          else if (next_char == '<') {
+          if (next_char == '<') {
             token_size = 2;
             token_type = TokenType::DoubleLess;
-          }
-          else {
-            token_size = 1;
-            token_type = TokenType::Less;
+            break;
           }
         }
-        else {
-          token_size = 1;
-          token_type = TokenType::Less;
-        }
+        token_size = 1;
+        token_type = TokenType::IsLess;
         break;
       }
       case '>': {
@@ -186,26 +186,23 @@ void tokenize(StringRef str, Vector<TokenType> &r_token_types, Vector<TokenRange
           char next_char = str[offset + 1];
           if (next_char == '=') {
             token_size = 2;
-            token_type = TokenType::GreaterOrEqual;
+            token_type = TokenType::IsGreaterOrEqual;
+            break;
           }
-          else if (next_char == '>') {
+          if (next_char == '>') {
             token_size = 2;
             token_type = TokenType::DoubleRight;
-          }
-          else {
-            token_size = 1;
-            token_type = TokenType::Greater;
+            break;
           }
         }
-        else {
-          token_size = 1;
-          token_type = TokenType::Greater;
-        }
+        token_size = 1;
+        token_type = TokenType::IsGreater;
+
         break;
       }
       case '"': {
         bool is_escaped = false;
-        token_type = TokenType::String;
+        token_type = TokenType::StringLiteral;
         token_size = 2 + count_while(str.drop_prefix(offset + 1), [&](char c) {
                        if (is_escaped) {
                          is_escaped = false;
@@ -279,10 +276,7 @@ void tokenize(StringRef str, Vector<TokenType> &r_token_types, Vector<TokenRange
         break;
       }
       default: {
-        BLI_assert(false);
-        token_type = TokenType::EndOfString;
-        token_size = 1;
-        break;
+        throw std::runtime_error("unexpected character: " + current_char);
       }
     }
 
@@ -290,11 +284,13 @@ void tokenize(StringRef str, Vector<TokenType> &r_token_types, Vector<TokenRange
     range.start = offset;
     range.size = token_size;
 
-    r_token_types.append(token_type);
-    r_token_ranges.append(range);
+    result.types.append(token_type);
+    result.ranges.append(range);
 
     offset += token_size;
   }
+
+  return result;
 }
 
 StringRefNull token_type_to_string(TokenType token_type)
@@ -324,24 +320,26 @@ StringRefNull token_type_to_string(TokenType token_type)
       return "Comma";
     case TokenType::Identifier:
       return "Identifier";
-    case TokenType::Less:
-      return "Less";
-    case TokenType::Greater:
-      return "Greater";
-    case TokenType::Equal:
-      return "Equal";
-    case TokenType::LessOrEqual:
-      return "LessOrEqual";
-    case TokenType::GreaterOrEqual:
-      return "GreaterOrEqual";
-    case TokenType::String:
-      return "String";
+    case TokenType::IsLess:
+      return "IsLess";
+    case TokenType::IsGreater:
+      return "IsGreater";
+    case TokenType::IsEqual:
+      return "IsEqual";
+    case TokenType::IsLessOrEqual:
+      return "IsLessOrEqual";
+    case TokenType::IsGreaterOrEqual:
+      return "IsGreaterOrEqual";
+    case TokenType::StringLiteral:
+      return "StringLiteral";
     case TokenType::DoubleLess:
       return "DoubleLess";
     case TokenType::DoubleRight:
       return "DoubleRight";
     case TokenType::Dot:
       return "Dot";
+    case TokenType::Equal:
+      return "Equal";
   }
   BLI_assert(false);
   return "";

@@ -29,16 +29,16 @@ namespace blender::fn {
 enum class TokenType : uchar {
   EndOfString = 0,
 
-  Less = 1,
-  Greater = 2,
-  Equal = 3,
-  LessOrEqual = 4,
-  GreaterOrEqual = 5,
+  IsLess,
+  IsGreater,
+  IsEqual,
+  IsLessOrEqual,
+  IsGreaterOrEqual,
 
-  Plus = 6,
-  Minus = 7,
-  Asterix = 8,
-  ForwardSlash = 9,
+  Plus,
+  Minus,
+  Asterix,
+  ForwardSlash,
 
   ParenOpen,
   ParenClose,
@@ -46,19 +46,30 @@ enum class TokenType : uchar {
   FloatLiteral,
   DoubleAsterix,
   Identifier,
-  String,
+  StringLiteral,
   DoubleLess,
   DoubleRight,
   Comma,
   Dot,
+  Equal,
 };
 
 struct TokenRange {
   uint start;
   uint size;
+
+  StringRef get(StringRef str) const
+  {
+    return str.substr(start, size);
+  }
 };
 
-void tokenize(StringRef str, Vector<TokenType> &r_token_types, Vector<TokenRange> &r_token_ranges);
+struct TokenizeResult {
+  Vector<TokenType> types;
+  Vector<TokenRange> ranges;
+};
+
+TokenizeResult tokenize(StringRef str);
 StringRefNull token_type_to_string(TokenType token_type);
 
 }  // namespace blender::fn
