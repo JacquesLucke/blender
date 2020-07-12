@@ -201,7 +201,8 @@ OBJParentCollection::OBJParentCollection(Main *bmain, Scene *scene) : bmain_(bma
       bmain_, scene_->master_collection, "OBJ import collection");
 }
 
-void OBJParentCollection::add_object_to_parent(OBJRawObject &ob_to_add, std::unique_ptr<Mesh> mesh)
+void OBJParentCollection::add_object_to_parent(const OBJRawObject &ob_to_add,
+                                               std::unique_ptr<Mesh> mesh)
 {
   std::unique_ptr<Object> b_object{
       BKE_object_add_only_object(bmain_, OB_MESH, ob_to_add.object_name.c_str())};

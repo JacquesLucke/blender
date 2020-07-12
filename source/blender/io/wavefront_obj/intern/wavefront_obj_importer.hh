@@ -64,7 +64,7 @@ class OBJRawObject {
 class OBJParentCollection {
  public:
   OBJParentCollection(Main *bmain, Scene *scene);
-  void add_object_to_parent(OBJRawObject &ob_to_add, std::unique_ptr<Mesh> mesh);
+  void add_object_to_parent(const OBJRawObject &ob_to_add, std::unique_ptr<Mesh> mesh);
 
  private:
   Main *bmain_;
