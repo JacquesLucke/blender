@@ -406,7 +406,6 @@ static int wm_obj_import_exec(bContext *C, wmOperator *op)
     BKE_report(op->reports, RPT_ERROR, "No filename given");
     return OPERATOR_CANCELLED;
   }
-  /* Import functions and structs are incomplete now. Only dummy functions are written. */
   struct OBJImportParams import_params;
   RNA_string_get(op->ptr, "filepath", import_params.filepath);
   OBJ_import(C, &import_params);
