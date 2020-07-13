@@ -21,14 +21,28 @@
  * \ingroup obj
  */
 
-#ifndef __WAVEFRONT_OBJ_IMPORTER_HH__
-#define __WAVEFRONT_OBJ_IMPORTER_HH__
+#ifndef __WAVEFRONT_OBJ_FILE_READER_HH__
+#define __WAVEFRONT_OBJ_FILE_READER_HH__
 
 #include "IO_wavefront_obj.h"
+#include "wavefront_obj_importer_objects.hh"
 
-namespace blender::io::obj {
+namespace blender::io::obj{
+class OBJImporter {
+private:
+  const OBJImportParams &import_params_;
+  std::ifstream infile_;
+  uint index_offsets[2] = {0, 0};
 
-void importer_main(bContext *C, const OBJImportParams &import_params);
-}  // namespace blender::io::obj
+public:
+  OBJImporter(const OBJImportParams &import_params);
 
+  void parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_objects);
+  void print_obj_data(Vector<std::unique_ptr<OBJRawObject>> &list_of_objects);
+  void make_objects(Main *bmain,
+                    Scene *scene,
+                    Vector<std::unique_ptr<OBJRawObject>> &list_of_objects);
+};
+
+}
 #endif
