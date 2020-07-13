@@ -63,15 +63,14 @@ void OBJImporter::print_obj_data(Vector<std::unique_ptr<OBJRawObject>> &list_of_
   }
 }
 
-void OBJImporter::make_objects(Main *bmain,
+void OBJImporter::raw_to_blender_objects(Main *bmain,
                                Scene *scene,
                                Vector<std::unique_ptr<OBJRawObject>> &list_of_objects)
 {
   OBJParentCollection parent{bmain, scene};
   for (std::unique_ptr<OBJRawObject> &curr_object : list_of_objects) {
-    unique_mesh_ptr mesh{mesh_from_raw_obj(bmain, *curr_object)};
-
-    parent.add_object_to_parent(*curr_object, std::move(mesh));
+    OBJMeshFromRaw mesh_from_raw{*curr_object};
+    parent.add_object_to_parent(curr_object->object_name, mesh_from_raw.mover());
   }
 }
 
@@ -84,6 +83,6 @@ void importer_main(bContext *C, const OBJImportParams &import_params)
 
   importer.parse_and_store(list_of_objects);
   //  importer.print_obj_data(list_of_objects);
-  importer.make_objects(bmain, scene, list_of_objects);
+  importer.raw_to_blender_objects(bmain, scene, list_of_objects);
 }
 }  // namespace blender::io::obj

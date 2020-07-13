@@ -42,11 +42,11 @@ OBJParentCollection::OBJParentCollection(Main *bmain, Scene *scene) : bmain_(bma
       bmain_, scene_->master_collection, "OBJ import collection");
 }
 
-void OBJParentCollection::add_object_to_parent(const OBJRawObject &ob_to_add, unique_mesh_ptr mesh)
+void OBJParentCollection::add_object_to_parent(StringRef ob_to_add_name, unique_mesh_ptr mesh)
 {
   std::unique_ptr<Object> b_object{
-      BKE_object_add_only_object(bmain_, OB_MESH, ob_to_add.object_name.c_str())};
-  b_object->data = BKE_object_obdata_add_from_type(bmain_, OB_MESH, ob_to_add.object_name.c_str());
+      BKE_object_add_only_object(bmain_, OB_MESH, ob_to_add_name.data())};
+  b_object->data = BKE_object_obdata_add_from_type(bmain_, OB_MESH, ob_to_add_name.data());
 
   BKE_mesh_nomain_to_mesh(
       mesh.release(), (Mesh *)b_object->data, b_object.get(), &CD_MASK_EVERYTHING, true);

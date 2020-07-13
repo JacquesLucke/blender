@@ -30,7 +30,7 @@
 
 namespace blender::io::obj {
 
-OBJBmeshFromRaw::OBJBmeshFromRaw(const OBJRawObject &curr_object)
+OBJMeshFromRaw::BMesh_::BMesh_(const class OBJRawObject &curr_object)
 {
   auto creator_mesh = [&]() {
     return BKE_mesh_new_nomain(0,
@@ -54,20 +54,21 @@ OBJBmeshFromRaw::OBJBmeshFromRaw(const OBJRawObject &curr_object)
   BM_mesh_bm_from_me(bm_new_.get(), template_mesh.get(), &bm_convert_params);
 };
 
-BMVert *OBJBmeshFromRaw::add_bmvert(float3 coords)
+BMVert *OBJMeshFromRaw::BMesh_::add_bmvert(float3 coords)
 {
   return BM_vert_create(bm_new_.get(), coords, nullptr, BM_CREATE_SKIP_CD);
 }
 
-void OBJBmeshFromRaw::add_polygon_from_verts(BMVert **verts_of_face, uint tot_verts_per_poly)
+void OBJMeshFromRaw::BMesh_::add_polygon_from_verts(BMVert **verts_of_face,
+                                                    uint tot_verts_per_poly)
 {
   BM_face_create_ngon_verts(
       bm_new_.get(), verts_of_face, tot_verts_per_poly, nullptr, BM_CREATE_SKIP_CD, false, true);
 }
 
-unique_mesh_ptr mesh_from_raw_obj(Main *bmain, const OBJRawObject &curr_object)
+OBJMeshFromRaw::OBJMeshFromRaw(const class OBJRawObject &curr_object)
 {
-  OBJBmeshFromRaw bm_from_raw{curr_object};
+  BMesh_ bm_from_raw{curr_object};
 
   Array<BMVert *> all_vertices{curr_object.vertices.size()};
   for (int i = 0; i < curr_object.vertices.size(); i++) {
@@ -83,9 +84,8 @@ unique_mesh_ptr mesh_from_raw_obj(Main *bmain, const OBJRawObject &curr_object)
     bm_from_raw.add_polygon_from_verts(&verts_of_face[0], curr_face.size());
   }
 
-  unique_mesh_ptr bm_to_me{(Mesh *)BKE_id_new_nomain(ID_ME, nullptr)};
-  BM_mesh_bm_to_me_for_eval(bm_from_raw.bm_getter(), bm_to_me.get(), nullptr);
-  BKE_mesh_validate(bm_to_me.get(), false, true);
-  return bm_to_me;
+  mesh_from_bm_.reset((Mesh *)BKE_id_new_nomain(ID_ME, nullptr));
+  BM_mesh_bm_to_me_for_eval(bm_from_raw.getter(), mesh_from_bm_.get(), nullptr);
+  BKE_mesh_validate(mesh_from_bm_.get(), false, true);
 }
 }  // namespace blender::io::obj

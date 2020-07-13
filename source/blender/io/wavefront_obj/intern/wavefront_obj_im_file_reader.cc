@@ -42,6 +42,10 @@ OBJImporter::OBJImporter(const OBJImportParams &import_params) : import_params_(
 void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_objects)
 {
   std::string line;
+  /* Non owning raw pointer to the unique_ptr to a raw object.
+   * Needed to update object data in the same while loop.
+   * TODO ankitm Try to move the rest of the data parsing code in a conditional depending on a
+   * valid "o" object. */
   std::unique_ptr<OBJRawObject> *curr_ob;
   while (std::getline(infile_, line)) {
     std::stringstream s_line(line);
@@ -98,4 +102,4 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
     }
   }
 }
-}
+}  // namespace blender::io::obj

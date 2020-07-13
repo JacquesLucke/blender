@@ -53,14 +53,15 @@ class OBJRawObject {
 };
 
 class OBJParentCollection {
- public:
-  OBJParentCollection(Main *bmain, Scene *scene);
-  void add_object_to_parent(const OBJRawObject &ob_to_add, unique_mesh_ptr mesh);
-
  private:
   Main *bmain_;
   Scene *scene_;
   Collection *parent_collection_;
+
+ public:
+  OBJParentCollection(Main *bmain, Scene *scene);
+
+  void add_object_to_parent(StringRef ob_to_add_name, unique_mesh_ptr mesh);
 };
 }  // namespace blender::io::obj
 

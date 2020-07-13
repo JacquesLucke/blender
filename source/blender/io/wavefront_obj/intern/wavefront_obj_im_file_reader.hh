@@ -39,7 +39,7 @@ public:
 
   void parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_objects);
   void print_obj_data(Vector<std::unique_ptr<OBJRawObject>> &list_of_objects);
-  void make_objects(Main *bmain,
+  void raw_to_blender_objects(Main *bmain,
                     Scene *scene,
                     Vector<std::unique_ptr<OBJRawObject>> &list_of_objects);
 };

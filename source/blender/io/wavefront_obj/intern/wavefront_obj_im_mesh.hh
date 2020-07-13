@@ -51,21 +51,32 @@ struct UniqueBMeshDeleter {
 using unique_mesh_ptr = std::unique_ptr<Mesh, UniqueMeshDeleter>;
 using unique_bmesh_ptr = std::unique_ptr<BMesh, UniqueBMeshDeleter>;
 
-unique_mesh_ptr mesh_from_raw_obj(Main *bmain, const class OBJRawObject &curr_object);
+class OBJMeshFromRaw : NonMovable, NonCopyable {
+ private:
+  unique_mesh_ptr mesh_from_bm_;
 
-class OBJBmeshFromRaw : NonMovable, NonCopyable {
  public:
-  OBJBmeshFromRaw(const class OBJRawObject &curr_object);
-  BMesh *bm_getter()
+  OBJMeshFromRaw(const class OBJRawObject &curr_object);
+  unique_mesh_ptr mover()
   {
-    return bm_new_.get();
+    return std::move(mesh_from_bm_);
   }
 
-  BMVert *add_bmvert(float3 coords);
-  void add_polygon_from_verts(BMVert **verts_of_face, uint tot_verts_per_poly);
-
  private:
-  unique_bmesh_ptr bm_new_;
+  struct BMesh_ {
+   private:
+    unique_bmesh_ptr bm_new_;
+
+   public:
+    BMesh_(const class OBJRawObject &curr_object);
+
+    BMesh *getter()
+    {
+      return bm_new_.get();
+    }
+    BMVert *add_bmvert(float3 coords);
+    void add_polygon_from_verts(BMVert **verts_of_face, uint tot_verts_per_poly);
+  };
 };
 
 }  // namespace blender::io::obj
