@@ -42,26 +42,26 @@ set(INC_SYS
 set(SRC
   intern/wavefront_obj.cc
   intern/wavefront_obj_exporter.cc
-  intern/wavefront_obj_exporter_mesh.cc
-  intern/wavefront_obj_exporter_mtl.cc
-  intern/wavefront_obj_exporter_nurbs.cc
-  intern/wavefront_obj_file_handler.cc
-  intern/wavefront_obj_file_reader.cc
+  intern/wavefront_obj_ex_mesh.cc
+  intern/wavefront_obj_ex_mtl.cc
+  intern/wavefront_obj_ex_nurbs.cc
+  intern/wavefront_obj_ex_file_writer.cc
+  intern/wavefront_obj_im_file_reader.cc
   intern/wavefront_obj_importer.cc
-  intern/wavefront_obj_importer_mesh.cc
-  intern/wavefront_obj_importer_objects.cc
+  intern/wavefront_obj_im_mesh.cc
+  intern/wavefront_obj_im_objects.cc
 
   IO_wavefront_obj.h
   intern/wavefront_obj.hh
   intern/wavefront_obj_exporter.hh
-  intern/wavefront_obj_exporter_mesh.hh
-  intern/wavefront_obj_exporter_mtl.hh
-  intern/wavefront_obj_exporter_nurbs.hh
-  intern/wavefront_obj_file_handler.hh
-  intern/wavefront_obj_file_reader.hh
+  intern/wavefront_obj_ex_mesh.hh
+  intern/wavefront_obj_ex_mtl.hh
+  intern/wavefront_obj_ex_nurbs.hh
+  intern/wavefront_obj_ex_file_writer.hh
+  intern/wavefront_obj_im_file_reader.hh
   intern/wavefront_obj_importer.hh
-  intern/wavefront_obj_importer_mesh.hh
-  intern/wavefront_obj_importer_objects.hh
+  intern/wavefront_obj_im_mesh.hh
+  intern/wavefront_obj_im_objects.hh
 )
 
 set(LIB

@@ -21,47 +21,31 @@
  * \ingroup obj
  */
 
-#ifndef __WAVEFRONT_OBJ_IMPORTER_OBJECTS_HH__
-#define __WAVEFRONT_OBJ_IMPORTER_OBJECTS_HH__
+#ifndef __WAVEFRONT_OBJ_EX_NURBS_HH__
+#define __WAVEFRONT_OBJ_EX_NURBS_HH__
 
-#include "BLI_string_ref.hh"
-#include "BLI_vector.hh"
+#include "BKE_context.h"
+#include "BKE_curve.h"
 
-#include "DNA_meshdata_types.h"
-#include "DNA_collection_types.h"
+#include "BLI_utility_mixins.hh"
 
-#include "wavefront_obj_importer_mesh.hh"
+#include "DNA_curve_types.h"
 
 namespace blender::io::obj {
-typedef struct OBJFaceCorner {
-  int vert_index;
-  int tex_vert_index = -1;
-} OBJFaceCorner;
-
-class OBJRawObject {
- public:
-  OBJRawObject(StringRef ob_name) : object_name(ob_name.data()){};
-
-  std::string object_name;
-  Vector<MVert> vertices;
-  Vector<MLoopUV> texture_vertices;
-  Vector<Vector<OBJFaceCorner>> face_elements;
-  uint tot_normals = 0;
-  uint tot_loop = 0;
-  bool is_shaded_smooth;
-  Vector<std::string> material_name;
-};
-
-class OBJParentCollection {
- public:
-  OBJParentCollection(Main *bmain, Scene *scene);
-  void add_object_to_parent(const OBJRawObject &ob_to_add, unique_mesh_ptr mesh);
-
+class OBJNurbs : NonMovable, NonCopyable {
  private:
-  Main *bmain_;
-  Scene *scene_;
-  Collection *parent_collection_;
-};
-}  // namespace blender::io::obj
+  Depsgraph *depsgraph_;
+  Object *export_object_eval_;
+  Curve *export_curve_;
 
+ public:
+  OBJNurbs(Depsgraph *depsgraph, Object *export_object);
+
+  const char *get_curve_name();
+  const ListBase *curve_nurbs();
+  void calc_point_coords(float r_coords[3], int point_index, const Nurb *nurb);
+  void get_curve_info(int &r_nurbs_degree, int &r_curv_num, const Nurb *nurb);
+};
+
+}  // namespace blender::io::obj
 #endif

@@ -27,7 +27,7 @@
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
 
-#include "wavefront_obj_exporter_nurbs.hh"
+#include "wavefront_obj_ex_nurbs.hh"
 
 namespace blender::io::obj {
 /**

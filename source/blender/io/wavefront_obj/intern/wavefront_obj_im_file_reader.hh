@@ -21,31 +21,28 @@
  * \ingroup obj
  */
 
-#ifndef __WAVEFRONT_OBJ_EXPORTER_NURBS_HH__
-#define __WAVEFRONT_OBJ_EXPORTER_NURBS_HH__
+#ifndef __WAVEFRONT_OBJ_IM_FILE_READER_HH__
+#define __WAVEFRONT_OBJ_IM_FILE_READER_HH__
 
-#include "BKE_context.h"
-#include "BKE_curve.h"
+#include "IO_wavefront_obj.h"
+#include "wavefront_obj_im_objects.hh"
 
-#include "BLI_utility_mixins.hh"
+namespace blender::io::obj{
+class OBJImporter {
+private:
+  const OBJImportParams &import_params_;
+  std::ifstream infile_;
+  uint index_offsets[2] = {0, 0};
 
-#include "DNA_curve_types.h"
+public:
+  OBJImporter(const OBJImportParams &import_params);
 
-namespace blender::io::obj {
-class OBJNurbs : NonMovable, NonCopyable {
- private:
-  Depsgraph *depsgraph_;
-  Object *export_object_eval_;
-  Curve *export_curve_;
-
- public:
-  OBJNurbs(Depsgraph *depsgraph, Object *export_object);
-
-  const char *get_curve_name();
-  const ListBase *curve_nurbs();
-  void calc_point_coords(float r_coords[3], int point_index, const Nurb *nurb);
-  void get_curve_info(int &r_nurbs_degree, int &r_curv_num, const Nurb *nurb);
+  void parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_objects);
+  void print_obj_data(Vector<std::unique_ptr<OBJRawObject>> &list_of_objects);
+  void make_objects(Main *bmain,
+                    Scene *scene,
+                    Vector<std::unique_ptr<OBJRawObject>> &list_of_objects);
 };
 
-}  // namespace blender::io::obj
+}
 #endif

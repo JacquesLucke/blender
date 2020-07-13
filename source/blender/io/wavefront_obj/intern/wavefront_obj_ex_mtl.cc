@@ -31,7 +31,7 @@
 #include "DNA_material_types.h"
 #include "DNA_node_types.h"
 
-#include "wavefront_obj_exporter_mtl.hh"
+#include "wavefront_obj_ex_mtl.hh"
 
 using namespace blender::bke;
 namespace blender::io::obj {

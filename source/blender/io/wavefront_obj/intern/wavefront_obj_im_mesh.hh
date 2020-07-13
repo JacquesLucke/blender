@@ -21,8 +21,8 @@
  * \ingroup obj
  */
 
-#ifndef __WAVEFRONT_OBJ_IMPORTER_MESH_HH__
-#define __WAVEFRONT_OBJ_IMPORTER_MESH_HH__
+#ifndef __WAVEFRONT_OBJ_IM_MESH_HH__
+#define __WAVEFRONT_OBJ_IM_MESH_HH__
 
 #include "BKE_lib_id.h"
 

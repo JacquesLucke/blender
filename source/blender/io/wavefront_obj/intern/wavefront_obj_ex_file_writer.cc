@@ -27,7 +27,7 @@
 
 #include "DNA_object_types.h"
 
-#include "wavefront_obj_file_handler.hh"
+#include "wavefront_obj_ex_file_writer.hh"
 
 namespace blender::io::obj {
 

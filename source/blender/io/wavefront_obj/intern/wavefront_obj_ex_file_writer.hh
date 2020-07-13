@@ -21,15 +21,13 @@
  * \ingroup obj
  */
 
-#ifndef __WAVEFRONT_OBJ_FILE_HANDLER_HH__
-#define __WAVEFRONT_OBJ_FILE_HANDLER_HH__
-
-#include <stdio.h>
+#ifndef __WAVEFRONT_OBJ_EX_FILE_WRITER_HH__
+#define __WAVEFRONT_OBJ_EX_FILE_WRITER_HH__
 
 #include "IO_wavefront_obj.h"
 
-#include "wavefront_obj_exporter_mesh.hh"
-#include "wavefront_obj_exporter_nurbs.hh"
+#include "wavefront_obj_ex_mesh.hh"
+#include "wavefront_obj_ex_nurbs.hh"
 
 namespace blender::io::obj {
 

@@ -21,8 +21,8 @@
  * \ingroup obj
  */
 
-#ifndef __WAVEFRONT_OBJ_EXPORTER_MESH_HH__
-#define __WAVEFRONT_OBJ_EXPORTER_MESH_HH__
+#ifndef __WAVEFRONT_OBJ_EX_MESH_HH__
+#define __WAVEFRONT_OBJ_EX_MESH_HH__
 
 #include "BKE_lib_id.h"
 #include "BKE_material.h"
@@ -113,4 +113,4 @@ class OBJMesh : NonMovable, NonCopyable {
 };
 }  // namespace blender::io::obj
 
-#endif /* __WAVEFRONT_OBJ_HH__ */
+#endif

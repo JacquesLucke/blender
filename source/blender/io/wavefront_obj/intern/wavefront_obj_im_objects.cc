@@ -24,15 +24,15 @@
 #include "BKE_context.h"
 #include "BKE_collection.h"
 #include "BKE_customdata.h"
-#include "BKE_object.h"
 #include "BKE_mesh.h"
+#include "BKE_object.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
 
 #include "DNA_scene_types.h"
 
-#include "wavefront_obj_importer_objects.hh"
+#include "wavefront_obj_im_objects.hh"
 
 namespace blender::io::obj {
 

@@ -21,14 +21,14 @@
  * \ingroup obj
  */
 
-#ifndef __WAVEFRONT_OBJ_EXPORTER_MTL_HH__
-#define __WAVEFRONT_OBJ_EXPORTER_MTL_HH__
+#ifndef __WAVEFRONT_OBJ_EX_MTL_HH__
+#define __WAVEFRONT_OBJ_EX_MTL_HH__
 
 #include "BKE_node_tree_ref.hh"
 
 #include "BLI_path_util.h"
 
-#include "wavefront_obj_exporter_mesh.hh"
+#include "wavefront_obj_ex_mesh.hh"
 
 namespace blender::io::obj {
 class MTLWriter {

@@ -21,7 +21,6 @@
  * \ingroup obj
  */
 
-#include <cstdio>
 #include <fstream>
 #include <iostream>
 
@@ -33,10 +32,10 @@
 
 #include "bmesh.h"
 
-#include "wavefront_obj_file_reader.hh"
+#include "wavefront_obj_im_file_reader.hh"
+#include "wavefront_obj_im_mesh.hh"
+#include "wavefront_obj_im_objects.hh"
 #include "wavefront_obj_importer.hh"
-#include "wavefront_obj_importer_mesh.hh"
-#include "wavefront_obj_importer_objects.hh"
 
 namespace blender::io::obj {
 

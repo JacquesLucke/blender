@@ -21,13 +21,14 @@
  * \ingroup obj
  */
 
+#include "BKE_mesh.h"
+
 #include "BLI_array.hh"
 
 #include "DNA_meshdata_types.h"
-#include "BKE_mesh.h"
 
-#include "wavefront_obj_importer_mesh.hh"
-#include "wavefront_obj_importer_objects.hh"
+#include "wavefront_obj_im_mesh.hh"
+#include "wavefront_obj_im_objects.hh"
 
 namespace blender::io::obj {
 

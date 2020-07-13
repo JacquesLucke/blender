@@ -39,7 +39,7 @@
 #include "DNA_material_types.h"
 #include "DNA_modifier_types.h"
 
-#include "wavefront_obj_exporter_mesh.hh"
+#include "wavefront_obj_ex_mesh.hh"
 
 namespace blender::io::obj {
 /**
