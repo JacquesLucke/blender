@@ -25,6 +25,7 @@
 #define __WAVEFRONT_OBJ_IM_MESH_HH__
 
 #include "BKE_lib_id.h"
+#include "BKE_mesh.h"
 
 #include "BLI_float3.hh"
 #include "BLI_utility_mixins.hh"

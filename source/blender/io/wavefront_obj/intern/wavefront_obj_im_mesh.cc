@@ -21,8 +21,6 @@
  * \ingroup obj
  */
 
-#include "BKE_mesh.h"
-
 #include "BLI_array.hh"
 
 #include "DNA_meshdata_types.h"
