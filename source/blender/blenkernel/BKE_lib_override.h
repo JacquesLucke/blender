@@ -51,9 +51,6 @@ struct Main;
 struct PointerRNA;
 struct PropertyRNA;
 
-void BKE_lib_override_library_enable(const bool do_enable);
-bool BKE_lib_override_library_is_enabled(void);
-
 struct IDOverrideLibrary *BKE_lib_override_library_init(struct ID *local_id,
                                                         struct ID *reference_id);
 void BKE_lib_override_library_copy(struct ID *dst_id,
@@ -66,6 +63,10 @@ struct ID *BKE_lib_override_library_create_from_id(struct Main *bmain,
                                                    struct ID *reference_id,
                                                    const bool do_tagged_remap);
 bool BKE_lib_override_library_create_from_tag(struct Main *bmain);
+void BKE_lib_override_library_dependencies_tag(struct Main *bmain,
+                                               struct ID *id_root,
+                                               const uint tag,
+                                               const bool do_create_main_relashionships);
 
 struct IDOverrideLibraryProperty *BKE_lib_override_library_property_find(
     struct IDOverrideLibrary *override, const char *rna_path);
