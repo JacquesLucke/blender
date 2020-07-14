@@ -50,9 +50,9 @@ void OBJImporter::print_obj_data(Vector<std::unique_ptr<OBJRawObject>> &list_of_
       print_v2("tex vert", curr_tex_vert.uv);
     }
     printf("\n");
-    for (const Vector<OBJFaceCorner> &curr_face : curr_ob->face_elements) {
-      for (OBJFaceCorner a : curr_face) {
-        printf("%d ", a.vert_index);
+    for (const OBJFaceElem &curr_face : curr_ob->face_elements) {
+      for (OBJFaceCorner a : curr_face.face_corners) {
+        printf("%d %d ", a.vert_index, a.tex_vert_index);
       }
       printf("\n");
     }

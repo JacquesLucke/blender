@@ -35,8 +35,15 @@
 namespace blender::io::obj {
 typedef struct OBJFaceCorner {
   int vert_index;
+  /* -1 is to indicate abscense of UV vertices. Only < 0 condition should be checked since
+   * it can be less than -1 too. */
   int tex_vert_index = -1;
 } OBJFaceCorner;
+
+typedef struct OBJFaceElem {
+  bool shaded_smooth = false;
+  Vector<OBJFaceCorner> face_corners;
+} OBJFaceElem;
 
 class OBJRawObject {
  public:
@@ -45,10 +52,9 @@ class OBJRawObject {
   std::string object_name;
   Vector<MVert> vertices;
   Vector<MLoopUV> texture_vertices;
-  Vector<Vector<OBJFaceCorner>> face_elements;
+  Vector<OBJFaceElem> face_elements;
   uint tot_normals = 0;
   uint tot_loop = 0;
-  bool is_shaded_smooth;
   Vector<std::string> material_name;
 };
 

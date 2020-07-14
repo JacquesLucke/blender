@@ -26,17 +26,26 @@
 
 #include "BKE_context.h"
 
-#include "BLI_vector.hh"
 #include "BLI_string_ref.hh"
+#include "BLI_vector.hh"
 
-#include "wavefront_obj_im_file_reader.hh"
 #include "wavefront_obj_ex_file_writer.hh"
+#include "wavefront_obj_im_file_reader.hh"
 
 namespace blender::io::obj {
 
 OBJImporter::OBJImporter(const OBJImportParams &import_params) : import_params_(import_params)
 {
   infile_.open(import_params_.filepath);
+}
+
+static void split_by_char(std::string in_string, char delimiter, Vector<std::string> &r_out_list)
+{
+  std::stringstream stream(in_string);
+  std::string word{};
+  while (std::getline(stream, word, delimiter)) {
+    r_out_list.append(word);
+  }
 }
 
 void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_objects)
@@ -76,24 +85,41 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
       (*curr_ob)->texture_vertices.append(curr_tex_vert);
     }
     else if (line_key == "f") {
-      Vector<OBJFaceCorner> curr_face;
-      while (s_line) {
-        OBJFaceCorner corner;
-        if (!(s_line >> corner.vert_index)) {
-          break;
+      OBJFaceElem curr_face;
+      std::string str_corners_line = s_line.str();
+      Vector<std::string> str_corners_split;
+      split_by_char(str_corners_line, ' ', str_corners_split);
+      for (auto str_corner : str_corners_split) {
+        if (str_corner == "f") {
+          /* Hack, since that's how streams change to strings. Ideally the line_key should be a
+           * string and then a stream is made from the rest of the line. */
+          continue;
         }
-        /* Base 1 in OBJ to base 0 in C++. */
-        corner.vert_index--;
-        /* Adjust for index offset of previous objects. */
-        corner.vert_index -= index_offsets[VERTEX_OFF];
+        OBJFaceCorner corner;
+        size_t n_slash = std::count(str_corner.begin(), str_corner.end(), '/');
+        if (n_slash == 0) {
+          corner.vert_index = std::stoi(str_corner);
+        }
+        else if (n_slash == 1) {
+          Vector<std::string> vert_texture;
+          split_by_char(str_corner, '/', vert_texture);
+          corner.vert_index = std::stoi(vert_texture[0]);
+          corner.tex_vert_index = vert_texture[1].empty() ? -1 : std::stoi(vert_texture[1]);
+        }
+        else if (n_slash == 2) {
+          Vector<std::string> vert_normal;
+          split_by_char(str_corner, '/', vert_normal);
+          corner.vert_index = std::stoi(vert_normal[0]);
+          /* Discard normals. They'll be calculated on the basis of smooth shading flag. */
+        }
+        corner.vert_index -= index_offsets[VERTEX_OFF] + 1;
+        corner.tex_vert_index -= index_offsets[UV_VERTEX_OFF] + 1;
 
-        // TODO texture coords handling. It's mostly string manipulation. Normal indices will be
-        // ignored and calculated depending on the smooth flag.
-        // s_line >> corner.tex_vert_index;
-        curr_face.append(corner);
+        curr_face.face_corners.append(corner);
       }
+
       (*curr_ob)->face_elements.append(curr_face);
-      (*curr_ob)->tot_loop += curr_face.size();
+      (*curr_ob)->tot_loop += curr_face.face_corners.size();
     }
     else if (line_key == "usemtl") {
       (*curr_ob)->material_name.append(s_line.str());

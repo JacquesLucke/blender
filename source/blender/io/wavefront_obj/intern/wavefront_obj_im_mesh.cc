@@ -41,14 +41,14 @@ OBJMeshFromRaw::OBJMeshFromRaw(const class OBJRawObject &curr_object)
 
   int curr_loop_idx = 0;
   for (int i = 0; i < curr_object.face_elements.size(); ++i) {
-    const Vector<OBJFaceCorner> &curr_face = curr_object.face_elements[i];
+    const OBJFaceElem &curr_face = curr_object.face_elements[i];
     MPoly &mpoly = mesh_from_bm_->mpoly[i];
-    mpoly.totloop = curr_face.size();
+    mpoly.totloop = curr_face.face_corners.size();
     mpoly.loopstart = curr_loop_idx;
 
-    for (int j = 0; j < curr_face.size(); ++j) {
+    for (int j = 0; j < mpoly.totloop; ++j) {
       MLoop *mloop = &mesh_from_bm_->mloop[curr_loop_idx];
-      mloop->v = curr_face[j].vert_index;
+      mloop->v = curr_face.face_corners[j].vert_index;
       curr_loop_idx++;
     }
   }
