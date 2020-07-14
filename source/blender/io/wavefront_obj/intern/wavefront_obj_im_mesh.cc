@@ -23,69 +23,36 @@
 
 #include "BLI_array.hh"
 
+#include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 
 #include "wavefront_obj_im_mesh.hh"
 #include "wavefront_obj_im_objects.hh"
 
 namespace blender::io::obj {
-
-OBJMeshFromRaw::BMesh_::BMesh_(const class OBJRawObject &curr_object)
-{
-  auto creator_mesh = [&]() {
-    return BKE_mesh_new_nomain(0,
-                               0,
-                               0,
-                               static_cast<int>(curr_object.tot_loop),
-                               static_cast<int>(curr_object.face_elements.size()));
-  };
-  auto creator_bmesh = [&]() {
-    BMAllocTemplate bat{0,
-                        0,
-                        static_cast<int>(curr_object.tot_loop),
-                        static_cast<int>(curr_object.face_elements.size())};
-    BMeshCreateParams bcp{1};
-    return BM_mesh_create(&bat, &bcp);
-  };
-
-  bm_new_.reset(creator_bmesh());
-  unique_mesh_ptr template_mesh{creator_mesh()};
-  BMeshFromMeshParams bm_convert_params{true, 0, 0, 0};
-  BM_mesh_bm_from_me(bm_new_.get(), template_mesh.get(), &bm_convert_params);
-};
-
-BMVert *OBJMeshFromRaw::BMesh_::add_bmvert(float3 coords)
-{
-  return BM_vert_create(bm_new_.get(), coords, nullptr, BM_CREATE_SKIP_CD);
-}
-
-void OBJMeshFromRaw::BMesh_::add_polygon_from_verts(BMVert **verts_of_face,
-                                                    uint tot_verts_per_poly)
-{
-  BM_face_create_ngon_verts(
-      bm_new_.get(), verts_of_face, tot_verts_per_poly, nullptr, BM_CREATE_SKIP_CD, false, true);
-}
-
 OBJMeshFromRaw::OBJMeshFromRaw(const class OBJRawObject &curr_object)
 {
-  BMesh_ bm_from_raw{curr_object};
-
-  Array<BMVert *> all_vertices{curr_object.vertices.size()};
-  for (int i = 0; i < curr_object.vertices.size(); i++) {
-    all_vertices[i] = bm_from_raw.add_bmvert(curr_object.vertices[i].co);
+  uint tot_verts_object = curr_object.vertices.size();
+  mesh_from_bm_.reset(BKE_mesh_new_nomain(
+      tot_verts_object, 0, 0, curr_object.tot_loop, curr_object.face_elements.size()));
+  for (int i = 0; i < tot_verts_object; ++i) {
+    copy_v3_v3(mesh_from_bm_->mvert[i].co, curr_object.vertices[i].co);
   }
 
-  for (const Vector<OBJFaceCorner> &curr_face : curr_object.face_elements) {
-    /* Collect vertices of one face from a pool of BMesh vertices. */
-    Array<BMVert *> verts_of_face{curr_face.size()};
-    for (int i = 0; i < curr_face.size(); i++) {
-      verts_of_face[i] = all_vertices[curr_face[i].vert_index];
+  int curr_loop_idx = 0;
+  for (int i = 0; i < curr_object.face_elements.size(); ++i) {
+    const Vector<OBJFaceCorner> &curr_face = curr_object.face_elements[i];
+    MPoly &mpoly = mesh_from_bm_->mpoly[i];
+    mpoly.totloop = curr_face.size();
+    mpoly.loopstart = curr_loop_idx;
+
+    for (int j = 0; j < curr_face.size(); ++j) {
+      MLoop *mloop = &mesh_from_bm_->mloop[curr_loop_idx];
+      mloop->v = curr_face[j].vert_index;
+      curr_loop_idx++;
     }
-    bm_from_raw.add_polygon_from_verts(&verts_of_face[0], curr_face.size());
   }
-
-  mesh_from_bm_.reset((Mesh *)BKE_id_new_nomain(ID_ME, nullptr));
-  BM_mesh_bm_to_me_for_eval(bm_from_raw.getter(), mesh_from_bm_.get(), nullptr);
+  BKE_mesh_calc_edges(mesh_from_bm_.get(), false, false);
   BKE_mesh_validate(mesh_from_bm_.get(), false, true);
 }
 }  // namespace blender::io::obj

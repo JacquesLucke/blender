@@ -57,26 +57,11 @@ class OBJMeshFromRaw : NonMovable, NonCopyable {
 
  public:
   OBJMeshFromRaw(const class OBJRawObject &curr_object);
+
   unique_mesh_ptr mover()
   {
     return std::move(mesh_from_bm_);
   }
-
- private:
-  struct BMesh_ {
-   private:
-    unique_bmesh_ptr bm_new_;
-
-   public:
-    BMesh_(const class OBJRawObject &curr_object);
-
-    BMesh *getter()
-    {
-      return bm_new_.get();
-    }
-    BMVert *add_bmvert(float3 coords);
-    void add_polygon_from_verts(BMVert **verts_of_face, uint tot_verts_per_poly);
-  };
 };
 
 }  // namespace blender::io::obj
