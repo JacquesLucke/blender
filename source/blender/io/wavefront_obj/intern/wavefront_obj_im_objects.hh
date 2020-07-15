@@ -27,8 +27,8 @@
 #include "BLI_string_ref.hh"
 #include "BLI_vector.hh"
 
-#include "DNA_meshdata_types.h"
 #include "DNA_collection_types.h"
+#include "DNA_meshdata_types.h"
 
 #include "wavefront_obj_im_mesh.hh"
 

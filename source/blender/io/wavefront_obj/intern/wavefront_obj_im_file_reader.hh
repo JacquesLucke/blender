@@ -27,22 +27,22 @@
 #include "IO_wavefront_obj.h"
 #include "wavefront_obj_im_objects.hh"
 
-namespace blender::io::obj{
+namespace blender::io::obj {
 class OBJImporter {
-private:
+ private:
   const OBJImportParams &import_params_;
   std::ifstream infile_;
   uint index_offsets[2] = {0, 0};
 
-public:
+ public:
   OBJImporter(const OBJImportParams &import_params);
 
   void parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_objects);
   void print_obj_data(Vector<std::unique_ptr<OBJRawObject>> &list_of_objects);
   void raw_to_blender_objects(Main *bmain,
-                    Scene *scene,
-                    Vector<std::unique_ptr<OBJRawObject>> &list_of_objects);
+                              Scene *scene,
+                              Vector<std::unique_ptr<OBJRawObject>> &list_of_objects);
 };
 
-}
+}  // namespace blender::io::obj
 #endif

@@ -73,8 +73,8 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
   string line;
   /* Non owning raw pointer to the unique_ptr to a raw object.
    * Needed to update object data in the same while loop.
-   * TODO ankitm Try to move the rest of the data parsing code in a conditional depending on a
-   * valid "o" object. */
+   * TODO ankitm Try to move the rest of the data parsing code in a conditional
+   * depending on a valid "o" object. */
   std::unique_ptr<OBJRawObject> *curr_ob;
   while (std::getline(infile_, line)) {
     string line_key = first_word_of_string(line);
@@ -109,26 +109,31 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
     }
     else if (line_key == "f") {
       OBJFaceElem curr_face;
-      string str_corners_line = s_line.str();
       Vector<string> str_corners_split;
-      split_by_char(str_corners_line, ' ', str_corners_split);
+      split_by_char(s_line.str(), ' ', str_corners_split);
       for (auto str_corner : str_corners_split) {
         OBJFaceCorner corner;
         size_t n_slash = std::count(str_corner.begin(), str_corner.end(), '/');
         if (n_slash == 0) {
+          /* Case: f v1 v2 v3 . */
           corner.vert_index = std::stoi(str_corner);
         }
         else if (n_slash == 1) {
+          /* Case: f v1/vt1 v2/vt2 v3/vt3 . */
           Vector<std::string> vert_texture;
           split_by_char(str_corner, '/', vert_texture);
           corner.vert_index = std::stoi(vert_texture[0]);
-          corner.tex_vert_index = vert_texture.size() >= 1 ? -1 : std::stoi(vert_texture[1]);
+          corner.tex_vert_index = vert_texture.size() >= 2 ? -1 : std::stoi(vert_texture[1]);
         }
         else if (n_slash == 2) {
-          Vector<std::string> vert_normal;
-          split_by_char(str_corner, '/', vert_normal);
-          corner.vert_index = std::stoi(vert_normal[0]);
-          /* Discard normals. They'll be calculated on the basis of smooth shading flag. */
+          /* Case: f v1//vn1 v2//vn2 v3//vn3 . */
+          /* Case: f v1/vt1/vn1 v2/vt2/vn2 v3/vt3/vn3 . */
+          Vector<std::string> vert_tex_normal;
+          split_by_char(str_corner, '/', vert_tex_normal);
+          corner.vert_index = std::stoi(vert_tex_normal[0]);
+          corner.tex_vert_index = vert_tex_normal.size() >= 2 ? -1 : std::stoi(vert_tex_normal[1]);
+          /* Discard normals. They'll be calculated on the basis of smooth
+           * shading flag. */
         }
         corner.vert_index -= index_offsets[VERTEX_OFF] + 1;
         corner.tex_vert_index -= index_offsets[UV_VERTEX_OFF] + 1;
