@@ -55,6 +55,7 @@ class OBJRawObject {
   Vector<OBJFaceElem> face_elements;
   uint tot_normals = 0;
   uint tot_loop = 0;
+  uint tot_uv_verts = 0;
   Vector<std::string> material_name;
 };
 

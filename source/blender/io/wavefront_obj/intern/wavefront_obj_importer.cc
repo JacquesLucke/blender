@@ -52,7 +52,7 @@ void OBJImporter::print_obj_data(Vector<std::unique_ptr<OBJRawObject>> &list_of_
     printf("\n");
     for (const OBJFaceElem &curr_face : curr_ob->face_elements) {
       for (OBJFaceCorner a : curr_face.face_corners) {
-        printf("%d %d ", a.vert_index, a.tex_vert_index);
+        printf("%d/%d ", a.vert_index, a.tex_vert_index);
       }
       printf("\n");
     }

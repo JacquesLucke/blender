@@ -105,6 +105,7 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
       Vector<string> str_vert;
       split_by_char(s_line.str(), ' ', str_vert);
       copy_string_to_float(curr_tex_vert.uv, str_vert);
+      curr_tex_vert.flag = false;
       (*curr_ob)->texture_vertices.append(curr_tex_vert);
     }
     else if (line_key == "f") {
@@ -123,7 +124,8 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
           Vector<std::string> vert_texture;
           split_by_char(str_corner, '/', vert_texture);
           corner.vert_index = std::stoi(vert_texture[0]);
-          corner.tex_vert_index = vert_texture.size() >= 2 ? -1 : std::stoi(vert_texture[1]);
+          corner.tex_vert_index = vert_texture.size() >= 2 ? std::stoi(vert_texture[1]) : -1;
+          (*curr_ob)->tot_uv_verts++;
         }
         else if (n_slash == 2) {
           /* Case: f v1//vn1 v2//vn2 v3//vn3 . */
@@ -131,7 +133,8 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
           Vector<std::string> vert_tex_normal;
           split_by_char(str_corner, '/', vert_tex_normal);
           corner.vert_index = std::stoi(vert_tex_normal[0]);
-          corner.tex_vert_index = vert_tex_normal.size() >= 2 ? -1 : std::stoi(vert_tex_normal[1]);
+          corner.tex_vert_index = vert_tex_normal.size() >= 2 ? std::stoi(vert_tex_normal[1]) : -1;
+          (*curr_ob)->tot_uv_verts++;
           /* Discard normals. They'll be calculated on the basis of smooth
            * shading flag. */
         }
