@@ -61,14 +61,20 @@ OBJMeshFromRaw::OBJMeshFromRaw(class OBJRawObject &curr_object)
   }
 
   int uv_vert_index = 0;
-  ED_mesh_uv_texture_ensure(mesh_from_bm_.get(), nullptr);
+  if (curr_object.tot_uv_verts > 0) {
+    ED_mesh_uv_texture_ensure(mesh_from_bm_.get(), nullptr);
+  }
   for (int i = 0; i < tot_face_elems; ++i) {
     const OBJFaceElem curr_face = curr_object.face_elements[i];
     for (int j = 0; j < curr_face.face_corners.size(); ++j) {
       const OBJFaceCorner curr_corner = curr_face.face_corners[j];
       MLoopUV *mluv_dst = (MLoopUV *)CustomData_get_layer(&mesh_from_bm_->ldata, CD_MLOOPUV);
+      if (!mluv_dst) {
+        fprintf(stderr, "No UV layer found.\n");
+        break;
+      }
       if (curr_corner.tex_vert_index < 0 ||
-          curr_corner.tex_vert_index >= curr_object.tot_uv_verts || !mluv_dst) {
+          curr_corner.tex_vert_index >= curr_object.tot_uv_verts) {
         continue;
       }
       MLoopUV *mluv_src = &curr_object.texture_vertices[curr_corner.tex_vert_index];
