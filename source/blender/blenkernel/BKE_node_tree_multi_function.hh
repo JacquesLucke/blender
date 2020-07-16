@@ -319,11 +319,11 @@ class SocketMFNetworkBuilder : public MFNetworkBuilderBase {
  */
 class NodeMFNetworkBuilder : public MFNetworkBuilderBase {
  private:
-  const DNode &node_;
+  const DNode &dnode_;
 
  public:
-  NodeMFNetworkBuilder(CommonMFNetworkBuilderData &common, const DNode &node)
-      : MFNetworkBuilderBase(common), node_(node)
+  NodeMFNetworkBuilder(CommonMFNetworkBuilderData &common, const DNode &dnode)
+      : MFNetworkBuilderBase(common), dnode_(dnode)
   {
   }
 
@@ -337,6 +337,13 @@ class NodeMFNetworkBuilder : public MFNetworkBuilderBase {
     this->set_matching_fn(function);
   }
 
+  void not_implemented()
+  {
+    this->set_default_fn("Not Implemented (" + dnode_.name() + ")");
+  }
+
+  void set_default_fn(StringRef name);
+
   /**
    * Tells the builder that the given function corresponds to the node that is being built. It will
    * try to match up sockets. For that it skips unavailable and non-data sockets.
@@ -344,7 +351,7 @@ class NodeMFNetworkBuilder : public MFNetworkBuilderBase {
   void set_matching_fn(const fn::MultiFunction &function)
   {
     fn::MFFunctionNode &node = common_.network.add_function(function);
-    common_.network_map.add_try_match(node_, node);
+    common_.network_map.add_try_match(dnode_, node);
   }
 
   /**
@@ -352,7 +359,7 @@ class NodeMFNetworkBuilder : public MFNetworkBuilderBase {
    */
   bNode &bnode()
   {
-    return *node_.node_ref().bnode();
+    return *dnode_.node_ref().bnode();
   }
 
   /**
@@ -360,7 +367,7 @@ class NodeMFNetworkBuilder : public MFNetworkBuilderBase {
    */
   const DNode &dnode() const
   {
-    return node_;
+    return dnode_;
   }
 };
 

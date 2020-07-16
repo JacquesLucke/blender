@@ -31,6 +31,35 @@ static std::optional<fn::MFDataType> try_get_multi_function_data_type_of_socket(
   return bsocket->typeinfo->get_mf_data_type();
 }
 
+void NodeMFNetworkBuilder::set_default_fn(StringRef name)
+{
+  Vector<fn::MFDataType, 10> input_types;
+  Vector<fn::MFDataType, 10> output_types;
+
+  for (const DInputSocket *dsocket : dnode_.inputs()) {
+    if (dsocket->is_available()) {
+      std::optional<fn::MFDataType> data_type = try_get_multi_function_data_type_of_socket(
+          dsocket->bsocket());
+      if (data_type.has_value()) {
+        input_types.append(*data_type);
+      }
+    }
+  }
+  for (const DOutputSocket *dsocket : dnode_.outputs()) {
+    if (dsocket->is_available()) {
+      std::optional<fn::MFDataType> data_type = try_get_multi_function_data_type_of_socket(
+          dsocket->bsocket());
+      if (data_type.has_value()) {
+        output_types.append(*data_type);
+      }
+    }
+  }
+
+  const fn::MultiFunction &fn = this->construct_fn<fn::CustomMF_DefaultOutput>(
+      name, input_types, output_types);
+  this->set_matching_fn(fn);
+}
+
 static void insert_dummy_node(CommonMFNetworkBuilderData &common, const DNode &dnode)
 {
   constexpr uint stack_capacity = 10;
