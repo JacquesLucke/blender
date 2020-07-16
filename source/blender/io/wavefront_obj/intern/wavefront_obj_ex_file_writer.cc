@@ -186,6 +186,7 @@ void OBJWriter::write_uv_coords(OBJMesh &obj_mesh_data, Vector<Vector<uint>> &uv
 void OBJWriter::write_poly_normals(OBJMesh &obj_mesh_data)
 {
   obj_mesh_data.ensure_mesh_normals();
+  obj_mesh_data.calc_smooth_groups();
   if (export_params_.export_smooth_groups && obj_mesh_data.tot_smooth_groups() > 0) {
     float vertex_normal[3];
     for (uint i = 0; i < obj_mesh_data.tot_vertices(); i++) {
@@ -208,14 +209,13 @@ void OBJWriter::write_poly_normals(OBJMesh &obj_mesh_data)
  */
 void OBJWriter::write_smooth_group(OBJMesh &obj_mesh_data,
                                    int &r_last_face_smooth_group,
-                                   const int *poly_smooth_groups,
                                    uint poly_index)
 {
-  if (!export_params_.export_smooth_groups || !poly_smooth_groups) {
+  if (!export_params_.export_smooth_groups || !obj_mesh_data.tot_smooth_groups()) {
     return;
   }
   if ((obj_mesh_data.get_ith_poly(poly_index).flag & ME_SMOOTH) == true) {
-    int curr_group = poly_smooth_groups[poly_index];
+    int curr_group = obj_mesh_data.ith_smooth_group(poly_index);
     if (curr_group == r_last_face_smooth_group) {
       return;
     }
@@ -297,8 +297,8 @@ void OBJWriter::write_poly_elements(OBJMesh &obj_mesh_data, Span<Vector<uint>> u
 {
   Vector<uint> vertex_indices;
   Vector<uint> normal_indices;
-  int *poly_smooth_groups = obj_mesh_data.calc_smooth_groups();
 
+  /* -1 has no significant value, it could have been any negative number. */
   int last_face_smooth_group = -1;
   /* -1 is used for a face having no vertex group. It could have been any _other_ negative
    * number. */
@@ -314,7 +314,7 @@ void OBJWriter::write_poly_elements(OBJMesh &obj_mesh_data, Span<Vector<uint>> u
         obj_mesh_data.calc_poly_normal_indices(normal_indices, i);
         const MPoly &poly_to_write = obj_mesh_data.get_ith_poly(i);
 
-        write_smooth_group(obj_mesh_data, last_face_smooth_group, poly_smooth_groups, i);
+        write_smooth_group(obj_mesh_data, last_face_smooth_group, i);
         write_vertex_group(obj_mesh_data, last_face_vertex_group, i);
         write_poly_material(obj_mesh_data, last_face_mat_nr, i);
         write_vert_uv_normal_indices(vertex_indices, uv_indices[i], normal_indices, poly_to_write);
@@ -327,7 +327,7 @@ void OBJWriter::write_poly_elements(OBJMesh &obj_mesh_data, Span<Vector<uint>> u
         obj_mesh_data.calc_poly_normal_indices(normal_indices, i);
         const MPoly &poly_to_write = obj_mesh_data.get_ith_poly(i);
 
-        write_smooth_group(obj_mesh_data, last_face_smooth_group, poly_smooth_groups, i);
+        write_smooth_group(obj_mesh_data, last_face_smooth_group, i);
         write_vertex_group(obj_mesh_data, last_face_vertex_group, i);
         write_poly_material(obj_mesh_data, last_face_mat_nr, i);
         write_vert_normal_indices(vertex_indices, normal_indices, poly_to_write);
@@ -341,7 +341,7 @@ void OBJWriter::write_poly_elements(OBJMesh &obj_mesh_data, Span<Vector<uint>> u
         obj_mesh_data.calc_poly_vertex_indices(vertex_indices, i);
         const MPoly &poly_to_write = obj_mesh_data.get_ith_poly(i);
 
-        write_smooth_group(obj_mesh_data, last_face_smooth_group, poly_smooth_groups, i);
+        write_smooth_group(obj_mesh_data, last_face_smooth_group, i);
         write_vertex_group(obj_mesh_data, last_face_vertex_group, i);
         write_poly_material(obj_mesh_data, last_face_mat_nr, i);
         write_vert_uv_indices(vertex_indices, uv_indices[i], poly_to_write);
@@ -353,16 +353,12 @@ void OBJWriter::write_poly_elements(OBJMesh &obj_mesh_data, Span<Vector<uint>> u
         obj_mesh_data.calc_poly_vertex_indices(vertex_indices, i);
         const MPoly &poly_to_write = obj_mesh_data.get_ith_poly(i);
 
-        write_smooth_group(obj_mesh_data, last_face_smooth_group, poly_smooth_groups, i);
+        write_smooth_group(obj_mesh_data, last_face_smooth_group, i);
         write_vertex_group(obj_mesh_data, last_face_vertex_group, i);
         write_poly_material(obj_mesh_data, last_face_mat_nr, i);
         write_vert_indices(vertex_indices, poly_to_write);
       }
     }
-  }
-
-  if (poly_smooth_groups) {
-    MEM_freeN(poly_smooth_groups);
   }
 }
 

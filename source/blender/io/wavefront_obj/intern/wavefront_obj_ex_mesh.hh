@@ -76,6 +76,10 @@ class OBJMesh : NonMovable, NonCopyable {
    * Total smooth groups in an object.
    */
   uint tot_smooth_groups_ = 0;
+  /**
+   * Smooth group of all the polygons. 0 if the polygon is not shaded smooth.
+   */
+  int *poly_smooth_groups_;
 
  public:
   OBJMesh(Depsgraph *depsgraph, const OBJExportParams &export_params, Object *export_object);
@@ -87,8 +91,10 @@ class OBJMesh : NonMovable, NonCopyable {
   const uint tot_edges();
   const short tot_col();
   const uint tot_smooth_groups();
+  const int ith_smooth_group(int poly_index);
 
   void ensure_mesh_normals();
+  void calc_smooth_groups();
   Material *get_object_material(short mat_nr);
   const MPoly &get_ith_poly(uint i);
 
@@ -103,7 +109,6 @@ class OBJMesh : NonMovable, NonCopyable {
   void calc_poly_normal(float r_poly_normal[3], uint poly_index);
   void calc_vertex_normal(float r_vertex_normal[3], uint vertex_index);
   void calc_poly_normal_indices(Vector<uint> &r_normal_indices, uint poly_index);
-  int *calc_smooth_groups();
   const char *get_poly_deform_group_name(const MPoly &mpoly, short &r_last_vertex_group);
   void calc_edge_vert_indices(uint r_vert_indices[2], uint edge_index);
 

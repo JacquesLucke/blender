@@ -68,7 +68,6 @@ class OBJWriter {
   void write_poly_normals(OBJMesh &obj_mesh_data);
   void write_smooth_group(OBJMesh &obj_mesh_data,
                           int &r_last_face_smooth_group,
-                          const int *poly_smooth_groups,
                           uint poly_index);
   void write_poly_material(OBJMesh &obj_mesh_data, short &r_last_face_mat_nr, uint poly_index);
   void write_vertex_group(OBJMesh &obj_mesh_data,

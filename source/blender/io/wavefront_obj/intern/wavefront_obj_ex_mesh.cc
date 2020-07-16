@@ -99,6 +99,9 @@ OBJMesh::~OBJMesh()
   if (mesh_eval_needs_free_) {
     BKE_id_free(NULL, export_mesh_eval_);
   }
+  if (poly_smooth_groups_) {
+    MEM_freeN(poly_smooth_groups_);
+  }
 }
 
 /**
@@ -187,9 +190,41 @@ const uint OBJMesh::tot_smooth_groups()
   return tot_smooth_groups_;
 }
 
+/**
+ * Return smooth group of the polygon at the given index.
+ */
+const int OBJMesh::ith_smooth_group(int poly_index)
+{
+  BLI_assert(poly_smooth_groups_);
+  return poly_smooth_groups_[poly_index];
+}
+
 void OBJMesh::ensure_mesh_normals()
 {
   BKE_mesh_ensure_normals(export_mesh_eval_);
+}
+
+/**
+ * Calculate smooth groups of a smooth shaded object.
+ * \return A polygon aligned array of smooth group numbers or bitflags if export
+ * settings specify so.
+ */
+void OBJMesh::calc_smooth_groups()
+{
+  if (!export_params_.export_smooth_groups) {
+    poly_smooth_groups_ = nullptr;
+  }
+  int tot_smooth_groups = 0;
+  bool use_bitflags = export_params_.smooth_groups_bitflags;
+  poly_smooth_groups_ = BKE_mesh_calc_smoothgroups(export_mesh_eval_->medge,
+                                                   export_mesh_eval_->totedge,
+                                                   export_mesh_eval_->mpoly,
+                                                   export_mesh_eval_->totpoly,
+                                                   export_mesh_eval_->mloop,
+                                                   export_mesh_eval_->totloop,
+                                                   &tot_smooth_groups,
+                                                   use_bitflags);
+  tot_smooth_groups_ = tot_smooth_groups;
 }
 
 /**
@@ -345,30 +380,6 @@ void OBJMesh::calc_poly_normal_indices(Vector<uint> &r_normal_indices, uint poly
       r_normal_indices[i] = poly_index + 1;
     }
   }
-}
-
-/**
- * Calculate smooth groups of a smooth shaded object.
- * \return A polygon aligned array of smooth group numbers or bitflags if export
- * settings specify so.
- */
-int *OBJMesh::calc_smooth_groups()
-{
-  if (!export_params_.export_smooth_groups) {
-    return nullptr;
-  }
-  int tot_smooth_groups = 0;
-  bool use_bitflags = export_params_.smooth_groups_bitflags;
-  int *groups_array = BKE_mesh_calc_smoothgroups(export_mesh_eval_->medge,
-                                                 export_mesh_eval_->totedge,
-                                                 export_mesh_eval_->mpoly,
-                                                 export_mesh_eval_->totpoly,
-                                                 export_mesh_eval_->mloop,
-                                                 export_mesh_eval_->totloop,
-                                                 &tot_smooth_groups,
-                                                 use_bitflags);
-  tot_smooth_groups_ = tot_smooth_groups;
-  return groups_array;
 }
 
 /**
