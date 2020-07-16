@@ -63,29 +63,30 @@ OBJMeshFromRaw::OBJMeshFromRaw(class OBJRawObject &curr_object)
     }
   }
 
+  /* TODO ankitm merge the face iteration loops. Kept separate for ease of debugging. */
   int uv_vert_index = 0;
-  if (curr_object.tot_uv_verts > 0) {
+  if (curr_object.tot_uv_verts > 0 && curr_object.texture_vertices.size() > 0) {
     ED_mesh_uv_texture_ensure(mesh_from_bm_.get(), nullptr);
-  }
-  for (int i = 0; i < tot_face_elems; ++i) {
-    const OBJFaceElem curr_face = curr_object.face_elements[i];
-    for (int j = 0; j < curr_face.face_corners.size(); ++j) {
-      const OBJFaceCorner curr_corner = curr_face.face_corners[j];
-      MLoopUV *mluv_dst = (MLoopUV *)CustomData_get_layer(&mesh_from_bm_->ldata, CD_MLOOPUV);
-      if (!mluv_dst) {
-        fprintf(stderr, "No UV layer found.\n");
-        break;
-      }
-      if (curr_corner.tex_vert_index < 0 ||
-          curr_corner.tex_vert_index >= curr_object.tot_uv_verts) {
-        continue;
-      }
-      MLoopUV *mluv_src = &curr_object.texture_vertices[curr_corner.tex_vert_index];
-      int &set_uv = mluv_src->flag;
-      if (set_uv == false && uv_vert_index <= curr_object.tot_uv_verts) {
-        copy_v2_v2(mluv_dst[uv_vert_index].uv, mluv_src->uv);
-        uv_vert_index++;
-        set_uv = true;
+    for (int i = 0; i < tot_face_elems; ++i) {
+      const OBJFaceElem curr_face = curr_object.face_elements[i];
+      for (int j = 0; j < curr_face.face_corners.size(); ++j) {
+        const OBJFaceCorner curr_corner = curr_face.face_corners[j];
+        MLoopUV *mluv_dst = (MLoopUV *)CustomData_get_layer(&mesh_from_bm_->ldata, CD_MLOOPUV);
+        if (!mluv_dst) {
+          fprintf(stderr, "No UV layer found.\n");
+          break;
+        }
+        if (curr_corner.tex_vert_index < 0 ||
+            curr_corner.tex_vert_index >= curr_object.tot_uv_verts) {
+          continue;
+        }
+        MLoopUV *mluv_src = &curr_object.texture_vertices[curr_corner.tex_vert_index];
+        int &set_uv = mluv_src->flag;
+        if (set_uv == false && uv_vert_index <= curr_object.tot_uv_verts) {
+          copy_v2_v2(mluv_dst[uv_vert_index].uv, mluv_src->uv);
+          uv_vert_index++;
+          set_uv = true;
+        }
       }
     }
   }
