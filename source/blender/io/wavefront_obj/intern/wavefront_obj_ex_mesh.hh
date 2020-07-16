@@ -79,7 +79,7 @@ class OBJMesh : NonMovable, NonCopyable {
   /**
    * Smooth group of all the polygons. 0 if the polygon is not shaded smooth.
    */
-  int *poly_smooth_groups_;
+  int *poly_smooth_groups_ = nullptr;
 
  public:
   OBJMesh(Depsgraph *depsgraph, const OBJExportParams &export_params, Object *export_object);
