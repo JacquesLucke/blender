@@ -77,6 +77,68 @@ static int gpu_shader_map_range(GPUMaterial *mat,
   return ret;
 }
 
+class MapRangeFunction : public blender::fn::MultiFunction {
+ private:
+  bool clamp_;
+
+ public:
+  MapRangeFunction(bool clamp) : clamp_(clamp)
+  {
+    blender::fn::MFSignatureBuilder signature = this->get_builder("Map Range");
+    signature.single_input<float>("Value");
+    signature.single_input<float>("From Min");
+    signature.single_input<float>("From Max");
+    signature.single_input<float>("To Min");
+    signature.single_input<float>("To Max");
+    signature.single_output<float>("Result");
+  }
+
+  void call(blender::IndexMask mask,
+            blender::fn::MFParams params,
+            blender::fn::MFContext UNUSED(context)) const override
+  {
+    blender::fn::VSpan<float> values = params.readonly_single_input<float>(0, "Value");
+    blender::fn::VSpan<float> from_min = params.readonly_single_input<float>(1, "From Min");
+    blender::fn::VSpan<float> from_max = params.readonly_single_input<float>(2, "From Max");
+    blender::fn::VSpan<float> to_min = params.readonly_single_input<float>(3, "To Min");
+    blender::fn::VSpan<float> to_max = params.readonly_single_input<float>(4, "To Max");
+    blender::MutableSpan<float> results = params.uninitialized_single_output<float>(5, "Result");
+
+    for (uint i : mask) {
+      float factor = safe_divide(values[i] - from_min[i], from_max[i] - from_min[i]);
+      results[i] = to_min[i] + factor * (to_max[i] - to_min[i]);
+    }
+
+    if (clamp_) {
+      for (uint i : mask) {
+        CLAMP(results[i], 0.0f, 1.0f);
+      }
+    }
+  }
+};
+
+static void sh_node_map_range_expand_in_mf_network(blender::bke::NodeMFNetworkBuilder &builder)
+{
+  bNode &bnode = builder.bnode();
+  bool clamp = bnode.custom1 != 0;
+  int interpolation_type = bnode.custom2;
+
+  if (interpolation_type == NODE_MAP_RANGE_LINEAR) {
+    static MapRangeFunction fn_with_clamp{true};
+    static MapRangeFunction fn_without_clamp{false};
+
+    if (clamp) {
+      builder.set_matching_fn(fn_with_clamp);
+    }
+    else {
+      builder.set_matching_fn(fn_without_clamp);
+    }
+  }
+  else {
+    builder.set_not_implemented();
+  }
+}
+
 void register_node_type_sh_map_range(void)
 {
   static bNodeType ntype;
@@ -86,6 +148,7 @@ void register_node_type_sh_map_range(void)
   node_type_init(&ntype, node_shader_init_map_range);
   node_type_update(&ntype, node_shader_update_map_range);
   node_type_gpu(&ntype, gpu_shader_map_range);
+  ntype.expand_in_mf_network = sh_node_map_range_expand_in_mf_network;
 
   nodeRegisterType(&ntype);
 }
