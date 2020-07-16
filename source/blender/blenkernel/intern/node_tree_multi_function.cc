@@ -31,7 +31,7 @@ static std::optional<fn::MFDataType> try_get_multi_function_data_type_of_socket(
   return bsocket->typeinfo->get_mf_data_type();
 }
 
-void NodeMFNetworkBuilder::set_default_fn(StringRef name)
+const fn::MultiFunction &NodeMFNetworkBuilder::set_default_fn(StringRef name)
 {
   Vector<fn::MFDataType, 10> input_types;
   Vector<fn::MFDataType, 10> output_types;
@@ -58,6 +58,7 @@ void NodeMFNetworkBuilder::set_default_fn(StringRef name)
   const fn::MultiFunction &fn = this->construct_fn<fn::CustomMF_DefaultOutput>(
       name, input_types, output_types);
   this->set_matching_fn(fn);
+  return fn;
 }
 
 static void insert_dummy_node(CommonMFNetworkBuilderData &common, const DNode &dnode)

@@ -331,18 +331,19 @@ class NodeMFNetworkBuilder : public MFNetworkBuilderBase {
    * Tells the builder to build a function that corresponds to the node that is being built. It
    * will try to match up sockets.
    */
-  template<typename T, typename... Args> void construct_and_set_matching_fn(Args &&... args)
+  template<typename T, typename... Args> T &construct_and_set_matching_fn(Args &&... args)
   {
-    const fn::MultiFunction &function = this->construct_fn<T>(std::forward<Args>(args)...);
+    T &function = this->construct_fn<T>(std::forward<Args>(args)...);
     this->set_matching_fn(function);
+    return function;
   }
 
-  void not_implemented()
+  const fn::MultiFunction &not_implemented()
   {
-    this->set_default_fn("Not Implemented (" + dnode_.name() + ")");
+    return this->set_default_fn("Not Implemented (" + dnode_.name() + ")");
   }
 
-  void set_default_fn(StringRef name);
+  const fn::MultiFunction &set_default_fn(StringRef name);
 
   /**
    * Tells the builder that the given function corresponds to the node that is being built. It will
