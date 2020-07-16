@@ -41,30 +41,71 @@ OBJImporter::OBJImporter(const OBJImportParams &import_params) : import_params_(
   infile_.open(import_params_.filepath);
 }
 
-static void split_by_char(string in_string, char delimiter, Vector<string> &r_out_list)
+/**
+ * Split the given string by the delimiter and fill the given vector.
+ * If an intermediate string is empty, or space or null character, it is not appended to the
+ * vector.
+ */
+static void split_by_char(const string &in_string, char delimiter, Vector<string> &r_out_list)
 {
   std::stringstream stream(in_string);
   string word{};
   while (std::getline(stream, word, delimiter)) {
-    if (word == "" || word[0] == ' ' || word[0] == '\0') {
+    if (word.empty() || word[0] == ' ' || word[0] == '\0') {
       continue;
     }
     r_out_list.append(word);
   }
 }
 
-static string first_word_of_string(string in_string)
+/**
+ * Substring of the given string from the start to the first ` ` if encountered.
+ * If no space is found in the string, return the first character.
+ */
+static string first_word_of_string(const string &in_string)
 {
   size_t pos = in_string.find_first_of(' ');
   return pos == string::npos ? in_string.substr(0, 1) : in_string.substr(0, pos);
 }
 
-MALWAYS_INLINE void copy_string_to_float(float *dst, Span<string> src)
+/**
+ * Convert all members of the Span of strings to floats and assign them to the float
+ * array members (or single float passed by address). Usually used for values like coordinates.
+ *
+ * Catches exception if the string cannot be converted to a float. The float array members
+ *  are set to <TODO ankitm: values can be -1.0 too!> in that case.
+ */
+
+MALWAYS_INLINE void copy_string_to_float(float *r_dst, Span<string> src)
 {
-  dst[0] = std::stof(src[0]);
-  dst[1] = std::stof(src[1]);
-  if (src.size() == 3) {
-    dst[2] = std::stof(src[2]);
+  for (int i = 0; i < src.size(); ++i) {
+    try {
+      r_dst[i] = std::stof(src[i]);
+    }
+    catch (std::invalid_argument &inv_arg) {
+      fprintf(stderr, "Bad conversion to float:%s:%s\n", inv_arg.what(), src[i].c_str());
+      r_dst[i] = -1.0f;
+    }
+  }
+}
+
+/**
+ * Convert all members of the Span of strings to integers and assign them to the int
+ * array members (or single integer passed by address). Usually used for indices.
+ *
+ * Catches exception if the string cannot be converted to an integer. The int array members
+ *  are set to <TODO ankitm: indices can be -1 too!> in that case.
+ */
+MALWAYS_INLINE void copy_string_to_int(int *r_dst, Span<string> src)
+{
+  for (int i = 0; i < src.size(); ++i) {
+    try {
+      r_dst[i] = std::stoi(src[i]);
+    }
+    catch (std::invalid_argument &inv_arg) {
+      fprintf(stderr, "Bad conversion to int:%s:%s\n", inv_arg.what(), src[i].c_str());
+      r_dst[i] = -1;
+    }
   }
 }
 
@@ -116,6 +157,7 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
       s_line >> str_shading;
       if (str_shading != "0" && str_shading.find("off") == string::npos &&
           str_shading.find("null") == string::npos) {
+        /* TODO ankitm make a string to bool function if need arises. */
         try {
           std::stoi(str_shading);
           shaded_smooth = true;
@@ -143,15 +185,15 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
         size_t n_slash = std::count(str_corner.begin(), str_corner.end(), '/');
         if (n_slash == 0) {
           /* Case: f v1 v2 v3 . */
-          corner.vert_index = std::stoi(str_corner);
+          copy_string_to_int(&corner.vert_index, {str_corner});
         }
         else if (n_slash == 1) {
           /* Case: f v1/vt1 v2/vt2 v3/vt3 . */
           Vector<std::string> vert_texture;
           split_by_char(str_corner, '/', vert_texture);
-          corner.vert_index = std::stoi(vert_texture[0]);
+          copy_string_to_int(&corner.vert_index, {vert_texture[0]});
           if (vert_texture.size() == 2) {
-            corner.tex_vert_index = std::stoi(vert_texture[1]);
+            copy_string_to_int(&corner.tex_vert_index, {vert_texture[1]});
             (*curr_ob)->tot_uv_verts++;
           }
         }
@@ -160,9 +202,9 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
           /* Case: f v1/vt1/vn1 v2/vt2/vn2 v3/vt3/vn3 . */
           Vector<std::string> vert_tex_normal;
           split_by_char(str_corner, '/', vert_tex_normal);
-          corner.vert_index = std::stoi(vert_tex_normal[0]);
+          copy_string_to_int(&corner.vert_index, {vert_tex_normal[0]});
           if (vert_tex_normal.size() == 3) {
-            corner.tex_vert_index = std::stoi(vert_tex_normal[1]);
+            copy_string_to_int(&corner.tex_vert_index, {vert_tex_normal[1]});
             (*curr_ob)->tot_uv_verts++;
           }
           /* Discard normals. They'll be calculated on the basis of smooth
