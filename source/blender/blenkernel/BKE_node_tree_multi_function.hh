@@ -88,6 +88,7 @@ class MFNetworkTreeMap {
   void add(const DSocket &dsocket, fn::MFSocket &socket)
   {
     BLI_assert(dsocket.is_input() == socket.is_input());
+    BLI_assert(dsocket.is_input() || sockets_by_dsocket_id_[dsocket.id()].size() == 0);
     sockets_by_dsocket_id_[dsocket.id()].append(&socket);
   }
 
@@ -98,6 +99,8 @@ class MFNetworkTreeMap {
 
   void add(const DOutputSocket &dsocket, fn::MFOutputSocket &socket)
   {
+    /* There can be at most one matching output socket. */
+    BLI_assert(sockets_by_dsocket_id_[dsocket.id()].size() == 0);
     sockets_by_dsocket_id_[dsocket.id()].append(&socket);
   }
 
@@ -338,12 +341,12 @@ class NodeMFNetworkBuilder : public MFNetworkBuilderBase {
     return function;
   }
 
-  const fn::MultiFunction &not_implemented()
+  const fn::MultiFunction &get_not_implemented_fn()
   {
-    return this->set_default_fn("Not Implemented (" + dnode_.name() + ")");
+    return this->get_default_fn("Not Implemented (" + dnode_.name() + ")");
   }
 
-  const fn::MultiFunction &set_default_fn(StringRef name);
+  const fn::MultiFunction &get_default_fn(StringRef name);
 
   /**
    * Tells the builder that the given function corresponds to the node that is being built. It will

@@ -245,10 +245,10 @@ static const blender::fn::MultiFunction &get_base_multi_function(
       return fn;
     }
     case NODE_MATH_SMOOTH_MIN: {
-      return builder.not_implemented();
+      return builder.get_not_implemented_fn();
     }
     case NODE_MATH_SMOOTH_MAX: {
-      return builder.not_implemented();
+      return builder.get_not_implemented_fn();
     }
 
     case NODE_MATH_ROUND: {
@@ -287,10 +287,10 @@ static const blender::fn::MultiFunction &get_base_multi_function(
       return fn;
     }
     case NODE_MATH_WRAP: {
-      return builder.not_implemented();
+      return builder.get_not_implemented_fn();
     }
     case NODE_MATH_PINGPONG: {
-      return builder.not_implemented();
+      return builder.get_not_implemented_fn();
     }
 
     case NODE_MATH_SINE: {
@@ -343,7 +343,7 @@ static const blender::fn::MultiFunction &get_base_multi_function(
 
     default:
       BLI_assert(false);
-      return builder.not_implemented();
+      return builder.get_not_implemented_fn();
   }
 }
 
