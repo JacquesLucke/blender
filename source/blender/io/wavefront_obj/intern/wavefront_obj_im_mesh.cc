@@ -35,21 +35,21 @@
 #include "wavefront_obj_im_objects.hh"
 
 namespace blender::io::obj {
-OBJMeshFromRaw::OBJMeshFromRaw(const class OBJRawObject &curr_object)
+OBJMeshFromRaw::OBJMeshFromRaw(const OBJRawObject &curr_object)
 {
   uint tot_verts_object = curr_object.vertices.size();
   uint tot_face_elems = curr_object.face_elements.size();
-  mesh_from_bm_.reset(
+  mesh_from_ob_.reset(
       BKE_mesh_new_nomain(tot_verts_object, 0, 0, curr_object.tot_loop, tot_face_elems));
 
   for (int i = 0; i < tot_verts_object; ++i) {
-    copy_v3_v3(mesh_from_bm_->mvert[i].co, curr_object.vertices[i].co);
+    copy_v3_v3(mesh_from_ob_->mvert[i].co, curr_object.vertices[i].co);
   }
 
   int curr_loop_idx = 0;
   for (int i = 0; i < tot_face_elems; ++i) {
     const OBJFaceElem &curr_face = curr_object.face_elements[i];
-    MPoly &mpoly = mesh_from_bm_->mpoly[i];
+    MPoly &mpoly = mesh_from_ob_->mpoly[i];
     mpoly.totloop = curr_face.face_corners.size();
     mpoly.loopstart = curr_loop_idx;
     if (curr_face.shaded_smooth) {
@@ -57,20 +57,20 @@ OBJMeshFromRaw::OBJMeshFromRaw(const class OBJRawObject &curr_object)
     }
 
     for (int j = 0; j < mpoly.totloop; ++j) {
-      MLoop *mloop = &mesh_from_bm_->mloop[curr_loop_idx];
+      MLoop *mloop = &mesh_from_ob_->mloop[curr_loop_idx];
       mloop->v = curr_face.face_corners[j].vert_index;
       curr_loop_idx++;
     }
   }
 
-  BKE_mesh_calc_edges(mesh_from_bm_.get(), false, false);
+  BKE_mesh_calc_edges(mesh_from_ob_.get(), false, false);
 
   /* TODO ankitm merge the face iteration loops. Kept separate for ease of debugging. */
   if (curr_object.tot_uv_verts > 0 && curr_object.texture_vertices.size() > 0) {
-    MLoopUV *mluv_dst = (MLoopUV *)CustomData_add_layer(&mesh_from_bm_->ldata,
+    MLoopUV *mluv_dst = (MLoopUV *)CustomData_add_layer(&mesh_from_ob_->ldata,
                                                         CD_MLOOPUV,
                                                         CD_DUPLICATE,
-                                                        mesh_from_bm_->mloopuv,
+                                                        mesh_from_ob_->mloopuv,
                                                         curr_object.tot_loop);
     int loop_idx = 0;
     for (const OBJFaceElem &curr_face : curr_object.face_elements) {
@@ -86,6 +86,6 @@ OBJMeshFromRaw::OBJMeshFromRaw(const class OBJRawObject &curr_object)
     }
   }
 
-  BKE_mesh_validate(mesh_from_bm_.get(), false, true);
+  BKE_mesh_validate(mesh_from_ob_.get(), false, true);
 }
 }  // namespace blender::io::obj

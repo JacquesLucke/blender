@@ -33,6 +33,7 @@
 #include "bmesh.h"
 
 namespace blender::io::obj {
+class OBJRawObject;
 
 struct UniqueMeshDeleter {
   void operator()(Mesh *mesh)
@@ -53,14 +54,14 @@ using unique_bmesh_ptr = std::unique_ptr<BMesh, UniqueBMeshDeleter>;
 
 class OBJMeshFromRaw : NonMovable, NonCopyable {
  private:
-  unique_mesh_ptr mesh_from_bm_;
+  unique_mesh_ptr mesh_from_ob_;
 
  public:
-  OBJMeshFromRaw(const class OBJRawObject &curr_object);
+  OBJMeshFromRaw(const OBJRawObject &curr_object);
 
   unique_mesh_ptr mover()
   {
-    return std::move(mesh_from_bm_);
+    return std::move(mesh_from_ob_);
   }
 };
 
