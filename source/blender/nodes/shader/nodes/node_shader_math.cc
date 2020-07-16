@@ -350,7 +350,26 @@ static const blender::fn::MultiFunction &get_base_multi_function(
 static void sh_node_math_expand_in_mf_network(blender::bke::NodeMFNetworkBuilder &builder)
 {
   const blender::fn::MultiFunction &base_function = get_base_multi_function(builder);
-  builder.set_matching_fn(base_function);
+
+  const blender::bke::DNode &dnode = builder.dnode();
+  blender::fn::MFNetwork &network = builder.network();
+  blender::fn::MFFunctionNode &base_node = network.add_function(base_function);
+
+  builder.network_map().add_try_match(dnode.inputs(), base_node.inputs());
+
+  const bool clamp_output = builder.bnode().custom2 != 0;
+  if (clamp_output) {
+    static blender::fn::CustomMF_SI_SO<float, float> clamp_fn{"Clamp", [](float value) {
+                                                                CLAMP(value, 0.0f, 1.0f);
+                                                                return value;
+                                                              }};
+    blender::fn::MFFunctionNode &clamp_node = network.add_function(clamp_fn);
+    network.add_link(base_node.output(0), clamp_node.input(0));
+    builder.network_map().add(dnode.output(0), clamp_node.output(0));
+  }
+  else {
+    builder.network_map().add(dnode.output(0), base_node.output(0));
+  }
 }
 
 void register_node_type_sh_math(void)

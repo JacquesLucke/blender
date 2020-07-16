@@ -168,20 +168,21 @@ static fn::MFOutputSocket *try_find_origin(CommonMFNetworkBuilderData &common,
   }
 
   if (from_dsockets.size() == 1) {
-    if (is_multi_function_data_socket(from_dsockets[0]->bsocket())) {
-      return &common.network_map.lookup(*from_dsockets[0]);
-    }
-    else {
+    const DOutputSocket &from_dsocket = *from_dsockets[0];
+    if (!from_dsocket.is_available()) {
       return nullptr;
     }
+    if (is_multi_function_data_socket(from_dsocket.bsocket())) {
+      return &common.network_map.lookup(from_dsocket);
+    }
+    return nullptr;
   }
   else {
-    if (is_multi_function_data_socket(from_group_inputs[0]->bsocket())) {
-      return &common.network_map.lookup(*from_group_inputs[0]);
+    const DGroupInput &from_group_input = *from_group_inputs[0];
+    if (is_multi_function_data_socket(from_group_input.bsocket())) {
+      return &common.network_map.lookup(from_group_input);
     }
-    else {
-      return nullptr;
-    }
+    return nullptr;
   }
 }
 
