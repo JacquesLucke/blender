@@ -52,6 +52,9 @@ OBJMeshFromRaw::OBJMeshFromRaw(class OBJRawObject &curr_object)
     MPoly &mpoly = mesh_from_bm_->mpoly[i];
     mpoly.totloop = curr_face.face_corners.size();
     mpoly.loopstart = curr_loop_idx;
+    if (curr_face.shaded_smooth) {
+      mpoly.flag |= ME_SMOOTH;
+    }
 
     for (int j = 0; j < mpoly.totloop; ++j) {
       MLoop *mloop = &mesh_from_bm_->mloop[curr_loop_idx];

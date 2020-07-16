@@ -76,6 +76,9 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
    * TODO ankitm Try to move the rest of the data parsing code in a conditional
    * depending on a valid "o" object. */
   std::unique_ptr<OBJRawObject> *curr_ob;
+  /* State-setting variable: if set, they remain the same for the remaining elements. */
+  bool shaded_smooth = false;
+
   while (std::getline(infile_, line)) {
     string line_key = first_word_of_string(line);
     std::stringstream s_line(line.substr(line_key.size()));
@@ -108,8 +111,31 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
       curr_tex_vert.flag = false;
       (*curr_ob)->texture_vertices.append(curr_tex_vert);
     }
+    else if (line_key == "s") {
+      string str_shading;
+      s_line >> str_shading;
+      if (str_shading != "0" && str_shading.find("off") == string::npos &&
+          str_shading.find("null") == string::npos) {
+        try {
+          std::stoi(str_shading);
+          shaded_smooth = true;
+        }
+        catch (const std::invalid_argument &inv_arg) {
+          fprintf(stderr,
+                  "Bad argument for smooth shading: %s:%s\n",
+                  inv_arg.what(),
+                  str_shading.c_str());
+          shaded_smooth = false;
+        }
+      }
+      else {
+        shaded_smooth = false;
+      }
+    }
     else if (line_key == "f") {
       OBJFaceElem curr_face;
+      curr_face.shaded_smooth = shaded_smooth;
+
       Vector<string> str_corners_split;
       split_by_char(s_line.str(), ' ', str_corners_split);
       for (auto str_corner : str_corners_split) {
