@@ -60,7 +60,7 @@ void OBJWriter::write_vert_normal_indices(Span<uint> vert_indices,
   fprintf(outfile_, "f");
   for (uint j = 0; j < poly_to_write.totloop; j++) {
     fprintf(outfile_,
-            " %u//%u ",
+            " %u//%u",
             vert_indices[j] + index_offset_[VERTEX_OFF],
             normal_indices[j] + index_offset_[NORMAL_OFF]);
   }
@@ -79,7 +79,7 @@ void OBJWriter::write_vert_uv_indices(Span<uint> vert_indices,
     fprintf(outfile_,
             " %u/%u",
             vert_indices[j] + index_offset_[VERTEX_OFF],
-            uv_indices[j] + 1 + index_offset_[UV_VERTEX_OFF]);
+            uv_indices[j] + index_offset_[UV_VERTEX_OFF]);
   }
   fprintf(outfile_, "\n");
 }

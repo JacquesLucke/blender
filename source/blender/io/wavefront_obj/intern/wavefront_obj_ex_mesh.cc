@@ -333,7 +333,7 @@ void OBJMesh::store_uv_coords_and_indices(Vector<std::array<float, 2>> &r_uv_coo
       r_uv_coords[tot_uv_vertices_ - 1][1] = vert_uv_coords[1];
 
       r_uv_indices[uv_vert->poly_index].resize(vertices_in_poly);
-      r_uv_indices[uv_vert->poly_index][uv_vert->loop_of_poly_index] = tot_uv_vertices_ - 1;
+      r_uv_indices[uv_vert->poly_index][uv_vert->loop_of_poly_index] = tot_uv_vertices_;
     }
   }
   BKE_mesh_uv_vert_map_free(uv_vert_map);
