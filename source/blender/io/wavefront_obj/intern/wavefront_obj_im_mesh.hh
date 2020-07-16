@@ -56,7 +56,7 @@ class OBJMeshFromRaw : NonMovable, NonCopyable {
   unique_mesh_ptr mesh_from_bm_;
 
  public:
-  OBJMeshFromRaw(class OBJRawObject &curr_object);
+  OBJMeshFromRaw(const class OBJRawObject &curr_object);
 
   unique_mesh_ptr mover()
   {
