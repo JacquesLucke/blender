@@ -52,6 +52,10 @@ class OBJRawObject {
   std::string object_name;
   Vector<MVert> vertices{};
   Vector<MLoopUV> texture_vertices{};
+  /**
+   * Edges written in the file in addition to (or even without polygon) elements.
+   */
+  Vector<MEdge> edges{};
   Vector<OBJFaceElem> face_elements{};
   uint tot_normals = 0;
   uint tot_loop = 0;

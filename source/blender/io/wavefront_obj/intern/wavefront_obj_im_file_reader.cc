@@ -152,6 +152,18 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
       curr_tex_vert.flag = false;
       (*curr_ob)->texture_vertices.append(curr_tex_vert);
     }
+    else if (line_key == "l") {
+      MEdge curr_edge;
+      int edge_verts[2];
+      Vector<string> str_edge_split;
+      split_by_char(s_line.str(), ' ', str_edge_split);
+      copy_string_to_int(edge_verts, str_edge_split);
+      curr_edge.v1 = edge_verts[0];
+      curr_edge.v2 = edge_verts[1];
+      curr_edge.v1 -= index_offsets[VERTEX_OFF] + 1;
+      curr_edge.v2 -= index_offsets[VERTEX_OFF] + 1;
+      (*curr_ob)->edges.append(curr_edge);
+    }
     else if (line_key == "s") {
       string str_shading;
       s_line >> str_shading;

@@ -38,9 +38,10 @@ namespace blender::io::obj {
 OBJMeshFromRaw::OBJMeshFromRaw(const OBJRawObject &curr_object)
 {
   uint tot_verts_object{curr_object.vertices.size()};
+  uint tot_edges{curr_object.edges.size()};
   uint tot_face_elems{curr_object.face_elements.size()};
   mesh_from_ob_.reset(
-      BKE_mesh_new_nomain(tot_verts_object, 0, 0, curr_object.tot_loop, tot_face_elems));
+      BKE_mesh_new_nomain(tot_verts_object, tot_edges, 0, curr_object.tot_loop, tot_face_elems));
 
   for (int i = 0; i < tot_verts_object; ++i) {
     copy_v3_v3(mesh_from_ob_->mvert[i].co, curr_object.vertices[i].co);
@@ -63,7 +64,16 @@ OBJMeshFromRaw::OBJMeshFromRaw(const OBJRawObject &curr_object)
     }
   }
 
-  BKE_mesh_calc_edges(mesh_from_ob_.get(), false, false);
+  for (int i = 0; i < tot_edges; ++i) {
+    const auto &curr_edge = curr_object.edges[i];
+    mesh_from_ob_->medge[i].v1 = curr_edge.v1;
+    mesh_from_ob_->medge[i].v2 = curr_edge.v2;
+  }
+
+  /* Set parameter `update` to true so that existing explicitly imported edges can be merged
+   * with the new ones created from polygons. */
+  BKE_mesh_calc_edges(mesh_from_ob_.get(), true, false);
+  BKE_mesh_calc_edges_loose(mesh_from_ob_.get());
 
   /* TODO ankitm merge the face iteration loops. Kept separate for ease of debugging. */
   if (curr_object.tot_uv_verts > 0 && curr_object.texture_vertices.size() > 0) {
