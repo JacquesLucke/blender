@@ -37,8 +37,8 @@
 namespace blender::io::obj {
 OBJMeshFromRaw::OBJMeshFromRaw(const OBJRawObject &curr_object)
 {
-  uint tot_verts_object = curr_object.vertices.size();
-  uint tot_face_elems = curr_object.face_elements.size();
+  uint tot_verts_object{curr_object.vertices.size()};
+  uint tot_face_elems{curr_object.face_elements.size()};
   mesh_from_ob_.reset(
       BKE_mesh_new_nomain(tot_verts_object, 0, 0, curr_object.tot_loop, tot_face_elems));
 
@@ -46,20 +46,20 @@ OBJMeshFromRaw::OBJMeshFromRaw(const OBJRawObject &curr_object)
     copy_v3_v3(mesh_from_ob_->mvert[i].co, curr_object.vertices[i].co);
   }
 
-  int curr_loop_idx = 0;
-  for (int i = 0; i < tot_face_elems; ++i) {
-    const OBJFaceElem &curr_face = curr_object.face_elements[i];
-    MPoly &mpoly = mesh_from_ob_->mpoly[i];
+  int tot_loop_idx = 0;
+  for (int poly_idx = 0; poly_idx < tot_face_elems; ++poly_idx) {
+    const OBJFaceElem &curr_face = curr_object.face_elements[poly_idx];
+    MPoly &mpoly = mesh_from_ob_->mpoly[poly_idx];
     mpoly.totloop = curr_face.face_corners.size();
-    mpoly.loopstart = curr_loop_idx;
+    mpoly.loopstart = tot_loop_idx;
     if (curr_face.shaded_smooth) {
       mpoly.flag |= ME_SMOOTH;
     }
 
-    for (int j = 0; j < mpoly.totloop; ++j) {
-      MLoop *mloop = &mesh_from_ob_->mloop[curr_loop_idx];
-      mloop->v = curr_face.face_corners[j].vert_index;
-      curr_loop_idx++;
+    for (int loop_of_poly_idx = 0; loop_of_poly_idx < mpoly.totloop; ++loop_of_poly_idx) {
+      MLoop *mloop = &mesh_from_ob_->mloop[tot_loop_idx];
+      tot_loop_idx++;
+      mloop->v = curr_face.face_corners[loop_of_poly_idx].vert_index;
     }
   }
 
@@ -72,7 +72,7 @@ OBJMeshFromRaw::OBJMeshFromRaw(const OBJRawObject &curr_object)
                                                         CD_DUPLICATE,
                                                         mesh_from_ob_->mloopuv,
                                                         curr_object.tot_loop);
-    int loop_idx = 0;
+    int tot_loop_idx = 0;
     for (const OBJFaceElem &curr_face : curr_object.face_elements) {
       for (const OBJFaceCorner &curr_corner : curr_face.face_corners) {
         if (curr_corner.tex_vert_index < 0 ||
@@ -80,8 +80,8 @@ OBJMeshFromRaw::OBJMeshFromRaw(const OBJRawObject &curr_object)
           continue;
         }
         const MLoopUV *mluv_src = &curr_object.texture_vertices[curr_corner.tex_vert_index];
-        copy_v2_v2(mluv_dst[loop_idx].uv, mluv_src->uv);
-        loop_idx++;
+        copy_v2_v2(mluv_dst[tot_loop_idx].uv, mluv_src->uv);
+        tot_loop_idx++;
       }
     }
   }

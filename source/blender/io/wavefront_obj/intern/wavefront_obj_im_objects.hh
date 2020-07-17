@@ -50,13 +50,13 @@ class OBJRawObject {
   OBJRawObject(StringRef ob_name) : object_name(ob_name.data()){};
 
   std::string object_name;
-  Vector<MVert> vertices;
-  Vector<MLoopUV> texture_vertices;
-  Vector<OBJFaceElem> face_elements;
+  Vector<MVert> vertices{};
+  Vector<MLoopUV> texture_vertices{};
+  Vector<OBJFaceElem> face_elements{};
   uint tot_normals = 0;
   uint tot_loop = 0;
   uint tot_uv_verts = 0;
-  Vector<std::string> material_name;
+  Vector<std::string> material_name{};
 };
 
 class OBJParentCollection {

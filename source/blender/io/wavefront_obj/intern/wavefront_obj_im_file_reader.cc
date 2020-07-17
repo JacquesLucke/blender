@@ -136,9 +136,9 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
     /* TODO ankitm Check that an object exists. */
     else if (line_key == "v") {
       MVert curr_vert;
-      Vector<string> str_vert;
-      split_by_char(s_line.str(), ' ', str_vert);
-      copy_string_to_float(curr_vert.co, str_vert);
+      Vector<string> str_vert_split;
+      split_by_char(s_line.str(), ' ', str_vert_split);
+      copy_string_to_float(curr_vert.co, str_vert_split);
       (*curr_ob)->vertices.append(curr_vert);
     }
     else if (line_key == "vn") {
@@ -146,9 +146,9 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
     }
     else if (line_key == "vt") {
       MLoopUV curr_tex_vert;
-      Vector<string> str_vert;
-      split_by_char(s_line.str(), ' ', str_vert);
-      copy_string_to_float(curr_tex_vert.uv, str_vert);
+      Vector<string> str_vert_split;
+      split_by_char(s_line.str(), ' ', str_vert_split);
+      copy_string_to_float(curr_tex_vert.uv, str_vert_split);
       curr_tex_vert.flag = false;
       (*curr_ob)->texture_vertices.append(curr_tex_vert);
     }
@@ -189,22 +189,22 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
         }
         else if (n_slash == 1) {
           /* Case: f v1/vt1 v2/vt2 v3/vt3 . */
-          Vector<std::string> vert_texture;
-          split_by_char(str_corner, '/', vert_texture);
-          copy_string_to_int(&corner.vert_index, {vert_texture[0]});
-          if (vert_texture.size() == 2) {
-            copy_string_to_int(&corner.tex_vert_index, {vert_texture[1]});
+          Vector<string> vert_texture_split;
+          split_by_char(str_corner, '/', vert_texture_split);
+          copy_string_to_int(&corner.vert_index, {vert_texture_split[0]});
+          if (vert_texture_split.size() == 2) {
+            copy_string_to_int(&corner.tex_vert_index, {vert_texture_split[1]});
             (*curr_ob)->tot_uv_verts++;
           }
         }
         else if (n_slash == 2) {
           /* Case: f v1//vn1 v2//vn2 v3//vn3 . */
           /* Case: f v1/vt1/vn1 v2/vt2/vn2 v3/vt3/vn3 . */
-          Vector<std::string> vert_tex_normal;
-          split_by_char(str_corner, '/', vert_tex_normal);
-          copy_string_to_int(&corner.vert_index, {vert_tex_normal[0]});
-          if (vert_tex_normal.size() == 3) {
-            copy_string_to_int(&corner.tex_vert_index, {vert_tex_normal[1]});
+          Vector<string> vert_tex_normal_split;
+          split_by_char(str_corner, '/', vert_tex_normal_split);
+          copy_string_to_int(&corner.vert_index, {vert_tex_normal_split[0]});
+          if (vert_tex_normal_split.size() == 3) {
+            copy_string_to_int(&corner.tex_vert_index, {vert_tex_normal_split[1]});
             (*curr_ob)->tot_uv_verts++;
           }
           /* Discard normals. They'll be calculated on the basis of smooth
