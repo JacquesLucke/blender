@@ -407,7 +407,7 @@ void OBJWriter::write_nurbs_curve(OBJNurbs &obj_nurbs_data)
      */
     fprintf(outfile_, "curv 0.0 1.0");
     for (int i = 0; i < curv_num; i++) {
-      fprintf(outfile_, " %d", -1 * (i % tot_points) + 1);
+      fprintf(outfile_, " %d", -1 * ((i % tot_points) + 1));
     }
     fprintf(outfile_, "\n");
 
