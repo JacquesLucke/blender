@@ -70,19 +70,20 @@ static string first_word_of_string(const string &in_string)
 
 /**
  * Convert all members of the Span of strings to floats and assign them to the float
- * array members (or single float passed by address). Usually used for values like coordinates.
+ * array members. Usually used for values like coordinates.
  *
  * Catches exception if the string cannot be converted to a float. The float array members
  *  are set to <TODO ankitm: values can be -1.0 too!> in that case.
  */
 
-MALWAYS_INLINE void copy_string_to_float(float *r_dst, Span<string> src)
+BLI_INLINE void copy_string_to_float(Span<string> src, MutableSpan<float> r_dst)
 {
-  for (int i = 0; i < src.size(); ++i) {
+  BLI_assert(src.size() == r_dst.size());
+  for (int i = 0; i < r_dst.size(); ++i) {
     try {
       r_dst[i] = std::stof(src[i]);
     }
-    catch (std::invalid_argument &inv_arg) {
+    catch (const std::invalid_argument &inv_arg) {
       fprintf(stderr, "Bad conversion to float:%s:%s\n", inv_arg.what(), src[i].c_str());
       r_dst[i] = -1.0f;
     }
@@ -90,22 +91,19 @@ MALWAYS_INLINE void copy_string_to_float(float *r_dst, Span<string> src)
 }
 
 /**
- * Convert all members of the Span of strings to integers and assign them to the int
- * array members (or single integer passed by address). Usually used for indices.
+ * Convert the given string to int and assign it to the destination value.
  *
- * Catches exception if the string cannot be converted to an integer. The int array members
- *  are set to <TODO ankitm: indices can be -1 too!> in that case.
+ * Catches exception if the string cannot be converted to an integer. The destination
+ *  int is set to <TODO ankitm: indices can be -1 too!> in that case.
  */
-MALWAYS_INLINE void copy_string_to_int(int *r_dst, Span<string> src)
+BLI_INLINE void copy_string_to_int(const string &src, int &r_dst)
 {
-  for (int i = 0; i < src.size(); ++i) {
-    try {
-      r_dst[i] = std::stoi(src[i]);
-    }
-    catch (std::invalid_argument &inv_arg) {
-      fprintf(stderr, "Bad conversion to int:%s:%s\n", inv_arg.what(), src[i].c_str());
-      r_dst[i] = -1;
-    }
+  try {
+    r_dst = std::stoi(src);
+  }
+  catch (const std::invalid_argument &inv_arg) {
+    fprintf(stderr, "Bad conversion to int:%s:%s\n", inv_arg.what(), src.c_str());
+    r_dst = -1;
   }
 }
 
@@ -138,7 +136,7 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
       MVert curr_vert;
       Vector<string> str_vert_split;
       split_by_char(s_line.str(), ' ', str_vert_split);
-      copy_string_to_float(curr_vert.co, str_vert_split);
+      copy_string_to_float(str_vert_split, {curr_vert.co, 3});
       (*curr_ob)->vertices.append(curr_vert);
     }
     else if (line_key == "vn") {
@@ -148,21 +146,20 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
       MLoopUV curr_tex_vert;
       Vector<string> str_vert_split;
       split_by_char(s_line.str(), ' ', str_vert_split);
-      copy_string_to_float(curr_tex_vert.uv, str_vert_split);
+      copy_string_to_float(str_vert_split, {curr_tex_vert.uv, 2});
       curr_tex_vert.flag = false;
       (*curr_ob)->texture_vertices.append(curr_tex_vert);
     }
     else if (line_key == "l") {
-      MEdge curr_edge;
-      int edge_verts[2];
+      int edge_v1, edge_v2;
       Vector<string> str_edge_split;
       split_by_char(s_line.str(), ' ', str_edge_split);
-      copy_string_to_int(edge_verts, str_edge_split);
-      curr_edge.v1 = edge_verts[0];
-      curr_edge.v2 = edge_verts[1];
-      curr_edge.v1 -= index_offsets[VERTEX_OFF] + 1;
-      curr_edge.v2 -= index_offsets[VERTEX_OFF] + 1;
-      (*curr_ob)->edges.append(curr_edge);
+      copy_string_to_int(str_edge_split[0], edge_v1);
+      copy_string_to_int(str_edge_split[1], edge_v2);
+      edge_v1 -= (index_offsets[VERTEX_OFF] + 1);
+      edge_v2 -= (index_offsets[VERTEX_OFF] + 1);
+      BLI_assert(edge_v1 >= 0 && edge_v2 >= 0);
+      (*curr_ob)->edges.append({static_cast<uint>(edge_v1), static_cast<uint>(edge_v2)});
     }
     else if (line_key == "s") {
       string str_shading;
@@ -192,20 +189,20 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
 
       Vector<string> str_corners_split;
       split_by_char(s_line.str(), ' ', str_corners_split);
-      for (auto str_corner : str_corners_split) {
+      for (auto &str_corner : str_corners_split) {
         OBJFaceCorner corner;
         size_t n_slash = std::count(str_corner.begin(), str_corner.end(), '/');
         if (n_slash == 0) {
           /* Case: f v1 v2 v3 . */
-          copy_string_to_int(&corner.vert_index, {str_corner});
+          copy_string_to_int(str_corner, corner.vert_index);
         }
         else if (n_slash == 1) {
           /* Case: f v1/vt1 v2/vt2 v3/vt3 . */
           Vector<string> vert_texture_split;
           split_by_char(str_corner, '/', vert_texture_split);
-          copy_string_to_int(&corner.vert_index, {vert_texture_split[0]});
+          copy_string_to_int(vert_texture_split[0], corner.vert_index);
           if (vert_texture_split.size() == 2) {
-            copy_string_to_int(&corner.tex_vert_index, {vert_texture_split[1]});
+            copy_string_to_int(vert_texture_split[1], corner.tex_vert_index);
             (*curr_ob)->tot_uv_verts++;
           }
         }
@@ -214,9 +211,9 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
           /* Case: f v1/vt1/vn1 v2/vt2/vn2 v3/vt3/vn3 . */
           Vector<string> vert_tex_normal_split;
           split_by_char(str_corner, '/', vert_tex_normal_split);
-          copy_string_to_int(&corner.vert_index, {vert_tex_normal_split[0]});
+          copy_string_to_int(vert_tex_normal_split[0], corner.vert_index);
           if (vert_tex_normal_split.size() == 3) {
-            copy_string_to_int(&corner.tex_vert_index, {vert_tex_normal_split[1]});
+            copy_string_to_int(vert_tex_normal_split[1], corner.tex_vert_index);
             (*curr_ob)->tot_uv_verts++;
           }
           /* Discard normals. They'll be calculated on the basis of smooth
