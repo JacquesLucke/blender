@@ -24,7 +24,7 @@
 #ifndef __WAVEFRONT_OBJ_EX_MTL_HH__
 #define __WAVEFRONT_OBJ_EX_MTL_HH__
 
-#include "BKE_node_tree_ref.hh"
+#include "NOD_node_tree_ref.hh"
 
 #include "BLI_path_util.h"
 
@@ -66,11 +66,12 @@ class MTLWriter {
                                eNodeSocketDatatype property_type,
                                const bNode *curr_node,
                                const char *identifier);
-  void linked_sockets_to_dest_id(Vector<const bke::OutputSocketRef *> &r_linked_sockets,
+  void linked_sockets_to_dest_id(Vector<const nodes::OutputSocketRef *> &r_linked_sockets,
                                  const bNode *dest_node,
-                                 bke::NodeTreeRef &node_tree,
+                                 nodes::NodeTreeRef &node_tree,
                                  const char *dest_socket_id);
-  const bNode *get_node_of_type(Span<const bke::OutputSocketRef *> sockets_list, int sh_node_type);
+  const bNode *get_node_of_type(Span<const nodes::OutputSocketRef *> sockets_list,
+                                int sh_node_type);
   const char *get_image_filepath(const bNode *tex_node);
 };
 }  // namespace blender::io::obj

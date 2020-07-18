@@ -23,7 +23,7 @@
 
 #include "BKE_material.h"
 #include "BKE_node.h"
-#include "BKE_node_tree_ref.hh"
+#include "NOD_node_tree_ref.hh"
 
 #include "BLI_map.hh"
 #include "BLI_math.h"
@@ -33,7 +33,6 @@
 
 #include "wavefront_obj_ex_mtl.hh"
 
-using namespace blender::bke;
 namespace blender::io::obj {
 
 /**
@@ -98,25 +97,25 @@ void MTLWriter::copy_property_from_node(float *r_property,
 /**
  * Collect all the source sockets linked to the destination socket in a destination node.
  */
-void MTLWriter::linked_sockets_to_dest_id(Vector<const OutputSocketRef *> &r_linked_sockets,
+void MTLWriter::linked_sockets_to_dest_id(Vector<const nodes::OutputSocketRef *> &r_linked_sockets,
                                           const bNode *dest_node,
-                                          NodeTreeRef &node_tree,
+                                          nodes::NodeTreeRef &node_tree,
                                           const char *dest_socket_id)
 {
   if (!dest_node) {
     return;
   }
-  Span<const NodeRef *> object_dest_nodes = node_tree.nodes_by_type(dest_node->idname);
-  Span<const InputSocketRef *> dest_inputs = object_dest_nodes.first()->inputs();
-  const InputSocketRef *dest_socket = nullptr;
-  for (const InputSocketRef *curr_socket : dest_inputs) {
+  Span<const nodes::NodeRef *> object_dest_nodes = node_tree.nodes_by_type(dest_node->idname);
+  Span<const nodes::InputSocketRef *> dest_inputs = object_dest_nodes.first()->inputs();
+  const nodes::InputSocketRef *dest_socket = nullptr;
+  for (const nodes::InputSocketRef *curr_socket : dest_inputs) {
     if (STREQ(curr_socket->bsocket()->identifier, dest_socket_id)) {
       dest_socket = curr_socket;
       break;
     }
   }
   if (dest_socket) {
-    Span<const OutputSocketRef *> linked_sockets = dest_socket->directly_linked_sockets();
+    Span<const nodes::OutputSocketRef *> linked_sockets = dest_socket->directly_linked_sockets();
     r_linked_sockets.resize(linked_sockets.size());
     for (uint i = 0; i < linked_sockets.size(); i++) {
       r_linked_sockets[i] = linked_sockets[i];
@@ -130,10 +129,10 @@ void MTLWriter::linked_sockets_to_dest_id(Vector<const OutputSocketRef *> &r_lin
 /**
  * From a list of sockets, get the parent node which is of the given node type.
  */
-const bNode *MTLWriter::get_node_of_type(Span<const OutputSocketRef *> sockets_list,
+const bNode *MTLWriter::get_node_of_type(Span<const nodes::OutputSocketRef *> sockets_list,
                                          int sh_node_type)
 {
-  for (const SocketRef *sock : sockets_list) {
+  for (const nodes::SocketRef *sock : sockets_list) {
     const bNode *curr_node = sock->bnode();
     if (curr_node->typeinfo->type == sh_node_type) {
       return curr_node;
@@ -230,8 +229,8 @@ void MTLWriter::write_curr_material(const char *object_name)
 
   /* Need to create a NodeTreeRef for a faster way to find linked sockets, as opposed to
    * looping over all the links in a node tree to match two sockets of our interest. */
-  NodeTreeRef node_tree(export_mtl_->nodetree);
-  Vector<const OutputSocketRef *> linked_sockets;
+  nodes::NodeTreeRef node_tree(export_mtl_->nodetree);
+  Vector<const nodes::OutputSocketRef *> linked_sockets;
 
   for (Map<const std::string, const std::string>::Item map_type_id : texture_map_types.items()) {
     /* Find sockets linked to the destination socket of interest, in p-bsdf node. */

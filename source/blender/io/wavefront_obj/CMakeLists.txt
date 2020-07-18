@@ -22,17 +22,13 @@ set(INC
   .
   ../../blenkernel
   ../../blenlib
-  ../../blentranslation
+  ../../bmesh
   ../../depsgraph
   ../../editors/include
-  ../../imbuf
   ../../makesdna
   ../../makesrna
-  ../../windowmanager
+  ../../nodes
   ../../../../intern/guardedalloc
-  ../../ikplugin
-  ../../../../intern/iksolver/extern
-  ../../bmesh
 )
 
 set(INC_SYS
