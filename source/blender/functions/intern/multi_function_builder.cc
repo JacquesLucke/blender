@@ -58,8 +58,8 @@ static std::string gspan_to_string(GSpan array)
 {
   std::stringstream ss;
   ss << "[";
-  const int max_amount = 5;
-  for (int i : IndexRange(std::min<int>(max_amount, array.size()))) {
+  const int64_t max_amount = 5;
+  for (int64_t i : IndexRange(std::min(max_amount, array.size()))) {
     array.type().debug_print(array[i], ss);
     ss << ", ";
   }
@@ -82,7 +82,7 @@ void CustomMF_GenericConstantArray::call(IndexMask mask,
                                          MFContext UNUSED(context)) const
 {
   GVectorArray &vectors = params.vector_output(0);
-  for (int i : mask) {
+  for (int64_t i : mask) {
     vectors.extend(i, array_);
   }
 }

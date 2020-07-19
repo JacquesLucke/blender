@@ -233,7 +233,7 @@ class IndexRange {
   /**
    * Get read-only access to a memory buffer that contains the range as actual numbers.
    */
-  Span<int32_t> as_span() const;
+  Span<int64_t> as_span() const;
 
   friend std::ostream &operator<<(std::ostream &stream, IndexRange range)
   {

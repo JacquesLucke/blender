@@ -202,7 +202,7 @@ class ParticleFunctionForce : public ParticleForce {
     evaluator.compute();
     fn::VSpan<float3> forces = evaluator.get<float3>(0, "Force");
 
-    for (int i : mask) {
+    for (int64_t i : mask) {
       r_combined_force[i] += forces[i];
     }
   }

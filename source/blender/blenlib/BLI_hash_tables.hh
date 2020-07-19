@@ -63,7 +63,7 @@ inline constexpr int64_t log2_ceil_constexpr(const int64_t x)
 inline constexpr int64_t power_of_2_max_constexpr(const int64_t x)
 {
   BLI_assert(x >= 0);
-  return 1 << log2_ceil_constexpr(x);
+  return 1ll << log2_ceil_constexpr(x);
 }
 
 template<typename IntT> inline constexpr IntT ceil_division(const IntT x, const IntT y)

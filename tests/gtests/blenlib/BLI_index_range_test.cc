@@ -132,7 +132,7 @@ TEST(index_range, SliceRange)
 TEST(index_range, AsSpan)
 {
   IndexRange range = IndexRange(4, 6);
-  Span<int> span = range.as_span();
+  Span<int64_t> span = range.as_span();
   EXPECT_EQ(span.size(), 6);
   EXPECT_EQ(span[0], 4);
   EXPECT_EQ(span[1], 5);

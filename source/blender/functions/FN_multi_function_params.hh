@@ -34,7 +34,7 @@ namespace blender::fn {
 class MFParamsBuilder {
  private:
   const MFSignature *signature_;
-  int min_array_size_;
+  int64_t min_array_size_;
   Vector<GVSpan> virtual_spans_;
   Vector<GMutableSpan> mutable_spans_;
   Vector<GVArraySpan> virtual_array_spans_;
@@ -43,12 +43,12 @@ class MFParamsBuilder {
   friend class MFParams;
 
  public:
-  MFParamsBuilder(const MFSignature &signature, int min_array_size)
+  MFParamsBuilder(const MFSignature &signature, int64_t min_array_size)
       : signature_(&signature), min_array_size_(min_array_size)
   {
   }
 
-  MFParamsBuilder(const class MultiFunction &fn, int min_array_size);
+  MFParamsBuilder(const class MultiFunction &fn, int64_t min_array_size);
 
   template<typename T> void add_readonly_single_input(const T *value)
   {

@@ -23,7 +23,7 @@ class AddFunction : public MultiFunction {
     VSpan<int> b = params.readonly_single_input<int>(1, "B");
     MutableSpan<int> result = params.uninitialized_single_output<int>(2, "Result");
 
-    for (int i : mask) {
+    for (int64_t i : mask) {
       result[i] = a[i] + b[i];
     }
   }
@@ -65,7 +65,7 @@ class AddPrefixFunction : public MultiFunction {
     VSpan<std::string> prefixes = params.readonly_single_input<std::string>(0, "Prefix");
     MutableSpan<std::string> strings = params.single_mutable<std::string>(1, "Strings");
 
-    for (int i : mask) {
+    for (int64_t i : mask) {
       strings[i] = prefixes[i] + strings[i];
     }
   }
@@ -112,7 +112,7 @@ class CreateRangeFunction : public MultiFunction {
     VSpan<uint> sizes = params.readonly_single_input<uint>(0, "Size");
     GVectorArrayRef<uint> ranges = params.vector_output<uint>(1, "Range");
 
-    for (int i : mask) {
+    for (int64_t i : mask) {
       uint size = sizes[i];
       for (uint j : IndexRange(size)) {
         ranges.append(i, j);
@@ -164,7 +164,7 @@ class GenericAppendFunction : public MultiFunction {
     GVectorArray &vectors = params.vector_mutable(0, "Vector");
     GVSpan values = params.readonly_single_input(1, "Value");
 
-    for (int i : mask) {
+    for (int64_t i : mask) {
       vectors.append(i, values[i]);
     }
   }

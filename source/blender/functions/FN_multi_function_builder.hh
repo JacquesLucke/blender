@@ -220,7 +220,7 @@ template<typename From, typename To> class CustomMF_Convert : public MultiFuncti
     VSpan<From> inputs = params.readonly_single_input<From>(0);
     MutableSpan<To> outputs = params.uninitialized_single_output<To>(1);
 
-    for (int i : mask) {
+    for (int64_t i : mask) {
       new ((void *)&outputs[i]) To(inputs[i]);
     }
   }

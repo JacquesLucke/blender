@@ -111,7 +111,7 @@ class MultiFunction {
   }
 };
 
-inline MFParamsBuilder::MFParamsBuilder(const class MultiFunction &fn, int min_array_size)
+inline MFParamsBuilder::MFParamsBuilder(const class MultiFunction &fn, int64_t min_array_size)
     : MFParamsBuilder(fn.signature(), min_array_size)
 {
 }
