@@ -15,7 +15,7 @@
  */
 
 #include "simulation_collect_influences.hh"
-#include "SIM_particle_function.hh"
+#include "particle_function.hh"
 
 #include "FN_attributes_ref.hh"
 #include "FN_multi_function_network_evaluation.hh"
@@ -191,12 +191,15 @@ class ParticleFunctionForce : public ParticleForce {
   {
   }
 
-  void add_force(fn::AttributesRef attributes, MutableSpan<float3> r_combined_force) const override
+  void add_force(ParticleForceContext &context) const override
   {
-    IndexMask mask = IndexRange(attributes.size());
-    ParticleFunctionEvaluator evaluator{particle_fn_, mask, attributes};
+    IndexMask mask = context.particle_chunk().index_mask();
+    MutableSpan<float3> r_combined_force = context.force_dst();
+
+    ParticleFunctionEvaluator evaluator{particle_fn_, context.particle_chunk()};
     evaluator.compute();
     fn::VSpan<float3> forces = evaluator.get<float3>(0, "Force");
+
     for (uint i : mask) {
       r_combined_force[i] += forces[i];
     }
