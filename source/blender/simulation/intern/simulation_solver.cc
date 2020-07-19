@@ -33,11 +33,11 @@ ParticleEmitter::~ParticleEmitter()
 class CustomDataAttributesRef {
  private:
   Vector<void *> buffers_;
-  uint size_;
+  int size_;
   std::unique_ptr<fn::AttributesInfo> info_;
 
  public:
-  CustomDataAttributesRef(CustomData &custom_data, uint size)
+  CustomDataAttributesRef(CustomData &custom_data, int size)
   {
     fn::AttributesInfoBuilder builder;
     for (const CustomDataLayer &layer : Span(custom_data.layers, custom_data.totlayer)) {
@@ -125,19 +125,18 @@ void solve_simulation_time_step(Simulation &simulation,
   }
 
   LISTBASE_FOREACH (ParticleSimulationState *, state, &simulation.states) {
-    CustomDataAttributesRef custom_data_attributes{state->attributes, (uint)state->tot_particles};
+    CustomDataAttributesRef custom_data_attributes{state->attributes, state->tot_particles};
     fn::MutableAttributesRef attributes = custom_data_attributes;
 
     MutableSpan<float3> positions = attributes.get<float3>("Position");
     MutableSpan<float3> velocities = attributes.get<float3>("Velocity");
 
-    Array<float3> force_vectors{(uint)state->tot_particles, {0, 0, 0}};
+    Array<float3> force_vectors{state->tot_particles, {0, 0, 0}};
     const Vector<const ParticleForce *> *forces = influences.particle_forces.lookup_ptr(
         state->head.name);
 
     if (forces != nullptr) {
-      ParticleChunkContext particle_chunk_context{IndexMask((uint)state->tot_particles),
-                                                  attributes};
+      ParticleChunkContext particle_chunk_context{IndexMask(state->tot_particles), attributes};
       ParticleForceContext particle_force_context{
           solve_context, particle_chunk_context, force_vectors};
 
@@ -146,7 +145,7 @@ void solve_simulation_time_step(Simulation &simulation,
       }
     }
 
-    for (uint i : positions.index_range()) {
+    for (int i : positions.index_range()) {
       velocities[i] += force_vectors[i] * time_step;
       positions[i] += velocities[i] * time_step;
     }
@@ -161,20 +160,20 @@ void solve_simulation_time_step(Simulation &simulation,
   LISTBASE_FOREACH (ParticleSimulationState *, state, &simulation.states) {
     ParticleAllocator &allocator = *particle_allocators.lookup_as(state->head.name);
 
-    const uint emitted_particle_amount = allocator.total_allocated();
-    const uint old_particle_amount = state->tot_particles;
-    const uint new_particle_amount = old_particle_amount + emitted_particle_amount;
+    const int emitted_particle_amount = allocator.total_allocated();
+    const int old_particle_amount = state->tot_particles;
+    const int new_particle_amount = old_particle_amount + emitted_particle_amount;
 
     CustomData_realloc(&state->attributes, new_particle_amount);
 
     CustomDataAttributesRef custom_data_attributes{state->attributes, new_particle_amount};
     fn::MutableAttributesRef attributes = custom_data_attributes;
 
-    uint offset = old_particle_amount;
+    int offset = old_particle_amount;
     for (fn::MutableAttributesRef emitted_attributes : allocator.get_allocations()) {
       fn::MutableAttributesRef dst_attributes = attributes.slice(
           IndexRange(offset, emitted_attributes.size()));
-      for (uint attribute_index : attributes.info().index_range()) {
+      for (int attribute_index : attributes.info().index_range()) {
         fn::GMutableSpan emitted_data = emitted_attributes.get(attribute_index);
         fn::GMutableSpan dst = dst_attributes.get(attribute_index);
         const fn::CPPType &type = dst.type();
