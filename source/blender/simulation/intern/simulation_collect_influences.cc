@@ -23,6 +23,8 @@
 
 #include "NOD_node_tree_multi_function.hh"
 
+#include "BLI_rand.hh"
+
 namespace blender::sim {
 
 struct DummyDataSources {
@@ -250,6 +252,43 @@ static void collect_forces(nodes::MFNetworkTreeMap &network_map,
   }
 }
 
+class MyBasicEmitter : public ParticleEmitter {
+ private:
+  std::string name_;
+
+ public:
+  MyBasicEmitter(std::string name) : name_(std::move(name))
+  {
+  }
+
+  void emit(ParticleEmitterContext &context) const override
+  {
+    ParticleAllocator *allocator = context.try_get_particle_allocator(name_);
+    if (allocator == nullptr) {
+      return;
+    }
+
+    fn::MutableAttributesRef attributes = allocator->allocate(10);
+    RandomNumberGenerator rng{(uint)context.simulation_time_interval().start()};
+
+    MutableSpan<float3> positions = attributes.get<float3>("Position");
+    MutableSpan<float3> velocities = attributes.get<float3>("Velocity");
+
+    for (uint i : IndexRange(attributes.size())) {
+      positions[i] = rng.get_unit_float3();
+      velocities[i] = rng.get_unit_float3();
+    }
+  }
+};
+
+static void collect_emitters(nodes::MFNetworkTreeMap &UNUSED(network_map),
+                             ResourceCollector &resources,
+                             SimulationInfluences &r_influences)
+{
+  ParticleEmitter &emitter = resources.construct<MyBasicEmitter>(AT, "Particle Simulation");
+  r_influences.particle_emitters.append(&emitter);
+}
+
 void collect_simulation_influences(Simulation &simulation,
                                    ResourceCollector &resources,
                                    SimulationInfluences &r_influences,
@@ -270,6 +309,7 @@ void collect_simulation_influences(Simulation &simulation,
   // WM_clipboard_text_set(network.to_dot().c_str(), false);
 
   collect_forces(network_map, resources, data_sources, r_influences);
+  collect_emitters(network_map, resources, r_influences);
 
   for (const nodes::DNode *dnode : tree.nodes_by_type("SimulationNodeParticleSimulation")) {
     r_states_info.particle_simulation_names.add(dnode_to_path(*dnode));

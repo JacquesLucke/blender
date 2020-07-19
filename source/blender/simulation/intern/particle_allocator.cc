@@ -53,4 +53,25 @@ fn::MutableAttributesRef AttributesAllocator::allocate_uninitialized(uint size)
   return attributes;
 }
 
+fn::MutableAttributesRef ParticleAllocator::allocate(uint size)
+{
+  const fn::AttributesInfo &info = attributes_allocator_.attributes_info();
+  fn::MutableAttributesRef attributes = attributes_allocator_.allocate_uninitialized(size);
+  for (uint i : info.index_range()) {
+    const fn::CPPType &type = info.type_of(i);
+    StringRef name = info.name_of(i);
+    if (name == "ID") {
+      uint start_id = next_id_.fetch_add(size);
+      MutableSpan<int> ids = attributes.get<int>("ID");
+      for (uint pindex : IndexRange(size)) {
+        ids[pindex] = start_id + pindex;
+      }
+    }
+    else {
+      type.fill_uninitialized(info.default_of(i), attributes.get(i).buffer(), size);
+    }
+  }
+  return attributes;
+}
+
 }  // namespace blender::sim

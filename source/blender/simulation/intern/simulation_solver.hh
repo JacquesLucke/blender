@@ -48,6 +48,7 @@ class ParticleForce {
 
 struct SimulationInfluences {
   Map<std::string, Vector<const ParticleForce *>> particle_forces;
+  Vector<const ParticleEmitter *> particle_emitters;
 };
 
 class SimulationSolveContext {
@@ -95,12 +96,12 @@ class ParticleChunkContext {
 class ParticleEmitterContext {
  private:
   SimulationSolveContext &solve_context_;
-  Map<std::string, ParticleAllocator *> &particle_allocators_;
+  Map<std::string, std::unique_ptr<ParticleAllocator>> &particle_allocators_;
   TimeInterval simulation_time_interval_;
 
  public:
   ParticleEmitterContext(SimulationSolveContext &solve_context,
-                         Map<std::string, ParticleAllocator *> &particle_allocators,
+                         Map<std::string, std::unique_ptr<ParticleAllocator>> &particle_allocators,
                          TimeInterval simulation_time_interval)
       : solve_context_(solve_context),
         particle_allocators_(particle_allocators),
@@ -110,7 +111,13 @@ class ParticleEmitterContext {
 
   ParticleAllocator *try_get_particle_allocator(StringRef particle_simulation_name)
   {
-    return particle_allocators_.lookup_default_as(particle_simulation_name, nullptr);
+    auto *ptr = particle_allocators_.lookup_ptr_as(particle_simulation_name);
+    if (ptr != nullptr) {
+      return ptr->get();
+    }
+    else {
+      return nullptr;
+    }
   }
 
   TimeInterval simulation_time_interval() const

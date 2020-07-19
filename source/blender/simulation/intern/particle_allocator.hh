@@ -77,26 +77,17 @@ class ParticleAllocator : NonCopyable, NonMovable {
   {
   }
 
-  fn::MutableAttributesRef allocate(uint size)
+  Span<fn::MutableAttributesRef> get_allocations() const
   {
-    const fn::AttributesInfo &info = attributes_allocator_.attributes_info();
-    fn::MutableAttributesRef attributes = attributes_allocator_.allocate_uninitialized(size);
-    for (uint i : info.index_range()) {
-      const fn::CPPType &type = info.type_of(i);
-      StringRef name = info.name_of(i);
-      if (name == "ID") {
-        uint start_id = next_id_.fetch_add(size);
-        MutableSpan<int> ids = attributes.get<int>("ID");
-        for (uint pindex : IndexRange(size)) {
-          ids[pindex] = start_id + pindex;
-        }
-      }
-      else {
-        type.fill_uninitialized(info.default_of(i), attributes.get(i).buffer(), size);
-      }
-    }
-    return attributes;
+    return attributes_allocator_.get_allocations();
   }
+
+  uint total_allocated() const
+  {
+    return attributes_allocator_.total_allocated();
+  }
+
+  fn::MutableAttributesRef allocate(uint size);
 };
 
 }  // namespace blender::sim
