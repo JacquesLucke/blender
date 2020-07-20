@@ -78,11 +78,13 @@ class IndexRange {
 
   explicit IndexRange(int64_t size) : start_(0), size_(size)
   {
+    BLI_assert(size >= 0);
   }
 
   IndexRange(int64_t start, int64_t size) : start_(start), size_(size)
   {
     BLI_assert(start >= 0);
+    BLI_assert(size >= 0);
   }
 
   template<typename T>

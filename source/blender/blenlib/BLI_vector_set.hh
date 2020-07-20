@@ -606,11 +606,11 @@ class VectorSet {
   }
 
   template<typename ForwardKey>
-  int32_t index_of_try__impl(const ForwardKey &key, const uint64_t hash) const
+  int64_t index_of_try__impl(const ForwardKey &key, const uint64_t hash) const
   {
     VECTOR_SET_SLOT_PROBING_BEGIN (hash, slot) {
       if (slot.contains(key, is_equal_, hash, keys_)) {
-        return (int32_t)slot.index();
+        return slot.index();
       }
       if (slot.is_empty()) {
         return -1;
