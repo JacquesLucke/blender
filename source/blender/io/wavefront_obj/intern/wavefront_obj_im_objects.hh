@@ -24,6 +24,8 @@
 #ifndef __WAVEFRONT_OBJ_IM_OBJECTS_HH__
 #define __WAVEFRONT_OBJ_IM_OBJECTS_HH__
 
+#include "BLI_float2.hh"
+#include "BLI_float3.hh"
 #include "BLI_string_ref.hh"
 #include "BLI_vector.hh"
 
@@ -33,11 +35,16 @@
 #include "wavefront_obj_im_mesh.hh"
 
 namespace blender::io::obj {
+struct GlobalVertices {
+  Vector<float3> vertices{};
+  Vector<float2> uv_vertices{};
+};
+
 typedef struct OBJFaceCorner {
   int vert_index;
   /* -1 is to indicate abscense of UV vertices. Only < 0 condition should be checked since
    * it can be less than -1 too. */
-  int tex_vert_index = -1;
+  int uv_vert_index = -1;
 } OBJFaceCorner;
 
 typedef struct OBJFaceElem {
@@ -50,8 +57,8 @@ class OBJRawObject {
   OBJRawObject(StringRef ob_name) : object_name(ob_name.data()){};
 
   std::string object_name;
-  Vector<MVert> vertices{};
-  Vector<MLoopUV> texture_vertices{};
+  Vector<int> vertex_indices{};
+  Vector<int> uv_vertex_indices{};
   /**
    * Edges written in the file in addition to (or even without polygon) elements.
    */

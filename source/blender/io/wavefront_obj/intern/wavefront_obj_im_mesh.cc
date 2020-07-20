@@ -35,16 +35,19 @@
 #include "wavefront_obj_im_objects.hh"
 
 namespace blender::io::obj {
-OBJMeshFromRaw::OBJMeshFromRaw(const OBJRawObject &curr_object)
+OBJMeshFromRaw::OBJMeshFromRaw(const OBJRawObject &curr_object,
+                               const GlobalVertices global_vertices)
 {
-  uint tot_verts_object{curr_object.vertices.size()};
+  uint tot_verts_object{curr_object.vertex_indices.size()};
   uint tot_edges{curr_object.edges.size()};
   uint tot_face_elems{curr_object.face_elements.size()};
   mesh_from_ob_.reset(
       BKE_mesh_new_nomain(tot_verts_object, tot_edges, 0, curr_object.tot_loop, tot_face_elems));
 
   for (int i = 0; i < tot_verts_object; ++i) {
-    copy_v3_v3(mesh_from_ob_->mvert[i].co, curr_object.vertices[i].co);
+    /* Current object's vertex indices index into global list of vertex coordinates. */
+    copy_v3_v3(mesh_from_ob_->mvert[i].co,
+               global_vertices.vertices[curr_object.vertex_indices[i]]);
   }
 
   int tot_loop_idx = 0;
@@ -76,7 +79,7 @@ OBJMeshFromRaw::OBJMeshFromRaw(const OBJRawObject &curr_object)
   BKE_mesh_calc_edges_loose(mesh_from_ob_.get());
 
   /* TODO ankitm merge the face iteration loops. Kept separate for ease of debugging. */
-  if (curr_object.tot_uv_verts > 0 && curr_object.texture_vertices.size() > 0) {
+  if (curr_object.tot_uv_verts > 0 && curr_object.uv_vertex_indices.size() > 0) {
     MLoopUV *mluv_dst = (MLoopUV *)CustomData_add_layer(&mesh_from_ob_->ldata,
                                                         CD_MLOOPUV,
                                                         CD_DUPLICATE,
@@ -85,12 +88,15 @@ OBJMeshFromRaw::OBJMeshFromRaw(const OBJRawObject &curr_object)
     int tot_loop_idx = 0;
     for (const OBJFaceElem &curr_face : curr_object.face_elements) {
       for (const OBJFaceCorner &curr_corner : curr_face.face_corners) {
-        if (curr_corner.tex_vert_index < 0 ||
-            curr_corner.tex_vert_index >= curr_object.tot_uv_verts) {
+        if (curr_corner.uv_vert_index < 0 ||
+            curr_corner.uv_vert_index >= curr_object.tot_uv_verts) {
           continue;
         }
-        const MLoopUV *mluv_src = &curr_object.texture_vertices[curr_corner.tex_vert_index];
-        copy_v2_v2(mluv_dst[tot_loop_idx].uv, mluv_src->uv);
+        /* Current corner's UV vertex index indices into current object's UV vertex indices, which
+         * index into global list of UV vertex coordinates. */
+        const float2 &mluv_src =
+            global_vertices.uv_vertices[curr_object.uv_vertex_indices[curr_corner.uv_vert_index]];
+        copy_v2_v2(mluv_dst[tot_loop_idx].uv, mluv_src);
         tot_loop_idx++;
       }
     }

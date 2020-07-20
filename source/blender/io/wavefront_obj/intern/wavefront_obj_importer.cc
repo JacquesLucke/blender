@@ -39,20 +39,30 @@
 
 namespace blender::io::obj {
 
-void OBJImporter::print_obj_data(Vector<std::unique_ptr<OBJRawObject>> &list_of_objects)
+void OBJImporter::print_obj_data(Vector<std::unique_ptr<OBJRawObject>> &list_of_objects,
+                                 const GlobalVertices &global_vertices)
 {
-  for (std::unique_ptr<OBJRawObject> &curr_ob : list_of_objects) {
-    for (const MVert &curr_vert : curr_ob->vertices) {
-      print_v3("vert", curr_vert.co);
+  for (auto &curr_vert : global_vertices.vertices) {
+    print_v3("vert", curr_vert);
+  }
+  printf("\n");
+  for (auto &curr_uv_vert : global_vertices.uv_vertices) {
+    print_v2("vert", curr_uv_vert);
+  }
+  printf("\n");
+
+  for (const auto &curr_ob : list_of_objects) {
+    for (const auto &curr_vert_idx : curr_ob->vertex_indices) {
+      printf(" %d", curr_vert_idx);
     }
     printf("\n");
-    for (const MLoopUV &curr_tex_vert : curr_ob->texture_vertices) {
-      print_v2("tex vert", curr_tex_vert.uv);
+    for (const auto &curr_tex_vert_idx : curr_ob->uv_vertex_indices) {
+      printf(" %d", curr_tex_vert_idx);
     }
     printf("\n");
     for (const OBJFaceElem &curr_face : curr_ob->face_elements) {
       for (OBJFaceCorner a : curr_face.face_corners) {
-        printf("%d/%d ", a.vert_index, a.tex_vert_index);
+        printf(" %d/%d", a.vert_index, a.uv_vert_index);
       }
       printf("\n");
     }
@@ -65,11 +75,12 @@ void OBJImporter::print_obj_data(Vector<std::unique_ptr<OBJRawObject>> &list_of_
 
 void OBJImporter::raw_to_blender_objects(Main *bmain,
                                          Scene *scene,
-                                         Vector<std::unique_ptr<OBJRawObject>> &list_of_objects)
+                                         Vector<std::unique_ptr<OBJRawObject>> &list_of_objects,
+                                         const GlobalVertices global_vertices)
 {
   OBJParentCollection parent{bmain, scene};
   for (std::unique_ptr<OBJRawObject> &curr_object : list_of_objects) {
-    OBJMeshFromRaw mesh_from_raw{*curr_object};
+    OBJMeshFromRaw mesh_from_raw{*curr_object, global_vertices};
     parent.add_object_to_parent(curr_object->object_name, mesh_from_raw.mover());
   }
 }
@@ -80,9 +91,9 @@ void importer_main(bContext *C, const OBJImportParams &import_params)
   Scene *scene = CTX_data_scene(C);
   Vector<std::unique_ptr<OBJRawObject>> list_of_objects;
   OBJImporter importer{import_params};
-
-  importer.parse_and_store(list_of_objects);
-  //  importer.print_obj_data(list_of_objects);
-  importer.raw_to_blender_objects(bmain, scene, list_of_objects);
+  GlobalVertices global_vertices;
+  importer.parse_and_store(list_of_objects, global_vertices);
+  importer.print_obj_data(list_of_objects, global_vertices);
+  importer.raw_to_blender_objects(bmain, scene, list_of_objects, global_vertices);
 }
 }  // namespace blender::io::obj

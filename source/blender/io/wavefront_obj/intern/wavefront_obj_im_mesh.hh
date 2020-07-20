@@ -34,6 +34,7 @@
 
 namespace blender::io::obj {
 class OBJRawObject;
+struct GlobalVertices;
 
 struct UniqueMeshDeleter {
   void operator()(Mesh *mesh)
@@ -57,7 +58,7 @@ class OBJMeshFromRaw : NonMovable, NonCopyable {
   unique_mesh_ptr mesh_from_ob_;
 
  public:
-  OBJMeshFromRaw(const OBJRawObject &curr_object);
+  OBJMeshFromRaw(const OBJRawObject &curr_object, const GlobalVertices global_vertices);
 
   unique_mesh_ptr mover()
   {

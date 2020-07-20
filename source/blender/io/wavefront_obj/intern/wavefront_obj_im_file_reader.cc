@@ -124,31 +124,36 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
 
     if (line_key == "o") {
       /* Update index offsets if an object has been processed already. */
-      if (list_of_objects.size() > 0) {
-        index_offsets[VERTEX_OFF] += (*curr_ob)->vertices.size();
-        index_offsets[UV_VERTEX_OFF] += (*curr_ob)->texture_vertices.size();
+      if (curr_ob) {
+        index_offsets[VERTEX_OFF] += (*curr_ob)->vertex_indices.size();
+        index_offsets[UV_VERTEX_OFF] += (*curr_ob)->uv_vertex_indices.size();
       }
       list_of_objects.append(std::make_unique<OBJRawObject>(s_line.str()));
       curr_ob = &list_of_objects.last();
     }
     /* TODO ankitm Check that an object exists. */
     else if (line_key == "v") {
-      MVert curr_vert;
+      float3 curr_vert;
       Vector<string> str_vert_split;
       split_by_char(s_line.str(), ' ', str_vert_split);
-      copy_string_to_float(str_vert_split, {curr_vert.co, 3});
-      (*curr_ob)->vertices.append(curr_vert);
+      copy_string_to_float(str_vert_split, {curr_vert, 3});
+      global_vertices.vertices.append(curr_vert);
+      if (curr_ob) {
+        (*curr_ob)->vertex_indices.append(global_vertices.vertices.size() - 1);
+      }
     }
     else if (line_key == "vn") {
       (*curr_ob)->tot_normals++;
     }
     else if (line_key == "vt") {
-      MLoopUV curr_tex_vert;
-      Vector<string> str_vert_split;
-      split_by_char(s_line.str(), ' ', str_vert_split);
-      copy_string_to_float(str_vert_split, {curr_tex_vert.uv, 2});
-      curr_tex_vert.flag = false;
-      (*curr_ob)->texture_vertices.append(curr_tex_vert);
+      float2 curr_uv_vert;
+      Vector<string> str_uv_vert_split;
+      split_by_char(s_line.str(), ' ', str_uv_vert_split);
+      copy_string_to_float(str_uv_vert_split, {curr_uv_vert, 2});
+      global_vertices.uv_vertices.append(curr_uv_vert);
+      if (curr_ob) {
+        (*curr_ob)->uv_vertex_indices.append(global_vertices.uv_vertices.size() - 1);
+      }
     }
     else if (line_key == "l") {
       int edge_v1, edge_v2;
@@ -156,9 +161,11 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
       split_by_char(s_line.str(), ' ', str_edge_split);
       copy_string_to_int(str_edge_split[0], edge_v1);
       copy_string_to_int(str_edge_split[1], edge_v2);
-      edge_v1 -= (index_offsets[VERTEX_OFF] + 1);
-      edge_v2 -= (index_offsets[VERTEX_OFF] + 1);
-      BLI_assert(edge_v1 >= 0 && edge_v2 >= 0);
+      edge_v1 += edge_v1 < 0 ? (global_vertices.vertices.size() + 1) :
+                               -(index_offsets[VERTEX_OFF] + 1);
+      edge_v2 += edge_v2 < 0 ? (global_vertices.vertices.size() + 1) :
+                               -(index_offsets[VERTEX_OFF] + 1);
+      BLI_assert(edge_v1 > 0 && edge_v2 > 0);
       (*curr_ob)->edges.append({static_cast<uint>(edge_v1), static_cast<uint>(edge_v2)});
     }
     else if (line_key == "s") {
@@ -198,29 +205,31 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
         }
         else if (n_slash == 1) {
           /* Case: f v1/vt1 v2/vt2 v3/vt3 . */
-          Vector<string> vert_texture_split;
-          split_by_char(str_corner, '/', vert_texture_split);
-          copy_string_to_int(vert_texture_split[0], corner.vert_index);
-          if (vert_texture_split.size() == 2) {
-            copy_string_to_int(vert_texture_split[1], corner.tex_vert_index);
+          Vector<string> vert_uv_split;
+          split_by_char(str_corner, '/', vert_uv_split);
+          copy_string_to_int(vert_uv_split[0], corner.vert_index);
+          if (vert_uv_split.size() == 2) {
+            copy_string_to_int(vert_uv_split[1], corner.uv_vert_index);
             (*curr_ob)->tot_uv_verts++;
           }
         }
         else if (n_slash == 2) {
           /* Case: f v1//vn1 v2//vn2 v3//vn3 . */
           /* Case: f v1/vt1/vn1 v2/vt2/vn2 v3/vt3/vn3 . */
-          Vector<string> vert_tex_normal_split;
-          split_by_char(str_corner, '/', vert_tex_normal_split);
-          copy_string_to_int(vert_tex_normal_split[0], corner.vert_index);
-          if (vert_tex_normal_split.size() == 3) {
-            copy_string_to_int(vert_tex_normal_split[1], corner.tex_vert_index);
+          Vector<string> vert_uv_normal_split;
+          split_by_char(str_corner, '/', vert_uv_normal_split);
+          copy_string_to_int(vert_uv_normal_split[0], corner.vert_index);
+          if (vert_uv_normal_split.size() == 3) {
+            copy_string_to_int(vert_uv_normal_split[1], corner.uv_vert_index);
             (*curr_ob)->tot_uv_verts++;
           }
           /* Discard normals. They'll be calculated on the basis of smooth
            * shading flag. */
         }
-        corner.vert_index -= index_offsets[VERTEX_OFF] + 1;
-        corner.tex_vert_index -= index_offsets[UV_VERTEX_OFF] + 1;
+        corner.vert_index += corner.vert_index < 0 ? index_offsets[VERTEX_OFF] + 1 :
+                                                     -(index_offsets[VERTEX_OFF] + 1);
+        corner.uv_vert_index += corner.uv_vert_index < 0 ? index_offsets[UV_VERTEX_OFF] + 1 :
+                                                           -(index_offsets[UV_VERTEX_OFF] + 1);
 
         curr_face.face_corners.append(corner);
       }
