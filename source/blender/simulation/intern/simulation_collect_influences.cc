@@ -53,7 +53,7 @@ static Span<const nodes::DNode *> get_particle_simulation_nodes(const nodes::Der
 static std::optional<Array<std::string>> compute_global_string_inputs(
     nodes::MFNetworkTreeMap &network_map, Span<const fn::MFInputSocket *> sockets)
 {
-  uint amount = sockets.size();
+  int amount = sockets.size();
   if (amount == 0) {
     return Array<std::string>();
   }
