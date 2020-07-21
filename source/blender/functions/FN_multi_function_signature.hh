@@ -36,6 +36,7 @@ struct MFSignature {
   RawVector<std::string> param_names;
   RawVector<MFParamType> param_types;
   RawVector<int> param_data_indices;
+  bool depends_on_context = false;
 
   int data_index(int param_index) const
   {
@@ -156,6 +157,13 @@ class MFSignatureBuilder {
         data_.param_data_indices.append(vector_array_count_++);
         break;
     }
+  }
+
+  /* Context */
+
+  void depends_on_context()
+  {
+    data_.depends_on_context = true;
   }
 };
 

@@ -203,7 +203,8 @@ class ParticleFunctionForce : public ParticleForce {
     IndexMask mask = context.particle_chunk().index_mask();
     MutableSpan<float3> r_combined_force = context.force_dst();
 
-    ParticleFunctionEvaluator evaluator{particle_fn_, context.particle_chunk()};
+    ParticleFunctionEvaluator evaluator{
+        particle_fn_, context.solve_context(), context.particle_chunk()};
     evaluator.compute();
     fn::VSpan<float3> forces = evaluator.get<float3>(0, "Force");
 

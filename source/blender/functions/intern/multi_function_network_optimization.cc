@@ -142,13 +142,24 @@ void dead_node_removal(MFNetwork &network)
  *
  * \{ */
 
+static bool function_node_can_be_constant(MFFunctionNode *node)
+{
+  if (node->has_unlinked_inputs()) {
+    return false;
+  }
+  if (node->function().depends_on_context()) {
+    return false;
+  }
+  return true;
+}
+
 static Vector<MFNode *> find_non_constant_nodes(MFNetwork &network)
 {
   Vector<MFNode *> non_constant_nodes;
   non_constant_nodes.extend(network.dummy_nodes());
 
   for (MFFunctionNode *node : network.function_nodes()) {
-    if (!node->all_inputs_have_origin()) {
+    if (!function_node_can_be_constant(node)) {
       non_constant_nodes.append(node);
     }
   }

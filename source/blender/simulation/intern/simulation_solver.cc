@@ -17,6 +17,7 @@
 #include "simulation_solver.hh"
 
 #include "BKE_customdata.h"
+#include "BKE_id_handle.hh"
 #include "BKE_lib_id.h"
 
 #include "BLI_rand.hh"
@@ -298,14 +299,19 @@ void solve_simulation_time_step(Simulation &simulation,
                                 const SimulationInfluences &influences,
                                 float time_step)
 {
-  SimulationSolveContext solve_context{
-      simulation,
-      depsgraph,
-      influences,
-      TimeInterval(simulation.current_simulation_time, time_step)};
-  TimeInterval simulation_time_interval{simulation.current_simulation_time, time_step};
-
   update_id_handles(simulation, influences.used_data_blocks);
+
+  bke::IDHandleMap id_handle_map;
+  LISTBASE_FOREACH (SimulationIDHandle *, id_handle, &simulation.id_handles) {
+    id_handle_map.add(*id_handle->id, id_handle->handle);
+  }
+
+  SimulationSolveContext solve_context{simulation,
+                                       depsgraph,
+                                       influences,
+                                       TimeInterval(simulation.current_simulation_time, time_step),
+                                       id_handle_map};
+  TimeInterval simulation_time_interval{simulation.current_simulation_time, time_step};
 
   Vector<SimulationState *> simulation_states{simulation.states};
   Vector<ParticleSimulationState *> particle_simulation_states;
