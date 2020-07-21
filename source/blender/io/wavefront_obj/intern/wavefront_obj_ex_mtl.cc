@@ -117,9 +117,7 @@ void MTLWriter::linked_sockets_to_dest_id(Vector<const nodes::OutputSocketRef *>
   if (dest_socket) {
     Span<const nodes::OutputSocketRef *> linked_sockets = dest_socket->directly_linked_sockets();
     r_linked_sockets.resize(linked_sockets.size());
-    for (uint i = 0; i < linked_sockets.size(); i++) {
-      r_linked_sockets[i] = linked_sockets[i];
-    }
+    r_linked_sockets = linked_sockets;
   }
   else {
     r_linked_sockets.clear();

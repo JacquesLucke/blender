@@ -36,9 +36,9 @@ namespace blender::io::obj {
 OBJMeshFromRaw::OBJMeshFromRaw(const OBJRawObject &curr_object,
                                const GlobalVertices global_vertices)
 {
-  uint tot_verts_object{curr_object.vertex_indices.size()};
-  uint tot_edges{curr_object.edges.size()};
-  uint tot_face_elems{curr_object.face_elements.size()};
+  const int64_t tot_verts_object{curr_object.vertex_indices.size()};
+  const int64_t tot_edges{curr_object.edges.size()};
+  const int64_t tot_face_elems{curr_object.face_elements.size()};
   mesh_from_ob_.reset(
       BKE_mesh_new_nomain(tot_verts_object, tot_edges, 0, curr_object.tot_loop, tot_face_elems));
 

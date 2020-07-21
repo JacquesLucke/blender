@@ -371,12 +371,12 @@ void OBJMesh::calc_poly_normal_indices(Vector<uint> &r_normal_indices, uint poly
   if (export_params_.export_smooth_groups && tot_smooth_groups_ > 0) {
     const MPoly &mpoly = export_mesh_eval_->mpoly[poly_index];
     const MLoop *mloop = &export_mesh_eval_->mloop[mpoly.loopstart];
-    for (uint i = 0; i < r_normal_indices.size(); i++) {
+    for (int i = 0; i < r_normal_indices.size(); i++) {
       r_normal_indices[i] = mloop[i].v + 1;
     }
   }
   else {
-    for (uint i = 0; i < r_normal_indices.size(); i++) {
+    for (int i = 0; i < r_normal_indices.size(); i++) {
       r_normal_indices[i] = poly_index + 1;
     }
   }

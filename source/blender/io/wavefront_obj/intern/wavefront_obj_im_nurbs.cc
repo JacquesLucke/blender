@@ -33,7 +33,7 @@ namespace blender::io::obj {
 void OBJCurveFromRaw::edit_nurbs(const OBJRawObject &curr_object,
                                  const GlobalVertices &global_vertices)
 {
-  const uint tot_vert = curr_object.nurbs_element.curv_indices.size();
+  const int64_t tot_vert{curr_object.nurbs_element.curv_indices.size()};
   const NurbsElem &raw_nurbs = curr_object.nurbs_element;
   Nurb *nurb = (Nurb *)curve_from_ob_->nurb.first;
 

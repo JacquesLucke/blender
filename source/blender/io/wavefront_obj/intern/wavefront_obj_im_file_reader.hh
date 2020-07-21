@@ -32,7 +32,7 @@ class OBJImporter {
  private:
   const OBJImportParams &import_params_;
   std::ifstream infile_;
-  uint index_offsets[2] = {0, 0};
+  int index_offsets[2] = {0, 0};
 
  public:
   OBJImporter(const OBJImportParams &import_params);

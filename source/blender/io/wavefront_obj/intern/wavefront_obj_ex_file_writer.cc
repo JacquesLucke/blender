@@ -174,8 +174,7 @@ void OBJWriter::write_uv_coords(OBJMesh &obj_mesh_data, Vector<Vector<uint>> &uv
   Vector<std::array<float, 2>> uv_coords;
 
   obj_mesh_data.store_uv_coords_and_indices(uv_coords, uv_indices);
-  for (uint i = 0; i < uv_coords.size(); i++) {
-    const std::array<float, 2> &uv_vertex = uv_coords[i];
+  for (const std::array<float, 2> &uv_vertex : uv_coords) {
     fprintf(outfile_, "vt %f %f\n", uv_vertex[0], uv_vertex[1]);
   }
 }
