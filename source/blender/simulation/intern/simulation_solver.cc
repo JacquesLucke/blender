@@ -17,8 +17,10 @@
 #include "simulation_solver.hh"
 
 #include "BKE_customdata.h"
+#include "BKE_lib_id.h"
 
 #include "BLI_rand.hh"
+#include "BLI_set.hh"
 
 namespace blender::sim {
 
@@ -243,6 +245,47 @@ BLI_NOINLINE static void remove_dead_and_add_new_particles(ParticleSimulationSta
   state.next_particle_id += allocator.total_allocated();
 }
 
+static void update_id_handles(Simulation &simulation,
+                              const VectorSet<const ID *> &used_data_blocks)
+{
+  Set<const ID *> contained_ids;
+  Set<int> used_handles;
+
+  LISTBASE_FOREACH_MUTABLE (SimulationIDHandle *, id_handle, &simulation.id_handles) {
+    if (id_handle->id == nullptr) {
+      BLI_remlink(&simulation.id_handles, id_handle);
+      continue;
+    }
+    if (!used_data_blocks.contains(id_handle->id)) {
+      id_us_min(id_handle->id);
+      BLI_remlink(&simulation.id_handles, id_handle);
+      MEM_freeN(id_handle);
+      continue;
+    }
+    contained_ids.add_new(id_handle->id);
+    used_handles.add_new(id_handle->handle);
+  }
+
+  int next_handle = 0;
+  for (const ID *id : used_data_blocks) {
+    if (contained_ids.contains(id)) {
+      continue;
+    }
+
+    while (used_handles.contains(next_handle)) {
+      next_handle++;
+    }
+    used_handles.add_new(next_handle);
+
+    SimulationIDHandle *id_handle = (SimulationIDHandle *)MEM_callocN(sizeof(*id_handle), AT);
+    /* Cannot store const pointers in DNA. */
+    id_handle->id = const_cast<ID *>(id);
+    id_handle->handle = next_handle;
+
+    BLI_addtail(&simulation.id_handles, id_handle);
+  }
+}
+
 void initialize_simulation_states(Simulation &simulation,
                                   Depsgraph &UNUSED(depsgraph),
                                   const SimulationInfluences &UNUSED(influences))
@@ -261,6 +304,8 @@ void solve_simulation_time_step(Simulation &simulation,
       influences,
       TimeInterval(simulation.current_simulation_time, time_step)};
   TimeInterval simulation_time_interval{simulation.current_simulation_time, time_step};
+
+  update_id_handles(simulation, influences.used_data_blocks);
 
   Vector<SimulationState *> simulation_states{simulation.states};
   Vector<ParticleSimulationState *> particle_simulation_states;

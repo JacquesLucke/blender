@@ -50,6 +50,7 @@ struct SimulationInfluences {
   Map<std::string, Vector<const ParticleForce *>> particle_forces;
   Map<std::string, fn::AttributesInfoBuilder *> particle_attributes_builder;
   Vector<const ParticleEmitter *> particle_emitters;
+  VectorSet<const ID *> used_data_blocks;
 };
 
 class SimulationSolveContext {
