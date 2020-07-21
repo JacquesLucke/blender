@@ -82,18 +82,6 @@ static bool compute_global_inputs(nodes::MFNetworkTreeMap &network_map,
   return true;
 }
 
-static bool compute_global_inputs(nodes::MFNetworkTreeMap &network_map,
-                                  ResourceCollector &resources,
-                                  Span<const nodes::DInputSocket *> dsockets,
-                                  MutableSpan<fn::GMutableSpan> r_results)
-{
-  Array<const fn::MFInputSocket *> sockets(dsockets.size());
-  for (int i : dsockets.index_range()) {
-    sockets[i] = &network_map.lookup_dummy(*dsockets[i]);
-  }
-  return compute_global_inputs(network_map, resources, sockets, r_results);
-}
-
 static std::optional<Array<std::string>> compute_global_string_inputs(
     nodes::MFNetworkTreeMap &network_map, Span<const fn::MFInputSocket *> sockets)
 {
@@ -292,35 +280,59 @@ static void collect_forces(nodes::MFNetworkTreeMap &network_map,
 class MyBasicEmitter : public ParticleEmitter {
  private:
   Array<std::string> names_;
-  float3 location_;
+  const fn::MultiFunction &inputs_fn_;
   uint32_t seed_;
 
  public:
-  MyBasicEmitter(Array<std::string> names, float3 location, uint32_t seed)
-      : names_(std::move(names)), location_(location), seed_(seed)
+  MyBasicEmitter(Array<std::string> names, const fn::MultiFunction &inputs_fn, uint32_t seed)
+      : names_(std::move(names)), inputs_fn_(inputs_fn), seed_(seed)
   {
   }
 
   void emit(ParticleEmitterContext &context) const override
   {
+    fn::MFContextBuilder mf_context;
+    mf_context.add_global_context("IDHandleMap", &context.solve_context().id_handle_map());
+
+    fn::MFParamsBuilder mf_params{inputs_fn_, 1};
+    nodes::ObjectIDHandle object_handle;
+    float rate;
+    mf_params.add_uninitialized_single_output(&object_handle);
+    mf_params.add_uninitialized_single_output(&rate);
+    inputs_fn_.call(IndexRange(1), mf_params, mf_context);
+
+    const Object *object = context.solve_context().id_handle_map().lookup(object_handle);
+    if (object == nullptr) {
+      return;
+    }
+
+    Vector<float3> new_positions;
+    Vector<float3> new_velocities;
+    Vector<float> new_birth_times;
+
+    float start_time = context.simulation_time_interval().start();
+    RandomNumberGenerator rng{(*(uint32_t *)&start_time) ^ seed_};
+
+    int amount = rate * 10;
+    for (int i : IndexRange(amount)) {
+      UNUSED_VARS(i);
+      new_positions.append(rng.get_unit_float3() * 0.3 + float3(object->loc));
+      new_velocities.append(rng.get_unit_float3());
+      new_birth_times.append(context.simulation_time_interval().start());
+    }
+
     for (StringRef name : names_) {
       ParticleAllocator *allocator = context.try_get_particle_allocator(name);
       if (allocator == nullptr) {
         return;
       }
 
-      fn::MutableAttributesRef attributes = allocator->allocate(10);
-      RandomNumberGenerator rng{(uint32_t)context.simulation_time_interval().start() ^ seed_};
+      fn::MutableAttributesRef attributes = allocator->allocate(amount);
 
-      MutableSpan<float3> positions = attributes.get<float3>("Position");
-      MutableSpan<float3> velocities = attributes.get<float3>("Velocity");
-      MutableSpan<float> birth_times = attributes.get<float>("Birth Time");
-
-      for (int i : IndexRange(attributes.size())) {
-        positions[i] = rng.get_unit_float3() * 0.3 + location_;
-        velocities[i] = rng.get_unit_float3();
-        birth_times[i] = context.simulation_time_interval().start();
-      }
+      initialized_copy_n(new_positions.data(), amount, attributes.get<float3>("Position").data());
+      initialized_copy_n(new_velocities.data(), amount, attributes.get<float3>("Velocity").data());
+      initialized_copy_n(
+          new_birth_times.data(), amount, attributes.get<float>("Birth Time").data());
     }
   }
 };
@@ -347,20 +359,26 @@ static ParticleEmitter *create_particle_emitter(const nodes::DNode &dnode,
     return nullptr;
   }
 
-  Array<fn::GMutableSpan> input_values(dnode.inputs().size(), NoInitialization());
-  ResourceCollector local_resources;
-  if (!compute_global_inputs(network_map, local_resources, dnode.inputs(), input_values)) {
-    return nullptr;
-  }
-
   Array<std::string> names{simulation_dnodes.size()};
   for (int i : simulation_dnodes.index_range()) {
     names[i] = dnode_to_path(*simulation_dnodes[i]);
   }
 
+  Array<const fn::MFInputSocket *> input_sockets{dnode.inputs().size()};
+  for (int i : input_sockets.index_range()) {
+    input_sockets[i] = &network_map.lookup_dummy(dnode.input(i));
+  }
+
+  if (network_map.network().have_dummy_or_unlinked_dependencies(input_sockets)) {
+    return nullptr;
+  }
+
+  fn::MultiFunction &inputs_fn = resources.construct<fn::MFNetworkEvaluator>(
+      AT, Span<const fn::MFOutputSocket *>(), input_sockets.as_span());
+
   uint32_t seed = DefaultHash<std::string>{}(dnode_to_path(dnode));
   ParticleEmitter &emitter = resources.construct<MyBasicEmitter>(
-      AT, std::move(names), float3(input_values[1].typed<float>()[0], 0, 0), seed);
+      AT, std::move(names), inputs_fn, seed);
   return &emitter;
 }
 

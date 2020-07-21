@@ -158,6 +158,11 @@ class ParticleEmitterContext {
   {
   }
 
+  SimulationSolveContext &solve_context()
+  {
+    return solve_context_;
+  }
+
   ParticleAllocator *try_get_particle_allocator(StringRef particle_simulation_name)
   {
     return particle_allocators_.try_get_allocator(particle_simulation_name);
