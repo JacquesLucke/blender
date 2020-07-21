@@ -24,6 +24,14 @@
 #include "DNA_ID.h"
 #include "DNA_customdata_types.h"
 
+typedef struct SimulationIDHandle {
+  struct SimulationIDHandle *next;
+  struct SimulationIDHandle *prev;
+  struct ID *id;
+  int handle;
+  char _pad[4];
+} SimulationIDHandle;
+
 typedef struct Simulation {
   ID id;
   struct AnimData *adt; /* animation data (must be immediately after id) */
@@ -37,6 +45,8 @@ typedef struct Simulation {
 
   /** List containing SimulationState objects. */
   struct ListBase states;
+
+  struct ListBase id_handles;
 } Simulation;
 
 typedef struct SimulationState {

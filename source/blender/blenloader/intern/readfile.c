@@ -8675,8 +8675,11 @@ static void direct_link_volume(BlendDataReader *reader, Volume *volume)
 /** \name Read ID: Simulation
  * \{ */
 
-static void lib_link_simulation(BlendLibReader *UNUSED(reader), Simulation *UNUSED(simulation))
+static void lib_link_simulation(BlendLibReader *reader, Simulation *simulation)
 {
+  LISTBASE_FOREACH (SimulationIDHandle *, id_handle, &simulation->id_handles) {
+    BLO_read_id_address(reader, simulation->id.lib, &id_handle->id);
+  }
 }
 
 static void direct_link_simulation(BlendDataReader *reader, Simulation *simulation)
@@ -8697,6 +8700,8 @@ static void direct_link_simulation(BlendDataReader *reader, Simulation *simulati
       };
     }
   }
+
+  BLO_read_list(reader, &simulation->id_handles);
 }
 
 /** \} */
@@ -11104,6 +11109,9 @@ static void expand_simulation(BlendExpander *expander, Simulation *simulation)
 {
   if (simulation->adt) {
     expand_animdata(expander, simulation->adt);
+  }
+  LISTBASE_FOREACH (SimulationIDHandle *, id_handle, &simulation->id_handles) {
+    BLO_expand(expander, id_handle->id);
   }
 }
 
