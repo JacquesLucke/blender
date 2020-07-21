@@ -25,7 +25,7 @@
 struct ID;
 struct Object;
 
-namespace blender::nodes {
+namespace blender::bke {
 
 class IDHandleMap;
 
@@ -125,6 +125,6 @@ class IDHandleMap {
   }
 };
 
-}  // namespace blender::nodes
+}  // namespace blender::bke
 
 #endif /*  __NOD_ID_HANDLE_H__ */

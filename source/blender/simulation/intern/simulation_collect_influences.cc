@@ -295,7 +295,7 @@ class MyBasicEmitter : public ParticleEmitter {
     mf_context.add_global_context("IDHandleMap", &context.solve_context().id_handle_map());
 
     fn::MFParamsBuilder mf_params{inputs_fn_, 1};
-    nodes::ObjectIDHandle object_handle;
+    bke::ObjectIDHandle object_handle;
     float rate;
     mf_params.add_uninitialized_single_output(&object_handle);
     mf_params.add_uninitialized_single_output(&rate);

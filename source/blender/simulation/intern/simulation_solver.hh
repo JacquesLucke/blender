@@ -61,14 +61,14 @@ class SimulationSolveContext {
   Depsgraph &depsgraph_;
   const SimulationInfluences &influences_;
   TimeInterval solve_interval_;
-  const nodes::IDHandleMap &id_handle_map_;
+  const bke::IDHandleMap &id_handle_map_;
 
  public:
   SimulationSolveContext(Simulation &simulation,
                          Depsgraph &depsgraph,
                          const SimulationInfluences &influences,
                          TimeInterval solve_interval,
-                         const nodes::IDHandleMap &id_handle_map)
+                         const bke::IDHandleMap &id_handle_map)
       : simulation_(simulation),
         depsgraph_(depsgraph),
         influences_(influences),
@@ -87,7 +87,7 @@ class SimulationSolveContext {
     return influences_;
   }
 
-  const nodes::IDHandleMap &id_handle_map() const
+  const bke::IDHandleMap &id_handle_map() const
   {
     return id_handle_map_;
   }

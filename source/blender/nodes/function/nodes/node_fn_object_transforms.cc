@@ -34,7 +34,7 @@ class ObjectTransformsFunction : public blender::fn::MultiFunction {
   {
     blender::fn::MFSignatureBuilder signature = this->get_builder("Object Transforms");
     signature.depends_on_context();
-    signature.single_input<blender::nodes::ObjectIDHandle>("Object");
+    signature.single_input<blender::bke::ObjectIDHandle>("Object");
     signature.single_output<blender::float3>("Location");
   }
 
@@ -42,20 +42,20 @@ class ObjectTransformsFunction : public blender::fn::MultiFunction {
             blender::fn::MFParams params,
             blender::fn::MFContext context) const override
   {
-    blender::fn::VSpan handles = params.readonly_single_input<blender::nodes::ObjectIDHandle>(
+    blender::fn::VSpan handles = params.readonly_single_input<blender::bke::ObjectIDHandle>(
         0, "Object");
     blender::MutableSpan locations = params.uninitialized_single_output<blender::float3>(
         1, "Location");
 
-    const blender::nodes::IDHandleMap *id_handle_map =
-        context.get_global_context<blender::nodes::IDHandleMap>("IDHandleMap");
+    const blender::bke::IDHandleMap *id_handle_map =
+        context.get_global_context<blender::bke::IDHandleMap>("IDHandleMap");
     if (id_handle_map == nullptr) {
       locations.fill_indices(mask, {0, 0, 0});
       return;
     }
 
     for (int64_t i : mask) {
-      blender::nodes::ObjectIDHandle handle = handles[i];
+      blender::bke::ObjectIDHandle handle = handles[i];
       const Object *object = id_handle_map->lookup(handle);
       blender::float3 location;
       if (object == nullptr) {

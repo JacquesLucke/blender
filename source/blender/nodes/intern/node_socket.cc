@@ -592,37 +592,37 @@ class ObjectSocketMultiFunction : public blender::fn::MultiFunction {
   ObjectSocketMultiFunction(const Object *object) : object_(object)
   {
     blender::fn::MFSignatureBuilder signature = this->get_builder("Object Socket");
-    signature.single_output<blender::nodes::ObjectIDHandle>("Object");
+    signature.single_output<blender::bke::ObjectIDHandle>("Object");
   }
 
   void call(blender::IndexMask mask,
             blender::fn::MFParams params,
             blender::fn::MFContext context) const override
   {
-    blender::MutableSpan output =
-        params.uninitialized_single_output<blender::nodes::ObjectIDHandle>(0, "Object");
+    blender::MutableSpan output = params.uninitialized_single_output<blender::bke::ObjectIDHandle>(
+        0, "Object");
 
-    const blender::nodes::IDHandleMap *id_handle_map =
-        context.get_global_context<blender::nodes::IDHandleMap>("IDHandleMap");
+    const blender::bke::IDHandleMap *id_handle_map =
+        context.get_global_context<blender::bke::IDHandleMap>("IDHandleMap");
     if (id_handle_map == nullptr) {
-      output.fill_indices(mask, blender::nodes::ObjectIDHandle());
+      output.fill_indices(mask, blender::bke::ObjectIDHandle());
       return;
     }
 
-    blender::nodes::ObjectIDHandle handle = id_handle_map->lookup(object_);
+    blender::bke::ObjectIDHandle handle = id_handle_map->lookup(object_);
     for (int64_t i : mask) {
       output[i] = handle;
     }
   }
 };
 
-MAKE_CPP_TYPE(ObjectIDHandle, blender::nodes::ObjectIDHandle);
+MAKE_CPP_TYPE(ObjectIDHandle, blender::bke::ObjectIDHandle);
 
 static bNodeSocketType *make_socket_type_object()
 {
   bNodeSocketType *socktype = make_standard_socket_type(SOCK_OBJECT, PROP_NONE);
   socktype->get_mf_data_type = []() {
-    return blender::fn::MFDataType::ForSingle<blender::nodes::ObjectIDHandle>();
+    return blender::fn::MFDataType::ForSingle<blender::bke::ObjectIDHandle>();
   };
   socktype->expand_in_mf_network = [](blender::nodes::SocketMFNetworkBuilder &builder) {
     const Object *object = builder.socket_default_value<bNodeSocketValueObject>()->value;

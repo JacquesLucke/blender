@@ -301,7 +301,7 @@ void solve_simulation_time_step(Simulation &simulation,
 {
   update_id_handles(simulation, influences.used_data_blocks);
 
-  nodes::IDHandleMap id_handle_map;
+  bke::IDHandleMap id_handle_map;
   LISTBASE_FOREACH (SimulationIDHandle *, id_handle, &simulation.id_handles) {
     id_handle_map.add(*id_handle->id, id_handle->handle);
   }
