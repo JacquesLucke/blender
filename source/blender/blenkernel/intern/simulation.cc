@@ -89,6 +89,8 @@ static void simulation_copy_data(Main *bmain, ID *id_dst, const ID *id_src, cons
   }
 
   BLI_listbase_clear(&simulation_dst->states);
+
+  BLI_duplicatelist(&simulation_dst->id_handles, &simulation_src->id_handles);
 }
 
 static void free_simulation_state_head(SimulationState *state)
@@ -169,6 +171,8 @@ static void simulation_free_data(ID *id)
   }
 
   BKE_simulation_state_remove_all(simulation);
+
+  BLI_freelistN(&simulation->id_handles);
 }
 
 static void simulation_foreach_id(ID *id, LibraryForeachIDData *data)
@@ -177,6 +181,9 @@ static void simulation_foreach_id(ID *id, LibraryForeachIDData *data)
   if (simulation->nodetree) {
     /* nodetree **are owned by IDs**, treat them as mere sub-data and not real ID! */
     BKE_library_foreach_ID_embedded(data, (ID **)&simulation->nodetree);
+  }
+  LISTBASE_FOREACH (SimulationIDHandle *, id_handle, &simulation->id_handles) {
+    BKE_LIB_FOREACHID_PROCESS_ID(data, id_handle->id, IDWALK_CB_USER);
   }
 }
 
