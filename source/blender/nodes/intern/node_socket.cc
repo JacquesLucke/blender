@@ -605,9 +605,7 @@ class ObjectSocketMultiFunction : public blender::fn::MultiFunction {
     const blender::bke::IDHandleMap *handle_map =
         context.get_global_context<blender::bke::IDHandleMap>("IDHandleMap");
     if (handle_map == nullptr) {
-      for (int64_t i : mask) {
-        output[i] = blender::bke::ObjectIDHandle();
-      }
+      output.fill_indices(mask, blender::bke::ObjectIDHandle());
       return;
     }
 
