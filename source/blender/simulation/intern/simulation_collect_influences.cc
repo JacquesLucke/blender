@@ -72,6 +72,7 @@ static bool compute_global_inputs(nodes::MFNetworkTreeMap &network_map,
     BLI_assert(param_type.category() == fn::MFParamType::Category::SingleOutput); /* For now. */
     const fn::CPPType &type = param_type.data_type().single_type();
     void *buffer = resources.linear_allocator().allocate(type.size(), type.alignment());
+    resources.add(buffer, type.destruct_cb(), AT);
     fn::GMutableSpan span{type, buffer, 1};
     r_results[param_index] = span;
     params.add_uninitialized_single_output(span);
@@ -79,6 +80,18 @@ static bool compute_global_inputs(nodes::MFNetworkTreeMap &network_map,
   fn::MFContextBuilder context;
   network_fn.call(IndexRange(1), params, context);
   return true;
+}
+
+static bool compute_global_inputs(nodes::MFNetworkTreeMap &network_map,
+                                  ResourceCollector &resources,
+                                  Span<const nodes::DInputSocket *> dsockets,
+                                  MutableSpan<fn::GMutableSpan> r_results)
+{
+  Array<const fn::MFInputSocket *> sockets(dsockets.size());
+  for (int i : dsockets.index_range()) {
+    sockets[i] = &network_map.lookup_dummy(*dsockets[i]);
+  }
+  return compute_global_inputs(network_map, resources, sockets, r_results);
 }
 
 static std::optional<Array<std::string>> compute_global_string_inputs(
@@ -325,17 +338,29 @@ static Vector<const nodes::DNode *> find_linked_particle_simulations(
 }
 
 static ParticleEmitter *create_particle_emitter(const nodes::DNode &dnode,
-                                                ResourceCollector &resources)
+                                                ResourceCollector &resources,
+                                                nodes::MFNetworkTreeMap &network_map)
 {
   Vector<const nodes::DNode *> simulation_dnodes = find_linked_particle_simulations(
       dnode.output(0));
+  if (simulation_dnodes.size() == 0) {
+    return nullptr;
+  }
+
+  Array<fn::GMutableSpan> input_values(dnode.inputs().size(), NoInitialization());
+  ResourceCollector local_resources;
+  if (!compute_global_inputs(network_map, local_resources, dnode.inputs(), input_values)) {
+    return nullptr;
+  }
+
   Array<std::string> names{simulation_dnodes.size()};
   for (int i : simulation_dnodes.index_range()) {
     names[i] = dnode_to_path(*simulation_dnodes[i]);
   }
+
   uint32_t seed = DefaultHash<std::string>{}(dnode_to_path(dnode));
   ParticleEmitter &emitter = resources.construct<MyBasicEmitter>(
-      AT, std::move(names), float3(2, 0, 0), seed);
+      AT, std::move(names), float3(input_values[1].typed<float>()[0], 0, 0), seed);
   return &emitter;
 }
 
@@ -345,7 +370,7 @@ static void collect_emitters(nodes::MFNetworkTreeMap &network_map,
 {
   for (const nodes::DNode *dnode :
        network_map.tree().nodes_by_type("SimulationNodeParticleMeshEmitter")) {
-    ParticleEmitter *emitter = create_particle_emitter(*dnode, resources);
+    ParticleEmitter *emitter = create_particle_emitter(*dnode, resources, network_map);
     if (emitter != nullptr) {
       r_influences.particle_emitters.append(emitter);
     }
