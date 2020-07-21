@@ -440,7 +440,6 @@ void collect_simulation_influences(Simulation &simulation,
 
   fn::MFNetwork &network = resources.construct<fn::MFNetwork>(AT);
   nodes::MFNetworkTreeMap network_map = insert_node_tree_into_mf_network(network, tree, resources);
-  // WM_clipboard_text_set(network.to_dot().c_str(), false);
 
   prepare_particle_attribute_builders(network_map, resources, r_influences);
 
@@ -450,6 +449,7 @@ void collect_simulation_influences(Simulation &simulation,
   fn::mf_network_optimization::constant_folding(network, resources);
   fn::mf_network_optimization::common_subnetwork_elimination(network);
   fn::mf_network_optimization::dead_node_removal(network);
+  // WM_clipboard_text_set(network.to_dot().c_str(), false);
 
   collect_forces(network_map, resources, data_sources, r_influences);
   collect_emitters(network_map, resources, r_influences);
