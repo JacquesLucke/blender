@@ -330,17 +330,18 @@ void constant_folding(MFNetwork &network, ResourceCollector &resources)
 
 static uint64_t compute_node_hash(MFFunctionNode &node, RNG *rng, Span<uint64_t> node_hashes)
 {
+  if (node.function().depends_on_context()) {
+    return BLI_rng_get_uint(rng);
+  }
+  if (node.has_unlinked_inputs()) {
+    return BLI_rng_get_uint(rng);
+  }
+
   uint64_t combined_inputs_hash = 394659347u;
   for (MFInputSocket *input_socket : node.inputs()) {
     MFOutputSocket *origin_socket = input_socket->origin();
-    uint64_t input_hash;
-    if (origin_socket == nullptr) {
-      input_hash = BLI_rng_get_uint(rng);
-    }
-    else {
-      input_hash = BLI_ghashutil_combine_hash(node_hashes[origin_socket->node().id()],
-                                              origin_socket->index());
-    }
+    uint64_t input_hash = BLI_ghashutil_combine_hash(node_hashes[origin_socket->node().id()],
+                                                     origin_socket->index());
     combined_inputs_hash = BLI_ghashutil_combine_hash(combined_inputs_hash, input_hash);
   }
 

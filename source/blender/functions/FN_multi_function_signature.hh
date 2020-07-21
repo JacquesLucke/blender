@@ -161,6 +161,8 @@ class MFSignatureBuilder {
 
   /* Context */
 
+  /** This indicates that the function accesses the context. This disables optimizations that
+   * depend on the fact that the function always performes the same operation. */
   void depends_on_context()
   {
     data_.depends_on_context = true;
