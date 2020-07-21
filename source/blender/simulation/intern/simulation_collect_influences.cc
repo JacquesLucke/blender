@@ -259,44 +259,77 @@ static void collect_forces(nodes::MFNetworkTreeMap &network_map,
 
 class MyBasicEmitter : public ParticleEmitter {
  private:
-  std::string name_;
+  Array<std::string> names_;
+  float3 location_;
+  uint32_t seed_;
 
  public:
-  MyBasicEmitter(std::string name) : name_(std::move(name))
+  MyBasicEmitter(Array<std::string> names, float3 location, uint32_t seed)
+      : names_(std::move(names)), location_(location), seed_(seed)
   {
   }
 
   void emit(ParticleEmitterContext &context) const override
   {
-    ParticleAllocator *allocator = context.try_get_particle_allocator(name_);
-    if (allocator == nullptr) {
-      return;
-    }
+    for (StringRef name : names_) {
+      ParticleAllocator *allocator = context.try_get_particle_allocator(name);
+      if (allocator == nullptr) {
+        return;
+      }
 
-    fn::MutableAttributesRef attributes = allocator->allocate(10);
-    RandomNumberGenerator rng{(uint32_t)context.simulation_time_interval().start() ^
-                              (uint32_t)DefaultHash<std::string>{}(name_)};
+      fn::MutableAttributesRef attributes = allocator->allocate(10);
+      RandomNumberGenerator rng{(uint32_t)context.simulation_time_interval().start() ^ seed_};
 
-    MutableSpan<float3> positions = attributes.get<float3>("Position");
-    MutableSpan<float3> velocities = attributes.get<float3>("Velocity");
-    MutableSpan<float> birth_times = attributes.get<float>("Birth Time");
+      MutableSpan<float3> positions = attributes.get<float3>("Position");
+      MutableSpan<float3> velocities = attributes.get<float3>("Velocity");
+      MutableSpan<float> birth_times = attributes.get<float>("Birth Time");
 
-    for (int i : IndexRange(attributes.size())) {
-      positions[i] = rng.get_unit_float3();
-      velocities[i] = rng.get_unit_float3();
-      birth_times[i] = context.simulation_time_interval().start();
+      for (int i : IndexRange(attributes.size())) {
+        positions[i] = rng.get_unit_float3() * 0.3 + location_;
+        velocities[i] = rng.get_unit_float3();
+        birth_times[i] = context.simulation_time_interval().start();
+      }
     }
   }
 };
+
+static Vector<const nodes::DNode *> find_linked_particle_simulations(
+    const nodes::DOutputSocket &output_socket)
+{
+  Vector<const nodes::DNode *> simulation_nodes;
+  for (const nodes::DInputSocket *target_socket : output_socket.linked_sockets()) {
+    if (target_socket->node().idname() == "SimulationNodeParticleSimulation") {
+      simulation_nodes.append(&target_socket->node());
+    }
+  }
+  return simulation_nodes;
+}
+
+static ParticleEmitter *create_particle_emitter(const nodes::DNode &dnode,
+                                                ResourceCollector &resources)
+{
+  Vector<const nodes::DNode *> simulation_dnodes = find_linked_particle_simulations(
+      dnode.output(0));
+  Array<std::string> names{simulation_dnodes.size()};
+  for (int i : simulation_dnodes.index_range()) {
+    names[i] = dnode_to_path(*simulation_dnodes[i]);
+  }
+  uint32_t seed = DefaultHash<std::string>{}(dnode_to_path(dnode));
+  ParticleEmitter &emitter = resources.construct<MyBasicEmitter>(
+      AT, std::move(names), float3(2, 0, 0), seed);
+  return &emitter;
+}
 
 static void collect_emitters(nodes::MFNetworkTreeMap &network_map,
                              ResourceCollector &resources,
                              SimulationInfluences &r_influences)
 {
-  for (const nodes::DNode *dnode : get_particle_simulation_nodes(network_map.tree())) {
-    std::string name = dnode_to_path(*dnode);
-    ParticleEmitter &emitter = resources.construct<MyBasicEmitter>(AT, name);
-    r_influences.particle_emitters.append(&emitter);
+  for (const nodes::DNode *dnode :
+       network_map.tree().nodes_by_type("SimulationNodeParticleMeshEmitter")) {
+    ParticleEmitter *emitter = create_particle_emitter(*dnode, resources);
+    if (emitter != nullptr) {
+      r_influences.particle_emitters.append(emitter);
+    }
   }
 }
 
