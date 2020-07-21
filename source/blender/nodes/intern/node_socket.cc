@@ -32,9 +32,9 @@
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
 
-#include "BKE_id_handles.hh"
 #include "BKE_lib_id.h"
 #include "BKE_node.h"
+#include "BKE_persistent_data_handle.hh"
 
 #include "RNA_access.h"
 #include "RNA_types.h"
@@ -592,37 +592,38 @@ class ObjectSocketMultiFunction : public blender::fn::MultiFunction {
   ObjectSocketMultiFunction(const Object *object) : object_(object)
   {
     blender::fn::MFSignatureBuilder signature = this->get_builder("Object Socket");
-    signature.single_output<blender::bke::ObjectIDHandle>("Object");
+    signature.single_output<blender::bke::PersistentObjectHandle>("Object");
   }
 
   void call(blender::IndexMask mask,
             blender::fn::MFParams params,
             blender::fn::MFContext context) const override
   {
-    blender::MutableSpan output = params.uninitialized_single_output<blender::bke::ObjectIDHandle>(
-        0, "Object");
+    blender::MutableSpan output =
+        params.uninitialized_single_output<blender::bke::PersistentObjectHandle>(0, "Object");
 
-    const blender::bke::IDHandleMap *id_handle_map =
-        context.get_global_context<blender::bke::IDHandleMap>("IDHandleMap");
-    if (id_handle_map == nullptr) {
-      output.fill_indices(mask, blender::bke::ObjectIDHandle());
+    const blender::bke::PersistentDataHandleMap *handle_map =
+        context.get_global_context<blender::bke::PersistentDataHandleMap>(
+            "PersistentDataHandleMap");
+    if (handle_map == nullptr) {
+      output.fill_indices(mask, blender::bke::PersistentObjectHandle());
       return;
     }
 
-    blender::bke::ObjectIDHandle handle = id_handle_map->lookup(object_);
+    blender::bke::PersistentObjectHandle handle = handle_map->lookup(object_);
     for (int64_t i : mask) {
       output[i] = handle;
     }
   }
 };
 
-MAKE_CPP_TYPE(ObjectIDHandle, blender::bke::ObjectIDHandle);
+MAKE_CPP_TYPE(PersistentObjectHandle, blender::bke::PersistentObjectHandle);
 
 static bNodeSocketType *make_socket_type_object()
 {
   bNodeSocketType *socktype = make_standard_socket_type(SOCK_OBJECT, PROP_NONE);
   socktype->get_mf_data_type = []() {
-    return blender::fn::MFDataType::ForSingle<blender::bke::ObjectIDHandle>();
+    return blender::fn::MFDataType::ForSingle<blender::bke::PersistentObjectHandle>();
   };
   socktype->expand_in_mf_network = [](blender::nodes::SocketMFNetworkBuilder &builder) {
     const Object *object = builder.socket_default_value<bNodeSocketValueObject>()->value;

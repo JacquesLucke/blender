@@ -59,8 +59,9 @@ ParticleFunctionEvaluator::ParticleFunctionEvaluator(
       mask_(particle_chunk_context_.index_mask()),
       outputs_(particle_fn_.output_types_.size(), nullptr)
 {
-  global_context_.add_global_context("IDHandleMap", &solve_context_.id_handle_map());
-  per_particle_context_.add_global_context("IDHandleMap", &solve_context_.id_handle_map());
+  global_context_.add_global_context("PersistentDataHandleMap", &solve_context_.handle_map());
+  per_particle_context_.add_global_context("PersistentDataHandleMap",
+                                           &solve_context_.handle_map());
 }
 
 ParticleFunctionEvaluator::~ParticleFunctionEvaluator()

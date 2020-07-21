@@ -17,8 +17,8 @@
 #include "simulation_solver.hh"
 
 #include "BKE_customdata.h"
-#include "BKE_id_handles.hh"
 #include "BKE_lib_id.h"
+#include "BKE_persistent_data_handle.hh"
 
 #include "BLI_rand.hh"
 #include "BLI_set.hh"
@@ -301,16 +301,16 @@ void solve_simulation_time_step(Simulation &simulation,
 {
   update_id_handles(simulation, influences.used_data_blocks);
 
-  bke::IDHandleMap id_handle_map;
+  bke::PersistentDataHandleMap handle_map;
   LISTBASE_FOREACH (SimulationIDHandle *, id_handle, &simulation.id_handles) {
-    id_handle_map.add(*id_handle->id, id_handle->handle);
+    handle_map.add(id_handle->handle, *id_handle->id);
   }
 
   SimulationSolveContext solve_context{simulation,
                                        depsgraph,
                                        influences,
                                        TimeInterval(simulation.current_simulation_time, time_step),
-                                       id_handle_map};
+                                       handle_map};
   TimeInterval simulation_time_interval{simulation.current_simulation_time, time_step};
 
   Vector<SimulationState *> simulation_states{simulation.states};

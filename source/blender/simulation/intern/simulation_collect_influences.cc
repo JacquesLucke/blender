@@ -292,16 +292,17 @@ class MyBasicEmitter : public ParticleEmitter {
   void emit(ParticleEmitterContext &context) const override
   {
     fn::MFContextBuilder mf_context;
-    mf_context.add_global_context("IDHandleMap", &context.solve_context().id_handle_map());
+    mf_context.add_global_context("PersistentDataHandleMap",
+                                  &context.solve_context().handle_map());
 
     fn::MFParamsBuilder mf_params{inputs_fn_, 1};
-    bke::ObjectIDHandle object_handle;
+    bke::PersistentObjectHandle object_handle;
     float rate;
     mf_params.add_uninitialized_single_output(&object_handle);
     mf_params.add_uninitialized_single_output(&rate);
     inputs_fn_.call(IndexRange(1), mf_params, mf_context);
 
-    const Object *object = context.solve_context().id_handle_map().lookup(object_handle);
+    const Object *object = context.solve_context().handle_map().lookup(object_handle);
     if (object == nullptr) {
       return;
     }

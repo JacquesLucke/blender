@@ -14,54 +14,46 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#ifndef __BKE_ID_HANDLES_H__
-#define __BKE_ID_HANDLES_H__
-
-/** \file
- * \ingroup bke
- *
- * An IDHandle is a handle for an ID data block.
- */
+#ifndef __BKE_PERSISTENT_DATA_HANDLE_H__
+#define __BKE_PERSISTENT_DATA_HANDLE_H__
 
 #include "BLI_map.hh"
-#include "BLI_utildefines.h"
 
 #include "DNA_ID.h"
 
-struct ID;
 struct Object;
 
 namespace blender::bke {
 
-class IDHandleMap;
+class PersistentDataHandleMap;
 
-class IDHandle {
+class PersistentDataHandle {
  private:
-  int handle_;
+  int32_t handle_;
 
-  friend IDHandleMap;
+  friend PersistentDataHandleMap;
 
  protected:
-  IDHandle(int handle) : handle_(handle)
+  PersistentDataHandle(int handle) : handle_(handle)
   {
   }
 
  public:
-  IDHandle() : handle_(-1)
+  PersistentDataHandle() : handle_(-1)
   {
   }
 
-  friend bool operator==(const IDHandle &a, const IDHandle &b)
+  friend bool operator==(const PersistentDataHandle &a, const PersistentDataHandle &b)
   {
     return a.handle_ == b.handle_;
   }
 
-  friend bool operator!=(const IDHandle &a, const IDHandle &b)
+  friend bool operator!=(const PersistentDataHandle &a, const PersistentDataHandle &b)
   {
     return !(a == b);
   }
 
-  friend std::ostream &operator<<(std::ostream &stream, const IDHandle &a)
+  friend std::ostream &operator<<(std::ostream &stream, const PersistentDataHandle &a)
   {
     stream << a.handle_;
     return stream;
@@ -69,58 +61,54 @@ class IDHandle {
 
   uint64_t hash() const
   {
-    return handle_;
+    return (uint64_t)handle_;
   }
 };
 
-class ObjectIDHandle : public IDHandle {
- private:
-  friend IDHandleMap;
-
-  ObjectIDHandle(int handle) : IDHandle(handle)
-  {
-  }
-
- public:
-  ObjectIDHandle() : IDHandle()
-  {
-  }
+class PersistentIDHandle : public PersistentDataHandle {
+  friend PersistentDataHandleMap;
+  using PersistentDataHandle::PersistentDataHandle;
 };
 
-class IDHandleMap {
+class PersistentObjectHandle : public PersistentIDHandle {
+  friend PersistentDataHandleMap;
+  using PersistentIDHandle::PersistentIDHandle;
+};
+
+class PersistentDataHandleMap {
  private:
-  Map<int, const ID *> id_by_handle_;
-  Map<const ID *, int> handle_by_id_;
+  Map<int32_t, const ID *> id_by_handle_;
+  Map<const ID *, int32_t> handle_by_id_;
 
  public:
-  void add(const ID &id, int handle)
+  void add(int32_t handle, const ID &id)
   {
     BLI_assert(handle >= 0);
     handle_by_id_.add(&id, handle);
     id_by_handle_.add(handle, &id);
   }
 
-  IDHandle lookup(const ID *id) const
+  PersistentIDHandle lookup(const ID *id) const
   {
     const int handle = handle_by_id_.lookup_default(id, -1);
-    return IDHandle(handle);
+    return PersistentIDHandle(handle);
   }
 
-  ObjectIDHandle lookup(const Object *object) const
+  PersistentObjectHandle lookup(const Object *object) const
   {
     const int handle = handle_by_id_.lookup_default((const ID *)object, -1);
-    return ObjectIDHandle(handle);
+    return PersistentObjectHandle(handle);
   }
 
-  const ID *lookup(const IDHandle &handle) const
+  const ID *lookup(const PersistentIDHandle &handle) const
   {
     const ID *id = id_by_handle_.lookup_default(handle.handle_, nullptr);
     return id;
   }
 
-  const Object *lookup(const ObjectIDHandle &handle) const
+  const Object *lookup(const PersistentObjectHandle &handle) const
   {
-    const ID *id = this->lookup((const IDHandle &)handle);
+    const ID *id = this->lookup((const PersistentIDHandle &)handle);
     if (id == nullptr) {
       return nullptr;
     }
@@ -133,4 +121,4 @@ class IDHandleMap {
 
 }  // namespace blender::bke
 
-#endif /*  __BKE_ID_HANDLES_H__ */
+#endif /*  __BKE_PERSISTENT_DATA_HANDLE_H__ */
