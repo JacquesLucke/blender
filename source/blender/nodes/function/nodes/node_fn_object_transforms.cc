@@ -14,22 +14,23 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#ifndef __NOD_FUNCTION_H__
-#define __NOD_FUNCTION_H__
+#include "node_function_util.hh"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+static bNodeSocketTemplate fn_node_object_transforms_in[] = {
+    {SOCK_OBJECT, N_("Object")},
+    {-1, ""},
+};
 
-void register_node_type_fn_boolean_math(void);
-void register_node_type_fn_float_compare(void);
-void register_node_type_fn_switch(void);
-void register_node_type_fn_group_instance_id(void);
-void register_node_type_fn_combine_strings(void);
-void register_node_type_fn_object_transforms(void);
+static bNodeSocketTemplate fn_node_object_transforms_out[] = {
+    {SOCK_VECTOR, N_("Location")},
+    {-1, ""},
+};
 
-#ifdef __cplusplus
+void register_node_type_fn_object_transforms()
+{
+  static bNodeType ntype;
+
+  fn_node_type_base(&ntype, FN_NODE_OBJECT_TRANSFORMS, "Object Transforms", 0, 0);
+  node_type_socket_templates(&ntype, fn_node_object_transforms_in, fn_node_object_transforms_out);
+  nodeRegisterType(&ntype);
 }
-#endif
-
-#endif /* __NOD_FUNCTION_H__ */
