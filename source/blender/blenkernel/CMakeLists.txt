@@ -695,6 +695,8 @@ endif()
 
 blender_add_lib(bf_blenkernel "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
 
+set_target_properties(bf_blenkernel PROPERTIES LINK_INTERFACE_MULTIPLICITY 3)
+
 # Needed so we can use dna_type_offsets.h for defaults initialization.
 add_dependencies(bf_blenkernel bf_dna)
 
