@@ -50,31 +50,50 @@ static Span<const nodes::DNode *> get_particle_simulation_nodes(const nodes::Der
   return tree.nodes_by_type("SimulationNodeParticleSimulation");
 }
 
-static std::optional<Array<std::string>> compute_global_string_inputs(
-    nodes::MFNetworkTreeMap &network_map, Span<const fn::MFInputSocket *> sockets)
+/* Returns true on success. */
+static bool compute_global_inputs(nodes::MFNetworkTreeMap &network_map,
+                                  ResourceCollector &resources,
+                                  Span<const fn::MFInputSocket *> sockets,
+                                  MutableSpan<fn::GMutableSpan> r_results)
 {
   int amount = sockets.size();
   if (amount == 0) {
-    return Array<std::string>();
+    return true;
   }
 
   if (network_map.network().have_dummy_or_unlinked_dependencies(sockets)) {
-    return {};
+    return false;
   }
 
   fn::MFNetworkEvaluator network_fn{{}, sockets};
-
   fn::MFParamsBuilder params{network_fn, 1};
+  for (int param_index : network_fn.param_indices()) {
+    fn::MFParamType param_type = network_fn.param_type(param_index);
+    BLI_assert(param_type.category() == fn::MFParamType::Category::SingleOutput); /* For now. */
+    const fn::CPPType &type = param_type.data_type().single_type();
+    void *buffer = resources.linear_allocator().allocate(type.size(), type.alignment());
+    fn::GMutableSpan span{type, buffer, 1};
+    r_results[param_index] = span;
+    params.add_uninitialized_single_output(span);
+  }
+  fn::MFContextBuilder context;
+  network_fn.call(IndexRange(1), params, context);
+  return true;
+}
 
-  Array<std::string> strings(amount, NoInitialization());
-  for (int i : IndexRange(amount)) {
-    params.add_uninitialized_single_output(
-        fn::GMutableSpan(fn::CPPType::get<std::string>(), strings.data() + i, 1));
+static std::optional<Array<std::string>> compute_global_string_inputs(
+    nodes::MFNetworkTreeMap &network_map, Span<const fn::MFInputSocket *> sockets)
+{
+  ResourceCollector local_resources;
+  Array<fn::GMutableSpan> computed_values(sockets.size(), NoInitialization());
+  if (!compute_global_inputs(network_map, local_resources, sockets, computed_values)) {
+    return {};
   }
 
-  fn::MFContextBuilder context;
-  network_fn.call({0}, params, context);
-
+  Array<std::string> strings(sockets.size());
+  for (int i : sockets.index_range()) {
+    strings[i] = std::move(computed_values[i].typed<std::string>()[0]);
+  }
   return strings;
 }
 
