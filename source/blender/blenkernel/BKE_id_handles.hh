@@ -14,8 +14,14 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#ifndef __NOD_ID_HANDLE_H__
-#define __NOD_ID_HANDLE_H__
+#ifndef __BKE_ID_HANDLES_H__
+#define __BKE_ID_HANDLES_H__
+
+/** \file
+ * \ingroup bke
+ *
+ * An IDHandle is a handle for an ID data block.
+ */
 
 #include "BLI_map.hh"
 #include "BLI_utildefines.h"
@@ -127,4 +133,4 @@ class IDHandleMap {
 
 }  // namespace blender::bke
 
-#endif /*  __NOD_ID_HANDLE_H__ */
+#endif /*  __BKE_ID_HANDLES_H__ */
