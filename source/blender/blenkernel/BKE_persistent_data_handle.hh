@@ -17,6 +17,13 @@
 #ifndef __BKE_PERSISTENT_DATA_HANDLE_H__
 #define __BKE_PERSISTENT_DATA_HANDLE_H__
 
+/** \file
+ * \ingroup bke
+ *
+ * A PersistentDataHandle is a weak reference to some data in a Blender file. The handle itself is
+ * just a number. A PersistentDataHandleMap is used to convert between handles and the actual data.
+ */
+
 #include "BLI_map.hh"
 
 #include "DNA_ID.h"
