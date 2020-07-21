@@ -252,6 +252,7 @@ static void update_persistent_data_handles(Simulation &simulation,
   Set<const ID *> contained_ids;
   Set<int> used_handles;
 
+  /* Remove handles that have been invalidated. */
   LISTBASE_FOREACH_MUTABLE (
       PersistentDataHandleItem *, handle_item, &simulation.persistent_data_handles) {
     if (handle_item->id == nullptr) {
@@ -268,12 +269,14 @@ static void update_persistent_data_handles(Simulation &simulation,
     used_handles.add_new(handle_item->handle);
   }
 
+  /* Add new handles that are not in the list yet. */
   int next_handle = 0;
   for (const ID *id : used_data_blocks) {
     if (contained_ids.contains(id)) {
       continue;
     }
 
+    /* Find the next available handle. */
     while (used_handles.contains(next_handle)) {
       next_handle++;
     }
