@@ -246,25 +246,26 @@ BLI_NOINLINE static void remove_dead_and_add_new_particles(ParticleSimulationSta
   state.next_particle_id += allocator.total_allocated();
 }
 
-static void update_id_handles(Simulation &simulation,
-                              const VectorSet<const ID *> &used_data_blocks)
+static void update_persistent_data_handles(Simulation &simulation,
+                                           const VectorSet<const ID *> &used_data_blocks)
 {
   Set<const ID *> contained_ids;
   Set<int> used_handles;
 
-  LISTBASE_FOREACH_MUTABLE (SimulationIDHandle *, id_handle, &simulation.id_handles) {
-    if (id_handle->id == nullptr) {
-      BLI_remlink(&simulation.id_handles, id_handle);
+  LISTBASE_FOREACH_MUTABLE (
+      PersistentDataHandleItem *, handle_item, &simulation.persistent_data_handles) {
+    if (handle_item->id == nullptr) {
+      BLI_remlink(&simulation.persistent_data_handles, handle_item);
       continue;
     }
-    if (!used_data_blocks.contains(id_handle->id)) {
-      id_us_min(id_handle->id);
-      BLI_remlink(&simulation.id_handles, id_handle);
-      MEM_freeN(id_handle);
+    if (!used_data_blocks.contains(handle_item->id)) {
+      id_us_min(handle_item->id);
+      BLI_remlink(&simulation.persistent_data_handles, handle_item);
+      MEM_freeN(handle_item);
       continue;
     }
-    contained_ids.add_new(id_handle->id);
-    used_handles.add_new(id_handle->handle);
+    contained_ids.add_new(handle_item->id);
+    used_handles.add_new(handle_item->handle);
   }
 
   int next_handle = 0;
@@ -278,12 +279,13 @@ static void update_id_handles(Simulation &simulation,
     }
     used_handles.add_new(next_handle);
 
-    SimulationIDHandle *id_handle = (SimulationIDHandle *)MEM_callocN(sizeof(*id_handle), AT);
+    PersistentDataHandleItem *handle_item = (PersistentDataHandleItem *)MEM_callocN(
+        sizeof(*handle_item), AT);
     /* Cannot store const pointers in DNA. */
-    id_handle->id = const_cast<ID *>(id);
-    id_handle->handle = next_handle;
+    handle_item->id = const_cast<ID *>(id);
+    handle_item->handle = next_handle;
 
-    BLI_addtail(&simulation.id_handles, id_handle);
+    BLI_addtail(&simulation.persistent_data_handles, handle_item);
   }
 }
 
@@ -299,11 +301,11 @@ void solve_simulation_time_step(Simulation &simulation,
                                 const SimulationInfluences &influences,
                                 float time_step)
 {
-  update_id_handles(simulation, influences.used_data_blocks);
+  update_persistent_data_handles(simulation, influences.used_data_blocks);
 
   bke::PersistentDataHandleMap handle_map;
-  LISTBASE_FOREACH (SimulationIDHandle *, id_handle, &simulation.id_handles) {
-    handle_map.add(id_handle->handle, *id_handle->id);
+  LISTBASE_FOREACH (PersistentDataHandleItem *, handle, &simulation.persistent_data_handles) {
+    handle_map.add(handle->handle, *handle->id);
   }
 
   SimulationSolveContext solve_context{simulation,

@@ -24,14 +24,6 @@
 #include "DNA_ID.h"
 #include "DNA_customdata_types.h"
 
-typedef struct SimulationIDHandle {
-  struct SimulationIDHandle *next;
-  struct SimulationIDHandle *prev;
-  struct ID *id;
-  int handle;
-  char _pad[4];
-} SimulationIDHandle;
-
 typedef struct Simulation {
   ID id;
   struct AnimData *adt; /* animation data (must be immediately after id) */
@@ -46,7 +38,8 @@ typedef struct Simulation {
   /** List containing SimulationState objects. */
   struct ListBase states;
 
-  struct ListBase id_handles;
+  /** List containing PersistentDataHandleItem objects. */
+  struct ListBase persistent_data_handles;
 } Simulation;
 
 typedef struct SimulationState {
@@ -73,6 +66,14 @@ typedef struct ParticleSimulationState {
   struct PointCache *point_cache;
   struct ListBase ptcaches;
 } ParticleSimulationState;
+
+typedef struct PersistentDataHandleItem {
+  struct PersistentDataHandleItem *next;
+  struct PersistentDataHandleItem *prev;
+  struct ID *id;
+  int handle;
+  char _pad[4];
+} PersistentDataHandleItem;
 
 /* Simulation.flag */
 enum {

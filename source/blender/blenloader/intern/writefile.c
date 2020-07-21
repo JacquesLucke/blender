@@ -3860,7 +3860,7 @@ static void write_simulation(BlendWriter *writer, Simulation *simulation, const 
       }
     }
 
-    BLO_write_struct_list(writer, SimulationIDHandle, &simulation->id_handles);
+    BLO_write_struct_list(writer, PersistentDataHandleItem, &simulation->persistent_data_handles);
   }
 }
 
