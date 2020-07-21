@@ -36,6 +36,7 @@ class PersistentDataHandleMap;
 
 class PersistentDataHandle {
  private:
+  /* Negative values indicate that the handle is "empty". */
   int32_t handle_;
 
   friend PersistentDataHandleMap;
