@@ -56,7 +56,7 @@ class OBJRawObject {
  public:
   OBJRawObject(StringRef ob_name) : object_name(ob_name.data()){};
 
-  std::string object_name;
+  std::string object_name{};
   Vector<int> vertex_indices{};
   Vector<int> uv_vertex_indices{};
   /**

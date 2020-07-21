@@ -29,8 +29,6 @@
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 
-#include "ED_mesh.h"
-
 #include "wavefront_obj_im_mesh.hh"
 #include "wavefront_obj_im_objects.hh"
 

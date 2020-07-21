@@ -43,20 +43,12 @@ struct UniqueMeshDeleter {
   }
 };
 
-struct UniqueBMeshDeleter {
-  void operator()(BMesh *t)
-  {
-    BM_mesh_free(t);
-  }
-};
-
 using unique_mesh_ptr = std::unique_ptr<Mesh, UniqueMeshDeleter>;
-using unique_bmesh_ptr = std::unique_ptr<BMesh, UniqueBMeshDeleter>;
 
 class OBJMeshFromRaw : NonMovable, NonCopyable {
  private:
   unique_mesh_ptr mesh_from_ob_;
-
+  
  public:
   OBJMeshFromRaw(const OBJRawObject &curr_object, const GlobalVertices global_vertices);
 
