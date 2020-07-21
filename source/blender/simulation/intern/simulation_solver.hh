@@ -24,7 +24,7 @@
 
 #include "FN_attributes_ref.hh"
 
-#include "BKE_id_handle.hh"
+#include "NOD_id_handle.hh"
 
 #include "particle_allocator.hh"
 #include "time_interval.hh"
@@ -61,14 +61,14 @@ class SimulationSolveContext {
   Depsgraph &depsgraph_;
   const SimulationInfluences &influences_;
   TimeInterval solve_interval_;
-  const bke::IDHandleMap &id_handle_map_;
+  const nodes::IDHandleMap &id_handle_map_;
 
  public:
   SimulationSolveContext(Simulation &simulation,
                          Depsgraph &depsgraph,
                          const SimulationInfluences &influences,
                          TimeInterval solve_interval,
-                         const bke::IDHandleMap &id_handle_map)
+                         const nodes::IDHandleMap &id_handle_map)
       : simulation_(simulation),
         depsgraph_(depsgraph),
         influences_(influences),
@@ -87,7 +87,7 @@ class SimulationSolveContext {
     return influences_;
   }
 
-  const bke::IDHandleMap &id_handle_map() const
+  const nodes::IDHandleMap &id_handle_map() const
   {
     return id_handle_map_;
   }

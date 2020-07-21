@@ -129,7 +129,6 @@ set(SRC
   intern/hair.c
   intern/icons.c
   intern/icons_rasterize.c
-  intern/id_handle.cc
   intern/idprop.c
   intern/idprop_utils.c
   intern/idtype.c
@@ -318,7 +317,6 @@ set(SRC
   BKE_gpencil_modifier.h
   BKE_hair.h
   BKE_icons.h
-  BKE_id_handle.hh
   BKE_idprop.h
   BKE_idtype.h
   BKE_image.h
@@ -694,8 +692,6 @@ endif()
 # endif()
 
 blender_add_lib(bf_blenkernel "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
-
-set_target_properties(bf_blenkernel PROPERTIES LINK_INTERFACE_MULTIPLICITY 3)
 
 # Needed so we can use dna_type_offsets.h for defaults initialization.
 add_dependencies(bf_blenkernel bf_dna)

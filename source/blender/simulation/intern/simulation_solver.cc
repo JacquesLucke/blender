@@ -17,8 +17,8 @@
 #include "simulation_solver.hh"
 
 #include "BKE_customdata.h"
-#include "BKE_id_handle.hh"
 #include "BKE_lib_id.h"
+#include "NOD_id_handle.hh"
 
 #include "BLI_rand.hh"
 #include "BLI_set.hh"
@@ -301,7 +301,7 @@ void solve_simulation_time_step(Simulation &simulation,
 {
   update_id_handles(simulation, influences.used_data_blocks);
 
-  bke::IDHandleMap id_handle_map;
+  nodes::IDHandleMap id_handle_map;
   LISTBASE_FOREACH (SimulationIDHandle *, id_handle, &simulation.id_handles) {
     id_handle_map.add(*id_handle->id, id_handle->handle);
   }

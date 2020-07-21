@@ -14,11 +14,11 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#include "BKE_id_handle.hh"
+#include "NOD_id_handle.hh"
 
 #include "DNA_ID.h"
 
-namespace blender::bke {
+namespace blender::nodes {
 
 void IDHandleMap::add(const ID &id, int handle)
 {
@@ -57,4 +57,4 @@ const Object *IDHandleMap::lookup(const ObjectIDHandle &handle) const
   return (const Object *)id;
 }
 
-}  // namespace blender::bke
+}  // namespace blender::nodes

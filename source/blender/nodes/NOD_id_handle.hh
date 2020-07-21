@@ -14,8 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#ifndef __BKE_ID_HANDLE_H__
-#define __BKE_ID_HANDLE_H__
+#ifndef __NOD_ID_HANDLE_H__
+#define __NOD_ID_HANDLE_H__
 
 #include "BLI_map.hh"
 #include "BLI_utildefines.h"
@@ -23,7 +23,7 @@
 struct ID;
 struct Object;
 
-namespace blender::bke {
+namespace blender::nodes {
 
 class IDHandleMap;
 
@@ -92,6 +92,6 @@ class IDHandleMap {
   const Object *lookup(const ObjectIDHandle &handle) const;
 };
 
-}  // namespace blender::bke
+}  // namespace blender::nodes
 
-#endif /*  __BKE_ID_HANDLE_H__ */
+#endif /*  __NOD_ID_HANDLE_H__ */

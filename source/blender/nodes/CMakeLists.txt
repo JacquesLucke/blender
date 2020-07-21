@@ -275,6 +275,7 @@ set(SRC
   texture/node_texture_util.c
 
   intern/derived_node_tree.cc
+  intern/id_handle.cc
   intern/node_common.c
   intern/node_exec.c
   intern/node_socket.cc
@@ -292,6 +293,7 @@ set(SRC
   NOD_composite.h
   NOD_derived_node_tree.hh
   NOD_function.h
+  NOD_id_handle.hh
   NOD_node_tree_multi_function.hh
   NOD_node_tree_ref.hh
   NOD_shader.h
@@ -305,7 +307,6 @@ set(SRC
 )
 
 set(LIB
-  bf_blenkernel
   bf_functions
   bf_intern_sky
 )
