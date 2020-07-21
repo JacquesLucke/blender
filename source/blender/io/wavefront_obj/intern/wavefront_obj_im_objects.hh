@@ -30,9 +30,12 @@
 #include "BLI_vector.hh"
 
 #include "DNA_collection_types.h"
+#include "DNA_curve_types.h"
 #include "DNA_meshdata_types.h"
+#include "DNA_object_types.h"
 
 #include "wavefront_obj_im_mesh.hh"
+#include "wavefront_obj_im_nurbs.hh"
 
 namespace blender::io::obj {
 struct GlobalVertices {
@@ -52,10 +55,28 @@ typedef struct OBJFaceElem {
   Vector<OBJFaceCorner> face_corners;
 } OBJFaceElem;
 
+/**
+ * Contains parameters for one single NURBS curve in the OBJ file.
+ */
+struct NurbsElem {
+  /**
+   * For curves, groups may be used to specify multiple splines in the same curve object.
+   * It may also serve as the name of the curve if not specified explicitly.
+   */
+  std::string group{};
+  int degree = 0;
+  /**
+   * Indices into the global list of vertex coordinates. Must be non-negative.
+   */
+  Vector<int> curv_indices{};
+  Vector<float> parm{};
+};
+
 class OBJRawObject {
  public:
   OBJRawObject(StringRef ob_name) : object_name(ob_name.data()){};
 
+  int object_type = OB_MESH;
   std::string object_name{};
   Vector<int> vertex_indices{};
   Vector<int> uv_vertex_indices{};
@@ -68,6 +89,8 @@ class OBJRawObject {
   uint tot_loop = 0;
   uint tot_uv_verts = 0;
   Vector<std::string> material_name{};
+
+  NurbsElem nurbs_element;
 };
 
 class OBJParentCollection {
@@ -79,7 +102,8 @@ class OBJParentCollection {
  public:
   OBJParentCollection(Main *bmain, Scene *scene);
 
-  void add_object_to_parent(StringRef ob_to_add_name, unique_mesh_ptr mesh);
+  void add_object_to_parent(OBJRawObject *object_to_add, unique_mesh_ptr mesh);
+  void add_object_to_parent(OBJRawObject *object_to_add, unique_curve_ptr curve);
 };
 }  // namespace blender::io::obj
 

@@ -34,42 +34,55 @@
 
 #include "wavefront_obj_im_file_reader.hh"
 #include "wavefront_obj_im_mesh.hh"
+#include "wavefront_obj_im_nurbs.hh"
 #include "wavefront_obj_im_objects.hh"
 #include "wavefront_obj_importer.hh"
 
 namespace blender::io::obj {
 
+/**
+ * Only for debug purposes. Must not be in master.
+ */
 static void print_obj_data(Vector<std::unique_ptr<OBJRawObject>> &list_of_objects,
                            const GlobalVertices &global_vertices)
 {
-  for (auto &curr_vert : global_vertices.vertices) {
+  for (const float3 &curr_vert : global_vertices.vertices) {
     print_v3("vert", curr_vert);
   }
   printf("\n");
-  for (auto &curr_uv_vert : global_vertices.uv_vertices) {
+  for (const float2 &curr_uv_vert : global_vertices.uv_vertices) {
     print_v2("vert", curr_uv_vert);
   }
   printf("\n");
 
   for (const auto &curr_ob : list_of_objects) {
-    for (const auto &curr_vert_idx : curr_ob->vertex_indices) {
+    for (const int &curr_vert_idx : curr_ob->vertex_indices) {
       printf(" %d", curr_vert_idx);
     }
-    printf("\n");
-    for (const auto &curr_tex_vert_idx : curr_ob->uv_vertex_indices) {
-      printf(" %d", curr_tex_vert_idx);
+    printf("\nglobal_vert_index^\n");
+    for (const int &curr_uv_vert_idx : curr_ob->uv_vertex_indices) {
+      printf(" %d", curr_uv_vert_idx);
     }
-    printf("\n");
+    printf("\nglobal_uv_vert_index^\n");
     for (const OBJFaceElem &curr_face : curr_ob->face_elements) {
       for (OBJFaceCorner a : curr_face.face_corners) {
         printf(" %d/%d", a.vert_index, a.uv_vert_index);
       }
       printf("\n");
     }
-    printf("\n");
+    printf("\nvert_index/uv_vert_index^\n");
     for (StringRef b : curr_ob->material_name) {
-      printf("%s", b.data());
+      printf("%s ", b.data());
     }
+    printf("\nmat names^\n");
+    for (const int &t : curr_ob->nurbs_element.curv_indices) {
+      printf(" %d", t);
+    }
+    printf("\nnurbs curv indces^\n");
+    for (const float &t : curr_ob->nurbs_element.parm) {
+      printf(" %f", t);
+    }
+    printf("\nnurbs parm values^\n");
   }
 }
 
@@ -80,8 +93,14 @@ static void raw_to_blender_objects(Main *bmain,
 {
   OBJParentCollection parent{bmain, scene};
   for (std::unique_ptr<OBJRawObject> &curr_object : list_of_objects) {
-    OBJMeshFromRaw mesh_from_raw{*curr_object, global_vertices};
-    parent.add_object_to_parent(curr_object->object_name, mesh_from_raw.mover());
+    if (curr_object->object_type & OB_MESH) {
+      OBJMeshFromRaw mesh_from_raw{*curr_object, global_vertices};
+      parent.add_object_to_parent(curr_object.get(), mesh_from_raw.mover());
+    }
+    else if (curr_object->object_type & (OB_CURVE | CU_NURBS)) {
+      OBJCurveFromRaw nurbs_from_raw(bmain, *curr_object, global_vertices);
+      parent.add_object_to_parent(curr_object.get(), nurbs_from_raw.mover());
+    }
   }
 }
 
@@ -95,7 +114,7 @@ void importer_main(bContext *C, const OBJImportParams &import_params)
 
   importer.parse_and_store(list_of_objects, global_vertices);
 
-  print_obj_data(list_of_objects, global_vertices);
+  //  print_obj_data(list_of_objects, global_vertices);
   raw_to_blender_objects(bmain, scene, list_of_objects, global_vertices);
 }
 }  // namespace blender::io::obj

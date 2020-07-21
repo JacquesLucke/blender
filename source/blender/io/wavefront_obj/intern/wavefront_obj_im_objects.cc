@@ -42,11 +42,16 @@ OBJParentCollection::OBJParentCollection(Main *bmain, Scene *scene) : bmain_(bma
       bmain_, scene_->master_collection, "OBJ import collection");
 }
 
-void OBJParentCollection::add_object_to_parent(StringRef ob_to_add_name, unique_mesh_ptr mesh)
+void OBJParentCollection::add_object_to_parent(OBJRawObject *object_to_add, unique_mesh_ptr mesh)
 {
+  if (object_to_add->object_name.empty()) {
+    object_to_add->object_name = "Untitled";
+  }
   std::unique_ptr<Object> b_object{
-      BKE_object_add_only_object(bmain_, OB_MESH, ob_to_add_name.data())};
-  b_object->data = BKE_object_obdata_add_from_type(bmain_, OB_MESH, ob_to_add_name.data());
+      BKE_object_add_only_object(bmain_, OB_MESH, object_to_add->object_name.c_str())};
+  ;
+  b_object->data = BKE_object_obdata_add_from_type(
+      bmain_, OB_MESH, object_to_add->object_name.c_str());
 
   BKE_mesh_nomain_to_mesh(
       mesh.release(), (Mesh *)b_object->data, b_object.get(), &CD_MASK_EVERYTHING, true);
@@ -54,6 +59,28 @@ void OBJParentCollection::add_object_to_parent(StringRef ob_to_add_name, unique_
   BKE_collection_object_add(bmain_, parent_collection_, b_object.release());
   id_fake_user_set(&parent_collection_->id);
 
+  DEG_id_tag_update(&parent_collection_->id, ID_RECALC_COPY_ON_WRITE);
+  DEG_relations_tag_update(bmain_);
+}
+
+/**
+ * Add the given curve object to the OBJ import collection.
+ */
+void OBJParentCollection::add_object_to_parent(OBJRawObject *object_to_add, unique_curve_ptr curve)
+{
+  if (object_to_add->object_name.empty() && !object_to_add->nurbs_element.group.empty()) {
+    object_to_add->object_name = object_to_add->nurbs_element.group;
+  }
+  else {
+    object_to_add->object_name = "Untitled";
+  }
+  std::unique_ptr<Object> b_object{
+      BKE_object_add_only_object(bmain_, OB_CURVE, object_to_add->object_name.c_str())};
+  b_object->data = curve.release();
+
+  BKE_collection_object_add(bmain_, parent_collection_, b_object.release());
+
+  id_fake_user_set(&parent_collection_->id);
   DEG_id_tag_update(&parent_collection_->id, ID_RECALC_COPY_ON_WRITE);
   DEG_relations_tag_update(bmain_);
 }

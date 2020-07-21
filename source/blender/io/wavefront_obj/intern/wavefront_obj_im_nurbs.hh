@@ -21,43 +21,49 @@
  * \ingroup obj
  */
 
-#ifndef __WAVEFRONT_OBJ_IM_MESH_HH__
-#define __WAVEFRONT_OBJ_IM_MESH_HH__
+#ifndef __WAVEFRONT_OBJ_IM_NURBS_HH__
+#define __WAVEFRONT_OBJ_IM_NURBS_HH__
 
-#include "BKE_lib_id.h"
-#include "BKE_mesh.h"
+#include <memory>
 
-#include "BLI_float3.hh"
+#include "BKE_curve.h"
+
 #include "BLI_utility_mixins.hh"
 
-#include "bmesh.h"
-
 namespace blender::io::obj {
+/* Avoid cyclic dependency build errors. */
 class OBJRawObject;
 struct GlobalVertices;
 
-struct UniqueMeshDeleter {
-  void operator()(Mesh *mesh)
+struct UniqueCurveDeleter {
+  void operator()(Curve *curve)
   {
-    BKE_id_free(nullptr, mesh);
+    if (curve) {
+      BKE_nurbList_free(&curve->nurb);
+    }
   }
 };
 
-using unique_mesh_ptr = std::unique_ptr<Mesh, UniqueMeshDeleter>;
+/* An unique_ptr to a Curve with a custom deleter to deallocate memory using Blender memory
+ * management. */
+using unique_curve_ptr = std::unique_ptr<Curve, UniqueCurveDeleter>;
 
-class OBJMeshFromRaw : NonMovable, NonCopyable {
+class OBJCurveFromRaw : NonMovable, NonCopyable {
  private:
-  unique_mesh_ptr mesh_from_ob_;
+  unique_curve_ptr curve_from_ob_;
 
  public:
-  OBJMeshFromRaw(const OBJRawObject &curr_object, const GlobalVertices global_vertices);
+  OBJCurveFromRaw(Main *bmain,
+                  const OBJRawObject &curr_object,
+                  const GlobalVertices global_vertices);
 
-  unique_mesh_ptr mover()
+  unique_curve_ptr mover()
   {
-    return std::move(mesh_from_ob_);
+    return std::move(curve_from_ob_);
   }
+
+ private:
+  void edit_nurbs(const OBJRawObject &curr_object, const GlobalVertices &global_vertices);
 };
-
 }  // namespace blender::io::obj
-
 #endif
