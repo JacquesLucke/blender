@@ -24,19 +24,186 @@
 
 #include "FN_attributes_ref.hh"
 
+#include "BKE_persistent_data_handle.hh"
+
+#include "particle_allocator.hh"
+#include "time_interval.hh"
+
 struct Depsgraph;
 
 namespace blender::sim {
 
+class ParticleEmitterContext;
+class ParticleForceContext;
+
+class ParticleEmitter {
+ public:
+  virtual ~ParticleEmitter();
+  virtual void emit(ParticleEmitterContext &context) const = 0;
+};
+
 class ParticleForce {
  public:
   virtual ~ParticleForce();
-  virtual void add_force(fn::AttributesRef attributes,
-                         MutableSpan<float3> r_combined_force) const = 0;
+  virtual void add_force(ParticleForceContext &context) const = 0;
 };
 
 struct SimulationInfluences {
   Map<std::string, Vector<const ParticleForce *>> particle_forces;
+  Map<std::string, fn::AttributesInfoBuilder *> particle_attributes_builder;
+  Vector<const ParticleEmitter *> particle_emitters;
+  VectorSet<ID *> used_data_blocks;
+};
+
+class SimulationSolveContext {
+ private:
+  Simulation &simulation_;
+  Depsgraph &depsgraph_;
+  const SimulationInfluences &influences_;
+  TimeInterval solve_interval_;
+  const bke::PersistentDataHandleMap &id_handle_map_;
+
+ public:
+  SimulationSolveContext(Simulation &simulation,
+                         Depsgraph &depsgraph,
+                         const SimulationInfluences &influences,
+                         TimeInterval solve_interval,
+                         const bke::PersistentDataHandleMap &handle_map)
+      : simulation_(simulation),
+        depsgraph_(depsgraph),
+        influences_(influences),
+        solve_interval_(solve_interval),
+        id_handle_map_(handle_map)
+  {
+  }
+
+  TimeInterval solve_interval() const
+  {
+    return solve_interval_;
+  }
+
+  const SimulationInfluences &influences() const
+  {
+    return influences_;
+  }
+
+  const bke::PersistentDataHandleMap &handle_map() const
+  {
+    return id_handle_map_;
+  }
+};
+
+class ParticleAllocators {
+ private:
+  Map<std::string, std::unique_ptr<ParticleAllocator>> &allocators_;
+
+ public:
+  ParticleAllocators(Map<std::string, std::unique_ptr<ParticleAllocator>> &allocators)
+      : allocators_(allocators)
+  {
+  }
+
+  ParticleAllocator *try_get_allocator(StringRef particle_simulation_name)
+  {
+    auto *ptr = allocators_.lookup_ptr_as(particle_simulation_name);
+    if (ptr != nullptr) {
+      return ptr->get();
+    }
+    else {
+      return nullptr;
+    }
+  }
+};
+
+class ParticleChunkContext {
+ private:
+  IndexMask index_mask_;
+  fn::MutableAttributesRef attributes_;
+
+ public:
+  ParticleChunkContext(IndexMask index_mask, fn::MutableAttributesRef attributes)
+      : index_mask_(index_mask), attributes_(attributes)
+  {
+  }
+
+  IndexMask index_mask() const
+  {
+    return index_mask_;
+  }
+
+  fn::MutableAttributesRef attributes()
+  {
+    return attributes_;
+  }
+
+  fn::AttributesRef attributes() const
+  {
+    return attributes_;
+  }
+};
+
+class ParticleEmitterContext {
+ private:
+  SimulationSolveContext &solve_context_;
+  ParticleAllocators &particle_allocators_;
+  TimeInterval simulation_time_interval_;
+
+ public:
+  ParticleEmitterContext(SimulationSolveContext &solve_context,
+                         ParticleAllocators &particle_allocators,
+                         TimeInterval simulation_time_interval)
+      : solve_context_(solve_context),
+        particle_allocators_(particle_allocators),
+        simulation_time_interval_(simulation_time_interval)
+  {
+  }
+
+  SimulationSolveContext &solve_context()
+  {
+    return solve_context_;
+  }
+
+  ParticleAllocator *try_get_particle_allocator(StringRef particle_simulation_name)
+  {
+    return particle_allocators_.try_get_allocator(particle_simulation_name);
+  }
+
+  TimeInterval simulation_time_interval() const
+  {
+    return simulation_time_interval_;
+  }
+};
+
+class ParticleForceContext {
+ private:
+  SimulationSolveContext &solve_context_;
+  const ParticleChunkContext &particle_chunk_context_;
+  MutableSpan<float3> force_dst_;
+
+ public:
+  ParticleForceContext(SimulationSolveContext &solve_context,
+                       const ParticleChunkContext &particle_chunk_context,
+                       MutableSpan<float3> force_dst)
+      : solve_context_(solve_context),
+        particle_chunk_context_(particle_chunk_context),
+        force_dst_(force_dst)
+  {
+  }
+
+  SimulationSolveContext &solve_context()
+  {
+    return solve_context_;
+  }
+
+  const ParticleChunkContext &particle_chunk() const
+  {
+    return particle_chunk_context_;
+  }
+
+  MutableSpan<float3> force_dst()
+  {
+    return force_dst_;
+  }
 };
 
 void initialize_simulation_states(Simulation &simulation,
