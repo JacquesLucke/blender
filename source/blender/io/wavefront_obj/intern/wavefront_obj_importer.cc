@@ -39,8 +39,8 @@
 
 namespace blender::io::obj {
 
-void OBJImporter::print_obj_data(Vector<std::unique_ptr<OBJRawObject>> &list_of_objects,
-                                 const GlobalVertices &global_vertices)
+static void print_obj_data(Vector<std::unique_ptr<OBJRawObject>> &list_of_objects,
+                           const GlobalVertices &global_vertices)
 {
   for (auto &curr_vert : global_vertices.vertices) {
     print_v3("vert", curr_vert);
@@ -92,8 +92,10 @@ void importer_main(bContext *C, const OBJImportParams &import_params)
   Vector<std::unique_ptr<OBJRawObject>> list_of_objects;
   OBJImporter importer{import_params};
   GlobalVertices global_vertices;
+
   importer.parse_and_store(list_of_objects, global_vertices);
-  importer.print_obj_data(list_of_objects, global_vertices);
-  importer.raw_to_blender_objects(bmain, scene, list_of_objects, global_vertices);
+
+  print_obj_data(list_of_objects, global_vertices);
+  raw_to_blender_objects(bmain, scene, list_of_objects, global_vertices);
 }
 }  // namespace blender::io::obj
