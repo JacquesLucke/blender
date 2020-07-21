@@ -73,10 +73,10 @@ static void print_obj_data(Vector<std::unique_ptr<OBJRawObject>> &list_of_object
   }
 }
 
-void OBJImporter::raw_to_blender_objects(Main *bmain,
-                                         Scene *scene,
-                                         Vector<std::unique_ptr<OBJRawObject>> &list_of_objects,
-                                         const GlobalVertices global_vertices)
+static void raw_to_blender_objects(Main *bmain,
+                                   Scene *scene,
+                                   Vector<std::unique_ptr<OBJRawObject>> &list_of_objects,
+                                   const GlobalVertices global_vertices)
 {
   OBJParentCollection parent{bmain, scene};
   for (std::unique_ptr<OBJRawObject> &curr_object : list_of_objects) {
