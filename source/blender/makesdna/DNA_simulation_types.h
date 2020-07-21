@@ -67,6 +67,7 @@ typedef struct ParticleSimulationState {
   struct ListBase ptcaches;
 } ParticleSimulationState;
 
+/** Stores a mapping between integer handles and corresponding ID data blocks. */
 typedef struct PersistentDataHandleItem {
   struct PersistentDataHandleItem *next;
   struct PersistentDataHandleItem *prev;
