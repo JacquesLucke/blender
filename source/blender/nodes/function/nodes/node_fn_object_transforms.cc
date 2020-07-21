@@ -47,16 +47,16 @@ class ObjectTransformsFunction : public blender::fn::MultiFunction {
     blender::MutableSpan locations = params.uninitialized_single_output<blender::float3>(
         1, "Location");
 
-    const blender::nodes::IDHandleMap *handle_map =
+    const blender::nodes::IDHandleMap *id_handle_map =
         context.get_global_context<blender::nodes::IDHandleMap>("IDHandleMap");
-    if (handle_map == nullptr) {
+    if (id_handle_map == nullptr) {
       locations.fill_indices(mask, {0, 0, 0});
       return;
     }
 
     for (int64_t i : mask) {
       blender::nodes::ObjectIDHandle handle = handles[i];
-      const Object *object = handle_map->lookup(handle);
+      const Object *object = id_handle_map->lookup(handle);
       blender::float3 location;
       if (object == nullptr) {
         location = {0, 0, 0};

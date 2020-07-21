@@ -602,14 +602,14 @@ class ObjectSocketMultiFunction : public blender::fn::MultiFunction {
     blender::MutableSpan output =
         params.uninitialized_single_output<blender::nodes::ObjectIDHandle>(0, "Object");
 
-    const blender::nodes::IDHandleMap *handle_map =
+    const blender::nodes::IDHandleMap *id_handle_map =
         context.get_global_context<blender::nodes::IDHandleMap>("IDHandleMap");
-    if (handle_map == nullptr) {
+    if (id_handle_map == nullptr) {
       output.fill_indices(mask, blender::nodes::ObjectIDHandle());
       return;
     }
 
-    blender::nodes::ObjectIDHandle handle = handle_map->lookup(object_);
+    blender::nodes::ObjectIDHandle handle = id_handle_map->lookup(object_);
     for (int64_t i : mask) {
       output[i] = handle;
     }
