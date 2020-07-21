@@ -247,9 +247,9 @@ BLI_NOINLINE static void remove_dead_and_add_new_particles(ParticleSimulationSta
 }
 
 static void update_persistent_data_handles(Simulation &simulation,
-                                           const VectorSet<const ID *> &used_data_blocks)
+                                           const VectorSet<ID *> &used_data_blocks)
 {
-  Set<const ID *> contained_ids;
+  Set<ID *> contained_ids;
   Set<int> used_handles;
 
   /* Remove handles that have been invalidated. */
@@ -271,7 +271,7 @@ static void update_persistent_data_handles(Simulation &simulation,
 
   /* Add new handles that are not in the list yet. */
   int next_handle = 0;
-  for (const ID *id : used_data_blocks) {
+  for (ID *id : used_data_blocks) {
     if (contained_ids.contains(id)) {
       continue;
     }
@@ -285,7 +285,8 @@ static void update_persistent_data_handles(Simulation &simulation,
     PersistentDataHandleItem *handle_item = (PersistentDataHandleItem *)MEM_callocN(
         sizeof(*handle_item), AT);
     /* Cannot store const pointers in DNA. */
-    handle_item->id = const_cast<ID *>(id);
+    id_us_plus(id);
+    handle_item->id = id;
     handle_item->handle = next_handle;
 
     BLI_addtail(&simulation.persistent_data_handles, handle_item);
