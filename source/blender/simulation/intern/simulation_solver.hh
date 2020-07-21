@@ -24,7 +24,7 @@
 
 #include "FN_attributes_ref.hh"
 
-#include "NOD_id_handle.hh"
+#include "BKE_id_handles.hh"
 
 #include "particle_allocator.hh"
 #include "time_interval.hh"

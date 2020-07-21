@@ -16,7 +16,7 @@
 
 #include "node_function_util.hh"
 
-#include "NOD_id_handle.hh"
+#include "BKE_id_handles.hh"
 
 static bNodeSocketTemplate fn_node_object_transforms_in[] = {
     {SOCK_OBJECT, N_("Object")},

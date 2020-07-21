@@ -317,6 +317,7 @@ set(SRC
   BKE_gpencil_modifier.h
   BKE_hair.h
   BKE_icons.h
+  BKE_id_handles.hh
   BKE_idprop.h
   BKE_idtype.h
   BKE_image.h

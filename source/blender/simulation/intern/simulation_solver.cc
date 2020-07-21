@@ -17,8 +17,8 @@
 #include "simulation_solver.hh"
 
 #include "BKE_customdata.h"
+#include "BKE_id_handles.hh"
 #include "BKE_lib_id.h"
-#include "NOD_id_handle.hh"
 
 #include "BLI_rand.hh"
 #include "BLI_set.hh"

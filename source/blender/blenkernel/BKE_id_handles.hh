@@ -20,6 +20,8 @@
 #include "BLI_map.hh"
 #include "BLI_utildefines.h"
 
+#include "DNA_ID.h"
+
 struct ID;
 struct Object;
 
@@ -85,11 +87,42 @@ class IDHandleMap {
   Map<const ID *, int> handle_by_id_;
 
  public:
-  void add(const ID &id, int handle);
-  IDHandle lookup(const ID *id) const;
-  ObjectIDHandle lookup(const Object *object) const;
-  const ID *lookup(const IDHandle &handle) const;
-  const Object *lookup(const ObjectIDHandle &handle) const;
+  void add(const ID &id, int handle)
+  {
+    BLI_assert(handle >= 0);
+    handle_by_id_.add(&id, handle);
+    id_by_handle_.add(handle, &id);
+  }
+
+  IDHandle lookup(const ID *id) const
+  {
+    const int handle = handle_by_id_.lookup_default(id, -1);
+    return IDHandle(handle);
+  }
+
+  ObjectIDHandle lookup(const Object *object) const
+  {
+    const int handle = handle_by_id_.lookup_default((const ID *)object, -1);
+    return ObjectIDHandle(handle);
+  }
+
+  const ID *lookup(const IDHandle &handle) const
+  {
+    const ID *id = id_by_handle_.lookup_default(handle.handle_, nullptr);
+    return id;
+  }
+
+  const Object *lookup(const ObjectIDHandle &handle) const
+  {
+    const ID *id = this->lookup((const IDHandle &)handle);
+    if (id == nullptr) {
+      return nullptr;
+    }
+    if (GS(id->name) != ID_OB) {
+      return nullptr;
+    }
+    return (const Object *)id;
+  }
 };
 
 }  // namespace blender::nodes

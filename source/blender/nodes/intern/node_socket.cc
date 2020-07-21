@@ -32,9 +32,9 @@
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
 
+#include "BKE_id_handles.hh"
 #include "BKE_lib_id.h"
 #include "BKE_node.h"
-#include "NOD_id_handle.hh"
 
 #include "RNA_access.h"
 #include "RNA_types.h"
