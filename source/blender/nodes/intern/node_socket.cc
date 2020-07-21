@@ -32,6 +32,7 @@
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
 
+#include "BKE_id_handle.hh"
 #include "BKE_lib_id.h"
 #include "BKE_node.h"
 
@@ -583,6 +584,55 @@ static bNodeSocketType *make_socket_type_string()
   return socktype;
 }
 
+class ObjectSocketMultiFunction : public blender::fn::MultiFunction {
+ private:
+  const Object *object_;
+
+ public:
+  ObjectSocketMultiFunction(const Object *object) : object_(object)
+  {
+    blender::fn::MFSignatureBuilder signature = this->get_builder("Object Socket");
+    signature.single_output<blender::bke::ObjectIDHandle>("Object");
+  }
+
+  void call(blender::IndexMask mask,
+            blender::fn::MFParams params,
+            blender::fn::MFContext context) const override
+  {
+    blender::MutableSpan output = params.uninitialized_single_output<blender::bke::ObjectIDHandle>(
+        0, "Object");
+
+    const blender::bke::IDHandleMap *handle_map =
+        context.get_global_context<blender::bke::IDHandleMap>("IDHandleMap");
+    if (handle_map == nullptr) {
+      for (int64_t i : mask) {
+        output[i] = blender::bke::ObjectIDHandle();
+      }
+      return;
+    }
+
+    blender::bke::ObjectIDHandle handle = handle_map->lookup(object_);
+    for (int64_t i : mask) {
+      output[i] = handle;
+    }
+  }
+};
+
+MAKE_CPP_TYPE(ObjectIDHandle, blender::bke::ObjectIDHandle);
+
+static bNodeSocketType *make_socket_type_object()
+{
+  bNodeSocketType *socktype = make_standard_socket_type(SOCK_OBJECT, PROP_NONE);
+  socktype->get_mf_data_type = []() {
+    return blender::fn::MFDataType::ForSingle<blender::bke::ObjectIDHandle>();
+  };
+  socktype->expand_in_mf_network = [](blender::nodes::SocketMFNetworkBuilder &builder) {
+    const Object *object = builder.socket_default_value<bNodeSocketValueObject>()->value;
+    builder.construct_generator_fn<ObjectSocketMultiFunction>(object);
+  };
+  return socktype;
+}
+
 void register_standard_node_socket_types(void)
 {
   /* draw callbacks are set in drawnode.c to avoid bad-level calls */
@@ -615,7 +665,7 @@ void register_standard_node_socket_types(void)
 
   nodeRegisterSocketType(make_standard_socket_type(SOCK_SHADER, PROP_NONE));
 
-  nodeRegisterSocketType(make_standard_socket_type(SOCK_OBJECT, PROP_NONE));
+  nodeRegisterSocketType(make_socket_type_object());
 
   nodeRegisterSocketType(make_standard_socket_type(SOCK_IMAGE, PROP_NONE));
 

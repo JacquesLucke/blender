@@ -39,6 +39,11 @@ class MFContext {
   MFContext(MFContextBuilder &UNUSED(builder))
   {
   }
+
+  template<typename T> const T *get_global_context(StringRef UNUSED(name)) const
+  {
+    return nullptr;
+  }
 };
 
 }  // namespace blender::fn

@@ -27,21 +27,27 @@ void IDHandleMap::add(const ID &id, int handle)
   id_by_handle_.add(handle, &id);
 }
 
-IDHandle IDHandleMap::get_handle(const ID &id) const
+IDHandle IDHandleMap::lookup(const ID *id) const
 {
-  const int handle = handle_by_id_.lookup_default(&id, -1);
+  const int handle = handle_by_id_.lookup_default(id, -1);
   return IDHandle(handle);
 }
 
-const ID *IDHandleMap::get_id(const IDHandle &handle) const
+ObjectIDHandle IDHandleMap::lookup(const Object *object) const
+{
+  const int handle = handle_by_id_.lookup_default((const ID *)object, -1);
+  return ObjectIDHandle(handle);
+}
+
+const ID *IDHandleMap::lookup(const IDHandle &handle) const
 {
   const ID *id = id_by_handle_.lookup_default(handle.handle_, nullptr);
   return id;
 }
 
-const Object *IDHandleMap::get_object(const ObjectIDHandle &handle) const
+const Object *IDHandleMap::lookup(const ObjectIDHandle &handle) const
 {
-  const ID *id = this->get_id(handle);
+  const ID *id = this->lookup((const IDHandle &)handle);
   if (id == nullptr) {
     return nullptr;
   }

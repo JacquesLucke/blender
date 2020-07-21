@@ -33,6 +33,7 @@ class IDHandle {
 
   friend IDHandleMap;
 
+ protected:
   IDHandle(int handle) : handle_(handle)
   {
   }
@@ -51,9 +52,27 @@ class IDHandle {
   {
     return !(a == b);
   }
+
+  friend std::ostream &operator<<(std::ostream &stream, const IDHandle &a)
+  {
+    stream << a.handle_;
+    return stream;
+  }
+
+  uint64_t hash() const
+  {
+    return handle_;
+  }
 };
 
 class ObjectIDHandle : public IDHandle {
+ private:
+  friend IDHandleMap;
+
+  ObjectIDHandle(int handle) : IDHandle(handle)
+  {
+  }
+
  public:
   ObjectIDHandle() : IDHandle()
   {
@@ -67,9 +86,10 @@ class IDHandleMap {
 
  public:
   void add(const ID &id, int handle);
-  IDHandle get_handle(const ID &id) const;
-  const ID *get_id(const IDHandle &handle) const;
-  const Object *get_object(const ObjectIDHandle &handle) const;
+  IDHandle lookup(const ID *id) const;
+  ObjectIDHandle lookup(const Object *object) const;
+  const ID *lookup(const IDHandle &handle) const;
+  const Object *lookup(const ObjectIDHandle &handle) const;
 };
 
 }  // namespace blender::bke
