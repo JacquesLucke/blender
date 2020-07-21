@@ -592,6 +592,7 @@ class ObjectSocketMultiFunction : public blender::fn::MultiFunction {
   ObjectSocketMultiFunction(const Object *object) : object_(object)
   {
     blender::fn::MFSignatureBuilder signature = this->get_builder("Object Socket");
+    signature.depends_on_context();
     signature.single_output<blender::bke::PersistentObjectHandle>("Object");
   }
 
@@ -602,10 +603,13 @@ class ObjectSocketMultiFunction : public blender::fn::MultiFunction {
     blender::MutableSpan output =
         params.uninitialized_single_output<blender::bke::PersistentObjectHandle>(0, "Object");
 
+    /* Try to get a handle map, so that the object can be converted to a handle. */
     const blender::bke::PersistentDataHandleMap *handle_map =
         context.get_global_context<blender::bke::PersistentDataHandleMap>(
             "PersistentDataHandleMap");
+
     if (handle_map == nullptr) {
+      /* Return empty handles when there is no handle map. */
       output.fill_indices(mask, blender::bke::PersistentObjectHandle());
       return;
     }
@@ -623,6 +627,7 @@ static bNodeSocketType *make_socket_type_object()
 {
   bNodeSocketType *socktype = make_standard_socket_type(SOCK_OBJECT, PROP_NONE);
   socktype->get_mf_data_type = []() {
+    /* Objects are not passed along as raw pointers, but as handles. */
     return blender::fn::MFDataType::ForSingle<blender::bke::PersistentObjectHandle>();
   };
   socktype->expand_in_mf_network = [](blender::nodes::SocketMFNetworkBuilder &builder) {
