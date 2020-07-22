@@ -37,30 +37,15 @@
 
 namespace blender::sim {
 
-static void copy_states_to_cow(Simulation *simulation_orig, Simulation *simulation_cow)
+static void copy_states_to_cow(const Simulation *simulation_orig, Simulation *simulation_cow)
 {
   BKE_simulation_state_remove_all(simulation_cow);
   simulation_cow->current_frame = simulation_orig->current_frame;
 
-  LISTBASE_FOREACH (SimulationState *, state_orig, &simulation_orig->states) {
-    switch ((eSimulationStateType)state_orig->type) {
-      case SIM_STATE_TYPE_PARTICLES: {
-        ParticleSimulationState *particle_state_orig = (ParticleSimulationState *)state_orig;
-        ParticleSimulationState *particle_state_cow = (ParticleSimulationState *)
-            BKE_simulation_state_add(simulation_cow, SIM_STATE_TYPE_PARTICLES, state_orig->name);
-        particle_state_cow->tot_particles = particle_state_orig->tot_particles;
-        CustomData_copy(&particle_state_orig->attributes,
-                        &particle_state_cow->attributes,
-                        CD_MASK_ALL,
-                        CD_DUPLICATE,
-                        particle_state_orig->tot_particles);
-        break;
-      }
-      case SIM_STATE_TYPE_PARTICLE_MESH_EMITTER: {
-        /* Don't copy over for now. */
-        break;
-      }
-    }
+  LISTBASE_FOREACH (const SimulationState *, state_orig, &simulation_orig->states) {
+    SimulationState *state_cow = BKE_simulation_state_add(
+        simulation_cow, state_orig->type, state_orig->name);
+    BKE_simulation_state_copy_data(state_orig, state_cow);
   }
 }
 
@@ -73,46 +58,15 @@ static void remove_unused_states(Simulation *simulation, const VectorSet<std::st
   }
 }
 
-static void reset_states(Simulation *simulation)
-{
-  LISTBASE_FOREACH (SimulationState *, state, &simulation->states) {
-    switch ((eSimulationStateType)state->type) {
-      case SIM_STATE_TYPE_PARTICLES: {
-        ParticleSimulationState *particle_state = (ParticleSimulationState *)state;
-        CustomData_free(&particle_state->attributes, particle_state->tot_particles);
-        particle_state->tot_particles = 0;
-        break;
-      }
-      case SIM_STATE_TYPE_PARTICLE_MESH_EMITTER: {
-        ParticleMeshEmitterSimulationState *emitter_state = (ParticleMeshEmitterSimulationState *)
-            state;
-        emitter_state->last_birth_time = 0.0f;
-        break;
-      }
-    }
-  }
-}
-
-static SimulationState *try_find_state_by_name(Simulation *simulation, StringRef name)
-{
-  LISTBASE_FOREACH (SimulationState *, state, &simulation->states) {
-    if (state->name == name) {
-      return state;
-    }
-  }
-  return nullptr;
-}
-
 static void add_missing_particle_states(Simulation *simulation, Span<std::string> state_names)
 {
   for (StringRefNull name : state_names) {
-    SimulationState *state = try_find_state_by_name(simulation, name);
+    SimulationState *state = BKE_simulation_state_try_find_by_name(simulation, name.c_str());
     if (state != nullptr) {
-      BLI_assert(state->type == SIM_STATE_TYPE_PARTICLES);
       continue;
     }
 
-    BKE_simulation_state_add(simulation, SIM_STATE_TYPE_PARTICLES, name.c_str());
+    BKE_simulation_state_add(simulation, SIM_TYPE_NAME_PARTICLE_SIMULATION, name.c_str());
   }
 }
 
@@ -120,7 +74,7 @@ static void reinitialize_empty_simulation_states(Simulation *simulation,
                                                  const SimulationStatesInfo &states_info)
 {
   remove_unused_states(simulation, states_info.particle_simulation_names);
-  reset_states(simulation);
+  BKE_simulation_state_reset_all(simulation);
   add_missing_particle_states(simulation, states_info.particle_simulation_names);
 }
 

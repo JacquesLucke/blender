@@ -46,10 +46,7 @@ typedef struct SimulationState {
   struct SimulationState *next;
   struct SimulationState *prev;
 
-  /** eSimulationStateType */
-  int type;
-  int _pad;
-
+  char *type;
   char *name;
 } SimulationState;
 
@@ -83,10 +80,7 @@ enum {
   SIM_DS_EXPAND = (1 << 0),
 };
 
-/* SimulationCache.type */
-typedef enum eSimulationStateType {
-  SIM_STATE_TYPE_PARTICLES = 0,
-  SIM_STATE_TYPE_PARTICLE_MESH_EMITTER = 1,
-} eSimulationStateType;
+#define SIM_TYPE_NAME_PARTICLE_SIMULATION "Particle Simulation"
+#define SIM_TYPE_NAME_PARTICLE_MESH_EMITTER "Particle Mesh Emitter"
 
 #endif /* __DNA_SIMULATION_TYPES_H__ */

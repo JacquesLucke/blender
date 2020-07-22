@@ -8691,15 +8691,10 @@ static void direct_link_simulation(BlendDataReader *reader, Simulation *simulati
   BLO_read_list(reader, &simulation->states);
   LISTBASE_FOREACH (SimulationState *, state, &simulation->states) {
     BLO_read_data_address(reader, &state->name);
-    switch ((eSimulationStateType)state->type) {
-      case SIM_STATE_TYPE_PARTICLES: {
-        ParticleSimulationState *particle_state = (ParticleSimulationState *)state;
-        direct_link_customdata(reader, &particle_state->attributes, particle_state->tot_particles);
-        break;
-      }
-      case SIM_STATE_TYPE_PARTICLE_MESH_EMITTER: {
-        break;
-      }
+    BLO_read_data_address(reader, &state->type);
+    if (STREQ(state->type, "Particles")) {
+      ParticleSimulationState *particle_state = (ParticleSimulationState *)state;
+      direct_link_customdata(reader, &particle_state->attributes, particle_state->tot_particles);
     }
   }
 

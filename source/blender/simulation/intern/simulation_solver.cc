@@ -322,7 +322,7 @@ void solve_simulation_time_step(Simulation &simulation,
   Vector<SimulationState *> simulation_states{simulation.states};
   Vector<ParticleSimulationState *> particle_simulation_states;
   for (SimulationState *state : simulation_states) {
-    if (state->type == SIM_STATE_TYPE_PARTICLES) {
+    if (STREQ(state->type, SIM_TYPE_NAME_PARTICLE_SIMULATION)) {
       particle_simulation_states.append((ParticleSimulationState *)state);
     }
   }
