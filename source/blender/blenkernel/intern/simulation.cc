@@ -68,32 +68,16 @@ using StateResetFunction = void (*)(SimulationState *state);
 using StateRemoveFunction = void (*)(SimulationState *state);
 using StateCopyFunction = void (*)(const SimulationState *src, SimulationState *dst);
 
-typedef struct SimulationStateType {
+struct SimulationStateType {
   const char *name;
   int size;
   StateInitFunction init;
   StateResetFunction reset;
   StateRemoveFunction remove;
   StateCopyFunction copy;
-} SimulationStateType;
+};
 
-using StateTypeMap = blender::Map<std::string, std::unique_ptr<SimulationStateType>>;
-
-static StateTypeMap init_state_types();
-static StateTypeMap &get_state_types()
-{
-  static StateTypeMap state_type_map = init_state_types();
-  return state_type_map;
-}
-
-static const SimulationStateType *try_get_state_type(blender::StringRefNull type_name)
-{
-  std::unique_ptr<SimulationStateType> *type = get_state_types().lookup_ptr_as(type_name);
-  if (type == nullptr) {
-    return nullptr;
-  }
-  return type->get();
-}
+static const SimulationStateType *try_get_state_type(blender::StringRefNull type_name);
 
 static void simulation_init_data(ID *id)
 {
@@ -131,6 +115,63 @@ static void simulation_copy_data(Main *bmain, ID *id_dst, const ID *id_src, cons
   BLI_duplicatelist(&simulation_dst->persistent_data_handles,
                     &simulation_src->persistent_data_handles);
 }
+
+static void simulation_free_data(ID *id)
+{
+  Simulation *simulation = (Simulation *)id;
+
+  BKE_animdata_free(&simulation->id, false);
+
+  if (simulation->nodetree) {
+    ntreeFreeEmbeddedTree(simulation->nodetree);
+    MEM_freeN(simulation->nodetree);
+    simulation->nodetree = nullptr;
+  }
+
+  BKE_simulation_state_remove_all(simulation);
+
+  BLI_freelistN(&simulation->persistent_data_handles);
+}
+
+static void simulation_foreach_id(ID *id, LibraryForeachIDData *data)
+{
+  Simulation *simulation = (Simulation *)id;
+  if (simulation->nodetree) {
+    /* nodetree **are owned by IDs**, treat them as mere sub-data and not real ID! */
+    BKE_library_foreach_ID_embedded(data, (ID **)&simulation->nodetree);
+  }
+  LISTBASE_FOREACH (
+      PersistentDataHandleItem *, handle_item, &simulation->persistent_data_handles) {
+    BKE_LIB_FOREACHID_PROCESS_ID(data, handle_item->id, IDWALK_CB_USER);
+  }
+}
+
+IDTypeInfo IDType_ID_SIM = {
+    /* id_code */ ID_SIM,
+    /* id_filter */ FILTER_ID_SIM,
+    /* main_listbase_index */ INDEX_ID_SIM,
+    /* struct_size */ sizeof(Simulation),
+    /* name */ "Simulation",
+    /* name_plural */ "simulations",
+    /* translation_context */ BLT_I18NCONTEXT_ID_SIMULATION,
+    /* flags */ 0,
+
+    /* init_data */ simulation_init_data,
+    /* copy_data */ simulation_copy_data,
+    /* free_data */ simulation_free_data,
+    /* make_local */ nullptr,
+    /* foreach_id */ simulation_foreach_id,
+};
+
+void *BKE_simulation_add(Main *bmain, const char *name)
+{
+  Simulation *simulation = (Simulation *)BKE_libblock_alloc(bmain, ID_SIM, name, 0);
+
+  simulation_init_data(&simulation->id);
+
+  return simulation;
+}
+
 SimulationState *BKE_simulation_state_add(Simulation *simulation,
                                           const char *type,
                                           const char *name)
@@ -238,66 +279,12 @@ SimulationState *BKE_simulation_state_try_find_by_name_and_type(Simulation *simu
   return nullptr;
 }
 
-static void simulation_free_data(ID *id)
-{
-  Simulation *simulation = (Simulation *)id;
-
-  BKE_animdata_free(&simulation->id, false);
-
-  if (simulation->nodetree) {
-    ntreeFreeEmbeddedTree(simulation->nodetree);
-    MEM_freeN(simulation->nodetree);
-    simulation->nodetree = nullptr;
-  }
-
-  BKE_simulation_state_remove_all(simulation);
-
-  BLI_freelistN(&simulation->persistent_data_handles);
-}
-
-static void simulation_foreach_id(ID *id, LibraryForeachIDData *data)
-{
-  Simulation *simulation = (Simulation *)id;
-  if (simulation->nodetree) {
-    /* nodetree **are owned by IDs**, treat them as mere sub-data and not real ID! */
-    BKE_library_foreach_ID_embedded(data, (ID **)&simulation->nodetree);
-  }
-  LISTBASE_FOREACH (
-      PersistentDataHandleItem *, handle_item, &simulation->persistent_data_handles) {
-    BKE_LIB_FOREACHID_PROCESS_ID(data, handle_item->id, IDWALK_CB_USER);
-  }
-}
-
-IDTypeInfo IDType_ID_SIM = {
-    /* id_code */ ID_SIM,
-    /* id_filter */ FILTER_ID_SIM,
-    /* main_listbase_index */ INDEX_ID_SIM,
-    /* struct_size */ sizeof(Simulation),
-    /* name */ "Simulation",
-    /* name_plural */ "simulations",
-    /* translation_context */ BLT_I18NCONTEXT_ID_SIMULATION,
-    /* flags */ 0,
-
-    /* init_data */ simulation_init_data,
-    /* copy_data */ simulation_copy_data,
-    /* free_data */ simulation_free_data,
-    /* make_local */ nullptr,
-    /* foreach_id */ simulation_foreach_id,
-};
-
-void *BKE_simulation_add(Main *bmain, const char *name)
-{
-  Simulation *simulation = (Simulation *)BKE_libblock_alloc(bmain, ID_SIM, name, 0);
-
-  simulation_init_data(&simulation->id);
-
-  return simulation;
-}
-
 void BKE_simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulation *simulation)
 {
   blender::sim::update_simulation_in_depsgraph(depsgraph, scene, simulation);
 }
+
+using StateTypeMap = blender::Map<std::string, std::unique_ptr<SimulationStateType>>;
 
 template<typename T>
 static void add_state_type(StateTypeMap &map,
@@ -351,6 +338,21 @@ static StateTypeMap init_state_types()
         dst->last_birth_time = src->last_birth_time;
       });
   return map;
+}
+
+static StateTypeMap &get_state_types()
+{
+  static StateTypeMap state_type_map = init_state_types();
+  return state_type_map;
+}
+
+static const SimulationStateType *try_get_state_type(blender::StringRefNull type_name)
+{
+  std::unique_ptr<SimulationStateType> *type = get_state_types().lookup_ptr_as(type_name);
+  if (type == nullptr) {
+    return nullptr;
+  }
+  return type->get();
 }
 
 template<> const char *BKE_simulation_get_state_type_name<ParticleSimulationState>()
