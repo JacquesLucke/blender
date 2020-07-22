@@ -352,3 +352,13 @@ static StateTypeMap init_state_types()
       });
   return map;
 }
+
+template<> const char *BKE_simulation_get_state_type_name<ParticleSimulationState>()
+{
+  return SIM_TYPE_NAME_PARTICLE_SIMULATION;
+}
+
+template<> const char *BKE_simulation_get_state_type_name<ParticleMeshEmitterSimulationState>()
+{
+  return SIM_TYPE_NAME_PARTICLE_MESH_EMITTER;
+}

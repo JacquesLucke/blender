@@ -50,4 +50,10 @@ void BKE_simulation_state_copy_data(const SimulationState *src_state, Simulation
 }
 #endif
 
+#ifdef __cplusplus
+
+template<typename StateType> const char *BKE_simulation_get_state_type_name();
+
+#endif
+
 #endif /* __BKE_SIMULATION_H__ */

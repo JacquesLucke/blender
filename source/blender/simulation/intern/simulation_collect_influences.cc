@@ -298,9 +298,8 @@ class MyBasicEmitter : public ParticleEmitter {
 
   void emit(ParticleEmitterContext &context) const override
   {
-    ParticleMeshEmitterSimulationState *state =
-        (ParticleMeshEmitterSimulationState *)context.solve_context().state_map().lookup_name_type(
-            my_state_, SIM_TYPE_NAME_PARTICLE_MESH_EMITTER);
+    auto *state = context.solve_context().state_map().lookup<ParticleMeshEmitterSimulationState>(
+        my_state_);
     if (state == nullptr) {
       return;
     }

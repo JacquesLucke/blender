@@ -25,6 +25,7 @@
 #include "FN_attributes_ref.hh"
 
 #include "BKE_persistent_data_handle.hh"
+#include "BKE_simulation.h"
 
 #include "particle_allocator.hh"
 #include "time_interval.hh"
@@ -65,6 +66,12 @@ class SimulationStateMap {
   {
     states_by_name_.add_new(state->name, state);
     states_by_type_.lookup_or_add_default(state->type).append(state);
+  }
+
+  template<typename StateType> StateType *lookup(StringRef name) const
+  {
+    const char *type = BKE_simulation_get_state_type_name<StateType>();
+    return (StateType *)this->lookup_name_type(name, type);
   }
 
   SimulationState *lookup_name_type(StringRef name, StringRef type) const
