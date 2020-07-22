@@ -64,7 +64,6 @@
 #include "BKE_node.h"
 #include "BKE_particle.h"
 #include "BKE_shader_fx.h"
-#include "BKE_simulation.h"
 #include "BKE_sound.h"
 #include "BKE_volume.h"
 
