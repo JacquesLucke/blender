@@ -292,6 +292,7 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
         if (should_create_new_curve(curr_ob)) {
           list_of_objects.append(std::make_unique<OBJRawObject>("NURBSCurve"));
           curr_ob = &list_of_objects.last();
+          (*curr_ob)->nurbs_element.group = object_group;
           /* Make sure that the flags are overridden & only after a new object is created. */
           (*curr_ob)->object_type = OB_CURVE | CU_NURBS;
         }

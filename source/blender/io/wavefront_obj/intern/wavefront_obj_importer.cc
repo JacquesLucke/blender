@@ -114,7 +114,7 @@ void importer_main(bContext *C, const OBJImportParams &import_params)
 
   importer.parse_and_store(list_of_objects, global_vertices);
 
-  //  print_obj_data(list_of_objects, global_vertices);
+  print_obj_data(list_of_objects, global_vertices);
   raw_to_blender_objects(bmain, scene, list_of_objects, global_vertices);
 }
 }  // namespace blender::io::obj

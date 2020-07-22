@@ -74,7 +74,7 @@ void OBJCurveFromRaw::edit_nurbs(const OBJRawObject &curr_object,
   }
   nurb->flag = CU_3D;
   if (do_endpoints) {
-    nurb->flag = CU_NURB_ENDPOINT;
+    nurb->flagu = CU_NURB_ENDPOINT;
   }
 }
 
@@ -86,6 +86,8 @@ OBJCurveFromRaw::OBJCurveFromRaw(Main *bmain,
   curve_from_ob_.reset(BKE_curve_add(bmain, curr_object.object_name.c_str(), OB_CURVE));
   curve_from_ob_->flag = CU_3D;
   curve_from_ob_->resolu = curve_from_ob_->resolv = 12;
+  /* Only one NURBS exists. */
+  curve_from_ob_->actnu = 0;
 
   Nurb *nurb = (Nurb *)MEM_callocN(sizeof(Nurb), "OBJ import NURBS curve");
   BLI_addtail(BKE_curve_nurbs_get(curve_from_ob_.get()), nurb);
