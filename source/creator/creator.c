@@ -419,7 +419,6 @@ int main(int argc,
 
   RE_engines_init();
   init_nodesystem();
-  BKE_simulation_init_state_types();
   psys_init_rng();
   /* End second initialization. */
 

@@ -46,8 +46,6 @@ SimulationState *BKE_simulation_state_try_find_by_name_and_type(Simulation *simu
                                                                 const char *type);
 void BKE_simulation_state_copy_data(const SimulationState *src_state, SimulationState *dst_state);
 
-void BKE_simulation_init_state_types(void);
-
 #ifdef __cplusplus
 }
 #endif

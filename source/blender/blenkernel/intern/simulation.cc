@@ -79,9 +79,10 @@ typedef struct SimulationStateType {
 
 using StateTypeMap = blender::Map<std::string, std::unique_ptr<SimulationStateType>>;
 
+static StateTypeMap init_state_types();
 static StateTypeMap &get_state_types()
 {
-  static StateTypeMap state_type_map;
+  static StateTypeMap state_type_map = init_state_types();
   return state_type_map;
 }
 
@@ -299,13 +300,13 @@ void BKE_simulation_data_update(Depsgraph *depsgraph, Scene *scene, Simulation *
 }
 
 template<typename T>
-static void add_state_type(const char *name,
+static void add_state_type(StateTypeMap &map,
+                           const char *name,
                            void (*init)(T *state),
                            void (*reset)(T *state),
                            void (*remove)(T *state),
                            void (*copy)(const T *src, T *dst))
 {
-  StateTypeMap &type_map = get_state_types();
   SimulationStateType state_type{
       name,
       (int)sizeof(T),
@@ -314,12 +315,14 @@ static void add_state_type(const char *name,
       (StateRemoveFunction)remove,
       (StateCopyFunction)copy,
   };
-  type_map.add_new(name, std::make_unique<SimulationStateType>(state_type));
+  map.add_new(name, std::make_unique<SimulationStateType>(state_type));
 }
 
-void BKE_simulation_init_state_types(void)
+static StateTypeMap init_state_types()
 {
+  StateTypeMap map;
   add_state_type<ParticleSimulationState>(
+      map,
       SIM_TYPE_NAME_PARTICLE_SIMULATION,
       [](ParticleSimulationState *state) { CustomData_reset(&state->attributes); },
       [](ParticleSimulationState *state) {
@@ -339,6 +342,7 @@ void BKE_simulation_init_state_types(void)
       });
 
   add_state_type<ParticleMeshEmitterSimulationState>(
+      map,
       SIM_TYPE_NAME_PARTICLE_MESH_EMITTER,
       [](ParticleMeshEmitterSimulationState *UNUSED(state)) {},
       [](ParticleMeshEmitterSimulationState *state) { state->last_birth_time = 0.0f; },
@@ -346,4 +350,5 @@ void BKE_simulation_init_state_types(void)
       [](const ParticleMeshEmitterSimulationState *src, ParticleMeshEmitterSimulationState *dst) {
         dst->last_birth_time = src->last_birth_time;
       });
+  return map;
 }
