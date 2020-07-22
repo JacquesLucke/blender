@@ -93,20 +93,6 @@ static void simulation_copy_data(Main *bmain, ID *id_dst, const ID *id_src, cons
   BLI_duplicatelist(&simulation_dst->persistent_data_handles,
                     &simulation_src->persistent_data_handles);
 }
-
-static void free_simulation_state_head(SimulationState *state)
-{
-  MEM_freeN(state->name);
-}
-
-static void free_particle_simulation_state(ParticleSimulationState *state)
-{
-  free_simulation_state_head(&state->head);
-  CustomData_free(&state->attributes, state->tot_particles);
-  BKE_ptcache_free_list(&state->ptcaches);
-  MEM_freeN(state);
-}
-
 SimulationState *BKE_simulation_state_add(Simulation *simulation,
                                           eSimulationStateType type,
                                           const char *name)
@@ -130,6 +116,15 @@ SimulationState *BKE_simulation_state_add(Simulation *simulation,
       BLI_addtail(&simulation->states, state);
       return &state->head;
     }
+    case SIM_STATE_TYPE_PARTICLE_MESH_EMITTER: {
+      ParticleMeshEmitterSimulationState *state = (ParticleMeshEmitterSimulationState *)
+          MEM_callocN(sizeof(*state), AT);
+      state->head.type = SIM_STATE_TYPE_PARTICLE_MESH_EMITTER;
+      state->head.name = BLI_strdup(name);
+
+      BLI_addtail(&simulation->states, state);
+      return &state->head;
+    }
   }
 
   BLI_assert(false);
@@ -145,10 +140,17 @@ void BKE_simulation_state_remove(Simulation *simulation, SimulationState *state)
   BLI_remlink(&simulation->states, state);
   switch ((eSimulationStateType)state->type) {
     case SIM_STATE_TYPE_PARTICLES: {
-      free_particle_simulation_state((ParticleSimulationState *)state);
+      ParticleSimulationState *particle_state = (ParticleSimulationState *)state;
+      CustomData_free(&particle_state->attributes, particle_state->tot_particles);
+      BKE_ptcache_free_list(&particle_state->ptcaches);
+      break;
+    }
+    case SIM_STATE_TYPE_PARTICLE_MESH_EMITTER: {
       break;
     }
   }
+  MEM_freeN(state->name);
+  MEM_freeN(state);
 }
 
 void BKE_simulation_state_remove_all(Simulation *simulation)

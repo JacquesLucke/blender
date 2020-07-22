@@ -56,6 +56,10 @@ static void copy_states_to_cow(Simulation *simulation_orig, Simulation *simulati
                         particle_state_orig->tot_particles);
         break;
       }
+      case SIM_STATE_TYPE_PARTICLE_MESH_EMITTER: {
+        /* Don't copy over for now. */
+        break;
+      }
     }
   }
 }
@@ -77,6 +81,12 @@ static void reset_states(Simulation *simulation)
         ParticleSimulationState *particle_state = (ParticleSimulationState *)state;
         CustomData_free(&particle_state->attributes, particle_state->tot_particles);
         particle_state->tot_particles = 0;
+        break;
+      }
+      case SIM_STATE_TYPE_PARTICLE_MESH_EMITTER: {
+        ParticleMeshEmitterSimulationState *emitter_state = (ParticleMeshEmitterSimulationState *)
+            state;
+        emitter_state->last_birth_time = 0.0f;
         break;
       }
     }

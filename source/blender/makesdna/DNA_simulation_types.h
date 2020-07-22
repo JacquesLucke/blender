@@ -67,6 +67,13 @@ typedef struct ParticleSimulationState {
   struct ListBase ptcaches;
 } ParticleSimulationState;
 
+typedef struct ParticleMeshEmitterSimulationState {
+  SimulationState head;
+
+  float last_birth_time;
+  char _pad[4];
+} ParticleMeshEmitterSimulationState;
+
 /** Stores a mapping between an integer handle and a corresponding ID data block. */
 typedef struct PersistentDataHandleItem {
   struct PersistentDataHandleItem *next;
@@ -84,6 +91,7 @@ enum {
 /* SimulationCache.type */
 typedef enum eSimulationStateType {
   SIM_STATE_TYPE_PARTICLES = 0,
+  SIM_STATE_TYPE_PARTICLE_MESH_EMITTER = 1,
 } eSimulationStateType;
 
 #endif /* __DNA_SIMULATION_TYPES_H__ */

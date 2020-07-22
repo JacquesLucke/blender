@@ -8698,7 +8698,10 @@ static void direct_link_simulation(BlendDataReader *reader, Simulation *simulati
         direct_link_pointcache_list(
             reader, &particle_state->ptcaches, &particle_state->point_cache, 0);
         break;
-      };
+      }
+      case SIM_STATE_TYPE_PARTICLE_MESH_EMITTER: {
+        break;
+      }
     }
   }
 

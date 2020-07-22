@@ -3857,6 +3857,11 @@ static void write_simulation(BlendWriter *writer, Simulation *simulation, const 
           write_pointcaches(writer, &particle_state->ptcaches);
           break;
         }
+        case SIM_STATE_TYPE_PARTICLE_MESH_EMITTER: {
+          ParticleMeshEmitterSimulationState *emitter_state =
+              (ParticleMeshEmitterSimulationState *)state;
+          BLO_write_struct(writer, ParticleMeshEmitterSimulationState, emitter_state);
+        }
       }
     }
 

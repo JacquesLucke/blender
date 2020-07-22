@@ -2061,14 +2061,7 @@ static bool foreach_object_modifier_ptcache(Object *object,
     else if (md->type == eModifierType_Simulation) {
       SimulationModifierData *smd = (SimulationModifierData *)md;
       if (smd->simulation) {
-        LISTBASE_FOREACH (SimulationState *, state, &smd->simulation->states) {
-          switch ((eSimulationStateType)state->type) {
-            case SIM_STATE_TYPE_PARTICLES: {
-              /* TODO(jacques) */
-              break;
-            }
-          }
-        }
+        /* TODO(jacques) */
       }
     }
   }
