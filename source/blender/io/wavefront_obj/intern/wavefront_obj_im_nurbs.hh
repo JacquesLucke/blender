@@ -35,6 +35,7 @@ namespace blender::io::obj {
 class OBJRawObject;
 struct GlobalVertices;
 
+/** Free a curve's memory using Blender's memory management. */
 struct UniqueCurveDeleter {
   void operator()(Curve *curve)
   {
@@ -44,8 +45,8 @@ struct UniqueCurveDeleter {
   }
 };
 
-/* An unique_ptr to a Curve with a custom deleter to deallocate memory using Blender memory
- * management. */
+/** An unique_ptr to a Curve with a custom deleter. Don't let unique_ptr free a curve with a
+ * different deallocator. */
 using unique_curve_ptr = std::unique_ptr<Curve, UniqueCurveDeleter>;
 
 class OBJCurveFromRaw : NonMovable, NonCopyable {

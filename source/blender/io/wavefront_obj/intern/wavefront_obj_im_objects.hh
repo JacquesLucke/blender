@@ -56,7 +56,7 @@ typedef struct OBJFaceElem {
 } OBJFaceElem;
 
 /**
- * Contains parameters for one single NURBS curve in the OBJ file.
+ * Contains data for one single NURBS curve in the OBJ file.
  */
 struct NurbsElem {
   /**

@@ -28,7 +28,7 @@
 
 namespace blender::io::obj {
 /**
- * Edit the NURBS curve of the curve converted from raw object.
+ * Edit the NURBS spline of the curve converted from raw object.
  */
 void OBJCurveFromRaw::edit_nurbs(const OBJRawObject &curr_object,
                                  const GlobalVertices &global_vertices)
@@ -82,7 +82,7 @@ OBJCurveFromRaw::OBJCurveFromRaw(Main *bmain,
                                  const OBJRawObject &curr_object,
                                  const GlobalVertices global_vertices)
 {
-  /* Set curve specific parameters. */
+  /* Set curve specific settings. */
   curve_from_ob_.reset(BKE_curve_add(bmain, curr_object.object_name.c_str(), OB_CURVE));
   curve_from_ob_->flag = CU_3D;
   curve_from_ob_->resolu = curve_from_ob_->resolv = 12;
@@ -90,7 +90,7 @@ OBJCurveFromRaw::OBJCurveFromRaw(Main *bmain,
   Nurb *nurb = (Nurb *)MEM_callocN(sizeof(Nurb), "OBJ import NURBS curve");
   BLI_addtail(BKE_curve_nurbs_get(curve_from_ob_.get()), nurb);
 
-  /* Set NURBS specific parameters. */
+  /* Set NURBS specific settings. */
   edit_nurbs(curr_object, global_vertices);
 }
 }  // namespace blender::io::obj

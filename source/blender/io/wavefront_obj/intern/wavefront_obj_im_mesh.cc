@@ -71,7 +71,7 @@ OBJMeshFromRaw::OBJMeshFromRaw(const OBJRawObject &curr_object,
     mesh_from_ob_->medge[i].v2 = curr_edge.v2;
   }
 
-  /* Set parameter `update` to true so that existing explicitly imported edges can be merged
+  /* Set argument `update` to true so that existing explicitly imported edges can be merged
    * with the new ones created from polygons. */
   BKE_mesh_calc_edges(mesh_from_ob_.get(), true, false);
   BKE_mesh_calc_edges_loose(mesh_from_ob_.get());

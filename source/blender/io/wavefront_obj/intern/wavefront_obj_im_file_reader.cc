@@ -108,9 +108,9 @@ BLI_INLINE void copy_string_to_int(const string &src, int &r_dst)
 }
 
 /**
- * Convert the given string to int and assign it to the destination value.
+ * Convert the given strings to ints and fill the destination int buffer.
  *
- * Catches exception if the string cannot be converted to an integer. The destination
+ * Catches exception if a string cannot be converted to an integer. The destination
  *  int is set to <TODO ankitm: indices can be -1 too!> in that case.
  */
 BLI_INLINE void copy_string_to_int(Span<string> src, MutableSpan<int> r_dst)
@@ -132,7 +132,7 @@ BLI_INLINE void copy_string_to_int(Span<string> src, MutableSpan<int> r_dst)
 static bool should_create_new_curve(std::unique_ptr<OBJRawObject> *raw_object)
 {
   if (raw_object) {
-    /* After the creation of an raw object, at least one element has been found in the OBJ file
+    /* After the creation of a raw object, at least one element has been found in the OBJ file
      * that indicates that this is a mesh, not a curve. */
     if ((*raw_object)->face_elements.size() || (*raw_object)->uv_vertex_indices.size() ||
         (*raw_object)->tot_normals) {
