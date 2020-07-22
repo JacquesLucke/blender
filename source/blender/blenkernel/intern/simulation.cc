@@ -100,19 +100,12 @@ SimulationState *BKE_simulation_state_add(Simulation *simulation,
   BLI_assert(simulation != nullptr);
   BLI_assert(name != nullptr);
 
-  bool is_cow_simulation = DEG_is_evaluated_id(&simulation->id);
-
   switch (type) {
     case SIM_STATE_TYPE_PARTICLES: {
       ParticleSimulationState *state = (ParticleSimulationState *)MEM_callocN(sizeof(*state), AT);
       state->head.type = SIM_STATE_TYPE_PARTICLES;
       state->head.name = BLI_strdup(name);
       CustomData_reset(&state->attributes);
-
-      if (!is_cow_simulation) {
-        state->point_cache = BKE_ptcache_add(&state->ptcaches);
-      }
-
       BLI_addtail(&simulation->states, state);
       return &state->head;
     }
@@ -121,7 +114,6 @@ SimulationState *BKE_simulation_state_add(Simulation *simulation,
           MEM_callocN(sizeof(*state), AT);
       state->head.type = SIM_STATE_TYPE_PARTICLE_MESH_EMITTER;
       state->head.name = BLI_strdup(name);
-
       BLI_addtail(&simulation->states, state);
       return &state->head;
     }
@@ -142,7 +134,6 @@ void BKE_simulation_state_remove(Simulation *simulation, SimulationState *state)
     case SIM_STATE_TYPE_PARTICLES: {
       ParticleSimulationState *particle_state = (ParticleSimulationState *)state;
       CustomData_free(&particle_state->attributes, particle_state->tot_particles);
-      BKE_ptcache_free_list(&particle_state->ptcaches);
       break;
     }
     case SIM_STATE_TYPE_PARTICLE_MESH_EMITTER: {

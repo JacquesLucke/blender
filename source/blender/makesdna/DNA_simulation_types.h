@@ -60,11 +60,6 @@ typedef struct ParticleSimulationState {
   int tot_particles;
   int next_particle_id;
   struct CustomData attributes;
-
-  /** Caches the state of the particles over time. The cache only exists on the original data
-   * block, not on cow copies. */
-  struct PointCache *point_cache;
-  struct ListBase ptcaches;
 } ParticleSimulationState;
 
 typedef struct ParticleMeshEmitterSimulationState {

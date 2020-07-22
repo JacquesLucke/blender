@@ -8695,8 +8695,6 @@ static void direct_link_simulation(BlendDataReader *reader, Simulation *simulati
       case SIM_STATE_TYPE_PARTICLES: {
         ParticleSimulationState *particle_state = (ParticleSimulationState *)state;
         direct_link_customdata(reader, &particle_state->attributes, particle_state->tot_particles);
-        direct_link_pointcache_list(
-            reader, &particle_state->ptcaches, &particle_state->point_cache, 0);
         break;
       }
       case SIM_STATE_TYPE_PARTICLE_MESH_EMITTER: {
