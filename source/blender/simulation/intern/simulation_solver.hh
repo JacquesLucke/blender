@@ -55,12 +55,49 @@ struct SimulationInfluences {
   VectorSet<ID *> used_data_blocks;
 };
 
+class SimulationStateMap {
+ private:
+  Map<StringRefNull, SimulationState *> states_by_name_;
+  Map<StringRefNull, Vector<SimulationState *>> states_by_type_;
+
+ public:
+  void add(SimulationState *state)
+  {
+    states_by_name_.add_new(state->name, state);
+    states_by_type_.lookup_or_add_default(state->type).append(state);
+  }
+
+  SimulationState *lookup_name_type(StringRef name, StringRef type) const
+  {
+    SimulationState *state = states_by_name_.lookup_default_as(name, nullptr);
+    if (state == nullptr) {
+      return nullptr;
+    }
+    if (state->type == type) {
+      return state;
+    }
+    return nullptr;
+  }
+
+  Span<SimulationState *> lookup_type(StringRef type) const
+  {
+    const Vector<SimulationState *> *states = states_by_type_.lookup_ptr_as(type);
+    if (states == nullptr) {
+      return {};
+    }
+    else {
+      return states->as_span();
+    }
+  }
+};
+
 class SimulationSolveContext {
  private:
   Simulation &simulation_;
   Depsgraph &depsgraph_;
   const SimulationInfluences &influences_;
   TimeInterval solve_interval_;
+  const SimulationStateMap &state_map_;
   const bke::PersistentDataHandleMap &id_handle_map_;
 
  public:
@@ -68,11 +105,13 @@ class SimulationSolveContext {
                          Depsgraph &depsgraph,
                          const SimulationInfluences &influences,
                          TimeInterval solve_interval,
+                         const SimulationStateMap &state_map,
                          const bke::PersistentDataHandleMap &handle_map)
       : simulation_(simulation),
         depsgraph_(depsgraph),
         influences_(influences),
         solve_interval_(solve_interval),
+        state_map_(state_map),
         id_handle_map_(handle_map)
   {
   }
@@ -90,6 +129,11 @@ class SimulationSolveContext {
   const bke::PersistentDataHandleMap &handle_map() const
   {
     return id_handle_map_;
+  }
+
+  const SimulationStateMap &state_map() const
+  {
+    return state_map_;
   }
 };
 
