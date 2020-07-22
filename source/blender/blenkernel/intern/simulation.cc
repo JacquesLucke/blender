@@ -108,7 +108,7 @@ static void simulation_init_data(ID *id)
 static void simulation_copy_data(Main *bmain, ID *id_dst, const ID *id_src, const int flag)
 {
   Simulation *simulation_dst = (Simulation *)id_dst;
-  Simulation *simulation_src = (Simulation *)id_src;
+  const Simulation *simulation_src = (const Simulation *)id_src;
 
   /* We always need allocation of our private ID data. */
   const int flag_private_id_data = flag & ~LIB_ID_CREATE_NO_ALLOCATE;
@@ -121,6 +121,11 @@ static void simulation_copy_data(Main *bmain, ID *id_dst, const ID *id_src, cons
   }
 
   BLI_listbase_clear(&simulation_dst->states);
+  LISTBASE_FOREACH (const SimulationState *, state_src, &simulation_src->states) {
+    SimulationState *state_dst = BKE_simulation_state_add(
+        simulation_dst, state_src->type, state_src->name);
+    BKE_simulation_state_copy_data(state_src, state_dst);
+  }
 
   BLI_duplicatelist(&simulation_dst->persistent_data_handles,
                     &simulation_src->persistent_data_handles);
@@ -155,6 +160,7 @@ void BKE_simulation_state_remove(Simulation *simulation, SimulationState *state)
   BLI_assert(state_type != nullptr);
   state_type->remove(state);
   MEM_freeN(state->name);
+  MEM_freeN(state->type);
   MEM_freeN(state);
 }
 
@@ -209,6 +215,24 @@ SimulationState *BKE_simulation_state_try_find_by_name(Simulation *simulation, c
     if (STREQ(state->name, name)) {
       return state;
     }
+  }
+  return nullptr;
+}
+
+SimulationState *BKE_simulation_state_try_find_by_name_and_type(Simulation *simulation,
+                                                                const char *name,
+                                                                const char *type)
+{
+  if (type == nullptr) {
+    return nullptr;
+  }
+
+  SimulationState *state = BKE_simulation_state_try_find_by_name(simulation, name);
+  if (state == nullptr) {
+    return nullptr;
+  }
+  if (STREQ(state->type, type)) {
+    return state;
   }
   return nullptr;
 }

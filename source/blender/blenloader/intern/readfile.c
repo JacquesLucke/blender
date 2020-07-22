@@ -8692,7 +8692,7 @@ static void direct_link_simulation(BlendDataReader *reader, Simulation *simulati
   LISTBASE_FOREACH (SimulationState *, state, &simulation->states) {
     BLO_read_data_address(reader, &state->name);
     BLO_read_data_address(reader, &state->type);
-    if (STREQ(state->type, "Particles")) {
+    if (STREQ(state->type, SIM_TYPE_NAME_PARTICLE_SIMULATION)) {
       ParticleSimulationState *particle_state = (ParticleSimulationState *)state;
       direct_link_customdata(reader, &particle_state->attributes, particle_state->tot_particles);
     }

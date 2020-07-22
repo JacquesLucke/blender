@@ -433,7 +433,7 @@ static void find_used_data_blocks(const nodes::DerivedNodeTree &tree,
 void collect_simulation_influences(Simulation &simulation,
                                    ResourceCollector &resources,
                                    SimulationInfluences &r_influences,
-                                   SimulationStatesInfo &r_states_info)
+                                   RequiredStates &r_required_states)
 {
   nodes::NodeTreeRefMap tree_refs;
   const nodes::DerivedNodeTree tree{simulation.nodetree, tree_refs};
@@ -455,7 +455,7 @@ void collect_simulation_influences(Simulation &simulation,
   collect_emitters(network_map, resources, r_influences);
 
   for (const nodes::DNode *dnode : get_particle_simulation_nodes(tree)) {
-    r_states_info.particle_simulation_names.add(dnode_to_path(*dnode));
+    r_required_states.add(dnode_to_path(*dnode), SIM_TYPE_NAME_PARTICLE_SIMULATION);
   }
 
   find_used_data_blocks(tree, r_influences);

@@ -41,6 +41,9 @@ void BKE_simulation_state_remove_all(Simulation *simulation);
 void BKE_simulation_state_reset(Simulation *simulation, SimulationState *state);
 void BKE_simulation_state_reset_all(Simulation *simulation);
 SimulationState *BKE_simulation_state_try_find_by_name(Simulation *simulation, const char *name);
+SimulationState *BKE_simulation_state_try_find_by_name_and_type(Simulation *simulation,
+                                                                const char *name,
+                                                                const char *type);
 void BKE_simulation_state_copy_data(const SimulationState *src_state, SimulationState *dst_state);
 
 void BKE_simulation_init_state_types(void);

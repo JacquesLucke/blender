@@ -3835,7 +3835,7 @@ static void write_simulation(BlendWriter *writer, Simulation *simulation, const 
       BLO_write_string(writer, state->name);
       BLO_write_string(writer, state->type);
       /* TODO: Decentralize this part. */
-      if (STREQ(state->name, "Particles")) {
+      if (STREQ(state->type, SIM_TYPE_NAME_PARTICLE_SIMULATION)) {
         ParticleSimulationState *particle_state = (ParticleSimulationState *)state;
         BLO_write_struct(writer, ParticleSimulationState, particle_state);
 
@@ -3855,7 +3855,7 @@ static void write_simulation(BlendWriter *writer, Simulation *simulation, const 
           MEM_freeN(layers);
         }
       }
-      else if (STREQ(state->type, "Particle Mesh Emitter")) {
+      else if (STREQ(state->type, SIM_TYPE_NAME_PARTICLE_MESH_EMITTER)) {
         ParticleMeshEmitterSimulationState *emitter_state = (ParticleMeshEmitterSimulationState *)
             state;
         BLO_write_struct(writer, ParticleMeshEmitterSimulationState, emitter_state);
