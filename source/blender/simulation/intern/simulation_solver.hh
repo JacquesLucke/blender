@@ -74,6 +74,12 @@ class SimulationStateMap {
     return (StateType *)this->lookup_name_type(name, type);
   }
 
+  template<typename StateType> Span<StateType *> lookup() const
+  {
+    const char *type = BKE_simulation_get_state_type_name<StateType>();
+    return this->lookup_type(type).cast<StateType *>();
+  }
+
   SimulationState *lookup_name_type(StringRef name, StringRef type) const
   {
     SimulationState *state = states_by_name_.lookup_default_as(name, nullptr);

@@ -326,7 +326,7 @@ void solve_simulation_time_step(Simulation &simulation,
   TimeInterval simulation_time_interval{simulation.current_simulation_time, time_step};
 
   Span<ParticleSimulationState *> particle_simulation_states =
-      state_map.lookup_type(SIM_TYPE_NAME_PARTICLE_SIMULATION).cast<ParticleSimulationState *>();
+      state_map.lookup<ParticleSimulationState>();
 
   Map<std::string, std::unique_ptr<fn::AttributesInfo>> attribute_infos;
   Map<std::string, std::unique_ptr<ParticleAllocator>> particle_allocators_map;
