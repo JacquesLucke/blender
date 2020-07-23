@@ -55,7 +55,7 @@ void OBJParser::print_obj_data(Span<std::unique_ptr<OBJRawObject>> list_of_objec
   }
   printf("\n");
 
-  for (const auto &curr_ob : list_of_objects) {
+  for (const std::unique_ptr<OBJRawObject> &curr_ob : list_of_objects) {
     for (const int &curr_vert_idx : curr_ob->vertex_indices_) {
       printf(" %d", curr_vert_idx);
     }

@@ -332,7 +332,7 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_o
       str_curv_split.remove(0);
       (*curr_ob)->nurbs_element_.curv_indices.resize(str_curv_split.size());
       copy_string_to_int(str_curv_split, (*curr_ob)->nurbs_element_.curv_indices);
-      for (const int &curv_point : (*curr_ob)->nurbs_element_.curv_indices) {
+      for (int &curv_point : (*curr_ob)->nurbs_element_.curv_indices) {
         curv_point -= curv_point > 0 ? 1 : -(global_vertices.vertices.size());
       }
     }
