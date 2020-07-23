@@ -127,7 +127,7 @@ OBJImportCollection::OBJImportCollection(Main *bmain, Scene *scene) : bmain_(bma
 }
 
 /**
- * Add the given Mesh/CurveUniqueObjectDeleter object to the OBJ import collection.
+ * Add the given Mesh/Curve object to the OBJ import collection.
  */
 void OBJImportCollection::add_object_to_collection(unique_object_ptr b_object)
 {
