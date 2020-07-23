@@ -175,7 +175,8 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_o
   /* Non owning raw pointer to the unique_ptr to a raw object.
    * Needed to update object data in the same while loop. */
   std::unique_ptr<OBJRawObject> *curr_ob = nullptr;
-  /* State-setting variables: if set, they remain the same for the remaining elements. */
+  /* State-setting variables: if set, they remain the same for the remaining
+   * elements in the object. */
   bool shaded_smooth = false;
   string object_group{};
 
@@ -186,6 +187,8 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_o
     if (line_key == "o") {
       /* Update index offsets to keep track of objects which have claimed their vertices. */
       update_index_offsets(curr_ob);
+      shaded_smooth = false;
+      object_group = {};
       list_of_objects.append(std::make_unique<OBJRawObject>(s_line.str()));
       curr_ob = &list_of_objects.last();
       (*curr_ob)->object_type_ = OB_MESH;
@@ -262,6 +265,11 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_o
     else if (line_key == "f") {
       OBJFaceElem curr_face;
       curr_face.shaded_smooth = shaded_smooth;
+      if (!object_group.empty()) {
+        curr_face.vertex_group = object_group;
+        /* Yes it repeats several times, but another if-check will not reduce steps either. */
+        (*curr_ob)->use_vertex_groups_ = true;
+      }
 
       Vector<string> str_corners_split;
       split_by_char(s_line.str(), ' ', str_corners_split);

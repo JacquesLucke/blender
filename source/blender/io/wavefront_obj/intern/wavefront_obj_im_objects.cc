@@ -66,6 +66,11 @@ const int64_t OBJRawObject::tot_face_elems() const
   return face_elements_.size();
 }
 
+const bool OBJRawObject::use_vertex_groups() const
+{
+  return use_vertex_groups_;
+}
+
 Span<int> OBJRawObject::uv_vertex_indices() const
 {
   return uv_vertex_indices_;

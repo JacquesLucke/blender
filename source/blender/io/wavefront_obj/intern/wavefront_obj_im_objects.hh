@@ -104,6 +104,7 @@ class OBJRawObject {
   /** Edges written in the file in addition to (or even without polygon) elements. */
   Vector<MEdge> edges_{};
   Vector<OBJFaceElem> face_elements_{};
+  bool use_vertex_groups_ = false;
   OBJNurbsElem nurbs_element_;
   int tot_loops_ = 0;
   int tot_normals_ = 0;
@@ -119,6 +120,7 @@ class OBJRawObject {
   const int64_t tot_verts() const;
   Span<OBJFaceElem> face_elements() const;
   const int64_t tot_face_elems() const;
+  const bool use_vertex_groups() const;
   Span<int> uv_vertex_indices() const;
   const int64_t tot_uv_vert_indices() const;
   Span<MEdge> edges() const;

@@ -22,8 +22,10 @@
  */
 
 #include "BKE_customdata.h"
+#include "BKE_object_deform.h"
 
 #include "BLI_array.hh"
+#include "BLI_map.hh"
 
 #include "DNA_customdata_types.h"
 #include "DNA_mesh_types.h"
@@ -81,6 +83,21 @@ void OBJMeshFromRaw::create_vertices(const OBJRawObject &curr_object,
 
 void OBJMeshFromRaw::create_polys_loops(const OBJRawObject &curr_object, int64_t tot_face_elems)
 {
+  /* May not be used conditionally. */
+  MDeformVert *deform_vert = mesh_from_raw_->dvert = nullptr;
+  float deform_weight = 0.0f;
+  if (curr_object.use_vertex_groups() && curr_object.tot_verts()) {
+    deform_vert = (MDeformVert *)CustomData_add_layer(
+        &mesh_from_raw_->vdata, CD_MDEFORMVERT, CD_CALLOC, nullptr, curr_object.tot_verts());
+    deform_vert->dw = (MDeformWeight *)MEM_callocN(curr_object.tot_verts() * sizeof(MDeformWeight),
+                                                   "OBJImportDeformWeight");
+    deform_weight = 1.0f / curr_object.tot_verts();
+  }
+  else {
+    UNUSED_VARS(deform_vert, deform_weight);
+  }
+  Map<std::string, int> group_defnr;
+
   int tot_loop_idx = 0;
   for (int poly_idx = 0; poly_idx < tot_face_elems; ++poly_idx) {
     const OBJFaceElem &curr_face = curr_object.face_elements()[poly_idx];
@@ -95,7 +112,23 @@ void OBJMeshFromRaw::create_polys_loops(const OBJRawObject &curr_object, int64_t
       MLoop *mloop = &mesh_from_raw_->mloop[tot_loop_idx];
       tot_loop_idx++;
       mloop->v = curr_face.face_corners[loop_of_poly_idx].vert_index;
+      if (deform_vert && deform_vert[mloop->v].dw) {
+        /* Every vertex in a face is assigned the same deform group.
+         * Group names are the keys. If a new group is found, Map adds a new def_nr & mDeformWeight
+         * stores it. They're added to the Object in the same order of keys.
+         */
+        *(deform_vert[mloop->v].dw) = {static_cast<unsigned int>(group_defnr.lookup_or_add(
+                                           curr_face.vertex_group, group_defnr.size())),
+                                       deform_weight};
+      }
     }
+  }
+  /* Add deform_vert listbase to the object. */
+  if (!curr_object.use_vertex_groups()) {
+    return;
+  }
+  for (const std::string &group : group_defnr.keys()) {
+    BKE_object_defgroup_add_name(mesh_object_.get(), group.c_str());
   }
 }
 
@@ -117,11 +150,8 @@ void OBJMeshFromRaw::create_uv_verts(const OBJRawObject &curr_object,
                                      const GlobalVertices &global_vertices)
 {
   if (curr_object.tot_uv_verts() > 0 && curr_object.tot_uv_vert_indices() > 0) {
-    MLoopUV *mluv_dst = (MLoopUV *)CustomData_add_layer(&mesh_from_ob_->ldata,
-                                                        CD_MLOOPUV,
-                                                        CD_DUPLICATE,
-                                                        mesh_from_ob_->mloopuv,
-                                                        curr_object.tot_loops());
+    MLoopUV *mluv_dst = (MLoopUV *)CustomData_add_layer(
+        &mesh_from_raw_->ldata, CD_MLOOPUV, CD_CALLOC, nullptr, curr_object.tot_loops());
     int tot_loop_idx = 0;
     for (const OBJFaceElem &curr_face : curr_object.face_elements()) {
       for (const OBJFaceCorner &curr_corner : curr_face.face_corners) {

@@ -417,8 +417,8 @@ const char *OBJMesh::get_poly_deform_group_name(const MPoly &mpoly, short &r_las
     dvert = &dvert_orig[(mloop + loop_index)->v];
     curr_weight = dvert->dw;
     if (curr_weight) {
-      bDeformGroup *vertex_group = (bDeformGroup *)BLI_findlink(
-          (ListBase *)(&export_object_eval_->defbase), curr_weight->def_nr);
+      bDeformGroup *vertex_group = (bDeformGroup *)BLI_findlink((&export_object_eval_->defbase),
+                                                                curr_weight->def_nr);
       if (vertex_group) {
         deform_group_members[curr_weight->def_nr] += 1;
         found_group = true;
@@ -447,7 +447,7 @@ const char *OBJMesh::get_poly_deform_group_name(const MPoly &mpoly, short &r_las
 
   r_last_vertex_group = max_idx;
   const bDeformGroup &vertex_group = *(
-      (bDeformGroup *)BLI_findlink((ListBase *)(&export_object_eval_->defbase), max_idx));
+      (bDeformGroup *)BLI_findlink(&export_object_eval_->defbase, max_idx));
 
   return vertex_group.name;
 }
