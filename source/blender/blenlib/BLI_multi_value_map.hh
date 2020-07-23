@@ -17,16 +17,33 @@
 #ifndef __BLI_MULTI_VALUE_MAP_HH__
 #define __BLI_MULTI_VALUE_MAP_HH__
 
+/** \file
+ * \ingroup bli
+ *
+ * A `blender::MultiValueMap<Key, Value>` is an unordered associative container that stores
+ * key-value pairs. It is different from `blender::Map` in that it can store multiple values for
+ * the same key. The list of values that corresponds to a specific key can contain duplicates.
+ *
+ * Currently, this class exists mainly for convenience. There are no performance benefits over
+ * using Map<Key, Vector<Value>>. In the future, a better implementation for this data structure
+ * can be developed.
+ */
+
 #include "BLI_map.hh"
 #include "BLI_vector.hh"
 
 namespace blender {
 
-template<typename Key, typename Value, typename Allocator = GuardedAllocator> class MultiValueMap {
+template<typename Key, typename Value> class MultiValueMap {
  private:
-  Map<Key, Vector<Value>> map_;
+  using MapType = Map<Key, Vector<Value>>;
+  MapType map_;
 
  public:
+  /**
+   * Add a new value for the given key. If the map contains the key already, the value will be
+   * appended to the list of corresponding values.
+   */
   void add(const Key &key, const Value &value)
   {
     this->add_as(key, value);
@@ -50,6 +67,9 @@ template<typename Key, typename Value, typename Allocator = GuardedAllocator> cl
     vector.append(std::forward<ForwardValue>(value));
   }
 
+  /**
+   * Add all given values to the key.
+   */
   void add_multiple(const Key &key, Span<Value> values)
   {
     this->add_multiple_as(key, values);
@@ -64,6 +84,9 @@ template<typename Key, typename Value, typename Allocator = GuardedAllocator> cl
     vector.extend(values);
   }
 
+  /**
+   * Get a span to all the values that are stored for the given key.
+   */
   Span<Value> lookup(const Key &key) const
   {
     return this->lookup_as(key);
@@ -77,12 +100,26 @@ template<typename Key, typename Value, typename Allocator = GuardedAllocator> cl
     return {};
   }
 
-  auto items() const
+  /**
+   * Note: This signature will change when the implementation changes.
+   */
+  MapType::ItemIterator items() const
   {
     return map_.items();
   }
 
-  auto values() const
+  /**
+   * Note: This signature will change when the implementation changes.
+   */
+  MapType::KeyIterator keys() const
+  {
+    return map_.values();
+  }
+
+  /**
+   * Note: This signature will change when the implementation changes.
+   */
+  MapType::ValueIterator values() const
   {
     return map_.values();
   }
