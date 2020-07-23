@@ -24,6 +24,9 @@
  * key-value pairs. It is different from `blender::Map` in that it can store multiple values for
  * the same key. The list of values that corresponds to a specific key can contain duplicates.
  *
+ * This data structure is different from a `std::multi_map`, because multi_map can store the same
+ * key more than once and MultiValueMap can't.
+ *
  * Currently, this class exists mainly for convenience. There are no performance benefits over
  * using Map<Key, Vector<Value>>. In the future, a better implementation for this data structure
  * can be developed.
@@ -103,7 +106,7 @@ template<typename Key, typename Value> class MultiValueMap {
   /**
    * Note: This signature will change when the implementation changes.
    */
-  MapType::ItemIterator items() const
+  typename MapType::ItemIterator items() const
   {
     return map_.items();
   }
@@ -111,7 +114,7 @@ template<typename Key, typename Value> class MultiValueMap {
   /**
    * Note: This signature will change when the implementation changes.
    */
-  MapType::KeyIterator keys() const
+  typename MapType::KeyIterator keys() const
   {
     return map_.values();
   }
@@ -119,7 +122,7 @@ template<typename Key, typename Value> class MultiValueMap {
   /**
    * Note: This signature will change when the implementation changes.
    */
-  MapType::ValueIterator values() const
+  typename MapType::ValueIterator values() const
   {
     return map_.values();
   }
