@@ -50,9 +50,10 @@ void OBJCurveFromRaw::create_nurbs(const OBJRawObject &curr_object,
 
   BKE_nurb_points_add(nurb, tot_vert);
   for (int i = 0; i < tot_vert; i++) {
-    copy_v3_v3(nurb->bp[i].vec, global_vertices.vertices[raw_nurbs.curv_indices[i]]);
-    nurb->bp->vec[3] = 1.0f;
-    nurb->bp->weight = 1.0f;
+    BPoint &bpoint = nurb->bp[i];
+    copy_v3_v3(bpoint.vec, global_vertices.vertices[raw_nurbs.curv_indices[i]]);
+    bpoint.vec[3] = 1.0f;
+    bpoint.weight = 1.0f;
   }
   BKE_nurb_knot_calc_u(nurb);
 
