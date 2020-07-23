@@ -94,15 +94,15 @@ static void raw_to_blender_objects(Main *bmain,
                                    Vector<std::unique_ptr<OBJRawObject>> &list_of_objects,
                                    const GlobalVertices global_vertices)
 {
-  OBJImportCollection parent{bmain, scene};
+  OBJImportCollection import_collection{bmain, scene};
   for (const std::unique_ptr<OBJRawObject> &curr_object : list_of_objects) {
     if (curr_object->object_type() & OB_MESH) {
-      OBJMeshFromRaw mesh_from_raw{*curr_object, global_vertices};
-      parent.add_object_to_collection(curr_object.get(), mesh_from_raw.mover());
+      OBJMeshFromRaw mesh_ob_from_raw{bmain, *curr_object, global_vertices};
+      import_collection.add_object_to_collection(mesh_ob_from_raw.mover());
     }
     else if (curr_object->object_type() & (OB_CURVE | CU_NURBS)) {
-      OBJCurveFromRaw nurbs_from_raw(bmain, *curr_object, global_vertices);
-      parent.add_object_to_collection(curr_object.get(), nurbs_from_raw.mover());
+      OBJCurveFromRaw curve_ob_from_raw(bmain, *curr_object, global_vertices);
+      import_collection.add_object_to_collection(curve_ob_from_raw.mover());
     }
   }
 }

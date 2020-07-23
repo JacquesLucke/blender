@@ -34,8 +34,8 @@ void OBJCurveFromRaw::create_nurbs(const OBJRawObject &curr_object,
                                    const GlobalVertices &global_vertices)
 {
   const int64_t tot_vert{curr_object.nurbs_elem().curv_indices.size()};
-  const NurbsElem &raw_nurbs = curr_object.nurbs_elem();
-  Nurb *nurb = (Nurb *)curve_from_ob_->nurb.first;
+  const OBJNurbsElem &raw_nurbs = curr_object.nurbs_elem();
+  Nurb *nurb = (Nurb *)curve_from_raw_->nurb.first;
 
   nurb->type = CU_NURBS;
   nurb->next = nurb->prev = nullptr;
@@ -86,17 +86,25 @@ OBJCurveFromRaw::OBJCurveFromRaw(Main *bmain,
                                  const OBJRawObject &curr_object,
                                  const GlobalVertices global_vertices)
 {
-  /* Set curve specific settings. */
-  curve_from_ob_.reset(BKE_curve_add(bmain, curr_object.object_name().c_str(), OB_CURVE));
-  curve_from_ob_->flag = CU_3D;
-  curve_from_ob_->resolu = curve_from_ob_->resolv = 12;
+  std::string ob_name = curr_object.object_name();
+  if (ob_name.empty() && !curr_object.group().empty()) {
+    ob_name = curr_object.group();
+  }
+  else {
+    ob_name = "Untitled";
+  }
+  curve_from_raw_.reset(BKE_curve_add(bmain, curr_object.object_name().c_str(), OB_CURVE));
+  curve_object_.reset(BKE_object_add_only_object(bmain, OB_CURVE, ob_name.c_str()));
+
+  curve_from_raw_->flag = CU_3D;
+  curve_from_raw_->resolu = curve_from_raw_->resolv = 12;
   /* Only one NURBS exists. */
-  curve_from_ob_->actnu = 0;
+  curve_from_raw_->actnu = 0;
 
   Nurb *nurb = (Nurb *)MEM_callocN(sizeof(Nurb), "OBJ import NURBS curve");
-  BLI_addtail(BKE_curve_nurbs_get(curve_from_ob_.get()), nurb);
-
-  /* Set NURBS specific settings. */
+  BLI_addtail(BKE_curve_nurbs_get(curve_from_raw_.get()), nurb);
   create_nurbs(curr_object, global_vertices);
+
+  curve_object_->data = curve_from_raw_.release();
 }
 }  // namespace blender::io::obj

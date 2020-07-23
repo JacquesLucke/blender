@@ -265,7 +265,7 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_o
 
       Vector<string> str_corners_split;
       split_by_char(s_line.str(), ' ', str_corners_split);
-      for (auto &str_corner : str_corners_split) {
+      for (const string &str_corner : str_corners_split) {
         OBJFaceCorner corner;
         size_t n_slash = std::count(str_corner.begin(), str_corner.end(), '/');
         if (n_slash == 0) {
@@ -332,7 +332,7 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_o
       str_curv_split.remove(0);
       (*curr_ob)->nurbs_element_.curv_indices.resize(str_curv_split.size());
       copy_string_to_int(str_curv_split, (*curr_ob)->nurbs_element_.curv_indices);
-      for (auto &curv_point : (*curr_ob)->nurbs_element_.curv_indices) {
+      for (const int &curv_point : (*curr_ob)->nurbs_element_.curv_indices) {
         curv_point -= curv_point > 0 ? 1 : -(global_vertices.vertices.size());
       }
     }

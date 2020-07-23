@@ -24,6 +24,9 @@
 #ifndef __WAVEFRONT_OBJ_IM_OBJECTS_HH__
 #define __WAVEFRONT_OBJ_IM_OBJECTS_HH__
 
+#include "BKE_lib_id.h"
+#include "BKE_object.h"
+
 #include "BLI_float2.hh"
 #include "BLI_float3.hh"
 #include "BLI_string_ref.hh"
@@ -34,8 +37,6 @@
 #include "DNA_meshdata_types.h"
 #include "DNA_object_types.h"
 
-#include "wavefront_obj_im_mesh.hh"
-#include "wavefront_obj_im_nurbs.hh"
 #include "wavefront_obj_im_objects.hh"
 
 namespace blender::io::obj {
@@ -60,6 +61,7 @@ struct OBJFaceCorner {
 };
 
 struct OBJFaceElem {
+  std::string vertex_group{};
   bool shaded_smooth = false;
   Vector<OBJFaceCorner> face_corners;
 };
@@ -67,7 +69,7 @@ struct OBJFaceElem {
 /**
  * Contains data for one single NURBS curve in the OBJ file.
  */
-struct NurbsElem {
+struct OBJNurbsElem {
   /**
    * For curves, groups may be used to specify multiple splines in the same curve object.
    * It may also serve as the name of the curve if not specified explicitly.
@@ -102,7 +104,7 @@ class OBJRawObject {
   /** Edges written in the file in addition to (or even without polygon) elements. */
   Vector<MEdge> edges_{};
   Vector<OBJFaceElem> face_elements_{};
-  NurbsElem nurbs_element_;
+  OBJNurbsElem nurbs_element_;
   int tot_loops_ = 0;
   int tot_normals_ = 0;
   /** Total UV vertices referred to by an object's faces. */
@@ -125,12 +127,21 @@ class OBJRawObject {
   const int tot_normals() const;
   const int tot_uv_verts() const;
 
-  const NurbsElem &nurbs_elem() const;
+  const OBJNurbsElem &nurbs_elem() const;
   const std::string &group() const;
 
   /* Parser class edits all the parameters of the Raw object class. */
   friend class OBJParser;
 };
+
+struct UniqueObjectDeleter {
+  void operator()(Object *object)
+  {
+    BKE_id_free(NULL, object);
+  }
+};
+
+using unique_object_ptr = std::unique_ptr<Object, UniqueObjectDeleter>;
 
 class OBJImportCollection {
  private:
@@ -144,8 +155,7 @@ class OBJImportCollection {
  public:
   OBJImportCollection(Main *bmain, Scene *scene);
 
-  void add_object_to_collection(const OBJRawObject *object_to_add, unique_mesh_ptr mesh);
-  void add_object_to_collection(const OBJRawObject *object_to_add, unique_curve_ptr curve);
+  void add_object_to_collection(unique_object_ptr b_object);
 };
 }  // namespace blender::io::obj
 

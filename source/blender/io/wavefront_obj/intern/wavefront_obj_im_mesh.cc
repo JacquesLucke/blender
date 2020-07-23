@@ -34,24 +34,38 @@
 
 namespace blender::io::obj {
 /**
- * Make a Blender Mesh block from a raw object of OB_MESH type.
+ * Make a Blender Mesh Object from a raw object of OB_MESH type.
  * Use the mover function to own the mesh.
  */
-OBJMeshFromRaw::OBJMeshFromRaw(const OBJRawObject &curr_object,
+OBJMeshFromRaw::OBJMeshFromRaw(Main *bmain,
+                               const OBJRawObject &curr_object,
                                const GlobalVertices global_vertices)
 {
+  std::string ob_name = curr_object.object_name();
+  if (ob_name.empty()) {
+    ob_name = "Untitled";
+  }
   const int64_t tot_verts_object{curr_object.tot_verts()};
   const int64_t tot_edges{curr_object.tot_edges()};
   const int64_t tot_face_elems{curr_object.tot_face_elems()};
-  mesh_from_ob_.reset(BKE_mesh_new_nomain(
+
+  mesh_from_raw_.reset(BKE_mesh_new_nomain(
       tot_verts_object, tot_edges, 0, curr_object.tot_loops(), tot_face_elems));
+  mesh_object_.reset(BKE_object_add_only_object(bmain, OB_MESH, ob_name.c_str()));
+  mesh_object_->data = BKE_object_obdata_add_from_type(bmain, OB_MESH, ob_name.c_str());
 
   create_vertices(curr_object, global_vertices, tot_verts_object);
-  create_loops(curr_object, tot_face_elems);
+  create_polys_loops(curr_object, tot_face_elems);
   create_edges(curr_object, tot_edges);
   create_uv_verts(curr_object, global_vertices);
 
-  BKE_mesh_validate(mesh_from_ob_.get(), false, true);
+  BKE_mesh_validate(mesh_from_raw_.get(), false, true);
+
+  BKE_mesh_nomain_to_mesh(mesh_from_raw_.release(),
+                          (Mesh *)mesh_object_->data,
+                          mesh_object_.get(),
+                          &CD_MASK_EVERYTHING,
+                          true);
 }
 
 void OBJMeshFromRaw::create_vertices(const OBJRawObject &curr_object,
@@ -59,18 +73,18 @@ void OBJMeshFromRaw::create_vertices(const OBJRawObject &curr_object,
                                      int64_t tot_verts_object)
 {
   for (int i = 0; i < tot_verts_object; ++i) {
-    /* Current object's vertex indices index into global list of vertex coordinates. */
-    copy_v3_v3(mesh_from_ob_->mvert[i].co,
+    /* Current object's vertex indices index into the global list of vertex coordinates. */
+    copy_v3_v3(mesh_from_raw_->mvert[i].co,
                global_vertices.vertices[curr_object.vertex_indices()[i]]);
   }
 }
 
-void OBJMeshFromRaw::create_loops(const OBJRawObject &curr_object, int64_t tot_face_elems)
+void OBJMeshFromRaw::create_polys_loops(const OBJRawObject &curr_object, int64_t tot_face_elems)
 {
   int tot_loop_idx = 0;
   for (int poly_idx = 0; poly_idx < tot_face_elems; ++poly_idx) {
     const OBJFaceElem &curr_face = curr_object.face_elements()[poly_idx];
-    MPoly &mpoly = mesh_from_ob_->mpoly[poly_idx];
+    MPoly &mpoly = mesh_from_raw_->mpoly[poly_idx];
     mpoly.totloop = curr_face.face_corners.size();
     mpoly.loopstart = tot_loop_idx;
     if (curr_face.shaded_smooth) {
@@ -78,7 +92,7 @@ void OBJMeshFromRaw::create_loops(const OBJRawObject &curr_object, int64_t tot_f
     }
 
     for (int loop_of_poly_idx = 0; loop_of_poly_idx < mpoly.totloop; ++loop_of_poly_idx) {
-      MLoop *mloop = &mesh_from_ob_->mloop[tot_loop_idx];
+      MLoop *mloop = &mesh_from_raw_->mloop[tot_loop_idx];
       tot_loop_idx++;
       mloop->v = curr_face.face_corners[loop_of_poly_idx].vert_index;
     }
@@ -88,15 +102,15 @@ void OBJMeshFromRaw::create_loops(const OBJRawObject &curr_object, int64_t tot_f
 void OBJMeshFromRaw::create_edges(const OBJRawObject &curr_object, int64_t tot_edges)
 {
   for (int i = 0; i < tot_edges; ++i) {
-    const auto &curr_edge = curr_object.edges()[i];
-    mesh_from_ob_->medge[i].v1 = curr_edge.v1;
-    mesh_from_ob_->medge[i].v2 = curr_edge.v2;
+    const MEdge &curr_edge = curr_object.edges()[i];
+    mesh_from_raw_->medge[i].v1 = curr_edge.v1;
+    mesh_from_raw_->medge[i].v2 = curr_edge.v2;
   }
 
   /* Set argument `update` to true so that existing explicitly imported edges can be merged
    * with the new ones created from polygons. */
-  BKE_mesh_calc_edges(mesh_from_ob_.get(), true, false);
-  BKE_mesh_calc_edges_loose(mesh_from_ob_.get());
+  BKE_mesh_calc_edges(mesh_from_raw_.get(), true, false);
+  BKE_mesh_calc_edges_loose(mesh_from_raw_.get());
 }
 
 void OBJMeshFromRaw::create_uv_verts(const OBJRawObject &curr_object,

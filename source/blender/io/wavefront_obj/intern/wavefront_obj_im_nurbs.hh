@@ -30,10 +30,9 @@
 
 #include "BLI_utility_mixins.hh"
 
+#include "wavefront_obj_im_objects.hh"
+
 namespace blender::io::obj {
-/* Avoid cyclic dependency build errors. */
-class OBJRawObject;
-struct GlobalVertices;
 
 /** Free a curve's memory using Blender's memory management. */
 struct UniqueCurveDeleter {
@@ -52,16 +51,23 @@ using unique_curve_ptr = std::unique_ptr<Curve, UniqueCurveDeleter>;
 
 class OBJCurveFromRaw : NonMovable, NonCopyable {
  private:
-  unique_curve_ptr curve_from_ob_;
+  /**
+   * Curve datablock of type CU_NURBS made from OBJ data..
+   */
+  unique_curve_ptr curve_from_raw_;
+  /**
+   * Object of type OB_CURVE. Use the mover function to own it.
+   */
+  unique_object_ptr curve_object_;
 
  public:
   OBJCurveFromRaw(Main *bmain,
                   const OBJRawObject &curr_object,
                   const GlobalVertices global_vertices);
 
-  unique_curve_ptr mover()
+  unique_object_ptr mover()
   {
-    return std::move(curve_from_ob_);
+    return std::move(curve_object_);
   }
 
  private:

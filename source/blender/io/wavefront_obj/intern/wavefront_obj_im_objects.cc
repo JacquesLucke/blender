@@ -107,7 +107,7 @@ const int OBJRawObject::tot_uv_verts() const
   return tot_uv_verts_;
 }
 
-const NurbsElem &OBJRawObject::nurbs_elem() const
+const OBJNurbsElem &OBJRawObject::nurbs_elem() const
 {
   return nurbs_element_;
 }
@@ -127,46 +127,11 @@ OBJImportCollection::OBJImportCollection(Main *bmain, Scene *scene) : bmain_(bma
 }
 
 /**
- * Add the given Mesh object to the OBJ import collection.
+ * Add the given Mesh/CurveUniqueObjectDeleter object to the OBJ import collection.
  */
-void OBJImportCollection::add_object_to_collection(const OBJRawObject *object_to_add,
-                                                   unique_mesh_ptr mesh)
+void OBJImportCollection::add_object_to_collection(unique_object_ptr b_object)
 {
-  std::string ob_name = object_to_add->object_name();
-  if (ob_name.empty()) {
-    ob_name = "Untitled";
-  }
-  std::unique_ptr<Object> b_object{BKE_object_add_only_object(bmain_, OB_MESH, ob_name.c_str())};
-  b_object->data = BKE_object_obdata_add_from_type(bmain_, OB_MESH, ob_name.c_str());
-
-  BKE_mesh_nomain_to_mesh(
-      mesh.release(), (Mesh *)b_object->data, b_object.get(), &CD_MASK_EVERYTHING, true);
-
   BKE_collection_object_add(bmain_, obj_import_collection_, b_object.release());
-
-  id_fake_user_set(&obj_import_collection_->id);
-  DEG_id_tag_update(&obj_import_collection_->id, ID_RECALC_COPY_ON_WRITE);
-  DEG_relations_tag_update(bmain_);
-}
-
-/**
- * Add the given curve object to the OBJ import collection.
- */
-void OBJImportCollection::add_object_to_collection(const OBJRawObject *object_to_add,
-                                                   unique_curve_ptr curve)
-{
-  std::string ob_name = object_to_add->object_name();
-  if (ob_name.empty() && !object_to_add->group().empty()) {
-    ob_name = object_to_add->group();
-  }
-  else {
-    ob_name = "Untitled";
-  }
-  std::unique_ptr<Object> b_object{BKE_object_add_only_object(bmain_, OB_CURVE, ob_name.c_str())};
-  b_object->data = curve.release();
-
-  BKE_collection_object_add(bmain_, obj_import_collection_, b_object.release());
-
   id_fake_user_set(&obj_import_collection_->id);
   DEG_id_tag_update(&obj_import_collection_->id, ID_RECALC_COPY_ON_WRITE);
   DEG_relations_tag_update(bmain_);

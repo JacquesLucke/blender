@@ -32,9 +32,9 @@
 
 #include "bmesh.h"
 
+#include "wavefront_obj_im_objects.hh"
+
 namespace blender::io::obj {
-class OBJRawObject;
-struct GlobalVertices;
 /**
  * An custom unique_ptr deleter for a Mesh object.
  */
@@ -52,21 +52,30 @@ using unique_mesh_ptr = std::unique_ptr<Mesh, UniqueMeshDeleter>;
 
 class OBJMeshFromRaw : NonMovable, NonCopyable {
  private:
-  unique_mesh_ptr mesh_from_ob_;
+  /**
+   * Mesh datablock made from OBJ data.
+   */
+  unique_mesh_ptr mesh_from_raw_;
+  /**
+   * An Object of type OB_MESH. Use the mover function to own it.
+   */
+  unique_object_ptr mesh_object_;
 
  public:
-  OBJMeshFromRaw(const OBJRawObject &curr_object, const GlobalVertices global_vertices);
+  OBJMeshFromRaw(Main *bmain,
+                 const OBJRawObject &curr_object,
+                 const GlobalVertices global_vertices);
 
-  unique_mesh_ptr mover()
+  unique_object_ptr mover()
   {
-    return std::move(mesh_from_ob_);
+    return std::move(mesh_object_);
   }
 
  private:
   void create_vertices(const OBJRawObject &curr_object,
                        const GlobalVertices &global_vertices,
                        int64_t tot_verts_object);
-  void create_loops(const OBJRawObject &curr_object, int64_t tot_face_elems);
+  void create_polys_loops(const OBJRawObject &curr_object, int64_t tot_face_elems);
   void create_edges(const OBJRawObject &curr_object, int64_t tot_edges);
   void create_uv_verts(const OBJRawObject &curr_object, const GlobalVertices &global_vertices);
 };
