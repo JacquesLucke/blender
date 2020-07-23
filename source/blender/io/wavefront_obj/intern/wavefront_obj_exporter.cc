@@ -118,17 +118,17 @@ static void export_frame(ViewLayer *view_layer,
   }
 
   /* Meshes, and curves to be exported in mesh form. */
-  Vector<std::unique_ptr<OBJMesh>> exportable_meshes;
+  Vector<std::unique_ptr<OBJMesh>> exportable_as_mesh;
   /* NURBS to be exported in parameter form. */
-  Vector<std::unique_ptr<OBJNurbs>> exportable_nurbs;
+  Vector<std::unique_ptr<OBJNurbs>> exportable_as_nurbs;
   find_exportable_objects(
-      view_layer, depsgraph, export_params, exportable_meshes, exportable_nurbs);
+      view_layer, depsgraph, export_params, exportable_as_mesh, exportable_as_nurbs);
 
   if (export_params.export_materials) {
     /* Create an empty MTL file in the beginning, to be appended later. */
     frame_writer.write_mtllib(filepath);
   }
-  for (std::unique_ptr<OBJMesh> &mesh_to_export : exportable_meshes) {
+  for (std::unique_ptr<OBJMesh> &mesh_to_export : exportable_as_mesh) {
     frame_writer.write_object_name(*mesh_to_export);
     frame_writer.write_vertex_coords(*mesh_to_export);
 
@@ -153,7 +153,7 @@ static void export_frame(ViewLayer *view_layer,
     frame_writer.update_index_offsets(*mesh_to_export);
   }
   /* Export nurbs in parm form, not as vertices and edges. */
-  for (std::unique_ptr<OBJNurbs> &nurbs_to_export : exportable_nurbs) {
+  for (std::unique_ptr<OBJNurbs> &nurbs_to_export : exportable_as_nurbs) {
     frame_writer.write_nurbs_curve(*nurbs_to_export);
   }
 }
