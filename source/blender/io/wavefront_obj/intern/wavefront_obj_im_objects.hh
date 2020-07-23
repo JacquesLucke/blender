@@ -36,24 +36,33 @@
 
 #include "wavefront_obj_im_mesh.hh"
 #include "wavefront_obj_im_nurbs.hh"
+#include "wavefront_obj_im_objects.hh"
 
 namespace blender::io::obj {
+/**
+ * List of all vertex and UV vertex coordinates in an OBJ file accessible to any
+ * raw object at any time.
+ */
 struct GlobalVertices {
   Vector<float3> vertices{};
   Vector<float2> uv_vertices{};
 };
 
-typedef struct OBJFaceCorner {
+/**
+ * A face's corner in an OBJ file. In Blender, it translates to a mloop vertex.
+ */
+struct OBJFaceCorner {
+  /* This index should stay local to a raw object, & not index into the global list of vertices. */
   int vert_index;
   /* -1 is to indicate abscense of UV vertices. Only < 0 condition should be checked since
    * it can be less than -1 too. */
   int uv_vert_index = -1;
-} OBJFaceCorner;
+};
 
-typedef struct OBJFaceElem {
+struct OBJFaceElem {
   bool shaded_smooth = false;
   Vector<OBJFaceCorner> face_corners;
-} OBJFaceElem;
+};
 
 /**
  * Contains data for one single NURBS curve in the OBJ file.
@@ -63,47 +72,80 @@ struct NurbsElem {
    * For curves, groups may be used to specify multiple splines in the same curve object.
    * It may also serve as the name of the curve if not specified explicitly.
    */
-  std::string group{};
+  std::string group_{};
   int degree = 0;
   /**
    * Indices into the global list of vertex coordinates. Must be non-negative.
    */
   Vector<int> curv_indices{};
+  /* Values in the parm u/v line in a curve definition. */
   Vector<float> parm{};
 };
 
 class OBJRawObject {
- public:
-  OBJRawObject(StringRef ob_name) : object_name(ob_name.data()){};
-
-  int object_type = OB_MESH;
-  std::string object_name{};
-  Vector<int> vertex_indices{};
-  Vector<int> uv_vertex_indices{};
+ private:
+  int object_type_ = OB_MESH;
+  std::string object_name_{};
+  Vector<std::string> material_name_{};
   /**
-   * Edges written in the file in addition to (or even without polygon) elements.
+   * Vertex indices that index into the global list of vertex coordinates.
+   * Lines that start with "v" are stored here, while the actual coordinates are in Global
+   * vertices list.
    */
-  Vector<MEdge> edges{};
-  Vector<OBJFaceElem> face_elements{};
-  uint tot_normals = 0;
-  uint tot_loop = 0;
-  uint tot_uv_verts = 0;
-  Vector<std::string> material_name{};
+  Vector<int> vertex_indices_{};
+  /**
+   * UV Vertex indices that index into the global list of UV vertex coordinates.
+   * Lines that start with "vn" are stored here, while the actual coordinates are in Global
+   * vertices list.
+   */
+  Vector<int> uv_vertex_indices_{};
+  /** Edges written in the file in addition to (or even without polygon) elements. */
+  Vector<MEdge> edges_{};
+  Vector<OBJFaceElem> face_elements_{};
+  NurbsElem nurbs_element_;
+  int tot_loops_ = 0;
+  int tot_normals_ = 0;
+  /** Total UV vertices referred to by an object's faces. */
+  int tot_uv_verts_ = 0;
 
-  NurbsElem nurbs_element;
+ public:
+  OBJRawObject(StringRef ob_name) : object_name_(ob_name.data()){};
+
+  const int object_type() const;
+  const std::string &object_name() const;
+  Span<int> vertex_indices() const;
+  const int64_t tot_verts() const;
+  Span<OBJFaceElem> face_elements() const;
+  const int64_t tot_face_elems() const;
+  Span<int> uv_vertex_indices() const;
+  const int64_t tot_uv_vert_indices() const;
+  Span<MEdge> edges() const;
+  const int64_t tot_edges() const;
+  const int tot_loops() const;
+  const int tot_normals() const;
+  const int tot_uv_verts() const;
+
+  const NurbsElem &nurbs_elem() const;
+  const std::string &group() const;
+
+  /* Parser class edits all the parameters of the Raw object class. */
+  friend class OBJParser;
 };
 
-class OBJParentCollection {
+class OBJImportCollection {
  private:
   Main *bmain_;
   Scene *scene_;
-  Collection *parent_collection_;
+  /**
+   * The collection that holds all the imported objects.
+   */
+  Collection *obj_import_collection_;
 
  public:
-  OBJParentCollection(Main *bmain, Scene *scene);
+  OBJImportCollection(Main *bmain, Scene *scene);
 
-  void add_object_to_parent(OBJRawObject *object_to_add, unique_mesh_ptr mesh);
-  void add_object_to_parent(OBJRawObject *object_to_add, unique_curve_ptr curve);
+  void add_object_to_collection(const OBJRawObject *object_to_add, unique_mesh_ptr mesh);
+  void add_object_to_collection(const OBJRawObject *object_to_add, unique_curve_ptr curve);
 };
 }  // namespace blender::io::obj
 

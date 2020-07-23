@@ -36,11 +36,6 @@ namespace blender::io::obj {
 
 using std::string;
 
-OBJImporter::OBJImporter(const OBJImportParams &import_params) : import_params_(import_params)
-{
-  infile_.open(import_params_.filepath);
-}
-
 /**
  * Split the given string by the delimiter and fill the given vector.
  * If an intermediate string is empty, or space or null character, it is not appended to the
@@ -59,7 +54,7 @@ static void split_by_char(const string &in_string, char delimiter, Vector<string
 }
 
 /**
- * Substring of the given string from the start to the first ` ` if encountered.
+ * Return substring of the given string from the start upto the first ` ` if encountered.
  * If no space is found in the string, return the first character.
  */
 static string first_word_of_string(const string &in_string)
@@ -129,34 +124,58 @@ BLI_INLINE void copy_string_to_int(Span<string> src, MutableSpan<int> r_dst)
  * This relies on the fact that the object type is updated to include CU_NURBS only _after_
  * this function returns true.
  */
-static bool should_create_new_curve(std::unique_ptr<OBJRawObject> *raw_object)
+static bool create_raw_curve(std::unique_ptr<OBJRawObject> *raw_object)
 {
   if (raw_object) {
     /* After the creation of a raw object, at least one element has been found in the OBJ file
      * that indicates that this is a mesh, not a curve. */
-    if ((*raw_object)->face_elements.size() || (*raw_object)->uv_vertex_indices.size() ||
-        (*raw_object)->tot_normals) {
+    if ((*raw_object)->tot_face_elems() || (*raw_object)->tot_uv_verts() ||
+        (*raw_object)->tot_normals()) {
       return true;
     }
     else {
       /* If not, then the given object could be a curve with all fields complete.
        * So create a new object if its type contains CU_NURBS. */
-      return (*raw_object)->object_type & (OB_CURVE | CU_NURBS);
+      return (*raw_object)->object_type() & (OB_CURVE | CU_NURBS);
     }
   }
   return true;
 }
 
-void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_objects,
-                                  GlobalVertices &global_vertices)
+OBJParser::OBJParser(const OBJImportParams &import_params) : import_params_(import_params)
+{
+  infile_.open(import_params_.filepath);
+}
+
+/**
+ * Always update these offsets whenever a new object is created.
+ * See the documentation of index offsets member array too.
+ */
+void OBJParser::update_index_offsets(std::unique_ptr<OBJRawObject> *curr_ob)
+{
+  if (curr_ob) {
+    if ((*curr_ob)->object_type_ & OB_MESH) {
+      index_offsets_[VERTEX_OFF] += (*curr_ob)->vertex_indices_.size();
+      index_offsets_[UV_VERTEX_OFF] += (*curr_ob)->uv_vertex_indices_.size();
+    }
+    else if ((*curr_ob)->object_type_ & OB_CURVE) {
+      index_offsets_[VERTEX_OFF] += (*curr_ob)->nurbs_element_.curv_indices.size();
+    }
+  }
+}
+
+/**
+ * Read the OBJ file line by line and create OBJ raw objects. Also store all the vertex
+ * and UV vertex coordinates in a struct readable by all objects.
+ */
+void OBJParser::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_objects,
+                                GlobalVertices &global_vertices)
 {
   string line;
   /* Non owning raw pointer to the unique_ptr to a raw object.
-   * Needed to update object data in the same while loop.
-   * TODO ankitm Try to move the rest of the data parsing code in a conditional
-   * depending on a valid "o" object. */
+   * Needed to update object data in the same while loop. */
   std::unique_ptr<OBJRawObject> *curr_ob = nullptr;
-  /* State-setting variable: if set, they remain the same for the remaining elements. */
+  /* State-setting variables: if set, they remain the same for the remaining elements. */
   bool shaded_smooth = false;
   string object_group{};
 
@@ -165,16 +184,12 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
     std::stringstream s_line(line.substr(line_key.size()));
 
     if (line_key == "o") {
-      /* Update index offsets if an object has been processed already. */
-      if (curr_ob) {
-        index_offsets[VERTEX_OFF] += (*curr_ob)->vertex_indices.size();
-        index_offsets[UV_VERTEX_OFF] += (*curr_ob)->uv_vertex_indices.size();
-      }
+      /* Update index offsets to keep track of objects which have claimed their vertices. */
+      update_index_offsets(curr_ob);
       list_of_objects.append(std::make_unique<OBJRawObject>(s_line.str()));
       curr_ob = &list_of_objects.last();
-      (*curr_ob)->object_type = OB_MESH;
+      (*curr_ob)->object_type_ = OB_MESH;
     }
-    /* TODO ankitm Check that an object exists. */
     else if (line_key == "v") {
       float3 curr_vert;
       Vector<string> str_vert_split;
@@ -182,11 +197,12 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
       copy_string_to_float(str_vert_split, {curr_vert, 3});
       global_vertices.vertices.append(curr_vert);
       if (curr_ob) {
-        (*curr_ob)->vertex_indices.append(global_vertices.vertices.size() - 1);
+        /* Always keep indices zero-based. */
+        (*curr_ob)->vertex_indices_.append(global_vertices.vertices.size() - 1);
       }
     }
     else if (line_key == "vn") {
-      (*curr_ob)->tot_normals++;
+      (*curr_ob)->tot_normals_++;
     }
     else if (line_key == "vt") {
       float2 curr_uv_vert;
@@ -195,7 +211,7 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
       copy_string_to_float(str_uv_vert_split, {curr_uv_vert, 2});
       global_vertices.uv_vertices.append(curr_uv_vert);
       if (curr_ob) {
-        (*curr_ob)->uv_vertex_indices.append(global_vertices.uv_vertices.size() - 1);
+        (*curr_ob)->uv_vertex_indices_.append(global_vertices.uv_vertices.size() - 1);
       }
     }
     else if (line_key == "l") {
@@ -204,23 +220,25 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
       split_by_char(s_line.str(), ' ', str_edge_split);
       copy_string_to_int(str_edge_split[0], edge_v1);
       copy_string_to_int(str_edge_split[1], edge_v2);
-      /* Remove the indices of vertices "claimed" by other raw objects. "+ 1" is to make the OBJ
-       * indices one-based to C++ zero-based. In the other case, make relative index like -1 to
-       * point to the last vertex recorded in the memory. */
-      edge_v1 -= edge_v1 > 0 ? index_offsets[VERTEX_OFF] + 1 : -(global_vertices.vertices.size());
-      edge_v2 -= edge_v2 > 0 ? index_offsets[VERTEX_OFF] + 1 : -(global_vertices.vertices.size());
-      BLI_assert(edge_v1 > 0 && edge_v2 > 0);
-      (*curr_ob)->edges.append({static_cast<uint>(edge_v1), static_cast<uint>(edge_v2)});
+      /* Remove the indices of vertices "claimed" by other raw objects. Subtract 1 to make the OBJ
+       * indices (one-based) C++'s zero-based. In the other case, make relative index positive and
+       * absolute, starting with zero. */
+      edge_v1 -= edge_v1 > 0 ? index_offsets_[VERTEX_OFF] + 1 : -(global_vertices.vertices.size());
+      edge_v2 -= edge_v2 > 0 ? index_offsets_[VERTEX_OFF] + 1 : -(global_vertices.vertices.size());
+      BLI_assert(edge_v1 >= 0 && edge_v2 >= 0);
+      (*curr_ob)->edges_.append({static_cast<uint>(edge_v1), static_cast<uint>(edge_v2)});
     }
     else if (line_key == "g") {
       object_group = s_line.str();
       if (object_group.find("off") != string::npos || object_group.find("null") != string::npos) {
+        /* Set group for future elements like faces or curves to empty. */
         object_group = {};
       }
     }
     else if (line_key == "s") {
       string str_shading;
       s_line >> str_shading;
+      /* Some implementations use "0" and "null" too, in addition to "off". */
       if (str_shading != "0" && str_shading.find("off") == string::npos &&
           str_shading.find("null") == string::npos) {
         /* TODO ankitm make a string to bool function if need arises. */
@@ -237,6 +255,7 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
         }
       }
       else {
+        /* The OBJ file explicitly set shading to off. */
         shaded_smooth = false;
       }
     }
@@ -260,7 +279,7 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
           copy_string_to_int(vert_uv_split[0], corner.vert_index);
           if (vert_uv_split.size() == 2) {
             copy_string_to_int(vert_uv_split[1], corner.uv_vert_index);
-            (*curr_ob)->tot_uv_verts++;
+            (*curr_ob)->tot_uv_verts_++;
           }
         }
         else if (n_slash == 2) {
@@ -271,38 +290,39 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
           copy_string_to_int(vert_uv_normal_split[0], corner.vert_index);
           if (vert_uv_normal_split.size() == 3) {
             copy_string_to_int(vert_uv_normal_split[1], corner.uv_vert_index);
-            (*curr_ob)->tot_uv_verts++;
+            (*curr_ob)->tot_uv_verts_++;
           }
           /* Discard normals. They'll be calculated on the basis of smooth
            * shading flag. */
         }
-        corner.vert_index += corner.vert_index < 0 ? index_offsets[VERTEX_OFF] + 1 :
-                                                     -(index_offsets[VERTEX_OFF] + 1);
-        corner.uv_vert_index += corner.uv_vert_index < 0 ? index_offsets[UV_VERTEX_OFF] + 1 :
-                                                           -(index_offsets[UV_VERTEX_OFF] + 1);
+        corner.vert_index += corner.vert_index < 0 ? index_offsets_[VERTEX_OFF] + 1 :
+                                                     -(index_offsets_[VERTEX_OFF] + 1);
+        corner.uv_vert_index += corner.uv_vert_index < 0 ? index_offsets_[UV_VERTEX_OFF] + 1 :
+                                                           -(index_offsets_[UV_VERTEX_OFF] + 1);
 
         curr_face.face_corners.append(corner);
       }
 
-      (*curr_ob)->face_elements.append(curr_face);
-      (*curr_ob)->tot_loop += curr_face.face_corners.size();
+      (*curr_ob)->face_elements_.append(curr_face);
+      (*curr_ob)->tot_loops_ += curr_face.face_corners.size();
     }
     else if (line_key == "cstype") {
       if (s_line.str().find("bspline") != string::npos) {
-        if (should_create_new_curve(curr_ob)) {
+        if (create_raw_curve(curr_ob)) {
+          update_index_offsets(curr_ob);
           list_of_objects.append(std::make_unique<OBJRawObject>("NURBSCurve"));
           curr_ob = &list_of_objects.last();
-          (*curr_ob)->nurbs_element.group = object_group;
-          /* Make sure that the flags are overridden & only after a new object is created. */
-          (*curr_ob)->object_type = OB_CURVE | CU_NURBS;
+          (*curr_ob)->nurbs_element_.group_ = object_group;
+          /* Make sure that the flags are overridden & set only after a new object is created. */
+          (*curr_ob)->object_type_ = OB_CURVE | CU_NURBS;
         }
       }
       else {
-        fprintf(stderr, "Type:'%s' not supported\n", s_line.str().c_str());
+        fprintf(stderr, "Type:'%s' is not supported\n", s_line.str().c_str());
       }
     }
     else if (line_key == "deg") {
-      copy_string_to_int({s_line.str()}, (*curr_ob)->nurbs_element.degree);
+      copy_string_to_int({s_line.str()}, (*curr_ob)->nurbs_element_.degree);
     }
     else if (line_key == "curv") {
       Vector<string> str_curv_split;
@@ -310,9 +330,9 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
       /* Remove "0.0" and "1.0" from the strings. They are hardcoded. */
       str_curv_split.remove(0);
       str_curv_split.remove(0);
-      (*curr_ob)->nurbs_element.curv_indices.resize(str_curv_split.size());
-      copy_string_to_int(str_curv_split, (*curr_ob)->nurbs_element.curv_indices);
-      for (auto &curv_point : (*curr_ob)->nurbs_element.curv_indices) {
+      (*curr_ob)->nurbs_element_.curv_indices.resize(str_curv_split.size());
+      copy_string_to_int(str_curv_split, (*curr_ob)->nurbs_element_.curv_indices);
+      for (auto &curv_point : (*curr_ob)->nurbs_element_.curv_indices) {
         curv_point -= curv_point > 0 ? 1 : -(global_vertices.vertices.size());
       }
     }
@@ -321,20 +341,22 @@ void OBJImporter::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of
       split_by_char(s_line.str(), ' ', str_parm_split);
       if (str_parm_split[0] == "u" || str_parm_split[0] == "v") {
         str_parm_split.remove(0);
-        (*curr_ob)->nurbs_element.parm.resize(str_parm_split.size());
-        copy_string_to_float(str_parm_split, (*curr_ob)->nurbs_element.parm);
+        (*curr_ob)->nurbs_element_.parm.resize(str_parm_split.size());
+        copy_string_to_float(str_parm_split, (*curr_ob)->nurbs_element_.parm);
       }
       else {
-        fprintf(stderr, "Surfaces not supported: %s\n", str_parm_split[0].c_str());
+        fprintf(stderr, "Surfaces are not supported: %s\n", str_parm_split[0].c_str());
       }
     }
     else if (line_key == "end") {
+      /* Curves mark their end this way. */
       object_group = {};
     }
     else if (line_key == "usemtl") {
-      (*curr_ob)->material_name.append(s_line.str());
+      (*curr_ob)->material_name_.append(s_line.str());
     }
     else if (line_key == "#") {
+      /* This is a comment. */
     }
   }
 }

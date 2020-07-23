@@ -43,8 +43,8 @@ namespace blender::io::obj {
 /**
  * Only for debug purposes. Must not be in master.
  */
-static void print_obj_data(Vector<std::unique_ptr<OBJRawObject>> &list_of_objects,
-                           const GlobalVertices &global_vertices)
+void OBJParser::print_obj_data(Span<std::unique_ptr<OBJRawObject>> list_of_objects,
+                               const GlobalVertices &global_vertices)
 {
   for (const float3 &curr_vert : global_vertices.vertices) {
     print_v3("vert", curr_vert);
@@ -56,50 +56,53 @@ static void print_obj_data(Vector<std::unique_ptr<OBJRawObject>> &list_of_object
   printf("\n");
 
   for (const auto &curr_ob : list_of_objects) {
-    for (const int &curr_vert_idx : curr_ob->vertex_indices) {
+    for (const int &curr_vert_idx : curr_ob->vertex_indices_) {
       printf(" %d", curr_vert_idx);
     }
     printf("\nglobal_vert_index^\n");
-    for (const int &curr_uv_vert_idx : curr_ob->uv_vertex_indices) {
+    for (const int &curr_uv_vert_idx : curr_ob->uv_vertex_indices_) {
       printf(" %d", curr_uv_vert_idx);
     }
     printf("\nglobal_uv_vert_index^\n");
-    for (const OBJFaceElem &curr_face : curr_ob->face_elements) {
+    for (const OBJFaceElem &curr_face : curr_ob->face_elements_) {
       for (OBJFaceCorner a : curr_face.face_corners) {
         printf(" %d/%d", a.vert_index, a.uv_vert_index);
       }
       printf("\n");
     }
     printf("\nvert_index/uv_vert_index^\n");
-    for (StringRef b : curr_ob->material_name) {
+    for (StringRef b : curr_ob->material_name_) {
       printf("%s ", b.data());
     }
     printf("\nmat names^\n");
-    for (const int &t : curr_ob->nurbs_element.curv_indices) {
+    for (const int &t : curr_ob->nurbs_element_.curv_indices) {
       printf(" %d", t);
     }
     printf("\nnurbs curv indces^\n");
-    for (const float &t : curr_ob->nurbs_element.parm) {
+    for (const float &t : curr_ob->nurbs_element_.parm) {
       printf(" %f", t);
     }
     printf("\nnurbs parm values^\n");
   }
 }
 
+/**
+ * Make Blender Mesh, Curve etc from the raw objects and add them to the import collection.
+ */
 static void raw_to_blender_objects(Main *bmain,
                                    Scene *scene,
                                    Vector<std::unique_ptr<OBJRawObject>> &list_of_objects,
                                    const GlobalVertices global_vertices)
 {
-  OBJParentCollection parent{bmain, scene};
-  for (std::unique_ptr<OBJRawObject> &curr_object : list_of_objects) {
-    if (curr_object->object_type & OB_MESH) {
+  OBJImportCollection parent{bmain, scene};
+  for (const std::unique_ptr<OBJRawObject> &curr_object : list_of_objects) {
+    if (curr_object->object_type() & OB_MESH) {
       OBJMeshFromRaw mesh_from_raw{*curr_object, global_vertices};
-      parent.add_object_to_parent(curr_object.get(), mesh_from_raw.mover());
+      parent.add_object_to_collection(curr_object.get(), mesh_from_raw.mover());
     }
-    else if (curr_object->object_type & (OB_CURVE | CU_NURBS)) {
+    else if (curr_object->object_type() & (OB_CURVE | CU_NURBS)) {
       OBJCurveFromRaw nurbs_from_raw(bmain, *curr_object, global_vertices);
-      parent.add_object_to_parent(curr_object.get(), nurbs_from_raw.mover());
+      parent.add_object_to_collection(curr_object.get(), nurbs_from_raw.mover());
     }
   }
 }
@@ -108,13 +111,14 @@ void importer_main(bContext *C, const OBJImportParams &import_params)
 {
   Main *bmain = CTX_data_main(C);
   Scene *scene = CTX_data_scene(C);
+  /* List of raw OBJ objects. */
   Vector<std::unique_ptr<OBJRawObject>> list_of_objects;
-  OBJImporter importer{import_params};
+  OBJParser parser{import_params};
   GlobalVertices global_vertices;
 
-  importer.parse_and_store(list_of_objects, global_vertices);
+  parser.parse_and_store(list_of_objects, global_vertices);
+  parser.print_obj_data(list_of_objects, global_vertices);
 
-  print_obj_data(list_of_objects, global_vertices);
   raw_to_blender_objects(bmain, scene, list_of_objects, global_vertices);
 }
 }  // namespace blender::io::obj

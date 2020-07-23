@@ -28,17 +28,27 @@
 #include "wavefront_obj_im_objects.hh"
 
 namespace blender::io::obj {
-class OBJImporter {
+class OBJParser {
  private:
   const OBJImportParams &import_params_;
   std::ifstream infile_;
-  int index_offsets[2] = {0, 0};
+  /**
+   * These two numbers VERTEX_OFF and UV_VERTEX_OFF respectively keep track of how many vertices
+   * have been occupied by other objects. It is used when an index must stay local to an object,
+   * not index into the global vertices list.
+   */
+  int index_offsets_[2] = {0, 0};
 
  public:
-  OBJImporter(const OBJImportParams &import_params);
+  OBJParser(const OBJImportParams &import_params);
 
   void parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_objects,
                        GlobalVertices &global_vertices);
+  void print_obj_data(Span<std::unique_ptr<OBJRawObject>> list_of_objects,
+                      const GlobalVertices &global_vertices);
+
+ private:
+  void update_index_offsets(std::unique_ptr<OBJRawObject> *curr_ob);
 };
 
 }  // namespace blender::io::obj

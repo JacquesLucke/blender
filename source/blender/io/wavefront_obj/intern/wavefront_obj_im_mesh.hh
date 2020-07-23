@@ -35,7 +35,9 @@
 namespace blender::io::obj {
 class OBJRawObject;
 struct GlobalVertices;
-
+/**
+ * An custom unique_ptr deleter for a Mesh object.
+ */
 struct UniqueMeshDeleter {
   void operator()(Mesh *mesh)
   {
@@ -43,6 +45,9 @@ struct UniqueMeshDeleter {
   }
 };
 
+/**
+ * An unique_ptr to a Mesh with a custom deleter.
+ */
 using unique_mesh_ptr = std::unique_ptr<Mesh, UniqueMeshDeleter>;
 
 class OBJMeshFromRaw : NonMovable, NonCopyable {
@@ -56,6 +61,14 @@ class OBJMeshFromRaw : NonMovable, NonCopyable {
   {
     return std::move(mesh_from_ob_);
   }
+
+ private:
+  void create_vertices(const OBJRawObject &curr_object,
+                       const GlobalVertices &global_vertices,
+                       int64_t tot_verts_object);
+  void create_loops(const OBJRawObject &curr_object, int64_t tot_face_elems);
+  void create_edges(const OBJRawObject &curr_object, int64_t tot_edges);
+  void create_uv_verts(const OBJRawObject &curr_object, const GlobalVertices &global_vertices);
 };
 
 }  // namespace blender::io::obj

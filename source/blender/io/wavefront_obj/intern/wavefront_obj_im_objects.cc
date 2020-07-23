@@ -36,52 +36,139 @@
 
 namespace blender::io::obj {
 
-OBJParentCollection::OBJParentCollection(Main *bmain, Scene *scene) : bmain_(bmain), scene_(scene)
+const int OBJRawObject::object_type() const
 {
-  parent_collection_ = BKE_collection_add(
+  return object_type_;
+}
+
+const std::string &OBJRawObject::object_name() const
+{
+  return object_name_;
+}
+
+Span<int> OBJRawObject::vertex_indices() const
+{
+  return vertex_indices_;
+}
+
+const int64_t OBJRawObject::tot_verts() const
+{
+  return vertex_indices_.size();
+}
+
+Span<OBJFaceElem> OBJRawObject::face_elements() const
+{
+  return face_elements_;
+}
+
+const int64_t OBJRawObject::tot_face_elems() const
+{
+  return face_elements_.size();
+}
+
+Span<int> OBJRawObject::uv_vertex_indices() const
+{
+  return uv_vertex_indices_;
+}
+
+/**
+ * Return per-object total UV vertex indices that index into a global list of vertex coordinates.
+ */
+const int64_t OBJRawObject::tot_uv_vert_indices() const
+{
+  return uv_vertex_indices_.size();
+}
+
+Span<MEdge> OBJRawObject::edges() const
+{
+  return edges_;
+}
+
+const int64_t OBJRawObject::tot_edges() const
+{
+  return edges_.size();
+}
+
+const int OBJRawObject::tot_loops() const
+{
+  return tot_loops_;
+}
+
+const int OBJRawObject::tot_normals() const
+{
+  return tot_normals_;
+}
+
+/**
+ * Total UV vertices that an object's faces' corners refer to in "f" lines.
+ */
+const int OBJRawObject::tot_uv_verts() const
+{
+  return tot_uv_verts_;
+}
+
+const NurbsElem &OBJRawObject::nurbs_elem() const
+{
+  return nurbs_element_;
+}
+
+const std::string &OBJRawObject::group() const
+{
+  return nurbs_element_.group_;
+}
+
+/**
+ * Create a collection to store all imported objects.
+ */
+OBJImportCollection::OBJImportCollection(Main *bmain, Scene *scene) : bmain_(bmain), scene_(scene)
+{
+  obj_import_collection_ = BKE_collection_add(
       bmain_, scene_->master_collection, "OBJ import collection");
 }
 
-void OBJParentCollection::add_object_to_parent(OBJRawObject *object_to_add, unique_mesh_ptr mesh)
+/**
+ * Add the given Mesh object to the OBJ import collection.
+ */
+void OBJImportCollection::add_object_to_collection(const OBJRawObject *object_to_add,
+                                                   unique_mesh_ptr mesh)
 {
-  if (object_to_add->object_name.empty()) {
-    object_to_add->object_name = "Untitled";
+  std::string ob_name = object_to_add->object_name();
+  if (ob_name.empty()) {
+    ob_name = "Untitled";
   }
-  std::unique_ptr<Object> b_object{
-      BKE_object_add_only_object(bmain_, OB_MESH, object_to_add->object_name.c_str())};
-  ;
-  b_object->data = BKE_object_obdata_add_from_type(
-      bmain_, OB_MESH, object_to_add->object_name.c_str());
+  std::unique_ptr<Object> b_object{BKE_object_add_only_object(bmain_, OB_MESH, ob_name.c_str())};
+  b_object->data = BKE_object_obdata_add_from_type(bmain_, OB_MESH, ob_name.c_str());
 
   BKE_mesh_nomain_to_mesh(
       mesh.release(), (Mesh *)b_object->data, b_object.get(), &CD_MASK_EVERYTHING, true);
 
-  BKE_collection_object_add(bmain_, parent_collection_, b_object.release());
-  id_fake_user_set(&parent_collection_->id);
+  BKE_collection_object_add(bmain_, obj_import_collection_, b_object.release());
 
-  DEG_id_tag_update(&parent_collection_->id, ID_RECALC_COPY_ON_WRITE);
+  id_fake_user_set(&obj_import_collection_->id);
+  DEG_id_tag_update(&obj_import_collection_->id, ID_RECALC_COPY_ON_WRITE);
   DEG_relations_tag_update(bmain_);
 }
 
 /**
  * Add the given curve object to the OBJ import collection.
  */
-void OBJParentCollection::add_object_to_parent(OBJRawObject *object_to_add, unique_curve_ptr curve)
+void OBJImportCollection::add_object_to_collection(const OBJRawObject *object_to_add,
+                                                   unique_curve_ptr curve)
 {
-  if (object_to_add->object_name.empty() && !object_to_add->nurbs_element.group.empty()) {
-    object_to_add->object_name = object_to_add->nurbs_element.group;
+  std::string ob_name = object_to_add->object_name();
+  if (ob_name.empty() && !object_to_add->group().empty()) {
+    ob_name = object_to_add->group();
   }
   else {
-    object_to_add->object_name = "Untitled";
+    ob_name = "Untitled";
   }
-  std::unique_ptr<Object> b_object{
-      BKE_object_add_only_object(bmain_, OB_CURVE, object_to_add->object_name.c_str())};
+  std::unique_ptr<Object> b_object{BKE_object_add_only_object(bmain_, OB_CURVE, ob_name.c_str())};
   b_object->data = curve.release();
 
-  BKE_collection_object_add(bmain_, parent_collection_, b_object.release());
+  BKE_collection_object_add(bmain_, obj_import_collection_, b_object.release());
 
-  id_fake_user_set(&parent_collection_->id);
-  DEG_id_tag_update(&parent_collection_->id, ID_RECALC_COPY_ON_WRITE);
+  id_fake_user_set(&obj_import_collection_->id);
+  DEG_id_tag_update(&obj_import_collection_->id, ID_RECALC_COPY_ON_WRITE);
   DEG_relations_tag_update(bmain_);
 }
 

@@ -28,13 +28,13 @@
 
 namespace blender::io::obj {
 /**
- * Edit the NURBS spline of the curve converted from raw object.
+ * Create a NURBS spline for the Curve converted from raw object.
  */
-void OBJCurveFromRaw::edit_nurbs(const OBJRawObject &curr_object,
-                                 const GlobalVertices &global_vertices)
+void OBJCurveFromRaw::create_nurbs(const OBJRawObject &curr_object,
+                                   const GlobalVertices &global_vertices)
 {
-  const int64_t tot_vert{curr_object.nurbs_element.curv_indices.size()};
-  const NurbsElem &raw_nurbs = curr_object.nurbs_element;
+  const int64_t tot_vert{curr_object.nurbs_elem().curv_indices.size()};
+  const NurbsElem &raw_nurbs = curr_object.nurbs_elem();
   Nurb *nurb = (Nurb *)curve_from_ob_->nurb.first;
 
   nurb->type = CU_NURBS;
@@ -78,12 +78,16 @@ void OBJCurveFromRaw::edit_nurbs(const OBJRawObject &curr_object,
   }
 }
 
+/**
+ * Make a Blender NURBS Curve block from a raw object of OB_CURVE type.
+ * Use the mover function to own the curve.
+ */
 OBJCurveFromRaw::OBJCurveFromRaw(Main *bmain,
                                  const OBJRawObject &curr_object,
                                  const GlobalVertices global_vertices)
 {
   /* Set curve specific settings. */
-  curve_from_ob_.reset(BKE_curve_add(bmain, curr_object.object_name.c_str(), OB_CURVE));
+  curve_from_ob_.reset(BKE_curve_add(bmain, curr_object.object_name().c_str(), OB_CURVE));
   curve_from_ob_->flag = CU_3D;
   curve_from_ob_->resolu = curve_from_ob_->resolv = 12;
   /* Only one NURBS exists. */
@@ -93,6 +97,6 @@ OBJCurveFromRaw::OBJCurveFromRaw(Main *bmain,
   BLI_addtail(BKE_curve_nurbs_get(curve_from_ob_.get()), nurb);
 
   /* Set NURBS specific settings. */
-  edit_nurbs(curr_object, global_vertices);
+  create_nurbs(curr_object, global_vertices);
 }
 }  // namespace blender::io::obj

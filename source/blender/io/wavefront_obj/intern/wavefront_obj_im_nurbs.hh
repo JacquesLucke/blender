@@ -46,7 +46,8 @@ struct UniqueCurveDeleter {
 };
 
 /** An unique_ptr to a Curve with a custom deleter. Don't let unique_ptr free a curve with a
- * different deallocator. */
+ * different deallocator.
+ */
 using unique_curve_ptr = std::unique_ptr<Curve, UniqueCurveDeleter>;
 
 class OBJCurveFromRaw : NonMovable, NonCopyable {
@@ -64,7 +65,7 @@ class OBJCurveFromRaw : NonMovable, NonCopyable {
   }
 
  private:
-  void edit_nurbs(const OBJRawObject &curr_object, const GlobalVertices &global_vertices);
+  void create_nurbs(const OBJRawObject &curr_object, const GlobalVertices &global_vertices);
 };
 }  // namespace blender::io::obj
 #endif
