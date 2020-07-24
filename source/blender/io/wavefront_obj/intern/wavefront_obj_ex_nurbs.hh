@@ -43,8 +43,8 @@ class OBJNurbs : NonMovable, NonCopyable {
 
   const char *get_curve_name();
   const ListBase *curve_nurbs();
-  void calc_point_coords(float r_coords[3], int point_index, const Nurb *nurb);
-  void get_curve_info(int &r_nurbs_degree, int &r_curv_num, const Nurb *nurb);
+  void calc_point_coords(const Nurb *nurb, int vert_index, float r_coords[3]);
+  void get_curve_info(const Nurb *nurb, int &r_nurbs_degree, int &r_curv_num);
 };
 
 }  // namespace blender::io::obj

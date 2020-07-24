@@ -41,7 +41,7 @@ namespace blender::io::obj {
  */
 OBJMeshFromRaw::OBJMeshFromRaw(Main *bmain,
                                const OBJRawObject &curr_object,
-                               const GlobalVertices global_vertices)
+                               const GlobalVertices &global_vertices)
 {
   std::string ob_name = curr_object.object_name();
   if (ob_name.empty()) {
@@ -64,7 +64,7 @@ OBJMeshFromRaw::OBJMeshFromRaw(Main *bmain,
   BKE_mesh_validate(mesh_from_raw_.get(), false, true);
 
   BKE_mesh_nomain_to_mesh(mesh_from_raw_.release(),
-                          (Mesh *)mesh_object_->data,
+                          static_cast<Mesh *>(mesh_object_->data),
                           mesh_object_.get(),
                           &CD_MASK_EVERYTHING,
                           true);
@@ -87,8 +87,8 @@ void OBJMeshFromRaw::create_polys_loops(const OBJRawObject &curr_object, int64_t
   mesh_from_raw_->dvert = nullptr;
   float weight = 0.0f;
   if (curr_object.tot_verts() && curr_object.use_vertex_groups()) {
-    mesh_from_raw_->dvert = (MDeformVert *)CustomData_add_layer(
-        &mesh_from_raw_->vdata, CD_MDEFORMVERT, CD_CALLOC, nullptr, curr_object.tot_verts());
+    mesh_from_raw_->dvert = static_cast<MDeformVert *>(CustomData_add_layer(
+        &mesh_from_raw_->vdata, CD_MDEFORMVERT, CD_CALLOC, nullptr, curr_object.tot_verts()));
     weight = 1.0f / curr_object.tot_verts();
   }
   else {
@@ -116,8 +116,8 @@ void OBJMeshFromRaw::create_polys_loops(const OBJRawObject &curr_object, int64_t
          * Another way is to allocate memory for dvert while creating vertices and fill them here.
          */
         if (!dweight) {
-          dweight = (MDeformWeight *)MEM_callocN(sizeof(MDeformWeight),
-                                                 "OBJ Import Deform Weight");
+          dweight = static_cast<MDeformWeight *>(
+              MEM_callocN(sizeof(MDeformWeight), "OBJ Import Deform Weight"));
         }
         /* This could be slow if there are several vertex groups. But it is the simplest way to
          * clear duplicates, and retain insertion order. */
@@ -153,7 +153,7 @@ void OBJMeshFromRaw::create_edges(const OBJRawObject &curr_object, int64_t tot_e
     mesh_from_raw_->medge[i].v2 = curr_edge.v2;
   }
 
-  /* Set argument `update` to true so that existing explicitly imported edges can be merged
+  /* Set argument `update` to true so that existing, explicitly imported edges can be merged
    * with the new ones created from polygons. */
   BKE_mesh_calc_edges(mesh_from_raw_.get(), true, false);
   BKE_mesh_calc_edges_loose(mesh_from_raw_.get());
@@ -163,8 +163,8 @@ void OBJMeshFromRaw::create_uv_verts(const OBJRawObject &curr_object,
                                      const GlobalVertices &global_vertices)
 {
   if (curr_object.tot_uv_verts() > 0 && curr_object.tot_uv_vert_indices() > 0) {
-    MLoopUV *mluv_dst = (MLoopUV *)CustomData_add_layer(
-        &mesh_from_raw_->ldata, CD_MLOOPUV, CD_CALLOC, nullptr, curr_object.tot_loops());
+    MLoopUV *mluv_dst = static_cast<MLoopUV *>(CustomData_add_layer(
+        &mesh_from_raw_->ldata, CD_MLOOPUV, CD_CALLOC, nullptr, curr_object.tot_loops()));
     int tot_loop_idx = 0;
     for (const OBJFaceElem &curr_face : curr_object.face_elements()) {
       for (const OBJFaceCorner &curr_corner : curr_face.face_corners) {

@@ -54,24 +54,24 @@ class OBJMesh : NonMovable, NonCopyable {
    * Final transform of an object obtained from export settings (up_axis, forward_axis) and world
    * transform matrix.
    */
-  float world_and_axes_transform_[4][4];
+  float world_and_axes_transform_[4][4] = {};
 
   /**
    * Total vertices in a mesh.
    */
-  uint tot_vertices_;
+  uint tot_vertices_ = 0;
   /**
    * Total polygons (and thus normals) in a mesh.
    */
-  uint tot_poly_normals_;
+  uint tot_poly_normals_ = 0;
   /**
    * Total UV vertices in a mesh's texture map.
    */
-  uint tot_uv_vertices_;
+  uint tot_uv_vertices_ = 0;
   /**
    * Only for curve converted to meshes: total edges in a mesh.
    */
-  uint tot_edges_;
+  uint tot_edges_ = 0;
   /**
    * Total smooth groups in an object.
    */
@@ -85,13 +85,13 @@ class OBJMesh : NonMovable, NonCopyable {
   OBJMesh(Depsgraph *depsgraph, const OBJExportParams &export_params, Object *export_object);
   ~OBJMesh();
 
-  const uint tot_vertices();
-  const uint tot_polygons();
-  const uint tot_uv_vertices();
-  const uint tot_edges();
-  const short tot_col();
-  const uint tot_smooth_groups();
-  const int ith_smooth_group(int poly_index);
+  uint tot_vertices() const;
+  uint tot_polygons() const;
+  uint tot_uv_vertices() const;
+  uint tot_edges() const;
+  short tot_col() const;
+  uint tot_smooth_groups() const;
+  int ith_smooth_group(int poly_index) const;
 
   void ensure_mesh_normals();
   void calc_smooth_groups();
@@ -107,7 +107,7 @@ class OBJMesh : NonMovable, NonCopyable {
   void store_uv_coords_and_indices(Vector<std::array<float, 2>> &r_uv_coords,
                                    Vector<Vector<uint>> &r_uv_indices);
   void calc_poly_normal(float r_poly_normal[3], uint poly_index);
-  void calc_vertex_normal(float r_vertex_normal[3], uint vertex_index);
+  void calc_vertex_normal(float r_vertex_normal[3], uint vert_index);
   void calc_poly_normal_indices(Vector<uint> &r_normal_indices, uint poly_index);
   const char *get_poly_deform_group_name(const MPoly &mpoly, short &r_last_vertex_group);
   void calc_edge_vert_indices(uint r_vert_indices[2], uint edge_index);

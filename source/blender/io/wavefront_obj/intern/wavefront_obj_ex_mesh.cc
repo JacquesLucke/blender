@@ -154,22 +154,22 @@ void OBJMesh::store_world_axes_transform()
   copy_v4_v4(world_and_axes_transform_[3], export_object_eval_->obmat[3]);
 }
 
-const uint OBJMesh::tot_vertices()
+uint OBJMesh::tot_vertices() const
 {
   return tot_vertices_;
 }
 
-const uint OBJMesh::tot_polygons()
+uint OBJMesh::tot_polygons() const
 {
   return tot_poly_normals_;
 }
 
-const uint OBJMesh::tot_uv_vertices()
+uint OBJMesh::tot_uv_vertices() const
 {
   return tot_uv_vertices_;
 }
 
-const uint OBJMesh::tot_edges()
+uint OBJMesh::tot_edges() const
 {
   return tot_edges_;
 }
@@ -177,7 +177,7 @@ const uint OBJMesh::tot_edges()
 /**
  * Total materials in the object to export.
  */
-const short OBJMesh::tot_col()
+short OBJMesh::tot_col() const
 {
   return export_mesh_eval_->totcol;
 }
@@ -185,7 +185,7 @@ const short OBJMesh::tot_col()
 /**
  * Total smooth groups in the object to export.
  */
-const uint OBJMesh::tot_smooth_groups()
+uint OBJMesh::tot_smooth_groups() const
 {
   return tot_smooth_groups_;
 }
@@ -193,7 +193,7 @@ const uint OBJMesh::tot_smooth_groups()
 /**
  * Return smooth group of the polygon at the given index.
  */
-const int OBJMesh::ith_smooth_group(int poly_index)
+int OBJMesh::ith_smooth_group(int poly_index) const
 {
   BLI_assert(poly_smooth_groups_);
   return poly_smooth_groups_[poly_index];
@@ -268,9 +268,9 @@ const char *OBJMesh::get_object_material_name(short mat_nr)
 /**
  * Calculate coordinates of a vertex at the given index.
  */
-void OBJMesh::calc_vertex_coords(float r_coords[3], uint point_index)
+void OBJMesh::calc_vertex_coords(float r_coords[3], uint vert_index)
 {
-  copy_v3_v3(r_coords, export_mesh_eval_->mvert[point_index].co);
+  copy_v3_v3(r_coords, export_mesh_eval_->mvert[vert_index].co);
   mul_m4_v3(world_and_axes_transform_, r_coords);
   mul_v3_fl(r_coords, export_params_.scaling_factor);
 }
@@ -298,7 +298,8 @@ void OBJMesh::store_uv_coords_and_indices(Vector<std::array<float, 2>> &r_uv_coo
   const MLoop *mloop = export_mesh_eval_->mloop;
   const uint totpoly = export_mesh_eval_->totpoly;
   const uint totvert = export_mesh_eval_->totvert;
-  const MLoopUV *mloopuv = (MLoopUV *)CustomData_get_layer(&export_mesh_eval_->ldata, CD_MLOOPUV);
+  const MLoopUV *mloopuv = static_cast<MLoopUV *>(
+      CustomData_get_layer(&export_mesh_eval_->ldata, CD_MLOOPUV));
   if (!mloopuv) {
     tot_uv_vertices_ = 0;
     return;
@@ -399,26 +400,26 @@ const char *OBJMesh::get_poly_deform_group_name(const MPoly &mpoly, short &r_las
   const MLoop *mloop = &export_mesh_eval_->mloop[mpoly.loopstart];
   /* Indices of the vector index into deform groups of an object; values are the number of vertex
    * members in one deform group. */
-  Vector<int> deform_group_members;
+  Vector<int> deform_group_members{};
   uint tot_deform_groups = BLI_listbase_count(&export_object_eval_->defbase);
   deform_group_members.resize(tot_deform_groups, 0);
   /* Whether at least one vertex in the polygon belongs to any group. */
   bool found_group = false;
 
-  const MDeformVert *dvert_orig = (MDeformVert *)CustomData_get_layer(&export_mesh_eval_->vdata,
-                                                                      CD_MDEFORMVERT);
+  const MDeformVert *dvert_orig = static_cast<MDeformVert *>(
+      CustomData_get_layer(&export_mesh_eval_->vdata, CD_MDEFORMVERT));
   if (!dvert_orig) {
     return nullptr;
   }
 
-  const MDeformWeight *curr_weight;
-  const MDeformVert *dvert;
+  const MDeformWeight *curr_weight = nullptr;
+  const MDeformVert *dvert = nullptr;
   for (uint loop_index = 0; loop_index < mpoly.totloop; loop_index++) {
     dvert = &dvert_orig[(mloop + loop_index)->v];
     curr_weight = dvert->dw;
     if (curr_weight) {
-      bDeformGroup *vertex_group = (bDeformGroup *)BLI_findlink((&export_object_eval_->defbase),
-                                                                curr_weight->def_nr);
+      bDeformGroup *vertex_group = static_cast<bDeformGroup *>(
+          BLI_findlink((&export_object_eval_->defbase), curr_weight->def_nr));
       if (vertex_group) {
         deform_group_members[curr_weight->def_nr] += 1;
         found_group = true;
@@ -447,7 +448,7 @@ const char *OBJMesh::get_poly_deform_group_name(const MPoly &mpoly, short &r_las
 
   r_last_vertex_group = max_idx;
   const bDeformGroup &vertex_group = *(
-      (bDeformGroup *)BLI_findlink(&export_object_eval_->defbase, max_idx));
+      static_cast<bDeformGroup *>(BLI_findlink(&export_object_eval_->defbase, max_idx)));
 
   return vertex_group.name;
 }

@@ -140,12 +140,10 @@ void OBJWriter::write_mtllib(const char *obj_filepath)
  */
 void OBJWriter::write_object_name(OBJMesh &obj_mesh_data)
 {
-  const char *object_name;
-  object_name = obj_mesh_data.get_object_name();
+  const char *object_name = obj_mesh_data.get_object_name();
 
   if (export_params_.export_object_groups) {
-    const char *object_data_name;
-    object_data_name = obj_mesh_data.get_object_data_name();
+    const char *object_data_name = obj_mesh_data.get_object_data_name();
     fprintf(outfile_, "g %s_%s\n", object_name, object_data_name);
   }
   else {
@@ -213,7 +211,7 @@ void OBJWriter::write_smooth_group(OBJMesh &obj_mesh_data,
   if (!export_params_.export_smooth_groups || !obj_mesh_data.tot_smooth_groups()) {
     return;
   }
-  if ((obj_mesh_data.get_ith_poly(poly_index).flag & ME_SMOOTH) == true) {
+  if (obj_mesh_data.get_ith_poly(poly_index).flag & ME_SMOOTH) {
     int curr_group = obj_mesh_data.ith_smooth_group(poly_index);
     if (curr_group == r_last_face_smooth_group) {
       return;
@@ -251,13 +249,10 @@ void OBJWriter::write_poly_material(OBJMesh &obj_mesh_data,
   /* Whenever a face with a new material is encountered, write its material and group, otherwise
    * pass. */
   if (UNLIKELY(r_last_face_mat_nr == mat_nr)) {
-    const char *mat_name;
-    mat_name = obj_mesh_data.get_object_material_name(mat_nr + 1);
+    const char *mat_name = obj_mesh_data.get_object_material_name(mat_nr + 1);
     if (export_params_.export_material_groups) {
-      const char *object_name;
-      const char *object_data_name;
-      object_name = obj_mesh_data.get_object_name();
-      object_data_name = obj_mesh_data.get_object_data_name();
+      const char *object_name = obj_mesh_data.get_object_name();
+      const char *object_data_name = obj_mesh_data.get_object_data_name();
       fprintf(outfile_, "g %s_%s_%s\n", object_name, object_data_name, mat_name);
     }
     fprintf(outfile_, "usemtl %s\n", mat_name);
@@ -387,16 +382,15 @@ void OBJWriter::write_nurbs_curve(OBJNurbs &obj_nurbs_data)
     int tot_points = nurb->pntsv * nurb->pntsu;
     float point_coord[3];
     for (int point_idx = 0; point_idx < tot_points; point_idx++) {
-      obj_nurbs_data.calc_point_coords(point_coord, point_idx, nurb);
+      obj_nurbs_data.calc_point_coords(nurb, point_idx, point_coord);
       fprintf(outfile_, "v %f %f %f\n", point_coord[0], point_coord[1], point_coord[2]);
     }
 
-    const char *nurbs_name;
-    nurbs_name = obj_nurbs_data.get_curve_name();
-    int nurbs_degree;
+    const char *nurbs_name = obj_nurbs_data.get_curve_name();
+    int nurbs_degree = 0;
     /* Number of vertices in the curve + degree of the curve if it is cyclic. */
-    int curv_num;
-    obj_nurbs_data.get_curve_info(nurbs_degree, curv_num, nurb);
+    int curv_num = 0;
+    obj_nurbs_data.get_curve_info(nurb, nurbs_degree, curv_num);
 
     fprintf(outfile_, "g %s\ncstype bspline\ndeg %d\n", nurbs_name, nurbs_degree);
     /**

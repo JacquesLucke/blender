@@ -23,7 +23,6 @@
 
 #include "BKE_material.h"
 #include "BKE_node.h"
-#include "NOD_node_tree_ref.hh"
 
 #include "BLI_map.hh"
 #include "BLI_math.h"
@@ -31,40 +30,19 @@
 #include "DNA_material_types.h"
 #include "DNA_node_types.h"
 
+#include "NOD_node_tree_ref.hh"
+
 #include "wavefront_obj_ex_mtl.hh"
 
 namespace blender::io::obj {
 
 /**
- * Find the Principled-BSDF from the object's node tree & initialise class member.
- */
-void MTLWriter::init_bsdf_node(const char *object_name)
-{
-  if (!export_mtl_->use_nodes) {
-    fprintf(
-        stderr, "No Principled-BSDF node found in the material node tree of: %s.\n", object_name);
-    bsdf_node_ = nullptr;
-    return;
-  }
-  ListBase *nodes = &export_mtl_->nodetree->nodes;
-  LISTBASE_FOREACH (bNode *, curr_node, nodes) {
-    if (curr_node->typeinfo->type == SH_NODE_BSDF_PRINCIPLED) {
-      bsdf_node_ = curr_node;
-      return;
-    }
-  }
-  fprintf(
-      stderr, "No Principled-BSDF node found in the material node tree of: %s.\n", object_name);
-  bsdf_node_ = nullptr;
-}
-
-/**
  * Copy a property of the given type from the bNode to given buffer.
  */
-void MTLWriter::copy_property_from_node(float *r_property,
-                                        eNodeSocketDatatype property_type,
-                                        const bNode *curr_node,
-                                        const char *identifier)
+static void copy_property_from_node(float *r_property,
+                                    eNodeSocketDatatype property_type,
+                                    const bNode *curr_node,
+                                    const char *identifier)
 {
   if (!curr_node) {
     return;
@@ -73,17 +51,20 @@ void MTLWriter::copy_property_from_node(float *r_property,
   if (socket) {
     switch (property_type) {
       case SOCK_FLOAT: {
-        bNodeSocketValueFloat *socket_def_value = (bNodeSocketValueFloat *)socket->default_value;
+        bNodeSocketValueFloat *socket_def_value = static_cast<bNodeSocketValueFloat *>(
+            socket->default_value);
         r_property[0] = socket_def_value->value;
         break;
       }
       case SOCK_RGBA: {
-        bNodeSocketValueRGBA *socket_def_value = (bNodeSocketValueRGBA *)socket->default_value;
+        bNodeSocketValueRGBA *socket_def_value = static_cast<bNodeSocketValueRGBA *>(
+            socket->default_value);
         copy_v3_v3(r_property, socket_def_value->value);
         break;
       }
       case SOCK_VECTOR: {
-        bNodeSocketValueVector *socket_def_value = (bNodeSocketValueVector *)socket->default_value;
+        bNodeSocketValueVector *socket_def_value = static_cast<bNodeSocketValueVector *>(
+            socket->default_value);
         copy_v3_v3(r_property, socket_def_value->value);
         break;
       }
@@ -97,10 +78,10 @@ void MTLWriter::copy_property_from_node(float *r_property,
 /**
  * Collect all the source sockets linked to the destination socket in a destination node.
  */
-void MTLWriter::linked_sockets_to_dest_id(Vector<const nodes::OutputSocketRef *> &r_linked_sockets,
-                                          const bNode *dest_node,
-                                          nodes::NodeTreeRef &node_tree,
-                                          const char *dest_socket_id)
+static void linked_sockets_to_dest_id(Vector<const nodes::OutputSocketRef *> &r_linked_sockets,
+                                      const bNode *dest_node,
+                                      nodes::NodeTreeRef &node_tree,
+                                      const char *dest_socket_id)
 {
   if (!dest_node) {
     return;
@@ -127,8 +108,8 @@ void MTLWriter::linked_sockets_to_dest_id(Vector<const nodes::OutputSocketRef *>
 /**
  * From a list of sockets, get the parent node which is of the given node type.
  */
-const bNode *MTLWriter::get_node_of_type(Span<const nodes::OutputSocketRef *> sockets_list,
-                                         int sh_node_type)
+static const bNode *get_node_of_type(Span<const nodes::OutputSocketRef *> sockets_list,
+                                     int sh_node_type)
 {
   for (const nodes::SocketRef *sock : sockets_list) {
     const bNode *curr_node = sock->bnode();
@@ -143,7 +124,7 @@ const bNode *MTLWriter::get_node_of_type(Span<const nodes::OutputSocketRef *> so
  * From a texture image shader node, get the image's filepath.
  * Filepath is the exact string the node contains, relative or absolute.
  */
-const char *MTLWriter::get_image_filepath(const bNode *tex_node)
+static const char *get_image_filepath(const bNode *tex_node)
 {
   if (tex_node) {
     Image *tex_image = (Image *)tex_node->id;
@@ -154,6 +135,29 @@ const char *MTLWriter::get_image_filepath(const bNode *tex_node)
     }
   }
   return nullptr;
+}
+
+/**
+ * Find the Principled-BSDF from the object's node tree & initialise class member.
+ */
+void MTLWriter::init_bsdf_node(const char *object_name)
+{
+  if (!export_mtl_->use_nodes) {
+    fprintf(
+        stderr, "No Principled-BSDF node found in the material node tree of: %s.\n", object_name);
+    bsdf_node_ = nullptr;
+    return;
+  }
+  ListBase *nodes = &export_mtl_->nodetree->nodes;
+  LISTBASE_FOREACH (bNode *, curr_node, nodes) {
+    if (curr_node->typeinfo->type == SH_NODE_BSDF_PRINCIPLED) {
+      bsdf_node_ = curr_node;
+      return;
+    }
+  }
+  fprintf(
+      stderr, "No Principled-BSDF node found in the material node tree of: %s.\n", object_name);
+  bsdf_node_ = nullptr;
 }
 
 void MTLWriter::write_curr_material(const char *object_name)
@@ -223,7 +227,7 @@ void MTLWriter::write_curr_material(const char *object_name)
   texture_map_types.add("map_Ke", "Emission");
 
   const char *tex_image_filepath = nullptr;
-  const bNode *tex_node;
+  const bNode *tex_node = nullptr;
 
   /* Need to create a NodeTreeRef for a faster way to find linked sockets, as opposed to
    * looping over all the links in a node tree to match two sockets of our interest. */

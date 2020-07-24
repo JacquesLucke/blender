@@ -59,20 +59,8 @@ class MTLWriter {
   void append_materials(OBJMesh &mesh_to_export);
 
  private:
-  void write_curr_material(const char *object_name);
   void init_bsdf_node(const char *object_name);
-
-  void copy_property_from_node(float *r_property,
-                               eNodeSocketDatatype property_type,
-                               const bNode *curr_node,
-                               const char *identifier);
-  void linked_sockets_to_dest_id(Vector<const nodes::OutputSocketRef *> &r_linked_sockets,
-                                 const bNode *dest_node,
-                                 nodes::NodeTreeRef &node_tree,
-                                 const char *dest_socket_id);
-  const bNode *get_node_of_type(Span<const nodes::OutputSocketRef *> sockets_list,
-                                int sh_node_type);
-  const char *get_image_filepath(const bNode *tex_node);
+  void write_curr_material(const char *object_name);
 };
 }  // namespace blender::io::obj
 #endif

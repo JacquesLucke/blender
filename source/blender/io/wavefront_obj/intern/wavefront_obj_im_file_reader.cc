@@ -133,11 +133,9 @@ static bool create_raw_curve(std::unique_ptr<OBJRawObject> *raw_object)
         (*raw_object)->tot_normals()) {
       return true;
     }
-    else {
-      /* If not, then the given object could be a curve with all fields complete.
-       * So create a new object if its type contains CU_NURBS. */
-      return (*raw_object)->object_type() & (OB_CURVE | CU_NURBS);
-    }
+    /* If not, then the given object could be a curve with all fields complete.
+     * So create a new object if its type contains CU_NURBS. */
+    return (*raw_object)->object_type() & OB_CURVE;
   }
   return true;
 }
@@ -194,7 +192,7 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_o
       (*curr_ob)->object_type_ = OB_MESH;
     }
     else if (line_key == "v") {
-      float3 curr_vert;
+      float3 curr_vert{};
       Vector<string> str_vert_split;
       split_by_char(s_line.str(), ' ', str_vert_split);
       copy_string_to_float(str_vert_split, {curr_vert, 3});
@@ -208,7 +206,7 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_o
       (*curr_ob)->tot_normals_++;
     }
     else if (line_key == "vt") {
-      float2 curr_uv_vert;
+      float2 curr_uv_vert{};
       Vector<string> str_uv_vert_split;
       split_by_char(s_line.str(), ' ', str_uv_vert_split);
       copy_string_to_float(str_uv_vert_split, {curr_uv_vert, 2});
@@ -218,7 +216,7 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_o
       }
     }
     else if (line_key == "l") {
-      int edge_v1, edge_v2;
+      int edge_v1 = -1, edge_v2 = -1;
       Vector<string> str_edge_split;
       split_by_char(s_line.str(), ' ', str_edge_split);
       copy_string_to_int(str_edge_split[0], edge_v1);
@@ -322,7 +320,7 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_o
           curr_ob = &list_of_objects.last();
           (*curr_ob)->nurbs_element_.group_ = object_group;
           /* Make sure that the flags are overridden & set only after a new object is created. */
-          (*curr_ob)->object_type_ = OB_CURVE | CU_NURBS;
+          (*curr_ob)->object_type_ = OB_CURVE;
         }
       }
       else {

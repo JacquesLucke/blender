@@ -36,7 +36,7 @@
 
 namespace blender::io::obj {
 
-const int OBJRawObject::object_type() const
+int OBJRawObject::object_type() const
 {
   return object_type_;
 }
@@ -51,7 +51,7 @@ Span<int> OBJRawObject::vertex_indices() const
   return vertex_indices_;
 }
 
-const int64_t OBJRawObject::tot_verts() const
+int64_t OBJRawObject::tot_verts() const
 {
   return vertex_indices_.size();
 }
@@ -61,12 +61,12 @@ Span<OBJFaceElem> OBJRawObject::face_elements() const
   return face_elements_;
 }
 
-const int64_t OBJRawObject::tot_face_elems() const
+int64_t OBJRawObject::tot_face_elems() const
 {
   return face_elements_.size();
 }
 
-const bool OBJRawObject::use_vertex_groups() const
+bool OBJRawObject::use_vertex_groups() const
 {
   return use_vertex_groups_;
 }
@@ -79,7 +79,7 @@ Span<int> OBJRawObject::uv_vertex_indices() const
 /**
  * Return per-object total UV vertex indices that index into a global list of vertex coordinates.
  */
-const int64_t OBJRawObject::tot_uv_vert_indices() const
+int64_t OBJRawObject::tot_uv_vert_indices() const
 {
   return uv_vertex_indices_.size();
 }
@@ -89,17 +89,17 @@ Span<MEdge> OBJRawObject::edges() const
   return edges_;
 }
 
-const int64_t OBJRawObject::tot_edges() const
+int64_t OBJRawObject::tot_edges() const
 {
   return edges_.size();
 }
 
-const int OBJRawObject::tot_loops() const
+int OBJRawObject::tot_loops() const
 {
   return tot_loops_;
 }
 
-const int OBJRawObject::tot_normals() const
+int OBJRawObject::tot_normals() const
 {
   return tot_normals_;
 }
@@ -107,7 +107,7 @@ const int OBJRawObject::tot_normals() const
 /**
  * Total UV vertices that an object's faces' corners refer to in "f" lines.
  */
-const int OBJRawObject::tot_uv_verts() const
+int OBJRawObject::tot_uv_verts() const
 {
   return tot_uv_verts_;
 }

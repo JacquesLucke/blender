@@ -114,20 +114,20 @@ class OBJRawObject {
  public:
   OBJRawObject(StringRef ob_name) : object_name_(ob_name.data()){};
 
-  const int object_type() const;
+  int object_type() const;
   const std::string &object_name() const;
   Span<int> vertex_indices() const;
-  const int64_t tot_verts() const;
+  int64_t tot_verts() const;
   Span<OBJFaceElem> face_elements() const;
-  const int64_t tot_face_elems() const;
-  const bool use_vertex_groups() const;
+  int64_t tot_face_elems() const;
+  bool use_vertex_groups() const;
   Span<int> uv_vertex_indices() const;
-  const int64_t tot_uv_vert_indices() const;
+  int64_t tot_uv_vert_indices() const;
   Span<MEdge> edges() const;
-  const int64_t tot_edges() const;
-  const int tot_loops() const;
-  const int tot_normals() const;
-  const int tot_uv_verts() const;
+  int64_t tot_edges() const;
+  int tot_loops() const;
+  int tot_normals() const;
+  int tot_uv_verts() const;
 
   const OBJNurbsElem &nurbs_elem() const;
   const std::string &group() const;

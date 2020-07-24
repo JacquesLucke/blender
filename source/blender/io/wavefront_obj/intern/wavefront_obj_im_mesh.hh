@@ -64,7 +64,7 @@ class OBJMeshFromRaw : NonMovable, NonCopyable {
  public:
   OBJMeshFromRaw(Main *bmain,
                  const OBJRawObject &curr_object,
-                 const GlobalVertices global_vertices);
+                 const GlobalVertices &global_vertices);
 
   unique_object_ptr mover()
   {

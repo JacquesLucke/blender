@@ -92,7 +92,7 @@ void OBJParser::print_obj_data(Span<std::unique_ptr<OBJRawObject>> list_of_objec
 static void raw_to_blender_objects(Main *bmain,
                                    Scene *scene,
                                    Vector<std::unique_ptr<OBJRawObject>> &list_of_objects,
-                                   const GlobalVertices global_vertices)
+                                   const GlobalVertices &global_vertices)
 {
   OBJImportCollection import_collection{bmain, scene};
   for (const std::unique_ptr<OBJRawObject> &curr_object : list_of_objects) {
@@ -100,7 +100,7 @@ static void raw_to_blender_objects(Main *bmain,
       OBJMeshFromRaw mesh_ob_from_raw{bmain, *curr_object, global_vertices};
       import_collection.add_object_to_collection(mesh_ob_from_raw.mover());
     }
-    else if (curr_object->object_type() & (OB_CURVE | CU_NURBS)) {
+    else if (curr_object->object_type() & OB_CURVE) {
       OBJCurveFromRaw curve_ob_from_raw(bmain, *curr_object, global_vertices);
       import_collection.add_object_to_collection(curve_ob_from_raw.mover());
     }

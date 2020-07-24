@@ -62,31 +62,31 @@ static void find_exportable_objects(ViewLayer *view_layer,
         /* Export in mesh form: vertices and polygons. */
         ATTR_FALLTHROUGH;
       case OB_MESH: {
-        OBJMesh *objmesh = new OBJMesh(depsgraph, export_params, object_in_layer);
-        r_exportable_meshes.append(std::unique_ptr<OBJMesh>(objmesh));
+        r_exportable_meshes.append(
+            std::unique_ptr<OBJMesh>(new OBJMesh(depsgraph, export_params, object_in_layer)));
         break;
       }
       case OB_CURVE: {
-        Curve *curve = (Curve *)object_in_layer->data;
-        Nurb *nurb = (Nurb *)curve->nurb.first;
+        Curve *curve = static_cast<Curve *>(object_in_layer->data);
+        Nurb *nurb{static_cast<Nurb *>(curve->nurb.first)};
         switch (nurb->type) {
           case CU_NURBS: {
             if (export_params.export_curves_as_nurbs) {
               /* Export in parameter form: control points. */
-              OBJNurbs *objnurb = new OBJNurbs(depsgraph, object_in_layer);
-              r_exportable_nurbs.append(std::unique_ptr<OBJNurbs>(objnurb));
+              r_exportable_nurbs.append(
+                  std::unique_ptr<OBJNurbs>(new OBJNurbs(depsgraph, object_in_layer)));
             }
             else {
               /* Export in mesh form: edges and vertices. */
-              OBJMesh *objmesh = new OBJMesh(depsgraph, export_params, object_in_layer);
-              r_exportable_meshes.append(std::unique_ptr<OBJMesh>(objmesh));
+              r_exportable_meshes.append(std::unique_ptr<OBJMesh>(
+                  new OBJMesh(depsgraph, export_params, object_in_layer)));
             }
             break;
           }
           case CU_BEZIER: {
             /* Always export in mesh form: edges and vertices. */
-            OBJMesh *objmesh = new OBJMesh(depsgraph, export_params, object_in_layer);
-            r_exportable_meshes.append(std::unique_ptr<OBJMesh>(objmesh));
+            r_exportable_meshes.append(
+                std::unique_ptr<OBJMesh>(new OBJMesh(depsgraph, export_params, object_in_layer)));
             break;
           }
           default: {

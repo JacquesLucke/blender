@@ -37,7 +37,7 @@ OBJNurbs::OBJNurbs(Depsgraph *depsgraph, Object *export_object)
     : depsgraph_(depsgraph), export_object_eval_(export_object)
 {
   export_object_eval_ = DEG_get_evaluated_object(depsgraph_, export_object);
-  export_curve_ = (Curve *)export_object_eval_->data;
+  export_curve_ = static_cast<Curve *>(export_object_eval_->data);
 }
 
 const char *OBJNurbs::get_curve_name()
@@ -53,7 +53,7 @@ const ListBase *OBJNurbs::curve_nurbs()
 /**
  * Get coordinates of a vertex at given point index.
  */
-void OBJNurbs::calc_point_coords(float r_coords[3], int vert_index, const Nurb *nurb)
+void OBJNurbs::calc_point_coords(const Nurb *nurb, int vert_index, float r_coords[3])
 {
   BPoint *bpoint = nurb->bp;
   bpoint += vert_index;
@@ -63,7 +63,7 @@ void OBJNurbs::calc_point_coords(float r_coords[3], int vert_index, const Nurb *
 /**
  * Get nurbs' degree and number of "curv" points of a nurb.
  */
-void OBJNurbs::get_curve_info(int &r_nurbs_degree, int &r_curv_num, const Nurb *nurb)
+void OBJNurbs::get_curve_info(const Nurb *nurb, int &r_nurbs_degree, int &r_curv_num)
 {
   r_nurbs_degree = nurb->orderu - 1;
   /* "curv_num" is the number of control points in a nurbs.

@@ -35,9 +35,10 @@ void OBJCurveFromRaw::create_nurbs(const OBJRawObject &curr_object,
 {
   const int64_t tot_vert{curr_object.nurbs_elem().curv_indices.size()};
   const OBJNurbsElem &raw_nurbs = curr_object.nurbs_elem();
-  Nurb *nurb = (Nurb *)curve_from_raw_->nurb.first;
+  Nurb *nurb = static_cast<Nurb *>(curve_from_raw_->nurb.first);
 
   nurb->type = CU_NURBS;
+  nurb->flag = CU_3D;
   nurb->next = nurb->prev = nullptr;
   /* BKE_nurb_points_add later on will update pntsu. If this were set to total curv points,
    * we get double the total points in viewport. */
@@ -45,8 +46,7 @@ void OBJCurveFromRaw::create_nurbs(const OBJRawObject &curr_object,
   /* Total points = pntsu * pntsv. */
   nurb->pntsv = 1;
   nurb->orderu = nurb->orderv = raw_nurbs.degree + 1;
-  nurb->resolu = 12;
-  nurb->resolv = 12;
+  nurb->resolu = nurb->resolv = curve_from_raw_->resolu;
 
   BKE_nurb_points_add(nurb, tot_vert);
   for (int i = 0; i < tot_vert; i++) {
@@ -73,7 +73,6 @@ void OBJCurveFromRaw::create_nurbs(const OBJRawObject &curr_object,
   else {
     do_endpoints = false;
   }
-  nurb->flag = CU_3D;
   if (do_endpoints) {
     nurb->flagu = CU_NURB_ENDPOINT;
   }
@@ -85,7 +84,7 @@ void OBJCurveFromRaw::create_nurbs(const OBJRawObject &curr_object,
  */
 OBJCurveFromRaw::OBJCurveFromRaw(Main *bmain,
                                  const OBJRawObject &curr_object,
-                                 const GlobalVertices global_vertices)
+                                 const GlobalVertices &global_vertices)
 {
   std::string ob_name = curr_object.object_name();
   if (ob_name.empty() && !curr_object.group().empty()) {
@@ -99,10 +98,10 @@ OBJCurveFromRaw::OBJCurveFromRaw(Main *bmain,
 
   curve_from_raw_->flag = CU_3D;
   curve_from_raw_->resolu = curve_from_raw_->resolv = 12;
-  /* Only one NURBS exists. */
+  /* Only one NURBS spline will be created in the curve object. */
   curve_from_raw_->actnu = 0;
 
-  Nurb *nurb = (Nurb *)MEM_callocN(sizeof(Nurb), "OBJ import NURBS curve");
+  Nurb *nurb = static_cast<Nurb *>(MEM_callocN(sizeof(Nurb), "OBJ import NURBS curve"));
   BLI_addtail(BKE_curve_nurbs_get(curve_from_raw_.get()), nurb);
   create_nurbs(curr_object, global_vertices);
 
