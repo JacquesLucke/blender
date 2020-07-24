@@ -21,11 +21,11 @@
  * \ingroup obj
  */
 
+#include <algorithm>
+#include <vector>
+
 #include "BKE_customdata.h"
 #include "BKE_object_deform.h"
-
-#include "BLI_array.hh"
-#include "BLI_map.hh"
 
 #include "DNA_customdata_types.h"
 #include "DNA_mesh_types.h"
@@ -84,19 +84,17 @@ void OBJMeshFromRaw::create_vertices(const OBJRawObject &curr_object,
 void OBJMeshFromRaw::create_polys_loops(const OBJRawObject &curr_object, int64_t tot_face_elems)
 {
   /* May not be used conditionally. */
-  MDeformVert *deform_vert = mesh_from_raw_->dvert = nullptr;
-  float deform_weight = 0.0f;
-  if (curr_object.use_vertex_groups() && curr_object.tot_verts()) {
-    deform_vert = (MDeformVert *)CustomData_add_layer(
+  mesh_from_raw_->dvert = nullptr;
+  float weight = 0.0f;
+  if (curr_object.tot_verts() && curr_object.use_vertex_groups()) {
+    mesh_from_raw_->dvert = (MDeformVert *)CustomData_add_layer(
         &mesh_from_raw_->vdata, CD_MDEFORMVERT, CD_CALLOC, nullptr, curr_object.tot_verts());
-    deform_vert->dw = (MDeformWeight *)MEM_callocN(curr_object.tot_verts() * sizeof(MDeformWeight),
-                                                   "OBJImportDeformWeight");
-    deform_weight = 1.0f / curr_object.tot_verts();
+    weight = 1.0f / curr_object.tot_verts();
   }
   else {
-    UNUSED_VARS(deform_vert, deform_weight);
+    UNUSED_VARS(weight);
   }
-  Map<std::string, int> group_defnr;
+  std::vector<std::string> group_names;
 
   int tot_loop_idx = 0;
   for (int poly_idx = 0; poly_idx < tot_face_elems; ++poly_idx) {
@@ -112,23 +110,38 @@ void OBJMeshFromRaw::create_polys_loops(const OBJRawObject &curr_object, int64_t
       MLoop *mloop = &mesh_from_raw_->mloop[tot_loop_idx];
       tot_loop_idx++;
       mloop->v = curr_face.face_corners[loop_of_poly_idx].vert_index;
-      if (deform_vert && deform_vert[mloop->v].dw) {
-        /* Every vertex in a face is assigned the same deform group.
-         * Group names are the keys. If a new group is found, Map adds a new def_nr & mDeformWeight
-         * stores it. They're added to the Object in the same order of keys.
+      if (mesh_from_raw_->dvert) {
+        MDeformWeight *dweight = mesh_from_raw_->dvert[mloop->v].dw;
+        /* Iterating over mloop results in finding the same vertex multiple times.
+         * Another way is to allocate memory for dvert while creating vertices and fill them here.
          */
-        *(deform_vert[mloop->v].dw) = {static_cast<unsigned int>(group_defnr.lookup_or_add(
-                                           curr_face.vertex_group, group_defnr.size())),
-                                       deform_weight};
+        if (!dweight) {
+          dweight = (MDeformWeight *)MEM_callocN(sizeof(MDeformWeight),
+                                                 "OBJ Import Deform Weight");
+        }
+        /* This could be slow if there are several vertex groups. But it is the simplest way to
+         * clear duplicates, and retain insertion order. */
+        const int64_t pos_name{
+            std::find(group_names.begin(), group_names.end(), curr_face.vertex_group) -
+            group_names.begin()};
+        if (pos_name == group_names.size()) {
+          group_names.push_back(curr_face.vertex_group);
+        }
+        /* Every vertex in a face is assigned the same deform group. */
+        BLI_assert(pos_name >= 0);
+        /* Deform group number (def_nr) must behave like an index into the names' list. */
+        *dweight = {static_cast<unsigned int>(pos_name), weight};
       }
     }
   }
+
   /* Add deform_vert listbase to the object. */
   if (!curr_object.use_vertex_groups()) {
     return;
   }
-  for (const std::string &group : group_defnr.keys()) {
-    BKE_object_defgroup_add_name(mesh_object_.get(), group.c_str());
+  for (StringRef name : group_names) {
+    /* Adding groups in this order assumes that def_nr is an index into the names' list. */
+    BKE_object_defgroup_add_name(mesh_object_.get(), name.data());
   }
 }
 
