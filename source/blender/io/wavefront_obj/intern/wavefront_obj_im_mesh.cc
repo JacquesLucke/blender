@@ -21,11 +21,10 @@
  * \ingroup obj
  */
 
-#include <algorithm>
-#include <vector>
-
 #include "BKE_customdata.h"
 #include "BKE_object_deform.h"
+
+#include "BLI_vector_set.hh"
 
 #include "DNA_customdata_types.h"
 #include "DNA_mesh_types.h"
@@ -94,7 +93,9 @@ void OBJMeshFromRaw::create_polys_loops(const OBJRawObject &curr_object, int64_t
   else {
     UNUSED_VARS(weight);
   }
-  std::vector<std::string> group_names;
+  /* Do not remove elements from the VectorSet since order of insertion is required.
+   * StringRef is fine since per-face deform group name outlives the VectorSet. */
+  VectorSet<StringRef> group_names;
 
   int tot_loop_idx = 0;
   for (int poly_idx = 0; poly_idx < tot_face_elems; ++poly_idx) {
@@ -106,39 +107,36 @@ void OBJMeshFromRaw::create_polys_loops(const OBJRawObject &curr_object, int64_t
       mpoly.flag |= ME_SMOOTH;
     }
 
-    for (int loop_of_poly_idx = 0; loop_of_poly_idx < mpoly.totloop; ++loop_of_poly_idx) {
+    for (const OBJFaceCorner &curr_corner : curr_face.face_corners) {
       MLoop *mloop = &mesh_from_raw_->mloop[tot_loop_idx];
       tot_loop_idx++;
-      mloop->v = curr_face.face_corners[loop_of_poly_idx].vert_index;
+      mloop->v = curr_corner.vert_index;
       if (mesh_from_raw_->dvert) {
-        MDeformWeight *dweight = mesh_from_raw_->dvert[mloop->v].dw;
         /* Iterating over mloop results in finding the same vertex multiple times.
          * Another way is to allocate memory for dvert while creating vertices and fill them here.
          */
-        if (!dweight) {
-          dweight = static_cast<MDeformWeight *>(
+        MDeformVert &def_vert = mesh_from_raw_->dvert[mloop->v];
+        if (!def_vert.dw) {
+          def_vert.dw = static_cast<MDeformWeight *>(
               MEM_callocN(sizeof(MDeformWeight), "OBJ Import Deform Weight"));
         }
-        /* This could be slow if there are several vertex groups. But it is the simplest way to
-         * clear duplicates, and retain insertion order. */
-        const int64_t pos_name{
-            std::find(group_names.begin(), group_names.end(), curr_face.vertex_group) -
-            group_names.begin()};
-        if (pos_name == group_names.size()) {
-          group_names.push_back(curr_face.vertex_group);
-        }
         /* Every vertex in a face is assigned the same deform group. */
+        int64_t pos_name{group_names.index_of_try(curr_face.vertex_group)};
+        if (pos_name == -1) {
+          group_names.add_new(curr_face.vertex_group);
+          pos_name = group_names.size() - 1;
+        }
         BLI_assert(pos_name >= 0);
         /* Deform group number (def_nr) must behave like an index into the names' list. */
-        *dweight = {static_cast<unsigned int>(pos_name), weight};
+        *(def_vert.dw) = {static_cast<unsigned int>(pos_name), weight};
       }
     }
   }
 
-  /* Add deform_vert listbase to the object. */
-  if (!curr_object.use_vertex_groups()) {
+  if (!mesh_from_raw_->dvert) {
     return;
   }
+  /* Add deform group(s) to the object's defbase. */
   for (StringRef name : group_names) {
     /* Adding groups in this order assumes that def_nr is an index into the names' list. */
     BKE_object_defgroup_add_name(mesh_object_.get(), name.data());
