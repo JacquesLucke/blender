@@ -59,11 +59,7 @@ void BKE_object_defgroup_index_map_apply(struct MDeformVert *dvert,
                                          int map_len);
 
 /* Select helpers */
-enum eVGroupSelect
-#ifdef __cplusplus
-  : int
-#endif
-  ;
+enum eVGroupSelect;
 bool *BKE_object_defgroup_subset_from_select_type(struct Object *ob,
                                                   enum eVGroupSelect subset_type,
                                                   int *r_defgroup_tot,

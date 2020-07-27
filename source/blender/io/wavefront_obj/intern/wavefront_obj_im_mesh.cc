@@ -21,6 +21,8 @@
  * \ingroup obj
  */
 
+#include "DNA_scene_types.h" /* For eVGroupSelect. */
+
 #include "BKE_customdata.h"
 #include "BKE_object_deform.h"
 
