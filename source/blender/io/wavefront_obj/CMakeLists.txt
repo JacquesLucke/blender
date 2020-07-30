@@ -45,6 +45,7 @@ set(SRC
   intern/wavefront_obj_im_file_reader.cc
   intern/wavefront_obj_importer.cc
   intern/wavefront_obj_im_mesh.cc
+  intern/wavefront_obj_im_mtl.cc
   intern/wavefront_obj_im_nurbs.cc
   intern/wavefront_obj_im_objects.cc
 
@@ -58,6 +59,7 @@ set(SRC
   intern/wavefront_obj_im_file_reader.hh
   intern/wavefront_obj_importer.hh
   intern/wavefront_obj_im_mesh.hh
+  intern/wavefront_obj_im_mtl.hh
   intern/wavefront_obj_im_nurbs.hh
   intern/wavefront_obj_im_objects.hh
 )

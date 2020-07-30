@@ -26,6 +26,7 @@
 
 #include "BKE_context.h"
 
+#include "BLI_map.hh"
 #include "BLI_string_ref.hh"
 #include "BLI_vector.hh"
 
@@ -381,6 +382,133 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_o
     }
     else if (line_key == "#") {
       /* This is a comment. */
+    }
+  }
+}
+
+/**
+ * Get the texture map from the MTLMaterial struct corresponding to the given string.
+ */
+static tex_map_XX *get_tex_map_of_type(MTLMaterial *mtl_mat, StringRef tex_map_str)
+{
+  if (tex_map_str == "map_Kd") {
+    return &mtl_mat->map_Kd;
+  }
+  else if (tex_map_str == "map_Ks") {
+    return &mtl_mat->map_Ks;
+  }
+  else if (tex_map_str == "map_Ns") {
+    return &mtl_mat->map_Ns;
+  }
+  else if (tex_map_str == "map_d") {
+    return &mtl_mat->map_d;
+  }
+  else if (tex_map_str == "map_refl") {
+    return &mtl_mat->map_refl;
+  }
+  else if (tex_map_str == "map_Ke") {
+    return &mtl_mat->map_Ke;
+  }
+  else if (tex_map_str == "map_Bump") {
+    return &mtl_mat->map_Bump;
+  }
+  return nullptr;
+}
+
+MTLParser::MTLParser(const OBJImportParams &import_params) : import_params_(import_params)
+{
+  /* Try to open an MTL file with the same name as the OBJ. */
+  // TODO ankitm change it to get filename/path from OBJ file.
+  BLI_strncpy(mtl_file_path_, import_params_.filepath, FILE_MAX);
+  BLI_path_extension_replace(mtl_file_path_, FILE_MAX, ".mtl");
+  mtl_file_.open(mtl_file_path_);
+}
+
+void MTLParser::parse_and_store(Map<string, MTLMaterial> &mtl_materials)
+{
+  if (!mtl_file_.good()) {
+    fprintf(stderr, "Cannot read from file:%s\n", mtl_file_path_);
+  }
+
+  string line;
+  MTLMaterial *curr_mtlmat = nullptr;
+  while (std::getline(mtl_file_, line)) {
+    if (line.empty()) {
+      continue;
+    }
+    string line_key{first_word_of_string(line)};
+    string rest_line{line.substr(line_key.size())};
+
+    if (line_key == "newmtl") {
+      MTLMaterial new_mtl;
+      curr_mtlmat = &new_mtl;
+      mtl_materials.add(rest_line, new_mtl);
+    }
+    else if (line_key == "Ns") {
+      copy_string_to_float(line.substr(line_key.size()), 324.0f, curr_mtlmat->Ns);
+    }
+    else if (line_key == "Ka") {
+      Vector<string> str_ka_split{};
+      split_by_char(rest_line, ' ', str_ka_split);
+      copy_string_to_float(str_ka_split, 0.0f, {curr_mtlmat->Ka, 3});
+    }
+    else if (line_key == "Kd") {
+      Vector<string> str_kd_split{};
+      split_by_char(rest_line, ' ', str_kd_split);
+      copy_string_to_float(str_kd_split, 0.8f, {curr_mtlmat->Kd, 3});
+    }
+    else if (line_key == "Ks") {
+      Vector<string> str_ks_split{};
+      split_by_char(rest_line, ' ', str_ks_split);
+      copy_string_to_float(str_ks_split, 0.5f, {curr_mtlmat->Ks, 3});
+    }
+    else if (line_key == "Ke") {
+      Vector<string> str_ke_split{};
+      split_by_char(rest_line, ' ', str_ke_split);
+      copy_string_to_float(str_ke_split, 0.0f, {curr_mtlmat->Ke, 3});
+    }
+    else if (line_key == "Ni") {
+      copy_string_to_float(rest_line, 1.45f, curr_mtlmat->Ni);
+    }
+    else if (line_key == "d") {
+      copy_string_to_float(rest_line, 1.0f, curr_mtlmat->d);
+    }
+    else if (line_key == "illum") {
+      copy_string_to_int(rest_line, 2, curr_mtlmat->illum);
+    }
+    /* Image Textures. */
+    else if (line_key.find("map_") != string::npos) {
+      tex_map_XX *tex_map = get_tex_map_of_type(curr_mtlmat, line_key);
+      if (!tex_map) {
+        /* No supported map_xx found. */
+        continue;
+      }
+      Vector<string> str_map_xx_split{};
+      split_by_char(rest_line, ' ', str_map_xx_split);
+
+      int64_t pos_o{str_map_xx_split.first_index_of_try("-o")};
+      if (pos_o != string::npos && pos_o + 3 < str_map_xx_split.size()) {
+        copy_string_to_float({str_map_xx_split[pos_o + 1],
+                              str_map_xx_split[pos_o + 2],
+                              str_map_xx_split[pos_o + 3]},
+                             0.0f,
+                             {tex_map->translation, 3});
+      }
+      int64_t pos_s{str_map_xx_split.first_index_of_try("-s")};
+      if (pos_s != string::npos && pos_s + 3 < str_map_xx_split.size()) {
+        copy_string_to_float({str_map_xx_split[pos_s + 1],
+                              str_map_xx_split[pos_s + 2],
+                              str_map_xx_split[pos_s + 3]},
+                             1.0f,
+                             {tex_map->scale, 3});
+      }
+      /* Only specific to Normal Map node. */
+      int64_t pos_bm{str_map_xx_split.first_index_of_try("-bm")};
+      if (pos_bm != string::npos && pos_bm + 1 < str_map_xx_split.size()) {
+        copy_string_to_float(str_map_xx_split[pos_bm + 1], 0.0f, curr_mtlmat->map_Bump_value);
+      }
+
+      tex_map->image_path = str_map_xx_split.last();
     }
   }
 }

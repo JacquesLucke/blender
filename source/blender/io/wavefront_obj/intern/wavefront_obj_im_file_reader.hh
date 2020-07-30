@@ -52,5 +52,16 @@ class OBJParser {
   void update_index_offsets(std::unique_ptr<OBJRawObject> *curr_ob);
 };
 
+class MTLParser {
+ private:
+  const OBJImportParams &import_params_;
+  char mtl_file_path_[FILE_MAX]{};
+  std::ifstream mtl_file_;
+
+ public:
+  MTLParser(const OBJImportParams &import_params);
+
+  void parse_and_store(Map<std::string, MTLMaterial> &mtl_materials);
+};
 }  // namespace blender::io::obj
 #endif

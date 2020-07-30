@@ -27,6 +27,7 @@
 #include "BLI_array.hh"
 #include "BLI_float2.hh"
 #include "BLI_float3.hh"
+#include "BLI_map.hh"
 #include "BLI_string.h"
 #include "BLI_string_ref.hh"
 
@@ -113,11 +114,14 @@ void importer_main(bContext *C, const OBJImportParams &import_params)
   Scene *scene = CTX_data_scene(C);
   /* List of raw OBJ objects. */
   Vector<std::unique_ptr<OBJRawObject>> list_of_objects;
-  OBJParser parser{import_params};
   GlobalVertices global_vertices;
+  Map<std::string, MTLMaterial> materials;
+  OBJParser obj_parser{import_params};
+  MTLParser mtl_parser{import_params};
 
-  parser.parse_and_store(list_of_objects, global_vertices);
-  parser.print_obj_data(list_of_objects, global_vertices);
+  obj_parser.parse_and_store(list_of_objects, global_vertices);
+  mtl_parser.parse_and_store(materials);
+  obj_parser.print_obj_data(list_of_objects, global_vertices);
 
   raw_to_blender_objects(bmain, scene, list_of_objects, global_vertices);
 }

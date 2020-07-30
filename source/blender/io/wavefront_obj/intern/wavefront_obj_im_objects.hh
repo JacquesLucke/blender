@@ -136,6 +136,40 @@ class OBJRawObject {
   friend class OBJParser;
 };
 
+/**
+ * Used for storing parameters for all kinds of texture maps from MTL file.
+ */
+struct tex_map_XX {
+  // TODO ankitm add map type enum.
+  float3 translation = {0.0f, 0.0f, 0.0f};
+  float3 scale = {1.0f, 1.0f, 1.0f};
+  std::string image_path{};
+};
+
+/**
+ * Store material data parsed from MTL file.
+ */
+struct MTLMaterial {
+  std::string name{};
+  float Ns{1.0f};
+  float3 Ka;
+  float3 Kd;
+  float3 Ks;
+  float3 Ke;
+  float Ni{1.0f};
+  float d{1.0f};
+  int illum{0};
+  tex_map_XX map_Kd;
+  tex_map_XX map_Ks;
+  tex_map_XX map_Ke;
+  tex_map_XX map_d;
+  tex_map_XX map_refl;
+  tex_map_XX map_Ns;
+  tex_map_XX map_Bump;
+  /** Only used for Normal Map node: map_Bump. */
+  float map_Bump_value = 0.0f;
+};
+
 struct UniqueObjectDeleter {
   void operator()(Object *object)
   {
