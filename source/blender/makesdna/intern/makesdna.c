@@ -165,6 +165,7 @@ static short *types_size_native;
 static short *types_size_32;
 /** Contains sizes as they are calculated on 64 bit systems. */
 static short *types_size_64;
+static GSet *enum_names;
 /**
  * At `sp = structs[a]` is the first address of a struct definition:
  * - `sp[0]` is type number.
@@ -274,6 +275,9 @@ static const char *version_struct_static_from_alias(const char *str)
   const char *str_test = BLI_ghash_lookup(g_version_data.struct_map_static_from_alias, str);
   if (str_test != NULL) {
     return str_test;
+  }
+  if (BLI_gset_haskey(enum_names, str)) {
+    return "int";
   }
   return str;
 }
@@ -856,6 +860,13 @@ static int convert_include(const char *filename)
             md1++;
           }
         }
+        else if (strncmp(md1 - 5, "enum", 4) == 0) {
+          const int str_size = strlen(md1) + 1;
+          char *enum_name = BLI_memarena_alloc(mem_arena, str_size);
+          memcpy(enum_name, md1, str_size);
+          BLI_gset_add(enum_names, enum_name);
+          printf("%u: %s\n", BLI_gset_len(enum_names), md1);
+        }
       }
     }
     count++;
@@ -1216,6 +1227,8 @@ static int make_structDNA(const char *base_directory,
   types_size_64 = MEM_callocN(sizeof(short) * max_array_len, "types_size_64");
   structs = MEM_callocN(sizeof(short *) * max_array_len, "structs");
 
+  enum_names = BLI_gset_str_new("enum_names");
+
   /* Build versioning data */
   DNA_alias_maps(DNA_RENAME_ALIAS_FROM_STATIC,
                  &g_version_data.struct_map_alias_from_static,
@@ -1425,6 +1438,8 @@ static int make_structDNA(const char *base_directory,
   BLI_ghash_free(g_version_data.struct_map_static_from_alias, NULL, NULL);
   BLI_ghash_free(g_version_data.elem_map_static_from_alias, MEM_freeN, NULL);
   BLI_ghash_free(g_version_data.elem_map_alias_from_static, MEM_freeN, NULL);
+
+  BLI_gset_free(enum_names, NULL);
 
   DEBUG_PRINTF(0, "done.\n");
 
