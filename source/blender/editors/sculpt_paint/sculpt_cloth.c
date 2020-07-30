@@ -85,7 +85,6 @@
 #include "RNA_access.h"
 #include "RNA_define.h"
 
-#include "GPU_draw.h"
 #include "GPU_immediate.h"
 #include "GPU_immediate_util.h"
 #include "GPU_matrix.h"
@@ -113,19 +112,8 @@ static bool cloth_brush_sim_has_length_constraint(SculptClothSimulation *cloth_s
   return BLI_edgeset_haskey(cloth_sim->created_length_constraints, v1, v2);
 }
 
-static void cloth_brush_add_length_constraint(SculptSession *ss,
-                                              SculptClothSimulation *cloth_sim,
-                                              const int v1,
-                                              const int v2)
+static void cloth_brush_reallocate_constraints(SculptClothSimulation *cloth_sim)
 {
-  cloth_sim->length_constraints[cloth_sim->tot_length_constraints].v1 = v1;
-  cloth_sim->length_constraints[cloth_sim->tot_length_constraints].v2 = v2;
-  cloth_sim->length_constraints[cloth_sim->tot_length_constraints].length = len_v3v3(
-      SCULPT_vertex_co_get(ss, v1), SCULPT_vertex_co_get(ss, v2));
-
-  cloth_sim->tot_length_constraints++;
-
-  /* Reallocation if the array capacity is exceeded. */
   if (cloth_sim->tot_length_constraints >= cloth_sim->capacity_length_constraints) {
     cloth_sim->capacity_length_constraints += CLOTH_LENGTH_CONSTRAINTS_BLOCK;
     cloth_sim->length_constraints = MEM_reallocN_id(cloth_sim->length_constraints,
@@ -133,9 +121,54 @@ static void cloth_brush_add_length_constraint(SculptSession *ss,
                                                         sizeof(SculptClothLengthConstraint),
                                                     "length constraints");
   }
+}
+
+static void cloth_brush_add_length_constraint(SculptSession *ss,
+                                              SculptClothSimulation *cloth_sim,
+                                              const int v1,
+                                              const int v2)
+{
+  SculptClothLengthConstraint *length_constraint =
+      &cloth_sim->length_constraints[cloth_sim->tot_length_constraints];
+
+  length_constraint->elem_index_a = v1;
+  length_constraint->elem_index_b = v2;
+
+  length_constraint->elem_position_a = cloth_sim->pos[v1];
+  length_constraint->elem_position_b = cloth_sim->pos[v2];
+
+  length_constraint->length = len_v3v3(SCULPT_vertex_co_get(ss, v1), SCULPT_vertex_co_get(ss, v2));
+  length_constraint->strength = 1.0f;
+
+  cloth_sim->tot_length_constraints++;
+
+  /* Reallocation if the array capacity is exceeded. */
+  cloth_brush_reallocate_constraints(cloth_sim);
 
   /* Add the constraint to the GSet to avoid creating it again. */
   BLI_edgeset_add(cloth_sim->created_length_constraints, v1, v2);
+}
+
+static void cloth_brush_add_softbody_constraint(SculptClothSimulation *cloth_sim,
+                                                const int v,
+                                                const float strength)
+{
+  SculptClothLengthConstraint *length_constraint =
+      &cloth_sim->length_constraints[cloth_sim->tot_length_constraints];
+
+  length_constraint->elem_index_a = v;
+  length_constraint->elem_index_b = v;
+
+  length_constraint->elem_position_a = cloth_sim->pos[v];
+  length_constraint->elem_position_b = cloth_sim->init_pos[v];
+
+  length_constraint->length = 0.0f;
+  length_constraint->strength = strength;
+
+  cloth_sim->tot_length_constraints++;
+
+  /* Reallocation if the array capacity is exceeded. */
+  cloth_brush_reallocate_constraints(cloth_sim);
 }
 
 static void do_cloth_brush_build_constraints_task_cb_ex(
@@ -143,6 +176,7 @@ static void do_cloth_brush_build_constraints_task_cb_ex(
 {
   SculptThreadedTaskData *data = userdata;
   SculptSession *ss = data->ob->sculpt;
+  const Brush *brush = data->brush;
 
   PBVHVertexIter vd;
 
@@ -161,6 +195,11 @@ static void do_cloth_brush_build_constraints_task_cb_ex(
         tot_indices++;
       }
       SCULPT_VERTEX_NEIGHBORS_ITER_END(ni);
+
+      if (brush->cloth_constraint_softbody_strength > 0.0f) {
+        cloth_brush_add_softbody_constraint(
+            data->cloth_sim, vd.index, brush->cloth_constraint_softbody_strength);
+      }
 
       /* As we don't know the order of the neighbor vertices, we create all possible combinations
        * between the neighbor and the original vertex as length constraints. */
@@ -254,8 +293,7 @@ static void do_cloth_brush_apply_forces_task_cb_ex(void *__restrict userdata,
   /* Gravity */
   float gravity[3] = {0.0f};
   if (ss->cache->supports_gravity) {
-    madd_v3_v3fl(
-        gravity, ss->cache->gravity_direction, -ss->cache->radius * data->sd->gravity_factor);
+    madd_v3_v3fl(gravity, ss->cache->gravity_direction, -data->sd->gravity_factor);
   }
 
   /* Original data for deform brushes. */
@@ -278,6 +316,11 @@ static void do_cloth_brush_apply_forces_task_cb_ex(void *__restrict userdata,
     else {
       copy_v3_v3(current_vertex_location, vd.co);
     }
+
+    /* Apply gravity in the entire simulation area. */
+    float vertex_gravity[3];
+    mul_v3_v3fl(vertex_gravity, gravity, sim_factor);
+    cloth_brush_apply_force_to_vertex(ss, ss->cache->cloth_sim, vertex_gravity, vd.index);
 
     /* When using the plane falloff mode the falloff is not constrained by the brush radius. */
     if (sculpt_brush_test_sq_fn(&test, current_vertex_location) || use_falloff_plane) {
@@ -355,8 +398,6 @@ static void do_cloth_brush_apply_forces_task_cb_ex(void *__restrict userdata,
           zero_v3(force);
           break;
       }
-
-      madd_v3_v3fl(force, gravity, fade);
 
       cloth_brush_apply_force_to_vertex(ss, ss->cache->cloth_sim, force, vd.index);
     }
@@ -482,11 +523,11 @@ static void cloth_brush_satisfy_constraints(SculptSession *ss,
     for (int i = 0; i < cloth_sim->tot_length_constraints; i++) {
 
       const SculptClothLengthConstraint *constraint = &cloth_sim->length_constraints[i];
-      const int v1 = constraint->v1;
-      const int v2 = constraint->v2;
+      const int v1 = constraint->elem_index_a;
+      const int v2 = constraint->elem_index_b;
 
       float v1_to_v2[3];
-      sub_v3_v3v3(v1_to_v2, cloth_sim->pos[v2], cloth_sim->pos[v1]);
+      sub_v3_v3v3(v1_to_v2, constraint->elem_position_b, constraint->elem_position_a);
       const float current_distance = len_v3(v1_to_v2);
       float correction_vector[3];
       float correction_vector_half[3];
@@ -522,8 +563,14 @@ static void cloth_brush_satisfy_constraints(SculptSession *ss,
                                                   cloth_sim->init_pos[v2]) :
                                               1.0f;
 
-      madd_v3_v3fl(cloth_sim->pos[v1], correction_vector_half, 1.0f * mask_v1 * sim_factor_v1);
-      madd_v3_v3fl(cloth_sim->pos[v2], correction_vector_half, -1.0f * mask_v2 * sim_factor_v2);
+      madd_v3_v3fl(cloth_sim->pos[v1],
+                   correction_vector_half,
+                   1.0f * mask_v1 * sim_factor_v1 * constraint->strength);
+      if (v1 != v2) {
+        madd_v3_v3fl(cloth_sim->pos[v2],
+                     correction_vector_half,
+                     -1.0f * mask_v2 * sim_factor_v2 * constraint->strength);
+      }
     }
   }
 }
@@ -639,12 +686,13 @@ void SCULPT_do_cloth_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode
 
   /* In the first brush step of each symmetry pass, build the constraints for the vertices in all
    * nodes inside the simulation's limits. */
-  /* Brush stroke types that restore the mesh on each brush step also need the cloth sim data to be
-   * created on each step. */
+  /* Brushes that use anchored strokes and restore the mesh can't rely on symmetry passes and steps
+   * count as it is always the first step, so the simulation needs to be created when it does not
+   * exist for this stroke. */
   if (SCULPT_stroke_is_first_brush_step_of_symmetry_pass(ss->cache) || !ss->cache->cloth_sim) {
 
     /* The simulation structure only needs to be created on the first symmetry pass. */
-    if (SCULPT_stroke_is_first_brush_step(ss->cache)) {
+    if (SCULPT_stroke_is_first_brush_step(ss->cache) || !ss->cache->cloth_sim) {
       ss->cache->cloth_sim = cloth_brush_simulation_create(
           ss, brush->cloth_mass, brush->cloth_damping);
       for (int i = 0; i < totverts; i++) {
