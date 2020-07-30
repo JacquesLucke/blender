@@ -28,10 +28,11 @@
 #include "wavefront_obj_im_objects.hh"
 
 namespace blender::io::obj {
+
 class OBJParser {
  private:
   const OBJImportParams &import_params_;
-  std::ifstream infile_;
+  std::ifstream obj_file_;
   /**
    * These two numbers VERTEX_OFF and UV_VERTEX_OFF respectively keep track of how many vertices
    * have been occupied by other objects. It is used when an index must stay local to an object,

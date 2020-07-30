@@ -227,7 +227,6 @@ void MTLWriter::write_curr_material(const char *object_name)
   texture_map_types.add("map_Ke", "Emission");
 
   const char *tex_image_filepath = nullptr;
-  const bNode *tex_node = nullptr;
 
   /* Need to create a NodeTreeRef for a faster way to find linked sockets, as opposed to
    * looping over all the links in a node tree to match two sockets of our interest. */
@@ -238,11 +237,12 @@ void MTLWriter::write_curr_material(const char *object_name)
     /* Find sockets linked to the destination socket of interest, in p-bsdf node. */
     linked_sockets_to_dest_id(linked_sockets, bsdf_node_, node_tree, map_type_id.value.c_str());
     /* Among the linked sockets, find Image Texture shader node. */
-    tex_node = get_node_of_type(linked_sockets, SH_NODE_TEX_IMAGE);
+    const bNode *tex_node{get_node_of_type(linked_sockets, SH_NODE_TEX_IMAGE)};
 
     /* Find "Mapping" node if connected to texture node. */
     linked_sockets_to_dest_id(linked_sockets, tex_node, node_tree, "Vector");
     const bNode *mapping = get_node_of_type(linked_sockets, SH_NODE_MAPPING);
+
     /* Texture transform options. Only translation (origin offset, "-o") and scale
      * ("-o") are supported. */
     float map_translation[3] = {0.0f, 0.0f, 0.0f};
@@ -278,11 +278,12 @@ void MTLWriter::write_curr_material(const char *object_name)
   /* Find sockets linked to "Color" socket in normal map node. */
   linked_sockets_to_dest_id(linked_sockets, normal_map_node, node_tree, "Color");
   /* Among the linked sockets, find Image Texture shader node. */
-  tex_node = get_node_of_type(linked_sockets, SH_NODE_TEX_IMAGE);
+  const bNode *tex_node{get_node_of_type(linked_sockets, SH_NODE_TEX_IMAGE)};
 
   /* Find "Mapping" node if connected to the texture node. */
   linked_sockets_to_dest_id(linked_sockets, tex_node, node_tree, "Vector");
   const bNode *mapping = get_node_of_type(linked_sockets, SH_NODE_MAPPING);
+
   float map_translation[3] = {0.0f, 0.0f, 0.0f};
   float map_scale[3] = {1.0f, 1.0f, 1.0f};
   float normal_map_strength = 1.0f;

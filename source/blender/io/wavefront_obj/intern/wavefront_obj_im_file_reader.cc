@@ -64,24 +64,38 @@ static string first_word_of_string(const string &in_string)
 }
 
 /**
+ * Convert the given string to float and assign it to the destination value.
+ *
+ * Catches exception if the string cannot be converted to a float. The destination value
+ * is set to the given fallback value in that case.
+ */
+
+void copy_string_to_float(StringRef src, const float fallback_value, float &r_dst)
+{
+  try {
+    r_dst = std::stof(src.data());
+  }
+  catch (const std::invalid_argument &inv_arg) {
+    fprintf(stderr, "Bad conversion to float:%s:%s\n", inv_arg.what(), src.data());
+    r_dst = fallback_value;
+  }
+}
+
+/**
  * Convert all members of the Span of strings to floats and assign them to the float
  * array members. Usually used for values like coordinates.
  *
- * Catches exception if the string cannot be converted to a float. The float array members
- *  are set to <TODO ankitm: values can be -1.0 too!> in that case.
+ * Catches exception if any string cannot be converted to a float. The destination
+ * float is set to the given fallback value in that case.
  */
 
-BLI_INLINE void copy_string_to_float(Span<string> src, MutableSpan<float> r_dst)
+BLI_INLINE void copy_string_to_float(Span<string> src,
+                                     const float fallback_value,
+                                     MutableSpan<float> r_dst)
 {
   BLI_assert(src.size() == r_dst.size());
   for (int i = 0; i < r_dst.size(); ++i) {
-    try {
-      r_dst[i] = std::stof(src[i]);
-    }
-    catch (const std::invalid_argument &inv_arg) {
-      fprintf(stderr, "Bad conversion to float:%s:%s\n", inv_arg.what(), src[i].c_str());
-      r_dst[i] = -1.0f;
-    }
+    copy_string_to_float(src[i], fallback_value, r_dst[i]);
   }
 }
 
@@ -89,30 +103,32 @@ BLI_INLINE void copy_string_to_float(Span<string> src, MutableSpan<float> r_dst)
  * Convert the given string to int and assign it to the destination value.
  *
  * Catches exception if the string cannot be converted to an integer. The destination
- *  int is set to <TODO ankitm: indices can be -1 too!> in that case.
+ * int is set to the given fallback value in that case.
  */
-BLI_INLINE void copy_string_to_int(const string &src, int &r_dst)
+BLI_INLINE void copy_string_to_int(StringRef src, const int fallback_value, int &r_dst)
 {
   try {
-    r_dst = std::stoi(src);
+    r_dst = std::stoi(src.data());
   }
   catch (const std::invalid_argument &inv_arg) {
-    fprintf(stderr, "Bad conversion to int:%s:%s\n", inv_arg.what(), src.c_str());
-    r_dst = -1;
+    fprintf(stderr, "Bad conversion to int:%s:%s\n", inv_arg.what(), src.data());
+    r_dst = fallback_value;
   }
 }
 
 /**
  * Convert the given strings to ints and fill the destination int buffer.
  *
- * Catches exception if a string cannot be converted to an integer. The destination
- *  int is set to <TODO ankitm: indices can be -1 too!> in that case.
+ * Catches exception if any string cannot be converted to an integer. The destination
+ * int is set to the given fallback value in that case.
  */
-BLI_INLINE void copy_string_to_int(Span<string> src, MutableSpan<int> r_dst)
+BLI_INLINE void copy_string_to_int(Span<string> src,
+                                   const int fallback_value,
+                                   MutableSpan<int> r_dst)
 {
   BLI_assert(src.size() == r_dst.size());
   for (int i = 0; i < r_dst.size(); ++i) {
-    copy_string_to_int(src[i], r_dst[i]);
+    copy_string_to_int(src[i], fallback_value, r_dst[i]);
   }
 }
 
@@ -142,7 +158,7 @@ static bool create_raw_curve(std::unique_ptr<OBJRawObject> *raw_object)
 
 OBJParser::OBJParser(const OBJImportParams &import_params) : import_params_(import_params)
 {
-  infile_.open(import_params_.filepath);
+  obj_file_.open(import_params_.filepath);
 }
 
 /**
@@ -169,6 +185,10 @@ void OBJParser::update_index_offsets(std::unique_ptr<OBJRawObject> *curr_ob)
 void OBJParser::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_objects,
                                 GlobalVertices &global_vertices)
 {
+  if (!obj_file_.good()) {
+    fprintf(stderr, "Cannot read from file:%s.\n", import_params_.filepath);
+    return;
+  }
   string line;
   /* Non owning raw pointer to the unique_ptr to a raw object.
    * Needed to update object data in the same while loop. */
@@ -178,24 +198,24 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_o
   bool shaded_smooth = false;
   string object_group{};
 
-  while (std::getline(infile_, line)) {
-    string line_key = first_word_of_string(line);
-    std::stringstream s_line(line.substr(line_key.size()));
+  while (std::getline(obj_file_, line)) {
+    string line_key{first_word_of_string(line)};
+    string rest_line{line.substr(line_key.size())};
 
     if (line_key == "o") {
       /* Update index offsets to keep track of objects which have claimed their vertices. */
       update_index_offsets(curr_ob);
       shaded_smooth = false;
       object_group = {};
-      list_of_objects.append(std::make_unique<OBJRawObject>(s_line.str()));
+      list_of_objects.append(std::make_unique<OBJRawObject>(rest_line));
       curr_ob = &list_of_objects.last();
       (*curr_ob)->object_type_ = OB_MESH;
     }
     else if (line_key == "v") {
       float3 curr_vert{};
       Vector<string> str_vert_split;
-      split_by_char(s_line.str(), ' ', str_vert_split);
-      copy_string_to_float(str_vert_split, {curr_vert, 3});
+      split_by_char(rest_line, ' ', str_vert_split);
+      copy_string_to_float(str_vert_split, FLT_MAX, {curr_vert, 3});
       global_vertices.vertices.append(curr_vert);
       if (curr_ob) {
         /* Always keep indices zero-based. */
@@ -208,8 +228,8 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_o
     else if (line_key == "vt") {
       float2 curr_uv_vert{};
       Vector<string> str_uv_vert_split;
-      split_by_char(s_line.str(), ' ', str_uv_vert_split);
-      copy_string_to_float(str_uv_vert_split, {curr_uv_vert, 2});
+      split_by_char(rest_line, ' ', str_uv_vert_split);
+      copy_string_to_float(str_uv_vert_split, FLT_MAX, {curr_uv_vert, 2});
       global_vertices.uv_vertices.append(curr_uv_vert);
       if (curr_ob) {
         (*curr_ob)->uv_vertex_indices_.append(global_vertices.uv_vertices.size() - 1);
@@ -218,9 +238,9 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_o
     else if (line_key == "l") {
       int edge_v1 = -1, edge_v2 = -1;
       Vector<string> str_edge_split;
-      split_by_char(s_line.str(), ' ', str_edge_split);
-      copy_string_to_int(str_edge_split[0], edge_v1);
-      copy_string_to_int(str_edge_split[1], edge_v2);
+      split_by_char(rest_line, ' ', str_edge_split);
+      copy_string_to_int(str_edge_split[0], -1, edge_v1);
+      copy_string_to_int(str_edge_split[1], -1, edge_v2);
       /* Remove the indices of vertices "claimed" by other raw objects. Subtract 1 to make the OBJ
        * indices (one-based) C++'s zero-based. In the other case, make relative index positive and
        * absolute, starting with zero. */
@@ -230,28 +250,26 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_o
       (*curr_ob)->edges_.append({static_cast<uint>(edge_v1), static_cast<uint>(edge_v2)});
     }
     else if (line_key == "g") {
-      object_group = s_line.str();
+      object_group = rest_line;
       if (object_group.find("off") != string::npos || object_group.find("null") != string::npos) {
         /* Set group for future elements like faces or curves to empty. */
         object_group = {};
       }
     }
     else if (line_key == "s") {
-      string str_shading;
-      s_line >> str_shading;
       /* Some implementations use "0" and "null" too, in addition to "off". */
-      if (str_shading != "0" && str_shading.find("off") == string::npos &&
-          str_shading.find("null") == string::npos) {
+      if (rest_line != "0" && rest_line.find("off") == string::npos &&
+          rest_line.find("null") == string::npos) {
         /* TODO ankitm make a string to bool function if need arises. */
         try {
-          std::stoi(str_shading);
+          std::stoi(rest_line);
           shaded_smooth = true;
         }
         catch (const std::invalid_argument &inv_arg) {
           fprintf(stderr,
                   "Bad argument for smooth shading: %s:%s\n",
                   inv_arg.what(),
-                  str_shading.c_str());
+                  rest_line.c_str());
           shaded_smooth = false;
         }
       }
@@ -270,21 +288,21 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_o
       }
 
       Vector<string> str_corners_split;
-      split_by_char(s_line.str(), ' ', str_corners_split);
+      split_by_char(rest_line, ' ', str_corners_split);
       for (const string &str_corner : str_corners_split) {
         OBJFaceCorner corner;
         size_t n_slash = std::count(str_corner.begin(), str_corner.end(), '/');
         if (n_slash == 0) {
           /* Case: f v1 v2 v3 . */
-          copy_string_to_int({str_corner}, corner.vert_index);
+          copy_string_to_int(str_corner, INT32_MAX, corner.vert_index);
         }
         else if (n_slash == 1) {
           /* Case: f v1/vt1 v2/vt2 v3/vt3 . */
           Vector<string> vert_uv_split;
           split_by_char(str_corner, '/', vert_uv_split);
-          copy_string_to_int(vert_uv_split[0], corner.vert_index);
+          copy_string_to_int(vert_uv_split[0], INT32_MAX, corner.vert_index);
           if (vert_uv_split.size() == 2) {
-            copy_string_to_int(vert_uv_split[1], corner.uv_vert_index);
+            copy_string_to_int(vert_uv_split[1], INT32_MAX, corner.uv_vert_index);
             (*curr_ob)->tot_uv_verts_++;
           }
         }
@@ -293,9 +311,9 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_o
           /* Case: f v1/vt1/vn1 v2/vt2/vn2 v3/vt3/vn3 . */
           Vector<string> vert_uv_normal_split;
           split_by_char(str_corner, '/', vert_uv_normal_split);
-          copy_string_to_int(vert_uv_normal_split[0], corner.vert_index);
+          copy_string_to_int(vert_uv_normal_split[0], INT32_MAX, corner.vert_index);
           if (vert_uv_normal_split.size() == 3) {
-            copy_string_to_int(vert_uv_normal_split[1], corner.uv_vert_index);
+            copy_string_to_int(vert_uv_normal_split[1], INT32_MAX, corner.uv_vert_index);
             (*curr_ob)->tot_uv_verts_++;
           }
           /* Discard normals. They'll be calculated on the basis of smooth
@@ -313,7 +331,7 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_o
       (*curr_ob)->tot_loops_ += curr_face.face_corners.size();
     }
     else if (line_key == "cstype") {
-      if (s_line.str().find("bspline") != string::npos) {
+      if (rest_line.find("bspline") != string::npos) {
         if (create_raw_curve(curr_ob)) {
           update_index_offsets(curr_ob);
           list_of_objects.append(std::make_unique<OBJRawObject>("NURBSCurve"));
@@ -324,31 +342,31 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_o
         }
       }
       else {
-        fprintf(stderr, "Type:'%s' is not supported\n", s_line.str().c_str());
+        fprintf(stderr, "Type:'%s' is not supported\n", rest_line.c_str());
       }
     }
     else if (line_key == "deg") {
-      copy_string_to_int({s_line.str()}, (*curr_ob)->nurbs_element_.degree);
+      copy_string_to_int(rest_line, 3, (*curr_ob)->nurbs_element_.degree);
     }
     else if (line_key == "curv") {
       Vector<string> str_curv_split;
-      split_by_char(s_line.str(), ' ', str_curv_split);
+      split_by_char(rest_line, ' ', str_curv_split);
       /* Remove "0.0" and "1.0" from the strings. They are hardcoded. */
       str_curv_split.remove(0);
       str_curv_split.remove(0);
       (*curr_ob)->nurbs_element_.curv_indices.resize(str_curv_split.size());
-      copy_string_to_int(str_curv_split, (*curr_ob)->nurbs_element_.curv_indices);
+      copy_string_to_int(str_curv_split, INT32_MAX, (*curr_ob)->nurbs_element_.curv_indices);
       for (int &curv_point : (*curr_ob)->nurbs_element_.curv_indices) {
         curv_point -= curv_point > 0 ? 1 : -(global_vertices.vertices.size());
       }
     }
     else if (line_key == "parm") {
       Vector<string> str_parm_split;
-      split_by_char(s_line.str(), ' ', str_parm_split);
+      split_by_char(rest_line, ' ', str_parm_split);
       if (str_parm_split[0] == "u" || str_parm_split[0] == "v") {
         str_parm_split.remove(0);
         (*curr_ob)->nurbs_element_.parm.resize(str_parm_split.size());
-        copy_string_to_float(str_parm_split, (*curr_ob)->nurbs_element_.parm);
+        copy_string_to_float(str_parm_split, FLT_MAX, (*curr_ob)->nurbs_element_.parm);
       }
       else {
         fprintf(stderr, "Surfaces are not supported: %s\n", str_parm_split[0].c_str());
@@ -359,7 +377,7 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_o
       object_group = {};
     }
     else if (line_key == "usemtl") {
-      (*curr_ob)->material_name_.append(s_line.str());
+      (*curr_ob)->material_name_.append(rest_line);
     }
     else if (line_key == "#") {
       /* This is a comment. */
