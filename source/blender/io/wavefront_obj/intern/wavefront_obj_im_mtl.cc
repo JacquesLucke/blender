@@ -28,6 +28,8 @@
 
 #include "DNA_node_types.h"
 
+#include "NOD_shader.h"
+
 #include "wavefront_obj_im_mtl.hh"
 
 namespace blender::io::obj {
@@ -51,13 +53,17 @@ static void set_property_of_socket(eNodeSocketDatatype property_type,
       break;
     }
     case SOCK_RGBA: {
-      BLI_assert(value.size() == 4);
-      copy_v4_v4(static_cast<bNodeSocketValueRGBA *>(socket->default_value)->value, value.data());
+      /* Alpha will be manually added. It is not read from the MTL file either. */
+      BLI_assert(value.size() == 3);
+      copy_v3_v3(static_cast<bNodeSocketValueRGBA *>(socket->default_value)->value, value.data());
+      static_cast<bNodeSocketValueRGBA *>(socket->default_value)->value[3] = 1.0f;
+      break;
     }
     case SOCK_VECTOR: {
       BLI_assert(value.size() == 3);
       copy_v4_v4(static_cast<bNodeSocketValueVector *>(socket->default_value)->value,
                  value.data());
+      break;
     }
     default: {
       BLI_assert(0);
@@ -83,8 +89,8 @@ static void set_img_filepath(StringRef value, bNode *r_node)
  */
 ShaderNodetreeWrap::ShaderNodetreeWrap(const MTLMaterial &mtl_mat)
 {
-  nodetree_.reset(ntreeAddTree(nullptr, "Shader Nodetree", "ShaderNodetree"));
-  bsdf_.reset(add_node_to_tree(SH_NODE_BSDF_DIFFUSE));
+  nodetree_.reset(ntreeAddTree(nullptr, "Shader Nodetree", ntreeType_Shader->idname));
+  bsdf_.reset(add_node_to_tree(SH_NODE_BSDF_PRINCIPLED));
   shader_output_.reset(add_node_to_tree(SH_NODE_OUTPUT_MATERIAL));
 
   set_bsdf_socket_values(mtl_mat);
@@ -99,6 +105,10 @@ ShaderNodetreeWrap::~ShaderNodetreeWrap()
   /* If the destructor has been reached, we know that nodes and the nodetree
    * have been added to the scene. */
   shader_output_.release();
+  if (nodetree_) {
+    /* nodetree's ownership must be acquired by the caller. */
+    BLI_assert(0);
+  }
 }
 
 /**
@@ -137,9 +147,10 @@ void ShaderNodetreeWrap::link_sockets(unique_node_ptr src_node,
 
 void ShaderNodetreeWrap::set_bsdf_socket_values(const MTLMaterial &mtl_mat)
 {
-  set_property_of_socket(SOCK_FLOAT, "Specular", {mtl_mat.Ns, 1}, bsdf_.get());
-  set_property_of_socket(SOCK_FLOAT, "Metallic", {mtl_mat.Ka, 1}, bsdf_.get());
-  set_property_of_socket(SOCK_FLOAT, "IOR", {mtl_mat.Ni, 1}, bsdf_.get());
+  set_property_of_socket(SOCK_FLOAT, "Specular", {mtl_mat.Ns}, bsdf_.get());
+  /* Only one value is taken for Metallic. */
+  set_property_of_socket(SOCK_FLOAT, "Metallic", {mtl_mat.Ka[0]}, bsdf_.get());
+  set_property_of_socket(SOCK_FLOAT, "IOR", {mtl_mat.Ni}, bsdf_.get());
   set_property_of_socket(SOCK_FLOAT, "Alpha", {mtl_mat.d}, bsdf_.get());
   set_property_of_socket(SOCK_RGBA, "Base Color", {mtl_mat.Kd, 3}, bsdf_.get());
   set_property_of_socket(SOCK_RGBA, "Emission", {mtl_mat.Ke, 3}, bsdf_.get());

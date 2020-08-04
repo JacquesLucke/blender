@@ -161,10 +161,10 @@ struct tex_map_XX {
 struct MTLMaterial {
   std::string name{};
   float Ns{1.0f};
-  float3 Ka;
-  float3 Kd;
-  float3 Ks;
-  float3 Ke;
+  float3 Ka{0.0f};
+  float3 Kd{0.8f, 0.8f, 0.8f};
+  float3 Ks{1.0f};
+  float3 Ke{0.0f};
   float Ni{1.0f};
   float d{1.0f};
   int illum{0};
