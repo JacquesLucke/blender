@@ -51,16 +51,18 @@ OBJMeshFromRaw::OBJMeshFromRaw(Main *bmain,
   const int64_t tot_verts_object{curr_object.tot_verts()};
   const int64_t tot_edges{curr_object.tot_edges()};
   const int64_t tot_face_elems{curr_object.tot_face_elems()};
+  const int64_t tot_loops{curr_object.tot_loops()};
 
-  mesh_from_raw_.reset(BKE_mesh_new_nomain(
-      tot_verts_object, tot_edges, 0, curr_object.tot_loops(), tot_face_elems));
+  mesh_from_raw_.reset(
+      BKE_mesh_new_nomain(tot_verts_object, tot_edges, 0, tot_loops, tot_face_elems));
   mesh_object_.reset(BKE_object_add_only_object(bmain, OB_MESH, ob_name.c_str()));
   mesh_object_->data = BKE_object_obdata_add_from_type(bmain, OB_MESH, ob_name.c_str());
 
-  create_vertices(curr_object, global_vertices, tot_verts_object);
-  create_polys_loops(curr_object, tot_face_elems);
-  create_edges(curr_object, tot_edges);
+  create_vertices(curr_object, global_vertices);
+  create_polys_loops(curr_object);
+  create_edges(curr_object);
   create_uv_verts(curr_object, global_vertices);
+  create_materials(bmain, curr_object, materials);
 
   BKE_mesh_validate(mesh_from_raw_.get(), false, true);
 
@@ -72,9 +74,9 @@ OBJMeshFromRaw::OBJMeshFromRaw(Main *bmain,
 }
 
 void OBJMeshFromRaw::create_vertices(const OBJRawObject &curr_object,
-                                     const GlobalVertices &global_vertices,
-                                     int64_t tot_verts_object)
+                                     const GlobalVertices &global_vertices)
 {
+  const int64_t tot_verts_object{curr_object.tot_verts()};
   for (int i = 0; i < tot_verts_object; ++i) {
     /* Current object's vertex indices index into the global list of vertex coordinates. */
     copy_v3_v3(mesh_from_raw_->mvert[i].co,
@@ -82,7 +84,7 @@ void OBJMeshFromRaw::create_vertices(const OBJRawObject &curr_object,
   }
 }
 
-void OBJMeshFromRaw::create_polys_loops(const OBJRawObject &curr_object, int64_t tot_face_elems)
+void OBJMeshFromRaw::create_polys_loops(const OBJRawObject &curr_object)
 {
   /* May not be used conditionally. */
   mesh_from_raw_->dvert = nullptr;
@@ -98,7 +100,7 @@ void OBJMeshFromRaw::create_polys_loops(const OBJRawObject &curr_object, int64_t
   /* Do not remove elements from the VectorSet since order of insertion is required.
    * StringRef is fine since per-face deform group name outlives the VectorSet. */
   VectorSet<StringRef> group_names;
-
+  const int64_t tot_face_elems{curr_object.tot_face_elems()};
   int tot_loop_idx = 0;
   for (int poly_idx = 0; poly_idx < tot_face_elems; ++poly_idx) {
     const OBJFaceElem &curr_face = curr_object.face_elements()[poly_idx];
@@ -145,8 +147,9 @@ void OBJMeshFromRaw::create_polys_loops(const OBJRawObject &curr_object, int64_t
   }
 }
 
-void OBJMeshFromRaw::create_edges(const OBJRawObject &curr_object, int64_t tot_edges)
+void OBJMeshFromRaw::create_edges(const OBJRawObject &curr_object)
 {
+  const int64_t tot_edges{curr_object.tot_edges()};
   for (int i = 0; i < tot_edges; ++i) {
     const MEdge &curr_edge = curr_object.edges()[i];
     mesh_from_raw_->medge[i].v1 = curr_edge.v1;

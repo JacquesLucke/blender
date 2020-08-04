@@ -24,6 +24,7 @@
 #include "BKE_material.h"
 #include "BKE_node.h"
 
+#include "BLI_float3.hh"
 #include "BLI_map.hh"
 #include "BLI_math.h"
 
@@ -37,40 +38,47 @@
 namespace blender::io::obj {
 
 /**
- * Copy a property of the given type from the bNode to given buffer.
+ * Copy a float property of the given type from the bNode to given buffer.
  */
-static void copy_property_from_node(float *r_property,
+static void copy_property_from_node(MutableSpan<float> r_property,
                                     eNodeSocketDatatype property_type,
                                     const bNode *curr_node,
                                     const char *identifier)
 {
+  BLI_assert(curr_node);
   if (!curr_node) {
     return;
   }
-  bNodeSocket *socket = nodeFindSocket(curr_node, SOCK_IN, identifier);
-  if (socket) {
-    switch (property_type) {
-      case SOCK_FLOAT: {
-        bNodeSocketValueFloat *socket_def_value = static_cast<bNodeSocketValueFloat *>(
-            socket->default_value);
-        r_property[0] = socket_def_value->value;
-        break;
-      }
-      case SOCK_RGBA: {
-        bNodeSocketValueRGBA *socket_def_value = static_cast<bNodeSocketValueRGBA *>(
-            socket->default_value);
-        copy_v3_v3(r_property, socket_def_value->value);
-        break;
-      }
-      case SOCK_VECTOR: {
-        bNodeSocketValueVector *socket_def_value = static_cast<bNodeSocketValueVector *>(
-            socket->default_value);
-        copy_v3_v3(r_property, socket_def_value->value);
-        break;
-      }
-      default: {
-        break;
-      }
+  bNodeSocket *socket{nodeFindSocket(curr_node, SOCK_IN, identifier)};
+  BLI_assert(socket && socket->type == property_type);
+  if (!socket) {
+    return;
+  }
+  switch (property_type) {
+    case SOCK_FLOAT: {
+      BLI_assert(r_property.size() == 1);
+      bNodeSocketValueFloat *socket_def_value = static_cast<bNodeSocketValueFloat *>(
+          socket->default_value);
+      r_property[0] = socket_def_value->value;
+      break;
+    }
+    case SOCK_RGBA: {
+      BLI_assert(r_property.size() == 4);
+      bNodeSocketValueRGBA *socket_def_value = static_cast<bNodeSocketValueRGBA *>(
+          socket->default_value);
+      copy_v3_v3(r_property.data(), socket_def_value->value);
+      break;
+    }
+    case SOCK_VECTOR: {
+      BLI_assert(r_property.size() == 3);
+      bNodeSocketValueVector *socket_def_value = static_cast<bNodeSocketValueVector *>(
+          socket->default_value);
+      copy_v3_v3(r_property.data(), socket_def_value->value);
+      break;
+    }
+    default: {
+      BLI_assert(0);
+      break;
     }
   }
 }
@@ -127,7 +135,7 @@ static const bNode *get_node_of_type(Span<const nodes::OutputSocketRef *> socket
 static const char *get_image_filepath(const bNode *tex_node)
 {
   if (tex_node) {
-    Image *tex_image = (Image *)tex_node->id;
+    Image *tex_image = reinterpret_cast<Image *>(tex_node->id);
     if (tex_image) {
       if (tex_image->filepath[0] != '\0') {
         return tex_image->filepath;
@@ -170,19 +178,19 @@ void MTLWriter::write_curr_material(const char *object_name)
   float spec_exponent = (1.0f - export_mtl_->roughness) * 30;
   spec_exponent *= spec_exponent;
   float specular = export_mtl_->spec;
-  copy_property_from_node(&specular, SOCK_FLOAT, bsdf_node_, "Specular");
+  copy_property_from_node({&specular, 1}, SOCK_FLOAT, bsdf_node_, "Specular");
   float metallic = export_mtl_->metallic;
-  copy_property_from_node(&metallic, SOCK_FLOAT, bsdf_node_, "Metallic");
+  copy_property_from_node({&metallic, 1}, SOCK_FLOAT, bsdf_node_, "Metallic");
   float refraction_index = 1.0f;
-  copy_property_from_node(&refraction_index, SOCK_FLOAT, bsdf_node_, "IOR");
+  copy_property_from_node({&refraction_index, 1}, SOCK_FLOAT, bsdf_node_, "IOR");
   float dissolved = export_mtl_->a;
-  copy_property_from_node(&dissolved, SOCK_FLOAT, bsdf_node_, "Alpha");
+  copy_property_from_node({&dissolved, 1}, SOCK_FLOAT, bsdf_node_, "Alpha");
   bool transparent = dissolved != 1.0f;
 
-  float diffuse_col[3] = {export_mtl_->r, export_mtl_->g, export_mtl_->b};
-  copy_property_from_node(diffuse_col, SOCK_RGBA, bsdf_node_, "Base Color");
-  float emission_col[3] = {0.0f, 0.0f, 0.0f};
-  copy_property_from_node(emission_col, SOCK_RGBA, bsdf_node_, "Emission");
+  float3 diffuse_col = {export_mtl_->r, export_mtl_->g, export_mtl_->b};
+  copy_property_from_node({diffuse_col, 3}, SOCK_RGBA, bsdf_node_, "Base Color");
+  float3 emission_col = {0.0f, 0.0f, 0.0f};
+  copy_property_from_node({emission_col, 3}, SOCK_RGBA, bsdf_node_, "Emission");
 
   /* See https://wikipedia.org/wiki/Wavefront_.obj_file for all possible values of illum. */
   /* Highlight on. */
@@ -226,8 +234,6 @@ void MTLWriter::write_curr_material(const char *object_name)
   texture_map_types.add("map_refl", "Metallic");
   texture_map_types.add("map_Ke", "Emission");
 
-  const char *tex_image_filepath = nullptr;
-
   /* Need to create a NodeTreeRef for a faster way to find linked sockets, as opposed to
    * looping over all the links in a node tree to match two sockets of our interest. */
   nodes::NodeTreeRef node_tree(export_mtl_->nodetree);
@@ -247,10 +253,10 @@ void MTLWriter::write_curr_material(const char *object_name)
      * ("-o") are supported. */
     float map_translation[3] = {0.0f, 0.0f, 0.0f};
     float map_scale[3] = {1.0f, 1.0f, 1.0f};
-    copy_property_from_node(map_translation, SOCK_VECTOR, mapping, "Location");
-    copy_property_from_node(map_scale, SOCK_VECTOR, mapping, "Scale");
+    copy_property_from_node({map_translation, 3}, SOCK_VECTOR, mapping, "Location");
+    copy_property_from_node({map_scale, 3}, SOCK_VECTOR, mapping, "Scale");
 
-    tex_image_filepath = get_image_filepath(tex_node);
+    const char *tex_image_filepath = get_image_filepath(tex_node);
     if (tex_image_filepath) {
       fprintf(mtl_outfile_,
               "%s -o %.6f %.6f %.6f -s %.6f %.6f %.6f %s\n",
@@ -287,11 +293,11 @@ void MTLWriter::write_curr_material(const char *object_name)
   float map_translation[3] = {0.0f, 0.0f, 0.0f};
   float map_scale[3] = {1.0f, 1.0f, 1.0f};
   float normal_map_strength = 1.0f;
-  copy_property_from_node(map_translation, SOCK_VECTOR, mapping, "Location");
-  copy_property_from_node(map_scale, SOCK_VECTOR, mapping, "Scale");
-  copy_property_from_node(&normal_map_strength, SOCK_FLOAT, normal_map_node, "Strength");
+  copy_property_from_node({map_translation, 3}, SOCK_VECTOR, mapping, "Location");
+  copy_property_from_node({map_scale, 3}, SOCK_VECTOR, mapping, "Scale");
+  copy_property_from_node({&normal_map_strength, 1}, SOCK_FLOAT, normal_map_node, "Strength");
 
-  tex_image_filepath = get_image_filepath(tex_node);
+  const char *tex_image_filepath = get_image_filepath(tex_node);
   if (tex_image_filepath) {
     fprintf(mtl_outfile_,
             "map_Bump -o %.6f %.6f %.6f -s %.6f %.6f %.6f -bm %.6f %s\n",

@@ -72,11 +72,9 @@ class OBJMeshFromRaw : NonMovable, NonCopyable {
   }
 
  private:
-  void create_vertices(const OBJRawObject &curr_object,
-                       const GlobalVertices &global_vertices,
-                       int64_t tot_verts_object);
-  void create_polys_loops(const OBJRawObject &curr_object, int64_t tot_face_elems);
-  void create_edges(const OBJRawObject &curr_object, int64_t tot_edges);
+  void create_vertices(const OBJRawObject &curr_object, const GlobalVertices &global_vertices);
+  void create_polys_loops(const OBJRawObject &curr_object);
+  void create_edges(const OBJRawObject &curr_object);
   void create_uv_verts(const OBJRawObject &curr_object, const GlobalVertices &global_vertices);
 };
 
