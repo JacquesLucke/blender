@@ -33,35 +33,6 @@
 namespace blender::io::obj {
 
 /**
- * Initialises a nodetree with a p-BSDF node's BSDF socket connected to shader output node's
- * surface socket.
- */
-ShaderNodetreeWrap::ShaderNodetreeWrap(const MTLMaterial &mtl_mat)
-{
-  nodetree_.reset(ntreeAddTree(nullptr, "Shader Nodetree", "ShaderNodetree"));
-  bsdf_.reset(add_node_to_tree(SH_NODE_BSDF_DIFFUSE));
-  unique_node_ptr shader_output{add_node_to_tree(SH_NODE_OUTPUT_MATERIAL)};
-
-  set_bsdf_socket_values(mtl_mat);
-  add_image_textures(mtl_mat);
-  link_sockets(std::move(bsdf_), "BSDF", shader_output.get(), "Surface");
-
-  nodeSetActive(nodetree_.get(), shader_output.get());
-}
-
-ShaderNodetreeWrap::~ShaderNodetreeWrap()
-{
-  /* If the destructor has been reached, we know that nodes and the nodetree
-   * have been added to the scene. */
-  bsdf_.release();
-}
-
-bNodeTree *ShaderNodetreeWrap::get_nodetree()
-{
-  return nodetree_.release();
-}
-
-/**
  * Set the socket's (of given ID) value to the given number(s).
  * Only float value(s) can be set using this method.
  */
@@ -104,6 +75,35 @@ static void set_img_filepath(StringRef value, bNode *r_node)
   Image *tex_image = reinterpret_cast<Image *>(r_node->id);
   BLI_assert(tex_image);
   BLI_strncpy_utf8(tex_image->filepath, value.data(), 1024);
+}
+
+/**
+ * Initialises a nodetree with a p-BSDF node's BSDF socket connected to shader output node's
+ * surface socket.
+ */
+ShaderNodetreeWrap::ShaderNodetreeWrap(const MTLMaterial &mtl_mat)
+{
+  nodetree_.reset(ntreeAddTree(nullptr, "Shader Nodetree", "ShaderNodetree"));
+  bsdf_.reset(add_node_to_tree(SH_NODE_BSDF_DIFFUSE));
+  shader_output_.reset(add_node_to_tree(SH_NODE_OUTPUT_MATERIAL));
+
+  set_bsdf_socket_values(mtl_mat);
+  add_image_textures(mtl_mat);
+  link_sockets(std::move(bsdf_), "BSDF", shader_output_.get(), "Surface");
+
+  nodeSetActive(nodetree_.get(), shader_output_.get());
+}
+
+ShaderNodetreeWrap::~ShaderNodetreeWrap()
+{
+  /* If the destructor has been reached, we know that nodes and the nodetree
+   * have been added to the scene. */
+  shader_output_.release();
+}
+
+bNodeTree *ShaderNodetreeWrap::get_nodetree()
+{
+  return nodetree_.release();
 }
 
 /**

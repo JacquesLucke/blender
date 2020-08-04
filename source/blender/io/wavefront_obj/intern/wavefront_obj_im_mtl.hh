@@ -57,6 +57,7 @@ class ShaderNodetreeWrap {
  private:
   unique_nodetree_ptr nodetree_;
   unique_node_ptr bsdf_;
+  unique_node_ptr shader_output_;
 
  public:
   ShaderNodetreeWrap(const MTLMaterial &mtl_mat);

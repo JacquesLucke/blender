@@ -150,7 +150,6 @@ enum eTextureMapType {
  * Used for storing parameters for all kinds of texture maps from MTL file.
  */
 struct tex_map_XX {
-  // TODO ankitm add map type enum.
   float3 translation = {0.0f, 0.0f, 0.0f};
   float3 scale = {1.0f, 1.0f, 1.0f};
   std::string image_path{};
