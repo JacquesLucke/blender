@@ -177,6 +177,7 @@ struct MTLMaterial {
   tex_map_XX map_Bump;
   /** Only used for Normal Map node: map_Bump. */
   float map_Bump_value = 0.0f;
+
   Span<eTextureMapType> all_tex_map_types() const;
   const tex_map_XX &tex_map_of_type(eTextureMapType type) const;
 };

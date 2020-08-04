@@ -117,11 +117,14 @@ void importer_main(bContext *C, const OBJImportParams &import_params)
   Vector<std::unique_ptr<OBJRawObject>> list_of_objects;
   GlobalVertices global_vertices;
   Map<std::string, MTLMaterial> materials;
-  OBJParser obj_parser{import_params};
-  MTLParser mtl_parser{import_params};
 
+  OBJParser obj_parser{import_params};
   obj_parser.parse_and_store(list_of_objects, global_vertices);
-  mtl_parser.parse_and_store(materials);
+
+  for (StringRef mtl_library : obj_parser.mtl_libraries()) {
+    MTLParser mtl_parser{mtl_library, import_params.filepath};
+    mtl_parser.parse_and_store(materials);
+  }
   obj_parser.print_obj_data(list_of_objects, global_vertices);
 
   raw_to_blender_objects(bmain, scene, list_of_objects, global_vertices, materials);

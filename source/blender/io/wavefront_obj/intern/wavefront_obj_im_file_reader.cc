@@ -55,13 +55,22 @@ static void split_by_char(const string &in_string, char delimiter, Vector<string
 }
 
 /**
- * Return substring of the given string from the start upto the first ` ` if encountered.
- * If no space is found in the string, return the first character.
+ * Split a line string into the first word (key) and the rest of the line with the
+ * first space in the latter removed.
  */
-static string first_word_of_string(const string &in_string)
+static void split_line_key_rest(std::string_view line, string &r_line_key, string &r_rest_line)
 {
-  size_t pos = in_string.find_first_of(' ');
-  return pos == string::npos ? in_string.substr(0, 1) : in_string.substr(0, pos);
+  if (line.empty()) {
+    return;
+  }
+  size_t pos = line.find_first_of(' ');
+  r_line_key = pos == string::npos ? line.substr(0, 1) : line.substr(0, pos);
+  r_rest_line = line.substr(r_line_key.size(), string::npos);
+  if (r_rest_line.empty()) {
+    return;
+  }
+  /* Remove the initial space. */
+  r_rest_line.erase(0, 1);
 }
 
 /**
@@ -200,10 +209,16 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_o
   string object_group{};
 
   while (std::getline(obj_file_, line)) {
-    string line_key{first_word_of_string(line)};
-    string rest_line{line.substr(line_key.size())};
+    string line_key{}, rest_line{};
+    split_line_key_rest(line, line_key, rest_line);
+    if (line.empty() || rest_line.empty()) {
+      continue;
+    }
 
-    if (line_key == "o") {
+    if (line_key == "mtllib") {
+      mtl_libraries_.append(rest_line);
+    }
+    else if (line_key == "o") {
       /* Update index offsets to keep track of objects which have claimed their vertices. */
       update_index_offsets(curr_ob);
       shaded_smooth = false;
@@ -387,6 +402,14 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_o
 }
 
 /**
+ * Return a list of all material library filepaths referenced by in the OBJ file.
+ */
+Span<std::string> OBJParser::mtl_libraries() const
+{
+  return mtl_libraries_;
+}
+
+/**
  * Get the texture map from the MTLMaterial struct corresponding to the given string.
  */
 static tex_map_XX *get_tex_map_of_type(MTLMaterial *mtl_mat, StringRef tex_map_str)
@@ -415,12 +438,11 @@ static tex_map_XX *get_tex_map_of_type(MTLMaterial *mtl_mat, StringRef tex_map_s
   return nullptr;
 }
 
-MTLParser::MTLParser(const OBJImportParams &import_params) : import_params_(import_params)
+MTLParser::MTLParser(StringRef mtl_library, StringRef obj_filepath) : mtl_library_(mtl_library)
 {
-  /* Try to open an MTL file with the same name as the OBJ. */
-  // TODO ankitm change it to get filename/path from OBJ file.
-  BLI_strncpy(mtl_file_path_, import_params_.filepath, FILE_MAX);
-  BLI_path_extension_replace(mtl_file_path_, FILE_MAX, ".mtl");
+  char obj_file_dir[FILE_MAXDIR];
+  BLI_split_dir_part(obj_filepath.data(), obj_file_dir, FILE_MAXDIR);
+  BLI_path_join(mtl_file_path_, FILE_MAX, obj_file_dir, mtl_library_.data(), NULL);
   mtl_file_.open(mtl_file_path_);
 }
 
@@ -433,11 +455,11 @@ void MTLParser::parse_and_store(Map<string, MTLMaterial> &mtl_materials)
   string line;
   MTLMaterial *curr_mtlmat = nullptr;
   while (std::getline(mtl_file_, line)) {
-    if (line.empty()) {
+    string line_key{}, rest_line{};
+    split_line_key_rest(line, line_key, rest_line);
+    if (line.empty() || rest_line.empty()) {
       continue;
     }
-    string line_key{first_word_of_string(line)};
-    string rest_line{line.substr(line_key.size())};
 
     if (line_key == "newmtl") {
       MTLMaterial new_mtl;

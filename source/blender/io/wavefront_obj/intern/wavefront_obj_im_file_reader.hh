@@ -33,6 +33,7 @@ class OBJParser {
  private:
   const OBJImportParams &import_params_;
   std::ifstream obj_file_;
+  Vector<std::string> mtl_libraries_{};
   /**
    * These two numbers VERTEX_OFF and UV_VERTEX_OFF respectively keep track of how many vertices
    * have been occupied by other objects. It is used when an index must stay local to an object,
@@ -45,6 +46,7 @@ class OBJParser {
 
   void parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_objects,
                        GlobalVertices &global_vertices);
+  Span<std::string> mtl_libraries() const;
   void print_obj_data(Span<std::unique_ptr<OBJRawObject>> list_of_objects,
                       const GlobalVertices &global_vertices);
 
@@ -54,12 +56,12 @@ class OBJParser {
 
 class MTLParser {
  private:
-  const OBJImportParams &import_params_;
+  StringRef mtl_library_;
   char mtl_file_path_[FILE_MAX]{};
   std::ifstream mtl_file_;
 
  public:
-  MTLParser(const OBJImportParams &import_params);
+  MTLParser(StringRef mtl_library_, StringRef obj_filepath);
 
   void parse_and_store(Map<std::string, MTLMaterial> &mtl_materials);
 };

@@ -101,6 +101,10 @@ ShaderNodetreeWrap::~ShaderNodetreeWrap()
   shader_output_.release();
 }
 
+/**
+ * Release nodetree for materials to own it. nodetree has its unique deleter
+ * if destructor is not reached for some reason.
+ */
 bNodeTree *ShaderNodetreeWrap::get_nodetree()
 {
   return nodetree_.release();
