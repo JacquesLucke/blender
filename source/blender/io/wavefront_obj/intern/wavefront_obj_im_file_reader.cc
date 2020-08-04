@@ -462,12 +462,10 @@ void MTLParser::parse_and_store(Map<string, MTLMaterial> &mtl_materials)
     }
 
     if (line_key == "newmtl") {
-      MTLMaterial new_mtl;
-      curr_mtlmat = &new_mtl;
-      mtl_materials.add(rest_line, new_mtl);
+      curr_mtlmat = &mtl_materials.lookup_or_add_default_as(rest_line);
     }
     else if (line_key == "Ns") {
-      copy_string_to_float(line.substr(line_key.size()), 324.0f, curr_mtlmat->Ns);
+      copy_string_to_float(rest_line, 324.0f, curr_mtlmat->Ns);
     }
     else if (line_key == "Ka") {
       Vector<string> str_ka_split{};
