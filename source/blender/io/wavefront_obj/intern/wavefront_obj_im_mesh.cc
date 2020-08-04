@@ -24,8 +24,10 @@
 #include "DNA_scene_types.h" /* For eVGroupSelect. */
 
 #include "BKE_customdata.h"
+#include "BKE_material.h"
 #include "BKE_object_deform.h"
 
+#include "BLI_map.hh"
 #include "BLI_vector_set.hh"
 
 #include "DNA_customdata_types.h"
@@ -33,6 +35,7 @@
 #include "DNA_meshdata_types.h"
 
 #include "wavefront_obj_im_mesh.hh"
+#include "wavefront_obj_im_mtl.hh"
 #include "wavefront_obj_im_objects.hh"
 
 namespace blender::io::obj {
@@ -42,7 +45,8 @@ namespace blender::io::obj {
  */
 OBJMeshFromRaw::OBJMeshFromRaw(Main *bmain,
                                const OBJRawObject &curr_object,
-                               const GlobalVertices &global_vertices)
+                               const GlobalVertices &global_vertices,
+                               const Map<std::string, MTLMaterial> &materials)
 {
   std::string ob_name = curr_object.object_name();
   if (ob_name.empty()) {
@@ -184,6 +188,18 @@ void OBJMeshFromRaw::create_uv_verts(const OBJRawObject &curr_object,
         tot_loop_idx++;
       }
     }
+  }
+}
+
+void OBJMeshFromRaw::create_materials(Main *bmain,
+                                      const OBJRawObject &curr_object,
+                                      const Map<std::string, MTLMaterial> &materials)
+{
+  for (const Map<std::string, MTLMaterial>::Item &curr_mat : materials.items()) {
+    Material *mat = BKE_material_add(bmain, curr_mat.key.c_str());
+    mat->use_nodes = true;
+    ShaderNodetreeWrap mat_wrap{curr_mat.value};
+    mat->nodetree = mat_wrap.get_nodetree();
   }
 }
 }  // namespace blender::io::obj

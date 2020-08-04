@@ -20,3 +20,57 @@
 /** \file
  * \ingroup obj
  */
+
+#ifndef __WAVEFRONT_OBJ_IM_MTL_HH__
+#define __WAVEFRONT_OBJ_IM_MTL_HH__
+
+#include "MEM_guardedalloc.h"
+#include <memory>
+
+#include "BKE_lib_id.h"
+#include "BKE_node.h"
+
+#include "BLI_map.hh"
+#include "BLI_string_ref.hh"
+
+#include "wavefront_obj_im_objects.hh"
+
+namespace blender::io::obj {
+struct UniqueNodeDeleter {
+  void operator()(bNode *node)
+  {
+    MEM_freeN(node);
+  }
+};
+
+struct UniqueNodetreeDeleter {
+  void operator()(bNodeTree *node)
+  {
+    MEM_freeN(node);
+  }
+};
+
+using unique_node_ptr = std::unique_ptr<bNode, UniqueNodeDeleter>;
+using unique_nodetree_ptr = std::unique_ptr<bNodeTree, UniqueNodetreeDeleter>;
+
+class ShaderNodetreeWrap {
+ private:
+  unique_nodetree_ptr nodetree_;
+  unique_node_ptr bsdf_;
+
+ public:
+  ShaderNodetreeWrap(const MTLMaterial &mtl_mat);
+  ~ShaderNodetreeWrap();
+  bNodeTree *get_nodetree();
+
+ private:
+  bNode *add_node_to_tree(const int node_type);
+  void link_sockets(unique_node_ptr src_node, StringRef src_id, bNode *dst_node, StringRef dst_id);
+  void set_bsdf_socket_values(const MTLMaterial &mtl_mat);
+  void add_image_textures(const MTLMaterial &mtl_mat);
+
+ private:
+};
+}  // namespace blender::io::obj
+
+#endif

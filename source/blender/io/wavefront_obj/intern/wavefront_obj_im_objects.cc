@@ -122,6 +122,49 @@ const std::string &OBJRawObject::group() const
   return nurbs_element_.group_;
 }
 
+Span<eTextureMapType> MTLMaterial::all_tex_map_types() const
+{
+  return {MAP_KD, MAP_KS, MAP_KE, MAP_D, MAP_REFL, MAP_NS, MAP_BUMP};
+}
+
+const tex_map_XX &MTLMaterial::tex_map_of_type(eTextureMapType type) const
+{
+  switch (type) {
+    case MAP_KD: {
+      return map_Kd;
+      break;
+    }
+    case MAP_KS: {
+      return map_Ks;
+      break;
+    }
+    case MAP_KE: {
+      return map_Ke;
+      break;
+    }
+    case MAP_D: {
+      return map_d;
+      break;
+    }
+    case MAP_REFL: {
+      return map_refl;
+      break;
+    }
+    case MAP_NS: {
+      return map_Ns;
+      break;
+    }
+    case MAP_BUMP: {
+      return map_Bump;
+      break;
+    }
+    default: {
+      BLI_assert(0);
+      break;
+    }
+  }
+}
+
 /**
  * Create a collection to store all imported objects.
  */

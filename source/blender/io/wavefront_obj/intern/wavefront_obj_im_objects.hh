@@ -136,6 +136,16 @@ class OBJRawObject {
   friend class OBJParser;
 };
 
+enum eTextureMapType {
+  MAP_KD = 1,
+  MAP_KS = 2,
+  MAP_KE = 3,
+  MAP_D = 4,
+  MAP_REFL = 5,
+  MAP_NS = 6,
+  MAP_BUMP = 7,
+};
+
 /**
  * Used for storing parameters for all kinds of texture maps from MTL file.
  */
@@ -168,6 +178,8 @@ struct MTLMaterial {
   tex_map_XX map_Bump;
   /** Only used for Normal Map node: map_Bump. */
   float map_Bump_value = 0.0f;
+  Span<eTextureMapType> all_tex_map_types() const;
+  const tex_map_XX &tex_map_of_type(eTextureMapType type) const;
 };
 
 struct UniqueObjectDeleter {

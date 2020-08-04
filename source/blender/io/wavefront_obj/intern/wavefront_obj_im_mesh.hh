@@ -27,7 +27,6 @@
 #include "BKE_lib_id.h"
 #include "BKE_mesh.h"
 
-#include "BLI_float3.hh"
 #include "BLI_utility_mixins.hh"
 
 #include "bmesh.h"
@@ -64,7 +63,8 @@ class OBJMeshFromRaw : NonMovable, NonCopyable {
  public:
   OBJMeshFromRaw(Main *bmain,
                  const OBJRawObject &curr_object,
-                 const GlobalVertices &global_vertices);
+                 const GlobalVertices &global_vertices,
+                 const Map<std::string, MTLMaterial> &materials);
 
   unique_object_ptr mover()
   {
@@ -76,6 +76,9 @@ class OBJMeshFromRaw : NonMovable, NonCopyable {
   void create_polys_loops(const OBJRawObject &curr_object);
   void create_edges(const OBJRawObject &curr_object);
   void create_uv_verts(const OBJRawObject &curr_object, const GlobalVertices &global_vertices);
+  void create_materials(Main *bmain,
+                        const OBJRawObject &curr_object,
+                        const Map<std::string, MTLMaterial> &materials);
 };
 
 }  // namespace blender::io::obj

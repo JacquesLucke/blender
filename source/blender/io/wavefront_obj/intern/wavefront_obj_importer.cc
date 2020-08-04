@@ -93,12 +93,13 @@ void OBJParser::print_obj_data(Span<std::unique_ptr<OBJRawObject>> list_of_objec
 static void raw_to_blender_objects(Main *bmain,
                                    Scene *scene,
                                    Vector<std::unique_ptr<OBJRawObject>> &list_of_objects,
-                                   const GlobalVertices &global_vertices)
+                                   const GlobalVertices &global_vertices,
+                                   const Map<std::string, MTLMaterial> &materials)
 {
   OBJImportCollection import_collection{bmain, scene};
   for (const std::unique_ptr<OBJRawObject> &curr_object : list_of_objects) {
     if (curr_object->object_type() & OB_MESH) {
-      OBJMeshFromRaw mesh_ob_from_raw{bmain, *curr_object, global_vertices};
+      OBJMeshFromRaw mesh_ob_from_raw{bmain, *curr_object, global_vertices, materials};
       import_collection.add_object_to_collection(mesh_ob_from_raw.mover());
     }
     else if (curr_object->object_type() & OB_CURVE) {
@@ -123,6 +124,6 @@ void importer_main(bContext *C, const OBJImportParams &import_params)
   mtl_parser.parse_and_store(materials);
   obj_parser.print_obj_data(list_of_objects, global_vertices);
 
-  raw_to_blender_objects(bmain, scene, list_of_objects, global_vertices);
+  raw_to_blender_objects(bmain, scene, list_of_objects, global_vertices, materials);
 }
 }  // namespace blender::io::obj
