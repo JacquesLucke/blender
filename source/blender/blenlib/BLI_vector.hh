@@ -57,19 +57,6 @@
 
 namespace blender {
 
-template<typename T> class VectorBase {
- protected:
-  /**
-   * Use pointers instead of storing the size explicitly. This reduces the number of instructions
-   * in `append`.
-   *
-   * The pointers might point to the memory in the inline buffer.
-   */
-  T *begin_;
-  T *end_;
-  T *capacity_end_;
-};
-
 template<
     /**
      * Type of the values stored in this vector. It has to be movable.
@@ -89,10 +76,24 @@ template<
      * MEM_* is used internally.
      */
     typename Allocator = GuardedAllocator>
-class Vector : private VectorBase<T>,
-               private Allocator,
-               private TypedBuffer<T, InlineBufferCapacity> {
+class Vector {
  private:
+  /**
+   * Use pointers instead of storing the size explicitly. This reduces the number of instructions
+   * in `append`.
+   *
+   * The pointers might point to the memory in the inline buffer.
+   */
+  T *begin_;
+  T *end_;
+  T *capacity_end_;
+
+  /** Used for allocations when the inline buffer is too small. */
+  Allocator allocator_;
+
+  /** A placeholder buffer that will remain uninitialized until it is used. */
+  TypedBuffer<T, InlineBufferCapacity> inline_buffer_;
+
   /**
    * Store the size of the vector explicitly in debug builds. Otherwise you'd always have to call
    * the `size` function or do the math to compute it from the pointers manually. This is rather
@@ -117,11 +118,11 @@ class Vector : private VectorBase<T>,
    * Create an empty vector.
    * This does not do any memory allocation.
    */
-  Vector(Allocator allocator = {}) : Allocator(allocator)
+  Vector(Allocator allocator = {}) : allocator_(allocator)
   {
-    this->begin_ = this->inline_buffer();
-    this->end_ = this->begin_;
-    this->capacity_end_ = this->begin_ + InlineBufferCapacity;
+    begin_ = inline_buffer_;
+    end_ = begin_;
+    capacity_end_ = begin_ + InlineBufferCapacity;
     UPDATE_VECTOR_SIZE(this);
   }
 
@@ -152,7 +153,7 @@ class Vector : private VectorBase<T>,
     const int64_t size = values.size();
     this->reserve(size);
     this->increase_size_by_unchecked(size);
-    uninitialized_convert_n<U, T>(values.data(), size, this->begin_);
+    uninitialized_convert_n<U, T>(values.data(), size, begin_);
   }
 
   /**
@@ -208,7 +209,7 @@ class Vector : private VectorBase<T>,
    * Create a copy of another vector. The other vector will not be changed. If the other vector has
    * less than InlineBufferCapacity elements, no allocation will be made.
    */
-  Vector(const Vector &other) : Vector(other.as_span(), other.allocator())
+  Vector(const Vector &other) : Vector(other.as_span(), other.allocator_)
   {
   }
 
@@ -218,7 +219,7 @@ class Vector : private VectorBase<T>,
    */
   template<int64_t OtherInlineBufferCapacity>
   Vector(const Vector<T, OtherInlineBufferCapacity, Allocator> &other)
-      : Vector(other.as_span(), other.allocator())
+      : Vector(other.as_span(), other.allocator_)
   {
   }
 
@@ -228,36 +229,35 @@ class Vector : private VectorBase<T>,
    */
   template<int64_t OtherInlineBufferCapacity>
   Vector(Vector<T, OtherInlineBufferCapacity, Allocator> &&other) noexcept
-      : Allocator(other.allocator())
+      : allocator_(other.allocator_)
   {
     const int64_t size = other.size();
 
     if (other.is_inline()) {
       if (size <= InlineBufferCapacity) {
         /* Copy between inline buffers. */
-        this->begin_ = this->inline_buffer();
-        this->end_ = this->begin_ + size;
-        this->capacity_end_ = this->begin_ + InlineBufferCapacity;
-        uninitialized_relocate_n(other.begin_, size, this->begin_);
+        begin_ = inline_buffer_;
+        end_ = begin_ + size;
+        capacity_end_ = begin_ + InlineBufferCapacity;
+        uninitialized_relocate_n(other.begin_, size, begin_);
       }
       else {
         /* Copy from inline buffer to newly allocated buffer. */
         const int64_t capacity = size;
-        this->begin_ = (T *)this->allocator().allocate(
-            sizeof(T) * (size_t)capacity, alignof(T), AT);
-        this->end_ = this->begin_ + size;
-        this->capacity_end_ = this->begin_ + capacity;
-        uninitialized_relocate_n(other.begin_, size, this->begin_);
+        begin_ = (T *)allocator_.allocate(sizeof(T) * (size_t)capacity, alignof(T), AT);
+        end_ = begin_ + size;
+        capacity_end_ = begin_ + capacity;
+        uninitialized_relocate_n(other.begin_, size, begin_);
       }
     }
     else {
       /* Steal the pointer. */
-      this->begin_ = other.begin_;
-      this->end_ = other.end_;
-      this->capacity_end_ = other.capacity_end_;
+      begin_ = other.begin_;
+      end_ = other.end_;
+      capacity_end_ = other.capacity_end_;
     }
 
-    other.begin_ = other.inline_buffer();
+    other.begin_ = other.inline_buffer_;
     other.end_ = other.begin_;
     other.capacity_end_ = other.begin_ + OtherInlineBufferCapacity;
     UPDATE_VECTOR_SIZE(this);
@@ -266,9 +266,9 @@ class Vector : private VectorBase<T>,
 
   ~Vector()
   {
-    destruct_n(this->begin_, this->size());
+    destruct_n(begin_, this->size());
     if (!this->is_inline()) {
-      this->allocator().deallocate(this->begin_);
+      allocator_.deallocate(begin_);
     }
   }
 
@@ -306,36 +306,36 @@ class Vector : private VectorBase<T>,
   {
     BLI_assert(index >= 0);
     BLI_assert(index < this->size());
-    return this->begin_[index];
+    return begin_[index];
   }
 
   T &operator[](int64_t index)
   {
     BLI_assert(index >= 0);
     BLI_assert(index < this->size());
-    return this->begin_[index];
+    return begin_[index];
   }
 
   operator Span<T>() const
   {
-    return Span<T>(this->begin_, this->size());
+    return Span<T>(begin_, this->size());
   }
 
   operator MutableSpan<T>()
   {
-    return MutableSpan<T>(this->begin_, this->size());
+    return MutableSpan<T>(begin_, this->size());
   }
 
   template<typename U, typename std::enable_if_t<is_convertible_pointer_v<T, U>> * = nullptr>
   operator Span<U>() const
   {
-    return Span<U>(this->begin_, this->size());
+    return Span<U>(begin_, this->size());
   }
 
   template<typename U, typename std::enable_if_t<is_convertible_pointer_v<T, U>> * = nullptr>
   operator MutableSpan<U>()
   {
-    return MutableSpan<U>(this->begin_, this->size());
+    return MutableSpan<U>(begin_, this->size());
   }
 
   Span<T> as_span() const
@@ -372,12 +372,12 @@ class Vector : private VectorBase<T>,
     const int64_t old_size = this->size();
     if (new_size > old_size) {
       this->reserve(new_size);
-      default_construct_n(this->begin_ + old_size, new_size - old_size);
+      default_construct_n(begin_ + old_size, new_size - old_size);
     }
     else {
-      destruct_n(this->begin_ + new_size, old_size - new_size);
+      destruct_n(begin_ + new_size, old_size - new_size);
     }
-    this->end_ = this->begin_ + new_size;
+    end_ = begin_ + new_size;
     UPDATE_VECTOR_SIZE(this);
   }
 
@@ -393,12 +393,12 @@ class Vector : private VectorBase<T>,
     const int64_t old_size = this->size();
     if (new_size > old_size) {
       this->reserve(new_size);
-      uninitialized_fill_n(this->begin_ + old_size, new_size - old_size, value);
+      uninitialized_fill_n(begin_ + old_size, new_size - old_size, value);
     }
     else {
-      destruct_n(this->begin_ + new_size, old_size - new_size);
+      destruct_n(begin_ + new_size, old_size - new_size);
     }
-    this->end_ = this->begin_ + new_size;
+    end_ = begin_ + new_size;
     UPDATE_VECTOR_SIZE(this);
   }
 
@@ -408,8 +408,8 @@ class Vector : private VectorBase<T>,
    */
   void clear()
   {
-    destruct_n(this->begin_, this->size());
-    this->end_ = this->begin_;
+    destruct_n(begin_, this->size());
+    end_ = begin_;
     UPDATE_VECTOR_SIZE(this);
   }
 
@@ -419,14 +419,14 @@ class Vector : private VectorBase<T>,
    */
   void clear_and_make_inline()
   {
-    destruct_n(this->begin_, this->size());
+    destruct_n(begin_, this->size());
     if (!this->is_inline()) {
-      this->allocator().deallocate(this->begin_);
+      allocator_.deallocate(begin_);
     }
 
-    this->begin_ = this->inline_buffer();
-    this->end_ = this->begin_;
-    this->capacity_end_ = this->begin_ + InlineBufferCapacity;
+    begin_ = inline_buffer_;
+    end_ = begin_;
+    capacity_end_ = begin_ + InlineBufferCapacity;
     UPDATE_VECTOR_SIZE(this);
   }
 
@@ -477,16 +477,16 @@ class Vector : private VectorBase<T>,
    */
   void append_unchecked(const T &value)
   {
-    BLI_assert(this->end_ < this->capacity_end_);
-    new (this->end_) T(value);
-    this->end_++;
+    BLI_assert(end_ < capacity_end_);
+    new (end_) T(value);
+    end_++;
     UPDATE_VECTOR_SIZE(this);
   }
   void append_unchecked(T &&value)
   {
-    BLI_assert(this->end_ < this->capacity_end_);
-    new (this->end_) T(std::move(value));
-    this->end_++;
+    BLI_assert(end_ < capacity_end_);
+    new (end_) T(std::move(value));
+    end_++;
     UPDATE_VECTOR_SIZE(this);
   }
 
@@ -498,7 +498,7 @@ class Vector : private VectorBase<T>,
   {
     BLI_assert(n >= 0);
     this->reserve(this->size() + n);
-    blender::uninitialized_fill_n(this->end_, n, value);
+    blender::uninitialized_fill_n(end_, n, value);
     this->increase_size_by_unchecked(n);
   }
 
@@ -510,8 +510,8 @@ class Vector : private VectorBase<T>,
    */
   void increase_size_by_unchecked(const int64_t n)
   {
-    BLI_assert(this->end_ + n <= this->capacity_end_);
-    this->end_ += n;
+    BLI_assert(end_ + n <= capacity_end_);
+    end_ += n;
     UPDATE_VECTOR_SIZE(this);
   }
 
@@ -553,9 +553,9 @@ class Vector : private VectorBase<T>,
   void extend_unchecked(const T *start, int64_t amount)
   {
     BLI_assert(amount >= 0);
-    BLI_assert(this->begin_ + amount <= this->capacity_end_);
-    blender::uninitialized_copy_n(start, amount, this->end_);
-    this->end_ += amount;
+    BLI_assert(begin_ + amount <= capacity_end_);
+    blender::uninitialized_copy_n(start, amount, end_);
+    end_ += amount;
     UPDATE_VECTOR_SIZE(this);
   }
 
@@ -566,12 +566,12 @@ class Vector : private VectorBase<T>,
   const T &last() const
   {
     BLI_assert(this->size() > 0);
-    return *(this->end_ - 1);
+    return *(end_ - 1);
   }
   T &last()
   {
     BLI_assert(this->size() > 0);
-    return *(this->end_ - 1);
+    return *(end_ - 1);
   }
 
   /**
@@ -579,8 +579,8 @@ class Vector : private VectorBase<T>,
    */
   int64_t size() const
   {
-    BLI_assert(debug_size_ == (int64_t)(this->end_ - this->begin_));
-    return (int64_t)(this->end_ - this->begin_);
+    BLI_assert(debug_size_ == (int64_t)(end_ - begin_));
+    return (int64_t)(end_ - begin_);
   }
 
   /**
@@ -590,7 +590,7 @@ class Vector : private VectorBase<T>,
    */
   bool is_empty() const
   {
-    return this->begin_ == this->end_;
+    return begin_ == end_;
   }
 
   /**
@@ -600,8 +600,8 @@ class Vector : private VectorBase<T>,
   void remove_last()
   {
     BLI_assert(!this->is_empty());
-    this->end_--;
-    this->end_->~T();
+    end_--;
+    end_->~T();
     UPDATE_VECTOR_SIZE(this);
   }
 
@@ -614,9 +614,9 @@ class Vector : private VectorBase<T>,
   T pop_last()
   {
     BLI_assert(!this->is_empty());
-    this->end_--;
-    T value = std::move(*this->end_);
-    this->end_->~T();
+    end_--;
+    T value = std::move(*end_);
+    end_->~T();
     UPDATE_VECTOR_SIZE(this);
     return value;
   }
@@ -629,12 +629,12 @@ class Vector : private VectorBase<T>,
   {
     BLI_assert(index >= 0);
     BLI_assert(index < this->size());
-    T *element_to_remove = this->begin_ + index;
-    this->end_--;
-    if (element_to_remove < this->end_) {
-      *element_to_remove = std::move(*this->end_);
+    T *element_to_remove = begin_ + index;
+    end_--;
+    if (element_to_remove < end_) {
+      *element_to_remove = std::move(*end_);
     }
-    this->end_->~T();
+    end_->~T();
     UPDATE_VECTOR_SIZE(this);
   }
 
@@ -661,10 +661,10 @@ class Vector : private VectorBase<T>,
     BLI_assert(index < this->size());
     const int64_t last_index = this->size() - 1;
     for (int64_t i = index; i < last_index; i++) {
-      this->begin_[i] = std::move(this->begin_[i + 1]);
+      begin_[i] = std::move(begin_[i + 1]);
     }
-    this->begin_[last_index].~T();
-    this->end_--;
+    begin_[last_index].~T();
+    end_--;
     UPDATE_VECTOR_SIZE(this);
   }
 
@@ -674,9 +674,9 @@ class Vector : private VectorBase<T>,
    */
   int64_t first_index_of_try(const T &value) const
   {
-    for (const T *current = this->begin_; current != this->end_; current++) {
+    for (const T *current = begin_; current != end_; current++) {
       if (*current == value) {
-        return (int64_t)(current - this->begin_);
+        return (int64_t)(current - begin_);
       }
     }
     return -1;
@@ -707,7 +707,7 @@ class Vector : private VectorBase<T>,
    */
   void fill(const T &value) const
   {
-    initialized_fill_n(this->begin_, this->size(), value);
+    initialized_fill_n(begin_, this->size(), value);
   }
 
   /**
@@ -715,7 +715,7 @@ class Vector : private VectorBase<T>,
    */
   T *data()
   {
-    return this->begin_;
+    return begin_;
   }
 
   /**
@@ -723,25 +723,25 @@ class Vector : private VectorBase<T>,
    */
   const T *data() const
   {
-    return this->begin_;
+    return begin_;
   }
 
   T *begin()
   {
-    return this->begin_;
+    return begin_;
   }
   T *end()
   {
-    return this->end_;
+    return end_;
   }
 
   const T *begin() const
   {
-    return this->begin_;
+    return begin_;
   }
   const T *end() const
   {
-    return this->end_;
+    return end_;
   }
 
   /**
@@ -750,7 +750,7 @@ class Vector : private VectorBase<T>,
    */
   int64_t capacity() const
   {
-    return (int64_t)(this->capacity_end_ - this->begin_);
+    return (int64_t)(capacity_end_ - begin_);
   }
 
   /**
@@ -775,7 +775,7 @@ class Vector : private VectorBase<T>,
     std::cout << "Vector Stats: " << name << "\n";
     std::cout << "  Address: " << this << "\n";
     std::cout << "  Elements: " << this->size() << "\n";
-    std::cout << "  Capacity: " << (this->capacity_end_ - this->begin_) << "\n";
+    std::cout << "  Capacity: " << (capacity_end_ - begin_) << "\n";
     std::cout << "  Inline Capacity: " << InlineBufferCapacity << "\n";
 
     char memory_size_str[15];
@@ -786,12 +786,12 @@ class Vector : private VectorBase<T>,
  private:
   bool is_inline() const
   {
-    return this->begin_ == this->inline_buffer();
+    return begin_ == inline_buffer_;
   }
 
   void ensure_space_for_one()
   {
-    if (UNLIKELY(this->end_ >= this->capacity_end_)) {
+    if (UNLIKELY(end_ >= capacity_end_)) {
       this->realloc_to_at_least(this->size() + 1);
     }
   }
@@ -809,37 +809,16 @@ class Vector : private VectorBase<T>,
     const int64_t new_capacity = std::max(min_capacity, min_new_capacity);
     const int64_t size = this->size();
 
-    T *new_array = (T *)this->allocator().allocate(
-        (size_t)new_capacity * sizeof(T), alignof(T), AT);
-    uninitialized_relocate_n(this->begin_, size, new_array);
+    T *new_array = (T *)allocator_.allocate((size_t)new_capacity * sizeof(T), alignof(T), AT);
+    uninitialized_relocate_n(begin_, size, new_array);
 
     if (!this->is_inline()) {
-      this->allocator().deallocate(this->begin_);
+      allocator_.deallocate(begin_);
     }
 
-    this->begin_ = new_array;
-    this->end_ = this->begin_ + size;
-    this->capacity_end_ = this->begin_ + new_capacity;
-  }
-
-  Allocator &allocator()
-  {
-    return *this;
-  }
-
-  const Allocator &allocator() const
-  {
-    return *this;
-  }
-
-  TypedBuffer<T, InlineBufferCapacity> &inline_buffer()
-  {
-    return *this;
-  }
-
-  const TypedBuffer<T, InlineBufferCapacity> &inline_buffer() const
-  {
-    return *this;
+    begin_ = new_array;
+    end_ = begin_ + size;
+    capacity_end_ = begin_ + new_capacity;
   }
 };
 
