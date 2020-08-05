@@ -438,6 +438,200 @@ class TypedBuffer : private MaybeEmptyAlignedBuffer<sizeof(T) * (size_t)Size, al
   }
 };
 
+template<typename T1, typename T2> class CompressedPair_BothEmpty : private T1, private T2 {
+ public:
+  CompressedPair_BothEmpty() = default;
+
+  template<typename U1, typename U2>
+  CompressedPair_BothEmpty(U1 &&UNUSED(value1), U2 &&UNUSED(value2))
+  {
+  }
+
+  T1 &first()
+  {
+    return *this;
+  }
+
+  const T1 &first() const
+  {
+    return *this;
+  }
+
+  T2 &second()
+  {
+    return *this;
+  }
+
+  const T2 &second() const
+  {
+    return *this;
+  }
+};
+
+template<typename T1, typename T2> class CompressedPair_FirstEmpty : private T1 {
+ private:
+  T2 second_;
+
+ public:
+  CompressedPair_FirstEmpty() = default;
+
+  template<typename U1, typename U2>
+  CompressedPair_FirstEmpty(U1 &&UNUSED(value1), U2 &&value2) : second_(std::forward<U2>(value2))
+  {
+  }
+
+  T1 &first()
+  {
+    return *this;
+  }
+
+  const T1 &first() const
+  {
+    return *this;
+  }
+
+  T2 &second()
+  {
+    return second_;
+  }
+
+  const T2 &second() const
+  {
+    return second_;
+  }
+};
+
+template<typename T1, typename T2> class CompressedPair_SecondEmpty : private T2 {
+ private:
+  T1 first_;
+
+ public:
+  CompressedPair_SecondEmpty() = default;
+
+  template<typename U1, typename U2>
+  CompressedPair_SecondEmpty(U1 &&value1, U2 &&UNUSED(value2)) : first_(std::forward<U1>(value1))
+  {
+  }
+
+  T1 &first()
+  {
+    return first_;
+  }
+
+  const T1 &first() const
+  {
+    return first_;
+  }
+
+  T2 &second()
+  {
+    return *this;
+  }
+
+  const T2 &second() const
+  {
+    return *this;
+  }
+};
+
+template<typename T1, typename T2> class CompressedPair_NoneEmpty {
+ private:
+  T1 first_;
+  T2 second_;
+
+ public:
+  CompressedPair_NoneEmpty() = default;
+
+  template<typename U1, typename U2>
+  CompressedPair_NoneEmpty(U1 &&value1, U2 &&value2)
+      : first_(std::forward<U1>(value1)), second_(std::forward<U2>(value2))
+  {
+  }
+
+  T1 &first()
+  {
+    return first_;
+  }
+
+  const T1 &first() const
+  {
+    return first_;
+  }
+
+  T2 &second()
+  {
+    return second_;
+  }
+
+  const T2 &second() const
+  {
+    return second_;
+  }
+};
+
+template<typename T1, typename T2>
+using CompressedPair = std::conditional_t<std::is_empty_v<T1>,
+                                          std::conditional_t<std::is_empty_v<T2>,
+                                                             CompressedPair_BothEmpty<T1, T2>,
+                                                             CompressedPair_FirstEmpty<T1, T2>>,
+                                          std::conditional_t<std::is_empty_v<T2>,
+                                                             CompressedPair_SecondEmpty<T1, T2>,
+                                                             CompressedPair_NoneEmpty<T1, T2>>>;
+
+template<typename T1, typename T2, typename T3>
+using CompressedTripleBase = CompressedPair<T1, CompressedPair<T2, T3>>;
+
+template<typename T1, typename T2, typename T3>
+class CompressedTriple : private CompressedTripleBase<T1, T2, T3> {
+ private:
+  using Base = CompressedTripleBase<T1, T2, T3>;
+
+ public:
+  CompressedTriple() = default;
+
+  template<typename U1, typename U2, typename U3>
+  CompressedTriple(U1 &&value1, U2 &&value2, U3 &&value3)
+      : Base(std::forward<U1>(value1),
+             CompressedPair<T2, T3>(std::forward<U2>(value2), std::forward<U3>(value3)))
+  {
+  }
+
+  CompressedTriple(T1 value1, T2 value2, T3 value3)
+      : Base(std::move(value1), CompressedPair<T2, T3>(std::move(value2), std::move(value3)))
+  {
+  }
+
+  T1 &first()
+  {
+    return Base::first();
+  }
+
+  const T1 &first() const
+  {
+    return Base::first();
+  }
+
+  T2 &second()
+  {
+    return Base::second().first();
+  }
+
+  const T2 &second() const
+  {
+    return Base::second().first();
+  }
+
+  T3 &third()
+  {
+    return Base::second().second();
+  }
+
+  const T3 &third() const
+  {
+    return Base::second().second();
+  }
+};
+
 /**
  * This can be used by container constructors. A parameter of this type should be used to indicate
  * that the constructor does not construct the elements.

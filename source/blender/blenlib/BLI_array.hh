@@ -60,13 +60,13 @@ template<
      * MEM_* functions are used internally.
      */
     typename Allocator = GuardedAllocator>
-class Array : private Allocator, private TypedBuffer<T, InlineBufferCapacity> {
+class Array {
  private:
   /** The beginning of the array. It might point into the inline buffer. */
   T *data_;
 
-  /** Number of elements in the array. */
-  int64_t size_;
+  CompressedTriple<int64_t, Allocator, TypedBuffer<T, InlineBufferCapacity>>
+      size_and_allocator_and_inline_buffer_;
 
  public:
   /**
@@ -75,18 +75,19 @@ class Array : private Allocator, private TypedBuffer<T, InlineBufferCapacity> {
   Array()
   {
     data_ = this->inline_buffer();
-    size_ = 0;
+    this->size_ref() = 0;
   }
 
   /**
    * Create a new array that contains copies of all values.
    */
   template<typename U, typename std::enable_if_t<std::is_convertible_v<U, T>> * = nullptr>
-  Array(Span<U> values, Allocator allocator = {}) : Allocator(allocator)
+  Array(Span<U> values, Allocator allocator = {})
+      : size_and_allocator_and_inline_buffer_(0, allocator, {})
   {
-    size_ = values.size();
+    this->size_ref() = values.size();
     data_ = this->get_buffer_for_size(values.size());
-    uninitialized_convert_n<U, T>(values.data(), size_, data_);
+    uninitialized_convert_n<U, T>(values.data(), this->size(), data_);
   }
 
   /**
@@ -111,7 +112,7 @@ class Array : private Allocator, private TypedBuffer<T, InlineBufferCapacity> {
    */
   explicit Array(int64_t size)
   {
-    size_ = size;
+    this->size_ref() = size;
     data_ = this->get_buffer_for_size(size);
     default_construct_n(data_, size);
   }
@@ -123,9 +124,9 @@ class Array : private Allocator, private TypedBuffer<T, InlineBufferCapacity> {
   Array(int64_t size, const T &value)
   {
     BLI_assert(size >= 0);
-    size_ = size;
+    this->size_ref() = size;
     data_ = this->get_buffer_for_size(size);
-    uninitialized_fill_n(data_, size_, value);
+    uninitialized_fill_n(data_, this->size(), value);
   }
 
   /**
@@ -143,7 +144,7 @@ class Array : private Allocator, private TypedBuffer<T, InlineBufferCapacity> {
   Array(int64_t size, NoInitialization)
   {
     BLI_assert(size >= 0);
-    size_ = size;
+    this->size_ref() = size;
     data_ = this->get_buffer_for_size(size);
   }
 
@@ -151,25 +152,25 @@ class Array : private Allocator, private TypedBuffer<T, InlineBufferCapacity> {
   {
   }
 
-  Array(Array &&other) noexcept : Allocator(other.allocator())
+  Array(Array &&other) noexcept : size_and_allocator_and_inline_buffer_(0, other.allocator(), {})
   {
-    size_ = other.size_;
+    this->size_ref() = other.size();
 
     if (!other.uses_inline_buffer()) {
       data_ = other.data_;
     }
     else {
-      data_ = this->get_buffer_for_size(size_);
-      uninitialized_relocate_n(other.data_, size_, data_);
+      data_ = this->get_buffer_for_size(this->size());
+      uninitialized_relocate_n(other.data_, this->size(), data_);
     }
 
     other.data_ = other.inline_buffer();
-    other.size_ = 0;
+    other.size_ref() = 0;
   }
 
   ~Array()
   {
-    destruct_n(data_, size_);
+    destruct_n(data_, this->size());
     if (!this->uses_inline_buffer()) {
       this->allocator().deallocate((void *)data_);
     }
@@ -200,37 +201,37 @@ class Array : private Allocator, private TypedBuffer<T, InlineBufferCapacity> {
   T &operator[](int64_t index)
   {
     BLI_assert(index >= 0);
-    BLI_assert(index < size_);
+    BLI_assert(index < this->size());
     return data_[index];
   }
 
   const T &operator[](int64_t index) const
   {
     BLI_assert(index >= 0);
-    BLI_assert(index < size_);
+    BLI_assert(index < this->size());
     return data_[index];
   }
 
   operator Span<T>() const
   {
-    return Span<T>(data_, size_);
+    return Span<T>(data_, this->size());
   }
 
   operator MutableSpan<T>()
   {
-    return MutableSpan<T>(data_, size_);
+    return MutableSpan<T>(data_, this->size());
   }
 
   template<typename U, typename std::enable_if_t<is_convertible_pointer_v<T, U>> * = nullptr>
   operator Span<U>() const
   {
-    return Span<U>(data_, size_);
+    return Span<U>(data_, this->size());
   }
 
   template<typename U, typename std::enable_if_t<is_convertible_pointer_v<T, U>> * = nullptr>
   operator MutableSpan<U>()
   {
-    return MutableSpan<U>(data_, size_);
+    return MutableSpan<U>(data_, this->size());
   }
 
   Span<T> as_span() const
@@ -248,7 +249,7 @@ class Array : private Allocator, private TypedBuffer<T, InlineBufferCapacity> {
    */
   int64_t size() const
   {
-    return size_;
+    return size_and_allocator_and_inline_buffer_.first();
   }
 
   /**
@@ -256,7 +257,7 @@ class Array : private Allocator, private TypedBuffer<T, InlineBufferCapacity> {
    */
   bool is_empty() const
   {
-    return size_ == 0;
+    return this->size() == 0;
   }
 
   /**
@@ -264,7 +265,7 @@ class Array : private Allocator, private TypedBuffer<T, InlineBufferCapacity> {
    */
   void fill(const T &value) const
   {
-    initialized_fill_n(data_, size_, value);
+    initialized_fill_n(data_, this->size(), value);
   }
 
   /**
@@ -286,7 +287,7 @@ class Array : private Allocator, private TypedBuffer<T, InlineBufferCapacity> {
 
   const T *end() const
   {
-    return data_ + size_;
+    return data_ + this->size();
   }
 
   T *begin()
@@ -296,7 +297,7 @@ class Array : private Allocator, private TypedBuffer<T, InlineBufferCapacity> {
 
   T *end()
   {
-    return data_ + size_;
+    return data_ + this->size();
   }
 
   /**
@@ -304,7 +305,7 @@ class Array : private Allocator, private TypedBuffer<T, InlineBufferCapacity> {
    */
   IndexRange index_range() const
   {
-    return IndexRange(size_);
+    return IndexRange(this->size());
   }
 
   /**
@@ -313,7 +314,7 @@ class Array : private Allocator, private TypedBuffer<T, InlineBufferCapacity> {
    */
   void clear_without_destruct()
   {
-    size_ = 0;
+    this->size_ref() = 0;
   }
 
   /**
@@ -321,12 +322,12 @@ class Array : private Allocator, private TypedBuffer<T, InlineBufferCapacity> {
    */
   Allocator &allocator()
   {
-    return *this;
+    return size_and_allocator_and_inline_buffer_.second();
   }
 
   const Allocator &allocator() const
   {
-    return *this;
+    return size_and_allocator_and_inline_buffer_.second();
   }
 
   /**
@@ -361,12 +362,17 @@ class Array : private Allocator, private TypedBuffer<T, InlineBufferCapacity> {
 
   TypedBuffer<T, InlineBufferCapacity> &inline_buffer()
   {
-    return *this;
+    return size_and_allocator_and_inline_buffer_.third();
   }
 
   const TypedBuffer<T, InlineBufferCapacity> &inline_buffer() const
   {
-    return *this;
+    return size_and_allocator_and_inline_buffer_.third();
+  }
+
+  int64_t &size_ref()
+  {
+    return size_and_allocator_and_inline_buffer_.first();
   }
 };
 
