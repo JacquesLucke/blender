@@ -11,8 +11,6 @@ TEST(array, DefaultConstructor)
   Array<int> array;
   EXPECT_EQ(array.size(), 0);
   EXPECT_TRUE(array.is_empty());
-
-  std::cout << "Size: " << sizeof(Array<int, 0>) << "\n";
 }
 
 TEST(array, SizeConstructor)
