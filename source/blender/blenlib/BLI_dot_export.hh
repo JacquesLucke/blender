@@ -57,6 +57,11 @@ class AttributeList {
   {
     attributes_.add_overwrite(key, value);
   }
+
+  void set(StringRef key, float value)
+  {
+    attributes_.add_overwrite(key, std::to_string(value));
+  }
 };
 
 class Graph {
@@ -80,6 +85,11 @@ class Graph {
   void set_attribute(StringRef key, StringRef value)
   {
     attributes_.set(key, value);
+  }
+
+  void set_attribute(StringRef key, float value)
+  {
+    attributes_.set(key, std::to_string(value));
   }
 
   void set_rankdir(Attr_rankdir rankdir)
@@ -113,6 +123,11 @@ class Cluster {
     attributes_.set(key, value);
   }
 
+  void set_attribute(StringRef key, float value)
+  {
+    attributes_.set(key, std::to_string(value));
+  }
+
   void set_parent_cluster(Cluster *cluster);
   void set_parent_cluster(Cluster &cluster)
   {
@@ -120,6 +135,11 @@ class Cluster {
   }
 
   void set_random_cluster_bgcolors();
+
+  AttributeList &attributes()
+  {
+    return attributes_;
+  }
 };
 
 class Node {
@@ -154,6 +174,11 @@ class Node {
   void set_attribute(StringRef key, StringRef value)
   {
     attributes_.set(key, value);
+  }
+
+  void set_attribute(StringRef key, float value)
+  {
+    this->set_attribute(key, std::to_string(value));
   }
 
   void set_shape(Attr_shape shape)
@@ -221,6 +246,11 @@ class Edge : blender::NonCopyable, blender::NonMovable {
   void set_attribute(StringRef key, StringRef value)
   {
     attributes_.set(key, value);
+  }
+
+  void set_attribute(StringRef key, float value)
+  {
+    attributes_.set(key, std::to_string(value));
   }
 
   void set_arrowhead(Attr_arrowType type)
