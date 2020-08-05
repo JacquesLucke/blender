@@ -190,14 +190,12 @@ void OBJMeshFromRaw::create_uv_verts()
   }
 }
 
-void OBJMeshFromRaw::create_materials(Main *bmain,
-                                      const OBJRawObject &curr_object,
-                                      const Map<std::string, MTLMaterial> &materials)
+void OBJMeshFromRaw::create_materials(Main *bmain, const Map<std::string, MTLMaterial> &materials)
 {
   for (const Map<std::string, MTLMaterial>::Item &curr_mat : materials.items()) {
     Material *mat = BKE_material_add(bmain, curr_mat.key.c_str());
     mat->use_nodes = true;
-    ShaderNodetreeWrap mat_wrap{curr_mat.value};
+    ShaderNodetreeWrap mat_wrap{bmain, curr_mat.value};
     mat->nodetree = mat_wrap.get_nodetree();
   }
 }

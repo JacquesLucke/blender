@@ -74,13 +74,11 @@ class OBJMeshFromRaw : NonMovable, NonCopyable {
   }
 
  private:
-  void create_materials(Main *bmain,
-                        const OBJRawObject &curr_object,
-                        const Map<std::string, MTLMaterial> &materials);
   void create_vertices();
   void create_polys_loops();
   void create_edges();
   void create_uv_verts();
+  void create_materials(Main *bmain, const Map<std::string, MTLMaterial> &materials);
 };
 
 }  // namespace blender::io::obj

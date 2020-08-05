@@ -21,6 +21,7 @@
  * \ingroup obj
  */
 
+#include "BKE_image.h"
 #include "BKE_node.h"
 
 #include "BLI_map.hh"
@@ -72,29 +73,56 @@ static void set_property_of_socket(eNodeSocketDatatype property_type,
   }
 }
 
+static std::string replace_all_occurences(std::string_view path,
+                                          std::string_view to_remove,
+                                          std::string_view to_add)
+{
+  std::string clean_path{path};
+  while (true) {
+    std::string::size_type pos = clean_path.find(to_remove);
+    if (pos == std::string::npos) {
+      break;
+    }
+    clean_path.replace(pos, to_add.size(), to_add);
+  }
+  return clean_path;
+}
+
 /**
- * Set the filepath in the Image Texture Node.
+ * Load image for Image Texture node.
  */
-static void set_img_filepath(StringRef value, bNode *r_node)
+static void set_img_filepath(Main *bmain, std::string_view value, bNode *r_node)
 {
   BLI_assert(r_node);
-  Image *tex_image = reinterpret_cast<Image *>(r_node->id);
+  Image *tex_image = BKE_image_load(bmain, value.data());
+  if (!tex_image) {
+    fprintf(stderr, "Cannot load image file:'%s'", value.data());
+    /* Remove quotes from the filename which has now been added to filepath. */
+    std::string no_quote_path{replace_all_occurences(value, "\"", "")};
+    tex_image = BKE_image_load(nullptr, no_quote_path.c_str());
+    fprintf(stderr, "Cannot load image file:'%s'", no_quote_path.data());
+    if (!tex_image) {
+      std::string no_underscore_path{replace_all_occurences(no_quote_path, "_", " ")};
+      tex_image = BKE_image_load(nullptr, no_underscore_path.c_str());
+      fprintf(stderr, "Cannot load image file:'%s'", no_underscore_path.data());
+    }
+  }
   BLI_assert(tex_image);
-  BLI_strncpy_utf8(tex_image->filepath, value.data(), 1024);
 }
 
 /**
  * Initialises a nodetree with a p-BSDF node's BSDF socket connected to shader output node's
  * surface socket.
  */
-ShaderNodetreeWrap::ShaderNodetreeWrap(const MTLMaterial &mtl_mat)
+ShaderNodetreeWrap::ShaderNodetreeWrap(Main *bmain, const MTLMaterial &mtl_mat)
+    : mtl_mat_(&mtl_mat)
 {
   nodetree_.reset(ntreeAddTree(nullptr, "Shader Nodetree", ntreeType_Shader->idname));
   bsdf_.reset(add_node_to_tree(SH_NODE_BSDF_PRINCIPLED));
   shader_output_.reset(add_node_to_tree(SH_NODE_OUTPUT_MATERIAL));
 
-  set_bsdf_socket_values(mtl_mat);
-  add_image_textures(mtl_mat);
+  set_bsdf_socket_values();
+  add_image_textures(bmain);
   link_sockets(std::move(bsdf_), "BSDF", shader_output_.get(), "Surface");
 
   nodeSetActive(nodetree_.get(), shader_output_.get());
@@ -102,11 +130,9 @@ ShaderNodetreeWrap::ShaderNodetreeWrap(const MTLMaterial &mtl_mat)
 
 ShaderNodetreeWrap::~ShaderNodetreeWrap()
 {
-  /* If the destructor has been reached, we know that nodes and the nodetree
-   * have been added to the scene. */
-  shader_output_.release();
   if (nodetree_) {
     /* nodetree's ownership must be acquired by the caller. */
+    nodetree_.reset();
     BLI_assert(0);
   }
 }
@@ -117,6 +143,9 @@ ShaderNodetreeWrap::~ShaderNodetreeWrap()
  */
 bNodeTree *ShaderNodetreeWrap::get_nodetree()
 {
+  /* If this function has been reached, we know that nodes and the nodetree
+   * can be added to the scene safely. */
+  static_cast<void>(shader_output_.release());
   return nodetree_.release();
 }
 
@@ -132,58 +161,59 @@ bNode *ShaderNodetreeWrap::add_node_to_tree(const int node_type)
 /**
  * Link two nodes by the sockets of given IDs.
  */
-void ShaderNodetreeWrap::link_sockets(unique_node_ptr src_node,
-                                      StringRef src_id,
-                                      bNode *dst_node,
-                                      StringRef dst_id)
+void ShaderNodetreeWrap::link_sockets(unique_node_ptr from_node,
+                                      StringRef from_node_id,
+                                      bNode *to_node,
+                                      StringRef to_node_id)
 {
-  nodeAddLink(nodetree_.get(),
-              src_node.get(),
-              nodeFindSocket(src_node.get(), SOCK_OUT, src_id.data()),
-              dst_node,
-              nodeFindSocket(dst_node, SOCK_IN, dst_id.data()));
-  src_node.release();
+  bNodeSocket *from_sock{nodeFindSocket(from_node.get(), SOCK_OUT, from_node_id.data())};
+  bNodeSocket *to_sock{nodeFindSocket(to_node, SOCK_IN, to_node_id.data())};
+  BLI_assert(from_sock && to_sock);
+  nodeAddLink(nodetree_.get(), from_node.get(), from_sock, to_node, to_sock);
+  static_cast<void>(from_node.release());
 }
 
-void ShaderNodetreeWrap::set_bsdf_socket_values(const MTLMaterial &mtl_mat)
+void ShaderNodetreeWrap::set_bsdf_socket_values()
 {
-  set_property_of_socket(SOCK_FLOAT, "Specular", {mtl_mat.Ns}, bsdf_.get());
+  set_property_of_socket(SOCK_FLOAT, "Specular", {mtl_mat_->Ns}, bsdf_.get());
   /* Only one value is taken for Metallic. */
-  set_property_of_socket(SOCK_FLOAT, "Metallic", {mtl_mat.Ka[0]}, bsdf_.get());
-  set_property_of_socket(SOCK_FLOAT, "IOR", {mtl_mat.Ni}, bsdf_.get());
-  set_property_of_socket(SOCK_FLOAT, "Alpha", {mtl_mat.d}, bsdf_.get());
-  set_property_of_socket(SOCK_RGBA, "Base Color", {mtl_mat.Kd, 3}, bsdf_.get());
-  set_property_of_socket(SOCK_RGBA, "Emission", {mtl_mat.Ke, 3}, bsdf_.get());
+  set_property_of_socket(SOCK_FLOAT, "Metallic", {mtl_mat_->Ka[0]}, bsdf_.get());
+  set_property_of_socket(SOCK_FLOAT, "IOR", {mtl_mat_->Ni}, bsdf_.get());
+  set_property_of_socket(SOCK_FLOAT, "Alpha", {mtl_mat_->d}, bsdf_.get());
+  set_property_of_socket(SOCK_RGBA, "Base Color", {mtl_mat_->Kd, 3}, bsdf_.get());
+  set_property_of_socket(SOCK_RGBA, "Emission", {mtl_mat_->Ke, 3}, bsdf_.get());
 }
 
-void ShaderNodetreeWrap::add_image_textures(const MTLMaterial &mtl_mat)
+void ShaderNodetreeWrap::add_image_textures(Main *bmain)
 {
 
-  for (const eTextureMapType map_type : mtl_mat.all_tex_map_types()) {
-    const tex_map_XX &texture_map = mtl_mat.tex_map_of_type(map_type);
+  for (const eTextureMapType map_type : mtl_mat_->all_tex_map_types()) {
+    const tex_map_XX &texture_map = mtl_mat_->tex_map_of_type(map_type);
     if (texture_map.image_path.empty()) {
+      /* No Image texture node of this map type to add in this material. */
+      continue;
     }
     unique_node_ptr tex_node{add_node_to_tree(SH_NODE_TEX_IMAGE)};
     unique_node_ptr vector_node{add_node_to_tree(SH_NODE_MAPPING)};
     unique_node_ptr normal_map_node = nullptr;
     if (map_type == MAP_BUMP) {
-      normal_map_node.reset(add_node_to_tree(SH_NODE_MAPPING));
+      normal_map_node.reset(add_node_to_tree(SH_NODE_NORMAL_MAP));
       set_property_of_socket(
-          SOCK_FLOAT, "Strength", {mtl_mat.map_Bump_value}, normal_map_node.get());
+          SOCK_FLOAT, "Strength", {mtl_mat_->map_Bump_value}, normal_map_node.get());
     }
 
-    set_img_filepath(texture_map.image_path, tex_node.get());
+    set_img_filepath(bmain, texture_map.image_path, tex_node.get());
     set_property_of_socket(
         SOCK_VECTOR, "Location", {texture_map.translation, 3}, vector_node.get());
     set_property_of_socket(SOCK_VECTOR, "Scale", {texture_map.scale, 3}, vector_node.get());
 
-    link_sockets(std::move(vector_node), "Mapping", tex_node.get(), "Vector");
+    link_sockets(std::move(vector_node), "Vector", tex_node.get(), "Vector");
     if (normal_map_node) {
       link_sockets(std::move(tex_node), "Color", normal_map_node.get(), "Color");
       link_sockets(std::move(normal_map_node), "Normal", bsdf_.get(), "Normal");
     }
     else {
-      link_sockets(std::move(tex_node), "Color", bsdf_.get(), "Color");
+      link_sockets(std::move(tex_node), "Color", bsdf_.get(), "Base Color");
     }
   }
 }

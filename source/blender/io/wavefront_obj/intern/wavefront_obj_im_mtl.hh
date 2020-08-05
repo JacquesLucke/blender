@@ -58,19 +58,19 @@ class ShaderNodetreeWrap {
   unique_nodetree_ptr nodetree_;
   unique_node_ptr bsdf_;
   unique_node_ptr shader_output_;
+  const MTLMaterial *mtl_mat_;
 
  public:
-  ShaderNodetreeWrap(const MTLMaterial &mtl_mat);
+  ShaderNodetreeWrap(Main *bmain, const MTLMaterial &mtl_mat);
   ~ShaderNodetreeWrap();
+
   bNodeTree *get_nodetree();
 
  private:
   bNode *add_node_to_tree(const int node_type);
   void link_sockets(unique_node_ptr src_node, StringRef src_id, bNode *dst_node, StringRef dst_id);
-  void set_bsdf_socket_values(const MTLMaterial &mtl_mat);
-  void add_image_textures(const MTLMaterial &mtl_mat);
-
- private:
+  void set_bsdf_socket_values();
+  void add_image_textures(Main *bmain);
 };
 }  // namespace blender::io::obj
 
