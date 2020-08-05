@@ -76,7 +76,7 @@ template<
      * MEM_* is used internally.
      */
     typename Allocator = GuardedAllocator>
-class Vector {
+class Vector : private Allocator, private TypedBuffer<T, InlineBufferCapacity> {
  private:
   /**
    * Use pointers instead of storing the size explicitly. This reduces the number of instructions
@@ -87,12 +87,6 @@ class Vector {
   T *begin_;
   T *end_;
   T *capacity_end_;
-
-  /** Used for allocations when the inline buffer is too small. */
-  Allocator allocator_;
-
-  /** A placeholder buffer that will remain uninitialized until it is used. */
-  TypedBuffer<T, InlineBufferCapacity> inline_buffer_;
 
   /**
    * Store the size of the vector explicitly in debug builds. Otherwise you'd always have to call
@@ -118,9 +112,9 @@ class Vector {
    * Create an empty vector.
    * This does not do any memory allocation.
    */
-  Vector(Allocator allocator = {}) : allocator_(allocator)
+  Vector(Allocator allocator = {}) : Allocator(allocator)
   {
-    begin_ = inline_buffer_;
+    begin_ = this->inline_buffer();
     end_ = begin_;
     capacity_end_ = begin_ + InlineBufferCapacity;
     UPDATE_VECTOR_SIZE(this);
@@ -209,7 +203,7 @@ class Vector {
    * Create a copy of another vector. The other vector will not be changed. If the other vector has
    * less than InlineBufferCapacity elements, no allocation will be made.
    */
-  Vector(const Vector &other) : Vector(other.as_span(), other.allocator_)
+  Vector(const Vector &other) : Vector(other.as_span(), other.allocator())
   {
   }
 
@@ -219,7 +213,7 @@ class Vector {
    */
   template<int64_t OtherInlineBufferCapacity>
   Vector(const Vector<T, OtherInlineBufferCapacity, Allocator> &other)
-      : Vector(other.as_span(), other.allocator_)
+      : Vector(other.as_span(), other.allocator())
   {
   }
 
@@ -229,14 +223,14 @@ class Vector {
    */
   template<int64_t OtherInlineBufferCapacity>
   Vector(Vector<T, OtherInlineBufferCapacity, Allocator> &&other) noexcept
-      : allocator_(other.allocator_)
+      : Allocator(other.allocator())
   {
     const int64_t size = other.size();
 
     if (other.is_inline()) {
       if (size <= InlineBufferCapacity) {
         /* Copy between inline buffers. */
-        begin_ = inline_buffer_;
+        begin_ = this->inline_buffer();
         end_ = begin_ + size;
         capacity_end_ = begin_ + InlineBufferCapacity;
         uninitialized_relocate_n(other.begin_, size, begin_);
@@ -244,7 +238,7 @@ class Vector {
       else {
         /* Copy from inline buffer to newly allocated buffer. */
         const int64_t capacity = size;
-        begin_ = (T *)allocator_.allocate(sizeof(T) * (size_t)capacity, alignof(T), AT);
+        begin_ = (T *)this->allocator().allocate(sizeof(T) * (size_t)capacity, alignof(T), AT);
         end_ = begin_ + size;
         capacity_end_ = begin_ + capacity;
         uninitialized_relocate_n(other.begin_, size, begin_);
@@ -257,7 +251,7 @@ class Vector {
       capacity_end_ = other.capacity_end_;
     }
 
-    other.begin_ = other.inline_buffer_;
+    other.begin_ = other.inline_buffer();
     other.end_ = other.begin_;
     other.capacity_end_ = other.begin_ + OtherInlineBufferCapacity;
     UPDATE_VECTOR_SIZE(this);
@@ -268,7 +262,7 @@ class Vector {
   {
     destruct_n(begin_, this->size());
     if (!this->is_inline()) {
-      allocator_.deallocate(begin_);
+      this->allocator().deallocate(begin_);
     }
   }
 
@@ -421,10 +415,10 @@ class Vector {
   {
     destruct_n(begin_, this->size());
     if (!this->is_inline()) {
-      allocator_.deallocate(begin_);
+      this->allocator().deallocate(begin_);
     }
 
-    begin_ = inline_buffer_;
+    begin_ = this->inline_buffer();
     end_ = begin_;
     capacity_end_ = begin_ + InlineBufferCapacity;
     UPDATE_VECTOR_SIZE(this);
@@ -786,7 +780,7 @@ class Vector {
  private:
   bool is_inline() const
   {
-    return begin_ == inline_buffer_;
+    return begin_ == this->inline_buffer();
   }
 
   void ensure_space_for_one()
@@ -809,16 +803,37 @@ class Vector {
     const int64_t new_capacity = std::max(min_capacity, min_new_capacity);
     const int64_t size = this->size();
 
-    T *new_array = (T *)allocator_.allocate((size_t)new_capacity * sizeof(T), alignof(T), AT);
+    T *new_array = (T *)this->allocator().allocate(
+        (size_t)new_capacity * sizeof(T), alignof(T), AT);
     uninitialized_relocate_n(begin_, size, new_array);
 
     if (!this->is_inline()) {
-      allocator_.deallocate(begin_);
+      this->allocator().deallocate(begin_);
     }
 
     begin_ = new_array;
     end_ = begin_ + size;
     capacity_end_ = begin_ + new_capacity;
+  }
+
+  Allocator &allocator()
+  {
+    return *this;
+  }
+
+  const Allocator &allocator() const
+  {
+    return *this;
+  }
+
+  TypedBuffer<T, InlineBufferCapacity> &inline_buffer()
+  {
+    return *this;
+  }
+
+  const TypedBuffer<T, InlineBufferCapacity> &inline_buffer() const
+  {
+    return *this;
   }
 };
 
