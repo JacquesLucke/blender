@@ -197,6 +197,9 @@ void OBJMeshFromRaw::create_materials(Main *bmain, const Map<std::string, MTLMat
     mat->use_nodes = true;
     ShaderNodetreeWrap mat_wrap{bmain, curr_mat.value};
     mat->nodetree = mat_wrap.get_nodetree();
+    BKE_object_material_slot_add(bmain, mesh_object_.get());
+    BKE_object_material_assign(
+        bmain, mesh_object_.get(), mat, mesh_object_.get()->totcol, BKE_MAT_ASSIGN_USERPREF);
   }
 }
 }  // namespace blender::io::obj

@@ -108,6 +108,8 @@ static void set_img_filepath(Main *bmain, std::string_view value, bNode *r_node)
     }
   }
   BLI_assert(tex_image);
+  /* This doesn't look like a way to add image to node. */
+  r_node->id = reinterpret_cast<ID *>(tex_image);
 }
 
 /**
@@ -160,6 +162,7 @@ bNode *ShaderNodetreeWrap::add_node_to_tree(const int node_type)
 
 /**
  * Link two nodes by the sockets of given IDs.
+ * Also releases the ownership of the "from" node for nodetree to free it.
  */
 void ShaderNodetreeWrap::link_sockets(unique_node_ptr from_node,
                                       StringRef from_node_id,
@@ -170,6 +173,7 @@ void ShaderNodetreeWrap::link_sockets(unique_node_ptr from_node,
   bNodeSocket *to_sock{nodeFindSocket(to_node, SOCK_IN, to_node_id.data())};
   BLI_assert(from_sock && to_sock);
   nodeAddLink(nodetree_.get(), from_node.get(), from_sock, to_node, to_sock);
+  /* TODO ankitm add node positioning. */
   static_cast<void>(from_node.release());
 }
 
