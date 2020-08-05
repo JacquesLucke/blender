@@ -11,9 +11,6 @@ TEST(vector, DefaultConstructor)
 {
   Vector<int> vec;
   EXPECT_EQ(vec.size(), 0);
-  std::cout << "Size: " << sizeof(Vector<int, 3>) << "\n";
-  static_assert(std::is_empty_v<TypedBuffer<int, 0>>);
-  static_assert(!std::is_empty_v<TypedBuffer<int, 1>>);
 }
 
 TEST(vector, SizeConstructor)

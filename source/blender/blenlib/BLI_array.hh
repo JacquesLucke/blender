@@ -60,7 +60,7 @@ template<
      * MEM_* functions are used internally.
      */
     typename Allocator = GuardedAllocator>
-class Array {
+class Array : private Allocator, private TypedBuffer<T, InlineBufferCapacity> {
  private:
   /** The beginning of the array. It might point into the inline buffer. */
   T *data_;
@@ -68,19 +68,13 @@ class Array {
   /** Number of elements in the array. */
   int64_t size_;
 
-  /** Used for allocations when the inline buffer is too small. */
-  Allocator allocator_;
-
-  /** A placeholder buffer that will remain uninitialized until it is used. */
-  TypedBuffer<T, InlineBufferCapacity> inline_buffer_;
-
  public:
   /**
    * By default an empty array is created.
    */
   Array()
   {
-    data_ = inline_buffer_;
+    data_ = this->inline_buffer();
     size_ = 0;
   }
 
@@ -88,7 +82,7 @@ class Array {
    * Create a new array that contains copies of all values.
    */
   template<typename U, typename std::enable_if_t<std::is_convertible_v<U, T>> * = nullptr>
-  Array(Span<U> values, Allocator allocator = {}) : allocator_(allocator)
+  Array(Span<U> values, Allocator allocator = {}) : Allocator(allocator)
   {
     size_ = values.size();
     data_ = this->get_buffer_for_size(values.size());
@@ -153,11 +147,11 @@ class Array {
     data_ = this->get_buffer_for_size(size);
   }
 
-  Array(const Array &other) : Array(other.as_span(), other.allocator_)
+  Array(const Array &other) : Array(other.as_span(), other.allocator())
   {
   }
 
-  Array(Array &&other) noexcept : allocator_(other.allocator_)
+  Array(Array &&other) noexcept : Allocator(other.allocator())
   {
     size_ = other.size_;
 
@@ -169,7 +163,7 @@ class Array {
       uninitialized_relocate_n(other.data_, size_, data_);
     }
 
-    other.data_ = other.inline_buffer_;
+    other.data_ = other.inline_buffer();
     other.size_ = 0;
   }
 
@@ -177,7 +171,7 @@ class Array {
   {
     destruct_n(data_, size_);
     if (!this->uses_inline_buffer()) {
-      allocator_.deallocate((void *)data_);
+      this->allocator().deallocate((void *)data_);
     }
   }
 
@@ -327,7 +321,12 @@ class Array {
    */
   Allocator &allocator()
   {
-    return allocator_;
+    return *this;
+  }
+
+  const Allocator &allocator() const
+  {
+    return *this;
   }
 
   /**
@@ -343,7 +342,7 @@ class Array {
   T *get_buffer_for_size(int64_t size)
   {
     if (size <= InlineBufferCapacity) {
-      return inline_buffer_;
+      return this->inline_buffer();
     }
     else {
       return this->allocate(size);
@@ -352,12 +351,22 @@ class Array {
 
   T *allocate(int64_t size)
   {
-    return (T *)allocator_.allocate((size_t)size * sizeof(T), alignof(T), AT);
+    return (T *)this->allocator().allocate((size_t)size * sizeof(T), alignof(T), AT);
   }
 
   bool uses_inline_buffer() const
   {
-    return data_ == inline_buffer_;
+    return data_ == this->inline_buffer();
+  }
+
+  TypedBuffer<T, InlineBufferCapacity> &inline_buffer()
+  {
+    return *this;
+  }
+
+  const TypedBuffer<T, InlineBufferCapacity> &inline_buffer() const
+  {
+    return *this;
   }
 };
 
