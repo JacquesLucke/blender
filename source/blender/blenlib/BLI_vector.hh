@@ -44,6 +44,7 @@
 #include <memory>
 
 #include "BLI_allocator.hh"
+#include "BLI_empty_base_optimization_utils.hh"
 #include "BLI_index_range.hh"
 #include "BLI_listbase_wrapper.hh"
 #include "BLI_math_base.h"

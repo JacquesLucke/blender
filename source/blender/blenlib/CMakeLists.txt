@@ -173,6 +173,7 @@ set(SRC
   BLI_dynstr.h
   BLI_easing.h
   BLI_edgehash.h
+  BLI_empty_base_optimization_utils.hh
   BLI_endian_switch.h
   BLI_endian_switch_inline.h
   BLI_expr_pylike_eval.h

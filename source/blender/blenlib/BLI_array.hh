@@ -39,6 +39,7 @@
  */
 
 #include "BLI_allocator.hh"
+#include "BLI_empty_base_optimization_utils.hh"
 #include "BLI_index_range.hh"
 #include "BLI_memory_utils.hh"
 #include "BLI_span.hh"
