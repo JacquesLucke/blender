@@ -169,11 +169,11 @@ void ShaderNodetreeWrap::link_sockets(unique_node_ptr from_node,
                                       bNode *to_node,
                                       StringRef to_node_id)
 {
+  to_node->locx = from_node->locx + 300;
   bNodeSocket *from_sock{nodeFindSocket(from_node.get(), SOCK_OUT, from_node_id.data())};
   bNodeSocket *to_sock{nodeFindSocket(to_node, SOCK_IN, to_node_id.data())};
   BLI_assert(from_sock && to_sock);
   nodeAddLink(nodetree_.get(), from_node.get(), from_sock, to_node, to_sock);
-  /* TODO ankitm add node positioning. */
   static_cast<void>(from_node.release());
 }
 
@@ -190,26 +190,24 @@ void ShaderNodetreeWrap::set_bsdf_socket_values()
 
 void ShaderNodetreeWrap::add_image_textures(Main *bmain)
 {
-
-  for (const eTextureMapType map_type : mtl_mat_->all_tex_map_types()) {
-    const tex_map_XX &texture_map = mtl_mat_->tex_map_of_type(map_type);
-    if (texture_map.image_path.empty()) {
+  for (const Map<std::string, tex_map_XX>::Item texture_map : mtl_mat_->texture_maps.items()) {
+    if (texture_map.value.image_path.empty()) {
       /* No Image texture node of this map type to add in this material. */
       continue;
     }
     unique_node_ptr tex_node{add_node_to_tree(SH_NODE_TEX_IMAGE)};
     unique_node_ptr vector_node{add_node_to_tree(SH_NODE_MAPPING)};
     unique_node_ptr normal_map_node = nullptr;
-    if (map_type == MAP_BUMP) {
+    if (texture_map.key == "map_Bump") {
       normal_map_node.reset(add_node_to_tree(SH_NODE_NORMAL_MAP));
       set_property_of_socket(
           SOCK_FLOAT, "Strength", {mtl_mat_->map_Bump_value}, normal_map_node.get());
     }
 
-    set_img_filepath(bmain, texture_map.image_path, tex_node.get());
+    set_img_filepath(bmain, texture_map.value.image_path, tex_node.get());
     set_property_of_socket(
-        SOCK_VECTOR, "Location", {texture_map.translation, 3}, vector_node.get());
-    set_property_of_socket(SOCK_VECTOR, "Scale", {texture_map.scale, 3}, vector_node.get());
+        SOCK_VECTOR, "Location", {texture_map.value.translation, 3}, vector_node.get());
+    set_property_of_socket(SOCK_VECTOR, "Scale", {texture_map.value.scale, 3}, vector_node.get());
 
     link_sockets(std::move(vector_node), "Vector", tex_node.get(), "Vector");
     if (normal_map_node) {
@@ -217,7 +215,7 @@ void ShaderNodetreeWrap::add_image_textures(Main *bmain)
       link_sockets(std::move(normal_map_node), "Normal", bsdf_.get(), "Normal");
     }
     else {
-      link_sockets(std::move(tex_node), "Color", bsdf_.get(), "Base Color");
+      link_sockets(std::move(tex_node), "Color", bsdf_.get(), texture_map.value.dest_socket_id);
     }
   }
 }

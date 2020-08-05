@@ -29,6 +29,7 @@
 
 #include "BLI_float2.hh"
 #include "BLI_float3.hh"
+#include "BLI_map.hh"
 #include "BLI_string_ref.hh"
 #include "BLI_vector.hh"
 
@@ -136,20 +137,13 @@ class OBJRawObject {
   friend class OBJParser;
 };
 
-enum eTextureMapType {
-  MAP_KD = 1,
-  MAP_KS = 2,
-  MAP_KE = 3,
-  MAP_D = 4,
-  MAP_REFL = 5,
-  MAP_NS = 6,
-  MAP_BUMP = 7,
-};
-
 /**
  * Used for storing parameters for all kinds of texture maps from MTL file.
  */
 struct tex_map_XX {
+  tex_map_XX(StringRef to_socket_id) : dest_socket_id(to_socket_id){};
+
+  const std::string dest_socket_id{};
   float3 translation = {0.0f, 0.0f, 0.0f};
   float3 scale = {1.0f, 1.0f, 1.0f};
   std::string image_path{};
@@ -159,6 +153,17 @@ struct tex_map_XX {
  * Store material data parsed from MTL file.
  */
 struct MTLMaterial {
+  MTLMaterial()
+  {
+    texture_maps.add("map_Kd", tex_map_XX("Base Color"));
+    texture_maps.add("map_Ks", tex_map_XX("Specular"));
+    texture_maps.add("map_Ns", tex_map_XX("Roughness"));
+    texture_maps.add("map_d", tex_map_XX("Alpha"));
+    texture_maps.add("map_refl", tex_map_XX("Metallic"));
+    texture_maps.add("map_Ke", tex_map_XX("Emission"));
+  }
+  tex_map_XX &tex_map_of_type(StringRef map_string);
+
   std::string name{};
   float Ns{1.0f};
   float3 Ka{0.0f};
@@ -168,18 +173,9 @@ struct MTLMaterial {
   float Ni{1.0f};
   float d{1.0f};
   int illum{0};
-  tex_map_XX map_Kd;
-  tex_map_XX map_Ks;
-  tex_map_XX map_Ke;
-  tex_map_XX map_d;
-  tex_map_XX map_refl;
-  tex_map_XX map_Ns;
-  tex_map_XX map_Bump;
+  Map<std::string, tex_map_XX> texture_maps;
   /** Only used for Normal Map node: map_Bump. */
   float map_Bump_value = 0.0f;
-
-  Span<eTextureMapType> all_tex_map_types() const;
-  const tex_map_XX &tex_map_of_type(eTextureMapType type) const;
 };
 
 struct UniqueObjectDeleter {

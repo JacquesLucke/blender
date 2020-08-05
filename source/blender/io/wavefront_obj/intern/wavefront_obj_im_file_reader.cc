@@ -409,35 +409,6 @@ Span<std::string> OBJParser::mtl_libraries() const
   return mtl_libraries_;
 }
 
-/**
- * Get the texture map from the MTLMaterial struct corresponding to the given string.
- */
-static tex_map_XX *get_tex_map_of_type(MTLMaterial *mtl_mat, StringRef tex_map_str)
-{
-  if (tex_map_str == "map_Kd") {
-    return &mtl_mat->map_Kd;
-  }
-  if (tex_map_str == "map_Ks") {
-    return &mtl_mat->map_Ks;
-  }
-  if (tex_map_str == "map_Ns") {
-    return &mtl_mat->map_Ns;
-  }
-  if (tex_map_str == "map_d") {
-    return &mtl_mat->map_d;
-  }
-  if (tex_map_str == "map_refl") {
-    return &mtl_mat->map_refl;
-  }
-  if (tex_map_str == "map_Ke") {
-    return &mtl_mat->map_Ke;
-  }
-  if (tex_map_str == "map_Bump") {
-    return &mtl_mat->map_Bump;
-  }
-  return nullptr;
-}
-
 MTLParser::MTLParser(StringRef mtl_library, StringRef obj_filepath) : mtl_library_(mtl_library)
 {
   char obj_file_dir[FILE_MAXDIR];
@@ -498,11 +469,11 @@ void MTLParser::parse_and_store(Map<string, MTLMaterial> &mtl_materials)
     }
     /* Image Textures. */
     else if (line_key.find("map_") != string::npos) {
-      tex_map_XX *tex_map = get_tex_map_of_type(curr_mtlmat, line_key);
-      if (!tex_map) {
+      if (!curr_mtlmat->texture_maps.contains_as(line_key)) {
         /* No supported map_xx found. */
         continue;
       }
+      tex_map_XX &tex_map = curr_mtlmat->texture_maps.lookup(line_key);
       Vector<string> str_map_xx_split{};
       split_by_char(rest_line, ' ', str_map_xx_split);
 
@@ -512,7 +483,7 @@ void MTLParser::parse_and_store(Map<string, MTLMaterial> &mtl_materials)
                               str_map_xx_split[pos_o + 2],
                               str_map_xx_split[pos_o + 3]},
                              0.0f,
-                             {tex_map->translation, 3});
+                             {tex_map.translation, 3});
       }
       int64_t pos_s{str_map_xx_split.first_index_of_try("-s")};
       if (pos_s != string::npos && pos_s + 3 < str_map_xx_split.size()) {
@@ -520,7 +491,7 @@ void MTLParser::parse_and_store(Map<string, MTLMaterial> &mtl_materials)
                               str_map_xx_split[pos_s + 2],
                               str_map_xx_split[pos_s + 3]},
                              1.0f,
-                             {tex_map->scale, 3});
+                             {tex_map.scale, 3});
       }
       /* Only specific to Normal Map node. */
       int64_t pos_bm{str_map_xx_split.first_index_of_try("-bm")};
@@ -528,7 +499,7 @@ void MTLParser::parse_and_store(Map<string, MTLMaterial> &mtl_materials)
         copy_string_to_float(str_map_xx_split[pos_bm + 1], 0.0f, curr_mtlmat->map_Bump_value);
       }
 
-      tex_map->image_path = str_map_xx_split.last();
+      tex_map.image_path = str_map_xx_split.last();
     }
   }
 }
