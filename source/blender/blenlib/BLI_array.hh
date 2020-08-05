@@ -75,7 +75,7 @@ class Array {
   Array()
   {
     data_ = this->inline_buffer();
-    this->size_ref() = 0;
+    this->set_size(0);
   }
 
   /**
@@ -85,7 +85,7 @@ class Array {
   Array(Span<U> values, Allocator allocator = {})
   {
     this->allocator() = allocator;
-    this->size_ref() = values.size();
+    this->set_size(values.size());
     data_ = this->get_buffer_for_size(values.size());
     uninitialized_convert_n<U, T>(values.data(), this->size(), data_);
   }
@@ -112,7 +112,7 @@ class Array {
    */
   explicit Array(int64_t size)
   {
-    this->size_ref() = size;
+    this->set_size(size);
     data_ = this->get_buffer_for_size(size);
     default_construct_n(data_, size);
   }
@@ -124,7 +124,7 @@ class Array {
   Array(int64_t size, const T &value)
   {
     BLI_assert(size >= 0);
-    this->size_ref() = size;
+    this->set_size(size);
     data_ = this->get_buffer_for_size(size);
     uninitialized_fill_n(data_, this->size(), value);
   }
@@ -144,7 +144,7 @@ class Array {
   Array(int64_t size, NoInitialization)
   {
     BLI_assert(size >= 0);
-    this->size_ref() = size;
+    this->set_size(size);
     data_ = this->get_buffer_for_size(size);
   }
 
@@ -155,7 +155,7 @@ class Array {
   Array(Array &&other) noexcept
   {
     this->allocator() = other.allocator();
-    this->size_ref() = other.size();
+    this->set_size(other.size());
 
     if (!other.uses_inline_buffer()) {
       data_ = other.data_;
@@ -166,7 +166,7 @@ class Array {
     }
 
     other.data_ = other.inline_buffer();
-    other.size_ref() = 0;
+    other.set_size(0);
   }
 
   ~Array()
@@ -315,7 +315,7 @@ class Array {
    */
   void clear_without_destruct()
   {
-    this->size_ref() = 0;
+    this->set_size(0);
   }
 
   /**
@@ -371,9 +371,9 @@ class Array {
     return size_and_allocator_and_inline_buffer_.second().second();
   }
 
-  int64_t &size_ref()
+  void set_size(int64_t size)
   {
-    return size_and_allocator_and_inline_buffer_.first();
+    size_and_allocator_and_inline_buffer_.first() = size;
   }
 };
 
