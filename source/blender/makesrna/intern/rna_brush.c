@@ -237,10 +237,19 @@ static EnumPropertyItem rna_enum_gpencil_fill_draw_modes_items[] = {
     {GP_FILL_DMODE_BOTH,
      "BOTH",
      0,
-     "Default",
+     "All",
      "Use both visible strokes and edit lines as fill boundary limits"},
     {GP_FILL_DMODE_STROKE, "STROKE", 0, "Strokes", "Use visible strokes as fill boundary limits"},
     {GP_FILL_DMODE_CONTROL, "CONTROL", 0, "Edit Lines", "Use edit lines as fill boundary limits"},
+    {0, NULL, 0, NULL, NULL}};
+
+static EnumPropertyItem rna_enum_gpencil_fill_layers_modes_items[] = {
+    {GP_FILL_GPLMODE_VISIBLE, "VISIBLE", 0, "Visible", "Visible layers"},
+    {GP_FILL_GPLMODE_ACTIVE, "ACTIVE", 0, "Active", "Only active layer"},
+    {GP_FILL_GPLMODE_ABOVE, "ABOVE", 0, "Layer Above", "Layer above active"},
+    {GP_FILL_GPLMODE_BELOW, "BELOW", 0, "Layer Below", "Layer below active"},
+    {GP_FILL_GPLMODE_ALL_ABOVE, "ALL_ABOVE", 0, "All Above", "All layers above active"},
+    {GP_FILL_GPLMODE_ALL_BELOW, "ALL_BELOW", 0, "All Below", "All layers below active"},
     {0, NULL, 0, NULL, NULL}};
 
 static EnumPropertyItem rna_enum_gpencil_brush_modes_items[] = {
@@ -1525,7 +1534,7 @@ static void rna_def_gpencil_options(BlenderRNA *brna)
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
 
   prop = RNA_def_property(srna, "use_strength_pressure", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSH_USE_STENGTH_PRESSURE);
+  RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSH_USE_STRENGTH_PRESSURE);
   RNA_def_property_ui_icon(prop, ICON_STYLUS_PRESSURE, 0);
   RNA_def_property_ui_text(
       prop, "Use Pressure Strength", "Use tablet pressure for color strength");
@@ -1644,6 +1653,12 @@ static void rna_def_gpencil_options(BlenderRNA *brna)
   RNA_def_property_enum_sdna(prop, NULL, "fill_draw_mode");
   RNA_def_property_enum_items(prop, rna_enum_gpencil_fill_draw_modes_items);
   RNA_def_property_ui_text(prop, "Mode", "Mode to draw boundary limits");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+
+  prop = RNA_def_property(srna, "fill_layer_mode", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_sdna(prop, NULL, "fill_layer_mode");
+  RNA_def_property_enum_items(prop, rna_enum_gpencil_fill_layers_modes_items);
+  RNA_def_property_ui_text(prop, "Layer Mode", "Layers used as boundaries");
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
 
   prop = RNA_def_property(srna, "brush_draw_mode", PROP_ENUM, PROP_NONE);
@@ -2289,7 +2304,7 @@ static void rna_def_brush(BlenderRNA *brna)
   RNA_def_property_ui_text(
       prop,
       "Wet Persistence",
-      "Amount of wet paint that stays in the brush after applyig paint to the surface");
+      "Amount of wet paint that stays in the brush after applying paint to the surface");
   RNA_def_property_update(prop, 0, "rna_Brush_update");
 
   prop = RNA_def_property(srna, "density", PROP_FLOAT, PROP_FACTOR);
@@ -2791,6 +2806,15 @@ static void rna_def_brush(BlenderRNA *brna)
   prop = RNA_def_property(srna, "use_connected_only", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "flag2", BRUSH_USE_CONNECTED_ONLY);
   RNA_def_property_ui_text(prop, "Connected Only", "Affect only topologically connected elements");
+  RNA_def_property_update(prop, 0, "rna_Brush_update");
+
+  prop = RNA_def_property(srna, "use_cloth_pin_simulation_boundary", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "flag2", BRUSH_CLOTH_PIN_SIMULATION_BOUNDARY);
+  RNA_def_property_ui_text(
+      prop,
+      "Pin Simulation Boundary",
+      "Lock the position of the vertices in the simulation falloff area to avoid artifacts and "
+      "create a softer transitionwith with unnafected areas");
   RNA_def_property_update(prop, 0, "rna_Brush_update");
 
   prop = RNA_def_property(srna, "invert_to_scrape_fill", PROP_BOOLEAN, PROP_NONE);
