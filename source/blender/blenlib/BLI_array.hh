@@ -65,7 +65,7 @@ class Array {
   /** The beginning of the array. It might point into the inline buffer. */
   T *data_;
 
-  CompressedTriple<int64_t, Allocator, TypedBuffer<T, InlineBufferCapacity>>
+  CompressedPair<int64_t, CompressedPair<Allocator, TypedBuffer<T, InlineBufferCapacity>>>
       size_and_allocator_and_inline_buffer_;
 
  public:
@@ -83,8 +83,8 @@ class Array {
    */
   template<typename U, typename std::enable_if_t<std::is_convertible_v<U, T>> * = nullptr>
   Array(Span<U> values, Allocator allocator = {})
-      : size_and_allocator_and_inline_buffer_(0, allocator, {})
   {
+    this->allocator() = allocator;
     this->size_ref() = values.size();
     data_ = this->get_buffer_for_size(values.size());
     uninitialized_convert_n<U, T>(values.data(), this->size(), data_);
@@ -152,8 +152,9 @@ class Array {
   {
   }
 
-  Array(Array &&other) noexcept : size_and_allocator_and_inline_buffer_(0, other.allocator(), {})
+  Array(Array &&other) noexcept
   {
+    this->allocator() = other.allocator();
     this->size_ref() = other.size();
 
     if (!other.uses_inline_buffer()) {
@@ -322,12 +323,12 @@ class Array {
    */
   Allocator &allocator()
   {
-    return size_and_allocator_and_inline_buffer_.second();
+    return size_and_allocator_and_inline_buffer_.second().first();
   }
 
   const Allocator &allocator() const
   {
-    return size_and_allocator_and_inline_buffer_.second();
+    return size_and_allocator_and_inline_buffer_.second().first();
   }
 
   /**
@@ -362,12 +363,12 @@ class Array {
 
   TypedBuffer<T, InlineBufferCapacity> &inline_buffer()
   {
-    return size_and_allocator_and_inline_buffer_.third();
+    return size_and_allocator_and_inline_buffer_.second().second();
   }
 
   const TypedBuffer<T, InlineBufferCapacity> &inline_buffer() const
   {
-    return size_and_allocator_and_inline_buffer_.third();
+    return size_and_allocator_and_inline_buffer_.second().second();
   }
 
   int64_t &size_ref()
