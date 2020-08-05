@@ -352,54 +352,89 @@ template<size_t Size, size_t Alignment> class alignas(Alignment) AlignedBuffer {
   }
 };
 
+class EmptyAlignedBuffer {
+ public:
+  operator void *()
+  {
+    return nullptr;
+  }
+
+  operator const void *() const
+  {
+    return nullptr;
+  }
+
+  void *ptr()
+  {
+    return nullptr;
+  }
+
+  const void *ptr() const
+  {
+    return nullptr;
+  }
+};
+
+template<size_t Size, size_t Alignment>
+using MaybeEmptyAlignedBuffer =
+    std::conditional_t<Size == 0, EmptyAlignedBuffer, AlignedBuffer<Size, Alignment>>;
+
 /**
  * This can be used to reserve memory for C++ objects whose lifetime is different from the
  * lifetime of the object they are embedded in. It's used by containers with small buffer
  * optimization and hash table implementations.
  */
-template<typename T, int64_t Size = 1> class TypedBuffer {
- private:
-  AlignedBuffer<sizeof(T) * (size_t)Size, alignof(T)> buffer_;
-
+template<typename T, int64_t Size = 1>
+class TypedBuffer : private MaybeEmptyAlignedBuffer<sizeof(T) * (size_t)Size, alignof(T)> {
  public:
+  operator void *()
+  {
+    return this;
+  }
+
+  operator const void *() const
+  {
+    return this;
+  }
+
   operator T *()
   {
-    return (T *)&buffer_;
+    return (T *)this;
   }
 
   operator const T *() const
   {
-    return (const T *)&buffer_;
+    return (const T *)this;
   }
 
   T &operator*()
   {
-    return *(T *)&buffer_;
+    return *(T *)this;
   }
 
   const T &operator*() const
   {
-    return *(const T *)&buffer_;
+    return *(const T *)this;
   }
 
   T *ptr()
   {
-    return (T *)&buffer_;
+    return (T *)this;
   }
 
   const T *ptr() const
   {
-    return (const T *)&buffer_;
+    return (const T *)this;
   }
 
   T &ref()
   {
-    return *(T *)&buffer_;
+    return *(T *)this;
   }
 
   const T &ref() const
   {
-    return *(const T *)&buffer_;
+    return *(const T *)this;
   }
 };
 
