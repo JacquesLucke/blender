@@ -160,7 +160,8 @@ static int deg_debug_node_color_index(const Node *node)
 
 struct DotContext {
   dot::DirectedGraph &digraph;
-  Map<const Node *, dot::Node *> dot_nodes;
+  Map<const Node *, dot::Node *> nodes_map;
+  Map<const Node *, dot::Cluster *> clusters_map;
 };
 
 struct DebugContext {
@@ -369,7 +370,7 @@ static void deg_debug_graphviz_node_single(const DebugContext &ctx,
   string name = node->identifier();
 
   dot::Node &dot_node = ctx.dot->digraph.new_node(name);
-  ctx.dot->dot_nodes.add_new(node, &dot_node);
+  ctx.dot->nodes_map.add_new(node, &dot_node);
   dot_node.set_parent_cluster(parent_cluster);
   dot_node.set_attribute("fontname", deg_debug_graphviz_fontname);
   dot_node.set_attribute("frontsize", deg_debug_graphviz_node_label_size);
@@ -400,7 +401,8 @@ static dot::Cluster &deg_debug_graphviz_node_cluster_create(const DebugContext &
   dot_node.set_attribute("shape", "point");
   dot_node.set_attribute("style", "invis");
   dot_node.set_parent_cluster(&cluster);
-  ctx.dot->dot_nodes.add_new(node, &dot_node);
+  ctx.dot->nodes_map.add_new(node, &dot_node);
+  ctx.dot->clusters_map.add_new(node, &cluster);
   return cluster;
 }
 
@@ -472,55 +474,6 @@ static void deg_debug_graphviz_node(const DebugContext &ctx,
   }
 }
 
-static bool deg_debug_graphviz_is_cluster(const Node *node)
-{
-  switch (node->type) {
-    case NodeType::ID_REF: {
-      const IDNode *id_node = (const IDNode *)node;
-      return !id_node->components.is_empty();
-    }
-    case NodeType::PARAMETERS:
-    case NodeType::ANIMATION:
-    case NodeType::TRANSFORM:
-    case NodeType::PROXY:
-    case NodeType::GEOMETRY:
-    case NodeType::SEQUENCER:
-    case NodeType::EVAL_POSE:
-    case NodeType::BONE: {
-      ComponentNode *comp_node = (ComponentNode *)node;
-      return !comp_node->operations.is_empty();
-    }
-    default:
-      return false;
-  }
-}
-
-static bool deg_debug_graphviz_is_owner(const Node *node, const Node *other)
-{
-  switch (node->get_class()) {
-    case NodeClass::COMPONENT: {
-      ComponentNode *comp_node = (ComponentNode *)node;
-      if (comp_node->owner == other) {
-        return true;
-      }
-      break;
-    }
-    case NodeClass::OPERATION: {
-      OperationNode *op_node = (OperationNode *)node;
-      if (op_node->owner == other) {
-        return true;
-      }
-      else if (op_node->owner->owner == other) {
-        return true;
-      }
-      break;
-    }
-    default:
-      break;
-  }
-  return false;
-}
-
 static void deg_debug_graphviz_node_relations(const DebugContext &ctx, const Node *node)
 {
   for (Relation *rel : node->inlinks) {
@@ -528,9 +481,10 @@ static void deg_debug_graphviz_node_relations(const DebugContext &ctx, const Nod
 
     const Node *tail = rel->to; /* same as node */
     const Node *head = rel->from;
+    dot::Node &dot_tail = *ctx.dot->nodes_map.lookup(tail);
+    dot::Node &dot_head = *ctx.dot->nodes_map.lookup(head);
 
-    dot::DirectedEdge &edge = ctx.dot->digraph.new_edge(*ctx.dot->dot_nodes.lookup(tail),
-                                                        *ctx.dot->dot_nodes.lookup(head));
+    dot::DirectedEdge &edge = ctx.dot->digraph.new_edge(dot_tail, dot_head);
 
     /* Note: without label an id seem necessary to avoid bugs in graphviz/dot */
     edge.set_attribute("id", rel->name);
@@ -542,13 +496,13 @@ static void deg_debug_graphviz_node_relations(const DebugContext &ctx, const Nod
     /* NOTE: edge from node to own cluster is not possible and gives graphviz
      * warning, avoid this here by just linking directly to the invisible
      * placeholder node. */
-    if (deg_debug_graphviz_is_cluster(tail) && !deg_debug_graphviz_is_owner(head, tail)) {
-      /* TODO */
-      // deg_debug_fprintf(ctx, ",ltail=\"cluster_%p\"", tail);
+    dot::Cluster *tail_cluster = ctx.dot->clusters_map.lookup_default(tail, nullptr);
+    if (tail_cluster != nullptr && tail_cluster->contains(dot_head)) {
+      edge.set_attribute("ltail", tail_cluster->name());
     }
-    if (deg_debug_graphviz_is_cluster(head) && !deg_debug_graphviz_is_owner(tail, head)) {
-      /* TODO */
-      // deg_debug_fprintf(ctx, ",lhead=\"cluster_%p\"", head);
+    dot::Cluster *head_cluster = ctx.dot->clusters_map.lookup_default(head, nullptr);
+    if (head_cluster != nullptr && head_cluster->contains(dot_tail)) {
+      edge.set_attribute("lhead", head_cluster->name());
     }
   }
 }
@@ -598,6 +552,7 @@ void DEG_debug_relations_graphviz(const Depsgraph *graph, FILE *f, const char *l
   deg::DebugContext ctx;
   ctx.file = f;
   ctx.dot = &dot_context;
+  ctx.show_tags = false;
 
   digraph.set_rankdir(dot::Attr_rankdir::LeftToRight);
   digraph.set_attribute("compound", "true");

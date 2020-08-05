@@ -117,6 +117,18 @@ void Cluster::set_random_cluster_bgcolors()
   }
 }
 
+bool Cluster::contains(Node &node) const
+{
+  Cluster *current = node.parent_cluster();
+  while (current != nullptr) {
+    if (current == this) {
+      return true;
+    }
+    current = current->parent_;
+  }
+  return false;
+}
+
 /* Dot Generation
  **********************************************/
 
@@ -169,7 +181,7 @@ void Graph::export__declare_nodes_and_clusters(std::stringstream &ss) const
 
 void Cluster::export__declare_nodes_and_clusters(std::stringstream &ss) const
 {
-  ss << "subgraph cluster_" << (uintptr_t)this << " {\n";
+  ss << "subgraph cluster_" << this->name() << " {\n";
 
   ss << "graph ";
   attributes_.export__as_bracket_list(ss);

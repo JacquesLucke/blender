@@ -118,6 +118,11 @@ class Cluster {
  public:
   void export__declare_nodes_and_clusters(std::stringstream &ss) const;
 
+  std::string name() const
+  {
+    return "cluster_" + std::to_string((uintptr_t)this);
+  }
+
   void set_attribute(StringRef key, StringRef value)
   {
     attributes_.set(key, value);
@@ -134,12 +139,19 @@ class Cluster {
     this->set_parent_cluster(&cluster);
   }
 
+  Cluster *parent_cluster()
+  {
+    return parent_;
+  }
+
   void set_random_cluster_bgcolors();
 
   AttributeList &attributes()
   {
     return attributes_;
   }
+
+  bool contains(Node &node) const;
 };
 
 class Node {
@@ -169,6 +181,11 @@ class Node {
   void set_parent_cluster(Cluster &cluster)
   {
     this->set_parent_cluster(&cluster);
+  }
+
+  Cluster *parent_cluster()
+  {
+    return cluster_;
   }
 
   void set_attribute(StringRef key, StringRef value)
