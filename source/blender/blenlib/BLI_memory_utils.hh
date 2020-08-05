@@ -323,7 +323,9 @@ template<typename T> using destruct_ptr = std::unique_ptr<T, DestructValueAtAddr
 
 /**
  * An `AlignedBuffer` is a byte array with at least the given size and alignment. The buffer will
- * not be initialized by the default constructor.
+ * not be initialized by the default constructor. Also, the copy/move constructors/assignment
+ * operators won't do anything. Higher level abstractions are responsible for copying the data
+ * around.
  */
 template<size_t Size, size_t Alignment> class alignas(Alignment) AlignedBuffer {
  private:
@@ -331,6 +333,26 @@ template<size_t Size, size_t Alignment> class alignas(Alignment) AlignedBuffer {
   char buffer_[(Size > 0) ? Size : 1];
 
  public:
+  AlignedBuffer() = default;
+
+  AlignedBuffer(const AlignedBuffer &UNUSED(other))
+  {
+  }
+
+  AlignedBuffer(AlignedBuffer &&UNUSED(other))
+  {
+  }
+
+  AlignedBuffer &operator=(const AlignedBuffer &UNUSED(other))
+  {
+    return *this;
+  }
+
+  AlignedBuffer &operator=(AlignedBuffer &&UNUSED(other))
+  {
+    return *this;
+  }
+
   operator void *()
   {
     return (void *)buffer_;
