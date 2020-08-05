@@ -262,6 +262,7 @@ set(SRC
   BLI_timecode.h
   BLI_timeit.hh
   BLI_timer.h
+  BLI_trie_set.hh
   BLI_utildefines.h
   BLI_utildefines_iter.h
   BLI_utildefines_stack.h
@@ -360,6 +361,7 @@ if(WITH_GTESTS)
     tests/BLI_span_test.cc
     tests/BLI_stack_cxx_test.cc
     tests/BLI_string_ref_test.cc
+    tests/BLI_trie_set_test.cc
     tests/BLI_vector_set_test.cc
     tests/BLI_vector_test.cc
   )
