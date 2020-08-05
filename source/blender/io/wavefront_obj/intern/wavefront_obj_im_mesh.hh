@@ -54,11 +54,13 @@ class OBJMeshFromRaw : NonMovable, NonCopyable {
   /**
    * Mesh datablock made from OBJ data.
    */
-  unique_mesh_ptr mesh_from_raw_;
+  unique_mesh_ptr mesh_from_raw_{nullptr};
   /**
    * An Object of type OB_MESH. Use the mover function to own it.
    */
-  unique_object_ptr mesh_object_;
+  unique_object_ptr mesh_object_{nullptr};
+  const OBJRawObject *curr_object_;
+  const GlobalVertices *global_vertices_;
 
  public:
   OBJMeshFromRaw(Main *bmain,
@@ -72,13 +74,13 @@ class OBJMeshFromRaw : NonMovable, NonCopyable {
   }
 
  private:
-  void create_vertices(const OBJRawObject &curr_object, const GlobalVertices &global_vertices);
-  void create_polys_loops(const OBJRawObject &curr_object);
-  void create_edges(const OBJRawObject &curr_object);
-  void create_uv_verts(const OBJRawObject &curr_object, const GlobalVertices &global_vertices);
   void create_materials(Main *bmain,
                         const OBJRawObject &curr_object,
                         const Map<std::string, MTLMaterial> &materials);
+  void create_vertices();
+  void create_polys_loops();
+  void create_edges();
+  void create_uv_verts();
 };
 
 }  // namespace blender::io::obj

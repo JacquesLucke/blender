@@ -417,22 +417,22 @@ static tex_map_XX *get_tex_map_of_type(MTLMaterial *mtl_mat, StringRef tex_map_s
   if (tex_map_str == "map_Kd") {
     return &mtl_mat->map_Kd;
   }
-  else if (tex_map_str == "map_Ks") {
+  if (tex_map_str == "map_Ks") {
     return &mtl_mat->map_Ks;
   }
-  else if (tex_map_str == "map_Ns") {
+  if (tex_map_str == "map_Ns") {
     return &mtl_mat->map_Ns;
   }
-  else if (tex_map_str == "map_d") {
+  if (tex_map_str == "map_d") {
     return &mtl_mat->map_d;
   }
-  else if (tex_map_str == "map_refl") {
+  if (tex_map_str == "map_refl") {
     return &mtl_mat->map_refl;
   }
-  else if (tex_map_str == "map_Ke") {
+  if (tex_map_str == "map_Ke") {
     return &mtl_mat->map_Ke;
   }
-  else if (tex_map_str == "map_Bump") {
+  if (tex_map_str == "map_Bump") {
     return &mtl_mat->map_Bump;
   }
   return nullptr;

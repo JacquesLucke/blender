@@ -47,26 +47,27 @@ OBJMeshFromRaw::OBJMeshFromRaw(Main *bmain,
                                const OBJRawObject &curr_object,
                                const GlobalVertices &global_vertices,
                                const Map<std::string, MTLMaterial> &materials)
+    : curr_object_(&curr_object), global_vertices_(&global_vertices)
 {
-  std::string ob_name = curr_object.object_name();
+  std::string ob_name = curr_object_->object_name();
   if (ob_name.empty()) {
     ob_name = "Untitled";
   }
-  const int64_t tot_verts_object{curr_object.tot_verts()};
-  const int64_t tot_edges{curr_object.tot_edges()};
-  const int64_t tot_face_elems{curr_object.tot_face_elems()};
-  const int64_t tot_loops{curr_object.tot_loops()};
+  const int64_t tot_verts_object{curr_object_->tot_verts()};
+  const int64_t tot_edges{curr_object_->tot_edges()};
+  const int64_t tot_face_elems{curr_object_->tot_face_elems()};
+  const int64_t tot_loops{curr_object_->tot_loops()};
 
   mesh_from_raw_.reset(
       BKE_mesh_new_nomain(tot_verts_object, tot_edges, 0, tot_loops, tot_face_elems));
   mesh_object_.reset(BKE_object_add_only_object(bmain, OB_MESH, ob_name.c_str()));
   mesh_object_->data = BKE_object_obdata_add_from_type(bmain, OB_MESH, ob_name.c_str());
 
-  create_vertices(curr_object, global_vertices);
-  create_polys_loops(curr_object);
-  create_edges(curr_object);
-  create_uv_verts(curr_object, global_vertices);
-  create_materials(bmain, curr_object, materials);
+  create_vertices();
+  create_polys_loops();
+  create_edges();
+  create_uv_verts();
+  create_materials(bmain, materials);
 
   BKE_mesh_validate(mesh_from_raw_.get(), false, true);
 
@@ -77,26 +78,25 @@ OBJMeshFromRaw::OBJMeshFromRaw(Main *bmain,
                           true);
 }
 
-void OBJMeshFromRaw::create_vertices(const OBJRawObject &curr_object,
-                                     const GlobalVertices &global_vertices)
+void OBJMeshFromRaw::create_vertices()
 {
-  const int64_t tot_verts_object{curr_object.tot_verts()};
+  const int64_t tot_verts_object{curr_object_->tot_verts()};
   for (int i = 0; i < tot_verts_object; ++i) {
     /* Current object's vertex indices index into the global list of vertex coordinates. */
     copy_v3_v3(mesh_from_raw_->mvert[i].co,
-               global_vertices.vertices[curr_object.vertex_indices()[i]]);
+               global_vertices_->vertices[curr_object_->vertex_indices()[i]]);
   }
 }
 
-void OBJMeshFromRaw::create_polys_loops(const OBJRawObject &curr_object)
+void OBJMeshFromRaw::create_polys_loops()
 {
   /* May not be used conditionally. */
   mesh_from_raw_->dvert = nullptr;
   float weight = 0.0f;
-  if (curr_object.tot_verts() && curr_object.use_vertex_groups()) {
+  if (curr_object_->tot_verts() && curr_object_->use_vertex_groups()) {
     mesh_from_raw_->dvert = static_cast<MDeformVert *>(CustomData_add_layer(
-        &mesh_from_raw_->vdata, CD_MDEFORMVERT, CD_CALLOC, nullptr, curr_object.tot_verts()));
-    weight = 1.0f / curr_object.tot_verts();
+        &mesh_from_raw_->vdata, CD_MDEFORMVERT, CD_CALLOC, nullptr, curr_object_->tot_verts()));
+    weight = 1.0f / curr_object_->tot_verts();
   }
   else {
     UNUSED_VARS(weight);
@@ -104,10 +104,10 @@ void OBJMeshFromRaw::create_polys_loops(const OBJRawObject &curr_object)
   /* Do not remove elements from the VectorSet since order of insertion is required.
    * StringRef is fine since per-face deform group name outlives the VectorSet. */
   VectorSet<StringRef> group_names;
-  const int64_t tot_face_elems{curr_object.tot_face_elems()};
+  const int64_t tot_face_elems{curr_object_->tot_face_elems()};
   int tot_loop_idx = 0;
   for (int poly_idx = 0; poly_idx < tot_face_elems; ++poly_idx) {
-    const OBJFaceElem &curr_face = curr_object.face_elements()[poly_idx];
+    const OBJFaceElem &curr_face = curr_object_->face_elements()[poly_idx];
     MPoly &mpoly = mesh_from_raw_->mpoly[poly_idx];
     mpoly.totloop = curr_face.face_corners.size();
     mpoly.loopstart = tot_loop_idx;
@@ -151,11 +151,11 @@ void OBJMeshFromRaw::create_polys_loops(const OBJRawObject &curr_object)
   }
 }
 
-void OBJMeshFromRaw::create_edges(const OBJRawObject &curr_object)
+void OBJMeshFromRaw::create_edges()
 {
-  const int64_t tot_edges{curr_object.tot_edges()};
+  const int64_t tot_edges{curr_object_->tot_edges()};
   for (int i = 0; i < tot_edges; ++i) {
-    const MEdge &curr_edge = curr_object.edges()[i];
+    const MEdge &curr_edge = curr_object_->edges()[i];
     mesh_from_raw_->medge[i].v1 = curr_edge.v1;
     mesh_from_raw_->medge[i].v2 = curr_edge.v2;
   }
@@ -166,24 +166,23 @@ void OBJMeshFromRaw::create_edges(const OBJRawObject &curr_object)
   BKE_mesh_calc_edges_loose(mesh_from_raw_.get());
 }
 
-void OBJMeshFromRaw::create_uv_verts(const OBJRawObject &curr_object,
-                                     const GlobalVertices &global_vertices)
+void OBJMeshFromRaw::create_uv_verts()
 {
-  if (curr_object.tot_uv_verts() > 0 && curr_object.tot_uv_vert_indices() > 0) {
+  if (curr_object_->tot_uv_verts() > 0 && curr_object_->tot_uv_vert_indices() > 0) {
     MLoopUV *mluv_dst = static_cast<MLoopUV *>(CustomData_add_layer(
-        &mesh_from_raw_->ldata, CD_MLOOPUV, CD_CALLOC, nullptr, curr_object.tot_loops()));
+        &mesh_from_raw_->ldata, CD_MLOOPUV, CD_CALLOC, nullptr, curr_object_->tot_loops()));
     int tot_loop_idx = 0;
-    for (const OBJFaceElem &curr_face : curr_object.face_elements()) {
+    for (const OBJFaceElem &curr_face : curr_object_->face_elements()) {
       for (const OBJFaceCorner &curr_corner : curr_face.face_corners) {
         if (curr_corner.uv_vert_index < 0 ||
-            curr_corner.uv_vert_index >= curr_object.tot_uv_verts()) {
+            curr_corner.uv_vert_index >= curr_object_->tot_uv_verts()) {
           continue;
         }
         /* Current corner's UV vertex index indices into current object's UV vertex indices, which
          * index into global list of UV vertex coordinates. */
         const float2 &mluv_src =
-            global_vertices
-                .uv_vertices[curr_object.uv_vertex_indices()[curr_corner.uv_vert_index]];
+            global_vertices_
+                ->uv_vertices[curr_object_->uv_vertex_indices()[curr_corner.uv_vert_index]];
         copy_v2_v2(mluv_dst[tot_loop_idx].uv, mluv_src);
         tot_loop_idx++;
       }
