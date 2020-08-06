@@ -499,7 +499,7 @@ void MTLParser::parse_and_store(Map<string, MTLMaterial> &mtl_materials)
       /* Only specific to Normal Map node. */
       int64_t pos_bm{str_map_xx_split.first_index_of_try("-bm")};
       if (pos_bm != string::npos && pos_bm + 1 < str_map_xx_split.size()) {
-        copy_string_to_float(str_map_xx_split[pos_bm + 1], 0.0f, current_mtlmaterial->map_Bump_value);
+        copy_string_to_float(str_map_xx_split[pos_bm + 1], 0.0f, current_mtlmaterial->map_Bump_strength);
       }
 
       tex_map.image_path = str_map_xx_split.last();

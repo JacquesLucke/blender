@@ -133,7 +133,7 @@ ShaderNodetreeWrap::ShaderNodetreeWrap(Main *bmain, const MTLMaterial &mtl_mat)
 }
 
 /**
- * Assert if caller hasn't acquired nodetree. Memory is managed by `unique_ptr`s.
+ * Assert if caller hasn't acquired nodetree.
  */
 ShaderNodetreeWrap::~ShaderNodetreeWrap()
 {
@@ -213,7 +213,7 @@ void ShaderNodetreeWrap::add_image_textures(Main *bmain)
     if (texture_map.key == "map_Bump") {
       normal_map_node.reset(add_node_to_tree(SH_NODE_NORMAL_MAP));
       set_property_of_socket(
-          SOCK_FLOAT, "Strength", {mtl_mat_->map_Bump_value}, normal_map_node.get());
+          SOCK_FLOAT, "Strength", {mtl_mat_->map_Bump_strength}, normal_map_node.get());
     }
 
     if (!set_img_filepath(bmain, texture_map.value.image_path, tex_node.get())) {

@@ -181,7 +181,7 @@ struct MTLMaterial {
   int illum{0};
   Map<std::string, tex_map_XX> texture_maps;
   /** Only used for Normal Map node: map_Bump. */
-  float map_Bump_value = 0.0f;
+  float map_Bump_strength = 0.0f;
 };
 
 struct UniqueObjectDeleter {
