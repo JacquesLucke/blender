@@ -88,8 +88,9 @@ static std::string replace_all_occurences(StringRef path, StringRef to_remove, S
 
 /**
  * Load image for Image Texture node.
+ * Return success if Image can be loaded successfully.
  */
-static void set_img_filepath(Main *bmain, StringRef value, bNode *r_node)
+static bool set_img_filepath(Main *bmain, StringRef value, bNode *r_node)
 {
   BLI_assert(r_node);
   Image *tex_image = BKE_image_load(bmain, value.data());
@@ -106,8 +107,11 @@ static void set_img_filepath(Main *bmain, StringRef value, bNode *r_node)
     }
   }
   BLI_assert(tex_image);
-  /* This doesn't look like a way to add image to node. */
-  r_node->id = reinterpret_cast<ID *>(tex_image);
+  if (!tex_image) {
+    r_node->id = reinterpret_cast<ID *>(tex_image);
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -212,7 +216,10 @@ void ShaderNodetreeWrap::add_image_textures(Main *bmain)
           SOCK_FLOAT, "Strength", {mtl_mat_->map_Bump_value}, normal_map_node.get());
     }
 
-    set_img_filepath(bmain, texture_map.value.image_path, tex_node.get());
+    if (!set_img_filepath(bmain, texture_map.value.image_path, tex_node.get())) {
+      /* Image cannot be added, so don't link image texture, vector, normal map nodes. */
+      continue;
+    }
     set_property_of_socket(
         SOCK_VECTOR, "Location", {texture_map.value.translation, 3}, vector_node.get());
     set_property_of_socket(SOCK_VECTOR, "Scale", {texture_map.value.scale, 3}, vector_node.get());
