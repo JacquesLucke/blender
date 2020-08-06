@@ -125,7 +125,7 @@ void importer_main(bContext *C, const OBJImportParams &import_params)
     MTLParser mtl_parser{mtl_library, import_params.filepath};
     mtl_parser.parse_and_store(materials);
   }
-  obj_parser.print_obj_data(list_of_objects, global_vertices);
+  //  obj_parser.print_obj_data(list_of_objects, global_vertices);
 
   raw_to_blender_objects(bmain, scene, list_of_objects, global_vertices, materials);
 }

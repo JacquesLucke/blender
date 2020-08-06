@@ -73,11 +73,9 @@ static void set_property_of_socket(eNodeSocketDatatype property_type,
   }
 }
 
-static std::string replace_all_occurences(std::string_view path,
-                                          std::string_view to_remove,
-                                          std::string_view to_add)
+static std::string replace_all_occurences(StringRef path, StringRef to_remove, StringRef to_add)
 {
-  std::string clean_path{path};
+  std::string clean_path{path.data()};
   while (true) {
     std::string::size_type pos = clean_path.find(to_remove);
     if (pos == std::string::npos) {
@@ -91,7 +89,7 @@ static std::string replace_all_occurences(std::string_view path,
 /**
  * Load image for Image Texture node.
  */
-static void set_img_filepath(Main *bmain, std::string_view value, bNode *r_node)
+static void set_img_filepath(Main *bmain, StringRef value, bNode *r_node)
 {
   BLI_assert(r_node);
   Image *tex_image = BKE_image_load(bmain, value.data());
@@ -130,6 +128,9 @@ ShaderNodetreeWrap::ShaderNodetreeWrap(Main *bmain, const MTLMaterial &mtl_mat)
   nodeSetActive(nodetree_.get(), shader_output_.get());
 }
 
+/**
+ * Assert if caller hasn't acquired nodetree. Memory is managed by `unique_ptr`s.
+ */
 ShaderNodetreeWrap::~ShaderNodetreeWrap()
 {
   if (nodetree_) {
@@ -177,6 +178,9 @@ void ShaderNodetreeWrap::link_sockets(unique_node_ptr from_node,
   static_cast<void>(from_node.release());
 }
 
+/**
+ * Set values of sockets in p-BSDF node of the nodetree.
+ */
 void ShaderNodetreeWrap::set_bsdf_socket_values()
 {
   set_property_of_socket(SOCK_FLOAT, "Specular", {mtl_mat_->Ns}, bsdf_.get());
@@ -188,6 +192,10 @@ void ShaderNodetreeWrap::set_bsdf_socket_values()
   set_property_of_socket(SOCK_RGBA, "Emission", {mtl_mat_->Ke, 3}, bsdf_.get());
 }
 
+/**
+ * Create image texture, vector and normal mapping nodes from MTL materials and link the
+ * nodes to p-BSDF node.
+ */
 void ShaderNodetreeWrap::add_image_textures(Main *bmain)
 {
   for (const Map<std::string, tex_map_XX>::Item texture_map : mtl_mat_->texture_maps.items()) {

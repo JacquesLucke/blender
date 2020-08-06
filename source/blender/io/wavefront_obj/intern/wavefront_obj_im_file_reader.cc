@@ -69,7 +69,7 @@ static void split_line_key_rest(std::string_view line, string &r_line_key, strin
   if (r_rest_line.empty()) {
     return;
   }
-  /* Remove the initial space. */
+  /* Remove the space between line key and the data after it. */
   r_rest_line.erase(0, 1);
 }
 
@@ -166,6 +166,9 @@ static bool create_raw_curve(std::unique_ptr<OBJRawObject> *raw_object)
   return true;
 }
 
+/**
+ * Open OBJ file at the path given in import parameters.
+ */
 OBJParser::OBJParser(const OBJImportParams &import_params) : import_params_(import_params)
 {
   obj_file_.open(import_params_.filepath);
@@ -199,6 +202,7 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_o
     fprintf(stderr, "Cannot read from file:%s.\n", import_params_.filepath);
     return;
   }
+
   string line;
   /* Non owning raw pointer to the unique_ptr to a raw object.
    * Needed to update object data in the same while loop. */
@@ -395,20 +399,20 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_o
     else if (line_key == "usemtl") {
       (*curr_ob)->material_name_.append(rest_line);
     }
-    else if (line_key == "#") {
-      /* This is a comment. */
-    }
   }
 }
 
 /**
- * Return a list of all material library filepaths referenced by in the OBJ file.
+ * Return a list of all material library filepaths referenced by the OBJ file.
  */
 Span<std::string> OBJParser::mtl_libraries() const
 {
   return mtl_libraries_;
 }
 
+/**
+ * Open material library file.
+ */
 MTLParser::MTLParser(StringRef mtl_library, StringRef obj_filepath) : mtl_library_(mtl_library)
 {
   char obj_file_dir[FILE_MAXDIR];
@@ -470,7 +474,7 @@ void MTLParser::parse_and_store(Map<string, MTLMaterial> &mtl_materials)
     /* Image Textures. */
     else if (line_key.find("map_") != string::npos) {
       if (!curr_mtlmat->texture_maps.contains_as(line_key)) {
-        /* No supported map_xx found. */
+        /* No supported texture map found. */
         continue;
       }
       tex_map_XX &tex_map = curr_mtlmat->texture_maps.lookup(line_key);

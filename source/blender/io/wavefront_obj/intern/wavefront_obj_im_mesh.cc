@@ -193,13 +193,14 @@ void OBJMeshFromRaw::create_uv_verts()
 void OBJMeshFromRaw::create_materials(Main *bmain, const Map<std::string, MTLMaterial> &materials)
 {
   for (const Map<std::string, MTLMaterial>::Item &curr_mat : materials.items()) {
-    Material *mat = BKE_material_add(bmain, curr_mat.key.c_str());
-    mat->use_nodes = true;
-    ShaderNodetreeWrap mat_wrap{bmain, curr_mat.value};
-    mat->nodetree = mat_wrap.get_nodetree();
     BKE_object_material_slot_add(bmain, mesh_object_.get());
+    Material *mat = BKE_material_add(bmain, curr_mat.key.c_str());
     BKE_object_material_assign(
         bmain, mesh_object_.get(), mat, mesh_object_.get()->totcol, BKE_MAT_ASSIGN_USERPREF);
+
+    ShaderNodetreeWrap mat_wrap{bmain, curr_mat.value};
+    mat->use_nodes = true;
+    mat->nodetree = mat_wrap.get_nodetree();
   }
 }
 }  // namespace blender::io::obj
