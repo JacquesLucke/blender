@@ -68,7 +68,10 @@ class ShaderNodetreeWrap {
 
  private:
   bNode *add_node_to_tree(const int node_type);
-  void link_sockets(unique_node_ptr src_node, StringRef src_id, bNode *dst_node, StringRef dst_id);
+  void link_sockets(unique_node_ptr from_node,
+                    StringRef from_node_id,
+                    bNode *to_node,
+                    StringRef to_node_id);
   void set_bsdf_socket_values();
   void add_image_textures(Main *bmain);
 };

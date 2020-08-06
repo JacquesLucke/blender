@@ -51,7 +51,7 @@ class OBJParser {
                       const GlobalVertices &global_vertices);
 
  private:
-  void update_index_offsets(Geometry *curr_ob);
+  void update_index_offsets(Geometry *geometry);
 };
 
 class MTLParser {

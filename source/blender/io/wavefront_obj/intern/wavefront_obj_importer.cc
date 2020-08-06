@@ -92,18 +92,18 @@ void OBJParser::print_obj_data(Span<std::unique_ptr<Geometry>> list_of_objects,
  */
 static void geometry_to_blender_objects(Main *bmain,
                                         Scene *scene,
-                                        Vector<std::unique_ptr<Geometry>> &list_of_objects,
+                                        Vector<std::unique_ptr<Geometry>> &all_geometries,
                                         const GlobalVertices &global_vertices,
                                         const Map<std::string, MTLMaterial> &materials)
 {
   OBJImportCollection import_collection{bmain, scene};
-  for (const std::unique_ptr<Geometry> &curr_object : list_of_objects) {
-    if (curr_object->geom_type() & GEOM_MESH) {
-      MeshFromGeometry mesh_ob_from_geometry{bmain, *curr_object, global_vertices, materials};
+  for (const std::unique_ptr<Geometry> &geometry : all_geometries) {
+    if (geometry->geom_type() & GEOM_MESH) {
+      MeshFromGeometry mesh_ob_from_geometry{bmain, *geometry, global_vertices, materials};
       import_collection.add_object_to_collection(mesh_ob_from_geometry.mover());
     }
-    else if (curr_object->geom_type() & GEOM_CURVE) {
-      CurveFromGeometry curve_ob_from_geometry(bmain, *curr_object, global_vertices);
+    else if (geometry->geom_type() & GEOM_CURVE) {
+      CurveFromGeometry curve_ob_from_geometry(bmain, *geometry, global_vertices);
       import_collection.add_object_to_collection(curve_ob_from_geometry.mover());
     }
   }
@@ -114,14 +114,14 @@ void importer_main(bContext *C, const OBJImportParams &import_params)
   Main *bmain = CTX_data_main(C);
   Scene *scene = CTX_data_scene(C);
   /* List of Geometry instances to be parsed from OBJ file. */
-  Vector<std::unique_ptr<Geometry>> list_of_objects;
+  Vector<std::unique_ptr<Geometry>> all_geometries;
   /* Container for vertex and UV vertex coordinates. */
   GlobalVertices global_vertices;
   /* List of MTLMaterial instances to be parsed from MTL file. */
   Map<std::string, MTLMaterial> materials;
 
   OBJParser obj_parser{import_params};
-  obj_parser.parse_and_store(list_of_objects, global_vertices);
+  obj_parser.parse_and_store(all_geometries, global_vertices);
 
   for (StringRef mtl_library : obj_parser.mtl_libraries()) {
     MTLParser mtl_parser{mtl_library, import_params.filepath};
@@ -129,6 +129,6 @@ void importer_main(bContext *C, const OBJImportParams &import_params)
   }
   //  obj_parser.print_obj_data(list_of_objects, global_vertices);
 
-  geometry_to_blender_objects(bmain, scene, list_of_objects, global_vertices, materials);
+  geometry_to_blender_objects(bmain, scene, all_geometries, global_vertices, materials);
 }
 }  // namespace blender::io::obj

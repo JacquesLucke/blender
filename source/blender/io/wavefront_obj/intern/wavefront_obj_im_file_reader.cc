@@ -427,7 +427,7 @@ void MTLParser::parse_and_store(Map<string, MTLMaterial> &mtl_materials)
   }
 
   string line;
-  MTLMaterial *curr_mtlmat = nullptr;
+  MTLMaterial *current_mtlmaterial = nullptr;
   while (std::getline(mtl_file_, line)) {
     string line_key{}, rest_line{};
     split_line_key_rest(line, line_key, rest_line);
@@ -436,47 +436,47 @@ void MTLParser::parse_and_store(Map<string, MTLMaterial> &mtl_materials)
     }
 
     if (line_key == "newmtl") {
-      curr_mtlmat = &mtl_materials.lookup_or_add_default_as(rest_line);
+      current_mtlmaterial = &mtl_materials.lookup_or_add_default_as(rest_line);
     }
     else if (line_key == "Ns") {
-      copy_string_to_float(rest_line, 324.0f, curr_mtlmat->Ns);
+      copy_string_to_float(rest_line, 324.0f, current_mtlmaterial->Ns);
     }
     else if (line_key == "Ka") {
       Vector<string> str_ka_split{};
       split_by_char(rest_line, ' ', str_ka_split);
-      copy_string_to_float(str_ka_split, 0.0f, {curr_mtlmat->Ka, 3});
+      copy_string_to_float(str_ka_split, 0.0f, {current_mtlmaterial->Ka, 3});
     }
     else if (line_key == "Kd") {
       Vector<string> str_kd_split{};
       split_by_char(rest_line, ' ', str_kd_split);
-      copy_string_to_float(str_kd_split, 0.8f, {curr_mtlmat->Kd, 3});
+      copy_string_to_float(str_kd_split, 0.8f, {current_mtlmaterial->Kd, 3});
     }
     else if (line_key == "Ks") {
       Vector<string> str_ks_split{};
       split_by_char(rest_line, ' ', str_ks_split);
-      copy_string_to_float(str_ks_split, 0.5f, {curr_mtlmat->Ks, 3});
+      copy_string_to_float(str_ks_split, 0.5f, {current_mtlmaterial->Ks, 3});
     }
     else if (line_key == "Ke") {
       Vector<string> str_ke_split{};
       split_by_char(rest_line, ' ', str_ke_split);
-      copy_string_to_float(str_ke_split, 0.0f, {curr_mtlmat->Ke, 3});
+      copy_string_to_float(str_ke_split, 0.0f, {current_mtlmaterial->Ke, 3});
     }
     else if (line_key == "Ni") {
-      copy_string_to_float(rest_line, 1.45f, curr_mtlmat->Ni);
+      copy_string_to_float(rest_line, 1.45f, current_mtlmaterial->Ni);
     }
     else if (line_key == "d") {
-      copy_string_to_float(rest_line, 1.0f, curr_mtlmat->d);
+      copy_string_to_float(rest_line, 1.0f, current_mtlmaterial->d);
     }
     else if (line_key == "illum") {
-      copy_string_to_int(rest_line, 2, curr_mtlmat->illum);
+      copy_string_to_int(rest_line, 2, current_mtlmaterial->illum);
     }
     /* Image Textures. */
     else if (line_key.find("map_") != string::npos) {
-      if (!curr_mtlmat->texture_maps.contains_as(line_key)) {
+      if (!current_mtlmaterial->texture_maps.contains_as(line_key)) {
         /* No supported texture map found. */
         continue;
       }
-      tex_map_XX &tex_map = curr_mtlmat->texture_maps.lookup(line_key);
+      tex_map_XX &tex_map = current_mtlmaterial->texture_maps.lookup(line_key);
       Vector<string> str_map_xx_split{};
       split_by_char(rest_line, ' ', str_map_xx_split);
 
@@ -499,7 +499,7 @@ void MTLParser::parse_and_store(Map<string, MTLMaterial> &mtl_materials)
       /* Only specific to Normal Map node. */
       int64_t pos_bm{str_map_xx_split.first_index_of_try("-bm")};
       if (pos_bm != string::npos && pos_bm + 1 < str_map_xx_split.size()) {
-        copy_string_to_float(str_map_xx_split[pos_bm + 1], 0.0f, curr_mtlmat->map_Bump_value);
+        copy_string_to_float(str_map_xx_split[pos_bm + 1], 0.0f, current_mtlmaterial->map_Bump_value);
       }
 
       tex_map.image_path = str_map_xx_split.last();

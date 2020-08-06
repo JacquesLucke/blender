@@ -62,7 +62,7 @@ class CurveFromGeometry : NonMovable, NonCopyable {
 
  public:
   CurveFromGeometry(Main *bmain,
-                    const Geometry &curr_object,
+                    const Geometry &curve_geometry,
                     const GlobalVertices &global_vertices);
 
   unique_object_ptr mover()
@@ -71,7 +71,7 @@ class CurveFromGeometry : NonMovable, NonCopyable {
   }
 
  private:
-  void create_nurbs(const Geometry &curr_object, const GlobalVertices &global_vertices);
+  void create_nurbs(const Geometry &curve_geometry, const GlobalVertices &global_vertices);
 };
 }  // namespace blender::io::obj
 #endif
