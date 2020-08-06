@@ -241,11 +241,6 @@ class Edge : blender::NonCopyable, blender::NonMovable {
   {
     attributes.set("label", label);
   }
-
-  void set_label(StringRef label)
-  {
-    this->set_attribute("label", label);
-  }
 };
 
 class DirectedEdge : public Edge {

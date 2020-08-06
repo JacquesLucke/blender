@@ -37,6 +37,7 @@ struct bContextDataResult;
 struct bPythonConstraint; /* DNA_constraint_types.h */
 
 #include "BLI_utildefines.h"
+#include <stdio.h>
 
 #ifdef __cplusplus
 extern "C" {
