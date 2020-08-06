@@ -23,4 +23,19 @@ TEST(trie_set, Test)
   EXPECT_FALSE(trie.has_prefix_of(""));
 }
 
+TEST(trie_set, Test2)
+{
+  TrieSet trie;
+
+  trie.add("Hello World");
+  trie.add("Hello You");
+  trie.add("Hello You Test");
+  trie.add("Hello You Do");
+  trie.add("This is a test");
+  trie.add("Hello He");
+  trie.add("He");
+
+  std::cout << trie.to_dot() << "\n";
+}
+
 }  // namespace blender::tests

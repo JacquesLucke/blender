@@ -24,12 +24,17 @@
 namespace blender {
 
 struct TrieSetNode {
+  Array<uint8_t> values;
   Map<uint8_t, std::unique_ptr<TrieSetNode>> children;
   bool is_terminal = false;
 
   dot::Node &add_to_dot_graph(dot::DirectedGraph &graph) const
   {
-    dot::Node &node = graph.new_node("");
+    std::string name;
+    for (uint8_t value : values) {
+      name += (char)value;
+    }
+    dot::Node &node = graph.new_node(name);
     if (is_terminal) {
       node.set_background_color("#AAEEAA");
     }
@@ -41,6 +46,24 @@ struct TrieSetNode {
     return node;
   }
 };
+
+template<typename T> static int64_t get_common_prefix_length(Span<T> values1, Span<T> values2)
+{
+  int64_t count = 0;
+  while (true) {
+    if (count >= values1.size()) {
+      break;
+    }
+    if (count >= values2.size()) {
+      break;
+    }
+    if (values1[count] != values2[count]) {
+      break;
+    }
+    count++;
+  }
+  return count;
+}
 
 class TrieSet {
  private:
@@ -62,19 +85,59 @@ class TrieSet {
     Span<uint8_t> remaining_data = data;
     TrieSetNode *current = &root_;
 
-    while (!remaining_data.is_empty()) {
-      current = current->children
-                    .lookup_or_add_cb(remaining_data[0],
-                                      []() { return std::make_unique<TrieSetNode>(); })
-                    .get();
-      remaining_data = remaining_data.drop_front(1);
-    }
+    while (true) {
+      if (remaining_data.is_empty()) {
+        const bool was_terminal = current->is_terminal;
+        current->is_terminal = true;
+        const bool is_newly_added = !was_terminal;
+        size_ += is_newly_added;
+        return is_newly_added;
+      }
 
-    const bool was_terminal = current->is_terminal;
-    current->is_terminal = true;
-    const bool is_newly_added = !was_terminal;
-    size_ += is_newly_added;
-    return is_newly_added;
+      uint8_t first_value = remaining_data[0];
+      remaining_data = remaining_data.drop_front(1);
+
+      if (current->children.contains(first_value)) {
+        std::unique_ptr<TrieSetNode> &child = current->children.lookup(first_value);
+        TrieSetNode *child_ptr = child.get();
+        int64_t common_prefix_length = get_common_prefix_length<uint8_t>(child->values,
+                                                                         remaining_data);
+        if (common_prefix_length == child->values.size()) {
+          current = child.get();
+          remaining_data = remaining_data.drop_front(common_prefix_length);
+        }
+        else {
+          auto intermediate_node = std::make_unique<TrieSetNode>();
+          intermediate_node->values = remaining_data.take_front(common_prefix_length);
+          intermediate_node->children.add_new(child->values[common_prefix_length],
+                                              std::move(child));
+
+          Array<uint8_t> copied_values = child_ptr->values.as_span().drop_front(
+              common_prefix_length + 1);
+          child_ptr->values = std::move(copied_values);
+
+          if (common_prefix_length < remaining_data.size()) {
+            remaining_data = remaining_data.drop_front(common_prefix_length);
+            auto new_node = std::make_unique<TrieSetNode>();
+            new_node->is_terminal = true;
+            new_node->values = remaining_data.drop_front(1);
+            intermediate_node->children.add_new(remaining_data[0], std::move(new_node));
+          }
+          else {
+            intermediate_node->is_terminal = true;
+          }
+          child = std::move(intermediate_node);
+          return true;
+        }
+      }
+      else {
+        auto new_node = std::make_unique<TrieSetNode>();
+        new_node->is_terminal = true;
+        new_node->values = remaining_data;
+        current->children.add_new(first_value, std::move(new_node));
+        return true;
+      }
+    }
   }
 
   bool has_prefix_of(StringRef str) const
@@ -85,18 +148,30 @@ class TrieSet {
   {
     Span<uint8_t> remaining_data = data;
     const TrieSetNode *current = &root_;
-    while (!remaining_data.is_empty()) {
+    while (true) {
       if (current->is_terminal) {
         return true;
       }
-      const std::unique_ptr<TrieSetNode> *child = current->children.lookup_ptr(remaining_data[0]);
+      if (remaining_data.is_empty()) {
+        return false;
+      }
+
+      uint8_t first_value = remaining_data[0];
+      remaining_data = remaining_data.drop_front(1);
+      const std::unique_ptr<TrieSetNode> *child = current->children.lookup_ptr(first_value);
       if (child == nullptr) {
         return false;
       }
-      current = child->get();
-      remaining_data = remaining_data.drop_front(1);
+
+      int64_t common_prefix_length = get_common_prefix_length<uint8_t>(remaining_data,
+                                                                       (*child)->values);
+      if (common_prefix_length == (*child)->values.size()) {
+        current = child->get();
+      }
+      else {
+        return false;
+      }
     }
-    return current->is_terminal;
   }
 
   std::string to_dot() const
