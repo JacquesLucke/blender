@@ -53,7 +53,7 @@ struct GlobalVertices {
 /**
  * A face's corner in an OBJ file. In Blender, it translates to a mloop vertex.
  */
-struct OBJFaceCorner {
+struct FaceCorner {
   /* This index should stay local to a Geometry, & not index into the global list of vertices. */
   int vert_index;
   /* -1 is to indicate abscense of UV vertices. Only < 0 condition should be checked since
@@ -61,16 +61,16 @@ struct OBJFaceCorner {
   int uv_vert_index = -1;
 };
 
-struct OBJFaceElem {
+struct FaceElement {
   std::string vertex_group{};
   bool shaded_smooth = false;
-  Vector<OBJFaceCorner> face_corners;
+  Vector<FaceCorner> face_corners;
 };
 
 /**
  * Contains data for one single NURBS curve in the OBJ file.
  */
-struct OBJNurbsElem {
+struct NurbsElement {
   /**
    * For curves, groups may be used to specify multiple splines in the same curve object.
    * It may also serve as the name of the curve if not specified explicitly.
@@ -109,9 +109,9 @@ class Geometry {
   Vector<int> uv_vertex_indices_{};
   /** Edges written in the file in addition to (or even without polygon) elements. */
   Vector<MEdge> edges_{};
-  Vector<OBJFaceElem> face_elements_{};
+  Vector<FaceElement> face_elements_{};
   bool use_vertex_groups_ = false;
-  OBJNurbsElem nurbs_element_;
+  NurbsElement nurbs_element_;
   int tot_loops_ = 0;
   int tot_normals_ = 0;
   /** Total UV vertices referred to by an object's faces. */
@@ -125,7 +125,7 @@ class Geometry {
   const std::string &geometry_name() const;
   Span<int> vertex_indices() const;
   int64_t tot_verts() const;
-  Span<OBJFaceElem> face_elements() const;
+  Span<FaceElement> face_elements() const;
   int64_t tot_face_elems() const;
   bool use_vertex_groups() const;
   Span<int> uv_vertex_indices() const;
@@ -136,7 +136,7 @@ class Geometry {
   int tot_normals() const;
   int tot_uv_verts() const;
 
-  const OBJNurbsElem &nurbs_elem() const;
+  const NurbsElement &nurbs_elem() const;
   const std::string &group() const;
 
   /* Parser class edits all the parameters of the Geometry class. */

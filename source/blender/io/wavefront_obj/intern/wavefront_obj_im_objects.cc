@@ -56,7 +56,7 @@ int64_t Geometry::tot_verts() const
   return vertex_indices_.size();
 }
 
-Span<OBJFaceElem> Geometry::face_elements() const
+Span<FaceElement> Geometry::face_elements() const
 {
   return face_elements_;
 }
@@ -112,7 +112,7 @@ int Geometry::tot_uv_verts() const
   return tot_uv_verts_;
 }
 
-const OBJNurbsElem &Geometry::nurbs_elem() const
+const NurbsElement &Geometry::nurbs_elem() const
 {
   return nurbs_element_;
 }

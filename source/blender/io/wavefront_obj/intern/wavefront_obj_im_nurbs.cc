@@ -34,7 +34,7 @@ void CurveFromGeometry::create_nurbs(const Geometry &curve_geometry,
                                      const GlobalVertices &global_vertices)
 {
   const int64_t tot_vert{curve_geometry.nurbs_elem().curv_indices.size()};
-  const OBJNurbsElem &nurbs_geometry = curve_geometry.nurbs_elem();
+  const NurbsElement &nurbs_geometry = curve_geometry.nurbs_elem();
   Nurb *nurb = static_cast<Nurb *>(blender_curve_->nurb.first);
 
   nurb->type = CU_NURBS;

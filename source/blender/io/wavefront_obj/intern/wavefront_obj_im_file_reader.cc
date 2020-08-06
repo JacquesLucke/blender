@@ -297,7 +297,7 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &list_of_objec
       }
     }
     else if (line_key == "f") {
-      OBJFaceElem curr_face;
+      FaceElement curr_face;
       curr_face.shaded_smooth = shaded_smooth;
       if (!object_group.empty()) {
         curr_face.vertex_group = object_group;
@@ -308,7 +308,7 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &list_of_objec
       Vector<string> str_corners_split;
       split_by_char(rest_line, ' ', str_corners_split);
       for (const string &str_corner : str_corners_split) {
-        OBJFaceCorner corner;
+        FaceCorner corner;
         size_t n_slash = std::count(str_corner.begin(), str_corner.end(), '/');
         if (n_slash == 0) {
           /* Case: f v1 v2 v3 . */

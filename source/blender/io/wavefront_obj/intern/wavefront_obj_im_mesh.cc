@@ -107,7 +107,7 @@ void MeshFromGeometry::create_polys_loops()
   const int64_t tot_face_elems{mesh_geometry_->tot_face_elems()};
   int tot_loop_idx = 0;
   for (int poly_idx = 0; poly_idx < tot_face_elems; ++poly_idx) {
-    const OBJFaceElem &curr_face = mesh_geometry_->face_elements()[poly_idx];
+    const FaceElement &curr_face = mesh_geometry_->face_elements()[poly_idx];
     MPoly &mpoly = blender_mesh_->mpoly[poly_idx];
     mpoly.totloop = curr_face.face_corners.size();
     mpoly.loopstart = tot_loop_idx;
@@ -115,7 +115,7 @@ void MeshFromGeometry::create_polys_loops()
       mpoly.flag |= ME_SMOOTH;
     }
 
-    for (const OBJFaceCorner &curr_corner : curr_face.face_corners) {
+    for (const FaceCorner &curr_corner : curr_face.face_corners) {
       MLoop *mloop = &blender_mesh_->mloop[tot_loop_idx];
       tot_loop_idx++;
       mloop->v = curr_corner.vert_index;
@@ -172,8 +172,8 @@ void MeshFromGeometry::create_uv_verts()
     MLoopUV *mluv_dst = static_cast<MLoopUV *>(CustomData_add_layer(
         &blender_mesh_->ldata, CD_MLOOPUV, CD_CALLOC, nullptr, mesh_geometry_->tot_loops()));
     int tot_loop_idx = 0;
-    for (const OBJFaceElem &curr_face : mesh_geometry_->face_elements()) {
-      for (const OBJFaceCorner &curr_corner : curr_face.face_corners) {
+    for (const FaceElement &curr_face : mesh_geometry_->face_elements()) {
+      for (const FaceCorner &curr_corner : curr_face.face_corners) {
         if (curr_corner.uv_vert_index < 0 ||
             curr_corner.uv_vert_index >= mesh_geometry_->tot_uv_verts()) {
           continue;

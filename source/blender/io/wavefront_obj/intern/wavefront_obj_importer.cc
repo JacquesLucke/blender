@@ -65,8 +65,8 @@ void OBJParser::print_obj_data(Span<std::unique_ptr<Geometry>> list_of_objects,
       printf(" %d", curr_uv_vert_idx);
     }
     printf("\nglobal_uv_vert_index^\n");
-    for (const OBJFaceElem &curr_face : curr_ob->face_elements_) {
-      for (OBJFaceCorner a : curr_face.face_corners) {
+    for (const FaceElement &curr_face : curr_ob->face_elements_) {
+      for (FaceCorner a : curr_face.face_corners) {
         printf(" %d/%d", a.vert_index, a.uv_vert_index);
       }
       printf("\n");
