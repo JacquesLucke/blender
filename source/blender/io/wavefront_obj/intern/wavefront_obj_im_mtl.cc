@@ -75,7 +75,7 @@ static void set_property_of_socket(eNodeSocketDatatype property_type,
 
 static std::string replace_all_occurences(StringRef path, StringRef to_remove, StringRef to_add)
 {
-  std::string clean_path{path.data()};
+  std::string clean_path{path};
   while (true) {
     std::string::size_type pos = clean_path.find(to_remove);
     if (pos == std::string::npos) {
