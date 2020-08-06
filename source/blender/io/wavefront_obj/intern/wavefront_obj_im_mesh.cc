@@ -40,28 +40,28 @@
 
 namespace blender::io::obj {
 /**
- * Make a Blender Mesh Object from a raw object of OB_MESH type.
+ * Make a Blender Mesh Object from a Geometry of GEOM_MESH type.
  * Use the mover function to own the mesh.
  */
-OBJMeshFromRaw::OBJMeshFromRaw(Main *bmain,
-                               const OBJRawObject &curr_object,
-                               const GlobalVertices &global_vertices,
-                               const Map<std::string, MTLMaterial> &materials)
-    : curr_object_(&curr_object), global_vertices_(&global_vertices)
+MeshFromGeometry::MeshFromGeometry(Main *bmain,
+                                   const Geometry &mesh_geometry,
+                                   const GlobalVertices &global_vertices,
+                                   const Map<std::string, MTLMaterial> &materials)
+    : mesh_geometry_(&mesh_geometry), global_vertices_(&global_vertices)
 {
-  std::string ob_name = curr_object_->object_name();
+  std::string ob_name{mesh_geometry_->geometry_name()};
   if (ob_name.empty()) {
     ob_name = "Untitled";
   }
-  const int64_t tot_verts_object{curr_object_->tot_verts()};
-  const int64_t tot_edges{curr_object_->tot_edges()};
-  const int64_t tot_face_elems{curr_object_->tot_face_elems()};
-  const int64_t tot_loops{curr_object_->tot_loops()};
+  const int64_t tot_verts_object{mesh_geometry_->tot_verts()};
+  const int64_t tot_edges{mesh_geometry_->tot_edges()};
+  const int64_t tot_face_elems{mesh_geometry_->tot_face_elems()};
+  const int64_t tot_loops{mesh_geometry_->tot_loops()};
 
-  mesh_from_raw_.reset(
+  blender_mesh_.reset(
       BKE_mesh_new_nomain(tot_verts_object, tot_edges, 0, tot_loops, tot_face_elems));
-  mesh_object_.reset(BKE_object_add_only_object(bmain, OB_MESH, ob_name.c_str()));
-  mesh_object_->data = BKE_object_obdata_add_from_type(bmain, OB_MESH, ob_name.c_str());
+  blender_object_.reset(BKE_object_add_only_object(bmain, OB_MESH, ob_name.c_str()));
+  blender_object_->data = BKE_object_obdata_add_from_type(bmain, OB_MESH, ob_name.c_str());
 
   create_vertices();
   create_polys_loops();
@@ -69,34 +69,34 @@ OBJMeshFromRaw::OBJMeshFromRaw(Main *bmain,
   create_uv_verts();
   create_materials(bmain, materials);
 
-  BKE_mesh_validate(mesh_from_raw_.get(), false, true);
+  BKE_mesh_validate(blender_mesh_.get(), false, true);
 
-  BKE_mesh_nomain_to_mesh(mesh_from_raw_.release(),
-                          static_cast<Mesh *>(mesh_object_->data),
-                          mesh_object_.get(),
+  BKE_mesh_nomain_to_mesh(blender_mesh_.release(),
+                          static_cast<Mesh *>(blender_object_->data),
+                          blender_object_.get(),
                           &CD_MASK_EVERYTHING,
                           true);
 }
 
-void OBJMeshFromRaw::create_vertices()
+void MeshFromGeometry::create_vertices()
 {
-  const int64_t tot_verts_object{curr_object_->tot_verts()};
+  const int64_t tot_verts_object{mesh_geometry_->tot_verts()};
   for (int i = 0; i < tot_verts_object; ++i) {
     /* Current object's vertex indices index into the global list of vertex coordinates. */
-    copy_v3_v3(mesh_from_raw_->mvert[i].co,
-               global_vertices_->vertices[curr_object_->vertex_indices()[i]]);
+    copy_v3_v3(blender_mesh_->mvert[i].co,
+               global_vertices_->vertices[mesh_geometry_->vertex_indices()[i]]);
   }
 }
 
-void OBJMeshFromRaw::create_polys_loops()
+void MeshFromGeometry::create_polys_loops()
 {
   /* May not be used conditionally. */
-  mesh_from_raw_->dvert = nullptr;
+  blender_mesh_->dvert = nullptr;
   float weight = 0.0f;
-  if (curr_object_->tot_verts() && curr_object_->use_vertex_groups()) {
-    mesh_from_raw_->dvert = static_cast<MDeformVert *>(CustomData_add_layer(
-        &mesh_from_raw_->vdata, CD_MDEFORMVERT, CD_CALLOC, nullptr, curr_object_->tot_verts()));
-    weight = 1.0f / curr_object_->tot_verts();
+  if (mesh_geometry_->tot_verts() && mesh_geometry_->use_vertex_groups()) {
+    blender_mesh_->dvert = static_cast<MDeformVert *>(CustomData_add_layer(
+        &blender_mesh_->vdata, CD_MDEFORMVERT, CD_CALLOC, nullptr, mesh_geometry_->tot_verts()));
+    weight = 1.0f / mesh_geometry_->tot_verts();
   }
   else {
     UNUSED_VARS(weight);
@@ -104,11 +104,11 @@ void OBJMeshFromRaw::create_polys_loops()
   /* Do not remove elements from the VectorSet since order of insertion is required.
    * StringRef is fine since per-face deform group name outlives the VectorSet. */
   VectorSet<StringRef> group_names;
-  const int64_t tot_face_elems{curr_object_->tot_face_elems()};
+  const int64_t tot_face_elems{mesh_geometry_->tot_face_elems()};
   int tot_loop_idx = 0;
   for (int poly_idx = 0; poly_idx < tot_face_elems; ++poly_idx) {
-    const OBJFaceElem &curr_face = curr_object_->face_elements()[poly_idx];
-    MPoly &mpoly = mesh_from_raw_->mpoly[poly_idx];
+    const OBJFaceElem &curr_face = mesh_geometry_->face_elements()[poly_idx];
+    MPoly &mpoly = blender_mesh_->mpoly[poly_idx];
     mpoly.totloop = curr_face.face_corners.size();
     mpoly.loopstart = tot_loop_idx;
     if (curr_face.shaded_smooth) {
@@ -116,14 +116,14 @@ void OBJMeshFromRaw::create_polys_loops()
     }
 
     for (const OBJFaceCorner &curr_corner : curr_face.face_corners) {
-      MLoop *mloop = &mesh_from_raw_->mloop[tot_loop_idx];
+      MLoop *mloop = &blender_mesh_->mloop[tot_loop_idx];
       tot_loop_idx++;
       mloop->v = curr_corner.vert_index;
-      if (mesh_from_raw_->dvert) {
+      if (blender_mesh_->dvert) {
         /* Iterating over mloop results in finding the same vertex multiple times.
          * Another way is to allocate memory for dvert while creating vertices and fill them here.
          */
-        MDeformVert &def_vert = mesh_from_raw_->dvert[mloop->v];
+        MDeformVert &def_vert = blender_mesh_->dvert[mloop->v];
         if (!def_vert.dw) {
           def_vert.dw = static_cast<MDeformWeight *>(
               MEM_callocN(sizeof(MDeformWeight), "OBJ Import Deform Weight"));
@@ -141,48 +141,48 @@ void OBJMeshFromRaw::create_polys_loops()
     }
   }
 
-  if (!mesh_from_raw_->dvert) {
+  if (!blender_mesh_->dvert) {
     return;
   }
   /* Add deform group(s) to the object's defbase. */
   for (StringRef name : group_names) {
     /* Adding groups in this order assumes that def_nr is an index into the names' list. */
-    BKE_object_defgroup_add_name(mesh_object_.get(), name.data());
+    BKE_object_defgroup_add_name(blender_object_.get(), name.data());
   }
 }
 
-void OBJMeshFromRaw::create_edges()
+void MeshFromGeometry::create_edges()
 {
-  const int64_t tot_edges{curr_object_->tot_edges()};
+  const int64_t tot_edges{mesh_geometry_->tot_edges()};
   for (int i = 0; i < tot_edges; ++i) {
-    const MEdge &curr_edge = curr_object_->edges()[i];
-    mesh_from_raw_->medge[i].v1 = curr_edge.v1;
-    mesh_from_raw_->medge[i].v2 = curr_edge.v2;
+    const MEdge &curr_edge = mesh_geometry_->edges()[i];
+    blender_mesh_->medge[i].v1 = curr_edge.v1;
+    blender_mesh_->medge[i].v2 = curr_edge.v2;
   }
 
   /* Set argument `update` to true so that existing, explicitly imported edges can be merged
    * with the new ones created from polygons. */
-  BKE_mesh_calc_edges(mesh_from_raw_.get(), true, false);
-  BKE_mesh_calc_edges_loose(mesh_from_raw_.get());
+  BKE_mesh_calc_edges(blender_mesh_.get(), true, false);
+  BKE_mesh_calc_edges_loose(blender_mesh_.get());
 }
 
-void OBJMeshFromRaw::create_uv_verts()
+void MeshFromGeometry::create_uv_verts()
 {
-  if (curr_object_->tot_uv_verts() > 0 && curr_object_->tot_uv_vert_indices() > 0) {
+  if (mesh_geometry_->tot_uv_verts() > 0 && mesh_geometry_->tot_uv_vert_indices() > 0) {
     MLoopUV *mluv_dst = static_cast<MLoopUV *>(CustomData_add_layer(
-        &mesh_from_raw_->ldata, CD_MLOOPUV, CD_CALLOC, nullptr, curr_object_->tot_loops()));
+        &blender_mesh_->ldata, CD_MLOOPUV, CD_CALLOC, nullptr, mesh_geometry_->tot_loops()));
     int tot_loop_idx = 0;
-    for (const OBJFaceElem &curr_face : curr_object_->face_elements()) {
+    for (const OBJFaceElem &curr_face : mesh_geometry_->face_elements()) {
       for (const OBJFaceCorner &curr_corner : curr_face.face_corners) {
         if (curr_corner.uv_vert_index < 0 ||
-            curr_corner.uv_vert_index >= curr_object_->tot_uv_verts()) {
+            curr_corner.uv_vert_index >= mesh_geometry_->tot_uv_verts()) {
           continue;
         }
         /* Current corner's UV vertex index indices into current object's UV vertex indices, which
          * index into global list of UV vertex coordinates. */
         const float2 &mluv_src =
             global_vertices_
-                ->uv_vertices[curr_object_->uv_vertex_indices()[curr_corner.uv_vert_index]];
+                ->uv_vertices[mesh_geometry_->uv_vertex_indices()[curr_corner.uv_vert_index]];
         copy_v2_v2(mluv_dst[tot_loop_idx].uv, mluv_src);
         tot_loop_idx++;
       }
@@ -190,13 +190,14 @@ void OBJMeshFromRaw::create_uv_verts()
   }
 }
 
-void OBJMeshFromRaw::create_materials(Main *bmain, const Map<std::string, MTLMaterial> &materials)
+void MeshFromGeometry::create_materials(Main *bmain,
+                                        const Map<std::string, MTLMaterial> &materials)
 {
   for (const Map<std::string, MTLMaterial>::Item &curr_mat : materials.items()) {
-    BKE_object_material_slot_add(bmain, mesh_object_.get());
+    BKE_object_material_slot_add(bmain, blender_object_.get());
     Material *mat = BKE_material_add(bmain, curr_mat.key.c_str());
     BKE_object_material_assign(
-        bmain, mesh_object_.get(), mat, mesh_object_.get()->totcol, BKE_MAT_ASSIGN_USERPREF);
+        bmain, blender_object_.get(), mat, blender_object_.get()->totcol, BKE_MAT_ASSIGN_USERPREF);
 
     ShaderNodetreeWrap mat_wrap{bmain, curr_mat.value};
     mat->use_nodes = true;

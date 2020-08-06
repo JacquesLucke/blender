@@ -49,28 +49,28 @@ struct UniqueMeshDeleter {
  */
 using unique_mesh_ptr = std::unique_ptr<Mesh, UniqueMeshDeleter>;
 
-class OBJMeshFromRaw : NonMovable, NonCopyable {
+class MeshFromGeometry : NonMovable, NonCopyable {
  private:
   /**
    * Mesh datablock made from OBJ data.
    */
-  unique_mesh_ptr mesh_from_raw_{nullptr};
+  unique_mesh_ptr blender_mesh_{nullptr};
   /**
    * An Object of type OB_MESH. Use the mover function to own it.
    */
-  unique_object_ptr mesh_object_{nullptr};
-  const OBJRawObject *curr_object_;
+  unique_object_ptr blender_object_{nullptr};
+  const Geometry *mesh_geometry_;
   const GlobalVertices *global_vertices_;
 
  public:
-  OBJMeshFromRaw(Main *bmain,
-                 const OBJRawObject &curr_object,
-                 const GlobalVertices &global_vertices,
-                 const Map<std::string, MTLMaterial> &materials);
+  MeshFromGeometry(Main *bmain,
+                   const Geometry &mesh_geometry,
+                   const GlobalVertices &global_vertices,
+                   const Map<std::string, MTLMaterial> &materials);
 
   unique_object_ptr mover()
   {
-    return std::move(mesh_object_);
+    return std::move(blender_object_);
   }
 
  private:

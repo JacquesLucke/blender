@@ -49,21 +49,21 @@ struct UniqueCurveDeleter {
  */
 using unique_curve_ptr = std::unique_ptr<Curve, UniqueCurveDeleter>;
 
-class OBJCurveFromRaw : NonMovable, NonCopyable {
+class CurveFromGeometry : NonMovable, NonCopyable {
  private:
   /**
    * Curve datablock of type CU_NURBS made from OBJ data..
    */
-  unique_curve_ptr curve_from_raw_;
+  unique_curve_ptr blender_curve_;
   /**
    * Object of type OB_CURVE. Use the mover function to own it.
    */
   unique_object_ptr curve_object_;
 
  public:
-  OBJCurveFromRaw(Main *bmain,
-                  const OBJRawObject &curr_object,
-                  const GlobalVertices &global_vertices);
+  CurveFromGeometry(Main *bmain,
+                    const Geometry &curr_object,
+                    const GlobalVertices &global_vertices);
 
   unique_object_ptr mover()
   {
@@ -71,7 +71,7 @@ class OBJCurveFromRaw : NonMovable, NonCopyable {
   }
 
  private:
-  void create_nurbs(const OBJRawObject &curr_object, const GlobalVertices &global_vertices);
+  void create_nurbs(const Geometry &curr_object, const GlobalVertices &global_vertices);
 };
 }  // namespace blender::io::obj
 #endif

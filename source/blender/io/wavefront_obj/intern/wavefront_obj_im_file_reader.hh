@@ -44,14 +44,14 @@ class OBJParser {
  public:
   OBJParser(const OBJImportParams &import_params);
 
-  void parse_and_store(Vector<std::unique_ptr<OBJRawObject>> &list_of_objects,
+  void parse_and_store(Vector<std::unique_ptr<Geometry>> &list_of_objects,
                        GlobalVertices &global_vertices);
   Span<std::string> mtl_libraries() const;
-  void print_obj_data(Span<std::unique_ptr<OBJRawObject>> list_of_objects,
+  void print_obj_data(Span<std::unique_ptr<Geometry>> list_of_objects,
                       const GlobalVertices &global_vertices);
 
  private:
-  void update_index_offsets(std::unique_ptr<OBJRawObject> *curr_ob);
+  void update_index_offsets(Geometry *curr_ob);
 };
 
 class MTLParser {

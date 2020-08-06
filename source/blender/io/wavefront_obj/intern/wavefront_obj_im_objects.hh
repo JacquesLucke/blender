@@ -43,7 +43,7 @@
 namespace blender::io::obj {
 /**
  * List of all vertex and UV vertex coordinates in an OBJ file accessible to any
- * raw object at any time.
+ * Geometry instance at any time.
  */
 struct GlobalVertices {
   Vector<float3> vertices{};
@@ -54,7 +54,7 @@ struct GlobalVertices {
  * A face's corner in an OBJ file. In Blender, it translates to a mloop vertex.
  */
 struct OBJFaceCorner {
-  /* This index should stay local to a raw object, & not index into the global list of vertices. */
+  /* This index should stay local to a Geometry, & not index into the global list of vertices. */
   int vert_index;
   /* -1 is to indicate abscense of UV vertices. Only < 0 condition should be checked since
    * it can be less than -1 too. */
@@ -85,10 +85,15 @@ struct OBJNurbsElem {
   Vector<float> parm{};
 };
 
-class OBJRawObject {
+enum eGeometryType {
+  GEOM_MESH = OB_MESH,
+  GEOM_CURVE = OB_CURVE,
+};
+
+class Geometry {
  private:
-  int object_type_ = OB_MESH;
-  std::string object_name_{};
+  const eGeometryType geom_type_ = GEOM_MESH;
+  std::string geometry_name_{};
   Vector<std::string> material_name_{};
   /**
    * Vertex indices that index into the global list of vertex coordinates.
@@ -113,10 +118,11 @@ class OBJRawObject {
   int tot_uv_verts_ = 0;
 
  public:
-  OBJRawObject(StringRef ob_name) : object_name_(ob_name.data()){};
+  Geometry(eGeometryType type, StringRef ob_name)
+      : geom_type_(type), geometry_name_(ob_name.data()){};
 
-  int object_type() const;
-  const std::string &object_name() const;
+  eGeometryType geom_type() const;
+  const std::string &geometry_name() const;
   Span<int> vertex_indices() const;
   int64_t tot_verts() const;
   Span<OBJFaceElem> face_elements() const;
@@ -133,7 +139,7 @@ class OBJRawObject {
   const OBJNurbsElem &nurbs_elem() const;
   const std::string &group() const;
 
-  /* Parser class edits all the parameters of the Raw object class. */
+  /* Parser class edits all the parameters of the Geometry class. */
   friend class OBJParser;
 };
 

@@ -28,14 +28,14 @@
 
 namespace blender::io::obj {
 /**
- * Create a NURBS spline for the Curve converted from raw object.
+ * Create a NURBS spline for the Curve converted from Geometry.
  */
-void OBJCurveFromRaw::create_nurbs(const OBJRawObject &curr_object,
-                                   const GlobalVertices &global_vertices)
+void CurveFromGeometry::create_nurbs(const Geometry &curve_geometry,
+                                     const GlobalVertices &global_vertices)
 {
-  const int64_t tot_vert{curr_object.nurbs_elem().curv_indices.size()};
-  const OBJNurbsElem &raw_nurbs = curr_object.nurbs_elem();
-  Nurb *nurb = static_cast<Nurb *>(curve_from_raw_->nurb.first);
+  const int64_t tot_vert{curve_geometry.nurbs_elem().curv_indices.size()};
+  const OBJNurbsElem &nurbs_geometry = curve_geometry.nurbs_elem();
+  Nurb *nurb = static_cast<Nurb *>(blender_curve_->nurb.first);
 
   nurb->type = CU_NURBS;
   nurb->flag = CU_3D;
@@ -45,26 +45,27 @@ void OBJCurveFromRaw::create_nurbs(const OBJRawObject &curr_object,
   nurb->pntsu = 0;
   /* Total points = pntsu * pntsv. */
   nurb->pntsv = 1;
-  nurb->orderu = nurb->orderv = raw_nurbs.degree + 1;
-  nurb->resolu = nurb->resolv = curve_from_raw_->resolu;
+  nurb->orderu = nurb->orderv = nurbs_geometry.degree + 1;
+  nurb->resolu = nurb->resolv = blender_curve_->resolu;
 
   BKE_nurb_points_add(nurb, tot_vert);
   for (int i = 0; i < tot_vert; i++) {
     BPoint &bpoint = nurb->bp[i];
-    copy_v3_v3(bpoint.vec, global_vertices.vertices[raw_nurbs.curv_indices[i]]);
+    copy_v3_v3(bpoint.vec, global_vertices.vertices[nurbs_geometry.curv_indices[i]]);
     bpoint.vec[3] = 1.0f;
     bpoint.weight = 1.0f;
   }
   BKE_nurb_knot_calc_u(nurb);
 
   bool do_endpoints = true;
-  if (raw_nurbs.curv_indices.size() && raw_nurbs.parm.size() > raw_nurbs.degree + 1) {
-    for (int i = 0; i < raw_nurbs.degree + 1; i++) {
-      if (abs(raw_nurbs.parm[i] - raw_nurbs.curv_indices[0]) > 0.0001) {
+  if (nurbs_geometry.curv_indices.size() &&
+      nurbs_geometry.parm.size() > nurbs_geometry.degree + 1) {
+    for (int i = 0; i < nurbs_geometry.degree + 1; i++) {
+      if (abs(nurbs_geometry.parm[i] - nurbs_geometry.curv_indices[0]) > 0.0001) {
         do_endpoints = false;
         break;
       }
-      if (abs(raw_nurbs.parm[-(i + 1)] - raw_nurbs.curv_indices[1]) > 0.0001) {
+      if (abs(nurbs_geometry.parm[-(i + 1)] - nurbs_geometry.curv_indices[1]) > 0.0001) {
         do_endpoints = false;
         break;
       }
@@ -79,32 +80,32 @@ void OBJCurveFromRaw::create_nurbs(const OBJRawObject &curr_object,
 }
 
 /**
- * Make a Blender NURBS Curve block from a raw object of OB_CURVE type.
+ * Make a Blender NURBS Curve block from a Geometry of GEOM_CURVE type.
  * Use the mover function to own the curve.
  */
-OBJCurveFromRaw::OBJCurveFromRaw(Main *bmain,
-                                 const OBJRawObject &curr_object,
-                                 const GlobalVertices &global_vertices)
+CurveFromGeometry::CurveFromGeometry(Main *bmain,
+                                     const Geometry &geometry,
+                                     const GlobalVertices &global_vertices)
 {
-  std::string ob_name = curr_object.object_name();
-  if (ob_name.empty() && !curr_object.group().empty()) {
-    ob_name = curr_object.group();
+  std::string ob_name = geometry.geometry_name();
+  if (ob_name.empty() && !geometry.group().empty()) {
+    ob_name = geometry.group();
   }
   else {
     ob_name = "Untitled";
   }
-  curve_from_raw_.reset(BKE_curve_add(bmain, curr_object.object_name().c_str(), OB_CURVE));
+  blender_curve_.reset(BKE_curve_add(bmain, geometry.geometry_name().c_str(), OB_CURVE));
   curve_object_.reset(BKE_object_add_only_object(bmain, OB_CURVE, ob_name.c_str()));
 
-  curve_from_raw_->flag = CU_3D;
-  curve_from_raw_->resolu = curve_from_raw_->resolv = 12;
+  blender_curve_->flag = CU_3D;
+  blender_curve_->resolu = blender_curve_->resolv = 12;
   /* Only one NURBS spline will be created in the curve object. */
-  curve_from_raw_->actnu = 0;
+  blender_curve_->actnu = 0;
 
   Nurb *nurb = static_cast<Nurb *>(MEM_callocN(sizeof(Nurb), "OBJ import NURBS curve"));
-  BLI_addtail(BKE_curve_nurbs_get(curve_from_raw_.get()), nurb);
-  create_nurbs(curr_object, global_vertices);
+  BLI_addtail(BKE_curve_nurbs_get(blender_curve_.get()), nurb);
+  create_nurbs(geometry, global_vertices);
 
-  curve_object_->data = curve_from_raw_.release();
+  curve_object_->data = blender_curve_.release();
 }
 }  // namespace blender::io::obj

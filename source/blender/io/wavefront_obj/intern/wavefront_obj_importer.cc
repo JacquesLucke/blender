@@ -44,7 +44,7 @@ namespace blender::io::obj {
 /**
  * Only for debug purposes. Must not be in master.
  */
-void OBJParser::print_obj_data(Span<std::unique_ptr<OBJRawObject>> list_of_objects,
+void OBJParser::print_obj_data(Span<std::unique_ptr<Geometry>> list_of_objects,
                                const GlobalVertices &global_vertices)
 {
   for (const float3 &curr_vert : global_vertices.vertices) {
@@ -56,7 +56,7 @@ void OBJParser::print_obj_data(Span<std::unique_ptr<OBJRawObject>> list_of_objec
   }
   printf("\n");
 
-  for (const std::unique_ptr<OBJRawObject> &curr_ob : list_of_objects) {
+  for (const std::unique_ptr<Geometry> &curr_ob : list_of_objects) {
     for (const int &curr_vert_idx : curr_ob->vertex_indices_) {
       printf(" %d", curr_vert_idx);
     }
@@ -88,23 +88,23 @@ void OBJParser::print_obj_data(Span<std::unique_ptr<OBJRawObject>> list_of_objec
 }
 
 /**
- * Make Blender Mesh, Curve etc from the raw objects and add them to the import collection.
+ * Make Blender Mesh, Curve etc from Geometry and add them to the import collection.
  */
-static void raw_to_blender_objects(Main *bmain,
-                                   Scene *scene,
-                                   Vector<std::unique_ptr<OBJRawObject>> &list_of_objects,
-                                   const GlobalVertices &global_vertices,
-                                   const Map<std::string, MTLMaterial> &materials)
+static void geometry_to_blender_objects(Main *bmain,
+                                        Scene *scene,
+                                        Vector<std::unique_ptr<Geometry>> &list_of_objects,
+                                        const GlobalVertices &global_vertices,
+                                        const Map<std::string, MTLMaterial> &materials)
 {
   OBJImportCollection import_collection{bmain, scene};
-  for (const std::unique_ptr<OBJRawObject> &curr_object : list_of_objects) {
-    if (curr_object->object_type() & OB_MESH) {
-      OBJMeshFromRaw mesh_ob_from_raw{bmain, *curr_object, global_vertices, materials};
-      import_collection.add_object_to_collection(mesh_ob_from_raw.mover());
+  for (const std::unique_ptr<Geometry> &curr_object : list_of_objects) {
+    if (curr_object->geom_type() & GEOM_MESH) {
+      MeshFromGeometry mesh_ob_from_geometry{bmain, *curr_object, global_vertices, materials};
+      import_collection.add_object_to_collection(mesh_ob_from_geometry.mover());
     }
-    else if (curr_object->object_type() & OB_CURVE) {
-      OBJCurveFromRaw curve_ob_from_raw(bmain, *curr_object, global_vertices);
-      import_collection.add_object_to_collection(curve_ob_from_raw.mover());
+    else if (curr_object->geom_type() & GEOM_CURVE) {
+      CurveFromGeometry curve_ob_from_geometry(bmain, *curr_object, global_vertices);
+      import_collection.add_object_to_collection(curve_ob_from_geometry.mover());
     }
   }
 }
@@ -113,9 +113,11 @@ void importer_main(bContext *C, const OBJImportParams &import_params)
 {
   Main *bmain = CTX_data_main(C);
   Scene *scene = CTX_data_scene(C);
-  /* List of raw OBJ objects. */
-  Vector<std::unique_ptr<OBJRawObject>> list_of_objects;
+  /* List of Geometry instances to be parsed from OBJ file. */
+  Vector<std::unique_ptr<Geometry>> list_of_objects;
+  /* Container for vertex and UV vertex coordinates. */
   GlobalVertices global_vertices;
+  /* List of MTLMaterial instances to be parsed from MTL file. */
   Map<std::string, MTLMaterial> materials;
 
   OBJParser obj_parser{import_params};
@@ -127,6 +129,6 @@ void importer_main(bContext *C, const OBJImportParams &import_params)
   }
   //  obj_parser.print_obj_data(list_of_objects, global_vertices);
 
-  raw_to_blender_objects(bmain, scene, list_of_objects, global_vertices, materials);
+  geometry_to_blender_objects(bmain, scene, list_of_objects, global_vertices, materials);
 }
 }  // namespace blender::io::obj

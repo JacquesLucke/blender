@@ -36,42 +36,42 @@
 
 namespace blender::io::obj {
 
-int OBJRawObject::object_type() const
+eGeometryType Geometry::geom_type() const
 {
-  return object_type_;
+  return geom_type_;
 }
 
-const std::string &OBJRawObject::object_name() const
+const std::string &Geometry::geometry_name() const
 {
-  return object_name_;
+  return geometry_name_;
 }
 
-Span<int> OBJRawObject::vertex_indices() const
+Span<int> Geometry::vertex_indices() const
 {
   return vertex_indices_;
 }
 
-int64_t OBJRawObject::tot_verts() const
+int64_t Geometry::tot_verts() const
 {
   return vertex_indices_.size();
 }
 
-Span<OBJFaceElem> OBJRawObject::face_elements() const
+Span<OBJFaceElem> Geometry::face_elements() const
 {
   return face_elements_;
 }
 
-int64_t OBJRawObject::tot_face_elems() const
+int64_t Geometry::tot_face_elems() const
 {
   return face_elements_.size();
 }
 
-bool OBJRawObject::use_vertex_groups() const
+bool Geometry::use_vertex_groups() const
 {
   return use_vertex_groups_;
 }
 
-Span<int> OBJRawObject::uv_vertex_indices() const
+Span<int> Geometry::uv_vertex_indices() const
 {
   return uv_vertex_indices_;
 }
@@ -79,27 +79,27 @@ Span<int> OBJRawObject::uv_vertex_indices() const
 /**
  * Return per-object total UV vertex indices that index into a global list of vertex coordinates.
  */
-int64_t OBJRawObject::tot_uv_vert_indices() const
+int64_t Geometry::tot_uv_vert_indices() const
 {
   return uv_vertex_indices_.size();
 }
 
-Span<MEdge> OBJRawObject::edges() const
+Span<MEdge> Geometry::edges() const
 {
   return edges_;
 }
 
-int64_t OBJRawObject::tot_edges() const
+int64_t Geometry::tot_edges() const
 {
   return edges_.size();
 }
 
-int OBJRawObject::tot_loops() const
+int Geometry::tot_loops() const
 {
   return tot_loops_;
 }
 
-int OBJRawObject::tot_normals() const
+int Geometry::tot_normals() const
 {
   return tot_normals_;
 }
@@ -107,17 +107,17 @@ int OBJRawObject::tot_normals() const
 /**
  * Total UV vertices that an object's faces' corners refer to in "f" lines.
  */
-int OBJRawObject::tot_uv_verts() const
+int Geometry::tot_uv_verts() const
 {
   return tot_uv_verts_;
 }
 
-const OBJNurbsElem &OBJRawObject::nurbs_elem() const
+const OBJNurbsElem &Geometry::nurbs_elem() const
 {
   return nurbs_element_;
 }
 
-const std::string &OBJRawObject::group() const
+const std::string &Geometry::group() const
 {
   return nurbs_element_.group_;
 }
