@@ -50,7 +50,6 @@ set(SRC
   intern/wavefront_obj_im_objects.cc
 
   IO_wavefront_obj.h
-  intern/wavefront_obj.hh
   intern/wavefront_obj_exporter.hh
   intern/wavefront_obj_ex_mesh.hh
   intern/wavefront_obj_ex_mtl.hh
