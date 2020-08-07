@@ -240,9 +240,8 @@ static bool ww_open_none(WriteWrap *ww, const char *filepath)
     FILE_HANDLE(ww) = file;
     return true;
   }
-  else {
-    return false;
-  }
+
+  return false;
 }
 static bool ww_close_none(WriteWrap *ww)
 {
@@ -267,9 +266,8 @@ static bool ww_open_zlib(WriteWrap *ww, const char *filepath)
     FILE_HANDLE(ww) = file;
     return true;
   }
-  else {
-    return false;
-  }
+
+  return false;
 }
 static bool ww_close_zlib(WriteWrap *ww)
 {
@@ -2840,12 +2838,12 @@ static void write_uilist(BlendWriter *writer, uiList *ui_list)
   }
 }
 
-static void write_soops(BlendWriter *writer, SpaceOutliner *so)
+static void write_space_outliner(BlendWriter *writer, SpaceOutliner *space_outliner)
 {
-  BLI_mempool *ts = so->treestore;
+  BLI_mempool *ts = space_outliner->treestore;
 
   if (ts) {
-    SpaceOutliner so_flat = *so;
+    SpaceOutliner space_outliner_flat = *space_outliner;
 
     int elems = BLI_mempool_len(ts);
     /* linearize mempool to array */
@@ -2866,7 +2864,7 @@ static void write_soops(BlendWriter *writer, SpaceOutliner *so)
       ts_flat.totelem = elems;
       ts_flat.data = data_addr;
 
-      BLO_write_struct(writer, SpaceOutliner, so);
+      BLO_write_struct(writer, SpaceOutliner, space_outliner);
 
       BLO_write_struct_at_address(writer, TreeStore, ts, &ts_flat);
       BLO_write_struct_array_at_address(writer, TreeStoreElem, elems, data_addr, data);
@@ -2874,12 +2872,12 @@ static void write_soops(BlendWriter *writer, SpaceOutliner *so)
       MEM_freeN(data);
     }
     else {
-      so_flat.treestore = NULL;
-      BLO_write_struct_at_address(writer, SpaceOutliner, so, &so_flat);
+      space_outliner_flat.treestore = NULL;
+      BLO_write_struct_at_address(writer, SpaceOutliner, space_outliner, &space_outliner_flat);
     }
   }
   else {
-    BLO_write_struct(writer, SpaceOutliner, so);
+    BLO_write_struct(writer, SpaceOutliner, space_outliner);
   }
 }
 
@@ -2955,8 +2953,8 @@ static void write_area_regions(BlendWriter *writer, ScrArea *area)
       BLO_write_struct(writer, SpaceSeq, sl);
     }
     else if (sl->spacetype == SPACE_OUTLINER) {
-      SpaceOutliner *so = (SpaceOutliner *)sl;
-      write_soops(writer, so);
+      SpaceOutliner *space_outliner = (SpaceOutliner *)sl;
+      write_space_outliner(writer, space_outliner);
     }
     else if (sl->spacetype == SPACE_IMAGE) {
       BLO_write_struct(writer, SpaceImage, sl);
