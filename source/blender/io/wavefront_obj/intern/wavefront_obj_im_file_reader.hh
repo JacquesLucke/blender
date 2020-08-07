@@ -44,10 +44,10 @@ class OBJParser {
  public:
   OBJParser(const OBJImportParams &import_params);
 
-  void parse_and_store(Vector<std::unique_ptr<Geometry>> &list_of_objects,
+  void parse_and_store(Vector<std::unique_ptr<Geometry>> &all_geometries,
                        GlobalVertices &global_vertices);
   Span<std::string> mtl_libraries() const;
-  void print_obj_data(Span<std::unique_ptr<Geometry>> list_of_objects,
+  void print_obj_data(Span<std::unique_ptr<Geometry>> all_geometries,
                       const GlobalVertices &global_vertices);
 
  private:

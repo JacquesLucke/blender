@@ -194,7 +194,7 @@ void OBJParser::update_index_offsets(Geometry *geometry)
  * Read the OBJ file line by line and create OBJ Geometry instances. Also store all the vertex
  * and UV vertex coordinates in a struct accessible by all objects.
  */
-void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &list_of_objects,
+void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &all_geometries,
                                 GlobalVertices &global_vertices)
 {
   if (!obj_file_.good()) {
@@ -226,8 +226,8 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &list_of_objec
       update_index_offsets(current_geometry);
       shaded_smooth = false;
       object_group = {};
-      list_of_objects.append(std::make_unique<Geometry>(GEOM_MESH, rest_line));
-      current_geometry = list_of_objects.last().get();
+      all_geometries.append(std::make_unique<Geometry>(GEOM_MESH, rest_line));
+      current_geometry = all_geometries.last().get();
     }
     else if (line_key == "v") {
       float3 curr_vert{};
@@ -254,6 +254,7 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &list_of_objec
       }
     }
     else if (line_key == "l") {
+      BLI_assert(current_geometry);
       int edge_v1 = -1, edge_v2 = -1;
       Vector<string> str_edge_split;
       split_by_char(rest_line, ' ', str_edge_split);
@@ -268,6 +269,10 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &list_of_objec
       current_geometry->edges_.append({static_cast<uint>(edge_v1), static_cast<uint>(edge_v2)});
     }
     else if (line_key == "g") {
+      if (!current_geometry) {
+        all_geometries.append(std::make_unique<Geometry>(GEOM_MESH, rest_line));
+        current_geometry = all_geometries.last().get();
+      }
       object_group = rest_line;
       if (object_group.find("off") != string::npos || object_group.find("null") != string::npos) {
         /* Set group for future elements like faces or curves to empty. */
@@ -297,6 +302,7 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &list_of_objec
       }
     }
     else if (line_key == "f") {
+      BLI_assert(current_geometry);
       FaceElement curr_face;
       curr_face.shaded_smooth = shaded_smooth;
       if (!object_group.empty()) {
@@ -352,8 +358,8 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &list_of_objec
       if (rest_line.find("bspline") != string::npos) {
         if (create_geometry_curve(current_geometry)) {
           update_index_offsets(current_geometry);
-          list_of_objects.append(std::make_unique<Geometry>(GEOM_CURVE, "NURBSCurve"));
-          current_geometry = list_of_objects.last().get();
+          all_geometries.append(std::make_unique<Geometry>(GEOM_CURVE, "NURBSCurve"));
+          current_geometry = all_geometries.last().get();
           current_geometry->nurbs_element_.group_ = object_group;
         }
       }
@@ -499,7 +505,8 @@ void MTLParser::parse_and_store(Map<string, MTLMaterial> &mtl_materials)
       /* Only specific to Normal Map node. */
       int64_t pos_bm{str_map_xx_split.first_index_of_try("-bm")};
       if (pos_bm != string::npos && pos_bm + 1 < str_map_xx_split.size()) {
-        copy_string_to_float(str_map_xx_split[pos_bm + 1], 0.0f, current_mtlmaterial->map_Bump_strength);
+        copy_string_to_float(
+            str_map_xx_split[pos_bm + 1], 0.0f, current_mtlmaterial->map_Bump_strength);
       }
 
       tex_map.image_path = str_map_xx_split.last();

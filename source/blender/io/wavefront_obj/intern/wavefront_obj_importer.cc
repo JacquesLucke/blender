@@ -44,7 +44,7 @@ namespace blender::io::obj {
 /**
  * Only for debug purposes. Must not be in master.
  */
-void OBJParser::print_obj_data(Span<std::unique_ptr<Geometry>> list_of_objects,
+void OBJParser::print_obj_data(Span<std::unique_ptr<Geometry>> all_geometries,
                                const GlobalVertices &global_vertices)
 {
   for (const float3 &curr_vert : global_vertices.vertices) {
@@ -56,7 +56,7 @@ void OBJParser::print_obj_data(Span<std::unique_ptr<Geometry>> list_of_objects,
   }
   printf("\n");
 
-  for (const std::unique_ptr<Geometry> &curr_ob : list_of_objects) {
+  for (const std::unique_ptr<Geometry> &curr_ob : all_geometries) {
     for (const int &curr_vert_idx : curr_ob->vertex_indices_) {
       printf(" %d", curr_vert_idx);
     }
