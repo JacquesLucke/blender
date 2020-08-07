@@ -83,7 +83,7 @@ class RawAllocator {
     void *ptr = malloc(size + alignment + sizeof(MemHead));
     void *used_ptr = reinterpret_cast<void *>(
         reinterpret_cast<uintptr_t>(POINTER_OFFSET(ptr, alignment + sizeof(MemHead))) &
-        ~(reinterpret_cast<uintptr_t>(alignment) - 1));
+        ~(static_cast<uintptr_t>(alignment) - 1));
     int offset = static_cast<int>((intptr_t)used_ptr - (intptr_t)ptr);
     BLI_assert(offset >= static_cast<int>(sizeof(MemHead)));
     (static_cast<MemHead *>(used_ptr) - 1)->offset = offset;
