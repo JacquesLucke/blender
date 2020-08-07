@@ -28,7 +28,6 @@
 
 #include "IO_wavefront_obj.h"
 
-#include "wavefront_obj.hh"
 #include "wavefront_obj_exporter.hh"
 #include "wavefront_obj_importer.hh"
 

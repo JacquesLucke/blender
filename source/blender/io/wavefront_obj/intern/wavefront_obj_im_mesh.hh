@@ -21,8 +21,7 @@
  * \ingroup obj
  */
 
-#ifndef __WAVEFRONT_OBJ_IM_MESH_HH__
-#define __WAVEFRONT_OBJ_IM_MESH_HH__
+#pragma once
 
 #include "BKE_lib_id.h"
 #include "BKE_mesh.h"
@@ -82,5 +81,3 @@ class MeshFromGeometry : NonMovable, NonCopyable {
 };
 
 }  // namespace blender::io::obj
-
-#endif

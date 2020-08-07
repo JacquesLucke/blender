@@ -21,8 +21,7 @@
  * \ingroup obj
  */
 
-#ifndef __WAVEFRONT_OBJ_IMPORTER_HH__
-#define __WAVEFRONT_OBJ_IMPORTER_HH__
+#pragma once
 
 #include "IO_wavefront_obj.h"
 
@@ -30,5 +29,3 @@ namespace blender::io::obj {
 
 void importer_main(bContext *C, const OBJImportParams &import_params);
 }  // namespace blender::io::obj
-
-#endif

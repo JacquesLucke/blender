@@ -21,8 +21,7 @@
  * \ingroup obj
  */
 
-#ifndef __WAVEFRONT_OBJ_IM_OBJECTS_HH__
-#define __WAVEFRONT_OBJ_IM_OBJECTS_HH__
+#pragma once
 
 #include "BKE_lib_id.h"
 #include "BKE_object.h"
@@ -208,5 +207,3 @@ class OBJImportCollection {
   void add_object_to_collection(unique_object_ptr b_object);
 };
 }  // namespace blender::io::obj
-
-#endif

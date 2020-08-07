@@ -21,8 +21,7 @@
  * \ingroup obj
  */
 
-#ifndef __WAVEFRONT_OBJ_IM_FILE_READER_HH__
-#define __WAVEFRONT_OBJ_IM_FILE_READER_HH__
+#pragma once
 
 #include "IO_wavefront_obj.h"
 #include "wavefront_obj_im_objects.hh"
@@ -66,4 +65,3 @@ class MTLParser {
   void parse_and_store(Map<std::string, MTLMaterial> &mtl_materials);
 };
 }  // namespace blender::io::obj
-#endif

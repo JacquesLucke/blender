@@ -21,8 +21,7 @@
  * \ingroup obj
  */
 
-#ifndef __WAVEFRONT_OBJ_EX_MTL_HH__
-#define __WAVEFRONT_OBJ_EX_MTL_HH__
+#pragma once
 
 #include "NOD_node_tree_ref.hh"
 
@@ -63,4 +62,3 @@ class MTLWriter {
   void write_curr_material(const char *object_name);
 };
 }  // namespace blender::io::obj
-#endif

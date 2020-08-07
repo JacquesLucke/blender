@@ -21,8 +21,7 @@
  * \ingroup obj
  */
 
-#ifndef __WAVEFRONT_OBJ_IM_NURBS_HH__
-#define __WAVEFRONT_OBJ_IM_NURBS_HH__
+#pragma once
 
 #include <memory>
 
@@ -74,4 +73,3 @@ class CurveFromGeometry : NonMovable, NonCopyable {
   void create_nurbs(const Geometry &curve_geometry, const GlobalVertices &global_vertices);
 };
 }  // namespace blender::io::obj
-#endif

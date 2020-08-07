@@ -21,8 +21,7 @@
  * \ingroup obj
  */
 
-#ifndef __WAVEFRONT_OBJ_EX_FILE_WRITER_HH__
-#define __WAVEFRONT_OBJ_EX_FILE_WRITER_HH__
+#pragma once
 
 #include "IO_wavefront_obj.h"
 
@@ -91,4 +90,3 @@ class OBJWriter {
                                     const MPoly &poly_to_write);
 };
 }  // namespace blender::io::obj
-#endif

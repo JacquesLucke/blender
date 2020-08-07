@@ -21,8 +21,7 @@
  * \ingroup obj
  */
 
-#ifndef __WAVEFRONT_OBJ_EX_MESH_HH__
-#define __WAVEFRONT_OBJ_EX_MESH_HH__
+#pragma once
 
 #include "BKE_lib_id.h"
 #include "BKE_material.h"
@@ -117,5 +116,3 @@ class OBJMesh : NonMovable, NonCopyable {
   void store_world_axes_transform();
 };
 }  // namespace blender::io::obj
-
-#endif

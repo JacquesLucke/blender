@@ -21,8 +21,7 @@
  * \ingroup obj
  */
 
-#ifndef __IO_WAVEFRONT_OBJ_H__
-#define __IO_WAVEFRONT_OBJ_H__
+#pragma once
 
 #include "BKE_context.h"
 #include "BLI_path_util.h"
@@ -102,5 +101,3 @@ void OBJ_export(bContext *C, const struct OBJExportParams *export_params);
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* __IO_WAVEFRONT_OBJ_H__ */

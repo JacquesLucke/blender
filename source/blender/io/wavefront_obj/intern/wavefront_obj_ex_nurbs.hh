@@ -21,8 +21,7 @@
  * \ingroup obj
  */
 
-#ifndef __WAVEFRONT_OBJ_EX_NURBS_HH__
-#define __WAVEFRONT_OBJ_EX_NURBS_HH__
+#pragma once
 
 #include "BKE_context.h"
 #include "BKE_curve.h"
@@ -48,4 +47,3 @@ class OBJNurbs : NonMovable, NonCopyable {
 };
 
 }  // namespace blender::io::obj
-#endif

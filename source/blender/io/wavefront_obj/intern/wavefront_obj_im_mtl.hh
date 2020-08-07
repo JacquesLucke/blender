@@ -21,8 +21,7 @@
  * \ingroup obj
  */
 
-#ifndef __WAVEFRONT_OBJ_IM_MTL_HH__
-#define __WAVEFRONT_OBJ_IM_MTL_HH__
+#pragma once
 
 #include "MEM_guardedalloc.h"
 #include <memory>
@@ -76,5 +75,3 @@ class ShaderNodetreeWrap {
   void add_image_textures(Main *bmain);
 };
 }  // namespace blender::io::obj
-
-#endif

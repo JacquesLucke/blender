@@ -21,8 +21,7 @@
  * \ingroup obj
  */
 
-#ifndef __WAVEFRONT_OBJ_EXPORTER_HH__
-#define __WAVEFRONT_OBJ_EXPORTER_HH__
+#pragma once
 
 #include "BKE_context.h"
 
@@ -35,4 +34,3 @@ namespace blender::io::obj {
 void exporter_main(bContext *C, const OBJExportParams &export_params);
 
 }  // namespace blender::io::obj
-#endif
