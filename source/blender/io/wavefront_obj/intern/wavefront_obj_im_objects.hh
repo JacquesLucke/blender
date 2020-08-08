@@ -117,8 +117,8 @@ class Geometry {
   int tot_uv_verts_ = 0;
 
  public:
-  Geometry(eGeometryType type, StringRef ob_name)
-      : geom_type_(type), geometry_name_(ob_name.data()){};
+  Geometry(eGeometryType type, std::string_view ob_name)
+      : geom_type_(type), geometry_name_(std::string(ob_name)){};
 
   eGeometryType geom_type() const;
   const std::string &geometry_name() const;

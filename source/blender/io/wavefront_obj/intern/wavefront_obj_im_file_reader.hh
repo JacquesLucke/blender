@@ -60,7 +60,7 @@ class MTLParser {
   std::ifstream mtl_file_;
 
  public:
-  MTLParser(StringRef mtl_library_, StringRef obj_filepath);
+  MTLParser(StringRef mtl_library_, StringRefNull obj_filepath);
 
   void parse_and_store(Map<std::string, MTLMaterial> &mtl_materials);
 };
