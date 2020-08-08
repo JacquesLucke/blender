@@ -33,18 +33,25 @@ static int trie_node_type_to_hash_table_size(const int node_type)
   return 1 << node_type;
 }
 
+struct TrieNodeChildrenTable {
+  int size;
+  uint8_t hash_mask;
+  uint8_t *bytes;
+  TrieNodeSmallHead **pointers;
+};
+
 template<typename Head>
-static uint8_t get_hash_table_pointers(const Head &head,
-                                       const void *start,
-                                       const uint8_t **r_bytes,
-                                       const TrieNodeSmallHead ***r_children)
+static TrieNodeChildrenTable get_hash_table_pointers(const Head &head, const void *start)
 {
+  TrieNodeChildrenTable table;
+
   const int type = head.node_type();
-  const int table_size = trie_node_type_to_hash_table_size(type);
-  const uint8_t hash_mask = table_size == 0 ? 0u : static_cast<uint8_t>(table_size) - 1u;
-  *r_bytes = static_cast<const uint8_t *>(start);
-  *r_children = static_cast<const TrieNodeSmallHead **>(r_bytes + table_size);
-  return hash_mask;
+  table.size = trie_node_type_to_hash_table_size(type);
+  table.hash_mask = table_size == 0 ? 0u : static_cast<uint8_t>(table_size) - 1u;
+  table.bytes = static_cast<const uint8_t *>(start);
+  table.pointers = static_cast<const TrieNodeSmallHead **>(r_bytes + table_size);
+
+  return table;
 }
 
 class TrieNodeSmallHead {
@@ -106,17 +113,9 @@ class TrieNodeSmallHead {
     return reinterpret_cast<const TrieNodeLargeHead &>(*this);
   }
 
-  uint8_t hash_table(uint8_t **r_bytes, TrieNodeSmallHead ***r_children)
+  TrieNodeChildrenTable hash_table() const
   {
-    return const_cast<const TrieNodeSmallHead *>(this)->hash_table(
-        const_cast<const uint8_t **>(r_bytes),
-        const_cast<const TrieNodeSmallHead ***>(r_children));
-  }
-
-  uint8_t hash_table(const uint8_t **r_bytes, const TrieNodeSmallHead ***r_children) const
-  {
-    return get_hash_table_pointers(
-        *this, POINTER_OFFSET(this, sizeof(uint64_t)), r_bytes, r_children);
+    return get_hash_table_pointers(*this, POINTER_OFFSET(this, sizeof(uint64_t)));
   }
 };
 
@@ -140,17 +139,10 @@ class TrieNodeLargeHead {
     return static_cast<int>(data_ & NODE_TYPE_MASK);
   }
 
-  uint8_t hash_table(uint8_t **r_bytes, TrieNodeSmallHead ***r_children)
+  TrieNodeChildrenTable hash_table() const
   {
-    return const_cast<const TrieNodeLargeHead *>(this)->hash_table(
-        const_cast<const uint8_t **>(r_bytes),
-        const_cast<const TrieNodeSmallHead ***>(r_children));
-  }
-
-  uint8_t hash_table(const uint8_t **r_bytes, const TrieNodeSmallHead ***r_children) const
-  {
-    return get_hash_table_pointers(
-        *this, POINTER_OFFSET(this, sizeof(uint64_t) + sizeof(uint32_t)), r_bytes, r_children);
+    return get_hash_table_pointers(*this,
+                                   POINTER_OFFSET(this, sizeof(uint64_t) + sizeof(uint32_t)));
   }
 };
 
@@ -183,31 +175,27 @@ class Trie {
       const uint8_t first_value = remaining_values[0];
       remaining_values = remaining_values.drop_front(1);
 
-      uint8_t hash_mask;
-      uint8_t *hash_table_bytes;
-      TrieNodeSmallHead **hash_table_pointers;
+      TrieNodeChildrenTable table;
 
       if (current->is_actually_large_head()) {
         TrieNodeLargeHead &current_large = current->as_large_head();
-        hash_mask = current_large.hash_table(&hash_table_bytes, &hash_table_pointers);
+        table = current_large.hash_table();
       }
       else {
         TrieNodeSmallHead &current_small = *current;
-        hash_mask = current_small.hash_table(&hash_table_bytes, &hash_table_pointers);
+        table = current_small.hash_table();
       }
-
-      const uint32_t iterations = hash_mask == 0 ? 0 : hash_mask + 1;
 
       bool did_find_slot = false;
       uint8_t found_slot = 0;
-      for (uint32_t offset = 0; offset < iterations; offset++) {
-        const uint8_t slot = (first_value + offset) & hash_mask;
-        if (hash_table_bytes[slot] == first_value) {
+      for (uint32_t offset = 0; offset < (uint32_t)table.size; offset++) {
+        const uint8_t slot = (first_value + offset) & table.hash_mask;
+        if (table.bytes[slot] == first_value) {
           did_find_slot = true;
           found_slot = slot;
           break;
         }
-        if (hash_table_pointers[slot] == nullptr) {
+        if (table.pointers[slot] == nullptr) {
           did_find_slot = true;
           found_slot = slot;
           break;
@@ -218,7 +206,7 @@ class Trie {
         /* TODO: Grow current node. */
       }
 
-      TrieNodeSmallHead *child_head = hash_table_pointers[found_slot];
+      TrieNodeSmallHead *child_head = table.pointers[found_slot];
       if (child_head == nullptr) {
         /* TODO: Allocate new child node. */
       }
