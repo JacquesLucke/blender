@@ -55,17 +55,26 @@ static TrieNodeChildrenTable get_hash_table_pointers(const Head &head, const voi
 }
 
 class TrieNodeSmallHead {
- private:
-  uint64_t data_;
+ public:
+  uint8_t data_[8];
 
-  static constexpr inline uint64_t IS_TERMINAL_MASK = 0b00000001;
-  static constexpr inline uint64_t IS_POINTER_MASK = 0b00000010;
-  static constexpr inline uint64_t STRING_LENGTH_MASK = 0b00011100;
-  static constexpr inline uint64_t NODE_TYPE_MASK = 0b11100000;
+  static constexpr inline uint8_t IS_TERMINAL_MASK = 0b00000001;
+  static constexpr inline uint8_t IS_POINTER_MASK = 0b00000010;
+  static constexpr inline uint8_t STRING_LENGTH_MASK = 0b00011100;
+  static constexpr inline uint8_t NODE_TYPE_MASK = 0b11100000;
   static constexpr inline int STRING_LENGTH_SHIFT = 2;
   static constexpr inline int NODE_TYPE_SHIFT = 5;
 
- public:
+  uint8_t &settings_byte()
+  {
+    return data_[7];
+  }
+
+  uint8_t settings_byte() const
+  {
+    return data_[7];
+  }
+
   bool is_actually_large_head() const
   {
     return this->is_pointer();
@@ -73,32 +82,33 @@ class TrieNodeSmallHead {
 
   bool is_terminal() const
   {
-    return (data_ & IS_TERMINAL_MASK) != 0;
+    return (this->settings_byte() & IS_TERMINAL_MASK) != 0;
   }
 
   bool set_terminal()
   {
     const bool was_terminal = this->is_terminal();
-    data_ |= IS_TERMINAL_MASK;
+    this->settings_byte() |= IS_TERMINAL_MASK;
     const bool terminal_status_changed = !was_terminal;
     return terminal_status_changed;
   }
 
   bool is_pointer() const
   {
-    return (data_ & IS_POINTER_MASK) != 0;
+    return (this->settings_byte() & IS_POINTER_MASK) != 0;
   }
 
   int64_t string_length() const
   {
     BLI_assert(!this->is_pointer());
-    return static_cast<int64_t>((data_ & STRING_LENGTH_MASK) >> STRING_LENGTH_SHIFT);
+    return static_cast<int64_t>((this->settings_byte() & STRING_LENGTH_MASK) >>
+                                STRING_LENGTH_SHIFT);
   }
 
   int node_type() const
   {
     BLI_assert(!this->is_pointer());
-    return static_cast<int>((data_ & NODE_TYPE_MASK) >> NODE_TYPE_SHIFT);
+    return static_cast<int>((this->settings_byte() & NODE_TYPE_MASK) >> NODE_TYPE_SHIFT);
   }
 
   TrieNodeLargeHead &as_large_head()
@@ -120,7 +130,7 @@ class TrieNodeSmallHead {
 };
 
 class TrieNodeLargeHead {
- private:
+ public:
   TrieNodeSmallHead small_head_;
   uint32_t data_;
 
@@ -128,7 +138,11 @@ class TrieNodeLargeHead {
   static constexpr inline uint32_t STRING_LENGTH_MASK = ~NODE_TYPE_MASK;
   static constexpr inline int STRING_LENGTH_SHIFT = 3;
 
- public:
+  const uint8_t **string_ptr()
+  {
+    return (const uint8_t **)&small_head_;
+  }
+
   int64_t string_length() const
   {
     return static_cast<int64_t>((data_ & STRING_LENGTH_MASK) >> STRING_LENGTH_SHIFT);
@@ -209,6 +223,28 @@ class Trie {
       TrieNodeSmallHead *child_head = table.pointers[found_slot];
       if (child_head == nullptr) {
         /* TODO: Allocate new child node. */
+        if (remaining_values.size() <= 7) {
+          TrieNodeSmallHead &child = this->allocate_small(0);
+          memcpy(&child, remaining_values.data(), remaining_values.size());
+          child.settings_byte() = TrieNodeSmallHead::IS_TERMINAL_MASK |
+                                  (remaining_values.size()
+                                   << TrieNodeSmallHead::STRING_LENGTH_SHIFT);
+          child_head = &child;
+          table.pointers[found_slot] = child_head;
+          return true;
+        }
+        else {
+          TrieNodeLargeHead &child = this->allocate_large(0);
+          uint8_t *copied_data = (uint8_t *)allocator_.allocate(remaining_values.size(), 4);
+          memcpy(copied_data, remaining_values.data(), remaining_values.size());
+          *child.string_ptr() = copied_data;
+          child.small_head_.settings_byte() = TrieNodeSmallHead::IS_TERMINAL_MASK |
+                                              TrieNodeSmallHead::IS_POINTER_MASK;
+          child.data_ = remaining_values.size() << TrieNodeLargeHead::STRING_LENGTH_SHIFT;
+          child_head = (TrieNodeSmallHead *)&child;
+          table.pointers[found_slot] = child_head;
+          return true;
+        }
       }
     }
   }
