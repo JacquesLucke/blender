@@ -63,7 +63,7 @@ static void copy_property_from_node(MutableSpan<float> r_property,
       break;
     }
     case SOCK_RGBA: {
-      BLI_assert(r_property.size() == 4);
+      BLI_assert(r_property.size() == 3);
       bNodeSocketValueRGBA *socket_def_value = static_cast<bNodeSocketValueRGBA *>(
           socket->default_value);
       copy_v3_v3(r_property.data(), socket_def_value->value);
