@@ -57,14 +57,10 @@ void OBJParser::print_obj_data(Span<std::unique_ptr<Geometry>> all_geometries,
   printf("\n");
 
   for (const std::unique_ptr<Geometry> &curr_ob : all_geometries) {
-    for (const int &curr_vert_idx : curr_ob->vertex_indices_) {
+    for (const int curr_vert_idx : curr_ob->vertex_indices_.values()) {
       printf(" %d", curr_vert_idx);
     }
     printf("\nglobal_vert_index^\n");
-    for (const int &curr_uv_vert_idx : curr_ob->uv_vertex_indices_) {
-      printf(" %d", curr_uv_vert_idx);
-    }
-    printf("\nglobal_uv_vert_index^\n");
     for (const FaceElement &curr_face : curr_ob->face_elements_) {
       for (FaceCorner a : curr_face.face_corners) {
         printf(" %d/%d", a.vert_index, a.uv_vert_index);
@@ -76,11 +72,11 @@ void OBJParser::print_obj_data(Span<std::unique_ptr<Geometry>> all_geometries,
       printf("%s ", b.data());
     }
     printf("\nmat names^\n");
-    for (const int &t : curr_ob->nurbs_element_.curv_indices) {
+    for (const int t : curr_ob->nurbs_element_.curv_indices) {
       printf(" %d", t);
     }
     printf("\nnurbs curv indces^\n");
-    for (const float &t : curr_ob->nurbs_element_.parm) {
+    for (const float t : curr_ob->nurbs_element_.parm) {
       printf(" %f", t);
     }
     printf("\nnurbs parm values^\n");
@@ -128,7 +124,9 @@ void importer_main(bContext *C, const OBJImportParams &import_params)
     mtl_parser.parse_and_store(materials);
   }
   //  obj_parser.print_obj_data(list_of_objects, global_vertices);
-
+  /* TODO ankitm use the offsets for Curves too. */
+  VertexOffset vertex_offset;
+  global_vertices.vertex_offset = &vertex_offset;
   geometry_to_blender_objects(bmain, scene, all_geometries, global_vertices, materials);
 }
 }  // namespace blender::io::obj

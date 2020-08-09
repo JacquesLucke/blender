@@ -30,7 +30,6 @@
 #include "BLI_string_ref.hh"
 #include "BLI_vector.hh"
 
-#include "wavefront_obj_ex_file_writer.hh"
 #include "wavefront_obj_im_file_reader.hh"
 
 namespace blender::io::obj {
@@ -77,7 +76,7 @@ static void split_line_key_rest(string_view line,
 
   const string_view::size_type trailing_space{r_rest_line.find_last_not_of(' ')};
   if (trailing_space != string_view::npos) {
-    /* The position is of a character that is not ' ', so count of characters is pos + 1. */
+    /* The position is of a character that is not ' ', so count of characters is position + 1. */
     r_rest_line = r_rest_line.substr(0, trailing_space + 1);
   }
 }
@@ -189,7 +188,7 @@ static bool create_geometry_curve(Geometry *geometry)
   if (geometry) {
     /* After the creation of a Geometry instance, at least one element has been found in the OBJ
      * file that indicates that it is a mesh, not a curve. */
-    if (geometry->tot_face_elems() || geometry->tot_uv_verts() || geometry->tot_normals()) {
+    if (geometry->tot_face_elems() || geometry->tot_normals()) {
       return true;
     }
     /* If not, then the given object could be a curve with all fields complete.
@@ -205,23 +204,6 @@ static bool create_geometry_curve(Geometry *geometry)
 OBJParser::OBJParser(const OBJImportParams &import_params) : import_params_(import_params)
 {
   obj_file_.open(import_params_.filepath);
-}
-
-/**
- * Always update these offsets whenever a new object is created.
- * See the documentation of index offsets member array too.
- */
-void OBJParser::update_index_offsets(Geometry *geometry)
-{
-  if (geometry) {
-    if (geometry->geom_type_ & GEOM_MESH) {
-      index_offsets_[VERTEX_OFF] += geometry->vertex_indices_.size();
-      index_offsets_[UV_VERTEX_OFF] += geometry->uv_vertex_indices_.size();
-    }
-    else if (geometry->geom_type_ & GEOM_CURVE) {
-      index_offsets_[VERTEX_OFF] += geometry->nurbs_element_.curv_indices.size();
-    }
-  }
 }
 
 /**
@@ -257,7 +239,6 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &all_geometrie
     }
     else if (line_key == "o") {
       /* Update index offsets to keep track of objects which have claimed their vertices. */
-      update_index_offsets(current_geometry);
       shaded_smooth = false;
       object_group = {};
       all_geometries.append(std::make_unique<Geometry>(GEOM_MESH, rest_line));
@@ -270,8 +251,9 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &all_geometrie
       copy_string_to_float(str_vert_split, FLT_MAX, {curr_vert, 3});
       global_vertices.vertices.append(curr_vert);
       if (current_geometry) {
-        /* Always keep indices zero-based. */
-        current_geometry->vertex_indices_.append(global_vertices.vertices.size() - 1);
+        /* Use old size of vertex indices Map to keep them zero-based. */
+        current_geometry->vertex_indices_.add_new(global_vertices.vertices.size() - 1,
+                                                  current_geometry->vertex_indices_.size());
       }
     }
     else if (line_key == "vn") {
@@ -283,9 +265,6 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &all_geometrie
       split_by_char(rest_line, ' ', str_uv_vert_split);
       copy_string_to_float(str_uv_vert_split, FLT_MAX, {curr_uv_vert, 2});
       global_vertices.uv_vertices.append(curr_uv_vert);
-      if (current_geometry) {
-        current_geometry->uv_vertex_indices_.append(global_vertices.uv_vertices.size() - 1);
-      }
     }
     else if (line_key == "l") {
       BLI_assert(current_geometry);
@@ -294,11 +273,8 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &all_geometrie
       split_by_char(rest_line, ' ', str_edge_split);
       copy_string_to_int(str_edge_split[0], -1, edge_v1);
       copy_string_to_int(str_edge_split[1], -1, edge_v2);
-      /* Remove the indices of vertices "claimed" by other Geometry instances. Subtract 1 to make
-       * the OBJ indices (one-based) C++'s zero-based. In the other case, make relative index
-       * positive and absolute, starting with zero. */
-      edge_v1 -= edge_v1 > 0 ? index_offsets_[VERTEX_OFF] + 1 : -(global_vertices.vertices.size());
-      edge_v2 -= edge_v2 > 0 ? index_offsets_[VERTEX_OFF] + 1 : -(global_vertices.vertices.size());
+      /* Always keep stored indices non-negative and zero-based. */
+      edge_v1 += edge_v1 < 0 ? (global_vertices.vertices.size()) : -1;
       BLI_assert(edge_v1 >= 0 && edge_v2 >= 0);
       current_geometry->edges_.append({static_cast<uint>(edge_v1), static_cast<uint>(edge_v2)});
     }
@@ -359,7 +335,6 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &all_geometrie
           copy_string_to_int(vert_uv_split[0], INT32_MAX, corner.vert_index);
           if (vert_uv_split.size() == 2) {
             copy_string_to_int(vert_uv_split[1], INT32_MAX, corner.uv_vert_index);
-            current_geometry->tot_uv_verts_++;
           }
         }
         else if (n_slash == 2) {
@@ -370,16 +345,14 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &all_geometrie
           copy_string_to_int(vert_uv_normal_split[0], INT32_MAX, corner.vert_index);
           if (vert_uv_normal_split.size() == 3) {
             copy_string_to_int(vert_uv_normal_split[1], INT32_MAX, corner.uv_vert_index);
-            current_geometry->tot_uv_verts_++;
           }
           /* Discard normals. They'll be calculated on the basis of smooth
            * shading flag. */
         }
-        corner.vert_index += corner.vert_index < 0 ? index_offsets_[VERTEX_OFF] + 1 :
-                                                     -(index_offsets_[VERTEX_OFF] + 1);
-        corner.uv_vert_index += corner.uv_vert_index < 0 ? index_offsets_[UV_VERTEX_OFF] + 1 :
-                                                           -(index_offsets_[UV_VERTEX_OFF] + 1);
-
+        /* Always keep stored indices non-negative and zero-based. */
+        corner.vert_index += corner.vert_index < 0 ? (global_vertices.vertices.size()) : -1;
+        corner.uv_vert_index += corner.uv_vert_index < 0 ? (global_vertices.uv_vertices.size()) :
+                                                           -1;
         curr_face.face_corners.append(corner);
       }
 
@@ -389,7 +362,6 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &all_geometrie
     else if (line_key == "cstype") {
       if (rest_line.find("bspline") != string::npos) {
         if (create_geometry_curve(current_geometry)) {
-          update_index_offsets(current_geometry);
           all_geometries.append(std::make_unique<Geometry>(GEOM_CURVE, "NURBSCurve"));
           current_geometry = all_geometries.last().get();
           current_geometry->nurbs_element_.group_ = object_group;
@@ -411,7 +383,8 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &all_geometrie
       current_geometry->nurbs_element_.curv_indices.resize(str_curv_split.size());
       copy_string_to_int(str_curv_split, INT32_MAX, current_geometry->nurbs_element_.curv_indices);
       for (int &curv_index : current_geometry->nurbs_element_.curv_indices) {
-        curv_index -= curv_index > 0 ? 1 : -(global_vertices.vertices.size());
+        /* Always keep stored indices non-negative and zero-based. */
+        curv_index += curv_index < 0 ? global_vertices.vertices.size() : -1;
       }
     }
     else if (line_key == "parm") {

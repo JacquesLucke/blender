@@ -33,12 +33,6 @@ class OBJParser {
   const OBJImportParams &import_params_;
   std::ifstream obj_file_;
   Vector<std::string> mtl_libraries_{};
-  /**
-   * These two numbers VERTEX_OFF and UV_VERTEX_OFF respectively keep track of how many vertices
-   * have been occupied by other objects. It is used when an index must stay local to an object,
-   * not index into the global vertices list.
-   */
-  int index_offsets_[2] = {0, 0};
 
  public:
   OBJParser(const OBJImportParams &import_params);
@@ -48,9 +42,6 @@ class OBJParser {
   Span<std::string> mtl_libraries() const;
   void print_obj_data(Span<std::unique_ptr<Geometry>> all_geometries,
                       const GlobalVertices &global_vertices);
-
- private:
-  void update_index_offsets(Geometry *geometry);
 };
 
 class MTLParser {

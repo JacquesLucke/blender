@@ -46,9 +46,15 @@ const std::string &Geometry::geometry_name() const
   return geometry_name_;
 }
 
-Span<int> Geometry::vertex_indices() const
+/**
+ * Return the vertex index ranging from zero to total vertices in a Geometry instance.
+ * Key ranges from zero to total vertices in an OBJ file.
+ * To be used for mloop->v only.
+ */
+int Geometry::vertex_indices_lookup(const int key) const
 {
-  return vertex_indices_;
+  BLI_assert(vertex_indices_.contains(key));
+  return vertex_indices_.lookup(key);
 }
 
 int64_t Geometry::tot_verts() const
@@ -71,19 +77,6 @@ bool Geometry::use_vertex_groups() const
   return use_vertex_groups_;
 }
 
-Span<int> Geometry::uv_vertex_indices() const
-{
-  return uv_vertex_indices_;
-}
-
-/**
- * Return per-object total UV vertex indices that index into a global list of vertex coordinates.
- */
-int64_t Geometry::tot_uv_vert_indices() const
-{
-  return uv_vertex_indices_.size();
-}
-
 Span<MEdge> Geometry::edges() const
 {
   return edges_;
@@ -102,14 +95,6 @@ int Geometry::tot_loops() const
 int Geometry::tot_normals() const
 {
   return tot_normals_;
-}
-
-/**
- * Total UV vertices that an object's faces' corners refer to in "f" lines.
- */
-int Geometry::tot_uv_verts() const
-{
-  return tot_uv_verts_;
 }
 
 const NurbsElement &Geometry::nurbs_elem() const

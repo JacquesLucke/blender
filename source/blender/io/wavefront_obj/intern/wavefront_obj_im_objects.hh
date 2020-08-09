@@ -40,6 +40,27 @@
 #include "wavefront_obj_im_objects.hh"
 
 namespace blender::io::obj {
+
+/**
+ * Keeps track of the vertices that belong to other objects.
+ * Needed only for mloop->v which needs vertex indices ranging from (0 to total vertices in the
+ * mesh) as opposed to the indices ranging from (0 to total vertices in the global list).
+ */
+struct VertexOffset {
+ private:
+  int vertex_offset_ = 0;
+
+ public:
+  int get_vertex_offset() const
+  {
+    return vertex_offset_;
+  }
+  void add_vertex_offset(const int vert_offset)
+  {
+    vertex_offset_ += vert_offset;
+  }
+};
+
 /**
  * List of all vertex and UV vertex coordinates in an OBJ file accessible to any
  * Geometry instance at any time.
@@ -47,6 +68,7 @@ namespace blender::io::obj {
 struct GlobalVertices {
   Vector<float3> vertices{};
   Vector<float2> uv_vertices{};
+  VertexOffset *vertex_offset = nullptr;
 };
 
 /**
@@ -95,17 +117,10 @@ class Geometry {
   std::string geometry_name_{};
   Vector<std::string> material_name_{};
   /**
-   * Vertex indices that index into the global list of vertex coordinates.
-   * Lines that start with "v" are stored here, while the actual coordinates are in Global
-   * vertices list.
+   * Keys range from zero to total vertices in the file. Values range from 0 to vertices
+   * in a Geometry instance.
    */
-  Vector<int> vertex_indices_{};
-  /**
-   * UV Vertex indices that index into the global list of UV vertex coordinates.
-   * Lines that start with "vn" are stored here, while the actual coordinates are in Global
-   * vertices list.
-   */
-  Vector<int> uv_vertex_indices_{};
+  Map<int, int> vertex_indices_{};
   /** Edges written in the file in addition to (or even without polygon) elements. */
   Vector<MEdge> edges_{};
   Vector<FaceElement> face_elements_{};
@@ -113,8 +128,6 @@ class Geometry {
   NurbsElement nurbs_element_;
   int tot_loops_ = 0;
   int tot_normals_ = 0;
-  /** Total UV vertices referred to by an object's faces. */
-  int tot_uv_verts_ = 0;
 
  public:
   Geometry(eGeometryType type, std::string_view ob_name)
@@ -122,18 +135,15 @@ class Geometry {
 
   eGeometryType geom_type() const;
   const std::string &geometry_name() const;
-  Span<int> vertex_indices() const;
+  int vertex_indices_lookup(const int key) const;
   int64_t tot_verts() const;
   Span<FaceElement> face_elements() const;
   int64_t tot_face_elems() const;
   bool use_vertex_groups() const;
-  Span<int> uv_vertex_indices() const;
-  int64_t tot_uv_vert_indices() const;
   Span<MEdge> edges() const;
   int64_t tot_edges() const;
   int tot_loops() const;
   int tot_normals() const;
-  int tot_uv_verts() const;
 
   const NurbsElement &nurbs_elem() const;
   const std::string &group() const;
