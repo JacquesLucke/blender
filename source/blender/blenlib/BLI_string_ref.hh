@@ -67,6 +67,9 @@ class StringRefBase {
   }
 
  public:
+  /* Similar to string_view::npos, but signed. */
+  static constexpr int64_t npos = -1;
+
   /**
    * Return the (byte-)length of the referenced string, without any null-terminator.
    */
@@ -434,7 +437,7 @@ inline int64_t index_or_npos_to_int64(size_t index)
 {
   /* The compiler will probably optimize this check away. */
   if (index == std::string_view::npos) {
-    return -1;
+    return StringRef::npos;
   }
   return static_cast<int64_t>(index);
 }
