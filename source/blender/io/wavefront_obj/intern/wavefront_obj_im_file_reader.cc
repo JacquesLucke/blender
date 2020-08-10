@@ -183,19 +183,34 @@ BLI_INLINE void copy_string_to_int(Span<string_view> src,
  * This relies on the fact that the object type is updated to include CU_NURBS only _after_
  * this function returns true.
  */
-static bool create_geometry_curve(Geometry *geometry)
+static Geometry *create_geometry(Geometry *const prev_geometry,
+                                 const eGeometryType type,
+                                 string_view name,
+                                 Vector<std::unique_ptr<Geometry>> &r_all_geometries)
 {
-  if (geometry) {
-    /* After the creation of a Geometry instance, at least one element has been found in the OBJ
-     * file that indicates that it is a mesh, not a curve. */
-    if (geometry->tot_face_elems() || geometry->tot_normals()) {
-      return true;
+  auto new_geometry = [&]() {
+    if (name.empty()) {
+      r_all_geometries.append(std::make_unique<Geometry>(type, "New object"));
     }
-    /* If not, then the given object could be a curve with all fields complete.
-     * So create a new Geometry only if its type doesn't contain GEOM_CURVE. */
-    return geometry->geom_type() & GEOM_CURVE;
+    else {
+      r_all_geometries.append(std::make_unique<Geometry>(type, name));
+    }
+    return r_all_geometries.last().get();
+  };
+
+  if (prev_geometry && prev_geometry->geom_type() & GEOM_MESH) {
+    /* After the creation of a Geometry instance, at least one element has been found in the OBJ
+     * file that indicates that it is a mesh. */
+    if (prev_geometry->tot_face_elems() || prev_geometry->tot_normals()) {
+      return new_geometry();
+    }
   }
-  return true;
+
+  if (prev_geometry && prev_geometry->geom_type() & GEOM_CURVE) {
+    return new_geometry();
+  }
+
+  return new_geometry();
 }
 
 /**
@@ -221,7 +236,7 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &all_geometrie
   string line;
   /* Non owning raw pointer to a Geometry.
    * Needed to update object data in the same while loop. */
-  Geometry *current_geometry = nullptr;
+  Geometry *current_geometry = create_geometry(nullptr, GEOM_MESH, "", all_geometries);
   /* State-setting variables: if set, they remain the same for the remaining
    * elements in the object. */
   bool shaded_smooth = false;
@@ -241,8 +256,7 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &all_geometrie
       /* Update index offsets to keep track of objects which have claimed their vertices. */
       shaded_smooth = false;
       object_group = {};
-      all_geometries.append(std::make_unique<Geometry>(GEOM_MESH, rest_line));
-      current_geometry = all_geometries.last().get();
+      current_geometry = create_geometry(current_geometry, GEOM_MESH, rest_line, all_geometries);
     }
     else if (line_key == "v") {
       float3 curr_vert{};
@@ -279,10 +293,6 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &all_geometrie
       current_geometry->edges_.append({static_cast<uint>(edge_v1), static_cast<uint>(edge_v2)});
     }
     else if (line_key == "g") {
-      if (!current_geometry) {
-        all_geometries.append(std::make_unique<Geometry>(GEOM_MESH, rest_line));
-        current_geometry = all_geometries.last().get();
-      }
       object_group = rest_line;
       if (object_group.find("off") != string::npos || object_group.find("null") != string::npos) {
         /* Set group for future elements like faces or curves to empty. */
@@ -361,11 +371,9 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &all_geometrie
     }
     else if (line_key == "cstype") {
       if (rest_line.find("bspline") != string::npos) {
-        if (create_geometry_curve(current_geometry)) {
-          all_geometries.append(std::make_unique<Geometry>(GEOM_CURVE, "NURBSCurve"));
-          current_geometry = all_geometries.last().get();
-          current_geometry->nurbs_element_.group_ = object_group;
-        }
+        current_geometry = create_geometry(
+            current_geometry, GEOM_CURVE, object_group, all_geometries);
+        current_geometry->nurbs_element_.group_ = object_group;
       }
       else {
         std::cerr << "Curve type not supported:'" << rest_line << "'" << std::endl;
