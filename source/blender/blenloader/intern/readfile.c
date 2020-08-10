@@ -1134,7 +1134,7 @@ static int *read_file_thumbnail(FileData *fd)
       const bool do_endian_swap = (fd->flags & FD_FLAGS_SWITCH_ENDIAN) != 0;
       int *data = (int *)(bhead + 1);
 
-      if (bhead->len < (2 * sizeof(int))) {
+      if (bhead->len < (sizeof(int[2]))) {
         break;
       }
 
@@ -1186,7 +1186,7 @@ static int fd_read_data_from_file(FileData *filedata,
     filedata->file_offset += readsize;
   }
 
-  return (readsize);
+  return readsize;
 }
 
 static off64_t fd_seek_data_from_file(FileData *filedata, off64_t offset, int whence)
@@ -1211,7 +1211,7 @@ static int fd_read_gzip_from_file(FileData *filedata,
     filedata->file_offset += readsize;
   }
 
-  return (readsize);
+  return readsize;
 }
 
 /* Memory reading. */
@@ -1227,7 +1227,7 @@ static int fd_read_from_memory(FileData *filedata,
   memcpy(buffer, filedata->buffer + filedata->file_offset, readsize);
   filedata->file_offset += readsize;
 
-  return (readsize);
+  return readsize;
 }
 
 /* MemFile reading. */
@@ -1491,7 +1491,7 @@ static int fd_read_gzip_from_memory(FileData *filedata,
 
   filedata->file_offset += size;
 
-  return (size);
+  return size;
 }
 
 static int fd_read_gzip_from_memory_init(FileData *fd)

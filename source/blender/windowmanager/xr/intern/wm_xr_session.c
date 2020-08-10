@@ -207,8 +207,9 @@ void wm_xr_session_draw_data_update(const wmXrSessionState *state,
 
   switch (event) {
     case SESSION_STATE_EVENT_START:
-      /* Always use the exact base pose with no offset when starting the session. */
-      copy_v3_fl(draw_data->eye_position_ofs, 0.0f);
+      /* We want to start the session exactly at landmark position. Runtimes may have a non-[0,0,0]
+       * starting position that we have to substract for that. */
+      copy_v3_v3(draw_data->eye_position_ofs, draw_view->local_pose.position);
       break;
       /* This should be triggered by the VR add-on if a landmark changes. */
     case SESSION_STATE_EVENT_RESET_TO_BASE_POSE:
@@ -255,9 +256,9 @@ void wm_xr_session_state_update(const XrSessionSettings *settings,
   copy_v3_v3(viewer_pose.position, draw_data->base_pose.position);
   /* The local pose and the eye pose (which is copied from an earlier local pose) both are view
    * space, so Y-up. In this case we need them in regular Z-up. */
-  viewer_pose.position[0] += draw_data->eye_position_ofs[0];
-  viewer_pose.position[1] -= draw_data->eye_position_ofs[2];
-  viewer_pose.position[2] += draw_data->eye_position_ofs[1];
+  viewer_pose.position[0] -= draw_data->eye_position_ofs[0];
+  viewer_pose.position[1] += draw_data->eye_position_ofs[2];
+  viewer_pose.position[2] -= draw_data->eye_position_ofs[1];
   if (use_position_tracking) {
     viewer_pose.position[0] += draw_view->local_pose.position[0];
     viewer_pose.position[1] -= draw_view->local_pose.position[2];
