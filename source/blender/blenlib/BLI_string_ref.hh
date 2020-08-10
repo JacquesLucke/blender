@@ -432,6 +432,7 @@ inline StringRef StringRefBase::substr(const int64_t start,
 
 inline int64_t index_or_npos_to_int64(size_t index)
 {
+  /* The compiler will probably optimize this check away. */
   if (index == std::string_view::npos) {
     return -1;
   }
