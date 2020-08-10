@@ -35,23 +35,20 @@
 namespace blender::io::obj {
 
 using std::string;
-using std::string_view;
 
 /**
  * Split a line string into the first word (key) and the rest of the line.
  * Also remove leading & trailing space as well as `\r` carriage return
  * character if present.
  */
-static void split_line_key_rest(string_view line,
-                                string_view &r_line_key,
-                                string_view &r_rest_line)
+static void split_line_key_rest(StringRef line, StringRef &r_line_key, StringRef &r_rest_line)
 {
-  if (line.empty()) {
+  if (line.is_empty()) {
     return;
   }
 
-  const string_view::size_type pos{line.find_first_of(' ')};
-  if (pos == string_view::npos) {
+  const int64_t pos{line.find_first_of(' ')};
+  if (pos == StringRef::not_found) {
     /* Use the first character if no space is found in the line. It's usually a comment like:
      * #This is a comment. */
     r_line_key = line.substr(0, 1);
@@ -59,23 +56,23 @@ static void split_line_key_rest(string_view line,
   else {
     r_line_key = line.substr(0, pos);
   }
-  r_rest_line = line.substr(pos + 1, string_view::npos);
-  if (r_rest_line.empty()) {
+  r_rest_line = line.drop_prefix(pos + 1);
+  if (r_rest_line.is_empty()) {
     return;
   }
   /* Remove any leading spaces, trailing spaces & \r character, if any. */
-  const string_view::size_type leading_space{r_rest_line.find_first_not_of(' ')};
-  if (leading_space != string_view::npos) {
-    r_rest_line = r_rest_line.substr(leading_space, string_view::npos);
+  const int64_t leading_space{r_rest_line.find_first_not_of(' ')};
+  if (leading_space != StringRef::not_found) {
+    r_rest_line = r_rest_line.drop_prefix(leading_space);
   }
 
-  const string_view::size_type carriage_return{r_rest_line.find_first_of('\r')};
-  if (carriage_return != string_view::npos) {
+  const int64_t carriage_return{r_rest_line.find_first_of('\r')};
+  if (carriage_return != StringRef::not_found) {
     r_rest_line = r_rest_line.substr(0, carriage_return);
   }
 
-  const string_view::size_type trailing_space{r_rest_line.find_last_not_of(' ')};
-  if (trailing_space != string_view::npos) {
+  const int64_t trailing_space{r_rest_line.find_last_not_of(' ')};
+  if (trailing_space != StringRef::not_found) {
     /* The position is of a character that is not ' ', so count of characters is position + 1. */
     r_rest_line = r_rest_line.substr(0, trailing_space + 1);
   }
@@ -87,23 +84,22 @@ static void split_line_key_rest(string_view line,
  * vector.
  * Ensure that the given string has no leading spaces.
  */
-static void split_by_char(string_view in_string, char delimiter, Vector<string_view> &r_out_list)
+static void split_by_char(StringRef in_string, char delimiter, Vector<StringRef> &r_out_list)
 {
   r_out_list.clear();
-  while (!in_string.empty()) {
-    const string_view::size_type pos_delim{in_string.find_first_of(delimiter)};
-    const string_view::size_type word_len = pos_delim == string_view::npos ? in_string.size() :
-                                                                             pos_delim;
+  while (!in_string.is_empty()) {
+    const int64_t pos_delim{in_string.find_first_of(delimiter)};
+    const int64_t word_len = pos_delim == StringRef::not_found ? in_string.size() : pos_delim;
 
-    string_view word{in_string.data(), word_len};
-    if (!word.empty() && !(word == " " && !(word[0] == '\0'))) {
+    StringRef word{in_string.data(), word_len};
+    if (!word.is_empty() && !(word == " " && !(word[0] == '\0'))) {
       r_out_list.append(word);
     }
-    if (pos_delim == string_view::npos) {
+    if (pos_delim == StringRef::not_found) {
       return;
     }
     /* Add one in position of delimiter to skip it. */
-    in_string = in_string.substr(pos_delim + 1, string_view::npos);
+    in_string = in_string.drop_prefix(pos_delim + 1);
   }
 }
 
@@ -114,7 +110,7 @@ static void split_by_char(string_view in_string, char delimiter, Vector<string_v
  * is set to the given fallback value in that case.
  */
 
-void copy_string_to_float(string_view src, const float fallback_value, float &r_dst)
+void copy_string_to_float(StringRef src, const float fallback_value, float &r_dst)
 {
   try {
     r_dst = std::stof(string(src));
@@ -132,7 +128,7 @@ void copy_string_to_float(string_view src, const float fallback_value, float &r_
  * Catches exception if any string cannot be converted to a float. The destination
  * float is set to the given fallback value in that case.
  */
-BLI_INLINE void copy_string_to_float(Span<string_view> src,
+BLI_INLINE void copy_string_to_float(Span<StringRef> src,
                                      const float fallback_value,
                                      MutableSpan<float> r_dst)
 {
@@ -148,7 +144,7 @@ BLI_INLINE void copy_string_to_float(Span<string_view> src,
  * Catches exception if the string cannot be converted to an integer. The destination
  * int is set to the given fallback value in that case.
  */
-BLI_INLINE void copy_string_to_int(string_view src, const int fallback_value, int &r_dst)
+BLI_INLINE void copy_string_to_int(StringRef src, const int fallback_value, int &r_dst)
 {
   try {
     r_dst = std::stoi(string(src));
@@ -165,7 +161,7 @@ BLI_INLINE void copy_string_to_int(string_view src, const int fallback_value, in
  * Catches exception if any string cannot be converted to an integer. The destination
  * int is set to the given fallback value in that case.
  */
-BLI_INLINE void copy_string_to_int(Span<string_view> src,
+BLI_INLINE void copy_string_to_int(Span<StringRef> src,
                                    const int fallback_value,
                                    MutableSpan<int> r_dst)
 {
@@ -185,11 +181,11 @@ BLI_INLINE void copy_string_to_int(Span<string_view> src,
  */
 static Geometry *create_geometry(Geometry *const prev_geometry,
                                  const eGeometryType type,
-                                 string_view name,
+                                 StringRef name,
                                  Vector<std::unique_ptr<Geometry>> &r_all_geometries)
 {
   auto new_geometry = [&]() {
-    if (name.empty()) {
+    if (name.is_empty()) {
       r_all_geometries.append(std::make_unique<Geometry>(type, "New object"));
     }
     else {
@@ -243,9 +239,9 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &all_geometrie
   string object_group{};
 
   while (std::getline(obj_file_, line)) {
-    string_view line_key, rest_line;
+    StringRef line_key, rest_line;
     split_line_key_rest(line, line_key, rest_line);
-    if (line.empty() || rest_line.empty()) {
+    if (line.empty() || rest_line.is_empty()) {
       continue;
     }
 
@@ -260,7 +256,7 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &all_geometrie
     }
     else if (line_key == "v") {
       float3 curr_vert{};
-      Vector<string_view> str_vert_split;
+      Vector<StringRef> str_vert_split;
       split_by_char(rest_line, ' ', str_vert_split);
       copy_string_to_float(str_vert_split, FLT_MAX, {curr_vert, 3});
       global_vertices.vertices.append(curr_vert);
@@ -275,7 +271,7 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &all_geometrie
     }
     else if (line_key == "vt") {
       float2 curr_uv_vert{};
-      Vector<string_view> str_uv_vert_split;
+      Vector<StringRef> str_uv_vert_split;
       split_by_char(rest_line, ' ', str_uv_vert_split);
       copy_string_to_float(str_uv_vert_split, FLT_MAX, {curr_uv_vert, 2});
       global_vertices.uv_vertices.append(curr_uv_vert);
@@ -283,7 +279,7 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &all_geometrie
     else if (line_key == "l") {
       BLI_assert(current_geometry);
       int edge_v1 = -1, edge_v2 = -1;
-      Vector<string_view> str_edge_split;
+      Vector<StringRef> str_edge_split;
       split_by_char(rest_line, ' ', str_edge_split);
       copy_string_to_int(str_edge_split[0], -1, edge_v1);
       copy_string_to_int(str_edge_split[1], -1, edge_v2);
@@ -329,9 +325,9 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &all_geometrie
         current_geometry->use_vertex_groups_ = true;
       }
 
-      Vector<string_view> str_corners_split;
+      Vector<StringRef> str_corners_split;
       split_by_char(rest_line, ' ', str_corners_split);
-      for (string_view str_corner : str_corners_split) {
+      for (StringRef str_corner : str_corners_split) {
         FaceCorner corner;
         size_t n_slash = std::count(str_corner.begin(), str_corner.end(), '/');
         if (n_slash == 0) {
@@ -340,7 +336,7 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &all_geometrie
         }
         else if (n_slash == 1) {
           /* Case: f v1/vt1 v2/vt2 v3/vt3 . */
-          Vector<string_view> vert_uv_split;
+          Vector<StringRef> vert_uv_split;
           split_by_char(str_corner, '/', vert_uv_split);
           copy_string_to_int(vert_uv_split[0], INT32_MAX, corner.vert_index);
           if (vert_uv_split.size() == 2) {
@@ -350,7 +346,7 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &all_geometrie
         else if (n_slash == 2) {
           /* Case: f v1//vn1 v2//vn2 v3//vn3 . */
           /* Case: f v1/vt1/vn1 v2/vt2/vn2 v3/vt3/vn3 . */
-          Vector<string_view> vert_uv_normal_split{};
+          Vector<StringRef> vert_uv_normal_split{};
           split_by_char(str_corner, '/', vert_uv_normal_split);
           copy_string_to_int(vert_uv_normal_split[0], INT32_MAX, corner.vert_index);
           if (vert_uv_normal_split.size() == 3) {
@@ -383,7 +379,7 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &all_geometrie
       copy_string_to_int(rest_line, 3, current_geometry->nurbs_element_.degree);
     }
     else if (line_key == "curv") {
-      Vector<string_view> str_curv_split;
+      Vector<StringRef> str_curv_split;
       split_by_char(rest_line, ' ', str_curv_split);
       /* Remove "0.0" and "1.0" from the strings. They are hardcoded. */
       str_curv_split.remove(0);
@@ -396,7 +392,7 @@ void OBJParser::parse_and_store(Vector<std::unique_ptr<Geometry>> &all_geometrie
       }
     }
     else if (line_key == "parm") {
-      Vector<string_view> str_parm_split;
+      Vector<StringRef> str_parm_split;
       split_by_char(rest_line, ' ', str_parm_split);
       if (str_parm_split[0] == "u" || str_parm_split[0] == "v") {
         str_parm_split.remove(0);
@@ -448,9 +444,9 @@ void MTLParser::parse_and_store(Map<string, MTLMaterial> &mtl_materials)
   string line;
   MTLMaterial *current_mtlmaterial = nullptr;
   while (std::getline(mtl_file_, line)) {
-    string_view line_key{}, rest_line{};
+    StringRef line_key{}, rest_line{};
     split_line_key_rest(line, line_key, rest_line);
-    if (line.empty() || rest_line.empty()) {
+    if (line.empty() || rest_line.is_empty()) {
       continue;
     }
 
@@ -461,22 +457,22 @@ void MTLParser::parse_and_store(Map<string, MTLMaterial> &mtl_materials)
       copy_string_to_float(rest_line, 324.0f, current_mtlmaterial->Ns);
     }
     else if (line_key == "Ka") {
-      Vector<string_view> str_ka_split{};
+      Vector<StringRef> str_ka_split{};
       split_by_char(rest_line, ' ', str_ka_split);
       copy_string_to_float(str_ka_split, 0.0f, {current_mtlmaterial->Ka, 3});
     }
     else if (line_key == "Kd") {
-      Vector<string_view> str_kd_split{};
+      Vector<StringRef> str_kd_split{};
       split_by_char(rest_line, ' ', str_kd_split);
       copy_string_to_float(str_kd_split, 0.8f, {current_mtlmaterial->Kd, 3});
     }
     else if (line_key == "Ks") {
-      Vector<string_view> str_ks_split{};
+      Vector<StringRef> str_ks_split{};
       split_by_char(rest_line, ' ', str_ks_split);
       copy_string_to_float(str_ks_split, 0.5f, {current_mtlmaterial->Ks, 3});
     }
     else if (line_key == "Ke") {
-      Vector<string_view> str_ke_split{};
+      Vector<StringRef> str_ke_split{};
       split_by_char(rest_line, ' ', str_ke_split);
       copy_string_to_float(str_ke_split, 0.0f, {current_mtlmaterial->Ke, 3});
     }
@@ -496,7 +492,7 @@ void MTLParser::parse_and_store(Map<string, MTLMaterial> &mtl_materials)
         continue;
       }
       tex_map_XX &tex_map = current_mtlmaterial->texture_maps.lookup(string(rest_line));
-      Vector<string_view> str_map_xx_split{};
+      Vector<StringRef> str_map_xx_split{};
       split_by_char(rest_line, ' ', str_map_xx_split);
 
       int64_t pos_o{str_map_xx_split.first_index_of_try("-o")};
