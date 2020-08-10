@@ -312,8 +312,8 @@ class StringRef : public StringRefBase {
   }
 
   /**
-   * Return a new StringRef with the given prefix being skipped.
-   * Asserts that the string begins with the given prefix.
+   * Return a new StringRef with the given prefix being skipped. This invokes undefined behavior if
+   * the string does not begin with the given prefix.
    */
   StringRef drop_prefix(StringRef prefix) const
   {
