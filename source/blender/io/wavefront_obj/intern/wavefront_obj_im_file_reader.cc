@@ -136,7 +136,7 @@ BLI_INLINE void copy_string_to_float(Span<string_view> src,
                                      const float fallback_value,
                                      MutableSpan<float> r_dst)
 {
-  BLI_assert(src.size() == r_dst.size());
+  BLI_assert(src.size() >= r_dst.size());
   for (int i = 0; i < r_dst.size(); ++i) {
     copy_string_to_float(src[i], fallback_value, r_dst[i]);
   }
