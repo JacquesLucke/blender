@@ -37,8 +37,10 @@
  *   Both types are certainly very similar. The main benefit of using StringRef in Blender is that
  *   this allows us to add convenience methods at any time. Especially, when doing a lot of string
  *   manipulation, this helps to keep the code clean. Furthermore, we need StringRefNull anyway,
- *   because there is a lot of C code that expects null-terminated strings. Once we use C++17,
- *   implicit conversions to and from string_view can be added.
+ *   because there is a lot of C code that expects null-terminated strings. Conversion between
+ *   StringRef and string_view is very cheap and can be done at api boundaries at essentially no
+ *   cost. Another benefit of using StringRef is that it uses signed integers, thus developers
+ *   have to deal less with issues resulting from unsigned integers.
  */
 
 #include <cstring>
