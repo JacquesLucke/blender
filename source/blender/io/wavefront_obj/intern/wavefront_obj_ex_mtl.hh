@@ -25,6 +25,7 @@
 
 #include "NOD_node_tree_ref.hh"
 
+#include "BLI_fileops.h"
 #include "BLI_path_util.h"
 
 #include "wavefront_obj_ex_mesh.hh"

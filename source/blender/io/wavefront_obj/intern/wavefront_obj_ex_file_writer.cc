@@ -23,6 +23,7 @@
 
 #include "BKE_blender_version.h"
 
+#include "BLI_fileops.h"
 #include "BLI_math_inline.h"
 
 #include "DNA_object_types.h"
