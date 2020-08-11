@@ -67,8 +67,6 @@ static CLG_LogRef LOG = {"bke.context"};
 /* struct */
 
 struct bContext {
-  int thread;
-
   /* windowmanager context */
   struct {
     struct wmWindowManager *manager;
