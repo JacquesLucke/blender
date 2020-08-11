@@ -97,7 +97,7 @@ set(SRC
   intern/colorband.c
   intern/colortools.c
   intern/constraint.c
-  intern/context.c
+  intern/context.cc
   intern/crazyspace.c
   intern/curve.c
   intern/curve_bevel.c

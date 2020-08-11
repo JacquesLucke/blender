@@ -93,56 +93,50 @@ struct bContext {
     bool py_init;
     void *py_context;
   } data;
+
+  MEM_CXX_CLASS_ALLOC_FUNCS("bContext")
 };
 
 /* context */
 
 bContext *CTX_create(void)
 {
-  bContext *C;
-
-  C = MEM_callocN(sizeof(bContext), "bContext");
-
-  return C;
+  return new bContext();
 }
 
 bContext *CTX_copy(const bContext *C)
 {
-  bContext *newC = MEM_dupallocN((void *)C);
-
-  return newC;
+  return new bContext(*C);
 }
 
 void CTX_free(bContext *C)
 {
-  MEM_freeN(C);
+  delete C;
 }
 
 /* store */
 
 bContextStore *CTX_store_add(ListBase *contexts, const char *name, PointerRNA *ptr)
 {
-  bContextStoreEntry *entry;
-  bContextStore *ctx, *lastctx;
-
   /* ensure we have a context to put the entry in, if it was already used
    * we have to copy the context to ensure */
-  ctx = contexts->last;
+  bContextStore *ctx = static_cast<bContextStore *>(contexts->last);
 
   if (!ctx || ctx->used) {
     if (ctx) {
-      lastctx = ctx;
-      ctx = MEM_dupallocN(lastctx);
+      bContextStore *lastctx = ctx;
+      ctx = static_cast<bContextStore *>(MEM_dupallocN(lastctx));
       BLI_duplicatelist(&ctx->entries, &lastctx->entries);
     }
     else {
-      ctx = MEM_callocN(sizeof(bContextStore), "bContextStore");
+      ctx = static_cast<bContextStore *>(MEM_callocN(sizeof(bContextStore), "bContextStore"));
     }
 
     BLI_addtail(contexts, ctx);
   }
 
-  entry = MEM_callocN(sizeof(bContextStoreEntry), "bContextStoreEntry");
+  bContextStoreEntry *entry = static_cast<bContextStoreEntry *>(
+      MEM_callocN(sizeof(bContextStoreEntry), "bContextStoreEntry"));
   BLI_strncpy(entry->name, name, sizeof(entry->name));
   entry->ptr = *ptr;
 
@@ -153,28 +147,26 @@ bContextStore *CTX_store_add(ListBase *contexts, const char *name, PointerRNA *p
 
 bContextStore *CTX_store_add_all(ListBase *contexts, bContextStore *context)
 {
-  bContextStoreEntry *entry, *tentry;
-  bContextStore *ctx, *lastctx;
 
   /* ensure we have a context to put the entries in, if it was already used
    * we have to copy the context to ensure */
-  ctx = contexts->last;
+  bContextStore *ctx = static_cast<bContextStore *>(contexts->last);
 
   if (!ctx || ctx->used) {
     if (ctx) {
-      lastctx = ctx;
-      ctx = MEM_dupallocN(lastctx);
+      bContextStore *lastctx = ctx;
+      ctx = static_cast<bContextStore *>(MEM_dupallocN(lastctx));
       BLI_duplicatelist(&ctx->entries, &lastctx->entries);
     }
     else {
-      ctx = MEM_callocN(sizeof(bContextStore), "bContextStore");
+      ctx = static_cast<bContextStore *>(MEM_callocN(sizeof(bContextStore), "bContextStore"));
     }
 
     BLI_addtail(contexts, ctx);
   }
 
-  for (tentry = context->entries.first; tentry; tentry = tentry->next) {
-    entry = MEM_dupallocN(tentry);
+  LISTBASE_FOREACH (bContextStoreEntry *, tentry, &context->entries) {
+    bContextStoreEntry *entry = static_cast<bContextStoreEntry *>(MEM_dupallocN(tentry));
     BLI_addtail(&ctx->entries, entry);
   }
 
@@ -188,9 +180,7 @@ void CTX_store_set(bContext *C, bContextStore *store)
 
 bContextStore *CTX_store_copy(bContextStore *store)
 {
-  bContextStore *ctx;
-
-  ctx = MEM_dupallocN(store);
+  bContextStore *ctx = static_cast<bContextStore *>(MEM_dupallocN(store));
   BLI_duplicatelist(&ctx->entries, &store->entries);
 
   return ctx;
@@ -206,7 +196,7 @@ void CTX_store_free_list(ListBase *contexts)
 {
   bContextStore *ctx;
 
-  while ((ctx = BLI_pophead(contexts))) {
+  while ((ctx = static_cast<bContextStore *>(BLI_pophead(contexts)))) {
     CTX_store_free(ctx);
   }
 }
@@ -307,11 +297,10 @@ static int ctx_data_get(bContext *C, const char *member, bContextDataResult *res
    * (0, -1, 1) - Where 1 is highest priority
    * */
   if (done != 1 && recursion < 1 && C->wm.store) {
-    bContextStoreEntry *entry;
-
     C->data.recursion = 1;
 
-    entry = BLI_rfindstring(&C->wm.store->entries, member, offsetof(bContextStoreEntry, name));
+    bContextStoreEntry *entry = static_cast<bContextStoreEntry *>(
+        BLI_rfindstring(&C->wm.store->entries, member, offsetof(bContextStoreEntry, name)));
     if (entry) {
       result->ptr = entry->ptr;
       done = 1;
@@ -336,7 +325,7 @@ static int ctx_data_get(bContext *C, const char *member, bContextDataResult *res
     }
   }
   if (done != 1 && recursion < 4 && (screen = CTX_wm_screen(C))) {
-    bContextDataCallback cb = screen->context;
+    bContextDataCallback cb = reinterpret_cast<bContextDataCallback>(screen->context);
     C->data.recursion = 4;
     if (cb) {
       ret = cb(C, member, result);
@@ -415,8 +404,9 @@ static int ctx_data_base_collection_get(const bContext *C, const char *member, L
   ViewLayer *view_layer = CTX_data_view_layer(C);
 
   CollectionPointerLink *ctx_object;
-  for (ctx_object = ctx_object_list.first; ctx_object; ctx_object = ctx_object->next) {
-    Object *ob = ctx_object->ptr.data;
+  for (ctx_object = static_cast<CollectionPointerLink *>(ctx_object_list.first); ctx_object;
+       ctx_object = ctx_object->next) {
+    Object *ob = static_cast<Object *>(ctx_object->ptr.data);
     Base *base = BKE_view_layer_base_find(view_layer, ob);
     if (base != NULL) {
       CTX_data_list_add(&result, &scene->id, &RNA_ObjectBase, base);
@@ -508,8 +498,6 @@ int CTX_data_get(
 
 static void data_dir_add(ListBase *lb, const char *member, const bool use_all)
 {
-  LinkData *link;
-
   if ((use_all == false) && STREQ(member, "scene")) { /* exception */
     return;
   }
@@ -518,7 +506,7 @@ static void data_dir_add(ListBase *lb, const char *member, const bool use_all)
     return;
   }
 
-  link = MEM_callocN(sizeof(LinkData), "LinkData");
+  LinkData *link = static_cast<LinkData *>(MEM_callocN(sizeof(LinkData), "LinkData"));
   link->data = (void *)member;
   BLI_addtail(lb, link);
 }
@@ -567,7 +555,8 @@ ListBase CTX_data_dir_get_ex(const bContext *C,
   if (use_store && C->wm.store) {
     bContextStoreEntry *entry;
 
-    for (entry = C->wm.store->entries.first; entry; entry = entry->next) {
+    for (entry = static_cast<bContextStoreEntry *>(C->wm.store->entries.first); entry;
+         entry = entry->next) {
       data_dir_add(&lb, entry->name, use_all);
     }
   }
@@ -592,7 +581,7 @@ ListBase CTX_data_dir_get_ex(const bContext *C,
     }
   }
   if ((screen = CTX_wm_screen(C)) && screen->context) {
-    bContextDataCallback cb = screen->context;
+    bContextDataCallback cb = reinterpret_cast<bContextDataCallback>(screen->context);
     memset(&result, 0, sizeof(result));
     cb(C, "", &result);
 
@@ -633,9 +622,8 @@ void CTX_data_pointer_set(bContextDataResult *result, ID *id, StructRNA *type, v
 
 void CTX_data_id_list_add(bContextDataResult *result, ID *id)
 {
-  CollectionPointerLink *link;
-
-  link = MEM_callocN(sizeof(CollectionPointerLink), "CTX_data_id_list_add");
+  CollectionPointerLink *link = static_cast<CollectionPointerLink *>(
+      MEM_callocN(sizeof(CollectionPointerLink), "CTX_data_id_list_add"));
   RNA_id_pointer_create(id, &link->ptr);
 
   BLI_addtail(&result->list, link);
@@ -643,9 +631,8 @@ void CTX_data_id_list_add(bContextDataResult *result, ID *id)
 
 void CTX_data_list_add(bContextDataResult *result, ID *id, StructRNA *type, void *data)
 {
-  CollectionPointerLink *link;
-
-  link = MEM_callocN(sizeof(CollectionPointerLink), "CTX_data_list_add");
+  CollectionPointerLink *link = static_cast<CollectionPointerLink *>(
+      MEM_callocN(sizeof(CollectionPointerLink), "CTX_data_list_add"));
   RNA_pointer_create(id, type, data, &link->ptr);
 
   BLI_addtail(&result->list, link);
@@ -693,33 +680,35 @@ bool CTX_wm_interface_locked(const bContext *C)
 
 wmWindow *CTX_wm_window(const bContext *C)
 {
-  return ctx_wm_python_context_get(C, "window", &RNA_Window, C->wm.window);
+  return static_cast<wmWindow *>(
+      ctx_wm_python_context_get(C, "window", &RNA_Window, C->wm.window));
 }
 
 WorkSpace *CTX_wm_workspace(const bContext *C)
 {
-  return ctx_wm_python_context_get(C, "workspace", &RNA_WorkSpace, C->wm.workspace);
+  return static_cast<WorkSpace *>(
+      ctx_wm_python_context_get(C, "workspace", &RNA_WorkSpace, C->wm.workspace));
 }
 
 bScreen *CTX_wm_screen(const bContext *C)
 {
-  return ctx_wm_python_context_get(C, "screen", &RNA_Screen, C->wm.screen);
+  return static_cast<bScreen *>(ctx_wm_python_context_get(C, "screen", &RNA_Screen, C->wm.screen));
 }
 
 ScrArea *CTX_wm_area(const bContext *C)
 {
-  return ctx_wm_python_context_get(C, "area", &RNA_Area, C->wm.area);
+  return static_cast<ScrArea *>(ctx_wm_python_context_get(C, "area", &RNA_Area, C->wm.area));
 }
 
 SpaceLink *CTX_wm_space_data(const bContext *C)
 {
   ScrArea *area = CTX_wm_area(C);
-  return (area) ? area->spacedata.first : NULL;
+  return (area) ? static_cast<SpaceLink *>(area->spacedata.first) : NULL;
 }
 
 ARegion *CTX_wm_region(const bContext *C)
 {
-  return ctx_wm_python_context_get(C, "region", &RNA_Region, C->wm.region);
+  return static_cast<ARegion *>(ctx_wm_python_context_get(C, "region", &RNA_Region, C->wm.region));
 }
 
 void *CTX_wm_region_data(const bContext *C)
@@ -756,7 +745,7 @@ View3D *CTX_wm_view3d(const bContext *C)
 {
   ScrArea *area = CTX_wm_area(C);
   if (area && area->spacetype == SPACE_VIEW3D) {
-    return area->spacedata.first;
+    return static_cast<View3D *>(area->spacedata.first);
   }
   return NULL;
 }
@@ -768,7 +757,7 @@ RegionView3D *CTX_wm_region_view3d(const bContext *C)
 
   if (area && area->spacetype == SPACE_VIEW3D) {
     if (region && region->regiontype == RGN_TYPE_WINDOW) {
-      return region->regiondata;
+      return static_cast<RegionView3D *>(region->regiondata);
     }
   }
   return NULL;
@@ -778,7 +767,7 @@ struct SpaceText *CTX_wm_space_text(const bContext *C)
 {
   ScrArea *area = CTX_wm_area(C);
   if (area && area->spacetype == SPACE_TEXT) {
-    return area->spacedata.first;
+    return static_cast<SpaceText *>(area->spacedata.first);
   }
   return NULL;
 }
@@ -787,7 +776,7 @@ struct SpaceConsole *CTX_wm_space_console(const bContext *C)
 {
   ScrArea *area = CTX_wm_area(C);
   if (area && area->spacetype == SPACE_CONSOLE) {
-    return area->spacedata.first;
+    return static_cast<SpaceConsole *>(area->spacedata.first);
   }
   return NULL;
 }
@@ -796,7 +785,7 @@ struct SpaceImage *CTX_wm_space_image(const bContext *C)
 {
   ScrArea *area = CTX_wm_area(C);
   if (area && area->spacetype == SPACE_IMAGE) {
-    return area->spacedata.first;
+    return static_cast<SpaceImage *>(area->spacedata.first);
   }
   return NULL;
 }
@@ -805,7 +794,7 @@ struct SpaceProperties *CTX_wm_space_properties(const bContext *C)
 {
   ScrArea *area = CTX_wm_area(C);
   if (area && area->spacetype == SPACE_PROPERTIES) {
-    return area->spacedata.first;
+    return static_cast<SpaceProperties *>(area->spacedata.first);
   }
   return NULL;
 }
@@ -814,7 +803,7 @@ struct SpaceFile *CTX_wm_space_file(const bContext *C)
 {
   ScrArea *area = CTX_wm_area(C);
   if (area && area->spacetype == SPACE_FILE) {
-    return area->spacedata.first;
+    return static_cast<SpaceFile *>(area->spacedata.first);
   }
   return NULL;
 }
@@ -823,7 +812,7 @@ struct SpaceSeq *CTX_wm_space_seq(const bContext *C)
 {
   ScrArea *area = CTX_wm_area(C);
   if (area && area->spacetype == SPACE_SEQ) {
-    return area->spacedata.first;
+    return static_cast<SpaceSeq *>(area->spacedata.first);
   }
   return NULL;
 }
@@ -832,7 +821,7 @@ struct SpaceOutliner *CTX_wm_space_outliner(const bContext *C)
 {
   ScrArea *area = CTX_wm_area(C);
   if (area && area->spacetype == SPACE_OUTLINER) {
-    return area->spacedata.first;
+    return static_cast<SpaceOutliner *>(area->spacedata.first);
   }
   return NULL;
 }
@@ -841,7 +830,7 @@ struct SpaceNla *CTX_wm_space_nla(const bContext *C)
 {
   ScrArea *area = CTX_wm_area(C);
   if (area && area->spacetype == SPACE_NLA) {
-    return area->spacedata.first;
+    return static_cast<SpaceNla *>(area->spacedata.first);
   }
   return NULL;
 }
@@ -850,7 +839,7 @@ struct SpaceNode *CTX_wm_space_node(const bContext *C)
 {
   ScrArea *area = CTX_wm_area(C);
   if (area && area->spacetype == SPACE_NODE) {
-    return area->spacedata.first;
+    return static_cast<SpaceNode *>(area->spacedata.first);
   }
   return NULL;
 }
@@ -859,7 +848,7 @@ struct SpaceGraph *CTX_wm_space_graph(const bContext *C)
 {
   ScrArea *area = CTX_wm_area(C);
   if (area && area->spacetype == SPACE_GRAPH) {
-    return area->spacedata.first;
+    return static_cast<SpaceGraph *>(area->spacedata.first);
   }
   return NULL;
 }
@@ -868,7 +857,7 @@ struct SpaceAction *CTX_wm_space_action(const bContext *C)
 {
   ScrArea *area = CTX_wm_area(C);
   if (area && area->spacetype == SPACE_ACTION) {
-    return area->spacedata.first;
+    return static_cast<SpaceAction *>(area->spacedata.first);
   }
   return NULL;
 }
@@ -877,7 +866,7 @@ struct SpaceInfo *CTX_wm_space_info(const bContext *C)
 {
   ScrArea *area = CTX_wm_area(C);
   if (area && area->spacetype == SPACE_INFO) {
-    return area->spacedata.first;
+    return static_cast<SpaceInfo *>(area->spacedata.first);
   }
   return NULL;
 }
@@ -886,7 +875,7 @@ struct SpaceUserPref *CTX_wm_space_userpref(const bContext *C)
 {
   ScrArea *area = CTX_wm_area(C);
   if (area && area->spacetype == SPACE_USERPREF) {
-    return area->spacedata.first;
+    return static_cast<SpaceUserPref *>(area->spacedata.first);
   }
   return NULL;
 }
@@ -895,7 +884,7 @@ struct SpaceClip *CTX_wm_space_clip(const bContext *C)
 {
   ScrArea *area = CTX_wm_area(C);
   if (area && area->spacetype == SPACE_CLIP) {
-    return area->spacedata.first;
+    return static_cast<SpaceClip *>(area->spacedata.first);
   }
   return NULL;
 }
@@ -904,7 +893,7 @@ struct SpaceTopBar *CTX_wm_space_topbar(const bContext *C)
 {
   ScrArea *area = CTX_wm_area(C);
   if (area && area->spacetype == SPACE_TOPBAR) {
-    return area->spacedata.first;
+    return static_cast<SpaceTopBar *>(area->spacedata.first);
   }
   return NULL;
 }
@@ -974,7 +963,7 @@ Main *CTX_data_main(const bContext *C)
 {
   Main *bmain;
 
-  if (ctx_data_pointer_verify(C, "blend_data", (void *)&bmain)) {
+  if (ctx_data_pointer_verify(C, "blend_data", (void **)&bmain)) {
     return bmain;
   }
 
@@ -991,7 +980,7 @@ Scene *CTX_data_scene(const bContext *C)
 {
   Scene *scene;
 
-  if (ctx_data_pointer_verify(C, "scene", (void *)&scene)) {
+  if (ctx_data_pointer_verify(C, "scene", (void **)&scene)) {
     return scene;
   }
 
@@ -1002,7 +991,7 @@ ViewLayer *CTX_data_view_layer(const bContext *C)
 {
   ViewLayer *view_layer;
 
-  if (ctx_data_pointer_verify(C, "view_layer", (void *)&view_layer)) {
+  if (ctx_data_pointer_verify(C, "view_layer", (void **)&view_layer)) {
     return view_layer;
   }
 
@@ -1036,7 +1025,7 @@ LayerCollection *CTX_data_layer_collection(const bContext *C)
   ViewLayer *view_layer = CTX_data_view_layer(C);
   LayerCollection *layer_collection;
 
-  if (ctx_data_pointer_verify(C, "layer_collection", (void *)&layer_collection)) {
+  if (ctx_data_pointer_verify(C, "layer_collection", (void **)&layer_collection)) {
     if (BKE_view_layer_has_collection(view_layer, layer_collection->collection)) {
       return layer_collection;
     }
@@ -1049,7 +1038,7 @@ LayerCollection *CTX_data_layer_collection(const bContext *C)
 Collection *CTX_data_collection(const bContext *C)
 {
   Collection *collection;
-  if (ctx_data_pointer_verify(C, "collection", (void *)&collection)) {
+  if (ctx_data_pointer_verify(C, "collection", (void **)&collection)) {
     return collection;
   }
 
@@ -1132,7 +1121,8 @@ enum eContextObjectMode CTX_data_mode_enum(const bContext *C)
 {
   Object *obedit = CTX_data_edit_object(C);
   Object *obact = obedit ? NULL : CTX_data_active_object(C);
-  return CTX_data_mode_enum_ex(obedit, obact, obact ? obact->mode : OB_MODE_OBJECT);
+  return CTX_data_mode_enum_ex(
+      obedit, obact, obact ? static_cast<eObjectMode>(obact->mode) : OB_MODE_OBJECT);
 }
 
 /* would prefer if we can use the enum version below over this one - Campbell */
@@ -1224,12 +1214,12 @@ int CTX_data_selectable_bases(const bContext *C, ListBase *list)
 
 struct Object *CTX_data_active_object(const bContext *C)
 {
-  return ctx_data_pointer_get(C, "active_object");
+  return static_cast<struct Object *>(ctx_data_pointer_get(C, "active_object"));
 }
 
 struct Base *CTX_data_active_base(const bContext *C)
 {
-  Object *ob = ctx_data_pointer_get(C, "active_object");
+  Object *ob = static_cast<struct Object *>(ctx_data_pointer_get(C, "active_object"));
 
   if (ob == NULL) {
     return NULL;
@@ -1241,37 +1231,37 @@ struct Base *CTX_data_active_base(const bContext *C)
 
 struct Object *CTX_data_edit_object(const bContext *C)
 {
-  return ctx_data_pointer_get(C, "edit_object");
+  return static_cast<struct Object *>(ctx_data_pointer_get(C, "edit_object"));
 }
 
 struct Image *CTX_data_edit_image(const bContext *C)
 {
-  return ctx_data_pointer_get(C, "edit_image");
+  return static_cast<struct Image *>(ctx_data_pointer_get(C, "edit_image"));
 }
 
 struct Text *CTX_data_edit_text(const bContext *C)
 {
-  return ctx_data_pointer_get(C, "edit_text");
+  return static_cast<struct Text *>(ctx_data_pointer_get(C, "edit_text"));
 }
 
 struct MovieClip *CTX_data_edit_movieclip(const bContext *C)
 {
-  return ctx_data_pointer_get(C, "edit_movieclip");
+  return static_cast<struct MovieClip *>(ctx_data_pointer_get(C, "edit_movieclip"));
 }
 
 struct Mask *CTX_data_edit_mask(const bContext *C)
 {
-  return ctx_data_pointer_get(C, "edit_mask");
+  return static_cast<struct Mask *>(ctx_data_pointer_get(C, "edit_mask"));
 }
 
 struct EditBone *CTX_data_active_bone(const bContext *C)
 {
-  return ctx_data_pointer_get(C, "active_bone");
+  return static_cast<struct EditBone *>(ctx_data_pointer_get(C, "active_bone"));
 }
 
 struct CacheFile *CTX_data_edit_cachefile(const bContext *C)
 {
-  return ctx_data_pointer_get(C, "edit_cachefile");
+  return static_cast<struct CacheFile *>(ctx_data_pointer_get(C, "edit_cachefile"));
 }
 
 int CTX_data_selected_bones(const bContext *C, ListBase *list)
@@ -1296,7 +1286,7 @@ int CTX_data_editable_bones(const bContext *C, ListBase *list)
 
 struct bPoseChannel *CTX_data_active_pose_bone(const bContext *C)
 {
-  return ctx_data_pointer_get(C, "active_pose_bone");
+  return static_cast<struct bPoseChannel *>(ctx_data_pointer_get(C, "active_pose_bone"));
 }
 
 int CTX_data_selected_pose_bones(const bContext *C, ListBase *list)
@@ -1316,17 +1306,17 @@ int CTX_data_visible_pose_bones(const bContext *C, ListBase *list)
 
 bGPdata *CTX_data_gpencil_data(const bContext *C)
 {
-  return ctx_data_pointer_get(C, "gpencil_data");
+  return static_cast<bGPdata *>(ctx_data_pointer_get(C, "gpencil_data"));
 }
 
 bGPDlayer *CTX_data_active_gpencil_layer(const bContext *C)
 {
-  return ctx_data_pointer_get(C, "active_gpencil_layer");
+  return static_cast<bGPDlayer *>(ctx_data_pointer_get(C, "active_gpencil_layer"));
 }
 
 bGPDframe *CTX_data_active_gpencil_frame(const bContext *C)
 {
-  return ctx_data_pointer_get(C, "active_gpencil_frame");
+  return static_cast<bGPDframe *>(ctx_data_pointer_get(C, "active_gpencil_frame"));
 }
 
 int CTX_data_visible_gpencil_layers(const bContext *C, ListBase *list)
