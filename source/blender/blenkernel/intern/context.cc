@@ -102,11 +102,6 @@ bContext *CTX_create(void)
   return new bContext();
 }
 
-bContext *CTX_copy(const bContext *C)
-{
-  return new bContext(*C);
-}
-
 void CTX_free(bContext *C)
 {
   delete C;

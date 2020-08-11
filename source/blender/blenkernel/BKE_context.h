@@ -122,8 +122,6 @@ typedef enum eContextObjectMode {
 bContext *CTX_create(void);
 void CTX_free(bContext *C);
 
-bContext *CTX_copy(const bContext *C);
-
 /* Stored Context */
 
 bContextStore *CTX_store_add(ListBase *contexts, const char *name, PointerRNA *ptr);
