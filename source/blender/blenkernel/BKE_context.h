@@ -121,6 +121,8 @@ typedef enum eContextObjectMode {
 
 bContext *CTX_create(void);
 void CTX_free(bContext *C);
+void CTX_push(bContext *C);
+void CTX_pop(bContext *C);
 
 /* Stored Context */
 

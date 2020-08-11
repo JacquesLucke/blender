@@ -38,6 +38,7 @@
 #include "DEG_depsgraph.h"
 
 #include "BLI_listbase.h"
+#include "BLI_stack.hh"
 #include "BLI_string.h"
 #include "BLI_threads.h"
 #include "BLI_utildefines.h"
@@ -66,8 +67,7 @@ static CLG_LogRef LOG = {"bke.context"};
 
 /* struct */
 
-struct bContext {
-  /* windowmanager context */
+struct bContextState {
   struct {
     struct wmWindowManager *manager;
     struct wmWindow *window;
@@ -85,26 +85,44 @@ struct bContext {
   struct {
     struct Main *main;
     struct Scene *scene;
-
-    int recursion;
-    /** True if python is initialized. */
-    bool py_init;
     void *py_context;
   } data;
+};
 
-  MEM_CXX_CLASS_ALLOC_FUNCS("bContext")
+struct bContext {
+  blender::Stack<bContextState> state_stack;
+  bContextState *current;
+
+  int recursion;
+  /** True if python is initialized. */
+  bool py_init;
 };
 
 /* context */
 
 bContext *CTX_create(void)
 {
-  return new bContext();
+  bContext *C = new bContext();
+  C->state_stack.push({});
+  C->current = &C->state_stack.peek();
+  return C;
 }
 
 void CTX_free(bContext *C)
 {
   delete C;
+}
+
+void CTX_push(bContext *C)
+{
+  bContextState state_copy = C->state_stack.peek();
+  C->state_stack.push(std::move(state_copy));
+  C->current = &C->state_stack.peek();
+}
+
+void CTX_pop(bContext *C)
+{
+  C->state_stack.pop();
 }
 
 /* store */
@@ -168,7 +186,7 @@ bContextStore *CTX_store_add_all(ListBase *contexts, bContextStore *context)
 
 void CTX_store_set(bContext *C, bContextStore *store)
 {
-  C->wm.store = store;
+  C->current->wm.store = store;
 }
 
 bContextStore *CTX_store_copy(bContextStore *store)
@@ -198,20 +216,20 @@ void CTX_store_free_list(ListBase *contexts)
 
 bool CTX_py_init_get(bContext *C)
 {
-  return C->data.py_init;
+  return C->py_init;
 }
 void CTX_py_init_set(bContext *C, bool value)
 {
-  C->data.py_init = value;
+  C->py_init = value;
 }
 
 void *CTX_py_dict_get(const bContext *C)
 {
-  return C->data.py_context;
+  return C->current->data.py_context;
 }
 void CTX_py_dict_set(bContext *C, void *value)
 {
-  C->data.py_context = value;
+  C->current->data.py_context = value;
 }
 
 /* data context utility functions */
@@ -263,7 +281,7 @@ static int ctx_data_get(bContext *C, const char *member, bContextDataResult *res
   bScreen *screen;
   ScrArea *area;
   ARegion *region;
-  int done = 0, recursion = C->data.recursion;
+  int done = 0, recursion = C->recursion;
   int ret = 0;
 
   memset(result, 0, sizeof(bContextDataResult));
@@ -289,18 +307,18 @@ static int ctx_data_get(bContext *C, const char *member, bContextDataResult *res
    * Values in order of importance
    * (0, -1, 1) - Where 1 is highest priority
    * */
-  if (done != 1 && recursion < 1 && C->wm.store) {
-    C->data.recursion = 1;
+  if (done != 1 && recursion < 1 && C->current->wm.store) {
+    C->recursion = 1;
 
-    bContextStoreEntry *entry = static_cast<bContextStoreEntry *>(
-        BLI_rfindstring(&C->wm.store->entries, member, offsetof(bContextStoreEntry, name)));
+    bContextStoreEntry *entry = static_cast<bContextStoreEntry *>(BLI_rfindstring(
+        &C->current->wm.store->entries, member, offsetof(bContextStoreEntry, name)));
     if (entry) {
       result->ptr = entry->ptr;
       done = 1;
     }
   }
   if (done != 1 && recursion < 2 && (region = CTX_wm_region(C))) {
-    C->data.recursion = 2;
+    C->recursion = 2;
     if (region->type && region->type->context) {
       ret = region->type->context(C, member, result);
       if (ret) {
@@ -309,7 +327,7 @@ static int ctx_data_get(bContext *C, const char *member, bContextDataResult *res
     }
   }
   if (done != 1 && recursion < 3 && (area = CTX_wm_area(C))) {
-    C->data.recursion = 3;
+    C->recursion = 3;
     if (area->type && area->type->context) {
       ret = area->type->context(C, member, result);
       if (ret) {
@@ -319,7 +337,7 @@ static int ctx_data_get(bContext *C, const char *member, bContextDataResult *res
   }
   if (done != 1 && recursion < 4 && (screen = CTX_wm_screen(C))) {
     bContextDataCallback cb = reinterpret_cast<bContextDataCallback>(screen->context);
-    C->data.recursion = 4;
+    C->recursion = 4;
     if (cb) {
       ret = cb(C, member, result);
       if (ret) {
@@ -328,7 +346,7 @@ static int ctx_data_get(bContext *C, const char *member, bContextDataResult *res
     }
   }
 
-  C->data.recursion = recursion;
+  C->recursion = recursion;
 
   return done;
 }
@@ -506,7 +524,7 @@ static void data_dir_add(ListBase *lb, const char *member, const bool use_all)
 
 /**
  * \param C: Context
- * \param use_store: Use 'C->wm.store'
+ * \param use_store: Use 'C->current->wm.store'
  * \param use_rna: Use Include the properties from 'RNA_Context'
  * \param use_all: Don't skip values (currently only "scene")
  */
@@ -545,10 +563,10 @@ ListBase CTX_data_dir_get_ex(const bContext *C,
     }
     RNA_PROP_END;
   }
-  if (use_store && C->wm.store) {
+  if (use_store && C->current->wm.store) {
     bContextStoreEntry *entry;
 
-    for (entry = static_cast<bContextStoreEntry *>(C->wm.store->entries.first); entry;
+    for (entry = static_cast<bContextStoreEntry *>(C->current->wm.store->entries.first); entry;
          entry = entry->next) {
       data_dir_add(&lb, entry->name, use_all);
     }
@@ -663,34 +681,36 @@ short CTX_data_type_get(bContextDataResult *result)
 
 wmWindowManager *CTX_wm_manager(const bContext *C)
 {
-  return C->wm.manager;
+  return C->current->wm.manager;
 }
 
 bool CTX_wm_interface_locked(const bContext *C)
 {
-  return (bool)C->wm.manager->is_interface_locked;
+  return (bool)C->current->wm.manager->is_interface_locked;
 }
 
 wmWindow *CTX_wm_window(const bContext *C)
 {
   return static_cast<wmWindow *>(
-      ctx_wm_python_context_get(C, "window", &RNA_Window, C->wm.window));
+      ctx_wm_python_context_get(C, "window", &RNA_Window, C->current->wm.window));
 }
 
 WorkSpace *CTX_wm_workspace(const bContext *C)
 {
   return static_cast<WorkSpace *>(
-      ctx_wm_python_context_get(C, "workspace", &RNA_WorkSpace, C->wm.workspace));
+      ctx_wm_python_context_get(C, "workspace", &RNA_WorkSpace, C->current->wm.workspace));
 }
 
 bScreen *CTX_wm_screen(const bContext *C)
 {
-  return static_cast<bScreen *>(ctx_wm_python_context_get(C, "screen", &RNA_Screen, C->wm.screen));
+  return static_cast<bScreen *>(
+      ctx_wm_python_context_get(C, "screen", &RNA_Screen, C->current->wm.screen));
 }
 
 ScrArea *CTX_wm_area(const bContext *C)
 {
-  return static_cast<ScrArea *>(ctx_wm_python_context_get(C, "area", &RNA_Area, C->wm.area));
+  return static_cast<ScrArea *>(
+      ctx_wm_python_context_get(C, "area", &RNA_Area, C->current->wm.area));
 }
 
 SpaceLink *CTX_wm_space_data(const bContext *C)
@@ -701,7 +721,8 @@ SpaceLink *CTX_wm_space_data(const bContext *C)
 
 ARegion *CTX_wm_region(const bContext *C)
 {
-  return static_cast<ARegion *>(ctx_wm_python_context_get(C, "region", &RNA_Region, C->wm.region));
+  return static_cast<ARegion *>(
+      ctx_wm_python_context_get(C, "region", &RNA_Region, C->current->wm.region));
 }
 
 void *CTX_wm_region_data(const bContext *C)
@@ -712,23 +733,23 @@ void *CTX_wm_region_data(const bContext *C)
 
 struct ARegion *CTX_wm_menu(const bContext *C)
 {
-  return C->wm.menu;
+  return C->current->wm.menu;
 }
 
 struct wmGizmoGroup *CTX_wm_gizmo_group(const bContext *C)
 {
-  return C->wm.gizmo_group;
+  return C->current->wm.gizmo_group;
 }
 
 struct wmMsgBus *CTX_wm_message_bus(const bContext *C)
 {
-  return C->wm.manager ? C->wm.manager->message_bus : NULL;
+  return C->current->wm.manager ? C->current->wm.manager->message_bus : NULL;
 }
 
 struct ReportList *CTX_wm_reports(const bContext *C)
 {
-  if (C->wm.manager) {
-    return &(C->wm.manager->reports);
+  if (C->current->wm.manager) {
+    return &(C->current->wm.manager->reports);
   }
 
   return NULL;
@@ -893,61 +914,61 @@ struct SpaceTopBar *CTX_wm_space_topbar(const bContext *C)
 
 void CTX_wm_manager_set(bContext *C, wmWindowManager *wm)
 {
-  C->wm.manager = wm;
-  C->wm.window = NULL;
-  C->wm.screen = NULL;
-  C->wm.area = NULL;
-  C->wm.region = NULL;
+  C->current->wm.manager = wm;
+  C->current->wm.window = NULL;
+  C->current->wm.screen = NULL;
+  C->current->wm.area = NULL;
+  C->current->wm.region = NULL;
 }
 
 void CTX_wm_window_set(bContext *C, wmWindow *win)
 {
-  C->wm.window = win;
+  C->current->wm.window = win;
   if (win) {
-    C->data.scene = win->scene;
+    C->current->data.scene = win->scene;
   }
-  C->wm.workspace = (win) ? BKE_workspace_active_get(win->workspace_hook) : NULL;
-  C->wm.screen = (win) ? BKE_workspace_active_screen_get(win->workspace_hook) : NULL;
-  C->wm.area = NULL;
-  C->wm.region = NULL;
+  C->current->wm.workspace = (win) ? BKE_workspace_active_get(win->workspace_hook) : NULL;
+  C->current->wm.screen = (win) ? BKE_workspace_active_screen_get(win->workspace_hook) : NULL;
+  C->current->wm.area = NULL;
+  C->current->wm.region = NULL;
 }
 
 void CTX_wm_screen_set(bContext *C, bScreen *screen)
 {
-  C->wm.screen = screen;
-  C->wm.area = NULL;
-  C->wm.region = NULL;
+  C->current->wm.screen = screen;
+  C->current->wm.area = NULL;
+  C->current->wm.region = NULL;
 }
 
 void CTX_wm_area_set(bContext *C, ScrArea *area)
 {
-  C->wm.area = area;
-  C->wm.region = NULL;
+  C->current->wm.area = area;
+  C->current->wm.region = NULL;
 }
 
 void CTX_wm_region_set(bContext *C, ARegion *region)
 {
-  C->wm.region = region;
+  C->current->wm.region = region;
 }
 
 void CTX_wm_menu_set(bContext *C, ARegion *menu)
 {
-  C->wm.menu = menu;
+  C->current->wm.menu = menu;
 }
 
 void CTX_wm_gizmo_group_set(bContext *C, struct wmGizmoGroup *gzgroup)
 {
-  C->wm.gizmo_group = gzgroup;
+  C->current->wm.gizmo_group = gzgroup;
 }
 
 void CTX_wm_operator_poll_msg_set(bContext *C, const char *msg)
 {
-  C->wm.operator_poll_msg = msg;
+  C->current->wm.operator_poll_msg = msg;
 }
 
 const char *CTX_wm_operator_poll_msg_get(bContext *C)
 {
-  return IFACE_(C->wm.operator_poll_msg);
+  return IFACE_(C->current->wm.operator_poll_msg);
 }
 
 /* data context */
@@ -960,12 +981,12 @@ Main *CTX_data_main(const bContext *C)
     return bmain;
   }
 
-  return C->data.main;
+  return C->current->data.main;
 }
 
 void CTX_data_main_set(bContext *C, Main *bmain)
 {
-  C->data.main = bmain;
+  C->current->data.main = bmain;
   BKE_sound_init_main(bmain);
 }
 
@@ -977,7 +998,7 @@ Scene *CTX_data_scene(const bContext *C)
     return scene;
   }
 
-  return C->data.scene;
+  return C->current->data.scene;
 }
 
 ViewLayer *CTX_data_view_layer(const bContext *C)
@@ -1136,7 +1157,7 @@ const char *CTX_data_mode_string(const bContext *C)
 
 void CTX_data_scene_set(bContext *C, Scene *scene)
 {
-  C->data.scene = scene;
+  C->current->data.scene = scene;
 }
 
 ToolSettings *CTX_data_tool_settings(const bContext *C)
