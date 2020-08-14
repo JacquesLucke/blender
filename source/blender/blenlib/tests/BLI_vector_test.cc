@@ -681,4 +681,12 @@ TEST(vector, InsertMoveOnlyType)
   EXPECT_EQ(*vec[2], 2);
 }
 
+TEST(vector, Prepend)
+{
+  Vector<int> vec = {1, 2, 3};
+  vec.prepend({7, 8});
+  EXPECT_EQ(vec.size(), 5);
+  EXPECT_EQ_ARRAY(vec.data(), Span({7, 8, 1, 2, 3}).data(), 5);
+}
+
 }  // namespace blender::tests

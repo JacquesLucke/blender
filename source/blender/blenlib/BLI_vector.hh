@@ -561,7 +561,9 @@ class Vector {
   }
 
   /**
-   * Insert elements into the vector at the specified position.
+   * Insert elements into the vector at the specified position. This has a running time of O(n)
+   * where n is the number of values that have to be moved. Undefined behavior is invoked when the
+   * insert position is out of bounds.
    */
   void insert(const int64_t insert_index, const T &value)
   {
@@ -602,6 +604,27 @@ class Vector {
     std::uninitialized_copy_n(first, insert_amount, begin_ + insert_index);
     end_ = begin_ + new_size;
     UPDATE_VECTOR_SIZE(this);
+  }
+
+  /**
+   * Insert values at the beginning of the vector. The has to move all the other elements, so it
+   * has a linear running time.
+   */
+  void prepend(const T &&value)
+  {
+    this->insert(0, value);
+  }
+  void prepend(T &&value)
+  {
+    this->insert(0, std::move(value));
+  }
+  void prepend(Span<T> values)
+  {
+    this->insert(0, values);
+  }
+  template<typename InputIt> void prepend(InputIt first, InputIt last)
+  {
+    this->insert(0, first, last);
   }
 
   /**
