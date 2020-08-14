@@ -816,6 +816,24 @@ class Vector {
     return end_;
   }
 
+  std::reverse_iterator<T *> rbegin()
+  {
+    return std::reverse_iterator<T *>(this->end());
+  }
+  std::reverse_iterator<T *> rend()
+  {
+    return std::reverse_iterator<T *>(this->begin());
+  }
+
+  std::reverse_iterator<const T *> rbegin() const
+  {
+    return std::reverse_iterator<T *>(this->end());
+  }
+  std::reverse_iterator<const T *> rend() const
+  {
+    return std::reverse_iterator<T *>(this->begin());
+  }
+
   /**
    * Get the current capacity of the vector, i.e. the maximum number of elements the vector can
    * hold, before it has to reallocate.

@@ -698,4 +698,15 @@ TEST(vector, Prepend)
   EXPECT_EQ_ARRAY(vec.data(), Span({7, 8, 1, 2, 3}).data(), 5);
 }
 
+TEST(vector, ReverseIterator)
+{
+  Vector<int> vec = {4, 5, 6, 7};
+  Vector<int> reversed_vec;
+  for (auto it = vec.rbegin(); it != vec.rend(); ++it) {
+    reversed_vec.append(*it);
+  }
+  EXPECT_EQ(reversed_vec.size(), 4);
+  EXPECT_EQ_ARRAY(reversed_vec.data(), Span({7, 6, 5, 4}).data(), 4);
+}
+
 }  // namespace blender::tests
