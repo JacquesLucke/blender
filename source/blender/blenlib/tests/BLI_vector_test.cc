@@ -98,14 +98,14 @@ TEST(vector, ListBaseConstructor)
   delete value3;
 }
 
-TEST(vector, ContainerConstructor)
+TEST(vector, IteratorConstructor)
 {
   std::forward_list<int> list;
   list.push_front(3);
   list.push_front(1);
   list.push_front(5);
 
-  Vector<int> vec = Vector<int>::FromContainer(list);
+  Vector<int> vec = Vector<int>(list.begin(), list.end());
   EXPECT_EQ(vec.size(), 3);
   EXPECT_EQ(vec[0], 5);
   EXPECT_EQ(vec[1], 1);
@@ -277,6 +277,15 @@ TEST(vector, ExtendNonDuplicates)
   EXPECT_EQ(vec.size(), 4);
   vec.extend_non_duplicates({0, 1, 2, 3});
   EXPECT_EQ(vec.size(), 5);
+}
+
+TEST(vector, ExtendIterator)
+{
+  Vector<int> vec = {3, 4, 5};
+  std::forward_list<int> list = {8, 9};
+  vec.extend(list.begin(), list.end());
+  EXPECT_EQ(vec.size(), 5);
+  EXPECT_EQ_ARRAY(vec.data(), Span({3, 4, 5, 8, 9}).data(), 5);
 }
 
 TEST(vector, Iterator)

@@ -178,17 +178,15 @@ class Vector {
   {
   }
 
-  /**
-   * Create a vector from any container. It must be possible to use the container in a
-   * range-for loop.
-   */
-  template<typename ContainerT> static Vector FromContainer(const ContainerT &container)
+  template<typename InputIt,
+           /* This constructor should not be called with e.g. Vector(3, 10), because that is
+              expected to produce the vector (10, 10, 10). */
+           typename std::enable_if_t<!std::is_convertible_v<InputIt, int>> * = nullptr>
+  Vector(InputIt first, InputIt last, Allocator allocator = {}) : Vector(std::move(allocator))
   {
-    Vector vector;
-    for (const auto &value : container) {
-      vector.append(value);
+    for (InputIt current = first; current != last; ++current) {
+      this->append(*current);
     }
-    return vector;
   }
 
   /**
@@ -560,6 +558,11 @@ class Vector {
     UPDATE_VECTOR_SIZE(this);
   }
 
+  template<typename InputIt> void extend(InputIt first, InputIt last)
+  {
+    this->insert(this->end(), first, last);
+  }
+
   /**
    * Insert elements into the vector at the specified position. This has a running time of O(n)
    * where n is the number of values that have to be moved. Undefined behavior is invoked when the
@@ -585,13 +588,13 @@ class Vector {
   }
   template<typename InputIt> void insert(const int64_t insert_index, InputIt first, InputIt last)
   {
+    BLI_assert(insert_index >= 0);
+    BLI_assert(insert_index <= this->size());
+
     const int64_t insert_amount = std::distance(first, last);
     const int64_t old_size = this->size();
     const int64_t new_size = old_size + insert_amount;
     const int64_t move_amount = old_size - insert_index;
-
-    BLI_assert(insert_index >= 0);
-    BLI_assert(insert_index <= this->size());
 
     this->reserve(new_size);
     for (int64_t i = 0; i < move_amount; i++) {
