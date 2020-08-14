@@ -636,4 +636,49 @@ TEST(vector, Fill)
   EXPECT_EQ(vec[4], 3);
 }
 
+TEST(vector, InsertAtBeginning)
+{
+  Vector<int> vec = {1, 2, 3};
+  vec.insert(0, {6, 7});
+  EXPECT_EQ(vec.size(), 5);
+  EXPECT_EQ_ARRAY(vec.data(), Span({6, 7, 1, 2, 3}).data(), 5);
+}
+
+TEST(vector, InsertAtEnd)
+{
+  Vector<int> vec = {1, 2, 3};
+  vec.insert(3, {6, 7});
+  EXPECT_EQ(vec.size(), 5);
+  EXPECT_EQ_ARRAY(vec.data(), Span({1, 2, 3, 6, 7}).data(), 5);
+}
+
+TEST(vector, InsertInMiddle)
+{
+  Vector<int> vec = {1, 2, 3};
+  vec.insert(1, {6, 7});
+  EXPECT_EQ(vec.size(), 5);
+  EXPECT_EQ_ARRAY(vec.data(), Span({1, 6, 7, 2, 3}).data(), 5);
+}
+
+TEST(vector, InsertAtIterator)
+{
+  Vector<std::string> vec = {"1", "2", "3"};
+  Vector<std::string> other_vec = {"hello", "world"};
+  vec.insert(vec.begin() + 1, other_vec.begin(), other_vec.end());
+  EXPECT_EQ(vec.size(), 5);
+  EXPECT_EQ_ARRAY(vec.data(), Span<std::string>({"1", "hello", "world", "2", "3"}).data(), 5);
+}
+
+TEST(vector, InsertMoveOnlyType)
+{
+  Vector<std::unique_ptr<int>> vec;
+  vec.append(std::make_unique<int>(1));
+  vec.append(std::make_unique<int>(2));
+  vec.insert(1, std::make_unique<int>(30));
+  EXPECT_EQ(vec.size(), 3);
+  EXPECT_EQ(*vec[0], 1);
+  EXPECT_EQ(*vec[1], 30);
+  EXPECT_EQ(*vec[2], 2);
+}
+
 }  // namespace blender::tests

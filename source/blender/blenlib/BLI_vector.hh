@@ -561,6 +561,50 @@ class Vector {
   }
 
   /**
+   * Insert elements into the vector at the specified position.
+   */
+  void insert(const int64_t insert_index, const T &value)
+  {
+    this->insert(insert_index, Span<T>(&value, 1));
+  }
+  void insert(const int64_t insert_index, T &&value)
+  {
+    this->insert(
+        insert_index, std::make_move_iterator(&value), std::make_move_iterator(&value + 1));
+  }
+  void insert(const int64_t insert_index, Span<T> array)
+  {
+    this->insert(begin_ + insert_index, array.begin(), array.end());
+  }
+  template<typename InputIt> void insert(const T *insert_position, InputIt first, InputIt last)
+  {
+    const int64_t insert_index = insert_position - begin_;
+    this->insert(insert_index, first, last);
+  }
+  template<typename InputIt> void insert(const int64_t insert_index, InputIt first, InputIt last)
+  {
+    const int64_t insert_amount = std::distance(first, last);
+    const int64_t old_size = this->size();
+    const int64_t new_size = old_size + insert_amount;
+    const int64_t move_amount = old_size - insert_index;
+
+    BLI_assert(insert_index >= 0);
+    BLI_assert(insert_index <= this->size());
+
+    this->reserve(new_size);
+    for (int64_t i = 0; i < move_amount; i++) {
+      const int64_t src_index = insert_index + move_amount - i - 1;
+      const int64_t dst_index = new_size - i - 1;
+      new (static_cast<void *>(begin_ + dst_index)) T(std::move(begin_[src_index]));
+      begin_[src_index].~T();
+    }
+
+    std::uninitialized_copy_n(first, insert_amount, begin_ + insert_index);
+    end_ = begin_ + new_size;
+    UPDATE_VECTOR_SIZE(this);
+  }
+
+  /**
    * Return a reference to the last element in the vector.
    * This invokes undefined behavior when the vector is empty.
    */
