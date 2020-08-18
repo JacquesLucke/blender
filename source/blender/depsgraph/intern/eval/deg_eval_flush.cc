@@ -358,10 +358,10 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
   BLI_assert(graph != nullptr);
   /* Nothing to update, early out. */
   if (graph->need_update_time) {
-    const Scene *scene_orig = graph->scene;
-    const float ctime = BKE_scene_frame_get(scene_orig);
+    // const Scene *scene_orig = graph->scene;
+    // const float ctime = BKE_scene_frame_get(scene_orig);
     TimeSourceNode *time_source = graph->find_time_source();
-    graph->ctime = ctime;
+    // graph->ctime = ctime;
     time_source->tag_update(graph, DEG_UPDATE_SOURCE_TIME);
   }
   if (graph->entry_tags.is_empty()) {

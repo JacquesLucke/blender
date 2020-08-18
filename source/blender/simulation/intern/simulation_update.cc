@@ -19,12 +19,15 @@
 #include "BKE_customdata.h"
 #include "BKE_lib_id.h"
 #include "BKE_object.h"
+#include "BKE_scene.h"
 #include "BKE_simulation.h"
 
 #include "DNA_modifier_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_simulation_types.h"
 
+#include "DEG_depsgraph_build.h"
+#include "DEG_depsgraph_debug.h"
 #include "DEG_depsgraph_query.h"
 
 #include "BLI_array.hh"
@@ -152,9 +155,8 @@ class SampledDependencyAnimations : public DependencyAnimations {
   }
 };
 
-static void sample_object_transforms(Object &object,
+static void sample_object_transforms(Object &object_cow,
                                      Depsgraph &depsgraph,
-                                     Scene &scene,
                                      TimeInterval scene_frame_interval,
                                      MutableSpan<float4x4> r_transforms)
 {
@@ -162,20 +164,35 @@ static void sample_object_transforms(Object &object,
     return;
   }
   if (r_transforms.size() == 1) {
-    r_transforms[0] = object.obmat;
+    r_transforms[0] = object_cow.obmat;
     return;
   }
 
   Array<float> frames(r_transforms.size());
   scene_frame_interval.compute_uniform_samples(frames);
 
+  Depsgraph *child_depsgraph = DEG_graph_new(DEG_get_input_bmain(&depsgraph),
+                                             DEG_get_input_scene(&depsgraph),
+                                             DEG_get_input_view_layer(&depsgraph),
+                                             DEG_get_mode(&depsgraph));
+
+  Object *object_orig = DEG_get_original_object(&object_cow);
+  ID *id_to_sample = &object_orig->id;
+  DEG_graph_build_from_ids(child_depsgraph,
+                           DEG_get_input_bmain(&depsgraph),
+                           DEG_get_input_scene(&depsgraph),
+                           DEG_get_input_view_layer(&depsgraph),
+                           &id_to_sample,
+                           1);
+
   for (int i : frames.index_range()) {
-    float frame = frames[i];
-    const int recursion_depth = 5;
-    BKE_object_modifier_update_subframe(
-        &depsgraph, &scene, &object, false, recursion_depth, frame, eModifierType_None);
-    r_transforms[i] = object.obmat;
+    const float frame = frames[i];
+    DEG_evaluate_on_framechange(DEG_get_input_bmain(&depsgraph), child_depsgraph, frame);
+    Object *evaluated_object = DEG_get_evaluated_object(child_depsgraph, object_orig);
+    r_transforms[i] = evaluated_object->obmat;
   }
+
+  DEG_graph_free(child_depsgraph);
 }
 
 template<typename T> static bool all_values_equal(Span<T> values)
@@ -192,7 +209,6 @@ template<typename T> static bool all_values_equal(Span<T> values)
 }
 
 static void prepare_dependency_animations(Depsgraph &depsgraph,
-                                          Scene &scene,
                                           Simulation &simulation,
                                           TimeInterval scene_frame_interval,
                                           SampledDependencyAnimations &r_dependency_animations)
@@ -208,7 +224,7 @@ static void prepare_dependency_animations(Depsgraph &depsgraph,
     Object &object_cow = *reinterpret_cast<Object *>(id_cow);
     constexpr int sample_count = 10;
     Array<float4x4, sample_count> transforms(sample_count);
-    sample_object_transforms(object_cow, depsgraph, scene, scene_frame_interval, transforms);
+    sample_object_transforms(object_cow, depsgraph, scene_frame_interval, transforms);
 
     /* If all samples are the same, only store one. */
     Span<float4x4> transforms_to_use = (all_values_equal(transforms.as_span())) ?
@@ -267,7 +283,7 @@ void update_simulation_in_depsgraph(Depsgraph *depsgraph,
     TimeInterval simulation_time_interval(simulation_orig->current_simulation_time, time_step);
     SampledDependencyAnimations dependency_animations{simulation_time_interval};
     prepare_dependency_animations(
-        *depsgraph, *scene_cow, *simulation_orig, scene_frame_interval, dependency_animations);
+        *depsgraph, *simulation_orig, scene_frame_interval, dependency_animations);
 
     solve_simulation_time_step(
         *simulation_orig, *depsgraph, influences, handle_map, dependency_animations, time_step);
