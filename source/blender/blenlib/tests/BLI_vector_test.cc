@@ -763,6 +763,7 @@ TEST(vector, Insert1Exceptions)
 TEST(vector, Insert2Exceptions)
 {
   Vector<ExceptionThrower> vec(10);
+  vec.reserve(100);
   vec[8].throw_during_move = true;
   std::array<ExceptionThrower, 5> values;
   EXPECT_ANY_THROW({ vec.insert(3, values); });
