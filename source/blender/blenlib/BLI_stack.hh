@@ -224,7 +224,6 @@ class Stack {
   {
     this->push_as(std::move(value));
   }
-
   template<typename ForwardT> void push_as(ForwardT &&value)
   {
     if (top_ == top_chunk_->capacity_end) {
@@ -333,6 +332,15 @@ class Stack {
     this->destruct_all_elements();
     top_chunk_ = &inline_chunk_;
     top_ = top_chunk_->begin;
+  }
+
+  /* This should only be called by unit tests. */
+  bool is_invariant_maintained() const
+  {
+    if (size_ == 0) {
+      return top_ == inline_chunk_.begin;
+    }
+    return top_ > top_chunk_->begin;
   }
 
  private:

@@ -590,6 +590,7 @@ class Vector {
         /* Destruct all values that have been moved already. */
         destruct_n(begin_ + dst_index + 1, i);
         end_ = begin_ + src_index;
+        UPDATE_VECTOR_SIZE(this);
         throw;
       }
       begin_[src_index].~T();
@@ -602,6 +603,7 @@ class Vector {
       /* Destruct all values that have been moved. */
       destruct_n(begin_ + new_size - move_amount, move_amount);
       end_ = begin_ + insert_index;
+      UPDATE_VECTOR_SIZE(this);
       throw;
     }
     end_ = begin_ + new_size;
