@@ -3,11 +3,6 @@
 
 namespace blender::tests {
 
-enum ExceptionThrowerOptions : uint32_t {
-  ThrowDuringCopy = 1u << 0,
-  ThrowDuringMove = 1u << 1,
-};
-
 struct ExceptionThrower {
   static constexpr uint32_t is_alive_state = 0x21254634;
   static constexpr uint32_t is_destructed_state = 0xFA4BC327;

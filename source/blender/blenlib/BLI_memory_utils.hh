@@ -437,9 +437,9 @@ inline constexpr int64_t default_inline_buffer_capacity(size_t element_size)
 }
 
 /**
- * This can be used by containers to implement an exception-safe copy assignment operator.
- * It assumes that the container has an exception safe copy-constructor and an exception safe move
- * assignment operator.
+ * This can be used by containers to implement an exception-safe copy-assignment-operator.
+ * It assumes that the container has an exception safe copy constructor and an exception-safe
+ * move-assignment-operator.
  */
 template<typename Container> Container &copy_assign_container(Container &dst, const Container &src)
 {
@@ -453,8 +453,8 @@ template<typename Container> Container &copy_assign_container(Container &dst, co
 }
 
 /**
- * This can be used by containers to implement an exception-safe move assignment operator.
- * It assumes that the container has an exception safe move constructor and a noexcept constructor
+ * This can be used by containers to implement an exception-safe move-assignment-operator.
+ * It assumes that the container has an exception-safe move-constructor and a noexcept constructor
  * tagged with the NoExceptConstructor tag.
  */
 template<typename Container>
