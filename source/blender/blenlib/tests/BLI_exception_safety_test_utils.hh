@@ -3,61 +3,62 @@
 
 namespace blender::tests {
 
-enum TestExceptionSafetyTypeOptions : uint32_t {
-  ThrowDuringCopyConstruction = 1u << 0,
-  ThrowDuringMoveConstruction = 1u << 1,
-  ThrowDuringCopyAssignment = 1u << 2,
-  ThrowDuringMoveAssignment = 1u << 3,
+enum ExceptionThrowerOptions : uint32_t {
+  ThrowDuringCopy = 1u << 0,
+  ThrowDuringMove = 1u << 1,
 };
 
-struct TestExceptionSafetyType {
-  bool is_alive;
-  uint32_t options;
+struct ExceptionThrower {
+  static constexpr uint32_t is_alive_state = 0x21254634;
+  static constexpr uint32_t is_destructed_state = 0xFA4BC327;
+  uint32_t state;
+  bool throw_during_copy;
+  bool throw_during_move;
 
-  TestExceptionSafetyType() : is_alive(true), options(0)
+  ExceptionThrower() : state(is_alive_state), throw_during_copy(false), throw_during_move(false)
   {
   }
 
-  TestExceptionSafetyType(const TestExceptionSafetyType &other) : is_alive(true), options(0)
+  ExceptionThrower(const ExceptionThrower &other)
+      : state(is_alive_state), throw_during_copy(false), throw_during_move(false)
   {
-    if (other.options & ThrowDuringCopyConstruction) {
-      throw std::runtime_error("");
+    EXPECT_EQ(other.state, is_alive_state);
+    if (other.throw_during_copy) {
+      throw std::runtime_error("throwing during copy, as requested");
     }
   }
 
-  TestExceptionSafetyType(TestExceptionSafetyType &&other) : is_alive(true), options(0)
+  ExceptionThrower(ExceptionThrower &&other)
+      : state(is_alive_state), throw_during_copy(false), throw_during_move(false)
   {
-    if (other.options & ThrowDuringMoveConstruction) {
-      throw std::runtime_error("");
+    EXPECT_EQ(other.state, is_alive_state);
+    if (other.throw_during_move) {
+      throw std::runtime_error("throwing during move, as requested");
     }
   }
 
-  TestExceptionSafetyType &operator=(const TestExceptionSafetyType &other)
+  ExceptionThrower &operator=(const ExceptionThrower &other)
   {
-    if (options & ThrowDuringCopyAssignment) {
-      throw std::runtime_error("");
-    }
-    if (other.options & ThrowDuringCopyAssignment) {
-      throw std::runtime_error("");
+    EXPECT_EQ(other.state, is_alive_state);
+    if (throw_during_copy || other.throw_during_copy) {
+      throw std::runtime_error("throwing during copy, as requested");
     }
     return *this;
   }
 
-  TestExceptionSafetyType &operator=(TestExceptionSafetyType &&other)
+  ExceptionThrower &operator=(ExceptionThrower &&other)
   {
-    if (options & ThrowDuringMoveAssignment) {
-      throw std::runtime_error("");
-    }
-    if (other.options & ThrowDuringMoveAssignment) {
-      throw std::runtime_error("");
+    EXPECT_EQ(other.state, is_alive_state);
+    if (throw_during_move || other.throw_during_move) {
+      throw std::runtime_error("throwing during move, as requested");
     }
     return *this;
   }
 
-  ~TestExceptionSafetyType()
+  ~ExceptionThrower()
   {
-    EXPECT_TRUE(is_alive);
-    is_alive = false;
+    EXPECT_EQ(state, is_alive_state);
+    state = is_destructed_state;
   }
 };
 

@@ -168,12 +168,11 @@ class Array {
   Array(Array &&other) noexcept(std::is_nothrow_move_constructible_v<T>)
       : Array(NoExceptConstructor(), other.allocator_)
   {
-    if (!other.uses_inline_buffer()) {
-      data_ = other.data_;
+    if (other.uses_inline_buffer()) {
+      uninitialized_relocate_n(other.data_, other.size_, data_);
     }
     else {
-      data_ = this->get_buffer_for_size(other.size_);
-      uninitialized_relocate_n(other.data_, other.size_, data_);
+      data_ = other.data_;
     }
     size_ = other.size_;
 
