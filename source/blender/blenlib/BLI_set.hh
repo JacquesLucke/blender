@@ -575,7 +575,6 @@ class Set {
         this->noexcept_reset();
         throw;
       }
-
       removed_slots_ = 0;
       occupied_and_removed_slots_ = 0;
       usable_slots_ = usable_slots;
@@ -613,7 +612,7 @@ class Set {
     SLOT_PROBING_BEGIN (ProbingStrategy, hash, new_slot_mask, slot_index) {
       Slot &slot = new_slots[slot_index];
       if (slot.is_empty()) {
-        slot.occupy_by_move(old_slot, hash);
+        slot.occupy(std::move(*old_slot.key()), hash);
         return;
       }
     }

@@ -139,18 +139,6 @@ template<typename Key> class SimpleSetSlot {
   }
 
   /**
-   * Move the other slot into this slot. This method assumes that the other slot is occupied and
-   * this slot is empty.
-   */
-  void occupy_by_move(SimpleSetSlot &other, uint64_t UNUSED(hash))
-  {
-    BLI_assert(!this->is_occupied());
-    BLI_assert(other.is_occupied());
-    new (&key_buffer_) Key(std::move(*other.key_buffer_));
-    state_ = Occupied;
-  }
-
-  /**
    * Return true, when this slot is occupied and contains a key that compares equal to the given
    * key. The hash is used by other slot implementations to determine inequality faster.
    */
@@ -258,15 +246,6 @@ template<typename Key> class HashedSetSlot {
     return hash_;
   }
 
-  void occupy_by_move(HashedSetSlot &other, const uint64_t hash)
-  {
-    BLI_assert(!this->is_occupied());
-    BLI_assert(other.is_occupied());
-    new (&key_buffer_) Key(std::move(*other.key_buffer_));
-    state_ = Occupied;
-    hash_ = hash;
-  }
-
   template<typename ForwardKey, typename IsEqual>
   bool contains(const ForwardKey &key, const IsEqual &is_equal, const uint64_t hash) const
   {
@@ -338,13 +317,6 @@ template<typename Key, typename KeyInfo> class IntrusiveSetSlot {
   {
     BLI_assert(this->is_occupied());
     return hash(key_);
-  }
-
-  void occupy_by_move(IntrusiveSetSlot &other, const uint64_t UNUSED(hash))
-  {
-    BLI_assert(!this->is_occupied());
-    BLI_assert(other.is_occupied());
-    key_ = std::move(other.key_);
   }
 
   template<typename ForwardKey, typename IsEqual>
