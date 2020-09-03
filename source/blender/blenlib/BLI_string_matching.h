@@ -18,12 +18,15 @@
 
 #ifdef __cplusplus
 
+#  include "BLI_span.hh"
 #  include "BLI_string_ref.hh"
 
 namespace blender::string_matching {
 
 int levenshtein_distance(StringRef a, StringRef b);
+int initial_characters_distance(StringRef query, StringRef text);
+int filter_and_sort(StringRef query, MutableSpan<StringRef> results);
 
-}
+}  // namespace blender::string_matching
 
 #endif
