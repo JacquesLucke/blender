@@ -106,6 +106,10 @@ static bool is_partial_fuzzy_match(StringRef partial, StringRef full)
   }
   /* Allow more errors when the size grows larger. */
   const int max_errors = partial.size() <= 1 ? 0 : partial.size() / 8 + 1;
+  if (partial.size() - full.size() > max_errors) {
+    return false;
+  }
+
   const int window_count = std::max<int>(0, full.size() - partial.size() - max_errors) + 1;
   const int window_size = partial.size() + max_errors;
   for (const int i : IndexRange(window_count)) {
