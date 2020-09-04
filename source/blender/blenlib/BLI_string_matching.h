@@ -23,9 +23,12 @@
 
 namespace blender::string_matching {
 
-int levenshtein_distance(StringRef a, StringRef b);
-int initial_characters_distance(StringRef query, StringRef text);
-int filter_and_sort(StringRef query, MutableSpan<StringRef> results);
+int damerau_levenshtein_distance(StringRef a,
+                                 StringRef b,
+                                 int deletion_cost = 1,
+                                 int insertion_cost = 1,
+                                 int substitution_cost = 1,
+                                 int transposition_cost = 1);
 
 }  // namespace blender::string_matching
 
