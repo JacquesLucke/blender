@@ -105,6 +105,7 @@ static bool is_partial_fuzzy_match(StringRef partial, StringRef full)
     return true;
   }
   /* Allow more errors when the size grows larger. */
+  /* TODO: Use utf8 code points instead of size. */
   const int max_errors = partial.size() <= 1 ? 0 : partial.size() / 8 + 1;
   if (partial.size() - full.size() > max_errors) {
     return false;
