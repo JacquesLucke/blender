@@ -22,6 +22,7 @@
 #include "BLI_string_matching.h"
 #include "BLI_string_ref.hh"
 #include "BLI_string_utf8.h"
+#include "BLI_timeit.hh"
 
 namespace blender::string_matching {
 
@@ -51,8 +52,6 @@ int damerau_levenshtein_distance(StringRef a,
   MutableSpan v2{rows.data() + row_length * 2, row_length};
 
   /* Only v1 needs to be initialized. */
-  v0.fill(0);
-  v2.fill(0);
   for (const int i : IndexRange(row_length)) {
     v1[i] = i * insertion_cost;
   }
@@ -160,13 +159,18 @@ static bool match_word_initials(StringRef query,
   int word_index = start;
   size_t char_index = 0;
 
+  int first_found_word_index = -1;
+
   while (query_index < query.size()) {
     const uint query_unicode = BLI_str_utf8_as_unicode_and_size(query.data() + query_index,
                                                                 &query_index);
     while (true) {
       if (word_index >= words.size()) {
-        /* TODO: Early recursion stop. */
-        return match_word_initials(query, words, word_is_usable, r_word_is_matched, start + 1);
+        if (first_found_word_index >= 0) {
+          return match_word_initials(
+              query, words, word_is_usable, r_word_is_matched, first_found_word_index + 1);
+        }
+        return false;
       }
       if (!word_is_usable[word_index]) {
         word_index++;
@@ -180,6 +184,9 @@ static bool match_word_initials(StringRef query,
                                                                    &char_index);
         if (query_unicode == char_unicode) {
           r_word_is_matched[word_index] = true;
+          if (first_found_word_index == -1) {
+            first_found_word_index = word_index;
+          }
           break;
         }
       }
@@ -332,6 +339,7 @@ int BLI_string_matching_filter_and_sort(const char *query,
                                         int possible_results_amount,
                                         int **r_filtered_and_sorted_indices)
 {
+  SCOPED_TIMER(__func__);
   using namespace blender;
   Array<StringRef> possible_result_refs(possible_results_amount);
   for (const int i : IndexRange(possible_results_amount)) {
