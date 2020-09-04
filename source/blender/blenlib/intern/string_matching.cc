@@ -164,15 +164,14 @@ static bool match_word_initials(StringRef query,
     const uint query_unicode = BLI_str_utf8_as_unicode_and_size(query.data() + query_index,
                                                                 &query_index);
     while (true) {
+      if (word_index >= words.size()) {
+        /* TODO: Early recursion stop. */
+        return match_word_initials(query, words, word_is_usable, r_word_is_matched, start + 1);
+      }
       if (!word_is_usable[word_index]) {
         word_index++;
         BLI_assert(char_index == 0);
         continue;
-      }
-
-      if (word_index >= words.size()) {
-        /* TODO: Early recursion stop. */
-        return match_word_initials(query, words, word_is_usable, r_word_is_matched, start + 1);
       }
 
       StringRef word = words[word_index];
@@ -249,15 +248,15 @@ static int score_query_against_words(StringRef query, Span<StringRef> result_wor
   Vector<StringRef> query_words;
   extract_normalized_words(query, allocator, query_words);
 
-  Array<bool, 64> handled_result_words(result_words.size(), false);
+  Array<bool, 64> word_is_usable(result_words.size(), true);
 
   for (StringRef query_word : query_words) {
     {
       /* Check if any result word begins with the query word. */
       const int word_index = get_word_index_that_startswith(
-          query_word, result_words, handled_result_words);
+          query_word, result_words, word_is_usable);
       if (word_index >= 0) {
-        handled_result_words[word_index] = true;
+        word_is_usable[word_index] = false;
         continue;
       }
     }
@@ -265,10 +264,10 @@ static int score_query_against_words(StringRef query, Span<StringRef> result_wor
       /* Try to match against word initials. */
       Array<bool, 64> matched_words(result_words.size());
       const bool success = match_word_initials(
-          query_word, result_words, handled_result_words, matched_words);
+          query_word, result_words, word_is_usable, matched_words);
       if (success) {
         for (const int i : result_words.index_range()) {
-          handled_result_words[i] = handled_result_words[i] || matched_words[i];
+          word_is_usable[i] = word_is_usable[i] && matched_words[i];
         }
         continue;
       }
@@ -276,9 +275,9 @@ static int score_query_against_words(StringRef query, Span<StringRef> result_wor
     {
       /* Fuzzy match against words. */
       const int word_index = get_word_index_that_fuzzy_matches(
-          query_word, result_words, handled_result_words);
+          query_word, result_words, word_is_usable);
       if (word_index >= 0) {
-        handled_result_words[word_index] = true;
+        word_is_usable[word_index] = false;
         continue;
       }
     }
@@ -287,8 +286,7 @@ static int score_query_against_words(StringRef query, Span<StringRef> result_wor
     return -1;
   }
 
-  const int handled_word_amount = std::count(
-      handled_result_words.begin(), handled_result_words.end(), true);
+  const int handled_word_amount = std::count(word_is_usable.begin(), word_is_usable.end(), false);
   return handled_word_amount;
 }
 
@@ -314,11 +312,10 @@ Vector<int> filter_and_sort(StringRef query, Span<StringRef> possible_results)
   Vector<int> sorted_result_indices;
   for (const int score : found_scores) {
     Span<int> indices = result_indices_by_score.lookup(score);
-    int *old_end = sorted_result_indices.end();
     sorted_result_indices.extend(indices);
-    std::sort(old_end, sorted_result_indices.end(), [&](int a, int b) {
-      return possible_results[a] < possible_results[b];
-    });
+    std::sort(sorted_result_indices.end() - indices.size(),
+              sorted_result_indices.end(),
+              [&](int a, int b) { return possible_results[a] < possible_results[b]; });
   }
 
   return sorted_result_indices;
