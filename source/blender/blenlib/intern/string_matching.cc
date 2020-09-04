@@ -16,6 +16,7 @@
 
 #include "BLI_array.hh"
 #include "BLI_linear_allocator.hh"
+#include "BLI_multi_value_map.hh"
 #include "BLI_span.hh"
 #include "BLI_string.h"
 #include "BLI_string_matching.h"
@@ -119,9 +120,9 @@ static bool is_partial_fuzzy_match(StringRef partial, StringRef full)
   return false;
 }
 
-void extract_normalized_tokens(StringRef str,
-                               LinearAllocator<> &allocator,
-                               Vector<StringRef> &r_tokens)
+static void extract_normalized_words(StringRef str,
+                                     LinearAllocator<> &allocator,
+                                     Vector<StringRef> &r_words)
 {
   const size_t str_size = static_cast<size_t>(str.size());
   const int max_word_amount = BLI_string_max_possible_word_count(str.size());
@@ -139,8 +140,210 @@ void extract_normalized_tokens(StringRef str,
   for (const int i : IndexRange(word_amount)) {
     const int word_start = word_positions[i][0];
     const int word_length = word_positions[i][1];
-    r_tokens.append(str_copy.substr(word_start, word_length));
+    r_words.append(str_copy.substr(word_start, word_length));
   }
 }
 
+static bool match_word_initials(StringRef query,
+                                Span<StringRef> words,
+                                Span<bool> word_is_usable,
+                                MutableSpan<bool> r_word_is_matched,
+                                int start = 0)
+{
+  if (start >= words.size()) {
+    return false;
+  }
+
+  r_word_is_matched.fill(false);
+
+  size_t query_index = 0;
+  int word_index = start;
+  size_t char_index = 0;
+
+  while (query_index < query.size()) {
+    const uint query_unicode = BLI_str_utf8_as_unicode_and_size(query.data() + query_index,
+                                                                &query_index);
+    while (true) {
+      if (!word_is_usable[word_index]) {
+        word_index++;
+        BLI_assert(char_index == 0);
+        continue;
+      }
+
+      if (word_index >= words.size()) {
+        /* TODO: Early recursion stop. */
+        return match_word_initials(query, words, word_is_usable, r_word_is_matched, start + 1);
+      }
+
+      StringRef word = words[word_index];
+      if (static_cast<int>(char_index) < word.size()) {
+        const uint char_unicode = BLI_str_utf8_as_unicode_and_size(word.data() + char_index,
+                                                                   &char_index);
+        if (query_unicode == char_unicode) {
+          r_word_is_matched[word_index] = true;
+          break;
+        }
+      }
+
+      word_index += 1;
+      char_index = 0;
+    }
+  }
+  return true;
+}
+
+static int get_word_index_that_startswith(StringRef query,
+                                          Span<StringRef> words,
+                                          Span<bool> word_is_usable)
+{
+  for (const int i : words.index_range()) {
+    if (!word_is_usable[i]) {
+      continue;
+    }
+    StringRef word = words[i];
+    if (word.startswith(query)) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+static int get_word_index_that_fuzzy_matches(StringRef query,
+                                             Span<StringRef> words,
+                                             Span<bool> word_is_usable)
+{
+  for (const int i : words.index_range()) {
+    if (!word_is_usable[i]) {
+      continue;
+    }
+    StringRef word = words[i];
+    if (is_partial_fuzzy_match(query, word)) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+struct ResultsCache {
+ public:
+  LinearAllocator<> allocator;
+  Vector<Span<StringRef>> normalized_words;
+};
+
+static void preprocess_possible_results(ResultsCache &cache, Span<StringRef> results)
+{
+  cache.normalized_words.reserve(cache.normalized_words.size() + results.size());
+  Vector<StringRef> words;
+  for (const int i : results.index_range()) {
+    StringRef full_str = results[i];
+    words.clear();
+    extract_normalized_words(full_str, cache.allocator, words);
+    Span<StringRef> normalized_words = cache.allocator.construct_array_copy(words.as_span());
+    cache.normalized_words.append(normalized_words);
+  }
+}
+
+static int score_query_against_words(StringRef query, Span<StringRef> result_words)
+{
+  LinearAllocator<> allocator;
+  Vector<StringRef> query_words;
+  extract_normalized_words(query, allocator, query_words);
+
+  Array<bool, 64> handled_result_words(result_words.size(), false);
+
+  for (StringRef query_word : query_words) {
+    {
+      /* Check if any result word begins with the query word. */
+      const int word_index = get_word_index_that_startswith(
+          query_word, result_words, handled_result_words);
+      if (word_index >= 0) {
+        handled_result_words[word_index] = true;
+        continue;
+      }
+    }
+    {
+      /* Try to match against word initials. */
+      Array<bool, 64> matched_words(result_words.size());
+      const bool success = match_word_initials(
+          query_word, result_words, handled_result_words, matched_words);
+      if (success) {
+        for (const int i : result_words.index_range()) {
+          handled_result_words[i] = handled_result_words[i] || matched_words[i];
+        }
+        continue;
+      }
+    }
+    {
+      /* Fuzzy match against words. */
+      const int word_index = get_word_index_that_fuzzy_matches(
+          query_word, result_words, handled_result_words);
+      if (word_index >= 0) {
+        handled_result_words[word_index] = true;
+        continue;
+      }
+    }
+
+    /* Couldn't match query word with anything. */
+    return -1;
+  }
+
+  const int handled_word_amount = std::count(
+      handled_result_words.begin(), handled_result_words.end(), true);
+  return handled_word_amount;
+}
+
+Vector<int> filter_and_sort(StringRef query, Span<StringRef> possible_results)
+{
+  ResultsCache cache;
+  preprocess_possible_results(cache, possible_results);
+
+  MultiValueMap<int, int> result_indices_by_score;
+  for (const int result_index : possible_results.index_range()) {
+    const int score = score_query_against_words(query, cache.normalized_words[result_index]);
+    if (score >= 0) {
+      result_indices_by_score.add(score, result_index);
+    }
+  }
+
+  Vector<int> found_scores;
+  for (const int score : result_indices_by_score.keys()) {
+    found_scores.append_non_duplicates(score);
+  }
+  std::sort(found_scores.begin(), found_scores.end(), std::greater<int>());
+
+  Vector<int> sorted_result_indices;
+  for (const int score : found_scores) {
+    Span<int> indices = result_indices_by_score.lookup(score);
+    int *old_end = sorted_result_indices.end();
+    sorted_result_indices.extend(indices);
+    std::sort(old_end, sorted_result_indices.end(), [&](int a, int b) {
+      return possible_results[a] < possible_results[b];
+    });
+  }
+
+  return sorted_result_indices;
+}
+
 }  // namespace blender::string_matching
+
+/**
+ * Compares the query to all possible results and returns a sorted list of result indices that
+ * matched the query.
+ */
+int BLI_string_matching_filter_and_sort(const char *query,
+                                        const char **possible_results,
+                                        int possible_results_amount,
+                                        int **r_filtered_and_sorted_indices)
+{
+  using namespace blender;
+  Array<StringRef> possible_result_refs(possible_results_amount);
+  for (const int i : IndexRange(possible_results_amount)) {
+    possible_result_refs[i] = possible_results[i];
+  }
+
+  Vector<int> indices = string_matching::filter_and_sort(query, possible_result_refs);
+  int *indices_ptr = static_cast<int *>(MEM_malloc_arrayN(indices.size(), sizeof(int), AT));
+  memcpy(indices_ptr, indices.data(), sizeof(int) * indices.size());
+  *r_filtered_and_sorted_indices = indices_ptr;
+  return indices.size();
+}

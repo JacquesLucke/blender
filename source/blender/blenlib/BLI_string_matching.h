@@ -20,6 +20,7 @@
 
 #  include "BLI_span.hh"
 #  include "BLI_string_ref.hh"
+#  include "BLI_vector.hh"
 
 namespace blender::string_matching {
 
@@ -30,6 +31,21 @@ int damerau_levenshtein_distance(StringRef a,
                                  int substitution_cost = 1,
                                  int transposition_cost = 1);
 
+Vector<int> filter_and_sort(StringRef query, Span<StringRef> possible_results);
+
 }  // namespace blender::string_matching
 
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+int BLI_string_matching_filter_and_sort(const char *query,
+                                        const char **possible_results,
+                                        int possible_results_amount,
+                                        int **r_filtered_and_sorted_indices);
+
+#ifdef __cplusplus
+}
 #endif
