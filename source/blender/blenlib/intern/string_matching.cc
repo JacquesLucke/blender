@@ -110,15 +110,20 @@ static bool is_partial_fuzzy_match(StringRef partial, StringRef full)
     return false;
   }
 
-  const int window_count = std::max<int>(0, full.size() - partial.size() - max_errors) + 1;
   const int window_size = partial.size() + max_errors;
-  for (const int i : IndexRange(window_count)) {
-    StringRef window = full.substr(i, window_size);
+  int window_start = 0;
+  while (window_start < std::max<int>(1, full.size() - window_size + 1)) {
+    StringRef window = full.substr(window_start, window_size);
     const int extra_chars = window.size() - partial.size();
+    const int max_acceptable_distance = max_errors + extra_chars;
     const int distance = damerau_levenshtein_distance(partial, window);
-    if (distance <= max_errors + extra_chars) {
+    if (distance <= max_acceptable_distance) {
       return true;
     }
+    /* Sometimes we can jump further ahead, because there are too many errors in the current
+     * window. */
+    const int distance_offset = std::max(1, (distance - max_acceptable_distance) / 2);
+    window_start += distance_offset;
   }
   return false;
 }
