@@ -41,6 +41,7 @@
 #include "BLI_math_matrix.h"
 #include "BLI_memarena.h"
 #include "BLI_string.h"
+#include "BLI_string_matching.h"
 #include "BLI_string_utils.h"
 #include "BLI_utildefines.h"
 
@@ -993,19 +994,33 @@ static void menu_search_update_fn(const bContext *UNUSED(C),
 {
   struct MenuSearch_Data *data = arg;
 
-  /* Prepare BLI_string_all_words_matched. */
-  const size_t str_len = strlen(str);
-  const int words_max = BLI_string_max_possible_word_count(str_len);
-  int(*words)[2] = BLI_array_alloca(words, words_max);
-  const int words_len = BLI_string_find_split_words(str, str_len, ' ', words, words_max);
-
-  for (struct MenuSearch_Item *item = data->items.first; item; item = item->next) {
-    if (BLI_string_all_words_matched(item->drawwstr_full, str, words, words_len)) {
-      if (!UI_search_item_add(items, item->drawwstr_full, item, item->icon, item->state, 0)) {
-        break;
-      }
+  const int count = BLI_listbase_count(&data->items);
+  const char **possible_results = MEM_malloc_arrayN(count, sizeof(char *), AT);
+  struct MenuSearch_Item **item_array = MEM_malloc_arrayN(
+      count, sizeof(struct MenuSearch_Item *), AT);
+  {
+    struct MenuSearch_Item *item = data->items.first;
+    for (int i = 0; i < count; i++) {
+      possible_results[i] = item->drawwstr_full;
+      item_array[i] = item;
+      item = item->next;
     }
   }
+  int *filtered_indices;
+  int filtered_amount = BLI_string_matching_filter_and_sort(
+      str, possible_results, count, &filtered_indices);
+
+  for (int i = 0; i < filtered_amount; i++) {
+    const int result_index = filtered_indices[i];
+    struct MenuSearch_Item *item = item_array[result_index];
+    if (!UI_search_item_add(items, item->drawwstr_full, item, item->icon, item->state, 0)) {
+      break;
+    }
+  }
+
+  MEM_freeN(possible_results);
+  MEM_freeN(item_array);
+  MEM_freeN(filtered_indices);
 }
 
 /** \} */
