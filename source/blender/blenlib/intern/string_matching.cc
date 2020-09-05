@@ -131,32 +131,43 @@ int damerau_levenshtein_distance(StringRef a,
   return v1.last();
 }
 
-static bool is_partial_fuzzy_match(StringRef partial, StringRef full)
+bool is_partial_fuzzy_match(StringRef partial, StringRef full)
 {
   if (full.find(partial) != StringRef::not_found) {
     return true;
   }
+
+  const int partial_size = Utf8StringRef(partial).size_in_code_points();
+  const int full_size = Utf8StringRef(full).size_in_code_points();
+
   /* Allow more errors when the size grows larger. */
   /* TODO: Use utf8 code points instead of size. */
-  const int max_errors = partial.size() <= 1 ? 0 : partial.size() / 8 + 1;
-  if (partial.size() - full.size() > max_errors) {
+  const int max_errors = partial_size <= 1 ? 0 : partial_size / 8 + 1;
+  if (partial_size - full_size > max_errors) {
     return false;
   }
 
-  const int window_size = partial.size() + max_errors;
-  int window_start = 0;
-  while (window_start < std::max<int>(1, full.size() - window_size + 1)) {
-    StringRef window = full.substr(window_start, window_size);
-    const int extra_chars = window.size() - partial.size();
-    const int max_acceptable_distance = max_errors + extra_chars;
+  const char *full_begin = full.begin();
+  const char *full_end = full.end();
+
+  const char *window_begin = full_begin;
+  const char *window_end = window_begin;
+  const int window_size = std::min(partial_size + max_errors, full_size);
+  const int extra_chars = window_size - partial_size;
+  const int max_acceptable_distance = max_errors + extra_chars;
+
+  for (int i = 0; i < window_size; i++) {
+    window_end += BLI_str_utf8_size(window_end);
+  }
+
+  while (window_end <= full_end) {
+    StringRef window{window_begin, window_end};
     const int distance = damerau_levenshtein_distance(partial, window);
     if (distance <= max_acceptable_distance) {
       return true;
     }
-    /* Sometimes we can jump further ahead, because there are too many errors in the current
-     * window. */
-    const int distance_offset = std::max(1, (distance - max_acceptable_distance) / 2);
-    window_start += distance_offset;
+    window_begin += BLI_str_utf8_size(window_begin);
+    window_end += BLI_str_utf8_size(window_end);
   }
   return false;
 }

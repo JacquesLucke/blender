@@ -24,4 +24,13 @@ TEST(string_matching, damerau_levenshtein_distance)
   EXPECT_EQ(damerau_levenshtein_distance("what", "ahwt"), 2);
 }
 
+TEST(string_matching, is_partial_fuzzy_match)
+{
+  EXPECT_FALSE(is_partial_fuzzy_match("a", "b"));
+  EXPECT_TRUE(is_partial_fuzzy_match("", "abc"));
+  EXPECT_TRUE(is_partial_fuzzy_match("hello", "hallo"));
+  EXPECT_FALSE(is_partial_fuzzy_match("hap", "hello"));
+  EXPECT_FALSE(is_partial_fuzzy_match("armature", "▶restore"));
+}
+
 }  // namespace blender::string_matching::tests

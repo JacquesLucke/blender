@@ -31,6 +31,8 @@ int damerau_levenshtein_distance(StringRef a,
                                  int substitution_cost = 1,
                                  int transposition_cost = 1);
 
+bool is_partial_fuzzy_match(StringRef partial, StringRef full);
+
 Vector<int> filter_and_sort(StringRef query, Span<StringRef> possible_results);
 
 }  // namespace blender::string_matching
