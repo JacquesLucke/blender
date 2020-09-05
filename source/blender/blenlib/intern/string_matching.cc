@@ -141,7 +141,6 @@ bool is_partial_fuzzy_match(StringRef partial, StringRef full)
   const int full_size = Utf8StringRef(full).size_in_code_points();
 
   /* Allow more errors when the size grows larger. */
-  /* TODO: Use utf8 code points instead of size. */
   const int max_errors = partial_size <= 1 ? 0 : partial_size / 8 + 1;
   if (partial_size - full_size > max_errors) {
     return false;
