@@ -26,6 +26,45 @@
 
 namespace blender::string_matching {
 
+class Utf8StringRef {
+ private:
+  const char *data_ = nullptr;
+  int64_t size_in_bytes_ = 0;
+
+ public:
+  Utf8StringRef() = default;
+
+  Utf8StringRef(const char *data, const int64_t size_in_bytes)
+      : data_(data), size_in_bytes_(size_in_bytes)
+  {
+  }
+
+  Utf8StringRef(StringRef str) : data_(str.data()), size_in_bytes_(str.size())
+  {
+  }
+
+  uint32_t next()
+  {
+    BLI_assert(size_in_bytes_ > 0);
+    BLI_assert(BLI_str_utf8_size(data_) >= 0);
+    size_t code_point_size = 0;
+    uint32_t unicode = BLI_str_utf8_as_unicode_and_size(data_, &code_point_size);
+    data_ += code_point_size;
+    size_in_bytes_ -= static_cast<int64_t>(code_point_size);
+    return unicode;
+  }
+
+  int64_t size_in_bytes() const
+  {
+    return size_in_bytes_;
+  }
+
+  int64_t size_in_code_points() const
+  {
+    return static_cast<int64_t>(BLI_strnlen_utf8(data_, static_cast<size_t>(size_in_bytes_)));
+  }
+};
+
 /**
  * Computes the cost of transforming string a into b.
  */
@@ -36,8 +75,8 @@ int damerau_levenshtein_distance(StringRef a,
                                  int substitution_cost,
                                  int transposition_cost)
 {
-  const int len_a = static_cast<int>(BLI_strnlen_utf8(a.data(), static_cast<size_t>(a.size())));
-  const int len_b = static_cast<int>(BLI_strnlen_utf8(b.data(), static_cast<size_t>(b.size())));
+  const int len_a = Utf8StringRef(a).size_in_code_points();
+  const int len_b = Utf8StringRef(b).size_in_code_points();
 
   /* Instead of keeping the entire table in memory, only keep three rows. The algorithm only
    * accesses these rows and nothing older.
@@ -57,23 +96,16 @@ int damerau_levenshtein_distance(StringRef a,
   }
 
   uint prev_unicode_a;
-  const char *current_a = a.data();
+  Utf8StringRef utf8_a{a};
   for (const int i : IndexRange(len_a)) {
     v2[0] = (i + 1) * deletion_cost;
 
-    /* Get and step over the next unicode code point from string a. */
-    size_t code_point_size_a = 0;
-    const uint unicode_a = BLI_str_utf8_as_unicode_and_size(current_a, &code_point_size_a);
+    const uint32_t unicode_a = utf8_a.next();
 
-    current_a += code_point_size_a;
-
-    uint prev_unicode_b;
-    const char *current_b = b.data();
+    uint32_t prev_unicode_b;
+    Utf8StringRef utf8_b{b};
     for (const int j : IndexRange(len_b)) {
-      /* Get and step over the next unicode code point from string b. */
-      size_t code_point_size_b = 0;
-      const uint unicode_b = BLI_str_utf8_as_unicode_and_size(current_b, &code_point_size_b);
-      current_b += code_point_size_b;
+      const uint32_t unicode_b = utf8_b.next();
 
       /* Check how costly the different operations would be and pick the cheapest - the one with
        * minimal cost. */
