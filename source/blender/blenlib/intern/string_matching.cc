@@ -159,16 +159,22 @@ bool is_partial_fuzzy_match(StringRef partial, StringRef full)
     window_end += BLI_str_utf8_size(window_end);
   }
 
-  while (window_end <= full_end) {
+  while (true) {
     StringRef window{window_begin, window_end};
     const int distance = damerau_levenshtein_distance(partial, window);
     if (distance <= max_acceptable_distance) {
       return true;
     }
-    window_begin += BLI_str_utf8_size(window_begin);
-    window_end += BLI_str_utf8_size(window_end);
+    if (window_end == full_end) {
+      return false;
+    }
+
+    const int window_offset = std::max(1, distance / 2);
+    for (int i = 0; i < window_offset && window_end < full_end; i++) {
+      window_begin += BLI_str_utf8_size(window_begin);
+      window_end += BLI_str_utf8_size(window_end);
+    }
   }
-  return false;
 }
 
 static void extract_normalized_words(StringRef str,
