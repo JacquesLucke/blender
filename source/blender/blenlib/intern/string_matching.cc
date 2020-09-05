@@ -133,6 +133,7 @@ int damerau_levenshtein_distance(StringRef a,
 
 bool is_partial_fuzzy_match(StringRef partial, StringRef full)
 {
+  /* If it is a perfect partial match, return true immediatly. */
   if (full.find(partial) != StringRef::not_found) {
     return true;
   }
@@ -140,11 +141,21 @@ bool is_partial_fuzzy_match(StringRef partial, StringRef full)
   const int partial_size = Utf8StringRef(partial).size_in_code_points();
   const int full_size = Utf8StringRef(full).size_in_code_points();
 
+  /* If there is only a single character which is not in the full string, this is not a match. */
+  if (partial_size == 1) {
+    return false;
+  }
+  BLI_assert(partial.size() >= 2);
+
   /* Allow more errors when the size grows larger. */
   const int max_errors = partial_size <= 1 ? 0 : partial_size / 8 + 1;
   if (partial_size - full_size > max_errors) {
     return false;
   }
+
+  const uint32_t partial_first_unicode = BLI_str_utf8_as_unicode(partial.data());
+  const uint32_t partial_second_unicode = BLI_str_utf8_as_unicode(
+      partial.data() + BLI_str_utf8_size(partial.data()));
 
   const char *full_begin = full.begin();
   const char *full_end = full.end();
@@ -161,9 +172,15 @@ bool is_partial_fuzzy_match(StringRef partial, StringRef full)
 
   while (true) {
     StringRef window{window_begin, window_end};
-    const int distance = damerau_levenshtein_distance(partial, window);
+    const uint32_t window_begin_unicode = BLI_str_utf8_as_unicode(window_begin);
+    int distance = 0;
+    /* Expect that the first or second character of the query is correct. This helps to avoid
+     * computing the more expensive distance function. */
+    if (ELEM(window_begin_unicode, partial_first_unicode, partial_second_unicode)) {
+      distance = damerau_levenshtein_distance(partial, window);
     if (distance <= max_acceptable_distance) {
       return true;
+    }
     }
     if (window_end == full_end) {
       return false;
