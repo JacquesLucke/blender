@@ -65,10 +65,18 @@ class Utf8StringRef {
   }
 };
 
+static int64_t count_utf8_code_points(StringRef str)
+{
+  return static_cast<int64_t>(BLI_strnlen_utf8(str.data(), static_cast<size_t>(str.size())));
+}
+
 /**
  * Computes the cost of transforming string a into b. The cost/distance is the minimal number of
  * operations that need to be executed. Valid operations are deletion, insertion, substitution and
  * transposition.
+ *
+ * This function is utf8 aware in the sense that it works at the level of individual code points
+ * (1-4 bytes long) instead of on individual bytes.
  */
 int damerau_levenshtein_distance(StringRef a, StringRef b)
 {
@@ -77,14 +85,14 @@ int damerau_levenshtein_distance(StringRef a, StringRef b)
   constexpr int substitution_cost = 1;
   constexpr int transposition_cost = 1;
 
-  const int len_a = Utf8StringRef(a).size_in_code_points();
-  const int len_b = Utf8StringRef(b).size_in_code_points();
+  const int size_a = count_utf8_code_points(a);
+  const int size_b = count_utf8_code_points(b);
 
   /* Instead of keeping the entire table in memory, only keep three rows. The algorithm only
    * accesses these rows and nothing older.
    * All three rows are usually allocated on the stack. At most a single heap allocation is done,
    * if the reserved stack space is too small. */
-  const int row_length = len_b + 1;
+  const int row_length = size_b + 1;
   Array<int, 64> rows(row_length * 3);
 
   /* Store rows as spans so that it is cheap to swap them. */
@@ -99,14 +107,14 @@ int damerau_levenshtein_distance(StringRef a, StringRef b)
 
   uint prev_unicode_a;
   Utf8StringRef utf8_a{a};
-  for (const int i : IndexRange(len_a)) {
+  for (const int i : IndexRange(size_a)) {
     v2[0] = (i + 1) * deletion_cost;
 
     const uint32_t unicode_a = utf8_a.next();
 
     uint32_t prev_unicode_b;
     Utf8StringRef utf8_b{b};
-    for (const int j : IndexRange(len_b)) {
+    for (const int j : IndexRange(size_b)) {
       const uint32_t unicode_b = utf8_b.next();
 
       /* Check how costly the different operations would be and pick the cheapest - the one with
@@ -140,8 +148,8 @@ bool is_partial_fuzzy_match(StringRef partial, StringRef full)
     return true;
   }
 
-  const int partial_size = Utf8StringRef(partial).size_in_code_points();
-  const int full_size = Utf8StringRef(full).size_in_code_points();
+  const int partial_size = count_utf8_code_points(partial);
+  const int full_size = count_utf8_code_points(full);
 
   /* If there is only a single character which is not in the full string, this is not a match. */
   if (partial_size == 1) {
