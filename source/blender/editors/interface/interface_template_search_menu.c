@@ -994,6 +994,7 @@ static void menu_search_update_fn(const bContext *UNUSED(C),
 {
   struct MenuSearch_Data *data = arg;
 
+  /* Prepare array that contains possible results. */
   const int count = BLI_listbase_count(&data->items);
   const char **possible_results = MEM_malloc_arrayN(count, sizeof(char *), AT);
   struct MenuSearch_Item **item_array = MEM_malloc_arrayN(
@@ -1006,10 +1007,13 @@ static void menu_search_update_fn(const bContext *UNUSED(C),
       item = item->next;
     }
   }
+
+  /* Filter and sort the results. */
   int *filtered_indices;
   int filtered_amount = BLI_string_matching_filter_and_sort(
       str, possible_results, count, &filtered_indices);
 
+  /* Add filtered results to the search menu. */
   for (int i = 0; i < filtered_amount; i++) {
     const int result_index = filtered_indices[i];
     struct MenuSearch_Item *item = item_array[result_index];
