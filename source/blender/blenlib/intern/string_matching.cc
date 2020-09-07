@@ -66,15 +66,17 @@ class Utf8StringRef {
 };
 
 /**
- * Computes the cost of transforming string a into b.
+ * Computes the cost of transforming string a into b. The cost/distance is the minimal number of
+ * operations that need to be executed. Valid operations are deletion, insertion, substitution and
+ * transposition.
  */
-int damerau_levenshtein_distance(StringRef a,
-                                 StringRef b,
-                                 int deletion_cost,
-                                 int insertion_cost,
-                                 int substitution_cost,
-                                 int transposition_cost)
+int damerau_levenshtein_distance(StringRef a, StringRef b)
 {
+  constexpr int deletion_cost = 1;
+  constexpr int insertion_cost = 1;
+  constexpr int substitution_cost = 1;
+  constexpr int transposition_cost = 1;
+
   const int len_a = Utf8StringRef(a).size_in_code_points();
   const int len_b = Utf8StringRef(b).size_in_code_points();
 
@@ -178,9 +180,9 @@ bool is_partial_fuzzy_match(StringRef partial, StringRef full)
      * computing the more expensive distance function. */
     if (ELEM(window_begin_unicode, partial_first_unicode, partial_second_unicode)) {
       distance = damerau_levenshtein_distance(partial, window);
-    if (distance <= max_acceptable_distance) {
-      return true;
-    }
+      if (distance <= max_acceptable_distance) {
+        return true;
+      }
     }
     if (window_end == full_end) {
       return false;

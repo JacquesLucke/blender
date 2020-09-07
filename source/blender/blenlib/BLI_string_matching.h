@@ -24,12 +24,7 @@
 
 namespace blender::string_matching {
 
-int damerau_levenshtein_distance(StringRef a,
-                                 StringRef b,
-                                 int deletion_cost = 1,
-                                 int insertion_cost = 1,
-                                 int substitution_cost = 1,
-                                 int transposition_cost = 1);
+int damerau_levenshtein_distance(StringRef a, StringRef b);
 
 bool is_partial_fuzzy_match(StringRef partial, StringRef full);
 
