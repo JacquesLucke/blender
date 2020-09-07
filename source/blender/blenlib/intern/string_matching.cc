@@ -339,7 +339,9 @@ static int score_query_against_words(Span<StringRef> query_words, Span<StringRef
           query_word, result_words, word_is_usable, matched_words);
       if (success) {
         for (const int i : result_words.index_range()) {
-          word_is_usable[i] = word_is_usable[i] && matched_words[i];
+          if (matched_words[i]) {
+            word_is_usable[i] = false;
+          }
         }
         continue;
       }
