@@ -26,45 +26,6 @@
 
 namespace blender::string_matching {
 
-class Utf8StringRef {
- private:
-  const char *data_ = nullptr;
-  int64_t size_in_bytes_ = 0;
-
- public:
-  Utf8StringRef() = default;
-
-  Utf8StringRef(const char *data, const int64_t size_in_bytes)
-      : data_(data), size_in_bytes_(size_in_bytes)
-  {
-  }
-
-  Utf8StringRef(StringRef str) : data_(str.data()), size_in_bytes_(str.size())
-  {
-  }
-
-  uint32_t next()
-  {
-    BLI_assert(size_in_bytes_ > 0);
-    BLI_assert(BLI_str_utf8_size(data_) >= 0);
-    size_t code_point_size = 0;
-    uint32_t unicode = BLI_str_utf8_as_unicode_and_size(data_, &code_point_size);
-    data_ += code_point_size;
-    size_in_bytes_ -= static_cast<int64_t>(code_point_size);
-    return unicode;
-  }
-
-  int64_t size_in_bytes() const
-  {
-    return size_in_bytes_;
-  }
-
-  int64_t size_in_code_points() const
-  {
-    return static_cast<int64_t>(BLI_strnlen_utf8(data_, static_cast<size_t>(size_in_bytes_)));
-  }
-};
-
 static int64_t count_utf8_code_points(StringRef str)
 {
   return static_cast<int64_t>(BLI_strnlen_utf8(str.data(), static_cast<size_t>(str.size())));
@@ -105,17 +66,17 @@ int damerau_levenshtein_distance(StringRef a, StringRef b)
     v1[i] = i * insertion_cost;
   }
 
-  uint prev_unicode_a;
-  Utf8StringRef utf8_a{a};
+  uint32_t prev_unicode_a;
+  size_t offset_a = 0;
   for (const int i : IndexRange(size_a)) {
     v2[0] = (i + 1) * deletion_cost;
 
-    const uint32_t unicode_a = utf8_a.next();
+    const uint32_t unicode_a = BLI_str_utf8_as_unicode_and_size(a.data() + offset_a, &offset_a);
 
     uint32_t prev_unicode_b;
-    Utf8StringRef utf8_b{b};
+    size_t offset_b = 0;
     for (const int j : IndexRange(size_b)) {
-      const uint32_t unicode_b = utf8_b.next();
+      const uint32_t unicode_b = BLI_str_utf8_as_unicode_and_size(b.data() + offset_b, &offset_b);
 
       /* Check how costly the different operations would be and pick the cheapest - the one with
        * minimal cost. */
