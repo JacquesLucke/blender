@@ -312,25 +312,6 @@ static int get_word_index_that_fuzzy_matches(StringRef query,
   return -1;
 }
 
-struct ResultsCache {
- public:
-  LinearAllocator<> allocator;
-  Vector<Span<StringRef>> normalized_words;
-};
-
-static void preprocess_possible_results(ResultsCache &cache, Span<StringRef> results)
-{
-  cache.normalized_words.reserve(cache.normalized_words.size() + results.size());
-  Vector<StringRef> words;
-  for (const int i : results.index_range()) {
-    StringRef full_str = results[i];
-    words.clear();
-    extract_normalized_words(full_str, cache.allocator, words);
-    Span<StringRef> normalized_words = cache.allocator.construct_array_copy(words.as_span());
-    cache.normalized_words.append(normalized_words);
-  }
-}
-
 static int score_query_against_words(StringRef query, Span<StringRef> result_words)
 {
   LinearAllocator<> allocator;
@@ -383,14 +364,28 @@ static int score_query_against_words(StringRef query, Span<StringRef> result_wor
   return total_score;
 }
 
+static Vector<Span<StringRef>> preprocess_words(LinearAllocator<> &allocator,
+                                                Span<StringRef> results)
+{
+  Vector<Span<StringRef>> normalized_words(results.size());
+  Vector<StringRef> words;
+  for (const int i : results.index_range()) {
+    StringRef full_str = results[i];
+    words.clear();
+    extract_normalized_words(full_str, allocator, words);
+    normalized_words[i] = allocator.construct_array_copy(words.as_span());
+  }
+  return normalized_words;
+}
+
 Vector<int> filter_and_sort(StringRef query, Span<StringRef> possible_results)
 {
-  ResultsCache cache;
-  preprocess_possible_results(cache, possible_results);
+  LinearAllocator<> allocator;
+  Vector<Span<StringRef>> normalized_words = preprocess_words(allocator, possible_results);
 
   MultiValueMap<int, int> result_indices_by_score;
   for (const int result_index : possible_results.index_range()) {
-    const int score = score_query_against_words(query, cache.normalized_words[result_index]);
+    const int score = score_query_against_words(query, normalized_words[result_index]);
     if (score >= 0) {
       result_indices_by_score.add(score, result_index);
     }
@@ -417,16 +412,20 @@ Vector<int> filter_and_sort(StringRef query, Span<StringRef> possible_results)
 }  // namespace blender::string_matching
 
 /**
- * Compares the query to all possible results and returns a sorted list of result indices that
+ * Compares the query to all possible results and returns a sorted array of result indices that
  * matched the query.
+ *
+ * A pointer to the array is returned in r_indices. The length is returned as return value. The
+ * caller is responsible for freeing the array.
  */
 int BLI_string_matching_filter_and_sort(const char *query,
                                         const char **possible_results,
                                         int possible_results_amount,
-                                        int **r_filtered_and_sorted_indices)
+                                        int **r_indices)
 {
   SCOPED_TIMER(__func__);
   using namespace blender;
+
   Array<StringRef> possible_result_refs(possible_results_amount);
   for (const int i : IndexRange(possible_results_amount)) {
     possible_result_refs[i] = possible_results[i];
@@ -435,6 +434,6 @@ int BLI_string_matching_filter_and_sort(const char *query,
   Vector<int> indices = string_matching::filter_and_sort(query, possible_result_refs);
   int *indices_ptr = static_cast<int *>(MEM_malloc_arrayN(indices.size(), sizeof(int), AT));
   memcpy(indices_ptr, indices.data(), sizeof(int) * indices.size());
-  *r_filtered_and_sorted_indices = indices_ptr;
+  *r_indices = indices_ptr;
   return indices.size();
 }

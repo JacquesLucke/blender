@@ -41,7 +41,7 @@ extern "C" {
 int BLI_string_matching_filter_and_sort(const char *query,
                                         const char **possible_results,
                                         int possible_results_amount,
-                                        int **r_filtered_and_sorted_indices);
+                                        int **r_indices);
 
 #ifdef __cplusplus
 }
