@@ -400,7 +400,7 @@ Vector<int> filter_and_sort(StringRef query, Span<StringRef> possible_results)
 
   Vector<int> found_scores;
   for (const int score : result_indices_by_score.keys()) {
-    found_scores.append_non_duplicates(score);
+    found_scores.append(score);
   }
   std::sort(found_scores.begin(), found_scores.end(), std::greater<int>());
 
