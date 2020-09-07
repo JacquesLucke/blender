@@ -201,6 +201,16 @@ static void extract_normalized_words(StringRef str,
   }
 }
 
+/**
+ * Takes a query and tries to match it with the first characters of some words. For example, "msfv"
+ * matches "Mark Sharp from Vertices". Multiple letters of the beginning of a word can be matched
+ * as well. For example, "seboulo" matches "select boundary loop". The order of words is important.
+ * So "bose" does not match "select boundary". However, individual words can be skipped. For
+ * example, "rocc" matches "rotate edge ccw".
+ *
+ * Returns true when the match was successfull. If it was successfull, the used words are tagged in
+ * r_word_is_matched.
+ */
 static bool match_word_initials(StringRef query,
                                 Span<StringRef> words,
                                 Span<bool> word_is_usable,
@@ -223,13 +233,18 @@ static bool match_word_initials(StringRef query,
     const uint query_unicode = BLI_str_utf8_as_unicode_and_size(query.data() + query_index,
                                                                 &query_index);
     while (true) {
+      /* We are at the end of words, no complete match has been found yet. */
       if (word_index >= words.size()) {
         if (first_found_word_index >= 0) {
+          /* Try starting to match at another word. In some cases one can still find matches this
+           * way. */
           return match_word_initials(
               query, words, word_is_usable, r_word_is_matched, first_found_word_index + 1);
         }
         return false;
       }
+
+      /* Skip words that the caller does not want us to use. */
       if (!word_is_usable[word_index]) {
         word_index++;
         BLI_assert(char_index == 0);
@@ -237,9 +252,10 @@ static bool match_word_initials(StringRef query,
       }
 
       StringRef word = words[word_index];
+      /* Try to match the current character with the current word. */
       if (static_cast<int>(char_index) < word.size()) {
-        const uint char_unicode = BLI_str_utf8_as_unicode_and_size(word.data() + char_index,
-                                                                   &char_index);
+        const uint32_t char_unicode = BLI_str_utf8_as_unicode_and_size(word.data() + char_index,
+                                                                       &char_index);
         if (query_unicode == char_unicode) {
           r_word_is_matched[word_index] = true;
           if (first_found_word_index == -1) {
@@ -249,6 +265,7 @@ static bool match_word_initials(StringRef query,
         }
       }
 
+      /* Could not find a match in the current word, go to the beginning of the next word. */
       word_index += 1;
       char_index = 0;
     }
@@ -362,7 +379,8 @@ static int score_query_against_words(StringRef query, Span<StringRef> result_wor
   }
 
   const int handled_word_amount = std::count(word_is_usable.begin(), word_is_usable.end(), false);
-  return handled_word_amount * 5 + total_fuzzy_match_errors;
+  const int total_score = handled_word_amount * 5 - total_fuzzy_match_errors;
+  return total_score;
 }
 
 Vector<int> filter_and_sort(StringRef query, Span<StringRef> possible_results)
