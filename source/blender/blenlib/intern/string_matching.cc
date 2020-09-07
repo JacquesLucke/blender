@@ -382,11 +382,14 @@ static Vector<Span<StringRef>> preprocess_words(LinearAllocator<> &allocator,
 Vector<int> filter_and_sort(StringRef query, Span<StringRef> possible_results)
 {
   LinearAllocator<> allocator;
+  /* Split and normalize all possible results. In the future we might want to do this only once and
+   * not every time the query changes. */
   Vector<Span<StringRef>> normalized_words = preprocess_words(allocator, possible_results);
 
   Vector<StringRef> query_words;
   extract_normalized_words(query, allocator, query_words);
 
+  /* Compute score of every result. */
   MultiValueMap<int, int> result_indices_by_score;
   for (const int result_index : possible_results.index_range()) {
     const int score = score_query_against_words(query_words, normalized_words[result_index]);
@@ -401,6 +404,8 @@ Vector<int> filter_and_sort(StringRef query, Span<StringRef> possible_results)
   }
   std::sort(found_scores.begin(), found_scores.end(), std::greater<int>());
 
+  /* Add results to output vector in correct order. First come the results with the best match
+   * score. Results with the same score are sorted alphabetically. */
   Vector<int> sorted_result_indices;
   for (const int score : found_scores) {
     Span<int> indices = result_indices_by_score.lookup(score);
