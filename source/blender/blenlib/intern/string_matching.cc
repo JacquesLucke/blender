@@ -361,7 +361,7 @@ static int score_query_against_words(Span<StringRef> query_words, Span<StringRef
   }
 
   const int handled_word_amount = std::count(word_is_usable.begin(), word_is_usable.end(), false);
-  const int total_score = handled_word_amount * 5 - total_fuzzy_match_errors;
+  const int total_score = handled_word_amount * 100 - total_fuzzy_match_errors;
   return total_score;
 }
 
@@ -432,7 +432,6 @@ int BLI_string_matching_filter_and_sort(const char *query,
                                         int possible_results_amount,
                                         int **r_indices)
 {
-  SCOPED_TIMER(__func__);
   using namespace blender;
 
   Array<StringRef> possible_result_refs(possible_results_amount);
