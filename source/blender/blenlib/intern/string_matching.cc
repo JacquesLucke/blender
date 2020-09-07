@@ -312,11 +312,12 @@ static int get_word_index_that_fuzzy_matches(StringRef query,
   return -1;
 }
 
-static int score_query_against_words(StringRef query, Span<StringRef> result_words)
+/**
+ * Checks how well the query matches a result. If it does not match, -1 is returned. A positive
+ * return value indicates how good the match is. The higher the value, the better the match.
+ */
+static int score_query_against_words(Span<StringRef> query_words, Span<StringRef> result_words)
 {
-  LinearAllocator<> allocator;
-  Vector<StringRef> query_words;
-  extract_normalized_words(query, allocator, query_words);
 
   Array<bool, 64> word_is_usable(result_words.size(), true);
   int total_fuzzy_match_errors = 0;
@@ -383,9 +384,12 @@ Vector<int> filter_and_sort(StringRef query, Span<StringRef> possible_results)
   LinearAllocator<> allocator;
   Vector<Span<StringRef>> normalized_words = preprocess_words(allocator, possible_results);
 
+  Vector<StringRef> query_words;
+  extract_normalized_words(query, allocator, query_words);
+
   MultiValueMap<int, int> result_indices_by_score;
   for (const int result_index : possible_results.index_range()) {
-    const int score = score_query_against_words(query, normalized_words[result_index]);
+    const int score = score_query_against_words(query_words, normalized_words[result_index]);
     if (score >= 0) {
       result_indices_by_score.add(score, result_index);
     }
