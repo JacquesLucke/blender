@@ -26,7 +26,7 @@ namespace blender::string_matching {
 
 int damerau_levenshtein_distance(StringRef a, StringRef b);
 
-bool is_partial_fuzzy_match(StringRef partial, StringRef full);
+int get_fuzzy_match_errors(StringRef query, StringRef full);
 
 Vector<int> filter_and_sort(StringRef query, Span<StringRef> possible_results);
 

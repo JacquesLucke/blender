@@ -102,39 +102,45 @@ int damerau_levenshtein_distance(StringRef a, StringRef b)
   return v1.last();
 }
 
-bool is_partial_fuzzy_match(StringRef partial, StringRef full)
+/**
+ * Returns -1 when this is no reasonably good match.
+ * Otherwise returns the number of errors in the match.
+ */
+int get_fuzzy_match_errors(StringRef query, StringRef full)
 {
-  /* If it is a perfect partial match, return true immediatly. */
-  if (full.find(partial) != StringRef::not_found) {
-    return true;
+  /* If it is a perfect partial match, return immediatly. */
+  if (full.find(query) != StringRef::not_found) {
+    return 0;
   }
 
-  const int partial_size = count_utf8_code_points(partial);
+  const int query_size = count_utf8_code_points(query);
   const int full_size = count_utf8_code_points(full);
 
   /* If there is only a single character which is not in the full string, this is not a match. */
-  if (partial_size == 1) {
-    return false;
+  if (query_size == 1) {
+    return -1;
   }
-  BLI_assert(partial.size() >= 2);
+  BLI_assert(query.size() >= 2);
 
   /* Allow more errors when the size grows larger. */
-  const int max_errors = partial_size <= 1 ? 0 : partial_size / 8 + 1;
-  if (partial_size - full_size > max_errors) {
-    return false;
+  const int max_errors = query_size <= 1 ? 0 : query_size / 8 + 1;
+
+  /* If the query is too large, this cannot be a match. */
+  if (query_size - full_size > max_errors) {
+    return -1;
   }
 
-  const uint32_t partial_first_unicode = BLI_str_utf8_as_unicode(partial.data());
-  const uint32_t partial_second_unicode = BLI_str_utf8_as_unicode(
-      partial.data() + BLI_str_utf8_size(partial.data()));
+  const uint32_t query_first_unicode = BLI_str_utf8_as_unicode(query.data());
+  const uint32_t query_second_unicode = BLI_str_utf8_as_unicode(query.data() +
+                                                                BLI_str_utf8_size(query.data()));
 
   const char *full_begin = full.begin();
   const char *full_end = full.end();
 
   const char *window_begin = full_begin;
   const char *window_end = window_begin;
-  const int window_size = std::min(partial_size + max_errors, full_size);
-  const int extra_chars = window_size - partial_size;
+  const int window_size = std::min(query_size + max_errors, full_size);
+  const int extra_chars = window_size - query_size;
   const int max_acceptable_distance = max_errors + extra_chars;
 
   for (int i = 0; i < window_size; i++) {
@@ -147,16 +153,18 @@ bool is_partial_fuzzy_match(StringRef partial, StringRef full)
     int distance = 0;
     /* Expect that the first or second character of the query is correct. This helps to avoid
      * computing the more expensive distance function. */
-    if (ELEM(window_begin_unicode, partial_first_unicode, partial_second_unicode)) {
-      distance = damerau_levenshtein_distance(partial, window);
+    if (ELEM(window_begin_unicode, query_first_unicode, query_second_unicode)) {
+      distance = damerau_levenshtein_distance(query, window);
       if (distance <= max_acceptable_distance) {
-        return true;
+        return distance;
       }
     }
     if (window_end == full_end) {
-      return false;
+      return -1;
     }
 
+    /* When the distance is way too large, we can skip a couple of code points, because the
+     * distance can't possibly become as short as required. */
     const int window_offset = std::max(1, distance / 2);
     for (int i = 0; i < window_offset && window_end < full_end; i++) {
       window_begin += BLI_str_utf8_size(window_begin);
@@ -165,6 +173,10 @@ bool is_partial_fuzzy_match(StringRef partial, StringRef full)
   }
 }
 
+/**
+ * Splits a string into words and normalizes them (currently that just means converting to lower
+ * case). The returned strings are allocated in the given allocator.
+ */
 static void extract_normalized_words(StringRef str,
                                      LinearAllocator<> &allocator,
                                      Vector<StringRef> &r_words)
@@ -266,14 +278,17 @@ static int get_shortest_word_index_that_startswith(StringRef query,
 
 static int get_word_index_that_fuzzy_matches(StringRef query,
                                              Span<StringRef> words,
-                                             Span<bool> word_is_usable)
+                                             Span<bool> word_is_usable,
+                                             int *r_error_count)
 {
   for (const int i : words.index_range()) {
     if (!word_is_usable[i]) {
       continue;
     }
     StringRef word = words[i];
-    if (is_partial_fuzzy_match(query, word)) {
+    const int error_count = get_fuzzy_match_errors(query, word);
+    if (error_count >= 0) {
+      *r_error_count = error_count;
       return i;
     }
   }
@@ -306,6 +321,7 @@ static int score_query_against_words(StringRef query, Span<StringRef> result_wor
   extract_normalized_words(query, allocator, query_words);
 
   Array<bool, 64> word_is_usable(result_words.size(), true);
+  int total_fuzzy_match_errors = 0;
 
   for (StringRef query_word : query_words) {
     {
@@ -331,10 +347,12 @@ static int score_query_against_words(StringRef query, Span<StringRef> result_wor
     }
     {
       /* Fuzzy match against words. */
+      int error_count = 0;
       const int word_index = get_word_index_that_fuzzy_matches(
-          query_word, result_words, word_is_usable);
+          query_word, result_words, word_is_usable, &error_count);
       if (word_index >= 0) {
         word_is_usable[word_index] = false;
+        total_fuzzy_match_errors += error_count;
         continue;
       }
     }
@@ -344,7 +362,7 @@ static int score_query_against_words(StringRef query, Span<StringRef> result_wor
   }
 
   const int handled_word_amount = std::count(word_is_usable.begin(), word_is_usable.end(), false);
-  return handled_word_amount;
+  return handled_word_amount * 5 + total_fuzzy_match_errors;
 }
 
 Vector<int> filter_and_sort(StringRef query, Span<StringRef> possible_results)
