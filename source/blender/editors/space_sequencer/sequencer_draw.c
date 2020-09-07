@@ -1639,8 +1639,9 @@ static void sequencer_draw_display_buffer(const bContext *C,
     GPU_matrix_identity_projection_set();
   }
 
-  GPUTexture *texture = GPU_texture_create_nD(
-      ibuf->x, ibuf->y, 0, 2, display_buffer, format, data, 0, false, NULL);
+  GPUTexture *texture = GPU_texture_create_2d(
+      "seq_display_buf", ibuf->x, ibuf->y, 1, format, NULL);
+  GPU_texture_update(texture, data, display_buffer);
   GPU_texture_filter_mode(texture, false);
 
   GPU_texture_bind(texture, 0);
@@ -1764,7 +1765,7 @@ void sequencer_draw_preview(const bContext *C,
                             ARegion *region,
                             SpaceSeq *sseq,
                             int cfra,
-                            int frame_ofs,
+                            int offset,
                             bool draw_overlay,
                             bool draw_backdrop)
 {
@@ -1785,7 +1786,7 @@ void sequencer_draw_preview(const bContext *C,
 
   /* Get image. */
   ibuf = sequencer_ibuf_get(
-      bmain, region, depsgraph, scene, sseq, cfra, frame_ofs, names[sseq->multiview_eye]);
+      bmain, region, depsgraph, scene, sseq, cfra, offset, names[sseq->multiview_eye]);
 
   /* Setup off-screen buffers. */
   GPUViewport *viewport = WM_draw_region_get_viewport(region);

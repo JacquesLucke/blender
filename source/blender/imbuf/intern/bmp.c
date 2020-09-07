@@ -296,7 +296,7 @@ static int putShortLSB(ushort us, FILE *ofile)
 }
 
 /* Found write info at http://users.ece.gatech.edu/~slabaugh/personal/c/bitmapUnix.c */
-int imb_savebmp(ImBuf *ibuf, const char *name, int UNUSED(flags))
+int imb_savebmp(ImBuf *ibuf, const char *filepath, int UNUSED(flags))
 {
   BMPINFOHEADER infoheader;
 
@@ -307,7 +307,7 @@ int imb_savebmp(ImBuf *ibuf, const char *name, int UNUSED(flags))
   const size_t bytesize = (ibuf->x * bytes_per_pixel + pad_bytes_per_scanline) * ibuf->y;
 
   const uchar *data = (const uchar *)ibuf->rect;
-  FILE *ofile = BLI_fopen(name, "wb");
+  FILE *ofile = BLI_fopen(filepath, "wb");
   if (ofile == NULL) {
     return 0;
   }
@@ -329,8 +329,8 @@ int imb_savebmp(ImBuf *ibuf, const char *name, int UNUSED(flags))
   putShortLSB(is_grayscale ? 8 : 24, ofile);
   putIntLSB(0, ofile);
   putIntLSB(bytesize, ofile);
-  putIntLSB(round(ibuf->ppm[0] + 0.5), ofile);
-  putIntLSB(round(ibuf->ppm[1] + 0.5), ofile);
+  putIntLSB(round(ibuf->ppm[0]), ofile);
+  putIntLSB(round(ibuf->ppm[1]), ofile);
   putIntLSB(0, ofile);
   putIntLSB(0, ofile);
 
