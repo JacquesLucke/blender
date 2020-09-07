@@ -244,20 +244,24 @@ static bool match_word_initials(StringRef query,
   return true;
 }
 
-static int get_word_index_that_startswith(StringRef query,
-                                          Span<StringRef> words,
-                                          Span<bool> word_is_usable)
+static int get_shortest_word_index_that_startswith(StringRef query,
+                                                   Span<StringRef> words,
+                                                   Span<bool> word_is_usable)
 {
+  int best_word_size = INT32_MAX;
+  int bset_word_index = -1;
   for (const int i : words.index_range()) {
     if (!word_is_usable[i]) {
       continue;
     }
     StringRef word = words[i];
     if (word.startswith(query)) {
-      return i;
+      if (word.size() < best_word_size) {
+        bset_word_index = i;
+      }
     }
   }
-  return -1;
+  return bset_word_index;
 }
 
 static int get_word_index_that_fuzzy_matches(StringRef query,
@@ -306,7 +310,7 @@ static int score_query_against_words(StringRef query, Span<StringRef> result_wor
   for (StringRef query_word : query_words) {
     {
       /* Check if any result word begins with the query word. */
-      const int word_index = get_word_index_that_startswith(
+      const int word_index = get_shortest_word_index_that_startswith(
           query_word, result_words, word_is_usable);
       if (word_index >= 0) {
         word_is_usable[word_index] = false;
