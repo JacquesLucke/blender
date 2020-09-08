@@ -354,11 +354,13 @@ void extract_normalized_words(StringRef str,
     return ELEM(unicode, unicode_space, unicode_right_triangle);
   };
 
+  /* Make a copy of the string so that we can edit it. */
   StringRef str_copy = allocator.copy_string(str);
   char *mutable_copy = const_cast<char *>(str_copy.data());
   const size_t str_size_in_bytes = static_cast<size_t>(str.size());
   BLI_str_tolower_ascii(mutable_copy, str_size_in_bytes);
 
+  /* Iterate over all unicode code points to split individual words. */
   bool is_in_word = false;
   size_t word_start = 0;
   size_t offset = 0;
@@ -380,6 +382,7 @@ void extract_normalized_words(StringRef str,
     }
     offset += size;
   }
+  /* If the last word is not followed by a separator, it has to be handld separately. */
   if (is_in_word) {
     r_words.append(str_copy.drop_prefix(static_cast<int>(word_start)));
   }
