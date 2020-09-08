@@ -290,8 +290,10 @@ static int get_word_index_that_fuzzy_matches(StringRef query,
  */
 static int score_query_against_words(Span<StringRef> query_words, Span<StringRef> result_words)
 {
-
+  /* Remember which words have been matched, so that they are not matched again. */
   Array<bool, 64> word_is_usable(result_words.size(), true);
+
+  /* Start with some high score, because otherwise the final score might become negative. */
   int total_match_score = 1000;
 
   for (StringRef query_word : query_words) {
