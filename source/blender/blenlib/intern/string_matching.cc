@@ -320,7 +320,7 @@ static int score_query_against_words(Span<StringRef> query_words, Span<StringRef
 {
 
   Array<bool, 64> word_is_usable(result_words.size(), true);
-  int total_fuzzy_match_errors = 0;
+  int total_match_score = 1000;
 
   for (StringRef query_word : query_words) {
     {
@@ -328,6 +328,7 @@ static int score_query_against_words(Span<StringRef> query_words, Span<StringRef
       const int word_index = get_shortest_word_index_that_startswith(
           query_word, result_words, word_is_usable);
       if (word_index >= 0) {
+        total_match_score += 10;
         word_is_usable[word_index] = false;
         continue;
       }
@@ -338,6 +339,7 @@ static int score_query_against_words(Span<StringRef> query_words, Span<StringRef
       const bool success = match_word_initials(
           query_word, result_words, word_is_usable, matched_words);
       if (success) {
+        total_match_score += 3;
         for (const int i : result_words.index_range()) {
           if (matched_words[i]) {
             word_is_usable[i] = false;
@@ -352,8 +354,8 @@ static int score_query_against_words(Span<StringRef> query_words, Span<StringRef
       const int word_index = get_word_index_that_fuzzy_matches(
           query_word, result_words, word_is_usable, &error_count);
       if (word_index >= 0) {
+        total_match_score += 3 - error_count;
         word_is_usable[word_index] = false;
-        total_fuzzy_match_errors += error_count;
         continue;
       }
     }
@@ -362,9 +364,7 @@ static int score_query_against_words(Span<StringRef> query_words, Span<StringRef
     return -1;
   }
 
-  const int handled_word_amount = std::count(word_is_usable.begin(), word_is_usable.end(), false);
-  const int total_score = handled_word_amount * 100 - total_fuzzy_match_errors;
-  return total_score;
+  return total_match_score;
 }
 
 static Vector<Span<StringRef>> preprocess_words(LinearAllocator<> &allocator,
