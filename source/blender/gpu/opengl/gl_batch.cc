@@ -29,11 +29,10 @@
 
 #include "glew-mx.h"
 
-#include "GPU_extensions.h"
-
 #include "gpu_batch_private.hh"
 #include "gpu_shader_private.hh"
 
+#include "gl_backend.hh"
 #include "gl_context.hh"
 #include "gl_debug.hh"
 #include "gl_index_buffer.hh"
@@ -152,7 +151,7 @@ void GLVaoCache::remove(const GLShaderInterface *interface)
 
 void GLVaoCache::clear(void)
 {
-  GLContext *ctx = static_cast<GLContext *>(GPU_context_active_get());
+  GLContext *ctx = GLContext::get();
   const int count = (is_dynamic_vao_count) ? dynamic_vaos.count : GPU_VAO_STATIC_LEN;
   GLuint *vaos = (is_dynamic_vao_count) ? dynamic_vaos.vao_ids : static_vaos.vao_ids;
   const GLShaderInterface **interfaces = (is_dynamic_vao_count) ? dynamic_vaos.interfaces :
@@ -210,7 +209,7 @@ GLuint GLVaoCache::lookup(const GLShaderInterface *interface)
  * Reset the cache if trying to draw in another context; */
 void GLVaoCache::context_check(void)
 {
-  GLContext *ctx = static_cast<GLContext *>(GPU_context_active_get());
+  GLContext *ctx = GLContext::get();
   BLI_assert(ctx);
 
   if (context_ != ctx) {
@@ -229,7 +228,7 @@ GLuint GLVaoCache::base_instance_vao_get(GPUBatch *batch, int i_first)
 {
   this->context_check();
   /* Make sure the interface is up to date. */
-  Shader *shader = GPU_context_active_get()->shader;
+  Shader *shader = GLContext::get()->shader;
   GLShaderInterface *interface = static_cast<GLShaderInterface *>(shader->interface);
   if (interface_ != interface) {
     vao_get(batch);
@@ -261,7 +260,7 @@ GLuint GLVaoCache::vao_get(GPUBatch *batch)
 {
   this->context_check();
 
-  Shader *shader = GPU_context_active_get()->shader;
+  Shader *shader = GLContext::get()->shader;
   GLShaderInterface *interface = static_cast<GLShaderInterface *>(shader->interface);
   if (interface_ != interface) {
     interface_ = interface;
@@ -299,7 +298,7 @@ GLBatch::~GLBatch()
 
 void GLBatch::bind(int i_first)
 {
-  GPU_context_active_get()->state_manager->apply_state();
+  GLContext::get()->state_manager->apply_state();
 
   if (flag & GPU_BATCH_DIRTY) {
     flag &= ~GPU_BATCH_DIRTY;
@@ -314,7 +313,7 @@ void GLBatch::bind(int i_first)
 #endif
 
   /* Can be removed if GL 4.2 is required. */
-  if (!GPU_arb_base_instance_is_supported() && (i_first > 0)) {
+  if (!GLContext::base_instance_support && (i_first > 0)) {
     glBindVertexArray(vao_cache_.base_instance_vao_get(this, i_first));
   }
   else {
@@ -339,7 +338,7 @@ void GLBatch::draw(int v_first, int v_count, int i_first, int i_count)
     GLint base_index = el->index_base_;
     void *v_first_ofs = el->offset_ptr(v_first);
 
-    if (GPU_arb_base_instance_is_supported()) {
+    if (GLContext::base_instance_support) {
       glDrawElementsInstancedBaseVertexBaseInstance(
           gl_type, v_count, index_type, v_first_ofs, i_count, base_index, i_first);
     }
@@ -353,7 +352,7 @@ void GLBatch::draw(int v_first, int v_count, int i_first, int i_count)
 #ifdef __APPLE__
     glDisable(GL_PRIMITIVE_RESTART);
 #endif
-    if (GPU_arb_base_instance_is_supported()) {
+    if (GLContext::base_instance_support) {
       glDrawArraysInstancedBaseInstance(gl_type, v_first, v_count, i_count, i_first);
     }
     else {

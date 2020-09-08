@@ -27,7 +27,7 @@
 #include "BLI_assert.h"
 
 #include "GPU_batch.h"
-#include "GPU_extensions.h"
+#include "GPU_capabilities.h"
 
 #include "glew-mx.h"
 
@@ -76,7 +76,7 @@ GLDrawList::GLDrawList(int length)
   data_ = NULL;
 
   if (USE_MULTI_DRAW_INDIRECT && GLEW_ARB_multi_draw_indirect &&
-      GPU_arb_base_instance_is_supported()) {
+      GLContext::base_instance_support) {
     /* Alloc the biggest possible command list, which is indexed. */
     buffer_size_ = sizeof(GLDrawCommandIndexed) * length;
   }
@@ -88,15 +88,12 @@ GLDrawList::GLDrawList(int length)
 
 GLDrawList::~GLDrawList()
 {
-  /* TODO This ... */
-  static_cast<GLBackend *>(GPUBackend::get())->buf_free(buffer_id_);
-  /* ... should be this. */
-  // context_->buf_free(buffer_id_)
+  GLContext::buf_free(buffer_id_);
 }
 
 void GLDrawList::init(void)
 {
-  BLI_assert(GPU_context_active_get());
+  BLI_assert(GLContext::get());
   BLI_assert(MDI_ENABLED);
   BLI_assert(data_ == NULL);
   batch_ = NULL;
@@ -105,7 +102,7 @@ void GLDrawList::init(void)
   if (buffer_id_ == 0) {
     /* Allocate on first use. */
     glGenBuffers(1, &buffer_id_);
-    context_ = static_cast<GLContext *>(GPU_context_active_get());
+    context_ = GLContext::get();
   }
 
   glBindBuffer(GL_DRAW_INDIRECT_BUFFER, buffer_id_);
@@ -183,7 +180,7 @@ void GLDrawList::submit(void)
   /* Something's wrong if we get here without MDI support. */
   BLI_assert(MDI_ENABLED);
   BLI_assert(data_);
-  BLI_assert(GPU_context_active_get()->shader != NULL);
+  BLI_assert(GLContext::get()->shader != NULL);
 
   /* Only do multi-draw indirect if doing more than 2 drawcall. This avoids the overhead of
    * buffer mapping if scene is not very instance friendly. BUT we also need to take into

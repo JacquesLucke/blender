@@ -21,7 +21,7 @@
  * \ingroup gpu
  */
 
-#include "gl_backend.hh"
+#include "gl_context.hh"
 
 #include "gl_vertex_buffer.hh"
 
@@ -42,7 +42,7 @@ void GLVertBuf::resize_data(void)
 void GLVertBuf::release_data(void)
 {
   if (vbo_id_ != 0) {
-    GLBackend::get()->buf_free(vbo_id_);
+    GLContext::buf_free(vbo_id_);
     vbo_id_ = 0;
     memory_usage -= vbo_size_;
   }
@@ -52,7 +52,7 @@ void GLVertBuf::release_data(void)
 
 void GLVertBuf::duplicate_data(VertBuf *dst_)
 {
-  BLI_assert(GPU_context_active_get() != NULL);
+  BLI_assert(GLContext::get() != NULL);
   GLVertBuf *src = this;
   GLVertBuf *dst = static_cast<GLVertBuf *>(dst_);
 
@@ -82,7 +82,7 @@ void GLVertBuf::upload_data(void)
 
 void GLVertBuf::bind(void)
 {
-  BLI_assert(GPU_context_active_get() != NULL);
+  BLI_assert(GLContext::get() != NULL);
 
   if (vbo_id_ == 0) {
     glGenBuffers(1, &vbo_id_);

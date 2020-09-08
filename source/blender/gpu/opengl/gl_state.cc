@@ -25,7 +25,7 @@
 #include "BLI_math_base.h"
 #include "BLI_math_bits.h"
 
-#include "GPU_extensions.h"
+#include "GPU_capabilities.h"
 
 #include "glew-mx.h"
 
@@ -518,6 +518,11 @@ void GLStateManager::texture_bind_apply(void)
       }
     }
   }
+}
+
+void GLStateManager::texture_unpack_row_length_set(uint len)
+{
+  glPixelStorei(GL_UNPACK_ROW_LENGTH, len);
 }
 
 uint64_t GLStateManager::bound_texture_slots(void)

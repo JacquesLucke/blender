@@ -25,8 +25,6 @@
 
 #include "BLI_string.h"
 
-#include "GPU_extensions.h"
-
 #include "gpu_backend.hh"
 #include "gpu_context_private.hh"
 
@@ -42,11 +40,12 @@ namespace blender::gpu {
 GLUniformBuf::GLUniformBuf(size_t size, const char *name) : UniformBuf(size, name)
 {
   /* Do not create ubo GL buffer here to allow allocation from any thread. */
+  BLI_assert(size <= GLContext::max_ubo_size);
 }
 
 GLUniformBuf::~GLUniformBuf()
 {
-  GLBackend::get()->buf_free(ubo_id_);
+  GLContext::buf_free(ubo_id_);
 }
 
 /** \} */
@@ -57,7 +56,7 @@ GLUniformBuf::~GLUniformBuf()
 
 void GLUniformBuf::init(void)
 {
-  BLI_assert(GPU_context_active_get());
+  BLI_assert(GLContext::get());
 
   glGenBuffers(1, &ubo_id_);
   glBindBuffer(GL_UNIFORM_BUFFER, ubo_id_);
@@ -90,12 +89,12 @@ void GLUniformBuf::update(const void *data)
 
 void GLUniformBuf::bind(int slot)
 {
-  if (slot >= GPU_max_ubo_binds()) {
+  if (slot >= GLContext::max_ubo_binds) {
     fprintf(stderr,
             "Error: Trying to bind \"%s\" ubo to slot %d which is above the reported limit of %d.",
             name_,
             slot,
-            GPU_max_ubo_binds());
+            GLContext::max_ubo_binds);
     return;
   }
 
@@ -113,7 +112,7 @@ void GLUniformBuf::bind(int slot)
 
 #ifdef DEBUG
   BLI_assert(slot < 16);
-  static_cast<GLContext *>(GPU_context_active_get())->bound_ubo_slots |= 1 << slot;
+  GLContext::get()->bound_ubo_slots |= 1 << slot;
 #endif
 }
 
@@ -123,7 +122,7 @@ void GLUniformBuf::unbind(void)
   /* NOTE: This only unbinds the last bound slot. */
   glBindBufferBase(GL_UNIFORM_BUFFER, slot_, 0);
   /* Hope that the context did not change. */
-  static_cast<GLContext *>(GPU_context_active_get())->bound_ubo_slots &= ~(1 << slot_);
+  GLContext::get()->bound_ubo_slots &= ~(1 << slot_);
 #endif
   slot_ = 0;
 }
