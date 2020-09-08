@@ -174,34 +174,6 @@ int get_fuzzy_match_errors(StringRef query, StringRef full)
 }
 
 /**
- * Splits a string into words and normalizes them (currently that just means converting to lower
- * case). The returned strings are allocated in the given allocator.
- */
-static void extract_normalized_words(StringRef str,
-                                     LinearAllocator<> &allocator,
-                                     Vector<StringRef> &r_words)
-{
-  const size_t str_size = static_cast<size_t>(str.size());
-  const int max_word_amount = BLI_string_max_possible_word_count(str.size());
-  Array<std::array<int, 2>, 64> word_positions(max_word_amount);
-  const int word_amount = BLI_string_find_split_words(
-      str.data(),
-      str_size,
-      ' ',
-      reinterpret_cast<int(*)[2]>(word_positions.data()),
-      max_word_amount);
-
-  StringRef str_copy = allocator.copy_string(str);
-  char *mutable_copy = const_cast<char *>(str_copy.data());
-  BLI_str_tolower_ascii(mutable_copy, str_size);
-  for (const int i : IndexRange(word_amount)) {
-    const int word_start = word_positions[i][0];
-    const int word_length = word_positions[i][1];
-    r_words.append(str_copy.substr(word_start, word_length));
-  }
-}
-
-/**
  * Takes a query and tries to match it with the first characters of some words. For example, "msfv"
  * matches "Mark Sharp from Vertices". Multiple letters of the beginning of a word can be matched
  * as well. For example, "seboulo" matches "select boundary loop". The order of words is important.
@@ -365,6 +337,52 @@ static int score_query_against_words(Span<StringRef> query_words, Span<StringRef
   }
 
   return total_match_score;
+}
+
+/**
+ * Splits a string into words and normalizes them (currently that just means converting to lower
+ * case). The returned strings are allocated in the given allocator.
+ */
+void extract_normalized_words(StringRef str,
+                              LinearAllocator<> &allocator,
+                              Vector<StringRef> &r_words)
+{
+  const uint32_t unicode_space = BLI_str_utf8_as_unicode(" ");
+  const uint32_t unicode_right_triangle = BLI_str_utf8_as_unicode("▶");
+
+  auto is_separator = [&](uint32_t unicode) {
+    return ELEM(unicode, unicode_space, unicode_right_triangle);
+  };
+
+  StringRef str_copy = allocator.copy_string(str);
+  char *mutable_copy = const_cast<char *>(str_copy.data());
+  const size_t str_size_in_bytes = static_cast<size_t>(str.size());
+  BLI_str_tolower_ascii(mutable_copy, str_size_in_bytes);
+
+  bool is_in_word = false;
+  size_t word_start = 0;
+  size_t offset = 0;
+  while (offset < str_size_in_bytes) {
+    size_t size = 0;
+    uint32_t unicode = BLI_str_utf8_as_unicode_and_size(str.data() + offset, &size);
+    if (is_separator(unicode)) {
+      if (is_in_word) {
+        r_words.append(
+            str_copy.substr(static_cast<int>(word_start), static_cast<int>(offset - word_start)));
+        is_in_word = false;
+      }
+    }
+    else {
+      if (!is_in_word) {
+        word_start = offset;
+        is_in_word = true;
+      }
+    }
+    offset += size;
+  }
+  if (is_in_word) {
+    r_words.append(str_copy.drop_prefix(static_cast<int>(word_start)));
+  }
 }
 
 static Vector<Span<StringRef>> preprocess_words(LinearAllocator<> &allocator,

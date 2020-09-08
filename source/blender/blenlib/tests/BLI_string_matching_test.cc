@@ -33,4 +33,18 @@ TEST(string_matching, get_fuzzy_match_errors)
   EXPECT_EQ(get_fuzzy_match_errors("armature", "▶restore"), -1);
 }
 
+TEST(string_matching, extract_normalized_words)
+{
+  LinearAllocator<> allocator;
+  Vector<StringRef> words;
+  extract_normalized_words("hello world▶test   another test▶ 3", allocator, words);
+  EXPECT_EQ(words.size(), 6);
+  EXPECT_EQ(words[0], "hello");
+  EXPECT_EQ(words[1], "world");
+  EXPECT_EQ(words[2], "test");
+  EXPECT_EQ(words[3], "another");
+  EXPECT_EQ(words[4], "test");
+  EXPECT_EQ(words[5], "3");
+}
+
 }  // namespace blender::string_matching::tests

@@ -18,6 +18,7 @@
 
 #ifdef __cplusplus
 
+#  include "BLI_linear_allocator.hh"
 #  include "BLI_span.hh"
 #  include "BLI_string_ref.hh"
 #  include "BLI_vector.hh"
@@ -27,6 +28,9 @@ namespace blender::string_matching {
 int damerau_levenshtein_distance(StringRef a, StringRef b);
 
 int get_fuzzy_match_errors(StringRef query, StringRef full);
+void extract_normalized_words(StringRef str,
+                              LinearAllocator<> &allocator,
+                              Vector<StringRef> &r_words);
 
 Vector<int> filter_and_sort(StringRef query, Span<StringRef> possible_results);
 
