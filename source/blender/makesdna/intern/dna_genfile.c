@@ -1227,9 +1227,8 @@ static void reconstruct_struct(const SDNA *newsdna,
       /* struct field type */
 
       /* where does the old struct data start (and is there an old one?) */
-      const SDNA_StructMember *sppo;
-      const char *cpo = find_elem(oldsdna, type, name, struct_old, data, &sppo);
-      const SDNA_StructMember *member_old = sppo;
+      const SDNA_StructMember *member_old;
+      const char *cpo = find_elem(oldsdna, type, name, struct_old, data, &member_old);
 
       if (cpo) {
         unsigned int oldsdna_index_last = UINT_MAX;
