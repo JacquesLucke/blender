@@ -655,31 +655,30 @@ const char *DNA_struct_get_compareflags(const SDNA *oldsdna, const SDNA *newsdna
   unsigned int newsdna_index_last = 0;
 
   for (int a = 0; a < oldsdna->structs_len; a++) {
-    SDNA_Struct *struct_info_old = oldsdna->structs[a];
+    SDNA_Struct *struct_old = oldsdna->structs[a];
 
     /* search for type in cur */
     int sp_new_index = DNA_struct_find_nr_ex(
-        newsdna, oldsdna->types[struct_info_old->type], &newsdna_index_last);
+        newsdna, oldsdna->types[struct_old->type], &newsdna_index_last);
 
     /* The next indices will almost always match */
     newsdna_index_last++;
 
     if (sp_new_index != -1) {
-      SDNA_Struct *struct_info_new = newsdna->structs[sp_new_index];
+      SDNA_Struct *struct_new = newsdna->structs[sp_new_index];
       /* initial assumption */
       compflags[a] = SDNA_CMP_NOT_EQUAL;
 
       /* compare length and amount of elems */
-      if (struct_info_new->members_len == struct_info_old->members_len) {
-        if (newsdna->types_size[struct_info_new->type] ==
-            oldsdna->types_size[struct_info_old->type]) {
+      if (struct_new->members_len == struct_old->members_len) {
+        if (newsdna->types_size[struct_new->type] == oldsdna->types_size[struct_old->type]) {
 
           /* Both structs have the same size and number of members. Now check the individual
            * members. */
           bool all_members_equal = true;
-          for (int b = 0; b < struct_info_old->members_len; b++) {
-            SDNA_StructMember *member_old = &struct_info_old->members[b];
-            SDNA_StructMember *member_new = &struct_info_new->members[b];
+          for (int b = 0; b < struct_old->members_len; b++) {
+            SDNA_StructMember *member_old = &struct_old->members[b];
+            SDNA_StructMember *member_new = &struct_new->members[b];
 
             const char *type_name_old = oldsdna->types[member_old->type];
             const char *type_name_new = newsdna->types[member_new->type];
