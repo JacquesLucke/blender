@@ -1603,12 +1603,13 @@ static void sdna_expand_names(SDNA *sdna)
   for (int struct_nr = 0; struct_nr < sdna->structs_len; struct_nr++) {
     /* We can't edit this memory 'sdna->structs' points to (readonly datatoc file). */
     const SDNA_Struct *struct_old = sdna->structs[struct_nr];
-    SDNA_Struct *struct_new = BLI_memarena_alloc(
-        sdna->mem_arena, sizeof(SDNA_StructMember) * (1 + struct_old->members_len));
-    memcpy(struct_new, struct_old, sizeof(SDNA_StructMember) * (1 + struct_old->members_len));
+
+    const int array_size = sizeof(short) * 2 + sizeof(SDNA_StructMember) * struct_old->members_len;
+    SDNA_Struct *struct_new = BLI_memarena_alloc(sdna->mem_arena, array_size);
+    memcpy(struct_new, struct_old, array_size);
     sdna->structs[struct_nr] = struct_new;
-    const int names_len = struct_old->members_len;
-    for (int i = 0; i < names_len; i++) {
+
+    for (int i = 0; i < struct_old->members_len; i++) {
       const SDNA_StructMember *member_old = &struct_old->members[i];
       SDNA_StructMember *member_new = &struct_new->members[i];
 
