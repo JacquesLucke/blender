@@ -84,7 +84,6 @@ uint64_t ComponentNode::OperationIDKey::hash() const
 ComponentNode::ComponentNode()
     : entry_operation(nullptr), exit_operation(nullptr), affects_directly_visible(false)
 {
-  operations_map = new Map<ComponentNode::OperationIDKey, OperationNode *>();
 }
 
 /* Initialize 'component' node - from pointer data given */
@@ -98,7 +97,9 @@ void ComponentNode::init(const ID * /*id*/, const char * /*subdata*/)
 ComponentNode::~ComponentNode()
 {
   clear_operations();
-  delete operations_map;
+  if (operations_map != nullptr) {
+    owner_depsgraph->operation_maps_pool_.destruct_and_deallocate(operations_map);
+  }
 }
 
 string ComponentNode::identifier() const
@@ -295,7 +296,7 @@ void ComponentNode::finalize_build(Depsgraph * /*graph*/)
   for (OperationNode *op_node : operations_map->values()) {
     operations.append(op_node);
   }
-  delete operations_map;
+  owner_depsgraph->operation_maps_pool_.destruct_and_deallocate(operations_map);
   operations_map = nullptr;
 }
 

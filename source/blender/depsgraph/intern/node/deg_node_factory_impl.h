@@ -60,6 +60,12 @@ Node *DepsNodeFactoryImpl<ModeObjectType>::create_node(Depsgraph *owner_depsgrap
     node = new ModeObjectType();
   }
 
+  if constexpr (std::is_base_of_v<ComponentNode, ModeObjectType>) {
+    ComponentNode *component_node = static_cast<ComponentNode *>(node);
+    component_node->operations_map =
+        owner_depsgraph->operation_maps_pool_.allocate_and_construct();
+  }
+
   /* Populate base node settings. */
   node->owner_depsgraph = owner_depsgraph;
   node->type = type();

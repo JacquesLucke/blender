@@ -44,6 +44,7 @@
 
 #include "intern/debug/deg_debug.h"
 #include "intern/depsgraph_type.h"
+#include "intern/node/deg_node_component.h"
 
 struct ID;
 struct Scene;
@@ -98,6 +99,7 @@ struct Depsgraph {
 
   TypedMemoryPool<Relation> relations_pool_;
   TypedMemoryPool<OperationNode> operation_nodes_pool_;
+  TypedMemoryPool<Map<ComponentNode::OperationIDKey, OperationNode *>> operation_maps_pool_;
 
   /* <ID : IDNode> mapping from ID blocks to nodes representing these
    * blocks, used for quick lookups. */
