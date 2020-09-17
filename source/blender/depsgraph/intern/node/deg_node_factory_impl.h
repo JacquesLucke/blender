@@ -46,12 +46,14 @@ template<class ModeObjectType> int DepsNodeFactoryImpl<ModeObjectType>::id_recal
 }
 
 template<class ModeObjectType>
-Node *DepsNodeFactoryImpl<ModeObjectType>::create_node(const ID *id,
+Node *DepsNodeFactoryImpl<ModeObjectType>::create_node(Depsgraph *owner_depsgraph,
+                                                       const ID *id,
                                                        const char *subdata,
                                                        const char *name) const
 {
   Node *node = new ModeObjectType();
   /* Populate base node settings. */
+  node->owner_depsgraph = owner_depsgraph;
   node->type = type();
   /* Set name if provided, or use default type name. */
   if (name[0] != '\0') {

@@ -170,6 +170,7 @@ struct Node {
    * have relationships between these nodes. */
   typedef Vector<Relation *> Relations;
 
+  Depsgraph *owner_depsgraph;
   string name;        /* Identifier - mainly for debugging purposes. */
   NodeType type;      /* Structural type of node. */
   Relations inlinks;  /* Nodes which this one depends on. */

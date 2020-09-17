@@ -94,7 +94,7 @@ TimeSourceNode *Depsgraph::add_time_source()
 {
   if (time_source == nullptr) {
     DepsNodeFactory *factory = type_get_factory(NodeType::TIMESOURCE);
-    time_source = (TimeSourceNode *)factory->create_node(nullptr, "", "Time Source");
+    time_source = (TimeSourceNode *)factory->create_node(this, nullptr, "", "Time Source");
   }
   return time_source;
 }
@@ -120,7 +120,7 @@ IDNode *Depsgraph::add_id_node(ID *id, ID *id_cow_hint)
   IDNode *id_node = find_id_node(id);
   if (!id_node) {
     DepsNodeFactory *factory = type_get_factory(NodeType::ID_REF);
-    id_node = (IDNode *)factory->create_node(id, "", id->name);
+    id_node = (IDNode *)factory->create_node(this, id, "", id->name);
     id_node->init_copy_on_write(id_cow_hint);
     /* Register node in ID hash.
      *
@@ -192,7 +192,7 @@ Relation *Depsgraph::add_new_relation(Node *from, Node *to, const char *descript
 #endif
 
   /* Create new relation, and add it to the graph. */
-  rel = new Relation(from, to, description);
+  rel = relations_pool_.allocate_and_construct(from, to, description);
   rel->flag |= flags;
   return rel;
 }

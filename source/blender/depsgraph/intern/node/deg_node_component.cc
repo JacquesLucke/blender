@@ -176,7 +176,8 @@ OperationNode *ComponentNode::add_operation(const DepsEvalOperationCb &op,
   OperationNode *op_node = find_operation(opcode, name, name_tag);
   if (!op_node) {
     DepsNodeFactory *factory = type_get_factory(NodeType::OPERATION);
-    op_node = (OperationNode *)factory->create_node(this->owner->id_orig, "", name);
+    op_node = (OperationNode *)factory->create_node(
+        owner_depsgraph, this->owner->id_orig, "", name);
 
     /* register opnode in this component's operation set */
     OperationIDKey key(opcode, name, name_tag);

@@ -96,6 +96,8 @@ struct Depsgraph {
 
   /* Core Graph Functionality ........... */
 
+  TypedMemoryPool<Relation> relations_pool_;
+
   /* <ID : IDNode> mapping from ID blocks to nodes representing these
    * blocks, used for quick lookups. */
   Map<const ID *, IDNode *> id_hash;

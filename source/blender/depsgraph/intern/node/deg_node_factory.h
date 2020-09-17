@@ -39,7 +39,10 @@ struct DepsNodeFactory {
 
   virtual int id_recalc_tag() const = 0;
 
-  virtual Node *create_node(const ID *id, const char *subdata, const char *name) const = 0;
+  virtual Node *create_node(Depsgraph *owner_depsgraph,
+                            const ID *id,
+                            const char *subdata,
+                            const char *name) const = 0;
 };
 
 template<class ModeObjectType> struct DepsNodeFactoryImpl : public DepsNodeFactory {
@@ -48,7 +51,10 @@ template<class ModeObjectType> struct DepsNodeFactoryImpl : public DepsNodeFacto
 
   virtual int id_recalc_tag() const override;
 
-  virtual Node *create_node(const ID *id, const char *subdata, const char *name) const override;
+  virtual Node *create_node(Depsgraph *owner_depsgraph,
+                            const ID *id,
+                            const char *subdata,
+                            const char *name) const override;
 };
 
 /* Register typeinfo */
