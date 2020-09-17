@@ -103,6 +103,7 @@ class DepsgraphBuilderCache {
     return animated_property_storage->isPropertyAnimated(args...);
   }
 
+  TypedMemoryPool<AnimatedPropertyStorage> animated_property_storage_pool_;
   Map<ID *, AnimatedPropertyStorage *> animated_property_storage_map_;
 
   MEM_CXX_CLASS_ALLOC_FUNCS("DepsgraphBuilderCache");

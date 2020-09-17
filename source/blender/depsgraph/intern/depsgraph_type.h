@@ -41,6 +41,7 @@
 #include <vector>
 
 #include "BLI_map.hh"
+#include "BLI_mempool.hh"
 #include "BLI_set.hh"
 #include "BLI_string_ref.hh"
 #include "BLI_vector.hh"
