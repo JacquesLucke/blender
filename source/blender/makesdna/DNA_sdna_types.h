@@ -27,15 +27,20 @@ struct MemArena;
 #
 #
 typedef struct SDNA_StructMember {
+  /** An index into SDNA->types. */
   short type;
+  /** An index into SDNA->names. */
   short name;
 } SDNA_StructMember;
 
 #
 #
 typedef struct SDNA_Struct {
+  /** An index into SDNA->types. */
   short type;
+  /** The amount of members in this struct. */
   short members_len;
+  /** "Flexible array member" that contains information about all members of this struct. */
   SDNA_StructMember members[];
 } SDNA_Struct;
 
