@@ -220,12 +220,12 @@ void ComponentNode::clear_operations()
 {
   if (operations_map != nullptr) {
     for (OperationNode *op_node : operations_map->values()) {
-      delete op_node;
+      owner_depsgraph->operation_nodes_pool_.destruct_and_deallocate(op_node);
     }
     operations_map->clear();
   }
   for (OperationNode *op_node : operations) {
-    delete op_node;
+    owner_depsgraph->operation_nodes_pool_.destruct_and_deallocate(op_node);
   }
   operations.clear();
 }

@@ -23,6 +23,7 @@
 
 #pragma once
 
+#include "intern/depsgraph.h"
 #include "intern/node/deg_node_factory.h"
 
 struct ID;
@@ -51,7 +52,14 @@ Node *DepsNodeFactoryImpl<ModeObjectType>::create_node(Depsgraph *owner_depsgrap
                                                        const char *subdata,
                                                        const char *name) const
 {
-  Node *node = new ModeObjectType();
+  Node *node;
+  if constexpr (std::is_same_v<ModeObjectType, OperationNode>) {
+    node = owner_depsgraph->operation_nodes_pool_.allocate_and_construct();
+  }
+  else {
+    node = new ModeObjectType();
+  }
+
   /* Populate base node settings. */
   node->owner_depsgraph = owner_depsgraph;
   node->type = type();
