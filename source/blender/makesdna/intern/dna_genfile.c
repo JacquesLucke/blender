@@ -468,25 +468,20 @@ static bool init_structDNA(SDNA *sdna, bool do_endian_swap, const char **r_error
 
   sp = (short *)data;
   for (int nr = 0; nr < sdna->structs_len; nr++) {
-    sdna->structs[nr] = (SDNA_Struct *)sp;
+    SDNA_Struct *struct_info = (SDNA_Struct *)sp;
+    sdna->structs[nr] = struct_info;
 
     if (do_endian_swap) {
-      short a;
+      BLI_endian_switch_int16(&struct_info->type);
+      BLI_endian_switch_int16(&struct_info->members_len);
 
-      BLI_endian_switch_int16(&sp[0]);
-      BLI_endian_switch_int16(&sp[1]);
-
-      a = sp[1];
-      sp += 2;
-      while (a--) {
-        BLI_endian_switch_int16(&sp[0]);
-        BLI_endian_switch_int16(&sp[1]);
-        sp += 2;
+      for (short a = 0; a < struct_info->members_len; a++) {
+        SDNA_StructMember *member = &struct_info->members[a];
+        BLI_endian_switch_int16(&member->type);
+        BLI_endian_switch_int16(&member->name);
       }
     }
-    else {
-      sp += 2 * sp[1] + 2;
-    }
+    sp += 2 + (sizeof(SDNA_StructMember) / sizeof(short)) * struct_info->members_len;
   }
 
   {
