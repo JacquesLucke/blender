@@ -26,6 +26,21 @@ struct MemArena;
 
 #
 #
+typedef struct SDNA_StructMember {
+  short type;
+  short name;
+} SDNA_StructMember;
+
+#
+#
+typedef struct SDNA_Struct {
+  short type;
+  short members_len;
+  SDNA_StructMember members[];
+} SDNA_Struct;
+
+#
+#
 typedef struct SDNA {
   /** Full copy of 'encoded' data (when data_alloc is set, otherwise borrowed). */
   const char *data;
@@ -51,14 +66,8 @@ typedef struct SDNA {
   /** Type lengths. */
   short *types_size;
 
-  /**
-   * sp = structs[a] is the address of a struct definition
-   * sp[0] is struct type number, sp[1] amount of members
-   *
-   * (sp[2], sp[3]), (sp[4], sp[5]), .. are the member
-   * type and name numbers respectively.
-   */
-  short **structs;
+  /** Information about structs and their members. */
+  SDNA_Struct **structs;
   /** Number of struct types. */
   int structs_len;
 
