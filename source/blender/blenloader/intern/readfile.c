@@ -1113,6 +1113,7 @@ static bool read_file_dna(FileData *fd, const char **r_error_message)
       if (fd->filesdna) {
         blo_do_versions_dna(fd->filesdna, fd->fileversion, subversion);
         fd->compflags = DNA_struct_get_compareflags(fd->filesdna, fd->memsdna);
+        fd->reconstruct_info = DNA_reconstruct_info_new(fd->filesdna, fd->memsdna, fd->compflags);
         /* used to retrieve ID names from (bhead+1) */
         fd->id_name_offs = DNA_elem_offset(fd->filesdna, "ID", "char", "name[]");
 
@@ -1606,6 +1607,9 @@ void blo_filedata_free(FileData *fd)
     }
     if (fd->compflags) {
       MEM_freeN((void *)fd->compflags);
+    }
+    if (fd->reconstruct_info) {
+      DNA_reconstruct_info_free(fd->reconstruct_info);
     }
 
     if (fd->datamap) {
@@ -2174,8 +2178,7 @@ static void *read_struct(FileData *fd, BHead *bh, const char *blockname)
           }
         }
 #endif
-        temp = DNA_struct_reconstruct(
-            fd->memsdna, fd->filesdna, fd->compflags, bh->SDNAnr, bh->nr, (bh + 1));
+        temp = DNA_struct_reconstruct(fd->reconstruct_info, bh->SDNAnr, bh->nr, (bh + 1));
       }
       else {
         /* SDNA_CMP_EQUAL */

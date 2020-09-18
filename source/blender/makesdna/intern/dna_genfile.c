@@ -751,6 +751,28 @@ static eSDNA_Type sdna_type_nr(const char *dna_type)
   return -1;
 }
 
+typedef struct DNA_ReconstructInfo {
+  const SDNA *oldsdna;
+  const SDNA *newsdna;
+  const char *compare_flags;
+} DNA_ReconstructInfo;
+
+DNA_ReconstructInfo *DNA_reconstruct_info_new(const SDNA *oldsdna,
+                                              const SDNA *newsdna,
+                                              const char *compare_flags)
+{
+  DNA_ReconstructInfo *reconstruct_info = MEM_callocN(sizeof(DNA_ReconstructInfo), AT);
+  reconstruct_info->oldsdna = oldsdna;
+  reconstruct_info->newsdna = newsdna;
+  reconstruct_info->compare_flags = compare_flags;
+  return reconstruct_info;
+}
+
+void DNA_reconstruct_info_free(DNA_ReconstructInfo *reconstruct_info)
+{
+  MEM_freeN(reconstruct_info);
+}
+
 /**
  * Converts a value of one primitive type to another.
  * Note there is no optimization for the case where otype and ctype are the same:
@@ -1341,13 +1363,15 @@ void DNA_struct_switch_endian(const SDNA *oldsdna, int oldSDNAnr, char *data)
  * \param data: Array of struct data
  * \return An allocated reconstructed struct
  */
-void *DNA_struct_reconstruct(const SDNA *newsdna,
-                             const SDNA *oldsdna,
-                             const char *compflags,
+void *DNA_struct_reconstruct(const DNA_ReconstructInfo *reconstruct_info,
                              int oldSDNAnr,
                              int blocks,
                              const void *data)
 {
+  const SDNA *oldsdna = reconstruct_info->oldsdna;
+  const SDNA *newsdna = reconstruct_info->newsdna;
+  const char *compflags = reconstruct_info->compare_flags;
+
   /* oldSDNAnr == structnr, we're looking for the corresponding 'cur' number */
   const SDNA_Struct *struct_old = oldsdna->structs[oldSDNAnr];
   const char *type = oldsdna->types[struct_old->type];
