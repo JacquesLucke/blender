@@ -1367,7 +1367,7 @@ typedef struct ReconstructStepSubstruct {
 } ReconstructStepSubstruct;
 
 typedef struct ReconstructStep {
-  eReconstructStepType step_type;
+  eReconstructStepType type;
   union {
     ReconstructStepMemcpy memcpy;
     ReconstructStepCastElement cast_element;
@@ -1468,7 +1468,7 @@ static ReconstructStep *create_member_reconstruct_steps(const SDNA *oldsdna,
     /* Initialize the reconstruction step for this member. This handles all the different
      * conversions of member types that can happen. */
     if (matching_old_member == NULL) {
-      step->step_type = RECONSTRUCT_STEP_INIT_ZERO;
+      step->type = RECONSTRUCT_STEP_INIT_ZERO;
     }
     else {
       const int old_type_number = matching_old_member->type;
@@ -1482,26 +1482,26 @@ static ReconstructStep *create_member_reconstruct_steps(const SDNA *oldsdna,
 
       if (new_is_pointer && old_is_pointer) {
         if (newsdna->pointer_size == oldsdna->pointer_size) {
-          step->step_type = RECONSTRUCT_STEP_MEMCPY;
+          step->type = RECONSTRUCT_STEP_MEMCPY;
           step->data.memcpy.new_offset = new_member_offset;
           step->data.memcpy.old_offset = old_member_offset;
           step->data.memcpy.size = newsdna->pointer_size * shared_array_length;
         }
         else if (newsdna->pointer_size > oldsdna->pointer_size) {
-          step->step_type = RECONSTRUCT_STEP_CAST_POINTER_TO_64;
+          step->type = RECONSTRUCT_STEP_CAST_POINTER_TO_64;
           step->data.cast_pointer.new_offset = new_member_offset;
           step->data.cast_pointer.old_offset = old_member_offset;
           step->data.cast_pointer.amount = shared_array_length;
         }
         else {
-          step->step_type = RECONSTRUCT_STEP_CAST_POINTER_TO_32;
+          step->type = RECONSTRUCT_STEP_CAST_POINTER_TO_32;
           step->data.cast_pointer.new_offset = new_member_offset;
           step->data.cast_pointer.old_offset = old_member_offset;
           step->data.cast_pointer.amount = shared_array_length;
         }
       }
       else if (new_is_pointer != old_is_pointer) {
-        step->step_type = RECONSTRUCT_STEP_INIT_ZERO;
+        step->type = RECONSTRUCT_STEP_INIT_ZERO;
       }
       else {
         const int old_member_struct_number = DNA_struct_find_nr(oldsdna, old_type_name);
@@ -1514,14 +1514,14 @@ static ReconstructStep *create_member_reconstruct_steps(const SDNA *oldsdna,
             enum eSDNA_StructCompare compare_flag = compare_flags[old_member_struct_number];
             BLI_assert(compare_flag != SDNA_CMP_REMOVED);
             if (compare_flag == SDNA_CMP_EQUAL) {
-              step->step_type = RECONSTRUCT_STEP_MEMCPY;
+              step->type = RECONSTRUCT_STEP_MEMCPY;
               step->data.memcpy.new_offset = new_member_offset;
               step->data.memcpy.old_offset = old_member_offset;
               step->data.memcpy.size = new_member_size;
             }
             else {
               BLI_assert(compare_flag == SDNA_CMP_NOT_EQUAL);
-              step->step_type = RECONSTRUCT_STEP_SUBSTRUCT;
+              step->type = RECONSTRUCT_STEP_SUBSTRUCT;
               step->data.substruct.new_offset = new_member_offset;
               step->data.substruct.old_offset = old_member_offset;
               step->data.substruct.amount = shared_array_length;
@@ -1529,10 +1529,10 @@ static ReconstructStep *create_member_reconstruct_steps(const SDNA *oldsdna,
             }
           }
           else if (new_member_is_struct != old_member_is_struct) {
-            step->step_type = RECONSTRUCT_STEP_INIT_ZERO;
+            step->type = RECONSTRUCT_STEP_INIT_ZERO;
           }
           else {
-            step->step_type = RECONSTRUCT_STEP_MEMCPY;
+            step->type = RECONSTRUCT_STEP_MEMCPY;
             step->data.memcpy.new_offset = new_member_offset;
             step->data.memcpy.old_offset = old_member_offset;
             step->data.memcpy.size = new_member_type_size * shared_array_length;
@@ -1541,15 +1541,15 @@ static ReconstructStep *create_member_reconstruct_steps(const SDNA *oldsdna,
         else {
           if (new_member_is_struct && old_member_is_struct) {
             /* If the struct name changed, we don't know how to match them. */
-            step->step_type = RECONSTRUCT_STEP_INIT_ZERO;
+            step->type = RECONSTRUCT_STEP_INIT_ZERO;
           }
           else if (new_member_is_struct != old_member_is_struct) {
             /* Cannot convert between simple type (int, float, ...) and a struct. */
-            step->step_type = RECONSTRUCT_STEP_INIT_ZERO;
+            step->type = RECONSTRUCT_STEP_INIT_ZERO;
           }
           else {
             /* Both members have a simple type (int, float, ...). Cast from old to new type. */
-            step->step_type = RECONSTRUCT_STEP_CAST_ELEMENT;
+            step->type = RECONSTRUCT_STEP_CAST_ELEMENT;
             step->data.cast_element.amount = shared_array_length;
             step->data.cast_element.new_offset = new_member_offset;
             step->data.cast_element.old_offset = old_member_offset;
@@ -1564,6 +1564,44 @@ static ReconstructStep *create_member_reconstruct_steps(const SDNA *oldsdna,
   }
 
   return steps;
+}
+
+/* Returns the new step count. */
+static int compress_reconstruct_steps(ReconstructStep *steps, const int old_step_count)
+{
+  int new_step_count = 0;
+  for (int a = 0; a < old_step_count; a++) {
+    ReconstructStep *step = &steps[a];
+    switch (step->type) {
+      case RECONSTRUCT_STEP_INIT_ZERO:
+        break;
+      case RECONSTRUCT_STEP_MEMCPY:
+        if (new_step_count > 0) {
+          ReconstructStep *prev_step = &steps[new_step_count - 1];
+          if (prev_step->type == RECONSTRUCT_STEP_MEMCPY) {
+            /* Check if there are no bytes between the blocks to copy. */
+            if (prev_step->data.memcpy.old_offset + prev_step->data.memcpy.size ==
+                    step->data.memcpy.old_offset &&
+                prev_step->data.memcpy.new_offset + prev_step->data.memcpy.size ==
+                    step->data.memcpy.new_offset) {
+              prev_step->data.memcpy.size += step->data.memcpy.size;
+              break;
+            }
+          }
+        }
+        steps[new_step_count] = *step;
+        new_step_count++;
+        break;
+      case RECONSTRUCT_STEP_CAST_ELEMENT:
+      case RECONSTRUCT_STEP_CAST_POINTER_TO_32:
+      case RECONSTRUCT_STEP_CAST_POINTER_TO_64:
+      case RECONSTRUCT_STEP_SUBSTRUCT:
+        steps[new_step_count] = *step;
+        new_step_count++;
+        break;
+    }
+  }
+  return new_step_count;
 }
 
 DNA_ReconstructInfo *DNA_reconstruct_info_new(const SDNA *oldsdna,
@@ -1588,7 +1626,7 @@ DNA_ReconstructInfo *DNA_reconstruct_info_new(const SDNA *oldsdna,
            new_member_index++) {
         const SDNA_StructMember *new_member = &new_struct->members[new_member_index];
         ReconstructStep *step = &steps[new_member_index];
-        switch (step->step_type) {
+        switch (step->type) {
           case RECONSTRUCT_STEP_INIT_ZERO:
             printf("  init zero");
             break;
@@ -1613,6 +1651,9 @@ DNA_ReconstructInfo *DNA_reconstruct_info_new(const SDNA *oldsdna,
         const char *member_name = newsdna->names[new_member->name];
         printf("  %s %s\n", member_type, member_name);
       }
+
+      const int compressed_step_count = compress_reconstruct_steps(steps, new_struct->members_len);
+      printf("  -> %d compressed steps\n", compressed_step_count);
 
       MEM_freeN(steps);
     }
