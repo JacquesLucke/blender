@@ -1446,19 +1446,15 @@ void DNA_reconstruct_info_free(DNA_ReconstructInfo *reconstruct_info)
   MEM_freeN(reconstruct_info);
 }
 
-static void create_reconstruct_steps(const SDNA *oldsdna,
-                                     const SDNA *newsdna,
-                                     const char *compare_flags,
-                                     int old_struct_number)
+static ReconstructStep *create_member_reconstruct_steps(const SDNA *oldsdna,
+                                                        const SDNA *newsdna,
+                                                        const char *compare_flags,
+                                                        SDNA_Struct *new_struct)
 {
-  BLI_assert(compare_flags[old_struct_number] != SDNA_CMP_REMOVED);
-
+  const char *new_struct_name = newsdna->types[new_struct->type];
+  const int old_struct_number = DNA_struct_find_nr(oldsdna, new_struct_name);
+  BLI_assert(old_struct_number >= 0);
   SDNA_Struct *old_struct = oldsdna->structs[old_struct_number];
-  const char *old_struct_name = oldsdna->types[old_struct->type];
-
-  int new_struct_number = DNA_struct_find_nr(newsdna, old_struct_name);
-  BLI_assert(new_struct_number >= 0);
-  SDNA_Struct *new_struct = newsdna->structs[new_struct_number];
 
   ReconstructStep *steps = MEM_calloc_arrayN(new_struct->members_len, sizeof(ReconstructStep), AT);
 
@@ -1580,6 +1576,8 @@ static void create_reconstruct_steps(const SDNA *oldsdna,
 
     new_member_offset += new_member_size;
   }
+
+  return steps;
 }
 
 /**
