@@ -1430,37 +1430,17 @@ void *DNA_struct_reconstruct(const DNA_ReconstructInfo *reconstruct_info,
   return cur;
 }
 
-DNA_ReconstructInfo *DNA_reconstruct_info_new(const SDNA *oldsdna,
-                                              const SDNA *newsdna,
-                                              const char *compare_flags)
-{
-  DNA_ReconstructInfo *reconstruct_info = MEM_callocN(sizeof(DNA_ReconstructInfo), AT);
-  reconstruct_info->oldsdna = oldsdna;
-  reconstruct_info->newsdna = newsdna;
-  reconstruct_info->compare_flags = compare_flags;
-  return reconstruct_info;
-}
-
-void DNA_reconstruct_info_free(DNA_ReconstructInfo *reconstruct_info)
-{
-  MEM_freeN(reconstruct_info);
-}
-
 static ReconstructStep *create_member_reconstruct_steps(const SDNA *oldsdna,
                                                         const SDNA *newsdna,
                                                         const char *compare_flags,
-                                                        SDNA_Struct *new_struct)
+                                                        const SDNA_Struct *old_struct,
+                                                        const SDNA_Struct *new_struct)
 {
-  const char *new_struct_name = newsdna->types[new_struct->type];
-  const int old_struct_number = DNA_struct_find_nr(oldsdna, new_struct_name);
-  BLI_assert(old_struct_number >= 0);
-  SDNA_Struct *old_struct = oldsdna->structs[old_struct_number];
-
   ReconstructStep *steps = MEM_calloc_arrayN(new_struct->members_len, sizeof(ReconstructStep), AT);
 
   int new_member_offset = 0;
   for (int new_member_index = 0; new_member_index < new_struct->members_len; new_member_index++) {
-    SDNA_StructMember *new_member = &new_struct->members[new_member_index];
+    const SDNA_StructMember *new_member = &new_struct->members[new_member_index];
 
     const char *new_name = newsdna->names[new_member->name];
     const int new_type_number = new_member->type;
@@ -1471,10 +1451,10 @@ static ReconstructStep *create_member_reconstruct_steps(const SDNA *oldsdna,
 
     /* Find matching member in old struct. */
     int old_member_offset = 0;
-    SDNA_StructMember *matching_old_member = NULL;
+    const SDNA_StructMember *matching_old_member = NULL;
     for (int old_member_index = 0; old_member_index < old_struct->members_len;
          old_member_index++) {
-      SDNA_StructMember *old_member = &old_struct->members[old_member_index];
+      const SDNA_StructMember *old_member = &old_struct->members[old_member_index];
       const char *old_name = oldsdna->names[old_member->name];
       if (elem_streq(old_name, new_name)) {
         matching_old_member = old_member;
@@ -1530,7 +1510,7 @@ static ReconstructStep *create_member_reconstruct_steps(const SDNA *oldsdna,
         const bool new_member_is_struct = new_member_struct_number >= 0;
 
         if (STREQ(old_type_name, new_type_name)) {
-          if (new_member_struct_number && old_member_is_struct) {
+          if (new_member_is_struct && old_member_is_struct) {
             enum eSDNA_StructCompare compare_flag = compare_flags[old_member_struct_number];
             BLI_assert(compare_flag != SDNA_CMP_REMOVED);
             if (compare_flag == SDNA_CMP_EQUAL) {
@@ -1548,8 +1528,14 @@ static ReconstructStep *create_member_reconstruct_steps(const SDNA *oldsdna,
               step->data.substruct.new_struct_number = new_member_struct_number;
             }
           }
-          else {
+          else if (new_member_is_struct != old_member_is_struct) {
             step->step_type = RECONSTRUCT_STEP_INIT_ZERO;
+          }
+          else {
+            step->step_type = RECONSTRUCT_STEP_MEMCPY;
+            step->data.memcpy.new_offset = new_member_offset;
+            step->data.memcpy.old_offset = old_member_offset;
+            step->data.memcpy.size = new_member_type_size * shared_array_length;
           }
         }
         else {
@@ -1578,6 +1564,69 @@ static ReconstructStep *create_member_reconstruct_steps(const SDNA *oldsdna,
   }
 
   return steps;
+}
+
+DNA_ReconstructInfo *DNA_reconstruct_info_new(const SDNA *oldsdna,
+                                              const SDNA *newsdna,
+                                              const char *compare_flags)
+{
+  DNA_ReconstructInfo *reconstruct_info = MEM_callocN(sizeof(DNA_ReconstructInfo), AT);
+  reconstruct_info->oldsdna = oldsdna;
+  reconstruct_info->newsdna = newsdna;
+  reconstruct_info->compare_flags = compare_flags;
+
+  for (int old_struct_number = 0; old_struct_number < oldsdna->structs_len; old_struct_number++) {
+    const SDNA_Struct *old_struct = oldsdna->structs[old_struct_number];
+    const char *old_struct_name = oldsdna->types[old_struct->type];
+    printf("%s:\n", old_struct_name);
+    const int new_struct_number = DNA_struct_find_nr(newsdna, old_struct_name);
+    if (new_struct_number >= 0) {
+      const SDNA_Struct *new_struct = newsdna->structs[new_struct_number];
+      ReconstructStep *steps = create_member_reconstruct_steps(
+          oldsdna, newsdna, compare_flags, old_struct, new_struct);
+      for (int new_member_index = 0; new_member_index < new_struct->members_len;
+           new_member_index++) {
+        const SDNA_StructMember *new_member = &new_struct->members[new_member_index];
+        ReconstructStep *step = &steps[new_member_index];
+        switch (step->step_type) {
+          case RECONSTRUCT_STEP_INIT_ZERO:
+            printf("  init zero");
+            break;
+          case RECONSTRUCT_STEP_MEMCPY:
+            printf("  memcpy   ");
+            break;
+          case RECONSTRUCT_STEP_CAST_ELEMENT:
+            printf("  cast elem");
+            break;
+          case RECONSTRUCT_STEP_CAST_POINTER_TO_32:
+            printf(" poin to 32");
+            break;
+          case RECONSTRUCT_STEP_CAST_POINTER_TO_64:
+            printf(" poin to 64");
+            break;
+          case RECONSTRUCT_STEP_SUBSTRUCT:
+            printf("  substruct");
+            break;
+        }
+
+        const char *member_type = newsdna->types[new_member->type];
+        const char *member_name = newsdna->names[new_member->name];
+        printf("  %s %s\n", member_type, member_name);
+      }
+
+      MEM_freeN(steps);
+    }
+    else {
+      printf("  removed\n");
+    }
+  }
+
+  return reconstruct_info;
+}
+
+void DNA_reconstruct_info_free(DNA_ReconstructInfo *reconstruct_info)
+{
+  MEM_freeN(reconstruct_info);
 }
 
 /**
