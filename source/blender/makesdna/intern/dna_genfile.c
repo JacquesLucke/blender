@@ -610,30 +610,72 @@ void DNA_sdna_current_free(void)
 
 /* ******************* HANDLE DNA ***************** */
 
-/**
- * Used by #DNA_struct_get_compareflags (below) to recursively mark all structs
- * containing a field of type structnr as changed between old and current SDNAs.
- */
-static void recurs_test_compflags(const SDNA *sdna, char *compflags, int structnr)
+static void make_compare_flags(const SDNA *oldsdna,
+                               const SDNA *newsdna,
+                               char *compare_flags,
+                               const int old_struct_index)
 {
-  /* check all structs, test if it's inside another struct */
-  const int typenr = sdna->structs[structnr]->type;
+  if (compare_flags[old_struct_index] != SDNA_CMP_UNKNOWN) {
+    return;
+  }
 
-  for (int a = 0; a < sdna->structs_len; a++) {
-    if (a != structnr && compflags[a] == SDNA_CMP_EQUAL) {
-      SDNA_Struct *struct_info = sdna->structs[a];
-      for (int b = 0; b < struct_info->members_len; b++) {
-        SDNA_StructMember *member = &struct_info->members[b];
-        if (member->type == typenr) {
-          const char *member_name = sdna->names[member->name];
-          if (!ispointer(member_name)) {
-            compflags[a] = SDNA_CMP_NOT_EQUAL;
-            recurs_test_compflags(sdna, compflags, a);
-          }
+  SDNA_Struct *old_struct = oldsdna->structs[old_struct_index];
+  const char *struct_name = oldsdna->types[old_struct->type];
+
+  const int new_struct_index = DNA_struct_find_nr(newsdna, struct_name);
+
+  if (new_struct_index == -1) {
+    compare_flags[old_struct_index] = SDNA_CMP_REMOVED;
+    return;
+  }
+
+  SDNA_Struct *new_struct = newsdna->structs[new_struct_index];
+  if (old_struct->members_len != new_struct->members_len) {
+    compare_flags[old_struct_index] = SDNA_CMP_NOT_EQUAL;
+    return;
+  }
+  if (oldsdna->types_size[old_struct->type] != newsdna->types_size[new_struct->type]) {
+    compare_flags[old_struct_index] = SDNA_CMP_NOT_EQUAL;
+    return;
+  }
+
+  for (int member_index = 0; member_index < old_struct->members_len; member_index++) {
+    SDNA_StructMember *old_member = &old_struct->members[member_index];
+    SDNA_StructMember *new_member = &new_struct->members[member_index];
+
+    const char *old_type_name = oldsdna->types[old_member->type];
+    const char *new_type_name = newsdna->types[new_member->type];
+    if (!STREQ(old_type_name, new_type_name)) {
+      compare_flags[old_struct_index] = SDNA_CMP_NOT_EQUAL;
+      return;
+    }
+
+    const char *old_member_name = oldsdna->names[old_member->name];
+    const char *new_member_name = newsdna->names[new_member->name];
+    if (!STREQ(old_member_name, new_member_name)) {
+      compare_flags[old_struct_index] = SDNA_CMP_NOT_EQUAL;
+      return;
+    }
+
+    if (ispointer(old_member_name)) {
+      if (oldsdna->pointer_size != newsdna->pointer_size) {
+        compare_flags[old_struct_index] = SDNA_CMP_NOT_EQUAL;
+        return;
+      }
+    }
+    else {
+      const int old_member_struct_index = DNA_struct_find_nr(oldsdna, old_type_name);
+      if (old_member_struct_index >= 0) {
+        make_compare_flags(oldsdna, newsdna, compare_flags, old_member_struct_index);
+        if (compare_flags[old_member_struct_index] != SDNA_CMP_EQUAL) {
+          compare_flags[old_struct_index] = SDNA_CMP_NOT_EQUAL;
+          return;
         }
       }
     }
   }
+
+  compare_flags[old_struct_index] = SDNA_CMP_EQUAL;
 }
 
 /**
@@ -647,93 +689,29 @@ const char *DNA_struct_get_compareflags(const SDNA *oldsdna, const SDNA *newsdna
     return NULL;
   }
 
-  char *compflags = MEM_callocN(oldsdna->structs_len, "compflags");
-
-  /* we check all structs in 'oldsdna' and compare them with
-   * the structs in 'newsdna'
-   */
-  unsigned int newsdna_index_last = 0;
+  char *compare_flags = MEM_mallocN(oldsdna->structs_len, "compare flags");
+  memset(compare_flags, SDNA_CMP_UNKNOWN, oldsdna->structs_len);
 
   for (int a = 0; a < oldsdna->structs_len; a++) {
-    SDNA_Struct *struct_old = oldsdna->structs[a];
-
-    /* search for type in cur */
-    int sp_new_index = DNA_struct_find_nr_ex(
-        newsdna, oldsdna->types[struct_old->type], &newsdna_index_last);
-
-    /* The next indices will almost always match */
-    newsdna_index_last++;
-
-    if (sp_new_index != -1) {
-      SDNA_Struct *struct_new = newsdna->structs[sp_new_index];
-      /* initial assumption */
-      compflags[a] = SDNA_CMP_NOT_EQUAL;
-
-      /* compare length and amount of elems */
-      if (struct_new->members_len == struct_old->members_len) {
-        if (newsdna->types_size[struct_new->type] == oldsdna->types_size[struct_old->type]) {
-
-          /* Both structs have the same size and number of members. Now check the individual
-           * members. */
-          bool all_members_equal = true;
-          for (int b = 0; b < struct_old->members_len; b++) {
-            SDNA_StructMember *member_old = &struct_old->members[b];
-            SDNA_StructMember *member_new = &struct_new->members[b];
-
-            const char *type_name_old = oldsdna->types[member_old->type];
-            const char *type_name_new = newsdna->types[member_new->type];
-            if (!STREQ(type_name_old, type_name_new)) {
-              all_members_equal = false;
-              break;
-            }
-
-            const char *member_name_old = oldsdna->names[member_old->name];
-            const char *member_name_new = newsdna->names[member_new->name];
-            if (!STREQ(member_name_old, member_name_new)) {
-              all_members_equal = false;
-              break;
-            }
-
-            if (ispointer(member_name_new)) {
-              if (oldsdna->pointer_size != newsdna->pointer_size) {
-                all_members_equal = false;
-                break;
-              }
-            }
-          }
-          if (all_members_equal) {
-            /* no differences found */
-            compflags[a] = SDNA_CMP_EQUAL;
-          }
-        }
-      }
-    }
+    make_compare_flags(oldsdna, newsdna, compare_flags, a);
+    BLI_assert(compare_flags[a] != SDNA_CMP_UNKNOWN);
   }
 
-  /* first struct in util.h is struct Link, this is skipped in compflags (als # 0).
+  /* first struct in util.h is struct Link, this is skipped in compare_flags (als # 0).
    * was a bug, and this way dirty patched! Solve this later....
    */
-  compflags[0] = SDNA_CMP_EQUAL;
-
-  /* Because structs can be inside structs, we recursively
-   * set flags when a struct is altered
-   */
-  for (int a = 0; a < oldsdna->structs_len; a++) {
-    if (compflags[a] == SDNA_CMP_NOT_EQUAL) {
-      recurs_test_compflags(oldsdna, compflags, a);
-    }
-  }
+  compare_flags[0] = SDNA_CMP_EQUAL;
 
 #if 0
   for (int a = 0; a < oldsdna->structs_len; a++) {
-    if (compflags[a] == SDNA_CMP_NOT_EQUAL) {
+    if (compare_flags[a] == SDNA_CMP_NOT_EQUAL) {
       SDNA_Struct *struct_info = oldsdna->structs[a];
       printf("changed: %s\n", oldsdna->types[struct_info->type]);
     }
   }
 #endif
 
-  return compflags;
+  return compare_flags;
 }
 
 /**

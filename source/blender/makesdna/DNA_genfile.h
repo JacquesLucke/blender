@@ -78,6 +78,8 @@ enum eSDNA_StructCompare {
   /* Struct is different in some way
    * (needs to be copied/converted field by field) */
   SDNA_CMP_NOT_EQUAL = 2,
+  /* This is only used temporarily by #DNA_struct_get_compareflags. */
+  SDNA_CMP_UNKNOWN = 3,
 };
 
 struct SDNA *DNA_sdna_from_data(const void *data,
