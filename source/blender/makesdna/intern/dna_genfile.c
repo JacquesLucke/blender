@@ -751,6 +751,42 @@ static eSDNA_Type sdna_type_nr(const char *dna_type)
   return -1;
 }
 
+enum eDNA_ReconstructType {
+  RECONSTRUCT_MEMCPY,
+  RECONSTRUCT_CAST_ELEMENT,
+  RECONSTRUCT_CAST_POINTER_TO_32,
+  RECONSTRUCT_CAST_POINTER_TO_64,
+  RECONSTRUCT_SUBSTRUCT,
+  RECONSTRUCT_INIT_ZERO,
+} eDNA_ReconstructType;
+
+typedef struct ReconstructMemcpy {
+  int old_offset;
+  int new_offset;
+  int size;
+} ReconstructMemcpy;
+
+typedef struct ReconstructCastElement {
+  eSDNA_Type old_type;
+  eSDNA_Type new_type;
+  int old_offset;
+  int new_offset;
+  int amount;
+} ReconstructCastElement;
+
+typedef struct ReconstructCastPointer {
+  int old_offset;
+  int new_offset;
+  int amount;
+} ReconstructCastPointer;
+
+typedef struct ReconstructSubstruct {
+  int old_offset;
+  int new_offset;
+  int amount;
+  short new_struct_number;
+} ReconstructSubstruct;
+
 typedef struct DNA_ReconstructInfo {
   const SDNA *oldsdna;
   const SDNA *newsdna;
