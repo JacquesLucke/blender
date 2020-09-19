@@ -1492,6 +1492,10 @@ static int compress_reconstruct_steps(ReconstructStep *steps, const int old_step
   return new_step_count;
 }
 
+/**
+ * Preprocess information about how structs in newsdna can be reconstructed from structs in
+ * oldsdna. This information is then used to speedup #DNA_struct_reconstruct.
+ */
 DNA_ReconstructInfo *DNA_reconstruct_info_new(const SDNA *oldsdna,
                                               const SDNA *newsdna,
                                               const char *compare_flags)
