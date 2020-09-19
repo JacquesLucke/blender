@@ -1609,7 +1609,7 @@ void blo_filedata_free(FileData *fd)
       MEM_freeN((void *)fd->compflags);
     }
     if (fd->reconstruct_info) {
-      DNA_reconstruct_info_free(fd->reconstruct_info);
+      DNA_reconstruct_info_free((struct DNA_ReconstructInfo *)fd->reconstruct_info);
     }
 
     if (fd->datamap) {

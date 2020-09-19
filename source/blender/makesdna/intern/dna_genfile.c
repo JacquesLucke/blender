@@ -986,40 +986,32 @@ typedef enum eReconstructStepType {
   RECONSTRUCT_STEP_INIT_ZERO,
 } eReconstructStepType;
 
-typedef struct ReconstructStepMemcpy {
-  int old_offset;
-  int new_offset;
-  int size;
-} ReconstructStepMemcpy;
-
-typedef struct ReconstructStepCastElement {
-  int old_offset;
-  int new_offset;
-  int amount;
-  eSDNA_Type old_type;
-  eSDNA_Type new_type;
-} ReconstructStepCastElement;
-
-typedef struct ReconstructStepCastPointer {
-  int old_offset;
-  int new_offset;
-  int amount;
-} ReconstructStepCastPointer;
-
-typedef struct ReconstructStepSubstruct {
-  int old_offset;
-  int new_offset;
-  int amount;
-  short new_struct_number;
-} ReconstructStepSubstruct;
-
 typedef struct ReconstructStep {
   eReconstructStepType type;
   union {
-    ReconstructStepMemcpy memcpy;
-    ReconstructStepCastElement cast_element;
-    ReconstructStepCastPointer cast_pointer;
-    ReconstructStepSubstruct substruct;
+    struct {
+      int old_offset;
+      int new_offset;
+      int size;
+    } memcpy;
+    struct {
+      int old_offset;
+      int new_offset;
+      int amount;
+      eSDNA_Type old_type;
+      eSDNA_Type new_type;
+    } cast_element;
+    struct {
+      int old_offset;
+      int new_offset;
+      int amount;
+    } cast_pointer;
+    struct {
+      int old_offset;
+      int new_offset;
+      int amount;
+      short new_struct_number;
+    } substruct;
   } data;
 } ReconstructStep;
 
