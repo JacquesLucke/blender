@@ -1208,6 +1208,7 @@ void *DNA_struct_reconstruct(const DNA_ReconstructInfo *reconstruct_info,
   return new_blocks;
 }
 
+/* Each struct member belongs to one of the categories below. */
 typedef enum eStructMemberCategory {
   STRUCT_MEMBER_CATEGORY_STRUCT,
   STRUCT_MEMBER_CATEGORY_PRIMITIVE,
@@ -1239,6 +1240,7 @@ static int get_member_size_in_bytes(const SDNA *sdna, const SDNA_StructMember *m
   return type_size * array_length;
 }
 
+/** Finds a member in the given struct with the given name. */
 static const SDNA_StructMember *find_member_with_matching_name(const SDNA *sdna,
                                                                const SDNA_Struct *struct_info,
                                                                const char *name,
@@ -1257,16 +1259,17 @@ static const SDNA_StructMember *find_member_with_matching_name(const SDNA *sdna,
   return NULL;
 }
 
-static void create_step_for_member(const SDNA *oldsdna,
-                                   const SDNA *newsdna,
-                                   const char *compare_flags,
-                                   const SDNA_Struct *old_struct,
-                                   const SDNA_StructMember *new_member,
-                                   const int new_member_offset,
-                                   ReconstructStep *r_step)
+static void create_reconstruct_step_for_member(const SDNA *oldsdna,
+                                               const SDNA *newsdna,
+                                               const char *compare_flags,
+                                               const SDNA_Struct *old_struct,
+                                               const SDNA_StructMember *new_member,
+                                               const int new_member_offset,
+                                               ReconstructStep *r_step)
 {
   const char *new_name = newsdna->names[new_member->name];
 
+  /* Find the matching old member. */
   int old_member_offset;
   const SDNA_StructMember *old_member = find_member_with_matching_name(
       oldsdna, old_struct, new_name, &old_member_offset);
@@ -1445,13 +1448,13 @@ static ReconstructStep *create_member_reconstruct_steps(const SDNA *oldsdna,
   int new_member_offset = 0;
   for (int new_member_index = 0; new_member_index < new_struct->members_len; new_member_index++) {
     const SDNA_StructMember *new_member = &new_struct->members[new_member_index];
-    create_step_for_member(oldsdna,
-                           newsdna,
-                           compare_flags,
-                           old_struct,
-                           new_member,
-                           new_member_offset,
-                           &steps[new_member_index]);
+    create_reconstruct_step_for_member(oldsdna,
+                                       newsdna,
+                                       compare_flags,
+                                       old_struct,
+                                       new_member,
+                                       new_member_offset,
+                                       &steps[new_member_index]);
     new_member_offset += get_member_size_in_bytes(newsdna, new_member);
   }
 
@@ -1536,6 +1539,7 @@ DNA_ReconstructInfo *DNA_reconstruct_info_new(const SDNA *oldsdna,
       printf("\n");
     }
 #endif
+    UNUSED_VARS(print_reconstruct_step);
   }
 
   return reconstruct_info;
