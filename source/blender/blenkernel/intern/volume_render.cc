@@ -368,25 +368,23 @@ void BKE_volume_grid_wireframe(const Volume *volume,
                                BKE_volume_wireframe_cb cb,
                                void *cb_userdata)
 {
-#ifdef WITH_OPENVDB
-  VolumeWireframe wireframe;
-
-  blender::Vector<openvdb::CoordBBox> boxes;
-
   if (volume->display.wireframe_type == VOLUME_WIREFRAME_NONE) {
-    /* Nothing. */
+    cb(cb_userdata, NULL, NULL, 0, 0);
+    return;
   }
-  else if (volume->display.wireframe_type == VOLUME_WIREFRAME_BOUNDS) {
-    /* Bounding box. */
-    float min[3], max[3];
-    BKE_volume_grid_bounds(volume_grid, min, max);
 
-    openvdb::BBoxd bbox(min, max);
-    wireframe.add_box(bbox);
+#ifdef WITH_OPENVDB
+  blender::Vector<openvdb::CoordBBox> boxes;
+  openvdb::GridBase::ConstPtr grid = BKE_volume_grid_openvdb_for_read(volume, volume_grid);
+
+  if (volume->display.wireframe_type == VOLUME_WIREFRAME_BOUNDS) {
+    /* Bounding box. */
+    openvdb::CoordBBox box;
+    if (grid->baseTree().evalLeafBoundingBox(box)) {
+      boxes.append(box);
+    }
   }
   else {
-    /* Tree nodes. */
-    openvdb::GridBase::ConstPtr grid = BKE_volume_grid_openvdb_for_read(volume, volume_grid);
     // const bool points = (volume->display.wireframe_type == VOLUME_WIREFRAME_POINTS);
     const bool coarse = (volume->display.wireframe_detail == VOLUME_WIREFRAME_COARSE);
 
@@ -438,7 +436,6 @@ void BKE_volume_grid_wireframe(const Volume *volume,
     }
   }
 
-  openvdb::GridBase::ConstPtr grid = BKE_volume_grid_openvdb_for_read(volume, volume_grid);
   blender::Vector<blender::float3> vertices;
   blender::Vector<std::array<int, 2>> edges;
   boxes_to_mesh(boxes, grid->transform(), vertices, edges);
