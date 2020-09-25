@@ -20,8 +20,10 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "BLI_float3.hh"
 #include "BLI_math_matrix.h"
 #include "BLI_math_vector.h"
+#include "BLI_vector.hh"
 
 #include "DNA_volume_types.h"
 
@@ -31,6 +33,7 @@
 #ifdef WITH_OPENVDB
 #  include <openvdb/openvdb.h>
 #  include <openvdb/tools/Dense.h>
+#  include <openvdb/tools/ValueTransformer.h>
 #endif
 
 /* Dense Voxels */
@@ -165,7 +168,94 @@ void BKE_volume_grid_dense_voxels(const Volume *volume,
 
 /* Wireframe */
 
+template<typename GridType>
+static blender::Vector<openvdb::CoordBBox> get_bounding_boxes(openvdb::GridBase::ConstPtr gridbase,
+                                                              const int max_depth)
+{
+  using TreeType = typename GridType::TreeType;
+  using Depth2Type = typename TreeType::RootNodeType::ChildNodeType::ChildNodeType;
+  using NodeCIter = typename TreeType::NodeCIter;
+  using GridConstPtr = typename GridType::ConstPtr;
+
+  GridConstPtr grid = openvdb::gridConstPtrCast<GridType>(gridbase);
+  blender::Vector<openvdb::CoordBBox> boxes;
+
+  NodeCIter iter = grid->tree().cbeginNode();
+  iter.setMaxDepth(max_depth);
+
+  for (; iter; ++iter) {
+    if (iter.getDepth() != max_depth) {
+      continue;
+    }
+
+    openvdb::CoordBBox box;
+    if (max_depth == 2) {
+      const Depth2Type *node = nullptr;
+      iter.getNode(node);
+      if (node) {
+        node->evalActiveBoundingBox(box, false);
+      }
+      else {
+        continue;
+      }
+    }
+    else {
+      if (!iter.getBoundingBox(box)) {
+        continue;
+      }
+    }
+
+    boxes.append(box);
+  }
+
+  return boxes;
+}
+
+static void boxes_to_mesh(blender::Span<openvdb::CoordBBox> boxes,
+                          blender::Vector<blender::float3> &r_vertices,
+                          blender::Vector<std::array<int, 2>> &r_edges)
+{
+  int vert_offset = r_vertices.size();
+  int edge_offset = r_edges.size();
+
+  r_vertices.resize(r_vertices.size() + 8 * boxes.size());
+  r_edges.resize(r_edges.size() + 12 * boxes.size());
+
+  const int box_edges[12][2] = {
+      {0, 1},
+      {0, 2},
+      {0, 4},
+      {1, 3},
+      {1, 5},
+      {2, 3},
+      {2, 6},
+      {3, 7},
+      {4, 5},
+      {4, 6},
+      {5, 7},
+      {6, 7},
+  };
+
+  for (const openvdb::CoordBBox &box : boxes) {
+    /* The ordering of the corner points is lexicographic. */
+    std::array<openvdb::Coord, 8> corners;
+    box.getCornerPoints(corners.data());
+
+    for (const int i : blender::IndexRange(8)) {
+      r_vertices[vert_offset + i] = blender::float3(corners[i][0], corners[i][1], corners[i][2]);
+    }
+
+    for (const int i : blender::IndexRange(12)) {
+      r_edges[edge_offset + i] = {vert_offset + box_edges[i][0], vert_offset + box_edges[i][1]};
+    }
+
+    vert_offset += 8;
+    edge_offset += 12;
+  }
+}
+
 #ifdef WITH_OPENVDB
+
 struct VolumeWireframe {
   std::vector<openvdb::Vec3f> verts;
   std::vector<openvdb::Vec2I> edges;
@@ -277,6 +367,9 @@ void BKE_volume_grid_wireframe(const Volume *volume,
 #ifdef WITH_OPENVDB
   VolumeWireframe wireframe;
 
+  blender::Vector<openvdb::CoordBBox> boxes;
+  const int max_depth = 2;
+
   if (volume->display.wireframe_type == VOLUME_WIREFRAME_NONE) {
     /* Nothing. */
   }
@@ -291,48 +384,48 @@ void BKE_volume_grid_wireframe(const Volume *volume,
   else {
     /* Tree nodes. */
     openvdb::GridBase::ConstPtr grid = BKE_volume_grid_openvdb_for_read(volume, volume_grid);
-    const bool points = (volume->display.wireframe_type == VOLUME_WIREFRAME_POINTS);
-    const bool coarse = (volume->display.wireframe_detail == VOLUME_WIREFRAME_COARSE);
+    // const bool points = (volume->display.wireframe_type == VOLUME_WIREFRAME_POINTS);
+    // const bool coarse = (volume->display.wireframe_detail == VOLUME_WIREFRAME_COARSE);
 
     switch (BKE_volume_grid_type(volume_grid)) {
       case VOLUME_GRID_BOOLEAN: {
-        wireframe.add_grid<openvdb::BoolGrid>(grid, points, coarse);
+        boxes = get_bounding_boxes<openvdb::BoolGrid>(grid, max_depth);
         break;
       }
       case VOLUME_GRID_FLOAT: {
-        wireframe.add_grid<openvdb::FloatGrid>(grid, points, coarse);
+        boxes = get_bounding_boxes<openvdb::FloatGrid>(grid, max_depth);
         break;
       }
       case VOLUME_GRID_DOUBLE: {
-        wireframe.add_grid<openvdb::DoubleGrid>(grid, points, coarse);
+        boxes = get_bounding_boxes<openvdb::DoubleGrid>(grid, max_depth);
         break;
       }
       case VOLUME_GRID_INT: {
-        wireframe.add_grid<openvdb::Int32Grid>(grid, points, coarse);
+        boxes = get_bounding_boxes<openvdb::Int32Grid>(grid, max_depth);
         break;
       }
       case VOLUME_GRID_INT64: {
-        wireframe.add_grid<openvdb::Int64Grid>(grid, points, coarse);
+        boxes = get_bounding_boxes<openvdb::Int64Grid>(grid, max_depth);
         break;
       }
       case VOLUME_GRID_MASK: {
-        wireframe.add_grid<openvdb::MaskGrid>(grid, points, coarse);
+        boxes = get_bounding_boxes<openvdb::MaskGrid>(grid, max_depth);
         break;
       }
       case VOLUME_GRID_VECTOR_FLOAT: {
-        wireframe.add_grid<openvdb::Vec3fGrid>(grid, points, coarse);
+        boxes = get_bounding_boxes<openvdb::Vec3fGrid>(grid, max_depth);
         break;
       }
       case VOLUME_GRID_VECTOR_DOUBLE: {
-        wireframe.add_grid<openvdb::Vec3dGrid>(grid, points, coarse);
+        boxes = get_bounding_boxes<openvdb::Vec3dGrid>(grid, max_depth);
         break;
       }
       case VOLUME_GRID_VECTOR_INT: {
-        wireframe.add_grid<openvdb::Vec3IGrid>(grid, points, coarse);
+        boxes = get_bounding_boxes<openvdb::Vec3IGrid>(grid, max_depth);
         break;
       }
       case VOLUME_GRID_STRING: {
-        wireframe.add_grid<openvdb::StringGrid>(grid, points, coarse);
+        boxes = get_bounding_boxes<openvdb::StringGrid>(grid, max_depth);
         break;
       }
       case VOLUME_GRID_POINTS:
@@ -342,11 +435,21 @@ void BKE_volume_grid_wireframe(const Volume *volume,
     }
   }
 
+  blender::Vector<blender::float3> vertices;
+  blender::Vector<std::array<int, 2>> edges;
+  boxes_to_mesh(boxes, vertices, edges);
+
+  openvdb::GridBase::ConstPtr grid = BKE_volume_grid_openvdb_for_read(volume, volume_grid);
+  for (blender::float3 &pos : vertices) {
+    openvdb::Vec3d new_pos = grid->transform().indexToWorld(openvdb::Vec3d(&pos.x));
+    pos = blender::float3(new_pos[0], new_pos[1], new_pos[2]);
+  }
+
   cb(cb_userdata,
-     (float(*)[3])wireframe.verts.data(),
-     (int(*)[2])wireframe.edges.data(),
-     wireframe.verts.size(),
-     wireframe.edges.size());
+     (float(*)[3])vertices.data(),
+     (int(*)[2])edges.data(),
+     vertices.size(),
+     edges.size());
 #else
   UNUSED_VARS(volume, volume_grid);
   cb(cb_userdata, NULL, NULL, 0, 0);
