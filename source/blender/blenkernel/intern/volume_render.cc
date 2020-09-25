@@ -212,6 +212,59 @@ static blender::Vector<openvdb::CoordBBox> get_bounding_boxes(openvdb::GridBase:
   return boxes;
 }
 
+static blender::Vector<openvdb::CoordBBox> get_bounding_boxes(VolumeGridType grid_type,
+                                                              openvdb::GridBase::ConstPtr grid,
+                                                              const bool coarse)
+{
+  switch (grid_type) {
+    case VOLUME_GRID_BOOLEAN: {
+      return get_bounding_boxes<openvdb::BoolGrid>(grid, coarse);
+      break;
+    }
+    case VOLUME_GRID_FLOAT: {
+      return get_bounding_boxes<openvdb::FloatGrid>(grid, coarse);
+      break;
+    }
+    case VOLUME_GRID_DOUBLE: {
+      return get_bounding_boxes<openvdb::DoubleGrid>(grid, coarse);
+      break;
+    }
+    case VOLUME_GRID_INT: {
+      return get_bounding_boxes<openvdb::Int32Grid>(grid, coarse);
+      break;
+    }
+    case VOLUME_GRID_INT64: {
+      return get_bounding_boxes<openvdb::Int64Grid>(grid, coarse);
+      break;
+    }
+    case VOLUME_GRID_MASK: {
+      return get_bounding_boxes<openvdb::MaskGrid>(grid, coarse);
+      break;
+    }
+    case VOLUME_GRID_VECTOR_FLOAT: {
+      return get_bounding_boxes<openvdb::Vec3fGrid>(grid, coarse);
+      break;
+    }
+    case VOLUME_GRID_VECTOR_DOUBLE: {
+      return get_bounding_boxes<openvdb::Vec3dGrid>(grid, coarse);
+      break;
+    }
+    case VOLUME_GRID_VECTOR_INT: {
+      return get_bounding_boxes<openvdb::Vec3IGrid>(grid, coarse);
+      break;
+    }
+    case VOLUME_GRID_STRING: {
+      return get_bounding_boxes<openvdb::StringGrid>(grid, coarse);
+      break;
+    }
+    case VOLUME_GRID_POINTS:
+    case VOLUME_GRID_UNKNOWN: {
+      break;
+    }
+  }
+  return {};
+}
+
 static void boxes_to_mesh(blender::Span<openvdb::CoordBBox> boxes,
                           const openvdb::math::Transform &transform,
                           blender::Vector<blender::float3> &r_vertices,
@@ -387,53 +440,7 @@ void BKE_volume_grid_wireframe(const Volume *volume,
   else {
     // const bool points = (volume->display.wireframe_type == VOLUME_WIREFRAME_POINTS);
     const bool coarse = (volume->display.wireframe_detail == VOLUME_WIREFRAME_COARSE);
-
-    switch (BKE_volume_grid_type(volume_grid)) {
-      case VOLUME_GRID_BOOLEAN: {
-        boxes = get_bounding_boxes<openvdb::BoolGrid>(grid, coarse);
-        break;
-      }
-      case VOLUME_GRID_FLOAT: {
-        boxes = get_bounding_boxes<openvdb::FloatGrid>(grid, coarse);
-        break;
-      }
-      case VOLUME_GRID_DOUBLE: {
-        boxes = get_bounding_boxes<openvdb::DoubleGrid>(grid, coarse);
-        break;
-      }
-      case VOLUME_GRID_INT: {
-        boxes = get_bounding_boxes<openvdb::Int32Grid>(grid, coarse);
-        break;
-      }
-      case VOLUME_GRID_INT64: {
-        boxes = get_bounding_boxes<openvdb::Int64Grid>(grid, coarse);
-        break;
-      }
-      case VOLUME_GRID_MASK: {
-        boxes = get_bounding_boxes<openvdb::MaskGrid>(grid, coarse);
-        break;
-      }
-      case VOLUME_GRID_VECTOR_FLOAT: {
-        boxes = get_bounding_boxes<openvdb::Vec3fGrid>(grid, coarse);
-        break;
-      }
-      case VOLUME_GRID_VECTOR_DOUBLE: {
-        boxes = get_bounding_boxes<openvdb::Vec3dGrid>(grid, coarse);
-        break;
-      }
-      case VOLUME_GRID_VECTOR_INT: {
-        boxes = get_bounding_boxes<openvdb::Vec3IGrid>(grid, coarse);
-        break;
-      }
-      case VOLUME_GRID_STRING: {
-        boxes = get_bounding_boxes<openvdb::StringGrid>(grid, coarse);
-        break;
-      }
-      case VOLUME_GRID_POINTS:
-      case VOLUME_GRID_UNKNOWN: {
-        break;
-      }
-    }
+    boxes = get_bounding_boxes(BKE_volume_grid_type(volume_grid), grid, coarse);
   }
 
   blender::Vector<blender::float3> vertices;
