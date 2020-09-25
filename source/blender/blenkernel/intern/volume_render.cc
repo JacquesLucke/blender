@@ -326,31 +326,39 @@ void BKE_volume_grid_wireframe(const Volume *volume,
   }
 
 #ifdef WITH_OPENVDB
-  blender::Vector<openvdb::CoordBBox> boxes;
   openvdb::GridBase::ConstPtr grid = BKE_volume_grid_openvdb_for_read(volume, volume_grid);
 
   if (volume->display.wireframe_type == VOLUME_WIREFRAME_BOUNDS) {
     /* Bounding box. */
     openvdb::CoordBBox box;
+    blender::Vector<blender::float3> vertices;
+    blender::Vector<std::array<int, 2>> edges;
     if (grid->baseTree().evalLeafBoundingBox(box)) {
-      boxes.append(box);
+      boxes_to_mesh({box}, grid->transform(), vertices, edges);
     }
+    cb(cb_userdata,
+       (float(*)[3])vertices.data(),
+       (int(*)[2])edges.data(),
+       vertices.size(),
+       edges.size());
   }
   else {
     // const bool points = (volume->display.wireframe_type == VOLUME_WIREFRAME_POINTS);
     const bool coarse = (volume->display.wireframe_detail == VOLUME_WIREFRAME_COARSE);
-    boxes = get_bounding_boxes(BKE_volume_grid_type(volume_grid), grid, coarse);
+    blender::Vector<openvdb::CoordBBox> boxes = get_bounding_boxes(
+        BKE_volume_grid_type(volume_grid), grid, coarse);
+
+    blender::Vector<blender::float3> vertices;
+    blender::Vector<std::array<int, 2>> edges;
+    boxes_to_mesh(boxes, grid->transform(), vertices, edges);
+
+    cb(cb_userdata,
+       (float(*)[3])vertices.data(),
+       (int(*)[2])edges.data(),
+       vertices.size(),
+       edges.size());
   }
 
-  blender::Vector<blender::float3> vertices;
-  blender::Vector<std::array<int, 2>> edges;
-  boxes_to_mesh(boxes, grid->transform(), vertices, edges);
-
-  cb(cb_userdata,
-     (float(*)[3])vertices.data(),
-     (int(*)[2])edges.data(),
-     vertices.size(),
-     edges.size());
 #else
   UNUSED_VARS(volume, volume_grid);
   cb(cb_userdata, NULL, NULL, 0, 0);
