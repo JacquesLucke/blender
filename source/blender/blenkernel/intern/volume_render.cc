@@ -313,6 +313,17 @@ static void boxes_to_mesh(blender::Span<openvdb::CoordBBox> boxes,
   }
 }
 
+static void boxes_to_center_points(blender::Span<openvdb::CoordBBox> boxes,
+                                   const openvdb::math::Transform &transform,
+                                   blender::MutableSpan<blender::float3> r_vertices)
+{
+  BLI_assert(boxes.size() == r_vertices.size());
+  for (const int i : boxes.index_range()) {
+    openvdb::Vec3d center = transform.indexToWorld(boxes[i].getCenter());
+    r_vertices[i] = blender::float3(center[0], center[1], center[2]);
+  }
+}
+
 #endif
 
 void BKE_volume_grid_wireframe(const Volume *volume,
@@ -343,14 +354,21 @@ void BKE_volume_grid_wireframe(const Volume *volume,
        edges.size());
   }
   else {
-    // const bool points = (volume->display.wireframe_type == VOLUME_WIREFRAME_POINTS);
-    const bool coarse = (volume->display.wireframe_detail == VOLUME_WIREFRAME_COARSE);
     blender::Vector<openvdb::CoordBBox> boxes = get_bounding_boxes(
-        BKE_volume_grid_type(volume_grid), grid, coarse);
+        BKE_volume_grid_type(volume_grid),
+        grid,
+        volume->display.wireframe_detail == VOLUME_WIREFRAME_COARSE);
 
     blender::Vector<blender::float3> vertices;
     blender::Vector<std::array<int, 2>> edges;
-    boxes_to_mesh(boxes, grid->transform(), vertices, edges);
+
+    if (volume->display.wireframe_type == VOLUME_WIREFRAME_POINTS) {
+      vertices.resize(boxes.size());
+      boxes_to_center_points(boxes, grid->transform(), vertices);
+    }
+    else {
+      boxes_to_mesh(boxes, grid->transform(), vertices, edges);
+    }
 
     cb(cb_userdata,
        (float(*)[3])vertices.data(),
