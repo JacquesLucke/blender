@@ -20,6 +20,7 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "BLI_array.hh"
 #include "BLI_float3.hh"
 #include "BLI_math_matrix.h"
 #include "BLI_math_vector.h"
@@ -437,6 +438,24 @@ void BKE_volume_grid_wireframe(const Volume *volume,
 #endif
 }
 
+static void grow_triangles(blender::MutableSpan<blender::float3> verts,
+                           blender::Span<std::array<int, 3>> tris,
+                           const float factor)
+{
+  /* Compute the offset for every vertex based on the connected edges.
+   * This formula simply tries increases the length of all edges. */
+  blender::Array<blender::float3> offsets(verts.size(), {0, 0, 0});
+  for (const std::array<int, 3> &tri : tris) {
+    offsets[tri[0]] += factor * (2 * verts[tri[0]] - verts[tri[1]] - verts[tri[2]]);
+    offsets[tri[1]] += factor * (2 * verts[tri[1]] - verts[tri[0]] - verts[tri[2]]);
+    offsets[tri[2]] += factor * (2 * verts[tri[2]] - verts[tri[0]] - verts[tri[1]]);
+  }
+  /* Apply the computed offsets. */
+  for (const int i : verts.index_range()) {
+    verts[i] += offsets[i];
+  }
+}
+
 void BKE_volume_grid_selection_surface(const Volume *volume,
                                        VolumeGrid *volume_grid,
                                        BKE_volume_selection_surface_cb cb,
@@ -451,8 +470,12 @@ void BKE_volume_grid_selection_surface(const Volume *volume,
   blender::Vector<std::array<int, 3>> tris;
   boxes_to_cube_mesh(boxes, grid->transform(), verts, tris);
 
-  cb(cb_userdata, (float(*)[3])verts.data(), (int(*)[3])tris.data(), verts.size(), tris.size());
+  /* By slightly scaling the individual boxes up, we can avoid some artifacts when drawing the
+   * selection outline. */
+  const float offset_factor = 0.0f;
+  grow_triangles(verts, tris, offset_factor);
 
+  cb(cb_userdata, (float(*)[3])verts.data(), (int(*)[3])tris.data(), verts.size(), tris.size());
 #else
   UNUSED_VARS(volume, volume_grid);
   cb(cb_userdata, NULL, NULL, 0, 0);
