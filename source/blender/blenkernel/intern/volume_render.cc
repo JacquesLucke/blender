@@ -267,17 +267,42 @@ static blender::Vector<openvdb::CoordBBox> get_bounding_boxes(VolumeGridType gri
   return {};
 }
 
-static void boxes_to_mesh(blender::Span<openvdb::CoordBBox> boxes,
-                          const openvdb::math::Transform &transform,
-                          blender::Vector<blender::float3> &r_vertices,
-                          blender::Vector<std::array<int, 2>> &r_edges)
+static void boxes_to_center_points(blender::Span<openvdb::CoordBBox> boxes,
+                                   const openvdb::math::Transform &transform,
+                                   blender::MutableSpan<blender::float3> r_verts)
 {
-  int vert_offset = r_vertices.size();
-  int edge_offset = r_edges.size();
+  BLI_assert(boxes.size() == r_verts.size());
+  for (const int i : boxes.index_range()) {
+    openvdb::Vec3d center = transform.indexToWorld(boxes[i].getCenter());
+    r_verts[i] = blender::float3(center[0], center[1], center[2]);
+  }
+}
 
-  r_vertices.resize(r_vertices.size() + 8 * boxes.size());
-  r_edges.resize(r_edges.size() + 12 * boxes.size());
+static void boxes_to_corner_points(blender::Span<openvdb::CoordBBox> boxes,
+                                   const openvdb::math::Transform &transform,
+                                   blender::MutableSpan<blender::float3> r_verts)
+{
+  BLI_assert(boxes.size() * 8 == r_verts.size());
+  for (const int i : boxes.index_range()) {
+    const openvdb::CoordBBox &box = boxes[i];
 
+    /* The ordering of the corner points is lexicographic. */
+    std::array<openvdb::Coord, 8> corners;
+    box.getCornerPoints(corners.data());
+
+    for (int j = 0; j < 8; j++) {
+      openvdb::Coord corner_i = corners[j];
+      openvdb::Vec3d corner_d = transform.indexToWorld(corner_i);
+      r_verts[8 * i + j] = blender::float3(corner_d[0], corner_d[1], corner_d[2]);
+    }
+  }
+}
+
+static void boxes_to_edge_mesh(blender::Span<openvdb::CoordBBox> boxes,
+                               const openvdb::math::Transform &transform,
+                               blender::Vector<blender::float3> &r_verts,
+                               blender::Vector<std::array<int, 2>> &r_edges)
+{
   const int box_edges[12][2] = {
       {0, 1},
       {0, 2},
@@ -293,34 +318,63 @@ static void boxes_to_mesh(blender::Span<openvdb::CoordBBox> boxes,
       {6, 7},
   };
 
-  for (const openvdb::CoordBBox &box : boxes) {
-    /* The ordering of the corner points is lexicographic. */
-    std::array<openvdb::Coord, 8> corners;
-    box.getCornerPoints(corners.data());
+  int vert_offset = r_verts.size();
+  int edge_offset = r_edges.size();
 
-    for (const int i : blender::IndexRange(8)) {
-      openvdb::Coord corner_i = corners[i];
-      openvdb::Vec3d corner_d = transform.indexToWorld(corner_i);
-      r_vertices[vert_offset + i] = blender::float3(corner_d[0], corner_d[1], corner_d[2]);
+  const int vert_amount = 8 * boxes.size();
+  const int edge_amount = 12 * boxes.size();
+
+  r_verts.resize(r_verts.size() + vert_amount);
+  r_edges.resize(r_edges.size() + edge_amount);
+  boxes_to_corner_points(boxes, transform, r_verts.as_mutable_span().take_back(vert_amount));
+
+  for (int i = 0; i < boxes.size(); i++) {
+    for (int j = 0; j < 12; j++) {
+      r_edges[edge_offset + j] = {vert_offset + box_edges[j][0], vert_offset + box_edges[j][1]};
     }
-
-    for (const int i : blender::IndexRange(12)) {
-      r_edges[edge_offset + i] = {vert_offset + box_edges[i][0], vert_offset + box_edges[i][1]};
-    }
-
     vert_offset += 8;
     edge_offset += 12;
   }
 }
 
-static void boxes_to_center_points(blender::Span<openvdb::CoordBBox> boxes,
-                                   const openvdb::math::Transform &transform,
-                                   blender::MutableSpan<blender::float3> r_vertices)
+static void boxes_to_cube_mesh(blender::Span<openvdb::CoordBBox> boxes,
+                               const openvdb::math::Transform &transform,
+                               blender::Vector<blender::float3> &r_verts,
+                               blender::Vector<std::array<int, 3>> &r_tris)
 {
-  BLI_assert(boxes.size() == r_vertices.size());
-  for (const int i : boxes.index_range()) {
-    openvdb::Vec3d center = transform.indexToWorld(boxes[i].getCenter());
-    r_vertices[i] = blender::float3(center[0], center[1], center[2]);
+  const int box_tris[12][3] = {
+      {0, 1, 4},
+      {4, 1, 5},
+      {0, 2, 1},
+      {1, 2, 3},
+      {1, 3, 5},
+      {5, 3, 7},
+      {6, 4, 5},
+      {7, 5, 6},
+      {2, 0, 4},
+      {2, 4, 6},
+      {3, 7, 2},
+      {6, 2, 7},
+  };
+
+  int vert_offset = r_verts.size();
+  int tri_offset = r_tris.size();
+
+  const int vert_amount = 8 * boxes.size();
+  const int tri_amount = 12 * boxes.size();
+
+  r_verts.resize(r_verts.size() + vert_amount);
+  r_tris.resize(r_tris.size() + tri_amount);
+  boxes_to_corner_points(boxes, transform, r_verts.as_mutable_span().take_back(vert_amount));
+
+  for (int i = 0; i < boxes.size(); i++) {
+    for (int j = 0; j < 12; j++) {
+      r_tris[tri_offset + j] = {vert_offset + box_tris[j][0],
+                                vert_offset + box_tris[j][1],
+                                vert_offset + box_tris[j][2]};
+    }
+    vert_offset += 8;
+    tri_offset += 12;
   }
 }
 
@@ -342,15 +396,15 @@ void BKE_volume_grid_wireframe(const Volume *volume,
   if (volume->display.wireframe_type == VOLUME_WIREFRAME_BOUNDS) {
     /* Bounding box. */
     openvdb::CoordBBox box;
-    blender::Vector<blender::float3> vertices;
+    blender::Vector<blender::float3> verts;
     blender::Vector<std::array<int, 2>> edges;
     if (grid->baseTree().evalLeafBoundingBox(box)) {
-      boxes_to_mesh({box}, grid->transform(), vertices, edges);
+      boxes_to_edge_mesh({box}, grid->transform(), verts, edges);
     }
     cb(cb_userdata,
-       (float(*)[3])vertices.data(),
+       (float(*)[3])verts.data(),
        (int(*)[2])edges.data(),
-       vertices.size(),
+       verts.size(),
        edges.size());
   }
   else {
@@ -359,23 +413,45 @@ void BKE_volume_grid_wireframe(const Volume *volume,
         grid,
         volume->display.wireframe_detail == VOLUME_WIREFRAME_COARSE);
 
-    blender::Vector<blender::float3> vertices;
+    blender::Vector<blender::float3> verts;
     blender::Vector<std::array<int, 2>> edges;
 
     if (volume->display.wireframe_type == VOLUME_WIREFRAME_POINTS) {
-      vertices.resize(boxes.size());
-      boxes_to_center_points(boxes, grid->transform(), vertices);
+      verts.resize(boxes.size());
+      boxes_to_center_points(boxes, grid->transform(), verts);
     }
     else {
-      boxes_to_mesh(boxes, grid->transform(), vertices, edges);
+      boxes_to_edge_mesh(boxes, grid->transform(), verts, edges);
     }
 
     cb(cb_userdata,
-       (float(*)[3])vertices.data(),
+       (float(*)[3])verts.data(),
        (int(*)[2])edges.data(),
-       vertices.size(),
+       verts.size(),
        edges.size());
   }
+
+#else
+  UNUSED_VARS(volume, volume_grid);
+  cb(cb_userdata, NULL, NULL, 0, 0);
+#endif
+}
+
+void BKE_volume_grid_selection_surface(const Volume *volume,
+                                       VolumeGrid *volume_grid,
+                                       BKE_volume_selection_surface_cb cb,
+                                       void *cb_userdata)
+{
+#ifdef WITH_OPENVDB
+  openvdb::GridBase::ConstPtr grid = BKE_volume_grid_openvdb_for_read(volume, volume_grid);
+  blender::Vector<openvdb::CoordBBox> boxes = get_bounding_boxes(
+      BKE_volume_grid_type(volume_grid), grid, true);
+
+  blender::Vector<blender::float3> verts;
+  blender::Vector<std::array<int, 3>> tris;
+  boxes_to_cube_mesh(boxes, grid->transform(), verts, tris);
+
+  cb(cb_userdata, (float(*)[3])verts.data(), (int(*)[3])tris.data(), verts.size(), tris.size());
 
 #else
   UNUSED_VARS(volume, volume_grid);
