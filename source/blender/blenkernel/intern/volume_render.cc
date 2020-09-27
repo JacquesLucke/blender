@@ -163,6 +163,36 @@ void BKE_volume_grid_dense_voxels(const Volume *volume,
 #endif
 }
 
+bool BKE_volume_grid_dense(const struct Volume *volume,
+                           struct VolumeGrid *volume_grid,
+                           float **r_voxels,
+                           int64_t *r_resolution,
+                           float r_matrix[4][4])
+{
+  int64_t dense_min[3], dense_max[3];
+  BKE_volume_grid_dense_bounds(volume, volume_grid, dense_min, dense_max);
+  int64_t resolution[3] = {
+      dense_max[0] - dense_min[0],
+      dense_max[1] - dense_min[1],
+      dense_max[2] - dense_min[2],
+  };
+
+  const int64_t num_voxels = resolution[0] * resolution[1] * resolution[2];
+  const int channels = BKE_volume_grid_channels(volume_grid);
+  const int elem_size = sizeof(float) * channels;
+  float *voxels = static_cast<float *>(MEM_malloc_arrayN(num_voxels, elem_size, __func__));
+  if (voxels == NULL) {
+    return false;
+  }
+  BKE_volume_grid_dense_voxels(volume, volume_grid, dense_min, dense_max, voxels);
+
+  *r_voxels = voxels;
+  memcpy(r_resolution, resolution, sizeof(resolution));
+
+  BKE_volume_grid_dense_transform_matrix(volume_grid, dense_min, dense_max, r_matrix);
+  return true;
+}
+
 /* Wireframe */
 
 #ifdef WITH_OPENVDB
