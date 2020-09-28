@@ -65,6 +65,60 @@ void extract_dense_voxels(const openvdb::GridBase &grid,
   openvdb::tools::copyToDense(static_cast<const GridType &>(grid), dense);
 }
 
+void extract_dense_float_voxels(const VolumeGridType grid_type,
+                                const openvdb::GridBase &grid,
+                                const openvdb::CoordBBox &bbox,
+                                float *r_voxels)
+{
+  switch (grid_type) {
+    case VOLUME_GRID_BOOLEAN: {
+      extract_dense_voxels<openvdb::BoolGrid, float>(grid, bbox, r_voxels);
+      break;
+    }
+    case VOLUME_GRID_FLOAT: {
+      extract_dense_voxels<openvdb::FloatGrid, float>(grid, bbox, r_voxels);
+      break;
+    }
+    case VOLUME_GRID_DOUBLE: {
+      extract_dense_voxels<openvdb::DoubleGrid, float>(grid, bbox, r_voxels);
+      break;
+    }
+    case VOLUME_GRID_INT: {
+      extract_dense_voxels<openvdb::Int32Grid, float>(grid, bbox, r_voxels);
+      break;
+    }
+    case VOLUME_GRID_INT64: {
+      extract_dense_voxels<openvdb::Int64Grid, float>(grid, bbox, r_voxels);
+      break;
+    }
+    case VOLUME_GRID_MASK: {
+      extract_dense_voxels<openvdb::MaskGrid, float>(grid, bbox, r_voxels);
+      break;
+    }
+    case VOLUME_GRID_VECTOR_FLOAT: {
+      extract_dense_voxels<openvdb::Vec3fGrid, openvdb::Vec3f>(
+          grid, bbox, reinterpret_cast<openvdb::Vec3f *>(r_voxels));
+      break;
+    }
+    case VOLUME_GRID_VECTOR_DOUBLE: {
+      extract_dense_voxels<openvdb::Vec3dGrid, openvdb::Vec3f>(
+          grid, bbox, reinterpret_cast<openvdb::Vec3f *>(r_voxels));
+      break;
+    }
+    case VOLUME_GRID_VECTOR_INT: {
+      extract_dense_voxels<openvdb::Vec3IGrid, openvdb::Vec3f>(
+          grid, bbox, reinterpret_cast<openvdb::Vec3f *>(r_voxels));
+      break;
+    }
+    case VOLUME_GRID_STRING:
+    case VOLUME_GRID_POINTS:
+    case VOLUME_GRID_UNKNOWN: {
+      /* Zero channels to copy. */
+      break;
+    }
+  }
+}
+
 bool BKE_volume_grid_dense_floats(const Volume *volume,
                                   VolumeGrid *volume_grid,
                                   const float resolution_factor,
@@ -92,53 +146,7 @@ bool BKE_volume_grid_dense_floats(const Volume *volume,
     return false;
   }
 
-  switch (BKE_volume_grid_type(volume_grid)) {
-    case VOLUME_GRID_BOOLEAN: {
-      extract_dense_voxels<openvdb::BoolGrid, float>(*grid, bbox, voxels);
-      break;
-    }
-    case VOLUME_GRID_FLOAT: {
-      extract_dense_voxels<openvdb::FloatGrid, float>(*grid, bbox, voxels);
-      break;
-    }
-    case VOLUME_GRID_DOUBLE: {
-      extract_dense_voxels<openvdb::DoubleGrid, float>(*grid, bbox, voxels);
-      break;
-    }
-    case VOLUME_GRID_INT: {
-      extract_dense_voxels<openvdb::Int32Grid, float>(*grid, bbox, voxels);
-      break;
-    }
-    case VOLUME_GRID_INT64: {
-      extract_dense_voxels<openvdb::Int64Grid, float>(*grid, bbox, voxels);
-      break;
-    }
-    case VOLUME_GRID_MASK: {
-      extract_dense_voxels<openvdb::MaskGrid, float>(*grid, bbox, voxels);
-      break;
-    }
-    case VOLUME_GRID_VECTOR_FLOAT: {
-      extract_dense_voxels<openvdb::Vec3fGrid, openvdb::Vec3f>(
-          *grid, bbox, reinterpret_cast<openvdb::Vec3f *>(voxels));
-      break;
-    }
-    case VOLUME_GRID_VECTOR_DOUBLE: {
-      extract_dense_voxels<openvdb::Vec3dGrid, openvdb::Vec3f>(
-          *grid, bbox, reinterpret_cast<openvdb::Vec3f *>(voxels));
-      break;
-    }
-    case VOLUME_GRID_VECTOR_INT: {
-      extract_dense_voxels<openvdb::Vec3IGrid, openvdb::Vec3f>(
-          *grid, bbox, reinterpret_cast<openvdb::Vec3f *>(voxels));
-      break;
-    }
-    case VOLUME_GRID_STRING:
-    case VOLUME_GRID_POINTS:
-    case VOLUME_GRID_UNKNOWN: {
-      /* Zero channels to copy. */
-      break;
-    }
-  }
+  extract_dense_float_voxels(BKE_volume_grid_type(volume_grid), *grid, bbox, voxels);
 
   r_dense_grid->voxels = voxels;
   r_dense_grid->channels = channels;
