@@ -36,8 +36,8 @@ struct VolumeGrid;
 
 typedef struct DenseFloatVolumeGrid {
   VolumeGridType type;
-  int64_t resolution[3];
-  float matrix[4][4];
+  int resolution[3];
+  float texture_to_object[4][4];
   int channels;
   float *voxels;
 } DenseFloatVolumeGrid;
