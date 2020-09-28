@@ -34,25 +34,18 @@ struct VolumeGrid;
 
 /* Dense Voxels */
 
-bool BKE_volume_grid_dense_bounds(const struct Volume *volume,
-                                  struct VolumeGrid *volume_grid,
-                                  int64_t min[3],
-                                  int64_t max[3]);
-void BKE_volume_grid_dense_transform_matrix(const struct VolumeGrid *volume_grid,
-                                            const int64_t min[3],
-                                            const int64_t max[3],
-                                            float matrix[4][4]);
-void BKE_volume_grid_dense_voxels(const struct Volume *volume,
-                                  struct VolumeGrid *volume_grid,
-                                  const int64_t min[3],
-                                  const int64_t max[3],
-                                  float *voxels);
+typedef struct DenseFloatVolumeGrid {
+  VolumeGridType type;
+  int64_t resolution[3];
+  float matrix[4][4];
+  int channels;
+  float *voxels;
+} DenseFloatVolumeGrid;
 
-bool BKE_volume_grid_dense(const struct Volume *volume,
-                           struct VolumeGrid *volume_grid,
-                           float **r_voxels,
-                           int64_t *r_resolution,
-                           float r_matrix[4][4]);
+bool BKE_volume_grid_dense_floats(const struct Volume *volume,
+                                  struct VolumeGrid *volume_grid,
+                                  DenseFloatVolumeGrid *r_dense_grid);
+void BKE_volume_dense_float_grid_clear(DenseFloatVolumeGrid *dense_grid);
 
 /* Wireframe */
 

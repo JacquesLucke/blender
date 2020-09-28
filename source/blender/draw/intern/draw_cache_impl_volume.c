@@ -242,18 +242,22 @@ static DRWVolumeGrid *volume_grid_cache_get(Volume *volume,
   const bool was_loaded = BKE_volume_grid_is_loaded(grid);
   BKE_volume_grid_load(volume, grid);
 
-  float *voxels;
-  int64_t resolution[3];
-  if (BKE_volume_grid_dense(volume, grid, &voxels, &resolution, cache_grid->texture_to_object)) {
-    invert_m4_m4(cache_grid->object_to_texture, cache_grid->texture_to_object);
+  DenseFloatVolumeGrid dense_grid;
+  if (BKE_volume_grid_dense_floats(volume, grid, &dense_grid)) {
+    copy_m4_m4(cache_grid->texture_to_object, dense_grid.matrix);
+    invert_m4_m4(cache_grid->object_to_texture, dense_grid.matrix);
 
     /* Create GPU texture. */
     eGPUTextureFormat format = (channels == 3) ? GPU_RGB16F : GPU_R16F;
-    cache_grid->texture = GPU_texture_create_3d(
-        "volume_grid", UNPACK3(resolution), 1, format, GPU_DATA_FLOAT, voxels);
+    cache_grid->texture = GPU_texture_create_3d("volume_grid",
+                                                UNPACK3(dense_grid.resolution),
+                                                1,
+                                                format,
+                                                GPU_DATA_FLOAT,
+                                                dense_grid.voxels);
     GPU_texture_swizzle_set(cache_grid->texture, (channels == 3) ? "rgb1" : "rrr1");
     GPU_texture_wrap_mode(cache_grid->texture, false, false);
-    MEM_freeN(voxels);
+    BKE_volume_dense_float_grid_clear(&dense_grid);
   }
 
   /* Free grid from memory if it wasn't previously loaded. */
