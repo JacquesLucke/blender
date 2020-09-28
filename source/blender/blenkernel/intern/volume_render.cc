@@ -31,15 +31,41 @@
 #ifdef WITH_OPENVDB
 #  include <openvdb/openvdb.h>
 #  include <openvdb/tools/Dense.h>
+#  include <openvdb/tools/GridTransformer.h>
 #endif
 
 /* Dense Voxels */
 
+template<typename GridType>
+typename GridType::Ptr new_grid_with_changed_resolution(const openvdb::GridBase &old_grid,
+                                                        const float resolution_factor)
+{
+  BLI_assert(resolution_factor > 0.0f);
+  BLI_assert(old_grid.isType<GridType>());
+
+  openvdb::Mat4R xform;
+  xform.setToScale(openvdb::Vec3d(resolution_factor));
+  openvdb::tools::GridTransformer transformer{xform};
+
+  typename GridType::Ptr new_grid = GridType::create();
+  transformer.transformGrid<openvdb::tools::BoxSampler>(static_cast<const GridType &>(old_grid),
+                                                        *new_grid);
+  new_grid->transform() = old_grid.transform();
+  new_grid->transform().preScale(1.0f / resolution_factor);
+  return new_grid;
+}
+
 bool BKE_volume_grid_dense_floats(const Volume *volume,
                                   VolumeGrid *volume_grid,
+                                  const float resolution_factor,
                                   DenseFloatVolumeGrid *r_dense_grid)
 {
-  openvdb::GridBase::ConstPtr grid = BKE_volume_grid_openvdb_for_read(volume, volume_grid);
+  openvdb::GridBase::ConstPtr original_grid = BKE_volume_grid_openvdb_for_read(volume,
+                                                                               volume_grid);
+  openvdb::FloatGrid::Ptr downscaled_grid = new_grid_with_changed_resolution<openvdb::FloatGrid>(
+      *original_grid, resolution_factor);
+  openvdb::GridBase::ConstPtr grid = downscaled_grid;
+
   const openvdb::CoordBBox bbox = grid->evalActiveVoxelBoundingBox();
   if (bbox.empty()) {
     return false;
@@ -119,7 +145,9 @@ bool BKE_volume_grid_dense_floats(const Volume *volume,
 
   {
     float index_to_object[4][4];
-    BKE_volume_grid_transform_matrix(volume_grid, index_to_object);
+    memcpy(index_to_object,
+           openvdb::Mat4s(grid->transform().baseMap()->getAffineMap()->getMat4()).asPointer(),
+           sizeof(index_to_object));
 
     float texture_to_index[4][4];
     const openvdb::Vec3f loc = bbox.min().asVec3s();

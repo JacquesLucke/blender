@@ -243,7 +243,7 @@ static DRWVolumeGrid *volume_grid_cache_get(Volume *volume,
   BKE_volume_grid_load(volume, grid);
 
   DenseFloatVolumeGrid dense_grid;
-  if (BKE_volume_grid_dense_floats(volume, grid, &dense_grid)) {
+  if (BKE_volume_grid_dense_floats(volume, grid, 0.1, &dense_grid)) {
     copy_m4_m4(cache_grid->texture_to_object, dense_grid.texture_to_object);
     invert_m4_m4(cache_grid->object_to_texture, dense_grid.texture_to_object);
 
