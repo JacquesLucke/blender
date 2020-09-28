@@ -42,7 +42,7 @@ typedef struct VolumeDisplay {
   int axis_slice_method;
   int slice_axis;
   float slice_depth;
-  int simplification;
+  int simplify;
 } VolumeDisplay;
 
 typedef struct VolumeRender {

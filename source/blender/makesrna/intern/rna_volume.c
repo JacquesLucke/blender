@@ -63,6 +63,15 @@ static void rna_Volume_update_is_sequence(Main *bmain, Scene *scene, PointerRNA 
   DEG_relations_tag_update(bmain);
 }
 
+static void rna_Volume_update_batch_cache(Main *UNUSED(bmain),
+                                          Scene *UNUSED(scene),
+                                          PointerRNA *ptr)
+{
+  Volume *volume = (Volume *)ptr->owner_id;
+  WM_main_add_notifier(NC_GEOM | ND_DATA, volume);
+  BKE_volume_batch_cache_dirty_tag_cb(volume, BKE_VOLUME_BATCH_DIRTY_ALL);
+}
+
 /* Grid */
 
 static void rna_VolumeGrid_name_get(PointerRNA *ptr, char *value)
@@ -458,6 +467,12 @@ static void rna_def_volume_display(BlenderRNA *brna)
   RNA_def_property_ui_range(prop, 0.0, 1.0, 0.1, 3);
   RNA_def_property_ui_text(prop, "Position", "Position of the slice");
   RNA_def_property_update(prop, 0, "rna_Volume_update_display");
+
+  prop = RNA_def_property(srna, "simplify", PROP_INT, PROP_NONE);
+  RNA_def_property_range(prop, 0, 10);
+  RNA_def_property_ui_text(
+      prop, "Simplify", "Higher values result in a lower resolution in the viewport");
+  RNA_def_property_update(prop, 0, "rna_Volume_update_batch_cache");
 }
 
 static void rna_def_volume_render(BlenderRNA *brna)

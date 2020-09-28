@@ -156,10 +156,12 @@ class DATA_PT_volume_viewport_display(DataButtonsPanel, Panel):
         col.prop(display, "density")
         col.prop(display, "interpolation_method")
         col.prop(display, "axis_slice_method")
-        
+
         if not do_full_slicing:
             col.prop(display, "slice_axis")
             col.prop(display, "slice_depth")
+
+        layout.prop(display, "simplify")
 
 
 class DATA_PT_custom_props_volume(DataButtonsPanel, PropertyPanel, Panel):
