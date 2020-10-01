@@ -2259,6 +2259,8 @@ typedef enum MeshToVolumeModifierResolutionMode {
 typedef struct VolumeDisplaceModifierData {
   ModifierData modifier;
 
+  struct Tex *texture;
+
   float strength;
   char _pad[4];
 } VolumeDisplaceModifierData;

@@ -7093,6 +7093,11 @@ static void rna_def_modifier_volume_displace(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Strength", "Strength of the displacement");
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
+  prop = RNA_def_property(srna, "texture", PROP_POINTER, PROP_NONE);
+  RNA_def_property_ui_text(prop, "Texture", "");
+  RNA_def_property_flag(prop, PROP_EDITABLE);
+  RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
+
   RNA_define_lib_overridable(false);
 }
 

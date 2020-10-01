@@ -24,12 +24,14 @@
 #include "BKE_mesh_runtime.h"
 #include "BKE_modifier.h"
 #include "BKE_object.h"
+#include "BKE_texture.h"
 #include "BKE_volume.h"
 
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_object_types.h"
 #include "DNA_screen_types.h"
+#include "DNA_texture_types.h"
 #include "DNA_volume_types.h"
 
 #include "DEG_depsgraph_build.h"
@@ -48,6 +50,8 @@
 #include "BLI_index_range.hh"
 #include "BLI_span.hh"
 
+#include "RE_shader_ext.h"
+
 #include "RNA_access.h"
 
 #ifdef WITH_OPENVDB
@@ -60,13 +64,16 @@
 static void initData(ModifierData *md)
 {
   VolumeDisplaceModifierData *vdmd = reinterpret_cast<VolumeDisplaceModifierData *>(md);
+  vdmd->texture = NULL;
   vdmd->strength = 1.0f;
 }
 
-static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphContext *UNUSED(ctx))
+static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphContext *ctx)
 {
   VolumeDisplaceModifierData *vdmd = reinterpret_cast<VolumeDisplaceModifierData *>(md);
-  UNUSED_VARS(vdmd);
+  if (vdmd->texture != NULL) {
+    DEG_add_generic_id_relation(ctx->node, &vdmd->texture->id, "Volume Displace Modifier");
+  }
 }
 
 static void foreachObjectLink(ModifierData *md,
@@ -78,7 +85,28 @@ static void foreachObjectLink(ModifierData *md,
   UNUSED_VARS(vdmd);
 }
 
-static void panel_draw(const bContext *UNUSED(C), Panel *panel)
+static void foreachIDLink(ModifierData *md, Object *ob, IDWalkFunc walk, void *userData)
+{
+  VolumeDisplaceModifierData *vdmd = reinterpret_cast<VolumeDisplaceModifierData *>(md);
+  walk(userData, ob, (ID **)&vdmd->texture, IDWALK_CB_USER);
+  foreachObjectLink(md, ob, (ObjectWalkFunc)walk, userData);
+}
+
+static void foreachTexLink(ModifierData *md, Object *ob, TexWalkFunc walk, void *userData)
+{
+  walk(userData, ob, md, "texture");
+}
+
+static bool dependsOnTime(ModifierData *md)
+{
+  VolumeDisplaceModifierData *vdmd = reinterpret_cast<VolumeDisplaceModifierData *>(md);
+  if (vdmd->texture) {
+    return BKE_texture_dependsOnTime(vdmd->texture);
+  }
+  return false;
+}
+
+static void panel_draw(const bContext *C, Panel *panel)
 {
   uiLayout *layout = panel->layout;
 
@@ -89,6 +117,8 @@ static void panel_draw(const bContext *UNUSED(C), Panel *panel)
 
   uiLayoutSetPropSep(layout, true);
   uiLayoutSetPropDecorate(layout, false);
+
+  uiTemplateID(layout, C, ptr, "texture", "texture.new", NULL, NULL, 0, ICON_NONE, NULL);
 
   uiItemR(layout, ptr, "strength", 0, NULL, ICON_NONE);
 
@@ -104,13 +134,27 @@ static void panelRegister(ARegionType *region_type)
 struct DisplaceOp {
   /* Has to be copied for each thread. */
   openvdb::FloatGrid::ConstAccessor accessor;
+  Tex *texture;
   const float strength;
 
   void operator()(const openvdb::FloatGrid::ValueOnIter &iter) const
   {
     const openvdb::Coord coord = iter.getCoord();
-    const float z = std::sin(coord.x() / 10.0) * strength;
-    const openvdb::Vec3d sample_coord = coord.asVec3d() + openvdb::Vec3d(0, 0, z);
+    const openvdb::Vec3f coord_object_space = coord.asVec3d() / 100.0;
+
+    openvdb::Vec3d offset{0, 0, 1};
+    if (this->texture != NULL) {
+      TexResult texture_result = {0};
+      BKE_texture_get_value(NULL,
+                            this->texture,
+                            const_cast<float *>(coord_object_space.asV()),
+                            &texture_result,
+                            false);
+      offset = {texture_result.tr, texture_result.tg, texture_result.tb};
+      offset -= 0.5;
+    }
+
+    const openvdb::Vec3d sample_coord = coord.asVec3d() + offset * strength;
     const float new_value = openvdb::tools::BoxSampler::sample(this->accessor, sample_coord);
     iter.setValue(new_value);
   }
@@ -144,7 +188,7 @@ static Volume *modifyVolume(ModifierData *md,
                                      openvdb::tools::NN_FACE_EDGE,
                                      openvdb::tools::EXPAND_TILES);
 
-  DisplaceOp displace_op{old_grid->getConstAccessor(), vdmd->strength};
+  DisplaceOp displace_op{old_grid->getConstAccessor(), vdmd->texture, vdmd->strength};
 
   openvdb::tools::foreach (
       new_grid->beginValueOn(), displace_op, true, /* Disable sharing of the operator. */ false);
@@ -187,11 +231,11 @@ ModifierTypeInfo modifierType_VolumeDisplace = {
     /* freeData */ NULL,
     /* isDisabled */ NULL,
     /* updateDepsgraph */ updateDepsgraph,
-    /* dependsOnTime */ NULL,
+    /* dependsOnTime */ dependsOnTime,
     /* dependsOnNormals */ NULL,
     /* foreachObjectLink */ foreachObjectLink,
-    /* foreachIDLink */ NULL,
-    /* foreachTexLink */ NULL,
+    /* foreachIDLink */ foreachIDLink,
+    /* foreachTexLink */ foreachTexLink,
     /* freeRuntimeData */ NULL,
     /* panelRegister */ panelRegister,
     /* blendWrite */ NULL,
