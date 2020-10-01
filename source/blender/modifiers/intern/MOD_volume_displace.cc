@@ -134,15 +134,16 @@ static void panelRegister(ARegionType *region_type)
 struct DisplaceOp {
   /* Has to be copied for each thread. */
   openvdb::FloatGrid::ConstAccessor accessor;
+  openvdb::math::Transform transform;
   Tex *texture;
   const float strength;
 
   void operator()(const openvdb::FloatGrid::ValueOnIter &iter) const
   {
     const openvdb::Coord coord = iter.getCoord();
-    const openvdb::Vec3f coord_object_space = coord.asVec3d() / 100.0;
+    const openvdb::Vec3f coord_object_space = transform.indexToWorld(coord);
 
-    openvdb::Vec3d offset{0, 0, 1};
+    openvdb::Vec3d displace_vector{0, 0, 0};
     if (this->texture != NULL) {
       TexResult texture_result = {0};
       BKE_texture_get_value(NULL,
@@ -150,11 +151,12 @@ struct DisplaceOp {
                             const_cast<float *>(coord_object_space.asV()),
                             &texture_result,
                             false);
-      offset = {texture_result.tr, texture_result.tg, texture_result.tb};
-      offset -= 0.5;
+      displace_vector = {texture_result.tr, texture_result.tg, texture_result.tb};
+      displace_vector -= 0.5;
+      displace_vector *= 2.0f;
     }
 
-    const openvdb::Vec3d sample_coord = coord.asVec3d() + offset * strength;
+    const openvdb::Vec3d sample_coord = coord.asVec3d() + displace_vector * strength;
     const float new_value = openvdb::tools::BoxSampler::sample(this->accessor, sample_coord);
     iter.setValue(new_value);
   }
@@ -181,14 +183,21 @@ static Volume *modifyVolume(ModifierData *md,
       volume, volume_grid, false);
   openvdb::FloatGrid::Ptr new_grid = old_grid->deepCopy();
 
-  const float max_displacement = std::abs(vdmd->strength);
+  const openvdb::Mat3d matrix =
+      old_grid->transform().baseMap()->getAffineMap()->getMat4().getMat3();
+  const float max_voxel_side_length = std::max(
+      {matrix.col(0).length(), matrix.col(1).length(), matrix.col(2).length()});
+  const float max_displacement = std::abs(vdmd->strength) / max_voxel_side_length;
 
   openvdb::tools::dilateActiveValues(new_grid->tree(),
                                      static_cast<int>(std::ceil(max_displacement)),
                                      openvdb::tools::NN_FACE_EDGE,
                                      openvdb::tools::EXPAND_TILES);
 
-  DisplaceOp displace_op{old_grid->getConstAccessor(), vdmd->texture, vdmd->strength};
+  DisplaceOp displace_op{old_grid->getConstAccessor(),
+                         old_grid->transform(),
+                         vdmd->texture,
+                         vdmd->strength / max_voxel_side_length};
 
   openvdb::tools::foreach (
       new_grid->beginValueOn(), displace_op, true, /* Disable sharing of the operator. */ false);
