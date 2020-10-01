@@ -18,8 +18,6 @@
  * \ingroup modifiers
  */
 
-#include <vector>
-
 #include "BKE_lib_query.h"
 #include "BKE_mesh_runtime.h"
 #include "BKE_modifier.h"
@@ -45,10 +43,6 @@
 
 #include "MOD_modifiertypes.h"
 #include "MOD_ui_common.h"
-
-#include "BLI_float4x4.hh"
-#include "BLI_index_range.hh"
-#include "BLI_span.hh"
 
 #include "RE_shader_ext.h"
 
@@ -134,17 +128,19 @@ static void panelRegister(ARegionType *region_type)
 struct DisplaceOp {
   /* Has to be copied for each thread. */
   openvdb::FloatGrid::ConstAccessor accessor;
+  /* This is the transform of the grid that is being displaced. */
   openvdb::math::Transform transform;
+
   Tex *texture;
-  const float strength;
+  const double strength;
 
   void operator()(const openvdb::FloatGrid::ValueOnIter &iter) const
   {
     const openvdb::Coord coord = iter.getCoord();
-    const openvdb::Vec3f coord_object_space = transform.indexToWorld(coord);
 
     openvdb::Vec3d displace_vector{0, 0, 0};
     if (this->texture != NULL) {
+      const openvdb::Vec3f coord_object_space = transform.indexToWorld(coord);
       TexResult texture_result = {0};
       BKE_texture_get_value(NULL,
                             this->texture,
@@ -152,8 +148,8 @@ struct DisplaceOp {
                             &texture_result,
                             false);
       displace_vector = {texture_result.tr, texture_result.tg, texture_result.tb};
-      displace_vector -= 0.5;
-      displace_vector *= 2.0f;
+      /* Remap interval from [0, 1] to [-1, 1]. */
+      displace_vector = (displace_vector - 0.5) * 2.0;
     }
 
     const openvdb::Vec3d sample_coord = coord.asVec3d() + displace_vector * strength;
@@ -161,6 +157,15 @@ struct DisplaceOp {
     iter.setValue(new_value);
   }
 };
+
+static float get_max_voxel_side_length(const openvdb::GridBase &grid)
+{
+  const openvdb::Mat3d matrix = grid.transform().baseMap()->getAffineMap()->getMat4().getMat3();
+  const float max_voxel_side_length = std::max(
+      {matrix.col(0).length(), matrix.col(1).length(), matrix.col(2).length()});
+  return max_voxel_side_length;
+}
+
 #endif
 
 static Volume *modifyVolume(ModifierData *md,
@@ -168,42 +173,46 @@ static Volume *modifyVolume(ModifierData *md,
                             Volume *volume)
 {
 #ifdef WITH_OPENVDB
-  using namespace blender;
-
   VolumeDisplaceModifierData *vdmd = reinterpret_cast<VolumeDisplaceModifierData *>(md);
 
   VolumeGrid *volume_grid = BKE_volume_grid_find(volume, "density");
   if (volume_grid == NULL) {
     return volume;
   }
-  const VolumeGridType grid_type = BKE_volume_grid_type(volume_grid);
-  UNUSED_VARS(grid_type);
 
+  /* TODO: Support all grid types. */
   openvdb::FloatGrid::Ptr old_grid = BKE_volume_grid_openvdb_for_write<openvdb::FloatGrid>(
       volume, volume_grid, false);
+
+  /* Make a copy of the original grid. The new grid will be modified and will replace the old grid
+   * in the end. */
   openvdb::FloatGrid::Ptr new_grid = old_grid->deepCopy();
 
-  const openvdb::Mat3d matrix =
-      old_grid->transform().baseMap()->getAffineMap()->getMat4().getMat3();
-  const float max_voxel_side_length = std::max(
-      {matrix.col(0).length(), matrix.col(1).length(), matrix.col(2).length()});
+  /* Dilate grid, because the currently inactive cells might become active during the displace
+   * operation. The quality of the approximation of the has a big impact on performance. */
+  const float max_voxel_side_length = get_max_voxel_side_length(*old_grid);
   const float max_displacement = std::abs(vdmd->strength) / max_voxel_side_length;
-
   openvdb::tools::dilateActiveValues(new_grid->tree(),
                                      static_cast<int>(std::ceil(max_displacement)),
                                      openvdb::tools::NN_FACE_EDGE,
                                      openvdb::tools::EXPAND_TILES);
 
+  /* Construct the operator that will be executed on every cell of the dilated grid. */
   DisplaceOp displace_op{old_grid->getConstAccessor(),
                          old_grid->transform(),
                          vdmd->texture,
                          vdmd->strength / max_voxel_side_length};
 
+  /* Run the operator. This is multi-threaded. It is important that the operator is not shared
+   * between the threads, because it contains a non-thread-safe accessor for the old grid. */
   openvdb::tools::foreach (
       new_grid->beginValueOn(), displace_op, true, /* Disable sharing of the operator. */ false);
 
+  /* It is likely that we produced too many active cells. Those are removed here, to avoid slowing
+   * down subsequent operations. */
   new_grid->pruneGrid();
 
+  /* Overwrite the old volume grid with the new grid. */
   old_grid->clear();
   old_grid->merge(*new_grid);
 
