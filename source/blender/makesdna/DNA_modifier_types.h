@@ -96,6 +96,7 @@ typedef enum ModifierType {
   eModifierType_Fluid = 56,
   eModifierType_Simulation = 57,
   eModifierType_MeshToVolume = 58,
+  eModifierType_VolumeDisplace = 59,
   NUM_MODIFIER_TYPES,
 } ModifierType;
 
@@ -2254,6 +2255,13 @@ typedef enum MeshToVolumeModifierResolutionMode {
   MESH_TO_VOLUME_RESOLUTION_MODE_VOXEL_AMOUNT = 0,
   MESH_TO_VOLUME_RESOLUTION_MODE_VOXEL_SIZE = 1,
 } MeshToVolumeModifierResolutionMode;
+
+typedef struct VolumeDisplaceModifierData {
+  ModifierData modifier;
+
+  float strength;
+  char _pad[4];
+} VolumeDisplaceModifierData;
 
 #ifdef __cplusplus
 }

@@ -272,6 +272,11 @@ const EnumPropertyItem rna_enum_object_modifier_type_items[] = {
      ICON_MOD_WAVE,
      "Wave",
      "Adds a ripple-like motion to an object’s geometry"},
+    {eModifierType_VolumeDisplace,
+     "VOLUME_DISPLACE",
+     ICON_VOLUME_DATA,
+     "Volume Displace",
+     "Deform volume based on noise or other vector fields"}, /* TODO: Use correct icon. */
     {0, "", 0, N_("Physics"), ""},
     {eModifierType_Cloth, "CLOTH", ICON_MOD_CLOTH, "Cloth", ""},
     {eModifierType_Collision, "COLLISION", ICON_MOD_PHYSICS, "Collision", ""},
@@ -7072,6 +7077,25 @@ static void rna_def_modifier_mesh_to_volume(BlenderRNA *brna)
   RNA_define_lib_overridable(false);
 }
 
+static void rna_def_modifier_volume_displace(BlenderRNA *brna)
+{
+  StructRNA *srna;
+  PropertyRNA *prop;
+
+  srna = RNA_def_struct(brna, "VolumeDisplaceModifier", "Modifier");
+  RNA_def_struct_ui_text(srna, "Volume Displace Modifier", "");
+  RNA_def_struct_sdna(srna, "VolumeDisplaceModifierData");
+  RNA_def_struct_ui_icon(srna, ICON_VOLUME_DATA); /* TODO: Use correct icon. */
+
+  RNA_define_lib_overridable(true);
+
+  prop = RNA_def_property(srna, "strength", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_ui_text(prop, "Strength", "Strength of the displacement");
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  RNA_define_lib_overridable(false);
+}
+
 void RNA_def_modifier(BlenderRNA *brna)
 {
   StructRNA *srna;
@@ -7204,6 +7228,7 @@ void RNA_def_modifier(BlenderRNA *brna)
   rna_def_modifier_simulation(brna);
 #  endif
   rna_def_modifier_mesh_to_volume(brna);
+  rna_def_modifier_volume_displace(brna);
 }
 
 #endif
