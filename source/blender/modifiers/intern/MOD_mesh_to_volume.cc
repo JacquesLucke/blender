@@ -22,6 +22,7 @@
 
 #include "BKE_lib_query.h"
 #include "BKE_mesh_runtime.h"
+#include "BKE_mesh_wrapper.h"
 #include "BKE_modifier.h"
 #include "BKE_object.h"
 #include "BKE_volume.h"
@@ -154,7 +155,7 @@ static void panel_draw(const bContext *UNUSED(C), Panel *panel)
     uiItemR(col, ptr, "exterior_band_width", 0, NULL, ICON_NONE);
 
     uiLayout *subcol = uiLayoutColumn(col, false);
-    uiLayoutSetEnabled(subcol, !mvmd->fill_volume);
+    uiLayoutSetActive(subcol, !mvmd->fill_volume);
     uiItemR(subcol, ptr, "interior_band_width", 0, NULL, ICON_NONE);
   }
   {
@@ -213,6 +214,7 @@ static Volume *modifyVolume(ModifierData *md, const ModifierEvalContext *ctx, Vo
   if (mesh == NULL) {
     return input_volume;
   }
+  BKE_mesh_wrapper_ensure_mdata(mesh);
 
   const float4x4 mesh_to_own_object_space_transform = float4x4(ctx->object->imat) *
                                                       float4x4(object_to_convert->obmat);
