@@ -137,13 +137,19 @@ static Volume *modifyVolume(ModifierData *md,
       volume, volume_grid, false);
   openvdb::FloatGrid::Ptr new_grid = old_grid->deepCopy();
 
-  openvdb::tools::dilateActiveValues(
-      new_grid->tree(), (int)20, openvdb::tools::NN_FACE_EDGE, openvdb::tools::EXPAND_TILES);
+  const float max_displacement = std::abs(vdmd->strength);
+
+  openvdb::tools::dilateActiveValues(new_grid->tree(),
+                                     static_cast<int>(std::ceil(max_displacement)),
+                                     openvdb::tools::NN_FACE_EDGE,
+                                     openvdb::tools::EXPAND_TILES);
 
   DisplaceOp displace_op{old_grid->getConstAccessor(), vdmd->strength};
 
   openvdb::tools::foreach (
       new_grid->beginValueOn(), displace_op, true, /* Disable sharing of the operator. */ false);
+
+  new_grid->pruneGrid();
 
   old_grid->clear();
   old_grid->merge(*new_grid);
