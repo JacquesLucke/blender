@@ -42,6 +42,7 @@ struct Collection;
 struct GHash;
 struct Object;
 struct SpaceLink;
+struct StringMap;
 
 /* ************************************************ */
 /* Visualization */
@@ -463,8 +464,8 @@ typedef enum eRotationModes {
 typedef struct bPose {
   /** List of pose channels, PoseBones in RNA. */
   ListBase chanbase;
-  /** Ghash for quicker string lookups. */
-  struct GHash *chanhash;
+  /** Hash table for quicker string lookups. */
+  struct StringMap *chanhash;
 
   /* Flat array of pose channels. It references pointers from
    * chanbase. Used for quick pose channel lookup from an index.

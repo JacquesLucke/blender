@@ -35,6 +35,7 @@
 
 #include "BLI_ghash.h"
 #include "BLI_listbase.h"
+#include "BLI_string_map.h"
 
 #include "BLT_translation.h"
 
@@ -1480,7 +1481,7 @@ PropertyRNA *RNA_def_property(StructOrFunctionRNA *cont_,
     prop->flag_internal |= PROP_INTERN_RUNTIME;
 #ifdef RNA_RUNTIME
     if (cont->prophash) {
-      BLI_ghash_insert(cont->prophash, (void *)prop->identifier, prop);
+      BLI_stringmap_add(cont->prophash, (void *)prop->identifier, prop);
     }
 #endif
   }
@@ -4511,7 +4512,7 @@ void RNA_def_property_duplicate_pointers(StructOrFunctionRNA *cont_, PropertyRNA
   if (prop->identifier) {
     if (cont->prophash) {
       prop->identifier = BLI_strdup(prop->identifier);
-      BLI_ghash_reinsert(cont->prophash, (void *)prop->identifier, prop, NULL, NULL);
+      BLI_stringmap_add(cont->prophash, (void *)prop->identifier, prop);
     }
     else {
       prop->identifier = BLI_strdup(prop->identifier);
@@ -4672,7 +4673,7 @@ static void rna_def_property_free(StructOrFunctionRNA *cont_, PropertyRNA *prop)
 
   if (prop->flag_internal & PROP_INTERN_RUNTIME) {
     if (cont->prophash) {
-      BLI_ghash_remove(cont->prophash, prop->identifier, NULL, NULL);
+      BLI_stringmap_remove(cont->prophash, prop->identifier);
     }
 
     RNA_def_property_free_pointers(prop);

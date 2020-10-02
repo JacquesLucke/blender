@@ -35,6 +35,7 @@
 #include "BLI_dynstr.h"
 #include "BLI_ghash.h"
 #include "BLI_math.h"
+#include "BLI_string_map.h"
 #include "BLI_utildefines.h"
 
 #include "BLF_api.h"
@@ -80,11 +81,11 @@ void RNA_init(void)
 
   for (srna = BLENDER_RNA.structs.first; srna; srna = srna->cont.next) {
     if (!srna->cont.prophash) {
-      srna->cont.prophash = BLI_ghash_str_new("RNA_init gh");
+      srna->cont.prophash = BLI_stringmap_new("RNA_init gh");
 
       for (prop = srna->cont.properties.first; prop; prop = prop->next) {
         if (!(prop->flag_internal & PROP_INTERN_BUILTIN)) {
-          BLI_ghash_insert(srna->cont.prophash, (void *)prop->identifier, prop);
+          BLI_stringmap_add_new(srna->cont.prophash, prop->identifier, prop);
         }
       }
     }
@@ -100,7 +101,7 @@ void RNA_exit(void)
 
   for (srna = BLENDER_RNA.structs.first; srna; srna = srna->cont.next) {
     if (srna->cont.prophash) {
-      BLI_ghash_free(srna->cont.prophash, NULL, NULL);
+      BLI_stringmap_free(srna->cont.prophash);
       srna->cont.prophash = NULL;
     }
   }

@@ -36,6 +36,7 @@
 
 #include "BLI_blenlib.h"
 #include "BLI_ghash.h"
+#include "BLI_string_map.h"
 #include "BLI_string_utils.h"
 #include "BLI_utildefines.h"
 
@@ -223,18 +224,18 @@ void ED_armature_bone_rename(Main *bmain,
         if (ob->pose) {
           bPoseChannel *pchan = BKE_pose_channel_find_name(ob->pose, oldname);
           if (pchan) {
-            GHash *gh = ob->pose->chanhash;
+            StringMap *gh = ob->pose->chanhash;
 
             /* remove the old hash entry, and replace with the new name */
             if (gh) {
-              BLI_assert(BLI_ghash_haskey(gh, pchan->name));
-              BLI_ghash_remove(gh, pchan->name, NULL, NULL);
+              BLI_assert(BLI_stringmap_contains(gh, pchan->name));
+              BLI_stringmap_remove(gh, pchan->name);
             }
 
             BLI_strncpy(pchan->name, newname, MAXBONENAME);
 
             if (gh) {
-              BLI_ghash_insert(gh, pchan->name, pchan);
+              BLI_stringmap_add_new(gh, pchan->name, pchan);
             }
           }
 

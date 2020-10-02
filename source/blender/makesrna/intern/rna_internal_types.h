@@ -29,6 +29,7 @@ struct CollectionPropertyIterator;
 struct ContainerRNA;
 struct FunctionRNA;
 struct GHash;
+struct StringMap;
 struct IDOverrideLibrary;
 struct IDOverrideLibraryPropertyOperation;
 struct IDProperty;
@@ -260,7 +261,7 @@ typedef bool (*RNAPropOverrideApply)(struct Main *bmain,
 typedef struct ContainerRNA {
   void *next, *prev;
 
-  struct GHash *prophash;
+  struct StringMap *prophash;
   ListBase properties;
 } ContainerRNA;
 

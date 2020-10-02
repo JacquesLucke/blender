@@ -41,6 +41,7 @@
 #include "BLI_ghash.h"
 #include "BLI_math.h"
 #include "BLI_session_uuid.h"
+#include "BLI_string_map.h"
 #include "BLI_string_utils.h"
 #include "BLI_utildefines.h"
 
@@ -610,7 +611,7 @@ bPoseChannel *BKE_pose_channel_find_name(const bPose *pose, const char *name)
   }
 
   if (pose->chanhash) {
-    return BLI_ghash_lookup(pose->chanhash, (const void *)name);
+    return BLI_stringmap_lookup_or_null(pose->chanhash, name);
   }
 
   return BLI_findstring(&((const bPose *)pose)->chanbase, name, offsetof(bPoseChannel, name));
@@ -665,7 +666,7 @@ bPoseChannel *BKE_pose_channel_verify(bPose *pose, const char *name)
 
   BLI_addtail(&pose->chanbase, chan);
   if (pose->chanhash) {
-    BLI_ghash_insert(pose->chanhash, chan->name, chan);
+    BLI_stringmap_add(pose->chanhash, chan->name, chan);
   }
 
   return chan;
@@ -677,7 +678,7 @@ bool BKE_pose_channels_is_valid(const bPose *pose)
   if (pose->chanhash) {
     bPoseChannel *pchan;
     for (pchan = pose->chanbase.first; pchan; pchan = pchan->next) {
-      if (BLI_ghash_lookup(pose->chanhash, pchan->name) != pchan) {
+      if (BLI_stringmap_lookup_or_null(pose->chanhash, pchan->name) != pchan) {
         return false;
       }
     }
@@ -939,9 +940,9 @@ void BKE_pose_channels_hash_make(bPose *pose)
   if (!pose->chanhash) {
     bPoseChannel *pchan;
 
-    pose->chanhash = BLI_ghash_str_new("make_pose_chan gh");
+    pose->chanhash = BLI_stringmap_new("make_pose_chan gh");
     for (pchan = pose->chanbase.first; pchan; pchan = pchan->next) {
-      BLI_ghash_insert(pose->chanhash, pchan->name, pchan);
+      BLI_stringmap_add_new(pose->chanhash, pchan->name, pchan);
     }
   }
 }
@@ -949,7 +950,7 @@ void BKE_pose_channels_hash_make(bPose *pose)
 void BKE_pose_channels_hash_free(bPose *pose)
 {
   if (pose->chanhash) {
-    BLI_ghash_free(pose->chanhash, NULL, NULL);
+    BLI_stringmap_free(pose->chanhash);
     pose->chanhash = NULL;
   }
 }
@@ -989,7 +990,7 @@ void BKE_pose_channels_remove(Object *ob,
         BKE_pose_channel_free(pchan);
         pose_channels_remove_internal_links(ob, pchan);
         if (ob->pose->chanhash) {
-          BLI_ghash_remove(ob->pose->chanhash, pchan->name, NULL, NULL);
+          BLI_stringmap_remove(ob->pose->chanhash, pchan->name);
         }
         BLI_freelinkN(&ob->pose->chanbase, pchan);
       }

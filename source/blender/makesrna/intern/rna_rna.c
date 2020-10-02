@@ -22,6 +22,7 @@
 
 #include "DNA_ID.h"
 
+#include "BLI_string_map.h"
 #include "BLI_utildefines.h"
 
 #include "RNA_access.h"
@@ -422,7 +423,7 @@ int rna_builtin_properties_lookup_string(PointerRNA *ptr, const char *key, Point
 
   do {
     if (srna->cont.prophash) {
-      prop = BLI_ghash_lookup(srna->cont.prophash, (void *)key);
+      prop = BLI_stringmap_lookup_or_null(srna->cont.prophash, (void *)key);
 
       if (prop) {
         propptr.type = &RNA_Property;

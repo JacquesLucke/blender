@@ -36,6 +36,8 @@
 
 #include "BLI_memory_utils.hh"
 
+#include <string>
+
 namespace blender {
 
 template<typename Src1, typename Src2, typename Dst1, typename Dst2>
@@ -235,6 +237,138 @@ template<typename Key, typename Value> class SimpleMapSlot {
   }
 };
 
+template<typename Key, typename Value> class HashedMapSlot {
+ private:
+  enum State : uint8_t {
+    Empty = 0,
+    Occupied = 1,
+    Removed = 2,
+  };
+
+  State state_;
+  uint64_t hash_;
+  TypedBuffer<Key> key_buffer_;
+  TypedBuffer<Value> value_buffer_;
+
+ public:
+  HashedMapSlot()
+  {
+    state_ = Empty;
+  }
+
+  ~HashedMapSlot()
+  {
+    if (state_ == Occupied) {
+      key_buffer_.ref().~Key();
+      value_buffer_.ref().~Value();
+    }
+  }
+
+  HashedMapSlot(const HashedMapSlot &other)
+  {
+    state_ = other.state_;
+    if (other.state_ == Occupied) {
+      hash_ = other.hash_;
+      initialize_pointer_pair(other.key_buffer_.ref(),
+                              other.value_buffer_.ref(),
+                              key_buffer_.ptr(),
+                              value_buffer_.ptr());
+    }
+  }
+
+  HashedMapSlot(HashedMapSlot &&other) noexcept(
+      std::is_nothrow_move_constructible_v<Key> &&std::is_nothrow_move_constructible_v<Value>)
+  {
+    state_ = other.state_;
+    if (other.state_ == Occupied) {
+      hash_ = other.hash_;
+      initialize_pointer_pair(std::move(other.key_buffer_.ref()),
+                              std::move(other.value_buffer_.ref()),
+                              key_buffer_.ptr(),
+                              value_buffer_.ptr());
+    }
+  }
+
+  Key *key()
+  {
+    return key_buffer_;
+  }
+
+  const Key *key() const
+  {
+    return key_buffer_;
+  }
+
+  Value *value()
+  {
+    return value_buffer_;
+  }
+
+  const Value *value() const
+  {
+    return value_buffer_;
+  }
+
+  bool is_occupied() const
+  {
+    return state_ == Occupied;
+  }
+
+  bool is_empty() const
+  {
+    return state_ == Empty;
+  }
+
+  template<typename Hash> uint64_t get_hash(const Hash &UNUSED(hash))
+  {
+    BLI_assert(this->is_occupied());
+    return hash_;
+  }
+
+  template<typename ForwardKey, typename IsEqual>
+  bool contains(const ForwardKey &key, const IsEqual &is_equal, uint64_t hash) const
+  {
+    if (hash_ == hash) {
+      if (state_ == Occupied) {
+        return is_equal(key, *key_buffer_);
+      }
+    }
+    return false;
+  }
+
+  template<typename ForwardKey, typename ForwardValue>
+  void occupy(ForwardKey &&key, ForwardValue &&value, uint64_t hash)
+  {
+    BLI_assert(!this->is_occupied());
+    new (&value_buffer_) Value(std::forward<ForwardValue>(value));
+    this->occupy_no_value(std::forward<ForwardKey>(key), hash);
+    state_ = Occupied;
+  }
+
+  template<typename ForwardKey> void occupy_no_value(ForwardKey &&key, uint64_t hash)
+  {
+    BLI_assert(!this->is_occupied());
+    try {
+      new (&key_buffer_) Key(std::forward<ForwardKey>(key));
+    }
+    catch (...) {
+      /* The value is assumed to be constructed already, so it has to be destructed as well. */
+      value_buffer_.ref().~Value();
+      throw;
+    }
+    state_ = Occupied;
+    hash_ = hash;
+  }
+
+  void remove()
+  {
+    BLI_assert(this->is_occupied());
+    key_buffer_.ref().~Key();
+    value_buffer_.ref().~Value();
+    state_ = Removed;
+  }
+};
+
 /**
  * An IntrusiveMapSlot uses two special values of the key to indicate whether the slot is empty
  * or removed. This saves some memory in all cases and is more efficient in many cases. The
@@ -352,6 +486,20 @@ template<typename Key, typename Value> struct DefaultMapSlot;
  */
 template<typename Key, typename Value> struct DefaultMapSlot {
   using type = SimpleMapSlot<Key, Value>;
+};
+
+/**
+ * Store the hash of a string in the slot by default. Recomputing the hash or doing string
+ * comparisons can be relatively costly.
+ */
+template<typename Value> struct DefaultMapSlot<std::string, Value> {
+  using type = HashedMapSlot<std::string, Value>;
+};
+template<typename Value> struct DefaultMapSlot<StringRef, Value> {
+  using type = HashedMapSlot<StringRef, Value>;
+};
+template<typename Value> struct DefaultMapSlot<StringRefNull, Value> {
+  using type = HashedMapSlot<StringRefNull, Value>;
 };
 
 /**
