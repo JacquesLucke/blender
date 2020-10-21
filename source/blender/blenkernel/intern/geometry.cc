@@ -14,16 +14,19 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#include "node_geometry_util.hh"
-#include "node_util.h"
+#include "BKE_geometry.hh"
+#include "BKE_mesh.h"
 
-bool geo_node_poll_default(bNodeType *UNUSED(ntype), bNodeTree *ntree)
+#include "MEM_guardedalloc.h"
+
+namespace blender::bke {
+
+Geometry::~Geometry()
 {
-  return STREQ(ntree->idname, "GeometryNodeTree");
+  if (mesh_ != nullptr) {
+    BKE_mesh_free(mesh_);
+    MEM_freeN(mesh_);
+  }
 }
 
-void geo_node_type_base(bNodeType *ntype, int type, const char *name, short nclass, short flag)
-{
-  node_type_base(ntype, type, name, nclass, flag);
-  ntype->poll = geo_node_poll_default;
-}
+}  // namespace blender::bke

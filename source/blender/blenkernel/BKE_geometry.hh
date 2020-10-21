@@ -14,16 +14,45 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#include "node_geometry_util.hh"
-#include "node_util.h"
+#pragma once
 
-bool geo_node_poll_default(bNodeType *UNUSED(ntype), bNodeTree *ntree)
-{
-  return STREQ(ntree->idname, "GeometryNodeTree");
-}
+/** \file
+ * \ingroup bke
+ */
 
-void geo_node_type_base(bNodeType *ntype, int type, const char *name, short nclass, short flag)
-{
-  node_type_base(ntype, type, name, nclass, flag);
-  ntype->poll = geo_node_poll_default;
-}
+struct Mesh;
+
+namespace blender::bke {
+
+class Geometry {
+ private:
+  /* Only contains a mesh for now. */
+  Mesh *mesh_ = nullptr;
+
+ public:
+  Geometry() = default;
+  ~Geometry();
+
+  /** Takes ownership of the mesh. */
+  static Geometry *from_mesh(Mesh *mesh)
+  {
+    Geometry *geometry = new Geometry();
+    geometry->mesh_ = mesh;
+    return geometry;
+  }
+
+  Mesh *mesh()
+  {
+    return mesh_;
+  }
+
+  /* The caller takes ownership of the mesh and removes it from the geometry. */
+  Mesh *extract_mesh()
+  {
+    Mesh *mesh = mesh_;
+    mesh_ = mesh;
+    return mesh;
+  }
+};
+
+}  // namespace blender::bke
