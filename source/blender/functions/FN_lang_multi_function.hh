@@ -81,7 +81,7 @@ class MFSymbolTable {
 
   template<typename FromT, typename ToT> void add_conversion(ResourceCollector &resources)
   {
-    const MultiFunction &fn = resources.construct<CustomMF_Convert<FromT, ToT>>();
+    const MultiFunction &fn = resources.construct<CustomMF_Convert<FromT, ToT>>(__func__);
     this->add_conversion(MFDataType::ForSingle<FromT>(), MFDataType::ForSingle<ToT>(), fn);
   }
 
