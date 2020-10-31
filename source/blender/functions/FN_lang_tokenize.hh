@@ -47,6 +47,8 @@ enum class TokenType : uint8_t {
   At,
   Semicolon,
   Colon,
+  CurlyOpen,
+  CurlyClose,
 };
 
 struct TokenRange {

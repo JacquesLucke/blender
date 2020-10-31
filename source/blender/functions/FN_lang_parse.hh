@@ -42,6 +42,9 @@ enum class AstNodeType : uint8_t {
   Attribute,
   MethodCall,
   Program,
+  AssignmentStmt,
+  IfStmt,
+  GroupStmt,
 };
 
 StringRefNull node_type_to_string(AstNodeType node_type);

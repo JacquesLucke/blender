@@ -165,6 +165,16 @@ TokenizeResult tokenize(StringRef str)
         token_type = TokenType::Colon;
         break;
       }
+      case '{': {
+        token_size = 1;
+        token_type = TokenType::CurlyOpen;
+        break;
+      }
+      case '}': {
+        token_size = 1;
+        token_type = TokenType::CurlyClose;
+        break;
+      }
       case '=': {
         if (offset + 1 < total_size) {
           char next_char = str[offset + 1];
@@ -359,6 +369,10 @@ StringRefNull token_type_to_string(TokenType token_type)
       return "Semicolon";
     case TokenType::Colon:
       return "Colon";
+    case TokenType::CurlyOpen:
+      return "CurlyOpen";
+    case TokenType::CurlyClose:
+      return "CurlyClose";
   }
   BLI_assert(false);
   return "";
