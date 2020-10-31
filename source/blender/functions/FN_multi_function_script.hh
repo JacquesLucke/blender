@@ -22,6 +22,7 @@ namespace blender::fn::script {
 
 struct MFRegister {
   MFDataType data_type;
+  std::string name;
 };
 
 enum class MFInstructionType {
@@ -62,6 +63,8 @@ struct MFScript {
   Vector<MFRegister *> registers;
   Vector<MFRegister *> input_registers;
   Vector<MFRegister *> output_registers;
+
+  std::string to_dot() const;
 };
 
 class MFScriptEvaluator : public MultiFunction {

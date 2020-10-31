@@ -240,6 +240,12 @@ class Edge : blender::NonCopyable, blender::NonMovable {
   {
     attributes.set("label", label);
   }
+
+  /* See https://www.graphviz.org/doc/info/attrs.html#k:color. */
+  void set_color(StringRef color)
+  {
+    attributes.set("color", color);
+  }
 };
 
 class DirectedEdge : public Edge {
