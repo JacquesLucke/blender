@@ -14,7 +14,7 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#include "FN_lang.hh"
+#include "FN_lang_tokenize.hh"
 
 namespace blender::fn::lang {
 
