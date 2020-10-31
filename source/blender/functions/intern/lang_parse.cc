@@ -323,11 +323,6 @@ AstNode &parse_expression(StringRef str, LinearAllocator<> &allocator)
 {
   TokenizeResult tokens = tokenize(str);
 
-  for (int i : tokens.types.index_range()) {
-    std::cout << i << ": " << token_type_to_string(tokens.types[i]) << ": "
-              << tokens.ranges[i].get(str) << '\n';
-  }
-
   tokens.types.append(TokenType::EndOfString);
   TokensToAstBuilder builder(str, tokens.types, tokens.ranges, allocator);
   AstNode &node = builder.parse_expression();

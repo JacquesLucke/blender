@@ -24,6 +24,7 @@
 
 #include <functional>
 
+#include "FN_generic_pointer.hh"
 #include "FN_multi_function.hh"
 
 namespace blender::fn {

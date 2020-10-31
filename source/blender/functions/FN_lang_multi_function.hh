@@ -23,6 +23,7 @@
 
 #include "FN_generic_pointer.hh"
 #include "FN_multi_function.hh"
+#include "FN_multi_function_builder.hh"
 
 namespace blender::fn::lang {
 
@@ -111,5 +112,12 @@ class MFSymbolTable {
     return single_constants_table_.lookup_ptr_as(name);
   }
 };
+
+const MultiFunction &expression_to_multi_function(StringRef expression,
+                                                  MFDataType output_type,
+                                                  Span<std::string> input_names,
+                                                  Span<MFDataType> input_types,
+                                                  ResourceCollector &resources,
+                                                  const MFSymbolTable &symbols);
 
 }  // namespace blender::fn::lang
