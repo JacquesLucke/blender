@@ -17,6 +17,7 @@
 #include "FN_lang_multi_function.hh"
 #include "FN_lang_parse.hh"
 #include "FN_multi_function_network_evaluation.hh"
+#include "FN_multi_function_network_optimization.hh"
 
 namespace blender::fn::lang {
 
@@ -301,6 +302,10 @@ const MultiFunction &expression_to_multi_function(StringRef expression,
 
   Vector<const MFInputSocket *> outputs;
   outputs.append(&builder_output);
+
+  mf_network_optimization::common_subnetwork_elimination(network);
+  mf_network_optimization::constant_folding(network, resources);
+  mf_network_optimization::dead_node_removal(network);
 
   const MultiFunction &fn = resources.construct<MFNetworkEvaluator>(
       "expression function", inputs, outputs);
