@@ -71,13 +71,18 @@ void MFScriptEvaluator::call(IndexMask mask, MFParams params, MFContext context)
     buffers_to_destruct_and_free.append(span);
   }
 
-  for (const MFFunctionStep *step : script_.steps) {
-    const MultiFunction &fn = *step->function;
+  const MFInstruction *current_instruction = script_.entry;
+  while (current_instruction != nullptr) {
+    BLI_assert(current_instruction->type == MFInstructionType::Call);
+    const MFCallInstruction &instruction = *static_cast<const MFCallInstruction *>(
+        current_instruction);
+
+    const MultiFunction &fn = *instruction.function;
     MFParamsBuilder params{fn, array_size};
     for (const int param_index : fn.param_indices()) {
       MFParamType param_type = fn.param_type(param_index);
       BLI_assert(param_type.data_type().is_single());
-      const MFRegister *reg = step->registers[param_index];
+      const MFRegister *reg = instruction.registers[param_index];
       GMutableSpan span = register_buffers.lookup(reg);
       switch (param_type.category()) {
         case MFParamType::Category::SingleInput: {
@@ -97,6 +102,8 @@ void MFScriptEvaluator::call(IndexMask mask, MFParams params, MFContext context)
     }
 
     fn.call(mask, params, context);
+
+    current_instruction = instruction.next;
   }
 
   for (GMutableSpan span : buffers_to_destruct_and_free) {

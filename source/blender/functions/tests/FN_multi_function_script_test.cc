@@ -15,16 +15,18 @@ TEST(multi_function_script, Test1)
   MFRegister reg2{MFDataType::ForSingle<int>()};
   MFRegister reg3{MFDataType::ForSingle<int>()};
 
-  MFFunctionStep step1;
-  step1.function = &add_10_fn;
-  step1.registers = {&reg1, &reg2};
+  MFCallInstruction instr1;
+  instr1.function = &add_10_fn;
+  instr1.registers = {&reg1, &reg2};
 
-  MFFunctionStep step2;
-  step2.function = &add_10_fn;
-  step2.registers = {&reg2, &reg3};
+  MFCallInstruction instr2;
+  instr2.function = &add_10_fn;
+  instr2.registers = {&reg2, &reg3};
+
+  instr1.next = &instr2;
 
   MFScript script;
-  script.steps = {&step1, &step2};
+  script.entry = &instr1;
   script.registers = {&reg1, &reg2, &reg3};
   script.input_registers = {&reg1};
   script.output_registers = {&reg3};

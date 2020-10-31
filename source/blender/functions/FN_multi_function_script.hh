@@ -24,13 +24,41 @@ struct MFRegister {
   MFDataType data_type;
 };
 
-struct MFFunctionStep {
-  const MultiFunction *function;
+enum class MFInstructionType {
+  Call,
+  Branch,
+};
+
+struct MFInstruction {
+  MFInstructionType type;
+
+  MFInstruction(MFInstructionType type) : type(type)
+  {
+  }
+};
+
+struct MFCallInstruction : public MFInstruction {
+  const MultiFunction *function = nullptr;
   Vector<MFRegister *> registers;
+  MFInstruction *next = nullptr;
+
+  MFCallInstruction() : MFInstruction(MFInstructionType::Call)
+  {
+  }
+};
+
+struct MFBranchInstruction : public MFInstruction {
+  MFRegister *condition = nullptr;
+  MFInstruction *true_instruction = nullptr;
+  MFInstruction *false_instruction = nullptr;
+
+  MFBranchInstruction() : MFInstruction(MFInstructionType::Branch)
+  {
+  }
 };
 
 struct MFScript {
-  Vector<MFFunctionStep *> steps;
+  MFInstruction *entry = nullptr;
   Vector<MFRegister *> registers;
   Vector<MFRegister *> input_registers;
   Vector<MFRegister *> output_registers;
