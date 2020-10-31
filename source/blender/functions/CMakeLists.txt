@@ -52,6 +52,7 @@ set(SRC
   FN_multi_function_builder.hh
   FN_multi_function_context.hh
   FN_multi_function_data_type.hh
+  FN_multi_function_eval_utils.hh
   FN_multi_function_network.hh
   FN_multi_function_network_evaluation.hh
   FN_multi_function_network_optimization.hh
