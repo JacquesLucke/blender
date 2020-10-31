@@ -113,10 +113,14 @@ class MFSymbolTable {
   }
 };
 
+struct MFDataTypeWithName {
+  MFDataType data_type;
+  StringRef name;
+};
+
 const MultiFunction &expression_to_multi_function(StringRef expression,
-                                                  MFDataType output_type,
-                                                  Span<std::string> input_names,
-                                                  Span<MFDataType> input_types,
+                                                  MFDataType return_type,
+                                                  Span<MFDataTypeWithName> parameters,
                                                   ResourceCollector &resources,
                                                   const MFSymbolTable &symbols);
 

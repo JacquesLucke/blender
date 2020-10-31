@@ -30,4 +30,16 @@ template<typename T> T mf_eval_1_SO(const MultiFunction &fn)
   return output_values[0];
 }
 
+template<typename InT, typename OutT>
+OutT mf_eval_1_SI_SO(const MultiFunction &fn, InT input_value)
+{
+  MFParamsBuilder params(fn, 1);
+  MFContextBuilder context;
+  Array<OutT> output_values{1, NoInitialization{}};
+  params.add_readonly_single_input(&input_value);
+  params.add_uninitialized_single_output(output_values.as_mutable_span());
+  fn.call({0}, params, context);
+  return output_values[0];
+}
+
 }  // namespace blender::fn

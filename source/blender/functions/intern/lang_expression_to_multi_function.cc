@@ -280,27 +280,23 @@ static MFOutputSocket &expression_to_network(StringRef str,
 }
 
 const MultiFunction &expression_to_multi_function(StringRef expression,
-                                                  MFDataType output_type,
-                                                  Span<std::string> input_names,
-                                                  Span<MFDataType> input_types,
+                                                  MFDataType return_type,
+                                                  Span<MFDataTypeWithName> parameters,
                                                   ResourceCollector &resources,
                                                   const MFSymbolTable &symbols)
 {
-  assert_same_size(input_names, input_types);
-
   MFNetwork &network = resources.construct<MFNetwork>(__func__);
   Map<std::string, MFOutputSocket *> expression_inputs;
   Vector<const MFOutputSocket *> inputs;
-  for (int i : input_names.index_range()) {
-    StringRef identifier = input_names[i];
-    MFOutputSocket &socket = network.add_input(identifier, input_types[i]);
+  for (const MFDataTypeWithName &parameter : parameters) {
+    MFOutputSocket &socket = network.add_input(parameter.name, parameter.data_type);
     inputs.append(&socket);
-    expression_inputs.add_new(identifier, &socket);
+    expression_inputs.add_new(parameter.name, &socket);
   }
 
   MFOutputSocket &expr_output = expression_to_network(
-      expression, output_type, resources, expression_inputs, symbols, network);
-  MFInputSocket &builder_output = network.add_output("Result", output_type);
+      expression, return_type, resources, expression_inputs, symbols, network);
+  MFInputSocket &builder_output = network.add_output("Result", return_type);
   network.add_link(expr_output, builder_output);
 
   Vector<const MFInputSocket *> outputs;

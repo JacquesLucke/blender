@@ -39,7 +39,7 @@ TEST(fn_lang_expression, SingleConstant)
   MFSymbolTable symbols;
   ResourceCollector resources;
   const MultiFunction &fn = expression_to_multi_function(
-      "5", MFDataType::ForSingle<int>(), {}, {}, resources, symbols);
+      "5", MFDataType::ForSingle<int>(), {}, resources, symbols);
 
   const int result = mf_eval_1_SO<int>(fn);
   EXPECT_EQ(result, 5);
@@ -50,7 +50,7 @@ TEST(fn_lang_expression, AddConstants)
   MFSymbolTable &symbols = get_symbol_table();
   ResourceCollector resources;
   const MultiFunction &fn = expression_to_multi_function(
-      "3+6+10", MFDataType::ForSingle<int>(), {}, {}, resources, symbols);
+      "3+6+10", MFDataType::ForSingle<int>(), {}, resources, symbols);
   const int result = mf_eval_1_SO<int>(fn);
   EXPECT_EQ(result, 19);
 }
@@ -60,9 +60,22 @@ TEST(fn_lang_expression, RepeatString)
   MFSymbolTable &symbols = get_symbol_table();
   ResourceCollector resources;
   const MultiFunction &fn = expression_to_multi_function(
-      "\"hello\" * (2 + 3)", MFDataType::ForSingle<std::string>(), {}, {}, resources, symbols);
+      "\"hello\" * (2 + 3)", MFDataType::ForSingle<std::string>(), {}, resources, symbols);
   const std::string result = mf_eval_1_SO<std::string>(fn);
   EXPECT_EQ(result, "hellohellohellohellohello");
+}
+
+TEST(fn_lang_expression, AddToVariable)
+{
+  MFSymbolTable &symbols = get_symbol_table();
+  ResourceCollector resources;
+  const MultiFunction &fn = expression_to_multi_function("var + 4",
+                                                         MFDataType::ForSingle<int>(),
+                                                         {{MFDataType::ForSingle<int>(), "var"}},
+                                                         resources,
+                                                         symbols);
+  const int result = mf_eval_1_SI_SO<int, int>(fn, 10);
+  EXPECT_EQ(result, 14);
 }
 
 }  // namespace blender::fn::lang::tests
