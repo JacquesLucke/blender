@@ -3145,11 +3145,25 @@ static void node_geometry_buts_boolean_math(uiLayout *layout, bContext *UNUSED(C
   uiItemR(layout, ptr, "operation", DEFAULT_FLAGS, "", ICON_NONE);
 }
 
+static void node_geometry_buts_subdivision_surface(uiLayout *layout,
+                                                   bContext *UNUSED(C),
+                                                   PointerRNA *UNUSED(ptr))
+{
+#ifndef WITH_OPENSUBDIV
+  uiItemL(layout, IFACE_("Disabled, built without OpenSubdiv"), ICON_ERROR);
+#else
+  UNUSED_VARS(layout);
+#endif
+}
+
 static void node_geometry_set_butfunc(bNodeType *ntype)
 {
   switch (ntype->type) {
     case GEO_NODE_BOOLEAN:
       ntype->draw_buttons = node_geometry_buts_boolean_math;
+      break;
+    case GEO_NODE_SUBDIVISION_SURFACE:
+      ntype->draw_buttons = node_geometry_buts_subdivision_surface;
       break;
   }
 }
@@ -3339,7 +3353,7 @@ static const float std_node_socket_colors[][4] = {
     {0.39, 0.39, 0.39, 1.0}, /* SOCK_STRING */
     {0.40, 0.10, 0.10, 1.0}, /* SOCK_OBJECT */
     {0.10, 0.40, 0.10, 1.0}, /* SOCK_IMAGE */
-    {0.00, 0.00, 0.00, 1.0}, /* SOCK_GEOMETRY, TODO: Choose color. */
+    {0.00, 0.83, 0.64, 1.0}, /* SOCK_GEOMETRY */
 };
 
 /* common color callbacks for standard types */
