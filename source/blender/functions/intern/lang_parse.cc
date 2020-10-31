@@ -234,7 +234,8 @@ class TokensToAstBuilder {
   ConstantStringNode &consume_constant_string()
   {
     StringRef token_str = this->consume_next_str();
-    StringRefNull value = allocator_.copy_string(token_str);
+    StringRef stripped_str = token_str.substr(1, token_str.size() - 2);
+    StringRefNull value = allocator_.copy_string(stripped_str);
     return *allocator_.construct<ConstantStringNode>(value);
   }
 

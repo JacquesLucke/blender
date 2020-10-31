@@ -75,7 +75,7 @@ if(WITH_GTESTS)
     tests/FN_attributes_ref_test.cc
     tests/FN_cpp_type_test.cc
     tests/FN_generic_vector_array_test.cc
-    tests/FN_lang_expression_to_multi_function_test.cc
+    tests/FN_lang_expression_test.cc
     tests/FN_lang_parse_test.cc
     tests/FN_lang_tokenize_test.cc
     tests/FN_multi_function_network_test.cc
