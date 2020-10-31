@@ -41,6 +41,7 @@ enum class AstNodeType : uint8_t {
   Call,
   Attribute,
   MethodCall,
+  Program,
 };
 
 StringRefNull node_type_to_string(AstNodeType node_type);
@@ -126,6 +127,7 @@ struct MethodCallNode : public AstNode {
   }
 };
 
-AstNode &parse_expression(StringRef str, LinearAllocator<> &allocator);
+AstNode &parse_expression(StringRef expression_str, LinearAllocator<> &allocator);
+AstNode &parse_program(StringRef program_str, LinearAllocator<> &allocator);
 
 }  // namespace blender::fn::lang

@@ -81,8 +81,9 @@ class AstToNetworkBuilder {
         return this->insert_attribute((AttributeNode &)ast_node);
       case AstNodeType::MethodCall:
         return this->insert_method_call((MethodCallNode &)ast_node);
+      default:
+        throw std::runtime_error("Unknown ast node type.");
     }
-    throw std::runtime_error("Unknown ast node type.");
   }
 
   template<typename T> MFOutputSocket &insert_constant_function(const T &value)
@@ -274,6 +275,7 @@ static MFOutputSocket &expression_to_network(StringRef str,
 {
   LinearAllocator<> ast_allocator;
   AstNode &ast_node = parse_expression(str, ast_allocator);
+  std::cout << ast_node.to_dot() << "\n";
 
   AstToNetworkBuilder builder{network_builder, resources, expression_inputs, symbols};
   MFOutputSocket &output_socket = builder.build(ast_node);

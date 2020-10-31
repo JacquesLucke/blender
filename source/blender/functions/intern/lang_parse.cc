@@ -39,6 +39,13 @@ class TokensToAstBuilder {
     BLI_assert(token_types.last() == TokenType::EndOfString);
   }
 
+  AstNode &parse_program()
+  {
+    Vector<AstNode *> statements;
+    MutableSpan<AstNode *> statements_span = allocator_.construct_array_copy(statements.as_span());
+    return *allocator_.construct<AstNode>(statements_span, AstNodeType::Program);
+  }
+
   AstNode &parse_expression()
   {
     return this->parse_expression__comparison_level();
@@ -320,13 +327,25 @@ class TokensToAstBuilder {
   }
 };
 
-AstNode &parse_expression(StringRef str, LinearAllocator<> &allocator)
+AstNode &parse_expression(StringRef expression_str, LinearAllocator<> &allocator)
 {
-  TokenizeResult tokens = tokenize(str);
+  TokenizeResult tokens = tokenize(expression_str);
 
   tokens.types.append(TokenType::EndOfString);
-  TokensToAstBuilder builder(str, tokens.types, tokens.ranges, allocator);
+  TokensToAstBuilder builder(expression_str, tokens.types, tokens.ranges, allocator);
   AstNode &node = builder.parse_expression();
+  if (!builder.is_at_end()) {
+    throw std::runtime_error("syntax error");
+  }
+  return node;
+}
+
+AstNode &parse_program(StringRef program_str, LinearAllocator<> &allocator)
+{
+  TokenizeResult tokens = tokenize(program_str);
+  tokens.types.append(TokenType::EndOfString);
+  TokensToAstBuilder builder(program_str, tokens.types, tokens.ranges, allocator);
+  AstNode &node = builder.parse_program();
   if (!builder.is_at_end()) {
     throw std::runtime_error("syntax error");
   }
@@ -374,6 +393,8 @@ StringRefNull node_type_to_string(AstNodeType node_type)
       return "Attribute";
     case AstNodeType::MethodCall:
       return "MethodCall";
+    case AstNodeType::Program:
+      return "Program";
   }
   BLI_assert(false);
   return "";
@@ -402,6 +423,7 @@ static dot::Node &ast_to_dot_node(dot::DirectedGraph &digraph, const AstNode &as
 {
   std::string node_label = get_ast_node_label(ast_node);
   dot::Node &dot_node = digraph.new_node(node_label);
+  dot_node.attributes.set("ordering", "out");
   for (int i : ast_node.children.index_range()) {
     AstNode &child = *ast_node.children[i];
     dot::Node &dot_child = ast_to_dot_node(digraph, child);
