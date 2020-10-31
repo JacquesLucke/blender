@@ -124,4 +124,10 @@ inline bool operator!=(const MFDataType &a, const MFDataType &b)
   return !(a == b);
 }
 
+inline std::ostream &operator<<(std::ostream &stream, const MFDataType &data_type)
+{
+  stream << data_type.to_string();
+  return stream;
+}
+
 }  // namespace blender::fn

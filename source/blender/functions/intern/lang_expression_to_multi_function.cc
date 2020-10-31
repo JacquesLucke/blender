@@ -43,8 +43,7 @@ class AstToNetworkBuilder {
   {
     switch (ast_node.type) {
       case AstNodeType::Error:
-        BLI_assert(false);
-        throw std::runtime_error("");
+        throw std::runtime_error("There is an error ast node.");
       case AstNodeType::IsLess:
         return this->insert_binary_function("a<b", ast_node);
       case AstNodeType::IsGreater:
@@ -82,8 +81,7 @@ class AstToNetworkBuilder {
       case AstNodeType::MethodCall:
         return this->insert_method_call((MethodCallNode &)ast_node);
     }
-    BLI_assert(false);
-    return this->build(ast_node);
+    throw std::runtime_error("Unknown ast node type.");
   }
 
   template<typename T> MFOutputSocket &insert_constant_function(const T &value)
@@ -117,7 +115,7 @@ class AstToNetworkBuilder {
     }
     const GMutablePointer *constant = symbols_.try_lookup_single_constant(identifier);
     if (constant == nullptr) {
-      throw std::runtime_error("unknown identifier: " + identifier);
+      throw std::runtime_error("Unknown identifier: " + identifier);
     }
 
     const MultiFunction &fn = resources_.construct<CustomMF_GenericConstant>(
@@ -139,7 +137,9 @@ class AstToNetworkBuilder {
     MFOutputSocket &sub = this->build(*attribute_node.children[0]);
     MFDataType type = sub.data_type();
     const MultiFunction *fn = symbols_.try_lookup_attribute(type, attribute_node.name);
-    BLI_assert(fn != nullptr);
+    if (fn == nullptr) {
+      throw std::runtime_error(type.to_string() + " has no attribute " + attribute_node.name);
+    }
 
     MFNode &node = network_.add_function(*fn);
     network_.add_link(sub, node.input(0));
@@ -154,12 +154,16 @@ class AstToNetworkBuilder {
     }
     MFDataType type = arg_sockets[0]->data_type();
     const MultiFunction *fn = symbols_.try_lookup_method(type, method_call_node.name);
-    BLI_assert(fn != nullptr);
+    if (fn == nullptr) {
+      throw std::runtime_error(type.to_string() + " has no method " + method_call_node.name);
+    }
 
     MFNode &node = network_.add_function(*fn);
-    assert_same_size(arg_sockets, node.inputs());
+    if (arg_sockets.size() != node.inputs().size()) {
+      throw std::runtime_error("Passed wrong number of parameters to " + fn->name());
+    }
 
-    for (uint i : arg_sockets.index_range()) {
+    for (int i : arg_sockets.index_range()) {
       this->insert_link_with_conversion(*arg_sockets[i], node.input(i));
     }
     return node.output(0);
@@ -178,7 +182,11 @@ class AstToNetworkBuilder {
       return socket;
     }
     const MultiFunction *conversion_fn = symbols_.try_lookup_conversion(from_type, target_type);
-    BLI_assert(conversion_fn != nullptr);
+    if (conversion_fn == nullptr) {
+      throw std::runtime_error("Cannot convert from " + from_type.to_string() + " to " +
+                               target_type.to_string());
+    }
+
     MFNode &conversion_node = network_.add_function(*conversion_fn);
     network_.add_link(socket, conversion_node.input(0));
     return conversion_node.output(0);
@@ -190,16 +198,21 @@ class AstToNetworkBuilder {
     for (MFOutputSocket *socket : arg_sockets) {
       arg_types.append(socket->data_type());
     }
-    const MultiFunction &fn = this->lookup_function(name, arg_types);
-    MFNode &node = network_.add_function(fn);
-    BLI_assert(node.inputs().size() == arg_sockets.size());
-    for (uint i : arg_sockets.index_range()) {
+    const MultiFunction *fn = this->lookup_function(name, arg_types);
+    if (fn == nullptr) {
+      throw std::runtime_error("Function " + name + " does not exist for these parameters.");
+    }
+    MFNode &node = network_.add_function(*fn);
+    if (arg_sockets.size() != node.inputs().size()) {
+      throw std::runtime_error("Passed wrong number of parameters to " + fn->name());
+    }
+    for (int i : arg_sockets.index_range()) {
       this->insert_link_with_conversion(*arg_sockets[i], node.input(i));
     }
     return node.output(0);
   }
 
-  const MultiFunction &lookup_function(StringRef name, Span<MFDataType> arg_types)
+  const MultiFunction *lookup_function(StringRef name, Span<MFDataType> arg_types)
   {
     Span<const MultiFunction *> candidates = symbols_.lookup_function_candidates(name);
     const MultiFunction *best_fit_yet = nullptr;
@@ -213,17 +226,16 @@ class AstToNetworkBuilder {
         }
       }
     }
-    BLI_assert(best_fit_yet != nullptr);
-    return *best_fit_yet;
+    return best_fit_yet;
   }
 
   /* Return -1, when the function cannot be used. Otherwise, lower return values mean a better fit.
    */
   int get_function_suitability(const MultiFunction &fn, Span<MFDataType> arg_types)
   {
-    uint input_index = 0;
+    int input_index = 0;
     int conversion_count = 0;
-    for (uint param_index : fn.param_indices()) {
+    for (int param_index : fn.param_indices()) {
       MFParamType param_type = fn.param_type(param_index);
       if (param_type.is_input_or_mutable()) {
         if (input_index >= arg_types.size()) {
@@ -279,7 +291,7 @@ const MultiFunction &expression_to_multi_function(StringRef expression,
   MFNetwork &network = resources.construct<MFNetwork>(__func__);
   Map<std::string, MFOutputSocket *> expression_inputs;
   Vector<const MFOutputSocket *> inputs;
-  for (uint i : input_names.index_range()) {
+  for (int i : input_names.index_range()) {
     StringRef identifier = input_names[i];
     MFOutputSocket &socket = network.add_input(identifier, input_types[i]);
     inputs.append(&socket);

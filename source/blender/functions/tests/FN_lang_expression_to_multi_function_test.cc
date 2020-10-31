@@ -11,7 +11,7 @@ TEST(fn_lang_expression_to_multi_function, Test)
   MFSymbolTable symbols;
   ResourceCollector resources;
   const MultiFunction &fn = expression_to_multi_function(
-      "5 + 10", MFDataType::ForSingle<int>(), {}, {}, resources, symbols);
+      "5", MFDataType::ForSingle<int>(), {}, {}, resources, symbols);
 
   MFParamsBuilder params{fn, 1};
   MFContextBuilder context;
