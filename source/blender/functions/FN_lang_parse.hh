@@ -23,18 +23,15 @@ namespace blender::fn::lang {
 
 enum class AstNodeType : uint8_t {
   Error,
-
   IsLess,
   IsGreater,
   IsEqual,
   IsLessOrEqual,
   IsGreaterOrEqual,
-
   Plus,
   Minus,
   Multiply,
   Divide,
-
   Identifier,
   ConstantInt,
   ConstantFloat,
