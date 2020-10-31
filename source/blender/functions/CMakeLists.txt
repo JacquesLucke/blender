@@ -29,6 +29,7 @@ set(INC_SYS
 set(SRC
   intern/attributes_ref.cc
   intern/cpp_types.cc
+  intern/lang_tokenize.cc
   intern/multi_function.cc
   intern/multi_function_builder.cc
   intern/multi_function_network.cc
@@ -42,6 +43,7 @@ set(SRC
   FN_generic_pointer.hh
   FN_generic_value_map.hh
   FN_generic_vector_array.hh
+  FN_lang.hh
   FN_multi_function.hh
   FN_multi_function_builder.hh
   FN_multi_function_context.hh
@@ -68,6 +70,7 @@ if(WITH_GTESTS)
     tests/FN_attributes_ref_test.cc
     tests/FN_cpp_type_test.cc
     tests/FN_generic_vector_array_test.cc
+    tests/FN_lang_tokenize_test.cc
     tests/FN_multi_function_network_test.cc
     tests/FN_multi_function_script_test.cc
     tests/FN_multi_function_test.cc
