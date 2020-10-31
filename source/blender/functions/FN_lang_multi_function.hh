@@ -119,9 +119,9 @@ struct MFDataTypeWithName {
 };
 
 const MultiFunction &expression_to_multi_function(StringRef expression,
-                                                  MFDataType return_type,
-                                                  Span<MFDataTypeWithName> parameters,
+                                                  const MFSymbolTable &symbols,
                                                   ResourceCollector &resources,
-                                                  const MFSymbolTable &symbols);
+                                                  MFDataType return_type,
+                                                  Span<MFDataTypeWithName> parameters = {});
 
 }  // namespace blender::fn::lang

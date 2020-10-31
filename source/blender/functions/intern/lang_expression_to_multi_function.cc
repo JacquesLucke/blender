@@ -280,10 +280,10 @@ static MFOutputSocket &expression_to_network(StringRef str,
 }
 
 const MultiFunction &expression_to_multi_function(StringRef expression,
-                                                  MFDataType return_type,
-                                                  Span<MFDataTypeWithName> parameters,
+                                                  const MFSymbolTable &symbols,
                                                   ResourceCollector &resources,
-                                                  const MFSymbolTable &symbols)
+                                                  MFDataType return_type,
+                                                  Span<MFDataTypeWithName> parameters)
 {
   MFNetwork &network = resources.construct<MFNetwork>(__func__);
   Map<std::string, MFOutputSocket *> expression_inputs;
