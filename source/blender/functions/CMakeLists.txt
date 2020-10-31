@@ -44,6 +44,7 @@ set(SRC
   FN_generic_pointer.hh
   FN_generic_value_map.hh
   FN_generic_vector_array.hh
+  FN_lang_multi_function_symbols.hh
   FN_lang_parse.hh
   FN_lang_tokenize.hh
   FN_multi_function.hh
