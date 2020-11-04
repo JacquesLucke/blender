@@ -296,16 +296,10 @@ class TokensToAstBuilder {
     return token_types_[current_];
   }
 
-  StringRef next_str() const
-  {
-    BLI_assert(!this->is_at_end());
-    TokenRange range = token_ranges_[current_];
-    return range.get(str_);
-  }
-
   StringRef consume_next_str()
   {
-    StringRef str = this->next_str();
+    StringRef str = token_ranges_[current_].get(str_);
+    this->consume();
     current_++;
     return str;
   }
