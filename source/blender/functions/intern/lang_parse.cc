@@ -118,8 +118,8 @@ class TokensToAstBuilder {
   AstNode &parse_expression__comparison_level()
   {
     AstNode *left_expr = &this->parse_expression__add_sub_level();
-    if (this->is_comparison_token(this->next_type())) {
-      AstNodeType node_type = this->get_comparison_node_type(this->next_type());
+    if (this->is_comparison_token(this->next_token_type())) {
+      AstNodeType node_type = this->get_comparison_node_type(this->next_token_type());
       this->consume();
       AstNode &right_expr = this->parse_expression__add_sub_level();
       return this->construct_node(node_type, {left_expr, &right_expr});
@@ -155,8 +155,8 @@ class TokensToAstBuilder {
   AstNode &parse_expression__add_sub_level()
   {
     AstNode *left_expr = &this->parse_expression__mul_div_level();
-    while (this->is_add_sub_token(this->next_type())) {
-      AstNodeType node_type = this->get_add_sub_node_type(this->next_type());
+    while (this->is_add_sub_token(this->next_token_type())) {
+      AstNodeType node_type = this->get_add_sub_node_type(this->next_token_type());
       this->consume();
       AstNode &right_expr = this->parse_expression__mul_div_level();
       left_expr = &this->construct_node(node_type, {left_expr, &right_expr});
@@ -185,8 +185,8 @@ class TokensToAstBuilder {
   AstNode &parse_expression__mul_div_level()
   {
     AstNode *left_expr = &this->parse_expression__power_level();
-    while (is_mul_div_token(this->next_type())) {
-      AstNodeType node_type = this->get_mul_div_node_type(this->next_type());
+    while (is_mul_div_token(this->next_token_type())) {
+      AstNodeType node_type = this->get_mul_div_node_type(this->next_token_type());
       this->consume();
       AstNode &right_expr = this->parse_expression__power_level();
       left_expr = &this->construct_node(node_type, {left_expr, &right_expr});
@@ -228,7 +228,7 @@ class TokensToAstBuilder {
     AstNode &expr = parse_expression__atom_level();
     if (this->next_token_is(TokenType::Dot)) {
       this->consume();
-      BLI_assert(this->next_type() == TokenType::Identifier);
+      BLI_assert(this->next_token_type() == TokenType::Identifier);
       StringRef token_str = this->consume_next_str();
       StringRefNull name = allocator_.copy_string(token_str);
       if (this->next_token_is(TokenType::ParenOpen)) {
@@ -247,7 +247,7 @@ class TokensToAstBuilder {
 
   AstNode &parse_expression__atom_level()
   {
-    switch (this->next_type()) {
+    switch (this->next_token_type()) {
       case TokenType::Identifier:
         return this->parse_expression__identifier_or_call();
       case TokenType::IntLiteral:
@@ -266,7 +266,8 @@ class TokensToAstBuilder {
         throw std::runtime_error("unexpected end of string");
       }
       default:
-        throw std::runtime_error("unexpected token: " + token_type_to_string(this->next_type()));
+        throw std::runtime_error("unexpected token: " +
+                                 token_type_to_string(this->next_token_type()));
     }
   }
 
@@ -274,7 +275,7 @@ class TokensToAstBuilder {
   {
     StringRef token_str = this->consume_next_str();
     StringRefNull identifier = allocator_.copy_string(token_str);
-    if (this->next_type() == TokenType::ParenOpen) {
+    if (this->next_token_type() == TokenType::ParenOpen) {
       Vector<AstNode *> args;
       this->parse_argument_list(args);
       MutableSpan<AstNode *> children = allocator_.construct_array_copy(args.as_span());
@@ -352,7 +353,7 @@ class TokensToAstBuilder {
     return token_ranges_[current_].get(str_) == str;
   }
 
-  TokenType next_type() const
+  TokenType next_token_type() const
   {
     return token_types_[current_];
   }
@@ -368,8 +369,9 @@ class TokensToAstBuilder {
   void consume(TokenType token_type)
   {
     if (!this->next_token_is(token_type)) {
-      throw std::runtime_error("unexpected token: " + token_type_to_string(this->next_type()) +
-                               ", expected " + token_type_to_string(token_type));
+      throw std::runtime_error(
+          "unexpected token: " + token_type_to_string(this->next_token_type()) + ", expected " +
+          token_type_to_string(token_type));
     }
     this->consume();
   }
