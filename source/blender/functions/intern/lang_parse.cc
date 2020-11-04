@@ -199,11 +199,11 @@ class TokensToAstBuilder {
         return *allocator_.construct<IdentifierNode>(identifier);
       }
       case TokenType::IntLiteral:
-        return this->consume_constant_int();
+        return this->parse_expression__constant_int();
       case TokenType::FloatLiteral:
-        return this->consume_constant_float();
+        return this->parse_expression__constant_float();
       case TokenType::StringLiteral:
-        return this->consume_constant_string();
+        return this->parse_expression__constant_string();
       case TokenType::Minus: {
         this->consume();
         AstNode &expr = this->parse_expression__mul_div_level();
@@ -225,6 +225,32 @@ class TokensToAstBuilder {
       default:
         throw std::runtime_error("unexpected token: " + token_type_to_string(this->next_type()));
     }
+  }
+
+  AstNode &parse_expression__constant_int()
+  {
+    StringRef token_str = this->consume_next_str();
+    char *str = (char *)alloca(token_str.size() + 1);
+    token_str.unsafe_copy(str);
+    int value = std::atoi(str);
+    return *allocator_.construct<ConstantIntNode>(value);
+  }
+
+  AstNode &parse_expression__constant_float()
+  {
+    StringRef token_str = this->consume_next_str();
+    char *str = (char *)alloca(token_str.size() + 1);
+    token_str.unsafe_copy(str);
+    float value = std::atof(str);
+    return *allocator_.construct<ConstantFloatNode>(value);
+  }
+
+  AstNode &parse_expression__constant_string()
+  {
+    StringRef token_str = this->consume_next_str();
+    StringRef stripped_str = token_str.substr(1, token_str.size() - 2);
+    StringRefNull value = allocator_.copy_string(stripped_str);
+    return *allocator_.construct<ConstantStringNode>(value);
   }
 
   void parse_argument_list(Vector<AstNode *> &r_args)
@@ -289,32 +315,6 @@ class TokensToAstBuilder {
   {
     BLI_assert(!this->is_at_end());
     current_++;
-  }
-
-  ConstantIntNode &consume_constant_int()
-  {
-    StringRef token_str = this->consume_next_str();
-    char *str = (char *)alloca(token_str.size() + 1);
-    token_str.unsafe_copy(str);
-    int value = std::atoi(str);
-    return *allocator_.construct<ConstantIntNode>(value);
-  }
-
-  ConstantFloatNode &consume_constant_float()
-  {
-    StringRef token_str = this->consume_next_str();
-    char *str = (char *)alloca(token_str.size() + 1);
-    token_str.unsafe_copy(str);
-    float value = std::atof(str);
-    return *allocator_.construct<ConstantFloatNode>(value);
-  }
-
-  ConstantStringNode &consume_constant_string()
-  {
-    StringRef token_str = this->consume_next_str();
-    StringRef stripped_str = token_str.substr(1, token_str.size() - 2);
-    StringRefNull value = allocator_.copy_string(stripped_str);
-    return *allocator_.construct<ConstantStringNode>(value);
   }
 
   AstNode &construct_node(AstNodeType node_type, Span<AstNode *> children)
