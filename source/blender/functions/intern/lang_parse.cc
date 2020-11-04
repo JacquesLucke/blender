@@ -57,20 +57,16 @@ class TokensToAstBuilder {
 
   bool is_at_end() const
   {
-    return current_ == token_ranges_.size();
+    return current_ + 1 == token_ranges_.size();
   }
 
  private:
   AstNode &parse_statement()
   {
-    TokenType token_type = this->next_type();
-    if (token_type == TokenType::Identifier) {
-      StringRef token_str = this->next_str();
-      if (token_str == "if") {
-        return this->parse_statement__if();
-      }
+    if (this->next_token_is("if")) {
+      return this->parse_statement__if();
     }
-    if (token_type == TokenType::CurlyOpen) {
+    if (this->next_token_is(TokenType::CurlyOpen)) {
       return this->parse_statement__group();
     }
     return this->parse_statement__expression_or_assignment();
@@ -78,13 +74,13 @@ class TokensToAstBuilder {
 
   AstNode &parse_statement__if()
   {
-    this->consume(TokenType::Identifier);
+    this->consume("if");
     this->consume(TokenType::ParenOpen);
     AstNode &condition = this->parse_expression();
     this->consume(TokenType::ParenClose);
     AstNode &then_stmt = this->parse_statement();
-    if (this->next_type() == TokenType::Identifier && this->next_str() == "else") {
-      this->consume(TokenType::Identifier);
+    if (this->next_token_is("else")) {
+      this->consume("else");
       AstNode &else_stmt = this->parse_statement();
       return this->construct_node(AstNodeType::IfStmt, {&condition, &then_stmt, &else_stmt});
     }
@@ -95,7 +91,7 @@ class TokensToAstBuilder {
   {
     this->consume(TokenType::CurlyOpen);
     Vector<AstNode *> statements;
-    while (this->next_type() != TokenType::CurlyClose) {
+    while (!this->next_token_is(TokenType::CurlyClose)) {
       AstNode &stmt = this->parse_statement();
       statements.append(&stmt);
     }
@@ -106,12 +102,11 @@ class TokensToAstBuilder {
   AstNode &parse_statement__expression_or_assignment()
   {
     AstNode &left_side = this->parse_expression();
-    TokenType token_type = this->next_type();
-    if (token_type == TokenType::Semicolon) {
+    if (this->next_token_is(TokenType::Semicolon)) {
       this->consume(TokenType::Semicolon);
       return this->construct_node(AstNodeType::ExpressionStmt, {&left_side});
     }
-    if (token_type == TokenType::Equal) {
+    if (this->next_token_is(TokenType::Equal)) {
       this->consume(TokenType::Equal);
       AstNode &right_side = this->parse_expression();
       this->consume(TokenType::Semicolon);
@@ -127,7 +122,7 @@ class TokensToAstBuilder {
       AstNodeType node_type = this->get_comparison_node_type(this->next_type());
       this->consume();
       AstNode &right_expr = this->parse_expression__add_sub_level();
-      return this->construct_binary_node(node_type, *left_expr, right_expr);
+      return this->construct_node(node_type, {left_expr, &right_expr});
     }
     return *left_expr;
   }
@@ -139,7 +134,7 @@ class TokensToAstBuilder {
       AstNodeType node_type = this->get_add_sub_node_type(this->next_type());
       this->consume();
       AstNode &right_expr = this->parse_expression__mul_div_level();
-      left_expr = &this->construct_binary_node(node_type, *left_expr, right_expr);
+      left_expr = &this->construct_node(node_type, {left_expr, &right_expr});
     }
     return *left_expr;
   }
@@ -151,7 +146,7 @@ class TokensToAstBuilder {
       AstNodeType node_type = this->get_mul_div_node_type(this->next_type());
       this->consume();
       AstNode &right_expr = this->parse_expression__power_level();
-      left_expr = &this->construct_binary_node(node_type, *left_expr, right_expr);
+      left_expr = &this->construct_node(node_type, {left_expr, &right_expr});
     }
     return *left_expr;
   }
@@ -159,10 +154,10 @@ class TokensToAstBuilder {
   AstNode &parse_expression__power_level()
   {
     AstNode &base_expr = this->parse_expression__attribute_level();
-    if (this->next_type() == TokenType::DoubleAsterix) {
+    if (this->next_token_is(TokenType::DoubleAsterix)) {
       this->consume();
       AstNode &exponent_expr = this->parse_expression__attribute_level();
-      return this->construct_binary_node(AstNodeType::Power, base_expr, exponent_expr);
+      return this->construct_node(AstNodeType::Power, {&base_expr, &exponent_expr});
     }
     return base_expr;
   }
@@ -170,12 +165,12 @@ class TokensToAstBuilder {
   AstNode &parse_expression__attribute_level()
   {
     AstNode &expr = parse_expression__atom_level();
-    if (this->next_type() == TokenType::Dot) {
+    if (this->next_token_is(TokenType::Dot)) {
       this->consume();
       BLI_assert(this->next_type() == TokenType::Identifier);
       StringRef token_str = this->consume_next_str();
       StringRefNull name = allocator_.copy_string(token_str);
-      if (this->next_type() == TokenType::ParenOpen) {
+      if (this->next_token_is(TokenType::ParenOpen)) {
         Vector<AstNode *> args;
         args.append(&expr);
         this->parse_argument_list(args);
@@ -212,7 +207,7 @@ class TokensToAstBuilder {
       case TokenType::Minus: {
         this->consume();
         AstNode &expr = this->parse_expression__mul_div_level();
-        return this->construct_unary_node(AstNodeType::Negate, expr);
+        return this->construct_node(AstNodeType::Negate, {&expr});
       }
       case TokenType::Plus: {
         this->consume();
@@ -235,13 +230,23 @@ class TokensToAstBuilder {
   void parse_argument_list(Vector<AstNode *> &r_args)
   {
     this->consume(TokenType::ParenOpen);
-    while (this->next_type() != TokenType::ParenClose) {
+    while (!this->next_token_is(TokenType::ParenClose)) {
       r_args.append(&parse_expression());
-      if (this->next_type() == TokenType::Comma) {
+      if (this->next_token_is(TokenType::Comma)) {
         this->consume();
       }
     }
     this->consume(TokenType::ParenClose);
+  }
+
+  bool next_token_is(TokenType token_type)
+  {
+    return token_types_[current_] == token_type;
+  }
+
+  bool next_token_is(StringRef str)
+  {
+    return token_ranges_[current_].get(str_) == str;
   }
 
   TokenType next_type() const
@@ -265,9 +270,17 @@ class TokensToAstBuilder {
 
   void consume(TokenType token_type)
   {
-    if (this->next_type() != token_type) {
+    if (!this->next_token_is(token_type)) {
       throw std::runtime_error("unexpected token: " + token_type_to_string(this->next_type()) +
                                ", expected " + token_type_to_string(token_type));
+    }
+    this->consume();
+  }
+
+  void consume(StringRef str)
+  {
+    if (!this->next_token_is(str)) {
+      throw std::runtime_error("unexpected token: " + token_ranges_[current_].get(str_));
     }
     this->consume();
   }
@@ -276,13 +289,6 @@ class TokensToAstBuilder {
   {
     BLI_assert(!this->is_at_end());
     current_++;
-  }
-
-  IdentifierNode &consume_identifier()
-  {
-    StringRef token_str = this->consume_next_str();
-    StringRefNull identifier = allocator_.copy_string(token_str);
-    return *allocator_.construct<IdentifierNode>(identifier);
   }
 
   ConstantIntNode &consume_constant_int()
@@ -315,16 +321,6 @@ class TokensToAstBuilder {
   {
     MutableSpan<AstNode *> children_copy = allocator_.construct_array_copy(children);
     return *allocator_.construct<AstNode>(children_copy, node_type);
-  }
-
-  AstNode &construct_binary_node(AstNodeType node_type, AstNode &left_node, AstNode &right_node)
-  {
-    return this->construct_node(node_type, {&left_node, &right_node});
-  }
-
-  AstNode &construct_unary_node(AstNodeType node_type, AstNode &sub_node)
-  {
-    return this->construct_node(node_type, {&sub_node});
   }
 
   bool is_comparison_token(TokenType token_type)
@@ -392,8 +388,9 @@ class TokensToAstBuilder {
 AstNode &parse_expression(StringRef expression_str, LinearAllocator<> &allocator)
 {
   TokenizeResult tokens = tokenize(expression_str);
-
+  tokens.ranges.append({0, 0});
   tokens.types.append(TokenType::EndOfString);
+
   TokensToAstBuilder builder(expression_str, tokens.types, tokens.ranges, allocator);
   AstNode &node = builder.parse_expression();
   if (!builder.is_at_end()) {
@@ -405,7 +402,9 @@ AstNode &parse_expression(StringRef expression_str, LinearAllocator<> &allocator
 AstNode &parse_program(StringRef program_str, LinearAllocator<> &allocator)
 {
   TokenizeResult tokens = tokenize(program_str);
+  tokens.ranges.append({0, 0});
   tokens.types.append(TokenType::EndOfString);
+
   TokensToAstBuilder builder(program_str, tokens.types, tokens.ranges, allocator);
   AstNode &node = builder.parse_program();
   if (!builder.is_at_end()) {
