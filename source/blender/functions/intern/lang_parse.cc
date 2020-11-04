@@ -127,6 +127,31 @@ class TokensToAstBuilder {
     return *left_expr;
   }
 
+  bool is_comparison_token(TokenType token_type)
+  {
+    int type = (int)token_type;
+    return type >= (int)TokenType::IsLess && type <= (int)TokenType::IsGreaterOrEqual;
+  }
+
+  AstNodeType get_comparison_node_type(TokenType token_type)
+  {
+    switch (token_type) {
+      case TokenType::IsLess:
+        return AstNodeType::IsLess;
+      case TokenType::IsGreater:
+        return AstNodeType::IsGreater;
+      case TokenType::IsEqual:
+        return AstNodeType::IsEqual;
+      case TokenType::IsLessOrEqual:
+        return AstNodeType::IsLessOrEqual;
+      case TokenType::IsGreaterOrEqual:
+        return AstNodeType::IsGreaterOrEqual;
+      default:
+        BLI_assert(false);
+        return AstNodeType::Error;
+    }
+  }
+
   AstNode &parse_expression__add_sub_level()
   {
     AstNode *left_expr = &this->parse_expression__mul_div_level();
@@ -139,6 +164,24 @@ class TokensToAstBuilder {
     return *left_expr;
   }
 
+  bool is_add_sub_token(TokenType token_type)
+  {
+    return ELEM(token_type, TokenType::Plus, TokenType::Minus);
+  }
+
+  AstNodeType get_add_sub_node_type(TokenType token_type)
+  {
+    switch (token_type) {
+      case TokenType::Plus:
+        return AstNodeType::Plus;
+      case TokenType::Minus:
+        return AstNodeType::Minus;
+      default:
+        BLI_assert(false);
+        return AstNodeType::Error;
+    }
+  }
+
   AstNode &parse_expression__mul_div_level()
   {
     AstNode *left_expr = &this->parse_expression__power_level();
@@ -149,6 +192,24 @@ class TokensToAstBuilder {
       left_expr = &this->construct_node(node_type, {left_expr, &right_expr});
     }
     return *left_expr;
+  }
+
+  bool is_mul_div_token(TokenType token_type)
+  {
+    return ELEM(token_type, TokenType::Asterix, TokenType::ForwardSlash);
+  }
+
+  AstNodeType get_mul_div_node_type(TokenType token_type)
+  {
+    switch (token_type) {
+      case TokenType::Asterix:
+        return AstNodeType::Multiply;
+      case TokenType::ForwardSlash:
+        return AstNodeType::Divide;
+      default:
+        BLI_assert(false);
+        return AstNodeType::Error;
+    }
   }
 
   AstNode &parse_expression__power_level()
@@ -331,67 +392,6 @@ class TokensToAstBuilder {
   {
     MutableSpan<AstNode *> children_copy = allocator_.construct_array_copy(children);
     return *allocator_.construct<AstNode>(children_copy, node_type);
-  }
-
-  bool is_comparison_token(TokenType token_type)
-  {
-    int type = (int)token_type;
-    return type >= (int)TokenType::IsLess && type <= (int)TokenType::IsGreaterOrEqual;
-  }
-
-  AstNodeType get_comparison_node_type(TokenType token_type)
-  {
-    switch (token_type) {
-      case TokenType::IsLess:
-        return AstNodeType::IsLess;
-      case TokenType::IsGreater:
-        return AstNodeType::IsGreater;
-      case TokenType::IsEqual:
-        return AstNodeType::IsEqual;
-      case TokenType::IsLessOrEqual:
-        return AstNodeType::IsLessOrEqual;
-      case TokenType::IsGreaterOrEqual:
-        return AstNodeType::IsGreaterOrEqual;
-      default:
-        BLI_assert(false);
-        return AstNodeType::Error;
-    }
-  }
-
-  bool is_add_sub_token(TokenType token_type)
-  {
-    return ELEM(token_type, TokenType::Plus, TokenType::Minus);
-  }
-
-  AstNodeType get_add_sub_node_type(TokenType token_type)
-  {
-    switch (token_type) {
-      case TokenType::Plus:
-        return AstNodeType::Plus;
-      case TokenType::Minus:
-        return AstNodeType::Minus;
-      default:
-        BLI_assert(false);
-        return AstNodeType::Error;
-    }
-  }
-
-  bool is_mul_div_token(TokenType token_type)
-  {
-    return ELEM(token_type, TokenType::Asterix, TokenType::ForwardSlash);
-  }
-
-  AstNodeType get_mul_div_node_type(TokenType token_type)
-  {
-    switch (token_type) {
-      case TokenType::Asterix:
-        return AstNodeType::Multiply;
-      case TokenType::ForwardSlash:
-        return AstNodeType::Divide;
-      default:
-        BLI_assert(false);
-        return AstNodeType::Error;
-    }
   }
 };
 
