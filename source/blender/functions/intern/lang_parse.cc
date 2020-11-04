@@ -74,13 +74,13 @@ class TokensToAstBuilder {
 
   AstNode &parse_statement__if()
   {
-    this->consume("if");
-    this->consume(TokenType::ParenOpen);
+    this->consume_known("if");
+    this->consume_unknown(TokenType::ParenOpen);
     AstNode &condition = this->parse_expression();
-    this->consume(TokenType::ParenClose);
+    this->consume_unknown(TokenType::ParenClose);
     AstNode &then_stmt = this->parse_statement();
     if (this->next_token_is("else")) {
-      this->consume("else");
+      this->consume_known("else");
       AstNode &else_stmt = this->parse_statement();
       return this->construct_node(AstNodeType::IfStmt, {&condition, &then_stmt, &else_stmt});
     }
@@ -89,13 +89,13 @@ class TokensToAstBuilder {
 
   AstNode &parse_statement__group()
   {
-    this->consume(TokenType::CurlyOpen);
+    this->consume_known(TokenType::CurlyOpen);
     Vector<AstNode *> statements;
     while (!this->next_token_is(TokenType::CurlyClose)) {
       AstNode &stmt = this->parse_statement();
       statements.append(&stmt);
     }
-    this->consume(TokenType::CurlyClose);
+    this->consume_known(TokenType::CurlyClose);
     return this->construct_node(AstNodeType::GroupStmt, statements);
   }
 
@@ -103,13 +103,13 @@ class TokensToAstBuilder {
   {
     AstNode &left_side = this->parse_expression();
     if (this->next_token_is(TokenType::Semicolon)) {
-      this->consume(TokenType::Semicolon);
+      this->consume_known(TokenType::Semicolon);
       return this->construct_node(AstNodeType::ExpressionStmt, {&left_side});
     }
     if (this->next_token_is(TokenType::Equal)) {
-      this->consume(TokenType::Equal);
+      this->consume_known(TokenType::Equal);
       AstNode &right_side = this->parse_expression();
-      this->consume(TokenType::Semicolon);
+      this->consume_unknown(TokenType::Semicolon);
       return this->construct_node(AstNodeType::AssignmentStmt, {&left_side, &right_side});
     }
     throw std::runtime_error("expected semicolon or assignment");
@@ -275,7 +275,7 @@ class TokensToAstBuilder {
   {
     StringRef token_str = this->consume_next_str();
     StringRefNull identifier = allocator_.copy_string(token_str);
-    if (this->next_token_type() == TokenType::ParenOpen) {
+    if (this->next_token_is(TokenType::ParenOpen)) {
       Vector<AstNode *> args;
       this->parse_argument_list(args);
       MutableSpan<AstNode *> children = allocator_.construct_array_copy(args.as_span());
@@ -312,35 +312,35 @@ class TokensToAstBuilder {
 
   AstNode &parse_expression__unary_subtract()
   {
-    this->consume(TokenType::Minus);
+    this->consume_known(TokenType::Minus);
     AstNode &expr = this->parse_expression__mul_div_level();
     return this->construct_node(AstNodeType::Negate, {&expr});
   }
 
   AstNode &parse_expression__unary_add()
   {
-    this->consume(TokenType::Plus);
+    this->consume_known(TokenType::Plus);
     return this->parse_expression__mul_div_level();
   }
 
   AstNode &parse_expression__parentheses()
   {
-    this->consume(TokenType::ParenOpen);
+    this->consume_known(TokenType::ParenOpen);
     AstNode &expr = this->parse_expression();
-    this->consume(TokenType::ParenClose);
+    this->consume_unknown(TokenType::ParenClose);
     return expr;
   }
 
   void parse_argument_list(Vector<AstNode *> &r_args)
   {
-    this->consume(TokenType::ParenOpen);
+    this->consume_known(TokenType::ParenOpen);
     while (!this->next_token_is(TokenType::ParenClose)) {
       r_args.append(&parse_expression());
       if (this->next_token_is(TokenType::Comma)) {
-        this->consume();
+        this->consume_known(TokenType::Comma);
       }
     }
-    this->consume(TokenType::ParenClose);
+    this->consume_known(TokenType::ParenClose);
   }
 
   bool next_token_is(TokenType token_type)
@@ -362,11 +362,10 @@ class TokensToAstBuilder {
   {
     StringRef str = token_ranges_[current_].get(str_);
     this->consume();
-    current_++;
     return str;
   }
 
-  void consume(TokenType token_type)
+  void consume_unknown(TokenType token_type)
   {
     if (!this->next_token_is(token_type)) {
       throw std::runtime_error(
@@ -376,11 +375,23 @@ class TokensToAstBuilder {
     this->consume();
   }
 
-  void consume(StringRef str)
+  void consume_unknown(StringRef str)
   {
     if (!this->next_token_is(str)) {
       throw std::runtime_error("unexpected token: " + token_ranges_[current_].get(str_));
     }
+    this->consume();
+  }
+
+  void consume_known(TokenType token_type)
+  {
+    BLI_assert(this->next_token_is(token_type));
+    this->consume();
+  }
+
+  void consume_known(StringRef str)
+  {
+    BLI_assert(this->next_token_is(str));
     this->consume();
   }
 
