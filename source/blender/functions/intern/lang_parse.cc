@@ -187,44 +187,39 @@ class TokensToAstBuilder {
   AstNode &parse_expression__atom_level()
   {
     switch (this->next_type()) {
-      case TokenType::Identifier: {
-        StringRef token_str = this->consume_next_str();
-        StringRefNull identifier = allocator_.copy_string(token_str);
-        if (this->next_type() == TokenType::ParenOpen) {
-          Vector<AstNode *> args;
-          this->parse_argument_list(args);
-          MutableSpan<AstNode *> children = allocator_.construct_array_copy(args.as_span());
-          return *allocator_.construct<CallNode>(identifier, children);
-        }
-        return *allocator_.construct<IdentifierNode>(identifier);
-      }
+      case TokenType::Identifier:
+        return this->parse_expression__identifier_or_call();
       case TokenType::IntLiteral:
         return this->parse_expression__constant_int();
       case TokenType::FloatLiteral:
         return this->parse_expression__constant_float();
       case TokenType::StringLiteral:
         return this->parse_expression__constant_string();
-      case TokenType::Minus: {
-        this->consume();
-        AstNode &expr = this->parse_expression__mul_div_level();
-        return this->construct_node(AstNodeType::Negate, {&expr});
-      }
-      case TokenType::Plus: {
-        this->consume();
-        return this->parse_expression__mul_div_level();
-      }
-      case TokenType::ParenOpen: {
-        this->consume();
-        AstNode &expr = this->parse_expression();
-        this->consume(TokenType::ParenClose);
-        return expr;
-      }
+      case TokenType::Minus:
+        return this->parse_expression__unary_subtract();
+      case TokenType::Plus:
+        return this->parse_expression__unary_add();
+      case TokenType::ParenOpen:
+        return this->parse_expression__parentheses();
       case TokenType::EndOfString: {
         throw std::runtime_error("unexpected end of string");
       }
       default:
         throw std::runtime_error("unexpected token: " + token_type_to_string(this->next_type()));
     }
+  }
+
+  AstNode &parse_expression__identifier_or_call()
+  {
+    StringRef token_str = this->consume_next_str();
+    StringRefNull identifier = allocator_.copy_string(token_str);
+    if (this->next_type() == TokenType::ParenOpen) {
+      Vector<AstNode *> args;
+      this->parse_argument_list(args);
+      MutableSpan<AstNode *> children = allocator_.construct_array_copy(args.as_span());
+      return *allocator_.construct<CallNode>(identifier, children);
+    }
+    return *allocator_.construct<IdentifierNode>(identifier);
   }
 
   AstNode &parse_expression__constant_int()
@@ -251,6 +246,27 @@ class TokensToAstBuilder {
     StringRef stripped_str = token_str.substr(1, token_str.size() - 2);
     StringRefNull value = allocator_.copy_string(stripped_str);
     return *allocator_.construct<ConstantStringNode>(value);
+  }
+
+  AstNode &parse_expression__unary_subtract()
+  {
+    this->consume(TokenType::Minus);
+    AstNode &expr = this->parse_expression__mul_div_level();
+    return this->construct_node(AstNodeType::Negate, {&expr});
+  }
+
+  AstNode &parse_expression__unary_add()
+  {
+    this->consume(TokenType::Plus);
+    return this->parse_expression__mul_div_level();
+  }
+
+  AstNode &parse_expression__parentheses()
+  {
+    this->consume(TokenType::ParenOpen);
+    AstNode &expr = this->parse_expression();
+    this->consume(TokenType::ParenClose);
+    return expr;
   }
 
   void parse_argument_list(Vector<AstNode *> &r_args)
