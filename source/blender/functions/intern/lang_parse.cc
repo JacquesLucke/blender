@@ -67,31 +67,57 @@ class TokensToAstBuilder {
     if (token_type == TokenType::Identifier) {
       StringRef token_str = this->next_str();
       if (token_str == "if") {
-        this->consume(TokenType::Identifier);
-        this->consume(TokenType::ParenOpen);
-        AstNode &condition = this->parse_expression();
-        this->consume(TokenType::ParenClose);
-        AstNode &then_stmt = this->parse_statement();
-        return this->construct_binary_node(AstNodeType::IfStmt, condition, then_stmt);
+        return this->parse_statement__if();
       }
     }
     if (token_type == TokenType::CurlyOpen) {
-      this->consume(TokenType::CurlyOpen);
-      Vector<AstNode *> statements;
-      while (this->next_type() != TokenType::CurlyClose) {
-        AstNode &stmt = this->parse_statement();
-        statements.append(&stmt);
-      }
-      this->consume(TokenType::CurlyClose);
-      MutableSpan<AstNode *> statements_copy = allocator_.construct_array_copy(
-          statements.as_span());
-      return *allocator_.construct<AstNode>(statements_copy, AstNodeType::GroupStmt);
+      return this->parse_statement__group();
     }
+    return this->parse_statement__expression_or_assignment();
+  }
+
+  AstNode &parse_statement__if()
+  {
+    this->consume(TokenType::Identifier);
+    this->consume(TokenType::ParenOpen);
+    AstNode &condition = this->parse_expression();
+    this->consume(TokenType::ParenClose);
+    AstNode &then_stmt = this->parse_statement();
+    if (this->next_type() == TokenType::Identifier && this->next_str() == "else") {
+      this->consume(TokenType::Identifier);
+      AstNode &else_stmt = this->parse_statement();
+      return this->construct_node(AstNodeType::IfStmt, {&condition, &then_stmt, &else_stmt});
+    }
+    return this->construct_node(AstNodeType::IfStmt, {&condition, &then_stmt});
+  }
+
+  AstNode &parse_statement__group()
+  {
+    this->consume(TokenType::CurlyOpen);
+    Vector<AstNode *> statements;
+    while (this->next_type() != TokenType::CurlyClose) {
+      AstNode &stmt = this->parse_statement();
+      statements.append(&stmt);
+    }
+    this->consume(TokenType::CurlyClose);
+    return this->construct_node(AstNodeType::GroupStmt, statements);
+  }
+
+  AstNode &parse_statement__expression_or_assignment()
+  {
     AstNode &left_side = this->parse_expression();
-    this->consume(TokenType::Equal);
-    AstNode &right_side = this->parse_expression();
-    this->consume(TokenType::Semicolon);
-    return this->construct_binary_node(AstNodeType::AssignmentStmt, left_side, right_side);
+    TokenType token_type = this->next_type();
+    if (token_type == TokenType::Semicolon) {
+      this->consume(TokenType::Semicolon);
+      return this->construct_node(AstNodeType::ExpressionStmt, {&left_side});
+    }
+    if (token_type == TokenType::Equal) {
+      this->consume(TokenType::Equal);
+      AstNode &right_side = this->parse_expression();
+      this->consume(TokenType::Semicolon);
+      return this->construct_node(AstNodeType::AssignmentStmt, {&left_side, &right_side});
+    }
+    throw std::runtime_error("expected semicolon or assignment");
   }
 
   AstNode &parse_expression__comparison_level()
@@ -285,21 +311,20 @@ class TokensToAstBuilder {
     return *allocator_.construct<ConstantStringNode>(value);
   }
 
+  AstNode &construct_node(AstNodeType node_type, Span<AstNode *> children)
+  {
+    MutableSpan<AstNode *> children_copy = allocator_.construct_array_copy(children);
+    return *allocator_.construct<AstNode>(children_copy, node_type);
+  }
+
   AstNode &construct_binary_node(AstNodeType node_type, AstNode &left_node, AstNode &right_node)
   {
-    MutableSpan<AstNode *> children = allocator_.allocate_array<AstNode *>(2);
-    children[0] = &left_node;
-    children[1] = &right_node;
-    AstNode *node = allocator_.construct<AstNode>(children, node_type);
-    return *node;
+    return this->construct_node(node_type, {&left_node, &right_node});
   }
 
   AstNode &construct_unary_node(AstNodeType node_type, AstNode &sub_node)
   {
-    MutableSpan<AstNode *> children = allocator_.allocate_array<AstNode *>(1);
-    children[0] = &sub_node;
-    AstNode *node = allocator_.construct<AstNode>(children, node_type);
-    return *node;
+    return this->construct_node(node_type, {&sub_node});
   }
 
   bool is_comparison_token(TokenType token_type)
@@ -386,6 +411,7 @@ AstNode &parse_program(StringRef program_str, LinearAllocator<> &allocator)
   if (!builder.is_at_end()) {
     throw std::runtime_error("unexpected end of program");
   }
+  std::cout << node.to_dot() << "\n";
   return node;
 }
 
@@ -438,6 +464,10 @@ StringRefNull node_type_to_string(AstNodeType node_type)
       return "IfStmt";
     case AstNodeType::GroupStmt:
       return "GroupStmt";
+    case AstNodeType::ExpressionStmt:
+      return "ExpressionStmt";
+    case AstNodeType::DeclarationStmt:
+      return "DeclarationStmt";
   }
   BLI_assert(false);
   return "";

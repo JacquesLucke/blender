@@ -22,6 +22,7 @@ TEST(fn_lang_parse, Assignment)
       a = 3;
       hello = "world";
     }
+    else test= 3;
     if (a) a = 0;
   )xx";
   parse_program(code, allocator);

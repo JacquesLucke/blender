@@ -333,6 +333,8 @@ enum class AstNodeType : uint8_t {
   AssignmentStmt,
   IfStmt,
   GroupStmt,
+  ExpressionStmt,
+  DeclarationStmt,
 };
 
 StringRefNull node_type_to_string(AstNodeType node_type);
