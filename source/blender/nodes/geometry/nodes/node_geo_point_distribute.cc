@@ -113,13 +113,13 @@ static void geo_point_distribute_exec(GeoNodeExecParams params)
   const Mesh *mesh_in = mesh_component.get_for_read();
 
   const float default_factor = 1.0f;
-  ReadAttributePtr density_factors = bke::mesh_attribute_get_for_read(mesh_component,
-                                                                      density_attribute,
-                                                                      ATTR_DOMAIN_VERTEX,
-                                                                      CPPType::get<float>(),
-                                                                      &default_factor);
+  FloatReadAttribute density_factors = bke::mesh_attribute_get_for_read(mesh_component,
+                                                                        density_attribute,
+                                                                        ATTR_DOMAIN_VERTEX,
+                                                                        CPPType::get<float>(),
+                                                                        &default_factor);
 
-  Vector<float3> points = scatter_points_from_mesh(mesh_in, density, *density_factors);
+  Vector<float3> points = scatter_points_from_mesh(mesh_in, density, density_factors);
 
   PointCloud *pointcloud = BKE_pointcloud_new_nomain(points.size());
   memcpy(pointcloud->co, points.data(), sizeof(float3) * points.size());

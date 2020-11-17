@@ -67,29 +67,30 @@ class ReadAttribute {
   virtual void get_internal(const int64_t index, void *r_value) const = 0;
 };
 
-template<typename T> class TypedReadAttributeRef {
+using ReadAttributePtr = std::unique_ptr<ReadAttribute>;
+
+template<typename T> class TypedReadAttribute {
  private:
-  const ReadAttribute &attribute_;
+  ReadAttributePtr attribute_;
 
  public:
-  TypedReadAttributeRef(const ReadAttribute &attribute) : attribute_(attribute)
+  TypedReadAttribute(ReadAttributePtr attribute) : attribute_(std::move(attribute))
   {
-    BLI_assert(attribute.cpp_type().is<T>());
+    BLI_assert(attribute_);
+    BLI_assert(attribute_->cpp_type().is<T>());
   }
 
   T operator[](const int64_t index) const
   {
-    BLI_assert(index < attribute_.size());
+    BLI_assert(index < attribute_->size());
     T value;
     value.~T();
-    attribute_.get(index, &value);
+    attribute_->get(index, &value);
     return value;
   }
 };
 
-using FloatReadAttribute = TypedReadAttributeRef<float>;
-
-using ReadAttributePtr = std::unique_ptr<ReadAttribute>;
+using FloatReadAttribute = TypedReadAttribute<float>;
 
 ReadAttributePtr mesh_attribute_get_for_read(const MeshComponent &mesh_component,
                                              const StringRef attribute_name);
