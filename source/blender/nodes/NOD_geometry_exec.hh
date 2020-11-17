@@ -26,6 +26,7 @@
 
 namespace blender::nodes {
 
+using bke::AttributeAccessor;
 using bke::AttributeAccessorPtr;
 using bke::PersistentDataHandleMap;
 using bke::PersistentObjectHandle;

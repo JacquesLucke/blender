@@ -47,20 +47,15 @@ namespace blender::nodes {
 
 static Vector<float3> scatter_points_from_mesh(const Mesh *mesh,
                                                const float density,
-                                               const AttributeAccessorPtr &density_factors)
+                                               const AttributeAccessor &density_factors)
 {
   /* This only updates a cache and can be considered to be logically const. */
   const MLoopTri *looptris = BKE_mesh_runtime_looptri_ensure(const_cast<Mesh *>(mesh));
   const int looptris_len = BKE_mesh_runtime_looptri_len(mesh);
 
   Array<float> vertex_density_factors(mesh->totvert);
-  if (!density_factors) {
-    vertex_density_factors.fill(1.0f);
-  }
-  else {
-    for (const int i : IndexRange(mesh->totvert)) {
-      vertex_density_factors[i] = density_factors->get<float>(i);
-    }
+  for (const int i : IndexRange(mesh->totvert)) {
+    vertex_density_factors[i] = density_factors.get<float>(i);
   }
 
   Vector<float3> points;
@@ -122,13 +117,15 @@ static void geo_point_distribute_exec(GeoNodeExecParams params)
   const MeshComponent &mesh_component = *geometry_set.get_component_for_read<MeshComponent>();
   const Mesh *mesh_in = mesh_component.get_for_read();
 
-  AttributeAccessorPtr density_factors = bke::get_raw_mesh_attribute_accessor(mesh_component,
-                                                                              density_attribute);
-  if (density_factors && density_factors->domain() != ATTR_DOMAIN_VERTEX) {
-    density_factors.reset();
-  }
+  const float default_factor = 1.0f;
+  AttributeAccessorPtr density_factors = bke::mesh_attribute_get_accessor_for_domain_with_type(
+      mesh_component,
+      density_attribute,
+      ATTR_DOMAIN_VERTEX,
+      CPPType::get<float>(),
+      &default_factor);
 
-  Vector<float3> points = scatter_points_from_mesh(mesh_in, density, density_factors);
+  Vector<float3> points = scatter_points_from_mesh(mesh_in, density, *density_factors);
 
   PointCloud *pointcloud = BKE_pointcloud_new_nomain(points.size());
   memcpy(pointcloud->co, points.data(), sizeof(float3) * points.size());

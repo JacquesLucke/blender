@@ -28,7 +28,7 @@ namespace blender::bke {
 using fn::CPPType;
 
 class AttributeAccessor {
- private:
+ protected:
   AttributeDomain domain_;
   const CPPType *cpp_type_;
   int64_t size_;
@@ -78,11 +78,18 @@ class AttributeAccessor {
 
 using AttributeAccessorPtr = std::unique_ptr<AttributeAccessor>;
 
-AttributeAccessorPtr get_raw_mesh_attribute_accessor(const MeshComponent &mesh_component,
-                                                     const StringRef attribute_name);
+AttributeAccessorPtr mesh_attribute_get_accessor(const MeshComponent &mesh_component,
+                                                 const StringRef attribute_name);
 
-AttributeAccessorPtr adapt_mesh_attribute_accessor_domain(const MeshComponent &mesh_component,
+AttributeAccessorPtr mesh_attribute_adapt_accessor_domain(const MeshComponent &mesh_component,
                                                           AttributeAccessorPtr attribute_accessor,
                                                           const AttributeDomain to_domain);
+
+AttributeAccessorPtr mesh_attribute_get_accessor_for_domain_with_type(
+    const MeshComponent &mesh_component,
+    const StringRef attribute_name,
+    const AttributeDomain domain,
+    const CPPType &cpp_type,
+    const void *default_value = nullptr);
 
 }  // namespace blender::bke

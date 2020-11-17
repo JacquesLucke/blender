@@ -96,19 +96,24 @@ class DerivedArrayAttributeAccessor final : public AttributeAccessor {
   }
 };
 
-template<typename T> class ConstantAttributeAccessor final : public AttributeAccessor {
+class ConstantAttributeAccessor final : public AttributeAccessor {
  private:
-  T value_;
+  void *value_;
 
  public:
-  ConstantAttributeAccessor(AttributeDomain domain, T value, const int64_t size)
-      : AttributeAccessor(domain, CPPType::get<T>(), size), value_(std::move(value))
+  ConstantAttributeAccessor(AttributeDomain domain,
+                            const int64_t size,
+                            const CPPType &type,
+                            const void *value)
+      : AttributeAccessor(domain, type, size)
   {
+    value_ = MEM_mallocN_aligned(type.size(), type.alignment(), __func__);
+    type.copy_to_uninitialized(value, value_);
   }
 
-  void access_single(const int64_t index, void *r_value) const override
+  void access_single(const int64_t UNUSED(index), void *r_value) const override
   {
-    new (r_value) T(value_);
+    this->cpp_type_->copy_to_uninitialized(value_, r_value);
   }
 };
 
@@ -242,8 +247,8 @@ static AttributeAccessorPtr get_mesh_attribute_accessor__polygon(
       mesh->pdata, mesh->totpoly, attribute_name, ATTR_DOMAIN_POLYGON);
 }
 
-AttributeAccessorPtr get_raw_mesh_attribute_accessor(const MeshComponent &mesh_component,
-                                                     const StringRef attribute_name)
+AttributeAccessorPtr mesh_attribute_get_accessor(const MeshComponent &mesh_component,
+                                                 const StringRef attribute_name)
 {
   AttributeAccessorPtr corner_level = get_mesh_attribute_accessor__corner(mesh_component,
                                                                           attribute_name);
@@ -283,11 +288,9 @@ static AttributeAccessorPtr adapt_mesh_attribute_accessor_to_corner(
       return std::make_unique<VertexToCornerAccessor>(std::move(attribute_accessor),
                                                       Span(mesh.mloop, mesh.totloop));
     case ATTR_DOMAIN_EDGE: {
-      BLI_assert(!"currently not implemented");
       break;
     }
     case ATTR_DOMAIN_POLYGON: {
-      BLI_assert(!"currently not implemented");
       break;
     }
     default: {
@@ -300,25 +303,22 @@ static AttributeAccessorPtr adapt_mesh_attribute_accessor_to_corner(
 static AttributeAccessorPtr adapt_mesh_attribute_accessor_to_vertex(
     const MeshComponent &UNUSED(mesh_component), AttributeAccessorPtr UNUSED(attribute_accessor))
 {
-  BLI_assert(!"currently not implemented");
   return {};
 }
 
 static AttributeAccessorPtr adapt_mesh_attribute_accessor_to_edge(
     const MeshComponent &UNUSED(mesh_component), AttributeAccessorPtr UNUSED(attribute_accessor))
 {
-  BLI_assert(!"currently not implemented");
   return {};
 }
 
 static AttributeAccessorPtr adapt_mesh_attribute_accessor_to_polygon(
     const MeshComponent &UNUSED(mesh_component), AttributeAccessorPtr UNUSED(attribute_accessor))
 {
-  BLI_assert(!"currently not implemented");
   return {};
 }
 
-AttributeAccessorPtr adapt_mesh_attribute_accessor_domain(const MeshComponent &mesh_component,
+AttributeAccessorPtr mesh_attribute_adapt_accessor_domain(const MeshComponent &mesh_component,
                                                           AttributeAccessorPtr attribute_accessor,
                                                           const AttributeDomain to_domain)
 {
@@ -345,6 +345,70 @@ AttributeAccessorPtr adapt_mesh_attribute_accessor_domain(const MeshComponent &m
     default:
       return {};
   }
+}
+
+static int get_domain_length(const MeshComponent &mesh_component, const AttributeDomain domain)
+{
+  const Mesh *mesh = mesh_component.get_for_read();
+  if (mesh == nullptr) {
+    return 0;
+  }
+  switch (domain) {
+    case ATTR_DOMAIN_CORNER:
+      return mesh->totloop;
+    case ATTR_DOMAIN_VERTEX:
+      return mesh->totvert;
+    case ATTR_DOMAIN_EDGE:
+      return mesh->totedge;
+    case ATTR_DOMAIN_POLYGON:
+      return mesh->totpoly;
+    default:
+      break;
+  }
+  return 0;
+}
+
+static AttributeAccessorPtr make_default_accessor(const MeshComponent &mesh_component,
+                                                  const AttributeDomain domain,
+                                                  const CPPType &cpp_type,
+                                                  const void *default_value)
+{
+
+  const int length = get_domain_length(mesh_component, domain);
+  return std::make_unique<ConstantAttributeAccessor>(domain, length, cpp_type, default_value);
+}
+
+AttributeAccessorPtr mesh_attribute_get_accessor_for_domain_with_type(
+    const MeshComponent &mesh_component,
+    const StringRef attribute_name,
+    const AttributeDomain domain,
+    const CPPType &cpp_type,
+    const void *default_value)
+{
+  AttributeAccessorPtr attribute_accessor = mesh_attribute_get_accessor(mesh_component,
+                                                                        attribute_name);
+  auto get_default_or_empty = [&]() -> AttributeAccessorPtr {
+    if (default_value != nullptr) {
+      return make_default_accessor(mesh_component, domain, cpp_type, default_value);
+    }
+    return {};
+  };
+
+  if (!attribute_accessor) {
+    return get_default_or_empty();
+  }
+  if (attribute_accessor->domain() != domain) {
+    attribute_accessor = mesh_attribute_adapt_accessor_domain(
+        mesh_component, std::move(attribute_accessor), domain);
+  }
+  if (!attribute_accessor) {
+    return get_default_or_empty();
+  }
+  if (attribute_accessor->cpp_type() != cpp_type) {
+    /* TODO: Support some type conversions. */
+    return get_default_or_empty();
+  }
+  return attribute_accessor;
 }
 
 }  // namespace blender::bke
