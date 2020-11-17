@@ -314,8 +314,8 @@ static ReadAttributePtr make_default_attribute(const MeshComponent &mesh_compone
 
 ReadAttributePtr mesh_attribute_get_for_read(const MeshComponent &mesh_component,
                                              const StringRef attribute_name,
-                                             const AttributeDomain domain,
                                              const CPPType &cpp_type,
+                                             const AttributeDomain domain,
                                              const void *default_value)
 {
   ReadAttributePtr attribute = mesh_attribute_get_for_read(mesh_component, attribute_name);

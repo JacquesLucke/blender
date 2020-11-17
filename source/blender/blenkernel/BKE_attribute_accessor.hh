@@ -80,6 +80,11 @@ template<typename T> class TypedReadAttribute {
     BLI_assert(attribute_->cpp_type().is<T>());
   }
 
+  int64_t size() const
+  {
+    return attribute_->size();
+  }
+
   T operator[](const int64_t index) const
   {
     BLI_assert(index < attribute_->size());
@@ -91,6 +96,7 @@ template<typename T> class TypedReadAttribute {
 };
 
 using FloatReadAttribute = TypedReadAttribute<float>;
+using Float3ReadAttribute = TypedReadAttribute<float3>;
 
 ReadAttributePtr mesh_attribute_get_for_read(const MeshComponent &mesh_component,
                                              const StringRef attribute_name);
@@ -101,8 +107,24 @@ ReadAttributePtr mesh_attribute_adapt_domain(const MeshComponent &mesh_component
 
 ReadAttributePtr mesh_attribute_get_for_read(const MeshComponent &mesh_component,
                                              const StringRef attribute_name,
-                                             const AttributeDomain domain,
                                              const CPPType &cpp_type,
+                                             const AttributeDomain domain,
                                              const void *default_value = nullptr);
+
+template<typename T>
+TypedReadAttribute<T> mesh_attribute_get_for_read(const MeshComponent &mesh_component,
+                                                  const StringRef attribute_name,
+                                                  const AttributeDomain domain,
+                                                  const T &default_value)
+{
+  ReadAttributePtr attribute = mesh_attribute_get_for_read(
+      mesh_component,
+      attribute_name,
+      CPPType::get<T>(),
+      domain,
+      static_cast<const void *>(&default_value));
+  BLI_assert(attribute);
+  return attribute;
+}
 
 }  // namespace blender::bke
