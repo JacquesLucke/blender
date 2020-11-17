@@ -47,16 +47,11 @@ namespace blender::nodes {
 
 static Vector<float3> scatter_points_from_mesh(const Mesh *mesh,
                                                const float density,
-                                               const AttributeAccessor &density_factors)
+                                               const ReadAttribute &density_factors)
 {
   /* This only updates a cache and can be considered to be logically const. */
   const MLoopTri *looptris = BKE_mesh_runtime_looptri_ensure(const_cast<Mesh *>(mesh));
   const int looptris_len = BKE_mesh_runtime_looptri_len(mesh);
-
-  Array<float> vertex_density_factors(mesh->totvert);
-  for (const int i : IndexRange(mesh->totvert)) {
-    vertex_density_factors[i] = density_factors.get<float>(i);
-  }
 
   Vector<float3> points;
 
@@ -68,9 +63,9 @@ static Vector<float3> scatter_points_from_mesh(const Mesh *mesh,
     const float3 v0_pos = mesh->mvert[v0_index].co;
     const float3 v1_pos = mesh->mvert[v1_index].co;
     const float3 v2_pos = mesh->mvert[v2_index].co;
-    const float v0_density_factor = vertex_density_factors[v0_index];
-    const float v1_density_factor = vertex_density_factors[v1_index];
-    const float v2_density_factor = vertex_density_factors[v2_index];
+    const float v0_density_factor = density_factors.get<float>(v0_index);
+    const float v1_density_factor = density_factors.get<float>(v1_index);
+    const float v2_density_factor = density_factors.get<float>(v2_index);
     const float looptri_density_factor = (v0_density_factor + v1_density_factor +
                                           v2_density_factor) /
                                          3.0f;
@@ -118,12 +113,11 @@ static void geo_point_distribute_exec(GeoNodeExecParams params)
   const Mesh *mesh_in = mesh_component.get_for_read();
 
   const float default_factor = 1.0f;
-  AttributeAccessorPtr density_factors = bke::mesh_attribute_get_accessor_for_domain_with_type(
-      mesh_component,
-      density_attribute,
-      ATTR_DOMAIN_VERTEX,
-      CPPType::get<float>(),
-      &default_factor);
+  ReadAttributePtr density_factors = bke::mesh_attribute_get_for_read(mesh_component,
+                                                                      density_attribute,
+                                                                      ATTR_DOMAIN_VERTEX,
+                                                                      CPPType::get<float>(),
+                                                                      &default_factor);
 
   Vector<float3> points = scatter_points_from_mesh(mesh_in, density, *density_factors);
 

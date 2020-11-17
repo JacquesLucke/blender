@@ -27,19 +27,19 @@ namespace blender::bke {
 
 using fn::CPPType;
 
-class AttributeAccessor {
+class ReadAttribute {
  protected:
   const AttributeDomain domain_;
   const CPPType &cpp_type_;
   const int64_t size_;
 
  public:
-  AttributeAccessor(AttributeDomain domain, const CPPType &cpp_type, const int64_t size)
+  ReadAttribute(AttributeDomain domain, const CPPType &cpp_type, const int64_t size)
       : domain_(domain), cpp_type_(cpp_type), size_(size)
   {
   }
 
-  virtual ~AttributeAccessor() = default;
+  virtual ~ReadAttribute() = default;
 
   AttributeDomain domain() const
   {
@@ -59,7 +59,7 @@ class AttributeAccessor {
   void get(const int64_t index, void *r_value) const
   {
     BLI_assert(index < size_);
-    this->access_single(index, r_value);
+    this->get_internal(index, r_value);
   }
 
   template<typename T> T get(const int64_t index) const
@@ -67,29 +67,28 @@ class AttributeAccessor {
     BLI_assert(index < size_);
     T value;
     value.~T();
-    this->access_single(index, &value);
+    this->get_internal(index, &value);
     return value;
   }
 
  protected:
   /* r_value is expected to be uninitialized. */
-  virtual void access_single(const int64_t index, void *r_value) const = 0;
+  virtual void get_internal(const int64_t index, void *r_value) const = 0;
 };
 
-using AttributeAccessorPtr = std::unique_ptr<AttributeAccessor>;
+using ReadAttributePtr = std::unique_ptr<ReadAttribute>;
 
-AttributeAccessorPtr mesh_attribute_get_accessor(const MeshComponent &mesh_component,
-                                                 const StringRef attribute_name);
+ReadAttributePtr mesh_attribute_get_for_read(const MeshComponent &mesh_component,
+                                             const StringRef attribute_name);
 
-AttributeAccessorPtr mesh_attribute_adapt_accessor_domain(const MeshComponent &mesh_component,
-                                                          AttributeAccessorPtr attribute_accessor,
-                                                          const AttributeDomain to_domain);
+ReadAttributePtr mesh_attribute_adapt_domain(const MeshComponent &mesh_component,
+                                             ReadAttributePtr attribute,
+                                             const AttributeDomain to_domain);
 
-AttributeAccessorPtr mesh_attribute_get_accessor_for_domain_with_type(
-    const MeshComponent &mesh_component,
-    const StringRef attribute_name,
-    const AttributeDomain domain,
-    const CPPType &cpp_type,
-    const void *default_value = nullptr);
+ReadAttributePtr mesh_attribute_get_for_read(const MeshComponent &mesh_component,
+                                             const StringRef attribute_name,
+                                             const AttributeDomain domain,
+                                             const CPPType &cpp_type,
+                                             const void *default_value = nullptr);
 
 }  // namespace blender::bke

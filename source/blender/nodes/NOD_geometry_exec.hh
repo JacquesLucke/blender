@@ -26,10 +26,10 @@
 
 namespace blender::nodes {
 
-using bke::AttributeAccessor;
-using bke::AttributeAccessorPtr;
 using bke::PersistentDataHandleMap;
 using bke::PersistentObjectHandle;
+using bke::ReadAttribute;
+using bke::ReadAttributePtr;
 using fn::CPPType;
 using fn::GMutablePointer;
 using fn::GValueMap;
