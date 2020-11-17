@@ -28,10 +28,53 @@
 
 namespace blender::bke {
 
+ReadAttribute::~ReadAttribute() = default;
+WriteAttribute::~WriteAttribute() = default;
+
+class VertexWeightWriteAttribute final : public WriteAttribute {
+ private:
+  MutableSpan<MDeformVert> dverts_;
+  const int dvert_index_;
+
+ public:
+  VertexWeightWriteAttribute(MDeformVert *dverts, const int totvert, const int dvert_index)
+      : WriteAttribute(ATTR_DOMAIN_VERTEX, CPPType::get<float>(), totvert),
+        dverts_(dverts, totvert),
+        dvert_index_(dvert_index)
+  {
+  }
+
+  void get_internal(const int64_t index, void *r_value) const override
+  {
+    this->get_internal(dverts_, dvert_index_, index, r_value);
+  }
+
+  void set_internal(const int64_t index, const void *value) override
+  {
+    MDeformWeight *weight = BKE_defvert_ensure_index(&dverts_[index], dvert_index_);
+    weight->weight = *reinterpret_cast<const float *>(value);
+  }
+
+  static void get_internal(const Span<MDeformVert> dverts,
+                           const int dvert_index,
+                           const int64_t index,
+                           void *r_value)
+  {
+    const MDeformVert &dvert = dverts[index];
+    for (const MDeformWeight &weight : Span(dvert.dw, dvert.totweight)) {
+      if (weight.def_nr == dvert_index) {
+        *(float *)r_value = weight.weight;
+        return;
+      }
+    }
+    *(float *)r_value = 0.0f;
+  }
+};
+
 class VertexWeightReadAttribute final : public ReadAttribute {
  private:
-  Span<MDeformVert> dverts_;
-  int dvert_index_;
+  const Span<MDeformVert> dverts_;
+  const int dvert_index_;
 
  public:
   VertexWeightReadAttribute(const MDeformVert *dverts, const int totvert, const int dvert_index)
@@ -43,14 +86,28 @@ class VertexWeightReadAttribute final : public ReadAttribute {
 
   void get_internal(const int64_t index, void *r_value) const override
   {
-    const MDeformVert &dvert = dverts_[index];
-    for (const MDeformWeight &weight : Span(dvert.dw, dvert.totweight)) {
-      if (weight.def_nr == dvert_index_) {
-        *(float *)r_value = weight.weight;
-        return;
-      }
-    }
-    *(float *)r_value = 0.0f;
+    VertexWeightWriteAttribute::get_internal(dverts_, dvert_index_, index, r_value);
+  }
+};
+
+template<typename T> class ArrayWriteAttribute final : public WriteAttribute {
+ private:
+  MutableSpan<T> data_;
+
+ public:
+  ArrayWriteAttribute(AttributeDomain domain, MutableSpan<T> data)
+      : WriteAttribute(domain, CPPType::get<T>(), data.size()), data_(data)
+  {
+  }
+
+  void get_internal(const int64_t index, void *r_value) const override
+  {
+    new (r_value) T(data_[index]);
+  }
+
+  void set_internal(const int64_t index, const void *value) override
+  {
+    data_[index] = *reinterpret_cast<const T *>(value);
   }
 };
 
@@ -70,26 +127,58 @@ template<typename T> class ArrayReadAttribute final : public ReadAttribute {
   }
 };
 
-template<typename StructT, typename FuncT>
-class DerivedArrayReadAttribute final : public ReadAttribute {
+template<typename StructT, typename ElemT, typename GetFuncT, typename SetFuncT>
+class DerivedArrayWriteAttribute final : public WriteAttribute {
  private:
-  using ElemT = decltype(std::declval<FuncT>()(std::declval<StructT>()));
-
-  Span<StructT> data_;
-  FuncT function_;
+  MutableSpan<StructT> data_;
+  GetFuncT get_function_;
+  SetFuncT set_function_;
 
  public:
-  DerivedArrayReadAttribute(AttributeDomain domain, Span<StructT> data, FuncT function)
-      : ReadAttribute(domain, CPPType::get<ElemT>(), data.size()),
+  DerivedArrayWriteAttribute(AttributeDomain domain,
+                             MutableSpan<StructT> data,
+                             GetFuncT get_function,
+                             SetFuncT set_function)
+      : WriteAttribute(domain, CPPType::get<ElemT>(), data.size()),
         data_(data),
-        function_(std::move(function))
+        get_function_(std::move(get_function)),
+        set_function_(std::move(set_function))
   {
   }
 
   void get_internal(const int64_t index, void *r_value) const override
   {
     const StructT &struct_value = data_[index];
-    const ElemT value = function_(struct_value);
+    const ElemT value = get_function_(struct_value);
+    new (r_value) ElemT(value);
+  }
+
+  void set_internal(const int64_t index, const void *value) override
+  {
+    StructT &struct_value = data_[index];
+    const ElemT &typed_value = *reinterpret_cast<const ElemT *>(value);
+    set_function_(struct_value, typed_value);
+  }
+};
+
+template<typename StructT, typename ElemT, typename GetFuncT>
+class DerivedArrayReadAttribute final : public ReadAttribute {
+ private:
+  Span<StructT> data_;
+  GetFuncT get_function_;
+
+ public:
+  DerivedArrayReadAttribute(AttributeDomain domain, Span<StructT> data, GetFuncT get_function)
+      : ReadAttribute(domain, CPPType::get<ElemT>(), data.size()),
+        data_(data),
+        get_function_(std::move(get_function))
+  {
+  }
+
+  void get_internal(const int64_t index, void *r_value) const override
+  {
+    const StructT &struct_value = data_[index];
+    const ElemT value = get_function_(struct_value);
     new (r_value) ElemT(value);
   }
 };
@@ -115,10 +204,10 @@ class ConstantReadAttribute final : public ReadAttribute {
   }
 };
 
-static ReadAttributePtr get_custom_data_read_attribute(const CustomData &custom_data,
-                                                       const int size,
-                                                       const StringRef attribute_name,
-                                                       const AttributeDomain domain)
+static ReadAttributePtr mesh_attribute_custom_data_read(const CustomData &custom_data,
+                                                        const int size,
+                                                        const StringRef attribute_name,
+                                                        const AttributeDomain domain)
 {
   for (const CustomDataLayer &layer : Span(custom_data.layers, custom_data.totlayer)) {
     if (layer.name != nullptr && layer.name == attribute_name) {
@@ -144,29 +233,53 @@ static ReadAttributePtr get_custom_data_read_attribute(const CustomData &custom_
   return {};
 }
 
-static ReadAttributePtr get_mesh_read_attribute__corner(const MeshComponent &mesh_component,
-                                                        const StringRef attribute_name)
+static WriteAttributePtr mesh_attribute_custom_data_write(CustomData custom_data,
+                                                          const int size,
+                                                          const StringRef attribute_name,
+                                                          const AttributeDomain domain)
+{
+  for (const CustomDataLayer &layer : Span(custom_data.layers, custom_data.totlayer)) {
+    if (layer.name != nullptr && layer.name == attribute_name) {
+      switch (layer.type) {
+        case CD_PROP_FLOAT:
+          return std::make_unique<ArrayWriteAttribute<float>>(
+              domain, MutableSpan(static_cast<float *>(layer.data), size));
+        case CD_PROP_FLOAT2:
+          return std::make_unique<ArrayWriteAttribute<float2>>(
+              domain, MutableSpan(static_cast<float2 *>(layer.data), size));
+        case CD_PROP_FLOAT3:
+          return std::make_unique<ArrayWriteAttribute<float3>>(
+              domain, MutableSpan(static_cast<float3 *>(layer.data), size));
+        case CD_PROP_INT32:
+          return std::make_unique<ArrayWriteAttribute<int>>(
+              domain, MutableSpan(static_cast<int *>(layer.data), size));
+        case CD_PROP_COLOR:
+          return std::make_unique<ArrayWriteAttribute<Color4f>>(
+              domain, MutableSpan(static_cast<Color4f *>(layer.data), size));
+      }
+    }
+  }
+  return {};
+}
+
+ReadAttributePtr mesh_attribute_get_for_read(const MeshComponent &mesh_component,
+                                             const StringRef attribute_name)
 {
   const Mesh *mesh = mesh_component.get_for_read();
   if (mesh == nullptr) {
     return {};
   }
 
-  return get_custom_data_read_attribute(
+  ReadAttributePtr corner_attribute = mesh_attribute_custom_data_read(
       mesh->ldata, mesh->totloop, attribute_name, ATTR_DOMAIN_CORNER);
-}
-
-static ReadAttributePtr get_mesh_read_attribute__vertex(const MeshComponent &mesh_component,
-                                                        const StringRef attribute_name)
-{
-  const Mesh *mesh = mesh_component.get_for_read();
-  if (mesh == nullptr) {
-    return {};
+  if (corner_attribute) {
+    return corner_attribute;
   }
 
   if (attribute_name == "Position") {
     auto get_vertex_position = [](const MVert &vert) { return float3(vert.co); };
-    return std::make_unique<DerivedArrayReadAttribute<MVert, decltype(get_vertex_position)>>(
+    return std::make_unique<
+        DerivedArrayReadAttribute<MVert, float3, decltype(get_vertex_position)>>(
         ATTR_DOMAIN_VERTEX, Span(mesh->mvert, mesh->totvert), get_vertex_position);
   }
 
@@ -176,56 +289,76 @@ static ReadAttributePtr get_mesh_read_attribute__vertex(const MeshComponent &mes
         mesh->dvert, mesh->totvert, vertex_group_index);
   }
 
-  return get_custom_data_read_attribute(
+  ReadAttributePtr vertex_attribute = mesh_attribute_custom_data_read(
       mesh->vdata, mesh->totvert, attribute_name, ATTR_DOMAIN_VERTEX);
-}
-
-static ReadAttributePtr get_mesh_read_attribute__edge(const MeshComponent &mesh_component,
-                                                      const StringRef attribute_name)
-{
-  const Mesh *mesh = mesh_component.get_for_read();
-  if (mesh == nullptr) {
-    return {};
+  if (vertex_attribute) {
+    return vertex_attribute;
   }
 
-  return get_custom_data_read_attribute(
+  ReadAttributePtr edge_attribute = mesh_attribute_custom_data_read(
       mesh->edata, mesh->totedge, attribute_name, ATTR_DOMAIN_EDGE);
+  if (edge_attribute) {
+    return edge_attribute;
+  }
+
+  ReadAttributePtr polygon_attribute = mesh_attribute_custom_data_read(
+      mesh->pdata, mesh->totpoly, attribute_name, ATTR_DOMAIN_POLYGON);
+  if (polygon_attribute) {
+    return polygon_attribute;
+  }
+
+  return {};
 }
 
-static ReadAttributePtr get_mesh_read_attribute__polygon(const MeshComponent &mesh_component,
-                                                         const StringRef attribute_name)
+std::optional<WriteAttributePtr> mesh_attribute_get_for_write(MeshComponent &mesh_component,
+                                                              const StringRef attribute_name)
 {
-  const Mesh *mesh = mesh_component.get_for_read();
+  Mesh *mesh = mesh_component.get_for_write();
   if (mesh == nullptr) {
     return {};
   }
 
-  return get_custom_data_read_attribute(
+  WriteAttributePtr corner_attribute = mesh_attribute_custom_data_write(
+      mesh->ldata, mesh->totloop, attribute_name, ATTR_DOMAIN_CORNER);
+  if (corner_attribute) {
+    return corner_attribute;
+  }
+
+  if (attribute_name == "Position") {
+    auto get_vertex_position = [](const MVert &vert) { return float3(vert.co); };
+    auto set_vertex_position = [](MVert &vert, const float3 &co) { copy_v3_v3(vert.co, co); };
+    return std::make_unique<DerivedArrayWriteAttribute<MVert,
+                                                       float3,
+                                                       decltype(get_vertex_position),
+                                                       decltype(set_vertex_position)>>(
+        ATTR_DOMAIN_VERTEX,
+        MutableSpan(mesh->mvert, mesh->totvert),
+        get_vertex_position,
+        set_vertex_position);
+  }
+
+  const int vertex_group_index = mesh_component.vertex_group_index(attribute_name);
+  if (vertex_group_index >= 0) {
+    return std::make_unique<VertexWeightWriteAttribute>(
+        mesh->dvert, mesh->totvert, vertex_group_index);
+  }
+
+  WriteAttributePtr vertex_attribute = mesh_attribute_custom_data_write(
+      mesh->vdata, mesh->totvert, attribute_name, ATTR_DOMAIN_VERTEX);
+  if (vertex_attribute) {
+    return vertex_attribute;
+  }
+
+  WriteAttributePtr edge_attribute = mesh_attribute_custom_data_write(
+      mesh->edata, mesh->totedge, attribute_name, ATTR_DOMAIN_EDGE);
+  if (edge_attribute) {
+    return edge_attribute;
+  }
+
+  WriteAttributePtr polygon_attribute = mesh_attribute_custom_data_write(
       mesh->pdata, mesh->totpoly, attribute_name, ATTR_DOMAIN_POLYGON);
-}
-
-ReadAttributePtr mesh_attribute_get_for_read(const MeshComponent &mesh_component,
-                                             const StringRef attribute_name)
-{
-  ReadAttributePtr corner_level = get_mesh_read_attribute__corner(mesh_component, attribute_name);
-  if (corner_level) {
-    return corner_level;
-  }
-
-  ReadAttributePtr vertex_level = get_mesh_read_attribute__vertex(mesh_component, attribute_name);
-  if (vertex_level) {
-    return vertex_level;
-  }
-
-  ReadAttributePtr edge_level = get_mesh_read_attribute__edge(mesh_component, attribute_name);
-  if (edge_level) {
-    return edge_level;
-  }
-
-  ReadAttributePtr polygon_level = get_mesh_read_attribute__polygon(mesh_component,
-                                                                    attribute_name);
-  if (polygon_level) {
-    return polygon_level;
+  if (polygon_attribute) {
+    return polygon_attribute;
   }
 
   return {};

@@ -16,6 +16,8 @@
 
 #include "node_geometry_util.hh"
 
+#include "BLI_rand.hh"
+
 static bNodeSocketTemplate geo_node_random_attribute_in[] = {
     {SOCK_GEOMETRY, N_("Geometry")},
     {SOCK_STRING, N_("Attribute")},
@@ -39,6 +41,37 @@ static void geo_random_attribute_exec(GeoNodeExecParams params)
   const float3 min_value = params.extract_input<float3>("Min");
   const float3 max_value = params.extract_input<float3>("Max");
   const int seed = params.extract_input<int>("Seed");
+
+  MeshComponent &mesh_component = geometry_set.get_component_for_write<MeshComponent>();
+  std::optional<WriteAttributePtr> attribute_opt = bke::mesh_attribute_get_for_write(
+      mesh_component, attribute_name);
+
+  RandomNumberGenerator rng;
+  rng.seed_random(seed);
+
+  if (attribute_opt.has_value()) {
+    WriteAttributePtr attribute = std::move(*attribute_opt);
+    const int size = attribute->size();
+    if (attribute->cpp_type().is<float>()) {
+      FloatWriteAttribute float_attribute = std::move(attribute);
+      for (const int i : IndexRange(size)) {
+        const float value = rng.get_float() * (max_value.x - min_value.x) + min_value.x;
+        float_attribute.set(i, value);
+      }
+    }
+    else if (attribute->cpp_type().is<float3>()) {
+      Float3WriteAttribute float3_attribute = std::move(attribute);
+      for (const int i : IndexRange(size)) {
+        const float x = rng.get_float();
+        const float y = rng.get_float();
+        const float z = rng.get_float();
+        const float3 value = float3(x, y, z) * (max_value - min_value) + min_value;
+        float3_attribute.set(i, value);
+      }
+    }
+  }
+
+  params.set_output("Geometry", geometry_set);
 }
 
 }  // namespace blender::nodes
