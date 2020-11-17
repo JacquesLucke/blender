@@ -113,7 +113,7 @@ class ConstantAttributeAccessor final : public AttributeAccessor {
 
   void access_single(const int64_t UNUSED(index), void *r_value) const override
   {
-    this->cpp_type_->copy_to_uninitialized(value_, r_value);
+    this->cpp_type_.copy_to_uninitialized(value_, r_value);
   }
 };
 

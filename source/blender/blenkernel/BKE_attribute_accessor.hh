@@ -29,13 +29,13 @@ using fn::CPPType;
 
 class AttributeAccessor {
  protected:
-  AttributeDomain domain_;
-  const CPPType *cpp_type_;
-  int64_t size_;
+  const AttributeDomain domain_;
+  const CPPType &cpp_type_;
+  const int64_t size_;
 
  public:
   AttributeAccessor(AttributeDomain domain, const CPPType &cpp_type, const int64_t size)
-      : domain_(domain), cpp_type_(&cpp_type), size_(size)
+      : domain_(domain), cpp_type_(cpp_type), size_(size)
   {
   }
 
@@ -48,7 +48,7 @@ class AttributeAccessor {
 
   const CPPType &cpp_type() const
   {
-    return *cpp_type_;
+    return cpp_type_;
   }
 
   int64_t size() const
