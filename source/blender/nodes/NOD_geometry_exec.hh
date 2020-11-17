@@ -26,6 +26,7 @@
 
 namespace blender::nodes {
 
+using bke::FloatReadAttribute;
 using bke::PersistentDataHandleMap;
 using bke::PersistentObjectHandle;
 using bke::ReadAttribute;

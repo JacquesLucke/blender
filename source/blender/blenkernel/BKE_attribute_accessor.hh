@@ -62,19 +62,32 @@ class ReadAttribute {
     this->get_internal(index, r_value);
   }
 
-  template<typename T> T get(const int64_t index) const
-  {
-    BLI_assert(index < size_);
-    T value;
-    value.~T();
-    this->get_internal(index, &value);
-    return value;
-  }
-
  protected:
   /* r_value is expected to be uninitialized. */
   virtual void get_internal(const int64_t index, void *r_value) const = 0;
 };
+
+template<typename T> class TypedReadAttributeRef {
+ private:
+  const ReadAttribute &attribute_;
+
+ public:
+  TypedReadAttributeRef(const ReadAttribute &attribute) : attribute_(attribute)
+  {
+    BLI_assert(attribute.cpp_type().is<T>());
+  }
+
+  T operator[](const int64_t index) const
+  {
+    BLI_assert(index < attribute_.size());
+    T value;
+    value.~T();
+    attribute_.get(index, &value);
+    return value;
+  }
+};
+
+using FloatReadAttribute = TypedReadAttributeRef<float>;
 
 using ReadAttributePtr = std::unique_ptr<ReadAttribute>;
 
