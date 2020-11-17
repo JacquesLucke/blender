@@ -37,7 +37,7 @@ class VertexWeightAttributeAccessor final : public AttributeAccessor {
   VertexWeightAttributeAccessor(const MDeformVert *dverts,
                                 const int totvert,
                                 const int dvert_index)
-      : AttributeAccessor(CPPType::get<float>(), totvert),
+      : AttributeAccessor(ATTR_DOMAIN_VERTEX, CPPType::get<float>(), totvert),
         dverts_(dverts, totvert),
         dvert_index_(dvert_index)
   {
@@ -61,8 +61,8 @@ template<typename T> class ArrayAttributeAccessor final : public AttributeAccess
   Span<T> data_;
 
  public:
-  ArrayAttributeAccessor(Span<T> data)
-      : AttributeAccessor(CPPType::get<T>(), data.size()), data_(data)
+  ArrayAttributeAccessor(AttributeDomain domain, Span<T> data)
+      : AttributeAccessor(domain, CPPType::get<T>(), data.size()), data_(data)
   {
   }
 
@@ -81,8 +81,8 @@ class DerivedArrayAttributeAccessor final : public AttributeAccessor {
   FuncT function_;
 
  public:
-  DerivedArrayAttributeAccessor(Span<StructT> data, FuncT function)
-      : AttributeAccessor(CPPType::get<ElemT>(), data.size()),
+  DerivedArrayAttributeAccessor(AttributeDomain domain, Span<StructT> data, FuncT function)
+      : AttributeAccessor(domain, CPPType::get<ElemT>(), data.size()),
         data_(data),
         function_(std::move(function))
   {
@@ -101,8 +101,8 @@ template<typename T> class ConstantAttributeAccessor final : public AttributeAcc
   T value_;
 
  public:
-  ConstantAttributeAccessor(T value, const int64_t size)
-      : AttributeAccessor(CPPType::get<T>(), size), value_(std::move(value))
+  ConstantAttributeAccessor(AttributeDomain domain, T value, const int64_t size)
+      : AttributeAccessor(domain, CPPType::get<T>(), size), value_(std::move(value))
   {
   }
 
@@ -112,51 +112,89 @@ template<typename T> class ConstantAttributeAccessor final : public AttributeAcc
   }
 };
 
-static const CPPType *cpp_type_from_custom_data_type(CustomDataType type)
-{
-  switch (type) {
-    case CD_PROP_FLOAT:
-      return &CPPType::get<float>();
-    case CD_PROP_FLOAT2:
-      return &CPPType::get<float2>();
-    case CD_PROP_FLOAT3:
-      return &CPPType::get<float3>();
-    case CD_PROP_INT32:
-      return &CPPType::get<int>();
-    case CD_PROP_COLOR:
-      return &CPPType::get<Color4f>();
-  }
-  return nullptr;
-}
+class VertexToEdgeAccessor final : public AttributeAccessor {
+ private:
+  AttributeAccessorPtr vertex_accessor_;
+  Span<MEdge> edges_;
 
-static std::unique_ptr<AttributeAccessor> get_attribute_layer_accessor(
-    const CustomData &custom_data, const int size, const StringRef attribute_name)
+ public:
+  VertexToEdgeAccessor(AttributeAccessorPtr vertex_accessor, Span<MEdge> edges)
+      : AttributeAccessor(ATTR_DOMAIN_EDGE, vertex_accessor->cpp_type(), edges.size()),
+        vertex_accessor_(std::move(vertex_accessor)),
+        edges_(edges)
+  {
+  }
+
+  void access_single(const int64_t index, void *r_value) const override
+  {
+    const MEdge &edge = edges_[index];
+    /* TODO: Interpolation. */
+    vertex_accessor_->get(edge.v1, r_value);
+  }
+};
+
+class VertexToCornerAccessor final : public AttributeAccessor {
+ private:
+  AttributeAccessorPtr vertex_accessor_;
+  Span<MLoop> loops_;
+
+ public:
+  VertexToCornerAccessor(AttributeAccessorPtr vertex_accessor, Span<MLoop> loops)
+      : AttributeAccessor(ATTR_DOMAIN_CORNER, vertex_accessor->cpp_type(), loops.size()),
+        vertex_accessor_(std::move(vertex_accessor)),
+        loops_(loops)
+  {
+  }
+
+  void access_single(const int64_t index, void *r_value) const override
+  {
+    const MLoop &loop = loops_[index];
+    vertex_accessor_->get(loop.v, r_value);
+  }
+};
+
+static AttributeAccessorPtr get_attribute_layer_accessor(const CustomData &custom_data,
+                                                         const int size,
+                                                         const StringRef attribute_name,
+                                                         const AttributeDomain domain)
 {
   for (const CustomDataLayer &layer : Span(custom_data.layers, custom_data.totlayer)) {
     if (layer.name != nullptr && layer.name == attribute_name) {
       switch (layer.type) {
         case CD_PROP_FLOAT:
           return std::make_unique<ArrayAttributeAccessor<float>>(
-              Span(static_cast<float *>(layer.data), size));
+              domain, Span(static_cast<float *>(layer.data), size));
         case CD_PROP_FLOAT2:
           return std::make_unique<ArrayAttributeAccessor<float2>>(
-              Span(static_cast<float2 *>(layer.data), size));
+              domain, Span(static_cast<float2 *>(layer.data), size));
         case CD_PROP_FLOAT3:
           return std::make_unique<ArrayAttributeAccessor<float3>>(
-              Span(static_cast<float3 *>(layer.data), size));
+              domain, Span(static_cast<float3 *>(layer.data), size));
         case CD_PROP_INT32:
           return std::make_unique<ArrayAttributeAccessor<int>>(
-              Span(static_cast<int *>(layer.data), size));
+              domain, Span(static_cast<int *>(layer.data), size));
         case CD_PROP_COLOR:
           return std::make_unique<ArrayAttributeAccessor<Color4f>>(
-              Span(static_cast<Color4f *>(layer.data), size));
+              domain, Span(static_cast<Color4f *>(layer.data), size));
       }
     }
   }
   return {};
 }
 
-static std::unique_ptr<AttributeAccessor> get_mesh_attribute_accessor__vertex(
+static AttributeAccessorPtr get_mesh_attribute_accessor__corner(
+    const MeshComponent &mesh_component, const StringRef attribute_name)
+{
+  const Mesh *mesh = mesh_component.get_for_read();
+  if (mesh == nullptr) {
+    return {};
+  }
+
+  return get_attribute_layer_accessor(
+      mesh->ldata, mesh->totloop, attribute_name, ATTR_DOMAIN_CORNER);
+}
+
+static AttributeAccessorPtr get_mesh_attribute_accessor__vertex(
     const MeshComponent &mesh_component, const StringRef attribute_name)
 {
   const Mesh *mesh = mesh_component.get_for_read();
@@ -167,7 +205,7 @@ static std::unique_ptr<AttributeAccessor> get_mesh_attribute_accessor__vertex(
   if (attribute_name == "Position") {
     auto get_vertex_position = [](const MVert &vert) { return float3(vert.co); };
     return std::make_unique<DerivedArrayAttributeAccessor<MVert, decltype(get_vertex_position)>>(
-        Span(mesh->mvert, mesh->totvert), get_vertex_position);
+        ATTR_DOMAIN_VERTEX, Span(mesh->mvert, mesh->totvert), get_vertex_position);
   }
 
   const int vertex_group_index = mesh_component.vertex_group_index(attribute_name);
@@ -176,10 +214,23 @@ static std::unique_ptr<AttributeAccessor> get_mesh_attribute_accessor__vertex(
         mesh->dvert, mesh->totvert, vertex_group_index);
   }
 
-  return get_attribute_layer_accessor(mesh->vdata, mesh->totvert, attribute_name);
+  return get_attribute_layer_accessor(
+      mesh->vdata, mesh->totvert, attribute_name, ATTR_DOMAIN_VERTEX);
 }
 
-static std::unique_ptr<AttributeAccessor> get_mesh_attribute_accessor__edge(
+static AttributeAccessorPtr get_mesh_attribute_accessor__edge(const MeshComponent &mesh_component,
+                                                              const StringRef attribute_name)
+{
+  const Mesh *mesh = mesh_component.get_for_read();
+  if (mesh == nullptr) {
+    return {};
+  }
+
+  return get_attribute_layer_accessor(
+      mesh->edata, mesh->totedge, attribute_name, ATTR_DOMAIN_EDGE);
+}
+
+static AttributeAccessorPtr get_mesh_attribute_accessor__polygon(
     const MeshComponent &mesh_component, const StringRef attribute_name)
 {
   const Mesh *mesh = mesh_component.get_for_read();
@@ -187,69 +238,113 @@ static std::unique_ptr<AttributeAccessor> get_mesh_attribute_accessor__edge(
     return {};
   }
 
-  return get_attribute_layer_accessor(mesh->edata, mesh->totedge, attribute_name);
+  return get_attribute_layer_accessor(
+      mesh->pdata, mesh->totpoly, attribute_name, ATTR_DOMAIN_POLYGON);
 }
 
-static std::unique_ptr<AttributeAccessor> get_mesh_attribute_accessor__corner(
-    const MeshComponent &mesh_component, const StringRef attribute_name)
+AttributeAccessorPtr get_raw_mesh_attribute_accessor(const MeshComponent &mesh_component,
+                                                     const StringRef attribute_name)
 {
-  const Mesh *mesh = mesh_component.get_for_read();
-  if (mesh == nullptr) {
-    return {};
-  }
-
-  return get_attribute_layer_accessor(mesh->ldata, mesh->totloop, attribute_name);
-}
-
-static std::unique_ptr<AttributeAccessor> get_mesh_attribute_accessor__polygon(
-    const MeshComponent &mesh_component, const StringRef attribute_name)
-{
-  const Mesh *mesh = mesh_component.get_for_read();
-  if (mesh == nullptr) {
-    return {};
-  }
-
-  return get_attribute_layer_accessor(mesh->pdata, mesh->totpoly, attribute_name);
-}
-
-static std::unique_ptr<AttributeAccessor> get_mesh_attribute_accessor(
-    const MeshComponent &mesh_component, const StringRef attribute_name, AttributeDomain *r_domain)
-{
-  std::unique_ptr<AttributeAccessor> corner_level = get_mesh_attribute_accessor__corner(
-      mesh_component, attribute_name);
+  AttributeAccessorPtr corner_level = get_mesh_attribute_accessor__corner(mesh_component,
+                                                                          attribute_name);
   if (corner_level) {
-    *r_domain = ATTR_DOMAIN_CORNER;
     return corner_level;
   }
 
-  std::unique_ptr<AttributeAccessor> vertex_level = get_mesh_attribute_accessor__vertex(
-      mesh_component, attribute_name);
+  AttributeAccessorPtr vertex_level = get_mesh_attribute_accessor__vertex(mesh_component,
+                                                                          attribute_name);
   if (vertex_level) {
-    *r_domain = ATTR_DOMAIN_VERTEX;
     return vertex_level;
   }
 
-  std::unique_ptr<AttributeAccessor> edge_level = get_mesh_attribute_accessor__edge(
-      mesh_component, attribute_name);
+  AttributeAccessorPtr edge_level = get_mesh_attribute_accessor__edge(mesh_component,
+                                                                      attribute_name);
   if (edge_level) {
-    *r_domain = ATTR_DOMAIN_EDGE;
     return edge_level;
   }
-}
 
-std::unique_ptr<AttributeAccessor> get_mesh_attribute_accessor(const MeshComponent &mesh_component,
-                                                               const AttributeDomain domain,
-                                                               const StringRef attribute_name)
-{
-  const Mesh *mesh = mesh_component.get_for_read();
-  if (mesh == nullptr) {
-    return {};
+  AttributeAccessorPtr polygon_level = get_mesh_attribute_accessor__polygon(mesh_component,
+                                                                            attribute_name);
+  if (polygon_level) {
+    return polygon_level;
   }
 
-  std::unique_ptr<AttributeAccessor> vertex_attribute = get_mesh_attribute_accessor__vertex(
-      mesh_component, attribute_name);
-
   return {};
+}
+
+static AttributeAccessorPtr adapt_mesh_attribute_accessor_to_corner(
+    const MeshComponent &mesh_component, AttributeAccessorPtr attribute_accessor)
+{
+  const Mesh &mesh = *mesh_component.get_for_read();
+
+  const AttributeDomain from_domain = attribute_accessor->domain();
+  switch (from_domain) {
+    case ATTR_DOMAIN_VERTEX:
+      return std::make_unique<VertexToCornerAccessor>(std::move(attribute_accessor),
+                                                      Span(mesh.mloop, mesh.totloop));
+    case ATTR_DOMAIN_EDGE: {
+      BLI_assert(!"currently not implemented");
+      break;
+    }
+    case ATTR_DOMAIN_POLYGON: {
+      BLI_assert(!"currently not implemented");
+      break;
+    }
+    default: {
+      break;
+    }
+  }
+  return {};
+}
+
+static AttributeAccessorPtr adapt_mesh_attribute_accessor_to_vertex(
+    const MeshComponent &UNUSED(mesh_component), AttributeAccessorPtr UNUSED(attribute_accessor))
+{
+  BLI_assert(!"currently not implemented");
+  return {};
+}
+
+static AttributeAccessorPtr adapt_mesh_attribute_accessor_to_edge(
+    const MeshComponent &UNUSED(mesh_component), AttributeAccessorPtr UNUSED(attribute_accessor))
+{
+  BLI_assert(!"currently not implemented");
+  return {};
+}
+
+static AttributeAccessorPtr adapt_mesh_attribute_accessor_to_polygon(
+    const MeshComponent &UNUSED(mesh_component), AttributeAccessorPtr UNUSED(attribute_accessor))
+{
+  BLI_assert(!"currently not implemented");
+  return {};
+}
+
+AttributeAccessorPtr adapt_mesh_attribute_accessor_domain(const MeshComponent &mesh_component,
+                                                          AttributeAccessorPtr attribute_accessor,
+                                                          const AttributeDomain to_domain)
+{
+  if (!attribute_accessor) {
+    return {};
+  }
+  const AttributeDomain from_domain = attribute_accessor->domain();
+  if (from_domain == to_domain) {
+    return attribute_accessor;
+  }
+
+  switch (to_domain) {
+    case ATTR_DOMAIN_CORNER:
+      return adapt_mesh_attribute_accessor_to_corner(mesh_component,
+                                                     std::move(attribute_accessor));
+    case ATTR_DOMAIN_VERTEX:
+      return adapt_mesh_attribute_accessor_to_vertex(mesh_component,
+                                                     std::move(attribute_accessor));
+    case ATTR_DOMAIN_EDGE:
+      return adapt_mesh_attribute_accessor_to_edge(mesh_component, std::move(attribute_accessor));
+    case ATTR_DOMAIN_POLYGON:
+      return adapt_mesh_attribute_accessor_to_polygon(mesh_component,
+                                                      std::move(attribute_accessor));
+    default:
+      return {};
+  }
 }
 
 }  // namespace blender::bke

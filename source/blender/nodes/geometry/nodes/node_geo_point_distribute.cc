@@ -47,20 +47,20 @@ namespace blender::nodes {
 
 static Vector<float3> scatter_points_from_mesh(const Mesh *mesh,
                                                const float density,
-                                               const int density_attribute_index)
+                                               const AttributeAccessorPtr &density_factors)
 {
   /* This only updates a cache and can be considered to be logically const. */
   const MLoopTri *looptris = BKE_mesh_runtime_looptri_ensure(const_cast<Mesh *>(mesh));
   const int looptris_len = BKE_mesh_runtime_looptri_len(mesh);
 
   Array<float> vertex_density_factors(mesh->totvert);
-  if (density_attribute_index == -1) {
+  if (!density_factors) {
     vertex_density_factors.fill(1.0f);
   }
   else {
-    MDeformVert *dverts = mesh->dvert;
-    BKE_defvert_extract_vgroup_to_vertweights(
-        dverts, density_attribute_index, mesh->totvert, vertex_density_factors.data(), false);
+    for (const int i : IndexRange(mesh->totvert)) {
+      vertex_density_factors[i] = density_factors->get<float>(i);
+    }
   }
 
   Vector<float3> points;
@@ -121,8 +121,14 @@ static void geo_point_distribute_exec(GeoNodeExecParams params)
 
   const MeshComponent &mesh_component = *geometry_set.get_component_for_read<MeshComponent>();
   const Mesh *mesh_in = mesh_component.get_for_read();
-  const int density_attribute_index = mesh_component.vertex_group_index(density_attribute);
-  Vector<float3> points = scatter_points_from_mesh(mesh_in, density, density_attribute_index);
+
+  AttributeAccessorPtr density_factors = bke::get_raw_mesh_attribute_accessor(mesh_component,
+                                                                              density_attribute);
+  if (density_factors && density_factors->domain() != ATTR_DOMAIN_VERTEX) {
+    density_factors.reset();
+  }
+
+  Vector<float3> points = scatter_points_from_mesh(mesh_in, density, density_factors);
 
   PointCloud *pointcloud = BKE_pointcloud_new_nomain(points.size());
   memcpy(pointcloud->co, points.data(), sizeof(float3) * points.size());

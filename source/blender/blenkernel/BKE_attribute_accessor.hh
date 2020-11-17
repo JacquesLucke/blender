@@ -29,13 +29,31 @@ using fn::CPPType;
 
 class AttributeAccessor {
  private:
+  AttributeDomain domain_;
   const CPPType *cpp_type_;
   int64_t size_;
 
  public:
-  AttributeAccessor(const CPPType &cpp_type, const int64_t size)
-      : cpp_type_(&cpp_type), size_(size)
+  AttributeAccessor(AttributeDomain domain, const CPPType &cpp_type, const int64_t size)
+      : domain_(domain), cpp_type_(&cpp_type), size_(size)
   {
+  }
+
+  virtual ~AttributeAccessor() = default;
+
+  AttributeDomain domain() const
+  {
+    return domain_;
+  }
+
+  const CPPType &cpp_type() const
+  {
+    return *cpp_type_;
+  }
+
+  int64_t size() const
+  {
+    return size_;
   }
 
   void get(const int64_t index, void *r_value) const
@@ -58,8 +76,13 @@ class AttributeAccessor {
   virtual void access_single(const int64_t index, void *r_value) const = 0;
 };
 
-std::unique_ptr<AttributeAccessor> get_mesh_attribute_accessor(const MeshComponent &mesh_component,
-                                                               const AttributeDomain domain,
-                                                               const StringRef attribute_name);
+using AttributeAccessorPtr = std::unique_ptr<AttributeAccessor>;
+
+AttributeAccessorPtr get_raw_mesh_attribute_accessor(const MeshComponent &mesh_component,
+                                                     const StringRef attribute_name);
+
+AttributeAccessorPtr adapt_mesh_attribute_accessor_domain(const MeshComponent &mesh_component,
+                                                          AttributeAccessorPtr attribute_accessor,
+                                                          const AttributeDomain to_domain);
 
 }  // namespace blender::bke

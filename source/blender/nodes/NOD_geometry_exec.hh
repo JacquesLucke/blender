@@ -18,6 +18,7 @@
 
 #include "FN_generic_value_map.hh"
 
+#include "BKE_attribute_accessor.hh"
 #include "BKE_geometry_set.hh"
 #include "BKE_persistent_data_handle.hh"
 
@@ -25,6 +26,7 @@
 
 namespace blender::nodes {
 
+using bke::AttributeAccessorPtr;
 using bke::PersistentDataHandleMap;
 using bke::PersistentObjectHandle;
 using fn::CPPType;
