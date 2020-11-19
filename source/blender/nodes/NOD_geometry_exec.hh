@@ -90,6 +90,20 @@ class GeoNodeExecParams {
   }
 
   /**
+   * Get the input value for the input socket with the given identifier.
+   *
+   * This makes a copy of the value, which is fine for most types but should be avoided for
+   * geometry sets.
+   */
+  template<typename T> T get_input(StringRef identifier)
+  {
+#ifdef DEBUG
+    this->check_extract_input(identifier, &CPPType::get<T>());
+#endif
+    return input_values_.lookup<T>(identifier);
+  }
+
+  /**
    * Move-construct a new value based on the given value and store it for the given socket
    * identifier.
    */
