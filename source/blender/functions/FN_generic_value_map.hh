@@ -104,7 +104,7 @@ template<typename Key> class GValueMap {
     return return_value;
   }
 
-  template<typename T, typename ForwardKey> T lookup(const ForwardKey &key)
+  template<typename T, typename ForwardKey> T lookup(const ForwardKey &key) const
   {
     GMutablePointer value = values_.lookup_as(key);
     const CPPType &type = *value.type();

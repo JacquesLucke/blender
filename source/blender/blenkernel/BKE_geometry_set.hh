@@ -59,6 +59,14 @@ enum class AttributeDeleteStatus {
   CannotBeDeleted,
 };
 
+enum class AttributeNewStatus {
+  InvalidDataType,
+  InvalidDomain,
+  ExistsAlready,
+  ComponentIsEmpty,
+  Success,
+};
+
 /* Make it possible to use the component type as key in hash tables. */
 namespace blender {
 template<> struct DefaultHash<GeometryComponentType> {
@@ -192,6 +200,10 @@ class MeshComponent : public GeometryComponent {
 
   AttributeDeleteStatus attribute_delete(const blender::StringRef attribute_name);
 
+  AttributeNewStatus attribute_new(const blender::StringRef attribute_name,
+                                   const int data_type,
+                                   const AttributeDomain domain);
+
   static constexpr inline GeometryComponentType type = GeometryComponentType::Mesh;
 };
 
@@ -232,6 +244,10 @@ class PointCloudComponent : public GeometryComponent {
   }
 
   AttributeDeleteStatus attribute_delete(const blender::StringRef attribute_name);
+
+  AttributeNewStatus attribute_new(const blender::StringRef attribute_name,
+                                   const int data_type,
+                                   const AttributeDomain domain = ATTR_DOMAIN_POINT);
 
   static constexpr inline GeometryComponentType type = GeometryComponentType::PointCloud;
 };

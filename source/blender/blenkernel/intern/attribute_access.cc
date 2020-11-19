@@ -516,6 +516,34 @@ AttributeDeleteStatus MeshComponent::attribute_delete(const blender::StringRef a
   return AttributeDeleteStatus::NotFound;
 }
 
+AttributeNewStatus MeshComponent::attribute_new(const blender::StringRef attribute_name,
+                                                const int data_type,
+                                                const AttributeDomain domain)
+{
+  using namespace blender;
+  using namespace blender::bke;
+
+  if (mesh_ == nullptr) {
+    return AttributeNewStatus::ComponentIsEmpty;
+  }
+  if (((1 << data_type) & CD_MASK_PROP_ALL) == 0) {
+    return AttributeNewStatus::InvalidDataType;
+  }
+  if (!ELEM(
+          domain, ATTR_DOMAIN_CORNER, ATTR_DOMAIN_VERTEX, ATTR_DOMAIN_EDGE, ATTR_DOMAIN_POLYGON)) {
+    return AttributeNewStatus::InvalidDomain;
+  }
+  const ReadAttributePtr attribute = this->attribute_get_for_read(attribute_name);
+  if (attribute) {
+    return AttributeNewStatus::ExistsAlready;
+  }
+
+  char attribute_name_c[MAX_NAME];
+  attribute_name.copy(attribute_name_c);
+  BKE_id_attribute_new(&mesh_->id, attribute_name_c, data_type, domain, nullptr);
+  return AttributeNewStatus::Success;
+}
+
 blender::bke::ReadAttributePtr PointCloudComponent::attribute_get_for_read(
     const blender::StringRef attribute_name) const
 {
@@ -582,4 +610,34 @@ AttributeDeleteStatus PointCloudComponent::attribute_delete(
     return AttributeDeleteStatus::Deleted;
   }
   return AttributeDeleteStatus::NotFound;
+}
+
+AttributeNewStatus PointCloudComponent::attribute_new(
+    const blender::StringRef attribute_name,
+    const int data_type,
+    /* The domain is can be passed in for better
+     * compatibility with other geometry component types. */
+    const AttributeDomain domain)
+{
+  using namespace blender;
+  using namespace blender::bke;
+
+  if (pointcloud_ == nullptr) {
+    return AttributeNewStatus::ComponentIsEmpty;
+  }
+  if (((1LL << data_type) & CD_MASK_PROP_ALL) == 0) {
+    return AttributeNewStatus::InvalidDataType;
+  }
+  if (domain != ATTR_DOMAIN_POINT) {
+    return AttributeNewStatus::InvalidDomain;
+  }
+  const ReadAttributePtr attribute = this->attribute_get_for_read(attribute_name);
+  if (attribute) {
+    return AttributeNewStatus::ExistsAlready;
+  }
+
+  char attribute_name_c[MAX_NAME];
+  attribute_name.copy(attribute_name_c);
+  BKE_id_attribute_new(&pointcloud_->id, attribute_name_c, data_type, domain, nullptr);
+  return AttributeNewStatus::Success;
 }

@@ -92,9 +92,15 @@ static void geo_random_attribute_exec(GeoNodeExecParams params)
 
   GeometrySet geometry_set = params.extract_input<GeometrySet>("Geometry");
   const std::string attribute_name = params.extract_input<std::string>("Attribute");
-  const float3 min_value = params.extract_input<float3>("Min");
-  const float3 max_value = params.extract_input<float3>("Max");
-  const int seed = params.extract_input<int>("Seed");
+
+  if (!ELEM(data_type, CD_PROP_FLOAT3, CD_PROP_FLOAT3) || !ELEM(domain, ATTR_DOMAIN_VERTEX)) {
+    params.set_output("Geometry", geometry_set);
+    return;
+  }
+
+  const float3 min_value = params.get_input<float3>("Min");
+  const float3 max_value = params.get_input<float3>("Max");
+  const int seed = params.get_input<int>("Seed");
 
   RandomNumberGenerator rng;
   rng.seed_random(seed);
@@ -111,8 +117,10 @@ static void geo_random_attribute_exec(GeoNodeExecParams params)
       }
     }
     if (!attribute) {
-      BKE_id_attribute_new(&mesh->id, attribute_name.c_str(), data_type, domain, nullptr);
-      attribute = mesh_component.attribute_get_for_write(attribute_name);
+      if (mesh_component.attribute_new(attribute_name, data_type, domain) ==
+          AttributeNewStatus::Success) {
+        attribute = mesh_component.attribute_get_for_write(attribute_name);
+      }
     }
 
     if (attribute) {
@@ -139,8 +147,10 @@ static void geo_random_attribute_exec(GeoNodeExecParams params)
       }
     }
     if (!attribute) {
-      BKE_id_attribute_new(&pointcloud->id, attribute_name.c_str(), data_type, domain, nullptr);
-      attribute = pointcloud_component.attribute_get_for_write(attribute_name);
+      if (pointcloud_component.attribute_new(attribute_name, data_type, domain) ==
+          AttributeNewStatus::Success) {
+        attribute = pointcloud_component.attribute_get_for_write(attribute_name);
+      }
     }
 
     if (attribute) {
