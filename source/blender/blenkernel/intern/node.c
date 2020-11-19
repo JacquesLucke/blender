@@ -1210,9 +1210,11 @@ void nodeUnregisterType(bNodeType *nt)
   BLI_ghash_remove(nodetypes_hash, nt->idname, NULL, node_free_type);
 }
 
-bool nodeIsRegistered(bNode *node)
+bool nodeTypeUndefined(bNode *node)
 {
-  return (node->typeinfo != &NodeTypeUndefined);
+  return (node->typeinfo == &NodeTypeUndefined) ||
+         (node->type == NODE_GROUP && node->id && ID_IS_LINKED(node->id) &&
+          (node->id->tag & LIB_TAG_MISSING));
 }
 
 GHashIterator *nodeTypeGetIterator(void)
@@ -3987,7 +3989,7 @@ void ntreeUpdateAllUsers(Main *main, bNodeTree *ngroup)
   if (ngroup->type == NTREE_GEOMETRY) {
     LISTBASE_FOREACH (Object *, object, &main->objects) {
       LISTBASE_FOREACH (ModifierData *, md, &object->modifiers) {
-        if (md->type == eModifierType_Empty) {
+        if (md->type == eModifierType_Nodes) {
           NodesModifierData *nmd = (NodesModifierData *)md;
           if (nmd->node_group == ngroup) {
             MOD_nodes_update_interface(object, nmd);
