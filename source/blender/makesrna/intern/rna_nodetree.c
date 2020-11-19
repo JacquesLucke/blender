@@ -3791,6 +3791,15 @@ static void rna_FunctionNode_socket_update(Main *bmain, Scene *scene, PointerRNA
   rna_Node_update(bmain, scene, ptr);
 }
 
+static void rna_GeometryNode_socket_update(Main *bmain, Scene *scene, PointerRNA *ptr)
+{
+  bNodeTree *ntree = (bNodeTree *)ptr->owner_id;
+  bNode *node = (bNode *)ptr->data;
+
+  nodeUpdate(ntree, node);
+  rna_Node_update(bmain, scene, ptr);
+}
+
 static void rna_CompositorNodeScale_update(Main *bmain, Scene *scene, PointerRNA *ptr)
 {
   bNodeTree *ntree = (bNodeTree *)ptr->owner_id;
@@ -8259,7 +8268,7 @@ static void def_geo_triangulate(StructRNA *srna)
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
 }
 
-static void def_geo_attribute_create_common(StructRNA *srna)
+static void def_geo_random_attribute(StructRNA *srna)
 {
   PropertyRNA *prop;
 
@@ -8268,7 +8277,7 @@ static void def_geo_attribute_create_common(StructRNA *srna)
   RNA_def_property_enum_items(prop, rna_enum_attribute_type_items);
   RNA_def_property_enum_default(prop, CD_PROP_FLOAT);
   RNA_def_property_ui_text(prop, "Data Type", "Type of data stored in attribute");
-  RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
+  RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_GeometryNode_socket_update");
 
   prop = RNA_def_property(srna, "domain", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_sdna(prop, NULL, "custom2");
@@ -8276,11 +8285,6 @@ static void def_geo_attribute_create_common(StructRNA *srna)
   RNA_def_property_enum_default(prop, ATTR_DOMAIN_VERTEX);
   RNA_def_property_ui_text(prop, "Domain", "");
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
-}
-
-static void def_geo_random_attribute(StructRNA *srna)
-{
-  def_geo_attribute_create_common(srna);
 }
 
 /* -------------------------------------------------------------------------- */

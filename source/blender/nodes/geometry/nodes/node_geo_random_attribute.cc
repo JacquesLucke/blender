@@ -26,6 +26,8 @@ static bNodeSocketTemplate geo_node_random_attribute_in[] = {
     {SOCK_STRING, N_("Attribute")},
     {SOCK_VECTOR, N_("Min"), 0.0f, 0.0f, 0.0f, 0.0f, -FLT_MAX, FLT_MAX},
     {SOCK_VECTOR, N_("Max"), 1.0f, 1.0f, 1.0f, 0.0f, -FLT_MAX, FLT_MAX},
+    {SOCK_FLOAT, N_("Min"), 0.0f, 0.0f, 0.0f, 0.0f, -FLT_MAX, FLT_MAX},
+    {SOCK_FLOAT, N_("Max"), 1.0f, 0.0f, 0.0f, 0.0f, -FLT_MAX, FLT_MAX},
     {SOCK_INT, N_("Seed"), 0, 0, 0, 0, -10000, 10000},
     {-1, ""},
 };
@@ -35,9 +37,24 @@ static bNodeSocketTemplate geo_node_random_attribute_out[] = {
     {-1, ""},
 };
 
-static void geo_attribute_random_init(bNodeTree *UNUSED(tree), bNode *node)
+static void geo_node_random_attribute_init(bNodeTree *UNUSED(tree), bNode *node)
 {
   node->custom1 = CD_PROP_FLOAT;
+}
+
+static void geo_node_random_attribute_update(bNodeTree *UNUSED(ntree), bNode *node)
+{
+  bNodeSocket *sock_min_vector = (bNodeSocket *)BLI_findlink(&node->inputs, 2);
+  bNodeSocket *sock_max_vector = sock_min_vector->next;
+  bNodeSocket *sock_min_float = sock_max_vector->next;
+  bNodeSocket *sock_max_float = sock_min_float->next;
+
+  const int data_type = node->custom1;
+
+  nodeSetSocketAvailability(sock_min_vector, data_type == CD_PROP_FLOAT3);
+  nodeSetSocketAvailability(sock_max_vector, data_type == CD_PROP_FLOAT3);
+  nodeSetSocketAvailability(sock_min_float, data_type == CD_PROP_FLOAT);
+  nodeSetSocketAvailability(sock_max_float, data_type == CD_PROP_FLOAT);
 }
 
 namespace blender::nodes {
@@ -149,7 +166,8 @@ void register_node_type_geo_random_attribute()
 
   geo_node_type_base(&ntype, GEO_NODE_RANDOM_ATTRIBUTE, "Random Attribute", 0, 0);
   node_type_socket_templates(&ntype, geo_node_random_attribute_in, geo_node_random_attribute_out);
-  node_type_init(&ntype, geo_attribute_random_init);
+  node_type_init(&ntype, geo_node_random_attribute_init);
+  node_type_update(&ntype, geo_node_random_attribute_update);
   ntype.geometry_node_execute = blender::nodes::geo_random_attribute_exec;
   nodeRegisterType(&ntype);
 }
