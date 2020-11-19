@@ -33,6 +33,7 @@
 #include "DNA_text_types.h"
 #include "DNA_userdef_types.h"
 
+#include "BKE_attribute.h"
 #include "BKE_context.h"
 #include "BKE_curve.h"
 #include "BKE_image.h"
@@ -3167,8 +3168,17 @@ static void node_geometry_buts_random_attribute(uiLayout *layout,
                                                 bContext *UNUSED(C),
                                                 PointerRNA *ptr)
 {
+  bNode *bnode = ptr->data;
+
   uiItemR(layout, ptr, "data_type", DEFAULT_FLAGS, "", ICON_NONE);
   uiItemR(layout, ptr, "domain", DEFAULT_FLAGS, "", ICON_NONE);
+
+  if (!ELEM(bnode->custom1, CD_PROP_FLOAT, CD_PROP_FLOAT3)) {
+    uiItemL(layout, "Unsupported data type", ICON_INFO);
+  }
+  if (!ELEM(bnode->custom2, ATTR_DOMAIN_VERTEX)) {
+    uiItemL(layout, "Unsupported domain", ICON_INFO);
+  }
 }
 
 static void node_geometry_set_butfunc(bNodeType *ntype)
