@@ -76,6 +76,15 @@ static const blender::fn::MultiFunction &get_base_multi_function(
 
   const blender::fn::MultiFunction *base_fn = nullptr;
 
+  blender::nodes::dispatch_float_math_fl_to_fl(
+      mode, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
+        static blender::fn::CustomMF_SI_SO<float, float> fn{info.title_case_name, function};
+        base_fn = &fn;
+      });
+  if (base_fn != nullptr) {
+    return *base_fn;
+  }
+
   blender::nodes::dispatch_float_math_fl_fl_to_fl(
       mode, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
         static blender::fn::CustomMF_SI_SI_SO<float, float, float> fn{info.title_case_name,
@@ -86,9 +95,10 @@ static const blender::fn::MultiFunction &get_base_multi_function(
     return *base_fn;
   }
 
-  blender::nodes::dispatch_float_math_fl_to_fl(
+  blender::nodes::dispatch_float_math_fl_fl_fl_to_fl(
       mode, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
-        static blender::fn::CustomMF_SI_SO<float, float> fn{info.title_case_name, function};
+        static blender::fn::CustomMF_SI_SI_SI_SO<float, float, float, float> fn{
+            info.title_case_name, function};
         base_fn = &fn;
       });
   if (base_fn != nullptr) {
@@ -96,38 +106,6 @@ static const blender::fn::MultiFunction &get_base_multi_function(
   }
 
   return builder.get_not_implemented_fn();
-
-  switch (mode) {
-    case NODE_MATH_MULTIPLY_ADD: {
-      static blender::fn::CustomMF_SI_SI_SI_SO<float, float, float, float> fn{
-          "Multiply Add", [](float a, float b, float c) { return a * b + c; }};
-      return fn;
-    }
-    case NODE_MATH_COMPARE: {
-      static blender::fn::CustomMF_SI_SI_SI_SO<float, float, float, float> fn{
-          "Compare", [](float a, float b, float c) -> float {
-            return ((a == b) || (fabsf(a - b) <= fmaxf(c, FLT_EPSILON))) ? 1.0f : 0.0f;
-          }};
-      return fn;
-    }
-    case NODE_MATH_SMOOTH_MIN: {
-      return builder.get_not_implemented_fn();
-    }
-    case NODE_MATH_SMOOTH_MAX: {
-      return builder.get_not_implemented_fn();
-    }
-
-    case NODE_MATH_WRAP: {
-      return builder.get_not_implemented_fn();
-    }
-    case NODE_MATH_PINGPONG: {
-      return builder.get_not_implemented_fn();
-    }
-
-    default:
-      BLI_assert(false);
-      return builder.get_not_implemented_fn();
-  }
 }
 
 static void sh_node_math_expand_in_mf_network(blender::nodes::NodeMFNetworkBuilder &builder)

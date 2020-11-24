@@ -141,4 +141,28 @@ inline bool dispatch_float_math_fl_to_fl(const int operation, OpType &&op)
   return false;
 }
 
+template<typename OpType>
+inline bool dispatch_float_math_fl_fl_fl_to_fl(const int operation, OpType &&op)
+{
+  const FloatMathOperationInfo *info = get_float_math_operation_info(operation);
+  if (info == nullptr) {
+    return false;
+  }
+
+  auto dispatch = [&](auto function) -> bool {
+    op(function, *info);
+    return true;
+  };
+
+  switch (operation) {
+    case NODE_MATH_MULTIPLY_ADD:
+      return dispatch([](float a, float b, float c) { return a * b + c; });
+    case NODE_MATH_COMPARE:
+      return dispatch([](float a, float b, float c) -> float {
+        return ((a == b) || (fabsf(a - b) <= fmaxf(c, FLT_EPSILON))) ? 1.0f : 0.0f;
+      });
+  }
+  return false;
+}
+
 }  // namespace blender::nodes
