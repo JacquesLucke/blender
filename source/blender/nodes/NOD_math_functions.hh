@@ -38,50 +38,6 @@ struct FloatMathOperationInfo {
 const FloatMathOperationInfo *get_float_math_operation_info(const int operation);
 
 template<typename OpType>
-inline bool dispatch_float_math_fl_fl_to_fl(const int operation, OpType &&op)
-{
-  const FloatMathOperationInfo *info = get_float_math_operation_info(operation);
-  if (info == nullptr) {
-    return false;
-  }
-
-  auto dispatch = [&](auto function) -> bool {
-    op(function, *info);
-    return true;
-  };
-
-  switch (operation) {
-    case NODE_MATH_ADD:
-      return dispatch([](float a, float b) { return a + b; });
-    case NODE_MATH_SUBTRACT:
-      return dispatch([](float a, float b) { return a - b; });
-    case NODE_MATH_MULTIPLY:
-      return dispatch([](float a, float b) { return a * b; });
-    case NODE_MATH_DIVIDE:
-      return dispatch(safe_divide);
-    case NODE_MATH_POWER:
-      return dispatch(safe_powf);
-    case NODE_MATH_LOGARITHM:
-      return dispatch(safe_logf);
-    case NODE_MATH_MINIMUM:
-      return dispatch([](float a, float b) { return std::min(a, b); });
-    case NODE_MATH_MAXIMUM:
-      return dispatch([](float a, float b) { return std::max(a, b); });
-    case NODE_MATH_LESS_THAN:
-      return dispatch([](float a, float b) { return (float)(a < b); });
-    case NODE_MATH_GREATER_THAN:
-      return dispatch([](float a, float b) { return (float)(a > b); });
-    case NODE_MATH_MODULO:
-      return dispatch(safe_modf);
-    case NODE_MATH_SNAP:
-      return dispatch([](float a, float b) { return floorf(safe_divide(a, b)) * b; });
-    case NODE_MATH_ARCTAN2:
-      return dispatch([](float a, float b) { return atan2f(a, b); });
-  }
-  return false;
-}
-
-template<typename OpType>
 inline bool dispatch_float_math_fl_to_fl(const int operation, OpType &&op)
 {
   const FloatMathOperationInfo *info = get_float_math_operation_info(operation);
@@ -96,11 +52,11 @@ inline bool dispatch_float_math_fl_to_fl(const int operation, OpType &&op)
 
   switch (operation) {
     case NODE_MATH_EXPONENT:
-      return dispatch(expf);
+      return dispatch([](float a) { return expf(a); });
     case NODE_MATH_SQRT:
-      return dispatch(safe_sqrtf);
+      return dispatch([](float a) { return safe_sqrtf(a); });
     case NODE_MATH_INV_SQRT:
-      return dispatch(safe_inverse_sqrtf);
+      return dispatch([](float a) { return safe_inverse_sqrtf(a); });
     case NODE_MATH_ABSOLUTE:
       return dispatch([](float a) { return fabs(a); });
     case NODE_MATH_RADIANS:
@@ -108,7 +64,7 @@ inline bool dispatch_float_math_fl_to_fl(const int operation, OpType &&op)
     case NODE_MATH_DEGREES:
       return dispatch([](float a) { return RAD2DEG(a); });
     case NODE_MATH_SIGN:
-      return dispatch(compatible_signf);
+      return dispatch([](float a) { return compatible_signf(a); });
     case NODE_MATH_ROUND:
       return dispatch([](float a) { return floorf(a + 0.5f); });
     case NODE_MATH_FLOOR:
@@ -137,6 +93,50 @@ inline bool dispatch_float_math_fl_to_fl(const int operation, OpType &&op)
       return dispatch([](float a) { return safe_acosf(a); });
     case NODE_MATH_ARCTANGENT:
       return dispatch([](float a) { return atanf(a); });
+  }
+  return false;
+}
+
+template<typename OpType>
+inline bool dispatch_float_math_fl_fl_to_fl(const int operation, OpType &&op)
+{
+  const FloatMathOperationInfo *info = get_float_math_operation_info(operation);
+  if (info == nullptr) {
+    return false;
+  }
+
+  auto dispatch = [&](auto function) -> bool {
+    op(function, *info);
+    return true;
+  };
+
+  switch (operation) {
+    case NODE_MATH_ADD:
+      return dispatch([](float a, float b) { return a + b; });
+    case NODE_MATH_SUBTRACT:
+      return dispatch([](float a, float b) { return a - b; });
+    case NODE_MATH_MULTIPLY:
+      return dispatch([](float a, float b) { return a * b; });
+    case NODE_MATH_DIVIDE:
+      return dispatch([](float a, float b) { return safe_divide(a, b); });
+    case NODE_MATH_POWER:
+      return dispatch([](float a, float b) { return safe_powf(a, b); });
+    case NODE_MATH_LOGARITHM:
+      return dispatch([](float a, float b) { return safe_logf(a, b); });
+    case NODE_MATH_MINIMUM:
+      return dispatch([](float a, float b) { return std::min(a, b); });
+    case NODE_MATH_MAXIMUM:
+      return dispatch([](float a, float b) { return std::max(a, b); });
+    case NODE_MATH_LESS_THAN:
+      return dispatch([](float a, float b) { return (float)(a < b); });
+    case NODE_MATH_GREATER_THAN:
+      return dispatch([](float a, float b) { return (float)(a > b); });
+    case NODE_MATH_MODULO:
+      return dispatch([](float a, float b) { return safe_modf(a, b); });
+    case NODE_MATH_SNAP:
+      return dispatch([](float a, float b) { return floorf(safe_divide(a, b)) * b; });
+    case NODE_MATH_ARCTAN2:
+      return dispatch([](float a, float b) { return atan2f(a, b); });
   }
   return false;
 }
