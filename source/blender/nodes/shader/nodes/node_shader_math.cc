@@ -23,6 +23,8 @@
 
 #include "node_shader_util.h"
 
+#include "NOD_math_functions.hh"
+
 /* **************** SCALAR MATH ******************** */
 static bNodeSocketTemplate sh_node_math_in[] = {
     {SOCK_FLOAT, N_("Value"), 0.5f, 0.5f, 0.5f, 1.0f, -10000.0f, 10000.0f, PROP_NONE},
@@ -34,93 +36,15 @@ static bNodeSocketTemplate sh_node_math_out[] = {{SOCK_FLOAT, N_("Value")}, {-1,
 
 static const char *gpu_shader_get_name(int mode)
 {
-  switch (mode) {
-    case NODE_MATH_ADD:
-      return "math_add";
-    case NODE_MATH_SUBTRACT:
-      return "math_subtract";
-    case NODE_MATH_MULTIPLY:
-      return "math_multiply";
-    case NODE_MATH_DIVIDE:
-      return "math_divide";
-    case NODE_MATH_MULTIPLY_ADD:
-      return "math_multiply_add";
-
-    case NODE_MATH_POWER:
-      return "math_power";
-    case NODE_MATH_LOGARITHM:
-      return "math_logarithm";
-    case NODE_MATH_EXPONENT:
-      return "math_exponent";
-    case NODE_MATH_SQRT:
-      return "math_sqrt";
-    case NODE_MATH_INV_SQRT:
-      return "math_inversesqrt";
-    case NODE_MATH_ABSOLUTE:
-      return "math_absolute";
-    case NODE_MATH_RADIANS:
-      return "math_radians";
-    case NODE_MATH_DEGREES:
-      return "math_degrees";
-
-    case NODE_MATH_MINIMUM:
-      return "math_minimum";
-    case NODE_MATH_MAXIMUM:
-      return "math_maximum";
-    case NODE_MATH_LESS_THAN:
-      return "math_less_than";
-    case NODE_MATH_GREATER_THAN:
-      return "math_greater_than";
-    case NODE_MATH_SIGN:
-      return "math_sign";
-    case NODE_MATH_COMPARE:
-      return "math_compare";
-    case NODE_MATH_SMOOTH_MIN:
-      return "math_smoothmin";
-    case NODE_MATH_SMOOTH_MAX:
-      return "math_smoothmax";
-
-    case NODE_MATH_ROUND:
-      return "math_round";
-    case NODE_MATH_FLOOR:
-      return "math_floor";
-    case NODE_MATH_CEIL:
-      return "math_ceil";
-    case NODE_MATH_FRACTION:
-      return "math_fraction";
-    case NODE_MATH_MODULO:
-      return "math_modulo";
-    case NODE_MATH_TRUNC:
-      return "math_trunc";
-    case NODE_MATH_SNAP:
-      return "math_snap";
-    case NODE_MATH_WRAP:
-      return "math_wrap";
-    case NODE_MATH_PINGPONG:
-      return "math_pingpong";
-
-    case NODE_MATH_SINE:
-      return "math_sine";
-    case NODE_MATH_COSINE:
-      return "math_cosine";
-    case NODE_MATH_TANGENT:
-      return "math_tangent";
-    case NODE_MATH_SINH:
-      return "math_sinh";
-    case NODE_MATH_COSH:
-      return "math_cosh";
-    case NODE_MATH_TANH:
-      return "math_tanh";
-    case NODE_MATH_ARCSINE:
-      return "math_arcsine";
-    case NODE_MATH_ARCCOSINE:
-      return "math_arccosine";
-    case NODE_MATH_ARCTANGENT:
-      return "math_arctangent";
-    case NODE_MATH_ARCTAN2:
-      return "math_arctan2";
+  const blender::nodes::FloatMathOperationInfo *info =
+      blender::nodes::get_float_math_operation_info(mode);
+  if (!info) {
+    return nullptr;
   }
-  return nullptr;
+  if (info->shader_name.is_empty()) {
+    return nullptr;
+  }
+  return info->shader_name.c_str();
 }
 
 static int gpu_shader_math(GPUMaterial *mat,
@@ -149,6 +73,18 @@ static const blender::fn::MultiFunction &get_base_multi_function(
     blender::nodes::NodeMFNetworkBuilder &builder)
 {
   const int mode = builder.bnode().custom1;
+
+  const blender::fn::MultiFunction *base_fn = nullptr;
+  blender::nodes::dispatch_float_math_fl_fl_to_fl(
+      mode, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
+        static blender::fn::CustomMF_SI_SI_SO<float, float, float> fn{info.title_case_name,
+                                                                      function};
+        base_fn = &fn;
+      });
+  if (base_fn != nullptr) {
+    return *base_fn;
+  }
+
   switch (mode) {
     case NODE_MATH_ADD: {
       static blender::fn::CustomMF_SI_SI_SO<float, float, float> fn{
