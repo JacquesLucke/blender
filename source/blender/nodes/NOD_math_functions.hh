@@ -38,7 +38,7 @@ struct FloatMathOperationInfo {
 const FloatMathOperationInfo *get_float_math_operation_info(const int operation);
 
 template<typename OpType>
-inline bool dispatch_float_math_fl_to_fl(const int operation, OpType &&op)
+inline bool try_dispatch_float_math_fl_to_fl(const int operation, OpType &&op)
 {
   const FloatMathOperationInfo *info = get_float_math_operation_info(operation);
   if (info == nullptr) {
@@ -98,7 +98,7 @@ inline bool dispatch_float_math_fl_to_fl(const int operation, OpType &&op)
 }
 
 template<typename OpType>
-inline bool dispatch_float_math_fl_fl_to_fl(const int operation, OpType &&op)
+inline bool try_dispatch_float_math_fl_fl_to_fl(const int operation, OpType &&op)
 {
   const FloatMathOperationInfo *info = get_float_math_operation_info(operation);
   if (info == nullptr) {
@@ -142,7 +142,7 @@ inline bool dispatch_float_math_fl_fl_to_fl(const int operation, OpType &&op)
 }
 
 template<typename OpType>
-inline bool dispatch_float_math_fl_fl_fl_to_fl(const int operation, OpType &&op)
+inline bool try_dispatch_float_math_fl_fl_fl_to_fl(const int operation, OpType &&op)
 {
   const FloatMathOperationInfo *info = get_float_math_operation_info(operation);
   if (info == nullptr) {

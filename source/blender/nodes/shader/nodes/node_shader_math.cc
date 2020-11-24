@@ -76,7 +76,7 @@ static const blender::fn::MultiFunction &get_base_multi_function(
 
   const blender::fn::MultiFunction *base_fn = nullptr;
 
-  blender::nodes::dispatch_float_math_fl_to_fl(
+  blender::nodes::try_dispatch_float_math_fl_to_fl(
       mode, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
         static blender::fn::CustomMF_SI_SO<float, float> fn{info.title_case_name, function};
         base_fn = &fn;
@@ -85,7 +85,7 @@ static const blender::fn::MultiFunction &get_base_multi_function(
     return *base_fn;
   }
 
-  blender::nodes::dispatch_float_math_fl_fl_to_fl(
+  blender::nodes::try_dispatch_float_math_fl_fl_to_fl(
       mode, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
         static blender::fn::CustomMF_SI_SI_SO<float, float, float> fn{info.title_case_name,
                                                                       function};
@@ -95,7 +95,7 @@ static const blender::fn::MultiFunction &get_base_multi_function(
     return *base_fn;
   }
 
-  blender::nodes::dispatch_float_math_fl_fl_fl_to_fl(
+  blender::nodes::try_dispatch_float_math_fl_fl_fl_to_fl(
       mode, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
         static blender::fn::CustomMF_SI_SI_SI_SO<float, float, float, float> fn{
             info.title_case_name, function};
