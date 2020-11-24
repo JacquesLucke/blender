@@ -19,6 +19,7 @@
 #include "DNA_node_types.h"
 
 #include "BLI_math_base_safe.h"
+#include "BLI_math_rotation.h"
 #include "BLI_string_ref.hh"
 
 namespace blender::nodes {
@@ -89,16 +90,109 @@ inline bool dispatch_float_math_fl_fl_to_fl(const int operation, OpType &&op)
       op(safe_modf, *info);
       return true;
     }
-    case NODE_MATH_TRUNC: {
-      op([](float a, float b) { return a >= 0.0f ? floorf(a) : ceilf(a); }, *info);
-      return true;
-    }
     case NODE_MATH_SNAP: {
       op([](float a, float b) { return floorf(safe_divide(a, b)) * b; }, *info);
       return true;
     }
     case NODE_MATH_ARCTAN2: {
       op([](float a, float b) { return atan2f(a, b); }, *info);
+      return true;
+    }
+  }
+  return false;
+}
+
+template<typename OpType>
+inline bool dispatch_float_math_fl_to_fl(const int operation, OpType &&op)
+{
+  const FloatMathOperationInfo *info = get_float_math_operation_info(operation);
+  if (info == nullptr) {
+    return false;
+  }
+
+  switch (operation) {
+    case NODE_MATH_EXPONENT: {
+      op(expf, *info);
+      return true;
+    }
+    case NODE_MATH_SQRT: {
+      op(safe_sqrtf, *info);
+      return true;
+    }
+    case NODE_MATH_INV_SQRT: {
+      op(safe_inverse_sqrtf, *info);
+      return true;
+    }
+    case NODE_MATH_ABSOLUTE: {
+      op([](float a) { return fabs(a); }, *info);
+      return true;
+    }
+    case NODE_MATH_RADIANS: {
+      op([](float a) { return DEG2RAD(a); }, *info);
+      return true;
+    }
+    case NODE_MATH_DEGREES: {
+      op([](float a) { return RAD2DEG(a); }, *info);
+      return true;
+    }
+    case NODE_MATH_SIGN: {
+      op(compatible_signf, *info);
+      return true;
+    }
+    case NODE_MATH_ROUND: {
+      op([](float a) { return floorf(a + 0.5f); }, *info);
+      return true;
+    }
+    case NODE_MATH_FLOOR: {
+      op([](float a) { return floorf(a); }, *info);
+      return true;
+    }
+    case NODE_MATH_CEIL: {
+      op([](float a) { return ceilf(a); }, *info);
+      return true;
+    }
+    case NODE_MATH_FRACTION: {
+      op([](float a) { return a - floorf(a); }, *info);
+      return true;
+    }
+    case NODE_MATH_TRUNC: {
+      op([](float a) { return a >= 0.0f ? floorf(a) : ceilf(a); }, *info);
+      return true;
+    }
+    case NODE_MATH_SINE: {
+      op([](float a) { return sinf(a); }, *info);
+      return true;
+    }
+    case NODE_MATH_COSINE: {
+      op([](float a) { return cosf(a); }, *info);
+      return true;
+    }
+    case NODE_MATH_TANGENT: {
+      op([](float a) { return tanf(a); }, *info);
+      return true;
+    }
+    case NODE_MATH_SINH: {
+      op([](float a) { return sinhf(a); }, *info);
+      return true;
+    }
+    case NODE_MATH_COSH: {
+      op([](float a) { return coshf(a); }, *info);
+      return true;
+    }
+    case NODE_MATH_TANH: {
+      op([](float a) { return tanhf(a); }, *info);
+      return true;
+    }
+    case NODE_MATH_ARCSINE: {
+      op([](float a) { return safe_asinf(a); }, *info);
+      return true;
+    }
+    case NODE_MATH_ARCCOSINE: {
+      op([](float a) { return safe_acosf(a); }, *info);
+      return true;
+    }
+    case NODE_MATH_ARCTANGENT: {
+      op([](float a) { return atanf(a); }, *info);
       return true;
     }
   }
