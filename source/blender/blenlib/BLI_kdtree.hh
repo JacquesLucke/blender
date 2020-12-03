@@ -17,6 +17,7 @@
 #pragma once
 
 #include "BLI_dot_export.hh"
+#include "BLI_rand.hh"
 #include "BLI_stack.hh"
 #include "BLI_utildefines.h"
 #include "BLI_utility_mixins.hh"
@@ -187,7 +188,25 @@ class KDTree : NonCopyable, NonMovable {
 
   BLI_NOINLINE void find_splitter(MutableSpan<Point> points,
                                   int *r_split_dim,
-                                  float *r_split_value)
+                                  float *r_split_value) const
+  {
+    if (points.size() < 50) {
+      this->find_splitter_exact(points, r_split_dim, r_split_value);
+      return;
+    }
+
+    const int sample_size = std::max<int>(20, points.size() / 100);
+    RandomNumberGenerator rng;
+    Array<Point> point_samples(sample_size);
+    for (const int i : IndexRange(sample_size)) {
+      point_samples[i] = points[rng.get_int32(points.size())];
+    }
+    this->find_splitter_exact(point_samples, r_split_dim, r_split_value);
+  }
+
+  BLI_NOINLINE void find_splitter_exact(MutableSpan<Point> points,
+                                        int *r_split_dim,
+                                        float *r_split_value) const
   {
     int best_dim = -1;
     float highest_deviation = -1.0f;
