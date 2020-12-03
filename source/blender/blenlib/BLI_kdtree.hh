@@ -143,6 +143,28 @@ class KDTree : NonCopyable, NonMovable {
     return digraph.to_dot_string();
   }
 
+  void print_stats() const
+  {
+    Vector<Vector<const Node *>> nodes_by_level;
+    nodes_by_level.append({root_});
+    while (!nodes_by_level.last().is_empty()) {
+      Vector<const Node *> children;
+      for (const Node *node : nodes_by_level.last()) {
+        if (node->type == NodeType::Inner) {
+          const InnerNode *inner_node = static_cast<const InnerNode *>(node);
+          children.append(inner_node->children[0]);
+          children.append(inner_node->children[1]);
+        }
+      }
+      nodes_by_level.append(std::move(children));
+    }
+
+    for (const int level : nodes_by_level.index_range()) {
+      Span<const Node *> nodes = nodes_by_level[level];
+      std::cout << "Level: " << level << "\t Nodes: " << nodes.size() << "\n";
+    }
+  }
+
  private:
   BLI_NOINLINE Node *build_tree(MutableSpan<Point> points)
   {
