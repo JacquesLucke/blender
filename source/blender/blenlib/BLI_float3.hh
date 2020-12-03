@@ -57,6 +57,18 @@ struct float3 {
     return &x;
   }
 
+  float &operator[](const int index)
+  {
+    BLI_assert(ELEM(index, 0, 1, 2));
+    return (&x)[index];
+  }
+
+  float operator[](const int index) const
+  {
+    BLI_assert(ELEM(index, 0, 1, 2));
+    return (&x)[index];
+  }
+
   friend float3 operator+(const float3 &a, const float3 &b)
   {
     return {a.x + b.x, a.y + b.y, a.z + b.z};

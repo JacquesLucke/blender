@@ -207,6 +207,7 @@ set(SRC
   BLI_jitter_2d.h
   BLI_kdopbvh.h
   BLI_kdtree.h
+  BLI_kdtree.hh
   BLI_kdtree_impl.h
   BLI_lasso_2d.h
   BLI_linear_allocator.hh
@@ -391,6 +392,7 @@ if(WITH_GTESTS)
     tests/BLI_index_mask_test.cc
     tests/BLI_index_range_test.cc
     tests/BLI_kdopbvh_test.cc
+    tests/BLI_kdtree_test.cc
     tests/BLI_linear_allocator_test.cc
     tests/BLI_linklist_lockfree_test.cc
     tests/BLI_listbase_test.cc

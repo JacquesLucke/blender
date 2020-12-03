@@ -52,6 +52,18 @@ struct float2 {
     return len_v2(*this);
   }
 
+  float &operator[](const int index)
+  {
+    BLI_assert(ELEM(index, 0, 1));
+    return (&x)[index];
+  }
+
+  float operator[](const int index) const
+  {
+    BLI_assert(ELEM(index, 0, 1));
+    return (&x)[index];
+  }
+
   float2 &operator+=(const float2 &other)
   {
     x += other.x;
