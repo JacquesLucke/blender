@@ -75,4 +75,19 @@ void parallel_for(IndexRange range, int64_t grain_size, const Function &function
 #endif
 }
 
+template<typename Function1, typename Function2>
+void parallel_invoke(const Function1 &function1,
+                     const Function2 &function2,
+                     const bool use_threading = true)
+{
+#ifdef WITH_TBB
+  if (use_threading) {
+    tbb::parallel_invoke(function1, function2);
+    return;
+  }
+#endif
+  function1();
+  function2();
+}
+
 }  // namespace blender
