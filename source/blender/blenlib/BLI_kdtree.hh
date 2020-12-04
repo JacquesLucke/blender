@@ -50,7 +50,7 @@ template<typename Point> struct LeafNode_ : public Node {
 struct InnerNode : public Node {
   int dim;
   float value;
-  Node *children[2];
+  std::array<Node *, 2> children;
 
   InnerNode() : Node(NodeType::Inner)
   {
