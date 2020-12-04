@@ -32,6 +32,7 @@ enum class NodeType {
 
 struct Node {
   NodeType type;
+  Node *parent = nullptr;
 
   Node(NodeType type) : type(type)
   {
@@ -183,6 +184,8 @@ class KDTree : NonCopyable, NonMovable {
 
     node->children[0] = this->build_tree(left_points);
     node->children[1] = this->build_tree(right_points);
+    node->children[0]->parent = node;
+    node->children[1]->parent = node;
     return node;
   }
 
@@ -319,34 +322,15 @@ class KDTree : NonCopyable, NonMovable {
                                                          const Func &func,
                                                          float *r_max_distance_sq) const
   {
-    Stack<const Node *, 30> stack;
-    stack.push(&root);
-    bool is_going_down = true;
+    const LeafNode &initial_leaf = this->find_initial_leaf(root, co);
+    const Node *current_node = &initial_leaf;
+    bool just_went_down = true;
 
-    while (!stack.is_empty()) {
-      const Node &node = *stack.peek();
-      if (node.type == NodeType::Inner) {
-        const InnerNode &inner_node = static_cast<const InnerNode &>(node);
-        const float co_in_dim = co[inner_node.dim];
-        const float signed_split_distance = co_in_dim - inner_node.value;
-        const int initial_child = signed_split_distance > 0.0f;
-        if (is_going_down) {
-          stack.push(inner_node.children[initial_child]);
-        }
-        else {
-          const float split_distance_sq = signed_split_distance * signed_split_distance;
-          if (split_distance_sq <= *r_max_distance_sq) {
-            const int other_child = 1 - initial_child;
-            stack.peek() = inner_node.children[other_child];
-            is_going_down = true;
-          }
-          else {
-            stack.pop();
-          }
-        }
-      }
-      else {
-        const LeafNode &leaf_node = static_cast<const LeafNode &>(node);
+    Stack<const InnerNode *> finished_inner_nodes;
+
+    while (current_node != nullptr) {
+      if (current_node->type == NodeType::Leaf) {
+        const LeafNode &leaf_node = *static_cast<const LeafNode *>(current_node);
         for (const Point &point : leaf_node.points) {
           const float distance_sq = this->calc_distance_sq(co, point);
           if (distance_sq <= *r_max_distance_sq) {
@@ -356,10 +340,48 @@ class KDTree : NonCopyable, NonMovable {
             *r_max_distance_sq = new_max_distance_sq;
           }
         }
-        stack.pop();
-        is_going_down = false;
+        current_node = current_node->parent;
+        just_went_down = false;
+      }
+      else {
+        const InnerNode &inner_node = *static_cast<const InnerNode *>(current_node);
+        const float co_in_dim = co[inner_node.dim];
+        const float signed_split_distance = co_in_dim - inner_node.value;
+        const int initial_child = signed_split_distance > 0.0f;
+        if (just_went_down) {
+          current_node = inner_node.children[initial_child];
+        }
+        else {
+          if (!finished_inner_nodes.is_empty() && finished_inner_nodes.peek() == &inner_node) {
+            finished_inner_nodes.pop();
+            current_node = inner_node.parent;
+          }
+          else {
+            const float split_distance_sq = signed_split_distance * signed_split_distance;
+            if (split_distance_sq <= *r_max_distance_sq) {
+              const int other_child = 1 - initial_child;
+              current_node = inner_node.children[other_child];
+              just_went_down = true;
+              finished_inner_nodes.push(&inner_node);
+            }
+            else {
+              current_node = inner_node.parent;
+            }
+          }
+        }
       }
     }
+  }
+
+  const LeafNode &find_initial_leaf(const Node &root, const float *co) const
+  {
+    const Node *current = &root;
+    while (current->type == NodeType::Inner) {
+      const InnerNode &inner_node = *static_cast<const InnerNode *>(current);
+      const int child_index = co[inner_node.dim] > inner_node.value;
+      current = inner_node.children[child_index];
+    }
+    return *static_cast<const LeafNode *>(current);
   }
 
   float calc_distance_sq(const float *co, const Point &point) const
