@@ -114,35 +114,60 @@ TEST(kdtree, FindInRadius2D)
   EXPECT_TRUE(found_points.contains({0.5, 0.5}));
 }
 
-TEST(kdtree, PerformanceTest)
+static Array<float3> generate_random_float3s(int amount)
 {
-  const int point_amount = 1'000'000;
-  Vector<float3> all_points(point_amount);
-
+  Array<float3> points(amount);
   RandomNumberGenerator rng;
-
-  for (const int i : IndexRange(point_amount)) {
-    all_points[i] = {rng.get_float(), rng.get_float(), rng.get_float()};
+  for (const int i : IndexRange(amount)) {
+    points[i] = {rng.get_float(), rng.get_float(), rng.get_float()};
   }
+  return points;
+}
+
+TEST(kdtree, BuildPerformance)
+{
+  Array<float3> points = generate_random_float3s(1'000'000);
 
   for (int i = 0; i < 5; i++) {
     {
       SCOPED_TIMER("build new");
-      Array<float3> data = all_points.as_span();
+      Array<float3> data = points.as_span();
       KDTree<float3> kdtree_new{data};
     }
     {
-      KDTree_3d *kdtree_old = BLI_kdtree_3d_new(point_amount);
+      KDTree_3d *kdtree_old = BLI_kdtree_3d_new(points.size());
       {
         SCOPED_TIMER("build old");
-        for (const int i : IndexRange(point_amount)) {
-          BLI_kdtree_3d_insert(kdtree_old, i, all_points[i]);
+        for (const int i : points.index_range()) {
+          BLI_kdtree_3d_insert(kdtree_old, i, points[i]);
         }
         BLI_kdtree_3d_balance(kdtree_old);
       }
       BLI_kdtree_3d_free(kdtree_old);
     }
   }
+}
+
+TEST(kdtree, FindNearest_Large)
+{
+  Array<float3> points = generate_random_float3s(100000);
+  KDTree<float3> kdtree_new{points};
+  KDTree_3d *kdtree_old = BLI_kdtree_3d_new(points.size());
+  for (const int i : points.index_range()) {
+    BLI_kdtree_3d_insert(kdtree_old, i, points[i]);
+  }
+  BLI_kdtree_3d_balance(kdtree_old);
+
+  RandomNumberGenerator rng{234};
+  for (int i = 0; i < 1000; i++) {
+    const float3 query_point = {rng.get_float(), rng.get_float(), rng.get_float()};
+    const float3 *point_new = kdtree_new.find_nearest(query_point);
+    KDTreeNearest_3d nearest_old;
+    BLI_kdtree_3d_find_nearest(kdtree_old, query_point, &nearest_old);
+    EXPECT_EQ(*point_new, float3(nearest_old.co));
+  }
+
+  BLI_kdtree_3d_free(kdtree_old);
 }
 
 }  // namespace blender::kdtree::tests

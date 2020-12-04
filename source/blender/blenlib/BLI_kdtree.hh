@@ -251,7 +251,7 @@ class KDTree : NonCopyable, NonMovable {
 
     int i = 0;
     int j = points.size() - 1;
-    while (i < j) {
+    while (i <= j) {
       if (is_larger_than_split_value(points[i])) {
         std::swap(points[i], points[j]);
         j--;
@@ -289,6 +289,20 @@ class KDTree : NonCopyable, NonMovable {
 
     *r_left_points = points.slice(0, split_pos);
     *r_right_points = points.slice(split_pos, points.size() - split_pos);
+
+#ifdef DEBUG
+    BLI_assert(r_left_points->size() + r_right_points->size() == points.size());
+    for (const Point &point : *r_left_points) {
+      if (adapter_.get(point, split_dim) > split_value) {
+        BLI_assert(false);
+      }
+    }
+    for (const Point &point : *r_right_points) {
+      if (adapter_.get(point, split_dim) < split_value) {
+        BLI_assert(false);
+      }
+    }
+#endif
   }
 
   BLI_NOINLINE void free_tree(Node *node)
@@ -326,7 +340,7 @@ class KDTree : NonCopyable, NonMovable {
         }
         else {
           const float split_distance_sq = signed_split_distance * signed_split_distance;
-          if (split_distance_sq < *r_max_distance_sq) {
+          if (split_distance_sq <= *r_max_distance_sq) {
             const int other_child = 1 - initial_child;
             stack.peek() = inner_node.children[other_child];
             is_going_down = true;
