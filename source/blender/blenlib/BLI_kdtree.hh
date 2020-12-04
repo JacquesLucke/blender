@@ -69,13 +69,14 @@ class KDTree : NonCopyable, NonMovable {
   static constexpr int DIM = PointAdapater::DIM;
   static constexpr int MAX_LEAF_SIZE = MaxLeafSize;
 
-  Node *root_ = nullptr;
   PointAdapater adapter_;
+  Array<Point> points_;
+  Node *root_ = nullptr;
 
  public:
-  KDTree(MutableSpan<Point> points, PointAdapater adapter = {}) : adapter_(adapter)
+  KDTree(Span<Point> points, PointAdapater adapter = {}) : adapter_(adapter), points_(points)
   {
-    root_ = this->build_tree(points);
+    root_ = this->build_tree(points_);
   }
 
   ~KDTree()

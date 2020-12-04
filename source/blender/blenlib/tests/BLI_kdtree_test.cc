@@ -131,8 +131,7 @@ TEST(kdtree, BuildPerformance)
   for (int i = 0; i < 5; i++) {
     {
       SCOPED_TIMER("build new");
-      Array<float3> data = points.as_span();
-      KDTree<float3> kdtree_new{data};
+      KDTree<float3> kdtree_new{points};
     }
     {
       KDTree_3d *kdtree_old = BLI_kdtree_3d_new(points.size());
