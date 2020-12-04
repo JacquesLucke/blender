@@ -219,12 +219,18 @@ class KDTree : NonCopyable, NonMovable {
     }
 
     const int sample_size = std::max<int>(20, points.size() / 100);
+    Array<Point> point_samples = this->get_random_samples(points, sample_size);
+    this->find_splitter_exact(point_samples, r_split_dim, r_split_value);
+  }
+
+  BLI_NOINLINE Array<Point> get_random_samples(Span<Point> points, const int amount) const
+  {
     RandomNumberGenerator rng;
-    Array<Point> point_samples(sample_size);
-    for (const int i : IndexRange(sample_size)) {
+    Array<Point> point_samples(amount);
+    for (const int i : IndexRange(amount)) {
       point_samples[i] = points[rng.get_int32(points.size())];
     }
-    this->find_splitter_exact(point_samples, r_split_dim, r_split_value);
+    return point_samples;
   }
 
   BLI_NOINLINE void find_splitter_exact(MutableSpan<Point> points,
