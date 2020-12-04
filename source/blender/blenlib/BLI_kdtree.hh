@@ -189,7 +189,7 @@ class KDTree : NonCopyable, NonMovable {
   BLI_NOINLINE Node *build_tree__single_level(MutableSpan<Point> points)
   {
     InnerNode *node = new InnerNode();
-    this->find_splitter(points, &node->dim, &node->value);
+    this->find_splitter_approximate(points, &node->dim, &node->value);
 
     MutableSpan<Point> left_points, right_points;
     this->split_points(points, node->dim, node->value, &left_points, &right_points);
@@ -209,9 +209,9 @@ class KDTree : NonCopyable, NonMovable {
     return node;
   }
 
-  BLI_NOINLINE void find_splitter(MutableSpan<Point> points,
-                                  int *r_split_dim,
-                                  float *r_split_value) const
+  BLI_NOINLINE void find_splitter_approximate(MutableSpan<Point> points,
+                                              int *r_split_dim,
+                                              float *r_split_value) const
   {
     if (points.size() < 50) {
       this->find_splitter_exact(points, r_split_dim, r_split_value);
