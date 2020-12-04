@@ -114,10 +114,10 @@ TEST(kdtree, FindInRadius2D)
   EXPECT_TRUE(found_points.contains({0.5, 0.5}));
 }
 
-static Array<float3> generate_random_float3s(int amount)
+static Array<float3> generate_random_float3s(int amount, int seed = 0)
 {
   Array<float3> points(amount);
-  RandomNumberGenerator rng;
+  RandomNumberGenerator rng(seed);
   for (const int i : IndexRange(amount)) {
     points[i] = {rng.get_float(), rng.get_float(), rng.get_float()};
   }
@@ -149,7 +149,7 @@ TEST(kdtree, BuildPerformance)
 
 TEST(kdtree, FindNearest_Large)
 {
-  Array<float3> points = generate_random_float3s(100000);
+  Array<float3> points = generate_random_float3s(1'000'000, 0);
   KDTree<float3> kdtree_new{points};
   KDTree_3d *kdtree_old = BLI_kdtree_3d_new(points.size());
   for (const int i : points.index_range()) {
@@ -157,9 +157,10 @@ TEST(kdtree, FindNearest_Large)
   }
   BLI_kdtree_3d_balance(kdtree_old);
 
+  Array<float3> query_points = generate_random_float3s(100'000, 23);
+
   RandomNumberGenerator rng{234};
-  for (int i = 0; i < 1000; i++) {
-    const float3 query_point = {rng.get_float(), rng.get_float(), rng.get_float()};
+  for (const float3 &query_point : query_points) {
     const float3 *point_new = kdtree_new.find_nearest(query_point);
     KDTreeNearest_3d nearest_old;
     BLI_kdtree_3d_find_nearest(kdtree_old, query_point, &nearest_old);
