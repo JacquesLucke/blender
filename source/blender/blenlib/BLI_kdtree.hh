@@ -261,34 +261,29 @@ class KDTree : NonCopyable, NonMovable {
       }
     }
 
-    /* Move split closer to center, when there are multiple points with the same value. Points with
-     * the same value might go into different subtrees.
-     * TODO: This does not work perfectly yet, because the points with the split value might not be
-     * all around the median. It might be possible to keep track of these points in a vector and
-     * copy them to the middle afterwards. */
-    int split_pos = i;
-    const int median_pos = points.size() / 2;
-    while (split_pos < median_pos && split_pos + 1 < points.size()) {
-      if (adapter_.get(points[split_pos], split_dim) ==
-          adapter_.get(points[split_pos + 1], split_dim)) {
-        split_pos++;
+    /* Move split closer to center if possible. This is necessary in some cases to ensure that the
+     * input points don't end up in the same bucket, if some points are exactly on the split plane.
+     */
+    const int best_i = points.size() / 2;
+    while (i < best_i && i < points.size()) {
+      if (adapter_.get(points[i], split_dim) <= split_value) {
+        i++;
       }
       else {
         break;
       }
     }
-    while (split_pos > median_pos && split_pos > 0) {
-      if (adapter_.get(points[split_pos], split_dim) ==
-          adapter_.get(points[split_pos - 1], split_dim)) {
-        split_pos--;
+    while (i > best_i && i > 0) {
+      if (adapter_.get(points[i - 1], split_dim) >= split_value) {
+        i--;
       }
       else {
         break;
       }
     }
 
-    *r_left_points = points.slice(0, split_pos);
-    *r_right_points = points.slice(split_pos, points.size() - split_pos);
+    *r_left_points = points.slice(0, i);
+    *r_right_points = points.slice(i, points.size() - i);
 
 #ifdef DEBUG
     BLI_assert(r_left_points->size() + r_right_points->size() == points.size());
