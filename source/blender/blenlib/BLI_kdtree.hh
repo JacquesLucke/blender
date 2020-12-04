@@ -174,11 +174,20 @@ class KDTree : NonCopyable, NonMovable {
   BLI_NOINLINE Node *build_tree(MutableSpan<Point> points)
   {
     if (points.size() <= MAX_LEAF_SIZE) {
-      LeafNode *node = new LeafNode();
-      node->points = points;
-      return node;
+      return this->build_tree__leaf(points);
     }
+    return this->build_tree__single_level(points);
+  }
 
+  BLI_NOINLINE Node *build_tree__leaf(MutableSpan<Point> points)
+  {
+    LeafNode *node = new LeafNode();
+    node->points = points;
+    return node;
+  }
+
+  BLI_NOINLINE Node *build_tree__single_level(MutableSpan<Point> points)
+  {
     InnerNode *node = new InnerNode();
     this->find_splitter(points, &node->dim, &node->value);
 
