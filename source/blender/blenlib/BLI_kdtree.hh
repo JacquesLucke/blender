@@ -79,6 +79,7 @@ class KDTree : NonCopyable, NonMovable {
   KDTree(Span<Point> points, PointAdapater adapter = {}) : adapter_(adapter), points_(points)
   {
     root_ = this->build_tree(points_);
+    this->set_parent_and_prefetch_pointers(*root_);
   }
 
   ~KDTree()
@@ -232,20 +233,6 @@ class KDTree : NonCopyable, NonMovable {
     node->children[0] = this->build_tree(left_points);
     node->children[1] = this->build_tree(right_points);
 
-    for (const int i : {0, 1}) {
-      Node &child = *node->children[i];
-      child.parent = node;
-      if (child.type == NodeType::Inner) {
-        InnerNode &inner_child = static_cast<InnerNode &>(child);
-        node->prefetch_pointers[i] = {inner_child.children[0], inner_child.children[1]};
-      }
-      else {
-        LeafNode &leaf_child = static_cast<LeafNode &>(child);
-        const void *data = leaf_child.points.data();
-        node->prefetch_pointers[i] = {data, POINTER_OFFSET(data, 64)};
-      }
-    }
-
     return node;
   }
 
@@ -256,13 +243,6 @@ class KDTree : NonCopyable, NonMovable {
     std::array<std::array<InnerNode *, 2>, 2> inner3;
     inner3[0] = {new InnerNode(), new InnerNode()};
     inner3[1] = {new InnerNode(), new InnerNode()};
-
-    inner2[0]->parent = inner1;
-    inner2[1]->parent = inner1;
-    inner3[0][0]->parent = inner2[0];
-    inner3[0][1]->parent = inner2[0];
-    inner3[1][0]->parent = inner2[1];
-    inner3[1][1]->parent = inner2[1];
 
     inner1->children = {inner2[0], inner2[1]};
     inner2[0]->children = {inner3[0][0], inner3[0][1]};
@@ -320,7 +300,6 @@ class KDTree : NonCopyable, NonMovable {
           Vector<Point> &bucket = point_buckets[i][j][k];
           initialized_copy_n(bucket.data(), bucket.size(), points.data() + offset);
           inner3[i][j]->children[k] = this->build_tree(points.slice(offset, bucket.size()));
-          inner3[i][j]->children[k]->parent = inner3[i][j];
           offset += bucket.size();
         }
       }
@@ -465,6 +444,26 @@ class KDTree : NonCopyable, NonMovable {
       }
     }
 #endif
+  }
+
+  BLI_NOINLINE void set_parent_and_prefetch_pointers(Node &node)
+  {
+    this->foreach_inner_node(node, [](const InnerNode &inner_node_const) {
+      InnerNode &inner_node = const_cast<InnerNode &>(inner_node_const);
+      for (const int i : {0, 1}) {
+        Node &child = *inner_node.children[i];
+        child.parent = &inner_node;
+        if (child.type == NodeType::Inner) {
+          InnerNode &inner_child = static_cast<InnerNode &>(child);
+          inner_node.prefetch_pointers[i] = {inner_child.children[0], inner_child.children[1]};
+        }
+        else {
+          LeafNode &leaf_child = static_cast<LeafNode &>(child);
+          const void *data = leaf_child.points.data();
+          inner_node.prefetch_pointers[i] = {data, POINTER_OFFSET(data, 64)};
+        }
+      }
+    });
   }
 
   BLI_NOINLINE void free_tree(Node *node)
