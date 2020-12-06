@@ -273,22 +273,12 @@ class KDTree : NonCopyable, NonMovable {
     inner3[1][0]->split = this->find_splitter_exact(split_points2[1][0]);
     inner3[1][1]->split = this->find_splitter_exact(split_points2[1][1]);
 
-    const int split_dim2[2] = {inner2[0]->split.dim, inner2[1]->split.dim};
-    const float split_value2[2] = {inner2[0]->split.value, inner2[1]->split.value};
-    const int split_dim3[2][2] = {{inner3[0][0]->split.dim, inner3[0][1]->split.dim},
-                                  {inner3[1][0]->split.dim, inner3[1][1]->split.dim}};
-    const float split_value3[2][2] = {{inner3[0][0]->split.value, inner3[0][1]->split.value},
-                                      {inner3[1][0]->split.value, inner3[1][1]->split.value}};
+    const SplitInfo split2[2] = {inner2[0]->split, inner2[1]->split};
+    const SplitInfo split3[2][2] = {{inner3[0][0]->split, inner3[0][1]->split},
+                                    {inner3[1][0]->split, inner3[1][1]->split}};
 
     Vector<Point> point_buckets[2][2][2];
-    this->split_points_three_times(points,
-                                   inner1->split.dim,
-                                   inner1->split.value,
-                                   split_dim2,
-                                   split_value2,
-                                   split_dim3,
-                                   split_value3,
-                                   point_buckets);
+    this->split_points_three_times(points, inner1->split, split2, split3, point_buckets);
 
     int offset = 0;
     for (const int i : IndexRange(2)) {
@@ -371,18 +361,15 @@ class KDTree : NonCopyable, NonMovable {
   }
 
   BLI_NOINLINE void split_points_three_times(Span<Point> points,
-                                             const int split_dim1,
-                                             const float split_value1,
-                                             const int split_dim2[2],
-                                             const float split_value2[2],
-                                             const int split_dim3[2][2],
-                                             const float split_value3[2][2],
+                                             const SplitInfo split1,
+                                             const SplitInfo split2[2],
+                                             const SplitInfo split3[2][2],
                                              Vector<Point> r_buckets[2][2][2]) const
   {
     for (const Point &point : points) {
-      const int i1 = adapter_.get(point, split_dim1) > split_value1;
-      const int i2 = adapter_.get(point, split_dim2[i1]) > split_value2[i1];
-      const int i3 = adapter_.get(point, split_dim3[i1][i2]) > split_value3[i1][i2];
+      const int i1 = adapter_.get(point, split1.dim) > split1.value;
+      const int i2 = adapter_.get(point, split2[i1].dim) > split2[i1].value;
+      const int i3 = adapter_.get(point, split3[i1][i2].dim) > split3[i1][i2].value;
       Vector<Point> &bucket = r_buckets[i1][i2][i3];
       bucket.append(point);
     }
