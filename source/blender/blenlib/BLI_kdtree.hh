@@ -208,6 +208,9 @@ class KDTree : NonCopyable, NonMovable {
     if (points.size() <= MAX_LEAF_SIZE) {
       return this->build_tree__leaf(points);
     }
+    if (points.size() >= 10'000) {
+      return this->build_tree__three_levels(points);
+    }
     return this->build_tree__single_level(points);
   }
 
@@ -244,6 +247,86 @@ class KDTree : NonCopyable, NonMovable {
     }
 
     return node;
+  }
+
+  BLI_NOINLINE Node *build_tree__three_levels(MutableSpan<Point> points)
+  {
+    InnerNode *inner1 = new InnerNode();
+    std::array<InnerNode *, 2> inner2 = {new InnerNode(), new InnerNode()};
+    std::array<std::array<InnerNode *, 2>, 2> inner3;
+    inner3[0] = {new InnerNode(), new InnerNode()};
+    inner3[1] = {new InnerNode(), new InnerNode()};
+
+    inner2[0]->parent = inner1;
+    inner2[1]->parent = inner1;
+    inner3[0][0]->parent = inner2[0];
+    inner3[0][1]->parent = inner2[0];
+    inner3[1][0]->parent = inner2[1];
+    inner3[1][1]->parent = inner2[1];
+
+    inner1->children = {inner2[0], inner2[1]};
+    inner2[0]->children = {inner3[0][0], inner3[0][1]};
+    inner2[1]->children = {inner3[1][0], inner3[1][1]};
+
+    const int sample_size = std::max<int>(100, points.size() / 100);
+    Array<Point> point_samples = this->get_random_samples(points, sample_size);
+    this->find_splitter_exact(point_samples, &inner1->dim, &inner1->value);
+
+    MutableSpan<Point> split_points1[2];
+    this->split_points(
+        point_samples, inner1->dim, inner1->value, &split_points1[0], &split_points1[1]);
+
+    this->find_splitter_exact(split_points1[0], &inner2[0]->dim, &inner2[0]->value);
+    this->find_splitter_exact(split_points1[1], &inner2[1]->dim, &inner2[1]->value);
+
+    MutableSpan<Point> split_points2[2][2];
+    this->split_points(split_points1[0],
+                       inner2[0]->dim,
+                       inner2[0]->value,
+                       &split_points2[0][0],
+                       &split_points2[0][1]);
+    this->split_points(split_points1[1],
+                       inner2[1]->dim,
+                       inner2[1]->value,
+                       &split_points2[1][0],
+                       &split_points2[1][1]);
+
+    this->find_splitter_exact(split_points2[0][0], &inner3[0][0]->dim, &inner3[0][0]->value);
+    this->find_splitter_exact(split_points2[0][1], &inner3[0][1]->dim, &inner3[0][1]->value);
+    this->find_splitter_exact(split_points2[1][0], &inner3[1][0]->dim, &inner3[1][0]->value);
+    this->find_splitter_exact(split_points2[1][1], &inner3[1][1]->dim, &inner3[1][1]->value);
+
+    const int split_dim2[2] = {inner2[0]->dim, inner2[1]->dim};
+    const float split_value2[2] = {inner2[0]->value, inner2[1]->value};
+    const int split_dim3[2][2] = {{inner3[0][0]->dim, inner3[0][1]->dim},
+                                  {inner3[1][0]->dim, inner3[1][1]->dim}};
+    const float split_value3[2][2] = {{inner3[0][0]->value, inner3[0][1]->value},
+                                      {inner3[1][0]->value, inner3[1][1]->value}};
+
+    Vector<Point> point_buckets[2][2][2];
+    this->split_points_three_times(points,
+                                   inner1->dim,
+                                   inner1->value,
+                                   split_dim2,
+                                   split_value2,
+                                   split_dim3,
+                                   split_value3,
+                                   point_buckets);
+
+    int offset = 0;
+    for (const int i : IndexRange(2)) {
+      for (const int j : IndexRange(2)) {
+        for (const int k : IndexRange(2)) {
+          Vector<Point> &bucket = point_buckets[i][j][k];
+          initialized_copy_n(bucket.data(), bucket.size(), points.data() + offset);
+          inner3[i][j]->children[k] = this->build_tree(points.slice(offset, bucket.size()));
+          inner3[i][j]->children[k]->parent = inner3[i][j];
+          offset += bucket.size();
+        }
+      }
+    }
+
+    return inner1;
   }
 
   BLI_NOINLINE void find_splitter_approximate(MutableSpan<Point> points,
@@ -303,6 +386,24 @@ class KDTree : NonCopyable, NonMovable {
                      });
     *r_split_dim = best_dim;
     *r_split_value = adapter_.get(points[median_position], best_dim);
+  }
+
+  BLI_NOINLINE void split_points_three_times(Span<Point> points,
+                                             const int split_dim1,
+                                             const float split_value1,
+                                             const int split_dim2[2],
+                                             const float split_value2[2],
+                                             const int split_dim3[2][2],
+                                             const float split_value3[2][2],
+                                             Vector<Point> r_buckets[2][2][2]) const
+  {
+    for (const Point &point : points) {
+      const int i1 = adapter_.get(point, split_dim1) > split_value1;
+      const int i2 = adapter_.get(point, split_dim2[i1]) > split_value2[i1];
+      const int i3 = adapter_.get(point, split_dim3[i1][i2]) > split_value3[i1][i2];
+      Vector<Point> &bucket = r_buckets[i1][i2][i3];
+      bucket.append(point);
+    }
   }
 
   BLI_NOINLINE void split_points(MutableSpan<Point> points,
