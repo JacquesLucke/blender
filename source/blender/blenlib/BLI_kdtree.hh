@@ -229,7 +229,7 @@ class KDTree : NonCopyable, NonMovable {
   BLI_NOINLINE Node *build_tree__single_level(MutableSpan<Point> points)
   {
     InnerNode *node = new InnerNode();
-    this->find_splitter_approximate(points, &node->split.dim, &node->split.value);
+    node->split = this->find_splitter_approximate(points);
 
     MutableSpan<Point> left_points, right_points;
     this->split_points(points, node->split.dim, node->split.value, &left_points, &right_points);
@@ -254,7 +254,7 @@ class KDTree : NonCopyable, NonMovable {
 
     const int sample_size = std::max<int>(100, points.size() / 100);
     Array<Point> point_samples = this->get_random_samples(points, sample_size);
-    this->find_splitter_exact(point_samples, &inner1->split.dim, &inner1->split.value);
+    inner1->split = this->find_splitter_exact(point_samples);
 
     MutableSpan<Point> split_points1[2];
     this->split_points(point_samples,
@@ -263,8 +263,8 @@ class KDTree : NonCopyable, NonMovable {
                        &split_points1[0],
                        &split_points1[1]);
 
-    this->find_splitter_exact(split_points1[0], &inner2[0]->split.dim, &inner2[0]->split.value);
-    this->find_splitter_exact(split_points1[1], &inner2[1]->split.dim, &inner2[1]->split.value);
+    inner2[0]->split = this->find_splitter_exact(split_points1[0]);
+    inner2[1]->split = this->find_splitter_exact(split_points1[1]);
 
     MutableSpan<Point> split_points2[2][2];
     this->split_points(split_points1[0],
@@ -278,14 +278,10 @@ class KDTree : NonCopyable, NonMovable {
                        &split_points2[1][0],
                        &split_points2[1][1]);
 
-    this->find_splitter_exact(
-        split_points2[0][0], &inner3[0][0]->split.dim, &inner3[0][0]->split.value);
-    this->find_splitter_exact(
-        split_points2[0][1], &inner3[0][1]->split.dim, &inner3[0][1]->split.value);
-    this->find_splitter_exact(
-        split_points2[1][0], &inner3[1][0]->split.dim, &inner3[1][0]->split.value);
-    this->find_splitter_exact(
-        split_points2[1][1], &inner3[1][1]->split.dim, &inner3[1][1]->split.value);
+    inner3[0][0]->split = this->find_splitter_exact(split_points2[0][0]);
+    inner3[0][1]->split = this->find_splitter_exact(split_points2[0][1]);
+    inner3[1][0]->split = this->find_splitter_exact(split_points2[1][0]);
+    inner3[1][1]->split = this->find_splitter_exact(split_points2[1][1]);
 
     const int split_dim2[2] = {inner2[0]->split.dim, inner2[1]->split.dim};
     const float split_value2[2] = {inner2[0]->split.value, inner2[1]->split.value};
@@ -319,18 +315,15 @@ class KDTree : NonCopyable, NonMovable {
     return inner1;
   }
 
-  BLI_NOINLINE void find_splitter_approximate(MutableSpan<Point> points,
-                                              int *r_split_dim,
-                                              float *r_split_value) const
+  BLI_NOINLINE SplitInfo find_splitter_approximate(MutableSpan<Point> points) const
   {
     if (points.size() < 50) {
-      this->find_splitter_exact(points, r_split_dim, r_split_value);
-      return;
+      return this->find_splitter_exact(points);
     }
 
     const int sample_size = std::max<int>(20, points.size() / 100);
     Array<Point> point_samples = this->get_random_samples(points, sample_size);
-    this->find_splitter_exact(point_samples, r_split_dim, r_split_value);
+    return this->find_splitter_exact(point_samples);
   }
 
   BLI_NOINLINE Array<Point> get_random_samples(Span<Point> points, const int amount) const
@@ -343,12 +336,12 @@ class KDTree : NonCopyable, NonMovable {
     return point_samples;
   }
 
-  BLI_NOINLINE void find_splitter_exact(MutableSpan<Point> points,
-                                        int *r_split_dim,
-                                        float *r_split_value) const
+  BLI_NOINLINE SplitInfo find_splitter_exact(MutableSpan<Point> points) const
   {
-    *r_split_dim = this->find_best_split_dim(points);
-    *r_split_value = this->find_best_split_value(points, *r_split_dim);
+    SplitInfo split;
+    split.dim = this->find_best_split_dim(points);
+    split.value = this->find_best_split_value(points, split.dim);
+    return split;
   }
 
   BLI_NOINLINE int find_best_split_dim(Span<Point> points) const
