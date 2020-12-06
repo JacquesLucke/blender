@@ -380,6 +380,7 @@ class KDTree : NonCopyable, NonMovable {
         const float signed_split_distance = co_in_dim - inner_node.value;
         const int initial_child = signed_split_distance > 0.0f;
         if (just_went_down) {
+          this->prefetch_child_data(inner_node, initial_child);
           current_node = inner_node.children[initial_child];
         }
         else {
@@ -391,6 +392,7 @@ class KDTree : NonCopyable, NonMovable {
             const float split_distance_sq = signed_split_distance * signed_split_distance;
             if (split_distance_sq <= *r_max_distance_sq) {
               const int other_child = 1 - initial_child;
+              this->prefetch_child_data(inner_node, other_child);
               current_node = inner_node.children[other_child];
               just_went_down = true;
               finished_inner_nodes.push(&inner_node);
@@ -410,11 +412,16 @@ class KDTree : NonCopyable, NonMovable {
     while (current->type == NodeType::Inner) {
       const InnerNode &inner_node = *static_cast<const InnerNode *>(current);
       const int child_index = co[inner_node.dim] > inner_node.value;
+      this->prefetch_child_data(inner_node, child_index);
       current = inner_node.children[child_index];
-      _mm_prefetch(inner_node.prefetch_pointers[child_index][0], _MM_HINT_T0);
-      _mm_prefetch(inner_node.prefetch_pointers[child_index][1], _MM_HINT_T0);
     }
     return *static_cast<const LeafNode *>(current);
+  }
+
+  void prefetch_child_data(const InnerNode &node, const int child_index) const
+  {
+    _mm_prefetch(node.prefetch_pointers[child_index][0], _MM_HINT_T0);
+    _mm_prefetch(node.prefetch_pointers[child_index][1], _MM_HINT_T0);
   }
 
   float calc_distance_sq(const float *co, const Point &point) const
