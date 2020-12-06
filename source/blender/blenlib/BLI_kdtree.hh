@@ -347,6 +347,38 @@ class KDTree : NonCopyable, NonMovable {
     }
   }
 
+  template<typename Func> void foreach_inner_node(const Node &node, const Func &func) const
+  {
+    if (node.type == NodeType::Inner) {
+      const InnerNode &inner_node = static_cast<const InnerNode &>(node);
+      func(inner_node);
+      this->foreach_inner_node(*inner_node.children[0], func);
+      this->foreach_inner_node(*inner_node.children[1], func);
+    }
+  }
+
+  template<typename Func> void foreach_leaf_node(const Node &node, const Func &func) const
+  {
+    if (node.type == NodeType::Inner) {
+      const InnerNode &inner_node = static_cast<const InnerNode &>(node);
+      this->foreach_leaf_node(*inner_node.children[0], func);
+      this->foreach_leaf_node(*inner_node.children[1], func);
+    }
+    else {
+      const LeafNode &leaf_node = static_cast<const LeafNode &>(node);
+      func(leaf_node);
+    }
+  }
+
+  template<typename Func> void foreach_point(const Node &node, const Func &func) const
+  {
+    this->foreach_leaf_node(node, [&](const LeafNode &leaf_node) {
+      for (const Point &point : leaf_node.points) {
+        func(point);
+      }
+    });
+  }
+
   template<typename Func>
   BLI_NOINLINE void foreach_in_shrinking_radius_internal(const Node &root,
                                                          const float *co,
