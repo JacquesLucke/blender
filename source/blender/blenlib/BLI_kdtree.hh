@@ -31,6 +31,11 @@ enum class NodeType {
   Leaf,
 };
 
+struct SplitInfo {
+  int dim;
+  float value;
+};
+
 struct Node {
   NodeType type;
   Node *parent = nullptr;
@@ -49,8 +54,7 @@ template<typename Point> struct LeafNode_ : public Node {
 };
 
 struct InnerNode : public Node {
-  int dim;
-  float value;
+  SplitInfo split;
   std::array<Node *, 2> children;
   std::array<std::array<const void *, 2>, 2> prefetch_pointers = {0};
 
@@ -175,12 +179,12 @@ class KDTree : NonCopyable, NonMovable {
   {
     this->foreach_inner_node(*root_, [&](const InnerNode &inner_node) {
       this->foreach_point(*inner_node.children[0], [&](const Point &point) {
-        if (adapter_.get(point, inner_node.dim) > inner_node.value) {
+        if (adapter_.get(point, inner_node.split.dim) > inner_node.split.value) {
           std::cout << "error: " << point << "\n";
         }
       });
       this->foreach_point(*inner_node.children[1], [&](const Point &point) {
-        if (adapter_.get(point, inner_node.dim) < inner_node.value) {
+        if (adapter_.get(point, inner_node.split.dim) < inner_node.split.value) {
           std::cout << "error: " << point << "\n";
         }
       });
@@ -225,10 +229,10 @@ class KDTree : NonCopyable, NonMovable {
   BLI_NOINLINE Node *build_tree__single_level(MutableSpan<Point> points)
   {
     InnerNode *node = new InnerNode();
-    this->find_splitter_approximate(points, &node->dim, &node->value);
+    this->find_splitter_approximate(points, &node->split.dim, &node->split.value);
 
     MutableSpan<Point> left_points, right_points;
-    this->split_points(points, node->dim, node->value, &left_points, &right_points);
+    this->split_points(points, node->split.dim, node->split.value, &left_points, &right_points);
 
     node->children[0] = this->build_tree(left_points);
     node->children[1] = this->build_tree(right_points);
@@ -250,43 +254,50 @@ class KDTree : NonCopyable, NonMovable {
 
     const int sample_size = std::max<int>(100, points.size() / 100);
     Array<Point> point_samples = this->get_random_samples(points, sample_size);
-    this->find_splitter_exact(point_samples, &inner1->dim, &inner1->value);
+    this->find_splitter_exact(point_samples, &inner1->split.dim, &inner1->split.value);
 
     MutableSpan<Point> split_points1[2];
-    this->split_points(
-        point_samples, inner1->dim, inner1->value, &split_points1[0], &split_points1[1]);
+    this->split_points(point_samples,
+                       inner1->split.dim,
+                       inner1->split.value,
+                       &split_points1[0],
+                       &split_points1[1]);
 
-    this->find_splitter_exact(split_points1[0], &inner2[0]->dim, &inner2[0]->value);
-    this->find_splitter_exact(split_points1[1], &inner2[1]->dim, &inner2[1]->value);
+    this->find_splitter_exact(split_points1[0], &inner2[0]->split.dim, &inner2[0]->split.value);
+    this->find_splitter_exact(split_points1[1], &inner2[1]->split.dim, &inner2[1]->split.value);
 
     MutableSpan<Point> split_points2[2][2];
     this->split_points(split_points1[0],
-                       inner2[0]->dim,
-                       inner2[0]->value,
+                       inner2[0]->split.dim,
+                       inner2[0]->split.value,
                        &split_points2[0][0],
                        &split_points2[0][1]);
     this->split_points(split_points1[1],
-                       inner2[1]->dim,
-                       inner2[1]->value,
+                       inner2[1]->split.dim,
+                       inner2[1]->split.value,
                        &split_points2[1][0],
                        &split_points2[1][1]);
 
-    this->find_splitter_exact(split_points2[0][0], &inner3[0][0]->dim, &inner3[0][0]->value);
-    this->find_splitter_exact(split_points2[0][1], &inner3[0][1]->dim, &inner3[0][1]->value);
-    this->find_splitter_exact(split_points2[1][0], &inner3[1][0]->dim, &inner3[1][0]->value);
-    this->find_splitter_exact(split_points2[1][1], &inner3[1][1]->dim, &inner3[1][1]->value);
+    this->find_splitter_exact(
+        split_points2[0][0], &inner3[0][0]->split.dim, &inner3[0][0]->split.value);
+    this->find_splitter_exact(
+        split_points2[0][1], &inner3[0][1]->split.dim, &inner3[0][1]->split.value);
+    this->find_splitter_exact(
+        split_points2[1][0], &inner3[1][0]->split.dim, &inner3[1][0]->split.value);
+    this->find_splitter_exact(
+        split_points2[1][1], &inner3[1][1]->split.dim, &inner3[1][1]->split.value);
 
-    const int split_dim2[2] = {inner2[0]->dim, inner2[1]->dim};
-    const float split_value2[2] = {inner2[0]->value, inner2[1]->value};
-    const int split_dim3[2][2] = {{inner3[0][0]->dim, inner3[0][1]->dim},
-                                  {inner3[1][0]->dim, inner3[1][1]->dim}};
-    const float split_value3[2][2] = {{inner3[0][0]->value, inner3[0][1]->value},
-                                      {inner3[1][0]->value, inner3[1][1]->value}};
+    const int split_dim2[2] = {inner2[0]->split.dim, inner2[1]->split.dim};
+    const float split_value2[2] = {inner2[0]->split.value, inner2[1]->split.value};
+    const int split_dim3[2][2] = {{inner3[0][0]->split.dim, inner3[0][1]->split.dim},
+                                  {inner3[1][0]->split.dim, inner3[1][1]->split.dim}};
+    const float split_value3[2][2] = {{inner3[0][0]->split.value, inner3[0][1]->split.value},
+                                      {inner3[1][0]->split.value, inner3[1][1]->split.value}};
 
     Vector<Point> point_buckets[2][2][2];
     this->split_points_three_times(points,
-                                   inner1->dim,
-                                   inner1->value,
+                                   inner1->split.dim,
+                                   inner1->split.value,
                                    split_dim2,
                                    split_value2,
                                    split_dim3,
@@ -549,8 +560,8 @@ class KDTree : NonCopyable, NonMovable {
       }
       else {
         const InnerNode &inner_node = *static_cast<const InnerNode *>(current_node);
-        const float co_in_dim = co[inner_node.dim];
-        const float signed_split_distance = co_in_dim - inner_node.value;
+        const float co_in_dim = co[inner_node.split.dim];
+        const float signed_split_distance = co_in_dim - inner_node.split.value;
         const int initial_child = signed_split_distance > 0.0f;
         if (just_went_down) {
           this->prefetch_child_data(inner_node, initial_child);
@@ -584,7 +595,7 @@ class KDTree : NonCopyable, NonMovable {
     const Node *current = &root;
     while (current->type == NodeType::Inner) {
       const InnerNode &inner_node = *static_cast<const InnerNode *>(current);
-      const int child_index = co[inner_node.dim] > inner_node.value;
+      const int child_index = co[inner_node.split.dim] > inner_node.split.value;
       this->prefetch_child_data(inner_node, child_index);
       current = inner_node.children[child_index];
     }
@@ -626,7 +637,8 @@ class KDTree : NonCopyable, NonMovable {
 
   dot::Node &make_dot_nodes(dot::DirectedGraph &digraph, const InnerNode &node) const
   {
-    const std::string name = "[" + std::to_string(node.dim) + "] = " + std::to_string(node.value);
+    const std::string name = "[" + std::to_string(node.split.dim) +
+                             "] = " + std::to_string(node.split.value);
     dot::Node &dot_node = digraph.new_node(name);
     dot_node.set_shape(dot::Attr_shape::Rectangle);
     dot_node.attributes.set("ordering", "out");
