@@ -80,8 +80,6 @@
 
 #include "RNA_access.h"
 
-#include "SEQ_sequencer.h"
-
 #include "UI_interface.h"
 
 #include "outliner_intern.h"
@@ -1314,125 +1312,6 @@ TreeElement *outliner_add_element(SpaceOutliner *space_outliner,
 }
 
 /* ======================================================= */
-/* Sequencer mode tree building */
-
-/* Helped function to put duplicate sequence in the same tree. */
-static int need_add_seq_dup(Sequence *seq)
-{
-  Sequence *p;
-
-  if ((!seq->strip) || (!seq->strip->stripdata)) {
-    return 1;
-  }
-
-  /*
-   * First check backward, if we found a duplicate
-   * sequence before this, don't need it, just return.
-   */
-  p = seq->prev;
-  while (p) {
-    if ((!p->strip) || (!p->strip->stripdata)) {
-      p = p->prev;
-      continue;
-    }
-
-    if (STREQ(p->strip->stripdata->name, seq->strip->stripdata->name)) {
-      return 2;
-    }
-    p = p->prev;
-  }
-
-  p = seq->next;
-  while (p) {
-    if ((!p->strip) || (!p->strip->stripdata)) {
-      p = p->next;
-      continue;
-    }
-
-    if (STREQ(p->strip->stripdata->name, seq->strip->stripdata->name)) {
-      return 0;
-    }
-    p = p->next;
-  }
-  return 1;
-}
-
-static void outliner_add_seq_dup(SpaceOutliner *space_outliner,
-                                 Sequence *seq,
-                                 TreeElement *te,
-                                 short index)
-{
-  /* TreeElement *ch; */ /* UNUSED */
-  Sequence *p;
-
-  p = seq;
-  while (p) {
-    if ((!p->strip) || (!p->strip->stripdata) || (p->strip->stripdata->name[0] == '\0')) {
-      p = p->next;
-      continue;
-    }
-
-    if (STREQ(p->strip->stripdata->name, seq->strip->stripdata->name)) {
-      /* ch = */ /* UNUSED */ outliner_add_element(
-          space_outliner, &te->subtree, (void *)p, te, TSE_SEQUENCE, index);
-    }
-    p = p->next;
-  }
-}
-
-/* ----------------------------------------------- */
-
-static void outliner_add_orphaned_datablocks(Main *mainvar, SpaceOutliner *space_outliner)
-{
-  TreeElement *ten;
-  ListBase *lbarray[MAX_LIBARRAY];
-  int a, tot;
-  short filter_id_type = (space_outliner->filter & SO_FILTER_ID_TYPE) ?
-                             space_outliner->filter_id_type :
-                             0;
-
-  if (filter_id_type) {
-    lbarray[0] = which_libbase(mainvar, space_outliner->filter_id_type);
-    tot = 1;
-  }
-  else {
-    tot = set_listbasepointers(mainvar, lbarray);
-  }
-
-  for (a = 0; a < tot; a++) {
-    if (lbarray[a] && lbarray[a]->first) {
-      ID *id = lbarray[a]->first;
-
-      /* check if there are any data-blocks of this type which are orphans */
-      for (; id; id = id->next) {
-        if (ID_REAL_USERS(id) <= 0) {
-          break;
-        }
-      }
-
-      if (id) {
-        /* header for this type of data-block */
-        if (filter_id_type) {
-          ten = NULL;
-        }
-        else {
-          ten = outliner_add_element(
-              space_outliner, &space_outliner->tree, lbarray[a], NULL, TSE_ID_BASE, 0);
-          ten->directdata = lbarray[a];
-          ten->name = outliner_idcode_to_plural(GS(id->name));
-        }
-
-        /* add the orphaned data-blocks - these will not be added with any subtrees attached */
-        for (id = lbarray[a]->first; id; id = id->next) {
-          if (ID_REAL_USERS(id) <= 0) {
-            outliner_add_element(
-                space_outliner, (ten) ? &ten->subtree : &space_outliner->tree, id, ten, 0, 0);
-          }
-        }
-      }
-    }
-  }
-}
 
 BLI_INLINE void outliner_add_collection_init(TreeElement *te, Collection *collection)
 {
@@ -2175,18 +2054,12 @@ static void outliner_filter_tree(SpaceOutliner *space_outliner, ViewLayer *view_
 /* Main Tree Building API */
 
 /* Main entry point for building the tree data-structure that the outliner represents. */
-/* TODO: split each mode into its own function? */
 void outliner_build_tree(Main *mainvar,
                          Scene *scene,
                          ViewLayer *view_layer,
                          SpaceOutliner *space_outliner,
                          ARegion *region)
 {
-  TreeElement *te = NULL, *ten;
-  TreeStoreElem *tselem;
-  /* on first view, we open scenes */
-  int show_opened = !space_outliner->treestore || !BLI_mempool_len(space_outliner->treestore);
-
   /* Are we looking for something - we want to tag parents to filter child matches
    * - NOT in data-blocks view - searching all data-blocks takes way too long to be useful
    * - this variable is only set once per tree build */
@@ -2217,82 +2090,13 @@ void outliner_build_tree(Main *mainvar,
 
   space_outliner->runtime->tree_display = outliner_tree_display_create(space_outliner->outlinevis,
                                                                        space_outliner);
-  if (space_outliner->runtime->tree_display) {
-    TreeSourceData source_data = {.bmain = mainvar, .scene = scene, .view_layer = view_layer};
-    space_outliner->tree = outliner_tree_display_build_tree(space_outliner->runtime->tree_display,
-                                                            &source_data);
-  }
 
-  if (space_outliner->runtime->tree_display) {
-    /* Skip if there's a tree-display that's responsible for adding all elements. */
-  }
-  /* options */
-  else if (space_outliner->outlinevis == SO_LIBRARIES) {
-    /* Ported to new tree-display, should be built there already. */
-    BLI_assert(false);
-  }
-  else if (space_outliner->outlinevis == SO_SCENES) {
-    Scene *sce;
-    for (sce = mainvar->scenes.first; sce; sce = sce->id.next) {
-      te = outliner_add_element(space_outliner, &space_outliner->tree, sce, NULL, 0, 0);
-      tselem = TREESTORE(te);
+  /* All tree displays should be created as sub-classes of AbstractTreeDisplay. */
+  BLI_assert(space_outliner->runtime->tree_display != NULL);
 
-      /* New scene elements open by default */
-      if ((sce == scene && show_opened) || !tselem->used) {
-        tselem->flag &= ~TSE_CLOSED;
-      }
-
-      outliner_make_object_parent_hierarchy(&te->subtree);
-    }
-  }
-  else if (space_outliner->outlinevis == SO_SEQUENCE) {
-    Sequence *seq;
-    Editing *ed = BKE_sequencer_editing_get(scene, false);
-    int op;
-
-    if (ed == NULL) {
-      return;
-    }
-
-    seq = ed->seqbasep->first;
-    if (!seq) {
-      return;
-    }
-
-    while (seq) {
-      op = need_add_seq_dup(seq);
-      if (op == 1) {
-        /* ten = */ outliner_add_element(
-            space_outliner, &space_outliner->tree, (void *)seq, NULL, TSE_SEQUENCE, 0);
-      }
-      else if (op == 0) {
-        ten = outliner_add_element(
-            space_outliner, &space_outliner->tree, (void *)seq, NULL, TSE_SEQUENCE_DUP, 0);
-        outliner_add_seq_dup(space_outliner, seq, ten, 0);
-      }
-      seq = seq->next;
-    }
-  }
-  else if (space_outliner->outlinevis == SO_DATA_API) {
-    PointerRNA mainptr;
-
-    RNA_main_pointer_create(mainvar, &mainptr);
-
-    ten = outliner_add_element(
-        space_outliner, &space_outliner->tree, (void *)&mainptr, NULL, TSE_RNA_STRUCT, -1);
-
-    if (show_opened) {
-      tselem = TREESTORE(ten);
-      tselem->flag &= ~TSE_CLOSED;
-    }
-  }
-  else if (space_outliner->outlinevis == SO_ID_ORPHANS) {
-    outliner_add_orphaned_datablocks(mainvar, space_outliner);
-  }
-  else if (space_outliner->outlinevis == SO_VIEW_LAYER) {
-    /* Ported to new tree-display, should be built there already. */
-    BLI_assert(false);
-  }
+  TreeSourceData source_data = {.bmain = mainvar, .scene = scene, .view_layer = view_layer};
+  space_outliner->tree = outliner_tree_display_build_tree(space_outliner->runtime->tree_display,
+                                                          &source_data);
 
   if ((space_outliner->flag & SO_SKIP_SORT_ALPHA) == 0) {
     outliner_sort(&space_outliner->tree);
