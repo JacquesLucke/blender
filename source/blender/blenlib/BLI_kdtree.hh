@@ -170,6 +170,38 @@ class KDTree : NonCopyable, NonMovable {
     }
   }
 
+  void print_tree_correctness_errors() const
+  {
+    this->foreach_inner_node(*root_, [&](const InnerNode &inner_node) {
+      this->foreach_point(*inner_node.children[0], [&](const Point &point) {
+        if (adapter_.get(point, inner_node.dim) > inner_node.value) {
+          std::cout << "error: " << point << "\n";
+        }
+      });
+      this->foreach_point(*inner_node.children[1], [&](const Point &point) {
+        if (adapter_.get(point, inner_node.dim) < inner_node.value) {
+          std::cout << "error: " << point << "\n";
+        }
+      });
+    });
+
+    this->foreach_inner_node(*root_, [&](const InnerNode &inner_node) {
+      if (inner_node.children[0]->parent != &inner_node) {
+        std::cout << "wrong parent\n";
+      }
+      if (inner_node.children[1]->parent != &inner_node) {
+        std::cout << "wrong parent\n";
+      }
+    });
+
+    int point_count = 0;
+    this->foreach_leaf_node(
+        *root_, [&](const LeafNode &leaf_node) { point_count += leaf_node.points.size(); });
+    if (point_count != points_.size()) {
+      std::cout << "incorrect number of points\n";
+    }
+  }
+
  private:
   BLI_NOINLINE Node *build_tree(MutableSpan<Point> points)
   {
