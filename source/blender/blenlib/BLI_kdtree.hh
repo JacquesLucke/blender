@@ -52,7 +52,7 @@ struct InnerNode : public Node {
   int dim;
   float value;
   std::array<Node *, 2> children;
-  std::array<std::array<Node *, 2>, 2> sub_children = {0};
+  std::array<std::array<const void *, 2>, 2> prefetch_pointers = {0};
 
   InnerNode() : Node(NodeType::Inner)
   {
@@ -196,14 +196,19 @@ class KDTree : NonCopyable, NonMovable {
 
     node->children[0] = this->build_tree(left_points);
     node->children[1] = this->build_tree(right_points);
-    node->children[0]->parent = node;
-    node->children[1]->parent = node;
 
-    if (node->children[0]->type == NodeType::Inner) {
-      node->sub_children[0] = static_cast<InnerNode *>(node->children[0])->children;
-    }
-    if (node->children[1]->type == NodeType::Inner) {
-      node->sub_children[1] = static_cast<InnerNode *>(node->children[1])->children;
+    for (const int i : {0, 1}) {
+      Node &child = *node->children[i];
+      child.parent = node;
+      if (child.type == NodeType::Inner) {
+        InnerNode &inner_child = static_cast<InnerNode &>(child);
+        node->prefetch_pointers[i] = {inner_child.children[0], inner_child.children[1]};
+      }
+      else {
+        LeafNode &leaf_child = static_cast<LeafNode &>(child);
+        const void *data = leaf_child.points.data();
+        node->prefetch_pointers[i] = {data, POINTER_OFFSET(data, 64)};
+      }
     }
 
     return node;
@@ -406,8 +411,8 @@ class KDTree : NonCopyable, NonMovable {
       const InnerNode &inner_node = *static_cast<const InnerNode *>(current);
       const int child_index = co[inner_node.dim] > inner_node.value;
       current = inner_node.children[child_index];
-      _mm_prefetch(inner_node.sub_children[child_index][0], _MM_HINT_T0);
-      _mm_prefetch(inner_node.sub_children[child_index][1], _MM_HINT_T0);
+      _mm_prefetch(inner_node.prefetch_pointers[child_index][0], _MM_HINT_T0);
+      _mm_prefetch(inner_node.prefetch_pointers[child_index][1], _MM_HINT_T0);
     }
     return *static_cast<const LeafNode *>(current);
   }
