@@ -232,7 +232,7 @@ class KDTree : NonCopyable, NonMovable {
     node->split = this->find_splitter_approximate(points);
 
     MutableSpan<Point> left_points, right_points;
-    this->split_points(points, node->split.dim, node->split.value, &left_points, &right_points);
+    this->split_points(points, node->split, &left_points, &right_points);
 
     node->children[0] = this->build_tree(left_points);
     node->children[1] = this->build_tree(right_points);
@@ -257,26 +257,16 @@ class KDTree : NonCopyable, NonMovable {
     inner1->split = this->find_splitter_exact(point_samples);
 
     MutableSpan<Point> split_points1[2];
-    this->split_points(point_samples,
-                       inner1->split.dim,
-                       inner1->split.value,
-                       &split_points1[0],
-                       &split_points1[1]);
+    this->split_points(point_samples, inner1->split, &split_points1[0], &split_points1[1]);
 
     inner2[0]->split = this->find_splitter_exact(split_points1[0]);
     inner2[1]->split = this->find_splitter_exact(split_points1[1]);
 
     MutableSpan<Point> split_points2[2][2];
-    this->split_points(split_points1[0],
-                       inner2[0]->split.dim,
-                       inner2[0]->split.value,
-                       &split_points2[0][0],
-                       &split_points2[0][1]);
-    this->split_points(split_points1[1],
-                       inner2[1]->split.dim,
-                       inner2[1]->split.value,
-                       &split_points2[1][0],
-                       &split_points2[1][1]);
+    this->split_points(
+        split_points1[0], inner2[0]->split, &split_points2[0][0], &split_points2[0][1]);
+    this->split_points(
+        split_points1[1], inner2[1]->split, &split_points2[1][0], &split_points2[1][1]);
 
     inner3[0][0]->split = this->find_splitter_exact(split_points2[0][0]);
     inner3[0][1]->split = this->find_splitter_exact(split_points2[0][1]);
@@ -399,13 +389,12 @@ class KDTree : NonCopyable, NonMovable {
   }
 
   BLI_NOINLINE void split_points(MutableSpan<Point> points,
-                                 const int split_dim,
-                                 const float split_value,
+                                 const SplitInfo split,
                                  MutableSpan<Point> *r_left_points,
                                  MutableSpan<Point> *r_right_points)
   {
     auto is_larger_than_split_value = [&](const Point &p) {
-      return adapter_.get(p, split_dim) > split_value;
+      return adapter_.get(p, split.dim) > split.value;
     };
 
     int i = 0;
@@ -425,7 +414,7 @@ class KDTree : NonCopyable, NonMovable {
      */
     const int best_i = points.size() / 2;
     while (i < best_i && i < points.size()) {
-      if (adapter_.get(points[i], split_dim) <= split_value) {
+      if (adapter_.get(points[i], split.dim) <= split.value) {
         i++;
       }
       else {
@@ -433,7 +422,7 @@ class KDTree : NonCopyable, NonMovable {
       }
     }
     while (i > best_i && i > 0) {
-      if (adapter_.get(points[i - 1], split_dim) >= split_value) {
+      if (adapter_.get(points[i - 1], split.dim) >= split.value) {
         i--;
       }
       else {
@@ -447,12 +436,12 @@ class KDTree : NonCopyable, NonMovable {
 #ifdef DEBUG
     BLI_assert(r_left_points->size() + r_right_points->size() == points.size());
     for (const Point &point : *r_left_points) {
-      if (adapter_.get(point, split_dim) > split_value) {
+      if (adapter_.get(point, split.dim) > split.value) {
         BLI_assert(false);
       }
     }
     for (const Point &point : *r_right_points) {
-      if (adapter_.get(point, split_dim) < split_value) {
+      if (adapter_.get(point, split.dim) < split.value) {
         BLI_assert(false);
       }
     }
