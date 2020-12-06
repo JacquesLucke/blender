@@ -507,9 +507,10 @@ class KDTree : NonCopyable, NonMovable {
           ss << ", ";
         }
       }
-      ss << "), ";
+      ss << ")\n";
     }
     dot::Node &dot_node = digraph.new_node(ss.str());
+    dot_node.set_shape(dot::Attr_shape::Rectangle);
     return dot_node;
   }
 };
