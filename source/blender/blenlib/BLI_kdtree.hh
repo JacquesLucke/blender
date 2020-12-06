@@ -336,16 +336,8 @@ class KDTree : NonCopyable, NonMovable {
                                         int *r_split_dim,
                                         float *r_split_value) const
   {
-    int best_dim = this->find_best_split_dim(points);
-    const int median_position = points.size() / 2;
-    std::nth_element(points.begin(),
-                     points.begin() + median_position,
-                     points.end(),
-                     [&](const Point &a, const Point &b) {
-                       return adapter_.get(a, best_dim) < adapter_.get(b, best_dim);
-                     });
-    *r_split_dim = best_dim;
-    *r_split_value = adapter_.get(points[median_position], best_dim);
+    *r_split_dim = this->find_best_split_dim(points);
+    *r_split_value = this->find_best_split_value(points, *r_split_dim);
   }
 
   BLI_NOINLINE int find_best_split_dim(Span<Point> points) const
@@ -370,6 +362,18 @@ class KDTree : NonCopyable, NonMovable {
       }
     }
     return best_dim;
+  }
+
+  BLI_NOINLINE float find_best_split_value(MutableSpan<Point> points, const int dim) const
+  {
+    const int median_position = points.size() / 2;
+    std::nth_element(points.begin(),
+                     points.begin() + median_position,
+                     points.end(),
+                     [&](const Point &a, const Point &b) {
+                       return adapter_.get(a, dim) < adapter_.get(b, dim);
+                     });
+    return adapter_.get(points[median_position], dim);
   }
 
   BLI_NOINLINE void split_points_three_times(Span<Point> points,
