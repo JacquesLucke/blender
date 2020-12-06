@@ -147,7 +147,7 @@ TEST(kdtree, BuildPerformance)
   }
 }
 
-TEST(kdtree, FindNearest_Large)
+TEST(kdtree, NearestPerformance)
 {
   Array<float3> points = generate_random_float3s(1'000'000, 0);
   KDTree<float3> kdtree_new{points};
@@ -159,7 +159,43 @@ TEST(kdtree, FindNearest_Large)
 
   Array<float3> query_points = generate_random_float3s(100'000, 23);
 
-  RandomNumberGenerator rng{234};
+  float sum_new = 0.0f;
+  float sum_old = 0.0f;
+  for (int i = 0; i < 5; i++) {
+    {
+      SCOPED_TIMER("new");
+      for (const float3 &query_point : query_points) {
+        const float3 *nearest = kdtree_new.find_nearest(query_point);
+        sum_new += nearest->x;
+      }
+    }
+    {
+      SCOPED_TIMER("old");
+      for (const float3 &query_point : query_points) {
+        KDTreeNearest_3d nearest;
+        BLI_kdtree_3d_find_nearest(kdtree_old, query_point, &nearest);
+        sum_old += nearest.co[0];
+      }
+    }
+  }
+
+  EXPECT_EQ(sum_new, sum_old);
+
+  BLI_kdtree_3d_free(kdtree_old);
+}
+
+TEST(kdtree, FindNearest_Large)
+{
+  Array<float3> points = generate_random_float3s(10'000, 0);
+  KDTree<float3> kdtree_new{points};
+  KDTree_3d *kdtree_old = BLI_kdtree_3d_new(points.size());
+  for (const int i : points.index_range()) {
+    BLI_kdtree_3d_insert(kdtree_old, i, points[i]);
+  }
+  BLI_kdtree_3d_balance(kdtree_old);
+
+  Array<float3> query_points = generate_random_float3s(1'000, 23);
+
   for (const float3 &query_point : query_points) {
     const float3 *point_new = kdtree_new.find_nearest(query_point);
     KDTreeNearest_3d nearest_old;
