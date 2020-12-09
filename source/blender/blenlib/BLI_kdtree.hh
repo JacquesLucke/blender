@@ -72,8 +72,9 @@ template<typename Point,
 class KDTree : NonCopyable, NonMovable {
  private:
   using LeafNode = LeafNode_<Point>;
-  static constexpr int DIM = PointAdapater::DIM;
-  static constexpr int MAX_LEAF_SIZE = MaxLeafSize;
+  static inline constexpr int DIM = PointAdapater::DIM;
+  static inline constexpr int MAX_LEAF_SIZE = MaxLeafSize;
+  static inline constexpr int LAST_LEVELS_SIZE = MaxLeafSize * 16;
 
   PointAdapater adapter_;
   Array<Point> points_;
@@ -210,10 +211,10 @@ class KDTree : NonCopyable, NonMovable {
  private:
   BLI_NOINLINE Node *build_tree(MutableSpan<Point> points)
   {
-    if (points.size() <= MAX_LEAF_SIZE) {
-      return this->build_tree__leaf(points);
+    if (points.size() <= LAST_LEVELS_SIZE) {
+      return this->build_tree__last_levels(points);
     }
-    if (points.size() >= 10'000) {
+    if (points.size() >= 5'000) {
       return this->build_tree__three_levels(points);
     }
     return this->build_tree__single_level(points);
@@ -295,6 +296,23 @@ class KDTree : NonCopyable, NonMovable {
     return inner1;
   }
 
+  BLI_NOINLINE Node *build_tree__last_levels(MutableSpan<Point> points)
+  {
+    if (points.size() <= MAX_LEAF_SIZE) {
+      return this->build_tree__leaf(points);
+    }
+
+    InnerNode *node = new InnerNode();
+    node->split.dim = this->find_best_split_dim(points);
+    const int median_pos = points.size() / 2;
+    this->sort_around_nth_element(points, median_pos, node->split.dim);
+
+    node->split.value = adapter_.get(points[median_pos], node->split.dim);
+    node->children[0] = this->build_tree__last_levels(points.take_front(median_pos));
+    node->children[1] = this->build_tree__last_levels(points.drop_front(median_pos));
+    return node;
+  }
+
   BLI_NOINLINE SplitInfo find_splitter_approximate(MutableSpan<Point> points) const
   {
     if (points.size() < 50) {
@@ -351,13 +369,19 @@ class KDTree : NonCopyable, NonMovable {
   BLI_NOINLINE float find_best_split_value(MutableSpan<Point> points, const int dim) const
   {
     const int median_position = points.size() / 2;
-    std::nth_element(points.begin(),
-                     points.begin() + median_position,
-                     points.end(),
-                     [&](const Point &a, const Point &b) {
-                       return adapter_.get(a, dim) < adapter_.get(b, dim);
-                     });
+    this->sort_around_nth_element(points, median_position, dim);
     return adapter_.get(points[median_position], dim);
+  }
+
+  BLI_NOINLINE void sort_around_nth_element(MutableSpan<Point> points,
+                                            const int index,
+                                            const int dim) const
+  {
+    BLI_assert(index < points.size());
+    std::nth_element(
+        points.begin(), points.begin() + index, points.end(), [&](const Point &a, const Point &b) {
+          return adapter_.get(a, dim) < adapter_.get(b, dim);
+        });
   }
 
   BLI_NOINLINE void split_points_three_times(Span<Point> points,
@@ -366,6 +390,15 @@ class KDTree : NonCopyable, NonMovable {
                                              const SplitInfo split3[2][2],
                                              Vector<Point> r_buckets[2][2][2]) const
   {
+    /* Overallocate slightly to avoid reallocation in common cases. */
+    const int tot_reserve = points.size() / 8 + points.size() / 20;
+    for (const int i : {0, 1}) {
+      for (const int j : {0, 1}) {
+        for (const int k : {0, 1}) {
+          r_buckets[i][j][k].reserve(tot_reserve);
+        }
+      }
+    }
     for (const Point &point : points) {
       const int i1 = adapter_.get(point, split1.dim) > split1.value;
       const int i2 = adapter_.get(point, split2[i1].dim) > split2[i1].value;
