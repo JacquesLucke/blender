@@ -573,8 +573,8 @@ class KDTree : NonCopyable, NonMovable {
 
   void prefetch_child_data(const InnerNode &node, const int child_index) const
   {
-    _mm_prefetch(node.prefetch_pointers[child_index][0], _MM_HINT_T0);
-    _mm_prefetch(node.prefetch_pointers[child_index][1], _MM_HINT_T0);
+    _mm_prefetch(static_cast<const char *>(node.prefetch_pointers[child_index][0]), _MM_HINT_T0);
+    _mm_prefetch(static_cast<const char *>(node.prefetch_pointers[child_index][1]), _MM_HINT_T0);
   }
 
   float calc_distance_sq(const float *co, const Point &point) const
