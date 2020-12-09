@@ -266,7 +266,7 @@ class KDTree : NonCopyable, NonMovable {
     std::array<SplitInfo, 4> split3 = {
         inner3[0]->split, inner3[1]->split, inner3[2]->split, inner3[3]->split};
 
-    std::array<Vector<Point>, 8> point_buckets;
+    EnumerableThreadSpecific<std::array<Vector<Point>, 8>> point_buckets;
     this->split_points_three_times(
         tot_points, point_spans, inner1->split, split2, split3, point_buckets);
     /* Deallocate memory that is not needed anymore. */
@@ -274,11 +274,14 @@ class KDTree : NonCopyable, NonMovable {
       owning_vector->clear_and_make_inline();
     }
 
-    int offset = 0;
     for (const int i : IndexRange(8)) {
-      Vector<Point> &bucket = point_buckets[i];
-      inner3[i / 2]->children[i % 2] = this->build_tree({bucket}, {&bucket});
-      offset += bucket.size();
+      Vector<Span<Point>> spans_for_child;
+      Vector<Vector<Point> *> buckets_for_child;
+      for (std::array<Vector<Point>, 8> &buckets : point_buckets) {
+        spans_for_child.append(buckets[i]);
+        buckets_for_child.append(&buckets[i]);
+      }
+      inner3[i / 2]->children[i % 2] = this->build_tree(spans_for_child, buckets_for_child);
     }
 
     return inner1;
@@ -402,16 +405,19 @@ class KDTree : NonCopyable, NonMovable {
         });
   }
 
-  BLI_NOINLINE void split_points_three_times(const int tot_points,
-                                             Span<Span<Point>> point_spans,
-                                             const SplitInfo split1,
-                                             const std::array<SplitInfo, 2> &split2,
-                                             const std::array<SplitInfo, 4> &split3,
-                                             std::array<Vector<Point>, 8> &r_buckets) const
+  BLI_NOINLINE void split_points_three_times(
+      const int tot_points,
+      Span<Span<Point>> point_spans,
+      const SplitInfo split1,
+      const std::array<SplitInfo, 2> &split2,
+      const std::array<SplitInfo, 4> &split3,
+      EnumerableThreadSpecific<std::array<Vector<Point>, 8>> &r_buckets) const
   {
+    std::array<Vector<Point>, 8> &local_buckets = r_buckets.local();
+
     /* Overallocate slightly to avoid reallocation in common cases. */
     const int tot_reserve = tot_points / 8 + tot_points / 20;
-    for (Vector<Point> &bucket : r_buckets) {
+    for (Vector<Point> &bucket : local_buckets) {
       bucket.reserve(tot_reserve);
     }
     for (Span<Point> points : point_spans) {
@@ -419,7 +425,7 @@ class KDTree : NonCopyable, NonMovable {
         const int i1 = adapter_.get(point, split1.dim) > split1.value;
         const int i2 = adapter_.get(point, split2[i1].dim) > split2[i1].value;
         const int i3 = adapter_.get(point, split3[i1 * 2 + i2].dim) > split3[i1 * 2 + i2].value;
-        Vector<Point> &bucket = r_buckets[i1 * 4 + i2 * 2 + i3];
+        Vector<Point> &bucket = local_buckets[i1 * 4 + i2 * 2 + i3];
         bucket.append(point);
       }
     }
