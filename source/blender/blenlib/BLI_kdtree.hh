@@ -84,7 +84,7 @@ class KDTree : NonCopyable, NonMovable {
  public:
   KDTree(Span<Point> points, PointAdapater adapter = {}) : adapter_(adapter)
   {
-    root_ = this->build_tree(points);
+    root_ = this->build_tree({points}, {});
     this->set_parent_and_prefetch_pointers(*root_);
   }
 
@@ -203,16 +203,33 @@ class KDTree : NonCopyable, NonMovable {
   }
 
  private:
-  BLI_NOINLINE Node *build_tree(Span<Point> points)
+  BLI_NOINLINE Node *build_tree(Span<Span<Point>> point_spans,
+                                Span<Vector<Point> *> owning_vectors)
   {
-    if (points.size() <= MaxLeafSize * 128) {
-      MutableSpan<Point> stored_points = allocator_.construct_array_copy(points);
+    int tot_points = 0;
+    for (Span<Point> points : point_spans) {
+      tot_points += points.size();
+    }
+
+    if (tot_points <= MaxLeafSize * 128) {
+      MutableSpan<Point> stored_points = allocator_.allocate_array<Point>(tot_points);
+      int offset = 0;
+      for (Span<Point> points : point_spans) {
+        initialized_copy_n(points.data(), points.size(), stored_points.data() + offset);
+        offset += points.size();
+      }
+      /* Deallocate memory that is not needed anymore. */
+      for (Vector<Point> *owning_vector : owning_vectors) {
+        owning_vector->clear_and_make_inline();
+      }
       return this->build_tree__last_levels(stored_points);
     }
-    return this->build_tree__three_levels(points);
+    return this->build_tree__three_levels(tot_points, point_spans, owning_vectors);
   }
 
-  BLI_NOINLINE Node *build_tree__three_levels(Span<Point> points)
+  BLI_NOINLINE Node *build_tree__three_levels(const int tot_points,
+                                              Span<Span<Point>> point_spans,
+                                              Span<Vector<Point> *> owning_vectors)
   {
     InnerNode *inner1 = allocator_.construct<InnerNode>();
     std::array<InnerNode *, 2> inner2 = {allocator_.construct<InnerNode>(),
@@ -225,8 +242,8 @@ class KDTree : NonCopyable, NonMovable {
     inner2[0]->children = {inner3[0][0], inner3[0][1]};
     inner2[1]->children = {inner3[1][0], inner3[1][1]};
 
-    const int sample_size = std::max<int>(100, points.size() / 100);
-    Array<Point> point_samples = this->get_random_samples(points, sample_size);
+    const int sample_size = std::min<int>(2000, std::max(100, tot_points / 100));
+    Array<Point> point_samples = this->get_random_samples(point_spans, sample_size);
     inner1->split = this->find_splitter_exact(point_samples);
 
     MutableSpan<Point> split_points1[2];
@@ -251,14 +268,19 @@ class KDTree : NonCopyable, NonMovable {
                                     {inner3[1][0]->split, inner3[1][1]->split}};
 
     Vector<Point> point_buckets[2][2][2];
-    this->split_points_three_times(points, inner1->split, split2, split3, point_buckets);
+    this->split_points_three_times(
+        tot_points, point_spans, inner1->split, split2, split3, point_buckets);
+    /* Deallocate memory that is not needed anymore. */
+    for (Vector<Point> *owning_vector : owning_vectors) {
+      owning_vector->clear_and_make_inline();
+    }
 
     int offset = 0;
     for (const int i : IndexRange(2)) {
       for (const int j : IndexRange(2)) {
         for (const int k : IndexRange(2)) {
           Vector<Point> &bucket = point_buckets[i][j][k];
-          inner3[i][j]->children[k] = this->build_tree(bucket);
+          inner3[i][j]->children[k] = this->build_tree({bucket}, {&bucket});
           offset += bucket.size();
         }
       }
@@ -329,6 +351,12 @@ class KDTree : NonCopyable, NonMovable {
     return point_samples;
   }
 
+  BLI_NOINLINE Array<Point> get_random_samples(Span<Span<Point>> points, const int amount) const
+  {
+    /* TODO: Take samples from all spans. */
+    return this->get_random_samples(points[0], amount);
+  }
+
   BLI_NOINLINE SplitInfo find_splitter_exact(MutableSpan<Point> points) const
   {
     SplitInfo split;
@@ -379,14 +407,15 @@ class KDTree : NonCopyable, NonMovable {
         });
   }
 
-  BLI_NOINLINE void split_points_three_times(Span<Point> points,
+  BLI_NOINLINE void split_points_three_times(const int tot_points,
+                                             Span<Span<Point>> point_spans,
                                              const SplitInfo split1,
                                              const SplitInfo split2[2],
                                              const SplitInfo split3[2][2],
                                              Vector<Point> r_buckets[2][2][2]) const
   {
     /* Overallocate slightly to avoid reallocation in common cases. */
-    const int tot_reserve = points.size() / 8 + points.size() / 20;
+    const int tot_reserve = tot_points / 8 + tot_points / 20;
     for (const int i : {0, 1}) {
       for (const int j : {0, 1}) {
         for (const int k : {0, 1}) {
@@ -394,12 +423,14 @@ class KDTree : NonCopyable, NonMovable {
         }
       }
     }
-    for (const Point &point : points) {
-      const int i1 = adapter_.get(point, split1.dim) > split1.value;
-      const int i2 = adapter_.get(point, split2[i1].dim) > split2[i1].value;
-      const int i3 = adapter_.get(point, split3[i1][i2].dim) > split3[i1][i2].value;
-      Vector<Point> &bucket = r_buckets[i1][i2][i3];
-      bucket.append(point);
+    for (Span<Point> points : point_spans) {
+      for (const Point &point : points) {
+        const int i1 = adapter_.get(point, split1.dim) > split1.value;
+        const int i2 = adapter_.get(point, split2[i1].dim) > split2[i1].value;
+        const int i3 = adapter_.get(point, split3[i1][i2].dim) > split3[i1][i2].value;
+        Vector<Point> &bucket = r_buckets[i1][i2][i3];
+        bucket.append(point);
+      }
     }
   }
 
