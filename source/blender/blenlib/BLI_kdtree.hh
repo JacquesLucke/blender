@@ -20,6 +20,7 @@
 #include "BLI_linear_allocator.hh"
 #include "BLI_rand.hh"
 #include "BLI_stack.hh"
+#include "BLI_task.hh"
 #include "BLI_timeit.hh"
 #include "BLI_utildefines.h"
 #include "BLI_utility_mixins.hh"

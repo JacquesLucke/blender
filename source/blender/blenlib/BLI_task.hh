@@ -44,6 +44,8 @@
 #include "BLI_index_range.hh"
 #include "BLI_utildefines.h"
 
+#include <optional>
+
 namespace blender {
 
 template<typename Range, typename Function>
@@ -89,5 +91,63 @@ void parallel_invoke(const Function1 &function1,
   function1();
   function2();
 }
+
+template<typename T> class EnumerableThreadSpecific {
+#ifdef WITH_TBB
+ private:
+  tbb::enumerable_thread_specific<T> tbb_data_;
+
+ public:
+  EnumerableThreadSpecific() = default;
+
+  T &local()
+  {
+    return tbb_data_.local();
+  }
+
+  auto begin()
+  {
+    return tbb_data_.begin();
+  }
+
+  auto end()
+  {
+    return tbb_data_.end();
+  }
+
+#else /* WITH_TBB */
+
+ private:
+  std::optional<T> fallback_data_;
+
+ public:
+  EnumerableThreadSpecific() = default;
+
+  T &local()
+  {
+    if (!fallback_data_.has_value()) {
+      fallback_data_ = T();
+    }
+    return *fallback_data_;
+  }
+
+  T *begin()
+  {
+    if (fallback_data_.has_value()) {
+      return &(*fallback_data_);
+    }
+    return nullptr;
+  }
+
+  T *end()
+  {
+    if (fallback_data_.has_value()) {
+      return &(*fallback_data_) + 1;
+    }
+    return nullptr;
+  }
+
+#endif /* WITH_TBB */
+};
 
 }  // namespace blender
