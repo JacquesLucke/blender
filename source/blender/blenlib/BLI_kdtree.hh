@@ -75,17 +75,15 @@ class KDTree : NonCopyable, NonMovable {
   using LeafNode = LeafNode_<Point>;
   static inline constexpr int DIM = PointAdapater::DIM;
   static inline constexpr int MAX_LEAF_SIZE = MaxLeafSize;
-  static inline constexpr int LAST_LEVELS_SIZE = MaxLeafSize * 16;
 
   LinearAllocator<> allocator_;
   PointAdapater adapter_;
-  Array<Point> points_;
   Node *root_ = nullptr;
 
  public:
-  KDTree(Span<Point> points, PointAdapater adapter = {}) : adapter_(adapter), points_(points)
+  KDTree(Span<Point> points, PointAdapater adapter = {}) : adapter_(adapter)
   {
-    root_ = this->build_tree(points_);
+    root_ = this->build_tree(points);
     this->set_parent_and_prefetch_pointers(*root_);
   }
 
@@ -201,49 +199,19 @@ class KDTree : NonCopyable, NonMovable {
         std::cout << "wrong parent\n";
       }
     });
-
-    int point_count = 0;
-    this->foreach_leaf_node(
-        *root_, [&](const LeafNode &leaf_node) { point_count += leaf_node.points.size(); });
-    if (point_count != points_.size()) {
-      std::cout << "incorrect number of points\n";
-    }
   }
 
  private:
-  BLI_NOINLINE Node *build_tree(MutableSpan<Point> points)
+  BLI_NOINLINE Node *build_tree(Span<Point> points)
   {
-    if (points.size() <= LAST_LEVELS_SIZE) {
-      return this->build_tree__last_levels(points);
+    if (points.size() <= MaxLeafSize * 128) {
+      MutableSpan<Point> stored_points = allocator_.construct_array_copy(points);
+      return this->build_tree__last_levels(stored_points);
     }
-    if (points.size() >= 5'000) {
-      return this->build_tree__three_levels(points);
-    }
-    return this->build_tree__single_level(points);
+    return this->build_tree__three_levels(points);
   }
 
-  BLI_NOINLINE Node *build_tree__leaf(MutableSpan<Point> points)
-  {
-    LeafNode *node = allocator_.construct<LeafNode>();
-    node->points = points;
-    return node;
-  }
-
-  BLI_NOINLINE Node *build_tree__single_level(MutableSpan<Point> points)
-  {
-    InnerNode *node = allocator_.construct<InnerNode>();
-    node->split = this->find_splitter_approximate(points);
-
-    MutableSpan<Point> left_points, right_points;
-    this->split_points(points, node->split, &left_points, &right_points);
-
-    node->children[0] = this->build_tree(left_points);
-    node->children[1] = this->build_tree(right_points);
-
-    return node;
-  }
-
-  BLI_NOINLINE Node *build_tree__three_levels(MutableSpan<Point> points)
+  BLI_NOINLINE Node *build_tree__three_levels(Span<Point> points)
   {
     InnerNode *inner1 = allocator_.construct<InnerNode>();
     std::array<InnerNode *, 2> inner2 = {allocator_.construct<InnerNode>(),
@@ -289,8 +257,7 @@ class KDTree : NonCopyable, NonMovable {
       for (const int j : IndexRange(2)) {
         for (const int k : IndexRange(2)) {
           Vector<Point> &bucket = point_buckets[i][j][k];
-          initialized_copy_n(bucket.data(), bucket.size(), points.data() + offset);
-          inner3[i][j]->children[k] = this->build_tree(points.slice(offset, bucket.size()));
+          inner3[i][j]->children[k] = this->build_tree(bucket);
           offset += bucket.size();
         }
       }
@@ -304,6 +271,9 @@ class KDTree : NonCopyable, NonMovable {
     if (points.size() <= MAX_LEAF_SIZE) {
       return this->build_tree__leaf(points);
     }
+    if (points.size() > 100) {
+      return this->build_tree__last_levels_approximate(points);
+    }
 
     InnerNode *node = allocator_.construct<InnerNode>();
     node->split.dim = this->find_best_split_dim(points);
@@ -313,6 +283,27 @@ class KDTree : NonCopyable, NonMovable {
     node->split.value = adapter_.get(points[median_pos], node->split.dim);
     node->children[0] = this->build_tree__last_levels(points.take_front(median_pos));
     node->children[1] = this->build_tree__last_levels(points.drop_front(median_pos));
+    return node;
+  }
+
+  BLI_NOINLINE Node *build_tree__leaf(MutableSpan<Point> points)
+  {
+    LeafNode *node = allocator_.construct<LeafNode>();
+    node->points = points;
+    return node;
+  }
+
+  BLI_NOINLINE Node *build_tree__last_levels_approximate(MutableSpan<Point> points)
+  {
+    InnerNode *node = allocator_.construct<InnerNode>();
+    node->split = this->find_splitter_approximate(points);
+
+    MutableSpan<Point> left_points, right_points;
+    this->split_points(points, node->split, &left_points, &right_points);
+
+    node->children[0] = this->build_tree__last_levels(left_points);
+    node->children[1] = this->build_tree__last_levels(right_points);
+
     return node;
   }
 
