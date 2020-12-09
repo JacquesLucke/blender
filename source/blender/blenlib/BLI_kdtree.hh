@@ -17,6 +17,7 @@
 #pragma once
 
 #include "BLI_dot_export.hh"
+#include "BLI_linear_allocator.hh"
 #include "BLI_rand.hh"
 #include "BLI_stack.hh"
 #include "BLI_timeit.hh"
@@ -76,6 +77,7 @@ class KDTree : NonCopyable, NonMovable {
   static inline constexpr int MAX_LEAF_SIZE = MaxLeafSize;
   static inline constexpr int LAST_LEVELS_SIZE = MaxLeafSize * 16;
 
+  LinearAllocator<> allocator_;
   PointAdapater adapter_;
   Array<Point> points_;
   Node *root_ = nullptr;
@@ -222,14 +224,14 @@ class KDTree : NonCopyable, NonMovable {
 
   BLI_NOINLINE Node *build_tree__leaf(MutableSpan<Point> points)
   {
-    LeafNode *node = new LeafNode();
+    LeafNode *node = allocator_.construct<LeafNode>();
     node->points = points;
     return node;
   }
 
   BLI_NOINLINE Node *build_tree__single_level(MutableSpan<Point> points)
   {
-    InnerNode *node = new InnerNode();
+    InnerNode *node = allocator_.construct<InnerNode>();
     node->split = this->find_splitter_approximate(points);
 
     MutableSpan<Point> left_points, right_points;
@@ -243,11 +245,12 @@ class KDTree : NonCopyable, NonMovable {
 
   BLI_NOINLINE Node *build_tree__three_levels(MutableSpan<Point> points)
   {
-    InnerNode *inner1 = new InnerNode();
-    std::array<InnerNode *, 2> inner2 = {new InnerNode(), new InnerNode()};
+    InnerNode *inner1 = allocator_.construct<InnerNode>();
+    std::array<InnerNode *, 2> inner2 = {allocator_.construct<InnerNode>(),
+                                         allocator_.construct<InnerNode>()};
     std::array<std::array<InnerNode *, 2>, 2> inner3;
-    inner3[0] = {new InnerNode(), new InnerNode()};
-    inner3[1] = {new InnerNode(), new InnerNode()};
+    inner3[0] = {allocator_.construct<InnerNode>(), allocator_.construct<InnerNode>()};
+    inner3[1] = {allocator_.construct<InnerNode>(), allocator_.construct<InnerNode>()};
 
     inner1->children = {inner2[0], inner2[1]};
     inner2[0]->children = {inner3[0][0], inner3[0][1]};
@@ -302,7 +305,7 @@ class KDTree : NonCopyable, NonMovable {
       return this->build_tree__leaf(points);
     }
 
-    InnerNode *node = new InnerNode();
+    InnerNode *node = allocator_.construct<InnerNode>();
     node->split.dim = this->find_best_split_dim(points);
     const int median_pos = points.size() / 2;
     this->sort_around_nth_element(points, median_pos, node->split.dim);
@@ -494,10 +497,11 @@ class KDTree : NonCopyable, NonMovable {
       InnerNode *inner_node = static_cast<InnerNode *>(node);
       this->free_tree(inner_node->children[0]);
       this->free_tree(inner_node->children[1]);
-      delete inner_node;
+      inner_node->~InnerNode();
     }
     else {
-      delete static_cast<LeafNode *>(node);
+      LeafNode *leaf_node = static_cast<LeafNode *>(node);
+      leaf_node->~LeafNode();
     }
   }
 
