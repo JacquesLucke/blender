@@ -105,6 +105,11 @@ template<typename T> class EnumerableThreadSpecific {
     return tbb_data_.local();
   }
 
+  T &local(bool &exists)
+  {
+    return tbb_data_.local(exists);
+  }
+
   auto begin()
   {
     return tbb_data_.begin();
@@ -125,8 +130,18 @@ template<typename T> class EnumerableThreadSpecific {
 
   T &local()
   {
+    bool exists;
+    return this->local(exists);
+  }
+
+  T &local(bool &exists)
+  {
     if (!fallback_data_.has_value()) {
+      exists = false;
       fallback_data_ = T();
+    }
+    else {
+      exists = true;
     }
     return *fallback_data_;
   }
