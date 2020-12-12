@@ -492,13 +492,7 @@ class KDTree : NonCopyable, NonMovable {
         Span<Point> sub_points = points.take_front(chunk_size);
         points = points.drop_front(chunk_size);
 
-        for (const Point &point : sub_points) {
-          const int i1 = adapter_.get(point, split1.dim) > split1.value;
-          const int i2 = adapter_.get(point, split2[i1].dim) > split2[i1].value;
-          const int i3 = adapter_.get(point, split3[i1 * 2 + i2].dim) > split3[i1 * 2 + i2].value;
-          const int bucket_index = i1 * 4 + i2 * 2 + i3;
-          current_buckets[bucket_index].append(point);
-        }
+        this->move_points_to_buckets(sub_points, current_buckets, split1, split2, split3);
 
         if (points.size() > 0) {
           for (const int i : IndexRange(8)) {
@@ -520,6 +514,23 @@ class KDTree : NonCopyable, NonMovable {
       else {
         r_buckets[bucket_index].append(current_bucket);
       }
+    }
+  }
+
+  BLI_NOINLINE void move_points_to_buckets(Span<Point> points,
+                                           std::array<VectorAdaptor<Point>, 8> &buckets,
+                                           const SplitInfo split1,
+                                           const std::array<SplitInfo, 2> &split2,
+                                           const std::array<SplitInfo, 4> &split3) const
+  {
+    // std::cout << points.size() << "\n";
+    // SCOPED_TIMER(__func__);
+    for (const Point &point : points) {
+      const int i1 = adapter_.get(point, split1.dim) > split1.value;
+      const int i2 = adapter_.get(point, split2[i1].dim) > split2[i1].value;
+      const int i3 = adapter_.get(point, split3[i1 * 2 + i2].dim) > split3[i1 * 2 + i2].value;
+      const int bucket_index = i1 * 4 + i2 * 2 + i3;
+      buckets[bucket_index].append(point);
     }
   }
 
