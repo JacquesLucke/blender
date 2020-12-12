@@ -496,7 +496,14 @@ class KDTree : NonCopyable, NonMovable {
         Span<Point> sub_points = points.take_front(chunk_size);
         points = points.drop_front(chunk_size);
 
-        this->move_points_to_buckets(sub_points, current_buckets, splits);
+        std::array<Point *, 8> end_pointers;
+        for (const int i : IndexRange(8)) {
+          end_pointers[i] = current_buckets[i].end();
+        }
+        this->move_points_to_buckets(sub_points, end_pointers, splits);
+        for (const int i : IndexRange(8)) {
+          current_buckets[i].set_end(end_pointers[i]);
+        }
 
         if (points.size() > 0) {
           for (const int i : IndexRange(8)) {
@@ -522,7 +529,7 @@ class KDTree : NonCopyable, NonMovable {
   }
 
   BLI_NOINLINE void move_points_to_buckets(Span<Point> points,
-                                           std::array<VectorAdaptor<Point>, 8> &buckets,
+                                           std::array<Point *, 8> &buckets,
                                            const ThreeSplitsInfo &splits) const
   {
     // std::cout << points.size() << "\n";
@@ -532,7 +539,7 @@ class KDTree : NonCopyable, NonMovable {
       const int i2 = adapter_.get(point, splits.b[i1].dim) > splits.b[i1].value;
       const int i3 = adapter_.get(point, splits.c[i1 * 2 + i2].dim) > splits.c[i1 * 2 + i2].value;
       const int bucket_index = i1 * 4 + i2 * 2 + i3;
-      buckets[bucket_index].append(point);
+      new (buckets[bucket_index]++) Point(point);
     }
   }
 
