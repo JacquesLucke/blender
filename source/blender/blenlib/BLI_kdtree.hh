@@ -26,6 +26,7 @@
 #include "BLI_utildefines.h"
 #include "BLI_utility_mixins.hh"
 #include "BLI_vector.hh"
+#include "BLI_vector_adaptor.hh"
 
 namespace blender::kdtree {
 
@@ -66,6 +67,62 @@ struct InnerNode : public Node {
   }
 };
 
+template<typename Point> class TemporaryPointBuffersCache : NonCopyable, NonMovable {
+ private:
+  const int buffer_size_;
+  SpinLock lock_;
+  Stack<void *> free_list_;
+
+ public:
+  TemporaryPointBuffersCache(const int buffer_size) : buffer_size_(buffer_size)
+  {
+    BLI_assert(buffer_size > 0);
+    BLI_spin_init(&lock_);
+  }
+
+  ~TemporaryPointBuffersCache()
+  {
+    while (!free_list_.is_empty()) {
+      void *buffer = free_list_.pop();
+      MEM_freeN(buffer);
+    }
+  }
+
+  int buffer_size() const
+  {
+    return buffer_size_;
+  }
+
+  VectorAdaptor<Point> allocate()
+  {
+    void *buffer;
+    if (free_list_.is_empty()) {
+      buffer = MEM_malloc_arrayN(buffer_size_, sizeof(Point), "kdtree temporary buffer");
+    }
+    else {
+      BLI_spin_lock(&lock_);
+      buffer = free_list_.pop();
+      BLI_spin_unlock(&lock_);
+    }
+    return VectorAdaptor{static_cast<Point *>(buffer), buffer_size_};
+  }
+
+  void deallocate(Point *buffer)
+  {
+    BLI_spin_lock(&lock_);
+    free_list_.push(buffer);
+    BLI_spin_unlock(&lock_);
+  }
+
+  void destruct_and_deallocate(Span<MutableSpan<Point>> buffers)
+  {
+    for (MutableSpan<Point> buffer : buffers) {
+      destruct_n(buffer.data(), buffer.size());
+      this->deallocate(buffer.data());
+    }
+  }
+};
+
 template<typename Point> struct DefaultPointAdapter {
 };
 
@@ -75,6 +132,7 @@ template<typename Point,
 class KDTree : NonCopyable, NonMovable {
  private:
   using LeafNode = LeafNode_<Point>;
+  using BufferCache = TemporaryPointBuffersCache<Point>;
   static inline constexpr int DIM = PointAdapater::DIM;
   static inline constexpr int MAX_LEAF_SIZE = MaxLeafSize;
 
@@ -89,7 +147,9 @@ class KDTree : NonCopyable, NonMovable {
   KDTree(Span<Point> points, PointAdapater adapter = {}) : adapter_(adapter)
   {
     BLI_spin_init(&leaf_point_buffers_lock_);
-    root_ = this->build_tree({points}, {});
+
+    BufferCache buffer_cache(10000);
+    root_ = this->build_tree(buffer_cache, {points}, {});
     this->set_parent_and_prefetch_pointers(*root_);
   }
 
@@ -209,8 +269,9 @@ class KDTree : NonCopyable, NonMovable {
   }
 
  private:
-  BLI_NOINLINE Node *build_tree(Span<Span<Point>> point_spans,
-                                Span<Vector<Point> *> owning_vectors)
+  BLI_NOINLINE Node *build_tree(BufferCache &buffer_cache,
+                                Span<Span<Point>> point_spans,
+                                Span<MutableSpan<Point>> owning_spans)
   {
     int tot_points = 0;
     for (Span<Point> points : point_spans) {
@@ -219,18 +280,16 @@ class KDTree : NonCopyable, NonMovable {
 
     if (tot_points <= MaxLeafSize * 128) {
       MutableSpan<Point> stored_points = this->create_leaf_points_buffer(tot_points, point_spans);
-      /* Deallocate memory that is not needed anymore. */
-      for (Vector<Point> *owning_vector : owning_vectors) {
-        owning_vector->clear_and_make_inline();
-      }
+      buffer_cache.destruct_and_deallocate(owning_spans);
       return this->build_tree__last_levels(stored_points);
     }
-    return this->build_tree__three_levels(tot_points, point_spans, owning_vectors);
+    return this->build_tree__three_levels(buffer_cache, tot_points, point_spans, owning_spans);
   }
 
-  BLI_NOINLINE Node *build_tree__three_levels(const int tot_points,
+  BLI_NOINLINE Node *build_tree__three_levels(BufferCache &buffer_cache,
+                                              const int tot_points,
                                               Span<Span<Point>> point_spans,
-                                              Span<Vector<Point> *> owning_vectors)
+                                              Span<MutableSpan<Point>> owning_spans)
   {
     InnerNode *inner1 = allocator_.construct<InnerNode>();
     std::array<InnerNode *, 2> inner2 = {allocator_.construct<InnerNode>(),
@@ -267,22 +326,16 @@ class KDTree : NonCopyable, NonMovable {
     std::array<SplitInfo, 4> split3 = {
         inner3[0]->split, inner3[1]->split, inner3[2]->split, inner3[3]->split};
 
-    EnumerableThreadSpecific<std::array<Vector<Point>, 8>> point_buckets;
+    std::array<Vector<MutableSpan<Point>>, 8> point_buckets;
     this->split_points_three_times(
-        tot_points, point_spans, inner1->split, split2, split3, point_buckets);
-    /* Deallocate memory that is not needed anymore. */
-    for (Vector<Point> *owning_vector : owning_vectors) {
-      owning_vector->clear_and_make_inline();
-    }
+        buffer_cache, point_spans, inner1->split, split2, split3, point_buckets);
+    buffer_cache.destruct_and_deallocate(owning_spans);
 
     for (const int i : IndexRange(8)) {
-      Vector<Span<Point>> spans_for_child;
-      Vector<Vector<Point> *> buckets_for_child;
-      for (std::array<Vector<Point>, 8> &buckets : point_buckets) {
-        spans_for_child.append(buckets[i]);
-        buckets_for_child.append(&buckets[i]);
-      }
-      inner3[i / 2]->children[i % 2] = this->build_tree(spans_for_child, buckets_for_child);
+      Vector<MutableSpan<Point>> &owning_spans_for_child = point_buckets[i];
+      Vector<Span<Point>> spans_for_child = owning_spans_for_child.as_span();
+      inner3[i / 2]->children[i % 2] = this->build_tree(
+          buffer_cache, spans_for_child, owning_spans_for_child);
     }
 
     return inner1;
@@ -407,27 +460,65 @@ class KDTree : NonCopyable, NonMovable {
   }
 
   BLI_NOINLINE void split_points_three_times(
-      const int tot_points,
+      BufferCache &buffer_cache,
       Span<Span<Point>> point_spans,
       const SplitInfo split1,
       const std::array<SplitInfo, 2> &split2,
       const std::array<SplitInfo, 4> &split3,
-      EnumerableThreadSpecific<std::array<Vector<Point>, 8>> &r_buckets) const
+      std::array<Vector<MutableSpan<Point>>, 8> &r_buckets) const
   {
-    std::array<Vector<Point>, 8> &local_buckets = r_buckets.local();
+    // SCOPED_TIMER(__func__);
+    std::array<VectorAdaptor<Point>, 8> current_buckets;
+    const int almost_full_size = buffer_cache.buffer_size() * 0.9;
 
-    /* Overallocate slightly to avoid reallocation in common cases. */
-    const int tot_reserve = tot_points / 8 + tot_points / 20;
-    for (Vector<Point> &bucket : local_buckets) {
-      bucket.reserve(tot_reserve);
+    auto smallest_remaining_capacity = [&]() {
+      int min_capacity = INT32_MAX;
+      for (const VectorAdaptor<Point> &bucket : current_buckets) {
+        if (bucket.remaining_capacity() < min_capacity) {
+          min_capacity = bucket.remaining_capacity();
+        }
+      }
+      return min_capacity;
+    };
+
+    for (VectorAdaptor<Point> &bucket : current_buckets) {
+      bucket = buffer_cache.allocate();
     }
+
     for (Span<Point> points : point_spans) {
-      for (const Point &point : points) {
-        const int i1 = adapter_.get(point, split1.dim) > split1.value;
-        const int i2 = adapter_.get(point, split2[i1].dim) > split2[i1].value;
-        const int i3 = adapter_.get(point, split3[i1 * 2 + i2].dim) > split3[i1 * 2 + i2].value;
-        Vector<Point> &bucket = local_buckets[i1 * 4 + i2 * 2 + i3];
-        bucket.append(point);
+      while (!points.is_empty()) {
+        const int min_capacity = smallest_remaining_capacity();
+        const int chunk_size = std::min<int>(min_capacity, points.size());
+        Span<Point> sub_points = points.take_front(chunk_size);
+        points = points.drop_front(chunk_size);
+
+        for (const Point &point : sub_points) {
+          const int i1 = adapter_.get(point, split1.dim) > split1.value;
+          const int i2 = adapter_.get(point, split2[i1].dim) > split2[i1].value;
+          const int i3 = adapter_.get(point, split3[i1 * 2 + i2].dim) > split3[i1 * 2 + i2].value;
+          const int bucket_index = i1 * 4 + i2 * 2 + i3;
+          current_buckets[bucket_index].append(point);
+        }
+
+        if (points.size() > 0) {
+          for (const int i : IndexRange(8)) {
+            VectorAdaptor<Point> &bucket = current_buckets[i];
+            if (bucket.size() > almost_full_size) {
+              r_buckets[i].append(bucket);
+              bucket = buffer_cache.allocate();
+            }
+          }
+        }
+      }
+    }
+
+    for (const int bucket_index : IndexRange(8)) {
+      MutableSpan<Point> current_bucket = current_buckets[bucket_index];
+      if (current_bucket.is_empty()) {
+        buffer_cache.deallocate(current_bucket.data());
+      }
+      else {
+        r_buckets[bucket_index].append(current_bucket);
       }
     }
   }
