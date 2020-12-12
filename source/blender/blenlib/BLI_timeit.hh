@@ -32,17 +32,24 @@ void print_duration(Nanoseconds duration);
 
 class ScopedTimer {
  private:
+  bool is_active_;
   std::string name_;
   TimePoint start_;
 
  public:
-  ScopedTimer(std::string name) : name_(std::move(name))
+  ScopedTimer(std::string name, bool is_active = true)
+      : is_active_(is_active), name_(std::move(name))
   {
-    start_ = Clock::now();
+    if (is_active) {
+      start_ = Clock::now();
+    }
   }
 
   ~ScopedTimer()
   {
+    if (!is_active_) {
+      return;
+    }
     const TimePoint end = Clock::now();
     const Nanoseconds duration = end - start_;
 
@@ -55,3 +62,5 @@ class ScopedTimer {
 }  // namespace blender::timeit
 
 #define SCOPED_TIMER(name) blender::timeit::ScopedTimer scoped_timer(name)
+#define SCOPED_TIMER_CONDITION(name, is_active) \
+  blender::timeit::ScopedTimer scoped_timer(name, is_active)
