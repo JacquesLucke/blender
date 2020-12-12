@@ -101,14 +101,16 @@ template<typename Point> class TemporaryPointBuffersCache : NonCopyable, NonMova
 
   VectorAdaptor<Point> allocate()
   {
-    void *buffer;
-    if (free_list_.is_empty()) {
-      buffer = MEM_malloc_arrayN(buffer_size_, sizeof(Point), "kdtree temporary buffer");
-    }
-    else {
+    void *buffer = nullptr;
+    if (!free_list_.is_empty()) {
       BLI_spin_lock(&lock_);
-      buffer = free_list_.pop();
+      if (!free_list_.is_empty()) {
+        buffer = free_list_.pop();
+      }
       BLI_spin_unlock(&lock_);
+    }
+    if (buffer == nullptr) {
+      buffer = MEM_malloc_arrayN(buffer_size_, sizeof(Point), "kdtree temporary buffer");
     }
     return VectorAdaptor{static_cast<Point *>(buffer), buffer_size_};
   }
