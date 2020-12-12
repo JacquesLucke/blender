@@ -643,6 +643,14 @@ template<typename T> class MutableSpan {
     int64_t new_size = size_ * sizeof(T) / sizeof(NewT);
     return MutableSpan<NewT>(reinterpret_cast<NewT *>(data_), new_size);
   }
+
+  /**
+   * Returns true if the size is zero.
+   */
+  bool is_empty() const
+  {
+    return size_ == 0;
+  }
 };
 
 /**

@@ -50,6 +50,16 @@ template<typename T> class VectorAdaptor {
   {
   }
 
+  operator Span<T>() const
+  {
+    return Span<T>(begin_, this->size());
+  }
+
+  operator MutableSpan<T>()
+  {
+    return MutableSpan<T>(begin_, this->size());
+  }
+
   void append(const T &value)
   {
     BLI_assert(end_ < capacity_end_);
@@ -96,6 +106,16 @@ template<typename T> class VectorAdaptor {
   bool is_full() const
   {
     return end_ == capacity_end_;
+  }
+
+  T *data()
+  {
+    return begin_;
+  }
+
+  const T *data() const
+  {
+    return begin_;
   }
 };
 
