@@ -144,7 +144,6 @@ class KDTree : NonCopyable, NonMovable {
   static inline constexpr int DIM = PointAdapater::DIM;
   static inline constexpr int MAX_LEAF_SIZE = MaxLeafSize;
 
-  LinearAllocator<> allocator_;
   PointAdapater adapter_;
   Node *root_ = nullptr;
 
@@ -299,13 +298,10 @@ class KDTree : NonCopyable, NonMovable {
                                               Span<Span<Point>> point_spans,
                                               Span<MutableSpan<Point>> owning_spans)
   {
-    InnerNode *inner1 = allocator_.construct<InnerNode>();
-    std::array<InnerNode *, 2> inner2 = {allocator_.construct<InnerNode>(),
-                                         allocator_.construct<InnerNode>()};
-    std::array<InnerNode *, 4> inner3{allocator_.construct<InnerNode>(),
-                                      allocator_.construct<InnerNode>(),
-                                      allocator_.construct<InnerNode>(),
-                                      allocator_.construct<InnerNode>()};
+    InnerNode *inner1 = new InnerNode();
+    std::array<InnerNode *, 2> inner2 = {new InnerNode(), new InnerNode()};
+    std::array<InnerNode *, 4> inner3{
+        new InnerNode(), new InnerNode(), new InnerNode(), new InnerNode()};
 
     inner1->children = {inner2[0], inner2[1]};
     inner2[0]->children = {inner3[0], inner3[1]};
@@ -339,12 +335,18 @@ class KDTree : NonCopyable, NonMovable {
         buffer_cache, point_spans, three_splits);
     buffer_cache.destruct_and_deallocate(owning_spans);
 
+    tbb::task_group tasks;
+
     for (const int i : IndexRange(8)) {
-      Vector<MutableSpan<Point>> &owning_spans_for_child = point_buckets[i];
-      Vector<Span<Point>> spans_for_child = owning_spans_for_child.as_span();
-      inner3[i / 2]->children[i % 2] = this->build_tree(
-          buffer_cache, spans_for_child, owning_spans_for_child);
+      tasks.run([&, i]() {
+        Vector<MutableSpan<Point>> &owning_spans_for_child = point_buckets[i];
+        Vector<Span<Point>> spans_for_child = owning_spans_for_child.as_span();
+        inner3[i / 2]->children[i % 2] = this->build_tree(
+            buffer_cache, spans_for_child, owning_spans_for_child);
+      });
     }
+
+    tasks.wait();
 
     return inner1;
   }
@@ -358,7 +360,7 @@ class KDTree : NonCopyable, NonMovable {
       return this->build_tree__last_levels_approximate(points);
     }
 
-    InnerNode *node = allocator_.construct<InnerNode>();
+    InnerNode *node = new InnerNode();
     node->split.dim = this->find_best_split_dim(points);
     const int median_pos = points.size() / 2;
     this->sort_around_nth_element(points, median_pos, node->split.dim);
@@ -371,14 +373,14 @@ class KDTree : NonCopyable, NonMovable {
 
   BLI_NOINLINE Node *build_tree__leaf(MutableSpan<Point> points)
   {
-    LeafNode *node = allocator_.construct<LeafNode>();
+    LeafNode *node = new LeafNode();
     node->points = points;
     return node;
   }
 
   BLI_NOINLINE Node *build_tree__last_levels_approximate(MutableSpan<Point> points)
   {
-    InnerNode *node = allocator_.construct<InnerNode>();
+    InnerNode *node = new InnerNode();
     node->split = this->find_splitter_approximate(points);
 
     MutableSpan<Point> left_points, right_points;
@@ -676,11 +678,11 @@ class KDTree : NonCopyable, NonMovable {
       InnerNode *inner_node = static_cast<InnerNode *>(node);
       this->free_tree(inner_node->children[0]);
       this->free_tree(inner_node->children[1]);
-      inner_node->~InnerNode();
+      delete inner_node;
     }
     else {
       LeafNode *leaf_node = static_cast<LeafNode *>(node);
-      leaf_node->~LeafNode();
+      delete leaf_node;
     }
   }
 
