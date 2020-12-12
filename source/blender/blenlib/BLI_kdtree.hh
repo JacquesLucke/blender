@@ -21,6 +21,7 @@
 #include "BLI_rand.hh"
 #include "BLI_stack.hh"
 #include "BLI_task.hh"
+#include "BLI_threads.h"
 #include "BLI_timeit.hh"
 #include "BLI_utildefines.h"
 #include "BLI_utility_mixins.hh"
@@ -81,9 +82,13 @@ class KDTree : NonCopyable, NonMovable {
   PointAdapater adapter_;
   Node *root_ = nullptr;
 
+  SpinLock leaf_point_buffers_lock_;
+  Vector<MutableSpan<Point>> leaf_point_buffers_;
+
  public:
   KDTree(Span<Point> points, PointAdapater adapter = {}) : adapter_(adapter)
   {
+    BLI_spin_init(&leaf_point_buffers_lock_);
     root_ = this->build_tree({points}, {});
     this->set_parent_and_prefetch_pointers(*root_);
   }
@@ -91,6 +96,7 @@ class KDTree : NonCopyable, NonMovable {
   ~KDTree()
   {
     if (root_ != nullptr) {
+      this->free_leaf_point_buffers();
       this->free_tree(root_);
     }
   }
@@ -212,12 +218,7 @@ class KDTree : NonCopyable, NonMovable {
     }
 
     if (tot_points <= MaxLeafSize * 128) {
-      MutableSpan<Point> stored_points = allocator_.allocate_array<Point>(tot_points);
-      int offset = 0;
-      for (Span<Point> points : point_spans) {
-        initialized_copy_n(points.data(), points.size(), stored_points.data() + offset);
-        offset += points.size();
-      }
+      MutableSpan<Point> stored_points = this->create_leaf_points_buffer(tot_points, point_spans);
       /* Deallocate memory that is not needed anymore. */
       for (Vector<Point> *owning_vector : owning_vectors) {
         owning_vector->clear_and_make_inline();
@@ -491,6 +492,24 @@ class KDTree : NonCopyable, NonMovable {
 #endif
   }
 
+  BLI_NOINLINE MutableSpan<Point> create_leaf_points_buffer(const int tot_points,
+                                                            Span<Span<Point>> point_spans)
+  {
+    void *buffer = MEM_malloc_arrayN(tot_points, sizeof(Point), __func__);
+    MutableSpan<Point> leaf_points{static_cast<Point *>(buffer), tot_points};
+    int offset = 0;
+    for (Span<Point> points : point_spans) {
+      uninitialized_copy_n(points.data(), points.size(), leaf_points.data() + offset);
+      offset += points.size();
+    }
+
+    BLI_spin_lock(&leaf_point_buffers_lock_);
+    leaf_point_buffers_.append(leaf_points);
+    BLI_spin_unlock(&leaf_point_buffers_lock_);
+
+    return leaf_points;
+  }
+
   BLI_NOINLINE void set_parent_and_prefetch_pointers(Node &node)
   {
     this->foreach_inner_node(node, [](const InnerNode &inner_node_const) {
@@ -509,6 +528,14 @@ class KDTree : NonCopyable, NonMovable {
         }
       }
     });
+  }
+
+  BLI_NOINLINE void free_leaf_point_buffers()
+  {
+    for (MutableSpan<Point> points : leaf_point_buffers_) {
+      destruct_n(points.data(), points.size());
+      MEM_freeN(points.data());
+    }
   }
 
   BLI_NOINLINE void free_tree(Node *node)
