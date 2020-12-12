@@ -210,7 +210,8 @@ class KDTree : NonCopyable, NonMovable {
       const float radius = std::numeric_limits<float>::infinity()) const
   {
     float max_distance_sq = radius * radius;
-    this->foreach_in_shrinking_radius_internal(*root_, co, func, &max_distance_sq);
+    const LeafNode &initial_leaf = this->find_initial_leaf(*root_, co);
+    this->foreach_in_shrinking_radius_internal(initial_leaf, co, func, &max_distance_sq);
   }
 
   template<typename Func>
@@ -719,12 +720,11 @@ class KDTree : NonCopyable, NonMovable {
   }
 
   template<typename Func>
-  BLI_NOINLINE void foreach_in_shrinking_radius_internal(const Node &root,
+  BLI_NOINLINE void foreach_in_shrinking_radius_internal(const LeafNode &initial_leaf,
                                                          const float *co,
                                                          const Func &func,
                                                          float *r_max_distance_sq) const
   {
-    const LeafNode &initial_leaf = this->find_initial_leaf(root, co);
     this->foreach_in_shrinking_radius_handle_leaf(initial_leaf, co, func, r_max_distance_sq);
 
     const Node *current_node = initial_leaf.parent;
