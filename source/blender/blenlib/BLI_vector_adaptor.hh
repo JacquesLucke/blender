@@ -122,6 +122,23 @@ template<typename T> class VectorAdaptor {
   {
     return begin_;
   }
+
+  T *begin()
+  {
+    return begin_;
+  }
+
+  T *end()
+  {
+    return end_;
+  }
+
+  void set_end(T *new_end)
+  {
+    BLI_assert(begin_ <= new_end);
+    BLI_assert(new_end <= capacity_end_);
+    end_ = new_end;
+  }
 };
 
 }  // namespace blender
