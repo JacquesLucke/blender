@@ -98,6 +98,11 @@ template<typename T> class VectorAdaptor {
     return end_ - begin_;
   }
 
+  int64_t remaining_capacity() const
+  {
+    return capacity_end_ - end_;
+  }
+
   bool is_empty() const
   {
     return begin_ == end_;
