@@ -564,23 +564,17 @@ class KDTree : NonCopyable, NonMovable {
                                                          float *r_max_distance_sq) const
   {
     const LeafNode &initial_leaf = this->find_initial_leaf(root, co);
-    const Node *current_node = &initial_leaf;
-    bool just_went_down = true;
+    this->foreach_in_shrinking_radius_handle_leaf(initial_leaf, co, func, r_max_distance_sq);
+
+    const Node *current_node = initial_leaf.parent;
+    bool just_went_down = false;
 
     Stack<const InnerNode *> finished_inner_nodes;
 
     while (current_node != nullptr) {
       if (current_node->type == NodeType::Leaf) {
         const LeafNode &leaf_node = *static_cast<const LeafNode *>(current_node);
-        for (const Point &point : leaf_node.points) {
-          const float distance_sq = this->calc_distance_sq(co, point);
-          if (distance_sq <= *r_max_distance_sq) {
-            float new_max_distance_sq = *r_max_distance_sq;
-            func(point, distance_sq, &new_max_distance_sq);
-            BLI_assert(new_max_distance_sq <= *r_max_distance_sq);
-            *r_max_distance_sq = new_max_distance_sq;
-          }
-        }
+        this->foreach_in_shrinking_radius_handle_leaf(leaf_node, co, func, r_max_distance_sq);
         current_node = current_node->parent;
         just_went_down = false;
       }
@@ -612,6 +606,23 @@ class KDTree : NonCopyable, NonMovable {
             }
           }
         }
+      }
+    }
+  }
+
+  template<typename Func>
+  BLI_NOINLINE void foreach_in_shrinking_radius_handle_leaf(const LeafNode &node,
+                                                            const float *co,
+                                                            const Func &func,
+                                                            float *r_max_distance_sq) const
+  {
+    for (const Point &point : node.points) {
+      const float distance_sq = this->calc_distance_sq(co, point);
+      if (distance_sq <= *r_max_distance_sq) {
+        float new_max_distance_sq = *r_max_distance_sq;
+        func(point, distance_sq, &new_max_distance_sq);
+        BLI_assert(new_max_distance_sq <= *r_max_distance_sq);
+        *r_max_distance_sq = new_max_distance_sq;
       }
     }
   }
