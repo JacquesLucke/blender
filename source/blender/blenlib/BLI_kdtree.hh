@@ -333,8 +333,8 @@ class KDTree : NonCopyable, NonMovable {
         {inner2[0]->split, inner2[1]->split},
         {inner3[0]->split, inner3[1]->split, inner3[2]->split, inner3[3]->split}};
 
-    std::array<Vector<MutableSpan<Point>>, 8> point_buckets;
-    this->split_points_three_times(buffer_cache, point_spans, three_splits, point_buckets);
+    std::array<Vector<MutableSpan<Point>>, 8> point_buckets = this->split_points_three_times(
+        buffer_cache, point_spans, three_splits);
     buffer_cache.destruct_and_deallocate(owning_spans);
 
     for (const int i : IndexRange(8)) {
@@ -465,13 +465,13 @@ class KDTree : NonCopyable, NonMovable {
         });
   }
 
-  BLI_NOINLINE void split_points_three_times(
+  BLI_NOINLINE std::array<Vector<MutableSpan<Point>>, 8> split_points_three_times(
       BufferCache &buffer_cache,
       Span<Span<Point>> point_spans,
-      const ThreeSplitsInfo &splits,
-      std::array<Vector<MutableSpan<Point>>, 8> &r_buckets) const
+      const ThreeSplitsInfo &splits) const
   {
-    // SCOPED_TIMER(__func__);
+    std::array<Vector<MutableSpan<Point>>, 8> output_buckets;
+
     std::array<VectorAdaptor<Point>, 8> current_buckets;
     const int almost_full_size = buffer_cache.buffer_size() * 0.9;
 
@@ -509,7 +509,7 @@ class KDTree : NonCopyable, NonMovable {
           for (const int i : IndexRange(8)) {
             VectorAdaptor<Point> &bucket = current_buckets[i];
             if (bucket.size() >= almost_full_size) {
-              r_buckets[i].append(bucket);
+              output_buckets[i].append(bucket);
               bucket = buffer_cache.allocate();
             }
           }
@@ -523,9 +523,11 @@ class KDTree : NonCopyable, NonMovable {
         buffer_cache.deallocate(current_bucket.data());
       }
       else {
-        r_buckets[bucket_index].append(current_bucket);
+        output_buckets[bucket_index].append(current_bucket);
       }
     }
+
+    return output_buckets;
   }
 
   BLI_NOINLINE void move_points_to_buckets(Span<Point> points,
