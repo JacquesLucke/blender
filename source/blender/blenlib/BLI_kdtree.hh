@@ -508,7 +508,7 @@ class KDTree : NonCopyable, NonMovable {
         if (points.size() > 0) {
           for (const int i : IndexRange(8)) {
             VectorAdaptor<Point> &bucket = current_buckets[i];
-            if (bucket.size() > almost_full_size) {
+            if (bucket.size() >= almost_full_size) {
               r_buckets[i].append(bucket);
               bucket = buffer_cache.allocate();
             }
