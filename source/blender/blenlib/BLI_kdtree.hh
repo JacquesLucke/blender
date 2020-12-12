@@ -74,52 +74,19 @@ struct InnerNode : public Node {
 };
 
 template<typename Point> class TemporaryPointBuffersCache : NonCopyable, NonMovable {
- private:
-  const int buffer_size_;
-  SpinLock lock_;
-  Stack<void *> free_list_;
-
  public:
-  TemporaryPointBuffersCache(const int buffer_size) : buffer_size_(buffer_size)
-  {
-    BLI_assert(buffer_size > 0);
-    BLI_spin_init(&lock_);
-  }
+  TemporaryPointBuffersCache() = default;
+  ~TemporaryPointBuffersCache() = default;
 
-  ~TemporaryPointBuffersCache()
+  VectorAdaptor<Point> allocate(const int size)
   {
-    while (!free_list_.is_empty()) {
-      void *buffer = free_list_.pop();
-      MEM_freeN(buffer);
-    }
-  }
-
-  int buffer_size() const
-  {
-    return buffer_size_;
-  }
-
-  VectorAdaptor<Point> allocate()
-  {
-    void *buffer = nullptr;
-    if (!free_list_.is_empty()) {
-      BLI_spin_lock(&lock_);
-      if (!free_list_.is_empty()) {
-        buffer = free_list_.pop();
-      }
-      BLI_spin_unlock(&lock_);
-    }
-    if (buffer == nullptr) {
-      buffer = MEM_malloc_arrayN(buffer_size_, sizeof(Point), "kdtree temporary buffer");
-    }
-    return VectorAdaptor{static_cast<Point *>(buffer), buffer_size_};
+    void *buffer = MEM_malloc_arrayN(size, sizeof(Point), "kdtree temporary buffer");
+    return VectorAdaptor{static_cast<Point *>(buffer), size};
   }
 
   void deallocate(Point *buffer)
   {
-    BLI_spin_lock(&lock_);
-    free_list_.push(buffer);
-    BLI_spin_unlock(&lock_);
+    MEM_freeN(buffer);
   }
 
   void destruct_and_deallocate(Span<MutableSpan<Point>> buffers)
@@ -155,7 +122,7 @@ class KDTree : NonCopyable, NonMovable {
   {
     BLI_spin_init(&leaf_point_buffers_lock_);
 
-    BufferCache buffer_cache(10000);
+    BufferCache buffer_cache;
     root_ = this->build_tree(buffer_cache, {points}, {});
     this->set_parent_and_prefetch_pointers(*root_);
   }
@@ -333,7 +300,7 @@ class KDTree : NonCopyable, NonMovable {
         {inner3[0]->split, inner3[1]->split, inner3[2]->split, inner3[3]->split}};
 
     std::array<Vector<MutableSpan<Point>>, 8> point_buckets = this->split_points_three_times(
-        buffer_cache, point_spans, three_splits);
+        tot_points, buffer_cache, point_spans, three_splits);
     buffer_cache.destruct_and_deallocate(owning_spans);
 
     tbb::task_group tasks;
@@ -471,27 +438,27 @@ class KDTree : NonCopyable, NonMovable {
   }
 
   BLI_NOINLINE std::array<Vector<MutableSpan<Point>>, 8> split_points_three_times(
+      const int tot_points,
       BufferCache &buffer_cache,
       Span<Span<Point>> point_spans,
       const ThreeSplitsInfo &splits) const
   {
     std::array<Vector<MutableSpan<Point>>, 8> output_buckets;
-    SpinLock output_buckets_lock;
-    BLI_spin_init(&output_buckets_lock);
     this->split_points_in_temporary_buffers(
-        buffer_cache, point_spans, splits, output_buckets_lock, output_buckets);
+        tot_points, buffer_cache, point_spans, splits, output_buckets);
     return output_buckets;
   }
 
   BLI_NOINLINE void split_points_in_temporary_buffers(
+      const int tot_points,
       BufferCache &buffer_cache,
       Span<Span<Point>> point_spans,
       const ThreeSplitsInfo &splits,
-      SpinLock &UNUSED(buckets_lock),
       std::array<Vector<MutableSpan<Point>>, 8> &r_buckets) const
   {
     std::array<VectorAdaptor<Point>, 8> current_buckets;
-    const int almost_full_size = buffer_cache.buffer_size() * 0.9;
+    const int buffer_size = tot_points / 6;
+    const int almost_full_size = buffer_size * 0.8;
 
     auto smallest_remaining_capacity = [&]() {
       int min_capacity = INT32_MAX;
@@ -504,7 +471,7 @@ class KDTree : NonCopyable, NonMovable {
     };
 
     for (VectorAdaptor<Point> &bucket : current_buckets) {
-      bucket = buffer_cache.allocate();
+      bucket = buffer_cache.allocate(buffer_size);
     }
 
     for (Span<Point> points : point_spans) {
@@ -528,7 +495,7 @@ class KDTree : NonCopyable, NonMovable {
             VectorAdaptor<Point> &bucket = current_buckets[i];
             if (bucket.size() >= almost_full_size) {
               r_buckets[i].append(bucket);
-              bucket = buffer_cache.allocate();
+              bucket = buffer_cache.allocate(buffer_size);
             }
           }
         }
