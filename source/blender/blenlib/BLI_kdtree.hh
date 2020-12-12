@@ -471,7 +471,20 @@ class KDTree : NonCopyable, NonMovable {
       const ThreeSplitsInfo &splits) const
   {
     std::array<Vector<MutableSpan<Point>>, 8> output_buckets;
+    SpinLock output_buckets_lock;
+    BLI_spin_init(&output_buckets_lock);
+    this->split_points_in_temporary_buffers(
+        buffer_cache, point_spans, splits, output_buckets_lock, output_buckets);
+    return output_buckets;
+  }
 
+  BLI_NOINLINE void split_points_in_temporary_buffers(
+      BufferCache &buffer_cache,
+      Span<Span<Point>> point_spans,
+      const ThreeSplitsInfo &splits,
+      SpinLock &UNUSED(buckets_lock),
+      std::array<Vector<MutableSpan<Point>>, 8> &r_buckets) const
+  {
     std::array<VectorAdaptor<Point>, 8> current_buckets;
     const int almost_full_size = buffer_cache.buffer_size() * 0.9;
 
@@ -509,7 +522,7 @@ class KDTree : NonCopyable, NonMovable {
           for (const int i : IndexRange(8)) {
             VectorAdaptor<Point> &bucket = current_buckets[i];
             if (bucket.size() >= almost_full_size) {
-              output_buckets[i].append(bucket);
+              r_buckets[i].append(bucket);
               bucket = buffer_cache.allocate();
             }
           }
@@ -523,11 +536,9 @@ class KDTree : NonCopyable, NonMovable {
         buffer_cache.deallocate(current_bucket.data());
       }
       else {
-        output_buckets[bucket_index].append(current_bucket);
+        r_buckets[bucket_index].append(current_bucket);
       }
     }
-
-    return output_buckets;
   }
 
   BLI_NOINLINE void move_points_to_buckets(Span<Point> points,
