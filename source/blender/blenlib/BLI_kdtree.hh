@@ -535,12 +535,18 @@ class KDTree : NonCopyable, NonMovable {
     // std::cout << points.size() << "\n";
     // SCOPED_TIMER(__func__);
     for (const Point &point : points) {
-      const int i1 = adapter_.get(point, splits.a.dim) > splits.a.value;
-      const int i2 = adapter_.get(point, splits.b[i1].dim) > splits.b[i1].value;
-      const int i3 = adapter_.get(point, splits.c[i1 * 2 + i2].dim) > splits.c[i1 * 2 + i2].value;
-      const int bucket_index = i1 * 4 + i2 * 2 + i3;
+      const int bucket_index = this->compute_bucket_index(point, splits);
       new (buckets[bucket_index]++) Point(point);
     }
+  }
+
+  int compute_bucket_index(const Point &point, const ThreeSplitsInfo &splits) const
+  {
+    const int i1 = adapter_.get(point, splits.a.dim) > splits.a.value;
+    const int i2 = adapter_.get(point, splits.b[i1].dim) > splits.b[i1].value;
+    const int i3 = adapter_.get(point, splits.c[i1 * 2 + i2].dim) > splits.c[i1 * 2 + i2].value;
+    const int bucket_index = i1 * 4 + i2 * 2 + i3;
+    return bucket_index;
   }
 
   BLI_NOINLINE void split_points(MutableSpan<Point> points,
