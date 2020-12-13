@@ -206,4 +206,48 @@ TEST(kdtree, FindNearest_Large)
   BLI_kdtree_3d_free(kdtree_old);
 }
 
+TEST(kdtree, FindRange_Large)
+{
+  Array<float3> points = generate_random_float3s(100'000, 0);
+  KDTree<float3> kdtree_new{points};
+  KDTree_3d *kdtree_old = BLI_kdtree_3d_new(points.size());
+  for (const int i : points.index_range()) {
+    BLI_kdtree_3d_insert(kdtree_old, i, points[i]);
+  }
+  BLI_kdtree_3d_balance(kdtree_old);
+
+  Array<float3> query_points = generate_random_float3s(10'000, 23);
+  const float radius = 0.04f;
+
+  for (const float3 &query_point : query_points) {
+    Vector<float3> points_new;
+    kdtree_new.foreach_in_radius(
+        query_point, radius, [&](const float3 &point, const float UNUSED(distance_sq)) {
+          points_new.append(point);
+        });
+
+    struct OldKDTreeUserData {
+      Vector<float3> points_old;
+    } user_data;
+
+    BLI_kdtree_3d_range_search_cb(
+        kdtree_old,
+        query_point,
+        radius,
+        [](void *user_data, int UNUSED(index), const float *co, float UNUSED(dist_sq)) {
+          OldKDTreeUserData *data = static_cast<OldKDTreeUserData *>(user_data);
+          data->points_old.append(co);
+          return true;
+        },
+        &user_data);
+
+    EXPECT_EQ(points_new.size(), user_data.points_old.size());
+    for (const float3 &point : points_new) {
+      EXPECT_TRUE(user_data.points_old.contains(point));
+    }
+  }
+
+  BLI_kdtree_3d_free(kdtree_old);
+}
+
 }  // namespace blender::kdtree::tests
