@@ -454,8 +454,35 @@ class KDTree : NonCopyable, NonMovable {
     std::array<Vector<MutableSpan<Point>>, 8> output_buckets;
     SpinLock lock;
     BLI_spin_init(&lock);
-    this->split_points_in_temporary_buffers(
-        tot_points, buffer_cache, point_spans, splits, lock, output_buckets);
+
+    const int thread_count = BLI_system_thread_count();
+    const int target_size = std::max(20'000, tot_points / thread_count / 4);
+
+    Vector<Span<Point>> current_spans;
+    int remaining_capacity = target_size;
+
+    for (Span<Point> points : point_spans) {
+      while (!points.is_empty()) {
+        const int chunk_size = std::min<int>(points.size(), remaining_capacity);
+        current_spans.append(points.take_front(chunk_size));
+        points = points.drop_front(chunk_size);
+        remaining_capacity -= chunk_size;
+
+        if (remaining_capacity == 0) {
+          this->split_points_in_temporary_buffers(
+              target_size, buffer_cache, current_spans, splits, lock, output_buckets);
+          current_spans.clear();
+          remaining_capacity = target_size;
+        }
+      }
+    }
+
+    this->split_points_in_temporary_buffers(target_size - remaining_capacity,
+                                            buffer_cache,
+                                            current_spans,
+                                            splits,
+                                            lock,
+                                            output_buckets);
     return output_buckets;
   }
 
