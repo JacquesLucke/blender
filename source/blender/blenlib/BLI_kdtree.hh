@@ -282,7 +282,7 @@ class KDTree : NonCopyable, NonMovable {
     inner2[1]->children = {inner3[2], inner3[3]};
 
     const int sample_size = std::min<int>(2000, std::max(100, tot_points / 100));
-    Array<Point> point_samples = this->get_random_samples(point_spans, sample_size);
+    Array<Point> point_samples = this->get_random_samples(tot_points, point_spans, sample_size);
     inner1->split = this->find_splitter_exact(point_samples);
 
     std::array<MutableSpan<Point>, 2> split_points1;
@@ -389,10 +389,25 @@ class KDTree : NonCopyable, NonMovable {
     return point_samples;
   }
 
-  BLI_NOINLINE Array<Point> get_random_samples(Span<Span<Point>> points, const int amount) const
+  BLI_NOINLINE Array<Point> get_random_samples(const int tot_points,
+                                               Span<Span<Point>> point_spans,
+                                               const int amount) const
   {
-    /* TODO: Take samples from all spans. */
-    return this->get_random_samples(points[0], amount);
+    Array<Point> point_samples_array(amount);
+    VectorAdaptor<Point> point_samples(point_samples_array);
+    RandomNumberGenerator rng;
+    for (const int i : point_spans.index_range()) {
+      Span<Point> points = point_spans[i];
+      const float percentage = points.size() / (float)tot_points;
+      int samples_from_span = amount * percentage;
+      if (i == point_spans.size() - 1) {
+        samples_from_span = point_samples.remaining_capacity();
+      }
+      for (int i = 0; i < samples_from_span; i++) {
+        point_samples.append(points[rng.get_int32(points.size())]);
+      }
+    }
+    return point_samples_array;
   }
 
   BLI_NOINLINE SplitInfo find_splitter_exact(MutableSpan<Point> points) const
@@ -566,8 +581,6 @@ class KDTree : NonCopyable, NonMovable {
                                            std::array<Point *, 8> &buckets,
                                            const ThreeSplitsInfo &splits) const
   {
-    // std::cout << points.size() << "\n";
-    // SCOPED_TIMER(__func__);
     for (const Point &point : points) {
       const int bucket_index = this->compute_bucket_index(point, splits);
       new (buckets[bucket_index]++) Point(point);
