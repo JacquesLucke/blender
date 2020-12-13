@@ -217,9 +217,11 @@ TEST(kdtree, FindRange_Large)
   BLI_kdtree_3d_balance(kdtree_old);
 
   Array<float3> query_points = generate_random_float3s(10'000, 23);
-  const float radius = 0.04f;
+  RandomNumberGenerator rng;
 
   for (const float3 &query_point : query_points) {
+    const float radius = rng.get_float() * 0.05f;
+
     Vector<float3> points_new;
     kdtree_new.foreach_in_radius(
         query_point, radius, [&](const float3 &point, const float UNUSED(distance_sq)) {
