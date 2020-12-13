@@ -165,4 +165,36 @@ template<typename T> class EnumerableThreadSpecific {
 #endif /* WITH_TBB */
 };
 
+class TBBTaskGroup {
+#ifdef WITH_TBB
+
+ private:
+  tbb::task_group task_group_;
+
+ public:
+  template<typename Func> void run(Func &&func)
+  {
+    task_group_.run(std::forward<Func>(func));
+  }
+
+  void wait()
+  {
+    task_group_.wait();
+  }
+
+#else /* WITH_TBB */
+
+ public:
+  template<typename Func> void run(Func &&func)
+  {
+    func();
+  }
+
+  void wait()
+  {
+  }
+
+#endif /* WITH_TBB */
+};
+
 }  // namespace blender
