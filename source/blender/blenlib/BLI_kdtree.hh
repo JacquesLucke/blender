@@ -461,6 +461,8 @@ class KDTree : NonCopyable, NonMovable {
     Vector<Span<Point>> current_spans;
     int remaining_capacity = target_size;
 
+    TBBTaskGroup task_group;
+
     for (Span<Point> points : point_spans) {
       while (!points.is_empty()) {
         const int chunk_size = std::min<int>(points.size(), remaining_capacity);
@@ -469,8 +471,10 @@ class KDTree : NonCopyable, NonMovable {
         remaining_capacity -= chunk_size;
 
         if (remaining_capacity == 0) {
-          this->split_points_in_temporary_buffers(
-              target_size, buffer_cache, current_spans, splits, lock, output_buckets);
+          task_group.run([&, current_spans]() {
+            this->split_points_in_temporary_buffers(
+                target_size, buffer_cache, current_spans, splits, lock, output_buckets);
+          });
           current_spans.clear();
           remaining_capacity = target_size;
         }
@@ -483,6 +487,9 @@ class KDTree : NonCopyable, NonMovable {
                                             splits,
                                             lock,
                                             output_buckets);
+
+    task_group.wait();
+
     return output_buckets;
   }
 
