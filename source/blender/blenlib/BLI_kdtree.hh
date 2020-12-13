@@ -495,8 +495,8 @@ class KDTree : NonCopyable, NonMovable {
       std::array<Vector<MutableSpan<Point>>, 8> &r_buckets) const
   {
     std::array<VectorAdaptor<Point>, 8> current_buckets;
-    const int buffer_size = tot_points / 6;
-    const int almost_full_size = buffer_size * 0.8;
+    const int buffer_size = std::max(1, tot_points / 6);
+    const int almost_full_size = std::max<int>(1, buffer_size * 0.8);
 
     auto smallest_remaining_capacity = [&]() {
       int min_capacity = INT32_MAX;
