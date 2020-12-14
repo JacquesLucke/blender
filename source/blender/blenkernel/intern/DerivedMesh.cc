@@ -38,10 +38,12 @@
 #include "BLI_array.h"
 #include "BLI_bitmap.h"
 #include "BLI_blenlib.h"
+#include "BLI_float2.hh"
 #include "BLI_linklist.h"
 #include "BLI_math.h"
 #include "BLI_task.h"
 #include "BLI_utildefines.h"
+#include "BLI_vector.hh"
 
 #include "BKE_DerivedMesh.h"
 #include "BKE_bvhutils.h"
@@ -2126,10 +2128,10 @@ Mesh *editbmesh_get_eval_cage_from_orig(struct Depsgraph *depsgraph,
 /***/
 
 /* same as above but for vert coords */
-typedef struct {
+struct MappedUserData {
   float (*vertexcos)[3];
   BLI_bitmap *vertex_visit;
-} MappedUserData;
+};
 
 static void make_vertexcos__mapFunc(void *userData,
                                     int index,
@@ -2204,8 +2206,7 @@ static void mesh_init_origspace(Mesh *mesh)
   MPoly *mp = mesh->mpoly;
   int i, j, k;
 
-  float(*vcos_2d)[2] = nullptr;
-  BLI_array_staticdeclare(vcos_2d, 64);
+  blender::Vector<blender::float2, 64> vcos_2d;
 
   for (i = 0; i < numpoly; i++, mp++) {
     OrigSpaceLoop *lof = lof_array + mp->loopstart;
@@ -2226,8 +2227,7 @@ static void mesh_init_origspace(Mesh *mesh)
       BKE_mesh_calc_poly_normal(mp, l, mv, p_nor);
       axis_dominant_v3_to_m3(mat, p_nor);
 
-      BLI_array_clear(vcos_2d);
-      BLI_array_reserve(vcos_2d, mp->totloop);
+      vcos_2d.resize(mp->totloop);
       for (j = 0; j < mp->totloop; j++, l++) {
         mul_v3_m3v3(co, mat, mv[l->v].co);
         copy_v2_v2(vcos_2d[j], co);
@@ -2265,7 +2265,6 @@ static void mesh_init_origspace(Mesh *mesh)
   }
 
   BKE_mesh_tessface_clear(mesh);
-  BLI_array_free(vcos_2d);
 }
 
 /* derivedmesh info printing function,
