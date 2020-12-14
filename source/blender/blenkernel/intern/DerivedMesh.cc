@@ -21,8 +21,8 @@
  * \ingroup bke
  */
 
-#include <limits.h>
-#include <string.h>
+#include <climits>
+#include <cstring>
 
 #include "MEM_guardedalloc.h"
 
