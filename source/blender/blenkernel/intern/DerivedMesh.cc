@@ -1529,7 +1529,7 @@ static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
   CustomData_MeshMasks append_mask = CD_MASK_BAREMESH;
 
   /* Evaluate modifiers up to certain index to get the mesh cage. */
-  int cageIndex = BKE_modifiers_get_cage_index(scene, ob, nullptr, 1);
+  int cageIndex = BKE_modifiers_get_cage_index(scene, ob, nullptr, true);
   if (r_cage && cageIndex == -1) {
     mesh_cage = BKE_mesh_wrapper_from_editmesh_with_coords(
         em_input, &final_datamask, nullptr, mesh_input);
