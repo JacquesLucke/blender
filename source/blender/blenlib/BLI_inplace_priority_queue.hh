@@ -46,6 +46,11 @@ template<typename DataArray> class InplacePriorityQueue {
     heap_size_ = final_heap_size;
   }
 
+  std::string all_to_dot() const
+  {
+    return this->partial_to_dot(this->get_data_size());
+  }
+
   std::string partial_to_dot(const int size) const
   {
     dot::DirectedGraph digraph;

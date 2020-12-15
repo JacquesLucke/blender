@@ -36,7 +36,7 @@ TEST(inplace_priority_queue, BuildSmall)
   InplacePriorityQueue priority_queue{data};
   priority_queue.build();
 
-  std::cout << priority_queue.partial_to_dot(data.weights.size()) << "\n";
+  std::cout << priority_queue.all_to_dot() << "\n";
 }
 
 }  // namespace blender::tests
