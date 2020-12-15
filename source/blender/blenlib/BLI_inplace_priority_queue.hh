@@ -22,9 +22,10 @@
 namespace blender {
 
 /**
- * This data structure can add a priority queue on top of any array.
- * The priority queue does not change or reorder values in the underlying array.
- * Instead, it only maintains indices into the array.
+ * An InplacePriorityQueue adds priority queue functionality to an existing array. The underlying
+ * array is not changed. Instead, the priority queue maintains indices into the original array.
+ *
+ * The priority queue provides efficient access to the element with the highest priority.
  */
 template<typename T, typename FirstHasHigherPriority = std::greater<T>>
 class InplacePriorityQueue {
@@ -36,6 +37,9 @@ class InplacePriorityQueue {
   FirstHasHigherPriority first_has_higher_priority_fn_;
 
  public:
+  /**
+   * Construct the priority queue on top of the data in the given span.
+   */
   InplacePriorityQueue(Span<T> data)
       : data_(data), heap_to_orig_(data_.size()), orig_to_heap_(data_.size())
   {
@@ -43,9 +47,14 @@ class InplacePriorityQueue {
       heap_to_orig_[i] = i;
       orig_to_heap_[i] = i;
     }
+
+    this->rebuild();
   }
 
-  void build()
+  /**
+   * Rebuilds the priority queue from the array that has been passed to the constructor.
+   */
+  void rebuild()
   {
     const int final_heap_size = data_.size();
     if (final_heap_size > 0) {
@@ -56,22 +65,52 @@ class InplacePriorityQueue {
     heap_size_ = final_heap_size;
   }
 
+  /**
+   * Returns the number of elements in the priority queue.
+   * This is less or equal than the size of the underlying array.
+   */
   int64_t size() const
   {
     return heap_size_;
   }
 
+  /**
+   * Returns true, when the priority queue contains no elements. If this returns true, #peek and
+   * #pop must not be used.
+   */
   bool is_empty() const
   {
     return heap_size_ == 0;
   }
 
+  /**
+   * Get the element with the highest priority in the priority queue.
+   */
+  const T &peek() const
+  {
+    return data_[this->peek_index()];
+  }
+
+  /**
+   * Get the element with the highest priority in the priority queue and remove it.
+   */
+  const T &pop()
+  {
+    return data_[this->pop_index()];
+  }
+
+  /**
+   * Get the index of the element with the highest priority in the priority queue.
+   */
   int64_t peek_index() const
   {
     BLI_assert(!this->is_empty());
     return heap_to_orig_[0];
   }
 
+  /**
+   * Get the index of the element with the highest priority in the priority queue and remove it.
+   */
   int64_t pop_index()
   {
     BLI_assert(!this->is_empty());
@@ -84,16 +123,10 @@ class InplacePriorityQueue {
     return top_index_orig;
   }
 
-  const T &peek() const
-  {
-    return data_[this->peek_index()];
-  }
-
-  const T &pop()
-  {
-    return data_[this->pop_index()];
-  }
-
+  /**
+   * Inform the priority queue that the priority of the element at the given index has been
+   * decreased.
+   */
   void priority_decreased(const int64_t index)
   {
     const int64_t heap_index = orig_to_heap_[index];
@@ -101,6 +134,10 @@ class InplacePriorityQueue {
     this->heapify(heap_index, heap_size_);
   }
 
+  /**
+   * Inform the priority queue that the priority of the element at the given index has been
+   * increased.
+   */
   void priority_increased(const int64_t index)
   {
     int64_t current = orig_to_heap_[index];
@@ -118,18 +155,21 @@ class InplacePriorityQueue {
     }
   }
 
+  /**
+   * Inform the priority queue that the priority of the element at the given index has been
+   * changed.
+   */
   void priority_changed(const int64_t index)
   {
     this->priority_increased(index);
     this->priority_decreased(index);
   }
 
-  std::string all_to_dot() const
-  {
-    return this->partial_to_dot(data_.size());
-  }
-
-  std::string active_to_dot() const
+  /**
+   * Return the heap used by the priority queue as dot graph string.
+   * This exists for debugging purposes.
+   */
+  std::string to_dot() const
   {
     return this->partial_to_dot(heap_size_);
   }

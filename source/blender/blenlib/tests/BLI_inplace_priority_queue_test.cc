@@ -11,7 +11,6 @@ TEST(inplace_priority_queue, BuildSmall)
 {
   Array<int> values = {1, 5, 2, 8, 5, 6, 5, 4, 3, 6, 7, 3};
   InplacePriorityQueue<int> priority_queue{values};
-  priority_queue.build();
 
   EXPECT_EQ(priority_queue.peek(), 8);
   EXPECT_EQ(priority_queue.pop(), 8);
@@ -26,7 +25,6 @@ TEST(inplace_priority_queue, DecreasePriority)
 {
   Array<int> values = {5, 2, 7, 4};
   InplacePriorityQueue<int> priority_queue(values);
-  priority_queue.build();
 
   EXPECT_EQ(priority_queue.peek(), 7);
   values[2] = 0;
@@ -39,7 +37,6 @@ TEST(inplace_priority_queue, IncreasePriority)
 {
   Array<int> values = {5, 2, 7, 4};
   InplacePriorityQueue<int> priority_queue(values);
-  priority_queue.build();
 
   EXPECT_EQ(priority_queue.peek(), 7);
   values[1] = 10;
@@ -57,7 +54,6 @@ TEST(inplace_priority_queue, PopAll)
   }
 
   InplacePriorityQueue<int> priority_queue(values);
-  priority_queue.build();
 
   int last_value = 1000;
   while (!priority_queue.is_empty()) {
