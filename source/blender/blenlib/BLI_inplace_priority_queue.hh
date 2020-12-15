@@ -25,7 +25,10 @@ namespace blender {
  * An InplacePriorityQueue adds priority queue functionality to an existing array. The underlying
  * array is not changed. Instead, the priority queue maintains indices into the original array.
  *
- * The priority queue provides efficient access to the element with the highest priority.
+ * The priority queue provides efficient access to the element in order of their priorities.
+ *
+ * When a priority changes, the priority queue has to be informed using one of the following
+ * methods: #priority_decreased, #priority_increased or #priority_changed.
  */
 template<typename T, typename FirstHasHigherPriority = std::greater<T>>
 class InplacePriorityQueue {
@@ -137,7 +140,10 @@ class InplacePriorityQueue {
   void priority_decreased(const int64_t index)
   {
     const int64_t heap_index = orig_to_heap_[index];
-    BLI_assert(heap_index < heap_size_);
+    if (heap_index >= heap_size_) {
+      /* This element is not in the queue currently. */
+      return;
+    }
     this->heapify(heap_index, heap_size_);
   }
 
@@ -148,7 +154,10 @@ class InplacePriorityQueue {
   void priority_increased(const int64_t index)
   {
     int64_t current = orig_to_heap_[index];
-    BLI_assert(current < heap_size_);
+    if (current >= heap_size_) {
+      /* This element is not in the queue currently. */
+      return;
+    }
     while (true) {
       if (current == 0) {
         break;
