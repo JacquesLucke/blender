@@ -28,14 +28,17 @@ namespace blender {
 template<typename DataArray> class InplacePriorityQueue {
  private:
   DataArray &data_;
-  Array<int64_t> index_map_;
+  Array<int64_t> heap_to_orig_;
+  Array<int64_t> orig_to_heap_;
   int64_t heap_size_ = 0;
 
  public:
-  InplacePriorityQueue(DataArray &data) : data_(data), index_map_(data_.size())
+  InplacePriorityQueue(DataArray &data)
+      : data_(data), heap_to_orig_(data_.size()), orig_to_heap_(data_.size())
   {
-    for (const int64_t i : index_map_.index_range()) {
-      index_map_[i] = i;
+    for (const int64_t i : IndexRange(data_.size())) {
+      heap_to_orig_[i] = i;
+      orig_to_heap_[i] = i;
     }
   }
 
@@ -63,19 +66,49 @@ template<typename DataArray> class InplacePriorityQueue {
   int64_t peek_top() const
   {
     BLI_assert(!this->is_empty());
-    return index_map_[0];
+    return heap_to_orig_[0];
   }
 
   int64_t pop_top()
   {
     BLI_assert(!this->is_empty());
-    const int64_t top_index = index_map_[0];
+    const int64_t top_index_orig = heap_to_orig_[0];
     heap_size_--;
     if (heap_size_ > 1) {
       this->swap_indices(0, heap_size_);
       this->heapify(0, heap_size_);
     }
-    return top_index;
+    return top_index_orig;
+  }
+
+  void priority_decreased(const int64_t index)
+  {
+    const int64_t heap_index = orig_to_heap_[index];
+    BLI_assert(heap_index < heap_size_);
+    this->heapify(heap_index, heap_size_);
+  }
+
+  void priority_increased(const int64_t index)
+  {
+    int64_t current = orig_to_heap_[index];
+    BLI_assert(current < heap_size_);
+    while (true) {
+      if (current == 0) {
+        break;
+      }
+      const int64_t parent = this->get_parent(current);
+      if (this->is_higher_priority(parent, current)) {
+        break;
+      }
+      this->swap_indices(current, parent);
+      current = parent;
+    }
+  }
+
+  void priority_changed(const int64_t index)
+  {
+    this->priority_increased(index);
+    this->priority_decreased(index);
   }
 
   std::string all_to_dot() const
@@ -83,22 +116,9 @@ template<typename DataArray> class InplacePriorityQueue {
     return this->partial_to_dot(data_.size());
   }
 
-  std::string partial_to_dot(const int size) const
+  std::string active_to_dot() const
   {
-    dot::DirectedGraph digraph;
-    Array<dot::Node *> dot_nodes(size);
-    for (const int i : IndexRange(size)) {
-      const std::string name = this->data_.get_value_string(index_map_[i]);
-      dot::Node &node = digraph.new_node(name);
-      node.set_shape(dot::Attr_shape::Rectangle);
-      node.attributes.set("ordering", "out");
-      dot_nodes[i] = &node;
-      if (i > 0) {
-        const int64_t parent = this->get_parent(i);
-        digraph.new_edge(*dot_nodes[parent], node);
-      }
-    }
-    return digraph.to_dot_string();
+    return this->partial_to_dot(heap_size_);
   }
 
   DataArray &data()
@@ -109,12 +129,14 @@ template<typename DataArray> class InplacePriorityQueue {
  private:
   bool is_higher_priority(const int64_t a, const int64_t b)
   {
-    return data_.is_higher_priority(index_map_[a], index_map_[b]);
+    return data_.is_higher_priority(heap_to_orig_[a], heap_to_orig_[b]);
   }
 
   void swap_indices(const int64_t a, const int64_t b)
   {
-    std::swap(index_map_[a], index_map_[b]);
+    std::swap(heap_to_orig_[a], heap_to_orig_[b]);
+    orig_to_heap_[heap_to_orig_[a]] = a;
+    orig_to_heap_[heap_to_orig_[b]] = b;
   }
 
   void heapify(const int64_t index, const int64_t heap_size)
@@ -148,6 +170,24 @@ template<typename DataArray> class InplacePriorityQueue {
   int64_t get_right(const int64_t parent) const
   {
     return parent * 2 + 2;
+  }
+
+  std::string partial_to_dot(const int size) const
+  {
+    dot::DirectedGraph digraph;
+    Array<dot::Node *> dot_nodes(size);
+    for (const int i : IndexRange(size)) {
+      const std::string name = this->data_.get_value_string(heap_to_orig_[i]);
+      dot::Node &node = digraph.new_node(name);
+      node.set_shape(dot::Attr_shape::Rectangle);
+      node.attributes.set("ordering", "out");
+      dot_nodes[i] = &node;
+      if (i > 0) {
+        const int64_t parent = this->get_parent(i);
+        digraph.new_edge(*dot_nodes[parent], node);
+      }
+    }
+    return digraph.to_dot_string();
   }
 };
 
