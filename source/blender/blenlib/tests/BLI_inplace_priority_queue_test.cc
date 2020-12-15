@@ -49,7 +49,7 @@ TEST(inplace_priority_queue, PopAll)
 {
   RandomNumberGenerator rng;
   Vector<int> values;
-  const int amount = 100;
+  const int amount = 1000;
   for (int i = 0; i < amount; i++) {
     values.append(rng.get_int32() % amount);
   }
