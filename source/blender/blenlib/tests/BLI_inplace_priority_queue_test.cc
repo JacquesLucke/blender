@@ -17,16 +17,16 @@ TEST(inplace_priority_queue, BuildSmall)
   data[1] = 7.5f;
   priority_queue.priority_changed(1);
 
-  // Vector<float> sorted_data;
+  Vector<float> sorted_data;
 
-  // while (!priority_queue.is_empty()) {
-  //   sorted_data.append(data.weights[priority_queue.pop_top()]);
-  // }
+  while (!priority_queue.is_empty()) {
+    sorted_data.append(data[priority_queue.pop()]);
+  }
 
-  // for (float v : sorted_data) {
-  //   std::cout << v << ", ";
-  // }
-  // std::cout << "\n";
+  for (float v : sorted_data) {
+    std::cout << v << ", ";
+  }
+  std::cout << "\n";
 
   std::cout << priority_queue.all_to_dot() << "\n";
 }

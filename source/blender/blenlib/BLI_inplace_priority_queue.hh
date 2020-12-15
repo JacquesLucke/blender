@@ -66,13 +66,13 @@ class InplacePriorityQueue {
     return heap_size_ == 0;
   }
 
-  int64_t peek_top() const
+  int64_t peek() const
   {
     BLI_assert(!this->is_empty());
     return heap_to_orig_[0];
   }
 
-  int64_t pop_top()
+  int64_t pop()
   {
     BLI_assert(!this->is_empty());
     const int64_t top_index_orig = heap_to_orig_[0];
