@@ -21,6 +21,10 @@
 
 namespace blender {
 
+/**
+ * This data structure can add a priority queue on top of any array. Elements in the array are not
+ * reordered. Instead this priority queue just maintains indices into the array.
+ */
 template<typename DataArray> class InplacePriorityQueue {
  private:
   DataArray &data_;
@@ -37,7 +41,7 @@ template<typename DataArray> class InplacePriorityQueue {
 
   void build()
   {
-    const int final_heap_size = this->get_data_size();
+    const int final_heap_size = data_.size();
     if (final_heap_size > 0) {
       for (int64_t i = final_heap_size / 2 - 1; i--;) {
         this->heapify(i, final_heap_size);
@@ -46,9 +50,37 @@ template<typename DataArray> class InplacePriorityQueue {
     heap_size_ = final_heap_size;
   }
 
+  int64_t size() const
+  {
+    return heap_size_;
+  }
+
+  bool is_empty() const
+  {
+    return heap_size_ == 0;
+  }
+
+  int64_t peek_top() const
+  {
+    BLI_assert(!this->is_empty());
+    return index_map_[0];
+  }
+
+  int64_t pop_top()
+  {
+    BLI_assert(!this->is_empty());
+    const int64_t top_index = index_map_[0];
+    heap_size_--;
+    if (heap_size_ > 1) {
+      this->swap_indices(0, heap_size_);
+      this->heapify(0, heap_size_);
+    }
+    return top_index;
+  }
+
   std::string all_to_dot() const
   {
-    return this->partial_to_dot(this->get_data_size());
+    return this->partial_to_dot(data_.size());
   }
 
   std::string partial_to_dot(const int size) const
@@ -56,7 +88,7 @@ template<typename DataArray> class InplacePriorityQueue {
     dot::DirectedGraph digraph;
     Array<dot::Node *> dot_nodes(size);
     for (const int i : IndexRange(size)) {
-      const std::string name = this->index_to_string(i);
+      const std::string name = this->data_.get_value_string(index_map_[i]);
       dot::Node &node = digraph.new_node(name);
       node.set_shape(dot::Attr_shape::Rectangle);
       node.attributes.set("ordering", "out");
@@ -69,26 +101,20 @@ template<typename DataArray> class InplacePriorityQueue {
     return digraph.to_dot_string();
   }
 
- private:
-  int64_t get_data_size() const
+  DataArray &data()
   {
-    return data_.size();
+    return data_;
   }
 
-  std::string index_to_string(const int64_t index) const
+ private:
+  bool is_higher_priority(const int64_t a, const int64_t b)
   {
-    return data_.index_to_string(index);
+    return data_.is_higher_priority(index_map_[a], index_map_[b]);
   }
 
   void swap_indices(const int64_t a, const int64_t b)
   {
-    data_.swap_indices(a, b);
     std::swap(index_map_[a], index_map_[b]);
-  }
-
-  bool is_higher_priority(const int64_t a, const int64_t b)
-  {
-    return data_.is_higher_priority(a, b);
   }
 
   void heapify(const int64_t index, const int64_t heap_size)

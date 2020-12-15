@@ -14,7 +14,7 @@ struct WeightsData {
     return weights.size();
   }
 
-  std::string index_to_string(const int64_t index) const
+  std::string get_value_string(const int64_t index) const
   {
     return std::to_string(weights[index]);
   }
@@ -23,11 +23,6 @@ struct WeightsData {
   {
     return weights[a] > weights[b];
   }
-
-  void swap_indices(const int64_t a, const int64_t b)
-  {
-    std::swap(weights[a], weights[b]);
-  }
 };
 
 TEST(inplace_priority_queue, BuildSmall)
@@ -35,6 +30,17 @@ TEST(inplace_priority_queue, BuildSmall)
   WeightsData data = {{1, 5, 2, 8, 5, 6, 5, 4, 3, 6, 7, 3}};
   InplacePriorityQueue priority_queue{data};
   priority_queue.build();
+
+  Vector<float> sorted_data;
+
+  while (!priority_queue.is_empty()) {
+    sorted_data.append(data.weights[priority_queue.pop_top()]);
+  }
+
+  for (float v : sorted_data) {
+    std::cout << v << ", ";
+  }
+  std::cout << "\n";
 
   std::cout << priority_queue.all_to_dot() << "\n";
 }
