@@ -3,32 +3,68 @@
 #include "testing/testing.h"
 
 #include "BLI_inplace_priority_queue.hh"
+#include "BLI_rand.hh"
 
 namespace blender::tests {
 
 TEST(inplace_priority_queue, BuildSmall)
 {
-  Array<float> data = {1, 5, 2, 8, 5, 6, 5, 4, 3, 6, 7, 3};
-  InplacePriorityQueue<float> priority_queue{data};
+  Array<int> values = {1, 5, 2, 8, 5, 6, 5, 4, 3, 6, 7, 3};
+  InplacePriorityQueue<int> priority_queue{values};
   priority_queue.build();
 
-  data[1] = 30;
-  priority_queue.priority_changed(1);
-  data[1] = 7.5f;
-  priority_queue.priority_changed(1);
+  EXPECT_EQ(values[priority_queue.peek()], 8);
+  EXPECT_EQ(values[priority_queue.pop()], 8);
+  EXPECT_EQ(values[priority_queue.peek()], 7);
+  EXPECT_EQ(values[priority_queue.pop()], 7);
+  EXPECT_EQ(values[priority_queue.pop()], 6);
+  EXPECT_EQ(values[priority_queue.pop()], 6);
+  EXPECT_EQ(values[priority_queue.pop()], 5);
+}
 
-  Vector<float> sorted_data;
+TEST(inplace_priority_queue, DecreasePriority)
+{
+  Array<int> values = {5, 2, 7, 4};
+  InplacePriorityQueue<int> priority_queue(values);
+  priority_queue.build();
 
+  EXPECT_EQ(values[priority_queue.peek()], 7);
+  values[2] = 0;
+  EXPECT_EQ(values[priority_queue.peek()], 0);
+  priority_queue.priority_decreased(2);
+  EXPECT_EQ(values[priority_queue.peek()], 5);
+}
+
+TEST(inplace_priority_queue, IncreasePriority)
+{
+  Array<int> values = {5, 2, 7, 4};
+  InplacePriorityQueue<int> priority_queue(values);
+  priority_queue.build();
+
+  EXPECT_EQ(values[priority_queue.peek()], 7);
+  values[1] = 10;
+  EXPECT_EQ(values[priority_queue.peek()], 7);
+  priority_queue.priority_increased(1);
+  EXPECT_EQ(values[priority_queue.peek()], 10);
+}
+
+TEST(inplace_priority_queue, PopAll)
+{
+  RandomNumberGenerator rng;
+  Vector<int> values;
+  for (int i = 0; i < 1000; i++) {
+    values.append(rng.get_int32() % 1000);
+  }
+
+  InplacePriorityQueue<int> priority_queue(values);
+  priority_queue.build();
+
+  int last_value = 1000;
   while (!priority_queue.is_empty()) {
-    sorted_data.append(data[priority_queue.pop()]);
+    const int value = values[priority_queue.pop()];
+    EXPECT_LE(value, last_value);
+    last_value = value;
   }
-
-  for (float v : sorted_data) {
-    std::cout << v << ", ";
-  }
-  std::cout << "\n";
-
-  std::cout << priority_queue.all_to_dot() << "\n";
 }
 
 }  // namespace blender::tests
