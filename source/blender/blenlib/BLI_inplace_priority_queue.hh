@@ -22,18 +22,21 @@
 namespace blender {
 
 /**
- * This data structure can add a priority queue on top of any array. Elements in the array are not
- * reordered. Instead this priority queue just maintains indices into the array.
+ * This data structure can add a priority queue on top of any array.
+ * The priority queue does not change or reorder values in the underlying array.
+ * Instead, it only maintains indices into the array.
  */
-template<typename DataArray> class InplacePriorityQueue {
+template<typename T, typename FirstHasHigherPriority = std::greater<T>>
+class InplacePriorityQueue {
  private:
-  DataArray &data_;
+  Span<T> data_;
   Array<int64_t> heap_to_orig_;
   Array<int64_t> orig_to_heap_;
   int64_t heap_size_ = 0;
+  FirstHasHigherPriority first_has_higher_priority_fn_;
 
  public:
-  InplacePriorityQueue(DataArray &data)
+  InplacePriorityQueue(Span<T> data)
       : data_(data), heap_to_orig_(data_.size()), orig_to_heap_(data_.size())
   {
     for (const int64_t i : IndexRange(data_.size())) {
@@ -97,7 +100,7 @@ template<typename DataArray> class InplacePriorityQueue {
         break;
       }
       const int64_t parent = this->get_parent(current);
-      if (this->is_higher_priority(parent, current)) {
+      if (this->first_has_higher_priority(parent, current)) {
         break;
       }
       this->swap_indices(current, parent);
@@ -121,15 +124,12 @@ template<typename DataArray> class InplacePriorityQueue {
     return this->partial_to_dot(heap_size_);
   }
 
-  DataArray &data()
-  {
-    return data_;
-  }
-
  private:
-  bool is_higher_priority(const int64_t a, const int64_t b)
+  bool first_has_higher_priority(const int64_t a, const int64_t b)
   {
-    return data_.is_higher_priority(heap_to_orig_[a], heap_to_orig_[b]);
+    const T &value_a = data_[heap_to_orig_[a]];
+    const T &value_b = data_[heap_to_orig_[b]];
+    return first_has_higher_priority_fn_(value_a, value_b);
   }
 
   void swap_indices(const int64_t a, const int64_t b)
@@ -144,10 +144,10 @@ template<typename DataArray> class InplacePriorityQueue {
     int64_t min_index = index;
     const int left = this->get_left(index);
     const int right = this->get_right(index);
-    if (left < heap_size && this->is_higher_priority(left, min_index)) {
+    if (left < heap_size && this->first_has_higher_priority(left, min_index)) {
       min_index = left;
     }
-    if (right < heap_size && this->is_higher_priority(right, min_index)) {
+    if (right < heap_size && this->first_has_higher_priority(right, min_index)) {
       min_index = right;
     }
     if (min_index != index) {
@@ -177,7 +177,9 @@ template<typename DataArray> class InplacePriorityQueue {
     dot::DirectedGraph digraph;
     Array<dot::Node *> dot_nodes(size);
     for (const int i : IndexRange(size)) {
-      const std::string name = this->data_.get_value_string(heap_to_orig_[i]);
+      std::stringstream ss;
+      ss << data_[heap_to_orig_[i]];
+      const std::string name = ss.str();
       dot::Node &node = digraph.new_node(name);
       node.set_shape(dot::Attr_shape::Rectangle);
       node.attributes.set("ordering", "out");
