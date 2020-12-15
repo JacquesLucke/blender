@@ -30,10 +30,17 @@ namespace blender {
 template<typename T, typename FirstHasHigherPriority = std::greater<T>>
 class InplacePriorityQueue {
  private:
+  /* Underlying array the priority queue is built upon. This is a span instead of a mutable span,
+   * because this data structure never changes the values itself. */
   Span<T> data_;
+  /* Maps indices from the heap (binary tree in array format) to indices of the underlying/original
+   * array. */
   Array<int64_t> heap_to_orig_;
+  /* This is the inversion of the above mapping. */
   Array<int64_t> orig_to_heap_;
+  /* Number of elements that are currently in the priority queue. */
   int64_t heap_size_ = 0;
+  /* Function that can be changed to customize how the priority of two elements is compared. */
   FirstHasHigherPriority first_has_higher_priority_fn_;
 
  public:
@@ -57,8 +64,8 @@ class InplacePriorityQueue {
   void rebuild()
   {
     const int final_heap_size = data_.size();
-    if (final_heap_size > 0) {
-      for (int64_t i = final_heap_size / 2 - 1; i--;) {
+    if (final_heap_size > 1) {
+      for (int64_t i = this->get_parent(final_heap_size - 1); i >= 0; i--) {
         this->heapify(i, final_heap_size);
       }
     }
@@ -189,20 +196,26 @@ class InplacePriorityQueue {
     orig_to_heap_[heap_to_orig_[b]] = b;
   }
 
-  void heapify(const int64_t index, const int64_t heap_size)
+  void heapify(const int64_t parent, const int64_t heap_size)
   {
-    int64_t min_index = index;
-    const int left = this->get_left(index);
-    const int right = this->get_right(index);
-    if (left < heap_size && this->first_has_higher_priority(left, min_index)) {
-      min_index = left;
+    int64_t max_index = parent;
+    const int left = this->get_left(parent);
+    const int right = this->get_right(parent);
+    if (left < heap_size && this->first_has_higher_priority(left, max_index)) {
+      max_index = left;
     }
-    if (right < heap_size && this->first_has_higher_priority(right, min_index)) {
-      min_index = right;
+    if (right < heap_size && this->first_has_higher_priority(right, max_index)) {
+      max_index = right;
     }
-    if (min_index != index) {
-      this->swap_indices(index, min_index);
-      this->heapify(min_index, heap_size);
+    if (max_index != parent) {
+      this->swap_indices(parent, max_index);
+      this->heapify(max_index, heap_size);
+    }
+    if (left < heap_size) {
+      BLI_assert(!this->first_has_higher_priority(left, parent));
+    }
+    if (right < heap_size) {
+      BLI_assert(!this->first_has_higher_priority(right, parent));
     }
   }
 

@@ -49,13 +49,14 @@ TEST(inplace_priority_queue, PopAll)
 {
   RandomNumberGenerator rng;
   Vector<int> values;
-  for (int i = 0; i < 1000; i++) {
-    values.append(rng.get_int32() % 1000);
+  const int amount = 100;
+  for (int i = 0; i < amount; i++) {
+    values.append(rng.get_int32() % amount);
   }
 
   InplacePriorityQueue<int> priority_queue(values);
 
-  int last_value = 1000;
+  int last_value = amount;
   while (!priority_queue.is_empty()) {
     const int value = priority_queue.pop();
     EXPECT_LE(value, last_value);
