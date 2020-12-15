@@ -66,13 +66,13 @@ class InplacePriorityQueue {
     return heap_size_ == 0;
   }
 
-  int64_t peek() const
+  int64_t peek_index() const
   {
     BLI_assert(!this->is_empty());
     return heap_to_orig_[0];
   }
 
-  int64_t pop()
+  int64_t pop_index()
   {
     BLI_assert(!this->is_empty());
     const int64_t top_index_orig = heap_to_orig_[0];
@@ -82,6 +82,16 @@ class InplacePriorityQueue {
       this->heapify(0, heap_size_);
     }
     return top_index_orig;
+  }
+
+  const T &peek() const
+  {
+    return data_[this->peek_index()];
+  }
+
+  const T &pop()
+  {
+    return data_[this->pop_index()];
   }
 
   void priority_decreased(const int64_t index)

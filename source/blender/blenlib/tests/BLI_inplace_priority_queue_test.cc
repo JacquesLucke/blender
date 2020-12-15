@@ -13,13 +13,13 @@ TEST(inplace_priority_queue, BuildSmall)
   InplacePriorityQueue<int> priority_queue{values};
   priority_queue.build();
 
-  EXPECT_EQ(values[priority_queue.peek()], 8);
-  EXPECT_EQ(values[priority_queue.pop()], 8);
-  EXPECT_EQ(values[priority_queue.peek()], 7);
-  EXPECT_EQ(values[priority_queue.pop()], 7);
-  EXPECT_EQ(values[priority_queue.pop()], 6);
-  EXPECT_EQ(values[priority_queue.pop()], 6);
-  EXPECT_EQ(values[priority_queue.pop()], 5);
+  EXPECT_EQ(priority_queue.peek(), 8);
+  EXPECT_EQ(priority_queue.pop(), 8);
+  EXPECT_EQ(priority_queue.peek(), 7);
+  EXPECT_EQ(priority_queue.pop(), 7);
+  EXPECT_EQ(priority_queue.pop(), 6);
+  EXPECT_EQ(priority_queue.pop(), 6);
+  EXPECT_EQ(priority_queue.pop(), 5);
 }
 
 TEST(inplace_priority_queue, DecreasePriority)
@@ -28,11 +28,11 @@ TEST(inplace_priority_queue, DecreasePriority)
   InplacePriorityQueue<int> priority_queue(values);
   priority_queue.build();
 
-  EXPECT_EQ(values[priority_queue.peek()], 7);
+  EXPECT_EQ(priority_queue.peek(), 7);
   values[2] = 0;
-  EXPECT_EQ(values[priority_queue.peek()], 0);
+  EXPECT_EQ(priority_queue.peek(), 0);
   priority_queue.priority_decreased(2);
-  EXPECT_EQ(values[priority_queue.peek()], 5);
+  EXPECT_EQ(priority_queue.peek(), 5);
 }
 
 TEST(inplace_priority_queue, IncreasePriority)
@@ -41,11 +41,11 @@ TEST(inplace_priority_queue, IncreasePriority)
   InplacePriorityQueue<int> priority_queue(values);
   priority_queue.build();
 
-  EXPECT_EQ(values[priority_queue.peek()], 7);
+  EXPECT_EQ(priority_queue.peek(), 7);
   values[1] = 10;
-  EXPECT_EQ(values[priority_queue.peek()], 7);
+  EXPECT_EQ(priority_queue.peek(), 7);
   priority_queue.priority_increased(1);
-  EXPECT_EQ(values[priority_queue.peek()], 10);
+  EXPECT_EQ(priority_queue.peek(), 10);
 }
 
 TEST(inplace_priority_queue, PopAll)
@@ -61,7 +61,7 @@ TEST(inplace_priority_queue, PopAll)
 
   int last_value = 1000;
   while (!priority_queue.is_empty()) {
-    const int value = values[priority_queue.pop()];
+    const int value = priority_queue.pop();
     EXPECT_LE(value, last_value);
     last_value = value;
   }
