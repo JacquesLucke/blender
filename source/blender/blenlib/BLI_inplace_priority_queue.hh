@@ -95,6 +95,8 @@ class InplacePriorityQueue {
 
   /**
    * Get the element with the highest priority in the priority queue.
+   * The returned reference is const, because the priority queue has read-only access to the
+   * underlying data. If you need a mutable reference, use #peek_index instead.
    */
   const T &peek() const
   {
@@ -103,6 +105,8 @@ class InplacePriorityQueue {
 
   /**
    * Get the element with the highest priority in the priority queue and remove it.
+   * The returned reference is const, because the priority queue has read-only access to the
+   * underlying data. If you need a mutable reference, use #pop_index instead.
    */
   const T &pop()
   {
