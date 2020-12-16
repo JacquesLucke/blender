@@ -64,4 +64,21 @@ TEST(inplace_priority_queue, PopAll)
   }
 }
 
+TEST(inplace_priority_queue, IndicesAccess)
+{
+  Array<int> values = {4, 6, 2, 4, 8, 1, 10, 2, 5};
+  InplacePriorityQueue<int> priority_queue(values);
+
+  EXPECT_EQ(priority_queue.active_indices().size(), 9);
+  EXPECT_EQ(priority_queue.inactive_indices().size(), 0);
+  EXPECT_EQ(priority_queue.pop(), 10);
+  EXPECT_EQ(priority_queue.active_indices().size(), 8);
+  EXPECT_EQ(priority_queue.inactive_indices().size(), 1);
+  EXPECT_EQ(values[priority_queue.inactive_indices()[0]], 10);
+  EXPECT_EQ(priority_queue.pop(), 8);
+  EXPECT_EQ(priority_queue.inactive_indices().size(), 2);
+  EXPECT_EQ(values[priority_queue.inactive_indices()[0]], 8);
+  EXPECT_EQ(values[priority_queue.inactive_indices()[1]], 10);
+}
+
 }  // namespace blender::tests

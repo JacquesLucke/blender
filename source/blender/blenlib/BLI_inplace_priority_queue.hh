@@ -182,6 +182,25 @@ class InplacePriorityQueue {
   }
 
   /**
+   * Returns the indices of all elements that are in the priority queue.
+   * There are no guarantees about the order of indices.
+   */
+  Span<int64_t> active_indices() const
+  {
+    return heap_to_orig_.as_span().take_front(heap_size_);
+  }
+
+  /**
+   * Returns the indices of all elements that are not in the priority queue.
+   * The indices are in reverse order of their removal from the queue.
+   * I.e. the index that has been removed last, comes first.
+   */
+  Span<int64_t> inactive_indices() const
+  {
+    return heap_to_orig_.as_span().drop_front(heap_size_);
+  }
+
+  /**
    * Return the heap used by the priority queue as dot graph string.
    * This exists for debugging purposes.
    */
