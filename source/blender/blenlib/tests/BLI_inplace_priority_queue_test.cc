@@ -64,6 +64,34 @@ TEST(inplace_priority_queue, PopAll)
   }
 }
 
+TEST(inplace_priority_queue, ManyPriorityChanges)
+{
+  RandomNumberGenerator rng;
+  Vector<int> values;
+  const int amount = 1000;
+  for (int i = 0; i < amount; i++) {
+    values.append(rng.get_int32() % amount);
+  }
+
+  InplacePriorityQueue<int> priority_queue(values);
+  std::cout << priority_queue.to_dot() << "\n";
+
+  for (int i = 0; i < amount; i++) {
+    const int index = rng.get_int32() % amount;
+    const int new_priority = rng.get_int32() % amount;
+    values[index] = new_priority;
+    priority_queue.priority_changed(index);
+  }
+  std::cout << priority_queue.to_dot() << "\n";
+
+  int last_value = amount;
+  while (!priority_queue.is_empty()) {
+    const int value = priority_queue.pop();
+    EXPECT_LE(value, last_value);
+    last_value = value;
+  }
+}
+
 TEST(inplace_priority_queue, IndicesAccess)
 {
   Array<int> values = {4, 6, 2, 4, 8, 1, 10, 2, 5};
