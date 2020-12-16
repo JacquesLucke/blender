@@ -201,6 +201,14 @@ class InplacePriorityQueue {
   }
 
   /**
+   * Returns the concatenation of the active and inactive indices.
+   */
+  Span<int64_t> all_indices() const
+  {
+    return heap_to_orig_;
+  }
+
+  /**
    * Return the heap used by the priority queue as dot graph string.
    * This exists for debugging purposes.
    */

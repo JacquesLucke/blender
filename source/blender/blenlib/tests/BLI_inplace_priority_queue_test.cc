@@ -71,14 +71,17 @@ TEST(inplace_priority_queue, IndicesAccess)
 
   EXPECT_EQ(priority_queue.active_indices().size(), 9);
   EXPECT_EQ(priority_queue.inactive_indices().size(), 0);
+  EXPECT_EQ(priority_queue.all_indices().size(), 9);
   EXPECT_EQ(priority_queue.pop(), 10);
   EXPECT_EQ(priority_queue.active_indices().size(), 8);
   EXPECT_EQ(priority_queue.inactive_indices().size(), 1);
   EXPECT_EQ(values[priority_queue.inactive_indices()[0]], 10);
+  EXPECT_EQ(priority_queue.all_indices().size(), 9);
   EXPECT_EQ(priority_queue.pop(), 8);
   EXPECT_EQ(priority_queue.inactive_indices().size(), 2);
   EXPECT_EQ(values[priority_queue.inactive_indices()[0]], 8);
   EXPECT_EQ(values[priority_queue.inactive_indices()[1]], 10);
+  EXPECT_EQ(priority_queue.all_indices().size(), 9);
 }
 
 }  // namespace blender::tests
