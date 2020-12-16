@@ -166,5 +166,7 @@ static_assert(is_span_convertible_pointer_v<const int *, const void *>);
 static_assert(!is_span_convertible_pointer_v<const int *, void *>);
 static_assert(is_span_convertible_pointer_v<int *, void *>);
 static_assert(is_span_convertible_pointer_v<int *, const void *>);
+static_assert(!is_span_convertible_pointer_v<TestBaseClass *, TestChildClass *>);
+static_assert(!is_span_convertible_pointer_v<TestChildClass *, TestBaseClass *>);
 
 }  // namespace blender::tests
