@@ -103,23 +103,23 @@ template<typename Point> struct DefaultPointAdapter {
 
 template<typename Point,
          int MaxLeafSize = 8,
-         typename PointAdapater = typename DefaultPointAdapter<Point>::type>
+         typename PointAdapter = typename DefaultPointAdapter<Point>::type>
 class KDTree : NonCopyable, NonMovable {
  private:
   using LeafNode = LeafNode_<Point>;
   using BufferCache = TemporaryPointBuffersCache<Point>;
-  static inline constexpr int DIM = PointAdapater::DIM;
+  static inline constexpr int DIM = PointAdapter::DIM;
   static inline constexpr int MAX_LEAF_SIZE = MaxLeafSize;
 
   EnumerableThreadSpecific<LinearAllocator<>> allocators_;
-  PointAdapater adapter_;
+  PointAdapter adapter_;
   Node *root_ = nullptr;
 
   SpinLock leaf_point_buffers_lock_;
   Vector<MutableSpan<Point>> leaf_point_buffers_;
 
  public:
-  KDTree(Span<Point> points, PointAdapater adapter = {}) : adapter_(adapter)
+  KDTree(Span<Point> points, PointAdapter adapter = {}) : adapter_(adapter)
   {
     BLI_spin_init(&leaf_point_buffers_lock_);
 
