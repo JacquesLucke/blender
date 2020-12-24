@@ -288,7 +288,7 @@ RenderResult *RE_engine_begin_result(
   disprect.ymin = y;
   disprect.ymax = y + h;
 
-  result = render_result_new(re, &disprect, 0, RR_USE_MEM, layername, viewname);
+  result = render_result_new(re, &disprect, RR_USE_MEM, layername, viewname);
 
   /* todo: make this thread safe */
 
@@ -663,8 +663,7 @@ bool RE_bake_engine(Render *re,
                     Object *object,
                     const int object_id,
                     const BakePixel pixel_array[],
-                    const BakeImages *bake_images,
-                    const int depth,
+                    const BakeTargets *targets,
                     const eScenePassType pass_type,
                     const int pass_filter,
                     float result[])
@@ -707,14 +706,14 @@ bool RE_bake_engine(Render *re,
       type->update(engine, re->main, engine->depsgraph);
     }
 
-    for (int i = 0; i < bake_images->size; i++) {
-      const BakeImage *image = bake_images->data + i;
+    for (int i = 0; i < targets->num_images; i++) {
+      const BakeImage *image = targets->images + i;
 
       engine->bake.pixels = pixel_array + image->offset;
-      engine->bake.result = result + image->offset * depth;
+      engine->bake.result = result + image->offset * targets->num_channels;
       engine->bake.width = image->width;
       engine->bake.height = image->height;
-      engine->bake.depth = depth;
+      engine->bake.depth = targets->num_channels;
       engine->bake.object_id = object_id;
 
       type->bake(
@@ -846,7 +845,7 @@ int RE_engine_render(Render *re, int do_all)
     if ((type->flag & RE_USE_SAVE_BUFFERS) && (re->r.scemode & R_EXR_TILE_FILE)) {
       savebuffers = RR_USE_EXR;
     }
-    re->result = render_result_new(re, &re->disprect, 0, savebuffers, RR_ALL_LAYERS, RR_ALL_VIEWS);
+    re->result = render_result_new(re, &re->disprect, savebuffers, RR_ALL_LAYERS, RR_ALL_VIEWS);
   }
   BLI_rw_mutex_unlock(&re->resultmutex);
 

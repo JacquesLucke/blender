@@ -633,6 +633,10 @@ static bool drw_uniform_property_lookup(ID *id, const char *name, float r_data[4
     return false;
   }
 
+  if (prop == NULL) {
+    return false;
+  }
+
   PropertyType type = RNA_property_type(prop);
   int arraylen = RNA_property_array_length(&ptr, prop);
 
@@ -669,10 +673,14 @@ static void drw_uniform_attribute_lookup(GPUUniformAttr *attr,
                                          DupliObject *dupli_source,
                                          float r_data[4])
 {
-  char idprop_name[sizeof(attr->name) + 4];
-
   copy_v4_fl(r_data, 0);
-  sprintf(idprop_name, "[\"%s\"]", attr->name);
+
+  char idprop_name[(sizeof(attr->name) * 2) + 4];
+  {
+    char attr_name_esc[sizeof(attr->name) * 2];
+    BLI_str_escape(attr_name_esc, attr->name, sizeof(attr_name_esc));
+    SNPRINTF(idprop_name, "[\"%s\"]", attr_name_esc);
+  }
 
   /* If requesting instance data, check the parent particle system and object. */
   if (attr->use_dupli) {

@@ -736,14 +736,19 @@ const EnumPropertyItem *ED_object_vgroup_selection_itemf_helper(const bContext *
     RNA_enum_items_add_value(&item, &totitem, WT_vertex_group_select_item, WT_VGROUP_ACTIVE);
   }
 
-  if (BKE_object_pose_armature_get(ob)) {
-    if (selection_mask & (1 << WT_VGROUP_BONE_SELECT)) {
-      RNA_enum_items_add_value(
-          &item, &totitem, WT_vertex_group_select_item, WT_VGROUP_BONE_SELECT);
+  if (ob) {
+    if (BKE_object_pose_armature_get(ob)) {
+      if (selection_mask & (1 << WT_VGROUP_BONE_SELECT)) {
+        RNA_enum_items_add_value(
+            &item, &totitem, WT_vertex_group_select_item, WT_VGROUP_BONE_SELECT);
+      }
     }
-    if (selection_mask & (1 << WT_VGROUP_BONE_DEFORM)) {
-      RNA_enum_items_add_value(
-          &item, &totitem, WT_vertex_group_select_item, WT_VGROUP_BONE_DEFORM);
+
+    if (BKE_modifiers_is_deformed_by_armature(ob)) {
+      if (selection_mask & (1 << WT_VGROUP_BONE_DEFORM)) {
+        RNA_enum_items_add_value(
+            &item, &totitem, WT_vertex_group_select_item, WT_VGROUP_BONE_DEFORM);
+      }
     }
   }
 
@@ -1746,7 +1751,7 @@ static bool *vgroup_selected_get(Object *ob)
     /* Mirror the selection if X Mirror is enabled. */
     Mesh *me = BKE_mesh_from_object(ob);
 
-    if (me && (me->symmetry & ME_SYMMETRY_X) != 0) {
+    if (me && (me->editflag & ME_EDIT_VERTEX_GROUPS_X_SYMMETRY) != 0) {
       BKE_object_defgroup_mirror_selection(ob, defbase_tot, mask, mask, &sel_count);
     }
   }

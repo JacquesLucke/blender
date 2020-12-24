@@ -56,6 +56,7 @@ extern const EnumPropertyItem rna_enum_mesh_select_mode_items[];
 extern const EnumPropertyItem rna_enum_mesh_select_mode_uv_items[];
 extern const EnumPropertyItem rna_enum_mesh_delimit_mode_items[];
 extern const EnumPropertyItem rna_enum_space_graph_mode_items[];
+extern const EnumPropertyItem rna_enum_space_file_browse_mode_items[];
 extern const EnumPropertyItem rna_enum_space_sequencer_view_type_items[];
 extern const EnumPropertyItem rna_enum_space_type_items[];
 extern const EnumPropertyItem rna_enum_space_image_mode_items[];
@@ -82,6 +83,7 @@ extern const EnumPropertyItem rna_enum_image_generated_type_items[];
 extern const EnumPropertyItem rna_enum_normal_space_items[];
 extern const EnumPropertyItem rna_enum_normal_swizzle_items[];
 extern const EnumPropertyItem rna_enum_bake_save_mode_items[];
+extern const EnumPropertyItem rna_enum_bake_target_items[];
 
 extern const EnumPropertyItem rna_enum_views_format_items[];
 extern const EnumPropertyItem rna_enum_views_format_multilayer_items[];

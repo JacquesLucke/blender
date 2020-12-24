@@ -29,22 +29,14 @@
 
 #include "DNA_armature_types.h"
 #include "DNA_mesh_types.h"
-#include "DNA_object_types.h"
-#include "DNA_packedFile_types.h"
-#include "DNA_scene_types.h"
-#include "DNA_screen_types.h"
-#include "DNA_space_types.h"
 
 #include "BLI_listbase.h"
 #include "BLI_path_util.h"
 #include "BLI_string.h"
-#include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
 
-#include "BKE_context.h"
 #include "BKE_global.h"
-#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_multires.h"
@@ -53,22 +45,18 @@
 #include "BKE_paint.h"
 #include "BKE_screen.h"
 #include "BKE_undo_system.h"
-#include "BKE_workspace.h"
 
 #include "DEG_depsgraph.h"
 
 #include "ED_armature.h"
 #include "ED_image.h"
 #include "ED_mesh.h"
-#include "ED_node.h"
 #include "ED_object.h"
-#include "ED_outliner.h"
 #include "ED_paint.h"
 #include "ED_space_api.h"
 #include "ED_util.h"
 
 #include "GPU_immediate.h"
-#include "GPU_state.h"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -479,25 +467,4 @@ void ED_spacedata_id_remap(struct ScrArea *area, struct SpaceLink *sl, ID *old_i
   if (st && st->id_remap) {
     st->id_remap(area, sl, old_id, new_id);
   }
-}
-
-static int ed_flush_edits_exec(bContext *C, wmOperator *UNUSED(op))
-{
-  Main *bmain = CTX_data_main(C);
-  ED_editors_flush_edits(bmain);
-  return OPERATOR_FINISHED;
-}
-
-void ED_OT_flush_edits(wmOperatorType *ot)
-{
-  /* identifiers */
-  ot->name = "Flush Edits";
-  ot->description = "Flush edit data from active editing modes";
-  ot->idname = "ED_OT_flush_edits";
-
-  /* api callbacks */
-  ot->exec = ed_flush_edits_exec;
-
-  /* flags */
-  ot->flag = OPTYPE_INTERNAL;
 }

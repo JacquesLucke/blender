@@ -33,15 +33,10 @@
 #define USE_SETSCENE_CHECK
 
 #include "DNA_ID.h"
-#include "DNA_collection_types.h"
-#include "DNA_color_types.h" /* color management */
-#include "DNA_curveprofile_types.h"
+#include "DNA_color_types.h"      /* color management */
 #include "DNA_customdata_types.h" /* Scene's runtime cddata masks. */
-#include "DNA_freestyle_types.h"
 #include "DNA_layer_types.h"
 #include "DNA_listBase.h"
-#include "DNA_material_types.h"
-#include "DNA_userdef_types.h"
 #include "DNA_vec_types.h"
 #include "DNA_view3d_types.h"
 
@@ -323,8 +318,7 @@ typedef enum eScenePassType {
 
 #define RE_PASSNAME_FREESTYLE "Freestyle"
 #define RE_PASSNAME_BLOOM "BloomCol"
-#define RE_PASSNAME_VOLUME_TRANSMITTANCE "VolumeTransmCol"
-#define RE_PASSNAME_VOLUME_SCATTER "VolumeScatterCol"
+#define RE_PASSNAME_VOLUME_LIGHT "VolumeDir"
 
 /* View - MultiView */
 typedef struct SceneRenderView {
@@ -564,8 +558,9 @@ typedef struct BakeData {
   char normal_swizzle[3];
   char normal_space;
 
+  char target;
   char save_mode;
-  char _pad[7];
+  char _pad[6];
 
   struct Object *cage_object;
 } BakeData;
@@ -579,6 +574,12 @@ typedef enum eBakeNormalSwizzle {
   R_BAKE_NEGY = 4,
   R_BAKE_NEGZ = 5,
 } eBakeNormalSwizzle;
+
+/* BakeData.target (char) */
+typedef enum eBakeTarget {
+  R_BAKE_TARGET_IMAGE_TEXTURES = 0,
+  R_BAKE_TARGET_VERTEX_COLORS = 1,
+} eBakeTarget;
 
 /* BakeData.save_mode (char) */
 typedef enum eBakeSaveMode {
@@ -1345,6 +1346,18 @@ typedef struct MeshStatVis {
   float sharp_min, sharp_max;
 } MeshStatVis;
 
+typedef struct SequencerToolSettings {
+  /* eSeqImageFitMethod */
+  int fit_method;
+} SequencerToolSettings;
+
+typedef enum eSeqImageFitMethod {
+  SEQ_SCALE_TO_FIT,
+  SEQ_SCALE_TO_FILL,
+  SEQ_STRETCH_TO_FILL,
+  SEQ_USE_ORIGINAL_SIZE,
+} eSeqImageFitMethod;
+
 /* *************************************************************** */
 /* Tool Settings */
 
@@ -1519,6 +1532,9 @@ typedef struct ToolSettings {
    * Temporary until there is a proper preset system that stores the profiles or maybe stores
    * entire bevel configurations. */
   struct CurveProfile *custom_bevel_profile_preset;
+
+  struct SequencerToolSettings *sequencer_tool_settings;
+
 } ToolSettings;
 
 /* *************************************************************** */
@@ -1783,7 +1799,7 @@ typedef struct Scene {
 
   ListBase view_layers;
   /* Not an actual datablock, but memory owned by scene. */
-  Collection *master_collection;
+  struct Collection *master_collection;
   struct SceneCollection *collection DNA_DEPRECATED;
 
   /** Settings to be override by workspaces. */

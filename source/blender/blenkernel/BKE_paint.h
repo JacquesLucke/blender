@@ -34,6 +34,9 @@ extern "C" {
 
 struct BMFace;
 struct BMesh;
+struct BlendDataReader;
+struct BlendLibReader;
+struct BlendWriter;
 struct Brush;
 struct CurveMapping;
 struct Depsgraph;
@@ -55,7 +58,6 @@ struct Paint;
 struct PaintCurve;
 struct Palette;
 struct PaletteColor;
-struct ReportList;
 struct Scene;
 struct StrokeCache;
 struct SubdivCCG;
@@ -67,9 +69,6 @@ struct ViewLayer;
 struct bContext;
 struct bToolRef;
 struct tPaletteColorHSV;
-struct BlendWriter;
-struct BlendDataReader;
-struct BlendLibReader;
 
 extern const char PAINT_CURSOR_SCULPT[3];
 extern const char PAINT_CURSOR_VERTEX_PAINT[3];
@@ -636,9 +635,6 @@ void BKE_sculpt_sync_face_sets_visibility_to_base_mesh(struct Mesh *mesh);
 void BKE_sculpt_sync_face_sets_visibility_to_grids(struct Mesh *mesh,
                                                    struct SubdivCCG *subdiv_ccg);
 
-/* Ensures that a Face Set data-layers exists. If it does not, it creates one respecting the
- * visibility stored in the vertices of the mesh. If it does, it copies the visibility from the
- * mesh to the Face Sets. */
 void BKE_sculpt_face_sets_ensure_from_base_mesh_visibility(struct Mesh *mesh);
 
 bool BKE_sculptsession_use_pbvh_draw(const struct Object *ob, const struct View3D *v3d);
