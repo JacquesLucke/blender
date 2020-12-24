@@ -248,6 +248,7 @@ set(SRC
   BLI_mpq3.hh
   BLI_multi_value_map.hh
   BLI_noise.h
+  BLI_octree.hh
   BLI_path_util.h
   BLI_polyfill_2d.h
   BLI_polyfill_2d_beautify.h
