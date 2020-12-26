@@ -6,6 +6,7 @@
 #include "BLI_float3.hh"
 #include "BLI_kdtree.h"
 #include "BLI_kdtree.hh"
+#include "BLI_octree.hh"
 #include "BLI_rand.hh"
 #include "BLI_timeit.hh"
 
@@ -305,3 +306,26 @@ TEST(kdtree, FindRange_Large)
 }
 
 }  // namespace blender::kdtree::tests
+
+namespace blender::octree::tests {
+
+TEST(octree, Test1)
+{
+  Octree<float3> octree{{
+      float3(1.0f, 1.0f, 1.0f),
+      float3(2.0f, -1.0f, 2.0f),
+      float3(-2.0f, -2.0f, 2.0f),
+      float3(-2.0f, -1.0f, 2.0f),
+  }};
+
+  // std::cout << octree.to_dot() << "\n";
+}
+
+TEST(octree, Test2)
+{
+  Array<float3> points = kdtree::tests::generate_random_float3s(1000);
+  Octree<float3> octree{points};
+  // std::cout << octree.to_dot() << "\n";
+}
+
+}  // namespace blender::octree::tests
