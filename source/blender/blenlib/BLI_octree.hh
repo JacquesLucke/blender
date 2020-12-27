@@ -53,6 +53,7 @@ enum class NodeType {
 
 struct Node {
   NodeType type;
+  Node *parent;
 
   Node(NodeType type) : type(type)
   {
@@ -98,6 +99,7 @@ class Octree : NonCopyable, NonMovable {
   Octree(Span<Point> points, PointAdapter adapter = {}) : adapter_(adapter)
   {
     root_ = &this->build_tree_from_root(points);
+    this->set_parent_pointers(*root_);
   }
 
   std::string to_dot() const
@@ -204,6 +206,16 @@ class Octree : NonCopyable, NonMovable {
       dot::Node &dot_node = digraph.new_node(ss.str());
       dot_node.set_shape(dot::Attr_shape::Rectangle);
       return dot_node;
+    }
+  }
+
+  void set_parent_pointers(InnerNode &inner_node)
+  {
+    for (Node *child : inner_node.children) {
+      child->parent = &inner_node;
+      if (child->type == NodeType::Inner) {
+        this->set_parent_pointers(static_cast<InnerNode &>(*child));
+      }
     }
   }
 };
