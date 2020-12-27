@@ -110,6 +110,38 @@ class Octree : NonCopyable, NonMovable {
     return digraph.to_dot_string();
   }
 
+  const Point *find_nearest(const float3 co) const
+  {
+    const Point *best_point = nullptr;
+    this->foreach_in_shrinking_radius(
+        co, [&](const Point &point, const float distance_sq, float *r_max_distance_sq) {
+          best_point = &point;
+          *r_max_distance_sq = distance_sq;
+        });
+    return best_point;
+  }
+
+  template<typename Func>
+  void foreach_in_radius(const float3 co, const float radius, const Func &func) const
+  {
+    this->foreach_in_shrinking_radius(
+        co,
+        [&](const Point &point, const float distance_sq, float *UNUSED(r_max_distance_sq)) {
+          func(point, distance_sq);
+        },
+        radius);
+  }
+
+  template<typename Func>
+  void foreach_in_shrinking_radius(
+      const float3 co,
+      const Func &func,
+      const float radius = std::numeric_limits<float>::infinity()) const
+  {
+    float max_distance_sq = radius * radius;
+    this->foreach_in_shrinking_radius_naive(*root_, co, func, &max_distance_sq);
+  }
+
  private:
   InnerNode &build_tree_from_root(const Span<Point> points)
   {
@@ -159,13 +191,29 @@ class Octree : NonCopyable, NonMovable {
   {
     std::array<Vector<Point>, 8> sub_points;
     for (const Point &point : points) {
-      const int x_is_larger = adapter_.get(point, 0) > center.x;
-      const int y_is_larger = adapter_.get(point, 1) > center.y;
-      const int z_is_larger = adapter_.get(point, 2) > center.z;
-      const int sub_index = x_is_larger | (y_is_larger << 1) | (z_is_larger << 2);
-      sub_points[sub_index].append(point);
+      const uint8_t octant_index = this->compute_octant_index(center, point);
+      sub_points[octant_index].append(point);
     }
     return sub_points;
+  }
+
+  /**
+   * 0 = 000 -> -z -y -x
+   * 1 = 001 -> -z -y +x
+   * 2 = 010 -> -z +y -x
+   * 3 = 011 -> -z +y +x
+   * 4 = 100 -> +z -y -x
+   * 5 = 101 -> +z -y +x
+   * 6 = 110 -> +z +y -x
+   * 7 = 111 -> +z +y +x
+   */
+  uint8_t compute_octant_index(const float3 &origin, const float3 &point) const
+  {
+    const uint8_t x_is_larger = adapter_.get(point, 0) > origin.x;
+    const uint8_t y_is_larger = adapter_.get(point, 1) > origin.y;
+    const uint8_t z_is_larger = adapter_.get(point, 2) > origin.z;
+    const uint8_t octant_index = x_is_larger | (y_is_larger << 1) | (z_is_larger << 2);
+    return octant_index;
   }
 
   BoundingBox compute_bounding_box(const Span<Point> points) const
@@ -218,6 +266,41 @@ class Octree : NonCopyable, NonMovable {
       }
     }
   }
-};
+
+  template<typename Func>
+  BLI_NOINLINE void foreach_in_shrinking_radius_naive(const Node &node,
+                                                      const float3 co,
+                                                      const Func &func,
+                                                      float *r_max_distance_sq) const
+  {
+    if (node.type == NodeType::Leaf) {
+      this->foreach_in_shrinking_radius_handle_leaf(
+          static_cast<const LeafNode &>(node), co, func, r_max_distance_sq);
+      return;
+    }
+
+    const InnerNode &inner_node = static_cast<const InnerNode &>(node);
+    for (const Node *child : inner_node.children) {
+      this->foreach_in_shrinking_radius_naive(*child, co, func, r_max_distance_sq);
+    }
+  }
+
+  template<typename Func>
+  BLI_NOINLINE void foreach_in_shrinking_radius_handle_leaf(const LeafNode &node,
+                                                            const float3 co,
+                                                            const Func &func,
+                                                            float *r_max_distance_sq) const
+  {
+    for (const Point &point : node.points) {
+      const float distance_sq = float3::distance_squared(co, adapter_.get(point));
+      if (distance_sq <= *r_max_distance_sq) {
+        float new_max_distance_sq = *r_max_distance_sq;
+        func(point, distance_sq, &new_max_distance_sq);
+        BLI_assert(new_max_distance_sq <= *r_max_distance_sq);
+        *r_max_distance_sq = new_max_distance_sq;
+      }
+    }
+  }
+};  // namespace blender::octree
 
 }  // namespace blender::octree

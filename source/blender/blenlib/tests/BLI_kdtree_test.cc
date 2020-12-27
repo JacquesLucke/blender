@@ -259,17 +259,18 @@ TEST(kdtree, FindNearest_Large)
   BLI_kdtree_3d_free(kdtree_old);
 }
 
-TEST(kdtree, FindRange_Large)
+TEST(kdtree_octree, FindRange_Large)
 {
-  Array<float3> points = generate_random_float3s(100'000, 0);
+  Array<float3> points = generate_random_float3s(10'000, 0);
   KDTree<float3> kdtree_new{points};
+  octree::Octree<float3> octree_new{points};
   KDTree_3d *kdtree_old = BLI_kdtree_3d_new(points.size());
   for (const int i : points.index_range()) {
     BLI_kdtree_3d_insert(kdtree_old, i, points[i]);
   }
   BLI_kdtree_3d_balance(kdtree_old);
 
-  Array<float3> query_points = generate_random_float3s(10'000, 23);
+  Array<float3> query_points = generate_random_float3s(1'000, 23);
   RandomNumberGenerator rng;
 
   for (const float3 &query_point : query_points) {
@@ -279,6 +280,12 @@ TEST(kdtree, FindRange_Large)
     kdtree_new.foreach_in_radius(
         query_point, radius, [&](const float3 &point, const float UNUSED(distance_sq)) {
           points_new.append(point);
+        });
+
+    Vector<float3> octree_points;
+    octree_new.foreach_in_radius(
+        query_point, radius, [&](const float3 &point, const float UNUSED(distance_sq)) {
+          octree_points.append(point);
         });
 
     struct OldKDTreeUserData {
@@ -297,8 +304,10 @@ TEST(kdtree, FindRange_Large)
         &user_data);
 
     EXPECT_EQ(points_new.size(), user_data.points_old.size());
-    for (const float3 &point : points_new) {
-      EXPECT_TRUE(user_data.points_old.contains(point));
+    EXPECT_EQ(octree_points.size(), user_data.points_old.size());
+    for (const float3 &point : user_data.points_old) {
+      EXPECT_TRUE(points_new.contains(point));
+      EXPECT_TRUE(octree_points.contains(point));
     }
   }
 
