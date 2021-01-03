@@ -195,7 +195,7 @@ TEST(kdtree, RangePerformance)
   }
   BLI_kdtree_3d_balance(kdtree_old);
 
-  Array<float3> query_points = generate_random_float3s(100'000, 23);
+  Array<float3> query_points = generate_random_float3s(1'000'000, 23);
   const float radius_factor = 0.006f;
 
   for (int i = 0; i < 5; i++) {

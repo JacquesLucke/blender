@@ -247,6 +247,7 @@ set(SRC
   BLI_mpq2.hh
   BLI_mpq3.hh
   BLI_multi_value_map.hh
+  BLI_ntree.hh
   BLI_noise.h
   BLI_octree.hh
   BLI_path_util.h
