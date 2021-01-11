@@ -183,37 +183,39 @@ static const blender::fn::MultiFunction &get_multi_function(
     }
     case NODE_VECTOR_MATH_DIVIDE: {
       static blender::fn::CustomMF_SI_SI_SO<float3, float3, float3> fn{
-          "Divide", [](float3 a, float3 b) { return float3::safe_divide(a, b); }};
+          "Divide", [](float3 a, float3 b) { return safe_divide(a, b); }};
       return fn;
     }
 
     case NODE_VECTOR_MATH_CROSS_PRODUCT: {
       static blender::fn::CustomMF_SI_SI_SO<float3, float3, float3> fn{
-          "Cross Product", float3::cross_high_precision};
+          "Cross Product", [](float3 a, float3 b) { return cross_high_precision(a, b); }};
       return fn;
     }
     case NODE_VECTOR_MATH_PROJECT: {
-      static blender::fn::CustomMF_SI_SI_SO<float3, float3, float3> fn{"Project", float3::project};
+      static blender::fn::CustomMF_SI_SI_SO<float3, float3, float3> fn{
+          "Project", [](float3 a, float3 b) { return project(a, b); }};
       return fn;
     }
     case NODE_VECTOR_MATH_REFLECT: {
       static blender::fn::CustomMF_SI_SI_SO<float3, float3, float3> fn{
-          "Reflect", [](float3 a, float3 b) { return a.reflected(b); }};
+          "Reflect", [](float3 a, float3 b) { return reflected(a, b); }};
       return fn;
     }
     case NODE_VECTOR_MATH_DOT_PRODUCT: {
-      static blender::fn::CustomMF_SI_SI_SO<float3, float3, float> fn{"Dot Product", float3::dot};
+      static blender::fn::CustomMF_SI_SI_SO<float3, float3, float> fn{
+          "Dot Product", [](float3 a, float3 b) { return dot(a, b); }};
       return fn;
     }
 
     case NODE_VECTOR_MATH_DISTANCE: {
-      static blender::fn::CustomMF_SI_SI_SO<float3, float3, float> fn{"Distance",
-                                                                      float3::distance};
+      static blender::fn::CustomMF_SI_SI_SO<float3, float3, float> fn{
+          "Distance", [](float3 a, float3 b) { return distance(a, b); }};
       return fn;
     }
     case NODE_VECTOR_MATH_LENGTH: {
       static blender::fn::CustomMF_SI_SO<float3, float> fn{"Length",
-                                                           [](float3 a) { return a.length(); }};
+                                                           [](float3 a) { return length(a); }};
       return fn;
     }
     case NODE_VECTOR_MATH_SCALE: {
@@ -223,7 +225,7 @@ static const blender::fn::MultiFunction &get_multi_function(
     }
     case NODE_VECTOR_MATH_NORMALIZE: {
       static blender::fn::CustomMF_SI_SO<float3, float3> fn{
-          "Normalize", [](float3 a) { return a.normalized(); }};
+          "Normalize", [](float3 a) { return normalized(a); }};
       return fn;
     }
 

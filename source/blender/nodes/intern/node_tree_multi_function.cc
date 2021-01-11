@@ -197,7 +197,7 @@ static DataTypeConversions create_implicit_conversions()
   add_implicit_conversion<float, bool>(conversions);
   add_implicit_conversion<bool, float>(conversions);
   add_implicit_conversion<float3, float>(
-      conversions, "Vector Length", [](float3 a) { return a.length(); });
+      conversions, "Vector Length", [](float3 a) { return length(a); });
   add_implicit_conversion<int32_t, float3>(
       conversions, "int32 to float3", [](int32_t a) { return float3((float)a); });
   add_implicit_conversion<float3, Color4f>(
@@ -209,7 +209,7 @@ static DataTypeConversions create_implicit_conversions()
   add_implicit_conversion<Color4f, float>(
       conversions, "Color4f to float", [](Color4f a) { return rgb_to_grayscale(a); });
   add_implicit_conversion<float3, bool>(
-      conversions, "float3 to boolean", [](float3 a) { return a.length_squared() == 0.0f; });
+      conversions, "float3 to boolean", [](float3 a) { return length_squared(a) == 0.0f; });
   add_implicit_conversion<bool, float3>(
       conversions, "boolean to float3", [](bool a) { return (a) ? float3(1.0f) : float3(0.0f); });
   return conversions;

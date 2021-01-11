@@ -39,7 +39,7 @@ namespace blender::nodes {
 
 static bool use_translate(const float3 rotation, const float3 scale)
 {
-  if (compare_ff(rotation.length_squared(), 0.0f, 1e-9f) != 1) {
+  if (compare_ff(length_squared(rotation), 0.0f, 1e-9f) != 1) {
     return false;
   }
   if (compare_ff(scale.x, 1.0f, 1e-9f) != 1 || compare_ff(scale.y, 1.0f, 1e-9f) != 1 ||
