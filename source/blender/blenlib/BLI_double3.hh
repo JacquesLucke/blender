@@ -25,7 +25,7 @@
 #include "BLI_math_vector.h"
 #include "BLI_span.hh"
 
-namespace blender {
+namespace blender::math {
 
 struct double3 {
   double x, y, z;
@@ -62,184 +62,188 @@ struct double3 {
     return &x;
   }
 
-  double normalize_and_get_length()
-  {
-    return normalize_v3_db(*this);
-  }
-
-  double3 normalized() const
-  {
-    double3 result;
-    normalize_v3_v3_db(result, *this);
-    return result;
-  }
-
-  double length() const
-  {
-    return len_v3_db(*this);
-  }
-
-  double length_squared() const
-  {
-    return len_squared_v3_db(*this);
-  }
-
-  void reflect(const double3 &normal)
-  {
-    *this = this->reflected(normal);
-  }
-
-  double3 reflected(const double3 &normal) const
-  {
-    double3 result;
-    reflect_v3_v3v3_db(result, *this, normal);
-    return result;
-  }
-
-  static double3 safe_divide(const double3 &a, const double3 &b)
-  {
-    double3 result;
-    result.x = (b.x == 0.0) ? 0.0 : a.x / b.x;
-    result.y = (b.y == 0.0) ? 0.0 : a.y / b.y;
-    result.z = (b.z == 0.0) ? 0.0 : a.z / b.z;
-    return result;
-  }
-
-  void invert()
-  {
-    x = -x;
-    y = -y;
-    z = -z;
-  }
-
-  friend double3 operator+(const double3 &a, const double3 &b)
-  {
-    return {a.x + b.x, a.y + b.y, a.z + b.z};
-  }
-
-  void operator+=(const double3 &b)
-  {
-    this->x += b.x;
-    this->y += b.y;
-    this->z += b.z;
-  }
-
-  friend double3 operator-(const double3 &a, const double3 &b)
-  {
-    return {a.x - b.x, a.y - b.y, a.z - b.z};
-  }
-
-  friend double3 operator-(const double3 &a)
-  {
-    return {-a.x, -a.y, -a.z};
-  }
-
-  void operator-=(const double3 &b)
-  {
-    this->x -= b.x;
-    this->y -= b.y;
-    this->z -= b.z;
-  }
-
-  void operator*=(const double &scalar)
-  {
-    this->x *= scalar;
-    this->y *= scalar;
-    this->z *= scalar;
-  }
-
-  void operator*=(const double3 &other)
-  {
-    this->x *= other.x;
-    this->y *= other.y;
-    this->z *= other.z;
-  }
-
-  friend double3 operator*(const double3 &a, const double3 &b)
-  {
-    return {a.x * b.x, a.y * b.y, a.z * b.z};
-  }
-
-  friend double3 operator*(const double3 &a, const double &b)
-  {
-    return {a.x * b, a.y * b, a.z * b};
-  }
-
-  friend double3 operator*(const double &a, const double3 &b)
-  {
-    return b * a;
-  }
-
-  friend double3 operator/(const double3 &a, const double &b)
-  {
-    BLI_assert(b != 0.0);
-    return {a.x / b, a.y / b, a.z / b};
-  }
-
-  friend bool operator==(const double3 &a, const double3 &b)
-  {
-    return a.x == b.x && a.y == b.y && a.z == b.z;
-  }
-
-  friend bool operator!=(const double3 &a, const double3 &b)
-  {
-    return a.x != b.x || a.y != b.y || a.z != b.z;
-  }
-
-  friend std::ostream &operator<<(std::ostream &stream, const double3 &v)
-  {
-    stream << "(" << v.x << ", " << v.y << ", " << v.z << ")";
-    return stream;
-  }
-
-  static double dot(const double3 &a, const double3 &b)
-  {
-    return a.x * b.x + a.y * b.y + a.z * b.z;
-  }
-
-  static double3 cross_high_precision(const double3 &a, const double3 &b)
-  {
-    double3 result;
-    cross_v3_v3v3_db(result, a, b);
-    return result;
-  }
-
-  static double3 project(const double3 &a, const double3 &b)
-  {
-    double3 result;
-    project_v3_v3v3_db(result, a, b);
-    return result;
-  }
-
-  static double distance(const double3 &a, const double3 &b)
-  {
-    return (a - b).length();
-  }
-
-  static double distance_squared(const double3 &a, const double3 &b)
-  {
-    return double3::dot(a, b);
-  }
-
-  static double3 interpolate(const double3 &a, const double3 &b, double t)
-  {
-    return a * (1 - t) + b * t;
-  }
-
-  static double3 abs(const double3 &a)
-  {
-    return double3(fabs(a.x), fabs(a.y), fabs(a.z));
-  }
-
-  static int dominant_axis(const double3 &a)
-  {
-    double x = (a.x >= 0) ? a.x : -a.x;
-    double y = (a.y >= 0) ? a.y : -a.y;
-    double z = (a.z >= 0) ? a.z : -a.z;
-    return ((x > y) ? ((x > z) ? 0 : 2) : ((y > z) ? 1 : 2));
-  }
-
   static double3 cross_poly(Span<double3> poly);
 };
 
-}  // namespace blender
+inline double normalize_and_get_length(double3 &a)
+{
+  return normalize_v3_db(a);
+}
+
+inline double3 normalized(const double3 &a)
+{
+  double3 result;
+  normalize_v3_v3_db(result, a);
+  return result;
+}
+
+inline double length(const double3 &a)
+{
+  return len_v3_db(a);
+}
+
+inline double length_squared(const double3 &a)
+{
+  return len_squared_v3_db(a);
+}
+
+inline double3 reflected(const double3 &a, const double3 &normal)
+{
+  double3 result;
+  reflect_v3_v3v3_db(result, a, normal);
+  return result;
+}
+
+inline void reflect(double3 &a, const double3 &normal)
+{
+  a = reflected(a, normal);
+}
+
+inline double3 safe_divide(const double3 &a, const double3 &b)
+{
+  double3 result;
+  result.x = (b.x == 0.0) ? 0.0 : a.x / b.x;
+  result.y = (b.y == 0.0) ? 0.0 : a.y / b.y;
+  result.z = (b.z == 0.0) ? 0.0 : a.z / b.z;
+  return result;
+}
+
+inline void negate(double3 &a)
+{
+  a.x = -a.x;
+  a.y = -a.y;
+  a.z = -a.z;
+}
+
+inline double3 operator+(const double3 &a, const double3 &b)
+{
+  return {a.x + b.x, a.y + b.y, a.z + b.z};
+}
+
+inline void operator+=(double3 &a, const double3 &b)
+{
+  a.x += b.x;
+  a.y += b.y;
+  a.z += b.z;
+}
+
+inline double3 operator-(const double3 &a, const double3 &b)
+{
+  return {a.x - b.x, a.y - b.y, a.z - b.z};
+}
+
+inline double3 operator-(const double3 &a)
+{
+  return {-a.x, -a.y, -a.z};
+}
+
+inline void operator-=(double3 &a, const double3 &b)
+{
+  a.x -= b.x;
+  a.y -= b.y;
+  a.z -= b.z;
+}
+
+inline void operator*=(double3 &a, const double &scalar)
+{
+  a.x *= scalar;
+  a.y *= scalar;
+  a.z *= scalar;
+}
+
+inline void operator*=(double3 &a, const double3 &other)
+{
+  a.x *= other.x;
+  a.y *= other.y;
+  a.z *= other.z;
+}
+
+inline double3 operator*(const double3 &a, const double3 &b)
+{
+  return {a.x * b.x, a.y * b.y, a.z * b.z};
+}
+
+inline double3 operator*(const double3 &a, const double &b)
+{
+  return {a.x * b, a.y * b, a.z * b};
+}
+
+inline double3 operator*(const double &a, const double3 &b)
+{
+  return b * a;
+}
+
+inline double3 operator/(const double3 &a, const double &b)
+{
+  BLI_assert(b != 0.0);
+  return {a.x / b, a.y / b, a.z / b};
+}
+
+inline bool operator==(const double3 &a, const double3 &b)
+{
+  return a.x == b.x && a.y == b.y && a.z == b.z;
+}
+
+inline bool operator!=(const double3 &a, const double3 &b)
+{
+  return a.x != b.x || a.y != b.y || a.z != b.z;
+}
+
+inline std::ostream &operator<<(std::ostream &stream, const double3 &v)
+{
+  stream << "(" << v.x << ", " << v.y << ", " << v.z << ")";
+  return stream;
+}
+
+inline double dot(const double3 &a, const double3 &b)
+{
+  return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+inline double3 cross_high_precision(const double3 &a, const double3 &b)
+{
+  double3 result;
+  cross_v3_v3v3_db(result, a, b);
+  return result;
+}
+
+inline double3 project(const double3 &a, const double3 &b)
+{
+  double3 result;
+  project_v3_v3v3_db(result, a, b);
+  return result;
+}
+
+inline double distance(const double3 &a, const double3 &b)
+{
+  return length(a - b);
+}
+
+inline double distance_squared(const double3 &a, const double3 &b)
+{
+  return dot(a, b);
+}
+
+inline double3 lerp(const double3 &a, const double3 &b, double t)
+{
+  return a * (1 - t) + b * t;
+}
+
+inline double3 abs(const double3 &a)
+{
+  return double3(fabs(a.x), fabs(a.y), fabs(a.z));
+}
+
+inline int dominant_axis(const double3 &a)
+{
+  double x = (a.x >= 0) ? a.x : -a.x;
+  double y = (a.y >= 0) ? a.y : -a.y;
+  double z = (a.z >= 0) ? a.z : -a.z;
+  return ((x > y) ? ((x > z) ? 0 : 2) : ((y > z) ? 1 : 2));
+}
+
+}  // namespace blender::math
+
+namespace blender {
+using math::double3;
+}

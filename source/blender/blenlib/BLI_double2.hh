@@ -22,7 +22,7 @@
 
 #include "BLI_double3.hh"
 
-namespace blender {
+namespace blender::math {
 
 struct double2 {
   double x, y;
@@ -51,78 +51,6 @@ struct double2 {
     return &x;
   }
 
-  double length() const
-  {
-    return len_v2_db(*this);
-  }
-
-  friend double2 operator+(const double2 &a, const double2 &b)
-  {
-    return {a.x + b.x, a.y + b.y};
-  }
-
-  friend double2 operator-(const double2 &a, const double2 &b)
-  {
-    return {a.x - b.x, a.y - b.y};
-  }
-
-  friend double2 operator*(const double2 &a, double b)
-  {
-    return {a.x * b, a.y * b};
-  }
-
-  friend double2 operator/(const double2 &a, double b)
-  {
-    BLI_assert(b != 0.0);
-    return {a.x / b, a.y / b};
-  }
-
-  friend double2 operator*(double a, const double2 &b)
-  {
-    return b * a;
-  }
-
-  friend bool operator==(const double2 &a, const double2 &b)
-  {
-    return a.x == b.x && a.y == b.y;
-  }
-
-  friend bool operator!=(const double2 &a, const double2 &b)
-  {
-    return a.x != b.x || a.y != b.y;
-  }
-
-  friend std::ostream &operator<<(std::ostream &stream, const double2 &v)
-  {
-    stream << "(" << v.x << ", " << v.y << ")";
-    return stream;
-  }
-
-  static double dot(const double2 &a, const double2 &b)
-  {
-    return a.x * b.x + a.y * b.y;
-  }
-
-  static double2 interpolate(const double2 &a, const double2 &b, double t)
-  {
-    return a * (1 - t) + b * t;
-  }
-
-  static double2 abs(const double2 &a)
-  {
-    return double2(fabs(a.x), fabs(a.y));
-  }
-
-  static double distance(const double2 &a, const double2 &b)
-  {
-    return (a - b).length();
-  }
-
-  static double distance_squared(const double2 &a, const double2 &b)
-  {
-    return double2::dot(a, b);
-  }
-
   struct isect_result {
     enum {
       LINE_LINE_COLINEAR = -1,
@@ -139,4 +67,81 @@ struct double2 {
                                     const double2 &v4);
 };
 
-}  // namespace blender
+inline double length(const double2 &a)
+{
+  return len_v2_db(a);
+}
+
+inline double2 operator+(const double2 &a, const double2 &b)
+{
+  return {a.x + b.x, a.y + b.y};
+}
+
+inline double2 operator-(const double2 &a, const double2 &b)
+{
+  return {a.x - b.x, a.y - b.y};
+}
+
+inline double2 operator*(const double2 &a, double b)
+{
+  return {a.x * b, a.y * b};
+}
+
+inline double2 operator/(const double2 &a, double b)
+{
+  BLI_assert(b != 0.0);
+  return {a.x / b, a.y / b};
+}
+
+inline double2 operator*(double a, const double2 &b)
+{
+  return b * a;
+}
+
+inline bool operator==(const double2 &a, const double2 &b)
+{
+  return a.x == b.x && a.y == b.y;
+}
+
+inline bool operator!=(const double2 &a, const double2 &b)
+{
+  return a.x != b.x || a.y != b.y;
+}
+
+inline std::ostream &operator<<(std::ostream &stream, const double2 &v)
+{
+  stream << "(" << v.x << ", " << v.y << ")";
+  return stream;
+}
+
+inline double dot(const double2 &a, const double2 &b)
+{
+  return a.x * b.x + a.y * b.y;
+}
+
+inline double2 lerp(const double2 &a, const double2 &b, double t)
+{
+  return a * (1 - t) + b * t;
+}
+
+inline double2 abs(const double2 &a)
+{
+  return double2(fabs(a.x), fabs(a.y));
+}
+
+inline double distance(const double2 &a, const double2 &b)
+{
+  return length(a - b);
+}
+
+inline double distance_squared(const double2 &a, const double2 &b)
+{
+  double2 diff = a - b;
+  return dot(diff, diff);
+}
+
+}  // namespace blender::math
+
+namespace blender {
+using blender::math::double2;
+}

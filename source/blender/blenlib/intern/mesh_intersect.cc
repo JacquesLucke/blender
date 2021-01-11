@@ -198,9 +198,9 @@ void Face::populate_plane(bool need_exact)
     else {
       mpq3 tr02 = vert[0]->co_exact - vert[2]->co_exact;
       mpq3 tr12 = vert[1]->co_exact - vert[2]->co_exact;
-      normal_exact = mpq3::cross(tr02, tr12);
+      normal_exact = cross(tr02, tr12);
     }
-    mpq_class d_exact = -mpq3::dot(normal_exact, vert[0]->co_exact);
+    mpq_class d_exact = -dot(normal_exact, vert[0]->co_exact);
     plane = new Plane(normal_exact, d_exact);
   }
   else {
@@ -215,9 +215,9 @@ void Face::populate_plane(bool need_exact)
     else {
       double3 tr02 = vert[0]->co - vert[2]->co;
       double3 tr12 = vert[1]->co - vert[2]->co;
-      normal = double3::cross_high_precision(tr02, tr12);
+      normal = cross_high_precision(tr02, tr12);
     }
-    double d = -double3::dot(normal, vert[0]->co);
+    double d = -dot(normal, vert[0]->co);
     plane = new Plane(normal, d);
   }
 }
@@ -1174,15 +1174,15 @@ static mpq2 project_3d_to_2d(const mpq3 &p3d, int proj_axis)
  */
 static double supremum_dot_cross(const double3 &a, const double3 &b)
 {
-  double3 abs_a = double3::abs(a);
-  double3 abs_b = double3::abs(b);
+  double3 abs_a = abs(a);
+  double3 abs_b = abs(b);
   double3 c;
   /* This is dot(cross(a, b), cross(a,b)) but using absolute values for a and b
    * and always using + when operation is + or -. */
   c[0] = abs_a[1] * abs_b[2] + abs_a[2] * abs_b[1];
   c[1] = abs_a[2] * abs_b[0] + abs_a[0] * abs_b[2];
   c[2] = abs_a[0] * abs_b[1] + abs_a[1] * abs_b[0];
-  return double3::dot(c, c);
+  return dot(c, c);
 }
 
 /* The index of dot when inputs are plane_coords with index 1 is much higher.
@@ -1219,11 +1219,11 @@ static int filter_plane_side(const double3 &p,
                              const double3 &abs_plane_p,
                              const double3 &abs_plane_no)
 {
-  double d = double3::dot(p - plane_p, plane_no);
+  double d = dot(p - plane_p, plane_no);
   if (d == 0.0) {
     return 0;
   }
-  double supremum = double3::dot(abs_p + abs_plane_p, abs_plane_no);
+  double supremum = dot(abs_p + abs_plane_p, abs_plane_no);
   double err_bound = supremum * index_plane_side * DBL_EPSILON;
   if (fabs(d) > err_bound) {
     return d > 0 ? 1 : -1;
@@ -1248,9 +1248,9 @@ static int filter_plane_side(const double3 &p,
 static inline mpq3 tti_interp(const mpq3 &a, const mpq3 &b, const mpq3 &c, const mpq3 &n)
 {
   mpq3 ab = a - b;
-  mpq_class den = mpq3::dot(ab, n);
+  mpq_class den = dot(ab, n);
   BLI_assert(den != 0);
-  mpq_class alpha = mpq3::dot(a - c, n) / den;
+  mpq_class alpha = dot(a - c, n) / den;
   return a - alpha * ab;
 }
 
@@ -1261,8 +1261,8 @@ static inline mpq3 tti_interp(const mpq3 &a, const mpq3 &b, const mpq3 &c, const
  */
 static inline int tti_above(const mpq3 &a, const mpq3 &b, const mpq3 &c, const mpq3 &ad)
 {
-  mpq3 n = mpq3::cross(b - a, c - a);
-  return sgn(mpq3::dot(ad, n));
+  mpq3 n = cross(b - a, c - a);
+  return sgn(dot(ad, n));
 }
 
 /**
@@ -1480,11 +1480,11 @@ static ITT_value intersect_tri_tri(const IMesh &tm, int t1, int t2)
   const double3 &d_r2 = vr2->co;
   const double3 &d_n2 = tri2.plane->norm;
 
-  const double3 &abs_d_p1 = double3::abs(d_p1);
-  const double3 &abs_d_q1 = double3::abs(d_q1);
-  const double3 &abs_d_r1 = double3::abs(d_r1);
-  const double3 &abs_d_r2 = double3::abs(d_r2);
-  const double3 &abs_d_n2 = double3::abs(d_n2);
+  const double3 &abs_d_p1 = abs(d_p1);
+  const double3 &abs_d_q1 = abs(d_q1);
+  const double3 &abs_d_r1 = abs(d_r1);
+  const double3 &abs_d_r2 = abs(d_r2);
+  const double3 &abs_d_n2 = abs(d_n2);
 
   int sp1 = filter_plane_side(d_p1, d_r2, d_n2, abs_d_p1, abs_d_r2, abs_d_n2);
   int sq1 = filter_plane_side(d_q1, d_r2, d_n2, abs_d_q1, abs_d_r2, abs_d_n2);
@@ -1500,9 +1500,9 @@ static ITT_value intersect_tri_tri(const IMesh &tm, int t1, int t2)
   }
 
   const double3 &d_n1 = tri1.plane->norm;
-  const double3 &abs_d_p2 = double3::abs(d_p2);
-  const double3 &abs_d_q2 = double3::abs(d_q2);
-  const double3 &abs_d_n1 = double3::abs(d_n1);
+  const double3 &abs_d_p2 = abs(d_p2);
+  const double3 &abs_d_q2 = abs(d_q2);
+  const double3 &abs_d_n1 = abs(d_n1);
 
   int sp2 = filter_plane_side(d_p2, d_r1, d_n1, abs_d_p2, abs_d_r1, abs_d_n1);
   int sq2 = filter_plane_side(d_q2, d_r1, d_n1, abs_d_q2, abs_d_r1, abs_d_n1);
@@ -1526,13 +1526,13 @@ static ITT_value intersect_tri_tri(const IMesh &tm, int t1, int t2)
 
   const mpq3 &n2 = tri2.plane->norm_exact;
   if (sp1 == 0) {
-    sp1 = sgn(mpq3::dot(p1 - r2, n2));
+    sp1 = sgn(dot(p1 - r2, n2));
   }
   if (sq1 == 0) {
-    sq1 = sgn(mpq3::dot(q1 - r2, n2));
+    sq1 = sgn(dot(q1 - r2, n2));
   }
   if (sr1 == 0) {
-    sr1 = sgn(mpq3::dot(r1 - r2, n2));
+    sr1 = sgn(dot(r1 - r2, n2));
   }
 
   if (dbg_level > 1) {
@@ -1552,13 +1552,13 @@ static ITT_value intersect_tri_tri(const IMesh &tm, int t1, int t2)
   /* Repeat for signs of t2's vertices with respect to plane of t1. */
   const mpq3 &n1 = tri1.plane->norm_exact;
   if (sp2 == 0) {
-    sp2 = sgn(mpq3::dot(p2 - r1, n1));
+    sp2 = sgn(dot(p2 - r1, n1));
   }
   if (sq2 == 0) {
-    sq2 = sgn(mpq3::dot(q2 - r1, n1));
+    sq2 = sgn(dot(q2 - r1, n1));
   }
   if (sr2 == 0) {
-    sr2 = sgn(mpq3::dot(r2 - r1, n1));
+    sr2 = sgn(dot(r2 - r1, n1));
   }
 
   if (dbg_level > 1) {
@@ -1757,7 +1757,7 @@ static CDT_data prepare_cdt_input(const IMesh &tm, int t, const Vector<ITT_value
   BLI_assert(tm.face(t)->plane_populated());
   ans.t_plane = tm.face(t)->plane;
   BLI_assert(ans.t_plane->exact_populated());
-  ans.proj_axis = mpq3::dominant_axis(ans.t_plane->norm_exact);
+  ans.proj_axis = dominant_axis(ans.t_plane->norm_exact);
   prepare_need_tri(ans, tm, t);
   for (const ITT_value &itt : itts) {
     switch (itt.kind) {
@@ -1793,7 +1793,7 @@ static CDT_data prepare_cdt_input_for_cluster(const IMesh &tm,
   BLI_assert(tm.face(t0)->plane_populated());
   ans.t_plane = tm.face(t0)->plane;
   BLI_assert(ans.t_plane->exact_populated());
-  ans.proj_axis = mpq3::dominant_axis(ans.t_plane->norm_exact);
+  ans.proj_axis = dominant_axis(ans.t_plane->norm_exact);
   for (const int t : cl) {
     prepare_need_tri(ans, tm, t);
   }
@@ -2535,15 +2535,15 @@ static bool face_is_degenerate(const Face *f)
   }
   double3 da = v2->co - v0->co;
   double3 db = v2->co - v1->co;
-  double3 dab = double3::cross_high_precision(da, db);
-  double dab_length_squared = dab.length_squared();
+  double3 dab = cross_high_precision(da, db);
+  double dab_length_squared = length_squared(dab);
   double err_bound = supremum_dot_cross(dab, dab) * index_dot_cross * DBL_EPSILON;
   if (dab_length_squared > err_bound) {
     return false;
   }
   mpq3 a = v2->co_exact - v0->co_exact;
   mpq3 b = v2->co_exact - v1->co_exact;
-  mpq3 ab = mpq3::cross(a, b);
+  mpq3 ab = cross(a, b);
   if (ab.x == 0 && ab.y == 0 && ab.z == 0) {
     return true;
   }

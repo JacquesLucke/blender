@@ -25,7 +25,7 @@
 #  include "BLI_math_mpq.hh"
 #  include "BLI_mpq3.hh"
 
-namespace blender {
+namespace blender::math {
 
 struct mpq2 {
   mpq_class x, y;
@@ -80,85 +80,6 @@ struct mpq2 {
     return &x;
   }
 
-  /**
-   * Cannot do this exactly in rational arithmetic!
-   * Approximate by going in and out of doubles.
-   */
-  mpq_class length() const
-  {
-    mpq_class lsquared = dot(*this, *this);
-    return mpq_class(sqrt(lsquared.get_d()));
-  }
-
-  friend mpq2 operator+(const mpq2 &a, const mpq2 &b)
-  {
-    return {a.x + b.x, a.y + b.y};
-  }
-
-  friend mpq2 operator-(const mpq2 &a, const mpq2 &b)
-  {
-    return {a.x - b.x, a.y - b.y};
-  }
-
-  friend mpq2 operator*(const mpq2 &a, mpq_class b)
-  {
-    return {a.x * b, a.y * b};
-  }
-
-  friend mpq2 operator/(const mpq2 &a, mpq_class b)
-  {
-    BLI_assert(b != 0);
-    return {a.x / b, a.y / b};
-  }
-
-  friend mpq2 operator*(mpq_class a, const mpq2 &b)
-  {
-    return b * a;
-  }
-
-  friend bool operator==(const mpq2 &a, const mpq2 &b)
-  {
-    return a.x == b.x && a.y == b.y;
-  }
-
-  friend bool operator!=(const mpq2 &a, const mpq2 &b)
-  {
-    return a.x != b.x || a.y != b.y;
-  }
-
-  friend std::ostream &operator<<(std::ostream &stream, const mpq2 &v)
-  {
-    stream << "(" << v.x << ", " << v.y << ")";
-    return stream;
-  }
-
-  static mpq_class dot(const mpq2 &a, const mpq2 &b)
-  {
-    return a.x * b.x + a.y * b.y;
-  }
-
-  static mpq2 interpolate(const mpq2 &a, const mpq2 &b, mpq_class t)
-  {
-    return a * (1 - t) + b * t;
-  }
-
-  static mpq2 abs(const mpq2 &a)
-  {
-    mpq_class abs_x = (a.x >= 0) ? a.x : -a.x;
-    mpq_class abs_y = (a.y >= 0) ? a.y : -a.y;
-    return mpq2(abs_x, abs_y);
-  }
-
-  static mpq_class distance(const mpq2 &a, const mpq2 &b)
-  {
-    return (a - b).length();
-  }
-
-  static mpq_class distance_squared(const mpq2 &a, const mpq2 &b)
-  {
-    return dot(a, b);
-  }
-
   struct isect_result {
     enum {
       LINE_LINE_COLINEAR = -1,
@@ -178,6 +99,89 @@ struct mpq2 {
   uint64_t hash() const;
 };
 
-}  // namespace blender
+inline mpq2 operator+(const mpq2 &a, const mpq2 &b)
+{
+  return {a.x + b.x, a.y + b.y};
+}
+
+inline mpq2 operator-(const mpq2 &a, const mpq2 &b)
+{
+  return {a.x - b.x, a.y - b.y};
+}
+
+inline mpq2 operator*(const mpq2 &a, mpq_class b)
+{
+  return {a.x * b, a.y * b};
+}
+
+inline mpq2 operator/(const mpq2 &a, mpq_class b)
+{
+  BLI_assert(b != 0);
+  return {a.x / b, a.y / b};
+}
+
+inline mpq2 operator*(mpq_class a, const mpq2 &b)
+{
+  return b * a;
+}
+
+inline bool operator==(const mpq2 &a, const mpq2 &b)
+{
+  return a.x == b.x && a.y == b.y;
+}
+
+inline bool operator!=(const mpq2 &a, const mpq2 &b)
+{
+  return a.x != b.x || a.y != b.y;
+}
+
+inline std::ostream &operator<<(std::ostream &stream, const mpq2 &v)
+{
+  stream << "(" << v.x << ", " << v.y << ")";
+  return stream;
+}
+
+inline mpq_class dot(const mpq2 &a, const mpq2 &b)
+{
+  return a.x * b.x + a.y * b.y;
+}
+
+/**
+ * Cannot do this exactly in rational arithmetic!
+ * Approximate by going in and out of doubles.
+ */
+inline mpq_class length(const mpq2 &a)
+{
+  mpq_class lsquared = dot(a, a);
+  return mpq_class(sqrt(lsquared.get_d()));
+}
+
+inline mpq2 lerp(const mpq2 &a, const mpq2 &b, mpq_class t)
+{
+  return a * (1 - t) + b * t;
+}
+
+inline mpq2 abs(const mpq2 &a)
+{
+  mpq_class abs_x = (a.x >= 0) ? a.x : -a.x;
+  mpq_class abs_y = (a.y >= 0) ? a.y : -a.y;
+  return mpq2(abs_x, abs_y);
+}
+
+inline mpq_class distance(const mpq2 &a, const mpq2 &b)
+{
+  return length(a - b);
+}
+
+inline mpq_class distance_squared(const mpq2 &a, const mpq2 &b)
+{
+  return dot(a, b);
+}
+
+}  // namespace blender::math
+
+namespace blender {
+using math::mpq2;
+}
 
 #endif /* WITH_GMP */

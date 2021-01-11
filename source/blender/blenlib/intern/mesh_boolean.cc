@@ -1561,13 +1561,13 @@ static Edge find_good_sorting_edge(const Vert *testp,
   ordinate[axis_next] = -abscissa[axis];
   ordinate[axis_next_next] = 0;
   /* By construction, dot(abscissa, ordinate) == 0, so they are perpendicular. */
-  mpq3 normal = mpq3::cross(abscissa, ordinate);
+  mpq3 normal = cross(abscissa, ordinate);
   if (dbg_level > 0) {
     std::cout << "abscissa = " << abscissa << "\n";
     std::cout << "ordinate = " << ordinate << "\n";
     std::cout << "normal = " << normal << "\n";
   }
-  mpq_class nlen2 = normal.length_squared();
+  mpq_class nlen2 = length_squared(normal);
   mpq_class max_abs_slope = -1;
   Edge esort;
   const Vector<Edge> &edges = tmtopo.vert_edges(closestp);
@@ -1576,12 +1576,12 @@ static Edge find_good_sorting_edge(const Vert *testp,
     const mpq3 &co_other = v_other->co_exact;
     mpq3 evec = co_other - co_closest;
     /* Get projection of evec onto plane of abscissa and ordinate. */
-    mpq3 proj_evec = evec - (mpq3::dot(evec, normal) / nlen2) * normal;
+    mpq3 proj_evec = evec - (dot(evec, normal) / nlen2) * normal;
     /* The projection calculations along the abscissa and ordinate should
      * be scaled by 1/abscissa and 1/ordinate respectively,
      * but we can skip: it won't affect which `evec` has the maximum slope. */
-    mpq_class evec_a = mpq3::dot(proj_evec, abscissa);
-    mpq_class evec_o = mpq3::dot(proj_evec, ordinate);
+    mpq_class evec_a = dot(proj_evec, abscissa);
+    mpq_class evec_o = dot(proj_evec, ordinate);
     if (dbg_level > 0) {
       std::cout << "e = " << e << "\n";
       std::cout << "v_other = " << v_other << "\n";
@@ -1700,8 +1700,8 @@ static mpq_class closest_on_tri_to_point(
   mpq3 ab = b - a;
   mpq3 ac = c - a;
   mpq3 ap = p - a;
-  mpq_class d1 = mpq3::dot(ab, ap);
-  mpq_class d2 = mpq3::dot(ac, ap);
+  mpq_class d1 = dot(ab, ap);
+  mpq_class d2 = dot(ac, ap);
   if (d1 <= 0 && d2 <= 0) {
     /* Barycentric coordinates (1,0,0). */
     *r_edge = -1;
@@ -1709,12 +1709,12 @@ static mpq_class closest_on_tri_to_point(
     if (dbg_level > 0) {
       std::cout << "  answer = a\n";
     }
-    return mpq3::distance_squared(p, a);
+    return distance_squared(p, a);
   }
   /* Check if p in vertex region outside b. */
   mpq3 bp = p - b;
-  mpq_class d3 = mpq3::dot(ab, bp);
-  mpq_class d4 = mpq3::dot(ac, bp);
+  mpq_class d3 = dot(ab, bp);
+  mpq_class d4 = dot(ac, bp);
   if (d3 >= 0 && d4 <= d3) {
     /* Barycentric coordinates (0,1,0). */
     *r_edge = -1;
@@ -1722,7 +1722,7 @@ static mpq_class closest_on_tri_to_point(
     if (dbg_level > 0) {
       std::cout << "  answer = b\n";
     }
-    return mpq3::distance_squared(p, b);
+    return distance_squared(p, b);
   }
   /* Check if p in region of ab. */
   mpq_class vc = d1 * d4 - d3 * d2;
@@ -1735,12 +1735,12 @@ static mpq_class closest_on_tri_to_point(
     if (dbg_level > 0) {
       std::cout << "  answer = on ab at " << r << "\n";
     }
-    return mpq3::distance_squared(p, r);
+    return distance_squared(p, r);
   }
   /* Check if p in vertex region outside c. */
   mpq3 cp = p - c;
-  mpq_class d5 = mpq3::dot(ab, cp);
-  mpq_class d6 = mpq3::dot(ac, cp);
+  mpq_class d5 = dot(ab, cp);
+  mpq_class d6 = dot(ac, cp);
   if (d6 >= 0 && d5 <= d6) {
     /* Barycentric coordinates (0,0,1). */
     *r_edge = -1;
@@ -1748,7 +1748,7 @@ static mpq_class closest_on_tri_to_point(
     if (dbg_level > 0) {
       std::cout << "  answer = c\n";
     }
-    return mpq3::distance_squared(p, c);
+    return distance_squared(p, c);
   }
   /* Check if p in edge region of ac. */
   mpq_class vb = d5 * d2 - d1 * d6;
@@ -1761,7 +1761,7 @@ static mpq_class closest_on_tri_to_point(
     if (dbg_level > 0) {
       std::cout << "  answer = on ac at " << r << "\n";
     }
-    return mpq3::distance_squared(p, r);
+    return distance_squared(p, r);
   }
   /* Check if p in edge region of bc. */
   mpq_class va = d3 * d6 - d5 * d4;
@@ -1776,7 +1776,7 @@ static mpq_class closest_on_tri_to_point(
     if (dbg_level > 0) {
       std::cout << "  answer = on bc at " << r << "\n";
     }
-    return mpq3::distance_squared(p, r);
+    return distance_squared(p, r);
   }
   /* p inside face region. Compute barycentric coordinates (u,v,w). */
   mpq_class denom = 1 / (va + vb + vc);
@@ -1790,7 +1790,7 @@ static mpq_class closest_on_tri_to_point(
   if (dbg_level > 0) {
     std::cout << "  answer = inside at " << r << "\n";
   }
-  return mpq3::distance_squared(p, r);
+  return distance_squared(p, r);
 }
 
 struct ComponentContainer {
@@ -2375,13 +2375,12 @@ static double generalized_winding_number(const IMesh &tm,
       /* Calculate the solid angle of abc relative to origin.
        * See "The Solid Angle of a Plane Triangle" by Oosterom and Strackee
        * for the derivation of the formula. */
-      double alen = a.length();
-      double blen = b.length();
-      double clen = c.length();
-      double3 bxc = double3::cross_high_precision(b, c);
-      double num = double3::dot(a, bxc);
-      double denom = alen * blen * clen + double3::dot(a, b) * clen + double3::dot(a, c) * blen +
-                     double3::dot(b, c) * alen;
+      double alen = length(a);
+      double blen = length(b);
+      double clen = length(c);
+      double3 bxc = cross_high_precision(b, c);
+      double num = dot(a, bxc);
+      double denom = alen * blen * clen + dot(a, b) * clen + dot(a, c) * blen + dot(b, c) * alen;
       if (denom == 0.0) {
         if (dbg_level > 0) {
           std::cout << "denom == 0, skipping this tri\n";
@@ -2569,7 +2568,7 @@ static Array<Face *> triangulate_poly(Face *f, IMeshArena *arena)
     f->populate_plane(false);
   }
   const double3 &poly_normal = f->plane->norm;
-  int axis = double3::dominant_axis(poly_normal);
+  int axis = dominant_axis(poly_normal);
   /* If project down y axis as opposed to x or z, the orientation
    * of the polygon will be reversed.
    * Yet another reversal happens if the poly normal in the dominant
@@ -2783,7 +2782,7 @@ static void init_face_merge_state(FaceMergeState *fms,
       std::cout << "process tri = " << &tri << "\n";
     }
     BLI_assert(tri.plane_populated());
-    if (double3::dot(norm, tri.plane->norm) <= 0.0) {
+    if (dot(norm, tri.plane->norm) <= 0.0) {
       if (dbg_level > 0) {
         std::cout << "triangle has wrong orientation, skipping\n";
       }
@@ -2808,7 +2807,7 @@ static void init_face_merge_state(FaceMergeState *fms,
       }
       if (me_index == -1) {
         double3 vec = new_me.v2->co - new_me.v1->co;
-        new_me.len_squared = vec.length_squared();
+        new_me.len_squared = length_squared(vec);
         new_me.orig = tri.edge_orig[i];
         new_me.is_intersect = tri.is_intersect[i];
         new_me.dissolvable = (new_me.orig == NO_INDEX && !new_me.is_intersect);
@@ -3048,7 +3047,7 @@ static Vector<Face *> merge_tris_for_face(Vector<int> tris,
   bool done = false;
   double3 first_tri_normal = tm.face(tris[0])->plane->norm;
   double3 second_tri_normal = tm.face(tris[1])->plane->norm;
-  if (tris.size() == 2 && double3::dot(first_tri_normal, second_tri_normal) > 0.0) {
+  if (tris.size() == 2 && dot(first_tri_normal, second_tri_normal) > 0.0) {
     /* Is this a case where quad with one diagonal remained unchanged?
      * Worth special handling because this case will be very common. */
     Face &tri1 = *tm.face(tris[0]);
