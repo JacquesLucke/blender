@@ -323,29 +323,24 @@ template<typename T> class ArrayReadAttribute final : public ReadAttribute {
   }
 };
 
-template<typename StructT, typename ElemT, typename GetFuncT, typename SetFuncT>
+template<typename StructT,
+         typename ElemT,
+         ElemT (*GetFunc)(const StructT &),
+         void (*SetFunc)(StructT &, const ElemT &)>
 class DerivedArrayWriteAttribute final : public WriteAttribute {
  private:
   MutableSpan<StructT> data_;
-  GetFuncT get_function_;
-  SetFuncT set_function_;
 
  public:
-  DerivedArrayWriteAttribute(AttributeDomain domain,
-                             MutableSpan<StructT> data,
-                             GetFuncT get_function,
-                             SetFuncT set_function)
-      : WriteAttribute(domain, CPPType::get<ElemT>(), data.size()),
-        data_(data),
-        get_function_(std::move(get_function)),
-        set_function_(std::move(set_function))
+  DerivedArrayWriteAttribute(AttributeDomain domain, MutableSpan<StructT> data)
+      : WriteAttribute(domain, CPPType::get<ElemT>(), data.size()), data_(data)
   {
   }
 
   void get_internal(const int64_t index, void *r_value) const override
   {
     const StructT &struct_value = data_[index];
-    const ElemT value = get_function_(struct_value);
+    const ElemT value = GetFunc(struct_value);
     new (r_value) ElemT(value);
   }
 
@@ -353,7 +348,7 @@ class DerivedArrayWriteAttribute final : public WriteAttribute {
   {
     StructT &struct_value = data_[index];
     const ElemT &typed_value = *reinterpret_cast<const ElemT *>(value);
-    set_function_(struct_value, typed_value);
+    SetFunc(struct_value, typed_value);
   }
 };
 
@@ -641,6 +636,10 @@ class MVertPositionAttributeProvider final : public AttributeProvider {
                                     const StringRef attribute_name) const final
   {
     BLI_assert(component.type() == GeometryComponentType::Mesh);
+    if (attribute_name != "Position") {
+      return {};
+    }
+
     const MeshComponent &mesh_component = static_cast<const MeshComponent &>(component);
     const Mesh *mesh = mesh_component.get_for_read();
     if (mesh == nullptr) {
@@ -648,6 +647,24 @@ class MVertPositionAttributeProvider final : public AttributeProvider {
     }
     return std::make_unique<DerivedArrayReadAttribute<MVert, float3, get_vertex_position>>(
         ATTR_DOMAIN_POINT, Span(mesh->mvert, mesh->totvert));
+  }
+
+  WriteAttributePtr try_get_for_write(GeometryComponent &component,
+                                      const StringRef attribute_name) const final
+  {
+    BLI_assert(component.type() == GeometryComponentType::Mesh);
+    if (attribute_name != "Position") {
+      return {};
+    }
+
+    MeshComponent &mesh_component = static_cast<MeshComponent &>(component);
+    Mesh *mesh = mesh_component.get_for_write();
+    if (mesh == nullptr) {
+      return {};
+    }
+    return std::make_unique<
+        DerivedArrayWriteAttribute<MVert, float3, get_vertex_position, set_vertex_position>>(
+        ATTR_DOMAIN_POINT, MutableSpan(mesh->mvert, mesh->totvert));
   }
 
   static float3 get_vertex_position(const MVert &vert)
@@ -670,6 +687,11 @@ class MVertPositionAttributeProvider final : public AttributeProvider {
 static blender::float2 get_loop_uv(const MLoopUV &uv)
 {
   return blender::float2(uv.uv);
+}
+
+static void set_loop_uv(MLoopUV &uv, const blender::float2 &co)
+{
+  copy_v2_v2(uv.uv, co);
 }
 
 static ReadAttributePtr read_attribute_from_custom_data(const CustomData &custom_data,
@@ -748,11 +770,9 @@ static WriteAttributePtr write_attribute_from_custom_data(
           return std::make_unique<ArrayWriteAttribute<bool>>(
               domain, MutableSpan(static_cast<bool *>(layer.data), size));
         case CD_MLOOPUV:
-          auto get_uv = [](const MLoopUV &uv) { return float2(uv.uv); };
-          auto set_uv = [](MLoopUV &uv, const float2 value) { copy_v2_v2(uv.uv, value); };
           return std::make_unique<
-              DerivedArrayWriteAttribute<MLoopUV, float2, decltype(get_uv), decltype(set_uv)>>(
-              domain, MutableSpan(static_cast<MLoopUV *>(layer.data), size), get_uv, set_uv);
+              DerivedArrayWriteAttribute<MLoopUV, float2, get_loop_uv, set_loop_uv>>(
+              domain, MutableSpan(static_cast<MLoopUV *>(layer.data), size));
       }
     }
   }
@@ -1361,17 +1381,12 @@ WriteAttributePtr MeshComponent::attribute_try_get_for_write(const StringRef att
     CustomData_duplicate_referenced_layer(&mesh->vdata, CD_MVERT, mesh->totvert);
     update_mesh_pointers();
 
-    auto get_vertex_position = [](const MVert &vert) { return float3(vert.co); };
-    auto set_vertex_position = [](MVert &vert, const float3 &co) { copy_v3_v3(vert.co, co); };
-    return std::make_unique<
-        blender::bke::DerivedArrayWriteAttribute<MVert,
-                                                 float3,
-                                                 decltype(get_vertex_position),
-                                                 decltype(set_vertex_position)>>(
-        ATTR_DOMAIN_POINT,
-        blender::MutableSpan(mesh_->mvert, mesh_->totvert),
-        get_vertex_position,
-        set_vertex_position);
+    return std::make_unique<blender::bke::DerivedArrayWriteAttribute<
+        MVert,
+        float3,
+        blender::bke::MVertPositionAttributeProvider::get_vertex_position,
+        blender::bke::MVertPositionAttributeProvider::set_vertex_position>>(
+        ATTR_DOMAIN_POINT, blender::MutableSpan(mesh_->mvert, mesh_->totvert));
   }
 
   WriteAttributePtr corner_attribute = write_attribute_from_custom_data(
