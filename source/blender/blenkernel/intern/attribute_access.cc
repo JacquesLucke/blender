@@ -357,24 +357,21 @@ class DerivedArrayWriteAttribute final : public WriteAttribute {
   }
 };
 
-template<typename StructT, typename ElemT, typename GetFuncT>
+template<typename StructT, typename ElemT, ElemT (*GetFunc)(const StructT &)>
 class DerivedArrayReadAttribute final : public ReadAttribute {
  private:
   Span<StructT> data_;
-  GetFuncT get_function_;
 
  public:
-  DerivedArrayReadAttribute(AttributeDomain domain, Span<StructT> data, GetFuncT get_function)
-      : ReadAttribute(domain, CPPType::get<ElemT>(), data.size()),
-        data_(data),
-        get_function_(std::move(get_function))
+  DerivedArrayReadAttribute(AttributeDomain domain, Span<StructT> data)
+      : ReadAttribute(domain, CPPType::get<ElemT>(), data.size()), data_(data)
   {
   }
 
   void get_internal(const int64_t index, void *r_value) const override
   {
     const StructT &struct_value = data_[index];
-    const ElemT value = get_function_(struct_value);
+    const ElemT value = GetFunc(struct_value);
     new (r_value) ElemT(value);
   }
 };
@@ -638,11 +635,42 @@ class GenericCustomDataAttributeProvider final : public AttributeProvider {
   }
 };
 
+class MVertPositionAttributeProvider final : public AttributeProvider {
+ public:
+  ReadAttributePtr try_get_for_read(const GeometryComponent &component,
+                                    const StringRef attribute_name) const final
+  {
+    BLI_assert(component.type() == GeometryComponentType::Mesh);
+    const MeshComponent &mesh_component = static_cast<const MeshComponent &>(component);
+    const Mesh *mesh = mesh_component.get_for_read();
+    if (mesh == nullptr) {
+      return {};
+    }
+    return std::make_unique<DerivedArrayReadAttribute<MVert, float3, get_vertex_position>>(
+        ATTR_DOMAIN_POINT, Span(mesh->mvert, mesh->totvert));
+  }
+
+  static float3 get_vertex_position(const MVert &vert)
+  {
+    return float3(vert.co);
+  }
+
+  static void set_vertex_position(MVert &vert, const float3 &position)
+  {
+    copy_v3_v3(vert.co, position);
+  }
+};
+
 }  // namespace blender::bke
 
 /* -------------------------------------------------------------------- */
 /** \name Utilities for Accessing Attributes
  * \{ */
+
+static blender::float2 get_loop_uv(const MLoopUV &uv)
+{
+  return blender::float2(uv.uv);
+}
 
 static ReadAttributePtr read_attribute_from_custom_data(const CustomData &custom_data,
                                                         const int size,
@@ -673,9 +701,8 @@ static ReadAttributePtr read_attribute_from_custom_data(const CustomData &custom
           return std::make_unique<ArrayReadAttribute<bool>>(
               domain, Span(static_cast<bool *>(layer.data), size));
         case CD_MLOOPUV:
-          auto get_uv = [](const MLoopUV &uv) { return float2(uv.uv); };
-          return std::make_unique<DerivedArrayReadAttribute<MLoopUV, float2, decltype(get_uv)>>(
-              domain, Span(static_cast<MLoopUV *>(layer.data), size), get_uv);
+          return std::make_unique<DerivedArrayReadAttribute<MLoopUV, float2, get_loop_uv>>(
+              domain, Span(static_cast<MLoopUV *>(layer.data), size));
       }
     }
   }
@@ -1279,10 +1306,11 @@ ReadAttributePtr MeshComponent::attribute_try_get_for_read(const StringRef attri
   }
 
   if (attribute_name == "position") {
-    auto get_vertex_position = [](const MVert &vert) { return float3(vert.co); };
-    return std::make_unique<
-        blender::bke::DerivedArrayReadAttribute<MVert, float3, decltype(get_vertex_position)>>(
-        ATTR_DOMAIN_POINT, blender::Span(mesh_->mvert, mesh_->totvert), get_vertex_position);
+    return std::make_unique<blender::bke::DerivedArrayReadAttribute<
+        MVert,
+        float3,
+        blender::bke::MVertPositionAttributeProvider::get_vertex_position>>(
+        ATTR_DOMAIN_POINT, blender::Span(mesh_->mvert, mesh_->totvert));
   }
 
   ReadAttributePtr corner_attribute = read_attribute_from_custom_data(
