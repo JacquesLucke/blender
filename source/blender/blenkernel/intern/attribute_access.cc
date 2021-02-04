@@ -484,6 +484,16 @@ CustomDataType cpp_type_to_custom_data_type(const blender::fn::CPPType &type)
   return static_cast<CustomDataType>(-1);
 }
 
+/* Builtin attributes are mapped to "legacy" data structures of Blender, i.e. they don't follow the
+ * same rules are generic attributes. Every builtin attribute on a geometry component is handled by
+ * exactly one attribute provider. */
+struct BuiltinAttributeInfo {
+  StringRefNull name;
+  AttributeDomain domain;
+  CustomDataType data_type;
+  bool is_readonly;
+};
+
 class AttributeProvider {
  public:
   virtual ReadAttributePtr try_get_for_read(const GeometryComponent &component,
@@ -518,6 +528,11 @@ class AttributeProvider {
   virtual void list(const GeometryComponent &component, Set<std::string> &r_names) const
   {
     UNUSED_VARS(component, r_names);
+  }
+
+  virtual Span<BuiltinAttributeInfo> builtin_attributes() const
+  {
+    return {};
   }
 };
 
@@ -729,6 +744,13 @@ class MVertPositionAttributeProvider final : public AttributeProvider {
     if (mesh != nullptr) {
       r_names.add("position");
     }
+  }
+
+  Span<BuiltinAttributeInfo> builtin_attributes() const final
+  {
+    static const Array<BuiltinAttributeInfo> attributes = {
+        {"position", ATTR_DOMAIN_POINT, CD_PROP_FLOAT3, false}};
+    return attributes;
   }
 
   static float3 get_vertex_position(const MVert &vert)
