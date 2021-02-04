@@ -630,18 +630,29 @@ class GenericCustomDataAttributeProvider final : public AttributeProvider {
   }
 };
 
+static Mesh *get_mesh_for_write(GeometryComponent &component)
+{
+  BLI_assert(component.type() == GeometryComponentType::Mesh);
+  MeshComponent &mesh_component = static_cast<MeshComponent &>(component);
+  return mesh_component.get_for_write();
+}
+
+static const Mesh *get_mesh_for_read(const GeometryComponent &component)
+{
+  BLI_assert(component.type() == GeometryComponentType::Mesh);
+  const MeshComponent &mesh_component = static_cast<const MeshComponent &>(component);
+  return mesh_component.get_for_read();
+}
+
 class MVertPositionAttributeProvider final : public AttributeProvider {
  public:
   ReadAttributePtr try_get_for_read(const GeometryComponent &component,
                                     const StringRef attribute_name) const final
   {
-    BLI_assert(component.type() == GeometryComponentType::Mesh);
     if (attribute_name != "Position") {
       return {};
     }
-
-    const MeshComponent &mesh_component = static_cast<const MeshComponent &>(component);
-    const Mesh *mesh = mesh_component.get_for_read();
+    const Mesh *mesh = get_mesh_for_read(component);
     if (mesh == nullptr) {
       return {};
     }
@@ -652,13 +663,10 @@ class MVertPositionAttributeProvider final : public AttributeProvider {
   WriteAttributePtr try_get_for_write(GeometryComponent &component,
                                       const StringRef attribute_name) const final
   {
-    BLI_assert(component.type() == GeometryComponentType::Mesh);
     if (attribute_name != "Position") {
       return {};
     }
-
-    MeshComponent &mesh_component = static_cast<MeshComponent &>(component);
-    Mesh *mesh = mesh_component.get_for_write();
+    Mesh *mesh = get_mesh_for_write(component);
     if (mesh == nullptr) {
       return {};
     }
@@ -678,21 +686,61 @@ class MVertPositionAttributeProvider final : public AttributeProvider {
   }
 };
 
+class MeshUVsAttributeProvider final : public AttributeProvider {
+ public:
+  ReadAttributePtr try_get_for_read(const GeometryComponent &component,
+                                    const StringRef attribute_name) const final
+  {
+    const Mesh *mesh = get_mesh_for_read(component);
+    if (mesh == nullptr) {
+      return {};
+    }
+    for (const CustomDataLayer &layer : Span(mesh->ldata.layers, mesh->ldata.totlayer)) {
+      if (layer.type == CD_MLOOPUV) {
+        if (layer.name == attribute_name) {
+          return std::make_unique<DerivedArrayReadAttribute<MLoopUV, float2, get_loop_uv>>(
+              ATTR_DOMAIN_CORNER, Span(static_cast<const MLoopUV *>(layer.data), mesh->totloop));
+        }
+      }
+    }
+    return {};
+  }
+
+  WriteAttributePtr try_get_for_write(GeometryComponent &component,
+                                      const StringRef attribute_name) const final
+  {
+    Mesh *mesh = get_mesh_for_write(component);
+    if (mesh == nullptr) {
+      return {};
+    }
+    for (CustomDataLayer &layer : MutableSpan(mesh->ldata.layers, mesh->ldata.totlayer)) {
+      if (layer.type == CD_MLOOPUV) {
+        if (layer.name == attribute_name) {
+          return std::make_unique<
+              DerivedArrayWriteAttribute<MLoopUV, float2, get_loop_uv, set_loop_uv>>(
+              ATTR_DOMAIN_CORNER, MutableSpan(static_cast<MLoopUV *>(layer.data), mesh->totloop));
+        }
+      }
+    }
+    return {};
+  }
+
+  static float2 get_loop_uv(const MLoopUV &uv)
+  {
+    return float2(uv.uv);
+  }
+
+  static void set_loop_uv(MLoopUV &uv, const float2 &co)
+  {
+    copy_v2_v2(uv.uv, co);
+  }
+};
+
 }  // namespace blender::bke
 
 /* -------------------------------------------------------------------- */
 /** \name Utilities for Accessing Attributes
  * \{ */
-
-static blender::float2 get_loop_uv(const MLoopUV &uv)
-{
-  return blender::float2(uv.uv);
-}
-
-static void set_loop_uv(MLoopUV &uv, const blender::float2 &co)
-{
-  copy_v2_v2(uv.uv, co);
-}
 
 static ReadAttributePtr read_attribute_from_custom_data(const CustomData &custom_data,
                                                         const int size,
@@ -723,7 +771,8 @@ static ReadAttributePtr read_attribute_from_custom_data(const CustomData &custom
           return std::make_unique<ArrayReadAttribute<bool>>(
               domain, Span(static_cast<bool *>(layer.data), size));
         case CD_MLOOPUV:
-          return std::make_unique<DerivedArrayReadAttribute<MLoopUV, float2, get_loop_uv>>(
+          return std::make_unique<
+              DerivedArrayReadAttribute<MLoopUV, float2, MeshUVsAttributeProvider::get_loop_uv>>(
               domain, Span(static_cast<MLoopUV *>(layer.data), size));
       }
     }
@@ -771,7 +820,10 @@ static WriteAttributePtr write_attribute_from_custom_data(
               domain, MutableSpan(static_cast<bool *>(layer.data), size));
         case CD_MLOOPUV:
           return std::make_unique<
-              DerivedArrayWriteAttribute<MLoopUV, float2, get_loop_uv, set_loop_uv>>(
+              DerivedArrayWriteAttribute<MLoopUV,
+                                         float2,
+                                         MeshUVsAttributeProvider::get_loop_uv,
+                                         MeshUVsAttributeProvider::set_loop_uv>>(
               domain, MutableSpan(static_cast<MLoopUV *>(layer.data), size));
       }
     }
