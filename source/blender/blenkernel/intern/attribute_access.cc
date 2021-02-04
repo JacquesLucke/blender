@@ -514,10 +514,18 @@ class AttributeProvider {
     UNUSED_VARS(component, attribute_name, domain, data_type);
     return false;
   }
+
+  virtual void list(const GeometryComponent &component, Set<std::string> &r_names) const
+  {
+    UNUSED_VARS(component, r_names);
+  }
 };
 
 class GenericCustomDataAttributeProvider final : public AttributeProvider {
  private:
+  static constexpr uint64_t supported_types_mask = CD_MASK_PROP_FLOAT | CD_MASK_PROP_FLOAT2 |
+                                                   CD_MASK_PROP_FLOAT3 | CD_MASK_PROP_INT32 |
+                                                   CD_MASK_PROP_COLOR | CD_MASK_PROP_BOOL;
   using CustomDataGetter = const CustomData &(*)(const GeometryComponent &component);
   const AttributeDomain domain_;
   const CustomDataGetter data_getter_;
@@ -598,13 +606,7 @@ class GenericCustomDataAttributeProvider final : public AttributeProvider {
 
     for (const int i : IndexRange(custom_data.totlayer)) {
       const CustomDataLayer &layer = custom_data.layers[i];
-      if (layer.name == attribute_name && ELEM(layer.type,
-                                               CD_PROP_FLOAT,
-                                               CD_PROP_FLOAT2,
-                                               CD_PROP_FLOAT3,
-                                               CD_PROP_INT32,
-                                               CD_PROP_COLOR,
-                                               CD_PROP_BOOL)) {
+      if (((1ULL << layer.type) & supported_types_mask) != 0 && layer.name == attribute_name) {
         CustomData_free_layer(&custom_data, layer.type, domain_size, i);
         return true;
       }
