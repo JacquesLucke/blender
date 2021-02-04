@@ -516,6 +516,16 @@ class AttributeProvider {
   }
 };
 
+static bool custom_data_has_layer_with_name(const CustomData &custom_data, const StringRef name)
+{
+  for (const CustomDataLayer &layer : blender::Span(custom_data.layers, custom_data.totlayer)) {
+    if (layer.name == name) {
+      return true;
+    }
+  }
+  return false;
+}
+
 class GenericCustomDataAttributeProvider final : public AttributeProvider {
  private:
   using CustomDataGetter = const CustomData &(*)(const GeometryComponent &component);
@@ -610,6 +620,26 @@ class GenericCustomDataAttributeProvider final : public AttributeProvider {
       }
     }
     return false;
+  }
+
+  bool try_create(GeometryComponent &component,
+                  const StringRef attribute_name,
+                  const AttributeDomain domain,
+                  const CustomDataType data_type) const final
+  {
+    if (domain_ != domain) {
+      return false;
+    }
+    CustomData &custom_data = this->get_custom_data(component);
+    if (custom_data_has_layer_with_name(custom_data, attribute_name)) {
+      return false;
+    }
+    const int domain_size = component.attribute_domain_size(domain_);
+    char attribute_name_c[MAX_NAME];
+    attribute_name.copy(attribute_name_c);
+    CustomData_add_layer_named(
+        &custom_data, data_type, CD_DEFAULT, nullptr, domain_size, attribute_name_c);
+    return true;
   }
 
  private:
