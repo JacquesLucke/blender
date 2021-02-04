@@ -736,6 +736,56 @@ class MeshUVsAttributeProvider final : public AttributeProvider {
   }
 };
 
+class VertexGroupsAttributeProvider final : public AttributeProvider {
+ public:
+  ReadAttributePtr try_get_for_read(const GeometryComponent &component,
+                                    const StringRef attribute_name) const final
+  {
+    BLI_assert(component.type() == GeometryComponentType::Mesh);
+    const MeshComponent &mesh_component = static_cast<const MeshComponent &>(component);
+    const Mesh *mesh = mesh_component.get_for_read();
+    if (mesh == nullptr) {
+      return {};
+    }
+    if (mesh->dvert == nullptr) {
+      return {};
+    }
+    const int vertex_group_index = mesh_component.vertex_group_names().lookup_default_as(
+        attribute_name, -1);
+    if (vertex_group_index < 0) {
+      return {};
+    }
+    return std::make_unique<VertexWeightReadAttribute>(
+        mesh->dvert, mesh->totvert, vertex_group_index);
+  }
+
+  WriteAttributePtr try_get_for_write(GeometryComponent &component,
+                                      const StringRef attribute_name) const final
+  {
+    BLI_assert(component.type() == GeometryComponentType::Mesh);
+    MeshComponent &mesh_component = static_cast<MeshComponent &>(component);
+    Mesh *mesh = mesh_component.get_for_write();
+    if (mesh == nullptr) {
+      return {};
+    }
+    const int vertex_group_index = mesh_component.vertex_group_names().lookup_default_as(
+        attribute_name, -1);
+    if (vertex_group_index < 0) {
+      return {};
+    }
+    if (mesh->dvert == nullptr) {
+      BKE_object_defgroup_data_create(&mesh->id);
+    }
+    else {
+      /* Copy the data layer if it is shared with some other mesh. */
+      mesh->dvert = (MDeformVert *)CustomData_duplicate_referenced_layer(
+          &mesh->vdata, CD_MDEFORMVERT, mesh->totvert);
+    }
+    return std::make_unique<blender::bke::VertexWeightWriteAttribute>(
+        mesh->dvert, mesh->totvert, vertex_group_index);
+  }
+};
+
 }  // namespace blender::bke
 
 /* -------------------------------------------------------------------- */
