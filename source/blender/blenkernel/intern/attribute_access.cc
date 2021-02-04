@@ -505,6 +505,15 @@ class AttributeProvider {
     UNUSED_VARS(component, attribute_name);
     return false;
   }
+
+  virtual bool try_create(GeometryComponent &component,
+                          const StringRef attribute_name,
+                          const AttributeDomain domain,
+                          const CustomDataType data_type) const
+  {
+    UNUSED_VARS(component, attribute_name, domain, data_type);
+    return false;
+  }
 };
 
 class GenericCustomDataAttributeProvider final : public AttributeProvider {
