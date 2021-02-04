@@ -606,7 +606,7 @@ class GenericCustomDataAttributeProvider final : public AttributeProvider {
 
     for (const int i : IndexRange(custom_data.totlayer)) {
       const CustomDataLayer &layer = custom_data.layers[i];
-      if (((1ULL << layer.type) & supported_types_mask) != 0 && layer.name == attribute_name) {
+      if (this->type_is_supported((CustomDataType)layer.type) && layer.name == attribute_name) {
         CustomData_free_layer(&custom_data, layer.type, domain_size, i);
         return true;
       }
@@ -623,7 +623,7 @@ class GenericCustomDataAttributeProvider final : public AttributeProvider {
       return false;
     }
     CustomData &custom_data = this->get_custom_data(component);
-    for (const CustomDataLayer &layer : blender::Span(custom_data.layers, custom_data.totlayer)) {
+    for (const CustomDataLayer &layer : Span(custom_data.layers, custom_data.totlayer)) {
       if (layer.name == attribute_name) {
         return false;
       }
@@ -634,6 +634,16 @@ class GenericCustomDataAttributeProvider final : public AttributeProvider {
     CustomData_add_layer_named(
         &custom_data, data_type, CD_DEFAULT, nullptr, domain_size, attribute_name_c);
     return true;
+  }
+
+  void list(const GeometryComponent &component, Set<std::string> &r_names) const final
+  {
+    const CustomData &custom_data = this->get_custom_data(component);
+    for (const CustomDataLayer &layer : Span(custom_data.layers, custom_data.totlayer)) {
+      if (this->type_is_supported((CustomDataType)layer.type)) {
+        r_names.add(layer.name);
+      }
+    }
   }
 
  private:
@@ -650,6 +660,11 @@ class GenericCustomDataAttributeProvider final : public AttributeProvider {
   {
     return std::make_unique<ArrayWriteAttribute<T>>(
         domain_, MutableSpan(static_cast<T *>(layer.data), domain_size));
+  }
+
+  bool type_is_supported(CustomDataType data_type) const
+  {
+    return ((1ULL << data_type) & supported_types_mask) != 0;
   }
 
   const CustomData &get_custom_data(const GeometryComponent &component) const
