@@ -495,7 +495,16 @@ struct BuiltinAttributeInfo {
 };
 
 class AttributeProvider {
+ private:
+  Array<BuiltinAttributeInfo> builtin_attributes_;
+
  public:
+  AttributeProvider() = default;
+  AttributeProvider(Array<BuiltinAttributeInfo> builtin_attributes)
+      : builtin_attributes_(std::move(builtin_attributes))
+  {
+  }
+
   virtual ReadAttributePtr try_get_for_read(const GeometryComponent &component,
                                             const StringRef attribute_name) const
   {
@@ -530,9 +539,9 @@ class AttributeProvider {
     UNUSED_VARS(component, r_names);
   }
 
-  virtual Span<BuiltinAttributeInfo> builtin_attributes() const
+  Span<BuiltinAttributeInfo> builtin_attributes() const
   {
-    return {};
+    return builtin_attributes_;
   }
 };
 
@@ -708,11 +717,19 @@ static const Mesh *get_mesh_for_read(const GeometryComponent &component)
 }
 
 class MVertPositionAttributeProvider final : public AttributeProvider {
+ private:
+  static inline StringRefNull position_name = "position";
+
  public:
+  MVertPositionAttributeProvider()
+      : AttributeProvider({{position_name, ATTR_DOMAIN_POINT, CD_PROP_FLOAT3, false}})
+  {
+  }
+
   ReadAttributePtr try_get_for_read(const GeometryComponent &component,
                                     const StringRef attribute_name) const final
   {
-    if (attribute_name != "position") {
+    if (attribute_name != position_name) {
       return {};
     }
     const Mesh *mesh = get_mesh_for_read(component);
@@ -726,7 +743,7 @@ class MVertPositionAttributeProvider final : public AttributeProvider {
   WriteAttributePtr try_get_for_write(GeometryComponent &component,
                                       const StringRef attribute_name) const final
   {
-    if (attribute_name != "position") {
+    if (attribute_name != position_name) {
       return {};
     }
     Mesh *mesh = get_mesh_for_write(component);
@@ -742,15 +759,8 @@ class MVertPositionAttributeProvider final : public AttributeProvider {
   {
     const Mesh *mesh = get_mesh_for_read(component);
     if (mesh != nullptr) {
-      r_names.add("position");
+      r_names.add(position_name);
     }
-  }
-
-  Span<BuiltinAttributeInfo> builtin_attributes() const final
-  {
-    static const Array<BuiltinAttributeInfo> attributes = {
-        {"position", ATTR_DOMAIN_POINT, CD_PROP_FLOAT3, false}};
-    return attributes;
   }
 
   static float3 get_vertex_position(const MVert &vert)
