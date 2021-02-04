@@ -360,6 +360,7 @@ class MeshComponent : public GeometryComponent {
 
   void copy_vertex_group_names_from_object(const struct Object &object);
   const blender::Map<std::string, int> &vertex_group_names() const;
+  blender::Map<std::string, int> &vertex_group_names();
 
   const Mesh *get_for_read() const;
   Mesh *get_for_write();
