@@ -590,6 +590,27 @@ class GenericCustomDataAttributeProvider final : public AttributeProvider {
     return {};
   }
 
+  bool try_delete(GeometryComponent &component, const StringRef attribute_name) const final
+  {
+    CustomData &custom_data = this->get_custom_data(component);
+    const int domain_size = component.attribute_domain_size(domain_);
+
+    for (const int i : IndexRange(custom_data.totlayer)) {
+      const CustomDataLayer &layer = custom_data.layers[i];
+      if (layer.name == attribute_name && ELEM(layer.type,
+                                               CD_PROP_FLOAT,
+                                               CD_PROP_FLOAT2,
+                                               CD_PROP_FLOAT3,
+                                               CD_PROP_INT32,
+                                               CD_PROP_COLOR,
+                                               CD_PROP_BOOL)) {
+        CustomData_free_layer(&custom_data, layer.type, domain_size, i);
+        return true;
+      }
+    }
+    return false;
+  }
+
  private:
   template<typename T>
   ReadAttributePtr layer_to_read_attribute(const CustomDataLayer &layer,
