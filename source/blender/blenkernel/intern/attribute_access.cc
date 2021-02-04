@@ -697,7 +697,7 @@ class MVertPositionAttributeProvider final : public AttributeProvider {
   ReadAttributePtr try_get_for_read(const GeometryComponent &component,
                                     const StringRef attribute_name) const final
   {
-    if (attribute_name != "Position") {
+    if (attribute_name != "position") {
       return {};
     }
     const Mesh *mesh = get_mesh_for_read(component);
@@ -711,7 +711,7 @@ class MVertPositionAttributeProvider final : public AttributeProvider {
   WriteAttributePtr try_get_for_write(GeometryComponent &component,
                                       const StringRef attribute_name) const final
   {
-    if (attribute_name != "Position") {
+    if (attribute_name != "position") {
       return {};
     }
     Mesh *mesh = get_mesh_for_write(component);
@@ -721,6 +721,14 @@ class MVertPositionAttributeProvider final : public AttributeProvider {
     return std::make_unique<
         DerivedArrayWriteAttribute<MVert, float3, get_vertex_position, set_vertex_position>>(
         ATTR_DOMAIN_POINT, MutableSpan(mesh->mvert, mesh->totvert));
+  }
+
+  void list(const GeometryComponent &component, Set<std::string> &r_names) const final
+  {
+    const Mesh *mesh = get_mesh_for_read(component);
+    if (mesh != nullptr) {
+      r_names.add("position");
+    }
   }
 
   static float3 get_vertex_position(const MVert &vert)
