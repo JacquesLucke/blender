@@ -797,6 +797,19 @@ class MeshUVsAttributeProvider final : public AttributeProvider {
     return false;
   }
 
+  void list(const GeometryComponent &component, Set<std::string> &r_names) const final
+  {
+    const Mesh *mesh = get_mesh_for_read(component);
+    if (mesh == nullptr) {
+      return;
+    }
+    for (const CustomDataLayer &layer : Span(mesh->ldata.layers, mesh->ldata.totlayer)) {
+      if (layer.type == CD_MLOOPUV) {
+        r_names.add(layer.name);
+      }
+    }
+  }
+
   static float2 get_loop_uv(const MLoopUV &uv)
   {
     return float2(uv.uv);
@@ -816,16 +829,15 @@ class VertexGroupsAttributeProvider final : public AttributeProvider {
     BLI_assert(component.type() == GeometryComponentType::Mesh);
     const MeshComponent &mesh_component = static_cast<const MeshComponent &>(component);
     const Mesh *mesh = mesh_component.get_for_read();
-    if (mesh == nullptr) {
-      return {};
-    }
-    if (mesh->dvert == nullptr) {
-      return {};
-    }
     const int vertex_group_index = mesh_component.vertex_group_names().lookup_default_as(
         attribute_name, -1);
     if (vertex_group_index < 0) {
       return {};
+    }
+    if (mesh == nullptr || mesh->dvert == nullptr) {
+      static const float default_value = 0.0f;
+      return std::make_unique<ConstantReadAttribute>(
+          ATTR_DOMAIN_POINT, mesh->totvert, CPPType::get<float>(), &default_value);
     }
     return std::make_unique<VertexWeightReadAttribute>(
         mesh->dvert, mesh->totvert, vertex_group_index);
@@ -861,18 +873,17 @@ class VertexGroupsAttributeProvider final : public AttributeProvider {
   {
     BLI_assert(component.type() == GeometryComponentType::Mesh);
     MeshComponent &mesh_component = static_cast<MeshComponent &>(component);
-    Mesh *mesh = mesh_component.get_for_write();
-    if (mesh == nullptr) {
-      return {};
-    }
 
     const int vertex_group_index = mesh_component.vertex_group_names().pop_default_as(
         attribute_name, -1);
     if (vertex_group_index < 0) {
       return false;
     }
+    Mesh *mesh = mesh_component.get_for_write();
+    if (mesh == nullptr) {
+      return true;
+    }
     if (mesh->dvert == nullptr) {
-      /* The name has been popped from the map. */
       return true;
     }
     for (MDeformVert &dvert : MutableSpan(mesh->dvert, mesh->totvert)) {
@@ -880,6 +891,18 @@ class VertexGroupsAttributeProvider final : public AttributeProvider {
       BKE_defvert_remove_group(&dvert, weight);
     }
     return true;
+  }
+
+  void list(const GeometryComponent &component, Set<std::string> &r_names) const final
+  {
+    BLI_assert(component.type() == GeometryComponentType::Mesh);
+    const MeshComponent &mesh_component = static_cast<const MeshComponent &>(component);
+    mesh_component.vertex_group_names().foreach_item(
+        [&](StringRef name, const int vertex_group_index) {
+          if (vertex_group_index >= 0) {
+            r_names.add(name);
+          }
+        });
   }
 };
 
