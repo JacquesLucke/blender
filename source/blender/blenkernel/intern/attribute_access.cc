@@ -492,6 +492,131 @@ CustomDataType cpp_type_to_custom_data_type(const blender::fn::CPPType &type)
   return static_cast<CustomDataType>(-1);
 }
 
+class AttributeProvider {
+ public:
+  virtual ReadAttributePtr try_get_for_read(const GeometryComponent &component,
+                                            const StringRef attribute_name) const
+  {
+    UNUSED_VARS(component, attribute_name);
+    return {};
+  }
+
+  virtual WriteAttributePtr try_get_for_write(GeometryComponent &component,
+                                              const StringRef attribute_name) const
+  {
+    UNUSED_VARS(component, attribute_name);
+    return {};
+  }
+
+  virtual bool try_delete(GeometryComponent &component, const StringRef attribute_name) const
+  {
+    UNUSED_VARS(component, attribute_name);
+    return false;
+  }
+};
+
+class GenericCustomDataAttributeProvider final : public AttributeProvider {
+ private:
+  using CustomDataGetter = const CustomData &(*)(const GeometryComponent &component);
+  const AttributeDomain domain_;
+  const CustomDataGetter data_getter_;
+
+ public:
+  GenericCustomDataAttributeProvider(const AttributeDomain domain,
+                                     const CustomDataGetter &data_getter)
+      : domain_(domain), data_getter_(data_getter)
+  {
+  }
+
+  ReadAttributePtr try_get_for_read(const GeometryComponent &component,
+                                    const StringRef attribute_name) const final
+  {
+    const CustomData &custom_data = this->get_custom_data(component);
+    const int domain_size = component.attribute_domain_size(domain_);
+
+    for (const CustomDataLayer &layer : Span(custom_data.layers, custom_data.totlayer)) {
+      if (layer.name != attribute_name) {
+        continue;
+      }
+      const CustomDataType data_type = (CustomDataType)layer.type;
+      switch (data_type) {
+        case CD_PROP_FLOAT:
+          return this->layer_to_read_attribute<float>(layer, domain_size);
+        case CD_PROP_FLOAT2:
+          return this->layer_to_read_attribute<float2>(layer, domain_size);
+        case CD_PROP_FLOAT3:
+          return this->layer_to_read_attribute<float3>(layer, domain_size);
+        case CD_PROP_INT32:
+          return this->layer_to_read_attribute<int>(layer, domain_size);
+        case CD_PROP_COLOR:
+          return this->layer_to_read_attribute<Color4f>(layer, domain_size);
+        case CD_PROP_BOOL:
+          return this->layer_to_read_attribute<bool>(layer, domain_size);
+        default:
+          break;
+      }
+    }
+    return {};
+  }
+
+  WriteAttributePtr try_get_for_write(GeometryComponent &component,
+                                      const StringRef attribute_name) const final
+  {
+    CustomData &custom_data = this->get_custom_data(component);
+    const int domain_size = component.attribute_domain_size(domain_);
+
+    for (CustomDataLayer &layer : MutableSpan(custom_data.layers, custom_data.totlayer)) {
+      if (layer.name != attribute_name) {
+        continue;
+      }
+      const CustomDataType data_type = (CustomDataType)layer.type;
+      switch (data_type) {
+        case CD_PROP_FLOAT:
+          return this->layer_to_write_attribute<float>(layer, domain_size);
+        case CD_PROP_FLOAT2:
+          return this->layer_to_write_attribute<float2>(layer, domain_size);
+        case CD_PROP_FLOAT3:
+          return this->layer_to_write_attribute<float3>(layer, domain_size);
+        case CD_PROP_INT32:
+          return this->layer_to_write_attribute<int>(layer, domain_size);
+        case CD_PROP_COLOR:
+          return this->layer_to_write_attribute<Color4f>(layer, domain_size);
+        case CD_PROP_BOOL:
+          return this->layer_to_write_attribute<bool>(layer, domain_size);
+        default:
+          break;
+      }
+    }
+    return {};
+  }
+
+ private:
+  template<typename T>
+  ReadAttributePtr layer_to_read_attribute(const CustomDataLayer &layer,
+                                           const int domain_size) const
+  {
+    return std::make_unique<ArrayReadAttribute<T>>(
+        domain_, Span(static_cast<const T *>(layer.data), domain_size));
+  }
+
+  template<typename T>
+  WriteAttributePtr layer_to_write_attribute(CustomDataLayer &layer, const int domain_size) const
+  {
+    return std::make_unique<ArrayWriteAttribute<T>>(
+        domain_, MutableSpan(static_cast<T *>(layer.data), domain_size));
+  }
+
+  const CustomData &get_custom_data(const GeometryComponent &component) const
+  {
+    return data_getter_(component);
+  }
+
+  CustomData &get_custom_data(GeometryComponent &component) const
+  {
+    return const_cast<CustomData &>(data_getter_(component));
+  }
+};
+
 }  // namespace blender::bke
 
 /* -------------------------------------------------------------------- */
