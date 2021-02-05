@@ -484,27 +484,64 @@ CustomDataType cpp_type_to_custom_data_type(const blender::fn::CPPType &type)
   return static_cast<CustomDataType>(-1);
 }
 
-/* Builtin attributes are mapped to "legacy" data structures of Blender, i.e. they don't follow the
- * same rules are generic attributes. Every builtin attribute on a geometry component is handled by
- * exactly one attribute provider. */
-struct BuiltinAttributeInfo {
-  StringRefNull name;
-  AttributeDomain domain;
-  CustomDataType data_type;
-  bool is_readonly;
-};
-
-class AttributeProvider {
+class BuiltinAttributeProvider {
  private:
-  Array<BuiltinAttributeInfo> builtin_attributes_;
+  const std::string name_;
+  const AttributeDomain domain_;
+  const CustomDataType data_type_;
 
  public:
-  AttributeProvider() = default;
-  AttributeProvider(Array<BuiltinAttributeInfo> builtin_attributes)
-      : builtin_attributes_(std::move(builtin_attributes))
+  BuiltinAttributeProvider(std::string name,
+                           const AttributeDomain domain,
+                           const CustomDataType data_type)
+      : name_(std::move(name)), domain_(domain), data_type_(data_type)
   {
   }
 
+  virtual ReadAttributePtr try_get_for_read(const GeometryComponent &component) const = 0;
+
+  virtual WriteAttributePtr try_get_for_write(GeometryComponent &component) const
+  {
+    UNUSED_VARS(component);
+    return {};
+  }
+
+  virtual bool try_delete(GeometryComponent &component) const
+  {
+    UNUSED_VARS(component);
+    return false;
+  }
+
+  virtual bool try_create(GeometryComponent &component) const
+  {
+    UNUSED_VARS(component);
+    return false;
+  }
+
+  virtual bool exists(const GeometryComponent &component) const
+  {
+    UNUSED_VARS(component);
+    return false;
+  }
+
+  StringRefNull name() const
+  {
+    return name_;
+  }
+
+  AttributeDomain domain() const
+  {
+    return domain_;
+  }
+
+  CustomDataType data_type() const
+  {
+    return data_type_;
+  }
+};
+
+class NamedAttributesProvider {
+ public:
   virtual ReadAttributePtr try_get_for_read(const GeometryComponent &component,
                                             const StringRef attribute_name) const
   {
@@ -538,14 +575,9 @@ class AttributeProvider {
   {
     UNUSED_VARS(component, r_names);
   }
-
-  Span<BuiltinAttributeInfo> builtin_attributes() const
-  {
-    return builtin_attributes_;
-  }
 };
 
-class GenericCustomDataAttributeProvider final : public AttributeProvider {
+class CustomDataAttributeProvider final : public NamedAttributesProvider {
  private:
   static constexpr uint64_t supported_types_mask = CD_MASK_PROP_FLOAT | CD_MASK_PROP_FLOAT2 |
                                                    CD_MASK_PROP_FLOAT3 | CD_MASK_PROP_INT32 |
@@ -555,8 +587,7 @@ class GenericCustomDataAttributeProvider final : public AttributeProvider {
   const CustomDataGetter data_getter_;
 
  public:
-  GenericCustomDataAttributeProvider(const AttributeDomain domain,
-                                     const CustomDataGetter &data_getter)
+  CustomDataAttributeProvider(const AttributeDomain domain, const CustomDataGetter &data_getter)
       : domain_(domain), data_getter_(data_getter)
   {
   }
@@ -717,22 +748,15 @@ static const Mesh *get_mesh_for_read(const GeometryComponent &component)
   return mesh_component.get_for_read();
 }
 
-class MVertPositionAttributeProvider final : public AttributeProvider {
- private:
-  static inline StringRefNull position_name = "position";
-
+class MVertPositionAttributeProvider final : public BuiltinAttributeProvider {
  public:
-  MVertPositionAttributeProvider()
-      : AttributeProvider({{position_name, ATTR_DOMAIN_POINT, CD_PROP_FLOAT3, false}})
+  MVertPositionAttributeProvider(std::string name)
+      : BuiltinAttributeProvider(std::move(name), ATTR_DOMAIN_POINT, CD_PROP_FLOAT3)
   {
   }
 
-  ReadAttributePtr try_get_for_read(const GeometryComponent &component,
-                                    const StringRef attribute_name) const final
+  ReadAttributePtr try_get_for_read(const GeometryComponent &component) const final
   {
-    if (attribute_name != position_name) {
-      return {};
-    }
     const Mesh *mesh = get_mesh_for_read(component);
     if (mesh == nullptr) {
       return {};
@@ -741,12 +765,8 @@ class MVertPositionAttributeProvider final : public AttributeProvider {
         ATTR_DOMAIN_POINT, Span(mesh->mvert, mesh->totvert));
   }
 
-  WriteAttributePtr try_get_for_write(GeometryComponent &component,
-                                      const StringRef attribute_name) const final
+  WriteAttributePtr try_get_for_write(GeometryComponent &component) const final
   {
-    if (attribute_name != position_name) {
-      return {};
-    }
     /* TODO: copy referenced layer */
     Mesh *mesh = get_mesh_for_write(component);
     if (mesh == nullptr) {
@@ -757,12 +777,10 @@ class MVertPositionAttributeProvider final : public AttributeProvider {
         ATTR_DOMAIN_POINT, MutableSpan(mesh->mvert, mesh->totvert));
   }
 
-  void list(const GeometryComponent &component, Set<std::string> &r_names) const final
+  bool exists(const GeometryComponent &component) const final
   {
     const Mesh *mesh = get_mesh_for_read(component);
-    if (mesh != nullptr) {
-      r_names.add(position_name);
-    }
+    return mesh != nullptr;
   }
 
   static float3 get_vertex_position(const MVert &vert)
@@ -776,7 +794,7 @@ class MVertPositionAttributeProvider final : public AttributeProvider {
   }
 };
 
-class MeshUVsAttributeProvider final : public AttributeProvider {
+class MeshUVsAttributeProvider final : public NamedAttributesProvider {
  public:
   ReadAttributePtr try_get_for_read(const GeometryComponent &component,
                                     const StringRef attribute_name) const final
@@ -856,7 +874,7 @@ class MeshUVsAttributeProvider final : public AttributeProvider {
   }
 };
 
-class VertexGroupsAttributeProvider final : public AttributeProvider {
+class VertexGroupsAttributeProvider final : public NamedAttributesProvider {
  public:
   ReadAttributePtr try_get_for_read(const GeometryComponent &component,
                                     const StringRef attribute_name) const final
