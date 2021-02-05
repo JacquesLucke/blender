@@ -583,12 +583,19 @@ class CustomDataAttributeProvider final : public NamedAttributesProvider {
                                                    CD_MASK_PROP_FLOAT3 | CD_MASK_PROP_INT32 |
                                                    CD_MASK_PROP_COLOR | CD_MASK_PROP_BOOL;
   using CustomDataGetter = const CustomData &(*)(const GeometryComponent &component);
+  using UpdateAfterReferencedDataCopy = void (*)(GeometryComponent &component);
   const AttributeDomain domain_;
   const CustomDataGetter data_getter_;
+  const UpdateAfterReferencedDataCopy update_after_referenced_data_copy_;
 
  public:
-  CustomDataAttributeProvider(const AttributeDomain domain, const CustomDataGetter &data_getter)
-      : domain_(domain), data_getter_(data_getter)
+  CustomDataAttributeProvider(
+      const AttributeDomain domain,
+      const CustomDataGetter data_getter,
+      const UpdateAfterReferencedDataCopy update_after_referenced_data_copy)
+      : domain_(domain),
+        data_getter_(data_getter),
+        update_after_referenced_data_copy_(update_after_referenced_data_copy)
   {
   }
 
@@ -633,8 +640,12 @@ class CustomDataAttributeProvider final : public NamedAttributesProvider {
       if (layer.name != attribute_name) {
         continue;
       }
-      CustomData_duplicate_referenced_layer_named(
+      void *data_old = layer.data;
+      void *data_new = CustomData_duplicate_referenced_layer_named(
           &custom_data, layer.type, layer.name, domain_size);
+      if (data_new != data_old) {
+        update_after_referenced_data_copy_(component);
+      }
       const CustomDataType data_type = (CustomDataType)layer.type;
       switch (data_type) {
         case CD_PROP_FLOAT:
@@ -805,7 +816,6 @@ class MeshUVsAttributeProvider final : public NamedAttributesProvider {
     if (mesh == nullptr) {
       return {};
     }
-    /* TODO: copy referenced layer */
     for (const CustomDataLayer &layer : Span(mesh->ldata.layers, mesh->ldata.totlayer)) {
       if (layer.type == CD_MLOOPUV) {
         if (layer.name == attribute_name) {
@@ -827,8 +837,12 @@ class MeshUVsAttributeProvider final : public NamedAttributesProvider {
     for (CustomDataLayer &layer : MutableSpan(mesh->ldata.layers, mesh->ldata.totlayer)) {
       if (layer.type == CD_MLOOPUV) {
         if (layer.name == attribute_name) {
-          CustomData_duplicate_referenced_layer_named(
+          void *data_old = layer.data;
+          void *data_new = CustomData_duplicate_referenced_layer_named(
               &mesh->ldata, CD_MLOOPUV, layer.name, mesh->totloop);
+          if (data_old != data_new) {
+            BKE_mesh_update_customdata_pointers(mesh, false);
+          }
           return std::make_unique<
               DerivedArrayWriteAttribute<MLoopUV, float2, get_loop_uv, set_loop_uv>>(
               ATTR_DOMAIN_CORNER, MutableSpan(static_cast<MLoopUV *>(layer.data), mesh->totloop));
