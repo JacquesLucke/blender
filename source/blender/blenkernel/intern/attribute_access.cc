@@ -788,8 +788,8 @@ static const Mesh *get_mesh_for_read(const GeometryComponent &component)
 
 template<typename ElemT,
          typename StructT,
-         ElemT (*GetFunc)(const StructT &),
-         void (*SetFunc)(StructT &, const ElemT &)>
+         ReadAttributePtr (*AsReadAttribute)(Span<StructT> data),
+         WriteAttributePtr (*AsWriteAttribute)(MutableSpan<StructT> data)>
 class BuiltinCustomDataLayerProvider final : public BuiltinAttributeProvider {
   const CustomDataType struct_type_;
   const CustomDataAccessInfo custom_data_access_;
@@ -824,8 +824,7 @@ class BuiltinCustomDataLayerProvider final : public BuiltinAttributeProvider {
     if (data == nullptr) {
       return {};
     }
-    return std::make_unique<DerivedArrayReadAttribute<StructT, ElemT, GetFunc>>(
-        domain_, Span(data, domain_size));
+    return AsReadAttribute(Span(data, domain_size));
   }
 
   WriteAttributePtr try_get_for_write(GeometryComponent &component) const final
@@ -848,8 +847,7 @@ class BuiltinCustomDataLayerProvider final : public BuiltinAttributeProvider {
       custom_data_access_.update_custom_data_pointers(component);
       data = new_data;
     }
-    return std::make_unique<DerivedArrayWriteAttribute<StructT, ElemT, GetFunc, SetFunc>>(
-        domain_, MutableSpan(data, domain_size));
+    return AsWriteAttribute(MutableSpan(data, domain_size));
   }
 
   bool try_delete(GeometryComponent &component) const final
@@ -904,7 +902,7 @@ class BuiltinCustomDataLayerProvider final : public BuiltinAttributeProvider {
     const void *data = CustomData_get_layer(custom_data, data_type_);
     return data != nullptr;
   }
-};
+};  // namespace blender::bke
 
 class MeshUVsAttributeProvider final : public DynamicAttributesProvider {
  public:
@@ -1103,6 +1101,31 @@ static void set_vertex_position(MVert &vert, const float3 &position)
   copy_v3_v3(vert.co, position);
 }
 
+static ReadAttributePtr make_vertex_position_read_attribute(Span<MVert> data)
+{
+  return std::make_unique<DerivedArrayReadAttribute<MVert, float3, get_vertex_position>>(
+      ATTR_DOMAIN_POINT, data);
+}
+
+static WriteAttributePtr make_vertex_position_write_attribute(MutableSpan<MVert> data)
+{
+  return std::make_unique<
+      DerivedArrayWriteAttribute<MVert, float3, get_vertex_position, set_vertex_position>>(
+      ATTR_DOMAIN_POINT, data);
+}
+
+template<typename T, AttributeDomain Domain>
+static ReadAttributePtr make_array_read_attribute(Span<T> data)
+{
+  return std::make_unique<ArrayReadAttribute<T>>(Domain, data);
+}
+
+template<typename T, AttributeDomain Domain>
+static WriteAttributePtr make_array_write_attribute(MutableSpan<T> data)
+{
+  return std::make_unique<ArrayWriteAttribute<T>>(Domain, data);
+}
+
 static ComponentAttributeProviders create_attribute_providers_for_mesh_component()
 {
   static auto update_custom_data_pointers = [](GeometryComponent &component) {
@@ -1139,7 +1162,10 @@ static ComponentAttributeProviders create_attribute_providers_for_mesh_component
 #undef MAKE_CONST_CUSTOM_DATA_GETTER
 #undef MAKE_MUTABLE_CUSTOM_DATA_GETTER
 
-  static BuiltinCustomDataLayerProvider<float3, MVert, get_vertex_position, set_vertex_position>
+  static BuiltinCustomDataLayerProvider<float3,
+                                        MVert,
+                                        make_vertex_position_read_attribute,
+                                        make_vertex_position_write_attribute>
       position("position",
                ATTR_DOMAIN_POINT,
                CD_MVERT,
@@ -1186,8 +1212,19 @@ static ComponentAttributeProviders create_attribute_providers_for_point_cloud()
       },
       update_custom_data_pointers};
 
+  static BuiltinCustomDataLayerProvider<float3,
+                                        float3,
+                                        make_array_read_attribute<float3, ATTR_DOMAIN_POINT>,
+                                        make_array_write_attribute<float3, ATTR_DOMAIN_POINT>>
+      position("position",
+               ATTR_DOMAIN_POINT,
+               CD_PROP_FLOAT3,
+               BuiltinAttributeProvider::NonCreatable,
+               BuiltinAttributeProvider::Writable,
+               BuiltinAttributeProvider::NonDeletable,
+               point_access);
   static CustomDataAttributeProvider point_custom_data(ATTR_DOMAIN_POINT, point_access);
-  return ComponentAttributeProviders({}, {&point_custom_data});
+  return ComponentAttributeProviders({&position}, {&point_custom_data});
 }
 
 }  // namespace blender::bke
