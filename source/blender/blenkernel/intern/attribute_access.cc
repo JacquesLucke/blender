@@ -786,30 +786,31 @@ static const Mesh *get_mesh_for_read(const GeometryComponent &component)
   return mesh_component.get_for_read();
 }
 
-template<typename ElemT,
-         typename StructT,
-         ReadAttributePtr (*AsReadAttribute)(Span<StructT> data),
-         WriteAttributePtr (*AsWriteAttribute)(MutableSpan<StructT> data)>
 class BuiltinCustomDataLayerProvider final : public BuiltinAttributeProvider {
-  const CustomDataType struct_type_;
+  using AsReadAttribute = ReadAttributePtr (*)(const void *data, const int domain_size);
+  using AsWriteAttribute = WriteAttributePtr (*)(void *data, const int domain_size);
+  const CustomDataType stored_type_;
   const CustomDataAccessInfo custom_data_access_;
+  const AsReadAttribute as_read_attribute_;
+  const AsWriteAttribute as_write_attribute_;
 
  public:
   BuiltinCustomDataLayerProvider(std::string attribute_name,
                                  const AttributeDomain domain,
-                                 const CustomDataType struct_type,
+                                 const CustomDataType attribute_type,
+                                 const CustomDataType stored_type,
                                  const CreatableEnum creatable,
                                  const WritableEnum writable,
                                  const DeletableEnum deletable,
-                                 const CustomDataAccessInfo custom_data_access)
-      : BuiltinAttributeProvider(std::move(attribute_name),
-                                 domain,
-                                 cpp_type_to_custom_data_type(CPPType::get<ElemT>()),
-                                 creatable,
-                                 writable,
-                                 deletable),
-        struct_type_(struct_type),
-        custom_data_access_(custom_data_access)
+                                 const CustomDataAccessInfo custom_data_access,
+                                 const AsReadAttribute as_read_attribute,
+                                 const AsWriteAttribute as_write_attribute)
+      : BuiltinAttributeProvider(
+            std::move(attribute_name), domain, attribute_type, creatable, writable, deletable),
+        stored_type_(stored_type),
+        custom_data_access_(custom_data_access),
+        as_read_attribute_(as_read_attribute),
+        as_write_attribute_(as_write_attribute)
   {
   }
 
@@ -820,11 +821,11 @@ class BuiltinCustomDataLayerProvider final : public BuiltinAttributeProvider {
       return {};
     }
     const int domain_size = component.attribute_domain_size(domain_);
-    const StructT *data = (const StructT *)CustomData_get_layer(custom_data, struct_type_);
+    const void *data = CustomData_get_layer(custom_data, stored_type_);
     if (data == nullptr) {
       return {};
     }
-    return AsReadAttribute(Span(data, domain_size));
+    return as_read_attribute_(data, domain_size);
   }
 
   WriteAttributePtr try_get_for_write(GeometryComponent &component) const final
@@ -837,17 +838,16 @@ class BuiltinCustomDataLayerProvider final : public BuiltinAttributeProvider {
       return {};
     }
     const int domain_size = component.attribute_domain_size(domain_);
-    StructT *data = (StructT *)CustomData_get_layer(custom_data, struct_type_);
+    void *data = CustomData_get_layer(custom_data, stored_type_);
     if (data == nullptr) {
       return {};
     }
-    StructT *new_data = (StructT *)CustomData_duplicate_referenced_layer(
-        custom_data, struct_type_, domain_size);
+    void *new_data = CustomData_duplicate_referenced_layer(custom_data, stored_type_, domain_size);
     if (data != new_data) {
       custom_data_access_.update_custom_data_pointers(component);
       data = new_data;
     }
-    return AsWriteAttribute(MutableSpan(data, domain_size));
+    return as_write_attribute_(data, domain_size);
   }
 
   bool try_delete(GeometryComponent &component) const final
@@ -861,9 +861,9 @@ class BuiltinCustomDataLayerProvider final : public BuiltinAttributeProvider {
     }
 
     const int domain_size = component.attribute_domain_size(domain_);
-    const int layer_index = CustomData_get_layer_index(custom_data, struct_type_);
+    const int layer_index = CustomData_get_layer_index(custom_data, stored_type_);
     const bool delete_success = CustomData_free_layer(
-        custom_data, struct_type_, domain_size, layer_index);
+        custom_data, stored_type_, domain_size, layer_index);
     if (delete_success) {
       custom_data_access_.update_custom_data_pointers(component);
     }
@@ -879,13 +879,13 @@ class BuiltinCustomDataLayerProvider final : public BuiltinAttributeProvider {
     if (custom_data == nullptr) {
       return false;
     }
-    if (CustomData_get_layer(custom_data, struct_type_) != nullptr) {
+    if (CustomData_get_layer(custom_data, stored_type_) != nullptr) {
       /* Exists already. */
       return false;
     }
     const int domain_size = component.attribute_domain_size(domain_);
     const void *data = CustomData_add_layer(
-        custom_data, struct_type_, CD_DEFAULT, nullptr, domain_size);
+        custom_data, stored_type_, CD_DEFAULT, nullptr, domain_size);
     const bool success = data != nullptr;
     if (success) {
       custom_data_access_.update_custom_data_pointers(component);
@@ -1075,7 +1075,8 @@ class VertexGroupsAttributeProvider final : public DynamicAttributesProvider {
 };
 
 class ComponentAttributeProviders {
- private:
+  /* TODO: make private */
+ public:
   Map<std::string, const BuiltinAttributeProvider *> builtin_attribute_providers_;
   Vector<const DynamicAttributesProvider *> dynamic_attribute_providers_;
 
@@ -1101,29 +1102,30 @@ static void set_vertex_position(MVert &vert, const float3 &position)
   copy_v3_v3(vert.co, position);
 }
 
-static ReadAttributePtr make_vertex_position_read_attribute(Span<MVert> data)
+static ReadAttributePtr make_vertex_position_read_attribute(const void *data,
+                                                            const int domain_size)
 {
   return std::make_unique<DerivedArrayReadAttribute<MVert, float3, get_vertex_position>>(
-      ATTR_DOMAIN_POINT, data);
+      ATTR_DOMAIN_POINT, Span<MVert>((const MVert *)data, domain_size));
 }
 
-static WriteAttributePtr make_vertex_position_write_attribute(MutableSpan<MVert> data)
+static WriteAttributePtr make_vertex_position_write_attribute(void *data, const int domain_size)
 {
   return std::make_unique<
       DerivedArrayWriteAttribute<MVert, float3, get_vertex_position, set_vertex_position>>(
-      ATTR_DOMAIN_POINT, data);
+      ATTR_DOMAIN_POINT, MutableSpan<MVert>((MVert *)data, domain_size));
 }
 
 template<typename T, AttributeDomain Domain>
-static ReadAttributePtr make_array_read_attribute(Span<T> data)
+static ReadAttributePtr make_array_read_attribute(const void *data, const int domain_size)
 {
-  return std::make_unique<ArrayReadAttribute<T>>(Domain, data);
+  return std::make_unique<ArrayReadAttribute<T>>(Domain, Span<T>((const T *)data, domain_size));
 }
 
 template<typename T, AttributeDomain Domain>
-static WriteAttributePtr make_array_write_attribute(MutableSpan<T> data)
+static WriteAttributePtr make_array_write_attribute(void *data, const int domain_size)
 {
-  return std::make_unique<ArrayWriteAttribute<T>>(Domain, data);
+  return std::make_unique<ArrayWriteAttribute<T>>(Domain, MutableSpan<T>((T *)data, domain_size));
 }
 
 static ComponentAttributeProviders create_attribute_providers_for_mesh_component()
@@ -1162,17 +1164,16 @@ static ComponentAttributeProviders create_attribute_providers_for_mesh_component
 #undef MAKE_CONST_CUSTOM_DATA_GETTER
 #undef MAKE_MUTABLE_CUSTOM_DATA_GETTER
 
-  static BuiltinCustomDataLayerProvider<float3,
-                                        MVert,
-                                        make_vertex_position_read_attribute,
-                                        make_vertex_position_write_attribute>
-      position("position",
-               ATTR_DOMAIN_POINT,
-               CD_MVERT,
-               BuiltinAttributeProvider::NonCreatable,
-               BuiltinAttributeProvider::Writable,
-               BuiltinAttributeProvider::NonDeletable,
-               point_access);
+  static BuiltinCustomDataLayerProvider position("position",
+                                                 ATTR_DOMAIN_POINT,
+                                                 CD_PROP_FLOAT3,
+                                                 CD_MVERT,
+                                                 BuiltinAttributeProvider::NonCreatable,
+                                                 BuiltinAttributeProvider::Writable,
+                                                 BuiltinAttributeProvider::NonDeletable,
+                                                 point_access,
+                                                 make_vertex_position_read_attribute,
+                                                 make_vertex_position_write_attribute);
   static MeshUVsAttributeProvider uvs;
   static VertexGroupsAttributeProvider vertex_groups;
   static CustomDataAttributeProvider corner_custom_data(ATTR_DOMAIN_CORNER, corner_access);
@@ -1212,28 +1213,28 @@ static ComponentAttributeProviders create_attribute_providers_for_point_cloud()
       },
       update_custom_data_pointers};
 
-  static BuiltinCustomDataLayerProvider<float3,
-                                        float3,
-                                        make_array_read_attribute<float3, ATTR_DOMAIN_POINT>,
-                                        make_array_write_attribute<float3, ATTR_DOMAIN_POINT>>
-      position("position",
-               ATTR_DOMAIN_POINT,
-               CD_PROP_FLOAT3,
-               BuiltinAttributeProvider::NonCreatable,
-               BuiltinAttributeProvider::Writable,
-               BuiltinAttributeProvider::NonDeletable,
-               point_access);
-  static BuiltinCustomDataLayerProvider<float,
-                                        float,
-                                        make_array_read_attribute<float, ATTR_DOMAIN_POINT>,
-                                        make_array_write_attribute<float, ATTR_DOMAIN_POINT>>
-      radius("radius",
-             ATTR_DOMAIN_POINT,
-             CD_PROP_FLOAT,
-             BuiltinAttributeProvider::Creatable,
-             BuiltinAttributeProvider::Writable,
-             BuiltinAttributeProvider::Deletable,
-             point_access);
+  static BuiltinCustomDataLayerProvider position(
+      "position",
+      ATTR_DOMAIN_POINT,
+      CD_PROP_FLOAT3,
+      CD_PROP_FLOAT3,
+      BuiltinAttributeProvider::NonCreatable,
+      BuiltinAttributeProvider::Writable,
+      BuiltinAttributeProvider::NonDeletable,
+      point_access,
+      make_array_read_attribute<float3, ATTR_DOMAIN_POINT>,
+      make_array_write_attribute<float3, ATTR_DOMAIN_POINT>);
+  static BuiltinCustomDataLayerProvider radius(
+      "radius",
+      ATTR_DOMAIN_POINT,
+      CD_PROP_FLOAT,
+      CD_PROP_FLOAT,
+      BuiltinAttributeProvider::Creatable,
+      BuiltinAttributeProvider::Writable,
+      BuiltinAttributeProvider::Deletable,
+      point_access,
+      make_array_read_attribute<float, ATTR_DOMAIN_POINT>,
+      make_array_write_attribute<float, ATTR_DOMAIN_POINT>);
   static CustomDataAttributeProvider point_custom_data(ATTR_DOMAIN_POINT, point_access);
   return ComponentAttributeProviders({&position, &radius}, {&point_custom_data});
 }
@@ -1875,46 +1876,21 @@ bool MeshComponent::attribute_is_builtin(const StringRef attribute_name) const
 
 ReadAttributePtr MeshComponent::attribute_try_get_for_read(const StringRef attribute_name) const
 {
-  if (mesh_ == nullptr) {
-    return {};
+  using namespace blender::bke;
+  ComponentAttributeProviders providers = create_attribute_providers_for_mesh_component();
+
+  const BuiltinAttributeProvider *builtin_provider =
+      providers.builtin_attribute_providers_.lookup_default_as(attribute_name, nullptr);
+  if (builtin_provider != nullptr) {
+    return builtin_provider->try_get_for_read(*this);
   }
 
-  if (attribute_name == "position") {
-    return std::make_unique<
-        blender::bke::DerivedArrayReadAttribute<MVert, float3, blender::bke::get_vertex_position>>(
-        ATTR_DOMAIN_POINT, blender::Span(mesh_->mvert, mesh_->totvert));
+  for (const DynamicAttributesProvider *provider : providers.dynamic_attribute_providers_) {
+    ReadAttributePtr attribute = provider->try_get_for_read(*this, attribute_name);
+    if (attribute) {
+      return attribute;
+    }
   }
-
-  ReadAttributePtr corner_attribute = read_attribute_from_custom_data(
-      mesh_->ldata, mesh_->totloop, attribute_name, ATTR_DOMAIN_CORNER);
-  if (corner_attribute) {
-    return corner_attribute;
-  }
-
-  const int vertex_group_index = vertex_group_names_.lookup_default(attribute_name, -1);
-  if (vertex_group_index >= 0) {
-    return std::make_unique<blender::bke::VertexWeightReadAttribute>(
-        mesh_->dvert, mesh_->totvert, vertex_group_index);
-  }
-
-  ReadAttributePtr vertex_attribute = read_attribute_from_custom_data(
-      mesh_->vdata, mesh_->totvert, attribute_name, ATTR_DOMAIN_POINT);
-  if (vertex_attribute) {
-    return vertex_attribute;
-  }
-
-  ReadAttributePtr edge_attribute = read_attribute_from_custom_data(
-      mesh_->edata, mesh_->totedge, attribute_name, ATTR_DOMAIN_EDGE);
-  if (edge_attribute) {
-    return edge_attribute;
-  }
-
-  ReadAttributePtr polygon_attribute = read_attribute_from_custom_data(
-      mesh_->pdata, mesh_->totpoly, attribute_name, ATTR_DOMAIN_POLYGON);
-  if (polygon_attribute) {
-    return polygon_attribute;
-  }
-
   return {};
 }
 
