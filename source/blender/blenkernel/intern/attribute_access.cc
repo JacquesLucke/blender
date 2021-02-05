@@ -773,6 +773,16 @@ static const Mesh *get_mesh_for_read(const GeometryComponent &component)
   return mesh_component.get_for_read();
 }
 
+class BuiltinCustomDataLayerProvider final : BuiltinAttributeProvider {
+ public:
+  BuiltinCustomDataLayerProvider(std::string attribute_name,
+                                 const AttributeDomain domain,
+                                 const CustomDataType data_type)
+      : BuiltinAttributeProvider(std::move(attribute_name), domain, data_type_)
+  {
+  }
+};
+
 class MVertPositionAttributeProvider final : public BuiltinAttributeProvider {
  public:
   MVertPositionAttributeProvider(std::string name)
