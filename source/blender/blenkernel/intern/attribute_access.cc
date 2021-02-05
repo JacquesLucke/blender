@@ -485,16 +485,41 @@ CustomDataType cpp_type_to_custom_data_type(const blender::fn::CPPType &type)
 }
 
 class BuiltinAttributeProvider {
- private:
+ public:
+  enum CreatableEnum {
+    Creatable,
+    NonCreatable,
+  };
+  enum WritableEnum {
+    Writable,
+    Readonly,
+  };
+  enum DeletableEnum {
+    Deletable,
+    NonDeletable,
+  };
+
+ protected:
   const std::string name_;
   const AttributeDomain domain_;
   const CustomDataType data_type_;
+  const CreatableEnum createable_;
+  const WritableEnum writable_;
+  const DeletableEnum deletable_;
 
  public:
   BuiltinAttributeProvider(std::string name,
                            const AttributeDomain domain,
-                           const CustomDataType data_type)
-      : name_(std::move(name)), domain_(domain), data_type_(data_type)
+                           const CustomDataType data_type,
+                           const CreatableEnum createable,
+                           const WritableEnum writable,
+                           const DeletableEnum deletable)
+      : name_(std::move(name)),
+        domain_(domain),
+        data_type_(data_type),
+        createable_(createable),
+        writable_(writable),
+        deletable_(deletable)
   {
   }
 
@@ -577,32 +602,35 @@ class DynamicAttributesProvider {
   }
 };
 
+struct CustomDataAccessInfo {
+  using CustomDataGetter = CustomData *(*)(GeometryComponent &component);
+  using ConstCustomDataGetter = const CustomData *(*)(const GeometryComponent &component);
+  using UpdateCustomDataPointers = void (*)(GeometryComponent &component);
+
+  CustomDataGetter get_custom_data;
+  ConstCustomDataGetter get_const_custom_data;
+  UpdateCustomDataPointers update_custom_data_pointers;
+};
+
 class CustomDataAttributeProvider final : public DynamicAttributesProvider {
  private:
   static constexpr uint64_t supported_types_mask = CD_MASK_PROP_FLOAT | CD_MASK_PROP_FLOAT2 |
                                                    CD_MASK_PROP_FLOAT3 | CD_MASK_PROP_INT32 |
                                                    CD_MASK_PROP_COLOR | CD_MASK_PROP_BOOL;
-  using CustomDataGetter = const CustomData *(*)(const GeometryComponent &component);
-  using UpdateAfterReferencedDataCopy = void (*)(GeometryComponent &component);
   const AttributeDomain domain_;
-  const CustomDataGetter data_getter_;
-  const UpdateAfterReferencedDataCopy update_after_referenced_data_copy_;
+  const CustomDataAccessInfo custom_data_access_;
 
  public:
-  CustomDataAttributeProvider(
-      const AttributeDomain domain,
-      const CustomDataGetter data_getter,
-      const UpdateAfterReferencedDataCopy update_after_referenced_data_copy)
-      : domain_(domain),
-        data_getter_(data_getter),
-        update_after_referenced_data_copy_(update_after_referenced_data_copy)
+  CustomDataAttributeProvider(const AttributeDomain domain,
+                              const CustomDataAccessInfo custom_data_access)
+      : domain_(domain), custom_data_access_(custom_data_access)
   {
   }
 
   ReadAttributePtr try_get_for_read(const GeometryComponent &component,
                                     const StringRef attribute_name) const final
   {
-    const CustomData *custom_data = this->get_custom_data(component);
+    const CustomData *custom_data = custom_data_access_.get_const_custom_data(component);
     if (custom_data == nullptr) {
       return {};
     }
@@ -635,8 +663,7 @@ class CustomDataAttributeProvider final : public DynamicAttributesProvider {
   WriteAttributePtr try_get_for_write(GeometryComponent &component,
                                       const StringRef attribute_name) const final
   {
-    /* Todo: make sure that shared pointcloud is copied before taking the customdata. */
-    CustomData *custom_data = this->get_custom_data(component);
+    CustomData *custom_data = custom_data_access_.get_custom_data(component);
     if (custom_data == nullptr) {
       return {};
     }
@@ -645,12 +672,8 @@ class CustomDataAttributeProvider final : public DynamicAttributesProvider {
       if (layer.name != attribute_name) {
         continue;
       }
-      void *data_old = layer.data;
-      void *data_new = CustomData_duplicate_referenced_layer_named(
+      CustomData_duplicate_referenced_layer_named(
           custom_data, layer.type, layer.name, domain_size);
-      if (data_new != data_old) {
-        update_after_referenced_data_copy_(component);
-      }
       const CustomDataType data_type = (CustomDataType)layer.type;
       switch (data_type) {
         case CD_PROP_FLOAT:
@@ -674,7 +697,7 @@ class CustomDataAttributeProvider final : public DynamicAttributesProvider {
 
   bool try_delete(GeometryComponent &component, const StringRef attribute_name) const final
   {
-    CustomData *custom_data = this->get_custom_data(component);
+    CustomData *custom_data = custom_data_access_.get_custom_data(component);
     if (custom_data == nullptr) {
       return false;
     }
@@ -697,7 +720,7 @@ class CustomDataAttributeProvider final : public DynamicAttributesProvider {
     if (domain_ != domain) {
       return false;
     }
-    CustomData *custom_data = this->get_custom_data(component);
+    CustomData *custom_data = custom_data_access_.get_custom_data(component);
     if (custom_data == nullptr) {
       return false;
     }
@@ -716,7 +739,7 @@ class CustomDataAttributeProvider final : public DynamicAttributesProvider {
 
   void list(const GeometryComponent &component, Set<std::string> &r_names) const final
   {
-    const CustomData *custom_data = this->get_custom_data(component);
+    const CustomData *custom_data = custom_data_access_.get_const_custom_data(component);
     if (custom_data == nullptr) {
       return;
     }
@@ -747,16 +770,6 @@ class CustomDataAttributeProvider final : public DynamicAttributesProvider {
   {
     return ((1ULL << data_type) & supported_types_mask) != 0;
   }
-
-  const CustomData *get_custom_data(const GeometryComponent &component) const
-  {
-    return data_getter_(component);
-  }
-
-  CustomData *get_custom_data(GeometryComponent &component) const
-  {
-    return const_cast<CustomData *>(data_getter_(component));
-  }
 };
 
 static Mesh *get_mesh_for_write(GeometryComponent &component)
@@ -773,20 +786,135 @@ static const Mesh *get_mesh_for_read(const GeometryComponent &component)
   return mesh_component.get_for_read();
 }
 
+template<typename ElemT,
+         typename StructT,
+         ElemT (*GetFunc)(const StructT &),
+         void (*SetFunc)(StructT &, const ElemT &)>
 class BuiltinCustomDataLayerProvider final : BuiltinAttributeProvider {
+  const CustomDataType struct_type_;
+  const CustomDataAccessInfo custom_data_access_;
+
  public:
   BuiltinCustomDataLayerProvider(std::string attribute_name,
                                  const AttributeDomain domain,
-                                 const CustomDataType data_type)
-      : BuiltinAttributeProvider(std::move(attribute_name), domain, data_type_)
+                                 const CustomDataType struct_type,
+                                 const CreatableEnum creatable,
+                                 const WritableEnum writable,
+                                 const DeletableEnum deletable,
+                                 const CustomDataAccessInfo custom_data_access)
+      : BuiltinAttributeProvider(std::move(attribute_name),
+                                 domain,
+                                 cpp_type_to_custom_data_type(CPPType::get<ElemT>()),
+                                 creatable,
+                                 writable,
+                                 deletable),
+        struct_type_(struct_type),
+        custom_data_access_(custom_data_access)
   {
+  }
+
+  ReadAttributePtr try_get_for_read(const GeometryComponent &component) const final
+  {
+    const CustomData *custom_data = custom_data_access_.get_const_custom_data(component);
+    if (custom_data == nullptr) {
+      return {};
+    }
+    const int domain_size = component.attribute_domain_size(domain_);
+    const StructT *data = (const StructT *)CustomData_get_layer(custom_data, struct_type_);
+    if (data == nullptr) {
+      return {};
+    }
+    return std::make_unique<DerivedArrayReadAttribute<StructT, ElemT, GetFunc>>(
+        domain_, Span(data, domain_size));
+  }
+
+  WriteAttributePtr try_get_for_write(GeometryComponent &component) const final
+  {
+    if (writable_ != Writable) {
+      return {};
+    }
+    CustomData *custom_data = custom_data_access_.get_custom_data(component);
+    if (custom_data == nullptr) {
+      return {};
+    }
+    const int domain_size = component.attribute_domain_size(domain_);
+    StructT *data = (StructT *)CustomData_get_layer(custom_data, struct_type_);
+    if (data == nullptr) {
+      return {};
+    }
+    StructT *new_data = (StructT *)CustomData_duplicate_referenced_layer(
+        custom_data, struct_type_, domain_size);
+    if (data != new_data) {
+      custom_data_access_.update_custom_data_pointers(component);
+      data = new_data;
+    }
+    return std::make_unique<DerivedArrayWriteAttribute<StructT, ElemT, GetFunc, SetFunc>>(
+        domain_, MutableSpan(data, domain_size));
+  }
+
+  bool try_delete(GeometryComponent &component) const final
+  {
+    if (deletable_ != Deletable) {
+      return false;
+    }
+    CustomData *custom_data = custom_data_access_.get_custom_data(component);
+    if (custom_data == nullptr) {
+      return {};
+    }
+
+    const int domain_size = component.attribute_domain_size(domain_);
+    const int layer_index = CustomData_get_layer_index(custom_data, struct_type_);
+    const bool delete_success = CustomData_free_layer(
+        custom_data, struct_type_, domain_size, layer_index);
+    if (delete_success) {
+      custom_data_access_.update_custom_data_pointers(component);
+    }
+    return delete_success;
+  }
+
+  bool try_create(GeometryComponent &component) const final
+  {
+    if (createable_ != Creatable) {
+      return false;
+    }
+    CustomData *custom_data = custom_data_access_.get_custom_data(component);
+    if (custom_data == nullptr) {
+      return false;
+    }
+    if (CustomData_get_layer(custom_data, struct_type_) != nullptr) {
+      /* Exists already. */
+      return false;
+    }
+    const int domain_size = component.attribute_domain_size(domain_);
+    const void *data = CustomData_add_layer(
+        custom_data, struct_type_, CD_DEFAULT, nullptr, domain_size);
+    const bool success = data != nullptr;
+    if (success) {
+      custom_data_access_.update_custom_data_pointers(component);
+    }
+    return success;
+  }
+
+  bool exists(const GeometryComponent &component) const final
+  {
+    const CustomData *custom_data = custom_data_access_.get_const_custom_data(component);
+    if (custom_data == nullptr) {
+      return false;
+    }
+    const void *data = CustomData_get_layer(custom_data, data_type_);
+    return data != nullptr;
   }
 };
 
 class MVertPositionAttributeProvider final : public BuiltinAttributeProvider {
  public:
   MVertPositionAttributeProvider(std::string name)
-      : BuiltinAttributeProvider(std::move(name), ATTR_DOMAIN_POINT, CD_PROP_FLOAT3)
+      : BuiltinAttributeProvider(std::move(name),
+                                 ATTR_DOMAIN_POINT,
+                                 CD_PROP_FLOAT3,
+                                 NonCreatable,
+                                 Writable,
+                                 NonDeletable)
   {
   }
 
@@ -1025,37 +1153,42 @@ static ComponentAttributeProviders create_attribute_providers_for_mesh_component
       BKE_mesh_update_customdata_pointers(mesh, true);
     }
   };
+
+#define MAKE_MUTABLE_CUSTOM_DATA_GETTER(NAME) \
+  [](GeometryComponent &component) -> CustomData * { \
+    Mesh *mesh = get_mesh_for_write(component); \
+    return mesh ? &mesh->NAME : nullptr; \
+  }
+#define MAKE_CONST_CUSTOM_DATA_GETTER(NAME) \
+  [](const GeometryComponent &component) -> const CustomData * { \
+    const Mesh *mesh = get_mesh_for_read(component); \
+    return mesh ? &mesh->NAME : nullptr; \
+  }
+
+  static CustomDataAccessInfo corner_access = {MAKE_MUTABLE_CUSTOM_DATA_GETTER(ldata),
+                                               MAKE_CONST_CUSTOM_DATA_GETTER(ldata),
+                                               update_custom_data_pointers};
+  static CustomDataAccessInfo point_access = {MAKE_MUTABLE_CUSTOM_DATA_GETTER(vdata),
+                                              MAKE_CONST_CUSTOM_DATA_GETTER(vdata),
+                                              update_custom_data_pointers};
+  static CustomDataAccessInfo edge_access = {MAKE_MUTABLE_CUSTOM_DATA_GETTER(edata),
+                                             MAKE_CONST_CUSTOM_DATA_GETTER(edata),
+                                             update_custom_data_pointers};
+  static CustomDataAccessInfo polygon_access = {MAKE_MUTABLE_CUSTOM_DATA_GETTER(pdata),
+                                                MAKE_CONST_CUSTOM_DATA_GETTER(pdata),
+                                                update_custom_data_pointers};
+
+#undef MAKE_CONST_CUSTOM_DATA_GETTER
+#undef MAKE_MUTABLE_CUSTOM_DATA_GETTER
+
   static MVertPositionAttributeProvider position("position");
   static MeshUVsAttributeProvider uvs;
   static VertexGroupsAttributeProvider vertex_groups;
-  static CustomDataAttributeProvider corner_custom_data(
-      ATTR_DOMAIN_CORNER,
-      [](const GeometryComponent &component) {
-        const Mesh *mesh = get_mesh_for_read(component);
-        return mesh ? &mesh->ldata : nullptr;
-      },
-      update_custom_data_pointers);
-  static CustomDataAttributeProvider point_custom_data(
-      ATTR_DOMAIN_POINT,
-      [](const GeometryComponent &component) {
-        const Mesh *mesh = get_mesh_for_read(component);
-        return mesh ? &mesh->vdata : nullptr;
-      },
-      update_custom_data_pointers);
-  static CustomDataAttributeProvider edge_custom_data(
-      ATTR_DOMAIN_EDGE,
-      [](const GeometryComponent &component) {
-        const Mesh *mesh = get_mesh_for_read(component);
-        return mesh ? &mesh->edata : nullptr;
-      },
-      update_custom_data_pointers);
-  static CustomDataAttributeProvider polygon_custom_data(
-      ATTR_DOMAIN_POLYGON,
-      [](const GeometryComponent &component) {
-        const Mesh *mesh = get_mesh_for_read(component);
-        return mesh ? &mesh->pdata : nullptr;
-      },
-      update_custom_data_pointers);
+  static CustomDataAttributeProvider corner_custom_data(ATTR_DOMAIN_CORNER, corner_access);
+  static CustomDataAttributeProvider point_custom_data(ATTR_DOMAIN_POINT, point_access);
+  static CustomDataAttributeProvider edge_custom_data(ATTR_DOMAIN_EDGE, edge_access);
+  static CustomDataAttributeProvider polygon_custom_data(ATTR_DOMAIN_POLYGON, polygon_access);
+
   return ComponentAttributeProviders({&position},
                                      {&uvs,
                                       &corner_custom_data,
@@ -1074,15 +1207,21 @@ static ComponentAttributeProviders create_attribute_providers_for_point_cloud()
       BKE_pointcloud_update_customdata_pointers(pointcloud);
     }
   };
-  static CustomDataAttributeProvider point_custom_data(
-      ATTR_DOMAIN_POINT,
-      [](const GeometryComponent &component) {
+  static CustomDataAccessInfo point_access = {
+      [](GeometryComponent &component) -> CustomData * {
+        PointCloudComponent &pointcloud_component = static_cast<PointCloudComponent &>(component);
+        PointCloud *pointcloud = pointcloud_component.get_for_write();
+        return pointcloud ? &pointcloud->pdata : nullptr;
+      },
+      [](const GeometryComponent &component) -> const CustomData * {
         const PointCloudComponent &pointcloud_component = static_cast<const PointCloudComponent &>(
             component);
         const PointCloud *pointcloud = pointcloud_component.get_for_read();
         return pointcloud ? &pointcloud->pdata : nullptr;
       },
-      update_custom_data_pointers);
+      update_custom_data_pointers};
+
+  static CustomDataAttributeProvider point_custom_data(ATTR_DOMAIN_POINT, point_access);
   return ComponentAttributeProviders({}, {&point_custom_data});
 }
 
