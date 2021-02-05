@@ -790,7 +790,7 @@ template<typename ElemT,
          typename StructT,
          ElemT (*GetFunc)(const StructT &),
          void (*SetFunc)(StructT &, const ElemT &)>
-class BuiltinCustomDataLayerProvider final : BuiltinAttributeProvider {
+class BuiltinCustomDataLayerProvider final : public BuiltinAttributeProvider {
   const CustomDataType struct_type_;
   const CustomDataAccessInfo custom_data_access_;
 
@@ -903,58 +903,6 @@ class BuiltinCustomDataLayerProvider final : BuiltinAttributeProvider {
     }
     const void *data = CustomData_get_layer(custom_data, data_type_);
     return data != nullptr;
-  }
-};
-
-class MVertPositionAttributeProvider final : public BuiltinAttributeProvider {
- public:
-  MVertPositionAttributeProvider(std::string name)
-      : BuiltinAttributeProvider(std::move(name),
-                                 ATTR_DOMAIN_POINT,
-                                 CD_PROP_FLOAT3,
-                                 NonCreatable,
-                                 Writable,
-                                 NonDeletable)
-  {
-  }
-
-  ReadAttributePtr try_get_for_read(const GeometryComponent &component) const final
-  {
-    const Mesh *mesh = get_mesh_for_read(component);
-    if (mesh == nullptr) {
-      return {};
-    }
-    return std::make_unique<DerivedArrayReadAttribute<MVert, float3, get_vertex_position>>(
-        ATTR_DOMAIN_POINT, Span(mesh->mvert, mesh->totvert));
-  }
-
-  WriteAttributePtr try_get_for_write(GeometryComponent &component) const final
-  {
-    Mesh *mesh = get_mesh_for_write(component);
-    if (mesh == nullptr) {
-      return {};
-    }
-    CustomData_duplicate_referenced_layer(&mesh->vdata, CD_MVERT, mesh->totvert);
-    BKE_mesh_update_customdata_pointers(mesh, false);
-    return std::make_unique<
-        DerivedArrayWriteAttribute<MVert, float3, get_vertex_position, set_vertex_position>>(
-        ATTR_DOMAIN_POINT, MutableSpan(mesh->mvert, mesh->totvert));
-  }
-
-  bool exists(const GeometryComponent &component) const final
-  {
-    const Mesh *mesh = get_mesh_for_read(component);
-    return mesh != nullptr;
-  }
-
-  static float3 get_vertex_position(const MVert &vert)
-  {
-    return float3(vert.co);
-  }
-
-  static void set_vertex_position(MVert &vert, const float3 &position)
-  {
-    copy_v3_v3(vert.co, position);
   }
 };
 
@@ -1145,6 +1093,16 @@ class ComponentAttributeProviders {
   }
 };
 
+static float3 get_vertex_position(const MVert &vert)
+{
+  return float3(vert.co);
+}
+
+static void set_vertex_position(MVert &vert, const float3 &position)
+{
+  copy_v3_v3(vert.co, position);
+}
+
 static ComponentAttributeProviders create_attribute_providers_for_mesh_component()
 {
   static auto update_custom_data_pointers = [](GeometryComponent &component) {
@@ -1181,7 +1139,14 @@ static ComponentAttributeProviders create_attribute_providers_for_mesh_component
 #undef MAKE_CONST_CUSTOM_DATA_GETTER
 #undef MAKE_MUTABLE_CUSTOM_DATA_GETTER
 
-  static MVertPositionAttributeProvider position("position");
+  static BuiltinCustomDataLayerProvider<float3, MVert, get_vertex_position, set_vertex_position>
+      position("position",
+               ATTR_DOMAIN_POINT,
+               CD_MVERT,
+               BuiltinAttributeProvider::NonCreatable,
+               BuiltinAttributeProvider::Writable,
+               BuiltinAttributeProvider::NonDeletable,
+               point_access);
   static MeshUVsAttributeProvider uvs;
   static VertexGroupsAttributeProvider vertex_groups;
   static CustomDataAttributeProvider corner_custom_data(ATTR_DOMAIN_CORNER, corner_access);
@@ -1867,10 +1832,8 @@ ReadAttributePtr MeshComponent::attribute_try_get_for_read(const StringRef attri
   }
 
   if (attribute_name == "position") {
-    return std::make_unique<blender::bke::DerivedArrayReadAttribute<
-        MVert,
-        float3,
-        blender::bke::MVertPositionAttributeProvider::get_vertex_position>>(
+    return std::make_unique<
+        blender::bke::DerivedArrayReadAttribute<MVert, float3, blender::bke::get_vertex_position>>(
         ATTR_DOMAIN_POINT, blender::Span(mesh_->mvert, mesh_->totvert));
   }
 
@@ -1922,11 +1885,11 @@ WriteAttributePtr MeshComponent::attribute_try_get_for_write(const StringRef att
     CustomData_duplicate_referenced_layer(&mesh->vdata, CD_MVERT, mesh->totvert);
     update_mesh_pointers();
 
-    return std::make_unique<blender::bke::DerivedArrayWriteAttribute<
-        MVert,
-        float3,
-        blender::bke::MVertPositionAttributeProvider::get_vertex_position,
-        blender::bke::MVertPositionAttributeProvider::set_vertex_position>>(
+    return std::make_unique<
+        blender::bke::DerivedArrayWriteAttribute<MVert,
+                                                 float3,
+                                                 blender::bke::get_vertex_position,
+                                                 blender::bke::set_vertex_position>>(
         ATTR_DOMAIN_POINT, blender::MutableSpan(mesh_->mvert, mesh_->totvert));
   }
 
