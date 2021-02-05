@@ -602,6 +602,7 @@ class GenericCustomDataAttributeProvider final : public AttributeProvider {
       if (layer.name != attribute_name) {
         continue;
       }
+      /* TODO: copy referenced layer */
       const CustomDataType data_type = (CustomDataType)layer.type;
       switch (data_type) {
         case CD_PROP_FLOAT:
@@ -746,6 +747,7 @@ class MVertPositionAttributeProvider final : public AttributeProvider {
     if (attribute_name != position_name) {
       return {};
     }
+    /* TODO: copy referenced layer */
     Mesh *mesh = get_mesh_for_write(component);
     if (mesh == nullptr) {
       return {};
@@ -783,6 +785,7 @@ class MeshUVsAttributeProvider final : public AttributeProvider {
     if (mesh == nullptr) {
       return {};
     }
+    /* TODO: copy referenced layer */
     for (const CustomDataLayer &layer : Span(mesh->ldata.layers, mesh->ldata.totlayer)) {
       if (layer.type == CD_MLOOPUV) {
         if (layer.name == attribute_name) {
