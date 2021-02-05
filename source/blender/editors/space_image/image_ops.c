@@ -467,7 +467,7 @@ static void image_view_zoom_init(bContext *C, wmOperator *op, const wmEvent *eve
   UI_view2d_region_to_view(
       &region->v2d, event->mval[0], event->mval[1], &vpd->location[0], &vpd->location[1]);
 
-  if (U.viewzoom == USER_ZOOM_CONT) {
+  if (U.viewzoom == USER_ZOOM_CONTINUE) {
     /* needs a timer to continue redrawing */
     vpd->timer = WM_event_add_timer(CTX_wm_manager(C), CTX_wm_window(C), TIMER, 0.01f);
     vpd->timer_lastdraw = PIL_check_seconds_timer();
@@ -579,12 +579,10 @@ static void image_zoom_apply(ViewZoomData *vpd,
     delta = -delta;
   }
 
-  if (viewzoom == USER_ZOOM_CONT) {
+  if (viewzoom == USER_ZOOM_CONTINUE) {
     double time = PIL_check_seconds_timer();
     float time_step = (float)(time - vpd->timer_lastdraw);
     float zfac;
-
-    /* oldstyle zoom */
     zfac = 1.0f + ((delta / 20.0f) * time_step);
     vpd->timer_lastdraw = time;
     /* this is the final zoom, but instead make it into a factor */
@@ -2747,7 +2745,7 @@ static int image_invert_exec(bContext *C, wmOperator *op)
 
   ED_image_undo_push_end();
 
-  /* force GPU reupload, all image is invalid */
+  /* Force GPU re-upload, all image is invalid. */
   BKE_image_free_gputextures(ima);
 
   WM_event_add_notifier(C, NC_IMAGE | NA_EDITED, ima);
@@ -2838,7 +2836,7 @@ static int image_scale_exec(bContext *C, wmOperator *op)
 
   ED_image_undo_push_end();
 
-  /* force GPU reupload, all image is invalid */
+  /* Force GPU re-upload, all image is invalid. */
   BKE_image_free_gputextures(ima);
 
   DEG_id_tag_update(&ima->id, 0);
