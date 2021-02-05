@@ -633,7 +633,8 @@ class CustomDataAttributeProvider final : public NamedAttributesProvider {
       if (layer.name != attribute_name) {
         continue;
       }
-      /* TODO: copy referenced layer */
+      CustomData_duplicate_referenced_layer_named(
+          &custom_data, layer.type, layer.name, domain_size);
       const CustomDataType data_type = (CustomDataType)layer.type;
       switch (data_type) {
         case CD_PROP_FLOAT:
@@ -767,11 +768,12 @@ class MVertPositionAttributeProvider final : public BuiltinAttributeProvider {
 
   WriteAttributePtr try_get_for_write(GeometryComponent &component) const final
   {
-    /* TODO: copy referenced layer */
     Mesh *mesh = get_mesh_for_write(component);
     if (mesh == nullptr) {
       return {};
     }
+    CustomData_duplicate_referenced_layer(&mesh->vdata, CD_MVERT, mesh->totvert);
+    BKE_mesh_update_customdata_pointers(mesh, false);
     return std::make_unique<
         DerivedArrayWriteAttribute<MVert, float3, get_vertex_position, set_vertex_position>>(
         ATTR_DOMAIN_POINT, MutableSpan(mesh->mvert, mesh->totvert));
@@ -825,6 +827,8 @@ class MeshUVsAttributeProvider final : public NamedAttributesProvider {
     for (CustomDataLayer &layer : MutableSpan(mesh->ldata.layers, mesh->ldata.totlayer)) {
       if (layer.type == CD_MLOOPUV) {
         if (layer.name == attribute_name) {
+          CustomData_duplicate_referenced_layer_named(
+              &mesh->ldata, CD_MLOOPUV, layer.name, mesh->totloop);
           return std::make_unique<
               DerivedArrayWriteAttribute<MLoopUV, float2, get_loop_uv, set_loop_uv>>(
               ATTR_DOMAIN_CORNER, MutableSpan(static_cast<MLoopUV *>(layer.data), mesh->totloop));
