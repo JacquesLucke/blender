@@ -296,6 +296,7 @@ set(SRC
   BLI_vector_set.hh
   BLI_vector_set_slots.hh
   BLI_vfontdata.h
+  BLI_virtual_span.hh
   BLI_voronoi_2d.h
   BLI_voxel.h
   BLI_winstuff.h
