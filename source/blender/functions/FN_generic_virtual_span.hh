@@ -122,4 +122,27 @@ class GVSpan {
   }
 };
 
+struct GVMutableSpanCallbacks {
+  void (*get_element)(const void *user_data,
+                      const CPPType &type,
+                      const int64_t index,
+                      void *r_value);
+  void (*set_element_by_copy)(void *user_data,
+                              const CPPType &type,
+                              const int64_t index,
+                              const void *value);
+  void (*set_element_by_move)(void *user_data,
+                              const CPPType &type,
+                              const int64_t index,
+                              void *value);
+};
+
+class GVMutableSpan {
+ private:
+  int64_t size_;
+  const void *user_data_;
+  const GVMutableSpanCallbacks *callbacks_;
+  const CPPType *type_;
+};
+
 }  // namespace blender::fn
