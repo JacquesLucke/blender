@@ -136,7 +136,7 @@ class GMutableSpan {
     return size_;
   }
 
-  void *data()
+  void *data() const
   {
     return data_;
   }
