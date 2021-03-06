@@ -38,15 +38,15 @@ struct GVMutableSpanVTable {
   void (*get_element)(const void *user_data,
                       const CPPType &type,
                       const int64_t index,
-                      void *r_value);
+                      void *r_value) = nullptr;
   void (*set_element_by_copy)(void *user_data,
                               const CPPType &type,
                               const int64_t index,
-                              const void *value);
+                              const void *value) = nullptr;
   void (*set_element_by_move)(void *user_data,
                               const CPPType &type,
                               const int64_t index,
-                              void *value);
+                              void *value) = nullptr;
 };
 
 class GVSpan {
