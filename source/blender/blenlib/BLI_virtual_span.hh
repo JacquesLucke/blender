@@ -42,11 +42,15 @@ template<typename T> struct VMutableSpanVTable {
                                      const IndexMask mask);
 };
 
+template<typename T> class VMutableSpan;
+
 template<typename T> class VSpan {
  private:
   int64_t size_;
   const void *user_data_;
   const VSpanVTable<T> *vtable_;
+
+  friend class VMutableSpan<T>;
 
  public:
   VSpan() : size_(0), user_data_(nullptr), vtable_(&get_default_vtable())
@@ -234,11 +238,11 @@ template<typename T> class VMutableSpan {
 
   static VMutableSpanVTable<T> get_span_vtable_impl()
   {
+    const VSpanVTable<T> &non_mutable_vtable = VSpan<T>::get_span_vtable();
+
     VMutableSpanVTable<T> vtable;
-    vtable.get_element = [](const void *user_data, const int64_t index) -> T {
-      const T *data = (const T *)user_data;
-      return data[index];
-    };
+    vtable.get_element = non_mutable_vtable.get_element;
+    vtable.materialize_to_initialized = non_mutable_vtable.materialize_to_initialized;
     vtable.set_element_by_copy = [](void *user_data, const int64_t index, const T &value) {
       T *data = (T *)user_data;
       data[index] = value;
@@ -247,13 +251,6 @@ template<typename T> class VMutableSpan {
       T *data = (T *)user_data;
       data[index] = std::move(value);
     };
-    vtable.materialize_to_initialized =
-        [](const void *user_data, const MutableSpan<T> dst, const IndexMask mask) {
-          const T *data = (const T *)user_data;
-          for (const int64_t i : mask) {
-            dst[i] = data[i];
-          }
-        };
     return vtable;
   }
 
