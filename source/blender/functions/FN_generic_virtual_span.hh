@@ -40,29 +40,6 @@ class GVSpan {
   const GVSpanCallbacks *callbacks_;
   const CPPType *type_;
 
-  static const GVSpanCallbacks &get_default_callbacks()
-  {
-    static const GVSpanCallbacks callbacks = {nullptr};
-    return callbacks;
-  }
-
-  static GVSpanCallbacks get_gspan_callbacks_impl()
-  {
-    GVSpanCallbacks callbacks;
-    callbacks.get_element =
-        [](const void *user_data, const CPPType &type, const int64_t index, void *r_value) {
-          const void *elem = POINTER_OFFSET(user_data, index * type.size());
-          type.copy_to_initialized(elem, r_value);
-        };
-    return callbacks;
-  }
-
-  static const GVSpanCallbacks &get_gspan_callbacks()
-  {
-    static const GVSpanCallbacks callbacks = get_gspan_callbacks_impl();
-    return callbacks;
-  }
-
  public:
   GVSpan() : size_(0), user_data_(nullptr), callbacks_(&get_default_callbacks()), type_(nullptr)
   {
@@ -119,6 +96,30 @@ class GVSpan {
   {
     BLI_assert(this->is_span());
     return GSpan(*type_, user_data_, size_);
+  }
+
+ private:
+  static const GVSpanCallbacks &get_default_callbacks()
+  {
+    static const GVSpanCallbacks callbacks = {nullptr};
+    return callbacks;
+  }
+
+  static GVSpanCallbacks get_gspan_callbacks_impl()
+  {
+    GVSpanCallbacks callbacks;
+    callbacks.get_element =
+        [](const void *user_data, const CPPType &type, const int64_t index, void *r_value) {
+          const void *elem = POINTER_OFFSET(user_data, index * type.size());
+          type.copy_to_initialized(elem, r_value);
+        };
+    return callbacks;
+  }
+
+  static const GVSpanCallbacks &get_gspan_callbacks()
+  {
+    static const GVSpanCallbacks callbacks = get_gspan_callbacks_impl();
+    return callbacks;
   }
 };
 
