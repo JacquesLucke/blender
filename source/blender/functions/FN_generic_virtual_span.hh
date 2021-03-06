@@ -34,6 +34,21 @@ struct GVSpanVTable {
   bool is_span = false;
 };
 
+struct GVMutableSpanVTable {
+  void (*get_element)(const void *user_data,
+                      const CPPType &type,
+                      const int64_t index,
+                      void *r_value);
+  void (*set_element_by_copy)(void *user_data,
+                              const CPPType &type,
+                              const int64_t index,
+                              const void *value);
+  void (*set_element_by_move)(void *user_data,
+                              const CPPType &type,
+                              const int64_t index,
+                              void *value);
+};
+
 class GVSpan {
  private:
   int64_t size_;
@@ -143,26 +158,11 @@ class GVSpan {
   }
 };
 
-struct GVMutableSpanvtable {
-  void (*get_element)(const void *user_data,
-                      const CPPType &type,
-                      const int64_t index,
-                      void *r_value);
-  void (*set_element_by_copy)(void *user_data,
-                              const CPPType &type,
-                              const int64_t index,
-                              const void *value);
-  void (*set_element_by_move)(void *user_data,
-                              const CPPType &type,
-                              const int64_t index,
-                              void *value);
-};
-
 class GVMutableSpan {
  private:
   int64_t size_;
   const void *user_data_;
-  const GVMutableSpanvtable *vtable;
+  const GVMutableSpanVTable *vtable;
   const CPPType *type_;
 };
 
