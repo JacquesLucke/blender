@@ -30,7 +30,8 @@ struct GVSpanCallbacks {
   void (*get_element)(const void *user_data,
                       const CPPType &type,
                       const int64_t index,
-                      void *r_value);
+                      void *r_value) = nullptr;
+  bool is_span = false;
 };
 
 class GVSpan {
@@ -57,7 +58,7 @@ class GVSpan {
   GVSpan(const Span<T> span)
       : size_(span.size()),
         user_data_((const void *)span.data()),
-        callbacks_(&get_gspan_callbacks()),
+        callbacks_(&get_span_callbacks<T>()),
         type_(CPPType::get<T>())
   {
   }
@@ -89,7 +90,7 @@ class GVSpan {
 
   bool is_span() const
   {
-    return callbacks_ == &get_gspan_callbacks();
+    return callbacks_->is_span;
   }
 
   GSpan get_referenced_span() const
@@ -108,6 +109,7 @@ class GVSpan {
   static GVSpanCallbacks get_gspan_callbacks_impl()
   {
     GVSpanCallbacks callbacks;
+    callbacks.is_span = true;
     callbacks.get_element =
         [](const void *user_data, const CPPType &type, const int64_t index, void *r_value) {
           const void *elem = POINTER_OFFSET(user_data, index * type.size());
@@ -119,6 +121,24 @@ class GVSpan {
   static const GVSpanCallbacks &get_gspan_callbacks()
   {
     static const GVSpanCallbacks callbacks = get_gspan_callbacks_impl();
+    return callbacks;
+  }
+
+  template<typename T> static GVSpanCallbacks get_span_callbacks_impl()
+  {
+    GVSpanCallbacks callbacks;
+    callbacks.is_span = true;
+    callbacks.get_element =
+        [](const void *user_data, const CPPType &type, const int64_t index, void *r_value) {
+          const T *data = (const T *)user_data;
+          *(T *)r_value = data[index];
+        };
+    return callbacks;
+  }
+
+  template<typename T> static const GVSpanCallbacks &get_span_callbacks()
+  {
+    static const GVSpanCallbacks callbacks = get_span_callbacks_impl<T>();
     return callbacks;
   }
 };

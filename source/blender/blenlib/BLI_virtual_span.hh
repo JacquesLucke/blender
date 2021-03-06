@@ -27,19 +27,19 @@
 namespace blender {
 
 template<typename T> struct VSpanVTable {
-  T (*get_element)(const void *user_data, const int64_t index);
+  T (*get_element)(const void *user_data, const int64_t index) = nullptr;
   void (*materialize_to_initialized)(const void *user_data,
                                      const MutableSpan<T> dst,
-                                     const IndexMask mask);
+                                     const IndexMask mask) = nullptr;
 };
 
 template<typename T> struct VMutableSpanVTable {
-  T (*get_element)(const void *user_data, const int64_t index);
-  void (*set_element_by_copy)(void *user_data, const int64_t index, const T &value);
-  void (*set_element_by_move)(void *user_data, const int64_t index, T &&value);
+  T (*get_element)(const void *user_data, const int64_t index) = nullptr;
+  void (*set_element_by_copy)(void *user_data, const int64_t index, const T &value) = nullptr;
+  void (*set_element_by_move)(void *user_data, const int64_t index, T &&value) = nullptr;
   void (*materialize_to_initialized)(const void *user_data,
                                      const MutableSpan<T> dst,
-                                     const IndexMask mask);
+                                     const IndexMask mask) = nullptr;
 };
 
 template<typename T> class VMutableSpan;
