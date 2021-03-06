@@ -26,7 +26,7 @@
 
 namespace blender::fn {
 
-struct GVSpanCallbacks {
+struct GVSpanVTable {
   void (*get_element)(const void *user_data,
                       const CPPType &type,
                       const int64_t index,
@@ -38,19 +38,19 @@ class GVSpan {
  private:
   int64_t size_;
   const void *user_data_;
-  const GVSpanCallbacks *callbacks_;
+  const GVSpanVTable *vtable;
   const CPPType *type_;
 
  public:
-  GVSpan() : size_(0), user_data_(nullptr), callbacks_(&get_default_callbacks()), type_(nullptr)
+  GVSpan() : size_(0), user_data_(nullptr), vtable(&get_default_vtable()), type_(nullptr)
   {
   }
 
   GVSpan(const int64_t size,
          const void *user_data,
-         const GVSpanCallbacks &callbacks,
+         const GVSpanVTable &vtable,
          const CPPType &type)
-      : size_(size), user_data_(user_data), callbacks_(&callbacks), type_(&type)
+      : size_(size), user_data_(user_data), vtable(&vtable), type_(&type)
   {
   }
 
@@ -58,7 +58,7 @@ class GVSpan {
   GVSpan(const Span<T> span)
       : size_(span.size()),
         user_data_((const void *)span.data()),
-        callbacks_(&get_span_callbacks<T>()),
+        vtable(&get_span_vtable<T>()),
         type_(CPPType::get<T>())
   {
   }
@@ -66,7 +66,7 @@ class GVSpan {
   GVSpan(const GSpan span)
       : size_(span.size()),
         user_data_(span.data()),
-        callbacks_(&get_gspan_callbacks()),
+        vtable(&get_gspan_vtable()),
         type_(&span.type())
   {
   }
@@ -85,12 +85,12 @@ class GVSpan {
   {
     BLI_assert(index >= 0);
     BLI_assert(index < size_);
-    callbacks_->get_element(user_data_, *type_, index, r_value);
+    vtable->get_element(user_data_, *type_, index, r_value);
   }
 
   bool is_span() const
   {
-    return callbacks_->is_span;
+    return vtable->is_span;
   }
 
   GSpan get_referenced_span() const
@@ -100,50 +100,50 @@ class GVSpan {
   }
 
  private:
-  static const GVSpanCallbacks &get_default_callbacks()
+  static const GVSpanVTable &get_default_vtable()
   {
-    static const GVSpanCallbacks callbacks = {nullptr};
-    return callbacks;
+    static const GVSpanVTable vtable = {nullptr};
+    return vtable;
   }
 
-  static GVSpanCallbacks get_gspan_callbacks_impl()
+  static GVSpanVTable get_gspan_vtableimpl()
   {
-    GVSpanCallbacks callbacks;
-    callbacks.is_span = true;
-    callbacks.get_element =
+    GVSpanVTable vtable;
+    vtable.is_span = true;
+    vtable.get_element =
         [](const void *user_data, const CPPType &type, const int64_t index, void *r_value) {
           const void *elem = POINTER_OFFSET(user_data, index * type.size());
           type.copy_to_initialized(elem, r_value);
         };
-    return callbacks;
+    return vtable;
   }
 
-  static const GVSpanCallbacks &get_gspan_callbacks()
+  static const GVSpanVTable &get_gspan_vtable()
   {
-    static const GVSpanCallbacks callbacks = get_gspan_callbacks_impl();
-    return callbacks;
+    static const GVSpanVTable vtable = get_gspan_vtableimpl();
+    return vtable;
   }
 
-  template<typename T> static GVSpanCallbacks get_span_callbacks_impl()
+  template<typename T> static GVSpanVTable get_span_vtableimpl()
   {
-    GVSpanCallbacks callbacks;
-    callbacks.is_span = true;
-    callbacks.get_element =
+    GVSpanVTable vtable;
+    vtable.is_span = true;
+    vtable.get_element =
         [](const void *user_data, const CPPType &type, const int64_t index, void *r_value) {
           const T *data = (const T *)user_data;
           *(T *)r_value = data[index];
         };
-    return callbacks;
+    return vtable;
   }
 
-  template<typename T> static const GVSpanCallbacks &get_span_callbacks()
+  template<typename T> static const GVSpanVTable &get_span_vtable()
   {
-    static const GVSpanCallbacks callbacks = get_span_callbacks_impl<T>();
-    return callbacks;
+    static const GVSpanVTable vtable = get_span_vtableimpl<T>();
+    return vtable;
   }
 };
 
-struct GVMutableSpanCallbacks {
+struct GVMutableSpanvtable {
   void (*get_element)(const void *user_data,
                       const CPPType &type,
                       const int64_t index,
@@ -162,7 +162,7 @@ class GVMutableSpan {
  private:
   int64_t size_;
   const void *user_data_;
-  const GVMutableSpanCallbacks *callbacks_;
+  const GVMutableSpanvtable *vtable;
   const CPPType *type_;
 };
 
