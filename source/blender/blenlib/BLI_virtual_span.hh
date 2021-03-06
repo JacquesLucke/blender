@@ -48,35 +48,6 @@ template<typename T> class VSpan {
   const void *user_data_;
   const VSpanVTable<T> *vtable_;
 
-  static const VSpanVTable<T> &get_default_vtable()
-  {
-    static const VSpanVTable<T> vtable = {nullptr, nullptr};
-    return vtable;
-  }
-
-  static VSpanVTable<T> get_span_vtable_impl()
-  {
-    VSpanVTable<T> vtable;
-    vtable.get_element = [](const void *user_data, const int64_t index) -> T {
-      const T *data = (const T *)user_data;
-      return data[index];
-    };
-    vtable.materialize_to_initialized =
-        [](const void *user_data, const MutableSpan<T> dst, const IndexMask mask) {
-          const T *data = (const T *)user_data;
-          for (const int64_t i : mask) {
-            dst[i] = data[i];
-          }
-        };
-    return vtable;
-  }
-
-  static const VSpanVTable<T> &get_span_vtable()
-  {
-    static const VSpanVTable<T> vtable = get_span_vtable_impl();
-    return vtable;
-  }
-
  public:
   VSpan() : size_(0), user_data_(nullptr), vtable_(&get_default_vtable())
   {
@@ -133,46 +104,20 @@ template<typename T> class VSpan {
     BLI_assert(dst.size() >= mask.min_array_size());
     vtable_->materialize_to_initialized(user_data_, dst, mask);
   }
-};
 
-template<typename T> class VMutableSpan {
  private:
-  int64_t size_;
-  void *user_data_;
-  const VMutableSpanVTable<T> *vtable_;
-
-  static VMutableSpanVTable<T> get_default_vtable_impl()
+  static const VSpanVTable<T> &get_default_vtable()
   {
-    VMutableSpanVTable<T> vtable;
-    vtable.get_element = nullptr;
-    vtable.set_element_by_copy = nullptr;
-    vtable.set_element_by_move = nullptr;
-    vtable.materialize_to_initialized = [](const void *user_data,
-                                           const MutableSpan<T> dst,
-                                           const IndexMask mask) { BLI_assert(mask.size() == 0); };
+    static const VSpanVTable<T> vtable = {nullptr, nullptr};
     return vtable;
   }
 
-  static const VMutableSpanVTable<T> &get_default_vtable()
+  static VSpanVTable<T> get_span_vtable_impl()
   {
-    static const VMutableSpanVTable<T> vtable = get_default_vtable_impl();
-    return vtable;
-  }
-
-  static VMutableSpanVTable<T> get_span_vtable_impl()
-  {
-    VMutableSpanVTable<T> vtable;
+    VSpanVTable<T> vtable;
     vtable.get_element = [](const void *user_data, const int64_t index) -> T {
       const T *data = (const T *)user_data;
       return data[index];
-    };
-    vtable.set_element_by_copy = [](void *user_data, const int64_t index, const T &value) {
-      T *data = (T *)user_data;
-      data[index] = value;
-    };
-    vtable.set_element_by_move = [](void *user_data, const int64_t index, T &&value) {
-      T *data = (T *)user_data;
-      data[index] = std::move(value);
     };
     vtable.materialize_to_initialized =
         [](const void *user_data, const MutableSpan<T> dst, const IndexMask mask) {
@@ -184,11 +129,18 @@ template<typename T> class VMutableSpan {
     return vtable;
   }
 
-  static const VMutableSpanVTable<T> &get_span_vtable()
+  static const VSpanVTable<T> &get_span_vtable()
   {
-    static const VMutableSpanVTable<T> vtable = get_span_vtable_impl();
+    static const VSpanVTable<T> vtable = get_span_vtable_impl();
     return vtable;
   }
+};
+
+template<typename T> class VMutableSpan {
+ private:
+  int64_t size_;
+  void *user_data_;
+  const VMutableSpanVTable<T> *vtable_;
 
  public:
   VMutableSpan() : size_(0), user_data_(nullptr), vtable_(&get_default_vtable())
@@ -259,6 +211,56 @@ template<typename T> class VMutableSpan {
   {
     BLI_assert(dst.size() >= mask.min_array_size());
     vtable_->materialize_to_initialized(user_data_, dst, mask);
+  }
+
+ private:
+  static VMutableSpanVTable<T> get_default_vtable_impl()
+  {
+    VMutableSpanVTable<T> vtable;
+    vtable.get_element = nullptr;
+    vtable.set_element_by_copy = nullptr;
+    vtable.set_element_by_move = nullptr;
+    vtable.materialize_to_initialized = [](const void *user_data,
+                                           const MutableSpan<T> dst,
+                                           const IndexMask mask) { BLI_assert(mask.size() == 0); };
+    return vtable;
+  }
+
+  static const VMutableSpanVTable<T> &get_default_vtable()
+  {
+    static const VMutableSpanVTable<T> vtable = get_default_vtable_impl();
+    return vtable;
+  }
+
+  static VMutableSpanVTable<T> get_span_vtable_impl()
+  {
+    VMutableSpanVTable<T> vtable;
+    vtable.get_element = [](const void *user_data, const int64_t index) -> T {
+      const T *data = (const T *)user_data;
+      return data[index];
+    };
+    vtable.set_element_by_copy = [](void *user_data, const int64_t index, const T &value) {
+      T *data = (T *)user_data;
+      data[index] = value;
+    };
+    vtable.set_element_by_move = [](void *user_data, const int64_t index, T &&value) {
+      T *data = (T *)user_data;
+      data[index] = std::move(value);
+    };
+    vtable.materialize_to_initialized =
+        [](const void *user_data, const MutableSpan<T> dst, const IndexMask mask) {
+          const T *data = (const T *)user_data;
+          for (const int64_t i : mask) {
+            dst[i] = data[i];
+          }
+        };
+    return vtable;
+  }
+
+  static const VMutableSpanVTable<T> &get_span_vtable()
+  {
+    static const VMutableSpanVTable<T> vtable = get_span_vtable_impl();
+    return vtable;
   }
 };
 
