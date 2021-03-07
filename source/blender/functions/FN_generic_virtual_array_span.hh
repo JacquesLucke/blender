@@ -103,6 +103,34 @@ class GVArraySpanForSingleGSpan final : public GVArraySpan {
   }
 };
 
+class GVArraySpanForStartsAndSizes final : public GVArraySpan {
+ private:
+  const void *const *starts_;
+  const int64_t *sizes_;
+
+ public:
+  GVArraySpanForStartsAndSizes(const CPPType &type,
+                               const Span<const void *> starts,
+                               const Span<int64_t> sizes)
+      : GVArraySpan(type, starts.size()), starts_(starts.data()), sizes_(sizes.data())
+  {
+  }
+
+ public:
+  int64_t get_array_size_impl(const int64_t index) const final
+  {
+    return sizes_[index];
+  }
+
+  void get_array_element_impl(const int64_t index,
+                              const int64_t index_in_array,
+                              void *r_value) const final
+  {
+    const void *elem = POINTER_OFFSET(starts_[index], type_->size() * index_in_array);
+    type_->copy_to_initialized(elem, r_value);
+  }
+};
+
 class GVSpanForGVArraySpan final : public GVSpan {
  private:
   const GVArraySpan &array_span_;

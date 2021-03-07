@@ -42,6 +42,7 @@ set(SRC
   FN_generic_pointer.hh
   FN_generic_value_map.hh
   FN_generic_vector_array.hh
+  FN_generic_virtual_array_span.hh
   FN_generic_virtual_span.hh
   FN_multi_function.hh
   FN_multi_function_builder.hh
