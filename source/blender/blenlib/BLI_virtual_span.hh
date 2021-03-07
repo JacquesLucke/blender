@@ -57,12 +57,18 @@ template<typename T> class VSpan {
 
   bool is_span() const
   {
+    if (size_ == 0) {
+      return true;
+    }
     return this->is_span_impl();
   }
 
   Span<T> get_referenced_span() const
   {
     BLI_assert(this->is_span());
+    if (size_ == 0) {
+      return {};
+    }
     return this->get_referenced_span_impl();
   }
 
@@ -126,12 +132,18 @@ template<typename T> class VMutableSpan {
 
   bool is_span() const
   {
+    if (size_ == 0) {
+      return true;
+    }
     return this->is_span_impl();
   }
 
   MutableSpan<T> get_referenced_span() const
   {
     BLI_assert(this->is_span());
+    if (size_ == 0) {
+      return {};
+    }
     return this->get_referenced_span_impl();
   }
 

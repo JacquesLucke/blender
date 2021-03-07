@@ -62,17 +62,23 @@ class GVSpan {
 
   bool is_span() const
   {
+    if (size_ == 0) {
+      return true;
+    }
     return this->is_span_impl();
   }
 
   GSpan get_referenced_span() const
   {
     BLI_assert(this->is_span());
+    if (size_ == 0) {
+      return GSpan(*type_);
+    }
     return this->get_referenced_span_impl();
   }
 
  protected:
-  virtual void get_element_impl(const int index, void *r_value) const = 0;
+  virtual void get_element_impl(const int64_t index, void *r_value) const = 0;
 
   virtual bool is_span_impl() const
   {
@@ -97,6 +103,45 @@ class GVMutableSpan {
   }
 
   virtual ~GVMutableSpan() = default;
+
+  int64_t size() const
+  {
+    return size_;
+  }
+
+  bool is_empty() const
+  {
+    return size_ == 0;
+  }
+
+  const CPPType &type() const
+  {
+    return *type_;
+  }
+
+  void get(const int64_t index, void *r_value) const
+  {
+    BLI_assert(index >= 0);
+    BLI_assert(index < size_);
+    this->get_element_impl(index, r_value);
+  }
+
+  bool is_span() const
+  {
+    if (size_ == 0) {
+      return true;
+    }
+    return this->is_span_impl();
+  }
+
+  GMutableSpan get_referenced_span() const
+  {
+    BLI_assert(this->is_span());
+    if (size_ == 0) {
+      return GMutableSpan(*type_);
+    }
+    return this->get_referenced_span_impl();
+  }
 
  protected:
   virtual void get_element_impl(const int64_t index, void *r_value) const = 0;
@@ -135,7 +180,7 @@ class GVSpanForGSpan final : public GVSpan {
   }
 
  private:
-  void get_element_impl(const int index, void *r_value) const final
+  void get_element_impl(const int64_t index, void *r_value) const final
   {
     const void *elem = POINTER_OFFSET(data_, type_->size() * index);
     type_->copy_to_initialized(elem, r_value);
@@ -166,7 +211,7 @@ template<typename T> class GVSpanForSpan final : public GVSpan {
   }
 
  private:
-  void get_element_impl(const int index, void *r_value) const final
+  void get_element_impl(const int64_t index, void *r_value) const final
   {
     *(T *)r_value = data_[index];
   }
@@ -264,6 +309,33 @@ template<typename T> class GVMutableSpanForSpan : public GVMutableSpan {
   GMutableSpan get_referenced_span_impl() const
   {
     return GMutableSpan(*type_, data_, size_);
+  }
+};
+
+class GVSpanForSingleValue final : public GVSpan {
+ private:
+  const void *value_;
+
+ public:
+  GVSpanForSingleValue(const CPPType &type, const int64_t size, const void *value)
+      : GVSpan(type, size), value_(value)
+  {
+  }
+
+ private:
+  void get_element_impl(const int64_t UNUSED(index), void *r_value) const final
+  {
+    type_->copy_to_initialized(value_, r_value);
+  }
+
+  bool is_span_impl() const final
+  {
+    return size_ == 1;
+  }
+
+  GSpan get_referenced_span_impl() const final
+  {
+    return GSpan(*type_, value_, 1);
   }
 };
 
