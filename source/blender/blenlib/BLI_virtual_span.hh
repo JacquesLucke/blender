@@ -157,4 +157,70 @@ template<typename T> class VMutableSpan {
   }
 };
 
+template<typename T> class VSpanForSpan final : public VSpan<T> {
+ protected:
+  const T *data_ = nullptr;
+
+ public:
+  VSpanForSpan() = default;
+
+  VSpanForSpan(const Span<T> span) : VSpan<T>(span.size()), data_(span.data())
+  {
+  }
+
+ protected:
+  T get_element_impl(const int64_t index) const final
+  {
+    return data_[index];
+  }
+
+  bool is_span_impl() const final
+  {
+    return true;
+  }
+
+  Span<T> get_referenced_span_impl() const final
+  {
+    return Span<T>(data_, this->size_);
+  }
+};
+
+template<typename T> class VMutableSpanForSpan final : public VMutableSpan<T> {
+ private:
+  T *data_ = nullptr;
+
+ public:
+  VMutableSpanForSpan() = default;
+
+  VMutableSpanForSpan(const MutableSpan<T> span) : VMutableSpan<T>(span.size()), data_(span.data())
+  {
+  }
+
+ protected:
+  T get_element_impl(const int64_t index) const final
+  {
+    return data_[index];
+  }
+
+  void set_element_by_copy_impl(const int64_t index, const T &value) const final
+  {
+    data_[index] = value;
+  }
+
+  void set_element_by_move_impl(const int64_t index, T &&value) const final
+  {
+    data_[index] = std::move(value);
+  }
+
+  bool is_span_impl() const final
+  {
+    return true;
+  }
+
+  MutableSpan<T> get_referenced_span_impl() const final
+  {
+    return MutableSpan<T>(data_, this->size_);
+  }
+};
+
 }  // namespace blender
