@@ -264,4 +264,40 @@ template<typename T> class VMutableSpanForSpan final : public VMutableSpan<T> {
   }
 };
 
+template<typename T> class VSpanForSingleValue final : public VSpan<T> {
+ private:
+  const T *value_;
+
+ public:
+  VSpanForSingleValue(const T *value, const int64_t size) : VSpan<T>(size), value_(value)
+  {
+  }
+
+ private:
+  T get_element_impl(const int64_t index) const final
+  {
+    return *value_;
+  }
+
+  bool is_span_impl() const final
+  {
+    return this->size_ == 1;
+  }
+
+  Span<T> get_span_impl() const final
+  {
+    return Span<T>(value_, 1);
+  }
+
+  bool is_single_impl() const final
+  {
+    return true;
+  }
+
+  T get_single_impl() const final
+  {
+    return *value_;
+  }
+};
+
 }  // namespace blender
