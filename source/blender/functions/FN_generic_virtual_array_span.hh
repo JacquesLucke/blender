@@ -1,0 +1,126 @@
+/*
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ */
+
+#pragma once
+
+/** \file
+ * \ingroup fn
+ */
+
+#include "BLI_virtual_array_span.hh"
+
+#include "FN_generic_virtual_span.hh"
+
+namespace blender::fn {
+
+class GVArraySpan {
+ protected:
+  const CPPType *type_;
+  int64_t size_;
+
+ public:
+  GVArraySpan(const CPPType &type, const int64_t size) : type_(&type), size_(size)
+  {
+    BLI_assert(size_ >= 0);
+  }
+
+  virtual ~GVArraySpan() = default;
+
+  int64_t size() const
+  {
+    return size_;
+  }
+
+  bool is_empty() const
+  {
+    return size_ == 0;
+  }
+
+  const CPPType &type() const
+  {
+    return *type_;
+  }
+
+  int64_t get_array_size(const int64_t index) const
+  {
+    BLI_assert(index >= 0);
+    BLI_assert(index < size_);
+    return this->get_array_size_impl(index);
+  }
+
+  void get_array_element(const int64_t index, const int64_t index_in_array, void *r_value) const
+  {
+    BLI_assert(index >= 0);
+    BLI_assert(index < size_);
+    BLI_assert(index_in_array >= 0);
+    BLI_assert(index_in_array < this->get_array_size(index));
+    return this->get_array_element_impl(index, index_in_array, r_value);
+  }
+
+ private:
+  virtual int64_t get_array_size_impl(const int64_t index) const = 0;
+  virtual void get_array_element_impl(const int64_t index,
+                                      const int64_t index_in_array,
+                                      void *r_value) const = 0;
+};
+
+class GVArraySpanForSingleGSpan final : public GVArraySpan {
+ private:
+  const void *data_;
+  const int64_t array_size_;
+
+ public:
+  GVArraySpanForSingleGSpan(const GSpan span, const int64_t size)
+      : GVArraySpan(span.type(), size), data_(span.data()), array_size_(span.size())
+  {
+  }
+
+ private:
+  int64_t get_array_size_impl(const int64_t UNUSED(index)) const final
+  {
+    return array_size_;
+  }
+
+  void get_array_element_impl(const int64_t UNUSED(index),
+                              const int64_t index_in_array,
+                              void *r_value) const final
+  {
+    const void *elem = POINTER_OFFSET(data_, type_->size() * index_in_array);
+    type_->copy_to_initialized(elem, r_value);
+  }
+};
+
+class GVSpanForGVArraySpan final : public GVSpan {
+ private:
+  const GVArraySpan &array_span_;
+  const int64_t index_;
+
+ public:
+  GVSpanForGVArraySpan(const GVArraySpan &array_span, const int64_t index)
+      : GVSpan(array_span.type(), array_span.get_array_size(index)),
+        array_span_(array_span),
+        index_(index)
+  {
+  }
+
+ private:
+  void get_element_impl(const int64_t index_in_array, void *r_value) const final
+  {
+    array_span_.get_array_element(index_, index_in_array, r_value);
+  }
+};
+
+}  // namespace blender::fn

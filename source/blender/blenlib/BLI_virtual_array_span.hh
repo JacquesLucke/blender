@@ -26,7 +26,7 @@ namespace blender {
 
 template<typename T> class VArraySpan {
  protected:
-  int64_t size_ = 0;
+  int64_t size_;
 
  public:
   VArraySpan(const int64_t size = 0) : size_(size)
@@ -57,7 +57,8 @@ template<typename T> class VArraySpan {
   {
     BLI_assert(index >= 0);
     BLI_assert(index < size_);
-    BLI_assert(index < this->get_array_size(index));
+    BLI_assert(index_in_array >= 0);
+    BLI_assert(index_in_array < this->get_array_size(index));
     return this->get_array_element_impl(index, index_in_array);
   }
 
