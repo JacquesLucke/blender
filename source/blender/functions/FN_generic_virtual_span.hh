@@ -68,13 +68,30 @@ class GVSpan {
     return this->is_span_impl();
   }
 
-  GSpan get_referenced_span() const
+  GSpan get_span() const
   {
     BLI_assert(this->is_span());
     if (size_ == 0) {
       return GSpan(*type_);
     }
-    return this->get_referenced_span_impl();
+    return this->get_span_impl();
+  }
+
+  bool is_single() const
+  {
+    if (size_ == 1) {
+      return true;
+    }
+    return this->is_single_impl();
+  }
+
+  void get_single(void *r_value) const
+  {
+    BLI_assert(this->is_single());
+    if (size_ == 1) {
+      this->get(0, r_value);
+    }
+    this->get_single_impl(r_value);
   }
 
  protected:
@@ -85,10 +102,21 @@ class GVSpan {
     return false;
   }
 
-  virtual GSpan get_referenced_span_impl() const
+  virtual GSpan get_span_impl() const
   {
     BLI_assert(false);
     return {*type_};
+  }
+
+  virtual bool is_single_impl() const
+  {
+    return false;
+  }
+
+  virtual void get_single_impl(void *r_value) const
+  {
+    BLI_assert(false);
+    UNUSED_VARS(r_value);
   }
 };
 
@@ -134,13 +162,13 @@ class GVMutableSpan {
     return this->is_span_impl();
   }
 
-  GMutableSpan get_referenced_span() const
+  GMutableSpan get_span() const
   {
     BLI_assert(this->is_span());
     if (size_ == 0) {
       return GMutableSpan(*type_);
     }
-    return this->get_referenced_span_impl();
+    return this->get_span_impl();
   }
 
  protected:
@@ -153,7 +181,7 @@ class GVMutableSpan {
     return false;
   }
 
-  virtual GMutableSpan get_referenced_span_impl() const
+  virtual GMutableSpan get_span_impl() const
   {
     BLI_assert(false);
     return {*type_};
@@ -191,7 +219,7 @@ class GVSpanForGSpan final : public GVSpan {
     return true;
   }
 
-  GSpan get_referenced_span_impl() const final
+  GSpan get_span_impl() const final
   {
     return GSpan(*type_, data_, size_);
   }
@@ -221,7 +249,7 @@ template<typename T> class GVSpanForSpan final : public GVSpan {
     return true;
   }
 
-  GSpan get_referenced_span_impl() const final
+  GSpan get_span_impl() const final
   {
     return GSpan(*type_, data_, size_);
   }
@@ -265,7 +293,7 @@ class GVMutableSpanForGSpan final : public GVMutableSpan {
     return true;
   }
 
-  GMutableSpan get_referenced_span_impl() const final
+  GMutableSpan get_span_impl() const final
   {
     return GMutableSpan(*type_, data_, size_);
   }
@@ -306,7 +334,7 @@ template<typename T> class GVMutableSpanForSpan : public GVMutableSpan {
     return true;
   }
 
-  GMutableSpan get_referenced_span_impl() const
+  GMutableSpan get_span_impl() const
   {
     return GMutableSpan(*type_, data_, size_);
   }
@@ -333,9 +361,19 @@ class GVSpanForSingleValue final : public GVSpan {
     return size_ == 1;
   }
 
-  GSpan get_referenced_span_impl() const final
+  GSpan get_span_impl() const final
   {
     return GSpan(*type_, value_, 1);
+  }
+
+  bool is_single_impl() const final
+  {
+    return true;
+  }
+
+  void get_single_impl(void *r_value) const final
+  {
+    type_->copy_to_initialized(value_, r_value);
   }
 };
 

@@ -63,13 +63,30 @@ template<typename T> class VSpan {
     return this->is_span_impl();
   }
 
-  Span<T> get_referenced_span() const
+  Span<T> get_span() const
   {
     BLI_assert(this->is_span());
     if (size_ == 0) {
       return {};
     }
-    return this->get_referenced_span_impl();
+    return this->get_span_impl();
+  }
+
+  bool is_single() const
+  {
+    if (size_ == 1) {
+      return true;
+    }
+    return this->is_single_impl();
+  }
+
+  T get_single() const
+  {
+    BLI_assert(this->is_single());
+    if (size_ == 1) {
+      return (*this)[0];
+    }
+    return this->get_single();
   }
 
  protected:
@@ -80,10 +97,22 @@ template<typename T> class VSpan {
     return false;
   }
 
-  virtual Span<T> get_referenced_span_impl() const
+  virtual Span<T> get_span_impl() const
   {
     BLI_assert(false);
     return {};
+  }
+
+  virtual bool is_single_impl() const
+  {
+    return false;
+  }
+
+  virtual T get_single_impl() const
+  {
+    BLI_assert(false);
+    /* Dummy value. */
+    return *(const T *)(uintptr_t)size_;
   }
 };
 
@@ -138,13 +167,13 @@ template<typename T> class VMutableSpan {
     return this->is_span_impl();
   }
 
-  MutableSpan<T> get_referenced_span() const
+  MutableSpan<T> get_span() const
   {
     BLI_assert(this->is_span());
     if (size_ == 0) {
       return {};
     }
-    return this->get_referenced_span_impl();
+    return this->get_span_impl();
   }
 
  protected:
@@ -162,7 +191,7 @@ template<typename T> class VMutableSpan {
     return false;
   }
 
-  virtual MutableSpan<T> get_referenced_span_impl() const
+  virtual MutableSpan<T> get_span_impl() const
   {
     BLI_assert(false);
     return {};
@@ -191,7 +220,7 @@ template<typename T> class VSpanForSpan final : public VSpan<T> {
     return true;
   }
 
-  Span<T> get_referenced_span_impl() const final
+  Span<T> get_span_impl() const final
   {
     return Span<T>(data_, this->size_);
   }
@@ -229,7 +258,7 @@ template<typename T> class VMutableSpanForSpan final : public VMutableSpan<T> {
     return true;
   }
 
-  MutableSpan<T> get_referenced_span_impl() const final
+  MutableSpan<T> get_span_impl() const final
   {
     return MutableSpan<T>(data_, this->size_);
   }
