@@ -91,6 +91,8 @@ template<typename T> class VMutableSpan {
     BLI_assert(size_ >= 0);
   }
 
+  virtual ~VMutableSpan() = default;
+
   int64_t size() const
   {
     return size_;

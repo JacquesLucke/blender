@@ -36,6 +36,8 @@ class GVSpan {
   {
   }
 
+  virtual ~GVSpan() = default;
+
   int64_t size() const
   {
     return size_;
@@ -93,6 +95,8 @@ class GVMutableSpan {
   GVMutableSpan(const CPPType &type, const int64_t size = 0) : type_(&type), size_(size)
   {
   }
+
+  virtual ~GVMutableSpan() = default;
 
  protected:
   virtual void get_element_impl(const int64_t index, void *r_value) const = 0;
