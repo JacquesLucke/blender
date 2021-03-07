@@ -158,7 +158,7 @@ template<typename T> class VMutableSpan {
 };
 
 template<typename T> class VSpanForSpan final : public VSpan<T> {
- protected:
+ private:
   const T *data_ = nullptr;
 
  public:

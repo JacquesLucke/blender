@@ -115,4 +115,71 @@ class GVMutableSpan {
   }
 };
 
+class GVSpanForGSpan final : public GVSpan {
+ private:
+  const void *data_ = nullptr;
+
+ public:
+  GVSpanForGSpan(const CPPType &type) : GVSpan(type, 0)
+  {
+  }
+
+  GVSpanForGSpan(const GSpan span) : GVSpan(span.type(), span.size()), data_(span.data())
+  {
+  }
+
+  template<typename T>
+  GVSpanForGSpan(const Span<T> span)
+      : GVSpan(CPPType::get<T>(), span.size()), data_((const void *)span.data())
+  {
+  }
+
+ private:
+  void get_element_impl(const int index, void *r_value) const final
+  {
+    const void *elem = POINTER_OFFSET(data_, type_->size() * index);
+    type_->copy_to_initialized(elem, r_value);
+  }
+
+  bool is_span_impl() const final
+  {
+    return true;
+  }
+
+  GSpan get_referenced_span_impl() const final
+  {
+    return GSpan(*type_, data_, size_);
+  }
+};
+
+template<typename T> class GVSpanForSpan : public GVSpan {
+ private:
+  const T *data_ = nullptr;
+
+ public:
+  GVSpanForSpan() : GVSpanForSpan(CPPType::get<T>(), 0)
+  {
+  }
+
+  GVSpanForSpan(const Span<T> span) : GVSpan(CPPType::get<T>(), span.size()), data_(span.data())
+  {
+  }
+
+ private:
+  void get_element_impl(const int index, void *r_value) const final
+  {
+    *(T *)r_value = data_[index];
+  }
+
+  bool is_span_impl() const final
+  {
+    return true;
+  }
+
+  GSpan get_referenced_span_impl() const final
+  {
+    return GSpan(*type_, data_, size_);
+  }
+};
+
 }  // namespace blender::fn
