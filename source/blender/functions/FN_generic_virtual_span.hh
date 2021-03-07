@@ -152,7 +152,7 @@ class GVSpanForGSpan final : public GVSpan {
   }
 };
 
-template<typename T> class GVSpanForSpan : public GVSpan {
+template<typename T> class GVSpanForSpan final : public GVSpan {
  private:
   const T *data_ = nullptr;
 
@@ -179,6 +179,91 @@ template<typename T> class GVSpanForSpan : public GVSpan {
   GSpan get_referenced_span_impl() const final
   {
     return GSpan(*type_, data_, size_);
+  }
+};
+
+class GVMutableSpanForGSpan final : public GVMutableSpan {
+ private:
+  void *data_ = nullptr;
+
+ public:
+  GVMutableSpanForGSpan(const CPPType &type) : GVMutableSpan(type, 0)
+  {
+  }
+
+  GVMutableSpanForGSpan(const GMutableSpan span)
+      : GVMutableSpan(span.type(), span.size()), data_(span.data())
+  {
+  }
+
+ private:
+  void get_element_impl(const int64_t index, void *r_value) const final
+  {
+    const void *elem = POINTER_OFFSET(data_, index * type_->size());
+    type_->copy_to_initialized(elem, r_value);
+  }
+
+  void set_element_by_copy_impl(const int64_t index, const void *value) const final
+  {
+    void *elem = POINTER_OFFSET(data_, index * type_->size());
+    type_->copy_to_initialized(value, elem);
+  }
+
+  void set_element_by_move_impl(const int64_t index, void *value) const final
+  {
+    void *elem = POINTER_OFFSET(data_, index * type_->size());
+    type_->move_to_initialized(value, elem);
+  }
+
+  bool is_span_impl() const final
+  {
+    return true;
+  }
+
+  GMutableSpan get_referenced_span_impl() const final
+  {
+    return GMutableSpan(*type_, data_, size_);
+  }
+};
+
+template<typename T> class GVMutableSpanForSpan : public GVMutableSpan {
+ private:
+  T *data_ = nullptr;
+
+ public:
+  GVMutableSpanForSpan() : GVMutableSpan(CPPType::get<T>(), 0)
+  {
+  }
+
+  GVMutableSpanForSpan(const MutableSpan<T> span)
+      : GVMutableSpan(CPPType::get<T>(), span.size()), data_(span.data())
+  {
+  }
+
+ private:
+  void get_element_impl(const int64_t index, void *r_value) const final
+  {
+    *(T *)r_value = data_[index];
+  }
+
+  void set_element_by_copy_impl(const int64_t index, const void *value) const final
+  {
+    data_[index] = *(const T *)value;
+  }
+
+  void set_element_by_move_impl(const int64_t index, void *value) const final
+  {
+    data_[index] = std::move(*(T *)value);
+  }
+
+  bool is_span_impl() const
+  {
+    return true;
+  }
+
+  GMutableSpan get_referenced_span_impl() const
+  {
+    return GMutableSpan(*type_, data_, size_);
   }
 };
 
