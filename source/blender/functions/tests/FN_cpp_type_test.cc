@@ -4,7 +4,7 @@
 
 #include "BLI_virtual_array_span.hh"
 #include "FN_cpp_type.hh"
-#include "FN_generic_virtual_span.hh"
+#include "FN_generic_virtual_array_span.hh"
 
 namespace blender::fn::tests {
 
