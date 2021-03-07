@@ -88,6 +88,30 @@ template<typename T> class VArraySpanForSingleSpan final : public VArraySpan<T> 
   }
 };
 
+template<typename T> class VArraySpanForStartsAndSizes final : public VArraySpan<T> {
+ private:
+  const T *const *starts_;
+  const int64_t *sizes_;
+
+ public:
+  VArraySpanForStartsAndSizes(const Span<const T *> starts, const Span<int64_t> sizes)
+      : VArraySpan<T>(starts.size()), starts_(starts.data()), sizes_(sizes.data())
+  {
+    BLI_assert(starts.size() == sizes.size());
+  }
+
+ private:
+  int64_t get_array_size_impl(const int64_t index) const final
+  {
+    return sizes_[index];
+  }
+
+  T get_array_element_impl(const int64_t index, const int64_t index_in_array) const final
+  {
+    return starts_[index][index_in_array];
+  }
+};
+
 template<typename T> class VSpanForVArraySpan final : public VSpan<T> {
  private:
   const VArraySpan<T> &array_span_;
