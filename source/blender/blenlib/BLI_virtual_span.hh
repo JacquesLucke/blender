@@ -66,7 +66,7 @@ template<typename T> class VSpan {
     return this->get_referenced_span_impl();
   }
 
- private:
+ protected:
   virtual T get_element_impl(const int64_t index) const = 0;
 
   virtual bool is_span_impl() const
@@ -82,7 +82,7 @@ template<typename T> class VSpan {
 };
 
 template<typename T> class VMutableSpan {
- private:
+ protected:
   int64_t size_;
 
  public:
@@ -133,7 +133,7 @@ template<typename T> class VMutableSpan {
     return this->get_referenced_span_impl();
   }
 
- private:
+ protected:
   virtual T get_element_impl(const int64_t index) const = 0;
 
   virtual void set_element_by_copy_impl(const int64_t index, const T &value) const
