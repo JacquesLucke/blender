@@ -20,8 +20,6 @@
  * \ingroup bli
  */
 
-#include "BLI_function_ref.hh"
-#include "BLI_index_mask.hh"
 #include "BLI_span.hh"
 
 namespace blender {
