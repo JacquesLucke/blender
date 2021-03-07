@@ -66,6 +66,28 @@ template<typename T> class VArraySpan {
   virtual T get_array_element_impl(const int64_t index, const int64_t index_in_array) const = 0;
 };
 
+template<typename T> class VArraySpanForSingleSpan final : public VArraySpan<T> {
+ private:
+  Span<T> data_;
+
+ public:
+  VArraySpanForSingleSpan(const Span<T> data, const int64_t size)
+      : VArraySpan<T>(size), data_(data)
+  {
+  }
+
+ private:
+  int64_t get_array_size_impl(const int64_t index) const final
+  {
+    return data_.size();
+  }
+
+  T get_array_element_impl(const int64_t UNUSED(index), const int64_t index_in_array) const final
+  {
+    return data_[index_in_array];
+  }
+};
+
 template<typename T> class VSpanForVArraySpan final : public VSpan<T> {
  private:
   const VArraySpan<T> &array_span_;
