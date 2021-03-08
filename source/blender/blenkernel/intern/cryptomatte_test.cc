@@ -21,8 +21,6 @@
 #include "BKE_cryptomatte.hh"
 #include "BKE_image.h"
 
-#include "DNA_node_types.h"
-
 #include "RE_pipeline.h"
 
 #include "MEM_guardedalloc.h"
@@ -55,17 +53,17 @@ TEST(cryptomatte, layer)
   ASSERT_EQ("{}", layer.manifest());
 
   layer.add_hash("Object", 123);
-  ASSERT_EQ("{\"Object\":\"0000007b\"}", layer.manifest());
+  ASSERT_EQ(R"({"Object":"0000007b"})", layer.manifest());
 
   layer.add_hash("Object2", 123245678);
-  ASSERT_EQ("{\"Object\":\"0000007b\",\"Object2\":\"0758946e\"}", layer.manifest());
+  ASSERT_EQ(R"({"Object":"0000007b","Object2":"0758946e"})", layer.manifest());
 }
 
 TEST(cryptomatte, layer_quoted)
 {
   blender::bke::cryptomatte::CryptomatteLayer layer;
-  layer.add_hash("\"Object\"", 123);
-  ASSERT_EQ("{\"\\\"Object\\\"\":\"0000007b\"}", layer.manifest());
+  layer.add_hash(R"("Object")", 123);
+  ASSERT_EQ(R"({"\"Object\"":"0000007b"})", layer.manifest());
 }
 
 static void test_cryptomatte_manifest(std::string expected, std::string manifest)
@@ -77,17 +75,15 @@ static void test_cryptomatte_manifest(std::string expected, std::string manifest
 TEST(cryptomatte, layer_from_manifest)
 {
   test_cryptomatte_manifest("{}", "{}");
-  test_cryptomatte_manifest("{\"Object\":\"12345678\"}", "{\"Object\": \"12345678\"}");
-  test_cryptomatte_manifest("{\"Object\":\"12345678\",\"Object2\":\"87654321\"}",
-                            "{\"Object\":\"12345678\",\"Object2\":\"87654321\"}");
+  test_cryptomatte_manifest(R"({"Object":"12345678"})", R"({"Object": "12345678"})");
+  test_cryptomatte_manifest(R"({"Object":"12345678","Object2":"87654321"})",
+                            R"({"Object":"12345678","Object2":"87654321"})");
+  test_cryptomatte_manifest(R"({"Object":"12345678","Object2":"87654321"})",
+                            R"(  {  "Object"  :  "12345678"  ,  "Object2"  :  "87654321"  }  )");
+  test_cryptomatte_manifest(R"({"Object\"01\"":"12345678"})", R"({"Object\"01\"": "12345678"})");
   test_cryptomatte_manifest(
-      "{\"Object\":\"12345678\",\"Object2\":\"87654321\"}",
-      "  {  \"Object\"  :  \"12345678\"  ,  \"Object2\"  :  \"87654321\"  }  ");
-  test_cryptomatte_manifest("{\"Object\\\"01\\\"\":\"12345678\"}",
-                            "{\"Object\\\"01\\\"\": \"12345678\"}");
-  test_cryptomatte_manifest(
-      "{\"Object\\\"01\\\"\":\"12345678\",\"Object\":\"12345678\",\"Object2\":\"87654321\"}",
-      "{\"Object\\\"01\\\"\":\"12345678\",\"Object\":\"12345678\", \"Object2\":\"87654321\"}");
+      R"({"Object\"01\"":"12345678","Object":"12345678","Object2":"87654321"})",
+      R"({"Object\"01\"":"12345678","Object":"12345678", "Object2":"87654321"})");
 }
 
 TEST(cryptomatte, extract_layer_hash_from_metadata_key)
@@ -155,10 +151,10 @@ TEST(cryptomatte, session_from_stamp_data)
       MEM_callocN(sizeof(RenderResult), __func__));
   BKE_render_result_stamp_data(render_result, "cryptomatte/qwerty/name", "layer1");
   BKE_render_result_stamp_data(
-      render_result, "cryptomatte/qwerty/manifest", "{\"Object\":\"12345678\"}");
+      render_result, "cryptomatte/qwerty/manifest", R"({"Object":"12345678"})");
   BKE_render_result_stamp_data(render_result, "cryptomatte/uiop/name", "layer2");
   BKE_render_result_stamp_data(
-      render_result, "cryptomatte/uiop/manifest", "{\"Object2\":\"87654321\"}");
+      render_result, "cryptomatte/uiop/manifest", R"({"Object2":"87654321"})");
   CryptomatteSession *session = BKE_cryptomatte_init_from_render_result(render_result);
   EXPECT_NE(session, nullptr);
   RE_FreeRenderResult(render_result);
@@ -176,17 +172,6 @@ TEST(cryptomatte, session_from_stamp_data)
 
   RE_FreeRenderResult(render_result2);
   BKE_cryptomatte_free(session);
-}
-
-TEST(cryptomatte, T86026)
-{
-  NodeCryptomatte storage = {{0.0f}};
-  CryptomatteEntry entry = {nullptr};
-  BLI_addtail(&storage.entries, &entry);
-  entry.encoded_hash = 4.76190593e-07;
-  char *matte_id = BKE_cryptomatte_entries_to_matte_id(&storage);
-  EXPECT_STREQ("<4.761905927e-07>", matte_id);
-  MEM_freeN(matte_id);
 }
 
 }  // namespace blender::bke::cryptomatte::tests
