@@ -70,11 +70,21 @@ class GVArraySpan {
     return this->get_array_element_impl(index, index_in_array, r_value);
   }
 
+  bool is_single_array() const
+  {
+    return this->is_single_array_impl();
+  }
+
  private:
   virtual int64_t get_array_size_impl(const int64_t index) const = 0;
   virtual void get_array_element_impl(const int64_t index,
                                       const int64_t index_in_array,
                                       void *r_value) const = 0;
+
+  virtual bool is_single_array_impl() const
+  {
+    return false;
+  }
 };
 
 class GVArraySpanForSingleGSpan final : public GVArraySpan {
@@ -100,6 +110,11 @@ class GVArraySpanForSingleGSpan final : public GVArraySpan {
   {
     const void *elem = POINTER_OFFSET(data_, type_->size() * index_in_array);
     type_->copy_to_initialized(elem, r_value);
+  }
+
+  bool is_single_array_impl() const final
+  {
+    return true;
   }
 };
 
@@ -128,6 +143,35 @@ class GVArraySpanForStartsAndSizes final : public GVArraySpan {
   {
     const void *elem = POINTER_OFFSET(starts_[index], type_->size() * index_in_array);
     type_->copy_to_initialized(elem, r_value);
+  }
+};
+
+template<typename T> class VArraySpanForGVArraySpan : public VArraySpan<T> {
+ private:
+  const GVArraySpan &array_span_;
+
+ public:
+  VArraySpanForGVArraySpan(const GVArraySpan &array_span)
+      : VArraySpan<T>(array_span.size()), array_span_(array_span)
+  {
+  }
+
+ private:
+  int64_t get_array_size_impl(const int64_t index) const final
+  {
+    return array_span_.get_array_size(index);
+  }
+
+  T get_array_element_impl(const int64_t index, const int64_t index_in_array) const final
+  {
+    T value;
+    array_span_.get_array_element(index, index_in_array, &value);
+    return value;
+  }
+
+  bool is_single_array_impl() const final
+  {
+    return array_span_.is_single_array();
   }
 };
 

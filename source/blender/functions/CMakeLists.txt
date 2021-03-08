@@ -63,10 +63,10 @@ blender_add_lib(bf_functions "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
 
 if(WITH_GTESTS)
   set(TEST_SRC
-    tests/FN_array_spans_test.cc
     tests/FN_cpp_type_test.cc
     tests/FN_generic_span_test.cc
     tests/FN_generic_vector_array_test.cc
+    tests/FN_generic_virtual_array_span_test.cc
     tests/FN_generic_virtual_span_test.cc
     tests/FN_multi_function_network_test.cc
     tests/FN_multi_function_test.cc

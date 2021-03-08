@@ -62,9 +62,19 @@ template<typename T> class VArraySpan {
     return this->get_array_element_impl(index, index_in_array);
   }
 
+  bool is_single_array() const
+  {
+    return this->is_single_array_impl();
+  }
+
  protected:
   virtual int64_t get_array_size_impl(const int64_t index) const = 0;
   virtual T get_array_element_impl(const int64_t index, const int64_t index_in_array) const = 0;
+
+  virtual bool is_single_array_impl() const
+  {
+    return false;
+  }
 };
 
 template<typename T> class VArraySpanForSingleSpan final : public VArraySpan<T> {
