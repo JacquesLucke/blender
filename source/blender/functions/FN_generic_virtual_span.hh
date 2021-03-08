@@ -60,6 +60,13 @@ class GVSpan {
     this->get_element_impl(index, r_value);
   }
 
+  void get_to_uninitialized(const int64_t index, void *r_value) const
+  {
+    BLI_assert(index >= 0);
+    BLI_assert(index < size_);
+    this->get_element_to_uninitialized_impl(index, r_value);
+  }
+
   bool is_span() const
   {
     if (size_ == 0) {
@@ -94,8 +101,27 @@ class GVSpan {
     this->get_single_impl(r_value);
   }
 
+  void materialize_to_uninitialized(void *dst) const
+  {
+    this->materialize_to_uninitialized(IndexMask(size_), dst);
+  }
+
+  void materialize_to_uninitialized(const IndexMask mask, void *dst) const
+  {
+    const int64_t element_size = type_->size();
+    for (const int64_t i : mask) {
+      this->get_to_uninitialized(i, POINTER_OFFSET(dst, element_size * i));
+    }
+  }
+
  protected:
-  virtual void get_element_impl(const int64_t index, void *r_value) const = 0;
+  virtual void get_element_impl(const int64_t index, void *r_value) const
+  {
+    type_->destruct(r_value);
+    this->get_element_to_uninitialized_impl(index, r_value);
+  }
+
+  virtual void get_element_to_uninitialized_impl(const int64_t index, void *r_value) const = 0;
 
   virtual bool is_span_impl() const
   {
@@ -154,6 +180,13 @@ class GVMutableSpan {
     this->get_element_impl(index, r_value);
   }
 
+  void get_to_uninitialized(const int64_t index, void *r_value) const
+  {
+    BLI_assert(index >= 0);
+    BLI_assert(index < size_);
+    this->get_element_to_uninitialized_impl(index, r_value);
+  }
+
   bool is_span() const
   {
     if (size_ == 0) {
@@ -172,7 +205,13 @@ class GVMutableSpan {
   }
 
  protected:
-  virtual void get_element_impl(const int64_t index, void *r_value) const = 0;
+  virtual void get_element_impl(const int64_t index, void *r_value) const
+  {
+    type_->destruct(r_value);
+    this->get_element_to_uninitialized_impl(index, r_value);
+  }
+
+  virtual void get_element_to_uninitialized_impl(const int64_t index, void *r_value) const = 0;
   virtual void set_element_by_copy_impl(const int64_t index, const void *value) const = 0;
   virtual void set_element_by_move_impl(const int64_t index, void *value) const = 0;
 
@@ -214,6 +253,12 @@ class GVSpanForGSpan final : public GVSpan {
     type_->copy_to_initialized(elem, r_value);
   }
 
+  void get_element_to_uninitialized_impl(const int64_t index, void *r_value) const final
+  {
+    const void *elem = POINTER_OFFSET(data_, type_->size() * index);
+    type_->copy_to_uninitialized(elem, r_value);
+  }
+
   bool is_span_impl() const final
   {
     return true;
@@ -242,6 +287,11 @@ template<typename T> class GVSpanForSpan final : public GVSpan {
   void get_element_impl(const int64_t index, void *r_value) const final
   {
     *(T *)r_value = data_[index];
+  }
+
+  void get_element_to_uninitialized_impl(const int64_t index, void *r_value) const final
+  {
+    new (r_value) T(data_[index]);
   }
 
   bool is_span_impl() const final
@@ -274,6 +324,12 @@ class GVMutableSpanForGSpan final : public GVMutableSpan {
   {
     const void *elem = POINTER_OFFSET(data_, index * type_->size());
     type_->copy_to_initialized(elem, r_value);
+  }
+
+  void get_element_to_uninitialized_impl(const int64_t index, void *r_value) const final
+  {
+    const void *elem = POINTER_OFFSET(data_, index * type_->size());
+    type_->copy_to_uninitialized(elem, r_value);
   }
 
   void set_element_by_copy_impl(const int64_t index, const void *value) const final
@@ -319,6 +375,11 @@ template<typename T> class GVMutableSpanForSpan : public GVMutableSpan {
     *(T *)r_value = data_[index];
   }
 
+  void get_element_to_uninitialized_impl(const int64_t index, void *r_value) const final
+  {
+    new (r_value) T(data_[index]);
+  }
+
   void set_element_by_copy_impl(const int64_t index, const void *value) const final
   {
     data_[index] = *(const T *)value;
@@ -356,6 +417,11 @@ class GVSpanForSingleValue final : public GVSpan {
     type_->copy_to_initialized(value_, r_value);
   }
 
+  void get_element_to_uninitialized_impl(const int64_t UNUSED(index), void *r_value) const final
+  {
+    type_->copy_to_uninitialized(value_, r_value);
+  }
+
   bool is_span_impl() const final
   {
     return size_ == 1;
@@ -374,6 +440,47 @@ class GVSpanForSingleValue final : public GVSpan {
   void get_single_impl(void *r_value) const final
   {
     type_->copy_to_initialized(value_, r_value);
+  }
+};
+
+template<typename T> class VSpanForGVSpan : public VSpan<T> {
+ private:
+  const GVSpan &span_;
+
+ public:
+  VSpanForGVSpan(const GVSpan &span) : VSpan<T>(span.size()), span_(span)
+  {
+    BLI_assert(span.type().is<T>());
+  }
+
+ protected:
+  T get_element_impl(const int64_t index) const final
+  {
+    T value;
+    span_.get(index, &value);
+    return value;
+  }
+
+  bool is_span_impl() const final
+  {
+    return span_.is_span();
+  }
+
+  Span<T> get_span_impl() const final
+  {
+    return span_.get_span().typed<T>();
+  }
+
+  bool is_single_impl() const final
+  {
+    return span_.is_single();
+  }
+
+  T get_single_impl() const final
+  {
+    T value;
+    span_.get_single(&value);
+    return value;
   }
 };
 
