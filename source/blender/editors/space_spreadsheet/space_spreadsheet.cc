@@ -152,6 +152,10 @@ static void spreadsheet_main_region_draw(const bContext *C, ARegion *region)
     drawer = std::make_unique<FallbackSpreadsheetDrawer>();
   }
   draw_spreadsheet_in_region(C, region, *drawer);
+
+  /* Tag footer for redraw, because the main region updates data for the footer. */
+  ARegion *footer = BKE_area_find_region_type(CTX_wm_area(C), RGN_TYPE_FOOTER);
+  ED_region_tag_redraw(footer);
 }
 
 static void spreadsheet_main_region_listener(const wmRegionListenerParams *params)
@@ -249,9 +253,8 @@ static void spreadsheet_footer_region_free(ARegion *UNUSED(region))
 {
 }
 
-static void spreadsheet_footer_region_listener(const wmRegionListenerParams *params)
+static void spreadsheet_footer_region_listener(const wmRegionListenerParams *UNUSED(params))
 {
-  ED_region_tag_redraw(params->region);
 }
 
 void ED_spacetype_spreadsheet(void)
