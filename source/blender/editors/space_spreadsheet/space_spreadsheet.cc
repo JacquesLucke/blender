@@ -61,6 +61,14 @@ static SpaceLink *spreadsheet_create(const ScrArea *UNUSED(area), const Scene *U
   }
 
   {
+    /* footer */
+    ARegion *region = (ARegion *)MEM_callocN(sizeof(ARegion), "spreadsheet footer region");
+    BLI_addtail(&spreadsheet_space->regionbase, region);
+    region->regiontype = RGN_TYPE_FOOTER;
+    region->alignment = (U.uiflag & USER_HEADER_BOTTOM) ? RGN_ALIGN_TOP : RGN_ALIGN_BOTTOM;
+  }
+
+  {
     /* main window */
     ARegion *region = (ARegion *)MEM_callocN(sizeof(ARegion), "spreadsheet main region");
     BLI_addtail(&spreadsheet_space->regionbase, region);
@@ -227,6 +235,25 @@ static void spreadsheet_header_region_listener(const wmRegionListenerParams *par
   }
 }
 
+static void spreadsheet_footer_region_init(wmWindowManager *UNUSED(wm), ARegion *region)
+{
+  ED_region_header_init(region);
+}
+
+static void spreadsheet_footer_region_draw(const bContext *C, ARegion *region)
+{
+  ED_region_header(C, region);
+}
+
+static void spreadsheet_footer_region_free(ARegion *UNUSED(region))
+{
+}
+
+static void spreadsheet_footer_region_listener(const wmRegionListenerParams *params)
+{
+  ED_region_tag_redraw(params->region);
+}
+
 void ED_spacetype_spreadsheet(void)
 {
   SpaceType *st = (SpaceType *)MEM_callocN(sizeof(SpaceType), "spacetype spreadsheet");
@@ -263,6 +290,19 @@ void ED_spacetype_spreadsheet(void)
   art->draw = spreadsheet_header_region_draw;
   art->free = spreadsheet_header_region_free;
   art->listener = spreadsheet_header_region_listener;
+  BLI_addhead(&st->regiontypes, art);
+
+  /* regions: footer */
+  art = (ARegionType *)MEM_callocN(sizeof(ARegionType), "spacetype spreadsheet footer region");
+  art->regionid = RGN_TYPE_FOOTER;
+  art->prefsizey = HEADERY;
+  art->keymapflag = 0;
+  art->keymapflag = ED_KEYMAP_UI | ED_KEYMAP_VIEW2D | ED_KEYMAP_HEADER;
+
+  art->init = spreadsheet_footer_region_init;
+  art->draw = spreadsheet_footer_region_draw;
+  art->free = spreadsheet_footer_region_free;
+  art->listener = spreadsheet_footer_region_listener;
   BLI_addhead(&st->regiontypes, art);
 
   BKE_spacetype_register(st);
