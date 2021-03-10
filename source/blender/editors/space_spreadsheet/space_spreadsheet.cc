@@ -29,6 +29,7 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "UI_interface.h"
 #include "UI_resources.h"
 #include "UI_view2d.h"
 
@@ -246,7 +247,26 @@ static void spreadsheet_footer_region_init(wmWindowManager *UNUSED(wm), ARegion 
 
 static void spreadsheet_footer_region_draw(const bContext *C, ARegion *region)
 {
-  ED_region_header(C, region);
+  UI_ThemeClearColor(TH_BACK);
+
+  uiBlock *block = UI_block_begin(C, region, __func__, UI_EMBOSS);
+  const uiStyle *style = UI_style_get_dpi();
+  std::cout << UI_UNIT_Y << " " << region->winy << "\n";
+  uiLayout *layout = UI_block_layout(block,
+                                     UI_LAYOUT_HORIZONTAL,
+                                     UI_LAYOUT_HEADER,
+                                     UI_HEADER_OFFSET,
+                                     region->winy - (region->winy - UI_UNIT_Y) / 2.0f,
+                                     region->sizex,
+                                     1,
+                                     0,
+                                     style);
+  uiItemL(layout, "Hello World", ICON_ACTION);
+  uiItemL(layout, "Hello World", ICON_ACTION);
+  UI_block_layout_resolve(block, nullptr, nullptr);
+  UI_block_align_end(block);
+  UI_block_end(C, block);
+  UI_block_draw(C, block);
 }
 
 static void spreadsheet_footer_region_free(ARegion *UNUSED(region))
