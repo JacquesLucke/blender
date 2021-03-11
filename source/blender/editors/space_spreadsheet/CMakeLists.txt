@@ -33,10 +33,12 @@ set(INC
 
 set(SRC
   space_spreadsheet.cc
+  spreadsheet_data_provider.cc
   spreadsheet_draw.cc
   spreadsheet_from_geometry.cc
   spreadsheet_ops.cc
 
+  spreadsheet_data_provider.hh
   spreadsheet_draw.hh
   spreadsheet_from_geometry.hh
   spreadsheet_intern.hh

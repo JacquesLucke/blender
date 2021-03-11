@@ -41,10 +41,12 @@
 
 #include "spreadsheet_intern.hh"
 
+#include "spreadsheet_data_provider.hh"
 #include "spreadsheet_from_geometry.hh"
 #include "spreadsheet_intern.hh"
 
 using namespace blender::ed::spreadsheet;
+using blender::StringRef;
 
 static SpaceLink *spreadsheet_create(const ScrArea *UNUSED(area), const Scene *UNUSED(scene))
 {
@@ -114,6 +116,30 @@ static ID *get_used_id(const bContext *C)
 class FallbackSpreadsheetDrawer : public SpreadsheetDrawer {
 };
 
+class StringColumn : public ColumnDataProvider {
+ private:
+  std::string value_;
+
+ public:
+  StringColumn(std::string value) : ColumnDataProvider("hey", "my title"), value_(std::move(value))
+  {
+  }
+
+  void get_value(int UNUSED(row_index), CellValue &value) const
+  {
+    value.set_string(value_);
+  }
+};
+
+class TestDataProvider : public SpreadsheetDataProvider {
+ protected:
+  std::unique_ptr<ColumnDataProvider> try_make_column_provider(
+      StringRef UNUSED(column_id)) const override
+  {
+    return std::make_unique<StringColumn>("hello");
+  }
+};
+
 static std::unique_ptr<SpreadsheetDrawer> generate_spreadsheet_drawer(const bContext *C)
 {
   Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
@@ -139,10 +165,17 @@ static std::unique_ptr<SpreadsheetDrawer> generate_spreadsheet_drawer(const bCon
 
 static void spreadsheet_main_region_draw(const bContext *C, ARegion *region)
 {
-  std::unique_ptr<SpreadsheetDrawer> drawer = generate_spreadsheet_drawer(C);
-  if (!drawer) {
-    drawer = std::make_unique<FallbackSpreadsheetDrawer>();
-  }
+  TestDataProvider provider;
+  SpreadsheetLayout layout;
+  layout.column_ids = {"guck", "test"};
+  layout.column_widths_ = {200, 300};
+  layout.row_indices = blender::IndexRange(100).as_span();
+  auto drawer = spreadsheet_drawer_from_data_provider(provider, layout);
+
+  // std::unique_ptr<SpreadsheetDrawer> drawer = generate_spreadsheet_drawer(C);
+  // if (!drawer) {
+  //   drawer = std::make_unique<FallbackSpreadsheetDrawer>();
+  // }
   draw_spreadsheet_in_region(C, region, *drawer);
 }
 
