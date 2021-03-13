@@ -296,6 +296,7 @@ set(SRC
   BLI_vector_set.hh
   BLI_vector_set_slots.hh
   BLI_vfontdata.h
+  BLI_virtual_array.hh
   BLI_voronoi_2d.h
   BLI_voxel.h
   BLI_winstuff.h
@@ -432,6 +433,7 @@ if(WITH_GTESTS)
     tests/BLI_task_test.cc
     tests/BLI_vector_set_test.cc
     tests/BLI_vector_test.cc
+    tests/BLI_virtual_array_test.cc
 
     tests/BLI_exception_safety_test_utils.hh
   )
