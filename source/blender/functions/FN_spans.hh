@@ -154,16 +154,9 @@ class GMutableSpan {
     return size_;
   }
 
-  void *data()
+  void *data() const
   {
     return data_;
-  }
-
-  void *operator[](int64_t index)
-  {
-    BLI_assert(index >= 0);
-    BLI_assert(index < size_);
-    return POINTER_OFFSET(data_, type_->size() * index);
   }
 
   void *operator[](int64_t index) const
@@ -173,7 +166,7 @@ class GMutableSpan {
     return POINTER_OFFSET(data_, type_->size() * index);
   }
 
-  template<typename T> MutableSpan<T> typed()
+  template<typename T> MutableSpan<T> typed() const
   {
     BLI_assert(type_->is<T>());
     return MutableSpan<T>(static_cast<T *>(data_), size_);
