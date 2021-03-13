@@ -297,6 +297,7 @@ set(SRC
   BLI_vector_set_slots.hh
   BLI_vfontdata.h
   BLI_virtual_array.hh
+  BLI_virtual_vector_array.hh
   BLI_voronoi_2d.h
   BLI_voxel.h
   BLI_winstuff.h
