@@ -26,7 +26,7 @@
  */
 
 #include "FN_generic_vector_array.hh"
-#include "FN_multi_function_signature.hh"
+#include "FN_multi_function_signature_old.hh"
 
 namespace blender::fn {
 
