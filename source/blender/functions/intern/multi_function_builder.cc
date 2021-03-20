@@ -81,7 +81,7 @@ void CustomMF_GenericConstantArray::call(IndexMask mask,
                                          MFParams params,
                                          MFContext UNUSED(context)) const
 {
-  GVectorArray &vectors = params.vector_output(0);
+  GVectorArrayOld &vectors = params.vector_output(0);
   for (int64_t i : mask) {
     vectors.extend(i, array_);
   }

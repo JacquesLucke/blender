@@ -76,7 +76,7 @@ class ConcatVectorsFunction : public MultiFunction {
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
-    GVectorArrayRef<int> a = params.vector_mutable<int>(0);
+    GVectorArrayOldRef<int> a = params.vector_mutable<int>(0);
     VArraySpan<int> b = params.readonly_vector_input<int>(1);
 
     for (int64_t i : mask) {
@@ -96,7 +96,7 @@ class AppendFunction : public MultiFunction {
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
-    GVectorArrayRef<int> vectors = params.vector_mutable<int>(0);
+    GVectorArrayOldRef<int> vectors = params.vector_mutable<int>(0);
     VSpan<int> values = params.readonly_single_input<int>(1);
 
     for (int64_t i : mask) {
@@ -142,7 +142,7 @@ class CreateRangeFunction : public MultiFunction {
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
     VSpan<int> sizes = params.readonly_single_input<int>(0, "Size");
-    GVectorArrayRef<int> ranges = params.vector_output<int>(1, "Range");
+    GVectorArrayOldRef<int> ranges = params.vector_output<int>(1, "Range");
 
     for (int64_t i : mask) {
       int size = sizes[i];
@@ -195,7 +195,7 @@ TEST(multi_function_network, Test2)
     Array<int> input_value_1 = {3, 6};
     int input_value_2 = 4;
 
-    GVectorArray output_value_1(CPPType::get<int32_t>(), 5);
+    GVectorArrayOld output_value_1(CPPType::get<int32_t>(), 5);
     Array<int> output_value_2(5, -1);
 
     MFParamsBuilder params(network_fn, 5);
@@ -221,14 +221,14 @@ TEST(multi_function_network, Test2)
     EXPECT_EQ(output_value_2[4], 39);
   }
   {
-    GVectorArray input_value_1(CPPType::get<int32_t>(), 3);
-    GVectorArrayRef<int> input_value_ref_1 = input_value_1;
+    GVectorArrayOld input_value_1(CPPType::get<int32_t>(), 3);
+    GVectorArrayOldRef<int> input_value_ref_1 = input_value_1;
     input_value_ref_1.extend(0, {3, 4, 5});
     input_value_ref_1.extend(1, {1, 2});
 
     Array<int> input_value_2 = {4, 2, 3};
 
-    GVectorArray output_value_1(CPPType::get<int32_t>(), 3);
+    GVectorArrayOld output_value_1(CPPType::get<int32_t>(), 3);
     Array<int> output_value_2(3, -1);
 
     MFParamsBuilder params(network_fn, 3);

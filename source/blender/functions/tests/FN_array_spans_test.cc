@@ -3,7 +3,7 @@
 #include "testing/testing.h"
 
 #include "FN_array_spans.hh"
-#include "FN_generic_vector_array.hh"
+#include "FN_generic_vector_array_old.hh"
 
 #include "BLI_array.hh"
 
@@ -120,8 +120,8 @@ TEST(generic_virtual_array_span, IsSingleArray1)
 
 TEST(generic_virtual_array_span, IsSingleArray2)
 {
-  GVectorArray vectors{CPPType::get<int32_t>(), 3};
-  GVectorArrayRef<int> vectors_ref = vectors;
+  GVectorArrayOld vectors{CPPType::get<int32_t>(), 3};
+  GVectorArrayOldRef<int> vectors_ref = vectors;
   vectors_ref.append(1, 4);
 
   GVArraySpan span = vectors;

@@ -238,7 +238,7 @@ static void prepare_params_for_constant_folding(const MultiFunction &network_fn,
       case MFDataType::Vector: {
         /* Allocates memory for a constant folded vector. */
         const CPPType &cpp_type = data_type.vector_base_type();
-        GVectorArray &vector_array = resources.construct<GVectorArray>(AT, cpp_type, 1);
+        GVectorArrayOld &vector_array = resources.construct<GVectorArrayOld>(AT, cpp_type, 1);
         params.add_vector_output(vector_array);
         break;
       }
@@ -270,7 +270,7 @@ static Array<MFOutputSocket *> add_constant_folded_sockets(const MultiFunction &
         break;
       }
       case MFDataType::Vector: {
-        GVectorArray &vector_array = params.computed_vector_array(param_index);
+        GVectorArrayOld &vector_array = params.computed_vector_array(param_index);
         GSpan array = vector_array[0];
         constant_fn = &resources.construct<CustomMF_GenericConstantArray>(AT, array);
         break;

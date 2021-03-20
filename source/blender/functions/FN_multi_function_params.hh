@@ -25,7 +25,7 @@
  * the function. `MFParams` is then used inside the called function to access the parameters.
  */
 
-#include "FN_generic_vector_array.hh"
+#include "FN_generic_vector_array_old.hh"
 #include "FN_multi_function_signature.hh"
 
 namespace blender::fn {
@@ -37,7 +37,7 @@ class MFParamsBuilder {
   Vector<GVSpan> virtual_spans_;
   Vector<GMutableSpan> mutable_spans_;
   Vector<GVArraySpan> virtual_array_spans_;
-  Vector<GVectorArray *> vector_arrays_;
+  Vector<GVectorArrayOld *> vector_arrays_;
 
   friend class MFParams;
 
@@ -80,7 +80,7 @@ class MFParamsBuilder {
     mutable_spans_.append(ref);
   }
 
-  void add_vector_output(GVectorArray &vector_array, StringRef expected_name = "")
+  void add_vector_output(GVectorArrayOld &vector_array, StringRef expected_name = "")
   {
     this->assert_current_param_type(MFParamType::ForVectorOutput(vector_array.type()),
                                     expected_name);
@@ -95,7 +95,7 @@ class MFParamsBuilder {
     mutable_spans_.append(ref);
   }
 
-  void add_vector_mutable(GVectorArray &vector_array, StringRef expected_name = "")
+  void add_vector_mutable(GVectorArrayOld &vector_array, StringRef expected_name = "")
   {
     this->assert_current_param_type(MFParamType::ForMutableVector(vector_array.type()),
                                     expected_name);
@@ -112,7 +112,7 @@ class MFParamsBuilder {
     return mutable_spans_[data_index];
   }
 
-  GVectorArray &computed_vector_array(int param_index)
+  GVectorArrayOld &computed_vector_array(int param_index)
   {
     BLI_assert(ELEM(signature_->param_types[param_index].category(),
                     MFParamType::VectorOutput,
@@ -188,11 +188,11 @@ class MFParams {
     return builder_->virtual_array_spans_[data_index];
   }
 
-  template<typename T> GVectorArrayRef<T> vector_output(int param_index, StringRef name = "")
+  template<typename T> GVectorArrayOldRef<T> vector_output(int param_index, StringRef name = "")
   {
     return this->vector_output(param_index, name).typed<T>();
   }
-  GVectorArray &vector_output(int param_index, StringRef name = "")
+  GVectorArrayOld &vector_output(int param_index, StringRef name = "")
   {
     this->assert_correct_param(param_index, name, MFParamType::VectorOutput);
     int data_index = builder_->signature_->data_index(param_index);
@@ -210,11 +210,11 @@ class MFParams {
     return builder_->mutable_spans_[data_index];
   }
 
-  template<typename T> GVectorArrayRef<T> vector_mutable(int param_index, StringRef name = "")
+  template<typename T> GVectorArrayOldRef<T> vector_mutable(int param_index, StringRef name = "")
   {
     return this->vector_mutable(param_index, name).typed<T>();
   }
-  GVectorArray &vector_mutable(int param_index, StringRef name = "")
+  GVectorArrayOld &vector_mutable(int param_index, StringRef name = "")
   {
     this->assert_correct_param(param_index, name, MFParamType::VectorMutable);
     int data_index = builder_->signature_->data_index(param_index);

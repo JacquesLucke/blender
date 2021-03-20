@@ -19,12 +19,12 @@
 /** \file
  * \ingroup fn
  *
- * A `GVectorArray` is a container for a fixed amount of dynamically growing arrays with a generic
- * type. Its main use case is to store many small vectors with few separate allocations. Using this
- * structure is generally more efficient than allocating each small vector separately.
+ * A `GVectorArrayOld` is a container for a fixed amount of dynamically growing arrays with a
+ * generic type. Its main use case is to store many small vectors with few separate allocations.
+ * Using this structure is generally more efficient than allocating each small vector separately.
  *
- * `GVectorArrayRef<T>` is a typed reference to a GVectorArray and makes it easier and safer to
- * work with the class when the type is known at compile time.
+ * `GVectorArrayOldRef<T>` is a typed reference to a GVectorArrayOld and makes it easier and safer
+ * to work with the class when the type is known at compile time.
  */
 
 #include "FN_array_spans.hh"
@@ -36,9 +36,9 @@
 
 namespace blender::fn {
 
-template<typename T> class GVectorArrayRef;
+template<typename T> class GVectorArrayOldRef;
 
-class GVectorArray : NonCopyable, NonMovable {
+class GVectorArrayOld : NonCopyable, NonMovable {
  private:
   const CPPType &type_;
   int64_t element_size_;
@@ -47,12 +47,12 @@ class GVectorArray : NonCopyable, NonMovable {
   Array<int64_t, 1> capacities_;
   LinearAllocator<> allocator_;
 
-  template<typename T> friend class GVectorArrayRef;
+  template<typename T> friend class GVectorArrayOldRef;
 
  public:
-  GVectorArray() = delete;
+  GVectorArrayOld() = delete;
 
-  GVectorArray(const CPPType &type, int64_t array_size)
+  GVectorArrayOld(const CPPType &type, int64_t array_size)
       : type_(type),
         element_size_(type.size()),
         starts_(array_size),
@@ -64,7 +64,7 @@ class GVectorArray : NonCopyable, NonMovable {
     capacities_.as_mutable_span().fill(0);
   }
 
-  ~GVectorArray()
+  ~GVectorArrayOld()
   {
     if (type_.is_trivially_destructible()) {
       return;
@@ -139,9 +139,9 @@ class GVectorArray : NonCopyable, NonMovable {
     BLI_assert(index < starts_.size());
     return GMutableSpan(type_, starts_[index], lengths_[index]);
   }
-  template<typename T> GVectorArrayRef<T> typed()
+  template<typename T> GVectorArrayOldRef<T> typed()
   {
-    return GVectorArrayRef<T>(*this);
+    return GVectorArrayOldRef<T>(*this);
   }
 
  private:
@@ -158,12 +158,12 @@ class GVectorArray : NonCopyable, NonMovable {
   }
 };
 
-template<typename T> class GVectorArrayRef {
+template<typename T> class GVectorArrayOldRef {
  private:
-  GVectorArray *vector_array_;
+  GVectorArrayOld *vector_array_;
 
  public:
-  GVectorArrayRef(GVectorArray &vector_array) : vector_array_(&vector_array)
+  GVectorArrayOldRef(GVectorArrayOld &vector_array) : vector_array_(&vector_array)
   {
     BLI_assert(vector_array.type_.is<T>());
   }

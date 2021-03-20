@@ -39,7 +39,7 @@ set(SRC
   FN_generic_pointer.hh
   FN_generic_span.hh
   FN_generic_value_map.hh
-  FN_generic_vector_array.hh
+  FN_generic_vector_array_old.hh
   FN_generic_virtual_array.hh
   FN_generic_virtual_vector_array.hh
   FN_multi_function.hh
@@ -66,7 +66,7 @@ if(WITH_GTESTS)
     tests/FN_array_spans_test.cc
     tests/FN_cpp_type_test.cc
     tests/FN_generic_span_test.cc
-    tests/FN_generic_vector_array_test.cc
+    tests/FN_generic_vector_array_old_test.cc
     tests/FN_multi_function_network_test.cc
     tests/FN_multi_function_test.cc
     tests/FN_spans_test.cc

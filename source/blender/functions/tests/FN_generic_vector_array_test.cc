@@ -1,6 +1,6 @@
 /* Apache License, Version 2.0 */
 
-#include "FN_generic_vector_array.hh"
+#include "FN_generic_vector_array_old.hh"
 
 #include "testing/testing.h"
 
@@ -8,7 +8,7 @@ namespace blender::fn::tests {
 
 TEST(generic_vector_array, Constructor)
 {
-  GVectorArray vectors{CPPType::get<int32_t>(), 3};
+  GVectorArrayOld vectors{CPPType::get<int32_t>(), 3};
   EXPECT_EQ(vectors.size(), 3);
   EXPECT_EQ(vectors.lengths().size(), 3);
   EXPECT_EQ(vectors.starts().size(), 3);
@@ -20,7 +20,7 @@ TEST(generic_vector_array, Constructor)
 
 TEST(generic_vector_array, Append)
 {
-  GVectorArray vectors{CPPType::get<std::string>(), 3};
+  GVectorArrayOld vectors{CPPType::get<std::string>(), 3};
   std::string value = "hello";
   vectors.append(0, &value);
   value = "world";
@@ -38,7 +38,7 @@ TEST(generic_vector_array, Append)
 
 TEST(generic_vector_array, AsArraySpan)
 {
-  GVectorArray vectors{CPPType::get<int32_t>(), 3};
+  GVectorArrayOld vectors{CPPType::get<int32_t>(), 3};
   int value = 3;
   vectors.append(0, &value);
   vectors.append(0, &value);
@@ -59,8 +59,8 @@ TEST(generic_vector_array, AsArraySpan)
 
 TEST(generic_vector_array, TypedRef)
 {
-  GVectorArray vectors{CPPType::get<int32_t>(), 4};
-  GVectorArrayRef<int> ref = vectors.typed<int>();
+  GVectorArrayOld vectors{CPPType::get<int32_t>(), 4};
+  GVectorArrayOldRef<int> ref = vectors.typed<int>();
   ref.append(0, 2);
   ref.append(0, 6);
   ref.append(0, 7);
@@ -83,8 +83,8 @@ TEST(generic_vector_array, TypedRef)
 
 TEST(generic_vector_array, Extend)
 {
-  GVectorArray vectors{CPPType::get<int32_t>(), 3};
-  GVectorArrayRef<int> ref = vectors;
+  GVectorArrayOld vectors{CPPType::get<int32_t>(), 3};
+  GVectorArrayOldRef<int> ref = vectors;
 
   ref.extend(1, {5, 6, 7});
   ref.extend(0, {3});

@@ -65,7 +65,7 @@ class MFNetworkEvaluationStorage {
   void add_single_input_from_caller(const MFOutputSocket &socket, GVSpan virtual_span);
   void add_vector_input_from_caller(const MFOutputSocket &socket, GVArraySpan virtual_array_span);
   void add_single_output_from_caller(const MFOutputSocket &socket, GMutableSpan span);
-  void add_vector_output_from_caller(const MFOutputSocket &socket, GVectorArray &vector_array);
+  void add_vector_output_from_caller(const MFOutputSocket &socket, GVectorArrayOld &vector_array);
 
   /* Get input buffers for function node evaluations. */
   GVSpan get_single_input__full(const MFInputSocket &socket);
@@ -76,16 +76,17 @@ class MFNetworkEvaluationStorage {
   /* Get output buffers for function node evaluations. */
   GMutableSpan get_single_output__full(const MFOutputSocket &socket);
   GMutableSpan get_single_output__single(const MFOutputSocket &socket);
-  GVectorArray &get_vector_output__full(const MFOutputSocket &socket);
-  GVectorArray &get_vector_output__single(const MFOutputSocket &socket);
+  GVectorArrayOld &get_vector_output__full(const MFOutputSocket &socket);
+  GVectorArrayOld &get_vector_output__single(const MFOutputSocket &socket);
 
   /* Get mutable buffers for function node evaluations. */
   GMutableSpan get_mutable_single__full(const MFInputSocket &input, const MFOutputSocket &output);
   GMutableSpan get_mutable_single__single(const MFInputSocket &input,
                                           const MFOutputSocket &output);
-  GVectorArray &get_mutable_vector__full(const MFInputSocket &input, const MFOutputSocket &output);
-  GVectorArray &get_mutable_vector__single(const MFInputSocket &input,
-                                           const MFOutputSocket &output);
+  GVectorArrayOld &get_mutable_vector__full(const MFInputSocket &input,
+                                            const MFOutputSocket &output);
+  GVectorArrayOld &get_mutable_vector__single(const MFInputSocket &input,
+                                              const MFOutputSocket &output);
 
   /* Mark a node as being done with evaluation. This might free temporary buffers that are no
    * longer needed. */
@@ -203,7 +204,7 @@ BLI_NOINLINE void MFNetworkEvaluator::copy_outputs_to_storage(
         break;
       }
       case MFDataType::Vector: {
-        GVectorArray &vector_array = params.vector_output(param_index);
+        GVectorArrayOld &vector_array = params.vector_output(param_index);
         storage.add_vector_output_from_caller(origin, vector_array);
         break;
       }
@@ -286,7 +287,7 @@ BLI_NOINLINE void MFNetworkEvaluator::evaluate_function(MFContext &global_contex
         }
         case MFParamType::VectorOutput: {
           const MFOutputSocket &socket = function_node.output_for_param(param_index);
-          GVectorArray &values = storage.get_vector_output__single(socket);
+          GVectorArrayOld &values = storage.get_vector_output__single(socket);
           params.add_vector_output(values);
           break;
         }
@@ -300,7 +301,7 @@ BLI_NOINLINE void MFNetworkEvaluator::evaluate_function(MFContext &global_contex
         case MFParamType::VectorMutable: {
           const MFInputSocket &input = function_node.input_for_param(param_index);
           const MFOutputSocket &output = function_node.output_for_param(param_index);
-          GVectorArray &values = storage.get_mutable_vector__single(input, output);
+          GVectorArrayOld &values = storage.get_mutable_vector__single(input, output);
           params.add_vector_mutable(values);
           break;
         }
@@ -335,7 +336,7 @@ BLI_NOINLINE void MFNetworkEvaluator::evaluate_function(MFContext &global_contex
         }
         case MFParamType::VectorOutput: {
           const MFOutputSocket &socket = function_node.output_for_param(param_index);
-          GVectorArray &values = storage.get_vector_output__full(socket);
+          GVectorArrayOld &values = storage.get_vector_output__full(socket);
           params.add_vector_output(values);
           break;
         }
@@ -349,7 +350,7 @@ BLI_NOINLINE void MFNetworkEvaluator::evaluate_function(MFContext &global_contex
         case MFParamType::VectorMutable: {
           const MFInputSocket &input = function_node.input_for_param(param_index);
           const MFOutputSocket &output = function_node.output_for_param(param_index);
-          GVectorArray &values = storage.get_mutable_vector__full(input, output);
+          GVectorArrayOld &values = storage.get_mutable_vector__full(input, output);
           params.add_vector_mutable(values);
           break;
         }
@@ -395,7 +396,7 @@ BLI_NOINLINE void MFNetworkEvaluator::initialize_remaining_outputs(
       }
       case MFDataType::Vector: {
         GVArraySpan values = storage.get_vector_input__full(*socket);
-        GVectorArray &output_values = params.vector_output(param_index);
+        GVectorArrayOld &output_values = params.vector_output(param_index);
         output_values.extend(storage.mask(), values);
         break;
       }
@@ -462,9 +463,9 @@ struct OutputSingleValue : public OutputValue {
 
 struct OutputVectorValue : public OutputValue {
   /** This vector array has been provided by the code that called the multi-function network. */
-  GVectorArray *vector_array;
+  GVectorArrayOld *vector_array;
 
-  OutputVectorValue(GVectorArray &vector_array)
+  OutputVectorValue(GVectorArrayOld &vector_array)
       : OutputValue(ValueType::OutputVector), vector_array(&vector_array)
   {
   }
@@ -489,10 +490,10 @@ struct OwnSingleValue : public Value {
 struct OwnVectorValue : public Value {
   /** This vector array has been allocated during the evaluation of the multi-function network and
    * contains intermediate data. It has to be freed once the network evaluation is finished. */
-  GVectorArray *vector_array;
+  GVectorArrayOld *vector_array;
   int max_remaining_users;
 
-  OwnVectorValue(GVectorArray &vector_array, int max_remaining_users)
+  OwnVectorValue(GVectorArrayOld &vector_array, int max_remaining_users)
       : Value(ValueType::OwnVector),
         vector_array(&vector_array),
         max_remaining_users(max_remaining_users)
@@ -688,7 +689,7 @@ void MFNetworkEvaluationStorage::add_single_output_from_caller(const MFOutputSoc
 }
 
 void MFNetworkEvaluationStorage::add_vector_output_from_caller(const MFOutputSocket &socket,
-                                                               GVectorArray &vector_array)
+                                                               GVectorArrayOld &vector_array)
 {
   BLI_assert(value_per_output_id_[socket.id()] == nullptr);
   BLI_assert(vector_array.size() >= min_array_size_);
@@ -737,12 +738,12 @@ GMutableSpan MFNetworkEvaluationStorage::get_single_output__single(const MFOutpu
   return span;
 }
 
-GVectorArray &MFNetworkEvaluationStorage::get_vector_output__full(const MFOutputSocket &socket)
+GVectorArrayOld &MFNetworkEvaluationStorage::get_vector_output__full(const MFOutputSocket &socket)
 {
   Value *any_value = value_per_output_id_[socket.id()];
   if (any_value == nullptr) {
     const CPPType &type = socket.data_type().vector_base_type();
-    GVectorArray *vector_array = new GVectorArray(type, min_array_size_);
+    GVectorArrayOld *vector_array = new GVectorArrayOld(type, min_array_size_);
 
     auto *value =
         allocator_.construct<OwnVectorValue>(*vector_array, socket.targets().size()).release();
@@ -755,12 +756,13 @@ GVectorArray &MFNetworkEvaluationStorage::get_vector_output__full(const MFOutput
   return *static_cast<OutputVectorValue *>(any_value)->vector_array;
 }
 
-GVectorArray &MFNetworkEvaluationStorage::get_vector_output__single(const MFOutputSocket &socket)
+GVectorArrayOld &MFNetworkEvaluationStorage::get_vector_output__single(
+    const MFOutputSocket &socket)
 {
   Value *any_value = value_per_output_id_[socket.id()];
   if (any_value == nullptr) {
     const CPPType &type = socket.data_type().vector_base_type();
-    GVectorArray *vector_array = new GVectorArray(type, 1);
+    GVectorArrayOld *vector_array = new GVectorArrayOld(type, 1);
 
     auto *value =
         allocator_.construct<OwnVectorValue>(*vector_array, socket.targets().size()).release();
@@ -770,7 +772,7 @@ GVectorArray &MFNetworkEvaluationStorage::get_vector_output__single(const MFOutp
   }
 
   BLI_assert(any_value->type == ValueType::OutputVector);
-  GVectorArray &vector_array = *static_cast<OutputVectorValue *>(any_value)->vector_array;
+  GVectorArrayOld &vector_array = *static_cast<OutputVectorValue *>(any_value)->vector_array;
   BLI_assert(vector_array.size() == 1);
   return vector_array;
 }
@@ -860,8 +862,8 @@ GMutableSpan MFNetworkEvaluationStorage::get_mutable_single__single(const MFInpu
   return new_array_ref;
 }
 
-GVectorArray &MFNetworkEvaluationStorage::get_mutable_vector__full(const MFInputSocket &input,
-                                                                   const MFOutputSocket &output)
+GVectorArrayOld &MFNetworkEvaluationStorage::get_mutable_vector__full(const MFInputSocket &input,
+                                                                      const MFOutputSocket &output)
 {
   const MFOutputSocket &from = *input.origin();
   const MFOutputSocket &to = output;
@@ -874,7 +876,7 @@ GVectorArray &MFNetworkEvaluationStorage::get_mutable_vector__full(const MFInput
 
   if (to_any_value != nullptr) {
     BLI_assert(to_any_value->type == ValueType::OutputVector);
-    GVectorArray &vector_array = *static_cast<OutputVectorValue *>(to_any_value)->vector_array;
+    GVectorArrayOld &vector_array = *static_cast<OutputVectorValue *>(to_any_value)->vector_array;
     GVArraySpan virtual_array_span = this->get_vector_input__full(input);
     vector_array.extend(mask_, virtual_array_span);
     return vector_array;
@@ -892,7 +894,7 @@ GVectorArray &MFNetworkEvaluationStorage::get_mutable_vector__full(const MFInput
 
   GVArraySpan virtual_array_span = this->get_vector_input__full(input);
 
-  GVectorArray *new_vector_array = new GVectorArray(base_type, min_array_size_);
+  GVectorArrayOld *new_vector_array = new GVectorArrayOld(base_type, min_array_size_);
   new_vector_array->extend(mask_, virtual_array_span);
 
   OwnVectorValue *new_value =
@@ -902,8 +904,8 @@ GVectorArray &MFNetworkEvaluationStorage::get_mutable_vector__full(const MFInput
   return *new_vector_array;
 }
 
-GVectorArray &MFNetworkEvaluationStorage::get_mutable_vector__single(const MFInputSocket &input,
-                                                                     const MFOutputSocket &output)
+GVectorArrayOld &MFNetworkEvaluationStorage::get_mutable_vector__single(
+    const MFInputSocket &input, const MFOutputSocket &output)
 {
   const MFOutputSocket &from = *input.origin();
   const MFOutputSocket &to = output;
@@ -916,7 +918,7 @@ GVectorArray &MFNetworkEvaluationStorage::get_mutable_vector__single(const MFInp
 
   if (to_any_value != nullptr) {
     BLI_assert(to_any_value->type == ValueType::OutputVector);
-    GVectorArray &vector_array = *static_cast<OutputVectorValue *>(to_any_value)->vector_array;
+    GVectorArrayOld &vector_array = *static_cast<OutputVectorValue *>(to_any_value)->vector_array;
     BLI_assert(vector_array.size() == 1);
     GVArraySpan virtual_array_span = this->get_vector_input__single(input);
     vector_array.extend(0, virtual_array_span[0]);
@@ -935,7 +937,7 @@ GVectorArray &MFNetworkEvaluationStorage::get_mutable_vector__single(const MFInp
 
   GVArraySpan virtual_array_span = this->get_vector_input__single(input);
 
-  GVectorArray *new_vector_array = new GVectorArray(base_type, 1);
+  GVectorArrayOld *new_vector_array = new GVectorArrayOld(base_type, 1);
   new_vector_array->extend(0, virtual_array_span[0]);
 
   OwnVectorValue *new_value =
