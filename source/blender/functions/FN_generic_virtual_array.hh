@@ -271,12 +271,12 @@ class GVArrayForSingleValueRef : public GVArray {
   }
 
  protected:
-  void get_impl(const int64_t index, void *r_value) const override
+  void get_impl(const int64_t UNUSED(index), void *r_value) const override
   {
     type_->copy_to_initialized(value_, r_value);
   }
 
-  void get_to_uninitialized_impl(const int64_t index, void *r_value) const override
+  void get_to_uninitialized_impl(const int64_t UNUSED(index), void *r_value) const override
   {
     type_->copy_to_uninitialized(value_, r_value);
   }
@@ -308,7 +308,7 @@ template<typename T> class GVArrayForVArray : public GVArray {
 
  public:
   GVArrayForVArray(const VArray<T> &array)
-      : GVArray(CPPType::get<T>(), array.size()), varray_(varray)
+      : GVArray(CPPType::get<T>(), array.size()), array_(array)
   {
   }
 

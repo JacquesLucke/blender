@@ -70,20 +70,20 @@ class GVectorArray : NonCopyable, NonMovable {
   GMutableSpan operator[](int64_t index);
   GSpan operator[](int64_t index) const;
 
-  template<typename T> void append(const int64_t index, const T &value)
+  template<typename T> void append_typed(const int64_t index, const T &value)
   {
     BLI_assert(type_.is<T>());
     this->append(index, &value);
   }
 
-  template<typename T> void extend(const int64_t index, const VArray<T> &values)
+  template<typename T> void extend_typed(const int64_t index, const VArray<T> &values)
   {
     BLI_assert(type_.is<T>());
     GVArrayForVArray<T> array{values};
     this->extend(index, array);
   }
 
-  template<typename T> void extend(const int64_t index, Span<T> values)
+  template<typename T> void extend_typed(const int64_t index, Span<T> values)
   {
     BLI_assert(type_.is<T>());
     this->extend(index, values);

@@ -76,7 +76,7 @@ GSpan GVectorArray::operator[](const int64_t index) const
 
 void GVectorArray::realloc_to_at_least(Item &item, int64_t min_capacity)
 {
-  const int64_t new_capacity = item.length * 2 + 1;
+  const int64_t new_capacity = std::max(min_capacity, item.length * 2);
 
   void *new_buffer = allocator_.allocate(element_size_ * new_capacity, type_.alignment());
   type_.relocate_to_initialized_n(item.start, new_buffer, item.length);
