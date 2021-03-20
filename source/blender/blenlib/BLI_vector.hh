@@ -84,6 +84,7 @@ class Vector {
   using const_reference = const T &;
   using iterator = T *;
   using const_iterator = const T *;
+  using size_type = int64_t;
 
  private:
   /**

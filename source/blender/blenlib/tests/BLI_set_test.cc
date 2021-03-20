@@ -541,6 +541,7 @@ TEST(set, GenericAlgorithms)
   Set<int> set = {1, 20, 30, 40};
   EXPECT_FALSE(std::any_of(set.begin(), set.end(), [](int v) { return v == 5; }));
   EXPECT_TRUE(std::any_of(set.begin(), set.end(), [](int v) { return v == 30; }));
+  EXPECT_EQ(std::count(set.begin(), set.end(), 20), 1);
 }
 
 /**

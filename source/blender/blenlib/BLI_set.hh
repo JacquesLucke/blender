@@ -127,6 +127,7 @@ class Set {
   using reference = Key &;
   using const_reference = const Key &;
   using iterator = Iterator;
+  using size_type = int64_t;
 
  private:
   /**
@@ -413,9 +414,9 @@ class Set {
    public:
     using iterator_category = std::forward_iterator_tag;
     using value_type = Key;
-    using pointer = Key *;
-    using reference = Key &;
-    using difference_type = void;
+    using pointer = const Key *;
+    using reference = const Key &;
+    using difference_type = std::ptrdiff_t;
 
    private:
     const Slot *slots_;
