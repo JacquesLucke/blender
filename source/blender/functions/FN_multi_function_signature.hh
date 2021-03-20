@@ -20,7 +20,7 @@
  * \ingroup fn
  *
  * The signature of a multi-function contains the functions name and expected parameters. New
- * signatures should be build using the #MFSignatureOldBuilder class.
+ * signatures should be build using the #MFSignatureBuilder class.
  */
 
 #include "FN_multi_function_param_type.hh"
@@ -29,7 +29,7 @@
 
 namespace blender::fn {
 
-struct MFSignatureOld {
+struct MFSignature {
   std::string function_name;
   Vector<std::string> param_names;
   Vector<MFParamType> param_types;
@@ -42,16 +42,16 @@ struct MFSignatureOld {
   }
 };
 
-class MFSignatureOldBuilder {
+class MFSignatureBuilder {
  private:
-  MFSignatureOld &data_;
+  MFSignature &data_;
   int span_count_ = 0;
-  int virtual_span_count_ = 0;
-  int virtual_array_span_count_ = 0;
+  int virtual_array_count_ = 0;
+  int virtual_vector_array_count_ = 0;
   int vector_array_count_ = 0;
 
  public:
-  MFSignatureOldBuilder(MFSignatureOld &data) : data_(data)
+  MFSignatureBuilder(MFSignature &data) : data_(data)
   {
     BLI_assert(data.param_names.is_empty());
     BLI_assert(data.param_types.is_empty());
@@ -83,10 +83,10 @@ class MFSignatureOldBuilder {
 
     switch (data_type.category()) {
       case MFDataType::Single:
-        data_.param_data_indices.append(virtual_span_count_++);
+        data_.param_data_indices.append(virtual_array_count_++);
         break;
       case MFDataType::Vector:
-        data_.param_data_indices.append(virtual_array_span_count_++);
+        data_.param_data_indices.append(virtual_vector_array_count_++);
         break;
     }
   }

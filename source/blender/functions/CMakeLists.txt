@@ -52,7 +52,9 @@ set(SRC
   FN_multi_function_network_evaluation.hh
   FN_multi_function_network_optimization.hh
   FN_multi_function_param_type.hh
+  FN_multi_function_params.hh
   FN_multi_function_params_old.hh
+  FN_multi_function_signature.hh
   FN_multi_function_signature_old.hh
   FN_spans.hh
 )
