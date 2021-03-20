@@ -65,7 +65,7 @@ template<typename In1, typename Out1> class CustomMF_SI_SO : public MultiFunctio
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
-    const VArray<In1> in1 = params.readonly_single_input<In1>(0);
+    const VArray<In1> &in1 = params.readonly_single_input<In1>(0);
     MutableSpan<Out1> out1 = params.uninitialized_single_output<Out1>(1);
     function_(mask, in1, out1);
   }

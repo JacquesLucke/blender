@@ -493,7 +493,10 @@ struct OwnSingleValue : public Value {
   bool is_single_allocated;
 
   OwnSingleValue(GMutableSpan span, int max_remaining_users, bool is_single_allocated)
-      : Value(ValueType::OwnSingle), span(span), max_remaining_users(max_remaining_users)
+      : Value(ValueType::OwnSingle),
+        span(span),
+        max_remaining_users(max_remaining_users),
+        is_single_allocated(is_single_allocated)
   {
   }
 };
@@ -1044,7 +1047,8 @@ const GVVectorArray &MFNetworkEvaluationStorage::get_vector_input__full(
   }
 
   BLI_assert(false);
-  return GVVectorArrayForSingleGSpan(GSpan(CPPType::get<float>()), 0);
+  return resources.construct<GVVectorArrayForSingleGSpan>(
+      __func__, GSpan(CPPType::get<float>()), 0);
 }
 
 const GVVectorArray &MFNetworkEvaluationStorage::get_vector_input__single(
@@ -1071,7 +1075,8 @@ const GVVectorArray &MFNetworkEvaluationStorage::get_vector_input__single(
   }
 
   BLI_assert(false);
-  return GVVectorArrayForSingleGSpan(GSpan(CPPType::get<float>()), 0);
+  return resources.construct<GVVectorArrayForSingleGSpan>(
+      __func__, GSpan(CPPType::get<float>()), 0);
 }
 
 /** \} */
