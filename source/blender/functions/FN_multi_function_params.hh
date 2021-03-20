@@ -193,7 +193,8 @@ class MFParams {
     return builder_->mutable_spans_[data_index];
   }
 
-  template<typename T> VVectorArray<T> readonly_vector_input(int param_index, StringRef name = "")
+  template<typename T>
+  const VVectorArray<T> &readonly_vector_input(int param_index, StringRef name = "")
   {
     const GVVectorArray &vector_array = this->readonly_vector_input(param_index, name);
     return builder_->resources.construct<VVectorArrayForGVVectorArray<T>>(__func__, vector_array);
