@@ -15,6 +15,7 @@
  */
 
 #include "FN_generic_vector_array.hh"
+#include "FN_multi_function_params.hh"
 
 namespace blender::fn {
 
