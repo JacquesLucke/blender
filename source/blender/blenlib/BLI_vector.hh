@@ -76,6 +76,15 @@ template<
      */
     typename Allocator = GuardedAllocator>
 class Vector {
+ public:
+  using value_type = T;
+  using pointer = T *;
+  using const_pointer = const T *;
+  using reference = T &;
+  using const_reference = const T &;
+  using iterator = T *;
+  using const_iterator = const T *;
+
  private:
   /**
    * Use pointers instead of storing the size explicitly. This reduces the number of instructions
