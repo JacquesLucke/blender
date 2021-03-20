@@ -23,7 +23,7 @@ namespace blender::fn {
 CustomMF_GenericConstant::CustomMF_GenericConstant(const CPPType &type, const void *value)
     : type_(type), value_(value)
 {
-  MFSignatureBuilder signature = this->get_builder("Constant " + type.name());
+  MFSignatureOldBuilder signature = this->get_builder("Constant " + type.name());
   std::stringstream ss;
   type.debug_print(value, ss);
   signature.single_output(ss.str(), type);
@@ -73,7 +73,7 @@ static std::string gspan_to_string(GSpan array)
 CustomMF_GenericConstantArray::CustomMF_GenericConstantArray(GSpan array) : array_(array)
 {
   const CPPType &type = array.type();
-  MFSignatureBuilder signature = this->get_builder("Constant " + type.name() + " Vector");
+  MFSignatureOldBuilder signature = this->get_builder("Constant " + type.name() + " Vector");
   signature.vector_output(gspan_to_string(array), type);
 }
 
@@ -92,7 +92,7 @@ CustomMF_DefaultOutput::CustomMF_DefaultOutput(StringRef name,
                                                Span<MFDataType> output_types)
     : output_amount_(output_types.size())
 {
-  MFSignatureBuilder signature = this->get_builder(name);
+  MFSignatureOldBuilder signature = this->get_builder(name);
   for (MFDataType data_type : input_types) {
     signature.input("Input", data_type);
   }

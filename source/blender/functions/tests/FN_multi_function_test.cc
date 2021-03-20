@@ -12,7 +12,7 @@ class AddFunction : public MultiFunction {
  public:
   AddFunction()
   {
-    MFSignatureBuilder builder = this->get_builder("Add");
+    MFSignatureOldBuilder builder = this->get_builder("Add");
     builder.single_input<int>("A");
     builder.single_input<int>("B");
     builder.single_output<int>("Result");
@@ -56,7 +56,7 @@ class AddPrefixFunction : public MultiFunction {
  public:
   AddPrefixFunction()
   {
-    MFSignatureBuilder builder = this->get_builder("Add Prefix");
+    MFSignatureOldBuilder builder = this->get_builder("Add Prefix");
     builder.single_input<std::string>("Prefix");
     builder.single_mutable<std::string>("Strings");
   }
@@ -103,7 +103,7 @@ class CreateRangeFunction : public MultiFunction {
  public:
   CreateRangeFunction()
   {
-    MFSignatureBuilder builder = this->get_builder("Create Range");
+    MFSignatureOldBuilder builder = this->get_builder("Create Range");
     builder.single_input<uint>("Size");
     builder.vector_output<uint>("Range");
   }
@@ -155,7 +155,7 @@ class GenericAppendFunction : public MultiFunction {
  public:
   GenericAppendFunction(const CPPType &type)
   {
-    MFSignatureBuilder builder = this->get_builder("Append");
+    MFSignatureOldBuilder builder = this->get_builder("Append");
     builder.vector_mutable("Vector", type);
     builder.single_input("Value", type);
   }

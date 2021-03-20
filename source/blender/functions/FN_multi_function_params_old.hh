@@ -32,7 +32,7 @@ namespace blender::fn {
 
 class MFParamsBuilder {
  private:
-  const MFSignature *signature_;
+  const MFSignatureOld *signature_;
   int64_t min_array_size_;
   Vector<GVSpan> virtual_spans_;
   Vector<GMutableSpan> mutable_spans_;
@@ -42,7 +42,7 @@ class MFParamsBuilder {
   friend class MFParams;
 
  public:
-  MFParamsBuilder(const MFSignature &signature, int64_t min_array_size)
+  MFParamsBuilder(const MFSignatureOld &signature, int64_t min_array_size)
       : signature_(&signature), min_array_size_(min_array_size)
   {
   }

@@ -53,7 +53,7 @@ namespace blender::fn {
 
 class MultiFunction {
  private:
-  MFSignature signature_;
+  MFSignatureOld signature_;
 
  public:
   virtual ~MultiFunction()
@@ -102,16 +102,16 @@ class MultiFunction {
     return signature_.depends_on_context;
   }
 
-  const MFSignature &signature() const
+  const MFSignatureOld &signature() const
   {
     return signature_;
   }
 
  protected:
-  MFSignatureBuilder get_builder(std::string function_name)
+  MFSignatureOldBuilder get_builder(std::string function_name)
   {
     signature_.function_name = std::move(function_name);
-    return MFSignatureBuilder(signature_);
+    return MFSignatureOldBuilder(signature_);
   }
 };
 

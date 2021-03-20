@@ -37,7 +37,7 @@ class RandomFloatFunction : public blender::fn::MultiFunction {
  public:
   RandomFloatFunction(uint32_t function_seed) : function_seed_(function_seed)
   {
-    blender::fn::MFSignatureBuilder signature = this->get_builder("Random float");
+    blender::fn::MFSignatureOldBuilder signature = this->get_builder("Random float");
     signature.single_input<float>("Min");
     signature.single_input<float>("Max");
     signature.single_input<int>("Seed");

@@ -105,7 +105,7 @@ MFNetworkEvaluator::MFNetworkEvaluator(Vector<const MFOutputSocket *> inputs,
     : inputs_(std::move(inputs)), outputs_(std::move(outputs))
 {
   BLI_assert(outputs_.size() > 0);
-  MFSignatureBuilder signature = this->get_builder("Function Tree");
+  MFSignatureOldBuilder signature = this->get_builder("Function Tree");
 
   for (const MFOutputSocket *socket : inputs_) {
     BLI_assert(socket->node().is_dummy());
