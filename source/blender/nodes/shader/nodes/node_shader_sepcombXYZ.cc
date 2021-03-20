@@ -48,7 +48,7 @@ class MF_SeparateXYZ : public blender::fn::MultiFunction {
  public:
   MF_SeparateXYZ()
   {
-    blender::fn::MFSignatureOldBuilder signature = this->get_builder("Separate XYZ");
+    blender::fn::MFSignatureBuilder signature = this->get_builder("Separate XYZ");
     signature.single_input<blender::float3>("XYZ");
     signature.single_output<float>("X");
     signature.single_output<float>("Y");

@@ -12,7 +12,7 @@ class AddFunction : public MultiFunction {
  public:
   AddFunction()
   {
-    MFSignatureOldBuilder builder = this->get_builder("Add");
+    MFSignatureBuilder builder = this->get_builder("Add");
     builder.single_input<int>("A");
     builder.single_input<int>("B");
     builder.single_output<int>("Result");
@@ -56,7 +56,7 @@ class AddPrefixFunction : public MultiFunction {
  public:
   AddPrefixFunction()
   {
-    MFSignatureOldBuilder builder = this->get_builder("Add Prefix");
+    MFSignatureBuilder builder = this->get_builder("Add Prefix");
     builder.single_input<std::string>("Prefix");
     builder.single_mutable<std::string>("Strings");
   }
@@ -103,7 +103,7 @@ class CreateRangeFunction : public MultiFunction {
  public:
   CreateRangeFunction()
   {
-    MFSignatureOldBuilder builder = this->get_builder("Create Range");
+    MFSignatureBuilder builder = this->get_builder("Create Range");
     builder.single_input<uint>("Size");
     builder.vector_output<uint>("Range");
   }
@@ -111,7 +111,7 @@ class CreateRangeFunction : public MultiFunction {
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
     VSpan<uint> sizes = params.readonly_single_input<uint>(0, "Size");
-    GVectorArrayOldRef<uint> ranges = params.vector_output<uint>(1, "Range");
+    GVectorArrayRef<uint> ranges = params.vector_output<uint>(1, "Range");
 
     for (int64_t i : mask) {
       uint size = sizes[i];
@@ -126,8 +126,8 @@ TEST(multi_function, CreateRangeFunction)
 {
   CreateRangeFunction fn;
 
-  GVectorArrayOld ranges(CPPType::get<uint>(), 5);
-  GVectorArrayOldRef<uint> ranges_ref(ranges);
+  GVectorArray ranges(CPPType::get<uint>(), 5);
+  GVectorArrayRef<uint> ranges_ref(ranges);
   Array<uint> sizes = {3, 0, 6, 1, 4};
 
   MFParamsBuilder params(fn, ranges.size());
@@ -155,14 +155,14 @@ class GenericAppendFunction : public MultiFunction {
  public:
   GenericAppendFunction(const CPPType &type)
   {
-    MFSignatureOldBuilder builder = this->get_builder("Append");
+    MFSignatureBuilder builder = this->get_builder("Append");
     builder.vector_mutable("Vector", type);
     builder.single_input("Value", type);
   }
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
-    GVectorArrayOld &vectors = params.vector_mutable(0, "Vector");
+    GVectorArray &vectors = params.vector_mutable(0, "Vector");
     GVSpan values = params.readonly_single_input(1, "Value");
 
     for (int64_t i : mask) {
@@ -175,8 +175,8 @@ TEST(multi_function, GenericAppendFunction)
 {
   GenericAppendFunction fn(CPPType::get<int32_t>());
 
-  GVectorArrayOld vectors(CPPType::get<int32_t>(), 4);
-  GVectorArrayOldRef<int> vectors_ref(vectors);
+  GVectorArray vectors(CPPType::get<int32_t>(), 4);
+  GVectorArrayRef<int> vectors_ref(vectors);
   vectors_ref.append(0, 1);
   vectors_ref.append(0, 2);
   vectors_ref.append(2, 6);
@@ -342,8 +342,8 @@ TEST(multi_function, CustomMF_GenericConstantArray)
   CustomMF_GenericConstantArray fn{GSpan(Span(values))};
   EXPECT_EQ(fn.param_name(0), "[3, 4, 5, 6, ]");
 
-  GVectorArrayOld g_vector_array{CPPType::get<int32_t>(), 4};
-  GVectorArrayOldRef<int> vector_array = g_vector_array;
+  GVectorArray g_vector_array{CPPType::get<int32_t>(), 4};
+  GVectorArrayRef<int> vector_array = g_vector_array;
 
   MFParamsBuilder params(fn, g_vector_array.size());
   params.add_vector_output(g_vector_array);

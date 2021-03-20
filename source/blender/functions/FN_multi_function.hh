@@ -47,13 +47,13 @@
 #include "BLI_hash.hh"
 
 #include "FN_multi_function_context.hh"
-#include "FN_multi_function_params_old.hh"
+#include "FN_multi_function_params.hh"
 
 namespace blender::fn {
 
 class MultiFunction {
  private:
-  MFSignatureOld signature_;
+  MFSignature signature_;
 
  public:
   virtual ~MultiFunction()
@@ -102,16 +102,16 @@ class MultiFunction {
     return signature_.depends_on_context;
   }
 
-  const MFSignatureOld &signature() const
+  const MFSignature &signature() const
   {
     return signature_;
   }
 
  protected:
-  MFSignatureOldBuilder get_builder(std::string function_name)
+  MFSignatureBuilder get_builder(std::string function_name)
   {
     signature_.function_name = std::move(function_name);
-    return MFSignatureOldBuilder(signature_);
+    return MFSignatureBuilder(signature_);
   }
 };
 

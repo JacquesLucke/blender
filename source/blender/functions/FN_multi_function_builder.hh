@@ -38,13 +38,13 @@ namespace blender::fn {
  */
 template<typename In1, typename Out1> class CustomMF_SI_SO : public MultiFunction {
  private:
-  using FunctionT = std::function<void(IndexMask, VSpan<In1>, MutableSpan<Out1>)>;
+  using FunctionT = std::function<void(IndexMask, const VArray<In1> &, MutableSpan<Out1>)>;
   FunctionT function_;
 
  public:
   CustomMF_SI_SO(StringRef name, FunctionT function) : function_(std::move(function))
   {
-    MFSignatureOldBuilder signature = this->get_builder(name);
+    MFSignatureBuilder signature = this->get_builder(name);
     signature.single_input<In1>("In1");
     signature.single_output<Out1>("Out1");
   }
@@ -57,7 +57,7 @@ template<typename In1, typename Out1> class CustomMF_SI_SO : public MultiFunctio
 
   template<typename ElementFuncT> static FunctionT create_function(ElementFuncT element_fn)
   {
-    return [=](IndexMask mask, VSpan<In1> in1, MutableSpan<Out1> out1) {
+    return [=](IndexMask mask, const VArray<In1> &in1, MutableSpan<Out1> out1) {
       mask.foreach_index(
           [&](int i) { new (static_cast<void *>(&out1[i])) Out1(element_fn(in1[i])); });
     };
@@ -86,7 +86,7 @@ class CustomMF_SI_SI_SO : public MultiFunction {
  public:
   CustomMF_SI_SI_SO(StringRef name, FunctionT function) : function_(std::move(function))
   {
-    MFSignatureOldBuilder signature = this->get_builder(name);
+    MFSignatureBuilder signature = this->get_builder(name);
     signature.single_input<In1>("In1");
     signature.single_input<In2>("In2");
     signature.single_output<Out1>("Out1");
@@ -132,7 +132,7 @@ class CustomMF_SI_SI_SI_SO : public MultiFunction {
  public:
   CustomMF_SI_SI_SI_SO(StringRef name, FunctionT function) : function_(std::move(function))
   {
-    MFSignatureOldBuilder signature = this->get_builder(name);
+    MFSignatureBuilder signature = this->get_builder(name);
     signature.single_input<In1>("In1");
     signature.single_input<In2>("In2");
     signature.single_input<In3>("In3");
@@ -186,7 +186,7 @@ class CustomMF_SI_SI_SI_SI_SO : public MultiFunction {
  public:
   CustomMF_SI_SI_SI_SI_SO(StringRef name, FunctionT function) : function_(std::move(function))
   {
-    MFSignatureOldBuilder signature = this->get_builder(name);
+    MFSignatureBuilder signature = this->get_builder(name);
     signature.single_input<In1>("In1");
     signature.single_input<In2>("In2");
     signature.single_input<In3>("In3");
@@ -237,7 +237,7 @@ template<typename Mut1> class CustomMF_SM : public MultiFunction {
  public:
   CustomMF_SM(StringRef name, FunctionT function) : function_(std::move(function))
   {
-    MFSignatureOldBuilder signature = this->get_builder(name);
+    MFSignatureBuilder signature = this->get_builder(name);
     signature.single_mutable<Mut1>("Mut1");
   }
 
@@ -269,7 +269,7 @@ template<typename From, typename To> class CustomMF_Convert : public MultiFuncti
   CustomMF_Convert()
   {
     std::string name = CPPType::get<From>().name() + " to " + CPPType::get<To>().name();
-    MFSignatureOldBuilder signature = this->get_builder(std::move(name));
+    MFSignatureBuilder signature = this->get_builder(std::move(name));
     signature.single_input<From>("Input");
     signature.single_output<To>("Output");
   }
@@ -326,7 +326,7 @@ template<typename T> class CustomMF_Constant : public MultiFunction {
  public:
   template<typename U> CustomMF_Constant(U &&value) : value_(std::forward<U>(value))
   {
-    MFSignatureOldBuilder signature = this->get_builder("Constant");
+    MFSignatureBuilder signature = this->get_builder("Constant");
     std::stringstream ss;
     ss << value_;
     signature.single_output<T>(ss.str());

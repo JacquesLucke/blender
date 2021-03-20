@@ -32,7 +32,7 @@ class ObjectTransformsFunction : public blender::fn::MultiFunction {
  public:
   ObjectTransformsFunction()
   {
-    blender::fn::MFSignatureOldBuilder signature = this->get_builder("Object Transforms");
+    blender::fn::MFSignatureBuilder signature = this->get_builder("Object Transforms");
     signature.depends_on_context();
     signature.single_input<blender::bke::PersistentObjectHandle>("Object");
     signature.single_output<blender::float3>("Location");

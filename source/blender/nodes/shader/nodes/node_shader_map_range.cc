@@ -95,7 +95,7 @@ class MapRangeFunction : public blender::fn::MultiFunction {
  public:
   MapRangeFunction(bool clamp) : clamp_(clamp)
   {
-    blender::fn::MFSignatureOldBuilder signature = this->get_builder("Map Range");
+    blender::fn::MFSignatureBuilder signature = this->get_builder("Map Range");
     signature.single_input<float>("Value");
     signature.single_input<float>("From Min");
     signature.single_input<float>("From Max");

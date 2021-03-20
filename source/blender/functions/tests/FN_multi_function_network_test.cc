@@ -69,14 +69,14 @@ class ConcatVectorsFunction : public MultiFunction {
  public:
   ConcatVectorsFunction()
   {
-    MFSignatureOldBuilder signature = this->get_builder("Concat Vectors");
+    MFSignatureBuilder signature = this->get_builder("Concat Vectors");
     signature.vector_mutable<int>("A");
     signature.vector_input<int>("B");
   }
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
-    GVectorArrayOldRef<int> a = params.vector_mutable<int>(0);
+    GVectorArrayRef<int> a = params.vector_mutable<int>(0);
     VArraySpan<int> b = params.readonly_vector_input<int>(1);
 
     for (int64_t i : mask) {
@@ -89,14 +89,14 @@ class AppendFunction : public MultiFunction {
  public:
   AppendFunction()
   {
-    MFSignatureOldBuilder signature = this->get_builder("Append");
+    MFSignatureBuilder signature = this->get_builder("Append");
     signature.vector_mutable<int>("Vector");
     signature.single_input<int>("Value");
   }
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
-    GVectorArrayOldRef<int> vectors = params.vector_mutable<int>(0);
+    GVectorArrayRef<int> vectors = params.vector_mutable<int>(0);
     VSpan<int> values = params.readonly_single_input<int>(1);
 
     for (int64_t i : mask) {
@@ -109,7 +109,7 @@ class SumVectorFunction : public MultiFunction {
  public:
   SumVectorFunction()
   {
-    MFSignatureOldBuilder signature = this->get_builder("Sum Vector");
+    MFSignatureBuilder signature = this->get_builder("Sum Vector");
     signature.vector_input<int>("Vector");
     signature.single_output<int>("Sum");
   }
@@ -134,7 +134,7 @@ class CreateRangeFunction : public MultiFunction {
  public:
   CreateRangeFunction()
   {
-    MFSignatureOldBuilder builder = this->get_builder("Create Range");
+    MFSignatureBuilder builder = this->get_builder("Create Range");
     builder.single_input<int>("Size");
     builder.vector_output<int>("Range");
   }
@@ -142,7 +142,7 @@ class CreateRangeFunction : public MultiFunction {
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
     VSpan<int> sizes = params.readonly_single_input<int>(0, "Size");
-    GVectorArrayOldRef<int> ranges = params.vector_output<int>(1, "Range");
+    GVectorArrayRef<int> ranges = params.vector_output<int>(1, "Range");
 
     for (int64_t i : mask) {
       int size = sizes[i];
@@ -195,7 +195,7 @@ TEST(multi_function_network, Test2)
     Array<int> input_value_1 = {3, 6};
     int input_value_2 = 4;
 
-    GVectorArrayOld output_value_1(CPPType::get<int32_t>(), 5);
+    GVectorArray output_value_1(CPPType::get<int32_t>(), 5);
     Array<int> output_value_2(5, -1);
 
     MFParamsBuilder params(network_fn, 5);
@@ -221,14 +221,14 @@ TEST(multi_function_network, Test2)
     EXPECT_EQ(output_value_2[4], 39);
   }
   {
-    GVectorArrayOld input_value_1(CPPType::get<int32_t>(), 3);
-    GVectorArrayOldRef<int> input_value_ref_1 = input_value_1;
+    GVectorArray input_value_1(CPPType::get<int32_t>(), 3);
+    GVectorArrayRef<int> input_value_ref_1 = input_value_1;
     input_value_ref_1.extend(0, {3, 4, 5});
     input_value_ref_1.extend(1, {1, 2});
 
     Array<int> input_value_2 = {4, 2, 3};
 
-    GVectorArrayOld output_value_1(CPPType::get<int32_t>(), 3);
+    GVectorArray output_value_1(CPPType::get<int32_t>(), 3);
     Array<int> output_value_2(3, -1);
 
     MFParamsBuilder params(network_fn, 3);
