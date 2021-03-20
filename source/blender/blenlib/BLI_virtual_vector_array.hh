@@ -81,21 +81,4 @@ template<typename T> class VVectorArray {
   }
 };
 
-template<typename T> class VMutableVectorArray : public VVectorArray<T> {
- public:
-  VMutableVectorArray(const int64_t size) : VVectorArray<T>(size)
-  {
-  }
-
-  void append(const int64_t index, const T &value)
-  {
-    BLI_assert(index >= 0);
-    BLI_assert(index < this->size_);
-    this->append_impl(index, value);
-  }
-
- protected:
-  virtual void append_impl(const int64_t index, const T &value) = 0;
-};
-
 }  // namespace blender
