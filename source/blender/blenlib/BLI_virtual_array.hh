@@ -87,6 +87,11 @@ template<typename T> class VArray {
     return this->get_single_impl();
   }
 
+  T operator[](const int64_t index) const
+  {
+    return this->get(index);
+  }
+
  protected:
   virtual T get_impl(const int64_t index) const = 0;
 
