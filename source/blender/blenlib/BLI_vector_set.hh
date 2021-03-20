@@ -108,6 +108,7 @@ class VectorSet {
   using const_reference = const Key &;
   using iterator = Key *;
   using const_iterator = const Key *;
+  using size_type = int64_t;
 
  private:
   /**
