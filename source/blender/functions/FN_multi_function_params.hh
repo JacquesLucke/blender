@@ -34,7 +34,7 @@ class MFParamsBuilder {
  private:
   const MFSignature *signature_;
   int64_t min_array_size_;
-  Vector<GVSpan> virtual_spans_;
+  Vector<const GVArray *> virtual_arrays_;
   Vector<GMutableSpan> mutable_spans_;
   Vector<const GVVectorArray *> virtual_vector_arrays_;
   Vector<GVectorArray *> vector_arrays_;
@@ -49,16 +49,11 @@ class MFParamsBuilder {
 
   MFParamsBuilder(const class MultiFunction &fn, int64_t min_array_size);
 
-  template<typename T> void add_readonly_single_input(const T *value, StringRef expected_name = "")
-  {
-    this->add_readonly_single_input(GVSpan::FromSingle(CPPType::get<T>(), value, min_array_size_),
-                                    expected_name);
-  }
-  void add_readonly_single_input(GVSpan ref, StringRef expected_name = "")
+  void add_readonly_single_input(const GVArray &ref, StringRef expected_name = "")
   {
     this->assert_current_param_type(MFParamType::ForSingleInput(ref.type()), expected_name);
     BLI_assert(ref.size() >= min_array_size_);
-    virtual_spans_.append(ref);
+    virtual_arrays_.append(&ref);
   }
 
   void add_readonly_vector_input(const GVVectorArray &ref, StringRef expected_name = "")
@@ -140,7 +135,7 @@ class MFParamsBuilder {
 
   int current_param_index() const
   {
-    return virtual_spans_.size() + mutable_spans_.size() + virtual_vector_arrays_.size() +
+    return virtual_arrays_.size() + mutable_spans_.size() + virtual_vector_arrays_.size() +
            vector_arrays_.size();
   }
 };
@@ -154,15 +149,11 @@ class MFParams {
   {
   }
 
-  template<typename T> VSpan<T> readonly_single_input(int param_index, StringRef name = "")
-  {
-    return this->readonly_single_input(param_index, name).typed<T>();
-  }
-  GVSpan readonly_single_input(int param_index, StringRef name = "")
+  const GVArray &readonly_single_input(int param_index, StringRef name = "")
   {
     this->assert_correct_param(param_index, name, MFParamType::SingleInput);
     int data_index = builder_->signature_->data_index(param_index);
-    return builder_->virtual_spans_[data_index];
+    return *builder_->virtual_arrays_[data_index];
   }
 
   template<typename T>

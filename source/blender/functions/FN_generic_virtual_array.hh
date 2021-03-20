@@ -22,7 +22,7 @@
 
 #include "BLI_virtual_array.hh"
 
-#include "FN_spans.hh"
+#include "FN_generic_span.hh"
 
 namespace blender::fn {
 
