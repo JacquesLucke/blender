@@ -39,6 +39,11 @@ class GVArray {
 
   virtual ~GVArray() = default;
 
+  const CPPType &type() const
+  {
+    return *type_;
+  }
+
   int64_t size() const
   {
     return size_;
@@ -255,14 +260,87 @@ class GVMutableArrayForGMutableSpan : public GVMutableArray {
   }
 };
 
-class GVARrayForSingleValueRef : public GVArray {
+class GVArrayForSingleValueRef : public GVArray {
  private:
   const void *value_;
 
  public:
-  GVARrayForSingleValueRef(const CPPType &type, const int64_t size, const void *value)
+  GVArrayForSingleValueRef(const CPPType &type, const int64_t size, const void *value)
       : GVArray(type, size), value_(value)
   {
+  }
+
+ protected:
+  void get_impl(const int64_t index, void *r_value) const override
+  {
+    type_->copy_to_initialized(value_, r_value);
+  }
+
+  void get_to_uninitialized_impl(const int64_t index, void *r_value) const override
+  {
+    type_->copy_to_uninitialized(value_, r_value);
+  }
+
+  bool is_span_impl() const override
+  {
+    return size_ == 1;
+  }
+
+  GSpan get_span_impl() const override
+  {
+    return GSpan{*type_, value_, 1};
+  }
+
+  bool is_single_impl() const override
+  {
+    return true;
+  }
+
+  void get_single_impl(void *r_value) const override
+  {
+    type_->copy_to_initialized(value_, r_value);
+  }
+};
+
+template<typename T> class GVArrayForVArray : public GVArray {
+ private:
+  const VArray<T> &array_;
+
+ public:
+  GVArrayForVArray(const VArray<T> &array)
+      : GVArray(CPPType::get<T>(), array.size()), varray_(varray)
+  {
+  }
+
+ protected:
+  void get_impl(const int64_t index, void *r_value) const override
+  {
+    *(T *)r_value = array_.get(index);
+  }
+
+  void get_to_uninitialized_impl(const int64_t index, void *r_value) const override
+  {
+    new (r_value) T(array_.get(index));
+  }
+
+  bool is_span_impl() const override
+  {
+    return array_.is_span();
+  }
+
+  GSpan get_span_impl() const override
+  {
+    return GSpan(array_.get_span());
+  }
+
+  bool is_single_impl() const override
+  {
+    return array_.is_single();
+  }
+
+  void get_single_impl(void *r_value) const override
+  {
+    *(T *)r_value = array_.get_single();
   }
 };
 
