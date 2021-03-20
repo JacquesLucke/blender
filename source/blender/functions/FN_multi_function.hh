@@ -47,7 +47,7 @@
 #include "BLI_hash.hh"
 
 #include "FN_multi_function_context.hh"
-#include "FN_multi_function_params.hh"
+#include "FN_multi_function_params_old.hh"
 
 namespace blender::fn {
 
