@@ -102,6 +102,20 @@ class GVArray {
     this->get_single_impl(r_value);
   }
 
+  void get_single_to_uninitialized(void *r_value) const
+  {
+    type_->construct_default(r_value);
+    this->get_single(r_value);
+  }
+
+  void materialize_to_uninitialized(const IndexMask mask, void *dst) const
+  {
+    for (const int64_t i : mask) {
+      void *elem_dst = POINTER_OFFSET(dst, type_->size() * i);
+      this->get_to_uninitialized(i, elem_dst);
+    }
+  }
+
  protected:
   virtual void get_impl(const int64_t index, void *r_value) const
   {
@@ -207,6 +221,19 @@ class GVArrayForGSpan : public GVArray {
   GSpan get_span_impl() const override
   {
     return GSpan(*type_, data_, size_);
+  }
+};
+
+class GVArrayForEmpty : public GVArray {
+ public:
+  GVArrayForEmpty(const CPPType &type) : GVArray(type, 0)
+  {
+  }
+
+ protected:
+  void get_to_uninitialized_impl(const int64_t UNUSED(index), void *UNUSED(r_value)) const override
+  {
+    BLI_assert(false);
   }
 };
 
@@ -341,6 +368,47 @@ template<typename T> class GVArrayForVArray : public GVArray {
   void get_single_impl(void *r_value) const override
   {
     *(T *)r_value = array_.get_single();
+  }
+};
+
+template<typename T> class VArrayForGVArray : public VArray<T> {
+ private:
+  const GVArray &array_;
+
+ public:
+  VArrayForGVArray(const GVArray &array) : VArray<T>(array.size()), array_(array)
+  {
+    BLI_assert(array_.type().is<T>());
+  }
+
+ protected:
+  T get_impl(const int64_t index) const override
+  {
+    T value;
+    array_.get(index, &value);
+    return value;
+  }
+
+  bool is_span_impl() const override
+  {
+    return array_.is_span();
+  }
+
+  Span<T> get_span_impl() const override
+  {
+    return array_.get_span().typed<T>();
+  }
+
+  bool is_single_impl() const override
+  {
+    return array_.is_single();
+  }
+
+  T get_single_impl() const override
+  {
+    T value;
+    array_.get_single(&value);
+    return value;
   }
 };
 

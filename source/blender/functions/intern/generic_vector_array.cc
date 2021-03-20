@@ -64,6 +64,20 @@ void GVectorArray::extend(const int64_t index, const GSpan values)
   this->extend(index, varray);
 }
 
+void GVectorArray::extend(IndexMask mask, const GVVectorArray &values)
+{
+  for (const int i : mask) {
+    GVArrayForGVVectorArrayIndex array{values, i};
+    this->extend(i, array);
+  }
+}
+
+void GVectorArray::extend(IndexMask mask, const GVectorArray &values)
+{
+  GVVectorArrayForGVectorArray virtual_values{values};
+  this->extend(mask, virtual_values);
+}
+
 GMutableSpan GVectorArray::operator[](const int64_t index)
 {
   Item &item = items_[index];

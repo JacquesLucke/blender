@@ -22,6 +22,8 @@
 
 #include "FN_generic_virtual_array.hh"
 
+#include "BLI_virtual_vector_array.hh"
+
 namespace blender::fn {
 
 class GVVectorArray {
@@ -85,6 +87,119 @@ class GVVectorArray {
   virtual bool is_single_vector_impl() const
   {
     return false;
+  }
+};
+
+class GVArrayForGVVectorArrayIndex : public GVArray {
+ private:
+  const GVVectorArray &vector_array_;
+  const int64_t index_;
+
+ public:
+  GVArrayForGVVectorArrayIndex(const GVVectorArray &vector_array, const int64_t index)
+      : GVArray(vector_array.type(), vector_array.get_vector_size(index)),
+        vector_array_(vector_array),
+        index_(index)
+  {
+  }
+
+ protected:
+  void get_impl(const int64_t index_in_vector, void *r_value) const
+  {
+    vector_array_.get_vector_element(index_, index_in_vector, r_value);
+  }
+
+  void get_to_uninitialized_impl(const int64_t index_in_vector, void *r_value) const
+  {
+    type_->construct_default(r_value);
+    vector_array_.get_vector_element(index_, index_in_vector, r_value);
+  }
+};
+
+class GVVectorArrayForSingleGVArray : public GVVectorArray {
+ private:
+  const GVArray &array_;
+
+ public:
+  GVVectorArrayForSingleGVArray(const GVArray &array, const int64_t size)
+      : GVVectorArray(array.type(), size), array_(array)
+  {
+  }
+
+ protected:
+  int64_t get_vector_size_impl(const int64_t UNUSED(index)) const override
+  {
+    return array_.size();
+  }
+
+  void get_vector_element_impl(const int64_t UNUSED(index),
+                               const int64_t index_in_vector,
+                               void *r_value) const override
+  {
+    array_.get(index_in_vector, r_value);
+  }
+
+  bool is_single_vector_impl() const
+  {
+    return true;
+  }
+};
+
+class GVVectorArrayForSingleGSpan : public GVVectorArray {
+ private:
+  const GSpan span_;
+
+ public:
+  GVVectorArrayForSingleGSpan(const GSpan span, const int64_t size)
+      : GVVectorArray(span.type(), size), span_(span)
+  {
+  }
+
+ protected:
+  int64_t get_vector_size_impl(const int64_t UNUSED(index)) const override
+  {
+    return span_.size();
+  }
+
+  void get_vector_element_impl(const int64_t UNUSED(index),
+                               const int64_t index_in_vector,
+                               void *r_value) const override
+  {
+    type_->copy_to_initialized(span_[index_in_vector], r_value);
+  }
+
+  bool is_single_vector_impl() const
+  {
+    return true;
+  }
+};
+
+template<typename T> class VVectorArrayForGVVectorArray : public VVectorArray<T> {
+ private:
+  const GVVectorArray &vector_array_;
+
+ public:
+  VVectorArrayForGVVectorArray(const GVVectorArray &vector_array)
+      : VVectorArray<T>(vector_array.size()), vector_array_(vector_array)
+  {
+  }
+
+ protected:
+  int64_t get_vector_size_impl(const int64_t index) const override
+  {
+    return vector_array_.get_vector_size(index);
+  }
+
+  T get_vector_element_impl(const int64_t index, const int64_t index_in_vector) const override
+  {
+    T value;
+    vector_array_.get_vector_element(index, index_in_vector, &value);
+    return value;
+  }
+
+  bool is_single_vector_impl() const
+  {
+    return vector_array_.is_single_vector();
   }
 };
 

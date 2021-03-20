@@ -66,6 +66,8 @@ class GVectorArray : NonCopyable, NonMovable {
 
   void extend(int64_t index, const GVArray &values);
   void extend(int64_t index, GSpan values);
+  void extend(IndexMask mask, const GVVectorArray &values);
+  void extend(IndexMask mask, const GVectorArray &values);
 
   GMutableSpan operator[](int64_t index);
   GSpan operator[](int64_t index) const;
