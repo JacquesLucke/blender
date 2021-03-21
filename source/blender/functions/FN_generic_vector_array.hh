@@ -72,27 +72,50 @@ class GVectorArray : NonCopyable, NonMovable {
   GMutableSpan operator[](int64_t index);
   GSpan operator[](int64_t index) const;
 
-  template<typename T> void append_typed(const int64_t index, const T &value)
+ private:
+  void realloc_to_at_least(Item &item, int64_t min_capacity);
+};
+
+template<typename T> class GVectorArray_TypedMutableRef {
+ private:
+  GVectorArray *vector_array_;
+
+ public:
+  GVectorArray_TypedMutableRef(GVectorArray &vector_array) : vector_array_(&vector_array)
   {
-    BLI_assert(type_.is<T>());
-    this->append(index, &value);
+    BLI_assert(vector_array_->type().is<T>());
   }
 
-  template<typename T> void extend_typed(const int64_t index, const VArray<T> &values)
+  int64_t size() const
   {
-    BLI_assert(type_.is<T>());
+    return vector_array_->size();
+  }
+
+  bool is_empty() const
+  {
+    return vector_array_->is_empty();
+  }
+
+  void append(const int64_t index, const T &value)
+  {
+    vector_array_->append(index, &value);
+  }
+
+  void extend(const int64_t index, const Span<T> values)
+  {
+    vector_array_->extend(index, values);
+  }
+
+  void extend(const int64_t index, const VArray<T> &values)
+  {
     GVArrayForVArray<T> array{values};
     this->extend(index, array);
   }
 
-  template<typename T> void extend_typed(const int64_t index, Span<T> values)
+  MutableSpan<T> operator[](const int64_t index)
   {
-    BLI_assert(type_.is<T>());
-    this->extend(index, values);
+    return (*vector_array_)[index].typed<T>();
   }
-
- private:
-  void realloc_to_at_least(Item &item, int64_t min_capacity);
 };
 
 class GVVectorArrayForGVectorArray : public GVVectorArray {

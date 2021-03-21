@@ -206,6 +206,11 @@ class MFParams {
     return *builder_->virtual_vector_arrays_[data_index];
   }
 
+  template<typename T>
+  GVectorArray_TypedMutableRef<T> vector_output(int param_index, StringRef name = "")
+  {
+    return {this->vector_output(param_index, name)};
+  }
   GVectorArray &vector_output(int param_index, StringRef name = "")
   {
     this->assert_correct_param(param_index, name, MFParamType::VectorOutput);
@@ -224,6 +229,11 @@ class MFParams {
     return builder_->mutable_spans_[data_index];
   }
 
+  template<typename T>
+  GVectorArray_TypedMutableRef<T> vector_mutable(int param_index, StringRef name = "")
+  {
+    return {this->vector_mutable(param_index, name)};
+  }
   GVectorArray &vector_mutable(int param_index, StringRef name = "")
   {
     this->assert_correct_param(param_index, name, MFParamType::VectorMutable);

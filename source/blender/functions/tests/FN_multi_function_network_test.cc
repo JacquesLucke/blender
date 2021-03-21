@@ -93,11 +93,11 @@ class AppendFunction : public MultiFunction {
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
-    GVectorArray &vectors = params.vector_mutable(0);
+    GVectorArray_TypedMutableRef<int> vectors = params.vector_mutable<int>(0);
     const VArray<int> &values = params.readonly_single_input<int>(1);
 
     for (int64_t i : mask) {
-      vectors.append_typed(i, values[i]);
+      vectors.append(i, values[i]);
     }
   }
 };
@@ -138,12 +138,12 @@ class CreateRangeFunction : public MultiFunction {
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
     const VArray<int> &sizes = params.readonly_single_input<int>(0, "Size");
-    GVectorArray &ranges = params.vector_output(1, "Range");
+    GVectorArray_TypedMutableRef<int> ranges = params.vector_output<int>(1, "Range");
 
     for (int64_t i : mask) {
       int size = sizes[i];
       for (int j : IndexRange(size)) {
-        ranges.append_typed(i, j);
+        ranges.append(i, j);
       }
     }
   }
@@ -219,8 +219,9 @@ TEST(multi_function_network, Test2)
   }
   {
     GVectorArray input_value_1(CPPType::get<int32_t>(), 3);
-    input_value_1.extend_typed<int>(0, {3, 4, 5});
-    input_value_1.extend_typed<int>(1, {1, 2});
+    GVectorArray_TypedMutableRef<int> input_value_1_ref{input_value_1};
+    input_value_1_ref.extend(0, {3, 4, 5});
+    input_value_1_ref.extend(1, {1, 2});
 
     Array<int> input_value_2 = {4, 2, 3};
 
