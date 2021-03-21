@@ -127,6 +127,7 @@ TEST(multi_function, CreateRangeFunction)
   CreateRangeFunction fn;
 
   GVectorArray ranges(CPPType::get<uint>(), 5);
+  GVectorArray_TypedMutableRef<uint> ranges_ref{ranges};
   Array<uint> sizes = {3, 0, 6, 1, 4};
 
   MFParamsBuilder params(fn, ranges.size());
@@ -143,11 +144,11 @@ TEST(multi_function, CreateRangeFunction)
   EXPECT_EQ(ranges[3].size(), 1);
   EXPECT_EQ(ranges[4].size(), 0);
 
-  EXPECT_EQ(ranges[0].typed<uint>()[0], 0);
-  EXPECT_EQ(ranges[0].typed<uint>()[1], 1);
-  EXPECT_EQ(ranges[0].typed<uint>()[2], 2);
-  EXPECT_EQ(ranges[2].typed<uint>()[0], 0);
-  EXPECT_EQ(ranges[2].typed<uint>()[1], 1);
+  EXPECT_EQ(ranges_ref[0][0], 0);
+  EXPECT_EQ(ranges_ref[0][1], 1);
+  EXPECT_EQ(ranges_ref[0][2], 2);
+  EXPECT_EQ(ranges_ref[2][0], 0);
+  EXPECT_EQ(ranges_ref[2][1], 1);
 }
 
 class GenericAppendFunction : public MultiFunction {
