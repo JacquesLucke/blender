@@ -18,20 +18,6 @@ TEST(virtual_array, ForSpan)
   EXPECT_EQ(varray.get_span().data(), data.data());
 }
 
-TEST(virtual_mutable_array, ForMutableSpan)
-{
-  std::array<int, 5> data = {1, 2, 3, 4, 5};
-  VMutableArrayForMutableSpan<int> varray{data};
-  EXPECT_EQ(varray.size(), 5);
-  EXPECT_EQ(varray.get(0), 1);
-  EXPECT_EQ(varray.get(4), 5);
-  EXPECT_TRUE(varray.is_span());
-  EXPECT_FALSE(varray.is_single());
-  EXPECT_EQ(varray.get_span().data(), data.data());
-  varray.set(3, 10);
-  EXPECT_EQ(data[3], 10);
-}
-
 TEST(virtual_array, ForSingle)
 {
   VArrayForSingle<int> varray{10, 4};

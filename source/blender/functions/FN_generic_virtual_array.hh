@@ -147,50 +147,6 @@ class GVArray {
   }
 };
 
-class GVMutableArray : public GVArray {
- public:
-  GVMutableArray(const CPPType &type, const int64_t size) : GVArray(type, size)
-  {
-  }
-
-  void set_by_copy(const int64_t index, const void *value)
-  {
-    BLI_assert(index >= 0);
-    BLI_assert(index < size_);
-    this->set_by_copy_impl(index, value);
-  }
-
-  void set_by_move(const int64_t index, void *value)
-  {
-    BLI_assert(index >= 0);
-    BLI_assert(index < size_);
-    this->set_by_copy_impl(index, value);
-  }
-
-  GMutableSpan get_span()
-  {
-    BLI_assert(this->is_span());
-    if (size_ == 0) {
-      return {*type_};
-    }
-    return this->get_span_impl();
-  }
-
- protected:
-  virtual void set_by_copy_impl(const int64_t index, const void *value) = 0;
-
-  virtual void set_by_move_impl(const int64_t index, void *value)
-  {
-    this->set_by_copy_impl(index, value);
-  }
-
-  virtual GMutableSpan get_span_impl()
-  {
-    BLI_assert(false);
-    return {*type_};
-  }
-};
-
 class GVArrayForGSpan : public GVArray {
  protected:
   const void *data_;
@@ -234,56 +190,6 @@ class GVArrayForEmpty : public GVArray {
   void get_to_uninitialized_impl(const int64_t UNUSED(index), void *UNUSED(r_value)) const override
   {
     BLI_assert(false);
-  }
-};
-
-class GVMutableArrayForGMutableSpan : public GVMutableArray {
- protected:
-  void *data_;
-  const int64_t element_size_;
-
- public:
-  GVMutableArrayForGMutableSpan(const GMutableSpan span)
-      : GVMutableArray(span.type(), span.size()),
-        data_(span.data()),
-        element_size_(span.type().size())
-  {
-  }
-
- protected:
-  void get_impl(const int64_t index, void *r_value) const override
-  {
-    type_->copy_to_initialized(POINTER_OFFSET(data_, element_size_ * index), r_value);
-  }
-
-  void get_to_uninitialized_impl(const int64_t index, void *r_value) const override
-  {
-    type_->copy_to_uninitialized(POINTER_OFFSET(data_, element_size_ * index), r_value);
-  }
-
-  bool is_span_impl() const override
-  {
-    return true;
-  }
-
-  GSpan get_span_impl() const override
-  {
-    return GSpan(*type_, data_, size_);
-  }
-
-  GMutableSpan get_span_impl() override
-  {
-    return GMutableSpan(*type_, data_, size_);
-  }
-
-  void set_by_copy_impl(const int64_t index, const void *value) override
-  {
-    type_->copy_to_initialized(value, POINTER_OFFSET(data_, element_size_ * index));
-  }
-
-  void set_by_move_impl(const int64_t index, void *value) override
-  {
-    type_->move_to_initialized(value, POINTER_OFFSET(data_, element_size_ * index));
   }
 };
 

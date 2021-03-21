@@ -118,46 +118,6 @@ template<typename T> class VArray {
   }
 };
 
-template<typename T> class VMutableArray : public VArray<T> {
- public:
-  VMutableArray(const int64_t size) : VArray<T>(size)
-  {
-  }
-
-  void set(const int64_t index, const T &value)
-  {
-    this->set_impl(index, value);
-  }
-
-  void set(const int64_t index, T &&value)
-  {
-    this->set_impl(index, std::move(value));
-  }
-
-  MutableSpan<T> get_span()
-  {
-    BLI_assert(this->is_span());
-    if (this->size_ == 0) {
-      return {};
-    }
-    return this->get_span_impl();
-  }
-
- protected:
-  virtual void set_impl(const int64_t index, const T &value) = 0;
-
-  virtual void set_impl(const int64_t index, T &&value)
-  {
-    this->set_impl(index, value);
-  }
-
-  virtual MutableSpan<T> get_span_impl()
-  {
-    BLI_assert(false);
-    return {};
-  }
-};
-
 template<typename T> class VArrayForSpan : public VArray<T> {
  private:
   const T *data_;
@@ -181,48 +141,6 @@ template<typename T> class VArrayForSpan : public VArray<T> {
   Span<T> get_span_impl() const override
   {
     return Span<T>(data_, this->size_);
-  }
-};
-
-template<typename T> class VMutableArrayForMutableSpan : public VMutableArray<T> {
- private:
-  T *data_;
-
- public:
-  VMutableArrayForMutableSpan(const MutableSpan<T> data)
-      : VMutableArray<T>(data.size()), data_(data.data())
-  {
-  }
-
- protected:
-  T get_impl(const int64_t index) const override
-  {
-    return data_[index];
-  }
-
-  void set_impl(const int64_t index, const T &value) override
-  {
-    data_[index] = value;
-  }
-
-  void set_impl(const int64_t index, T &&value) override
-  {
-    data_[index] = std::move(value);
-  }
-
-  bool is_span_impl() const override
-  {
-    return true;
-  }
-
-  Span<T> get_span_impl() const override
-  {
-    return Span<T>(data_, this->size_);
-  }
-
-  MutableSpan<T> get_span_impl() override
-  {
-    return MutableSpan<T>(data_, this->size_);
   }
 };
 
