@@ -29,6 +29,7 @@ set(INC_SYS
 set(SRC
   intern/cpp_types.cc
   intern/generic_vector_array.cc
+  intern/generic_virtual_array.cc
   intern/multi_function.cc
   intern/multi_function_builder.cc
   intern/multi_function_network.cc

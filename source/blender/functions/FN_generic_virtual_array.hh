@@ -108,43 +108,17 @@ class GVArray {
     this->get_single(r_value);
   }
 
-  void materialize_to_uninitialized(const IndexMask mask, void *dst) const
-  {
-    for (const int64_t i : mask) {
-      void *elem_dst = POINTER_OFFSET(dst, type_->size() * i);
-      this->get_to_uninitialized(i, elem_dst);
-    }
-  }
+  void materialize_to_uninitialized(const IndexMask mask, void *dst) const;
 
  protected:
-  virtual void get_impl(const int64_t index, void *r_value) const
-  {
-    type_->destruct(r_value);
-    this->get_to_uninitialized_impl(index, r_value);
-  }
-
+  virtual void get_impl(const int64_t index, void *r_value) const;
   virtual void get_to_uninitialized_impl(const int64_t index, void *r_value) const = 0;
 
-  virtual bool is_span_impl() const
-  {
-    return false;
-  }
+  virtual bool is_span_impl() const;
+  virtual GSpan get_span_impl() const;
 
-  virtual GSpan get_span_impl() const
-  {
-    BLI_assert(false);
-    return GSpan(*type_);
-  }
-
-  virtual bool is_single_impl() const
-  {
-    return false;
-  }
-
-  virtual void get_single_impl(void *UNUSED(r_value)) const
-  {
-    BLI_assert(false);
-  }
+  virtual bool is_single_impl() const;
+  virtual void get_single_impl(void *UNUSED(r_value)) const;
 };
 
 class GVArrayForGSpan : public GVArray {
@@ -159,25 +133,11 @@ class GVArrayForGSpan : public GVArray {
   }
 
  protected:
-  void get_impl(const int64_t index, void *r_value) const override
-  {
-    type_->copy_to_initialized(POINTER_OFFSET(data_, element_size_ * index), r_value);
-  }
+  void get_impl(const int64_t index, void *r_value) const override;
+  void get_to_uninitialized_impl(const int64_t index, void *r_value) const override;
 
-  void get_to_uninitialized_impl(const int64_t index, void *r_value) const override
-  {
-    type_->copy_to_uninitialized(POINTER_OFFSET(data_, element_size_ * index), r_value);
-  }
-
-  bool is_span_impl() const override
-  {
-    return true;
-  }
-
-  GSpan get_span_impl() const override
-  {
-    return GSpan(*type_, data_, size_);
-  }
+  bool is_span_impl() const override;
+  GSpan get_span_impl() const override;
 };
 
 class GVArrayForEmpty : public GVArray {
@@ -204,35 +164,14 @@ class GVArrayForSingleValueRef : public GVArray {
   }
 
  protected:
-  void get_impl(const int64_t UNUSED(index), void *r_value) const override
-  {
-    type_->copy_to_initialized(value_, r_value);
-  }
+  void get_impl(const int64_t index, void *r_value) const override;
+  void get_to_uninitialized_impl(const int64_t index, void *r_value) const override;
 
-  void get_to_uninitialized_impl(const int64_t UNUSED(index), void *r_value) const override
-  {
-    type_->copy_to_uninitialized(value_, r_value);
-  }
+  bool is_span_impl() const override;
+  GSpan get_span_impl() const override;
 
-  bool is_span_impl() const override
-  {
-    return size_ == 1;
-  }
-
-  GSpan get_span_impl() const override
-  {
-    return GSpan{*type_, value_, 1};
-  }
-
-  bool is_single_impl() const override
-  {
-    return true;
-  }
-
-  void get_single_impl(void *r_value) const override
-  {
-    type_->copy_to_initialized(value_, r_value);
-  }
+  bool is_single_impl() const override;
+  void get_single_impl(void *r_value) const override;
 };
 
 template<typename T> class GVArrayForVArray : public GVArray {
