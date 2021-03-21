@@ -104,16 +104,8 @@ class GVArrayForGVVectorArrayIndex : public GVArray {
   }
 
  protected:
-  void get_impl(const int64_t index_in_vector, void *r_value) const
-  {
-    vector_array_.get_vector_element(index_, index_in_vector, r_value);
-  }
-
-  void get_to_uninitialized_impl(const int64_t index_in_vector, void *r_value) const
-  {
-    type_->construct_default(r_value);
-    vector_array_.get_vector_element(index_, index_in_vector, r_value);
-  }
+  void get_impl(const int64_t index_in_vector, void *r_value) const override;
+  void get_to_uninitialized_impl(const int64_t index_in_vector, void *r_value) const override;
 };
 
 class GVVectorArrayForSingleGVArray : public GVVectorArray {
@@ -127,22 +119,12 @@ class GVVectorArrayForSingleGVArray : public GVVectorArray {
   }
 
  protected:
-  int64_t get_vector_size_impl(const int64_t UNUSED(index)) const override
-  {
-    return array_.size();
-  }
-
-  void get_vector_element_impl(const int64_t UNUSED(index),
+  int64_t get_vector_size_impl(const int64_t index) const override;
+  void get_vector_element_impl(const int64_t index,
                                const int64_t index_in_vector,
-                               void *r_value) const override
-  {
-    array_.get(index_in_vector, r_value);
-  }
+                               void *r_value) const override;
 
-  bool is_single_vector_impl() const
-  {
-    return true;
-  }
+  bool is_single_vector_impl() const override;
 };
 
 class GVVectorArrayForSingleGSpan : public GVVectorArray {
@@ -156,22 +138,12 @@ class GVVectorArrayForSingleGSpan : public GVVectorArray {
   }
 
  protected:
-  int64_t get_vector_size_impl(const int64_t UNUSED(index)) const override
-  {
-    return span_.size();
-  }
-
+  int64_t get_vector_size_impl(const int64_t UNUSED(index)) const override;
   void get_vector_element_impl(const int64_t UNUSED(index),
                                const int64_t index_in_vector,
-                               void *r_value) const override
-  {
-    type_->copy_to_initialized(span_[index_in_vector], r_value);
-  }
+                               void *r_value) const override;
 
-  bool is_single_vector_impl() const
-  {
-    return true;
-  }
+  bool is_single_vector_impl() const override;
 };
 
 template<typename T> class VVectorArrayForGVVectorArray : public VVectorArray<T> {
