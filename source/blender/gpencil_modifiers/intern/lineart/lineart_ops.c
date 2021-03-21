@@ -25,7 +25,10 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BKE_collection.h"
+#include "BLI_linklist.h"
+#include "BLI_math.h"
+#include "BLI_utildefines.h"
+
 #include "BKE_context.h"
 #include "BKE_global.h"
 #include "BKE_gpencil.h"
@@ -35,8 +38,6 @@
 
 #include "DEG_depsgraph_query.h"
 
-#include "BLI_utildefines.h"
-
 #include "WM_api.h"
 #include "WM_types.h"
 
@@ -44,12 +45,8 @@
 #include "DNA_gpencil_types.h"
 #include "DNA_scene_types.h"
 
-#include "UI_resources.h"
-
 #include "MOD_gpencil_lineart.h"
 #include "MOD_lineart.h"
-
-#include "lineart_intern.h"
 
 static bool lineart_mod_is_disabled(GpencilModifierData *md)
 {
@@ -277,7 +274,7 @@ static int lineart_gpencil_bake_common(bContext *C,
     BLI_linklist_prepend(&bj->objects, ob);
   }
   else {
-    /* CTX_DATA_BEGIN is not available for interating in objects while using the Job system. */
+    /* #CTX_DATA_BEGIN is not available for iterating in objects while using the job system. */
     CTX_DATA_BEGIN (C, Object *, ob, visible_objects) {
       if (ob->type == OB_GPENCIL) {
         LISTBASE_FOREACH (GpencilModifierData *, md, &ob->greasepencil_modifiers) {
@@ -351,8 +348,6 @@ static int lineart_gpencil_bake_strokes_invoke(bContext *C,
 static int lineart_gpencil_bake_strokes_exec(bContext *C, wmOperator *op)
 {
   return lineart_gpencil_bake_common(C, op, false, false);
-
-  return OPERATOR_FINISHED;
 }
 static int lineart_gpencil_bake_strokes_commom_modal(bContext *C,
                                                      wmOperator *op,

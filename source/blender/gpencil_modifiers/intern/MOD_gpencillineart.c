@@ -25,7 +25,6 @@
 
 #include "BLI_utildefines.h"
 
-#include "BLI_blenlib.h"
 #include "BLI_math_vector.h"
 
 #include "BLT_translation.h"
@@ -34,7 +33,6 @@
 #include "DNA_defaults.h"
 #include "DNA_gpencil_modifier_types.h"
 #include "DNA_gpencil_types.h"
-#include "DNA_lineart_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
@@ -48,7 +46,6 @@
 #include "BKE_gpencil_modifier.h"
 #include "BKE_lib_query.h"
 #include "BKE_main.h"
-#include "BKE_material.h"
 #include "BKE_screen.h"
 
 #include "UI_interface.h"
@@ -62,7 +59,6 @@
 
 #include "MOD_gpencil_modifiertypes.h"
 #include "MOD_gpencil_ui_common.h"
-#include "MOD_gpencil_util.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -141,9 +137,9 @@ static void generateStrokes(GpencilModifierData *md, Depsgraph *depsgraph, Objec
   LineartGpencilModifierData *lmd = (LineartGpencilModifierData *)md;
   bGPdata *gpd = ob->data;
 
-  /* Guard early, don't trigger calculation when no gpencil frame is present. Probably should
-   * disable in the isModifierDisabled() function but we need addtional arg for depsgraph and
-   * gpd. */
+  /* Guard early, don't trigger calculation when no grease-pencil frame is present.
+   * Probably should disable in the #isModifierDisabled() function
+   * but we need additional argument for depsgraph and `gpd`. */
   bGPDlayer *gpl = BKE_gpencil_layer_get_by_name(gpd, lmd->target_layer, 1);
   if (gpl == NULL) {
     return;
