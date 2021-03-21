@@ -38,6 +38,7 @@ set(SRC
   intern/multi_function_network_optimization.cc
 
   FN_cpp_type.hh
+  FN_cpp_type_make.hh
   FN_generic_pointer.hh
   FN_generic_span.hh
   FN_generic_value_map.hh
