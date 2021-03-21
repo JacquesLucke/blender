@@ -266,7 +266,6 @@ BLI_NOINLINE void MFNetworkEvaluator::evaluate_function(MFContext &global_contex
                                                         const MFFunctionNode &function_node,
                                                         Storage &storage) const
 {
-  ResourceCollector resources;
 
   const MultiFunction &function = function_node.function();
   // std::cout << "Function: " << function.name() << "\n";
@@ -275,6 +274,7 @@ BLI_NOINLINE void MFNetworkEvaluator::evaluate_function(MFContext &global_contex
     /* The function output would be the same for all elements. Therefore, it is enough to call the
      * function only on a single element. This can avoid many duplicate computations. */
     MFParamsBuilder params{function, 1};
+    ResourceCollector &resources = params.resources();
 
     for (int param_index : function.param_indices()) {
       MFParamType param_type = function.param_type(param_index);
@@ -324,6 +324,7 @@ BLI_NOINLINE void MFNetworkEvaluator::evaluate_function(MFContext &global_contex
   }
   else {
     MFParamsBuilder params{function, storage.mask().min_array_size()};
+    ResourceCollector &resources = params.resources();
 
     for (int param_index : function.param_indices()) {
       MFParamType param_type = function.param_type(param_index);
