@@ -68,4 +68,12 @@ class MFProcedure : NonCopyable, NonMovable {
   MFInstruction *entry = nullptr;
 };
 
+class MFProcedureExecutor : public MultiFunction {
+ private:
+  MFSignature signature_;
+  const MFProcedure &procedure_;
+
+ public:
+  MFProcedureExecutor(const MFProcedure &procedure);
+};
 }  // namespace blender::fn
