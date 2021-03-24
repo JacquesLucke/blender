@@ -16,6 +16,8 @@
 
 #include "FN_multi_function_procedure.hh"
 
+#include "BLI_dot_export.hh"
+
 namespace blender::fn {
 
 void MFVariable::set_name(std::string name)
@@ -116,21 +118,21 @@ MFCallInstruction &MFProcedure::new_call_instruction(const MultiFunction &fn)
   instruction.fn_ = &fn;
   instruction.params_ = allocator_.allocate_array<MFVariable *>(fn.param_amount());
   instruction.params_.fill(nullptr);
-  instructions_.append(&instruction);
+  call_instructions_.append(&instruction);
   return instruction;
 }
 
 MFBranchInstruction &MFProcedure::new_branch_instruction()
 {
   MFBranchInstruction &instruction = *allocator_.construct<MFBranchInstruction>().release();
-  instructions_.append(&instruction);
+  branch_instructions_.append(&instruction);
   return instruction;
 }
 
 MFDestructInstruction &MFProcedure::new_destruct_instruction()
 {
   MFDestructInstruction &instruction = *allocator_.construct<MFDestructInstruction>().release();
-  instructions_.append(&instruction);
+  destruct_instructions_.append(&instruction);
   return instruction;
 }
 
@@ -146,25 +148,77 @@ void MFProcedure::set_entry(MFInstruction &entry)
 
 MFProcedure::~MFProcedure()
 {
-  for (MFInstruction *instruction : instructions_) {
-    switch (instruction->type()) {
-      case MFInstructionType::Call: {
-        ((MFCallInstruction *)instruction)->~MFCallInstruction();
-        break;
-      }
-      case MFInstructionType::Branch: {
-        ((MFBranchInstruction *)instruction)->~MFBranchInstruction();
-        break;
-      }
-      case MFInstructionType::Destruct: {
-        ((MFDestructInstruction *)instruction)->~MFDestructInstruction();
-        break;
-      }
-    }
+  for (MFCallInstruction *instruction : call_instructions_) {
+    instruction->~MFCallInstruction();
+  }
+  for (MFBranchInstruction *instruction : branch_instructions_) {
+    instruction->~MFBranchInstruction();
+  }
+  for (MFDestructInstruction *instruction : destruct_instructions_) {
+    instruction->~MFDestructInstruction();
   }
   for (MFVariable *variable : variables_) {
     variable->~MFVariable();
   }
+}
+
+std::string MFProcedure::to_dot() const
+{
+  dot::DirectedGraph digraph;
+  Map<MFInstruction *, dot::Node *> dot_nodes;
+  for (MFCallInstruction *instruction : call_instructions_) {
+    dot::Node &dot_node = digraph.new_node(instruction->fn().name());
+    dot_node.set_shape(dot::Attr_shape::Rectangle);
+    dot_nodes.add_new(instruction, &dot_node);
+  }
+  for (MFBranchInstruction *instruction : branch_instructions_) {
+    dot::Node &dot_node = digraph.new_node("Branch");
+    dot_node.set_shape(dot::Attr_shape::Rectangle);
+    dot_nodes.add_new(instruction, &dot_node);
+  }
+  for (MFDestructInstruction *instruction : destruct_instructions_) {
+    dot::Node &dot_node = digraph.new_node("Destruct");
+    dot_node.set_shape(dot::Attr_shape::Rectangle);
+    dot_nodes.add_new(instruction, &dot_node);
+  }
+
+  auto create_end_node = [&]() -> dot::Node & {
+    dot::Node &node = digraph.new_node("");
+    node.set_shape(dot::Attr_shape::Circle);
+    return node;
+  };
+
+  auto add_edge_to_instruction_or_end = [&](dot::Node &dot_from, MFInstruction *to) {
+    if (to == nullptr) {
+      dot::Node &dot_end_node = create_end_node();
+      digraph.new_edge(dot_from, dot_end_node);
+    }
+    else {
+      dot::Node &dot_to = *dot_nodes.lookup(to);
+      digraph.new_edge(dot_from, dot_to);
+    }
+  };
+
+  for (MFCallInstruction *instruction : call_instructions_) {
+    dot::Node &dot_node = *dot_nodes.lookup(instruction);
+    add_edge_to_instruction_or_end(dot_node, instruction->next());
+  }
+
+  for (MFBranchInstruction *instruction : branch_instructions_) {
+    dot::Node &dot_node = *dot_nodes.lookup(instruction);
+    add_edge_to_instruction_or_end(dot_node, instruction->branch_true());
+    add_edge_to_instruction_or_end(dot_node, instruction->branch_false());
+  }
+
+  for (MFDestructInstruction *instruction : destruct_instructions_) {
+    dot::Node &dot_node = *dot_nodes.lookup(instruction);
+    add_edge_to_instruction_or_end(dot_node, instruction->next());
+  }
+
+  dot::Node &dot_entry = digraph.new_node("Entry");
+  add_edge_to_instruction_or_end(dot_entry, entry_);
+
+  return digraph.to_dot_string();
 }
 
 }  // namespace blender::fn

@@ -122,7 +122,9 @@ class MFDestructInstruction : public MFInstruction {
 class MFProcedure : NonCopyable, NonMovable {
  private:
   LinearAllocator<> allocator_;
-  Vector<MFInstruction *> instructions_;
+  Vector<MFCallInstruction *> call_instructions_;
+  Vector<MFBranchInstruction *> branch_instructions_;
+  Vector<MFDestructInstruction *> destruct_instructions_;
   Vector<MFVariable *> variables_;
   Vector<std::pair<MFParamType::InterfaceType, MFVariable *>> params_;
   MFInstruction *entry_ = nullptr;
@@ -141,6 +143,8 @@ class MFProcedure : NonCopyable, NonMovable {
   Span<std::pair<MFParamType::InterfaceType, const MFVariable *>> params() const;
 
   void set_entry(MFInstruction &entry);
+
+  std::string to_dot() const;
 };
 
 class MFProcedureExecutor : public MultiFunction {

@@ -28,6 +28,8 @@ TEST(multi_function_procedure, SimpleTest)
 
   procedure.set_entry(add_instr);
 
+  std::cout << "\n\n" << procedure.to_dot() << "\n\n";
+
   MFProcedureExecutor executor{"My Procedure", procedure};
 
   MFParamsBuilder params{executor, 1};
