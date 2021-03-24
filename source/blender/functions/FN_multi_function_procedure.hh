@@ -28,6 +28,7 @@ class MFVariable;
 class MFInstruction;
 class MFCallInstruction;
 class MFBranchInstruction;
+class MFDestructInstruction;
 
 enum class MFInstructionType {
   Call,
@@ -37,13 +38,30 @@ enum class MFInstructionType {
 
 class MFVariable : NonCopyable, NonMovable {
  private:
-  MFDataType data_type;
+  MFDataType data_type_;
   Vector<MFInstruction *> users_;
+
+  friend MFCallInstruction;
+  friend MFBranchInstruction;
+  friend MFDestructInstruction;
+
+ public:
+  MFDataType data_type() const;
+  Span<MFInstruction *> users();
 };
 
 class MFInstruction : NonCopyable, NonMovable {
  protected:
   MFInstructionType type_;
+  Vector<MFInstruction *> prev_;
+
+  friend MFCallInstruction;
+  friend MFBranchInstruction;
+  friend MFDestructInstruction;
+
+ public:
+  MFInstructionType type() const;
+  Span<MFInstruction *> prev();
 };
 
 class MFCallInstruction : public MFInstruction {
@@ -51,6 +69,15 @@ class MFCallInstruction : public MFInstruction {
   const MultiFunction *fn_ = nullptr;
   MFInstruction *next_ = nullptr;
   MutableSpan<MFVariable *> params_;
+
+ public:
+  const MultiFunction &fn() const;
+
+  MFInstruction *next();
+  void set_next(MFInstruction *instruction);
+
+  void set_param_variable(int param_index, MFVariable *variable);
+  Span<MFVariable *> params();
 };
 
 class MFBranchInstruction : public MFInstruction {
@@ -58,12 +85,29 @@ class MFBranchInstruction : public MFInstruction {
   MFVariable *condition_ = nullptr;
   MFInstruction *branch_true_ = nullptr;
   MFInstruction *branch_false_ = nullptr;
+
+ public:
+  MFVariable *condition();
+  void set_condition(MFVariable *variable);
+
+  MFInstruction *branch_true();
+  void set_branch_true(MFInstruction *instruction);
+
+  MFInstruction *branch_false();
+  void set_branch_false(MFInstruction *instruction);
 };
 
 class MFDestructInstruction : public MFInstruction {
  private:
   MFVariable *variable_ = nullptr;
   MFInstruction *next_ = nullptr;
+
+ public:
+  MFVariable *variable();
+  void set_variable(MFVariable *variable);
+
+  MFInstruction *next();
+  void set_next(MFInstruction *instruction);
 };
 
 class MFProcedure : NonCopyable, NonMovable {
@@ -73,6 +117,15 @@ class MFProcedure : NonCopyable, NonMovable {
   Vector<MFVariable *> inputs_;
   Vector<MFVariable *> outputs_;
   MFInstruction *entry = nullptr;
+
+ public:
+  MFProcedure() = default;
+
+  MFCallInstruction &new_call_instruction(const MultiFunction &fn);
+  MFBranchInstruction &new_branch_instruction();
+  MFDestructInstruction &new_destruct_instruction();
+
+  void set_entry(const MFInstruction &entry);
 };
 
 class MFProcedureExecutor : public MultiFunction {
@@ -83,4 +136,85 @@ class MFProcedureExecutor : public MultiFunction {
  public:
   MFProcedureExecutor(const MFProcedure &procedure);
 };
+
+/* --------------------------------------------------------------------
+ * MFVariable inline methods.
+ */
+
+inline MFDataType MFVariable::data_type() const
+{
+  return data_type_;
+}
+
+inline Span<MFInstruction *> MFVariable::users()
+{
+  return users_;
+}
+
+/* --------------------------------------------------------------------
+ * MFInstruction inline methods.
+ */
+
+inline MFInstructionType MFInstruction::type() const
+{
+  return type_;
+}
+
+inline Span<MFInstruction *> MFInstruction::prev()
+{
+  return prev_;
+}
+
+/* --------------------------------------------------------------------
+ * MFCallInstruction inline methods.
+ */
+
+inline const MultiFunction &MFCallInstruction::fn() const
+{
+  return *fn_;
+}
+
+inline MFInstruction *MFCallInstruction::next()
+{
+  return next_;
+}
+
+inline Span<MFVariable *> MFCallInstruction::params()
+{
+  return params_;
+}
+
+/* --------------------------------------------------------------------
+ * MFBranchInstruction inline methods.
+ */
+
+inline MFVariable *MFBranchInstruction::condition()
+{
+  return condition_;
+}
+
+inline MFInstruction *MFBranchInstruction::branch_true()
+{
+  return branch_true_;
+}
+
+inline MFInstruction *MFBranchInstruction::branch_false()
+{
+  return branch_false_;
+}
+
+/* --------------------------------------------------------------------
+ * MFDestructInstruction inline methods.
+ */
+
+inline MFVariable *MFDestructInstruction::variable()
+{
+  return variable_;
+}
+
+inline MFInstruction *MFDestructInstruction::next()
+{
+  return next_;
+}
+
 }  // namespace blender::fn

@@ -36,6 +36,7 @@ set(SRC
   intern/multi_function_network.cc
   intern/multi_function_network_evaluation.cc
   intern/multi_function_network_optimization.cc
+  intern/multi_function_procedure.cc
 
   FN_cpp_type.hh
   FN_cpp_type_make.hh
