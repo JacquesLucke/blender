@@ -32,6 +32,7 @@ class MFBranchInstruction;
 enum class MFInstructionType {
   Call,
   Branch,
+  Destruct,
 };
 
 class MFVariable : NonCopyable, NonMovable {
@@ -57,6 +58,12 @@ class MFBranchInstruction : public MFInstruction {
   MFVariable *condition_ = nullptr;
   MFInstruction *branch_true_ = nullptr;
   MFInstruction *branch_false_ = nullptr;
+};
+
+class MFDestructInstruction : public MFInstruction {
+ private:
+  MFVariable *variable_ = nullptr;
+  MFInstruction *next_ = nullptr;
 };
 
 class MFProcedure : NonCopyable, NonMovable {
