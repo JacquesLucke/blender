@@ -96,6 +96,30 @@ void MFDestructInstruction::set_next(MFInstruction *instruction)
   next_ = instruction;
 }
 
+MFCallInstruction &MFProcedure::new_call_instruction(const MultiFunction &fn)
+{
+  MFCallInstruction &instruction = *allocator_.construct<MFCallInstruction>().release();
+  instruction.fn_ = &fn;
+  instruction.params_ = allocator_.allocate_array<MFVariable *>(fn.param_amount());
+  instruction.params_.fill(nullptr);
+  instructions_.append(&instruction);
+  return instruction;
+}
+
+MFBranchInstruction &MFProcedure::new_branch_instruction()
+{
+  MFBranchInstruction &instruction = *allocator_.construct<MFBranchInstruction>().release();
+  instructions_.append(&instruction);
+  return instruction;
+}
+
+MFDestructInstruction &MFProcedure::new_destruct_instruction()
+{
+  MFDestructInstruction &instruction = *allocator_.construct<MFDestructInstruction>().release();
+  instructions_.append(&instruction);
+  return instruction;
+}
+
 MFProcedure::~MFProcedure()
 {
   for (MFInstruction *instruction : instructions_) {

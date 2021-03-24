@@ -29,6 +29,7 @@ class MFInstruction;
 class MFCallInstruction;
 class MFBranchInstruction;
 class MFDestructInstruction;
+class MFProcedure;
 
 enum class MFInstructionType {
   Call,
@@ -41,9 +42,12 @@ class MFVariable : NonCopyable, NonMovable {
   MFDataType data_type_;
   Vector<MFInstruction *> users_;
 
+  friend MFProcedure;
   friend MFCallInstruction;
   friend MFBranchInstruction;
   friend MFDestructInstruction;
+
+  MFVariable() = default;
 
  public:
   MFDataType data_type() const;
@@ -55,9 +59,12 @@ class MFInstruction : NonCopyable, NonMovable {
   MFInstructionType type_;
   Vector<MFInstruction *> prev_;
 
+  friend MFProcedure;
   friend MFCallInstruction;
   friend MFBranchInstruction;
   friend MFDestructInstruction;
+
+  MFInstruction() = default;
 
  public:
   MFInstructionType type() const;
@@ -69,6 +76,8 @@ class MFCallInstruction : public MFInstruction {
   const MultiFunction *fn_ = nullptr;
   MFInstruction *next_ = nullptr;
   MutableSpan<MFVariable *> params_;
+
+  friend MFProcedure;
 
  public:
   const MultiFunction &fn() const;
