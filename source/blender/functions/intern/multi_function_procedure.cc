@@ -96,4 +96,27 @@ void MFDestructInstruction::set_next(MFInstruction *instruction)
   next_ = instruction;
 }
 
+MFProcedure::~MFProcedure()
+{
+  for (MFInstruction *instruction : instructions_) {
+    switch (instruction->type()) {
+      case MFInstructionType::Call: {
+        ((MFCallInstruction *)instruction)->~MFCallInstruction();
+        break;
+      }
+      case MFInstructionType::Branch: {
+        ((MFBranchInstruction *)instruction)->~MFBranchInstruction();
+        break;
+      }
+      case MFInstructionType::Destruct: {
+        ((MFDestructInstruction *)instruction)->~MFDestructInstruction();
+        break;
+      }
+    }
+  }
+  for (MFVariable *variable : variables_) {
+    variable->~MFVariable();
+  }
+}
+
 }  // namespace blender::fn

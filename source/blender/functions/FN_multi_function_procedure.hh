@@ -112,6 +112,7 @@ class MFDestructInstruction : public MFInstruction {
 
 class MFProcedure : NonCopyable, NonMovable {
  private:
+  LinearAllocator<> allocator_;
   Vector<MFInstruction *> instructions_;
   Vector<MFVariable *> variables_;
   Vector<MFVariable *> inputs_;
@@ -120,6 +121,7 @@ class MFProcedure : NonCopyable, NonMovable {
 
  public:
   MFProcedure() = default;
+  ~MFProcedure();
 
   MFCallInstruction &new_call_instruction(const MultiFunction &fn);
   MFBranchInstruction &new_branch_instruction();
