@@ -120,6 +120,11 @@ MFDestructInstruction &MFProcedure::new_destruct_instruction()
   return instruction;
 }
 
+void MFProcedure::set_entry(MFInstruction &entry)
+{
+  entry_ = &entry;
+}
+
 MFProcedure::~MFProcedure()
 {
   for (MFInstruction *instruction : instructions_) {

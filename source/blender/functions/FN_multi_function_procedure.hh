@@ -126,7 +126,7 @@ class MFProcedure : NonCopyable, NonMovable {
   Vector<MFVariable *> variables_;
   Vector<MFVariable *> inputs_;
   Vector<MFVariable *> outputs_;
-  MFInstruction *entry = nullptr;
+  MFInstruction *entry_ = nullptr;
 
  public:
   MFProcedure() = default;
@@ -136,7 +136,7 @@ class MFProcedure : NonCopyable, NonMovable {
   MFBranchInstruction &new_branch_instruction();
   MFDestructInstruction &new_destruct_instruction();
 
-  void set_entry(const MFInstruction &entry);
+  void set_entry(MFInstruction &entry);
 };
 
 class MFProcedureExecutor : public MultiFunction {
