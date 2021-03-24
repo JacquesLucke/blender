@@ -40,7 +40,7 @@ void MFCallInstruction::set_param_variable(int param_index, MFVariable *variable
     params_[param_index]->users_.remove_first_occurrence_and_reorder(this);
   }
   if (variable != nullptr) {
-    BLI_assert(fn_->param_type(param_index) == variable->data_type());
+    BLI_assert(fn_->param_type(param_index).data_type() == variable->data_type());
     variable->users_.append(this);
   }
   params_[param_index] = variable;
@@ -101,6 +101,15 @@ void MFDestructInstruction::set_next(MFInstruction *instruction)
   next_ = instruction;
 }
 
+MFVariable &MFProcedure::new_variable(MFDataType data_type, std::string name)
+{
+  MFVariable &variable = *allocator_.construct<MFVariable>().release();
+  variable.name_ = std::move(name);
+  variable.data_type_ = data_type;
+  variables_.append(&variable);
+  return variable;
+}
+
 MFCallInstruction &MFProcedure::new_call_instruction(const MultiFunction &fn)
 {
   MFCallInstruction &instruction = *allocator_.construct<MFCallInstruction>().release();
@@ -123,6 +132,11 @@ MFDestructInstruction &MFProcedure::new_destruct_instruction()
   MFDestructInstruction &instruction = *allocator_.construct<MFDestructInstruction>().release();
   instructions_.append(&instruction);
   return instruction;
+}
+
+void MFProcedure::add_parameter(MFParamType::InterfaceType interface_type, MFVariable &variable)
+{
+  params_.append({interface_type, &variable});
 }
 
 void MFProcedure::set_entry(MFInstruction &entry)

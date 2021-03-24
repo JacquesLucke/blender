@@ -23,14 +23,9 @@ MFProcedureExecutor::MFProcedureExecutor(std::string name, const MFProcedure &pr
 {
   MFSignatureBuilder signature(std::move(name));
 
-  for (const MFVariable *var : procedure_.inputs()) {
-    signature.input(var->name(), var->data_type());
-  }
-  for (const MFVariable *var : procedure_.mutables()) {
-    signature.mutable_(var->name(), var->data_type());
-  }
-  for (const MFVariable *var : procedure_.outputs()) {
-    signature.output(var->name(), var->data_type());
+  for (const std::pair<MFParamType::InterfaceType, const MFVariable *> &param :
+       procedure.params()) {
+    signature.add(param.second->name(), MFParamType(param.first, param.second->data_type()));
   }
 
   signature_ = signature.build();

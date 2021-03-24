@@ -48,8 +48,6 @@ class MFVariable : NonCopyable, NonMovable {
   friend MFBranchInstruction;
   friend MFDestructInstruction;
 
-  MFVariable() = default;
-
  public:
   MFDataType data_type() const;
   Span<MFInstruction *> users();
@@ -67,8 +65,6 @@ class MFInstruction : NonCopyable, NonMovable {
   friend MFCallInstruction;
   friend MFBranchInstruction;
   friend MFDestructInstruction;
-
-  MFInstruction() = default;
 
  public:
   MFInstructionType type() const;
@@ -128,22 +124,21 @@ class MFProcedure : NonCopyable, NonMovable {
   LinearAllocator<> allocator_;
   Vector<MFInstruction *> instructions_;
   Vector<MFVariable *> variables_;
-  Vector<MFVariable *> inputs_;
-  Vector<MFVariable *> mutables_;
-  Vector<MFVariable *> outputs_;
+  Vector<std::pair<MFParamType::InterfaceType, MFVariable *>> params_;
   MFInstruction *entry_ = nullptr;
 
  public:
   MFProcedure() = default;
   ~MFProcedure();
 
+  MFVariable &new_variable(MFDataType data_type, std::string name = "");
   MFCallInstruction &new_call_instruction(const MultiFunction &fn);
   MFBranchInstruction &new_branch_instruction();
   MFDestructInstruction &new_destruct_instruction();
 
-  Span<const MFVariable *> inputs() const;
-  Span<const MFVariable *> mutables() const;
-  Span<const MFVariable *> outputs() const;
+  void add_parameter(MFParamType::InterfaceType interface_type, MFVariable &variable);
+
+  Span<std::pair<MFParamType::InterfaceType, const MFVariable *>> params() const;
 
   void set_entry(MFInstruction &entry);
 };
@@ -248,19 +243,9 @@ inline MFInstruction *MFDestructInstruction::next()
  * MFProcedure inline methods.
  */
 
-inline Span<const MFVariable *> MFProcedure::inputs() const
+inline Span<std::pair<MFParamType::InterfaceType, const MFVariable *>> MFProcedure::params() const
 {
-  return inputs_;
-}
-
-inline Span<const MFVariable *> MFProcedure::mutables() const
-{
-  return mutables_;
-}
-
-inline Span<const MFVariable *> MFProcedure::outputs() const
-{
-  return outputs_;
+  return params_.as_span().cast<std::pair<MFParamType::InterfaceType, const MFVariable *>>();
 }
 
 }  // namespace blender::fn
