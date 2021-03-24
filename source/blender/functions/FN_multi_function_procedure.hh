@@ -41,6 +41,7 @@ class MFVariable : NonCopyable, NonMovable {
  private:
   MFDataType data_type_;
   Vector<MFInstruction *> users_;
+  std::string name_;
 
   friend MFProcedure;
   friend MFCallInstruction;
@@ -52,6 +53,9 @@ class MFVariable : NonCopyable, NonMovable {
  public:
   MFDataType data_type() const;
   Span<MFInstruction *> users();
+
+  StringRefNull name() const;
+  void set_name(std::string name);
 };
 
 class MFInstruction : NonCopyable, NonMovable {
@@ -125,6 +129,7 @@ class MFProcedure : NonCopyable, NonMovable {
   Vector<MFInstruction *> instructions_;
   Vector<MFVariable *> variables_;
   Vector<MFVariable *> inputs_;
+  Vector<MFVariable *> mutables_;
   Vector<MFVariable *> outputs_;
   MFInstruction *entry_ = nullptr;
 
@@ -136,6 +141,10 @@ class MFProcedure : NonCopyable, NonMovable {
   MFBranchInstruction &new_branch_instruction();
   MFDestructInstruction &new_destruct_instruction();
 
+  Span<const MFVariable *> inputs() const;
+  Span<const MFVariable *> mutables() const;
+  Span<const MFVariable *> outputs() const;
+
   void set_entry(MFInstruction &entry);
 };
 
@@ -145,7 +154,9 @@ class MFProcedureExecutor : public MultiFunction {
   const MFProcedure &procedure_;
 
  public:
-  MFProcedureExecutor(const MFProcedure &procedure);
+  MFProcedureExecutor(std::string name, const MFProcedure &procedure);
+
+  void call(IndexMask mask, MFParams params, MFContext context) const override;
 };
 
 /* --------------------------------------------------------------------
@@ -160,6 +171,11 @@ inline MFDataType MFVariable::data_type() const
 inline Span<MFInstruction *> MFVariable::users()
 {
   return users_;
+}
+
+inline StringRefNull MFVariable::name() const
+{
+  return name_;
 }
 
 /* --------------------------------------------------------------------
@@ -226,6 +242,25 @@ inline MFVariable *MFDestructInstruction::variable()
 inline MFInstruction *MFDestructInstruction::next()
 {
   return next_;
+}
+
+/* --------------------------------------------------------------------
+ * MFProcedure inline methods.
+ */
+
+inline Span<const MFVariable *> MFProcedure::inputs() const
+{
+  return inputs_;
+}
+
+inline Span<const MFVariable *> MFProcedure::mutables() const
+{
+  return mutables_;
+}
+
+inline Span<const MFVariable *> MFProcedure::outputs() const
+{
+  return outputs_;
 }
 
 }  // namespace blender::fn

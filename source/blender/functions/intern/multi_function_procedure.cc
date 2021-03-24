@@ -18,6 +18,11 @@
 
 namespace blender::fn {
 
+void MFVariable::set_name(std::string name)
+{
+  name_ = std::move(name);
+}
+
 void MFCallInstruction::set_next(MFInstruction *instruction)
 {
   if (next_ != nullptr) {
