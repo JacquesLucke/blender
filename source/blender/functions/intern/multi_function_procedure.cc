@@ -123,6 +123,7 @@ MFVariable &MFProcedure::new_variable(MFDataType data_type, std::string name)
 MFCallInstruction &MFProcedure::new_call_instruction(const MultiFunction &fn)
 {
   MFCallInstruction &instruction = *allocator_.construct<MFCallInstruction>().release();
+  instruction.type_ = MFInstructionType::Call;
   instruction.fn_ = &fn;
   instruction.params_ = allocator_.allocate_array<MFVariable *>(fn.param_amount());
   instruction.params_.fill(nullptr);
@@ -138,16 +139,19 @@ MFCallInstruction &MFProcedure::new_call_instruction(const MultiFunction &fn,
   return instruction;
 }
 
-MFBranchInstruction &MFProcedure::new_branch_instruction()
+MFBranchInstruction &MFProcedure::new_branch_instruction(MFVariable *condition_variable)
 {
   MFBranchInstruction &instruction = *allocator_.construct<MFBranchInstruction>().release();
+  instruction.type_ = MFInstructionType::Branch;
   branch_instructions_.append(&instruction);
+  instruction.set_condition(condition_variable);
   return instruction;
 }
 
 MFDestructInstruction &MFProcedure::new_destruct_instruction()
 {
   MFDestructInstruction &instruction = *allocator_.construct<MFDestructInstruction>().release();
+  instruction.type_ = MFInstructionType::Destruct;
   destruct_instructions_.append(&instruction);
   return instruction;
 }
@@ -220,7 +224,13 @@ std::string MFProcedure::to_dot() const
     dot_nodes.add_new(instruction, &dot_node);
   }
   for (MFBranchInstruction *instruction : branch_instructions_) {
-    dot::Node &dot_node = digraph.new_node("Branch");
+    std::stringstream ss;
+    ss << "Branch";
+    MFVariable *variable = instruction->condition();
+    if (variable != nullptr) {
+      ss << ": " << variable->name();
+    }
+    dot::Node &dot_node = digraph.new_node(ss.str());
     dot_node.set_shape(dot::Attr_shape::Rectangle);
     dot_nodes.add_new(instruction, &dot_node);
   }

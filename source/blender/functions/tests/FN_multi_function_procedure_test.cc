@@ -31,8 +31,6 @@ TEST(multi_function_procedure, SimpleTest)
   procedure.add_parameter(MFParamType::Input, var2);
   procedure.add_parameter(MFParamType::Output, var4);
 
-  std::cout << "\n\n" << procedure.to_dot() << "\n\n";
-
   MFProcedureExecutor executor{"My Procedure", procedure};
 
   MFParamsBuilder params{executor, 3};
@@ -50,6 +48,45 @@ TEST(multi_function_procedure, SimpleTest)
   EXPECT_EQ(output_array[0], 17);
   EXPECT_EQ(output_array[1], 18);
   EXPECT_EQ(output_array[2], 19);
+}
+
+TEST(multi_function_procedure, BranchTest)
+{
+  CustomMF_SM<int> add_10_fn{"add_10", [](int &a) { a += 10; }};
+  CustomMF_SM<int> add_100_fn{"add_100", [](int &a) { a += 100; }};
+
+  MFProcedure procedure;
+  MFVariable &a_var = procedure.new_variable(MFDataType::ForSingle<int>(), "a");
+  MFVariable &cond_var = procedure.new_variable(MFDataType::ForSingle<bool>(), "cond");
+
+  MFBranchInstruction &branch_instr = procedure.new_branch_instruction(&cond_var);
+  MFCallInstruction &add_10_instr = procedure.new_call_instruction(add_10_fn, {&a_var});
+  MFCallInstruction &add_100_instr = procedure.new_call_instruction(add_100_fn, {&a_var});
+
+  procedure.set_entry(branch_instr);
+  branch_instr.set_branch_false(&add_10_instr);
+  branch_instr.set_branch_true(&add_100_instr);
+
+  procedure.add_parameter(MFParamType::Mutable, a_var);
+  procedure.add_parameter(MFParamType::Input, cond_var);
+
+  MFProcedureExecutor procedure_fn{"Condition Test", procedure};
+  MFParamsBuilder params(procedure_fn, 5);
+
+  Array<int> values_a = {1, 5, 3, 6, 2};
+  Array<bool> values_cond = {true, false, true, true, false};
+
+  params.add_single_mutable(values_a.as_mutable_span());
+  params.add_readonly_single_input(values_cond.as_span());
+
+  MFContextBuilder context;
+  procedure_fn.call({1, 2, 3, 4}, params, context);
+
+  EXPECT_EQ(values_a[0], 1);
+  EXPECT_EQ(values_a[1], 15);
+  EXPECT_EQ(values_a[2], 103);
+  EXPECT_EQ(values_a[3], 106);
+  EXPECT_EQ(values_a[4], 12);
 }
 
 }  // namespace blender::fn::tests
