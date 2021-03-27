@@ -3,7 +3,7 @@
 #include "testing/testing.h"
 
 #include "FN_multi_function_builder.hh"
-#include "FN_multi_function_procedure.hh"
+#include "FN_multi_function_procedure_executor.hh"
 
 namespace blender::fn::tests {
 

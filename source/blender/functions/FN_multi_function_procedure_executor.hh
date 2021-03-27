@@ -14,28 +14,25 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#include "FN_multi_function_procedure_executor.hh"
+#pragma once
+
+/** \file
+ * \ingroup fn
+ */
+
+#include "FN_multi_function_procedure.hh"
 
 namespace blender::fn {
 
-MFProcedureExecutor::MFProcedureExecutor(std::string name, const MFProcedure &procedure)
-    : procedure_(procedure)
-{
-  MFSignatureBuilder signature(std::move(name));
+class MFProcedureExecutor : public MultiFunction {
+ private:
+  MFSignature signature_;
+  const MFProcedure &procedure_;
 
-  for (const std::pair<MFParamType::InterfaceType, const MFVariable *> &param :
-       procedure.params()) {
-    signature.add(param.second->name(), MFParamType(param.first, param.second->data_type()));
-  }
+ public:
+  MFProcedureExecutor(std::string name, const MFProcedure &procedure);
 
-  signature_ = signature.build();
-  this->set_signature(&signature_);
-}
-
-void MFProcedureExecutor::call(IndexMask UNUSED(mask),
-                               MFParams UNUSED(params),
-                               MFContext UNUSED(context)) const
-{
-}
+  void call(IndexMask mask, MFParams params, MFContext context) const override;
+};
 
 }  // namespace blender::fn

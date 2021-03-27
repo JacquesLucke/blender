@@ -147,17 +147,6 @@ class MFProcedure : NonCopyable, NonMovable {
   std::string to_dot() const;
 };
 
-class MFProcedureExecutor : public MultiFunction {
- private:
-  MFSignature signature_;
-  const MFProcedure &procedure_;
-
- public:
-  MFProcedureExecutor(std::string name, const MFProcedure &procedure);
-
-  void call(IndexMask mask, MFParams params, MFContext context) const override;
-};
-
 /* --------------------------------------------------------------------
  * MFVariable inline methods.
  */
