@@ -50,6 +50,7 @@
 
 #include "gpencil_io.h"
 
+#if defined(WITH_PUGIXML) || defined(WITH_HARU)
 /* Definition of enum elements to export. */
 /* Common props for exporting. */
 static void gpencil_export_common_props_definition(wmOperatorType *ot)
@@ -85,7 +86,7 @@ static void gpencil_export_common_props_definition(wmOperatorType *ot)
                   "Export strokes with constant thickness");
 }
 
-static void set_export_filepath(bContext *C, wmOperator *op)
+static void set_export_filepath(bContext *C, wmOperator *op, const char *extension)
 {
   if (!RNA_struct_property_is_set(op->ptr, "filepath")) {
     Main *bmain = CTX_data_main(C);
@@ -98,10 +99,11 @@ static void set_export_filepath(bContext *C, wmOperator *op)
       BLI_strncpy(filepath, BKE_main_blendfile_path(bmain), sizeof(filepath));
     }
 
-    BLI_path_extension_replace(filepath, sizeof(filepath), ".pdf");
+    BLI_path_extension_replace(filepath, sizeof(filepath), extension);
     RNA_string_set(op->ptr, "filepath", filepath);
   }
 }
+#endif
 
 /* <-------- SVG single frame export. --------> */
 #ifdef WITH_PUGIXML
@@ -121,7 +123,7 @@ static bool wm_gpencil_export_svg_common_check(bContext *UNUSED(C), wmOperator *
 
 static int wm_gpencil_export_svg_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
-  set_export_filepath(C, op);
+  set_export_filepath(C, op, ".svg");
 
   WM_event_add_fileselect(C, op);
 
@@ -280,7 +282,7 @@ static bool wm_gpencil_export_pdf_common_check(bContext *UNUSED(C), wmOperator *
 
 static int wm_gpencil_export_pdf_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
-  set_export_filepath(C, op);
+  set_export_filepath(C, op, ".pdf");
 
   WM_event_add_fileselect(C, op);
 

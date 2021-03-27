@@ -39,22 +39,19 @@ set(INC_SYS
 )
 
 set(SRC
- intern/gpencil_io_capi.cc
+  intern/gpencil_io_capi.cc
+  intern/gpencil_io_base.cc
+  intern/gpencil_io_import_base.cc
+  intern/gpencil_io_import_svg.cc
 
- # This line must be removed if NanoSVG is moved to extern
- nanosvg/nanosvg.h
+  # This line must be removed if NanoSVG is moved to extern
+  nanosvg/nanosvg.h
 
- gpencil_io.h
-
- intern/gpencil_io_base.h
- intern/gpencil_io_base.cc
-
- intern/gpencil_io_import_base.h
- intern/gpencil_io_import_svg.h
- intern/gpencil_io_import_base.cc
- intern/gpencil_io_import_svg.cc
-
- intern/gpencil_io_export_base.h
+  gpencil_io.h
+  intern/gpencil_io_base.hh
+  intern/gpencil_io_export_base.hh
+  intern/gpencil_io_import_base.hh
+  intern/gpencil_io_import_svg.hh
 )
 
 set(LIB
@@ -65,10 +62,11 @@ set(LIB
 
 if(WITH_PUGIXML)
   list(APPEND SRC
-    intern/gpencil_io_export_svg.h
     intern/gpencil_io_export_svg.cc
+
+    intern/gpencil_io_export_svg.hh
   )
-  list(APPEND INC
+  list(APPEND INC_SYS
     ${PUGIXML_INCLUDE_DIR}
   )
   list(APPEND LIB
@@ -79,10 +77,11 @@ endif()
 
 if(WITH_HARU)
   list(APPEND SRC
-    intern/gpencil_io_export_pdf.h
     intern/gpencil_io_export_pdf.cc
+
+    intern/gpencil_io_export_pdf.hh
   )
-  list(APPEND INC
+  list(APPEND INC_SYS
     ${HARU_INCLUDE_DIRS}
   )
   list(APPEND LIB
