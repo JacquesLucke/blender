@@ -42,6 +42,7 @@ class MFVariable : NonCopyable, NonMovable {
   MFDataType data_type_;
   Vector<MFInstruction *> users_;
   std::string name_;
+  int id_;
 
   friend MFProcedure;
   friend MFCallInstruction;
@@ -54,6 +55,8 @@ class MFVariable : NonCopyable, NonMovable {
 
   StringRefNull name() const;
   void set_name(std::string name);
+
+  int id() const;
 };
 
 class MFInstruction : NonCopyable, NonMovable {
@@ -181,6 +184,11 @@ inline Span<MFInstruction *> MFVariable::users()
 inline StringRefNull MFVariable::name() const
 {
   return name_;
+}
+
+inline int MFVariable::id() const
+{
+  return id_;
 }
 
 /* --------------------------------------------------------------------

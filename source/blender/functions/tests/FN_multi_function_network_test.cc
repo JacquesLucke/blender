@@ -5,6 +5,8 @@
 #include "FN_multi_function_builder.hh"
 #include "FN_multi_function_network.hh"
 #include "FN_multi_function_network_evaluation.hh"
+#include "FN_multi_function_network_to_procedure.hh"
+#include "FN_multi_function_procedure_executor.hh"
 
 namespace blender::fn::tests {
 namespace {
@@ -25,7 +27,14 @@ TEST(multi_function_network, Test1)
   network.add_link(node2.output(0), output_socket);
   network.add_link(input_socket, node1.input(0));
 
-  MFNetworkEvaluator network_fn{{&input_socket}, {&output_socket}};
+  std::cout << "\n\n" << network.to_dot() << "\n\n";
+
+  ResourceCollector resources;
+  MFProcedure &procedure = network_to_procedure({&input_socket}, {&output_socket}, resources);
+  std::cout << "\n\n" << procedure.to_dot() << "\n\n";
+
+  // MFNetworkEvaluator network_fn{{&input_socket}, {&output_socket}};
+  MFProcedureExecutor network_fn{"my procedure", procedure};
 
   {
     Array<int> values = {4, 6, 1, 2, 0};

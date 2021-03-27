@@ -36,6 +36,7 @@ set(SRC
   intern/multi_function_network.cc
   intern/multi_function_network_evaluation.cc
   intern/multi_function_network_optimization.cc
+  intern/multi_function_network_to_procedure.cc
   intern/multi_function_procedure.cc
   intern/multi_function_procedure_executor.cc
 
@@ -54,6 +55,7 @@ set(SRC
   FN_multi_function_network.hh
   FN_multi_function_network_evaluation.hh
   FN_multi_function_network_optimization.hh
+  FN_multi_function_network_to_procedure.hh
   FN_multi_function_param_type.hh
   FN_multi_function_params.hh
   FN_multi_function_procedure.hh

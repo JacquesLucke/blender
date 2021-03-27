@@ -116,6 +116,7 @@ MFVariable &MFProcedure::new_variable(MFDataType data_type, std::string name)
   MFVariable &variable = *allocator_.construct<MFVariable>().release();
   variable.name_ = std::move(name);
   variable.data_type_ = data_type;
+  variable.id_ = variables_.size();
   variables_.append(&variable);
   return variable;
 }
@@ -197,10 +198,21 @@ MFProcedure::~MFProcedure()
   }
 }
 
+static std::string optional_variable_to_string(const MFVariable *variable)
+{
+  if (variable == nullptr) {
+    return "<null>";
+  }
+  std::stringstream ss;
+  ss << variable->name() << "$" << variable->id();
+  return ss.str();
+}
+
 std::string MFProcedure::to_dot() const
 {
   dot::DirectedGraph digraph;
   Map<MFInstruction *, dot::Node *> dot_nodes;
+
   for (MFCallInstruction *instruction : call_instructions_) {
     std::stringstream ss;
     const MultiFunction &fn = instruction->fn();
@@ -223,12 +235,7 @@ std::string MFProcedure::to_dot() const
         }
       }
       MFVariable *variable = instruction->params()[param_index];
-      if (variable == nullptr) {
-        ss << "<null>";
-      }
-      else {
-        ss << variable->name();
-      }
+      ss << optional_variable_to_string(variable);
       if (param_index < fn.param_amount() - 1) {
         ss << ", ";
       }
@@ -241,7 +248,7 @@ std::string MFProcedure::to_dot() const
   for (MFBranchInstruction *instruction : branch_instructions_) {
     MFVariable *variable = instruction->condition();
     std::stringstream ss;
-    ss << "Branch: " << (variable == nullptr ? "<null>" : variable->name().c_str());
+    ss << "Branch: " << optional_variable_to_string(variable);
     dot::Node &dot_node = digraph.new_node(ss.str());
     dot_node.set_shape(dot::Attr_shape::Rectangle);
     dot_nodes.add_new(instruction, &dot_node);
@@ -249,7 +256,7 @@ std::string MFProcedure::to_dot() const
   for (MFDestructInstruction *instruction : destruct_instructions_) {
     MFVariable *variable = instruction->variable();
     std::stringstream ss;
-    ss << "Destruct: " << (variable == nullptr ? "<null>" : variable->name().c_str());
+    ss << "Destruct: " << optional_variable_to_string(variable);
     dot::Node &dot_node = digraph.new_node(ss.str());
     dot_node.set_shape(dot::Attr_shape::Rectangle);
     dot_nodes.add_new(instruction, &dot_node);
