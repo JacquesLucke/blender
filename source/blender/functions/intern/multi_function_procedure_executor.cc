@@ -228,7 +228,7 @@ class VariableStoreContainer {
     }
   }
 
-  void load_as_output(MFParamsBuilder &params, const MFVariable &variable)
+  void load_as_output(MFParamsBuilder &params, const MFVariable &variable, const IndexMask &mask)
   {
     VariableStore &store = this->get_store_for_variable(variable);
     switch (store.type) {
@@ -242,11 +242,15 @@ class VariableStoreContainer {
         break;
       }
       case VariableStoreType::SingleOwn: {
-        params.add_uninitialized_single_output(static_cast<VariableStore_SingleOwn &>(store).data);
+        VariableStore_SingleOwn &own_store = static_cast<VariableStore_SingleOwn &>(store);
+        own_store.tot_initialized += mask.size();
+        params.add_uninitialized_single_output(own_store.data);
         break;
       }
       case VariableStoreType::VectorOwn: {
-        params.add_vector_output(static_cast<VariableStore_VectorOwn &>(store).data);
+        VariableStore_VectorOwn &own_store = static_cast<VariableStore_VectorOwn &>(store);
+        own_store.tot_initialized += mask.size();
+        params.add_vector_output(own_store.data);
         break;
       }
       case VariableStoreType::VirtualSingleFromCaller:
@@ -288,29 +292,6 @@ class VariableStoreContainer {
 
 }  // namespace
 
-static int64_t update_tot_initialized_if_necessary(VariableStore &store, const int64_t change)
-{
-  switch (store.type) {
-    case VariableStoreType::SingleOwn: {
-      VariableStore_SingleOwn &own_store = static_cast<VariableStore_SingleOwn &>(store);
-      own_store.tot_initialized += change;
-      return own_store.tot_initialized;
-    }
-    case VariableStoreType::VectorOwn: {
-      VariableStore_VectorOwn &own_store = static_cast<VariableStore_VectorOwn &>(store);
-      own_store.tot_initialized += change;
-      return own_store.tot_initialized;
-    }
-    case VariableStoreType::SingleFromCaller:
-    case VariableStoreType::VectorFromCaller:
-    case VariableStoreType::VirtualSingleFromCaller:
-    case VariableStoreType::VirtualVectorFromCaller: {
-      break;
-    }
-  }
-  return -1;
-}
-
 static void execute_call_instruction(const MFCallInstruction &instruction,
                                      IndexMask mask,
                                      VariableStoreContainer &variable_stores,
@@ -333,7 +314,7 @@ static void execute_call_instruction(const MFCallInstruction &instruction,
         break;
       }
       case MFParamType::Output: {
-        variable_stores.load_as_output(params, *variable);
+        variable_stores.load_as_output(params, *variable, mask);
         break;
       }
     }
