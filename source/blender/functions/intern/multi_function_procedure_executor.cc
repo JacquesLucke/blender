@@ -106,6 +106,64 @@ struct VariableStore_VectorOwn : public VariableStore {
   }
 };
 
+class VariableStoreContainer {
+ public:
+  LinearAllocator<> allocator_;
+  Map<const MFVariable *, VariableStore *> stores_;
+
+  VariableStoreContainer() = default;
+
+  void add_from_caller(const MFProcedureExecutor &fn,
+                       const MFProcedure &procedure,
+                       MFParams &params)
+  {
+    for (const int param_index : fn.param_indices()) {
+      MFParamType param_type = fn.param_type(param_index);
+      const MFVariable *variable = procedure.params()[param_index].second;
+      switch (param_type.category()) {
+        case MFParamType::SingleInput: {
+          const GVArray &data = params.readonly_single_input(param_index);
+          stores_.add_new(
+              variable,
+              allocator_.construct<VariableStore_VirtualSingleFromCaller>(data).release());
+          break;
+        }
+        case MFParamType::VectorInput: {
+          const GVVectorArray &data = params.readonly_vector_input(param_index);
+          stores_.add_new(
+              variable,
+              allocator_.construct<VariableStore_VirtualVectorFromCaller>(data).release());
+          break;
+        }
+        case MFParamType::SingleOutput: {
+          GMutableSpan data = params.uninitialized_single_output(param_index);
+          stores_.add_new(variable,
+                          allocator_.construct<VariableStore_SingleFromCaller>(data).release());
+          break;
+        }
+        case MFParamType::VectorOutput: {
+          GVectorArray &data = params.vector_output(param_index);
+          stores_.add_new(variable,
+                          allocator_.construct<VariableStore_VectorFromCaller>(data).release());
+          break;
+        }
+        case MFParamType::SingleMutable: {
+          GMutableSpan data = params.single_mutable(param_index);
+          stores_.add_new(variable,
+                          allocator_.construct<VariableStore_SingleFromCaller>(data).release());
+          break;
+        }
+        case MFParamType::VectorMutable: {
+          GVectorArray &data = params.vector_mutable(param_index);
+          stores_.add_new(variable,
+                          allocator_.construct<VariableStore_VectorFromCaller>(data).release());
+          break;
+        }
+      }
+    }
+  }
+};
+
 }  // namespace
 
 static void add_input_from_store(MFParamsBuilder &params, VariableStore &store)
@@ -256,54 +314,14 @@ void MFProcedureExecutor::call(IndexMask mask, MFParams params, MFContext contex
     return;
   }
 
-  Map<const MFVariable *, VariableStore *> variable_stores;
   LinearAllocator<> allocator;
 
-  for (const int param_index : this->param_indices()) {
-    MFParamType param_type = this->param_type(param_index);
-    const MFVariable *variable = procedure_.params()[param_index].second;
-    switch (param_type.category()) {
-      case MFParamType::SingleInput: {
-        const GVArray &data = params.readonly_single_input(param_index);
-        variable_stores.add_new(
-            variable, allocator.construct<VariableStore_VirtualSingleFromCaller>(data).release());
-        break;
-      }
-      case MFParamType::VectorInput: {
-        const GVVectorArray &data = params.readonly_vector_input(param_index);
-        variable_stores.add_new(
-            variable, allocator.construct<VariableStore_VirtualVectorFromCaller>(data).release());
-        break;
-      }
-      case MFParamType::SingleOutput: {
-        GMutableSpan data = params.uninitialized_single_output(param_index);
-        variable_stores.add_new(
-            variable, allocator.construct<VariableStore_SingleFromCaller>(data).release());
-        break;
-      }
-      case MFParamType::VectorOutput: {
-        GVectorArray &data = params.vector_output(param_index);
-        variable_stores.add_new(
-            variable, allocator.construct<VariableStore_VectorFromCaller>(data).release());
-        break;
-      }
-      case MFParamType::SingleMutable: {
-        GMutableSpan data = params.single_mutable(param_index);
-        variable_stores.add_new(
-            variable, allocator.construct<VariableStore_SingleFromCaller>(data).release());
-        break;
-      }
-      case MFParamType::VectorMutable: {
-        GVectorArray &data = params.vector_mutable(param_index);
-        variable_stores.add_new(
-            variable, allocator.construct<VariableStore_VectorFromCaller>(data).release());
-        break;
-      }
-    }
-  }
+  VariableStoreContainer variable_stores;
+  variable_stores.add_from_caller(*this, procedure_, params);
+
   const int64_t min_array_size = mask.min_array_size();
   for (const MFVariable *variable : procedure_.variables()) {
-    if (variable_stores.contains(variable)) {
+    if (variable_stores.stores_.contains(variable)) {
       continue;
     }
     MFDataType data_type = variable->data_type();
@@ -311,7 +329,7 @@ void MFProcedureExecutor::call(IndexMask mask, MFParams params, MFContext contex
       case MFDataType::Single: {
         const CPPType &type = data_type.single_type();
         void *buffer = allocator.allocate(type.size() * min_array_size, type.alignment());
-        variable_stores.add_new(
+        variable_stores.stores_.add_new(
             variable,
             allocator
                 .construct<VariableStore_SingleOwn>(GMutableSpan(type, buffer, min_array_size))
@@ -322,7 +340,7 @@ void MFProcedureExecutor::call(IndexMask mask, MFParams params, MFContext contex
         const CPPType &type = data_type.vector_base_type();
         /* TODO: Free. */
         GVectorArray *vector_array = new GVectorArray(type, min_array_size);
-        variable_stores.add_new(
+        variable_stores.stores_.add_new(
             variable, allocator.construct<VariableStore_VectorOwn>(*vector_array).release());
         break;
       }
@@ -340,7 +358,7 @@ void MFProcedureExecutor::call(IndexMask mask, MFParams params, MFContext contex
         const MFCallInstruction *call_instruction = static_cast<const MFCallInstruction *>(
             instruction);
         for (Span<int64_t> indices : indices_vector) {
-          execute_call_instruction(*call_instruction, indices, variable_stores, context);
+          execute_call_instruction(*call_instruction, indices, variable_stores.stores_, context);
         }
         const MFInstruction *next_instruction = call_instruction->next();
         if (next_instruction != nullptr) {
@@ -353,7 +371,7 @@ void MFProcedureExecutor::call(IndexMask mask, MFParams params, MFContext contex
         const MFBranchInstruction *branch_instruction = static_cast<const MFBranchInstruction *>(
             instruction);
         const MFVariable *condition_var = branch_instruction->condition();
-        VariableStore *store = variable_stores.lookup(condition_var);
+        VariableStore *store = variable_stores.stores_.lookup(condition_var);
         Vector<Vector<int64_t>> indices_vector_true, indices_vector_false;
         for (Span<int64_t> indices : indices_vector) {
           std::array<Vector<int64_t>, 2> new_indices;
