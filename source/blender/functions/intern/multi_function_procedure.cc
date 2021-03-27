@@ -148,11 +148,12 @@ MFBranchInstruction &MFProcedure::new_branch_instruction(MFVariable *condition_v
   return instruction;
 }
 
-MFDestructInstruction &MFProcedure::new_destruct_instruction()
+MFDestructInstruction &MFProcedure::new_destruct_instruction(MFVariable *variable)
 {
   MFDestructInstruction &instruction = *allocator_.construct<MFDestructInstruction>().release();
   instruction.type_ = MFInstructionType::Destruct;
   destruct_instructions_.append(&instruction);
+  instruction.set_variable(variable);
   return instruction;
 }
 
@@ -222,7 +223,7 @@ std::string MFProcedure::to_dot() const
       }
       MFVariable *variable = instruction->params()[param_index];
       if (variable == nullptr) {
-        ss << "null";
+        ss << "<null>";
       }
       else {
         ss << variable->name();
@@ -237,18 +238,18 @@ std::string MFProcedure::to_dot() const
     dot_nodes.add_new(instruction, &dot_node);
   }
   for (MFBranchInstruction *instruction : branch_instructions_) {
-    std::stringstream ss;
-    ss << "Branch";
     MFVariable *variable = instruction->condition();
-    if (variable != nullptr) {
-      ss << ": " << variable->name();
-    }
+    std::stringstream ss;
+    ss << "Branch: " << (variable == nullptr ? "<null>" : variable->name().c_str());
     dot::Node &dot_node = digraph.new_node(ss.str());
     dot_node.set_shape(dot::Attr_shape::Rectangle);
     dot_nodes.add_new(instruction, &dot_node);
   }
   for (MFDestructInstruction *instruction : destruct_instructions_) {
-    dot::Node &dot_node = digraph.new_node("Destruct");
+    MFVariable *variable = instruction->variable();
+    std::stringstream ss;
+    ss << "Destruct: " << (variable == nullptr ? "<null>" : variable->name().c_str());
+    dot::Node &dot_node = digraph.new_node(ss.str());
     dot_node.set_shape(dot::Attr_shape::Rectangle);
     dot_nodes.add_new(instruction, &dot_node);
   }

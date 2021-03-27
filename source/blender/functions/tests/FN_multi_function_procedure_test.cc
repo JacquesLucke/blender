@@ -22,10 +22,12 @@ TEST(multi_function_procedure, SimpleTest)
   MFCallInstruction &add1_instr = procedure.new_call_instruction(add_fn, {&var1, &var2, &var3});
   MFCallInstruction &add2_instr = procedure.new_call_instruction(add_fn, {&var2, &var3, &var4});
   MFCallInstruction &add3_instr = procedure.new_call_instruction(add_10_fn, {&var4});
+  MFDestructInstruction &destruct_instr = procedure.new_destruct_instruction(&var3);
 
   procedure.set_entry(add1_instr);
   add1_instr.set_next(&add2_instr);
   add2_instr.set_next(&add3_instr);
+  add3_instr.set_next(&destruct_instr);
 
   procedure.add_parameter(MFParamType::Input, var1);
   procedure.add_parameter(MFParamType::Input, var2);

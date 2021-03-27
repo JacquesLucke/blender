@@ -146,7 +146,7 @@ class MFProcedure : NonCopyable, NonMovable {
   MFCallInstruction &new_call_instruction(const MultiFunction &fn,
                                           Span<MFVariable *> param_variables);
   MFBranchInstruction &new_branch_instruction(MFVariable *condition_variable = nullptr);
-  MFDestructInstruction &new_destruct_instruction();
+  MFDestructInstruction &new_destruct_instruction(MFVariable *variable = nullptr);
 
   void add_parameter(MFParamType::InterfaceType interface_type, MFVariable &variable);
 
