@@ -92,6 +92,12 @@ static void execute_call_instruction(const MFCallInstruction &instruction,
         break;
       }
       case MFParamType::Mutable: {
+        if (store->type == VariableStoreType::GMutableSpan) {
+          params.add_single_mutable(static_cast<VariableStore_GMutableSpan *>(store)->data);
+        }
+        else {
+          BLI_assert_unreachable();
+        }
         break;
       }
       case MFParamType::Output: {
