@@ -166,6 +166,19 @@ void MFProcedure::set_entry(MFInstruction &entry)
   entry_ = &entry;
 }
 
+void MFProcedure::assert_valid() const
+{
+  /**
+   * - Non parameter variables are destructed.
+   * - At every instruction, every variable is either initialized or uninitialized.
+   * - Input and mutable parameters of call instructions are initialized.
+   * - Condition of branch instruction is initialized.
+   * - Output parameters of call instructions are not initialized.
+   * - Input parameters are never destructed.
+   * - Mutable and output parameteres are initialized on every exit.
+   */
+}
+
 MFProcedure::~MFProcedure()
 {
   for (MFCallInstruction *instruction : call_instructions_) {
