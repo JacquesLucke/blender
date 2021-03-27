@@ -177,7 +177,9 @@ void MFProcedure::assert_valid() const
    * - Output parameters of call instructions are not initialized.
    * - Input parameters are never destructed.
    * - Mutable and output parameteres are initialized on every exit.
+   * - No aliasing issues in call instructions (can happen when variable is used more than once).
    */
+  Map<MFInstruction *, Map<MFVariable *, bool>> initialized_states;
 }
 
 MFProcedure::~MFProcedure()
