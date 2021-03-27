@@ -27,14 +27,7 @@ TEST(multi_function_network, Test1)
   network.add_link(node2.output(0), output_socket);
   network.add_link(input_socket, node1.input(0));
 
-  std::cout << "\n\n" << network.to_dot() << "\n\n";
-
-  ResourceCollector resources;
-  MFProcedure &procedure = network_to_procedure({&input_socket}, {&output_socket}, resources);
-  std::cout << "\n\n" << procedure.to_dot() << "\n\n";
-
-  // MFNetworkEvaluator network_fn{{&input_socket}, {&output_socket}};
-  MFProcedureExecutor network_fn{"my procedure", procedure};
+  MFNetworkEvaluator network_fn{{&input_socket}, {&output_socket}};
 
   {
     Array<int> values = {4, 6, 1, 2, 0};
@@ -222,7 +215,13 @@ TEST(multi_function_network, Test2)
 
   // std::cout << network.to_dot() << "\n\n";
 
-  MFNetworkEvaluator network_fn{{&input1, &input2}, {&output1, &output2}};
+  ResourceCollector resources;
+  MFProcedure &procedure = network_to_procedure(
+      {&input1, &input2}, {&output1, &output2}, resources);
+  // std::cout << procedure.to_dot() << "\n\n";
+
+  // MFNetworkEvaluator network_fn{{&input1, &input2}, {&output1, &output2}};
+  MFProcedureExecutor network_fn{"my procedure", procedure};
 
   {
     Array<int> input_value_1 = {3, 6};

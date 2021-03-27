@@ -305,6 +305,7 @@ class VariableStoreContainer {
       case VariableStoreType::VectorOwn: {
         VariableStore_VectorOwn &own_store = static_cast<VariableStore_VectorOwn &>(*store);
         own_store.data.clear(mask);
+        own_store.tot_initialized -= tot_destruct;
         if (own_store.tot_initialized == 0) {
           delete &own_store.data;
           stores_.remove_contained(&variable);
@@ -340,7 +341,6 @@ class VariableStoreContainer {
       }
       case MFDataType::Vector: {
         const CPPType &type = data_type.vector_base_type();
-        /* TODO: Free. */
         GVectorArray *vector_array = new GVectorArray(type, min_array_size_);
         return allocator_.construct<VariableStore_VectorOwn>(*vector_array).release();
       }

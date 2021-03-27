@@ -107,6 +107,7 @@ static void add_instructions_to_compute_socket(const MFSocket &socket, Conversio
         case MFParamType::Mutable: {
           const MFInputSocket &input_socket = node.input_for_param(param_index);
           const MFOutputSocket &output_socket = node.output_for_param(param_index);
+          add_instructions_to_compute_socket(input_socket, context);
           MFVariable *input_variable = context.socket_variables.lookup(&input_socket);
           MFVariable &mutable_variable = context.procedure.new_variable(output_socket.data_type(),
                                                                         output_socket.name());
