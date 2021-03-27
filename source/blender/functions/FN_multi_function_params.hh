@@ -59,6 +59,14 @@ class MFParamsBuilder {
                                         __func__, CPPType::get<T>(), min_array_size_, value),
                                     expected_name);
   }
+  template<typename T> void add_readonly_single_input_value(T value, StringRef expected_name = "")
+  {
+    T *value_ptr = &resources_.add_value<T>(std::move(value), __func__);
+    this->add_readonly_single_input(
+        resources_.construct<GVArrayForSingleValueRef>(
+            __func__, CPPType::get<T>(), min_array_size_, (const void *)value_ptr),
+        expected_name);
+  }
   void add_readonly_single_input(const GSpan span, StringRef expected_name = "")
   {
     this->add_readonly_single_input(resources_.construct<GVArrayForGSpan>(__func__, span),

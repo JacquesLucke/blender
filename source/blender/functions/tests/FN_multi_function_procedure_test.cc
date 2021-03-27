@@ -35,7 +35,15 @@ TEST(multi_function_procedure, SimpleTest)
   MFParamsBuilder params{executor, 1};
   MFContextBuilder context;
 
+  params.add_readonly_single_input_value(5);
+  params.add_readonly_single_input_value(3);
+
+  Array<int> output_array(1);
+  params.add_uninitialized_single_output(output_array.as_mutable_span());
+
   executor.call({0}, params, context);
+
+  EXPECT_EQ(output_array[0], 11);
 }
 
 }  // namespace blender::fn::tests

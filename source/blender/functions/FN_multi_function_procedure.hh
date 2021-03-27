@@ -83,11 +83,13 @@ class MFCallInstruction : public MFInstruction {
   const MultiFunction &fn() const;
 
   MFInstruction *next();
+  const MFInstruction *next() const;
   void set_next(MFInstruction *instruction);
 
   void set_param_variable(int param_index, MFVariable *variable);
   void set_params(Span<MFVariable *> variables);
   Span<MFVariable *> params();
+  Span<const MFVariable *> params() const;
 };
 
 class MFBranchInstruction : public MFInstruction {
@@ -145,7 +147,12 @@ class MFProcedure : NonCopyable, NonMovable {
 
   Span<std::pair<MFParamType::InterfaceType, const MFVariable *>> params() const;
 
+  MFInstruction *entry();
+  const MFInstruction *entry() const;
   void set_entry(MFInstruction &entry);
+
+  Span<MFVariable *> variables();
+  Span<const MFVariable *> variables() const;
 
   std::string to_dot() const;
 };
@@ -197,7 +204,17 @@ inline MFInstruction *MFCallInstruction::next()
   return next_;
 }
 
+inline const MFInstruction *MFCallInstruction::next() const
+{
+  return next_;
+}
+
 inline Span<MFVariable *> MFCallInstruction::params()
+{
+  return params_;
+}
+
+inline Span<const MFVariable *> MFCallInstruction::params() const
 {
   return params_;
 }
@@ -242,6 +259,26 @@ inline MFInstruction *MFDestructInstruction::next()
 inline Span<std::pair<MFParamType::InterfaceType, const MFVariable *>> MFProcedure::params() const
 {
   return params_.as_span().cast<std::pair<MFParamType::InterfaceType, const MFVariable *>>();
+}
+
+inline MFInstruction *MFProcedure::entry()
+{
+  return entry_;
+}
+
+inline const MFInstruction *MFProcedure::entry() const
+{
+  return entry_;
+}
+
+inline Span<MFVariable *> MFProcedure::variables()
+{
+  return variables_;
+}
+
+inline Span<const MFVariable *> MFProcedure::variables() const
+{
+  return variables_;
 }
 
 }  // namespace blender::fn
