@@ -48,6 +48,14 @@ void MFCallInstruction::set_param_variable(int param_index, MFVariable *variable
   params_[param_index] = variable;
 }
 
+void MFCallInstruction::set_params(Span<MFVariable *> variables)
+{
+  BLI_assert(variables.size() == params_.size());
+  for (const int i : variables.index_range()) {
+    this->set_param_variable(i, variables[i]);
+  }
+}
+
 void MFBranchInstruction::set_condition(MFVariable *variable)
 {
   if (condition_ != nullptr) {
@@ -119,6 +127,14 @@ MFCallInstruction &MFProcedure::new_call_instruction(const MultiFunction &fn)
   instruction.params_ = allocator_.allocate_array<MFVariable *>(fn.param_amount());
   instruction.params_.fill(nullptr);
   call_instructions_.append(&instruction);
+  return instruction;
+}
+
+MFCallInstruction &MFProcedure::new_call_instruction(const MultiFunction &fn,
+                                                     Span<MFVariable *> param_variables)
+{
+  MFCallInstruction &instruction = this->new_call_instruction(fn);
+  instruction.set_params(param_variables);
   return instruction;
 }
 

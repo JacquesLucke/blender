@@ -86,6 +86,7 @@ class MFCallInstruction : public MFInstruction {
   void set_next(MFInstruction *instruction);
 
   void set_param_variable(int param_index, MFVariable *variable);
+  void set_params(Span<MFVariable *> variables);
   Span<MFVariable *> params();
 };
 
@@ -135,6 +136,8 @@ class MFProcedure : NonCopyable, NonMovable {
 
   MFVariable &new_variable(MFDataType data_type, std::string name = "");
   MFCallInstruction &new_call_instruction(const MultiFunction &fn);
+  MFCallInstruction &new_call_instruction(const MultiFunction &fn,
+                                          Span<MFVariable *> param_variables);
   MFBranchInstruction &new_branch_instruction();
   MFDestructInstruction &new_destruct_instruction();
 
