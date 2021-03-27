@@ -261,6 +261,27 @@ class VariableStoreContainer {
     }
   }
 
+  void load_param(MFParamsBuilder &params,
+                  const MFVariable &variable,
+                  const MFParamType &param_type,
+                  const IndexMask &mask)
+  {
+    switch (param_type.interface_type()) {
+      case MFParamType::Input: {
+        this->load_as_input(params, variable);
+        break;
+      }
+      case MFParamType::Mutable: {
+        this->load_as_mutable(params, variable);
+        break;
+      }
+      case MFParamType::Output: {
+        this->load_as_output(params, variable, mask);
+        break;
+      }
+    }
+  }
+
   void destruct(const MFVariable &variable, const IndexMask &mask)
   {
     VariableStore *store = stores_.lookup_default(&variable, nullptr);
@@ -342,21 +363,7 @@ static void execute_call_instruction(const MFCallInstruction &instruction,
   for (const int param_index : fn.param_indices()) {
     const MFParamType param_type = fn.param_type(param_index);
     const MFVariable *variable = instruction.params()[param_index];
-
-    switch (param_type.interface_type()) {
-      case MFParamType::Input: {
-        variable_stores.load_as_input(params, *variable);
-        break;
-      }
-      case MFParamType::Mutable: {
-        variable_stores.load_as_mutable(params, *variable);
-        break;
-      }
-      case MFParamType::Output: {
-        variable_stores.load_as_output(params, *variable, mask);
-        break;
-      }
-    }
+    variable_stores.load_param(params, *variable, param_type, mask);
   }
 
   fn.call(mask, params, context);
