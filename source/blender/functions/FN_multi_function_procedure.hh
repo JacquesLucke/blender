@@ -119,9 +119,11 @@ class MFDestructInstruction : public MFInstruction {
 
  public:
   MFVariable *variable();
+  const MFVariable *variable() const;
   void set_variable(MFVariable *variable);
 
   MFInstruction *next();
+  const MFInstruction *next() const;
   void set_next(MFInstruction *instruction);
 };
 
@@ -265,7 +267,17 @@ inline MFVariable *MFDestructInstruction::variable()
   return variable_;
 }
 
+inline const MFVariable *MFDestructInstruction::variable() const
+{
+  return variable_;
+}
+
 inline MFInstruction *MFDestructInstruction::next()
+{
+  return next_;
+}
+
+inline const MFInstruction *MFDestructInstruction::next() const
 {
   return next_;
 }

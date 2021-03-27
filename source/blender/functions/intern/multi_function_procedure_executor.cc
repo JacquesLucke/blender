@@ -261,6 +261,44 @@ class VariableStoreContainer {
     }
   }
 
+  void destruct(const MFVariable &variable, const IndexMask &mask)
+  {
+    VariableStore *store = stores_.lookup_default(&variable, nullptr);
+    const int64_t tot_destruct = mask.size();
+    if (store == nullptr) {
+      return;
+    }
+    switch (store->type) {
+      case VariableStoreType::SingleOwn: {
+        VariableStore_SingleOwn &own_store = static_cast<VariableStore_SingleOwn &>(*store);
+        const CPPType &type = own_store.data.type();
+        void *buffer = own_store.data.data();
+        type.destruct_indices(buffer, mask);
+        own_store.tot_initialized -= tot_destruct;
+        if (own_store.tot_initialized == 0) {
+          MEM_freeN(buffer);
+          stores_.remove_contained(&variable);
+        }
+        break;
+      }
+      case VariableStoreType::VectorOwn: {
+        VariableStore_VectorOwn &own_store = static_cast<VariableStore_VectorOwn &>(*store);
+        own_store.data.clear(mask);
+        if (own_store.tot_initialized == 0) {
+          delete &own_store.data;
+          stores_.remove_contained(&variable);
+        }
+        break;
+      }
+      case VariableStoreType::SingleFromCaller:
+      case VariableStoreType::VectorFromCaller:
+      case VariableStoreType::VirtualSingleFromCaller:
+      case VariableStoreType::VirtualVectorFromCaller: {
+        break;
+      }
+    }
+  }
+
   VariableStore &get_store_for_variable(const MFVariable &variable)
   {
     return *stores_.lookup_or_add_cb(
@@ -273,7 +311,8 @@ class VariableStoreContainer {
     switch (data_type.category()) {
       case MFDataType::Single: {
         const CPPType &type = data_type.single_type();
-        void *buffer = allocator_.allocate(type.size() * min_array_size_, type.alignment());
+        void *buffer = MEM_mallocN_aligned(
+            type.size() * min_array_size_, type.alignment(), __func__);
         return allocator_
             .construct<VariableStore_SingleOwn>(GMutableSpan(type, buffer, min_array_size_))
             .release();
@@ -412,6 +451,17 @@ void MFProcedureExecutor::call(IndexMask mask, MFParams params, MFContext contex
         break;
       }
       case MFInstructionType::Destruct: {
+        const MFDestructInstruction *destruct_instruction =
+            static_cast<const MFDestructInstruction *>(instruction);
+        const MFVariable *variable = destruct_instruction->variable();
+        for (Span<int64_t> indices : indices_vector) {
+          variable_stores.destruct(*variable, indices);
+        }
+        const MFInstruction *next_instruction = destruct_instruction->next();
+        if (next_instruction != nullptr) {
+          indices_by_instruction.lookup_or_add_default(next_instruction)
+              .extend(std::move(indices_vector));
+        }
         break;
       }
     }
