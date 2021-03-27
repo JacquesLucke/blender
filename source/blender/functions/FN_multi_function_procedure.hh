@@ -100,12 +100,15 @@ class MFBranchInstruction : public MFInstruction {
 
  public:
   MFVariable *condition();
+  const MFVariable *condition() const;
   void set_condition(MFVariable *variable);
 
   MFInstruction *branch_true();
+  const MFInstruction *branch_true() const;
   void set_branch_true(MFInstruction *instruction);
 
   MFInstruction *branch_false();
+  const MFInstruction *branch_false() const;
   void set_branch_false(MFInstruction *instruction);
 };
 
@@ -228,12 +231,27 @@ inline MFVariable *MFBranchInstruction::condition()
   return condition_;
 }
 
+inline const MFVariable *MFBranchInstruction::condition() const
+{
+  return condition_;
+}
+
 inline MFInstruction *MFBranchInstruction::branch_true()
 {
   return branch_true_;
 }
 
+inline const MFInstruction *MFBranchInstruction::branch_true() const
+{
+  return branch_true_;
+}
+
 inline MFInstruction *MFBranchInstruction::branch_false()
+{
+  return branch_false_;
+}
+
+inline const MFInstruction *MFBranchInstruction::branch_false() const
 {
   return branch_false_;
 }

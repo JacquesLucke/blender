@@ -169,12 +169,12 @@ void MFProcedureExecutor::call(IndexMask mask, MFParams params, MFContext contex
             .release());
   }
 
-  Map<const MFInstruction *, Vector<Array<int64_t>>> indices_by_instruction;
+  Map<const MFInstruction *, Vector<Vector<int64_t>>> indices_by_instruction;
 
   indices_by_instruction.add_new(procedure_.entry(), {mask.indices()});
   while (!indices_by_instruction.is_empty()) {
     const MFInstruction *instruction = *indices_by_instruction.keys().begin();
-    Vector<Array<int64_t>> indices_vector = indices_by_instruction.pop(instruction);
+    Vector<Vector<int64_t>> indices_vector = indices_by_instruction.pop(instruction);
     switch (instruction->type()) {
       case MFInstructionType::Call: {
         const MFCallInstruction *call_instruction = static_cast<const MFCallInstruction *>(
@@ -190,6 +190,42 @@ void MFProcedureExecutor::call(IndexMask mask, MFParams params, MFContext contex
         break;
       }
       case MFInstructionType::Branch: {
+        const MFBranchInstruction *branch_instruction = static_cast<const MFBranchInstruction *>(
+            instruction);
+        const MFVariable *condition_var = branch_instruction->condition();
+        VariableStore *store = variable_stores.lookup(condition_var);
+        Vector<Vector<int64_t>> indices_vector_true, indices_vector_false;
+        for (Span<int64_t> indices : indices_vector) {
+          std::array<Vector<int64_t>, 2> new_indices;
+          if (store->type == VariableStoreType::GMutableSpan) {
+            Span<bool> conditions =
+                static_cast<VariableStore_GMutableSpan *>(store)->data.typed<bool>();
+            for (const int i : indices) {
+              new_indices[conditions[i]].append(i);
+            }
+          }
+          else if (store->type == VariableStoreType::GVArray) {
+            const GVArray &conditions = static_cast<VariableStore_GVArray *>(store)->data;
+            for (const int i : indices) {
+              bool condition;
+              conditions.get(i, &condition);
+              new_indices[condition].append(i);
+            }
+          }
+          indices_vector_false.append(std::move(new_indices[false]));
+          indices_vector_true.append(std::move(new_indices[true]));
+        }
+        const MFInstruction *false_branch = branch_instruction->branch_false();
+        if (false_branch != nullptr) {
+          indices_by_instruction.lookup_or_add_default(false_branch)
+              .extend(std::move(indices_vector_false));
+        }
+        const MFInstruction *true_branch = branch_instruction->branch_true();
+        if (true_branch != nullptr) {
+          indices_by_instruction.lookup_or_add_default(true_branch)
+              .extend(std::move(indices_vector_true));
+        }
+
         break;
       }
       case MFInstructionType::Destruct: {
