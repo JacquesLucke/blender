@@ -34,10 +34,8 @@ MFProcedureExecutor::MFProcedureExecutor(std::string name, const MFProcedure &pr
 
 namespace {
 enum class VariableStoreType {
-  SingleInputFromCaller,
-  SingleMutableFromCaller,
-  SingleOutputFromCaller,
-  SingleOwn,
+  GVArray,
+  GMutableSpan,
 };
 
 struct VariableStore {
@@ -48,37 +46,20 @@ struct VariableStore {
   }
 };
 
-struct SingleInputFromCallerStore : public VariableStore {
+struct VariableStore_GVArray : public VariableStore {
   const GVArray &data;
 
-  SingleInputFromCallerStore(const GVArray &data)
-      : VariableStore(VariableStoreType::SingleInputFromCaller), data(data)
+  VariableStore_GVArray(const GVArray &data)
+      : VariableStore(VariableStoreType::GVArray), data(data)
   {
   }
 };
 
-struct SingleMutableFromCallerStore : public VariableStore {
+struct VariableStore_GMutableSpan : public VariableStore {
   GMutableSpan data;
 
-  SingleMutableFromCallerStore(GMutableSpan data)
-      : VariableStore(VariableStoreType::SingleMutableFromCaller), data(data)
-  {
-  }
-};
-
-struct SingleOutputFromCallerStore : public VariableStore {
-  GMutableSpan data;
-
-  SingleOutputFromCallerStore(GMutableSpan data)
-      : VariableStore(VariableStoreType::SingleOutputFromCaller), data(data)
-  {
-  }
-};
-
-struct SingleOwnStore : public VariableStore {
-  GMutableSpan data;
-
-  SingleOwnStore(GMutableSpan data) : VariableStore(VariableStoreType::SingleOwn), data(data)
+  VariableStore_GMutableSpan(GMutableSpan data)
+      : VariableStore(VariableStoreType::GMutableSpan), data(data)
   {
   }
 };
@@ -99,19 +80,11 @@ static void execute_call_instruction(const MFCallInstruction &instruction,
 
     switch (param_type.interface_type()) {
       case MFParamType::Input: {
-        if (store->type == VariableStoreType::SingleInputFromCaller) {
-          params.add_readonly_single_input(static_cast<SingleInputFromCallerStore *>(store)->data);
+        if (store->type == VariableStoreType::GVArray) {
+          params.add_readonly_single_input(static_cast<VariableStore_GVArray *>(store)->data);
         }
-        else if (store->type == VariableStoreType::SingleMutableFromCaller) {
-          params.add_readonly_single_input(
-              static_cast<SingleMutableFromCallerStore *>(store)->data);
-        }
-        else if (store->type == VariableStoreType::SingleOutputFromCaller) {
-          params.add_readonly_single_input(
-              static_cast<SingleOutputFromCallerStore *>(store)->data);
-        }
-        else if (store->type == VariableStoreType::SingleOwn) {
-          params.add_readonly_single_input(static_cast<SingleOwnStore *>(store)->data);
+        else if (store->type == VariableStoreType::GMutableSpan) {
+          params.add_readonly_single_input(static_cast<VariableStore_GMutableSpan *>(store)->data);
         }
         else {
           BLI_assert_unreachable();
@@ -122,16 +95,9 @@ static void execute_call_instruction(const MFCallInstruction &instruction,
         break;
       }
       case MFParamType::Output: {
-        if (store->type == VariableStoreType::SingleMutableFromCaller) {
+        if (store->type == VariableStoreType::GMutableSpan) {
           params.add_uninitialized_single_output(
-              static_cast<SingleMutableFromCallerStore *>(store)->data);
-        }
-        else if (store->type == VariableStoreType::SingleOutputFromCaller) {
-          params.add_uninitialized_single_output(
-              static_cast<SingleOutputFromCallerStore *>(store)->data);
-        }
-        else if (store->type == VariableStoreType::SingleOwn) {
-          params.add_uninitialized_single_output(static_cast<SingleOwnStore *>(store)->data);
+              static_cast<VariableStore_GMutableSpan *>(store)->data);
         }
         else {
           BLI_assert_unreachable();
@@ -164,19 +130,19 @@ void MFProcedureExecutor::call(IndexMask mask, MFParams params, MFContext contex
       case MFParamType::Input: {
         const GVArray &data = params.readonly_single_input(param_index);
         variable_stores.add_new(variable,
-                                allocator.construct<SingleInputFromCallerStore>(data).release());
+                                allocator.construct<VariableStore_GVArray>(data).release());
         break;
       }
       case MFParamType::Mutable: {
         GMutableSpan data = params.single_mutable(param_index);
         variable_stores.add_new(variable,
-                                allocator.construct<SingleMutableFromCallerStore>(data).release());
+                                allocator.construct<VariableStore_GMutableSpan>(data).release());
         break;
       }
       case MFParamType::Output: {
         GMutableSpan data = params.uninitialized_single_output(param_index);
         variable_stores.add_new(variable,
-                                allocator.construct<SingleOutputFromCallerStore>(data).release());
+                                allocator.construct<VariableStore_GMutableSpan>(data).release());
         break;
       }
     }
@@ -193,7 +159,8 @@ void MFProcedureExecutor::call(IndexMask mask, MFParams params, MFContext contex
     void *buffer = allocator.allocate(type.size() * min_array_size, type.alignment());
     variable_stores.add_new(
         variable,
-        allocator.construct<SingleOwnStore>(GMutableSpan(type, buffer, min_array_size)).release());
+        allocator.construct<VariableStore_GMutableSpan>(GMutableSpan(type, buffer, min_array_size))
+            .release());
   }
 
   Map<const MFInstruction *, Vector<Array<int64_t>>> indices_by_instruction;
