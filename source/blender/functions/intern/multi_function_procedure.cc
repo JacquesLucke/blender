@@ -183,7 +183,39 @@ std::string MFProcedure::to_dot() const
   dot::DirectedGraph digraph;
   Map<MFInstruction *, dot::Node *> dot_nodes;
   for (MFCallInstruction *instruction : call_instructions_) {
-    dot::Node &dot_node = digraph.new_node(instruction->fn().name());
+    std::stringstream ss;
+    const MultiFunction &fn = instruction->fn();
+    ss << fn.name();
+    ss << "(";
+    for (const int param_index : fn.param_indices()) {
+      MFParamType param_type = fn.param_type(param_index);
+      switch (param_type.interface_type()) {
+        case MFParamType::Input: {
+          ss << "in: ";
+          break;
+        }
+        case MFParamType::Output: {
+          ss << "out: ";
+          break;
+        }
+        case MFParamType::Mutable: {
+          ss << "mut: ";
+          break;
+        }
+      }
+      MFVariable *variable = instruction->params()[param_index];
+      if (variable == nullptr) {
+        ss << "null";
+      }
+      else {
+        ss << variable->name();
+      }
+      if (param_index < fn.param_amount() - 1) {
+        ss << ", ";
+      }
+    }
+    ss << ")";
+    dot::Node &dot_node = digraph.new_node(ss.str());
     dot_node.set_shape(dot::Attr_shape::Rectangle);
     dot_nodes.add_new(instruction, &dot_node);
   }
