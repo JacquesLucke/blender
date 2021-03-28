@@ -349,4 +349,148 @@ template<typename T> class VArrayForGVArray : public VArray<T> {
   }
 };
 
+template<typename T> class GVArrayForSpan : public GVArray {
+ private:
+  const T *data_;
+
+ public:
+  GVArrayForSpan(const Span<T> data) : GVArray(CPPType::get<T>(), data.size()), data_(data.data())
+  {
+  }
+
+ protected:
+  void get_impl(const int64_t index, void *r_value) const override
+  {
+    *(T *)r_value = data_[index];
+  }
+
+  void get_to_uninitialized_impl(const int64_t index, void *r_value) const override
+  {
+    new (r_value) T(data_[index]);
+  }
+
+  bool is_span_impl() const
+  {
+    return true;
+  }
+
+  GSpan get_span_impl() const
+  {
+    return GSpan(*type_, data_, size_);
+  }
+};
+
+template<typename T> class GVMutableArrayForMutableSpan : public GVMutableArray {
+ private:
+  T *data_;
+
+ public:
+  GVMutableArrayForMutableSpan(const MutableSpan<T> data)
+      : GVMutableArray(CPPType::get<T>(), data.size()), data_(data.data())
+  {
+  }
+
+ protected:
+  void get_impl(const int64_t index, void *r_value) const override
+  {
+    *(T *)r_value = data_[index];
+  }
+
+  void get_to_uninitialized_impl(const int64_t index, void *r_value) const override
+  {
+    new (r_value) T(data_[index]);
+  }
+
+  void set_by_copy_impl(const int64_t index, const void *value) override
+  {
+    data_[index] = *(const T *)value;
+  }
+
+  void set_by_relocate(const int64_t index, void *value) override
+  {
+    data_[index] = std::move(*(T *)value);
+    ((T *)value)->~T();
+  }
+
+  void set_by_move(const int64_t index, void *value) override
+  {
+    data_[index] = std::move(*(T *)value);
+  }
+
+  bool is_span_impl() const
+  {
+    return true;
+  }
+
+  GSpan get_span_impl() const
+  {
+    return GSpan(*type_, data_, size_);
+  }
+};
+
+template<typename StructT, typename ElemT, ElemT (*GetFunc)(const StructT &)>
+class GVArrayForDerivedSpan : public GVArray {
+ private:
+  const StructT *data_;
+
+ public:
+  GVArrayForDerivedSpan(Span<StructT> data)
+      : GVArray(CPPType::get<ElemT>(), data.size()), data_(data.data())
+  {
+  }
+
+ protected:
+  void get_impl(const int64_t index, void *r_value) const override
+  {
+    *(ElemT *)r_value = GetFunc(data_[index]);
+  }
+
+  void get_to_uninitialized_impl(const int64_t index, void *r_value) const override
+  {
+    new (r_value) ElemT(GetFunc(data_[index]));
+  }
+};
+
+template<typename StructT,
+         typename ElemT,
+         ElemT (*GetFunc)(const StructT &),
+         void (*SetFunc)(StructT &, ElemT)>
+class GVMutableArrayForDerivedSpan : public GVMutableArray {
+ private:
+  StructT *data_;
+
+ public:
+  GVMutableArrayForDerivedSpan(MutableSpan<StructT> data)
+      : GVMutableArray(CPPType::get<ElemT>(), data.size()), data_(data.data())
+  {
+  }
+
+ protected:
+  void get_impl(const int64_t index, void *r_value) const override
+  {
+    *(ElemT *)r_value = GetFunc(data_[index]);
+  }
+
+  void get_to_uninitialized_impl(const int64_t index, void *r_value) const override
+  {
+    new (r_value) ElemT(GetFunc(data_[index]));
+  }
+
+  void set_by_copy_impl(const int64_t index, const void *value) override
+  {
+    SetFunc(data_[index], *(const ElemT *)value);
+  }
+
+  void set_by_relocate_impl(const int64_t index, void *value) override
+  {
+    SetFunc(data_[index], std::move(*(ElemT *)value));
+    ((ElemT *)value)->~ElemT();
+  }
+
+  void set_by_move_impl(const int64_t index, void *value) override
+  {
+    SetFunc(data_[index], std::move(*(ElemT *)value));
+  }
+};
+
 }  // namespace blender::fn
