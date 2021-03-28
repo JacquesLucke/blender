@@ -138,6 +138,20 @@ static WriteAttributePtr make_array_write_attribute(void *data, const int domain
   return std::make_unique<ArrayWriteAttribute<T>>(Domain, MutableSpan<T>((T *)data, domain_size));
 }
 
+template<typename T>
+static std::unique_ptr<GVArray> make_virtual_array(const void *data, const int domain_size)
+{
+  return std::make_unique<fn::GVArrayForSpan>(Span<T>((const T *)data, domain_size));
+}
+
+template<typename T>
+static std::unique_ptr<GVMutableArray> make_virtual_mutable_array(void *data,
+                                                                  const int domain_size)
+{
+  return std::make_unique<fn::GVMutableArrayForMutableSpan>(
+      MutableSpan<T>((T *)data, domain_size));
+}
+
 /**
  * In this function all the attribute providers for a point cloud component are created. Most data
  * in this function is statically allocated, because it does not change over time.
