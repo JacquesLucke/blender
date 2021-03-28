@@ -50,6 +50,11 @@ using blender::fn::GMutableSpan;
 
 namespace blender::bke {
 
+void MaybeUnsavedWriteAttribute::save_if_necessary()
+{
+  save_(*this);
+}
+
 /* -------------------------------------------------------------------- */
 /** \name Attribute Accessor implementations
  * \{ */

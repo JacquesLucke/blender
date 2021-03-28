@@ -20,6 +20,7 @@
 
 #include "FN_cpp_type.hh"
 #include "FN_generic_span.hh"
+#include "FN_generic_virtual_array.hh"
 
 #include "BKE_attribute.h"
 
@@ -30,11 +31,70 @@
 namespace blender::bke {
 
 using fn::CPPType;
+using fn::GVArray;
+using fn::GVMutableArray;
 
 const CPPType *custom_data_type_to_cpp_type(const CustomDataType type);
 CustomDataType cpp_type_to_custom_data_type(const CPPType &type);
 CustomDataType attribute_data_type_highest_complexity(Span<CustomDataType> data_types);
 AttributeDomain attribute_domain_highest_priority(Span<AttributeDomain> domains);
+
+struct ReadAttributeLookup {
+  std::unique_ptr<GVArray> varray;
+  AttributeDomain domain;
+};
+
+struct WriteAttributeLookup {
+  std::unique_ptr<GVMutableArray> varray;
+  AttributeDomain domain;
+};
+
+class MaybeUnsavedWriteAttribute {
+ public:
+  using SaveF = std::function<void(MaybeUnsavedWriteAttribute &)>;
+
+ private:
+  std::unique_ptr<GVMutableArray> varray_;
+  AttributeDomain domain_;
+  SaveF save_;
+
+ public:
+  MaybeUnsavedWriteAttribute() = default;
+
+  MaybeUnsavedWriteAttribute(std::unique_ptr<GVMutableArray> varray,
+                             AttributeDomain domain,
+                             SaveF save)
+      : varray_(std::move(varray)), domain_(domain), save_(std::move(save))
+  {
+  }
+
+  operator bool() const
+  {
+    return varray_.get() != nullptr;
+  }
+
+  GVMutableArray &varray()
+  {
+    return *varray_;
+  }
+
+  AttributeDomain domain() const
+  {
+    return domain_;
+  }
+
+  const CPPType &cpp_type() const
+  {
+    return varray_->type();
+  }
+
+  CustomDataType custom_data_type() const
+  {
+    return cpp_type_to_custom_data_type(this->cpp_type());
+  }
+
+  void save_if_necessary();
+};
 
 /**
  * This class offers an indirection for reading an attribute.

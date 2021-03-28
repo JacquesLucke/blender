@@ -254,6 +254,17 @@ class GeometryComponent {
                                                   const CustomDataType data_type,
                                                   const void *default_value = nullptr);
 
+  blender::bke::ReadAttributeLookup attribute_lookup_for_read(
+      const blender::StringRef attribute_name) const;
+  blender::bke::WriteAttributeLookup attribute_lookup_for_write(
+      const blender::StringRef attribute_name);
+
+  blender::bke::MaybeUnsavedWriteAttribute attribute_lookup_or_create_for_write(
+      const blender::StringRef attribute_name,
+      const AttributeDomain domain,
+      const CustomDataType data_type,
+      const void *default_value = nullptr);
+
  private:
   virtual const blender::bke::ComponentAttributeProviders *get_attribute_providers() const;
 };
