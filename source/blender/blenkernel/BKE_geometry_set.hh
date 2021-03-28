@@ -265,6 +265,11 @@ class GeometryComponent {
       const CustomDataType data_type,
       const void *default_value = nullptr);
 
+  std::unique_ptr<blender::fn::GVArray> attribute_try_adapt_domain(
+      const blender::fn::GVArray &data,
+      const AttributeDomain from_domain,
+      const AttributeDomain to_domain) const;
+
  private:
   virtual const blender::bke::ComponentAttributeProviders *get_attribute_providers() const;
 };
