@@ -144,6 +144,30 @@ template<typename T> class VArray {
   }
 };
 
+template<typename T> class VMutableArray : public VArray<T> {
+ public:
+  VMutableArray(const int64_t size) : VArray<T>(size)
+  {
+  }
+
+  void set(const int64_t index, T value)
+  {
+    BLI_assert(index >= 0);
+    BLI_assert(index < this->size_);
+    this->set_impl(index, std::move(value));
+  }
+
+  MutableSpan<T> get_span()
+  {
+    BLI_assert(this->is_span());
+    Span<T> span = static_cast<const VArray<T> *>(this)->get_span();
+    return MutableSpan<T>(const_cast<T *>(span.data()), span.size());
+  }
+
+ protected:
+  virtual void set_impl(const int64_t index, T value) = 0;
+};
+
 /**
  * A virtual array implementation for a span. This class is final so that it can be devirtualized
  * by the compiler in some cases (e.g. when #devirtualize_varray is used).
@@ -161,6 +185,38 @@ template<typename T> class VArrayForSpan final : public VArray<T> {
   T get_impl(const int64_t index) const override
   {
     return data_[index];
+  }
+
+  bool is_span_impl() const override
+  {
+    return true;
+  }
+
+  Span<T> get_span_impl() const override
+  {
+    return Span<T>(data_, this->size_);
+  }
+};
+
+template<typename T> class VMutableArrayForSpan final : public VMutableArray<T> {
+ private:
+  T *data_;
+
+ public:
+  VMutableArrayForSpan(const MutableSpan<T> data)
+      : VMutableArray<T>(data.size()), data_(data.data())
+  {
+  }
+
+ protected:
+  T get_impl(const int64_t index) const override
+  {
+    return data_[index];
+  }
+
+  void set_impl(const int64_t index, T value) override
+  {
+    data_[index] = value;
   }
 
   bool is_span_impl() const override

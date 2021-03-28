@@ -136,6 +136,58 @@ class GVArray {
   virtual void get_single_impl(void *UNUSED(r_value)) const;
 };
 
+class GVMutableArray : public GVArray {
+ public:
+  GVMutableArray(const CPPType &type, const int64_t size) : GVArray(type, size)
+  {
+  }
+
+  void set_by_copy(const int64_t index, const void *value)
+  {
+    BLI_assert(index >= 0);
+    BLI_assert(index < size_);
+    this->set_by_copy_impl(index, value);
+  }
+
+  void set_by_move(const int64_t index, void *value)
+  {
+    BLI_assert(index >= 0);
+    BLI_assert(index < size_);
+    this->set_by_move_impl(index, value);
+  }
+
+  void set_by_relocate(const int64_t index, void *value)
+  {
+    BLI_assert(index >= 0);
+    BLI_assert(index < size_);
+    this->set_by_relocate_impl(index, value);
+  }
+
+  GMutableSpan get_span()
+  {
+    BLI_assert(this->is_span());
+    GSpan span = static_cast<const GVArray *>(this)->get_span();
+    return GMutableSpan(span.type(), const_cast<void *>(span.data()), span.size());
+  }
+
+ protected:
+  virtual void set_by_copy_impl(const int64_t index, const void *value)
+  {
+    BUFFER_FOR_CPP_TYPE_VALUE(*type_, buffer);
+    type_->copy_to_uninitialized(value, buffer);
+    this->set_by_move_impl(index, buffer);
+    type_->destruct(buffer);
+  }
+
+  virtual void set_by_relocate_impl(const int64_t index, void *value)
+  {
+    this->set_by_move_impl(index, value);
+    type_->destruct(value);
+  }
+
+  virtual void set_by_move_impl(const int64_t index, void *value) = 0;
+};
+
 class GVArrayForGSpan : public GVArray {
  protected:
   const void *data_;
@@ -150,6 +202,31 @@ class GVArrayForGSpan : public GVArray {
  protected:
   void get_impl(const int64_t index, void *r_value) const override;
   void get_to_uninitialized_impl(const int64_t index, void *r_value) const override;
+
+  bool is_span_impl() const override;
+  GSpan get_span_impl() const override;
+};
+
+class GVMutableArrayForGMutableSpan : public GVMutableArray {
+ protected:
+  void *data_;
+  const int64_t element_size_;
+
+ public:
+  GVMutableArrayForGMutableSpan(const GMutableSpan span)
+      : GVMutableArray(span.type(), span.size()),
+        data_(span.data()),
+        element_size_(span.type().size())
+  {
+  }
+
+ protected:
+  void get_impl(const int64_t index, void *r_value) const override;
+  void get_to_uninitialized_impl(const int64_t index, void *r_value) const override;
+
+  void set_by_copy_impl(const int64_t index, const void *value) override;
+  void set_by_move_impl(const int64_t index, void *value) override;
+  void set_by_relocate_impl(const int64_t index, void *value) override;
 
   bool is_span_impl() const override;
   GSpan get_span_impl() const override;
