@@ -310,41 +310,47 @@ template<typename T> class GVArrayForVArray : public GVArray {
 
 template<typename T> class VArrayForGVArray : public VArray<T> {
  private:
-  const GVArray &array_;
+  const GVArray &varray_;
+  std::unique_ptr<GVArray> owned_varray_;
 
  public:
-  VArrayForGVArray(const GVArray &array) : VArray<T>(array.size()), array_(array)
+  VArrayForGVArray(const GVArray &varray) : VArray<T>(varray.size()), varray_(varray)
   {
-    BLI_assert(array_.type().template is<T>());
+    BLI_assert(varray_.type().template is<T>());
+  }
+
+  VArrayForGVArray(std::unique_ptr<GVArray> varray)
+      : VArray<T>(varray->size()), varray_(*varray), owned_varray_(std::move(varray))
+  {
   }
 
  protected:
   T get_impl(const int64_t index) const override
   {
     T value;
-    array_.get(index, &value);
+    varray_.get(index, &value);
     return value;
   }
 
   bool is_span_impl() const override
   {
-    return array_.is_span();
+    return varray_.is_span();
   }
 
   Span<T> get_span_impl() const override
   {
-    return array_.get_span().template typed<T>();
+    return varray_.get_span().template typed<T>();
   }
 
   bool is_single_impl() const override
   {
-    return array_.is_single();
+    return varray_.is_single();
   }
 
   T get_single_impl() const override
   {
     T value;
-    array_.get_single(&value);
+    varray_.get_single(&value);
     return value;
   }
 };
