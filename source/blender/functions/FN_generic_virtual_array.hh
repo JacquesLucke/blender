@@ -673,4 +673,57 @@ class GVArray_For_EmbeddedVArray : public GVArray_For_VArray<T> {
   }
 };
 
+template<typename T, typename VMutableArrayT>
+class GVMutableArray_For_EmbeddedVMutableArray : public GVMutableArray_For_VMutableArray<T> {
+ private:
+  VMutableArrayT embedded_varray_;
+
+ public:
+  template<typename... Args>
+  GVMutableArray_For_EmbeddedVMutableArray(const int64_t size, Args &&... args)
+      : GVMutableArray_For_VMutableArray<T>(size), embedded_varray_(std::forward<Args>(args)...)
+  {
+    this->set_varray(embedded_varray_);
+  }
+};
+
+template<typename Container, typename T = typename Container::value_type>
+class GVArray_For_ArrayContainer
+    : public GVArray_For_EmbeddedVArray<T, VArray_For_ArrayContainer<Container, T>> {
+ public:
+  GVArray_For_ArrayContainer(Container container)
+      : GVArray_For_EmbeddedVArray<T, VArray_For_ArrayContainer<Container, T>>(
+            container.size(), std::move(container))
+  {
+  }
+};
+
+template<typename StructT, typename ElemT, ElemT (*GetFunc)(const StructT &)>
+class GVArray_For_DerivedSpan
+    : public GVArray_For_EmbeddedVArray<ElemT, VArray_For_DerivedSpan<StructT, ElemT, GetFunc>> {
+ public:
+  GVArray_For_DerivedSpan(const Span<StructT> data)
+      : GVArray_For_EmbeddedVArray<ElemT, VArray_For_DerivedSpan<StructT, ElemT, GetFunc>>(
+            data.size(), data)
+  {
+  }
+};
+
+template<typename StructT,
+         typename ElemT,
+         ElemT (*GetFunc)(const StructT &),
+         void (*SetFunc)(StructT &, ElemT)>
+class GVMutableArray_For_DerivedSpan
+    : public GVMutableArray_For_EmbeddedVMutableArray<
+          ElemT,
+          VMutableArray_For_DerivedSpan<StructT, ElemT, GetFunc, SetFunc>> {
+ public:
+  GVMutableArray_For_DerivedSpan(const MutableSpan<StructT> data)
+      : GVMutableArray_For_EmbeddedVMutableArray<
+            ElemT,
+            VMutableArray_For_DerivedSpan<StructT, ElemT, GetFunc, SetFunc>>(data.size(), data)
+  {
+  }
+};
+
 }  // namespace blender::fn
