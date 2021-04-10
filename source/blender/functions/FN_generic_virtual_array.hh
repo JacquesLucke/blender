@@ -190,7 +190,7 @@ class GVMutableArray : public GVArray {
 
 class GVArray_For_GSpan : public GVArray {
  protected:
-  const void *data_;
+  const void *data_ = nullptr;
   const int64_t element_size_;
 
  public:
@@ -199,7 +199,18 @@ class GVArray_For_GSpan : public GVArray {
   {
   }
 
+  /* When this constructor is used, the #set_span_start method should be used as well. */
+  GVArray_For_GSpan(const CPPType &type, const int64_t size)
+      : GVArray(type, size), element_size_(type.size())
+  {
+  }
+
  protected:
+  void set_span_start(const void *data)
+  {
+    data_ = data;
+  }
+
   void get_impl(const int64_t index, void *r_value) const override;
   void get_to_uninitialized_impl(const int64_t index, void *r_value) const override;
 
@@ -493,6 +504,34 @@ template<typename T> class GVMutableArray_For_VMutableArray : public GVMutableAr
   {
     T &value_ = *(T *)value;
     this->set(index, std::move(value));
+  }
+};
+
+class GVArray_As_GSpan final : public GVArray_For_GSpan {
+ private:
+  const GVArray &varray_;
+  void *owned_data_ = nullptr;
+
+ public:
+  GVArray_As_GSpan(const GVArray &varray)
+      : GVArray_For_GSpan(varray.type(), varray.size()), varray_(varray)
+  {
+    if (varray_.is_span()) {
+      this->set_span_start(varray_.get_span().data());
+    }
+    else {
+      owned_data_ = MEM_mallocN_aligned(type_->size() * size_, type_->alignment(), __func__);
+      varray_.materialize_to_uninitialized(IndexRange(size_), owned_data_);
+      this->set_span_start(owned_data_);
+    }
+  }
+
+  ~GVArray_As_GSpan()
+  {
+    if (owned_data_ != nullptr) {
+      type_->destruct_n(owned_data_, size_);
+      MEM_freeN(owned_data_);
+    }
   }
 };
 
