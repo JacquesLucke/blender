@@ -279,18 +279,18 @@ template<typename T> class VArray_For_Span : public VArray<T> {
   }
 };
 
-template<typename T> class VMutableArray_For_Span final : public VMutableArray<T> {
+template<typename T> class VMutableArray_For_MutableSpan final : public VMutableArray<T> {
  private:
   T *data_ = nullptr;
 
  public:
-  VMutableArray_For_Span(const MutableSpan<T> data)
+  VMutableArray_For_MutableSpan(const MutableSpan<T> data)
       : VMutableArray<T>(data.size()), data_(data.data())
   {
   }
 
   /* When this constructor is used, the #set_span_start method has to be used as well. */
-  VMutableArray_For_Span(const int64_t size) : VMutableArray<T>(size)
+  VMutableArray_For_MutableSpan(const int64_t size) : VMutableArray<T>(size)
   {
   }
 
@@ -423,7 +423,8 @@ template<typename T> class VArray_As_Span final : public VArray_For_Span<T> {
   }
 };
 
-template<typename T> class VMutableArray_As_Span final : public VMutableArray_For_Span<T> {
+template<typename T>
+class VMutableArray_As_MutableSpan final : public VMutableArray_For_MutableSpan<T> {
  private:
   VMutableArray<T> &varray_;
   Array<T> owned_data_;
@@ -431,7 +432,8 @@ template<typename T> class VMutableArray_As_Span final : public VMutableArray_Fo
   bool show_not_applied_warning_ = true;
 
  public:
-  VMutableArray_As_Span(VMutableArray<T> &varray) : VMutableArray_For_Span<T>(varray.size())
+  VMutableArray_As_MutableSpan(VMutableArray<T> &varray)
+      : VMutableArray_For_MutableSpan<T>(varray.size())
   {
     if (varray_.is_span()) {
       this->set_span_start(varray_.get_span().data());
@@ -449,7 +451,7 @@ template<typename T> class VMutableArray_As_Span final : public VMutableArray_Fo
     show_not_applied_warning_ = false;
   }
 
-  ~VMutableArray_As_Span()
+  ~VMutableArray_As_MutableSpan()
   {
     if (show_not_applied_warning_) {
       if (!apply_has_been_called_) {
