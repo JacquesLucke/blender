@@ -268,43 +268,51 @@ class GVArrayForSingleValueRef : public GVArray {
 
 template<typename T> class GVArrayForVArray : public GVArray {
  private:
-  const VArray<T> &array_;
+  const VArray<T> &varray_;
+  std::unique_ptr<VArray<T>> owned_varray_;
 
  public:
-  GVArrayForVArray(const VArray<T> &array)
-      : GVArray(CPPType::get<T>(), array.size()), array_(array)
+  GVArrayForVArray(const VArray<T> &varray)
+      : GVArray(CPPType::get<T>(), varray.size()), varray_(varray)
+  {
+  }
+
+  GVArrayForVArray(std::unique_ptr<VArray<T>> varray)
+      : GVArray(CPPType::get<T>(), varray->size()),
+        varray_(*varray),
+        owned_varray_(std::move(varray))
   {
   }
 
  protected:
   void get_impl(const int64_t index, void *r_value) const override
   {
-    *(T *)r_value = array_.get(index);
+    *(T *)r_value = varray_.get(index);
   }
 
   void get_to_uninitialized_impl(const int64_t index, void *r_value) const override
   {
-    new (r_value) T(array_.get(index));
+    new (r_value) T(varray_.get(index));
   }
 
   bool is_span_impl() const override
   {
-    return array_.is_span();
+    return varray_.is_span();
   }
 
   GSpan get_span_impl() const override
   {
-    return GSpan(array_.get_span());
+    return GSpan(varray_.get_span());
   }
 
   bool is_single_impl() const override
   {
-    return array_.is_single();
+    return varray_.is_single();
   }
 
   void get_single_impl(void *r_value) const override
   {
-    *(T *)r_value = array_.get_single();
+    *(T *)r_value = varray_.get_single();
   }
 };
 
