@@ -233,7 +233,7 @@ class GVArray_For_Empty : public GVArray {
 
 class GVMutableArray_For_GMutableSpan : public GVMutableArray {
  protected:
-  void *data_;
+  void *data_ = nullptr;
   const int64_t element_size_;
 
  public:
@@ -244,7 +244,18 @@ class GVMutableArray_For_GMutableSpan : public GVMutableArray {
   {
   }
 
+  /* When this constructor is used, the #set_span_start method has to be used as well. */
+  GVMutableArray_For_GMutableSpan(const CPPType &type, const int64_t size)
+      : GVMutableArray(type, size), element_size_(type.size())
+  {
+  }
+
  protected:
+  void set_span_start(void *data)
+  {
+    data_ = data;
+  }
+
   void get_impl(const int64_t index, void *r_value) const override;
   void get_to_uninitialized_impl(const int64_t index, void *r_value) const override;
 
@@ -540,6 +551,63 @@ class GVArray_As_GSpan final : public GVArray_For_GSpan {
   }
 
   operator GSpan() const
+  {
+    return this->get_span();
+  }
+};
+
+class GVMutableArray_As_GMutableSpan final : public GVMutableArray_For_GMutableSpan {
+ private:
+  GVMutableArray &varray_;
+  void *owned_data_ = nullptr;
+  bool apply_has_been_called_ = false;
+  bool show_not_applied_warning_ = true;
+
+ public:
+  GVMutableArray_As_GMutableSpan(GVMutableArray &varray)
+      : GVMutableArray_For_GMutableSpan(varray.type(), varray.size()), varray_(varray)
+  {
+    if (varray_.is_span()) {
+      this->set_span_start(varray_.get_span().data());
+    }
+    else {
+      owned_data_ = MEM_mallocN_aligned(type_->size() * size_, type_->alignment(), __func__);
+      varray_.materialize_to_uninitialized(IndexRange(size_), owned_data_);
+      this->set_span_start(owned_data_);
+    }
+  }
+
+  ~GVMutableArray_As_GMutableSpan()
+  {
+    if (show_not_applied_warning_) {
+      if (!apply_has_been_called_) {
+        std::cout << "Warning: Call `apply()` to make sure that changes persist in all cases.\n";
+      }
+    }
+  }
+
+  void apply()
+  {
+    apply_has_been_called_ = true;
+    if (data_ != owned_data_) {
+      return;
+    }
+    for (int64_t i : IndexRange(size_)) {
+      varray_.set_by_copy(i, POINTER_OFFSET(owned_data_, element_size_ * i));
+    }
+  }
+
+  void disable_not_applied_warning()
+  {
+    show_not_applied_warning_ = false;
+  }
+
+  GMutableSpan as_span()
+  {
+    return this->get_span();
+  }
+
+  operator GMutableSpan()
   {
     return this->get_span();
   }

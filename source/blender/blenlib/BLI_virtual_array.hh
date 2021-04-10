@@ -446,11 +446,6 @@ class VMutableArray_As_MutableSpan final : public VMutableArray_For_MutableSpan<
     }
   }
 
-  void disable_not_applied_warning()
-  {
-    show_not_applied_warning_ = false;
-  }
-
   ~VMutableArray_As_MutableSpan()
   {
     if (show_not_applied_warning_) {
@@ -467,6 +462,11 @@ class VMutableArray_As_MutableSpan final : public VMutableArray_For_MutableSpan<
       return;
     }
     this->set_all(owned_data_);
+  }
+
+  void disable_not_applied_warning()
+  {
+    show_not_applied_warning_ = false;
   }
 
   Span<T> as_span() const
