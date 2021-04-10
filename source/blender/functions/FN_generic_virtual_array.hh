@@ -268,51 +268,62 @@ class GVArrayForSingleValueRef : public GVArray {
 
 template<typename T> class GVArrayForVArray : public GVArray {
  private:
-  const VArray<T> &varray_;
+  const VArray<T> *varray_ = nullptr;
   std::unique_ptr<VArray<T>> owned_varray_;
 
  public:
   GVArrayForVArray(const VArray<T> &varray)
-      : GVArray(CPPType::get<T>(), varray.size()), varray_(varray)
+      : GVArray(CPPType::get<T>(), varray.size()), varray_(&varray)
   {
   }
 
   GVArrayForVArray(std::unique_ptr<VArray<T>> varray)
       : GVArray(CPPType::get<T>(), varray->size()),
-        varray_(*varray),
+        varray_(varray.get()),
         owned_varray_(std::move(varray))
   {
   }
 
+  /* When this constructor is used, the #set_varray method has to be used as well. */
+  GVArrayForVArray(const int64_t size) : GVArray(CPPType::get<T>(), size)
+  {
+  }
+
  protected:
+  void set_varray(const VArray<T> &varray)
+  {
+    BLI_assert(varray.size() == size_);
+    varray_ = &varray;
+  }
+
   void get_impl(const int64_t index, void *r_value) const override
   {
-    *(T *)r_value = varray_.get(index);
+    *(T *)r_value = varray_->get(index);
   }
 
   void get_to_uninitialized_impl(const int64_t index, void *r_value) const override
   {
-    new (r_value) T(varray_.get(index));
+    new (r_value) T(varray_->get(index));
   }
 
   bool is_span_impl() const override
   {
-    return varray_.is_span();
+    return varray_->is_span();
   }
 
   GSpan get_span_impl() const override
   {
-    return GSpan(varray_.get_span());
+    return GSpan(varray_->get_span());
   }
 
   bool is_single_impl() const override
   {
-    return varray_.is_single();
+    return varray_->is_single();
   }
 
   void get_single_impl(void *r_value) const override
   {
-    *(T *)r_value = varray_.get_single();
+    *(T *)r_value = varray_->get_single();
   }
 };
 
@@ -416,46 +427,17 @@ template<typename T> class VMutableArrayForGVMutableArray : public VMutableArray
   }
 };
 
-template<typename T, typename VArrayT> class GVArrayForEmbeddedVArray : public GVArray {
+template<typename T, typename VArrayT>
+class GVArrayForEmbeddedVArray : public GVArrayForVArray<T> {
  private:
   VArrayT varray_;
 
  public:
   template<typename... Args>
   GVArrayForEmbeddedVArray(const int64_t size, Args &&... args)
-      : GVArray(CPPType::get<T>(), size), varray_(std::forward<Args>(args)...)
+      : GVArrayForVArray<T>(size), varray_(std::forward<Args>(args)...)
   {
-  }
-
- protected:
-  void get_impl(const int64_t index, void *r_value) const override
-  {
-    *(T *)r_value = varray_.get(index);
-  }
-
-  void get_to_uninitialized_impl(const int64_t index, void *r_value) const override
-  {
-    new (r_value) T(varray_.get(index));
-  }
-
-  bool is_span_impl() const override
-  {
-    return varray_.is_span();
-  }
-
-  GSpan get_span_impl() const override
-  {
-    return GSpan(varray_.get_span());
-  }
-
-  bool is_single_impl() const override
-  {
-    return varray_.is_single();
-  }
-
-  void get_single_impl(void *r_value) const override
-  {
-    *(T *)r_value = varray_.get_single();
+    this->set_varray(varray_);
   }
 };
 
