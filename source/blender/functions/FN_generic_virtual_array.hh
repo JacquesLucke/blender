@@ -423,6 +423,73 @@ template<typename T> class VMutableArrayForGVMutableArray : public VMutableArray
   }
 };
 
+template<typename T> class GVMutableArrayForVMutableArray : public GVMutableArray {
+ private:
+  VMutableArray<T> *varray_ = nullptr;
+
+ public:
+  GVMutableArrayForVMutableArray(VMutableArray<T> &varray)
+      : GVMutableArray(CPPType::get<T>(), varray.size()), varray_(&varray)
+  {
+  }
+
+ private:
+  void set_varray(const VArray<T> &varray)
+  {
+    BLI_assert(varray.size() == size_);
+    varray_ = &varray;
+  }
+
+  void get_impl(const int64_t index, void *r_value) const override
+  {
+    *(T *)r_value = varray_->get(index);
+  }
+
+  void get_to_uninitialized_impl(const int64_t index, void *r_value) const override
+  {
+    new (r_value) T(varray_->get(index));
+  }
+
+  bool is_span_impl() const override
+  {
+    return varray_->is_span();
+  }
+
+  GSpan get_span_impl() const override
+  {
+    return GSpan(varray_->get_span());
+  }
+
+  bool is_single_impl() const override
+  {
+    return varray_->is_single();
+  }
+
+  void get_single_impl(void *r_value) const override
+  {
+    *(T *)r_value = varray_->get_single();
+  }
+
+  void set_by_copy_impl(const int64_t index, const void *value) override
+  {
+    const T &value_ = *(const T *)value;
+    varray_->set(index, value_);
+  }
+
+  void set_by_relocate_impl(const int64_t index, void *value) override
+  {
+    T &value_ = *(T *)value;
+    varray_->set(index, std::move(value));
+    value_.~T();
+  }
+
+  void set_by_move_impl(const int64_t index, void *value) override
+  {
+    T &value_ = *(T *)value;
+    this->set(index, std::move(value));
+  }
+};
+
 template<typename T> class GVArrayForOwnedVArray : public GVArrayForVArray<T> {
  private:
   std::unique_ptr<VArray<T>> owned_varray_;
