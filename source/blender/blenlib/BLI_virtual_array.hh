@@ -493,9 +493,52 @@ template<typename T, typename GetFunc> class VArrayForFunc final : public VArray
   }
 
  private:
-  virtual T get_impl(const int64_t index) const
+  T get_impl(const int64_t index) const override
   {
     return get_func_(index);
+  }
+};
+
+template<typename StructT, typename ElemT, ElemT (*GetFunc)(const StructT &)>
+class VArrayForDerivedSpan : public VArray<ElemT> {
+ private:
+  const StructT *data_;
+
+ public:
+  VArrayForDerivedSpan(const Span<StructT> data) : VArray<ElemT>(data.size()), data_(data.data())
+  {
+  }
+
+ private:
+  ElemT get_impl(const int64_t index) const override
+  {
+    return GetFunc(data_[index]);
+  }
+};
+
+template<typename StructT,
+         typename ElemT,
+         ElemT (*GetFunc)(const StructT &),
+         void (*SetFunc)(StructT &, ElemT)>
+class VMutableArrayForDerivedSpan : public VMutableArray<ElemT> {
+ private:
+  StructT *data_;
+
+ public:
+  VMutableArrayForDerivedSpan(const MutableSpan<StructT> data)
+      : VMutableArray<ElemT>(data.size()), data_(data.data())
+  {
+  }
+
+ private:
+  ElemT get_impl(const int64_t index) const override
+  {
+    return GetFunc(data_[index]);
+  }
+
+  void set_impl(const int64_t index, ElemT value) override
+  {
+    SetFunc(data_[index], std::move(value));
   }
 };
 

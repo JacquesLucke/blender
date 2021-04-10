@@ -118,4 +118,37 @@ TEST(virtual_array, AsSpan)
   EXPECT_EQ(span[6], 60);
 }
 
+static int get_x(const std::array<int, 3> &item)
+{
+  return item[0];
+}
+
+static void set_x(std::array<int, 3> &item, int value)
+{
+  item[0] = value;
+}
+
+TEST(virtual_array, ForDerivedSpan)
+{
+  Vector<std::array<int, 3>> vector;
+  vector.append({3, 4, 5});
+  vector.append({1, 1, 1});
+  {
+    VArrayForDerivedSpan<std::array<int, 3>, int, get_x> varray{vector};
+    EXPECT_EQ(varray.size(), 2);
+    EXPECT_EQ(varray[0], 3);
+    EXPECT_EQ(varray[1], 1);
+  }
+  {
+    VMutableArrayForDerivedSpan<std::array<int, 3>, int, get_x, set_x> varray{vector};
+    EXPECT_EQ(varray.size(), 2);
+    EXPECT_EQ(varray[0], 3);
+    EXPECT_EQ(varray[1], 1);
+    varray.set(0, 10);
+    varray.set(1, 20);
+    EXPECT_EQ(vector[0][0], 10);
+    EXPECT_EQ(vector[1][0], 20);
+  }
+}
+
 }  // namespace blender::tests
