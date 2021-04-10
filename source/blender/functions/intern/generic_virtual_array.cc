@@ -18,6 +18,10 @@
 
 namespace blender::fn {
 
+/* --------------------------------------------------------------------
+ * GVArray.
+ */
+
 void GVArray::materialize_to_uninitialized(const IndexMask mask, void *dst) const
 {
   for (const int64_t i : mask) {
@@ -53,6 +57,10 @@ void GVArray::get_single_impl(void *UNUSED(r_value)) const
   BLI_assert(false);
 }
 
+/* --------------------------------------------------------------------
+ * GVArray_For_GSpan.
+ */
+
 void GVArray_For_GSpan::get_impl(const int64_t index, void *r_value) const
 {
   type_->copy_to_initialized(POINTER_OFFSET(data_, element_size_ * index), r_value);
@@ -72,6 +80,10 @@ GSpan GVArray_For_GSpan::get_span_impl() const
 {
   return GSpan(*type_, data_, size_);
 }
+
+/* --------------------------------------------------------------------
+ * GVMutableArray_For_GMutableSpan.
+ */
 
 void GVMutableArray_For_GMutableSpan::get_impl(const int64_t index, void *r_value) const
 {
@@ -108,6 +120,10 @@ GSpan GVMutableArray_For_GMutableSpan::get_span_impl() const
 {
   return GSpan(*type_, data_, size_);
 }
+
+/* --------------------------------------------------------------------
+ * GVArray_For_SingleValueRef.
+ */
 
 void GVArray_For_SingleValueRef::get_impl(const int64_t UNUSED(index), void *r_value) const
 {
