@@ -349,4 +349,47 @@ template<typename T> class VArrayForGVArray : public VArray<T> {
   }
 };
 
+template<typename T, typename VArrayT> class GVArrayForEmbeddedVArray : public GVArray {
+ private:
+  VArrayT varray_;
+
+ public:
+  template<typename... Args>
+  GVArrayForEmbeddedVArray(const int64_t size, Args &&... args)
+      : GVArray(CPPType::get<T>(), size), varray_(std::forward<Args>(args)...)
+  {
+  }
+
+ protected:
+  void get_impl(const int64_t index, void *r_value) const override
+  {
+    *(T *)r_value = varray_.get(index);
+  }
+
+  void get_to_uninitialized_impl(const int64_t index, void *r_value) const override
+  {
+    new (r_value) T(varray_.get(index));
+  }
+
+  bool is_span_impl() const override
+  {
+    return varray_.is_span();
+  }
+
+  GSpan get_span_impl() const override
+  {
+    return GSpan(varray_.get_span());
+  }
+
+  bool is_single_impl() const override
+  {
+    return varray_.is_single();
+  }
+
+  void get_single_impl(void *r_value) const override
+  {
+    *(T *)r_value = varray_.get_single();
+  }
+};
+
 }  // namespace blender::fn
