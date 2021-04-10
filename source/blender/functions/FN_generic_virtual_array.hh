@@ -337,6 +337,7 @@ template<typename T> class VArrayForGVArray : public VArray<T> {
   void set_varray(const GVArray &varray)
   {
     BLI_assert(varray.size() == this->size_);
+    BLI_assert(varray.type().template is<T>());
     varray_ = &varray;
   }
 
@@ -372,53 +373,58 @@ template<typename T> class VArrayForGVArray : public VArray<T> {
 
 template<typename T> class VMutableArrayForGVMutableArray : public VMutableArray<T> {
  private:
-  GVMutableArray &varray_;
-  std::unique_ptr<GVMutableArray> owned_varray_;
+  GVMutableArray *varray_ = nullptr;
 
  public:
   VMutableArrayForGVMutableArray(GVMutableArray &varray)
-      : VMutableArray<T>(varray.size()), varray_(varray)
+      : VMutableArray<T>(varray.size()), varray_(&varray)
   {
-    BLI_assert(varray_.type().template is<T>());
+    BLI_assert(varray.type().template is<T>());
   }
 
-  VMutableArrayForGVMutableArray(std::unique_ptr<GVMutableArray> varray)
-      : VMutableArray<T>(varray->size()), varray_(*varray), owned_varray_(std::move(varray))
+  VMutableArrayForGVMutableArray(const int64_t size) : VMutableArray<T>(size)
   {
   }
 
  private:
+  void set_varray(GVMutableArray &varray)
+  {
+    BLI_assert(varray.size() == this->size());
+    BLI_assert(varray.type().template is<T>());
+    varray_ = &varray;
+  }
+
   T get_impl(const int64_t index) const override
   {
     T value;
-    varray_.get(index, &value);
+    varray_->get(index, &value);
     return value;
   }
 
   void set_impl(const int64_t index, T value) const override
   {
-    varray_.set_by_relocate(index, &value);
+    varray_->set_by_relocate(index, &value);
   }
 
   bool is_span_impl() const override
   {
-    return varray_.is_span();
+    return varray_->is_span();
   }
 
   Span<T> get_span_impl() const override
   {
-    return varray_.get_span().template typed<T>();
+    return varray_->get_span().template typed<T>();
   }
 
   bool is_single_impl() const override
   {
-    return varray_.is_single();
+    return varray_->is_single();
   }
 
   T get_single_impl() const override
   {
     T value;
-    varray_.get_single(&value);
+    varray_->get_single(&value);
     return value;
   }
 };
