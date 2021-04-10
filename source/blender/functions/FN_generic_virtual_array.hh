@@ -199,16 +199,10 @@ class GVArray_For_GSpan : public GVArray {
   {
   }
 
-  /* When this constructor is used, the #set_span_start method should be used as well. */
+ protected:
   GVArray_For_GSpan(const CPPType &type, const int64_t size)
       : GVArray(type, size), element_size_(type.size())
   {
-  }
-
- protected:
-  void set_span_start(const void *data)
-  {
-    data_ = data;
   }
 
   void get_impl(const int64_t index, void *r_value) const override;
@@ -244,16 +238,10 @@ class GVMutableArray_For_GMutableSpan : public GVMutableArray {
   {
   }
 
-  /* When this constructor is used, the #set_span_start method has to be used as well. */
+ protected:
   GVMutableArray_For_GMutableSpan(const CPPType &type, const int64_t size)
       : GVMutableArray(type, size), element_size_(type.size())
   {
-  }
-
- protected:
-  void set_span_start(void *data)
-  {
-    data_ = data;
   }
 
   void get_impl(const int64_t index, void *r_value) const override;

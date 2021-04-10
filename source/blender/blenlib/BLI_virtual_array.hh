@@ -243,7 +243,7 @@ template<typename T> class VMutableArray : public VArray<T> {
  * devirtualized by the compiler in some cases (e.g. when #devirtualize_varray is used).
  */
 template<typename T> class VArray_For_Span : public VArray<T> {
- private:
+ protected:
   const T *data_ = nullptr;
 
  public:
@@ -251,16 +251,9 @@ template<typename T> class VArray_For_Span : public VArray<T> {
   {
   }
 
-  /* When this constructor is used, the #set_span_start method has to be used as well. */
+ protected:
   VArray_For_Span(const int64_t size) : VArray<T>(size)
   {
-  }
-
- protected:
-  /* Can be used when the data pointer is not ready when the constructor is called. */
-  void set_span_start(const T *data)
-  {
-    data_ = data;
   }
 
   T get_impl(const int64_t index) const final
@@ -280,7 +273,7 @@ template<typename T> class VArray_For_Span : public VArray<T> {
 };
 
 template<typename T> class VMutableArray_For_MutableSpan final : public VMutableArray<T> {
- private:
+ protected:
   T *data_ = nullptr;
 
  public:
@@ -289,16 +282,9 @@ template<typename T> class VMutableArray_For_MutableSpan final : public VMutable
   {
   }
 
-  /* When this constructor is used, the #set_span_start method has to be used as well. */
+ protected:
   VMutableArray_For_MutableSpan(const int64_t size) : VMutableArray<T>(size)
   {
-  }
-
- protected:
-  /* Can be used when the data pointer is not ready when the constructor is called. */
-  void set_span_start(T *data)
-  {
-    data_ = data;
   }
 
   T get_impl(const int64_t index) const override
@@ -337,7 +323,7 @@ class VArray_For_ArrayContainer : public VArray_For_Span<T> {
   VArray_For_ArrayContainer(Container container)
       : VArray_For_Span<T>((int64_t)container.size()), container_(std::move(container))
   {
-    this->set_span_start(container_.data());
+    this->data_ = container_.data();
   }
 };
 
@@ -402,13 +388,13 @@ template<typename T> class VArray_As_Span final : public VArray_For_Span<T> {
   VArray_As_Span(const VArray<T> &varray) : VArray_For_Span<T>(varray.size()), varray_(varray)
   {
     if (varray_.is_span()) {
-      this->set_span_start(varray_.get_span().data());
+      this->data_ = varray_.get_span().data();
     }
     else {
       owned_data_.~Array();
       new (&owned_data_) Array<T>(varray_.size(), NoInitialization{});
       varray_.materialize_to_uninitialized(owned_data_);
-      this->set_span_start(owned_data_.data());
+      this->data_ = owned_data_.data();
     }
   }
 
@@ -436,13 +422,13 @@ class VMutableArray_As_MutableSpan final : public VMutableArray_For_MutableSpan<
       : VMutableArray_For_MutableSpan<T>(varray.size())
   {
     if (varray_.is_span()) {
-      this->set_span_start(varray_.get_span().data());
+      this->data_ = varray_.get_span().data();
     }
     else {
       owned_data_.~Array();
       new (&owned_data_) Array<T>(varray_.size(), NoInitialization{});
       varray_.materialize_to_uninitialized(owned_data_);
-      this->set_span_start(owned_data_.data());
+      this->data_ = owned_data_.data();
     }
   }
 

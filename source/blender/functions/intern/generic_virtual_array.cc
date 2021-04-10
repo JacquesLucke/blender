@@ -183,12 +183,12 @@ GVArray_As_GSpan::GVArray_As_GSpan(const GVArray &varray)
     : GVArray_For_GSpan(varray.type(), varray.size()), varray_(varray)
 {
   if (varray_.is_span()) {
-    this->set_span_start(varray_.get_span().data());
+    data_ = varray_.get_span().data();
   }
   else {
     owned_data_ = MEM_mallocN_aligned(type_->size() * size_, type_->alignment(), __func__);
     varray_.materialize_to_uninitialized(IndexRange(size_), owned_data_);
-    this->set_span_start(owned_data_);
+    data_ = owned_data_;
   }
 }
 
@@ -218,12 +218,12 @@ GVMutableArray_As_GMutableSpan::GVMutableArray_As_GMutableSpan(GVMutableArray &v
     : GVMutableArray_For_GMutableSpan(varray.type(), varray.size()), varray_(varray)
 {
   if (varray_.is_span()) {
-    this->set_span_start(varray_.get_span().data());
+    data_ = varray_.get_span().data();
   }
   else {
     owned_data_ = MEM_mallocN_aligned(type_->size() * size_, type_->alignment(), __func__);
     varray_.materialize_to_uninitialized(IndexRange(size_), owned_data_);
-    this->set_span_start(owned_data_);
+    data_ = owned_data_;
   }
 }
 
