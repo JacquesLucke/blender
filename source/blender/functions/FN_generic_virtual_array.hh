@@ -268,8 +268,8 @@ class GVMutableArray_For_GMutableSpan : public GVMutableArray {
 };
 
 class GVArray_For_SingleValueRef : public GVArray {
- private:
-  const void *value_;
+ protected:
+  const void *value_ = nullptr;
 
  public:
   GVArray_For_SingleValueRef(const CPPType &type, const int64_t size, const void *value)
@@ -278,6 +278,10 @@ class GVArray_For_SingleValueRef : public GVArray {
   }
 
  protected:
+  GVArray_For_SingleValueRef(const CPPType &type, const int64_t size) : GVArray(type, size)
+  {
+  }
+
   void get_impl(const int64_t index, void *r_value) const override;
   void get_to_uninitialized_impl(const int64_t index, void *r_value) const override;
 
@@ -286,6 +290,12 @@ class GVArray_For_SingleValueRef : public GVArray {
 
   bool is_single_impl() const override;
   void get_single_impl(void *r_value) const override;
+};
+
+class GVArray_For_SingleValue : public GVArray_For_SingleValueRef {
+ public:
+  GVArray_For_SingleValue(const CPPType &type, const int64_t size, const void *value);
+  ~GVArray_For_SingleValue();
 };
 
 template<typename T> class GVArray_For_VArray : public GVArray {

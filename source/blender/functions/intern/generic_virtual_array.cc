@@ -156,4 +156,23 @@ void GVArray_For_SingleValueRef::get_single_impl(void *r_value) const
   type_->copy_to_initialized(value_, r_value);
 }
 
+/* --------------------------------------------------------------------
+ * GVArray_For_SingleValue.
+ */
+
+GVArray_For_SingleValue::GVArray_For_SingleValue(const CPPType &type,
+                                                 const int64_t size,
+                                                 const void *value)
+    : GVArray_For_SingleValueRef(type, size)
+{
+  value_ = MEM_mallocN_aligned(type.size(), type.alignment(), __func__);
+  type.copy_to_uninitialized(value, (void *)value_);
+}
+
+GVArray_For_SingleValue::~GVArray_For_SingleValue()
+{
+  type_->destruct((void *)value_);
+  MEM_freeN((void *)value_);
+}
+
 }  // namespace blender::fn
