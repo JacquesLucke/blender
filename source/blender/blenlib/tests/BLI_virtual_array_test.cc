@@ -95,4 +95,27 @@ TEST(virtual_array, ForVectorSet)
   EXPECT_EQ(varray[3], 1);
 }
 
+TEST(virtual_array, ForFunc)
+{
+  auto func = [](int64_t index) { return (int)(index * index); };
+  VArrayForFunc<int, decltype(func)> varray{10, func};
+  EXPECT_EQ(varray.size(), 10);
+  EXPECT_EQ(varray[0], 0);
+  EXPECT_EQ(varray[3], 9);
+  EXPECT_EQ(varray[9], 81);
+}
+
+TEST(virtual_array, AsSpan)
+{
+  auto func = [](int64_t index) { return (int)(10 * index); };
+  VArrayForFunc<int, decltype(func)> func_varray{10, func};
+  VArrayAsSpan span_varray{func_varray};
+  EXPECT_EQ(span_varray.size(), 10);
+  Span<int> span = span_varray;
+  EXPECT_EQ(span.size(), 10);
+  EXPECT_EQ(span[0], 0);
+  EXPECT_EQ(span[3], 30);
+  EXPECT_EQ(span[6], 60);
+}
+
 }  // namespace blender::tests

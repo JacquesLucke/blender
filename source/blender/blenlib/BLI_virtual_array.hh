@@ -37,6 +37,7 @@
  * see of the increased compile time and binary size is worth it.
  */
 
+#include "BLI_array.hh"
 #include "BLI_span.hh"
 
 namespace blender {
@@ -116,6 +117,18 @@ template<typename T> class VArray {
     return this->get(index);
   }
 
+  void materialize(MutableSpan<T> r_span) const
+  {
+    BLI_assert(size_ == r_span.size());
+    this->materialize_impl(r_span);
+  }
+
+  void materialize_to_uninitialized(MutableSpan<T> r_span) const
+  {
+    BLI_assert(size_ == r_span.size());
+    this->materialize_to_uninitialized_impl(r_span);
+  }
+
  protected:
   virtual T get_impl(const int64_t index) const = 0;
 
@@ -142,6 +155,43 @@ template<typename T> class VArray {
     BLI_assert_unreachable();
     return T();
   }
+
+  virtual void materialize_impl(MutableSpan<T> r_span) const
+  {
+    if (this->is_span()) {
+      const Span<T> span = this->get_span();
+      initialized_copy_n(span.data(), size_, r_span.data());
+    }
+    else if (this->is_single()) {
+      const T single = this->get_single();
+      initialized_fill_n(r_span.data(), size_, single);
+    }
+    else {
+      const int64_t size = size_;
+      for (int64_t i = 0; i < size; i++) {
+        r_span[i] = this->get(i);
+      }
+    }
+  }
+
+  virtual void materialize_to_uninitialized_impl(MutableSpan<T> r_span) const
+  {
+    if (this->is_span()) {
+      const Span<T> span = this->get_span();
+      uninitialized_copy_n(span.data(), size_, r_span.data());
+    }
+    else if (this->is_single()) {
+      const T single = this->get_single();
+      uninitialized_fill_n(r_span.data(), size_, single);
+    }
+    else {
+      const int64_t size = size_;
+      T *dst = r_span.data();
+      for (int64_t i = 0; i < size; i++) {
+        new (dst + i) T(this->get(i));
+      }
+    }
+  }
 };
 
 /**
@@ -157,14 +207,14 @@ template<typename T> class VArrayForSpan : public VArray<T> {
   {
   }
 
-  /* When this constructor is used, the #set_data method has to be used as well. */
+  /* When this constructor is used, the #set_span_start method has to be used as well. */
   VArrayForSpan(const int64_t size) : VArray<T>(size)
   {
   }
 
  protected:
   /* Can be used when the data pointer is not ready when the constructor is called. */
-  void set_data(const T *data)
+  void set_span_start(const T *data)
   {
     data_ = data;
   }
@@ -200,7 +250,7 @@ class VArrayForArrayContainer : public VArrayForSpan<T> {
   VArrayForArrayContainer(Container container)
       : VArrayForSpan<T>((int64_t)container.size()), container_(std::move(container))
   {
-    this->set_data(container_.data());
+    this->set_span_start(container_.data());
   }
 };
 
@@ -242,6 +292,68 @@ template<typename T> class VArrayForSingle final : public VArray<T> {
   T get_single_impl() const override
   {
     return value_;
+  }
+};
+
+/**
+ * In many cases a virtual array is a span internally. In those cases, access to individual could
+ * be much more efficient than calling a virtual method. When the underlying virtual array is not a
+ * span, this class allocates a new array and copies the values over.
+ *
+ * This should be used in those cases:
+ *  - All elements in the virtual array are accessed multiple times.
+ *  - In most cases, the underlying virtual array is a span, so no copy is necessary to benefit
+ *    from faster access.
+ *  - An API is called, that does not accept virtual arrays, but only spans.
+ */
+template<typename T> class VArrayAsSpan final : public VArrayForSpan<T> {
+ private:
+  const VArray<T> &varray_;
+  Array<T> owned_data_;
+
+ public:
+  VArrayAsSpan(const VArray<T> &varray) : VArrayForSpan<T>(varray.size()), varray_(varray)
+  {
+    if (varray_.is_span()) {
+      this->set_span_start(varray_.get_span().data());
+    }
+    else {
+      owned_data_.~Array();
+      new (&owned_data_) Array<T>(varray_.size(), NoInitialization{});
+      varray_.materialize_to_uninitialized(owned_data_);
+      this->set_span_start(owned_data_.data());
+    }
+  }
+
+  Span<T> as_span() const
+  {
+    return this->get_span();
+  }
+
+  operator Span<T>() const
+  {
+    return this->get_span();
+  }
+};
+
+/**
+ * This class makes it easy to create a virtual array for an existing function or lambda. The
+ * `GetFunc` should take a single `index` argument and return the value at that index.
+ */
+template<typename T, typename GetFunc> class VArrayForFunc final : public VArray<T> {
+ private:
+  GetFunc get_func_;
+
+ public:
+  VArrayForFunc(const int64_t size, GetFunc get_func)
+      : VArray<T>(size), get_func_(std::move(get_func))
+  {
+  }
+
+ private:
+  virtual T get_impl(const int64_t index) const
+  {
+    return get_func_(index);
   }
 };
 
