@@ -533,6 +533,16 @@ class GVArray_As_GSpan final : public GVArray_For_GSpan {
       MEM_freeN(owned_data_);
     }
   }
+
+  GSpan as_span() const
+  {
+    return this->get_span();
+  }
+
+  operator GSpan() const
+  {
+    return this->get_span();
+  }
 };
 
 template<typename T> class GVArray_For_OwnedVArray : public GVArray_For_VArray<T> {
