@@ -30,7 +30,7 @@
  * specific format required for the function. This can be a costly conversion if only few of the
  * elements are accessed in the end.
  *
- * Functions taking a virtual array as input can still optimize for different data layouts. For
+ * Functions taking a virtual array as input can still optimize for different data layouts. _For_
  * example, they can check if the array is stored as an array internally or if it is the same
  * element for all indices. Whether it is worth to optimize for different data layouts in a
  * function has to be decided on a case by case basis. One should always do some benchmarking to
@@ -242,17 +242,17 @@ template<typename T> class VMutableArray : public VArray<T> {
  * A virtual array implementation for a span. Methods in this class are final so that it can be
  * devirtualized by the compiler in some cases (e.g. when #devirtualize_varray is used).
  */
-template<typename T> class VArrayForSpan : public VArray<T> {
+template<typename T> class VArray_For_Span : public VArray<T> {
  private:
   const T *data_ = nullptr;
 
  public:
-  VArrayForSpan(const Span<T> data) : VArray<T>(data.size()), data_(data.data())
+  VArray_For_Span(const Span<T> data) : VArray<T>(data.size()), data_(data.data())
   {
   }
 
   /* When this constructor is used, the #set_span_start method has to be used as well. */
-  VArrayForSpan(const int64_t size) : VArray<T>(size)
+  VArray_For_Span(const int64_t size) : VArray<T>(size)
   {
   }
 
@@ -279,18 +279,18 @@ template<typename T> class VArrayForSpan : public VArray<T> {
   }
 };
 
-template<typename T> class VMutableArrayForSpan final : public VMutableArray<T> {
+template<typename T> class VMutableArray_For_Span final : public VMutableArray<T> {
  private:
   T *data_ = nullptr;
 
  public:
-  VMutableArrayForSpan(const MutableSpan<T> data)
+  VMutableArray_For_Span(const MutableSpan<T> data)
       : VMutableArray<T>(data.size()), data_(data.data())
   {
   }
 
   /* When this constructor is used, the #set_span_start method has to be used as well. */
-  VMutableArrayForSpan(const int64_t size) : VMutableArray<T>(size)
+  VMutableArray_For_Span(const int64_t size) : VMutableArray<T>(size)
   {
   }
 
@@ -323,19 +323,19 @@ template<typename T> class VMutableArrayForSpan final : public VMutableArray<T> 
 };
 
 /**
- * A variant of `VArrayForSpan` that owns the underlying data.
+ * A variant of `VArray_For_Span` that owns the underlying data.
  * The `Container` type has to implement a `size()` and `data()` method.
  * The `data()` method has to return a pointer to the first element in the continuous array of
  * elements.
  */
 template<typename Container, typename T = typename Container::value_type>
-class VArrayForArrayContainer : public VArrayForSpan<T> {
+class VArray_For_ArrayContainer : public VArray_For_Span<T> {
  private:
   Container container_;
 
  public:
-  VArrayForArrayContainer(Container container)
-      : VArrayForSpan<T>((int64_t)container.size()), container_(std::move(container))
+  VArray_For_ArrayContainer(Container container)
+      : VArray_For_Span<T>((int64_t)container.size()), container_(std::move(container))
   {
     this->set_span_start(container_.data());
   }
@@ -346,12 +346,12 @@ class VArrayForArrayContainer : public VArrayForSpan<T> {
  * so that it can be devirtualized by the compiler in some cases (e.g. when #devirtualize_varray is
  * used).
  */
-template<typename T> class VArrayForSingle final : public VArray<T> {
+template<typename T> class VArray_For_Single final : public VArray<T> {
  private:
   T value_;
 
  public:
-  VArrayForSingle(T value, const int64_t size) : VArray<T>(size), value_(std::move(value))
+  VArray_For_Single(T value, const int64_t size) : VArray<T>(size), value_(std::move(value))
   {
   }
 
@@ -393,13 +393,13 @@ template<typename T> class VArrayForSingle final : public VArray<T> {
  *    from faster access.
  *  - An API is called, that does not accept virtual arrays, but only spans.
  */
-template<typename T> class VArrayAsSpan final : public VArrayForSpan<T> {
+template<typename T> class VArrayAsSpan final : public VArray_For_Span<T> {
  private:
   const VArray<T> &varray_;
   Array<T> owned_data_;
 
  public:
-  VArrayAsSpan(const VArray<T> &varray) : VArrayForSpan<T>(varray.size()), varray_(varray)
+  VArrayAsSpan(const VArray<T> &varray) : VArray_For_Span<T>(varray.size()), varray_(varray)
   {
     if (varray_.is_span()) {
       this->set_span_start(varray_.get_span().data());
@@ -423,7 +423,7 @@ template<typename T> class VArrayAsSpan final : public VArrayForSpan<T> {
   }
 };
 
-template<typename T> class VMutableArrayAsSpan final : public VMutableArrayForSpan<T> {
+template<typename T> class VMutableArrayAsSpan final : public VMutableArray_For_Span<T> {
  private:
   VMutableArray<T> &varray_;
   Array<T> owned_data_;
@@ -431,7 +431,7 @@ template<typename T> class VMutableArrayAsSpan final : public VMutableArrayForSp
   bool show_not_applied_warning_ = true;
 
  public:
-  VMutableArrayAsSpan(VMutableArray<T> &varray) : VMutableArrayForSpan<T>(varray.size())
+  VMutableArrayAsSpan(VMutableArray<T> &varray) : VMutableArray_For_Span<T>(varray.size())
   {
     if (varray_.is_span()) {
       this->set_span_start(varray_.get_span().data());
@@ -482,12 +482,12 @@ template<typename T> class VMutableArrayAsSpan final : public VMutableArrayForSp
  * This class makes it easy to create a virtual array for an existing function or lambda. The
  * `GetFunc` should take a single `index` argument and return the value at that index.
  */
-template<typename T, typename GetFunc> class VArrayForFunc final : public VArray<T> {
+template<typename T, typename GetFunc> class VArray_For_Func final : public VArray<T> {
  private:
   GetFunc get_func_;
 
  public:
-  VArrayForFunc(const int64_t size, GetFunc get_func)
+  VArray_For_Func(const int64_t size, GetFunc get_func)
       : VArray<T>(size), get_func_(std::move(get_func))
   {
   }
@@ -500,12 +500,12 @@ template<typename T, typename GetFunc> class VArrayForFunc final : public VArray
 };
 
 template<typename StructT, typename ElemT, ElemT (*GetFunc)(const StructT &)>
-class VArrayForDerivedSpan : public VArray<ElemT> {
+class VArray_For_DerivedSpan : public VArray<ElemT> {
  private:
   const StructT *data_;
 
  public:
-  VArrayForDerivedSpan(const Span<StructT> data) : VArray<ElemT>(data.size()), data_(data.data())
+  VArray_For_DerivedSpan(const Span<StructT> data) : VArray<ElemT>(data.size()), data_(data.data())
   {
   }
 
@@ -520,12 +520,12 @@ template<typename StructT,
          typename ElemT,
          ElemT (*GetFunc)(const StructT &),
          void (*SetFunc)(StructT &, ElemT)>
-class VMutableArrayForDerivedSpan : public VMutableArray<ElemT> {
+class VMutableArray_For_DerivedSpan : public VMutableArray<ElemT> {
  private:
   StructT *data_;
 
  public:
-  VMutableArrayForDerivedSpan(const MutableSpan<StructT> data)
+  VMutableArray_For_DerivedSpan(const MutableSpan<StructT> data)
       : VMutableArray<ElemT>(data.size()), data_(data.data())
   {
   }
@@ -556,14 +556,14 @@ inline void devirtualize_varray(const VArray<T> &varray, const Func &func, bool 
   /* Support disabling the devirtualization to simplify benchmarking. */
   if (enable) {
     if (varray.is_single()) {
-      /* `VArrayForSingle` can be used for devirtualization, because it is declared `final`. */
-      const VArrayForSingle<T> varray_single{varray.get_single(), varray.size()};
+      /* `VArray_For_Single` can be used for devirtualization, because it is declared `final`. */
+      const VArray_For_Single<T> varray_single{varray.get_single(), varray.size()};
       func(varray_single);
       return;
     }
     if (varray.is_span()) {
-      /* `VArrayForSpan` can be used for devirtualization, because it is declared `final`. */
-      const VArrayForSpan<T> varray_span{varray.get_span()};
+      /* `VArray_For_Span` can be used for devirtualization, because it is declared `final`. */
+      const VArray_For_Span<T> varray_span{varray.get_span()};
       func(varray_span);
       return;
     }
@@ -589,26 +589,26 @@ inline void devirtualize_varray2(const VArray<T1> &varray1,
     const bool is_single1 = varray1.is_single();
     const bool is_single2 = varray2.is_single();
     if (is_span1 && is_span2) {
-      const VArrayForSpan<T1> varray1_span{varray1.get_span()};
-      const VArrayForSpan<T2> varray2_span{varray2.get_span()};
+      const VArray_For_Span<T1> varray1_span{varray1.get_span()};
+      const VArray_For_Span<T2> varray2_span{varray2.get_span()};
       func(varray1_span, varray2_span);
       return;
     }
     if (is_span1 && is_single2) {
-      const VArrayForSpan<T1> varray1_span{varray1.get_span()};
-      const VArrayForSingle<T2> varray2_single{varray2.get_single(), varray2.size()};
+      const VArray_For_Span<T1> varray1_span{varray1.get_span()};
+      const VArray_For_Single<T2> varray2_single{varray2.get_single(), varray2.size()};
       func(varray1_span, varray2_single);
       return;
     }
     if (is_single1 && is_span2) {
-      const VArrayForSingle<T1> varray1_single{varray1.get_single(), varray1.size()};
-      const VArrayForSpan<T2> varray2_span{varray2.get_span()};
+      const VArray_For_Single<T1> varray1_single{varray1.get_single(), varray1.size()};
+      const VArray_For_Span<T2> varray2_span{varray2.get_span()};
       func(varray1_single, varray2_span);
       return;
     }
     if (is_single1 && is_single2) {
-      const VArrayForSingle<T1> varray1_single{varray1.get_single(), varray1.size()};
-      const VArrayForSingle<T2> varray2_single{varray2.get_single(), varray2.size()};
+      const VArray_For_Single<T1> varray1_single{varray1.get_single(), varray1.size()};
+      const VArray_For_Single<T2> varray2_single{varray2.get_single(), varray2.size()};
       func(varray1_single, varray2_single);
       return;
     }

@@ -53,89 +53,89 @@ void GVArray::get_single_impl(void *UNUSED(r_value)) const
   BLI_assert(false);
 }
 
-void GVArrayForGSpan::get_impl(const int64_t index, void *r_value) const
+void GVArray_For_GSpan::get_impl(const int64_t index, void *r_value) const
 {
   type_->copy_to_initialized(POINTER_OFFSET(data_, element_size_ * index), r_value);
 }
 
-void GVArrayForGSpan::get_to_uninitialized_impl(const int64_t index, void *r_value) const
+void GVArray_For_GSpan::get_to_uninitialized_impl(const int64_t index, void *r_value) const
 {
   type_->copy_to_uninitialized(POINTER_OFFSET(data_, element_size_ * index), r_value);
 }
 
-bool GVArrayForGSpan::is_span_impl() const
+bool GVArray_For_GSpan::is_span_impl() const
 {
   return true;
 }
 
-GSpan GVArrayForGSpan::get_span_impl() const
+GSpan GVArray_For_GSpan::get_span_impl() const
 {
   return GSpan(*type_, data_, size_);
 }
 
-void GVMutableArrayForGMutableSpan::get_impl(const int64_t index, void *r_value) const
+void GVMutableArray_For_GMutableSpan::get_impl(const int64_t index, void *r_value) const
 {
   type_->copy_to_initialized(POINTER_OFFSET(data_, element_size_ * index), r_value);
 }
 
-void GVMutableArrayForGMutableSpan::get_to_uninitialized_impl(const int64_t index,
-                                                              void *r_value) const
+void GVMutableArray_For_GMutableSpan::get_to_uninitialized_impl(const int64_t index,
+                                                                void *r_value) const
 {
   type_->copy_to_uninitialized(POINTER_OFFSET(data_, element_size_ * index), r_value);
 }
 
-void GVMutableArrayForGMutableSpan::set_by_copy_impl(const int64_t index, const void *value)
+void GVMutableArray_For_GMutableSpan::set_by_copy_impl(const int64_t index, const void *value)
 {
   type_->copy_to_initialized(value, POINTER_OFFSET(data_, element_size_ * index));
 }
 
-void GVMutableArrayForGMutableSpan::set_by_move_impl(const int64_t index, void *value)
+void GVMutableArray_For_GMutableSpan::set_by_move_impl(const int64_t index, void *value)
 {
   type_->move_to_initialized(value, POINTER_OFFSET(data_, element_size_ * index));
 }
 
-void GVMutableArrayForGMutableSpan::set_by_relocate_impl(const int64_t index, void *value)
+void GVMutableArray_For_GMutableSpan::set_by_relocate_impl(const int64_t index, void *value)
 {
   type_->relocate_to_initialized(value, POINTER_OFFSET(data_, element_size_ * index));
 }
 
-bool GVMutableArrayForGMutableSpan::is_span_impl() const
+bool GVMutableArray_For_GMutableSpan::is_span_impl() const
 {
   return true;
 }
 
-GSpan GVMutableArrayForGMutableSpan::get_span_impl() const
+GSpan GVMutableArray_For_GMutableSpan::get_span_impl() const
 {
   return GSpan(*type_, data_, size_);
 }
 
-void GVArrayForSingleValueRef::get_impl(const int64_t UNUSED(index), void *r_value) const
+void GVArray_For_SingleValueRef::get_impl(const int64_t UNUSED(index), void *r_value) const
 {
   type_->copy_to_initialized(value_, r_value);
 }
 
-void GVArrayForSingleValueRef::get_to_uninitialized_impl(const int64_t UNUSED(index),
-                                                         void *r_value) const
+void GVArray_For_SingleValueRef::get_to_uninitialized_impl(const int64_t UNUSED(index),
+                                                           void *r_value) const
 {
   type_->copy_to_uninitialized(value_, r_value);
 }
 
-bool GVArrayForSingleValueRef::is_span_impl() const
+bool GVArray_For_SingleValueRef::is_span_impl() const
 {
   return size_ == 1;
 }
 
-GSpan GVArrayForSingleValueRef::get_span_impl() const
+GSpan GVArray_For_SingleValueRef::get_span_impl() const
 {
   return GSpan{*type_, value_, 1};
 }
 
-bool GVArrayForSingleValueRef::is_single_impl() const
+bool GVArray_For_SingleValueRef::is_single_impl() const
 {
   return true;
 }
 
-void GVArrayForSingleValueRef::get_single_impl(void *r_value) const
+void GVArray_For_SingleValueRef::get_single_impl(void *r_value) const
 {
   type_->copy_to_initialized(value_, r_value);
 }
