@@ -363,6 +363,59 @@ template<typename T> class VArrayForGVArray : public VArray<T> {
   }
 };
 
+template<typename T> class VMutableArrayForGVMutableArray : public VMutableArray<T> {
+ private:
+  GVMutableArray &varray_;
+  std::unique_ptr<GVMutableArray> owned_varray_;
+
+ public:
+  VMutableArrayForGVMutableArray(GVMutableArray &varray)
+      : VMutableArray<T>(varray.size()), varray_(varray)
+  {
+    BLI_assert(varray_.type().template is<T>());
+  }
+
+  VMutableArrayForGVMutableArray(std::unique_ptr<GVMutableArray> varray)
+      : VMutableArray<T>(varray->size()), varray_(*varray), owned_varray_(std::move(varray))
+  {
+  }
+
+ private:
+  T get_impl(const int64_t index) const override
+  {
+    T value;
+    varray_.get(index, &value);
+    return value;
+  }
+
+  void set_impl(const int64_t index, T value) const override
+  {
+    varray_.set_by_relocate(index, &value);
+  }
+
+  bool is_span_impl() const override
+  {
+    return varray_.is_span();
+  }
+
+  Span<T> get_span_impl() const override
+  {
+    return varray_.get_span().template typed<T>();
+  }
+
+  bool is_single_impl() const override
+  {
+    return varray_.is_single();
+  }
+
+  T get_single_impl() const override
+  {
+    T value;
+    varray_.get_single(&value);
+    return value;
+  }
+};
+
 template<typename T, typename VArrayT> class GVArrayForEmbeddedVArray : public GVArray {
  private:
   VArrayT varray_;
