@@ -145,32 +145,62 @@ template<typename T> class VArray {
 };
 
 /**
- * A virtual array implementation for a span. This class is final so that it can be devirtualized
- * by the compiler in some cases (e.g. when #devirtualize_varray is used).
+ * A virtual array implementation for a span. Methods in this class are final so that it can be
+ * devirtualized by the compiler in some cases (e.g. when #devirtualize_varray is used).
  */
-template<typename T> class VArrayForSpan final : public VArray<T> {
+template<typename T> class VArrayForSpan : public VArray<T> {
  private:
-  const T *data_;
+  const T *data_ = nullptr;
 
  public:
   VArrayForSpan(const Span<T> data) : VArray<T>(data.size()), data_(data.data())
   {
   }
 
+  /* When this constructor is used, the #set_data method has to be used as well. */
+  VArrayForSpan(const int64_t size) : VArray<T>(size)
+  {
+  }
+
  protected:
-  T get_impl(const int64_t index) const override
+  /* Can be used when the data pointer is not ready when the constructor is called. */
+  void set_data(const T *data)
+  {
+    data_ = data;
+  }
+
+  T get_impl(const int64_t index) const final
   {
     return data_[index];
   }
 
-  bool is_span_impl() const override
+  bool is_span_impl() const final
   {
     return true;
   }
 
-  Span<T> get_span_impl() const override
+  Span<T> get_span_impl() const final
   {
     return Span<T>(data_, this->size_);
+  }
+};
+
+/**
+ * A variant of `VArrayForSpan` that owns the underlying data.
+ * The `Container` type has to implement a `size()` and `data()` method.
+ * The `data()` method has to return a pointer to the first element in the continuous array of
+ * elements.
+ */
+template<typename Container, typename T = typename Container::value_type>
+class VArrayForArrayContainer : public VArrayForSpan<T> {
+ private:
+  Container container_;
+
+ public:
+  VArrayForArrayContainer(Container container)
+      : VArrayForSpan<T>((int64_t)container.size()), container_(std::move(container))
+  {
+    this->set_data(container_.data());
   }
 };
 
