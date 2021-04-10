@@ -175,4 +175,91 @@ GVArray_For_SingleValue::~GVArray_For_SingleValue()
   MEM_freeN((void *)value_);
 }
 
+/* --------------------------------------------------------------------
+ * GVArray_As_GSpan.
+ */
+
+GVArray_As_GSpan::GVArray_As_GSpan(const GVArray &varray)
+    : GVArray_For_GSpan(varray.type(), varray.size()), varray_(varray)
+{
+  if (varray_.is_span()) {
+    this->set_span_start(varray_.get_span().data());
+  }
+  else {
+    owned_data_ = MEM_mallocN_aligned(type_->size() * size_, type_->alignment(), __func__);
+    varray_.materialize_to_uninitialized(IndexRange(size_), owned_data_);
+    this->set_span_start(owned_data_);
+  }
+}
+
+GVArray_As_GSpan::~GVArray_As_GSpan()
+{
+  if (owned_data_ != nullptr) {
+    type_->destruct_n(owned_data_, size_);
+    MEM_freeN(owned_data_);
+  }
+}
+
+GSpan GVArray_As_GSpan::as_span() const
+{
+  return this->get_span();
+}
+
+GVArray_As_GSpan::operator GSpan() const
+{
+  return this->get_span();
+}
+
+/* --------------------------------------------------------------------
+ * GVMutableArray_As_GMutableSpan.
+ */
+
+GVMutableArray_As_GMutableSpan::GVMutableArray_As_GMutableSpan(GVMutableArray &varray)
+    : GVMutableArray_For_GMutableSpan(varray.type(), varray.size()), varray_(varray)
+{
+  if (varray_.is_span()) {
+    this->set_span_start(varray_.get_span().data());
+  }
+  else {
+    owned_data_ = MEM_mallocN_aligned(type_->size() * size_, type_->alignment(), __func__);
+    varray_.materialize_to_uninitialized(IndexRange(size_), owned_data_);
+    this->set_span_start(owned_data_);
+  }
+}
+
+GVMutableArray_As_GMutableSpan::~GVMutableArray_As_GMutableSpan()
+{
+  if (show_not_applied_warning_) {
+    if (!apply_has_been_called_) {
+      std::cout << "Warning: Call `apply()` to make sure that changes persist in all cases.\n";
+    }
+  }
+}
+
+void GVMutableArray_As_GMutableSpan::apply()
+{
+  apply_has_been_called_ = true;
+  if (data_ != owned_data_) {
+    return;
+  }
+  for (int64_t i : IndexRange(size_)) {
+    varray_.set_by_copy(i, POINTER_OFFSET(owned_data_, element_size_ * i));
+  }
+}
+
+void GVMutableArray_As_GMutableSpan::disable_not_applied_warning()
+{
+  show_not_applied_warning_ = false;
+}
+
+GMutableSpan GVMutableArray_As_GMutableSpan::as_span()
+{
+  return this->get_span();
+}
+
+GVMutableArray_As_GMutableSpan::operator GMutableSpan()
+{
+  return this->get_span();
+}
+
 }  // namespace blender::fn

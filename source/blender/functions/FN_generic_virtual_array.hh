@@ -534,36 +534,11 @@ class GVArray_As_GSpan final : public GVArray_For_GSpan {
   void *owned_data_ = nullptr;
 
  public:
-  GVArray_As_GSpan(const GVArray &varray)
-      : GVArray_For_GSpan(varray.type(), varray.size()), varray_(varray)
-  {
-    if (varray_.is_span()) {
-      this->set_span_start(varray_.get_span().data());
-    }
-    else {
-      owned_data_ = MEM_mallocN_aligned(type_->size() * size_, type_->alignment(), __func__);
-      varray_.materialize_to_uninitialized(IndexRange(size_), owned_data_);
-      this->set_span_start(owned_data_);
-    }
-  }
+  GVArray_As_GSpan(const GVArray &varray);
+  ~GVArray_As_GSpan();
 
-  ~GVArray_As_GSpan()
-  {
-    if (owned_data_ != nullptr) {
-      type_->destruct_n(owned_data_, size_);
-      MEM_freeN(owned_data_);
-    }
-  }
-
-  GSpan as_span() const
-  {
-    return this->get_span();
-  }
-
-  operator GSpan() const
-  {
-    return this->get_span();
-  }
+  GSpan as_span() const;
+  operator GSpan() const;
 };
 
 class GVMutableArray_As_GMutableSpan final : public GVMutableArray_For_GMutableSpan {
@@ -574,53 +549,14 @@ class GVMutableArray_As_GMutableSpan final : public GVMutableArray_For_GMutableS
   bool show_not_applied_warning_ = true;
 
  public:
-  GVMutableArray_As_GMutableSpan(GVMutableArray &varray)
-      : GVMutableArray_For_GMutableSpan(varray.type(), varray.size()), varray_(varray)
-  {
-    if (varray_.is_span()) {
-      this->set_span_start(varray_.get_span().data());
-    }
-    else {
-      owned_data_ = MEM_mallocN_aligned(type_->size() * size_, type_->alignment(), __func__);
-      varray_.materialize_to_uninitialized(IndexRange(size_), owned_data_);
-      this->set_span_start(owned_data_);
-    }
-  }
+  GVMutableArray_As_GMutableSpan(GVMutableArray &varray);
+  ~GVMutableArray_As_GMutableSpan();
 
-  ~GVMutableArray_As_GMutableSpan()
-  {
-    if (show_not_applied_warning_) {
-      if (!apply_has_been_called_) {
-        std::cout << "Warning: Call `apply()` to make sure that changes persist in all cases.\n";
-      }
-    }
-  }
+  void apply();
+  void disable_not_applied_warning();
 
-  void apply()
-  {
-    apply_has_been_called_ = true;
-    if (data_ != owned_data_) {
-      return;
-    }
-    for (int64_t i : IndexRange(size_)) {
-      varray_.set_by_copy(i, POINTER_OFFSET(owned_data_, element_size_ * i));
-    }
-  }
-
-  void disable_not_applied_warning()
-  {
-    show_not_applied_warning_ = false;
-  }
-
-  GMutableSpan as_span()
-  {
-    return this->get_span();
-  }
-
-  operator GMutableSpan()
-  {
-    return this->get_span();
-  }
+  GMutableSpan as_span();
+  operator GMutableSpan();
 };
 
 template<typename T> class GVArray_For_OwnedVArray : public GVArray_For_VArray<T> {
