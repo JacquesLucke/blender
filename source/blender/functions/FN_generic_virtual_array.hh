@@ -518,6 +518,30 @@ template<typename T> class VArrayForOwnedGVArray : public VArrayForGVArray<T> {
   }
 };
 
+template<typename T>
+class GVMutableArrayForOwnedVMutableArray : public GVMutableArrayForVMutableArray<T> {
+ private:
+  std::unique_ptr<VMutableArray<T>> owned_varray_;
+
+ public:
+  GVMutableArrayForOwnedVMutableArray(std::unique_ptr<VMutableArray<T>> varray)
+      : GVMutableArrayForVMutableArray<T>(*varray), owned_varray_(std::move(varray))
+  {
+  }
+};
+
+template<typename T>
+class VMutableArrayForOwnedGVMutableArray : public VMutableArrayForGVMutableArray<T> {
+ private:
+  std::unique_ptr<GVMutableArray> owned_varray_;
+
+ public:
+  VMutableArrayForOwnedGVMutableArray(std::unique_ptr<GVMutableArray> varray)
+      : VMutableArrayForGVMutableArray<T>(*varray), owned_varray_(std::move(varray))
+  {
+  }
+};
+
 template<typename T, typename VArrayT>
 class GVArrayForEmbeddedVArray : public GVArrayForVArray<T> {
  private:
