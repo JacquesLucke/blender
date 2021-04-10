@@ -321,7 +321,7 @@ template<typename T> class GVArrayForVArray : public GVArray {
 
 template<typename T> class VArrayForGVArray : public VArray<T> {
  private:
-  const GVArray *varray_;
+  const GVArray *varray_ = nullptr;
 
  public:
   VArrayForGVArray(const GVArray &varray) : VArray<T>(varray.size()), varray_(&varray)
@@ -329,7 +329,17 @@ template<typename T> class VArrayForGVArray : public VArray<T> {
     BLI_assert(varray_->type().template is<T>());
   }
 
+  VArrayForGVArray(const int64_t size) : VArray<T>(size)
+  {
+  }
+
  protected:
+  void set_varray(const GVArray &varray)
+  {
+    BLI_assert(varray.size() == this->size_);
+    varray_ = &varray;
+  }
+
   T get_impl(const int64_t index) const override
   {
     T value;
@@ -420,6 +430,17 @@ template<typename T> class GVArrayForOwnedVArray : public GVArrayForVArray<T> {
  public:
   GVArrayForOwnedVArray(std::unique_ptr<VArray<T>> varray)
       : GVArrayForVArray<T>(*varray), owned_varray_(std::move(varray))
+  {
+  }
+};
+
+template<typename T> class VArrayForOwnedGVArray : public VArrayForGVArray<T> {
+ private:
+  std::unique_ptr<VArray<T>> owned_varray_;
+
+ public:
+  VArrayForOwnedGVArray(std::unique_ptr<GVArray> varray)
+      : VArrayForGVArray<T>(*varray), owned_varray_(std::move(varray))
   {
   }
 };
