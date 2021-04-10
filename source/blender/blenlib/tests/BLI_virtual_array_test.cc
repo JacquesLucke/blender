@@ -109,7 +109,7 @@ TEST(virtual_array, AsSpan)
 {
   auto func = [](int64_t index) { return (int)(10 * index); };
   VArray_For_Func<int, decltype(func)> func_varray{10, func};
-  VArrayAsSpan span_varray{func_varray};
+  VArray_As_Span span_varray{func_varray};
   EXPECT_EQ(span_varray.size(), 10);
   Span<int> span = span_varray;
   EXPECT_EQ(span.size(), 10);
