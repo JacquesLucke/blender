@@ -194,6 +194,50 @@ template<typename T> class VArray {
   }
 };
 
+template<typename T> class VMutableArray : public VArray<T> {
+ public:
+  VMutableArray(const int64_t size) : VArray<T>(size)
+  {
+  }
+
+  void set(const int64_t index, T value)
+  {
+    BLI_assert(index >= 0);
+    BLI_assert(index < this->size_);
+    this->set_impl(index, std::move(value));
+  }
+
+  void set_all(Span<T> src)
+  {
+    BLI_assert(src.size() == this->size_);
+    this->set_all_impl(src);
+  }
+
+  MutableSpan<T> get_span()
+  {
+    BLI_assert(this->is_span());
+    Span<T> span = static_cast<const VArray<T> *>(this)->get_span();
+    return MutableSpan<T>(const_cast<T *>(span.data()), span.size());
+  }
+
+ protected:
+  virtual void set_impl(const int64_t index, T value) = 0;
+
+  virtual void set_all_impl(Span<T> src)
+  {
+    if (this->is_span()) {
+      const MutableSpan<T> span = this->get_span();
+      initialized_copy_n(src.data(), this->size_, span.data());
+    }
+    else {
+      const int64_t size = this->size_;
+      for (int64_t i = 0; i < size; i++) {
+        this->set(i, src[i]);
+      }
+    }
+  }
+};
+
 /**
  * A virtual array implementation for a span. Methods in this class are final so that it can be
  * devirtualized by the compiler in some cases (e.g. when #devirtualize_varray is used).
@@ -230,6 +274,49 @@ template<typename T> class VArrayForSpan : public VArray<T> {
   }
 
   Span<T> get_span_impl() const final
+  {
+    return Span<T>(data_, this->size_);
+  }
+};
+
+template<typename T> class VMutableArrayForSpan final : public VMutableArray<T> {
+ private:
+  T *data_ = nullptr;
+
+ public:
+  VMutableArrayForSpan(const MutableSpan<T> data)
+      : VMutableArray<T>(data.size()), data_(data.data())
+  {
+  }
+
+  /* When this constructor is used, the #set_span_start method has to be used as well. */
+  VMutableArrayForSpan(const int64_t size) : VMutableArray<T>(size)
+  {
+  }
+
+ protected:
+  /* Can be used when the data pointer is not ready when the constructor is called. */
+  void set_span_start(T *data)
+  {
+    data_ = data;
+  }
+
+  T get_impl(const int64_t index) const override
+  {
+    return data_[index];
+  }
+
+  void set_impl(const int64_t index, T value) override
+  {
+    data_[index] = value;
+  }
+
+  bool is_span_impl() const override
+  {
+    return true;
+  }
+
+  Span<T> get_span_impl() const override
   {
     return Span<T>(data_, this->size_);
   }
@@ -323,6 +410,61 @@ template<typename T> class VArrayAsSpan final : public VArrayForSpan<T> {
       varray_.materialize_to_uninitialized(owned_data_);
       this->set_span_start(owned_data_.data());
     }
+  }
+
+  Span<T> as_span() const
+  {
+    return this->get_span();
+  }
+
+  operator Span<T>() const
+  {
+    return this->get_span();
+  }
+};
+
+template<typename T> class VMutableArrayAsSpan final : public VMutableArrayForSpan<T> {
+ private:
+  VMutableArray<T> &varray_;
+  Array<T> owned_data_;
+  bool apply_has_been_called_ = false;
+  bool show_not_applied_warning_ = true;
+
+ public:
+  VMutableArrayAsSpan(VMutableArray<T> &varray) : VMutableArrayForSpan<T>(varray.size())
+  {
+    if (varray_.is_span()) {
+      this->set_span_start(varray_.get_span().data());
+    }
+    else {
+      owned_data_.~Array();
+      new (&owned_data_) Array<T>(varray_.size(), NoInitialization{});
+      varray_.materialize_to_uninitialized(owned_data_);
+      this->set_span_start(owned_data_.data());
+    }
+  }
+
+  void disable_not_applied_warning()
+  {
+    show_not_applied_warning_ = false;
+  }
+
+  ~VMutableArrayAsSpan()
+  {
+    if (show_not_applied_warning_) {
+      if (!apply_has_been_called_) {
+        std::cout << "Warning: Call `apply()` to make sure that changes persist in all cases.\n";
+      }
+    }
+  }
+
+  void apply()
+  {
+    apply_has_been_called_ = true;
+    if (this->data_ != owned_data_.data()) {
+      return;
+    }
+    this->set_all(owned_data_);
   }
 
   Span<T> as_span() const
