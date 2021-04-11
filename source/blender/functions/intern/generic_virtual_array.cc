@@ -57,6 +57,34 @@ void GVArray::get_single_impl(void *UNUSED(r_value)) const
   BLI_assert(false);
 }
 
+const void *GVArray::try_get_internal_varray_impl() const
+{
+  return nullptr;
+}
+
+/* --------------------------------------------------------------------
+ * GVMutableArray.
+ */
+
+void GVMutableArray::set_by_copy_impl(const int64_t index, const void *value)
+{
+  BUFFER_FOR_CPP_TYPE_VALUE(*type_, buffer);
+  type_->copy_to_uninitialized(value, buffer);
+  this->set_by_move_impl(index, buffer);
+  type_->destruct(buffer);
+}
+
+void GVMutableArray::set_by_relocate_impl(const int64_t index, void *value)
+{
+  this->set_by_move_impl(index, value);
+  type_->destruct(value);
+}
+
+void *GVMutableArray::try_get_internal_mutable_varray_impl()
+{
+  return nullptr;
+}
+
 /* --------------------------------------------------------------------
  * GVArray_For_GSpan.
  */
