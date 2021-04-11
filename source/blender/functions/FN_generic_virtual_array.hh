@@ -679,7 +679,7 @@ class GVMutableArray_For_DerivedSpan
   }
 };
 
-template<typename T> class GVArray_TypedRef {
+template<typename T> class GVArray_Typed {
  private:
   const VArray<T> *varray_;
   std::optional<VArray_For_Span<T>> varray_span_;
@@ -687,7 +687,7 @@ template<typename T> class GVArray_TypedRef {
   std::optional<VArray_For_GVArray<T>> varray_any_;
 
  public:
-  GVArray_TypedRef(const GVArray &gvarray)
+  GVArray_Typed(const GVArray &gvarray)
   {
     BLI_assert(gvarray.type().is<T>());
     if (gvarray.is_span()) {
@@ -731,14 +731,14 @@ template<typename T> class GVArray_TypedRef {
   }
 };
 
-template<typename T> class GVMutableArray_TypedRef {
+template<typename T> class GVMutableArray_Typed {
  private:
   VMutableArray<T> *varray_;
   std::optional<VMutableArray_For_MutableSpan<T>> varray_span_;
   std::optional<VMutableArray_For_GVMutableArray<T>> varray_any_;
 
  public:
-  GVMutableArray_TypedRef(GVMutableArray &gvarray)
+  GVMutableArray_Typed(GVMutableArray &gvarray)
   {
     BLI_assert(gvarray.type().is<T>());
     if (gvarray.is_span()) {
