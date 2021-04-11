@@ -535,20 +535,20 @@ template<typename T> class GVMutableArray_For_VMutableArray : public GVMutableAr
   }
 };
 
-class GVArray_As_GSpan final : public GVArray_For_GSpan {
+class GVArray_Span final : public GVArray_For_GSpan {
  private:
   const GVArray &varray_;
   void *owned_data_ = nullptr;
 
  public:
-  GVArray_As_GSpan(const GVArray &varray);
-  ~GVArray_As_GSpan();
+  GVArray_Span(const GVArray &varray);
+  ~GVArray_Span();
 
   GSpan as_span() const;
   operator GSpan() const;
 };
 
-class GVMutableArray_As_GMutableSpan final : public GVMutableArray_For_GMutableSpan {
+class GVMutableArray_Span final : public GVMutableArray_For_GMutableSpan {
  private:
   GVMutableArray &varray_;
   void *owned_data_ = nullptr;
@@ -556,8 +556,8 @@ class GVMutableArray_As_GMutableSpan final : public GVMutableArray_For_GMutableS
   bool show_not_applied_warning_ = true;
 
  public:
-  GVMutableArray_As_GMutableSpan(GVMutableArray &varray);
-  ~GVMutableArray_As_GMutableSpan();
+  GVMutableArray_Span(GVMutableArray &varray);
+  ~GVMutableArray_Span();
 
   void apply();
   void disable_not_applied_warning();

@@ -204,10 +204,10 @@ GVArray_For_SingleValue::~GVArray_For_SingleValue()
 }
 
 /* --------------------------------------------------------------------
- * GVArray_As_GSpan.
+ * GVArray_Span.
  */
 
-GVArray_As_GSpan::GVArray_As_GSpan(const GVArray &varray)
+GVArray_Span::GVArray_Span(const GVArray &varray)
     : GVArray_For_GSpan(varray.type(), varray.size()), varray_(varray)
 {
   if (varray_.is_span()) {
@@ -220,7 +220,7 @@ GVArray_As_GSpan::GVArray_As_GSpan(const GVArray &varray)
   }
 }
 
-GVArray_As_GSpan::~GVArray_As_GSpan()
+GVArray_Span::~GVArray_Span()
 {
   if (owned_data_ != nullptr) {
     type_->destruct_n(owned_data_, size_);
@@ -228,21 +228,21 @@ GVArray_As_GSpan::~GVArray_As_GSpan()
   }
 }
 
-GSpan GVArray_As_GSpan::as_span() const
+GSpan GVArray_Span::as_span() const
 {
   return this->get_span();
 }
 
-GVArray_As_GSpan::operator GSpan() const
+GVArray_Span::operator GSpan() const
 {
   return this->get_span();
 }
 
 /* --------------------------------------------------------------------
- * GVMutableArray_As_GMutableSpan.
+ * GVMutableArray_Span.
  */
 
-GVMutableArray_As_GMutableSpan::GVMutableArray_As_GMutableSpan(GVMutableArray &varray)
+GVMutableArray_Span::GVMutableArray_Span(GVMutableArray &varray)
     : GVMutableArray_For_GMutableSpan(varray.type(), varray.size()), varray_(varray)
 {
   if (varray_.is_span()) {
@@ -255,7 +255,7 @@ GVMutableArray_As_GMutableSpan::GVMutableArray_As_GMutableSpan(GVMutableArray &v
   }
 }
 
-GVMutableArray_As_GMutableSpan::~GVMutableArray_As_GMutableSpan()
+GVMutableArray_Span::~GVMutableArray_Span()
 {
   if (show_not_applied_warning_) {
     if (!apply_has_been_called_) {
@@ -264,7 +264,7 @@ GVMutableArray_As_GMutableSpan::~GVMutableArray_As_GMutableSpan()
   }
 }
 
-void GVMutableArray_As_GMutableSpan::apply()
+void GVMutableArray_Span::apply()
 {
   apply_has_been_called_ = true;
   if (data_ != owned_data_) {
@@ -275,17 +275,17 @@ void GVMutableArray_As_GMutableSpan::apply()
   }
 }
 
-void GVMutableArray_As_GMutableSpan::disable_not_applied_warning()
+void GVMutableArray_Span::disable_not_applied_warning()
 {
   show_not_applied_warning_ = false;
 }
 
-GMutableSpan GVMutableArray_As_GMutableSpan::as_span()
+GMutableSpan GVMutableArray_Span::as_span()
 {
   return this->get_span();
 }
 
-GVMutableArray_As_GMutableSpan::operator GMutableSpan()
+GVMutableArray_Span::operator GMutableSpan()
 {
   return this->get_span();
 }
