@@ -379,13 +379,13 @@ template<typename T> class VArray_For_Single final : public VArray<T> {
  *    from faster access.
  *  - An API is called, that does not accept virtual arrays, but only spans.
  */
-template<typename T> class VArray_As_Span final : public VArray_For_Span<T> {
+template<typename T> class VArray_Span final : public VArray_For_Span<T> {
  private:
   const VArray<T> &varray_;
   Array<T> owned_data_;
 
  public:
-  VArray_As_Span(const VArray<T> &varray) : VArray_For_Span<T>(varray.size()), varray_(varray)
+  VArray_Span(const VArray<T> &varray) : VArray_For_Span<T>(varray.size()), varray_(varray)
   {
     if (varray_.is_span()) {
       this->data_ = varray_.get_span().data();
@@ -409,8 +409,7 @@ template<typename T> class VArray_As_Span final : public VArray_For_Span<T> {
   }
 };
 
-template<typename T>
-class VMutableArray_As_MutableSpan final : public VMutableArray_For_MutableSpan<T> {
+template<typename T> class VMutableArray_Span final : public VMutableArray_For_MutableSpan<T> {
  private:
   VMutableArray<T> &varray_;
   Array<T> owned_data_;
@@ -418,8 +417,7 @@ class VMutableArray_As_MutableSpan final : public VMutableArray_For_MutableSpan<
   bool show_not_applied_warning_ = true;
 
  public:
-  VMutableArray_As_MutableSpan(VMutableArray<T> &varray)
-      : VMutableArray_For_MutableSpan<T>(varray.size())
+  VMutableArray_Span(VMutableArray<T> &varray) : VMutableArray_For_MutableSpan<T>(varray.size())
   {
     if (varray_.is_span()) {
       this->data_ = varray_.get_span().data();
@@ -432,7 +430,7 @@ class VMutableArray_As_MutableSpan final : public VMutableArray_For_MutableSpan<
     }
   }
 
-  ~VMutableArray_As_MutableSpan()
+  ~VMutableArray_Span()
   {
     if (show_not_applied_warning_) {
       if (!apply_has_been_called_) {
