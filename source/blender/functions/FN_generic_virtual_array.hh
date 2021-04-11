@@ -670,6 +670,7 @@ template<typename T> class GVArray_TypedRef {
  public:
   GVArray_TypedRef(const GVArray &gvarray)
   {
+    BLI_assert(gvarray.type().is<T>());
     if (gvarray.is_span()) {
       const GSpan span = gvarray.get_span();
       varray_span_.emplace(span.typed<T>());
@@ -717,6 +718,7 @@ template<typename T> class GVMutableArray_TypedRef {
  public:
   GVMutableArray_TypedRef(GVMutableArray &gvarray)
   {
+    BLI_assert(gvarray.type().is<T>());
     if (gvarray.is_span()) {
       const GMutableSpan span = gvarray.get_span();
       varray_span_.emplace(span.typed<T>());
