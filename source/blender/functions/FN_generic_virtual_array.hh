@@ -660,4 +660,93 @@ class GVMutableArray_For_DerivedSpan
   }
 };
 
+template<typename T> class GVArray_TypedRef {
+ private:
+  const VArray<T> *varray_;
+  std::optional<VArray_For_Span<T>> varray_span_;
+  std::optional<VArray_For_Single<T>> varray_single_;
+  std::optional<VArray_For_GVArray<T>> varray_any_;
+
+ public:
+  GVArray_TypedRef(const GVArray &gvarray)
+  {
+    if (gvarray.is_span()) {
+      const GSpan span = gvarray.get_span();
+      varray_span_.emplace(span.typed<T>());
+      varray_ = &*varray_span_;
+    }
+    else if (gvarray.is_single()) {
+      T single_value;
+      gvarray.get_single(&single_value);
+      varray_single_.emplace(single_value, gvarray.size());
+      varray_ = &*varray_single_;
+    }
+    else {
+      varray_any_.emplace(gvarray);
+      varray_ = &*varray_any_;
+    }
+  }
+
+  const VArray<T> &operator*() const
+  {
+    return *varray_;
+  }
+
+  const VArray<T> *operator->() const
+  {
+    return varray_;
+  }
+
+  operator const VArray<T> &() const
+  {
+    return *varray_;
+  }
+
+  T operator[](const int64_t index) const
+  {
+    return varray_->get(index);
+  }
+};
+
+template<typename T> class GVMutableArray_TypedRef {
+ private:
+  VMutableArray<T> *varray_;
+  std::optional<VMutableArray_For_MutableSpan<T>> varray_span_;
+  std::optional<VMutableArray_For_GVMutableArray<T>> varray_any_;
+
+ public:
+  GVMutableArray_TypedRef(GVMutableArray &gvarray)
+  {
+    if (gvarray.is_span()) {
+      const GMutableSpan span = gvarray.get_span();
+      varray_span_.emplace(span.typed<T>());
+      varray_ = &*varray_span_;
+    }
+    else {
+      varray_any_.emplace(gvarray);
+      varray_ = &*varray_any_;
+    }
+  }
+
+  VMutableArray<T> &operator*()
+  {
+    return *varray_;
+  }
+
+  VMutableArray<T> *operator->()
+  {
+    return varray_;
+  }
+
+  operator VMutableArray<T> &()
+  {
+    return *varray_;
+  }
+
+  T operator[](const int64_t index) const
+  {
+    return varray_->get(index);
+  }
+};
+
 }  // namespace blender::fn
