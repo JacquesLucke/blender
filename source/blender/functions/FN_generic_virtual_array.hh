@@ -715,6 +715,7 @@ template<typename T> class GVMutableArray_Typed {
   VMutableArray<T> *varray_;
   std::optional<VMutableArray_For_MutableSpan<T>> varray_span_;
   std::optional<VMutableArray_For_GVMutableArray<T>> varray_any_;
+  std::unique_ptr<GVMutableArray> owned_gvarray_;
 
  public:
   GVMutableArray_Typed(GVMutableArray &gvarray)
@@ -732,6 +733,11 @@ template<typename T> class GVMutableArray_Typed {
       varray_any_.emplace(gvarray);
       varray_ = &*varray_any_;
     }
+  }
+
+  GVMutableArray_Typed(std::unique_ptr<GVMutableArray> gvarray) : GVMutableArray_Typed(*gvarray)
+  {
+    owned_gvarray_ = std::move(gvarray);
   }
 
   VMutableArray<T> &operator*()
