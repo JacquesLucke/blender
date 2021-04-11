@@ -685,6 +685,7 @@ template<typename T> class GVArray_Typed {
   std::optional<VArray_For_Span<T>> varray_span_;
   std::optional<VArray_For_Single<T>> varray_single_;
   std::optional<VArray_For_GVArray<T>> varray_any_;
+  std::unique_ptr<GVArray> owned_gvarray_;
 
  public:
   GVArray_Typed(const GVArray &gvarray)
@@ -708,6 +709,11 @@ template<typename T> class GVArray_Typed {
       varray_any_.emplace(gvarray);
       varray_ = &*varray_any_;
     }
+  }
+
+  GVArray_Typed(std::unique_ptr<GVArray> gvarray)
+      : GVArray_Typed(*gvarray), owned_gvarray_(std::move(gvarray))
+  {
   }
 
   const VArray<T> &operator*() const
