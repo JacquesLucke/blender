@@ -48,6 +48,6 @@ struct GeometryNodesEvaluationParams {
   Vector<GMutablePointer> r_output_values;
 };
 
-void evaluate_geometry_nodes(const GeometryNodesEvaluationParams &params);
+void evaluate_geometry_nodes(GeometryNodesEvaluationParams &params);
 
 }  // namespace blender::modifiers

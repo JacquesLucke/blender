@@ -113,6 +113,13 @@ template<typename Allocator = GuardedAllocator> class LinearAllocator : NonCopya
     return MutableSpan<T>(array, size);
   }
 
+  template<typename T> MutableSpan<T> construct_array(int64_t size)
+  {
+    MutableSpan<T> span = this->allocate_array<T>(size);
+    default_construct_n(span.data(), size);
+    return span;
+  }
+
   /**
    * Construct an instance of T in memory provided by this allocator.
    *
