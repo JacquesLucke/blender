@@ -75,6 +75,7 @@
 
 #include "MOD_modifiertypes.h"
 #include "MOD_nodes.h"
+#include "MOD_nodes_evaluator.hh"
 #include "MOD_ui_common.h"
 
 #include "ED_spreadsheet.h"
@@ -1300,20 +1301,26 @@ static GeometrySet compute_geometry(const DerivedNodeTree &tree,
     log_ui_hints(socket, values, ctx->object, nmd);
   };
 
-  GeometryNodesEvaluator evaluator{group_inputs,
-                                   group_outputs,
-                                   mf_by_node,
-                                   handle_map,
-                                   ctx->object,
-                                   (ModifierData *)nmd,
-                                   ctx->depsgraph,
-                                   log_socket_value};
+  blender::modifiers::GeometryNodesEvaluationParams eval_params;
+  eval_params.input_values = group_inputs;
+  eval_params.output_sockets = group_outputs;
+  /* TODO: Add remaining params. */
+  blender::modifiers::evaluate_geometry_nodes(eval_params);
 
-  Vector<GMutablePointer> results = evaluator.execute();
-  BLI_assert(results.size() == 1);
-  GMutablePointer result = results[0];
+  // GeometryNodesEvaluator evaluator{group_inputs,
+  //                                  group_outputs,
+  //                                  mf_by_node,
+  //                                  handle_map,
+  //                                  ctx->object,
+  //                                  (ModifierData *)nmd,
+  //                                  ctx->depsgraph,
+  //                                  log_socket_value};
 
-  GeometrySet output_geometry = std::move(*(GeometrySet *)result.get());
+  // Vector<GMutablePointer> results = evaluator.execute();
+  // BLI_assert(results.size() == 1);
+  // GMutablePointer result = results[0];
+
+  GeometrySet output_geometry;
   return output_geometry;
 }
 

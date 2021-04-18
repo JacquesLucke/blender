@@ -16,14 +16,55 @@
 
 #include "MOD_nodes_evaluator.hh"
 
+#include "BLI_set.hh"
+#include "BLI_stack.hh"
+
 namespace blender::modifiers {
 
 namespace {
-struct Evaluator {
-  const GeometryNodesEvaluationParams &params;
+struct SocketUsage {
+  Vector<DInputSocket, 0> users;
+};
+
+class Evaluator {
+ private:
+  const GeometryNodesEvaluationParams &params_;
+  Map<DSocket, SocketUsage> socket_usage_;
+
+ public:
+  Evaluator(const GeometryNodesEvaluationParams &params) : params_(params)
+  {
+  }
 
   void execute()
   {
+    this->initialize_socket_usage();
+    socket_usage_.print_stats();
+  }
+
+  void initialize_socket_usage()
+  {
+    SCOPED_TIMER(__func__);
+    Stack<DInputSocket> sockets_to_check;
+    Set<DNode> found_nodes;
+    sockets_to_check.push_multiple(params_.output_sockets);
+
+    while (!sockets_to_check.is_empty()) {
+      const DInputSocket input_socket = sockets_to_check.pop();
+
+      input_socket.foreach_origin_socket([&, this](const DSocket origin) {
+        SocketUsage &usage = this->socket_usage_.lookup_or_add_default(origin);
+        usage.users.append_non_duplicates(input_socket);
+        if (origin->is_output()) {
+          const DNode origin_node = origin.node();
+          if (found_nodes.add(origin_node)) {
+            for (const InputSocketRef *input_socket_ref : origin_node->inputs()) {
+              sockets_to_check.push(DInputSocket(origin.context(), input_socket_ref));
+            }
+          }
+        }
+      });
+    }
   }
 };
 }  // namespace
