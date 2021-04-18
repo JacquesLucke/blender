@@ -283,7 +283,7 @@ static dot::Cluster *get_dot_cluster_for_context(
 }
 
 /* Generates a graph in dot format. The generated graph has all node groups inlined. */
-std::string DerivedNodeTree::to_dot() const
+std::string DerivedNodeTree::to_dot(const ToDotParams &params) const
 {
   dot::DirectedGraph digraph;
   digraph.set_rankdir(dot::Attr_rankdir::LeftToRight);
@@ -313,12 +313,18 @@ std::string DerivedNodeTree::to_dot() const
     Vector<std::string> output_names;
     for (const InputSocketRef *socket : node->inputs()) {
       if (socket->is_available()) {
-        input_names.append(socket->name());
+        DSocket dsocket{node.context(), socket};
+        const std::string additional_label = params.get_additional_socket_label.call_safe_default(
+            dsocket, "");
+        input_names.append(socket->name() + additional_label);
       }
     }
     for (const OutputSocketRef *socket : node->outputs()) {
       if (socket->is_available()) {
-        output_names.append(socket->name());
+        DSocket dsocket{node.context(), socket};
+        const std::string additional_label = params.get_additional_socket_label.call_safe_default(
+            dsocket, "");
+        output_names.append(socket->name() + additional_label);
       }
     }
 

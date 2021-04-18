@@ -172,7 +172,11 @@ class DerivedNodeTree {
   bool has_link_cycles() const;
   void foreach_node(FunctionRef<void(DNode)> callback) const;
 
-  std::string to_dot() const;
+  struct ToDotParams {
+    FunctionRef<std::string(DSocket socket)> get_additional_socket_label;
+  };
+
+  std::string to_dot(const ToDotParams &params) const;
 
  private:
   DTreeContext &construct_context_recursively(DTreeContext *parent_context,

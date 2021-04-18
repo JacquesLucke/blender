@@ -163,6 +163,16 @@ template<typename Ret, typename... Params> class FunctionRef<Ret(Params...)> {
     }
   }
 
+  template<typename ForwardRet = Ret,
+           typename std::enable_if_t<!std::is_void_v<ForwardRet>> * = nullptr>
+  Ret call_safe_default(Params... params, ForwardRet &&default_value) const
+  {
+    if (callback_ == nullptr) {
+      return std::forward<ForwardRet>(default_value);
+    }
+    return callback_(callable_, std::forward<Params>(params)...);
+  }
+
   /**
    * Returns true, when the `FunctionRef` references a function currently.
    * If this returns false, the `FunctionRef` must not be called.

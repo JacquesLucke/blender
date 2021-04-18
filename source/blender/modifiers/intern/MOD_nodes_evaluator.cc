@@ -46,6 +46,24 @@ class Evaluator {
     this->initialize_node_states();
     this->initialize_socket_users();
     node_states_.print_stats();
+
+    auto get_socket_users = [&, this](const DSocket socket) -> std::string {
+      if (socket->is_input()) {
+        return "";
+      }
+      const DOutputSocket output_socket{socket};
+      NodeState *node_state = this->node_states_.lookup_ptr(output_socket.node());
+      if (node_state == nullptr) {
+        return " 0";
+      }
+      return std::to_string(node_state->outputs[socket->index()].users.size());
+    };
+
+    DerivedNodeTree::ToDotParams to_dot_params;
+    to_dot_params.get_additional_socket_label = get_socket_users;
+    const DerivedNodeTree &tree = params_.output_sockets[0].context()->derived_tree();
+    std::cout << "\n\n" << tree.to_dot(to_dot_params) << "\n\n";
+
     this->destruct_node_states();
   }
 
