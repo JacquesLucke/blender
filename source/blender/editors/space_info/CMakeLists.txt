@@ -35,6 +35,7 @@ set(INC
 
 set(SRC
   info_draw.c
+  info_draw_profile.cc
   info_ops.c
   info_report.c
   info_stats.c

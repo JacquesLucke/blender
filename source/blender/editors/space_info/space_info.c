@@ -129,7 +129,7 @@ static void info_textview_update_rect(const bContext *C, ARegion *region)
       v2d, region->winx - 1, info_textview_height(sinfo, region, CTX_wm_reports(C)));
 }
 
-static void info_main_region_draw(const bContext *C, ARegion *region)
+static void info_main_region_draw_reports(const bContext *C, ARegion *region)
 {
   /* draw entirely, view changes should be handled here */
   SpaceInfo *sinfo = CTX_wm_space_info(C);
@@ -155,6 +155,17 @@ static void info_main_region_draw(const bContext *C, ARegion *region)
 
   /* scrollers */
   UI_view2d_scrollers_draw(v2d, NULL);
+}
+
+static void info_main_region_draw(const bContext *C, ARegion *region)
+{
+  SpaceInfo *sinfo = CTX_wm_space_info(C);
+  if (sinfo->view_mode == INFO_VIEW_REPORTS) {
+    info_main_region_draw_reports(C, region);
+  }
+  if (sinfo->view_mode == INFO_VIEW_PROFILE) {
+    info_profile_draw(C, region);
+  }
 }
 
 static void info_operatortypes(void)

@@ -6790,12 +6790,23 @@ static void rna_def_space_filebrowser(BlenderRNA *brna)
 
 static void rna_def_space_info(BlenderRNA *brna)
 {
+  static const EnumPropertyItem view_mode_items[] = {
+      {INFO_VIEW_REPORTS, "REPORTS", 0, "Reports", "View reports from operators"},
+      {INFO_VIEW_PROFILE, "PROFILE", 0, "Profile", "View profile"},
+      {0, NULL, 0, NULL, NULL},
+  };
+
   StructRNA *srna;
   PropertyRNA *prop;
 
   srna = RNA_def_struct(brna, "SpaceInfo", "Space");
   RNA_def_struct_sdna(srna, "SpaceInfo");
   RNA_def_struct_ui_text(srna, "Space Info", "Info space data");
+
+  prop = RNA_def_property(srna, "view_mode", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_items(prop, view_mode_items);
+  RNA_def_property_ui_text(prop, "View Mode", "");
+  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_INFO, NULL);
 
   /* reporting display */
   prop = RNA_def_property(srna, "show_report_debug", PROP_BOOLEAN, PROP_NONE);

@@ -122,8 +122,13 @@ typedef struct SpaceInfo {
   char _pad0[6];
   /* End 'SpaceLink' header. */
 
+  /* eSpaceInfo_RptMask */
   char rpt_mask;
-  char _pad[7];
+
+  /* eSpaceInfo_ViewMode. */
+  uint8_t view_mode;
+
+  char _pad[6];
 } SpaceInfo;
 
 /* SpaceInfo.rpt_mask */
@@ -134,6 +139,11 @@ typedef enum eSpaceInfo_RptMask {
   INFO_RPT_WARN = (1 << 3),
   INFO_RPT_ERR = (1 << 4),
 } eSpaceInfo_RptMask;
+
+typedef enum eSpaceInfo_ViewMode {
+  INFO_VIEW_REPORTS = 0,
+  INFO_VIEW_PROFILE = 1,
+} eSpaceInfo_ViewMode;
 
 /** \} */
 
