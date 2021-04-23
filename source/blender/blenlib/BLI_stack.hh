@@ -287,6 +287,14 @@ class Stack {
     return *(top_ - 1);
   }
 
+  const T &peek_default(const T &default_value) const
+  {
+    if (size_ > 0) {
+      return this->peek();
+    }
+    return default_value;
+  }
+
   /**
    * Add multiple elements to the stack. The values are pushed in the order they are in the array.
    * This method is more efficient than pushing multiple elements individually and might cause less
