@@ -16,19 +16,16 @@
 
 #include <atomic>
 #include <chrono>
+#include <mutex>
 
 #include "BLI_profile.h"
+#include "BLI_profile_parse.hh"
 #include "BLI_stack.hh"
 #include "BLI_vector.hh"
 
 namespace blender::profile {
 
-using Clock = std::chrono::steady_clock;
-using Duration = Clock::duration;
-using TimePoint = Clock::time_point;
-using Nanoseconds = std::chrono::nanoseconds;
-
-struct ProfiledScope {
+struct ProfileSegment {
   const char *name;
   TimePoint start_time;
   TimePoint end_time;
@@ -36,8 +33,24 @@ struct ProfiledScope {
   uint64_t parent_id;
 };
 
-static thread_local Stack<uint64_t, 0, RawAllocator> scope_ids_stack;
-static thread_local Vector<ProfiledScope, 0, RawAllocator> profiled_scopes;
+static std::mutex profile_mutex;
+static Vector<ProfileSegment> segments;
+static bool profiling_is_enabled;
+
+struct ThreadLocalProfileStorage {
+  Stack<uint64_t, 0, RawAllocator> scope_stack;
+  Vector<ProfileSegment, 0, RawAllocator> segments;
+
+  void add_segment(ProfileSegment segment)
+  {
+    std::lock_guard lock{profile_mutex};
+    if (profiling_is_enabled) {
+      segments.append(segment);
+    }
+  }
+};
+
+static thread_local ThreadLocalProfileStorage storage;
 
 static uint64_t get_unique_session_id()
 {
@@ -46,60 +59,60 @@ static uint64_t get_unique_session_id()
   return id++;
 }
 
-static void profile_scope_begin(BLI_profile_scope *scope, const char *name)
-{
-  scope->name = name;
-  scope->start_time = Clock::now().time_since_epoch().count();
-  scope->id = get_unique_session_id();
-  scope->parent_id = scope_ids_stack.peek_default(0);
-  scope_ids_stack.push(scope->id);
-}
-
-static void profile_scope_begin_subthread(BLI_profile_scope *scope,
-                                          const BLI_profile_scope *parent_scope,
-                                          const char *name)
-{
-  scope->name = name;
-  scope->id = get_unique_session_id();
-  scope->parent_id = parent_scope->id;
-  scope->start_time = Clock::now().time_since_epoch().count();
-  scope_ids_stack.push(scope->id);
-}
-
-static void profile_scope_end(const BLI_profile_scope *scope)
-{
-  TimePoint end_time = Clock::now();
-  BLI_assert(scope_ids_stack.peek() == scope->id);
-  scope_ids_stack.pop();
-  TimePoint start_time = TimePoint(Duration(scope->start_time));
-
-  ProfiledScope profiled_scope;
-  profiled_scope.name = scope->name;
-  profiled_scope.start_time = start_time;
-  profiled_scope.end_time = end_time;
-  profiled_scope.id = scope->id;
-  profiled_scope.parent_id = scope->parent_id;
-  profiled_scopes.append(profiled_scope);
-  std::cout << profiled_scope.name << ": "
-            << std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count()
-            << " us\n";
-}
-
 }  // namespace blender::profile
+
+using namespace blender::profile;
 
 void BLI_profile_scope_begin(BLI_profile_scope *scope, const char *name)
 {
-  blender::profile::profile_scope_begin(scope, name);
+  scope->name = name;
+  scope->start_time = Clock::now().time_since_epoch().count();
+  scope->id = get_unique_session_id();
+  scope->parent_id = storage.scope_stack.peek_default(0);
+  storage.scope_stack.push(scope->id);
 }
 
 void BLI_profile_scope_begin_subthread(BLI_profile_scope *scope,
                                        const BLI_profile_scope *parent_scope,
                                        const char *name)
 {
-  blender::profile::profile_scope_begin_subthread(scope, parent_scope, name);
+  scope->name = name;
+  scope->id = get_unique_session_id();
+  scope->parent_id = parent_scope->id;
+  scope->start_time = Clock::now().time_since_epoch().count();
+  storage.scope_stack.push(scope->id);
 }
 
 void BLI_profile_scope_end(const BLI_profile_scope *scope)
 {
-  blender::profile::profile_scope_end(scope);
+  TimePoint end_time = Clock::now();
+  BLI_assert(storage.scope_stack.peek() == scope->id);
+  storage.scope_stack.pop();
+  TimePoint start_time = TimePoint(Duration(scope->start_time));
+
+  ProfileSegment segment;
+  segment.name = scope->name;
+  segment.start_time = start_time;
+  segment.end_time = end_time;
+  segment.id = scope->id;
+  segment.parent_id = scope->parent_id;
+  storage.add_segment(segment);
+}
+
+void BLI_profile_enable()
+{
+  std::lock_guard lock{profile_mutex};
+  profiling_is_enabled = true;
+}
+
+void BLI_profile_disable()
+{
+  std::lock_guard lock{profile_mutex};
+  profiling_is_enabled = false;
+}
+
+void BLI_profile_clear()
+{
+  std::lock_guard lock{profile_mutex};
+  segments.clear();
 }

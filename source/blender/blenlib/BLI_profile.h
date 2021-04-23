@@ -35,6 +35,10 @@ void BLI_profile_scope_begin_subthread(BLI_profile_scope *scope,
                                        const char *name);
 void BLI_profile_scope_end(const BLI_profile_scope *scope);
 
+void BLI_profile_enable();
+void BLI_profile_disable();
+void BLI_profile_clear();
+
 #ifdef __cplusplus
 }
 #endif
