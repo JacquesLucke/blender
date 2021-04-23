@@ -24,7 +24,7 @@ extern "C" {
 
 struct BLI_profile_scope {
   const char *name;
-  int64_t start_time;
+  int64_t begin_time;
   uint64_t id;
   uint64_t parent_id;
 };

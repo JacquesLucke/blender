@@ -18,11 +18,48 @@
 
 #include <chrono>
 
+#include "BLI_linear_allocator.hh"
+#include "BLI_utility_mixins.hh"
+#include "BLI_vector.hh"
+
 namespace blender::profile {
 
 using Clock = std::chrono::steady_clock;
 using Duration = Clock::duration;
 using TimePoint = Clock::time_point;
 using Nanoseconds = std::chrono::nanoseconds;
+
+struct ProfileSegment {
+  const char *name;
+  TimePoint begin_time;
+  TimePoint end_time;
+  uint64_t id;
+  uint64_t parent_id;
+  uint64_t thread_id;
+};
+
+class ProfileResult;
+
+class ProfileNode : NonCopyable, NonMovable {
+ private:
+  ProfileNode *parent_ = nullptr;
+  const char *name_ = nullptr;
+  TimePoint begin_time_;
+  TimePoint end_time_;
+  int thread_id_;
+  Vector<ProfileNode *> children_;
+
+  friend ProfileResult;
+};
+
+class ProfileResult {
+ private:
+  LinearAllocator<> allocator_;
+  Vector<ProfileNode *> root_nodes_;
+
+ public:
+  ProfileResult(Span<ProfileSegment> segments);
+  ~ProfileResult();
+};
 
 }  // namespace blender::profile
