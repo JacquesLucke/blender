@@ -62,4 +62,6 @@ class ProfileResult {
   ~ProfileResult();
 };
 
+Vector<ProfileSegment> get_recorded_segments();
+
 }  // namespace blender::profile

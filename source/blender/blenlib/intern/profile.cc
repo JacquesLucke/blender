@@ -39,7 +39,6 @@ static uint64_t get_unique_session_id()
 struct ThreadLocalProfileStorage {
   uint64_t thread_id;
   Stack<uint64_t, 0, RawAllocator> scope_stack;
-  Vector<ProfileSegment, 0, RawAllocator> segments;
 
   ThreadLocalProfileStorage()
   {
@@ -57,6 +56,12 @@ struct ThreadLocalProfileStorage {
 };
 
 static thread_local ThreadLocalProfileStorage storage;
+
+Vector<ProfileSegment> get_recorded_segments()
+{
+  std::lock_guard lock{profile_mutex};
+  return segments;
+}
 
 }  // namespace blender::profile
 
