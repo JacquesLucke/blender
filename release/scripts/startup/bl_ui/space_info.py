@@ -29,7 +29,11 @@ class INFO_HT_header(Header):
 
         INFO_MT_editor_menus.draw_collapsible(context, layout)
 
-        layout.prop(context.space_data, "view_mode")
+        sinfo = context.space_data
+        layout.prop(sinfo, "view_mode")
+        if sinfo.view_mode == 'PROFILE':
+            layout.operator("profile.enable")
+            layout.operator("profile.disable")
 
 
 class INFO_MT_editor_menus(Menu):
