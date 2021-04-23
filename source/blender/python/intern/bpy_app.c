@@ -33,6 +33,7 @@
 #include "bpy_app_oiio.h"
 #include "bpy_app_opensubdiv.h"
 #include "bpy_app_openvdb.h"
+#include "bpy_app_profile.h"
 #include "bpy_app_sdl.h"
 #include "bpy_app_usd.h"
 
@@ -123,6 +124,7 @@ static PyStructSequence_Field app_info_fields[] = {
     /* Modules (not struct sequence). */
     {"icons", "Manage custom icons"},
     {"timers", "Manage timers"},
+    {"profile", "Manage profiling Blender"},
     {NULL},
 };
 
@@ -209,6 +211,7 @@ static PyObject *make_app_info(void)
   /* modules */
   SetObjItem(BPY_app_icons_module());
   SetObjItem(BPY_app_timers_module());
+  SetObjItem(BPY_app_profile_module());
 
 #undef SetIntItem
 #undef SetStrItem

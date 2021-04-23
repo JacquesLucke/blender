@@ -2002,6 +2002,7 @@ def write_rst_importable_modules(basepath):
         "bpy.app.translations": "Application Translations",
         "bpy.app.icons": "Application Icons",
         "bpy.app.timers": "Application Timers",
+        "bpy.app.profile": "Profile Application",
         "bpy.props": "Property Definitions",
         "idprop.types": "ID Property Access",
         "mathutils": "Math Types & Utilities",

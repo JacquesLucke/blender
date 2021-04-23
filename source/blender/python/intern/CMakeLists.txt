@@ -53,6 +53,7 @@ set(SRC
   bpy_app_oiio.c
   bpy_app_opensubdiv.c
   bpy_app_openvdb.c
+  bpy_app_profile.cc
   bpy_app_sdl.c
   bpy_app_timers.c
   bpy_app_translations.c
@@ -98,6 +99,7 @@ set(SRC
   bpy_app_oiio.h
   bpy_app_opensubdiv.h
   bpy_app_openvdb.h
+  bpy_app_profile.h
   bpy_app_sdl.h
   bpy_app_timers.h
   bpy_app_translations.h
