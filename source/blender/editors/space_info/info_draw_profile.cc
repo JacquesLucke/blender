@@ -17,6 +17,8 @@
 #include "BLI_profile_parse.hh"
 #include "BLI_utildefines.h"
 
+#include "DNA_userdef_types.h"
+
 #include "BKE_context.h"
 
 #include "UI_interface.h"
@@ -29,6 +31,28 @@ using blender::profile::ProfileSegment;
 
 namespace blender::ed::info {
 
+static void draw_centered_label(
+    uiBlock *block, StringRefNull str, int x, int y, int width, int height)
+{
+  uiBut *but = uiDefIconTextBut(block,
+                                UI_BTYPE_LABEL,
+                                0,
+                                ICON_NONE,
+                                str.c_str(),
+                                x,
+                                y,
+                                width,
+                                height,
+                                nullptr,
+                                0,
+                                0,
+                                0,
+                                0,
+                                nullptr);
+  UI_but_drawflag_disable(but, UI_BUT_TEXT_LEFT);
+  UI_but_drawflag_disable(but, UI_BUT_TEXT_RIGHT);
+}
+
 static void info_profile_draw_impl(const bContext *C, ARegion *region)
 {
   SpaceInfo *sinfo = CTX_wm_space_info(C);
@@ -38,22 +62,16 @@ static void info_profile_draw_impl(const bContext *C, ARegion *region)
   Vector<ProfileSegment> segments = profile::get_recorded_segments();
 
   uiBlock *block = UI_block_begin(C, region, __func__, UI_EMBOSS_NONE);
-  const std::string str = std::to_string(segments.size());
-  uiDefIconTextBut(block,
-                   UI_BTYPE_LABEL,
-                   0,
-                   ICON_NONE,
-                   str.c_str(),
-                   50,
-                   50,
-                   100,
-                   100,
-                   nullptr,
-                   0,
-                   0,
-                   0,
-                   0,
-                   nullptr);
+
+  for (const int i : segments.index_range()) {
+    const ProfileSegment &segment = segments[i];
+    const std::string str = std::to_string(segments.size());
+    const int y = 50 + i * UI_UNIT_Y;
+    draw_centered_label(block, segment.name, 50, y, 300, 100);
+    const auto duration = segment.end_time - segment.begin_time;
+    const std::string duration_str = std::to_string(duration.count() / 1000.0f) + " us";
+    draw_centered_label(block, duration_str, 400, y, 300, 100);
+  }
   UI_block_end(C, block);
   UI_block_draw(C, block);
 }

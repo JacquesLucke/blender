@@ -26,7 +26,7 @@
 namespace blender::profile {
 
 static std::mutex profile_mutex;
-static Vector<ProfileSegment> segments;
+static Vector<ProfileSegment, 0, RawAllocator> segments;
 static bool profiling_is_enabled;
 
 static uint64_t get_unique_session_id()
