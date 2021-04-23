@@ -80,6 +80,9 @@ static void profile_scope_end(const BLI_profile_scope *scope)
   profiled_scope.id = scope->id;
   profiled_scope.parent_id = scope->parent_id;
   profiled_scopes.append(profiled_scope);
+  std::cout << profiled_scope.name << ": "
+            << std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count()
+            << " us\n";
 }
 
 }  // namespace blender::profile

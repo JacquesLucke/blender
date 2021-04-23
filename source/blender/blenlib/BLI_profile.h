@@ -38,3 +38,27 @@ void BLI_profile_scope_end(const BLI_profile_scope *scope);
 #ifdef __cplusplus
 }
 #endif
+
+#ifdef __cplusplus
+
+namespace blender::profile {
+class ProfileScope {
+ private:
+  BLI_profile_scope scope;
+
+ public:
+  ProfileScope(const char *name)
+  {
+    BLI_profile_scope_begin(&scope, name);
+  }
+
+  ~ProfileScope()
+  {
+    BLI_profile_scope_end(&scope);
+  }
+};
+}  // namespace blender::profile
+
+#  define BLI_SCOPED_PROFILE(name) blender::profile::ProfileScope profile_scope(name)
+
+#endif

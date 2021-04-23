@@ -30,6 +30,7 @@
 #include "BLI_float3.hh"
 #include "BLI_listbase.h"
 #include "BLI_multi_value_map.hh"
+#include "BLI_profile.h"
 #include "BLI_set.hh"
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
@@ -472,6 +473,7 @@ class GeometryNodesEvaluator {
   void execute_node(const DNode node, GeoNodeExecParams params)
   {
     const bNode &bnode = params.node();
+    BLI_SCOPED_PROFILE(bnode.name);
 
     /* Use the geometry-node-execute callback if it exists. */
     if (bnode.typeinfo->geometry_node_execute != nullptr) {
@@ -1442,6 +1444,7 @@ static void modifyGeometrySet(ModifierData *md,
                               const ModifierEvalContext *ctx,
                               GeometrySet *geometry_set)
 {
+  BLI_SCOPED_PROFILE(__func__);
   modifyGeometry(md, ctx, *geometry_set);
 }
 
