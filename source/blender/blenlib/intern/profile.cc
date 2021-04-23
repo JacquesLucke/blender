@@ -108,3 +108,8 @@ void BLI_profile_clear()
   std::lock_guard lock{profile_mutex};
   segments.clear();
 }
+
+bool BLI_profile_is_enabled()
+{
+  return profiling_is_enabled;
+}

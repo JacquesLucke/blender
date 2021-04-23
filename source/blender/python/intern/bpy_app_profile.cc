@@ -43,6 +43,21 @@ static PyObject *bpy_app_profile_disable(PyObject *UNUSED(self),
   Py_RETURN_NONE;
 }
 
+PyDoc_STRVAR(bpy_app_profile_is_enabled_doc,
+             ".. function:: is_enabled()\n"
+             "\n"
+             "   Check if profiling is enabled.\n"
+             "\n"
+             "   :return: True when profiling is enabled, otherwise False.\n"
+             "   :rtype: bool\n");
+static PyObject *bpy_app_profile_is_enabled(PyObject *UNUSED(self),
+                                            PyObject *UNUSED(args),
+                                            PyObject *UNUSED(kwargs))
+{
+  const bool enabled = BLI_profile_is_enabled();
+  return PyBool_FromLong(enabled);
+}
+
 static struct PyMethodDef M_AppProfile_methods[] = {
     {"enable",
      (PyCFunction)bpy_app_profile_enable,
@@ -52,6 +67,10 @@ static struct PyMethodDef M_AppProfile_methods[] = {
      (PyCFunction)bpy_app_profile_disable,
      METH_VARARGS | METH_KEYWORDS,
      bpy_app_profile_disable_doc},
+    {"is_enabled",
+     (PyCFunction)bpy_app_profile_is_enabled,
+     METH_VARARGS | METH_KEYWORDS,
+     bpy_app_profile_is_enabled_doc},
     {nullptr, nullptr, 0, nullptr},
 };
 

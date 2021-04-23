@@ -17,6 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 # <pep8 compliant>
+import bpy
 from bpy.types import Header, Menu
 
 
@@ -32,8 +33,10 @@ class INFO_HT_header(Header):
         sinfo = context.space_data
         layout.prop(sinfo, "view_mode")
         if sinfo.view_mode == 'PROFILE':
-            layout.operator("profile.enable")
-            layout.operator("profile.disable")
+            if bpy.app.profile.is_enabled():
+                layout.operator("profile.disable")
+            else:
+                layout.operator("profile.enable")
 
 
 class INFO_MT_editor_menus(Menu):
