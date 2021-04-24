@@ -37,8 +37,11 @@ class ProfileNode {
   uint64_t id_;
   uint64_t parent_id_;
   uint64_t thread_id_;
+  /* The nodes in these vectors are ordered by the begin time. */
   Vector<ProfileNode *> children_on_same_thread_;
   Vector<Vector<ProfileNode *>> packed_children_on_other_threads_;
+
+  /* These nodes still have to be inserted into the vectors above. They are not sorted. */
   Vector<ProfileNode *> children_to_pack_;
 
   friend ProfileLayout;
@@ -87,8 +90,8 @@ class ProfileNode {
   static bool time_overlap(const ProfileNode &a, const ProfileNode &b);
 
  private:
-  void add_child_without_packing(ProfileNode *new_child);
   void pack_added_children();
+  int try_pack_into_vector(Vector<ProfileNode *> &nodes_vec, bool ignore_other_thread_ids);
 
   void destruct_recursively();
 };
