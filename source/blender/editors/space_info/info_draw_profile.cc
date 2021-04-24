@@ -31,7 +31,7 @@
 
 #include "GPU_immediate.h"
 
-#include "info_intern.h"
+#include "info_intern.hh"
 #include "info_profile_layout.hh"
 
 using blender::profile::Duration;
@@ -124,7 +124,7 @@ static void draw_profile_nodes(uiBlock *block,
   top_y = new_top_y;
 }
 
-static void info_profile_draw_impl(const bContext *C, ARegion *region)
+void info_profile_draw(const bContext *C, ARegion *region)
 {
   SpaceInfo *sinfo = CTX_wm_space_info(C);
   UNUSED_VARS(sinfo, region);
@@ -163,8 +163,3 @@ static void info_profile_draw_impl(const bContext *C, ARegion *region)
 }
 
 }  // namespace blender::ed::info
-
-void info_profile_draw(const bContext *C, ARegion *region)
-{
-  blender::ed::info::info_profile_draw_impl(C, region);
-}

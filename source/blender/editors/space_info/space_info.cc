@@ -164,7 +164,7 @@ static void info_main_region_draw(const bContext *C, ARegion *region)
     info_main_region_draw_reports(C, region);
   }
   if (sinfo->view_mode == INFO_VIEW_PROFILE) {
-    info_profile_draw(C, region);
+    blender::ed::info::info_profile_draw(C, region);
   }
 }
 
