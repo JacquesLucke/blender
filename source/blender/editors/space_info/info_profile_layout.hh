@@ -39,6 +39,7 @@ class ProfileNode {
   uint64_t thread_id_;
   Vector<ProfileNode *> children_on_same_thread_;
   Vector<Vector<ProfileNode *>> packed_children_on_other_threads_;
+  Vector<ProfileNode *> children_to_pack_;
 
   friend ProfileLayout;
 
@@ -86,7 +87,8 @@ class ProfileNode {
   static bool time_overlap(const ProfileNode &a, const ProfileNode &b);
 
  private:
-  void add_child(ProfileNode *new_child);
+  void add_child_without_packing(ProfileNode *new_child);
+  void pack_added_children();
 
   void destruct_recursively();
 };

@@ -16,6 +16,8 @@
 
 #include "info_profile_layout.hh"
 
+#include "BLI_set.hh"
+
 namespace blender::ed::info {
 
 using profile::ProfileSegmentBegin;
@@ -28,27 +30,88 @@ bool ProfileNode::time_overlap(const ProfileNode &a, const ProfileNode &b)
   return begin_of_a_is_in_b || begin_of_b_is_in_a;
 }
 
-void ProfileNode::add_child(ProfileNode *new_child)
+void ProfileNode::add_child_without_packing(ProfileNode *new_child)
 {
   if (new_child->thread_id_ == thread_id_) {
     children_on_same_thread_.append(new_child);
     return;
   }
-  for (Vector<ProfileNode *> &children_vec : packed_children_on_other_threads_) {
-    bool overlap_found = false;
-    for (ProfileNode *child : children_vec) {
-      if (ProfileNode::time_overlap(*child, *new_child)) {
-        overlap_found = true;
-        break;
+  children_to_pack_.append(new_child);
+}
+
+void ProfileNode::pack_added_children()
+{
+  /* Sort new nodes by begin time. */
+  std::sort(children_to_pack_.begin(),
+            children_to_pack_.end(),
+            [](ProfileNode *a, ProfileNode *b) { return a->begin_time() < b->begin_time(); });
+
+  /* Assume already packed children are sorted by begin time. */
+  int tot_newly_inserted = 0;
+  int iteration = 0;
+  while (tot_newly_inserted < children_to_pack_.size()) {
+    if (iteration == packed_children_on_other_threads_.size()) {
+      packed_children_on_other_threads_.append({});
+    }
+    Vector<ProfileNode *> &children_vec = packed_children_on_other_threads_[iteration];
+    iteration++;
+
+    MutableSpan<ProfileNode *> remaining_existing = children_vec;
+    MutableSpan<ProfileNode *> remaining_new = children_to_pack_;
+    Vector<ProfileNode *> new_vec;
+    while (!remaining_new.is_empty()) {
+      ProfileNode *new_child = remaining_new[0];
+      if (new_child == nullptr) {
+        /* Child has been inserted already. */
+        remaining_new = remaining_new.drop_front(1);
+        continue;
+      }
+      while (true) {
+        if (!new_vec.is_empty()) {
+          ProfileNode *existing_child = new_vec.last();
+          if (ProfileNode::time_overlap(*existing_child, *new_child)) {
+            /* Node collides with previously added node. */
+            remaining_new = remaining_new.drop_front(1);
+            break;
+          }
+        }
+        if (remaining_existing.is_empty()) {
+          /* There are no remaining existing nodes the new child can collide with. */
+          new_vec.append(new_child);
+          tot_newly_inserted++;
+          remaining_new[0] = nullptr;
+          remaining_new = remaining_new.drop_front(1);
+          break;
+        }
+        ProfileNode *existing_child = remaining_existing[0];
+        if (existing_child->end_time_ <= new_child->begin_time_) {
+          /* Existing child is completely before the new one. */
+          new_vec.append(existing_child);
+          remaining_existing = remaining_existing.drop_front(1);
+          continue;
+        }
+        if (existing_child->begin_time_ < new_child->end_time_) {
+          /* Existing child collides with the new child. */
+          new_vec.append(existing_child);
+          remaining_existing = remaining_existing.drop_front(1);
+          remaining_new = remaining_new.drop_front(1);
+          break;
+        }
+        if (new_child->end_time_ <= existing_child->begin_time_) {
+          /* New child can be added safely. */
+          new_vec.append(new_child);
+          tot_newly_inserted++;
+          remaining_new[0] = nullptr;
+          remaining_new = remaining_new.drop_front(1);
+          break;
+        }
       }
     }
-    if (!overlap_found) {
-      children_vec.append(new_child);
-      return;
-    }
+    new_vec.extend(remaining_existing);
+    children_vec = std::move(new_vec);
   }
-  packed_children_on_other_threads_.append({});
-  packed_children_on_other_threads_.last().append(new_child);
+
+  children_to_pack_.clear();
 }
 
 void ProfileLayout::add(const RecordedProfile &recorded_profile)
@@ -71,6 +134,9 @@ void ProfileLayout::add(const RecordedProfile &recorded_profile)
       node->end_time_ = end.time;
     }
   }
+
+  Set<ProfileNode *> nodes_with_new_children;
+
   /* Create parent/child relation ships for new nodes. */
   for (const ProfileSegmentBegin &begin : recorded_profile.begins) {
     ProfileNode *node = nodes_by_id_.lookup(begin.id);
@@ -89,9 +155,11 @@ void ProfileLayout::add(const RecordedProfile &recorded_profile)
       root_nodes_by_thread_id_.lookup_or_add_default(node->thread_id_).append(node);
     }
     else {
-      parent_node->add_child(node);
+      parent_node->add_child_without_packing(node);
+      nodes_with_new_children.add(parent_node);
     }
   }
+
   /* Check if a previous root node is not a root anymore. */
   for (Vector<ProfileNode *> &nodes : root_nodes_by_thread_id_.values()) {
     Vector<ProfileNode *> nodes_to_remove;
@@ -99,13 +167,19 @@ void ProfileLayout::add(const RecordedProfile &recorded_profile)
       ProfileNode *new_parent = nodes_by_id_.lookup_default(node->parent_id_, nullptr);
       if (new_parent != nullptr) {
         node->parent_ = new_parent;
-        new_parent->add_child(node);
+        nodes_with_new_children.add(new_parent);
+        new_parent->add_child_without_packing(node);
         nodes_to_remove.append_non_duplicates(node);
       }
     }
     for (ProfileNode *node : nodes_to_remove) {
       nodes.remove_first_occurrence_and_reorder(node);
     }
+  }
+
+  /* Pack newly added children. */
+  for (ProfileNode *node : nodes_with_new_children) {
+    node->pack_added_children();
   }
 }
 
