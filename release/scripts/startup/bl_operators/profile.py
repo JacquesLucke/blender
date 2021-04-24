@@ -38,7 +38,17 @@ class PROFILE_OT_disable(bpy.types.Operator):
         bpy.app.profile.disable()
         return {'FINISHED'}
 
+class PROFILE_OT_clear(bpy.types.Operator):
+    bl_idname = "profile.clear"
+    bl_label = "Clear Profile Data"
+    bl_options = {'REGISTER'}
+
+    def execute(self, context):
+        bpy.app.profile.clear()
+        return {'FINISHED'}
+
 classes = (
     PROFILE_OT_enable,
     PROFILE_OT_disable,
+    PROFILE_OT_clear,
 )

@@ -58,6 +58,18 @@ static PyObject *bpy_app_profile_is_enabled(PyObject *UNUSED(self),
   return PyBool_FromLong(enabled);
 }
 
+PyDoc_STRVAR(bpy_app_profile_clear_doc,
+             ".. function:: clear()\n"
+             "\n"
+             "   Delete recorded profile.\n");
+static PyObject *bpy_app_profile_clear(PyObject *UNUSED(self),
+                                       PyObject *UNUSED(args),
+                                       PyObject *UNUSED(kwargs))
+{
+  BLI_profile_clear();
+  Py_RETURN_NONE;
+}
+
 static struct PyMethodDef M_AppProfile_methods[] = {
     {"enable",
      (PyCFunction)bpy_app_profile_enable,
@@ -71,6 +83,10 @@ static struct PyMethodDef M_AppProfile_methods[] = {
      (PyCFunction)bpy_app_profile_is_enabled,
      METH_VARARGS | METH_KEYWORDS,
      bpy_app_profile_is_enabled_doc},
+    {"clear",
+     (PyCFunction)bpy_app_profile_clear,
+     METH_VARARGS | METH_KEYWORDS,
+     bpy_app_profile_clear_doc},
     {nullptr, nullptr, 0, nullptr},
 };
 

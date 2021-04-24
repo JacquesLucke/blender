@@ -38,6 +38,8 @@ class INFO_HT_header(Header):
             else:
                 layout.operator("profile.enable")
 
+            layout.operator("profile.clear")
+
 
 class INFO_MT_editor_menus(Menu):
     bl_idname = "INFO_MT_editor_menus"
