@@ -16,6 +16,7 @@
 
 #include "BLI_function_ref.hh"
 #include "BLI_hash.h"
+#include "BLI_math_color.h"
 #include "BLI_profile.hh"
 #include "BLI_utildefines.h"
 
@@ -61,6 +62,15 @@ static void draw_centered_label(
   UI_but_drawflag_disable(but, UI_BUT_TEXT_RIGHT);
 }
 
+static void set_color_based_on_time(const TimePoint time)
+{
+  const uint64_t value = time.time_since_epoch().count();
+  const float variation = BLI_hash_int_2d_to_float(value, value >> 32);
+  float r, g, b;
+  hsv_to_rgb(variation * 0.2f, 0.5f, 0.5f, &r, &g, &b);
+  immUniformColor4f(r, g, b, 1.0f);
+}
+
 static void draw_profile_node_recursively(uiBlock *block,
                                           const ProfileNode &node,
                                           FunctionRef<int(TimePoint)> time_to_x,
@@ -70,7 +80,7 @@ static void draw_profile_node_recursively(uiBlock *block,
   uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
 
   immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
-  immUniformColor4f(0.5f, 0.4f, 0.1f, 1.0f);
+  set_color_based_on_time(node.begin_time());
 
   const int left_x = time_to_x(node.begin_time());
   const int right_x = std::max<int>(time_to_x(node.end_time()), left_x + 1);
