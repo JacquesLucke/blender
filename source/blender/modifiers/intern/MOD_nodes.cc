@@ -473,7 +473,7 @@ class GeometryNodesEvaluator {
   void execute_node(const DNode node, GeoNodeExecParams params)
   {
     const bNode &bnode = params.node();
-    BLI_SCOPED_PROFILE(__func__);
+    BLI_SCOPED_PROFILE(node->name().c_str());
 
     /* Use the geometry-node-execute callback if it exists. */
     if (bnode.typeinfo->geometry_node_execute != nullptr) {

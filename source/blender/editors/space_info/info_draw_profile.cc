@@ -14,6 +14,7 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
+#include "BLI_function_ref.hh"
 #include "BLI_profile.hh"
 #include "BLI_utildefines.h"
 
@@ -29,7 +30,9 @@
 #include "GPU_immediate.h"
 
 #include "info_intern.h"
+#include "info_profile_layout.hh"
 
+using blender::profile::Duration;
 using blender::profile::ProfileSegment;
 using blender::profile::TimePoint;
 
@@ -57,13 +60,32 @@ static void draw_centered_label(
   UI_but_drawflag_disable(but, UI_BUT_TEXT_RIGHT);
 }
 
-static float factor_in_time_span(const TimePoint begin, const TimePoint end, const TimePoint time)
+static void draw_profile_node_recursively(uiBlock *block,
+                                          const ProfileNode &node,
+                                          FunctionRef<int(TimePoint)> time_to_x,
+                                          int &current_top_y)
 {
-  if (begin == end) {
-    return 0.0f;
+  GPUVertFormat *format = immVertexFormat();
+  uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
+
+  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+  immUniformColor4f(0.5f, 0.4f, 0.1f, 1.0f);
+
+  const int left_x = time_to_x(node.begin_time());
+  const int right_x = std::max<int>(time_to_x(node.end_time()), left_x + 1);
+  const int bottom_y = current_top_y - UI_UNIT_Y;
+  immRecti(pos, left_x, current_top_y, right_x, bottom_y);
+
+  immUnbindProgram();
+
+  draw_centered_label(
+      block, node.name().c_str(), left_x, current_top_y - UI_UNIT_Y, right_x - left_x, UI_UNIT_Y);
+
+  current_top_y -= UI_UNIT_Y;
+  for (const ProfileNode *child : node.children_on_same_thread()) {
+    int sub_top_y = current_top_y;
+    draw_profile_node_recursively(block, *child, time_to_x, sub_top_y);
   }
-  const auto factor = (float)(time - begin).count() / (float)(end - begin).count();
-  return factor;
 }
 
 static void info_profile_draw_impl(const bContext *C, ARegion *region)
@@ -72,40 +94,34 @@ static void info_profile_draw_impl(const bContext *C, ARegion *region)
   UNUSED_VARS(sinfo, region);
 
   UI_ThemeClearColor(TH_BACK);
-  // Vector<ProfileSegment> segments = profile::get_recorded_segments();
+  Vector<ProfileSegment> segments = profile::get_recorded_segments();
+  ProfileLayout profile_layout;
+  profile_layout.add(segments);
 
-  // ProfileResult profile_result;
-  // profile_result.add(segments);
+  const TimePoint end_time = profile_layout.end_time();
+  const Duration time_to_display = std::chrono::seconds(5);
 
-  // const TimePoint begin_time = profile_result.begin_time();
-  // const TimePoint end_time = profile_result.end_time();
+  const auto time_to_x = [&](const TimePoint time) -> int {
+    const Duration duration_to_end = end_time - time;
+    const float factor = (float)duration_to_end.count() / (float)time_to_display.count();
+    return (1 - factor) * region->winx;
+  };
 
-  // GPUVertFormat *format = immVertexFormat();
-  // uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
-  // immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+  uiBlock *block = UI_block_begin(C, region, __func__, UI_EMBOSS_NONE);
 
-  // immUniformColor4f(0.8f, 0.8f, 0.3f, 1.0f);
+  const Span<uint64_t> root_thread_ids = profile_layout.root_thread_ids();
+  for (const uint64_t root_thread_id : root_thread_ids) {
+    const Span<const ProfileNode *> root_nodes = profile_layout.root_nodes_by_thread_id(
+        root_thread_id);
 
-  // const int left_x = 0;
-  // const int right_x = region->winx;
-  // const int top_y = 100;
-  // const int bottom_y = 50;
+    for (const ProfileNode *node : root_nodes) {
+      int current_top_y = region->winy;
+      draw_profile_node_recursively(block, *node, time_to_x, current_top_y);
+    }
+  }
 
-  // for (const ProfileNode *node : profile_result.root_nodes()) {
-  //   const float begin_factor = factor_in_time_span(begin_time, end_time, node->begin_time());
-  //   const float end_factor = factor_in_time_span(begin_time, end_time, node->end_time());
-
-  //   const int begin_x = left_x + (right_x - left_x) * begin_factor;
-  //   const int end_x = std::max<int>(left_x + (right_x - left_x) * end_factor, begin_x + 1);
-
-  //   immRecti(pos, begin_x, top_y, end_x, bottom_y);
-  // }
-
-  // immUnbindProgram();
-
-  // uiBlock *block = UI_block_begin(C, region, __func__, UI_EMBOSS_NONE);
-  // UI_block_end(C, block);
-  // UI_block_draw(C, block);
+  UI_block_end(C, block);
+  UI_block_draw(C, block);
 }
 
 }  // namespace blender::ed::info

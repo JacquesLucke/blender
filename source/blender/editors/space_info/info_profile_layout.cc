@@ -67,6 +67,14 @@ void ProfileLayout::add(Span<ProfileSegment> segments)
     ProfileNode *parent_node = nodes_by_id_.lookup_default(segment.parent_id, nullptr);
     node->parent_ = parent_node;
     if (parent_node == nullptr) {
+      if (root_thread_ids_.is_empty()) {
+        begin_time_ = node->begin_time_;
+        end_time_ = node->end_time_;
+      }
+      else {
+        begin_time_ = std::min(begin_time_, node->begin_time_);
+        end_time_ = std::max(end_time_, node->end_time_);
+      }
       root_thread_ids_.append_non_duplicates(node->thread_id_);
       root_nodes_by_thread_id_.lookup_or_add_default(node->thread_id_).append(node);
     }

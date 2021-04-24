@@ -73,6 +73,11 @@ class ProfileNode {
     return thread_id_;
   }
 
+  Span<const ProfileNode *> children_on_same_thread() const
+  {
+    return children_on_same_thread_;
+  }
+
   static bool time_overlap(const ProfileNode &a, const ProfileNode &b);
 
  private:
@@ -86,6 +91,9 @@ class ProfileLayout {
   Map<uint64_t, ProfileNode *> nodes_by_id_;
   Vector<uint64_t> root_thread_ids_;
   Map<uint64_t, Vector<ProfileNode *>> root_nodes_by_thread_id_;
+
+  TimePoint begin_time_;
+  TimePoint end_time_;
 
  public:
   void add(Span<ProfileSegment> segments);
@@ -103,6 +111,16 @@ class ProfileLayout {
   Span<const ProfileNode *> root_nodes_by_thread_id(const uint64_t thread_id) const
   {
     return root_nodes_by_thread_id_.lookup(thread_id);
+  }
+
+  TimePoint begin_time() const
+  {
+    return begin_time_;
+  }
+
+  TimePoint end_time() const
+  {
+    return end_time_;
   }
 };
 

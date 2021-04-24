@@ -37,12 +37,14 @@ set(SRC
   info_draw.c
   info_draw_profile.cc
   info_ops.c
+  info_profile_layout.cc
   info_report.c
   info_stats.c
   space_info.c
   textview.c
 
   info_intern.h
+  info_profile_layout.hh
   textview.h
 )
 
