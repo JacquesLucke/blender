@@ -112,6 +112,9 @@ enum {
 /** \name Space Info
  * \{ */
 
+/* Defined in `info_intern.hh`. */
+typedef struct SpaceInfo_Runtime SpaceInfo_Runtime;
+
 /* Info Header */
 typedef struct SpaceInfo {
   SpaceLink *next, *prev;
@@ -129,6 +132,8 @@ typedef struct SpaceInfo {
   uint8_t view_mode;
 
   char _pad[6];
+
+  SpaceInfo_Runtime *runtime;
 } SpaceInfo;
 
 /* SpaceInfo.rpt_mask */

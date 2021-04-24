@@ -86,23 +86,30 @@ static SpaceLink *info_create(const ScrArea *UNUSED(area), const Scene *UNUSED(s
 }
 
 /* not spacelink itself */
-static void info_free(SpaceLink *UNUSED(sl))
+static void info_free(SpaceLink *sl)
 {
-  //  SpaceInfo *sinfo = (SpaceInfo *) sl;
+  SpaceInfo *sinfo = (SpaceInfo *)sl;
+  MEM_SAFE_FREE(sinfo->runtime);
 }
 
 /* spacetype; init callback */
-static void info_init(struct wmWindowManager *UNUSED(wm), ScrArea *UNUSED(area))
+static void info_init(struct wmWindowManager *UNUSED(wm), ScrArea *area)
 {
+  SpaceInfo *sinfo = (SpaceInfo *)area->spacedata.first;
+  if (sinfo->runtime == nullptr) {
+    sinfo->runtime = (SpaceInfo_Runtime *)MEM_callocN(sizeof(SpaceInfo_Runtime), __func__);
+  }
 }
 
 static SpaceLink *info_duplicate(SpaceLink *sl)
 {
-  SpaceInfo *sinfon = (SpaceInfo *)MEM_dupallocN(sl);
+  SpaceInfo *sinfo_old = (SpaceInfo *)sl;
+  SpaceInfo *sinfo_new = (SpaceInfo *)MEM_dupallocN(sl);
+  sinfo_new->runtime = (SpaceInfo_Runtime *)MEM_dupallocN(sinfo_old->runtime);
 
   /* clear or remove stuff from old */
 
-  return (SpaceLink *)sinfon;
+  return (SpaceLink *)sinfo_new;
 }
 
 /* add handlers, stuff you only do once or on area/region changes */
