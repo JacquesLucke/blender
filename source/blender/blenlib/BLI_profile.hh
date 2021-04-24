@@ -28,16 +28,25 @@ using Duration = Clock::duration;
 using TimePoint = Clock::time_point;
 using Nanoseconds = std::chrono::nanoseconds;
 
-struct ProfileSegment {
+struct ProfileSegmentBegin {
   std::string name;
-  TimePoint begin_time;
-  TimePoint end_time;
+  TimePoint time;
   uint64_t id;
   uint64_t parent_id;
   uint64_t thread_id;
 };
 
-Vector<ProfileSegment> get_recorded_segments();
+struct ProfileSegmentEnd {
+  TimePoint time;
+  uint64_t begin_id;
+};
+
+struct RecordedProfile {
+  Vector<ProfileSegmentBegin> begins;
+  Vector<ProfileSegmentEnd> ends;
+};
+
+RecordedProfile get_recorded_profile();
 
 class ProfileScope {
  private:

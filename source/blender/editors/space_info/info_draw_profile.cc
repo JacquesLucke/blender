@@ -15,6 +15,7 @@
  */
 
 #include "BLI_function_ref.hh"
+#include "BLI_hash.h"
 #include "BLI_profile.hh"
 #include "BLI_utildefines.h"
 
@@ -33,7 +34,7 @@
 #include "info_profile_layout.hh"
 
 using blender::profile::Duration;
-using blender::profile::ProfileSegment;
+using blender::profile::RecordedProfile;
 using blender::profile::TimePoint;
 
 namespace blender::ed::info {
@@ -94,14 +95,17 @@ static void info_profile_draw_impl(const bContext *C, ARegion *region)
   UNUSED_VARS(sinfo, region);
 
   UI_ThemeClearColor(TH_BACK);
-  Vector<ProfileSegment> segments = profile::get_recorded_segments();
+  RecordedProfile recorded_profile = profile::get_recorded_profile();
   ProfileLayout profile_layout;
-  profile_layout.add(segments);
+  profile_layout.add(recorded_profile);
 
   const TimePoint end_time = profile_layout.end_time();
   const Duration time_to_display = std::chrono::seconds(5);
 
-  const auto time_to_x = [&](const TimePoint time) -> int {
+  const auto time_to_x = [&](TimePoint time) -> int {
+    if (time == TimePoint{}) {
+      time = end_time;
+    }
     const Duration duration_to_end = end_time - time;
     const float factor = (float)duration_to_end.count() / (float)time_to_display.count();
     return (1 - factor) * region->winx;

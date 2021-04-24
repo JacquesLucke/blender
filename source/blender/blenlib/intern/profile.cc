@@ -25,7 +25,8 @@
 namespace blender::profile {
 
 static std::mutex profile_mutex;
-static Vector<ProfileSegment, 0, RawAllocator> segments;
+static Vector<ProfileSegmentBegin, 0, RawAllocator> recorded_begins;
+static Vector<ProfileSegmentEnd, 0, RawAllocator> recorded_ends;
 static bool profiling_is_enabled;
 
 static uint64_t get_unique_session_id()
@@ -44,22 +45,32 @@ struct ThreadLocalProfileStorage {
     thread_id = get_unique_session_id();
   }
 
-  void add_segment(
-      const char *name, TimePoint begin_time, TimePoint end_time, uint64_t id, uint64_t parent_id)
+  void add_begin(const char *name,
+                 const TimePoint time,
+                 const uint64_t id,
+                 const uint64_t parent_id)
   {
     std::lock_guard lock{profile_mutex};
     if (profiling_is_enabled) {
-      segments.append(ProfileSegment{name, begin_time, end_time, id, parent_id, this->thread_id});
+      recorded_begins.append({name, time, id, parent_id, this->thread_id});
+    }
+  }
+
+  void add_end(const TimePoint time, const uint64_t begin_id)
+  {
+    std::lock_guard lock{profile_mutex};
+    if (profiling_is_enabled) {
+      recorded_ends.append({time, begin_id});
     }
   }
 };
 
 static thread_local ThreadLocalProfileStorage storage;
 
-Vector<ProfileSegment> get_recorded_segments()
+RecordedProfile get_recorded_profile()
 {
   std::lock_guard lock{profile_mutex};
-  return segments.as_span();
+  return {recorded_begins, recorded_ends};
 }
 
 }  // namespace blender::profile
@@ -68,31 +79,32 @@ using namespace blender::profile;
 
 void BLI_profile_scope_begin(BLI_profile_scope *scope, const char *name)
 {
-  scope->name = name;
-  scope->begin_time = Clock::now().time_since_epoch().count();
-  scope->id = get_unique_session_id();
-  scope->parent_id = storage.scope_stack.peek_default(0);
-  storage.scope_stack.push(scope->id);
+  const uint64_t id = get_unique_session_id();
+  scope->id = id;
+  const uint64_t parent_id = storage.scope_stack.peek_default(0);
+  storage.scope_stack.push(id);
+  const TimePoint time = Clock::now();
+  storage.add_begin(name, time, id, parent_id);
 }
 
 void BLI_profile_scope_begin_subthread(BLI_profile_scope *scope,
                                        const BLI_profile_scope *parent_scope,
                                        const char *name)
 {
-  scope->name = name;
-  scope->id = get_unique_session_id();
-  scope->parent_id = parent_scope->id;
-  scope->begin_time = Clock::now().time_since_epoch().count();
-  storage.scope_stack.push(scope->id);
+  const uint64_t id = get_unique_session_id();
+  scope->id = id;
+  const uint64_t parent_id = parent_scope->id;
+  storage.scope_stack.push(id);
+  const TimePoint time = Clock::now();
+  storage.add_begin(name, time, id, parent_id);
 }
 
 void BLI_profile_scope_end(const BLI_profile_scope *scope)
 {
-  TimePoint end_time = Clock::now();
+  TimePoint time = Clock::now();
   BLI_assert(storage.scope_stack.peek() == scope->id);
   storage.scope_stack.pop();
-  TimePoint begin_time = TimePoint(Duration(scope->begin_time));
-  storage.add_segment(scope->name, begin_time, end_time, scope->id, scope->parent_id);
+  storage.add_end(time, scope->id);
 }
 
 void BLI_profile_enable()
@@ -110,7 +122,8 @@ void BLI_profile_disable()
 void BLI_profile_clear()
 {
   std::lock_guard lock{profile_mutex};
-  segments.clear();
+  recorded_begins.clear();
+  recorded_ends.clear();
 }
 
 bool BLI_profile_is_enabled()

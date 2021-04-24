@@ -238,6 +238,12 @@ class Vector {
   {
   }
 
+  template<int64_t OtherInlineBufferCapacity, typename OtherAllocator>
+  Vector(const Vector<T, OtherInlineBufferCapacity, OtherAllocator> &other)
+      : Vector(other.as_span())
+  {
+  }
+
   /**
    * Steal the elements from another vector. This does not do an allocation. The other vector will
    * have zero elements afterwards.

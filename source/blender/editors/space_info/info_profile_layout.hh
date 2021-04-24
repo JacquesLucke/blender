@@ -23,7 +23,7 @@
 
 namespace blender::ed::info {
 
-using profile::ProfileSegment;
+using profile::RecordedProfile;
 using profile::TimePoint;
 
 class ProfileLayout;
@@ -96,7 +96,7 @@ class ProfileLayout {
   TimePoint end_time_;
 
  public:
-  void add(Span<ProfileSegment> segments);
+  void add(const RecordedProfile &recorded);
 
   Span<uint64_t> root_thread_ids() const
   {
