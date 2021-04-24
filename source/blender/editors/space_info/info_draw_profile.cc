@@ -71,10 +71,19 @@ static void set_color_based_on_time(const TimePoint time)
   immUniformColor4f(r, g, b, 1.0f);
 }
 
+#define ROW_HEIGHT UI_UNIT_Y
+#define THREAD_PADDING ((int)(ROW_HEIGHT * 0.2f))
+#define ROOT_PADDING UI_UNIT_Y
+
+static void draw_profile_nodes(uiBlock *block,
+                               Span<const ProfileNode *> nodes,
+                               FunctionRef<int(TimePoint)> time_to_x,
+                               int &top_y);
+
 static void draw_profile_node_recursively(uiBlock *block,
                                           const ProfileNode &node,
                                           FunctionRef<int(TimePoint)> time_to_x,
-                                          int &current_top_y)
+                                          int &top_y)
 {
   GPUVertFormat *format = immVertexFormat();
   uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
@@ -84,19 +93,35 @@ static void draw_profile_node_recursively(uiBlock *block,
 
   const int left_x = time_to_x(node.begin_time());
   const int right_x = std::max<int>(time_to_x(node.end_time()), left_x + 1);
-  const int bottom_y = current_top_y - UI_UNIT_Y;
-  immRecti(pos, left_x, current_top_y, right_x, bottom_y);
+  const int bottom_y = top_y - UI_UNIT_Y;
+  immRecti(pos, left_x, top_y, right_x, bottom_y);
 
   immUnbindProgram();
 
   draw_centered_label(
-      block, node.name().c_str(), left_x, current_top_y - UI_UNIT_Y, right_x - left_x, UI_UNIT_Y);
+      block, node.name().c_str(), left_x, top_y - UI_UNIT_Y, right_x - left_x, UI_UNIT_Y);
 
-  current_top_y -= UI_UNIT_Y;
-  for (const ProfileNode *child : node.children_on_same_thread()) {
-    int sub_top_y = current_top_y;
-    draw_profile_node_recursively(block, *child, time_to_x, sub_top_y);
+  top_y -= UI_UNIT_Y;
+  draw_profile_nodes(block, node.children_on_same_thread(), time_to_x, top_y);
+
+  for (Span<const ProfileNode *> nodes : node.stacked_children_in_other_threads()) {
+    top_y -= THREAD_PADDING;
+    draw_profile_nodes(block, nodes, time_to_x, top_y);
   }
+}
+
+static void draw_profile_nodes(uiBlock *block,
+                               Span<const ProfileNode *> nodes,
+                               FunctionRef<int(TimePoint)> time_to_x,
+                               int &top_y)
+{
+  int new_top_y = top_y;
+  for (const ProfileNode *node : nodes) {
+    int sub_top_y = top_y;
+    draw_profile_node_recursively(block, *node, time_to_x, sub_top_y);
+    new_top_y = std::min(new_top_y, sub_top_y);
+  }
+  top_y = new_top_y;
 }
 
 static void info_profile_draw_impl(const bContext *C, ARegion *region)
@@ -123,15 +148,14 @@ static void info_profile_draw_impl(const bContext *C, ARegion *region)
 
   uiBlock *block = UI_block_begin(C, region, __func__, UI_EMBOSS_NONE);
 
+  int top_y = region->winy;
   const Span<uint64_t> root_thread_ids = profile_layout.root_thread_ids();
   for (const uint64_t root_thread_id : root_thread_ids) {
     const Span<const ProfileNode *> root_nodes = profile_layout.root_nodes_by_thread_id(
         root_thread_id);
-
-    for (const ProfileNode *node : root_nodes) {
-      int current_top_y = region->winy;
-      draw_profile_node_recursively(block, *node, time_to_x, current_top_y);
-    }
+    int next_top_y = top_y;
+    draw_profile_nodes(block, root_nodes, time_to_x, next_top_y);
+    top_y = next_top_y - ROOT_PADDING;
   }
 
   UI_block_end(C, block);

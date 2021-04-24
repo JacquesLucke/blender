@@ -78,6 +78,11 @@ class ProfileNode {
     return children_on_same_thread_;
   }
 
+  Span<Vector<ProfileNode *>> stacked_children_in_other_threads() const
+  {
+    return packed_children_on_other_threads_;
+  }
+
   static bool time_overlap(const ProfileNode &a, const ProfileNode &b);
 
  private:

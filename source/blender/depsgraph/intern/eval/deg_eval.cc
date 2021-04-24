@@ -125,8 +125,7 @@ void deg_task_run_func(TaskPool *pool, void *taskdata)
   OperationNode *operation_node = reinterpret_cast<OperationNode *>(taskdata);
 
   BLI_profile_scope profile_scope;
-  BLI_profile_scope_begin_subthread(
-      &profile_scope, state->parent_profile_scope, operation_node->name.c_str());
+  BLI_profile_scope_begin_subthread(&profile_scope, state->parent_profile_scope, __func__);
 
   evaluate_node(state, operation_node);
 
