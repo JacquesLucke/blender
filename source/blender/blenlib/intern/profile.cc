@@ -18,8 +18,7 @@
 #include <chrono>
 #include <mutex>
 
-#include "BLI_profile.h"
-#include "BLI_profile_parse.hh"
+#include "BLI_profile.hh"
 #include "BLI_stack.hh"
 #include "BLI_vector.hh"
 

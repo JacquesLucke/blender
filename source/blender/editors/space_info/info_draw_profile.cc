@@ -14,7 +14,7 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#include "BLI_profile_parse.hh"
+#include "BLI_profile.hh"
 #include "BLI_utildefines.h"
 
 #include "DNA_screen_types.h"
@@ -30,8 +30,6 @@
 
 #include "info_intern.h"
 
-using blender::profile::ProfileNode;
-using blender::profile::ProfileResult;
 using blender::profile::ProfileSegment;
 using blender::profile::TimePoint;
 
@@ -74,36 +72,36 @@ static void info_profile_draw_impl(const bContext *C, ARegion *region)
   UNUSED_VARS(sinfo, region);
 
   UI_ThemeClearColor(TH_BACK);
-  Vector<ProfileSegment> segments = profile::get_recorded_segments();
+  // Vector<ProfileSegment> segments = profile::get_recorded_segments();
 
-  ProfileResult profile_result;
-  profile_result.add(segments);
+  // ProfileResult profile_result;
+  // profile_result.add(segments);
 
-  const TimePoint begin_time = profile_result.begin_time();
-  const TimePoint end_time = profile_result.end_time();
+  // const TimePoint begin_time = profile_result.begin_time();
+  // const TimePoint end_time = profile_result.end_time();
 
-  GPUVertFormat *format = immVertexFormat();
-  uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+  // GPUVertFormat *format = immVertexFormat();
+  // uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
+  // immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
-  immUniformColor4f(0.8f, 0.8f, 0.3f, 1.0f);
+  // immUniformColor4f(0.8f, 0.8f, 0.3f, 1.0f);
 
-  const int left_x = 0;
-  const int right_x = region->winx;
-  const int top_y = 100;
-  const int bottom_y = 50;
+  // const int left_x = 0;
+  // const int right_x = region->winx;
+  // const int top_y = 100;
+  // const int bottom_y = 50;
 
-  for (const ProfileNode *node : profile_result.root_nodes()) {
-    const float begin_factor = factor_in_time_span(begin_time, end_time, node->begin_time());
-    const float end_factor = factor_in_time_span(begin_time, end_time, node->end_time());
+  // for (const ProfileNode *node : profile_result.root_nodes()) {
+  //   const float begin_factor = factor_in_time_span(begin_time, end_time, node->begin_time());
+  //   const float end_factor = factor_in_time_span(begin_time, end_time, node->end_time());
 
-    const int begin_x = left_x + (right_x - left_x) * begin_factor;
-    const int end_x = std::max<int>(left_x + (right_x - left_x) * end_factor, begin_x + 1);
+  //   const int begin_x = left_x + (right_x - left_x) * begin_factor;
+  //   const int end_x = std::max<int>(left_x + (right_x - left_x) * end_factor, begin_x + 1);
 
-    immRecti(pos, begin_x, top_y, end_x, bottom_y);
-  }
+  //   immRecti(pos, begin_x, top_y, end_x, bottom_y);
+  // }
 
-  immUnbindProgram();
+  // immUnbindProgram();
 
   // uiBlock *block = UI_block_begin(C, region, __func__, UI_EMBOSS_NONE);
   // UI_block_end(C, block);

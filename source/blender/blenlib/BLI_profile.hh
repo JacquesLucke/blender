@@ -16,30 +16,45 @@
 
 #pragma once
 
-#include "BLI_utildefines.h"
+#include <chrono>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "BLI_profile.h"
+#include "BLI_vector.hh"
 
-typedef struct BLI_profile_scope {
+namespace blender::profile {
+
+using Clock = std::chrono::steady_clock;
+using Duration = Clock::duration;
+using TimePoint = Clock::time_point;
+using Nanoseconds = std::chrono::nanoseconds;
+
+struct ProfileSegment {
   const char *name;
-  int64_t begin_time;
+  TimePoint begin_time;
+  TimePoint end_time;
   uint64_t id;
   uint64_t parent_id;
-} BLI_profile_scope;
+  uint64_t thread_id;
+};
 
-void BLI_profile_scope_begin(BLI_profile_scope *scope, const char *name);
-void BLI_profile_scope_begin_subthread(BLI_profile_scope *scope,
-                                       const BLI_profile_scope *parent_scope,
-                                       const char *name);
-void BLI_profile_scope_end(const BLI_profile_scope *scope);
+Vector<ProfileSegment> get_recorded_segments();
 
-void BLI_profile_enable(void);
-void BLI_profile_disable(void);
-bool BLI_profile_is_enabled(void);
-void BLI_profile_clear(void);
+class ProfileScope {
+ private:
+  BLI_profile_scope scope;
 
-#ifdef __cplusplus
-}
-#endif
+ public:
+  ProfileScope(const char *name)
+  {
+    BLI_profile_scope_begin(&scope, name);
+  }
+
+  ~ProfileScope()
+  {
+    BLI_profile_scope_end(&scope);
+  }
+};
+
+}  // namespace blender::profile
+
+#define BLI_SCOPED_PROFILE(name) blender::profile::ProfileScope profile_scope(name)

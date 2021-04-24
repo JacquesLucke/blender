@@ -30,7 +30,7 @@
 #include "BLI_float3.hh"
 #include "BLI_listbase.h"
 #include "BLI_multi_value_map.hh"
-#include "BLI_profile.h"
+#include "BLI_profile.hh"
 #include "BLI_set.hh"
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
