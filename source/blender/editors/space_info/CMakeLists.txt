@@ -34,16 +34,15 @@ set(INC
 )
 
 set(SRC
-  info_draw.c
-  info_draw_profile.cc
-  info_ops.c
+  info_draw.cc
+  info_ops.cc
   info_profile_layout.cc
-  info_report.c
-  info_stats.c
-  space_info.c
-  textview.c
+  info_report.cc
+  info_stats.cc
+  space_info.cc
+  textview.cc
 
-  info_intern.h
+  info_intern.hh
   info_profile_layout.hh
   textview.h
 )
