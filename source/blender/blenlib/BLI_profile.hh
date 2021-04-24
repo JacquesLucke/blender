@@ -29,7 +29,7 @@ using TimePoint = Clock::time_point;
 using Nanoseconds = std::chrono::nanoseconds;
 
 struct ProfileSegment {
-  const char *name;
+  std::string name;
   TimePoint begin_time;
   TimePoint end_time;
   uint64_t id;
