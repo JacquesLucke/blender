@@ -87,6 +87,8 @@ class ProfileNode {
 
  private:
   void add_child(ProfileNode *new_child);
+
+  void destruct_recursively();
 };
 
 class ProfileLayout {
@@ -101,6 +103,8 @@ class ProfileLayout {
   TimePoint end_time_;
 
  public:
+  ~ProfileLayout();
+
   void add(const RecordedProfile &recorded);
 
   Span<uint64_t> root_thread_ids() const

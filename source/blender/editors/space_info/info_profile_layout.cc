@@ -109,4 +109,26 @@ void ProfileLayout::add(const RecordedProfile &recorded_profile)
   }
 }
 
+void ProfileNode::destruct_recursively()
+{
+  for (ProfileNode *node : children_on_same_thread_) {
+    node->destruct_recursively();
+  }
+  for (Span<ProfileNode *> nodes : packed_children_on_other_threads_) {
+    for (ProfileNode *node : nodes) {
+      node->destruct_recursively();
+    }
+  }
+  this->~ProfileNode();
+}
+
+ProfileLayout::~ProfileLayout()
+{
+  for (Span<ProfileNode *> nodes : root_nodes_by_thread_id_.values()) {
+    for (ProfileNode *node : nodes) {
+      node->destruct_recursively();
+    }
+  }
+}
+
 }  // namespace blender::ed::info
