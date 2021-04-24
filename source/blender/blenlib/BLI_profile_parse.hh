@@ -19,6 +19,7 @@
 #include <chrono>
 
 #include "BLI_linear_allocator.hh"
+#include "BLI_map.hh"
 #include "BLI_utility_mixins.hh"
 #include "BLI_vector.hh"
 
@@ -50,16 +51,70 @@ class ProfileNode : NonCopyable, NonMovable {
   Vector<ProfileNode *> children_;
 
   friend ProfileResult;
+
+ public:
+  const ProfileNode *parent() const
+  {
+    return parent_;
+  }
+
+  StringRefNull name() const
+  {
+    return name_;
+  }
+
+  TimePoint begin_time() const
+  {
+    return begin_time_;
+  }
+
+  TimePoint end_time() const
+  {
+    return end_time_;
+  }
+
+  int thread_id() const
+  {
+    return thread_id_;
+  }
+
+  Span<const ProfileNode *> children() const
+  {
+    return children_;
+  }
+
+ private:
+  void destruct_recursively();
 };
 
 class ProfileResult {
  private:
   LinearAllocator<> allocator_;
   Vector<ProfileNode *> root_nodes_;
+  Map<uint64_t, ProfileNode *> nodes_by_id_;
+  TimePoint begin_time_;
+  TimePoint end_time_;
 
  public:
-  ProfileResult(Span<ProfileSegment> segments);
+  ProfileResult() = default;
   ~ProfileResult();
+
+  void add(Span<ProfileSegment> segments);
+
+  TimePoint begin_time() const
+  {
+    return begin_time_;
+  }
+
+  TimePoint end_time() const
+  {
+    return end_time_;
+  }
+
+  Span<const ProfileNode *> root_nodes() const
+  {
+    return root_nodes_;
+  }
 };
 
 Vector<ProfileSegment> get_recorded_segments();

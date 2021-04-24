@@ -60,7 +60,7 @@ static thread_local ThreadLocalProfileStorage storage;
 Vector<ProfileSegment> get_recorded_segments()
 {
   std::lock_guard lock{profile_mutex};
-  return segments;
+  return segments.as_span();
 }
 
 }  // namespace blender::profile

@@ -22,12 +22,12 @@
 extern "C" {
 #endif
 
-struct BLI_profile_scope {
+typedef struct BLI_profile_scope {
   const char *name;
   int64_t begin_time;
   uint64_t id;
   uint64_t parent_id;
-};
+} BLI_profile_scope;
 
 void BLI_profile_scope_begin(BLI_profile_scope *scope, const char *name);
 void BLI_profile_scope_begin_subthread(BLI_profile_scope *scope,

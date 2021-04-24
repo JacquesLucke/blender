@@ -17,6 +17,7 @@
 #include "BLI_profile_parse.hh"
 #include "BLI_utildefines.h"
 
+#include "DNA_screen_types.h"
 #include "DNA_userdef_types.h"
 
 #include "BKE_context.h"
@@ -25,9 +26,14 @@
 #include "UI_resources.h"
 #include "UI_view2d.h"
 
+#include "GPU_immediate.h"
+
 #include "info_intern.h"
 
+using blender::profile::ProfileNode;
+using blender::profile::ProfileResult;
 using blender::profile::ProfileSegment;
+using blender::profile::TimePoint;
 
 namespace blender::ed::info {
 
@@ -53,6 +59,15 @@ static void draw_centered_label(
   UI_but_drawflag_disable(but, UI_BUT_TEXT_RIGHT);
 }
 
+static float factor_in_time_span(const TimePoint begin, const TimePoint end, const TimePoint time)
+{
+  if (begin == end) {
+    return 0.0f;
+  }
+  const auto factor = (float)(time - begin).count() / (float)(end - begin).count();
+  return factor;
+}
+
 static void info_profile_draw_impl(const bContext *C, ARegion *region)
 {
   SpaceInfo *sinfo = CTX_wm_space_info(C);
@@ -61,19 +76,38 @@ static void info_profile_draw_impl(const bContext *C, ARegion *region)
   UI_ThemeClearColor(TH_BACK);
   Vector<ProfileSegment> segments = profile::get_recorded_segments();
 
-  uiBlock *block = UI_block_begin(C, region, __func__, UI_EMBOSS_NONE);
+  ProfileResult profile_result;
+  profile_result.add(segments);
 
-  for (const int i : segments.index_range()) {
-    const ProfileSegment &segment = segments[i];
-    const std::string str = std::to_string(segments.size());
-    const int y = 50 + i * UI_UNIT_Y;
-    draw_centered_label(block, segment.name, 50, y, 300, 100);
-    const auto duration = segment.end_time - segment.begin_time;
-    const std::string duration_str = std::to_string(duration.count() / 1000.0f) + " us";
-    draw_centered_label(block, duration_str, 400, y, 300, 100);
+  const TimePoint begin_time = profile_result.begin_time();
+  const TimePoint end_time = profile_result.end_time();
+
+  GPUVertFormat *format = immVertexFormat();
+  uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
+  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+
+  immUniformColor4f(0.8f, 0.8f, 0.3f, 1.0f);
+
+  const int left_x = 0;
+  const int right_x = region->winx;
+  const int top_y = 100;
+  const int bottom_y = 50;
+
+  for (const ProfileNode *node : profile_result.root_nodes()) {
+    const float begin_factor = factor_in_time_span(begin_time, end_time, node->begin_time());
+    const float end_factor = factor_in_time_span(begin_time, end_time, node->end_time());
+
+    const int begin_x = left_x + (right_x - left_x) * begin_factor;
+    const int end_x = std::max<int>(left_x + (right_x - left_x) * end_factor, begin_x + 1);
+
+    immRecti(pos, begin_x, top_y, end_x, bottom_y);
   }
-  UI_block_end(C, block);
-  UI_block_draw(C, block);
+
+  immUnbindProgram();
+
+  // uiBlock *block = UI_block_begin(C, region, __func__, UI_EMBOSS_NONE);
+  // UI_block_end(C, block);
+  // UI_block_draw(C, block);
 }
 
 }  // namespace blender::ed::info

@@ -37,6 +37,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "BLI_blenlib.h"
+#include "BLI_profile.h"
 #include "BLI_utildefines.h"
 
 #include "BKE_context.h"
@@ -1032,6 +1033,9 @@ void WM_paint_cursor_tag_redraw(wmWindow *win, ARegion *UNUSED(region))
 
 void wm_draw_update(bContext *C)
 {
+  BLI_profile_scope profile_scope;
+  BLI_profile_scope_begin(&profile_scope, __func__);
+
   Main *bmain = CTX_data_main(C);
   wmWindowManager *wm = CTX_wm_manager(C);
 
@@ -1075,6 +1079,8 @@ void wm_draw_update(bContext *C)
   wm_surfaces_iter(C, wm_draw_surface);
 
   GPU_context_main_unlock();
+
+  BLI_profile_scope_end(&profile_scope);
 }
 
 void wm_draw_region_clear(wmWindow *win, ARegion *UNUSED(region))

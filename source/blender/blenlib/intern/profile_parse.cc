@@ -24,32 +24,49 @@ struct SegmentNodePair {
   ProfileNode *node;
 };
 
-ProfileResult::ProfileResult(const Span<ProfileSegment> segments)
+void ProfileResult::add(const Span<ProfileSegment> segments)
 {
-  Map<uint64_t, SegmentNodePair> data_by_id;
   for (const ProfileSegment &segment : segments) {
     ProfileNode &node = *allocator_.construct<ProfileNode>().release();
     node.begin_time_ = segment.begin_time;
     node.end_time_ = segment.end_time;
     node.name_ = segment.name;
     node.thread_id_ = segment.thread_id;
-    data_by_id.add_new(segment.id, {&segment, &node});
+    nodes_by_id_.add_new(segment.id, &node);
   }
-  for (const SegmentNodePair &data : data_by_id.values()) {
-    const uint64_t parent_id = data.segment->parent_id;
-    SegmentNodePair *parent_data = data_by_id.lookup_ptr(parent_id);
-    if (parent_data != nullptr) {
-      /* Is this guarenteed when clocks are used in different threads? */
-      BLI_assert(parent_data->node->begin_time_ <= data.node->begin_time_);
-      BLI_assert(parent_data->node->end_time_ >= data.node->end_time_);
-      parent_data->node->children_.append(data.node);
-      data.node->parent_ = parent_data->node;
+  for (const ProfileSegment &segment : segments) {
+    ProfileNode *node = nodes_by_id_.lookup(segment.id);
+    ProfileNode *parent_node = nodes_by_id_.lookup_default(segment.parent_id, nullptr);
+    node->parent_ = parent_node;
+    if (parent_node == nullptr) {
+      if (root_nodes_.is_empty()) {
+        begin_time_ = node->begin_time_;
+        end_time_ = node->end_time_;
+      }
+      else {
+        begin_time_ = std::min(begin_time_, node->begin_time_);
+        end_time_ = std::max(end_time_, node->end_time_);
+      }
+      root_nodes_.append(node);
+    }
+    else {
+      parent_node->children_.append(node);
     }
   }
-  for (const SegmentNodePair &data : data_by_id.values()) {
-    if (data.node->parent_ == nullptr) {
-      root_nodes_.append(data.node);
-    }
+}
+
+void ProfileNode::destruct_recursively()
+{
+  for (ProfileNode *child : children_) {
+    child->destruct_recursively();
+  }
+  this->~ProfileNode();
+}
+
+ProfileResult::~ProfileResult()
+{
+  for (ProfileNode *node : root_nodes_) {
+    node->destruct_recursively();
   }
 }
 
