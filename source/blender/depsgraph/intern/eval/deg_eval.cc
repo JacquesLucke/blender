@@ -29,6 +29,7 @@
 
 #include "BLI_compiler_attrs.h"
 #include "BLI_gsqueue.h"
+#include "BLI_profile.hh"
 #include "BLI_task.h"
 #include "BLI_utildefines.h"
 
@@ -95,6 +96,7 @@ struct DepsgraphEvalState {
   bool do_stats;
   EvaluationStage stage;
   bool need_single_thread_pass;
+  BLI_profile_scope *parent_profile_scope;
 };
 
 void evaluate_node(const DepsgraphEvalState *state, OperationNode *operation_node)
@@ -121,10 +123,17 @@ void deg_task_run_func(TaskPool *pool, void *taskdata)
 
   /* Evaluate node. */
   OperationNode *operation_node = reinterpret_cast<OperationNode *>(taskdata);
+
+  BLI_profile_scope profile_scope;
+  BLI_profile_scope_begin_subthread(
+      &profile_scope, state->parent_profile_scope, operation_node->name.c_str());
+
   evaluate_node(state, operation_node);
 
   /* Schedule children. */
   schedule_children(state, operation_node, schedule_node_to_pool, pool);
+
+  BLI_profile_scope_end(&profile_scope);
 }
 
 bool check_operation_node_visible(OperationNode *op_node)
@@ -370,6 +379,9 @@ void deg_evaluate_on_refresh(Depsgraph *graph)
     return;
   }
 
+  BLI_profile_scope profile_scope;
+  BLI_profile_scope_begin(&profile_scope, __func__);
+
   graph->debug.begin_graph_evaluation();
 
   graph->is_evaluating = true;
@@ -379,6 +391,7 @@ void deg_evaluate_on_refresh(Depsgraph *graph)
   state.graph = graph;
   state.do_stats = graph->debug.do_time_debug();
   state.need_single_thread_pass = false;
+  state.parent_profile_scope = &profile_scope;
   /* Prepare all nodes for evaluation. */
   initialize_execution(&state, graph);
 
@@ -413,6 +426,8 @@ void deg_evaluate_on_refresh(Depsgraph *graph)
   graph->is_evaluating = false;
 
   graph->debug.end_graph_evaluation();
+
+  BLI_profile_scope_end(&profile_scope);
 }
 
 }  // namespace blender::deg

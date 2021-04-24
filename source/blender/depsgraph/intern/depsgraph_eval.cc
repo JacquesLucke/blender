@@ -26,6 +26,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "BLI_listbase.h"
+#include "BLI_profile.hh"
 #include "BLI_utildefines.h"
 
 #include "BKE_scene.h"
@@ -61,6 +62,8 @@ static void deg_flush_updates_and_refresh(deg::Depsgraph *deg_graph)
 /* Evaluate all nodes tagged for updating. */
 void DEG_evaluate_on_refresh(Depsgraph *graph)
 {
+  BLI_SCOPED_PROFILE(__func__);
+
   deg::Depsgraph *deg_graph = reinterpret_cast<deg::Depsgraph *>(graph);
   const Scene *scene = DEG_get_input_scene(graph);
   const float ctime = BKE_scene_frame_get(scene);
