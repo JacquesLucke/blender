@@ -222,6 +222,9 @@ static void info_main_region_listener(const wmRegionListenerParams *params)
         /* redraw also but only for report view, could do less redraws by checking the type */
         ED_region_tag_redraw(region);
       }
+      if (wmn->data == ND_SPACE_INFO_PROFILE) {
+        ED_region_tag_redraw(region);
+      }
       break;
   }
 }

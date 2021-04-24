@@ -44,6 +44,7 @@
 #include "BLI_blenlib.h"
 #include "BLI_dynstr.h"
 #include "BLI_math.h"
+#include "BLI_profile.h"
 #include "BLI_timer.h"
 #include "BLI_utildefines.h"
 
@@ -434,6 +435,9 @@ void wm_event_do_notifiers(bContext *C)
 {
   /* Run the timer before assigning 'wm' in the unlikely case a timer loads a file, see T80028. */
   wm_event_execute_timers(C);
+  if (BLI_profile_is_enabled()) {
+    WM_main_add_notifier(NC_SPACE | ND_SPACE_INFO_PROFILE, NULL);
+  }
 
   wmWindowManager *wm = CTX_wm_manager(C);
   if (wm == NULL) {
