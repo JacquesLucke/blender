@@ -55,8 +55,8 @@ static void draw_centered_label(
                                 str.c_str(),
                                 x,
                                 y,
-                                width,
-                                height,
+                                std::min(width, INT16_MAX),
+                                std::min(height, INT16_MAX),
                                 nullptr,
                                 0,
                                 0,
@@ -133,16 +133,6 @@ void info_profile_draw(const bContext *C, ARegion *region)
 {
   BLI_SCOPED_PROFILE(__func__);
 
-  // View2D *v2d = &region->v2d;
-  // v2d->scroll = V2D_SCROLL_RIGHT | V2D_SCROLL_BOTTOM;
-  // v2d->keepzoom = V2D_LOCKZOOM_Y;
-  // v2d->keeptot = V2D_KEEPTOT_STRICT;
-  // v2d->align = V2D_ALIGN_NO_POS_X | V2D_ALIGN_NO_POS_Y;
-  // v2d->minzoom = 0.01f;
-  // v2d->maxzoom = 50.0f;
-  // v2d->cur = v2d->tot;
-  // UI_view2d_region_reinit(v2d, V2D_COMMONVIEW_CUSTOM, region->winx, region->winy);
-
   SpaceInfo *sinfo = CTX_wm_space_info(C);
   SpaceInfo_Runtime &runtime = *sinfo->runtime;
   if (!runtime.profile_layout) {
@@ -183,11 +173,8 @@ void info_profile_draw(const bContext *C, ARegion *region)
   UI_block_draw(C, block);
 
   const float duration_ms = (end_time - begin_time).count() / 1000000.0f;
-  UI_view2d_totRect_set(&region->v2d, std::max(duration_ms, 1.0f), 100.0f);
+  UI_view2d_totRect_set(&region->v2d, duration_ms, 100.0f);
 
-  print_rctf_id(&region->v2d.cur);
-  print_rctf_id(&region->v2d.tot);
-  print_rcti_id(&region->v2d.mask);
   UI_view2d_scrollers_draw(&region->v2d, nullptr);
 }
 
