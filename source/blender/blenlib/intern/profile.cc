@@ -67,10 +67,13 @@ struct ThreadLocalProfileStorage {
 
 static thread_local ThreadLocalProfileStorage storage;
 
-RecordedProfile get_recorded_profile()
+RecordedProfile extract_recorded_profile()
 {
   std::lock_guard lock{profile_mutex};
-  return {recorded_begins, recorded_ends};
+  RecordedProfile recorded_profile{recorded_begins, recorded_ends};
+  recorded_begins.clear();
+  recorded_ends.clear();
+  return recorded_profile;
 }
 
 }  // namespace blender::profile

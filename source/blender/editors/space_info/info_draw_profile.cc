@@ -21,6 +21,7 @@
 #include "BLI_utildefines.h"
 
 #include "DNA_screen_types.h"
+#include "DNA_space_types.h"
 #include "DNA_userdef_types.h"
 
 #include "BKE_context.h"
@@ -33,6 +34,7 @@
 
 #include "info_intern.hh"
 #include "info_profile_layout.hh"
+#include "info_runtime.hh"
 
 using blender::profile::Duration;
 using blender::profile::RecordedProfile;
@@ -129,11 +131,14 @@ void info_profile_draw(const bContext *C, ARegion *region)
   BLI_SCOPED_PROFILE(__func__);
 
   SpaceInfo *sinfo = CTX_wm_space_info(C);
-  UNUSED_VARS(sinfo, region);
+  SpaceInfo_Runtime &runtime = *sinfo->runtime;
+  if (!runtime.profile_layout) {
+    runtime.profile_layout = std::make_unique<ProfileLayout>();
+  }
+  ProfileLayout &profile_layout = *runtime.profile_layout;
 
   UI_ThemeClearColor(TH_BACK);
-  RecordedProfile recorded_profile = profile::get_recorded_profile();
-  ProfileLayout profile_layout;
+  RecordedProfile recorded_profile = profile::extract_recorded_profile();
   profile_layout.add(recorded_profile);
 
   const TimePoint end_time = profile_layout.end_time();

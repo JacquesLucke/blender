@@ -45,6 +45,7 @@
 #include "UI_view2d.h"
 
 #include "info_intern.hh" /* own include */
+#include "info_runtime.hh"
 
 /* ******************** default callbacks for info space ***************** */
 
@@ -89,7 +90,7 @@ static SpaceLink *info_create(const ScrArea *UNUSED(area), const Scene *UNUSED(s
 static void info_free(SpaceLink *sl)
 {
   SpaceInfo *sinfo = (SpaceInfo *)sl;
-  MEM_SAFE_FREE(sinfo->runtime);
+  delete sinfo->runtime;
 }
 
 /* spacetype; init callback */
@@ -97,7 +98,7 @@ static void info_init(struct wmWindowManager *UNUSED(wm), ScrArea *area)
 {
   SpaceInfo *sinfo = (SpaceInfo *)area->spacedata.first;
   if (sinfo->runtime == nullptr) {
-    sinfo->runtime = (SpaceInfo_Runtime *)MEM_callocN(sizeof(SpaceInfo_Runtime), __func__);
+    sinfo->runtime = new SpaceInfo_Runtime();
   }
 }
 
@@ -105,7 +106,7 @@ static SpaceLink *info_duplicate(SpaceLink *sl)
 {
   SpaceInfo *sinfo_old = (SpaceInfo *)sl;
   SpaceInfo *sinfo_new = (SpaceInfo *)MEM_dupallocN(sl);
-  sinfo_new->runtime = (SpaceInfo_Runtime *)MEM_dupallocN(sinfo_old->runtime);
+  sinfo_new->runtime = new SpaceInfo_Runtime(*sinfo_old->runtime);
 
   /* clear or remove stuff from old */
 

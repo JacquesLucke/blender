@@ -46,7 +46,7 @@ struct RecordedProfile {
   Vector<ProfileSegmentEnd> ends;
 };
 
-RecordedProfile get_recorded_profile();
+RecordedProfile extract_recorded_profile();
 
 class ProfileScope {
  private:

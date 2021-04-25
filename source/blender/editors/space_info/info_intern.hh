@@ -66,9 +66,6 @@ void INFO_OT_report_replay(struct wmOperatorType *ot);
 void INFO_OT_report_delete(struct wmOperatorType *ot);
 void INFO_OT_report_copy(struct wmOperatorType *ot);
 
-struct SpaceInfo_Runtime {
-};
-
 namespace blender::ed::info {
 void info_profile_draw(const struct bContext *C, struct ARegion *region);
 }
