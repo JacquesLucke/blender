@@ -39,7 +39,7 @@ void ProfileNode::pack_added_children()
 
   /* Assume already packed children are sorted by begin time. */
   int tot_newly_inserted = 0;
-  tot_newly_inserted += this->try_pack_into_vector(children_to_pack_, true);
+  tot_newly_inserted += this->try_pack_into_vector(children_on_same_thread_, true);
 
   int iteration = 0;
   while (tot_newly_inserted < children_to_pack_.size()) {
