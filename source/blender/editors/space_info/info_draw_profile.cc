@@ -175,7 +175,8 @@ void info_profile_draw(const bContext *C, ARegion *region)
   UI_block_draw(C, block);
 
   const float duration_ms = (end_time - begin_time).count() / 1000000.0f;
-  UI_view2d_totRect_set(&region->v2d, std::max(duration_ms, 1.0f), 100.0f);
+  /* Always allow at least 5 seconds of profile data. */
+  UI_view2d_totRect_set(&region->v2d, std::max(duration_ms, 5000.0f), 100.0f);
 
   UI_view2d_scrollers_draw(&region->v2d, nullptr);
 }

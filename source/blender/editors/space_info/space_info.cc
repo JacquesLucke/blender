@@ -86,12 +86,13 @@ static SpaceLink *info_create(const ScrArea *UNUSED(area), const Scene *UNUSED(s
   View2D *v2d = &region->v2d;
   v2d->scroll = V2D_SCROLL_RIGHT | V2D_SCROLL_BOTTOM;
   v2d->keepzoom = V2D_LOCKZOOM_Y;
-  v2d->keeptot = V2D_KEEPTOT_FREE;
+  v2d->keeptot = V2D_KEEPTOT_BOUNDS;
   v2d->align = V2D_ALIGN_NO_NEG_X | V2D_ALIGN_NO_POS_Y;
-  v2d->min[0] = 0.01f;
+  v2d->min[0] = 0.0001f;
   v2d->min[1] = 100.0f;
-  v2d->max[0] = 10000.0f;
+  v2d->max[0] = 100000.0f;
   v2d->max[1] = 100.0f;
+  BLI_rctf_init(&v2d->tot, 0, 5000, -100, 0);
   BLI_rctf_init(&v2d->cur, 0, 5000, -100, 0);
 
   return (SpaceLink *)sinfo;
