@@ -18,6 +18,7 @@
 #include "BLI_hash.h"
 #include "BLI_math_color.h"
 #include "BLI_profile.hh"
+#include "BLI_rect.h"
 #include "BLI_utildefines.h"
 
 #include "DNA_screen_types.h"
@@ -132,6 +133,16 @@ void info_profile_draw(const bContext *C, ARegion *region)
 {
   BLI_SCOPED_PROFILE(__func__);
 
+  // View2D *v2d = &region->v2d;
+  // v2d->scroll = V2D_SCROLL_RIGHT | V2D_SCROLL_BOTTOM;
+  // v2d->keepzoom = V2D_LOCKZOOM_Y;
+  // v2d->keeptot = V2D_KEEPTOT_STRICT;
+  // v2d->align = V2D_ALIGN_NO_POS_X | V2D_ALIGN_NO_POS_Y;
+  // v2d->minzoom = 0.01f;
+  // v2d->maxzoom = 50.0f;
+  // v2d->cur = v2d->tot;
+  // UI_view2d_region_reinit(v2d, V2D_COMMONVIEW_CUSTOM, region->winx, region->winy);
+
   SpaceInfo *sinfo = CTX_wm_space_info(C);
   SpaceInfo_Runtime &runtime = *sinfo->runtime;
   if (!runtime.profile_layout) {
@@ -143,16 +154,17 @@ void info_profile_draw(const bContext *C, ARegion *region)
   RecordedProfile recorded_profile = profile::extract_recorded_profile();
   profile_layout.add(recorded_profile);
 
+  const TimePoint begin_time = profile_layout.begin_time();
   const TimePoint end_time = profile_layout.end_time();
-  const Duration time_to_display = std::chrono::seconds(5);
 
   const auto time_to_x = [&](TimePoint time) -> int {
     if (time == TimePoint{}) {
       time = end_time;
     }
-    const Duration duration_to_end = end_time - time;
-    const float factor = (float)duration_to_end.count() / (float)time_to_display.count();
-    return (1 - factor) * region->winx;
+    const Duration time_since_begin = time - begin_time;
+    const float x = UI_view2d_view_to_region_x(&region->v2d,
+                                               time_since_begin.count() / 1000000.0f);
+    return x;
   };
 
   uiBlock *block = UI_block_begin(C, region, __func__, UI_EMBOSS_NONE);
@@ -169,6 +181,14 @@ void info_profile_draw(const bContext *C, ARegion *region)
 
   UI_block_end(C, block);
   UI_block_draw(C, block);
+
+  const float duration_ms = (end_time - begin_time).count() / 1000000.0f;
+  UI_view2d_totRect_set(&region->v2d, std::max(duration_ms, 1.0f), 100.0f);
+
+  print_rctf_id(&region->v2d.cur);
+  print_rctf_id(&region->v2d.tot);
+  print_rcti_id(&region->v2d.mask);
+  UI_view2d_scrollers_draw(&region->v2d, nullptr);
 }
 
 }  // namespace blender::ed::info

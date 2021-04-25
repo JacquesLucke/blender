@@ -73,15 +73,23 @@ static SpaceLink *info_create(const ScrArea *UNUSED(area), const Scene *UNUSED(s
   region->regiontype = RGN_TYPE_WINDOW;
 
   /* keep in sync with console */
-  region->v2d.scroll |= V2D_SCROLL_RIGHT;
-  region->v2d.align |= V2D_ALIGN_NO_NEG_X | V2D_ALIGN_NO_NEG_Y; /* align bottom left */
-  region->v2d.keepofs |= V2D_LOCKOFS_X;
-  region->v2d.keepzoom = (V2D_LOCKZOOM_X | V2D_LOCKZOOM_Y | V2D_LIMITZOOM | V2D_KEEPASPECT);
-  region->v2d.keeptot = V2D_KEEPTOT_BOUNDS;
-  region->v2d.minzoom = region->v2d.maxzoom = 1.0f;
+  // region->v2d.scroll |= V2D_SCROLL_RIGHT;
+  // region->v2d.align |= V2D_ALIGN_NO_NEG_X | V2D_ALIGN_NO_NEG_Y; /* align bottom left */
+  // region->v2d.keepofs |= V2D_LOCKOFS_X;
+  // region->v2d.keepzoom = (V2D_LOCKZOOM_X | V2D_LOCKZOOM_Y | V2D_LIMITZOOM | V2D_KEEPASPECT);
+  // region->v2d.keeptot = V2D_KEEPTOT_BOUNDS;
+  // region->v2d.minzoom = region->v2d.maxzoom = 1.0f;
 
   /* for now, aspect ratio should be maintained, and zoom is clamped within sane default limits */
   // region->v2d.keepzoom = (V2D_KEEPASPECT|V2D_LIMITZOOM);
+
+  View2D *v2d = &region->v2d;
+  v2d->scroll = V2D_SCROLL_RIGHT | V2D_SCROLL_BOTTOM;
+  v2d->keepzoom = V2D_LOCKZOOM_X | V2D_LOCKZOOM_Y | V2D_LIMITZOOM | V2D_KEEPASPECT;
+  v2d->keeptot = V2D_KEEPTOT_STRICT;
+  v2d->align = V2D_ALIGN_NO_NEG_X | V2D_ALIGN_NO_POS_Y;
+  v2d->minzoom = 1.0f;
+  v2d->maxzoom = 1.0f;
 
   return (SpaceLink *)sinfo;
 }
@@ -119,7 +127,7 @@ static void info_main_region_init(wmWindowManager *wm, ARegion *region)
   wmKeyMap *keymap;
 
   /* force it on init, for old files, until it becomes config */
-  region->v2d.scroll = (V2D_SCROLL_RIGHT);
+  // region->v2d.scroll = (V2D_SCROLL_RIGHT);
 
   UI_view2d_region_reinit(&region->v2d, V2D_COMMONVIEW_CUSTOM, region->winx, region->winy);
 
