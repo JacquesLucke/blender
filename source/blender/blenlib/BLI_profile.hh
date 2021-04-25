@@ -46,7 +46,10 @@ struct RecordedProfile {
   Vector<ProfileSegmentEnd> ends;
 };
 
-RecordedProfile extract_recorded_profile();
+using ProfileListenerFn = std::function<void(const RecordedProfile &)>;
+uint64_t register_listener(ProfileListenerFn listener_fn);
+void unregister_listener(uint64_t listener_handle);
+void flush_to_listeners();
 
 class ProfileScope {
  private:

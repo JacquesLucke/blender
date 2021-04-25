@@ -18,6 +18,7 @@
 #include <chrono>
 #include <mutex>
 
+#include "BLI_map.hh"
 #include "BLI_profile.hh"
 #include "BLI_stack.hh"
 #include "BLI_vector.hh"
@@ -67,13 +68,53 @@ struct ThreadLocalProfileStorage {
 
 static thread_local ThreadLocalProfileStorage storage;
 
-RecordedProfile extract_recorded_profile()
+static RecordedProfile extract_recorded_profile()
 {
   std::lock_guard lock{profile_mutex};
   RecordedProfile recorded_profile{recorded_begins, recorded_ends};
   recorded_begins.clear();
   recorded_ends.clear();
   return recorded_profile;
+}
+
+using ListenerMap = Map<uint64_t, ProfileListenerFn>;
+
+static std::atomic<uint64_t> next_listener_handle = 0;
+
+static ListenerMap &get_listener_map()
+{
+  static ListenerMap listener_map;
+  return listener_map;
+}
+
+uint64_t register_listener(ProfileListenerFn listener_fn)
+{
+  const uint64_t handle = next_listener_handle.fetch_add(1);
+  ListenerMap &map = get_listener_map();
+  map.add_new(handle, listener_fn);
+
+  BLI_profile_enable();
+
+  return handle;
+}
+
+void unregister_listener(const uint64_t listener_handle)
+{
+  ListenerMap &map = get_listener_map();
+  map.remove(listener_handle);
+
+  if (map.is_empty()) {
+    BLI_profile_disable();
+  }
+}
+
+void flush_to_listeners()
+{
+  RecordedProfile recorded_profile = blender::profile::extract_recorded_profile();
+  const ListenerMap &map = get_listener_map();
+  for (const ProfileListenerFn &fn : map.values()) {
+    fn(recorded_profile);
+  }
 }
 
 }  // namespace blender::profile

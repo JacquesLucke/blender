@@ -26,14 +26,15 @@ class INFO_HT_header(Header):
 
     def draw(self, context):
         layout = self.layout
+        sinfo = context.space_data
+
         layout.template_header()
 
         INFO_MT_editor_menus.draw_collapsible(context, layout)
 
-        sinfo = context.space_data
         layout.prop(sinfo, "view_mode")
         if sinfo.view_mode == 'PROFILE':
-            if bpy.app.profile.is_enabled():
+            if sinfo.profile_is_enabled():
                 layout.operator("profile.disable")
             else:
                 layout.operator("profile.enable")

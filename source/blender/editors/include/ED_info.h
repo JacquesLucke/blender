@@ -49,6 +49,7 @@ void ED_info_draw_stats(struct Main *bmain,
 void ED_info_profile_enable(struct SpaceInfo *sinfo);
 void ED_info_profile_disable(struct SpaceInfo *sinfo);
 bool ED_info_profile_is_enabled(struct SpaceInfo *sinfo);
+void ED_info_profile_clear(struct SpaceInfo *sinfo);
 
 #ifdef __cplusplus
 }

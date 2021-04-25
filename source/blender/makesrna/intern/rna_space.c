@@ -6846,6 +6846,9 @@ static void rna_def_space_info(BlenderRNA *brna)
   RNA_def_function_ui_description(func, "Check if this editor is recording profile data");
   parm = RNA_def_boolean(func, "is_enabled", false, "Is Enabled", "");
   RNA_def_function_return(func, parm);
+
+  func = RNA_def_function(srna, "profile_clear", "ED_info_profile_clear");
+  RNA_def_function_ui_description(func, "Reset recorded profile in this editor");
 }
 
 static void rna_def_space_userpref(BlenderRNA *brna)

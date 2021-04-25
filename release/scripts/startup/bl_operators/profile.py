@@ -20,13 +20,26 @@ from __future__ import annotations
 
 import bpy
 
+def is_info_in_profile_mode(context):
+    if context.area.type != 'INFO':
+        return False
+    sinfo = context.space_data
+    if sinfo.view_mode != 'PROFILE':
+        return False
+    return True
+
 class PROFILE_OT_enable(bpy.types.Operator):
     bl_idname = "profile.enable"
     bl_label = "Enable Profiling"
     bl_options = {'REGISTER'}
 
+    @classmethod
+    def poll(cls, context):
+        return is_info_in_profile_mode(context)
+
     def execute(self, context):
-        bpy.app.profile.enable()
+        sinfo = context.space_data
+        sinfo.profile_enable()
         return {'FINISHED'}
 
 class PROFILE_OT_disable(bpy.types.Operator):
@@ -34,8 +47,13 @@ class PROFILE_OT_disable(bpy.types.Operator):
     bl_label = "Disable Profiling"
     bl_options = {'REGISTER'}
 
+    @classmethod
+    def poll(cls, context):
+        return is_info_in_profile_mode(context)
+
     def execute(self, context):
-        bpy.app.profile.disable()
+        sinfo = context.space_data
+        sinfo.profile_disable()
         return {'FINISHED'}
 
 class PROFILE_OT_clear(bpy.types.Operator):
@@ -43,8 +61,13 @@ class PROFILE_OT_clear(bpy.types.Operator):
     bl_label = "Clear Profile Data"
     bl_options = {'REGISTER'}
 
+    @classmethod
+    def poll(cls, context):
+        return is_info_in_profile_mode(context)
+
     def execute(self, context):
-        bpy.app.profile.clear()
+        sinfo = context.space_data
+        sinfo.profile_clear()
         return {'FINISHED'}
 
 classes = (

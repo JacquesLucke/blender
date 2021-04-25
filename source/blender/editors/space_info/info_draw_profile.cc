@@ -134,6 +134,10 @@ void info_profile_draw(const bContext *C, ARegion *region)
   BLI_SCOPED_PROFILE(__func__);
 
   SpaceInfo *sinfo = CTX_wm_space_info(C);
+  if (ED_info_profile_is_enabled(sinfo)) {
+    blender::profile::flush_to_listeners();
+  }
+
   SpaceInfo_Runtime &runtime = *sinfo->runtime;
   if (!runtime.profile_layout) {
     runtime.profile_layout = std::make_unique<ProfileLayout>();
@@ -141,8 +145,6 @@ void info_profile_draw(const bContext *C, ARegion *region)
   ProfileLayout &profile_layout = *runtime.profile_layout;
 
   UI_ThemeClearColor(TH_BACK);
-  RecordedProfile recorded_profile = profile::extract_recorded_profile();
-  profile_layout.add(recorded_profile);
 
   const TimePoint begin_time = profile_layout.begin_time();
   const TimePoint end_time = profile_layout.end_time();
@@ -173,24 +175,53 @@ void info_profile_draw(const bContext *C, ARegion *region)
   UI_block_draw(C, block);
 
   const float duration_ms = (end_time - begin_time).count() / 1000000.0f;
-  UI_view2d_totRect_set(&region->v2d, duration_ms, 100.0f);
+  UI_view2d_totRect_set(&region->v2d, std::max(duration_ms, 1.0f), 100.0f);
 
   UI_view2d_scrollers_draw(&region->v2d, nullptr);
+}
+
+static void recorded_profile_listener(const RecordedProfile &recorded_profile, SpaceInfo *sinfo)
+{
+  SpaceInfo_Runtime &runtime = *sinfo->runtime;
+  if (!runtime.profile_layout) {
+    runtime.profile_layout = std::make_unique<ProfileLayout>();
+  }
+  ProfileLayout &profile_layout = *runtime.profile_layout;
+  profile_layout.add(recorded_profile);
 }
 
 }  // namespace blender::ed::info
 
 void ED_info_profile_enable(SpaceInfo *sinfo)
 {
-  sinfo->runtime->is_recording_profile = true;
+  if (ED_info_profile_is_enabled(sinfo)) {
+    return;
+  }
+  SpaceInfo_Runtime &runtime = *sinfo->runtime;
+  runtime.profile_listener_handle = blender::profile::register_listener(
+      [sinfo](const RecordedProfile &recorded_profile) {
+        blender::ed::info::recorded_profile_listener(recorded_profile, sinfo);
+      });
 }
 
 void ED_info_profile_disable(SpaceInfo *sinfo)
 {
-  sinfo->runtime->is_recording_profile = false;
+  if (!ED_info_profile_is_enabled(sinfo)) {
+    return;
+  }
+  SpaceInfo_Runtime &runtime = *sinfo->runtime;
+  blender::profile::unregister_listener(*runtime.profile_listener_handle);
+  runtime.profile_listener_handle.reset();
 }
 
 bool ED_info_profile_is_enabled(SpaceInfo *sinfo)
 {
-  return sinfo->runtime->is_recording_profile;
+  SpaceInfo_Runtime &runtime = *sinfo->runtime;
+  return runtime.profile_listener_handle.has_value();
+}
+
+void ED_info_profile_clear(SpaceInfo *sinfo)
+{
+  SpaceInfo_Runtime &runtime = *sinfo->runtime;
+  runtime.profile_layout.reset();
 }

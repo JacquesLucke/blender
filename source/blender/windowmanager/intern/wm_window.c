@@ -40,6 +40,7 @@
 
 #include "BLI_blenlib.h"
 #include "BLI_math.h"
+#include "BLI_profile.h"
 #include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
@@ -1565,7 +1566,10 @@ void wm_window_process_events(const bContext *C)
 
   /* no event, we sleep 5 milliseconds */
   if (hasevent == 0) {
+    BLI_profile_scope profile_scope;
+    BLI_profile_scope_begin(&profile_scope, "sleep");
     PIL_sleep_ms(5);
+    BLI_profile_scope_end(&profile_scope);
   }
 }
 
