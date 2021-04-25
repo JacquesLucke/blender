@@ -126,6 +126,8 @@ static void draw_profile_nodes(uiBlock *block,
 
 void info_profile_draw(const bContext *C, ARegion *region)
 {
+  BLI_SCOPED_PROFILE(__func__);
+
   SpaceInfo *sinfo = CTX_wm_space_info(C);
   UNUSED_VARS(sinfo, region);
 
