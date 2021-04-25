@@ -34,6 +34,7 @@
 #include "BKE_node.h"
 #include "BKE_studiolight.h"
 
+#include "ED_info.h"
 #include "ED_spreadsheet.h"
 #include "ED_text.h"
 
@@ -6797,7 +6798,8 @@ static void rna_def_space_info(BlenderRNA *brna)
   };
 
   StructRNA *srna;
-  PropertyRNA *prop;
+  PropertyRNA *prop, *parm;
+  FunctionRNA *func;
 
   srna = RNA_def_struct(brna, "SpaceInfo", "Space");
   RNA_def_struct_sdna(srna, "SpaceInfo");
@@ -6833,6 +6835,17 @@ static void rna_def_space_info(BlenderRNA *brna)
   RNA_def_property_boolean_sdna(prop, NULL, "rpt_mask", INFO_RPT_ERR);
   RNA_def_property_ui_text(prop, "Show Error", "Display error text");
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_INFO_REPORT, NULL);
+
+  func = RNA_def_function(srna, "profile_enable", "ED_info_profile_enable");
+  RNA_def_function_ui_description(func, "Enable profile recording in this editor");
+
+  func = RNA_def_function(srna, "profile_disable", "ED_info_profile_disable");
+  RNA_def_function_ui_description(func, "Disable profile recording in this editor");
+
+  func = RNA_def_function(srna, "profile_is_enabled", "ED_info_profile_is_enabled");
+  RNA_def_function_ui_description(func, "Check if this editor is recording profile data");
+  parm = RNA_def_boolean(func, "is_enabled", false, "Is Enabled", "");
+  RNA_def_function_return(func, parm);
 }
 
 static void rna_def_space_userpref(BlenderRNA *brna)

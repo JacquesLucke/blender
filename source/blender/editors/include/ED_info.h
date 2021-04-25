@@ -27,6 +27,7 @@ extern "C" {
 #endif
 
 struct Main;
+struct SpaceInfo;
 
 /* info_stats.c */
 void ED_info_stats_clear(struct ViewLayer *view_layer);
@@ -44,6 +45,10 @@ void ED_info_draw_stats(struct Main *bmain,
                         int x,
                         int *y,
                         int height);
+
+void ED_info_profile_enable(struct SpaceInfo *sinfo);
+void ED_info_profile_disable(struct SpaceInfo *sinfo);
+bool ED_info_profile_is_enabled(struct SpaceInfo *sinfo);
 
 #ifdef __cplusplus
 }

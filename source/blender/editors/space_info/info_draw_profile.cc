@@ -32,6 +32,8 @@
 
 #include "GPU_immediate.h"
 
+#include "ED_info.h"
+
 #include "info_intern.hh"
 #include "info_profile_layout.hh"
 #include "info_runtime.hh"
@@ -170,3 +172,18 @@ void info_profile_draw(const bContext *C, ARegion *region)
 }
 
 }  // namespace blender::ed::info
+
+void ED_info_profile_enable(SpaceInfo *sinfo)
+{
+  sinfo->runtime->is_recording_profile = true;
+}
+
+void ED_info_profile_disable(SpaceInfo *sinfo)
+{
+  sinfo->runtime->is_recording_profile = false;
+}
+
+bool ED_info_profile_is_enabled(SpaceInfo *sinfo)
+{
+  return sinfo->runtime->is_recording_profile;
+}

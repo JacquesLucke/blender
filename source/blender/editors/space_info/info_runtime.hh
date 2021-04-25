@@ -19,6 +19,7 @@
 #include "info_profile_layout.hh"
 
 struct SpaceInfo_Runtime {
+  bool is_recording_profile = false;
   std::unique_ptr<blender::ed::info::ProfileLayout> profile_layout;
 
   SpaceInfo_Runtime() = default;
