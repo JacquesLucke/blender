@@ -35,6 +35,7 @@ static RawVector<ProfileTaskBegin> recorded_task_begins;
 static RawVector<ProfileTaskEnd> recorded_task_ends;
 static thread_local RawStack<uint64_t> threadlocal_id_stack;
 static thread_local uint64_t threadlocal_thread_id = get_unique_session_id();
+bool bli_profiling_is_enabled = false;
 
 namespace blender::profile {
 
