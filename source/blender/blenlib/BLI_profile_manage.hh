@@ -46,4 +46,14 @@ struct RecordedProfile {
   Vector<ProfileTaskEnd> task_ends;
 };
 
+class ProfileListener {
+ public:
+  ProfileListener();
+  virtual ~ProfileListener();
+
+  virtual void handle(const RecordedProfile &profile) = 0;
+
+  static void flush_to_all();
+};
+
 }  // namespace blender::profile
