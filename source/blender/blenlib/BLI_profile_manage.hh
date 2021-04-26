@@ -29,6 +29,7 @@ using TimePoint = Clock::time_point;
 using Nanoseconds = std::chrono::nanoseconds;
 
 struct ProfileTaskBegin {
+  /* TODO: Don't use std::string when name is statically allocated. */
   std::string name;
   TimePoint time;
   uint64_t id;
@@ -42,8 +43,8 @@ struct ProfileTaskEnd {
 };
 
 struct RecordedProfile {
-  Vector<ProfileTaskBegin> task_begins;
-  Vector<ProfileTaskEnd> task_ends;
+  RawVector<ProfileTaskBegin> task_begins;
+  RawVector<ProfileTaskEnd> task_ends;
 };
 
 class ProfileListener {
