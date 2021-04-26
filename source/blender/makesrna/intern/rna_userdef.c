@@ -3867,6 +3867,18 @@ static void rna_def_userdef_theme_space_spreadsheet(BlenderRNA *brna)
   rna_def_userdef_theme_spaces_main(srna);
 }
 
+static void rna_def_userdef_theme_space_profiler(BlenderRNA *brna)
+{
+  StructRNA *srna;
+
+  srna = RNA_def_struct(brna, "ThemeProfiler", NULL);
+  RNA_def_struct_sdna(srna, "ThemeSpace");
+  RNA_def_struct_clear_flag(srna, STRUCT_UNDO);
+  RNA_def_struct_ui_text(srna, "Theme Profiler", "Theme settings for the Profiler");
+
+  rna_def_userdef_theme_spaces_main(srna);
+}
+
 static void rna_def_userdef_themes(BlenderRNA *brna)
 {
   StructRNA *srna;
@@ -3894,6 +3906,7 @@ static void rna_def_userdef_themes(BlenderRNA *brna)
       {21, "TOPBAR", ICON_TOPBAR, "Top Bar", ""},
       {22, "STATUSBAR", ICON_STATUSBAR, "Status Bar", ""},
       {23, "SPREADSHEET", ICON_SPREADSHEET, "Spreadsheet"},
+      {24, "PROFILER", ICON_TIME, "Profiler"},
       {0, NULL, 0, NULL, NULL},
   };
 
@@ -4028,6 +4041,12 @@ static void rna_def_userdef_themes(BlenderRNA *brna)
   RNA_def_property_pointer_sdna(prop, NULL, "space_spreadsheet");
   RNA_def_property_struct_type(prop, "ThemeSpreadsheet");
   RNA_def_property_ui_text(prop, "Spreadsheet", "");
+
+  prop = RNA_def_property(srna, "profiler", PROP_POINTER, PROP_NONE);
+  RNA_def_property_flag(prop, PROP_NEVER_NULL);
+  RNA_def_property_pointer_sdna(prop, NULL, "space_profiler");
+  RNA_def_property_struct_type(prop, "ThemeProfiler");
+  RNA_def_property_ui_text(prop, "Profiler", "");
   /* end space types */
 
   prop = RNA_def_property(srna, "bone_color_sets", PROP_COLLECTION, PROP_NONE);
@@ -4282,6 +4301,7 @@ static void rna_def_userdef_dothemes(BlenderRNA *brna)
   rna_def_userdef_theme_space_topbar(brna);
   rna_def_userdef_theme_space_statusbar(brna);
   rna_def_userdef_theme_space_spreadsheet(brna);
+  rna_def_userdef_theme_space_profiler(brna);
   rna_def_userdef_theme_colorset(brna);
   rna_def_userdef_theme_collection_color(brna);
   rna_def_userdef_themes(brna);

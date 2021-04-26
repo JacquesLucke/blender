@@ -163,6 +163,9 @@ const uchar *UI_ThemeGetColorPtr(bTheme *btheme, int spacetype, int colorid)
         case SPACE_SPREADSHEET:
           ts = &btheme->space_spreadsheet;
           break;
+        case SPACE_PROFILER:
+          ts = &btheme->space_profiler;
+          break;
         default:
           ts = &btheme->space_view3d;
           break;

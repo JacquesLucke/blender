@@ -124,6 +124,7 @@ const EnumPropertyItem rna_enum_space_type_items[] = {
      "Interactive programmatic console for "
      "advanced editing and script development"},
     {SPACE_INFO, "INFO", ICON_INFO, "Info", "Log of operations, warnings and error messages"},
+    {SPACE_PROFILER, "PROFILER", ICON_MOD_TIME, "Profiler", "Performance profiler"},
     /* Special case: Top-bar and Status-bar aren't supposed to be a regular editor for the user. */
     {SPACE_TOPBAR,
      "TOPBAR",
@@ -585,6 +586,8 @@ static StructRNA *rna_Space_refine(struct PointerRNA *ptr)
       return &RNA_SpaceClipEditor;
     case SPACE_SPREADSHEET:
       return &RNA_SpaceSpreadsheet;
+    case SPACE_PROFILER:
+      return &RNA_SpaceProfiler;
 
       /* Currently no type info. */
     case SPACE_SCRIPT:
@@ -7568,6 +7571,14 @@ static void rna_def_space_spreadsheet(BlenderRNA *brna)
   RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 }
 
+static void rna_def_space_profiler(BlenderRNA *brna)
+{
+  StructRNA *srna;
+
+  srna = RNA_def_struct(brna, "SpaceProfiler", "Space");
+  RNA_def_struct_ui_text(srna, "Space Profiler", "Profiler space data");
+}
+
 void RNA_def_space(BlenderRNA *brna)
 {
   rna_def_space(brna);
@@ -7594,6 +7605,7 @@ void RNA_def_space(BlenderRNA *brna)
   rna_def_space_node(brna);
   rna_def_space_clip(brna);
   rna_def_space_spreadsheet(brna);
+  rna_def_space_profiler(brna);
 }
 
 #endif

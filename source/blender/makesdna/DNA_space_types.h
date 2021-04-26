@@ -1960,6 +1960,22 @@ typedef enum eSpaceSpreadsheet_ContextType {
 /** \} */
 
 /* -------------------------------------------------------------------- */
+/** \name Profiler
+ * \{ */
+
+typedef struct SpaceProfiler {
+  SpaceLink *next, *prev;
+  /** Storage of regions for inactive spaces. */
+  ListBase regionbase;
+  char spacetype;
+  char link_flag;
+  char _pad0[6];
+  /* End 'SpaceLink' header. */
+} SpaceProfiler;
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
 /** \name Space Defines (eSpace_Type)
  * \{ */
 
@@ -1996,9 +2012,10 @@ typedef enum eSpace_Type {
   SPACE_CLIP = 20,
   SPACE_TOPBAR = 21,
   SPACE_STATUSBAR = 22,
-  SPACE_SPREADSHEET = 23
+  SPACE_SPREADSHEET = 23,
+  SPACE_PROFILER = 24,
 
-#define SPACE_TYPE_LAST SPACE_SPREADSHEET
+#define SPACE_TYPE_LAST SPACE_PROFILER
 } eSpace_Type;
 
 /* use for function args */

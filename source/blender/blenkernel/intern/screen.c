@@ -1384,6 +1384,9 @@ static void write_area(BlendWriter *writer, ScrArea *area)
         }
       }
     }
+    else if (sl->spacetype == SPACE_PROFILER) {
+      BLO_write_struct(writer, SpaceProfiler, sl);
+    }
   }
 }
 

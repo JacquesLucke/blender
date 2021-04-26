@@ -938,6 +938,15 @@ struct SpaceSpreadsheet *CTX_wm_space_spreadsheet(const bContext *C)
   return NULL;
 }
 
+struct SpaceProfiler *CTX_wm_space_profiler(const bContext *C)
+{
+  ScrArea *area = CTX_wm_area(C);
+  if (area && area->spacetype == SPACE_PROFILER) {
+    return area->spacedata.first;
+  }
+  return NULL;
+}
+
 void CTX_wm_manager_set(bContext *C, wmWindowManager *wm)
 {
   C->wm.manager = wm;
