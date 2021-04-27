@@ -1963,6 +1963,8 @@ typedef enum eSpaceSpreadsheet_ContextType {
 /** \name Profiler
  * \{ */
 
+typedef struct SpaceProfiler_Runtime SpaceProfiler_Runtime;
+
 typedef struct SpaceProfiler {
   SpaceLink *next, *prev;
   /** Storage of regions for inactive spaces. */
@@ -1971,6 +1973,8 @@ typedef struct SpaceProfiler {
   char link_flag;
   char _pad0[6];
   /* End 'SpaceLink' header. */
+
+  SpaceProfiler_Runtime *runtime;
 } SpaceProfiler;
 
 /** \} */

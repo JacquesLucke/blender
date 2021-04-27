@@ -37,6 +37,8 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
+#include "profiler_runtime.hh"
+
 static SpaceLink *profiler_create(const ScrArea *UNUSED(area), const Scene *UNUSED(scene))
 {
   SpaceProfiler *sprofiler = (SpaceProfiler *)MEM_callocN(sizeof(SpaceProfiler), "profiler space");
@@ -64,13 +66,20 @@ static void profiler_free(SpaceLink *UNUSED(sl))
 {
 }
 
-static void profiler_init(wmWindowManager *UNUSED(wm), ScrArea *UNUSED(area))
+static void profiler_init(wmWindowManager *UNUSED(wm), ScrArea *area)
 {
+  SpaceProfiler *sprofiler = (SpaceProfiler *)area->spacedata.first;
+  if (sprofiler->runtime == nullptr) {
+    sprofiler->runtime = new SpaceProfiler_Runtime();
+  }
 }
 
 static SpaceLink *profiler_duplicate(SpaceLink *sl)
 {
-  return (SpaceLink *)MEM_dupallocN(sl);
+  SpaceProfiler *sprofiler_old = (SpaceProfiler *)sl;
+  SpaceProfiler *sprofiler_new = (SpaceProfiler *)MEM_dupallocN(sl);
+  sprofiler_new->runtime = new SpaceProfiler_Runtime(*sprofiler_old->runtime);
+  return (SpaceLink *)sprofiler_new;
 }
 
 static void profiler_keymap(wmKeyConfig *UNUSED(keyconf))
