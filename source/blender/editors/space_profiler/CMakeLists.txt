@@ -28,6 +28,7 @@ set(INC
 
 set(SRC
   profiler_layout.cc
+  profiler_profile.cc
   space_profiler.cc
 
   profiler_layout.hh
