@@ -98,11 +98,14 @@ ProfileListener::~ProfileListener()
 
 void ProfileListener::flush_to_all()
 {
+  /* Todo: How to handle short lived threads? */
   std::scoped_lock lock{listeners_mutex, registered_threadlocals_mutex};
   for (ThreadLocalProfileData *data : registered_threadlocals) {
     RecordedProfile recorded_profile;
-    /* Todo load data from threadlocals. */
-    UNUSED_VARS(data);
+    data->queue_begins.consume(
+        [&](Span<ProfileTaskBegin> data) { recorded_profile.task_begins.extend(data); });
+    data->queue_ends.consume(
+        [&](Span<ProfileTaskEnd> data) { recorded_profile.task_ends.extend(data); });
     for (ProfileListener *listener : listeners) {
       listener->handle(recorded_profile);
     }
