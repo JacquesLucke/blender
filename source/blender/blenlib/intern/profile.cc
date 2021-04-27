@@ -38,6 +38,8 @@ struct ThreadLocalProfileData;
 static std::mutex registered_threadlocals_mutex;
 static RawVector<ThreadLocalProfileData *> registered_threadlocals;
 
+template<typename T> using ProfileDataQueue = SingleProducerChunkConsumerQueue<T, RawAllocator>;
+
 struct ThreadLocalProfileData {
   ThreadLocalProfileData()
   {
@@ -53,8 +55,8 @@ struct ThreadLocalProfileData {
   }
 
   uint64_t thread_id;
-  SingleProducerChunkConsumerQueue<ProfileTaskBegin> queue_begins;
-  SingleProducerChunkConsumerQueue<ProfileTaskEnd> queue_ends;
+  ProfileDataQueue<ProfileTaskBegin> queue_begins;
+  ProfileDataQueue<ProfileTaskEnd> queue_ends;
   RawStack<uint64_t> id_stack;
 };
 
