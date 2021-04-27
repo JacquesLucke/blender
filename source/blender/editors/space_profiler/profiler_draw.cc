@@ -82,8 +82,8 @@ class ProfilerDrawer {
 
   void update_view2d_bounds()
   {
-    const float duration_ms = this->duration_to_ms(profiler_layout_->end_time() -
-                                                   profiler_layout_->begin_time());
+    const float duration_ms = duration_to_ms(profiler_layout_->end_time() -
+                                             profiler_layout_->begin_time());
     /* Giving a bit more space on the right side is convenient. */
     const float extended_duration_ms = std::max(duration_ms * 1.1f, 5000.0f);
     UI_view2d_totRect_set(&region_->v2d, extended_duration_ms, 1);
@@ -161,6 +161,10 @@ class ProfilerDrawer {
     }
   }
 
+  struct NodeTooltipArg {
+    ProfileNode *node;
+  };
+
   void draw_node_label(ProfileNode &node, const int left_x, const int right_x)
   {
     const int x = std::max(0, left_x);
@@ -183,13 +187,27 @@ class ProfilerDrawer {
                                   nullptr);
     UI_but_drawflag_disable(but, UI_BUT_TEXT_LEFT);
     UI_but_drawflag_disable(but, UI_BUT_TEXT_RIGHT);
+
+    UI_but_func_tooltip_set(but,
+                            node_tooltip_fn,
+                            new (MEM_mallocN(sizeof(NodeTooltipArg), __func__))
+                                NodeTooltipArg{&node});
+  }
+
+  static char *node_tooltip_fn(bContext *UNUSED(C), void *argN, const char *UNUSED(tip))
+  {
+    NodeTooltipArg &arg = *(NodeTooltipArg *)argN;
+    ProfileNode &node = *arg.node;
+    std::stringstream ss;
+    ss << "Duration: " << duration_to_ms(node.end_time() - node.begin_time()) << " ms";
+    return BLI_strdup(ss.str().c_str());
   }
 
   int time_to_x(const TimePoint time) const
   {
     const TimePoint begin_time = profiler_layout_->begin_time();
     const Duration time_since_begin = time - begin_time;
-    const float ms_since_begin = this->duration_to_ms(time_since_begin);
+    const float ms_since_begin = duration_to_ms(time_since_begin);
     return UI_view2d_view_to_region_x(&region_->v2d, ms_since_begin);
   }
 
@@ -202,7 +220,7 @@ class ProfilerDrawer {
     return {r, g, b, 1.0f};
   }
 
-  float duration_to_ms(const Duration duration) const
+  static float duration_to_ms(const Duration duration)
   {
     return duration.count() / 1000000.0f;
   }
