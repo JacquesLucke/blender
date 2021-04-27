@@ -136,7 +136,7 @@ class ProfilerDrawer {
 
     const int left_x = this->time_to_x(node.begin_time());
     const int right_x = std::max(left_x + 1, this->time_to_x(node.end_time()));
-    immRecti(pos, left_x, node.top_y, right_x, node.bottom_y);
+    immRecti(pos, left_x, node.top_y, right_x, node.top_y - row_height_);
 
     immUnbindProgram();
 
@@ -154,7 +154,7 @@ class ProfilerDrawer {
     const int width = std::max(1, std::min<int>(right_x, region_->winx) - x);
 
     uiBut *but = uiDefIconTextBut(ui_block_,
-                                  UI_BTYPE_LABEL,
+                                  UI_BTYPE_BUT,
                                   0,
                                   ICON_NONE,
                                   node.name().c_str(),

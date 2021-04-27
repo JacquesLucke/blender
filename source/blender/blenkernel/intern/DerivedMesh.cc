@@ -1218,6 +1218,7 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
         }
         BKE_mesh_vert_coords_apply(mesh_final, deformed_verts);
       }
+      BLI_PROFILE_SCOPE(md->name);
       BKE_modifier_deform_verts(md, &mectx, mesh_final, deformed_verts, num_deformed_verts);
     }
     else {
@@ -1694,6 +1695,7 @@ static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
         BKE_mesh_vert_coords_apply(mesh_final, deformed_verts);
       }
 
+      BLI_PROFILE_SCOPE(md->name);
       if (mti->deformVertsEM) {
         BKE_modifier_deform_vertsEM(
             md, &mectx, em_input, mesh_final, deformed_verts, num_deformed_verts);
