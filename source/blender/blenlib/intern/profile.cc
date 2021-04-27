@@ -33,10 +33,32 @@ static uint64_t get_unique_session_id()
   return id++;
 }
 
-static RawVector<ProfileTaskBegin> recorded_task_begins;
-static RawVector<ProfileTaskEnd> recorded_task_ends;
-static thread_local RawStack<uint64_t> threadlocal_id_stack;
-static thread_local uint64_t threadlocal_thread_id = get_unique_session_id();
+struct ThreadLocalProfileData;
+
+static std::mutex registered_threadlocals_mutex;
+static RawVector<ThreadLocalProfileData *> registered_threadlocals;
+
+struct ThreadLocalProfileData {
+  ThreadLocalProfileData()
+  {
+    std::lock_guard lock{registered_threadlocals_mutex};
+    registered_threadlocals.append(this);
+    thread_id = get_unique_session_id();
+  }
+
+  ~ThreadLocalProfileData()
+  {
+    std::lock_guard lock{registered_threadlocals_mutex};
+    registered_threadlocals.remove_first_occurrence_and_reorder(this);
+  }
+
+  uint64_t thread_id;
+  SingleProducerChunkConsumerQueue<ProfileTaskBegin> queue_begins;
+  SingleProducerChunkConsumerQueue<ProfileTaskEnd> queue_ends;
+  RawStack<uint64_t> id_stack;
+};
+
+static ThreadLocalProfileData threadlocal_profile_data;
 bool bli_profiling_is_enabled = false;
 
 namespace blender::profile {
@@ -51,13 +73,12 @@ static void stop_profiling()
   bli_profiling_is_enabled = false;
 }
 
-/* TODO: Need to reduce threading overhead, but this works fine for now. */
-static std::mutex profile_mutex;
+static std::mutex listeners_mutex;
 static RawVector<ProfileListener *> listeners;
 
 ProfileListener::ProfileListener()
 {
-  std::lock_guard lock{profile_mutex};
+  std::lock_guard lock{listeners_mutex};
   listeners.append(this);
   if (listeners.size() == 1) {
     start_profiling();
@@ -66,7 +87,7 @@ ProfileListener::ProfileListener()
 
 ProfileListener::~ProfileListener()
 {
-  std::lock_guard lock{profile_mutex};
+  std::lock_guard lock{listeners_mutex};
   listeners.remove_first_occurrence_and_reorder(this);
   if (listeners.is_empty()) {
     stop_profiling();
@@ -75,13 +96,14 @@ ProfileListener::~ProfileListener()
 
 void ProfileListener::flush_to_all()
 {
-  std::lock_guard lock{profile_mutex};
-  RecordedProfile recorded_profile;
-  recorded_profile.task_begins = std::move(recorded_task_begins);
-  recorded_profile.task_ends = std::move(recorded_task_ends);
-
-  for (ProfileListener *listener : listeners) {
-    listener->handle(recorded_profile);
+  std::scoped_lock lock{listeners_mutex, registered_threadlocals_mutex};
+  for (ThreadLocalProfileData *data : registered_threadlocals) {
+    RecordedProfile recorded_profile;
+    /* Todo load data from threadlocals. */
+    UNUSED_VARS(data);
+    for (ProfileListener *listener : listeners) {
+      listener->handle(recorded_profile);
+    }
   }
 }
 
@@ -89,42 +111,41 @@ void ProfileListener::flush_to_all()
 
 void _bli_profile_task_begin(BLI_ProfileTask *task, const char *name)
 {
-  ProfileTaskBegin task_begin;
-  task_begin.id = get_unique_session_id();
-  task_begin.name = name;
-  task_begin.parent_id = threadlocal_id_stack.peek_default(0);
-  task_begin.thread_id = threadlocal_thread_id;
-  task_begin.time = Clock::now();
+  task->id = get_unique_session_id();
 
-  task->id = task_begin.id;
+  ProfileTaskBegin *task_begin = threadlocal_profile_data.queue_begins.prepare_append();
+  task_begin->id = task->id;
+  task_begin->name = name;
+  task_begin->parent_id = threadlocal_profile_data.id_stack.peek_default(0);
+  task_begin->thread_id = threadlocal_profile_data.thread_id;
+  task_begin->time = Clock::now();
 
-  std::scoped_lock lock{profile_mutex};
-  recorded_task_begins.append(task_begin);
+  threadlocal_profile_data.queue_begins.commit_append();
 }
 
 void _bli_profile_task_begin_subtask(BLI_ProfileTask *task,
                                      const char *name,
                                      const BLI_ProfileTask *parent_task)
 {
-  ProfileTaskBegin task_begin;
-  task_begin.id = get_unique_session_id();
-  task_begin.name = name;
-  task_begin.parent_id = parent_task->id;
-  task_begin.thread_id = threadlocal_thread_id;
-  task_begin.time = Clock::now();
+  task->id = get_unique_session_id();
 
-  task->id = task_begin.id;
+  ProfileTaskBegin *task_begin = threadlocal_profile_data.queue_begins.prepare_append();
+  task_begin->id = task->id;
+  task_begin->name = name;
+  task_begin->parent_id = parent_task->id;
+  task_begin->thread_id = threadlocal_profile_data.thread_id;
+  task_begin->time = Clock::now();
 
-  std::scoped_lock lock{profile_mutex};
-  recorded_task_begins.append(task_begin);
+  threadlocal_profile_data.queue_begins.commit_append();
 }
 
 void _bli_profile_task_end(BLI_ProfileTask *task)
 {
-  ProfileTaskEnd task_end;
-  task_end.begin_id = task->id;
-  task_end.time = Clock::now();
+  TimePoint time = Clock::now();
 
-  std::scoped_lock lock{profile_mutex};
-  recorded_task_ends.append(task_end);
+  ProfileTaskEnd *task_end = threadlocal_profile_data.queue_ends.prepare_append();
+  task_end->begin_id = task->id;
+  task_end->time = time;
+
+  threadlocal_profile_data.queue_ends.commit_append();
 }

@@ -101,11 +101,10 @@ class SingleProducerChunkConsumerQueue {
 
   /**
    * Start appending a new element.
-   * Returns a pointer to uninitialized memory.
-   * The caller is responsible for constructing the new element in the returned buffer.
+   * This constructs the new element with the given parameters.
    * This must be used in conjunction with #commit_append.
    */
-  T *prepare_append()
+  template<typename... Args> T *prepare_append(Args &&... args)
   {
     if (current_->end == current_->capacity_end) {
       /* Create a new chunk when the current one is full. */
@@ -115,8 +114,8 @@ class SingleProducerChunkConsumerQueue {
       current_->next.store(new_chunk, std::memory_order_release);
       current_ = new_chunk;
     }
-    /* Return a pointer to the next uninitialized element. */
-    return current_->end;
+    /* Return a pointer to the next element. */
+    return new (current_->end) T(std::forward<Args>(args)...);
   }
 
   /**
@@ -202,7 +201,7 @@ class SingleProducerChunkConsumerQueue {
   void delete_chunk(Chunk *chunk)
   {
     destruct_n(chunk->begin, chunk->committed_size);
-    allocator_.deallocate(chunk->data);
+    allocator_.deallocate(chunk->begin);
     chunk->~Chunk();
     allocator_.deallocate(chunk);
   }
