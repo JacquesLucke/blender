@@ -39,14 +39,14 @@ void ProfileNode::pack_added_children()
 
   /* Assume already packed children are sorted by begin time. */
   int tot_newly_inserted = 0;
-  tot_newly_inserted += this->try_pack_into_vector(children_on_same_thread_, true);
+  tot_newly_inserted += this->try_pack_into_vector(direct_children_, true);
 
   int iteration = 0;
   while (tot_newly_inserted < children_to_pack_.size()) {
-    if (iteration == packed_children_on_other_threads_.size()) {
-      packed_children_on_other_threads_.append({});
+    if (iteration == parallel_children_.size()) {
+      parallel_children_.append({});
     }
-    Vector<ProfileNode *> &children_vec = packed_children_on_other_threads_[iteration];
+    Vector<ProfileNode *> &children_vec = parallel_children_[iteration];
     iteration++;
     tot_newly_inserted += this->try_pack_into_vector(children_vec, false);
   }
@@ -192,10 +192,10 @@ void ProfileLayout::add(const RecordedProfile &recorded_profile)
 
 void ProfileNode::destruct_recursively()
 {
-  for (ProfileNode *node : children_on_same_thread_) {
+  for (ProfileNode *node : direct_children_) {
     node->destruct_recursively();
   }
-  for (Span<ProfileNode *> nodes : packed_children_on_other_threads_) {
+  for (Span<ProfileNode *> nodes : parallel_children_) {
     for (ProfileNode *node : nodes) {
       node->destruct_recursively();
     }

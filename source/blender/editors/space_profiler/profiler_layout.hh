@@ -37,9 +37,10 @@ class ProfileNode {
   uint64_t id_;
   uint64_t parent_id_;
   uint64_t thread_id_;
-  /* The nodes in these vectors are ordered by the begin time. */
-  Vector<ProfileNode *> children_on_same_thread_;
-  Vector<Vector<ProfileNode *>> packed_children_on_other_threads_;
+  /* The nodes in these vectors are ordered by the begin time. Nodes in a single vector should not
+   * overlap. */
+  Vector<ProfileNode *> direct_children_;
+  Vector<Vector<ProfileNode *>> parallel_children_;
 
   /* These nodes still have to be inserted into the vectors above. They are not sorted. */
   Vector<ProfileNode *> children_to_pack_;
@@ -79,12 +80,12 @@ class ProfileNode {
 
   Span<const ProfileNode *> children_on_same_thread() const
   {
-    return children_on_same_thread_;
+    return direct_children_;
   }
 
   Span<Vector<ProfileNode *>> stacked_children_in_other_threads() const
   {
-    return packed_children_on_other_threads_;
+    return parallel_children_;
   }
 
   static bool time_overlap(const ProfileNode &a, const ProfileNode &b);
