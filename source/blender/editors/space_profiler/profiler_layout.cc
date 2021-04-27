@@ -30,36 +30,14 @@ bool ProfileNode::time_overlap(const ProfileNode &a, const ProfileNode &b)
   return begin_of_a_is_in_b || begin_of_b_is_in_a;
 }
 
-void ProfileNode::pack_added_children()
-{
-  /* Sort new nodes by begin time. */
-  std::sort(children_to_pack_.begin(),
-            children_to_pack_.end(),
-            [](ProfileNode *a, ProfileNode *b) { return a->begin_time() < b->begin_time(); });
-
-  /* Assume already packed children are sorted by begin time. */
-  int tot_newly_inserted = 0;
-  tot_newly_inserted += this->try_pack_into_vector(direct_children_, true);
-
-  int iteration = 0;
-  while (tot_newly_inserted < children_to_pack_.size()) {
-    if (iteration == parallel_children_.size()) {
-      parallel_children_.append({});
-    }
-    Vector<ProfileNode *> &children_vec = parallel_children_[iteration];
-    iteration++;
-    tot_newly_inserted += this->try_pack_into_vector(children_vec, false);
-  }
-
-  children_to_pack_.clear();
-}
-
-int ProfileNode::try_pack_into_vector(Vector<ProfileNode *> &nodes_vec,
-                                      bool ignore_other_thread_ids)
+template<typename UseNodeF>
+static int try_pack_into_vector(Vector<ProfileNode *> &sorted_nodes_vec,
+                                MutableSpan<ProfileNode *> sorted_nodes_to_pack,
+                                const UseNodeF &use_node_fn)
 {
   int tot_newly_inserted = 0;
-  MutableSpan<ProfileNode *> remaining_existing = nodes_vec;
-  MutableSpan<ProfileNode *> remaining_new = children_to_pack_;
+  MutableSpan<ProfileNode *> remaining_existing = sorted_nodes_vec;
+  MutableSpan<ProfileNode *> remaining_new = sorted_nodes_to_pack;
   Vector<ProfileNode *> new_vec;
   while (!remaining_new.is_empty()) {
     ProfileNode *new_child = remaining_new[0];
@@ -68,12 +46,9 @@ int ProfileNode::try_pack_into_vector(Vector<ProfileNode *> &nodes_vec,
       remaining_new = remaining_new.drop_front(1);
       continue;
     }
-    if (ignore_other_thread_ids) {
-      if (new_child->thread_id_ != thread_id_) {
-        /* Child is ignored because it is in another thread. */
-        remaining_new = remaining_new.drop_front(1);
-        continue;
-      }
+    if (!use_node_fn(*new_child)) {
+      remaining_new = remaining_new.drop_front(1);
+      continue;
     }
     while (true) {
       if (!new_vec.is_empty()) {
@@ -93,20 +68,20 @@ int ProfileNode::try_pack_into_vector(Vector<ProfileNode *> &nodes_vec,
         break;
       }
       ProfileNode *existing_child = remaining_existing[0];
-      if (existing_child->end_time_ <= new_child->begin_time_) {
+      if (existing_child->end_time() <= new_child->begin_time()) {
         /* Existing child is completely before the new one. */
         new_vec.append(existing_child);
         remaining_existing = remaining_existing.drop_front(1);
         continue;
       }
-      if (existing_child->begin_time_ < new_child->end_time_) {
+      if (existing_child->begin_time() < new_child->end_time()) {
         /* Existing child collides with the new child. */
         new_vec.append(existing_child);
         remaining_existing = remaining_existing.drop_front(1);
         remaining_new = remaining_new.drop_front(1);
         break;
       }
-      if (new_child->end_time_ <= existing_child->begin_time_) {
+      if (new_child->end_time() <= existing_child->begin_time()) {
         /* New child can be added safely. */
         new_vec.append(new_child);
         tot_newly_inserted++;
@@ -117,8 +92,47 @@ int ProfileNode::try_pack_into_vector(Vector<ProfileNode *> &nodes_vec,
     }
   }
   new_vec.extend(remaining_existing);
-  nodes_vec = std::move(new_vec);
+  sorted_nodes_vec = std::move(new_vec);
   return tot_newly_inserted;
+}
+
+static void pack_into_vectors(Vector<Vector<ProfileNode *>> &sorted_node_vectors,
+                              MutableSpan<ProfileNode *> sorted_nodes_to_pack)
+{
+  int tot_newly_inserted = 0;
+
+  int iteration = 0;
+  while (tot_newly_inserted < sorted_nodes_to_pack.size()) {
+    if (iteration == sorted_node_vectors.size()) {
+      sorted_node_vectors.append({});
+    }
+    Vector<ProfileNode *> &children_vec = sorted_node_vectors[iteration];
+    iteration++;
+    tot_newly_inserted += try_pack_into_vector(
+        children_vec, sorted_nodes_to_pack, [](ProfileNode &UNUSED(node)) { return true; });
+  }
+}
+
+static void sort_nodes_by_begin_time(MutableSpan<ProfileNode *> nodes)
+{
+  std::sort(nodes.begin(), nodes.end(), [](ProfileNode *a, ProfileNode *b) {
+    return a->begin_time() < b->begin_time();
+  });
+}
+
+void ProfileNode::pack_added_children()
+{
+  sort_nodes_by_begin_time(children_to_pack_);
+
+  /* Assume already packed children are sorted by begin time. */
+  int tot_newly_inserted = 0;
+  tot_newly_inserted += try_pack_into_vector(
+      direct_children_, children_to_pack_, [thread_id = this->thread_id_](ProfileNode &node) {
+        return node.thread_id() == thread_id;
+      });
+
+  pack_into_vectors(parallel_children_, children_to_pack_);
+  children_to_pack_.clear();
 }
 
 void ProfileLayout::add(const RecordedProfile &recorded_profile)
@@ -143,6 +157,7 @@ void ProfileLayout::add(const RecordedProfile &recorded_profile)
   }
 
   Set<ProfileNode *> nodes_with_new_children;
+  Vector<ProfileNode *> root_nodes_to_pack;
 
   /* Create parent/child relation ships for new nodes. */
   for (const ProfileTaskBegin &task_begin : recorded_profile.task_begins) {
@@ -150,7 +165,7 @@ void ProfileLayout::add(const RecordedProfile &recorded_profile)
     ProfileNode *parent_node = nodes_by_id_.lookup_default(task_begin.parent_id, nullptr);
     node->parent_ = parent_node;
     if (parent_node == nullptr) {
-      if (root_thread_ids_.is_empty()) {
+      if (root_nodes_.is_empty()) {
         begin_time_ = node->begin_time_;
         end_time_ = node->end_time_;
       }
@@ -158,8 +173,7 @@ void ProfileLayout::add(const RecordedProfile &recorded_profile)
         begin_time_ = std::min(begin_time_, node->begin_time_);
         end_time_ = std::max(end_time_, node->end_time_);
       }
-      root_thread_ids_.append_non_duplicates(node->thread_id_);
-      root_nodes_by_thread_id_.lookup_or_add_default(node->thread_id_).append(node);
+      root_nodes_to_pack.append(node);
     }
     else {
       parent_node->children_to_pack_.append(node);
@@ -168,7 +182,7 @@ void ProfileLayout::add(const RecordedProfile &recorded_profile)
   }
 
   /* Check if a previous root node is not a root anymore. */
-  for (Vector<ProfileNode *> &nodes : root_nodes_by_thread_id_.values()) {
+  for (Vector<ProfileNode *> &nodes : root_nodes_) {
     Vector<ProfileNode *> nodes_that_are_not_root_anymore;
     for (ProfileNode *node : nodes) {
       ProfileNode *new_parent = nodes_by_id_.lookup_default(node->parent_id_, nullptr);
@@ -176,11 +190,14 @@ void ProfileLayout::add(const RecordedProfile &recorded_profile)
         node->parent_ = new_parent;
         new_parent->children_to_pack_.append(node);
         nodes_with_new_children.add(new_parent);
-        nodes_that_are_not_root_anymore.append_non_duplicates(node);
+        nodes_that_are_not_root_anymore.append(node);
       }
     }
     for (ProfileNode *node : nodes_that_are_not_root_anymore) {
       nodes.remove_first_occurrence_and_reorder(node);
+    }
+    if (!nodes_that_are_not_root_anymore.is_empty()) {
+      sort_nodes_by_begin_time(nodes);
     }
   }
 
@@ -188,6 +205,8 @@ void ProfileLayout::add(const RecordedProfile &recorded_profile)
   for (ProfileNode *node : nodes_with_new_children) {
     node->pack_added_children();
   }
+
+  pack_into_vectors(root_nodes_, root_nodes_to_pack);
 }
 
 void ProfileNode::destruct_recursively()
@@ -205,7 +224,7 @@ void ProfileNode::destruct_recursively()
 
 ProfileLayout::~ProfileLayout()
 {
-  for (Span<ProfileNode *> nodes : root_nodes_by_thread_id_.values()) {
+  for (Span<ProfileNode *> nodes : root_nodes_) {
     for (ProfileNode *node : nodes) {
       node->destruct_recursively();
     }

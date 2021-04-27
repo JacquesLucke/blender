@@ -92,7 +92,6 @@ class ProfileNode {
 
  private:
   void pack_added_children();
-  int try_pack_into_vector(Vector<ProfileNode *> &nodes_vec, bool ignore_other_thread_ids);
 
   void destruct_recursively();
 };
@@ -102,8 +101,7 @@ class ProfileLayout {
   LinearAllocator<> allocator_;
 
   Map<uint64_t, ProfileNode *> nodes_by_id_;
-  Vector<uint64_t> root_thread_ids_;
-  Map<uint64_t, Vector<ProfileNode *>> root_nodes_by_thread_id_;
+  Vector<Vector<ProfileNode *>> root_nodes_;
 
   TimePoint begin_time_;
   TimePoint end_time_;
@@ -113,19 +111,9 @@ class ProfileLayout {
 
   void add(const RecordedProfile &recorded);
 
-  Span<uint64_t> root_thread_ids() const
+  Span<Vector<ProfileNode *>> root_nodes() const
   {
-    return root_thread_ids_;
-  }
-
-  Span<ProfileNode *> root_nodes_by_thread_id(const uint64_t thread_id)
-  {
-    return root_nodes_by_thread_id_.lookup(thread_id);
-  }
-
-  Span<const ProfileNode *> root_nodes_by_thread_id(const uint64_t thread_id) const
-  {
-    return root_nodes_by_thread_id_.lookup(thread_id);
+    return root_nodes_;
   }
 
   TimePoint begin_time() const
