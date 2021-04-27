@@ -17,6 +17,7 @@
 #include <cstring>
 
 #include "BLI_listbase.h"
+#include "BLI_rect.h"
 
 #include "BKE_screen.h"
 
@@ -58,6 +59,18 @@ static SpaceLink *profiler_create(const ScrArea *UNUSED(area), const Scene *UNUS
     ARegion *region = (ARegion *)MEM_callocN(sizeof(ARegion), "profiler main region");
     BLI_addtail(&sprofiler->regionbase, region);
     region->regiontype = RGN_TYPE_WINDOW;
+
+    View2D *v2d = &region->v2d;
+    v2d->scroll = V2D_SCROLL_RIGHT | V2D_SCROLL_BOTTOM;
+    v2d->keepzoom = V2D_LOCKZOOM_Y;
+    v2d->keeptot = V2D_KEEPTOT_BOUNDS;
+    v2d->align = V2D_ALIGN_NO_NEG_X | V2D_ALIGN_NO_POS_Y;
+    v2d->min[0] = 0.0001f;
+    v2d->min[1] = 100.0f;
+    v2d->max[0] = 100000.0f;
+    v2d->max[1] = 100.0f;
+    BLI_rctf_init(&v2d->tot, 0, 5000, -1, 0);
+    v2d->cur = v2d->tot;
   }
 
   return (SpaceLink *)sprofiler;
@@ -89,8 +102,9 @@ static void profiler_keymap(wmKeyConfig *UNUSED(keyconf))
 {
 }
 
-static void profiler_main_region_init(wmWindowManager *UNUSED(wm), ARegion *UNUSED(region))
+static void profiler_main_region_init(wmWindowManager *UNUSED(wm), ARegion *region)
 {
+  UI_view2d_region_reinit(&region->v2d, V2D_COMMONVIEW_CUSTOM, region->winx, region->winy);
 }
 
 static void profiler_main_region_draw(const bContext *C, ARegion *region)
@@ -157,7 +171,7 @@ void ED_spacetype_profiler(void)
   /* regions: main window */
   art = (ARegionType *)MEM_callocN(sizeof(ARegionType), "spacetype profiler region");
   art->regionid = RGN_TYPE_WINDOW;
-  art->keymapflag = ED_KEYMAP_UI;
+  art->keymapflag = ED_KEYMAP_UI | ED_KEYMAP_VIEW2D;
 
   art->init = profiler_main_region_init;
   art->draw = profiler_main_region_draw;

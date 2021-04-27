@@ -76,6 +76,19 @@ class ProfilerDrawer {
     this->draw_all_nodes();
     UI_block_end(C, ui_block_);
     UI_block_draw(C, ui_block_);
+
+    this->update_view2d_bounds();
+  }
+
+  void update_view2d_bounds()
+  {
+    const float duration_ms = this->duration_to_ms(profiler_layout_->end_time() -
+                                                   profiler_layout_->begin_time());
+    /* Giving a bit more space on the right side is convenient. */
+    const float extended_duration_ms = std::max(duration_ms * 1.1f, 5000.0f);
+    UI_view2d_totRect_set(&region_->v2d, extended_duration_ms, 1);
+
+    UI_view2d_scrollers_draw(&region_->v2d, nullptr);
   }
 
   void compute_vertical_extends_of_all_nodes()
@@ -177,7 +190,7 @@ class ProfilerDrawer {
     const TimePoint begin_time = profiler_layout_->begin_time();
     const Duration time_since_begin = time - begin_time;
     const float ms_since_begin = this->duration_to_ms(time_since_begin);
-    return ms_since_begin / 5.0f;
+    return UI_view2d_view_to_region_x(&region_->v2d, ms_since_begin);
   }
 
   Color4f get_node_color(ProfileNode &node)
