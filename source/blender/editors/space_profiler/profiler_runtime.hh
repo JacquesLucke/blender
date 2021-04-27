@@ -20,6 +20,8 @@
 
 #include "profiler_layout.hh"
 
+#include "DNA_space_types.h"
+
 namespace blender::ed::profiler {
 
 class SpaceProfilerListener : public profile::ProfileListener {
@@ -27,9 +29,7 @@ class SpaceProfilerListener : public profile::ProfileListener {
   SpaceProfiler_Runtime *runtime_;
 
  public:
-  SpaceProfilerListener(SpaceProfiler_Runtime &runtime) : runtime_(&runtime)
-  {
-  }
+  SpaceProfilerListener(SpaceProfiler_Runtime &runtime);
 
   void handle(const RecordedProfile &profile) final;
 };

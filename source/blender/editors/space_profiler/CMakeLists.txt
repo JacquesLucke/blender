@@ -29,9 +29,11 @@ set(INC
 set(SRC
   profiler_layout.cc
   profiler_profile.cc
+  profiler_runtime.cc
   space_profiler.cc
 
   profiler_layout.hh
+  profiler_runtime.hh
 )
 
 set(LIB

@@ -18,6 +18,10 @@
 
 namespace blender::ed::profiler {
 
+SpaceProfilerListener::SpaceProfilerListener(SpaceProfiler_Runtime &runtime) : runtime_(&runtime)
+{
+}
+
 void SpaceProfilerListener::handle(const RecordedProfile &profile)
 {
   if (!runtime_->profile_layout) {
