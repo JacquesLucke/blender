@@ -924,7 +924,7 @@ static Mesh *modifier_modify_mesh_and_geometry_set(ModifierData *md,
                                                    Mesh *input_mesh,
                                                    GeometrySet &geometry_set)
 {
-  BLI_PROFILE_SCOPE(__func__);
+  BLI_PROFILE_SCOPE(md->name);
   Mesh *mesh_output = nullptr;
   const ModifierTypeInfo *mti = BKE_modifier_get_info((ModifierType)md->type);
   if (mti->modifyGeometrySet == nullptr) {

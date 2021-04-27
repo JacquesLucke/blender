@@ -28,6 +28,8 @@ typedef struct BLI_ProfileTask {
   uint64_t id;
 } BLI_ProfileTask;
 
+#define BLI_PROFILE_DUMMY_ID (~0)
+
 BLI_INLINE bool BLI_profile_is_enabled(void)
 {
   return bli_profiling_is_enabled;
@@ -43,16 +45,22 @@ void _bli_profile_task_end(BLI_ProfileTask *task);
   if (bli_profiling_is_enabled) { \
     _bli_profile_task_begin((task_ptr), (name)); \
   } \
+  else { \
+    (task_ptr)->id = BLI_PROFILE_DUMMY_ID; \
+  } \
   ((void)0)
 
 #define BLI_profile_task_begin_subtask(task_ptr, name, parent_task) \
   if (bli_profiling_is_enabled) { \
     _bli_profile_task_begin_subtask((task_ptr), (name), (parent_task)); \
   } \
+  else { \
+    (task_ptr)->id = BLI_PROFILE_DUMMY_ID; \
+  } \
   ((void)0)
 
 #define BLI_profile_task_end(task_ptr) \
-  if (bli_profiling_is_enabled) { \
+  if (bli_profiling_is_enabled && (task_ptr)->id != BLI_PROFILE_DUMMY_ID) { \
     _bli_profile_task_end(task_ptr); \
   } \
   ((void)0)

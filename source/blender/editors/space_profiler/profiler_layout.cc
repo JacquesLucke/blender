@@ -31,11 +31,12 @@ bool ProfileNode::time_overlap(const ProfileNode &a, const ProfileNode &b)
 }
 
 template<typename UseNodeF>
-static int try_pack_into_vector(Vector<ProfileNode *> &sorted_nodes_vec,
-                                MutableSpan<ProfileNode *> sorted_nodes_to_pack,
-                                const UseNodeF &use_node_fn)
+static bool try_pack_into_vector(Vector<ProfileNode *> &sorted_nodes_vec,
+                                 MutableSpan<ProfileNode *> sorted_nodes_to_pack,
+                                 const UseNodeF &use_node_fn)
 {
-  int tot_newly_inserted = 0;
+  bool packed_everything = true;
+
   MutableSpan<ProfileNode *> remaining_existing = sorted_nodes_vec;
   MutableSpan<ProfileNode *> remaining_new = sorted_nodes_to_pack;
   Vector<ProfileNode *> new_vec;
@@ -56,13 +57,13 @@ static int try_pack_into_vector(Vector<ProfileNode *> &sorted_nodes_vec,
         if (ProfileNode::time_overlap(*existing_child, *new_child)) {
           /* Node collides with previously added node. */
           remaining_new = remaining_new.drop_front(1);
+          packed_everything = false;
           break;
         }
       }
       if (remaining_existing.is_empty()) {
         /* There are no remaining existing nodes the new child can collide with. */
         new_vec.append(new_child);
-        tot_newly_inserted++;
         remaining_new[0] = nullptr;
         remaining_new = remaining_new.drop_front(1);
         break;
@@ -79,12 +80,12 @@ static int try_pack_into_vector(Vector<ProfileNode *> &sorted_nodes_vec,
         new_vec.append(existing_child);
         remaining_existing = remaining_existing.drop_front(1);
         remaining_new = remaining_new.drop_front(1);
+        packed_everything = false;
         break;
       }
       if (new_child->end_time() <= existing_child->begin_time()) {
         /* New child can be added safely. */
         new_vec.append(new_child);
-        tot_newly_inserted++;
         remaining_new[0] = nullptr;
         remaining_new = remaining_new.drop_front(1);
         break;
@@ -93,23 +94,28 @@ static int try_pack_into_vector(Vector<ProfileNode *> &sorted_nodes_vec,
   }
   new_vec.extend(remaining_existing);
   sorted_nodes_vec = std::move(new_vec);
-  return tot_newly_inserted;
+  return packed_everything;
 }
 
 static void pack_into_vectors(Vector<Vector<ProfileNode *>> &sorted_node_vectors,
                               MutableSpan<ProfileNode *> sorted_nodes_to_pack)
 {
-  int tot_newly_inserted = 0;
+  if (sorted_nodes_to_pack.is_empty()) {
+    return;
+  }
 
   int iteration = 0;
-  while (tot_newly_inserted < sorted_nodes_to_pack.size()) {
+  while (true) {
     if (iteration == sorted_node_vectors.size()) {
       sorted_node_vectors.append({});
     }
     Vector<ProfileNode *> &children_vec = sorted_node_vectors[iteration];
     iteration++;
-    tot_newly_inserted += try_pack_into_vector(
+    const bool packed_all_nodes = try_pack_into_vector(
         children_vec, sorted_nodes_to_pack, [](ProfileNode &UNUSED(node)) { return true; });
+    if (packed_all_nodes) {
+      break;
+    }
   }
 }
 
@@ -125,8 +131,7 @@ void ProfileNode::pack_added_children()
   sort_nodes_by_begin_time(children_to_pack_);
 
   /* Assume already packed children are sorted by begin time. */
-  int tot_newly_inserted = 0;
-  tot_newly_inserted += try_pack_into_vector(
+  try_pack_into_vector(
       direct_children_, children_to_pack_, [thread_id = this->thread_id_](ProfileNode &node) {
         return node.thread_id() == thread_id;
       });

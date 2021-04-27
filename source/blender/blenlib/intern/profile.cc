@@ -116,41 +116,56 @@ void ProfileListener::flush_to_all()
 
 void _bli_profile_task_begin(BLI_ProfileTask *task, const char *name)
 {
-  task->id = get_unique_session_id();
+  ThreadLocalProfileData &local_data = threadlocal_profile_data;
 
-  ProfileTaskBegin *task_begin = threadlocal_profile_data.queue_begins.prepare_append();
-  task_begin->id = task->id;
+  const uint64_t id = get_unique_session_id();
+  const uint64_t parent_id = local_data.id_stack.peek_default(0);
+  local_data.id_stack.push(id);
+  task->id = id;
+
+  ProfileTaskBegin *task_begin = local_data.queue_begins.prepare_append();
+  task_begin->id = id;
   task_begin->name = name;
-  task_begin->parent_id = threadlocal_profile_data.id_stack.peek_default(0);
-  task_begin->thread_id = threadlocal_profile_data.thread_id;
+  task_begin->parent_id = parent_id;
+  task_begin->thread_id = local_data.thread_id;
   task_begin->time = Clock::now();
 
-  threadlocal_profile_data.queue_begins.commit_append();
+  local_data.queue_begins.commit_append();
 }
 
 void _bli_profile_task_begin_subtask(BLI_ProfileTask *task,
                                      const char *name,
                                      const BLI_ProfileTask *parent_task)
 {
-  task->id = get_unique_session_id();
+  ThreadLocalProfileData &local_data = threadlocal_profile_data;
 
-  ProfileTaskBegin *task_begin = threadlocal_profile_data.queue_begins.prepare_append();
-  task_begin->id = task->id;
+  const uint64_t id = get_unique_session_id();
+  const uint64_t parent_id = local_data.id_stack.peek_default(0);
+  local_data.id_stack.push(id);
+  task->id = id;
+
+  ProfileTaskBegin *task_begin = local_data.queue_begins.prepare_append();
+  task_begin->id = id;
   task_begin->name = name;
-  task_begin->parent_id = parent_task->id;
-  task_begin->thread_id = threadlocal_profile_data.thread_id;
+  task_begin->parent_id = parent_id;
+  task_begin->thread_id = local_data.thread_id;
   task_begin->time = Clock::now();
 
-  threadlocal_profile_data.queue_begins.commit_append();
+  local_data.queue_begins.commit_append();
 }
 
 void _bli_profile_task_end(BLI_ProfileTask *task)
 {
   TimePoint time = Clock::now();
 
-  ProfileTaskEnd *task_end = threadlocal_profile_data.queue_ends.prepare_append();
+  ThreadLocalProfileData &local_data = threadlocal_profile_data;
+
+  BLI_assert(local_data.id_stack.peek() == task->id);
+  local_data.id_stack.pop();
+
+  ProfileTaskEnd *task_end = local_data.queue_ends.prepare_append();
   task_end->begin_id = task->id;
   task_end->time = time;
 
-  threadlocal_profile_data.queue_ends.commit_append();
+  local_data.queue_ends.commit_append();
 }

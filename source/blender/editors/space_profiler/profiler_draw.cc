@@ -48,6 +48,7 @@ class ProfilerDrawer {
   ProfilerLayout *profiler_layout_;
   int row_height_;
   int parallel_padding_;
+  uiBlock *ui_block_ = nullptr;
 
  public:
   ProfilerDrawer(const bContext *C, ARegion *region) : C(C), region_(region)
@@ -68,8 +69,13 @@ class ProfilerDrawer {
   void draw()
   {
     UI_ThemeClearColor(TH_BACK);
+
     this->compute_vertical_extends_of_all_nodes();
+
+    ui_block_ = UI_block_begin(C, region_, __func__, UI_EMBOSS_NONE);
     this->draw_all_nodes();
+    UI_block_end(C, ui_block_);
+    UI_block_draw(C, ui_block_);
   }
 
   void compute_vertical_extends_of_all_nodes()
@@ -97,8 +103,10 @@ class ProfilerDrawer {
     node.bottom_y = node.top_y - row_height_;
     node.bottom_y = this->compute_vertical_extends_of_nodes(node.direct_children(), node.bottom_y);
     for (Span<ProfileNode *> children : node.parallel_children()) {
-      node.bottom_y -= parallel_padding_;
-      node.bottom_y = this->compute_vertical_extends_of_nodes(children, node.bottom_y);
+      if (!children.is_empty()) {
+        node.bottom_y -= parallel_padding_;
+        node.bottom_y = this->compute_vertical_extends_of_nodes(children, node.bottom_y);
+      }
     }
   }
 
@@ -131,6 +139,37 @@ class ProfilerDrawer {
     immRecti(pos, left_x, node.top_y, right_x, node.bottom_y);
 
     immUnbindProgram();
+
+    this->draw_node_label(node, left_x, right_x);
+
+    this->draw_nodes(node.direct_children());
+    for (Span<ProfileNode *> nodes : node.parallel_children()) {
+      this->draw_nodes(nodes);
+    }
+  }
+
+  void draw_node_label(ProfileNode &node, const int left_x, const int right_x)
+  {
+    const int x = std::max(0, left_x);
+    const int width = std::max(1, std::min<int>(right_x, region_->winx) - x);
+
+    uiBut *but = uiDefIconTextBut(ui_block_,
+                                  UI_BTYPE_LABEL,
+                                  0,
+                                  ICON_NONE,
+                                  node.name().c_str(),
+                                  x,
+                                  node.top_y - row_height_,
+                                  width,
+                                  row_height_,
+                                  nullptr,
+                                  0,
+                                  0,
+                                  0,
+                                  0,
+                                  nullptr);
+    UI_but_drawflag_disable(but, UI_BUT_TEXT_LEFT);
+    UI_but_drawflag_disable(but, UI_BUT_TEXT_RIGHT);
   }
 
   int time_to_x(const TimePoint time) const
@@ -143,7 +182,7 @@ class ProfilerDrawer {
 
   Color4f get_node_color(ProfileNode &node)
   {
-    const uint64_t value = node.begin_time().time_since_epoch().count();
+    const uint64_t value = POINTER_AS_UINT(&node);
     const float variation = BLI_hash_int_2d_to_float(value, value >> 32);
     float r, g, b;
     hsv_to_rgb(variation * 0.2f, 0.5f, 0.5f, &r, &g, &b);
