@@ -17,8 +17,10 @@
 #include <atomic>
 #include <mutex>
 
+#include "BLI_function_ref.hh"
 #include "BLI_profile.hh"
 #include "BLI_profile_manage.hh"
+#include "BLI_single_producer_chunk_consumer.hh"
 #include "BLI_stack.hh"
 
 using namespace blender;

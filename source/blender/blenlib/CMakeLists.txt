@@ -268,6 +268,7 @@ set(SRC
   BLI_set.hh
   BLI_set_slots.hh
   BLI_simd.h
+  BLI_single_producer_chunk_consumer.hh
   BLI_smallhash.h
   BLI_sort.h
   BLI_sort_utils.h
