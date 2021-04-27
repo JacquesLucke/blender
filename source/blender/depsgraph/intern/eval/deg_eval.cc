@@ -29,6 +29,7 @@
 
 #include "BLI_compiler_attrs.h"
 #include "BLI_gsqueue.h"
+#include "BLI_profile.hh"
 #include "BLI_task.h"
 #include "BLI_utildefines.h"
 
@@ -95,10 +96,13 @@ struct DepsgraphEvalState {
   bool do_stats;
   EvaluationStage stage;
   bool need_single_thread_pass;
+  BLI_ProfileTask profile_task;
 };
 
 void evaluate_node(const DepsgraphEvalState *state, OperationNode *operation_node)
 {
+  BLI_PROFILE_SCOPE_SUBTASK(__func__, &state->profile_task);
+
   ::Depsgraph *depsgraph = reinterpret_cast<::Depsgraph *>(state->graph);
 
   /* Sanity checks. */
@@ -379,6 +383,9 @@ void deg_evaluate_on_refresh(Depsgraph *graph)
   state.graph = graph;
   state.do_stats = graph->debug.do_time_debug();
   state.need_single_thread_pass = false;
+
+  BLI_profile_task_begin(&state.profile_task, __func__);
+
   /* Prepare all nodes for evaluation. */
   initialize_execution(&state, graph);
 
@@ -413,6 +420,8 @@ void deg_evaluate_on_refresh(Depsgraph *graph)
   graph->is_evaluating = false;
 
   graph->debug.end_graph_evaluation();
+
+  BLI_profile_task_end(&state.profile_task);
 }
 
 }  // namespace blender::deg

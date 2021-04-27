@@ -60,7 +60,7 @@ struct ThreadLocalProfileData {
   RawStack<uint64_t> id_stack;
 };
 
-static ThreadLocalProfileData threadlocal_profile_data;
+static thread_local ThreadLocalProfileData threadlocal_profile_data;
 bool bli_profiling_is_enabled = false;
 
 namespace blender::profile {
@@ -140,7 +140,7 @@ void _bli_profile_task_begin_subtask(BLI_ProfileTask *task,
   ThreadLocalProfileData &local_data = threadlocal_profile_data;
 
   const uint64_t id = get_unique_session_id();
-  const uint64_t parent_id = local_data.id_stack.peek_default(0);
+  const uint64_t parent_id = parent_task->id;
   local_data.id_stack.push(id);
   task->id = id;
 

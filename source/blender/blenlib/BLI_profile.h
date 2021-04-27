@@ -60,7 +60,7 @@ void _bli_profile_task_end(BLI_ProfileTask *task);
   ((void)0)
 
 #define BLI_profile_task_end(task_ptr) \
-  if (bli_profiling_is_enabled && (task_ptr)->id != BLI_PROFILE_DUMMY_ID) { \
+  if ((task_ptr)->id != BLI_PROFILE_DUMMY_ID) { \
     _bli_profile_task_end(task_ptr); \
   } \
   ((void)0)
