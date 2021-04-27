@@ -45,10 +45,11 @@ class ProfileNode {
   /* These nodes still have to be inserted into the vectors above. They are not sorted. */
   Vector<ProfileNode *> children_to_pack_;
 
+  friend ProfilerLayout;
+
+ public:
   int top_y;
   int bottom_y;
-
-  friend ProfilerLayout;
 
  public:
   StringRefNull name() const
@@ -81,12 +82,12 @@ class ProfileNode {
     return thread_id_;
   }
 
-  Span<const ProfileNode *> children_on_same_thread() const
+  Span<ProfileNode *> direct_children()
   {
     return direct_children_;
   }
 
-  Span<Vector<ProfileNode *>> stacked_children_in_other_threads() const
+  Span<Vector<ProfileNode *>> parallel_children() const
   {
     return parallel_children_;
   }

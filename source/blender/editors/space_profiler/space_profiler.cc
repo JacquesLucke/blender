@@ -63,8 +63,10 @@ static SpaceLink *profiler_create(const ScrArea *UNUSED(area), const Scene *UNUS
   return (SpaceLink *)sprofiler;
 }
 
-static void profiler_free(SpaceLink *UNUSED(sl))
+static void profiler_free(SpaceLink *sl)
 {
+  SpaceProfiler *sprofiler = (SpaceProfiler *)sl;
+  delete sprofiler->runtime;
 }
 
 static void profiler_init(wmWindowManager *UNUSED(wm), ScrArea *area)
