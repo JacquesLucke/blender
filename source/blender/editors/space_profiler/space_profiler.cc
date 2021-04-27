@@ -37,6 +37,7 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
+#include "profiler_draw.hh"
 #include "profiler_runtime.hh"
 
 static SpaceLink *profiler_create(const ScrArea *UNUSED(area), const Scene *UNUSED(scene))
@@ -90,9 +91,9 @@ static void profiler_main_region_init(wmWindowManager *UNUSED(wm), ARegion *UNUS
 {
 }
 
-static void profiler_main_region_draw(const bContext *UNUSED(C), ARegion *UNUSED(region))
+static void profiler_main_region_draw(const bContext *C, ARegion *region)
 {
-  UI_ThemeClearColor(TH_BACK);
+  blender::ed::profiler::draw_profiler(C, region);
 }
 
 static void profiler_main_region_listener(const wmRegionListenerParams *UNUSED(params))

@@ -19,6 +19,7 @@ set(INC
   ../include
   ../../blenkernel
   ../../blenlib
+  ../../gpu
   ../../makesdna
   ../../makesrna
   ../../windowmanager
@@ -27,11 +28,13 @@ set(INC
 )
 
 set(SRC
+  profiler_draw.cc
   profiler_layout.cc
   profiler_profile.cc
   profiler_runtime.cc
   space_profiler.cc
 
+  profiler_draw.hh
   profiler_layout.hh
   profiler_runtime.hh
 )
