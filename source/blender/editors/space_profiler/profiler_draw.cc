@@ -192,6 +192,7 @@ class ProfilerDrawer {
                             node_tooltip_fn,
                             new (MEM_mallocN(sizeof(NodeTooltipArg), __func__))
                                 NodeTooltipArg{&node});
+    UI_but_func_set(but, node_click_fn, &node, profiler_layout_);
   }
 
   static char *node_tooltip_fn(bContext *UNUSED(C), void *argN, const char *UNUSED(tip))
@@ -201,6 +202,25 @@ class ProfilerDrawer {
     std::stringstream ss;
     ss << "Duration: " << duration_to_ms(node.end_time() - node.begin_time()) << " ms";
     return BLI_strdup(ss.str().c_str());
+  }
+
+  static void node_click_fn(bContext *C, void *arg1, void *arg2)
+  {
+    ProfileNode &node = *(ProfileNode *)arg1;
+    ProfilerLayout &profiler_layout = *(ProfilerLayout *)arg2;
+
+    ARegion *region = CTX_wm_region(C);
+
+    const TimePoint begin_time = profiler_layout.begin_time();
+    const float left_ms = duration_to_ms(node.begin_time() - begin_time);
+    const float right_ms = duration_to_ms(node.end_time() - begin_time);
+    const float duration_ms = right_ms - left_ms;
+    const float padding = duration_ms * 0.05f;
+
+    rctf new_view;
+    BLI_rctf_init(&new_view, left_ms - padding, right_ms + padding, -1, 0);
+
+    UI_view2d_smooth_view(C, region, &new_view, U.smooth_viewtx);
   }
 
   int time_to_x(const TimePoint time) const
