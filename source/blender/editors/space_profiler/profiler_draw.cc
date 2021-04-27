@@ -29,6 +29,7 @@
 #include "BLI_rect.h"
 
 #include "profiler_draw.hh"
+#include "profiler_layout.hh"
 #include "profiler_runtime.hh"
 
 namespace blender::ed::profiler {
@@ -36,6 +37,13 @@ namespace blender::ed::profiler {
 void draw_profiler(const bContext *C, ARegion *region)
 {
   SpaceProfiler *sprofiler = CTX_wm_space_profiler(C);
+  SpaceProfiler_Runtime &runtime = *sprofiler->runtime;
+
+  if (!runtime.profiler_layout) {
+    runtime.profiler_layout = std::make_unique<ProfilerLayout>();
+  }
+  ProfilerLayout &profiler_layout = *runtime.profiler_layout;
+  std::cout << profiler_layout.root_nodes().size() << "\n";
 
   UI_ThemeClearColor(TH_BACK);
 }

@@ -37,7 +37,7 @@ class SpaceProfilerListener : public profile::ProfileListener {
 }  // namespace blender::ed::profiler
 
 struct SpaceProfiler_Runtime {
-  std::unique_ptr<blender::ed::profiler::ProfileLayout> profile_layout;
+  std::unique_ptr<blender::ed::profiler::ProfilerLayout> profiler_layout;
   std::unique_ptr<blender::ed::profiler::SpaceProfilerListener> profile_listener;
 
   SpaceProfiler_Runtime() = default;

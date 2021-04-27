@@ -135,7 +135,7 @@ void ProfileNode::pack_added_children()
   children_to_pack_.clear();
 }
 
-void ProfileLayout::add(const RecordedProfile &recorded_profile)
+void ProfilerLayout::add(const RecordedProfile &recorded_profile)
 {
   /* Create new nodes for segments and add them to the id map. */
   for (const ProfileTaskBegin &task_begin : recorded_profile.task_begins) {
@@ -222,7 +222,7 @@ void ProfileNode::destruct_recursively()
   this->~ProfileNode();
 }
 
-ProfileLayout::~ProfileLayout()
+ProfilerLayout::~ProfilerLayout()
 {
   for (Span<ProfileNode *> nodes : root_nodes_) {
     for (ProfileNode *node : nodes) {

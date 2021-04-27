@@ -26,7 +26,7 @@ namespace blender::ed::profiler {
 using profile::RecordedProfile;
 using profile::TimePoint;
 
-class ProfileLayout;
+class ProfilerLayout;
 
 class ProfileNode {
  private:
@@ -45,7 +45,10 @@ class ProfileNode {
   /* These nodes still have to be inserted into the vectors above. They are not sorted. */
   Vector<ProfileNode *> children_to_pack_;
 
-  friend ProfileLayout;
+  int top_y;
+  int bottom_y;
+
+  friend ProfilerLayout;
 
  public:
   StringRefNull name() const
@@ -96,7 +99,7 @@ class ProfileNode {
   void destruct_recursively();
 };
 
-class ProfileLayout {
+class ProfilerLayout {
  private:
   LinearAllocator<> allocator_;
 
@@ -107,7 +110,7 @@ class ProfileLayout {
   TimePoint end_time_;
 
  public:
-  ~ProfileLayout();
+  ~ProfilerLayout();
 
   void add(const RecordedProfile &recorded);
 

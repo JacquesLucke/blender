@@ -48,5 +48,5 @@ bool ED_profiler_profile_is_enabled(SpaceProfiler *sprofiler)
 void ED_profiler_profile_clear(SpaceProfiler *sprofiler)
 {
   SpaceProfiler_Runtime &runtime = *sprofiler->runtime;
-  runtime.profile_layout.reset();
+  runtime.profiler_layout.reset();
 }

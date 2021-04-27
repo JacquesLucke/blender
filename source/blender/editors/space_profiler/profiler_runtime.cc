@@ -24,11 +24,11 @@ SpaceProfilerListener::SpaceProfilerListener(SpaceProfiler_Runtime &runtime) : r
 
 void SpaceProfilerListener::handle(const RecordedProfile &profile)
 {
-  if (!runtime_->profile_layout) {
-    runtime_->profile_layout = std::make_unique<ProfileLayout>();
+  if (!runtime_->profiler_layout) {
+    runtime_->profiler_layout = std::make_unique<ProfilerLayout>();
   }
-  ProfileLayout &profile_layout = *runtime_->profile_layout;
-  profile_layout.add(profile);
+  ProfilerLayout &profiler_layout = *runtime_->profiler_layout;
+  profiler_layout.add(profile);
 }
 
 }  // namespace blender::ed::profiler
