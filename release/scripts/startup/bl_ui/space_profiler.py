@@ -23,8 +23,16 @@ class PROFILER_HT_header(bpy.types.Header):
 
     def draw(self, context):
         layout = self.layout
+        sprofiler = context.space_data
 
         layout.template_header()
+
+        if sprofiler.profile_is_enabled:
+            layout.operator("profile.disable")
+        else:
+            layout.operator("profile.enable")
+
+        layout.operator("profile.clear")
 
 
 classes = (
