@@ -28,6 +28,11 @@ typedef struct BLI_ProfileTask {
   uint64_t id;
 } BLI_ProfileTask;
 
+BLI_INLINE bool BLI_profile_is_enabled(void)
+{
+  return bli_profiling_is_enabled;
+}
+
 void _bli_profile_task_begin(BLI_ProfileTask *task, const char *name);
 void _bli_profile_task_begin_subtask(BLI_ProfileTask *task,
                                      const char *name,

@@ -307,6 +307,7 @@ typedef struct wmNotifier {
 #define NC_LIGHTPROBE (25 << 24)
 /* Changes to asset data in the current .blend. */
 #define NC_ASSET (26 << 24)
+#define NC_PROFILE (27 << 24)
 
 /* data type, 256 entries is enough, it can overlap */
 #define NOTE_DATA 0x00FF0000

@@ -96,8 +96,23 @@ static void profiler_main_region_draw(const bContext *C, ARegion *region)
   blender::ed::profiler::draw_profiler(C, region);
 }
 
-static void profiler_main_region_listener(const wmRegionListenerParams *UNUSED(params))
+static void profiler_main_region_listener(const wmRegionListenerParams *params)
 {
+  ARegion *region = params->region;
+  wmNotifier *wmn = params->notifier;
+
+  switch (wmn->category) {
+    case NC_SPACE: {
+      if (wmn->data == ND_SPACE_PROFILER) {
+        ED_region_tag_redraw(region);
+      }
+      break;
+    }
+    case NC_PROFILE: {
+      ED_region_tag_redraw(region);
+      break;
+    }
+  }
 }
 
 static void profiler_header_region_init(wmWindowManager *UNUSED(wm), ARegion *region)

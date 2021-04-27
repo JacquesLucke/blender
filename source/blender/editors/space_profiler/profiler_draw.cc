@@ -42,8 +42,8 @@ void draw_profiler(const bContext *C, ARegion *region)
   if (!runtime.profiler_layout) {
     runtime.profiler_layout = std::make_unique<ProfilerLayout>();
   }
+  profile::ProfileListener::flush_to_all();
   ProfilerLayout &profiler_layout = *runtime.profiler_layout;
-  std::cout << profiler_layout.root_nodes().size() << "\n";
 
   UI_ThemeClearColor(TH_BACK);
 }

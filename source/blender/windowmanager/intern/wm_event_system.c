@@ -44,6 +44,7 @@
 #include "BLI_blenlib.h"
 #include "BLI_dynstr.h"
 #include "BLI_math.h"
+#include "BLI_profile.h"
 #include "BLI_timer.h"
 #include "BLI_utildefines.h"
 
@@ -434,11 +435,17 @@ void wm_event_do_notifiers(bContext *C)
 {
   /* Run the timer before assigning 'wm' in the unlikely case a timer loads a file, see T80028. */
   wm_event_execute_timers(C);
+  if (BLI_profile_is_enabled()) {
+    WM_main_add_notifier(NC_PROFILE, NULL);
+  }
 
   wmWindowManager *wm = CTX_wm_manager(C);
   if (wm == NULL) {
     return;
   }
+
+  BLI_ProfileTask profile_task;
+  BLI_profile_task_begin(&profile_task, __func__);
 
   /* Disable? - Keep for now since its used for window level notifiers. */
 #if 1
@@ -630,6 +637,8 @@ void wm_event_do_notifiers(bContext *C)
 
   /* Autorun warning */
   wm_test_autorun_warning(C);
+
+  BLI_profile_task_end(&profile_task);
 }
 
 static int wm_event_always_pass(const wmEvent *event)
