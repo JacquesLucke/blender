@@ -41,6 +41,7 @@
 #include "BLI_float2.hh"
 #include "BLI_linklist.h"
 #include "BLI_math.h"
+#include "BLI_profile.hh"
 #include "BLI_task.h"
 #include "BLI_utildefines.h"
 #include "BLI_vector.hh"
@@ -923,6 +924,7 @@ static Mesh *modifier_modify_mesh_and_geometry_set(ModifierData *md,
                                                    Mesh *input_mesh,
                                                    GeometrySet &geometry_set)
 {
+  BLI_PROFILE_SCOPE(__func__);
   Mesh *mesh_output = nullptr;
   const ModifierTypeInfo *mti = BKE_modifier_get_info((ModifierType)md->type);
   if (mti->modifyGeometrySet == nullptr) {
@@ -2059,6 +2061,7 @@ void makeDerivedMesh(struct Depsgraph *depsgraph,
                      BMEditMesh *em,
                      const CustomData_MeshMasks *dataMask)
 {
+  BLI_PROFILE_SCOPE(__func__);
   bool need_mapping;
   CustomData_MeshMasks cddata_masks = *dataMask;
   object_get_datamask(depsgraph, ob, &cddata_masks, &need_mapping);

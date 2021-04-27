@@ -1764,6 +1764,10 @@ static void direct_link_area(BlendDataReader *reader, ScrArea *area)
         }
       }
     }
+    else if (sl->spacetype == SPACE_PROFILER) {
+      SpaceProfiler *sprofiler = (SpaceProfiler *)sl;
+      sprofiler->runtime = NULL;
+    }
   }
 
   BLI_listbase_clear(&area->actionzones);

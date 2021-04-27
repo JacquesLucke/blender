@@ -26,6 +26,9 @@
 
 #include "BKE_context.h"
 
+#include "BLI_color.hh"
+#include "BLI_hash.h"
+#include "BLI_math_color.h"
 #include "BLI_rect.h"
 
 #include "profiler_draw.hh"
@@ -33,6 +36,8 @@
 #include "profiler_runtime.hh"
 
 namespace blender::ed::profiler {
+
+using profile::Duration;
 
 class ProfilerDrawer {
  private:
@@ -64,6 +69,7 @@ class ProfilerDrawer {
   {
     UI_ThemeClearColor(TH_BACK);
     this->compute_vertical_extends_of_all_nodes();
+    this->draw_all_nodes();
   }
 
   void compute_vertical_extends_of_all_nodes()
@@ -94,6 +100,59 @@ class ProfilerDrawer {
       node.bottom_y -= parallel_padding_;
       node.bottom_y = this->compute_vertical_extends_of_nodes(children, node.bottom_y);
     }
+  }
+
+  void draw_all_nodes()
+  {
+    for (Span<ProfileNode *> nodes : profiler_layout_->root_nodes()) {
+      this->draw_nodes(nodes);
+    }
+  }
+
+  void draw_nodes(Span<ProfileNode *> nodes)
+  {
+    for (ProfileNode *node : nodes) {
+      this->draw_node(*node);
+    }
+  }
+
+  void draw_node(ProfileNode &node)
+  {
+    GPUVertFormat *format = immVertexFormat();
+    uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
+
+    immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+
+    const Color4f color = this->get_node_color(node);
+    immUniformColor4fv(color);
+
+    const int left_x = this->time_to_x(node.begin_time());
+    const int right_x = std::max(left_x + 1, this->time_to_x(node.end_time()));
+    immRecti(pos, left_x, node.top_y, right_x, node.bottom_y);
+
+    immUnbindProgram();
+  }
+
+  int time_to_x(const TimePoint time) const
+  {
+    const TimePoint begin_time = profiler_layout_->begin_time();
+    const Duration time_since_begin = time - begin_time;
+    const float ms_since_begin = this->duration_to_ms(time_since_begin);
+    return ms_since_begin / 5.0f;
+  }
+
+  Color4f get_node_color(ProfileNode &node)
+  {
+    const uint64_t value = node.begin_time().time_since_epoch().count();
+    const float variation = BLI_hash_int_2d_to_float(value, value >> 32);
+    float r, g, b;
+    hsv_to_rgb(variation * 0.2f, 0.5f, 0.5f, &r, &g, &b);
+    return {r, g, b, 1.0f};
+  }
+
+  float duration_to_ms(const Duration duration) const
+  {
+    return duration.count() / 1000000.0f;
   }
 };
 

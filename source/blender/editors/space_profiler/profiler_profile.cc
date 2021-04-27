@@ -18,6 +18,9 @@
 
 #include "DNA_space_types.h"
 
+#include "WM_api.h"
+#include "WM_types.h"
+
 #include "profiler_runtime.hh"
 
 void ED_profiler_profile_enable(SpaceProfiler *sprofiler)
@@ -28,6 +31,7 @@ void ED_profiler_profile_enable(SpaceProfiler *sprofiler)
   SpaceProfiler_Runtime &runtime = *sprofiler->runtime;
   runtime.profile_listener = std::make_unique<blender::ed::profiler::SpaceProfilerListener>(
       runtime);
+  WM_main_add_notifier(NC_SPACE | ND_SPACE_PROFILER, nullptr);
 }
 
 void ED_profiler_profile_disable(SpaceProfiler *sprofiler)
@@ -41,7 +45,11 @@ void ED_profiler_profile_disable(SpaceProfiler *sprofiler)
 
 bool ED_profiler_profile_is_enabled(SpaceProfiler *sprofiler)
 {
+  if (sprofiler->runtime == nullptr) {
+    return false;
+  }
   SpaceProfiler_Runtime &runtime = *sprofiler->runtime;
+  WM_main_add_notifier(NC_SPACE | ND_SPACE_PROFILER, nullptr);
   return (bool)runtime.profile_listener;
 }
 
@@ -49,4 +57,5 @@ void ED_profiler_profile_clear(SpaceProfiler *sprofiler)
 {
   SpaceProfiler_Runtime &runtime = *sprofiler->runtime;
   runtime.profiler_layout.reset();
+  WM_main_add_notifier(NC_SPACE | ND_SPACE_PROFILER, nullptr);
 }
