@@ -34,6 +34,7 @@
 #include "BKE_node.h"
 #include "BKE_studiolight.h"
 
+#include "ED_profiler.h"
 #include "ED_spreadsheet.h"
 #include "ED_text.h"
 
@@ -3160,6 +3161,12 @@ static void rna_spreadsheet_set_geometry_node_context(SpaceSpreadsheet *sspreads
   ED_spreadsheet_set_geometry_node_context(sspreadsheet, snode, node);
   ED_spreadsheet_context_path_update_tag(sspreadsheet);
   WM_main_add_notifier(NC_SPACE | ND_SPACE_SPREADSHEET, NULL);
+}
+
+static bool rna_SpaceProfiler_profile_is_enabled_get(PointerRNA *ptr)
+{
+  SpaceProfiler *sprofiler = ptr->data;
+  return ED_profiler_profile_is_enabled(sprofiler);
 }
 
 #else
@@ -7574,9 +7581,26 @@ static void rna_def_space_spreadsheet(BlenderRNA *brna)
 static void rna_def_space_profiler(BlenderRNA *brna)
 {
   StructRNA *srna;
+  PropertyRNA *prop;
+  FunctionRNA *func;
 
   srna = RNA_def_struct(brna, "SpaceProfiler", "Space");
   RNA_def_struct_ui_text(srna, "Space Profiler", "Profiler space data");
+
+  func = RNA_def_function(srna, "profile_enable", "ED_profiler_profile_enable");
+  RNA_def_function_ui_description(func, "Enable profile recording in this editor");
+
+  func = RNA_def_function(srna, "profile_disable", "ED_profiler_profile_disable");
+  RNA_def_function_ui_description(func, "Disable profile recording in this editor");
+
+  prop = RNA_def_property(srna, "profile_is_enabled", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_funcs(prop, "rna_SpaceProfiler_profile_is_enabled_get", NULL);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_ui_text(
+      prop, "Profiling is Enabled", "True if this editor is currently recording");
+
+  func = RNA_def_function(srna, "profile_clear", "ED_profiler_profile_clear");
+  RNA_def_function_ui_description(func, "Reset recorded profile in this editor");
 }
 
 void RNA_def_space(BlenderRNA *brna)
