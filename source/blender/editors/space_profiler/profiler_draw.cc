@@ -34,18 +34,37 @@
 
 namespace blender::ed::profiler {
 
+class ProfilerDrawer {
+ private:
+  const bContext *C;
+  ARegion *region_;
+  SpaceProfiler *sprofiler_;
+  SpaceProfiler_Runtime *runtime_;
+  ProfilerLayout *profiler_layout_;
+
+ public:
+  ProfilerDrawer(const bContext *C, ARegion *region) : C(C), region_(region)
+  {
+    sprofiler_ = CTX_wm_space_profiler(C);
+    runtime_ = sprofiler_->runtime;
+
+    if (!runtime_->profiler_layout) {
+      runtime_->profiler_layout = std::make_unique<ProfilerLayout>();
+    }
+    profile::ProfileListener::flush_to_all();
+    profiler_layout_ = runtime_->profiler_layout.get();
+  }
+
+  void draw()
+  {
+    UI_ThemeClearColor(TH_BACK);
+  }
+};
+
 void draw_profiler(const bContext *C, ARegion *region)
 {
-  SpaceProfiler *sprofiler = CTX_wm_space_profiler(C);
-  SpaceProfiler_Runtime &runtime = *sprofiler->runtime;
-
-  if (!runtime.profiler_layout) {
-    runtime.profiler_layout = std::make_unique<ProfilerLayout>();
-  }
-  profile::ProfileListener::flush_to_all();
-  ProfilerLayout &profiler_layout = *runtime.profiler_layout;
-
-  UI_ThemeClearColor(TH_BACK);
+  ProfilerDrawer drawer{C, region};
+  drawer.draw();
 }
 
 }  // namespace blender::ed::profiler
