@@ -24,6 +24,8 @@
 #include "FN_generic_value_map.hh"
 #include "FN_multi_function.hh"
 
+#include "BLI_profile.hh"
+
 namespace blender::modifiers::geometry_nodes {
 
 using bke::PersistentCollectionHandle;
@@ -276,6 +278,7 @@ class GeometryNodesEvaluator {
 
   void execute_node(const DNode node, NodeParamsProvider &params_provider)
   {
+    BLI_PROFILE_SCOPE(node->name().c_str());
     const bNode &bnode = *params_provider.dnode->bnode();
 
     /* Use the geometry-node-execute callback if it exists. */

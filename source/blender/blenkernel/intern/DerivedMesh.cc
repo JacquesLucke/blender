@@ -2069,7 +2069,7 @@ void makeDerivedMesh(struct Depsgraph *depsgraph,
                      BMEditMesh *em,
                      const CustomData_MeshMasks *dataMask)
 {
-  BLI_PROFILE_SCOPE(__func__);
+  BLI_PROFILE_SCOPE((std::string(ob->id.name) + " Modifiers").c_str());
   bool need_mapping;
   CustomData_MeshMasks cddata_masks = *dataMask;
   object_get_datamask(depsgraph, ob, &cddata_masks, &need_mapping);
