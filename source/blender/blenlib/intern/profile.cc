@@ -35,29 +35,56 @@ static uint64_t get_unique_session_id()
 
 struct ThreadLocalProfileData;
 
-static std::mutex registered_threadlocals_mutex;
-static RawVector<ThreadLocalProfileData *> registered_threadlocals;
+struct ProfileRegistry {
+  static inline std::mutex threadlocals_mutex;
+  RawVector<ThreadLocalProfileData *> threadlocals;
+
+  static inline std::mutex listeners_mutex;
+  RawVector<ProfileListener *> listeners;
+};
+
+/**
+ * All threads that record profile data register themselves here.
+ * It is a shared pointer, because the individual threadlocal variables have to own the registry as
+ * well. Otherwise there are problems at shutdown when this static variable is destructed before
+ * all other threads unregistered themselves.
+ */
+static std::shared_ptr<ProfileRegistry> registry;
+
+static std::shared_ptr<ProfileRegistry> &ensure_registry()
+{
+  static std::mutex mutex;
+  std::lock_guard lock{mutex};
+  if (!registry) {
+    registry = std::make_shared<ProfileRegistry>();
+  }
+  return registry;
+}
 
 template<typename T> using ProfileDataQueue = SingleProducerChunkConsumerQueue<T, RawAllocator>;
 
 struct ThreadLocalProfileData {
   ThreadLocalProfileData()
   {
-    std::lock_guard lock{registered_threadlocals_mutex};
-    registered_threadlocals.append(this);
+    std::lock_guard lock{ProfileRegistry::threadlocals_mutex};
+    used_registry = ensure_registry();
+    registry->threadlocals.append(this);
     thread_id = get_unique_session_id();
   }
 
   ~ThreadLocalProfileData()
   {
-    std::lock_guard lock{registered_threadlocals_mutex};
-    registered_threadlocals.remove_first_occurrence_and_reorder(this);
+    std::lock_guard lock{ProfileRegistry::threadlocals_mutex};
+    used_registry->threadlocals.remove_first_occurrence_and_reorder(this);
   }
 
   uint64_t thread_id;
   ProfileDataQueue<ProfileTaskBegin> queue_begins;
   ProfileDataQueue<ProfileTaskEnd> queue_ends;
   RawStack<uint64_t> id_stack;
+
+  /* Take ownership to make sure that the registry won't be destructed too early. */
+  std::shared_ptr<ProfileRegistry> used_registry;
 };
 
 static thread_local ThreadLocalProfileData threadlocal_profile_data;
@@ -75,23 +102,22 @@ static void stop_profiling()
   bli_profiling_is_enabled = false;
 }
 
-static std::mutex listeners_mutex;
-static RawVector<ProfileListener *> listeners;
-
 ProfileListener::ProfileListener()
 {
-  std::lock_guard lock{listeners_mutex};
-  listeners.append(this);
-  if (listeners.size() == 1) {
+  std::lock_guard lock{ProfileRegistry::listeners_mutex};
+  ensure_registry();
+  registry->listeners.append(this);
+  if (registry->listeners.size() == 1) {
     start_profiling();
   }
 }
 
 ProfileListener::~ProfileListener()
 {
-  std::lock_guard lock{listeners_mutex};
-  listeners.remove_first_occurrence_and_reorder(this);
-  if (listeners.is_empty()) {
+  std::lock_guard lock{ProfileRegistry::listeners_mutex};
+  ensure_registry();
+  registry->listeners.remove_first_occurrence_and_reorder(this);
+  if (registry->listeners.is_empty()) {
     stop_profiling();
   }
 }
@@ -99,15 +125,18 @@ ProfileListener::~ProfileListener()
 void ProfileListener::flush_to_all()
 {
   /* Todo: How to handle short lived threads? */
-  std::scoped_lock lock{listeners_mutex, registered_threadlocals_mutex};
+  std::scoped_lock lock{ProfileRegistry::threadlocals_mutex, ProfileRegistry::listeners_mutex};
+  if (!registry) {
+    return;
+  }
   RecordedProfile recorded_profile;
-  for (ThreadLocalProfileData *data : registered_threadlocals) {
+  for (ThreadLocalProfileData *data : registry->threadlocals) {
     data->queue_begins.consume(
         [&](Span<ProfileTaskBegin> data) { recorded_profile.task_begins.extend(data); });
     data->queue_ends.consume(
         [&](Span<ProfileTaskEnd> data) { recorded_profile.task_ends.extend(data); });
   }
-  for (ProfileListener *listener : listeners) {
+  for (ProfileListener *listener : registry->listeners) {
     listener->handle(recorded_profile);
   }
 }
