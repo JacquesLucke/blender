@@ -86,14 +86,15 @@ class ProfilerDrawer {
                                              profiler_layout_->begin_time());
     /* Giving a bit more space on the right side is convenient. */
     const float extended_duration_ms = std::max(duration_ms * 1.1f, 5000.0f);
-    UI_view2d_totRect_set(&region_->v2d, extended_duration_ms, 1);
+    /* TODO: Remove magic numbers. */
+    UI_view2d_totRect_set(&region_->v2d, extended_duration_ms, 2000);
 
     UI_view2d_scrollers_draw(&region_->v2d, nullptr);
   }
 
   void compute_vertical_extends_of_all_nodes()
   {
-    int top_y = region_->winy;
+    int top_y = region_->winy - region_->v2d.cur.ymax;
     for (Span<ProfileNode *> nodes : profiler_layout_->root_nodes()) {
       top_y = this->compute_vertical_extends_of_nodes(nodes, top_y);
       top_y -= parallel_padding_;

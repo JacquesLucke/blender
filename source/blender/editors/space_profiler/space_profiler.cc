@@ -64,12 +64,13 @@ static SpaceLink *profiler_create(const ScrArea *UNUSED(area), const Scene *UNUS
     v2d->scroll = V2D_SCROLL_RIGHT | V2D_SCROLL_BOTTOM;
     v2d->keepzoom = V2D_LOCKZOOM_Y;
     v2d->keeptot = V2D_KEEPTOT_BOUNDS;
+    v2d->keepofs = V2D_KEEPOFS_Y;
     v2d->align = V2D_ALIGN_NO_NEG_X | V2D_ALIGN_NO_POS_Y;
     v2d->min[0] = 0.0001f;
-    v2d->min[1] = 100.0f;
+    v2d->min[1] = 1.0f;
     v2d->max[0] = 100000.0f;
-    v2d->max[1] = 100.0f;
-    BLI_rctf_init(&v2d->tot, 0, 5000, -1, 0);
+    v2d->max[1] = 5000.0f;
+    BLI_rctf_init(&v2d->tot, 0, 5000, -1000, 0);
     v2d->cur = v2d->tot;
   }
 
