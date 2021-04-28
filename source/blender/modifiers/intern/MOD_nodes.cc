@@ -30,6 +30,7 @@
 #include "BLI_float3.hh"
 #include "BLI_listbase.h"
 #include "BLI_multi_value_map.hh"
+#include "BLI_profile.hh"
 #include "BLI_set.hh"
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
@@ -457,6 +458,7 @@ class GeometryNodesEvaluator {
 
   void execute_node(const DNode node, GeoNodeExecParams params)
   {
+    BLI_PROFILE_SCOPE(node->name().c_str());
     const bNode &bnode = params.node();
 
     /* Use the geometry-node-execute callback if it exists. */
