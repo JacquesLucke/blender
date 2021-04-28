@@ -924,7 +924,6 @@ static Mesh *modifier_modify_mesh_and_geometry_set(ModifierData *md,
                                                    Mesh *input_mesh,
                                                    GeometrySet &geometry_set)
 {
-  BLI_PROFILE_SCOPE(md->name);
   Mesh *mesh_output = nullptr;
   const ModifierTypeInfo *mti = BKE_modifier_get_info((ModifierType)md->type);
   if (mti->modifyGeometrySet == nullptr) {
@@ -951,6 +950,7 @@ static Mesh *modifier_modify_mesh_and_geometry_set(ModifierData *md,
                                                             GeometryOwnershipType::Editable);
 
     /* Let the modifier change the geometry set. */
+    BLI_PROFILE_SCOPE(md->name);
     mti->modifyGeometrySet(md, &mectx, &geometry_set);
 
     /* Release the mesh from the geometry set again. */
@@ -1218,7 +1218,6 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
         }
         BKE_mesh_vert_coords_apply(mesh_final, deformed_verts);
       }
-      BLI_PROFILE_SCOPE(md->name);
       BKE_modifier_deform_verts(md, &mectx, mesh_final, deformed_verts, num_deformed_verts);
     }
     else {
