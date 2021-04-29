@@ -148,6 +148,17 @@ class ProfilerDrawer {
 
   void draw_node(ProfileNode &node)
   {
+    const float left_x = this->time_to_x(node.begin_time());
+    const float real_right_x = this->time_to_x(node.end_time());
+    const float right_x = std::max(left_x + 1, real_right_x);
+
+    if (left_x > region_->winx) {
+      return;
+    }
+    if (right_x < 0) {
+      return;
+    }
+
     GPUVertFormat *format = immVertexFormat();
     uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
 
@@ -156,13 +167,13 @@ class ProfilerDrawer {
     const Color4f color = this->get_node_color(node);
     immUniformColor4fv(color);
 
-    const int left_x = this->time_to_x(node.begin_time());
-    const int right_x = std::max(left_x + 1, this->time_to_x(node.end_time()));
     immRecti(pos, left_x, node.top_y, right_x, node.top_y - row_height_);
 
     immUnbindProgram();
 
-    this->draw_node_label(node, left_x, right_x);
+    if (right_x - left_x > 1.0f) {
+      this->draw_node_label(node, left_x, right_x);
+    }
 
     this->draw_nodes(node.direct_children());
     for (Span<ProfileNode *> nodes : node.parallel_children()) {
@@ -240,7 +251,7 @@ class ProfilerDrawer {
     UI_view2d_smooth_view(C, region, &new_view, U.smooth_viewtx);
   }
 
-  int time_to_x(const TimePoint time) const
+  float time_to_x(const TimePoint time) const
   {
     const TimePoint begin_time = profiler_layout_->begin_time();
     const Duration time_since_begin = time - begin_time;
