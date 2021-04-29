@@ -26,11 +26,11 @@
 using namespace blender;
 using namespace blender::profile;
 
-static uint64_t get_unique_session_id()
+static uint64_t get_unique_session_id_range(const uint64_t size)
 {
-  /* TODO: Allow getting ids without synchronizing threads for every id. */
   static std::atomic<uint64_t> id = 1;
-  return id++;
+  const uint64_t range_start = id.fetch_add(size, std::memory_order_relaxed);
+  return range_start;
 }
 
 struct ThreadLocalProfileData;
@@ -69,7 +69,7 @@ struct ThreadLocalProfileData {
     std::lock_guard lock{ProfileRegistry::threadlocals_mutex};
     used_registry = ensure_registry();
     registry->threadlocals.append(this);
-    thread_id = get_unique_session_id();
+    thread_id = get_unique_session_id_range(1);
   }
 
   ~ThreadLocalProfileData()
@@ -83,8 +83,24 @@ struct ThreadLocalProfileData {
   ProfileDataQueue<ProfileTaskEnd> queue_ends;
   RawStack<uint64_t> id_stack;
 
+  uint64_t get_next_unique_id()
+  {
+    if (unique_id_current_ == unique_id_end_) {
+      constexpr uint64_t size = 100'000;
+      unique_id_current_ = get_unique_session_id_range(size);
+      unique_id_end_ = unique_id_current_ + size;
+    }
+    const uint64_t id = unique_id_current_;
+    unique_id_current_++;
+    return id;
+  }
+
   /* Take ownership to make sure that the registry won't be destructed too early. */
   std::shared_ptr<ProfileRegistry> used_registry;
+
+ private:
+  uint64_t unique_id_current_ = 0;
+  uint64_t unique_id_end_ = 0;
 };
 
 static thread_local ThreadLocalProfileData threadlocal_profile_data;
@@ -147,7 +163,7 @@ void _bli_profile_task_begin(BLI_ProfileTask *task, const char *name)
 {
   ThreadLocalProfileData &local_data = threadlocal_profile_data;
 
-  const uint64_t id = get_unique_session_id();
+  const uint64_t id = local_data.get_next_unique_id();
   const uint64_t parent_id = local_data.id_stack.peek_default(0);
   local_data.id_stack.push(id);
   task->id = id;
@@ -168,7 +184,7 @@ void _bli_profile_task_begin_subtask(BLI_ProfileTask *task,
 {
   ThreadLocalProfileData &local_data = threadlocal_profile_data;
 
-  const uint64_t id = get_unique_session_id();
+  const uint64_t id = local_data.get_next_unique_id();
   const uint64_t parent_id = parent_task->id;
   local_data.id_stack.push(id);
   task->id = id;
