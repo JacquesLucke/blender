@@ -159,16 +159,16 @@ void ProfileListener::flush_to_all()
 
 }  // namespace blender::profile
 
-void _bli_profile_task_begin(BLI_ProfileTask *task, const char *name)
+static void profile_task_begin(BLI_ProfileTask *task, const char *name, uint64_t parent_id)
 {
   ThreadLocalProfileData &local_data = threadlocal_profile_data;
 
   const uint64_t id = local_data.get_next_unique_id();
-  const uint64_t parent_id = local_data.id_stack.peek_default(0);
   local_data.id_stack.push(id);
   task->id = id;
 
   ProfileTaskBegin *task_begin = local_data.queue_begins.prepare_append();
+
   task_begin->id = id;
   task_begin->name = name;
   task_begin->parent_id = parent_id;
@@ -178,25 +178,18 @@ void _bli_profile_task_begin(BLI_ProfileTask *task, const char *name)
   local_data.queue_begins.commit_append();
 }
 
+void _bli_profile_task_begin(BLI_ProfileTask *task, const char *name)
+{
+  ThreadLocalProfileData &local_data = threadlocal_profile_data;
+  const uint64_t parent_id = local_data.id_stack.peek_default(0);
+  profile_task_begin(task, name, parent_id);
+}
+
 void _bli_profile_task_begin_subtask(BLI_ProfileTask *task,
                                      const char *name,
                                      const BLI_ProfileTask *parent_task)
 {
-  ThreadLocalProfileData &local_data = threadlocal_profile_data;
-
-  const uint64_t id = local_data.get_next_unique_id();
-  const uint64_t parent_id = parent_task->id;
-  local_data.id_stack.push(id);
-  task->id = id;
-
-  ProfileTaskBegin *task_begin = local_data.queue_begins.prepare_append();
-  task_begin->id = id;
-  task_begin->name = name;
-  task_begin->parent_id = parent_id;
-  task_begin->thread_id = local_data.thread_id;
-  task_begin->time = Clock::now();
-
-  local_data.queue_begins.commit_append();
+  profile_task_begin(task, name, parent_task->id);
 }
 
 void _bli_profile_task_end(BLI_ProfileTask *task)
