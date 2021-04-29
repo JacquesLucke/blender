@@ -41,29 +41,34 @@ void _bli_profile_task_begin_subtask(BLI_ProfileTask *task,
                                      const BLI_ProfileTask *parent_task);
 void _bli_profile_task_end(BLI_ProfileTask *task);
 
-#define BLI_profile_task_begin(task_ptr, name) \
-  if (bli_profiling_is_enabled) { \
-    _bli_profile_task_begin((task_ptr), (name)); \
-  } \
-  else { \
-    (task_ptr)->id = BLI_PROFILE_DUMMY_ID; \
-  } \
-  ((void)0)
+BLI_INLINE void BLI_profile_task_begin(BLI_ProfileTask *task, const char *name)
+{
+  if (bli_profiling_is_enabled) {
+    _bli_profile_task_begin(task, name);
+  }
+  else {
+    task->id = BLI_PROFILE_DUMMY_ID;
+  }
+}
 
-#define BLI_profile_task_begin_subtask(task_ptr, name, parent_task) \
-  if (bli_profiling_is_enabled) { \
-    _bli_profile_task_begin_subtask((task_ptr), (name), (parent_task)); \
-  } \
-  else { \
-    (task_ptr)->id = BLI_PROFILE_DUMMY_ID; \
-  } \
-  ((void)0)
+BLI_INLINE void BLI_profile_task_begin_subtask(BLI_ProfileTask *task,
+                                               const char *name,
+                                               const BLI_ProfileTask *parent_task)
+{
+  if (bli_profiling_is_enabled) {
+    _bli_profile_task_begin_subtask(task, name, parent_task);
+  }
+  else {
+    task->id = BLI_PROFILE_DUMMY_ID;
+  }
+}
 
-#define BLI_profile_task_end(task_ptr) \
-  if ((task_ptr)->id != BLI_PROFILE_DUMMY_ID) { \
-    _bli_profile_task_end(task_ptr); \
-  } \
-  ((void)0)
+BLI_INLINE void BLI_profile_task_end(BLI_ProfileTask *task)
+{
+  if (task->id != BLI_PROFILE_DUMMY_ID) {
+    _bli_profile_task_end(task);
+  }
+}
 
 #ifdef __cplusplus
 }
