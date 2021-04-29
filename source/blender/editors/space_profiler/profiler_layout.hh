@@ -23,6 +23,7 @@
 
 namespace blender::ed::profiler {
 
+using profile::Duration;
 using profile::RecordedProfile;
 using profile::TimePoint;
 
@@ -65,6 +66,11 @@ class ProfileNode {
   TimePoint end_time() const
   {
     return end_time_;
+  }
+
+  Duration duration() const
+  {
+    return end_time_ - begin_time_;
   }
 
   ProfileNode *parent()

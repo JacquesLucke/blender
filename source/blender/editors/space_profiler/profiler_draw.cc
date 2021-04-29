@@ -14,6 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
+#include <iomanip>
+
 #include "UI_interface.h"
 #include "UI_resources.h"
 #include "UI_view2d.h"
@@ -29,6 +31,7 @@
 #include "BLI_color.hh"
 #include "BLI_hash.h"
 #include "BLI_math_color.h"
+#include "BLI_profile.hh"
 #include "BLI_rect.h"
 
 #include "profiler_draw.hh"
@@ -74,8 +77,11 @@ class ProfilerDrawer {
 
     ui_block_ = UI_block_begin(C, region_, __func__, UI_EMBOSS_NONE);
     this->draw_all_nodes();
-    UI_block_end(C, ui_block_);
-    UI_block_draw(C, ui_block_);
+    {
+      BLI_PROFILE_SCOPE("end/draw block");
+      UI_block_end(C, ui_block_);
+      UI_block_draw(C, ui_block_);
+    }
 
     this->update_view2d_bounds();
   }
@@ -94,6 +100,7 @@ class ProfilerDrawer {
 
   void compute_vertical_extends_of_all_nodes()
   {
+    BLI_PROFILE_SCOPE(__func__);
     int top_y = region_->winy - region_->v2d.cur.ymax;
     for (Span<ProfileNode *> nodes : profiler_layout_->root_nodes()) {
       top_y = this->compute_vertical_extends_of_nodes(nodes, top_y);
@@ -126,6 +133,7 @@ class ProfilerDrawer {
 
   void draw_all_nodes()
   {
+    BLI_PROFILE_SCOPE(__func__);
     for (Span<ProfileNode *> nodes : profiler_layout_->root_nodes()) {
       this->draw_nodes(nodes);
     }
@@ -200,8 +208,16 @@ class ProfilerDrawer {
   {
     NodeTooltipArg &arg = *(NodeTooltipArg *)argN;
     ProfileNode &node = *arg.node;
+    const Duration duration = node.duration();
     std::stringstream ss;
-    ss << "Duration: " << duration_to_ms(node.end_time() - node.begin_time()) << " ms";
+    ss << std::setprecision(2) << std::fixed;
+    for (const ProfileNode *parent = node.parent(); parent != nullptr; parent = parent->parent()) {
+      const Duration parent_duration = parent->duration();
+      const float percentage = (duration.count() / (float)parent_duration.count()) * 100.0f;
+      ss << percentage << "% of " << parent->name() << "\n";
+    }
+    ss << "\n";
+    ss << "Duration: " << duration_to_ms(duration) << " ms";
     return BLI_strdup(ss.str().c_str());
   }
 
@@ -249,6 +265,7 @@ class ProfilerDrawer {
 
 void draw_profiler(const bContext *C, ARegion *region)
 {
+  BLI_PROFILE_SCOPE(__func__);
   ProfilerDrawer drawer{C, region};
   drawer.draw();
 }
