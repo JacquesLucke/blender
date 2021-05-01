@@ -29,11 +29,19 @@ using TimePoint = Clock::time_point;
 using Nanoseconds = std::chrono::nanoseconds;
 
 struct ProfileTaskBegin {
-  const char *name;
   TimePoint time;
   uint64_t id;
   uint64_t parent_id;
   uint64_t thread_id;
+};
+
+struct ProfileTaskBeginNamed : public ProfileTaskBegin {
+  const char *name;
+};
+
+struct ProfileTaskBeginRange : public ProfileTaskBegin {
+  int64_t start;
+  int64_t one_after_last;
 };
 
 struct ProfileTaskEnd {
@@ -42,7 +50,8 @@ struct ProfileTaskEnd {
 };
 
 struct RecordedProfile {
-  RawVector<ProfileTaskBegin> task_begins;
+  RawVector<ProfileTaskBeginNamed> task_begins_named;
+  RawVector<ProfileTaskBeginRange> task_begins_range;
   RawVector<ProfileTaskEnd> task_ends;
 };
 

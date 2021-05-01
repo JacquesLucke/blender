@@ -15,7 +15,9 @@
  */
 
 #include "BLI_hash.h"
+#include "BLI_profile.hh"
 #include "BLI_rand.hh"
+#include "BLI_task.hh"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -122,13 +124,22 @@ static void randomize_attribute(MutableSpan<T> span,
                                 const uint32_t seed,
                                 const GeometryNodeAttributeRandomizeMode operation)
 {
+  BLI_ProfileTask profile_task;
+  BLI_profile_task_begin_named(&profile_task, __func__);
+
   /* The operations could be templated too, but it doesn't make the code much shorter. */
   switch (operation) {
     case GEO_NODE_ATTRIBUTE_RANDOMIZE_REPLACE_CREATE:
-      for (const int i : span.index_range()) {
-        const T random_value = random_value_in_range<T>(ids[i], seed, min, max);
-        span[i] = random_value;
-      }
+      parallel_for(span.index_range(), 100, [&](IndexRange range) {
+        BLI_ProfileTask subtask;
+        BLI_profile_task_begin_range(
+            &subtask, &profile_task, range.start(), range.one_after_last());
+        for (const int i : range) {
+          const T random_value = random_value_in_range<T>(ids[i], seed, min, max);
+          span[i] = random_value;
+        }
+        BLI_profile_task_end(&subtask);
+      });
       break;
     case GEO_NODE_ATTRIBUTE_RANDOMIZE_ADD:
       for (const int i : span.index_range()) {
@@ -152,6 +163,8 @@ static void randomize_attribute(MutableSpan<T> span,
       BLI_assert(false);
       break;
   }
+
+  BLI_profile_task_end(&profile_task);
 }
 
 static void randomize_attribute_bool(MutableSpan<bool> span,

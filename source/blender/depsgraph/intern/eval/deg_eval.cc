@@ -384,7 +384,7 @@ void deg_evaluate_on_refresh(Depsgraph *graph)
   state.do_stats = graph->debug.do_time_debug();
   state.need_single_thread_pass = false;
 
-  BLI_profile_task_begin(&state.profile_task, __func__);
+  BLI_profile_task_begin_named(&state.profile_task, __func__);
 
   /* Prepare all nodes for evaluation. */
   initialize_execution(&state, graph);

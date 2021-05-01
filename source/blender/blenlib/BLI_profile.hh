@@ -27,12 +27,12 @@ class ProfileTask {
  public:
   ProfileTask(const char *name)
   {
-    BLI_profile_task_begin(&task_, name);
+    BLI_profile_task_begin_named(&task_, name);
   }
 
   ProfileTask(const char *name, const BLI_ProfileTask *parent_task)
   {
-    BLI_profile_task_begin_subtask(&task_, name, parent_task);
+    BLI_profile_task_begin_named_subtask(&task_, name, parent_task);
   }
 
   ~ProfileTask()

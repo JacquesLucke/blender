@@ -445,7 +445,7 @@ void wm_event_do_notifiers(bContext *C)
   }
 
   BLI_ProfileTask profile_task;
-  BLI_profile_task_begin(&profile_task, __func__);
+  BLI_profile_task_begin_named(&profile_task, __func__);
 
   /* Disable? - Keep for now since its used for window level notifiers. */
 #if 1

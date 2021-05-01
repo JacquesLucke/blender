@@ -35,28 +35,45 @@ BLI_INLINE bool BLI_profile_is_enabled(void)
   return bli_profiling_is_enabled;
 }
 
-void _bli_profile_task_begin(BLI_ProfileTask *task, const char *name);
-void _bli_profile_task_begin_subtask(BLI_ProfileTask *task,
-                                     const char *name,
-                                     const BLI_ProfileTask *parent_task);
+void _bli_profile_task_begin_named(BLI_ProfileTask *task, const char *name);
+void _bli_profile_task_begin_named_subtask(BLI_ProfileTask *task,
+                                           const char *name,
+                                           const BLI_ProfileTask *parent_task);
+void _bli_profile_task_begin_range(BLI_ProfileTask *task,
+                                   const BLI_ProfileTask *parent_task,
+                                   int64_t start,
+                                   int64_t one_after_last);
 void _bli_profile_task_end(BLI_ProfileTask *task);
 
-BLI_INLINE void BLI_profile_task_begin(BLI_ProfileTask *task, const char *name)
+BLI_INLINE void BLI_profile_task_begin_named(BLI_ProfileTask *task, const char *name)
 {
   if (bli_profiling_is_enabled) {
-    _bli_profile_task_begin(task, name);
+    _bli_profile_task_begin_named(task, name);
   }
   else {
     task->id = BLI_PROFILE_DUMMY_ID;
   }
 }
 
-BLI_INLINE void BLI_profile_task_begin_subtask(BLI_ProfileTask *task,
-                                               const char *name,
-                                               const BLI_ProfileTask *parent_task)
+BLI_INLINE void BLI_profile_task_begin_named_subtask(BLI_ProfileTask *task,
+                                                     const char *name,
+                                                     const BLI_ProfileTask *parent_task)
 {
   if (bli_profiling_is_enabled) {
-    _bli_profile_task_begin_subtask(task, name, parent_task);
+    _bli_profile_task_begin_named_subtask(task, name, parent_task);
+  }
+  else {
+    task->id = BLI_PROFILE_DUMMY_ID;
+  }
+}
+
+BLI_INLINE void BLI_profile_task_begin_range(BLI_ProfileTask *task,
+                                             const BLI_ProfileTask *parent_task,
+                                             const int64_t start,
+                                             const int64_t one_after_last)
+{
+  if (bli_profiling_is_enabled) {
+    _bli_profile_task_begin_range(task, parent_task, start, one_after_last);
   }
   else {
     task->id = BLI_PROFILE_DUMMY_ID;

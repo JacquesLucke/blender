@@ -21,6 +21,8 @@
 namespace blender::ed::profiler {
 
 using profile::ProfileTaskBegin;
+using profile::ProfileTaskBeginNamed;
+using profile::ProfileTaskBeginRange;
 using profile::ProfileTaskEnd;
 
 bool ProfileNode::time_overlap(const ProfileNode &a, const ProfileNode &b)
@@ -143,16 +145,28 @@ void ProfileNode::pack_added_children()
 void ProfilerLayout::add(const RecordedProfile &recorded_profile)
 {
   /* Create new nodes for segments and add them to the id map. */
-  for (const ProfileTaskBegin &task_begin : recorded_profile.task_begins) {
-    ProfileNode &node = *allocator_.construct<ProfileNode>().release();
-    node.name_ = task_begin.name;
+  auto init_node = [](const ProfileTaskBegin &task_begin, ProfileNode &node) {
     node.begin_time_ = task_begin.time;
     node.end_time_ = TimePoint{}; /* The end time is not known yet. */
     node.id_ = task_begin.id;
     node.parent_id_ = task_begin.parent_id;
     node.thread_id_ = task_begin.thread_id;
+  };
+
+  for (const ProfileTaskBeginNamed &task_begin : recorded_profile.task_begins_named) {
+    ProfileNode &node = *allocator_.construct<ProfileNode>().release();
+    init_node(task_begin, node);
+    node.name_ = task_begin.name;
     nodes_by_id_.add_new(task_begin.id, &node);
   }
+  for (const ProfileTaskBeginRange &task_begin : recorded_profile.task_begins_range) {
+    ProfileNode &node = *allocator_.construct<ProfileNode>().release();
+    init_node(task_begin, node);
+    node.name_ = "[" + std::to_string(task_begin.start) + ", " +
+                 std::to_string(task_begin.one_after_last) + ")";
+    nodes_by_id_.add_new(task_begin.id, &node);
+  }
+
   for (const ProfileTaskEnd &task_end : recorded_profile.task_ends) {
     ProfileNode *node = nodes_by_id_.lookup_default(task_end.begin_id, nullptr);
     if (node != nullptr) {
@@ -165,7 +179,7 @@ void ProfilerLayout::add(const RecordedProfile &recorded_profile)
   Vector<ProfileNode *> root_nodes_to_pack;
 
   /* Create parent/child relation ships for new nodes. */
-  for (const ProfileTaskBegin &task_begin : recorded_profile.task_begins) {
+  auto create_relations = [&](const ProfileTaskBegin &task_begin) {
     ProfileNode *node = nodes_by_id_.lookup(task_begin.id);
     ProfileNode *parent_node = nodes_by_id_.lookup_default(task_begin.parent_id, nullptr);
     node->parent_ = parent_node;
@@ -184,6 +198,13 @@ void ProfilerLayout::add(const RecordedProfile &recorded_profile)
       parent_node->children_to_pack_.append(node);
       nodes_with_new_children.add(parent_node);
     }
+  };
+
+  for (const ProfileTaskBeginNamed &task_begin : recorded_profile.task_begins_named) {
+    create_relations(task_begin);
+  }
+  for (const ProfileTaskBeginRange &task_begin : recorded_profile.task_begins_range) {
+    create_relations(task_begin);
   }
 
   /* Check if a previous root node is not a root anymore. */

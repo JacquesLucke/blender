@@ -62,9 +62,8 @@ static std::shared_ptr<ProfileRegistry> &ensure_registry()
   return registry;
 }
 
-template<typename T>
-using ProfileDataQueue =
-    SingleProducerChunkConsumerQueue<T, RawAllocator, LinearAllocator<RawAllocator>>;
+template<typename T, typename UserData = void>
+using ProfileDataQueue = SingleProducerChunkConsumerQueue<T, RawAllocator, UserData>;
 
 struct ThreadLocalProfileData {
   ThreadLocalProfileData()
@@ -82,7 +81,8 @@ struct ThreadLocalProfileData {
   }
 
   uint64_t thread_id;
-  ProfileDataQueue<ProfileTaskBegin> queue_begins;
+  ProfileDataQueue<ProfileTaskBeginNamed, LinearAllocator<RawAllocator>> queue_begins_named;
+  ProfileDataQueue<ProfileTaskBeginRange> queue_begins_range;
   ProfileDataQueue<ProfileTaskEnd> queue_ends;
   RawStack<uint64_t> id_stack;
 
@@ -150,8 +150,12 @@ void ProfileListener::flush_to_all()
   }
   RecordedProfile recorded_profile;
   for (ThreadLocalProfileData *data : registry->threadlocals) {
-    data->queue_begins.consume(
-        [&](Span<ProfileTaskBegin> data) { recorded_profile.task_begins.extend(data); });
+    data->queue_begins_named.consume([&](Span<ProfileTaskBeginNamed> data) {
+      recorded_profile.task_begins_named.extend(data);
+    });
+    data->queue_begins_range.consume([&](Span<ProfileTaskBeginRange> data) {
+      recorded_profile.task_begins_range.extend(data);
+    });
     data->queue_ends.consume(
         [&](Span<ProfileTaskEnd> data) { recorded_profile.task_ends.extend(data); });
   }
@@ -162,7 +166,7 @@ void ProfileListener::flush_to_all()
 
 }  // namespace blender::profile
 
-static void profile_task_begin(BLI_ProfileTask *task, const char *name, uint64_t parent_id)
+static void profile_task_begin_named(BLI_ProfileTask *task, const char *name, uint64_t parent_id)
 {
   ThreadLocalProfileData &local_data = threadlocal_profile_data;
 
@@ -170,9 +174,9 @@ static void profile_task_begin(BLI_ProfileTask *task, const char *name, uint64_t
   local_data.id_stack.push(id);
   task->id = id;
 
-  ProfileTaskBegin *task_begin = local_data.queue_begins.prepare_append();
+  ProfileTaskBeginNamed *task_begin = local_data.queue_begins_named.prepare_append();
   LinearAllocator<RawAllocator> *allocator =
-      local_data.queue_begins.user_data_for_current_append();
+      local_data.queue_begins_named.user_data_for_current_append();
   StringRefNull name_copy = allocator->copy_string(name);
 
   task_begin->id = id;
@@ -181,21 +185,43 @@ static void profile_task_begin(BLI_ProfileTask *task, const char *name, uint64_t
   task_begin->thread_id = local_data.thread_id;
   task_begin->time = Clock::now();
 
-  local_data.queue_begins.commit_append();
+  local_data.queue_begins_named.commit_append();
 }
 
-void _bli_profile_task_begin(BLI_ProfileTask *task, const char *name)
+void _bli_profile_task_begin_named(BLI_ProfileTask *task, const char *name)
 {
   ThreadLocalProfileData &local_data = threadlocal_profile_data;
   const uint64_t parent_id = local_data.id_stack.peek_default(0);
-  profile_task_begin(task, name, parent_id);
+  profile_task_begin_named(task, name, parent_id);
 }
 
-void _bli_profile_task_begin_subtask(BLI_ProfileTask *task,
-                                     const char *name,
-                                     const BLI_ProfileTask *parent_task)
+void _bli_profile_task_begin_named_subtask(BLI_ProfileTask *task,
+                                           const char *name,
+                                           const BLI_ProfileTask *parent_task)
 {
-  profile_task_begin(task, name, parent_task->id);
+  profile_task_begin_named(task, name, parent_task->id);
+}
+
+void _bli_profile_task_begin_range(BLI_ProfileTask *task,
+                                   const BLI_ProfileTask *parent_task,
+                                   int64_t start,
+                                   int64_t one_after_last)
+{
+  ThreadLocalProfileData &local_data = threadlocal_profile_data;
+
+  const uint64_t id = local_data.get_next_unique_id();
+  local_data.id_stack.push(id);
+  task->id = id;
+
+  ProfileTaskBeginRange *task_begin = local_data.queue_begins_range.prepare_append();
+  task_begin->id = id;
+  task_begin->parent_id = parent_task->id;
+  task_begin->thread_id = local_data.thread_id;
+  task_begin->start = start;
+  task_begin->one_after_last = one_after_last;
+  task_begin->time = Clock::now();
+
+  local_data.queue_begins_range.commit_append();
 }
 
 void _bli_profile_task_end(BLI_ProfileTask *task)
