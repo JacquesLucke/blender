@@ -124,14 +124,14 @@ static void randomize_attribute(MutableSpan<T> span,
                                 const uint32_t seed,
                                 const GeometryNodeAttributeRandomizeMode operation)
 {
-  BLI_ProfileTask profile_task;
+  ProfileTask profile_task;
   BLI_profile_task_begin_named(&profile_task, __func__);
 
   /* The operations could be templated too, but it doesn't make the code much shorter. */
   switch (operation) {
     case GEO_NODE_ATTRIBUTE_RANDOMIZE_REPLACE_CREATE:
       parallel_for(span.index_range(), 100, [&](IndexRange range) {
-        BLI_ProfileTask subtask;
+        ProfileTask subtask;
         BLI_profile_task_begin_range(
             &subtask, &profile_task, range.start(), range.one_after_last());
         for (const int i : range) {

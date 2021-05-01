@@ -96,7 +96,7 @@ struct DepsgraphEvalState {
   bool do_stats;
   EvaluationStage stage;
   bool need_single_thread_pass;
-  BLI_ProfileTask profile_task;
+  ProfileTask profile_task;
 };
 
 void evaluate_node(const DepsgraphEvalState *state, OperationNode *operation_node)

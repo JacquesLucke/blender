@@ -20,22 +20,22 @@
 
 namespace blender::profile {
 
-class ProfileTask {
+class ProfileTaskCPP {
  private:
-  BLI_ProfileTask task_;
+  ProfileTask task_;
 
  public:
-  ProfileTask(const char *name)
+  ProfileTaskCPP(const char *name)
   {
     BLI_profile_task_begin_named(&task_, name);
   }
 
-  ProfileTask(const char *name, const BLI_ProfileTask *parent_task)
+  ProfileTaskCPP(const char *name, const ProfileTask *parent_task)
   {
     BLI_profile_task_begin_named_subtask(&task_, name, parent_task);
   }
 
-  ~ProfileTask()
+  ~ProfileTaskCPP()
   {
     BLI_profile_task_end(&task_);
   }
@@ -43,7 +43,7 @@ class ProfileTask {
 
 }  // namespace blender::profile
 
-#define BLI_PROFILE_SCOPE(name) blender::profile::ProfileTask profile_task((name))
+#define BLI_PROFILE_SCOPE(name) blender::profile::ProfileTaskCPP profile_task((name))
 
 #define BLI_PROFILE_SCOPE_SUBTASK(name, parent_task_ptr) \
-  blender::profile::ProfileTask profile_task((name), (parent_task_ptr))
+  blender::profile::ProfileTaskCPP profile_task((name), (parent_task_ptr))

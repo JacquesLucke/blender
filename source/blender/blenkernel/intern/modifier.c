@@ -1053,7 +1053,7 @@ struct Mesh *BKE_modifier_modify_mesh(ModifierData *md,
   if (mti->dependsOnNormals && mti->dependsOnNormals(md)) {
     modwrap_dependsOnNormals(me);
   }
-  BLI_ProfileTask profile_task;
+  ProfileTask profile_task;
   BLI_profile_task_begin_named(&profile_task, md->name);
   Mesh *new_mesh = mti->modifyMesh(md, ctx, me);
   BLI_profile_task_end(&profile_task);
@@ -1072,7 +1072,7 @@ void BKE_modifier_deform_verts(ModifierData *md,
   if (me && mti->dependsOnNormals && mti->dependsOnNormals(md)) {
     modwrap_dependsOnNormals(me);
   }
-  BLI_ProfileTask profile_task;
+  ProfileTask profile_task;
   BLI_profile_task_begin_named(&profile_task, md->name);
   mti->deformVerts(md, ctx, me, vertexCos, numVerts);
   BLI_profile_task_end(&profile_task);

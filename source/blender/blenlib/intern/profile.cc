@@ -166,7 +166,7 @@ void ProfileListener::flush_to_all()
 
 }  // namespace blender::profile
 
-static void profile_task_begin_named(BLI_ProfileTask *task, const char *name, uint64_t parent_id)
+static void profile_task_begin_named(ProfileTask *task, const char *name, uint64_t parent_id)
 {
   ThreadLocalProfileData &local_data = threadlocal_profile_data;
 
@@ -188,22 +188,22 @@ static void profile_task_begin_named(BLI_ProfileTask *task, const char *name, ui
   local_data.queue_begins_named.commit_append();
 }
 
-void _bli_profile_task_begin_named(BLI_ProfileTask *task, const char *name)
+void _bli_profile_task_begin_named(ProfileTask *task, const char *name)
 {
   ThreadLocalProfileData &local_data = threadlocal_profile_data;
   const uint64_t parent_id = local_data.id_stack.peek_default(0);
   profile_task_begin_named(task, name, parent_id);
 }
 
-void _bli_profile_task_begin_named_subtask(BLI_ProfileTask *task,
+void _bli_profile_task_begin_named_subtask(ProfileTask *task,
                                            const char *name,
-                                           const BLI_ProfileTask *parent_task)
+                                           const ProfileTask *parent_task)
 {
   profile_task_begin_named(task, name, parent_task->id);
 }
 
-void _bli_profile_task_begin_range(BLI_ProfileTask *task,
-                                   const BLI_ProfileTask *parent_task,
+void _bli_profile_task_begin_range(ProfileTask *task,
+                                   const ProfileTask *parent_task,
                                    int64_t start,
                                    int64_t one_after_last)
 {
@@ -224,7 +224,7 @@ void _bli_profile_task_begin_range(BLI_ProfileTask *task,
   local_data.queue_begins_range.commit_append();
 }
 
-void _bli_profile_task_end(BLI_ProfileTask *task)
+void _bli_profile_task_end(ProfileTask *task)
 {
   TimePoint time = Clock::now();
 
