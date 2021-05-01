@@ -35,7 +35,7 @@
 
 namespace blender {
 
-template<typename T, typename Allocator = GuardedAllocator>
+template<typename T, typename Allocator = GuardedAllocator, typename UserData = void>
 class SingleProducerChunkConsumerQueue {
  private:
   struct Chunk {
@@ -69,6 +69,9 @@ class SingleProducerChunkConsumerQueue {
      * This is modified by the append-operation and not accessed by the consume-operation.
      */
     T *end = nullptr;
+
+    using RealUserData = std::conditional_t<std::is_void_v<UserData>, char, UserData>;
+    RealUserData user_data;
   };
 
   struct SharedChunkView {
@@ -120,6 +123,11 @@ class SingleProducerChunkConsumerQueue {
     }
     /* Return a pointer to the next element. */
     return new (current_->end) T(std::forward<Args>(args)...);
+  }
+
+  UserData *user_data_for_current_append()
+  {
+    return &current_->user_data;
   }
 
   /**

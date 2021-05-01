@@ -29,8 +29,7 @@ using TimePoint = Clock::time_point;
 using Nanoseconds = std::chrono::nanoseconds;
 
 struct ProfileTaskBegin {
-  /* TODO: Don't use std::string when name is statically allocated. */
-  std::string name;
+  const char *name;
   TimePoint time;
   uint64_t id;
   uint64_t parent_id;

@@ -33,8 +33,8 @@ namespace blender {
 template<typename Allocator = GuardedAllocator> class LinearAllocator : NonCopyable, NonMovable {
  private:
   Allocator allocator_;
-  Vector<void *> owned_buffers_;
-  Vector<Span<char>> unused_borrowed_buffers_;
+  Vector<void *, 4, Allocator> owned_buffers_;
+  Vector<Span<char>, 1, Allocator> unused_borrowed_buffers_;
 
   uintptr_t current_begin_;
   uintptr_t current_end_;
@@ -89,8 +89,28 @@ template<typename Allocator = GuardedAllocator> class LinearAllocator : NonCopya
       this->allocate_new_buffer(size + alignment, alignment);
       return this->allocate(size, alignment);
     }
-    return this->allocator_large_buffer(size, alignment);
+    return this->allocate_large_buffer(size, alignment);
   };
+
+  void *allocate_unaligned(const int64_t size)
+  {
+    BLI_assert(size >= 0);
+
+    const uint64_t potential_allocation_begin = current_begin_;
+    const uint64_t potential_allocation_end = potential_allocation_begin + size;
+    if (potential_allocation_end <= current_end_) {
+#ifdef DEBUG
+      debug_allocated_amount_ += size;
+#endif
+      current_begin_ = potential_allocation_end;
+      return reinterpret_cast<void *>(potential_allocation_begin);
+    }
+    if (size <= large_buffer_threshold) {
+      this->allocate_new_buffer(size, 1);
+      return this->allocate_unaligned(size);
+    }
+    return this->allocate_large_buffer(size, 1);
+  }
 
   /**
    * Allocate a memory buffer that can hold an instance of T.
@@ -147,10 +167,12 @@ template<typename Allocator = GuardedAllocator> class LinearAllocator : NonCopya
    */
   StringRefNull copy_string(StringRef str)
   {
-    const int64_t alloc_size = str.size() + 1;
-    char *buffer = static_cast<char *>(this->allocate(alloc_size, 1));
-    str.copy(buffer, alloc_size);
-    return StringRefNull(static_cast<const char *>(buffer));
+    const int64_t str_size = str.size();
+    const int64_t alloc_size = str_size + 1;
+    char *buffer = static_cast<char *>(this->allocate_unaligned(alloc_size));
+    memcpy(buffer, str.data(), str_size);
+    buffer[str_size] = '\0';
+    return StringRefNull(buffer, str_size);
   }
 
   MutableSpan<void *> allocate_elements_and_pointer_array(int64_t element_amount,
@@ -229,7 +251,7 @@ template<typename Allocator = GuardedAllocator> class LinearAllocator : NonCopya
     current_end_ = current_begin_ + size_in_bytes;
   }
 
-  void *allocator_large_buffer(const int64_t size, const int64_t alignment)
+  void *allocate_large_buffer(const int64_t size, const int64_t alignment)
   {
     void *buffer = allocator_.allocate(size, alignment, __func__);
     owned_buffers_.append(buffer);

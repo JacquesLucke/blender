@@ -18,6 +18,7 @@
 #include <mutex>
 
 #include "BLI_function_ref.hh"
+#include "BLI_linear_allocator.hh"
 #include "BLI_profile.hh"
 #include "BLI_profile_manage.hh"
 #include "BLI_single_producer_chunk_consumer.hh"
@@ -61,7 +62,9 @@ static std::shared_ptr<ProfileRegistry> &ensure_registry()
   return registry;
 }
 
-template<typename T> using ProfileDataQueue = SingleProducerChunkConsumerQueue<T, RawAllocator>;
+template<typename T>
+using ProfileDataQueue =
+    SingleProducerChunkConsumerQueue<T, RawAllocator, LinearAllocator<RawAllocator>>;
 
 struct ThreadLocalProfileData {
   ThreadLocalProfileData()
@@ -168,9 +171,12 @@ static void profile_task_begin(BLI_ProfileTask *task, const char *name, uint64_t
   task->id = id;
 
   ProfileTaskBegin *task_begin = local_data.queue_begins.prepare_append();
+  LinearAllocator<RawAllocator> *allocator =
+      local_data.queue_begins.user_data_for_current_append();
+  StringRefNull name_copy = allocator->copy_string(name);
 
   task_begin->id = id;
-  task_begin->name = name;
+  task_begin->name = name_copy.c_str();
   task_begin->parent_id = parent_id;
   task_begin->thread_id = local_data.thread_id;
   task_begin->time = Clock::now();
