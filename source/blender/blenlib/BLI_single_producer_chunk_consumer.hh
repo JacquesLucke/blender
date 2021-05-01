@@ -26,50 +26,51 @@
  */
 
 #include <atomic>
+#include <mutex>
 
 #include "BLI_allocator.hh"
 #include "BLI_function_ref.hh"
 #include "BLI_span.hh"
+#include "BLI_utility_mixins.hh"
 
 namespace blender {
-
-template<typename T> struct SingleProducerChunkConsumerQueueChunk {
-  /**
-   * Points to the next chunk that contains the elements added after the elements in this chunk.
-   * This is only modified during the append-operation. When it is not null, it means that the
-   * append-operation will not look at this chunk anymore.
-   */
-  std::atomic<SingleProducerChunkConsumerQueueChunk *> next = nullptr;
-
-  /**
-   * Number of elements that have been committed to the chunk and won't be modified anymore.
-   * This is modified during the append-operation and is only increasing.
-   */
-  std::atomic<int64_t> committed_size = 0;
-
-  /**
-   * Number of elements that have been consumed already from this chunk.
-   * This is only accessed by the consume-operation.
-   */
-  int64_t consumed_size = 0;
-
-  /**
-   * Begin and end of the entire chunk buffer. Those are only set during construction and don't
-   * change anymore afterwards.
-   */
-  T *begin = nullptr;
-  T *capacity_end = nullptr;
-
-  /**
-   * This is modified by the append-operation and not accessed by the consume-operation.
-   */
-  T *end = nullptr;
-};
 
 template<typename T, typename Allocator = GuardedAllocator>
 class SingleProducerChunkConsumerQueue {
  private:
-  using Chunk = SingleProducerChunkConsumerQueueChunk<T>;
+  struct Chunk {
+    /**
+     * Points to the next chunk that contains the elements added after the elements in this chunk.
+     * This is only modified during the append-operation. When it is not null, it means that the
+     * append-operation will not look at this chunk anymore.
+     */
+    std::atomic<Chunk *> next = nullptr;
+
+    /**
+     * Number of elements that have been committed to the chunk and won't be modified anymore.
+     * This is modified during the append-operation and is only increasing.
+     */
+    std::atomic<int64_t> committed_size = 0;
+
+    /**
+     * Number of elements that have been consumed already from this chunk.
+     * This is only accessed by the consume-operation.
+     */
+    int64_t consumed_size = 0;
+
+    /**
+     * Begin and end of the entire chunk buffer. Those are only set during construction and don't
+     * change anymore afterwards.
+     */
+    T *begin = nullptr;
+    T *capacity_end = nullptr;
+
+    /**
+     * This is modified by the append-operation and not accessed by the consume-operation.
+     */
+    T *end = nullptr;
+  };
+
   static constexpr inline int64_t ChunkCapacity = 1000;
 
   Allocator allocator_;
