@@ -71,6 +71,9 @@ class SingleProducerChunkConsumerQueue {
     T *end = nullptr;
   };
 
+  struct SharedChunkView {
+  };
+
   static constexpr inline int64_t ChunkCapacity = 1000;
 
   Allocator allocator_;
