@@ -51,7 +51,6 @@ class ProfilerDrawer {
   ProfilerLayout *profiler_layout_;
   int row_height_;
   int parallel_padding_;
-  uiBlock *ui_block_ = nullptr;
 
  public:
   ProfilerDrawer(const bContext *C, ARegion *region) : C(C), region_(region)
@@ -75,13 +74,9 @@ class ProfilerDrawer {
 
     this->compute_vertical_extends_of_all_nodes();
 
-    ui_block_ = UI_block_begin(C, region_, __func__, UI_EMBOSS_NONE);
-    this->draw_all_nodes();
-    {
-      BLI_PROFILE_SCOPE("end/draw block");
-      UI_block_end(C, ui_block_);
-      UI_block_draw(C, ui_block_);
-    }
+    Vector<ProfileNode *> nodes_to_draw;
+    this->find_all_nodes_to_draw(nodes_to_draw);
+    this->draw_nodes(nodes_to_draw);
 
     this->update_view2d_bounds();
   }
@@ -131,33 +126,92 @@ class ProfilerDrawer {
     }
   }
 
-  void draw_all_nodes()
+  void find_all_nodes_to_draw(Vector<ProfileNode *> &r_nodes)
   {
     BLI_PROFILE_SCOPE(__func__);
     for (Span<ProfileNode *> nodes : profiler_layout_->root_nodes()) {
-      this->draw_nodes(nodes);
+      this->find_nodes_to_draw(nodes, r_nodes);
+    }
+  }
+
+  void find_nodes_to_draw(Span<ProfileNode *> nodes, Vector<ProfileNode *> &r_nodes)
+  {
+    const TimePoint left_time = this->x_to_time(0);
+    const TimePoint right_time = this->x_to_time(region_->winx);
+
+    auto end_is_smaller = [](const ProfileNode *node, const TimePoint time) {
+      return node->end_time() < time;
+    };
+    auto begin_is_larger = [](const TimePoint time, const ProfileNode *node) {
+      return node->begin_time() > time;
+    };
+
+    const int start_index = std::lower_bound(
+                                nodes.begin(), nodes.end(), left_time, end_is_smaller) -
+                            nodes.begin();
+    const int end_index = std::upper_bound(
+                              nodes.begin(), nodes.end(), right_time, begin_is_larger) -
+                          nodes.begin();
+
+    nodes = nodes.slice(start_index, end_index - start_index);
+    if (nodes.is_empty()) {
+      return;
+    }
+
+    const int size_before = r_nodes.size();
+    r_nodes.append(nodes[0]);
+    for (ProfileNode *node : nodes.drop_front(1)) {
+      const float begin_x = this->time_to_x(node->begin_time());
+      const float end_x = this->time_to_x(node->end_time());
+
+      ProfileNode *prev_node = r_nodes.last();
+      const float prev_begin_x = this->time_to_x(prev_node->begin_time());
+      const float prev_end_x = this->time_to_x(prev_node->end_time());
+
+      if (std::ceil(end_x) > std::ceil(prev_end_x)) {
+        /* Node reaches into next pixel. */
+        r_nodes.append(node);
+      }
+      else if (std::floor(begin_x) > std::floor(prev_begin_x)) {
+        /* Previous node reaches into previous pixel. */
+        r_nodes.append(node);
+      }
+      else {
+        /* Both nodes are in the same pixel. */
+        if (node->bottom_y < prev_node->bottom_y) {
+          /* Replace previously added node because this when has a larger depth. */
+          r_nodes.last() = node;
+        }
+      }
+    }
+    const int tot_added = r_nodes.size() - size_before;
+
+    Vector<ProfileNode *> added_nodes = r_nodes.as_span().take_back(tot_added);
+
+    for (ProfileNode *node : added_nodes) {
+      this->find_nodes_to_draw(node->direct_children(), r_nodes);
+      for (Span<ProfileNode *> children : node->parallel_children()) {
+        this->find_nodes_to_draw(children, r_nodes);
+      }
     }
   }
 
   void draw_nodes(Span<ProfileNode *> nodes)
   {
+    BLI_PROFILE_SCOPE(__func__);
+    uiBlock *ui_block = UI_block_begin(C, region_, __func__, UI_EMBOSS_NONE);
     for (ProfileNode *node : nodes) {
-      this->draw_node(*node);
+      this->draw_node(*node, ui_block);
     }
+    UI_block_end(C, ui_block);
+    UI_block_draw(C, ui_block);
   }
 
-  void draw_node(ProfileNode &node)
+  void draw_node(ProfileNode &node, uiBlock *ui_block)
   {
     const float left_x = this->time_to_x(node.begin_time());
     const float real_right_x = this->time_to_x(node.end_time());
     const float right_x = std::max(left_x + 1, real_right_x);
-
-    if (left_x > region_->winx) {
-      return;
-    }
-    if (right_x < 0) {
-      return;
-    }
 
     GPUVertFormat *format = immVertexFormat();
     uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
@@ -172,12 +226,7 @@ class ProfilerDrawer {
     immUnbindProgram();
 
     if (right_x - left_x > 1.0f) {
-      this->draw_node_label(node, left_x, right_x);
-    }
-
-    this->draw_nodes(node.direct_children());
-    for (Span<ProfileNode *> nodes : node.parallel_children()) {
-      this->draw_nodes(nodes);
+      this->draw_node_label(node, ui_block, left_x, right_x);
     }
   }
 
@@ -185,12 +234,12 @@ class ProfilerDrawer {
     ProfileNode *node;
   };
 
-  void draw_node_label(ProfileNode &node, const int left_x, const int right_x)
+  void draw_node_label(ProfileNode &node, uiBlock *ui_block, const int left_x, const int right_x)
   {
     const int x = std::max(0, left_x);
     const int width = std::max(1, std::min<int>(right_x, region_->winx) - x);
 
-    uiBut *but = uiDefIconTextBut(ui_block_,
+    uiBut *but = uiDefIconTextBut(ui_block,
                                   UI_BTYPE_BUT,
                                   0,
                                   ICON_NONE,
@@ -259,6 +308,13 @@ class ProfilerDrawer {
     return UI_view2d_view_to_region_x(&region_->v2d, ms_since_begin);
   }
 
+  TimePoint x_to_time(const float x) const
+  {
+    const float ms_since_begin = UI_view2d_region_to_view_x(&region_->v2d, x);
+    const TimePoint begin_time = profiler_layout_->begin_time();
+    return begin_time + ms_to_duration(ms_since_begin);
+  }
+
   Color4f get_node_color(ProfileNode &node)
   {
     const uint64_t value = POINTER_AS_UINT(&node);
@@ -271,6 +327,11 @@ class ProfilerDrawer {
   static float duration_to_ms(const Duration duration)
   {
     return duration.count() / 1000000.0f;
+  }
+
+  static Duration ms_to_duration(const float ms)
+  {
+    return std::chrono::nanoseconds((int64_t)(ms * 1'000'000.0f));
   }
 };
 
