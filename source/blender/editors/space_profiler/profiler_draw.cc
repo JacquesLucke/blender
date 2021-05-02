@@ -80,10 +80,17 @@ class ProfilerDrawer {
   {
     const float duration_ms = duration_to_ms(profiler_layout_->end_time() -
                                              profiler_layout_->begin_time());
+
+    float min_bottom_y = 0.0f;
+    for (ProfileNode *node : profiler_layout_->root_nodes().last()) {
+      min_bottom_y = std::min(min_bottom_y, node->bottom_y);
+    }
+
     /* Giving a bit more space on the right side is convenient. */
-    const float extended_duration_ms = std::max(duration_ms * 1.1f, 5000.0f);
-    /* TODO: Remove magic numbers. */
-    UI_view2d_totRect_set(&region_->v2d, extended_duration_ms, 2000);
+    const int width = std::max(duration_ms * 1.1f, 5000.0f);
+    const int height = -min_bottom_y * UI_UNIT_Y + UI_UNIT_Y;
+
+    UI_view2d_totRect_set(&region_->v2d, width, height);
 
     UI_view2d_scrollers_draw(&region_->v2d, nullptr);
   }
