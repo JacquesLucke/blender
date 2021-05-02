@@ -25,6 +25,9 @@ using profile::ProfileTaskBeginNamed;
 using profile::ProfileTaskBeginRange;
 using profile::ProfileTaskEnd;
 
+static constexpr float node_height = 1.0f;
+static constexpr float parallel_padding = 0.1f;
+
 bool ProfileNode::time_overlap(const ProfileNode &a, const ProfileNode &b)
 {
   const bool begin_of_a_is_in_b = (a.begin_time_ > b.begin_time_ && a.begin_time_ < b.end_time_);
@@ -233,6 +236,40 @@ void ProfilerLayout::add(const RecordedProfile &recorded_profile)
   }
 
   pack_into_vectors(root_nodes_, root_nodes_to_pack);
+
+  this->update_y_positions();
+}
+
+void ProfilerLayout::update_y_positions()
+{
+  float top_y = 0.0f;
+  for (Span<ProfileNode *> nodes : root_nodes_) {
+    top_y = this->update_y_positions_of_nodes(nodes, top_y);
+    top_y -= parallel_padding;
+  }
+}
+
+float ProfilerLayout::update_y_positions_of_nodes(Span<ProfileNode *> nodes, float top_y)
+{
+  float bottom_y = top_y;
+  for (ProfileNode *node : nodes) {
+    node->top_y = top_y;
+    this->update_y_position_of_node(*node);
+    bottom_y = std::min(bottom_y, node->bottom_y);
+  }
+  return bottom_y;
+}
+
+void ProfilerLayout::update_y_position_of_node(ProfileNode &node)
+{
+  node.bottom_y = node.top_y - node_height;
+  node.bottom_y = this->update_y_positions_of_nodes(node.direct_children(), node.bottom_y);
+  for (Span<ProfileNode *> children : node.parallel_children()) {
+    if (!children.is_empty()) {
+      node.bottom_y -= parallel_padding;
+      node.bottom_y = this->update_y_positions_of_nodes(children, node.bottom_y);
+    }
+  }
 }
 
 void ProfileNode::destruct_recursively()

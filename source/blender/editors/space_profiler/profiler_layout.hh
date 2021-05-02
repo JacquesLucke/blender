@@ -49,8 +49,9 @@ class ProfileNode {
   friend ProfilerLayout;
 
  public:
-  int top_y;
-  int bottom_y;
+  /* In ui units. */
+  float top_y = 0.0f;
+  float bottom_y = 0.0f;
 
  public:
   StringRefNull name() const
@@ -135,6 +136,11 @@ class ProfilerLayout {
   {
     return end_time_;
   }
+
+ private:
+  void update_y_positions();
+  float update_y_positions_of_nodes(Span<ProfileNode *> nodes, float top_y);
+  void update_y_position_of_node(ProfileNode &node);
 };
 
 }  // namespace blender::ed::profiler

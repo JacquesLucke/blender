@@ -49,8 +49,6 @@ class ProfilerDrawer {
   SpaceProfiler *sprofiler_;
   SpaceProfiler_Runtime *runtime_;
   ProfilerLayout *profiler_layout_;
-  int row_height_;
-  int parallel_padding_;
 
  public:
   ProfilerDrawer(const bContext *C, ARegion *region) : C(C), region_(region)
@@ -61,18 +59,15 @@ class ProfilerDrawer {
     if (!runtime_->profiler_layout) {
       runtime_->profiler_layout = std::make_unique<ProfilerLayout>();
     }
-    profile::ProfileListener::flush_to_all();
+    if (runtime_->profile_listener) {
+      profile::ProfileListener::flush_to_all();
+    }
     profiler_layout_ = runtime_->profiler_layout.get();
-
-    row_height_ = UI_UNIT_Y;
-    parallel_padding_ = UI_UNIT_Y * 0.2f;
   }
 
   void draw()
   {
     UI_ThemeClearColor(TH_BACK);
-
-    this->compute_vertical_extends_of_all_nodes();
 
     Vector<ProfileNode *> nodes_to_draw;
     this->find_all_nodes_to_draw(nodes_to_draw);
@@ -91,39 +86,6 @@ class ProfilerDrawer {
     UI_view2d_totRect_set(&region_->v2d, extended_duration_ms, 2000);
 
     UI_view2d_scrollers_draw(&region_->v2d, nullptr);
-  }
-
-  void compute_vertical_extends_of_all_nodes()
-  {
-    BLI_PROFILE_SCOPE(__func__);
-    int top_y = region_->winy - region_->v2d.cur.ymax;
-    for (Span<ProfileNode *> nodes : profiler_layout_->root_nodes()) {
-      top_y = this->compute_vertical_extends_of_nodes(nodes, top_y);
-      top_y -= parallel_padding_;
-    }
-  }
-
-  float compute_vertical_extends_of_nodes(Span<ProfileNode *> nodes, const float top_y)
-  {
-    int bottom_y = top_y;
-    for (ProfileNode *node : nodes) {
-      node->top_y = top_y;
-      this->compute_vertical_extends_of_node(*node);
-      bottom_y = std::min(bottom_y, node->bottom_y);
-    }
-    return bottom_y;
-  }
-
-  void compute_vertical_extends_of_node(ProfileNode &node)
-  {
-    node.bottom_y = node.top_y - row_height_;
-    node.bottom_y = this->compute_vertical_extends_of_nodes(node.direct_children(), node.bottom_y);
-    for (Span<ProfileNode *> children : node.parallel_children()) {
-      if (!children.is_empty()) {
-        node.bottom_y -= parallel_padding_;
-        node.bottom_y = this->compute_vertical_extends_of_nodes(children, node.bottom_y);
-      }
-    }
   }
 
   void find_all_nodes_to_draw(Vector<ProfileNode *> &r_nodes)
@@ -221,7 +183,8 @@ class ProfilerDrawer {
     const Color4f color = this->get_node_color(node);
     immUniformColor4fv(color);
 
-    immRecti(pos, left_x, node.top_y, right_x, node.top_y - row_height_);
+    const float top_y = this->node_y_to_y(node.top_y);
+    immRecti(pos, left_x, top_y, right_x, top_y - UI_UNIT_Y);
 
     immUnbindProgram();
 
@@ -238,6 +201,7 @@ class ProfilerDrawer {
   {
     const int x = std::max(0, left_x);
     const int width = std::max(1, std::min<int>(right_x, region_->winx) - x);
+    const float top_y = this->node_y_to_y(node.top_y);
 
     uiBut *but = uiDefIconTextBut(ui_block,
                                   UI_BTYPE_BUT,
@@ -245,9 +209,9 @@ class ProfilerDrawer {
                                   ICON_NONE,
                                   node.name().c_str(),
                                   x,
-                                  node.top_y - row_height_,
+                                  top_y - UI_UNIT_Y,
                                   width,
-                                  row_height_,
+                                  UI_UNIT_Y,
                                   nullptr,
                                   0,
                                   0,
@@ -313,6 +277,11 @@ class ProfilerDrawer {
     const float ms_since_begin = UI_view2d_region_to_view_x(&region_->v2d, x);
     const TimePoint begin_time = profiler_layout_->begin_time();
     return begin_time + ms_to_duration(ms_since_begin);
+  }
+
+  float node_y_to_y(const float y) const
+  {
+    return region_->winy + y * UI_UNIT_Y - region_->v2d.cur.ymax;
   }
 
   Color4f get_node_color(ProfileNode &node)
