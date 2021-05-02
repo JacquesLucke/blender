@@ -16,6 +16,7 @@
 
 #include "profiler_layout.hh"
 
+#include "BLI_profile.hh"
 #include "BLI_set.hh"
 
 namespace blender::ed::profiler {
@@ -147,6 +148,8 @@ void ProfileNode::pack_added_children()
 
 void ProfilerLayout::add(const RecordedProfile &recorded_profile)
 {
+  BLI_PROFILE_SCOPE("Add to ProfilerLayout");
+
   /* Create new nodes for segments and add them to the id map. */
   auto init_node = [](const ProfileTaskBegin &task_begin, ProfileNode &node) {
     node.begin_time_ = task_begin.time;
@@ -242,6 +245,8 @@ void ProfilerLayout::add(const RecordedProfile &recorded_profile)
 
 void ProfilerLayout::update_y_positions()
 {
+  BLI_PROFILE_SCOPE(__func__);
+
   float top_y = 0.0f;
   for (Span<ProfileNode *> nodes : root_nodes_) {
     top_y = this->update_y_positions_of_nodes(nodes, top_y);

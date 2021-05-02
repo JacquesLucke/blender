@@ -82,8 +82,10 @@ class ProfilerDrawer {
                                              profiler_layout_->begin_time());
 
     float min_bottom_y = 0.0f;
-    for (ProfileNode *node : profiler_layout_->root_nodes().last()) {
-      min_bottom_y = std::min(min_bottom_y, node->bottom_y);
+    if (!profiler_layout_->root_nodes().is_empty()) {
+      for (ProfileNode *node : profiler_layout_->root_nodes().last()) {
+        min_bottom_y = std::min(min_bottom_y, node->bottom_y);
+      }
     }
 
     /* Giving a bit more space on the right side is convenient. */
@@ -105,6 +107,22 @@ class ProfilerDrawer {
 
   void find_nodes_to_draw(Span<ProfileNode *> nodes, Vector<ProfileNode *> &r_nodes)
   {
+    if (nodes.is_empty()) {
+      return;
+    }
+    const float top_y = this->node_y_to_region_y(nodes[0]->top_y);
+    if (top_y < 0) {
+      return;
+    }
+    float node_bottom_y = nodes[0]->bottom_y;
+    for (ProfileNode *node : nodes) {
+      node_bottom_y = std::min(node_bottom_y, node->bottom_y);
+    }
+    const float bottom_y = this->node_y_to_region_y(node_bottom_y);
+    if (bottom_y > region_->winy) {
+      return;
+    }
+
     const TimePoint left_time = this->x_to_time(0);
     const TimePoint right_time = this->x_to_time(region_->winx);
 
@@ -190,7 +208,7 @@ class ProfilerDrawer {
     const Color4f color = this->get_node_color(node);
     immUniformColor4fv(color);
 
-    const float top_y = this->node_y_to_y(node.top_y);
+    const float top_y = this->node_y_to_region_y(node.top_y);
     immRecti(pos, left_x, top_y, right_x, top_y - UI_UNIT_Y);
 
     immUnbindProgram();
@@ -208,7 +226,7 @@ class ProfilerDrawer {
   {
     const int x = std::max(0, left_x);
     const int width = std::max(1, std::min<int>(right_x, region_->winx) - x);
-    const float top_y = this->node_y_to_y(node.top_y);
+    const float top_y = this->node_y_to_region_y(node.top_y);
 
     uiBut *but = uiDefIconTextBut(ui_block,
                                   UI_BTYPE_BUT,
@@ -286,7 +304,7 @@ class ProfilerDrawer {
     return begin_time + ms_to_duration(ms_since_begin);
   }
 
-  float node_y_to_y(const float y) const
+  float node_y_to_region_y(const float y) const
   {
     return region_->winy + y * UI_UNIT_Y - region_->v2d.cur.ymax;
   }

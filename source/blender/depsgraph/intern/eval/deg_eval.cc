@@ -101,7 +101,7 @@ struct DepsgraphEvalState {
 
 void evaluate_node(const DepsgraphEvalState *state, OperationNode *operation_node)
 {
-  BLI_PROFILE_SCOPE_SUBTASK(__func__, &state->profile_task);
+  BLI_PROFILE_SCOPE_SUBTASK("Depsgraph Node", &state->profile_task);
 
   ::Depsgraph *depsgraph = reinterpret_cast<::Depsgraph *>(state->graph);
 
