@@ -24,6 +24,11 @@
 #include "FN_generic_value_map.hh"
 #include "FN_multi_function.hh"
 
+#include "BLI_stack.hh"
+
+#include <atomic>
+#include <tbb/task_group.h>
+
 namespace blender::modifiers::geometry_nodes {
 
 using bke::PersistentCollectionHandle;
@@ -32,6 +37,343 @@ using fn::CPPType;
 using fn::GValueMap;
 using nodes::GeoNodeExecParams;
 using namespace fn::multi_function_types;
+
+enum class InputUsage {
+  Yes,
+  Maybe,
+  No,
+  Consumed,
+};
+
+struct SingleInputValue {
+  GMutablePointer value;
+};
+
+struct MultiInputValue {
+  /* TODO. */
+};
+
+struct InputState {
+ private:
+  InputUsage usage_ = InputUsage::Maybe;
+  /* Either points to SingleInputValue of MultiInputValue. */
+  std::atomic<void *> value_ = nullptr;
+
+ public:
+  bool has_value() const
+  {
+    return value_.load(std::memory_order_acquire) != nullptr;
+  }
+
+  GPointer get_single() const
+  {
+    void *value = value_.load(std::memory_order_acquire);
+    BLI_assert(value != nullptr);
+    SingleInputValue *single_value = (SingleInputValue *)value;
+    return single_value->value;
+  }
+
+  GMutablePointer extract_single()
+  {
+    void *value = value_.load(std::memory_order_acquire);
+    BLI_assert(value != nullptr);
+    SingleInputValue *single_value = (SingleInputValue *)value;
+    value_.store(nullptr, std::memory_order_release);
+    usage_ = InputUsage::Consumed;
+    return single_value->value;
+  }
+
+  Vector<GMutablePointer> extract_multi()
+  {
+    /* TODO. */
+    return {};
+  }
+};
+
+struct OutputState {
+  void *value = nullptr;
+};
+
+struct NodeState {
+  std::mutex mutex;
+  Array<InputState> inputs;
+  Array<OutputState> outputs;
+  bool has_been_executed = false;
+};
+
+class NewGeometryNodesEvaluator;
+
+static DInputSocket get_input_by_identifier(const DNode node, const StringRef identifier)
+{
+  for (const InputSocketRef *socket : node->inputs()) {
+    if (socket->identifier() == identifier) {
+      return {node.context(), socket};
+    }
+  }
+  return {};
+}
+
+static DOutputSocket get_output_by_identifier(const DNode node, const StringRef identifier)
+{
+  for (const OutputSocketRef *socket : node->outputs()) {
+    if (socket->identifier() == identifier) {
+      return {node.context(), socket};
+    }
+  }
+  return {};
+}
+
+class NewNodeParamsProvider : public nodes::GeoNodeExecParamsProvider {
+ private:
+  NewGeometryNodesEvaluator &evaluator_;
+  NodeState *node_state_;
+
+ public:
+  NewNodeParamsProvider(NewGeometryNodesEvaluator &evaluator, DNode dnode) : evaluator_(evaluator)
+  {
+    this->dnode = dnode;
+    this->handle_map = &evaluator.handle_map_;
+    this->self_object = evaluator.self_object_;
+    this->modifier = evaluator.modifier_;
+    this->depsgraph = evaluator.depsgraph_;
+
+    node_state_ = evaluator.node_states_.lookup(dnode);
+  }
+
+  bool can_get_input(StringRef identifier) const override
+  {
+    const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
+    BLI_assert(socket);
+
+    InputState &input_state = node_state_->inputs[socket->index()];
+    return input_state.has_value();
+  }
+
+  bool can_set_output(StringRef identifier) const override
+  {
+    const DOutputSocket socket = get_output_by_identifier(this->dnode, identifier);
+    BLI_assert(socket);
+
+    OutputState &output_state = node_state_->outputs[socket->index()];
+    return output_state.value == nullptr;
+  }
+
+  GMutablePointer extract_input(StringRef identifier) override
+  {
+    const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
+    BLI_assert(socket);
+    BLI_assert(!socket->is_multi_input_socket());
+
+    InputState &input_state = node_state_->inputs[socket->index()];
+    return input_state.extract_single();
+  }
+
+  Vector<GMutablePointer> extract_multi_input(StringRef identifier) override
+  {
+    const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
+    BLI_assert(socket);
+    BLI_assert(socket->is_multi_input_socket());
+
+    InputState &input_state = node_state_->inputs[socket->index()];
+    return input_state.extract_multi();
+  }
+
+  GPointer get_input(StringRef identifier) const override
+  {
+    const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
+    BLI_assert(socket);
+    BLI_assert(!socket->is_multi_input_socket());
+
+    InputState &input_state = node_state_->inputs[socket->index()];
+    return input_state.get_single();
+  }
+
+  GMutablePointer alloc_output_value(StringRef identifier, const CPPType &type) override
+  {
+    /* TODO: Forward immediately so that other nodes can start already. */
+    const DOutputSocket socket = get_output_by_identifier(this->dnode, identifier);
+    OutputState &output_state = node_state_->outputs[socket->index()];
+
+    void *buffer = evaluator_.allocator_.allocate(type.size(), type.alignment());
+    GMutablePointer *ptr =
+        evaluator_.allocator_.construct<GMutablePointer>(type, buffer).release();
+    output_state.value = ptr;
+    return *ptr;
+  }
+};
+
+class NewGeometryNodesEvaluator {
+ private:
+  blender::LinearAllocator<> &allocator_;
+  Vector<DInputSocket> group_outputs_;
+  blender::nodes::MultiFunctionByNode &mf_by_node_;
+  const blender::nodes::DataTypeConversions &conversions_;
+  const PersistentDataHandleMap &handle_map_;
+  const Object *self_object_;
+  const ModifierData *modifier_;
+  Depsgraph *depsgraph_;
+  LogSocketValueFn log_socket_value_fn_;
+
+  Map<DNode, NodeState *> node_states_;
+  tbb::task_group task_group_;
+
+  std::mutex scheduled_nodes_mutex_;
+  Vector<DNode> scheduled_nodes_;
+
+  friend NewNodeParamsProvider;
+
+ public:
+  NewGeometryNodesEvaluator(GeometryNodesEvaluationParams &params)
+      : allocator_(params.allocator),
+        group_outputs_(std::move(params.output_sockets)),
+        mf_by_node_(*params.mf_by_node),
+        conversions_(blender::nodes::get_implicit_type_conversions()),
+        handle_map_(*params.handle_map),
+        self_object_(params.self_object),
+        modifier_(&params.modifier_->modifier),
+        depsgraph_(params.depsgraph),
+        log_socket_value_fn_(std::move(params.log_socket_value_fn))
+  {
+  }
+
+  void execute()
+  {
+    this->create_states_for_reachable_nodes();
+    this->schedule_initial_nodes();
+    // Create node states for reachable nodes.
+    // Set initial required sockets, which should spawn tasks.
+    task_group_.wait();
+    this->free_states();
+  }
+
+  void create_states_for_reachable_nodes()
+  {
+    Stack<DNode> nodes_to_check;
+    for (const DInputSocket &socket : group_outputs_) {
+      nodes_to_check.push(socket.node());
+    }
+    while (!nodes_to_check.is_empty()) {
+      const DNode node = nodes_to_check.pop();
+      if (node_states_.contains(node)) {
+        continue;
+      }
+      NodeState &node_state = *allocator_.construct<NodeState>().release();
+      node_state.inputs.reinitialize(node->inputs().size());
+      node_state.outputs.reinitialize(node->outputs().size());
+      node_states_.add_new(node, &node_state);
+
+      for (const InputSocketRef *input_ref : node->inputs()) {
+        const DInputSocket input{node.context(), input_ref};
+        input.foreach_origin_socket(
+            [&](const DSocket origin) { nodes_to_check.push(origin.node()); });
+      }
+    }
+  }
+
+  void free_states()
+  {
+    for (NodeState *node_state : node_states_.values()) {
+      node_state->~NodeState();
+    }
+  }
+
+  void schedule_initial_nodes()
+  {
+    for (const DInputSocket &socket : group_outputs_) {
+      this->set_input_required(socket);
+    }
+  }
+
+  void set_input_required(DInputSocket socket)
+  {
+    DNode node = socket.node();
+    NodeState *node_state = node_states_.lookup(node);
+    {
+      std::lock_guard lock{node_state->mutex};
+      InputState &input_state = node_state->inputs[socket->index()];
+      input_state.usage = InputUsage::Yes;
+    }
+    socket.foreach_origin_socket([&, this](const DSocket origin) {
+      const DNode origin_node = origin.node();
+      if (origin->is_output()) {
+        this->schedule_node_if_necessary(origin_node);
+      }
+    });
+  }
+
+  void forward_output(DOutputSocket socket)
+  {
+  }
+
+  void schedule_node_if_necessary(DNode node)
+  {
+    std::lock_guard lock{scheduled_nodes_mutex_};
+    if (scheduled_nodes_.contains(node)) {
+      return;
+    }
+    scheduled_nodes_.append(node);
+    task_group_.run([this]() { this->run_task(); });
+  }
+
+  void run_task()
+  {
+    DNode node;
+    {
+      std::lock_guard lock{scheduled_nodes_mutex_};
+      node = scheduled_nodes_.pop_last();
+    }
+    NodeState *node_state = node_states_.lookup(node);
+    /* Assume all required inputs have been provided. */
+
+    this->run_node(node);
+
+    // Execute node.
+    // Forward newly computed outputs.
+    // Update required/unused input sockets.
+  }
+
+  void run_node(DNode node)
+  {
+    NodeState *node_state = node_states_.lookup(node);
+
+    bool has_been_executed = false;
+    {
+      std::lock_guard lock{node_state->mutex};
+      has_been_executed = node_state->has_been_executed;
+    }
+
+    if (!has_been_executed) {
+      /* In the first execution, just request all inputs for now. */
+      int count = 0;
+      for (const InputSocketRef *input_ref : node->inputs()) {
+        if (input_ref->is_available()) {
+          const DInputSocket input{node.context(), input_ref};
+          this->set_input_required(input);
+          count++;
+        }
+      }
+      if (count > 0) {
+        std::lock_guard lock{node_state->mutex};
+        node_state->has_been_executed = true;
+        return;
+      }
+    }
+
+    NewNodeParamsProvider params_provider{*this, node};
+    GeoNodeExecParams params{params_provider};
+
+    const bNode &bnode = *params_provider.dnode->bnode();
+
+    if (bnode.typeinfo->geometry_node_execute != nullptr) {
+      bnode.typeinfo->geometry_node_execute(params);
+    }
+
+    for (const OutputSocketRef *output_socket_ref : node->outputs()) {
+      const DOutputSocket output_socket{node.context(), output_socket_ref};
+      this->forward_output(output_socket);
+    }
+  }
+};
 
 class NodeParamsProvider : public nodes::GeoNodeExecParamsProvider {
  public:
