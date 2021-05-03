@@ -40,11 +40,11 @@ using nodes::GeoNodeExecParams;
 using namespace fn::multi_function_types;
 
 enum class ValueUsage {
-  /* The input is definitely used by the node. */
+  /* The value is definitely used. */
   Yes,
-  /* The input may be used by the node. */
+  /* The value may be used. */
   Maybe,
-  /* The input will definitely not be used by the node. */
+  /* The value will definitely not be used. */
   No,
 };
 
@@ -383,14 +383,24 @@ class NewGeometryNodesEvaluator {
         input_state.was_ready_for_evaluation.store(true, std::memory_order_release);
       }
     }
+
+    bool evaluation_is_necessary = false;
     for (OutputState &output_state : node_state->outputs) {
       output_state.output_usage_for_evaluation = output_state.output_usage.load(
           std::memory_order_acquire);
+      if (output_state.output_usage_for_evaluation == ValueUsage::Yes) {
+        if (!output_state.has_been_computed) {
+          /* Only evaluate when there is an output that is required but has not been computed. */
+          evaluation_is_necessary = true;
+        }
+      }
     }
 
-    NewNodeParamsProvider params_provider{*this, node};
-    GeoNodeExecParams params{params_provider};
-    node->typeinfo()->geometry_node_execute(params);
+    if (evaluation_is_necessary) {
+      NewNodeParamsProvider params_provider{*this, node};
+      GeoNodeExecParams params{params_provider};
+      node->typeinfo()->geometry_node_execute(params);
+    }
 
     node_state->runs++;
 
