@@ -291,7 +291,7 @@ class NewGeometryNodesEvaluator {
     {
       std::lock_guard lock{node_state->mutex};
       InputState &input_state = node_state->inputs[socket->index()];
-      input_state.usage = InputUsage::Yes;
+      // input_state.usage = InputUsage::Yes;
     }
     socket.foreach_origin_socket([&, this](const DSocket origin) {
       const DNode origin_node = origin.node();

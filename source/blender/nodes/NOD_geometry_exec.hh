@@ -101,6 +101,14 @@ class GeoNodeExecParamsProvider {
    * initialized by the caller. The identifier and type are expected to be correct.
    */
   virtual GMutablePointer alloc_output_value(StringRef identifier, const CPPType &type) = 0;
+
+  virtual void require_input(StringRef identifier)
+  {
+  }
+
+  virtual void set_input_unused(StringRef identifier)
+  {
+  }
 };
 
 class GeoNodeExecParams {
@@ -110,6 +118,21 @@ class GeoNodeExecParams {
  public:
   GeoNodeExecParams(GeoNodeExecParamsProvider &provider) : provider_(&provider)
   {
+  }
+
+  bool input_is_available(StringRef identifier) const
+  {
+    return provider_->can_get_input(identifier);
+  }
+
+  void require_input(StringRef identifier)
+  {
+    provider_->require_input(identifier);
+  }
+
+  void set_input_unused(StringRef identifier)
+  {
+    provider_->set_input_unused(identifier);
   }
 
   /**

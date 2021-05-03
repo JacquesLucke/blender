@@ -76,11 +76,23 @@ void output_input(GeoNodeExecParams &params,
                   const StringRef input_suffix,
                   const StringRef output_identifier)
 {
+  std::string name_a = "A" + input_suffix;
+  std::string name_b = "B" + input_suffix;
   if (input) {
-    params.set_output(output_identifier, params.extract_input<T>("B" + input_suffix));
+    params.set_input_unused(name_a);
+    if (!params.input_is_available(name_b)) {
+      params.require_input(name_b);
+      return;
+    }
+    params.set_output(output_identifier, params.extract_input<T>(name_b));
   }
   else {
-    params.set_output(output_identifier, params.extract_input<T>("A" + input_suffix));
+    params.set_input_unused(name_b);
+    if (!params.input_is_available(name_a)) {
+      params.require_input(name_a);
+      return;
+    }
+    params.set_output(output_identifier, params.extract_input<T>(name_a));
   }
 }
 
@@ -102,7 +114,11 @@ static void geo_node_switch_update(bNodeTree *UNUSED(ntree), bNode *node)
 static void geo_node_switch_exec(GeoNodeExecParams params)
 {
   const NodeSwitch &storage = *(const NodeSwitch *)params.node().storage;
-  const bool input = params.extract_input<bool>("Switch");
+  if (!params.input_is_available("Switch")) {
+    params.require_input("Switch");
+    return;
+  }
+  const bool input = params.get_input<bool>("Switch");
   switch ((eNodeSocketDatatype)storage.input_type) {
     case SOCK_FLOAT: {
       output_input<float>(params, input, "", "Output");
