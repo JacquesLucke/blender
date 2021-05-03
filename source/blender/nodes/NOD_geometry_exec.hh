@@ -100,7 +100,10 @@ class GeoNodeExecParamsProvider {
    * Prepare a memory buffer for an output value of the node. The returned memory has to be
    * initialized by the caller. The identifier and type are expected to be correct.
    */
-  virtual GMutablePointer alloc_output_value(StringRef identifier, const CPPType &type) = 0;
+  virtual GMutablePointer alloc_output_value(const CPPType &type) = 0;
+
+  /** Has been allocated with #alloc_output_value. */
+  void set_output(StringRef identifier, GMutablePointer value);
 
   virtual void require_input(StringRef identifier)
   {
@@ -203,6 +206,7 @@ class GeoNodeExecParams {
 #endif
     GMutablePointer gvalue = provider_->alloc_output_value(identifier, type);
     new (gvalue.get()) StoredT(std::forward<T>(value));
+    provider_->set_output(identifier, gvalue);
   }
 
   /**

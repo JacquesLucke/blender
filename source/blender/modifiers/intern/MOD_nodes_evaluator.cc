@@ -57,13 +57,14 @@ struct MultiInputValueItem {
 };
 
 struct MultiInputValue {
+  /* Used when appending and checking if everything has been appended. */
   std::mutex mutex;
+
   Vector<MultiInputValueItem> values;
   int expected_size;
 };
 
 struct InputState {
- private:
   /**
    * How the node intends to use this input.
    */
@@ -145,8 +146,10 @@ class NewNodeParamsProvider : public nodes::GeoNodeExecParamsProvider {
     BLI_assert(socket);
 
     InputState &input_state = node_state_->inputs[socket->index()];
-    return input_state.was_ready_for_evaluation.load(std::memory_order_acquire) &&
-           input_state.value;
+    if (!input_state.was_ready_for_evaluation.load(std::memory_order_acquire)) {
+      return false;
+    }
+    return input_state.value.load(std::memory_order_acquire) != nullptr;
   }
 
   bool can_set_output(StringRef identifier) const override
@@ -155,7 +158,7 @@ class NewNodeParamsProvider : public nodes::GeoNodeExecParamsProvider {
     BLI_assert(socket);
 
     OutputState &output_state = node_state_->outputs[socket->index()];
-    return output_state.value == nullptr;
+    return !output_state.has_been_computed;
   }
 
   GMutablePointer extract_input(StringRef identifier) override
@@ -165,7 +168,11 @@ class NewNodeParamsProvider : public nodes::GeoNodeExecParamsProvider {
     BLI_assert(!socket->is_multi_input_socket());
 
     InputState &input_state = node_state_->inputs[socket->index()];
-    return input_state.extract_single();
+    BLI_assert(input_state.was_ready_for_evaluation);
+    SingleInputValue *value = (SingleInputValue *)input_state.value.load(
+        std::memory_order_acquire);
+    input_state.value.store(nullptr, std::memory_order_release);
+    return value->value;
   }
 
   Vector<GMutablePointer> extract_multi_input(StringRef identifier) override
@@ -175,7 +182,21 @@ class NewNodeParamsProvider : public nodes::GeoNodeExecParamsProvider {
     BLI_assert(socket->is_multi_input_socket());
 
     InputState &input_state = node_state_->inputs[socket->index()];
-    return input_state.extract_multi();
+    BLI_assert(input_state.was_ready_for_evaluation);
+    MultiInputValue *values = (MultiInputValue *)input_state.value.load(std::memory_order_acquire);
+    input_state.value.store(nullptr, std::memory_order_release);
+
+    Vector<GMutablePointer> ret_values;
+    socket.foreach_origin_socket([&](DSocket origin) {
+      for (const MultiInputValueItem &item : values->values) {
+        if (item.origin == origin) {
+          ret_values.append(item.value);
+          return;
+        }
+      }
+      BLI_assert_unreachable();
+    });
+    return ret_values;
   }
 
   GPointer get_input(StringRef identifier) const override
@@ -185,20 +206,26 @@ class NewNodeParamsProvider : public nodes::GeoNodeExecParamsProvider {
     BLI_assert(!socket->is_multi_input_socket());
 
     InputState &input_state = node_state_->inputs[socket->index()];
-    return input_state.get_single();
+    BLI_assert(input_state.was_ready_for_evaluation);
+    SingleInputValue *value = (SingleInputValue *)input_state.value.load(
+        std::memory_order_acquire);
+    return value->value;
   }
 
-  GMutablePointer alloc_output_value(StringRef identifier, const CPPType &type) override
+  GMutablePointer alloc_output_value(const CPPType &type) override
   {
-    /* TODO: Forward immediately so that other nodes can start already. */
-    const DOutputSocket socket = get_output_by_identifier(this->dnode, identifier);
-    OutputState &output_state = node_state_->outputs[socket->index()];
+    return {type, evaluator_.allocator_.allocate(type.size(), type.alignment())};
+  }
 
-    void *buffer = evaluator_.allocator_.allocate(type.size(), type.alignment());
-    GMutablePointer *ptr =
-        evaluator_.allocator_.construct<GMutablePointer>(type, buffer).release();
-    output_state.value = ptr;
-    return *ptr;
+  void set_output(StringRef identifier, GMutablePointer value)
+  {
+    const DOutputSocket socket = get_output_by_identifier(this->dnode, identifier);
+    BLI_assert(socket);
+
+    OutputState &output_state = node_state_->outputs[socket->index()];
+    BLI_assert(!output_state.has_been_computed);
+    output_state.has_been_computed = true;
+    evaluator_.forward_output(socket, value);
   }
 };
 
@@ -301,7 +328,7 @@ class NewGeometryNodesEvaluator {
     });
   }
 
-  void forward_output(DOutputSocket socket)
+  void forward_output(DOutputSocket socket, GMutablePointer value)
   {
   }
 
