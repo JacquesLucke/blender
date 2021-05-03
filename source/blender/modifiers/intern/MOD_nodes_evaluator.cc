@@ -93,7 +93,9 @@ struct OutputState {
   /**
    * Before evaluation starts, this is set to the proper value.
    */
-  std::atomic<ValueUsage> usage_for_evaluation = ValueUsage::Maybe;
+  std::atomic<ValueUsage> output_usage = ValueUsage::Maybe;
+
+  ValueUsage output_usage_for_evaluation;
 };
 
 struct NodeState {
@@ -103,6 +105,7 @@ struct NodeState {
 
   /** Only accessed while holding the schedule_mutex_. */
   bool is_running = false;
+  bool reschedule_after_run = false;
 };
 
 class NewGeometryNodesEvaluator;
@@ -263,7 +266,6 @@ class NewGeometryNodesEvaluator {
 
   std::mutex schedule_mutex_;
   VectorSet<DNode> scheduled_nodes_;
-  VectorSet<DNode> nodes_to_reschedule_;
 
   friend NewNodeParamsProvider;
 
@@ -345,15 +347,15 @@ class NewGeometryNodesEvaluator {
   {
     NodeState &node_state = *node_states_.lookup(node);
     std::lock_guard lock{schedule_mutex_};
-    if (scheduled_nodes_.add(node)) {
-      /* Node has been scheduled normally. */
-      task_group_.run([this]() { this->run_task(); });
-      return;
-    }
     if (node_state.is_running) {
       /* The node is currently running, it might have to run again because new inputs info is
        * available. */
-      nodes_to_reschedule_.add(node);
+      node_state.reschedule_after_run = true;
+      return;
+    }
+    if (scheduled_nodes_.add(node)) {
+      /* The node is not running and was not scheduled before. Just schedule it now. */
+      task_group_.run([this]() { this->run_task(); });
       return;
     }
     /* The node is scheduled already and is not running. Therefore the latest info will be taken
@@ -363,39 +365,44 @@ class NewGeometryNodesEvaluator {
   void run_task()
   {
     DNode node;
+    NodeState *node_state;
     {
-      std::lock_guard lock{scheduled_nodes_mutex_};
-      node = scheduled_nodes_.pop_last();
+      std::lock_guard lock{schedule_mutex_};
+      node = scheduled_nodes_.pop();
+      node_state = node_states_.lookup(node);
+      node_state->is_running = true;
     }
-    NodeState *node_state = node_states_.lookup(node);
-    /* Assume all required inputs have been provided. */
 
-    this->run_node(node);
-
-    // Execute node.
-    // Forward newly computed outputs.
-    // Update required/unused input sockets.
-  }
-
-  void run_node(DNode node)
-  {
-    NodeState &node_state = *node_states_.lookup(node);
-
-    if (node_state.runs == 0) {
+    if (node_state->runs == 0) {
       this->load_unlinked_inputs(node);
     }
 
-    for (InputState &input_state : node_state.inputs) {
+    for (InputState &input_state : node_state->inputs) {
+      /* TODO: Multi inputs. */
       if (input_state.value.load(std::memory_order_acquire) != nullptr) {
         input_state.was_ready_for_evaluation.store(true, std::memory_order_release);
       }
+    }
+    for (OutputState &output_state : node_state->outputs) {
+      output_state.output_usage_for_evaluation = output_state.output_usage.load(
+          std::memory_order_acquire);
     }
 
     NewNodeParamsProvider params_provider{*this, node};
     GeoNodeExecParams params{params_provider};
     node->typeinfo()->geometry_node_execute(params);
 
-    node_state.runs++;
+    node_state->runs++;
+
+    {
+      std::lock_guard lock{schedule_mutex_};
+      node_state->is_running = false;
+
+      if (node_state->reschedule_after_run) {
+        scheduled_nodes_.add(node);
+        node_state->reschedule_after_run = false;
+      }
+    }
   }
 
   void load_unlinked_inputs(const DNode node)
