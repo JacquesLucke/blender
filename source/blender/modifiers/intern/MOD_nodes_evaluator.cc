@@ -25,6 +25,7 @@
 #include "FN_multi_function.hh"
 
 #include "BLI_stack.hh"
+#include "BLI_vector_set.hh"
 
 #include <atomic>
 #include <tbb/task_group.h>
@@ -99,6 +100,9 @@ struct NodeState {
   Array<InputState> inputs;
   Array<OutputState> outputs;
   int runs = 0;
+
+  /** Only accessed while holding the schedule_mutex_. */
+  bool is_running = false;
 };
 
 class NewGeometryNodesEvaluator;
@@ -227,10 +231,23 @@ class NewNodeParamsProvider : public nodes::GeoNodeExecParamsProvider {
     output_state.has_been_computed = true;
     evaluator_.forward_output(socket, value);
   }
+
+  void require_input(StringRef identifier)
+  {
+    const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
+    evaluator_.set_input_required(socket);
+  }
+
+  void set_input_unused(StringRef identifier)
+  {
+    const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
+    evaluator_.set_input_unused(socket);
+  }
 };
 
 class NewGeometryNodesEvaluator {
  private:
+  /* TODO: Allocator per thread. */
   blender::LinearAllocator<> &allocator_;
   Vector<DInputSocket> group_outputs_;
   blender::nodes::MultiFunctionByNode &mf_by_node_;
@@ -244,8 +261,9 @@ class NewGeometryNodesEvaluator {
   Map<DNode, NodeState *> node_states_;
   tbb::task_group task_group_;
 
-  std::mutex scheduled_nodes_mutex_;
-  Vector<DNode> scheduled_nodes_;
+  std::mutex schedule_mutex_;
+  VectorSet<DNode> scheduled_nodes_;
+  VectorSet<DNode> nodes_to_reschedule_;
 
   friend NewNodeParamsProvider;
 
@@ -313,19 +331,10 @@ class NewGeometryNodesEvaluator {
 
   void set_input_required(DInputSocket socket)
   {
-    DNode node = socket.node();
-    NodeState *node_state = node_states_.lookup(node);
-    {
-      std::lock_guard lock{node_state->mutex};
-      InputState &input_state = node_state->inputs[socket->index()];
-      // input_state.usage = InputUsage::Yes;
-    }
-    socket.foreach_origin_socket([&, this](const DSocket origin) {
-      const DNode origin_node = origin.node();
-      if (origin->is_output()) {
-        this->schedule_node_if_necessary(origin_node);
-      }
-    });
+  }
+
+  void set_input_unused(DInputSocket socket)
+  {
   }
 
   void forward_output(DOutputSocket socket, GMutablePointer value)
@@ -334,12 +343,21 @@ class NewGeometryNodesEvaluator {
 
   void schedule_node_if_necessary(DNode node)
   {
-    std::lock_guard lock{scheduled_nodes_mutex_};
-    if (scheduled_nodes_.contains(node)) {
+    NodeState &node_state = *node_states_.lookup(node);
+    std::lock_guard lock{schedule_mutex_};
+    if (scheduled_nodes_.add(node)) {
+      /* Node has been scheduled normally. */
+      task_group_.run([this]() { this->run_task(); });
       return;
     }
-    scheduled_nodes_.append(node);
-    task_group_.run([this]() { this->run_task(); });
+    if (node_state.is_running) {
+      /* The node is currently running, it might have to run again because new inputs info is
+       * available. */
+      nodes_to_reschedule_.add(node);
+      return;
+    }
+    /* The node is scheduled already and is not running. Therefore the latest info will be taken
+     * into account when it runs next. No need to schedule it again. */
   }
 
   void run_task()
@@ -361,44 +379,97 @@ class NewGeometryNodesEvaluator {
 
   void run_node(DNode node)
   {
-    NodeState *node_state = node_states_.lookup(node);
+    NodeState &node_state = *node_states_.lookup(node);
 
-    bool has_been_executed = false;
-    {
-      std::lock_guard lock{node_state->mutex};
-      has_been_executed = node_state->has_been_executed;
+    if (node_state.runs == 0) {
+      this->load_unlinked_inputs(node);
     }
 
-    if (!has_been_executed) {
-      /* In the first execution, just request all inputs for now. */
-      int count = 0;
-      for (const InputSocketRef *input_ref : node->inputs()) {
-        if (input_ref->is_available()) {
-          const DInputSocket input{node.context(), input_ref};
-          this->set_input_required(input);
-          count++;
-        }
-      }
-      if (count > 0) {
-        std::lock_guard lock{node_state->mutex};
-        node_state->has_been_executed = true;
-        return;
+    for (InputState &input_state : node_state.inputs) {
+      if (input_state.value.load(std::memory_order_acquire) != nullptr) {
+        input_state.was_ready_for_evaluation.store(true, std::memory_order_release);
       }
     }
 
     NewNodeParamsProvider params_provider{*this, node};
     GeoNodeExecParams params{params_provider};
+    node->typeinfo()->geometry_node_execute(params);
 
-    const bNode &bnode = *params_provider.dnode->bnode();
+    node_state.runs++;
+  }
 
-    if (bnode.typeinfo->geometry_node_execute != nullptr) {
-      bnode.typeinfo->geometry_node_execute(params);
+  void load_unlinked_inputs(const DNode node)
+  {
+    NodeState &node_state = *node_states_.lookup(node);
+    for (const InputSocketRef *input_socket_ref : node->inputs()) {
+      if (!input_socket_ref->is_available()) {
+        continue;
+      }
+
+      InputState &input_state = node_state.inputs[input_socket_ref->index()];
+
+      const DInputSocket input_socket{node.context(), input_socket_ref};
+      Vector<DSocket> origin_sockets;
+      input_socket.foreach_origin_socket([&](DSocket origin) { origin_sockets.append(origin); });
+
+      const CPPType &type = *blender::nodes::socket_cpp_type_get(*input_socket_ref->typeinfo());
+
+      if (input_socket->is_multi_input_socket()) {
+        /* TODO */
+      }
+      else {
+        if (origin_sockets.is_empty()) {
+          GMutablePointer value = this->get_unlinked_input_value(input_socket, type);
+          SingleInputValue *single_value = (SingleInputValue *)input_state.value.load(
+              std::memory_order_acquire);
+          single_value->value = value;
+        }
+        BLI_assert(origin_sockets.size() == 1);
+        const DSocket origin = origin_sockets[0];
+        if (origin->is_input()) {
+          GMutablePointer value = this->get_unlinked_input_value(DInputSocket(origin), type);
+          SingleInputValue *single_value = (SingleInputValue *)input_state.value.load(
+              std::memory_order_acquire);
+          single_value->value = value;
+        }
+      }
+    }
+  }
+
+  GMutablePointer get_unlinked_input_value(const DInputSocket &socket,
+                                           const CPPType &required_type)
+  {
+    bNodeSocket *bsocket = socket->bsocket();
+    const CPPType &type = *blender::nodes::socket_cpp_type_get(*socket->typeinfo());
+    void *buffer = allocator_.allocate(type.size(), type.alignment());
+
+    if (bsocket->type == SOCK_OBJECT) {
+      Object *object = socket->default_value<bNodeSocketValueObject>()->value;
+      PersistentObjectHandle object_handle = handle_map_.lookup(object);
+      new (buffer) PersistentObjectHandle(object_handle);
+    }
+    else if (bsocket->type == SOCK_COLLECTION) {
+      Collection *collection = socket->default_value<bNodeSocketValueCollection>()->value;
+      PersistentCollectionHandle collection_handle = handle_map_.lookup(collection);
+      new (buffer) PersistentCollectionHandle(collection_handle);
+    }
+    else {
+      blender::nodes::socket_cpp_value_get(*bsocket, buffer);
     }
 
-    for (const OutputSocketRef *output_socket_ref : node->outputs()) {
-      const DOutputSocket output_socket{node.context(), output_socket_ref};
-      this->forward_output(output_socket);
+    if (type == required_type) {
+      return {type, buffer};
     }
+    if (conversions_.is_convertible(type, required_type)) {
+      void *converted_buffer = allocator_.allocate(required_type.size(),
+                                                   required_type.alignment());
+      conversions_.convert_to_uninitialized(type, required_type, buffer, converted_buffer);
+      type.destruct(buffer);
+      return {required_type, converted_buffer};
+    }
+    void *default_buffer = allocator_.allocate(required_type.size(), required_type.alignment());
+    required_type.copy_to_uninitialized(required_type.default_value(), default_buffer);
+    return {required_type, default_buffer};
   }
 };
 
