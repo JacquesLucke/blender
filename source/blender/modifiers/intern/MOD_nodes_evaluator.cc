@@ -38,67 +38,66 @@ using fn::GValueMap;
 using nodes::GeoNodeExecParams;
 using namespace fn::multi_function_types;
 
-enum class InputUsage {
+enum class ValueUsage {
+  /* The input is definitely used by the node. */
   Yes,
+  /* The input may be used by the node. */
   Maybe,
+  /* The input will definitely not be used by the node. */
   No,
-  Consumed,
 };
 
 struct SingleInputValue {
   GMutablePointer value;
 };
 
+struct MultiInputValueItem {
+  DSocket origin;
+  GMutablePointer value;
+};
+
 struct MultiInputValue {
-  /* TODO. */
+  std::mutex mutex;
+  Vector<MultiInputValueItem> values;
+  int expected_size;
 };
 
 struct InputState {
  private:
-  InputUsage usage_ = InputUsage::Maybe;
-  /* Either points to SingleInputValue of MultiInputValue. */
-  std::atomic<void *> value_ = nullptr;
+  /**
+   * How the node intends to use this input.
+   */
+  std::atomic<ValueUsage> usage = ValueUsage::Maybe;
 
- public:
-  bool has_value() const
-  {
-    return value_.load(std::memory_order_acquire) != nullptr;
-  }
+  /**
+   * Either points to SingleInputValue of MultiInputValue.
+   */
+  std::atomic<void *> value = nullptr;
 
-  GPointer get_single() const
-  {
-    void *value = value_.load(std::memory_order_acquire);
-    BLI_assert(value != nullptr);
-    SingleInputValue *single_value = (SingleInputValue *)value;
-    return single_value->value;
-  }
-
-  GMutablePointer extract_single()
-  {
-    void *value = value_.load(std::memory_order_acquire);
-    BLI_assert(value != nullptr);
-    SingleInputValue *single_value = (SingleInputValue *)value;
-    value_.store(nullptr, std::memory_order_release);
-    usage_ = InputUsage::Consumed;
-    return single_value->value;
-  }
-
-  Vector<GMutablePointer> extract_multi()
-  {
-    /* TODO. */
-    return {};
-  }
+  /**
+   * True when this input is/was used for an evaluation. While a node is running, only the inputs
+   * that have this set to true are allowed to be used. This makes sure that inputs created while
+   * the node is running correctly trigger the node to run again.
+   */
+  std::atomic<bool> was_ready_for_evaluation = false;
 };
 
 struct OutputState {
-  void *value = nullptr;
+  /**
+   * If this output has been computed and forwarded already.
+   */
+  bool has_been_computed = false;
+
+  /**
+   * Before evaluation starts, this is set to the proper value.
+   */
+  std::atomic<ValueUsage> usage_for_evaluation = ValueUsage::Maybe;
 };
 
 struct NodeState {
-  std::mutex mutex;
   Array<InputState> inputs;
   Array<OutputState> outputs;
-  bool has_been_executed = false;
+  int runs = 0;
 };
 
 class NewGeometryNodesEvaluator;
@@ -146,7 +145,8 @@ class NewNodeParamsProvider : public nodes::GeoNodeExecParamsProvider {
     BLI_assert(socket);
 
     InputState &input_state = node_state_->inputs[socket->index()];
-    return input_state.has_value();
+    return input_state.was_ready_for_evaluation.load(std::memory_order_acquire) &&
+           input_state.value;
   }
 
   bool can_set_output(StringRef identifier) const override
