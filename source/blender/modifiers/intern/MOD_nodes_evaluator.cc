@@ -333,6 +333,40 @@ class NewGeometryNodesEvaluator {
 
   void set_input_required(DInputSocket socket)
   {
+    const DNode node = socket.node();
+    NodeState &node_state = *node_states_.lookup(node);
+    InputState &input_state = node_state.inputs[socket->index()];
+
+    if (input_state.was_ready_for_evaluation.load(std::memory_order_acquire)) {
+      /* Value is used already. */
+      return;
+    }
+
+    const ValueUsage old_usage = input_state.usage.load(std::memory_order_acquire);
+    if (old_usage == ValueUsage::Yes) {
+      /* Was already required, nothing to do. */
+      return;
+    }
+
+    /* TODO: Separate handling for multi input? */
+    input_state.usage.store(ValueUsage::Yes, std::memory_order_release);
+    socket.foreach_origin_socket([&, this](const DSocket origin_socket) {
+      if (origin_socket->is_input()) {
+        /* These sockets are handled separately. */
+        return;
+      }
+      const DNode origin_node = origin_socket.node();
+      NodeState &origin_node_state = *this->node_states_.lookup(node);
+      OutputState &origin_socket_state = origin_node_state.outputs[origin_socket->index()];
+
+      if (origin_socket_state.output_usage.load(std::memory_order_acquire) != ValueUsage::Yes) {
+        /* Output is marked as required already. */
+        return;
+      }
+
+      origin_socket_state.output_usage.store(ValueUsage::Yes, std::memory_order_release);
+      this->schedule_node_if_necessary(origin_node);
+    });
   }
 
   void set_input_unused(DInputSocket socket)
@@ -377,29 +411,35 @@ class NewGeometryNodesEvaluator {
       this->load_unlinked_inputs(node);
     }
 
+    bool all_required_inputs_available = true;
     for (InputState &input_state : node_state->inputs) {
       /* TODO: Multi inputs. */
       if (input_state.value.load(std::memory_order_acquire) != nullptr) {
         input_state.was_ready_for_evaluation.store(true, std::memory_order_release);
       }
-    }
-
-    bool evaluation_is_necessary = false;
-    for (OutputState &output_state : node_state->outputs) {
-      output_state.output_usage_for_evaluation = output_state.output_usage.load(
-          std::memory_order_acquire);
-      if (output_state.output_usage_for_evaluation == ValueUsage::Yes) {
-        if (!output_state.has_been_computed) {
-          /* Only evaluate when there is an output that is required but has not been computed. */
-          evaluation_is_necessary = true;
-        }
+      else if (input_state.usage.load(std::memory_order_acquire) == ValueUsage::Yes) {
+        all_required_inputs_available = false;
       }
     }
 
-    if (evaluation_is_necessary) {
-      NewNodeParamsProvider params_provider{*this, node};
-      GeoNodeExecParams params{params_provider};
-      node->typeinfo()->geometry_node_execute(params);
+    if (all_required_inputs_available) {
+      bool evaluation_is_necessary = false;
+      for (OutputState &output_state : node_state->outputs) {
+        output_state.output_usage_for_evaluation = output_state.output_usage.load(
+            std::memory_order_acquire);
+        if (output_state.output_usage_for_evaluation == ValueUsage::Yes) {
+          if (!output_state.has_been_computed) {
+            /* Only evaluate when there is an output that is required but has not been computed. */
+            evaluation_is_necessary = true;
+          }
+        }
+      }
+
+      if (evaluation_is_necessary) {
+        NewNodeParamsProvider params_provider{*this, node};
+        GeoNodeExecParams params{params_provider};
+        node->typeinfo()->geometry_node_execute(params);
+      }
     }
 
     node_state->runs++;
