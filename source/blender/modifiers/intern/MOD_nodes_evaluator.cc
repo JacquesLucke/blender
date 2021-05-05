@@ -574,7 +574,7 @@ Vector<GMutablePointer> NewNodeParamsProvider::extract_multi_input(StringRef ide
   socket.foreach_origin_socket([&](DSocket origin) {
     for (const MultiInputValueItem &item : multi_value.items) {
       if (item.origin == origin) {
-        ret_values.append(item.value);
+        ret_values.append({*input_state.type, item.value});
         return;
       }
     }
