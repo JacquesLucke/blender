@@ -288,6 +288,9 @@ class NewGeometryNodesEvaluator {
     NodeState &node_state = *node_states_.lookup(node);
     InputState &input_state = node_state.inputs[socket->index()];
 
+    /* Value set as unused cannot become used again. */
+    BLI_assert(input_state.usage != ValueUsage::No);
+
     if (input_state.was_ready_for_evaluation.load(std::memory_order_acquire)) {
       /* Value is used already. */
       return;
