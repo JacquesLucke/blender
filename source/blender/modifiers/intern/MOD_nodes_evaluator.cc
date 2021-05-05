@@ -185,12 +185,34 @@ class NewGeometryNodesEvaluator {
   {
   }
 
-  void execute()
+  Vector<GMutablePointer> execute()
   {
     this->create_states_for_reachable_nodes();
     this->schedule_initial_nodes();
     task_group_.wait();
+
+    Vector<GMutablePointer> output_values;
+    for (const DInputSocket &socket : group_outputs_) {
+      BLI_assert(socket->is_available());
+      BLI_assert(!socket->is_multi_input_socket());
+
+      const DNode node = socket.node();
+      NodeState &node_state = *node_states_.lookup(node);
+      InputState &input_state = node_state.inputs[socket->index()];
+      const CPPType &type = *input_state.type;
+      SingleInputValue &single_value = *input_state.value.single;
+      void *value = single_value.value.load(std::memory_order_relaxed);
+      BLI_assert(value != nullptr);
+
+      /* Move value into memory owned by the main allocator. */
+      void *buffer = main_allocator_.allocate(type.size(), type.alignment());
+      type.move_to_uninitialized(value, buffer);
+
+      output_values.append({type, buffer});
+    }
+
     this->free_states();
+    return output_values;
   }
 
   void create_states_for_reachable_nodes()
@@ -300,7 +322,6 @@ class NewGeometryNodesEvaluator {
       return;
     }
 
-    /* TODO: Separate handling for multi input? */
     input_state.usage.store(ValueUsage::Yes, std::memory_order_release);
     socket.foreach_origin_socket([&, this](const DSocket origin_socket) {
       if (origin_socket->is_input()) {
@@ -820,7 +841,7 @@ void NewNodeParamsProvider::set_input_unused(StringRef identifier)
 void evaluate_geometry_nodes(GeometryNodesEvaluationParams &params)
 {
   NewGeometryNodesEvaluator evaluator{params};
-  // params.r_output_values = evaluator.execute();
+  params.r_output_values = evaluator.execute();
 }
 
 }  // namespace blender::modifiers::geometry_nodes
