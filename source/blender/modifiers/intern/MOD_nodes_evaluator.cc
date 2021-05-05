@@ -199,6 +199,10 @@ class NewGeometryNodesEvaluator {
 
       const DNode node = socket.node();
       NodeState &node_state = *node_states_.lookup(node);
+      if (!node_state.unlinked_inputs_loaded) {
+        this->load_unlinked_inputs(node);
+        node_state.unlinked_inputs_loaded = true;
+      }
       InputState &input_state = node_state.inputs[socket->index()];
       const CPPType &type = *input_state.type;
       SingleInputValue &single_value = *input_state.value.single;
@@ -273,22 +277,24 @@ class NewGeometryNodesEvaluator {
       for (const int i : node->inputs().index_range()) {
         InputState &input_state = node_state.inputs[i];
         const InputSocketRef &socket_ref = node->input(i);
-        if (socket_ref.is_multi_input_socket()) {
-          MultiInputValue &multi_value = *input_state.value.multi;
-          for (MultiInputValueItem &item : multi_value.items) {
-            if (item.value != nullptr) {
-              input_state.type->destruct(item.value);
+        if (input_state.type != nullptr) {
+          if (socket_ref.is_multi_input_socket()) {
+            MultiInputValue &multi_value = *input_state.value.multi;
+            for (MultiInputValueItem &item : multi_value.items) {
+              if (item.value != nullptr) {
+                input_state.type->destruct(item.value);
+              }
             }
+            multi_value.~MultiInputValue();
           }
-          multi_value.~MultiInputValue();
-        }
-        else {
-          SingleInputValue &single_value = *input_state.value.single;
-          void *value = single_value.value.load(std::memory_order_acquire);
-          if (value != nullptr) {
-            input_state.type->destruct(value);
+          else {
+            SingleInputValue &single_value = *input_state.value.single;
+            void *value = single_value.value.load(std::memory_order_acquire);
+            if (value != nullptr) {
+              input_state.type->destruct(value);
+            }
+            single_value.~SingleInputValue();
           }
-          single_value.~SingleInputValue();
         }
       }
 
@@ -313,7 +319,9 @@ class NewGeometryNodesEvaluator {
     BLI_assert(input_state.usage != ValueUsage::No);
 
     if (input_state.was_ready_for_evaluation.load(std::memory_order_acquire)) {
-      /* Value is used already. */
+      /* Value is available already, it cannot be requested again. This makes sure that nodes don't
+       * require the same input unnecessarily. */
+      BLI_assert_unreachable();
       return;
     }
 
@@ -330,10 +338,10 @@ class NewGeometryNodesEvaluator {
         return;
       }
       const DNode origin_node = origin_socket.node();
-      NodeState &origin_node_state = *this->node_states_.lookup(node);
+      NodeState &origin_node_state = *this->node_states_.lookup(origin_node);
       OutputState &origin_socket_state = origin_node_state.outputs[origin_socket->index()];
 
-      if (origin_socket_state.output_usage.load(std::memory_order_acquire) != ValueUsage::Yes) {
+      if (origin_socket_state.output_usage.load(std::memory_order_acquire) == ValueUsage::Yes) {
         /* Output is marked as required already. */
         return;
       }
@@ -556,13 +564,21 @@ class NewGeometryNodesEvaluator {
   {
     /* Temporary solution: just set all inputs as required in the first run. */
     if (node_state.runs == 0) {
+      bool inputs_requested = false;
       for (const InputSocketRef *socket_ref : node->inputs()) {
         if (!socket_ref->is_available()) {
           continue;
         }
+        const CPPType *type = this->get_socket_type(*socket_ref);
+        if (type == nullptr) {
+          continue;
+        }
         this->set_input_required({node.context(), socket_ref});
+        inputs_requested = true;
       }
-      return;
+      if (inputs_requested) {
+        return;
+      }
     }
 
     const bNode &bnode = *node->bnode();
@@ -661,14 +677,15 @@ class NewGeometryNodesEvaluator {
       if (!input_socket_ref->is_available()) {
         continue;
       }
-
       InputState &input_state = node_state.inputs[input_socket_ref->index()];
-
+      if (input_state.type == nullptr) {
+        continue;
+      }
       const DInputSocket input_socket{node.context(), input_socket_ref};
+      const CPPType &type = *input_state.type;
+
       Vector<DSocket> origin_sockets;
       input_socket.foreach_origin_socket([&](DSocket origin) { origin_sockets.append(origin); });
-
-      const CPPType &type = *this->get_socket_type(input_socket);
 
       if (input_socket->is_multi_input_socket()) {
         MultiInputValue &multi_value = *input_state.value.multi;
