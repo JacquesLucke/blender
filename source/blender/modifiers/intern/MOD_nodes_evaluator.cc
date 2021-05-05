@@ -216,7 +216,7 @@ class NewGeometryNodesEvaluator {
         if (!socket_ref.is_available()) {
           continue;
         }
-        const CPPType *type = nodes::socket_cpp_type_get(*socket_ref.typeinfo());
+        const CPPType *type = this->get_socket_type(socket_ref);
         input_state.type = type;
         if (type == nullptr) {
           continue;
@@ -323,12 +323,98 @@ class NewGeometryNodesEvaluator {
     });
   }
 
-  void set_input_unused(DInputSocket socket)
+  void set_input_unused(DInputSocket UNUSED(socket))
   {
   }
 
-  void forward_output(DOutputSocket socket, GMutablePointer value)
+  void forward_output(const DOutputSocket from_socket, GMutablePointer value_to_forward)
   {
+    BLI_assert(value_to_forward.get() != nullptr);
+
+    Vector<DInputSocket> to_sockets;
+
+    auto handle_target_socket_fn = [&, this](const DInputSocket to_socket) {
+      if (!to_socket->is_available()) {
+        return;
+      }
+      const DNode to_node = to_socket.node();
+      NodeState *target_node_state = this->node_states_.lookup_default(to_node, nullptr);
+      if (target_node_state == nullptr) {
+        return;
+      }
+      InputState &target_input_state = target_node_state->inputs[to_socket->index()];
+      const ValueUsage usage = target_input_state.usage.load(std::memory_order_acquire);
+      if (usage == ValueUsage::No) {
+        return;
+      }
+      to_sockets.append(to_socket);
+    };
+
+    auto handle_skipped_socket_fn = [&](DSocket UNUSED(socket)) {};
+
+    from_socket.foreach_target_socket(handle_target_socket_fn, handle_skipped_socket_fn);
+
+    LinearAllocator<> &allocator = local_allocators_.local();
+
+    const CPPType &from_type = *value_to_forward.type();
+    Vector<DInputSocket> to_sockets_same_type;
+    for (const DInputSocket &to_socket : to_sockets) {
+      const CPPType &to_type = *this->get_socket_type(to_socket);
+      if (from_type == to_type) {
+        to_sockets_same_type.append(to_socket);
+        continue;
+      }
+      void *buffer = allocator.allocate(to_type.size(), to_type.alignment());
+      if (conversions_.is_convertible(from_type, to_type)) {
+        conversions_.convert_to_uninitialized(from_type, to_type, value_to_forward.get(), buffer);
+      }
+      else {
+        /* Cannot convert, use default value instead. */
+        to_type.copy_to_uninitialized(to_type.default_value(), buffer);
+      }
+      this->add_value_to_input_socket(to_socket, from_socket, {to_type, buffer});
+    }
+
+    if (to_sockets_same_type.is_empty()) {
+      /* Value is not used anymore, so it can be destructed. */
+      value_to_forward.destruct();
+    }
+    else if (to_sockets_same_type.size() == 1) {
+      /* Value is only used by one input socket, no need to copy it. */
+      const DInputSocket to_socket = to_sockets_same_type[0];
+      this->add_value_to_input_socket(to_socket, from_socket, value_to_forward);
+    }
+    else {
+      /* Multiple inputs use the value, make a copy for every input except for one. */
+      /* First make the copies, so that the next node does not start modifying the value while we
+       * are still making copies. */
+      const CPPType &type = *value_to_forward.type();
+      for (const DInputSocket &to_socket : to_sockets_same_type.as_span().drop_front(1)) {
+        void *buffer = allocator.allocate(type.size(), type.alignment());
+        type.copy_to_uninitialized(value_to_forward.get(), buffer);
+        this->add_value_to_input_socket(to_socket, from_socket, {type, buffer});
+      }
+      /* Forward the original value to one of the targets. */
+      const DInputSocket to_socket = to_sockets_same_type[0];
+      this->add_value_to_input_socket(to_socket, from_socket, value_to_forward);
+    }
+  }
+
+  void add_value_to_input_socket(const DInputSocket to_socket,
+                                 const DOutputSocket origin,
+                                 GMutablePointer value)
+  {
+    /* TODO */
+  }
+
+  const CPPType *get_socket_type(const DSocket socket) const
+  {
+    return nodes::socket_cpp_type_get(*socket->typeinfo());
+  }
+
+  const CPPType *get_socket_type(const SocketRef &socket) const
+  {
+    return nodes::socket_cpp_type_get(*socket.typeinfo());
   }
 
   void schedule_node_if_necessary(DNode node)
@@ -445,7 +531,7 @@ class NewGeometryNodesEvaluator {
       Vector<DSocket> origin_sockets;
       input_socket.foreach_origin_socket([&](DSocket origin) { origin_sockets.append(origin); });
 
-      const CPPType &type = *blender::nodes::socket_cpp_type_get(*input_socket_ref->typeinfo());
+      const CPPType &type = *this->get_socket_type(input_socket);
 
       if (input_socket->is_multi_input_socket()) {
         MultiInputValue &multi_value = *input_state.value.multi;
@@ -481,7 +567,7 @@ class NewGeometryNodesEvaluator {
     LinearAllocator<> &allocator = local_allocators_.local();
 
     bNodeSocket *bsocket = socket->bsocket();
-    const CPPType &type = *blender::nodes::socket_cpp_type_get(*socket->typeinfo());
+    const CPPType &type = *this->get_socket_type(socket);
     void *buffer = allocator.allocate(type.size(), type.alignment());
 
     if (bsocket->type == SOCK_OBJECT) {
