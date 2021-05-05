@@ -512,8 +512,7 @@ class NewGeometryNodesEvaluator {
       }
 
       if (evaluation_is_necessary) {
-
-        this->execute_node(node);
+        this->execute_node(node, node_state);
       }
     }
 
@@ -530,7 +529,7 @@ class NewGeometryNodesEvaluator {
     }
   }
 
-  void execute_node(const DNode node)
+  void execute_node(const DNode node, NodeState &node_state)
   {
     const bNode &bnode = *node->bnode();
 
@@ -543,7 +542,7 @@ class NewGeometryNodesEvaluator {
     /* Use the multi-function implementation if it exists. */
     const MultiFunction *multi_function = mf_by_node_.lookup_default(node, nullptr);
     if (multi_function != nullptr) {
-      this->execute_multi_function_node(node, *multi_function);
+      this->execute_multi_function_node(node, *multi_function, node_state);
       return;
     }
 
@@ -559,8 +558,49 @@ class NewGeometryNodesEvaluator {
     bnode.typeinfo->geometry_node_execute(params);
   }
 
-  void execute_multi_function_node(const DNode node, const MultiFunction &fn)
+  void execute_multi_function_node(const DNode node,
+                                   const MultiFunction &fn,
+                                   NodeState &node_state)
   {
+    MFContextBuilder fn_context;
+    MFParamsBuilder fn_params{fn, 1};
+    LinearAllocator<> &allocator = local_allocators_.local();
+    for (const int i : node->inputs().index_range()) {
+      const InputSocketRef &socket_ref = node->input(i);
+      if (!socket_ref.is_available()) {
+        continue;
+      }
+      BLI_assert(!socket_ref.is_multi_input_socket());
+      InputState &input_state = node_state.inputs[i];
+      BLI_assert(input_state.was_ready_for_evaluation);
+      SingleInputValue &single_value = *input_state.value.single;
+      void *value = single_value.value.load(std::memory_order_acquire);
+      fn_params.add_readonly_single_input(GPointer{*input_state.type, value});
+    }
+    Vector<GMutablePointer> outputs;
+    for (const int i : node->outputs().index_range()) {
+      const OutputSocketRef &socket_ref = node->output(i);
+      if (!socket_ref.is_available()) {
+        continue;
+      }
+      const CPPType &type = *this->get_socket_type(socket_ref);
+      void *buffer = allocator.allocate(type.size(), type.alignment());
+      fn_params.add_uninitialized_single_output(GMutableSpan{type, buffer, 1});
+      outputs.append({type, buffer});
+    }
+
+    fn.call(IndexRange(1), fn_params, fn_context);
+
+    int output_index = 0;
+    for (const int i : node->outputs().index_range()) {
+      const OutputSocketRef &socket_ref = node->output(i);
+      if (!socket_ref.is_available()) {
+      }
+      const DOutputSocket socket{node.context(), &socket_ref};
+      GMutablePointer value = outputs[output_index];
+      this->forward_output(socket, value);
+      output_index++;
+    }
   }
 
   void execute_unknown_node(const DNode node)
