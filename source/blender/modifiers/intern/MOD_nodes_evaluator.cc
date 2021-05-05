@@ -194,7 +194,13 @@ class NewGeometryNodesEvaluator {
     this->forward_input_values();
     this->schedule_initial_nodes();
     task_group_.wait();
+    Vector<GMutablePointer> output_values = this->extract_output_values();
+    this->free_states();
+    return output_values;
+  }
 
+  Vector<GMutablePointer> extract_output_values()
+  {
     Vector<GMutablePointer> output_values;
     for (const DInputSocket &socket : group_outputs_) {
       BLI_assert(socket->is_available());
@@ -218,8 +224,6 @@ class NewGeometryNodesEvaluator {
 
       output_values.append({type, buffer});
     }
-
-    this->free_states();
     return output_values;
   }
 
@@ -363,11 +367,6 @@ class NewGeometryNodesEvaluator {
         return;
       }
       const DNode origin_node = origin_socket.node();
-      // if (origin_node->is_group_input_node()) {
-      //   /* The group input node has forwarded its values already */
-      //   this->schedule_node_if_necessary(origin_node);
-      //   return;
-      // }
       NodeState &origin_node_state = *this->node_states_.lookup(origin_node);
       OutputState &origin_socket_state = origin_node_state.outputs[origin_socket->index()];
 
@@ -700,7 +699,10 @@ class NewGeometryNodesEvaluator {
     for (const int i : node->outputs().index_range()) {
       const OutputSocketRef &socket_ref = node->output(i);
       if (!socket_ref.is_available()) {
+        continue;
       }
+      OutputState &output_state = node_state.outputs[i];
+      output_state.has_been_computed = true;
       const DOutputSocket socket{node.context(), &socket_ref};
       GMutablePointer value = outputs[output_index];
       this->forward_output(socket, value, {});
@@ -710,6 +712,7 @@ class NewGeometryNodesEvaluator {
 
   void execute_unknown_node(const DNode node)
   {
+    NodeState &node_state = *node_states_.lookup(node);
     LinearAllocator<> &allocator = local_allocators_.local();
     for (const OutputSocketRef *socket : node->outputs()) {
       if (!socket->is_available()) {
@@ -719,6 +722,8 @@ class NewGeometryNodesEvaluator {
       if (type == nullptr) {
         continue;
       }
+      OutputState &output_state = node_state.outputs[socket->index()];
+      output_state.has_been_computed = true;
       void *buffer = allocator.allocate(type->size(), type->alignment());
       type->copy_to_uninitialized(type->default_value(), buffer);
       this->forward_output({node.context(), socket}, {*type, buffer}, {});
