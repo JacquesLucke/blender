@@ -138,117 +138,17 @@ class NewNodeParamsProvider : public nodes::GeoNodeExecParamsProvider {
   NodeState *node_state_;
 
  public:
-  NewNodeParamsProvider(NewGeometryNodesEvaluator &evaluator, DNode dnode) : evaluator_(evaluator)
-  {
-    this->dnode = dnode;
-    this->handle_map = &evaluator.handle_map_;
-    this->self_object = evaluator.self_object_;
-    this->modifier = evaluator.modifier_;
-    this->depsgraph = evaluator.depsgraph_;
+  NewNodeParamsProvider(NewGeometryNodesEvaluator &evaluator, DNode dnode);
 
-    node_state_ = evaluator.node_states_.lookup(dnode);
-  }
-
-  bool can_get_input(StringRef identifier) const override
-  {
-    const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
-    BLI_assert(socket);
-
-    InputState &input_state = node_state_->inputs[socket->index()];
-    if (!input_state.was_ready_for_evaluation.load(std::memory_order_acquire)) {
-      return false;
-    }
-    return input_state.value.load(std::memory_order_acquire) != nullptr;
-  }
-
-  bool can_set_output(StringRef identifier) const override
-  {
-    const DOutputSocket socket = get_output_by_identifier(this->dnode, identifier);
-    BLI_assert(socket);
-
-    OutputState &output_state = node_state_->outputs[socket->index()];
-    return !output_state.has_been_computed;
-  }
-
-  GMutablePointer extract_input(StringRef identifier) override
-  {
-    const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
-    BLI_assert(socket);
-    BLI_assert(!socket->is_multi_input_socket());
-
-    InputState &input_state = node_state_->inputs[socket->index()];
-    BLI_assert(input_state.was_ready_for_evaluation);
-    SingleInputValue *value = (SingleInputValue *)input_state.value.load(
-        std::memory_order_acquire);
-    input_state.value.store(nullptr, std::memory_order_release);
-    return value->value;
-  }
-
-  Vector<GMutablePointer> extract_multi_input(StringRef identifier) override
-  {
-    const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
-    BLI_assert(socket);
-    BLI_assert(socket->is_multi_input_socket());
-
-    InputState &input_state = node_state_->inputs[socket->index()];
-    BLI_assert(input_state.was_ready_for_evaluation);
-    MultiInputValue *values = (MultiInputValue *)input_state.value.load(std::memory_order_acquire);
-    input_state.value.store(nullptr, std::memory_order_release);
-
-    Vector<GMutablePointer> ret_values;
-    socket.foreach_origin_socket([&](DSocket origin) {
-      for (const MultiInputValueItem &item : values->values) {
-        if (item.origin == origin) {
-          ret_values.append(item.value);
-          return;
-        }
-      }
-      BLI_assert_unreachable();
-    });
-    return ret_values;
-  }
-
-  GPointer get_input(StringRef identifier) const override
-  {
-    const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
-    BLI_assert(socket);
-    BLI_assert(!socket->is_multi_input_socket());
-
-    InputState &input_state = node_state_->inputs[socket->index()];
-    BLI_assert(input_state.was_ready_for_evaluation);
-    SingleInputValue *value = (SingleInputValue *)input_state.value.load(
-        std::memory_order_acquire);
-    return value->value;
-  }
-
-  GMutablePointer alloc_output_value(const CPPType &type) override
-  {
-    LinearAllocator<> &allocator = evaluator_.local_allocators_.local();
-    return {type, allocator.allocate(type.size(), type.alignment())};
-  }
-
-  void set_output(StringRef identifier, GMutablePointer value)
-  {
-    const DOutputSocket socket = get_output_by_identifier(this->dnode, identifier);
-    BLI_assert(socket);
-
-    OutputState &output_state = node_state_->outputs[socket->index()];
-    BLI_assert(!output_state.has_been_computed);
-    output_state.has_been_computed = true;
-    evaluator_.forward_output(socket, value);
-  }
-
-  void require_input(StringRef identifier)
-  {
-    const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
-    evaluator_.set_input_required(socket);
-  }
-
-  void set_input_unused(StringRef identifier)
-  {
-    const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
-    evaluator_.set_input_unused(socket);
-  }
+  bool can_get_input(StringRef identifier) const override;
+  bool can_set_output(StringRef identifier) const override;
+  GMutablePointer extract_input(StringRef identifier) override;
+  Vector<GMutablePointer> extract_multi_input(StringRef identifier) override;
+  GPointer get_input(StringRef identifier) const override;
+  GMutablePointer alloc_output_value(const CPPType &type) override;
+  void set_output(StringRef identifier, GMutablePointer value) override;
+  void require_input(StringRef identifier) override;
+  void set_input_unused(StringRef identifier) override;
 };
 
 class NewGeometryNodesEvaluator {
@@ -533,6 +433,117 @@ class NewGeometryNodesEvaluator {
     return {required_type, default_buffer};
   }
 };
+
+NewNodeParamsProvider::NewNodeParamsProvider(NewGeometryNodesEvaluator &evaluator, DNode dnode)
+    : evaluator_(evaluator)
+{
+  this->dnode = dnode;
+  this->handle_map = &evaluator.handle_map_;
+  this->self_object = evaluator.self_object_;
+  this->modifier = evaluator.modifier_;
+  this->depsgraph = evaluator.depsgraph_;
+
+  node_state_ = evaluator.node_states_.lookup(dnode);
+}
+
+bool NewNodeParamsProvider::can_get_input(StringRef identifier) const
+{
+  const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
+  BLI_assert(socket);
+
+  InputState &input_state = node_state_->inputs[socket->index()];
+  if (!input_state.was_ready_for_evaluation.load(std::memory_order_acquire)) {
+    return false;
+  }
+  return input_state.value.load(std::memory_order_acquire) != nullptr;
+}
+
+bool NewNodeParamsProvider::can_set_output(StringRef identifier) const
+{
+  const DOutputSocket socket = get_output_by_identifier(this->dnode, identifier);
+  BLI_assert(socket);
+
+  OutputState &output_state = node_state_->outputs[socket->index()];
+  return !output_state.has_been_computed;
+}
+
+GMutablePointer NewNodeParamsProvider::extract_input(StringRef identifier)
+{
+  const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
+  BLI_assert(socket);
+  BLI_assert(!socket->is_multi_input_socket());
+
+  InputState &input_state = node_state_->inputs[socket->index()];
+  BLI_assert(input_state.was_ready_for_evaluation);
+  SingleInputValue *value = (SingleInputValue *)input_state.value.load(std::memory_order_acquire);
+  input_state.value.store(nullptr, std::memory_order_release);
+  return value->value;
+}
+
+Vector<GMutablePointer> NewNodeParamsProvider::extract_multi_input(StringRef identifier)
+{
+  const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
+  BLI_assert(socket);
+  BLI_assert(socket->is_multi_input_socket());
+
+  InputState &input_state = node_state_->inputs[socket->index()];
+  BLI_assert(input_state.was_ready_for_evaluation);
+  MultiInputValue *values = (MultiInputValue *)input_state.value.load(std::memory_order_acquire);
+  input_state.value.store(nullptr, std::memory_order_release);
+
+  Vector<GMutablePointer> ret_values;
+  socket.foreach_origin_socket([&](DSocket origin) {
+    for (const MultiInputValueItem &item : values->values) {
+      if (item.origin == origin) {
+        ret_values.append(item.value);
+        return;
+      }
+    }
+    BLI_assert_unreachable();
+  });
+  return ret_values;
+}
+
+GPointer NewNodeParamsProvider::get_input(StringRef identifier) const
+{
+  const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
+  BLI_assert(socket);
+  BLI_assert(!socket->is_multi_input_socket());
+
+  InputState &input_state = node_state_->inputs[socket->index()];
+  BLI_assert(input_state.was_ready_for_evaluation);
+  SingleInputValue *value = (SingleInputValue *)input_state.value.load(std::memory_order_acquire);
+  return value->value;
+}
+
+GMutablePointer NewNodeParamsProvider::alloc_output_value(const CPPType &type)
+{
+  LinearAllocator<> &allocator = evaluator_.local_allocators_.local();
+  return {type, allocator.allocate(type.size(), type.alignment())};
+}
+
+void NewNodeParamsProvider::set_output(StringRef identifier, GMutablePointer value)
+{
+  const DOutputSocket socket = get_output_by_identifier(this->dnode, identifier);
+  BLI_assert(socket);
+
+  OutputState &output_state = node_state_->outputs[socket->index()];
+  BLI_assert(!output_state.has_been_computed);
+  output_state.has_been_computed = true;
+  evaluator_.forward_output(socket, value);
+}
+
+void NewNodeParamsProvider::require_input(StringRef identifier)
+{
+  const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
+  evaluator_.set_input_required(socket);
+}
+
+void NewNodeParamsProvider::set_input_unused(StringRef identifier)
+{
+  const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
+  evaluator_.set_input_unused(socket);
+}
 
 void evaluate_geometry_nodes(GeometryNodesEvaluationParams &params)
 {

@@ -103,15 +103,11 @@ class GeoNodeExecParamsProvider {
   virtual GMutablePointer alloc_output_value(const CPPType &type) = 0;
 
   /** Has been allocated with #alloc_output_value. */
-  void set_output(StringRef identifier, GMutablePointer value);
+  virtual void set_output(StringRef identifier, GMutablePointer value) = 0;
 
-  virtual void require_input(StringRef identifier)
-  {
-  }
+  virtual void require_input(StringRef identifier) = 0;
 
-  virtual void set_input_unused(StringRef identifier)
-  {
-  }
+  virtual void set_input_unused(StringRef identifier) = 0;
 };
 
 class GeoNodeExecParams {
@@ -204,7 +200,7 @@ class GeoNodeExecParams {
 #ifdef DEBUG
     this->check_output_access(identifier, type);
 #endif
-    GMutablePointer gvalue = provider_->alloc_output_value(identifier, type);
+    GMutablePointer gvalue = provider_->alloc_output_value(type);
     new (gvalue.get()) StoredT(std::forward<T>(value));
     provider_->set_output(identifier, gvalue);
   }
