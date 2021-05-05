@@ -50,19 +50,19 @@ enum class ValueUsage {
 };
 
 struct SingleInputValue {
-  GMutablePointer value;
+  std::atomic<void *> value = nullptr;
 };
 
 struct MultiInputValueItem {
   DSocket origin;
-  GMutablePointer value;
+  void *value;
 };
 
 struct MultiInputValue {
   /* Used when appending and checking if everything has been appended. */
   std::mutex mutex;
 
-  Vector<MultiInputValueItem> values;
+  Vector<MultiInputValueItem> items;
   int expected_size;
 };
 
@@ -72,10 +72,12 @@ struct InputState {
    */
   std::atomic<ValueUsage> usage = ValueUsage::Maybe;
 
-  /**
-   * Either points to SingleInputValue of MultiInputValue.
-   */
-  std::atomic<void *> value = nullptr;
+  const CPPType *type = nullptr;
+
+  union {
+    SingleInputValue *single;
+    MultiInputValue *multi;
+  } value;
 
   /**
    * True when this input is/was used for an evaluation. While a node is running, only the inputs
@@ -207,6 +209,30 @@ class NewGeometryNodesEvaluator {
       NodeState &node_state = *main_allocator_.construct<NodeState>().release();
       node_state.inputs.reinitialize(node->inputs().size());
       node_state.outputs.reinitialize(node->outputs().size());
+
+      for (const int i : node->inputs().index_range()) {
+        InputState &input_state = node_state.inputs[i];
+        const InputSocketRef &socket_ref = node->input(i);
+        if (!socket_ref.is_available()) {
+          continue;
+        }
+        const CPPType *type = nodes::socket_cpp_type_get(*socket_ref.typeinfo());
+        input_state.type = type;
+        if (type == nullptr) {
+          continue;
+        }
+        if (socket_ref.is_multi_input_socket()) {
+          input_state.value.multi = main_allocator_.construct<MultiInputValue>().release();
+          int count = 0;
+          const DInputSocket socket{node.context(), &socket_ref};
+          socket.foreach_origin_socket([&](DSocket UNUSED(origin)) { count++; });
+          input_state.value.multi->expected_size = count;
+        }
+        else {
+          input_state.value.single = main_allocator_.construct<SingleInputValue>().release();
+        }
+      }
+
       node_states_.add_new(node, &node_state);
 
       for (const InputSocketRef *input_ref : node->inputs()) {
@@ -219,8 +245,33 @@ class NewGeometryNodesEvaluator {
 
   void free_states()
   {
-    for (NodeState *node_state : node_states_.values()) {
-      node_state->~NodeState();
+    for (auto &&item : node_states_.items()) {
+      const DNode node = item.key;
+      NodeState &node_state = *item.value;
+
+      for (const int i : node->inputs().index_range()) {
+        InputState &input_state = node_state.inputs[i];
+        const InputSocketRef &socket_ref = node->input(i);
+        if (socket_ref.is_multi_input_socket()) {
+          MultiInputValue &multi_value = *input_state.value.multi;
+          for (MultiInputValueItem &item : multi_value.items) {
+            if (item.value != nullptr) {
+              input_state.type->destruct(item.value);
+            }
+          }
+          multi_value.~MultiInputValue();
+        }
+        else {
+          SingleInputValue &single_value = *input_state.value.single;
+          void *value = single_value.value.load(std::memory_order_acquire);
+          if (value != nullptr) {
+            input_state.type->destruct(value);
+          }
+          single_value.~SingleInputValue();
+        }
+      }
+
+      node_state.~NodeState();
     }
   }
 
@@ -315,14 +366,32 @@ class NewGeometryNodesEvaluator {
     }
 
     bool all_required_inputs_available = true;
-    for (InputState &input_state : node_state.inputs) {
-      /* TODO: Multi inputs. */
-      if (input_state.value.load(std::memory_order_acquire) != nullptr) {
-        input_state.was_ready_for_evaluation.store(true, std::memory_order_release);
+    for (const int i : node_state.inputs.index_range()) {
+      InputState &input_state = node_state.inputs[i];
+      const InputSocketRef &socket_ref = node->input(i);
+
+      if (input_state.usage.load(std::memory_order_acquire) != ValueUsage::Yes) {
+        continue;
       }
-      else if (input_state.usage.load(std::memory_order_acquire) == ValueUsage::Yes) {
-        all_required_inputs_available = false;
+      if (socket_ref.is_multi_input_socket()) {
+        MultiInputValue &multi_value = *input_state.value.multi;
+        std::lock_guard lock{multi_value.mutex};
+        if (multi_value.items.size() < multi_value.expected_size) {
+          all_required_inputs_available = false;
+          break;
+        }
       }
+      else {
+        SingleInputValue &single_value = *input_state.value.single;
+        void *value = single_value.value.load(std::memory_order_acquire);
+        if (value == nullptr) {
+          all_required_inputs_available = false;
+          break;
+        }
+      }
+      /* Even if the node is not evaluated in this task, it will be scheduled again by another node
+       * when it provides a missing input. */
+      input_state.was_ready_for_evaluation.store(true, std::memory_order_release);
     }
 
     if (all_required_inputs_available) {
@@ -332,7 +401,8 @@ class NewGeometryNodesEvaluator {
             std::memory_order_acquire);
         if (output_state.output_usage_for_evaluation == ValueUsage::Yes) {
           if (!output_state.has_been_computed) {
-            /* Only evaluate when there is an output that is required but has not been computed. */
+            /* Only evaluate when there is an output that is required but has not been computed.
+             */
             evaluation_is_necessary = true;
           }
         }
@@ -375,22 +445,28 @@ class NewGeometryNodesEvaluator {
       const CPPType &type = *blender::nodes::socket_cpp_type_get(*input_socket_ref->typeinfo());
 
       if (input_socket->is_multi_input_socket()) {
-        /* TODO */
+        MultiInputValue &multi_value = *input_state.value.multi;
+        std::lock_guard lock{multi_value.mutex};
+        for (const DSocket &origin : origin_sockets) {
+          if (origin->is_input()) {
+            GMutablePointer value = this->get_unlinked_input_value(DInputSocket(origin), type);
+            multi_value.items.append({origin, value.get()});
+          }
+        }
       }
       else {
+        SingleInputValue &single_value = *input_state.value.single;
         if (origin_sockets.is_empty()) {
           GMutablePointer value = this->get_unlinked_input_value(input_socket, type);
-          SingleInputValue *single_value = (SingleInputValue *)input_state.value.load(
-              std::memory_order_acquire);
-          single_value->value = value;
+          single_value.value.store(value.get(), std::memory_order_release);
         }
-        BLI_assert(origin_sockets.size() == 1);
-        const DSocket origin = origin_sockets[0];
-        if (origin->is_input()) {
-          GMutablePointer value = this->get_unlinked_input_value(DInputSocket(origin), type);
-          SingleInputValue *single_value = (SingleInputValue *)input_state.value.load(
-              std::memory_order_acquire);
-          single_value->value = value;
+        else {
+          BLI_assert(origin_sockets.size() == 1);
+          const DSocket origin = origin_sockets[0];
+          if (origin->is_input()) {
+            GMutablePointer value = this->get_unlinked_input_value(DInputSocket(origin), type);
+            single_value.value.store(value.get(), std::memory_order_release);
+          }
         }
       }
     }
@@ -455,7 +531,9 @@ bool NewNodeParamsProvider::can_get_input(StringRef identifier) const
   if (!input_state.was_ready_for_evaluation.load(std::memory_order_acquire)) {
     return false;
   }
-  return input_state.value.load(std::memory_order_acquire) != nullptr;
+  /* TODO: Multi input. */
+  /* Check if the value has been extracted before. */
+  return input_state.value.single->value.load(std::memory_order_acquire) != nullptr;
 }
 
 bool NewNodeParamsProvider::can_set_output(StringRef identifier) const
@@ -472,12 +550,13 @@ GMutablePointer NewNodeParamsProvider::extract_input(StringRef identifier)
   const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
   BLI_assert(socket);
   BLI_assert(!socket->is_multi_input_socket());
+  BLI_assert(this->can_get_input(identifier));
 
   InputState &input_state = node_state_->inputs[socket->index()];
-  BLI_assert(input_state.was_ready_for_evaluation);
-  SingleInputValue *value = (SingleInputValue *)input_state.value.load(std::memory_order_acquire);
-  input_state.value.store(nullptr, std::memory_order_release);
-  return value->value;
+  SingleInputValue &single_value = *input_state.value.single;
+  void *value = single_value.value.load(std::memory_order_acquire);
+  single_value.value.store(nullptr, std::memory_order_release);
+  return {*input_state.type, value};
 }
 
 Vector<GMutablePointer> NewNodeParamsProvider::extract_multi_input(StringRef identifier)
@@ -485,15 +564,15 @@ Vector<GMutablePointer> NewNodeParamsProvider::extract_multi_input(StringRef ide
   const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
   BLI_assert(socket);
   BLI_assert(socket->is_multi_input_socket());
+  BLI_assert(this->can_get_input(identifier));
 
   InputState &input_state = node_state_->inputs[socket->index()];
-  BLI_assert(input_state.was_ready_for_evaluation);
-  MultiInputValue *values = (MultiInputValue *)input_state.value.load(std::memory_order_acquire);
-  input_state.value.store(nullptr, std::memory_order_release);
+  MultiInputValue &multi_value = *input_state.value.multi;
+  std::lock_guard lock(multi_value.mutex);
 
   Vector<GMutablePointer> ret_values;
   socket.foreach_origin_socket([&](DSocket origin) {
-    for (const MultiInputValueItem &item : values->values) {
+    for (const MultiInputValueItem &item : multi_value.items) {
       if (item.origin == origin) {
         ret_values.append(item.value);
         return;
@@ -501,6 +580,7 @@ Vector<GMutablePointer> NewNodeParamsProvider::extract_multi_input(StringRef ide
     }
     BLI_assert_unreachable();
   });
+  multi_value.items.clear();
   return ret_values;
 }
 
@@ -509,11 +589,11 @@ GPointer NewNodeParamsProvider::get_input(StringRef identifier) const
   const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
   BLI_assert(socket);
   BLI_assert(!socket->is_multi_input_socket());
+  BLI_assert(this->can_get_input(identifier));
 
   InputState &input_state = node_state_->inputs[socket->index()];
-  BLI_assert(input_state.was_ready_for_evaluation);
-  SingleInputValue *value = (SingleInputValue *)input_state.value.load(std::memory_order_acquire);
-  return value->value;
+  SingleInputValue &value = *input_state.value.single;
+  return {*input_state.type, value.value.load(std::memory_order_acquire)};
 }
 
 GMutablePointer NewNodeParamsProvider::alloc_output_value(const CPPType &type)
