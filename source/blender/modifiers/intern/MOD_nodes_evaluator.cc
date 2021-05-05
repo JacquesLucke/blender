@@ -105,6 +105,7 @@ struct NodeState {
   Array<InputState> inputs;
   Array<OutputState> outputs;
   int runs = 0;
+  bool unlinked_inputs_loaded = false;
 
   std::mutex mutex;
   bool is_scheduled = false;
@@ -486,8 +487,9 @@ class NewGeometryNodesEvaluator {
       node_state.is_running = true;
     }
 
-    if (node_state.runs == 0) {
+    if (!node_state.unlinked_inputs_loaded) {
       this->load_unlinked_inputs(node);
+      node_state.unlinked_inputs_loaded = true;
     }
 
     bool all_required_inputs_available = true;
