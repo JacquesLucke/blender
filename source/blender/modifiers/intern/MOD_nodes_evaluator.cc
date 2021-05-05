@@ -400,11 +400,27 @@ class NewGeometryNodesEvaluator {
     }
   }
 
-  void add_value_to_input_socket(const DInputSocket to_socket,
+  void add_value_to_input_socket(const DInputSocket socket,
                                  const DOutputSocket origin,
                                  GMutablePointer value)
   {
-    /* TODO */
+    BLI_assert(socket->is_available());
+
+    const DNode node = socket.node();
+    NodeState &node_state = *node_states_.lookup(node);
+    InputState &input_state = node_state.inputs[socket->index()];
+    if (socket->is_multi_input_socket()) {
+      MultiInputValue &multi_value = *input_state.value.multi;
+      std::lock_guard lock{multi_value.mutex};
+      multi_value.items.append({origin, value.get()});
+    }
+    else {
+      SingleInputValue &single_value = *input_state.value.single;
+      BLI_assert(single_value.value == nullptr);
+      single_value.value.store(value.get(), std::memory_order_release);
+    }
+    /* TODO: Schedule in fewer cases. */
+    this->schedule_node_if_necessary(node);
   }
 
   const CPPType *get_socket_type(const DSocket socket) const
