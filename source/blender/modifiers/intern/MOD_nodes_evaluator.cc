@@ -189,8 +189,6 @@ class NewGeometryNodesEvaluator {
   {
     this->create_states_for_reachable_nodes();
     this->schedule_initial_nodes();
-    // Create node states for reachable nodes.
-    // Set initial required sockets, which should spawn tasks.
     task_group_.wait();
     this->free_states();
   }
@@ -514,9 +512,8 @@ class NewGeometryNodesEvaluator {
       }
 
       if (evaluation_is_necessary) {
-        NewNodeParamsProvider params_provider{*this, node};
-        GeoNodeExecParams params{params_provider};
-        node->typeinfo()->geometry_node_execute(params);
+
+        this->execute_node(node);
       }
     }
 
@@ -530,6 +527,56 @@ class NewGeometryNodesEvaluator {
         node_state.is_scheduled = true;
         this->add_node_to_task_group(node);
       }
+    }
+  }
+
+  void execute_node(const DNode node)
+  {
+    const bNode &bnode = *node->bnode();
+
+    /* Use the geometry node execute callback if it exists. */
+    if (bnode.typeinfo->geometry_node_execute != nullptr) {
+      this->execute_geometry_node(node);
+      return;
+    }
+
+    /* Use the multi-function implementation if it exists. */
+    const MultiFunction *multi_function = mf_by_node_.lookup_default(node, nullptr);
+    if (multi_function != nullptr) {
+      this->execute_multi_function_node(node, *multi_function);
+      return;
+    }
+
+    this->execute_unknown_node(node);
+  }
+
+  void execute_geometry_node(const DNode node)
+  {
+    const bNode &bnode = *node->bnode();
+
+    NewNodeParamsProvider params_provider{*this, node};
+    GeoNodeExecParams params{params_provider};
+    bnode.typeinfo->geometry_node_execute(params);
+  }
+
+  void execute_multi_function_node(const DNode node, const MultiFunction &fn)
+  {
+  }
+
+  void execute_unknown_node(const DNode node)
+  {
+    LinearAllocator<> &allocator = local_allocators_.local();
+    for (const OutputSocketRef *socket : node->outputs()) {
+      if (!socket->is_available()) {
+        continue;
+      }
+      const CPPType *type = this->get_socket_type(*socket);
+      if (type == nullptr) {
+        continue;
+      }
+      void *buffer = allocator.allocate(type->size(), type->alignment());
+      type->copy_to_uninitialized(type->default_value(), buffer);
+      this->forward_output({node.context(), socket}, {*type, buffer});
     }
   }
 
