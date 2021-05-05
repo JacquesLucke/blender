@@ -537,10 +537,9 @@ class NewGeometryNodesEvaluator {
 
       if (evaluation_is_necessary) {
         this->execute_node(node, node_state);
+        node_state.runs++;
       }
     }
-
-    node_state.runs++;
 
     {
       std::lock_guard lock{node_state.mutex};
@@ -555,6 +554,17 @@ class NewGeometryNodesEvaluator {
 
   void execute_node(const DNode node, NodeState &node_state)
   {
+    /* Temporary solution: just set all inputs as required in the first run. */
+    if (node_state.runs == 0) {
+      for (const InputSocketRef *socket_ref : node->inputs()) {
+        if (!socket_ref->is_available()) {
+          continue;
+        }
+        this->set_input_required({node.context(), socket_ref});
+      }
+      return;
+    }
+
     const bNode &bnode = *node->bnode();
 
     /* Use the geometry node execute callback if it exists. */
