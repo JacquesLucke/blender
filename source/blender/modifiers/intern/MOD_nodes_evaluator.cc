@@ -535,7 +535,6 @@ class NewGeometryNodesEvaluator {
 
   void run_task(const DNode node)
   {
-    std::cout << "Start: " << node->name() << "\n";
     NodeState &node_state = *node_states_.lookup(node);
     {
       std::lock_guard lock{node_state.mutex};
@@ -614,8 +613,6 @@ class NewGeometryNodesEvaluator {
         this->add_node_to_task_group(node);
       }
     }
-
-    std::cout << "End:   " << node->name() << "\n";
   }
 
   void execute_node(const DNode node, NodeState &node_state)
