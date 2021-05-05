@@ -622,6 +622,7 @@ class NewGeometryNodesEvaluator {
 
     /* Temporary solution: just set all inputs as required in the first run. */
     if (node_state.runs == 0) {
+      bool set_inputs_as_required = false;
       for (const InputSocketRef *socket_ref : node->inputs()) {
         if (!socket_ref->is_available()) {
           continue;
@@ -631,8 +632,11 @@ class NewGeometryNodesEvaluator {
           continue;
         }
         this->set_input_required({node.context(), socket_ref});
+        set_inputs_as_required = true;
       }
-      return;
+      if (set_inputs_as_required) {
+        return;
+      }
     }
 
     const bNode &bnode = *node->bnode();
