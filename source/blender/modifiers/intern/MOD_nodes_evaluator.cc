@@ -55,7 +55,7 @@ struct SingleInputValue {
 
 struct MultiInputValueItem {
   DSocket origin;
-  void *value;
+  void *value = nullptr;
 };
 
 struct MultiInputValue {
@@ -159,6 +159,7 @@ class NewGeometryNodesEvaluator {
   LinearAllocator<> &main_allocator_;
   tbb::enumerable_thread_specific<LinearAllocator<>> local_allocators_;
   Vector<DInputSocket> group_outputs_;
+  Map<DOutputSocket, GMutablePointer> &input_values_;
   blender::nodes::MultiFunctionByNode &mf_by_node_;
   const blender::nodes::DataTypeConversions &conversions_;
   const PersistentDataHandleMap &handle_map_;
@@ -176,6 +177,7 @@ class NewGeometryNodesEvaluator {
   NewGeometryNodesEvaluator(GeometryNodesEvaluationParams &params)
       : main_allocator_(params.allocator),
         group_outputs_(std::move(params.output_sockets)),
+        input_values_(params.input_values),
         mf_by_node_(*params.mf_by_node),
         conversions_(blender::nodes::get_implicit_type_conversions()),
         handle_map_(*params.handle_map),
@@ -189,6 +191,7 @@ class NewGeometryNodesEvaluator {
   Vector<GMutablePointer> execute()
   {
     this->create_states_for_reachable_nodes();
+    this->forward_input_values();
     this->schedule_initial_nodes();
     task_group_.wait();
 
@@ -218,6 +221,26 @@ class NewGeometryNodesEvaluator {
 
     this->free_states();
     return output_values;
+  }
+
+  void forward_input_values()
+  {
+    ForwardSettings settings;
+    settings.is_forwarding_group_inputs = true;
+
+    for (auto &&item : input_values_.items()) {
+      const DOutputSocket socket = item.key;
+      GMutablePointer value = item.value;
+
+      const DNode node = socket.node();
+      NodeState *node_state = node_states_.lookup_default(node, nullptr);
+      if (node_state == nullptr) {
+        /* The socket is not connected to any output. */
+        value.destruct();
+        continue;
+      }
+      this->forward_output(socket, value, settings);
+    }
   }
 
   void create_states_for_reachable_nodes()
@@ -319,33 +342,42 @@ class NewGeometryNodesEvaluator {
     BLI_assert(input_state.usage != ValueUsage::No);
 
     if (input_state.was_ready_for_evaluation.load(std::memory_order_acquire)) {
-      /* Value is available already, it cannot be requested again. This makes sure that nodes don't
-       * require the same input unnecessarily. */
-      BLI_assert_unreachable();
+      /* The value was already ready, but the node might expect to be evaluated again. */
+      this->schedule_node_if_necessary(node);
       return;
     }
 
     const ValueUsage old_usage = input_state.usage.load(std::memory_order_acquire);
     if (old_usage == ValueUsage::Yes) {
-      /* Was already required, nothing to do. */
+      /* The node is already required, but the node might expect to be evaluated again. */
+      this->schedule_node_if_necessary(node);
       return;
     }
 
+    /* Set usage of input correctly. */
     input_state.usage.store(ValueUsage::Yes, std::memory_order_release);
+
     socket.foreach_origin_socket([&, this](const DSocket origin_socket) {
       if (origin_socket->is_input()) {
         /* These sockets are handled separately. */
         return;
       }
       const DNode origin_node = origin_socket.node();
+      // if (origin_node->is_group_input_node()) {
+      //   /* The group input node has forwarded its values already */
+      //   this->schedule_node_if_necessary(origin_node);
+      //   return;
+      // }
       NodeState &origin_node_state = *this->node_states_.lookup(origin_node);
       OutputState &origin_socket_state = origin_node_state.outputs[origin_socket->index()];
 
       if (origin_socket_state.output_usage.load(std::memory_order_acquire) == ValueUsage::Yes) {
-        /* Output is marked as required already. */
+        /* Output is marked as required already. So the other node is scheduled already. */
         return;
       }
 
+      /* The origin node needs to be scheduled so that it provides the requested input
+       * eventually. */
       origin_socket_state.output_usage.store(ValueUsage::Yes, std::memory_order_release);
       this->schedule_node_if_necessary(origin_node);
     });
@@ -356,7 +388,13 @@ class NewGeometryNodesEvaluator {
     /* TODO: Implementing this is an optimization. */
   }
 
-  void forward_output(const DOutputSocket from_socket, GMutablePointer value_to_forward)
+  struct ForwardSettings {
+    bool is_forwarding_group_inputs = false;
+  };
+
+  void forward_output(const DOutputSocket from_socket,
+                      GMutablePointer value_to_forward,
+                      const ForwardSettings &settings)
   {
     BLI_assert(value_to_forward.get() != nullptr);
 
@@ -401,7 +439,7 @@ class NewGeometryNodesEvaluator {
         /* Cannot convert, use default value instead. */
         to_type.copy_to_uninitialized(to_type.default_value(), buffer);
       }
-      this->add_value_to_input_socket(to_socket, from_socket, {to_type, buffer});
+      this->add_value_to_input_socket(to_socket, from_socket, {to_type, buffer}, settings);
     }
 
     if (to_sockets_same_type.is_empty()) {
@@ -411,7 +449,7 @@ class NewGeometryNodesEvaluator {
     else if (to_sockets_same_type.size() == 1) {
       /* Value is only used by one input socket, no need to copy it. */
       const DInputSocket to_socket = to_sockets_same_type[0];
-      this->add_value_to_input_socket(to_socket, from_socket, value_to_forward);
+      this->add_value_to_input_socket(to_socket, from_socket, value_to_forward, settings);
     }
     else {
       /* Multiple inputs use the value, make a copy for every input except for one. */
@@ -421,17 +459,18 @@ class NewGeometryNodesEvaluator {
       for (const DInputSocket &to_socket : to_sockets_same_type.as_span().drop_front(1)) {
         void *buffer = allocator.allocate(type.size(), type.alignment());
         type.copy_to_uninitialized(value_to_forward.get(), buffer);
-        this->add_value_to_input_socket(to_socket, from_socket, {type, buffer});
+        this->add_value_to_input_socket(to_socket, from_socket, {type, buffer}, settings);
       }
       /* Forward the original value to one of the targets. */
       const DInputSocket to_socket = to_sockets_same_type[0];
-      this->add_value_to_input_socket(to_socket, from_socket, value_to_forward);
+      this->add_value_to_input_socket(to_socket, from_socket, value_to_forward, settings);
     }
   }
 
   void add_value_to_input_socket(const DInputSocket socket,
                                  const DOutputSocket origin,
-                                 GMutablePointer value)
+                                 GMutablePointer value,
+                                 const ForwardSettings &settings)
   {
     BLI_assert(socket->is_available());
 
@@ -448,8 +487,15 @@ class NewGeometryNodesEvaluator {
       BLI_assert(single_value.value == nullptr);
       single_value.value.store(value.get(), std::memory_order_release);
     }
-    /* TODO: Schedule in fewer cases. */
-    this->schedule_node_if_necessary(node);
+    if (settings.is_forwarding_group_inputs) {
+      // input_state.was_ready_for_evaluation.store(true, std::memory_order_relaxed);
+      // if (!socket->is_multi_input_socket()) {
+      // }
+    }
+    else {
+      /* TODO: Schedule in fewer cases. */
+      this->schedule_node_if_necessary(node);
+    }
   }
 
   const CPPType *get_socket_type(const DSocket socket) const
@@ -475,6 +521,7 @@ class NewGeometryNodesEvaluator {
     if (node_state.is_scheduled) {
       /* The node is scheduled already and is not running. Therefore the latest info will be taken
        * into account when it runs next. No need to schedule it again. */
+      return;
     }
     /* The node is not running and was not scheduled before. Just schedule it now. */
     node_state.is_scheduled = true;
@@ -488,6 +535,7 @@ class NewGeometryNodesEvaluator {
 
   void run_task(const DNode node)
   {
+    std::cout << "Start: " << node->name() << "\n";
     NodeState &node_state = *node_states_.lookup(node);
     {
       std::lock_guard lock{node_state.mutex};
@@ -503,30 +551,38 @@ class NewGeometryNodesEvaluator {
     bool all_required_inputs_available = true;
     for (const int i : node_state.inputs.index_range()) {
       InputState &input_state = node_state.inputs[i];
-      const InputSocketRef &socket_ref = node->input(i);
-
-      if (input_state.usage.load(std::memory_order_acquire) != ValueUsage::Yes) {
+      if (input_state.type == nullptr) {
         continue;
       }
+      const InputSocketRef &socket_ref = node->input(i);
+      const bool is_required = input_state.usage.load(std::memory_order_acquire) ==
+                               ValueUsage::Yes;
+
+      /* No need to check this socket again. */
+      if (input_state.was_ready_for_evaluation.load(std::memory_order_acquire)) {
+        continue;
+      }
+
       if (socket_ref.is_multi_input_socket()) {
         MultiInputValue &multi_value = *input_state.value.multi;
         std::lock_guard lock{multi_value.mutex};
-        if (multi_value.items.size() < multi_value.expected_size) {
+        if (multi_value.items.size() == multi_value.expected_size) {
+          input_state.was_ready_for_evaluation.store(true, std::memory_order_release);
+        }
+        else if (is_required) {
           all_required_inputs_available = false;
-          break;
         }
       }
       else {
         SingleInputValue &single_value = *input_state.value.single;
         void *value = single_value.value.load(std::memory_order_acquire);
-        if (value == nullptr) {
+        if (value != nullptr) {
+          input_state.was_ready_for_evaluation.store(true, std::memory_order_release);
+        }
+        else if (is_required) {
           all_required_inputs_available = false;
-          break;
         }
       }
-      /* Even if the node is not evaluated in this task, it will be scheduled again by another node
-       * when it provides a missing input. */
-      input_state.was_ready_for_evaluation.store(true, std::memory_order_release);
     }
 
     if (all_required_inputs_available) {
@@ -558,13 +614,18 @@ class NewGeometryNodesEvaluator {
         this->add_node_to_task_group(node);
       }
     }
+
+    std::cout << "End:   " << node->name() << "\n";
   }
 
   void execute_node(const DNode node, NodeState &node_state)
   {
+    if (node->is_group_input_node()) {
+      return;
+    }
+
     /* Temporary solution: just set all inputs as required in the first run. */
     if (node_state.runs == 0) {
-      bool inputs_requested = false;
       for (const InputSocketRef *socket_ref : node->inputs()) {
         if (!socket_ref->is_available()) {
           continue;
@@ -574,11 +635,8 @@ class NewGeometryNodesEvaluator {
           continue;
         }
         this->set_input_required({node.context(), socket_ref});
-        inputs_requested = true;
       }
-      if (inputs_requested) {
-        return;
-      }
+      return;
     }
 
     const bNode &bnode = *node->bnode();
@@ -648,7 +706,7 @@ class NewGeometryNodesEvaluator {
       }
       const DOutputSocket socket{node.context(), &socket_ref};
       GMutablePointer value = outputs[output_index];
-      this->forward_output(socket, value);
+      this->forward_output(socket, value, {});
       output_index++;
     }
   }
@@ -666,7 +724,7 @@ class NewGeometryNodesEvaluator {
       }
       void *buffer = allocator.allocate(type->size(), type->alignment());
       type->copy_to_uninitialized(type->default_value(), buffer);
-      this->forward_output({node.context(), socket}, {*type, buffer});
+      this->forward_output({node.context(), socket}, {*type, buffer}, {});
     }
   }
 
@@ -774,9 +832,14 @@ bool NewNodeParamsProvider::can_get_input(StringRef identifier) const
   if (!input_state.was_ready_for_evaluation.load(std::memory_order_acquire)) {
     return false;
   }
-  /* TODO: Multi input. */
-  /* Check if the value has been extracted before. */
-  return input_state.value.single->value.load(std::memory_order_acquire) != nullptr;
+
+  if (socket->is_multi_input_socket()) {
+    MultiInputValue &multi_value = *input_state.value.multi;
+    std::scoped_lock lock{multi_value.mutex};
+    return multi_value.items.size() == multi_value.expected_size;
+  }
+  SingleInputValue &single_value = *input_state.value.single;
+  return single_value.value.load(std::memory_order_acquire) != nullptr;
 }
 
 bool NewNodeParamsProvider::can_set_output(StringRef identifier) const
@@ -853,7 +916,7 @@ void NewNodeParamsProvider::set_output(StringRef identifier, GMutablePointer val
   OutputState &output_state = node_state_->outputs[socket->index()];
   BLI_assert(!output_state.has_been_computed);
   output_state.has_been_computed = true;
-  evaluator_.forward_output(socket, value);
+  evaluator_.forward_output(socket, value, {});
 }
 
 void NewNodeParamsProvider::require_input(StringRef identifier)
