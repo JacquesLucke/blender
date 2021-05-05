@@ -103,7 +103,8 @@ struct NodeState {
   Array<OutputState> outputs;
   int runs = 0;
 
-  /** Only accessed while holding the schedule_mutex_. */
+  std::mutex mutex;
+  bool is_scheduled = false;
   bool is_running = false;
   bool reschedule_after_run = false;
 };
@@ -264,9 +265,6 @@ class NewGeometryNodesEvaluator {
   Map<DNode, NodeState *> node_states_;
   tbb::task_group task_group_;
 
-  std::mutex schedule_mutex_;
-  VectorSet<DNode> scheduled_nodes_;
-
   friend NewNodeParamsProvider;
 
  public:
@@ -380,39 +378,42 @@ class NewGeometryNodesEvaluator {
   void schedule_node_if_necessary(DNode node)
   {
     NodeState &node_state = *node_states_.lookup(node);
-    std::lock_guard lock{schedule_mutex_};
+    std::lock_guard lock{node_state.mutex};
     if (node_state.is_running) {
       /* The node is currently running, it might have to run again because new inputs info is
        * available. */
       node_state.reschedule_after_run = true;
       return;
     }
-    if (scheduled_nodes_.add(node)) {
-      /* The node is not running and was not scheduled before. Just schedule it now. */
-      task_group_.run([this]() { this->run_task(); });
-      return;
+    if (node_state.is_scheduled) {
+      /* The node is scheduled already and is not running. Therefore the latest info will be taken
+       * into account when it runs next. No need to schedule it again. */
     }
-    /* The node is scheduled already and is not running. Therefore the latest info will be taken
-     * into account when it runs next. No need to schedule it again. */
+    /* The node is not running and was not scheduled before. Just schedule it now. */
+    node_state.is_scheduled = true;
+    this->add_node_to_task_group(node);
   }
 
-  void run_task()
+  void add_node_to_task_group(DNode node)
   {
-    DNode node;
-    NodeState *node_state;
+    task_group_.run([this, node]() { this->run_task(node); });
+  }
+
+  void run_task(const DNode node)
+  {
+    NodeState &node_state = *node_states_.lookup(node);
     {
-      std::lock_guard lock{schedule_mutex_};
-      node = scheduled_nodes_.pop();
-      node_state = node_states_.lookup(node);
-      node_state->is_running = true;
+      std::lock_guard lock{node_state.mutex};
+      node_state.is_scheduled = false;
+      node_state.is_running = true;
     }
 
-    if (node_state->runs == 0) {
+    if (node_state.runs == 0) {
       this->load_unlinked_inputs(node);
     }
 
     bool all_required_inputs_available = true;
-    for (InputState &input_state : node_state->inputs) {
+    for (InputState &input_state : node_state.inputs) {
       /* TODO: Multi inputs. */
       if (input_state.value.load(std::memory_order_acquire) != nullptr) {
         input_state.was_ready_for_evaluation.store(true, std::memory_order_release);
@@ -424,7 +425,7 @@ class NewGeometryNodesEvaluator {
 
     if (all_required_inputs_available) {
       bool evaluation_is_necessary = false;
-      for (OutputState &output_state : node_state->outputs) {
+      for (OutputState &output_state : node_state.outputs) {
         output_state.output_usage_for_evaluation = output_state.output_usage.load(
             std::memory_order_acquire);
         if (output_state.output_usage_for_evaluation == ValueUsage::Yes) {
@@ -442,15 +443,15 @@ class NewGeometryNodesEvaluator {
       }
     }
 
-    node_state->runs++;
+    node_state.runs++;
 
     {
-      std::lock_guard lock{schedule_mutex_};
-      node_state->is_running = false;
-
-      if (node_state->reschedule_after_run) {
-        scheduled_nodes_.add(node);
-        node_state->reschedule_after_run = false;
+      std::lock_guard lock{node_state.mutex};
+      node_state.is_running = false;
+      if (node_state.reschedule_after_run) {
+        node_state.reschedule_after_run = false;
+        node_state.is_scheduled = true;
+        this->add_node_to_task_group(node);
       }
     }
   }
