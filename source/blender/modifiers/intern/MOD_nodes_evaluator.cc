@@ -344,6 +344,7 @@ class NewGeometryNodesEvaluator {
 
   void set_input_unused(DInputSocket UNUSED(socket))
   {
+    /* TODO: Implementing this is an optimization. */
   }
 
   void forward_output(const DOutputSocket from_socket, GMutablePointer value_to_forward)
