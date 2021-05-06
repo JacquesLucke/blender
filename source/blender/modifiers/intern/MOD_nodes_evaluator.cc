@@ -104,7 +104,6 @@ struct OutputState {
 struct NodeState {
   Array<InputState> inputs;
   Array<OutputState> outputs;
-  int runs = 0;
   bool is_first_run = true;
 
   std::mutex mutex;
@@ -621,7 +620,6 @@ class GeometryNodesEvaluator {
 
       if (evaluation_is_necessary) {
         this->execute_node(node, node_state);
-        node_state.runs++;
       }
     }
   }
