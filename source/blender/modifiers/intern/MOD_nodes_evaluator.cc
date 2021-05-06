@@ -541,6 +541,21 @@ class GeometryNodesEvaluator {
       node_state.is_running = true;
     }
 
+    this->run_node(node, node_state);
+
+    {
+      std::lock_guard lock{node_state.mutex};
+      node_state.is_running = false;
+      if (node_state.reschedule_after_run) {
+        node_state.reschedule_after_run = false;
+        node_state.is_scheduled = true;
+        this->add_node_to_task_group(node);
+      }
+    }
+  }
+
+  void run_node(const DNode node, NodeState &node_state)
+  {
     if (node_state.is_first_run) {
       this->load_unlinked_inputs(node);
       Vector<int> required_inputs;
@@ -607,16 +622,6 @@ class GeometryNodesEvaluator {
       if (evaluation_is_necessary) {
         this->execute_node(node, node_state);
         node_state.runs++;
-      }
-    }
-
-    {
-      std::lock_guard lock{node_state.mutex};
-      node_state.is_running = false;
-      if (node_state.reschedule_after_run) {
-        node_state.reschedule_after_run = false;
-        node_state.is_scheduled = true;
-        this->add_node_to_task_group(node);
       }
     }
   }
