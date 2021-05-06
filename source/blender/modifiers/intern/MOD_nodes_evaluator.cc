@@ -40,7 +40,7 @@ using fn::GValueMap;
 using nodes::GeoNodeExecParams;
 using namespace fn::multi_function_types;
 
-enum class ValueUsage {
+enum class ValueUsage : uint8_t {
   /* The value is definitely used. */
   Yes,
   /* The value may be used. */
@@ -50,7 +50,7 @@ enum class ValueUsage {
 };
 
 struct SingleInputValue {
-  std::atomic<void *> value = nullptr;
+  void *value = nullptr;
 };
 
 struct MultiInputValueItem {
@@ -59,9 +59,6 @@ struct MultiInputValueItem {
 };
 
 struct MultiInputValue {
-  /* Used when appending and checking if everything has been appended. */
-  std::mutex mutex;
-
   Vector<MultiInputValueItem> items;
   int expected_size;
 };
@@ -70,10 +67,19 @@ struct InputState {
   /**
    * How the node intends to use this input.
    */
-  std::atomic<ValueUsage> usage = ValueUsage::Maybe;
+  ValueUsage usage = ValueUsage::Maybe;
 
+  /**
+   * Type of the socket. If this is null, the socket should just be ignored.
+   */
   const CPPType *type = nullptr;
 
+  /**
+   * Value of this input socket. By default, the value is empty. When other nodes are done
+   * computing their outputs, the computed values will be forwarded to linked input sockets.
+   * The value will then live here until it is consumed by the node or it was found that the value
+   * is not needed anymore.
+   */
   union {
     SingleInputValue *single;
     MultiInputValue *multi;
@@ -83,8 +89,12 @@ struct InputState {
    * True when this input is/was used for an evaluation. While a node is running, only the inputs
    * that have this set to true are allowed to be used. This makes sure that inputs created while
    * the node is running correctly trigger the node to run again.
+   *
+   * While the node is running, this can be checked without a lock, because no one is writing to
+   * it. If this is true, the value can be read without a lock as well, because the value is not
+   * changed by others anymore.
    */
-  std::atomic<bool> was_ready_for_evaluation = false;
+  bool was_ready_for_evaluation = false;
 };
 
 struct OutputState {
@@ -94,10 +104,19 @@ struct OutputState {
   bool has_been_computed = false;
 
   /**
-   * Before evaluation starts, this is set to the proper value.
+   * Anyone can update this value (after locking the node mutex) to tell the node what outputs are
+   * (not) required.
    */
-  std::atomic<ValueUsage> output_usage = ValueUsage::Maybe;
+  ValueUsage output_usage = ValueUsage::Maybe;
 
+  /**
+   * This is a copy of `output_usage` that is done right before node evaluation starts. This is
+   * done so that the node gets a consistent view of what outputs are used, even when this changes
+   * while the node is running (the node might be reevaluated in that case).
+   *
+   * While the node is running, this can be checked without a lock, because no one is writing to
+   * it.
+   */
   ValueUsage output_usage_for_evaluation;
 };
 
@@ -109,12 +128,48 @@ enum class NodeScheduleState {
 };
 
 struct NodeState {
+  /**
+   * Needs to be locked when any data in this state is accessed that is not explicitely marked as
+   * otherwise.
+   */
+  std::mutex mutex;
+
+  /**
+   * States of the individual input and output sockets. One can index into these arrays without
+   * locking.
+   */
   Array<InputState> inputs;
   Array<OutputState> outputs;
+
+  /**
+   * The first run of a node is sometimes handled specially.
+   */
   bool is_first_run = true;
 
-  std::mutex mutex;
+  /**
+   * A node is always in one specific schedule state. This helps to ensure that the same node does
+   * not run twice at the same time accidentally.
+   */
   NodeScheduleState schedule_state = NodeScheduleState::NotScheduled;
+};
+
+class NodeStateLock {
+ private:
+  std::lock_guard<std::mutex> lock_;
+  const DNode node_;
+
+ public:
+  NodeStateLock(const DNode node, NodeState &node_state) : lock_(node_state.mutex), node_(node)
+  {
+  }
+
+  /* Asserts that this node is locked. */
+  void assert_is_node(const DNode node) const
+  {
+    if (node_ != node) {
+      BLI_assert_unreachable();
+    }
+  }
 };
 
 class GeometryNodesEvaluator;
@@ -213,13 +268,14 @@ class GeometryNodesEvaluator {
       const DNode node = socket.node();
       NodeState &node_state = *node_states_.lookup(node);
       if (node_state.is_first_run) {
-        this->load_unlinked_inputs(node);
+        NodeStateLock node_lock(node, node_state);
+        this->load_unlinked_inputs(node, node_state, node_lock);
         node_state.is_first_run = false;
       }
       InputState &input_state = node_state.inputs[socket->index()];
       const CPPType &type = *input_state.type;
       SingleInputValue &single_value = *input_state.value.single;
-      void *value = single_value.value.load(std::memory_order_relaxed);
+      void *value = single_value.value;
       BLI_assert(value != nullptr);
 
       /* Move value into memory owned by the main allocator. */
@@ -320,7 +376,7 @@ class GeometryNodesEvaluator {
           }
           else {
             SingleInputValue &single_value = *input_state.value.single;
-            void *value = single_value.value.load(std::memory_order_acquire);
+            void *value = single_value.value;
             if (value != nullptr) {
               input_state.type->destruct(value);
             }
@@ -336,12 +392,16 @@ class GeometryNodesEvaluator {
   void schedule_initial_nodes()
   {
     for (const DInputSocket &socket : group_outputs_) {
+      const DNode node = socket.node();
       NodeState &node_state = *node_states_.lookup(socket.node());
-      this->set_input_required(socket, node_state);
+      NodeStateLock node_lock{node, node_state};
+      this->set_input_required(socket, node_state, node_lock);
     }
   }
 
-  void set_input_required(const DInputSocket socket, NodeState &node_state)
+  void set_input_required(const DInputSocket socket,
+                          NodeState &node_state,
+                          const NodeStateLock &node_lock)
   {
     const DNode node = socket.node();
     InputState &input_state = node_state.inputs[socket->index()];
@@ -349,21 +409,21 @@ class GeometryNodesEvaluator {
     /* Value set as unused cannot become used again. */
     BLI_assert(input_state.usage != ValueUsage::No);
 
-    if (input_state.was_ready_for_evaluation.load(std::memory_order_acquire)) {
+    if (input_state.was_ready_for_evaluation) {
       /* The value was already ready, but the node might expect to be evaluated again. */
-      this->schedule_node_if_necessary(node, node_state);
+      this->schedule_node_if_necessary(node, node_state, node_lock);
       return;
     }
 
-    const ValueUsage old_usage = input_state.usage.load(std::memory_order_acquire);
+    const ValueUsage old_usage = input_state.usage;
     if (old_usage == ValueUsage::Yes) {
       /* The node is already required, but the node might expect to be evaluated again. */
-      this->schedule_node_if_necessary(node, node_state);
+      this->schedule_node_if_necessary(node, node_state, node_lock);
       return;
     }
 
     /* Set usage of input correctly. */
-    input_state.usage.store(ValueUsage::Yes, std::memory_order_release);
+    input_state.usage = ValueUsage::Yes;
 
     socket.foreach_origin_socket([&, this](const DSocket origin_socket) {
       if (origin_socket->is_input()) {
@@ -374,19 +434,21 @@ class GeometryNodesEvaluator {
       NodeState &origin_node_state = *this->node_states_.lookup(origin_node);
       OutputState &origin_socket_state = origin_node_state.outputs[origin_socket->index()];
 
-      if (origin_socket_state.output_usage.load(std::memory_order_acquire) == ValueUsage::Yes) {
+      NodeStateLock origin_lock{origin_node, origin_node_state};
+
+      if (origin_socket_state.output_usage == ValueUsage::Yes) {
         /* Output is marked as required already. So the other node is scheduled already. */
         return;
       }
 
       /* The origin node needs to be scheduled so that it provides the requested input
        * eventually. */
-      origin_socket_state.output_usage.store(ValueUsage::Yes, std::memory_order_release);
-      this->schedule_node_if_necessary(origin_node, origin_node_state);
+      origin_socket_state.output_usage = ValueUsage::Yes;
+      this->schedule_node_if_necessary(origin_node, origin_node_state, origin_lock);
     });
   }
 
-  void set_input_unused(DInputSocket UNUSED(socket))
+  void set_input_unused(DInputSocket UNUSED(socket), const NodeStateLock &UNUSED(node_lock))
   {
     /* TODO: Implementing this is an optimization. */
   }
@@ -443,12 +505,9 @@ class GeometryNodesEvaluator {
       return false;
     }
     InputState &target_input_state = target_node_state->inputs[socket->index()];
-    const ValueUsage usage = target_input_state.usage.load(std::memory_order_acquire);
-    if (usage == ValueUsage::No) {
-      /* We know that the input socket will definitely not be used. */
-      return false;
-    }
-    return true;
+
+    std::lock_guard lock{target_node_state->mutex};
+    return target_input_state.usage != ValueUsage::No;
   }
 
   void forward_to_socket_with_different_type(LinearAllocator<> &allocator,
@@ -511,20 +570,22 @@ class GeometryNodesEvaluator {
     const DNode node = socket.node();
     NodeState &node_state = *node_states_.lookup(node);
     InputState &input_state = node_state.inputs[socket->index()];
+
+    NodeStateLock node_lock{node, node_state};
+
     if (socket->is_multi_input_socket()) {
       MultiInputValue &multi_value = *input_state.value.multi;
-      std::lock_guard lock{multi_value.mutex};
       multi_value.items.append({origin, value.get()});
     }
     else {
       SingleInputValue &single_value = *input_state.value.single;
       BLI_assert(single_value.value == nullptr);
-      single_value.value.store(value.get(), std::memory_order_release);
+      single_value.value = value.get();
     }
     /* We don't want to trigger nodes that might not be needed after all. */
     if (!settings.is_forwarding_group_inputs) {
       /* TODO: Schedule in fewer cases. */
-      this->schedule_node_if_necessary(node, node_state);
+      this->schedule_node_if_necessary(node, node_state, node_lock);
     }
   }
 
@@ -538,9 +599,11 @@ class GeometryNodesEvaluator {
     return nodes::socket_cpp_type_get(*socket.typeinfo());
   }
 
-  void schedule_node_if_necessary(const DNode node, NodeState &node_state)
+  void schedule_node_if_necessary(const DNode node,
+                                  NodeState &node_state,
+                                  const NodeStateLock &node_lock)
   {
-    std::lock_guard lock{node_state.mutex};
+    node_lock.assert_is_node(node);
     switch (node_state.schedule_state) {
       case NodeScheduleState::NotScheduled: {
         /* Schedule the node now. */
@@ -598,50 +661,52 @@ class GeometryNodesEvaluator {
   void run_node(const DNode node, NodeState &node_state)
   {
     if (node_state.is_first_run) {
-      this->load_unlinked_inputs(node);
+      NodeStateLock node_lock{node, node_state};
+
+      this->load_unlinked_inputs(node, node_state, node_lock);
       Vector<int> required_inputs;
       this->get_always_required_input_indices(node, required_inputs);
       for (const int i : required_inputs) {
         const DInputSocket socket = node.input(i);
-        this->set_input_required(socket, node_state);
+        this->set_input_required(socket, node_state, node_lock);
       }
 
       node_state.is_first_run = false;
     }
 
     bool all_required_inputs_available = true;
-    for (const int i : node_state.inputs.index_range()) {
-      InputState &input_state = node_state.inputs[i];
-      if (input_state.type == nullptr) {
-        continue;
-      }
-      const InputSocketRef &socket_ref = node->input(i);
-      const bool is_required = input_state.usage.load(std::memory_order_acquire) ==
-                               ValueUsage::Yes;
+    {
+      NodeStateLock node_lock{node, node_state};
+      for (const int i : node_state.inputs.index_range()) {
+        InputState &input_state = node_state.inputs[i];
+        if (input_state.type == nullptr) {
+          continue;
+        }
+        const InputSocketRef &socket_ref = node->input(i);
+        const bool is_required = input_state.usage == ValueUsage::Yes;
 
-      /* No need to check this socket again. */
-      if (input_state.was_ready_for_evaluation.load(std::memory_order_acquire)) {
-        continue;
-      }
+        /* No need to check this socket again. */
+        if (input_state.was_ready_for_evaluation) {
+          continue;
+        }
 
-      if (socket_ref.is_multi_input_socket()) {
-        MultiInputValue &multi_value = *input_state.value.multi;
-        std::lock_guard lock{multi_value.mutex};
-        if (multi_value.items.size() == multi_value.expected_size) {
-          input_state.was_ready_for_evaluation.store(true, std::memory_order_release);
+        if (socket_ref.is_multi_input_socket()) {
+          MultiInputValue &multi_value = *input_state.value.multi;
+          if (multi_value.items.size() == multi_value.expected_size) {
+            input_state.was_ready_for_evaluation = true;
+          }
+          else if (is_required) {
+            all_required_inputs_available = false;
+          }
         }
-        else if (is_required) {
-          all_required_inputs_available = false;
-        }
-      }
-      else {
-        SingleInputValue &single_value = *input_state.value.single;
-        void *value = single_value.value.load(std::memory_order_acquire);
-        if (value != nullptr) {
-          input_state.was_ready_for_evaluation.store(true, std::memory_order_release);
-        }
-        else if (is_required) {
-          all_required_inputs_available = false;
+        else {
+          SingleInputValue &single_value = *input_state.value.single;
+          if (single_value.value != nullptr) {
+            input_state.was_ready_for_evaluation = true;
+          }
+          else if (is_required) {
+            all_required_inputs_available = false;
+          }
         }
       }
     }
@@ -649,13 +714,15 @@ class GeometryNodesEvaluator {
       return;
     }
     bool evaluation_is_necessary = false;
-    for (OutputState &output_state : node_state.outputs) {
-      output_state.output_usage_for_evaluation = output_state.output_usage.load(
-          std::memory_order_acquire);
-      if (output_state.output_usage_for_evaluation == ValueUsage::Yes) {
-        if (!output_state.has_been_computed) {
-          /* Only evaluate when there is an output that is required but has not been computed. */
-          evaluation_is_necessary = true;
+    {
+      NodeStateLock node_lock{node, node_state};
+      for (OutputState &output_state : node_state.outputs) {
+        output_state.output_usage_for_evaluation = output_state.output_usage;
+        if (output_state.output_usage_for_evaluation == ValueUsage::Yes) {
+          if (!output_state.has_been_computed) {
+            /* Only evaluate when there is an output that is required but has not been computed. */
+            evaluation_is_necessary = true;
+          }
         }
       }
     }
@@ -729,8 +796,8 @@ class GeometryNodesEvaluator {
       InputState &input_state = node_state.inputs[i];
       BLI_assert(input_state.was_ready_for_evaluation);
       SingleInputValue &single_value = *input_state.value.single;
-      void *value = single_value.value.load(std::memory_order_acquire);
-      fn_params.add_readonly_single_input(GPointer{*input_state.type, value});
+      BLI_assert(single_value.value != nullptr);
+      fn_params.add_readonly_single_input(GPointer{*input_state.type, single_value.value});
     }
     Vector<GMutablePointer> outputs;
     for (const int i : node->outputs().index_range()) {
@@ -753,10 +820,10 @@ class GeometryNodesEvaluator {
         continue;
       }
       OutputState &output_state = node_state.outputs[i];
-      output_state.has_been_computed = true;
       const DOutputSocket socket{node.context(), &socket_ref};
       GMutablePointer value = outputs[output_index];
       this->forward_output(socket, value, {});
+      output_state.has_been_computed = true;
       output_index++;
     }
   }
@@ -781,9 +848,11 @@ class GeometryNodesEvaluator {
     }
   }
 
-  void load_unlinked_inputs(const DNode node)
+  void load_unlinked_inputs(const DNode node,
+                            NodeState &node_state,
+                            const NodeStateLock &node_lock)
   {
-    NodeState &node_state = *node_states_.lookup(node);
+    node_lock.assert_is_node(node);
     for (const InputSocketRef *input_socket_ref : node->inputs()) {
       if (!input_socket_ref->is_available()) {
         continue;
@@ -800,7 +869,6 @@ class GeometryNodesEvaluator {
 
       if (input_socket->is_multi_input_socket()) {
         MultiInputValue &multi_value = *input_state.value.multi;
-        std::lock_guard lock{multi_value.mutex};
         for (const DSocket &origin : origin_sockets) {
           if (origin->is_input()) {
             GMutablePointer value = this->get_unlinked_input_value(DInputSocket(origin), type);
@@ -812,14 +880,14 @@ class GeometryNodesEvaluator {
         SingleInputValue &single_value = *input_state.value.single;
         if (origin_sockets.is_empty()) {
           GMutablePointer value = this->get_unlinked_input_value(input_socket, type);
-          single_value.value.store(value.get(), std::memory_order_release);
+          single_value.value = value.get();
         }
         else {
           BLI_assert(origin_sockets.size() == 1);
           const DSocket origin = origin_sockets[0];
           if (origin->is_input()) {
             GMutablePointer value = this->get_unlinked_input_value(DInputSocket(origin), type);
-            single_value.value.store(value.get(), std::memory_order_release);
+            single_value.value = value.get();
           }
         }
       }
@@ -882,17 +950,16 @@ bool NodeParamsProvider::can_get_input(StringRef identifier) const
   BLI_assert(socket);
 
   InputState &input_state = node_state_->inputs[socket->index()];
-  if (!input_state.was_ready_for_evaluation.load(std::memory_order_acquire)) {
+  if (!input_state.was_ready_for_evaluation) {
     return false;
   }
 
   if (socket->is_multi_input_socket()) {
     MultiInputValue &multi_value = *input_state.value.multi;
-    std::scoped_lock lock{multi_value.mutex};
     return multi_value.items.size() == multi_value.expected_size;
   }
   SingleInputValue &single_value = *input_state.value.single;
-  return single_value.value.load(std::memory_order_acquire) != nullptr;
+  return single_value.value != nullptr;
 }
 
 bool NodeParamsProvider::can_set_output(StringRef identifier) const
@@ -913,8 +980,8 @@ GMutablePointer NodeParamsProvider::extract_input(StringRef identifier)
 
   InputState &input_state = node_state_->inputs[socket->index()];
   SingleInputValue &single_value = *input_state.value.single;
-  void *value = single_value.value.load(std::memory_order_acquire);
-  single_value.value.store(nullptr, std::memory_order_release);
+  void *value = single_value.value;
+  single_value.value = nullptr;
   return {*input_state.type, value};
 }
 
@@ -927,7 +994,6 @@ Vector<GMutablePointer> NodeParamsProvider::extract_multi_input(StringRef identi
 
   InputState &input_state = node_state_->inputs[socket->index()];
   MultiInputValue &multi_value = *input_state.value.multi;
-  std::lock_guard lock(multi_value.mutex);
 
   Vector<GMutablePointer> ret_values;
   socket.foreach_origin_socket([&](DSocket origin) {
@@ -951,8 +1017,8 @@ GPointer NodeParamsProvider::get_input(StringRef identifier) const
   BLI_assert(this->can_get_input(identifier));
 
   InputState &input_state = node_state_->inputs[socket->index()];
-  SingleInputValue &value = *input_state.value.single;
-  return {*input_state.type, value.value.load(std::memory_order_acquire)};
+  SingleInputValue &single_value = *input_state.value.single;
+  return {*input_state.type, single_value.value};
 }
 
 GMutablePointer NodeParamsProvider::alloc_output_value(const CPPType &type)
@@ -968,20 +1034,22 @@ void NodeParamsProvider::set_output(StringRef identifier, GMutablePointer value)
 
   OutputState &output_state = node_state_->outputs[socket->index()];
   BLI_assert(!output_state.has_been_computed);
-  output_state.has_been_computed = true;
   evaluator_.forward_output(socket, value, {});
+  output_state.has_been_computed = true;
 }
 
 void NodeParamsProvider::require_input(StringRef identifier)
 {
   const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
-  evaluator_.set_input_required(socket, *node_state_);
+  NodeStateLock node_lock(this->dnode, *node_state_);
+  evaluator_.set_input_required(socket, *node_state_, node_lock);
 }
 
 void NodeParamsProvider::set_input_unused(StringRef identifier)
 {
   const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
-  evaluator_.set_input_unused(socket);
+  NodeStateLock node_lock(this->dnode, *node_state_);
+  evaluator_.set_input_unused(socket, node_lock);
 }
 
 void evaluate_geometry_nodes(GeometryNodesEvaluationParams &params)
