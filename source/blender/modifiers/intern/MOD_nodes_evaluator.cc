@@ -336,14 +336,14 @@ class GeometryNodesEvaluator {
   void schedule_initial_nodes()
   {
     for (const DInputSocket &socket : group_outputs_) {
-      this->set_input_required(socket);
+      NodeState &node_state = *node_states_.lookup(socket.node());
+      this->set_input_required(socket, node_state);
     }
   }
 
-  void set_input_required(DInputSocket socket)
+  void set_input_required(const DInputSocket socket, NodeState &node_state)
   {
     const DNode node = socket.node();
-    NodeState &node_state = *node_states_.lookup(node);
     InputState &input_state = node_state.inputs[socket->index()];
 
     /* Value set as unused cannot become used again. */
@@ -578,7 +578,7 @@ class GeometryNodesEvaluator {
       this->get_always_required_input_indices(node, required_inputs);
       for (const int i : required_inputs) {
         const DInputSocket socket = node.input(i);
-        this->set_input_required(socket);
+        this->set_input_required(socket, node_state);
       }
 
       node_state.is_first_run = false;
@@ -950,7 +950,7 @@ void NodeParamsProvider::set_output(StringRef identifier, GMutablePointer value)
 void NodeParamsProvider::require_input(StringRef identifier)
 {
   const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
-  evaluator_.set_input_required(socket);
+  evaluator_.set_input_required(socket, *node_state_);
 }
 
 void NodeParamsProvider::set_input_unused(StringRef identifier)
