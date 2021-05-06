@@ -105,7 +105,7 @@ struct NodeState {
   Array<InputState> inputs;
   Array<OutputState> outputs;
   int runs = 0;
-  bool unlinked_inputs_loaded = false;
+  bool is_first_run = true;
 
   std::mutex mutex;
   bool is_scheduled = false;
@@ -208,9 +208,9 @@ class GeometryNodesEvaluator {
 
       const DNode node = socket.node();
       NodeState &node_state = *node_states_.lookup(node);
-      if (!node_state.unlinked_inputs_loaded) {
+      if (node_state.is_first_run) {
         this->load_unlinked_inputs(node);
-        node_state.unlinked_inputs_loaded = true;
+        node_state.is_first_run = false;
       }
       InputState &input_state = node_state.inputs[socket->index()];
       const CPPType &type = *input_state.type;
@@ -541,9 +541,16 @@ class GeometryNodesEvaluator {
       node_state.is_running = true;
     }
 
-    if (!node_state.unlinked_inputs_loaded) {
+    if (node_state.is_first_run) {
       this->load_unlinked_inputs(node);
-      node_state.unlinked_inputs_loaded = true;
+      Vector<int> required_inputs;
+      this->get_always_required_input_indices(node, required_inputs);
+      for (const int i : required_inputs) {
+        const DInputSocket socket = node.input(i);
+        this->set_input_required(socket);
+      }
+
+      node_state.is_first_run = false;
     }
 
     bool all_required_inputs_available = true;
@@ -633,18 +640,6 @@ class GeometryNodesEvaluator {
   {
     if (node->is_group_input_node()) {
       return;
-    }
-
-    if (node_state.runs == 0) {
-      Vector<int> required_inputs;
-      this->get_always_required_input_indices(node, required_inputs);
-      for (const int i : required_inputs) {
-        const DInputSocket socket = node.input(i);
-        this->set_input_required(socket);
-      }
-      if (!required_inputs.is_empty()) {
-        return;
-      }
     }
 
     const bNode &bnode = *node->bnode();
