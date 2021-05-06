@@ -662,7 +662,9 @@ class GeometryNodesEvaluator {
   void first_node_run(LockedNode &locked_node)
   {
     this->load_unlinked_inputs(locked_node);
-    this->handle_always_required_inputs(locked_node);
+    if (!locked_node.node->typeinfo()->geometry_node_execute_supports_lazyness) {
+      this->handle_always_required_inputs(locked_node);
+    }
   }
 
   void handle_always_required_inputs(LockedNode &locked_node)
