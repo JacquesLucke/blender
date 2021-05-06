@@ -521,12 +521,8 @@ class GeometryNodesEvaluator {
       BLI_assert(single_value.value == nullptr);
       single_value.value.store(value.get(), std::memory_order_release);
     }
-    if (settings.is_forwarding_group_inputs) {
-      // input_state.was_ready_for_evaluation.store(true, std::memory_order_relaxed);
-      // if (!socket->is_multi_input_socket()) {
-      // }
-    }
-    else {
+    /* We don't want to trigger nodes that might not be needed after all. */
+    if (!settings.is_forwarding_group_inputs) {
       /* TODO: Schedule in fewer cases. */
       this->schedule_node_if_necessary(node);
     }
