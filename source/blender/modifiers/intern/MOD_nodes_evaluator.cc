@@ -664,60 +664,8 @@ class GeometryNodesEvaluator {
       this->first_node_run(node, node_state);
       node_state.is_first_run = false;
     }
-
-    bool all_required_inputs_available = true;
-    {
-      NodeStateLock node_lock{node, node_state};
-      for (const int i : node_state.inputs.index_range()) {
-        InputState &input_state = node_state.inputs[i];
-        if (input_state.type == nullptr) {
-          continue;
-        }
-        const InputSocketRef &socket_ref = node->input(i);
-        const bool is_required = input_state.usage == ValueUsage::Yes;
-
-        /* No need to check this socket again. */
-        if (input_state.was_ready_for_evaluation) {
-          continue;
-        }
-
-        if (socket_ref.is_multi_input_socket()) {
-          MultiInputValue &multi_value = *input_state.value.multi;
-          if (multi_value.items.size() == multi_value.expected_size) {
-            input_state.was_ready_for_evaluation = true;
-          }
-          else if (is_required) {
-            all_required_inputs_available = false;
-          }
-        }
-        else {
-          SingleInputValue &single_value = *input_state.value.single;
-          if (single_value.value != nullptr) {
-            input_state.was_ready_for_evaluation = true;
-          }
-          else if (is_required) {
-            all_required_inputs_available = false;
-          }
-        }
-      }
-    }
-    if (!all_required_inputs_available) {
-      return;
-    }
-    bool evaluation_is_necessary = false;
-    {
-      NodeStateLock node_lock{node, node_state};
-      for (OutputState &output_state : node_state.outputs) {
-        output_state.output_usage_for_evaluation = output_state.output_usage;
-        if (output_state.output_usage_for_evaluation == ValueUsage::Yes) {
-          if (!output_state.has_been_computed) {
-            /* Only evaluate when there is an output that is required but has not been computed. */
-            evaluation_is_necessary = true;
-          }
-        }
-      }
-    }
-    if (!evaluation_is_necessary) {
+    const bool can_execute_node = this->try_prepare_node_for_execution(node, node_state);
+    if (!can_execute_node) {
       return;
     }
     this->execute_node(node, node_state);
@@ -751,6 +699,58 @@ class GeometryNodesEvaluator {
       }
       indices.append(socket_ref->index());
     }
+  }
+
+  bool try_prepare_node_for_execution(const DNode node, NodeState &node_state)
+  {
+    NodeStateLock node_lock{node, node_state};
+    for (const int i : node_state.inputs.index_range()) {
+      InputState &input_state = node_state.inputs[i];
+      if (input_state.type == nullptr) {
+        continue;
+      }
+      const InputSocketRef &socket_ref = node->input(i);
+      const bool is_required = input_state.usage == ValueUsage::Yes;
+
+      /* No need to check this socket again. */
+      if (input_state.was_ready_for_evaluation) {
+        continue;
+      }
+
+      if (socket_ref.is_multi_input_socket()) {
+        MultiInputValue &multi_value = *input_state.value.multi;
+        if (multi_value.items.size() == multi_value.expected_size) {
+          input_state.was_ready_for_evaluation = true;
+        }
+        else if (is_required) {
+          /* The input is required but is not fully provided yet. Therefore the node cannot be
+           * executed yet. */
+          return false;
+        }
+      }
+      else {
+        SingleInputValue &single_value = *input_state.value.single;
+        if (single_value.value != nullptr) {
+          input_state.was_ready_for_evaluation = true;
+        }
+        else if (is_required) {
+          /* The input is required but has not been provided yet. Therefore the node cannot be
+           * executed yet. */
+          return false;
+        }
+      }
+    }
+    bool evaluation_is_necessary = false;
+    for (OutputState &output_state : node_state.outputs) {
+      output_state.output_usage_for_evaluation = output_state.output_usage;
+      if (output_state.output_usage_for_evaluation == ValueUsage::Yes) {
+        if (!output_state.has_been_computed) {
+          /* Only evaluate when there is an output that is required but has not been computed. */
+          evaluation_is_necessary = true;
+        }
+      }
+    }
+    return evaluation_is_necessary;
   }
 
   void execute_node(const DNode node, NodeState &node_state)
