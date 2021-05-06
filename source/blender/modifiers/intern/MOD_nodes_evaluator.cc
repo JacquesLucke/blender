@@ -95,6 +95,8 @@ struct InputState {
    * changed by others anymore.
    */
   bool was_ready_for_evaluation = false;
+
+  bool is_unlinked = false;
 };
 
 struct OutputState {
@@ -660,20 +662,13 @@ class GeometryNodesEvaluator {
   void first_node_run(LockedNode &locked_node)
   {
     this->load_unlinked_inputs(locked_node);
-
-    /* Set all the sockets as required that are always required. */
-    Vector<int> required_inputs;
-    this->get_always_required_input_indices(locked_node.node, required_inputs);
-    for (const int i : required_inputs) {
-      const DInputSocket socket = locked_node.node.input(i);
-      this->set_input_required(locked_node, socket);
-    }
+    this->handle_always_required_inputs(locked_node);
   }
 
-  void get_always_required_input_indices(const DNode node, Vector<int> &indices)
+  void handle_always_required_inputs(LockedNode &locked_node)
   {
     /* Temporary solution: just set all inputs as required in the first run. */
-    for (const InputSocketRef *socket_ref : node->inputs()) {
+    for (const InputSocketRef *socket_ref : locked_node.node->inputs()) {
       if (!socket_ref->is_available()) {
         continue;
       }
@@ -681,7 +676,12 @@ class GeometryNodesEvaluator {
       if (type == nullptr) {
         continue;
       }
-      indices.append(socket_ref->index());
+      InputState &input_state = locked_node.node_state.inputs[socket_ref->index()];
+      if (input_state.is_unlinked) {
+        /* Unlinked sockets don't need to be requested explicitly. */
+        continue;
+      }
+      this->set_input_required(locked_node, locked_node.node.input(socket_ref->index()));
     }
   }
 
@@ -858,10 +858,14 @@ class GeometryNodesEvaluator {
 
       if (input_socket->is_multi_input_socket()) {
         MultiInputValue &multi_value = *input_state.value.multi;
+        input_state.is_unlinked = true;
         for (const DSocket &origin : origin_sockets) {
           if (origin->is_input()) {
             GMutablePointer value = this->get_unlinked_input_value(DInputSocket(origin), type);
             multi_value.items.append({origin, value.get()});
+          }
+          else {
+            input_state.is_unlinked = false;
           }
         }
       }
@@ -870,6 +874,7 @@ class GeometryNodesEvaluator {
         if (origin_sockets.is_empty()) {
           GMutablePointer value = this->get_unlinked_input_value(input_socket, type);
           single_value.value = value.get();
+          input_state.is_unlinked = true;
         }
         else {
           BLI_assert(origin_sockets.size() == 1);
@@ -877,6 +882,7 @@ class GeometryNodesEvaluator {
           if (origin->is_input()) {
             GMutablePointer value = this->get_unlinked_input_value(DInputSocket(origin), type);
             single_value.value = value.get();
+            input_state.is_unlinked = true;
           }
         }
       }
