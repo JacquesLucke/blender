@@ -423,40 +423,11 @@ class GeometryNodesEvaluator {
         to_sockets_same_type.append(to_socket);
         continue;
       }
-      void *buffer = allocator.allocate(to_type.size(), to_type.alignment());
-      if (conversions_.is_convertible(from_type, to_type)) {
-        conversions_.convert_to_uninitialized(from_type, to_type, value_to_forward.get(), buffer);
-      }
-      else {
-        /* Cannot convert, use default value instead. */
-        to_type.copy_to_uninitialized(to_type.default_value(), buffer);
-      }
-      this->add_value_to_input_socket(to_socket, from_socket, {to_type, buffer}, settings);
+      this->forward_to_socket_with_different_type(
+          allocator, value_to_forward, from_socket, to_socket, to_type, settings);
     }
-
-    if (to_sockets_same_type.is_empty()) {
-      /* Value is not used anymore, so it can be destructed. */
-      value_to_forward.destruct();
-    }
-    else if (to_sockets_same_type.size() == 1) {
-      /* Value is only used by one input socket, no need to copy it. */
-      const DInputSocket to_socket = to_sockets_same_type[0];
-      this->add_value_to_input_socket(to_socket, from_socket, value_to_forward, settings);
-    }
-    else {
-      /* Multiple inputs use the value, make a copy for every input except for one. */
-      /* First make the copies, so that the next node does not start modifying the value while we
-       * are still making copies. */
-      const CPPType &type = *value_to_forward.type();
-      for (const DInputSocket &to_socket : to_sockets_same_type.as_span().drop_front(1)) {
-        void *buffer = allocator.allocate(type.size(), type.alignment());
-        type.copy_to_uninitialized(value_to_forward.get(), buffer);
-        this->add_value_to_input_socket(to_socket, from_socket, {type, buffer}, settings);
-      }
-      /* Forward the original value to one of the targets. */
-      const DInputSocket to_socket = to_sockets_same_type[0];
-      this->add_value_to_input_socket(to_socket, from_socket, value_to_forward, settings);
-    }
+    this->forward_to_sockets_with_same_type(
+        allocator, to_sockets_same_type, value_to_forward, from_socket, settings);
   }
 
   bool should_forward_to_socket(const DInputSocket socket)
@@ -478,6 +449,56 @@ class GeometryNodesEvaluator {
       return false;
     }
     return true;
+  }
+
+  void forward_to_socket_with_different_type(LinearAllocator<> &allocator,
+                                             const GPointer value_to_forward,
+                                             const DOutputSocket from_socket,
+                                             const DInputSocket to_socket,
+                                             const CPPType &to_type,
+                                             const ForwardSettings &settings)
+  {
+    const CPPType &from_type = *value_to_forward.type();
+    void *buffer = allocator.allocate(to_type.size(), to_type.alignment());
+    if (conversions_.is_convertible(from_type, to_type)) {
+      conversions_.convert_to_uninitialized(from_type, to_type, value_to_forward.get(), buffer);
+    }
+    else {
+      /* Cannot convert, use default value instead. */
+      to_type.copy_to_uninitialized(to_type.default_value(), buffer);
+    }
+    this->add_value_to_input_socket(to_socket, from_socket, {to_type, buffer}, settings);
+  }
+
+  void forward_to_sockets_with_same_type(LinearAllocator<> &allocator,
+                                         Span<DInputSocket> to_sockets,
+                                         GMutablePointer value_to_forward,
+                                         const DOutputSocket from_socket,
+                                         const ForwardSettings &settings)
+  {
+    if (to_sockets.is_empty()) {
+      /* Value is not used anymore, so it can be destructed. */
+      value_to_forward.destruct();
+    }
+    else if (to_sockets.size() == 1) {
+      /* Value is only used by one input socket, no need to copy it. */
+      const DInputSocket to_socket = to_sockets[0];
+      this->add_value_to_input_socket(to_socket, from_socket, value_to_forward, settings);
+    }
+    else {
+      /* Multiple inputs use the value, make a copy for every input except for one. */
+      /* First make the copies, so that the next node does not start modifying the value while we
+       * are still making copies. */
+      const CPPType &type = *value_to_forward.type();
+      for (const DInputSocket &to_socket : to_sockets.drop_front(1)) {
+        void *buffer = allocator.allocate(type.size(), type.alignment());
+        type.copy_to_uninitialized(value_to_forward.get(), buffer);
+        this->add_value_to_input_socket(to_socket, from_socket, {type, buffer}, settings);
+      }
+      /* Forward the original value to one of the targets. */
+      const DInputSocket to_socket = to_sockets[0];
+      this->add_value_to_input_socket(to_socket, from_socket, value_to_forward, settings);
+    }
   }
 
   void add_value_to_input_socket(const DInputSocket socket,
