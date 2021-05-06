@@ -101,15 +101,20 @@ struct OutputState {
   ValueUsage output_usage_for_evaluation;
 };
 
+enum class NodeScheduleState {
+  NotScheduled,
+  Scheduled,
+  Running,
+  RunningAndRescheduled,
+};
+
 struct NodeState {
   Array<InputState> inputs;
   Array<OutputState> outputs;
   bool is_first_run = true;
 
   std::mutex mutex;
-  bool is_scheduled = false;
-  bool is_running = false;
-  bool reschedule_after_run = false;
+  NodeScheduleState schedule_state = NodeScheduleState::NotScheduled;
 };
 
 class GeometryNodesEvaluator;
@@ -509,21 +514,29 @@ class GeometryNodesEvaluator {
   void schedule_node_if_necessary(DNode node)
   {
     NodeState &node_state = *node_states_.lookup(node);
+
     std::lock_guard lock{node_state.mutex};
-    if (node_state.is_running) {
-      /* The node is currently running, it might have to run again because new inputs info is
-       * available. */
-      node_state.reschedule_after_run = true;
-      return;
+    switch (node_state.schedule_state) {
+      case NodeScheduleState::NotScheduled: {
+        /* Schedule the node now. */
+        node_state.schedule_state = NodeScheduleState::Scheduled;
+        this->add_node_to_task_group(node);
+        break;
+      }
+      case NodeScheduleState::Scheduled: {
+        /* Scheduled already, nothing to do. */
+        break;
+      }
+      case NodeScheduleState::Running: {
+        /* Reschedule node while it is running. The node will reschedule itself when it is done. */
+        node_state.schedule_state = NodeScheduleState::RunningAndRescheduled;
+        break;
+      }
+      case NodeScheduleState::RunningAndRescheduled: {
+        /* Scheduled already, nothing to do. */
+        break;
+      }
     }
-    if (node_state.is_scheduled) {
-      /* The node is scheduled already and is not running. Therefore the latest info will be taken
-       * into account when it runs next. No need to schedule it again. */
-      return;
-    }
-    /* The node is not running and was not scheduled before. Just schedule it now. */
-    node_state.is_scheduled = true;
-    this->add_node_to_task_group(node);
   }
 
   void add_node_to_task_group(DNode node)
@@ -536,19 +549,23 @@ class GeometryNodesEvaluator {
     NodeState &node_state = *node_states_.lookup(node);
     {
       std::lock_guard lock{node_state.mutex};
-      node_state.is_scheduled = false;
-      node_state.is_running = true;
+      BLI_assert(node_state.schedule_state == NodeScheduleState::Scheduled);
+      node_state.schedule_state = NodeScheduleState::Running;
     }
 
     this->run_node(node, node_state);
 
     {
       std::lock_guard lock{node_state.mutex};
-      node_state.is_running = false;
-      if (node_state.reschedule_after_run) {
-        node_state.reschedule_after_run = false;
-        node_state.is_scheduled = true;
+      if (node_state.schedule_state == NodeScheduleState::Running) {
+        node_state.schedule_state = NodeScheduleState::NotScheduled;
+      }
+      else if (node_state.schedule_state == NodeScheduleState::RunningAndRescheduled) {
         this->add_node_to_task_group(node);
+        node_state.schedule_state = NodeScheduleState::Scheduled;
+      }
+      else {
+        BLI_assert_unreachable();
       }
     }
   }
