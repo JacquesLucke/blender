@@ -161,6 +161,11 @@ struct NodeState {
   bool has_been_executed = false;
 
   /**
+   * Becomes true when the node will never be executed again and its inputs are destructed.
+   */
+  bool node_has_finished = false;
+
+  /**
    * Counts all the values from a multi input separately.
    * This is used as an optimization so that nodes are not unnecessarily scheduled when not all
    * their required inputs are available.
@@ -365,11 +370,13 @@ class GeometryNodesEvaluator {
       InputState &input_state = node_state.inputs[i];
       const DInputSocket socket = node.input(i);
       if (!socket->is_available()) {
+        input_state.usage = ValueUsage::No;
         continue;
       }
       const CPPType *type = this->get_socket_type(socket);
       input_state.type = type;
       if (type == nullptr) {
+        input_state.usage = ValueUsage::No;
         continue;
       }
       if (socket->is_multi_input_socket()) {
@@ -385,10 +392,12 @@ class GeometryNodesEvaluator {
       OutputState &output_state = node_state.outputs[i];
       const DOutputSocket socket = node.output(i);
       if (!socket->is_available()) {
+        output_state.output_usage = ValueUsage::No;
         continue;
       }
       const CPPType *type = this->get_socket_type(socket);
       if (type == nullptr) {
+        output_state.output_usage = ValueUsage::No;
         continue;
       }
       socket.foreach_target_socket(
@@ -524,9 +533,60 @@ class GeometryNodesEvaluator {
     });
   }
 
-  void set_input_unused(LockedNode &UNUSED(locked_node), DInputSocket UNUSED(socket))
+  void set_input_unused(LockedNode &locked_node, const DInputSocket socket)
   {
-    /* TODO: This is an optimization. */
+    InputState &input_state = locked_node.node_state.inputs[socket->index()];
+    BLI_assert(input_state.usage != ValueUsage::Yes);
+
+    if (input_state.usage == ValueUsage::No) {
+      /* Nothing to do in this case. */
+      return;
+    }
+    input_state.usage = ValueUsage::No;
+
+    this->destruct_input_value(locked_node, socket);
+
+    if (input_state.was_ready_for_evaluation) {
+      /* If the value was already computed, we don't need to notify origin nodes. */
+      return;
+    }
+
+    socket.foreach_origin_socket([&, this](const DSocket origin_socket) {
+      if (origin_socket->is_input()) {
+        return;
+      }
+      const DNode origin_node = origin_socket.node();
+      NodeState &origin_node_state = *this->node_states_.lookup(origin_node);
+      OutputState &origin_output_state = origin_node_state.outputs[origin_socket->index()];
+
+      LockedNode locked_origin{origin_node, origin_node_state};
+      origin_output_state.potential_users -= 1;
+      if (origin_output_state.potential_users == 0) {
+        /* The output socket has no users anymore. */
+        origin_output_state.output_usage = ValueUsage::No;
+        /* Schedule the origin node in case it wants to set its inputs as unused as well. */
+        this->schedule_node_if_necessary(locked_origin);
+      }
+    });
+  }
+
+  void destruct_input_value(LockedNode &locked_node, const DInputSocket socket)
+  {
+    InputState &input_state = locked_node.node_state.inputs[socket->index()];
+    if (socket->is_multi_input_socket()) {
+      MultiInputValue &multi_value = *input_state.value.multi;
+      for (MultiInputValueItem &item : multi_value.items) {
+        input_state.type->destruct(item.value);
+      }
+      multi_value.items.clear();
+    }
+    else {
+      SingleInputValue &single_value = *input_state.value.single;
+      if (single_value.value != nullptr) {
+        input_state.type->destruct(single_value.value);
+        single_value.value = nullptr;
+      }
+    }
   }
 
   void forward_output(const DOutputSocket from_socket, GMutablePointer value_to_forward)
@@ -701,6 +761,10 @@ class GeometryNodesEvaluator {
 
   void run_task(const DNode node)
   {
+    if (node->is_group_input_node() || node->is_group_output_node()) {
+      return;
+    }
+
     NodeState &node_state = *node_states_.lookup(node);
     bool can_execute_node = false;
     {
@@ -721,12 +785,16 @@ class GeometryNodesEvaluator {
 
     {
       LockedNode locked_node{node, node_state};
+      this->finish_node_if_remaining_outputs_are_unused(locked_node);
       if (node_state.schedule_state == NodeScheduleState::Running) {
         node_state.schedule_state = NodeScheduleState::NotScheduled;
       }
       else if (node_state.schedule_state == NodeScheduleState::RunningAndRescheduled) {
-        this->add_node_to_task_group(locked_node);
-        node_state.schedule_state = NodeScheduleState::Scheduled;
+        /* A finished node shouldn't be rescheduled. */
+        if (!node_state.node_has_finished) {
+          this->add_node_to_task_group(locked_node);
+          node_state.schedule_state = NodeScheduleState::Scheduled;
+        }
       }
       else {
         BLI_assert_unreachable();
@@ -764,6 +832,26 @@ class GeometryNodesEvaluator {
 
   bool try_prepare_node_for_execution(LockedNode &locked_node)
   {
+    if (locked_node.node_state.node_has_finished) {
+      return false;
+    }
+    this->finish_node_if_remaining_outputs_are_unused(locked_node);
+    if (locked_node.node_state.node_has_finished) {
+      return false;
+    }
+    bool evaluation_is_necessary = false;
+    for (OutputState &output_state : locked_node.node_state.outputs) {
+      output_state.output_usage_for_evaluation = output_state.output_usage;
+      if (!output_state.has_been_computed) {
+        if (output_state.output_usage == ValueUsage::Yes) {
+          /* Only evaluate when there is an output that is required but has not been computed. */
+          evaluation_is_necessary = true;
+        }
+      }
+    }
+    if (!evaluation_is_necessary) {
+      return false;
+    }
     for (const int i : locked_node.node_state.inputs.index_range()) {
       InputState &input_state = locked_node.node_state.inputs[i];
       if (input_state.type == nullptr) {
@@ -800,17 +888,34 @@ class GeometryNodesEvaluator {
         }
       }
     }
-    bool evaluation_is_necessary = false;
+    return true;
+  }
+
+  void finish_node_if_remaining_outputs_are_unused(LockedNode &locked_node)
+  {
+    bool has_remaining_output = false;
     for (OutputState &output_state : locked_node.node_state.outputs) {
-      output_state.output_usage_for_evaluation = output_state.output_usage;
-      if (output_state.output_usage_for_evaluation == ValueUsage::Yes) {
-        if (!output_state.has_been_computed) {
-          /* Only evaluate when there is an output that is required but has not been computed. */
-          evaluation_is_necessary = true;
-        }
+      if (output_state.has_been_computed) {
+        continue;
+      }
+      if (output_state.output_usage != ValueUsage::No) {
+        has_remaining_output = true;
+        break;
       }
     }
-    return evaluation_is_necessary;
+    if (!has_remaining_output) {
+      for (const int i : locked_node.node->inputs().index_range()) {
+        const DInputSocket socket = locked_node.node.input(i);
+        InputState &input_state = locked_node.node_state.inputs[i];
+        if (input_state.usage == ValueUsage::Maybe) {
+          this->set_input_unused(locked_node, socket);
+        }
+        else if (input_state.usage == ValueUsage::Yes) {
+          this->destruct_input_value(locked_node, socket);
+        }
+      }
+      locked_node.node_state.node_has_finished = true;
+    }
   }
 
   void execute_node(const DNode node, NodeState &node_state)
@@ -824,10 +929,6 @@ class GeometryNodesEvaluator {
       }
     }
     node_state.has_been_executed = true;
-
-    if (node->is_group_input_node()) {
-      return;
-    }
 
     /* Use the geometry node execute callback if it exists. */
     if (bnode.typeinfo->geometry_node_execute != nullptr) {
