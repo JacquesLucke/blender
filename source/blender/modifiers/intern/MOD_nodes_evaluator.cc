@@ -404,20 +404,9 @@ class GeometryNodesEvaluator {
     Vector<DInputSocket> to_sockets;
 
     auto handle_target_socket_fn = [&, this](const DInputSocket to_socket) {
-      if (!to_socket->is_available()) {
-        return;
+      if (this->should_forward_to_socket(to_socket)) {
+        to_sockets.append(to_socket);
       }
-      const DNode to_node = to_socket.node();
-      NodeState *target_node_state = this->node_states_.lookup_default(to_node, nullptr);
-      if (target_node_state == nullptr) {
-        return;
-      }
-      InputState &target_input_state = target_node_state->inputs[to_socket->index()];
-      const ValueUsage usage = target_input_state.usage.load(std::memory_order_acquire);
-      if (usage == ValueUsage::No) {
-        return;
-      }
-      to_sockets.append(to_socket);
     };
 
     auto handle_skipped_socket_fn = [&](DSocket UNUSED(socket)) {};
@@ -468,6 +457,27 @@ class GeometryNodesEvaluator {
       const DInputSocket to_socket = to_sockets_same_type[0];
       this->add_value_to_input_socket(to_socket, from_socket, value_to_forward, settings);
     }
+  }
+
+  bool should_forward_to_socket(const DInputSocket socket)
+  {
+    if (!socket->is_available()) {
+      /* Unavailable sockets are never used. */
+      return false;
+    }
+    const DNode to_node = socket.node();
+    NodeState *target_node_state = this->node_states_.lookup_default(to_node, nullptr);
+    if (target_node_state == nullptr) {
+      /* If the socket belongs to a node that has no state, the entire node is not used. */
+      return false;
+    }
+    InputState &target_input_state = target_node_state->inputs[socket->index()];
+    const ValueUsage usage = target_input_state.usage.load(std::memory_order_acquire);
+    if (usage == ValueUsage::No) {
+      /* We know that the input socket will definitely not be used. */
+      return false;
+    }
+    return true;
   }
 
   void add_value_to_input_socket(const DInputSocket socket,
