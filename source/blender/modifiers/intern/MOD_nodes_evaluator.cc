@@ -61,7 +61,7 @@ struct MultiInputValueItem {
 
 struct MultiInputValue {
   Vector<MultiInputValueItem> items;
-  int expected_size;
+  int expected_size = 0;
 };
 
 struct InputState {
@@ -350,21 +350,19 @@ class GeometryNodesEvaluator {
 
     for (const int i : node->inputs().index_range()) {
       InputState &input_state = node_state.inputs[i];
-      const InputSocketRef &socket_ref = node->input(i);
-      if (!socket_ref.is_available()) {
+      const DInputSocket socket = node.input(i);
+      if (!socket->is_available()) {
         continue;
       }
-      const CPPType *type = this->get_socket_type(socket_ref);
+      const CPPType *type = this->get_socket_type(socket);
       input_state.type = type;
       if (type == nullptr) {
         continue;
       }
-      if (socket_ref.is_multi_input_socket()) {
+      if (socket->is_multi_input_socket()) {
         input_state.value.multi = allocator.construct<MultiInputValue>().release();
-        int count = 0;
-        const DInputSocket socket{node.context(), &socket_ref};
-        socket.foreach_origin_socket([&](DSocket UNUSED(origin)) { count++; });
-        input_state.value.multi->expected_size = count;
+        socket.foreach_origin_socket(
+            [&](DSocket UNUSED(origin)) { input_state.value.multi->expected_size++; });
       }
       else {
         input_state.value.single = allocator.construct<SingleInputValue>().release();
