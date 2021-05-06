@@ -351,14 +351,14 @@ class GeometryNodesEvaluator {
 
     if (input_state.was_ready_for_evaluation.load(std::memory_order_acquire)) {
       /* The value was already ready, but the node might expect to be evaluated again. */
-      this->schedule_node_if_necessary(node);
+      this->schedule_node_if_necessary(node, node_state);
       return;
     }
 
     const ValueUsage old_usage = input_state.usage.load(std::memory_order_acquire);
     if (old_usage == ValueUsage::Yes) {
       /* The node is already required, but the node might expect to be evaluated again. */
-      this->schedule_node_if_necessary(node);
+      this->schedule_node_if_necessary(node, node_state);
       return;
     }
 
@@ -382,7 +382,7 @@ class GeometryNodesEvaluator {
       /* The origin node needs to be scheduled so that it provides the requested input
        * eventually. */
       origin_socket_state.output_usage.store(ValueUsage::Yes, std::memory_order_release);
-      this->schedule_node_if_necessary(origin_node);
+      this->schedule_node_if_necessary(origin_node, origin_node_state);
     });
   }
 
@@ -524,7 +524,7 @@ class GeometryNodesEvaluator {
     /* We don't want to trigger nodes that might not be needed after all. */
     if (!settings.is_forwarding_group_inputs) {
       /* TODO: Schedule in fewer cases. */
-      this->schedule_node_if_necessary(node);
+      this->schedule_node_if_necessary(node, node_state);
     }
   }
 
@@ -538,10 +538,8 @@ class GeometryNodesEvaluator {
     return nodes::socket_cpp_type_get(*socket.typeinfo());
   }
 
-  void schedule_node_if_necessary(DNode node)
+  void schedule_node_if_necessary(const DNode node, NodeState &node_state)
   {
-    NodeState &node_state = *node_states_.lookup(node);
-
     std::lock_guard lock{node_state.mutex};
     switch (node_state.schedule_state) {
       case NodeScheduleState::NotScheduled: {
