@@ -635,13 +635,22 @@ class GeometryNodesEvaluator {
   void run_task(const DNode node)
   {
     NodeState &node_state = *node_states_.lookup(node);
+    bool can_execute_node = false;
     {
-      std::lock_guard lock{node_state.mutex};
+      NodeStateLock node_lock{node, node_state};
       BLI_assert(node_state.schedule_state == NodeScheduleState::Scheduled);
       node_state.schedule_state = NodeScheduleState::Running;
+
+      if (node_state.is_first_run) {
+        this->first_node_run(node, node_state, node_lock);
+        node_state.is_first_run = false;
+      }
+      can_execute_node = this->try_prepare_node_for_execution(node, node_state, node_lock);
     }
 
-    this->run_node(node, node_state);
+    if (can_execute_node) {
+      this->execute_node(node, node_state);
+    }
 
     {
       std::lock_guard lock{node_state.mutex};
@@ -658,22 +667,9 @@ class GeometryNodesEvaluator {
     }
   }
 
-  void run_node(const DNode node, NodeState &node_state)
+  void first_node_run(const DNode node, NodeState &node_state, const NodeStateLock &node_lock)
   {
-    if (node_state.is_first_run) {
-      this->first_node_run(node, node_state);
-      node_state.is_first_run = false;
-    }
-    const bool can_execute_node = this->try_prepare_node_for_execution(node, node_state);
-    if (!can_execute_node) {
-      return;
-    }
-    this->execute_node(node, node_state);
-  }
-
-  void first_node_run(const DNode node, NodeState &node_state)
-  {
-    NodeStateLock node_lock{node, node_state};
+    node_lock.assert_is_node(node);
 
     this->load_unlinked_inputs(node, node_state, node_lock);
 
@@ -701,9 +697,12 @@ class GeometryNodesEvaluator {
     }
   }
 
-  bool try_prepare_node_for_execution(const DNode node, NodeState &node_state)
+  bool try_prepare_node_for_execution(const DNode node,
+                                      NodeState &node_state,
+                                      const NodeStateLock &node_lock)
   {
-    NodeStateLock node_lock{node, node_state};
+    node_lock.assert_is_node(node);
+
     for (const int i : node_state.inputs.index_range()) {
       InputState &input_state = node_state.inputs[i];
       if (input_state.type == nullptr) {
