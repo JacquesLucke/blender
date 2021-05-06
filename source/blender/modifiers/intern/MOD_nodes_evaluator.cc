@@ -294,8 +294,6 @@ class GeometryNodesEvaluator {
 
   void forward_input_values()
   {
-    ForwardSettings settings;
-
     for (auto &&item : input_values_.items()) {
       const DOutputSocket socket = item.key;
       GMutablePointer value = item.value;
@@ -307,7 +305,7 @@ class GeometryNodesEvaluator {
         value.destruct();
         continue;
       }
-      this->forward_output(socket, value, settings);
+      this->forward_output(socket, value);
     }
   }
 
@@ -475,12 +473,7 @@ class GeometryNodesEvaluator {
     /* TODO: This is an optimization. */
   }
 
-  struct ForwardSettings {
-  };
-
-  void forward_output(const DOutputSocket from_socket,
-                      GMutablePointer value_to_forward,
-                      const ForwardSettings &settings)
+  void forward_output(const DOutputSocket from_socket, GMutablePointer value_to_forward)
   {
     BLI_assert(value_to_forward.get() != nullptr);
 
@@ -507,10 +500,10 @@ class GeometryNodesEvaluator {
         continue;
       }
       this->forward_to_socket_with_different_type(
-          allocator, value_to_forward, from_socket, to_socket, to_type, settings);
+          allocator, value_to_forward, from_socket, to_socket, to_type);
     }
     this->forward_to_sockets_with_same_type(
-        allocator, to_sockets_same_type, value_to_forward, from_socket, settings);
+        allocator, to_sockets_same_type, value_to_forward, from_socket);
   }
 
   bool should_forward_to_socket(const DInputSocket socket)
@@ -535,8 +528,7 @@ class GeometryNodesEvaluator {
                                              const GPointer value_to_forward,
                                              const DOutputSocket from_socket,
                                              const DInputSocket to_socket,
-                                             const CPPType &to_type,
-                                             const ForwardSettings &settings)
+                                             const CPPType &to_type)
   {
     const CPPType &from_type = *value_to_forward.type();
     void *buffer = allocator.allocate(to_type.size(), to_type.alignment());
@@ -547,14 +539,13 @@ class GeometryNodesEvaluator {
       /* Cannot convert, use default value instead. */
       to_type.copy_to_uninitialized(to_type.default_value(), buffer);
     }
-    this->add_value_to_input_socket(to_socket, from_socket, {to_type, buffer}, settings);
+    this->add_value_to_input_socket(to_socket, from_socket, {to_type, buffer});
   }
 
   void forward_to_sockets_with_same_type(LinearAllocator<> &allocator,
                                          Span<DInputSocket> to_sockets,
                                          GMutablePointer value_to_forward,
-                                         const DOutputSocket from_socket,
-                                         const ForwardSettings &settings)
+                                         const DOutputSocket from_socket)
   {
     if (to_sockets.is_empty()) {
       /* Value is not used anymore, so it can be destructed. */
@@ -563,7 +554,7 @@ class GeometryNodesEvaluator {
     else if (to_sockets.size() == 1) {
       /* Value is only used by one input socket, no need to copy it. */
       const DInputSocket to_socket = to_sockets[0];
-      this->add_value_to_input_socket(to_socket, from_socket, value_to_forward, settings);
+      this->add_value_to_input_socket(to_socket, from_socket, value_to_forward);
     }
     else {
       /* Multiple inputs use the value, make a copy for every input except for one. */
@@ -573,18 +564,17 @@ class GeometryNodesEvaluator {
       for (const DInputSocket &to_socket : to_sockets.drop_front(1)) {
         void *buffer = allocator.allocate(type.size(), type.alignment());
         type.copy_to_uninitialized(value_to_forward.get(), buffer);
-        this->add_value_to_input_socket(to_socket, from_socket, {type, buffer}, settings);
+        this->add_value_to_input_socket(to_socket, from_socket, {type, buffer});
       }
       /* Forward the original value to one of the targets. */
       const DInputSocket to_socket = to_sockets[0];
-      this->add_value_to_input_socket(to_socket, from_socket, value_to_forward, settings);
+      this->add_value_to_input_socket(to_socket, from_socket, value_to_forward);
     }
   }
 
   void add_value_to_input_socket(const DInputSocket socket,
                                  const DOutputSocket origin,
-                                 GMutablePointer value,
-                                 const ForwardSettings &settings)
+                                 GMutablePointer value)
   {
     BLI_assert(socket->is_available());
 
@@ -842,7 +832,7 @@ class GeometryNodesEvaluator {
       OutputState &output_state = node_state.outputs[i];
       const DOutputSocket socket{node.context(), &socket_ref};
       GMutablePointer value = outputs[output_index];
-      this->forward_output(socket, value, {});
+      this->forward_output(socket, value);
       output_state.has_been_computed = true;
       output_index++;
     }
@@ -864,7 +854,7 @@ class GeometryNodesEvaluator {
       output_state.has_been_computed = true;
       void *buffer = allocator.allocate(type->size(), type->alignment());
       type->copy_to_uninitialized(type->default_value(), buffer);
-      this->forward_output({node.context(), socket}, {*type, buffer}, {});
+      this->forward_output({node.context(), socket}, {*type, buffer});
     }
   }
 
@@ -1060,7 +1050,7 @@ void NodeParamsProvider::set_output(StringRef identifier, GMutablePointer value)
 
   OutputState &output_state = node_state_->outputs[socket->index()];
   BLI_assert(!output_state.has_been_computed);
-  evaluator_.forward_output(socket, value, {});
+  evaluator_.forward_output(socket, value);
   output_state.has_been_computed = true;
 }
 
