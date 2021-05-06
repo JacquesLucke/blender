@@ -149,6 +149,13 @@ struct NodeState {
   bool is_first_run = true;
 
   /**
+   * Counts all the values from a multi input separately.
+   * This is used as an optimization so that nodes are not unnecessarily scheduled when not all
+   * their required inputs are available.
+   */
+  int missing_required_inputs = 0;
+
+  /**
    * A node is always in one specific schedule state. This helps to ensure that the same node does
    * not run twice at the same time accidentally.
    */
@@ -288,7 +295,6 @@ class GeometryNodesEvaluator {
   void forward_input_values()
   {
     ForwardSettings settings;
-    settings.is_forwarding_group_inputs = true;
 
     for (auto &&item : input_values_.items()) {
       const DOutputSocket socket = item.key;
@@ -413,13 +419,34 @@ class GeometryNodesEvaluator {
 
     const ValueUsage old_usage = input_state.usage;
     if (old_usage == ValueUsage::Yes) {
-      /* The node is already required, but the node might expect to be evaluated again. */
+      /* The value is already required, but the node might expect to be evaluated again. */
       this->schedule_node_if_necessary(locked_node);
       return;
     }
 
-    /* Set usage of input correctly. */
-    input_state.usage = ValueUsage::Yes;
+    /* The value might be available even when it was not ready for evaluation before. */
+    int missing_values = 0;
+    if (socket->is_multi_input_socket()) {
+      MultiInputValue &multi_value = *input_state.value.multi;
+      missing_values = multi_value.expected_size - multi_value.items.size();
+    }
+    else {
+      SingleInputValue &single_value = *input_state.value.single;
+      if (single_value.value == nullptr) {
+        missing_values = 1;
+      }
+    }
+    if (missing_values == 0) {
+      /* The input is fully available already, but the node might expect to be evaluated again.  */
+      this->schedule_node_if_necessary(locked_node);
+      return;
+    }
+    if (input_state.usage != ValueUsage::Yes) {
+      /* The input becomes required now and the value is not yet available. No need to reschedule
+       * this node now, because it will be scheduled when the value becomes available.  */
+      input_state.usage = ValueUsage::Yes;
+      locked_node.node_state.missing_required_inputs += missing_values;
+    }
 
     socket.foreach_origin_socket([&, this](const DSocket origin_socket) {
       if (origin_socket->is_input()) {
@@ -449,7 +476,6 @@ class GeometryNodesEvaluator {
   }
 
   struct ForwardSettings {
-    bool is_forwarding_group_inputs = false;
   };
 
   void forward_output(const DOutputSocket from_socket,
@@ -577,10 +603,13 @@ class GeometryNodesEvaluator {
       BLI_assert(single_value.value == nullptr);
       single_value.value = value.get();
     }
-    /* We don't want to trigger nodes that might not be needed after all. */
-    if (!settings.is_forwarding_group_inputs) {
-      /* TODO: Schedule in fewer cases. */
-      this->schedule_node_if_necessary(locked_node);
+
+    if (input_state.usage == ValueUsage::Yes) {
+      node_state.missing_required_inputs--;
+      if (node_state.missing_required_inputs == 0) {
+        /* Schedule node if all the required inputs have been provided. */
+        this->schedule_node_if_necessary(locked_node);
+      }
     }
   }
 
