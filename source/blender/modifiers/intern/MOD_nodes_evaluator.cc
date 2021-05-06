@@ -25,6 +25,7 @@
 #include "FN_multi_function.hh"
 
 #include "BLI_stack.hh"
+#include "BLI_task.hh"
 #include "BLI_vector_set.hh"
 
 #include <atomic>
@@ -311,6 +312,7 @@ class GeometryNodesEvaluator {
 
   void create_states_for_reachable_nodes()
   {
+    Vector<DNode> inserted_nodes;
     Stack<DNode> nodes_to_check;
     for (const DInputSocket &socket : group_outputs_) {
       nodes_to_check.push(socket.node());
@@ -321,38 +323,51 @@ class GeometryNodesEvaluator {
         continue;
       }
       NodeState &node_state = *main_allocator_.construct<NodeState>().release();
-      node_state.inputs.reinitialize(node->inputs().size());
-      node_state.outputs.reinitialize(node->outputs().size());
-
-      for (const int i : node->inputs().index_range()) {
-        InputState &input_state = node_state.inputs[i];
-        const InputSocketRef &socket_ref = node->input(i);
-        if (!socket_ref.is_available()) {
-          continue;
-        }
-        const CPPType *type = this->get_socket_type(socket_ref);
-        input_state.type = type;
-        if (type == nullptr) {
-          continue;
-        }
-        if (socket_ref.is_multi_input_socket()) {
-          input_state.value.multi = main_allocator_.construct<MultiInputValue>().release();
-          int count = 0;
-          const DInputSocket socket{node.context(), &socket_ref};
-          socket.foreach_origin_socket([&](DSocket UNUSED(origin)) { count++; });
-          input_state.value.multi->expected_size = count;
-        }
-        else {
-          input_state.value.single = main_allocator_.construct<SingleInputValue>().release();
-        }
-      }
-
       node_states_.add_new(node, &node_state);
+      inserted_nodes.append(node);
 
       for (const InputSocketRef *input_ref : node->inputs()) {
         const DInputSocket input{node.context(), input_ref};
         input.foreach_origin_socket(
             [&](const DSocket origin) { nodes_to_check.push(origin.node()); });
+      }
+    }
+
+    parallel_for(inserted_nodes.index_range(), 50, [&, this](const IndexRange range) {
+      LinearAllocator<> &allocator = this->local_allocators_.local();
+      for (const int i : range) {
+        const DNode node = inserted_nodes[i];
+        NodeState &node_state = *this->node_states_.lookup(node);
+        this->initialize_node_state(node, node_state, allocator);
+      }
+    });
+  }
+
+  void initialize_node_state(const DNode node, NodeState &node_state, LinearAllocator<> &allocator)
+  {
+    node_state.inputs.reinitialize(node->inputs().size());
+    node_state.outputs.reinitialize(node->outputs().size());
+
+    for (const int i : node->inputs().index_range()) {
+      InputState &input_state = node_state.inputs[i];
+      const InputSocketRef &socket_ref = node->input(i);
+      if (!socket_ref.is_available()) {
+        continue;
+      }
+      const CPPType *type = this->get_socket_type(socket_ref);
+      input_state.type = type;
+      if (type == nullptr) {
+        continue;
+      }
+      if (socket_ref.is_multi_input_socket()) {
+        input_state.value.multi = allocator.construct<MultiInputValue>().release();
+        int count = 0;
+        const DInputSocket socket{node.context(), &socket_ref};
+        socket.foreach_origin_socket([&](DSocket UNUSED(origin)) { count++; });
+        input_state.value.multi->expected_size = count;
+      }
+      else {
+        input_state.value.single = allocator.construct<SingleInputValue>().release();
       }
     }
   }
