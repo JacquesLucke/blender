@@ -614,27 +614,35 @@ class NewGeometryNodesEvaluator {
     }
   }
 
+  void get_always_required_input_indices(const DNode node, Vector<int> &indices)
+  {
+    /* Temporary solution: just set all inputs as required in the first run. */
+    for (const InputSocketRef *socket_ref : node->inputs()) {
+      if (!socket_ref->is_available()) {
+        continue;
+      }
+      const CPPType *type = this->get_socket_type(*socket_ref);
+      if (type == nullptr) {
+        continue;
+      }
+      indices.append(socket_ref->index());
+    }
+  }
+
   void execute_node(const DNode node, NodeState &node_state)
   {
     if (node->is_group_input_node()) {
       return;
     }
 
-    /* Temporary solution: just set all inputs as required in the first run. */
     if (node_state.runs == 0) {
-      bool set_inputs_as_required = false;
-      for (const InputSocketRef *socket_ref : node->inputs()) {
-        if (!socket_ref->is_available()) {
-          continue;
-        }
-        const CPPType *type = this->get_socket_type(*socket_ref);
-        if (type == nullptr) {
-          continue;
-        }
-        this->set_input_required({node.context(), socket_ref});
-        set_inputs_as_required = true;
+      Vector<int> required_inputs;
+      this->get_always_required_input_indices(node, required_inputs);
+      for (const int i : required_inputs) {
+        const DInputSocket socket = node.input(i);
+        this->set_input_required(socket);
       }
-      if (set_inputs_as_required) {
+      if (!required_inputs.is_empty()) {
         return;
       }
     }
