@@ -661,16 +661,7 @@ class GeometryNodesEvaluator {
   void run_node(const DNode node, NodeState &node_state)
   {
     if (node_state.is_first_run) {
-      NodeStateLock node_lock{node, node_state};
-
-      this->load_unlinked_inputs(node, node_state, node_lock);
-      Vector<int> required_inputs;
-      this->get_always_required_input_indices(node, required_inputs);
-      for (const int i : required_inputs) {
-        const DInputSocket socket = node.input(i);
-        this->set_input_required(socket, node_state, node_lock);
-      }
-
+      this->first_node_run(node, node_state);
       node_state.is_first_run = false;
     }
 
@@ -730,6 +721,21 @@ class GeometryNodesEvaluator {
       return;
     }
     this->execute_node(node, node_state);
+  }
+
+  void first_node_run(const DNode node, NodeState &node_state)
+  {
+    NodeStateLock node_lock{node, node_state};
+
+    this->load_unlinked_inputs(node, node_state, node_lock);
+
+    /* Set all the sockets as required that are always required. */
+    Vector<int> required_inputs;
+    this->get_always_required_input_indices(node, required_inputs);
+    for (const int i : required_inputs) {
+      const DInputSocket socket = node.input(i);
+      this->set_input_required(socket, node_state, node_lock);
+    }
   }
 
   void get_always_required_input_indices(const DNode node, Vector<int> &indices)
