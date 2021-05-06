@@ -128,6 +128,16 @@ template<typename Allocator = GuardedAllocator> class LinearAllocator : NonCopya
     return destruct_ptr<T>(value);
   }
 
+  template<typename T, typename... Args>
+  MutableSpan<T> construct_array(int64_t size, Args &&... args)
+  {
+    MutableSpan<T> array = this->allocate_array<T>(size);
+    for (const int64_t i : IndexRange(size)) {
+      new (&array[i]) T(std::forward<Args>(args)...);
+    }
+    return array;
+  }
+
   /**
    * Copy the given array into a memory buffer provided by this allocator.
    */

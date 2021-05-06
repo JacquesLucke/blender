@@ -141,8 +141,8 @@ struct NodeState {
    * States of the individual input and output sockets. One can index into these arrays without
    * locking.
    */
-  Array<InputState> inputs;
-  Array<OutputState> outputs;
+  MutableSpan<InputState> inputs;
+  MutableSpan<OutputState> outputs;
 
   /**
    * The first run of a node is sometimes handled specially.
@@ -345,8 +345,8 @@ class GeometryNodesEvaluator {
 
   void initialize_node_state(const DNode node, NodeState &node_state, LinearAllocator<> &allocator)
   {
-    node_state.inputs.reinitialize(node->inputs().size());
-    node_state.outputs.reinitialize(node->outputs().size());
+    node_state.inputs = allocator.construct_array<InputState>(node->inputs().size());
+    node_state.outputs = allocator.construct_array<OutputState>(node->outputs().size());
 
     for (const int i : node->inputs().index_range()) {
       InputState &input_state = node_state.inputs[i];
@@ -399,6 +399,9 @@ class GeometryNodesEvaluator {
           }
         }
       }
+
+      destruct_n(node_state.inputs.data(), node_state.inputs.size());
+      destruct_n(node_state.outputs.data(), node_state.outputs.size());
 
       node_state.~NodeState();
     }
