@@ -121,6 +121,12 @@ struct OutputState {
    * it.
    */
   ValueUsage output_usage_for_evaluation;
+
+  /**
+   * Counts how many times the value from this output might be used. If this number reaches zero,
+   * the output is not needed anymore.
+   */
+  int potential_users = 0;
 };
 
 enum class NodeScheduleState {
@@ -217,6 +223,8 @@ class NodeParamsProvider : public nodes::GeoNodeExecParamsProvider {
   void set_output(StringRef identifier, GMutablePointer value) override;
   void require_input(StringRef identifier) override;
   void set_input_unused(StringRef identifier) override;
+  bool output_may_be_required(StringRef identifier) const override;
+  bool output_is_required(StringRef identifier) const override;
 };
 
 class GeometryNodesEvaluator {
@@ -366,6 +374,33 @@ class GeometryNodesEvaluator {
       }
       else {
         input_state.value.single = allocator.construct<SingleInputValue>().release();
+      }
+    }
+    for (const int i : node->outputs().index_range()) {
+      OutputState &output_state = node_state.outputs[i];
+      const DOutputSocket socket = node.output(i);
+      if (!socket->is_available()) {
+        continue;
+      }
+      const CPPType *type = this->get_socket_type(socket);
+      if (type == nullptr) {
+        continue;
+      }
+      socket.foreach_target_socket(
+          [&, this](const DInputSocket target_socket) {
+            if (!target_socket->is_available()) {
+              return;
+            }
+            const DNode target_node = target_socket.node();
+            if (!this->node_states_.contains(target_node)) {
+              /* The target node is not computed because it is not computed to the output. */
+              return;
+            }
+            output_state.potential_users += 1;
+          },
+          {});
+      if (output_state.potential_users == 0) {
+        output_state.output_usage = ValueUsage::No;
       }
     }
   }
@@ -1082,6 +1117,20 @@ void NodeParamsProvider::set_input_unused(StringRef identifier)
   const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
   LockedNode locked_node{this->dnode, *node_state_};
   evaluator_.set_input_unused(locked_node, socket);
+}
+
+bool NodeParamsProvider::output_may_be_required(StringRef identifier) const
+{
+  const DOutputSocket socket = get_output_by_identifier(this->dnode, identifier);
+  OutputState &output_state = node_state_->outputs[socket->index()];
+  return output_state.output_usage_for_evaluation != ValueUsage::No;
+}
+
+bool NodeParamsProvider::output_is_required(StringRef identifier) const
+{
+  const DOutputSocket socket = get_output_by_identifier(this->dnode, identifier);
+  OutputState &output_state = node_state_->outputs[socket->index()];
+  return output_state.output_usage_for_evaluation == ValueUsage::Yes;
 }
 
 void evaluate_geometry_nodes(GeometryNodesEvaluationParams &params)

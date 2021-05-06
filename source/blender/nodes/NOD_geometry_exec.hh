@@ -108,6 +108,9 @@ class GeoNodeExecParamsProvider {
   virtual void require_input(StringRef identifier) = 0;
 
   virtual void set_input_unused(StringRef identifier) = 0;
+
+  virtual bool output_may_be_required(StringRef identifier) const = 0;
+  virtual bool output_is_required(StringRef identifier) const = 0;
 };
 
 class GeoNodeExecParams {
@@ -142,6 +145,16 @@ class GeoNodeExecParams {
   void set_input_unused(StringRef identifier)
   {
     provider_->set_input_unused(identifier);
+  }
+
+  bool output_may_be_required(StringRef identifier) const
+  {
+    return provider_->output_may_be_required(identifier);
+  }
+
+  bool output_is_required(StringRef identifier) const
+  {
+    return provider_->output_is_required(identifier);
   }
 
   /**
