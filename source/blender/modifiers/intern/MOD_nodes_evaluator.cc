@@ -153,22 +153,18 @@ struct NodeState {
   NodeScheduleState schedule_state = NodeScheduleState::NotScheduled;
 };
 
-class NodeStateLock {
+class LockedNode {
+ public:
+  const DNode node;
+  NodeState &node_state;
+
  private:
   std::lock_guard<std::mutex> lock_;
-  const DNode node_;
 
  public:
-  NodeStateLock(const DNode node, NodeState &node_state) : lock_(node_state.mutex), node_(node)
+  LockedNode(const DNode node, NodeState &node_state)
+      : node(node), node_state(node_state), lock_(node_state.mutex)
   {
-  }
-
-  /* Asserts that this node is locked. */
-  void assert_is_node(const DNode node) const
-  {
-    if (node_ != node) {
-      BLI_assert_unreachable();
-    }
   }
 };
 
@@ -268,8 +264,8 @@ class GeometryNodesEvaluator {
       const DNode node = socket.node();
       NodeState &node_state = *node_states_.lookup(node);
       if (node_state.is_first_run) {
-        NodeStateLock node_lock(node, node_state);
-        this->load_unlinked_inputs(node, node_state, node_lock);
+        LockedNode locked_node(node, node_state);
+        this->load_unlinked_inputs(locked_node);
         node_state.is_first_run = false;
       }
       InputState &input_state = node_state.inputs[socket->index()];
@@ -394,31 +390,29 @@ class GeometryNodesEvaluator {
     for (const DInputSocket &socket : group_outputs_) {
       const DNode node = socket.node();
       NodeState &node_state = *node_states_.lookup(socket.node());
-      NodeStateLock node_lock{node, node_state};
-      this->set_input_required(socket, node_state, node_lock);
+      LockedNode locked_node{node, node_state};
+      this->set_input_required(locked_node, socket);
     }
   }
 
-  void set_input_required(const DInputSocket socket,
-                          NodeState &node_state,
-                          const NodeStateLock &node_lock)
+  void set_input_required(LockedNode &locked_node, const DInputSocket socket)
   {
-    const DNode node = socket.node();
-    InputState &input_state = node_state.inputs[socket->index()];
+    BLI_assert(locked_node.node == socket.node());
+    InputState &input_state = locked_node.node_state.inputs[socket->index()];
 
     /* Value set as unused cannot become used again. */
     BLI_assert(input_state.usage != ValueUsage::No);
 
     if (input_state.was_ready_for_evaluation) {
       /* The value was already ready, but the node might expect to be evaluated again. */
-      this->schedule_node_if_necessary(node, node_state, node_lock);
+      this->schedule_node_if_necessary(locked_node);
       return;
     }
 
     const ValueUsage old_usage = input_state.usage;
     if (old_usage == ValueUsage::Yes) {
       /* The node is already required, but the node might expect to be evaluated again. */
-      this->schedule_node_if_necessary(node, node_state, node_lock);
+      this->schedule_node_if_necessary(locked_node);
       return;
     }
 
@@ -434,23 +428,22 @@ class GeometryNodesEvaluator {
       NodeState &origin_node_state = *this->node_states_.lookup(origin_node);
       OutputState &origin_socket_state = origin_node_state.outputs[origin_socket->index()];
 
-      NodeStateLock origin_lock{origin_node, origin_node_state};
+      LockedNode locked_origin_node{origin_node, origin_node_state};
 
       if (origin_socket_state.output_usage == ValueUsage::Yes) {
         /* Output is marked as required already. So the other node is scheduled already. */
         return;
       }
-
       /* The origin node needs to be scheduled so that it provides the requested input
        * eventually. */
       origin_socket_state.output_usage = ValueUsage::Yes;
-      this->schedule_node_if_necessary(origin_node, origin_node_state, origin_lock);
+      this->schedule_node_if_necessary(locked_origin_node);
     });
   }
 
-  void set_input_unused(DInputSocket UNUSED(socket), const NodeStateLock &UNUSED(node_lock))
+  void set_input_unused(LockedNode &UNUSED(locked_node), DInputSocket UNUSED(socket))
   {
-    /* TODO: Implementing this is an optimization. */
+    /* TODO: This is an optimization. */
   }
 
   struct ForwardSettings {
@@ -571,7 +564,7 @@ class GeometryNodesEvaluator {
     NodeState &node_state = *node_states_.lookup(node);
     InputState &input_state = node_state.inputs[socket->index()];
 
-    NodeStateLock node_lock{node, node_state};
+    LockedNode locked_node{node, node_state};
 
     if (socket->is_multi_input_socket()) {
       MultiInputValue &multi_value = *input_state.value.multi;
@@ -585,7 +578,7 @@ class GeometryNodesEvaluator {
     /* We don't want to trigger nodes that might not be needed after all. */
     if (!settings.is_forwarding_group_inputs) {
       /* TODO: Schedule in fewer cases. */
-      this->schedule_node_if_necessary(node, node_state, node_lock);
+      this->schedule_node_if_necessary(locked_node);
     }
   }
 
@@ -599,16 +592,13 @@ class GeometryNodesEvaluator {
     return nodes::socket_cpp_type_get(*socket.typeinfo());
   }
 
-  void schedule_node_if_necessary(const DNode node,
-                                  NodeState &node_state,
-                                  const NodeStateLock &node_lock)
+  void schedule_node_if_necessary(LockedNode &locked_node)
   {
-    node_lock.assert_is_node(node);
-    switch (node_state.schedule_state) {
+    switch (locked_node.node_state.schedule_state) {
       case NodeScheduleState::NotScheduled: {
         /* Schedule the node now. */
-        node_state.schedule_state = NodeScheduleState::Scheduled;
-        this->add_node_to_task_group(node);
+        locked_node.node_state.schedule_state = NodeScheduleState::Scheduled;
+        this->add_node_to_task_group(locked_node);
         break;
       }
       case NodeScheduleState::Scheduled: {
@@ -617,7 +607,7 @@ class GeometryNodesEvaluator {
       }
       case NodeScheduleState::Running: {
         /* Reschedule node while it is running. The node will reschedule itself when it is done. */
-        node_state.schedule_state = NodeScheduleState::RunningAndRescheduled;
+        locked_node.node_state.schedule_state = NodeScheduleState::RunningAndRescheduled;
         break;
       }
       case NodeScheduleState::RunningAndRescheduled: {
@@ -627,9 +617,9 @@ class GeometryNodesEvaluator {
     }
   }
 
-  void add_node_to_task_group(DNode node)
+  void add_node_to_task_group(LockedNode &locked_node)
   {
-    task_group_.run([this, node]() { this->run_task(node); });
+    task_group_.run([this, node = locked_node.node]() { this->run_task(node); });
   }
 
   void run_task(const DNode node)
@@ -637,15 +627,15 @@ class GeometryNodesEvaluator {
     NodeState &node_state = *node_states_.lookup(node);
     bool can_execute_node = false;
     {
-      NodeStateLock node_lock{node, node_state};
+      LockedNode locked_node{node, node_state};
       BLI_assert(node_state.schedule_state == NodeScheduleState::Scheduled);
       node_state.schedule_state = NodeScheduleState::Running;
 
       if (node_state.is_first_run) {
-        this->first_node_run(node, node_state, node_lock);
+        this->first_node_run(locked_node);
         node_state.is_first_run = false;
       }
-      can_execute_node = this->try_prepare_node_for_execution(node, node_state, node_lock);
+      can_execute_node = this->try_prepare_node_for_execution(locked_node);
     }
 
     if (can_execute_node) {
@@ -653,12 +643,12 @@ class GeometryNodesEvaluator {
     }
 
     {
-      std::lock_guard lock{node_state.mutex};
+      LockedNode locked_node{node, node_state};
       if (node_state.schedule_state == NodeScheduleState::Running) {
         node_state.schedule_state = NodeScheduleState::NotScheduled;
       }
       else if (node_state.schedule_state == NodeScheduleState::RunningAndRescheduled) {
-        this->add_node_to_task_group(node);
+        this->add_node_to_task_group(locked_node);
         node_state.schedule_state = NodeScheduleState::Scheduled;
       }
       else {
@@ -667,18 +657,16 @@ class GeometryNodesEvaluator {
     }
   }
 
-  void first_node_run(const DNode node, NodeState &node_state, const NodeStateLock &node_lock)
+  void first_node_run(LockedNode &locked_node)
   {
-    node_lock.assert_is_node(node);
-
-    this->load_unlinked_inputs(node, node_state, node_lock);
+    this->load_unlinked_inputs(locked_node);
 
     /* Set all the sockets as required that are always required. */
     Vector<int> required_inputs;
-    this->get_always_required_input_indices(node, required_inputs);
+    this->get_always_required_input_indices(locked_node.node, required_inputs);
     for (const int i : required_inputs) {
-      const DInputSocket socket = node.input(i);
-      this->set_input_required(socket, node_state, node_lock);
+      const DInputSocket socket = locked_node.node.input(i);
+      this->set_input_required(locked_node, socket);
     }
   }
 
@@ -697,18 +685,14 @@ class GeometryNodesEvaluator {
     }
   }
 
-  bool try_prepare_node_for_execution(const DNode node,
-                                      NodeState &node_state,
-                                      const NodeStateLock &node_lock)
+  bool try_prepare_node_for_execution(LockedNode &locked_node)
   {
-    node_lock.assert_is_node(node);
-
-    for (const int i : node_state.inputs.index_range()) {
-      InputState &input_state = node_state.inputs[i];
+    for (const int i : locked_node.node_state.inputs.index_range()) {
+      InputState &input_state = locked_node.node_state.inputs[i];
       if (input_state.type == nullptr) {
         continue;
       }
-      const InputSocketRef &socket_ref = node->input(i);
+      const InputSocketRef &socket_ref = locked_node.node->input(i);
       const bool is_required = input_state.usage == ValueUsage::Yes;
 
       /* No need to check this socket again. */
@@ -740,7 +724,7 @@ class GeometryNodesEvaluator {
       }
     }
     bool evaluation_is_necessary = false;
-    for (OutputState &output_state : node_state.outputs) {
+    for (OutputState &output_state : locked_node.node_state.outputs) {
       output_state.output_usage_for_evaluation = output_state.output_usage;
       if (output_state.output_usage_for_evaluation == ValueUsage::Yes) {
         if (!output_state.has_been_computed) {
@@ -853,11 +837,11 @@ class GeometryNodesEvaluator {
     }
   }
 
-  void load_unlinked_inputs(const DNode node,
-                            NodeState &node_state,
-                            const NodeStateLock &node_lock)
+  void load_unlinked_inputs(LockedNode &locked_node)
   {
-    node_lock.assert_is_node(node);
+    const DNode node = locked_node.node;
+    NodeState &node_state = locked_node.node_state;
+
     for (const InputSocketRef *input_socket_ref : node->inputs()) {
       if (!input_socket_ref->is_available()) {
         continue;
@@ -1046,15 +1030,15 @@ void NodeParamsProvider::set_output(StringRef identifier, GMutablePointer value)
 void NodeParamsProvider::require_input(StringRef identifier)
 {
   const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
-  NodeStateLock node_lock(this->dnode, *node_state_);
-  evaluator_.set_input_required(socket, *node_state_, node_lock);
+  LockedNode locked_node{this->dnode, *node_state_};
+  evaluator_.set_input_required(locked_node, socket);
 }
 
 void NodeParamsProvider::set_input_unused(StringRef identifier)
 {
   const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
-  NodeStateLock node_lock(this->dnode, *node_state_);
-  evaluator_.set_input_unused(socket, node_lock);
+  LockedNode locked_node{this->dnode, *node_state_};
+  evaluator_.set_input_unused(locked_node, socket);
 }
 
 void evaluate_geometry_nodes(GeometryNodesEvaluationParams &params)
