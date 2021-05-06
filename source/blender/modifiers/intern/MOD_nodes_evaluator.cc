@@ -113,7 +113,7 @@ struct NodeState {
   bool reschedule_after_run = false;
 };
 
-class NewGeometryNodesEvaluator;
+class GeometryNodesEvaluator;
 
 static DInputSocket get_input_by_identifier(const DNode node, const StringRef identifier)
 {
@@ -135,13 +135,13 @@ static DOutputSocket get_output_by_identifier(const DNode node, const StringRef 
   return {};
 }
 
-class NewNodeParamsProvider : public nodes::GeoNodeExecParamsProvider {
+class NodeParamsProvider : public nodes::GeoNodeExecParamsProvider {
  private:
-  NewGeometryNodesEvaluator &evaluator_;
+  GeometryNodesEvaluator &evaluator_;
   NodeState *node_state_;
 
  public:
-  NewNodeParamsProvider(NewGeometryNodesEvaluator &evaluator, DNode dnode);
+  NodeParamsProvider(GeometryNodesEvaluator &evaluator, DNode dnode);
 
   bool can_get_input(StringRef identifier) const override;
   bool can_set_output(StringRef identifier) const override;
@@ -154,7 +154,7 @@ class NewNodeParamsProvider : public nodes::GeoNodeExecParamsProvider {
   void set_input_unused(StringRef identifier) override;
 };
 
-class NewGeometryNodesEvaluator {
+class GeometryNodesEvaluator {
  private:
   LinearAllocator<> &main_allocator_;
   tbb::enumerable_thread_specific<LinearAllocator<>> local_allocators_;
@@ -171,10 +171,10 @@ class NewGeometryNodesEvaluator {
   Map<DNode, NodeState *> node_states_;
   tbb::task_group task_group_;
 
-  friend NewNodeParamsProvider;
+  friend NodeParamsProvider;
 
  public:
-  NewGeometryNodesEvaluator(GeometryNodesEvaluationParams &params)
+  GeometryNodesEvaluator(GeometryNodesEvaluationParams &params)
       : main_allocator_(params.allocator),
         group_outputs_(std::move(params.output_sockets)),
         input_values_(params.input_values),
@@ -669,7 +669,7 @@ class NewGeometryNodesEvaluator {
   {
     const bNode &bnode = *node->bnode();
 
-    NewNodeParamsProvider params_provider{*this, node};
+    NodeParamsProvider params_provider{*this, node};
     GeoNodeExecParams params{params_provider};
     bnode.typeinfo->geometry_node_execute(params);
   }
@@ -825,7 +825,7 @@ class NewGeometryNodesEvaluator {
   }
 };
 
-NewNodeParamsProvider::NewNodeParamsProvider(NewGeometryNodesEvaluator &evaluator, DNode dnode)
+NodeParamsProvider::NodeParamsProvider(GeometryNodesEvaluator &evaluator, DNode dnode)
     : evaluator_(evaluator)
 {
   this->dnode = dnode;
@@ -837,7 +837,7 @@ NewNodeParamsProvider::NewNodeParamsProvider(NewGeometryNodesEvaluator &evaluato
   node_state_ = evaluator.node_states_.lookup(dnode);
 }
 
-bool NewNodeParamsProvider::can_get_input(StringRef identifier) const
+bool NodeParamsProvider::can_get_input(StringRef identifier) const
 {
   const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
   BLI_assert(socket);
@@ -856,7 +856,7 @@ bool NewNodeParamsProvider::can_get_input(StringRef identifier) const
   return single_value.value.load(std::memory_order_acquire) != nullptr;
 }
 
-bool NewNodeParamsProvider::can_set_output(StringRef identifier) const
+bool NodeParamsProvider::can_set_output(StringRef identifier) const
 {
   const DOutputSocket socket = get_output_by_identifier(this->dnode, identifier);
   BLI_assert(socket);
@@ -865,7 +865,7 @@ bool NewNodeParamsProvider::can_set_output(StringRef identifier) const
   return !output_state.has_been_computed;
 }
 
-GMutablePointer NewNodeParamsProvider::extract_input(StringRef identifier)
+GMutablePointer NodeParamsProvider::extract_input(StringRef identifier)
 {
   const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
   BLI_assert(socket);
@@ -879,7 +879,7 @@ GMutablePointer NewNodeParamsProvider::extract_input(StringRef identifier)
   return {*input_state.type, value};
 }
 
-Vector<GMutablePointer> NewNodeParamsProvider::extract_multi_input(StringRef identifier)
+Vector<GMutablePointer> NodeParamsProvider::extract_multi_input(StringRef identifier)
 {
   const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
   BLI_assert(socket);
@@ -904,7 +904,7 @@ Vector<GMutablePointer> NewNodeParamsProvider::extract_multi_input(StringRef ide
   return ret_values;
 }
 
-GPointer NewNodeParamsProvider::get_input(StringRef identifier) const
+GPointer NodeParamsProvider::get_input(StringRef identifier) const
 {
   const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
   BLI_assert(socket);
@@ -916,13 +916,13 @@ GPointer NewNodeParamsProvider::get_input(StringRef identifier) const
   return {*input_state.type, value.value.load(std::memory_order_acquire)};
 }
 
-GMutablePointer NewNodeParamsProvider::alloc_output_value(const CPPType &type)
+GMutablePointer NodeParamsProvider::alloc_output_value(const CPPType &type)
 {
   LinearAllocator<> &allocator = evaluator_.local_allocators_.local();
   return {type, allocator.allocate(type.size(), type.alignment())};
 }
 
-void NewNodeParamsProvider::set_output(StringRef identifier, GMutablePointer value)
+void NodeParamsProvider::set_output(StringRef identifier, GMutablePointer value)
 {
   const DOutputSocket socket = get_output_by_identifier(this->dnode, identifier);
   BLI_assert(socket);
@@ -933,13 +933,13 @@ void NewNodeParamsProvider::set_output(StringRef identifier, GMutablePointer val
   evaluator_.forward_output(socket, value, {});
 }
 
-void NewNodeParamsProvider::require_input(StringRef identifier)
+void NodeParamsProvider::require_input(StringRef identifier)
 {
   const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
   evaluator_.set_input_required(socket);
 }
 
-void NewNodeParamsProvider::set_input_unused(StringRef identifier)
+void NodeParamsProvider::set_input_unused(StringRef identifier)
 {
   const DInputSocket socket = get_input_by_identifier(this->dnode, identifier);
   evaluator_.set_input_unused(socket);
@@ -947,7 +947,7 @@ void NewNodeParamsProvider::set_input_unused(StringRef identifier)
 
 void evaluate_geometry_nodes(GeometryNodesEvaluationParams &params)
 {
-  NewGeometryNodesEvaluator evaluator{params};
+  GeometryNodesEvaluator evaluator{params};
   params.r_output_values = evaluator.execute();
 }
 
