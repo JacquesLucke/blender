@@ -156,6 +156,11 @@ struct NodeState {
   bool is_first_run = true;
 
   /**
+   * Used to check that nodes that don't support lazyness to not run more than once.
+   */
+  bool has_been_executed = false;
+
+  /**
    * Counts all the values from a multi input separately.
    * This is used as an optimization so that nodes are not unnecessarily scheduled when not all
    * their required inputs are available.
@@ -810,11 +815,19 @@ class GeometryNodesEvaluator {
 
   void execute_node(const DNode node, NodeState &node_state)
   {
+    const bNode &bnode = *node->bnode();
+
+    if (node_state.has_been_executed) {
+      if (!bnode.typeinfo->geometry_node_execute_supports_lazyness) {
+        /* Nodes that don't support lazyness must not be executed more than once. */
+        BLI_assert_unreachable();
+      }
+    }
+    node_state.has_been_executed = true;
+
     if (node->is_group_input_node()) {
       return;
     }
-
-    const bNode &bnode = *node->bnode();
 
     /* Use the geometry node execute callback if it exists. */
     if (bnode.typeinfo->geometry_node_execute != nullptr) {
@@ -1123,6 +1136,9 @@ bool NodeParamsProvider::output_may_be_required(StringRef identifier) const
 {
   const DOutputSocket socket = get_output_by_identifier(this->dnode, identifier);
   OutputState &output_state = node_state_->outputs[socket->index()];
+  if (output_state.has_been_computed) {
+    return false;
+  }
   return output_state.output_usage_for_evaluation != ValueUsage::No;
 }
 
@@ -1130,6 +1146,9 @@ bool NodeParamsProvider::output_is_required(StringRef identifier) const
 {
   const DOutputSocket socket = get_output_by_identifier(this->dnode, identifier);
   OutputState &output_state = node_state_->outputs[socket->index()];
+  if (output_state.has_been_computed) {
+    return false;
+  }
   return output_state.output_usage_for_evaluation == ValueUsage::Yes;
 }
 
