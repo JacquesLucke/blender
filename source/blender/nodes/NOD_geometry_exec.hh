@@ -129,6 +129,16 @@ class GeoNodeExecParams {
     provider_->require_input(identifier);
   }
 
+  /** Returns true when the input is only available in the next invocation of the node. */
+  bool require_input_if_not_available(StringRef identifier)
+  {
+    if (provider_->can_get_input(identifier)) {
+      return false;
+    }
+    provider_->require_input(identifier);
+    return true;
+  }
+
   void set_input_unused(StringRef identifier)
   {
     provider_->set_input_unused(identifier);
