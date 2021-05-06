@@ -603,25 +603,24 @@ class GeometryNodesEvaluator {
         }
       }
     }
-
-    if (all_required_inputs_available) {
-      bool evaluation_is_necessary = false;
-      for (OutputState &output_state : node_state.outputs) {
-        output_state.output_usage_for_evaluation = output_state.output_usage.load(
-            std::memory_order_acquire);
-        if (output_state.output_usage_for_evaluation == ValueUsage::Yes) {
-          if (!output_state.has_been_computed) {
-            /* Only evaluate when there is an output that is required but has not been computed.
-             */
-            evaluation_is_necessary = true;
-          }
+    if (!all_required_inputs_available) {
+      return;
+    }
+    bool evaluation_is_necessary = false;
+    for (OutputState &output_state : node_state.outputs) {
+      output_state.output_usage_for_evaluation = output_state.output_usage.load(
+          std::memory_order_acquire);
+      if (output_state.output_usage_for_evaluation == ValueUsage::Yes) {
+        if (!output_state.has_been_computed) {
+          /* Only evaluate when there is an output that is required but has not been computed. */
+          evaluation_is_necessary = true;
         }
       }
-
-      if (evaluation_is_necessary) {
-        this->execute_node(node, node_state);
-      }
     }
+    if (!evaluation_is_necessary) {
+      return;
+    }
+    this->execute_node(node, node_state);
   }
 
   void get_always_required_input_indices(const DNode node, Vector<int> &indices)
