@@ -322,15 +322,15 @@ class GeometryNodesEvaluator {
   Vector<GMutablePointer> execute()
   {
     this->create_states_for_reachable_nodes();
-    this->forward_input_values();
+    this->forward_group_inputs();
     this->schedule_initial_nodes();
     task_group_.wait();
-    Vector<GMutablePointer> output_values = this->extract_output_values();
+    Vector<GMutablePointer> output_values = this->extract_group_outputs();
     this->free_states();
     return output_values;
   }
 
-  Vector<GMutablePointer> extract_output_values()
+  Vector<GMutablePointer> extract_group_outputs()
   {
     Vector<GMutablePointer> output_values;
     for (const DInputSocket &socket : params_.output_sockets) {
@@ -340,12 +340,16 @@ class GeometryNodesEvaluator {
       const DNode node = socket.node();
       NodeState &node_state = *node_states_.lookup(node);
       InputState &input_state = node_state.inputs[socket->index()];
-      const CPPType &type = *input_state.type;
+
       SingleInputValue &single_value = *input_state.value.single;
       void *value = single_value.value;
+
+      /* The value should have been computed by now. If this assert is hit, it means that there was
+       * some scheduling issue before. */
       BLI_assert(value != nullptr);
 
-      /* Move value into memory owned by the main allocator. */
+      /* Move value into memory owned by the outer allocator. */
+      const CPPType &type = *input_state.type;
       void *buffer = outer_allocator_.allocate(type.size(), type.alignment());
       type.move_to_uninitialized(value, buffer);
 
@@ -354,7 +358,7 @@ class GeometryNodesEvaluator {
     return output_values;
   }
 
-  void forward_input_values()
+  void forward_group_inputs()
   {
     for (auto &&item : params_.input_values.items()) {
       const DOutputSocket socket = item.key;
