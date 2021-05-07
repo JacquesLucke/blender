@@ -331,7 +331,7 @@ class GeometryNodesEvaluator {
     this->schedule_initial_nodes();
     task_group_.wait();
     Vector<GMutablePointer> output_values = this->extract_group_outputs();
-    this->free_states();
+    this->destruct_node_states();
     return output_values;
   }
 
@@ -499,33 +499,33 @@ class GeometryNodesEvaluator {
     }
   }
 
-  void free_states()
+  void destruct_node_states()
   {
-    for (auto &&item : node_states_.items()) {
-      const DNode node = item.key;
-      NodeState &node_state = *item.value;
+    /* Need to destruct stuff manually, because it's allocated by a custom allocator. */
+    for (auto &&node_state_item : node_states_.items()) {
+      const DNode node = node_state_item.key;
+      NodeState &node_state = *node_state_item.value;
 
       for (const int i : node->inputs().index_range()) {
         InputState &input_state = node_state.inputs[i];
+        if (input_state.type == nullptr) {
+          continue;
+        }
         const InputSocketRef &socket_ref = node->input(i);
-        if (input_state.type != nullptr) {
-          if (socket_ref.is_multi_input_socket()) {
-            MultiInputValue &multi_value = *input_state.value.multi;
-            for (MultiInputValueItem &item : multi_value.items) {
-              if (item.value != nullptr) {
-                input_state.type->destruct(item.value);
-              }
-            }
-            multi_value.~MultiInputValue();
+        if (socket_ref.is_multi_input_socket()) {
+          MultiInputValue &multi_value = *input_state.value.multi;
+          for (MultiInputValueItem &item : multi_value.items) {
+            input_state.type->destruct(item.value);
           }
-          else {
-            SingleInputValue &single_value = *input_state.value.single;
-            void *value = single_value.value;
-            if (value != nullptr) {
-              input_state.type->destruct(value);
-            }
-            single_value.~SingleInputValue();
+          multi_value.~MultiInputValue();
+        }
+        else {
+          SingleInputValue &single_value = *input_state.value.single;
+          void *value = single_value.value;
+          if (value != nullptr) {
+            input_state.type->destruct(value);
           }
+          single_value.~SingleInputValue();
         }
       }
 
