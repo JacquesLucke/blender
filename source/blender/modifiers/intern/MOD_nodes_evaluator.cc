@@ -747,9 +747,15 @@ class GeometryNodesEvaluator {
     }
   }
 
-  void log_socket_value(const DSocket socket, Span<GMutablePointer> values)
+  void log_socket_value(const DSocket socket, Span<MultiInputValueItem> values)
   {
-    this->log_socket_value(socket, values.cast<GPointer>());
+    Vector<GPointer, 16> value_pointers;
+    value_pointers.reserve(values.size());
+    const CPPType &type = *this->get_socket_type(socket);
+    for (const MultiInputValueItem &item : values) {
+      value_pointers.append({type, item.value});
+    }
+    this->log_socket_value(socket, value_pointers);
   }
 
   void log_socket_value(const DSocket socket, GPointer value)
@@ -976,6 +982,7 @@ class GeometryNodesEvaluator {
         MultiInputValue &multi_value = *input_state.value.multi;
         if (multi_value.items.size() == multi_value.expected_size) {
           input_state.was_ready_for_evaluation = true;
+          this->log_socket_value(socket, multi_value.items);
         }
         else if (is_required) {
           /* The input is required but is not fully provided yet. Therefore the node cannot be
