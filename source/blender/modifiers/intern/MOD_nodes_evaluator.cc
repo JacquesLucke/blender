@@ -557,7 +557,7 @@ class GeometryNodesEvaluator {
 
     if (input_state.usage == ValueUsage::Required) {
       /* The value is already required, but the node might expect to be evaluated again. */
-      this->schedule_node_if_necessary(locked_node);
+      this->schedule_node(locked_node);
       /* Returning here also ensure that the code below is executed at most once per input. */
       return;
     }
@@ -565,7 +565,7 @@ class GeometryNodesEvaluator {
 
     if (input_state.was_ready_for_evaluation) {
       /* The value was already ready, but the node might expect to be evaluated again. */
-      this->schedule_node_if_necessary(locked_node);
+      this->schedule_node(locked_node);
       return;
     }
 
@@ -583,7 +583,7 @@ class GeometryNodesEvaluator {
     }
     if (missing_values == 0) {
       /* The input is fully available already, but the node might expect to be evaluated again. */
-      this->schedule_node_if_necessary(locked_node);
+      this->schedule_node(locked_node);
       return;
     }
     /* Increase the total number of missing required inputs. This ensures that the node will be
@@ -599,7 +599,7 @@ class GeometryNodesEvaluator {
       /* If there are no origin sockets, just load the value from the socket directly. */
       this->load_unlinked_input_value(locked_node, input_socket, input_state, input_socket);
       locked_node.node_state.missing_required_inputs -= 1;
-      this->schedule_node_if_necessary(locked_node);
+      this->schedule_node(locked_node);
       return;
     }
     bool will_be_triggered_by_other_node = false;
@@ -628,11 +628,11 @@ class GeometryNodesEvaluator {
       /* The origin node needs to be scheduled so that it provides the requested input
        * eventually. */
       origin_socket_state.output_usage = ValueUsage::Required;
-      this->schedule_node_if_necessary(locked_origin_node);
+      this->schedule_node(locked_origin_node);
     }
     /* If this node will be triggered by another node, we don't have to schedule it now. */
     if (!will_be_triggered_by_other_node) {
-      this->schedule_node_if_necessary(locked_node);
+      this->schedule_node(locked_node);
     }
   }
 
@@ -684,7 +684,7 @@ class GeometryNodesEvaluator {
         /* The output socket has no users anymore. */
         origin_output_state.output_usage = ValueUsage::Unused;
         /* Schedule the origin node in case it wants to set its inputs as unused as well. */
-        this->schedule_node_if_necessary(locked_origin);
+        this->schedule_node(locked_origin);
       }
     });
   }
@@ -856,7 +856,7 @@ class GeometryNodesEvaluator {
       node_state.missing_required_inputs--;
       if (node_state.missing_required_inputs == 0) {
         /* Schedule node if all the required inputs have been provided. */
-        this->schedule_node_if_necessary(locked_node);
+        this->schedule_node(locked_node);
       }
     }
   }
@@ -871,7 +871,7 @@ class GeometryNodesEvaluator {
     return nodes::socket_cpp_type_get(*socket.typeinfo());
   }
 
-  void schedule_node_if_necessary(LockedNode &locked_node)
+  void schedule_node(LockedNode &locked_node)
   {
     switch (locked_node.node_state.schedule_state) {
       case NodeScheduleState::NotScheduled: {
@@ -928,7 +928,7 @@ class GeometryNodesEvaluator {
                                    NodeScheduleState::RunningAndRescheduled);
       node_state.schedule_state = NodeScheduleState::NotScheduled;
       if (reschedule) {
-        this->schedule_node_if_necessary(locked_node);
+        this->schedule_node(locked_node);
       }
     }
   }
