@@ -43,11 +43,11 @@ using namespace fn::multi_function_types;
 
 enum class ValueUsage : uint8_t {
   /* The value is definitely used. */
-  Yes,
+  Required,
   /* The value may be used. */
   Maybe,
   /* The value will definitely not be used. */
-  No,
+  Unused,
 };
 
 struct SingleInputValue {
@@ -414,13 +414,13 @@ class GeometryNodesEvaluator {
       InputState &input_state = node_state.inputs[i];
       const DInputSocket socket = node.input(i);
       if (!socket->is_available()) {
-        input_state.usage = ValueUsage::No;
+        input_state.usage = ValueUsage::Unused;
         continue;
       }
       const CPPType *type = this->get_socket_type(socket);
       input_state.type = type;
       if (type == nullptr) {
-        input_state.usage = ValueUsage::No;
+        input_state.usage = ValueUsage::Unused;
         continue;
       }
       if (socket->is_multi_input_socket()) {
@@ -436,12 +436,12 @@ class GeometryNodesEvaluator {
       OutputState &output_state = node_state.outputs[i];
       const DOutputSocket socket = node.output(i);
       if (!socket->is_available()) {
-        output_state.output_usage = ValueUsage::No;
+        output_state.output_usage = ValueUsage::Unused;
         continue;
       }
       const CPPType *type = this->get_socket_type(socket);
       if (type == nullptr) {
-        output_state.output_usage = ValueUsage::No;
+        output_state.output_usage = ValueUsage::Unused;
         continue;
       }
       socket.foreach_target_socket(
@@ -458,7 +458,7 @@ class GeometryNodesEvaluator {
           },
           {});
       if (output_state.potential_users == 0) {
-        output_state.output_usage = ValueUsage::No;
+        output_state.output_usage = ValueUsage::Unused;
       }
     }
   }
@@ -516,7 +516,7 @@ class GeometryNodesEvaluator {
     InputState &input_state = locked_node.node_state.inputs[socket->index()];
 
     /* Value set as unused cannot become used again. */
-    BLI_assert(input_state.usage != ValueUsage::No);
+    BLI_assert(input_state.usage != ValueUsage::Unused);
 
     if (input_state.was_ready_for_evaluation) {
       /* The value was already ready, but the node might expect to be evaluated again. */
@@ -525,7 +525,7 @@ class GeometryNodesEvaluator {
     }
 
     const ValueUsage old_usage = input_state.usage;
-    if (old_usage == ValueUsage::Yes) {
+    if (old_usage == ValueUsage::Required) {
       /* The value is already required, but the node might expect to be evaluated again. */
       this->schedule_node_if_necessary(locked_node);
       return;
@@ -548,10 +548,10 @@ class GeometryNodesEvaluator {
       this->schedule_node_if_necessary(locked_node);
       return;
     }
-    if (input_state.usage != ValueUsage::Yes) {
+    if (input_state.usage != ValueUsage::Required) {
       /* The input becomes required now and the value is not yet available. No need to reschedule
        * this node now, because it will be scheduled when the value becomes available.  */
-      input_state.usage = ValueUsage::Yes;
+      input_state.usage = ValueUsage::Required;
       locked_node.node_state.missing_required_inputs += missing_values;
     }
 
@@ -566,13 +566,13 @@ class GeometryNodesEvaluator {
 
       LockedNode locked_origin_node{origin_node, origin_node_state};
 
-      if (origin_socket_state.output_usage == ValueUsage::Yes) {
+      if (origin_socket_state.output_usage == ValueUsage::Required) {
         /* Output is marked as required already. So the other node is scheduled already. */
         return;
       }
       /* The origin node needs to be scheduled so that it provides the requested input
        * eventually. */
-      origin_socket_state.output_usage = ValueUsage::Yes;
+      origin_socket_state.output_usage = ValueUsage::Required;
       this->schedule_node_if_necessary(locked_origin_node);
     });
   }
@@ -580,13 +580,13 @@ class GeometryNodesEvaluator {
   void set_input_unused(LockedNode &locked_node, const DInputSocket socket)
   {
     InputState &input_state = locked_node.node_state.inputs[socket->index()];
-    BLI_assert(input_state.usage != ValueUsage::Yes);
+    BLI_assert(input_state.usage != ValueUsage::Required);
 
-    if (input_state.usage == ValueUsage::No) {
+    if (input_state.usage == ValueUsage::Unused) {
       /* Nothing to do in this case. */
       return;
     }
-    input_state.usage = ValueUsage::No;
+    input_state.usage = ValueUsage::Unused;
 
     this->destruct_input_value(locked_node, socket);
 
@@ -607,7 +607,7 @@ class GeometryNodesEvaluator {
       origin_output_state.potential_users -= 1;
       if (origin_output_state.potential_users == 0) {
         /* The output socket has no users anymore. */
-        origin_output_state.output_usage = ValueUsage::No;
+        origin_output_state.output_usage = ValueUsage::Unused;
         /* Schedule the origin node in case it wants to set its inputs as unused as well. */
         this->schedule_node_if_necessary(locked_origin);
       }
@@ -681,7 +681,7 @@ class GeometryNodesEvaluator {
     InputState &target_input_state = target_node_state->inputs[socket->index()];
 
     std::lock_guard lock{target_node_state->mutex};
-    return target_input_state.usage != ValueUsage::No;
+    return target_input_state.usage != ValueUsage::Unused;
   }
 
   void forward_to_socket_with_different_type(LinearAllocator<> &allocator,
@@ -754,7 +754,7 @@ class GeometryNodesEvaluator {
       single_value.value = value.get();
     }
 
-    if (input_state.usage == ValueUsage::Yes) {
+    if (input_state.usage == ValueUsage::Required) {
       node_state.missing_required_inputs--;
       if (node_state.missing_required_inputs == 0) {
         /* Schedule node if all the required inputs have been provided. */
@@ -887,7 +887,7 @@ class GeometryNodesEvaluator {
     for (OutputState &output_state : locked_node.node_state.outputs) {
       output_state.output_usage_for_evaluation = output_state.output_usage;
       if (!output_state.has_been_computed) {
-        if (output_state.output_usage == ValueUsage::Yes) {
+        if (output_state.output_usage == ValueUsage::Required) {
           /* Only evaluate when there is an output that is required but has not been computed. */
           evaluation_is_necessary = true;
         }
@@ -902,7 +902,7 @@ class GeometryNodesEvaluator {
         continue;
       }
       const InputSocketRef &socket_ref = locked_node.node->input(i);
-      const bool is_required = input_state.usage == ValueUsage::Yes;
+      const bool is_required = input_state.usage == ValueUsage::Required;
 
       /* No need to check this socket again. */
       if (input_state.was_ready_for_evaluation) {
@@ -942,7 +942,7 @@ class GeometryNodesEvaluator {
       if (output_state.has_been_computed) {
         continue;
       }
-      if (output_state.output_usage != ValueUsage::No) {
+      if (output_state.output_usage != ValueUsage::Unused) {
         has_remaining_output = true;
         break;
       }
@@ -954,7 +954,7 @@ class GeometryNodesEvaluator {
         if (input_state.usage == ValueUsage::Maybe) {
           this->set_input_unused(locked_node, socket);
         }
-        else if (input_state.usage == ValueUsage::Yes) {
+        else if (input_state.usage == ValueUsage::Required) {
           this->destruct_input_value(locked_node, socket);
         }
       }
@@ -1284,7 +1284,7 @@ bool NodeParamsProvider::output_may_be_required(StringRef identifier) const
   if (output_state.has_been_computed) {
     return false;
   }
-  return output_state.output_usage_for_evaluation != ValueUsage::No;
+  return output_state.output_usage_for_evaluation != ValueUsage::Unused;
 }
 
 bool NodeParamsProvider::output_is_required(StringRef identifier) const
@@ -1294,7 +1294,7 @@ bool NodeParamsProvider::output_is_required(StringRef identifier) const
   if (output_state.has_been_computed) {
     return false;
   }
-  return output_state.output_usage_for_evaluation == ValueUsage::Yes;
+  return output_state.output_usage_for_evaluation == ValueUsage::Required;
 }
 
 void evaluate_geometry_nodes(GeometryNodesEvaluationParams &params)
