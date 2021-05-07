@@ -876,7 +876,7 @@ class GeometryNodesEvaluator {
       case NodeScheduleState::NotScheduled: {
         /* Schedule the node now. */
         locked_node.node_state.schedule_state = NodeScheduleState::Scheduled;
-        this->add_node_to_task_group(locked_node);
+        task_group_.run([this, node = locked_node.node]() { this->run_task(node); });
         break;
       }
       case NodeScheduleState::Scheduled: {
@@ -893,11 +893,6 @@ class GeometryNodesEvaluator {
         break;
       }
     }
-  }
-
-  void add_node_to_task_group(LockedNode &locked_node)
-  {
-    task_group_.run([this, node = locked_node.node]() { this->run_task(node); });
   }
 
   void run_task(const DNode node)
@@ -927,18 +922,12 @@ class GeometryNodesEvaluator {
     {
       LockedNode locked_node{node, node_state};
       this->finish_node_if_remaining_outputs_are_unused(locked_node);
-      if (node_state.schedule_state == NodeScheduleState::Running) {
-        node_state.schedule_state = NodeScheduleState::NotScheduled;
-      }
-      else if (node_state.schedule_state == NodeScheduleState::RunningAndRescheduled) {
-        /* A finished node shouldn't be rescheduled. */
-        if (!node_state.node_has_finished) {
-          this->add_node_to_task_group(locked_node);
-          node_state.schedule_state = NodeScheduleState::Scheduled;
-        }
-      }
-      else {
-        BLI_assert_unreachable();
+      const bool reschedule = (!node_state.node_has_finished &&
+                               node_state.schedule_state ==
+                                   NodeScheduleState::RunningAndRescheduled);
+      node_state.schedule_state = NodeScheduleState::NotScheduled;
+      if (reschedule) {
+        this->schedule_node_if_necessary(locked_node);
       }
     }
   }
