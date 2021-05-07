@@ -333,11 +333,6 @@ class GeometryNodesEvaluator {
 
       const DNode node = socket.node();
       NodeState &node_state = *node_states_.lookup(node);
-      if (node_state.is_first_run) {
-        LockedNode locked_node(node, node_state);
-        this->first_node_run(locked_node);
-        node_state.is_first_run = false;
-      }
       InputState &input_state = node_state.inputs[socket->index()];
       const CPPType &type = *input_state.type;
       SingleInputValue &single_value = *input_state.value.single;
@@ -508,10 +503,10 @@ class GeometryNodesEvaluator {
     }
   }
 
-  void set_input_required(LockedNode &locked_node, const DInputSocket socket)
+  void set_input_required(LockedNode &locked_node, const DInputSocket input_socket)
   {
-    BLI_assert(locked_node.node == socket.node());
-    InputState &input_state = locked_node.node_state.inputs[socket->index()];
+    BLI_assert(locked_node.node == input_socket.node());
+    InputState &input_state = locked_node.node_state.inputs[input_socket->index()];
 
     /* Value set as unused cannot become used again. */
     BLI_assert(input_state.usage != ValueUsage::Unused);
@@ -522,16 +517,16 @@ class GeometryNodesEvaluator {
       return;
     }
 
-    const ValueUsage old_usage = input_state.usage;
-    if (old_usage == ValueUsage::Required) {
+    if (input_state.usage == ValueUsage::Required) {
       /* The value is already required, but the node might expect to be evaluated again. */
       this->schedule_node_if_necessary(locked_node);
       return;
     }
+    input_state.usage = ValueUsage::Required;
 
     /* The value might be available even when it was not ready for evaluation before. */
     int missing_values = 0;
-    if (socket->is_multi_input_socket()) {
+    if (input_socket->is_multi_input_socket()) {
       MultiInputValue &multi_value = *input_state.value.multi;
       missing_values = multi_value.expected_size - multi_value.items.size();
     }
@@ -542,22 +537,30 @@ class GeometryNodesEvaluator {
       }
     }
     if (missing_values == 0) {
-      /* The input is fully available already, but the node might expect to be evaluated again.  */
+      /* The input is fully available already, but the node might expect to be evaluated again. */
       this->schedule_node_if_necessary(locked_node);
       return;
     }
-    if (input_state.usage != ValueUsage::Required) {
-      /* The input becomes required now and the value is not yet available. No need to reschedule
-       * this node now, because it will be scheduled when the value becomes available.  */
-      input_state.usage = ValueUsage::Required;
-      locked_node.node_state.missing_required_inputs += missing_values;
-    }
+    locked_node.node_state.missing_required_inputs += missing_values;
 
-    socket.foreach_origin_socket([&, this](const DSocket origin_socket) {
+    Vector<DSocket> origin_sockets;
+    input_socket.foreach_origin_socket(
+        [&, this](const DSocket origin_socket) { origin_sockets.append(origin_socket); });
+
+    if (origin_sockets.is_empty()) {
+      this->load_unlinked_input_value(locked_node, input_socket, input_state, input_socket);
+      locked_node.node_state.missing_required_inputs -= 1;
+      this->schedule_node_if_necessary(locked_node);
+      return;
+    }
+    bool will_be_triggered_by_other_node = false;
+    for (const DSocket origin_socket : origin_sockets) {
       if (origin_socket->is_input()) {
-        /* These sockets are handled separately. */
+        this->load_unlinked_input_value(locked_node, input_socket, input_state, origin_socket);
+        locked_node.node_state.missing_required_inputs -= 1;
         return;
       }
+      will_be_triggered_by_other_node = true;
       const DNode origin_node = origin_socket.node();
       NodeState &origin_node_state = *this->node_states_.lookup(origin_node);
       OutputState &origin_socket_state = origin_node_state.outputs[origin_socket->index()];
@@ -572,7 +575,26 @@ class GeometryNodesEvaluator {
        * eventually. */
       origin_socket_state.output_usage = ValueUsage::Required;
       this->schedule_node_if_necessary(locked_origin_node);
-    });
+    }
+    if (!will_be_triggered_by_other_node) {
+      this->schedule_node_if_necessary(locked_node);
+    }
+  }
+
+  void load_unlinked_input_value(LockedNode &UNUSED(locked_node),
+                                 const DInputSocket input_socket,
+                                 InputState &input_state,
+                                 const DSocket origin_socket)
+  {
+    GMutablePointer value = this->get_value_from_socket(origin_socket, *input_state.type);
+    if (input_socket->is_multi_input_socket()) {
+      MultiInputValue &multi_value = *input_state.value.multi;
+      multi_value.items.append({input_socket, value.get()});
+    }
+    else {
+      SingleInputValue &single_value = *input_state.value.single;
+      single_value.value = value.get();
+    }
   }
 
   void set_input_unused(LockedNode &locked_node, const DInputSocket socket)
@@ -1042,62 +1064,24 @@ class GeometryNodesEvaluator {
     const DNode node = locked_node.node;
     NodeState &node_state = locked_node.node_state;
 
-    const bool require_linked_inputs =
-        !locked_node.node->typeinfo()->geometry_node_execute_supports_lazyness;
+    if (locked_node.node->typeinfo()->geometry_node_execute_supports_lazyness) {
+      return;
+    }
 
-    for (const InputSocketRef *input_socket_ref : node->inputs()) {
-      if (!input_socket_ref->is_available()) {
+    for (const int i : node->inputs().index_range()) {
+      const DInputSocket input_socket = node.input(i);
+      if (!input_socket->is_available()) {
         continue;
       }
-      InputState &input_state = node_state.inputs[input_socket_ref->index()];
+      InputState &input_state = node_state.inputs[i];
       if (input_state.type == nullptr) {
         continue;
       }
-      const DInputSocket input_socket{node.context(), input_socket_ref};
-      const CPPType &type = *input_state.type;
-
-      Vector<DSocket> origin_sockets;
-      input_socket.foreach_origin_socket([&](DSocket origin) { origin_sockets.append(origin); });
-
-      bool input_is_linked = false;
-      if (input_socket->is_multi_input_socket()) {
-        MultiInputValue &multi_value = *input_state.value.multi;
-        for (const DSocket &origin : origin_sockets) {
-          if (origin->is_input()) {
-            GMutablePointer value = this->get_unlinked_input_value(DInputSocket(origin), type);
-            multi_value.items.append({origin, value.get()});
-          }
-          else {
-            input_is_linked = true;
-          }
-        }
-      }
-      else {
-        SingleInputValue &single_value = *input_state.value.single;
-        if (origin_sockets.is_empty()) {
-          GMutablePointer value = this->get_unlinked_input_value(input_socket, type);
-          single_value.value = value.get();
-        }
-        else {
-          BLI_assert(origin_sockets.size() == 1);
-          const DSocket origin = origin_sockets[0];
-          if (origin->is_input()) {
-            GMutablePointer value = this->get_unlinked_input_value(DInputSocket(origin), type);
-            single_value.value = value.get();
-          }
-          else {
-            input_is_linked = true;
-          }
-        }
-      }
-      if (input_is_linked && require_linked_inputs) {
-        this->set_input_required(locked_node, input_socket);
-      }
+      this->set_input_required(locked_node, input_socket);
     }
   }
 
-  GMutablePointer get_unlinked_input_value(const DInputSocket &socket,
-                                           const CPPType &required_type)
+  GMutablePointer get_value_from_socket(const DSocket socket, const CPPType &required_type)
   {
     LinearAllocator<> &allocator = local_allocators_.local();
 
