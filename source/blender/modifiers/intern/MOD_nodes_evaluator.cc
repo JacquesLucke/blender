@@ -303,15 +303,8 @@ class GeometryNodesEvaluator {
    */
   tbb::enumerable_thread_specific<LinearAllocator<>> local_allocators_;
 
-  Vector<DInputSocket> group_outputs_;
-  Map<DOutputSocket, GMutablePointer> &input_values_;
-  blender::nodes::MultiFunctionByNode &mf_by_node_;
+  GeometryNodesEvaluationParams &params_;
   const blender::nodes::DataTypeConversions &conversions_;
-  const PersistentDataHandleMap &handle_map_;
-  const Object *self_object_;
-  const ModifierData *modifier_;
-  Depsgraph *depsgraph_;
-  LogSocketValueFn log_socket_value_fn_;
 
   Map<DNode, NodeState *> node_states_;
   tbb::task_group task_group_;
@@ -321,15 +314,8 @@ class GeometryNodesEvaluator {
  public:
   GeometryNodesEvaluator(GeometryNodesEvaluationParams &params)
       : outer_allocator_(params.allocator),
-        group_outputs_(std::move(params.output_sockets)),
-        input_values_(params.input_values),
-        mf_by_node_(*params.mf_by_node),
-        conversions_(blender::nodes::get_implicit_type_conversions()),
-        handle_map_(*params.handle_map),
-        self_object_(params.self_object),
-        modifier_(&params.modifier_->modifier),
-        depsgraph_(params.depsgraph),
-        log_socket_value_fn_(std::move(params.log_socket_value_fn))
+        params_(params),
+        conversions_(blender::nodes::get_implicit_type_conversions())
   {
   }
 
@@ -347,7 +333,7 @@ class GeometryNodesEvaluator {
   Vector<GMutablePointer> extract_output_values()
   {
     Vector<GMutablePointer> output_values;
-    for (const DInputSocket &socket : group_outputs_) {
+    for (const DInputSocket &socket : params_.output_sockets) {
       BLI_assert(socket->is_available());
       BLI_assert(!socket->is_multi_input_socket());
 
@@ -370,7 +356,7 @@ class GeometryNodesEvaluator {
 
   void forward_input_values()
   {
-    for (auto &&item : input_values_.items()) {
+    for (auto &&item : params_.input_values.items()) {
       const DOutputSocket socket = item.key;
       GMutablePointer value = item.value;
 
@@ -389,7 +375,7 @@ class GeometryNodesEvaluator {
   {
     Vector<DNode> inserted_nodes;
     Stack<DNode> nodes_to_check;
-    for (const DInputSocket &socket : group_outputs_) {
+    for (const DInputSocket &socket : params_.output_sockets) {
       nodes_to_check.push(socket.node());
     }
     while (!nodes_to_check.is_empty()) {
@@ -515,7 +501,7 @@ class GeometryNodesEvaluator {
 
   void schedule_initial_nodes()
   {
-    for (const DInputSocket &socket : group_outputs_) {
+    for (const DInputSocket &socket : params_.output_sockets) {
       const DNode node = socket.node();
       NodeState &node_state = *node_states_.lookup(socket.node());
       LockedNode locked_node{node, node_state};
@@ -1004,7 +990,7 @@ class GeometryNodesEvaluator {
     }
 
     /* Use the multi-function implementation if it exists. */
-    const MultiFunction *multi_function = mf_by_node_.lookup_default(node, nullptr);
+    const MultiFunction *multi_function = params_.mf_by_node->lookup_default(node, nullptr);
     if (multi_function != nullptr) {
       this->execute_multi_function_node(node, *multi_function, node_state);
       return;
@@ -1122,12 +1108,12 @@ class GeometryNodesEvaluator {
 
     if (bsocket->type == SOCK_OBJECT) {
       Object *object = socket->default_value<bNodeSocketValueObject>()->value;
-      PersistentObjectHandle object_handle = handle_map_.lookup(object);
+      PersistentObjectHandle object_handle = params_.handle_map->lookup(object);
       new (buffer) PersistentObjectHandle(object_handle);
     }
     else if (bsocket->type == SOCK_COLLECTION) {
       Collection *collection = socket->default_value<bNodeSocketValueCollection>()->value;
-      PersistentCollectionHandle collection_handle = handle_map_.lookup(collection);
+      PersistentCollectionHandle collection_handle = params_.handle_map->lookup(collection);
       new (buffer) PersistentCollectionHandle(collection_handle);
     }
     else {
@@ -1153,10 +1139,10 @@ NodeParamsProvider::NodeParamsProvider(GeometryNodesEvaluator &evaluator, DNode 
     : evaluator_(evaluator)
 {
   this->dnode = dnode;
-  this->handle_map = &evaluator.handle_map_;
-  this->self_object = evaluator.self_object_;
-  this->modifier = evaluator.modifier_;
-  this->depsgraph = evaluator.depsgraph_;
+  this->handle_map = evaluator.params_.handle_map;
+  this->self_object = evaluator.params_.self_object;
+  this->modifier = &evaluator.params_.modifier_->modifier;
+  this->depsgraph = evaluator.params_.depsgraph;
 
   node_state_ = evaluator.node_states_.lookup(dnode);
 }
