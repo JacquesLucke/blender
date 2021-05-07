@@ -636,11 +636,14 @@ class GeometryNodesEvaluator {
     }
   }
 
-  void load_unlinked_input_value(LockedNode &UNUSED(locked_node),
+  void load_unlinked_input_value(LockedNode &locked_node,
                                  const DInputSocket input_socket,
                                  InputState &input_state,
                                  const DSocket origin_socket)
   {
+    /* Only takes locked node as parameter, because the node needs to be locked. */
+    UNUSED_VARS(locked_node);
+
     GMutablePointer value = this->get_value_from_socket(origin_socket, *input_state.type);
     if (input_socket->is_multi_input_socket()) {
       MultiInputValue &multi_value = *input_state.value.multi;
@@ -655,6 +658,8 @@ class GeometryNodesEvaluator {
   void set_input_unused(LockedNode &locked_node, const DInputSocket socket)
   {
     InputState &input_state = locked_node.node_state.inputs[socket->index()];
+
+    /* A required socket cannot become unused. */
     BLI_assert(input_state.usage != ValueUsage::Required);
 
     if (input_state.usage == ValueUsage::Unused) {
@@ -663,15 +668,19 @@ class GeometryNodesEvaluator {
     }
     input_state.usage = ValueUsage::Unused;
 
-    this->destruct_input_value(locked_node, socket);
+    /* If the input is unused, it's value can be destructed now. */
+    this->destruct_input_value_if_exists(locked_node, socket);
 
     if (input_state.was_ready_for_evaluation) {
       /* If the value was already computed, we don't need to notify origin nodes. */
       return;
     }
 
+    /* Notify origin nodes that might want to set its inputs as unused as well. */
     socket.foreach_origin_socket([&, this](const DSocket origin_socket) {
       if (origin_socket->is_input()) {
+        /* Values from these sockets are loaded directly from the sockets, so there is no node to
+         * notify. */
         return;
       }
       const DNode origin_node = origin_socket.node();
@@ -689,7 +698,7 @@ class GeometryNodesEvaluator {
     });
   }
 
-  void destruct_input_value(LockedNode &locked_node, const DInputSocket socket)
+  void destruct_input_value_if_exists(LockedNode &locked_node, const DInputSocket socket)
   {
     InputState &input_state = locked_node.node_state.inputs[socket->index()];
     if (socket->is_multi_input_socket()) {
@@ -708,18 +717,22 @@ class GeometryNodesEvaluator {
     }
   }
 
+  /**
+   * Moves a newly computed value from an output socket to all the inputs that might need it.
+   */
   void forward_output(const DOutputSocket from_socket, GMutablePointer value_to_forward)
   {
     BLI_assert(value_to_forward.get() != nullptr);
 
     Vector<DInputSocket> to_sockets;
-
     auto handle_target_socket_fn = [&, this](const DInputSocket to_socket) {
       if (this->should_forward_to_socket(to_socket)) {
         to_sockets.append(to_socket);
       }
     };
     auto handle_skipped_socket_fn = [&, this](const DSocket socket) {
+      /* Log socket value on intermediate sockets to support e.g. attribute search or spreadsheet
+       * breadcrumbs on group nodes. */
       this->log_socket_value(socket, value_to_forward);
     };
     from_socket.foreach_target_socket(handle_target_socket_fn, handle_skipped_socket_fn);
@@ -731,6 +744,7 @@ class GeometryNodesEvaluator {
     for (const DInputSocket &to_socket : to_sockets) {
       const CPPType &to_type = *this->get_socket_type(to_socket);
       if (from_type == to_type) {
+        /* All target sockets that do not need a conversion will be handled afterwards. */
         to_sockets_same_type.append(to_socket);
         continue;
       }
@@ -766,10 +780,6 @@ class GeometryNodesEvaluator {
 
   bool should_forward_to_socket(const DInputSocket socket)
   {
-    if (!socket->is_available()) {
-      /* Unavailable sockets are never used. */
-      return false;
-    }
     const DNode to_node = socket.node();
     NodeState *target_node_state = this->node_states_.lookup_default(to_node, nullptr);
     if (target_node_state == nullptr) {
@@ -779,6 +789,7 @@ class GeometryNodesEvaluator {
     InputState &target_input_state = target_node_state->inputs[socket->index()];
 
     std::lock_guard lock{target_node_state->mutex};
+    /* Do not forward to an input socket whose value won't be used. */
     return target_input_state.usage != ValueUsage::Unused;
   }
 
@@ -789,8 +800,12 @@ class GeometryNodesEvaluator {
                                              const CPPType &to_type)
   {
     const CPPType &from_type = *value_to_forward.type();
+
+    /* Allocate a buffer for the converted value. */
     void *buffer = allocator.allocate(to_type.size(), to_type.alignment());
+
     if (conversions_.is_convertible(from_type, to_type)) {
+      /* Do the conversion if possible. */
       conversions_.convert_to_uninitialized(from_type, to_type, value_to_forward.get(), buffer);
     }
     else {
@@ -840,13 +855,16 @@ class GeometryNodesEvaluator {
     NodeState &node_state = *node_states_.lookup(node);
     InputState &input_state = node_state.inputs[socket->index()];
 
+    /* Lock the node because we want to change its state. */
     LockedNode locked_node{node, node_state};
 
     if (socket->is_multi_input_socket()) {
+      /* Add a new value to the multi-input. */
       MultiInputValue &multi_value = *input_state.value.multi;
       multi_value.items.append({origin, value.get()});
     }
     else {
+      /* Assign the value to the input. */
       SingleInputValue &single_value = *input_state.value.single;
       BLI_assert(single_value.value == nullptr);
       single_value.value = value.get();
@@ -898,6 +916,8 @@ class GeometryNodesEvaluator {
 
   void run_task(const DNode node)
   {
+    /* These nodes are sometimes scheduled. We could also check for them in other places, but it's
+     * the easiest to do it here. */
     if (node->is_group_input_node() || node->is_group_output_node()) {
       return;
     }
@@ -1016,7 +1036,7 @@ class GeometryNodesEvaluator {
           this->set_input_unused(locked_node, socket);
         }
         else if (input_state.usage == ValueUsage::Required) {
-          this->destruct_input_value(locked_node, socket);
+          this->destruct_input_value_if_exists(locked_node, socket);
         }
       }
       locked_node.node_state.node_has_finished = true;
@@ -1067,6 +1087,8 @@ class GeometryNodesEvaluator {
     MFContextBuilder fn_context;
     MFParamsBuilder fn_params{fn, 1};
     LinearAllocator<> &allocator = local_allocators_.local();
+
+    /* Prepare the inputs for the multi function. */
     for (const int i : node->inputs().index_range()) {
       const InputSocketRef &socket_ref = node->input(i);
       if (!socket_ref.is_available()) {
@@ -1079,6 +1101,7 @@ class GeometryNodesEvaluator {
       BLI_assert(single_value.value != nullptr);
       fn_params.add_readonly_single_input(GPointer{*input_state.type, single_value.value});
     }
+    /* Prepare the outputs for the multi function. */
     Vector<GMutablePointer> outputs;
     for (const int i : node->outputs().index_range()) {
       const OutputSocketRef &socket_ref = node->output(i);
@@ -1093,6 +1116,7 @@ class GeometryNodesEvaluator {
 
     fn.call(IndexRange(1), fn_params, fn_context);
 
+    /* Forward the computed outputs. */
     int output_index = 0;
     for (const int i : node->outputs().index_range()) {
       const OutputSocketRef &socket_ref = node->output(i);
@@ -1120,6 +1144,8 @@ class GeometryNodesEvaluator {
       if (type == nullptr) {
         continue;
       }
+      /* Just forward the default value of the type as a fallback. That's typically better than
+       * crashing or doing nothing. */
       OutputState &output_state = node_state.outputs[socket->index()];
       output_state.has_been_computed = true;
       void *buffer = allocator.allocate(type->size(), type->alignment());
