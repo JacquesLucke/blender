@@ -85,13 +85,6 @@ struct MultiInputValue {
 };
 
 struct InputState {
-  /**
-   * How the node intends to use this input. By default all inputs may be used. Based on which
-   * outputs are used, a node can tell the evaluator that an input will definitely be used or is
-   * never used. This allows the evaluator to free values early, avoid copies and other unnecessary
-   * computations.
-   */
-  ValueUsage usage = ValueUsage::Maybe;
 
   /**
    * Type of the socket. If this is null, the socket should just be ignored.
@@ -109,6 +102,14 @@ struct InputState {
     SingleInputValue *single;
     MultiInputValue *multi;
   } value;
+
+  /**
+   * How the node intends to use this input. By default all inputs may be used. Based on which
+   * outputs are used, a node can tell the evaluator that an input will definitely be used or is
+   * never used. This allows the evaluator to free values early, avoid copies and other unnecessary
+   * computations.
+   */
+  ValueUsage usage = ValueUsage::Maybe;
 
   /**
    * True when this input is/was used for an evaluation. While a node is running, only the inputs
@@ -186,6 +187,10 @@ struct NodeState {
   /**
    * States of the individual input and output sockets. One can index into these arrays without
    * locking. However, to access the data inside a lock is generally necessary.
+   *
+   * These spans have to be indexed with the socket index. Unavailable sockets have a state as
+   * well. Maybe we can handle unavailable sockets differently in Blender in general, so I did not
+   * want to add complexity around it here.
    */
   MutableSpan<InputState> inputs;
   MutableSpan<OutputState> outputs;
@@ -377,20 +382,31 @@ class GeometryNodesEvaluator {
 
   void create_states_for_reachable_nodes()
   {
+    /* Vector of all the inserted nodes, so that we can easily parallelize over this array
+     * afterwards. */
     Vector<DNode> inserted_nodes;
+
+    /* This does a depth first search for all the nodes that are reachable from the group outputs.
+     * This finds all nodes that are relevant. */
     Stack<DNode> nodes_to_check;
+    /* Start at the output sockets. */
     for (const DInputSocket &socket : params_.output_sockets) {
       nodes_to_check.push(socket.node());
     }
+    /* Use a the local allocator because the states don't need to outlive the evaluator. */
+    LinearAllocator<> &allocator = local_allocators_.local();
     while (!nodes_to_check.is_empty()) {
       const DNode node = nodes_to_check.pop();
       if (node_states_.contains(node)) {
+        /* This node has been handled already. */
         continue;
       }
-      NodeState &node_state = *outer_allocator_.construct<NodeState>().release();
+      /* Create a new state for the node. */
+      NodeState &node_state = *allocator.construct<NodeState>().release();
       node_states_.add_new(node, &node_state);
       inserted_nodes.append(node);
 
+      /* Push all linked origins on the stack. */
       for (const InputSocketRef *input_ref : node->inputs()) {
         const DInputSocket input{node.context(), input_ref};
         input.foreach_origin_socket(
@@ -398,6 +414,9 @@ class GeometryNodesEvaluator {
       }
     }
 
+    /* Initialize the more complex parts of the node states in parallel. At this point no new node
+     * states are added anymore, so it is safe to lookup states from `node_states_` from multiple
+     * threads. */
     parallel_for(inserted_nodes.index_range(), 50, [&, this](const IndexRange range) {
       LinearAllocator<> &allocator = this->local_allocators_.local();
       for (const int i : range) {
@@ -410,48 +429,60 @@ class GeometryNodesEvaluator {
 
   void initialize_node_state(const DNode node, NodeState &node_state, LinearAllocator<> &allocator)
   {
+    /* Construct arrays of the correct size. */
     node_state.inputs = allocator.construct_array<InputState>(node->inputs().size());
     node_state.outputs = allocator.construct_array<OutputState>(node->outputs().size());
 
+    /* Initialize input states. */
     for (const int i : node->inputs().index_range()) {
       InputState &input_state = node_state.inputs[i];
       const DInputSocket socket = node.input(i);
       if (!socket->is_available()) {
+        /* Unavailable sockets should never be used. */
+        input_state.type = nullptr;
         input_state.usage = ValueUsage::Unused;
         continue;
       }
       const CPPType *type = this->get_socket_type(socket);
       input_state.type = type;
       if (type == nullptr) {
+        /* This is not a known data socket, it shouldn't be used. */
         input_state.usage = ValueUsage::Unused;
         continue;
       }
+      /* Construct the correct struct that can hold the input(s). */
       if (socket->is_multi_input_socket()) {
         input_state.value.multi = allocator.construct<MultiInputValue>().release();
+        /* Count how many values should be added until the socket is complete. */
         socket.foreach_origin_socket(
             [&](DSocket UNUSED(origin)) { input_state.value.multi->expected_size++; });
+        /* If no links are connected, we do read the value from socket itself. */
+        if (input_state.value.multi->expected_size == 0) {
+          input_state.value.multi->expected_size = 1;
+        }
       }
       else {
         input_state.value.single = allocator.construct<SingleInputValue>().release();
       }
     }
+    /* Initialize output states. */
     for (const int i : node->outputs().index_range()) {
       OutputState &output_state = node_state.outputs[i];
       const DOutputSocket socket = node.output(i);
       if (!socket->is_available()) {
+        /* Unavailable outputs should never be used. */
         output_state.output_usage = ValueUsage::Unused;
         continue;
       }
       const CPPType *type = this->get_socket_type(socket);
       if (type == nullptr) {
+        /* Non data sockets should never be used. */
         output_state.output_usage = ValueUsage::Unused;
         continue;
       }
+      /* Count the number of potential users for this socket. */
       socket.foreach_target_socket(
           [&, this](const DInputSocket target_socket) {
-            if (!target_socket->is_available()) {
-              return;
-            }
             const DNode target_node = target_socket.node();
             if (!this->node_states_.contains(target_node)) {
               /* The target node is not computed because it is not computed to the output. */
@@ -461,6 +492,7 @@ class GeometryNodesEvaluator {
           },
           {});
       if (output_state.potential_users == 0) {
+        /* If it does not have any potential users, it is unused. */
         output_state.output_usage = ValueUsage::Unused;
       }
     }
