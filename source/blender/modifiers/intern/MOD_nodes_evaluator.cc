@@ -368,6 +368,7 @@ class GeometryNodesEvaluator {
     for (auto &&item : params_.input_values.items()) {
       const DOutputSocket socket = item.key;
       GMutablePointer value = item.value;
+      this->log_socket_value(socket, value);
 
       const DNode node = socket.node();
       NodeState *node_state = node_states_.lookup_default(node, nullptr);
@@ -717,9 +718,9 @@ class GeometryNodesEvaluator {
         to_sockets.append(to_socket);
       }
     };
-
-    auto handle_skipped_socket_fn = [&](DSocket UNUSED(socket)) {};
-
+    auto handle_skipped_socket_fn = [&, this](const DSocket socket) {
+      this->log_socket_value(socket, value_to_forward);
+    };
     from_socket.foreach_target_socket(handle_target_socket_fn, handle_skipped_socket_fn);
 
     LinearAllocator<> &allocator = local_allocators_.local();
@@ -737,6 +738,23 @@ class GeometryNodesEvaluator {
     }
     this->forward_to_sockets_with_same_type(
         allocator, to_sockets_same_type, value_to_forward, from_socket);
+  }
+
+  void log_socket_value(const DSocket socket, Span<GPointer> values)
+  {
+    if (params_.log_socket_value_fn) {
+      params_.log_socket_value_fn(socket, values);
+    }
+  }
+
+  void log_socket_value(const DSocket socket, Span<GMutablePointer> values)
+  {
+    this->log_socket_value(socket, values.cast<GPointer>());
+  }
+
+  void log_socket_value(const DSocket socket, GPointer value)
+  {
+    this->log_socket_value(socket, Span<GPointer>(&value, 1));
   }
 
   bool should_forward_to_socket(const DInputSocket socket)
@@ -946,7 +964,7 @@ class GeometryNodesEvaluator {
       if (input_state.type == nullptr) {
         continue;
       }
-      const InputSocketRef &socket_ref = locked_node.node->input(i);
+      const DInputSocket socket = locked_node.node.input(i);
       const bool is_required = input_state.usage == ValueUsage::Required;
 
       /* No need to check this socket again. */
@@ -954,7 +972,7 @@ class GeometryNodesEvaluator {
         continue;
       }
 
-      if (socket_ref.is_multi_input_socket()) {
+      if (socket->is_multi_input_socket()) {
         MultiInputValue &multi_value = *input_state.value.multi;
         if (multi_value.items.size() == multi_value.expected_size) {
           input_state.was_ready_for_evaluation = true;
@@ -969,6 +987,7 @@ class GeometryNodesEvaluator {
         SingleInputValue &single_value = *input_state.value.single;
         if (single_value.value != nullptr) {
           input_state.was_ready_for_evaluation = true;
+          this->log_socket_value(socket, GPointer{input_state.type, single_value.value});
         }
         else if (is_required) {
           /* The input is required but has not been provided yet. Therefore the node cannot be
@@ -1270,6 +1289,8 @@ void NodeParamsProvider::set_output(StringRef identifier, GMutablePointer value)
 {
   const DOutputSocket socket = get_output_by_identifier(this->dnode, identifier);
   BLI_assert(socket);
+
+  evaluator_.log_socket_value(socket, value);
 
   OutputState &output_state = node_state_->outputs[socket->index()];
   BLI_assert(!output_state.has_been_computed);
