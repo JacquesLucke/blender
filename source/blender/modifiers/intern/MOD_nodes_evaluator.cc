@@ -542,6 +542,7 @@ class GeometryNodesEvaluator {
       const DNode node = socket.node();
       NodeState &node_state = *node_states_.lookup(socket.node());
       LockedNode locked_node{node, node_state};
+      /* Setting an input as required will schedule any linked node. */
       this->set_input_required(locked_node, socket);
     }
   }
