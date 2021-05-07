@@ -51,22 +51,45 @@ enum class ValueUsage : uint8_t {
 };
 
 struct SingleInputValue {
+  /**
+   * Points either to null or to a value of the type of input.
+   */
   void *value = nullptr;
 };
 
 struct MultiInputValueItem {
+  /**
+   * The socket where this value is coming from. This is required to sort the inputs correctly
+   * based on the link order later on.
+   */
   DSocket origin;
+  /**
+   * Should only be null directly after construction. After that it should always point to a value
+   * of the correct type.
+   */
   void *value = nullptr;
 };
 
 struct MultiInputValue {
+  /**
+   * Collection of all the inputs that have been provided already. Note, the same origin can occure
+   * multiple times. However, it is guaranteed that if two items have the same origin, they will
+   * also have the same value (the pointer is different, but they point to values that would
+   * compare equal).
+   */
   Vector<MultiInputValueItem> items;
+  /**
+   * Number of items that need to be added until all inputs have been provided.
+   */
   int expected_size = 0;
 };
 
 struct InputState {
   /**
-   * How the node intends to use this input.
+   * How the node intends to use this input. By default all inputs may be used. Based on which
+   * outputs are used, a node can tell the evaluator that an input will definitely be used or is
+   * never used. This allows the evaluator to free values early, avoid copies and other unnecessary
+   * computations.
    */
   ValueUsage usage = ValueUsage::Maybe;
 
@@ -80,6 +103,7 @@ struct InputState {
    * computing their outputs, the computed values will be forwarded to linked input sockets.
    * The value will then live here until it is consumed by the node or it was found that the value
    * is not needed anymore.
+   * Whether the `single` or `multi` value is used depends on the socket.
    */
   union {
     SingleInputValue *single;
@@ -89,7 +113,8 @@ struct InputState {
   /**
    * True when this input is/was used for an evaluation. While a node is running, only the inputs
    * that have this set to true are allowed to be used. This makes sure that inputs created while
-   * the node is running correctly trigger the node to run again.
+   * the node is running correctly trigger the node to run again. Furthermore, it gives the node a
+   * consistent view of which inputs are available that does not change unexpectedly.
    *
    * While the node is running, this can be checked without a lock, because no one is writing to
    * it. If this is true, the value can be read without a lock as well, because the value is not
@@ -102,13 +127,15 @@ struct InputState {
 
 struct OutputState {
   /**
-   * If this output has been computed and forwarded already.
+   * If this output has been computed and forwarded already. If this is true, the value is not
+   * computed/forwarded again.
    */
   bool has_been_computed = false;
 
   /**
-   * Anyone can update this value (after locking the node mutex) to tell the node what outputs are
-   * (not) required.
+   * Keeps track of how the output value is used. If a connected input becomes required, this
+   * output has to become required as well. The output becomes ignored when it has zero potential
+   * users that are counted below.
    */
   ValueUsage output_usage = ValueUsage::Maybe;
 
@@ -130,9 +157,24 @@ struct OutputState {
 };
 
 enum class NodeScheduleState {
+  /**
+   * Default state of every node.
+   */
   NotScheduled,
+  /**
+   * The node has been added to the task group and will be executed by that in the future.
+   */
   Scheduled,
+  /**
+   * The node is currently running.
+   */
   Running,
+  /**
+   * The node is running and has been rescheduled while running. In this case the node will run
+   * again. However, we don't add it to the task group immediately, because then the node might run
+   * twice at the same time, which is not allowed. Instead, once the node is done running, it will
+   * reschedule itself.
+   */
   RunningAndRescheduled,
 };
 
@@ -145,7 +187,7 @@ struct NodeState {
 
   /**
    * States of the individual input and output sockets. One can index into these arrays without
-   * locking.
+   * locking. However, to access the data inside a lock is generally necessary.
    */
   MutableSpan<InputState> inputs;
   MutableSpan<OutputState> outputs;
@@ -156,19 +198,21 @@ struct NodeState {
   bool is_first_run = true;
 
   /**
-   * Used to check that nodes that don't support lazyness to not run more than once.
+   * Used to check that nodes that don't support lazyness do not run more than once.
    */
   bool has_been_executed = false;
 
   /**
    * Becomes true when the node will never be executed again and its inputs are destructed.
+   * Generally, a node has finished once all of its outputs with (potential) users have been
+   * computed.
    */
   bool node_has_finished = false;
 
   /**
-   * Counts all the values from a multi input separately.
-   * This is used as an optimization so that nodes are not unnecessarily scheduled when not all
-   * their required inputs are available.
+   * Counts the number of values that still have to be forwarded to this node until it should run
+   * again. It counts values from a multi input socket separately.
+   * This is used as an optimization so that nodes are not scheduled unnecessarily in many cases.
    */
   int missing_required_inputs = 0;
 
