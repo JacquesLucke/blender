@@ -511,20 +511,21 @@ class GeometryNodesEvaluator {
     /* Value set as unused cannot become used again. */
     BLI_assert(input_state.usage != ValueUsage::Unused);
 
+    if (input_state.usage == ValueUsage::Required) {
+      /* The value is already required, but the node might expect to be evaluated again. */
+      this->schedule_node_if_necessary(locked_node);
+      /* Returning here also ensure that the code below is executed at most once per input. */
+      return;
+    }
+    input_state.usage = ValueUsage::Required;
+
     if (input_state.was_ready_for_evaluation) {
       /* The value was already ready, but the node might expect to be evaluated again. */
       this->schedule_node_if_necessary(locked_node);
       return;
     }
 
-    if (input_state.usage == ValueUsage::Required) {
-      /* The value is already required, but the node might expect to be evaluated again. */
-      this->schedule_node_if_necessary(locked_node);
-      return;
-    }
-    input_state.usage = ValueUsage::Required;
-
-    /* The value might be available even when it was not ready for evaluation before. */
+    /* Count how many values still have to be added to this input until it is "complete". */
     int missing_values = 0;
     if (input_socket->is_multi_input_socket()) {
       MultiInputValue &multi_value = *input_state.value.multi;
@@ -541,13 +542,17 @@ class GeometryNodesEvaluator {
       this->schedule_node_if_necessary(locked_node);
       return;
     }
+    /* Increase the total number of missing required inputs. This ensures that the node will be
+     * scheduled correctly when all inputs have been provided. */
     locked_node.node_state.missing_required_inputs += missing_values;
 
+    /* Get all origin sockets, because we have to tag those as required as well. */
     Vector<DSocket> origin_sockets;
     input_socket.foreach_origin_socket(
         [&, this](const DSocket origin_socket) { origin_sockets.append(origin_socket); });
 
     if (origin_sockets.is_empty()) {
+      /* If there are no origin sockets, just load the value from the socket directly. */
       this->load_unlinked_input_value(locked_node, input_socket, input_state, input_socket);
       locked_node.node_state.missing_required_inputs -= 1;
       this->schedule_node_if_necessary(locked_node);
@@ -556,11 +561,16 @@ class GeometryNodesEvaluator {
     bool will_be_triggered_by_other_node = false;
     for (const DSocket origin_socket : origin_sockets) {
       if (origin_socket->is_input()) {
+        /* Load the value directly from the origin socket. In most cases this is an unlinked group
+         * input. */
         this->load_unlinked_input_value(locked_node, input_socket, input_state, origin_socket);
         locked_node.node_state.missing_required_inputs -= 1;
         return;
       }
+      /* The value has not been computed yet, so when it will be forwarded by another node, this
+       * node will be triggered. */
       will_be_triggered_by_other_node = true;
+
       const DNode origin_node = origin_socket.node();
       NodeState &origin_node_state = *this->node_states_.lookup(origin_node);
       OutputState &origin_socket_state = origin_node_state.outputs[origin_socket->index()];
@@ -576,6 +586,7 @@ class GeometryNodesEvaluator {
       origin_socket_state.output_usage = ValueUsage::Required;
       this->schedule_node_if_necessary(locked_origin_node);
     }
+    /* If this node will be triggered by another node, we don't have to schedule it now. */
     if (!will_be_triggered_by_other_node) {
       this->schedule_node_if_necessary(locked_node);
     }
