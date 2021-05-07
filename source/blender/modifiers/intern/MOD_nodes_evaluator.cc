@@ -221,6 +221,10 @@ struct NodeState {
   NodeScheduleState schedule_state = NodeScheduleState::NotScheduled;
 };
 
+/**
+ * Utility class that locks the state of a node. Having this is a separate class is useful because
+ * it allows methods to communicate that they expect the node to be locked.
+ */
 class LockedNode {
  public:
   const DNode node;
@@ -238,6 +242,7 @@ class LockedNode {
 
 class GeometryNodesEvaluator;
 
+/* TODO: Use a map data structure or so to make this faster. */
 static DInputSocket get_input_by_identifier(const DNode node, const StringRef identifier)
 {
   for (const InputSocketRef *socket : node->inputs()) {
@@ -258,6 +263,7 @@ static DOutputSocket get_output_by_identifier(const DNode node, const StringRef 
   return {};
 }
 
+/** Implements the callbacks that might be called when a node is executed. */
 class NodeParamsProvider : public nodes::GeoNodeExecParamsProvider {
  private:
   GeometryNodesEvaluator &evaluator_;
@@ -281,8 +287,22 @@ class NodeParamsProvider : public nodes::GeoNodeExecParamsProvider {
 
 class GeometryNodesEvaluator {
  private:
-  LinearAllocator<> &main_allocator_;
+  /**
+   * This allocator lives on after the evaluator has been destructed. Therefore outputs of the
+   * entire evaluator should be allocated here.
+   */
+  LinearAllocator<> &outer_allocator_;
+  /**
+   * A local linear allocator for each thread. Only use this for values that need to live longer
+   * than the lifetime of the evaluator itself.
+   * Considerations for the future:
+   * - We could use an allocator that can free here, some temporary values don't live long.
+   * - If we ever run into false sharing bottlenecks, we could use local allocators that allocate
+   *   on cache line boundaries. Note, just because a value is allocated in one specific thread,
+   *   does not mean that it will only be used by that thread.
+   */
   tbb::enumerable_thread_specific<LinearAllocator<>> local_allocators_;
+
   Vector<DInputSocket> group_outputs_;
   Map<DOutputSocket, GMutablePointer> &input_values_;
   blender::nodes::MultiFunctionByNode &mf_by_node_;
@@ -300,7 +320,7 @@ class GeometryNodesEvaluator {
 
  public:
   GeometryNodesEvaluator(GeometryNodesEvaluationParams &params)
-      : main_allocator_(params.allocator),
+      : outer_allocator_(params.allocator),
         group_outputs_(std::move(params.output_sockets)),
         input_values_(params.input_values),
         mf_by_node_(*params.mf_by_node),
@@ -340,7 +360,7 @@ class GeometryNodesEvaluator {
       BLI_assert(value != nullptr);
 
       /* Move value into memory owned by the main allocator. */
-      void *buffer = main_allocator_.allocate(type.size(), type.alignment());
+      void *buffer = outer_allocator_.allocate(type.size(), type.alignment());
       type.move_to_uninitialized(value, buffer);
 
       output_values.append({type, buffer});
@@ -377,7 +397,7 @@ class GeometryNodesEvaluator {
       if (node_states_.contains(node)) {
         continue;
       }
-      NodeState &node_state = *main_allocator_.construct<NodeState>().release();
+      NodeState &node_state = *outer_allocator_.construct<NodeState>().release();
       node_states_.add_new(node, &node_state);
       inserted_nodes.append(node);
 
