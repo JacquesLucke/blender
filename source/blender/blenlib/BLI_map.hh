@@ -605,6 +605,20 @@ class Map {
   }
 
   /**
+   * Returns the key that is stored in the set that compares equal to the given key. This invokes
+   * undefined behavior when the key is not in the map.
+   */
+  const Key &lookup_key(const Key &key) const
+  {
+    return this->lookup_key_as(key);
+  }
+  template<typename ForwardKey> const Key &lookup_key_as(const ForwardKey &key) const
+  {
+    const Slot &slot = this->lookup_slot(key, hash_(key));
+    return *slot.key();
+  }
+
+  /**
    * Calls the provided callback for every key-value-pair in the map. The callback is expected
    * to take a `const Key &` as first and a `const Value &` as second parameter.
    */

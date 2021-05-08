@@ -26,6 +26,7 @@
 
 #include "BLI_enumerable_thread_specific.hh"
 #include "BLI_stack.hh"
+#include "BLI_task.h"
 #include "BLI_task.hh"
 #include "BLI_vector_set.hh"
 
@@ -311,7 +312,7 @@ class GeometryNodesEvaluator {
   const blender::nodes::DataTypeConversions &conversions_;
 
   Map<DNode, NodeState *> node_states_;
-  tbb::task_group task_group_;
+  TaskPool *task_pool_ = nullptr;
 
   friend NodeParamsProvider;
 
@@ -325,10 +326,15 @@ class GeometryNodesEvaluator {
 
   Vector<GMutablePointer> execute()
   {
+    task_pool_ = BLI_task_pool_create(this, TASK_PRIORITY_HIGH);
+
     this->create_states_for_reachable_nodes();
     this->forward_group_inputs();
     this->schedule_initial_nodes();
-    task_group_.wait();
+
+    BLI_task_pool_work_and_wait(task_pool_);
+    BLI_task_pool_free(task_pool_);
+
     Vector<GMutablePointer> output_values = this->extract_group_outputs();
     this->destruct_node_states();
     return output_values;
@@ -894,7 +900,8 @@ class GeometryNodesEvaluator {
       case NodeScheduleState::NotScheduled: {
         /* Schedule the node now. */
         locked_node.node_state.schedule_state = NodeScheduleState::Scheduled;
-        task_group_.run([this, node = locked_node.node]() { this->run_task(node); });
+        const DNode *node_ptr = &node_states_.lookup_key(locked_node.node);
+        BLI_task_pool_push(task_pool_, run_node_from_task_pool, (void *)node_ptr, false, nullptr);
         break;
       }
       case NodeScheduleState::Scheduled: {
@@ -911,6 +918,14 @@ class GeometryNodesEvaluator {
         break;
       }
     }
+  }
+
+  static void run_node_from_task_pool(TaskPool *task_pool, void *task_data)
+  {
+    GeometryNodesEvaluator &evaluator = *(GeometryNodesEvaluator *)BLI_task_pool_user_data(
+        task_pool);
+    const DNode node = *(const DNode *)task_data;
+    evaluator.run_task(node);
   }
 
   void run_task(const DNode node)
