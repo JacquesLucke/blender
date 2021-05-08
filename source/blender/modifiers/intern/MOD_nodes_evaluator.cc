@@ -34,8 +34,6 @@
 
 namespace blender::modifiers::geometry_nodes {
 
-using bke::PersistentCollectionHandle;
-using bke::PersistentObjectHandle;
 using fn::CPPType;
 using fn::GValueMap;
 using nodes::GeoNodeExecParams;
@@ -1183,20 +1181,7 @@ class GeometryNodesEvaluator {
     bNodeSocket *bsocket = socket->bsocket();
     const CPPType &type = *this->get_socket_type(socket);
     void *buffer = allocator.allocate(type.size(), type.alignment());
-
-    if (bsocket->type == SOCK_OBJECT) {
-      Object *object = socket->default_value<bNodeSocketValueObject>()->value;
-      PersistentObjectHandle object_handle = params_.handle_map->lookup(object);
-      new (buffer) PersistentObjectHandle(object_handle);
-    }
-    else if (bsocket->type == SOCK_COLLECTION) {
-      Collection *collection = socket->default_value<bNodeSocketValueCollection>()->value;
-      PersistentCollectionHandle collection_handle = params_.handle_map->lookup(collection);
-      new (buffer) PersistentCollectionHandle(collection_handle);
-    }
-    else {
-      blender::nodes::socket_cpp_value_get(*bsocket, buffer);
-    }
+    blender::nodes::socket_cpp_value_get(*bsocket, buffer);
 
     if (type == required_type) {
       return {type, buffer};
@@ -1217,7 +1202,6 @@ NodeParamsProvider::NodeParamsProvider(GeometryNodesEvaluator &evaluator, DNode 
     : evaluator_(evaluator)
 {
   this->dnode = dnode;
-  this->handle_map = evaluator.params_.handle_map;
   this->self_object = evaluator.params_.self_object;
   this->modifier = &evaluator.params_.modifier_->modifier;
   this->depsgraph = evaluator.params_.depsgraph;
