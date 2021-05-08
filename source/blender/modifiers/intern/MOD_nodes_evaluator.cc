@@ -24,6 +24,7 @@
 #include "FN_generic_value_map.hh"
 #include "FN_multi_function.hh"
 
+#include "BLI_enumerable_thread_specific.hh"
 #include "BLI_stack.hh"
 #include "BLI_task.hh"
 #include "BLI_vector_set.hh"
@@ -304,7 +305,7 @@ class GeometryNodesEvaluator {
    *   on cache line boundaries. Note, just because a value is allocated in one specific thread,
    *   does not mean that it will only be used by that thread.
    */
-  tbb::enumerable_thread_specific<LinearAllocator<>> local_allocators_;
+  EnumerableThreadSpecific<LinearAllocator<>> local_allocators_;
 
   GeometryNodesEvaluationParams &params_;
   const blender::nodes::DataTypeConversions &conversions_;
