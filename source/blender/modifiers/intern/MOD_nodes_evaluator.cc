@@ -30,10 +30,6 @@
 #include "BLI_task.hh"
 #include "BLI_vector_set.hh"
 
-#include <atomic>
-#include <tbb/enumerable_thread_specific.h>
-#include <tbb/task_group.h>
-
 namespace blender::modifiers::geometry_nodes {
 
 using fn::CPPType;
