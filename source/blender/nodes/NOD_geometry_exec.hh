@@ -22,7 +22,6 @@
 #include "BKE_geometry_set.hh"
 #include "BKE_geometry_set_instances.hh"
 #include "BKE_node_ui_storage.hh"
-#include "BKE_persistent_data_handle.hh"
 
 #include "DNA_node_types.h"
 
@@ -36,8 +35,6 @@ namespace blender::nodes {
 using bke::geometry_set_realize_instances;
 using bke::OutputAttribute;
 using bke::OutputAttribute_Typed;
-using bke::PersistentDataHandleMap;
-using bke::PersistentObjectHandle;
 using bke::ReadAttributeLookup;
 using bke::WriteAttributeLookup;
 using fn::CPPType;
@@ -63,7 +60,6 @@ using fn::GVMutableArrayPtr;
 class GeoNodeExecParamsProvider {
  public:
   DNode dnode;
-  const PersistentDataHandleMap *handle_map = nullptr;
   const Object *self_object = nullptr;
   const ModifierData *modifier = nullptr;
   Depsgraph *depsgraph = nullptr;
@@ -100,7 +96,18 @@ class GeoNodeExecParamsProvider {
    * Prepare a memory buffer for an output value of the node. The returned memory has to be
    * initialized by the caller. The identifier and type are expected to be correct.
    */
-  virtual GMutablePointer alloc_output_value(StringRef identifier, const CPPType &type) = 0;
+  virtual GMutablePointer alloc_output_value(const CPPType &type) = 0;
+
+  /**
+   * The value has been allocated with #alloc_output_value.
+   */
+  virtual void set_output(StringRef identifier, GMutablePointer value) = 0;
+
+  /* A description for these methods is provided in GeoNodeExecParams. */
+  virtual void set_input_unused(StringRef identifier) = 0;
+  virtual bool output_is_required(StringRef identifier) const = 0;
+  virtual bool lazy_require_input(StringRef identifier) = 0;
+  virtual bool lazy_output_is_required(StringRef identifier) const = 0;
 };
 
 class GeoNodeExecParams {
@@ -178,8 +185,48 @@ class GeoNodeExecParams {
 #ifdef DEBUG
     this->check_output_access(identifier, type);
 #endif
-    GMutablePointer gvalue = provider_->alloc_output_value(identifier, type);
+    GMutablePointer gvalue = provider_->alloc_output_value(type);
     new (gvalue.get()) StoredT(std::forward<T>(value));
+    provider_->set_output(identifier, gvalue);
+  }
+
+  /**
+   * Tell the evaluator that a specific input won't be used anymore.
+   */
+  void set_input_unused(StringRef identifier)
+  {
+    provider_->set_input_unused(identifier);
+  }
+
+  /**
+   * Returns true when the output has to be computed.
+   * Nodes that support lazyness could use the #lazy_output_is_required variant to possibly avoid
+   * some computations.
+   */
+  bool output_is_required(StringRef identifier) const
+  {
+    return provider_->output_is_required(identifier);
+  }
+
+  /**
+   * Tell the evaluator that a specific input is required.
+   * This returns true when the input will only be available in the next execution.
+   * False is returned if the input is available already.
+   * This can only be used when the node supports lazyness.
+   */
+  bool lazy_require_input(StringRef identifier)
+  {
+    return provider_->lazy_require_input(identifier);
+  }
+
+  /**
+   * Asks the evaluator if a specific output is required right now. If this returns false, the
+   * value might still need to be computed later.
+   * This can only be used when the node supports lazyness.
+   */
+  bool lazy_output_is_required(StringRef identifier)
+  {
+    return provider_->lazy_output_is_required(identifier);
   }
 
   /**
@@ -188,11 +235,6 @@ class GeoNodeExecParams {
   const bNode &node() const
   {
     return *provider_->dnode->bnode();
-  }
-
-  const PersistentDataHandleMap &handle_map() const
-  {
-    return *provider_->handle_map;
   }
 
   const Object *self_object() const

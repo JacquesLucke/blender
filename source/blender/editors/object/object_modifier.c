@@ -63,6 +63,7 @@
 #include "BKE_lattice.h"
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
+#include "BKE_material.h"
 #include "BKE_mesh.h"
 #include "BKE_mesh_mapping.h"
 #include "BKE_mesh_runtime.h"
@@ -210,7 +211,7 @@ ModifierData *ED_object_modifier_add(
     /* special cases */
     if (type == eModifierType_Softbody) {
       if (!ob->soft) {
-        ob->soft = sbNew(scene);
+        ob->soft = sbNew();
         ob->softflag |= OB_SB_GOAL | OB_SB_EDGES;
       }
     }
@@ -772,6 +773,8 @@ static bool modifier_apply_obdata(
         return false;
       }
 
+      Main *bmain = DEG_get_bmain(depsgraph);
+      BKE_object_material_from_eval_data(bmain, ob, &mesh_applied->id);
       BKE_mesh_nomain_to_mesh(mesh_applied, me, ob, &CD_MASK_MESH, true);
 
       if (md_eval->type == eModifierType_Multires) {

@@ -65,6 +65,9 @@ void NURBSpline::set_order(const uint8_t value)
   this->mark_cache_invalid();
 }
 
+/**
+ * \warning Call #reallocate on the spline's attributes after adding all points.
+ */
 void NURBSpline::add_point(const float3 position,
                            const float radius,
                            const float tilt,
@@ -76,6 +79,16 @@ void NURBSpline::add_point(const float3 position,
   weights_.append(weight);
   knots_dirty_ = true;
   this->mark_cache_invalid();
+}
+
+void NURBSpline::resize(const int size)
+{
+  positions_.resize(size);
+  radii_.resize(size);
+  tilts_.resize(size);
+  weights_.resize(size);
+  this->mark_cache_invalid();
+  attributes.reallocate(size);
 }
 
 MutableSpan<float3> NURBSpline::positions()
@@ -250,7 +263,7 @@ static void calculate_basis_for_point(const float parameter,
                                       MutableSpan<float> basis_buffer,
                                       NURBSpline::BasisCache &basis_cache)
 {
-  /* Clamp parameter due to floating point inaccuracy. TODO: Look into using doubles. */
+  /* Clamp parameter due to floating point inaccuracy. */
   const float t = std::clamp(parameter, knots[0], knots[points_len + order - 1]);
 
   int start = 0;
@@ -375,6 +388,10 @@ blender::fn::GVArrayPtr NURBSpline::interpolate_to_evaluated_points(
     const blender::fn::GVArray &source_data) const
 {
   BLI_assert(source_data.size() == this->size());
+
+  if (source_data.is_single()) {
+    return source_data.shallow_copy();
+  }
 
   this->calculate_basis_cache();
   Span<BasisCache> weights(basis_cache_);

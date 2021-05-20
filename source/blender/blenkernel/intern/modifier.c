@@ -282,7 +282,7 @@ bool BKE_modifier_is_preview(ModifierData *md)
   return false;
 }
 
-ModifierData *BKE_modifiers_findby_type(Object *ob, ModifierType type)
+ModifierData *BKE_modifiers_findby_type(const Object *ob, ModifierType type)
 {
   LISTBASE_FOREACH (ModifierData *, md, &ob->modifiers) {
     if (md->type == type) {
@@ -292,7 +292,7 @@ ModifierData *BKE_modifiers_findby_type(Object *ob, ModifierType type)
   return NULL;
 }
 
-ModifierData *BKE_modifiers_findby_name(Object *ob, const char *name)
+ModifierData *BKE_modifiers_findby_name(const Object *ob, const char *name)
 {
   return BLI_findstring(&(ob->modifiers), name, offsetof(ModifierData, name));
 }

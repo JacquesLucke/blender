@@ -145,6 +145,7 @@ set(SRC
   geometry/nodes/node_geo_attribute_combine_xyz.cc
   geometry/nodes/node_geo_attribute_compare.cc
   geometry/nodes/node_geo_attribute_convert.cc
+  geometry/nodes/node_geo_attribute_curve_map.cc
   geometry/nodes/node_geo_attribute_fill.cc
   geometry/nodes/node_geo_attribute_map_range.cc
   geometry/nodes/node_geo_attribute_math.cc
@@ -156,14 +157,18 @@ set(SRC
   geometry/nodes/node_geo_attribute_separate_xyz.cc
   geometry/nodes/node_geo_attribute_transfer.cc
   geometry/nodes/node_geo_attribute_vector_math.cc
+  geometry/nodes/node_geo_attribute_vector_rotate.cc
   geometry/nodes/node_geo_boolean.cc
   geometry/nodes/node_geo_bounding_box.cc
   geometry/nodes/node_geo_collection_info.cc
   geometry/nodes/node_geo_common.cc
   geometry/nodes/node_geo_curve_to_mesh.cc
+  geometry/nodes/node_geo_curve_resample.cc
   geometry/nodes/node_geo_edge_split.cc
+  geometry/nodes/node_geo_input_material.cc
   geometry/nodes/node_geo_is_viewport.cc
   geometry/nodes/node_geo_join_geometry.cc
+  geometry/nodes/node_geo_material_assign.cc
   geometry/nodes/node_geo_mesh_primitive_circle.cc
   geometry/nodes/node_geo_mesh_primitive_cone.cc
   geometry/nodes/node_geo_mesh_primitive_cube.cc

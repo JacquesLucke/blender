@@ -325,6 +325,7 @@ typedef struct bNodeType {
 
   /* Execute a geometry node. */
   NodeGeometryExecFunction geometry_node_execute;
+  bool geometry_node_execute_supports_lazyness;
 
   /* RNA integration */
   ExtensionRNA rna_ext;
@@ -1419,6 +1420,11 @@ int ntreeTexExecTree(struct bNodeTree *ntree,
 #define GEO_NODE_SWITCH 1043
 #define GEO_NODE_ATTRIBUTE_TRANSFER 1044
 #define GEO_NODE_CURVE_TO_MESH 1045
+#define GEO_NODE_ATTRIBUTE_CURVE_MAP 1046
+#define GEO_NODE_CURVE_RESAMPLE 1047
+#define GEO_NODE_ATTRIBUTE_VECTOR_ROTATE 1048
+#define GEO_NODE_MATERIAL_ASSIGN 1049
+#define GEO_NODE_INPUT_MATERIAL 1050
 
 /** \} */
 

@@ -27,6 +27,85 @@
 #include "BLI_color.hh"
 #include "BLI_float2.hh"
 #include "BLI_float3.hh"
+#include "BLI_function_ref.hh"
+
+/**
+ * Contains information about an attribute in a geometry component.
+ * More information can be added in the future. E.g. whether the attribute is builtin and how it is
+ * stored (uv map, vertex group, ...).
+ */
+struct AttributeMetaData {
+  AttributeDomain domain;
+  CustomDataType data_type;
+
+  constexpr friend bool operator==(AttributeMetaData a, AttributeMetaData b)
+  {
+    return (a.domain == b.domain) && (a.data_type == b.data_type);
+  }
+};
+
+/**
+ * Base class for the attribute initializer types described below.
+ */
+struct AttributeInit {
+  enum class Type {
+    Default,
+    VArray,
+    MoveArray,
+  };
+  Type type;
+  AttributeInit(const Type type) : type(type)
+  {
+  }
+};
+
+/**
+ * Create an attribute using the default value for the data type.
+ * The default values may depend on the attribute provider implementation.
+ */
+struct AttributeInitDefault : public AttributeInit {
+  AttributeInitDefault() : AttributeInit(Type::Default)
+  {
+  }
+};
+
+/**
+ * Create an attribute by copying data from an existing virtual array. The virtual array
+ * must have the same type as the newly created attribute.
+ *
+ * Note that this can be used to fill the new attribute with the default
+ */
+struct AttributeInitVArray : public AttributeInit {
+  const blender::fn::GVArray *varray;
+
+  AttributeInitVArray(const blender::fn::GVArray *varray)
+      : AttributeInit(Type::VArray), varray(varray)
+  {
+  }
+};
+
+/**
+ * Create an attribute with a by passing ownership of a pre-allocated contiguous array of data.
+ * Sometimes data is created before a geometry component is available. In that case, it's
+ * preferable to move data directly to the created attribute to avoid a new allocation and a copy.
+ *
+ * Note that this will only have a benefit for attributes that are stored directly as contiguous
+ * arrays, so not for some built-in attributes.
+ *
+ * The array must be allocated with MEM_*, since `attribute_try_create` will free the array if it
+ * can't be used directly, and that is generally how Blender expects custom data to be allocated.
+ */
+struct AttributeInitMove : public AttributeInit {
+  void *data = nullptr;
+
+  AttributeInitMove(void *data) : AttributeInit(Type::MoveArray), data(data)
+  {
+  }
+};
+
+/* Returns false when the iteration should be stopped. */
+using AttributeForeachCallback = blender::FunctionRef<bool(blender::StringRefNull attribute_name,
+                                                           const AttributeMetaData &meta_data)>;
 
 namespace blender::bke {
 
@@ -229,6 +308,38 @@ template<typename T> class OutputAttribute_Typed {
   {
     attribute_.save();
   }
+};
+
+/**
+ * A basic container around DNA CustomData so that its users
+ * don't have to implement special copy and move constructors.
+ */
+class CustomDataAttributes {
+  /**
+   * #CustomData needs a size to be freed, and unfortunately it isn't stored in the struct
+   * itself, so keep track of the size here so this class can implement its own destructor.
+   * If the implementation of the attribute storage changes, this could be removed.
+   */
+  int size_;
+
+ public:
+  CustomData data;
+
+  CustomDataAttributes();
+  ~CustomDataAttributes();
+  CustomDataAttributes(const CustomDataAttributes &other);
+  CustomDataAttributes(CustomDataAttributes &&other);
+
+  void reallocate(const int size);
+
+  std::optional<blender::fn::GSpan> get_for_read(const blender::StringRef name) const;
+  std::optional<blender::fn::GMutableSpan> get_for_write(const blender::StringRef name);
+  bool create(const blender::StringRef name, const CustomDataType data_type);
+  bool create_by_move(const blender::StringRef name, const CustomDataType data_type, void *buffer);
+  bool remove(const blender::StringRef name);
+
+  bool foreach_attribute(const AttributeForeachCallback callback,
+                         const AttributeDomain domain) const;
 };
 
 }  // namespace blender::bke
