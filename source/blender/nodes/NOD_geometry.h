@@ -23,8 +23,10 @@ extern "C" {
 #include "BKE_node.h"
 
 extern struct bNodeTreeType *ntreeType_Geometry;
+extern struct bNodeTreeType *ntreeType_Attribute;
 
 void register_node_tree_type_geo(void);
+void register_node_tree_type_attr(void);
 
 void register_node_type_geo_group(void);
 void register_node_type_geo_custom_group(bNodeType *ntype);

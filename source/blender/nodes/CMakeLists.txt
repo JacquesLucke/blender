@@ -194,6 +194,7 @@ set(SRC
   geometry/nodes/node_geo_volume_to_mesh.cc
   geometry/node_geometry_exec.cc
   geometry/node_geometry_tree.cc
+  geometry/node_attribute_tree.cc
   geometry/node_geometry_util.cc
 
   shader/nodes/node_shader_add_shader.c

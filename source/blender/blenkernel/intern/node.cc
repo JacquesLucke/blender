@@ -5106,6 +5106,7 @@ void BKE_node_system_init(void)
   register_node_tree_type_sh();
   register_node_tree_type_tex();
   register_node_tree_type_geo();
+  register_node_tree_type_attr();
 
   register_node_type_frame();
   register_node_type_reroute();

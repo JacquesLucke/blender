@@ -466,6 +466,11 @@ bool ED_node_is_geometry(struct SpaceNode *snode)
   return STREQ(snode->tree_idname, ntreeType_Geometry->idname);
 }
 
+bool ED_node_is_attribute(struct SpaceNode *snode)
+{
+  return STREQ(snode->tree_idname, ntreeType_Attribute->idname);
+}
+
 /* assumes nothing being done in ntree yet, sets the default in/out node */
 /* called from shading buttons or header */
 void ED_node_shader_default(const bContext *C, ID *id)

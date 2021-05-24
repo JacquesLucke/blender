@@ -3306,6 +3306,7 @@ void ED_node_init_butfuncs(void)
   ntreeType_Shader->ui_icon = ICON_NODE_MATERIAL;
   ntreeType_Texture->ui_icon = ICON_NODE_TEXTURE;
   ntreeType_Geometry->ui_icon = ICON_NODETREE;
+  ntreeType_Attribute->ui_icon = ICON_NONE;
 }
 
 void ED_init_custom_node_type(bNodeType *ntype)
