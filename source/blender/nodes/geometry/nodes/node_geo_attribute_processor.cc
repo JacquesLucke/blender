@@ -44,9 +44,20 @@ static void geo_node_attribute_processor_init(bNodeTree *UNUSED(ntree), bNode *n
 
 namespace blender::nodes {
 
-static void geo_node_attribute_processor_group_update(bNodeTree *UNUSED(ntree),
-                                                      bNode *UNUSED(node))
+static void geo_node_attribute_processor_group_update(bNodeTree *ntree, bNode *node)
 {
+  if (node->id == nullptr) {
+    nodeRemoveAllSockets(ntree, node);
+    return;
+  }
+  if ((ID_IS_LINKED(node->id) && (node->id->tag & LIB_TAG_MISSING))) {
+    /* Missing datablock, leave sockets unchanged so that when it comes back
+     * the links remain valid. */
+    return;
+  }
+  bNodeTree *ngroup = (bNodeTree *)node->id;
+  nodeAddSocket(ntree, node, SOCK_IN, "NodeSocketFloat", "mysock", "Sock");
+  nodeAddSocket(ntree, node, SOCK_IN, "NodeSocketGeometry", "laal", "Geo");
 }
 
 static void geo_node_attribute_processor_exec(GeoNodeExecParams params)
