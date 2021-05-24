@@ -384,8 +384,16 @@ class NODE_OT_new_attribute_processor_group(Operator):
         node = context.space_data.edit_tree.nodes[self.node_name]
         if node.bl_idname != "GeometryNodeAttributeProcessor":
             return {'CANCELLED'}
-        new_group = bpy.data.node_groups.new("Attribute Group", "AttributeNodeTree")
-        node.node_tree = new_group
+
+        group = bpy.data.node_groups.new("Attribute Group", "AttributeNodeTree")
+
+        input_node = group.nodes.new('NodeGroupInput')
+        output_node = group.nodes.new('NodeGroupOutput')
+
+        input_node.location.x = -200 - input_node.width
+        output_node.location.x = 200
+
+        node.node_tree = group
         return {'FINISHED'}
 
 
