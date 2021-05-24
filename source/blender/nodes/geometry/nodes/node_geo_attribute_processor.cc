@@ -51,6 +51,8 @@ static void geo_node_attribute_processor_group_update(bNodeTree *ntree, bNode *n
 {
   if (node->id == nullptr) {
     nodeRemoveAllSockets(ntree, node);
+    nodeAddSocket(ntree, node, SOCK_IN, "NodeSocketGeometry", "geometry", "Geometry");
+    nodeAddSocket(ntree, node, SOCK_OUT, "NodeSocketGeometry", "geometry", "Geometry");
     return;
   }
   if ((ID_IS_LINKED(node->id) && (node->id->tag & LIB_TAG_MISSING))) {
@@ -58,9 +60,27 @@ static void geo_node_attribute_processor_group_update(bNodeTree *ntree, bNode *n
      * the links remain valid. */
     return;
   }
+  nodeRemoveAllSockets(ntree, node);
+  nodeAddSocket(ntree, node, SOCK_IN, "NodeSocketGeometry", "geometry", "Geometry");
+  nodeAddSocket(ntree, node, SOCK_OUT, "NodeSocketGeometry", "geometry", "Geometry");
+
   bNodeTree *ngroup = (bNodeTree *)node->id;
-  nodeAddSocket(ntree, node, SOCK_IN, "NodeSocketFloat", "mysock", "Sock");
-  nodeAddSocket(ntree, node, SOCK_IN, "NodeSocketGeometry", "laal", "Geo");
+  LISTBASE_FOREACH (bNodeSocket *, interface_sock, &ngroup->inputs) {
+    nodeAddSocket(ntree,
+                  node,
+                  SOCK_IN,
+                  interface_sock->idname,
+                  interface_sock->identifier,
+                  interface_sock->name);
+  }
+  LISTBASE_FOREACH (bNodeSocket *, interface_sock, &ngroup->outputs) {
+    nodeAddSocket(ntree,
+                  node,
+                  SOCK_OUT,
+                  interface_sock->idname,
+                  interface_sock->identifier,
+                  interface_sock->name);
+  }
 }
 
 static void geo_node_attribute_processor_exec(GeoNodeExecParams params)
