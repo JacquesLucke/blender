@@ -364,6 +364,31 @@ class NODE_OT_active_preview_toggle(Operator):
         return spreadsheets
 
 
+class NODE_OT_new_attribute_processor_group(Operator):
+    bl_idname= "node.new_attribute_processor_group"
+    bl_label = "New Attribute Processor Group"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    node_name: StringProperty()
+
+    @classmethod
+    def poll(cls, context):
+        space = context.space_data
+        if space is None:
+            return False
+        if space.type != 'NODE_EDITOR':
+            return False
+        return space.edit_tree is not None
+
+    def execute(self, context):
+        node = context.space_data.edit_tree.nodes[self.node_name]
+        if node.bl_idname != "GeometryNodeAttributeProcessor":
+            return {'CANCELLED'}
+        new_group = bpy.data.node_groups.new("Attribute Group", "AttributeNodeTree")
+        node.node_tree = new_group
+        return {'FINISHED'}
+
+
 classes = (
     NodeSetting,
 
@@ -373,4 +398,5 @@ classes = (
     NODE_OT_collapse_hide_unused_toggle,
     NODE_OT_tree_path_parent,
     NODE_OT_active_preview_toggle,
+    NODE_OT_new_attribute_processor_group,
 )

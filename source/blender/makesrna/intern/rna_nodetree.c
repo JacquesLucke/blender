@@ -4462,6 +4462,13 @@ bool rna_NodeSocketMaterial_default_value_poll(PointerRNA *UNUSED(ptr), PointerR
   return ma->gp_style == NULL;
 }
 
+static bool rna_GeometrNodeAttributeProcessor_node_tree_poll(PointerRNA *ptr,
+                                                             const PointerRNA value)
+{
+  bNodeTree *ngroup = value.data;
+  return STREQ(ngroup->idname, "AttributeNodeTree");
+}
+
 #else
 
 static const EnumPropertyItem prop_image_layer_items[] = {
@@ -9879,6 +9886,8 @@ static void def_geo_attribute_processor(StructRNA *srna)
   prop = RNA_def_property(srna, "node_tree", PROP_POINTER, PROP_NONE);
   RNA_def_property_pointer_sdna(prop, NULL, "id");
   RNA_def_property_struct_type(prop, "NodeTree");
+  RNA_def_property_pointer_funcs(
+      prop, NULL, NULL, NULL, "rna_GeometrNodeAttributeProcessor_node_tree_poll");
   RNA_def_property_flag(prop, PROP_EDITABLE);
   RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
   RNA_def_property_ui_text(prop, "Node Tree", "");
@@ -11528,7 +11537,7 @@ static void rna_def_nodetree(BlenderRNA *brna)
       {NTREE_TEXTURE, "TEXTURE", ICON_TEXTURE, "Texture", "Texture nodes"},
       {NTREE_COMPOSIT, "COMPOSITING", ICON_RENDERLAYERS, "Compositing", "Compositing nodes"},
       {NTREE_GEOMETRY, "GEOMETRY", ICON_NODETREE, "Geometry", "Geometry nodes"},
-      {NTREE_ATTRIBUTE, "ATTRIBUTE", ICON_NONE, "Attribute", "Attribute Nodes"},
+      {NTREE_ATTRIBUTE, "ATTRIBUTE", ICON_SPREADSHEET, "Attribute", "Attribute Nodes"},
       {0, NULL, 0, NULL, NULL},
   };
 
@@ -11780,7 +11789,7 @@ static void rna_def_attribute_nodetree(BlenderRNA *brna)
                          "Attribute Node Tree",
                          "Node tree consisting of linked nodes used for attribute processing");
   RNA_def_struct_sdna(srna, "bNodeTree");
-  RNA_def_struct_ui_icon(srna, ICON_NONE);
+  RNA_def_struct_ui_icon(srna, ICON_SPREADSHEET);
 }
 
 static StructRNA *define_specific_node(BlenderRNA *brna,

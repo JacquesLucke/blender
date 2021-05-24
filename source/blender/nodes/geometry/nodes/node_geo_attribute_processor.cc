@@ -30,8 +30,11 @@
 
 static void geo_node_attribute_processor_layout(uiLayout *layout, bContext *C, PointerRNA *ptr)
 {
+  bNode *node = (bNode *)ptr->data;
+  uiLayout *row = uiLayoutRow(layout, true);
   uiTemplateIDBrowse(
-      layout, C, ptr, "node_tree", nullptr, nullptr, nullptr, UI_TEMPLATE_ID_FILTER_ALL, nullptr);
+      row, C, ptr, "node_tree", nullptr, nullptr, nullptr, UI_TEMPLATE_ID_FILTER_ALL, nullptr);
+  uiItemStringO(row, "", ICON_PLUS, "node.new_attribute_processor_group", "node_name", node->name);
 }
 
 static void geo_node_attribute_processor_init(bNodeTree *UNUSED(ntree), bNode *node)
