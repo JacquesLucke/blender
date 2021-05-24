@@ -37,38 +37,42 @@ class SortedNodeCategory(NodeCategory):
         super().__init__(identifier, name, description, items)
 
 
+def is_node_tree_type_visible(context, idname):
+    space = context.space_data
+    if space.type != 'NODE_EDITOR':
+        return False
+    tree = space.edit_tree
+    if tree is None:
+        return space.tree_type == idname
+    return tree.bl_idname == idname
+
 class CompositorNodeCategory(SortedNodeCategory):
     @classmethod
     def poll(cls, context):
-        return (context.space_data.type == 'NODE_EDITOR' and
-                context.space_data.tree_type == 'CompositorNodeTree')
+        return is_node_tree_type_visible(context, 'CompositorNodeTree')
 
 
 class ShaderNodeCategory(SortedNodeCategory):
     @classmethod
     def poll(cls, context):
-        return (context.space_data.type == 'NODE_EDITOR' and
-                context.space_data.tree_type == 'ShaderNodeTree')
+        return is_node_tree_type_visible(context, 'ShaderNodeTree')
 
 
 class TextureNodeCategory(SortedNodeCategory):
     @classmethod
     def poll(cls, context):
-        return (context.space_data.type == 'NODE_EDITOR' and
-                context.space_data.tree_type == 'TextureNodeTree')
+        return is_node_tree_type_visible(context, 'TextureNodeTree')
 
 
 class GeometryNodeCategory(SortedNodeCategory):
     @classmethod
     def poll(cls, context):
-        return (context.space_data.type == 'NODE_EDITOR' and
-                context.space_data.tree_type == 'GeometryNodeTree')
+        return is_node_tree_type_visible(context, 'GeometryNodeTree')
 
 class AttributeNodeCategory(SortedNodeCategory):
     @classmethod
     def poll(cls, context):
-        return (context.space_data.type == 'NODE_EDITOR' and
-                context.space_data.tree_type == 'AttributeNodeTree')
+        return is_node_tree_type_visible(context, 'AttributeNodeTree')
 
 
 # menu entry for node group tools
