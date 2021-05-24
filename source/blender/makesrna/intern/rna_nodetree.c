@@ -9871,8 +9871,18 @@ static void def_geo_input_material(StructRNA *srna)
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
 }
 
-static void def_geo_attribute_processor(StructRNA *UNUSED(srna))
+static void def_geo_attribute_processor(StructRNA *srna)
 {
+  PropertyRNA *prop;
+
+  /* TODO: Only allow groups of correct type. */
+  prop = RNA_def_property(srna, "node_tree", PROP_POINTER, PROP_NONE);
+  RNA_def_property_pointer_sdna(prop, NULL, "id");
+  RNA_def_property_struct_type(prop, "NodeTree");
+  RNA_def_property_flag(prop, PROP_EDITABLE);
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
+  RNA_def_property_ui_text(prop, "Node Tree", "");
+  RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_NodeGroup_update");
 }
 
 /* -------------------------------------------------------------------------- */

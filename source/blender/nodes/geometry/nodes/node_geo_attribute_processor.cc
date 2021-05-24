@@ -28,10 +28,10 @@
 
 #include "node_geometry_util.hh"
 
-static void geo_node_attribute_processor_layout(uiLayout *UNUSED(layout),
-                                                bContext *UNUSED(C),
-                                                PointerRNA *UNUSED(ptr))
+static void geo_node_attribute_processor_layout(uiLayout *layout, bContext *C, PointerRNA *ptr)
 {
+  uiTemplateIDBrowse(
+      layout, C, ptr, "node_tree", nullptr, nullptr, nullptr, UI_TEMPLATE_ID_FILTER_ALL, nullptr);
 }
 
 static void geo_node_attribute_processor_init(bNodeTree *UNUSED(ntree), bNode *node)
@@ -43,6 +43,11 @@ static void geo_node_attribute_processor_init(bNodeTree *UNUSED(ntree), bNode *n
 }
 
 namespace blender::nodes {
+
+static void geo_node_attribute_processor_group_update(bNodeTree *UNUSED(ntree),
+                                                      bNode *UNUSED(node))
+{
+}
 
 static void geo_node_attribute_processor_exec(GeoNodeExecParams params)
 {
@@ -61,12 +66,13 @@ void register_node_type_geo_attribute_processor()
   static bNodeType ntype;
 
   geo_node_type_base(
-      &ntype, GEO_NODE_ATTRIBUTE_PROCESSOR, "Attribute Processor", NODE_CLASS_ATTRIBUTE, 0);
+      &ntype, GEO_NODE_ATTRIBUTE_PROCESSOR, "Attribute Processor", NODE_CLASS_GROUP, 0);
   node_type_init(&ntype, geo_node_attribute_processor_init);
   node_type_storage(&ntype,
                     "NodeGeometryAttributeProcessor",
                     node_free_standard_storage,
                     node_copy_standard_storage);
+  node_type_group_update(&ntype, blender::nodes::geo_node_attribute_processor_group_update);
   ntype.geometry_node_execute = blender::nodes::geo_node_attribute_processor_exec;
   ntype.draw_buttons = geo_node_attribute_processor_layout;
   nodeRegisterType(&ntype);

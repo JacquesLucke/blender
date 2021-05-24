@@ -1736,7 +1736,7 @@ void DepsgraphNodeBuilder::build_nodetree(bNodeTree *ntree)
     else if (id_type == ID_MC) {
       build_movieclip((MovieClip *)id);
     }
-    else if (ELEM(bnode->type, NODE_GROUP, NODE_CUSTOM_GROUP)) {
+    else if (ELEM(bnode->type, NODE_GROUP, NODE_CUSTOM_GROUP, GEO_NODE_ATTRIBUTE_PROCESSOR)) {
       bNodeTree *group_ntree = (bNodeTree *)id;
       build_nodetree(group_ntree);
     }

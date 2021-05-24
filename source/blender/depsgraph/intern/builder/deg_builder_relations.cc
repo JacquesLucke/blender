@@ -2490,7 +2490,7 @@ void DepsgraphRelationBuilder::build_nodetree(bNodeTree *ntree)
       OperationKey clip_key(id, NodeType::PARAMETERS, OperationCode::MOVIECLIP_EVAL);
       add_relation(clip_key, shading_key, "Clip -> Node");
     }
-    else if (ELEM(bnode->type, NODE_GROUP, NODE_CUSTOM_GROUP)) {
+    else if (ELEM(bnode->type, NODE_GROUP, NODE_CUSTOM_GROUP, GEO_NODE_ATTRIBUTE_PROCESSOR)) {
       bNodeTree *group_ntree = (bNodeTree *)id;
       build_nodetree(group_ntree);
       ComponentKey group_shading_key(&group_ntree->id, NodeType::SHADING);
