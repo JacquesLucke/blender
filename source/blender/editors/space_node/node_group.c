@@ -77,7 +77,8 @@ static bool node_group_operator_active_poll(bContext *C)
                  "ShaderNodeTree",
                  "CompositorNodeTree",
                  "TextureNodeTree",
-                 "GeometryNodeTree")) {
+                 "GeometryNodeTree",
+                 "AttributeNodeTree")) {
       return true;
     }
   }
@@ -147,18 +148,15 @@ static bNode *node_group_get_active(bContext *C, const char *node_idname)
 static int node_group_edit_exec(bContext *C, wmOperator *op)
 {
   SpaceNode *snode = CTX_wm_space_node(C);
-  const char *node_idname = node_group_idname(C);
   const bool exit = RNA_boolean_get(op->ptr, "exit");
 
   ED_preview_kill_jobs(CTX_wm_manager(C), CTX_data_main(C));
 
-  bNode *gnode = node_group_get_active(C, node_idname);
-
-  if (gnode && !exit) {
-    bNodeTree *ngroup = (bNodeTree *)gnode->id;
-
+  bNode *node = nodeGetActive(snode->edittree);
+  if (!exit && node != NULL && node->id != NULL && GS(node->id->name) == ID_NT) {
+    bNodeTree *ngroup = (bNodeTree *)node->id;
     if (ngroup) {
-      ED_node_tree_push(snode, ngroup, gnode);
+      ED_node_tree_push(snode, ngroup, node);
     }
   }
   else {
