@@ -579,6 +579,18 @@ void ntreeBlendWrite(BlendWriter *writer, bNodeTree *ntree)
         }
         BLO_write_struct_by_name(writer, node->typeinfo->storagename, storage);
       }
+      else if (node->type == GEO_NODE_ATTRIBUTE_PROCESSOR) {
+        NodeGeometryAttributeProcessor *storage = (NodeGeometryAttributeProcessor *)node->storage;
+        BLO_write_struct(writer, NodeGeometryAttributeProcessor, storage);
+        BLO_write_struct_list(writer, AttributeProcessorInput, &storage->inputs);
+        BLO_write_struct_list(writer, AttributeProcessorOutput, &storage->outputs);
+        LISTBASE_FOREACH (AttributeProcessorInput *, input, &storage->inputs) {
+          BLO_write_string(writer, input->identifier);
+        }
+        LISTBASE_FOREACH (AttributeProcessorOutput *, output, &storage->outputs) {
+          BLO_write_string(writer, output->identifier);
+        }
+      }
       else if (node->typeinfo != &NodeTypeUndefined) {
         BLO_write_struct_by_name(writer, node->typeinfo->storagename, node->storage);
       }
@@ -758,6 +770,19 @@ void ntreeBlendReadData(BlendDataReader *reader, bNodeTree *ntree)
         case FN_NODE_INPUT_STRING: {
           NodeInputString *storage = (NodeInputString *)node->storage;
           BLO_read_data_address(reader, &storage->string);
+          break;
+        }
+        case GEO_NODE_ATTRIBUTE_PROCESSOR: {
+          NodeGeometryAttributeProcessor *storage = (NodeGeometryAttributeProcessor *)
+                                                        node->storage;
+          BLO_read_list(reader, &storage->inputs);
+          BLO_read_list(reader, &storage->outputs);
+          LISTBASE_FOREACH (AttributeProcessorInput *, input, &storage->inputs) {
+            BLO_read_data_address(reader, &input->identifier);
+          }
+          LISTBASE_FOREACH (AttributeProcessorOutput *, output, &storage->outputs) {
+            BLO_read_data_address(reader, &output->identifier);
+          }
           break;
         }
         default:

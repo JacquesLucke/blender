@@ -1358,9 +1358,34 @@ typedef struct NodeGeometryAttributeTransfer {
   uint8_t mapping;
 } NodeGeometryAttributeTransfer;
 
+typedef struct AttributeProcessorInput {
+  struct AttributeProcessorInput *next, *prev;
+
+  char *identifier;
+
+  /* GeometryNodeAttributeProcessorInputMode. */
+  uint8_t input_mode;
+  char _pad[7];
+} AttributeProcessorInput;
+
+typedef struct AttributeProcessorOutput {
+  struct AttributeProcessorOutput *next, *prev;
+
+  char *identifier;
+
+  /* GeometryNodeAttributeProcessorOutputMode. */
+  uint8_t output_mode;
+  char _pad[7];
+} AttributeProcessorOutput;
+
 typedef struct NodeGeometryAttributeProcessor {
   /* AttributeDomain. */
   int8_t domain;
+  char _pad[7];
+  /* List of AttributeProcessorInput. */
+  ListBase inputs;
+  /* List of AttributeProcessorOutput. */
+  ListBase outputs;
 } NodeGeometryAttributeProcessor;
 
 /* script node mode */
@@ -1874,6 +1899,16 @@ typedef enum GeometryNodeAttributeTransferMapMode {
   GEO_NODE_ATTRIBUTE_TRANSFER_NEAREST_FACE_INTERPOLATED = 0,
   GEO_NODE_ATTRIBUTE_TRANSFER_NEAREST = 1,
 } GeometryNodeAttributeTransferMapMode;
+
+typedef enum GeometryNodeAttributeProcessorInputMode {
+  GEO_NODE_ATTRIBUTE_PROCESSOR_INPUT_MODE_VALUE = 0,
+  GEO_NODE_ATTRIBUTE_PROCESSOR_INPUT_MODE_ATTRIBUTE = 1,
+} GeometryNodeAttributeProcessorInputMode;
+
+typedef enum GeometryNodeAttributeProcessorOutputMode {
+  GEO_NODE_ATTRIBUTE_PROCESSOR_OUTPUT_MODE_GIVEN_NAME = 0,
+  GEO_NODE_ATTRIBUTE_PROCESSOR_OUTPUT_MODE_CUSTOM_NAME = 1,
+} GeometryNodeAttributeProcessorOutputMode;
 
 #ifdef __cplusplus
 }

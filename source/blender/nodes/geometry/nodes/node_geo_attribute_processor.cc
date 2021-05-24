@@ -85,6 +85,55 @@ static void geo_node_attribute_processor_group_update(bNodeTree *ntree, bNode *n
   }
 }
 
+static void geo_node_attribute_processor_storage_free(bNode *node)
+{
+  NodeGeometryAttributeProcessor *storage = (NodeGeometryAttributeProcessor *)node->storage;
+
+  LISTBASE_FOREACH_MUTABLE (AttributeProcessorInput *, input, &storage->inputs) {
+    MEM_freeN(input->identifier);
+    MEM_freeN(input);
+  }
+  BLI_listbase_clear(&storage->inputs);
+  LISTBASE_FOREACH_MUTABLE (AttributeProcessorOutput *, output, &storage->outputs) {
+    MEM_freeN(output->identifier);
+    MEM_freeN(output);
+  }
+  BLI_listbase_clear(&storage->outputs);
+  MEM_freeN(storage);
+}
+
+static void geo_node_attribute_processor_storage_copy(bNodeTree *UNUSED(dest_ntree),
+                                                      bNode *dst_node,
+                                                      const bNode *src_node)
+{
+  const NodeGeometryAttributeProcessor *src_storage = (const NodeGeometryAttributeProcessor *)
+                                                          src_node->storage;
+  NodeGeometryAttributeProcessor *dst_storage = (NodeGeometryAttributeProcessor *)MEM_callocN(
+      sizeof(NodeGeometryAttributeProcessor), __func__);
+
+  *dst_storage = *src_storage;
+
+  BLI_listbase_clear(&dst_storage->inputs);
+  LISTBASE_FOREACH (const AttributeProcessorInput *, src_input, &src_storage->inputs) {
+    AttributeProcessorInput *dst_input = (AttributeProcessorInput *)MEM_callocN(
+        sizeof(AttributeProcessorInput), __func__);
+    *dst_input = *src_input;
+    dst_input->identifier = BLI_strdup(src_input->identifier);
+    BLI_addtail(&dst_storage->inputs, dst_input);
+  }
+
+  BLI_listbase_clear(&dst_storage->outputs);
+  LISTBASE_FOREACH (const AttributeProcessorOutput *, src_output, &src_storage->outputs) {
+    AttributeProcessorOutput *dst_output = (AttributeProcessorOutput *)MEM_callocN(
+        sizeof(AttributeProcessorOutput), __func__);
+    *dst_output = *src_output;
+    dst_output->identifier = BLI_strdup(src_output->identifier);
+    BLI_addtail(&dst_storage->outputs, dst_output);
+  }
+
+  dst_node->storage = dst_storage;
+}
+
 static void geo_node_attribute_processor_exec(GeoNodeExecParams params)
 {
   GeometrySet geometry_set = params.extract_input<GeometrySet>("Geometry");
@@ -103,8 +152,8 @@ void register_node_type_geo_attribute_processor()
   node_type_init(&ntype, geo_node_attribute_processor_init);
   node_type_storage(&ntype,
                     "NodeGeometryAttributeProcessor",
-                    node_free_standard_storage,
-                    node_copy_standard_storage);
+                    blender::nodes::geo_node_attribute_processor_storage_free,
+                    blender::nodes::geo_node_attribute_processor_storage_copy);
   node_type_group_update(&ntype, blender::nodes::geo_node_attribute_processor_group_update);
   ntype.geometry_node_execute = blender::nodes::geo_node_attribute_processor_exec;
   ntype.draw_buttons = geo_node_attribute_processor_layout;
