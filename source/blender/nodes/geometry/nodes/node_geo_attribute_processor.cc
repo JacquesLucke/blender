@@ -35,6 +35,8 @@ static void geo_node_attribute_processor_layout(uiLayout *layout, bContext *C, P
   uiTemplateIDBrowse(
       row, C, ptr, "node_tree", nullptr, nullptr, nullptr, UI_TEMPLATE_ID_FILTER_ALL, nullptr);
   uiItemStringO(row, "", ICON_PLUS, "node.new_attribute_processor_group", "node_name", node->name);
+
+  uiItemR(layout, ptr, "domain", 0, "Domain", ICON_NONE);
 }
 
 static void geo_node_attribute_processor_init(bNodeTree *UNUSED(ntree), bNode *node)
@@ -51,8 +53,8 @@ static void geo_node_attribute_processor_group_update(bNodeTree *ntree, bNode *n
 {
   if (node->id == nullptr) {
     nodeRemoveAllSockets(ntree, node);
-    nodeAddSocket(ntree, node, SOCK_IN, "NodeSocketGeometry", "geometry", "Geometry");
-    nodeAddSocket(ntree, node, SOCK_OUT, "NodeSocketGeometry", "geometry", "Geometry");
+    nodeAddSocket(ntree, node, SOCK_IN, "NodeSocketGeometry", "Geometry", "Geometry");
+    nodeAddSocket(ntree, node, SOCK_OUT, "NodeSocketGeometry", "Geometry", "Geometry");
     return;
   }
   if ((ID_IS_LINKED(node->id) && (node->id->tag & LIB_TAG_MISSING))) {
@@ -61,8 +63,8 @@ static void geo_node_attribute_processor_group_update(bNodeTree *ntree, bNode *n
     return;
   }
   nodeRemoveAllSockets(ntree, node);
-  nodeAddSocket(ntree, node, SOCK_IN, "NodeSocketGeometry", "geometry", "Geometry");
-  nodeAddSocket(ntree, node, SOCK_OUT, "NodeSocketGeometry", "geometry", "Geometry");
+  nodeAddSocket(ntree, node, SOCK_IN, "NodeSocketGeometry", "Geometry", "Geometry");
+  nodeAddSocket(ntree, node, SOCK_OUT, "NodeSocketGeometry", "Geometry", "Geometry");
 
   bNodeTree *ngroup = (bNodeTree *)node->id;
   LISTBASE_FOREACH (bNodeSocket *, interface_sock, &ngroup->inputs) {
@@ -86,10 +88,7 @@ static void geo_node_attribute_processor_group_update(bNodeTree *ntree, bNode *n
 static void geo_node_attribute_processor_exec(GeoNodeExecParams params)
 {
   GeometrySet geometry_set = params.extract_input<GeometrySet>("Geometry");
-  GeometrySet geometry_set_target = params.extract_input<GeometrySet>("Target");
-
   geometry_set = geometry_set_realize_instances(geometry_set);
-
   params.set_output("Geometry", geometry_set);
 }
 

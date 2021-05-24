@@ -1359,7 +1359,8 @@ typedef struct NodeGeometryAttributeTransfer {
 } NodeGeometryAttributeTransfer;
 
 typedef struct NodeGeometryAttributeProcessor {
-  char test;
+  /* AttributeDomain. */
+  int8_t domain;
 } NodeGeometryAttributeProcessor;
 
 /* script node mode */

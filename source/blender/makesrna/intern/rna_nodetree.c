@@ -4462,7 +4462,7 @@ bool rna_NodeSocketMaterial_default_value_poll(PointerRNA *UNUSED(ptr), PointerR
   return ma->gp_style == NULL;
 }
 
-static bool rna_GeometrNodeAttributeProcessor_node_tree_poll(PointerRNA *ptr,
+static bool rna_GeometrNodeAttributeProcessor_node_tree_poll(PointerRNA *UNUSED(ptr),
                                                              const PointerRNA value)
 {
   bNodeTree *ngroup = value.data;
@@ -9892,6 +9892,14 @@ static void def_geo_attribute_processor(StructRNA *srna)
   RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
   RNA_def_property_ui_text(prop, "Node Tree", "");
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_NodeGroup_update");
+
+  RNA_def_struct_sdna_from(srna, "NodeGeometryAttributeProcessor", "storage");
+
+  prop = RNA_def_property(srna, "domain", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_items(prop, rna_enum_attribute_domain_items);
+  RNA_def_property_enum_default(prop, ATTR_DOMAIN_POINT);
+  RNA_def_property_ui_text(prop, "Domain", "The geometry domain to process attributes in");
+  RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
 }
 
 /* -------------------------------------------------------------------------- */
