@@ -278,6 +278,7 @@ DefNode(GeometryNode, GEO_NODE_ATTRIBUTE_FILL, def_geo_attribute_fill, "ATTRIBUT
 DefNode(GeometryNode, GEO_NODE_ATTRIBUTE_MAP_RANGE, def_geo_attribute_map_range, "ATTRIBUTE_MAP_RANGE", AttributeMapRange, "Attribute Map Range", "")
 DefNode(GeometryNode, GEO_NODE_ATTRIBUTE_MATH, def_geo_attribute_math, "ATTRIBUTE_MATH", AttributeMath, "Attribute Math", "")
 DefNode(GeometryNode, GEO_NODE_ATTRIBUTE_MIX, def_geo_attribute_mix, "ATTRIBUTE_MIX", AttributeMix, "Attribute Mix", "")
+DefNode(GeometryNode, GEO_NODE_ATTRIBUTE_PROCESSOR, def_geo_attribute_processor, "ATTRIBUTE_PROCESSOR", AttributeProcessor, "Attribute Processor", "")
 DefNode(GeometryNode, GEO_NODE_ATTRIBUTE_PROXIMITY, def_geo_attribute_proximity, "ATTRIBUTE_PROXIMITY", AttributeProximity, "Attribute Proximity", "")
 DefNode(GeometryNode, GEO_NODE_ATTRIBUTE_RANDOMIZE, def_geo_attribute_randomize, "ATTRIBUTE_RANDOMIZE", AttributeRandomize, "Attribute Randomize", "")
 DefNode(GeometryNode, GEO_NODE_ATTRIBUTE_REMOVE, 0, "ATTRIBUTE_REMOVE", AttributeRemove, "Attribute Remove", "")

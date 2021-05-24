@@ -5040,6 +5040,7 @@ static void registerGeometryNodes()
   register_node_type_geo_attribute_map_range();
   register_node_type_geo_attribute_math();
   register_node_type_geo_attribute_mix();
+  register_node_type_geo_attribute_processor();
   register_node_type_geo_attribute_proximity();
   register_node_type_geo_attribute_randomize();
   register_node_type_geo_attribute_separate_xyz();

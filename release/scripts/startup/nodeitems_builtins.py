@@ -507,6 +507,7 @@ geometry_node_categories = [
         NodeItem("GeometryNodeAttributeRemove"),
         NodeItem("GeometryNodeAttributeMapRange"),
         NodeItem("GeometryNodeAttributeTransfer"),
+        NodeItem("GeometryNodeAttributeProcessor"),
     ]),
     GeometryNodeCategory("GEO_COLOR", "Color", items=[
         NodeItem("ShaderNodeValToRGB"),
