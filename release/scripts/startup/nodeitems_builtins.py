@@ -64,6 +64,12 @@ class GeometryNodeCategory(SortedNodeCategory):
         return (context.space_data.type == 'NODE_EDITOR' and
                 context.space_data.tree_type == 'GeometryNodeTree')
 
+class AttributeNodeCategory(SortedNodeCategory):
+    @classmethod
+    def poll(cls, context):
+        return (context.space_data.type == 'NODE_EDITOR' and
+                context.space_data.tree_type == 'AttributeNodeTree')
+
 
 # menu entry for node group tools
 def group_tools_draw(self, layout, context):
@@ -581,12 +587,45 @@ geometry_node_categories = [
     ]),
 ]
 
+attribute_node_categories = [
+    # Attribute Processor Nodes
+    AttributeNodeCategory("ATTR_COLOR", "Color", items=[
+        NodeItem("ShaderNodeValToRGB"),
+        NodeItem("ShaderNodeSeparateRGB"),
+        NodeItem("ShaderNodeCombineRGB"),
+    ]),
+    AttributeNodeCategory("ATTR_INPUT", "Input", items=[
+        NodeItem("FunctionNodeRandomFloat"),
+        NodeItem("ShaderNodeValue"),
+        NodeItem("FunctionNodeInputString"),
+        NodeItem("FunctionNodeInputVector"),
+    ]),
+    AttributeNodeCategory("ATTR_UTILITIES", "Utilities", items=[
+        NodeItem("ShaderNodeMapRange"),
+        NodeItem("ShaderNodeClamp"),
+        NodeItem("ShaderNodeMath"),
+        NodeItem("FunctionNodeBooleanMath"),
+        NodeItem("FunctionNodeFloatCompare"),
+    ]),
+    AttributeNodeCategory("ATTR_VECTOR", "Vector", items=[
+        NodeItem("ShaderNodeSeparateXYZ"),
+        NodeItem("ShaderNodeCombineXYZ"),
+        NodeItem("ShaderNodeVectorMath"),
+        NodeItem("ShaderNodeVectorRotate"),
+    ]),
+    AttributeNodeCategory("ATTR_LAYOUT", "Layout", items=[
+        NodeItem("NodeFrame"),
+        NodeItem("NodeReroute"),
+    ]),
+]
+
 
 def register():
     nodeitems_utils.register_node_categories('SHADER', shader_node_categories)
     nodeitems_utils.register_node_categories('COMPOSITING', compositor_node_categories)
     nodeitems_utils.register_node_categories('TEXTURE', texture_node_categories)
     nodeitems_utils.register_node_categories('GEOMETRY', geometry_node_categories)
+    nodeitems_utils.register_node_categories('ATTRIBUTE', attribute_node_categories)
 
 
 def unregister():
@@ -594,6 +633,7 @@ def unregister():
     nodeitems_utils.unregister_node_categories('COMPOSITING')
     nodeitems_utils.unregister_node_categories('TEXTURE')
     nodeitems_utils.unregister_node_categories('GEOMETRY')
+    nodeitems_utils.unregister_node_categories('ATTRIBUTE')
 
 
 if __name__ == "__main__":

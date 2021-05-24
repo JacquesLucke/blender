@@ -40,7 +40,8 @@ static bool sh_fn_poll_default(bNodeType *UNUSED(ntype),
                                bNodeTree *ntree,
                                const char **r_disabled_hint)
 {
-  if (!STREQ(ntree->idname, "ShaderNodeTree") && !STREQ(ntree->idname, "GeometryNodeTree")) {
+  if (!STREQ(ntree->idname, "ShaderNodeTree") && !STREQ(ntree->idname, "GeometryNodeTree") &&
+      !STREQ(ntree->idname, "AttributeNodeTree")) {
     *r_disabled_hint = "Not a shader or geometry node tree";
     return false;
   }
