@@ -4462,11 +4462,28 @@ bool rna_NodeSocketMaterial_default_value_poll(PointerRNA *UNUSED(ptr), PointerR
   return ma->gp_style == NULL;
 }
 
-static bool rna_GeometrNodeAttributeProcessor_node_tree_poll(PointerRNA *UNUSED(ptr),
-                                                             const PointerRNA value)
+static bool rna_GeometryNodeAttributeProcessor_node_tree_poll(PointerRNA *UNUSED(ptr),
+                                                              const PointerRNA value)
 {
   bNodeTree *ngroup = value.data;
   return STREQ(ngroup->idname, "AttributeNodeTree");
+}
+
+static void rna_GeometryNodeAttributeProcessor_mode_update(Main *bmain,
+                                                           Scene *scene,
+                                                           PointerRNA *ptr)
+{
+  /* Unfortunately, `ptr->data` points to data within the node storage. We can't get the node
+   * without iterating over all nodes.
+   * TODO: Investigate the viability of adding a back-pointer to the node. */
+  bNodeTree *ntree = (bNodeTree *)ptr->owner_id;
+  LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
+    if (node->type == GEO_NODE_ATTRIBUTE_PROCESSOR) {
+      PointerRNA node_ptr;
+      RNA_pointer_create(ptr->owner_id, &RNA_Node, node, &node_ptr);
+      rna_Node_socket_update(bmain, scene, &node_ptr);
+    }
+  }
 }
 
 #else
@@ -9912,6 +9929,8 @@ static void def_geo_attribute_processor_group_input(BlenderRNA *brna)
   prop = RNA_def_property(srna, "input_mode", PROP_ENUM, PROP_NONE);
   RNA_def_property_ui_text(prop, "Input Mode", "How the group input is provided");
   RNA_def_property_enum_items(prop, input_mode_items);
+  RNA_def_property_update(
+      prop, NC_NODE | NA_EDITED, "rna_GeometryNodeAttributeProcessor_mode_update");
 }
 
 static void def_geo_attribute_processor_group_output(BlenderRNA *brna)
@@ -9943,18 +9962,19 @@ static void def_geo_attribute_processor_group_output(BlenderRNA *brna)
   prop = RNA_def_property(srna, "output_mode", PROP_ENUM, PROP_NONE);
   RNA_def_property_ui_text(prop, "Output Mode", "How group output name is determined");
   RNA_def_property_enum_items(prop, output_mode_items);
+  RNA_def_property_update(
+      prop, NC_NODE | NA_EDITED, "rna_GeometryNodeAttributeProcessor_mode_update");
 }
 
 static void def_geo_attribute_processor(StructRNA *srna)
 {
   PropertyRNA *prop;
 
-  /* TODO: Only allow groups of correct type. */
   prop = RNA_def_property(srna, "node_tree", PROP_POINTER, PROP_NONE);
   RNA_def_property_pointer_sdna(prop, NULL, "id");
   RNA_def_property_struct_type(prop, "NodeTree");
   RNA_def_property_pointer_funcs(
-      prop, NULL, NULL, NULL, "rna_GeometrNodeAttributeProcessor_node_tree_poll");
+      prop, NULL, NULL, NULL, "rna_GeometryNodeAttributeProcessor_node_tree_poll");
   RNA_def_property_flag(prop, PROP_EDITABLE);
   RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
   RNA_def_property_ui_text(prop, "Node Tree", "");
