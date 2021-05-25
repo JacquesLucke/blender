@@ -9878,6 +9878,73 @@ static void def_geo_input_material(StructRNA *srna)
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
 }
 
+static void def_geo_attribute_processor_group_input(BlenderRNA *brna)
+{
+  static EnumPropertyItem input_mode_items[] = {
+      {GEO_NODE_ATTRIBUTE_PROCESSOR_INPUT_MODE_DEFAULT,
+       "DEFAULT",
+       0,
+       "Default",
+       "Use the default value or attribute used by the group"},
+      {GEO_NODE_ATTRIBUTE_PROCESSOR_INPUT_MODE_CUSTOM_ATTRIBUTE,
+       "CUSTOM_ATTRIBUTE",
+       0,
+       "Custom Attribute",
+       "Pass a custom attribute name into the group"},
+      {GEO_NODE_ATTRIBUTE_PROCESSOR_INPUT_MODE_CUSTOM_VALUE,
+       "CUSTOM_VALUE",
+       0,
+       "Custom Value",
+       "Pass a custom value into the group"},
+      {0, NULL, 0, NULL, NULL},
+  };
+
+  StructRNA *srna;
+  PropertyRNA *prop;
+
+  srna = RNA_def_struct(brna, "AttributeProcessorInput", NULL);
+  RNA_def_struct_ui_text(srna, "Attribute Processor Input", "");
+
+  prop = RNA_def_property(srna, "identifier", PROP_STRING, PROP_NONE);
+  RNA_def_property_ui_text(prop, "identifier", "Identifier of the matching socket in the group");
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+
+  prop = RNA_def_property(srna, "input_mode", PROP_ENUM, PROP_NONE);
+  RNA_def_property_ui_text(prop, "Input Mode", "How the group input is provided");
+  RNA_def_property_enum_items(prop, input_mode_items);
+}
+
+static void def_geo_attribute_processor_group_output(BlenderRNA *brna)
+{
+  static EnumPropertyItem output_mode_items[] = {
+      {GEO_NODE_ATTRIBUTE_PROCESSOR_OUTPUT_MODE_DEFAULT,
+       "DEFAULT",
+       0,
+       "Default",
+       "Use the name of the output that is used in the group"},
+      {GEO_NODE_ATTRIBUTE_PROCESSOR_OUTPUT_MODE_CUSTOM,
+       "CUSTOM",
+       0,
+       "Custom Name",
+       "Use a custom name for the output attribute"},
+      {0, NULL, 0, NULL, NULL},
+  };
+
+  StructRNA *srna;
+  PropertyRNA *prop;
+
+  srna = RNA_def_struct(brna, "AttributeProcessorOutput", NULL);
+  RNA_def_struct_ui_text(srna, "Attribute Processor Output", "");
+
+  prop = RNA_def_property(srna, "identifier", PROP_STRING, PROP_NONE);
+  RNA_def_property_ui_text(prop, "identifier", "Identifier of the matching socket in the group");
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+
+  prop = RNA_def_property(srna, "output_mode", PROP_ENUM, PROP_NONE);
+  RNA_def_property_ui_text(prop, "Output Mode", "How group output name is determined");
+  RNA_def_property_enum_items(prop, output_mode_items);
+}
+
 static void def_geo_attribute_processor(StructRNA *srna)
 {
   PropertyRNA *prop;
@@ -9900,6 +9967,14 @@ static void def_geo_attribute_processor(StructRNA *srna)
   RNA_def_property_enum_default(prop, ATTR_DOMAIN_POINT);
   RNA_def_property_ui_text(prop, "Domain", "The geometry domain to process attributes in");
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
+
+  prop = RNA_def_property(srna, "group_inputs", PROP_COLLECTION, PROP_NONE);
+  RNA_def_property_struct_type(prop, "AttributeProcessorInput");
+  RNA_def_property_ui_text(prop, "Group Inputs", "");
+
+  prop = RNA_def_property(srna, "group_outputs", PROP_COLLECTION, PROP_NONE);
+  RNA_def_property_struct_type(prop, "AttributeProcessorOutput");
+  RNA_def_property_ui_text(prop, "Group Outputs", "");
 }
 
 /* -------------------------------------------------------------------------- */
@@ -11898,6 +11973,9 @@ void RNA_def_nodetree(BlenderRNA *brna)
   rna_def_texture_nodetree(brna);
   rna_def_geometry_nodetree(brna);
   rna_def_attribute_nodetree(brna);
+
+  def_geo_attribute_processor_group_input(brna);
+  def_geo_attribute_processor_group_output(brna);
 
 #  define DefNode(Category, ID, DefFunc, EnumName, StructName, UIName, UIDesc) \
     { \

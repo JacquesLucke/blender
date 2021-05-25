@@ -89,16 +89,16 @@ static void geo_node_attribute_processor_storage_free(bNode *node)
 {
   NodeGeometryAttributeProcessor *storage = (NodeGeometryAttributeProcessor *)node->storage;
 
-  LISTBASE_FOREACH_MUTABLE (AttributeProcessorInput *, input, &storage->inputs) {
+  LISTBASE_FOREACH_MUTABLE (AttributeProcessorInput *, input, &storage->group_inputs) {
     MEM_freeN(input->identifier);
     MEM_freeN(input);
   }
-  BLI_listbase_clear(&storage->inputs);
-  LISTBASE_FOREACH_MUTABLE (AttributeProcessorOutput *, output, &storage->outputs) {
+  BLI_listbase_clear(&storage->group_inputs);
+  LISTBASE_FOREACH_MUTABLE (AttributeProcessorOutput *, output, &storage->group_outputs) {
     MEM_freeN(output->identifier);
     MEM_freeN(output);
   }
-  BLI_listbase_clear(&storage->outputs);
+  BLI_listbase_clear(&storage->group_outputs);
   MEM_freeN(storage);
 }
 
@@ -113,22 +113,22 @@ static void geo_node_attribute_processor_storage_copy(bNodeTree *UNUSED(dest_ntr
 
   *dst_storage = *src_storage;
 
-  BLI_listbase_clear(&dst_storage->inputs);
-  LISTBASE_FOREACH (const AttributeProcessorInput *, src_input, &src_storage->inputs) {
+  BLI_listbase_clear(&dst_storage->group_inputs);
+  LISTBASE_FOREACH (const AttributeProcessorInput *, src_input, &src_storage->group_inputs) {
     AttributeProcessorInput *dst_input = (AttributeProcessorInput *)MEM_callocN(
         sizeof(AttributeProcessorInput), __func__);
     *dst_input = *src_input;
     dst_input->identifier = BLI_strdup(src_input->identifier);
-    BLI_addtail(&dst_storage->inputs, dst_input);
+    BLI_addtail(&dst_storage->group_inputs, dst_input);
   }
 
-  BLI_listbase_clear(&dst_storage->outputs);
-  LISTBASE_FOREACH (const AttributeProcessorOutput *, src_output, &src_storage->outputs) {
+  BLI_listbase_clear(&dst_storage->group_outputs);
+  LISTBASE_FOREACH (const AttributeProcessorOutput *, src_output, &src_storage->group_outputs) {
     AttributeProcessorOutput *dst_output = (AttributeProcessorOutput *)MEM_callocN(
         sizeof(AttributeProcessorOutput), __func__);
     *dst_output = *src_output;
     dst_output->identifier = BLI_strdup(src_output->identifier);
-    BLI_addtail(&dst_storage->outputs, dst_output);
+    BLI_addtail(&dst_storage->group_outputs, dst_output);
   }
 
   dst_node->storage = dst_storage;

@@ -582,12 +582,12 @@ void ntreeBlendWrite(BlendWriter *writer, bNodeTree *ntree)
       else if (node->type == GEO_NODE_ATTRIBUTE_PROCESSOR) {
         NodeGeometryAttributeProcessor *storage = (NodeGeometryAttributeProcessor *)node->storage;
         BLO_write_struct(writer, NodeGeometryAttributeProcessor, storage);
-        BLO_write_struct_list(writer, AttributeProcessorInput, &storage->inputs);
-        BLO_write_struct_list(writer, AttributeProcessorOutput, &storage->outputs);
-        LISTBASE_FOREACH (AttributeProcessorInput *, input, &storage->inputs) {
+        BLO_write_struct_list(writer, AttributeProcessorInput, &storage->group_inputs);
+        BLO_write_struct_list(writer, AttributeProcessorOutput, &storage->group_outputs);
+        LISTBASE_FOREACH (AttributeProcessorInput *, input, &storage->group_inputs) {
           BLO_write_string(writer, input->identifier);
         }
-        LISTBASE_FOREACH (AttributeProcessorOutput *, output, &storage->outputs) {
+        LISTBASE_FOREACH (AttributeProcessorOutput *, output, &storage->group_outputs) {
           BLO_write_string(writer, output->identifier);
         }
       }
@@ -775,12 +775,12 @@ void ntreeBlendReadData(BlendDataReader *reader, bNodeTree *ntree)
         case GEO_NODE_ATTRIBUTE_PROCESSOR: {
           NodeGeometryAttributeProcessor *storage = (NodeGeometryAttributeProcessor *)
                                                         node->storage;
-          BLO_read_list(reader, &storage->inputs);
-          BLO_read_list(reader, &storage->outputs);
-          LISTBASE_FOREACH (AttributeProcessorInput *, input, &storage->inputs) {
+          BLO_read_list(reader, &storage->group_inputs);
+          BLO_read_list(reader, &storage->group_outputs);
+          LISTBASE_FOREACH (AttributeProcessorInput *, input, &storage->group_inputs) {
             BLO_read_data_address(reader, &input->identifier);
           }
-          LISTBASE_FOREACH (AttributeProcessorOutput *, output, &storage->outputs) {
+          LISTBASE_FOREACH (AttributeProcessorOutput *, output, &storage->group_outputs) {
             BLO_read_data_address(reader, &output->identifier);
           }
           break;

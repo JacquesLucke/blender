@@ -1383,9 +1383,9 @@ typedef struct NodeGeometryAttributeProcessor {
   int8_t domain;
   char _pad[7];
   /* List of AttributeProcessorInput. */
-  ListBase inputs;
+  ListBase group_inputs;
   /* List of AttributeProcessorOutput. */
-  ListBase outputs;
+  ListBase group_outputs;
 } NodeGeometryAttributeProcessor;
 
 /* script node mode */
@@ -1901,13 +1901,14 @@ typedef enum GeometryNodeAttributeTransferMapMode {
 } GeometryNodeAttributeTransferMapMode;
 
 typedef enum GeometryNodeAttributeProcessorInputMode {
-  GEO_NODE_ATTRIBUTE_PROCESSOR_INPUT_MODE_VALUE = 0,
-  GEO_NODE_ATTRIBUTE_PROCESSOR_INPUT_MODE_ATTRIBUTE = 1,
+  GEO_NODE_ATTRIBUTE_PROCESSOR_INPUT_MODE_DEFAULT = 0,
+  GEO_NODE_ATTRIBUTE_PROCESSOR_INPUT_MODE_CUSTOM_ATTRIBUTE = 1,
+  GEO_NODE_ATTRIBUTE_PROCESSOR_INPUT_MODE_CUSTOM_VALUE = 2,
 } GeometryNodeAttributeProcessorInputMode;
 
 typedef enum GeometryNodeAttributeProcessorOutputMode {
-  GEO_NODE_ATTRIBUTE_PROCESSOR_OUTPUT_MODE_GIVEN_NAME = 0,
-  GEO_NODE_ATTRIBUTE_PROCESSOR_OUTPUT_MODE_CUSTOM_NAME = 1,
+  GEO_NODE_ATTRIBUTE_PROCESSOR_OUTPUT_MODE_DEFAULT = 0,
+  GEO_NODE_ATTRIBUTE_PROCESSOR_OUTPUT_MODE_CUSTOM = 1,
 } GeometryNodeAttributeProcessorOutputMode;
 
 #ifdef __cplusplus
