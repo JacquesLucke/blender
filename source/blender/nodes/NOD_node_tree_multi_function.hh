@@ -49,6 +49,7 @@ class MFNetworkTreeMap {
   const DerivedNodeTree &tree_;
   fn::MFNetwork &network_;
   MultiValueMap<DSocket, fn::MFSocket *> sockets_by_dsocket_;
+  Map<const fn::MFSocket *, DSocket> dsocket_by_sockets_;
 
  public:
   MFNetworkTreeMap(const DerivedNodeTree &tree, fn::MFNetwork &network)
@@ -76,11 +77,13 @@ class MFNetworkTreeMap {
     BLI_assert(dsocket->is_input() == socket.is_input());
     BLI_assert(dsocket->is_input() || sockets_by_dsocket_.lookup(dsocket).is_empty());
     sockets_by_dsocket_.add(dsocket, &socket);
+    dsocket_by_sockets_.add_new(&socket, dsocket);
   }
 
   void add(const DInputSocket &dsocket, fn::MFInputSocket &socket)
   {
     sockets_by_dsocket_.add(dsocket, &socket);
+    dsocket_by_sockets_.add_new(&socket, dsocket);
   }
 
   void add(const DOutputSocket &dsocket, fn::MFOutputSocket &socket)
@@ -88,6 +91,7 @@ class MFNetworkTreeMap {
     /* There can be at most one matching output socket. */
     BLI_assert(sockets_by_dsocket_.lookup(dsocket).is_empty());
     sockets_by_dsocket_.add(dsocket, &socket);
+    dsocket_by_sockets_.add_new(&socket, dsocket);
   }
 
   void add(const DTreeContext &context,
@@ -178,6 +182,11 @@ class MFNetworkTreeMap {
     fn::MFOutputSocket &socket = this->lookup(dsocket);
     BLI_assert(socket.node().is_dummy());
     return socket;
+  }
+
+  DOutputSocket try_lookup(const fn::MFOutputSocket &socket)
+  {
+    return DOutputSocket(dsocket_by_sockets_.lookup_default(&socket, {}));
   }
 
   bool is_mapped(const DSocket &dsocket) const

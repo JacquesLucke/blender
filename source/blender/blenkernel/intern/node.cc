@@ -3633,7 +3633,8 @@ bool ntreeHasTree(const bNodeTree *ntree, const bNodeTree *lookup)
     return true;
   }
   LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
-    if (ELEM(node->type, NODE_GROUP, NODE_CUSTOM_GROUP) && node->id) {
+    if (ELEM(node->type, NODE_GROUP, NODE_CUSTOM_GROUP, GEO_NODE_ATTRIBUTE_PROCESSOR) &&
+        node->id) {
       if (ntreeHasTree((bNodeTree *)node->id, lookup)) {
         return true;
       }

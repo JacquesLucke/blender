@@ -359,7 +359,7 @@ inline DInputSocket::DInputSocket(const DTreeContext *context, const InputSocket
 
 inline DInputSocket::DInputSocket(const DSocket &base_socket) : DSocket(base_socket)
 {
-  BLI_assert(base_socket->is_input());
+  BLI_assert(!base_socket || base_socket->is_input());
 }
 
 inline const InputSocketRef *DInputSocket::socket_ref() const
@@ -383,7 +383,7 @@ inline DOutputSocket::DOutputSocket(const DTreeContext *context, const OutputSoc
 
 inline DOutputSocket::DOutputSocket(const DSocket &base_socket) : DSocket(base_socket)
 {
-  BLI_assert(base_socket->is_output());
+  BLI_assert(!base_socket || base_socket->is_output());
 }
 
 inline const OutputSocketRef *DOutputSocket::socket_ref() const
