@@ -26,6 +26,8 @@
 #include "UI_interface.h"
 #include "UI_resources.h"
 
+#include "NOD_node_tree_multi_function.hh"
+
 #include "node_geometry_util.hh"
 
 static void geo_node_attribute_processor_layout(uiLayout *layout, bContext *C, PointerRNA *ptr)
@@ -223,8 +225,26 @@ static void geo_node_attribute_processor_update(bNodeTree *UNUSED(ntree), bNode 
 
 static void geo_node_attribute_processor_exec(GeoNodeExecParams params)
 {
+  const bNode &node = params.node();
+  const NodeGeometryAttributeProcessor &storage = *(NodeGeometryAttributeProcessor *)node.storage;
+  bNodeTree *group = (bNodeTree *)node.id;
+
   GeometrySet geometry_set = params.extract_input<GeometrySet>("Geometry");
+
+  if (group == nullptr) {
+    params.set_output("Geometry", geometry_set);
+    return;
+  }
+
   geometry_set = geometry_set_realize_instances(geometry_set);
+
+  NodeTreeRefMap tree_refs;
+  DerivedNodeTree tree{*group, tree_refs};
+  fn::MFNetwork network;
+  ResourceScope scope;
+  MFNetworkTreeMap network_map = insert_node_tree_into_mf_network(network, tree, scope);
+  std::cout << network.to_dot() << "\n\n";
+
   params.set_output("Geometry", geometry_set);
 }
 
