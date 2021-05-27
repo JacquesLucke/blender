@@ -1358,34 +1358,34 @@ typedef struct NodeGeometryAttributeTransfer {
   uint8_t mapping;
 } NodeGeometryAttributeTransfer;
 
-typedef struct AttributeProcessorInput {
-  struct AttributeProcessorInput *next, *prev;
+typedef struct AttributeProcessorInputSettings {
+  struct AttributeProcessorInputSettings *next, *prev;
 
   char *identifier;
 
   /* GeometryNodeAttributeProcessorInputMode. */
   uint8_t input_mode;
   char _pad[7];
-} AttributeProcessorInput;
+} AttributeProcessorInputSettings;
 
-typedef struct AttributeProcessorOutput {
-  struct AttributeProcessorOutput *next, *prev;
+typedef struct AttributeProcessorOutputSettings {
+  struct AttributeProcessorOutputSettings *next, *prev;
 
   char *identifier;
 
   /* GeometryNodeAttributeProcessorOutputMode. */
   uint8_t output_mode;
   char _pad[7];
-} AttributeProcessorOutput;
+} AttributeProcessorOutputSettings;
 
 typedef struct NodeGeometryAttributeProcessor {
   /* AttributeDomain. */
   int8_t domain;
   char _pad[7];
-  /* List of AttributeProcessorInput. */
-  ListBase group_inputs;
-  /* List of AttributeProcessorOutput. */
-  ListBase group_outputs;
+  /* List of AttributeProcessorInputSettings. */
+  ListBase inputs_settings;
+  /* List of AttributeProcessorOutputSettings. */
+  ListBase outputs_settings;
 } NodeGeometryAttributeProcessor;
 
 /* script node mode */

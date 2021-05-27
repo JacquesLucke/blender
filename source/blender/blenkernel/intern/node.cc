@@ -582,13 +582,16 @@ void ntreeBlendWrite(BlendWriter *writer, bNodeTree *ntree)
       else if (node->type == GEO_NODE_ATTRIBUTE_PROCESSOR) {
         NodeGeometryAttributeProcessor *storage = (NodeGeometryAttributeProcessor *)node->storage;
         BLO_write_struct(writer, NodeGeometryAttributeProcessor, storage);
-        BLO_write_struct_list(writer, AttributeProcessorInput, &storage->group_inputs);
-        BLO_write_struct_list(writer, AttributeProcessorOutput, &storage->group_outputs);
-        LISTBASE_FOREACH (AttributeProcessorInput *, input, &storage->group_inputs) {
-          BLO_write_string(writer, input->identifier);
+        BLO_write_struct_list(writer, AttributeProcessorInputSettings, &storage->inputs_settings);
+        BLO_write_struct_list(
+            writer, AttributeProcessorOutputSettings, &storage->outputs_settings);
+        LISTBASE_FOREACH (
+            AttributeProcessorInputSettings *, input_settings, &storage->inputs_settings) {
+          BLO_write_string(writer, input_settings->identifier);
         }
-        LISTBASE_FOREACH (AttributeProcessorOutput *, output, &storage->group_outputs) {
-          BLO_write_string(writer, output->identifier);
+        LISTBASE_FOREACH (
+            AttributeProcessorOutputSettings *, output_settings, &storage->outputs_settings) {
+          BLO_write_string(writer, output_settings->identifier);
         }
       }
       else if (node->typeinfo != &NodeTypeUndefined) {
@@ -775,13 +778,15 @@ void ntreeBlendReadData(BlendDataReader *reader, bNodeTree *ntree)
         case GEO_NODE_ATTRIBUTE_PROCESSOR: {
           NodeGeometryAttributeProcessor *storage = (NodeGeometryAttributeProcessor *)
                                                         node->storage;
-          BLO_read_list(reader, &storage->group_inputs);
-          BLO_read_list(reader, &storage->group_outputs);
-          LISTBASE_FOREACH (AttributeProcessorInput *, input, &storage->group_inputs) {
-            BLO_read_data_address(reader, &input->identifier);
+          BLO_read_list(reader, &storage->inputs_settings);
+          BLO_read_list(reader, &storage->outputs_settings);
+          LISTBASE_FOREACH (
+              AttributeProcessorInputSettings *, input_settings, &storage->inputs_settings) {
+            BLO_read_data_address(reader, &input_settings->identifier);
           }
-          LISTBASE_FOREACH (AttributeProcessorOutput *, output, &storage->group_outputs) {
-            BLO_read_data_address(reader, &output->identifier);
+          LISTBASE_FOREACH (
+              AttributeProcessorOutputSettings *, output_settings, &storage->outputs_settings) {
+            BLO_read_data_address(reader, &output_settings->identifier);
           }
           break;
         }

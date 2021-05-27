@@ -9920,7 +9920,7 @@ static void def_geo_attribute_processor_group_input(BlenderRNA *brna)
   StructRNA *srna;
   PropertyRNA *prop;
 
-  srna = RNA_def_struct(brna, "AttributeProcessorInput", NULL);
+  srna = RNA_def_struct(brna, "AttributeProcessorInputSettings", NULL);
   RNA_def_struct_ui_text(srna, "Attribute Processor Input", "");
 
   prop = RNA_def_property(srna, "identifier", PROP_STRING, PROP_NONE);
@@ -9953,7 +9953,7 @@ static void def_geo_attribute_processor_group_output(BlenderRNA *brna)
   StructRNA *srna;
   PropertyRNA *prop;
 
-  srna = RNA_def_struct(brna, "AttributeProcessorOutput", NULL);
+  srna = RNA_def_struct(brna, "AttributeProcessorOutputSettings", NULL);
   RNA_def_struct_ui_text(srna, "Attribute Processor Output", "");
 
   prop = RNA_def_property(srna, "identifier", PROP_STRING, PROP_NONE);
@@ -9989,12 +9989,12 @@ static void def_geo_attribute_processor(StructRNA *srna)
   RNA_def_property_ui_text(prop, "Domain", "The geometry domain to process attributes in");
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
 
-  prop = RNA_def_property(srna, "group_inputs", PROP_COLLECTION, PROP_NONE);
-  RNA_def_property_struct_type(prop, "AttributeProcessorInput");
+  prop = RNA_def_property(srna, "inputs_settings", PROP_COLLECTION, PROP_NONE);
+  RNA_def_property_struct_type(prop, "AttributeProcessorInputSettings");
   RNA_def_property_ui_text(prop, "Group Inputs", "");
 
-  prop = RNA_def_property(srna, "group_outputs", PROP_COLLECTION, PROP_NONE);
-  RNA_def_property_struct_type(prop, "AttributeProcessorOutput");
+  prop = RNA_def_property(srna, "outputs_settings", PROP_COLLECTION, PROP_NONE);
+  RNA_def_property_struct_type(prop, "AttributeProcessorOutputSettings");
   RNA_def_property_ui_text(prop, "Group Outputs", "");
 }
 

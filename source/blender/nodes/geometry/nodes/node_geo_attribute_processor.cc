@@ -51,22 +51,26 @@ static void geo_node_attribute_processor_layout(uiLayout *layout, bContext *C, P
   {
     uiLayout *box = uiLayoutBox(layout);
     bNodeSocket *interface_socket = (bNodeSocket *)group->inputs.first;
-    AttributeProcessorInput *input = (AttributeProcessorInput *)storage->group_inputs.first;
-    for (; interface_socket && input;
-         interface_socket = interface_socket->next, input = input->next) {
+    AttributeProcessorInputSettings *input_settings = (AttributeProcessorInputSettings *)
+                                                          storage->inputs_settings.first;
+    for (; interface_socket && input_settings;
+         interface_socket = interface_socket->next, input_settings = input_settings->next) {
       PointerRNA input_ptr;
-      RNA_pointer_create(ptr->owner_id, &RNA_AttributeProcessorInput, input, &input_ptr);
+      RNA_pointer_create(
+          ptr->owner_id, &RNA_AttributeProcessorInputSettings, input_settings, &input_ptr);
       uiItemR(box, &input_ptr, "input_mode", 0, interface_socket->name, ICON_NONE);
     }
   }
   {
     uiLayout *box = uiLayoutBox(layout);
     bNodeSocket *interface_socket = (bNodeSocket *)group->outputs.first;
-    AttributeProcessorOutput *output = (AttributeProcessorOutput *)storage->group_outputs.first;
-    for (; interface_socket && output;
-         interface_socket = interface_socket->next, output = output->next) {
+    AttributeProcessorOutputSettings *output_settings = (AttributeProcessorOutputSettings *)
+                                                            storage->outputs_settings.first;
+    for (; interface_socket && output_settings;
+         interface_socket = interface_socket->next, output_settings = output_settings->next) {
       PointerRNA output_ptr;
-      RNA_pointer_create(ptr->owner_id, &RNA_AttributeProcessorOutput, output, &output_ptr);
+      RNA_pointer_create(
+          ptr->owner_id, &RNA_AttributeProcessorOutputSettings, output_settings, &output_ptr);
       uiItemR(box, &output_ptr, "output_mode", 0, interface_socket->name, ICON_NONE);
     }
   }
@@ -82,39 +86,40 @@ static void geo_node_attribute_processor_init(bNodeTree *UNUSED(ntree), bNode *n
 
 namespace blender::nodes {
 
-static void free_group_input(AttributeProcessorInput *input)
+static void free_group_input(AttributeProcessorInputSettings *input_settings)
 {
-  MEM_freeN(input->identifier);
-  MEM_freeN(input);
+  MEM_freeN(input_settings->identifier);
+  MEM_freeN(input_settings);
 }
 
-static void free_group_output(AttributeProcessorOutput *output)
+static void free_group_output(AttributeProcessorOutputSettings *output_settings)
 {
-  MEM_freeN(output->identifier);
-  MEM_freeN(output);
+  MEM_freeN(output_settings->identifier);
+  MEM_freeN(output_settings);
 }
 
-static void free_group_inputs(ListBase *inputs)
+static void free_group_inputs(ListBase *inputs_settings)
 {
-  LISTBASE_FOREACH_MUTABLE (AttributeProcessorInput *, input, inputs) {
-    free_group_input(input);
+  LISTBASE_FOREACH_MUTABLE (AttributeProcessorInputSettings *, input_settings, inputs_settings) {
+    free_group_input(input_settings);
   }
-  BLI_listbase_clear(inputs);
+  BLI_listbase_clear(inputs_settings);
 }
 
-static void free_group_outputs(ListBase *outputs)
+static void free_group_outputs(ListBase *outputs_settings)
 {
-  LISTBASE_FOREACH_MUTABLE (AttributeProcessorOutput *, output, outputs) {
-    free_group_output(output);
+  LISTBASE_FOREACH_MUTABLE (
+      AttributeProcessorOutputSettings *, output_settings, outputs_settings) {
+    free_group_output(output_settings);
   }
-  BLI_listbase_clear(outputs);
+  BLI_listbase_clear(outputs_settings);
 }
 
 static void geo_node_attribute_processor_storage_free(bNode *node)
 {
   NodeGeometryAttributeProcessor *storage = (NodeGeometryAttributeProcessor *)node->storage;
-  free_group_inputs(&storage->group_inputs);
-  free_group_outputs(&storage->group_outputs);
+  free_group_inputs(&storage->inputs_settings);
+  free_group_outputs(&storage->outputs_settings);
   MEM_freeN(storage);
 }
 
@@ -129,22 +134,25 @@ static void geo_node_attribute_processor_storage_copy(bNodeTree *UNUSED(dest_ntr
 
   *dst_storage = *src_storage;
 
-  BLI_listbase_clear(&dst_storage->group_inputs);
-  LISTBASE_FOREACH (const AttributeProcessorInput *, src_input, &src_storage->group_inputs) {
-    AttributeProcessorInput *dst_input = (AttributeProcessorInput *)MEM_callocN(
-        sizeof(AttributeProcessorInput), __func__);
-    *dst_input = *src_input;
-    dst_input->identifier = BLI_strdup(src_input->identifier);
-    BLI_addtail(&dst_storage->group_inputs, dst_input);
+  BLI_listbase_clear(&dst_storage->inputs_settings);
+  LISTBASE_FOREACH (
+      const AttributeProcessorInputSettings *, src_input_settings, &src_storage->inputs_settings) {
+    AttributeProcessorInputSettings *dst_input_settings = (AttributeProcessorInputSettings *)
+        MEM_callocN(sizeof(AttributeProcessorInputSettings), __func__);
+    *dst_input_settings = *src_input_settings;
+    dst_input_settings->identifier = BLI_strdup(src_input_settings->identifier);
+    BLI_addtail(&dst_storage->inputs_settings, dst_input_settings);
   }
 
-  BLI_listbase_clear(&dst_storage->group_outputs);
-  LISTBASE_FOREACH (const AttributeProcessorOutput *, src_output, &src_storage->group_outputs) {
-    AttributeProcessorOutput *dst_output = (AttributeProcessorOutput *)MEM_callocN(
-        sizeof(AttributeProcessorOutput), __func__);
-    *dst_output = *src_output;
-    dst_output->identifier = BLI_strdup(src_output->identifier);
-    BLI_addtail(&dst_storage->group_outputs, dst_output);
+  BLI_listbase_clear(&dst_storage->outputs_settings);
+  LISTBASE_FOREACH (const AttributeProcessorOutputSettings *,
+                    src_output_settings,
+                    &src_storage->outputs_settings) {
+    AttributeProcessorOutputSettings *dst_output_settings = (AttributeProcessorOutputSettings *)
+        MEM_callocN(sizeof(AttributeProcessorOutputSettings), __func__);
+    *dst_output_settings = *src_output_settings;
+    dst_output_settings->identifier = BLI_strdup(src_output_settings->identifier);
+    BLI_addtail(&dst_storage->outputs_settings, dst_output_settings);
   }
 
   dst_node->storage = dst_storage;
@@ -170,14 +178,14 @@ static void geo_node_attribute_processor_group_update(bNodeTree *ntree, bNode *n
   nodeAddSocket(ntree, node, SOCK_IN, "NodeSocketGeometry", "Geometry", "Geometry");
   nodeAddSocket(ntree, node, SOCK_OUT, "NodeSocketGeometry", "Geometry", "Geometry");
 
-  free_group_inputs(&storage->group_inputs);
-  free_group_outputs(&storage->group_outputs);
+  free_group_inputs(&storage->inputs_settings);
+  free_group_outputs(&storage->outputs_settings);
 
   LISTBASE_FOREACH (bNodeSocket *, interface_sock, &ngroup->inputs) {
-    AttributeProcessorInput *input = (AttributeProcessorInput *)MEM_callocN(
-        sizeof(AttributeProcessorInput), __func__);
-    input->identifier = BLI_strdup(interface_sock->identifier);
-    BLI_addtail(&storage->group_inputs, input);
+    AttributeProcessorInputSettings *input_settings = (AttributeProcessorInputSettings *)
+        MEM_callocN(sizeof(AttributeProcessorInputSettings), __func__);
+    input_settings->identifier = BLI_strdup(interface_sock->identifier);
+    BLI_addtail(&storage->inputs_settings, input_settings);
 
     char identifier1[MAX_NAME];
     char identifier2[MAX_NAME];
@@ -187,12 +195,12 @@ static void geo_node_attribute_processor_group_update(bNodeTree *ntree, bNode *n
     nodeAddSocket(ntree, node, SOCK_IN, "NodeSocketString", identifier2, interface_sock->name);
   }
   LISTBASE_FOREACH (bNodeSocket *, interface_sock, &ngroup->outputs) {
-    AttributeProcessorOutput *output = (AttributeProcessorOutput *)MEM_callocN(
-        sizeof(AttributeProcessorOutput), __func__);
-    output->identifier = BLI_strdup(interface_sock->identifier);
+    AttributeProcessorOutputSettings *output_settings = (AttributeProcessorOutputSettings *)
+        MEM_callocN(sizeof(AttributeProcessorOutputSettings), __func__);
+    output_settings->identifier = BLI_strdup(interface_sock->identifier);
     char identifier[MAX_NAME];
     BLI_snprintf(identifier, sizeof(identifier), "out%s", interface_sock->identifier);
-    BLI_addtail(&storage->group_outputs, output);
+    BLI_addtail(&storage->outputs_settings, output_settings);
     nodeAddSocket(ntree, node, SOCK_IN, "NodeSocketString", identifier, interface_sock->name);
   }
 }
@@ -208,19 +216,22 @@ static void geo_node_attribute_processor_update(bNodeTree *UNUSED(ntree), bNode 
   bNodeSocket *next_socket = (bNodeSocket *)node->inputs.first;
   /* Skip geometry socket. */
   next_socket = next_socket->next;
-  LISTBASE_FOREACH (AttributeProcessorInput *, input, &storage->group_inputs) {
+  LISTBASE_FOREACH (AttributeProcessorInputSettings *, input_settings, &storage->inputs_settings) {
     bNodeSocket *value_socket = next_socket;
     bNodeSocket *attribute_socket = value_socket->next;
-    nodeSetSocketAvailability(
-        value_socket, input->input_mode == GEO_NODE_ATTRIBUTE_PROCESSOR_INPUT_MODE_CUSTOM_VALUE);
+    nodeSetSocketAvailability(value_socket,
+                              input_settings->input_mode ==
+                                  GEO_NODE_ATTRIBUTE_PROCESSOR_INPUT_MODE_CUSTOM_VALUE);
     nodeSetSocketAvailability(attribute_socket,
-                              input->input_mode ==
+                              input_settings->input_mode ==
                                   GEO_NODE_ATTRIBUTE_PROCESSOR_INPUT_MODE_CUSTOM_ATTRIBUTE);
     next_socket = attribute_socket->next;
   }
-  LISTBASE_FOREACH (AttributeProcessorOutput *, output, &storage->group_outputs) {
-    nodeSetSocketAvailability(
-        next_socket, output->output_mode == GEO_NODE_ATTRIBUTE_PROCESSOR_OUTPUT_MODE_CUSTOM);
+  LISTBASE_FOREACH (
+      AttributeProcessorOutputSettings *, output_settings, &storage->outputs_settings) {
+    nodeSetSocketAvailability(next_socket,
+                              output_settings->output_mode ==
+                                  GEO_NODE_ATTRIBUTE_PROCESSOR_OUTPUT_MODE_CUSTOM);
     next_socket = next_socket->next;
   }
 }
@@ -313,8 +324,8 @@ static void process_attributes(GeoNodeExecParams &geo_params, GeometrySet &geome
 
   for (const DOutputSocket &dsocket : used_group_inputs) {
     const int index = dsocket->index();
-    const AttributeProcessorInput *input_settings = (AttributeProcessorInput *)BLI_findlink(
-        &storage.group_inputs, index);
+    const AttributeProcessorInputSettings *input_settings = (AttributeProcessorInputSettings *)
+        BLI_findlink(&storage.inputs_settings, index);
     const bNodeSocket *interface_socket = (bNodeSocket *)BLI_findlink(&group->inputs, index);
     switch ((GeometryNodeAttributeProcessorInputMode)input_settings->input_mode) {
       case GEO_NODE_ATTRIBUTE_PROCESSOR_INPUT_MODE_DEFAULT: {
@@ -340,8 +351,8 @@ static void process_attributes(GeoNodeExecParams &geo_params, GeometrySet &geome
   for (const InputSocketRef *socket_ref : output_node->inputs().drop_back(1)) {
     const DInputSocket socket{&root_context, socket_ref};
     const int index = socket->index();
-    const AttributeProcessorOutput *output_settings = (AttributeProcessorOutput *)BLI_findlink(
-        &storage.group_outputs, index);
+    const AttributeProcessorOutputSettings *output_settings = (AttributeProcessorOutputSettings *)
+        BLI_findlink(&storage.outputs_settings, index);
     const bNodeSocket *interface_socket = (bNodeSocket *)BLI_findlink(&group->outputs, index);
     switch ((GeometryNodeAttributeProcessorOutputMode)output_settings->output_mode) {
       case GEO_NODE_ATTRIBUTE_PROCESSOR_OUTPUT_MODE_DEFAULT: {
