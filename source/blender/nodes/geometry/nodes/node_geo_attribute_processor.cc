@@ -204,7 +204,7 @@ static void geo_node_attribute_processor_group_update(bNodeTree *ntree, bNode *n
   /* Keep geometry socket. */
   new_inputs.add_new((bNodeSocket *)node->inputs.first);
 
-  LISTBASE_FOREACH (bNodeSocket *, interface_sock, &ngroup->inputs) {
+  LISTBASE_FOREACH (bNodeSocket *, interface_sock, &ngroup_inputs) {
     AttributeProcessorInputSettings *input_settings =
         old_inputs_settings_by_identifier.lookup_default(interface_sock->identifier, nullptr);
 
@@ -231,7 +231,7 @@ static void geo_node_attribute_processor_group_update(bNodeTree *ntree, bNode *n
       new_inputs.add_new(old_inputs_by_identifier.lookup(identifier2));
     }
   }
-  LISTBASE_FOREACH (bNodeSocket *, interface_sock, &ngroup->outputs) {
+  LISTBASE_FOREACH (bNodeSocket *, interface_sock, &ngroup_outputs) {
     AttributeProcessorOutputSettings *output_settings =
         old_outputs_settings_by_identifier.lookup_default(interface_sock->identifier, nullptr);
 
@@ -268,15 +268,15 @@ static void geo_node_attribute_processor_group_update(bNodeTree *ntree, bNode *n
   LISTBASE_FOREACH_MUTABLE (
       AttributeProcessorInputSettings *, input_settings, &storage->inputs_settings) {
     if (!new_inputs_settings.contains(input_settings)) {
-      free_input_settings(input_settings);
       BLI_remlink(&storage->inputs_settings, input_settings);
+      free_input_settings(input_settings);
     }
   }
   LISTBASE_FOREACH_MUTABLE (
       AttributeProcessorOutputSettings *, output_settings, &storage->outputs_settings) {
     if (!new_output_settings.contains(output_settings)) {
-      free_output_settings(output_settings);
       BLI_remlink(&storage->outputs_settings, output_settings);
+      free_output_settings(output_settings);
     }
   }
 
@@ -412,31 +412,41 @@ static void process_attributes(GeoNodeExecParams &geo_params, GeometrySet &geome
   fn::MFParamsBuilder fn_params{network_fn, domain_size};
   fn::MFContextBuilder context;
 
-  Vector<GVArrayPtr> input_gvarrays;
+  Map<int, GVArrayPtr> input_varrays;
 
   for (const DOutputSocket &dsocket : used_group_inputs) {
     const int index = dsocket->index();
-    const AttributeProcessorInputSettings *input_settings = (AttributeProcessorInputSettings *)
-        BLI_findlink(&storage.inputs_settings, index);
-    const bNodeSocket *interface_socket = (bNodeSocket *)BLI_findlink(&group->inputs, index);
-    switch ((GeometryNodeAttributeProcessorInputMode)input_settings->input_mode) {
-      case GEO_NODE_ATTRIBUTE_PROCESSOR_INPUT_MODE_DEFAULT: {
-        const StringRefNull attribute_name = interface_socket->name;
-        const CustomDataType type = get_custom_data_type(interface_socket->typeinfo);
-        GVArrayPtr attribute = component.attribute_get_for_read(attribute_name, domain, type);
-        fn_params.add_readonly_single_input(*attribute);
-        input_gvarrays.append(std::move(attribute));
-        break;
+    GVArrayPtr &input_varray = input_varrays.lookup_or_add_cb(index, [&]() -> GVArrayPtr {
+      const AttributeProcessorInputSettings *input_settings = (AttributeProcessorInputSettings *)
+          BLI_findlink(&storage.inputs_settings, index);
+      const bNodeSocket *interface_socket = (bNodeSocket *)BLI_findlink(&group->inputs, index);
+      const CustomDataType type = get_custom_data_type(interface_socket->typeinfo);
+      const StringRefNull identifier = interface_socket->identifier;
+      GVArrayPtr input_varray;
+      switch ((GeometryNodeAttributeProcessorInputMode)input_settings->input_mode) {
+        case GEO_NODE_ATTRIBUTE_PROCESSOR_INPUT_MODE_DEFAULT: {
+          const StringRefNull attribute_name = interface_socket->name;
+          return component.attribute_get_for_read(attribute_name, domain, type);
+        }
+        case GEO_NODE_ATTRIBUTE_PROCESSOR_INPUT_MODE_CUSTOM_ATTRIBUTE: {
+          const std::string input_name = "inB" + identifier;
+          const std::string attribute_name = geo_params.extract_input<std::string>(input_name);
+          return component.attribute_get_for_read(attribute_name, domain, type);
+        }
+        case GEO_NODE_ATTRIBUTE_PROCESSOR_INPUT_MODE_CUSTOM_VALUE: {
+          const std::string input_name = "inA" + identifier;
+          GMutablePointer value = geo_params.extract_input(input_name);
+          GVArrayPtr varray = std::make_unique<fn::GVArray_For_SingleValue>(
+              *value.type(), domain_size, value.get());
+          value.destruct();
+          return varray;
+        }
       }
-      case GEO_NODE_ATTRIBUTE_PROCESSOR_INPUT_MODE_CUSTOM_ATTRIBUTE: {
-        return;
-        break;
-      }
-      case GEO_NODE_ATTRIBUTE_PROCESSOR_INPUT_MODE_CUSTOM_VALUE: {
-        return;
-        break;
-      }
-    }
+      BLI_assert_unreachable();
+      return {};
+    });
+
+    fn_params.add_readonly_single_input(*input_varray);
   }
 
   Vector<std::unique_ptr<OutputAttribute>> output_attributes;
@@ -446,23 +456,31 @@ static void process_attributes(GeoNodeExecParams &geo_params, GeometrySet &geome
     const AttributeProcessorOutputSettings *output_settings = (AttributeProcessorOutputSettings *)
         BLI_findlink(&storage.outputs_settings, index);
     const bNodeSocket *interface_socket = (bNodeSocket *)BLI_findlink(&group->outputs, index);
+    const StringRefNull identifier = interface_socket->identifier;
+    std::string output_attribute_name;
     switch ((GeometryNodeAttributeProcessorOutputMode)output_settings->output_mode) {
       case GEO_NODE_ATTRIBUTE_PROCESSOR_OUTPUT_MODE_DEFAULT: {
-        const StringRefNull attribute_name = interface_socket->name;
-        const CustomDataType type = get_custom_data_type(interface_socket->typeinfo);
-        auto attribute = std::make_unique<OutputAttribute>(
-            component.attribute_try_get_for_output_only(attribute_name, domain, type));
-        GMutableSpan attribute_span = attribute->as_span();
-        /* Destruct because the function expects an uninitialized array. */
-        attribute_span.type().destruct_n(attribute_span.data(), domain_size);
-        fn_params.add_uninitialized_single_output(attribute_span);
-        output_attributes.append(std::move(attribute));
+        output_attribute_name = interface_socket->name;
         break;
       }
       case GEO_NODE_ATTRIBUTE_PROCESSOR_OUTPUT_MODE_CUSTOM: {
-        return;
+        const std::string socket_identifier = "out" + identifier;
+        output_attribute_name = geo_params.extract_input<std::string>(socket_identifier);
+        break;
       }
     }
+    const CustomDataType type = get_custom_data_type(interface_socket->typeinfo);
+    auto attribute = std::make_unique<OutputAttribute>(
+        component.attribute_try_get_for_output_only(output_attribute_name, domain, type));
+    if (!*attribute) {
+      /* Cannot create the output attribute. */
+      return;
+    }
+    GMutableSpan attribute_span = attribute->as_span();
+    /* Destruct because the function expects an uninitialized array. */
+    attribute_span.type().destruct_n(attribute_span.data(), domain_size);
+    fn_params.add_uninitialized_single_output(attribute_span);
+    output_attributes.append(std::move(attribute));
   }
 
   network_fn.call(IndexRange(domain_size), fn_params, context);
