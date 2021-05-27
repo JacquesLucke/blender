@@ -76,41 +76,44 @@ static void geo_node_attribute_processor_layout(uiLayout *layout, bContext *C, P
   }
 }
 
-static void geo_node_attribute_processor_init(bNodeTree *UNUSED(ntree), bNode *node)
+static void geo_node_attribute_processor_init(bNodeTree *ntree, bNode *node)
 {
   NodeGeometryAttributeProcessor *node_storage = (NodeGeometryAttributeProcessor *)MEM_callocN(
       sizeof(NodeGeometryAttributeProcessor), __func__);
 
   node->storage = node_storage;
+
+  nodeAddSocket(ntree, node, SOCK_IN, "NodeSocketGeometry", "Geometry", "Geometry");
+  nodeAddSocket(ntree, node, SOCK_OUT, "NodeSocketGeometry", "Geometry", "Geometry");
 }
 
 namespace blender::nodes {
 
-static void free_group_input(AttributeProcessorInputSettings *input_settings)
+static void free_input_settings(AttributeProcessorInputSettings *input_settings)
 {
   MEM_freeN(input_settings->identifier);
   MEM_freeN(input_settings);
 }
 
-static void free_group_output(AttributeProcessorOutputSettings *output_settings)
+static void free_output_settings(AttributeProcessorOutputSettings *output_settings)
 {
   MEM_freeN(output_settings->identifier);
   MEM_freeN(output_settings);
 }
 
-static void free_group_inputs(ListBase *inputs_settings)
+static void free_inputs_settings(ListBase *inputs_settings)
 {
   LISTBASE_FOREACH_MUTABLE (AttributeProcessorInputSettings *, input_settings, inputs_settings) {
-    free_group_input(input_settings);
+    free_input_settings(input_settings);
   }
   BLI_listbase_clear(inputs_settings);
 }
 
-static void free_group_outputs(ListBase *outputs_settings)
+static void free_outputs_settings(ListBase *outputs_settings)
 {
   LISTBASE_FOREACH_MUTABLE (
       AttributeProcessorOutputSettings *, output_settings, outputs_settings) {
-    free_group_output(output_settings);
+    free_output_settings(output_settings);
   }
   BLI_listbase_clear(outputs_settings);
 }
@@ -118,8 +121,8 @@ static void free_group_outputs(ListBase *outputs_settings)
 static void geo_node_attribute_processor_storage_free(bNode *node)
 {
   NodeGeometryAttributeProcessor *storage = (NodeGeometryAttributeProcessor *)node->storage;
-  free_group_inputs(&storage->inputs_settings);
-  free_group_outputs(&storage->outputs_settings);
+  free_inputs_settings(&storage->inputs_settings);
+  free_outputs_settings(&storage->outputs_settings);
   MEM_freeN(storage);
 }
 
@@ -163,45 +166,132 @@ static void geo_node_attribute_processor_group_update(bNodeTree *ntree, bNode *n
   NodeGeometryAttributeProcessor *storage = (NodeGeometryAttributeProcessor *)node->storage;
   bNodeTree *ngroup = (bNodeTree *)node->id;
 
-  if (ngroup == nullptr) {
-    nodeRemoveAllSockets(ntree, node);
-    nodeAddSocket(ntree, node, SOCK_IN, "NodeSocketGeometry", "Geometry", "Geometry");
-    nodeAddSocket(ntree, node, SOCK_OUT, "NodeSocketGeometry", "Geometry", "Geometry");
-    return;
-  }
-  if ((ID_IS_LINKED(ngroup) && (ngroup->id.tag & LIB_TAG_MISSING))) {
+  if (ngroup && (ID_IS_LINKED(ngroup) && (ngroup->id.tag & LIB_TAG_MISSING))) {
     /* Missing datablock, leave sockets unchanged so that when it comes back
      * the links remain valid. */
     return;
   }
-  nodeRemoveAllSockets(ntree, node);
-  nodeAddSocket(ntree, node, SOCK_IN, "NodeSocketGeometry", "Geometry", "Geometry");
-  nodeAddSocket(ntree, node, SOCK_OUT, "NodeSocketGeometry", "Geometry", "Geometry");
 
-  free_group_inputs(&storage->inputs_settings);
-  free_group_outputs(&storage->outputs_settings);
+  ListBase ngroup_inputs;
+  ListBase ngroup_outputs;
+  if (ngroup != nullptr) {
+    ngroup_inputs = ngroup->inputs;
+    ngroup_outputs = ngroup->outputs;
+  }
+  else {
+    BLI_listbase_clear(&ngroup_inputs);
+    BLI_listbase_clear(&ngroup_outputs);
+  }
+
+  Map<StringRefNull, bNodeSocket *> old_inputs_by_identifier;
+  LISTBASE_FOREACH (bNodeSocket *, socket, &node->inputs) {
+    old_inputs_by_identifier.add_new(socket->identifier, socket);
+  }
+  Map<StringRefNull, AttributeProcessorInputSettings *> old_inputs_settings_by_identifier;
+  LISTBASE_FOREACH (AttributeProcessorInputSettings *, input_settings, &storage->inputs_settings) {
+    old_inputs_settings_by_identifier.add_new(input_settings->identifier, input_settings);
+  }
+  Map<StringRefNull, AttributeProcessorOutputSettings *> old_outputs_settings_by_identifier;
+  LISTBASE_FOREACH (
+      AttributeProcessorOutputSettings *, output_settings, &storage->outputs_settings) {
+    old_outputs_settings_by_identifier.add_new(output_settings->identifier, output_settings);
+  }
+
+  VectorSet<bNodeSocket *> new_inputs;
+  VectorSet<AttributeProcessorInputSettings *> new_inputs_settings;
+  VectorSet<AttributeProcessorOutputSettings *> new_output_settings;
+
+  /* Keep geometry socket. */
+  new_inputs.add_new((bNodeSocket *)node->inputs.first);
 
   LISTBASE_FOREACH (bNodeSocket *, interface_sock, &ngroup->inputs) {
-    AttributeProcessorInputSettings *input_settings = (AttributeProcessorInputSettings *)
-        MEM_callocN(sizeof(AttributeProcessorInputSettings), __func__);
-    input_settings->identifier = BLI_strdup(interface_sock->identifier);
-    BLI_addtail(&storage->inputs_settings, input_settings);
+    AttributeProcessorInputSettings *input_settings =
+        old_inputs_settings_by_identifier.lookup_default(interface_sock->identifier, nullptr);
 
     char identifier1[MAX_NAME];
     char identifier2[MAX_NAME];
     BLI_snprintf(identifier1, sizeof(identifier1), "inA%s", interface_sock->identifier);
     BLI_snprintf(identifier2, sizeof(identifier2), "inB%s", interface_sock->identifier);
-    nodeAddSocket(ntree, node, SOCK_IN, interface_sock->idname, identifier1, interface_sock->name);
-    nodeAddSocket(ntree, node, SOCK_IN, "NodeSocketString", identifier2, interface_sock->name);
+
+    if (input_settings == nullptr) {
+      input_settings = (AttributeProcessorInputSettings *)MEM_callocN(
+          sizeof(AttributeProcessorInputSettings), __func__);
+      input_settings->identifier = BLI_strdup(interface_sock->identifier);
+      BLI_addtail(&storage->inputs_settings, input_settings);
+
+      new_inputs_settings.add_new(input_settings);
+      new_inputs.add_new(nodeAddSocket(
+          ntree, node, SOCK_IN, interface_sock->idname, identifier1, interface_sock->name));
+      new_inputs.add_new(nodeAddSocket(
+          ntree, node, SOCK_IN, "NodeSocketString", identifier2, interface_sock->name));
+    }
+    else {
+      new_inputs_settings.add_new(input_settings);
+      new_inputs.add_new(old_inputs_by_identifier.lookup(identifier1));
+      new_inputs.add_new(old_inputs_by_identifier.lookup(identifier2));
+    }
   }
   LISTBASE_FOREACH (bNodeSocket *, interface_sock, &ngroup->outputs) {
-    AttributeProcessorOutputSettings *output_settings = (AttributeProcessorOutputSettings *)
-        MEM_callocN(sizeof(AttributeProcessorOutputSettings), __func__);
-    output_settings->identifier = BLI_strdup(interface_sock->identifier);
+    AttributeProcessorOutputSettings *output_settings =
+        old_outputs_settings_by_identifier.lookup_default(interface_sock->identifier, nullptr);
+
     char identifier[MAX_NAME];
     BLI_snprintf(identifier, sizeof(identifier), "out%s", interface_sock->identifier);
+
+    if (output_settings == nullptr) {
+      output_settings = (AttributeProcessorOutputSettings *)MEM_callocN(
+          sizeof(AttributeProcessorOutputSettings), __func__);
+      output_settings->identifier = BLI_strdup(interface_sock->identifier);
+      BLI_addtail(&storage->outputs_settings, output_settings);
+
+      new_output_settings.add_new(output_settings);
+      new_inputs.add_new(nodeAddSocket(
+          ntree, node, SOCK_IN, "NodeSocketString", identifier, interface_sock->name));
+    }
+    else {
+      new_output_settings.add_new(output_settings);
+      new_inputs.add_new(old_inputs_by_identifier.lookup(identifier));
+    }
+  }
+
+  /* Clear the maps to avoid accidental access later on when they point to invalid memory. */
+  old_inputs_by_identifier.clear();
+  old_inputs_settings_by_identifier.clear();
+  old_outputs_settings_by_identifier.clear();
+
+  /* Remove unused data. */
+  LISTBASE_FOREACH_MUTABLE (bNodeSocket *, socket, &node->inputs) {
+    if (!new_inputs.contains(socket)) {
+      nodeRemoveSocket(ntree, node, socket);
+    }
+  }
+  LISTBASE_FOREACH_MUTABLE (
+      AttributeProcessorInputSettings *, input_settings, &storage->inputs_settings) {
+    if (!new_inputs_settings.contains(input_settings)) {
+      free_input_settings(input_settings);
+      BLI_remlink(&storage->inputs_settings, input_settings);
+    }
+  }
+  LISTBASE_FOREACH_MUTABLE (
+      AttributeProcessorOutputSettings *, output_settings, &storage->outputs_settings) {
+    if (!new_output_settings.contains(output_settings)) {
+      free_output_settings(output_settings);
+      BLI_remlink(&storage->outputs_settings, output_settings);
+    }
+  }
+
+  /* Sort remaining sockets and settings. */
+  BLI_listbase_clear(&node->inputs);
+  for (bNodeSocket *socket : new_inputs) {
+    BLI_addtail(&node->inputs, socket);
+  }
+  BLI_listbase_clear(&storage->inputs_settings);
+  for (AttributeProcessorInputSettings *input_settings : new_inputs_settings) {
+    BLI_addtail(&storage->inputs_settings, input_settings);
+  }
+  BLI_listbase_clear(&storage->outputs_settings);
+  for (AttributeProcessorOutputSettings *output_settings : new_output_settings) {
     BLI_addtail(&storage->outputs_settings, output_settings);
-    nodeAddSocket(ntree, node, SOCK_IN, "NodeSocketString", identifier, interface_sock->name);
   }
 }
 
@@ -293,8 +383,11 @@ static void process_attributes(GeoNodeExecParams &geo_params, GeometrySet &geome
   if (output_nodes.size() != 1) {
     return;
   }
-
   const DNode output_node{&root_context, output_nodes[0]};
+  if (output_node->inputs().size() <= 1) {
+    return;
+  }
+
   Vector<fn::MFInputSocket *> network_outputs;
   for (const InputSocketRef *socket_ref : output_node->inputs().drop_back(1)) {
     const DInputSocket socket{&root_context, socket_ref};
