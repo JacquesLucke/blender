@@ -288,7 +288,6 @@ static void process_attributes(GeoNodeExecParams &geo_params, GeometrySet &geome
   const DTreeContext &root_context = tree.root_context();
   const NodeTreeRef &root_tree_ref = root_context.tree();
 
-  Span<const NodeRef *> input_nodes = root_tree_ref.nodes_by_type("NodeGroupInput");
   Span<const NodeRef *> output_nodes = root_tree_ref.nodes_by_type("NodeGroupOutput");
 
   if (output_nodes.size() != 1) {
