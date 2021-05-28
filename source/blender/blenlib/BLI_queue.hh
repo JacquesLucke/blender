@@ -31,7 +31,7 @@ template<typename T> struct QueueChunk {
    * Pointer to the chunk that should be used once this chunk is empty.
    * Null when this is the last chunk.
    */
-  QueueChunk *next;
+  QueueChunk *next_chunk;
 
   /**
    * Bounds of the memory buffer corresponding to this chunk.
@@ -42,7 +42,7 @@ template<typename T> struct QueueChunk {
   /**
    * Points to the place where the next element should be added.
    */
-  T *top_;
+  T *next_push;
 };
 
 template<typename T,
@@ -62,7 +62,10 @@ class Queue {
 
   Chunk *pop_chunk_;
   Chunk *push_chunk_;
-  T *bottom_;
+  T *next_pop_;
+
+  T **pop_span_end_;
+  T **push_span_end_;
 
   int64_t size_;
 
@@ -74,15 +77,18 @@ class Queue {
  public:
   Queue(Allocator allocator = {}) noexcept : allocator_(allocator)
   {
-    inline_chunk_.next = nullptr;
+    inline_chunk_.next_chunk = nullptr;
     inline_chunk_.capacity_begin = inline_buffer_;
     inline_chunk_.capacity_end = inline_buffer_ + InlineBufferCapacity;
     inline_chunk_.top_ = inline_buffer_;
 
     pop_chunk_ = &inline_chunk_;
     push_chunk_ = &inline_chunk_;
-    bottom_ = inline_buffer_;
+    next_pop_ = inline_buffer_;
     size_ = 0;
+
+    pop_span_end_ = next_pop_;
+    push_span_end_ = inline_chunk_.capacity_end;
   }
 
   Queue(NoExceptConstructor, Allocator allocator = {}) noexcept : Queue(allocator)
@@ -91,14 +97,31 @@ class Queue {
 
   ~Queue()
   {
+    /* The first chunk might be used as ring buffer, so we might need to destruct two subspans. */
     if (push_chunk_ == pop_chunk_) {
-      if (next_pop_ <= next_push_) {
-        this->destruct_between(next_pop_, next_push_);
+      Chunk *chunk = pop_chunk_;
+      if (next_pop_ <= chunk->next) {
+        this->destruct_between(next_pop_, chunk->next_push_);
       }
       else {
-        this->destruct_between(next_pop_, current_chunk_->capacity_end);
-        this->destruct_between(current_chunk_->capacity_begin, next_push_);
+        this->destruct_between(next_pop_, chunk->capacity_end);
+        this->destruct_between(chunk->capacity_begin, chunk->next_push);
       }
+    }
+
+    /* The other chunks have only been pushed to yet, so they are single spans. */
+    Chunk *chunk = pop_chunk_->next_chunk;
+    while (chunk != nullptr) {
+      this->destruct_between(chunk->capacity_begin, chunk->next_push);
+    }
+
+    /* Free chunks. */
+    chunk = pop_chunk_;
+    while (chunk != nullptr) {
+      Chunk *next_chunk = chunk->next_chunk;
+      allocator_.deallocate(next_chunk->capacity_begin);
+      allocator_.deallocate(next_chunk);
+      chunk = next_chunk;
     }
   }
 
@@ -114,11 +137,10 @@ class Queue {
 
   template<typename... Args> void push_as(Args &&... args)
   {
-    this->ensure_space_for_one();
-    new (next_push_) T(std::forward<Args>(args)...);
+    this->ensure_can_push_one();
+    new (push_chunk_->next_push) T(std::forward<Args>(args)...);
+    push_chunk_->next_push++;
     size_++;
-    next_push_++;
-    i
   }
 
   T pop();
@@ -135,6 +157,28 @@ class Queue {
   {
     BLI_assert(begin <= end);
     destruct_n(begin, end - begin);
+  }
+
+  void ensure_can_push_one()
+  {
+    if (LIKELY(push_chunk_->next_push < *push_span_end_)) {
+      return;
+    }
+    if (push_chunk_ != pop_chunk_) {
+      if (push_chunk_->next_push < push_chunk_->capacity_end) {
+        return;
+      }
+    }
+    else {
+      Chunk *chunk = push_chunk_;
+      if (chunk->next_push < next_pop_) {
+        return;
+      }
+      if (chunk->next_push < chunk->capacity_end) {
+        return;
+      }
+    }
+    /* TODO: Add new chunk. */
   }
 };
 
