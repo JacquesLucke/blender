@@ -64,7 +64,18 @@ class Queue {
   Chunk *push_chunk_;
   T *next_pop_;
 
+  /**
+   * Points at one of those two places:
+   * - `pop_chunk_->capacity_end`
+   * - `pop_chunk_->next_push`
+   */
   T **pop_span_end_;
+
+  /**
+   * Points at one of those two places:
+   * - `push_chunk_->capacity_end`
+   * - `next_pop_`
+   */
   T **push_span_end_;
 
   int64_t size_;
@@ -84,11 +95,11 @@ class Queue {
 
     pop_chunk_ = &inline_chunk_;
     push_chunk_ = &inline_chunk_;
-    next_pop_ = inline_buffer_;
+    next_pop_ = inline_chunk_.capacity_end;
     size_ = 0;
 
-    pop_span_end_ = next_pop_;
-    push_span_end_ = inline_chunk_.capacity_end;
+    pop_span_end_ = &inline_chunk_.next_push;
+    push_span_end_ = &inline_chunk_.capacity_end;
   }
 
   Queue(NoExceptConstructor, Allocator allocator = {}) noexcept : Queue(allocator)
@@ -119,8 +130,7 @@ class Queue {
     chunk = pop_chunk_;
     while (chunk != nullptr) {
       Chunk *next_chunk = chunk->next_chunk;
-      allocator_.deallocate(next_chunk->capacity_begin);
-      allocator_.deallocate(next_chunk);
+      this->deallocate_chunk(chunk);
       chunk = next_chunk;
     }
   }
@@ -161,24 +171,55 @@ class Queue {
 
   void ensure_can_push_one()
   {
+    /* Make the common case fast. */
     if (LIKELY(push_chunk_->next_push < *push_span_end_)) {
       return;
     }
-    if (push_chunk_ != pop_chunk_) {
-      if (push_chunk_->next_push < push_chunk_->capacity_end) {
-        return;
-      }
-    }
-    else {
+    /* Check if we are in a ring buffer currently. */
+    if (push_chunk_ == pop_chunk_) {
       Chunk *chunk = push_chunk_;
-      if (chunk->next_push < next_pop_) {
+      if (*push_span_end_ == next_pop_) {
+        /* The chunk is full, create a new one. */
+        Chunk *new_chunk = this->allocate_chunk();
+        chunk->next_chunk = new_chunk;
+        push_chunk_ = new_chunk;
+        push_span_end_ = &new_chunk->capacity_end;
+        /* `pop_span_end_` remains unchanged. */
         return;
       }
-      if (chunk->next_push < chunk->capacity_end) {
-        return;
-      }
+      /* Reached the end of the chunk. Wrap around. We know we can wrap around because otherwise
+       * the case above would be hit. */
+      push_chunk_ = chunk->capacity_begin;
+      push_span_end_ = &next_pop_;
+      pop_span_end_ = &chunk->capacity_end;
+      return;
     }
-    /* TODO: Add new chunk. */
+    /* The current chunk is not used as a ring buffer currently, so just add a new chunk. */
+    Chunk *new_chunk = this->allocate_chunk();
+    push_chunk_->next_chunk = new_chunk;
+    push_chunk_ = new_chunk;
+    push_span_end_ = &new_chunk->capacity_end;
+    /* `pop_span_end_` remains unchanged. */
+  }
+
+  Chunk *allocate_chunk()
+  {
+    const int64_t chunk_size = 128;
+    T *buffer = (T *)allocator_.allocate(chunk_size * sizeof(T), alignof(T), "queue chunk buffer");
+    Chunk *chunk = (Chunk *)allocator_.allocate(sizeof(Chunk), alignof(Chunk), "queue chunk");
+
+    chunk->capacity_begin = buffer;
+    chunk->capacity_end = buffer + chunk_size;
+    chunk->next_chunk = nullptr;
+    chunk->next_push = chunk->capacity_begin;
+
+    return chunk;
+  }
+
+  void deallocate_chunk(Chunk *chunk)
+  {
+    allocator_.deallocate(chunk->capacity_begin);
+    allocator_.deallocate(chunk);
   }
 };
 
