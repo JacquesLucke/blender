@@ -95,7 +95,7 @@ class Queue {
 
     pop_chunk_ = &inline_chunk_;
     push_chunk_ = &inline_chunk_;
-    next_pop_ = inline_chunk_.capacity_end;
+    next_pop_ = inline_chunk_.capacity_begin;
     size_ = 0;
 
     pop_span_end_ = &inline_chunk_.next_push;
@@ -153,13 +153,24 @@ class Queue {
     size_++;
   }
 
-  T pop();
+  T pop()
+  {
+    BLI_assert(size_ > 0);
+    T value = std::move(*next_pop_);
+    next_pop_++;
+    size_--;
+    this->ensure_valid_after_pop();
+    return value;
+  }
 
-  int64_t size() const;
+  int64_t size() const
+  {
+    return size_;
+  }
 
   bool is_empty() const
   {
-    return this->size() == 0;
+    return size_ == 0;
   }
 
  private:
@@ -200,6 +211,15 @@ class Queue {
     push_chunk_ = new_chunk;
     push_span_end_ = &new_chunk->capacity_end;
     /* `pop_span_end_` remains unchanged. */
+  }
+
+  void ensure_valid_after_pop()
+  {
+    /* Make the common case fast. */
+    if (LIKELY(next_pop_ < *pop_span_end_)) {
+      return;
+    }
+    /* Check if we are in a ring buffer currently. */
   }
 
   Chunk *allocate_chunk()
