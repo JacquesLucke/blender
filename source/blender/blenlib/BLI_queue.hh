@@ -27,9 +27,22 @@
 namespace blender {
 
 template<typename T> struct QueueChunk {
+  /**
+   * Pointer to the chunk that should be used once this chunk is empty.
+   * Null when this is the last chunk.
+   */
   QueueChunk *next;
+
+  /**
+   * Bounds of the memory buffer corresponding to this chunk.
+   */
   T *capacity_begin;
   T *capacity_end;
+
+  /**
+   * Points to the place where the next element should be added.
+   */
+  T *top_;
 };
 
 template<typename T,
@@ -49,9 +62,7 @@ class Queue {
 
   Chunk *pop_chunk_;
   Chunk *push_chunk_;
-  T *next_pop_;
-  T *last_pop_in_chunk_;
-  T *next_push_;
+  T *bottom_;
 
   int64_t size_;
 
@@ -64,15 +75,14 @@ class Queue {
   Queue(Allocator allocator = {}) noexcept : allocator_(allocator)
   {
     inline_chunk_.next = nullptr;
-    inline_chunk_.capacity_begin = inline_chunk_;
-    inline_chunk_.capacity_end = inline_chunk_ + InlineBufferCapacity;
+    inline_chunk_.capacity_begin = inline_buffer_;
+    inline_chunk_.capacity_end = inline_buffer_ + InlineBufferCapacity;
+    inline_chunk_.top_ = inline_buffer_;
 
     pop_chunk_ = &inline_chunk_;
     push_chunk_ = &inline_chunk_;
-    next_pop_ = inline_buffer_;
-    next_push_ = inline_buffer_;
+    bottom_ = inline_buffer_;
     size_ = 0;
-    last_pop_in_chunk_ = nullptr;
   }
 
   Queue(NoExceptConstructor, Allocator allocator = {}) noexcept : Queue(allocator)
