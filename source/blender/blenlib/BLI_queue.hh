@@ -219,7 +219,17 @@ class Queue {
     if (LIKELY(next_pop_ < *pop_span_end_)) {
       return;
     }
+    if (size_ == 0) {
+      return;
+    }
     /* Check if we are in a ring buffer currently. */
+    if (push_chunk_ == pop_chunk_) {
+      Chunk *chunk = pop_chunk_;
+      if (*pop_span_end_ == chunk->next_push) {
+        BLI_assert(chunk->next_chunk != nullptr);
+        /* Reached the end of this chunk, free and go to the next chunk. */
+      }
+    }
   }
 
   Chunk *allocate_chunk()
