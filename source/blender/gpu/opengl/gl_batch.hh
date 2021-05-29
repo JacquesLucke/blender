@@ -43,7 +43,7 @@ class GLShaderInterface;
 
 #define GPU_VAO_STATIC_LEN 3
 
-/* Vao management: remembers all geometry state (vertex attribute bindings & element buffer)
+/* VAO management: remembers all geometry state (vertex attribute bindings & element buffer)
  * for each shader interface. Start with a static number of vaos and fallback to dynamic count
  * if necessary. Once a batch goes dynamic it does not go back. */
 class GLVaoCache {
@@ -96,9 +96,6 @@ class GLBatch : public Batch {
   GLVaoCache vao_cache_;
 
  public:
-  GLBatch();
-  ~GLBatch();
-
   void draw(int v_first, int v_count, int i_first, int i_count) override;
   void bind(int i_first);
 

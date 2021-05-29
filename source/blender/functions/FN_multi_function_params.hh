@@ -25,8 +25,9 @@
  * the function. `MFParams` is then used inside the called function to access the parameters.
  */
 
-#include "BLI_resource_collector.hh"
+#include "BLI_resource_scope.hh"
 
+#include "FN_generic_pointer.hh"
 #include "FN_generic_vector_array.hh"
 #include "FN_generic_virtual_vector_array.hh"
 #include "FN_multi_function_signature.hh"
@@ -35,7 +36,7 @@ namespace blender::fn {
 
 class MFParamsBuilder {
  private:
-  ResourceCollector resources_;
+  ResourceScope scope_;
   const MFSignature *signature_;
   int64_t min_array_size_;
   Vector<const GVArray *> virtual_arrays_;
@@ -55,7 +56,7 @@ class MFParamsBuilder {
 
   template<typename T> void add_readonly_single_input(const T *value, StringRef expected_name = "")
   {
-    this->add_readonly_single_input(resources_.construct<GVArrayForSingleValueRef>(
+    this->add_readonly_single_input(scope_.construct<GVArray_For_SingleValueRef>(
                                         __func__, CPPType::get<T>(), min_array_size_, value),
                                     expected_name);
   }
@@ -69,7 +70,13 @@ class MFParamsBuilder {
   }
   void add_readonly_single_input(const GSpan span, StringRef expected_name = "")
   {
-    this->add_readonly_single_input(resources_.construct<GVArrayForGSpan>(__func__, span),
+    this->add_readonly_single_input(scope_.construct<GVArray_For_GSpan>(__func__, span),
+                                    expected_name);
+  }
+  void add_readonly_single_input(GPointer value, StringRef expected_name = "")
+  {
+    this->add_readonly_single_input(scope_.construct<GVArray_For_SingleValueRef>(
+                                        __func__, *value.type(), min_array_size_, value.get()),
                                     expected_name);
   }
   void add_readonly_single_input(const GVArray &ref, StringRef expected_name = "")
@@ -82,7 +89,7 @@ class MFParamsBuilder {
   void add_readonly_vector_input(const GVectorArray &vector_array, StringRef expected_name = "")
   {
     this->add_readonly_vector_input(
-        resources_.construct<GVVectorArrayForGVectorArray>(__func__, vector_array), expected_name);
+        scope_.construct<GVVectorArray_For_GVectorArray>(__func__, vector_array), expected_name);
   }
   void add_readonly_vector_input(const GVVectorArray &ref, StringRef expected_name = "")
   {
@@ -144,9 +151,9 @@ class MFParamsBuilder {
     return *vector_arrays_[data_index];
   }
 
-  ResourceCollector &resources()
+  ResourceScope &resource_scope()
   {
-    return resources_;
+    return scope_;
   }
 
  private:
@@ -185,7 +192,7 @@ class MFParams {
   template<typename T> const VArray<T> &readonly_single_input(int param_index, StringRef name = "")
   {
     const GVArray &array = this->readonly_single_input(param_index, name);
-    return builder_->resources_.construct<VArrayForGVArray<T>>(__func__, array);
+    return builder_->scope_.construct<VArray_For_GVArray<T>>(__func__, array);
   }
   const GVArray &readonly_single_input(int param_index, StringRef name = "")
   {
@@ -210,7 +217,7 @@ class MFParams {
   const VVectorArray<T> &readonly_vector_input(int param_index, StringRef name = "")
   {
     const GVVectorArray &vector_array = this->readonly_vector_input(param_index, name);
-    return builder_->resources_.construct<VVectorArrayForGVVectorArray<T>>(__func__, vector_array);
+    return builder_->scope_.construct<VVectorArray_For_GVVectorArray<T>>(__func__, vector_array);
   }
   const GVVectorArray &readonly_vector_input(int param_index, StringRef name = "")
   {

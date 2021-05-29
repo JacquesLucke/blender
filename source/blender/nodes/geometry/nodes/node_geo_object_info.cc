@@ -14,17 +14,12 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#include "node_geometry_util.hh"
-
-#include "BKE_mesh.h"
-#include "BKE_mesh_wrapper.h"
-#include "BKE_modifier.h"
-#include "BKE_volume.h"
-
 #include "BLI_math_matrix.h"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
+
+#include "node_geometry_util.hh"
 
 static bNodeSocketTemplate geo_node_object_info_in[] = {
     {SOCK_OBJECT, N_("Object")},
@@ -52,9 +47,7 @@ static void geo_node_object_info_exec(GeoNodeExecParams params)
   const bool transform_space_relative = (node_storage->transform_space ==
                                          GEO_NODE_TRANSFORM_SPACE_RELATIVE);
 
-  bke::PersistentObjectHandle object_handle = params.extract_input<bke::PersistentObjectHandle>(
-      "Object");
-  Object *object = params.handle_map().lookup(object_handle);
+  Object *object = params.get_input<Object *>("Object");
 
   float3 location = {0, 0, 0};
   float3 rotation = {0, 0, 0};
@@ -78,14 +71,15 @@ static void geo_node_object_info_exec(GeoNodeExecParams params)
 
     if (object != self_object) {
       InstancesComponent &instances = geometry_set.get_component_for_write<InstancesComponent>();
+      const int handle = instances.add_reference(*object);
 
       if (transform_space_relative) {
-        instances.add_instance(object, transform);
+        instances.add_instance(handle, transform);
       }
       else {
         float unit_transform[4][4];
         unit_m4(unit_transform);
-        instances.add_instance(object, unit_transform);
+        instances.add_instance(handle, unit_transform);
       }
     }
   }

@@ -15,6 +15,7 @@
  */
 
 #include "NOD_node_tree_multi_function.hh"
+#include "NOD_type_conversions.hh"
 
 #include "FN_multi_function_network_evaluation.hh"
 
@@ -142,119 +143,16 @@ static void insert_nodes(CommonMFNetworkBuilderData &common)
   });
 }
 
-template<typename From, typename To>
-static void add_implicit_conversion(DataTypeConversions &conversions)
-{
-  static fn::CustomMF_Convert<From, To> function;
-  conversions.add(fn::MFDataType::ForSingle<From>(), fn::MFDataType::ForSingle<To>(), function);
-}
-
-template<typename From, typename To, typename ConversionF>
-static void add_implicit_conversion(DataTypeConversions &conversions,
-                                    StringRef name,
-                                    ConversionF conversion)
-{
-  static fn::CustomMF_SI_SO<From, To> function{name, conversion};
-  conversions.add(fn::MFDataType::ForSingle<From>(), fn::MFDataType::ForSingle<To>(), function);
-}
-
-static DataTypeConversions create_implicit_conversions()
-{
-  DataTypeConversions conversions;
-  add_implicit_conversion<float, float2>(conversions);
-  add_implicit_conversion<float, float3>(conversions);
-  add_implicit_conversion<float, int32_t>(conversions);
-  add_implicit_conversion<float, bool>(
-      conversions, "float to boolean", [](float a) { return a > 0.0f; });
-  add_implicit_conversion<float, Color4f>(
-      conversions, "float to Color4f", [](float a) { return Color4f(a, a, a, 1.0f); });
-
-  add_implicit_conversion<float2, float3>(
-      conversions, "float2 to float3", [](float2 a) { return float3(a.x, a.y, 0.0f); });
-  add_implicit_conversion<float2, float>(
-      conversions, "float2 to float", [](float2 a) { return (a.x + a.y) / 2.0f; });
-  add_implicit_conversion<float2, int32_t>(
-      conversions, "float2 to int32_t", [](float2 a) { return (int32_t)((a.x + a.y) / 2.0f); });
-  add_implicit_conversion<float2, bool>(
-      conversions, "float2 to bool", [](float2 a) { return !is_zero_v2(a); });
-  add_implicit_conversion<float2, Color4f>(
-      conversions, "float2 to Color4f", [](float2 a) { return Color4f(a.x, a.y, 0.0f, 1.0f); });
-
-  add_implicit_conversion<float3, bool>(
-      conversions, "float3 to boolean", [](float3 a) { return !is_zero_v3(a); });
-  add_implicit_conversion<float3, float>(
-      conversions, "float3 to float", [](float3 a) { return (a.x + a.y + a.z) / 3.0f; });
-  add_implicit_conversion<float3, int32_t>(
-      conversions, "float3 to int32_t", [](float3 a) { return (int)((a.x + a.y + a.z) / 3.0f); });
-  add_implicit_conversion<float3, float2>(conversions);
-  add_implicit_conversion<float3, Color4f>(
-      conversions, "float3 to Color4f", [](float3 a) { return Color4f(a.x, a.y, a.z, 1.0f); });
-
-  add_implicit_conversion<int32_t, bool>(
-      conversions, "int32 to boolean", [](int32_t a) { return a > 0; });
-  add_implicit_conversion<int32_t, float>(conversions);
-  add_implicit_conversion<int32_t, float2>(
-      conversions, "int32 to float2", [](int32_t a) { return float2((float)a); });
-  add_implicit_conversion<int32_t, float3>(
-      conversions, "int32 to float3", [](int32_t a) { return float3((float)a); });
-  add_implicit_conversion<int32_t, Color4f>(conversions, "int32 to Color4f", [](int32_t a) {
-    return Color4f((float)a, (float)a, (float)a, 1.0f);
-  });
-
-  add_implicit_conversion<bool, float>(conversions);
-  add_implicit_conversion<bool, int32_t>(conversions);
-  add_implicit_conversion<bool, float2>(
-      conversions, "boolean to float2", [](bool a) { return (a) ? float2(1.0f) : float2(0.0f); });
-  add_implicit_conversion<bool, float3>(
-      conversions, "boolean to float3", [](bool a) { return (a) ? float3(1.0f) : float3(0.0f); });
-  add_implicit_conversion<bool, Color4f>(conversions, "boolean to Color4f", [](bool a) {
-    return (a) ? Color4f(1.0f, 1.0f, 1.0f, 1.0f) : Color4f(0.0f, 0.0f, 0.0f, 1.0f);
-  });
-
-  add_implicit_conversion<Color4f, bool>(
-      conversions, "Color4f to boolean", [](Color4f a) { return rgb_to_grayscale(a) > 0.0f; });
-  add_implicit_conversion<Color4f, float>(
-      conversions, "Color4f to float", [](Color4f a) { return rgb_to_grayscale(a); });
-  add_implicit_conversion<Color4f, float2>(
-      conversions, "Color4f to float2", [](Color4f a) { return float2(a.r, a.g); });
-  add_implicit_conversion<Color4f, float3>(
-      conversions, "Color4f to float3", [](Color4f a) { return float3(a.r, a.g, a.b); });
-
-  return conversions;
-}
-
-const DataTypeConversions &get_implicit_type_conversions()
-{
-  static const DataTypeConversions conversions = create_implicit_conversions();
-  return conversions;
-}
-
-void DataTypeConversions::convert(const CPPType &from_type,
-                                  const CPPType &to_type,
-                                  const void *from_value,
-                                  void *to_value) const
-{
-  const fn::MultiFunction *fn = this->get_conversion(MFDataType::ForSingle(from_type),
-                                                     MFDataType::ForSingle(to_type));
-  BLI_assert(fn != nullptr);
-
-  fn::MFContextBuilder context;
-  fn::MFParamsBuilder params{*fn, 1};
-  params.add_readonly_single_input(fn::GSpan(from_type, from_value, 1));
-  params.add_uninitialized_single_output(fn::GMutableSpan(to_type, to_value, 1));
-  fn->call({0}, params, context);
-}
-
 static fn::MFOutputSocket &insert_default_value_for_type(CommonMFNetworkBuilderData &common,
                                                          fn::MFDataType type)
 {
   const fn::MultiFunction *default_fn;
   if (type.is_single()) {
-    default_fn = &common.resources.construct<fn::CustomMF_GenericConstant>(
+    default_fn = &common.scope.construct<fn::CustomMF_GenericConstant>(
         AT, type.single_type(), type.single_type().default_value());
   }
   else {
-    default_fn = &common.resources.construct<fn::CustomMF_GenericConstantArray>(
+    default_fn = &common.scope.construct<fn::CustomMF_GenericConstantArray>(
         AT, fn::GSpan(type.vector_base_type()));
   }
 
@@ -321,8 +219,8 @@ static void insert_links_and_unlinked_inputs(CommonMFNetworkBuilderData &common)
       const fn::MFDataType from_type = from_socket->data_type();
 
       if (from_type != to_type) {
-        const fn::MultiFunction *conversion_fn = get_implicit_type_conversions().get_conversion(
-            from_type, to_type);
+        const fn::MultiFunction *conversion_fn =
+            get_implicit_type_conversions().get_conversion_multi_function(from_type, to_type);
         if (conversion_fn != nullptr) {
           fn::MFNode &node = common.network.add_function(*conversion_fn);
           common.network.add_link(*from_socket, node.input(0));
@@ -349,11 +247,11 @@ static void insert_links_and_unlinked_inputs(CommonMFNetworkBuilderData &common)
  */
 MFNetworkTreeMap insert_node_tree_into_mf_network(fn::MFNetwork &network,
                                                   const DerivedNodeTree &tree,
-                                                  ResourceCollector &resources)
+                                                  ResourceScope &scope)
 {
   MFNetworkTreeMap network_map{tree, network};
 
-  CommonMFNetworkBuilderData common{resources, network, network_map, tree};
+  CommonMFNetworkBuilderData common{scope, network, network_map, tree};
 
   insert_nodes(common);
   insert_links_and_unlinked_inputs(common);
@@ -427,7 +325,7 @@ static const fn::MultiFunction &create_function_for_node_that_expands_into_multi
     const DNode &dnode,
     fn::MFNetwork &network,
     MFNetworkTreeMap &network_map,
-    ResourceCollector &resources)
+    ResourceScope &scope)
 {
   Vector<const fn::MFOutputSocket *> dummy_fn_inputs;
   for (const InputSocketRef *dsocket : dnode->inputs()) {
@@ -452,7 +350,7 @@ static const fn::MultiFunction &create_function_for_node_that_expands_into_multi
     }
   }
 
-  fn::MFNetworkEvaluator &fn_evaluator = resources.construct<fn::MFNetworkEvaluator>(
+  fn::MFNetworkEvaluator &fn_evaluator = scope.construct<fn::MFNetworkEvaluator>(
       __func__, std::move(dummy_fn_inputs), std::move(dummy_fn_outputs));
   return fn_evaluator;
 }
@@ -461,16 +359,15 @@ static const fn::MultiFunction &create_function_for_node_that_expands_into_multi
  * Returns a single multi-function for every node that supports it. This makes it easier to reuse
  * the multi-function implementation of nodes in different contexts.
  */
-MultiFunctionByNode get_multi_function_per_node(const DerivedNodeTree &tree,
-                                                ResourceCollector &resources)
+MultiFunctionByNode get_multi_function_per_node(const DerivedNodeTree &tree, ResourceScope &scope)
 {
   /* Build a network that nodes can insert themselves into. However, the individual nodes are not
    * connected. */
-  fn::MFNetwork &network = resources.construct<fn::MFNetwork>(__func__);
+  fn::MFNetwork &network = scope.construct<fn::MFNetwork>(__func__);
   MFNetworkTreeMap network_map{tree, network};
   MultiFunctionByNode functions_by_node;
 
-  CommonMFNetworkBuilderData common{resources, network, network_map, tree};
+  CommonMFNetworkBuilderData common{scope, network, network_map, tree};
 
   tree.foreach_node([&](DNode dnode) {
     const bNodeType *node_type = dnode->typeinfo();
@@ -499,7 +396,7 @@ MultiFunctionByNode get_multi_function_per_node(const DerivedNodeTree &tree,
         /* If a node expanded into multiple functions, a new function has to be created that
          * combines those. */
         const fn::MultiFunction &fn = create_function_for_node_that_expands_into_multiple(
-            dnode, network, network_map, resources);
+            dnode, network, network_map, scope);
         functions_by_node.add_new(dnode, &fn);
         break;
       }

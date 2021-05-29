@@ -18,7 +18,6 @@
 
 # <pep8 compliant>
 import bpy
-import os
 from bpy.types import Operator
 from bpy.props import FloatProperty
 from mathutils import (
@@ -207,8 +206,8 @@ class CLIP_OT_filter_tracks(Operator):
 
     @classmethod
     def poll(cls, context):
-        space = context.space_data
-        return (space.type == 'CLIP_EDITOR') and space.clip
+        sc = context.space_data
+        return sc and (sc.type == 'CLIP_EDITOR') and sc.clip
 
     def execute(self, context):
         num_tracks = self._filter_values(context, self.track_threshold)
@@ -222,8 +221,8 @@ class CLIP_OT_set_active_clip(Operator):
 
     @classmethod
     def poll(cls, context):
-        space = context.space_data
-        return space.type == 'CLIP_EDITOR' and space.clip
+        sc = context.space_data
+        return sc and (sc.type == 'CLIP_EDITOR') and sc.clip
 
     def execute(self, context):
         clip = context.space_data.clip
@@ -269,8 +268,8 @@ class CLIP_OT_track_to_empty(Operator):
 
     @classmethod
     def poll(cls, context):
-        space = context.space_data
-        return space.type == 'CLIP_EDITOR' and space.clip
+        sc = context.space_data
+        return sc and (sc.type == 'CLIP_EDITOR') and sc.clip
 
     def execute(self, context):
         sc = context.space_data
@@ -294,7 +293,7 @@ class CLIP_OT_bundles_to_mesh(Operator):
     @classmethod
     def poll(cls, context):
         sc = context.space_data
-        return (sc.type == 'CLIP_EDITOR') and sc.clip
+        return sc and (sc.type == 'CLIP_EDITOR') and sc.clip
 
     def execute(self, context):
         from bpy_extras.io_utils import unpack_list
@@ -342,12 +341,8 @@ class CLIP_OT_delete_proxy(Operator):
 
     @classmethod
     def poll(cls, context):
-        if context.space_data.type != 'CLIP_EDITOR':
-            return False
-
         sc = context.space_data
-
-        return sc.clip
+        return sc and (sc.type == 'CLIP_EDITOR') and sc.clip
 
     def invoke(self, context, event):
         wm = context.window_manager
@@ -356,6 +351,7 @@ class CLIP_OT_delete_proxy(Operator):
 
     @staticmethod
     def _rmproxy(abspath):
+        import os
         import shutil
 
         if not os.path.exists(abspath):
@@ -367,6 +363,7 @@ class CLIP_OT_delete_proxy(Operator):
             os.remove(abspath)
 
     def execute(self, context):
+        import os
         sc = context.space_data
         clip = sc.clip
         if clip.use_proxy_custom_directory:
@@ -423,12 +420,8 @@ class CLIP_OT_set_viewport_background(Operator):
 
     @classmethod
     def poll(cls, context):
-        if context.space_data.type != 'CLIP_EDITOR':
-            return False
-
         sc = context.space_data
-
-        return sc.clip
+        return sc and (sc.type == 'CLIP_EDITOR') and sc.clip
 
     def execute(self, context):
         sc = context.space_data
@@ -562,13 +555,11 @@ class CLIP_OT_setup_tracking_scene(Operator):
     @classmethod
     def poll(cls, context):
         sc = context.space_data
-
-        if sc.type != 'CLIP_EDITOR':
-            return False
-
-        clip = sc.clip
-
-        return clip and clip.tracking.reconstruction.is_valid
+        if sc and sc.type == 'CLIP_EDITOR':
+            clip = sc.clip
+            if clip and clip.tracking.reconstruction.is_valid:
+                return True
+        return False
 
     @staticmethod
     def _setupScene(context):
@@ -1017,13 +1008,11 @@ class CLIP_OT_track_settings_as_default(Operator):
     @classmethod
     def poll(cls, context):
         sc = context.space_data
-
-        if sc.type != 'CLIP_EDITOR':
-            return False
-
-        clip = sc.clip
-
-        return clip and clip.tracking.tracks.active
+        if sc and sc.type == 'CLIP_EDITOR':
+            clip = sc.clip
+            if clip and clip.tracking.tracks.active:
+                return True
+        return False
 
     def execute(self, context):
         sc = context.space_data
@@ -1067,11 +1056,12 @@ class CLIP_OT_track_settings_to_track(Operator):
 
     @classmethod
     def poll(cls, context):
-        space = context.space_data
-        if space.type != 'CLIP_EDITOR':
-            return False
-        clip = space.clip
-        return clip and clip.tracking.tracks.active
+        sc = context.space_data
+        if sc and sc.type == 'CLIP_EDITOR':
+            clip = sc.clip
+            if clip and clip.tracking.tracks.active:
+                return True
+        return False
 
     def execute(self, context):
         space = context.space_data

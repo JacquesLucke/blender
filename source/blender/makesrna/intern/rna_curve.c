@@ -357,9 +357,8 @@ static void rna_Curve_dimension_set(PointerRNA *ptr, int value)
   }
   else {
     cu->flag &= ~CU_3D;
+    BKE_curve_dimension_update(cu);
   }
-
-  BKE_curve_curve_dimension_update(cu);
 }
 
 static const EnumPropertyItem *rna_Curve_fill_mode_itemf(bContext *UNUSED(C),
@@ -721,10 +720,6 @@ static Nurb *rna_Curve_spline_new(Curve *cu, int type)
   nu->resolv = cu->resolv;
   nu->flag = CU_SMOOTH;
 
-  if ((cu->flag & CU_3D) == 0) {
-    nu->flag |= CU_2D;
-  }
-
   BLI_addtail(BKE_curve_nurbs_get(cu), nu);
 
   return nu;
@@ -1033,6 +1028,14 @@ static void rna_def_path(BlenderRNA *UNUSED(brna), StructRNA *srna)
   prop = RNA_def_property(srna, "use_path_follow", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "flag", CU_FOLLOW);
   RNA_def_property_ui_text(prop, "Follow", "Make curve path children to rotate along the path");
+  RNA_def_property_update(prop, 0, "rna_Curve_update_data");
+
+  prop = RNA_def_property(srna, "use_path_clamp", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "flag", CU_PATH_CLAMP);
+  RNA_def_property_ui_text(
+      prop,
+      "Clamp",
+      "Clamp the curve path children so they can't travel past the start/end point of the curve");
   RNA_def_property_update(prop, 0, "rna_Curve_update_data");
 
   prop = RNA_def_property(srna, "use_stretch", PROP_BOOLEAN, PROP_NONE);

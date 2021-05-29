@@ -778,7 +778,7 @@ static void drawviewborder(Scene *scene, Depsgraph *depsgraph, ARegion *region, 
       }
 
       /* draw */
-      immUniformThemeColorShade(TH_VIEW_OVERLAY, 100);
+      immUniformThemeColorShadeAlpha(TH_VIEW_OVERLAY, 100, 255);
 
       /* TODO Was using:
        * UI_draw_roundbox_4fv(false, rect.xmin, rect.ymin, rect.xmax, rect.ymax, 2.0f, color);
@@ -830,52 +830,6 @@ static void drawrenderborder(ARegion *region, View3D *v3d)
                        v3d->render_border.ymax * region->winy);
 
   immUnbindProgram();
-}
-
-void ED_view3d_draw_depth(Depsgraph *depsgraph, ARegion *region, View3D *v3d, bool alphaoverride)
-{
-  struct bThemeState theme_state;
-  Scene *scene = DEG_get_evaluated_scene(depsgraph);
-  RegionView3D *rv3d = region->regiondata;
-
-  short flag = v3d->flag;
-  float glalphaclip = U.glalphaclip;
-  /* temp set drawtype to solid */
-  /* Setting these temporarily is not nice */
-  v3d->flag &= ~V3D_SELECT_OUTLINE;
-
-  /* not that nice but means we wont zoom into billboards */
-  U.glalphaclip = alphaoverride ? 0.5f : glalphaclip;
-
-  /* Tools may request depth outside of regular drawing code. */
-  UI_Theme_Store(&theme_state);
-  UI_SetTheme(SPACE_VIEW3D, RGN_TYPE_WINDOW);
-
-  ED_view3d_draw_setup_view(
-      G_MAIN->wm.first, NULL, depsgraph, scene, region, v3d, NULL, NULL, NULL);
-
-  /* get surface depth without bias */
-  rv3d->rflag |= RV3D_ZOFFSET_DISABLED;
-
-  /* Needed in cases the 3D Viewport isn't already setup. */
-  WM_draw_region_viewport_ensure(region, SPACE_VIEW3D);
-  WM_draw_region_viewport_bind(region);
-
-  GPUViewport *viewport = WM_draw_region_get_viewport(region);
-  /* When Blender is starting, a click event can trigger a depth test while the viewport is not
-   * yet available. */
-  if (viewport != NULL) {
-    DRW_draw_depth_loop(depsgraph, region, v3d, viewport, false);
-  }
-
-  WM_draw_region_viewport_unbind(region);
-
-  rv3d->rflag &= ~RV3D_ZOFFSET_DISABLED;
-
-  U.glalphaclip = glalphaclip;
-  v3d->flag = flag;
-
-  UI_Theme_Restore(&theme_state);
 }
 
 /** \} */
@@ -1334,6 +1288,11 @@ static void draw_viewport_name(ARegion *region, View3D *v3d, int xoffset, int *y
     name_array[name_array_len++] = IFACE_(" (Local)");
   }
 
+  /* Indicate that clipping region is enabled. */
+  if (rv3d->rflag & RV3D_CLIPPING) {
+    name_array[name_array_len++] = IFACE_(" (Clipped)");
+  }
+
   if (name_array_len > 1) {
     BLI_string_join_array(tmpstr, sizeof(tmpstr), name_array, name_array_len);
     name = tmpstr;
@@ -1634,7 +1593,8 @@ void view3d_main_region_draw(const bContext *C, ARegion *region)
   /* No depth test for drawing action zones afterwards. */
   GPU_depth_test(GPU_DEPTH_NONE);
 
-  v3d->flag |= V3D_INVALID_BACKBUF;
+  v3d->runtime.flag &= ~V3D_RUNTIME_DEPTHBUF_OVERRIDDEN;
+  /* TODO: Clear cache? */
 }
 
 /** \} */
@@ -2062,7 +2022,6 @@ ImBuf *ED_view3d_draw_offscreen_imbuf_simple(Depsgraph *depsgraph,
     source_shading_settings = shading_override;
   }
   memcpy(&v3d.shading, source_shading_settings, sizeof(View3DShading));
-  v3d.shading.type = drawtype;
 
   if (drawtype == OB_MATERIAL) {
     v3d.shading.flag = V3D_SHADING_SCENE_WORLD | V3D_SHADING_SCENE_LIGHTS;
@@ -2072,8 +2031,17 @@ ImBuf *ED_view3d_draw_offscreen_imbuf_simple(Depsgraph *depsgraph,
     v3d.shading.flag = V3D_SHADING_SCENE_WORLD_RENDER | V3D_SHADING_SCENE_LIGHTS_RENDER;
     v3d.shading.render_pass = SCE_PASS_COMBINED;
   }
+  else if (drawtype == OB_TEXTURE) {
+    drawtype = OB_SOLID;
+    v3d.shading.light = V3D_LIGHTING_STUDIO;
+    v3d.shading.color_type = V3D_SHADING_TEXTURE_COLOR;
+  }
+  v3d.shading.type = drawtype;
 
   v3d.flag2 = V3D_HIDE_OVERLAYS;
+  /* HACK: When rendering gpencil objects this opacity is used to mix vertex colors in when not in
+   * render mode. */
+  v3d.overlay.gpencil_vertex_paint_opacity = 1.0f;
 
   if (draw_flags & V3D_OFSDRAW_SHOW_ANNOTATION) {
     v3d.flag2 |= V3D_SHOW_ANNOTATION;
@@ -2112,7 +2080,7 @@ ImBuf *ED_view3d_draw_offscreen_imbuf_simple(Depsgraph *depsgraph,
 
   return ED_view3d_draw_offscreen_imbuf(depsgraph,
                                         scene,
-                                        drawtype,
+                                        v3d.shading.type,
                                         &v3d,
                                         &region,
                                         width,
@@ -2146,8 +2114,15 @@ static bool view3d_clipping_test(const float co[3], const float clip[6][4])
   return true;
 }
 
-/* For 'local' ED_view3d_clipping_local must run first
- * then all comparisons can be done in localspace. */
+/**
+ * Return true when `co` is hidden by the 3D views clipping planes.
+ *
+ * \param local: When true use local (object-space) #ED_view3d_clipping_local must run first,
+ * then all comparisons can be done in local-space.
+ * \return True when `co` is outside all clipping planes.
+ *
+ * \note Callers should check #RV3D_CLIPPING_ENABLED first.
+ */
 bool ED_view3d_clipping_test(const RegionView3D *rv3d, const float co[3], const bool is_local)
 {
   return view3d_clipping_test(co, is_local ? rv3d->clip_local : rv3d->clip);
@@ -2168,6 +2143,10 @@ static void validate_object_select_id(struct Depsgraph *depsgraph,
                                       View3D *v3d,
                                       Object *obact)
 {
+  /* TODO: Use a flag in the selection engine itself. */
+  if (v3d->runtime.flag & V3D_RUNTIME_DEPTHBUF_OVERRIDDEN) {
+    return;
+  }
   Object *obact_eval = DEG_get_evaluated_object(depsgraph, obact);
 
   BLI_assert(region->regiontype == RGN_TYPE_WINDOW);
@@ -2186,11 +2165,7 @@ static void validate_object_select_id(struct Depsgraph *depsgraph,
     /* do nothing */
   }
   else {
-    v3d->flag &= ~V3D_INVALID_BACKBUF;
-    return;
-  }
-
-  if (!(v3d->flag & V3D_INVALID_BACKBUF)) {
+    v3d->runtime.flag |= V3D_RUNTIME_DEPTHBUF_OVERRIDDEN;
     return;
   }
 
@@ -2199,9 +2174,7 @@ static void validate_object_select_id(struct Depsgraph *depsgraph,
     DRW_select_buffer_context_create(&base, 1, -1);
   }
 
-  /* TODO: Create a flag in `DRW_manager` because the drawing is no longer
-   *       made on the back-buffer in this case. */
-  v3d->flag &= ~V3D_INVALID_BACKBUF;
+  v3d->runtime.flag |= V3D_RUNTIME_DEPTHBUF_OVERRIDDEN;
 }
 
 /* TODO: Creating, attaching texture, and destroying a framebuffer is quite slow.
@@ -2228,26 +2201,7 @@ static void view3d_opengl_read_Z_pixels(GPUViewport *viewport, rcti *rect, void 
 
 void ED_view3d_select_id_validate(ViewContext *vc)
 {
-  /* TODO: Create a flag in `DRW_manager` because the drawing is no longer
-   *       made on the back-buffer in this case. */
-  if (vc->v3d->flag & V3D_INVALID_BACKBUF) {
-    validate_object_select_id(vc->depsgraph, vc->view_layer, vc->region, vc->v3d, vc->obact);
-  }
-}
-
-void ED_view3d_backbuf_depth_validate(ViewContext *vc)
-{
-  if (vc->v3d->flag & V3D_INVALID_BACKBUF) {
-    ARegion *region = vc->region;
-    Object *obact_eval = DEG_get_evaluated_object(vc->depsgraph, vc->obact);
-
-    if (obact_eval && ((obact_eval->base_flag & BASE_VISIBLE_DEPSGRAPH) != 0)) {
-      GPUViewport *viewport = WM_draw_region_get_viewport(region);
-      DRW_draw_depth_object(vc->scene, vc->region, vc->v3d, viewport, obact_eval);
-    }
-
-    vc->v3d->flag &= ~V3D_INVALID_BACKBUF;
-  }
+  validate_object_select_id(vc->depsgraph, vc->view_layer, vc->region, vc->v3d, vc->obact);
 }
 
 /**
@@ -2319,7 +2273,7 @@ void view3d_update_depths_rect(ARegion *region, ViewDepths *d, rcti *rect)
 }
 
 /* Note, with nouveau drivers the glReadPixels() is very slow. T24339. */
-void ED_view3d_depth_update(ARegion *region)
+static void view3d_depth_cache_update(ARegion *region)
 {
   RegionView3D *rv3d = region->regiondata;
 
@@ -2341,13 +2295,9 @@ void ED_view3d_depth_update(ARegion *region)
 
     if (d->damaged) {
       GPUViewport *viewport = WM_draw_region_get_viewport(region);
-      rcti r = {
-          .xmin = 0,
-          .xmax = d->w,
-          .ymin = 0,
-          .ymax = d->h,
-      };
-      view3d_opengl_read_Z_pixels(viewport, &r, d->depths);
+      DefaultFramebufferList *fbl = GPU_viewport_framebuffer_list_get(viewport);
+      GPU_framebuffer_read_depth(fbl->depth_only_fb, 0, 0, d->w, d->h, GPU_DATA_FLOAT, d->depths);
+
       /* Assumed to be this as they are never changed. */
       d->depth_range[0] = 0.0;
       d->depth_range[1] = 1.0;
@@ -2380,19 +2330,81 @@ float view3d_depth_near(ViewDepths *d)
   return far == far_real ? FLT_MAX : far;
 }
 
-void ED_view3d_draw_depth_gpencil(Depsgraph *depsgraph, Scene *scene, ARegion *region, View3D *v3d)
+/**
+ * Redraw the viewport depth buffer.
+ *
+ * \param mode: V3D_DEPTH_NO_GPENCIL - Redraw viewport without Grease Pencil and Annotations.
+ *              V3D_DEPTH_GPENCIL_ONLY - Redraw viewport with Grease Pencil and Annotations only.
+ *              V3D_DEPTH_OBJECT_ONLY - Redraw viewport with active object only.
+ * \param update_cache: If true, store the entire depth buffer in #rv3d->depths.
+ */
+void ED_view3d_depth_override(Depsgraph *depsgraph,
+                              ARegion *region,
+                              View3D *v3d,
+                              Object *obact,
+                              eV3DDepthOverrideMode mode,
+                              bool update_cache)
 {
-  /* Setup view matrix. */
-  ED_view3d_draw_setup_view(NULL, NULL, depsgraph, scene, region, v3d, NULL, NULL, NULL);
+  if (v3d->runtime.flag & V3D_RUNTIME_DEPTHBUF_OVERRIDDEN) {
+    return;
+  }
+  struct bThemeState theme_state;
+  Scene *scene = DEG_get_evaluated_scene(depsgraph);
+  RegionView3D *rv3d = region->regiondata;
 
-  GPU_clear_depth(1.0f);
+  short flag = v3d->flag;
+  /* temp set drawtype to solid */
+  /* Setting these temporarily is not nice */
+  v3d->flag &= ~V3D_SELECT_OUTLINE;
 
-  GPU_depth_test(GPU_DEPTH_LESS_EQUAL);
+  /* Tools may request depth outside of regular drawing code. */
+  UI_Theme_Store(&theme_state);
+  UI_SetTheme(SPACE_VIEW3D, RGN_TYPE_WINDOW);
+
+  ED_view3d_draw_setup_view(
+      G_MAIN->wm.first, NULL, depsgraph, scene, region, v3d, NULL, NULL, NULL);
+
+  /* get surface depth without bias */
+  rv3d->rflag |= RV3D_ZOFFSET_DISABLED;
+
+  /* Needed in cases the 3D Viewport isn't already setup. */
+  WM_draw_region_viewport_ensure(region, SPACE_VIEW3D);
+  WM_draw_region_viewport_bind(region);
 
   GPUViewport *viewport = WM_draw_region_get_viewport(region);
-  DRW_draw_depth_loop_gpencil(depsgraph, region, v3d, viewport);
+  /* When Blender is starting, a click event can trigger a depth test while the viewport is not
+   * yet available. */
+  if (viewport != NULL) {
+    switch (mode) {
+      case V3D_DEPTH_NO_GPENCIL:
+        DRW_draw_depth_loop(depsgraph, region, v3d, viewport);
+        break;
+      case V3D_DEPTH_GPENCIL_ONLY:
+        DRW_draw_depth_loop_gpencil(depsgraph, region, v3d, viewport);
+        break;
+      case V3D_DEPTH_OBJECT_ONLY:
+        DRW_draw_depth_object(
+            scene, region, v3d, viewport, DEG_get_evaluated_object(depsgraph, obact));
+        break;
+    }
 
-  GPU_depth_test(GPU_DEPTH_NONE);
+    if (rv3d->depths != NULL) {
+      rv3d->depths->damaged = true;
+      /* TODO: Clear cache? */
+    }
+    if (update_cache) {
+      view3d_depth_cache_update(region);
+    }
+  }
+
+  WM_draw_region_viewport_unbind(region);
+
+  rv3d->rflag &= ~RV3D_ZOFFSET_DISABLED;
+
+  v3d->flag = flag;
+  v3d->runtime.flag |= V3D_RUNTIME_DEPTHBUF_OVERRIDDEN;
+
+  UI_Theme_Restore(&theme_state);
 }
 
 /** \} */

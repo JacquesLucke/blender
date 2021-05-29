@@ -397,7 +397,7 @@ static void drw_mesh_weight_state_extract(Object *ob,
       wstate->flags |= DRW_MESH_WEIGHT_STATE_MULTIPAINT |
                        (ts->auto_normalize ? DRW_MESH_WEIGHT_STATE_AUTO_NORMALIZE : 0);
 
-      if (me->editflag & ME_EDIT_VERTEX_GROUPS_X_SYMMETRY) {
+      if (ME_USING_MIRROR_X_VERTEX_GROUPS(me)) {
         BKE_object_defgroup_mirror_selection(ob,
                                              wstate->defgroup_len,
                                              wstate->defgroup_sel,
@@ -557,12 +557,18 @@ static void mesh_batch_cache_discard_surface_batches(MeshBatchCache *cache)
 static void mesh_batch_cache_discard_shaded_tri(MeshBatchCache *cache)
 {
   FOREACH_MESH_BUFFER_CACHE (cache, mbufcache) {
-    GPU_VERTBUF_DISCARD_SAFE(mbufcache->vbo.pos_nor);
     GPU_VERTBUF_DISCARD_SAFE(mbufcache->vbo.uv);
     GPU_VERTBUF_DISCARD_SAFE(mbufcache->vbo.tan);
     GPU_VERTBUF_DISCARD_SAFE(mbufcache->vbo.vcol);
     GPU_VERTBUF_DISCARD_SAFE(mbufcache->vbo.orco);
   }
+  /* Discard batches using vbo.uv. */
+  GPU_BATCH_DISCARD_SAFE(cache->batch.edituv_faces);
+  GPU_BATCH_DISCARD_SAFE(cache->batch.edituv_faces_stretch_area);
+  GPU_BATCH_DISCARD_SAFE(cache->batch.edituv_faces_stretch_angle);
+  GPU_BATCH_DISCARD_SAFE(cache->batch.edituv_edges);
+  GPU_BATCH_DISCARD_SAFE(cache->batch.edituv_verts);
+
   mesh_batch_cache_discard_surface_batches(cache);
   mesh_cd_layers_type_clear(&cache->cd_used);
 }
@@ -659,8 +665,17 @@ void DRW_mesh_batch_cache_dirty_tag(Mesh *me, eMeshBatchDirtyMode mode)
         GPU_VERTBUF_DISCARD_SAFE(mbufcache->vbo.lnor);
       }
       GPU_BATCH_DISCARD_SAFE(cache->batch.surface);
+      /* Discard batches using vbo.pos_nor. */
       GPU_BATCH_DISCARD_SAFE(cache->batch.wire_loops);
       GPU_BATCH_DISCARD_SAFE(cache->batch.wire_edges);
+      GPU_BATCH_DISCARD_SAFE(cache->batch.all_verts);
+      GPU_BATCH_DISCARD_SAFE(cache->batch.all_edges);
+      GPU_BATCH_DISCARD_SAFE(cache->batch.loose_edges);
+      GPU_BATCH_DISCARD_SAFE(cache->batch.edge_detection);
+      GPU_BATCH_DISCARD_SAFE(cache->batch.surface_weights);
+      GPU_BATCH_DISCARD_SAFE(cache->batch.edit_mesh_analysis);
+      /* Discard batches using vbo.lnor. */
+      GPU_BATCH_DISCARD_SAFE(cache->batch.edit_lnor);
       mesh_batch_cache_discard_surface_batches(cache);
       cache->batch_ready &= ~(MBC_SURFACE | MBC_WIRE_EDGES | MBC_WIRE_LOOPS);
       break;
@@ -1145,25 +1160,25 @@ static void drw_mesh_batch_cache_check_available(struct TaskGraph *task_graph, M
    * some issues (See T77867 where we needed to disable this function in order to debug what was
    * happening in release builds). */
   BLI_task_graph_work_and_wait(task_graph);
-  for (int i = 0; i < sizeof(cache->batch) / sizeof(void *); i++) {
+  for (int i = 0; i < MBC_BATCH_LEN; i++) {
     BLI_assert(!DRW_batch_requested(((GPUBatch **)&cache->batch)[i], 0));
   }
-  for (int i = 0; i < sizeof(cache->final.vbo) / sizeof(void *); i++) {
+  for (int i = 0; i < MBC_VBO_LEN; i++) {
     BLI_assert(!DRW_vbo_requested(((GPUVertBuf **)&cache->final.vbo)[i]));
   }
-  for (int i = 0; i < sizeof(cache->final.ibo) / sizeof(void *); i++) {
+  for (int i = 0; i < MBC_IBO_LEN; i++) {
     BLI_assert(!DRW_ibo_requested(((GPUIndexBuf **)&cache->final.ibo)[i]));
   }
-  for (int i = 0; i < sizeof(cache->cage.vbo) / sizeof(void *); i++) {
+  for (int i = 0; i < MBC_VBO_LEN; i++) {
     BLI_assert(!DRW_vbo_requested(((GPUVertBuf **)&cache->cage.vbo)[i]));
   }
-  for (int i = 0; i < sizeof(cache->cage.ibo) / sizeof(void *); i++) {
+  for (int i = 0; i < MBC_IBO_LEN; i++) {
     BLI_assert(!DRW_ibo_requested(((GPUIndexBuf **)&cache->cage.ibo)[i]));
   }
-  for (int i = 0; i < sizeof(cache->uv_cage.vbo) / sizeof(void *); i++) {
+  for (int i = 0; i < MBC_VBO_LEN; i++) {
     BLI_assert(!DRW_vbo_requested(((GPUVertBuf **)&cache->uv_cage.vbo)[i]));
   }
-  for (int i = 0; i < sizeof(cache->uv_cage.ibo) / sizeof(void *); i++) {
+  for (int i = 0; i < MBC_IBO_LEN; i++) {
     BLI_assert(!DRW_ibo_requested(((GPUIndexBuf **)&cache->uv_cage.ibo)[i]));
   }
 }

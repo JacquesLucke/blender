@@ -1754,6 +1754,28 @@ void RNA_def_property_ui_range(
   }
 }
 
+void RNA_def_property_ui_scale_type(PropertyRNA *prop, PropertyScaleType ui_scale_type)
+{
+  StructRNA *srna = DefRNA.laststruct;
+
+  switch (prop->type) {
+    case PROP_INT: {
+      IntPropertyRNA *iprop = (IntPropertyRNA *)prop;
+      iprop->ui_scale_type = ui_scale_type;
+      break;
+    }
+    case PROP_FLOAT: {
+      FloatPropertyRNA *fprop = (FloatPropertyRNA *)prop;
+      fprop->ui_scale_type = ui_scale_type;
+      break;
+    }
+    default:
+      CLOG_ERROR(&LOG, "\"%s.%s\", invalid type for scale.", srna->identifier, prop->identifier);
+      DefRNA.error = true;
+      break;
+  }
+}
+
 void RNA_def_property_range(PropertyRNA *prop, double min, double max)
 {
   StructRNA *srna = DefRNA.laststruct;
@@ -2409,6 +2431,10 @@ void RNA_def_property_int_sdna(PropertyRNA *prop, const char *structname, const 
 
       iprop->softmin = -10000; /* rather arbitrary .. */
       iprop->softmax = 10000;
+    }
+    else if (dp->dnatype && STREQ(dp->dnatype, "int8_t")) {
+      iprop->hardmin = iprop->softmin = INT8_MIN;
+      iprop->hardmax = iprop->softmax = INT8_MAX;
     }
 
     if (prop->subtype == PROP_UNSIGNED || prop->subtype == PROP_PERCENTAGE ||

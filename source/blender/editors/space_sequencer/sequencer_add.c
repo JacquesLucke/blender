@@ -95,6 +95,7 @@ typedef struct SequencerAddData {
 #define SEQPROP_NOPATHS (1 << 2)
 #define SEQPROP_NOCHAN (1 << 3)
 #define SEQPROP_FIT_METHOD (1 << 4)
+#define SEQPROP_VIEW_TRANSFORM (1 << 5)
 
 static const EnumPropertyItem scale_fit_methods[] = {
     {SEQ_SCALE_TO_FIT, "FIT", 0, "Scale to Fit", "Scale image to fit within the canvas"},
@@ -151,6 +152,14 @@ static void sequencer_generic_props__internal(wmOperatorType *ot, int flag)
                             SEQ_SCALE_TO_FIT,
                             "Fit Method",
                             "Scale fit method");
+  }
+
+  if (flag & SEQPROP_VIEW_TRANSFORM) {
+    ot->prop = RNA_def_boolean(ot->srna,
+                               "set_view_transform",
+                               true,
+                               "Set View Transform",
+                               "Set appropriate view transform based on media colorspace");
   }
 }
 
@@ -228,7 +237,6 @@ static void load_data_init_from_operator(SeqLoadData *load_data, bContext *C, wm
   PropertyRNA *prop;
   const bool relative = (prop = RNA_struct_find_property(op->ptr, "relative_path")) &&
                         RNA_property_boolean_get(op->ptr, prop);
-  int is_file = -1;
   memset(load_data, 0, sizeof(SeqLoadData));
 
   load_data->start_frame = RNA_int_get(op->ptr, "frame_start");
@@ -242,17 +250,26 @@ static void load_data_init_from_operator(SeqLoadData *load_data, bContext *C, wm
   }
 
   if ((prop = RNA_struct_find_property(op->ptr, "filepath"))) {
-    /* Full path, file is set by the caller. */
     RNA_property_string_get(op->ptr, prop, load_data->path);
-    is_file = 1;
+    BLI_strncpy(load_data->name, BLI_path_basename(load_data->path), sizeof(load_data->name));
   }
   else if ((prop = RNA_struct_find_property(op->ptr, "directory"))) {
-    /* Full path, file is set by the caller. */
-    RNA_property_string_get(op->ptr, prop, load_data->path);
-    is_file = 0;
+    char *directory = RNA_string_get_alloc(op->ptr, "directory", NULL, 0);
+
+    if ((prop = RNA_struct_find_property(op->ptr, "files"))) {
+      RNA_PROP_BEGIN (op->ptr, itemptr, prop) {
+        char *filename = RNA_string_get_alloc(&itemptr, "name", NULL, 0);
+        BLI_strncpy(load_data->name, filename, sizeof(load_data->name));
+        BLI_snprintf(load_data->path, sizeof(load_data->path), "%s%s", directory, filename);
+        MEM_freeN(filename);
+        break;
+      }
+      RNA_PROP_END;
+    }
+    MEM_freeN(directory);
   }
 
-  if ((is_file != -1) && relative) {
+  if (relative) {
     BLI_path_rel(load_data->path, BKE_main_blendfile_path(bmain));
   }
 
@@ -276,17 +293,9 @@ static void load_data_init_from_operator(SeqLoadData *load_data, bContext *C, wm
     load_data->flags |= SEQ_LOAD_MOVIE_SYNC_FPS;
   }
 
-  if (is_file == 1) {
-    BLI_strncpy(load_data->name, BLI_path_basename(load_data->path), sizeof(load_data->name));
-  }
-  else if ((prop = RNA_struct_find_property(op->ptr, "files"))) {
-    RNA_PROP_BEGIN (op->ptr, itemptr, prop) {
-      char *name = RNA_string_get_alloc(&itemptr, "name", NULL, 0);
-      BLI_strncpy(load_data->name, name, sizeof(load_data->name));
-      MEM_freeN(name);
-      break;
-    }
-    RNA_PROP_END;
+  if ((prop = RNA_struct_find_property(op->ptr, "set_view_transform")) &&
+      RNA_property_boolean_get(op->ptr, prop)) {
+    load_data->flags |= SEQ_LOAD_SET_VIEW_TRANSFORM;
   }
 
   if ((prop = RNA_struct_find_property(op->ptr, "use_multiview")) &&
@@ -373,8 +382,23 @@ static int sequencer_add_scene_strip_exec(bContext *C, wmOperator *op)
   return OPERATOR_FINISHED;
 }
 
+static void sequencer_disable_one_time_properties(bContext *C, wmOperator *op)
+{
+  Editing *ed = SEQ_editing_get(CTX_data_scene(C), false);
+  /* Disable following properties if there are any existing strips, unless overridden by user. */
+  if (ed && ed->seqbasep && ed->seqbasep->first) {
+    if (RNA_struct_find_property(op->ptr, "use_framerate")) {
+      RNA_boolean_set(op->ptr, "use_framerate", false);
+    }
+    if (RNA_struct_find_property(op->ptr, "set_view_transform")) {
+      RNA_boolean_set(op->ptr, "set_view_transform", false);
+    }
+  }
+}
+
 static int sequencer_add_scene_strip_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
+  sequencer_disable_one_time_properties(C, op);
   if (!RNA_struct_property_is_set(op->ptr, "scene")) {
     return WM_enum_search_invoke(C, op, event);
   }
@@ -707,13 +731,9 @@ static int sequencer_add_movie_strip_invoke(bContext *C,
 {
   PropertyRNA *prop;
   Scene *scene = CTX_data_scene(C);
-  Editing *ed = SEQ_editing_get(scene, false);
 
-  /* Only enable "use_framerate" if there aren't any existing strips, unless overridden by user.
-   */
-  if (ed && ed->seqbasep && ed->seqbasep->first) {
-    RNA_boolean_set(op->ptr, "use_framerate", false);
-  }
+  sequencer_disable_one_time_properties(C, op);
+
   RNA_enum_set(op->ptr, "fit_method", SEQ_tool_settings_fit_method_get(scene));
 
   /* This is for drag and drop. */
@@ -739,12 +759,11 @@ static void sequencer_add_draw(bContext *UNUSED(C), wmOperator *op)
   uiLayout *layout = op->layout;
   SequencerAddData *sad = op->customdata;
   ImageFormatData *imf = &sad->im_format;
-  PointerRNA imf_ptr, ptr;
+  PointerRNA imf_ptr;
 
   /* Main draw call. */
-  RNA_pointer_create(NULL, op->type->srna, op->properties, &ptr);
   uiDefAutoButsRNA(
-      layout, &ptr, sequencer_add_draw_check_fn, NULL, NULL, UI_BUT_LABEL_ALIGN_NONE, false);
+      layout, op->ptr, sequencer_add_draw_check_fn, NULL, NULL, UI_BUT_LABEL_ALIGN_NONE, false);
 
   /* Image template. */
   RNA_pointer_create(NULL, &RNA_ImageFormatSettings, imf, &imf_ptr);
@@ -781,7 +800,8 @@ void SEQUENCER_OT_movie_strip_add(struct wmOperatorType *ot)
                                      WM_FILESEL_SHOW_PROPS | WM_FILESEL_DIRECTORY,
                                  FILE_DEFAULTDISPLAY,
                                  FILE_SORT_DEFAULT);
-  sequencer_generic_props__internal(ot, SEQPROP_STARTFRAME | SEQPROP_FIT_METHOD);
+  sequencer_generic_props__internal(
+      ot, SEQPROP_STARTFRAME | SEQPROP_FIT_METHOD | SEQPROP_VIEW_TRANSFORM);
   RNA_def_boolean(ot->srna, "sound", true, "Sound", "Load sound with the movie");
   RNA_def_boolean(ot->srna,
                   "use_framerate",
@@ -990,8 +1010,10 @@ static void sequencer_add_image_strip_load_files(
     wmOperator *op, Sequence *seq, SeqLoadData *load_data, const int minframe, const int numdigits)
 {
   const bool use_placeholders = RNA_boolean_get(op->ptr, "use_placeholders");
-
-  SEQ_add_image_set_directory(seq, load_data->path);
+  /* size of Strip->dir. */
+  char directory[768];
+  BLI_split_dir_part(load_data->path, directory, sizeof(directory));
+  SEQ_add_image_set_directory(seq, directory);
 
   if (use_placeholders) {
     sequencer_image_seq_reserve_frames(
@@ -1057,8 +1079,9 @@ static int sequencer_add_image_strip_invoke(bContext *C,
   PropertyRNA *prop;
   Scene *scene = CTX_data_scene(C);
 
-  const SequencerToolSettings *tool_settings = scene->toolsettings->sequencer_tool_settings;
-  RNA_enum_set(op->ptr, "fit_method", tool_settings->fit_method);
+  sequencer_disable_one_time_properties(C, op);
+
+  RNA_enum_set(op->ptr, "fit_method", SEQ_tool_settings_fit_method_get(scene));
 
   /* Name set already by drag and drop. */
   if (RNA_struct_property_is_set(op->ptr, "files") && RNA_collection_length(op->ptr, "files")) {
@@ -1104,8 +1127,8 @@ void SEQUENCER_OT_image_strip_add(struct wmOperatorType *ot)
                                      WM_FILESEL_SHOW_PROPS | WM_FILESEL_DIRECTORY,
                                  FILE_DEFAULTDISPLAY,
                                  FILE_SORT_DEFAULT);
-  sequencer_generic_props__internal(ot,
-                                    SEQPROP_STARTFRAME | SEQPROP_ENDFRAME | SEQPROP_FIT_METHOD);
+  sequencer_generic_props__internal(
+      ot, SEQPROP_STARTFRAME | SEQPROP_ENDFRAME | SEQPROP_FIT_METHOD | SEQPROP_VIEW_TRANSFORM);
 
   RNA_def_boolean(ot->srna,
                   "use_placeholders",

@@ -290,7 +290,9 @@ void GLTexture::update_sub(
   }
 }
 
-/** This will create the mipmap images and populate them with filtered data from base level.
+/**
+ * This will create the mipmap images and populate them with filtered data from base level.
+ *
  * WARNING: Depth textures are not populated but they have their mips correctly defined.
  * WARNING: This resets the mipmap range.
  */
@@ -366,7 +368,7 @@ void GLTexture::copy_to(Texture *dst_)
 void *GLTexture::read(int mip, eGPUDataFormat type)
 {
   BLI_assert(!(format_flag_ & GPU_FORMAT_COMPRESSED));
-  BLI_assert(mip <= mipmaps_);
+  BLI_assert(mip <= mipmaps_ || mip == 0);
   BLI_assert(validate_data_format(format_, type));
 
   /* NOTE: mip_size_get() won't override any dimension that is equal to 0. */

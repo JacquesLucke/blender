@@ -635,7 +635,7 @@ bPoseChannel *BKE_pose_channel_find_name(const bPose *pose, const char *name)
  * \note Use with care, not on Armature poses but for temporal ones.
  * \note (currently used for action constraints and in rebuild_pose).
  */
-bPoseChannel *BKE_pose_channel_verify(bPose *pose, const char *name)
+bPoseChannel *BKE_pose_channel_ensure(bPose *pose, const char *name)
 {
   bPoseChannel *chan;
 
@@ -656,7 +656,9 @@ bPoseChannel *BKE_pose_channel_verify(bPose *pose, const char *name)
 
   BLI_strncpy(chan->name, name, sizeof(chan->name));
 
-  chan->custom_scale = 1.0f;
+  copy_v3_fl(chan->custom_scale_xyz, 1.0f);
+  zero_v3(chan->custom_translation);
+  zero_v3(chan->custom_rotation_euler);
 
   /* init vars to prevent math errors */
   unit_qt(chan->quat);
@@ -815,7 +817,7 @@ void BKE_pose_copy_data_ex(bPose **dst,
    */
   if (outPose->chanbase.first != outPose->chanbase.last) {
     outPose->chanhash = NULL;
-    BKE_pose_channels_hash_make(outPose);
+    BKE_pose_channels_hash_ensure(outPose);
   }
 
   outPose->iksolver = src->iksolver;
@@ -945,7 +947,7 @@ bool BKE_pose_channel_in_IK_chain(Object *ob, bPoseChannel *pchan)
  * Removes the hash for quick lookup of channels, must
  * be done when adding/removing channels.
  */
-void BKE_pose_channels_hash_make(bPose *pose)
+void BKE_pose_channels_hash_ensure(bPose *pose)
 {
   if (!pose->chanhash) {
     bPoseChannel *pchan;
@@ -1191,7 +1193,7 @@ void BKE_pose_free(bPose *pose)
  * and ID-Props, used when duplicating bones in editmode.
  * (unlike copy_pose_channel_data which only does posing-related stuff).
  *
- * \note use when copying bones in editmode (on returned value from #BKE_pose_channel_verify)
+ * \note use when copying bones in editmode (on returned value from #BKE_pose_channel_ensure)
  */
 void BKE_pose_channel_copy_data(bPoseChannel *pchan, const bPoseChannel *pchan_from)
 {
@@ -1235,8 +1237,10 @@ void BKE_pose_channel_copy_data(bPoseChannel *pchan, const bPoseChannel *pchan_f
   if (pchan->custom) {
     id_us_plus(&pchan->custom->id);
   }
+  copy_v3_v3(pchan->custom_scale_xyz, pchan_from->custom_scale_xyz);
+  copy_v3_v3(pchan->custom_translation, pchan_from->custom_translation);
+  copy_v3_v3(pchan->custom_rotation_euler, pchan_from->custom_rotation_euler);
 
-  pchan->custom_scale = pchan_from->custom_scale;
   pchan->drawflag = pchan_from->drawflag;
 }
 
@@ -1314,30 +1318,6 @@ void BKE_pose_update_constraint_flags(bPose *pose)
 void BKE_pose_tag_update_constraint_flags(bPose *pose)
 {
   pose->flag |= POSE_CONSTRAINTS_NEED_UPDATE_FLAGS;
-}
-
-/* Clears all BONE_UNKEYED flags for every pose channel in every pose
- * This should only be called on frame changing, when it is acceptable to
- * do this. Otherwise, these flags should not get cleared as poses may get lost.
- */
-void framechange_poses_clear_unkeyed(Main *bmain)
-{
-  Object *ob;
-  bPose *pose;
-  bPoseChannel *pchan;
-
-  /* This needs to be done for each object that has a pose */
-  /* TODO: proxies may/may not be correctly handled here... (this needs checking) */
-  for (ob = bmain->objects.first; ob; ob = ob->id.next) {
-    /* we only need to do this on objects with a pose */
-    if ((pose = ob->pose)) {
-      for (pchan = pose->chanbase.first; pchan; pchan = pchan->next) {
-        if (pchan->bone) {
-          pchan->bone->flag &= ~BONE_UNKEYED;
-        }
-      }
-    }
-  }
 }
 
 /* ************************** Bone Groups ************************** */
@@ -1798,7 +1778,7 @@ void what_does_obaction(Object *ob,
      * allocation and also will make lookup slower.
      */
     if (pose->chanbase.first != pose->chanbase.last) {
-      BKE_pose_channels_hash_make(pose);
+      BKE_pose_channels_hash_ensure(pose);
     }
     if (pose->flag & POSE_CONSTRAINTS_NEED_UPDATE_FLAGS) {
       BKE_pose_update_constraint_flags(pose);

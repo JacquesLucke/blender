@@ -908,6 +908,11 @@ TreeElement *outliner_add_element(SpaceOutliner *space_outliner,
       BLI_assert(!"Expected this ID type to be ported to new Outliner tree-element design");
     }
   }
+  else if (ELEM(type, TSE_LIBRARY_OVERRIDE_BASE, TSE_LIBRARY_OVERRIDE)) {
+    if (!te->type) {
+      BLI_assert(!"Expected override types to be ported to new Outliner tree-element design");
+    }
+  }
   else {
     /* Other cases must be caught above. */
     BLI_assert(TSE_IS_REAL_ID(tselem));
@@ -1335,7 +1340,7 @@ static void outliner_sort(ListBase *lb)
         tp->name = te->name;
         tp->idcode = te->idcode;
 
-        if ((tselem->type != TSE_SOME_ID) && tselem->type != TSE_DEFGROUP) {
+        if (!ELEM(tselem->type, TSE_SOME_ID, TSE_DEFGROUP)) {
           tp->idcode = 0; /* Don't sort this. */
         }
         if (tselem->type == TSE_ID_BASE) {
@@ -1920,5 +1925,5 @@ void outliner_build_tree(Main *mainvar,
   outliner_filter_tree(space_outliner, view_layer);
   outliner_restore_scrolling_position(space_outliner, region, &focus);
 
-  BKE_main_id_clear_newpoins(mainvar);
+  BKE_main_id_newptr_and_tag_clear(mainvar);
 }

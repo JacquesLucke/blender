@@ -18,16 +18,42 @@
 
 #include "COM_OutputFileNode.h"
 #include "COM_ExecutionSystem.h"
-#include "COM_OutputFileMultiViewOperation.h"
 #include "COM_OutputFileOperation.h"
 
 #include "BKE_scene.h"
 
 #include "BLI_path_util.h"
 
+namespace blender::compositor {
+
 OutputFileNode::OutputFileNode(bNode *editorNode) : Node(editorNode)
 {
   /* pass */
+}
+
+void OutputFileNode::add_input_sockets(OutputOpenExrMultiLayerOperation &operation) const
+{
+  for (NodeInput *input : inputs) {
+    NodeImageMultiFileSocket *sockdata =
+        (NodeImageMultiFileSocket *)input->getbNodeSocket()->storage;
+    /* note: layer becomes an empty placeholder if the input is not linked */
+    operation.add_layer(sockdata->layer, input->getDataType(), input->isLinked());
+  }
+}
+
+void OutputFileNode::map_input_sockets(NodeConverter &converter,
+                                       OutputOpenExrMultiLayerOperation &operation) const
+{
+  bool previewAdded = false;
+  int index = 0;
+  for (NodeInput *input : inputs) {
+    converter.mapInputSocket(input, operation.getInputSocket(index++));
+
+    if (!previewAdded) {
+      converter.addNodeInputPreview(input);
+      previewAdded = true;
+    }
+  }
 }
 
 void OutputFileNode::convertToOperations(NodeConverter &converter,
@@ -69,29 +95,15 @@ void OutputFileNode::convertToOperations(NodeConverter &converter,
     }
     converter.addOperation(outputOperation);
 
-    int num_inputs = getNumberOfInputSockets();
-    bool previewAdded = false;
-    for (int i = 0; i < num_inputs; i++) {
-      NodeInput *input = getInputSocket(i);
-      NodeImageMultiFileSocket *sockdata =
-          (NodeImageMultiFileSocket *)input->getbNodeSocket()->storage;
-
-      /* note: layer becomes an empty placeholder if the input is not linked */
-      outputOperation->add_layer(sockdata->layer, input->getDataType(), input->isLinked());
-
-      converter.mapInputSocket(input, outputOperation->getInputSocket(i));
-
-      if (!previewAdded) {
-        converter.addNodeInputPreview(input);
-        previewAdded = true;
-      }
-    }
+    /* First add all inputs. Inputs are stored in a Vector and can be moved to a different
+     * memory address during this time.*/
+    add_input_sockets(*outputOperation);
+    /* After adding the sockets the memory addresses will stick. */
+    map_input_sockets(converter, *outputOperation);
   }
   else { /* single layer format */
-    int num_inputs = getNumberOfInputSockets();
     bool previewAdded = false;
-    for (int i = 0; i < num_inputs; i++) {
-      NodeInput *input = getInputSocket(i);
+    for (NodeInput *input : inputs) {
       if (input->isLinked()) {
         NodeImageMultiFileSocket *sockdata =
             (NodeImageMultiFileSocket *)input->getbNodeSocket()->storage;
@@ -151,3 +163,5 @@ void OutputFileNode::convertToOperations(NodeConverter &converter,
     }
   }
 }
+
+}  // namespace blender::compositor

@@ -574,8 +574,8 @@ bool BKE_brush_delete(Main *bmain, Brush *brush)
   if (brush->id.tag & LIB_TAG_INDIRECT) {
     return false;
   }
-  if (BKE_library_ID_is_indirectly_used(bmain, brush) && ID_REAL_USERS(brush) <= 1 &&
-      ID_EXTRA_USERS(brush) == 0) {
+  if (ID_REAL_USERS(brush) <= 1 && ID_EXTRA_USERS(brush) == 0 &&
+      BKE_library_ID_is_indirectly_used(bmain, brush)) {
     return false;
   }
 
@@ -989,6 +989,7 @@ void BKE_gpencil_brush_preset_set(Main *bmain, Brush *brush, const short type)
       brush->gpencil_settings->draw_smoothfac = 0.1f;
       brush->gpencil_settings->draw_smoothlvl = 1;
       brush->gpencil_settings->draw_subdivide = 1;
+      brush->gpencil_settings->dilate_pixels = 1;
 
       brush->gpencil_settings->flag |= GP_BRUSH_FILL_SHOW_EXTENDLINES;
 

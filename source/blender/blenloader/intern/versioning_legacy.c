@@ -81,6 +81,7 @@
 #include "BKE_pointcache.h"
 
 #include "SEQ_iterator.h"
+#include "SEQ_sequencer.h"
 
 #include "NOD_socket.h"
 
@@ -1276,12 +1277,6 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
         }
         if (ob->soft->physics_speed == 0.0f) {
           ob->soft->physics_speed = 1.0f;
-        }
-
-        if (ob->soft->interval == 0) {
-          ob->soft->interval = 2;
-          ob->soft->sfra = 1;
-          ob->soft->efra = 100;
         }
       }
       if (ob->soft && ob->soft->vertgroup == 0) {
@@ -2560,18 +2555,16 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
 
   if (bmain->versionfile < 249 && bmain->subversionfile < 2) {
     Scene *sce = bmain->scenes.first;
-    Sequence *seq;
     Editing *ed;
 
     while (sce) {
       ed = sce->ed;
       if (ed) {
-        SEQ_CURRENT_BEGIN (ed, seq) {
+        LISTBASE_FOREACH (Sequence *, seq, SEQ_active_seqbase_get(ed)) {
           if (seq->strip && seq->strip->proxy) {
             seq->strip->proxy->quality = 90;
           }
         }
-        SEQ_CURRENT_END;
       }
 
       sce = sce->id.next;

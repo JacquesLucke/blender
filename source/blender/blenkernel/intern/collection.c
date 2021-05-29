@@ -694,8 +694,7 @@ Collection *BKE_collection_duplicate(Main *bmain,
   const bool is_subprocess = (duplicate_options & LIB_ID_DUPLICATE_IS_SUBPROCESS) != 0;
 
   if (!is_subprocess) {
-    BKE_main_id_tag_all(bmain, LIB_TAG_NEW, false);
-    BKE_main_id_clear_newpoins(bmain);
+    BKE_main_id_newptr_and_tag_clear(bmain);
     /* In case root duplicated ID is linked, assume we want to get a local copy of it and duplicate
      * all expected linked data. */
     if (ID_IS_LINKED(collection)) {
@@ -726,8 +725,7 @@ Collection *BKE_collection_duplicate(Main *bmain,
 #endif
 
     /* Cleanup. */
-    BKE_main_id_tag_all(bmain, LIB_TAG_NEW, false);
-    BKE_main_id_clear_newpoins(bmain);
+    BKE_main_id_newptr_and_tag_clear(bmain);
 
     BKE_main_collection_sync(bmain);
   }
@@ -1007,7 +1005,7 @@ Collection *BKE_collection_object_find(Main *bmain,
   return NULL;
 }
 
-bool BKE_collection_is_empty(Collection *collection)
+bool BKE_collection_is_empty(const Collection *collection)
 {
   return BLI_listbase_is_empty(&collection->gobject) &&
          BLI_listbase_is_empty(&collection->children);
@@ -1150,6 +1148,8 @@ bool BKE_collection_object_add(Main *bmain, Collection *collection, Object *ob)
     BKE_main_collection_sync(bmain);
   }
 
+  DEG_id_tag_update(&collection->id, ID_RECALC_GEOMETRY);
+
   return true;
 }
 
@@ -1200,6 +1200,8 @@ bool BKE_collection_object_remove(Main *bmain,
   if (BKE_collection_is_in_scene(collection)) {
     BKE_main_collection_sync(bmain);
   }
+
+  DEG_id_tag_update(&collection->id, ID_RECALC_GEOMETRY);
 
   return true;
 }
@@ -1302,41 +1304,50 @@ static void collection_missing_parents_remove(Collection *collection)
  *
  * \note caller must ensure #BKE_main_collection_sync_remap() is called afterwards!
  *
- * \param collection: may be \a NULL,
+ * \param parent_collection: The collection owning the pointers that were remapped. May be \a NULL,
+ * in which case whole \a bmain database of collections is checked.
+ * \param child_collection: The collection that was remapped to another pointer. May be \a NULL,
  * in which case whole \a bmain database of collections is checked.
  */
-void BKE_collections_child_remove_nulls(Main *bmain, Collection *collection)
+void BKE_collections_child_remove_nulls(Main *bmain,
+                                        Collection *parent_collection,
+                                        Collection *child_collection)
 {
-  if (collection == NULL) {
-    /* We need to do the checks in two steps when more than one collection may be involved,
-     * otherwise we can miss some cases...
-     * Also, master collections are not in bmain, so we also need to loop over scenes.
-     */
-    for (collection = bmain->collections.first; collection != NULL;
-         collection = collection->id.next) {
-      collection_null_children_remove(collection);
+  if (child_collection == NULL) {
+    if (parent_collection != NULL) {
+      collection_null_children_remove(parent_collection);
     }
-    for (Scene *scene = bmain->scenes.first; scene != NULL; scene = scene->id.next) {
-      collection_null_children_remove(scene->master_collection);
+    else {
+      /* We need to do the checks in two steps when more than one collection may be involved,
+       * otherwise we can miss some cases...
+       * Also, master collections are not in bmain, so we also need to loop over scenes.
+       */
+      for (child_collection = bmain->collections.first; child_collection != NULL;
+           child_collection = child_collection->id.next) {
+        collection_null_children_remove(child_collection);
+      }
+      for (Scene *scene = bmain->scenes.first; scene != NULL; scene = scene->id.next) {
+        collection_null_children_remove(scene->master_collection);
+      }
     }
 
-    for (collection = bmain->collections.first; collection != NULL;
-         collection = collection->id.next) {
-      collection_missing_parents_remove(collection);
+    for (child_collection = bmain->collections.first; child_collection != NULL;
+         child_collection = child_collection->id.next) {
+      collection_missing_parents_remove(child_collection);
     }
     for (Scene *scene = bmain->scenes.first; scene != NULL; scene = scene->id.next) {
       collection_missing_parents_remove(scene->master_collection);
     }
   }
   else {
-    for (CollectionParent *parent = collection->parents.first, *parent_next; parent;
+    for (CollectionParent *parent = child_collection->parents.first, *parent_next; parent;
          parent = parent_next) {
       parent_next = parent->next;
 
       collection_null_children_remove(parent->collection);
 
-      if (!collection_find_child(parent->collection, collection)) {
-        BLI_freelinkN(&collection->parents, parent);
+      if (!collection_find_child(parent->collection, child_collection)) {
+        BLI_freelinkN(&child_collection->parents, parent);
       }
     }
   }
@@ -2015,12 +2026,10 @@ static void scene_collections_array(Scene *scene,
   BLI_assert(collection != NULL);
   scene_collection_callback(collection, scene_collections_count, r_collections_array_len);
 
-  if (*r_collections_array_len == 0) {
-    return;
-  }
+  BLI_assert(*r_collections_array_len > 0);
 
-  Collection **array = MEM_mallocN(sizeof(Collection *) * (*r_collections_array_len),
-                                   "CollectionArray");
+  Collection **array = MEM_malloc_arrayN(
+      *r_collections_array_len, sizeof(Collection *), "CollectionArray");
   *r_collections_array = array;
   scene_collection_callback(collection, scene_collections_build_array, &array);
 }
@@ -2035,8 +2044,9 @@ void BKE_scene_collections_iterator_begin(BLI_Iterator *iter, void *data_in)
   CollectionsIteratorData *data = MEM_callocN(sizeof(CollectionsIteratorData), __func__);
 
   data->scene = scene;
+
+  BLI_ITERATOR_INIT(iter);
   iter->data = data;
-  iter->valid = true;
 
   scene_collections_array(scene, (Collection ***)&data->array, &data->tot);
   BLI_assert(data->tot != 0);
@@ -2078,22 +2088,35 @@ typedef struct SceneObjectsIteratorData {
   BLI_Iterator scene_collection_iter;
 } SceneObjectsIteratorData;
 
-void BKE_scene_objects_iterator_begin(BLI_Iterator *iter, void *data_in)
+static void scene_objects_iterator_begin(BLI_Iterator *iter, Scene *scene, GSet *visited_objects)
 {
-  Scene *scene = data_in;
   SceneObjectsIteratorData *data = MEM_callocN(sizeof(SceneObjectsIteratorData), __func__);
+
+  BLI_ITERATOR_INIT(iter);
   iter->data = data;
 
-  /* lookup list ot make sure each object is object called once */
-  data->visited = BLI_gset_ptr_new(__func__);
+  /* Lookup list to make sure that each object is only processed once. */
+  if (visited_objects != NULL) {
+    data->visited = visited_objects;
+  }
+  else {
+    data->visited = BLI_gset_ptr_new(__func__);
+  }
 
-  /* we wrap the scenecollection iterator here to go over the scene collections */
+  /* We wrap the scenecollection iterator here to go over the scene collections. */
   BKE_scene_collections_iterator_begin(&data->scene_collection_iter, scene);
 
   Collection *collection = data->scene_collection_iter.current;
   data->cob_next = collection->gobject.first;
 
   BKE_scene_objects_iterator_next(iter);
+}
+
+void BKE_scene_objects_iterator_begin(BLI_Iterator *iter, void *data_in)
+{
+  Scene *scene = data_in;
+
+  scene_objects_iterator_begin(iter, scene, NULL);
 }
 
 /**
@@ -2149,9 +2172,36 @@ void BKE_scene_objects_iterator_end(BLI_Iterator *iter)
   SceneObjectsIteratorData *data = iter->data;
   if (data) {
     BKE_scene_collections_iterator_end(&data->scene_collection_iter);
-    BLI_gset_free(data->visited, NULL);
+    if (data->visited != NULL) {
+      BLI_gset_free(data->visited, NULL);
+    }
     MEM_freeN(data);
   }
+}
+
+/**
+ * Generate a new GSet (or extend given `objects_gset` if not NULL) with all objects referenced by
+ * all collections of given `scene`.
+ *
+ * \note: This will include objects without a base currently (because they would belong to excluded
+ * collections only e.g.).
+ */
+GSet *BKE_scene_objects_as_gset(Scene *scene, GSet *objects_gset)
+{
+  BLI_Iterator iter;
+  scene_objects_iterator_begin(&iter, scene, objects_gset);
+  while (iter.valid) {
+    BKE_scene_objects_iterator_next(&iter);
+  }
+
+  /* `return_gset` is either given `objects_gset` (if non-NULL), or the GSet allocated by the
+   * iterator. Either way, we want to get it back, and prevent `BKE_scene_objects_iterator_end`
+   * from freeing it. */
+  GSet *return_gset = ((SceneObjectsIteratorData *)iter.data)->visited;
+  ((SceneObjectsIteratorData *)iter.data)->visited = NULL;
+  BKE_scene_objects_iterator_end(&iter);
+
+  return return_gset;
 }
 
 /** \} */

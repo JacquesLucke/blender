@@ -41,6 +41,7 @@
 #include "BKE_node.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
+#include "BKE_workspace.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
@@ -1135,8 +1136,8 @@ static bool cursor_isect_multi_input_socket(const float cursor[2], const bNodeSo
        * But keep it smaller because for multi-input socket you
        * sometimes want to drag the link to the other side, if you may
        * accidentally pick the wrong link otherwise. */
-      .ymin = socket->locy - node_socket_height * 0.5 - NODE_SOCKSIZE,
-      .ymax = socket->locy + node_socket_height * 0.5 + NODE_SOCKSIZE,
+      .ymin = socket->locy - node_socket_height,
+      .ymax = socket->locy + node_socket_height,
   };
   if (BLI_rctf_isect_pt(&multi_socket_rect, cursor[0], cursor[1])) {
     return true;
@@ -1316,6 +1317,7 @@ static int node_duplicate_exec(bContext *C, wmOperator *op)
       nodeSetSelected(node, false);
       node->flag &= ~(NODE_ACTIVE | NODE_ACTIVE_TEXTURE);
       nodeSetSelected(newnode, true);
+      newnode->flag &= ~NODE_ACTIVE_PREVIEW;
 
       do_tag_update |= (do_tag_update || node_connected_to_output(bmain, ntree, newnode));
     }
@@ -1711,8 +1713,6 @@ static int node_mute_exec(bContext *C, wmOperator *UNUSED(op))
     }
   }
 
-  do_tag_update |= ED_node_is_geometry(snode);
-
   snode_notify(C, snode);
   if (do_tag_update) {
     snode_dag_update(C, snode);
@@ -1752,8 +1752,6 @@ static int node_delete_exec(bContext *C, wmOperator *UNUSED(op))
       nodeRemoveNode(bmain, snode->edittree, node, true);
     }
   }
-
-  do_tag_update |= ED_node_is_geometry(snode);
 
   ntreeUpdateTree(CTX_data_main(C), snode->edittree);
 
@@ -2190,13 +2188,25 @@ static int node_clipboard_paste_exec(bContext *C, wmOperator *op)
   /* make sure all clipboard nodes would be valid in the target tree */
   bool all_nodes_valid = true;
   LISTBASE_FOREACH (bNode *, node, clipboard_nodes_lb) {
-    if (!node->typeinfo->poll_instance || !node->typeinfo->poll_instance(node, ntree)) {
+    const char *disabled_hint = NULL;
+    if (!node->typeinfo->poll_instance ||
+        !node->typeinfo->poll_instance(node, ntree, &disabled_hint)) {
       all_nodes_valid = false;
-      BKE_reportf(op->reports,
-                  RPT_ERROR,
-                  "Cannot add node %s into node tree %s",
-                  node->name,
-                  ntree->id.name + 2);
+      if (disabled_hint) {
+        BKE_reportf(op->reports,
+                    RPT_ERROR,
+                    "Cannot add node %s into node tree %s:\n  %s",
+                    node->name,
+                    ntree->id.name + 2,
+                    disabled_hint);
+      }
+      else {
+        BKE_reportf(op->reports,
+                    RPT_ERROR,
+                    "Cannot add node %s into node tree %s",
+                    node->name,
+                    ntree->id.name + 2);
+      }
     }
   }
   if (!all_nodes_valid) {

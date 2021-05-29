@@ -155,6 +155,8 @@ static void outliner_main_region_listener(const wmRegionListenerParams *params)
     case NC_OBJECT:
       switch (wmn->data) {
         case ND_TRANSFORM:
+          ED_region_tag_redraw_no_rebuild(region);
+          break;
         case ND_BONE_ACTIVE:
         case ND_BONE_SELECT:
         case ND_DRAW:
@@ -273,7 +275,7 @@ static void outliner_main_region_message_subscribe(const wmRegionMessageSubscrib
       .notify = ED_region_do_msg_notify_tag_redraw,
   };
 
-  if (ELEM(space_outliner->outlinevis, SO_VIEW_LAYER, SO_SCENES)) {
+  if (ELEM(space_outliner->outlinevis, SO_VIEW_LAYER, SO_SCENES, SO_OVERRIDES_LIBRARY)) {
     WM_msg_subscribe_rna_anon_prop(mbus, Window, view_layer, &msg_sub_value_region_tag_redraw);
   }
 }

@@ -28,6 +28,8 @@
 #include "BLI_listbase.h"
 #include "BLI_string.h"
 
+namespace blender::compositor {
+
 class PlaneTrackCommon {
  protected:
   MovieClip *m_movieClip;
@@ -38,7 +40,7 @@ class PlaneTrackCommon {
   /* note: this class is not an operation itself (to prevent virtual inheritance issues)
    * implementation classes must make wrappers to use these methods, see below.
    */
-  void readCornersFromTrack(float corners[4][2], float frame);
+  void read_and_calculate_corners(PlaneDistortBaseOperation *distort_op);
   void determineResolution(unsigned int resolution[2], unsigned int preferredResolution[2]);
 
  public:
@@ -60,6 +62,9 @@ class PlaneTrackCommon {
   {
     this->m_framenumber = framenumber;
   }
+
+ private:
+  void readCornersFromTrack(float corners[4][2], float frame);
 };
 
 class PlaneTrackMaskOperation : public PlaneDistortMaskOperation, public PlaneTrackCommon {
@@ -97,3 +102,5 @@ class PlaneTrackWarpImageOperation : public PlaneDistortWarpImageOperation,
     NodeOperation::determineResolution(temp, resolution);
   }
 };
+
+}  // namespace blender::compositor

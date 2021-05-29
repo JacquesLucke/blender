@@ -131,7 +131,6 @@ static bool bake_strokes(Object *ob, Depsgraph *dg, GpencilModifierData *md, int
       lmd->transparency_mask,
       lmd->thickness,
       lmd->opacity,
-      lmd->resample_length,
       lmd->source_vertex_group,
       lmd->vgname,
       lmd->flags);
@@ -365,7 +364,8 @@ static int lineart_gpencil_bake_strokes_commom_modal(bContext *C,
 
 static void lineart_gpencil_clear_strokes_exec_common(Object *ob)
 {
-  if (ob->type != OB_GPENCIL) {
+  /* TODO: move these checks to an operator poll function. */
+  if ((ob == NULL) || ob->type != OB_GPENCIL) {
     return;
   }
   LISTBASE_FOREACH (GpencilModifierData *, md, &ob->greasepencil_modifiers) {

@@ -2718,6 +2718,7 @@ uiBut *ui_but_add_search(
                            ui_searchbox_create_generic,
                            ui_rna_collection_search_update_fn,
                            coll_search,
+                           false,
                            ui_rna_collection_search_arg_free_fn,
                            NULL,
                            NULL);
@@ -3037,7 +3038,7 @@ void uiItemDecoratorR(uiLayout *layout, PointerRNA *ptr, const char *propname, i
 
 /* popover */
 void uiItemPopoverPanel_ptr(
-    uiLayout *layout, bContext *C, PanelType *pt, const char *name, int icon)
+    uiLayout *layout, const bContext *C, PanelType *pt, const char *name, int icon)
 {
   if (!name) {
     name = CTX_IFACE_(pt->translation_context, pt->label);
@@ -3066,7 +3067,7 @@ void uiItemPopoverPanel_ptr(
 }
 
 void uiItemPopoverPanel(
-    uiLayout *layout, bContext *C, const char *panel_type, const char *name, int icon)
+    uiLayout *layout, const bContext *C, const char *panel_type, const char *name, int icon)
 {
   PanelType *pt = WM_paneltype_find(panel_type, true);
   if (pt == NULL) {

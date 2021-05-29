@@ -266,7 +266,7 @@ static void nla_strip_get_color_inside(AnimData *adt, NlaStrip *strip, float col
   }
   else if (strip->type == NLASTRIP_TYPE_META) {
     /* Meta Clip */
-    /* TODO: should temporary metas get different colors too? */
+    /* TODO: should temporary meta-strips get different colors too? */
     if (strip->flag & NLASTRIP_FLAG_SELECT) {
       /* selected - use a bold purple color */
       UI_GetThemeColor3fv(TH_NLA_META_SEL, color);
@@ -408,8 +408,10 @@ static uint nla_draw_use_dashed_outlines(const float color[4], bool muted)
   return shdr_pos;
 }
 
-/** This check only accounts for the track's disabled flag and whether the strip is being tweaked.
- * It does not account for muting or soloing. */
+/**
+ * This check only accounts for the track's disabled flag and whether the strip is being tweaked.
+ * It does not account for muting or soloing.
+ */
 static bool is_nlastrip_enabled(AnimData *adt, NlaTrack *nlt, NlaStrip *strip)
 {
   /** This shouldn't happen. If passed NULL, then just treat strip as enabled. */

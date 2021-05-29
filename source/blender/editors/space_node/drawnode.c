@@ -456,7 +456,9 @@ static void node_draw_frame(const bContext *C,
   }
 
   /* label */
-  node_draw_frame_label(ntree, node, snode->runtime->aspect);
+  if (node->label[0] != '\0') {
+    node_draw_frame_label(ntree, node, snode->runtime->aspect);
+  }
 
   UI_block_end(C, node->block);
   UI_block_draw(C, node->block);
@@ -1526,6 +1528,17 @@ static void node_composit_buts_defocus(uiLayout *layout, bContext *C, PointerRNA
   sub = uiLayoutColumn(col, false);
   uiLayoutSetActive(sub, RNA_boolean_get(ptr, "use_zbuffer") == false);
   uiItemR(sub, ptr, "z_scale", DEFAULT_FLAGS, NULL, ICON_NONE);
+}
+
+static void node_composit_buts_antialiasing(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+{
+  uiLayout *col;
+
+  col = uiLayoutColumn(layout, false);
+
+  uiItemR(col, ptr, "threshold", 0, NULL, ICON_NONE);
+  uiItemR(col, ptr, "contrast_limit", 0, NULL, ICON_NONE);
+  uiItemR(col, ptr, "corner_rounding", 0, NULL, ICON_NONE);
 }
 
 /* qdn: glare node */
@@ -2738,9 +2751,12 @@ static void node_composit_buts_denoise(uiLayout *layout, bContext *UNUSED(C), Po
 #ifndef WITH_OPENIMAGEDENOISE
   uiItemL(layout, IFACE_("Disabled, built without OpenImageDenoise"), ICON_ERROR);
 #else
+  /* Always supported through Accelerate framework BNNS on macOS. */
+#  ifndef __APPLE__
   if (!BLI_cpu_support_sse41()) {
     uiItemL(layout, IFACE_("Disabled, CPU with SSE4.1 is required"), ICON_ERROR);
   }
+#  endif
 #endif
 
   uiItemR(layout, ptr, "use_hdr", DEFAULT_FLAGS, NULL, ICON_NONE);
@@ -2798,6 +2814,9 @@ static void node_composit_set_butfunc(bNodeType *ntype)
       break;
     case CMP_NODE_DEFOCUS:
       ntype->draw_buttons = node_composit_buts_defocus;
+      break;
+    case CMP_NODE_ANTIALIASING:
+      ntype->draw_buttons = node_composit_buts_antialiasing;
       break;
     case CMP_NODE_GLARE:
       ntype->draw_buttons = node_composit_buts_glare;
@@ -3314,12 +3333,14 @@ static const float std_node_socket_colors[][4] = {
     {0.39, 0.78, 0.39, 1.0}, /* SOCK_SHADER */
     {0.80, 0.65, 0.84, 1.0}, /* SOCK_BOOLEAN */
     {0.0, 0.0, 0.0, 1.0},    /*__SOCK_MESH (deprecated) */
-    {0.25, 0.75, 0.26, 1.0}, /* SOCK_INT */
+    {0.35, 0.55, 0.36, 1.0}, /* SOCK_INT */
     {0.44, 0.70, 1.00, 1.0}, /* SOCK_STRING */
     {0.93, 0.62, 0.36, 1.0}, /* SOCK_OBJECT */
-    {0.89, 0.76, 0.43, 1.0}, /* SOCK_IMAGE */
+    {0.39, 0.22, 0.39, 1.0}, /* SOCK_IMAGE */
     {0.00, 0.84, 0.64, 1.0}, /* SOCK_GEOMETRY */
     {0.96, 0.96, 0.96, 1.0}, /* SOCK_COLLECTION */
+    {0.62, 0.31, 0.64, 1.0}, /* SOCK_TEXTURE */
+    {0.92, 0.46, 0.51, 1.0}, /* SOCK_MATERIAL */
 };
 
 /* common color callbacks for standard types */
@@ -3440,7 +3461,7 @@ static void std_node_socket_draw(
 
       const bNodeTree *node_tree = (const bNodeTree *)node_ptr->owner_id;
       if (node_tree->type == NTREE_GEOMETRY) {
-        node_geometry_add_attribute_search_button(node_tree, node, ptr, row);
+        node_geometry_add_attribute_search_button(C, node_tree, node, ptr, row);
       }
       else {
         uiItemR(row, ptr, "default_value", DEFAULT_FLAGS, "", 0);
@@ -3457,6 +3478,14 @@ static void std_node_socket_draw(
       break;
     }
     case SOCK_COLLECTION: {
+      uiItemR(layout, ptr, "default_value", DEFAULT_FLAGS, text, 0);
+      break;
+    }
+    case SOCK_TEXTURE: {
+      uiTemplateID(layout, C, ptr, "default_value", "texture.new", NULL, NULL, 0, ICON_NONE, NULL);
+      break;
+    }
+    case SOCK_MATERIAL: {
       uiItemR(layout, ptr, "default_value", DEFAULT_FLAGS, text, 0);
       break;
     }

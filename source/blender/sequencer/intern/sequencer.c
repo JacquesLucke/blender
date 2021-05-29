@@ -313,6 +313,17 @@ SequencerToolSettings *SEQ_tool_settings_init(void)
   return tool_settings;
 }
 
+SequencerToolSettings *SEQ_tool_settings_ensure(Scene *scene)
+{
+  SequencerToolSettings *tool_settings = scene->toolsettings->sequencer_tool_settings;
+  if (tool_settings == NULL) {
+    scene->toolsettings->sequencer_tool_settings = SEQ_tool_settings_init();
+    tool_settings = scene->toolsettings->sequencer_tool_settings;
+  }
+
+  return tool_settings;
+}
+
 void SEQ_tool_settings_free(SequencerToolSettings *tool_settings)
 {
   MEM_freeN(tool_settings);
@@ -320,13 +331,13 @@ void SEQ_tool_settings_free(SequencerToolSettings *tool_settings)
 
 eSeqImageFitMethod SEQ_tool_settings_fit_method_get(Scene *scene)
 {
-  const SequencerToolSettings *tool_settings = scene->toolsettings->sequencer_tool_settings;
+  const SequencerToolSettings *tool_settings = SEQ_tool_settings_ensure(scene);
   return tool_settings->fit_method;
 }
 
 void SEQ_tool_settings_fit_method_set(Scene *scene, eSeqImageFitMethod fit_method)
 {
-  SequencerToolSettings *tool_settings = scene->toolsettings->sequencer_tool_settings;
+  SequencerToolSettings *tool_settings = SEQ_tool_settings_ensure(scene);
   tool_settings->fit_method = fit_method;
 }
 
@@ -448,8 +459,8 @@ static Sequence *seq_dupli(const Scene *scene_src,
     seqn->strip->stripdata = NULL;
 
     BLI_listbase_clear(&seqn->seqbase);
-    /* WATCH OUT!!! - This metastrip is not recursively duplicated here - do this after!!! */
-    /* - seq_dupli_recursive(&seq->seqbase, &seqn->seqbase);*/
+    /* WARNING: This meta-strip is not recursively duplicated here - do this after! */
+    // seq_dupli_recursive(&seq->seqbase, &seqn->seqbase);
   }
   else if (seq->type == SEQ_TYPE_SCENE) {
     seqn->strip->stripdata = NULL;

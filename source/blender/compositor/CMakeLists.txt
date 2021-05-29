@@ -63,6 +63,7 @@ set(SRC
   intern/COM_Debug.h
   intern/COM_Device.cc
   intern/COM_Device.h
+  intern/COM_Enums.cc
   intern/COM_ExecutionGroup.cc
   intern/COM_ExecutionGroup.h
   intern/COM_ExecutionSystem.cc
@@ -278,6 +279,8 @@ set(SRC
   nodes/COM_VectorBlurNode.h
   operations/COM_VectorBlurOperation.cc
   operations/COM_VectorBlurOperation.h
+  nodes/COM_AntiAliasingNode.cc
+  nodes/COM_AntiAliasingNode.h
   nodes/COM_BlurNode.cc
   nodes/COM_BlurNode.h
   nodes/COM_BokehBlurNode.cc
@@ -294,6 +297,7 @@ set(SRC
   nodes/COM_FilterNode.h
   nodes/COM_InpaintNode.cc
   nodes/COM_InpaintNode.h
+
   operations/COM_BlurBaseOperation.cc
   operations/COM_BlurBaseOperation.h
   operations/COM_BokehBlurOperation.cc
@@ -318,6 +322,8 @@ set(SRC
   operations/COM_MovieClipAttributeOperation.h
   operations/COM_MovieDistortionOperation.cc
   operations/COM_MovieDistortionOperation.h
+  operations/COM_SMAAOperation.cc
+  operations/COM_SMAAOperation.h
   operations/COM_VariableSizeBokehBlurOperation.cc
   operations/COM_VariableSizeBokehBlurOperation.h
 
@@ -566,6 +572,23 @@ data_to_c(
 
 add_definitions(-DCL_USE_DEPRECATED_OPENCL_1_1_APIS)
 
+set(GENSRC_DIR ${CMAKE_CURRENT_BINARY_DIR}/operations)
+set(GENSRC ${GENSRC_DIR}/COM_SMAAAreaTexture.h)
+add_custom_command(
+	OUTPUT ${GENSRC}
+	COMMAND ${CMAKE_COMMAND} -E make_directory ${GENSRC_DIR}
+	COMMAND "$<TARGET_FILE:smaa_areatex>" ${GENSRC}
+	DEPENDS smaa_areatex
+)
+add_custom_target(smaa_areatex_header
+	SOURCES ${GENSRC}
+)
+list(APPEND SRC
+	${GENSRC}
+)
+unset(GENSRC)
+unset(GENSRC_DIR)
+
 if(WITH_INTERNATIONAL)
   add_definitions(-DWITH_INTERNATIONAL)
 endif()
@@ -584,3 +607,9 @@ if(WITH_OPENIMAGEDENOISE)
 endif()
 
 blender_add_lib(bf_compositor "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+
+if(CXX_WARN_NO_SUGGEST_OVERRIDE)
+  target_compile_options(bf_compositor PRIVATE "-Wsuggest-override")
+endif()
+
+add_dependencies(bf_compositor smaa_areatex_header)

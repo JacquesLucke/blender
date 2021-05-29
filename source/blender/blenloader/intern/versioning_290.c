@@ -27,6 +27,7 @@
 #include "BLI_utildefines.h"
 
 #include "DNA_anim_types.h"
+#include "DNA_armature_types.h"
 #include "DNA_brush_types.h"
 #include "DNA_cachefile_types.h"
 #include "DNA_collection_types.h"
@@ -47,6 +48,7 @@
 #include "DNA_screen_types.h"
 #include "DNA_shader_fx_types.h"
 #include "DNA_space_types.h"
+#include "DNA_text_types.h"
 #include "DNA_tracking_types.h"
 #include "DNA_workspace_types.h"
 
@@ -56,6 +58,7 @@
 #include "BKE_collection.h"
 #include "BKE_colortools.h"
 #include "BKE_cryptomatte.h"
+#include "BKE_curve.h"
 #include "BKE_fcurve.h"
 #include "BKE_gpencil.h"
 #include "BKE_lib_id.h"
@@ -377,6 +380,37 @@ static void seq_update_meta_disp_range(Editing *ed)
   }
 }
 
+static void version_node_socket_duplicate(bNodeTree *ntree,
+                                          const int node_type,
+                                          const char *old_name,
+                                          const char *new_name)
+{
+  /* Duplicate a link going into the original socket. */
+  LISTBASE_FOREACH_MUTABLE (bNodeLink *, link, &ntree->links) {
+    if (link->tonode->type == node_type) {
+      bNode *node = link->tonode;
+      bNodeSocket *dest_socket = nodeFindSocket(node, SOCK_IN, new_name);
+      BLI_assert(dest_socket);
+      if (STREQ(link->tosock->name, old_name)) {
+        nodeAddLink(ntree, link->fromnode, link->fromsock, node, dest_socket);
+      }
+    }
+  }
+
+  /* Duplicate the default value from the old socket and assign it to the new socket. */
+  LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
+    if (node->type == node_type) {
+      bNodeSocket *source_socket = nodeFindSocket(node, SOCK_IN, old_name);
+      bNodeSocket *dest_socket = nodeFindSocket(node, SOCK_IN, new_name);
+      BLI_assert(source_socket && dest_socket);
+      if (dest_socket->default_value) {
+        MEM_freeN(dest_socket->default_value);
+      }
+      dest_socket->default_value = MEM_dupallocN(source_socket->default_value);
+    }
+  }
+}
+
 void do_versions_after_linking_290(Main *bmain, ReportList *UNUSED(reports))
 {
   if (!MAIN_VERSION_ATLEAST(bmain, 290, 1)) {
@@ -639,6 +673,29 @@ void do_versions_after_linking_290(Main *bmain, ReportList *UNUSED(reports))
     }
   }
 
+  if (!MAIN_VERSION_ATLEAST(bmain, 293, 16)) {
+    LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
+      seq_update_meta_disp_range(SEQ_editing_get(scene, false));
+    }
+
+    /* Add a separate socket for Grid node X and Y size. */
+    FOREACH_NODETREE_BEGIN (bmain, ntree, id) {
+      if (ntree->type == NTREE_GEOMETRY) {
+        version_node_socket_duplicate(ntree, GEO_NODE_MESH_PRIMITIVE_GRID, "Size X", "Size Y");
+      }
+      FOREACH_NODETREE_END;
+    }
+  }
+
+  if (!MAIN_VERSION_ATLEAST(bmain, 293, 20)) {
+    /* Set zero user text objects to have a fake user. */
+    LISTBASE_FOREACH (Text *, text, &bmain->texts) {
+      if (text->id.us == 0) {
+        id_fake_user_set(&text->id);
+      }
+    }
+  }
+
   /**
    * Versioning code until next subversion bump goes here.
    *
@@ -651,10 +708,6 @@ void do_versions_after_linking_290(Main *bmain, ReportList *UNUSED(reports))
    */
   {
     /* Keep this block, even when empty. */
-
-    LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
-      seq_update_meta_disp_range(SEQ_editing_get(scene, false));
-    }
   }
 }
 
@@ -1531,7 +1584,7 @@ void blo_do_versions_290(FileData *fd, Library *UNUSED(lib), Main *bmain)
     }
 
     LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
-      if (scene->ed != NULL) {
+      if (scene->toolsettings->sequencer_tool_settings == NULL) {
         scene->toolsettings->sequencer_tool_settings = SEQ_tool_settings_init();
       }
     }
@@ -1907,7 +1960,7 @@ void blo_do_versions_290(FileData *fd, Library *UNUSED(lib), Main *bmain)
   }
 
   if (!MAIN_VERSION_ATLEAST(bmain, 293, 14)) {
-    if (!DNA_struct_elem_find(fd->filesdna, "Light", "float", "diff_fac")) {
+    if (!DNA_struct_elem_find(fd->filesdna, "Lamp", "float", "diff_fac")) {
       LISTBASE_FOREACH (Light *, light, &bmain->lights) {
         light->diff_fac = 1.0f;
         light->volume_fac = 1.0f;
@@ -1934,6 +1987,103 @@ void blo_do_versions_290(FileData *fd, Library *UNUSED(lib), Main *bmain)
           }
         }
       }
+    }
+  }
+
+  if (!MAIN_VERSION_ATLEAST(bmain, 293, 16)) {
+    FOREACH_NODETREE_BEGIN (bmain, ntree, id) {
+      if (ntree->type == NTREE_GEOMETRY) {
+        version_node_socket_name(ntree, GEO_NODE_MESH_PRIMITIVE_GRID, "Size", "Size X");
+      }
+      FOREACH_NODETREE_END;
+    }
+
+    /* The CU_2D flag has been removed. */
+    LISTBASE_FOREACH (Curve *, cu, &bmain->curves) {
+#define CU_2D (1 << 3)
+      ListBase *nurbs = BKE_curve_nurbs_get(cu);
+      bool is_2d = true;
+
+      LISTBASE_FOREACH (Nurb *, nu, nurbs) {
+        if (nu->flag & CU_2D) {
+          nu->flag &= ~CU_2D;
+        }
+        else {
+          is_2d = false;
+        }
+      }
+#undef CU_2D
+      if (!is_2d && CU_IS_2D(cu)) {
+        cu->flag |= CU_3D;
+      }
+    }
+  }
+
+  if (!MAIN_VERSION_ATLEAST(bmain, 293, 18)) {
+    FOREACH_NODETREE_BEGIN (bmain, ntree, id) {
+      if (ntree->type == NTREE_GEOMETRY) {
+        version_node_socket_name(ntree, GEO_NODE_VOLUME_TO_MESH, "Grid", "Density");
+      }
+    }
+    FOREACH_NODETREE_END;
+
+    if (!DNA_struct_elem_find(fd->filesdna, "bArmature", "float", "axes_position")) {
+      /* Convert the axes draw position to its old default (tip of bone). */
+      LISTBASE_FOREACH (struct bArmature *, arm, &bmain->armatures) {
+        arm->axes_position = 1.0;
+      }
+    }
+
+    /* Initialize the spread parameter for area lights*/
+    if (!DNA_struct_elem_find(fd->filesdna, "Lamp", "float", "area_spread")) {
+      LISTBASE_FOREACH (Light *, la, &bmain->lights) {
+        la->area_spread = DEG2RADF(180.0f);
+      }
+    }
+
+    LISTBASE_FOREACH (bScreen *, screen, &bmain->screens) {
+      LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
+        LISTBASE_FOREACH (SpaceLink *, sl, &area->spacedata) {
+          if (sl->spacetype == SPACE_NODE) {
+            SpaceNode *snode = (SpaceNode *)sl;
+            LISTBASE_FOREACH (bNodeTreePath *, path, &snode->treepath) {
+              STRNCPY(path->display_name, path->node_name);
+            }
+          }
+        }
+      }
+    }
+
+    /* Consolidate node and final evaluation modes. */
+    LISTBASE_FOREACH (bScreen *, screen, &bmain->screens) {
+      LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
+        LISTBASE_FOREACH (SpaceLink *, sl, &area->spacedata) {
+          if (sl->spacetype == SPACE_SPREADSHEET) {
+            SpaceSpreadsheet *sspreadsheet = (SpaceSpreadsheet *)sl;
+            if (sspreadsheet->object_eval_state == 2) {
+              sspreadsheet->object_eval_state = SPREADSHEET_OBJECT_EVAL_STATE_EVALUATED;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /* Set default value for the new bisect_threshold parameter in the mirror modifier. */
+  if (!MAIN_VERSION_ATLEAST(bmain, 293, 19)) {
+    LISTBASE_FOREACH (Object *, ob, &bmain->objects) {
+      LISTBASE_FOREACH (ModifierData *, md, &ob->modifiers) {
+        if (md->type == eModifierType_Mirror) {
+          MirrorModifierData *mmd = (MirrorModifierData *)md;
+          /* This was the previous hard-coded value. */
+          mmd->bisect_threshold = 0.001f;
+        }
+      }
+    }
+
+    LISTBASE_FOREACH (Curve *, cu, &bmain->curves) {
+      /* Turn on clamping as this was implicit before. */
+      cu->flag |= CU_PATH_CLAMP;
     }
   }
 

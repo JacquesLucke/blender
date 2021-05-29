@@ -80,32 +80,32 @@ static struct NavigateGizmoInfo g_navigate_params[GZ_INDEX_TOTAL] = {
     {
         .opname = "VIEW3D_OT_move",
         .gizmo = "GIZMO_GT_button_2d",
-        ICON_VIEW_PAN,
+        .icon = ICON_VIEW_PAN,
     },
     {
         .opname = "VIEW3D_OT_rotate",
         .gizmo = "VIEW3D_GT_navigate_rotate",
-        0,
+        .icon = ICON_NONE,
     },
     {
         .opname = "VIEW3D_OT_zoom",
         .gizmo = "GIZMO_GT_button_2d",
-        ICON_VIEW_ZOOM,
+        .icon = ICON_VIEW_ZOOM,
     },
     {
         .opname = "VIEW3D_OT_view_persportho",
         .gizmo = "GIZMO_GT_button_2d",
-        ICON_VIEW_PERSPECTIVE,
+        .icon = ICON_VIEW_PERSPECTIVE,
     },
     {
         .opname = "VIEW3D_OT_view_persportho",
         .gizmo = "GIZMO_GT_button_2d",
-        ICON_VIEW_ORTHO,
+        .icon = ICON_VIEW_ORTHO,
     },
     {
         .opname = "VIEW3D_OT_view_camera",
         .gizmo = "GIZMO_GT_button_2d",
-        ICON_VIEW_CAMERA,
+        .icon = ICON_VIEW_CAMERA,
     },
 };
 
@@ -116,7 +116,7 @@ struct NavigateWidgetGroup {
     rcti rect_visible;
     struct {
       char is_persp;
-      char is_camera;
+      bool is_camera;
       char viewlock;
     } rv3d;
   } state;
@@ -177,7 +177,7 @@ static void WIDGETGROUP_navigate_setup(const bContext *C, wmGizmoGroup *gzgroup)
 
     /* may be overwritten later */
     gz->scale_basis = GIZMO_MINI_SIZE / 2.0f;
-    if (info->icon != 0) {
+    if (info->icon != ICON_NONE) {
       PropertyRNA *prop = RNA_struct_find_property(gz->ptr, "icon");
       RNA_property_enum_set(gz->ptr, prop, info->icon);
       RNA_enum_set(
@@ -249,6 +249,9 @@ static void WIDGETGROUP_navigate_draw_prepare(const bContext *C, wmGizmoGroup *g
   }
 
   const rcti *rect_visible = ED_region_visible_rect(region);
+
+  /* Ensure types match so bits are never lost on assignment. */
+  CHECK_TYPE_PAIR(navgroup->state.rv3d.viewlock, rv3d->viewlock);
 
   if ((navgroup->state.rect_visible.xmax == rect_visible->xmax) &&
       (navgroup->state.rect_visible.ymax == rect_visible->ymax) &&

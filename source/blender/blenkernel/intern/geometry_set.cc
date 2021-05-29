@@ -24,6 +24,7 @@
 #include "BKE_mesh_wrapper.h"
 #include "BKE_modifier.h"
 #include "BKE_pointcloud.h"
+#include "BKE_spline.hh"
 #include "BKE_volume.h"
 
 #include "DNA_collection_types.h"
@@ -49,10 +50,6 @@ GeometryComponent::GeometryComponent(GeometryComponentType type) : type_(type)
 {
 }
 
-GeometryComponent ::~GeometryComponent()
-{
-}
-
 GeometryComponent *GeometryComponent::create(GeometryComponentType component_type)
 {
   switch (component_type) {
@@ -64,6 +61,8 @@ GeometryComponent *GeometryComponent::create(GeometryComponentType component_typ
       return new InstancesComponent();
     case GEO_COMPONENT_TYPE_VOLUME:
       return new VolumeComponent();
+    case GEO_COMPONENT_TYPE_CURVE:
+      return new CurveComponent();
   }
   BLI_assert_unreachable();
   return nullptr;
@@ -182,6 +181,15 @@ void GeometrySet::compute_boundbox_without_instances(float3 *r_min, float3 *r_ma
   if (mesh != nullptr) {
     BKE_mesh_wrapper_minmax(mesh, *r_min, *r_max);
   }
+  const Volume *volume = this->get_volume_for_read();
+  if (volume != nullptr) {
+    BKE_volume_min_max(volume, *r_min, *r_max);
+  }
+  const CurveEval *curve = this->get_curve_for_read();
+  if (curve != nullptr) {
+    /* Using the evaluated positions is somewhat arbitrary, but it is probably expected. */
+    curve->bounds_min_max(*r_min, *r_max, true);
+  }
 }
 
 std::ostream &operator<<(std::ostream &stream, const GeometrySet &geometry_set)
@@ -203,6 +211,25 @@ bool operator==(const GeometrySet &UNUSED(a), const GeometrySet &UNUSED(b))
 uint64_t GeometrySet::hash() const
 {
   return reinterpret_cast<uint64_t>(this);
+}
+
+/* Remove all geometry components from the geometry set. */
+void GeometrySet::clear()
+{
+  components_.clear();
+}
+
+/* Make sure that the geometry can be cached. This does not ensure ownership of object/collection
+ * instances. */
+void GeometrySet::ensure_owns_direct_data()
+{
+  for (GeometryComponentType type : components_.keys()) {
+    const GeometryComponent *component = this->get_component_for_read(type);
+    if (!component->owns_direct_data()) {
+      GeometryComponent &component_for_write = this->get_component_for_write(type);
+      component_for_write.ensure_owns_direct_data();
+    }
+  }
 }
 
 /* Returns a read-only mesh or null. */
@@ -233,6 +260,13 @@ const Volume *GeometrySet::get_volume_for_read() const
   return (component == nullptr) ? nullptr : component->get_for_read();
 }
 
+/* Returns a read-only curve or null. */
+const CurveEval *GeometrySet::get_curve_for_read() const
+{
+  const CurveComponent *component = this->get_component_for_read<CurveComponent>();
+  return (component == nullptr) ? nullptr : component->get_for_read();
+}
+
 /* Returns true when the geometry set has a point cloud component that has a point cloud. */
 bool GeometrySet::has_pointcloud() const
 {
@@ -254,6 +288,13 @@ bool GeometrySet::has_volume() const
   return component != nullptr && component->has_volume();
 }
 
+/* Returns true when the geometry set has a curve component that has a curve. */
+bool GeometrySet::has_curve() const
+{
+  const CurveComponent *component = this->get_component_for_read<CurveComponent>();
+  return component != nullptr && component->has_curve();
+}
+
 /* Create a new geometry set that only contains the given mesh. */
 GeometrySet GeometrySet::create_with_mesh(Mesh *mesh, GeometryOwnershipType ownership)
 {
@@ -273,6 +314,15 @@ GeometrySet GeometrySet::create_with_pointcloud(PointCloud *pointcloud,
   return geometry_set;
 }
 
+/* Create a new geometry set that only contains the given curve. */
+GeometrySet GeometrySet::create_with_curve(CurveEval *curve, GeometryOwnershipType ownership)
+{
+  GeometrySet geometry_set;
+  CurveComponent &component = geometry_set.get_component_for_write<CurveComponent>();
+  component.replace(curve, ownership);
+  return geometry_set;
+}
+
 /* Clear the existing mesh and replace it with the given one. */
 void GeometrySet::replace_mesh(Mesh *mesh, GeometryOwnershipType ownership)
 {
@@ -280,11 +330,25 @@ void GeometrySet::replace_mesh(Mesh *mesh, GeometryOwnershipType ownership)
   component.replace(mesh, ownership);
 }
 
+/* Clear the existing curve and replace it with the given one. */
+void GeometrySet::replace_curve(CurveEval *curve, GeometryOwnershipType ownership)
+{
+  CurveComponent &component = this->get_component_for_write<CurveComponent>();
+  component.replace(curve, ownership);
+}
+
 /* Clear the existing point cloud and replace with the given one. */
 void GeometrySet::replace_pointcloud(PointCloud *pointcloud, GeometryOwnershipType ownership)
 {
   PointCloudComponent &pointcloud_component = this->get_component_for_write<PointCloudComponent>();
   pointcloud_component.replace(pointcloud, ownership);
+}
+
+/* Clear the existing volume and replace with the given one. */
+void GeometrySet::replace_volume(Volume *volume, GeometryOwnershipType ownership)
+{
+  VolumeComponent &volume_component = this->get_component_for_write<VolumeComponent>();
+  volume_component.replace(volume, ownership);
 }
 
 /* Returns a mutable mesh or null. No ownership is transferred. */
@@ -308,6 +372,13 @@ Volume *GeometrySet::get_volume_for_write()
   return component.get_for_write();
 }
 
+/* Returns a mutable curve or null. No ownership is transferred. */
+CurveEval *GeometrySet::get_curve_for_write()
+{
+  CurveComponent &component = this->get_component_for_write<CurveComponent>();
+  return component.get_for_write();
+}
+
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -322,21 +393,6 @@ void BKE_geometry_set_free(GeometrySet *geometry_set)
 bool BKE_geometry_set_has_instances(const GeometrySet *geometry_set)
 {
   return geometry_set->get_component_for_read<InstancesComponent>() != nullptr;
-}
-
-int BKE_geometry_set_instances(const GeometrySet *geometry_set,
-                               float (**r_transforms)[4][4],
-                               const int **r_almost_unique_ids,
-                               InstancedData **r_instanced_data)
-{
-  const InstancesComponent *component = geometry_set->get_component_for_read<InstancesComponent>();
-  if (component == nullptr) {
-    return 0;
-  }
-  *r_transforms = (float(*)[4][4])component->transforms().data();
-  *r_instanced_data = (InstancedData *)component->instanced_data().data();
-  *r_almost_unique_ids = (const int *)component->almost_unique_ids().data();
-  return component->instances_amount();
 }
 
 /** \} */

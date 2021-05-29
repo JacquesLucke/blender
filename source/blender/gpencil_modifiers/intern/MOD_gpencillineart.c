@@ -33,6 +33,7 @@
 #include "DNA_defaults.h"
 #include "DNA_gpencil_modifier_types.h"
 #include "DNA_gpencil_types.h"
+#include "DNA_material_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
@@ -103,7 +104,6 @@ static void generate_strokes_actual(
       lmd->transparency_mask,
       lmd->thickness,
       lmd->opacity,
-      lmd->resample_length,
       lmd->source_vertex_group,
       lmd->vgname,
       lmd->flags);
@@ -194,6 +194,24 @@ static bool isDisabled(GpencilModifierData *md, int UNUSED(userRenderParams))
   return isModifierDisabled(md);
 }
 
+static void add_this_collection(Collection *c,
+                                const ModifierUpdateDepsgraphContext *ctx,
+                                const int mode)
+{
+  FOREACH_COLLECTION_VISIBLE_OBJECT_RECURSIVE_BEGIN (c, ob, mode) {
+    if (ELEM(ob->type, OB_MESH, OB_MBALL, OB_CURVE, OB_SURF, OB_FONT)) {
+      if (ob->lineart.usage != OBJECT_LRT_EXCLUDE) {
+        DEG_add_object_relation(ctx->node, ob, DEG_OB_COMP_GEOMETRY, "Line Art Modifier");
+        DEG_add_object_relation(ctx->node, ob, DEG_OB_COMP_TRANSFORM, "Line Art Modifier");
+      }
+    }
+    if (ob->type == OB_EMPTY && (ob->transflag & OB_DUPLICOLLECTION)) {
+      add_this_collection(ob->instance_collection, ctx, mode);
+    }
+  }
+  FOREACH_COLLECTION_VISIBLE_OBJECT_RECURSIVE_END;
+}
+
 static void updateDepsgraph(GpencilModifierData *md,
                             const ModifierUpdateDepsgraphContext *ctx,
                             const int mode)
@@ -208,16 +226,7 @@ static void updateDepsgraph(GpencilModifierData *md,
         ctx->node, lmd->source_object, DEG_OB_COMP_TRANSFORM, "Line Art Modifier");
   }
   else {
-    FOREACH_COLLECTION_VISIBLE_OBJECT_RECURSIVE_BEGIN (ctx->scene->master_collection, ob, mode) {
-      if (ob->type == OB_MESH || ob->type == OB_MBALL || ob->type == OB_CURVE ||
-          ob->type == OB_SURF || ob->type == OB_FONT) {
-        if (ob->lineart.usage != OBJECT_LRT_EXCLUDE) {
-          DEG_add_object_relation(ctx->node, ob, DEG_OB_COMP_GEOMETRY, "Line Art Modifier");
-          DEG_add_object_relation(ctx->node, ob, DEG_OB_COMP_TRANSFORM, "Line Art Modifier");
-        }
-      }
-    }
-    FOREACH_COLLECTION_VISIBLE_OBJECT_RECURSIVE_END;
+    add_this_collection(ctx->scene->master_collection, ctx, mode);
   }
   DEG_add_object_relation(
       ctx->node, ctx->scene->camera, DEG_OB_COMP_TRANSFORM, "Line Art Modifier");
@@ -276,8 +285,25 @@ static void panel_draw(const bContext *UNUSED(C), Panel *panel)
   uiItemR(sub, ptr, "crease_threshold", UI_ITEM_R_SLIDER, " ", ICON_NONE);
 
   uiItemPointerR(layout, ptr, "target_layer", &obj_data_ptr, "layers", NULL, ICON_GREASEPENCIL);
-  uiItemPointerR(
-      layout, ptr, "target_material", &obj_data_ptr, "materials", NULL, ICON_SHADING_TEXTURE);
+
+  /* Material has to be used by grease pencil object already, it was possible to assign materials
+   * without this requirement in earlier versions of blender. */
+  bool material_valid = false;
+  PointerRNA material_ptr = RNA_pointer_get(ptr, "target_material");
+  if (!RNA_pointer_is_null(&material_ptr)) {
+    Material *current_material = material_ptr.data;
+    Object *ob = ob_ptr.data;
+    material_valid = BKE_gpencil_object_material_index_get(ob, current_material) != -1;
+  }
+  uiLayout *row = uiLayoutRow(layout, true);
+  uiLayoutSetRedAlert(row, !material_valid);
+  uiItemPointerR(row,
+                 ptr,
+                 "target_material",
+                 &obj_data_ptr,
+                 "materials",
+                 NULL,
+                 material_valid ? ICON_SHADING_TEXTURE : ICON_ERROR);
 
   uiItemR(layout, ptr, "use_remove_doubles", 0, NULL, ICON_NONE);
   uiItemR(layout, ptr, "use_edge_overlap", 0, IFACE_("Overlapping Edges As Contour"), ICON_NONE);
@@ -319,7 +345,7 @@ static void occlusion_panel_draw(const bContext *UNUSED(C), Panel *panel)
   if (use_multiple_levels) {
     uiLayout *col = uiLayoutColumn(layout, true);
     uiItemR(col, ptr, "level_start", 0, NULL, ICON_NONE);
-    uiItemR(col, ptr, "level_end", 0, NULL, ICON_NONE);
+    uiItemR(col, ptr, "level_end", 0, IFACE_("End"), ICON_NONE);
   }
   else {
     uiItemR(layout, ptr, "level_start", 0, IFACE_("Level"), ICON_NONE);
@@ -351,7 +377,7 @@ static void transparency_panel_draw(const bContext *UNUSED(C), Panel *panel)
 
   uiLayout *row = uiLayoutRow(layout, true);
   uiLayoutSetPropDecorate(row, false);
-  uiLayout *sub = uiLayoutRow(row, true);
+  uiLayout *sub = uiLayoutRowWithHeading(row, true, IFACE_("Masks"));
   char text[2] = "0";
 
   PropertyRNA *prop = RNA_struct_find_property(ptr, "use_transparency_mask");
@@ -381,8 +407,6 @@ static void chaining_panel_draw(const bContext *UNUSED(C), Panel *panel)
 
   uiItemR(layout, ptr, "chaining_image_threshold", 0, NULL, ICON_NONE);
 
-  uiItemR(layout, ptr, "resample_length", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
-
   uiItemR(layout, ptr, "split_angle", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
 }
 
@@ -411,8 +435,6 @@ static void vgroup_panel_draw(const bContext *UNUSED(C), Panel *panel)
     uiItemPointerR(
         col, ptr, "vertex_group", &ob_ptr, "vertex_groups", IFACE_("Target"), ICON_NONE);
   }
-
-  uiItemR(col, ptr, "use_soft_selection", 0, NULL, ICON_NONE);
 }
 
 static void baking_panel_draw(const bContext *UNUSED(C), Panel *panel)

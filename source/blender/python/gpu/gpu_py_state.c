@@ -25,11 +25,13 @@
 
 #include <Python.h>
 
+#include "GPU_framebuffer.h"
 #include "GPU_state.h"
 
 #include "../generic/py_capi_utils.h"
 #include "../generic/python_utildefines.h"
 
+#include "gpu_py_framebuffer.h"
 #include "gpu_py_state.h" /* own include */
 
 /* -------------------------------------------------------------------- */
@@ -85,19 +87,20 @@ PyDoc_STRVAR(
     "   Defines the fixed pipeline blending equation.\n"
     "\n"
     "   :param mode: The type of blend mode.\n"
-    "   * ``NONE`` No blending.\n"
-    "   * ``ALPHA`` The original color channels are interpolated according to the alpha value.\n"
-    "   * ``ALPHA_PREMULT`` The original color channels are interpolated according to the alpha "
-    "value with the new colors pre-multiplied by this value.\n"
-    "   * ``ADDITIVE`` The original color channels are added by the corresponding ones.\n"
-    "   * ``ADDITIVE_PREMULT`` The original color channels are added by the corresponding ones "
+    "      * ``NONE`` No blending.\n"
+    "      * ``ALPHA`` The original color channels are interpolated according to the alpha "
+    "value.\n"
+    "      * ``ALPHA_PREMULT`` The original color channels are interpolated according to the "
+    "alpha value with the new colors pre-multiplied by this value.\n"
+    "      * ``ADDITIVE`` The original color channels are added by the corresponding ones.\n"
+    "      * ``ADDITIVE_PREMULT`` The original color channels are added by the corresponding ones "
     "that are pre-multiplied by the alpha value.\n"
-    "   * ``MULTIPLY`` The original color channels are multiplied by the corresponding ones.\n"
-    "   * ``SUBTRACT`` The original color channels are subtracted by the corresponding ones.\n"
-    "   * ``INVERT`` The original color channels are replaced by its complementary color.\n"
-    //"   * ``OIT``.\n"
-    //"   * ``BACKGROUND`` .\n"
-    //"   * ``CUSTOM`` .\n"
+    "      * ``MULTIPLY`` The original color channels are multiplied by the corresponding ones.\n"
+    "      * ``SUBTRACT`` The original color channels are subtracted by the corresponding ones.\n"
+    "      * ``INVERT`` The original color channels are replaced by its complementary color.\n"
+    //"      * ``OIT``.\n"
+    //"      * ``BACKGROUND`` .\n"
+    //"      * ``CUSTOM`` .\n"
     "   :type mode: str\n");
 static PyObject *pygpu_state_blend_set(PyObject *UNUSED(self), PyObject *value)
 {
@@ -333,6 +336,16 @@ static PyObject *pygpu_state_program_point_size_set(PyObject *UNUSED(self), PyOb
   Py_RETURN_NONE;
 }
 
+PyDoc_STRVAR(pygpu_state_framebuffer_active_get_doc,
+             ".. function:: framebuffer_active_get(enable)\n"
+             "\n"
+             "   Return the active framefuffer in context.\n");
+static PyObject *pygpu_state_framebuffer_active_get(PyObject *UNUSED(self))
+{
+  GPUFrameBuffer *fb = GPU_framebuffer_active_get();
+  return BPyGPUFrameBuffer_CreatePyObject(fb, true);
+}
+
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -395,6 +408,10 @@ static struct PyMethodDef pygpu_state__tp_methods[] = {
      (PyCFunction)pygpu_state_program_point_size_set,
      METH_O,
      pygpu_state_program_point_size_set_doc},
+    {"active_framebuffer_get",
+     (PyCFunction)pygpu_state_framebuffer_active_get,
+     METH_NOARGS,
+     pygpu_state_framebuffer_active_get_doc},
     {NULL, NULL, 0, NULL},
 };
 

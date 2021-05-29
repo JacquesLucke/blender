@@ -69,7 +69,8 @@ BlenderSync::BlenderSync(BL::RenderEngine &b_engine,
       experimental(false),
       dicing_rate(1.0f),
       max_subdivisions(12),
-      progress(progress)
+      progress(progress),
+      has_updates_(true)
 {
   PointerRNA cscene = RNA_pointer_get(&b_scene.ptr, "cycles");
   dicing_rate = preview ? RNA_float_get(&cscene, "preview_dicing_rate") :
@@ -84,7 +85,9 @@ BlenderSync::~BlenderSync()
 void BlenderSync::reset(BL::BlendData &b_data, BL::Scene &b_scene)
 {
   /* Update data and scene pointers in case they change in session reset,
-   * for example after undo. */
+   * for example after undo.
+   * Note that we do not modify the `has_updates_` flag here because the sync
+   * reset is also used during viewport navigation. */
   this->b_data = b_data;
   this->b_scene = b_scene;
 }
@@ -117,6 +120,8 @@ void BlenderSync::sync_recalc(BL::Depsgraph &b_depsgraph, BL::SpaceView3D &b_v3d
     }
 
     if (dicing_prop_changed) {
+      has_updates_ = true;
+
       for (const pair<const GeometryKey, Geometry *> &iter : geometry_map.key_to_scene_data()) {
         Geometry *geom = iter.second;
         if (geom->is_mesh()) {
@@ -133,6 +138,12 @@ void BlenderSync::sync_recalc(BL::Depsgraph &b_depsgraph, BL::SpaceView3D &b_v3d
 
   /* Iterate over all IDs in this depsgraph. */
   for (BL::DepsgraphUpdate &b_update : b_depsgraph.updates) {
+    /* TODO(sergey): Can do more selective filter here. For example, ignore changes made to
+     * screen datablock. Note that sync_data() needs to be called after object deletion, and
+     * currently this is ensured by the scene ID tagged for update, which sets the `has_updates_`
+     * flag. */
+    has_updates_ = true;
+
     BL::ID b_id(b_update.id());
 
     /* Material */
@@ -211,9 +222,15 @@ void BlenderSync::sync_recalc(BL::Depsgraph &b_depsgraph, BL::SpaceView3D &b_v3d
     }
   }
 
-  BlenderViewportParameters new_viewport_parameters(b_v3d);
-  if (viewport_parameters.modified(new_viewport_parameters)) {
-    world_recalc = true;
+  if (b_v3d) {
+    BlenderViewportParameters new_viewport_parameters(b_v3d);
+
+    if (viewport_parameters.shader_modified(new_viewport_parameters)) {
+      world_recalc = true;
+      has_updates_ = true;
+    }
+
+    has_updates_ |= viewport_parameters.modified(new_viewport_parameters);
   }
 }
 
@@ -225,11 +242,15 @@ void BlenderSync::sync_data(BL::RenderSettings &b_render,
                             int height,
                             void **python_thread_state)
 {
+  if (!has_updates_) {
+    return;
+  }
+
   scoped_timer timer;
 
   BL::ViewLayer b_view_layer = b_depsgraph.view_layer_eval();
 
-  sync_view_layer(b_v3d, b_view_layer);
+  sync_view_layer(b_view_layer);
   sync_integrator();
   sync_film(b_v3d);
   sync_shaders(b_depsgraph, b_v3d);
@@ -252,6 +273,8 @@ void BlenderSync::sync_data(BL::RenderSettings &b_render,
   free_data_after_sync(b_depsgraph);
 
   VLOG(1) << "Total time spent synchronizing data: " << timer.get_time();
+
+  has_updates_ = false;
 }
 
 /* Integrator */
@@ -358,7 +381,7 @@ void BlenderSync::sync_integrator()
 
   integrator->set_adaptive_min_samples(adaptive_min_samples);
 
-  if (b_scene.render().use_simplify()) {
+  if (get_boolean(cscene, "use_fast_gi")) {
     if (preview) {
       integrator->set_ao_bounces(get_int(cscene, "ao_bounces"));
     }
@@ -422,7 +445,7 @@ void BlenderSync::sync_film(BL::SpaceView3D &b_v3d)
 
 /* Render Layer */
 
-void BlenderSync::sync_view_layer(BL::SpaceView3D & /*b_v3d*/, BL::ViewLayer &b_view_layer)
+void BlenderSync::sync_view_layer(BL::ViewLayer &b_view_layer)
 {
   view_layer.name = b_view_layer.name();
 
@@ -567,7 +590,8 @@ int BlenderSync::get_denoising_pass(BL::RenderPass &b_pass)
   return -1;
 }
 
-vector<Pass> BlenderSync::sync_render_passes(BL::RenderLayer &b_rlay,
+vector<Pass> BlenderSync::sync_render_passes(BL::Scene &b_scene,
+                                             BL::RenderLayer &b_rlay,
                                              BL::ViewLayer &b_view_layer,
                                              bool adaptive_sampling,
                                              const DenoiseParams &denoising)
@@ -578,7 +602,7 @@ vector<Pass> BlenderSync::sync_render_passes(BL::RenderLayer &b_rlay,
   for (BL::RenderPass &b_pass : b_rlay.passes) {
     PassType pass_type = get_pass_type(b_pass);
 
-    if (pass_type == PASS_MOTION && scene->integrator->get_motion_blur())
+    if (pass_type == PASS_MOTION && b_scene.render().use_motion_blur())
       continue;
     if (pass_type != PASS_NONE)
       Pass::add(pass_type, passes, b_pass.name().c_str());
@@ -736,12 +760,18 @@ void BlenderSync::free_data_after_sync(BL::Depsgraph &b_depsgraph)
    * caches to be releases from blender side in order to reduce peak memory
    * footprint during synchronization process.
    */
+
   const bool is_interface_locked = b_engine.render() && b_engine.render().use_lock_interface();
-  const bool can_free_caches = (BlenderSession::headless || is_interface_locked) &&
-                               /* Baking re-uses the depsgraph multiple times, clearing crashes
-                                * reading un-evaluated mesh data which isn't aligned with the
-                                * geometry we're baking, see T71012. */
-                               !scene->bake_manager->get_baking();
+  const bool is_persistent_data = b_engine.render() && b_engine.render().use_persistent_data();
+  const bool can_free_caches =
+      (BlenderSession::headless || is_interface_locked) &&
+      /* Baking re-uses the depsgraph multiple times, clearing crashes
+       * reading un-evaluated mesh data which isn't aligned with the
+       * geometry we're baking, see T71012. */
+      !scene->bake_manager->get_baking() &&
+      /* Persistent data must main caches for performance and correctness. */
+      !is_persistent_data;
+
   if (!can_free_caches) {
     return;
   }
@@ -757,7 +787,6 @@ void BlenderSync::free_data_after_sync(BL::Depsgraph &b_depsgraph)
 
 SceneParams BlenderSync::get_scene_params(BL::Scene &b_scene, bool background)
 {
-  BL::RenderSettings r = b_scene.render();
   SceneParams params;
   PointerRNA cscene = RNA_pointer_get(&b_scene.ptr, "cycles");
   const bool shadingsystem = RNA_boolean_get(&cscene, "shading_system");
@@ -780,11 +809,6 @@ SceneParams BlenderSync::get_scene_params(BL::Scene &b_scene, bool background)
   params.hair_subdivisions = get_int(csscene, "subdivisions");
   params.hair_shape = (CurveShapeType)get_enum(
       csscene, "shape", CURVE_NUM_SHAPE_TYPES, CURVE_THICK);
-
-  if (background && params.shadingsystem != SHADINGSYSTEM_OSL)
-    params.persistent_data = r.use_persistent_data();
-  else
-    params.persistent_data = false;
 
   int texture_limit;
   if (background) {
@@ -872,6 +896,9 @@ SessionParams BlenderSync::get_session_params(BL::RenderEngine &b_engine,
   /* Clamp samples. */
   params.samples = min(params.samples, Integrator::MAX_SAMPLES);
 
+  /* Adaptive sampling. */
+  params.adaptive_sampling = RNA_boolean_get(&cscene, "use_adaptive_sampling");
+
   /* tiles */
   const bool is_cpu = (params.device.type == DEVICE_CPU);
   if (!is_cpu && !background) {
@@ -924,7 +951,7 @@ SessionParams BlenderSync::get_session_params(BL::RenderEngine &b_engine,
   BL::RenderSettings b_r = b_scene.render();
   params.progressive_refine = b_engine.is_preview() ||
                               get_boolean(cscene, "use_progressive_refine");
-  if (b_r.use_save_buffers())
+  if (b_r.use_save_buffers() || params.adaptive_sampling)
     params.progressive_refine = false;
 
   if (background) {
@@ -959,8 +986,6 @@ SessionParams BlenderSync::get_session_params(BL::RenderEngine &b_engine,
 
   params.use_profiling = params.device.has_profiling && !b_engine.is_preview() && background &&
                          BlenderSession::print_render_stats;
-
-  params.adaptive_sampling = RNA_boolean_get(&cscene, "use_adaptive_sampling");
 
   return params;
 }

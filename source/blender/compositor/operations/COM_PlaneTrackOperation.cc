@@ -29,6 +29,8 @@
 #include "BKE_node.h"
 #include "BKE_tracking.h"
 
+namespace blender::compositor {
+
 /* ******** PlaneTrackCommon ******** */
 
 PlaneTrackCommon::PlaneTrackCommon()
@@ -37,6 +39,26 @@ PlaneTrackCommon::PlaneTrackCommon()
   this->m_framenumber = 0;
   this->m_trackingObjectName[0] = '\0';
   this->m_planeTrackName[0] = '\0';
+}
+
+void PlaneTrackCommon::read_and_calculate_corners(PlaneDistortBaseOperation *distort_op)
+{
+  float corners[4][2];
+  if (distort_op->m_motion_blur_samples == 1) {
+    readCornersFromTrack(corners, this->m_framenumber);
+    distort_op->calculateCorners(corners, true, 0);
+  }
+  else {
+    const float frame = (float)this->m_framenumber - distort_op->m_motion_blur_shutter;
+    const float frame_step = (distort_op->m_motion_blur_shutter * 2.0f) /
+                             distort_op->m_motion_blur_samples;
+    float frame_iter = frame;
+    for (int sample = 0; sample < distort_op->m_motion_blur_samples; sample++) {
+      readCornersFromTrack(corners, frame_iter);
+      distort_op->calculateCorners(corners, true, sample);
+      frame_iter += frame_step;
+    }
+  }
 }
 
 void PlaneTrackCommon::readCornersFromTrack(float corners[4][2], float frame)
@@ -82,21 +104,7 @@ void PlaneTrackCommon::determineResolution(unsigned int resolution[2],
 void PlaneTrackMaskOperation::initExecution()
 {
   PlaneDistortMaskOperation::initExecution();
-  float corners[4][2];
-  if (this->m_motion_blur_samples == 1) {
-    readCornersFromTrack(corners, this->m_framenumber);
-    calculateCorners(corners, true, 0);
-  }
-  else {
-    const float frame = (float)this->m_framenumber - this->m_motion_blur_shutter;
-    const float frame_step = (this->m_motion_blur_shutter * 2.0f) / this->m_motion_blur_samples;
-    float frame_iter = frame;
-    for (int sample = 0; sample < this->m_motion_blur_samples; sample++) {
-      readCornersFromTrack(corners, frame_iter);
-      calculateCorners(corners, true, sample);
-      frame_iter += frame_step;
-    }
-  }
+  PlaneTrackCommon::read_and_calculate_corners(this);
 }
 
 /* ******** PlaneTrackWarpImageOperation ******** */
@@ -104,20 +112,7 @@ void PlaneTrackMaskOperation::initExecution()
 void PlaneTrackWarpImageOperation::initExecution()
 {
   PlaneDistortWarpImageOperation::initExecution();
-  /* TODO(sergey): De-duplicate with mask operation. */
-  float corners[4][2];
-  if (this->m_motion_blur_samples == 1) {
-    readCornersFromTrack(corners, this->m_framenumber);
-    calculateCorners(corners, true, 0);
-  }
-  else {
-    const float frame = (float)this->m_framenumber - this->m_motion_blur_shutter;
-    const float frame_step = (this->m_motion_blur_shutter * 2.0f) / this->m_motion_blur_samples;
-    float frame_iter = frame;
-    for (int sample = 0; sample < this->m_motion_blur_samples; sample++) {
-      readCornersFromTrack(corners, frame_iter);
-      calculateCorners(corners, true, sample);
-      frame_iter += frame_step;
-    }
-  }
+  PlaneTrackCommon::read_and_calculate_corners(this);
 }
+
+}  // namespace blender::compositor

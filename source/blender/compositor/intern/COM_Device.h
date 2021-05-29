@@ -20,6 +20,8 @@
 
 #include "COM_WorkPackage.h"
 
+namespace blender::compositor {
+
 /**
  * \brief Abstract class for device implementations to be used by the Compositor.
  * devices are queried, initialized and used by the WorkScheduler.
@@ -28,6 +30,14 @@
 class Device {
 
  public:
+  Device() = default;
+
+  Device(const Device &other) = delete;
+  Device(Device &&other) noexcept = default;
+
+  Device &operator=(const Device &other) = delete;
+  Device &operator=(Device &&other) = delete;
+
   /**
    * \brief Declaration of the virtual destructor
    * \note resolve warning gcc 4.7
@@ -46,3 +56,5 @@ class Device {
   MEM_CXX_CLASS_ALLOC_FUNCS("COM:Device")
 #endif
 };
+
+}  // namespace blender::compositor

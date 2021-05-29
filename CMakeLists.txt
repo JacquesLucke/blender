@@ -236,9 +236,7 @@ option(WITH_SYSTEM_AUDASPACE "Build with external audaspace library installed on
 mark_as_advanced(WITH_AUDASPACE)
 mark_as_advanced(WITH_SYSTEM_AUDASPACE)
 
-if(NOT WITH_AUDASPACE)
-  set(WITH_SYSTEM_AUDASPACE OFF)
-endif()
+set_and_warn_dependency(WITH_AUDASPACE WITH_SYSTEM_AUDASPACE OFF)
 
 option(WITH_OPENMP        "Enable OpenMP (has to be supported by the compiler)" ON)
 if(UNIX AND NOT APPLE)
@@ -522,10 +520,10 @@ if(CMAKE_COMPILER_IS_GNUCC)
   mark_as_advanced(WITH_LINKER_LLD)
 endif()
 
-if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
-  option(WITH_COMPILER_ASAN "Build and link against address sanitizer (only for Debug & RelWithDebInfo targets)." OFF)
-  mark_as_advanced(WITH_COMPILER_ASAN)
+option(WITH_COMPILER_ASAN "Build and link against address sanitizer (only for Debug & RelWithDebInfo targets)." OFF)
+mark_as_advanced(WITH_COMPILER_ASAN)
 
+if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
   if(WITH_COMPILER_ASAN)
     set(_asan_defaults "\
 -fsanitize=address \
@@ -704,10 +702,8 @@ if(WITH_PYTHON_MODULE AND WITH_PYTHON_INSTALL)
   message(FATAL_ERROR "WITH_PYTHON_MODULE requires WITH_PYTHON_INSTALL to be OFF")
 endif()
 
-if(NOT WITH_PYTHON)
-  set(WITH_CYCLES OFF)
-  set(WITH_DRACO OFF)
-endif()
+set_and_warn_dependency(WITH_PYTHON WITH_CYCLES        OFF)
+set_and_warn_dependency(WITH_PYTHON WITH_DRACO         OFF)
 
 if(WITH_DRACO AND NOT WITH_PYTHON_INSTALL)
   message(STATUS "WITH_DRACO requires WITH_PYTHON_INSTALL to be ON, disabling WITH_DRACO for now")
@@ -779,6 +775,7 @@ if(WITH_INSTALL_PORTABLE)
 endif()
 
 if(WITH_GHOST_SDL OR WITH_HEADLESS)
+  message(STATUS "Disabling Ghost Wayland, X11, Input IME, and OpenXR")
   set(WITH_GHOST_WAYLAND OFF)
   set(WITH_GHOST_X11     OFF)
   set(WITH_X11_XINPUT    OFF)
@@ -809,7 +806,7 @@ endif()
 if(NOT WITH_CUDA_DYNLOAD)
   find_package(CUDA)
   if(NOT CUDA_FOUND)
-    message("CUDA toolkit not found, using dynamic runtime loading of libraries instead")
+    message(STATUS "CUDA toolkit not found, using dynamic runtime loading of libraries (WITH_CUDA_DYNLOAD) instead")
     set(WITH_CUDA_DYNLOAD ON)
   endif()
 endif()
@@ -1246,6 +1243,7 @@ if(WITH_OPENMP)
       find_library_static(OpenMP_LIBRARIES gomp ${CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES})
     endif()
   else()
+    message(STATUS "OpenMP not found, disabling WITH_OPENMP")
     set(WITH_OPENMP OFF)
   endif()
 
@@ -1321,6 +1319,7 @@ list(APPEND GL_DEFINITIONS -DGLEW_NO_GLU)
 if(WITH_BULLET AND WITH_SYSTEM_BULLET)
   find_package(Bullet)
   if(NOT BULLET_FOUND)
+    message(STATUS "Bullet not found, disabling WITH_BULLET")
     set(WITH_BULLET OFF)
   endif()
 else()
@@ -1527,6 +1526,7 @@ if(CMAKE_COMPILER_IS_GNUCC)
   ADD_CHECK_CXX_COMPILER_FLAG(CXX_WARNINGS CXX_WARN_UNDEF -Wundef)
   ADD_CHECK_CXX_COMPILER_FLAG(CXX_WARNINGS CXX_WARN_FORMAT_SIGN -Wformat-signedness)
   ADD_CHECK_CXX_COMPILER_FLAG(CXX_WARNINGS CXX_WARN_RESTRICT -Wrestrict)
+  ADD_CHECK_CXX_COMPILER_FLAG(CXX_WARNINGS CXX_WARN_NO_SUGGEST_OVERRIDE  -Wno-suggest-override)
 
   # gcc 4.2 gives annoying warnings on every file with this
   if(NOT "${CMAKE_C_COMPILER_VERSION}" VERSION_LESS "4.3")
@@ -1590,6 +1590,8 @@ elseif(CMAKE_C_COMPILER_ID MATCHES "Clang")
   ADD_CHECK_CXX_COMPILER_FLAG(CXX_WARNINGS CXX_WARN_NO_OVERLOADED_VIRTUAL  -Wno-overloaded-virtual)  # we get a lot of these, if its a problem a dev needs to look into it.
   ADD_CHECK_CXX_COMPILER_FLAG(CXX_WARNINGS CXX_WARN_NO_SIGN_COMPARE        -Wno-sign-compare)
   ADD_CHECK_CXX_COMPILER_FLAG(CXX_WARNINGS CXX_WARN_NO_INVALID_OFFSETOF    -Wno-invalid-offsetof)
+  # Apple Clang (tested on version 12) doesn't support this flag while LLVM Clang 11 does.
+  ADD_CHECK_CXX_COMPILER_FLAG(CXX_WARNINGS CXX_WARN_NO_SUGGEST_OVERRIDE    -Wno-suggest-override)
 
   # gives too many unfixable warnings
   # ADD_CHECK_C_COMPILER_FLAG(C_WARNINGS C_WARN_UNUSED_MACROS      -Wunused-macros)

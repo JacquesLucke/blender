@@ -674,7 +674,7 @@ static bool rna_Armature_is_editmode_get(PointerRNA *ptr)
   return (arm->edbo != NULL);
 }
 
-static void rna_Armature_transform(bArmature *arm, float *mat)
+static void rna_Armature_transform(bArmature *arm, float mat[16])
 {
   ED_armature_transform(arm, (const float(*)[4])mat, true);
 }
@@ -1536,6 +1536,16 @@ static void rna_def_armature(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Display Axes", "Display bone axes");
   RNA_def_property_update(prop, 0, "rna_Armature_redraw_data");
   RNA_def_property_flag(prop, PROP_LIB_EXCEPTION);
+
+  prop = RNA_def_property(srna, "axes_position", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, NULL, "axes_position");
+  RNA_def_property_range(prop, 0.0, 1.0);
+  RNA_def_property_ui_range(prop, 0.0, 1.0, 10, 1);
+  RNA_def_property_ui_text(prop,
+                           "Axes Position",
+                           "The position for the axes on the bone. Increasing the value moves it "
+                           "closer to the tip; decreasing moves it closer to the root");
+  RNA_def_property_update(prop, 0, "rna_Armature_redraw_data");
 
   prop = RNA_def_property(srna, "show_names", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "flag", ARM_DRAWNAMES);

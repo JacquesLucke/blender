@@ -130,14 +130,11 @@ set(SRC
 
 # MSVC 2010 gives linking errors with the manifest
 if(WIN32 AND NOT UNIX)
-  string(SUBSTRING ${BLENDER_VERSION} 0 1 bver1)
-  string(SUBSTRING ${BLENDER_VERSION} 2 1 bver2)
-  string(SUBSTRING ${BLENDER_VERSION} 3 1 bver3)
   add_definitions(
     -DBLEN_VER_RC_STR="${BLENDER_VERSION}"
-    -DBLEN_VER_RC_1=${bver1}
-    -DBLEN_VER_RC_2=${bver2}
-    -DBLEN_VER_RC_3=${bver3}
+    -DBLEN_VER_RC_1=${BLENDER_VERSION_MAJOR}
+    -DBLEN_VER_RC_2=${BLENDER_VERSION_MINOR}
+    -DBLEN_VER_RC_3=${BLENDER_VERSION_PATCH}
     -DBLEN_VER_RC_4=0
   )
 
@@ -188,7 +185,7 @@ if(WITH_BUILDINFO)
 
   # --------------------------------------------------------------------------
   # write header for values that change each build
-  # note, generaed file is in build dir's source/creator
+  # note, generated file is in build dir's source/creator
   #       except when used as an include path.
 
   add_definitions(-DWITH_BUILDINFO_HEADER)
@@ -288,6 +285,15 @@ if(WITH_PYTHON_MODULE)
 
 else()
   add_executable(blender ${EXETYPE} ${SRC})
+  if(WIN32)
+      add_executable(blender-launcher WIN32
+        blender_launcher_win32.c
+        ${CMAKE_SOURCE_DIR}/release/windows/icons/winblender.rc
+        ${CMAKE_BINARY_DIR}/blender.exe.manifest
+      )
+      target_compile_definitions (blender-launcher PRIVATE -D_UNICODE -DUNICODE)
+      target_link_libraries(blender-launcher Pathcch.lib)
+  endif()
 endif()
 
 if(WITH_BUILDINFO)
@@ -326,7 +332,14 @@ elseif(WIN32)
 
 elseif(APPLE)
   if(WITH_PYTHON_MODULE)
-    set(TARGETDIR_VER ${BLENDER_VERSION})
+    if(WITH_INSTALL_PORTABLE)
+      set(TARGETDIR_VER $<TARGET_FILE_DIR:blender>/../Resources/${BLENDER_VERSION})
+      # Keep the `BLENDER_VERSION` folder and bpy.so in the build folder.
+      set(INSTALL_BPY_TO_SITE_PACKAGES OFF)
+    else()
+      set(TARGETDIR_VER "${PYTHON_LIBPATH}/Resources/${BLENDER_VERSION}")
+      set(INSTALL_BPY_TO_SITE_PACKAGES ON)
+    endif()
   else()
     set(TARGETDIR_VER Blender.app/Contents/Resources/${BLENDER_VERSION})
   endif()
@@ -456,8 +469,8 @@ if(UNIX AND NOT APPLE)
       add_custom_target(
         blender_man_page ALL
         COMMAND ${CMAKE_SOURCE_DIR}/doc/manpage/blender.1.py
-                ${EXECUTABLE_OUTPUT_PATH}/blender
-                ${CMAKE_CURRENT_BINARY_DIR}/blender.1)
+                --blender ${EXECUTABLE_OUTPUT_PATH}/blender
+                --output ${CMAKE_CURRENT_BINARY_DIR}/blender.1)
       add_dependencies(blender_man_page blender)
     endif()
   endif()
@@ -685,6 +698,26 @@ elseif(WIN32)
           FILES ${LIBDIR}/fftw3/lib/libfftw3-3.dll
           DESTINATION "."
     )
+  endif()
+  if(MSVC_ASAN)
+    # The asan dll's can be found in the same folder as the compiler, this is the easiest way to find these.
+    string(REPLACE "cl.exe" "clang_rt.asan_dynamic-x86_64.dll" ASAN_DLL ${CMAKE_C_COMPILER})
+    string(REPLACE "cl.exe" "clang_rt.asan_dbg_dynamic-x86_64.dll" ASAN_DEBUG_DLL ${CMAKE_C_COMPILER})
+    if(NOT EXISTS "${ASAN_DLL}")
+      message(FATAL_ERROR "Asan is enabled, but the ASAN runtime is not detected, this is an optional component during the MSVC install, please install it")
+    endif()
+    install(
+          FILES ${ASAN_DLL}
+          DESTINATION "."
+          CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel
+    )
+    install(
+          FILES ${ASAN_DEBUG_DLL}
+          DESTINATION "."
+          CONFIGURATIONS Debug
+    )
+    unset(ASAN_DLL)
+    unset(ASAN_DEBUG_DLL)
   endif()
 
   if(WITH_GMP)
@@ -1007,8 +1040,6 @@ elseif(APPLE)
     )
     if(WITH_PYTHON_MODULE)
       # Move the dylib in a Blender version folder to keep the corresponding OpenMP version.
-      # Also for easy copying of a single folder, `TARGETDIR_VER` to site-packages
-      # during installation.
       install(
         DIRECTORY   ${CMAKE_BINARY_DIR}/Resources/lib
         DESTINATION ${TARGETDIR_VER}
@@ -1018,9 +1049,7 @@ elseif(APPLE)
         # Change it to support multiple rpaths.
         COMMAND xcrun install_name_tool -change "@executable_path/../Resources/lib/libomp.dylib" "@rpath/libomp.dylib" "$<TARGET_FILE:blender>"
         # For installation into site-packages.
-        COMMAND xcrun install_name_tool -add_rpath "@loader_path/../Resources/${TARGETDIR_VER}/lib" "$<TARGET_FILE:blender>"
-        # For in-build-folder experiments.
-        COMMAND xcrun install_name_tool -add_rpath "@loader_path/${TARGETDIR_VER}/lib" "$<TARGET_FILE:blender>"
+        COMMAND xcrun install_name_tool -add_rpath "@loader_path/../Resources/${BLENDER_VERSION}/lib" "$<TARGET_FILE:blender>"
       )
     endif()
   endif()
@@ -1055,13 +1084,12 @@ elseif(APPLE)
     unset(_py_inc_suffix)
   endif()
   if(WITH_PYTHON_MODULE)
-    install(
-      TARGETS blender
-      LIBRARY DESTINATION ${PYTHON_LIBPATH}/site-packages
-    )
-    install_dir(
-      ${CMAKE_INSTALL_PREFIX}/${TARGETDIR_VER}
-      ${PYTHON_LIBPATH}/Resources)
+    if(INSTALL_BPY_TO_SITE_PACKAGES)
+      install(
+        TARGETS blender
+        LIBRARY DESTINATION ${PYTHON_LIBPATH}/site-packages
+      )
+    endif()
   endif()
 
   if(WITH_DRACO)
@@ -1193,7 +1221,7 @@ endif()
 
 if(WIN32 AND NOT WITH_PYTHON_MODULE)
   install(
-    TARGETS blender
+    TARGETS blender blender-launcher
     COMPONENT Blender
     DESTINATION "."
   )

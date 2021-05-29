@@ -801,7 +801,7 @@ bool ED_object_parent_set(ReportList *reports,
        *   so we check this by assuming that the parent is selected too.
        */
       /* XXX currently this should only happen for meshes, curves, surfaces,
-       * and lattices - this stuff isn't available for metas yet */
+       * and lattices - this stuff isn't available for meta-balls yet. */
       if (ELEM(ob->type, OB_MESH, OB_CURVE, OB_SURF, OB_FONT, OB_LATTICE)) {
         ModifierData *md;
 
@@ -812,7 +812,8 @@ bool ED_object_parent_set(ReportList *reports,
               if (md) {
                 ((CurveModifierData *)md)->object = par;
               }
-              if (par->runtime.curve_cache && par->runtime.curve_cache->path == NULL) {
+              if (par->runtime.curve_cache &&
+                  par->runtime.curve_cache->anim_path_accum_length == NULL) {
                 DEG_id_tag_update(&par->id, ID_RECALC_GEOMETRY);
               }
             }
@@ -1943,7 +1944,7 @@ void ED_object_single_user(Main *bmain, Scene *scene, Object *ob)
   ob->flag |= OB_DONE;
 
   single_object_users(bmain, scene, NULL, OB_DONE, false);
-  BKE_main_id_clear_newpoins(bmain);
+  BKE_main_id_newptr_and_tag_clear(bmain);
 }
 
 static void single_obdata_users(
@@ -2643,7 +2644,7 @@ static int make_single_user_exec(bContext *C, wmOperator *op)
     single_object_action_users(bmain, scene, view_layer, v3d, flag);
   }
 
-  BKE_main_id_clear_newpoins(bmain);
+  BKE_main_id_newptr_and_tag_clear(bmain);
 
   WM_event_add_notifier(C, NC_WINDOW, NULL);
 

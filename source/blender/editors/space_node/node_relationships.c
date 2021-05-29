@@ -224,6 +224,12 @@ static void pick_link(const bContext *C,
 
   BLI_addtail(&nldrag->links, linkdata);
   nodeRemLink(snode->edittree, link_to_pick);
+
+  BLI_assert(nldrag->last_node_hovered_while_dragging_a_link != NULL);
+
+  sort_multi_input_socket_links(
+      snode, nldrag->last_node_hovered_while_dragging_a_link, NULL, NULL);
+
   /* Send changed event to original link->tonode. */
   if (node) {
     snode_update(snode, node);
@@ -745,14 +751,11 @@ static void node_link_update_header(bContext *C, bNodeLinkDrag *UNUSED(nldrag))
   ED_workspace_status_text(C, header);
 }
 
-static int node_count_links(bNodeTree *ntree, bNodeSocket *sock)
+static int node_count_links(const bNodeTree *ntree, const bNodeSocket *socket)
 {
   int count = 0;
   LISTBASE_FOREACH (bNodeLink *, link, &ntree->links) {
-    if (link->fromsock == sock) {
-      count++;
-    }
-    if (link->tosock == sock) {
+    if (ELEM(socket, link->fromsock, link->tosock)) {
       count++;
     }
   }
@@ -849,8 +852,6 @@ static void node_link_exit(bContext *C, wmOperator *op, bool apply_links)
   }
   ntree->is_updating = false;
 
-  do_tag_update |= ED_node_is_geometry(snode);
-
   ntreeUpdateTree(bmain, ntree);
   snode_notify(C, snode);
   if (do_tag_update) {
@@ -898,7 +899,9 @@ static void node_link_find_socket(bContext *C, wmOperator *op, float cursor[2])
               existing_link_connected_to_fromsock->multi_input_socket_index;
           continue;
         }
-        sort_multi_input_socket_links(snode, tnode, link, cursor);
+        if (link->tosock && link->tosock->flag & SOCK_MULTI_INPUT) {
+          sort_multi_input_socket_links(snode, tnode, link, cursor);
+        }
       }
     }
     else {
@@ -1041,6 +1044,7 @@ static bNodeLinkDrag *node_link_init(Main *bmain, SpaceNode *snode, float cursor
   /* or an input? */
   else if (node_find_indicated_socket(snode, &node, &sock, cursor, SOCK_IN)) {
     nldrag = MEM_callocN(sizeof(bNodeLinkDrag), "drag link op customdata");
+    nldrag->last_node_hovered_while_dragging_a_link = node;
 
     const int num_links = nodeCountSocketLinks(snode->edittree, sock);
     if (num_links > 0) {
@@ -1285,8 +1289,6 @@ static int cut_links_exec(bContext *C, wmOperator *op)
       }
     }
 
-    do_tag_update |= ED_node_is_geometry(snode);
-
     if (found) {
       ntreeUpdateTree(CTX_data_main(C), snode->edittree);
       snode_notify(C, snode);
@@ -1392,8 +1394,6 @@ static int mute_links_exec(bContext *C, wmOperator *op)
       }
       link->flag &= ~NODE_LINK_TEST;
     }
-
-    do_tag_update |= ED_node_is_geometry(snode);
 
     ntreeUpdateTree(CTX_data_main(C), snode->edittree);
     snode_notify(C, snode);
@@ -1876,28 +1876,63 @@ void ED_node_link_intersect_test(ScrArea *area, int test)
   }
 }
 
-/* assumes sockets in list */
-static bNodeSocket *socket_best_match(ListBase *sockets)
+static int get_main_socket_priority(const bNodeSocket *socket)
 {
-  /* find type range */
-  int maxtype = 0;
+  switch ((eNodeSocketDatatype)socket->type) {
+    case __SOCK_MESH:
+    case SOCK_CUSTOM:
+      return -1;
+    case SOCK_BOOLEAN:
+      return 0;
+    case SOCK_INT:
+      return 1;
+    case SOCK_FLOAT:
+      return 2;
+    case SOCK_VECTOR:
+      return 3;
+    case SOCK_RGBA:
+      return 4;
+    case SOCK_STRING:
+    case SOCK_SHADER:
+    case SOCK_OBJECT:
+    case SOCK_IMAGE:
+    case SOCK_GEOMETRY:
+    case SOCK_COLLECTION:
+    case SOCK_TEXTURE:
+    case SOCK_MATERIAL:
+      return 5;
+  }
+  return -1;
+}
+
+/** Get the "main" socket of a socket list using a heuristic based on socket types. */
+static bNodeSocket *get_main_socket(ListBase *sockets)
+{
+  /* find priority range */
+  int maxpriority = -1;
   LISTBASE_FOREACH (bNodeSocket *, sock, sockets) {
-    maxtype = max_ii(sock->type, maxtype);
+    if (sock->flag & SOCK_UNAVAIL) {
+      continue;
+    }
+    maxpriority = max_ii(get_main_socket_priority(sock), maxpriority);
   }
 
-  /* try all types, starting from 'highest' (i.e. colors, vectors, values) */
-  for (int type = maxtype; type >= 0; type--) {
+  /* try all priorities, starting from 'highest' */
+  for (int priority = maxpriority; priority >= 0; priority--) {
     LISTBASE_FOREACH (bNodeSocket *, sock, sockets) {
-      if (!nodeSocketIsHidden(sock) && type == sock->type) {
+      if (!nodeSocketIsHidden(sock) && priority == get_main_socket_priority(sock)) {
         return sock;
       }
     }
   }
 
-  /* no visible sockets, unhide first of highest type */
-  for (int type = maxtype; type >= 0; type--) {
+  /* no visible sockets, unhide first of highest priority */
+  for (int priority = maxpriority; priority >= 0; priority--) {
     LISTBASE_FOREACH (bNodeSocket *, sock, sockets) {
-      if (type == sock->type) {
+      if (sock->flag & SOCK_UNAVAIL) {
+        continue;
+      }
+      if (priority == get_main_socket_priority(sock)) {
         sock->flag &= ~SOCK_HIDDEN;
         return sock;
       }
@@ -2242,8 +2277,8 @@ void ED_node_link_insert(Main *bmain, ScrArea *area)
   }
 
   if (link) {
-    bNodeSocket *best_input = socket_best_match(&select->inputs);
-    bNodeSocket *best_output = socket_best_match(&select->outputs);
+    bNodeSocket *best_input = get_main_socket(&select->inputs);
+    bNodeSocket *best_output = get_main_socket(&select->outputs);
 
     if (best_input && best_output) {
       bNode *node = link->tonode;
@@ -2254,7 +2289,12 @@ void ED_node_link_insert(Main *bmain, ScrArea *area)
       node_remove_extra_links(snode, link);
       link->flag &= ~NODE_LINKFLAG_HILITE;
 
-      nodeAddLink(snode->edittree, select, best_output, node, sockto);
+      bNodeLink *new_link = nodeAddLink(snode->edittree, select, best_output, node, sockto);
+
+      /* Copy the socket index for the new link, and reset it for the old link. This way the
+       * relative order of links is preserved, and the links get drawn in the right place. */
+      new_link->multi_input_socket_index = link->multi_input_socket_index;
+      link->multi_input_socket_index = 0;
 
       /* set up insert offset data, it needs stuff from here */
       if ((snode->flag & SNODE_SKIP_INSOFFSET) == 0) {
@@ -2271,8 +2311,6 @@ void ED_node_link_insert(Main *bmain, ScrArea *area)
       snode_update(snode, select);
       ED_node_tag_update_id((ID *)snode->edittree);
       ED_node_tag_update_id(snode->id);
-
-      sort_multi_input_socket_links(snode, node, NULL, NULL);
     }
   }
 }

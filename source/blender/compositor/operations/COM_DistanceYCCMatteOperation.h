@@ -21,6 +21,8 @@
 #include "COM_DistanceRGBMatteOperation.h"
 #include "COM_MixOperation.h"
 
+namespace blender::compositor {
+
 /**
  * this program converts an input color to an output value.
  * it assumes we are in sRGB color space.
@@ -28,10 +30,6 @@
 class DistanceYCCMatteOperation : public DistanceRGBMatteOperation {
  protected:
   float calculateDistance(float key[4], float image[4]) override;
-
- public:
-  /**
-   * Default constructor
-   */
-  DistanceYCCMatteOperation();
 };
+
+}  // namespace blender::compositor

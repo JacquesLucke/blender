@@ -178,6 +178,7 @@ void BKE_armature_where_is_bone(struct Bone *bone,
 void BKE_pose_clear_pointers(struct bPose *pose);
 void BKE_pose_remap_bone_pointers(struct bArmature *armature, struct bPose *pose);
 void BKE_pchan_rebuild_bbone_handles(struct bPose *pose, struct bPoseChannel *pchan);
+void BKE_pose_channels_clear_with_null_bone(struct bPose *pose, const bool do_id_user);
 void BKE_pose_rebuild(struct Main *bmain,
                       struct Object *ob,
                       struct bArmature *arm,
@@ -341,6 +342,8 @@ void BKE_pchan_bbone_deform_segment_index(const struct bPoseChannel *pchan,
 
 #define PBONE_SELECTABLE(arm, bone) \
   (PBONE_VISIBLE(arm, bone) && !((bone)->flag & BONE_UNSELECTABLE))
+
+#define PBONE_SELECTED(arm, bone) (((bone)->flag & BONE_SELECTED) & PBONE_VISIBLE(arm, bone))
 
 /* context.selected_pose_bones */
 #define FOREACH_PCHAN_SELECTED_IN_OBJECT_BEGIN(_ob, _pchan) \

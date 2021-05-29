@@ -1037,7 +1037,7 @@ static bGPDframe *rna_GPencil_frame_copy(bGPDlayer *layer, bGPDframe *src)
 
 static bGPDlayer *rna_GPencil_layer_new(bGPdata *gpd, const char *name, bool setactive)
 {
-  bGPDlayer *gpl = BKE_gpencil_layer_addnew(gpd, name, setactive != 0);
+  bGPDlayer *gpl = BKE_gpencil_layer_addnew(gpd, name, setactive != 0, false);
 
   WM_main_add_notifier(NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 
@@ -2114,6 +2114,12 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
       "ViewLayer",
       "Only include Layer in this View Layer render output (leave blank to include always)");
 
+  prop = RNA_def_property(srna, "use_viewlayer_masks", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_negative_sdna(prop, NULL, "flag", GP_LAYER_DISABLE_MASKS_IN_VIEWLAYER);
+  RNA_def_property_ui_text(
+      prop, "Use Masks in Render", "Include the mask layers when rendering the viewlayer");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
   /* blend mode */
   prop = RNA_def_property(srna, "blend_mode", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_sdna(prop, NULL, "blend_mode");
@@ -2197,7 +2203,10 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
 
   prop = RNA_def_property(srna, "use_mask_layer", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_LAYER_USE_MASK);
-  RNA_def_property_ui_text(prop, "Mask Layer", "Mask pixels from underlying layers drawing");
+  RNA_def_property_ui_text(
+      prop,
+      "Use Mask",
+      "The visibility of drawings on this layer is affected by the layers in its masks list");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   prop = RNA_def_property(srna, "use_lights", PROP_BOOLEAN, PROP_NONE);
@@ -2568,7 +2577,7 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
   RNA_def_property_ui_text(
       prop,
       "Auto-Lock Layers",
-      "Lock automatically all layers except active one to avoid accidental changes");
+      "Automatically lock all layers except the active one to avoid accidental changes");
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_autolock");
 
   prop = RNA_def_property(srna, "edit_line_color", PROP_FLOAT, PROP_COLOR_GAMMA);
