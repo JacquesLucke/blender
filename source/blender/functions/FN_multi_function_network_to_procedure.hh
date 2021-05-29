@@ -27,6 +27,6 @@ namespace blender::fn {
 
 MFProcedure &network_to_procedure(Span<const MFSocket *> inputs,
                                   Span<const MFSocket *> outputs,
-                                  ResourceCollector &resources);
+                                  ResourceScope &scope);
 
 }

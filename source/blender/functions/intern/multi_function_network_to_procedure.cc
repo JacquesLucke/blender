@@ -24,7 +24,7 @@ namespace blender::fn {
 namespace {
 struct ConversionContext {
   MFProcedure &procedure;
-  ResourceCollector &resources;
+  ResourceScope &scope;
   Map<const MFSocket *, MFVariable *> socket_variables;
   Vector<MFInstruction *> ordered_instructions;
 };
@@ -82,7 +82,7 @@ static void add_instructions_to_compute_socket(const MFSocket &socket, Conversio
     MFVariable &variable = *context.socket_variables.lookup(&origin_socket);
     MFVariable &copied_variable = context.procedure.new_variable(variable.data_type(),
                                                                  socket.name());
-    const MultiFunction &copy_fn = context.resources.construct<CopyMultiFunction>(
+    const MultiFunction &copy_fn = context.scope.construct<CopyMultiFunction>(
         "copy function", variable.data_type());
     MFCallInstruction &copy_instruction = context.procedure.new_call_instruction(
         copy_fn, {&variable, &copied_variable});
@@ -111,7 +111,7 @@ static void add_instructions_to_compute_socket(const MFSocket &socket, Conversio
           MFVariable *input_variable = context.socket_variables.lookup(&input_socket);
           MFVariable &mutable_variable = context.procedure.new_variable(output_socket.data_type(),
                                                                         output_socket.name());
-          const MultiFunction &copy_fn = context.resources.construct<CopyMultiFunction>(
+          const MultiFunction &copy_fn = context.scope.construct<CopyMultiFunction>(
               "copy function", input_variable->data_type());
           MFCallInstruction &copy_instruction = context.procedure.new_call_instruction(
               copy_fn, {input_variable, &mutable_variable});
@@ -137,10 +137,10 @@ static void add_instructions_to_compute_socket(const MFSocket &socket, Conversio
 
 MFProcedure &network_to_procedure(Span<const MFSocket *> inputs,
                                   Span<const MFSocket *> outputs,
-                                  ResourceCollector &resources)
+                                  ResourceScope &scope)
 {
-  MFProcedure &procedure = resources.construct<MFProcedure>(__func__);
-  ConversionContext context = {procedure, resources};
+  MFProcedure &procedure = scope.construct<MFProcedure>(__func__);
+  ConversionContext context = {procedure, scope};
 
   Set<MFVariable *> param_variables;
   for (const MFSocket *socket : inputs) {
