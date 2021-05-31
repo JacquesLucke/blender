@@ -468,7 +468,7 @@ void node_select_single(bContext *C, bNode *node)
   }
   nodeSetSelected(node, true);
 
-  ED_node_set_active(bmain, snode->edittree, node, &active_texture_changed);
+  ED_node_set_active(bmain, snode, snode->edittree, node, &active_texture_changed);
   ED_node_set_active_viewer_key(snode);
 
   ED_node_sort(snode->edittree);
@@ -606,7 +606,7 @@ static int node_mouse_select(bContext *C,
   if (ret_value != OPERATOR_CANCELLED) {
     bool active_texture_changed = false;
     if (node != NULL && ret_value != OPERATOR_RUNNING_MODAL) {
-      ED_node_set_active(bmain, snode->edittree, node, &active_texture_changed);
+      ED_node_set_active(bmain, snode, snode->edittree, node, &active_texture_changed);
     }
     ED_node_set_active_viewer_key(snode);
     ED_node_sort(snode->edittree);

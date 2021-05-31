@@ -24,6 +24,7 @@
 #include "BLI_utildefines.h"
 #include "BLI_vector.hh"
 
+#include "ED_screen.h"
 #include "ED_spreadsheet.h"
 
 #include "DEG_depsgraph.h"

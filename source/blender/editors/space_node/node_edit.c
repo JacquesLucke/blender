@@ -54,6 +54,7 @@
 #include "ED_render.h"
 #include "ED_screen.h"
 #include "ED_select_utils.h"
+#include "ED_spreadsheet.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -662,7 +663,8 @@ void snode_update(SpaceNode *snode, bNode *node)
   }
 }
 
-void ED_node_set_active(Main *bmain, bNodeTree *ntree, bNode *node, bool *r_active_texture_changed)
+void ED_node_set_active(
+    Main *bmain, SpaceNode *snode, bNodeTree *ntree, bNode *node, bool *r_active_texture_changed)
 {
   const bool was_active_texture = (node->flag & NODE_ACTIVE_TEXTURE) != 0;
   if (r_active_texture_changed) {
@@ -781,6 +783,24 @@ void ED_node_set_active(Main *bmain, bNodeTree *ntree, bNode *node, bool *r_acti
         allqueue(REDRAWIPO, 0);
       }
 #endif
+    }
+    else if (ntree->type == NTREE_GEOMETRY) {
+      if (node->type == GEO_NODE_VIEWER) {
+        wmWindowManager *wm = bmain->wm.first;
+        LISTBASE_FOREACH (wmWindow *, window, &wm->windows) {
+          bScreen *screen = BKE_workspace_active_screen_get(window->workspace_hook);
+          LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
+            SpaceLink *sl = (SpaceLink *)area->spacedata.first;
+            if (sl->spacetype == SPACE_SPREADSHEET) {
+              SpaceSpreadsheet *sspreadsheet = (SpaceSpreadsheet *)sl;
+              if ((sspreadsheet->flag & SPREADSHEET_FLAG_PINNED) == 0) {
+                ED_spreadsheet_set_geometry_node_context(sspreadsheet, snode, node);
+                ED_area_tag_redraw(area);
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
