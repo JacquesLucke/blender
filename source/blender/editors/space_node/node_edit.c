@@ -1337,7 +1337,6 @@ static int node_duplicate_exec(bContext *C, wmOperator *op)
       nodeSetSelected(node, false);
       node->flag &= ~(NODE_ACTIVE | NODE_ACTIVE_TEXTURE);
       nodeSetSelected(newnode, true);
-      newnode->flag &= ~NODE_ACTIVE_PREVIEW;
 
       do_tag_update |= (do_tag_update || node_connected_to_output(bmain, ntree, newnode));
     }

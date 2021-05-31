@@ -354,7 +354,7 @@ typedef struct bNode {
  */
 #define NODE_DO_OUTPUT_RECALC (1 << 17)
 /* A preview for the data in this node can be displayed in the spreadsheet editor. */
-#define NODE_ACTIVE_PREVIEW (1 << 18)
+#define __NODE_ACTIVE_PREVIEW (1 << 18) /* deprecated */
 
 /* node->update */
 /* XXX NODE_UPDATE is a generic update flag. More fine-grained updates

@@ -56,7 +56,7 @@ class SPREADSHEET_OT_toggle_pin(Operator):
             for node_editor in node_editors:
                 ntree = node_editor.edit_tree
                 for node in ntree.nodes:
-                    if node.active_preview:
+                    if node.bl_idname == "GeometryNodeViewer":
                         space.set_geometry_node_context(node_editor, node)
                         return
 
