@@ -85,6 +85,12 @@ static void node_boolean_expand_in_mf_network(blender::nodes::NodeMFNetworkBuild
   builder.set_matching_fn(fn);
 }
 
+static void node_boolean_build_mf_procedure(blender::nodes::NodeMFProcedureBuilder &builder)
+{
+  const blender::fn::MultiFunction &fn = get_multi_function(builder.bnode());
+  builder.set_matching_fn(fn);
+}
+
 void register_node_type_fn_boolean_math()
 {
   static bNodeType ntype;

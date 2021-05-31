@@ -113,6 +113,7 @@ namespace blender {
 namespace nodes {
 class SocketMFNetworkBuilder;
 class NodeMFNetworkBuilder;
+class NodeMFProcedureBuilder;
 class GeoNodeExecParams;
 }  // namespace nodes
 namespace fn {
@@ -122,6 +123,7 @@ class MFDataType;
 }  // namespace blender
 
 using NodeExpandInMFNetworkFunction = void (*)(blender::nodes::NodeMFNetworkBuilder &builder);
+using NodeMFProcedureBuildFunction = void (*)(blender::nodes::NodeMFProcedureBuilder &builder);
 using NodeGeometryExecFunction = void (*)(blender::nodes::GeoNodeExecParams params);
 using SocketGetCPPTypeFunction = const blender::fn::CPPType *(*)();
 using SocketGetCPPValueFunction = void (*)(const struct bNodeSocket &socket, void *r_value);
@@ -129,6 +131,7 @@ using SocketExpandInMFNetworkFunction = void (*)(blender::nodes::SocketMFNetwork
 
 #else
 typedef void *NodeExpandInMFNetworkFunction;
+typedef void *NodeMFProcedureBuildFunction;
 typedef void *SocketExpandInMFNetworkFunction;
 typedef void *NodeGeometryExecFunction;
 typedef void *SocketGetCPPTypeFunction;
@@ -322,6 +325,9 @@ typedef struct bNodeType {
 
   /* Expands the bNode into nodes in a multi-function network, which will be evaluated later on. */
   NodeExpandInMFNetworkFunction expand_in_mf_network;
+
+  /* Adds the node to a multi function procedure. */
+  NodeMFProcedureBuildFunction build_mf_procedure;
 
   /* Execute a geometry node. */
   NodeGeometryExecFunction geometry_node_execute;

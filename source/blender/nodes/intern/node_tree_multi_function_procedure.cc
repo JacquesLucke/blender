@@ -14,28 +14,13 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#pragma once
-
-#include <string.h>
-
-#include "BLI_float3.hh"
-#include "BLI_utildefines.h"
-
-#include "MEM_guardedalloc.h"
-
-#include "DNA_node_types.h"
-
-#include "BKE_node.h"
-
-#include "BLT_translation.h"
-
-#include "NOD_function.h"
-#include "NOD_node_tree_multi_function.hh"
 #include "NOD_node_tree_multi_function_procedure.hh"
 
-#include "node_util.h"
+namespace blender::nodes {
 
-#include "FN_multi_function_builder.hh"
+MFProcedureFromNodes create_multi_function_procedure(const DerivedNodeTree &tree,
+                                                     Span<DInputSocket> outputs)
+{
+}
 
-void fn_node_type_base(
-    struct bNodeType *ntype, int type, const char *name, short nclass, short flag);
+}  // namespace blender::nodes

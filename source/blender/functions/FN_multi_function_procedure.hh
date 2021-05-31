@@ -167,6 +167,15 @@ class MFProcedure : NonCopyable, NonMovable {
   std::string to_dot() const;
 };
 
+namespace multi_function_procedure_types {
+class MFVariable;
+class MFInstruction;
+class MFCallInstruction;
+class MFBranchInstruction;
+class MFDestructInstruction;
+class MFProcedure;
+}  // namespace multi_function_procedure_types
+
 /* --------------------------------------------------------------------
  * MFVariable inline methods.
  */
