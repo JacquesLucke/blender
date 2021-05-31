@@ -404,6 +404,9 @@ class GeometryNodesEvaluator {
     for (const DInputSocket &socket : params_.output_sockets) {
       nodes_to_check.push(socket.node());
     }
+    for (const DSocket &socket : params_.force_compute_sockets) {
+      nodes_to_check.push(socket.node());
+    }
     /* Use the local allocator because the states do not need to outlive the evaluator. */
     LinearAllocator<> &allocator = local_allocators_.local();
     while (!nodes_to_check.is_empty()) {
@@ -500,7 +503,8 @@ class GeometryNodesEvaluator {
           },
           {});
       if (output_state.potential_users == 0) {
-        /* If it does not have any potential users, it is unused. */
+        /* If it does not have any potential users, it is unused. It might become required again if
+         * the output itself is needed. */
         output_state.output_usage = ValueUsage::Unused;
       }
     }
@@ -572,6 +576,21 @@ class GeometryNodesEvaluator {
       LockedNode locked_node{*this, node, node_state};
       /* Setting an input as required will schedule any linked node. */
       this->set_input_required(locked_node, socket);
+    }
+    for (const DSocket socket : params_.force_compute_sockets) {
+      const DNode node = socket.node();
+      NodeState &node_state = this->get_node_state(node);
+      LockedNode locked_node{*this, node, node_state};
+      if (socket->is_input()) {
+        this->set_input_required(locked_node, DInputSocket(socket));
+      }
+      else {
+        OutputState &output_state = node_state.outputs[socket->index()];
+        output_state.output_usage = ValueUsage::Required;
+        /* Add a fake user for this output. */
+        output_state.potential_users += 1;
+        this->schedule_node(locked_node);
+      }
     }
   }
 

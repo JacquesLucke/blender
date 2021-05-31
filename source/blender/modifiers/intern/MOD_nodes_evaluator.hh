@@ -38,6 +38,7 @@ struct GeometryNodesEvaluationParams {
 
   Map<DOutputSocket, GMutablePointer> input_values;
   Vector<DInputSocket> output_sockets;
+  Vector<DSocket> force_compute_sockets;
   nodes::MultiFunctionByNode *mf_by_node;
   const NodesModifierData *modifier_;
   Depsgraph *depsgraph;
