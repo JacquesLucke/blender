@@ -158,6 +158,11 @@ bool node_connected_to_output(Main *bmain, bNodeTree *ntree, bNode *node)
         return true;
       }
     }
+    if (current_node->type == GEO_NODE_VIEWER) {
+      if (ntree_check_nodes_connected(ntree, node, current_node)) {
+        return true;
+      }
+    }
   }
   return false;
 }
