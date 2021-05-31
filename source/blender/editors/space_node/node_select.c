@@ -605,12 +605,15 @@ static int node_mouse_select(bContext *C,
   /* update node order */
   if (ret_value != OPERATOR_CANCELLED) {
     bool active_texture_changed = false;
+    bool viewer_node_changed = false;
     if (node != NULL && ret_value != OPERATOR_RUNNING_MODAL) {
       ED_node_set_active(bmain, snode, snode->edittree, node, &active_texture_changed);
+      viewer_node_changed = node->type == GEO_NODE_VIEWER;
     }
     ED_node_set_active_viewer_key(snode);
     ED_node_sort(snode->edittree);
-    if (active_texture_changed && has_workbench_in_texture_color(wm, scene, ob)) {
+    if ((active_texture_changed && has_workbench_in_texture_color(wm, scene, ob)) ||
+        viewer_node_changed) {
       DEG_id_tag_update(&snode->edittree->id, ID_RECALC_COPY_ON_WRITE);
     }
 
