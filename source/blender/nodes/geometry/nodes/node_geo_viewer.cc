@@ -25,7 +25,7 @@ void register_node_type_geo_viewer()
 {
   static bNodeType ntype;
 
-  geo_node_type_base(&ntype, GEO_NODE_VIEWER, "Viewer", NODE_CLASS_GEOMETRY, 0);
+  geo_node_type_base(&ntype, GEO_NODE_VIEWER, "Viewer", NODE_CLASS_OUTPUT, 0);
   node_type_socket_templates(&ntype, geo_node_viewer_in, nullptr);
   nodeRegisterType(&ntype);
 }

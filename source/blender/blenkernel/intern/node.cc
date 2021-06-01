@@ -3147,8 +3147,8 @@ void ntreeSetOutput(bNodeTree *ntree)
           if (ntree->type == NTREE_COMPOSIT) {
             /* same type, exception for viewer */
             if (tnode->type == node->type ||
-                (ELEM(tnode->type, CMP_NODE_VIEWER, CMP_NODE_SPLITVIEWER) &&
-                 ELEM(node->type, CMP_NODE_VIEWER, CMP_NODE_SPLITVIEWER))) {
+                (ELEM(tnode->type, CMP_NODE_VIEWER, CMP_NODE_SPLITVIEWER, GEO_NODE_VIEWER) &&
+                 ELEM(node->type, CMP_NODE_VIEWER, CMP_NODE_SPLITVIEWER, GEO_NODE_VIEWER))) {
               if (tnode->flag & NODE_DO_OUTPUT) {
                 output++;
                 if (output > 1) {

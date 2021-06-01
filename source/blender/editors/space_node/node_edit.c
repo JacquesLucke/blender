@@ -384,7 +384,7 @@ bool composite_node_editable(bContext *C)
 {
   if (ED_operator_node_editable(C)) {
     SpaceNode *snode = CTX_wm_space_node(C);
-    if (ED_node_is_compositor(snode)) {
+    if (ED_node_is_compositor(snode) || ED_node_is_geometry(snode)) {
       return true;
     }
   }

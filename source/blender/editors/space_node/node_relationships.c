@@ -603,14 +603,14 @@ static int node_link_viewer(const bContext *C, bNode *tonode)
   if (tonode == NULL || BLI_listbase_is_empty(&tonode->outputs)) {
     return OPERATOR_CANCELLED;
   }
-  if (ELEM(tonode->type, CMP_NODE_VIEWER, CMP_NODE_SPLITVIEWER)) {
+  if (ELEM(tonode->type, CMP_NODE_VIEWER, CMP_NODE_SPLITVIEWER, GEO_NODE_VIEWER)) {
     return OPERATOR_CANCELLED;
   }
 
   /* get viewer */
   bNode *viewer_node = NULL;
   LISTBASE_FOREACH (bNode *, node, &snode->edittree->nodes) {
-    if (ELEM(node->type, CMP_NODE_VIEWER, CMP_NODE_SPLITVIEWER)) {
+    if (ELEM(node->type, CMP_NODE_VIEWER, CMP_NODE_SPLITVIEWER, GEO_NODE_VIEWER)) {
       if (node->flag & NODE_DO_OUTPUT) {
         viewer_node = node;
         break;
@@ -620,7 +620,7 @@ static int node_link_viewer(const bContext *C, bNode *tonode)
   /* no viewer, we make one active */
   if (viewer_node == NULL) {
     LISTBASE_FOREACH (bNode *, node, &snode->edittree->nodes) {
-      if (ELEM(node->type, CMP_NODE_VIEWER, CMP_NODE_SPLITVIEWER)) {
+      if (ELEM(node->type, CMP_NODE_VIEWER, CMP_NODE_SPLITVIEWER, GEO_NODE_VIEWER)) {
         node->flag |= NODE_DO_OUTPUT;
         viewer_node = node;
         break;
