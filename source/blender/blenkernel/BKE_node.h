@@ -1430,7 +1430,8 @@ int ntreeTexExecTree(struct bNodeTree *ntree,
 #define GEO_NODE_INPUT_MATERIAL 1050
 #define GEO_NODE_MATERIAL_REPLACE 1051
 #define GEO_NODE_MESH_TO_CURVE 1052
-#define GEO_NODE_VIEWER 1053
+#define GEO_NODE_DELETE_GEOMETRY 1053
+#define GEO_NODE_VIEWER 1054
 
 /** \} */
 
