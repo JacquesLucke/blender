@@ -786,6 +786,12 @@ void ED_node_set_active(
     }
     else if (ntree->type == NTREE_GEOMETRY) {
       if (node->type == GEO_NODE_VIEWER) {
+        LISTBASE_FOREACH (bNode *, node_iter, &ntree->nodes) {
+          if (node_iter->type == GEO_NODE_VIEWER) {
+            node_iter->flag &= ~NODE_DO_OUTPUT;
+          }
+        }
+        node->flag |= NODE_DO_OUTPUT;
         wmWindowManager *wm = bmain->wm.first;
         LISTBASE_FOREACH (wmWindow *, window, &wm->windows) {
           bScreen *screen = BKE_workspace_active_screen_get(window->workspace_hook);
