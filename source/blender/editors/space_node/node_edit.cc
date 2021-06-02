@@ -792,7 +792,7 @@ void ED_node_set_active(
           }
         }
         node->flag |= NODE_DO_OUTPUT;
-        wmWindowManager *wm = bmain->wm.first;
+        wmWindowManager *wm = (wmWindowManager *)bmain->wm.first;
         LISTBASE_FOREACH (wmWindow *, window, &wm->windows) {
           bScreen *screen = BKE_workspace_active_screen_get(window->workspace_hook);
           LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
