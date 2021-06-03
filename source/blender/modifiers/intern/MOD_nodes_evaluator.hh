@@ -38,6 +38,8 @@ struct GeometryNodesEvaluationParams {
 
   Map<DOutputSocket, GMutablePointer> input_values;
   Vector<DInputSocket> output_sockets;
+  /* These sockets will be computed but are not part of the output. Their value can be retrieved in
+   * `log_socket_value_fn`. */
   Vector<DSocket> force_compute_sockets;
   nodes::MultiFunctionByNode *mf_by_node;
   const NodesModifierData *modifier_;

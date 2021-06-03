@@ -503,8 +503,8 @@ class GeometryNodesEvaluator {
           },
           {});
       if (output_state.potential_users == 0) {
-        /* If it does not have any potential users, it is unused. It might become required again if
-         * the output itself is needed. */
+        /* If it does not have any potential users, it is unused. It might become required again in
+         * `schedule_initial_nodes`. */
         output_state.output_usage = ValueUsage::Unused;
       }
     }
@@ -587,8 +587,6 @@ class GeometryNodesEvaluator {
       else {
         OutputState &output_state = node_state.outputs[socket->index()];
         output_state.output_usage = ValueUsage::Required;
-        /* Add a fake user for this output. */
-        output_state.potential_users += 1;
         this->schedule_node(locked_node);
       }
     }
@@ -1135,10 +1133,14 @@ class GeometryNodesEvaluator {
     LockedNode locked_node{*this, node, node_state};
     output_state.potential_users -= 1;
     if (output_state.potential_users == 0) {
-      /* The output socket has no users anymore. */
-      output_state.output_usage = ValueUsage::Unused;
-      /* Schedule the origin node in case it wants to set its inputs as unused as well. */
-      this->schedule_node(locked_node);
+      /* The socket might be required even though the output is not used by other sockets. That can
+       * happen when the socket is forced to be computed. */
+      if (output_state.output_usage != ValueUsage::Required) {
+        /* The output socket has no users anymore. */
+        output_state.output_usage = ValueUsage::Unused;
+        /* Schedule the origin node in case it wants to set its inputs as unused as well. */
+        this->schedule_node(locked_node);
+      }
     }
   }
 
