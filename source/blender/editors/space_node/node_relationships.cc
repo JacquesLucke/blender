@@ -55,7 +55,9 @@
 
 #include "node_intern.h" /* own include */
 
-/* ****************** Relations helpers *********************** */
+/* -------------------------------------------------------------------- */
+/** \name Relations Helpers
+ * \{ */
 
 static bool ntree_has_drivers(bNodeTree *ntree)
 {
@@ -167,7 +169,11 @@ bool node_connected_to_output(Main *bmain, bNodeTree *ntree, bNode *node)
   return false;
 }
 
-/* ****************** Add *********************** */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Add Node
+ * \{ */
 
 struct bNodeListItem {
   struct bNodeListItem *next, *prev;
@@ -595,7 +601,11 @@ static void snode_autoconnect(Main *bmain,
   MEM_freeN(nodelist);
 }
 
-/* *************************** link viewer op ******************** */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Link Viewer Operator
+ * \{ */
 
 static int node_link_viewer(const bContext *C, bNode *tonode)
 {
@@ -749,7 +759,11 @@ void NODE_OT_link_viewer(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-/* *************************** add link op ******************** */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Add Link Operator
+ * \{ */
 
 static void node_link_update_header(bContext *C, bNodeLinkDrag *UNUSED(nldrag))
 {
@@ -1186,7 +1200,11 @@ void NODE_OT_link(wmOperatorType *ot)
   RNA_def_property_flag(prop, PROP_HIDDEN);
 }
 
-/* ********************** Make Link operator ***************** */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Make Link Operator
+ * \{ */
 
 /* makes a link between selected output and input sockets */
 static int node_make_link_exec(bContext *C, wmOperator *op)
@@ -1229,7 +1247,12 @@ void NODE_OT_link_make(wmOperatorType *ot)
       ot->srna, "replace", false, "Replace", "Replace socket connections with the new links");
 }
 
-/* ********************** Node Link Intersect ***************** */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Node Link Intersect
+ * \{ */
+
 static bool node_links_intersect(bNodeLink *link, const float mcoords[][2], int tot)
 {
   float coord_array[NODE_LINK_RESOL + 1][2];
@@ -1246,7 +1269,12 @@ static bool node_links_intersect(bNodeLink *link, const float mcoords[][2], int 
   return false;
 }
 
-/* ********************** Cut Link operator ***************** */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Cut Link Operator
+ * \{ */
+
 static int cut_links_exec(bContext *C, wmOperator *op)
 {
   Main *bmain = CTX_data_main(C);
@@ -1338,7 +1366,11 @@ void NODE_OT_links_cut(wmOperatorType *ot)
   RNA_def_int(ot->srna, "cursor", WM_CURSOR_KNIFE, 0, INT_MAX, "Cursor", "", 0, INT_MAX);
 }
 
-/* ********************** Mute links operator ***************** */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Mute Links Operator
+ * \{ */
 
 static int mute_links_exec(bContext *C, wmOperator *op)
 {
@@ -1440,7 +1472,11 @@ void NODE_OT_links_mute(wmOperatorType *ot)
   RNA_def_int(ot->srna, "cursor", WM_CURSOR_MUTE, 0, INT_MAX, "Cursor", "", 0, INT_MAX);
 }
 
-/* ********************** Detach links operator ***************** */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Detach Links Operator
+ * \{ */
 
 static int detach_links_exec(bContext *C, wmOperator *UNUSED(op))
 {
@@ -1477,7 +1513,11 @@ void NODE_OT_links_detach(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-/* ****************** Set Parent ******************* */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Set Parent Operator
+ * \{ */
 
 static int node_parent_set_exec(bContext *C, wmOperator *UNUSED(op))
 {
@@ -1519,7 +1559,11 @@ void NODE_OT_parent_set(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-/* ****************** Join Nodes ******************* */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Join Nodes Operator
+ * \{ */
 
 /* tags for depth-first search */
 #define NODE_JOIN_DONE 1
@@ -1612,7 +1656,11 @@ void NODE_OT_join(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-/* ****************** Attach ******************* */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Attach Operator
+ * \{ */
 
 static bNode *node_find_frame_to_attach(ARegion *region,
                                         const bNodeTree *ntree,
@@ -1695,7 +1743,11 @@ void NODE_OT_attach(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-/* ****************** Detach ******************* */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Detach Operator
+ * \{ */
 
 /* tags for depth-first search */
 #define NODE_DETACH_DONE 1
@@ -1766,7 +1818,11 @@ void NODE_OT_detach(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-/* *********************  automatic node insert on dragging ******************* */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Automatic Node Insert on Dragging
+ * \{ */
 
 /* prevent duplicate testing code below */
 static bool ed_node_link_conditions(ScrArea *area,
@@ -1884,6 +1940,12 @@ void ED_node_link_intersect_test(ScrArea *area, int test)
   }
 }
 
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Node Insert Offset Operator
+ * \{ */
+
 static int get_main_socket_priority(const bNodeSocket *socket)
 {
   switch ((eNodeSocketDatatype)socket->type) {
@@ -1985,7 +2047,7 @@ static void node_parent_offset_apply(NodeInsertOfsData *data, bNode *parent, con
 #define NODE_INSOFS_ANIM_DURATION 0.25f
 
 /**
- * Callback that applies NodeInsertOfsData.offset_x to a node or its parent, similar
+ * Callback that applies #NodeInsertOfsData.offset_x to a node or its parent, similar
  * to node_link_insert_offset_output_chain_cb below, but with slightly different logic
  */
 static bool node_link_insert_offset_frame_chain_cb(bNode *fromnode,
@@ -2268,6 +2330,12 @@ void NODE_OT_insert_offset(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_BLOCKING;
 }
 
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Note Link Insert
+ * \{ */
+
 /* assumes link with NODE_LINKFLAG_HILITE set */
 void ED_node_link_insert(Main *bmain, ScrArea *area)
 {
@@ -2324,3 +2392,5 @@ void ED_node_link_insert(Main *bmain, ScrArea *area)
     }
   }
 }
+
+/** \} */
