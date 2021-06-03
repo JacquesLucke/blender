@@ -40,10 +40,13 @@
 #include "ED_node.h" /* own include */
 #include "ED_render.h"
 #include "ED_screen.h"
+#include "ED_spreadsheet.h"
 #include "ED_util.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
+
+#include "DEG_depsgraph.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -718,8 +721,13 @@ static int node_link_viewer(const bContext *C, bNode *tonode)
       /* make sure the dependency sorting is updated */
       snode->edittree->update |= NTREE_UPDATE_LINKS;
     }
+    if (ED_node_is_geometry(snode)) {
+      ED_spreadsheet_contexts_set_geometry_node(CTX_data_main(C), snode, viewer_node);
+    }
+
     ntreeUpdateTree(CTX_data_main(C), snode->edittree);
     snode_update(snode, viewer_node);
+    DEG_id_tag_update(&snode->edittree->id, 0);
   }
 
   return OPERATOR_FINISHED;
@@ -745,6 +753,15 @@ static int node_active_link_viewer_exec(bContext *C, wmOperator *UNUSED(op))
   return OPERATOR_FINISHED;
 }
 
+static bool node_active_link_viewer_poll(bContext *C)
+{
+  if (!ED_operator_node_editable(C)) {
+    return false;
+  }
+  SpaceNode *snode = CTX_wm_space_node(C);
+  return ED_node_is_compositor(snode) || ED_node_is_geometry(snode);
+}
+
 void NODE_OT_link_viewer(wmOperatorType *ot)
 {
   /* identifiers */
@@ -754,7 +771,7 @@ void NODE_OT_link_viewer(wmOperatorType *ot)
 
   /* api callbacks */
   ot->exec = node_active_link_viewer_exec;
-  ot->poll = composite_node_editable;
+  ot->poll = node_active_link_viewer_poll;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;

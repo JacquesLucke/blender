@@ -3159,11 +3159,9 @@ static void rna_spreadsheet_context_update(Main *UNUSED(bmain),
   }
 }
 
-static void rna_spreadsheet_set_geometry_node_context(SpaceSpreadsheet *sspreadsheet,
-                                                      SpaceNode *snode,
-                                                      bNode *node)
+static void rna_spreadsheet_context_guess(SpaceSpreadsheet *sspreadsheet, Main *bmain)
 {
-  ED_spreadsheet_set_geometry_node_context(sspreadsheet, snode, node);
+  ED_spreadsheet_context_guess(bmain, sspreadsheet);
   ED_spreadsheet_context_path_update_tag(sspreadsheet);
   WM_main_add_notifier(NC_SPACE | ND_SPACE_SPREADSHEET, NULL);
 }
@@ -7478,7 +7476,7 @@ static void rna_def_space_spreadsheet_context_path(BlenderRNA *brna, PropertyRNA
 
 static void rna_def_space_spreadsheet(BlenderRNA *brna)
 {
-  PropertyRNA *prop, *parm;
+  PropertyRNA *prop;
   StructRNA *srna;
   FunctionRNA *func;
 
@@ -7570,15 +7568,9 @@ static void rna_def_space_spreadsheet(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Object Evaluation State", "");
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_SPREADSHEET, NULL);
 
-  func = RNA_def_function(
-      srna, "set_geometry_node_context", "rna_spreadsheet_set_geometry_node_context");
-  RNA_def_function_ui_description(
-      func, "Update context_path to point to a specific node in a node editor");
-  parm = RNA_def_pointer(
-      func, "node_editor", "SpaceNodeEditor", "", "Editor to take the context from");
-  RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
-  parm = RNA_def_pointer(func, "node", "Node", "", "");
-  RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
+  func = RNA_def_function(srna, "guess_context_path", "rna_spreadsheet_context_guess");
+  RNA_def_function_ui_description(func, "Guess the context path from the current context");
+  RNA_def_function_flag(func, FUNC_USE_MAIN);
 }
 
 void RNA_def_space(BlenderRNA *brna)

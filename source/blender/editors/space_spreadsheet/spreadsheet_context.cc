@@ -31,7 +31,11 @@
 
 #include "BKE_main.h"
 #include "BKE_modifier.h"
+#include "BKE_node.h"
 #include "BKE_object.h"
+#include "BKE_workspace.h"
+
+#include "DNA_windowmanager_types.h"
 
 #include "spreadsheet_context.hh"
 
@@ -266,7 +270,7 @@ uint64_t ED_spreadsheet_context_path_hash(SpaceSpreadsheet *sspreadsheet)
   return BLI_hash_mm2a_end(&mm2);
 }
 
-void ED_spreadsheet_set_geometry_node_context(struct SpaceSpreadsheet *sspreadsheet,
+void ED_spreadsheet_context_set_geometry_node(struct SpaceSpreadsheet *sspreadsheet,
                                               struct SpaceNode *snode,
                                               struct bNode *node)
 {
@@ -304,4 +308,59 @@ void ED_spreadsheet_set_geometry_node_context(struct SpaceSpreadsheet *sspreadsh
   }
 
   sspreadsheet->object_eval_state = SPREADSHEET_OBJECT_EVAL_STATE_EVALUATED;
+}
+
+void ED_spreadsheet_contexts_set_geometry_node(Main *bmain, SpaceNode *snode, bNode *node)
+{
+  wmWindowManager *wm = (wmWindowManager *)bmain->wm.first;
+  if (wm == nullptr) {
+    return;
+  }
+  LISTBASE_FOREACH (wmWindow *, window, &wm->windows) {
+    bScreen *screen = BKE_workspace_active_screen_get(window->workspace_hook);
+    LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
+      SpaceLink *sl = (SpaceLink *)area->spacedata.first;
+      if (sl->spacetype == SPACE_SPREADSHEET) {
+        SpaceSpreadsheet *sspreadsheet = (SpaceSpreadsheet *)sl;
+        if ((sspreadsheet->flag & SPREADSHEET_FLAG_PINNED) == 0) {
+          ED_spreadsheet_context_set_geometry_node(sspreadsheet, snode, node);
+          ED_spreadsheet_context_path_update_tag(sspreadsheet);
+          ED_area_tag_redraw(area);
+        }
+      }
+    }
+  }
+}
+
+void ED_spreadsheet_context_guess(Main *bmain, SpaceSpreadsheet *sspreadsheet)
+{
+  if (sspreadsheet->object_eval_state != SPREADSHEET_OBJECT_EVAL_STATE_EVALUATED) {
+    return;
+  }
+  ED_spreadsheet_context_path_clear(sspreadsheet);
+  wmWindowManager *wm = (wmWindowManager *)bmain->wm.first;
+  if (wm == nullptr) {
+    return;
+  }
+  LISTBASE_FOREACH (wmWindow *, window, &wm->windows) {
+    bScreen *screen = BKE_workspace_active_screen_get(window->workspace_hook);
+    LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
+      SpaceLink *sl = (SpaceLink *)area->spacedata.first;
+      if (sl->spacetype == SPACE_NODE) {
+        SpaceNode *snode = (SpaceNode *)sl;
+        if (snode->edittree != nullptr) {
+          if (snode->edittree->type == NTREE_GEOMETRY) {
+            LISTBASE_FOREACH (bNode *, node, &snode->edittree->nodes) {
+              if (node->type == GEO_NODE_VIEWER) {
+                if (node->flag & NODE_DO_OUTPUT) {
+                  ED_spreadsheet_context_set_geometry_node(sspreadsheet, snode, node);
+                  return;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 }

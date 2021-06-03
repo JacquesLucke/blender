@@ -384,7 +384,7 @@ bool composite_node_editable(bContext *C)
 {
   if (ED_operator_node_editable(C)) {
     SpaceNode *snode = CTX_wm_space_node(C);
-    if (ED_node_is_compositor(snode) || ED_node_is_geometry(snode)) {
+    if (ED_node_is_compositor(snode)) {
       return true;
     }
   }
@@ -792,20 +792,7 @@ void ED_node_set_active(
           }
         }
         node->flag |= NODE_DO_OUTPUT;
-        wmWindowManager *wm = (wmWindowManager *)bmain->wm.first;
-        LISTBASE_FOREACH (wmWindow *, window, &wm->windows) {
-          bScreen *screen = BKE_workspace_active_screen_get(window->workspace_hook);
-          LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
-            SpaceLink *sl = (SpaceLink *)area->spacedata.first;
-            if (sl->spacetype == SPACE_SPREADSHEET) {
-              SpaceSpreadsheet *sspreadsheet = (SpaceSpreadsheet *)sl;
-              if ((sspreadsheet->flag & SPREADSHEET_FLAG_PINNED) == 0) {
-                ED_spreadsheet_set_geometry_node_context(sspreadsheet, snode, node);
-                ED_area_tag_redraw(area);
-              }
-            }
-          }
-        }
+        ED_spreadsheet_contexts_set_geometry_node(bmain, snode, node);
       }
     }
   }
