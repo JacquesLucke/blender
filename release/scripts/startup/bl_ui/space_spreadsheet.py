@@ -55,6 +55,8 @@ class SPREADSHEET_HT_header(bpy.types.Header):
         else:
             self.draw_full_context_path(context, layout, context_path)
 
+        if len(context_path) > 1:
+            layout.operator("spreadsheet.view_final_object", text="", icon='X', emboss=False)
         pin_icon = 'PINNED' if space.is_pinned else 'UNPINNED'
         layout.operator("spreadsheet.toggle_pin", text="", icon=pin_icon, emboss=False)
 

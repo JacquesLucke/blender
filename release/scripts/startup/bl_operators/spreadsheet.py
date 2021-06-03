@@ -74,8 +74,35 @@ class SPREADSHEET_OT_toggle_pin(Operator):
         return editors
 
 
+class SPREADSHEET_OT_view_final_object(Operator):
+    '''View the final evaluated object'''
+    bl_idname = "spreadsheet.view_final_object"
+    bl_label = "View Final Object"
+    bl_options = {'REGISTER'}
+
+    @classmethod
+    def poll(cls, context):
+        space = context.space_data
+        return space and space.type == 'SPREADSHEET'
+
+    def execute(self, context):
+        space = context.space_data
+        if len(space.context_path) == 0:
+            return {'CANCELLED'}
+        context_path = space.context_path
+        root_context = context_path[0]
+        if root_context.type != 'OBJECT':
+            return {'CANCELLED'}
+        root_object = root_context.object
+        context_path.clear()
+        root_context = context_path.append('OBJECT')
+        root_context.object = root_object
+        return {'FINISHED'}
+
+
 classes = (
     SPREADSHEET_OT_toggle_pin,
+    SPREADSHEET_OT_view_final_object,
 )
 
 if __name__ == "__main__":  # Only for live edit.
