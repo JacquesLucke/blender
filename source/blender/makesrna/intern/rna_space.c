@@ -3159,7 +3159,7 @@ static void rna_spreadsheet_context_update(Main *UNUSED(bmain),
   }
 }
 
-static void rna_spreadsheet_context_guess(SpaceSpreadsheet *sspreadsheet, Main *bmain)
+static void rna_SpaceSpreadsheet_context_path_guess(SpaceSpreadsheet *sspreadsheet, Main *bmain)
 {
   ED_spreadsheet_context_guess(bmain, sspreadsheet);
   ED_spreadsheet_context_path_update_tag(sspreadsheet);
@@ -7472,13 +7472,16 @@ static void rna_def_space_spreadsheet_context_path(BlenderRNA *brna, PropertyRNA
 
   func = RNA_def_function(srna, "clear", "rna_SpaceSpreadsheet_context_path_clear");
   RNA_def_function_ui_description(func, "Clear entire context path");
+
+  func = RNA_def_function(srna, "guess", "rna_SpaceSpreadsheet_context_path_guess");
+  RNA_def_function_ui_description(func, "Guess the context path from the current context");
+  RNA_def_function_flag(func, FUNC_USE_MAIN);
 }
 
 static void rna_def_space_spreadsheet(BlenderRNA *brna)
 {
   PropertyRNA *prop;
   StructRNA *srna;
-  FunctionRNA *func;
 
   static const EnumPropertyItem geometry_component_type_items[] = {
       {GEO_COMPONENT_TYPE_MESH,
@@ -7567,10 +7570,6 @@ static void rna_def_space_spreadsheet(BlenderRNA *brna)
   RNA_def_property_enum_items(prop, object_eval_state_items);
   RNA_def_property_ui_text(prop, "Object Evaluation State", "");
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_SPREADSHEET, NULL);
-
-  func = RNA_def_function(srna, "guess_context_path", "rna_spreadsheet_context_guess");
-  RNA_def_function_ui_description(func, "Guess the context path from the current context");
-  RNA_def_function_flag(func, FUNC_USE_MAIN);
 }
 
 void RNA_def_space(BlenderRNA *brna)
