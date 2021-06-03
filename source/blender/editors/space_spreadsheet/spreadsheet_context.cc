@@ -270,9 +270,9 @@ uint64_t ED_spreadsheet_context_path_hash(SpaceSpreadsheet *sspreadsheet)
   return BLI_hash_mm2a_end(&mm2);
 }
 
-void ED_spreadsheet_context_set_geometry_node(struct SpaceSpreadsheet *sspreadsheet,
-                                              struct SpaceNode *snode,
-                                              struct bNode *node)
+void ED_spreadsheet_context_path_set_geometry_node(struct SpaceSpreadsheet *sspreadsheet,
+                                                   struct SpaceNode *snode,
+                                                   struct bNode *node)
 {
   using namespace blender::ed::spreadsheet;
   ED_spreadsheet_context_path_clear(sspreadsheet);
@@ -310,7 +310,7 @@ void ED_spreadsheet_context_set_geometry_node(struct SpaceSpreadsheet *sspreadsh
   sspreadsheet->object_eval_state = SPREADSHEET_OBJECT_EVAL_STATE_EVALUATED;
 }
 
-void ED_spreadsheet_contexts_set_geometry_node(Main *bmain, SpaceNode *snode, bNode *node)
+void ED_spreadsheet_context_paths_set_geometry_node(Main *bmain, SpaceNode *snode, bNode *node)
 {
   wmWindowManager *wm = (wmWindowManager *)bmain->wm.first;
   if (wm == nullptr) {
@@ -323,7 +323,7 @@ void ED_spreadsheet_contexts_set_geometry_node(Main *bmain, SpaceNode *snode, bN
       if (sl->spacetype == SPACE_SPREADSHEET) {
         SpaceSpreadsheet *sspreadsheet = (SpaceSpreadsheet *)sl;
         if ((sspreadsheet->flag & SPREADSHEET_FLAG_PINNED) == 0) {
-          ED_spreadsheet_context_set_geometry_node(sspreadsheet, snode, node);
+          ED_spreadsheet_context_path_set_geometry_node(sspreadsheet, snode, node);
           ED_spreadsheet_context_path_update_tag(sspreadsheet);
           ED_area_tag_redraw(area);
         }
@@ -332,7 +332,7 @@ void ED_spreadsheet_contexts_set_geometry_node(Main *bmain, SpaceNode *snode, bN
   }
 }
 
-void ED_spreadsheet_context_guess(Main *bmain, SpaceSpreadsheet *sspreadsheet)
+void ED_spreadsheet_context_path_guess(Main *bmain, SpaceSpreadsheet *sspreadsheet)
 {
   if (sspreadsheet->object_eval_state != SPREADSHEET_OBJECT_EVAL_STATE_EVALUATED) {
     return;
@@ -353,7 +353,7 @@ void ED_spreadsheet_context_guess(Main *bmain, SpaceSpreadsheet *sspreadsheet)
             LISTBASE_FOREACH (bNode *, node, &snode->edittree->nodes) {
               if (node->type == GEO_NODE_VIEWER) {
                 if (node->flag & NODE_DO_OUTPUT) {
-                  ED_spreadsheet_context_set_geometry_node(sspreadsheet, snode, node);
+                  ED_spreadsheet_context_path_set_geometry_node(sspreadsheet, snode, node);
                   return;
                 }
               }

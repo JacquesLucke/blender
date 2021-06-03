@@ -722,7 +722,7 @@ static int node_link_viewer(const bContext *C, bNode *tonode)
       snode->edittree->update |= NTREE_UPDATE_LINKS;
     }
     if (ED_node_is_geometry(snode)) {
-      ED_spreadsheet_contexts_set_geometry_node(CTX_data_main(C), snode, viewer_node);
+      ED_spreadsheet_context_paths_set_geometry_node(CTX_data_main(C), snode, viewer_node);
     }
 
     ntreeUpdateTree(CTX_data_main(C), snode->edittree);

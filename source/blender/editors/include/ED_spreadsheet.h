@@ -35,14 +35,14 @@ uint64_t ED_spreadsheet_context_path_hash(struct SpaceSpreadsheet *sspreadsheet)
 
 struct ID *ED_spreadsheet_get_current_id(struct SpaceSpreadsheet *sspreadsheet);
 
-void ED_spreadsheet_context_set_geometry_node(struct SpaceSpreadsheet *sspreadsheet,
-                                              struct SpaceNode *snode,
-                                              struct bNode *node);
-void ED_spreadsheet_contexts_set_geometry_node(struct Main *bmain,
-                                               struct SpaceNode *snode,
-                                               struct bNode *node);
+void ED_spreadsheet_context_path_set_geometry_node(struct SpaceSpreadsheet *sspreadsheet,
+                                                   struct SpaceNode *snode,
+                                                   struct bNode *node);
+void ED_spreadsheet_context_paths_set_geometry_node(struct Main *bmain,
+                                                    struct SpaceNode *snode,
+                                                    struct bNode *node);
 
-void ED_spreadsheet_context_guess(struct Main *bmain, struct SpaceSpreadsheet *sspreadsheet);
+void ED_spreadsheet_context_path_guess(struct Main *bmain, struct SpaceSpreadsheet *sspreadsheet);
 
 #ifdef __cplusplus
 }

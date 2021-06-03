@@ -3161,7 +3161,7 @@ static void rna_spreadsheet_context_update(Main *UNUSED(bmain),
 
 static void rna_SpaceSpreadsheet_context_path_guess(SpaceSpreadsheet *sspreadsheet, Main *bmain)
 {
-  ED_spreadsheet_context_guess(bmain, sspreadsheet);
+  ED_spreadsheet_context_path_guess(bmain, sspreadsheet);
   ED_spreadsheet_context_path_update_tag(sspreadsheet);
   WM_main_add_notifier(NC_SPACE | ND_SPACE_SPREADSHEET, NULL);
 }

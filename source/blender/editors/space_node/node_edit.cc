@@ -792,7 +792,7 @@ void ED_node_set_active(
           }
         }
         node->flag |= NODE_DO_OUTPUT;
-        ED_spreadsheet_contexts_set_geometry_node(bmain, snode, node);
+        ED_spreadsheet_context_paths_set_geometry_node(bmain, snode, node);
       }
     }
   }
