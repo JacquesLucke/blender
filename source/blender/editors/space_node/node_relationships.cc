@@ -691,7 +691,8 @@ static int node_link_viewer(const bContext *C, bNode *tonode)
     /* add a new viewer if none exists yet */
     if (!viewer_node) {
       /* XXX location is a quick hack, just place it next to the linked socket */
-      viewer_node = node_add_node(C, nullptr, CMP_NODE_VIEWER, sock->locx + 100, sock->locy);
+      const int viewer_type = ED_node_is_compositor(snode) ? CMP_NODE_VIEWER : GEO_NODE_VIEWER;
+      viewer_node = node_add_node(C, nullptr, viewer_type, sock->locx + 100, sock->locy);
       if (!viewer_node) {
         return OPERATOR_CANCELLED;
       }
