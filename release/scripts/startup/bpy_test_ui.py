@@ -13,6 +13,16 @@ class TEST_OT_refresh_expected(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class TEST_OT_clear_expected(bpy.types.Operator):
+    bl_idname = "test.clear_expected"
+    bl_label = "Clear Expected Test Results"
+    bl_description = "Remove all data that has been generated when tests where refreshed"
+
+    def execute(self, context):
+        bpy_test.clear_generated_data()
+        return {'FINISHED'}
+
+
 class TEST_PT_tests(bpy.types.Panel):
     bl_space_type = 'TEXT_EDITOR'
     bl_region_type = 'UI'
@@ -23,10 +33,12 @@ class TEST_PT_tests(bpy.types.Panel):
         layout = self.layout
 
         layout.operator("test.refresh_expected", text="Refresh Test", icon='FILE_REFRESH')
+        layout.operator("test.clear_expected", text="Clear", icon='X')
 
 
 classes = [
     TEST_OT_refresh_expected,
+    TEST_OT_clear_expected,
     TEST_PT_tests,
 ]
 
