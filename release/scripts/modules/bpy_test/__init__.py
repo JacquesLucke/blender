@@ -1,12 +1,23 @@
 import bpy
 import enum
 from typing import Optional
+from contextlib import contextmanager
 
 class TestMode(enum.Enum):
     GENERATE = enum.auto()
     TEST = enum.auto()
 
 global_test_mode = TestMode.TEST
+
+@contextmanager
+def run_in_generate_mode():
+    global global_test_mode
+    last_mode = global_test_mode
+    global_test_mode = TestMode.GENERATE
+    try:
+        yield
+    finally:
+        global_test_mode = last_mode
 
 test_prefix = "_bpy_test_"
 
