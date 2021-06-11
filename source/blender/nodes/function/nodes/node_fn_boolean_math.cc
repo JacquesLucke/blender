@@ -101,5 +101,6 @@ void register_node_type_fn_boolean_math()
   node_type_update(&ntype, node_boolean_math_update);
   ntype.expand_in_mf_network = node_boolean_expand_in_mf_network;
   ntype.draw_buttons = fn_node_boolean_math_layout;
+  ntype.build_mf_procedure = node_boolean_build_mf_procedure;
   nodeRegisterType(&ntype);
 }

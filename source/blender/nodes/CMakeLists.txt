@@ -163,7 +163,7 @@ set(SRC
   geometry/nodes/node_geo_collection_info.cc
   geometry/nodes/node_geo_common.cc
   geometry/nodes/node_geo_convex_hull.cc
-  geometry/nodes/node_geo_curve_length.cc  
+  geometry/nodes/node_geo_curve_length.cc
   geometry/nodes/node_geo_curve_to_mesh.cc
   geometry/nodes/node_geo_curve_resample.cc
   geometry/nodes/node_geo_delete_geometry.cc
@@ -326,6 +326,7 @@ set(SRC
   intern/node_exec.cc
   intern/node_geometry_exec.cc
   intern/node_socket.cc
+  intern/node_tree_multi_function_procedure.cc
   intern/node_tree_multi_function.cc
   intern/node_tree_ref.cc
   intern/node_util.c

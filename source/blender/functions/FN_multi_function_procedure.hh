@@ -168,12 +168,12 @@ class MFProcedure : NonCopyable, NonMovable {
 };
 
 namespace multi_function_procedure_types {
-class MFVariable;
-class MFInstruction;
-class MFCallInstruction;
-class MFBranchInstruction;
-class MFDestructInstruction;
-class MFProcedure;
+using MFVariable = fn::MFVariable;
+using MFInstruction = fn::MFInstruction;
+using MFCallInstruction = fn::MFCallInstruction;
+using MFBranchInstruction = fn::MFBranchInstruction;
+using MFDestructInstruction = fn::MFDestructInstruction;
+using MFProcedure = fn::MFProcedure;
 }  // namespace multi_function_procedure_types
 
 /* --------------------------------------------------------------------

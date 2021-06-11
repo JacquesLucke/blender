@@ -25,12 +25,32 @@ namespace blender::nodes {
 using namespace fn::multi_function_procedure_types;
 using namespace fn::multi_function_types;
 
+class NodeTreeProcedureBuilder;
+
 class NodeMFProcedureBuilder {
+ private:
+  const DNode node_;
+  NodeTreeProcedureBuilder &procedure_builder_;
+
+  friend NodeTreeProcedureBuilder;
+
  public:
+  NodeMFProcedureBuilder(const DNode node, NodeTreeProcedureBuilder &procedure_builder)
+      : node_(node), procedure_builder_(procedure_builder)
+  {
+  }
+
   MFProcedure &procedure();
-  bNode &bnode();
+
+  bNode &bnode()
+  {
+    return *node_->bnode();
+  }
+
   MFVariable *get_input(StringRef identifer);
   void set_output(StringRef identifier, MFVariable *variable);
+  void set_input_instruction(MFInstruction *instruction);
+  void set_output_inststruction(MFInstruction *instruction);
   void set_matching_fn(const MultiFunction &fn);
 };
 
@@ -40,6 +60,6 @@ struct MFProcedureFromNodes {
 };
 
 MFProcedureFromNodes create_multi_function_procedure(const DerivedNodeTree &tree,
-                                                     Span<DInputSocket> outputs);
+                                                     Span<DSocket> tree_outputs);
 
 }  // namespace blender::nodes
