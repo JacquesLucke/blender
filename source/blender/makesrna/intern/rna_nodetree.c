@@ -127,6 +127,20 @@ static const EnumPropertyItem node_chunksize_items[] = {
 };
 #endif
 
+static const EnumPropertyItem rna_enum_execution_mode_items[] = {
+    {NTREE_EXECUTION_MODE_TILED,
+     "TILED",
+     0,
+     "Tiled",
+     "Compositing is tiled, having as priority to display first tiles as fast as possible"},
+    {NTREE_EXECUTION_MODE_FULL_FRAME,
+     "FULL_FRAME",
+     0,
+     "Full Frame",
+     "Composites full image result as fast as possible"},
+    {0, NULL, 0, NULL, NULL},
+};
+
 const EnumPropertyItem rna_enum_mapping_type_items[] = {
     {NODE_MAPPING_TYPE_POINT, "POINT", 0, "Point", "Transform a point"},
     {NODE_MAPPING_TYPE_TEXTURE,
@@ -234,6 +248,7 @@ const EnumPropertyItem rna_enum_node_vec_math_items[] = {
     {NODE_VECTOR_MATH_SUBTRACT, "SUBTRACT", 0, "Subtract", "A - B"},
     {NODE_VECTOR_MATH_MULTIPLY, "MULTIPLY", 0, "Multiply", "Entry-wise multiply"},
     {NODE_VECTOR_MATH_DIVIDE, "DIVIDE", 0, "Divide", "Entry-wise divide"},
+    {NODE_VECTOR_MATH_MULTIPLY_ADD, "MULTIPLY_ADD", 0, "Multiply Add", "A * B + C"},
     {0, "", ICON_NONE, NULL, NULL},
     {NODE_VECTOR_MATH_CROSS_PRODUCT, "CROSS_PRODUCT", 0, "Cross Product", "A cross B"},
     {NODE_VECTOR_MATH_PROJECT, "PROJECT", 0, "Project", "Project A onto B"},
@@ -1970,7 +1985,9 @@ static bool switch_type_supported(const EnumPropertyItem *item)
               SOCK_RGBA,
               SOCK_GEOMETRY,
               SOCK_OBJECT,
-              SOCK_COLLECTION);
+              SOCK_COLLECTION,
+              SOCK_TEXTURE,
+              SOCK_MATERIAL);
 }
 
 static const EnumPropertyItem *rna_GeometryNodeSwitch_type_itemf(bContext *UNUSED(C),
@@ -3973,7 +3990,7 @@ static void rna_NodeCryptomatte_layer_name_set(PointerRNA *ptr, int new_value)
   }
 }
 
-static const EnumPropertyItem *rna_NodeCryptomatte_layer_name_itemf(bContext *UNUSED(C),
+static const EnumPropertyItem *rna_NodeCryptomatte_layer_name_itemf(bContext *C,
                                                                     PointerRNA *ptr,
                                                                     PropertyRNA *UNUSED(prop),
                                                                     bool *r_free)
@@ -3984,7 +4001,7 @@ static const EnumPropertyItem *rna_NodeCryptomatte_layer_name_itemf(bContext *UN
   EnumPropertyItem template = {0, "", 0, "", ""};
   int totitem = 0;
 
-  ntreeCompositCryptomatteUpdateLayerNames(node);
+  ntreeCompositCryptomatteUpdateLayerNames(CTX_data_scene(C), node);
   int layer_index;
   LISTBASE_FOREACH_INDEX (CryptomatteLayer *, layer, &storage->runtime.layers, layer_index) {
     template.value = layer_index;
@@ -4076,7 +4093,7 @@ static void rna_NodeCryptomatte_matte_set(PointerRNA *ptr, const char *value)
 
 static void rna_NodeCryptomatte_update_add(Main *bmain, Scene *scene, PointerRNA *ptr)
 {
-  ntreeCompositCryptomatteSyncFromAdd(ptr->data);
+  ntreeCompositCryptomatteSyncFromAdd(scene, ptr->data);
   rna_Node_update(bmain, scene, ptr);
 }
 
@@ -10817,6 +10834,8 @@ static void rna_def_node_socket_standard_types(BlenderRNA *brna)
   rna_def_node_socket_float(
       brna, "NodeSocketFloatTime", "NodeSocketInterfaceFloatTime", PROP_TIME);
   rna_def_node_socket_float(
+      brna, "NodeSocketFloatTimeAbsolute", "NodeSocketInterfaceFloatTimeAbsolute", PROP_TIME_ABSOLUTE);
+  rna_def_node_socket_float(
       brna, "NodeSocketFloatDistance", "NodeSocketInterfaceFloatDistance", PROP_DISTANCE);
 
   rna_def_node_socket_int(brna, "NodeSocketInt", "NodeSocketInterfaceInt", PROP_NONE);
@@ -11670,6 +11689,12 @@ static void rna_def_composite_nodetree(BlenderRNA *brna)
       srna, "Compositor Node Tree", "Node tree consisting of linked nodes used for compositing");
   RNA_def_struct_sdna(srna, "bNodeTree");
   RNA_def_struct_ui_icon(srna, ICON_RENDERLAYERS);
+
+  prop = RNA_def_property(srna, "execution_mode", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_sdna(prop, NULL, "execution_mode");
+  RNA_def_property_enum_items(prop, rna_enum_execution_mode_items);
+  RNA_def_property_ui_text(prop, "Execution Mode", "Set how compositing is executed");
+  RNA_def_property_update(prop, NC_NODE | ND_DISPLAY, "rna_NodeTree_update");
 
   prop = RNA_def_property(srna, "render_quality", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_sdna(prop, NULL, "render_quality");

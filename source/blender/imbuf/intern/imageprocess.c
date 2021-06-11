@@ -350,6 +350,137 @@ void nearest_interpolation(ImBuf *in, ImBuf *out, float u, float v, int xout, in
 }
 
 /* -------------------------------------------------------------------- */
+/** \name Image transform
+ * \{ */
+typedef struct TransformUserData {
+  ImBuf *src;
+  ImBuf *dst;
+  float start_uv[2];
+  float add_x[2];
+  float add_y[2];
+  rctf src_crop;
+} TransformUserData;
+
+static void imb_transform_calc_start_uv(const float transform_matrix[3][3], float r_start_uv[2])
+{
+  float orig[2];
+  orig[0] = 0.0f;
+  orig[1] = 0.0f;
+  mul_v2_m3v2(r_start_uv, transform_matrix, orig);
+}
+
+static void imb_transform_calc_add_x(const float transform_matrix[3][3],
+                                     const float start_uv[2],
+                                     const int width,
+                                     float r_add_x[2])
+{
+  float uv_max_x[2];
+  uv_max_x[0] = width;
+  uv_max_x[1] = 0.0f;
+  mul_v2_m3v2(r_add_x, transform_matrix, uv_max_x);
+  sub_v2_v2(r_add_x, start_uv);
+  mul_v2_fl(r_add_x, 1.0f / width);
+}
+
+static void imb_transform_calc_add_y(const float transform_matrix[3][3],
+                                     const float start_uv[2],
+                                     const int height,
+                                     float r_add_y[2])
+{
+  float uv_max_y[2];
+  uv_max_y[0] = 0.0f;
+  uv_max_y[1] = height;
+  mul_v2_m3v2(r_add_y, transform_matrix, uv_max_y);
+  sub_v2_v2(r_add_y, start_uv);
+  mul_v2_fl(r_add_y, 1.0f / height);
+}
+
+typedef void (*InterpolationColorFunction)(
+    struct ImBuf *in, unsigned char outI[4], float outF[4], float u, float v);
+BLI_INLINE void imb_transform_scanlines(const TransformUserData *user_data,
+                                        int start_scanline,
+                                        int num_scanlines,
+                                        InterpolationColorFunction interpolation)
+{
+  const int width = user_data->dst->x;
+
+  float next_line_start_uv[2];
+  madd_v2_v2v2fl(next_line_start_uv, user_data->start_uv, user_data->add_y, start_scanline);
+
+  unsigned char *outI = NULL;
+  float *outF = NULL;
+  pixel_from_buffer(user_data->dst, &outI, &outF, 0, start_scanline);
+
+  for (int yi = start_scanline; yi < start_scanline + num_scanlines; yi++) {
+    float uv[2];
+    copy_v2_v2(uv, next_line_start_uv);
+    add_v2_v2(next_line_start_uv, user_data->add_y);
+    for (int xi = 0; xi < width; xi++) {
+      if (uv[0] >= user_data->src_crop.xmin && uv[0] < user_data->src_crop.xmax &&
+          uv[1] >= user_data->src_crop.ymin && uv[1] < user_data->src_crop.ymax) {
+        interpolation(user_data->src, outI, outF, uv[0], uv[1]);
+      }
+      add_v2_v2(uv, user_data->add_x);
+      if (outI) {
+        outI += 4;
+      }
+      if (outF) {
+        outF += 4;
+      }
+    }
+  }
+}
+
+static void imb_transform_nearest_scanlines(void *custom_data,
+                                            int start_scanline,
+                                            int num_scanlines)
+{
+  const TransformUserData *user_data = custom_data;
+  imb_transform_scanlines(user_data, start_scanline, num_scanlines, nearest_interpolation_color);
+}
+
+static void imb_transform_bilinear_scanlines(void *custom_data,
+                                             int start_scanline,
+                                             int num_scanlines)
+{
+  const TransformUserData *user_data = custom_data;
+  imb_transform_scanlines(user_data, start_scanline, num_scanlines, bilinear_interpolation_color);
+}
+
+static ScanlineThreadFunc imb_transform_scanline_func(const eIMBInterpolationFilterMode filter)
+{
+  ScanlineThreadFunc scanline_func = NULL;
+  switch (filter) {
+    case IMB_FILTER_NEAREST:
+      scanline_func = imb_transform_nearest_scanlines;
+      break;
+    case IMB_FILTER_BILINEAR:
+      scanline_func = imb_transform_bilinear_scanlines;
+      break;
+  }
+  return scanline_func;
+}
+
+void IMB_transform(struct ImBuf *src,
+                   struct ImBuf *dst,
+                   float transform_matrix[3][3],
+                   struct rctf *src_crop,
+                   const eIMBInterpolationFilterMode filter)
+{
+  TransformUserData user_data;
+  user_data.src = src;
+  user_data.dst = dst;
+  user_data.src_crop = *src_crop;
+  imb_transform_calc_start_uv(transform_matrix, user_data.start_uv);
+  imb_transform_calc_add_x(transform_matrix, user_data.start_uv, src->x, user_data.add_x);
+  imb_transform_calc_add_y(transform_matrix, user_data.start_uv, src->y, user_data.add_y);
+  ScanlineThreadFunc scanline_func = imb_transform_scanline_func(filter);
+  IMB_processor_apply_threaded_scanlines(dst->y, scanline_func, &user_data);
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
 /** \name Threaded Image Processing
  * \{ */
 
@@ -374,7 +505,7 @@ void IMB_processor_apply_threaded(
   int total_tasks = (buffer_lines + lines_per_task - 1) / lines_per_task;
   int i, start_line;
 
-  task_pool = BLI_task_pool_create(do_thread, TASK_PRIORITY_LOW);
+  task_pool = BLI_task_pool_create(do_thread, TASK_PRIORITY_LOW, TASK_ISOLATION_ON);
 
   handles = MEM_callocN(handle_size * total_tasks, "processor apply threaded handles");
 
@@ -432,7 +563,7 @@ void IMB_processor_apply_threaded_scanlines(int total_scanlines,
   data.scanlines_per_task = scanlines_per_task;
   data.total_scanlines = total_scanlines;
   const int total_tasks = (total_scanlines + scanlines_per_task - 1) / scanlines_per_task;
-  TaskPool *task_pool = BLI_task_pool_create(&data, TASK_PRIORITY_LOW);
+  TaskPool *task_pool = BLI_task_pool_create(&data, TASK_PRIORITY_LOW, TASK_ISOLATION_ON);
   for (int i = 0, start_line = 0; i < total_tasks; i++) {
     BLI_task_pool_push(
         task_pool, processor_apply_scanline_func, POINTER_FROM_INT(start_line), false, NULL);

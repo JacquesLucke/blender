@@ -99,8 +99,10 @@ void NodeOperationBuilder::convertToOperations(ExecutionSystem *system)
 
   determineResolutions();
 
-  /* surround complex ops with read/write buffer */
-  add_complex_operation_buffers();
+  if (m_context->get_execution_model() == eExecutionModel::Tiled) {
+    /* surround complex ops with read/write buffer */
+    add_complex_operation_buffers();
+  }
 
   /* links not available from here on */
   /* XXX make m_links a local variable to avoid confusion! */
@@ -111,8 +113,10 @@ void NodeOperationBuilder::convertToOperations(ExecutionSystem *system)
   /* ensure topological (link-based) order of nodes */
   /*sort_operations();*/ /* not needed yet */
 
-  /* create execution groups */
-  group_operations();
+  if (m_context->get_execution_model() == eExecutionModel::Tiled) {
+    /* create execution groups */
+    group_operations();
+  }
 
   /* transfer resulting operations to the system */
   system->set_operations(m_operations, m_groups);
@@ -125,6 +129,7 @@ void NodeOperationBuilder::addOperation(NodeOperation *operation)
   if (m_current_node) {
     operation->set_name(m_current_node->getbNode()->name);
   }
+  operation->set_execution_model(m_context->get_execution_model());
 }
 
 void NodeOperationBuilder::mapInputSocket(NodeInput *node_socket,

@@ -101,15 +101,14 @@ class Spline {
   Spline(const Type type) : type_(type)
   {
   }
-  Spline(Spline &other)
-      : normal_mode(other.normal_mode),
-        attributes(other.attributes),
-        type_(other.type_),
-        is_cyclic_(other.is_cyclic_)
+  Spline(Spline &other) : attributes(other.attributes), type_(other.type_)
   {
+    copy_base_settings(other, *this);
   }
 
   virtual SplinePtr copy() const = 0;
+  /** Return a new spline with the same type and settings like "cyclic", but without any data. */
+  virtual SplinePtr copy_settings() const = 0;
 
   Spline::Type type() const;
 
@@ -173,6 +172,25 @@ class Spline {
   blender::Array<float> sample_uniform_index_factors(const int samples_size) const;
   LookupResult lookup_data_from_index_factor(const float index_factor) const;
 
+  void sample_based_on_index_factors(const blender::fn::GVArray &src,
+                                     blender::Span<float> index_factors,
+                                     blender::fn::GMutableSpan dst) const;
+  template<typename T>
+  void sample_based_on_index_factors(const blender::VArray<T> &src,
+                                     blender::Span<float> index_factors,
+                                     blender::MutableSpan<T> dst) const
+  {
+    this->sample_based_on_index_factors(
+        blender::fn::GVArray_For_VArray(src), index_factors, blender::fn::GMutableSpan(dst));
+  }
+  template<typename T>
+  void sample_based_on_index_factors(blender::Span<T> src,
+                                     blender::Span<float> index_factors,
+                                     blender::MutableSpan<T> dst) const
+  {
+    this->sample_based_on_index_factors(blender::VArray_For_Span(src), index_factors, dst);
+  }
+
   /**
    * Interpolate a virtual array of data with the size of the number of control points to the
    * evaluated points. For poly splines, the lifetime of the returned virtual array must not
@@ -180,9 +198,22 @@ class Spline {
    */
   virtual blender::fn::GVArrayPtr interpolate_to_evaluated_points(
       const blender::fn::GVArray &source_data) const = 0;
+  blender::fn::GVArrayPtr interpolate_to_evaluated_points(blender::fn::GSpan data) const;
+  template<typename T>
+  blender::fn::GVArray_Typed<T> interpolate_to_evaluated_points(blender::Span<T> data) const
+  {
+    return blender::fn::GVArray_Typed<T>(
+        this->interpolate_to_evaluated_points(blender::fn::GSpan(data)));
+  }
 
  protected:
   virtual void correct_end_tangents() const = 0;
+  /** Copy settings stored in the base spline class. */
+  static void copy_base_settings(const Spline &src, Spline &dst)
+  {
+    dst.normal_mode = src.normal_mode;
+    dst.is_cyclic_ = src.is_cyclic_;
+  }
 };
 
 /**
@@ -236,6 +267,7 @@ class BezierSpline final : public Spline {
 
  public:
   virtual SplinePtr copy() const final;
+  SplinePtr copy_settings() const final;
   BezierSpline() : Spline(Type::Bezier)
   {
   }
@@ -377,6 +409,7 @@ class NURBSpline final : public Spline {
 
  public:
   SplinePtr copy() const final;
+  SplinePtr copy_settings() const final;
   NURBSpline() : Spline(Type::NURBS)
   {
   }
@@ -444,6 +477,7 @@ class PolySpline final : public Spline {
 
  public:
   SplinePtr copy() const final;
+  SplinePtr copy_settings() const final;
   PolySpline() : Spline(Type::Poly)
   {
   }

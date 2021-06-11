@@ -26,10 +26,21 @@ using blender::float3;
 using blender::IndexRange;
 using blender::MutableSpan;
 using blender::Span;
+using blender::fn::GVArray_Typed;
 
 SplinePtr NURBSpline::copy() const
 {
   return std::make_unique<NURBSpline>(*this);
+}
+
+SplinePtr NURBSpline::copy_settings() const
+{
+  std::unique_ptr<NURBSpline> copy = std::make_unique<NURBSpline>();
+  copy_base_settings(*this, *copy);
+  copy->knots_mode = knots_mode;
+  copy->resolution_ = resolution_;
+  copy->order_ = order_;
+  return copy;
 }
 
 int NURBSpline::size() const
@@ -424,10 +435,9 @@ Span<float3> NURBSpline::evaluated_positions() const
   const int eval_size = this->evaluated_points_size();
   evaluated_position_cache_.resize(eval_size);
 
-  blender::fn::GVArray_Typed<float3> evaluated_positions{
-      this->interpolate_to_evaluated_points(blender::fn::GVArray_For_Span<float3>(positions_))};
-
-  evaluated_positions->materialize(evaluated_position_cache_);
+  /* TODO: Avoid copying the evaluated data from the temporary array. */
+  GVArray_Typed<float3> evaluated = Spline::interpolate_to_evaluated_points(positions_.as_span());
+  evaluated->materialize(evaluated_position_cache_);
 
   position_cache_dirty_ = false;
   return evaluated_position_cache_;
