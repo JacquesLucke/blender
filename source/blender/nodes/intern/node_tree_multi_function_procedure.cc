@@ -17,6 +17,7 @@
 #include "BLI_stack.hh"
 
 #include "NOD_node_tree_multi_function_procedure.hh"
+#include "NOD_type_callbacks.hh"
 
 namespace blender::nodes {
 
@@ -91,6 +92,32 @@ class NodeTreeProcedureBuilder {
   }
 };
 
+MFVariable &NodeMFProcedureBuilder::get_input(StringRef identifer)
+{
+  const DInputSocket socket = node_.input_by_identifier(identifer);
+  const CPPType &cpp_type = *socket_cpp_type_get(*socket->typeinfo());
+  const MFDataType data_type = MFDataType::ForSingle(cpp_type);
+  return *procedure_builder_.variable_by_socket_.lookup_or_add_cb(socket, [&]() {
+    return &this->procedure_builder_.procedure_->new_variable(data_type, socket->name());
+  });
+}
+
+void NodeMFProcedureBuilder::set_output(StringRef identifier, MFVariable &variable)
+{
+  const DOutputSocket socket = node_.output_by_identifier(identifier);
+  procedure_builder_.variable_by_socket_.add_new(socket, &variable);
+}
+
+void NodeMFProcedureBuilder::set_input_instruction(MFInstruction &instruction)
+{
+  input_instruction_ = &instruction;
+}
+
+void NodeMFProcedureBuilder::set_output_instruction(MFInstruction &instruction)
+{
+  output_instruction_ = &instruction;
+}
+
 void NodeMFProcedureBuilder::set_matching_fn(const MultiFunction &fn)
 {
   MFCallInstruction &instruction = procedure_builder_.procedure_->new_call_instruction(fn);
@@ -98,7 +125,13 @@ void NodeMFProcedureBuilder::set_matching_fn(const MultiFunction &fn)
   for (const int i : node_->inputs().index_range()) {
     const DInputSocket socket = node_.input(i);
     if (socket->is_available()) {
-      variables.append(procedure_builder_.variable_by_socket_.lookup(socket));
+      const int param_index = variables.size();
+      const MFParamType param_type = fn.param_type(param_index);
+      const StringRef name = fn.param_name(param_index);
+      MFVariable &input_variable = procedure_builder_.procedure_->new_variable(
+          param_type.data_type(), name);
+      procedure_builder_.variable_by_socket_.add_new(socket, &input_variable);
+      variables.append(&input_variable);
     }
   }
   for (const int i : node_->outputs().index_range()) {
@@ -114,6 +147,8 @@ void NodeMFProcedureBuilder::set_matching_fn(const MultiFunction &fn)
     }
   }
   instruction.set_params(variables);
+  this->set_input_instruction(instruction);
+  this->set_output_instruction(instruction);
 }
 
 MFProcedureFromNodes create_multi_function_procedure(const DerivedNodeTree &tree,

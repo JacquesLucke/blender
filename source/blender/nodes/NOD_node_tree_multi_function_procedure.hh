@@ -31,6 +31,8 @@ class NodeMFProcedureBuilder {
  private:
   const DNode node_;
   NodeTreeProcedureBuilder &procedure_builder_;
+  const MFInstruction *input_instruction_ = nullptr;
+  const MFInstruction *output_instruction_ = nullptr;
 
   friend NodeTreeProcedureBuilder;
 
@@ -47,10 +49,10 @@ class NodeMFProcedureBuilder {
     return *node_->bnode();
   }
 
-  MFVariable *get_input(StringRef identifer);
-  void set_output(StringRef identifier, MFVariable *variable);
-  void set_input_instruction(MFInstruction *instruction);
-  void set_output_inststruction(MFInstruction *instruction);
+  MFVariable &get_input(StringRef identifer);
+  void set_output(StringRef identifier, MFVariable &variable);
+  void set_input_instruction(MFInstruction &instruction);
+  void set_output_instruction(MFInstruction &instruction);
   void set_matching_fn(const MultiFunction &fn);
 };
 
