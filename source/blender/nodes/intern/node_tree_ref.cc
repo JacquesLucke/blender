@@ -444,15 +444,28 @@ bool NodeTreeRef::has_link_cycles() const
   return false;
 }
 
-bool NodeTreeRef::has_undefined_nodes_or_sockets() const
+bool NodeRef::is_undefined_or_has_undefined_sockets() const
 {
-  for (const NodeRef *node : nodes_by_id_) {
-    if (node->is_undefined()) {
+  if (this->is_undefined()) {
+    return true;
+  }
+  for (const SocketRef *socket : inputs_) {
+    if (socket->is_undefined()) {
       return true;
     }
   }
-  for (const SocketRef *socket : sockets_by_id_) {
+  for (const SocketRef *socket : outputs_) {
     if (socket->is_undefined()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool NodeTreeRef::has_undefined_nodes_or_sockets() const
+{
+  for (const NodeRef *node : nodes_by_id_) {
+    if (node->is_undefined_or_has_undefined_sockets()) {
       return true;
     }
   }

@@ -206,6 +206,7 @@ class NodeRef : NonCopyable, NonMovable {
   bool is_muted() const;
   bool is_frame() const;
   bool is_undefined() const;
+  bool is_undefined_or_has_undefined_sockets() const;
 
   void *storage() const;
   template<typename T> T *storage() const;
