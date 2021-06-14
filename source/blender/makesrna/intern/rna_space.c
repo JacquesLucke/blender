@@ -3159,9 +3159,9 @@ static void rna_spreadsheet_context_update(Main *UNUSED(bmain),
   }
 }
 
-static void rna_SpaceSpreadsheet_context_path_guess(SpaceSpreadsheet *sspreadsheet, Main *bmain)
+static void rna_SpaceSpreadsheet_context_path_guess(SpaceSpreadsheet *sspreadsheet, bContext *C)
 {
-  ED_spreadsheet_context_path_guess(bmain, sspreadsheet);
+  ED_spreadsheet_context_path_guess(C, sspreadsheet);
   ED_spreadsheet_context_path_update_tag(sspreadsheet);
   WM_main_add_notifier(NC_SPACE | ND_SPACE_SPREADSHEET, NULL);
 }
@@ -7492,7 +7492,7 @@ static void rna_def_space_spreadsheet_context_path(BlenderRNA *brna, PropertyRNA
 
   func = RNA_def_function(srna, "guess", "rna_SpaceSpreadsheet_context_path_guess");
   RNA_def_function_ui_description(func, "Guess the context path from the current context");
-  RNA_def_function_flag(func, FUNC_USE_MAIN);
+  RNA_def_function_flag(func, FUNC_USE_CONTEXT);
 }
 
 static void rna_def_space_spreadsheet(BlenderRNA *brna)
