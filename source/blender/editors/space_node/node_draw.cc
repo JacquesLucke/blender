@@ -851,6 +851,33 @@ static void node_socket_draw_nested(const bContext *C,
                    shape_id,
                    size_id,
                    outline_col_id);
+
+  bNode *node = (bNode *)node_ptr->data;
+  uiBlock *block = node->block;
+
+  eUIEmbossType old_emboss = (eUIEmbossType)UI_block_emboss_get(block);
+  UI_block_emboss_set(block, UI_EMBOSS_NONE);
+  uiBut *but = uiDefIconBut(block,
+                            UI_BTYPE_BUT,
+                            0,
+                            ICON_NONE,
+                            sock->locx - size / 2,
+                            sock->locy - size / 2,
+                            size,
+                            size,
+                            nullptr,
+                            0,
+                            0,
+                            0,
+                            0,
+                            nullptr);
+  UI_but_func_tooltip_set(
+      but,
+      [](bContext *C, void *argN, const char *tip) { return BLI_strdup("H\nell\no"); },
+      nullptr);
+  UI_block_emboss_set(block, old_emboss);
+
+  UNUSED_VARS(but);
 }
 
 /**
