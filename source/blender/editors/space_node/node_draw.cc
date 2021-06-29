@@ -877,6 +877,7 @@ static void node_socket_draw_nested(const bContext *C,
         return BLI_strdup("H\nell\no");
       },
       nullptr);
+  UI_but_flag_enable(but, UI_BUT_DISABLED);
   UI_block_emboss_set(block, old_emboss);
 
   UNUSED_VARS(but);
