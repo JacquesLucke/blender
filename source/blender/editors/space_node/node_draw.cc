@@ -1229,11 +1229,9 @@ static NodeWarningType node_error_highest_priority(Span<NodeWarning> warnings)
   return highest_priority_type;
 }
 
-static char *node_errors_tooltip_fn(bContext *UNUSED(C), void *argN, const char *UNUSED(tip))
+static char *node_errors_tooltip_fn(const NodeUIStorage &node_ui_storage)
 {
-  const NodeUIStorage **storage_pointer_alloc = static_cast<const NodeUIStorage **>(argN);
-  const NodeUIStorage *node_ui_storage = *storage_pointer_alloc;
-  Span<NodeWarning> warnings = node_ui_storage->warnings;
+  Span<NodeWarning> warnings = node_ui_storage.warnings;
 
   std::string complete_string;
 
@@ -1261,12 +1259,6 @@ static void node_add_error_message_button(
     return;
   }
 
-  /* The UI API forces us to allocate memory for each error button, because the
-   * ownership of #UI_but_func_tooltip_set's argument is transferred to the button. */
-  const NodeUIStorage **storage_pointer_alloc = (const NodeUIStorage **)MEM_mallocN(
-      sizeof(NodeUIStorage *), __func__);
-  *storage_pointer_alloc = node_ui_storage;
-
   const NodeWarningType display_type = node_error_highest_priority(node_ui_storage->warnings);
 
   icon_offset -= NODE_HEADER_ICON_SIZE;
@@ -1285,7 +1277,10 @@ static void node_add_error_message_button(
                             0,
                             0,
                             nullptr);
-  UI_but_func_tooltip_set(but, node_errors_tooltip_fn, storage_pointer_alloc, MEM_freeN);
+  UI_but_func_tooltip_set_lambda(but,
+                                 [node_ui_storage](bContext *UNUSED(C), const char *UNUSED(tip)) {
+                                   return node_errors_tooltip_fn(*node_ui_storage);
+                                 });
   UI_block_emboss_set(node.block, UI_EMBOSS);
 }
 

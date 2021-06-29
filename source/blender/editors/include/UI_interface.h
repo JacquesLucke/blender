@@ -516,7 +516,7 @@ typedef struct ARegion *(*uiButSearchTooltipFn)(struct bContext *C,
                                                 void *active);
 
 /* Must return allocated string. */
-typedef char *(*uiButToolTipFunc)(struct bContext *C, void *argN, const char *tip);
+typedef char *(*uiButToolTipFunc)(struct bContext *C, void *arg, const char *tip);
 typedef int (*uiButPushedStateFunc)(struct uiBut *but, const void *arg);
 
 typedef void (*uiBlockHandleFunc)(struct bContext *C, void *arg, int event);
@@ -1647,6 +1647,7 @@ void UI_but_func_drawextra_set(
 void UI_but_func_menu_step_set(uiBut *but, uiMenuStepFunc func);
 
 void UI_but_func_tooltip_set(uiBut *but, uiButToolTipFunc func, void *arg, uiFreeArgFunc free_arg);
+
 void UI_but_tooltip_refresh(struct bContext *C, uiBut *but);
 void UI_but_tooltip_timer_remove(struct bContext *C, uiBut *but);
 
@@ -2637,5 +2638,45 @@ void UI_interface_tag_script_reload(void);
 #define USE_UI_POPOVER_ONCE
 
 #ifdef __cplusplus
+}
+#endif
+
+#ifdef __cplusplus
+
+#  include <type_traits>
+#  include <utility>
+
+template<typename Func> void UI_but_func_tooltip_set_lambda(uiBut *but, Func &&func)
+{
+  if constexpr (std::is_empty_v<Func>) {
+    UI_but_func_tooltip_set(
+        but,
+        [](struct bContext *C, void *arg, const char *tip) { return Func{}(C, tip); },
+        nullptr,
+        nullptr);
+  }
+  else if constexpr (sizeof(Func) <= sizeof(void *) &&
+                     std::is_trivially_copy_constructible_v<Func>) {
+    const void *func_as_ptr = *(void **)&func;
+    UI_but_func_tooltip_set(
+        but,
+        [](struct bContext *C, void *arg, const char *tip) {
+          Func func = *(Func *)&arg;
+          return func(C, tip);
+        },
+        (void *)func_as_ptr,
+        nullptr);
+  }
+  else {
+    Func *alloced_func = new Func(std::forward<Func>(func));
+    UI_but_func_tooltip_set(
+        but,
+        [](struct bContext *C, void *arg, const char *tip) {
+          Func *func = (Func *)arg;
+          return func(C, tip);
+        },
+        alloced_func,
+        [](void *func) { delete (Func *)func; });
+  }
 }
 #endif
