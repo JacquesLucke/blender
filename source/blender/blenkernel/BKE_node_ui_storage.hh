@@ -61,10 +61,18 @@ struct UIStorageGeometryAttributes {
   blender::Vector<UIStorageAttributeInfo> attributes;
 };
 
+struct UIStorageFloat {
+  std::string node_name;
+  int socket_index;
+  bool is_input;
+  float value;
+};
+
 class LocalNodeTreeUIStorage {
  public:
   blender::Vector<UIStorageGeometryAttributes> geometry_attributes;
   blender::Vector<NodeWarning> node_warnings;
+  blender::Vector<UIStorageFloat> float_values;
 };
 
 class NodeTreeUIStorage {

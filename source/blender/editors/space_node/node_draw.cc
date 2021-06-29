@@ -822,6 +822,12 @@ void node_socket_color_get(
   }
 }
 
+struct SocketTooltipData {
+  bNodeTree *ntree;
+  bNode *node;
+  bNodeSocket *socket;
+};
+
 static void node_socket_draw_nested(const bContext *C,
                                     bNodeTree *ntree,
                                     PointerRNA *node_ptr,
@@ -871,12 +877,34 @@ static void node_socket_draw_nested(const bContext *C,
                             0,
                             0,
                             nullptr);
+
+  SocketTooltipData *data = (SocketTooltipData *)MEM_mallocN(sizeof(SocketTooltipData), __func__);
+  data->ntree = ntree;
+  data->node = (bNode *)node_ptr->data;
+  data->socket = sock;
+
   UI_but_func_tooltip_set(
       but,
-      [](bContext *UNUSED(C), void *UNUSED(argN), const char *UNUSED(tip)) {
-        return BLI_strdup("H\nell\no");
+      [](bContext *UNUSED(C), void *argN, const char *UNUSED(tip)) {
+        SocketTooltipData *data = (SocketTooltipData *)argN;
+        NodeTreeUIStorage &ui_storage = BKE_node_tree_ui_storage_ensure(*data->ntree);
+        for (LocalNodeTreeUIStorage &local_ui_storage : ui_storage.thread_locals) {
+          for (UIStorageFloat &float_storage : local_ui_storage.float_values) {
+            if (float_storage.node_name != data->node->name) {
+              continue;
+            }
+            ListBase sockets = (float_storage.is_input) ? data->node->inputs : data->node->outputs;
+            const int index = BLI_findindex(&sockets, data->socket);
+            if (float_storage.socket_index != index) {
+              continue;
+            }
+            const float value = float_storage.value;
+            return BLI_sprintfN("%f", value);
+          }
+        }
+        return BLI_strdup("");
       },
-      nullptr);
+      data);
   UI_but_flag_enable(but, UI_BUT_DISABLED);
   UI_block_emboss_set(block, old_emboss);
 

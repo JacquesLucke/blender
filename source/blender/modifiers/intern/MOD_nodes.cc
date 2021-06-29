@@ -880,9 +880,6 @@ static void log_ui_hints(const DSocket socket,
                          NodesModifierData *nmd)
 {
   const DNode node = socket.node();
-  if (node->is_reroute_node() || socket->typeinfo()->type != SOCK_GEOMETRY) {
-    return;
-  }
   bNodeTree *btree_cow = node->btree();
   bNodeTree *btree_original = (bNodeTree *)DEG_get_original_id((ID *)btree_cow);
   NodeTreeUIStorage &ui_storage = BKE_node_tree_ui_storage_ensure(*btree_original);
@@ -900,8 +897,15 @@ static void log_ui_hints(const DSocket socket,
           },
           8);
     }
+    if (data.type() == &CPPType::get<float>()) {
+      const float value = *data.get<float>();
+      local_ui_storage.float_values.append(
+          {node->name(), socket->index(), socket->is_input(), value});
+    }
   }
-  local_ui_storage.geometry_attributes.append(std::move(attributes));
+  if (!attributes.attributes.is_empty()) {
+    local_ui_storage.geometry_attributes.append(std::move(attributes));
+  }
 }
 
 /**
