@@ -58,34 +58,27 @@ struct SocketIdentifier {
   int socket_index;
   bool is_input;
 };
+
 struct GeometryAttributeInfo {
   std::string name;
   AttributeDomain domain;
   CustomDataType data_type;
 };
+
 struct GeometryAttributes : public SocketIdentifier {
   blender::Vector<GeometryAttributeInfo> attributes;
 };
+
 }  // namespace node_tree_ui_storage
 
 class LocalNodeTreeUIStorage {
- private:
  public:
-  blender::Vector<node_tree_ui_storage::GeometryAttributes> geometry_attributes_;
-  void add_geometry_attributes(node_tree_ui_storage::GeometryAttributes attributes)
-  {
-    geometry_attributes_.append(std::move(attributes));
-  }
+  blender::Vector<node_tree_ui_storage::GeometryAttributes> geometry_attributes;
 };
 
 class NodeTreeUIStorage {
- private:
  public:
-  blender::threading::EnumerableThreadSpecific<LocalNodeTreeUIStorage> storages_;
-  LocalNodeTreeUIStorage &get()
-  {
-    return storages_.local();
-  }
+  blender::threading::EnumerableThreadSpecific<LocalNodeTreeUIStorage> thread_locals;
 };
 
 NodeTreeUIStorage &BKE_node_tree_ui_storage_ensure(const bNodeTree &ntree);

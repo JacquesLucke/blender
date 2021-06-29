@@ -102,8 +102,8 @@ static void attribute_search_update_fn(const bContext *UNUSED(C),
 
   blender::Set<StringRef> found_names;
   blender::Vector<node_tree_ui_storage::GeometryAttributeInfo *> infos;
-  for (LocalNodeTreeUIStorage &local_storage : ui_storage.storages_) {
-    for (auto &attributes : local_storage.geometry_attributes_) {
+  for (LocalNodeTreeUIStorage &local_storage : ui_storage.thread_locals) {
+    for (auto &attributes : local_storage.geometry_attributes) {
       if (attributes.node_name != data->node->name) {
         continue;
       }

@@ -886,7 +886,7 @@ static void log_ui_hints(const DSocket socket,
   bNodeTree *btree_cow = node->btree();
   bNodeTree *btree_original = (bNodeTree *)DEG_get_original_id((ID *)btree_cow);
   NodeTreeUIStorage &ui_storage = BKE_node_tree_ui_storage_ensure(*btree_original);
-  LocalNodeTreeUIStorage &local_ui_storage = ui_storage.get();
+  LocalNodeTreeUIStorage &local_ui_storage = ui_storage.thread_locals.local();
   node_tree_ui_storage::GeometryAttributes attributes;
   attributes.node_name = node->name();
   attributes.socket_index = socket->index();
@@ -903,7 +903,7 @@ static void log_ui_hints(const DSocket socket,
           8);
     }
   }
-  local_ui_storage.add_geometry_attributes(std::move(attributes));
+  local_ui_storage.geometry_attributes.append(std::move(attributes));
 }
 
 /**
