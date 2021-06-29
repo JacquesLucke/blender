@@ -64,6 +64,7 @@ struct UIStorageGeometryAttributes {
 class LocalNodeTreeUIStorage {
  public:
   blender::Vector<UIStorageGeometryAttributes> geometry_attributes;
+  blender::Vector<NodeWarning> node_warnings;
 };
 
 class NodeTreeUIStorage {

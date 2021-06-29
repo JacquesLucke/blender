@@ -1259,66 +1259,88 @@ static NodeWarningType node_error_highest_priority(Span<NodeWarning> warnings)
   return highest_priority_type;
 }
 
+struct NodeErrorsTooltipData {
+  NodeTreeUIStorage *ui_storage;
+  bNode *node;
+};
+
 static char *node_errors_tooltip_fn(bContext *UNUSED(C), void *argN, const char *UNUSED(tip))
 {
-  // const NodeUIStorage **storage_pointer_alloc = static_cast<const NodeUIStorage **>(argN);
-  // const NodeUIStorage *node_ui_storage = *storage_pointer_alloc;
-  // Span<NodeWarning> warnings = node_ui_storage->warnings;
+  NodeErrorsTooltipData &data = *(NodeErrorsTooltipData *)argN;
 
-  // std::string complete_string;
+  Vector<NodeWarning> warnings;
+  for (LocalNodeTreeUIStorage &local_ui_storage : data.ui_storage->thread_locals) {
+    for (const NodeWarning &warning : local_ui_storage.node_warnings) {
+      if (warning.node_name == data.node->name) {
+        warnings.append(warning);
+      }
+    }
+  }
 
-  // for (const NodeWarning &warning : warnings.drop_back(1)) {
-  //   complete_string += warning.message;
-  //   /* Adding the period is not ideal for multi-line messages, but it is consistent
-  //    * with other tooltip implementations in Blender, so it is added here. */
-  //   complete_string += '.';
-  //   complete_string += '\n';
-  // }
+  std::string complete_string;
 
-  // /* Let the tooltip system automatically add the last period. */
-  // complete_string += warnings.last().message;
+  for (const NodeWarning &warning : warnings.as_span().drop_back(1)) {
+    complete_string += warning.message;
+    /* Adding the period is not ideal for multi-line messages, but it is consistent
+     * with other tooltip implementations in Blender, so it is added here. */
+    complete_string += '.';
+    complete_string += '\n';
+  }
 
-  // return BLI_strdupn(complete_string.c_str(), complete_string.size());
-  return BLI_strdup("test");
+  /* Let the tooltip system automatically add the last period. */
+  complete_string += warnings.last().message;
+
+  return BLI_strdupn(complete_string.c_str(), complete_string.size());
 }
 
 #define NODE_HEADER_ICON_SIZE (0.8f * U.widget_unit)
 
-// static void node_add_error_message_button(
-//     const bContext *C, bNodeTree &ntree, bNode &node, const rctf &rect, float &icon_offset)
-// {
-//   const NodeUIStorage *node_ui_storage = BKE_node_tree_ui_storage_get_from_context(C, ntree,
-//   node); if (node_ui_storage == nullptr || node_ui_storage->warnings.is_empty()) {
-//     return;
-//   }
+static void node_add_error_message_button(
+    const bContext *C, bNodeTree &ntree, bNode &node, const rctf &rect, float &icon_offset)
+{
+  NodeTreeUIStorage &ui_storage = BKE_node_tree_ui_storage_ensure(ntree);
 
-//   /* The UI API forces us to allocate memory for each error button, because the
-//    * ownership of #UI_but_func_tooltip_set's argument is transferred to the button. */
-//   const NodeUIStorage **storage_pointer_alloc = (const NodeUIStorage **)MEM_mallocN(
-//       sizeof(NodeUIStorage *), __func__);
-//   *storage_pointer_alloc = node_ui_storage;
+  Vector<NodeWarning> warnings;
+  for (LocalNodeTreeUIStorage &local_ui_storage : ui_storage.thread_locals) {
+    for (const NodeWarning &warning : local_ui_storage.node_warnings) {
+      if (warning.node_name == node.name) {
+        warnings.append(warning);
+      }
+    }
+  }
 
-//   const NodeWarningType display_type = node_error_highest_priority(node_ui_storage->warnings);
+  if (warnings.is_empty()) {
+    return;
+  }
 
-//   icon_offset -= NODE_HEADER_ICON_SIZE;
-//   UI_block_emboss_set(node.block, UI_EMBOSS_NONE);
-//   uiBut *but = uiDefIconBut(node.block,
-//                             UI_BTYPE_BUT,
-//                             0,
-//                             node_error_type_to_icon(display_type),
-//                             icon_offset,
-//                             rect.ymax - NODE_DY,
-//                             NODE_HEADER_ICON_SIZE,
-//                             UI_UNIT_Y,
-//                             nullptr,
-//                             0,
-//                             0,
-//                             0,
-//                             0,
-//                             nullptr);
-//   UI_but_func_tooltip_set(but, node_errors_tooltip_fn, storage_pointer_alloc);
-//   UI_block_emboss_set(node.block, UI_EMBOSS);
-// }
+  /* The UI API forces us to allocate memory for each error button, because the
+   * ownership of #UI_but_func_tooltip_set's argument is transferred to the button. */
+  NodeErrorsTooltipData *tooltip_data = (NodeErrorsTooltipData *)MEM_mallocN(
+      sizeof(NodeErrorsTooltipData), __func__);
+  tooltip_data->node = &node;
+  tooltip_data->ui_storage = &ui_storage;
+
+  const NodeWarningType display_type = node_error_highest_priority(warnings);
+
+  icon_offset -= NODE_HEADER_ICON_SIZE;
+  UI_block_emboss_set(node.block, UI_EMBOSS_NONE);
+  uiBut *but = uiDefIconBut(node.block,
+                            UI_BTYPE_BUT,
+                            0,
+                            node_error_type_to_icon(display_type),
+                            icon_offset,
+                            rect.ymax - NODE_DY,
+                            NODE_HEADER_ICON_SIZE,
+                            UI_UNIT_Y,
+                            nullptr,
+                            0,
+                            0,
+                            0,
+                            0,
+                            nullptr);
+  UI_but_func_tooltip_set(but, node_errors_tooltip_fn, tooltip_data);
+  UI_block_emboss_set(node.block, UI_EMBOSS);
+}
 
 static void node_draw_basis(const bContext *C,
                             const View2D *v2d,
@@ -1459,7 +1481,7 @@ static void node_draw_basis(const bContext *C,
     UI_block_emboss_set(node->block, UI_EMBOSS);
   }
 
-  // node_add_error_message_button(C, *ntree, *node, *rct, iconofs);
+  node_add_error_message_button(C, *ntree, *node, *rct, iconofs);
 
   /* Title. */
   if (node->flag & SELECT) {
