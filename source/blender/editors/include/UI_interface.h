@@ -533,6 +533,8 @@ typedef void (*uiMenuHandleFunc)(struct bContext *C, void *arg, int event);
  */
 typedef bool (*uiMenuStepFunc)(struct bContext *C, int direction, void *arg1);
 
+typedef void (*uiFreeArgFunc)(void *arg);
+
 /* interface_query.c */
 bool UI_but_has_tooltip_label(const uiBut *but);
 bool UI_but_is_tool(const uiBut *but);
@@ -1644,7 +1646,7 @@ void UI_but_func_drawextra_set(
 
 void UI_but_func_menu_step_set(uiBut *but, uiMenuStepFunc func);
 
-void UI_but_func_tooltip_set(uiBut *but, uiButToolTipFunc func, void *argN);
+void UI_but_func_tooltip_set(uiBut *but, uiButToolTipFunc func, void *arg, uiFreeArgFunc free_arg);
 void UI_but_tooltip_refresh(struct bContext *C, uiBut *but);
 void UI_but_tooltip_timer_remove(struct bContext *C, uiBut *but);
 

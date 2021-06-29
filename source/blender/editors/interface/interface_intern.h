@@ -221,7 +221,8 @@ struct uiBut {
 
   const char *tip;
   uiButToolTipFunc tip_func;
-  void *tip_argN;
+  void *tip_arg;
+  uiFreeArgFunc tip_arg_free;
 
   /** info on why button is disabled, displayed in tooltip */
   const char *disabled_info;

@@ -811,7 +811,8 @@ static void ui_but_update_old_active_from_new(uiBut *oldbut, uiBut *but)
 
   /* Move tooltip from new to old. */
   SWAP(uiButToolTipFunc, oldbut->tip_func, but->tip_func);
-  SWAP(void *, oldbut->tip_argN, but->tip_argN);
+  SWAP(void *, oldbut->tip_arg, but->tip_arg);
+  SWAP(void *, oldbut->tip_arg_free, but->tip_arg_free);
 
   oldbut->flag = (oldbut->flag & ~flag_copy) | (but->flag & flag_copy);
   oldbut->drawflag = (oldbut->drawflag & ~drawflag_copy) | (but->drawflag & drawflag_copy);
@@ -3358,8 +3359,8 @@ static void ui_but_free(const bContext *C, uiBut *but)
     MEM_freeN(but->func_argN);
   }
 
-  if (but->tip_argN) {
-    MEM_freeN(but->tip_argN);
+  if (but->tip_arg_free) {
+    but->tip_arg_free(but->tip_arg);
   }
 
   if (but->hold_argN) {
@@ -6334,13 +6335,14 @@ void UI_but_func_menu_step_set(uiBut *but, uiMenuStepFunc func)
   but->menu_step_func = func;
 }
 
-void UI_but_func_tooltip_set(uiBut *but, uiButToolTipFunc func, void *argN)
+void UI_but_func_tooltip_set(uiBut *but, uiButToolTipFunc func, void *arg, uiFreeArgFunc free_arg)
 {
   but->tip_func = func;
-  if (but->tip_argN) {
-    MEM_freeN(but->tip_argN);
+  if (but->tip_arg_free) {
+    but->tip_arg_free(but->tip_arg);
   }
-  but->tip_argN = argN;
+  but->tip_arg = arg;
+  but->tip_arg_free = free_arg;
 }
 
 void UI_but_func_pushed_state_set(uiBut *but, uiButPushedStateFunc func, const void *arg)
@@ -6965,7 +6967,7 @@ void UI_but_string_info_get(bContext *C, uiBut *but, ...)
     }
     else if (type == BUT_GET_TIP) {
       if (but->tip_func) {
-        tmp = but->tip_func(C, but->tip_argN, but->tip);
+        tmp = but->tip_func(C, but->tip_arg, but->tip);
       }
       else if (but->tip && but->tip[0]) {
         tmp = BLI_strdup(but->tip);
