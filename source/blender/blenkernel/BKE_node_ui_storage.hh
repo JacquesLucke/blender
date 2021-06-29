@@ -18,6 +18,7 @@
 
 #include <mutex>
 
+#include "BLI_enumerable_thread_specific.hh"
 #include "BLI_hash.hh"
 #include "BLI_map.hh"
 #include "BLI_session_uuid.h"
@@ -34,38 +35,8 @@ struct ModifierData;
 struct Object;
 struct bNode;
 struct bNodeTree;
+struct bNodeSocket;
 struct bContext;
-
-/**
- * Contains the context necessary to determine when to display settings for a certain node tree
- * that may be used for multiple modifiers and objects. The object name and modifier session UUID
- * are used instead of pointers because they are re-allocated between evaluations.
- *
- * \note This does not yet handle the context of nested node trees.
- */
-class NodeTreeEvaluationContext {
- private:
-  std::string object_name_;
-  SessionUUID modifier_session_uuid_;
-
- public:
-  NodeTreeEvaluationContext(const Object &object, const ModifierData &modifier)
-  {
-    object_name_ = reinterpret_cast<const ID &>(object).name;
-    modifier_session_uuid_ = modifier.session_uuid;
-  }
-
-  uint64_t hash() const
-  {
-    return blender::get_default_hash_2(object_name_, modifier_session_uuid_);
-  }
-
-  friend bool operator==(const NodeTreeEvaluationContext &a, const NodeTreeEvaluationContext &b)
-  {
-    return a.object_name_ == b.object_name_ &&
-           BLI_session_uuid_is_equal(&a.modifier_session_uuid_, &b.modifier_session_uuid_);
-  }
-};
 
 enum class NodeWarningType {
   Error,
@@ -78,56 +49,43 @@ struct NodeWarning {
   std::string message;
 };
 
-struct AvailableAttributeInfo {
+class NodeTreeUIStorage;
+
+namespace node_tree_ui_storage {
+
+struct SocketIdentifier {
+  std::string node_name;
+  int socket_index;
+  bool is_input;
+};
+struct GeometryAttributeInfo {
   std::string name;
   AttributeDomain domain;
   CustomDataType data_type;
+};
+struct GeometryAttributes : public SocketIdentifier {
+  blender::Vector<GeometryAttributeInfo> attributes;
+};
+}  // namespace node_tree_ui_storage
 
-  uint64_t hash() const
+class LocalNodeTreeUIStorage {
+ private:
+ public:
+  blender::Vector<node_tree_ui_storage::GeometryAttributes> geometry_attributes_;
+  void add_geometry_attributes(node_tree_ui_storage::GeometryAttributes attributes)
   {
-    return blender::get_default_hash(name);
+    geometry_attributes_.append(std::move(attributes));
   }
+};
 
-  friend bool operator==(const AvailableAttributeInfo &a, const AvailableAttributeInfo &b)
+class NodeTreeUIStorage {
+ private:
+ public:
+  blender::threading::EnumerableThreadSpecific<LocalNodeTreeUIStorage> storages_;
+  LocalNodeTreeUIStorage &get()
   {
-    return a.name == b.name;
+    return storages_.local();
   }
 };
 
-struct NodeUIStorage {
-  blender::Vector<NodeWarning> warnings;
-  blender::Set<AvailableAttributeInfo> attribute_hints;
-};
-
-struct NodeTreeUIStorage {
-  std::mutex mutex;
-  blender::Map<NodeTreeEvaluationContext, blender::Map<std::string, NodeUIStorage>> context_map;
-
-  /**
-   * Attribute search uses this to store the fake info for the string typed into a node, in order
-   * to pass the info to the execute callback that sets node socket values. This is mutable since
-   * we can count on only one attribute search being open at a time, and there is no real data
-   * stored here.
-   */
-  mutable AvailableAttributeInfo dummy_info_for_search;
-};
-
-const NodeUIStorage *BKE_node_tree_ui_storage_get_from_context(const bContext *C,
-                                                               const bNodeTree &ntree,
-                                                               const bNode &node);
-
-void BKE_nodetree_ui_storage_free_for_context(bNodeTree &ntree,
-                                              const NodeTreeEvaluationContext &context);
-
-void BKE_nodetree_error_message_add(bNodeTree &ntree,
-                                    const NodeTreeEvaluationContext &context,
-                                    const bNode &node,
-                                    const NodeWarningType type,
-                                    std::string message);
-
-void BKE_nodetree_attribute_hint_add(bNodeTree &ntree,
-                                     const NodeTreeEvaluationContext &context,
-                                     const bNode &node,
-                                     const blender::StringRef attribute_name,
-                                     const AttributeDomain domain,
-                                     const CustomDataType data_type);
+NodeTreeUIStorage &BKE_node_tree_ui_storage_ensure(const bNodeTree &ntree);

@@ -38,6 +38,7 @@ struct ID;
 struct Image;
 struct ListBase;
 struct NodeTreeUIStorage;
+struct MyNodeTreeUIStorage;
 struct bGPdata;
 struct bNodeInstanceHash;
 struct bNodeLink;

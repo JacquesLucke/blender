@@ -37,10 +37,10 @@ void GeoNodeExecParams::error_message_add(const NodeWarningType type, std::strin
   }
   bNodeTree *btree_original = (bNodeTree *)DEG_get_original_id((ID *)btree_cow);
 
-  const NodeTreeEvaluationContext context(*provider_->self_object, *provider_->modifier);
+  // const NodeTreeEvaluationContext context(*provider_->self_object, *provider_->modifier);
 
-  BKE_nodetree_error_message_add(
-      *btree_original, context, *provider_->dnode->bnode(), type, std::move(message));
+  // BKE_nodetree_error_message_add(
+  //     *btree_original, context, *provider_->dnode->bnode(), type, std::move(message));
 }
 
 const bNodeSocket *GeoNodeExecParams::find_available_socket(const StringRef name) const

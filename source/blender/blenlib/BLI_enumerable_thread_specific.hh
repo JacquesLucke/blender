@@ -51,20 +51,46 @@ template<typename T> class EnumerableThreadSpecific : NonCopyable, NonMovable {
     return values_.local();
   }
 
+  auto begin()
+  {
+    return values_.begin();
+  }
+
+  auto end()
+  {
+    return values_.end();
+  }
+
 #else /* WITH_TBB */
 
  private:
   std::mutex mutex_;
   /* Maps thread ids to their corresponding values. The values are not embedded in the map, so that
    * their addresses do not change when the map grows. */
-  Map<int, std::unique_ptr<T>> values_;
+  Map<int, std::reference_wrapper<T>> values_;
+  Vector<std::unique_ptr<T>> owned_values_;
 
  public:
   T &local()
   {
     const int thread_id = enumerable_thread_specific_utils::thread_id;
     std::lock_guard lock{mutex_};
-    return *values_.lookup_or_add_cb(thread_id, []() { return std::make_unique<T>(); });
+    return values_.lookup_or_add_cb(thread_id, [&]() {
+      std::unique_ptr<T> value = std::make_unique<T>();
+      std::reference_wrapper<T> ref = *value;
+      owned_values_.append(std::move(value));
+      return ref;
+    });
+  }
+
+  auto begin()
+  {
+    return values_.values().begin();
+  }
+
+  auto end()
+  {
+    return values_.values().end();
   }
 
 #endif /* WITH_TBB */

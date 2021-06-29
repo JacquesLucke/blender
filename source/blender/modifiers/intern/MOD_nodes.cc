@@ -738,12 +738,11 @@ static void reset_tree_ui_storage(Span<const blender::nodes::NodeTreeRef *> tree
                                   const Object &object,
                                   const ModifierData &modifier)
 {
-  const NodeTreeEvaluationContext context = {object, modifier};
 
   for (const blender::nodes::NodeTreeRef *tree : trees) {
     bNodeTree *btree_cow = tree->btree();
     bNodeTree *btree_original = (bNodeTree *)DEG_get_original_id((ID *)btree_cow);
-    BKE_nodetree_ui_storage_free_for_context(*btree_original, context);
+    UNUSED_VARS(btree_cow, btree_original, object, modifier);
   }
 }
 
@@ -886,24 +885,25 @@ static void log_ui_hints(const DSocket socket,
   }
   bNodeTree *btree_cow = node->btree();
   bNodeTree *btree_original = (bNodeTree *)DEG_get_original_id((ID *)btree_cow);
-  const NodeTreeEvaluationContext context{*self_object, nmd->modifier};
+  NodeTreeUIStorage &ui_storage = BKE_node_tree_ui_storage_ensure(*btree_original);
+  LocalNodeTreeUIStorage &local_ui_storage = ui_storage.get();
+  node_tree_ui_storage::GeometryAttributes attributes;
+  attributes.node_name = node->name();
+  attributes.socket_index = socket->index();
+  attributes.is_input = socket->is_input();
   for (const GPointer &data : values) {
     if (data.type() == &CPPType::get<GeometrySet>()) {
       const GeometrySet &geometry_set = *(const GeometrySet *)data.get();
       blender::bke::geometry_set_instances_attribute_foreach(
           geometry_set,
           [&](StringRefNull attribute_name, const AttributeMetaData &meta_data) {
-            BKE_nodetree_attribute_hint_add(*btree_original,
-                                            context,
-                                            *node->bnode(),
-                                            attribute_name,
-                                            meta_data.domain,
-                                            meta_data.data_type);
+            attributes.attributes.append({attribute_name, meta_data.domain, meta_data.data_type});
             return true;
           },
           8);
     }
   }
+  local_ui_storage.add_geometry_attributes(std::move(attributes));
 }
 
 /**
