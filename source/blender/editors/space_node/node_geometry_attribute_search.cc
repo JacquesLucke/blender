@@ -73,8 +73,7 @@ static StringRef attribute_domain_string(const AttributeDomain domain)
 /* Unicode arrow. */
 #define MENU_SEP "\xe2\x96\xb6"
 
-static bool attribute_search_item_add(uiSearchItems *items,
-                                      const node_tree_ui_storage::GeometryAttributeInfo &item)
+static bool attribute_search_item_add(uiSearchItems *items, const UIStorageAttributeInfo &item)
 {
   const StringRef data_type_name = attribute_data_type_string(item.data_type);
   const StringRef domain_name = attribute_domain_string(item.domain);
@@ -85,9 +84,9 @@ static bool attribute_search_item_add(uiSearchItems *items,
       items, search_item_text.c_str(), (void *)&item, ICON_NONE, UI_BUT_HAS_SEP_CHAR, 0);
 }
 
-static node_tree_ui_storage::GeometryAttributeInfo &get_dummy_item_info()
+static UIStorageAttributeInfo &get_dummy_item_info()
 {
-  static node_tree_ui_storage::GeometryAttributeInfo info;
+  static UIStorageAttributeInfo info;
   return info;
 }
 
@@ -101,7 +100,7 @@ static void attribute_search_update_fn(const bContext *UNUSED(C),
   NodeTreeUIStorage &ui_storage = BKE_node_tree_ui_storage_ensure(*data->tree);
 
   blender::Set<StringRef> found_names;
-  blender::Vector<node_tree_ui_storage::GeometryAttributeInfo *> infos;
+  blender::Vector<UIStorageAttributeInfo *> infos;
   for (LocalNodeTreeUIStorage &local_storage : ui_storage.thread_locals) {
     for (auto &attributes : local_storage.geometry_attributes) {
       if (attributes.node_name != data->node->name) {
@@ -115,7 +114,7 @@ static void attribute_search_update_fn(const bContext *UNUSED(C),
     }
   }
 
-  node_tree_ui_storage::GeometryAttributeInfo &dummy_info = get_dummy_item_info();
+  UIStorageAttributeInfo &dummy_info = get_dummy_item_info();
 
   /* Any string may be valid, so add the current search string along with the hints. */
   if (str[0] != '\0') {
@@ -141,7 +140,7 @@ static void attribute_search_update_fn(const bContext *UNUSED(C),
     BLI_string_search_add(search, item->name.c_str(), (void *)item);
   }
 
-  node_tree_ui_storage::GeometryAttributeInfo **filtered_items;
+  UIStorageAttributeInfo **filtered_items;
   const int filtered_amount = BLI_string_search_query(search, string, (void ***)&filtered_items);
 
   for (const int i : IndexRange(filtered_amount)) {
@@ -159,8 +158,7 @@ static void attribute_search_exec_fn(bContext *C, void *data_v, void *item_v)
 {
   AttributeSearchData *data = static_cast<AttributeSearchData *>(data_v);
   NodeTreeUIStorage &ui_storage = BKE_node_tree_ui_storage_ensure(*data->tree);
-  node_tree_ui_storage::GeometryAttributeInfo *item =
-      (node_tree_ui_storage::GeometryAttributeInfo *)item_v;
+  UIStorageAttributeInfo *item = (UIStorageAttributeInfo *)item_v;
 
   bNodeSocket &socket = *data->socket;
   bNodeSocketValueString *value = static_cast<bNodeSocketValueString *>(socket.default_value);

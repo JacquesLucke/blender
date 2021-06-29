@@ -887,10 +887,8 @@ static void log_ui_hints(const DSocket socket,
   bNodeTree *btree_original = (bNodeTree *)DEG_get_original_id((ID *)btree_cow);
   NodeTreeUIStorage &ui_storage = BKE_node_tree_ui_storage_ensure(*btree_original);
   LocalNodeTreeUIStorage &local_ui_storage = ui_storage.thread_locals.local();
-  node_tree_ui_storage::GeometryAttributes attributes;
+  UIStorageGeometryAttributes attributes;
   attributes.node_name = node->name();
-  attributes.socket_index = socket->index();
-  attributes.is_input = socket->is_input();
   for (const GPointer &data : values) {
     if (data.type() == &CPPType::get<GeometrySet>()) {
       const GeometrySet &geometry_set = *(const GeometrySet *)data.get();

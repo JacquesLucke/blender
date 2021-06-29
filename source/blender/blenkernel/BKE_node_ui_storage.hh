@@ -47,33 +47,23 @@ enum class NodeWarningType {
 struct NodeWarning {
   NodeWarningType type;
   std::string message;
-};
-
-class NodeTreeUIStorage;
-
-namespace node_tree_ui_storage {
-
-struct SocketIdentifier {
   std::string node_name;
-  int socket_index;
-  bool is_input;
 };
 
-struct GeometryAttributeInfo {
+struct UIStorageAttributeInfo {
   std::string name;
   AttributeDomain domain;
   CustomDataType data_type;
 };
 
-struct GeometryAttributes : public SocketIdentifier {
-  blender::Vector<GeometryAttributeInfo> attributes;
+struct UIStorageGeometryAttributes {
+  std::string node_name;
+  blender::Vector<UIStorageAttributeInfo> attributes;
 };
-
-}  // namespace node_tree_ui_storage
 
 class LocalNodeTreeUIStorage {
  public:
-  blender::Vector<node_tree_ui_storage::GeometryAttributes> geometry_attributes;
+  blender::Vector<UIStorageGeometryAttributes> geometry_attributes;
 };
 
 class NodeTreeUIStorage {
