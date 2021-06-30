@@ -41,6 +41,9 @@ DTreeContext &DerivedNodeTree::construct_context_recursively(DTreeContext *paren
   context.parent_context_ = parent_context;
   context.parent_node_ = parent_node;
   context.derived_tree_ = this;
+  /* TODO: Might need a better hash function, because here we want to get unique hashes. */
+  context.parents_hash_ = get_default_hash_2(parent_context ? parent_context->parents_hash_ : 0,
+                                             btree.id.name);
   context.tree_ = &get_tree_ref_from_map(node_tree_refs, btree);
   used_node_tree_refs_.add(context.tree_);
 

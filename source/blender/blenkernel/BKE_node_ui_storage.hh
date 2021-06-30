@@ -21,6 +21,7 @@
 #include "BLI_enumerable_thread_specific.hh"
 #include "BLI_hash.hh"
 #include "BLI_map.hh"
+#include "BLI_multi_value_map.hh"
 #include "BLI_session_uuid.h"
 #include "BLI_set.hh"
 
@@ -50,6 +51,29 @@ struct NodeWarning {
   std::string node_name;
 };
 
+struct UIStorageContextKey {
+  /**
+   * If this is null, the stored data can be freed.
+   */
+  ID *root_id_;
+  /**
+   * Combination of modifier name and node tree path.
+   * It should be possible to iterate over all possible context hashes for a given root object.
+   * This allows removing the context hashes that don't exist anymore.
+   */
+  uint64_t context_hash_;
+
+  uint64_t hash() const
+  {
+    return blender::get_default_hash_2(root_id_, context_hash_);
+  }
+
+  friend bool operator==(const UIStorageContextKey &a, const UIStorageContextKey &b)
+  {
+    return a.root_id_ == b.root_id_ && a.context_hash_ == b.context_hash_;
+  }
+};
+
 struct UIStorageAttributeInfo {
   std::string name;
   AttributeDomain domain;
@@ -68,8 +92,28 @@ struct UIStorageFloat {
   float value;
 };
 
+struct UIStorageSocket {
+  std::unique_ptr<blender::Vector<UIStorageAttributeInfo>> attributes;
+  std::optional<float> float_value;
+};
+
+struct UIStorageNode {
+  blender::Vector<NodeWarning> warnings;
+  blender::Map<int, UIStorageSocket> inputs;
+  blender::Map<int, UIStorageSocket> outputs;
+};
+
+struct StorageForContext {
+  blender::MultiValueMap<std::string, UIStorageNode> nodes;
+};
+
 class LocalNodeTreeUIStorage {
  public:
+  blender::Map<Object *,
+               std::unique_ptr<blender::Map<
+                   std::string,
+                   std::unique_ptr<blender::Map<uint64_t, std::unique_ptr<StorageForContext>>>>>>
+      data_per_context;
   blender::Vector<UIStorageGeometryAttributes> geometry_attributes;
   blender::Vector<NodeWarning> node_warnings;
   blender::Vector<UIStorageFloat> float_values;

@@ -59,7 +59,11 @@ class DTreeContext {
   const NodeTreeRef *tree_;
   /* All the children contexts of this context. */
   Map<const NodeRef *, DTreeContext *> children_;
+  /* Back pointer to the derived node tree. */
   DerivedNodeTree *derived_tree_;
+  /* Hash that identifies the path to the root tree. Should be the same for original or evaluated
+   * data. */
+  uint64_t parents_hash_;
 
   friend DerivedNodeTree;
 
