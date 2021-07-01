@@ -908,6 +908,20 @@ static void log_ui_hints(const DSocket socket,
   }
 }
 
+namespace {
+struct SingleValueForSockets {
+  Vector<DSocket> sockets;
+  GMutablePointer value;
+};
+struct ThreadlocalLoggedEvaluationData {
+  blender::LinearAllocator<> allocator;
+  Vector<SingleValueForSockets> single_value_sockets;
+};
+struct LoggedEvaluationData {
+  blender::threading::EnumerableThreadSpecific<ThreadlocalLoggedEvaluationData> threadlocal_data;
+};
+}  // namespace
+
 /**
  * Evaluate a node group to compute the output geometry.
  * Currently, this uses a fairly basic and inefficient algorithm that might compute things more
@@ -963,16 +977,35 @@ static GeometrySet compute_geometry(const DerivedNodeTree &tree,
   PreviewSocketMap preview_sockets;
   find_sockets_to_preview(nmd, ctx, tree, preview_sockets);
 
+  LoggedEvaluationData logged_evaluation_data;
+
   auto log_socket_value = [&](const Span<DSocket> sockets, const Span<GPointer> values) {
     if (!logging_enabled(ctx)) {
       return;
     }
+
     for (const DSocket &socket : sockets) {
       Span<uint64_t> keys = preview_sockets.lookup(socket);
       if (!keys.is_empty()) {
         log_preview_socket_value(values, ctx->object, keys);
       }
-      log_ui_hints(socket, values, ctx->object, nmd);
+    }
+
+    ThreadlocalLoggedEvaluationData &local_logged_data =
+        logged_evaluation_data.threadlocal_data.local();
+    if (values.size() == 1) {
+      GPointer value = values[0];
+      const CPPType &type = *value.type();
+      if (type.is<GeometrySet>()) {
+        for (const DSocket &socket : sockets) {
+          log_ui_hints(socket, values, ctx->object, nmd);
+        }
+      }
+      else {
+        void *buffer = local_logged_data.allocator.allocate(type.size(), type.alignment());
+        type.copy_construct(value.get(), buffer);
+        local_logged_data.single_value_sockets.append({sockets, {type, buffer}});
+      }
     }
   };
 
