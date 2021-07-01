@@ -909,9 +909,12 @@ static void node_socket_draw_nested(const bContext *C,
         std::unique_ptr<NodeTreeUIDataProvider> *provider = ui_storage.data_by_context.lookup_ptr(
             context_key);
         if (provider == nullptr) {
-          return BLI_strdup("");
+          return BLI_strdup("Unknown");
         }
         std::string tooltip = provider->get()->get_socket_tooltip(*data->node, *data->socket);
+        if (tooltip.empty()) {
+          return BLI_strdup("Unknown");
+        }
         return BLI_strdup(tooltip.c_str());
       },
       data);

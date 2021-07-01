@@ -1154,17 +1154,11 @@ class GeometryNodesEvaluator {
       if (this->should_forward_to_socket(to_socket)) {
         to_sockets.append(to_socket);
       }
-      /* Multi input socket values are logged once all values are available. */
-      if (!to_socket->is_multi_input_socket()) {
-        sockets_to_log_to.append(to_socket);
-      }
     };
     auto handle_skipped_socket_fn = [&, this](const DSocket socket) {
       sockets_to_log_to.append(socket);
     };
     from_socket.foreach_target_socket(handle_target_socket_fn, handle_skipped_socket_fn);
-
-    this->log_socket_value(sockets_to_log_to, value_to_forward);
 
     LinearAllocator<> &allocator = local_allocators_.local();
 
@@ -1175,11 +1169,18 @@ class GeometryNodesEvaluator {
       if (from_type == to_type) {
         /* All target sockets that do not need a conversion will be handled afterwards. */
         to_sockets_same_type.append(to_socket);
+        /* Multi input socket values are logged once all values are available. */
+        if (!to_socket->is_multi_input_socket()) {
+          sockets_to_log_to.append(to_socket);
+        }
         continue;
       }
       this->forward_to_socket_with_different_type(
           allocator, value_to_forward, from_socket, to_socket, to_type);
     }
+
+    this->log_socket_value(sockets_to_log_to, value_to_forward);
+
     this->forward_to_sockets_with_same_type(
         allocator, to_sockets_same_type, value_to_forward, from_socket);
   }
@@ -1210,6 +1211,7 @@ class GeometryNodesEvaluator {
 
     /* Allocate a buffer for the converted value. */
     void *buffer = allocator.allocate(to_type.size(), to_type.alignment());
+    GMutablePointer value{to_type, buffer};
 
     if (conversions_.is_convertible(from_type, to_type)) {
       /* Do the conversion if possible. */
@@ -1219,7 +1221,11 @@ class GeometryNodesEvaluator {
       /* Cannot convert, use default value instead. */
       to_type.copy_construct(to_type.default_value(), buffer);
     }
-    this->add_value_to_input_socket(to_socket, from_socket, {to_type, buffer});
+    /* Multi input socket values are logged once all values are available. */
+    if (!to_socket->is_multi_input_socket()) {
+      this->log_socket_value({to_socket}, value);
+    }
+    this->add_value_to_input_socket(to_socket, from_socket, value);
   }
 
   void forward_to_sockets_with_same_type(LinearAllocator<> &allocator,
