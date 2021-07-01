@@ -107,9 +107,9 @@ struct StorageForContext {
   blender::MultiValueMap<std::string, UIStorageNode> nodes;
 };
 
-class NodeTreeUIDataProvider {
+class NodesEvalInfoProvider {
  public:
-  virtual ~NodeTreeUIDataProvider() = default;
+  virtual ~NodesEvalInfoProvider() = default;
 
   virtual std::string get_socket_tooltip(const bNode &node, const bNodeSocket &socket) const
   {
@@ -155,7 +155,7 @@ class NodeTreeUIStorage {
   blender::threading::EnumerableThreadSpecific<LocalNodeTreeUIStorage> thread_locals;
 
   std::mutex mutex;
-  blender::Map<NodeTreeUIDataContextKey, std::unique_ptr<NodeTreeUIDataProvider>> data_by_context;
+  blender::Map<NodeTreeUIDataContextKey, std::unique_ptr<NodesEvalInfoProvider>> data_by_context;
 };
 
 NodeTreeUIStorage &BKE_node_tree_ui_storage_ensure(const bNodeTree &ntree);

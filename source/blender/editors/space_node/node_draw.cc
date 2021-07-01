@@ -906,7 +906,7 @@ static void node_socket_draw_nested(const bContext *C,
               blender::StringRef(path->nodetree->id.name));
         }
 
-        std::unique_ptr<NodeTreeUIDataProvider> *provider = ui_storage.data_by_context.lookup_ptr(
+        std::unique_ptr<NodesEvalInfoProvider> *provider = ui_storage.data_by_context.lookup_ptr(
             context_key);
         if (provider == nullptr) {
           return BLI_strdup("Unknown");
