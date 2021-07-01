@@ -934,6 +934,33 @@ template<typename T> class SimpleEvalValueLog : public EvalValueLog {
   }
 };
 
+class GeometryEvalValueLog : public EvalValueLog {
+ private:
+  Vector<std::string> attribute_names_;
+
+ public:
+  GeometryEvalValueLog(const GeometrySet &geometry_set)
+  {
+    blender::bke::geometry_set_instances_attribute_foreach(
+        geometry_set,
+        [&](StringRefNull attribute_name, const AttributeMetaData &meta_data) {
+          this->attribute_names_.append(attribute_name);
+          return true;
+        },
+        8);
+  }
+
+  std::string to_tooltip() const
+  {
+    std::stringstream ss;
+    ss << "Attributes\n";
+    for (StringRef attribute_name : attribute_names_) {
+      ss << "  " << attribute_name << "\n";
+    }
+    return ss.str();
+  }
+};
+
 struct LoggedValue {
   Vector<DSocket> sockets;
   std::shared_ptr<EvalValueLog> value;
@@ -1105,6 +1132,16 @@ static GeometrySet compute_geometry(const DerivedNodeTree &tree,
         for (const DSocket &socket : sockets) {
           log_ui_hints(socket, values, ctx->object, nmd);
         }
+        const GeometrySet &geometry_set = *value.get<GeometrySet>();
+        std::shared_ptr<GeometryEvalValueLog> value_log = std::make_shared<GeometryEvalValueLog>(
+            geometry_set);
+        eval_log.logged_values.append({sockets, std::move(value_log)});
+      }
+      else if (type.is<std::string>()) {
+        std::shared_ptr<SimpleEvalValueLog<std::string>> value_log =
+            std::make_shared<SimpleEvalValueLog<std::string>>();
+        value_log->value = *value.get<std::string>();
+        eval_log.logged_values.append({sockets, std::move(value_log)});
       }
       else {
         blender::attribute_math::convert_to_static_type(type, [&](auto dummy) {
