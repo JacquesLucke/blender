@@ -885,24 +885,34 @@ static void node_socket_draw_nested(const bContext *C,
 
   UI_but_func_tooltip_set(
       but,
-      [](bContext *UNUSED(C), void *argN, const char *UNUSED(tip)) {
+      [](bContext *C, void *argN, const char *UNUSED(tip)) {
         SocketTooltipData *data = (SocketTooltipData *)argN;
         NodeTreeUIStorage &ui_storage = BKE_node_tree_ui_storage_ensure(*data->ntree);
-        for (LocalNodeTreeUIStorage &local_ui_storage : ui_storage.thread_locals) {
-          for (UIStorageFloat &float_storage : local_ui_storage.float_values) {
-            if (float_storage.node_name != data->node->name) {
-              continue;
-            }
-            ListBase sockets = (float_storage.is_input) ? data->node->inputs : data->node->outputs;
-            const int index = BLI_findindex(&sockets, data->socket);
-            if (float_storage.socket_index != index) {
-              continue;
-            }
-            const float value = float_storage.value;
-            return BLI_sprintfN("%f", value);
+
+        SpaceNode *snode = CTX_wm_space_node(C);
+
+        NodeTreeUIDataContextKey context_key;
+        context_key.object_name = snode->id->name;
+        LISTBASE_FOREACH (ModifierData *, md, &((Object *)snode->id)->modifiers) {
+          if (md->type == eModifierType_Nodes) {
+            context_key.modifier_name = md->name;
           }
         }
-        return BLI_strdup("");
+        context_key.node_tree_path_hash = 0;
+        LISTBASE_FOREACH (bNodeTreePath *, path, &snode->treepath) {
+          context_key.node_tree_path_hash = blender::get_default_hash_3(
+              context_key.node_tree_path_hash,
+              (path == snode->treepath.first) ? "" : blender::StringRef(path->node_name),
+              blender::StringRef(path->nodetree->id.name));
+        }
+
+        std::unique_ptr<NodeTreeUIDataProvider> *provider = ui_storage.data_by_context.lookup_ptr(
+            context_key);
+        if (provider == nullptr) {
+          return BLI_strdup("");
+        }
+        std::string tooltip = provider->get()->get_socket_tooltip(*data->node, *data->socket);
+        return BLI_strdup(tooltip.c_str());
       },
       data);
   UI_but_flag_enable(but, UI_BUT_DISABLED);

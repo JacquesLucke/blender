@@ -920,6 +920,36 @@ struct ThreadlocalLoggedEvaluationData {
 struct LoggedEvaluationData {
   blender::threading::EnumerableThreadSpecific<ThreadlocalLoggedEvaluationData> threadlocal_data;
 };
+
+struct SocketKey {
+  std::string node_name;
+  bool is_input;
+  int socket_index;
+
+  uint64_t hash() const
+  {
+    return blender::get_default_hash_3(node_name, is_input, socket_index);
+  }
+
+  friend bool operator==(const SocketKey &a, const SocketKey &b)
+  {
+    return a.node_name == b.node_name && a.is_input == b.is_input &&
+           a.socket_index == b.socket_index;
+  }
+};
+
+struct GeometryNodesNodeTreeUIDataProvider : public NodeTreeUIDataProvider {
+  Map<SocketKey, std::string> socket_tooltips;
+
+  std::string get_socket_tooltip(const bNode &node, const bNodeSocket &socket) const override
+  {
+    ListBase sockets = socket.in_out == SOCK_IN ? node.inputs : node.outputs;
+    int index = BLI_findindex(&sockets, &socket);
+    std::string tooltip = socket_tooltips.lookup_default(
+        {node.name, socket.in_out == SOCK_IN, index}, "");
+    return tooltip;
+  }
+};
 }  // namespace
 
 /**
@@ -1018,6 +1048,50 @@ static GeometrySet compute_geometry(const DerivedNodeTree &tree,
   eval_params.self_object = ctx->object;
   eval_params.log_socket_value_fn = log_socket_value;
   blender::modifiers::geometry_nodes::evaluate_geometry_nodes(eval_params);
+
+  blender::Map<
+      bNodeTree *,
+      blender::Map<NodeTreeUIDataContextKey, std::unique_ptr<GeometryNodesNodeTreeUIDataProvider>>>
+      providers;
+
+  for (ThreadlocalLoggedEvaluationData &local_logged_data :
+       logged_evaluation_data.threadlocal_data) {
+    for (SingleValueForSockets &single_value_for_sockets :
+         local_logged_data.single_value_sockets) {
+      for (const DSocket &socket : single_value_for_sockets.sockets) {
+        bNodeTree *tree_orig = (bNodeTree *)DEG_get_original_id(
+            (ID *)socket->node().tree().btree());
+        NodeTreeUIDataContextKey context_key;
+        context_key.object_name = ctx->object->id.name;
+        context_key.modifier_name = nmd->modifier.name;
+        context_key.node_tree_path_hash = socket.context()->context_hash();
+        GeometryNodesNodeTreeUIDataProvider &provider =
+            *providers.lookup_or_add_default(tree_orig).lookup_or_add_cb(context_key, []() {
+              return std::make_unique<GeometryNodesNodeTreeUIDataProvider>();
+            });
+        std::string tooltip = single_value_for_sockets.value.type()->to_string(
+            single_value_for_sockets.value.get());
+        SocketKey socket_key;
+        socket_key.node_name = socket->node().name();
+        socket_key.is_input = socket->is_input();
+        socket_key.socket_index = socket->index();
+        provider.socket_tooltips.add_new(socket_key, tooltip);
+      }
+    }
+  }
+
+  providers.foreach_item([&](bNodeTree *tree, const auto &providers_for_tree) {
+    NodeTreeUIStorage &ui_storage = BKE_node_tree_ui_storage_ensure(*tree);
+    std::lock_guard lock{ui_storage.mutex};
+    providers_for_tree.foreach_item(
+        [&](NodeTreeUIDataContextKey context_key,
+            const std::unique_ptr<GeometryNodesNodeTreeUIDataProvider> &provider) {
+          ui_storage.data_by_context.add_overwrite(
+              context_key,
+              std::move(
+                  const_cast<std::unique_ptr<GeometryNodesNodeTreeUIDataProvider> &>(provider)));
+        });
+  });
 
   BLI_assert(eval_params.r_output_values.size() == 1);
   GMutablePointer result = eval_params.r_output_values[0];

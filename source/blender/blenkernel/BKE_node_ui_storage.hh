@@ -107,6 +107,37 @@ struct StorageForContext {
   blender::MultiValueMap<std::string, UIStorageNode> nodes;
 };
 
+class NodeTreeUIDataProvider {
+ public:
+  virtual ~NodeTreeUIDataProvider() = default;
+
+  virtual std::string get_socket_tooltip(const bNode &node, const bNodeSocket &socket) const
+  {
+    UNUSED_VARS(node, socket);
+    return "";
+  }
+};
+
+struct NodeTreeUIDataContextKey {
+  /* TODO: Should be an object pointer. */
+  std::string object_name;
+  /* TODO: Use modifier session id? */
+  std::string modifier_name;
+
+  uint64_t node_tree_path_hash;
+
+  uint64_t hash() const
+  {
+    return blender::get_default_hash_3(object_name, modifier_name, node_tree_path_hash);
+  }
+
+  friend bool operator==(const NodeTreeUIDataContextKey &a, const NodeTreeUIDataContextKey &b)
+  {
+    return a.object_name == b.object_name && a.modifier_name == b.modifier_name &&
+           a.node_tree_path_hash == b.node_tree_path_hash;
+  }
+};
+
 class LocalNodeTreeUIStorage {
  public:
   blender::Map<Object *,
@@ -122,6 +153,9 @@ class LocalNodeTreeUIStorage {
 class NodeTreeUIStorage {
  public:
   blender::threading::EnumerableThreadSpecific<LocalNodeTreeUIStorage> thread_locals;
+
+  std::mutex mutex;
+  blender::Map<NodeTreeUIDataContextKey, std::unique_ptr<NodeTreeUIDataProvider>> data_by_context;
 };
 
 NodeTreeUIStorage &BKE_node_tree_ui_storage_ensure(const bNodeTree &ntree);

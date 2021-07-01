@@ -63,7 +63,7 @@ class DTreeContext {
   DerivedNodeTree *derived_tree_;
   /* Hash that identifies the path to the root tree. Should be the same for original or evaluated
    * data. */
-  uint64_t parents_hash_;
+  uint64_t context_hash_;
 
   friend DerivedNodeTree;
 
@@ -74,6 +74,7 @@ class DTreeContext {
   const DTreeContext *child_context(const NodeRef &node) const;
   const DerivedNodeTree &derived_tree() const;
   bool is_root() const;
+  uint64_t context_hash() const;
 };
 
 /* A (nullable) reference to a node and the context it is in. It is unique within an entire nested
@@ -238,6 +239,11 @@ inline const DerivedNodeTree &DTreeContext::derived_tree() const
 inline bool DTreeContext::is_root() const
 {
   return parent_context_ == nullptr;
+}
+
+inline uint64_t DTreeContext::context_hash() const
+{
+  return context_hash_;
 }
 
 /* --------------------------------------------------------------------
