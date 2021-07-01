@@ -48,6 +48,7 @@
 #include "DNA_space_types.h"
 #include "DNA_windowmanager_types.h"
 
+#include "BKE_attribute_math.hh"
 #include "BKE_customdata.h"
 #include "BKE_geometry_set_instances.hh"
 #include "BKE_global.h"
@@ -97,6 +98,7 @@ using blender::Vector;
 using blender::fn::GMutablePointer;
 using blender::fn::GPointer;
 using blender::nodes::GeoNodeExecParams;
+using blender::threading::EnumerableThreadSpecific;
 using namespace blender::fn::multi_function_types;
 using namespace blender::nodes::derived_node_tree_types;
 
@@ -909,12 +911,37 @@ static void log_ui_hints(const DSocket socket,
 }
 
 namespace {
+
+class EvalValueLog {
+ public:
+  virtual ~EvalValueLog() = default;
+
+  virtual std::string to_tooltip() const
+  {
+    return "";
+  }
+};
+
+template<typename T> class SimpleEvalValueLog : public EvalValueLog {
+ public:
+  T value;
+
+  std::string to_tooltip() const
+  {
+    std::stringstream ss;
+    ss << CPPType::get<T>().name() << ": " << this->value;
+    return ss.str();
+  }
+};
+
 struct LoggedValue {
   Vector<DSocket> sockets;
-  GMutablePointer value;
+  std::shared_ptr<EvalValueLog> value;
 };
+
 struct LoggedEvaluationData {
   blender::LinearAllocator<> allocator;
+
   Vector<LoggedValue> logged_values;
 };
 
@@ -936,18 +963,70 @@ struct SocketKey {
 };
 
 struct GeoNodesEvalInfoProvider : public NodesEvalInfoProvider {
-  Map<SocketKey, std::string> socket_tooltips;
+  Map<SocketKey, std::shared_ptr<EvalValueLog>> socket_values;
 
   std::string get_socket_tooltip(const bNode &node, const bNodeSocket &socket) const override
   {
     ListBase sockets = socket.in_out == SOCK_IN ? node.inputs : node.outputs;
     int index = BLI_findindex(&sockets, &socket);
-    std::string tooltip = socket_tooltips.lookup_default(
-        {node.name, socket.in_out == SOCK_IN, index}, "");
-    return tooltip;
+    const std::shared_ptr<EvalValueLog> *logged_value = socket_values.lookup_ptr(
+        {node.name, socket.in_out == SOCK_IN, index});
+    if (logged_value == nullptr) {
+      return "";
+    }
+    return (*logged_value)->to_tooltip();
   }
 };
 }  // namespace
+
+static void store_ui_eval_data_on_trees(
+    EnumerableThreadSpecific<LoggedEvaluationData> &eval_log_per_thread,
+    NodesModifierData *nmd,
+    const ModifierEvalContext *ctx)
+{
+  using ProviderByContext =
+      Map<NodeTreeUIDataContextKey, std::unique_ptr<GeoNodesEvalInfoProvider>>;
+  using ProvidersByTree = Map<bNodeTree *, ProviderByContext>;
+
+  ProvidersByTree providers;
+
+  for (LoggedEvaluationData &eval_log : eval_log_per_thread) {
+    for (LoggedValue &logged_value : eval_log.logged_values) {
+      for (const DSocket &socket : logged_value.sockets) {
+        bNodeTree *tree_eval = socket->node().tree().btree();
+        bNodeTree *tree_orig = (bNodeTree *)DEG_get_original_id((ID *)tree_eval);
+
+        NodeTreeUIDataContextKey context_key;
+        context_key.object_name = ctx->object->id.name;
+        context_key.modifier_name = nmd->modifier.name;
+        context_key.node_tree_path_hash = socket.context()->context_hash();
+
+        GeoNodesEvalInfoProvider &provider =
+            *providers.lookup_or_add_default(tree_orig).lookup_or_add_cb(
+                context_key, []() { return std::make_unique<GeoNodesEvalInfoProvider>(); });
+
+        SocketKey socket_key;
+        socket_key.node_name = socket->node().name();
+        socket_key.is_input = socket->is_input();
+        socket_key.socket_index = socket->index();
+        provider.socket_values.add_new(socket_key, logged_value.value);
+      }
+    }
+  }
+
+  for (ProvidersByTree::MutableItem item : providers.items()) {
+    bNodeTree &tree_orig = *item.key;
+    ProviderByContext &provider_by_context = item.value;
+
+    NodeTreeUIStorage &ui_storage = BKE_node_tree_ui_storage_ensure(tree_orig);
+    std::lock_guard lock{ui_storage.mutex};
+    for (ProviderByContext::MutableItem tree_item : provider_by_context.items()) {
+      const NodeTreeUIDataContextKey &context_key = tree_item.key;
+      std::unique_ptr<GeoNodesEvalInfoProvider> &provider = tree_item.value;
+      ui_storage.data_by_context.add_overwrite(context_key, std::move(provider));
+    }
+  }
+}
 
 /**
  * Evaluate a node group to compute the output geometry.
@@ -1004,7 +1083,7 @@ static GeometrySet compute_geometry(const DerivedNodeTree &tree,
   PreviewSocketMap preview_sockets;
   find_sockets_to_preview(nmd, ctx, tree, preview_sockets);
 
-  blender::threading::EnumerableThreadSpecific<LoggedEvaluationData> eval_log_per_thread;
+  EnumerableThreadSpecific<LoggedEvaluationData> eval_log_per_thread;
 
   auto log_socket_value = [&](const Span<DSocket> sockets, const Span<GPointer> values) {
     if (!logging_enabled(ctx)) {
@@ -1028,9 +1107,12 @@ static GeometrySet compute_geometry(const DerivedNodeTree &tree,
         }
       }
       else {
-        void *buffer = eval_log.allocator.allocate(type.size(), type.alignment());
-        type.copy_construct(value.get(), buffer);
-        eval_log.logged_values.append({sockets, {type, buffer}});
+        blender::attribute_math::convert_to_static_type(type, [&](auto dummy) {
+          using T = decltype(dummy);
+          SimpleEvalValueLog<T> *value_log = new SimpleEvalValueLog<T>();
+          value_log->value = *value.get<T>();
+          eval_log.logged_values.append({sockets, std::shared_ptr<EvalValueLog>(value_log)});
+        });
       }
     }
   };
@@ -1045,50 +1127,7 @@ static GeometrySet compute_geometry(const DerivedNodeTree &tree,
   eval_params.log_socket_value_fn = log_socket_value;
   blender::modifiers::geometry_nodes::evaluate_geometry_nodes(eval_params);
 
-  using ProviderByContext =
-      Map<NodeTreeUIDataContextKey, std::unique_ptr<GeoNodesEvalInfoProvider>>;
-  using ProvidersByTree = Map<bNodeTree *, ProviderByContext>;
-
-  ProvidersByTree providers;
-
-  for (LoggedEvaluationData &eval_log : eval_log_per_thread) {
-    for (LoggedValue &logged_value : eval_log.logged_values) {
-      for (const DSocket &socket : logged_value.sockets) {
-        bNodeTree *tree_eval = socket->node().tree().btree();
-        bNodeTree *tree_orig = (bNodeTree *)DEG_get_original_id((ID *)tree_eval);
-
-        NodeTreeUIDataContextKey context_key;
-        context_key.object_name = ctx->object->id.name;
-        context_key.modifier_name = nmd->modifier.name;
-        context_key.node_tree_path_hash = socket.context()->context_hash();
-
-        GeoNodesEvalInfoProvider &provider =
-            *providers.lookup_or_add_default(tree_orig).lookup_or_add_cb(
-                context_key, []() { return std::make_unique<GeoNodesEvalInfoProvider>(); });
-
-        std::string tooltip = logged_value.value.type()->to_string(logged_value.value.get());
-
-        SocketKey socket_key;
-        socket_key.node_name = socket->node().name();
-        socket_key.is_input = socket->is_input();
-        socket_key.socket_index = socket->index();
-        provider.socket_tooltips.add_new(socket_key, std::move(tooltip));
-      }
-    }
-  }
-
-  for (ProvidersByTree::MutableItem item : providers.items()) {
-    bNodeTree &tree_orig = *item.key;
-    ProviderByContext &provider_by_context = item.value;
-
-    NodeTreeUIStorage &ui_storage = BKE_node_tree_ui_storage_ensure(tree_orig);
-    std::lock_guard lock{ui_storage.mutex};
-    for (ProviderByContext::MutableItem tree_item : provider_by_context.items()) {
-      const NodeTreeUIDataContextKey &context_key = tree_item.key;
-      std::unique_ptr<GeoNodesEvalInfoProvider> &provider = tree_item.value;
-      ui_storage.data_by_context.add_overwrite(context_key, std::move(provider));
-    }
-  }
+  store_ui_eval_data_on_trees(eval_log_per_thread, nmd, ctx);
 
   BLI_assert(eval_params.r_output_values.size() == 1);
   GMutablePointer result = eval_params.r_output_values[0];
