@@ -31,7 +31,7 @@ using namespace nodes::derived_node_tree_types;
 using fn::GMutablePointer;
 using fn::GPointer;
 
-using LogSocketValueFn = std::function<void(DSocket, Span<GPointer>)>;
+using LogSocketValueFn = std::function<void(Span<DSocket>, Span<GPointer>)>;
 
 struct GeometryNodesEvaluationParams {
   blender::LinearAllocator<> allocator;

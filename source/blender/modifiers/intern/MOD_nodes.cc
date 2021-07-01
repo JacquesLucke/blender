@@ -963,15 +963,17 @@ static GeometrySet compute_geometry(const DerivedNodeTree &tree,
   PreviewSocketMap preview_sockets;
   find_sockets_to_preview(nmd, ctx, tree, preview_sockets);
 
-  auto log_socket_value = [&](const DSocket socket, const Span<GPointer> values) {
+  auto log_socket_value = [&](const Span<DSocket> sockets, const Span<GPointer> values) {
     if (!logging_enabled(ctx)) {
       return;
     }
-    Span<uint64_t> keys = preview_sockets.lookup(socket);
-    if (!keys.is_empty()) {
-      log_preview_socket_value(values, ctx->object, keys);
+    for (const DSocket &socket : sockets) {
+      Span<uint64_t> keys = preview_sockets.lookup(socket);
+      if (!keys.is_empty()) {
+        log_preview_socket_value(values, ctx->object, keys);
+      }
+      log_ui_hints(socket, values, ctx->object, nmd);
     }
-    log_ui_hints(socket, values, ctx->object, nmd);
   };
 
   blender::modifiers::geometry_nodes::GeometryNodesEvaluationParams eval_params;
