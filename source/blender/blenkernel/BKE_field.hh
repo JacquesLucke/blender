@@ -31,6 +31,7 @@
 namespace blender::bke {
 
 using fn::CPPType;
+using fn::GMutableSpan;
 using fn::GVArray;
 using fn::GVArrayPtr;
 using fn::MultiFunction;
@@ -48,6 +49,7 @@ class FieldInputKey {
  private:
   virtual bool is_same_as(const FieldInputKey &other) const
   {
+    UNUSED_VARS(other);
     return false;
   }
 };
@@ -252,7 +254,7 @@ template<typename T, typename KeyT> class VArrayField : public Field<T> {
 
   FieldOutput<T> evaluate(IndexMask mask, const FieldInputs &inputs) const
   {
-    const VArrayFieldInputValue<T> *input = inputs.<VArrayFieldInputValue<T>>(key_);
+    const VArrayFieldInputValue<T> *input = inputs.get<VArrayFieldInputValue<T>>(key_);
     if (input == nullptr) {
       return std::make_unique<VArray_For_Single<T>>(default_value_, mask.min_array_size());
     }
@@ -260,7 +262,7 @@ template<typename T, typename KeyT> class VArrayField : public Field<T> {
   }
 };
 
-template<typename T> class MultiFunctionField : public Field<T> {
+class MultiFunctionField : public GField {
  private:
   Vector<std::shared_ptr<GField>> input_fields_;
   const MultiFunction *fn_;
@@ -274,25 +276,42 @@ template<typename T> class MultiFunctionField : public Field<T> {
   {
   }
 
-  FieldOutput<T> evaluate(IndexMask mask, const FieldInputs &inputs) const
+  const CPPType &output_type() const override
   {
-    fn::MFParamsBuilder params{*fn, mask.min_array_size()};
+    return fn_->param_type(output_param_index_).data_type().single_type();
+  }
+
+  GFieldOutput evaluate_generic(IndexMask mask, const FieldInputs &inputs) const
+  {
+    fn::MFParamsBuilder params{*fn_, mask.min_array_size()};
     fn::MFContextBuilder context;
 
     ResourceScope &scope = params.resource_scope();
 
-    const int input_index = 0;
+    const CPPType &output_type = this->output_type();
+
+    Vector<GMutableSpan> outputs;
+    int output_span_index = -1;
+
+    int input_index = 0;
     for (const int param_index : fn_->param_indices()) {
       fn::MFParamType param_type = fn_->param_type(param_index);
       switch (param_type.category()) {
         case fn::MFParamType::SingleInput: {
           const GField &field = *input_fields_[input_index];
+          GFieldOutput &output = scope.add_value(field.evaluate_generic(mask, inputs), __func__);
+          params.add_readonly_single_input(output.varray_ref());
           input_index++;
         }
         case fn::MFParamType::SingleOutput: {
+          const CPPType &type = param_type.data_type().single_type();
+          void *buffer = MEM_mallocN_aligned(
+              mask.min_array_size() * type.size(), type.alignment(), __func__);
+          GMutableSpan span{type, buffer, mask.min_array_size()};
+          outputs.append(span);
+          params.add_uninitialized_single_output(span);
           if (param_index == output_param_index_) {
-          }
-          else {
+            output_span_index = outputs.size() - 1;
           }
         }
         case fn::MFParamType::SingleMutable:
@@ -303,6 +322,20 @@ template<typename T> class MultiFunctionField : public Field<T> {
           break;
       }
     }
+
+    fn_->call(mask, params, context);
+
+    GMutableSpan output_span = outputs[output_span_index];
+    outputs.remove(output_span_index);
+
+    for (GMutableSpan span : outputs) {
+      span.type().destruct_indices(span.data(), mask);
+      MEM_freeN(span.data());
+    }
+
+    /* TODO: Transfer ownership of the span. */
+    GVArrayPtr varray = std::make_unique<fn::GVArray_For_GSpan>(output_span);
+    return varray;
   }
 };
 
