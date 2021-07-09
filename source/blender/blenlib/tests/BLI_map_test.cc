@@ -653,6 +653,18 @@ TEST(map, LookupKey)
   EXPECT_EQ(map.lookup_key_ptr("a"), map.lookup_key_ptr_as("a"));
 }
 
+TEST(map, ReferenceWrapperKey)
+{
+  Map<std::reference_wrapper<int>, int> map;
+  int a = 2;
+  int b = 5;
+  map.add(a, 10);
+  map.add(a, 20);
+  map.add(b, 20);
+  EXPECT_EQ(map.lookup(a), 10);
+  EXPECT_EQ(map.lookup(b), 20);
+}
+
 /**
  * Set this to 1 to activate the benchmark. It is disabled by default, because it prints a lot.
  */
