@@ -333,9 +333,7 @@ class MultiFunctionField : public GField {
       MEM_freeN(span.data());
     }
 
-    /* TODO: Transfer ownership of the span. */
-    GVArrayPtr varray = std::make_unique<fn::GVArray_For_GSpan>(output_span);
-    return varray;
+    return {std::make_unique<fn::GVArray_For_OwnedGSpan>(output_span, mask)};
   }
 };
 

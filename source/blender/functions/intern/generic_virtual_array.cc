@@ -216,6 +216,16 @@ GSpan GVArray_For_GSpan::get_internal_span_impl() const
 }
 
 /* --------------------------------------------------------------------
+ * GVArray_For_OwnedGSpan.
+ */
+
+GVArray_For_OwnedGSpan::~GVArray_For_OwnedGSpan()
+{
+  type_->destruct_indices((void *)data_, indices_to_destruct_);
+  MEM_freeN((void *)data_);
+}
+
+/* --------------------------------------------------------------------
  * GVMutableArray_For_GMutableSpan.
  */
 

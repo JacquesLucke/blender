@@ -260,6 +260,23 @@ class GVArray_For_GSpan : public GVArray {
   GSpan get_internal_span_impl() const override;
 };
 
+class GVArray_For_OwnedGSpan : public GVArray_For_GSpan {
+ private:
+  IndexMask indices_to_destruct_;
+
+ public:
+  GVArray_For_OwnedGSpan(const GSpan span) : GVArray_For_OwnedGSpan(span, IndexMask(span.size()))
+  {
+  }
+
+  GVArray_For_OwnedGSpan(const GSpan span, IndexMask indices_to_destruct)
+      : GVArray_For_GSpan(span), indices_to_destruct_(indices_to_destruct)
+  {
+  }
+
+  ~GVArray_For_OwnedGSpan();
+};
+
 class GVArray_For_Empty : public GVArray {
  public:
   GVArray_For_Empty(const CPPType &type) : GVArray(type, 0)
