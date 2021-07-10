@@ -20,8 +20,11 @@
  * \ingroup bke
  */
 
+#include <atomic>
+
 #include "BLI_function_ref.hh"
 #include "BLI_map.hh"
+#include "BLI_user_counter.hh"
 #include "BLI_vector.hh"
 #include "BLI_virtual_array.hh"
 
@@ -137,7 +140,7 @@ class FieldInputs {
 
 template<typename T> class FieldOutput {
  private:
-  VArray<T> *varray_ = nullptr;
+  const VArray<T> *varray_ = nullptr;
   VArrayPtr<T> varray_owned_;
 
  public:
@@ -181,6 +184,9 @@ class GFieldOutput {
 };
 
 class GField {
+ private:
+  mutable std::atomic<int> users_ = 1;
+
  public:
   virtual ~GField() = default;
 
@@ -199,6 +205,19 @@ class GField {
   virtual const CPPType &output_type() const = 0;
 
   virtual GFieldOutput evaluate_generic(IndexMask mask, const FieldInputs &inputs) const = 0;
+
+  void user_add() const
+  {
+    users_.fetch_add(1);
+  }
+
+  void user_remove() const
+  {
+    const int new_users = users_.fetch_sub(1) - 1;
+    if (new_users == 0) {
+      delete this;
+    }
+  }
 };
 
 template<typename T> class Field : public GField {
@@ -209,9 +228,9 @@ template<typename T> class Field : public GField {
   {
     FieldOutput<T> output = this->evaluate(mask, inputs);
     if (output.varray_owned()) {
-      return std::make_unique<fn::GVArray_For_OwnedVArray>(std::move(output.varray_owned()));
+      return {std::make_unique<fn::GVArray_For_OwnedVArray<T>>(std::move(output.varray_owned()))};
     }
-    return std::make_unique<fn::GVArray_For_VArray>(output.varray_ref());
+    return {std::make_unique<fn::GVArray_For_VArray<T>>(output.varray_ref())};
   }
 
   const CPPType &output_type() const override
@@ -229,20 +248,20 @@ template<typename T> class ConstantField : public Field<T> {
   {
   }
 
-  FieldOutput<T> evaluate(IndexMask mask, const FieldInputs &inputs) const
+  FieldOutput<T> evaluate(IndexMask mask, const FieldInputs &UNUSED(inputs)) const
   {
-    return std::make_unique<VArray_For_Single<T>>(value_, mask.min_array_size());
+    return {std::make_unique<VArray_For_Single<T>>(value_, mask.min_array_size())};
   }
 };
 
-template<typename T, typename KeyT> class VArrayField : public Field<T> {
+template<typename T, typename KeyT> class VArrayInputField : public Field<T> {
  private:
   T default_value_;
   KeyT key_;
 
  public:
   template<typename... Args>
-  VArrayField(T default_value, Args &&... args)
+  VArrayInputField(T default_value, Args &&... args)
       : default_value_(std::move(default_value)), key_(std::forward<Args>(args)...)
   {
   }
@@ -252,13 +271,31 @@ template<typename T, typename KeyT> class VArrayField : public Field<T> {
     callback(key_);
   }
 
-  FieldOutput<T> evaluate(IndexMask mask, const FieldInputs &inputs) const
+  FieldOutput<T> evaluate(IndexMask mask, const FieldInputs &inputs) const override
   {
     const VArrayFieldInputValue<T> *input = inputs.get<VArrayFieldInputValue<T>>(key_);
     if (input == nullptr) {
       return std::make_unique<VArray_For_Single<T>>(default_value_, mask.min_array_size());
     }
     return input->varray();
+  }
+};
+
+template<typename T, typename VArrayT> class VArrayField : public Field<T> {
+ private:
+  T default_value_;
+  VArrayT varray_;
+
+ public:
+  template<typename... Args>
+  VArrayField(T default_value, Args &&... args)
+      : default_value_(std::move(default_value)), varray_(std::forward<Args>(args)...)
+  {
+  }
+
+  FieldOutput<T> evaluate(IndexMask UNUSED(mask), const FieldInputs &UNUSED(inputs)) const override
+  {
+    return {varray_};
   }
 };
 
@@ -287,8 +324,6 @@ class MultiFunctionField : public GField {
     fn::MFContextBuilder context;
 
     ResourceScope &scope = params.resource_scope();
-
-    const CPPType &output_type = this->output_type();
 
     Vector<GMutableSpan> outputs;
     int output_span_index = -1;
@@ -336,5 +371,7 @@ class MultiFunctionField : public GField {
     return {std::make_unique<fn::GVArray_For_OwnedGSpan>(output_span, mask)};
   }
 };
+
+template<typename T> using FieldPtr = UserCounter<Field<T>>;
 
 }  // namespace blender::bke

@@ -98,10 +98,18 @@ static void fill_attribute(GeometryComponent &component, const GeoNodeExecParams
     return;
   }
 
+  const int domain_size = attribute->size();
+
   switch (data_type) {
     case CD_PROP_FLOAT: {
-      const float value = params.get_input<float>("Value_001");
-      attribute->fill(&value);
+      const FieldPtr<float> &value_field = params.get_input<FieldPtr<float>>("Value_001");
+      bke::FieldInputs field_inputs = value_field->prepare_inputs();
+      bke::FieldOutput<float> field_output = value_field->evaluate(IndexMask(domain_size),
+                                                                   field_inputs);
+      for (const int i : IndexRange(domain_size)) {
+        const float value = field_output.varray_ref()[i];
+        attribute->set_by_copy(i, &value);
+      }
       break;
     }
     case CD_PROP_FLOAT3: {

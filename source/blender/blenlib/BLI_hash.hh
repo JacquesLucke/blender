@@ -250,6 +250,13 @@ template<typename T> struct DefaultHash<std::unique_ptr<T>> {
   }
 };
 
+template<typename T> struct DefaultHash<std::shared_ptr<T>> {
+  uint64_t operator()(const std::shared_ptr<T> &value) const
+  {
+    return get_default_hash(value.get());
+  }
+};
+
 template<typename T> struct DefaultHash<std::reference_wrapper<T>> {
   uint64_t operator()(const std::reference_wrapper<T> &value) const
   {

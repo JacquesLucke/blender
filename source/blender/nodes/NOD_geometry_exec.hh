@@ -19,6 +19,7 @@
 #include "FN_generic_value_map.hh"
 
 #include "BKE_attribute_access.hh"
+#include "BKE_field.hh"
 #include "BKE_geometry_set.hh"
 #include "BKE_geometry_set_instances.hh"
 
@@ -32,6 +33,7 @@ struct ModifierData;
 
 namespace blender::nodes {
 
+using bke::FieldPtr;
 using bke::geometry_set_realize_instances;
 using bke::OutputAttribute;
 using bke::OutputAttribute_Typed;

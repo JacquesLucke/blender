@@ -215,12 +215,13 @@ void GeoNodeExecParams::check_input_access(StringRef identifier,
     BLI_assert_unreachable();
   }
   else if (requested_type != nullptr) {
-    const CPPType &expected_type = *socket_cpp_type_get(*found_socket->typeinfo);
-    if (*requested_type != expected_type) {
-      std::cout << "The requested type '" << requested_type->name() << "' is incorrect. Expected '"
-                << expected_type.name() << "'.\n";
-      BLI_assert_unreachable();
-    }
+    // const CPPType &expected_type = *socket_cpp_type_get(*found_socket->typeinfo);
+    // if (*requested_type != expected_type) {
+    //   std::cout << "The requested type '" << requested_type->name() << "' is incorrect. Expected
+    //   '"
+    //             << expected_type.name() << "'.\n";
+    //   BLI_assert_unreachable();
+    // }
   }
 }
 

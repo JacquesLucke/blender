@@ -21,6 +21,7 @@
 
 #include "DEG_depsgraph_query.h"
 
+#include "FN_cpp_type_make.hh"
 #include "FN_generic_value_map.hh"
 #include "FN_multi_function.hh"
 
@@ -30,8 +31,11 @@
 #include "BLI_task.hh"
 #include "BLI_vector_set.hh"
 
+MAKE_CPP_TYPE(FloatFieldPtr, blender::bke::FieldPtr<float>, CPPTypeFlags::BasicType);
+
 namespace blender::modifiers::geometry_nodes {
 
+using bke::FieldPtr;
 using fn::CPPType;
 using fn::GValueMap;
 using nodes::GeoNodeExecParams;
@@ -302,12 +306,26 @@ static const CPPType *get_socket_cpp_type(const SocketRef &socket)
   if (!type->has_special_member_functions()) {
     return nullptr;
   }
+  if (type->is<float>()) {
+    return &CPPType::get<FieldPtr<float>>();
+  }
   return type;
 }
 
 static const CPPType *get_socket_cpp_type(const DSocket socket)
 {
   return get_socket_cpp_type(*socket.socket_ref());
+}
+
+static void get_socket_value(const SocketRef &socket, void *r_value)
+{
+  if (socket.typeinfo()->type == SOCK_FLOAT) {
+    float value;
+    socket.typeinfo()->get_cpp_value(*socket.bsocket(), &value);
+    new (r_value) FieldPtr<float>(new bke::ConstantField<float>(value));
+    return;
+  }
+  blender::nodes::socket_cpp_value_get(*socket.bsocket(), r_value);
 }
 
 static bool node_supports_laziness(const DNode node)
@@ -1363,10 +1381,9 @@ class GeometryNodesEvaluator {
   {
     LinearAllocator<> &allocator = local_allocators_.local();
 
-    bNodeSocket *bsocket = socket->bsocket();
     const CPPType &type = *get_socket_cpp_type(socket);
     void *buffer = allocator.allocate(type.size(), type.alignment());
-    blender::nodes::socket_cpp_value_get(*bsocket, buffer);
+    get_socket_value(*socket.socket_ref(), buffer);
 
     if (type == required_type) {
       return {type, buffer};
