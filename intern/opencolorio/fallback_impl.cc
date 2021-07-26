@@ -23,7 +23,7 @@
 
 #include "BLI_math_color.h"
 #include "BLI_math_vector.h"
-#include "MEM_guardedalloc.h"
+#include "MEM_guardedalloc.hh"
 
 #include "ocio_impl.h"
 

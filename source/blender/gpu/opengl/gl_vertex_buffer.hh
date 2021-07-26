@@ -23,7 +23,7 @@
 
 #pragma once
 
-#include "MEM_guardedalloc.h"
+#include "MEM_guardedalloc.hh"
 
 #include "glew-mx.h"
 

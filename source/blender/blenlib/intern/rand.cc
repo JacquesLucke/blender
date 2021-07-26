@@ -26,7 +26,7 @@
 #include <cstring>
 #include <ctime>
 
-#include "MEM_guardedalloc.h"
+#include "MEM_guardedalloc.hh"
 
 #include "BLI_bitmap.h"
 #include "BLI_math.h"

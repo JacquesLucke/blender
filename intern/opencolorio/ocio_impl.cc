@@ -34,7 +34,7 @@
 
 using namespace OCIO_NAMESPACE;
 
-#include "MEM_guardedalloc.h"
+#include "MEM_guardedalloc.hh"
 
 #include "BLI_math.h"
 #include "BLI_math_color.h"

@@ -40,7 +40,7 @@
 #include <algorithm>
 #include <stdlib.h>
 
-#include "MEM_guardedalloc.h"
+#include "MEM_guardedalloc.hh"
 
 #include "BLI_math_base.h"
 #include "BLI_utildefines.h"

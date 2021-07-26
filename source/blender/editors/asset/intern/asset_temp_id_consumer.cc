@@ -32,7 +32,7 @@
 
 #include "BLO_readfile.h"
 
-#include "MEM_guardedalloc.h"
+#include "MEM_guardedalloc.hh"
 
 #include "ED_asset_handle.h"
 #include "ED_asset_temp_id_consumer.h"

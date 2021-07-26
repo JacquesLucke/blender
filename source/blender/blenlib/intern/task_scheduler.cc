@@ -20,7 +20,7 @@
  * Task scheduler initialization.
  */
 
-#include "MEM_guardedalloc.h"
+#include "MEM_guardedalloc.hh"
 
 #include "BLI_task.h"
 #include "BLI_threads.h"

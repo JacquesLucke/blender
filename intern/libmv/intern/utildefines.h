@@ -26,7 +26,7 @@
 #endif
 
 #ifdef WITH_LIBMV_GUARDED_ALLOC
-#  include "MEM_guardedalloc.h"
+#  include "MEM_guardedalloc.hh"
 #  define LIBMV_OBJECT_NEW OBJECT_GUARDED_NEW
 #  define LIBMV_OBJECT_DELETE OBJECT_GUARDED_DELETE
 #  define LIBMV_OBJECT_DELETE OBJECT_GUARDED_DELETE

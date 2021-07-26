@@ -20,6 +20,8 @@
 
 #pragma once
 
+#include "MEM_guardedalloc.hh"
+
 #include "BLI_span.hh"
 #include "BLI_string_ref.hh"
 
