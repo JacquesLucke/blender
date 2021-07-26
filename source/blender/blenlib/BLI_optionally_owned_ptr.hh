@@ -42,6 +42,19 @@ template<typename T, typename OwnedTPtr = std::unique_ptr<T>> class OptionallyOw
   {
   }
 
+  bool is_owned() const
+  {
+    return static_cast<bool>(owned_ptr_);
+  }
+
+  OwnedTPtr extract_owned()
+  {
+    OwnedTPtr ptr = std::move(owned_ptr_);
+    owned_ptr_ = OwnedTPtr{nullptr};
+    ptr_ = nullptr;
+    return ptr;
+  }
+
   T *operator->()
   {
     BLI_assert(ptr_ != nullptr);

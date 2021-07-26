@@ -1418,6 +1418,11 @@ typedef struct NodeGeometryRaycast {
   char _pad[1];
 } NodeGeometryRaycast;
 
+typedef struct NodeGeometryAttribute {
+  /* eNodeSocketDatatype. */
+  int8_t output_type;
+} NodeGeometryAttribute;
+
 /* script node mode */
 #define NODE_SCRIPT_INTERNAL 0
 #define NODE_SCRIPT_EXTERNAL 1

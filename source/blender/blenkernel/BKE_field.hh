@@ -44,6 +44,7 @@ class FieldInputKey {
  public:
   virtual ~FieldInputKey() = default;
   virtual uint64_t hash() const = 0;
+  virtual const CPPType &type() const = 0;
 
   friend bool operator==(const FieldInputKey &a, const FieldInputKey &b)
   {
@@ -79,14 +80,14 @@ class AttributeFieldInputKey : public FieldInputKey {
     return get_default_hash_2(name_, type_);
   }
 
+  const CPPType &type() const override
+  {
+    return *type_;
+  }
+
   StringRefNull name() const
   {
     return name_;
-  }
-
-  const CPPType &type() const
-  {
-    return *type_;
   }
 
  private:
@@ -110,21 +111,6 @@ class GVArrayFieldInputValue : public FieldInputValue {
   }
 
   const GVArray &varray() const
-  {
-    return *varray_;
-  }
-};
-
-template<typename T> class VArrayFieldInputValue : public FieldInputValue {
- private:
-  const VArray<T> *varray_;
-
- public:
-  VArrayFieldInputValue(const VArray<T> &varray) : varray_(varray)
-  {
-  }
-
-  const VArray<T> &varray() const
   {
     return *varray_;
   }
@@ -166,24 +152,19 @@ class FieldInputs {
 
 template<typename T> class FieldOutput {
  private:
-  const VArray<T> *varray_ = nullptr;
-  VArrayPtr<T> varray_owned_;
+  OptionallyOwnedPtr<const VArray<T>> varray_;
 
  public:
-  FieldOutput(const VArray<T> &varray) : varray_(&varray)
+  FieldOutput(OptionallyOwnedPtr<const VArray<T>> varray) : varray_(std::move(varray))
   {
   }
 
-  FieldOutput(VArrayPtr<T> varray) : varray_(varray.get()), varray_owned_(std::move(varray))
+  OptionallyOwnedPtr<const VArray<T>> extract()
   {
+    return std::move(varray_);
   }
 
-  VArrayPtr<T> &varray_owned()
-  {
-    return varray_owned_;
-  }
-
-  const VArray<T> &varray_ref() const
+  const VArray<T> &varray() const
   {
     return *varray_;
   }
@@ -191,15 +172,10 @@ template<typename T> class FieldOutput {
 
 class GFieldOutput {
  private:
-  const GVArray *varray_;
-  GVArrayPtr varray_owned_;
+  OptionallyOwnedPtr<const GVArray> varray_;
 
  public:
-  GFieldOutput(const GVArray &varray) : varray_(&varray)
-  {
-  }
-
-  GFieldOutput(GVArrayPtr varray) : varray_(varray.get()), varray_owned_(std::move(varray))
+  GFieldOutput(OptionallyOwnedPtr<const GVArray> varray) : varray_(std::move(varray))
   {
   }
 
@@ -253,10 +229,13 @@ template<typename T> class Field : public GField {
   GFieldOutput evaluate_generic(IndexMask mask, const FieldInputs &inputs) const override
   {
     FieldOutput<T> output = this->evaluate(mask, inputs);
-    if (output.varray_owned()) {
-      return {std::make_unique<fn::GVArray_For_OwnedVArray<T>>(std::move(output.varray_owned()))};
+    OptionallyOwnedPtr<const VArray<T>> varray = output.extract();
+    if (varray.is_owned()) {
+      return GFieldOutput{OptionallyOwnedPtr<const GVArray>{
+          std::make_unique<fn::GVArray_For_OwnedVArray<T>>(varray.extract_owned())}};
     }
-    return {std::make_unique<fn::GVArray_For_VArray<T>>(output.varray_ref())};
+    return GFieldOutput{OptionallyOwnedPtr<const GVArray>{
+        std::make_unique<fn::GVArray_For_VArray<T>>(output.varray())}};
   }
 
   const CPPType &output_type() const override
@@ -276,34 +255,39 @@ template<typename T> class ConstantField : public Field<T> {
 
   FieldOutput<T> evaluate(IndexMask mask, const FieldInputs &UNUSED(inputs)) const
   {
-    return {std::make_unique<VArray_For_Single<T>>(value_, mask.min_array_size())};
+    return OptionallyOwnedPtr<const VArray<T>>{
+        std::make_unique<VArray_For_Single<T>>(value_, mask.min_array_size())};
   }
 };
 
-template<typename T, typename KeyT> class VArrayInputField : public Field<T> {
+template<typename KeyT> class VArrayInputField : public GField {
  private:
-  T default_value_;
   KeyT key_;
 
  public:
-  template<typename... Args>
-  VArrayInputField(T default_value, Args &&... args)
-      : default_value_(std::move(default_value)), key_(std::forward<Args>(args)...)
+  template<typename... Args> VArrayInputField(Args &&... args) : key_(std::forward<Args>(args)...)
   {
   }
 
-  void foreach_input_key(FunctionRef<void(const FieldInputKey &key)> callback) const
+  void foreach_input_key(FunctionRef<void(const FieldInputKey &key)> callback) const override
   {
     callback(key_);
   }
 
-  FieldOutput<T> evaluate(IndexMask mask, const FieldInputs &inputs) const override
+  const CPPType &output_type() const override
   {
-    const VArrayFieldInputValue<T> *input = inputs.get<VArrayFieldInputValue<T>>(key_);
+    return key_.type();
+  }
+
+  GFieldOutput evaluate_generic(IndexMask mask, const FieldInputs &inputs) const override
+  {
+    const GVArrayFieldInputValue *input = inputs.get<GVArrayFieldInputValue>(key_);
     if (input == nullptr) {
-      return std::make_unique<VArray_For_Single<T>>(default_value_, mask.min_array_size());
+      return GFieldOutput{
+          OptionallyOwnedPtr<const GVArray>{std::make_unique<fn::GVArray_For_SingleValueRef>(
+              key_.type(), mask.min_array_size(), key_.type().default_value())}};
     }
-    return input->varray();
+    return GFieldOutput{OptionallyOwnedPtr<const GVArray>{input->varray()}};
   }
 };
 
@@ -394,7 +378,9 @@ class MultiFunctionField : public GField {
       MEM_freeN(span.data());
     }
 
-    return {std::make_unique<fn::GVArray_For_OwnedGSpan>(output_span, mask)};
+    std::unique_ptr<GVArray> out_array = std::make_unique<fn::GVArray_For_OwnedGSpan>(output_span,
+                                                                                      mask);
+    return GFieldOutput{OptionallyOwnedPtr<const GVArray>{std::move(out_array)}};
   }
 };
 

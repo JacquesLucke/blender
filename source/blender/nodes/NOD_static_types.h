@@ -269,6 +269,7 @@ DefNode(FunctionNode, FN_NODE_INPUT_VECTOR, def_fn_input_vector, "INPUT_VECTOR",
 DefNode(FunctionNode, FN_NODE_RANDOM_FLOAT, 0,                  "RANDOM_FLOAT", RandomFloat, "Random Float", "")
 
 DefNode(GeometryNode, GEO_NODE_ALIGN_ROTATION_TO_VECTOR, def_geo_align_rotation_to_vector, "ALIGN_ROTATION_TO_VECTOR", AlignRotationToVector, "Align Rotation to Vector", "")
+DefNode(GeometryNode, GEO_NODE_ATTRIBUTE, def_geo_attribute, "ATTRIBUTE", Attribute, "Attribute", "")
 DefNode(GeometryNode, GEO_NODE_ATTRIBUTE_CLAMP, def_geo_attribute_clamp, "ATTRIBUTE_CLAMP", AttributeClamp, "Attribute Clamp", "")
 DefNode(GeometryNode, GEO_NODE_ATTRIBUTE_COLOR_RAMP, def_geo_attribute_color_ramp, "ATTRIBUTE_COLOR_RAMP", AttributeColorRamp, "Attribute Color Ramp", "")
 DefNode(GeometryNode, GEO_NODE_ATTRIBUTE_COMBINE_XYZ, def_geo_attribute_combine_xyz, "ATTRIBUTE_COMBINE_XYZ", AttributeCombineXYZ, "Attribute Combine XYZ", "")

@@ -255,7 +255,7 @@ template<typename T> class VMutableArray : public VArray<T> {
   }
 };
 
-template<typename T> using VArrayPtr = std::unique_ptr<VArray<T>>;
+template<typename T> using VArrayPtr = std::unique_ptr<const VArray<T>>;
 template<typename T> using VMutableArrayPtr = std::unique_ptr<VMutableArray<T>>;
 
 /**

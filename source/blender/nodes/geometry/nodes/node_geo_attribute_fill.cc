@@ -128,7 +128,7 @@ static void fill_attribute(GeometryComponent &component, const GeoNodeExecParams
       bke::FieldOutput<float> field_output = value_field->evaluate(IndexMask(domain_size),
                                                                    field_inputs);
       for (const int i : IndexRange(domain_size)) {
-        const float value = field_output.varray_ref()[i];
+        const float value = field_output.varray()[i];
         attribute->set_by_copy(i, &value);
       }
       break;

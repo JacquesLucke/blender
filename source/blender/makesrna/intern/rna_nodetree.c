@@ -2040,6 +2040,20 @@ static const EnumPropertyItem *rna_GeometryNodeSwitch_type_itemf(bContext *UNUSE
   return itemf_function_check(node_socket_data_type_items, switch_type_supported);
 }
 
+static bool attribute_type_supported(const EnumPropertyItem *item)
+{
+  return ELEM(item->value, SOCK_FLOAT, SOCK_INT, SOCK_BOOLEAN, SOCK_VECTOR, SOCK_RGBA);
+}
+
+static const EnumPropertyItem *rna_GeometryNodeAttribute_type_itemf(bContext *UNUSED(C),
+                                                                    PointerRNA *UNUSED(ptr),
+                                                                    PropertyRNA *UNUSED(prop),
+                                                                    bool *r_free)
+{
+  *r_free = true;
+  return itemf_function_check(node_socket_data_type_items, attribute_type_supported);
+}
+
 static bool attribute_clamp_type_supported(const EnumPropertyItem *item)
 {
   return ELEM(item->value, CD_PROP_FLOAT, CD_PROP_FLOAT3, CD_PROP_INT32, CD_PROP_COLOR);
@@ -10189,6 +10203,18 @@ static void def_geo_raycast(StructRNA *srna)
   prop = RNA_def_property(srna, "input_type_ray_length", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_items(prop, rna_node_geometry_attribute_input_type_items_float);
   RNA_def_property_ui_text(prop, "Input Type Ray Length", "");
+  RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_socket_update");
+}
+
+static void def_geo_attribute(StructRNA *srna)
+{
+  PropertyRNA *prop;
+
+  RNA_def_struct_sdna_from(srna, "NodeGeometryAttribute", "storage");
+  prop = RNA_def_property(srna, "output_type", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_items(prop, node_socket_data_type_items);
+  RNA_def_property_enum_funcs(prop, NULL, NULL, "rna_GeometryNodeAttribute_type_itemf");
+  RNA_def_property_ui_text(prop, "Output Type", "");
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_socket_update");
 }
 
