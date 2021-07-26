@@ -24,6 +24,7 @@
 
 #include "BLI_function_ref.hh"
 #include "BLI_map.hh"
+#include "BLI_optionally_owned_ptr.hh"
 #include "BLI_user_counter.hh"
 #include "BLI_vector.hh"
 #include "BLI_virtual_array.hh"
@@ -78,6 +79,16 @@ class AttributeFieldInputKey : public FieldInputKey {
     return get_default_hash_2(name_, type_);
   }
 
+  StringRefNull name() const
+  {
+    return name_;
+  }
+
+  const CPPType &type() const
+  {
+    return *type_;
+  }
+
  private:
   bool is_same_as(const FieldInputKey &other) const
   {
@@ -86,6 +97,21 @@ class AttributeFieldInputKey : public FieldInputKey {
       return other_typed->type_ == type_ && other_typed->name_ == name_;
     }
     return false;
+  }
+};
+
+class GVArrayFieldInputValue : public FieldInputValue {
+ private:
+  OptionallyOwnedPtr<GVArray> varray_;
+
+ public:
+  GVArrayFieldInputValue(OptionallyOwnedPtr<GVArray> varray) : varray_(std::move(varray))
+  {
+  }
+
+  const GVArray &varray() const
+  {
+    return *varray_;
   }
 };
 
