@@ -242,9 +242,8 @@ Mesh *MOD_solidify_extrude_modifyMesh(ModifierData *md, const ModifierEvalContex
   MDeformVert *dvert;
   const bool defgrp_invert = (smd->flag & MOD_SOLIDIFY_VGROUP_INV) != 0;
   int defgrp_index;
-  const int shell_defgrp_index = BKE_object_defgroup_name_index(ctx->object,
-                                                                smd->shell_defgrp_name);
-  const int rim_defgrp_index = BKE_object_defgroup_name_index(ctx->object, smd->rim_defgrp_name);
+  const int shell_defgrp_index = BKE_id_defgroup_name_index(&mesh->id, smd->shell_defgrp_name);
+  const int rim_defgrp_index = BKE_id_defgroup_name_index(&mesh->id, smd->rim_defgrp_name);
 
   /* array size is doubled in case of using a shell */
   const uint stride = do_shell ? 2 : 1;
@@ -1028,14 +1027,13 @@ Mesh *MOD_solidify_extrude_modifyMesh(ModifierData *md, const ModifierEvalContex
   if (do_rim) {
     uint i;
 
-    /* bugger, need to re-calculate the normals for the new edge faces.
+    /* NOTE(campbell): Unfortunately re-calculate the normals for the new edge faces is necessary.
      * This could be done in many ways, but probably the quickest way
      * is to calculate the average normals for side faces only.
      * Then blend them with the normals of the edge verts.
      *
-     * at the moment its easiest to allocate an entire array for every vertex,
-     * even though we only need edge verts - campbell
-     */
+     * At the moment its easiest to allocate an entire array for every vertex,
+     * even though we only need edge verts. */
 
 #define SOLIDIFY_SIDE_NORMALS
 

@@ -18,6 +18,9 @@
 
 #pragma once
 
+#include "COM_BufferArea.h"
+#include "COM_BufferRange.h"
+#include "COM_BuffersIterator.h"
 #include "COM_ExecutionGroup.h"
 #include "COM_MemoryProxy.h"
 
@@ -239,6 +242,32 @@ class MemoryBuffer {
   }
 
   /**
+   * Get all buffer elements as a range with no offsets.
+   */
+  BufferRange<float> as_range()
+  {
+    return BufferRange<float>(m_buffer, 0, buffer_len(), elem_stride);
+  }
+
+  BufferRange<const float> as_range() const
+  {
+    return BufferRange<const float>(m_buffer, 0, buffer_len(), elem_stride);
+  }
+
+  BufferArea<float> get_buffer_area(const rcti &area)
+  {
+    return BufferArea<float>(m_buffer, getWidth(), area, elem_stride);
+  }
+
+  BufferArea<const float> get_buffer_area(const rcti &area) const
+  {
+    return BufferArea<const float>(m_buffer, getWidth(), area, elem_stride);
+  }
+
+  BuffersIterator<float> iterate_with(Span<MemoryBuffer *> inputs);
+  BuffersIterator<float> iterate_with(Span<MemoryBuffer *> inputs, const rcti &area);
+
+  /**
    * \brief get the data of this MemoryBuffer
    * \note buffer should already be available in memory
    */
@@ -264,11 +293,14 @@ class MemoryBuffer {
           x = 0;
         }
         if (x >= w) {
-          x = w;
+          x = w - 1;
         }
         break;
       case MemoryBufferExtend::Repeat:
-        x = (x >= 0.0f ? (x % w) : (x % w) + w);
+        x %= w;
+        if (x < 0) {
+          x += w;
+        }
         break;
     }
 
@@ -280,13 +312,19 @@ class MemoryBuffer {
           y = 0;
         }
         if (y >= h) {
-          y = h;
+          y = h - 1;
         }
         break;
       case MemoryBufferExtend::Repeat:
-        y = (y >= 0.0f ? (y % h) : (y % h) + h);
+        y %= h;
+        if (y < 0) {
+          y += h;
+        }
         break;
     }
+
+    x = x + m_rect.xmin;
+    y = y + m_rect.ymin;
   }
 
   inline void wrap_pixel(float &x,
@@ -307,11 +345,14 @@ class MemoryBuffer {
           x = 0.0f;
         }
         if (x >= w) {
-          x = w;
+          x = w - 1;
         }
         break;
       case MemoryBufferExtend::Repeat:
         x = fmodf(x, w);
+        if (x < 0.0f) {
+          x += w;
+        }
         break;
     }
 
@@ -323,13 +364,19 @@ class MemoryBuffer {
           y = 0.0f;
         }
         if (y >= h) {
-          y = h;
+          y = h - 1;
         }
         break;
       case MemoryBufferExtend::Repeat:
         y = fmodf(y, h);
+        if (y < 0.0f) {
+          y += h;
+        }
         break;
     }
+
+    x = x + m_rect.xmin;
+    y = y + m_rect.ymin;
   }
 
   inline void read(float *result,

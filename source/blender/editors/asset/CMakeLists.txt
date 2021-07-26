@@ -16,9 +16,11 @@
 # ***** END GPL LICENSE BLOCK *****
 
 set(INC
+    .
     ../include
     ../../blenkernel
     ../../blenlib
+    ../../blenloader
     ../../makesdna
     ../../makesrna
     ../../windowmanager
@@ -29,11 +31,26 @@ set(INC_SYS
 )
 
 set(SRC
-  asset_edit.cc
-  asset_ops.cc
+  intern/asset_handle.cc
+  intern/asset_library_reference.cc
+  intern/asset_library_reference_enum.cc
+  intern/asset_list.cc
+  intern/asset_mark_clear.cc
+  intern/asset_ops.cc
+  intern/asset_temp_id_consumer.cc
+
+  ED_asset_handle.h
+  ED_asset_library.h
+  ED_asset_list.h
+  ED_asset_list.hh
+  ED_asset_mark_clear.h
+  ED_asset_temp_id_consumer.h
+  intern/asset_library_reference.hh
 )
 
 set(LIB
+  bf_blenloader
+  bf_blenkernel
 )
 
 blender_add_lib(bf_editor_asset "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")

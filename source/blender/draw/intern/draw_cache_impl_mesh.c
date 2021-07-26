@@ -544,8 +544,8 @@ static void drw_mesh_weight_state_extract(Object *ob,
   /* Extract complete vertex weight group selection state and mode flags. */
   memset(wstate, 0, sizeof(*wstate));
 
-  wstate->defgroup_active = ob->actdef - 1;
-  wstate->defgroup_len = BLI_listbase_count(&ob->defbase);
+  wstate->defgroup_active = me->vertex_group_active_index - 1;
+  wstate->defgroup_len = BLI_listbase_count(&me->vertex_group_names);
 
   wstate->alert_mode = ts->weightuser;
 
@@ -856,7 +856,9 @@ static void mesh_buffer_extraction_cache_clear(MeshBufferExtractionCache *extrac
   extraction_cache->loose_geom.edge_len = 0;
   extraction_cache->loose_geom.vert_len = 0;
 
-  MEM_SAFE_FREE(extraction_cache->mat_offsets.tri);
+  MEM_SAFE_FREE(extraction_cache->poly_sorted.tri_first_index);
+  MEM_SAFE_FREE(extraction_cache->poly_sorted.mat_tri_len);
+  extraction_cache->poly_sorted.visible_tri_len = 0;
 }
 
 static void mesh_batch_cache_clear(Mesh *me)

@@ -1404,7 +1404,7 @@ static void draw_selected_name(
 
     /* color depends on whether there is a keyframe */
     if (id_frame_has_keyframe(
-            (ID *)ob, /* BKE_scene_frame_get(scene) */ (float)cfra, ANIMFILTER_KEYS_LOCAL)) {
+            (ID *)ob, /* BKE_scene_ctime_get(scene) */ (float)cfra, ANIMFILTER_KEYS_LOCAL)) {
       UI_FontThemeColor(font_id, TH_TIME_KEYFRAME);
     }
     else if (ED_gpencil_has_keyframe_v3d(scene, ob, cfra)) {
@@ -1602,7 +1602,7 @@ void view3d_main_region_draw(const bContext *C, ARegion *region)
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Offscreen Drawing
+/** \name Off-screen Drawing
  * \{ */
 
 static void view3d_stereo3d_setup_offscreen(Depsgraph *depsgraph,

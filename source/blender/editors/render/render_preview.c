@@ -54,7 +54,9 @@
 #include "DNA_space_types.h"
 #include "DNA_world_types.h"
 
+#include "BKE_animsys.h"
 #include "BKE_appdir.h"
+#include "BKE_armature.h"
 #include "BKE_brush.h"
 #include "BKE_colortools.h"
 #include "BKE_context.h"
@@ -93,6 +95,7 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
+#include "ED_armature.h"
 #include "ED_datafiles.h"
 #include "ED_render.h"
 #include "ED_screen.h"
@@ -151,6 +154,10 @@ typedef struct IconPreview {
   void *owner;
   ID *id, *id_copy; /* May be NULL! (see ICON_TYPE_PREVIEW case in #ui_icon_ensure_deferred()) */
   ListBase sizes;
+
+  /* May be NULL, is used for rendering IDs that require some other object for it to be applied on
+   * before the ID can be represented as an image, for example when rendering an Action. */
+  struct Object *active_object;
 } IconPreview;
 
 /** \} */
@@ -227,7 +234,7 @@ static Scene *preview_get_scene(Main *pr_main)
   return pr_main->scenes.first;
 }
 
-static const char *preview_collection_name(const char pr_type)
+static const char *preview_collection_name(const ePreviewType pr_type)
 {
   switch (pr_type) {
     case MA_FLAT:
@@ -253,15 +260,12 @@ static const char *preview_collection_name(const char pr_type)
     case MA_ATMOS:
       return "Atmosphere";
     default:
-      BLI_assert(!"Unknown preview type");
+      BLI_assert_msg(0, "Unknown preview type");
       return "";
   }
 }
 
-static void set_preview_visibility(Scene *scene,
-                                   ViewLayer *view_layer,
-                                   char pr_type,
-                                   int pr_method)
+static void switch_preview_collection_visibilty(ViewLayer *view_layer, const ePreviewType pr_type)
 {
   /* Set appropriate layer as visible. */
   LayerCollection *lc = view_layer->layer_collections.first;
@@ -275,7 +279,11 @@ static void set_preview_visibility(Scene *scene,
       lc->collection->flag |= COLLECTION_RESTRICT_RENDER;
     }
   }
+}
 
+static void switch_preview_floor_visibility(ViewLayer *view_layer,
+                                            const ePreviewRenderMethod pr_method)
+{
   /* Hide floor for icon renders. */
   LISTBASE_FOREACH (Base *, base, &view_layer->object_bases) {
     if (STREQ(base->object->id.name + 2, "Floor")) {
@@ -287,7 +295,15 @@ static void set_preview_visibility(Scene *scene,
       }
     }
   }
+}
 
+static void set_preview_visibility(Scene *scene,
+                                   ViewLayer *view_layer,
+                                   const ePreviewType pr_type,
+                                   const ePreviewRenderMethod pr_method)
+{
+  switch_preview_collection_visibilty(view_layer, pr_type);
+  switch_preview_floor_visibility(view_layer, pr_method);
   BKE_layer_collection_sync(scene, view_layer);
 }
 
@@ -335,10 +351,42 @@ static ID *duplicate_ids(ID *id, const bool allow_failure)
       return NULL;
     default:
       if (!allow_failure) {
-        BLI_assert(!"ID type preview not supported.");
+        BLI_assert_msg(0, "ID type preview not supported.");
       }
       return NULL;
   }
+}
+
+static World *preview_get_world(Main *pr_main)
+{
+  World *result = NULL;
+  const char *world_name = "World";
+  result = BLI_findstring(&pr_main->worlds, world_name, offsetof(ID, name) + 2);
+
+  /* No world found return first world. */
+  if (result == NULL) {
+    result = pr_main->worlds.first;
+  }
+
+  BLI_assert_msg(result, "Preview file has no world.");
+  return result;
+}
+
+static void preview_sync_exposure(World *dst, const World *src)
+{
+  BLI_assert(dst);
+  BLI_assert(src);
+  dst->exp = src->exp;
+  dst->range = src->range;
+}
+
+static World *preview_prepare_world(Main *pr_main, const World *world)
+{
+  World *result = preview_get_world(pr_main);
+  if (world) {
+    preview_sync_exposure(result, world);
+  }
+  return result;
 }
 
 /* call this with a pointer to initialize preview scene */
@@ -361,13 +409,7 @@ static Scene *preview_prepare_scene(
 
     /* this flag tells render to not execute depsgraph or ipos etc */
     sce->r.scemode |= R_BUTS_PREVIEW;
-    /* set world always back, is used now */
-    sce->world = pr_main->worlds.first;
-    /* now: exposure copy */
-    if (scene->world) {
-      sce->world->exp = scene->world->exp;
-      sce->world->range = scene->world->range;
-    }
+    BLI_strncpy(sce->r.engine, scene->r.engine, sizeof(sce->r.engine));
 
     sce->r.color_mgt_flag = scene->r.color_mgt_flag;
     BKE_color_managed_display_settings_copy(&sce->display_settings, &scene->display_settings);
@@ -393,12 +435,12 @@ static Scene *preview_prepare_scene(
 
     sce->r.cfra = scene->r.cfra;
 
+    /* Setup the world. */
+    sce->world = preview_prepare_world(pr_main, scene->world);
+
     if (id_type == ID_TE) {
       /* Texture is not actually rendered with engine, just set dummy value. */
       BLI_strncpy(sce->r.engine, RE_engine_id_BLENDER_EEVEE, sizeof(sce->r.engine));
-    }
-    else {
-      BLI_strncpy(sce->r.engine, scene->r.engine, sizeof(sce->r.engine));
     }
 
     if (id_type == ID_MA) {
@@ -425,14 +467,12 @@ static Scene *preview_prepare_scene(
           sce->world->horb = 0.05f;
         }
 
-        if (sp->pr_method == PR_ICON_RENDER && sp->pr_main == G_pr_main_grease_pencil) {
-          /* For grease pencil, always use sphere for icon renders. */
-          set_preview_visibility(sce, view_layer, MA_SPHERE_A, sp->pr_method);
-        }
-        else {
-          /* Use specified preview shape for both preview panel and icon previews. */
-          set_preview_visibility(sce, view_layer, mat->pr_type, sp->pr_method);
-        }
+        /* For grease pencil, always use sphere for icon renders. */
+        const ePreviewType preview_type = (sp->pr_method == PR_ICON_RENDER &&
+                                           sp->pr_main == G_pr_main_grease_pencil) ?
+                                              MA_SPHERE_A :
+                                              mat->pr_type;
+        set_preview_visibility(sce, view_layer, preview_type, sp->pr_method);
 
         if (sp->pr_method != PR_ICON_RENDER) {
           if (mat->nodetree && sp->pr_method == PR_NODE_RENDER) {
@@ -684,8 +724,8 @@ void ED_preview_draw(const bContext *C, void *idp, void *parentp, void *slotp, r
 struct ObjectPreviewData {
   /* The main for the preview, not of the current file. */
   Main *pr_main;
-  /* Copy of the object to create the preview for. The copy is for thread safety (and to insert it
-   * into an own main). */
+  /* Copy of the object to create the preview for. The copy is for thread safety (and to insert
+   * it into an own main). */
   Object *object;
   int sizex;
   int sizey;
@@ -813,9 +853,50 @@ static void object_preview_render(IconPreview *preview, IconPreviewSize *preview
 /** \name Action Preview
  * \{ */
 
-/* Render a pose. It is assumed that the pose has already been applied and that the scene camera is
- * capturing the pose. In other words, this function just renders from the scene camera without
- * evaluating the Action stored in preview->id. */
+static struct PoseBackup *action_preview_render_prepare(IconPreview *preview)
+{
+  Object *object = preview->active_object;
+  if (object == NULL) {
+    WM_report(RPT_WARNING, "No active object, unable to apply the Action before rendering");
+    return NULL;
+  }
+  if (object->pose == NULL) {
+    WM_reportf(RPT_WARNING,
+               "Object %s has no pose, unable to apply the Action before rendering",
+               object->id.name + 2);
+    return NULL;
+  }
+
+  /* Create a backup of the current pose. */
+  struct bAction *action = (struct bAction *)preview->id;
+  struct PoseBackup *pose_backup = ED_pose_backup_create_all_bones(object, action);
+
+  /* Apply the Action as pose, so that it can be rendered. This assumes the Action represents a
+   * single pose, and that thus the evaluation time doesn't matter. */
+  AnimationEvalContext anim_eval_context = {preview->depsgraph, 0.0f};
+  BKE_pose_apply_action_all_bones(object, action, &anim_eval_context);
+
+  /* Force evaluation of the new pose, before the preview is rendered. */
+  DEG_id_tag_update(&object->id, ID_RECALC_GEOMETRY);
+  DEG_evaluate_on_refresh(preview->depsgraph);
+
+  return pose_backup;
+}
+
+static void action_preview_render_cleanup(IconPreview *preview, struct PoseBackup *pose_backup)
+{
+  if (pose_backup == NULL) {
+    return;
+  }
+  ED_pose_backup_restore(pose_backup);
+  ED_pose_backup_free(pose_backup);
+
+  DEG_id_tag_update(&preview->active_object->id, ID_RECALC_GEOMETRY);
+}
+
+/* Render a pose from the scene camera. It is assumed that the scene camera is
+ * capturing the pose. The pose is applied temporarily to the current object
+ * before rendering. */
 static void action_preview_render(IconPreview *preview, IconPreviewSize *preview_sized)
 {
   char err_out[256] = "";
@@ -826,6 +907,9 @@ static void action_preview_render(IconPreview *preview, IconPreviewSize *preview
    * but WM_OT_previews_ensure does not. */
   BLI_assert(depsgraph != NULL);
   BLI_assert(preview->scene == DEG_get_input_scene(depsgraph));
+
+  /* Apply the pose before getting the evaluated scene, so that the new pose is evaluated. */
+  struct PoseBackup *pose_backup = action_preview_render_prepare(preview);
 
   Scene *scene_eval = DEG_get_evaluated_scene(depsgraph);
   Object *camera_eval = scene_eval->camera;
@@ -849,6 +933,8 @@ static void action_preview_render(IconPreview *preview, IconPreviewSize *preview
                                                       NULL,
                                                       NULL,
                                                       err_out);
+
+  action_preview_render_cleanup(preview, pose_backup);
 
   if (err_out[0] != '\0') {
     printf("Error rendering Action %s preview: %s\n", preview->id->name + 2, err_out);
@@ -1255,8 +1341,9 @@ static void icon_copy_rect(ImBuf *ibuf, uint w, uint h, uint *rect)
     scaledy = (float)h;
   }
 
-  ex = (short)scaledx;
-  ey = (short)scaledy;
+  /* Scaling down must never assign zero width/height, see: T89868. */
+  ex = MAX2(1, (short)scaledx);
+  ey = MAX2(1, (short)scaledy);
 
   dx = (w - ex) / 2;
   dy = (h - ey) / 2;
@@ -1469,7 +1556,7 @@ static int icon_previewimg_size_index_get(const IconPreviewSize *icon_size,
     }
   }
 
-  BLI_assert(!"The searched icon size does not match any in the preview image");
+  BLI_assert_msg(0, "The searched icon size does not match any in the preview image");
   return -1;
 }
 
@@ -1497,8 +1584,8 @@ static void icon_preview_startjob_all_sizes(void *customdata,
 
     /* check_engine_supports_preview() checks whether the engine supports "preview mode" (think:
      * Material Preview). This check is only relevant when the render function called below is
-     * going to use such a mode. Object and Action render functions use Solid mode, though, so they
-     * can skip this test. */
+     * going to use such a mode. Object and Action render functions use Solid mode, though, so
+     * they can skip this test. */
     /* TODO: Decouple the ID-type-specific render functions from this function, so that it's not
      * necessary to know here what happens inside lower-level functions. */
     const bool use_solid_render_mode = (ip->id != NULL) && ELEM(GS(ip->id->name), ID_OB, ID_AC);
@@ -1625,6 +1712,7 @@ void ED_preview_icon_render(
   /* Control isn't given back to the caller until the preview is done. So we don't need to copy
    * the ID to avoid thread races. */
   ip.id_copy = duplicate_ids(id, true);
+  ip.active_object = CTX_data_active_object(C);
 
   icon_preview_add_size(&ip, rect, sizex, sizey);
 
@@ -1666,6 +1754,7 @@ void ED_preview_icon_job(
   ip->bmain = CTX_data_main(C);
   ip->depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   ip->scene = DEG_get_input_scene(ip->depsgraph);
+  ip->active_object = CTX_data_active_object(C);
   ip->owner = owner;
   ip->id = id;
   ip->id_copy = duplicate_ids(id, false);

@@ -439,6 +439,13 @@ typedef struct wmNotifier {
 #define ND_SPACE_FILE_PREVIEW (21 << 16)
 #define ND_SPACE_SPREADSHEET (22 << 16)
 
+/* NC_ASSET */
+/* Denotes that the AssetList is done reading some previews. NOT that the preview generation of
+ * assets is done. */
+#define ND_ASSET_LIST (1 << 16)
+#define ND_ASSET_LIST_PREVIEW (2 << 16)
+#define ND_ASSET_LIST_READING (3 << 16)
+
 /* subtype, 256 entries too */
 #define NOTE_SUBTYPE 0x0000FF00
 
@@ -917,10 +924,10 @@ typedef struct wmDragID {
 } wmDragID;
 
 typedef struct wmDragAsset {
-  char name[64]; /* MAX_NAME */
+  /* Owning pointer. Contains the file with all the asset data (name, local ID, etc.) */
+  struct AssetHandle *asset_handle;
   /* Always freed. */
   const char *path;
-  int id_type;
   int import_type; /* eFileAssetImportType */
 } wmDragAsset;
 

@@ -76,27 +76,23 @@ struct ExtractorRunData {
 
 class ExtractorRunDatas : public Vector<ExtractorRunData> {
  public:
-  void filter_into(ExtractorRunDatas &result, eMRIterType iter_type) const
+  void filter_into(ExtractorRunDatas &result, eMRIterType iter_type, const bool is_mesh) const
   {
     for (const ExtractorRunData &data : *this) {
       const MeshExtract *extractor = data.extractor;
-      if ((iter_type & MR_ITER_LOOPTRI) && extractor->iter_looptri_bm) {
-        BLI_assert(extractor->iter_looptri_mesh);
+      if ((iter_type & MR_ITER_LOOPTRI) && *(&extractor->iter_looptri_bm + is_mesh)) {
         result.append(data);
         continue;
       }
-      if ((iter_type & MR_ITER_POLY) && extractor->iter_poly_bm) {
-        BLI_assert(extractor->iter_poly_mesh);
+      if ((iter_type & MR_ITER_POLY) && *(&extractor->iter_poly_bm + is_mesh)) {
         result.append(data);
         continue;
       }
-      if ((iter_type & MR_ITER_LEDGE) && extractor->iter_ledge_bm) {
-        BLI_assert(extractor->iter_ledge_mesh);
+      if ((iter_type & MR_ITER_LEDGE) && *(&extractor->iter_ledge_bm + is_mesh)) {
         result.append(data);
         continue;
       }
-      if ((iter_type & MR_ITER_LVERT) && extractor->iter_lvert_bm) {
-        BLI_assert(extractor->iter_lvert_mesh);
+      if ((iter_type & MR_ITER_LVERT) && *(&extractor->iter_lvert_bm + is_mesh)) {
         result.append(data);
         continue;
       }
@@ -427,7 +423,7 @@ BLI_INLINE void extract_task_range_run_iter(const MeshRenderData *mr,
       return;
   }
 
-  extractors->filter_into(range_data.extractors, iter_type);
+  extractors->filter_into(range_data.extractors, iter_type, is_mesh);
   BLI_task_parallel_range(0, stop, &range_data, func, settings);
 }
 
@@ -535,7 +531,8 @@ static void mesh_extract_render_data_node_exec(void *__restrict task_data)
 
   mesh_render_data_update_normals(mr, data_flag);
   mesh_render_data_update_looptris(mr, iter_type, data_flag);
-  mesh_render_data_update_mat_offsets(mr, update_task_data->cache, data_flag);
+  mesh_render_data_update_loose_geom(mr, update_task_data->cache, iter_type, data_flag);
+  mesh_render_data_update_polys_sorted(mr, update_task_data->cache, data_flag);
 }
 
 static struct TaskNode *mesh_extract_render_data_node_create(struct TaskGraph *task_graph,
@@ -689,19 +686,8 @@ static void mesh_buffer_cache_create_requested(struct TaskGraph *task_graph,
   double rdata_start = PIL_check_seconds_timer();
 #endif
 
-  eMRIterType iter_type = extractors.iter_types();
-  eMRDataType data_flag = extractors.data_types();
-
-  MeshRenderData *mr = mesh_render_data_create(me,
-                                               extraction_cache,
-                                               is_editmode,
-                                               is_paint_mode,
-                                               is_mode_active,
-                                               obmat,
-                                               do_final,
-                                               do_uvedit,
-                                               ts,
-                                               iter_type);
+  MeshRenderData *mr = mesh_render_data_create(
+      me, is_editmode, is_paint_mode, is_mode_active, obmat, do_final, do_uvedit, ts);
   mr->use_hide = use_hide;
   mr->use_subsurf_fdots = use_subsurf_fdots;
   mr->use_final_mesh = do_final;
@@ -709,6 +695,9 @@ static void mesh_buffer_cache_create_requested(struct TaskGraph *task_graph,
 #ifdef DEBUG_TIME
   double rdata_end = PIL_check_seconds_timer();
 #endif
+
+  eMRIterType iter_type = extractors.iter_types();
+  eMRDataType data_flag = extractors.data_types();
 
   struct TaskNode *task_node_mesh_render_data = mesh_extract_render_data_node_create(
       task_graph, mr, extraction_cache, iter_type, data_flag);

@@ -16,19 +16,29 @@
 
 /** \file
  * \ingroup edasset
+ *
+ * Functions for marking and clearing assets.
  */
+
+#include <memory>
+#include <string>
 
 #include "BKE_asset.h"
 #include "BKE_context.h"
 #include "BKE_lib_id.h"
 
+#include "BLO_readfile.h"
+
 #include "DNA_ID.h"
+#include "DNA_asset_types.h"
+#include "DNA_space_types.h"
 
 #include "UI_interface_icons.h"
 
 #include "RNA_access.h"
 
-#include "ED_asset.h"
+#include "ED_asset_list.h"
+#include "ED_asset_mark_clear.h"
 
 bool ED_asset_mark_id(const bContext *C, ID *id)
 {
@@ -45,6 +55,9 @@ bool ED_asset_mark_id(const bContext *C, ID *id)
 
   UI_icon_render_id(C, nullptr, id, ICON_SIZE_PREVIEW, true);
 
+  /* Important for asset storage to update properly! */
+  ED_assetlist_storage_tag_main_data_dirty();
+
   return true;
 }
 
@@ -57,10 +70,13 @@ bool ED_asset_clear_id(ID *id)
   /* Don't clear fake user here, there's no guarantee that it was actually set by
    * #ED_asset_mark_id(), it might have been something/someone else. */
 
+  /* Important for asset storage to update properly! */
+  ED_assetlist_storage_tag_main_data_dirty();
+
   return true;
 }
 
-bool ED_asset_can_make_single_from_context(const bContext *C)
+bool ED_asset_can_mark_single_from_context(const bContext *C)
 {
   /* Context needs a "id" pointer to be set for #ASSET_OT_mark()/#ASSET_OT_clear() to use. */
   return CTX_data_pointer_get_type_silent(C, "id", &RNA_ID).data != nullptr;

@@ -147,7 +147,7 @@ static bool drw_draw_show_annotation(void)
        * the draw manager is only used to draw the background. */
       return false;
     default:
-      BLI_assert("");
+      BLI_assert(0);
       return false;
   }
 }
@@ -1645,7 +1645,7 @@ void DRW_draw_render_loop_ex(struct Depsgraph *depsgraph,
 
   drw_engines_draw_scene();
 
-  /* Fix 3D view being "laggy" on macos and win+nvidia. (See T56996, T61474) */
+  /* Fix 3D view "lagging" on APPLE and WIN32+NVIDIA. (See T56996, T61474) */
   GPU_flush();
 
   DRW_stats_reset();
@@ -2253,7 +2253,7 @@ static void draw_select_framebuffer_depth_only_setup(const int size[2])
 /* Must run after all instance datas have been added. */
 void DRW_render_instance_buffer_finish(void)
 {
-  BLI_assert(!DST.buffer_finish_called && "DRW_render_instance_buffer_finish called twice!");
+  BLI_assert_msg(!DST.buffer_finish_called, "DRW_render_instance_buffer_finish called twice!");
   DST.buffer_finish_called = true;
   DRW_instance_buffer_finish(DST.idatalist);
   drw_resource_buffer_finish(DST.vmempool);

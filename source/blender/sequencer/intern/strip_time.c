@@ -111,8 +111,8 @@ static void seq_update_sound_bounds_recursive_impl(Scene *scene,
 {
   Sequence *seq;
 
-  /* for sound we go over full meta tree to update bounds of the sound strips,
-   * since sound is played outside of evaluating the imbufs, */
+  /* For sound we go over full meta tree to update bounds of the sound strips,
+   * since sound is played outside of evaluating the imbufs. */
   for (seq = metaseq->seqbase.first; seq; seq = seq->next) {
     if (seq->type == SEQ_TYPE_META) {
       seq_update_sound_bounds_recursive_impl(
@@ -255,15 +255,6 @@ void SEQ_time_update_sequence(Scene *scene, Sequence *seq)
 
     SEQ_time_update_sequence_bounds(scene, seq);
   }
-}
-
-/** Comparison function suitable to be used with BLI_listbase_sort()... */
-int SEQ_time_cmp_time_startdisp(const void *a, const void *b)
-{
-  const Sequence *seq_a = a;
-  const Sequence *seq_b = b;
-
-  return (seq_a->startdisp > seq_b->startdisp);
 }
 
 int SEQ_time_find_next_prev_edit(Scene *scene,

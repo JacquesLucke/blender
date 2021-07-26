@@ -883,6 +883,10 @@ void blo_do_versions_userdef(UserDef *userdef)
     userdef->sequencer_proxy_setup = USER_SEQ_PROXY_SETUP_AUTOMATIC;
   }
 
+  if (!USER_VERSION_ATLEAST(293, 13)) {
+    BKE_addon_ensure(&userdef->addons, "pose_library");
+  }
+
   /**
    * Versioning code until next subversion bump goes here.
    *

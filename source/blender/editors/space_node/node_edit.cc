@@ -21,6 +21,8 @@
  * \ingroup spnode
  */
 
+#include <algorithm>
+
 #include "MEM_guardedalloc.h"
 
 #include "DNA_light_types.h"
@@ -611,9 +613,8 @@ void snode_set_context(const bContext *C)
   /* check the tree type */
   if (!treetype || (treetype->poll && !treetype->poll(C, treetype))) {
     /* invalid tree type, skip
-     * NB: not resetting the node path here, invalid bNodeTreeType
-     * may still be registered at a later point.
-     */
+     * NOTE: not resetting the node path here, invalid #bNodeTreeType
+     * may still be registered at a later point. */
     return;
   }
 
@@ -1226,6 +1227,32 @@ int node_find_indicated_socket(
   return 0;
 }
 
+/* ****************** Link Dimming *********************** */
+
+float node_link_dim_factor(const View2D *v2d, const bNodeLink *link)
+{
+  if (link->fromsock == nullptr || link->tosock == nullptr) {
+    return 1.0f;
+  }
+
+  const float min_endpoint_distance = std::min(
+      std::max(BLI_rctf_length_x(&v2d->cur, link->fromsock->locx),
+               BLI_rctf_length_y(&v2d->cur, link->fromsock->locy)),
+      std::max(BLI_rctf_length_x(&v2d->cur, link->tosock->locx),
+               BLI_rctf_length_y(&v2d->cur, link->tosock->locy)));
+
+  if (min_endpoint_distance == 0.0f) {
+    return 1.0f;
+  }
+  const float viewport_width = BLI_rctf_size_x(&v2d->cur);
+  return std::clamp(1.0f - min_endpoint_distance / viewport_width * 10.0f, 0.05f, 1.0f);
+}
+
+bool node_link_is_hidden_or_dimmed(const View2D *v2d, const bNodeLink *link)
+{
+  return nodeLinkIsHidden(link) || node_link_dim_factor(v2d, link) < 0.5f;
+}
+
 /* ****************** Duplicate *********************** */
 
 static void node_duplicate_reparent_recursive(bNode *node)
@@ -1275,9 +1302,8 @@ static int node_duplicate_exec(bContext *C, wmOperator *op)
     }
   }
 
-  /* copy links between selected nodes
-   * NB: this depends on correct node->new_node and sock->new_sock pointers from above copy!
-   */
+  /* Copy links between selected nodes.
+   * NOTE: this depends on correct node->new_node and sock->new_sock pointers from above copy! */
   bNodeLink *lastlink = (bNodeLink *)ntree->links.last;
   LISTBASE_FOREACH (bNodeLink *, link, &ntree->links) {
     /* This creates new links between copied nodes.
@@ -2135,9 +2161,9 @@ static int node_clipboard_copy_exec(bContext *C, wmOperator *UNUSED(op))
     }
   }
 
-  /* copy links between selected nodes
-   * NB: this depends on correct node->new_node and sock->new_sock pointers from above copy!
-   */
+  /* Copy links between selected nodes.
+   * NOTE: this depends on correct node->new_node and sock->new_sock pointers from above copy! */
+
   LISTBASE_FOREACH (bNodeLink *, link, &ntree->links) {
     /* This creates new links between copied nodes. */
     if (link->tonode && (link->tonode->flag & NODE_SELECT) && link->fromnode &&
