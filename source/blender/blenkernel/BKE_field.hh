@@ -24,7 +24,7 @@
 
 #include "BLI_function_ref.hh"
 #include "BLI_map.hh"
-#include "BLI_optionally_owned_ptr.hh"
+#include "BLI_optional_ptr.hh"
 #include "BLI_user_counter.hh"
 #include "BLI_vector.hh"
 #include "BLI_virtual_array.hh"
@@ -103,10 +103,10 @@ class AttributeFieldInputKey : public FieldInputKey {
 
 class GVArrayFieldInputValue : public FieldInputValue {
  private:
-  OptionallyOwnedPtr<GVArray> varray_;
+  optional_ptr<GVArray> varray_;
 
  public:
-  GVArrayFieldInputValue(OptionallyOwnedPtr<GVArray> varray) : varray_(std::move(varray))
+  GVArrayFieldInputValue(optional_ptr<GVArray> varray) : varray_(std::move(varray))
   {
   }
 
@@ -152,14 +152,14 @@ class FieldInputs {
 
 template<typename T> class FieldOutput {
  private:
-  OptionallyOwnedPtr<const VArray<T>> varray_;
+  optional_ptr<const VArray<T>> varray_;
 
  public:
-  FieldOutput(OptionallyOwnedPtr<const VArray<T>> varray) : varray_(std::move(varray))
+  FieldOutput(optional_ptr<const VArray<T>> varray) : varray_(std::move(varray))
   {
   }
 
-  OptionallyOwnedPtr<const VArray<T>> extract()
+  optional_ptr<const VArray<T>> extract()
   {
     return std::move(varray_);
   }
@@ -172,10 +172,10 @@ template<typename T> class FieldOutput {
 
 class GFieldOutput {
  private:
-  OptionallyOwnedPtr<const GVArray> varray_;
+  optional_ptr<const GVArray> varray_;
 
  public:
-  GFieldOutput(OptionallyOwnedPtr<const GVArray> varray) : varray_(std::move(varray))
+  GFieldOutput(optional_ptr<const GVArray> varray) : varray_(std::move(varray))
   {
   }
 
@@ -229,13 +229,13 @@ template<typename T> class Field : public GField {
   GFieldOutput evaluate_generic(IndexMask mask, const FieldInputs &inputs) const override
   {
     FieldOutput<T> output = this->evaluate(mask, inputs);
-    OptionallyOwnedPtr<const VArray<T>> varray = output.extract();
+    optional_ptr<const VArray<T>> varray = output.extract();
     if (varray.is_owned()) {
-      return GFieldOutput{OptionallyOwnedPtr<const GVArray>{
+      return GFieldOutput{optional_ptr<const GVArray>{
           std::make_unique<fn::GVArray_For_OwnedVArray<T>>(varray.extract_owned())}};
     }
-    return GFieldOutput{OptionallyOwnedPtr<const GVArray>{
-        std::make_unique<fn::GVArray_For_VArray<T>>(output.varray())}};
+    return GFieldOutput{
+        optional_ptr<const GVArray>{std::make_unique<fn::GVArray_For_VArray<T>>(output.varray())}};
   }
 
   const CPPType &output_type() const override
@@ -255,7 +255,7 @@ template<typename T> class ConstantField : public Field<T> {
 
   FieldOutput<T> evaluate(IndexMask mask, const FieldInputs &UNUSED(inputs)) const
   {
-    return OptionallyOwnedPtr<const VArray<T>>{
+    return optional_ptr<const VArray<T>>{
         std::make_unique<VArray_For_Single<T>>(value_, mask.min_array_size())};
   }
 };
@@ -284,10 +284,10 @@ template<typename KeyT> class VArrayInputField : public GField {
     const GVArrayFieldInputValue *input = inputs.get<GVArrayFieldInputValue>(key_);
     if (input == nullptr) {
       return GFieldOutput{
-          OptionallyOwnedPtr<const GVArray>{std::make_unique<fn::GVArray_For_SingleValueRef>(
+          optional_ptr<const GVArray>{std::make_unique<fn::GVArray_For_SingleValueRef>(
               key_.type(), mask.min_array_size(), key_.type().default_value())}};
     }
-    return GFieldOutput{OptionallyOwnedPtr<const GVArray>{input->varray()}};
+    return GFieldOutput{optional_ptr<const GVArray>{input->varray()}};
   }
 };
 
@@ -380,7 +380,7 @@ class MultiFunctionField : public GField {
 
     std::unique_ptr<GVArray> out_array = std::make_unique<fn::GVArray_For_OwnedGSpan>(output_span,
                                                                                       mask);
-    return GFieldOutput{OptionallyOwnedPtr<const GVArray>{std::move(out_array)}};
+    return GFieldOutput{optional_ptr<const GVArray>{std::move(out_array)}};
   }
 };
 

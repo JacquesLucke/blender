@@ -26,19 +26,19 @@
 
 namespace blender {
 
-template<typename T, typename OwnedTPtr = std::unique_ptr<T>> class OptionallyOwnedPtr {
+template<typename T, typename OwnedTPtr = std::unique_ptr<T>> class optional_ptr {
  private:
   OwnedTPtr owned_ptr_;
   T *ptr_ = nullptr;
 
  public:
-  OptionallyOwnedPtr() = default;
+  optional_ptr() = default;
 
-  OptionallyOwnedPtr(T &ptr) : ptr_(&ptr)
+  optional_ptr(T &ptr) : ptr_(&ptr)
   {
   }
 
-  OptionallyOwnedPtr(OwnedTPtr owned_ptr) : owned_ptr_(std::move(owned_ptr)), ptr_(&*owned_ptr_)
+  optional_ptr(OwnedTPtr owned_ptr) : owned_ptr_(std::move(owned_ptr)), ptr_(&*owned_ptr_)
   {
   }
 
