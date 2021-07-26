@@ -25,6 +25,7 @@
 
 #include <optional>
 
+#include "BLI_optional_ptr.hh"
 #include "BLI_virtual_array.hh"
 
 #include "FN_generic_span.hh"
@@ -356,11 +357,16 @@ class GVArray_For_SingleValue : public GVArray_For_SingleValueRef {
 /* Used to convert a typed virtual array into a generic one. */
 template<typename T> class GVArray_For_VArray : public GVArray {
  protected:
-  const VArray<T> *varray_ = nullptr;
+  optional_ptr<const VArray<T>> varray_;
 
  public:
   GVArray_For_VArray(const VArray<T> &varray)
-      : GVArray(CPPType::get<T>(), varray.size()), varray_(&varray)
+      : GVArray(CPPType::get<T>(), varray.size()), varray_(varray)
+  {
+  }
+
+  GVArray_For_VArray(optional_ptr<const VArray<T>> varray)
+      : GVArray(CPPType::get<T>(), varray->size()), varray_(std::move(varray))
   {
   }
 
@@ -411,7 +417,7 @@ template<typename T> class GVArray_For_VArray : public GVArray {
 
   const void *try_get_internal_varray_impl() const override
   {
-    return varray_;
+    return &*varray_;
   }
 };
 
@@ -646,18 +652,6 @@ template<typename T> class GVArray_Span : public Span<T> {
   }
 };
 
-template<typename T> class GVArray_For_OwnedVArray : public GVArray_For_VArray<T> {
- private:
-  VArrayPtr<T> owned_varray_;
-
- public:
-  /* Takes ownership of varray and passes a reference to the base class. */
-  GVArray_For_OwnedVArray(VArrayPtr<T> varray)
-      : GVArray_For_VArray<T>(*varray), owned_varray_(std::move(varray))
-  {
-  }
-};
-
 template<typename T> class VArray_For_OwnedGVArray : public VArray_For_GVArray<T> {
  private:
   GVArrayPtr owned_varray_;
@@ -708,7 +702,7 @@ class GVArray_For_EmbeddedVArray : public GVArray_For_VArray<T> {
   GVArray_For_EmbeddedVArray(const int64_t size, Args &&... args)
       : GVArray_For_VArray<T>(size), embedded_varray_(std::forward<Args>(args)...)
   {
-    this->varray_ = &embedded_varray_;
+    this->varray_ = embedded_varray_;
   }
 };
 

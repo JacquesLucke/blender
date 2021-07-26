@@ -229,13 +229,8 @@ template<typename T> class Field : public GField {
   GFieldOutput evaluate_generic(IndexMask mask, const FieldInputs &inputs) const override
   {
     FieldOutput<T> output = this->evaluate(mask, inputs);
-    optional_ptr<const VArray<T>> varray = output.extract();
-    if (varray.is_owned()) {
-      return GFieldOutput{optional_ptr<const GVArray>{
-          std::make_unique<fn::GVArray_For_OwnedVArray<T>>(varray.extract_owned())}};
-    }
-    return GFieldOutput{
-        optional_ptr<const GVArray>{std::make_unique<fn::GVArray_For_VArray<T>>(output.varray())}};
+    return optional_ptr<const GVArray>{
+        std::make_unique<fn::GVArray_For_VArray<T>>(output.extract().extract_owned())};
   }
 
   const CPPType &output_type() const override
