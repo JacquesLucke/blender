@@ -294,6 +294,7 @@ class MultiFunctionField : public Field {
           FieldOutput &output = scope.add_value(field.evaluate(mask, inputs), __func__);
           params.add_readonly_single_input(output.varray_ref());
           input_index++;
+          break;
         }
         case fn::MFParamType::SingleOutput: {
           const CPPType &type = param_type.data_type().single_type();
@@ -305,6 +306,7 @@ class MultiFunctionField : public Field {
           if (param_index == output_param_index_) {
             output_span_index = outputs.size() - 1;
           }
+          break;
         }
         case fn::MFParamType::SingleMutable:
         case fn::MFParamType::VectorInput:
@@ -331,7 +333,10 @@ class MultiFunctionField : public Field {
   }
 };
 
-template<typename T> class FieldRef {
+class FieldRefBase {
+};
+
+template<typename T> class FieldRef : public FieldRefBase {
  private:
   FieldPtr field_;
 

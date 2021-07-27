@@ -32,6 +32,12 @@
 #include "BLI_vector_set.hh"
 
 MAKE_CPP_TYPE(FloatFieldRef, blender::bke::FieldRef<float>, CPPTypeFlags::BasicType);
+MAKE_CPP_TYPE(IntFieldRef, blender::bke::FieldRef<int>, CPPTypeFlags::BasicType);
+MAKE_CPP_TYPE(BoolFieldRef, blender::bke::FieldRef<bool>, CPPTypeFlags::BasicType);
+MAKE_CPP_TYPE(Float3FieldRef, blender::bke::FieldRef<blender::float3>, CPPTypeFlags::BasicType);
+MAKE_CPP_TYPE(ColorFieldRef,
+              blender::bke::FieldRef<blender::ColorGeometry4f>,
+              CPPTypeFlags::BasicType);
 
 namespace blender::modifiers::geometry_nodes {
 
@@ -309,6 +315,18 @@ static const CPPType *get_socket_cpp_type(const SocketRef &socket)
   if (type->is<float>()) {
     return &CPPType::get<bke::FieldRef<float>>();
   }
+  if (type->is<int>()) {
+    return &CPPType::get<bke::FieldRef<int>>();
+  }
+  if (type->is<bool>()) {
+    return &CPPType::get<bke::FieldRef<bool>>();
+  }
+  if (type->is<float3>()) {
+    return &CPPType::get<bke::FieldRef<float3>>();
+  }
+  if (type->is<ColorGeometry4f>()) {
+    return &CPPType::get<bke::FieldRef<ColorGeometry4f>>();
+  }
   return type;
 }
 
@@ -319,13 +337,42 @@ static const CPPType *get_socket_cpp_type(const DSocket socket)
 
 static void get_socket_value(const SocketRef &socket, void *r_value)
 {
-  if (socket.typeinfo()->type == SOCK_FLOAT) {
-    float value;
-    socket.typeinfo()->get_cpp_value(*socket.bsocket(), &value);
-    new (r_value) bke::FieldRef<float>(FieldPtr{new bke::ConstantField<float>(value)});
-    return;
+  switch (socket.typeinfo()->type) {
+    case SOCK_FLOAT: {
+      float value;
+      socket.typeinfo()->get_cpp_value(*socket.bsocket(), &value);
+      new (r_value) bke::FieldRef<float>(FieldPtr{new bke::ConstantField<float>(value)});
+      return;
+    }
+    case SOCK_INT: {
+      int value;
+      socket.typeinfo()->get_cpp_value(*socket.bsocket(), &value);
+      new (r_value) bke::FieldRef<int>(FieldPtr{new bke::ConstantField<int>(value)});
+      return;
+    }
+    case SOCK_BOOLEAN: {
+      bool value;
+      socket.typeinfo()->get_cpp_value(*socket.bsocket(), &value);
+      new (r_value) bke::FieldRef<bool>(FieldPtr{new bke::ConstantField<bool>(value)});
+      return;
+    }
+    case SOCK_RGBA: {
+      ColorGeometry4f value;
+      socket.typeinfo()->get_cpp_value(*socket.bsocket(), &value);
+      new (r_value)
+          bke::FieldRef<ColorGeometry4f>(FieldPtr{new bke::ConstantField<ColorGeometry4f>(value)});
+      return;
+    }
+    case SOCK_VECTOR: {
+      float3 value;
+      socket.typeinfo()->get_cpp_value(*socket.bsocket(), &value);
+      new (r_value) bke::FieldRef<float3>(FieldPtr{new bke::ConstantField<float3>(value)});
+      return;
+    }
+    default:
+      blender::nodes::socket_cpp_value_get(*socket.bsocket(), r_value);
+      return;
   }
-  blender::nodes::socket_cpp_value_get(*socket.bsocket(), r_value);
 }
 
 static bool node_supports_laziness(const DNode node)
