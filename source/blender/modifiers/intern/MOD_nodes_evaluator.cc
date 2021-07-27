@@ -913,11 +913,9 @@ class GeometryNodesEvaluator {
                                    const MultiFunction &fn,
                                    NodeState &node_state)
   {
-    MFContextBuilder fn_context;
-    MFParamsBuilder fn_params{fn, 1};
     LinearAllocator<> &allocator = local_allocators_.local();
 
-    /* Prepare the inputs for the multi function. */
+    Vector<FieldPtr> input_fields;
     for (const int i : node->inputs().index_range()) {
       const InputSocketRef &socket_ref = node->input(i);
       if (!socket_ref.is_available()) {
@@ -928,22 +926,15 @@ class GeometryNodesEvaluator {
       BLI_assert(input_state.was_ready_for_execution);
       SingleInputValue &single_value = *input_state.value.single;
       BLI_assert(single_value.value != nullptr);
-      fn_params.add_readonly_single_input(GPointer{*input_state.type, single_value.value});
-    }
-    /* Prepare the outputs for the multi function. */
-    Vector<GMutablePointer> outputs;
-    for (const int i : node->outputs().index_range()) {
-      const OutputSocketRef &socket_ref = node->output(i);
-      if (!socket_ref.is_available()) {
-        continue;
+      if (input_state.type->is<bke::FieldRef<float>>()) {
+        bke::FieldRef<float> field = *(bke::FieldRef<float> *)single_value.value;
+        input_fields.append(field.field());
       }
-      const CPPType &type = *get_socket_cpp_type(socket_ref);
-      void *buffer = allocator.allocate(type.size(), type.alignment());
-      fn_params.add_uninitialized_single_output(GMutableSpan{type, buffer, 1});
-      outputs.append({type, buffer});
+      else {
+        /* Not yet supported. */
+        BLI_assert_unreachable();
+      }
     }
-
-    fn.call(IndexRange(1), fn_params, fn_context);
 
     /* Forward the computed outputs. */
     int output_index = 0;
@@ -952,10 +943,19 @@ class GeometryNodesEvaluator {
       if (!socket_ref.is_available()) {
         continue;
       }
+      const int output_param_index = input_fields.size() + i;
       OutputState &output_state = node_state.outputs[i];
       const DOutputSocket socket{node.context(), &socket_ref};
-      GMutablePointer value = outputs[output_index];
-      this->forward_output(socket, value);
+      bke::FieldPtr out_field = new bke::MultiFunctionField(input_fields, fn, output_param_index);
+      if (socket->typeinfo()->type == SOCK_FLOAT) {
+        bke::FieldRef<float> *field_ref =
+            allocator.construct<bke::FieldRef<float>>(out_field).release();
+        this->forward_output(socket, field_ref);
+      }
+      else {
+        /* Not yet supported. */
+        BLI_assert_unreachable();
+      }
       output_state.has_been_computed = true;
       output_index++;
     }

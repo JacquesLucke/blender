@@ -334,15 +334,22 @@ class MultiFunctionField : public Field {
 };
 
 class FieldRefBase {
-};
-
-template<typename T> class FieldRef : public FieldRefBase {
- private:
+ protected:
   FieldPtr field_;
 
  public:
-  FieldRef(FieldPtr field) : field_(std::move(field))
+  const FieldPtr &field() const
   {
+    return field_;
+  }
+};
+
+template<typename T> class FieldRef : public FieldRefBase {
+
+ public:
+  FieldRef(FieldPtr field)
+  {
+    field_ = std::move(field);
   }
 
   const Field *operator->() const
