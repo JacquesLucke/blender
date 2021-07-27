@@ -288,7 +288,7 @@ set(SRC
   shader/nodes/node_shader_tex_image.c
   shader/nodes/node_shader_tex_magic.c
   shader/nodes/node_shader_tex_musgrave.c
-  shader/nodes/node_shader_tex_noise.c
+  shader/nodes/node_shader_tex_noise.cc
   shader/nodes/node_shader_tex_pointdensity.c
   shader/nodes/node_shader_tex_sky.c
   shader/nodes/node_shader_tex_voronoi.c

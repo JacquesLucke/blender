@@ -17,6 +17,8 @@
  * All rights reserved.
  */
 
+#include "BLI_noise.h"
+
 #include "../node_shader_util.h"
 
 /* **************** NOISE ******************** */
@@ -48,7 +50,7 @@ static bNodeSocketTemplate sh_node_tex_noise_out[] = {
 
 static void node_shader_init_tex_noise(bNodeTree *UNUSED(ntree), bNode *node)
 {
-  NodeTexNoise *tex = MEM_callocN(sizeof(NodeTexNoise), "NodeTexNoise");
+  NodeTexNoise *tex = (NodeTexNoise *)MEM_callocN(sizeof(NodeTexNoise), "NodeTexNoise");
   BKE_texture_mapping_default(&tex->base.tex_mapping, TEXMAP_TYPE_POINT);
   BKE_texture_colormapping_default(&tex->base.color_mapping);
   tex->dimensions = 3;
@@ -86,18 +88,81 @@ static void node_shader_update_tex_noise(bNodeTree *UNUSED(ntree), bNode *node)
   nodeSetSocketAvailability(sockW, tex->dimensions == 1 || tex->dimensions == 4);
 }
 
+class NoiseTextureFunction : public blender::fn::MultiFunction {
+ public:
+  NoiseTextureFunction()
+  {
+    static blender::fn::MFSignature signature = create_signature();
+    this->set_signature(&signature);
+  }
+
+  static blender::fn::MFSignature create_signature()
+  {
+    blender::fn::MFSignatureBuilder signature{"Noise Texture"};
+    signature.single_input<blender::float3>("Vector");
+    signature.single_input<float>("Scale");
+    signature.single_input<float>("Detail");
+    signature.single_input<float>("Roughness");
+    signature.single_input<float>("Distortion");
+    signature.single_output<float>("Fac");
+    signature.single_output<blender::ColorGeometry4f>("Color");
+    return signature.build();
+  }
+
+  void call(blender::IndexMask mask,
+            blender::fn::MFParams params,
+            blender::fn::MFContext UNUSED(context)) const override
+  {
+    const blender::VArray<blender::float3> &vectors =
+        params.readonly_single_input<blender::float3>(0, "Vector");
+    const blender::VArray<float> &scales = params.readonly_single_input<float>(1, "Scale");
+    const blender::VArray<float> &details = params.readonly_single_input<float>(2, "Detail");
+
+    blender::MutableSpan<float> r_values = params.uninitialized_single_output<float>(5, "Fac");
+    blender::MutableSpan<blender::ColorGeometry4f> r_colors =
+        params.uninitialized_single_output<blender::ColorGeometry4f>(6, "Color");
+
+    for (int i : mask) {
+      const blender::float3 vector = vectors[i];
+      const float scale = scales[i];
+      const float detail = details[i];
+      const float noise1 = BLI_noise_generic_turbulence(
+          scale, vector.x, vector.y, vector.z, detail, false, 1);
+      const float noise2 = BLI_noise_generic_turbulence(
+          scale, vector.y, vector.x + 100.0f, vector.z, detail, false, 1);
+      const float noise3 = BLI_noise_generic_turbulence(
+          scale, vector.z + 100.0f, vector.y, vector.x, detail, false, 1);
+      r_values[i] = noise1;
+      r_colors[i] = {noise1, noise2, noise3, 1.0f};
+    }
+  }
+};
+
+static void sh_node_tex_noise_expand_in_mf_network(blender::nodes::NodeMFNetworkBuilder &builder)
+{
+  /* TODO: Not only support 3D. */
+  NodeTexNoise *tex = builder.dnode()->storage<NodeTexNoise>();
+  if (tex->dimensions != 3) {
+    builder.set_not_implemented();
+    return;
+  }
+  static NoiseTextureFunction fn;
+  builder.set_matching_fn(fn);
+}
+
 /* node type definition */
 void register_node_type_sh_tex_noise(void)
 {
   static bNodeType ntype;
 
-  sh_node_type_base(&ntype, SH_NODE_TEX_NOISE, "Noise Texture", NODE_CLASS_TEXTURE, 0);
+  sh_fn_node_type_base(&ntype, SH_NODE_TEX_NOISE, "Noise Texture", NODE_CLASS_TEXTURE, 0);
   node_type_socket_templates(&ntype, sh_node_tex_noise_in, sh_node_tex_noise_out);
   node_type_init(&ntype, node_shader_init_tex_noise);
   node_type_storage(
       &ntype, "NodeTexNoise", node_free_standard_storage, node_copy_standard_storage);
   node_type_gpu(&ntype, node_shader_gpu_tex_noise);
   node_type_update(&ntype, node_shader_update_tex_noise);
+  ntype.expand_in_mf_network = sh_node_tex_noise_expand_in_mf_network;
 
   nodeRegisterType(&ntype);
 }
