@@ -275,6 +275,13 @@ class MultiFunctionField : public Field {
     return fn_->param_type(output_param_index_).data_type().single_type();
   }
 
+  void foreach_input_key(FunctionRef<void(const FieldInputKey &key)> callback) const override
+  {
+    for (const FieldPtr &field : input_fields_) {
+      field->foreach_input_key(callback);
+    }
+  }
+
   FieldOutput evaluate(IndexMask mask, const FieldInputs &inputs) const
   {
     fn::MFParamsBuilder params{*fn_, mask.min_array_size()};
