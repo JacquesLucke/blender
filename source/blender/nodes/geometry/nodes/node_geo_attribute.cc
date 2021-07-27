@@ -83,9 +83,9 @@ static void geo_node_attribute_exec(GeoNodeExecParams params)
 
   const CPPType *cpp_type = get_cpp_type((eNodeSocketDatatype)node_storage->output_type);
   BLI_assert(cpp_type != nullptr);
-  std::unique_ptr<bke::GField> field =
-      std::make_unique<bke::VArrayInputField<bke::AttributeFieldInputKey>>(std::move(name),
-                                                                           *cpp_type);
+  std::unique_ptr<bke::Field> field =
+      std::make_unique<bke::GVArrayInputField<bke::AttributeFieldInputKey>>(std::move(name),
+                                                                            *cpp_type);
   // params.set_output("Attribute", std::move(field));
 }
 

@@ -121,14 +121,14 @@ static void fill_attribute(GeometryComponent &component, const GeoNodeExecParams
 
   switch (data_type) {
     case CD_PROP_FLOAT: {
-      const FieldPtr<float> &value_field = params.get_input<FieldPtr<float>>("Value_001");
+      bke::FieldRef<float> value_field = params.get_input<bke::FieldRef<float>>("Value_001");
       bke::FieldInputs field_inputs = value_field->prepare_inputs();
       Vector<std::unique_ptr<bke::FieldInputValue>> input_values;
       prepare_field_inputs(field_inputs, component, domain, input_values);
-      bke::FieldOutput<float> field_output = value_field->evaluate(IndexMask(domain_size),
-                                                                   field_inputs);
+      bke::FieldOutput field_output = value_field->evaluate(IndexMask(domain_size), field_inputs);
       for (const int i : IndexRange(domain_size)) {
-        const float value = field_output.varray()[i];
+        float value;
+        field_output.varray_ref().get(i, &value);
         attribute->set_by_copy(i, &value);
       }
       break;

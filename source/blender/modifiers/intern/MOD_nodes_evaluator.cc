@@ -31,7 +31,7 @@
 #include "BLI_task.hh"
 #include "BLI_vector_set.hh"
 
-MAKE_CPP_TYPE(FloatFieldPtr, blender::bke::FieldPtr<float>, CPPTypeFlags::BasicType);
+MAKE_CPP_TYPE(FloatFieldRef, blender::bke::FieldRef<float>, CPPTypeFlags::BasicType);
 
 namespace blender::modifiers::geometry_nodes {
 
@@ -307,7 +307,7 @@ static const CPPType *get_socket_cpp_type(const SocketRef &socket)
     return nullptr;
   }
   if (type->is<float>()) {
-    return &CPPType::get<FieldPtr<float>>();
+    return &CPPType::get<bke::FieldRef<float>>();
   }
   return type;
 }
@@ -322,7 +322,7 @@ static void get_socket_value(const SocketRef &socket, void *r_value)
   if (socket.typeinfo()->type == SOCK_FLOAT) {
     float value;
     socket.typeinfo()->get_cpp_value(*socket.bsocket(), &value);
-    new (r_value) FieldPtr<float>(new bke::ConstantField<float>(value));
+    new (r_value) bke::FieldRef<float>(FieldPtr{new bke::ConstantField<float>(value)});
     return;
   }
   blender::nodes::socket_cpp_value_get(*socket.bsocket(), r_value);
