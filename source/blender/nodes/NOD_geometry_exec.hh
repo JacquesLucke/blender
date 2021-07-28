@@ -148,7 +148,20 @@ class GeoNodeExecParams {
     this->check_input_access(identifier, &CPPType::get<T>());
 #endif
     GMutablePointer gvalue = this->extract_input(identifier);
-    return gvalue.relocate_out<T>();
+    if constexpr (std::is_same_v<T, int> || std::is_same_v<T, float> ||
+                  std::is_same_v<T, float3> || std::is_same_v<T, ColorGeometry4f> ||
+                  std::is_same_v<T, bool>) {
+      BLI_assert(gvalue.is_type<bke::FieldRef<T>>());
+      bke::FieldRef<T> field = gvalue.relocate_out<bke::FieldRef<T>>();
+      bke::FieldInputs inputs = field->prepare_inputs();
+      bke::FieldOutput output = field->evaluate(IndexRange(1), inputs);
+      T value;
+      output.varray_ref().get(0, &value);
+      return value;
+    }
+    else {
+      return gvalue.relocate_out<T>();
+    }
   }
 
   /**
@@ -169,7 +182,7 @@ class GeoNodeExecParams {
   /**
    * Get the input value for the input socket with the given identifier.
    */
-  template<typename T> const T get_input(StringRef identifier) const
+  template<typename T> T get_input(StringRef identifier) const
   {
 #ifdef DEBUG
     this->check_input_access(identifier, &CPPType::get<T>());
@@ -190,6 +203,16 @@ class GeoNodeExecParams {
       BLI_assert(gvalue.is_type<T>());
       return *(const T *)gvalue.get();
     }
+  }
+
+  template<typename T> bke::FieldRef<T> get_input_field(StringRef identifier) const
+  {
+#ifdef DEBUG
+    this->check_input_access(identifier, &CPPType::get<T>());
+#endif
+    GPointer gvalue = provider_->get_input(identifier);
+    BLI_assert(gvalue.is_type<bke::FieldRef<T>>());
+    return *(const bke::FieldRef<T> *)gvalue.get<bke::FieldRef<T>>();
   }
 
   /**

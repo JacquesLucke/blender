@@ -930,6 +930,23 @@ class GeometryNodesEvaluator {
         bke::FieldRef<float> field = *(bke::FieldRef<float> *)single_value.value;
         input_fields.append(field.field());
       }
+      else if (input_state.type->is<bke::FieldRef<int>>()) {
+        bke::FieldRef<int> field = *(bke::FieldRef<int> *)single_value.value;
+        input_fields.append(field.field());
+      }
+      else if (input_state.type->is<bke::FieldRef<float3>>()) {
+        bke::FieldRef<float3> field = *(bke::FieldRef<float3> *)single_value.value;
+        input_fields.append(field.field());
+      }
+      else if (input_state.type->is<bke::FieldRef<bool>>()) {
+        bke::FieldRef<bool> field = *(bke::FieldRef<bool> *)single_value.value;
+        input_fields.append(field.field());
+      }
+      else if (input_state.type->is<bke::FieldRef<blender::ColorGeometry4f>>()) {
+        bke::FieldRef<blender::ColorGeometry4f> field =
+            *(bke::FieldRef<blender::ColorGeometry4f> *)single_value.value;
+        input_fields.append(field.field());
+      }
       else {
         /* Not yet supported. */
         BLI_assert_unreachable();
@@ -950,6 +967,26 @@ class GeometryNodesEvaluator {
       if (socket->typeinfo()->type == SOCK_FLOAT) {
         bke::FieldRef<float> *field_ref =
             allocator.construct<bke::FieldRef<float>>(out_field).release();
+        this->forward_output(socket, field_ref);
+      }
+      else if (socket->typeinfo()->type == SOCK_VECTOR) {
+        bke::FieldRef<float3> *field_ref =
+            allocator.construct<bke::FieldRef<float3>>(out_field).release();
+        this->forward_output(socket, field_ref);
+      }
+      else if (socket->typeinfo()->type == SOCK_BOOLEAN) {
+        bke::FieldRef<bool> *field_ref =
+            allocator.construct<bke::FieldRef<bool>>(out_field).release();
+        this->forward_output(socket, field_ref);
+      }
+      else if (socket->typeinfo()->type == SOCK_RGBA) {
+        bke::FieldRef<blender::ColorGeometry4f> *field_ref =
+            allocator.construct<bke::FieldRef<blender::ColorGeometry4f>>(out_field).release();
+        this->forward_output(socket, field_ref);
+      }
+      else if (socket->typeinfo()->type == SOCK_INT) {
+        bke::FieldRef<int> *field_ref =
+            allocator.construct<bke::FieldRef<int>>(out_field).release();
         this->forward_output(socket, field_ref);
       }
       else {

@@ -354,6 +354,11 @@ class FieldRefBase {
 template<typename T> class FieldRef : public FieldRefBase {
 
  public:
+  FieldRef()
+  {
+    field_ = new ConstantField<T>(T());
+  }
+
   FieldRef(FieldPtr field)
   {
     field_ = std::move(field);

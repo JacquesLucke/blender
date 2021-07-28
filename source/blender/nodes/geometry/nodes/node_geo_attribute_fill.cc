@@ -121,7 +121,7 @@ static void fill_attribute(GeometryComponent &component, const GeoNodeExecParams
 
   switch (data_type) {
     case CD_PROP_FLOAT: {
-      bke::FieldRef<float> value_field = params.get_input<bke::FieldRef<float>>("Value_001");
+      bke::FieldRef<float> value_field = params.get_input_field<float>("Value_001");
       bke::FieldInputs field_inputs = value_field->prepare_inputs();
       Vector<std::unique_ptr<bke::FieldInputValue>> input_values;
       prepare_field_inputs(field_inputs, component, domain, input_values);

@@ -85,7 +85,21 @@ static void geo_node_attribute_exec(GeoNodeExecParams params)
   BLI_assert(cpp_type != nullptr);
   bke::FieldPtr field = new bke::GVArrayInputField<bke::AttributeFieldInputKey>(std::move(name),
                                                                                 *cpp_type);
-  params.set_output("Attribute", bke::FieldRef<float>(std::move(field)));
+  if (cpp_type->is<float>()) {
+    params.set_output("Attribute", bke::FieldRef<float>(std::move(field)));
+  }
+  else if (cpp_type->is<int>()) {
+    params.set_output("Attribute_001", bke::FieldRef<int>(std::move(field)));
+  }
+  else if (cpp_type->is<bool>()) {
+    params.set_output("Attribute_002", bke::FieldRef<bool>(std::move(field)));
+  }
+  else if (cpp_type->is<float3>()) {
+    params.set_output("Attribute_003", bke::FieldRef<float3>(std::move(field)));
+  }
+  else if (cpp_type->is<ColorGeometry4f>()) {
+    params.set_output("Attribute_004", bke::FieldRef<ColorGeometry4f>(std::move(field)));
+  }
 }
 
 }  // namespace blender::nodes
