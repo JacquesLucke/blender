@@ -31,13 +31,11 @@
 #include "BLI_task.hh"
 #include "BLI_vector_set.hh"
 
-MAKE_CPP_TYPE(FloatFieldRef, blender::bke::FieldRef<float>, CPPTypeFlags::BasicType);
-MAKE_CPP_TYPE(IntFieldRef, blender::bke::FieldRef<int>, CPPTypeFlags::BasicType);
-MAKE_CPP_TYPE(BoolFieldRef, blender::bke::FieldRef<bool>, CPPTypeFlags::BasicType);
-MAKE_CPP_TYPE(Float3FieldRef, blender::bke::FieldRef<blender::float3>, CPPTypeFlags::BasicType);
-MAKE_CPP_TYPE(ColorFieldRef,
-              blender::bke::FieldRef<blender::ColorGeometry4f>,
-              CPPTypeFlags::BasicType);
+MAKE_FIELD_REF_CPP_TYPE(FloatFieldRef, float)
+MAKE_FIELD_REF_CPP_TYPE(IntFieldRef, int)
+MAKE_FIELD_REF_CPP_TYPE(BoolFieldRef, bool)
+MAKE_FIELD_REF_CPP_TYPE(Float3FieldRef, blender::float3)
+MAKE_FIELD_REF_CPP_TYPE(ColorFieldRef, blender::ColorGeometry4f)
 
 namespace blender::modifiers::geometry_nodes {
 

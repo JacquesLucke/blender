@@ -203,12 +203,12 @@ ENUM_OPERATORS(CPPTypeFlags, CPPTypeFlags::EqualityComparable)
 namespace blender::fn {
 
 template<typename T, CPPTypeFlags flags>
-inline std::unique_ptr<const CPPType> create_cpp_type(StringRef name)
+inline CPPTypeMembers create_cpp_type_members(std::string debug_name)
 {
   using namespace cpp_type_util;
 
   CPPTypeMembers m;
-  m.name = name;
+  m.name = std::move(debug_name);
   m.size = (int64_t)sizeof(T);
   m.alignment = (int64_t)alignof(T);
   m.is_trivially_destructible = std::is_trivially_destructible_v<T>;
@@ -263,22 +263,24 @@ inline std::unique_ptr<const CPPType> create_cpp_type(StringRef name)
   if constexpr ((bool)(flags & CPPTypeFlags::EqualityComparable)) {
     m.is_equal = is_equal_cb<T>;
   }
-
-  const CPPType *type = new CPPType(std::move(m));
-  return std::unique_ptr<const CPPType>(type);
+  return m;
 }
+
+class StandardCPPType : public CPPType {
+ public:
+  template<typename T, CPPTypeFlags flags>
+  StandardCPPType(std::string debug_name)
+      : CPPType(create_cpp_type_members<T, flags>(std::move(debug_name)))
+  {
+  }
+};
 
 }  // namespace blender::fn
 
-#define MAKE_CPP_TYPE(IDENTIFIER, TYPE_NAME, FLAGS) \
-  template<> const blender::fn::CPPType &blender::fn::CPPType::get<TYPE_NAME>() \
+#define MAKE_CPP_TYPE(DEBUG_NAME, TYPE_NAME, FLAGS) \
+  template<> const blender::fn::CPPType &blender::fn::CPPType::get_impl<TYPE_NAME>() \
   { \
-    static std::unique_ptr<const CPPType> cpp_type = \
-        blender::fn::create_cpp_type<TYPE_NAME, FLAGS>(STRINGIFY(IDENTIFIER)); \
-    return *cpp_type; \
-  } \
-  /* Support using `CPPType::get<const T>()`. Otherwise the caller would have to remove const. */ \
-  template<> const blender::fn::CPPType &blender::fn::CPPType::get<const TYPE_NAME>() \
-  { \
-    return blender::fn::CPPType::get<TYPE_NAME>(); \
+    static blender::fn::CPPType cpp_type{ \
+        blender::fn::create_cpp_type_members<TYPE_NAME, FLAGS>(#DEBUG_NAME)}; \
+    return cpp_type; \
   }

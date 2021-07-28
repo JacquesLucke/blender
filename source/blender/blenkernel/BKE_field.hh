@@ -30,6 +30,7 @@
 #include "BLI_virtual_array.hh"
 
 #include "FN_cpp_type.hh"
+#include "FN_cpp_type_make.hh"
 #include "FN_multi_function.hh"
 
 namespace blender::bke {
@@ -394,4 +395,31 @@ template<typename T> class FieldRef : public FieldRefBase {
   }
 };
 
+class FieldRefCPPType : public CPPType {
+ private:
+  const CPPType &type_;
+
+ public:
+  FieldRefCPPType(fn::CPPTypeMembers members, const CPPType &base_type)
+      : CPPType(members), type_(base_type)
+  {
+  }
+
+  const CPPType &type() const
+  {
+    return type_;
+  };
+};
+
 }  // namespace blender::bke
+
+#define MAKE_FIELD_REF_CPP_TYPE(DEBUG_NAME, BASE_TYPE) \
+  template<> \
+  const blender::fn::CPPType &blender::fn::CPPType::get_impl<blender::bke::FieldRef<BASE_TYPE>>() \
+  { \
+    static blender::bke::FieldRefCPPType cpp_type{ \
+        blender::fn::create_cpp_type_members<blender::bke::FieldRef<BASE_TYPE>, \
+                                             CPPTypeFlags::BasicType>(#DEBUG_NAME), \
+        blender::fn::CPPType::get<BASE_TYPE>()}; \
+    return cpp_type; \
+  }

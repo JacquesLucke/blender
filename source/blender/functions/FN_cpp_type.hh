@@ -129,6 +129,8 @@ class CPPType : NonCopyable, NonMovable {
                                        m_.destruct);
   }
 
+  virtual ~CPPType() = default;
+
   /**
    * Two types only compare equal when their pointer is equal. No two instances of CPPType for the
    * same C++ type should be created.
@@ -148,7 +150,11 @@ class CPPType : NonCopyable, NonMovable {
    * This only works for types that actually implement the template specialization using
    * `MAKE_CPP_TYPE`.
    */
-  template<typename T> static const CPPType &get();
+  template<typename T> static const CPPType &get()
+  {
+    return CPPType::get_impl<std::remove_cv_t<T>>();
+  }
+  template<typename T> static const CPPType &get_impl();
 
   /**
    * Returns the name of the type for debugging purposes. This name should not be used as
