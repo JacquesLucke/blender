@@ -340,6 +340,14 @@ class MultiFunctionField : public Field {
   }
 };
 
+class AttributeField : public GVArrayInputField<AttributeFieldInputKey> {
+ public:
+  AttributeField(std::string name, const CPPType &type)
+      : GVArrayInputField<AttributeFieldInputKey>(std::move(name), type)
+  {
+  }
+};
+
 class FieldRefBase {
  protected:
   FieldPtr field_;

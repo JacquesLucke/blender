@@ -83,8 +83,7 @@ static void geo_node_attribute_exec(GeoNodeExecParams params)
 
   const CPPType *cpp_type = get_cpp_type((eNodeSocketDatatype)node_storage->output_type);
   BLI_assert(cpp_type != nullptr);
-  bke::FieldPtr field = new bke::GVArrayInputField<bke::AttributeFieldInputKey>(std::move(name),
-                                                                                *cpp_type);
+  bke::FieldPtr field = new bke::AttributeField(std::move(name), *cpp_type);
   if (cpp_type->is<float>()) {
     params.set_output("Attribute", bke::FieldRef<float>(std::move(field)));
   }

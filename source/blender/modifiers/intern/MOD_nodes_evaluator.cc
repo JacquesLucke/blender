@@ -364,9 +364,15 @@ static void get_socket_value(const SocketRef &socket, void *r_value)
       return;
     }
     case SOCK_VECTOR: {
-      float3 value;
-      socket.typeinfo()->get_cpp_value(*socket.bsocket(), &value);
-      new (r_value) bke::FieldRef<float3>(FieldPtr{new bke::ConstantField<float3>(value)});
+      if (socket.is_input() && (socket.bsocket()->flag & SOCK_HIDE_VALUE)) {
+        new (r_value) bke::FieldRef<float3>(
+            FieldPtr{new bke::AttributeField("position", CPPType::get<float3>())});
+      }
+      else {
+        float3 value;
+        socket.typeinfo()->get_cpp_value(*socket.bsocket(), &value);
+        new (r_value) bke::FieldRef<float3>(FieldPtr{new bke::ConstantField<float3>(value)});
+      }
       return;
     }
     default:
