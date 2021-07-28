@@ -97,6 +97,26 @@ static void prepare_field_inputs(bke::FieldInputs &field_inputs,
   }
 }
 
+template<typename T>
+void fill_attribute_impl(GeometryComponent &component,
+                         OutputAttribute &attribute,
+                         const GeoNodeExecParams &params,
+                         const StringRef input_name)
+{
+  const AttributeDomain domain = attribute.domain();
+  const int domain_size = attribute->size();
+  bke::FieldRef<T> value_field = params.get_input_field<T>(input_name);
+  bke::FieldInputs field_inputs = value_field->prepare_inputs();
+  Vector<std::unique_ptr<bke::FieldInputValue>> input_values;
+  prepare_field_inputs(field_inputs, component, domain, input_values);
+  bke::FieldOutput field_output = value_field->evaluate(IndexMask(domain_size), field_inputs);
+  for (const int i : IndexRange(domain_size)) {
+    T value;
+    field_output.varray_ref().get(i, &value);
+    attribute->set_by_copy(i, &value);
+  }
+}
+
 static void fill_attribute(GeometryComponent &component, const GeoNodeExecParams &params)
 {
   const std::string attribute_name = params.get_input<std::string>("Attribute");
@@ -117,40 +137,25 @@ static void fill_attribute(GeometryComponent &component, const GeoNodeExecParams
     return;
   }
 
-  const int domain_size = attribute->size();
-
   switch (data_type) {
     case CD_PROP_FLOAT: {
-      bke::FieldRef<float> value_field = params.get_input_field<float>("Value_001");
-      bke::FieldInputs field_inputs = value_field->prepare_inputs();
-      Vector<std::unique_ptr<bke::FieldInputValue>> input_values;
-      prepare_field_inputs(field_inputs, component, domain, input_values);
-      bke::FieldOutput field_output = value_field->evaluate(IndexMask(domain_size), field_inputs);
-      for (const int i : IndexRange(domain_size)) {
-        float value;
-        field_output.varray_ref().get(i, &value);
-        attribute->set_by_copy(i, &value);
-      }
+      fill_attribute_impl<float>(component, attribute, params, "Value_001");
       break;
     }
     case CD_PROP_FLOAT3: {
-      const float3 value = params.get_input<float3>("Value");
-      attribute->fill(&value);
+      fill_attribute_impl<float3>(component, attribute, params, "Value");
       break;
     }
     case CD_PROP_COLOR: {
-      const ColorGeometry4f value = params.get_input<ColorGeometry4f>("Value_002");
-      attribute->fill(&value);
+      fill_attribute_impl<ColorGeometry4f>(component, attribute, params, "Value_002");
       break;
     }
     case CD_PROP_BOOL: {
-      const bool value = params.get_input<bool>("Value_003");
-      attribute->fill(&value);
+      fill_attribute_impl<bool>(component, attribute, params, "Value_003");
       break;
     }
     case CD_PROP_INT32: {
-      const int value = params.get_input<int>("Value_004");
-      attribute->fill(&value);
+      fill_attribute_impl<int>(component, attribute, params, "Value_004");
       break;
     }
     default:
