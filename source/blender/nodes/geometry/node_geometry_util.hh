@@ -92,4 +92,9 @@ void curve_create_default_rotation_attribute(Span<float3> tangents,
                                              Span<float3> normals,
                                              MutableSpan<float3> rotations);
 
+void prepare_field_inputs(bke::FieldInputs &field_inputs,
+                          const GeometryComponent &component,
+                          const AttributeDomain domain,
+                          Vector<std::unique_ptr<bke::FieldInputValue>> &r_values);
+
 }  // namespace blender::nodes

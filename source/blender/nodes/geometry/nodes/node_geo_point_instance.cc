@@ -38,6 +38,10 @@ static bNodeSocketTemplate geo_node_point_instance_in[] = {
      PROP_NONE,
      SOCK_HIDE_LABEL},
     {SOCK_INT, N_("Seed"), 0, 0, 0, 0, -10000, 10000},
+    {SOCK_VECTOR, N_("Position"), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_NONE, SOCK_HIDE_VALUE},
+    {SOCK_VECTOR, N_("Rotation"), 0.0f, 0.0f, 0.0f, 0.0f, -10000.0f, 10000.0f, PROP_EULER},
+    {SOCK_VECTOR, N_("Scale"), 1.0f, 1.0f, 1.0f, 0.0f, -10000.0f, 10000.0f, PROP_NONE},
+    {SOCK_INT, N_("ID"), -1.0f, 0.0f, 0.0f, 0.0f, -10000.0f, 10000.0f, PROP_NONE},
     {-1, ""},
 };
 
@@ -170,13 +174,27 @@ static void add_instances_from_component(InstancesComponent &instances,
 
   const int domain_size = src_geometry.attribute_domain_size(domain);
 
-  GVArray_Typed<float3> positions = src_geometry.attribute_get_for_read<float3>(
-      "position", domain, {0, 0, 0});
-  GVArray_Typed<float3> rotations = src_geometry.attribute_get_for_read<float3>(
-      "rotation", domain, {0, 0, 0});
-  GVArray_Typed<float3> scales = src_geometry.attribute_get_for_read<float3>(
-      "scale", domain, {1, 1, 1});
-  GVArray_Typed<int> id_attribute = src_geometry.attribute_get_for_read<int>("id", domain, -1);
+  bke::FieldRef<float3> position_field = params.get_input_field<float3>("Position");
+  bke::FieldRef<float3> rotation_field = params.get_input_field<float3>("Rotation");
+  bke::FieldRef<float3> scale_field = params.get_input_field<float3>("Scale");
+  bke::FieldRef<int> id_field = params.get_input_field<int>("ID");
+
+  Vector<std::unique_ptr<bke::FieldInputValue>> all_inputs;
+
+  bke::FieldInputs position_inputs = position_field->prepare_inputs();
+  prepare_field_inputs(position_inputs, src_geometry, ATTR_DOMAIN_POINT, all_inputs);
+  bke::FieldInputs rotation_inputs = rotation_field->prepare_inputs();
+  prepare_field_inputs(rotation_inputs, src_geometry, ATTR_DOMAIN_POINT, all_inputs);
+  bke::FieldInputs scale_inputs = scale_field->prepare_inputs();
+  prepare_field_inputs(scale_inputs, src_geometry, ATTR_DOMAIN_POINT, all_inputs);
+  bke::FieldInputs id_inputs = id_field->prepare_inputs();
+  prepare_field_inputs(id_inputs, src_geometry, ATTR_DOMAIN_POINT, all_inputs);
+
+  IndexMask mask = IndexRange(domain_size);
+  bke::FieldOutput positions = position_field->evaluate(mask, position_inputs);
+  bke::FieldOutput rotations = rotation_field->evaluate(mask, rotation_inputs);
+  bke::FieldOutput scales = scale_field->evaluate(mask, scale_inputs);
+  bke::FieldOutput ids = id_field->evaluate(mask, id_inputs);
 
   /* The initial size of the component might be non-zero if there are two component types. */
   const int start_len = instances.instances_amount();
@@ -192,21 +210,40 @@ static void add_instances_from_component(InstancesComponent &instances,
     threading::parallel_for(IndexRange(domain_size), 1024, [&](IndexRange range) {
       for (const int i : range) {
         handles[i] = handle;
-        transforms[i] = float4x4::from_loc_eul_scale(positions[i], rotations[i], scales[i]);
-        instance_ids[i] = id_attribute[i];
+
+        float3 position;
+        positions.varray_ref().get(i, &position);
+        float3 rotation;
+        rotations.varray_ref().get(i, &rotation);
+        float3 scale;
+        scales.varray_ref().get(i, &scale);
+        int id;
+        ids.varray_ref().get(i, &id);
+
+        transforms[i] = float4x4::from_loc_eul_scale(position, rotation, scale);
+        instance_ids[i] = id;
       }
     });
   }
   else {
     const int seed = params.get_input<int>("Seed");
-    Array<uint32_t> ids = get_geometry_element_ids_as_uints(src_geometry, ATTR_DOMAIN_POINT);
     threading::parallel_for(IndexRange(domain_size), 1024, [&](IndexRange range) {
       for (const int i : range) {
-        const int index = BLI_hash_int_2d(ids[i], seed) % possible_handles.size();
+        float3 position;
+        positions.varray_ref().get(i, &position);
+        float3 rotation;
+        rotations.varray_ref().get(i, &rotation);
+        float3 scale;
+        scales.varray_ref().get(i, &scale);
+        int id;
+        ids.varray_ref().get(i, &id);
+
+        const int index = BLI_hash_int_2d(id, seed) % possible_handles.size();
         const int handle = possible_handles[index];
         handles[i] = handle;
-        transforms[i] = float4x4::from_loc_eul_scale(positions[i], rotations[i], scales[i]);
-        instance_ids[i] = id_attribute[i];
+
+        transforms[i] = float4x4::from_loc_eul_scale(position, rotation, scale);
+        instance_ids[i] = id;
       }
     });
   }

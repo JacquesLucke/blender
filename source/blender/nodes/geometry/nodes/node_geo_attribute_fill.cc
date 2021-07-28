@@ -78,25 +78,6 @@ static AttributeDomain get_result_domain(const GeometryComponent &component, con
   return ATTR_DOMAIN_POINT;
 }
 
-static void prepare_field_inputs(bke::FieldInputs &field_inputs,
-                                 const GeometryComponent &component,
-                                 const AttributeDomain domain,
-                                 Vector<std::unique_ptr<bke::FieldInputValue>> &r_values)
-{
-  for (const bke::FieldInputKey &key : field_inputs) {
-    if (const bke::AttributeFieldInputKey *attribute_key =
-            dynamic_cast<const bke::AttributeFieldInputKey *>(&key)) {
-      const StringRef name = attribute_key->name();
-      const CPPType &cpp_type = attribute_key->type();
-      const CustomDataType type = bke::cpp_type_to_custom_data_type(cpp_type);
-      GVArrayPtr attribute = component.attribute_get_for_read(name, domain, type);
-      auto value = std::make_unique<bke::GVArrayFieldInputValue>(std::move(attribute));
-      field_inputs.set_input(key, *value);
-      r_values.append(std::move(value));
-    }
-  }
-}
-
 template<typename T>
 void fill_attribute_impl(GeometryComponent &component,
                          OutputAttribute &attribute,
