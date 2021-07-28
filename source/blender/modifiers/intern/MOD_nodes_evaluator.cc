@@ -1341,7 +1341,21 @@ class GeometryNodesEvaluator {
     void *buffer = allocator.allocate(to_type.size(), to_type.alignment());
     GMutablePointer value{to_type, buffer};
 
-    if (conversions_.is_convertible(from_type, to_type)) {
+    const bke::FieldRefCPPType *from_field_type = dynamic_cast<const bke::FieldRefCPPType *>(
+        &from_type);
+    const bke::FieldRefCPPType *to_field_type = dynamic_cast<const bke::FieldRefCPPType *>(
+        &to_type);
+
+    if (from_field_type != nullptr && to_field_type != nullptr &&
+        conversions_.is_convertible(from_field_type->field_type(), to_field_type->field_type())) {
+      const MultiFunction &fn = *conversions_.get_conversion_multi_function(
+          MFDataType::ForSingle(from_field_type->field_type()),
+          MFDataType::ForSingle(to_field_type->field_type()));
+      FieldPtr old_field = from_field_type->get_field(value_to_forward.get());
+      FieldPtr new_field = new bke::MultiFunctionField({old_field}, fn, 1);
+      to_field_type->construct(buffer, std::move(new_field));
+    }
+    else if (conversions_.is_convertible(from_type, to_type)) {
       /* Do the conversion if possible. */
       conversions_.convert_to_uninitialized(from_type, to_type, value_to_forward.get(), buffer);
     }

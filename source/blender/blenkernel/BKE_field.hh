@@ -397,29 +397,51 @@ template<typename T> class FieldRef : public FieldRefBase {
 
 class FieldRefCPPType : public CPPType {
  private:
-  const CPPType &type_;
+  FieldPtr (*get_field_)(const void *field_ref);
+  void (*construct_)(void *dst, FieldPtr field);
+  const CPPType &field_type_;
 
  public:
-  FieldRefCPPType(fn::CPPTypeMembers members, const CPPType &base_type)
-      : CPPType(members), type_(base_type)
+  FieldRefCPPType(fn::CPPTypeMembers members,
+                  FieldPtr (*get_field)(const void *field_ref),
+                  void (*construct)(void *dst, FieldPtr field),
+                  const CPPType &field_type)
+      : CPPType(members), get_field_(get_field), construct_(construct), field_type_(field_type)
   {
   }
 
-  const CPPType &type() const
+  const CPPType &field_type() const
   {
-    return type_;
+    return field_type_;
   };
+
+  FieldPtr get_field(const void *field_ref) const
+  {
+    return get_field_(field_ref);
+  }
+
+  void construct(void *dst, FieldPtr field) const
+  {
+    construct_(dst, std::move(field));
+  }
 };
 
 }  // namespace blender::bke
 
-#define MAKE_FIELD_REF_CPP_TYPE(DEBUG_NAME, BASE_TYPE) \
+#define MAKE_FIELD_REF_CPP_TYPE(DEBUG_NAME, FIELD_TYPE) \
   template<> \
-  const blender::fn::CPPType &blender::fn::CPPType::get_impl<blender::bke::FieldRef<BASE_TYPE>>() \
+  const blender::fn::CPPType & \
+  blender::fn::CPPType::get_impl<blender::bke::FieldRef<FIELD_TYPE>>() \
   { \
     static blender::bke::FieldRefCPPType cpp_type{ \
-        blender::fn::create_cpp_type_members<blender::bke::FieldRef<BASE_TYPE>, \
+        blender::fn::create_cpp_type_members<blender::bke::FieldRef<FIELD_TYPE>, \
                                              CPPTypeFlags::BasicType>(#DEBUG_NAME), \
-        blender::fn::CPPType::get<BASE_TYPE>()}; \
+        [](const void *field_ref) { \
+          return ((const blender::bke::FieldRef<FIELD_TYPE> *)field_ref)->field(); \
+        }, \
+        [](void *dst, blender::bke::FieldPtr field) { \
+          new (dst) blender::bke::FieldRef<FIELD_TYPE>(std::move(field)); \
+        }, \
+        blender::fn::CPPType::get<FIELD_TYPE>()}; \
     return cpp_type; \
   }
