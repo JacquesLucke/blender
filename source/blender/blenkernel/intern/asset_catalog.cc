@@ -132,8 +132,41 @@ std::unique_ptr<AssetCatalog> AssetCatalogService::parse_catalog_line(
   return std::make_unique<AssetCatalog>(catalog_id, catalog_path);
 }
 
+AssetCatalogDefinitionFile *AssetCatalogService::get_catalog_definition_file()
+{
+  return catalog_definition_file.get();
+}
+
 AssetCatalogDefinitionFile::AssetCatalogDefinitionFile()
 {
+}
+
+void AssetCatalogDefinitionFile::write_to_disk() const
+{
+  this->write_to_disk(this->file_path);
+}
+
+void AssetCatalogDefinitionFile::write_to_disk(const CatalogFilePath &file_path) const
+{
+  // TODO(@sybren): create a backup of the original file, if it exists.
+  std::ofstream output(file_path);
+
+  // TODO(@sybren): remember the line ending style that was originally read, then use that to write
+  // the file again.
+
+  // Write the header.
+  // TODO(@sybren): move the header definition to some other place.
+  output << "# This is an Asset Catalog Definition file for Blender." << std::endl;
+  output << "#" << std::endl;
+  output << "# Empty lines and lines starting with `#` will be ignored." << std::endl;
+  output << "# Other lines are of the format \"CATALOG_ID /catalog/path/for/assets\"" << std::endl;
+  output << "" << std::endl;
+
+  // Write the catalogs.
+  // TODO(@sybren): order them by Catalog ID or Catalog Path.
+  for (const auto &catalog : this->catalogs.values()) {
+    output << catalog->catalog_id << " " << catalog->path << std::endl;
+  }
 }
 
 AssetCatalog::AssetCatalog()

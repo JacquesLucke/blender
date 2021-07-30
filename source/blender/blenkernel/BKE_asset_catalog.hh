@@ -59,10 +59,13 @@ class AssetCatalogService {
  public:
   AssetCatalogService();
 
-  // Return nullptr if not found.
+  /* Return catalog with the given ID. Return nullptr if not found. */
   AssetCatalog *find_catalog(const CatalogID &catalog_id);
 
   void load_from_disk(const CatalogFilePath &asset_library_root);
+
+  /* Get CDF for testing only. */
+  AssetCatalogDefinitionFile *get_catalog_definition_file();
 
  protected:
   void load_directory_recursive(const CatalogFilePath &directory_path);
@@ -82,6 +85,9 @@ class AssetCatalogDefinitionFile {
   Map<CatalogID, AssetCatalog *> catalogs;
 
   AssetCatalogDefinitionFile();
+
+  void write_to_disk() const;
+  void write_to_disk(const CatalogFilePath &) const;
 };
 
 class AssetCatalog {
