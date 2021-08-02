@@ -94,7 +94,7 @@ class AssetCatalog {
   /* TODO(@sybren): determine which properties should be private / get accessors. */
  public:
   AssetCatalog() = default;
-  AssetCatalog(const CatalogID &catalog_id, const CatalogPath &name);
+  AssetCatalog(const CatalogID &catalog_id, const CatalogPath &path);
 
   CatalogID catalog_id;
   CatalogPath path;
