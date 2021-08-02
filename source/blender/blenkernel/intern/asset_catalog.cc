@@ -29,10 +29,6 @@ namespace fs = std::filesystem;
 
 namespace blender::bke {
 
-AssetCatalogService::AssetCatalogService()
-{
-}
-
 AssetCatalog *AssetCatalogService::find_catalog(const CatalogID &catalog_id)
 {
   std::unique_ptr<AssetCatalog> *catalog_uptr_ptr = this->catalogs.lookup_ptr(catalog_id);
@@ -137,10 +133,6 @@ AssetCatalogDefinitionFile *AssetCatalogService::get_catalog_definition_file()
   return catalog_definition_file.get();
 }
 
-AssetCatalogDefinitionFile::AssetCatalogDefinitionFile()
-{
-}
-
 void AssetCatalogDefinitionFile::write_to_disk() const
 {
   this->write_to_disk(this->file_path);
@@ -167,10 +159,6 @@ void AssetCatalogDefinitionFile::write_to_disk(const CatalogFilePath &file_path)
   for (const auto &catalog : this->catalogs.values()) {
     output << catalog->catalog_id << " " << catalog->path << std::endl;
   }
-}
-
-AssetCatalog::AssetCatalog()
-{
 }
 
 AssetCatalog::AssetCatalog(const CatalogID &catalog_id, const CatalogPath &path)

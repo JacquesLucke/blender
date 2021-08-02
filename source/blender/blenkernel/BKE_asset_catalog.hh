@@ -57,7 +57,7 @@ class AssetCatalogService {
   std::unique_ptr<AssetCatalogDefinitionFile> catalog_definition_file;
 
  public:
-  AssetCatalogService();
+  AssetCatalogService() = default;
 
   /* Return catalog with the given ID. Return nullptr if not found. */
   AssetCatalog *find_catalog(const CatalogID &catalog_id);
@@ -84,7 +84,7 @@ class AssetCatalogDefinitionFile {
   CatalogFilePath file_path;
   Map<CatalogID, AssetCatalog *> catalogs;
 
-  AssetCatalogDefinitionFile();
+  AssetCatalogDefinitionFile() = default;
 
   void write_to_disk() const;
   void write_to_disk(const CatalogFilePath &) const;
@@ -93,7 +93,7 @@ class AssetCatalogDefinitionFile {
 class AssetCatalog {
   /* TODO(@sybren): determine which properties should be private / get accessors. */
  public:
-  AssetCatalog();
+  AssetCatalog() = default;
   AssetCatalog(const CatalogID &catalog_id, const CatalogPath &name);
 
   CatalogID catalog_id;
