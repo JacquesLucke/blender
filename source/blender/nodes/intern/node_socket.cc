@@ -47,6 +47,7 @@
 #include "NOD_node_tree_multi_function.hh"
 #include "NOD_socket.h"
 
+#include "FN_array_cpp_type.hh"
 #include "FN_cpp_type_make.hh"
 
 struct bNodeSocket *node_add_socket_from_template(struct bNodeTree *ntree,
@@ -677,6 +678,12 @@ static bNodeSocketType *make_socket_type_string()
   socktype->get_geometry_nodes_cpp_value = socktype->get_base_cpp_value;
   return socktype;
 }
+
+MAKE_ARRAY_CPP_TYPE(IntArray, blender::Array<int>)
+MAKE_ARRAY_CPP_TYPE(FloatArray, blender::Array<float>)
+MAKE_ARRAY_CPP_TYPE(Float3Array, blender::Array<blender::float3>)
+MAKE_ARRAY_CPP_TYPE(BoolArray, blender::Array<bool>)
+MAKE_ARRAY_CPP_TYPE(ColorArray, blender::Array<blender::ColorGeometry4f>)
 
 MAKE_CPP_TYPE(Object, Object *, CPPTypeFlags::BasicType)
 MAKE_CPP_TYPE(Collection, Collection *, CPPTypeFlags::BasicType)
