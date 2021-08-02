@@ -47,11 +47,11 @@ TEST(AssetCatalogTest, load_single_file)
   EXPECT_EQ("POSES_ELLY", poses_elly->catalog_id);
   EXPECT_EQ("character/Elly/poselib", poses_elly->path);
 
-  // Test whitespace stripping.
+  // Test whitespace stripping and support in the path.
   AssetCatalog *poses_whitespace = service.find_catalog("POSES_ELLY_WHITESPACE");
   ASSERT_NE(nullptr, poses_whitespace);
   EXPECT_EQ("POSES_ELLY_WHITESPACE", poses_whitespace->catalog_id);
-  EXPECT_EQ("character/Elly/poselib/whitespace", poses_whitespace->path);
+  EXPECT_EQ("character/Elly/poselib/white space", poses_whitespace->path);
 
   // Test getting a UTF-8 catalog ID.
   AssetCatalog *poses_ruzena = service.find_catalog("POSES_RUŽENA");
