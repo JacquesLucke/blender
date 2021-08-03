@@ -12,32 +12,23 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2015 Blender Foundation.
- * All rights reserved.
  */
 
-#include "openvdb_transform.h"
+#pragma once
 
-OpenVDBTransform::OpenVDBTransform()
-{
-}
+/** \file
+ * \ingroup bli
+ */
 
-OpenVDBTransform::~OpenVDBTransform()
-{
-}
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-void OpenVDBTransform::create_linear_transform(double voxel_size)
-{
-  this->transform = openvdb::math::Transform::createLinearTransform(voxel_size);
-}
+typedef struct Range2f {
+  float min;
+  float max;
+} Range2f;
 
-const openvdb::math::Transform::Ptr &OpenVDBTransform::get_transform()
-{
-  return this->transform;
+#ifdef __cplusplus
 }
-
-void OpenVDBTransform::set_transform(const openvdb::math::Transform::Ptr &transform)
-{
-  this->transform = transform;
-}
+#endif
