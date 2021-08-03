@@ -58,6 +58,13 @@ typedef struct AssetMetaData {
   /** Custom asset meta-data. Cannot store pointers to IDs (#STRUCT_NO_DATABLOCK_IDPROPERTIES)! */
   struct IDProperty *properties;
 
+  /**
+   * Asset Catalog identifier. Should not contain spaces.
+   * Mapped to a path in the asset catalog hierarchy by an #AssetCatalogService.
+   * Use #BKE_asset_metadata_catalog_id_set() to ensure a valid ID is set.
+   */
+  char catalog_id[64]; /* MAX_NAME */
+
   /** Optional description of this asset for display in the UI. Dynamic length. */
   char *description;
   /** User defined tags for this asset. The asset manager uses these for filtering, but how they

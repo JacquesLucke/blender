@@ -26,6 +26,7 @@
 
 #include "BLI_listbase.h"
 #include "BLI_string.h"
+#include "BLI_string_ref.hh"
 #include "BLI_string_utils.h"
 #include "BLI_utildefines.h"
 
@@ -36,6 +37,8 @@
 #include "BLO_read_write.h"
 
 #include "MEM_guardedalloc.h"
+
+using namespace blender;
 
 AssetMetaData *BKE_asset_metadata_create(void)
 {
@@ -113,6 +116,19 @@ void BKE_asset_metadata_tag_remove(AssetMetaData *asset_data, AssetTag *tag)
 void BKE_asset_library_reference_init_default(AssetLibraryReference *library_ref)
 {
   memcpy(library_ref, DNA_struct_default_get(AssetLibraryReference), sizeof(*library_ref));
+}
+
+void BKE_asset_metadata_catalog_id_set(struct AssetMetaData *asset_data, const char *catalog_id)
+{
+  constexpr size_t max_catalog_id_length = sizeof(asset_data->catalog_id);
+
+  /* The substr() call is necessary to make copy() copy the first characters (instead of refusing
+   * to copy and producing an empty string). */
+  StringRef trimmed_id = StringRef(catalog_id).trim().substr(0, max_catalog_id_length - 1);
+  trimmed_id.copy(asset_data->catalog_id, max_catalog_id_length);
+
+  /* Replace whitespace in the catalog ID with dashes. */
+  BLI_str_replace_char(asset_data->catalog_id, ' ', '-');
 }
 
 /* Queries -------------------------------------------- */

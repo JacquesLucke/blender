@@ -126,6 +126,12 @@ static void rna_AssetMetaData_active_tag_range(
   *max = *softmax = MAX2(asset_data->tot_tags - 1, 0);
 }
 
+static void rna_AssetMetaData_catalog_id_set(PointerRNA *ptr, const char *value)
+{
+  AssetMetaData *asset_data = ptr->data;
+  BKE_asset_metadata_catalog_id_set(asset_data, value);
+}
+
 static PointerRNA rna_AssetHandle_file_data_get(PointerRNA *ptr)
 {
   AssetHandle *asset_handle = ptr->data;
@@ -258,6 +264,13 @@ static void rna_def_asset_data(BlenderRNA *brna)
   prop = RNA_def_property(srna, "active_tag", PROP_INT, PROP_NONE);
   RNA_def_property_int_funcs(prop, NULL, NULL, "rna_AssetMetaData_active_tag_range");
   RNA_def_property_ui_text(prop, "Active Tag", "Index of the tag set for editing");
+
+  prop = RNA_def_property(srna, "catalog_id", PROP_STRING, PROP_NONE);
+  RNA_def_property_string_funcs(prop, NULL, NULL, "rna_AssetMetaData_catalog_id_set");
+  RNA_def_property_ui_text(
+      prop,
+      "Catalog ID",
+      "Symbolic catalog identifier, used by Blender to look up the asset's catalog path");
 }
 
 static void rna_def_asset_handle_api(StructRNA *srna)

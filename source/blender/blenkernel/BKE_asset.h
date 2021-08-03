@@ -46,6 +46,9 @@ struct AssetTagEnsureResult BKE_asset_metadata_tag_ensure(struct AssetMetaData *
                                                           const char *name);
 void BKE_asset_metadata_tag_remove(struct AssetMetaData *asset_data, struct AssetTag *tag);
 
+/** Clean up the catalog ID (whitespaces removed, length reduced, etc.) and assign it. */
+void BKE_asset_metadata_catalog_id_set(struct AssetMetaData *asset_data, const char *catalog_id);
+
 void BKE_asset_library_reference_init_default(struct AssetLibraryReference *library_ref);
 
 struct PreviewImage *BKE_asset_metadata_preview_get_from_id(const struct AssetMetaData *asset_data,

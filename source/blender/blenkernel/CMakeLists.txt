@@ -773,6 +773,7 @@ if(WITH_GTESTS)
   set(TEST_SRC
     intern/action_test.cc
     intern/armature_test.cc
+    intern/asset_test.cc
     intern/asset_catalog_test.cc
     intern/cryptomatte_test.cc
     intern/fcurve_test.cc
