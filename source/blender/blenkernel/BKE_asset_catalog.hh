@@ -48,6 +48,7 @@ class AssetCatalogTreeNode;
 /* Manages the asset catalogs of a single asset library (i.e. of catalogs defined in a single
  * directory hierarchy). */
 class AssetCatalogService {
+ public:
   const char path_separator = '/';
 
   /* TODO(@sybren): determine which properties should be private / get accessors. */

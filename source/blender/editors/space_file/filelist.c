@@ -56,6 +56,7 @@
 #endif
 
 #include "BKE_asset.h"
+#include "BKE_asset_library.h"
 #include "BKE_context.h"
 #include "BKE_global.h"
 #include "BKE_icons.h"
@@ -385,6 +386,7 @@ typedef struct FileList {
   eFileSelectType type;
   /* The library this list was created for. Stored here so we know when to re-read. */
   AssetLibraryReference *asset_library_ref;
+  AssetLibrary *asset_library;
 
   short flags;
 

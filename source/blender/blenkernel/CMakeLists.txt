@@ -83,6 +83,7 @@ set(SRC
   intern/armature_pose.cc
   intern/armature_update.c
   intern/asset_catalog.cc
+  intern/asset_library.cc
   intern/asset.cc
   intern/attribute.c
   intern/attribute_access.cc
@@ -452,6 +453,7 @@ set(SRC
   nla_private.h
   particle_private.h
   tracking_private.h
+  intern/asset_library.hh
   intern/CCGSubSurf.h
   intern/CCGSubSurf_inline.h
   intern/CCGSubSurf_intern.h
@@ -780,8 +782,9 @@ if(WITH_GTESTS)
   set(TEST_SRC
     intern/action_test.cc
     intern/armature_test.cc
-    intern/asset_test.cc
     intern/asset_catalog_test.cc
+    intern/asset_library_test.cc
+    intern/asset_test.cc
     intern/cryptomatte_test.cc
     intern/fcurve_test.cc
     intern/lattice_deform_test.cc

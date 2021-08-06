@@ -54,9 +54,18 @@ void AssetCatalogService::load_from_disk(const CatalogFilePath &asset_library_ro
   }
 }
 
-void AssetCatalogService::load_directory_recursive(const CatalogFilePath & /*directory_path*/)
+void AssetCatalogService::load_directory_recursive(const CatalogFilePath &directory_path)
 {
-  // TODO(@sybren): implement
+  // TODO(@sybren): implement proper multi-file support. For now, just load
+  // "single_catalog_definition_file.cats.txt".
+  CatalogFilePath file_path = directory_path / "single_catalog_definition_file.cats.txt";
+  fs::file_status fs_status = fs::status(file_path);
+
+  if (!fs::exists(fs_status)) {
+    /* No file to be loaded is perfectly fine. */
+    return;
+  }
+  this->load_single_file(file_path);
 }
 
 void AssetCatalogService::load_single_file(const CatalogFilePath &catalog_definition_file_path)
