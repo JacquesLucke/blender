@@ -891,11 +891,7 @@ static void free_softbody_baked(SoftBody *sb)
       MEM_freeN(key);
     }
   }
-  if (sb->keys) {
-    MEM_freeN(sb->keys);
-  }
-
-  sb->keys = NULL;
+  MEM_SAFE_FREE(sb->keys);
   sb->totkey = 0;
 }
 static void free_scratch(SoftBody *sb)
@@ -3447,10 +3443,10 @@ static void softbody_step(
         float newtime = forcetime * 1.1f; /* hope for 1.1 times better conditions in next step */
 
         if (sb->scratch->flag & SBF_DOFUZZY) {
-          ///* stay with this stepsize unless err really small */
+          // /* stay with this stepsize unless err really small */
           // if (err > SoftHeunTol/(2.0f*sb->fuzzyness)) {
           newtime = forcetime;
-          //}
+          // }
         }
         else {
           if (err > SoftHeunTol / 2.0f) { /* stay with this stepsize unless err really small */

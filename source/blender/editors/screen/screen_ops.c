@@ -381,7 +381,7 @@ bool ED_operator_console_active(bContext *C)
 static bool ed_object_hidden(const Object *ob)
 {
   /* if hidden but in edit mode, we still display, can happen with animation */
-  return ((ob->restrictflag & OB_RESTRICT_VIEWPORT) && !(ob->mode & OB_MODE_EDIT));
+  return ((ob->visibility_flag & OB_HIDE_VIEWPORT) && !(ob->mode & OB_MODE_EDIT));
 }
 
 bool ED_operator_object_active(bContext *C)
@@ -1023,10 +1023,7 @@ AZone *ED_area_azones_update(ScrArea *area, const int xy[2])
 
 static void actionzone_exit(wmOperator *op)
 {
-  if (op->customdata) {
-    MEM_freeN(op->customdata);
-  }
-  op->customdata = NULL;
+  MEM_SAFE_FREE(op->customdata);
 
   G.moving &= ~G_TRANSFORM_WM;
 }
@@ -1308,10 +1305,7 @@ static bool area_swap_init(wmOperator *op, const wmEvent *event)
 static void area_swap_exit(bContext *C, wmOperator *op)
 {
   WM_cursor_modal_restore(CTX_wm_window(C));
-  if (op->customdata) {
-    MEM_freeN(op->customdata);
-  }
-  op->customdata = NULL;
+  MEM_SAFE_FREE(op->customdata);
 }
 
 static void area_swap_cancel(bContext *C, wmOperator *op)
@@ -1892,10 +1886,7 @@ static void area_move_apply(bContext *C, wmOperator *op)
 
 static void area_move_exit(bContext *C, wmOperator *op)
 {
-  if (op->customdata) {
-    MEM_freeN(op->customdata);
-  }
-  op->customdata = NULL;
+  MEM_SAFE_FREE(op->customdata);
 
   /* this makes sure aligned edges will result in aligned grabbing */
   BKE_screen_remove_double_scrverts(CTX_wm_screen(C));
@@ -2906,7 +2897,7 @@ static void areas_do_frame_follow(bContext *C, bool middle)
     LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
       LISTBASE_FOREACH (ARegion *, region, &area->regionbase) {
         /* do follow here if editor type supports it */
-        if ((screen_ctx->redraws_flag & TIME_FOLLOW)) {
+        if (screen_ctx->redraws_flag & TIME_FOLLOW) {
           if ((region->regiontype == RGN_TYPE_WINDOW &&
                ELEM(area->spacetype, SPACE_SEQ, SPACE_GRAPH, SPACE_ACTION, SPACE_NLA)) ||
               (area->spacetype == SPACE_CLIP && region->regiontype == RGN_TYPE_PREVIEW)) {
@@ -3086,7 +3077,7 @@ static int keyframe_jump_exec(bContext *C, wmOperator *op)
   }
 
   /* find matching keyframe in the right direction */
-  ActKeyColumn *ak;
+  const ActKeyColumn *ak;
   if (next) {
     ak = ED_keylist_find_next(keylist, cfra);
   }

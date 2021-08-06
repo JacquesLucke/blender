@@ -495,7 +495,7 @@ static bool find_prev_next_keyframes(struct bContext *C, int *r_nextfra, int *r_
   Mask *mask = CTX_data_edit_mask(C);
   bDopeSheet ads = {NULL};
   struct AnimKeylist *keylist = ED_keylist_create();
-  ActKeyColumn *aknext, *akprev;
+  const ActKeyColumn *aknext, *akprev;
   float cfranext, cfraprev;
   bool donenext = false, doneprev = false;
   int nextcount = 0, prevcount = 0;
@@ -522,6 +522,7 @@ static bool find_prev_next_keyframes(struct bContext *C, int *r_nextfra, int *r_
     mask_to_keylist(&ads, masklay, keylist);
   }
 
+  /* TODO(jbakker): Keylists are ordered, no need to do any searching at all. */
   /* find matching keyframe in the right direction */
   do {
     aknext = ED_keylist_find_next(keylist, cfranext);
