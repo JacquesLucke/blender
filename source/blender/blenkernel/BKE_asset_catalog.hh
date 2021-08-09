@@ -77,14 +77,18 @@ class AssetCatalogService {
       StringRef line, const AssetCatalogDefinitionFile *catalog_definition_file);
 };
 
+/** Keeps track of which catalogs are defined in a certain file on disk.
+ * Only contains non-owning pointers to the #AssetCatalog instances, so ensure the lifetime of this
+ * class is shorter than that of the #`AssetCatalog`s themselves. */
 class AssetCatalogDefinitionFile {
-  /* TODO(@sybren): determine which properties should be private / get accessors. */
  public:
   CatalogFilePath file_path;
 
   AssetCatalogDefinitionFile() = default;
 
+  /** Write the catalog definitions to the same file they were read from. */
   void write_to_disk() const;
+  /** Write the catalog definitions to an arbitrary file path. */
   void write_to_disk(const CatalogFilePath &) const;
 
   bool contains(const CatalogID &catalog_id) const;
@@ -97,6 +101,8 @@ class AssetCatalogDefinitionFile {
   Map<CatalogID, AssetCatalog *> catalogs_;
 };
 
+/** Asset Catalog definition, containing a symbolic ID and a path that points to a node in the
+ * catalog hierarchy. */
 class AssetCatalog {
  public:
   AssetCatalog() = default;
