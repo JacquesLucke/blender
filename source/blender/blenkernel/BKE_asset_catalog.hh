@@ -37,13 +37,10 @@ namespace blender::bke {
 
 using CatalogID = std::string;
 using CatalogPath = std::string;
-using CatalogPathReference = StringRef;
-using CatalogPathComponent = std::string;
 using CatalogFilePath = std::filesystem::path;
 
 class AssetCatalog;
 class AssetCatalogDefinitionFile;
-class AssetCatalogTreeNode;
 
 /* Manages the asset catalogs of a single asset library (i.e. of catalogs defined in a single
  * directory hierarchy). */
