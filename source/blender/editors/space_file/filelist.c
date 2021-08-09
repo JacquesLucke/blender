@@ -1758,6 +1758,13 @@ void filelist_clear_ex(struct FileList *filelist, const bool do_cache, const boo
   if (do_selection && filelist->selection_state) {
     BLI_ghash_clear(filelist->selection_state, NULL, NULL);
   }
+
+  if (filelist->asset_library != NULL) {
+    /* There is no way to refresh the catalogs stored by the AssetLibrary struct, so instead of
+     * "clearing" it, the entire struct is freed. It will be reallocated when needed. */
+    BKE_asset_library_free(filelist->asset_library);
+    filelist->asset_library = NULL;
+  }
 }
 
 void filelist_clear(struct FileList *filelist)
@@ -3134,6 +3141,9 @@ typedef struct FileListReadJob {
    * The job system calls #filelist_readjob_update which moves any read file from #tmp_filelist
    * into #filelist in a thread-safe way.
    *
+   * #tmp_filelist also keeps an `AssetLibrary *` so that it can be loaded in the same thread, and
+   * moved to #filelist once all categories are loaded.
+   *
    * NOTE: #tmp_filelist is freed in #filelist_readjob_free, so any copied pointers need to be set
    * to NULL to avoid double-freeing them. */
   struct FileList *tmp_filelist;
@@ -3264,6 +3274,13 @@ static void filelist_readjob_do(const bool do_lib,
     BLI_stack_discard(todo_dirs);
   }
   BLI_stack_free(todo_dirs);
+
+  /* Check whether assets catalogs need to be loaded. */
+  if (job_params->filelist->asset_library_ref != NULL) {
+    /* Load asset catalogs, into the temp filelist for thread-safety.
+     * #filelist_readjob_endjob() will move it into the real filelist. */
+    job_params->tmp_filelist->asset_library = BKE_asset_library_load(filelist->filelist.root);
+  }
 }
 
 static void filelist_readjob_dir(FileListReadJob *job_params,
@@ -3353,6 +3370,8 @@ static void filelist_readjob_startjob(void *flrjv, short *stop, short *do_update
   BLI_mutex_lock(&flrj->lock);
 
   BLI_assert((flrj->tmp_filelist == NULL) && flrj->filelist);
+  BLI_assert_msg(flrj->filelist->asset_library == NULL,
+                 "Asset library should not yet be assigned at start of read job");
 
   flrj->tmp_filelist = MEM_dupallocN(flrj->filelist);
 
@@ -3412,6 +3431,12 @@ static void filelist_readjob_endjob(void *flrjv)
 
   /* In case there would be some dangling update... */
   filelist_readjob_update(flrjv);
+
+  /* Move ownership of the asset library from the temporary list to the true filelist. */
+  BLI_assert_msg(flrj->filelist->asset_library == NULL,
+                 "asset library should not already have been allocated");
+  flrj->filelist->asset_library = flrj->tmp_filelist->asset_library;
+  flrj->tmp_filelist->asset_library = NULL; /* MUST be NULL to avoid double-free. */
 
   flrj->filelist->flags &= ~FL_IS_PENDING;
   flrj->filelist->flags |= FL_IS_READY;
