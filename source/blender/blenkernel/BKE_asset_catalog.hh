@@ -53,7 +53,7 @@ class AssetCatalogService {
 
   /* TODO(@sybren): determine which properties should be private / get accessors. */
 
-  // These pointers are owned by this AssetCatalogService.
+  /* These pointers are owned by this AssetCatalogService. */
   Map<CatalogID, std::unique_ptr<AssetCatalog>> catalogs;
   std::unique_ptr<AssetCatalogDefinitionFile> catalog_definition_file;
 
