@@ -301,6 +301,8 @@ set(SRC
   BKE_armature.h
   BKE_armature.hh
   BKE_asset_catalog.hh
+  BKE_asset_library.h
+  BKE_asset_library.hh
   BKE_asset.h
   BKE_attribute.h
   BKE_attribute_access.hh
@@ -453,7 +455,6 @@ set(SRC
   nla_private.h
   particle_private.h
   tracking_private.h
-  intern/asset_library.hh
   intern/CCGSubSurf.h
   intern/CCGSubSurf_inline.h
   intern/CCGSubSurf_intern.h

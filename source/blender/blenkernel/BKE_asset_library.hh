@@ -21,23 +21,19 @@
 #pragma once
 
 #ifndef __cplusplus
-#  error This is a C++-only header file.
+#  error This is a C++-only header file. Use BKE_asset_library.h instead.
 #endif
 
-#include "BKE_asset_catalog.hh"
 #include "BKE_asset_library.h"
+
+#include "BKE_asset_catalog.hh"
 
 #include <filesystem>
 #include <memory>
 
-namespace blender::bke {
-
-namespace fs = std::filesystem;
-
 struct AssetLibrary {
-  std::unique_ptr<AssetCatalogService> catalog_service;
+  std::unique_ptr<blender::bke::AssetCatalogService> catalog_service;
 
-  void load(const fs::path &library_root_directory);
+  /* TODO(@sybren): revisit std::filesystem after D12117 has a conclusion. */
+  void load(const std::filesystem::path &library_root_directory);
 };
-
-}  // namespace blender::bke

@@ -387,7 +387,7 @@ typedef struct FileList {
   eFileSelectType type;
   /* The library this list was created for. Stored here so we know when to re-read. */
   AssetLibraryReference *asset_library_ref;
-  AssetLibrary *asset_library;
+  struct AssetLibrary *asset_library;
 
   short flags;
 

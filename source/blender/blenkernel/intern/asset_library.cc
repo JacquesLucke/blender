@@ -18,32 +18,31 @@
  * \ingroup bke
  */
 
-#include "asset_library.hh"
+#include "BKE_asset_library.hh"
 
 #include "MEM_guardedalloc.h"
 
 #include <memory>
 
-struct AssetLibrary *BKE_asset_library_load(const char *library_path)
+/* TODO(@sybren): revisit after D12117 has a conclusion. */
+namespace filesystem = std::filesystem;
+using namespace blender::bke;
+
+AssetLibrary *BKE_asset_library_load(const char *library_path)
 {
-  blender::bke::AssetLibrary *lib = new blender::bke::AssetLibrary();
+  AssetLibrary *lib = new AssetLibrary();
   lib->load(library_path);
-  return reinterpret_cast<struct AssetLibrary *>(lib);
+  return lib;
 }
 
-void BKE_asset_library_free(struct AssetLibrary *asset_library)
+void BKE_asset_library_free(AssetLibrary *asset_library)
 {
-  blender::bke::AssetLibrary *lib = reinterpret_cast<blender::bke::AssetLibrary *>(asset_library);
-  delete lib;
+  delete asset_library;
 }
 
-namespace blender::bke {
-
-void AssetLibrary::load(const fs::path &library_root_directory)
+void AssetLibrary::load(const filesystem::path &library_root_directory)
 {
   auto catalog_service = std::make_unique<AssetCatalogService>();
   catalog_service->load_from_disk(library_root_directory);
   this->catalog_service = std::move(catalog_service);
 }
-
-}  // namespace blender::bke

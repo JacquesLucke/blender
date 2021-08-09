@@ -19,9 +19,7 @@
 
 #include "BKE_appdir.h"
 #include "BKE_asset_catalog.hh"
-#include "BKE_asset_library.h"
-
-#include "asset_library.hh"
+#include "BKE_asset_library.hh"
 
 #include "testing/testing.h"
 
@@ -40,13 +38,11 @@ TEST(AssetLibraryTest, load_and_free_c_functions)
 
   /* Load the asset library. */
   const fs::path library_path = test_files_dir / "asset_library";
-  ::AssetLibrary *library_c_ptr = BKE_asset_library_load(library_path.c_str());
-  ASSERT_NE(nullptr, library_c_ptr);
+  AssetLibrary *library = BKE_asset_library_load(library_path.c_str());
+  ASSERT_NE(nullptr, library);
 
-  /* Check that it can be cast to the C++ type and has a Catalog Service. */
-  blender::bke::AssetLibrary *library_cpp_ptr = reinterpret_cast<blender::bke::AssetLibrary *>(
-      library_c_ptr);
-  AssetCatalogService *service = library_cpp_ptr->catalog_service.get();
+  /* Check that there is a Catalog Service. */
+  AssetCatalogService *service = library->catalog_service.get();
   ASSERT_NE(nullptr, service);
 
   /* Check that the catalogs defined in the library are actually loaded. This just tests one single
@@ -56,7 +52,7 @@ TEST(AssetLibraryTest, load_and_free_c_functions)
   ASSERT_NE(nullptr, poses_elly) << "unable to find POSES_ELLY catalog";
   EXPECT_EQ("character/Elly/poselib", poses_elly->path);
 
-  BKE_asset_library_free(library_c_ptr);
+  BKE_asset_library_free(library);
 }
 
 TEST(AssetLibraryTest, load_nonexistent_directory)
@@ -68,19 +64,17 @@ TEST(AssetLibraryTest, load_nonexistent_directory)
 
   /* Load the asset library. */
   const fs::path library_path = test_files_dir / "asset_library/this/subdir/does/not/exist";
-  ::AssetLibrary *library_c_ptr = BKE_asset_library_load(library_path.c_str());
-  ASSERT_NE(nullptr, library_c_ptr);
+  ::AssetLibrary *library = BKE_asset_library_load(library_path.c_str());
+  ASSERT_NE(nullptr, library);
 
-  /* Check that it has a Catalog Service. */
-  blender::bke::AssetLibrary *library_cpp_ptr = reinterpret_cast<blender::bke::AssetLibrary *>(
-      library_c_ptr);
-  AssetCatalogService *service = library_cpp_ptr->catalog_service.get();
+  /* Check that there is a Catalog Service. */
+  AssetCatalogService *service = library->catalog_service.get();
   ASSERT_NE(nullptr, service);
 
   /* Check that the catalog service doesn't have any catalogs. */
   EXPECT_TRUE(service->catalogs.is_empty());
 
-  BKE_asset_library_free(library_c_ptr);
+  BKE_asset_library_free(library);
 }
 
 }  // namespace blender::bke::tests
