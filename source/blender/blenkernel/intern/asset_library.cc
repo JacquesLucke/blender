@@ -24,25 +24,26 @@
 
 #include <memory>
 
-/* TODO(@sybren): revisit after D12117 has a conclusion. */
-namespace filesystem = std::filesystem;
-using namespace blender::bke;
-
-AssetLibrary *BKE_asset_library_load(const char *library_path)
+struct AssetLibrary *BKE_asset_library_load(const char *library_path)
 {
-  AssetLibrary *lib = new AssetLibrary();
+  blender::bke::AssetLibrary *lib = new blender::bke::AssetLibrary();
   lib->load(library_path);
-  return lib;
+  return reinterpret_cast<struct AssetLibrary *>(lib);
 }
 
-void BKE_asset_library_free(AssetLibrary *asset_library)
+void BKE_asset_library_free(struct AssetLibrary *asset_library)
 {
-  delete asset_library;
+  blender::bke::AssetLibrary *lib = reinterpret_cast<blender::bke::AssetLibrary *>(asset_library);
+  delete lib;
 }
 
-void AssetLibrary::load(const filesystem::path &library_root_directory)
+namespace blender::bke {
+
+void AssetLibrary::load(const fs::path &library_root_directory)
 {
   auto catalog_service = std::make_unique<AssetCatalogService>();
   catalog_service->load_from_disk(library_root_directory);
   this->catalog_service = std::move(catalog_service);
 }
+
+}  // namespace blender::bke

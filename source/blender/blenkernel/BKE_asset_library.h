@@ -24,8 +24,8 @@
 extern "C" {
 #endif
 
-/** Forward declaration, defined in BKE_asset_library.hh */
-struct AssetLibrary;
+/** Forward declaration, defined in intern/asset_library.hh */
+typedef struct AssetLibrary AssetLibrary;
 
 /** TODO(@sybren): properly have a think/discussion about the API for this. */
 struct AssetLibrary *BKE_asset_library_load(const char *library_path);

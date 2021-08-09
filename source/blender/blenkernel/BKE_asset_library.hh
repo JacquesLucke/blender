@@ -31,9 +31,15 @@
 #include <filesystem>
 #include <memory>
 
-struct AssetLibrary {
-  std::unique_ptr<blender::bke::AssetCatalogService> catalog_service;
+namespace blender::bke {
 
-  /* TODO(@sybren): revisit std::filesystem after D12117 has a conclusion. */
-  void load(const std::filesystem::path &library_root_directory);
+/* TODO(@sybren): revisit after D12117 has a conclusion. */
+namespace fs = std::filesystem;
+
+struct AssetLibrary {
+  std::unique_ptr<AssetCatalogService> catalog_service;
+
+  void load(const fs::path &library_root_directory);
 };
+
+}  // namespace blender::bke
