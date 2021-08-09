@@ -29,9 +29,14 @@ namespace fs = std::filesystem;
 
 namespace blender::bke {
 
+bool AssetCatalogService::is_empty() const
+{
+  return catalogs_.is_empty();
+}
+
 AssetCatalog *AssetCatalogService::find_catalog(const CatalogID &catalog_id)
 {
-  std::unique_ptr<AssetCatalog> *catalog_uptr_ptr = this->catalogs.lookup_ptr(catalog_id);
+  std::unique_ptr<AssetCatalog> *catalog_uptr_ptr = this->catalogs_.lookup_ptr(catalog_id);
   if (catalog_uptr_ptr == nullptr) {
     return nullptr;
   }
@@ -73,9 +78,9 @@ void AssetCatalogService::load_single_file(const CatalogFilePath &catalog_defini
   std::unique_ptr<AssetCatalogDefinitionFile> cdf = parse_catalog_file(
       catalog_definition_file_path);
 
-  BLI_assert_msg(!this->catalog_definition_file,
+  BLI_assert_msg(!this->catalog_definition_file_,
                  "Only loading of a single catalog definition file is supported.");
-  this->catalog_definition_file = std::move(cdf);
+  this->catalog_definition_file_ = std::move(cdf);
 }
 
 std::unique_ptr<AssetCatalogDefinitionFile> AssetCatalogService::parse_catalog_file(
@@ -101,7 +106,7 @@ std::unique_ptr<AssetCatalogDefinitionFile> AssetCatalogService::parse_catalog_f
       continue;
     }
 
-    if (this->catalogs.contains(catalog->catalog_id)) {
+    if (this->catalogs_.contains(catalog->catalog_id)) {
       // TODO(@sybren): apparently another CDF was already loaded. This is not supported yet.
       std::cerr << catalog_definition_file_path << ": multiple definitions of catalog "
                 << catalog->catalog_id << " in multiple files, ignoring this one." << std::endl;
@@ -113,7 +118,7 @@ std::unique_ptr<AssetCatalogDefinitionFile> AssetCatalogService::parse_catalog_f
     cdf->add_new(catalog.get());
 
     /* The AssetCatalog pointer is owned by the AssetCatalogService. */
-    this->catalogs.add_new(catalog->catalog_id, std::move(catalog));
+    this->catalogs_.add_new(catalog->catalog_id, std::move(catalog));
   }
 
   return cdf;
@@ -137,17 +142,17 @@ std::unique_ptr<AssetCatalog> AssetCatalogService::parse_catalog_line(
 
 AssetCatalogDefinitionFile *AssetCatalogService::get_catalog_definition_file()
 {
-  return catalog_definition_file.get();
+  return catalog_definition_file_.get();
 }
 
 bool AssetCatalogDefinitionFile::contains(const CatalogID &catalog_id) const
 {
-  return catalogs.contains(catalog_id);
+  return catalogs_.contains(catalog_id);
 }
 
 void AssetCatalogDefinitionFile::add_new(AssetCatalog *catalog)
 {
-  catalogs.add_new(catalog->catalog_id, catalog);
+  catalogs_.add_new(catalog->catalog_id, catalog);
 }
 
 void AssetCatalogDefinitionFile::write_to_disk() const
@@ -173,7 +178,7 @@ void AssetCatalogDefinitionFile::write_to_disk(const CatalogFilePath &file_path)
 
   // Write the catalogs.
   // TODO(@sybren): order them by Catalog ID or Catalog Path.
-  for (const auto &catalog : this->catalogs.values()) {
+  for (const auto &catalog : catalogs_.values()) {
     output << catalog->catalog_id << " " << catalog->path << std::endl;
   }
 }

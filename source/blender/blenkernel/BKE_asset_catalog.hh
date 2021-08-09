@@ -51,12 +51,6 @@ class AssetCatalogService {
  public:
   const char path_separator = '/';
 
-  /* TODO(@sybren): determine which properties should be private / get accessors. */
-
-  /* These pointers are owned by this AssetCatalogService. */
-  Map<CatalogID, std::unique_ptr<AssetCatalog>> catalogs;
-  std::unique_ptr<AssetCatalogDefinitionFile> catalog_definition_file;
-
  public:
   AssetCatalogService() = default;
 
@@ -68,7 +62,14 @@ class AssetCatalogService {
   /* Get CDF for testing only. */
   AssetCatalogDefinitionFile *get_catalog_definition_file();
 
+  /* Return true iff there are no catalogs known. */
+  bool is_empty() const;
+
  protected:
+  /* These pointers are owned by this AssetCatalogService. */
+  Map<CatalogID, std::unique_ptr<AssetCatalog>> catalogs_;
+  std::unique_ptr<AssetCatalogDefinitionFile> catalog_definition_file_;
+
   void load_directory_recursive(const CatalogFilePath &directory_path);
   void load_single_file(const CatalogFilePath &catalog_definition_file_path);
 
@@ -84,10 +85,6 @@ class AssetCatalogDefinitionFile {
  public:
   CatalogFilePath file_path;
 
-  /* Catalogs stored in this file. They are mapped by ID to make it possible to query whether a
-   * catalog is already known, without having to find the corresponding `AssetCatalog*`. */
-  Map<CatalogID, AssetCatalog *> catalogs;
-
   AssetCatalogDefinitionFile() = default;
 
   void write_to_disk() const;
@@ -96,10 +93,14 @@ class AssetCatalogDefinitionFile {
   bool contains(const CatalogID &catalog_id) const;
   /* Add a new catalog. Undefined behaviour if a catalog with the same ID was already added. */
   void add_new(AssetCatalog *catalog);
+
+ protected:
+  /* Catalogs stored in this file. They are mapped by ID to make it possible to query whether a
+   * catalog is already known, without having to find the corresponding `AssetCatalog*`. */
+  Map<CatalogID, AssetCatalog *> catalogs_;
 };
 
 class AssetCatalog {
-  /* TODO(@sybren): determine which properties should be private / get accessors. */
  public:
   AssetCatalog() = default;
   AssetCatalog(const CatalogID &catalog_id, const CatalogPath &path);

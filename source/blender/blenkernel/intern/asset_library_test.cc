@@ -76,7 +76,7 @@ TEST(AssetLibraryTest, load_nonexistent_directory)
   ASSERT_NE(nullptr, service);
 
   /* Check that the catalog service doesn't have any catalogs. */
-  EXPECT_TRUE(service->catalogs.is_empty());
+  EXPECT_TRUE(service->is_empty());
 
   BKE_asset_library_free(library_c_ptr);
 }
