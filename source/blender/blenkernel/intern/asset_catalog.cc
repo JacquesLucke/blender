@@ -93,15 +93,10 @@ std::unique_ptr<AssetCatalogDefinitionFile> AssetCatalogService::parse_catalog_f
     }
 
     std::unique_ptr<AssetCatalog> catalog = this->parse_catalog_line(trimmed_line, cdf.get());
-
-    const bool is_catalog_id_reused_in_file = cdf->catalogs.contains(catalog->catalog_id);
-    /* The AssetDefinitionFile should include this catalog when writing it back to disk, even if it
-     * was a duplicate. */
-    cdf->catalogs.add_new(catalog->catalog_id, catalog.get());
-
-    if (is_catalog_id_reused_in_file) {
+    if (cdf->contains(catalog->catalog_id)) {
       std::cerr << catalog_definition_file_path << ": multiple definitions of catalog "
-                << catalog->catalog_id << ", using first occurrence." << std::endl;
+                << catalog->catalog_id << " in the same file, using first occurrence."
+                << std::endl;
       /* Don't store 'catalog'; unique_ptr will free its memory. */
       continue;
     }
@@ -113,6 +108,9 @@ std::unique_ptr<AssetCatalogDefinitionFile> AssetCatalogService::parse_catalog_f
       /* Don't store 'catalog'; unique_ptr will free its memory. */
       continue;
     }
+
+    /* The AssetDefinitionFile should include this catalog when writing it back to disk. */
+    cdf->add_new(catalog.get());
 
     /* The AssetCatalog pointer is owned by the AssetCatalogService. */
     this->catalogs.add_new(catalog->catalog_id, std::move(catalog));
@@ -140,6 +138,16 @@ std::unique_ptr<AssetCatalog> AssetCatalogService::parse_catalog_line(
 AssetCatalogDefinitionFile *AssetCatalogService::get_catalog_definition_file()
 {
   return catalog_definition_file.get();
+}
+
+bool AssetCatalogDefinitionFile::contains(const CatalogID &catalog_id) const
+{
+  return catalogs.contains(catalog_id);
+}
+
+void AssetCatalogDefinitionFile::add_new(AssetCatalog *catalog)
+{
+  catalogs.add_new(catalog->catalog_id, catalog);
 }
 
 void AssetCatalogDefinitionFile::write_to_disk() const

@@ -83,12 +83,19 @@ class AssetCatalogDefinitionFile {
   /* TODO(@sybren): determine which properties should be private / get accessors. */
  public:
   CatalogFilePath file_path;
+
+  /* Catalogs stored in this file. They are mapped by ID to make it possible to query whether a
+   * catalog is already known, without having to find the corresponding `AssetCatalog*`. */
   Map<CatalogID, AssetCatalog *> catalogs;
 
   AssetCatalogDefinitionFile() = default;
 
   void write_to_disk() const;
   void write_to_disk(const CatalogFilePath &) const;
+
+  bool contains(const CatalogID &catalog_id) const;
+  /* Add a new catalog. Undefined behaviour if a catalog with the same ID was already added. */
+  void add_new(AssetCatalog *catalog);
 };
 
 class AssetCatalog {
