@@ -52,6 +52,74 @@ AssetCatalog *AssetCatalogService::find_catalog(const CatalogID &catalog_id)
   return catalog_uptr_ptr->get();
 }
 
+AssetCatalog *AssetCatalogService::create_catalog(const CatalogPath &catalog_path)
+{
+  std::unique_ptr<AssetCatalog> catalog = AssetCatalog::from_path(catalog_path);
+
+  /* So we can std::move(catalog) and still use the non-owning pointer: */
+  AssetCatalog *const catalog_ptr = catalog.get();
+
+  /* TODO(@sybren): move the `AssetCatalog::from_path()` function to another place, that can reuse
+   * catalogs when a catalog with the given path is already known, and avoid duplicate catalog IDs.
+   */
+  BLI_assert_msg(!catalogs_.contains(catalog->catalog_id), "duplicate catalog ID not supported");
+  catalogs_.add_new(catalog->catalog_id, std::move(catalog));
+
+  /* Ensure the new catalog gets written to disk. */
+  this->ensure_asset_library_root();
+  this->ensure_catalog_definition_file();
+  catalog_definition_file_->add_new(catalog_ptr);
+  catalog_definition_file_->write_to_disk();
+
+  return catalog_ptr;
+}
+
+void AssetCatalogService::ensure_catalog_definition_file()
+{
+  if (catalog_definition_file_) {
+    return;
+  }
+
+  auto cdf = std::make_unique<AssetCatalogDefinitionFile>();
+  cdf->file_path = asset_library_root_ / DEFAULT_CATALOG_FILENAME;
+  catalog_definition_file_ = std::move(cdf);
+}
+
+bool AssetCatalogService::ensure_asset_library_root()
+{
+  /* TODO(@sybren): design a way to get such errors presented to users (or ensure that they never
+   * occur). */
+  if (asset_library_root_.empty()) {
+    std::cerr
+        << "AssetCatalogService: no asset library root configured, unable to ensure it exists."
+        << std::endl;
+    return false;
+  }
+
+  if (fs::exists(asset_library_root_)) {
+    if (!fs::is_directory(asset_library_root_)) {
+      std::cerr << "AssetCatalogService: " << asset_library_root_
+                << " exists but is not a directory, this is not a supported situation."
+                << std::endl;
+      return false;
+    }
+
+    /* Root directory exists, work is done. */
+    return true;
+  }
+
+  /* Ensure the root directory exists. */
+  std::error_code err_code;
+  if (!fs::create_directories(asset_library_root_, err_code)) {
+    std::cerr << "AssetCatalogService: error creating directory " << asset_library_root_ << ": "
+              << err_code << std::endl;
+    return false;
+  }
+
+  /* Root directory has been created, work is done. */
+  return true;
+}
+
 void AssetCatalogService::load_from_disk()
 {
   load_from_disk(asset_library_root_);
@@ -89,6 +157,8 @@ void AssetCatalogService::load_directory_recursive(const CatalogFilePath &direct
 
 void AssetCatalogService::load_single_file(const CatalogFilePath &catalog_definition_file_path)
 {
+  /* TODO(@sybren): check that #catalog_definition_file_path is contained in #asset_library_root_,
+   * otherwise some assumptions may fail. */
   std::unique_ptr<AssetCatalogDefinitionFile> cdf = parse_catalog_file(
       catalog_definition_file_path);
 
@@ -204,6 +274,20 @@ void AssetCatalogDefinitionFile::write_to_disk(const CatalogFilePath &file_path)
 AssetCatalog::AssetCatalog(const CatalogID &catalog_id, const CatalogPath &path)
     : catalog_id(catalog_id), path(path)
 {
+}
+
+std::unique_ptr<AssetCatalog> AssetCatalog::from_path(const CatalogPath &path)
+{
+  const CatalogID cat_id = sensible_id_for_path(path);
+  auto catalog = std::make_unique<AssetCatalog>(cat_id, path);
+  return catalog;
+}
+
+CatalogID AssetCatalog::sensible_id_for_path(const CatalogPath &path)
+{
+  CatalogID cat_id = path;
+  std::replace(cat_id.begin(), cat_id.end(), AssetCatalogService::PATH_SEPARATOR, '-');
+  return cat_id;
 }
 
 }  // namespace blender::bke

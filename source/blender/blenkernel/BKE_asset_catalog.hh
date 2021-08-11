@@ -60,8 +60,11 @@ class AssetCatalogService {
   /** Return catalog with the given ID. Return nullptr if not found. */
   AssetCatalog *find_catalog(const CatalogID &catalog_id);
 
+  /** Create a catalog with some sensible auto-generated catalog ID.
+   * The catalog will be saved to the default catalog file.*/
+  AssetCatalog *create_catalog(const CatalogPath &catalog_path);
 
-  /* Get CDF for testing only. */
+  /** For testing only, get the loaded catalog definition file. */
   AssetCatalogDefinitionFile *get_catalog_definition_file();
 
   /** Return true iff there are no catalogs known. */
@@ -81,6 +84,17 @@ class AssetCatalogService {
 
   std::unique_ptr<AssetCatalog> parse_catalog_line(
       StringRef line, const AssetCatalogDefinitionFile *catalog_definition_file);
+
+  /**
+   * Ensure that an #AssetCatalogDefinitionFile exists in memory.
+   * This is used when no such file has been loaded, and a new catalog is to be created. */
+  void ensure_catalog_definition_file();
+
+  /**
+   * Ensure the asset library root directory exists, so that it can be written to.
+   * TODO(@sybren): this might move to the #AssetLibrary class instead, and just assumed to exist
+   * in this class. */
+  bool ensure_asset_library_root();
 };
 
 /** Keeps track of which catalogs are defined in a certain file on disk.
@@ -116,6 +130,12 @@ class AssetCatalog {
 
   CatalogID catalog_id;
   CatalogPath path;
+
+  /** Create a new Catalog with the given path, auto-generating a sensible catalog ID. */
+  static std::unique_ptr<AssetCatalog> from_path(const CatalogPath &path);
+
+  /** Generate a sensible catalog ID for the given path. */
+  static CatalogID sensible_id_for_path(const CatalogPath &path);
 };
 
 }  // namespace blender::bke

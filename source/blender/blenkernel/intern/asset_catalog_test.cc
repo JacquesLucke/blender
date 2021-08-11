@@ -33,6 +33,7 @@ namespace blender::bke::tests {
 class AssetCatalogTest : public testing::Test {
  protected:
   CatalogFilePath asset_library_root_;
+  CatalogFilePath temp_library_path_;
 
   void SetUp() override
   {
@@ -42,6 +43,23 @@ class AssetCatalogTest : public testing::Test {
     }
 
     asset_library_root_ = test_files_dir / "asset_library";
+    temp_library_path_ = "";
+  }
+
+  /* Register a temporary path, which will be removed at the end of the test. */
+  CatalogFilePath use_temp_path()
+  {
+    const CatalogFilePath tempdir = BKE_tempdir_session();
+    temp_library_path_ = tempdir / "test-temporary-path";
+    return temp_library_path_;
+  }
+
+  void TearDown() override
+  {
+    if (!temp_library_path_.empty()) {
+      fs::remove_all(temp_library_path_);
+      temp_library_path_ = "";
+    }
   }
 };
 
@@ -80,15 +98,12 @@ TEST_F(AssetCatalogTest, write_single_file)
   AssetCatalogService service(asset_library_root_);
   service.load_from_disk(asset_library_root_ / "single_catalog_definition_file.cats.txt");
 
-  const CatalogFilePath tempdir = BKE_tempdir_session();
-  const CatalogFilePath save_to_path = tempdir / "_asset_catalog_test.cats.txt";
+  const CatalogFilePath save_to_path = use_temp_path();
   AssetCatalogDefinitionFile *cdf = service.get_catalog_definition_file();
   cdf->write_to_disk(save_to_path);
 
   AssetCatalogService loaded_service(save_to_path);
   loaded_service.load_from_disk();
-
-  unlink(save_to_path.c_str());
 
   // Test that the expected catalogs are there.
   EXPECT_NE(nullptr, loaded_service.find_catalog("POSES_ELLY"));
@@ -102,6 +117,64 @@ TEST_F(AssetCatalogTest, write_single_file)
   EXPECT_EQ(nullptr, loaded_service.find_catalog("ID_WITHOUT_PATH"));
 
   // TODO(@sybren): test ordering of catalogs in the file.
+}
+
+TEST_F(AssetCatalogTest, create_first_catalog_from_scratch)
+{
+  /* Even from scratch a root directory should be known. */
+  const CatalogFilePath temp_lib_root = use_temp_path();
+  AssetCatalogService service(temp_lib_root);
+
+  /* Just creating the service should NOT create the path. */
+  EXPECT_FALSE(fs::exists(temp_lib_root));
+
+  AssetCatalog *cat = service.create_catalog("some/catalog/path");
+  ASSERT_NE(nullptr, cat);
+  EXPECT_EQ(cat->path, "some/catalog/path");
+  EXPECT_EQ(cat->catalog_id, "some-catalog-path");
+
+  /* Creating a new catalog should create the directory + the default file. */
+  EXPECT_TRUE(fs::is_directory(temp_lib_root));
+
+  const CatalogFilePath definition_file_path = temp_lib_root /
+                                               AssetCatalogService::DEFAULT_CATALOG_FILENAME;
+  EXPECT_TRUE(fs::is_regular_file(definition_file_path));
+
+  AssetCatalogService loaded_service(temp_lib_root);
+  loaded_service.load_from_disk();
+
+  // Test that the expected catalog is there.
+  AssetCatalog *written_cat = loaded_service.find_catalog(cat->catalog_id);
+  ASSERT_NE(nullptr, written_cat);
+  EXPECT_EQ(written_cat->catalog_id, cat->catalog_id);
+  EXPECT_EQ(written_cat->path, cat->path);
+}
+
+TEST_F(AssetCatalogTest, create_catalog_after_loading_file)
+{
+  const CatalogFilePath temp_lib_root = use_temp_path();
+
+  /* Copy the asset catalog definition files to a separate location, so that we can test without
+   * overwriting the test file in SVN. */
+  fs::copy(asset_library_root_, temp_lib_root, fs::copy_options::recursive);
+
+  AssetCatalogService service(temp_lib_root);
+  service.load_from_disk();
+  EXPECT_NE(nullptr, service.find_catalog("POSES_ELLY")) << "expected catalogs to be loaded";
+  EXPECT_EQ(nullptr, service.find_catalog("new-catalog"))
+      << "not expecting catalog that's only added in this test";
+
+  /* This should create a new catalog and write to disk. */
+  service.create_catalog("new/catalog");
+
+  /* Reload the written catalog files. */
+  AssetCatalogService loaded_service(temp_lib_root);
+  loaded_service.load_from_disk();
+
+  EXPECT_NE(nullptr, service.find_catalog("POSES_ELLY"))
+      << "expected pre-existing catalogs to be kept in the file";
+  EXPECT_NE(nullptr, service.find_catalog("new-catalog"))
+      << "expecting newly added catalog to exist in the file";
 }
 
 }  // namespace blender::bke::tests
