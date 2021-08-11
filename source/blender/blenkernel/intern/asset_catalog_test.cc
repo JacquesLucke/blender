@@ -66,7 +66,7 @@ class AssetCatalogTest : public testing::Test {
 TEST_F(AssetCatalogTest, load_single_file)
 {
   AssetCatalogService service(asset_library_root_);
-  service.load_from_disk(asset_library_root_ / "single_catalog_definition_file.cats.txt");
+  service.load_from_disk(asset_library_root_ / "blender_assets.cats.txt");
 
   // Test getting a non-existant catalog ID.
   EXPECT_EQ(nullptr, service.find_catalog("NONEXISTANT"));
@@ -96,7 +96,7 @@ TEST_F(AssetCatalogTest, load_single_file)
 TEST_F(AssetCatalogTest, write_single_file)
 {
   AssetCatalogService service(asset_library_root_);
-  service.load_from_disk(asset_library_root_ / "single_catalog_definition_file.cats.txt");
+  service.load_from_disk(asset_library_root_ / "blender_assets.cats.txt");
 
   const CatalogFilePath save_to_path = use_temp_path();
   AssetCatalogDefinitionFile *cdf = service.get_catalog_definition_file();

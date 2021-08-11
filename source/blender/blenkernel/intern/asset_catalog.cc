@@ -30,8 +30,7 @@ namespace fs = std::filesystem;
 namespace blender::bke {
 
 const char AssetCatalogService::PATH_SEPARATOR = '/';
-const CatalogFilePath AssetCatalogService::DEFAULT_CATALOG_FILENAME =
-    "single_catalog_definition_file.cats.txt";
+const CatalogFilePath AssetCatalogService::DEFAULT_CATALOG_FILENAME = "blender_assets.cats.txt";
 
 AssetCatalogService::AssetCatalogService(const CatalogFilePath &asset_library_root)
     : asset_library_root_(asset_library_root)
