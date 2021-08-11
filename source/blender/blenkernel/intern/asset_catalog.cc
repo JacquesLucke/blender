@@ -112,6 +112,10 @@ std::unique_ptr<AssetCatalogDefinitionFile> AssetCatalogService::parse_catalog_f
     }
 
     std::unique_ptr<AssetCatalog> catalog = this->parse_catalog_line(trimmed_line, cdf.get());
+    if (!catalog) {
+      continue;
+    }
+
     if (cdf->contains(catalog->catalog_id)) {
       std::cerr << catalog_definition_file_path << ": multiple definitions of catalog "
                 << catalog->catalog_id << " in the same file, using first occurrence."

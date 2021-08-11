@@ -53,6 +53,9 @@ TEST_F(AssetCatalogTest, load_single_file)
   // Test getting a non-existant catalog ID.
   EXPECT_EQ(nullptr, service.find_catalog("NONEXISTANT"));
 
+  // Test getting an invalid catalog (without path definition).
+  EXPECT_EQ(nullptr, service.find_catalog("ID_WITHOUT_PATH"));
+
   // Test getting a 7-bit ASCII catalog ID.
   AssetCatalog *poses_elly = service.find_catalog("POSES_ELLY");
   ASSERT_NE(nullptr, poses_elly);
@@ -94,6 +97,9 @@ TEST_F(AssetCatalogTest, write_single_file)
   EXPECT_NE(nullptr, loaded_service.find_catalog("POSES_RUŽENA"));
   EXPECT_NE(nullptr, loaded_service.find_catalog("POSES_RUŽENA_HAND"));
   EXPECT_NE(nullptr, loaded_service.find_catalog("POSES_RUŽENA_FACE"));
+
+  // Test that the invalid catalog definition wasn't copied.
+  EXPECT_EQ(nullptr, loaded_service.find_catalog("ID_WITHOUT_PATH"));
 
   // TODO(@sybren): test ordering of catalogs in the file.
 }
