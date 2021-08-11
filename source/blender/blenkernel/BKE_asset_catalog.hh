@@ -47,6 +47,7 @@ class AssetCatalogDefinitionFile;
 class AssetCatalogService {
  public:
   static const char PATH_SEPARATOR;
+  static const CatalogFilePath DEFAULT_CATALOG_FILENAME;
 
  public:
   AssetCatalogService() = default;

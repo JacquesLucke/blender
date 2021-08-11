@@ -30,6 +30,9 @@ namespace fs = std::filesystem;
 namespace blender::bke {
 
 const char AssetCatalogService::PATH_SEPARATOR = '/';
+const CatalogFilePath AssetCatalogService::DEFAULT_CATALOG_FILENAME =
+    "single_catalog_definition_file.cats.txt";
+
 bool AssetCatalogService::is_empty() const
 {
   return catalogs_.is_empty();
@@ -63,8 +66,8 @@ void AssetCatalogService::load_from_disk(const CatalogFilePath &asset_library_ro
 void AssetCatalogService::load_directory_recursive(const CatalogFilePath &directory_path)
 {
   // TODO(@sybren): implement proper multi-file support. For now, just load
-  // "single_catalog_definition_file.cats.txt".
-  CatalogFilePath file_path = directory_path / "single_catalog_definition_file.cats.txt";
+  // the default file if it is there.
+  CatalogFilePath file_path = directory_path / DEFAULT_CATALOG_FILENAME;
   fs::file_status fs_status = fs::status(file_path);
 
   if (!fs::exists(fs_status)) {
