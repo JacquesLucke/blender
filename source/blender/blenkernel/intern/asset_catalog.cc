@@ -33,6 +33,11 @@ const char AssetCatalogService::PATH_SEPARATOR = '/';
 const CatalogFilePath AssetCatalogService::DEFAULT_CATALOG_FILENAME =
     "single_catalog_definition_file.cats.txt";
 
+AssetCatalogService::AssetCatalogService(const CatalogFilePath &asset_library_root)
+    : asset_library_root_(asset_library_root)
+{
+}
+
 bool AssetCatalogService::is_empty() const
 {
   return catalogs_.is_empty();
@@ -45,6 +50,11 @@ AssetCatalog *AssetCatalogService::find_catalog(const CatalogID &catalog_id)
     return nullptr;
   }
   return catalog_uptr_ptr->get();
+}
+
+void AssetCatalogService::load_from_disk()
+{
+  load_from_disk(asset_library_root_);
 }
 
 void AssetCatalogService::load_from_disk(const CatalogFilePath &asset_library_root)

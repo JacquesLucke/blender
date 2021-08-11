@@ -41,8 +41,8 @@ namespace blender::bke {
 
 void AssetLibrary::load(const fs::path &library_root_directory)
 {
-  auto catalog_service = std::make_unique<AssetCatalogService>();
-  catalog_service->load_from_disk(library_root_directory);
+  auto catalog_service = std::make_unique<AssetCatalogService>(library_root_directory);
+  catalog_service->load_from_disk();
   this->catalog_service = std::move(catalog_service);
 }
 

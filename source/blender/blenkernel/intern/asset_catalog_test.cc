@@ -20,6 +20,8 @@
 #include "BKE_appdir.h"
 #include "BKE_asset_catalog.hh"
 
+#include "BLI_fileops.h"
+
 #include "testing/testing.h"
 
 #include <filesystem>
@@ -28,15 +30,25 @@ namespace fs = std::filesystem;
 
 namespace blender::bke::tests {
 
-TEST(AssetCatalogTest, load_single_file)
-{
-  const fs::path test_files_dir = blender::tests::flags_test_asset_dir();
-  if (test_files_dir.empty()) {
-    FAIL();
-  }
+class AssetCatalogTest : public testing::Test {
+ protected:
+  CatalogFilePath asset_library_root_;
 
-  AssetCatalogService service;
-  service.load_from_disk(test_files_dir / "asset_library/single_catalog_definition_file.cats.txt");
+  void SetUp() override
+  {
+    const fs::path test_files_dir = blender::tests::flags_test_asset_dir();
+    if (test_files_dir.empty()) {
+      FAIL();
+    }
+
+    asset_library_root_ = test_files_dir / "asset_library";
+  }
+};
+
+TEST_F(AssetCatalogTest, load_single_file)
+{
+  AssetCatalogService service(asset_library_root_);
+  service.load_from_disk(asset_library_root_ / "single_catalog_definition_file.cats.txt");
 
   // Test getting a non-existant catalog ID.
   EXPECT_EQ(nullptr, service.find_catalog("NONEXISTANT"));
@@ -60,24 +72,18 @@ TEST(AssetCatalogTest, load_single_file)
   EXPECT_EQ("character/Ružena/poselib", poses_ruzena->path);
 }
 
-TEST(AssetCatalogTest, write_single_file)
+TEST_F(AssetCatalogTest, write_single_file)
 {
-  const fs::path test_files_dir = blender::tests::flags_test_asset_dir();
-  if (test_files_dir.empty()) {
-    FAIL();
-  }
+  AssetCatalogService service(asset_library_root_);
+  service.load_from_disk(asset_library_root_ / "single_catalog_definition_file.cats.txt");
 
-  AssetCatalogService service;
-  service.load_from_disk(test_files_dir / "asset_library/single_catalog_definition_file.cats.txt");
-
-  std::string tempdir = BKE_tempdir_session();
-  CatalogFilePath save_to_path(tempdir + "_asset_catalog_test.cats.txt");
+  const CatalogFilePath tempdir = BKE_tempdir_session();
+  const CatalogFilePath save_to_path = tempdir / "_asset_catalog_test.cats.txt";
   AssetCatalogDefinitionFile *cdf = service.get_catalog_definition_file();
   cdf->write_to_disk(save_to_path);
 
-  AssetCatalogService loaded_service;
-  std::cerr << "Loading from " << save_to_path << "\n";
-  loaded_service.load_from_disk(save_to_path);
+  AssetCatalogService loaded_service(save_to_path);
+  loaded_service.load_from_disk();
 
   unlink(save_to_path.c_str());
 

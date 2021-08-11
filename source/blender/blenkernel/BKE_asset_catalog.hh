@@ -50,12 +50,16 @@ class AssetCatalogService {
   static const CatalogFilePath DEFAULT_CATALOG_FILENAME;
 
  public:
-  AssetCatalogService() = default;
+  explicit AssetCatalogService(const CatalogFilePath &asset_library_root);
+
+  /** Load asset catalog definitions from the files found in the asset library. */
+  void load_from_disk();
+  /** Load asset catalog definitions from the given file or directory. */
+  void load_from_disk(const CatalogFilePath &file_path);
 
   /* Return catalog with the given ID. Return nullptr if not found. */
   AssetCatalog *find_catalog(const CatalogID &catalog_id);
 
-  void load_from_disk(const CatalogFilePath &asset_library_root);
 
   /* Get CDF for testing only. */
   AssetCatalogDefinitionFile *get_catalog_definition_file();
@@ -67,6 +71,7 @@ class AssetCatalogService {
   /* These pointers are owned by this AssetCatalogService. */
   Map<CatalogID, std::unique_ptr<AssetCatalog>> catalogs_;
   std::unique_ptr<AssetCatalogDefinitionFile> catalog_definition_file_;
+  CatalogFilePath asset_library_root_;
 
   void load_directory_recursive(const CatalogFilePath &directory_path);
   void load_single_file(const CatalogFilePath &catalog_definition_file_path);
