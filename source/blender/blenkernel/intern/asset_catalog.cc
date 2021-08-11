@@ -125,15 +125,15 @@ void AssetCatalogService::load_from_disk()
   load_from_disk(asset_library_root_);
 }
 
-void AssetCatalogService::load_from_disk(const CatalogFilePath &asset_library_root)
+void AssetCatalogService::load_from_disk(const CatalogFilePath &file_or_directory_path)
 {
-  fs::file_status status = fs::status(asset_library_root);
+  fs::file_status status = fs::status(file_or_directory_path);
   switch (status.type()) {
     case fs::file_type::regular:
-      load_single_file(asset_library_root);
+      load_single_file(file_or_directory_path);
       break;
     case fs::file_type::directory:
-      load_directory_recursive(asset_library_root);
+      load_directory_recursive(file_or_directory_path);
       break;
     default:
       // TODO(@sybren): throw an appropriate exception.

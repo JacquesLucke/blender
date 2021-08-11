@@ -55,7 +55,7 @@ class AssetCatalogService {
   /** Load asset catalog definitions from the files found in the asset library. */
   void load_from_disk();
   /** Load asset catalog definitions from the given file or directory. */
-  void load_from_disk(const CatalogFilePath &file_path);
+  void load_from_disk(const CatalogFilePath &file_or_directory_path);
 
   /** Return catalog with the given ID. Return nullptr if not found. */
   AssetCatalog *find_catalog(const CatalogID &catalog_id);
