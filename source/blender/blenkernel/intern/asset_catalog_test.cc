@@ -177,4 +177,14 @@ TEST_F(AssetCatalogTest, create_catalog_after_loading_file)
       << "expecting newly added catalog to exist in the file";
 }
 
+TEST_F(AssetCatalogTest, create_catalog_path_cleanup)
+{
+  const CatalogFilePath temp_lib_root = use_temp_path();
+  AssetCatalogService service(temp_lib_root);
+  AssetCatalog *cat = service.create_catalog(" /some/path  /  ");
+
+  EXPECT_EQ("some-path", cat->catalog_id);
+  EXPECT_EQ("some/path", cat->path);
+}
+
 }  // namespace blender::bke::tests

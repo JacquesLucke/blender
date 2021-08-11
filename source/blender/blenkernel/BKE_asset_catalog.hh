@@ -133,7 +133,9 @@ class AssetCatalog {
 
   /** Create a new Catalog with the given path, auto-generating a sensible catalog ID. */
   static std::unique_ptr<AssetCatalog> from_path(const CatalogPath &path);
+  static CatalogPath cleanup_path(const CatalogPath &path);
 
+ protected:
   /** Generate a sensible catalog ID for the given path. */
   static CatalogID sensible_id_for_path(const CatalogPath &path);
 };

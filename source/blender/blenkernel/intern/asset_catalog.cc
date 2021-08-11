@@ -176,7 +176,7 @@ std::unique_ptr<AssetCatalogDefinitionFile> AssetCatalogService::parse_catalog_f
   std::fstream infile(catalog_definition_file_path);
   std::string line;
   while (std::getline(infile, line)) {
-    const StringRef trimmed_line = StringRef(line).trim().trim(PATH_SEPARATOR);
+    const StringRef trimmed_line = StringRef(line).trim();
     if (trimmed_line.is_empty() || trimmed_line[0] == '#') {
       continue;
     }
@@ -223,7 +223,7 @@ std::unique_ptr<AssetCatalog> AssetCatalogService::parse_catalog_line(
   }
 
   const StringRef catalog_id = line.substr(0, first_space);
-  const StringRef catalog_path = line.substr(first_space + 1).trim().trim(PATH_SEPARATOR);
+  const CatalogPath catalog_path = AssetCatalog::cleanup_path(line.substr(first_space + 1));
 
   return std::make_unique<AssetCatalog>(catalog_id, catalog_path);
 }
@@ -278,8 +278,9 @@ AssetCatalog::AssetCatalog(const CatalogID &catalog_id, const CatalogPath &path)
 
 std::unique_ptr<AssetCatalog> AssetCatalog::from_path(const CatalogPath &path)
 {
-  const CatalogID cat_id = sensible_id_for_path(path);
-  auto catalog = std::make_unique<AssetCatalog>(cat_id, path);
+  const CatalogPath clean_path = cleanup_path(path);
+  const CatalogID cat_id = sensible_id_for_path(clean_path);
+  auto catalog = std::make_unique<AssetCatalog>(cat_id, clean_path);
   return catalog;
 }
 
@@ -287,7 +288,15 @@ CatalogID AssetCatalog::sensible_id_for_path(const CatalogPath &path)
 {
   CatalogID cat_id = path;
   std::replace(cat_id.begin(), cat_id.end(), AssetCatalogService::PATH_SEPARATOR, '-');
+  std::replace(cat_id.begin(), cat_id.end(), ' ', '-');
   return cat_id;
+}
+
+CatalogPath AssetCatalog::cleanup_path(const CatalogPath &path)
+{
+  /* TODO(@sybren): maybe go over each element of the path, and trim those? */
+  CatalogPath clean_path = StringRef(path).trim().trim(AssetCatalogService::PATH_SEPARATOR).trim();
+  return clean_path;
 }
 
 }  // namespace blender::bke
