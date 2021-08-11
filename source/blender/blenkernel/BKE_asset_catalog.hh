@@ -46,7 +46,7 @@ class AssetCatalogDefinitionFile;
  * directory hierarchy). */
 class AssetCatalogService {
  public:
-  const char path_separator = '/';
+  static const char PATH_SEPARATOR;
 
  public:
   AssetCatalogService() = default;

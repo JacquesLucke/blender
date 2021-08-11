@@ -29,6 +29,7 @@ namespace fs = std::filesystem;
 
 namespace blender::bke {
 
+const char AssetCatalogService::PATH_SEPARATOR = '/';
 bool AssetCatalogService::is_empty() const
 {
   return catalogs_.is_empty();
@@ -92,7 +93,7 @@ std::unique_ptr<AssetCatalogDefinitionFile> AssetCatalogService::parse_catalog_f
   std::fstream infile(catalog_definition_file_path);
   std::string line;
   while (std::getline(infile, line)) {
-    const StringRef trimmed_line = StringRef(line).trim().trim(path_separator);
+    const StringRef trimmed_line = StringRef(line).trim().trim(PATH_SEPARATOR);
     if (trimmed_line.is_empty() || trimmed_line[0] == '#') {
       continue;
     }
@@ -135,7 +136,7 @@ std::unique_ptr<AssetCatalog> AssetCatalogService::parse_catalog_line(
   }
 
   const StringRef catalog_id = line.substr(0, first_space);
-  const StringRef catalog_path = line.substr(first_space + 1).trim().trim(path_separator);
+  const StringRef catalog_path = line.substr(first_space + 1).trim().trim(PATH_SEPARATOR);
 
   return std::make_unique<AssetCatalog>(catalog_id, catalog_path);
 }
