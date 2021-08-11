@@ -57,14 +57,14 @@ class AssetCatalogService {
   /** Load asset catalog definitions from the given file or directory. */
   void load_from_disk(const CatalogFilePath &file_path);
 
-  /* Return catalog with the given ID. Return nullptr if not found. */
+  /** Return catalog with the given ID. Return nullptr if not found. */
   AssetCatalog *find_catalog(const CatalogID &catalog_id);
 
 
   /* Get CDF for testing only. */
   AssetCatalogDefinitionFile *get_catalog_definition_file();
 
-  /* Return true iff there are no catalogs known. */
+  /** Return true iff there are no catalogs known. */
   bool is_empty() const;
 
  protected:
