@@ -32,92 +32,288 @@ MFProcedureExecutor::MFProcedureExecutor(std::string name, const MFProcedure &pr
   this->set_signature(&signature_);
 }
 
-namespace {
-enum class VariableStoreType {
-  VirtualSingleFromCaller,
-  SingleFromCaller,
-  VirtualVectorFromCaller,
-  VectorFromCaller,
-  SingleOwn,
-  VectorOwn,
-};
+using IndicesSplitVectors = std::array<Vector<int64_t>, 2>;
 
-struct VariableStore {
-  VariableStoreType type;
+class VariableStore : NonCopyable, NonMovable {
+ public:
+  VariableStore() = default;
+  virtual ~VariableStore() = default;
 
-  VariableStore(VariableStoreType type) : type(type)
+  virtual void load_as_input(MFParamsBuilder &params) = 0;
+
+  virtual void load_as_mutable(MFParamsBuilder &params, IndexMask full_mask)
   {
+    /* Should be overridden by the classes that support it. */
+    BLI_assert_unreachable();
+    UNUSED_VARS(params, full_mask);
+  }
+
+  virtual void load_as_output(MFParamsBuilder &params, IndexMask mask, IndexMask full_mask)
+  {
+    /* Should be overridden by the classes that support it. */
+    BLI_assert_unreachable();
+    UNUSED_VARS(params, mask, full_mask);
+  }
+
+  virtual void destruct(IndexMask mask)
+  {
+    /* Do nothing in the general case.  */
+    UNUSED_VARS(mask);
+  }
+
+  virtual void indices_split(IndexMask mask, IndicesSplitVectors &r_indices)
+  {
+    /* Should be overridden by the classes that support it. */
+    BLI_assert_unreachable();
+    UNUSED_VARS(mask, r_indices);
   }
 };
 
-struct VariableStore_VirtualSingleFromCaller : public VariableStore {
-  const GVArray &data;
+class VariableStore_VirtualSingleFromCaller : public VariableStore {
+ private:
+  const GVArray &data_;
 
-  VariableStore_VirtualSingleFromCaller(const GVArray &data)
-      : VariableStore(VariableStoreType::VirtualSingleFromCaller), data(data)
+ public:
+  VariableStore_VirtualSingleFromCaller(const GVArray &data) : data_(data)
   {
+  }
+
+  void load_as_input(MFParamsBuilder &params) final
+  {
+    params.add_readonly_single_input(data_);
+  }
+
+  void indices_split(IndexMask mask, IndicesSplitVectors &r_indices) final
+  {
+    BLI_assert(data_.type().is<bool>());
+    for (const int i : mask) {
+      bool condition;
+      data_.get(i, &condition);
+      r_indices[condition].append(i);
+    }
   }
 };
 
-struct VariableStore_SingleFromCaller : public VariableStore {
-  GMutableSpan data;
+class VariableStore_SingleFromCaller : public VariableStore {
+ private:
+  GMutableSpan data_;
 
-  VariableStore_SingleFromCaller(GMutableSpan data)
-      : VariableStore(VariableStoreType::SingleFromCaller), data(data)
+ public:
+  VariableStore_SingleFromCaller(GMutableSpan data) : data_(data)
   {
+  }
+
+  void load_as_input(MFParamsBuilder &params) final
+  {
+    params.add_readonly_single_input(data_);
+  }
+
+  void load_as_mutable(MFParamsBuilder &params, IndexMask UNUSED(full_mask)) final
+  {
+    params.add_single_mutable(data_);
+  }
+
+  void load_as_output(MFParamsBuilder &params,
+                      IndexMask UNUSED(mask),
+                      IndexMask UNUSED(full_mask)) final
+  {
+    params.add_uninitialized_single_output(data_);
+  }
+
+  void destruct(IndexMask mask) final
+  {
+    const CPPType &type = data_.type();
+    type.destruct_indices(data_.data(), mask);
+  }
+
+  void indices_split(IndexMask mask, IndicesSplitVectors &r_indices) final
+  {
+    Span<bool> conditions = data_.typed<bool>();
+    for (const int i : mask) {
+      r_indices[conditions[i]].append(i);
+    }
   }
 };
 
-struct VariableStore_VirtualVectorFromCaller : public VariableStore {
-  const GVVectorArray &data;
+class VariableStore_VirtualVectorFromCaller : public VariableStore {
+ private:
+  const GVVectorArray &data_;
 
-  VariableStore_VirtualVectorFromCaller(const GVVectorArray &data)
-      : VariableStore(VariableStoreType::VirtualVectorFromCaller), data(data)
+ public:
+  VariableStore_VirtualVectorFromCaller(const GVVectorArray &data) : data_(data)
   {
+  }
+
+  void load_as_input(MFParamsBuilder &params) final
+  {
+    params.add_readonly_vector_input(data_);
   }
 };
 
-struct VariableStore_VectorFromCaller : public VariableStore {
-  GVectorArray &data;
+class VariableStore_VectorFromCaller : public VariableStore {
+ private:
+  GVectorArray &data_;
 
-  VariableStore_VectorFromCaller(GVectorArray &data)
-      : VariableStore(VariableStoreType::VectorFromCaller), data(data)
+ public:
+  VariableStore_VectorFromCaller(GVectorArray &data) : data_(data)
   {
+  }
+
+  void load_as_input(MFParamsBuilder &params) final
+  {
+    params.add_readonly_vector_input(data_);
+  }
+
+  void load_as_mutable(MFParamsBuilder &params, IndexMask UNUSED(full_mask)) final
+  {
+    params.add_vector_mutable(data_);
+  }
+
+  void load_as_output(MFParamsBuilder &params,
+                      IndexMask UNUSED(mask),
+                      IndexMask UNUSED(full_mask)) final
+  {
+    params.add_vector_output(data_);
+  }
+
+  void destruct(IndexMask mask) final
+  {
+    data_.clear(mask);
   }
 };
 
-struct VariableStore_SingleOwn : public VariableStore {
-  GMutableSpan data;
-  int64_t tot_initialized = 0;
+class VariableStore_SingleOwn : public VariableStore {
+ private:
+  GMutableSpan data_;
+  int64_t tot_initialized_ = 0;
 
-  VariableStore_SingleOwn(GMutableSpan data)
-      : VariableStore(VariableStoreType::SingleOwn), data(data)
+ public:
+  VariableStore_SingleOwn(const CPPType &type) : data_(type)
   {
+  }
+
+  ~VariableStore_SingleOwn() final
+  {
+    void *buffer = data_.data();
+    if (buffer != nullptr) {
+      MEM_freeN(buffer);
+    }
+  }
+
+  void load_as_input(MFParamsBuilder &params) final
+  {
+    params.add_readonly_single_input(data_);
+  }
+
+  void load_as_mutable(MFParamsBuilder &params, IndexMask full_mask) final
+  {
+    this->ensure_array_buffer(full_mask);
+    params.add_single_mutable(data_);
+  }
+
+  void load_as_output(MFParamsBuilder &params, IndexMask mask, IndexMask full_mask) final
+  {
+    this->ensure_array_buffer(full_mask);
+    tot_initialized_ += mask.size();
+    params.add_uninitialized_single_output(data_);
+  }
+
+  void destruct(IndexMask mask) final
+  {
+    const CPPType &type = data_.type();
+    type.destruct_indices(data_.data(), mask);
+    tot_initialized_ -= mask.size();
+
+    if (tot_initialized_ == 0) {
+      void *buffer = data_.data();
+      if (buffer != nullptr) {
+        MEM_freeN(buffer);
+        data_ = GMutableSpan{data_.type()};
+      }
+    }
+  }
+
+  void indices_split(IndexMask mask, IndicesSplitVectors &r_indices) final
+  {
+    Span<bool> conditions = data_.typed<bool>();
+    for (const int i : mask) {
+      r_indices[conditions[i]].append(i);
+    }
+  }
+
+ private:
+  void ensure_array_buffer(IndexMask full_mask)
+  {
+    const int min_array_size = full_mask.min_array_size();
+    if (data_.size() < min_array_size) {
+      BLI_assert(data_.is_empty());
+      const CPPType &type = data_.type();
+      void *buffer = MEM_mallocN_aligned(type.size() * min_array_size, type.alignment(), __func__);
+      data_ = GMutableSpan{type, buffer, min_array_size};
+    }
   }
 };
 
-struct VariableStore_VectorOwn : public VariableStore {
-  GVectorArray &data;
-  int64_t tot_initialized = 0;
+class VariableStore_VectorOwn : public VariableStore {
+ private:
+  const CPPType &type_;
+  std::unique_ptr<GVectorArray> data_;
+  int64_t tot_initialized_ = 0;
 
-  VariableStore_VectorOwn(GVectorArray &data)
-      : VariableStore(VariableStoreType::VectorOwn), data(data)
+ public:
+  VariableStore_VectorOwn(const CPPType &type) : type_(type)
   {
+  }
+
+  void load_as_input(MFParamsBuilder &params) final
+  {
+    params.add_readonly_vector_input(*data_);
+  }
+
+  void load_as_mutable(MFParamsBuilder &params, IndexMask full_mask) final
+  {
+    this->ensure_array_buffer(full_mask);
+    params.add_vector_mutable(*data_);
+  }
+
+  void load_as_output(MFParamsBuilder &params, IndexMask mask, IndexMask full_mask) final
+  {
+    this->ensure_array_buffer(full_mask);
+    tot_initialized_ += mask.size();
+    params.add_vector_output(*data_);
+  }
+
+  void destruct(IndexMask mask) final
+  {
+    data_->clear(mask);
+    tot_initialized_ -= mask.size();
+
+    if (tot_initialized_ == 0) {
+      data_.reset();
+    }
+  }
+
+ private:
+  void ensure_array_buffer(IndexMask full_mask)
+  {
+    if (!data_) {
+      data_ = std::make_unique<GVectorArray>(type_, full_mask.min_array_size());
+    }
   }
 };
 
 class VariableStoreContainer {
  private:
   LinearAllocator<> allocator_;
-  Map<const MFVariable *, VariableStore *> stores_;
-  int64_t min_array_size_;
+  Map<const MFVariable *, destruct_ptr<VariableStore>> stores_;
+  IndexMask full_mask_;
 
  public:
   VariableStoreContainer(const MFProcedureExecutor &fn,
                          const MFProcedure &procedure,
                          IndexMask mask,
                          MFParams &params)
-      : min_array_size_(mask.min_array_size())
+      : full_mask_(mask)
   {
     for (const int param_index : fn.param_indices()) {
       MFParamType param_type = fn.param_type(param_index);
@@ -125,138 +321,36 @@ class VariableStoreContainer {
       switch (param_type.category()) {
         case MFParamType::SingleInput: {
           const GVArray &data = params.readonly_single_input(param_index);
-          stores_.add_new(
-              variable,
-              allocator_.construct<VariableStore_VirtualSingleFromCaller>(data).release());
+          stores_.add_new(variable,
+                          allocator_.construct<VariableStore_VirtualSingleFromCaller>(data));
           break;
         }
         case MFParamType::VectorInput: {
           const GVVectorArray &data = params.readonly_vector_input(param_index);
-          stores_.add_new(
-              variable,
-              allocator_.construct<VariableStore_VirtualVectorFromCaller>(data).release());
+          stores_.add_new(variable,
+                          allocator_.construct<VariableStore_VirtualVectorFromCaller>(data));
           break;
         }
         case MFParamType::SingleOutput: {
           GMutableSpan data = params.uninitialized_single_output(param_index);
-          stores_.add_new(variable,
-                          allocator_.construct<VariableStore_SingleFromCaller>(data).release());
+          stores_.add_new(variable, allocator_.construct<VariableStore_SingleFromCaller>(data));
           break;
         }
         case MFParamType::VectorOutput: {
           GVectorArray &data = params.vector_output(param_index);
-          stores_.add_new(variable,
-                          allocator_.construct<VariableStore_VectorFromCaller>(data).release());
+          stores_.add_new(variable, allocator_.construct<VariableStore_VectorFromCaller>(data));
           break;
         }
         case MFParamType::SingleMutable: {
           GMutableSpan data = params.single_mutable(param_index);
-          stores_.add_new(variable,
-                          allocator_.construct<VariableStore_SingleFromCaller>(data).release());
+          stores_.add_new(variable, allocator_.construct<VariableStore_SingleFromCaller>(data));
           break;
         }
         case MFParamType::VectorMutable: {
           GVectorArray &data = params.vector_mutable(param_index);
-          stores_.add_new(variable,
-                          allocator_.construct<VariableStore_VectorFromCaller>(data).release());
+          stores_.add_new(variable, allocator_.construct<VariableStore_VectorFromCaller>(data));
           break;
         }
-      }
-    }
-  }
-
-  void load_as_input(MFParamsBuilder &params, const MFVariable &variable)
-  {
-    VariableStore &store = this->get_store_for_variable(variable);
-    switch (store.type) {
-      case VariableStoreType::VirtualSingleFromCaller: {
-        params.add_readonly_single_input(
-            static_cast<VariableStore_VirtualSingleFromCaller &>(store).data);
-        break;
-      }
-      case VariableStoreType::SingleFromCaller: {
-        params.add_readonly_single_input(
-            static_cast<VariableStore_SingleFromCaller &>(store).data);
-        break;
-      }
-      case VariableStoreType::VirtualVectorFromCaller: {
-        params.add_readonly_vector_input(
-            static_cast<VariableStore_VirtualVectorFromCaller &>(store).data);
-        break;
-      }
-      case VariableStoreType::VectorFromCaller: {
-        params.add_readonly_vector_input(
-            static_cast<VariableStore_VectorFromCaller &>(store).data);
-        break;
-      }
-      case VariableStoreType::SingleOwn: {
-        params.add_readonly_single_input(static_cast<VariableStore_SingleOwn &>(store).data);
-        break;
-      }
-      case VariableStoreType::VectorOwn: {
-        params.add_readonly_vector_input(static_cast<VariableStore_VectorOwn &>(store).data);
-        break;
-      }
-    }
-  }
-
-  void load_as_mutable(MFParamsBuilder &params, const MFVariable &variable)
-  {
-    VariableStore &store = this->get_store_for_variable(variable);
-    switch (store.type) {
-      case VariableStoreType::SingleFromCaller: {
-        params.add_single_mutable(static_cast<VariableStore_SingleFromCaller &>(store).data);
-        break;
-      }
-      case VariableStoreType::VectorFromCaller: {
-        params.add_vector_mutable(static_cast<VariableStore_VectorFromCaller &>(store).data);
-        break;
-      }
-      case VariableStoreType::SingleOwn: {
-        params.add_single_mutable(static_cast<VariableStore_SingleOwn &>(store).data);
-        break;
-      }
-      case VariableStoreType::VectorOwn: {
-        params.add_vector_mutable(static_cast<VariableStore_VectorOwn &>(store).data);
-        break;
-      }
-      case VariableStoreType::VirtualSingleFromCaller:
-      case VariableStoreType::VirtualVectorFromCaller: {
-        BLI_assert_unreachable();
-        break;
-      }
-    }
-  }
-
-  void load_as_output(MFParamsBuilder &params, const MFVariable &variable, const IndexMask &mask)
-  {
-    VariableStore &store = this->get_store_for_variable(variable);
-    switch (store.type) {
-      case VariableStoreType::SingleFromCaller: {
-        params.add_uninitialized_single_output(
-            static_cast<VariableStore_SingleFromCaller &>(store).data);
-        break;
-      }
-      case VariableStoreType::VectorFromCaller: {
-        params.add_vector_output(static_cast<VariableStore_VectorFromCaller &>(store).data);
-        break;
-      }
-      case VariableStoreType::SingleOwn: {
-        VariableStore_SingleOwn &own_store = static_cast<VariableStore_SingleOwn &>(store);
-        own_store.tot_initialized += mask.size();
-        params.add_uninitialized_single_output(own_store.data);
-        break;
-      }
-      case VariableStoreType::VectorOwn: {
-        VariableStore_VectorOwn &own_store = static_cast<VariableStore_VectorOwn &>(store);
-        own_store.tot_initialized += mask.size();
-        params.add_vector_output(own_store.data);
-        break;
-      }
-      case VariableStoreType::VirtualSingleFromCaller:
-      case VariableStoreType::VirtualVectorFromCaller: {
-        BLI_assert_unreachable();
-        break;
       }
     }
   }
@@ -266,17 +360,18 @@ class VariableStoreContainer {
                   const MFParamType &param_type,
                   const IndexMask &mask)
   {
+    VariableStore &store = this->get_store_for_variable(variable);
     switch (param_type.interface_type()) {
       case MFParamType::Input: {
-        this->load_as_input(params, variable);
+        store.load_as_input(params);
         break;
       }
       case MFParamType::Mutable: {
-        this->load_as_mutable(params, variable);
+        store.load_as_mutable(params, full_mask_);
         break;
       }
       case MFParamType::Output: {
-        this->load_as_output(params, variable, mask);
+        store.load_as_output(params, mask, full_mask_);
         break;
       }
     }
@@ -284,40 +379,9 @@ class VariableStoreContainer {
 
   void destruct(const MFVariable &variable, const IndexMask &mask)
   {
-    VariableStore *store = stores_.lookup_default(&variable, nullptr);
-    const int64_t tot_destruct = mask.size();
-    if (store == nullptr) {
-      return;
-    }
-    switch (store->type) {
-      case VariableStoreType::SingleOwn: {
-        VariableStore_SingleOwn &own_store = static_cast<VariableStore_SingleOwn &>(*store);
-        const CPPType &type = own_store.data.type();
-        void *buffer = own_store.data.data();
-        type.destruct_indices(buffer, mask);
-        own_store.tot_initialized -= tot_destruct;
-        if (own_store.tot_initialized == 0) {
-          MEM_freeN(buffer);
-          stores_.remove_contained(&variable);
-        }
-        break;
-      }
-      case VariableStoreType::VectorOwn: {
-        VariableStore_VectorOwn &own_store = static_cast<VariableStore_VectorOwn &>(*store);
-        own_store.data.clear(mask);
-        own_store.tot_initialized -= tot_destruct;
-        if (own_store.tot_initialized == 0) {
-          delete &own_store.data;
-          stores_.remove_contained(&variable);
-        }
-        break;
-      }
-      case VariableStoreType::SingleFromCaller:
-      case VariableStoreType::VectorFromCaller:
-      case VariableStoreType::VirtualSingleFromCaller:
-      case VariableStoreType::VirtualVectorFromCaller: {
-        break;
-      }
+    destruct_ptr<VariableStore> *store_ptr = stores_.lookup_ptr(&variable);
+    if (store_ptr != nullptr) {
+      store_ptr->get()->destruct(mask);
     }
   }
 
@@ -327,30 +391,23 @@ class VariableStoreContainer {
         &variable, [&]() { return this->create_store_for_own_variable(variable); });
   }
 
-  VariableStore *create_store_for_own_variable(const MFVariable &variable)
+  destruct_ptr<VariableStore> create_store_for_own_variable(const MFVariable &variable)
   {
     MFDataType data_type = variable.data_type();
     switch (data_type.category()) {
       case MFDataType::Single: {
         const CPPType &type = data_type.single_type();
-        void *buffer = MEM_mallocN_aligned(
-            type.size() * min_array_size_, type.alignment(), __func__);
-        return allocator_
-            .construct<VariableStore_SingleOwn>(GMutableSpan(type, buffer, min_array_size_))
-            .release();
+        return allocator_.construct<VariableStore_SingleOwn>(type);
       }
       case MFDataType::Vector: {
         const CPPType &type = data_type.vector_base_type();
-        GVectorArray *vector_array = new GVectorArray(type, min_array_size_);
-        return allocator_.construct<VariableStore_VectorOwn>(*vector_array).release();
+        return allocator_.construct<VariableStore_VectorOwn>(type);
       }
     }
     BLI_assert_unreachable();
     return nullptr;
   }
 };
-
-}  // namespace
 
 static void execute_call_instruction(const MFCallInstruction &instruction,
                                      IndexMask mask,
@@ -428,9 +485,14 @@ class InstructionScheduler {
     /* TODO: Implement better mechanism to determine next instruction. */
     const MFInstruction *instruction = *indices_by_instruction_.keys().begin();
 
+    Vector<int64_t> indices = this->pop_indices_array(instruction);
+    if (indices.is_empty()) {
+      return {};
+    }
+
     NextInstructionInfo next_instruction_info;
     next_instruction_info.instruction = instruction;
-    next_instruction_info.owned_indices = this->pop_indices_array(instruction);
+    next_instruction_info.owned_indices = std::move(indices);
     return next_instruction_info;
   }
 
@@ -441,16 +503,14 @@ class InstructionScheduler {
     if (indices == nullptr) {
       return {};
     }
-    while (true) {
-      if (indices->is_empty()) {
-        indices_by_instruction_.remove_contained(instruction);
-        return {};
-      }
-      Vector<int64_t> r_indices = (*indices).pop_last();
-      if (!r_indices.is_empty()) {
-        return r_indices;
-      }
+    Vector<int64_t> r_indices;
+    while (!indices->is_empty() && r_indices.is_empty()) {
+      r_indices = (*indices).pop_last();
     }
+    if (indices->is_empty()) {
+      indices_by_instruction_.remove_contained(instruction);
+    }
+    return r_indices;
   }
 };
 
@@ -482,41 +542,9 @@ void MFProcedureExecutor::call(IndexMask mask, MFParams params, MFContext contex
             instruction);
         const MFVariable *condition_var = branch_instruction.condition();
         VariableStore &store = variable_stores.get_store_for_variable(*condition_var);
-        std::array<Vector<int64_t>, 2> new_indices;
-        switch (store.type) {
-          case VariableStoreType::SingleOwn: {
-            Span<bool> conditions =
-                static_cast<VariableStore_SingleOwn &>(store).data.typed<bool>();
-            for (const int i : instr_info.mask()) {
-              new_indices[conditions[i]].append(i);
-            }
-            break;
-          }
-          case VariableStoreType::SingleFromCaller: {
-            Span<bool> conditions =
-                static_cast<VariableStore_SingleOwn &>(store).data.typed<bool>();
-            for (const int i : instr_info.mask()) {
-              new_indices[conditions[i]].append(i);
-            }
-            break;
-          }
-          case VariableStoreType::VirtualSingleFromCaller: {
-            const GVArray &conditions =
-                static_cast<VariableStore_VirtualSingleFromCaller &>(store).data;
-            for (const int i : instr_info.mask()) {
-              bool condition;
-              conditions.get(i, &condition);
-              new_indices[condition].append(i);
-            }
-            break;
-          }
-          case VariableStoreType::VectorFromCaller:
-          case VariableStoreType::VirtualVectorFromCaller:
-          case VariableStoreType::VectorOwn: {
-            BLI_assert_unreachable();
-            break;
-          }
-        }
+
+        IndicesSplitVectors new_indices;
+        store.indices_split(instr_info.mask(), new_indices);
         scheduler.add_owned_indices(branch_instruction.branch_false(), new_indices[false]);
         scheduler.add_owned_indices(branch_instruction.branch_true(), new_indices[true]);
         break;
