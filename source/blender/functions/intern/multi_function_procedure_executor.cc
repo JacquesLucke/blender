@@ -369,6 +369,91 @@ static void execute_call_instruction(const MFCallInstruction &instruction,
   fn.call(mask, params, context);
 }
 
+struct NextInstructionInfo {
+  const MFInstruction *instruction = nullptr;
+  Vector<int64_t> owned_indices;
+
+  IndexMask mask() const
+  {
+    return this->owned_indices.as_span();
+  }
+
+  operator bool() const
+  {
+    return this->instruction != nullptr;
+  }
+};
+
+class InstructionScheduler {
+ private:
+  Map<const MFInstruction *, Vector<Vector<int64_t>>> indices_by_instruction_;
+
+ public:
+  InstructionScheduler() = default;
+
+  void add_referenced_indices(const MFInstruction *instruction, IndexMask mask)
+  {
+    if (instruction == nullptr) {
+      return;
+    }
+    if (mask.is_empty()) {
+      return;
+    }
+    indices_by_instruction_.lookup_or_add_default(instruction).append(mask.indices());
+  }
+
+  void add_owned_indices(const MFInstruction *instruction, Vector<int64_t> indices)
+  {
+    if (instruction == nullptr) {
+      return;
+    }
+    if (indices.is_empty()) {
+      return;
+    }
+    BLI_assert(IndexMask::indices_are_valid_index_mask(indices));
+    indices_by_instruction_.lookup_or_add_default(instruction).append(std::move(indices));
+  }
+
+  void add_previous_instruction_indices(const MFInstruction *instruction,
+                                        NextInstructionInfo &instr_info)
+  {
+    this->add_owned_indices(instruction, std::move(instr_info.owned_indices));
+  }
+
+  NextInstructionInfo pop_next()
+  {
+    if (indices_by_instruction_.is_empty()) {
+      return {};
+    }
+    /* TODO: Implement better mechanism to determine next instruction. */
+    const MFInstruction *instruction = *indices_by_instruction_.keys().begin();
+
+    NextInstructionInfo next_instruction_info;
+    next_instruction_info.instruction = instruction;
+    next_instruction_info.owned_indices = this->pop_indices_array(instruction);
+    return next_instruction_info;
+  }
+
+ private:
+  Vector<int64_t> pop_indices_array(const MFInstruction *instruction)
+  {
+    Vector<Vector<int64_t>> *indices = indices_by_instruction_.lookup_ptr(instruction);
+    if (indices == nullptr) {
+      return {};
+    }
+    while (true) {
+      if (indices->is_empty()) {
+        indices_by_instruction_.remove_contained(instruction);
+        return {};
+      }
+      Vector<int64_t> r_indices = (*indices).pop_last();
+      if (!r_indices.is_empty()) {
+        return r_indices;
+      }
+    }
+  }
+};
+
 void MFProcedureExecutor::call(IndexMask mask, MFParams params, MFContext context) const
 {
   if (procedure_.entry() == nullptr) {
@@ -379,96 +464,69 @@ void MFProcedureExecutor::call(IndexMask mask, MFParams params, MFContext contex
 
   VariableStoreContainer variable_stores{*this, procedure_, mask, params};
 
-  Map<const MFInstruction *, Vector<Vector<int64_t>>> indices_by_instruction;
+  InstructionScheduler scheduler;
+  scheduler.add_referenced_indices(procedure_.entry(), mask);
 
-  indices_by_instruction.add_new(procedure_.entry(), {mask.indices()});
-  while (!indices_by_instruction.is_empty()) {
-    const MFInstruction *instruction = *indices_by_instruction.keys().begin();
-    Vector<Vector<int64_t>> indices_vector = indices_by_instruction.pop(instruction);
-    switch (instruction->type()) {
+  while (NextInstructionInfo instr_info = scheduler.pop_next()) {
+    const MFInstruction &instruction = *instr_info.instruction;
+    switch (instruction.type()) {
       case MFInstructionType::Call: {
-        const MFCallInstruction *call_instruction = static_cast<const MFCallInstruction *>(
+        const MFCallInstruction &call_instruction = static_cast<const MFCallInstruction &>(
             instruction);
-        for (Span<int64_t> indices : indices_vector) {
-          execute_call_instruction(*call_instruction, indices, variable_stores, context);
-        }
-        const MFInstruction *next_instruction = call_instruction->next();
-        if (next_instruction != nullptr) {
-          indices_by_instruction.lookup_or_add_default(next_instruction)
-              .extend(std::move(indices_vector));
-        }
+        execute_call_instruction(call_instruction, instr_info.mask(), variable_stores, context);
+        scheduler.add_previous_instruction_indices(call_instruction.next(), instr_info);
         break;
       }
       case MFInstructionType::Branch: {
-        const MFBranchInstruction *branch_instruction = static_cast<const MFBranchInstruction *>(
+        const MFBranchInstruction &branch_instruction = static_cast<const MFBranchInstruction &>(
             instruction);
-        const MFVariable *condition_var = branch_instruction->condition();
+        const MFVariable *condition_var = branch_instruction.condition();
         VariableStore &store = variable_stores.get_store_for_variable(*condition_var);
-        Vector<Vector<int64_t>> indices_vector_true, indices_vector_false;
-        for (Span<int64_t> indices : indices_vector) {
-          std::array<Vector<int64_t>, 2> new_indices;
-          switch (store.type) {
-            case VariableStoreType::SingleOwn: {
-              Span<bool> conditions =
-                  static_cast<VariableStore_SingleOwn &>(store).data.typed<bool>();
-              for (const int i : indices) {
-                new_indices[conditions[i]].append(i);
-              }
-              break;
+        std::array<Vector<int64_t>, 2> new_indices;
+        switch (store.type) {
+          case VariableStoreType::SingleOwn: {
+            Span<bool> conditions =
+                static_cast<VariableStore_SingleOwn &>(store).data.typed<bool>();
+            for (const int i : instr_info.mask()) {
+              new_indices[conditions[i]].append(i);
             }
-            case VariableStoreType::SingleFromCaller: {
-              Span<bool> conditions =
-                  static_cast<VariableStore_SingleOwn &>(store).data.typed<bool>();
-              for (const int i : indices) {
-                new_indices[conditions[i]].append(i);
-              }
-              break;
-            }
-            case VariableStoreType::VirtualSingleFromCaller: {
-              const GVArray &conditions =
-                  static_cast<VariableStore_VirtualSingleFromCaller &>(store).data;
-              for (const int i : indices) {
-                bool condition;
-                conditions.get(i, &condition);
-                new_indices[condition].append(i);
-              }
-              break;
-            }
-            case VariableStoreType::VectorFromCaller:
-            case VariableStoreType::VirtualVectorFromCaller:
-            case VariableStoreType::VectorOwn: {
-              BLI_assert_unreachable();
-              break;
-            }
+            break;
           }
-          indices_vector_false.append(std::move(new_indices[false]));
-          indices_vector_true.append(std::move(new_indices[true]));
+          case VariableStoreType::SingleFromCaller: {
+            Span<bool> conditions =
+                static_cast<VariableStore_SingleOwn &>(store).data.typed<bool>();
+            for (const int i : instr_info.mask()) {
+              new_indices[conditions[i]].append(i);
+            }
+            break;
+          }
+          case VariableStoreType::VirtualSingleFromCaller: {
+            const GVArray &conditions =
+                static_cast<VariableStore_VirtualSingleFromCaller &>(store).data;
+            for (const int i : instr_info.mask()) {
+              bool condition;
+              conditions.get(i, &condition);
+              new_indices[condition].append(i);
+            }
+            break;
+          }
+          case VariableStoreType::VectorFromCaller:
+          case VariableStoreType::VirtualVectorFromCaller:
+          case VariableStoreType::VectorOwn: {
+            BLI_assert_unreachable();
+            break;
+          }
         }
-        const MFInstruction *false_branch = branch_instruction->branch_false();
-        if (false_branch != nullptr) {
-          indices_by_instruction.lookup_or_add_default(false_branch)
-              .extend(std::move(indices_vector_false));
-        }
-        const MFInstruction *true_branch = branch_instruction->branch_true();
-        if (true_branch != nullptr) {
-          indices_by_instruction.lookup_or_add_default(true_branch)
-              .extend(std::move(indices_vector_true));
-        }
-
+        scheduler.add_owned_indices(branch_instruction.branch_false(), new_indices[false]);
+        scheduler.add_owned_indices(branch_instruction.branch_true(), new_indices[true]);
         break;
       }
       case MFInstructionType::Destruct: {
-        const MFDestructInstruction *destruct_instruction =
-            static_cast<const MFDestructInstruction *>(instruction);
-        const MFVariable *variable = destruct_instruction->variable();
-        for (Span<int64_t> indices : indices_vector) {
-          variable_stores.destruct(*variable, indices);
-        }
-        const MFInstruction *next_instruction = destruct_instruction->next();
-        if (next_instruction != nullptr) {
-          indices_by_instruction.lookup_or_add_default(next_instruction)
-              .extend(std::move(indices_vector));
-        }
+        const MFDestructInstruction &destruct_instruction =
+            static_cast<const MFDestructInstruction &>(instruction);
+        const MFVariable *variable = destruct_instruction.variable();
+        variable_stores.destruct(*variable, instr_info.mask());
+        scheduler.add_previous_instruction_indices(destruct_instruction.next(), instr_info);
         break;
       }
     }

@@ -215,9 +215,8 @@ TEST(multi_function_network, Test2)
 
   // std::cout << network.to_dot() << "\n\n";
 
-  ResourceCollector resources;
-  MFProcedure &procedure = network_to_procedure(
-      {&input1, &input2}, {&output1, &output2}, resources);
+  ResourceScope scope;
+  MFProcedure &procedure = network_to_procedure({&input1, &input2}, {&output1, &output2}, scope);
   // std::cout << procedure.to_dot() << "\n\n";
 
   // MFNetworkEvaluator network_fn{{&input1, &input2}, {&output1, &output2}};
