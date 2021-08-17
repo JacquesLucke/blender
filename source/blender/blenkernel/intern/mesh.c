@@ -262,7 +262,7 @@ static void mesh_blend_write(BlendWriter *writer, ID *id, const void *id_address
 
     CD_LAYERS_FREE(vlayers);
     CD_LAYERS_FREE(elayers);
-    /* CD_LAYER_FREE(flayers); */ /* Never allocated. */
+    // CD_LAYER_FREE(flayers); /* Never allocated. */
     CD_LAYERS_FREE(llayers);
     CD_LAYERS_FREE(players);
 
@@ -638,6 +638,19 @@ static int customdata_compare(
           }
           break;
         }
+        case CD_PROP_COLOR: {
+          const MPropCol *l1_data = l1->data;
+          const MPropCol *l2_data = l2->data;
+
+          for (int i = 0; i < total_length; i++) {
+            for (j = 0; j < 4; j++) {
+              if (fabsf(l1_data[i].color[j] - l2_data[i].color[j]) > thresh) {
+                return MESHCMP_ATTRIBUTE_VALUE_MISMATCH;
+              }
+            }
+          }
+          break;
+        }
         default: {
           break;
         }
@@ -942,7 +955,7 @@ Mesh *BKE_mesh_new_nomain(
       NULL, ID_ME, BKE_idtype_idcode_to_name(ID_ME), LIB_ID_CREATE_LOCALIZE);
   BKE_libblock_init_empty(&mesh->id);
 
-  /* Don't use CustomData_reset(...); because we don't want to touch custom-data. */
+  /* Don't use #CustomData_reset because we don't want to touch custom-data. */
   copy_vn_i(mesh->vdata.typemap, CD_NUMTYPES, -1);
   copy_vn_i(mesh->edata.typemap, CD_NUMTYPES, -1);
   copy_vn_i(mesh->fdata.typemap, CD_NUMTYPES, -1);
@@ -1890,15 +1903,14 @@ void BKE_mesh_calc_normals_split_ex(Mesh *mesh, MLoopNorSpaceArray *r_lnors_spac
   }
   else {
     polynors = MEM_malloc_arrayN(mesh->totpoly, sizeof(float[3]), __func__);
-    BKE_mesh_calc_normals_poly(mesh->mvert,
-                               NULL,
-                               mesh->totvert,
-                               mesh->mloop,
-                               mesh->mpoly,
-                               mesh->totloop,
-                               mesh->totpoly,
-                               polynors,
-                               false);
+    BKE_mesh_calc_normals_poly_and_vertex(mesh->mvert,
+                                          mesh->totvert,
+                                          mesh->mloop,
+                                          mesh->totloop,
+                                          mesh->mpoly,
+                                          mesh->totpoly,
+                                          polynors,
+                                          NULL);
     free_polynors = true;
   }
 
