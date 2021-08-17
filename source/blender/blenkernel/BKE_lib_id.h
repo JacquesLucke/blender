@@ -152,8 +152,6 @@ void BKE_libblock_copy_ex(struct Main *bmain,
                           const int orig_flag);
 void *BKE_libblock_copy(struct Main *bmain, const struct ID *id) ATTR_WARN_UNUSED_RESULT
     ATTR_NONNULL();
-/* Special version: used by data-block localization. */
-void *BKE_libblock_copy_for_localize(const struct ID *id);
 
 void BKE_libblock_rename(struct Main *bmain, struct ID *id, const char *name) ATTR_NONNULL();
 void BLI_libblock_ensure_unique_name(struct Main *bmain, const char *name) ATTR_NONNULL();
@@ -200,6 +198,8 @@ enum {
 
 void BKE_libblock_free_datablock(struct ID *id, const int flag) ATTR_NONNULL();
 void BKE_libblock_free_data(struct ID *id, const bool do_id_user) ATTR_NONNULL();
+
+void BKE_libblock_free_data_py(struct ID *id);
 
 void BKE_id_free_ex(struct Main *bmain, void *idv, int flag, const bool use_flag_from_idtag);
 void BKE_id_free(struct Main *bmain, void *idv);
@@ -314,6 +314,9 @@ void BKE_id_reorder(const struct ListBase *lb, struct ID *id, struct ID *relativ
 void BKE_id_blend_write(struct BlendWriter *writer, struct ID *id);
 
 #define IS_TAGGED(_id) ((_id) && (((ID *)_id)->tag & LIB_TAG_DOIT))
+
+/* lib_id_eval.c */
+void BKE_id_eval_properties_copy(struct ID *id_cow, struct ID *id);
 
 #ifdef __cplusplus
 }

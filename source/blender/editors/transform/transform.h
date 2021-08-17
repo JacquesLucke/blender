@@ -149,6 +149,9 @@ typedef enum {
   T_AUTOMERGE = 1 << 20,
   /** Runs auto-merge & splits. */
   T_AUTOSPLIT = 1 << 21,
+
+  /** No cursor wrapping on region bounds */
+  T_NO_CURSOR_WRAP = 1 << 23,
 } eTFlag;
 
 /** #TransInfo.modifiers */
@@ -332,7 +335,10 @@ typedef struct TransSnap {
   /**
    * Re-usable snap context data.
    */
-  struct SnapObjectContext *object_context;
+  union {
+    struct SnapObjectContext *object_context;
+    struct TransSeqSnapData *seq_context;
+  };
 } TransSnap;
 
 typedef struct TransCon {
@@ -347,28 +353,28 @@ typedef struct TransCon {
   eTConstraint mode;
   void (*drawExtra)(struct TransInfo *t);
 
-  /* Note: if 'tc' is NULL, 'td' must also be NULL.
+  /* NOTE: if 'tc' is NULL, 'td' must also be NULL.
    * For constraints that needs to draw differently from the other
    * uses this instead of the generic draw function. */
 
   /** Apply function pointer for linear vectorial transformation
    * The last three parameters are pointers to the in/out/printable vectors. */
-  void (*applyVec)(struct TransInfo *t,
-                   struct TransDataContainer *tc,
+  void (*applyVec)(const struct TransInfo *t,
+                   const struct TransDataContainer *tc,
                    struct TransData *td,
                    const float in[3],
-                   float out[3]);
+                   float r_out[3]);
   /** Apply function pointer for size transformation. */
-  void (*applySize)(struct TransInfo *t,
-                    struct TransDataContainer *tc,
+  void (*applySize)(const struct TransInfo *t,
+                    const struct TransDataContainer *tc,
                     struct TransData *td,
-                    float smat[3][3]);
+                    float r_smat[3][3]);
   /** Apply function pointer for rotation transformation */
-  void (*applyRot)(struct TransInfo *t,
-                   struct TransDataContainer *tc,
+  void (*applyRot)(const struct TransInfo *t,
+                   const struct TransDataContainer *tc,
                    struct TransData *td,
-                   float vec[3],
-                   float *angle);
+                   float r_axis[3],
+                   float *r_angle);
 } TransCon;
 
 typedef struct MouseInput {
@@ -420,7 +426,7 @@ typedef struct TransCenterData {
  *   (typically in transform_conversion.c).
  */
 typedef struct TransCustomDataContainer {
-  /** Owned by the mode (grab, scale, bend... ).*/
+  /** Owned by the mode (grab, scale, bend... ). */
   union {
     TransCustomData mode, first_elem;
   };
@@ -576,7 +582,7 @@ typedef struct TransInfo {
   short around;
   /** space-type where transforming is. */
   char spacetype;
-  /** Avoid looking inside #TransDataContainer.obedit. */
+  /** Type of active object being edited. */
   short obedit_type;
 
   /** translation, to show for widget. */
@@ -796,7 +802,7 @@ struct Object *transform_object_deform_pose_armature_get(const TransInfo *t, str
 
 void freeCustomNormalArray(TransInfo *t, TransDataContainer *tc, TransCustomData *custom_data);
 
-/* TODO. transform_query.c */
+/* TODO: `transform_query.c`. */
 bool checkUseAxisMatrix(TransInfo *t);
 
 #define TRANSFORM_SNAP_MAX_PX 100.0f

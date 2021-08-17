@@ -120,7 +120,7 @@ static void copy_dynamic_attributes(const CustomDataAttributes &src,
 
 static SplinePtr spline_delete(const Spline &spline, const IndexMask mask)
 {
-  SplinePtr new_spline = spline.copy_settings();
+  SplinePtr new_spline = spline.copy_only_settings();
   new_spline->resize(mask.size());
 
   spline_copy_builtin_attributes(spline, *new_spline, mask);
@@ -627,7 +627,7 @@ static void delete_mesh_selection(MeshComponent &component,
       mesh_out = nullptr;
       break;
   }
-  component.replace_mesh_but_keep_vertex_group_names(mesh_out);
+  component.replace(mesh_out);
 }
 
 static void geo_node_delete_geometry_exec(GeoNodeExecParams params)

@@ -17,6 +17,8 @@
 #include "BLI_math_base_safe.h"
 #include "BLI_task.hh"
 
+#include "RNA_enum_types.h"
+
 #include "UI_interface.h"
 #include "UI_resources.h"
 
@@ -154,6 +156,20 @@ static CustomDataType operation_get_result_type(const NodeVectorMathOperation op
 
 namespace blender::nodes {
 
+static void geo_node_vector_math_label(bNodeTree *UNUSED(ntree),
+                                       bNode *node,
+                                       char *label,
+                                       int maxlen)
+{
+  NodeAttributeMath &node_storage = *(NodeAttributeMath *)node->storage;
+  const char *name;
+  bool enum_label = RNA_enum_name(rna_enum_node_vec_math_items, node_storage.operation, &name);
+  if (!enum_label) {
+    name = "Unknown";
+  }
+  BLI_snprintf(label, maxlen, IFACE_("Vector %s"), IFACE_(name));
+}
+
 static void geo_node_attribute_vector_math_update(bNodeTree *UNUSED(ntree), bNode *node)
 {
   const NodeAttributeVectorMath *node_storage = (NodeAttributeVectorMath *)node->storage;
@@ -186,7 +202,7 @@ static void do_math_operation_fl3_fl3_to_fl3(const VArray<float3> &input_a,
 
   bool success = try_dispatch_float_math_fl3_fl3_to_fl3(
       operation, [&](auto math_function, const FloatMathOperationInfo &UNUSED(info)) {
-        parallel_for(IndexRange(size), 512, [&](IndexRange range) {
+        threading::parallel_for(IndexRange(size), 512, [&](IndexRange range) {
           for (const int i : range) {
             const float3 a = span_a[i];
             const float3 b = span_b[i];
@@ -218,7 +234,7 @@ static void do_math_operation_fl3_fl3_fl3_to_fl3(const VArray<float3> &input_a,
 
   bool success = try_dispatch_float_math_fl3_fl3_fl3_to_fl3(
       operation, [&](auto math_function, const FloatMathOperationInfo &UNUSED(info)) {
-        parallel_for(IndexRange(size), 512, [&](IndexRange range) {
+        threading::parallel_for(IndexRange(size), 512, [&](IndexRange range) {
           for (const int i : range) {
             const float3 a = span_a[i];
             const float3 b = span_b[i];
@@ -251,7 +267,7 @@ static void do_math_operation_fl3_fl3_fl_to_fl3(const VArray<float3> &input_a,
 
   bool success = try_dispatch_float_math_fl3_fl3_fl_to_fl3(
       operation, [&](auto math_function, const FloatMathOperationInfo &UNUSED(info)) {
-        parallel_for(IndexRange(size), 512, [&](IndexRange range) {
+        threading::parallel_for(IndexRange(size), 512, [&](IndexRange range) {
           for (const int i : range) {
             const float3 a = span_a[i];
             const float3 b = span_b[i];
@@ -282,7 +298,7 @@ static void do_math_operation_fl3_fl3_to_fl(const VArray<float3> &input_a,
 
   bool success = try_dispatch_float_math_fl3_fl3_to_fl(
       operation, [&](auto math_function, const FloatMathOperationInfo &UNUSED(info)) {
-        parallel_for(IndexRange(size), 512, [&](IndexRange range) {
+        threading::parallel_for(IndexRange(size), 512, [&](IndexRange range) {
           for (const int i : range) {
             const float3 a = span_a[i];
             const float3 b = span_b[i];
@@ -312,7 +328,7 @@ static void do_math_operation_fl3_fl_to_fl3(const VArray<float3> &input_a,
 
   bool success = try_dispatch_float_math_fl3_fl_to_fl3(
       operation, [&](auto math_function, const FloatMathOperationInfo &UNUSED(info)) {
-        parallel_for(IndexRange(size), 512, [&](IndexRange range) {
+        threading::parallel_for(IndexRange(size), 512, [&](IndexRange range) {
           for (const int i : range) {
             const float3 a = span_a[i];
             const float b = span_b[i];
@@ -340,7 +356,7 @@ static void do_math_operation_fl3_to_fl3(const VArray<float3> &input_a,
 
   bool success = try_dispatch_float_math_fl3_to_fl3(
       operation, [&](auto math_function, const FloatMathOperationInfo &UNUSED(info)) {
-        parallel_for(IndexRange(size), 512, [&](IndexRange range) {
+        threading::parallel_for(IndexRange(size), 512, [&](IndexRange range) {
           for (const int i : range) {
             const float3 in = span_a[i];
             const float3 out = math_function(in);
@@ -367,7 +383,7 @@ static void do_math_operation_fl3_to_fl(const VArray<float3> &input_a,
 
   bool success = try_dispatch_float_math_fl3_to_fl(
       operation, [&](auto math_function, const FloatMathOperationInfo &UNUSED(info)) {
-        parallel_for(IndexRange(size), 512, [&](IndexRange range) {
+        threading::parallel_for(IndexRange(size), 512, [&](IndexRange range) {
           for (const int i : range) {
             const float3 in = span_a[i];
             const float out = math_function(in);
@@ -389,9 +405,9 @@ static AttributeDomain get_result_domain(const GeometryComponent &component,
                                          StringRef result_name)
 {
   /* Use the domain of the result attribute if it already exists. */
-  ReadAttributeLookup result_attribute = component.attribute_try_get_for_read(result_name);
-  if (result_attribute) {
-    return result_attribute.domain;
+  std::optional<AttributeMetaData> result_info = component.attribute_get_meta_data(result_name);
+  if (result_info) {
+    return result_info->domain;
   }
 
   /* Otherwise use the highest priority domain from existing input attributes, or the default. */
@@ -549,6 +565,7 @@ void register_node_type_geo_attribute_vector_math()
       &ntype, geo_node_attribute_vector_math_in, geo_node_attribute_vector_math_out);
   ntype.geometry_node_execute = blender::nodes::geo_node_attribute_vector_math_exec;
   ntype.draw_buttons = geo_node_attribute_vector_math_layout;
+  node_type_label(&ntype, blender::nodes::geo_node_vector_math_label);
   node_type_update(&ntype, blender::nodes::geo_node_attribute_vector_math_update);
   node_type_init(&ntype, geo_node_attribute_vector_math_init);
   node_type_storage(

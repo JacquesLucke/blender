@@ -863,7 +863,7 @@ static void gpencil_duplicate_points(bGPdata *gpd,
         start_idx = i;
       }
     }
-    else {
+    if ((start_idx != -1) || (start_idx == gps->totpoints - 1)) {
       size_t len = 0;
 
       /* is this the end of current island yet?
@@ -3285,7 +3285,7 @@ static int gpencil_stroke_cyclical_set_exec(bContext *C, wmOperator *op)
           }
         }
 
-        /* if not multiedit, exit loop*/
+        /* If not multi-edit, exit loop. */
         if (!is_multiedit) {
           break;
         }
@@ -3555,7 +3555,7 @@ static int gpencil_stroke_join_exec(bContext *C, wmOperator *op)
   BLI_assert(ELEM(type, GP_STROKE_JOIN, GP_STROKE_JOINCOPY));
 
   int tot_strokes = 0;
-  /** Alloc memory  */
+  /** Alloc memory. */
   tJoinStrokes *strokes_list = MEM_malloc_arrayN(sizeof(tJoinStrokes), max_join_strokes, __func__);
   tJoinStrokes *elem = NULL;
   /* Read all selected strokes to create a list. */
@@ -4478,7 +4478,7 @@ static int gpencil_stroke_trim_exec(bContext *C, wmOperator *op)
             }
           }
         }
-        /* if not multiedit, exit loop*/
+        /* If not multi-edit, exit loop. */
         if (!is_multiedit) {
           break;
         }
@@ -4618,6 +4618,9 @@ static int gpencil_stroke_separate_exec(bContext *C, wmOperator *op)
               /* add layer if not created before */
               if (gpl_dst == NULL) {
                 gpl_dst = BKE_gpencil_layer_addnew(gpd_dst, gpl->info, false, false);
+                BKE_gpencil_layer_copy_settings(gpl, gpl_dst);
+                /* Copy masks. */
+                BKE_gpencil_layer_mask_copy(gpl, gpl_dst);
               }
 
               /* add frame if not created before */
@@ -4678,7 +4681,7 @@ static int gpencil_stroke_separate_exec(bContext *C, wmOperator *op)
           }
         }
 
-        /* if not multiedit, exit loop*/
+        /* If not multi-edit, exit loop. */
         if (!is_multiedit) {
           break;
         }
@@ -4735,6 +4738,9 @@ static int gpencil_stroke_separate_exec(bContext *C, wmOperator *op)
     }
   }
   ob_dst->actcol = actcol;
+
+  /* Remove any invalid Mask relationship. */
+  BKE_gpencil_layer_mask_cleanup_all_layers(gpd_dst);
 
   DEG_id_tag_update(&gpd_src->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
   DEG_id_tag_update(&gpd_dst->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
@@ -4854,7 +4860,7 @@ static int gpencil_stroke_split_exec(bContext *C, wmOperator *op)
         }
       }
 
-      /* if not multiedit, exit loop*/
+      /* If not multi-edit, exit loop. */
       if (!is_multiedit) {
         break;
       }
@@ -5081,7 +5087,7 @@ static int gpencil_cutter_lasso_select(bContext *C,
           BKE_gpencil_stroke_select_index_reset(gps);
         }
       }
-      /* if not multiedit, exit loop. */
+      /* If not multi-edit, exit loop. */
       if (!is_multiedit) {
         break;
       }
@@ -5145,7 +5151,7 @@ static int gpencil_cutter_lasso_select(bContext *C,
             }
           }
         }
-        /* if not multiedit, exit loop. */
+        /* If not multi-edit, exit loop. */
         if (!is_multiedit) {
           break;
         }
@@ -5164,7 +5170,7 @@ static int gpencil_cutter_lasso_select(bContext *C,
           gpencil_cutter_dissolve(gpd, gpl, gps, flat_caps);
         }
       }
-      /* if not multiedit, exit loop. */
+      /* If not multi-edit, exit loop. */
       if (!is_multiedit) {
         break;
       }
@@ -5472,7 +5478,7 @@ static int gpencil_stroke_normalize_exec(bContext *C, wmOperator *op)
             BKE_gpencil_stroke_geometry_update(gpd, gps);
           }
         }
-        /* If not multiedit, exit loop. */
+        /* If not multi-edit, exit loop. */
         if (!is_multiedit) {
           break;
         }

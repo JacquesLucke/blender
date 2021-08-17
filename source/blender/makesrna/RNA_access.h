@@ -71,6 +71,8 @@ extern StructRNA RNA_ArrayGpencilModifier;
 extern StructRNA RNA_ArrayModifier;
 extern StructRNA RNA_Attribute;
 extern StructRNA RNA_AttributeGroup;
+extern StructRNA RNA_AssetHandle;
+extern StructRNA RNA_AssetLibraryReference;
 extern StructRNA RNA_AssetMetaData;
 extern StructRNA RNA_AssetTag;
 extern StructRNA RNA_BackgroundImage;
@@ -450,6 +452,7 @@ extern StructRNA RNA_NodeOutputFileSlotFile;
 extern StructRNA RNA_NodeOutputFileSlotLayer;
 extern StructRNA RNA_NodeSocket;
 extern StructRNA RNA_NodeSocketInterface;
+extern StructRNA RNA_NodeSocketStandard;
 extern StructRNA RNA_NodeTree;
 extern StructRNA RNA_NoiseGpencilModifier;
 extern StructRNA RNA_NoiseTexture;
@@ -496,6 +499,7 @@ extern StructRNA RNA_Pose;
 extern StructRNA RNA_PoseBone;
 extern StructRNA RNA_Preferences;
 extern StructRNA RNA_PreferencesEdit;
+extern StructRNA RNA_PreferencesExperimental;
 extern StructRNA RNA_PreferencesFilePaths;
 extern StructRNA RNA_PreferencesInput;
 extern StructRNA RNA_PreferencesKeymap;
@@ -615,10 +619,12 @@ extern StructRNA RNA_Spline;
 extern StructRNA RNA_SplineIKConstraint;
 extern StructRNA RNA_SplinePoint;
 extern StructRNA RNA_SpotLight;
+extern StructRNA RNA_SpreadsheetColumnID;
 extern StructRNA RNA_SpreadsheetContext;
 extern StructRNA RNA_SpreadsheetContextObject;
 extern StructRNA RNA_SpreadsheetContextModifier;
 extern StructRNA RNA_SpreadsheetContextNode;
+extern StructRNA RNA_SpreadsheetRowFilter;
 extern StructRNA RNA_Stereo3dDisplay;
 extern StructRNA RNA_StretchToConstraint;
 extern StructRNA RNA_StringAttribute;
@@ -808,6 +814,7 @@ void RNA_struct_py_type_set(StructRNA *srna, void *py_type);
 void *RNA_struct_blender_type_get(StructRNA *srna);
 void RNA_struct_blender_type_set(StructRNA *srna, void *blender_type);
 
+struct IDProperty **RNA_struct_idprops_p(PointerRNA *ptr);
 struct IDProperty *RNA_struct_idprops(PointerRNA *ptr, bool create);
 bool RNA_struct_idprops_check(StructRNA *srna);
 bool RNA_struct_idprops_register_check(const StructRNA *type);
@@ -821,6 +828,7 @@ unsigned int RNA_struct_count_properties(StructRNA *srna);
 
 /* lower level functions for access to type properties */
 const struct ListBase *RNA_struct_type_properties(StructRNA *srna);
+PropertyRNA *RNA_struct_type_find_property_no_base(StructRNA *srna, const char *identifier);
 PropertyRNA *RNA_struct_type_find_property(StructRNA *srna, const char *identifier);
 
 FunctionRNA *RNA_struct_find_function(StructRNA *srna, const char *identifier);
@@ -1356,9 +1364,9 @@ int RNA_parameter_flag(PropertyRNA *prop);
 
 ParameterList *RNA_parameter_list_create(ParameterList *parms, PointerRNA *ptr, FunctionRNA *func);
 void RNA_parameter_list_free(ParameterList *parms);
-int RNA_parameter_list_size(ParameterList *parms);
-int RNA_parameter_list_arg_count(ParameterList *parms);
-int RNA_parameter_list_ret_count(ParameterList *parms);
+int RNA_parameter_list_size(const ParameterList *parms);
+int RNA_parameter_list_arg_count(const ParameterList *parms);
+int RNA_parameter_list_ret_count(const ParameterList *parms);
 
 void RNA_parameter_list_begin(ParameterList *parms, ParameterIterator *iter);
 void RNA_parameter_list_next(ParameterIterator *iter);

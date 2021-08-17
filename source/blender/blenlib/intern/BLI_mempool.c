@@ -47,7 +47,7 @@
 #  include "valgrind/memcheck.h"
 #endif
 
-/* note: copied from BLO_blend_defs.h, don't use here because we're in BLI */
+/* NOTE: copied from BLO_blend_defs.h, don't use here because we're in BLI. */
 #ifdef __BIG_ENDIAN__
 /* Big Endian */
 #  define MAKE_ID(a, b, c, d) ((int)(a) << 24 | (int)(b) << 16 | (c) << 8 | (d))
@@ -63,9 +63,9 @@
 #endif
 
 /**
- * Important that this value is an is _not_  aligned with ``sizeof(void *)``.
+ * Important that this value is an is _not_  aligned with `sizeof(void *)`.
  * So having a pointer to 2/4/8... aligned memory is enough to ensure
- * the freeword will never be used.
+ * the `freeword` will never be used.
  * To be safe, use a word that's the same in both directions.
  */
 #define FREEWORD \
@@ -387,7 +387,7 @@ void BLI_mempool_free(BLI_mempool *pool, void *addr)
       }
     }
     if (!found) {
-      BLI_assert(!"Attempt to free data which is not in pool.\n");
+      BLI_assert_msg(0, "Attempt to free data which is not in pool.\n");
     }
   }
 
@@ -452,7 +452,7 @@ void BLI_mempool_free(BLI_mempool *pool, void *addr)
   }
 }
 
-int BLI_mempool_len(BLI_mempool *pool)
+int BLI_mempool_len(const BLI_mempool *pool)
 {
   return (int)pool->totused;
 }

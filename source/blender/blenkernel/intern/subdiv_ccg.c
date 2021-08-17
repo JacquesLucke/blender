@@ -63,7 +63,7 @@ void subdiv_ccg_average_faces_boundaries_and_corners(SubdivCCG *subdiv_ccg,
 /** \name Generally useful internal helpers
  * \{ */
 
-/* Number of floats in per-vertex elements.  */
+/* Number of floats in per-vertex elements. */
 static int num_element_float_get(const SubdivCCG *subdiv_ccg)
 {
   /* We always have 3 floats for coordinate. */
@@ -1042,7 +1042,7 @@ typedef struct AverageGridsBoundariesData {
   CCGKey *key;
 
   /* Optional lookup table. Maps task index to index in `subdiv_ccg->adjacent_vertices`. */
-  int *adjacent_edge_index_map;
+  const int *adjacent_edge_index_map;
 } AverageGridsBoundariesData;
 
 typedef struct AverageGridsBoundariesTLSData {
@@ -1116,8 +1116,8 @@ typedef struct AverageGridsCornerData {
   SubdivCCG *subdiv_ccg;
   CCGKey *key;
 
-  /* Optional lookup table. Maps task range index to index in subdiv_ccg->adjacent_vertices*/
-  int *adjacent_vert_index_map;
+  /* Optional lookup table. Maps task range index to index in `subdiv_ccg->adjacent_vertices`. */
+  const int *adjacent_vert_index_map;
 } AverageGridsCornerData;
 
 static void subdiv_ccg_average_grids_corners(SubdivCCG *subdiv_ccg,
@@ -1161,7 +1161,7 @@ static void subdiv_ccg_average_grids_corners_task(void *__restrict userdata_v,
 
 static void subdiv_ccg_average_boundaries(SubdivCCG *subdiv_ccg,
                                           CCGKey *key,
-                                          int *adjacent_edge_index_map,
+                                          const int *adjacent_edge_index_map,
                                           int num_adjacent_edges)
 {
   TaskParallelSettings parallel_range_settings;
@@ -1186,7 +1186,7 @@ static void subdiv_ccg_average_all_boundaries(SubdivCCG *subdiv_ccg, CCGKey *key
 
 static void subdiv_ccg_average_corners(SubdivCCG *subdiv_ccg,
                                        CCGKey *key,
-                                       int *adjacent_vert_index_map,
+                                       const int *adjacent_vert_index_map,
                                        int num_adjacent_vertices)
 {
   TaskParallelSettings parallel_range_settings;
@@ -1489,7 +1489,7 @@ BLI_INLINE SubdivCCGCoord coord_at_next_col(const SubdivCCG *subdiv_ccg,
   return result;
 }
 
-/* For the input coordinate which is at the boundary of the grid do one step inside.  */
+/* For the input coordinate which is at the boundary of the grid do one step inside. */
 static SubdivCCGCoord coord_step_inside_from_boundary(const SubdivCCG *subdiv_ccg,
                                                       const SubdivCCGCoord *coord)
 
@@ -1509,7 +1509,7 @@ static SubdivCCGCoord coord_step_inside_from_boundary(const SubdivCCG *subdiv_cc
     ++result.y;
   }
   else {
-    BLI_assert(!"non-boundary element given");
+    BLI_assert_msg(0, "non-boundary element given");
   }
   return result;
 }

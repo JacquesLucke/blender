@@ -335,14 +335,14 @@ static void make_child_duplis(const DupliContext *ctx,
 /** \name Internal Data Access Utilities
  * \{ */
 
-static Mesh *mesh_data_from_duplicator_object(Object *ob,
-                                              BMEditMesh **r_em,
-                                              const float (**r_vert_coords)[3],
-                                              const float (**r_vert_normals)[3])
+static const Mesh *mesh_data_from_duplicator_object(Object *ob,
+                                                    BMEditMesh **r_em,
+                                                    const float (**r_vert_coords)[3],
+                                                    const float (**r_vert_normals)[3])
 {
   /* Gather mesh info. */
   BMEditMesh *em = BKE_editmesh_from_object(ob);
-  Mesh *me_eval;
+  const Mesh *me_eval;
 
   *r_em = nullptr;
   *r_vert_coords = nullptr;
@@ -603,7 +603,7 @@ static void make_duplis_verts(const DupliContext *ctx)
   BMEditMesh *em = nullptr;
   const float(*vert_coords)[3] = nullptr;
   const float(*vert_normals)[3] = nullptr;
-  Mesh *me_eval = mesh_data_from_duplicator_object(
+  const Mesh *me_eval = mesh_data_from_duplicator_object(
       parent, &em, &vert_coords, use_rotation ? &vert_normals : nullptr);
   if (em == nullptr && me_eval == nullptr) {
     return;
@@ -1151,7 +1151,7 @@ static void make_duplis_faces(const DupliContext *ctx)
   /* Gather mesh info. */
   BMEditMesh *em = nullptr;
   const float(*vert_coords)[3] = nullptr;
-  Mesh *me_eval = mesh_data_from_duplicator_object(parent, &em, &vert_coords, nullptr);
+  const Mesh *me_eval = mesh_data_from_duplicator_object(parent, &em, &vert_coords, nullptr);
   if (em == nullptr && me_eval == nullptr) {
     return;
   }
@@ -1554,15 +1554,15 @@ static const DupliGenerator gen_dupli_particles = {
 static const DupliGenerator *get_dupli_generator(const DupliContext *ctx)
 {
   int transflag = ctx->object->transflag;
-  int restrictflag = ctx->object->restrictflag;
+  int visibility_flag = ctx->object->visibility_flag;
 
   if ((transflag & OB_DUPLI) == 0 && ctx->object->runtime.geometry_set_eval == nullptr) {
     return nullptr;
   }
 
   /* Should the dupli's be generated for this object? - Respect restrict flags. */
-  if (DEG_get_mode(ctx->depsgraph) == DAG_EVAL_RENDER ? (restrictflag & OB_RESTRICT_RENDER) :
-                                                        (restrictflag & OB_RESTRICT_VIEWPORT)) {
+  if (DEG_get_mode(ctx->depsgraph) == DAG_EVAL_RENDER ? (visibility_flag & OB_HIDE_RENDER) :
+                                                        (visibility_flag & OB_HIDE_VIEWPORT)) {
     return nullptr;
   }
 

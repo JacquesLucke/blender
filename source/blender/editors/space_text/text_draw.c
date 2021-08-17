@@ -686,10 +686,7 @@ static void text_update_drawcache(SpaceText *st, ARegion *region)
     }
   }
   else {
-    if (drawcache->line_height) {
-      MEM_freeN(drawcache->line_height);
-      drawcache->line_height = NULL;
-    }
+    MEM_SAFE_FREE(drawcache->line_height);
 
     if (full_update || drawcache->update_flag) {
       nlines = BLI_listbase_count(&txt->lines);
@@ -938,7 +935,7 @@ static void calc_text_rcts(SpaceText *st, ARegion *region, rcti *scroll, rcti *b
         hlstart = barstart + barheight;
       }
       else if (lhlend > st->top && lhlstart < st->top && hlstart > barstart) {
-        /*fill out start */
+        /* Fill out start. */
         hlstart = barstart;
       }
 

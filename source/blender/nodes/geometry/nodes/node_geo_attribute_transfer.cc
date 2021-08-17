@@ -102,14 +102,6 @@ static void get_result_domain_and_data_type(const GeometrySet &src_geometry,
   }
 }
 
-static Span<MLoopTri> get_mesh_looptris(const Mesh &mesh)
-{
-  /* This only updates a cache and can be considered to be logically const. */
-  const MLoopTri *looptris = BKE_mesh_runtime_looptri_ensure(const_cast<Mesh *>(&mesh));
-  const int looptris_len = BKE_mesh_runtime_looptri_len(&mesh);
-  return {looptris, looptris_len};
-}
-
 static void get_closest_in_bvhtree(BVHTreeFromMesh &tree_data,
                                    const VArray<float3> &positions,
                                    const MutableSpan<int> r_indices,
@@ -170,7 +162,7 @@ static void get_closest_mesh_points(const Mesh &mesh,
 {
   BLI_assert(mesh.totvert > 0);
   BVHTreeFromMesh tree_data;
-  BKE_bvhtree_from_mesh_get(&tree_data, const_cast<Mesh *>(&mesh), BVHTREE_FROM_VERTS, 2);
+  BKE_bvhtree_from_mesh_get(&tree_data, &mesh, BVHTREE_FROM_VERTS, 2);
   get_closest_in_bvhtree(tree_data, positions, r_point_indices, r_distances_sq, r_positions);
   free_bvhtree_from_mesh(&tree_data);
 }
@@ -183,7 +175,7 @@ static void get_closest_mesh_edges(const Mesh &mesh,
 {
   BLI_assert(mesh.totedge > 0);
   BVHTreeFromMesh tree_data;
-  BKE_bvhtree_from_mesh_get(&tree_data, const_cast<Mesh *>(&mesh), BVHTREE_FROM_EDGES, 2);
+  BKE_bvhtree_from_mesh_get(&tree_data, &mesh, BVHTREE_FROM_EDGES, 2);
   get_closest_in_bvhtree(tree_data, positions, r_edge_indices, r_distances_sq, r_positions);
   free_bvhtree_from_mesh(&tree_data);
 }
@@ -196,7 +188,7 @@ static void get_closest_mesh_looptris(const Mesh &mesh,
 {
   BLI_assert(mesh.totpoly > 0);
   BVHTreeFromMesh tree_data;
-  BKE_bvhtree_from_mesh_get(&tree_data, const_cast<Mesh *>(&mesh), BVHTREE_FROM_LOOPTRI, 2);
+  BKE_bvhtree_from_mesh_get(&tree_data, &mesh, BVHTREE_FROM_LOOPTRI, 2);
   get_closest_in_bvhtree(tree_data, positions, r_looptri_indices, r_distances_sq, r_positions);
   free_bvhtree_from_mesh(&tree_data);
 }
@@ -212,7 +204,8 @@ static void get_closest_mesh_polygons(const Mesh &mesh,
   Array<int> looptri_indices(positions.size());
   get_closest_mesh_looptris(mesh, positions, looptri_indices, r_distances_sq, r_positions);
 
-  Span<MLoopTri> looptris = get_mesh_looptris(mesh);
+  const Span<MLoopTri> looptris{BKE_mesh_runtime_looptri_ensure(&mesh),
+                                BKE_mesh_runtime_looptri_len(&mesh)};
   for (const int i : positions.index_range()) {
     const MLoopTri &looptri = looptris[looptri_indices[i]];
     r_poly_indices[i] = looptri.poly;
@@ -262,32 +255,6 @@ static void get_closest_mesh_corners(const Mesh &mesh,
   }
 }
 
-static void get_barycentric_coords(const Mesh &mesh,
-                                   const Span<int> looptri_indices,
-                                   const Span<float3> positions,
-                                   const MutableSpan<float3> r_bary_coords)
-{
-  BLI_assert(r_bary_coords.size() == positions.size());
-  BLI_assert(r_bary_coords.size() == looptri_indices.size());
-
-  Span<MLoopTri> looptris = get_mesh_looptris(mesh);
-
-  for (const int i : r_bary_coords.index_range()) {
-    const int looptri_index = looptri_indices[i];
-    const MLoopTri &looptri = looptris[looptri_index];
-
-    const int v0_index = mesh.mloop[looptri.tri[0]].v;
-    const int v1_index = mesh.mloop[looptri.tri[1]].v;
-    const int v2_index = mesh.mloop[looptri.tri[2]].v;
-
-    interp_weights_tri_v3(r_bary_coords[i],
-                          mesh.mvert[v0_index].co,
-                          mesh.mvert[v1_index].co,
-                          mesh.mvert[v2_index].co,
-                          positions[i]);
-  }
-}
-
 static void transfer_attribute_nearest_face_interpolated(const GeometrySet &src_geometry,
                                                          GeometryComponent &dst_component,
                                                          const VArray<float3> &dst_positions,
@@ -308,8 +275,11 @@ static void transfer_attribute_nearest_face_interpolated(const GeometrySet &src_
   if (mesh->totpoly == 0) {
     return;
   }
+
   ReadAttributeLookup src_attribute = component->attribute_try_get_for_read(src_name, data_type);
-  if (!src_attribute) {
+  OutputAttribute dst_attribute = dst_component.attribute_try_get_for_output_only(
+      dst_name, dst_domain, data_type);
+  if (!src_attribute || !dst_attribute) {
     return;
   }
 
@@ -318,45 +288,10 @@ static void transfer_attribute_nearest_face_interpolated(const GeometrySet &src_
   Array<float3> positions(tot_samples);
   get_closest_mesh_looptris(*mesh, dst_positions, looptri_indices, {}, positions);
 
-  OutputAttribute dst_attribute = dst_component.attribute_try_get_for_output_only(
-      dst_name, dst_domain, data_type);
-  if (!dst_attribute) {
-    return;
-  }
-  GMutableSpan dst_span = dst_attribute.as_span();
-  Array<float3> bary_coords;
+  bke::mesh_surface_sample::MeshAttributeInterpolator interp(mesh, positions, looptri_indices);
+  interp.sample_attribute(
+      src_attribute, dst_attribute, bke::mesh_surface_sample::eAttributeMapMode::INTERPOLATED);
 
-  /* Compute barycentric coordinates only when they are needed. */
-  if (src_attribute.domain != ATTR_DOMAIN_FACE) {
-    bary_coords.reinitialize(tot_samples);
-    get_barycentric_coords(*mesh, looptri_indices, positions, bary_coords);
-  }
-  /* Interpolate the source attribute on the surface. */
-  switch (src_attribute.domain) {
-    case ATTR_DOMAIN_POINT: {
-      bke::mesh_surface_sample::sample_point_attribute(
-          *mesh, looptri_indices, bary_coords, *src_attribute.varray, dst_span);
-      break;
-    }
-    case ATTR_DOMAIN_FACE: {
-      bke::mesh_surface_sample::sample_face_attribute(
-          *mesh, looptri_indices, *src_attribute.varray, dst_span);
-      break;
-    }
-    case ATTR_DOMAIN_CORNER: {
-      bke::mesh_surface_sample::sample_corner_attribute(
-          *mesh, looptri_indices, bary_coords, *src_attribute.varray, dst_span);
-      break;
-    }
-    case ATTR_DOMAIN_EDGE: {
-      /* Not yet supported. */
-      break;
-    }
-    default: {
-      BLI_assert_unreachable();
-      break;
-    }
-  }
   dst_attribute.save();
 }
 
@@ -436,10 +371,12 @@ static void transfer_attribute_nearest(const GeometrySet &src_geometry,
           break;
         }
         case ATTR_DOMAIN_CORNER: {
-          use_mesh = true;
-          mesh_indices.reinitialize(tot_samples);
-          mesh_distances_sq.reinitialize(tot_samples);
-          get_closest_mesh_corners(*mesh, dst_positions, mesh_indices, mesh_distances_sq, {});
+          if (mesh->totloop > 0) {
+            use_mesh = true;
+            mesh_indices.reinitialize(tot_samples);
+            mesh_distances_sq.reinitialize(tot_samples);
+            get_closest_mesh_corners(*mesh, dst_positions, mesh_indices, mesh_distances_sq, {});
+          }
           break;
         }
         default: {

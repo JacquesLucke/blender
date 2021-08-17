@@ -120,6 +120,9 @@ MINLINE double interpd(double a, double b, double t);
 MINLINE float ratiof(float min, float max, float pos);
 MINLINE double ratiod(double min, double max, double pos);
 
+MINLINE float scalenorm(float a, float b, float x);
+MINLINE double scalenormd(double a, double b, double x);
+
 /* NOTE: Compilers will upcast all types smaller than int to int when performing arithmetic
  * operation. */
 MINLINE int square_s(short a);
@@ -237,6 +240,7 @@ float ceil_power_of_10(float f);
 #ifndef NDEBUG
 /** \note 0.0001 is too small because normals may be converted from short's: see T34322. */
 #  define BLI_ASSERT_UNIT_EPSILON 0.0002f
+#  define BLI_ASSERT_UNIT_EPSILON_DB 0.0002
 /**
  * \note Checks are flipped so NAN doesn't assert.
  * This is done because we're making sure the value was normalized and in the case we
@@ -253,8 +257,8 @@ float ceil_power_of_10(float f);
 #  define BLI_ASSERT_UNIT_V3_DB(v) \
     { \
       const double _test_unit = len_squared_v3_db(v); \
-      BLI_assert(!(fabs(_test_unit - 1.0) >= BLI_ASSERT_UNIT_EPSILON) || \
-                 !(fabs(_test_unit) >= BLI_ASSERT_UNIT_EPSILON)); \
+      BLI_assert(!(fabs(_test_unit - 1.0) >= BLI_ASSERT_UNIT_EPSILON_DB) || \
+                 !(fabs(_test_unit) >= BLI_ASSERT_UNIT_EPSILON_DB)); \
     } \
     (void)0
 
@@ -295,6 +299,7 @@ float ceil_power_of_10(float f);
 #else
 #  define BLI_ASSERT_UNIT_V2(v) (void)(v)
 #  define BLI_ASSERT_UNIT_V3(v) (void)(v)
+#  define BLI_ASSERT_UNIT_V3_DB(v) (void)(v)
 #  define BLI_ASSERT_UNIT_QUAT(v) (void)(v)
 #  define BLI_ASSERT_ZERO_M3(m) (void)(m)
 #  define BLI_ASSERT_ZERO_M4(m) (void)(m)

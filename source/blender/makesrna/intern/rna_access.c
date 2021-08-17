@@ -36,6 +36,7 @@
 #include "BLI_dynstr.h"
 #include "BLI_ghash.h"
 #include "BLI_math.h"
+#include "BLI_threads.h"
 #include "BLI_utildefines.h"
 
 #include "BLF_api.h"
@@ -226,7 +227,7 @@ void RNA_pointer_recast(PointerRNA *ptr, PointerRNA *r_ptr)
   {
     StructRNA *base;
     PointerRNA t_ptr;
-    *r_ptr = *ptr; /* initialize as the same in case cant recast */
+    *r_ptr = *ptr; /* initialize as the same in case can't recast */
 
     for (base = ptr->type->base; base; base = base->base) {
       t_ptr = rna_pointer_inherit_refine(ptr, base, ptr->data);
@@ -369,15 +370,32 @@ static bool rna_idproperty_ui_set_default(PointerRNA *ptr,
   return true;
 }
 
-IDProperty *RNA_struct_idprops(PointerRNA *ptr, bool create)
+IDProperty **RNA_struct_idprops_p(PointerRNA *ptr)
 {
   StructRNA *type = ptr->type;
-
-  if (type && type->idproperties) {
-    return type->idproperties(ptr, create);
+  if (type == NULL) {
+    return NULL;
+  }
+  if (type->idproperties == NULL) {
+    return NULL;
   }
 
-  return NULL;
+  return type->idproperties(ptr);
+}
+
+IDProperty *RNA_struct_idprops(PointerRNA *ptr, bool create)
+{
+  IDProperty **property_ptr = RNA_struct_idprops_p(ptr);
+  if (property_ptr == NULL) {
+    return NULL;
+  }
+
+  if (create && *property_ptr == NULL) {
+    IDPropertyTemplate val = {0};
+    *property_ptr = IDP_New(IDP_GROUP, &val, __func__);
+  }
+
+  return *property_ptr;
 }
 
 bool RNA_struct_idprops_check(StructRNA *srna)
@@ -692,7 +710,7 @@ static const char *rna_ensure_property_description(const PropertyRNA *prop)
     }
 
     if (description == NULL) {
-      description = ((IDProperty *)prop)->name; /* XXX - not correct */
+      description = ((IDProperty *)prop)->name; /* XXX: not correct. */
     }
   }
 
@@ -865,8 +883,7 @@ bool RNA_struct_is_a(const StructRNA *type, const StructRNA *srna)
 
 PropertyRNA *RNA_struct_find_property(PointerRNA *ptr, const char *identifier)
 {
-  if (identifier[0] == '[' && identifier[1] == '"') { /* "  (dummy comment to avoid confusing some
-                                                       * function lists in text editors) */
+  if (identifier[0] == '[' && identifier[1] == '"') {
     /* id prop lookup, not so common */
     PropertyRNA *r_prop = NULL;
     PointerRNA r_ptr; /* only support single level props */
@@ -907,7 +924,7 @@ static PropertyRNA *RNA_struct_find_nested(PointerRNA *ptr, StructRNA *srna)
 
 bool RNA_struct_contains_property(PointerRNA *ptr, PropertyRNA *prop_test)
 {
-  /* note, prop_test could be freed memory, only use for comparison */
+  /* NOTE: prop_test could be freed memory, only use for comparison. */
 
   /* validate the RNA is ok */
   PropertyRNA *iterprop;
@@ -950,19 +967,33 @@ const struct ListBase *RNA_struct_type_properties(StructRNA *srna)
   return &srna->cont.properties;
 }
 
-PropertyRNA *RNA_struct_type_find_property(StructRNA *srna, const char *identifier)
+PropertyRNA *RNA_struct_type_find_property_no_base(StructRNA *srna, const char *identifier)
 {
   return BLI_findstring_ptr(&srna->cont.properties, identifier, offsetof(PropertyRNA, identifier));
+}
+
+/**
+ * \note #RNA_struct_find_property is a higher level alternative to this function
+ * which takes a #PointerRNA instead of a #StructRNA.
+ */
+PropertyRNA *RNA_struct_type_find_property(StructRNA *srna, const char *identifier)
+{
+  for (; srna; srna = srna->base) {
+    PropertyRNA *prop = RNA_struct_type_find_property_no_base(srna, identifier);
+    if (prop != NULL) {
+      return prop;
+    }
+  }
+  return NULL;
 }
 
 FunctionRNA *RNA_struct_find_function(StructRNA *srna, const char *identifier)
 {
 #if 1
   FunctionRNA *func;
-  StructRNA *type;
-  for (type = srna; type; type = type->base) {
+  for (; srna; srna = srna->base) {
     func = (FunctionRNA *)BLI_findstring_ptr(
-        &type->functions, identifier, offsetof(FunctionRNA, identifier));
+        &srna->functions, identifier, offsetof(FunctionRNA, identifier));
     if (func) {
       return func;
     }
@@ -1691,7 +1722,7 @@ static void property_enum_translate(PropertyRNA *prop,
   if (!(prop->flag & PROP_ENUM_NO_TRANSLATE)) {
     int i;
 
-    /* Note: Only do those tests once, and then use BLT_pgettext. */
+    /* NOTE: Only do those tests once, and then use BLT_pgettext. */
     bool do_iface = BLT_translate_iface();
     bool do_tooltip = BLT_translate_tooltips();
     EnumPropertyItem *nitem;
@@ -2026,11 +2057,9 @@ bool RNA_property_enum_item_from_value(
 bool RNA_property_enum_item_from_value_gettexted(
     bContext *C, PointerRNA *ptr, PropertyRNA *prop, const int value, EnumPropertyItem *r_item)
 {
-  bool result;
+  const bool result = RNA_property_enum_item_from_value(C, ptr, prop, value, r_item);
 
-  result = RNA_property_enum_item_from_value(C, ptr, prop, value, r_item);
-
-  if (!(prop->flag & PROP_ENUM_NO_TRANSLATE)) {
+  if (result && !(prop->flag & PROP_ENUM_NO_TRANSLATE)) {
     if (BLT_translate_iface()) {
       r_item->name = BLT_pgettext(prop->translation_context, r_item->name);
     }
@@ -2325,7 +2354,7 @@ static void rna_property_update(
 }
 
 /* must keep in sync with 'rna_property_update'
- * note, its possible this returns a false positive in the case of PROP_CONTEXT_UPDATE
+ * NOTE: its possible this returns a false positive in the case of #PROP_CONTEXT_UPDATE
  * but this isn't likely to be a performance problem. */
 bool RNA_property_update_check(PropertyRNA *prop)
 {
@@ -2987,7 +3016,7 @@ void RNA_property_float_set(PointerRNA *ptr, PropertyRNA *prop, float value)
   BLI_assert(RNA_property_type(prop) == PROP_FLOAT);
   BLI_assert(RNA_property_array_check(prop) == false);
   /* useful to check on bad values but set function should clamp */
-  /* BLI_assert(RNA_property_float_clamp(ptr, prop, &value) == 0); */
+  // BLI_assert(RNA_property_float_clamp(ptr, prop, &value) == 0);
 
   if ((idprop = rna_idproperty_check(&prop, ptr))) {
     RNA_property_float_clamp(ptr, prop, &value);
@@ -3661,6 +3690,8 @@ PointerRNA RNA_property_pointer_get(PointerRNA *ptr, PropertyRNA *prop)
   PointerPropertyRNA *pprop = (PointerPropertyRNA *)prop;
   IDProperty *idprop;
 
+  static ThreadMutex lock = BLI_MUTEX_INITIALIZER;
+
   BLI_assert(RNA_property_type(prop) == PROP_POINTER);
 
   if ((idprop = rna_idproperty_check(&prop, ptr))) {
@@ -3680,9 +3711,14 @@ PointerRNA RNA_property_pointer_get(PointerRNA *ptr, PropertyRNA *prop)
     return pprop->get(ptr);
   }
   if (prop->flag & PROP_IDPROPERTY) {
-    /* XXX temporary hack to add it automatically, reading should
-     * never do any write ops, to ensure thread safety etc .. */
+    /* NOTE: While creating/writing data in an accessor is really bad design-wise, this is
+     * currently very difficult to avoid in that case. So a global mutex is used to keep ensuring
+     * thread safety. */
+    BLI_mutex_lock(&lock);
+    /* NOTE: We do not need to check again for existence of the pointer after locking here, since
+     * this is also done in #RNA_property_pointer_add itself. */
     RNA_property_pointer_add(ptr, prop);
+    BLI_mutex_unlock(&lock);
     return RNA_property_pointer_get(ptr, prop);
   }
   return PointerRNA_NULL;
@@ -3766,16 +3802,16 @@ void RNA_property_pointer_set(PointerRNA *ptr,
 
 PointerRNA RNA_property_pointer_get_default(PointerRNA *UNUSED(ptr), PropertyRNA *UNUSED(prop))
 {
-  /*PointerPropertyRNA *pprop = (PointerPropertyRNA *)prop; */
+  // PointerPropertyRNA *pprop = (PointerPropertyRNA *)prop;
 
-  /* BLI_assert(RNA_property_type(prop) == PROP_POINTER); */
+  // BLI_assert(RNA_property_type(prop) == PROP_POINTER);
 
   return PointerRNA_NULL; /* FIXME: there has to be a way... */
 }
 
 void RNA_property_pointer_add(PointerRNA *ptr, PropertyRNA *prop)
 {
-  /*IDProperty *idprop;*/
+  // IDProperty *idprop;
 
   BLI_assert(RNA_property_type(prop) == PROP_POINTER);
 
@@ -3960,7 +3996,7 @@ static bool property_collection_liboverride_editable(PointerRNA *ptr,
 
   if (!is_liboverride) {
     /* We return True also for linked data, as it allows tricks like py scripts 'overriding' data
-     * of those.*/
+     * of those. */
     return true;
   }
 
@@ -4005,7 +4041,7 @@ void RNA_property_collection_add(PointerRNA *ptr, PropertyRNA *prop, PointerRNA 
       item->flag |= IDP_FLAG_OVERRIDELIBRARY_LOCAL;
     }
     IDP_AppendArray(idprop, item);
-    /* IDP_AppendArray does a shallow copy (memcpy), only free memory  */
+    /* IDP_AppendArray does a shallow copy (memcpy), only free memory. */
     /* IDP_FreePropertyContent(item); */
     MEM_freeN(item);
     rna_idproperty_touch(idprop);
@@ -4565,8 +4601,8 @@ static int rna_raw_access(ReportList *reports,
         return 1;
       }
 
-      /* could also be faster with non-matching types,
-       * for now we just do slower loop .. */
+      /* Could also be faster with non-matching types,
+       * for now we just do slower loop. */
     }
   }
 
@@ -4957,10 +4993,7 @@ void rna_iterator_array_end(CollectionPropertyIterator *iter)
 {
   ArrayIterator *internal = &iter->internal.array;
 
-  if (internal->free_ptr) {
-    MEM_freeN(internal->free_ptr);
-    internal->free_ptr = NULL;
-  }
+  MEM_SAFE_FREE(internal->free_ptr);
 }
 
 PointerRNA rna_array_lookup_int(
@@ -5016,7 +5049,7 @@ static char *rna_path_token(const char **path, char *fixedbuf, int fixedlen, int
     }
   }
   else {
-    /* get data until . or [ */
+    /* Get data until `.` or `[`. */
     p = *path;
 
     while (*p && *p != '.' && *p != '[') {
@@ -5184,7 +5217,7 @@ static bool rna_path_parse_array_index(const char **path,
       /* location.x || scale.X, single dimension arrays only */
       token = rna_path_token(path, fixedbuf, sizeof(fixedbuf), 0);
       if (token == NULL) {
-        /* invalid syntax blah.. */
+        /* invalid syntax blah. */
         return false;
       }
       temp_index = RNA_property_array_item_index(prop, *token);
@@ -5812,7 +5845,7 @@ static char *rna_path_from_ID_to_idpgroup(PointerRNA *ptr)
 
   BLI_assert(ptr->owner_id != NULL);
 
-  /* TODO, Support Bones/PoseBones. no pointers stored to the bones from here, only the ID.
+  /* TODO: Support Bones/PoseBones. no pointers stored to the bones from here, only the ID.
    *       See example in T25746.
    *       Unless this is added only way to find this is to also search
    *       all bones and pose bones of an armature or object.
@@ -5849,12 +5882,12 @@ ID *RNA_find_real_ID_and_path(Main *bmain, ID *id, const char **r_path)
         *r_path = "collection";
         break;
       default:
-        BLI_assert(!"Missing handling of embedded id type.");
+        BLI_assert_msg(0, "Missing handling of embedded id type.");
     }
   }
 
   if (id_type->owner_get == NULL) {
-    BLI_assert(!"Missing handling of embedded id type.");
+    BLI_assert_msg(0, "Missing handling of embedded id type.");
     return id;
   }
   return id_type->owner_get(bmain, id);
@@ -5983,7 +6016,7 @@ static void rna_path_array_multi_string_from_flat_index(PointerRNA *ptr,
 
 /**
  * \param index_dim: The dimension to show, 0 disables. 1 for 1d array, 2 for 2d. etc.
- * \param index: The *flattened* index to use when \a ``index_dim > 0``,
+ * \param index: The *flattened* index to use when \a `index_dim > 0`,
  * this is expanded when used with multi-dimensional arrays.
  */
 char *RNA_path_from_ID_to_property_index(PointerRNA *ptr,
@@ -6244,8 +6277,8 @@ char *RNA_path_struct_property_py(PointerRNA *ptr, PropertyRNA *prop, int index)
   data_path = RNA_path_from_ID_to_property(ptr, prop);
 
   if (data_path == NULL) {
-    /* this may not be an ID at all, check for simple when pointer owns property.
-     * TODO, more complex nested case */
+    /* This may not be an ID at all, check for simple when pointer owns property.
+     * TODO: more complex nested case. */
     if (!RNA_struct_is_ID(ptr->type)) {
       const char *prop_identifier = RNA_property_identifier(prop);
       if (RNA_struct_find_property(ptr, prop_identifier) == prop) {
@@ -6559,7 +6592,7 @@ char *RNA_string_get_alloc(PointerRNA *ptr, const char *name, char *fixedbuf, in
   PropertyRNA *prop = RNA_struct_find_property(ptr, name);
 
   if (prop) {
-    /* TODO, pass length */
+    /* TODO: pass length. */
     return RNA_property_string_get_alloc(ptr, prop, fixedbuf, fixedlen, NULL);
   }
   printf("%s: %s.%s not found.\n", __func__, ptr->type->identifier, name);
@@ -6708,7 +6741,7 @@ bool RNA_struct_property_is_set_ex(PointerRNA *ptr, const char *identifier, bool
     return RNA_property_is_set_ex(ptr, prop, use_ghost);
   }
   /* python raises an error */
-  /* printf("%s: %s.%s not found.\n", __func__, ptr->type->identifier, name); */
+  // printf("%s: %s.%s not found.\n", __func__, ptr->type->identifier, name);
   return 0;
 }
 
@@ -6720,7 +6753,7 @@ bool RNA_struct_property_is_set(PointerRNA *ptr, const char *identifier)
     return RNA_property_is_set(ptr, prop);
   }
   /* python raises an error */
-  /* printf("%s: %s.%s not found.\n", __func__, ptr->type->identifier, name); */
+  // printf("%s: %s.%s not found.\n", __func__, ptr->type->identifier, name);
   return 0;
 }
 
@@ -6869,7 +6902,7 @@ char *RNA_pointer_as_string_keywords_ex(bContext *C,
         if (as_function && RNA_property_type(prop) == PROP_POINTER) {
           /* don't expand pointers for functions */
           if (flag & PROP_NEVER_NULL) {
-            /* we cant really do the right thing here. arg=arg?, hrmf! */
+            /* we can't really do the right thing here. arg=arg?, hrmf! */
             buf = BLI_strdup(arg_name);
           }
           else {
@@ -7357,17 +7390,17 @@ void RNA_parameter_list_free(ParameterList *parms)
   parms->func = NULL;
 }
 
-int RNA_parameter_list_size(ParameterList *parms)
+int RNA_parameter_list_size(const ParameterList *parms)
 {
   return parms->alloc_size;
 }
 
-int RNA_parameter_list_arg_count(ParameterList *parms)
+int RNA_parameter_list_arg_count(const ParameterList *parms)
 {
   return parms->arg_count;
 }
 
-int RNA_parameter_list_ret_count(ParameterList *parms)
+int RNA_parameter_list_ret_count(const ParameterList *parms)
 {
   return parms->ret_count;
 }
@@ -7375,7 +7408,7 @@ int RNA_parameter_list_ret_count(ParameterList *parms)
 void RNA_parameter_list_begin(ParameterList *parms, ParameterIterator *iter)
 {
   /* may be useful but unused now */
-  /* RNA_pointer_create(NULL, &RNA_Function, parms->func, &iter->funcptr); */ /*UNUSED*/
+  // RNA_pointer_create(NULL, &RNA_Function, parms->func, &iter->funcptr); /* UNUSED */
 
   iter->parms = parms;
   iter->parm = parms->func->cont.properties.first;
@@ -8184,7 +8217,7 @@ void _RNA_warning(const char *format, ...)
   vprintf(format, args);
   va_end(args);
 
-  /* gcc macro adds '\n', but cant use for other compilers */
+  /* gcc macro adds '\n', but can't use for other compilers */
 #ifndef __GNUC__
   fputc('\n', stdout);
 #endif

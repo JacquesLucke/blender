@@ -403,7 +403,7 @@ void BPy_init_modules(struct bContext *C)
     Py_DECREF(py_modpath);
   }
   else {
-    printf("bpy: couldn't find 'scripts/modules', blender probably wont start.\n");
+    printf("bpy: couldn't find 'scripts/modules', blender probably won't start.\n");
   }
   /* stand alone utility modules not related to blender directly */
   IDProp_Init_Types(); /* not actually a submodule, just types */
@@ -416,9 +416,6 @@ void BPy_init_modules(struct bContext *C)
   /* add the module so we can import it */
   PyDict_SetItemString(PyImport_GetModuleDict(), "_bpy", mod);
   Py_DECREF(mod);
-
-  /* run first, initializes rna types */
-  BPY_rna_init();
 
   /* needs to be first so bpy_types can run */
   PyModule_AddObject(mod, "types", BPY_rna_types());

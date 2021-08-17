@@ -273,11 +273,11 @@ static bool seq_is_effect_of(const Sequence *seq_effect, const Sequence *possibl
 
 /* Check if seq must be rendered. This depends on whole stack in some cases, not only seq itself.
  * Order of applying these conditions is important. */
-static bool must_render_strip(const Sequence *seq, SeqCollection *strips_under_playhead)
+static bool must_render_strip(const Sequence *seq, SeqCollection *strips_at_timeline_frame)
 {
   bool seq_have_effect_in_stack = false;
   Sequence *seq_iter;
-  SEQ_ITERATOR_FOREACH (seq_iter, strips_under_playhead) {
+  SEQ_ITERATOR_FOREACH (seq_iter, strips_at_timeline_frame) {
     /* Strips is below another strip with replace blending are not rendered. */
     if (seq_iter->blend_mode == SEQ_BLEND_REPLACE && seq->machine < seq_iter->machine) {
       return false;
@@ -298,7 +298,7 @@ static bool must_render_strip(const Sequence *seq, SeqCollection *strips_under_p
     return true;
   }
 
-  /* If strip has effects in stack, and all effects are above this strip, it it not rendered. */
+  /* If strip has effects in stack, and all effects are above this strip, it is not rendered. */
   if (seq_have_effect_in_stack) {
     return false;
   }
@@ -308,7 +308,7 @@ static bool must_render_strip(const Sequence *seq, SeqCollection *strips_under_p
 
 static SeqCollection *query_strips_at_frame(ListBase *seqbase, const int timeline_frame)
 {
-  SeqCollection *collection = SEQ_collection_create();
+  SeqCollection *collection = SEQ_collection_create(__func__);
 
   LISTBASE_FOREACH (Sequence *, seq, seqbase) {
     if (SEQ_time_strip_intersects_frame(seq, timeline_frame)) {
@@ -335,7 +335,7 @@ static void collection_filter_rendered_strips(SeqCollection *collection)
   Sequence *seq;
 
   /* Remove sound strips and muted strips from collection, because these are not rendered.
-   * Function must_render_strip() don't have to check for these strips anymore. */
+   * Function #must_render_strip() don't have to check for these strips anymore. */
   SEQ_ITERATOR_FOREACH (seq, collection) {
     if (seq->type == SEQ_TYPE_SOUND_RAM || (seq->flag & SEQ_MUTE) != 0) {
       SEQ_collection_remove_strip(seq, collection);
@@ -370,7 +370,7 @@ int seq_get_shown_sequences(ListBase *seqbase,
   const int strip_count = BLI_gset_len(collection->set);
 
   if (strip_count > MAXSEQ) {
-    BLI_assert(!"Too many strips, this shouldn't happen");
+    BLI_assert_msg(0, "Too many strips, this shouldn't happen");
     return 0;
   }
 
@@ -514,9 +514,9 @@ static void sequencer_image_crop_transform_matrix(const Sequence *seq,
 }
 
 static void sequencer_image_crop_init(const Sequence *seq,
-                                             const ImBuf *in,
-                                             float crop_scale_factor,
-                                             rctf *r_crop)
+                                      const ImBuf *in,
+                                      float crop_scale_factor,
+                                      rctf *r_crop)
 {
   const StripCrop *c = seq->strip->crop;
   const int left = c->left * crop_scale_factor;
@@ -1260,7 +1260,7 @@ ImBuf *seq_render_mask(const SeqRenderData *context,
                        float frame_index,
                        bool make_float)
 {
-  /* TODO - add option to rasterize to alpha imbuf? */
+  /* TODO: add option to rasterize to alpha imbuf? */
   ImBuf *ibuf = NULL;
   float *maskbuf;
   int i;

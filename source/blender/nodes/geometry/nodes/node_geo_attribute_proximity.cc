@@ -71,7 +71,7 @@ static void proximity_calc(MutableSpan<float> distance_span,
                            const bool store_locations)
 {
   IndexRange range = positions.index_range();
-  parallel_for(range, 512, [&](IndexRange range) {
+  threading::parallel_for(range, 512, [&](IndexRange range) {
     BVHTreeNearest nearest_from_mesh;
     BVHTreeNearest nearest_from_pointcloud;
 
@@ -143,8 +143,7 @@ static bool bvh_from_mesh(const Mesh *target_mesh,
       break;
   }
 
-  /* This only updates a cache and can be considered to be logically const. */
-  BKE_bvhtree_from_mesh_get(&r_tree_data_mesh, const_cast<Mesh *>(target_mesh), bvh_type, 2);
+  BKE_bvhtree_from_mesh_get(&r_tree_data_mesh, target_mesh, bvh_type, 2);
   if (r_tree_data_mesh.tree == nullptr) {
     return false;
   }

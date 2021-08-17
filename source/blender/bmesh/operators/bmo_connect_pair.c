@@ -436,7 +436,7 @@ static bool state_step(PathContext *pc, PathLinkState *state)
     BM_ITER_ELEM (l_start, &liter, e, BM_LOOPS_OF_EDGE) {
       if ((l_start->f != ele_from) && FACE_WALK_TEST(l_start->f)) {
         MinDistDir mddir = MIN_DIST_DIR_INIT;
-        /* very similar to block below */
+        /* Very similar to block below. */
         state = state_step__face_edges(pc, state, &state_orig, l_start->next, l_start, &mddir);
         state = state_step__face_verts(
             pc, state, &state_orig, l_start->next->next, l_start, &mddir);
@@ -446,7 +446,7 @@ static bool state_step(PathContext *pc, PathLinkState *state)
   else if (ele->head.htype == BM_VERT) {
     BMVert *v = (BMVert *)ele;
 
-    /* vert loops */
+    /* Vert loops. */
     {
       BMIter liter;
       BMLoop *l_start;
@@ -454,11 +454,11 @@ static bool state_step(PathContext *pc, PathLinkState *state)
       BM_ITER_ELEM (l_start, &liter, v, BM_LOOPS_OF_VERT) {
         if ((l_start->f != ele_from) && FACE_WALK_TEST(l_start->f)) {
           MinDistDir mddir = MIN_DIST_DIR_INIT;
-          /* very similar to block above */
+          /* Very similar to block above. */
           state = state_step__face_edges(
               pc, state, &state_orig, l_start->next, l_start->prev, &mddir);
           if (l_start->f->len > 3) {
-            /* adjacent verts are handled in state_step__vert_edges */
+            /* Adjacent verts are handled in #state_step__vert_edges. */
             state = state_step__face_verts(
                 pc, state, &state_orig, l_start->next->next, l_start->prev, &mddir);
           }
@@ -466,7 +466,7 @@ static bool state_step(PathContext *pc, PathLinkState *state)
       }
     }
 
-    /* vert edges  */
+    /* Vert edges. */
     {
       BMIter eiter;
       BMEdge *e;
@@ -571,7 +571,7 @@ static void bm_vert_pair_to_matrix(BMVert *v_pair[2], float r_unit_mat[3][3])
     }
 
     /* create a new 'basis_nor' from the best direction.
-     * note: we could add the directions,
+     * NOTE: we could add the directions,
      * but this more often gives 45d rotated matrix, so just use the best one. */
     copy_v3_v3(basis_nor, axis_pair[axis_pair[0].angle_cos < axis_pair[1].angle_cos].nor);
     project_plane_normalized_v3_v3v3(basis_nor, basis_nor, basis_dir);

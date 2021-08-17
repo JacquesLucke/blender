@@ -94,7 +94,7 @@ static void curve_render_overlay_verts_edges_len_get(ListBase *lb,
   LISTBASE_FOREACH (Nurb *, nu, lb) {
     if (nu->bezt) {
       vert_len += nu->pntsu * 3;
-      /* 2x handles per point*/
+      /* 2x handles per point. */
       edge_len += 2 * nu->pntsu;
     }
     else if (nu->bp) {
@@ -363,7 +363,7 @@ static void curve_cd_calc_used_gpu_layers(CustomDataMask *cd_layers,
       int type = gpu_attr->type;
 
       /* Curves cannot have named layers.
-       * Note: We could relax this assumption later. */
+       * NOTE: We could relax this assumption later. */
       if (name[0] != '\0') {
         continue;
       }
@@ -663,7 +663,7 @@ static void curve_create_curves_lines(CurveRenderData *rdata, GPUIndexBuf *ibo_c
 
     for (const int i_spline : splines.index_range()) {
       const int eval_size = splines[i_spline]->evaluated_points_size();
-      if (splines[i_spline]->is_cyclic()) {
+      if (splines[i_spline]->is_cyclic() && splines[i_spline]->evaluated_edges_size() > 1) {
         GPU_indexbuf_add_generic_vert(&elb, offsets[i_spline] + eval_size - 1);
       }
       for (const int i_point : IndexRange(eval_size)) {

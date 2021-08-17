@@ -69,8 +69,8 @@ extern "C" {
  * \attention defined in ???
  */
 struct ImBuf;
-struct rcti;
 struct rctf;
+struct rcti;
 
 /**
  *
@@ -299,17 +299,22 @@ void IMB_rectblend_threaded(struct ImBuf *dbuf,
 typedef enum IMB_Timecode_Type {
   /** Don't use time-code files at all. */
   IMB_TC_NONE = 0,
-  /** use images in the order as they are recorded
+  /**
+   * Use images in the order as they are recorded
    * (currently, this is the only one implemented
-   * and is a sane default) */
+   * and is a sane default).
+   */
   IMB_TC_RECORD_RUN = 1,
-  /** Use global timestamp written by recording
-   * device (prosumer camcorders e.g. can do that). */
+  /**
+   * Use global timestamp written by recording
+   * device (prosumer camcorders e.g. can do that).
+   */
   IMB_TC_FREE_RUN = 2,
-  /** Interpolate a global timestamp using the
+  /**
+   * Interpolate a global timestamp using the
    * record date and time written by recording
-   * device (*every* consumer camcorder can do
-   * that :) )*/
+   * device (*every* consumer camcorder can do that).
+   */
   IMB_TC_INTERPOLATED_REC_DATE_FREE_RUN = 4,
   IMB_TC_RECORD_RUN_NO_GAPS = 8,
   IMB_TC_MAX_SLOT = 4,
@@ -360,6 +365,11 @@ void IMB_anim_index_rebuild_finish(struct IndexBuildContext *context, short stop
  * Return the length (in frames) of the given \a anim.
  */
 int IMB_anim_get_duration(struct anim *anim, IMB_Timecode_Type tc);
+
+/**
+ * Return the encoded start offset (in seconds) of the given \a anim.
+ */
+double IMD_anim_get_offset(struct anim *anim);
 
 /**
  * Return the fps contained in movie files (function rval is false,

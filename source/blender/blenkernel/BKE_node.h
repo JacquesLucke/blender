@@ -127,6 +127,9 @@ using NodeMFProcedureBuildFunction = void (*)(blender::nodes::NodeMFProcedureBui
 using NodeGeometryExecFunction = void (*)(blender::nodes::GeoNodeExecParams params);
 using SocketGetCPPTypeFunction = const blender::fn::CPPType *(*)();
 using SocketGetCPPValueFunction = void (*)(const struct bNodeSocket &socket, void *r_value);
+using SocketGetGeometryNodesCPPTypeFunction = const blender::fn::CPPType *(*)();
+using SocketGetGeometryNodesCPPValueFunction = void (*)(const struct bNodeSocket &socket,
+                                                        void *r_value);
 using SocketExpandInMFNetworkFunction = void (*)(blender::nodes::SocketMFNetworkBuilder &builder);
 
 #else
@@ -135,6 +138,8 @@ typedef void *NodeMFProcedureBuildFunction;
 typedef void *SocketExpandInMFNetworkFunction;
 typedef void *NodeGeometryExecFunction;
 typedef void *SocketGetCPPTypeFunction;
+typedef void *SocketGetGeometryNodesCPPTypeFunction;
+typedef void *SocketGetGeometryNodesCPPValueFunction;
 typedef void *SocketGetCPPValueFunction;
 #endif
 
@@ -144,7 +149,10 @@ typedef void *SocketGetCPPValueFunction;
  * Defines the appearance and behavior of a socket in the UI.
  */
 typedef struct bNodeSocketType {
-  char idname[64]; /* identifier name */
+  /* Identifier name */
+  char idname[64];
+  /* Type label */
+  char label[64];
 
   void (*draw)(struct bContext *C,
                struct uiLayout *layout,
@@ -194,9 +202,13 @@ typedef struct bNodeSocketType {
   /* Expands the socket into a multi-function node that outputs the socket value. */
   SocketExpandInMFNetworkFunction expand_in_mf_network;
   /* Return the CPPType of this socket. */
-  SocketGetCPPTypeFunction get_cpp_type;
+  SocketGetCPPTypeFunction get_base_cpp_type;
   /* Get the value of this socket in a generic way. */
-  SocketGetCPPValueFunction get_cpp_value;
+  SocketGetCPPValueFunction get_base_cpp_value;
+  /* Get geometry nodes cpp type. */
+  SocketGetGeometryNodesCPPTypeFunction get_geometry_nodes_cpp_type;
+  /* Get geometry nodes cpp value. */
+  SocketGetGeometryNodesCPPValueFunction get_geometry_nodes_cpp_value;
 } bNodeSocketType;
 
 typedef void *(*NodeInitExecFunction)(struct bNodeExecContext *context,
@@ -418,7 +430,7 @@ typedef struct bNodeTreeType {
   void (*node_add_init)(struct bNodeTree *ntree, struct bNode *bnode);
 
   /* Check if the socket type is valid for this tree type. */
-  bool (*valid_socket_type)(enum eNodeSocketDatatype socket_type, struct bNodeTreeType *ntreetype);
+  bool (*valid_socket_type)(struct bNodeTreeType *ntreetype, struct bNodeSocketType *socket_type);
 
   /* RNA integration */
   ExtensionRNA rna_ext;
@@ -560,8 +572,12 @@ void nodeRegisterSocketType(struct bNodeSocketType *stype);
 void nodeUnregisterSocketType(struct bNodeSocketType *stype);
 bool nodeSocketIsRegistered(struct bNodeSocket *sock);
 struct GHashIterator *nodeSocketTypeGetIterator(void);
+const char *nodeSocketTypeLabel(const bNodeSocketType *stype);
+
+bool nodeIsStaticSocketType(const struct bNodeSocketType *stype);
 const char *nodeStaticSocketType(int type, int subtype);
 const char *nodeStaticSocketInterfaceType(int type, int subtype);
+const char *nodeStaticSocketLabel(int type, int subtype);
 
 /* helper macros for iterating over node types */
 #define NODE_SOCKET_TYPES_BEGIN(stype) \
@@ -611,7 +627,11 @@ struct bNodeSocket *nodeInsertStaticSocket(struct bNodeTree *ntree,
                                            const char *name);
 void nodeRemoveSocket(struct bNodeTree *ntree, struct bNode *node, struct bNodeSocket *sock);
 void nodeRemoveAllSockets(struct bNodeTree *ntree, struct bNode *node);
-void nodeModifySocketType(
+void nodeModifySocketType(struct bNodeTree *ntree,
+                          struct bNode *node,
+                          struct bNodeSocket *sock,
+                          const char *idname);
+void nodeModifySocketTypeStatic(
     struct bNodeTree *ntree, struct bNode *node, struct bNodeSocket *sock, int type, int subtype);
 
 struct bNode *nodeAddNode(const struct bContext *C, struct bNodeTree *ntree, const char *idname);
@@ -971,7 +991,7 @@ void BKE_nodetree_remove_layer_n(struct bNodeTree *ntree,
 /** \name Shader Nodes
  * \{ */
 
-/* note: types are needed to restore callbacks, don't change values */
+/* NOTE: types are needed to restore callbacks, don't change values. */
 /* range 1 - 100 is reserved for common nodes */
 /* using toolbox, we add node groups by assuming the values below
  * don't exceed NODE_GROUP_MENU for now. */
@@ -1138,7 +1158,7 @@ void ntreeGPUMaterialNodes(struct bNodeTree *localtree,
 // #define RRES_OUT_SUBSURFACE_COLOR 30
 // #define RRES_OUT_DEBUG 31
 
-/* note: types are needed to restore callbacks, don't change values */
+/* NOTE: types are needed to restore callbacks, don't change values. */
 #define CMP_NODE_VIEWER 201
 #define CMP_NODE_RGB 202
 #define CMP_NODE_VALUE 203
@@ -1268,6 +1288,11 @@ void ntreeGPUMaterialNodes(struct bNodeTree *localtree,
 /* Cryptomatte source. */
 #define CMP_CRYPTOMATTE_SRC_RENDER 0
 #define CMP_CRYPTOMATTE_SRC_IMAGE 1
+
+/* Default SMAA configuration values. */
+#define CMP_DEFAULT_SMAA_THRESHOLD 1.0f
+#define CMP_DEFAULT_SMAA_CONTRAST_LIMIT 0.2f
+#define CMP_DEFAULT_SMAA_CORNER_ROUNDING 0.25f
 
 /* API */
 void ntreeCompositExecTree(struct Scene *scene,
@@ -1412,7 +1437,7 @@ int ntreeTexExecTree(struct bNodeTree *ntree,
 #define GEO_NODE_VOLUME_TO_MESH 1026
 #define GEO_NODE_ATTRIBUTE_COMBINE_XYZ 1027
 #define GEO_NODE_ATTRIBUTE_SEPARATE_XYZ 1028
-#define GEO_NODE_SUBDIVIDE 1029
+#define GEO_NODE_MESH_SUBDIVIDE 1029
 #define GEO_NODE_ATTRIBUTE_REMOVE 1030
 #define GEO_NODE_ATTRIBUTE_CONVERT 1031
 #define GEO_NODE_MESH_PRIMITIVE_CUBE 1032
@@ -1440,6 +1465,24 @@ int ntreeTexExecTree(struct bNodeTree *ntree,
 #define GEO_NODE_CURVE_LENGTH 1054
 #define GEO_NODE_SELECT_BY_MATERIAL 1055
 #define GEO_NODE_CONVEX_HULL 1056
+#define GEO_NODE_CURVE_TO_POINTS 1057
+#define GEO_NODE_CURVE_REVERSE 1058
+#define GEO_NODE_SEPARATE_COMPONENTS 1059
+#define GEO_NODE_CURVE_SUBDIVIDE 1060
+#define GEO_NODE_RAYCAST 1061
+#define GEO_NODE_CURVE_PRIMITIVE_STAR 1062
+#define GEO_NODE_CURVE_PRIMITIVE_SPIRAL 1063
+#define GEO_NODE_CURVE_PRIMITIVE_QUADRATIC_BEZIER 1064
+#define GEO_NODE_CURVE_PRIMITIVE_BEZIER_SEGMENT 1065
+#define GEO_NODE_CURVE_PRIMITIVE_CIRCLE 1066
+#define GEO_NODE_VIEWER 1067
+#define GEO_NODE_CURVE_PRIMITIVE_LINE 1068
+#define GEO_NODE_CURVE_ENDPOINTS 1069
+#define GEO_NODE_CURVE_PRIMITIVE_QUADRILATERAL 1070
+#define GEO_NODE_CURVE_TRIM 1071
+#define GEO_NODE_CURVE_SET_HANDLES 1072
+#define GEO_NODE_CURVE_SPLINE_TYPE 1073
+#define GEO_NODE_CURVE_SELECT_HANDLES 1074
 
 /** \} */
 
@@ -1452,6 +1495,7 @@ int ntreeTexExecTree(struct bNodeTree *ntree,
 #define FN_NODE_RANDOM_FLOAT 1206
 #define FN_NODE_INPUT_VECTOR 1207
 #define FN_NODE_INPUT_STRING 1208
+#define FN_NODE_FLOAT_TO_INT 1209
 
 /** \} */
 

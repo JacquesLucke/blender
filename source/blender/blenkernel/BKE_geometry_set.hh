@@ -35,12 +35,12 @@
 #include "BKE_geometry_set.h"
 
 struct Collection;
+struct Curve;
+struct CurveEval;
 struct Mesh;
 struct Object;
 struct PointCloud;
 struct Volume;
-struct Curve;
-struct CurveEval;
 
 enum class GeometryOwnershipType {
   /* The geometry is owned. This implies that it can be changed. */
@@ -280,8 +280,6 @@ struct GeometrySet {
   void compute_boundbox_without_instances(blender::float3 *r_min, blender::float3 *r_max) const;
 
   friend std::ostream &operator<<(std::ostream &stream, const GeometrySet &geometry_set);
-  friend bool operator==(const GeometrySet &a, const GeometrySet &b);
-  uint64_t hash() const;
 
   void clear();
 
@@ -327,10 +325,6 @@ class MeshComponent : public GeometryComponent {
  private:
   Mesh *mesh_ = nullptr;
   GeometryOwnershipType ownership_ = GeometryOwnershipType::Owned;
-  /* Due to historical design choices, vertex group data is stored in the mesh, but the vertex
-   * group names are stored on an object. Since we don't have an object here, we copy over the
-   * names into this map. */
-  blender::Map<std::string, int> vertex_group_names_;
 
  public:
   MeshComponent();
@@ -340,13 +334,7 @@ class MeshComponent : public GeometryComponent {
   void clear();
   bool has_mesh() const;
   void replace(Mesh *mesh, GeometryOwnershipType ownership = GeometryOwnershipType::Owned);
-  void replace_mesh_but_keep_vertex_group_names(
-      Mesh *mesh, GeometryOwnershipType ownership = GeometryOwnershipType::Owned);
   Mesh *release();
-
-  void copy_vertex_group_names_from_object(const struct Object &object);
-  const blender::Map<std::string, int> &vertex_group_names() const;
-  blender::Map<std::string, int> &vertex_group_names();
 
   const Mesh *get_for_read() const;
   Mesh *get_for_write();

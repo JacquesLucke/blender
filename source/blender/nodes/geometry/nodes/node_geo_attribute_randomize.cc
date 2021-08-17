@@ -126,7 +126,7 @@ static void randomize_attribute(MutableSpan<T> span,
   /* The operations could be templated too, but it doesn't make the code much shorter. */
   switch (operation) {
     case GEO_NODE_ATTRIBUTE_RANDOMIZE_REPLACE_CREATE:
-      parallel_for(span.index_range(), 512, [&](IndexRange range) {
+      threading::parallel_for(span.index_range(), 512, [&](IndexRange range) {
         for (const int i : range) {
           const T random_value = random_value_in_range<T>(ids[i], seed, min, max);
           span[i] = random_value;
@@ -134,7 +134,7 @@ static void randomize_attribute(MutableSpan<T> span,
       });
       break;
     case GEO_NODE_ATTRIBUTE_RANDOMIZE_ADD:
-      parallel_for(span.index_range(), 512, [&](IndexRange range) {
+      threading::parallel_for(span.index_range(), 512, [&](IndexRange range) {
         for (const int i : range) {
           const T random_value = random_value_in_range<T>(ids[i], seed, min, max);
           span[i] = span[i] + random_value;
@@ -142,7 +142,7 @@ static void randomize_attribute(MutableSpan<T> span,
       });
       break;
     case GEO_NODE_ATTRIBUTE_RANDOMIZE_SUBTRACT:
-      parallel_for(span.index_range(), 512, [&](IndexRange range) {
+      threading::parallel_for(span.index_range(), 512, [&](IndexRange range) {
         for (const int i : range) {
           const T random_value = random_value_in_range<T>(ids[i], seed, min, max);
           span[i] = span[i] - random_value;
@@ -150,7 +150,7 @@ static void randomize_attribute(MutableSpan<T> span,
       });
       break;
     case GEO_NODE_ATTRIBUTE_RANDOMIZE_MULTIPLY:
-      parallel_for(span.index_range(), 512, [&](IndexRange range) {
+      threading::parallel_for(span.index_range(), 512, [&](IndexRange range) {
         for (const int i : range) {
           const T random_value = random_value_in_range<T>(ids[i], seed, min, max);
           span[i] = span[i] * random_value;
@@ -170,7 +170,7 @@ static void randomize_attribute_bool(MutableSpan<bool> span,
 {
   BLI_assert(operation == GEO_NODE_ATTRIBUTE_RANDOMIZE_REPLACE_CREATE);
   UNUSED_VARS_NDEBUG(operation);
-  parallel_for(span.index_range(), 512, [&](IndexRange range) {
+  threading::parallel_for(span.index_range(), 512, [&](IndexRange range) {
     for (const int i : range) {
       const bool random_value = BLI_hash_int_2d_to_float(ids[i], seed) > 0.5f;
       span[i] = random_value;
@@ -189,8 +189,9 @@ Array<uint32_t> get_geometry_element_ids_as_uints(const GeometryComponent &compo
   if (hash_attribute) {
     BLI_assert(hashes.size() == hash_attribute->size());
     const CPPType &cpp_type = hash_attribute->type();
+    BLI_assert(cpp_type.is_hashable());
     GVArray_GSpan items{*hash_attribute};
-    parallel_for(hashes.index_range(), 512, [&](IndexRange range) {
+    threading::parallel_for(hashes.index_range(), 512, [&](IndexRange range) {
       for (const int i : range) {
         hashes[i] = cpp_type.hash(items[i]);
       }

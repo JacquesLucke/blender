@@ -19,10 +19,13 @@
  * \ingroup balembic
  */
 
+#include "DEG_depsgraph.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+struct CacheArchiveHandle;
 struct CacheReader;
 struct ListBase;
 struct Main;
@@ -30,8 +33,6 @@ struct Mesh;
 struct Object;
 struct Scene;
 struct bContext;
-
-typedef struct AbcArchiveHandle AbcArchiveHandle;
 
 int ABC_get_version(void);
 
@@ -54,7 +55,6 @@ struct AlembicExportParams {
   bool curves_as_mesh;
   bool flatten_hierarchy;
   bool visible_objects_only;
-  bool renderable_only;
   bool face_sets;
   bool use_subdiv_schema;
   bool packuv;
@@ -63,6 +63,7 @@ struct AlembicExportParams {
   bool export_particles;
   bool export_custom_properties;
   bool use_instancing;
+  enum eEvaluationMode evaluation_mode;
 
   /* See MOD_TRIANGULATE_NGON_xxx and MOD_TRIANGULATE_QUAD_xxx
    * in DNA_modifier_types.h */
@@ -98,11 +99,11 @@ bool ABC_import(struct bContext *C,
                 bool validate_meshes,
                 bool as_background_job);
 
-AbcArchiveHandle *ABC_create_handle(struct Main *bmain,
-                                    const char *filename,
-                                    struct ListBase *object_paths);
+struct CacheArchiveHandle *ABC_create_handle(struct Main *bmain,
+                                             const char *filename,
+                                             struct ListBase *object_paths);
 
-void ABC_free_handle(AbcArchiveHandle *handle);
+void ABC_free_handle(struct CacheArchiveHandle *handle);
 
 void ABC_get_transform(struct CacheReader *reader,
                        float r_mat_world[4][4],
@@ -123,10 +124,10 @@ bool ABC_mesh_topology_changed(struct CacheReader *reader,
                                const float time,
                                const char **err_str);
 
-void CacheReader_incref(struct CacheReader *reader);
-void CacheReader_free(struct CacheReader *reader);
+void ABC_CacheReader_incref(struct CacheReader *reader);
+void ABC_CacheReader_free(struct CacheReader *reader);
 
-struct CacheReader *CacheReader_open_alembic_object(struct AbcArchiveHandle *handle,
+struct CacheReader *CacheReader_open_alembic_object(struct CacheArchiveHandle *handle,
                                                     struct CacheReader *reader,
                                                     struct Object *object,
                                                     const char *object_path);

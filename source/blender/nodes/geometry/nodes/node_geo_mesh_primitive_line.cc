@@ -118,11 +118,9 @@ static Mesh *create_line_mesh(const float3 start, const float3 delta, const int 
   short normal[3];
   normal_float_to_short_v3(normal, delta.normalized());
 
-  float3 co = start;
   for (const int i : verts.index_range()) {
-    copy_v3_v3(verts[i].co, co);
+    copy_v3_v3(verts[i].co, start + delta * i);
     copy_v3_v3_short(verts[i].no, normal);
-    co += delta;
   }
 
   fill_edge_data(edges);
@@ -177,7 +175,7 @@ void register_node_type_geo_mesh_primitive_line()
 {
   static bNodeType ntype;
 
-  geo_node_type_base(&ntype, GEO_NODE_MESH_PRIMITIVE_LINE, "Line", NODE_CLASS_GEOMETRY, 0);
+  geo_node_type_base(&ntype, GEO_NODE_MESH_PRIMITIVE_LINE, "Mesh Line", NODE_CLASS_GEOMETRY, 0);
   node_type_socket_templates(
       &ntype, geo_node_mesh_primitive_line_in, geo_node_mesh_primitive_line_out);
   node_type_init(&ntype, geo_node_mesh_primitive_line_init);

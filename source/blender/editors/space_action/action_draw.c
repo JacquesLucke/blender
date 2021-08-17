@@ -83,7 +83,7 @@ void draw_channel_names(bContext *C, bAnimContext *ac, ARegion *region)
   /* need to do a view-sync here, so that the keys area doesn't jump around (it must copy this) */
   UI_view2d_sync(NULL, ac->area, v2d, V2D_LOCK_COPY);
 
-  /* loop through channels, and set up drawing depending on their type  */
+  /* Loop through channels, and set up drawing depending on their type. */
   { /* first pass: just the standard GL-drawing for backdrop + text */
     size_t channel_index = 0;
     float ymax = ACHANNEL_FIRST_TOP(ac);
@@ -263,7 +263,7 @@ void draw_channel_strips(bAnimContext *ac, SpaceAction *saction, ARegion *region
           immRectf(pos, v2d->cur.xmin, ymin, v2d->cur.xmax + EXTRA_SCROLL_PAD, ymax);
         }
         else if (ac->datatype == ANIMCONT_MASK) {
-          /* TODO --- this is a copy of gpencil */
+          /* TODO: this is a copy of gpencil. */
           /* frames less than one get less saturated background */
           uchar *color = sel ? col1 : col2;
           immUniformColor4ubv(color);
@@ -302,6 +302,8 @@ void draw_channel_strips(bAnimContext *ac, SpaceAction *saction, ARegion *region
 
   ymax = ACHANNEL_FIRST_TOP(ac);
 
+  struct AnimKeylistDrawList *draw_list = ED_keylist_draw_list_create();
+
   for (ale = anim_data.first; ale; ale = ale->next, ymax -= ACHANNEL_STEP(ac)) {
     float ymin = ymax - ACHANNEL_HEIGHT(ac);
     float ycenter = (ymin + ymax) / 2.0f;
@@ -316,33 +318,40 @@ void draw_channel_strips(bAnimContext *ac, SpaceAction *saction, ARegion *region
         /* draw 'keyframes' for each specific datatype */
         switch (ale->datatype) {
           case ALE_ALL:
-            draw_summary_channel(v2d, ale->data, ycenter, ac->yscale_fac, action_flag);
+            draw_summary_channel(draw_list, ale->data, ycenter, ac->yscale_fac, action_flag);
             break;
           case ALE_SCE:
-            draw_scene_channel(v2d, ads, ale->key_data, ycenter, ac->yscale_fac, action_flag);
+            draw_scene_channel(
+                draw_list, ads, ale->key_data, ycenter, ac->yscale_fac, action_flag);
             break;
           case ALE_OB:
-            draw_object_channel(v2d, ads, ale->key_data, ycenter, ac->yscale_fac, action_flag);
+            draw_object_channel(
+                draw_list, ads, ale->key_data, ycenter, ac->yscale_fac, action_flag);
             break;
           case ALE_ACT:
-            draw_action_channel(v2d, adt, ale->key_data, ycenter, ac->yscale_fac, action_flag);
+            draw_action_channel(
+                draw_list, adt, ale->key_data, ycenter, ac->yscale_fac, action_flag);
             break;
           case ALE_GROUP:
-            draw_agroup_channel(v2d, adt, ale->data, ycenter, ac->yscale_fac, action_flag);
+            draw_agroup_channel(draw_list, adt, ale->data, ycenter, ac->yscale_fac, action_flag);
             break;
           case ALE_FCURVE:
-            draw_fcurve_channel(v2d, adt, ale->key_data, ycenter, ac->yscale_fac, action_flag);
+            draw_fcurve_channel(
+                draw_list, adt, ale->key_data, ycenter, ac->yscale_fac, action_flag);
             break;
           case ALE_GPFRAME:
-            draw_gpl_channel(v2d, ads, ale->data, ycenter, ac->yscale_fac, action_flag);
+            draw_gpl_channel(draw_list, ads, ale->data, ycenter, ac->yscale_fac, action_flag);
             break;
           case ALE_MASKLAY:
-            draw_masklay_channel(v2d, ads, ale->data, ycenter, ac->yscale_fac, action_flag);
+            draw_masklay_channel(draw_list, ads, ale->data, ycenter, ac->yscale_fac, action_flag);
             break;
         }
       }
     }
   }
+
+  ED_keylist_draw_list_flush(draw_list, v2d);
+  ED_keylist_draw_list_free(draw_list);
 
   /* free temporary channels used for drawing */
   ANIM_animdata_freelist(&anim_data);

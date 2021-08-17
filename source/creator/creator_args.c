@@ -121,7 +121,7 @@ static bool parse_int_relative(const char *str,
     *r_err_msg = msg;
     return false;
   }
-  if ((errno == ERANGE) || ((value < INT_MIN || value > INT_MAX))) {
+  if ((errno == ERANGE) || ((value < INT_MIN) || (value > INT_MAX))) {
     static const char *msg = "exceeds range";
     *r_err_msg = msg;
     return false;
@@ -225,7 +225,7 @@ static bool parse_int_strict_range(const char *str,
     *r_err_msg = msg;
     return false;
   }
-  if ((errno == ERANGE) || ((value < min || value > max))) {
+  if ((errno == ERANGE) || ((value < min) || (value > max))) {
     static const char *msg = "exceeds range";
     *r_err_msg = msg;
     return false;
@@ -994,6 +994,9 @@ static const char arg_handle_debug_mode_generic_set_doc_depsgraph_no_threads[] =
 static const char arg_handle_debug_mode_generic_set_doc_depsgraph_pretty[] =
     "\n\t"
     "Enable colors for dependency graph debug messages.";
+static const char arg_handle_debug_mode_generic_set_doc_depsgraph_uuid[] =
+    "\n\t"
+    "Verify validness of session-wide identifiers assigned to ID datablocks.";
 static const char arg_handle_debug_mode_generic_set_doc_gpu_force_workarounds[] =
     "\n\t"
     "Enable workarounds for typical GPU issues and disable all GPU extensions.";
@@ -1317,6 +1320,7 @@ static int arg_handle_register_extension(int UNUSED(argc), const char **UNUSED(a
     G.background = 1;
   }
   BLI_windows_register_blend_extension(G.background);
+  TerminateProcess(GetCurrentProcess(), 0);
 #  else
   (void)data; /* unused */
 #  endif
@@ -1953,7 +1957,7 @@ static int arg_handle_load_file(int UNUSED(argc), const char **argv, void *data)
   /* Make the path absolute because its needed for relative linked blends to be found */
   char filename[FILE_MAX];
 
-  /* note, we could skip these, but so far we always tried to load these files */
+  /* NOTE: we could skip these, but so far we always tried to load these files. */
   if (argv[0][0] == '-') {
     fprintf(stderr, "unknown argument, loading as file: %s\n", argv[0]);
   }
@@ -2196,7 +2200,7 @@ void main_args_setup(bContext *C, bArgs *ba)
   BLI_args_add(ba,
                NULL,
                "--debug-depsgraph-uuid",
-               CB_EX(arg_handle_debug_mode_generic_set, depsgraph_build),
+               CB_EX(arg_handle_debug_mode_generic_set, depsgraph_uuid),
                (void *)G_DEBUG_DEPSGRAPH_UUID);
   BLI_args_add(ba,
                NULL,

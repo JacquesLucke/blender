@@ -191,6 +191,11 @@ class _defs_annotate:
                 row.prop(tool_settings.gpencil_sculpt, "lockaxis")
             elif tool_settings.gpencil_stroke_placement_view3d in {'SURFACE', 'STROKE'}:
                 row.prop(tool_settings, "use_gpencil_stroke_endpoints")
+        elif space_type in {'IMAGE_EDITOR', 'NODE_EDITOR', 'SEQUENCE_EDITOR', 'CLIP_EDITOR'}:
+            layout.separator()
+
+            row = layout.row(align=True)
+            row.prop(tool_settings, "annotation_stroke_placement_view2d", text="Placement")
 
         if tool.idname == "builtin.annotate_line":
             layout.separator()
@@ -1898,6 +1903,7 @@ class _defs_gpencil_paint:
 
         brush_basic__draw_color_selector(context, layout, brush, gp_settings, props)
         brush_basic_gpencil_paint_settings(layout, context, brush, compact=True)
+        return True
 
     @staticmethod
     def generate_from_brushes(context):

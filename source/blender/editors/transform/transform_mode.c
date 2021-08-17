@@ -68,7 +68,7 @@ int transform_mode_really_used(bContext *C, int mode)
   return mode;
 }
 
-bool transdata_check_local_center(TransInfo *t, short around)
+bool transdata_check_local_center(const TransInfo *t, short around)
 {
   return ((around == V3D_AROUND_LOCAL_ORIGINS) &&
           ((t->options & (CTX_OBJECT | CTX_POSE_BONE)) ||
@@ -248,7 +248,7 @@ void protectedSizeBits(short protectflag, float size[3])
 /** \name Transform Limits
  * \{ */
 
-void constraintTransLim(TransInfo *t, TransData *td)
+void constraintTransLim(const TransInfo *t, TransData *td)
 {
   if (td->con) {
     const bConstraintTypeInfo *ctiLoc = BKE_constraint_typeinfo_from_type(
@@ -359,7 +359,7 @@ static void constraintob_from_transdata(bConstraintOb *cob, TransData *td)
   }
 }
 
-static void constraintRotLim(TransInfo *UNUSED(t), TransData *td)
+static void constraintRotLim(const TransInfo *UNUSED(t), TransData *td)
 {
   if (td->con) {
     const bConstraintTypeInfo *cti = BKE_constraint_typeinfo_from_type(CONSTRAINT_TYPE_ROTLIMIT);
@@ -432,7 +432,7 @@ static void constraintRotLim(TransInfo *UNUSED(t), TransData *td)
   }
 }
 
-void constraintSizeLim(TransInfo *t, TransData *td)
+void constraintSizeLim(const TransInfo *t, TransData *td)
 {
   if (td->con && td->ext) {
     const bConstraintTypeInfo *cti = BKE_constraint_typeinfo_from_type(CONSTRAINT_TYPE_SIZELIMIT);
@@ -557,8 +557,8 @@ void headerRotation(TransInfo *t, char *str, const int str_size, float final)
  *
  * Protected axis and other transform settings are taken into account.
  */
-void ElementRotation_ex(TransInfo *t,
-                        TransDataContainer *tc,
+void ElementRotation_ex(const TransInfo *t,
+                        const TransDataContainer *tc,
                         TransData *td,
                         const float mat[3][3],
                         const float *center)
@@ -734,9 +734,25 @@ void ElementRotation_ex(TransInfo *t,
         /* can be called for texture space translate for example, then opt out */
         if (td->ext->quat) {
           mul_m3_series(fmat, td->smtx, mat, td->mtx);
+
+          if (!is_zero_v3(td->ext->dquat)) {
+            /* Correct for delta quat */
+            float tmp_mat[3][3];
+            quat_to_mat3(tmp_mat, td->ext->dquat);
+            mul_m3_m3m3(fmat, fmat, tmp_mat);
+          }
+
           mat3_to_quat(quat, fmat); /* Actual transform */
 
+          if (!is_zero_v4(td->ext->dquat)) {
+            /* Correct back for delta quat. */
+            float idquat[4];
+            invert_qt_qt_normalized(idquat, td->ext->dquat);
+            mul_qt_qtqt(quat, idquat, quat);
+          }
+
           mul_qt_qtqt(td->ext->quat, quat, td->ext->iquat);
+
           /* this function works on end result */
           protectedQuaternionBits(td->protectflag, td->ext->quat, td->ext->iquat);
         }
@@ -761,21 +777,28 @@ void ElementRotation_ex(TransInfo *t,
                                td->ext->irotAngle);
       }
       else {
+        /* Calculate the total rotation in eulers. */
         float obmat[3][3];
 
         mul_m3_m3m3(totmat, mat, td->mtx);
         mul_m3_m3m3(smat, td->smtx, totmat);
 
-        /* Calculate the total rotation in eulers. */
-        add_v3_v3v3(eul, td->ext->irot, td->ext->drot); /* correct for delta rot */
-        eulO_to_mat3(obmat, eul, td->ext->rotOrder);
-        /* mat = transform, obmat = object rotation */
-        mul_m3_m3m3(fmat, smat, obmat);
+        if (!is_zero_v3(td->ext->drot)) {
+          /* Correct for delta rot */
+          add_eul_euleul(eul, td->ext->irot, td->ext->drot, td->ext->rotOrder);
+        }
+        else {
+          copy_v3_v3(eul, td->ext->irot);
+        }
 
+        eulO_to_mat3(obmat, eul, td->ext->rotOrder);
+        mul_m3_m3m3(fmat, smat, obmat);
         mat3_to_compatible_eulO(eul, td->ext->rot, td->ext->rotOrder, fmat);
 
-        /* correct back for delta rot */
-        sub_v3_v3v3(eul, eul, td->ext->drot);
+        if (!is_zero_v3(td->ext->drot)) {
+          /* Correct back for delta rot. */
+          sub_eul_euleul(eul, eul, td->ext->drot, td->ext->rotOrder);
+        }
 
         /* and apply */
         protectedRotateBits(td->protectflag, eul, td->ext->irot);
@@ -787,8 +810,11 @@ void ElementRotation_ex(TransInfo *t,
   }
 }
 
-void ElementRotation(
-    TransInfo *t, TransDataContainer *tc, TransData *td, float mat[3][3], const short around)
+void ElementRotation(const TransInfo *t,
+                     const TransDataContainer *tc,
+                     TransData *td,
+                     const float mat[3][3],
+                     const short around)
 {
   const float *center;
 
@@ -898,7 +924,10 @@ static void TransMat3ToSize(const float mat[3][3], const float smat[3][3], float
   }
 }
 
-void ElementResize(TransInfo *t, TransDataContainer *tc, TransData *td, float mat[3][3])
+void ElementResize(const TransInfo *t,
+                   const TransDataContainer *tc,
+                   TransData *td,
+                   const float mat[3][3])
 {
   float tmat[3][3], smat[3][3], center[3];
   float vec[3];
@@ -939,9 +968,9 @@ void ElementResize(TransInfo *t, TransDataContainer *tc, TransData *td, float ma
       float obsizemat[3][3];
       /* Reorient the size mat to fit the oriented object. */
       mul_m3_m3m3(obsizemat, tmat, td->axismtx);
-      /* print_m3("obsizemat", obsizemat); */
+      // print_m3("obsizemat", obsizemat);
       TransMat3ToSize(obsizemat, td->axismtx, fsize);
-      /* print_v3("fsize", fsize); */
+      // print_v3("fsize", fsize);
     }
     else {
       mat3_to_size(fsize, tmat);
@@ -991,17 +1020,31 @@ void ElementResize(TransInfo *t, TransDataContainer *tc, TransData *td, float ma
     sub_v3_v3(vec, td->center);
   }
 
-  /* grease pencil falloff */
+  /* Grease pencil falloff.
+   *
+   * FIXME: This is bad on multiple levels!
+   *
+   * - #applyNumInput is not intended to be run for every element,
+   *   this writes back into the number input in a way that doesn't make sense to run many times.
+   *
+   * - Writing into #TransInfo should be avoided since it means order of operations
+   *   may impact the result and isn't thread-safe.
+   *
+   *   Operating on copies as a temporary solution.
+   */
   if (t->options & CTX_GPENCIL_STROKES) {
     bGPDstroke *gps = (bGPDstroke *)td->extra;
     mul_v3_fl(vec, td->factor * gps->runtime.multi_frame_falloff);
 
-    /* scale stroke thickness */
+    /* Scale stroke thickness. */
     if (td->val) {
-      transform_snap_increment(t, t->values_final);
-      applyNumInput(&t->num, t->values_final);
+      NumInput num_evil = t->num;
+      float values_final_evil[4];
+      copy_v4_v4(values_final_evil, t->values_final);
+      transform_snap_increment(t, values_final_evil);
+      applyNumInput(&num_evil, values_final_evil);
 
-      float ratio = t->values_final[0];
+      float ratio = values_final_evil[0];
       *td->val = td->ival * ratio * gps->runtime.multi_frame_falloff;
       CLAMP_MIN(*td->val, 0.001f);
     }
@@ -1021,6 +1064,7 @@ void ElementResize(TransInfo *t, TransDataContainer *tc, TransData *td, float ma
 
   constraintTransLim(t, td);
 }
+
 /** \} */
 
 /* -------------------------------------------------------------------- */

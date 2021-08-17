@@ -154,8 +154,8 @@ void bpy_context_clear(bContext *UNUSED(C), const PyGILState_STATE *gilstate)
     fprintf(stderr, "ERROR: Python context internal state bug. this should not happen!\n");
   }
   else if (py_call_level == 0) {
-    /* XXX - Calling classes currently wont store the context :\,
-     * cant set NULL because of this. but this is very flakey still. */
+    /* XXX: Calling classes currently won't store the context :\,
+     * can't set NULL because of this. but this is very flaky still. */
 #if 0
     BPY_context_set(NULL);
 #endif
@@ -338,7 +338,7 @@ void BPY_python_start(bContext *C, int argc, const char **argv)
 {
 #ifndef WITH_PYTHON_MODULE
 
-  /* #PyPreConfig (early-configuration).  */
+  /* #PyPreConfig (early-configuration). */
   {
     PyPreConfig preconfig;
     PyStatus status;
@@ -502,7 +502,10 @@ void BPY_python_start(bContext *C, int argc, const char **argv)
   }
 #endif
 
-  /* bpy.* and lets us import it */
+  /* Run first, initializes RNA types. */
+  BPY_rna_init();
+
+  /* Defines `bpy.*` and lets us import it. */
   BPy_init_modules(C);
 
   pyrna_alloc_types();
@@ -540,6 +543,8 @@ void BPY_python_end(void)
 
   /* free other python data. */
   pyrna_free_types();
+
+  BPY_rna_exit();
 
   /* clear all python data from structs */
 
@@ -650,7 +655,7 @@ void BPY_modules_load_user(bContext *C)
   bpy_context_set(C, &gilstate);
 
   for (text = bmain->texts.first; text; text = text->id.next) {
-    if (text->flags & TXT_ISSCRIPT && BLI_path_extension_check(text->id.name + 2, ".py")) {
+    if (text->flags & TXT_ISSCRIPT) {
       if (!(G.f & G_FLAG_SCRIPT_AUTOEXEC)) {
         if (!(G.f & G_FLAG_SCRIPT_AUTOEXEC_FAIL_QUIET)) {
           G.f |= G_FLAG_SCRIPT_AUTOEXEC_FAIL;
@@ -763,7 +768,7 @@ int BPY_context_member_get(bContext *C, const char *member, bContextDataResult *
 }
 
 #ifdef WITH_PYTHON_MODULE
-/* TODO, reloading the module isn't functional at the moment. */
+/* TODO: reloading the module isn't functional at the moment. */
 
 static void bpy_module_free(void *mod);
 
@@ -785,8 +790,8 @@ static struct PyModuleDef bpy_proxy_def = {
 
 typedef struct {
   PyObject_HEAD
-      /* Type-specific fields go here. */
-      PyObject *mod;
+  /* Type-specific fields go here. */
+  PyObject *mod;
 } dealloc_obj;
 
 /* call once __file__ is set */
@@ -825,7 +830,7 @@ static void dealloc_obj_dealloc(PyObject *self)
 {
   bpy_module_delay_init(((dealloc_obj *)self)->mod);
 
-  /* Note, for subclassed PyObjects we cant just call PyObject_DEL() directly or it will crash */
+  /* NOTE: for subclassed PyObjects we can't just call PyObject_DEL() directly or it will crash. */
   dealloc_obj_Type.tp_free(self);
 }
 
@@ -838,7 +843,7 @@ PyMODINIT_FUNC PyInit_bpy(void)
   /* Problem:
    * 1) this init function is expected to have a private member defined - 'md_def'
    *    but this is only set for C defined modules (not py packages)
-   *    so we cant return 'bpy_package_py' as is.
+   *    so we can't return 'bpy_package_py' as is.
    *
    * 2) there is a 'bpy' C module for python to load which is basically all of blender,
    *    and there is scripts/bpy/__init__.py,

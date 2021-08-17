@@ -54,7 +54,7 @@ class AnnotationDrawingToolsPanel:
         col.label(text="Stroke Placement:")
         row = col.row(align=True)
         row.prop_enum(tool_settings, "annotation_stroke_placement_view2d", 'VIEW')
-        row.prop_enum(tool_settings, "annotation_stroke_placement_view2d", 'CURSOR', text="Cursor")
+        row.prop_enum(tool_settings, "annotation_stroke_placement_view2d", 'IMAGE', text="Image")
 
 
 class GreasePencilSculptOptionsPanel:
@@ -846,6 +846,7 @@ class GreasePencilLayerRelationsPanel:
         # Only enable this property when a view layer is selected.
         col.enabled = bool(gpl.viewlayer_render)
         col.prop(gpl, "use_viewlayer_masks")
+
 
 class GreasePencilLayerDisplayPanel:
 

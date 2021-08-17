@@ -192,7 +192,7 @@ static void scene_init_data(ID *id)
 
   BLI_strncpy(scene->r.pic, U.renderdir, sizeof(scene->r.pic));
 
-  /* Note; in header_info.c the scene copy happens...,
+  /* NOTE: in header_info.c the scene copy happens...,
    * if you add more to renderdata it has to be checked there. */
 
   /* multiview - stereo */
@@ -228,6 +228,8 @@ static void scene_init_data(ID *id)
 
   /* Curve Profile */
   scene->toolsettings->custom_bevel_profile_preset = BKE_curveprofile_add(PROF_PRESET_LINE);
+
+  /* Sequencer */
   scene->toolsettings->sequencer_tool_settings = SEQ_tool_settings_init();
 
   for (size_t i = 0; i < ARRAY_SIZE(scene->orientation_slots); i++) {
@@ -443,7 +445,8 @@ static void scene_free_data(ID *id)
    * for objects directly in the master collection? then other
    * collections in the scene need to do it too? */
   if (scene->master_collection) {
-    BKE_collection_free(scene->master_collection);
+    BKE_collection_free_data(scene->master_collection);
+    BKE_libblock_free_data_py(&scene->master_collection->id);
     MEM_freeN(scene->master_collection);
     scene->master_collection = NULL;
   }
@@ -1042,7 +1045,7 @@ static void scene_blend_write(BlendWriter *writer, ID *id, const void *id_addres
 
 static void direct_link_paint_helper(BlendDataReader *reader, const Scene *scene, Paint **paint)
 {
-  /* TODO. is this needed */
+  /* TODO: is this needed. */
   BLO_read_data_address(reader, paint);
 
   if (*paint) {
@@ -1145,6 +1148,7 @@ static void scene_blend_read_data(BlendDataReader *reader, ID *id)
     BLO_read_data_address(reader, &ed->act_seq);
     ed->cache = NULL;
     ed->prefetch_job = NULL;
+    ed->runtime.sequence_lookup = NULL;
 
     /* recursive link sequences, lb will be correctly initialized */
     link_recurs_seq(reader, &ed->seqbase);
@@ -1465,8 +1469,8 @@ static void scene_blend_read_lib(BlendLibReader *reader, ID *id)
     IDP_BlendReadLib(reader, seq->prop);
 
     if (seq->ipo) {
-      BLO_read_id_address(
-          reader, sce->id.lib, &seq->ipo); /* XXX deprecated - old animation system */
+      /* XXX: deprecated - old animation system. */
+      BLO_read_id_address(reader, sce->id.lib, &seq->ipo);
     }
     seq->scene_sound = NULL;
     if (seq->scene) {
@@ -1895,14 +1899,14 @@ void BKE_scene_copy_data_eevee(Scene *sce_dst, const Scene *sce_src)
   sce_dst->eevee = sce_src->eevee;
   sce_dst->eevee.light_cache_data = NULL;
   sce_dst->eevee.light_cache_info[0] = '\0';
-  /* TODO Copy the cache. */
+  /* TODO: Copy the cache. */
 }
 
 Scene *BKE_scene_duplicate(Main *bmain, Scene *sce, eSceneCopyMethod type)
 {
   Scene *sce_copy;
 
-  /* TODO this should/could most likely be replaced by call to more generic code at some point...
+  /* TODO: this should/could most likely be replaced by call to more generic code at some point...
    * But for now, let's keep it well isolated here. */
   if (type == SCE_COPY_EMPTY) {
     ListBase rv;
@@ -2012,7 +2016,7 @@ Scene *BKE_scene_duplicate(Main *bmain, Scene *sce, eSceneCopyMethod type)
         bmain, NULL, sce_copy->master_collection, duplicate_flags, LIB_ID_DUPLICATE_IS_SUBPROCESS);
 
     if (!is_subprocess) {
-      /* This code will follow into all ID links using an ID tagged with LIB_TAG_NEW.*/
+      /* This code will follow into all ID links using an ID tagged with LIB_TAG_NEW. */
       BKE_libblock_relink_to_newid(&sce_copy->id);
 
 #ifndef NDEBUG
@@ -2101,7 +2105,7 @@ Object *BKE_scene_object_find_by_name(const Scene *scene, const char *name)
 
 /**
  * Sets the active scene, mainly used when running in background mode
- * (``--scene`` command line argument).
+ * (`--scene` command line argument).
  * This is also called to set the scene directly, bypassing windowing code.
  * Otherwise #WM_window_set_active_scene is used when changing scenes by the user.
  */
@@ -2175,7 +2179,7 @@ int BKE_scene_base_iter_next(
           /* exception: empty scene layer */
           while ((*scene)->set) {
             (*scene) = (*scene)->set;
-            ViewLayer *view_layer_set = BKE_view_layer_default_render((*scene));
+            ViewLayer *view_layer_set = BKE_view_layer_default_render(*scene);
             if (view_layer_set->object_bases.first) {
               *base = view_layer_set->object_bases.first;
               *ob = (*base)->object;
@@ -2196,7 +2200,7 @@ int BKE_scene_base_iter_next(
               /* (*scene) is finished, now do the set */
               while ((*scene)->set) {
                 (*scene) = (*scene)->set;
-                ViewLayer *view_layer_set = BKE_view_layer_default_render((*scene));
+                ViewLayer *view_layer_set = BKE_view_layer_default_render(*scene);
                 if (view_layer_set->object_bases.first) {
                   *base = view_layer_set->object_bases.first;
                   *ob = (*base)->object;
@@ -2295,22 +2299,19 @@ Object *BKE_scene_camera_switch_find(Scene *scene)
     return NULL;
   }
 
-  const int cfra = ((scene->r.images == scene->r.framapto) ?
-                        scene->r.cfra :
-                        (int)(scene->r.cfra *
-                              ((float)scene->r.framapto / (float)scene->r.images)));
+  const int ctime = (int)BKE_scene_ctime_get(scene);
   int frame = -(MAXFRAME + 1);
   int min_frame = MAXFRAME + 1;
   Object *camera = NULL;
   Object *first_camera = NULL;
 
   LISTBASE_FOREACH (TimeMarker *, m, &scene->markers) {
-    if (m->camera && (m->camera->restrictflag & OB_RESTRICT_RENDER) == 0) {
-      if ((m->frame <= cfra) && (m->frame > frame)) {
+    if (m->camera && (m->camera->visibility_flag & OB_HIDE_RENDER) == 0) {
+      if ((m->frame <= ctime) && (m->frame > frame)) {
         camera = m->camera;
         frame = m->frame;
 
-        if (frame == cfra) {
+        if (frame == ctime) {
           break;
         }
       }
@@ -2392,13 +2393,13 @@ const char *BKE_scene_find_last_marker_name(const Scene *scene, int frame)
   return best_marker ? best_marker->name : NULL;
 }
 
-int BKE_scene_frame_snap_by_seconds(Scene *scene, double interval_in_seconds, int cfra)
+int BKE_scene_frame_snap_by_seconds(Scene *scene, double interval_in_seconds, int frame)
 {
   const int fps = round_db_to_int(FPS * interval_in_seconds);
-  const int second_prev = cfra - mod_i(cfra, fps);
+  const int second_prev = frame - mod_i(frame, fps);
   const int second_next = second_prev + fps;
-  const int delta_prev = cfra - second_prev;
-  const int delta_next = second_next - cfra;
+  const int delta_prev = frame - second_prev;
+  const int delta_next = second_next - frame;
   return (delta_prev < delta_next) ? second_prev : second_next;
 }
 
@@ -2440,16 +2441,17 @@ bool BKE_scene_validate_setscene(Main *bmain, Scene *sce)
   return true;
 }
 
-/**
- * This function is needed to cope with fractional frames, needed for motion blur & physics.
- */
-float BKE_scene_frame_get(const Scene *scene)
+/* Return fractional frame number taking into account subframes and time
+ * remapping. This the time value used by animation, modifiers and physics
+ * evaluation. */
+float BKE_scene_ctime_get(const Scene *scene)
 {
   return BKE_scene_frame_to_ctime(scene, scene->r.cfra);
 }
 
-/* This function is used to obtain arbitrary fractional frames */
-float BKE_scene_frame_to_ctime(const Scene *scene, const float frame)
+/* Convert integer frame number to fractional frame number taking into account
+ * subframes and time remapping. */
+float BKE_scene_frame_to_ctime(const Scene *scene, const int frame)
 {
   float ctime = frame;
   ctime += scene->r.subframe;
@@ -2457,13 +2459,18 @@ float BKE_scene_frame_to_ctime(const Scene *scene, const float frame)
 
   return ctime;
 }
-/**
- * Sets the frame int/float components.
- */
-void BKE_scene_frame_set(struct Scene *scene, double cfra)
+
+/* Get current fractional frame based on frame and subframe. */
+float BKE_scene_frame_get(const Scene *scene)
+{
+  return scene->r.cfra + scene->r.subframe;
+}
+
+/* Set current frame and subframe based on a fractional frame. */
+void BKE_scene_frame_set(Scene *scene, float frame)
 {
   double intpart;
-  scene->r.subframe = modf(cfra, &intpart);
+  scene->r.subframe = modf((double)frame, &intpart);
   scene->r.cfra = (int)intpart;
 }
 
@@ -2732,8 +2739,8 @@ void BKE_scene_graph_update_for_newframe_ex(Depsgraph *depsgraph, const bool cle
      * edits from callback are properly taken into account. Doing a time update on those would
      * lose any possible unkeyed changes made by the handler. */
     if (pass == 0) {
-      const float ctime = BKE_scene_frame_get(scene);
-      DEG_evaluate_on_framechange(depsgraph, ctime);
+      const float frame = BKE_scene_frame_get(scene);
+      DEG_evaluate_on_framechange(depsgraph, frame);
     }
     else {
       DEG_evaluate_on_refresh(depsgraph);
@@ -2892,7 +2899,7 @@ Base *_setlooper_base_step(Scene **sce_iter, ViewLayer *view_layer, Base *base)
   next_set:
     /* Reached the end, get the next base in the set. */
     while ((*sce_iter = (*sce_iter)->set)) {
-      ViewLayer *view_layer_set = BKE_view_layer_default_render((*sce_iter));
+      ViewLayer *view_layer_set = BKE_view_layer_default_render(*sce_iter);
       base = (Base *)view_layer_set->object_bases.first;
 
       if (base) {
@@ -3112,7 +3119,7 @@ bool BKE_scene_multiview_is_render_view_active(const RenderData *rd, const Scene
     return false;
   }
 
-  if ((srv->viewflag & SCE_VIEW_DISABLE)) {
+  if (srv->viewflag & SCE_VIEW_DISABLE) {
     return false;
   }
 
@@ -3235,9 +3242,9 @@ void BKE_scene_multiview_filepath_get(SceneRenderView *srv, const char *filepath
 }
 
 /**
- * When multiview is not used the filepath is as usual (e.g., ``Image.jpg``).
+ * When multiview is not used the filepath is as usual (e.g., `Image.jpg`).
  * When multiview is on, even if only one view is enabled the view is incorporated
- * into the file name (e.g., ``Image_L.jpg``). That allows for the user to re-render
+ * into the file name (e.g., `Image_L.jpg`). That allows for the user to re-render
  * individual views.
  */
 void BKE_scene_multiview_view_filepath_get(const RenderData *rd,
@@ -3378,7 +3385,7 @@ static bool depsgraph_key_compare(const void *key_a_v, const void *key_b_v)
 {
   const DepsgraphKey *key_a = key_a_v;
   const DepsgraphKey *key_b = key_b_v;
-  /* TODO(sergey): Compare rest of  */
+  /* TODO(sergey): Compare rest of. */
   return !(key_a->view_layer == key_b->view_layer);
 }
 

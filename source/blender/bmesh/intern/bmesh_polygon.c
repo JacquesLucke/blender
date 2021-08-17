@@ -316,7 +316,7 @@ float BM_face_calc_perimeter_with_mat3(const BMFace *f, const float mat3[3][3])
 /**
  * Utility function to calculate the edge which is most different from the other two.
  *
- * \return The first edge index, where the second vertex is ``(index + 1) % 3``.
+ * \return The first edge index, where the second vertex is `(index + 1) % 3`.
  */
 static int bm_vert_tri_find_unique_edge(BMVert *verts[3])
 {
@@ -1296,7 +1296,7 @@ void BM_face_triangulate(BMesh *bm,
               r_edges_new[ne_i++] = e;
             }
           }
-          /* note, never disable tag's */
+          /* NOTE: never disable tag's. */
         } while ((l_iter = l_iter->next) != l_first);
       }
 

@@ -236,10 +236,7 @@ void text_update_line_edited(TextLine *line)
   }
 
   /* we just free format here, and let it rebuild during draw */
-  if (line->format) {
-    MEM_freeN(line->format);
-    line->format = NULL;
-  }
+  MEM_SAFE_FREE(line->format);
 }
 
 void text_update_edited(Text *text)
@@ -745,7 +742,7 @@ void TEXT_OT_save_as(wmOperatorType *ot)
                                  FILE_SAVE,
                                  WM_FILESEL_FILEPATH,
                                  FILE_DEFAULTDISPLAY,
-                                 FILE_SORT_DEFAULT); /* XXX TODO, relative_path. */
+                                 FILE_SORT_DEFAULT); /* XXX TODO: relative_path. */
 }
 
 /** \} */
@@ -2782,8 +2779,7 @@ void TEXT_OT_scroll(wmOperatorType *ot)
   /* identifiers */
   ot->name = "Scroll";
   /* don't really see the difference between this and
-   * scroll_bar. Both do basically the same thing (aside
-   * from keymaps).*/
+   * scroll_bar. Both do basically the same thing (aside from key-maps). */
   ot->idname = "TEXT_OT_scroll";
 
   /* api callbacks */
@@ -2889,8 +2885,7 @@ void TEXT_OT_scroll_bar(wmOperatorType *ot)
   /* identifiers */
   ot->name = "Scrollbar";
   /* don't really see the difference between this and
-   * scroll. Both do basically the same thing (aside
-   * from keymaps).*/
+   * scroll. Both do basically the same thing (aside from key-maps). */
   ot->idname = "TEXT_OT_scroll_bar";
 
   /* api callbacks */
@@ -3470,7 +3465,7 @@ static int text_insert_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
   int ret;
 
-  /* Note, the "text" property is always set from key-map,
+  /* NOTE: the "text" property is always set from key-map,
    * so we can't use #RNA_struct_property_is_set, check the length instead. */
   if (!RNA_string_length(op->ptr, "text")) {
     /* if alt/ctrl/super are pressed pass through except for utf8 character event

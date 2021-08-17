@@ -181,7 +181,7 @@ void bilinear_interpolation_color_wrap(
     return;
   }
 
-  /* wrap interpolation pixels - main difference from bilinear_interpolation_color  */
+  /* Wrap interpolation pixels - main difference from #bilinear_interpolation_color. */
   if (x1 < 0) {
     x1 = in->x + x1;
   }
@@ -324,7 +324,7 @@ void nearest_interpolation_color_wrap(
   x = x % in->x;
   y = y % in->y;
 
-  /* wrap interpolation pixels - main difference from nearest_interpolation_color  */
+  /* Wrap interpolation pixels - main difference from #nearest_interpolation_color. */
   if (x < 0) {
     x += in->x;
   }
@@ -523,7 +523,7 @@ void IMB_processor_apply_threaded(
   int total_tasks = (buffer_lines + lines_per_task - 1) / lines_per_task;
   int i, start_line;
 
-  task_pool = BLI_task_pool_create(do_thread, TASK_PRIORITY_LOW, TASK_ISOLATION_ON);
+  task_pool = BLI_task_pool_create(do_thread, TASK_PRIORITY_LOW);
 
   handles = MEM_callocN(handle_size * total_tasks, "processor apply threaded handles");
 

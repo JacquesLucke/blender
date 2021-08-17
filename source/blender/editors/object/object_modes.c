@@ -401,9 +401,9 @@ void ED_object_mode_generic_exit(struct Main *bmain,
   ed_object_mode_generic_exit_ex(bmain, depsgraph, scene, ob, false);
 }
 
-bool ED_object_mode_generic_has_data(struct Depsgraph *depsgraph, struct Object *ob)
+bool ED_object_mode_generic_has_data(struct Depsgraph *depsgraph, const struct Object *ob)
 {
-  return ed_object_mode_generic_exit_ex(NULL, depsgraph, NULL, ob, true);
+  return ed_object_mode_generic_exit_ex(NULL, depsgraph, NULL, (Object *)ob, true);
 }
 
 /** \} */
@@ -585,7 +585,7 @@ void OBJECT_OT_transfer_mode(wmOperatorType *ot)
                   "use_flash_on_transfer",
                   true,
                   "Flash On Transfer",
-                  "Flash the target object when transfering the mode");
+                  "Flash the target object when transferring the mode");
 }
 
 /** \} */

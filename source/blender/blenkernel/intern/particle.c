@@ -384,8 +384,9 @@ void BKE_particle_partdeflect_blend_read_lib(BlendLibReader *reader, ID *id, Par
 static void particle_settings_blend_read_lib(BlendLibReader *reader, ID *id)
 {
   ParticleSettings *part = (ParticleSettings *)id;
-  BLO_read_id_address(
-      reader, part->id.lib, &part->ipo); /* XXX deprecated - old animation system */
+
+  /* XXX: deprecated - old animation system. */
+  BLO_read_id_address(reader, part->id.lib, &part->ipo);
 
   BLO_read_id_address(reader, part->id.lib, &part->instance_object);
   BLO_read_id_address(reader, part->id.lib, &part->instance_collection);
@@ -927,10 +928,7 @@ void free_hair(Object *object, ParticleSystem *psys, int dynamics)
 
   LOOP_PARTICLES
   {
-    if (pa->hair) {
-      MEM_freeN(pa->hair);
-    }
-    pa->hair = NULL;
+    MEM_SAFE_FREE(pa->hair);
     pa->totkey = 0;
   }
 
@@ -1043,25 +1041,13 @@ void psys_free_particles(ParticleSystem *psys)
 void psys_free_pdd(ParticleSystem *psys)
 {
   if (psys->pdd) {
-    if (psys->pdd->cdata) {
-      MEM_freeN(psys->pdd->cdata);
-    }
-    psys->pdd->cdata = NULL;
+    MEM_SAFE_FREE(psys->pdd->cdata);
 
-    if (psys->pdd->vdata) {
-      MEM_freeN(psys->pdd->vdata);
-    }
-    psys->pdd->vdata = NULL;
+    MEM_SAFE_FREE(psys->pdd->vdata);
 
-    if (psys->pdd->ndata) {
-      MEM_freeN(psys->pdd->ndata);
-    }
-    psys->pdd->ndata = NULL;
+    MEM_SAFE_FREE(psys->pdd->ndata);
 
-    if (psys->pdd->vedata) {
-      MEM_freeN(psys->pdd->vedata);
-    }
-    psys->pdd->vedata = NULL;
+    MEM_SAFE_FREE(psys->pdd->vedata);
 
     psys->pdd->totpoint = 0;
     psys->pdd->totpart = 0;
@@ -1437,7 +1423,7 @@ static void do_particle_interpolation(ParticleSystem *psys,
   int point_vel = (point && point->keys->vel);
   float real_t, dfra, keytime, invdt = 1.0f;
 
-  /* billboards wont fill in all of these, so start cleared */
+  /* billboards won't fill in all of these, so start cleared */
   memset(keys, 0, sizeof(keys));
 
   /* interpret timing and find keys */
@@ -2461,7 +2447,7 @@ int do_guides(Depsgraph *depsgraph,
                                           (int)(data->strength * guidetime * 100.0f),
                                           100));
       }
-      else { /* curve size*/
+      else { /* Curve size. */
         if (cu->flag & CU_PATH_RADIUS) {
           mul_v3_fl(vec_to_point, radius);
         }
@@ -2810,7 +2796,7 @@ static void psys_task_init_path(ParticleTask *task, ParticleSimulationData *sim)
   task->rng_path = BLI_rng_new(seed);
 }
 
-/* note: this function must be thread safe, except for branching! */
+/* NOTE: this function must be thread safe, except for branching! */
 static void psys_thread_create_path(ParticleTask *task,
                                     struct ChildParticle *cpa,
                                     ParticleCacheKey *child_keys,
@@ -3179,7 +3165,7 @@ void psys_cache_child_paths(ParticleSimulationData *sim,
     return;
   }
 
-  task_pool = BLI_task_pool_create(&ctx, TASK_PRIORITY_LOW, TASK_ISOLATION_ON);
+  task_pool = BLI_task_pool_create(&ctx, TASK_PRIORITY_LOW);
   totchild = ctx.totchild;
   totparent = ctx.totparent;
 
@@ -3960,7 +3946,7 @@ static ModifierData *object_add_or_copy_particle_system(
   psys->totpart = 0;
   psys->flag = PSYS_CURRENT;
   if (scene != NULL) {
-    psys->cfra = BKE_scene_frame_to_ctime(scene, CFRA + 1);
+    psys->cfra = BKE_scene_frame_to_ctime(scene, scene->r.cfra + 1);
   }
 
   DEG_relations_tag_update(bmain);
@@ -4417,12 +4403,12 @@ void psys_get_texture(
 
       if ((event & mtex->mapto) & PAMAP_TIME) {
         /* the first time has to set the base value for time regardless of blend mode */
-        if ((setvars & MAP_PA_TIME) == 0) {
+        if ((setvars & PAMAP_TIME) == 0) {
           int flip = (mtex->timefac < 0.0f);
           float timefac = fabsf(mtex->timefac);
           ptex->time *= 1.0f - timefac;
           ptex->time += timefac * ((flip) ? 1.0f - value : value);
-          setvars |= MAP_PA_TIME;
+          setvars |= PAMAP_TIME;
         }
         else {
           ptex->time = texture_value_blend(def, ptex->time, value, mtex->timefac, blend);
@@ -5399,8 +5385,8 @@ void BKE_particle_system_blend_read_lib(BlendLibReader *reader,
       BLO_read_id_address(reader, id->lib, &psys->target_ob);
 
       if (psys->clmd) {
-        /* XXX - from reading existing code this seems correct but intended usage of
-         * pointcache /w cloth should be added in 'ParticleSystem' - campbell */
+        /* XXX(campbell): from reading existing code this seems correct but intended usage of
+         * pointcache /w cloth should be added in 'ParticleSystem'. */
         psys->clmd->point_cache = psys->pointcache;
         psys->clmd->ptcaches.first = psys->clmd->ptcaches.last = NULL;
         BLO_read_id_address(reader, id->lib, &psys->clmd->coll_parms->group);

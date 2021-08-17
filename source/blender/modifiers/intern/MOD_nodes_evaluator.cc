@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software  Foundation,
+ * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
@@ -264,13 +264,10 @@ struct NodeWithState {
 class GeometryNodesEvaluator;
 
 /**
- * Utility class that locks the state of a node. Having this is a separate class is useful because
- * it allows methods to communicate that they expect the node to be locked.
+ * Utility class that wraps a node whose state is locked. Having this is a separate class is useful
+ * because it allows methods to communicate that they expect the node to be locked.
  */
 class LockedNode : NonCopyable, NonMovable {
- private:
-  GeometryNodesEvaluator &evaluator_;
-
  public:
   /**
    * This is the node that is currently locked.
@@ -290,23 +287,37 @@ class LockedNode : NonCopyable, NonMovable {
   Vector<DOutputSocket> delayed_unused_outputs;
   Vector<DNode> delayed_scheduled_nodes;
 
-  LockedNode(GeometryNodesEvaluator &evaluator, const DNode node, NodeState &node_state)
-      : evaluator_(evaluator), node(node), node_state(node_state)
+  LockedNode(const DNode node, NodeState &node_state) : node(node), node_state(node_state)
   {
-    node_state.mutex.lock();
   }
-
-  ~LockedNode();
 };
-
-static const CPPType *get_socket_cpp_type(const DSocket socket)
-{
-  return nodes::socket_cpp_type_get(*socket->typeinfo());
-}
 
 static const CPPType *get_socket_cpp_type(const SocketRef &socket)
 {
-  return nodes::socket_cpp_type_get(*socket.typeinfo());
+  const bNodeSocketType *typeinfo = socket.typeinfo();
+  if (typeinfo->get_geometry_nodes_cpp_type == nullptr) {
+    return nullptr;
+  }
+  const CPPType *type = typeinfo->get_geometry_nodes_cpp_type();
+  if (type == nullptr) {
+    return nullptr;
+  }
+  /* The evaluator only supports types that have special member functions. */
+  if (!type->has_special_member_functions()) {
+    return nullptr;
+  }
+  return type;
+}
+
+static const CPPType *get_socket_cpp_type(const DSocket socket)
+{
+  return get_socket_cpp_type(*socket.socket_ref());
+}
+
+static void get_socket_value(const SocketRef &socket, void *r_value)
+{
+  const bNodeSocketType *typeinfo = socket.typeinfo();
+  typeinfo->get_geometry_nodes_cpp_value(*socket.bsocket(), r_value);
 }
 
 static bool node_supports_laziness(const DNode node)
@@ -352,7 +363,7 @@ class GeometryNodesEvaluator {
    *   on cache line boundaries. Note, just because a value is allocated in one specific thread,
    *   does not mean that it will only be used by that thread.
    */
-  EnumerableThreadSpecific<LinearAllocator<>> local_allocators_;
+  threading::EnumerableThreadSpecific<LinearAllocator<>> local_allocators_;
 
   /**
    * Every node that is reachable from the output gets its own state. Once all states have been
@@ -380,7 +391,7 @@ class GeometryNodesEvaluator {
 
   void execute()
   {
-    task_pool_ = BLI_task_pool_create(this, TASK_PRIORITY_HIGH, TASK_ISOLATION_OFF);
+    task_pool_ = BLI_task_pool_create(this, TASK_PRIORITY_HIGH);
 
     this->create_states_for_reachable_nodes();
     this->forward_group_inputs();
@@ -401,6 +412,9 @@ class GeometryNodesEvaluator {
     Stack<DNode> nodes_to_check;
     /* Start at the output sockets. */
     for (const DInputSocket &socket : params_.output_sockets) {
+      nodes_to_check.push(socket.node());
+    }
+    for (const DSocket &socket : params_.force_compute_sockets) {
       nodes_to_check.push(socket.node());
     }
     /* Use the local allocator because the states do not need to outlive the evaluator. */
@@ -426,12 +440,13 @@ class GeometryNodesEvaluator {
     /* Initialize the more complex parts of the node states in parallel. At this point no new
      * node states are added anymore, so it is safe to lookup states from `node_states_` from
      * multiple threads. */
-    parallel_for(IndexRange(node_states_.size()), 50, [&, this](const IndexRange range) {
-      LinearAllocator<> &allocator = this->local_allocators_.local();
-      for (const NodeWithState &item : node_states_.as_span().slice(range)) {
-        this->initialize_node_state(item.node, *item.state, allocator);
-      }
-    });
+    threading::parallel_for(
+        IndexRange(node_states_.size()), 50, [&, this](const IndexRange range) {
+          LinearAllocator<> &allocator = this->local_allocators_.local();
+          for (const NodeWithState &item : node_states_.as_span().slice(range)) {
+            this->initialize_node_state(item.node, *item.state, allocator);
+          }
+        });
   }
 
   void initialize_node_state(const DNode node, NodeState &node_state, LinearAllocator<> &allocator)
@@ -499,7 +514,8 @@ class GeometryNodesEvaluator {
           },
           {});
       if (output_state.potential_users == 0) {
-        /* If it does not have any potential users, it is unused. */
+        /* If it does not have any potential users, it is unused. It might become required again in
+         * `schedule_initial_nodes`. */
         output_state.output_usage = ValueUsage::Unused;
       }
     }
@@ -507,11 +523,12 @@ class GeometryNodesEvaluator {
 
   void destruct_node_states()
   {
-    parallel_for(IndexRange(node_states_.size()), 50, [&, this](const IndexRange range) {
-      for (const NodeWithState &item : node_states_.as_span().slice(range)) {
-        this->destruct_node_state(item.node, *item.state);
-      }
-    });
+    threading::parallel_for(
+        IndexRange(node_states_.size()), 50, [&, this](const IndexRange range) {
+          for (const NodeWithState &item : node_states_.as_span().slice(range)) {
+            this->destruct_node_state(item.node, *item.state);
+          }
+        });
   }
 
   void destruct_node_state(const DNode node, NodeState &node_state)
@@ -551,11 +568,11 @@ class GeometryNodesEvaluator {
     for (auto &&item : params_.input_values.items()) {
       const DOutputSocket socket = item.key;
       GMutablePointer value = item.value;
-      this->log_socket_value(socket, value);
 
       const DNode node = socket.node();
       if (!node_states_.contains_as(node)) {
         /* The socket is not connected to any output. */
+        this->log_socket_value({socket}, value);
         value.destruct();
         continue;
       }
@@ -568,9 +585,24 @@ class GeometryNodesEvaluator {
     for (const DInputSocket &socket : params_.output_sockets) {
       const DNode node = socket.node();
       NodeState &node_state = this->get_node_state(node);
-      LockedNode locked_node{*this, node, node_state};
-      /* Setting an input as required will schedule any linked node. */
-      this->set_input_required(locked_node, socket);
+      this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+        /* Setting an input as required will schedule any linked node. */
+        this->set_input_required(locked_node, socket);
+      });
+    }
+    for (const DSocket socket : params_.force_compute_sockets) {
+      const DNode node = socket.node();
+      NodeState &node_state = this->get_node_state(node);
+      this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+        if (socket->is_input()) {
+          this->set_input_required(locked_node, DInputSocket(socket));
+        }
+        else {
+          OutputState &output_state = node_state.outputs[socket->index()];
+          output_state.output_usage = ValueUsage::Required;
+          this->schedule_node(locked_node);
+        }
+      });
     }
   }
 
@@ -632,30 +664,33 @@ class GeometryNodesEvaluator {
 
   bool node_task_preprocessing(const DNode node, NodeState &node_state)
   {
-    LockedNode locked_node{*this, node, node_state};
-    BLI_assert(node_state.schedule_state == NodeScheduleState::Scheduled);
-    node_state.schedule_state = NodeScheduleState::Running;
+    bool do_execute_node = false;
+    this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+      BLI_assert(node_state.schedule_state == NodeScheduleState::Scheduled);
+      node_state.schedule_state = NodeScheduleState::Running;
 
-    /* Early return if the node has finished already. */
-    if (locked_node.node_state.node_has_finished) {
-      return false;
-    }
-    /* Prepare outputs and check if actually any new outputs have to be computed. */
-    if (!this->prepare_node_outputs_for_execution(locked_node)) {
-      return false;
-    }
-    /* Initialize nodes that don't support laziness. This is done after at least one output is
-     * required and before we check that all required inputs are provided. This reduces the
-     * number of "round-trips" through the task pool by one for most nodes. */
-    if (!node_state.non_lazy_node_is_initialized && !node_supports_laziness(node)) {
-      this->initialize_non_lazy_node(locked_node);
-      node_state.non_lazy_node_is_initialized = true;
-    }
-    /* Prepare inputs and check if all required inputs are provided. */
-    if (!this->prepare_node_inputs_for_execution(locked_node)) {
-      return false;
-    }
-    return true;
+      /* Early return if the node has finished already. */
+      if (locked_node.node_state.node_has_finished) {
+        return;
+      }
+      /* Prepare outputs and check if actually any new outputs have to be computed. */
+      if (!this->prepare_node_outputs_for_execution(locked_node)) {
+        return;
+      }
+      /* Initialize nodes that don't support laziness. This is done after at least one output is
+       * required and before we check that all required inputs are provided. This reduces the
+       * number of "round-trips" through the task pool by one for most nodes. */
+      if (!node_state.non_lazy_node_is_initialized && !node_supports_laziness(node)) {
+        this->initialize_non_lazy_node(locked_node);
+        node_state.non_lazy_node_is_initialized = true;
+      }
+      /* Prepare inputs and check if all required inputs are provided. */
+      if (!this->prepare_node_inputs_for_execution(locked_node)) {
+        return;
+      }
+      do_execute_node = true;
+    });
+    return do_execute_node;
   }
 
   /* A node is finished when it has computed all outputs that may be used. */
@@ -755,7 +790,6 @@ class GeometryNodesEvaluator {
         /* Checks if all the linked sockets have been provided already. */
         if (multi_value.items.size() == multi_value.expected_size) {
           input_state.was_ready_for_execution = true;
-          this->log_socket_value(socket, input_state, multi_value.items);
         }
         else if (is_required) {
           /* The input is required but is not fully provided yet. Therefore the node cannot be
@@ -767,7 +801,6 @@ class GeometryNodesEvaluator {
         SingleInputValue &single_value = *input_state.value.single;
         if (single_value.value != nullptr) {
           input_state.was_ready_for_execution = true;
-          this->log_socket_value(socket, GPointer{input_state.type, single_value.value});
         }
         else if (is_required) {
           /* The input is required but has not been provided yet. Therefore the node cannot be
@@ -889,25 +922,25 @@ class GeometryNodesEvaluator {
       OutputState &output_state = node_state.outputs[socket->index()];
       output_state.has_been_computed = true;
       void *buffer = allocator.allocate(type->size(), type->alignment());
-      type->copy_to_uninitialized(type->default_value(), buffer);
+      type->copy_construct(type->default_value(), buffer);
       this->forward_output({node.context(), socket}, {*type, buffer});
     }
   }
 
   void node_task_postprocessing(const DNode node, NodeState &node_state)
   {
-    LockedNode locked_node{*this, node, node_state};
+    this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+      const bool node_has_finished = this->finish_node_if_possible(locked_node);
+      const bool reschedule_requested = node_state.schedule_state ==
+                                        NodeScheduleState::RunningAndRescheduled;
+      node_state.schedule_state = NodeScheduleState::NotScheduled;
+      if (reschedule_requested && !node_has_finished) {
+        /* Either the node rescheduled itself or another node tried to schedule it while it ran. */
+        this->schedule_node(locked_node);
+      }
 
-    const bool node_has_finished = this->finish_node_if_possible(locked_node);
-    const bool reschedule_requested = node_state.schedule_state ==
-                                      NodeScheduleState::RunningAndRescheduled;
-    node_state.schedule_state = NodeScheduleState::NotScheduled;
-    if (reschedule_requested && !node_has_finished) {
-      /* Either the node rescheduled itself or another node tried to schedule it while it ran. */
-      this->schedule_node(locked_node);
-    }
-
-    this->assert_expected_outputs_have_been_computed(locked_node);
+      this->assert_expected_outputs_have_been_computed(locked_node);
+    });
   }
 
   void assert_expected_outputs_have_been_computed(LockedNode &locked_node)
@@ -968,7 +1001,7 @@ class GeometryNodesEvaluator {
       /* Move value into memory owned by the outer allocator. */
       const CPPType &type = *input_state.type;
       void *buffer = outer_allocator_.allocate(type.size(), type.alignment());
-      type.move_to_uninitialized(value, buffer);
+      type.move_construct(value, buffer);
 
       params_.r_output_values.append({type, buffer});
     }
@@ -1042,13 +1075,14 @@ class GeometryNodesEvaluator {
         this->load_unlinked_input_value(locked_node, input_socket, input_state, origin_socket);
         locked_node.node_state.missing_required_inputs -= 1;
         this->schedule_node(locked_node);
-        return;
       }
-      /* The value has not been computed yet, so when it will be forwarded by another node, this
-       * node will be triggered. */
-      will_be_triggered_by_other_node = true;
+      else {
+        /* The value has not been computed yet, so when it will be forwarded by another node, this
+         * node will be triggered. */
+        will_be_triggered_by_other_node = true;
 
-      locked_node.delayed_required_outputs.append(DOutputSocket(origin_socket));
+        locked_node.delayed_required_outputs.append(DOutputSocket(origin_socket));
+      }
     }
     /* If this node will be triggered by another node, we don't have to schedule it now. */
     if (!will_be_triggered_by_other_node) {
@@ -1095,15 +1129,16 @@ class GeometryNodesEvaluator {
     NodeState &node_state = this->get_node_state(node);
     OutputState &output_state = node_state.outputs[socket->index()];
 
-    LockedNode locked_node{*this, node, node_state};
-    if (output_state.output_usage == ValueUsage::Required) {
-      /* Output is marked as required already. So the node is scheduled already. */
-      return;
-    }
-    /* The origin node needs to be scheduled so that it provides the requested input
-     * eventually. */
-    output_state.output_usage = ValueUsage::Required;
-    this->schedule_node(locked_node);
+    this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+      if (output_state.output_usage == ValueUsage::Required) {
+        /* Output is marked as required already. So the node is scheduled already. */
+        return;
+      }
+      /* The origin node needs to be scheduled so that it provides the requested input
+       * eventually. */
+      output_state.output_usage = ValueUsage::Required;
+      this->schedule_node(locked_node);
+    });
   }
 
   void send_output_unused_notification(const DOutputSocket socket)
@@ -1112,14 +1147,19 @@ class GeometryNodesEvaluator {
     NodeState &node_state = this->get_node_state(node);
     OutputState &output_state = node_state.outputs[socket->index()];
 
-    LockedNode locked_node{*this, node, node_state};
-    output_state.potential_users -= 1;
-    if (output_state.potential_users == 0) {
-      /* The output socket has no users anymore. */
-      output_state.output_usage = ValueUsage::Unused;
-      /* Schedule the origin node in case it wants to set its inputs as unused as well. */
-      this->schedule_node(locked_node);
-    }
+    this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+      output_state.potential_users -= 1;
+      if (output_state.potential_users == 0) {
+        /* The socket might be required even though the output is not used by other sockets. That
+         * can happen when the socket is forced to be computed. */
+        if (output_state.output_usage != ValueUsage::Required) {
+          /* The output socket has no users anymore. */
+          output_state.output_usage = ValueUsage::Unused;
+          /* Schedule the origin node in case it wants to set its inputs as unused as well. */
+          this->schedule_node(locked_node);
+        }
+      }
+    });
   }
 
   void add_node_to_task_pool(const DNode node)
@@ -1138,16 +1178,17 @@ class GeometryNodesEvaluator {
   {
     BLI_assert(value_to_forward.get() != nullptr);
 
+    Vector<DSocket> sockets_to_log_to;
+    sockets_to_log_to.append(from_socket);
+
     Vector<DInputSocket> to_sockets;
     auto handle_target_socket_fn = [&, this](const DInputSocket to_socket) {
       if (this->should_forward_to_socket(to_socket)) {
         to_sockets.append(to_socket);
       }
     };
-    auto handle_skipped_socket_fn = [&, this](const DSocket socket) {
-      /* Log socket value on intermediate sockets to support e.g. attribute search or spreadsheet
-       * breadcrumbs on group nodes. */
-      this->log_socket_value(socket, value_to_forward);
+    auto handle_skipped_socket_fn = [&](const DSocket socket) {
+      sockets_to_log_to.append(socket);
     };
     from_socket.foreach_target_socket(handle_target_socket_fn, handle_skipped_socket_fn);
 
@@ -1160,11 +1201,18 @@ class GeometryNodesEvaluator {
       if (from_type == to_type) {
         /* All target sockets that do not need a conversion will be handled afterwards. */
         to_sockets_same_type.append(to_socket);
+        /* Multi input socket values are logged once all values are available. */
+        if (!to_socket->is_multi_input_socket()) {
+          sockets_to_log_to.append(to_socket);
+        }
         continue;
       }
       this->forward_to_socket_with_different_type(
           allocator, value_to_forward, from_socket, to_socket, to_type);
     }
+
+    this->log_socket_value(sockets_to_log_to, value_to_forward);
+
     this->forward_to_sockets_with_same_type(
         allocator, to_sockets_same_type, value_to_forward, from_socket);
   }
@@ -1195,16 +1243,15 @@ class GeometryNodesEvaluator {
 
     /* Allocate a buffer for the converted value. */
     void *buffer = allocator.allocate(to_type.size(), to_type.alignment());
+    GMutablePointer value{to_type, buffer};
 
-    if (conversions_.is_convertible(from_type, to_type)) {
-      /* Do the conversion if possible. */
-      conversions_.convert_to_uninitialized(from_type, to_type, value_to_forward.get(), buffer);
+    this->convert_value(from_type, to_type, value_to_forward.get(), buffer);
+
+    /* Multi input socket values are logged once all values are available. */
+    if (!to_socket->is_multi_input_socket()) {
+      this->log_socket_value({to_socket}, value);
     }
-    else {
-      /* Cannot convert, use default value instead. */
-      to_type.copy_to_uninitialized(to_type.default_value(), buffer);
-    }
-    this->add_value_to_input_socket(to_socket, from_socket, {to_type, buffer});
+    this->add_value_to_input_socket(to_socket, from_socket, value);
   }
 
   void forward_to_sockets_with_same_type(LinearAllocator<> &allocator,
@@ -1228,7 +1275,7 @@ class GeometryNodesEvaluator {
       const CPPType &type = *value_to_forward.type();
       for (const DInputSocket &to_socket : to_sockets.drop_front(1)) {
         void *buffer = allocator.allocate(type.size(), type.alignment());
-        type.copy_to_uninitialized(value_to_forward.get(), buffer);
+        type.copy_construct(value_to_forward.get(), buffer);
         this->add_value_to_input_socket(to_socket, from_socket, {type, buffer});
       }
       /* Forward the original value to one of the targets. */
@@ -1247,28 +1294,31 @@ class GeometryNodesEvaluator {
     NodeState &node_state = this->get_node_state(node);
     InputState &input_state = node_state.inputs[socket->index()];
 
-    /* Lock the node because we want to change its state. */
-    LockedNode locked_node{*this, node, node_state};
+    this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+      if (socket->is_multi_input_socket()) {
+        /* Add a new value to the multi-input. */
+        MultiInputValue &multi_value = *input_state.value.multi;
+        multi_value.items.append({origin, value.get()});
 
-    if (socket->is_multi_input_socket()) {
-      /* Add a new value to the multi-input. */
-      MultiInputValue &multi_value = *input_state.value.multi;
-      multi_value.items.append({origin, value.get()});
-    }
-    else {
-      /* Assign the value to the input. */
-      SingleInputValue &single_value = *input_state.value.single;
-      BLI_assert(single_value.value == nullptr);
-      single_value.value = value.get();
-    }
-
-    if (input_state.usage == ValueUsage::Required) {
-      node_state.missing_required_inputs--;
-      if (node_state.missing_required_inputs == 0) {
-        /* Schedule node if all the required inputs have been provided. */
-        this->schedule_node(locked_node);
+        if (multi_value.expected_size == multi_value.items.size()) {
+          this->log_socket_value({socket}, input_state, multi_value.items);
+        }
       }
-    }
+      else {
+        /* Assign the value to the input. */
+        SingleInputValue &single_value = *input_state.value.single;
+        BLI_assert(single_value.value == nullptr);
+        single_value.value = value.get();
+      }
+
+      if (input_state.usage == ValueUsage::Required) {
+        node_state.missing_required_inputs--;
+        if (node_state.missing_required_inputs == 0) {
+          /* Schedule node if all the required inputs have been provided. */
+          this->schedule_node(locked_node);
+        }
+      }
+    });
   }
 
   void load_unlinked_input_value(LockedNode &locked_node,
@@ -1283,10 +1333,14 @@ class GeometryNodesEvaluator {
     if (input_socket->is_multi_input_socket()) {
       MultiInputValue &multi_value = *input_state.value.multi;
       multi_value.items.append({origin_socket, value.get()});
+      if (multi_value.expected_size == multi_value.items.size()) {
+        this->log_socket_value({input_socket}, input_state, multi_value.items);
+      }
     }
     else {
       SingleInputValue &single_value = *input_state.value.single;
       single_value.value = value.get();
+      this->log_socket_value({input_socket}, value);
     }
   }
 
@@ -1313,25 +1367,36 @@ class GeometryNodesEvaluator {
   {
     LinearAllocator<> &allocator = local_allocators_.local();
 
-    bNodeSocket *bsocket = socket->bsocket();
     const CPPType &type = *get_socket_cpp_type(socket);
     void *buffer = allocator.allocate(type.size(), type.alignment());
-    blender::nodes::socket_cpp_value_get(*bsocket, buffer);
+    get_socket_value(*socket.socket_ref(), buffer);
 
     if (type == required_type) {
       return {type, buffer};
     }
-    if (conversions_.is_convertible(type, required_type)) {
-      /* Convert the loaded value to the required type if possible. */
-      void *converted_buffer = allocator.allocate(required_type.size(), required_type.alignment());
-      conversions_.convert_to_uninitialized(type, required_type, buffer, converted_buffer);
-      type.destruct(buffer);
-      return {required_type, converted_buffer};
+    void *converted_buffer = allocator.allocate(required_type.size(), required_type.alignment());
+    this->convert_value(type, required_type, buffer, converted_buffer);
+    return {required_type, converted_buffer};
+  }
+
+  void convert_value(const CPPType &from_type,
+                     const CPPType &to_type,
+                     const void *from_value,
+                     void *to_value)
+  {
+    if (from_type == to_type) {
+      from_type.copy_construct(from_value, to_value);
+      return;
     }
-    /* Use a default fallback value when the loaded type is not compatible. */
-    void *default_buffer = allocator.allocate(required_type.size(), required_type.alignment());
-    required_type.copy_to_uninitialized(required_type.default_value(), default_buffer);
-    return {required_type, default_buffer};
+
+    if (conversions_.is_convertible(from_type, to_type)) {
+      /* Do the conversion if possible. */
+      conversions_.convert_to_uninitialized(from_type, to_type, from_value, to_value);
+    }
+    else {
+      /* Cannot convert, use default value instead. */
+      to_type.copy_construct(to_type.default_value(), to_value);
+    }
   }
 
   NodeState &get_node_state(const DNode node)
@@ -1339,47 +1404,55 @@ class GeometryNodesEvaluator {
     return *node_states_.lookup_key_as(node).state;
   }
 
-  void log_socket_value(const DSocket socket, Span<GPointer> values)
+  void log_socket_value(DSocket socket, InputState &input_state, Span<MultiInputValueItem> values)
   {
-    if (params_.log_socket_value_fn) {
-      params_.log_socket_value_fn(socket, values);
+    if (params_.geo_logger == nullptr) {
+      return;
     }
-  }
 
-  void log_socket_value(const DSocket socket,
-                        InputState &input_state,
-                        Span<MultiInputValueItem> values)
-  {
     Vector<GPointer, 16> value_pointers;
     value_pointers.reserve(values.size());
     const CPPType &type = *input_state.type;
     for (const MultiInputValueItem &item : values) {
       value_pointers.append({type, item.value});
     }
-    this->log_socket_value(socket, value_pointers);
+    params_.geo_logger->local().log_multi_value_socket(socket, value_pointers);
   }
 
-  void log_socket_value(const DSocket socket, GPointer value)
+  void log_socket_value(Span<DSocket> sockets, GPointer value)
   {
-    this->log_socket_value(socket, Span<GPointer>(&value, 1));
+    if (params_.geo_logger == nullptr) {
+      return;
+    }
+    params_.geo_logger->local().log_value_for_sockets(sockets, value);
+  }
+
+  /* In most cases when `NodeState` is accessed, the node has to be locked first to avoid race
+   * conditions. */
+  template<typename Function>
+  void with_locked_node(const DNode node, NodeState &node_state, const Function &function)
+  {
+    LockedNode locked_node{node, node_state};
+
+    node_state.mutex.lock();
+    /* Isolate this thread because we don't want it to start executing another node. This other
+     * node might want to lock the same mutex leading to a deadlock. */
+    threading::isolate_task([&] { function(locked_node); });
+    node_state.mutex.unlock();
+
+    /* Then send notifications to the other nodes after the node state is unlocked. This avoids
+     * locking two nodes at the same time on this thread and helps to prevent deadlocks. */
+    for (const DOutputSocket &socket : locked_node.delayed_required_outputs) {
+      this->send_output_required_notification(socket);
+    }
+    for (const DOutputSocket &socket : locked_node.delayed_unused_outputs) {
+      this->send_output_unused_notification(socket);
+    }
+    for (const DNode &node : locked_node.delayed_scheduled_nodes) {
+      this->add_node_to_task_pool(node);
+    }
   }
 };
-
-LockedNode::~LockedNode()
-{
-  /* First unlock the current node. */
-  node_state.mutex.unlock();
-  /* Then send notifications to the other nodes. */
-  for (const DOutputSocket &socket : delayed_required_outputs) {
-    evaluator_.send_output_required_notification(socket);
-  }
-  for (const DOutputSocket &socket : delayed_unused_outputs) {
-    evaluator_.send_output_unused_notification(socket);
-  }
-  for (const DNode &node : delayed_scheduled_nodes) {
-    evaluator_.add_node_to_task_pool(node);
-  }
-}
 
 NodeParamsProvider::NodeParamsProvider(GeometryNodesEvaluator &evaluator,
                                        DNode dnode,
@@ -1390,6 +1463,7 @@ NodeParamsProvider::NodeParamsProvider(GeometryNodesEvaluator &evaluator,
   this->self_object = evaluator.params_.self_object;
   this->modifier = &evaluator.params_.modifier_->modifier;
   this->depsgraph = evaluator.params_.depsgraph;
+  this->logger = evaluator.params_.geo_logger;
 }
 
 bool NodeParamsProvider::can_get_input(StringRef identifier) const
@@ -1445,9 +1519,11 @@ Vector<GMutablePointer> NodeParamsProvider::extract_multi_input(StringRef identi
 
   Vector<GMutablePointer> ret_values;
   socket.foreach_origin_socket([&](DSocket origin) {
-    for (const MultiInputValueItem &item : multi_value.items) {
-      if (item.origin == origin) {
+    for (MultiInputValueItem &item : multi_value.items) {
+      if (item.origin == origin && item.value != nullptr) {
         ret_values.append({*input_state.type, item.value});
+        /* Make sure we do not use the same value again if two values have the same origin. */
+        item.value = nullptr;
         return;
       }
     }
@@ -1487,8 +1563,6 @@ void NodeParamsProvider::set_output(StringRef identifier, GMutablePointer value)
   const DOutputSocket socket = this->dnode.output_by_identifier(identifier);
   BLI_assert(socket);
 
-  evaluator_.log_socket_value(socket, value);
-
   OutputState &output_state = node_state_.outputs[socket->index()];
   BLI_assert(!output_state.has_been_computed);
   evaluator_.forward_output(socket, value);
@@ -1505,8 +1579,9 @@ bool NodeParamsProvider::lazy_require_input(StringRef identifier)
   if (input_state.was_ready_for_execution) {
     return false;
   }
-  LockedNode locked_node{evaluator_, this->dnode, node_state_};
-  evaluator_.set_input_required(locked_node, socket);
+  evaluator_.with_locked_node(this->dnode, node_state_, [&](LockedNode &locked_node) {
+    evaluator_.set_input_required(locked_node, socket);
+  });
   return true;
 }
 
@@ -1515,8 +1590,9 @@ void NodeParamsProvider::set_input_unused(StringRef identifier)
   const DInputSocket socket = this->dnode.input_by_identifier(identifier);
   BLI_assert(socket);
 
-  LockedNode locked_node{evaluator_, this->dnode, node_state_};
-  evaluator_.set_input_unused(locked_node, socket);
+  evaluator_.with_locked_node(this->dnode, node_state_, [&](LockedNode &locked_node) {
+    evaluator_.set_input_unused(locked_node, socket);
+  });
 }
 
 bool NodeParamsProvider::output_is_required(StringRef identifier) const

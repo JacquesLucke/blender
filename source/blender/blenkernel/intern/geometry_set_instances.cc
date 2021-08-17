@@ -48,7 +48,6 @@ static void add_final_mesh_as_geometry_component(const Object &object, GeometryS
 
     MeshComponent &mesh_component = geometry_set.get_component_for_write<MeshComponent>();
     mesh_component.replace(mesh, GeometryOwnershipType::ReadOnly);
-    mesh_component.copy_vertex_group_names_from_object(object);
   }
 }
 
@@ -56,7 +55,7 @@ static void add_curve_data_as_geometry_component(const Object &object, GeometryS
 {
   BLI_assert(object.type == OB_CURVE);
   if (object.data != nullptr) {
-    std::unique_ptr<CurveEval> curve = curve_eval_from_dna_curve(*(Curve *)object.data);
+    std::unique_ptr<CurveEval> curve = curve_eval_from_dna_curve(*(const Curve *)object.data);
     CurveComponent &curve_component = geometry_set.get_component_for_write<CurveComponent>();
     curve_component.replace(curve.release(), GeometryOwnershipType::Owned);
   }
@@ -264,7 +263,7 @@ static bool instances_attribute_foreach_recursive(const GeometrySet &geometry_se
     }
   }
 
-  /* Now that this this geometry set is visited, increase the count and check with the limit. */
+  /* Now that this geometry set is visited, increase the count and check with the limit. */
   if (limit > 0 && count++ > limit) {
     return false;
   }
@@ -399,7 +398,7 @@ static Mesh *join_mesh_topology_and_builtin_attributes(Span<GeometryInstanceGrou
     const GeometrySet &set = set_group.geometry_set;
     if (set.has_mesh()) {
       const Mesh &mesh = *set.get_mesh_for_read();
-      BKE_mesh_copy_settings(new_mesh, &mesh);
+      BKE_mesh_copy_parameters_for_eval(new_mesh, &mesh);
       break;
     }
   }
@@ -472,6 +471,11 @@ static Mesh *join_mesh_topology_and_builtin_attributes(Span<GeometryInstanceGrou
         poly_offset += mesh.totpoly;
       }
     }
+
+    const float3 point_normal{0.0f, 0.0f, 1.0f};
+    short point_normal_short[3];
+    normal_float_to_short_v3(point_normal_short, point_normal);
+
     if (convert_points_to_vertices && set.has_pointcloud()) {
       const PointCloud &pointcloud = *set.get_pointcloud_for_read();
       for (const float4x4 &transform : set_group.transforms) {
@@ -480,11 +484,16 @@ static Mesh *join_mesh_topology_and_builtin_attributes(Span<GeometryInstanceGrou
           const float3 old_position = pointcloud.co[i];
           const float3 new_position = transform * old_position;
           copy_v3_v3(new_vert.co, new_position);
+          memcpy(&new_vert.no, point_normal_short, sizeof(point_normal_short));
         }
         vert_offset += pointcloud.totpoint;
       }
     }
   }
+
+  /* A possible optimization is to only tag the normals dirty when there are transforms that change
+   * normals. */
+  BKE_mesh_normals_tag_dirty(new_mesh);
 
   return new_mesh;
 }
@@ -529,7 +538,7 @@ static void join_attributes(Span<GeometryInstanceGroup> set_groups,
             const void *src_buffer = src_span.data();
             for (const int UNUSED(i) : set_group.transforms.index_range()) {
               void *dst_buffer = dst_span[offset];
-              cpp_type->copy_to_initialized_n(src_buffer, dst_buffer, domain_size);
+              cpp_type->copy_assign_n(src_buffer, dst_buffer, domain_size);
               offset += domain_size;
             }
           }
@@ -544,7 +553,44 @@ static void join_attributes(Span<GeometryInstanceGroup> set_groups,
   }
 }
 
-static CurveEval *join_curve_splines(Span<GeometryInstanceGroup> set_groups)
+static PointCloud *join_pointcloud_position_attribute(Span<GeometryInstanceGroup> set_groups)
+{
+  /* Count the total number of points. */
+  int totpoint = 0;
+  for (const GeometryInstanceGroup &set_group : set_groups) {
+    const GeometrySet &set = set_group.geometry_set;
+    if (set.has<PointCloudComponent>()) {
+      const PointCloudComponent &component = *set.get_component_for_read<PointCloudComponent>();
+      totpoint += component.attribute_domain_size(ATTR_DOMAIN_POINT);
+    }
+  }
+  if (totpoint == 0) {
+    return nullptr;
+  }
+
+  PointCloud *new_pointcloud = BKE_pointcloud_new_nomain(totpoint);
+  MutableSpan new_positions{(float3 *)new_pointcloud->co, new_pointcloud->totpoint};
+
+  /* Transform each instance's point locations into the new point cloud. */
+  int offset = 0;
+  for (const GeometryInstanceGroup &set_group : set_groups) {
+    const GeometrySet &set = set_group.geometry_set;
+    const PointCloud *pointcloud = set.get_pointcloud_for_read();
+    if (pointcloud == nullptr) {
+      continue;
+    }
+    for (const float4x4 &transform : set_group.transforms) {
+      for (const int i : IndexRange(pointcloud->totpoint)) {
+        new_positions[offset + i] = transform * float3(pointcloud->co[i]);
+      }
+      offset += pointcloud->totpoint;
+    }
+  }
+
+  return new_pointcloud;
+}
+
+static CurveEval *join_curve_splines_and_builtin_attributes(Span<GeometryInstanceGroup> set_groups)
 {
   Vector<SplinePtr> new_splines;
   for (const GeometryInstanceGroup &set_group : set_groups) {
@@ -556,7 +602,7 @@ static CurveEval *join_curve_splines(Span<GeometryInstanceGroup> set_groups)
     const CurveEval &source_curve = *set.get_curve_for_read();
     for (const SplinePtr &source_spline : source_curve.splines()) {
       for (const float4x4 &transform : set_group.transforms) {
-        SplinePtr new_spline = source_spline->copy();
+        SplinePtr new_spline = source_spline->copy_without_attributes();
         new_spline->transform(transform);
         new_splines.append(std::move(new_spline));
       }
@@ -569,15 +615,6 @@ static CurveEval *join_curve_splines(Span<GeometryInstanceGroup> set_groups)
   CurveEval *new_curve = new CurveEval();
   for (SplinePtr &new_spline : new_splines) {
     new_curve->add_spline(std::move(new_spline));
-  }
-
-  for (SplinePtr &spline : new_curve->splines()) {
-    /* Spline instances should have no custom attributes, since they always come
-     * from original objects which currently do not support custom attributes.
-     *
-     * This is only true as long as a #GeometrySet cannot be instanced directly. */
-    BLI_assert(spline->attributes.data.totlayer == 0);
-    UNUSED_VARS_NDEBUG(spline);
   }
 
   new_curve->attributes.reallocate(new_curve->splines().size());
@@ -617,24 +654,17 @@ static void join_instance_groups_mesh(Span<GeometryInstanceGroup> set_groups,
 static void join_instance_groups_pointcloud(Span<GeometryInstanceGroup> set_groups,
                                             GeometrySet &result)
 {
-  int totpoint = 0;
-  for (const GeometryInstanceGroup &set_group : set_groups) {
-    const GeometrySet &set = set_group.geometry_set;
-    if (set.has<PointCloudComponent>()) {
-      const PointCloudComponent &component = *set.get_component_for_read<PointCloudComponent>();
-      totpoint += component.attribute_domain_size(ATTR_DOMAIN_POINT);
-    }
-  }
-  if (totpoint == 0) {
+  PointCloud *new_pointcloud = join_pointcloud_position_attribute(set_groups);
+  if (new_pointcloud == nullptr) {
     return;
   }
 
   PointCloudComponent &dst_component = result.get_component_for_write<PointCloudComponent>();
-  PointCloud *pointcloud = BKE_pointcloud_new_nomain(totpoint);
-  dst_component.replace(pointcloud);
+  dst_component.replace(new_pointcloud);
+
   Map<std::string, AttributeKind> attributes;
   geometry_set_gather_instances_attribute_info(
-      set_groups, {GEO_COMPONENT_TYPE_POINT_CLOUD}, {}, attributes);
+      set_groups, {GEO_COMPONENT_TYPE_POINT_CLOUD}, {"position"}, attributes);
   join_attributes(set_groups,
                   {GEO_COMPONENT_TYPE_POINT_CLOUD},
                   attributes,
@@ -644,19 +674,38 @@ static void join_instance_groups_pointcloud(Span<GeometryInstanceGroup> set_grou
 static void join_instance_groups_volume(Span<GeometryInstanceGroup> set_groups,
                                         GeometrySet &result)
 {
-  /* Not yet supported. Joining volume grids with the same name requires resampling of at least
-   * one of the grids. The cell size of the resulting volume has to be determined somehow. */
-  UNUSED_VARS(set_groups, result);
+  /* Not yet supported; for now only return the first volume. Joining volume grids with the same
+   * name requires resampling of at least one of the grids. The cell size of the resulting volume
+   * has to be determined somehow. */
+  for (const GeometryInstanceGroup &set_group : set_groups) {
+    const GeometrySet &set = set_group.geometry_set;
+    if (set.has<VolumeComponent>()) {
+      result.add(*set.get_component_for_read<VolumeComponent>());
+      return;
+    }
+  }
 }
 
 static void join_instance_groups_curve(Span<GeometryInstanceGroup> set_groups, GeometrySet &result)
 {
-  CurveEval *curve = join_curve_splines(set_groups);
+  CurveEval *curve = join_curve_splines_and_builtin_attributes(set_groups);
   if (curve == nullptr) {
     return;
   }
+
   CurveComponent &dst_component = result.get_component_for_write<CurveComponent>();
   dst_component.replace(curve);
+
+  Map<std::string, AttributeKind> attributes;
+  geometry_set_gather_instances_attribute_info(
+      set_groups,
+      {GEO_COMPONENT_TYPE_CURVE},
+      {"position", "radius", "tilt", "cyclic", "resolution"},
+      attributes);
+  join_attributes(set_groups,
+                  {GEO_COMPONENT_TYPE_CURVE},
+                  attributes,
+                  static_cast<GeometryComponent &>(dst_component));
 }
 
 GeometrySet geometry_set_realize_mesh_for_modifier(const GeometrySet &geometry_set)

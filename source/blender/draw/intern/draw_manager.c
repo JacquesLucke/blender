@@ -87,6 +87,7 @@
 #include "draw_manager_profiling.h"
 #include "draw_manager_testing.h"
 #include "draw_manager_text.h"
+#include "draw_shader.h"
 
 /* only for callbacks */
 #include "draw_cache_impl.h"
@@ -146,7 +147,7 @@ static bool drw_draw_show_annotation(void)
        * the draw manager is only used to draw the background. */
       return false;
     default:
-      BLI_assert("");
+      BLI_assert(0);
       return false;
   }
 }
@@ -511,7 +512,7 @@ static void drw_context_state_init(void)
   if (DST.draw_ctx.object_mode & OB_MODE_POSE) {
     DST.draw_ctx.object_pose = DST.draw_ctx.obact;
   }
-  else if ((DST.draw_ctx.object_mode & OB_MODE_ALL_WEIGHT_PAINT)) {
+  else if (DST.draw_ctx.object_mode & OB_MODE_ALL_WEIGHT_PAINT) {
     DST.draw_ctx.object_pose = BKE_object_pose_armature_get(DST.draw_ctx.obact);
   }
   else {
@@ -1280,6 +1281,12 @@ static void drw_engines_enable(ViewLayer *UNUSED(view_layer),
     use_drw_engine(&draw_engine_gpencil_type);
   }
   drw_engines_enable_overlays();
+
+#ifdef WITH_DRAW_DEBUG
+  if (G.debug_value == 31) {
+    use_drw_engine(&draw_engine_debug_select_type);
+  }
+#endif
 }
 
 static void drw_engines_disable(void)
@@ -1644,7 +1651,7 @@ void DRW_draw_render_loop_ex(struct Depsgraph *depsgraph,
 
   drw_engines_draw_scene();
 
-  /* Fix 3D view being "laggy" on macos and win+nvidia. (See T56996, T61474) */
+  /* Fix 3D view "lagging" on APPLE and WIN32+NVIDIA. (See T56996, T61474) */
   GPU_flush();
 
   DRW_stats_reset();
@@ -1775,7 +1782,7 @@ static void DRW_render_gpencil_to_image(RenderEngine *engine,
 
 void DRW_render_gpencil(struct RenderEngine *engine, struct Depsgraph *depsgraph)
 {
-  /* This function should only be called if there are are grease pencil objects,
+  /* This function should only be called if there are grease pencil objects,
    * especially important to avoid failing in background renders without OpenGL context. */
   BLI_assert(DRW_render_check_grease_pencil(depsgraph));
 
@@ -2089,7 +2096,7 @@ void DRW_draw_render_loop_2d_ex(struct Depsgraph *depsgraph,
   drw_viewport_colormanagement_set();
 
   /* TODO(jbakker): Only populate when editor needs to draw object.
-   * for the image editor this is when showing UV's.*/
+   * for the image editor this is when showing UV's. */
   const bool do_populate_loop = (DST.draw_ctx.space_data->spacetype == SPACE_IMAGE);
   const bool do_annotations = drw_draw_show_annotation();
   const bool do_draw_gizmos = (DST.draw_ctx.space_data->spacetype != SPACE_IMAGE);
@@ -2252,7 +2259,7 @@ static void draw_select_framebuffer_depth_only_setup(const int size[2])
 /* Must run after all instance datas have been added. */
 void DRW_render_instance_buffer_finish(void)
 {
-  BLI_assert(!DST.buffer_finish_called && "DRW_render_instance_buffer_finish called twice!");
+  BLI_assert_msg(!DST.buffer_finish_called, "DRW_render_instance_buffer_finish called twice!");
   DST.buffer_finish_called = true;
   DRW_instance_buffer_finish(DST.idatalist);
   drw_resource_buffer_finish(DST.vmempool);
@@ -2314,7 +2321,7 @@ void DRW_draw_select_loop(struct Depsgraph *depsgraph,
   }
   if (v3d->overlay.flag & V3D_OVERLAY_BONE_SELECT) {
     if (!(v3d->flag2 & V3D_HIDE_OVERLAYS)) {
-      /* Note: don't use "BKE_object_pose_armature_get" here, it breaks selection. */
+      /* NOTE: don't use "BKE_object_pose_armature_get" here, it breaks selection. */
       Object *obpose = OBPOSE_FROM_OBACT(obact);
       if (obpose == NULL) {
         Object *obweight = OBWEIGHTPAINT_FROM_OBACT(obact);
@@ -2681,6 +2688,7 @@ void DRW_draw_select_id(Depsgraph *depsgraph, ARegion *region, View3D *v3d, cons
   drw_viewport_var_init();
 
   /* Update UBO's */
+  UI_SetTheme(SPACE_VIEW3D, RGN_TYPE_WINDOW);
   DRW_globals_update();
 
   /* Init Select Engine */
@@ -2938,6 +2946,9 @@ void DRW_engines_register(void)
   DRW_engine_register(&draw_engine_overlay_type);
   DRW_engine_register(&draw_engine_select_type);
   DRW_engine_register(&draw_engine_basic_type);
+#ifdef WITH_DRAW_DEBUG
+  DRW_engine_register(&draw_engine_debug_select_type);
+#endif
 
   DRW_engine_register(&draw_engine_image_type);
   DRW_engine_register(DRW_engine_viewport_external_type.draw_engine);
@@ -2987,6 +2998,7 @@ void DRW_engines_free(void)
   DRW_TEXTURE_FREE_SAFE(g_select_buffer.texture_depth);
   GPU_FRAMEBUFFER_FREE_SAFE(g_select_buffer.framebuffer_depth_only);
 
+  DRW_shaders_free();
   DRW_hair_free();
   DRW_shape_cache_free();
   DRW_stats_free();
@@ -3145,7 +3157,7 @@ void DRW_opengl_render_context_enable(void *re_gl_context)
   /* If thread is main you should use DRW_opengl_context_enable(). */
   BLI_assert(!BLI_thread_is_main());
 
-  /* TODO get rid of the blocking. Only here because of the static global DST. */
+  /* TODO: get rid of the blocking. Only here because of the static global DST. */
   BLI_ticket_mutex_lock(DST.gl_context_mutex);
   WM_opengl_context_activate(re_gl_context);
 }
@@ -3153,7 +3165,7 @@ void DRW_opengl_render_context_enable(void *re_gl_context)
 void DRW_opengl_render_context_disable(void *re_gl_context)
 {
   WM_opengl_context_release(re_gl_context);
-  /* TODO get rid of the blocking. */
+  /* TODO: get rid of the blocking. */
   BLI_ticket_mutex_unlock(DST.gl_context_mutex);
 }
 

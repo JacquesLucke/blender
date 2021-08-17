@@ -73,6 +73,7 @@
 #include "BKE_rigidbody.h"
 
 #include "DEG_depsgraph.h"
+#include "DEG_depsgraph_build.h"
 
 #include "RNA_access.h"
 
@@ -141,7 +142,8 @@ static int lib_id_clear_library_data_users_update_cb(LibraryIDLinkCallbackData *
 {
   ID *id = cb_data->user_data;
   if (*cb_data->id_pointer == id) {
-    DEG_id_tag_update_ex(cb_data->bmain, cb_data->id_owner, ID_RECALC_TAG_FOR_UNDO);
+    DEG_id_tag_update_ex(
+        cb_data->bmain, cb_data->id_owner, ID_RECALC_TAG_FOR_UNDO | ID_RECALC_COPY_ON_WRITE);
     return IDWALK_RET_STOP_ITER;
   }
   return IDWALK_RET_NOP;
@@ -193,6 +195,8 @@ static void lib_id_clear_library_data_ex(Main *bmain, ID *id)
   if (key != NULL) {
     lib_id_clear_library_data_ex(bmain, &key->id);
   }
+
+  DEG_relations_tag_update(bmain);
 }
 
 void BKE_lib_id_clear_library_data(Main *bmain, ID *id)
@@ -499,7 +503,7 @@ bool BKE_lib_id_make_local(Main *bmain, ID *id, const bool test, const int flags
     return false;
   }
 
-  BLI_assert(!"IDType Missing IDTypeInfo");
+  BLI_assert_msg(0, "IDType Missing IDTypeInfo");
   return false;
 }
 
@@ -603,7 +607,7 @@ ID *BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag)
     }
   }
   else {
-    BLI_assert(!"IDType Missing IDTypeInfo");
+    BLI_assert_msg(0, "IDType Missing IDTypeInfo");
   }
 
   /* Update ID refcount, remap pointers to self in new ID. */
@@ -667,7 +671,7 @@ ID *BKE_id_copy_for_duplicate(Main *bmain, ID *id, const eDupli_ID_Flags duplica
       ID_NEW_SET(key, key_new);
     }
 
-    /* Note: embedded data (root nodetrees and master collections) should never be referenced by
+    /* NOTE: embedded data (root nodetrees and master collections) should never be referenced by
      * anything else, so we do not need to set their newid pointer and flag. */
 
     BKE_animdata_duplicate_id_action(bmain, id_new, duplicate_flags);
@@ -1053,7 +1057,7 @@ void *BKE_libblock_alloc_notest(short type)
   if (size != 0) {
     return MEM_callocN(size, name);
   }
-  BLI_assert(!"Request to allocate unknown data type");
+  BLI_assert_msg(0, "Request to allocate unknown data type");
   return NULL;
 }
 
@@ -1099,7 +1103,7 @@ void *BKE_libblock_alloc(Main *bmain, short type, const char *name, const int fl
       /* alphabetic insertion: is in new_id */
       BKE_main_unlock(bmain);
 
-      /* TODO to be removed from here! */
+      /* TODO: to be removed from here! */
       if ((flag & LIB_ID_CREATE_NO_DEG_TAG) == 0) {
         DEG_id_type_tag(bmain, type);
       }
@@ -1134,7 +1138,7 @@ void BKE_libblock_init_empty(ID *id)
     return;
   }
 
-  BLI_assert(!"IDType Missing IDTypeInfo");
+  BLI_assert_msg(0, "IDType Missing IDTypeInfo");
 }
 
 /* ********** ID session-wise UUID management. ********** */
@@ -1234,11 +1238,11 @@ void BKE_libblock_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int ori
 
   if ((flag & LIB_ID_CREATE_NO_ALLOCATE) != 0) {
     /* r_newid already contains pointer to allocated memory. */
-    /* TODO do we want to memset(0) whole mem before filling it? */
+    /* TODO: do we want to memset(0) whole mem before filling it? */
     BLI_strncpy(new_id->name, id->name, sizeof(new_id->name));
     new_id->us = 0;
     new_id->tag |= LIB_TAG_NOT_ALLOCATED | LIB_TAG_NO_MAIN | LIB_TAG_NO_USER_REFCOUNT;
-    /* TODO Do we want/need to copy more from ID struct itself? */
+    /* TODO: Do we want/need to copy more from ID struct itself? */
   }
   else {
     new_id = BKE_libblock_alloc(bmain, GS(id->name), id->name + 2, flag);
@@ -1317,14 +1321,6 @@ void *BKE_libblock_copy(Main *bmain, const ID *id)
   return idn;
 }
 
-/* XXX TODO: get rid of this useless wrapper at some point... */
-void *BKE_libblock_copy_for_localize(const ID *id)
-{
-  ID *idn;
-  BKE_libblock_copy_ex(NULL, id, &idn, LIB_ID_COPY_LOCALIZE | LIB_ID_COPY_NO_ANIMDATA);
-  return idn;
-}
-
 /* ***************** ID ************************ */
 ID *BKE_libblock_find_name(struct Main *bmain, const short type, const char *name)
 {
@@ -1380,7 +1376,7 @@ void id_sort_by_name(ListBase *lb, ID *id, ID *id_sorting_hint)
 
   /* Step one: We go backward over a whole chunk of items at once, until we find a limit item
    * that is lower than, or equal (should never happen!) to the one we want to insert. */
-  /* Note: We start from the end, because in typical 'heavy' case (insertion of lots of IDs at
+  /* NOTE: We start from the end, because in typical 'heavy' case (insertion of lots of IDs at
    * once using the same base name), newly inserted items will generally be towards the end
    * (higher extension numbers). */
   bool is_in_library = false;
@@ -1450,7 +1446,7 @@ void id_sort_by_name(ListBase *lb, ID *id, ID *id_sorting_hint)
 #undef ID_SORT_STEP_SIZE
 }
 
-/* Note: this code assumes and ensures that the suffix number can never go beyond 1 billion. */
+/* NOTE: this code assumes and ensures that the suffix number can never go beyond 1 billion. */
 #define MAX_NUMBER 1000000000
 /* We do not want to get "name.000", so minimal number is 1. */
 #define MIN_NUMBER 1
@@ -1605,7 +1601,7 @@ static bool check_for_dupid(ListBase *lb, ID *id, char *name, ID **r_id_sorting_
     }
 
     /* In case we get an insane initial number suffix in given name. */
-    /* Note: BLI_split_name_num() cannot return negative numbers, so we do not have to check for
+    /* NOTE: BLI_split_name_num() cannot return negative numbers, so we do not have to check for
      * that here. */
     if (number >= MAX_NUMBER || number < MIN_NUMBER) {
       number = MIN_NUMBER;
@@ -1642,9 +1638,8 @@ static bool check_for_dupid(ListBase *lb, ID *id, char *name, ID **r_id_sorting_
      * already.
      */
     if (!is_orig_name_used) {
-      /* Don't bother updating prev_ static variables here, this case is not supposed to happen
-       * that often, and is not straight-forward here, so just ignore and reset them to default.
-       */
+      /* Don't bother updating `prev_*` static variables here, this case is not supposed to happen
+       * that often, and is not straight-forward here, so just ignore and reset them to default. */
       prev_id_type = ID_LINK_PLACEHOLDER;
       prev_final_base_name[0] = '\0';
       prev_number = MIN_NUMBER - 1;
@@ -1684,7 +1679,7 @@ static bool check_for_dupid(ListBase *lb, ID *id, char *name, ID **r_id_sorting_
       continue;
     }
 
-    /* Update prev_ static variables, in case next call is for the same type of IDs and with the
+    /* Update `prev_*` static variables, in case next call is for the same type of IDs and with the
      * same initial base name, we can skip a lot of above process. */
     prev_id_type = id_type;
     strcpy(prev_final_base_name, base_name);
@@ -1892,7 +1887,7 @@ static void library_make_local_copying_check(ID *id,
  * \param set_fake: If true, set fake user on all localized data-blocks
  * (except group and objects ones).
  */
-/* Note: Old (2.77) version was simply making (tagging) data-blocks as local,
+/* NOTE: Old (2.77) version was simply making (tagging) data-blocks as local,
  * without actually making any check whether they were also indirectly used or not...
  *
  * Current version uses regular id_make_local callback, with advanced pre-processing step to
@@ -1941,18 +1936,18 @@ void BKE_library_make_local(Main *bmain,
         ntree->tag &= ~LIB_TAG_DOIT;
       }
 
-      if (id->lib == NULL) {
+      if (!ID_IS_LINKED(id)) {
         id->tag &= ~(LIB_TAG_EXTERN | LIB_TAG_INDIRECT | LIB_TAG_NEW);
         id->flag &= ~LIB_INDIRECT_WEAK_LINK;
         if (ID_IS_OVERRIDE_LIBRARY_REAL(id) &&
             ELEM(lib, NULL, id->override_library->reference->lib) &&
             ((untagged_only == false) || !(id->tag & LIB_TAG_PRE_EXISTING))) {
-          BKE_lib_override_library_free(&id->override_library, true);
+          BKE_lib_override_library_make_local(id);
         }
       }
       /* The check on the fourth line (LIB_TAG_PRE_EXISTING) is done so it's possible to tag data
        * you don't want to be made local, used for appending data,
-       * so any libdata already linked wont become local (very nasty
+       * so any libdata already linked won't become local (very nasty
        * to discover all your links are lost after appending).
        * Also, never ever make proxified objects local, would not make any sense. */
       /* Some more notes:
@@ -2070,7 +2065,7 @@ void BKE_library_make_local(Main *bmain,
    * ID in a separated loop,
    * as lbarray ordering is not enough to ensure us we did catch all dependencies
    * (e.g. if making local a parent object before its child...). See T48907. */
-  /* TODO This is now the biggest step by far (in term of processing time).
+  /* TODO: This is now the biggest step by far (in term of processing time).
    * We may be able to gain here by using again main->relations mapping, but...
    * this implies BKE_libblock_remap & co to be able to update main->relations on the fly.
    * Have to think about it a bit more, and see whether new code is OK first, anyway. */

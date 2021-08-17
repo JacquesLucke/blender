@@ -348,6 +348,7 @@ elseif(APPLE)
   else()
     set(TARGETDIR_VER Blender.app/Contents/Resources/${BLENDER_VERSION})
   endif()
+  set(MAC_BLENDER_TARGET_DYLIBS_DIR "${TARGETDIR_VER}/lib")
   # Skip relinking on cpack / install
   set_target_properties(blender PROPERTIES BUILD_WITH_INSTALL_RPATH true)
 endif()
@@ -371,14 +372,14 @@ if(WITH_PYTHON)
      "${BLENDER_VERSION_CYCLE}" STREQUAL "rc")
     set(ADDON_EXCLUDE_CONDITIONAL "addons_contrib/*")
   else()
-    set(ADDON_EXCLUDE_CONDITIONAL "_addons_contrib/*")  # dummy, wont do anything
+    set(ADDON_EXCLUDE_CONDITIONAL "_addons_contrib/*")  # dummy, won't do anything
   endif()
 
   # do not install freestyle dir if disabled
   if(NOT WITH_FREESTYLE)
     set(FREESTYLE_EXCLUDE_CONDITIONAL "freestyle/*")
   else()
-    set(FREESTYLE_EXCLUDE_CONDITIONAL "_freestyle/*")  # dummy, wont do anything
+    set(FREESTYLE_EXCLUDE_CONDITIONAL "_freestyle/*")  # dummy, won't do anything
   endif()
 
   install(
@@ -631,9 +632,9 @@ if(UNIX AND NOT APPLE)
           PATTERN "doc" EXCLUDE                   # ./doc
           PATTERN "tests" EXCLUDE                 # ./tests
           PATTERN "f2py" EXCLUDE                  # ./f2py - fortran/python interface code, not for blender.
-          PATTERN "include" EXCLUDE               # include dirs all over, we wont use NumPy/CAPI
+          PATTERN "include" EXCLUDE               # include dirs all over, we won't use NumPy/CAPI
           PATTERN "*.h" EXCLUDE                   # some includes are not in include dirs
-          PATTERN "*.a" EXCLUDE                   # ./core/lib/libnpymath.a - for linking, we dont need.
+          PATTERN "*.a" EXCLUDE                   # ./core/lib/libnpymath.a - for linking, we don't need.
         )
         unset(_suffix)
       endif()
@@ -1041,29 +1042,15 @@ elseif(APPLE)
 
   if(WITH_OPENMP AND OPENMP_CUSTOM)
     install(
-      FILES ${LIBDIR}/openmp/lib/libomp.dylib
-      DESTINATION Blender.app/Contents/Resources/lib
+      FILES "${OpenMP_LIBRARY}"
+      DESTINATION "${MAC_BLENDER_TARGET_DYLIBS_DIR}"
     )
-    if(WITH_PYTHON_MODULE)
-      # Move the dylib in a Blender version folder to keep the corresponding OpenMP version.
-      install(
-        DIRECTORY   ${CMAKE_BINARY_DIR}/Resources/lib
-        DESTINATION ${TARGETDIR_VER}
-      )
-      add_custom_command(TARGET blender POST_BUILD
-        # The old `LC_LOAD_DYLIB` is the `LC_ID_DYLIB` of the LIBDIR OpenMP dylib.
-        # Change it to support multiple rpaths.
-        COMMAND xcrun install_name_tool -change "@executable_path/../Resources/lib/libomp.dylib" "@rpath/libomp.dylib" "$<TARGET_FILE:blender>"
-        # For installation into site-packages.
-        COMMAND xcrun install_name_tool -add_rpath "@loader_path/../Resources/${BLENDER_VERSION}/lib" "$<TARGET_FILE:blender>"
-      )
-    endif()
   endif()
 
-  if(WITH_LLVM AND NOT LLVM_STATIC)
+  if(WITH_COMPILER_ASAN)
     install(
-      FILES ${LIBDIR}/llvm/lib/libLLVM-3.4.dylib
-      DESTINATION Blender.app/Contents/MacOS
+      FILES "${COMPILER_ASAN_LIBRARY}"
+      DESTINATION "${MAC_BLENDER_TARGET_DYLIBS_DIR}"
     )
   endif()
 

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -210,7 +210,7 @@ void AbcObjectReader::setupObjectTransform(const float time)
 
 Alembic::AbcGeom::IXform AbcObjectReader::xform()
 {
-  /* Check that we have an empty object (locator, bone head/tail...).  */
+  /* Check that we have an empty object (locator, bone head/tail...). */
   if (IXform::matches(m_iobject.getMetaData())) {
     try {
       return IXform(m_iobject, Alembic::AbcGeom::kWrapExisting);

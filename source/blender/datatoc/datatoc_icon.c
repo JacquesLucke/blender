@@ -172,8 +172,9 @@ static bool write_png(const char *name, const uint *pixels, const int width, con
 
   /* set the individual row-pointers to point at the correct offsets */
   for (i = 0; i < height; i++) {
-    row_pointers[height - 1 - i] = (png_bytep)(
-        ((const unsigned char *)pixels) + (i * width) * bytesperpixel * sizeof(unsigned char));
+    row_pointers[height - 1 - i] = (png_bytep)(((const unsigned char *)pixels) +
+                                               (i * width) * bytesperpixel *
+                                                   sizeof(unsigned char));
   }
 
   /* write out the entire image data in one call */
@@ -453,7 +454,7 @@ static bool icondir_to_png(const char *path_src, const char *file_dst)
     printf("%s: dir '%s' failed %d icons\n", __func__, path_src, fail);
   }
 
-  /* write pixels  */
+  /* Write pixels. */
   write_png(file_dst, pixels_canvas, canvas_w, canvas_h);
 
   free(pixels_canvas);

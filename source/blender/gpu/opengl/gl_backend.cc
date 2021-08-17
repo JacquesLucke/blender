@@ -38,6 +38,17 @@ namespace blender::gpu {
 /** \name Platform
  * \{ */
 
+static bool match_renderer(StringRef renderer, const Vector<std::string> &items)
+{
+  for (const std::string &item : items) {
+    const std::string wrapped = " " + item + " ";
+    if (renderer.endswith(item) || renderer.find(wrapped) != StringRef::not_found) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void GLBackend::platform_init()
 {
   BLI_assert(!GPG.initialized);
@@ -79,7 +90,7 @@ void GLBackend::platform_init()
       device |= GPU_DEVICE_INTEL_UHD;
     }
   }
-  else if ((strstr(renderer, "Mesa DRI R")) ||
+  else if (strstr(renderer, "Mesa DRI R") ||
            (strstr(renderer, "Radeon") && strstr(vendor, "X.Org")) ||
            (strstr(renderer, "AMD") && strstr(vendor, "X.Org")) ||
            (strstr(renderer, "Gallium ") && strstr(renderer, " on ATI ")) ||
@@ -272,7 +283,8 @@ static void detect_workarounds()
   }
   /* We have issues with this specific renderer. (see T74024) */
   if (GPU_type_matches(GPU_DEVICE_ATI, GPU_OS_UNIX, GPU_DRIVER_OPENSOURCE) &&
-      strstr(renderer, "AMD VERDE")) {
+      (strstr(renderer, "AMD VERDE") || strstr(renderer, "AMD KAVERI") ||
+       strstr(renderer, "AMD TAHITI"))) {
     GLContext::unused_fb_slot_workaround = true;
     GCaps.shader_image_load_store_support = false;
     GCaps.broken_amd_driver = true;
@@ -288,14 +300,25 @@ static void detect_workarounds()
    * The work around uses `GPU_RGBA16I`.
    */
   if (GPU_type_matches(GPU_DEVICE_ATI, GPU_OS_ANY, GPU_DRIVER_OFFICIAL)) {
-    if (strstr(renderer, " RX 460 ") || strstr(renderer, " RX 470 ") ||
-        strstr(renderer, " RX 480 ") || strstr(renderer, " RX 490 ") ||
-        strstr(renderer, " RX 560 ") || strstr(renderer, " RX 560X ") ||
-        strstr(renderer, " RX 570 ") || strstr(renderer, " RX 580 ") ||
-        strstr(renderer, " RX 580X ") || strstr(renderer, " RX 590 ") ||
-        strstr(renderer, " RX550/550 ") || strstr(renderer, "(TM) 520 ") ||
-        strstr(renderer, "(TM) 530 ") || strstr(renderer, "(TM) 535 ") ||
-        strstr(renderer, " R5 ") || strstr(renderer, " R7 ") || strstr(renderer, " R9 ")) {
+    const Vector<std::string> matches = {"RX 460",
+                                         "RX 470",
+                                         "RX 480",
+                                         "RX 490",
+                                         "RX 560",
+                                         "RX 560X",
+                                         "RX 570",
+                                         "RX 580",
+                                         "RX 580X",
+                                         "RX 590",
+                                         "RX550/550",
+                                         "(TM) 520",
+                                         "(TM) 530",
+                                         "(TM) 535",
+                                         "R5",
+                                         "R7",
+                                         "R9"};
+
+    if (match_renderer(renderer, matches)) {
       GCaps.use_hq_normals_workaround = true;
     }
   }
@@ -343,8 +366,8 @@ static void detect_workarounds()
       (strstr(version, "Build 20.19.15.4285"))) {
     GCaps.use_main_context_workaround = true;
   }
-  /* See T70187: merging vertices fail. This has been tested from 18.2.2 till 19.3.0~dev of the
-   * Mesa driver */
+  /* See T70187: merging vertices fail. This has been tested from `18.2.2` till `19.3.0~dev`
+   * of the Mesa driver */
   if (GPU_type_matches(GPU_DEVICE_ATI, GPU_OS_UNIX, GPU_DRIVER_OPENSOURCE) &&
       (strstr(version, "Mesa 18.") || strstr(version, "Mesa 19.0") ||
        strstr(version, "Mesa 19.1") || strstr(version, "Mesa 19.2"))) {

@@ -16,6 +16,8 @@
 
 #include "BLI_task.hh"
 
+#include "RNA_enum_types.h"
+
 #include "UI_interface.h"
 #include "UI_resources.h"
 
@@ -132,6 +134,17 @@ static void geo_node_attribute_math_init(bNodeTree *UNUSED(tree), bNode *node)
 
 namespace blender::nodes {
 
+static void geo_node_math_label(bNodeTree *UNUSED(ntree), bNode *node, char *label, int maxlen)
+{
+  NodeAttributeMath &node_storage = *(NodeAttributeMath *)node->storage;
+  const char *name;
+  bool enum_label = RNA_enum_name(rna_enum_node_math_items, node_storage.operation, &name);
+  if (!enum_label) {
+    name = "Unknown";
+  }
+  BLI_strncpy(label, IFACE_(name), maxlen);
+}
+
 static void geo_node_attribute_math_update(bNodeTree *UNUSED(ntree), bNode *node)
 {
   NodeAttributeMath &node_storage = *(NodeAttributeMath *)node->storage;
@@ -159,7 +172,7 @@ static void do_math_operation(const VArray<float> &span_a,
 {
   bool success = try_dispatch_float_math_fl_fl_fl_to_fl(
       operation, [&](auto math_function, const FloatMathOperationInfo &UNUSED(info)) {
-        parallel_for(IndexRange(span_result.size()), 512, [&](IndexRange range) {
+        threading::parallel_for(IndexRange(span_result.size()), 512, [&](IndexRange range) {
           for (const int i : range) {
             span_result[i] = math_function(span_a[i], span_b[i], span_c[i]);
           }
@@ -176,7 +189,7 @@ static void do_math_operation(const VArray<float> &span_a,
 {
   bool success = try_dispatch_float_math_fl_fl_to_fl(
       operation, [&](auto math_function, const FloatMathOperationInfo &UNUSED(info)) {
-        parallel_for(IndexRange(span_result.size()), 1024, [&](IndexRange range) {
+        threading::parallel_for(IndexRange(span_result.size()), 1024, [&](IndexRange range) {
           for (const int i : range) {
             span_result[i] = math_function(span_a[i], span_b[i]);
           }
@@ -192,7 +205,7 @@ static void do_math_operation(const VArray<float> &span_input,
 {
   bool success = try_dispatch_float_math_fl_to_fl(
       operation, [&](auto math_function, const FloatMathOperationInfo &UNUSED(info)) {
-        parallel_for(IndexRange(span_result.size()), 1024, [&](IndexRange range) {
+        threading::parallel_for(IndexRange(span_result.size()), 1024, [&](IndexRange range) {
           for (const int i : range) {
             span_result[i] = math_function(span_input[i]);
           }
@@ -296,6 +309,7 @@ void register_node_type_geo_attribute_math()
   node_type_socket_templates(&ntype, geo_node_attribute_math_in, geo_node_attribute_math_out);
   ntype.geometry_node_execute = blender::nodes::geo_node_attribute_math_exec;
   ntype.draw_buttons = geo_node_attribute_math_layout;
+  node_type_label(&ntype, blender::nodes::geo_node_math_label);
   node_type_update(&ntype, blender::nodes::geo_node_attribute_math_update);
   node_type_init(&ntype, geo_node_attribute_math_init);
   node_type_storage(

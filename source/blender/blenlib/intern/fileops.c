@@ -64,7 +64,7 @@
 #if 0 /* UNUSED */
 /* gzip the file in from and write it to "to".
  * return -1 if zlib fails, -2 if the originating file does not exist
- * note: will remove the "from" file
+ * NOTE: will remove the "from" file
  */
 int BLI_file_gzip(const char *from, const char *to)
 {
@@ -355,7 +355,7 @@ void *BLI_gzopen(const char *filename, const char *mode)
 
   BLI_assert(!BLI_path_is_rel(filename));
 
-  /* xxx Creates file before transcribing the path */
+  /* XXX: Creates file before transcribing the path. */
   if (mode[0] == 'w') {
     FILE *file = ufopen(filename, "a");
     if (file == NULL) {
@@ -919,8 +919,8 @@ static int delete_soft(const char *file, const char **error_message)
 
   Class NSStringClass = objc_getClass("NSString");
   SEL stringWithUTF8StringSel = sel_registerName("stringWithUTF8String:");
-  id pathString = ((id(*)(Class, SEL, const char *))objc_msgSend)(
-      NSStringClass, stringWithUTF8StringSel, file);
+  id pathString = ((
+      id(*)(Class, SEL, const char *))objc_msgSend)(NSStringClass, stringWithUTF8StringSel, file);
 
   Class NSFileManagerClass = objc_getClass("NSFileManager");
   SEL defaultManagerSel = sel_registerName("defaultManager");
@@ -931,8 +931,8 @@ static int delete_soft(const char *file, const char **error_message)
   id nsurl = ((id(*)(Class, SEL, id))objc_msgSend)(NSURLClass, fileURLWithPathSel, pathString);
 
   SEL trashItemAtURLSel = sel_registerName("trashItemAtURL:resultingItemURL:error:");
-  BOOL deleteSuccessful = ((BOOL(*)(id, SEL, id, id, id))objc_msgSend)(
-      fileManager, trashItemAtURLSel, nsurl, nil, nil);
+  BOOL deleteSuccessful = ((
+      BOOL(*)(id, SEL, id, id, id))objc_msgSend)(fileManager, trashItemAtURLSel, nsurl, nil, nil);
 
   if (deleteSuccessful) {
     ret = 0;

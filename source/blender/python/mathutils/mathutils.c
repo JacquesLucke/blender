@@ -78,7 +78,7 @@ static int mathutils_array_parse_fast(float *array,
 }
 
 /**
- * helper function that returns a Python ``__hash__``.
+ * helper function that returns a Python `__hash__`.
  *
  * \note consistent with the equivalent tuple of floats (CPython's 'tuplehash')
  */
@@ -95,7 +95,11 @@ Py_hash_t mathutils_array_hash(const float *array, size_t array_len)
   x = 0x345678UL;
   i = 0;
   while (--len >= 0) {
+#if PY_VERSION_HEX >= 0x30a0000 /* Version: 3.10. */
+    y = _Py_HashDouble(NULL, (double)(array[i++]));
+#else
     y = _Py_HashDouble((double)(array[i++]));
+#endif
     if (y == -1) {
       return -1;
     }

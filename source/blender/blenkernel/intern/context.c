@@ -1225,8 +1225,11 @@ enum eContextObjectMode CTX_data_mode_enum(const bContext *C)
   return CTX_data_mode_enum_ex(obedit, obact, obact ? obact->mode : OB_MODE_OBJECT);
 }
 
-/* would prefer if we can use the enum version below over this one - Campbell */
-/* must be aligned with above enum  */
+/**
+ * Would prefer if we can use the enum version below over this one - Campbell.
+ *
+ * \note Must be aligned with above enum.
+ */
 static const char *data_mode_strings[] = {
     "mesh_edit",           "curve_edit",          "surface_edit",        "text_edit",
     "armature_edit",       "mball_edit",          "lattice_edit",        "posemode",
@@ -1443,6 +1446,36 @@ int CTX_data_editable_gpencil_layers(const bContext *C, ListBase *list)
 int CTX_data_editable_gpencil_strokes(const bContext *C, ListBase *list)
 {
   return ctx_data_collection_get(C, "editable_gpencil_strokes", list);
+}
+
+const AssetLibraryReference *CTX_wm_asset_library_ref(const bContext *C)
+{
+  return ctx_data_pointer_get(C, "asset_library_ref");
+}
+
+AssetHandle CTX_wm_asset_handle(const bContext *C, bool *r_is_valid)
+{
+  AssetHandle *asset_handle_p =
+      (AssetHandle *)CTX_data_pointer_get_type(C, "asset_handle", &RNA_AssetHandle).data;
+  if (asset_handle_p) {
+    *r_is_valid = true;
+    return *asset_handle_p;
+  }
+
+  /* If the asset handle was not found in context directly, try if there's an active file with
+   * asset data there instead. Not nice to have this here, would be better to have this in
+   * `ED_asset.h`, but we can't include that in BKE. Even better would be not needing this at all
+   * and being able to have editors return this in the usual `context` callback. But that would
+   * require returning a non-owning pointer, which we don't have in the Asset Browser (yet). */
+  FileDirEntry *file =
+      (FileDirEntry *)CTX_data_pointer_get_type(C, "active_file", &RNA_FileSelectEntry).data;
+  if (file && file->asset_data) {
+    *r_is_valid = true;
+    return (AssetHandle){.file_data = file};
+  }
+
+  *r_is_valid = false;
+  return (AssetHandle){0};
 }
 
 Depsgraph *CTX_data_depsgraph_pointer(const bContext *C)

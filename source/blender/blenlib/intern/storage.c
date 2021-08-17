@@ -47,7 +47,7 @@
 #endif
 
 #include <fcntl.h>
-#include <string.h> /* strcpy etc.. */
+#include <string.h> /* `strcpy` etc. */
 
 #ifdef WIN32
 #  include "BLI_string_utf8.h"
@@ -114,7 +114,7 @@ double BLI_dir_free_space(const char *dir)
 
   tmp[0] = '\\';
   tmp[1] = 0; /* Just a fail-safe. */
-  if (ELEM(dir[0] == '/', '\\')) {
+  if (ELEM(dir[0], '/', '\\')) {
     tmp[0] = '\\';
     tmp[1] = 0;
   }

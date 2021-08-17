@@ -226,7 +226,7 @@ typedef enum PropertyFlag {
   PROP_ICONS_CONSECUTIVE = (1 << 12),
   PROP_ICONS_REVERSE = (1 << 8),
 
-  /** Hidden in  the user interface. */
+  /** Hidden in the user interface. */
   PROP_HIDDEN = (1 << 19),
   /** Do not write in presets. */
   PROP_SKIP_SAVE = (1 << 28),
@@ -255,7 +255,7 @@ typedef enum PropertyFlag {
    * Currently only used for UI, this is similar to PROP_NEVER_NULL
    * except that the value may be NULL at times, used for ObData, where an Empty's will be NULL
    * but setting NULL on a mesh object is not possible.
-   * So, if its not NULL, setting NULL cant be done!
+   * So if it's not NULL, setting NULL can't be done!
    */
   PROP_NEVER_UNLINK = (1 << 25),
 
@@ -271,7 +271,7 @@ typedef enum PropertyFlag {
 
   /**
    * flag contains multiple enums.
-   * note: not to be confused with prop->enumbitflags
+   * NOTE: not to be confused with prop->enumbitflags
    * this exposes the flag as multiple options in python and the UI.
    *
    * \note These can't be animated so use with care.
@@ -443,7 +443,7 @@ typedef struct CollectionListBase {
 
 typedef enum RawPropertyType {
   PROP_RAW_UNSET = -1,
-  PROP_RAW_INT, /* XXX - abused for types that are not set, eg. MFace.verts, needs fixing. */
+  PROP_RAW_INT, /* XXX: abused for types that are not set, eg. MFace.verts, needs fixing. */
   PROP_RAW_SHORT,
   PROP_RAW_CHAR,
   PROP_RAW_BOOLEAN,
@@ -555,7 +555,7 @@ typedef struct ParameterList {
 
 typedef struct ParameterIterator {
   struct ParameterList *parms;
-  /* PointerRNA funcptr; */ /*UNUSED*/
+  // PointerRNA funcptr; /* UNUSED */
   void *data;
   int size, offset;
 

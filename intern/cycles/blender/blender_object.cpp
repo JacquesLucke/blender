@@ -109,22 +109,22 @@ void BlenderSync::sync_object_motion_init(BL::Object &b_parent, BL::Object &b_ob
   }
 
   Geometry *geom = object->get_geometry();
-  geom->set_use_motion_blur(false);
-  geom->set_motion_steps(0);
 
-  uint motion_steps;
+  int motion_steps = 0;
+  bool use_motion_blur = false;
 
   if (need_motion == Scene::MOTION_BLUR) {
     motion_steps = object_motion_steps(b_parent, b_ob, Object::MAX_MOTION_STEPS);
-    geom->set_motion_steps(motion_steps);
     if (motion_steps && object_use_deform_motion(b_parent, b_ob)) {
-      geom->set_use_motion_blur(true);
+      use_motion_blur = true;
     }
   }
   else {
     motion_steps = 3;
-    geom->set_motion_steps(motion_steps);
   }
+
+  geom->set_use_motion_blur(use_motion_blur);
+  geom->set_motion_steps(motion_steps);
 
   motion.resize(motion_steps, transform_empty());
 
@@ -199,8 +199,7 @@ Object *BlenderSync::sync_object(BL::Depsgraph &b_depsgraph,
 
   /* Visibility flags for both parent and child. */
   PointerRNA cobject = RNA_pointer_get(&b_ob.ptr, "cycles");
-  bool use_holdout = get_boolean(cobject, "is_holdout") ||
-                     b_parent.holdout_get(PointerRNA_NULL, b_view_layer);
+  bool use_holdout = b_parent.holdout_get(PointerRNA_NULL, b_view_layer);
   uint visibility = object_ray_visibility(b_ob) & PATH_RAY_ALL_VISIBILITY;
 
   if (b_parent.ptr.data != b_ob.ptr.data) {
@@ -287,11 +286,21 @@ Object *BlenderSync::sync_object(BL::Depsgraph &b_depsgraph,
 
   object->set_visibility(visibility);
 
-  bool is_shadow_catcher = get_boolean(cobject, "is_shadow_catcher");
-  object->set_is_shadow_catcher(is_shadow_catcher);
+  object->set_is_shadow_catcher(b_ob.is_shadow_catcher());
 
-  float shadow_terminator_offset = get_float(cobject, "shadow_terminator_offset");
-  object->set_shadow_terminator_offset(shadow_terminator_offset);
+  float shadow_terminator_shading_offset = get_float(cobject, "shadow_terminator_offset");
+  object->set_shadow_terminator_shading_offset(shadow_terminator_shading_offset);
+
+  float shadow_terminator_geometry_offset = get_float(cobject,
+                                                      "shadow_terminator_geometry_offset");
+  object->set_shadow_terminator_geometry_offset(shadow_terminator_geometry_offset);
+
+  float ao_distance = get_float(cobject, "ao_distance");
+  if (ao_distance == 0.0f && b_parent.ptr.data != b_ob.ptr.data) {
+    PointerRNA cparent = RNA_pointer_get(&b_parent.ptr, "cycles");
+    ao_distance = get_float(cparent, "ao_distance");
+  }
+  object->set_ao_distance(ao_distance);
 
   /* sync the asset name for Cryptomatte */
   BL::Object parent = b_ob.parent();

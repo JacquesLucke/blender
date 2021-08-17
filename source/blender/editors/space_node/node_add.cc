@@ -90,7 +90,7 @@ bNode *node_add_node(const bContext *C, const char *idname, int type, float locx
   nodeSetSelected(node, true);
 
   ntreeUpdateTree(bmain, snode->edittree);
-  ED_node_set_active(bmain, snode->edittree, node, nullptr);
+  ED_node_set_active(bmain, snode, snode->edittree, node, nullptr);
 
   snode_update(snode, node);
 
@@ -260,7 +260,7 @@ static int add_reroute_exec(bContext *C, wmOperator *op)
     BLI_listbase_clear(&input_links);
 
     for (link = (bNodeLink *)ntree->links.first; link; link = link->next) {
-      if (nodeLinkIsHidden(link)) {
+      if (node_link_is_hidden_or_dimmed(&region->v2d, link)) {
         continue;
       }
       if (add_reroute_intersect_check(link, mcoords, i, insert_point)) {
@@ -591,6 +591,7 @@ static int node_add_texture_exec(bContext *C, wmOperator *op)
 
   snode_notify(C, snode);
   snode_dag_update(C, snode);
+  DEG_relations_tag_update(bmain);
 
   ED_node_tag_update_nodetree(bmain, ntree, texture_node);
 
@@ -696,6 +697,7 @@ static int node_add_collection_exec(bContext *C, wmOperator *op)
 
   snode_notify(C, snode);
   snode_dag_update(C, snode);
+  DEG_relations_tag_update(bmain);
 
   ED_node_tag_update_nodetree(bmain, ntree, collection_node);
 
@@ -807,6 +809,7 @@ static int node_add_file_exec(bContext *C, wmOperator *op)
 
   snode_notify(C, snode);
   snode_dag_update(C, snode);
+  DEG_relations_tag_update(bmain);
 
   return OPERATOR_FINISHED;
 }
@@ -902,6 +905,7 @@ static int node_add_mask_exec(bContext *C, wmOperator *op)
 
   snode_notify(C, snode);
   snode_dag_update(C, snode);
+  DEG_relations_tag_update(bmain);
 
   return OPERATOR_FINISHED;
 }

@@ -108,15 +108,14 @@ static AttributeDomain get_result_domain(const GeometryComponent &component,
                                          StringRef result_name)
 {
   /* Use the domain of the result attribute if it already exists. */
-  ReadAttributeLookup result_attribute = component.attribute_try_get_for_read(result_name);
-  if (result_attribute) {
-    return result_attribute.domain;
+  std::optional<AttributeMetaData> result_info = component.attribute_get_meta_data(result_name);
+  if (result_info) {
+    return result_info->domain;
   }
-
   /* Otherwise use the input attribute's domain if it exists. */
-  ReadAttributeLookup input_attribute = component.attribute_try_get_for_read(input_name);
-  if (input_attribute) {
-    return input_attribute.domain;
+  std::optional<AttributeMetaData> input_info = component.attribute_get_meta_data(input_name);
+  if (input_info) {
+    return input_info->domain;
   }
 
   return ATTR_DOMAIN_POINT;
@@ -144,7 +143,7 @@ static void execute_on_component(const GeoNodeExecParams &params, GeometryCompon
       GVArray_Typed<float> attribute_in = component.attribute_get_for_read<float>(
           input_name, result_domain, float(0.0f));
       MutableSpan<float> results = attribute_result.as_span<float>();
-      parallel_for(IndexRange(attribute_in.size()), 512, [&](IndexRange range) {
+      threading::parallel_for(IndexRange(attribute_in.size()), 512, [&](IndexRange range) {
         for (const int i : range) {
           results[i] = BKE_curvemapping_evaluateF(cumap, 3, attribute_in[i]);
         }
@@ -156,7 +155,7 @@ static void execute_on_component(const GeoNodeExecParams &params, GeometryCompon
       GVArray_Typed<float3> attribute_in = component.attribute_get_for_read<float3>(
           input_name, result_domain, float3(0.0f));
       MutableSpan<float3> results = attribute_result.as_span<float3>();
-      parallel_for(IndexRange(attribute_in.size()), 512, [&](IndexRange range) {
+      threading::parallel_for(IndexRange(attribute_in.size()), 512, [&](IndexRange range) {
         for (const int i : range) {
           BKE_curvemapping_evaluate3F(cumap, results[i], attribute_in[i]);
         }
@@ -169,7 +168,7 @@ static void execute_on_component(const GeoNodeExecParams &params, GeometryCompon
           component.attribute_get_for_read<ColorGeometry4f>(
               input_name, result_domain, ColorGeometry4f(0.0f, 0.0f, 0.0f, 1.0f));
       MutableSpan<ColorGeometry4f> results = attribute_result.as_span<ColorGeometry4f>();
-      parallel_for(IndexRange(attribute_in.size()), 512, [&](IndexRange range) {
+      threading::parallel_for(IndexRange(attribute_in.size()), 512, [&](IndexRange range) {
         for (const int i : range) {
           BKE_curvemapping_evaluateRGBF(cumap, results[i], attribute_in[i]);
         }

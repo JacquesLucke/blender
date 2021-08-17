@@ -21,11 +21,11 @@
  * \ingroup draw
  */
 
-#include "draw_cache_extract_mesh_private.h"
-
 #include "BLI_vector.hh"
 
 #include "MEM_guardedalloc.h"
+
+#include "extract_mesh.h"
 
 namespace blender::draw {
 
@@ -156,7 +156,7 @@ static void extract_points_finish(const MeshRenderData *UNUSED(mr),
 
 constexpr MeshExtract create_extractor_points()
 {
-  MeshExtract extractor = {0};
+  MeshExtract extractor = {nullptr};
   extractor.init = extract_points_init;
   extractor.iter_poly_bm = extract_points_iter_poly_bm;
   extractor.iter_poly_mesh = extract_points_iter_poly_mesh;

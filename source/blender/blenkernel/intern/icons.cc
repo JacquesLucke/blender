@@ -1,4 +1,4 @@
-﻿/*
+/*
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -667,7 +667,7 @@ void BKE_previewimg_blend_read(BlendDataReader *reader, PreviewImage *prv)
       BKE_previewimg_finish(prv, i);
     }
     else {
-      /* Only for old files that didn't write the flag . */
+      /* Only for old files that didn't write the flag. */
       prv->flag[i] |= PRV_UNFINISHED;
     }
   }

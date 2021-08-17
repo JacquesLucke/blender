@@ -21,12 +21,12 @@
  * \ingroup draw
  */
 
-#include "draw_cache_extract_mesh_private.h"
-
 #include "BLI_edgehash.h"
 #include "BLI_vector.hh"
 
 #include "MEM_guardedalloc.h"
+
+#include "extract_mesh.h"
 
 namespace blender::draw {
 
@@ -89,7 +89,7 @@ BLI_INLINE void lines_adjacency_triangle(
       *pval = POINTER_FROM_INT(NO_EDGE);
       bool inv_opposite = (v_data < 0);
       uint l_opposite = (uint)abs(v_data) - 1;
-      /* TODO Make this part thread-safe. */
+      /* TODO: Make this part thread-safe. */
       if (inv_opposite == inv_indices) {
         /* Don't share edge if triangles have non matching winding. */
         GPU_indexbuf_add_line_adj_verts(elb, l1, l2, l3, l1);
@@ -153,7 +153,7 @@ static void extract_lines_adjacency_finish(const MeshRenderData *UNUSED(mr),
     if (v_data != NO_EDGE) {
       BLI_edgehashIterator_getKey(ehi, &v2, &v3);
       l1 = (uint)abs(v_data) - 1;
-      if (v_data < 0) { /* inv_opposite  */
+      if (v_data < 0) { /* `inv_opposite`. */
         SWAP(uint, v2, v3);
       }
       l2 = data->vert_to_loop[v2];
@@ -177,7 +177,7 @@ static void extract_lines_adjacency_finish(const MeshRenderData *UNUSED(mr),
 
 constexpr MeshExtract create_extractor_lines_adjacency()
 {
-  MeshExtract extractor = {0};
+  MeshExtract extractor = {nullptr};
   extractor.init = extract_lines_adjacency_init;
   extractor.iter_looptri_bm = extract_lines_adjacency_iter_looptri_bm;
   extractor.iter_looptri_mesh = extract_lines_adjacency_iter_looptri_mesh;

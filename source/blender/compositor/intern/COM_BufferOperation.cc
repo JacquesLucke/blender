@@ -23,6 +23,7 @@ namespace blender::compositor {
 BufferOperation::BufferOperation(MemoryBuffer *buffer, DataType data_type)
 {
   buffer_ = buffer;
+  inflated_buffer_ = nullptr;
   /* TODO: Implement a MemoryBuffer get_size() method returning a Size2d type. Shorten following
    * code to: set_resolution(buffer.get_size()) */
   unsigned int resolution[2];
@@ -30,11 +31,43 @@ BufferOperation::BufferOperation(MemoryBuffer *buffer, DataType data_type)
   resolution[1] = buffer->getHeight();
   setResolution(resolution);
   addOutputSocket(data_type);
+  flags.is_constant_operation = buffer_->is_a_single_elem();
+  flags.is_fullframe_operation = false;
+}
+
+const float *BufferOperation::get_constant_elem()
+{
+  BLI_assert(buffer_->is_a_single_elem());
+  return buffer_->getBuffer();
+}
+
+void BufferOperation::initExecution()
+{
+  if (buffer_->is_a_single_elem()) {
+    initMutex();
+  }
 }
 
 void *BufferOperation::initializeTileData(rcti * /*rect*/)
 {
-  return buffer_;
+  if (buffer_->is_a_single_elem() == false) {
+    return buffer_;
+  }
+
+  lockMutex();
+  if (!inflated_buffer_) {
+    inflated_buffer_ = buffer_->inflate();
+  }
+  unlockMutex();
+  return inflated_buffer_;
+}
+
+void BufferOperation::deinitExecution()
+{
+  if (buffer_->is_a_single_elem()) {
+    deinitMutex();
+  }
+  delete inflated_buffer_;
 }
 
 void BufferOperation::executePixelSampled(float output[4], float x, float y, PixelSampler sampler)

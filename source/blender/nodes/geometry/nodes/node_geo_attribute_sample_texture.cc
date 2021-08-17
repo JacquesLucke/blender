@@ -30,7 +30,7 @@
 
 static bNodeSocketTemplate geo_node_attribute_sample_texture_in[] = {
     {SOCK_GEOMETRY, N_("Geometry")},
-    {SOCK_TEXTURE, N_("Texture")},
+    {SOCK_TEXTURE, N_("Texture"), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, PROP_NONE, SOCK_HIDE_LABEL},
     {SOCK_STRING, N_("Mapping")},
     {SOCK_STRING, N_("Result")},
     {-1, ""},
@@ -90,7 +90,7 @@ static void execute_on_component(GeometryComponent &component, const GeoNodeExec
       mapping_name, result_domain, {0, 0, 0});
 
   MutableSpan<ColorGeometry4f> colors = attribute_out.as_span();
-  parallel_for(IndexRange(mapping_attribute.size()), 128, [&](IndexRange range) {
+  threading::parallel_for(IndexRange(mapping_attribute.size()), 128, [&](IndexRange range) {
     for (const int i : range) {
       TexResult texture_result = {0};
       const float3 position = mapping_attribute[i];

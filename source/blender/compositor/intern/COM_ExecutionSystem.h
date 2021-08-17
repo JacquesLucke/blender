@@ -31,6 +31,7 @@ class ExecutionGroup;
 #include "DNA_node_types.h"
 
 #include "BLI_vector.hh"
+#include "atomic_ops.h"
 
 namespace blender::compositor {
 
@@ -150,7 +151,14 @@ class ExecutionSystem {
    */
   ExecutionModel *execution_model_;
 
- private:  // methods
+  /**
+   * Number of cpu threads available for work execution.
+   */
+  int num_work_threads_;
+
+  ThreadMutex work_mutex_;
+  ThreadCondition work_finished_cond_;
+
  public:
   /**
    * \brief Create a new ExecutionSystem and initialize it with the
@@ -198,6 +206,29 @@ class ExecutionSystem {
   }
 
   void execute_work(const rcti &work_rect, std::function<void(const rcti &split_rect)> work_func);
+
+  /**
+   * Multi-threaded execution of given work function passing work_rect splits as argument.
+   * Once finished, caller thread will call reduce_func for each thread result.
+   */
+  template<typename TResult>
+  void execute_work(const rcti &work_rect,
+                    std::function<TResult(const rcti &split_rect)> work_func,
+                    TResult &join,
+                    std::function<void(TResult &join, const TResult &chunk)> reduce_func)
+  {
+    Array<TResult> chunks(num_work_threads_);
+    int num_started = 0;
+    execute_work(work_rect, [&](const rcti &split_rect) {
+      const int current = atomic_fetch_and_add_int32(&num_started, 1);
+      chunks[current] = work_func(split_rect);
+    });
+    for (const int i : IndexRange(num_started)) {
+      reduce_func(join, chunks[i]);
+    }
+  }
+
+  bool is_breaked() const;
 
  private:
   /* allow the DebugInfo class to look at internals */

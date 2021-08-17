@@ -167,7 +167,7 @@ static void nearest_fcurve_vert_store(ListBase *matches,
     }
   }
   else if (fpt) {
-    /* TODO... */
+    /* TODO: support #FPoint. */
   }
 }
 
@@ -257,7 +257,7 @@ static void get_nearest_fcurve_verts_list(bAnimContext *ac, const int mval[2], L
       }
     }
     else if (fcu->fpt) {
-      /* TODO; do this for samples too */
+      /* TODO: do this for samples too. */
     }
 
     /* un-apply NLA mapping from all the keyframes */
@@ -597,7 +597,7 @@ static bool box_select_graphkeys(bAnimContext *ac,
   initialize_box_select_key_editing_data(
       sipo, incl_handles, mode, ac, data, &scaled_rectf, &ked, &mapping_flag);
 
-  /* Get beztriple editing/validation funcs.  */
+  /* Get beztriple editing/validation funcs. */
   const KeyframeEditFunc select_cb = ANIM_editkeyframes_select(selectmode);
   const KeyframeEditFunc ok_cb = ANIM_editkeyframes_ok(mode);
 
@@ -675,6 +675,16 @@ static short ok_bezier_always_ok(KeyframeEditData *UNUSED(ked), BezTriple *UNUSE
   return KEYFRAME_OK_KEY | KEYFRAME_OK_H1 | KEYFRAME_OK_H2;
 }
 
+#define ABOVE 1
+#define INSIDE 0
+#define BELOW -1
+static int rectf_curve_zone_y(
+    FCurve *fcu, const rctf *rectf, const float offset, const float unit_scale, const float eval_x)
+{
+  const float fcurve_y = (evaluate_fcurve(fcu, eval_x) + offset) * unit_scale;
+  return fcurve_y < rectf->ymin ? BELOW : fcurve_y <= rectf->ymax ? INSIDE : ABOVE;
+}
+
 /* Checks whether the given rectangle intersects the given fcurve's calculated curve (i.e. not
  * only keyframes, but also all the interpolated values). This is done by sampling the curve at
  * different points between the xmin and the xmax of the rectangle.
@@ -683,8 +693,7 @@ static bool rectf_curve_intersection(
     const float offset, const float unit_scale, const rctf *rectf, AnimData *adt, FCurve *fcu)
 {
   /* 30 sampling points. This worked well in tests. */
-  const float num_steps = 30.0f;
-  const float step = (rectf->xmax - rectf->xmin) / num_steps;
+  int num_steps = 30;
 
   /* Remap the range at which to evaluate the fcurves. This enables us to avoid remapping
    * the keys themselves. */
@@ -692,33 +701,42 @@ static bool rectf_curve_intersection(
   const float mapped_min = BKE_nla_tweakedit_remap(adt, rectf->xmin, NLATIME_CONVERT_UNMAP);
   const float eval_step = (mapped_max - mapped_min) / num_steps;
 
-  float x = rectf->xmin;
-  float eval_x = mapped_min;
   /* Sample points on the given fcurve in the interval defined by the
    * mapped_min and mapped_max of the selected rectangle.
    * For each point, check if it is inside of the selection box. If it is, then select
    * all the keyframes of the curve, the curve, and stop the loop.
    */
-  while (x < rectf->xmax) {
-    const float fcurve_y = (evaluate_fcurve(fcu, eval_x) + offset) * unit_scale;
-    /* Since rectf->xmin <= x < rectf->xmax is always true, there is no need to keep comparing the
-     * X-coordinate to the rectangle in every iteration. Therefore we do the comparisons manually
-     * instead of using BLI_rctf_isect_pt_v(rectf, current_point).
-     */
-    if (rectf->ymin <= fcurve_y && fcurve_y <= rectf->ymax) {
+  struct {
+    float eval_x;
+    int zone;
+  } cur, prev;
+
+  prev.eval_x = mapped_min;
+  prev.zone = rectf_curve_zone_y(fcu, rectf, offset, unit_scale, prev.eval_x);
+  if (prev.zone == INSIDE) {
+    return true;
+  }
+
+  while (num_steps--) {
+    cur.eval_x = prev.eval_x + eval_step;
+    cur.zone = rectf_curve_zone_y(fcu, rectf, offset, unit_scale, cur.eval_x);
+    if (cur.zone != prev.zone) {
       return true;
     }
-    x += step;
-    eval_x += eval_step;
+
+    prev = cur;
   }
   return false;
 }
+#undef ABOVE
+#undef INSIDE
+#undef BELOW
 
 /* Perform a box selection of the curves themselves. This means this function tries
  * to select a curve by sampling it at various points instead of trying to select the
  * keyframes directly.
  * The selection actions done to a curve are actually done on all the keyframes of the curve.
- * Note: This function is only called if no keyframe is in the selection area.
+ * NOTE: This function is only called if no keyframe is in the selection area.
  */
 static void box_select_graphcurves(bAnimContext *ac,
                                    const rctf *rectf_view,
@@ -841,7 +859,7 @@ static int graphkeys_box_select_exec(bContext *C, wmOperator *op)
      *   as frame-range one is often used for tweaking timing when "blocking",
      *   while channels is not that useful.
      */
-    if ((BLI_rcti_size_x(&rect)) >= (BLI_rcti_size_y(&rect))) {
+    if (BLI_rcti_size_x(&rect) >= BLI_rcti_size_y(&rect)) {
       mode = BEZT_OK_FRAMERANGE;
     }
     else {
@@ -1113,8 +1131,8 @@ static const EnumPropertyItem prop_column_select_types[] = {
 /* ------------------- */
 
 /* Selects all visible keyframes between the specified markers */
-/* TODO, this is almost an _exact_ duplicate of a function of the same name in action_select.c
- * should de-duplicate - campbell */
+/* TODO(campbell): this is almost an _exact_ duplicate of a function of the same name in
+ * action_select.c should de-duplicate. */
 static void markers_selectkeys_between(bAnimContext *ac)
 {
   ListBase anim_data = {NULL, NULL};
@@ -1593,7 +1611,7 @@ void GRAPH_OT_select_leftright(wmOperatorType *ot)
   ot->idname = "GRAPH_OT_select_leftright";
   ot->description = "Select keyframes to the left or the right of the current frame";
 
-  /* api callbacks  */
+  /* api callbacks */
   ot->invoke = graphkeys_select_leftright_invoke;
   ot->exec = graphkeys_select_leftright_exec;
   ot->poll = graphop_visible_keyframes_poll;
@@ -1663,10 +1681,8 @@ static int mouse_graph_keys(bAnimContext *ac,
     /* deselect all other keyframes (+ F-Curves too) */
     deselect_graph_keys(ac, 0, SELECT_SUBTRACT, true);
 
-    /* deselect other channels too, but only only do this if
-     * selection of channel when the visibility of keyframes
-     * doesn't depend on this
-     */
+    /* Deselect other channels too, but only do this if selection of channel
+     * when the visibility of keyframes doesn't depend on this. */
     if ((sipo->flag & SIPO_SELCUVERTSONLY) == 0) {
       ANIM_anim_channels_select_set(ac, ACHANNEL_SETFLAG_CLEAR);
     }
@@ -1940,12 +1956,14 @@ void GRAPH_OT_clickselect(wmOperatorType *ot)
 
   /* properties */
   WM_operator_properties_generic_select(ot);
+
+  /* Key-map: Enable with `Shift`. */
   prop = RNA_def_boolean(ot->srna,
                          "extend",
                          0,
                          "Extend Select",
                          "Toggle keyframe selection instead of leaving newly selected "
-                         "keyframes only"); /* SHIFTKEY */
+                         "keyframes only");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 
   prop = RNA_def_boolean(ot->srna,
@@ -1955,19 +1973,18 @@ void GRAPH_OT_clickselect(wmOperatorType *ot)
                          "Deselect all when nothing under the cursor");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 
+  /* Key-map: Enable with `Alt`. */
   prop = RNA_def_boolean(ot->srna,
                          "column",
                          0,
                          "Column Select",
                          "Select all keyframes that occur on the same frame as the one under "
-                         "the mouse"); /* ALTKEY */
+                         "the mouse");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 
-  prop = RNA_def_boolean(ot->srna,
-                         "curves",
-                         0,
-                         "Only Curves",
-                         "Select all the keyframes in the curve"); /* CTRLKEY + ALTKEY */
+  /* Key-map: Enable with `Ctrl-Atl`. */
+  prop = RNA_def_boolean(
+      ot->srna, "curves", 0, "Only Curves", "Select all the keyframes in the curve");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 

@@ -153,12 +153,18 @@ static bool sequencer_fcurves_targets_color_strip(const FCurve *fcurve)
 }
 
 /*
- * Check if there is animation attached to a strip, that is shown on the strip in the UI.
+ * Check if there is animation shown during playback.
  *
  * - Colors of color strips are displayed on the strip itself.
+ * - Backdrop is drawn.
  */
-bool ED_space_sequencer_has_visible_animation_on_strip(const struct Scene *scene)
+bool ED_space_sequencer_has_playback_animation(const struct SpaceSeq *sseq,
+                                               const struct Scene *scene)
 {
+  if (sseq->draw_flag & SEQ_DRAW_BACKDROP) {
+    return true;
+  }
+
   if (!scene->adt) {
     return false;
   }
@@ -329,7 +335,7 @@ static int sequencer_snap_exec(bContext *C, wmOperator *op)
 
   /* Check meta-strips. */
   for (seq = ed->seqbasep->first; seq; seq = seq->next) {
-    if (seq->flag & SELECT && !(seq->depth == 0 && seq->flag & SEQ_LOCK) &&
+    if (seq->flag & SELECT && !(seq->flag & SEQ_LOCK) &&
         SEQ_transform_sequence_can_be_translated(seq)) {
       if ((seq->flag & (SEQ_LEFTSEL + SEQ_RIGHTSEL)) == 0) {
         SEQ_transform_translate_sequence(
@@ -351,7 +357,7 @@ static int sequencer_snap_exec(bContext *C, wmOperator *op)
 
   /* Test for effects and overlap. */
   for (seq = ed->seqbasep->first; seq; seq = seq->next) {
-    if (seq->flag & SELECT && !(seq->depth == 0 && seq->flag & SEQ_LOCK)) {
+    if (seq->flag & SELECT && !(seq->flag & SEQ_LOCK)) {
       seq->flag &= ~SEQ_OVERLAP;
       if (SEQ_transform_test_overlap(ed->seqbasep, seq)) {
         SEQ_transform_seqbase_shuffle(ed->seqbasep, seq, scene);
@@ -1810,8 +1816,8 @@ static int sequencer_separate_images_exec(bContext *C, wmOperator *op)
       /* Remove seq so overlap tests don't conflict,
        * see seq_free_sequence below for the real freeing. */
       BLI_remlink(ed->seqbasep, seq);
-      /* if (seq->ipo) id_us_min(&seq->ipo->id); */
-      /* XXX, remove fcurve and assign to split image strips */
+      /* TODO: remove f-curve and assign to split image strips.
+       * The old animation system would remove the user of `seq->ipo`. */
 
       start_ofs = timeline_frame = SEQ_transform_get_left_handle_frame(seq);
       frame_end = SEQ_transform_get_right_handle_frame(seq);
@@ -1977,7 +1983,7 @@ static int sequencer_meta_make_exec(bContext *C, wmOperator *op)
 
   seqm->machine = active_seq ? active_seq->machine : channel_max;
   strcpy(seqm->name + 2, "MetaStrip");
-  SEQ_sequence_base_unique_name_recursive(&ed->seqbase, seqm);
+  SEQ_sequence_base_unique_name_recursive(scene, &ed->seqbase, seqm);
   seqm->start = meta_start_frame;
   seqm->len = meta_end_frame - meta_start_frame;
   SEQ_time_update_sequence(scene, seqm);
@@ -2181,7 +2187,7 @@ static Sequence *find_next_prev_sequence(Scene *scene, Sequence *test, int lr, i
 
   seq = ed->seqbasep->first;
   while (seq) {
-    if ((seq != test) && (test->machine == seq->machine) && (test->depth == seq->depth) &&
+    if ((seq != test) && (test->machine == seq->machine) &&
         ((sel == -1) || (sel == (seq->flag & SELECT)))) {
       dist = MAXFRAME * 2;
 
@@ -2252,7 +2258,7 @@ static int sequencer_swap_exec(bContext *C, wmOperator *op)
         break;
     }
 
-    /* XXX - Should be a generic function. */
+    /* XXX: Should be a generic function. */
     for (iseq = scene->ed->seqbasep->first; iseq; iseq = iseq->next) {
       if ((iseq->type & SEQ_TYPE_EFFECT) &&
           (seq_is_parent(iseq, active_seq) || seq_is_parent(iseq, seq))) {
@@ -2408,6 +2414,7 @@ static int sequencer_copy_exec(bContext *C, wmOperator *op)
                                     (LIB_ID_CREATE_NO_USER_REFCOUNT | LIB_ID_FREE_NO_MAIN));
 
   seqbase_clipboard_frame = scene->r.cfra;
+  SEQ_clipboard_active_seq_name_store(scene);
 
   /* Remove anything that references the current scene. */
   LISTBASE_FOREACH (Sequence *, seq, &seqbase_clipboard) {
@@ -2480,7 +2487,7 @@ static int sequencer_paste_exec(bContext *C, wmOperator *op)
         min_seq_startdisp = seq->startdisp;
       }
     }
-    /* Paste strips after playhead. */
+    /* Paste strips relative to the current-frame. */
     ofs = scene->r.cfra - min_seq_startdisp;
   }
 
@@ -2498,6 +2505,10 @@ static int sequencer_paste_exec(bContext *C, wmOperator *op)
   BLI_movelisttolist(ed->seqbasep, &nseqbase);
 
   for (iseq = iseq_first; iseq; iseq = iseq->next) {
+    if (SEQ_clipboard_pasted_seq_was_active(iseq)) {
+      SEQ_select_active_set(scene, iseq);
+    }
+
     /* Make sure, that pasted strips have unique names. */
     SEQ_ensure_unique_name(iseq, scene);
     /* Translate after name has been changed, otherwise this will affect animdata of original
@@ -2533,7 +2544,11 @@ void SEQUENCER_OT_paste(wmOperatorType *ot)
 
   /* Properties. */
   PropertyRNA *prop = RNA_def_boolean(
-      ot->srna, "keep_offset", false, "Keep Offset", "Keep strip offset to playhead when pasting");
+      ot->srna,
+      "keep_offset",
+      false,
+      "Keep Offset",
+      "Keep strip offset relative to the current frame when pasting");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
@@ -2794,9 +2809,9 @@ static int sequencer_change_path_exec(bContext *C, wmOperator *op)
 
     RNA_string_get(op->ptr, "directory", directory);
     if (is_relative_path) {
-      /* TODO, shouldn't this already be relative from the filesel?
+      /* TODO(campbell): shouldn't this already be relative from the filesel?
        * (as the 'filepath' is) for now just make relative here,
-       * but look into changing after 2.60 - campbell */
+       * but look into changing after 2.60. */
       BLI_path_rel(directory, BKE_main_blendfile_path(bmain));
     }
     BLI_strncpy(seq->strip->dir, directory, sizeof(seq->strip->dir));
@@ -2819,7 +2834,7 @@ static int sequencer_change_path_exec(bContext *C, wmOperator *op)
       RNA_END;
     }
 
-    /* Reset these else we wont see all the images. */
+    /* Reset these else we won't see all the images. */
     seq->anim_startofs = seq->anim_endofs = 0;
 
     /* Correct start/end frames so we don't move.
@@ -2919,6 +2934,23 @@ void SEQUENCER_OT_change_path(struct wmOperatorType *ot)
 /** \name Export Subtitles Operator
  * \{ */
 
+/** Comparison function suitable to be used with BLI_listbase_sort(). */
+static int seq_cmp_time_startdisp_channel(const void *a, const void *b)
+{
+  Sequence *seq_a = (Sequence *)a;
+  Sequence *seq_b = (Sequence *)b;
+
+  int seq_a_start = SEQ_transform_get_left_handle_frame(seq_a);
+  int seq_b_start = SEQ_transform_get_left_handle_frame(seq_b);
+
+  /* If strips have the same start frame favor the one with a higher channel. */
+  if (seq_a_start == seq_b_start) {
+    return seq_a->machine > seq_b->machine;
+  }
+
+  return (seq_a_start > seq_b_start);
+}
+
 static int sequencer_export_subtitles_invoke(bContext *C,
                                              wmOperator *op,
                                              const wmEvent *UNUSED(event))
@@ -2974,8 +3006,10 @@ static int sequencer_export_subtitles_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
 
+  /* Only text strips that are not muted and don't end with negative frame. */
   SEQ_ALL_BEGIN (ed, seq) {
-    if (seq->type == SEQ_TYPE_TEXT) {
+    if ((seq->type == SEQ_TYPE_TEXT) && ((seq->flag & SEQ_MUTE) == 0) &&
+        (seq->enddisp > scene->r.sfra)) {
       BLI_addtail(&text_seq, MEM_dupallocN(seq));
     }
   }
@@ -2986,7 +3020,7 @@ static int sequencer_export_subtitles_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
 
-  BLI_listbase_sort(&text_seq, SEQ_time_cmp_time_startdisp);
+  BLI_listbase_sort(&text_seq, seq_cmp_time_startdisp_channel);
 
   /* Open and write file. */
   file = BLI_fopen(filepath, "w");
@@ -2996,16 +3030,17 @@ static int sequencer_export_subtitles_exec(bContext *C, wmOperator *op)
     char timecode_str_start[32];
     char timecode_str_end[32];
 
+    /* Write time-code relative to start frame of scene. Don't allow negative time-codes. */
     BLI_timecode_string_from_time(timecode_str_start,
                                   sizeof(timecode_str_start),
                                   -2,
-                                  FRA2TIME(seq->startdisp),
+                                  FRA2TIME(max_ii(seq->startdisp - scene->r.sfra, 0)),
                                   FPS,
                                   USER_TIMECODE_SUBRIP);
     BLI_timecode_string_from_time(timecode_str_end,
                                   sizeof(timecode_str_end),
                                   -2,
-                                  FRA2TIME(seq->enddisp),
+                                  FRA2TIME(seq->enddisp - scene->r.sfra),
                                   FPS,
                                   USER_TIMECODE_SUBRIP);
 

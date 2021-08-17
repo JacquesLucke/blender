@@ -106,12 +106,20 @@ void SEQ_collection_free(SeqCollection *collection)
  *
  * \return empty strip collection.
  */
-SeqCollection *SEQ_collection_create(void)
+SeqCollection *SEQ_collection_create(const char *name)
 {
-  SeqCollection *collection = MEM_callocN(sizeof(SeqCollection), "SeqCollection");
+  SeqCollection *collection = MEM_callocN(sizeof(SeqCollection), name);
   collection->set = BLI_gset_new(
       BLI_ghashutil_ptrhash, BLI_ghashutil_ptrcmp, "SeqCollection GSet");
   return collection;
+}
+
+/**
+ * Return number of items in collection.
+ */
+uint SEQ_collection_len(const SeqCollection *collection)
+{
+  return BLI_gset_len(collection->set);
 }
 
 /**
@@ -128,7 +136,7 @@ SeqCollection *SEQ_query_by_reference(Sequence *seq_reference,
                                                           ListBase *seqbase,
                                                           SeqCollection *collection))
 {
-  SeqCollection *collection = SEQ_collection_create();
+  SeqCollection *collection = SEQ_collection_create(__func__);
   seq_query_func(seq_reference, seqbase, collection);
   return collection;
 }
@@ -176,6 +184,22 @@ void SEQ_collection_merge(SeqCollection *collection_dst, SeqCollection *collecti
 }
 
 /**
+ * Remove strips from collection that are also in `exclude_elements`. Source collection will be
+ * freed.
+ *
+ * \param collection: collection from which strips are removed
+ * \param exclude_elements: collection of strips to be removed
+ */
+void SEQ_collection_exclude(SeqCollection *collection, SeqCollection *exclude_elements)
+{
+  Sequence *seq;
+  SEQ_ITERATOR_FOREACH (seq, exclude_elements) {
+    SEQ_collection_remove_strip(seq, collection);
+  }
+  SEQ_collection_free(exclude_elements);
+}
+
+/**
  * Expand collection by running SEQ_query() for each strip, which will be used as reference.
  * Results of these queries will be merged into provided collection.
  *
@@ -205,6 +229,22 @@ void SEQ_collection_expand(ListBase *seqbase,
   }
 }
 
+/**
+ * Duplicate collection
+ *
+ * \param collection: collection to be duplicated
+ * \return duplicate of collection
+ */
+SeqCollection *SEQ_collection_duplicate(SeqCollection *collection)
+{
+  SeqCollection *duplicate = SEQ_collection_create(__func__);
+  Sequence *seq;
+  SEQ_ITERATOR_FOREACH (seq, collection) {
+    SEQ_collection_append_strip(seq, duplicate);
+  }
+  return duplicate;
+}
+
 /** \} */
 
 /**
@@ -215,7 +255,7 @@ void SEQ_collection_expand(ListBase *seqbase,
  */
 SeqCollection *SEQ_query_all_strips_recursive(ListBase *seqbase)
 {
-  SeqCollection *collection = SEQ_collection_create();
+  SeqCollection *collection = SEQ_collection_create(__func__);
   LISTBASE_FOREACH (Sequence *, seq, seqbase) {
     if (seq->type == SEQ_TYPE_META) {
       SEQ_collection_merge(collection, SEQ_query_all_strips_recursive(&seq->seqbase));
@@ -233,7 +273,7 @@ SeqCollection *SEQ_query_all_strips_recursive(ListBase *seqbase)
  */
 SeqCollection *SEQ_query_all_strips(ListBase *seqbase)
 {
-  SeqCollection *collection = SEQ_collection_create();
+  SeqCollection *collection = SEQ_collection_create(__func__);
   LISTBASE_FOREACH (Sequence *, seq, seqbase) {
     SEQ_collection_append_strip(seq, collection);
   }
@@ -248,7 +288,7 @@ SeqCollection *SEQ_query_all_strips(ListBase *seqbase)
  */
 SeqCollection *SEQ_query_selected_strips(ListBase *seqbase)
 {
-  SeqCollection *collection = SEQ_collection_create();
+  SeqCollection *collection = SEQ_collection_create(__func__);
   LISTBASE_FOREACH (Sequence *, seq, seqbase) {
     if ((seq->flag & SELECT) == 0) {
       continue;

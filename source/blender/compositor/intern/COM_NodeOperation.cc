@@ -100,6 +100,11 @@ void NodeOperation::setResolutionInputSocketIndex(unsigned int index)
 {
   this->m_resolutionInputSocketIndex = index;
 }
+
+void NodeOperation::init_data()
+{
+  /* Pass. */
+}
 void NodeOperation::initExecution()
 {
   /* pass */
@@ -188,12 +193,12 @@ bool NodeOperation::determineDependingAreaOfInterest(rcti *input,
  * caller must clamp it.
  * TODO: See if it's possible to use parameter overloading (input_id for example).
  *
- * \param input_op_idx: Input operation index for which we want to calculate the area being read.
+ * \param input_idx: Input operation index for which we want to calculate the area being read.
  * \param output_area: Area being rendered by this operation.
  * \param r_input_area: Returned input operation area that needs to be read in order to render
  * given output area.
  */
-void NodeOperation::get_area_of_interest(const int input_op_idx,
+void NodeOperation::get_area_of_interest(const int input_idx,
                                          const rcti &output_area,
                                          rcti &r_input_area)
 {
@@ -203,7 +208,7 @@ void NodeOperation::get_area_of_interest(const int input_op_idx,
   else {
     /* Non full-frame operations never implement this method. To ensure correctness assume
      * whole area is used. */
-    NodeOperation *input_op = getInputOperation(input_op_idx);
+    NodeOperation *input_op = getInputOperation(input_idx);
     BLI_rcti_init(&r_input_area, 0, input_op->getWidth(), 0, input_op->getHeight());
   }
 }
@@ -218,7 +223,7 @@ void NodeOperation::get_area_of_interest(NodeOperation *input_op,
       return;
     }
   }
-  BLI_assert(!"input_op is not an input operation.");
+  BLI_assert_msg(0, "input_op is not an input operation.");
 }
 
 /**
@@ -226,18 +231,16 @@ void NodeOperation::get_area_of_interest(NodeOperation *input_op,
  * \param output_buf: Buffer to write result to.
  * \param areas: Areas within this operation bounds to render.
  * \param inputs_bufs: Inputs operations buffers.
- * \param exec_system: Execution system.
  */
 void NodeOperation::render(MemoryBuffer *output_buf,
                            Span<rcti> areas,
-                           Span<MemoryBuffer *> inputs_bufs,
-                           ExecutionSystem &exec_system)
+                           Span<MemoryBuffer *> inputs_bufs)
 {
   if (get_flags().is_fullframe_operation) {
-    render_full_frame(output_buf, areas, inputs_bufs, exec_system);
+    render_full_frame(output_buf, areas, inputs_bufs);
   }
   else {
-    render_full_frame_fallback(output_buf, areas, inputs_bufs, exec_system);
+    render_full_frame_fallback(output_buf, areas, inputs_bufs);
   }
 }
 
@@ -246,12 +249,11 @@ void NodeOperation::render(MemoryBuffer *output_buf,
  */
 void NodeOperation::render_full_frame(MemoryBuffer *output_buf,
                                       Span<rcti> areas,
-                                      Span<MemoryBuffer *> inputs_bufs,
-                                      ExecutionSystem &exec_system)
+                                      Span<MemoryBuffer *> inputs_bufs)
 {
   initExecution();
   for (const rcti &area : areas) {
-    update_memory_buffer(output_buf, area, inputs_bufs, exec_system);
+    update_memory_buffer(output_buf, area, inputs_bufs);
   }
   deinitExecution();
 }
@@ -261,8 +263,7 @@ void NodeOperation::render_full_frame(MemoryBuffer *output_buf,
  */
 void NodeOperation::render_full_frame_fallback(MemoryBuffer *output_buf,
                                                Span<rcti> areas,
-                                               Span<MemoryBuffer *> inputs_bufs,
-                                               ExecutionSystem &exec_system)
+                                               Span<MemoryBuffer *> inputs_bufs)
 {
   Vector<NodeOperationOutput *> orig_input_links = replace_inputs_with_buffers(inputs_bufs);
 
@@ -274,7 +275,7 @@ void NodeOperation::render_full_frame_fallback(MemoryBuffer *output_buf,
   }
   else {
     for (const rcti &rect : areas) {
-      exec_system.execute_work(rect, [=](const rcti &split_rect) {
+      exec_system_->execute_work(rect, [=](const rcti &split_rect) {
         rcti tile_rect = split_rect;
         if (is_output_operation) {
           executeRegion(&tile_rect, 0);
@@ -328,6 +329,7 @@ Vector<NodeOperationOutput *> NodeOperation::replace_inputs_with_buffers(
     BufferOperation *buffer_op = new BufferOperation(inputs_bufs[i], input_socket->getDataType());
     orig_links[i] = input_socket->getLink();
     input_socket->setLink(buffer_op->getOutputSocket());
+    buffer_op->initExecution();
   }
   return orig_links;
 }
@@ -340,6 +342,7 @@ void NodeOperation::remove_buffers_and_restore_original_inputs(
     NodeOperation *buffer_op = get_input_operation(i);
     BLI_assert(buffer_op != nullptr);
     BLI_assert(typeid(*buffer_op) == typeid(BufferOperation));
+    buffer_op->deinitExecution();
     NodeOperationInput *input_socket = getInputSocket(i);
     input_socket->setLink(original_inputs_links[i]);
     delete buffer_op;
@@ -442,6 +445,12 @@ std::ostream &operator<<(std::ostream &os, const NodeOperationFlags &node_operat
   }
   if (node_operation_flags.is_fullframe_operation) {
     os << "full_frame,";
+  }
+  if (node_operation_flags.is_constant_operation) {
+    os << "contant_operation,";
+  }
+  if (node_operation_flags.can_be_constant) {
+    os << "can_be_constant,";
   }
 
   return os;

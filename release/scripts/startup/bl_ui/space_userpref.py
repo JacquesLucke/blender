@@ -605,6 +605,23 @@ class USERPREF_PT_system_cycles_devices(SystemPanel, CenterAlignMixIn, Panel):
         #     col.row().prop(system, "opensubdiv_compute_type", text="")
 
 
+class USERPREF_PT_system_os_settings(SystemPanel, CenterAlignMixIn, Panel):
+    bl_label = "Operating System Settings"
+
+    @classmethod
+    def poll(cls, _context):
+        # Only for Windows so far
+        import sys
+        return sys.platform[:3] == "win"
+
+    def draw_centered(self, _context, layout):
+        layout.label(text="Make this installation your default Blender")
+        split = layout.split(factor=0.4)
+        split.alignment = 'RIGHT'
+        split.label(text="")
+        split.operator("preferences.associate_blend", text="Make Default")
+
+
 class USERPREF_PT_system_memory(SystemPanel, CenterAlignMixIn, Panel):
     bl_label = "Memory & Limits"
 
@@ -1349,11 +1366,6 @@ class USERPREF_PT_saveload_autorun(FilePathsPanel, Panel):
 class USERPREF_PT_file_paths_asset_libraries(FilePathsPanel, Panel):
     bl_label = "Asset Libraries"
 
-    @classmethod
-    def poll(cls, context):
-        prefs = context.preferences
-        return prefs.experimental.use_asset_browser
-
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = False
@@ -1373,7 +1385,6 @@ class USERPREF_PT_file_paths_asset_libraries(FilePathsPanel, Panel):
         row = path_col.row(align=True)  # Padding
         row.separator()
         row.label(text="Path")
-
 
         for i, library in enumerate(paths.asset_libraries):
             name_col.prop(library, "name", text="")
@@ -2242,7 +2253,7 @@ class USERPREF_PT_experimental_new_features(ExperimentalPanel, Panel):
             context, (
                 ({"property": "use_sculpt_vertex_colors"}, "T71947"),
                 ({"property": "use_sculpt_tools_tilt"}, "T82877"),
-                ({"property": "use_asset_browser"}, ("project/profile/124/", "Milestone 1")),
+                ({"property": "use_extended_asset_browser"}, ("project/view/130/", "Project Page")),
                 ({"property": "use_override_templates"}, ("T73318", "Milestone 4")),
             ),
         )
@@ -2324,6 +2335,7 @@ classes = (
     USERPREF_PT_animation_fcurves,
 
     USERPREF_PT_system_cycles_devices,
+    USERPREF_PT_system_os_settings,
     USERPREF_PT_system_memory,
     USERPREF_PT_system_video_sequencer,
     USERPREF_PT_system_sound,

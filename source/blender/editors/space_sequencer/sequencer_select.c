@@ -534,7 +534,7 @@ static int sequencer_select_exec(bContext *C, wmOperator *op)
 
   seq = find_nearest_seq(scene, v2d, &hand, mval);
 
-  /* XXX - not nice, Ctrl+RMB needs to do side_of_frame only when not over a strip */
+  /* XXX: not nice, Ctrl+RMB needs to do side_of_frame only when not over a strip. */
   if (seq && linked_time) {
     side_of_frame = false;
   }
@@ -999,7 +999,9 @@ void SEQUENCER_OT_select_linked_pick(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
   /* Properties. */
-  RNA_def_boolean(ot->srna, "extend", 0, "Extend", "Extend the selection");
+  PropertyRNA *prop;
+  prop = RNA_def_boolean(ot->srna, "extend", 0, "Extend", "Extend the selection");
+  RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
 /** \} */
@@ -1227,7 +1229,9 @@ void SEQUENCER_OT_select_side_of_frame(wmOperatorType *ot)
   ot->flag = OPTYPE_UNDO;
 
   /* Properties. */
-  RNA_def_boolean(ot->srna, "extend", 0, "Extend", "Extend the selection");
+  PropertyRNA *prop;
+  prop = RNA_def_boolean(ot->srna, "extend", 0, "Extend", "Extend the selection");
+  RNA_def_property_flag(prop, PROP_SKIP_SAVE);
   ot->prop = RNA_def_enum(ot->srna, "side", sequencer_select_left_right_types, 0, "Side", "");
 }
 

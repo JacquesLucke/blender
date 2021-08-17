@@ -553,7 +553,7 @@ static PyObject *bpy_bmloop_is_convex_get(BPy_BMLoop *self)
 /* ElemSeq
  * ^^^^^^^ */
 
-/* note: use for bmvert/edge/face/loop seq's use these, not bmelemseq directly */
+/* NOTE: use for bmvert/edge/face/loop seq's use these, not bmelemseq directly. */
 PyDoc_STRVAR(bpy_bmelemseq_layers_vert_doc,
              "custom-data layers (read-only).\n\n:type: :class:`BMLayerAccessVert`");
 PyDoc_STRVAR(bpy_bmelemseq_layers_edge_doc,
@@ -1060,7 +1060,7 @@ static PyObject *bpy_bmesh_to_mesh(BPy_BMesh *self, PyObject *args)
 
   /* we could have the user do this but if they forget blender can easy crash
    * since the references arrays for the objects derived meshes are now invalid */
-  DEG_id_tag_update(&me->id, ID_RECALC_GEOMETRY);
+  DEG_id_tag_update(&me->id, ID_RECALC_GEOMETRY_ALL_MODES);
 
   Py_RETURN_NONE;
 }
@@ -1181,7 +1181,7 @@ PyDoc_STRVAR(
     "\n"
     "      Custom-data layers are only copied from ``mesh`` on initialization.\n"
     "      Further calls will copy custom-data to matching layers, layers missing on the target "
-    "mesh wont be added.\n");
+    "mesh won't be added.\n");
 static PyObject *bpy_bmesh_from_mesh(BPy_BMesh *self, PyObject *args, PyObject *kw)
 {
   static const char *kwlist[] = {"mesh", "face_normals", "use_shape_key", "shape_key_index", NULL};
@@ -2500,7 +2500,7 @@ PyDoc_STRVAR(
     "\n"
     "      Running this on sequences besides :class:`BMesh.verts`, :class:`BMesh.edges`, "
     ":class:`BMesh.faces`\n"
-    "      works but wont result in each element having a valid index, instead its order in the "
+    "      works but won't result in each element having a valid index, instead its order in the "
     "sequence will be set.\n");
 static PyObject *bpy_bmelemseq_index_update(BPy_BMElemSeq *self)
 {
@@ -2588,7 +2588,7 @@ PyDoc_STRVAR(
  * If a portable alternative to qsort_r becomes available, remove this static
  * var hack!
  *
- * Note: the functions below assumes the keys array has been allocated and it
+ * NOTE: the functions below assumes the keys array has been allocated and it
  * has enough elements to complete the task.
  */
 
@@ -3020,8 +3020,8 @@ static struct PyMethodDef bpy_bmfaceseq_methods[] = {
 
 static struct PyMethodDef bpy_bmloopseq_methods[] = {
     /* odd function, initializes index values */
-    /* no: index_update() function since we cant iterate over loops */
-    /* no: sort() function since we cant iterate over loops */
+    /* no: index_update() function since we can't iterate over loops */
+    /* no: sort() function since we can't iterate over loops */
     {NULL, NULL, 0, NULL},
 };
 
@@ -3241,9 +3241,11 @@ static PyObject *bpy_bmelemseq_subscript(BPy_BMElemSeq *self, PyObject *key)
       const Py_ssize_t len = bpy_bmelemseq_length(self);
       if (start < 0) {
         start += len;
+        CLAMP_MIN(start, 0);
       }
       if (stop < 0) {
         stop += len;
+        CLAMP_MIN(stop, 0);
       }
     }
 
@@ -3354,7 +3356,7 @@ static void bpy_bmesh_dealloc(BPy_BMesh *self)
 {
   BMesh *bm = self->bm;
 
-  /* have have been freed by bmesh */
+  /* The mesh has not been freed by #BMesh. */
   if (bm) {
     bm_dealloc_editmode_warn(self);
 

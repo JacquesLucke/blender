@@ -52,8 +52,9 @@ typedef struct LineartTriangle {
   /* first culled in line list to use adjacent triangle info, then go through triangle list. */
   double gn[3];
 
-  /* Material flag is removed to save space. */
-  unsigned char transparency_mask;
+  unsigned char material_mask_bits;
+  unsigned char intersection_mask;
+  unsigned char mat_occlusion;
   unsigned char flags; /* #eLineartTriangleFlags */
 
   /**
@@ -101,13 +102,8 @@ typedef struct LineartEdgeSegment {
   /** Occlusion level after "at" point */
   unsigned char occlusion;
 
-  /**
-   * For determining lines behind a glass window material.
-   * the size of this variable should also be dynamically decided, 1 byte to 8 byte,
-   * allows 8 to 64 materials for "transparent mask". 1 byte (8 materials) should be
-   * enough for most cases.
-   */
-  unsigned char transparency_mask;
+  /* Used to filter line art occlusion edges */
+  unsigned char material_mask_bits;
 } LineartEdgeSegment;
 
 typedef struct LineartVert {
@@ -153,6 +149,7 @@ typedef struct LineartEdge {
 
   /** Also for line type determination on chaining. */
   unsigned char flags;
+  unsigned char intersection_mask;
 
   /**
    * Still need this entry because culled lines will not add to object
@@ -177,7 +174,8 @@ typedef struct LineartEdgeChain {
 
   /** Chain now only contains one type of segments */
   int type;
-  unsigned char transparency_mask;
+  unsigned char material_mask_bits;
+  unsigned char intersection_mask;
 
   struct Object *object_ref;
 } LineartEdgeChain;
@@ -189,9 +187,10 @@ typedef struct LineartEdgeChainItem {
   /** For restoring position to 3d space */
   float gpos[3];
   float normal[3];
-  char line_type;
+  unsigned char line_type;
   char occlusion;
-  unsigned char transparency_mask;
+  unsigned char material_mask_bits;
+  unsigned char intersection_mask;
   size_t index;
 } LineartEdgeChainItem;
 
@@ -229,6 +228,8 @@ typedef struct LineartRenderBuffer {
   double view_projection[4][4];
   double view[4][4];
 
+  float overscan;
+
   struct LineartBoundingArea *initial_bounding_areas;
   unsigned int bounding_area_count;
 
@@ -250,6 +251,10 @@ typedef struct LineartRenderBuffer {
   ListBase wasted_cuts;
   SpinLock lock_cuts;
 
+  /* This is just a pointer to LineartCache::chain_data_pool, which acts as a cache for line
+   * chains. */
+  LineartStaticMemPool *chain_data_pool;
+
   /*  Render status */
   double view_vector[3];
 
@@ -263,6 +268,7 @@ typedef struct LineartRenderBuffer {
   ListBase crease;
   ListBase material;
   ListBase edge_mark;
+  ListBase floating;
 
   ListBase chains;
 
@@ -283,11 +289,20 @@ typedef struct LineartRenderBuffer {
   bool use_material;
   bool use_edge_marks;
   bool use_intersections;
+  bool use_loose;
   bool fuzzy_intersections;
   bool fuzzy_everything;
   bool allow_boundaries;
   bool allow_overlapping_edges;
+  bool allow_duplicated_types;
   bool remove_doubles;
+  bool use_loose_as_contour;
+  bool use_loose_edge_chain;
+  bool use_geometry_space_chain;
+
+  bool filter_face_mark;
+  bool filter_face_mark_invert;
+  bool filter_face_mark_boundaries;
 
   /* Keep an copy of these data so when line art is running it's self-contained. */
   bool cam_is_persp;
@@ -308,6 +323,18 @@ typedef struct LineartRenderBuffer {
   struct Object *_source_object;
 
 } LineartRenderBuffer;
+
+typedef struct LineartCache {
+  /** Separate memory pool for chain data, this goes to the cache, so when we free the main pool,
+   * chains will still be available. */
+  LineartStaticMemPool chain_data_pool;
+
+  /** A copy of rb->chains so we have that data available after rb has been destroyed. */
+  ListBase chains;
+
+  /** Cache only contains edge types specified in this variable. */
+  char rb_edge_types;
+} LineartCache;
 
 #define DBL_TRIANGLE_LIM 1e-8
 #define DBL_EDGE_LIM 1e-9
@@ -342,10 +369,9 @@ typedef struct LineartRenderTaskInfo {
   ListBase crease;
   ListBase material;
   ListBase edge_mark;
+  ListBase floating;
 
 } LineartRenderTaskInfo;
-
-struct BMesh;
 
 typedef struct LineartObjectInfo {
   struct LineartObjectInfo *next;
@@ -354,14 +380,15 @@ typedef struct LineartObjectInfo {
   double model_view_proj[4][4];
   double model_view[4][4];
   double normal[4][4];
-  LineartElementLinkNode *v_reln;
+  LineartElementLinkNode *v_eln;
   int usage;
+  uint8_t override_intersection_mask;
   int global_i_offset;
 
   bool free_use_mesh;
 
   /* Threads will add lines inside here, when all threads are done, we combine those into the
-   * ones in LineartRenderBuffer.  */
+   * ones in LineartRenderBuffer. */
   ListBase contour;
   ListBase intersection;
   ListBase crease;
@@ -448,7 +475,8 @@ typedef struct LineartBoundingArea {
 BLI_INLINE int lineart_LineIntersectTest2d(
     const double *a1, const double *a2, const double *b1, const double *b2, double *aRatio)
 {
-#define USE_VECTOR_LINE_INTERSECTION
+/* Legacy intersection math aligns better with occlusion function quirks. */
+/* #define USE_VECTOR_LINE_INTERSECTION */
 #ifdef USE_VECTOR_LINE_INTERSECTION
 
   /* from isect_line_line_v2_point() */
@@ -524,7 +552,7 @@ BLI_INLINE int lineart_LineIntersectTest2d(
       k1 = (a2[1] - a1[1]) / x_diff;
       k2 = (b2[1] - b1[1]) / x_diff2;
 
-      if ((k1 == k2))
+      if (k1 == k2)
         return 0;
 
       x = (a1[1] - b1[1] - k1 * a1[0] + k2 * b1[0]) / (k2 - k1);
@@ -550,9 +578,9 @@ BLI_INLINE int lineart_LineIntersectTest2d(
 }
 
 struct Depsgraph;
-struct Scene;
-struct LineartRenderBuffer;
 struct LineartGpencilModifierData;
+struct LineartRenderBuffer;
+struct Scene;
 
 void MOD_lineart_destroy_render_data(struct LineartGpencilModifierData *lmd);
 
@@ -563,10 +591,11 @@ void MOD_lineart_chain_discard_short(LineartRenderBuffer *rb, const float thresh
 void MOD_lineart_chain_split_angle(LineartRenderBuffer *rb, float angle_threshold_rad);
 
 int MOD_lineart_chain_count(const LineartEdgeChain *ec);
-void MOD_lineart_chain_clear_picked_flag(struct LineartRenderBuffer *rb);
+void MOD_lineart_chain_clear_picked_flag(LineartCache *lc);
 
 bool MOD_lineart_compute_feature_lines(struct Depsgraph *depsgraph,
-                                       struct LineartGpencilModifierData *lmd);
+                                       struct LineartGpencilModifierData *lmd,
+                                       LineartCache **cached_result);
 
 struct Scene;
 
@@ -576,10 +605,10 @@ LineartBoundingArea *MOD_lineart_get_parent_bounding_area(LineartRenderBuffer *r
 
 LineartBoundingArea *MOD_lineart_get_bounding_area(LineartRenderBuffer *rb, double x, double y);
 
-struct bGPDlayer;
 struct bGPDframe;
+struct bGPDlayer;
 
-void MOD_lineart_gpencil_generate(LineartRenderBuffer *rb,
+void MOD_lineart_gpencil_generate(LineartCache *cache,
                                   struct Depsgraph *depsgraph,
                                   struct Object *ob,
                                   struct bGPDlayer *gpl,
@@ -590,8 +619,9 @@ void MOD_lineart_gpencil_generate(LineartRenderBuffer *rb,
                                   int level_end,
                                   int mat_nr,
                                   short edge_types,
-                                  unsigned char transparency_flags,
-                                  unsigned char transparency_mask,
+                                  unsigned char mask_switches,
+                                  unsigned char material_mask_bits,
+                                  unsigned char intersection_mask,
                                   short thickness,
                                   float opacity,
                                   const char *source_vgname,

@@ -187,7 +187,7 @@ def _template_items_context_panel(menu, key_args_primary):
     ]
 
 
-def _template_space_region_type_toggle(*, toolbar_key=None, sidebar_key=None):
+def _template_space_region_type_toggle(*, toolbar_key=None, sidebar_key=None, channels_key=None):
     items = []
     if toolbar_key is not None:
         items.append(
@@ -199,6 +199,12 @@ def _template_space_region_type_toggle(*, toolbar_key=None, sidebar_key=None):
             ("wm.context_toggle", sidebar_key,
              {"properties": [("data_path", 'space_data.show_region_ui')]}),
         )
+    if channels_key is not None:
+        items.append(
+            ("wm.context_toggle", channels_key,
+             {"properties": [("data_path", 'space_data.show_region_channels')]}),
+        )
+
     return items
 
 
@@ -724,6 +730,8 @@ def km_user_interface(_params):
         ("anim.keyingset_button_add", {"type": 'K', "value": 'PRESS'}, None),
         ("anim.keyingset_button_remove", {"type": 'K', "value": 'PRESS', "alt": True}, None),
         ("ui.reset_default_button", {"type": 'BACK_SPACE', "value": 'PRESS'}, {"properties": [("all", True)]}),
+        # UI lists (polls check if there's a UI list under the cursor).
+        ("ui.list_start_filter", {"type": 'F', "value": 'PRESS', "ctrl": True}, None),
     ])
 
     return keymap
@@ -767,6 +775,8 @@ def km_property_editor(_params):
         # Constraint panels
         ("constraint.delete", {"type": 'X', "value": 'PRESS'}, {"properties": [("report", True)]}),
         ("constraint.delete", {"type": 'DEL', "value": 'PRESS'}, {"properties": [("report", True)]}),
+        ("constraint.copy", {"type": 'D', "value": 'PRESS', "shift": True}, None),
+        ("constraint.apply", {"type": 'A', "value": 'PRESS', "ctrl": True}, {"properties": [("report", True)]}),
     ])
 
     return keymap
@@ -1078,7 +1088,13 @@ def km_view3d(params):
          {"properties": [("use_all_regions", True), ("center", False)]}),
         ("view3d.view_all", {"type": 'C', "value": 'PRESS', "shift": True},
          {"properties": [("center", True)]}),
-        op_menu_pie("VIEW3D_MT_view_pie", {"type": 'D', "value": 'CLICK_DRAG'}),
+        op_menu_pie(
+            "VIEW3D_MT_view_pie" if params.v3d_tilde_action == 'VIEW' else "VIEW3D_MT_transform_gizmo_pie",
+            {"type": 'ACCENT_GRAVE', "value": params.pie_value},
+        ),
+        *(() if not params.use_pie_click_drag else
+          (("view3d.navigate", {"type": 'ACCENT_GRAVE', "value": 'CLICK'}, None),)),
+        ("view3d.navigate", {"type": 'ACCENT_GRAVE', "value": 'PRESS', "shift": True}, None),
         ("view3d.navigate", {"type": 'ACCENT_GRAVE', "value": 'PRESS', "shift": True}, None),
         # Numpad views.
         ("view3d.view_camera", {"type": 'NUMPAD_0', "value": 'PRESS'}, None),
@@ -1321,32 +1337,6 @@ def km_view3d(params):
         items.extend([
             op_tool_cycle("builtin.select_box", {"type": 'W', "value": 'PRESS'}),
         ])
-
-    # Tilda key.
-    if params.use_pie_click_drag:
-        items.extend([
-            ("object.transfer_mode",
-             {"type": 'ACCENT_GRAVE', "value": 'CLICK' if params.use_pie_click_drag else 'PRESS'},
-             None),
-            op_menu_pie(
-                "VIEW3D_MT_transform_gizmo_pie",
-                {"type": 'ACCENT_GRAVE', "value": 'CLICK_DRAG'},
-            )
-        ])
-    else:
-        if params.v3d_tilde_action == 'OBJECT_SWITCH':
-            items.append(
-                ("object.transfer_mode",
-                 {"type": 'ACCENT_GRAVE', "value": 'PRESS'},
-                 {"properties": [("use_eyedropper", False)]})
-            )
-        else:
-            items.append(
-                op_menu_pie(
-                    "VIEW3D_MT_transform_gizmo_pie",
-                    {"type": 'ACCENT_GRAVE', "value": 'PRESS'},
-                )
-            )
 
     return keymap
 
@@ -1980,8 +1970,8 @@ def km_file_browser(params):
         *_template_space_region_type_toggle(
             toolbar_key={"type": 'T', "value": 'PRESS'},
         ),
-        ("screen.region_toggle", {"type": 'N', "value": 'PRESS'},
-         {"properties": [("region_type", 'TOOL_PROPS')]}),
+        ("wm.context_toggle", {"type": 'N', "value": 'PRESS'},
+          {"properties": [("data_path", 'space_data.show_region_tool_props')]}),
         ("file.parent", {"type": 'UP_ARROW', "value": 'PRESS', "alt": True}, None),
         ("file.previous", {"type": 'LEFT_ARROW', "value": 'PRESS', "alt": True}, None),
         ("file.next", {"type": 'RIGHT_ARROW', "value": 'PRESS', "alt": True}, None),
@@ -2011,7 +2001,12 @@ def km_file_browser(params):
          {"properties": [("increment", -10)]}),
         ("file.filenum", {"type": 'NUMPAD_MINUS', "value": 'PRESS', "ctrl": True, "repeat": True},
          {"properties": [("increment", -100)]}),
+
+        # Select file under cursor before spawning the context menu.
+        ("file.select", {"type": 'RIGHTMOUSE', "value": 'PRESS'},
+         {"properties": [("open", False), ("only_activate_if_selected", params.select_mouse == 'LEFTMOUSE'), ("pass_through", True)]}),
         *_template_items_context_menu("FILEBROWSER_MT_context_menu", params.context_menu_event),
+        *_template_items_context_menu("ASSETBROWSER_MT_context_menu", params.context_menu_event),
     ])
 
     return keymap
@@ -2673,7 +2668,8 @@ def km_sequencer(params):
          {"properties": [("side", 'LEFT')]}),
         ("sequencer.select_side_of_frame", {"type": 'RIGHT_BRACKET', "value": 'PRESS'},
          {"properties": [("side", 'RIGHT')]}),
-
+        ("wm.context_toggle", {"type": 'TAB', "value": 'PRESS', "shift": True},
+         {"properties": [("data_path", 'tool_settings.use_snap_sequencer')]}),
         *_template_items_context_menu("SEQUENCER_MT_context_menu", params.context_menu_event),
     ])
 
@@ -3010,6 +3006,23 @@ def km_clip_dopesheet_editor(_params):
 
     return keymap
 
+def km_spreadsheet_generic(_params):
+    items = []
+    keymap = (
+        "Spreadsheet Generic",
+        {"space_type": 'SPREADSHEET', "region_type": 'WINDOW'},
+        {"items": items},
+    )
+
+    items.extend([
+        *_template_space_region_type_toggle(
+            sidebar_key={"type": 'N', "value": 'PRESS'},
+            channels_key={"type": 'T', "value": 'PRESS'},
+        ),
+    ])
+
+    return keymap
+
 
 # ------------------------------------------------------------------------------
 # Animation
@@ -3322,6 +3335,8 @@ def km_grease_pencil_stroke_edit_mode(params):
         ("gpencil.layer_isolate", {"type": 'NUMPAD_ASTERIX', "value": 'PRESS'}, None),
         # Move to layer
         op_menu("GPENCIL_MT_move_to_layer", {"type": 'M', "value": 'PRESS'}),
+        # Merge Layer
+        ("gpencil.layer_merge", {"type": 'M', "value": 'PRESS', "shift": True, "ctrl": True}, None),
         # Transform tools
         ("transform.translate", {"type": 'G', "value": 'PRESS'}, None),
         ("transform.translate", {"type": params.select_tweak, "value": 'ANY'}, None),
@@ -3420,6 +3435,8 @@ def km_grease_pencil_stroke_paint_mode(params):
          {"properties": [("unselected", True)]}),
         # Active layer
         op_menu("GPENCIL_MT_layer_active", {"type": 'Y', "value": 'PRESS'}),
+        # Merge Layer
+        ("gpencil.layer_merge", {"type": 'M', "value": 'PRESS', "shift": True, "ctrl": True}, None),
         # Active material
         op_menu("GPENCIL_MT_material_active", {"type": 'U', "value": 'PRESS'}),
         # Keyframe menu
@@ -3585,6 +3602,8 @@ def km_grease_pencil_stroke_sculpt_mode(params):
         ("gpencil.active_frames_delete_all", {"type": 'DEL', "value": 'PRESS', "shift": True}, None),
         # Active layer
         op_menu("GPENCIL_MT_layer_active", {"type": 'Y', "value": 'PRESS'}),
+        # Merge Layer
+        ("gpencil.layer_merge", {"type": 'M', "value": 'PRESS', "shift": True, "ctrl": True}, None),
         # Keyframe menu
         op_menu("VIEW3D_MT_gpencil_animation", {"type": 'I', "value": 'PRESS'}),
         # Context menu
@@ -3802,6 +3821,8 @@ def km_grease_pencil_stroke_weight_mode(params):
         ("gpencil.active_frames_delete_all", {"type": 'DEL', "value": 'PRESS', "shift": True}, None),
         # Active layer
         op_menu("GPENCIL_MT_layer_active", {"type": 'Y', "value": 'PRESS'}),
+        # Merge Layer
+        ("gpencil.layer_merge", {"type": 'M', "value": 'PRESS', "shift": True, "ctrl": True}, None),
         # Keyframe menu
         op_menu("VIEW3D_MT_gpencil_animation", {"type": 'I', "value": 'PRESS'}),
         # Context menu
@@ -3866,6 +3887,8 @@ def km_grease_pencil_stroke_vertex_mode(params):
         ("gpencil.active_frames_delete_all", {"type": 'DEL', "value": 'PRESS', "shift": True}, None),
         # Active layer
         op_menu("GPENCIL_MT_layer_active", {"type": 'Y', "value": 'PRESS'}),
+        # Merge Layer
+        ("gpencil.layer_merge", {"type": 'M', "value": 'PRESS', "shift": True, "ctrl": True}, None),
         # Keyframe menu
         op_menu("VIEW3D_MT_gpencil_animation", {"type": 'I', "value": 'PRESS'}),
         # Vertex Paint context menu
@@ -4090,7 +4113,7 @@ def km_pose(params):
         ("pose.bone_layers", {"type": 'M', "value": 'PRESS'}, None),
         ("transform.bbone_resize", {"type": 'S', "value": 'PRESS', "ctrl": True, "alt": True}, None),
         ("anim.keyframe_insert_menu", {"type": 'I', "value": 'PRESS'}, None),
-        ("anim.keyframe_delete", {"type": 'I', "value": 'PRESS', "alt": True}, None),
+        ("anim.keyframe_delete_v3d", {"type": 'I', "value": 'PRESS', "alt": True}, None),
         ("anim.keying_set_active_set", {"type": 'I', "value": 'PRESS', "shift": True, "ctrl": True, "alt": True}, None),
         ("poselib.browse_interactive", {"type": 'L', "value": 'PRESS', "alt": True}, None),
         ("poselib.pose_add", {"type": 'L', "value": 'PRESS', "shift": True}, None),
@@ -4162,7 +4185,7 @@ def km_object_mode(params):
         ("wm.context_toggle", {"type": 'PERIOD', "value": 'PRESS', "ctrl": True},
          {"properties": [("data_path", 'tool_settings.use_transform_data_origin')]}),
         ("anim.keyframe_insert_menu", {"type": 'I', "value": 'PRESS'}, None),
-        ("anim.keyframe_delete", {"type": 'I', "value": 'PRESS', "alt": True}, None),
+        ("anim.keyframe_delete_v3d", {"type": 'I', "value": 'PRESS', "alt": True}, None),
         ("anim.keying_set_active_set", {"type": 'I', "value": 'PRESS', "shift": True, "ctrl": True, "alt": True}, None),
         ("collection.create", {"type": 'G', "value": 'PRESS', "ctrl": True}, None),
         ("collection.objects_remove", {"type": 'G', "value": 'PRESS', "ctrl": True, "alt": True}, None),
@@ -5048,6 +5071,11 @@ def km_object_non_modal(params):
             ("object.origin_set", {"type": 'C', "value": 'PRESS', "shift": True, "ctrl": True, "alt": True}, None),
         ])
     else:
+        items.extend([
+            # NOTE: this shortcut (while not temporary) is not ideal, see: T89757.
+            ("object.transfer_mode", {"type": 'Q', "value": 'PRESS', "alt": True}, None),
+        ])
+
         if params.use_pie_click_drag:
             items.extend([
                 ("object.mode_set", {"type": 'TAB', "value": 'CLICK'},
@@ -5528,6 +5556,7 @@ def km_view3d_walk_modal(_params):
         ("DECELERATE", {"type": 'NUMPAD_MINUS', "value": 'PRESS', "any": True, "repeat": True}, None),
         ("ACCELERATE", {"type": 'WHEELUPMOUSE', "value": 'PRESS', "any": True}, None),
         ("DECELERATE", {"type": 'WHEELDOWNMOUSE', "value": 'PRESS', "any": True}, None),
+        ("AXIS_LOCK_Z", {"type": 'Z', "value": 'PRESS'}, None),
     ])
 
     return keymap
@@ -7067,6 +7096,7 @@ def generate_keymaps(params=None):
         km_image(params),
         km_node_generic(params),
         km_node_editor(params),
+        km_spreadsheet_generic(params),
         km_info(params),
         km_file_browser(params),
         km_file_browser_main(params),

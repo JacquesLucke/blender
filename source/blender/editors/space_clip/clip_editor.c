@@ -904,7 +904,7 @@ static void start_prefetch_threads(MovieClip *clip,
   queue.do_update = do_update;
   queue.progress = progress;
 
-  TaskPool *task_pool = BLI_task_pool_create(&queue, TASK_PRIORITY_LOW, TASK_ISOLATION_ON);
+  TaskPool *task_pool = BLI_task_pool_create(&queue, TASK_PRIORITY_LOW);
   for (int i = 0; i < tot_thread; i++) {
     BLI_task_pool_push(task_pool, prefetch_task_func, clip, false, NULL);
   }
@@ -1025,7 +1025,7 @@ static void prefetch_startjob(void *pjv, short *stop, short *do_update, float *p
                       progress);
   }
   else {
-    BLI_assert(!"Unknown movie clip source when prefetching frames");
+    BLI_assert_msg(0, "Unknown movie clip source when prefetching frames");
   }
 }
 
@@ -1037,6 +1037,7 @@ static void prefetch_freejob(void *pjv)
   if (clip_local != NULL) {
     BKE_libblock_free_datablock(&clip_local->id, 0);
     BKE_libblock_free_data(&clip_local->id, false);
+    BLI_assert(!clip_local->id.py_instance); /* Or call #BKE_libblock_free_data_py. */
     MEM_freeN(clip_local);
   }
 

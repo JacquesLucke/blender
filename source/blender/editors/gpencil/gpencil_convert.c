@@ -168,7 +168,7 @@ static void gpencil_strokepoint_convertcoords(bContext *C,
   ARegion *region = CTX_wm_region(C);
   /* TODO(sergey): This function might be called from a loop, but no tagging is happening in it,
    * so it's not that expensive to ensure evaluated depsgraph here. However, ideally all the
-   * parameters are to wrapped into a context style struct and queried from Context once.*/
+   * parameters are to wrapped into a context style struct and queried from Context once. */
   Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Object *obact = CTX_data_active_object(C);
   bGPDspoint mypt, *pt;
@@ -219,7 +219,7 @@ typedef struct tGpTimingData {
   int frame_range; /* Number of frames evaluated for path animation */
   int start_frame, end_frame;
   bool realtime; /* Will overwrite end_frame in case of Original or CustomGap timing... */
-  float gap_duration, gap_randomness; /* To be used with CustomGap mode*/
+  float gap_duration, gap_randomness; /* To be used with CustomGap mode. */
   int seed;
 
   /* Data set from points, used to compute final timing FCurve */
@@ -230,7 +230,7 @@ typedef struct tGpTimingData {
   float tot_dist;
 
   /* Times */
-  float *times; /* Note: Gap times will be negative! */
+  float *times; /* NOTE: Gap times will be negative! */
   float tot_time, gap_tot_time;
   double inittime;
 
@@ -1409,7 +1409,7 @@ static void gpencil_layer_to_curve(bContext *C,
                                  gtd);
         break;
       default:
-        BLI_assert(!"invalid mode");
+        BLI_assert_msg(0, "invalid mode");
         break;
     }
     prev_gps = gps;
@@ -1588,14 +1588,8 @@ static int gpencil_convert_layer_exec(bContext *C, wmOperator *op)
       C, op->reports, gpd, gpl, mode, norm_weights, rad_fac, link_strokes, &gtd);
 
   /* free temp memory */
-  if (gtd.dists) {
-    MEM_freeN(gtd.dists);
-    gtd.dists = NULL;
-  }
-  if (gtd.times) {
-    MEM_freeN(gtd.times);
-    gtd.times = NULL;
-  }
+  MEM_SAFE_FREE(gtd.dists);
+  MEM_SAFE_FREE(gtd.times);
 
   /* notifiers */
   DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
@@ -1806,7 +1800,7 @@ void GPENCIL_OT_convert(wmOperatorType *ot)
               0,
               100);
 
-  /* Note: Internal use, this one will always be hidden by UI code... */
+  /* NOTE: Internal use, this one will always be hidden by UI code... */
   prop = RNA_def_boolean(
       ot->srna,
       "use_timing_data",

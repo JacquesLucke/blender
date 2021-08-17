@@ -93,13 +93,16 @@ NODE_DEFINE(Object)
   SOCKET_POINT(dupli_generated, "Dupli Generated", zero_float3());
   SOCKET_POINT2(dupli_uv, "Dupli UV", zero_float2());
   SOCKET_TRANSFORM_ARRAY(motion, "Motion", array<Transform>());
-  SOCKET_FLOAT(shadow_terminator_offset, "Terminator Offset", 0.0f);
+  SOCKET_FLOAT(shadow_terminator_shading_offset, "Shadow Terminator Shading Offset", 0.0f);
+  SOCKET_FLOAT(shadow_terminator_geometry_offset, "Shadow Terminator Geometry Offset", 0.1f);
   SOCKET_STRING(asset_name, "Asset Name", ustring());
 
   SOCKET_BOOLEAN(is_shadow_catcher, "Shadow Catcher", false);
 
   SOCKET_NODE(particle_system, "Particle System", ParticleSystem::get_node_type());
   SOCKET_INT(particle_index, "Particle Index", 0);
+
+  SOCKET_FLOAT(ao_distance, "AO Distance", 0.0f);
 
   return type;
 }
@@ -427,6 +430,7 @@ void ObjectManager::device_update_object_transform(UpdateObjectTransformState *s
   kobject.random_number = random_number;
   kobject.particle_index = particle_index;
   kobject.motion_offset = 0;
+  kobject.ao_distance = ob->ao_distance;
 
   if (geom->get_use_motion_blur()) {
     state->have_motion = true;
@@ -507,7 +511,9 @@ void ObjectManager::device_update_object_transform(UpdateObjectTransformState *s
     kobject.cryptomatte_asset = util_hash_to_float(hash_asset);
   }
 
-  kobject.shadow_terminator_offset = 1.0f / (1.0f - 0.5f * ob->shadow_terminator_offset);
+  kobject.shadow_terminator_shading_offset = 1.0f /
+                                             (1.0f - 0.5f * ob->shadow_terminator_shading_offset);
+  kobject.shadow_terminator_geometry_offset = ob->shadow_terminator_geometry_offset;
 
   /* Object flag. */
   if (ob->use_holdout) {

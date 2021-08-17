@@ -21,9 +21,9 @@
  * \ingroup draw
  */
 
-#include "draw_cache_extract_mesh_private.h"
-
 #include "MEM_guardedalloc.h"
+
+#include "extract_mesh.h"
 
 namespace blender::draw {
 
@@ -157,7 +157,7 @@ static void extract_lines_finish(const MeshRenderData *UNUSED(mr),
 
 constexpr MeshExtract create_extractor_lines()
 {
-  MeshExtract extractor = {0};
+  MeshExtract extractor = {nullptr};
   extractor.init = extract_lines_init;
   extractor.iter_poly_bm = extract_lines_iter_poly_bm;
   extractor.iter_poly_mesh = extract_lines_iter_poly_mesh;
@@ -202,7 +202,7 @@ static void extract_lines_with_lines_loose_finish(const MeshRenderData *mr,
 
 constexpr MeshExtract create_extractor_lines_with_lines_loose()
 {
-  MeshExtract extractor = {0};
+  MeshExtract extractor = {nullptr};
   extractor.init = extract_lines_init;
   extractor.iter_poly_bm = extract_lines_iter_poly_bm;
   extractor.iter_poly_mesh = extract_lines_iter_poly_mesh;
@@ -235,9 +235,9 @@ static void extract_lines_loose_only_init(const MeshRenderData *mr,
 
 constexpr MeshExtract create_extractor_lines_loose_only()
 {
-  MeshExtract extractor = {0};
+  MeshExtract extractor = {nullptr};
   extractor.init = extract_lines_loose_only_init;
-  extractor.data_type = MR_DATA_NONE;
+  extractor.data_type = MR_DATA_LOOSE_GEOM;
   extractor.data_size = 0;
   extractor.use_threading = false;
   extractor.mesh_buffer_offset = offsetof(MeshBufferCache, ibo.lines_loose);
