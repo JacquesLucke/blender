@@ -91,4 +91,35 @@ TEST(multi_function_procedure, BranchTest)
   EXPECT_EQ(values_a[4], 12);
 }
 
+TEST(multi_function_procedure, SingleTest)
+{
+  CustomMF_SI_SO<int, int> add_10_fn{"add_10", [](int a) { return a + 10; }};
+
+  MFProcedure procedure;
+  MFVariable &in_var = procedure.new_variable(MFDataType::ForSingle<int>(), "in");
+  MFVariable &out_var = procedure.new_variable(MFDataType::ForSingle<int>(), "out");
+
+  MFCallInstruction &add_10_instr = procedure.new_call_instruction(add_10_fn, {&in_var, &out_var});
+
+  procedure.set_entry(add_10_instr);
+  procedure.add_parameter(MFParamType::Input, in_var);
+  procedure.add_parameter(MFParamType::Output, out_var);
+
+  MFProcedureExecutor procedure_fn{"Single Test", procedure};
+  MFParamsBuilder params{procedure_fn, 5};
+
+  Array<int> values_out = {1, 2, 3, 4, 5};
+  params.add_readonly_single_input_value(1);
+  params.add_uninitialized_single_output(values_out.as_mutable_span());
+
+  MFContextBuilder context;
+  procedure_fn.call({0, 1, 3, 4}, params, context);
+
+  EXPECT_EQ(values_out[0], 11);
+  EXPECT_EQ(values_out[1], 11);
+  EXPECT_EQ(values_out[2], 3);
+  EXPECT_EQ(values_out[3], 11);
+  EXPECT_EQ(values_out[4], 11);
+}
+
 }  // namespace blender::fn::tests
