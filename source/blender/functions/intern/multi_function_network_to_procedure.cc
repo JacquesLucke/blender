@@ -55,7 +55,7 @@ class CopyMultiFunction : public MultiFunction {
         BUFFER_FOR_CPP_TYPE_VALUE(type, buffer);
         for (int i : mask) {
           values_in.get_to_uninitialized(i, buffer);
-          type.copy_to_uninitialized(buffer, values_out[i]);
+          type.copy_construct(buffer, values_out[i]);
           type.destruct(buffer);
         }
         break;

@@ -95,7 +95,7 @@ class NodeTreeProcedureBuilder {
 MFVariable &NodeMFProcedureBuilder::get_input(StringRef identifer)
 {
   const DInputSocket socket = node_.input_by_identifier(identifer);
-  const CPPType &cpp_type = *socket_cpp_type_get(*socket->typeinfo());
+  const CPPType &cpp_type = *socket->typeinfo()->get_base_cpp_type();
   const MFDataType data_type = MFDataType::ForSingle(cpp_type);
   return *procedure_builder_.variable_by_socket_.lookup_or_add_cb(socket, [&]() {
     return &this->procedure_builder_.procedure_->new_variable(data_type, socket->name());

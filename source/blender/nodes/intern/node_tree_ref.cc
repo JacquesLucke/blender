@@ -458,17 +458,14 @@ bool NodeTreeRef::has_link_cycles() const
   return false;
 }
 
-bool NodeRef::is_undefined_or_has_undefined_sockets() const
+bool NodeTreeRef::has_undefined_nodes_or_sockets() const
 {
-  if (this->is_undefined()) {
-    return true;
-  }
-  for (const SocketRef *socket : inputs_) {
-    if (socket->is_undefined()) {
+  for (const NodeRef *node : nodes_by_id_) {
+    if (node->is_undefined()) {
       return true;
     }
   }
-  for (const SocketRef *socket : outputs_) {
+  for (const SocketRef *socket : sockets_by_id_) {
     if (socket->is_undefined()) {
       return true;
     }
