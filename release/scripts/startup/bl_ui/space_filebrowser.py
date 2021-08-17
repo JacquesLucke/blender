@@ -698,6 +698,11 @@ class ASSETBROWSER_PT_metadata(asset_utils.AssetBrowserPanel, Panel):
             col.enabled = False
             col.prop(asset_file_handle.asset_data, "catalog_id")
 
+            row = layout.row(align=True)
+            row.label(text=asset_file_handle.asset_data.catalog_path)
+            row.operator("asset.catalog_path_set", text="", icon="SETTINGS")
+
+
             col = layout.column(align=True)  # Just to reduce margin.
             col.label(text="Source:")
             row = col.row()

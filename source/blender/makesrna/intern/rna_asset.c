@@ -35,6 +35,7 @@
 #  include "BKE_idprop.h"
 
 #  include "BLI_listbase.h"
+#  include "BLI_string.h"
 
 #  include "ED_asset.h"
 
@@ -130,6 +131,26 @@ static void rna_AssetMetaData_catalog_id_set(PointerRNA *ptr, const char *value)
 {
   AssetMetaData *asset_data = ptr->data;
   BKE_asset_metadata_catalog_id_set(asset_data, value);
+}
+
+static void rna_AssetMetaData_catalog_path_get(PointerRNA *ptr, char *r_value)
+{
+  AssetMetaData *asset_data = ptr->data;
+  const char *path = BKE_asset_metadata_catalog_path_get(asset_data);
+  BLI_strncpy(r_value, path, strlen(path) + 1);
+}
+
+static int rna_AssetMetaData_catalog_path_length(PointerRNA *ptr)
+{
+  AssetMetaData *asset_data = ptr->data;
+  const char *path = BKE_asset_metadata_catalog_path_get(asset_data);
+  return strlen(path);
+}
+
+static void rna_AssetMetaData_catalog_path_set(PointerRNA *ptr, const char *value)
+{
+  AssetMetaData *asset_data = ptr->data;
+  BKE_asset_metadata_catalog_path_set(asset_data, value);
 }
 
 static PointerRNA rna_AssetHandle_file_data_get(PointerRNA *ptr)
@@ -271,6 +292,13 @@ static void rna_def_asset_data(BlenderRNA *brna)
       prop,
       "Catalog ID",
       "Symbolic catalog identifier, used by Blender to look up the asset's catalog path");
+
+  prop = RNA_def_property(srna, "catalog_path", PROP_STRING, PROP_NONE);
+  RNA_def_property_string_funcs(prop,
+                                "rna_AssetMetaData_catalog_path_get",
+                                "rna_AssetMetaData_catalog_path_length",
+                                "rna_AssetMetaData_catalog_path_set");
+  RNA_def_property_ui_text(prop, "Catalog Path", "Path of the catalog this id is in");
 }
 
 static void rna_def_asset_handle_api(StructRNA *srna)

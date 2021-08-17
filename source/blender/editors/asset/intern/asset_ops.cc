@@ -26,6 +26,7 @@
 #include "ED_asset.h"
 
 #include "RNA_access.h"
+#include "RNA_define.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -295,10 +296,48 @@ static void ASSET_OT_list_refresh(struct wmOperatorType *ot)
 
 /* -------------------------------------------------------------------- */
 
+static int asset_catalog_path_set_exec(bContext *C, wmOperator *UNUSED(op))
+{
+  const AssetLibraryReference *library = CTX_wm_asset_library_ref(C);
+
+  return OPERATOR_FINISHED;
+}
+
+static int asset_catalog_path_set_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+{
+  const AssetLibraryReference *library = CTX_wm_asset_library_ref(C);
+  const char *library_path = ED_assetlist_library_path(library);
+
+  bool asset_handle_valid;
+  AssetHandle asset_handle = CTX_wm_asset_handle(C, &asset_handle_valid);
+  AssetMetaData *asset_meta_data = ED_asset_handle_get_metadata(&asset_handle);
+
+  BLI_assert(asset_handle_valid);
+
+  return WM_operator_props_dialog_popup(C, op, 300);
+}
+
+static void ASSET_OT_catalog_path_set(struct wmOperatorType *ot)
+{
+  /* identifiers */
+  ot->name = "Set Catalog Path";
+  ot->description = "Change a catalog path and persist changes to disk";
+  ot->idname = "ASSET_OT_catalog_path_set";
+
+  ot->exec = asset_catalog_path_set_exec;
+  ot->invoke = asset_catalog_path_set_invoke;
+
+  RNA_def_string(ot->srna, "new_path", NULL, 0, "New Path", "New path of the catalog");
+}
+
+/* -------------------------------------------------------------------- */
+
 void ED_operatortypes_asset(void)
 {
   WM_operatortype_append(ASSET_OT_mark);
   WM_operatortype_append(ASSET_OT_clear);
 
   WM_operatortype_append(ASSET_OT_list_refresh);
+
+  WM_operatortype_append(ASSET_OT_catalog_path_set);
 }

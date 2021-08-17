@@ -31,6 +31,8 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_asset.h"
+#include "BKE_asset_catalog.hh"
+#include "BKE_asset_library.hh"
 #include "BKE_icons.h"
 #include "BKE_idprop.h"
 
@@ -129,6 +131,34 @@ void BKE_asset_metadata_catalog_id_set(struct AssetMetaData *asset_data, const c
 
   /* Replace whitespace in the catalog ID with dashes. */
   BLI_str_replace_char(asset_data->catalog_id, ' ', '-');
+}
+
+void BKE_asset_metadata_catalog_path_set(AssetMetaData *asset_data, const char *catalog_path)
+{
+  blender::bke::AssetLibrary lib;
+  lib.load("/home/jacques/Documents/Blender/Assets");
+  blender::bke::AssetCatalog *catalog = lib.catalog_service->find_catalog(asset_data->catalog_id);
+  if (catalog == nullptr) {
+    return;
+  }
+
+  blender::bke::AssetCatalogDefinitionFile *cdf =
+      lib.catalog_service->get_catalog_definition_file();
+  if (cdf->contains(asset_data->catalog_id)) {
+    catalog->path = catalog_path;
+    cdf->write_to_disk();
+  }
+}
+
+const char *BKE_asset_metadata_catalog_path_get(const AssetMetaData *asset_data)
+{
+  blender::bke::AssetLibrary lib;
+  lib.load("/home/jacques/Documents/Blender/Assets");
+  blender::bke::AssetCatalog *catalog = lib.catalog_service->find_catalog(asset_data->catalog_id);
+  if (catalog == nullptr) {
+    return "";
+  }
+  return BLI_strdup(catalog->path.c_str());
 }
 
 /* Queries -------------------------------------------- */
