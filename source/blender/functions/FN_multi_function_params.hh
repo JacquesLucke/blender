@@ -88,6 +88,12 @@ class MFParamsBuilder {
     this->add_readonly_vector_input(
         scope_.construct<GVVectorArray_For_GVectorArray>(__func__, vector_array), expected_name);
   }
+  void add_readonly_vector_input(const GSpan single_vector, StringRef expected_name = "")
+  {
+    this->add_readonly_vector_input(
+        scope_.construct<GVVectorArray_For_SingleGSpan>(__func__, single_vector, min_array_size_),
+        expected_name);
+  }
   void add_readonly_vector_input(const GVVectorArray &ref, StringRef expected_name = "")
   {
     this->assert_current_param_type(MFParamType::ForVectorInput(ref.type()), expected_name);
