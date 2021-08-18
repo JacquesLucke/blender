@@ -851,7 +851,7 @@ GMutableSpan MFNetworkEvaluationStorage::get_mutable_single__single(const MFInpu
     GMutableSpan span = static_cast<OutputSingleValue *>(to_any_value)->span;
     BLI_assert(span.size() == 1);
     const GVArray &virtual_array = this->get_single_input__single(input, scope);
-    virtual_array.get_single_to_uninitialized(span[0]);
+    virtual_array.get_internal_single_to_uninitialized(span[0]);
     return span;
   }
 
@@ -869,7 +869,7 @@ GMutableSpan MFNetworkEvaluationStorage::get_mutable_single__single(const MFInpu
   const GVArray &virtual_array = this->get_single_input__single(input, scope);
 
   void *new_buffer = allocator_.allocate(type.size(), type.alignment());
-  virtual_array.get_single_to_uninitialized(new_buffer);
+  virtual_array.get_internal_single_to_uninitialized(new_buffer);
   GMutableSpan new_array_ref(type, new_buffer, 1);
 
   OwnSingleValue *new_value =
