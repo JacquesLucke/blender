@@ -720,18 +720,18 @@ void ValueAllocator::release_variable_state(VariableState *state)
   delete state;
 }
 
-class VariableStoreContainer {
+class VariableStateContainer {
  private:
   ValueAllocator value_allocator_;
   Map<const MFVariable *, VariableState *> variable_states_;
   IndexMask full_mask_;
 
  public:
-  VariableStoreContainer(IndexMask full_mask) : full_mask_(full_mask)
+  VariableStateContainer(IndexMask full_mask) : full_mask_(full_mask)
   {
   }
 
-  ~VariableStoreContainer()
+  ~VariableStateContainer()
   {
     for (auto &&item : variable_states_.items()) {
       const MFVariable *variable = item.key;
@@ -845,7 +845,7 @@ class VariableStoreContainer {
 
 static void execute_call_instruction(const MFCallInstruction &instruction,
                                      IndexMask mask,
-                                     VariableStoreContainer &variable_stores,
+                                     VariableStateContainer &variable_states,
                                      const MFContext &context)
 {
   const MultiFunction &fn = instruction.fn();
@@ -854,7 +854,7 @@ static void execute_call_instruction(const MFCallInstruction &instruction,
   for (const int param_index : fn.param_indices()) {
     const MFParamType param_type = fn.param_type(param_index);
     const MFVariable *variable = instruction.params()[param_index];
-    variable_stores.load_param(params, *variable, param_type, mask);
+    variable_states.load_param(params, *variable, param_type, mask);
   }
 
   fn.call(mask, params, context);
@@ -956,8 +956,8 @@ void MFProcedureExecutor::call(IndexMask full_mask, MFParams params, MFContext c
 
   LinearAllocator<> allocator;
 
-  VariableStoreContainer variable_stores{full_mask};
-  variable_stores.add_initial_variable_states(*this, procedure_, params);
+  VariableStateContainer variable_states{full_mask};
+  variable_states.add_initial_variable_states(*this, procedure_, params);
 
   InstructionScheduler scheduler;
   scheduler.add_referenced_indices(procedure_.entry(), full_mask);
@@ -968,7 +968,7 @@ void MFProcedureExecutor::call(IndexMask full_mask, MFParams params, MFContext c
       case MFInstructionType::Call: {
         const MFCallInstruction &call_instruction = static_cast<const MFCallInstruction &>(
             instruction);
-        execute_call_instruction(call_instruction, instr_info.mask(), variable_stores, context);
+        execute_call_instruction(call_instruction, instr_info.mask(), variable_states, context);
         scheduler.add_previous_instruction_indices(call_instruction.next(), instr_info);
         break;
       }
@@ -976,7 +976,7 @@ void MFProcedureExecutor::call(IndexMask full_mask, MFParams params, MFContext c
         const MFBranchInstruction &branch_instruction = static_cast<const MFBranchInstruction &>(
             instruction);
         const MFVariable *condition_var = branch_instruction.condition();
-        VariableState &variable_state = variable_stores.get_variable_state(*condition_var);
+        VariableState &variable_state = variable_states.get_variable_state(*condition_var);
 
         IndicesSplitVectors new_indices;
         variable_state.indices_split(instr_info.mask(), new_indices);
@@ -988,7 +988,7 @@ void MFProcedureExecutor::call(IndexMask full_mask, MFParams params, MFContext c
         const MFDestructInstruction &destruct_instruction =
             static_cast<const MFDestructInstruction &>(instruction);
         const MFVariable *variable = destruct_instruction.variable();
-        variable_stores.destruct(*variable, instr_info.mask());
+        variable_states.destruct(*variable, instr_info.mask());
         scheduler.add_previous_instruction_indices(destruct_instruction.next(), instr_info);
         break;
       }
