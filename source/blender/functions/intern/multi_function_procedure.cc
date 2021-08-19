@@ -273,6 +273,11 @@ std::string MFProcedure::to_dot() const
     dot_node.set_shape(dot::Attr_shape::Rectangle);
     dot_nodes.add_new(instruction, &dot_node);
   }
+  for (MFDummyInstruction *instruction : dummy_instructions_) {
+    dot::Node &dot_node = digraph.new_node("Dummy");
+    dot_node.set_shape(dot::Attr_shape::Rectangle);
+    dot_nodes.add_new(instruction, &dot_node);
+  }
 
   auto create_end_node = [&]() -> dot::Node & {
     dot::Node &node = digraph.new_node("");
@@ -303,6 +308,11 @@ std::string MFProcedure::to_dot() const
   }
 
   for (MFDestructInstruction *instruction : destruct_instructions_) {
+    dot::Node &dot_node = *dot_nodes.lookup(instruction);
+    add_edge_to_instruction_or_end(dot_node, instruction->next());
+  }
+
+  for (MFDummyInstruction *instruction : dummy_instructions_) {
     dot::Node &dot_node = *dot_nodes.lookup(instruction);
     add_edge_to_instruction_or_end(dot_node, instruction->next());
   }

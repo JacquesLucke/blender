@@ -783,6 +783,11 @@ class VariableStates {
     return value_allocator_;
   }
 
+  const IndexMask &full_mask() const
+  {
+    return full_mask_;
+  }
+
   void add_initial_variable_states(const MFProcedureExecutor &fn,
                                    const MFProcedure &procedure,
                                    MFParams &params)
@@ -909,9 +914,15 @@ class VariableStates {
   }
 };
 
-static bool evaluate_as_one(const MultiFunction &fn, Span<VariableState *> param_variable_states)
+static bool evaluate_as_one(const MultiFunction &fn,
+                            Span<VariableState *> param_variable_states,
+                            const IndexMask &mask,
+                            const IndexMask &full_mask)
 {
   if (fn.depends_on_context()) {
+    return false;
+  }
+  if (mask.size() < full_mask.size()) {
     return false;
   }
   for (VariableState *state : param_variable_states) {
@@ -938,7 +949,7 @@ static void execute_call_instruction(const MFCallInstruction &instruction,
     param_variable_states[param_index] = &variable_state;
   }
 
-  if (evaluate_as_one(fn, param_variable_states)) {
+  if (evaluate_as_one(fn, param_variable_states, mask, variable_states.full_mask())) {
     MFParamsBuilder params(fn, 1);
 
     for (const int param_index : fn.param_indices()) {

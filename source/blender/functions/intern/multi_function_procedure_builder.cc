@@ -61,7 +61,7 @@ void MFProcedureBuilder::add_destruct(MFVariable &variable)
 {
   MFDestructInstruction &instruction = procedure_->new_destruct_instruction();
   instruction.set_variable(&variable);
-  this->insert_at_cursors(&instruction);
+  this->link_to_cursors(&instruction);
   cursors_ = {MFInstructionCursor{instruction}};
 }
 
@@ -75,7 +75,7 @@ void MFProcedureBuilder::add_destruct(Span<MFVariable *> variables)
 MFCallInstruction &MFProcedureBuilder::add_call(const MultiFunction &fn)
 {
   MFCallInstruction &instruction = procedure_->new_call_instruction(fn);
-  this->insert_at_cursors(&instruction);
+  this->link_to_cursors(&instruction);
   cursors_ = {MFInstructionCursor{instruction}};
   return instruction;
 }
@@ -120,12 +120,42 @@ MFProcedureBuilder::Branch MFProcedureBuilder::add_branch(MFVariable &condition)
 {
   MFBranchInstruction &instruction = procedure_->new_branch_instruction();
   instruction.set_condition(&condition);
-  this->insert_at_cursors(&instruction);
+  this->link_to_cursors(&instruction);
+  /* Clear cursors because this builder ends here. */
+  cursors_.clear();
 
   Branch branch{*procedure_, *procedure_};
   branch.branch_true.set_cursor(MFInstructionCursor{instruction, true});
   branch.branch_false.set_cursor(MFInstructionCursor{instruction, false});
   return branch;
+}
+
+MFProcedureBuilder::Loop MFProcedureBuilder::add_loop()
+{
+  MFDummyInstruction &loop_begin = procedure_->new_dummy_instruction();
+  MFDummyInstruction &loop_end = procedure_->new_dummy_instruction();
+  this->link_to_cursors(&loop_begin);
+  cursors_ = {MFInstructionCursor{loop_begin}};
+
+  Loop loop;
+  loop.begin = &loop_begin;
+  loop.end = &loop_end;
+
+  return loop;
+}
+
+void MFProcedureBuilder::add_loop_continue(Loop &loop)
+{
+  this->link_to_cursors(loop.begin);
+  /* Clear cursors because this builder ends here. */
+  cursors_.clear();
+}
+
+void MFProcedureBuilder::add_loop_break(Loop &loop)
+{
+  this->link_to_cursors(loop.end);
+  /* Clear cursors because this builder ends here. */
+  cursors_.clear();
 }
 
 }  // namespace blender::fn

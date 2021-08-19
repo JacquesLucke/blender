@@ -121,7 +121,7 @@ TEST(multi_function_procedure, EvaluateOne)
   builder.add_destruct(*var1);
   builder.add_output_parameter(*var2);
 
-  MFProcedureExecutor procedure_fn{"Single Test", procedure};
+  MFProcedureExecutor procedure_fn{"Evaluate One", procedure};
   MFParamsBuilder params{procedure_fn, 5};
 
   Array<int> values_out = {1, 2, 3, 4, 5};
@@ -138,6 +138,76 @@ TEST(multi_function_procedure, EvaluateOne)
   EXPECT_EQ(values_out[4], 11);
   /* We expect only one evaluation, because the input is constant. */
   EXPECT_EQ(tot_evaluations, 1);
+}
+
+TEST(multi_function_procedure, SimpleLoop)
+{
+  /**
+   * procedure(int count, int *r_out) {
+   *   *r_out = 1;
+   *   int index = 0'
+   *   loop {
+   *     if (index >= count) {
+   *       break;
+   *     }
+   *     *r_out *= 2;
+   *     index += 1;
+   *   }
+   *   *r_out += 1000;
+   * }
+   */
+
+  CustomMF_Constant<int> const_1_fn{1};
+  CustomMF_Constant<int> const_0_fn{0};
+  CustomMF_SI_SI_SO<int, int, bool> greater_or_equal_fn{"greater or equal",
+                                                        [](int a, int b) { return a >= b; }};
+  CustomMF_SM<int> double_fn{"double", [](int &a) { a *= 2; }};
+  CustomMF_SM<int> add_1000_fn{"add 1000", [](int &a) { a += 1000; }};
+  CustomMF_SM<int> add_1_fn{"add 1", [](int &a) { a += 1; }};
+
+  MFProcedure procedure;
+  MFProcedureBuilder builder{procedure};
+
+  MFVariable *var_count = &builder.add_single_input_parameter<int>("count");
+  auto [var_out] = builder.add_call_with_new_variables<1>(const_1_fn);
+  var_out->set_name("out");
+  auto [var_index] = builder.add_call_with_new_variables<1>(const_0_fn);
+  var_index->set_name("index");
+
+  MFProcedureBuilder::Loop loop = builder.add_loop();
+  auto [var_condition] = builder.add_call_with_new_variables<1>(greater_or_equal_fn,
+                                                                {var_index, var_count});
+  var_condition->set_name("condition");
+  MFProcedureBuilder::Branch branch = builder.add_branch(*var_condition);
+  branch.branch_true.add_destruct(*var_condition);
+  branch.branch_true.add_loop_break(loop);
+  branch.branch_false.add_destruct(*var_condition);
+  builder.set_cursor_after_branch(branch);
+  builder.add_call(double_fn, {var_out});
+  builder.add_call(add_1_fn, {var_index});
+  builder.add_loop_continue(loop);
+  builder.set_cursor_after_loop(loop);
+  builder.add_call(add_1000_fn, {var_out});
+  builder.add_destruct({var_count, var_index});
+  builder.add_output_parameter(*var_out);
+
+  MFProcedureExecutor procedure_fn{"Simple Loop", procedure};
+  MFParamsBuilder params{procedure_fn, 5};
+
+  Array<int> counts = {4, 3, 7, 6, 4};
+  Array<int> results(5, -1);
+
+  params.add_readonly_single_input(counts.as_span());
+  params.add_uninitialized_single_output(results.as_mutable_span());
+
+  MFContextBuilder context;
+  procedure_fn.call({0, 1, 3, 4}, params, context);
+
+  EXPECT_EQ(results[0], 1016);
+  EXPECT_EQ(results[1], 1008);
+  EXPECT_EQ(results[2], -1);
+  EXPECT_EQ(results[3], 1064);
+  EXPECT_EQ(results[4], 1016);
 }
 
 }  // namespace blender::fn::tests

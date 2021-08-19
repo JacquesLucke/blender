@@ -38,6 +38,7 @@ class MFInstructionCursor {
   MFInstructionCursor(MFCallInstruction &instruction);
   MFInstructionCursor(MFDestructInstruction &instruction);
   MFInstructionCursor(MFBranchInstruction &instruction, bool branch_output);
+  MFInstructionCursor(MFDummyInstruction &instruction);
 
   static MFInstructionCursor Entry();
 
@@ -51,6 +52,7 @@ class MFProcedureBuilder {
 
  public:
   struct Branch;
+  struct Loop;
 
   MFProcedureBuilder(MFProcedure &procedure,
                      MFInstructionCursor initial_cursor = MFInstructionCursor::Entry());
@@ -63,11 +65,16 @@ class MFProcedureBuilder {
   void set_cursor(Span<MFInstructionCursor> cursors);
   void set_cursor(Span<MFProcedureBuilder *> builders);
   void set_cursor_after_branch(Branch &branch);
+  void set_cursor_after_loop(Loop &loop);
 
   void add_destruct(MFVariable &variable);
   void add_destruct(Span<MFVariable *> variables);
 
   Branch add_branch(MFVariable &condition);
+
+  Loop add_loop();
+  void add_loop_continue(Loop &loop);
+  void add_loop_break(Loop &loop);
 
   MFCallInstruction &add_call(const MultiFunction &fn);
   MFCallInstruction &add_call(const MultiFunction &fn, Span<MFVariable *> variables);
@@ -92,12 +99,17 @@ class MFProcedureBuilder {
   void add_output_parameter(MFVariable &variable);
 
  private:
-  void insert_at_cursors(MFInstruction *instruction);
+  void link_to_cursors(MFInstruction *instruction);
 };
 
 struct MFProcedureBuilder::Branch {
   MFProcedureBuilder branch_true;
   MFProcedureBuilder branch_false;
+};
+
+struct MFProcedureBuilder::Loop {
+  MFInstruction *begin = nullptr;
+  MFDummyInstruction *end = nullptr;
 };
 
 /* --------------------------------------------------------------------
@@ -117,6 +129,11 @@ inline MFInstructionCursor::MFInstructionCursor(MFDestructInstruction &instructi
 inline MFInstructionCursor::MFInstructionCursor(MFBranchInstruction &instruction,
                                                 bool branch_output)
     : instruction_(&instruction), branch_output_(branch_output)
+{
+}
+
+inline MFInstructionCursor::MFInstructionCursor(MFDummyInstruction &instruction)
+    : instruction_(&instruction)
 {
 }
 
@@ -162,6 +179,11 @@ inline void MFProcedureBuilder::set_cursor(Span<MFInstructionCursor> cursors)
 inline void MFProcedureBuilder::set_cursor_after_branch(Branch &branch)
 {
   this->set_cursor({&branch.branch_false, &branch.branch_true});
+}
+
+inline void MFProcedureBuilder::set_cursor_after_loop(Loop &loop)
+{
+  this->set_cursor(MFInstructionCursor{*loop.end});
 }
 
 inline void MFProcedureBuilder::set_cursor(Span<MFProcedureBuilder *> builders)
@@ -220,7 +242,7 @@ inline void MFProcedureBuilder::add_output_parameter(MFVariable &variable)
   this->add_parameter(MFParamType::Output, variable);
 }
 
-inline void MFProcedureBuilder::insert_at_cursors(MFInstruction *instruction)
+inline void MFProcedureBuilder::link_to_cursors(MFInstruction *instruction)
 {
   for (MFInstructionCursor &cursor : cursors_) {
     cursor.insert(*procedure_, instruction);
