@@ -7,6 +7,7 @@
 #include "FN_multi_function_network_evaluation.hh"
 #include "FN_multi_function_network_to_procedure.hh"
 #include "FN_multi_function_procedure_executor.hh"
+#include "FN_multi_function_test_common.hh"
 
 namespace blender::fn::tests {
 namespace {
@@ -66,118 +67,6 @@ TEST(multi_function_network, Test1)
     EXPECT_EQ(results[4], 13 * 13);
   }
 }
-
-class ConcatVectorsFunction : public MultiFunction {
- public:
-  ConcatVectorsFunction()
-  {
-    static MFSignature signature = create_signature();
-    this->set_signature(&signature);
-  }
-
-  static MFSignature create_signature()
-  {
-    MFSignatureBuilder signature{"Concat Vectors"};
-    signature.vector_mutable<int>("A");
-    signature.vector_input<int>("B");
-    return signature.build();
-  }
-
-  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
-  {
-    GVectorArray &a = params.vector_mutable(0);
-    const GVVectorArray &b = params.readonly_vector_input(1);
-    a.extend(mask, b);
-  }
-};
-
-class AppendFunction : public MultiFunction {
- public:
-  AppendFunction()
-  {
-    static MFSignature signature = create_signature();
-    this->set_signature(&signature);
-  }
-
-  static MFSignature create_signature()
-  {
-    MFSignatureBuilder signature{"Append"};
-    signature.vector_mutable<int>("Vector");
-    signature.single_input<int>("Value");
-    return signature.build();
-  }
-
-  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
-  {
-    GVectorArray_TypedMutableRef<int> vectors = params.vector_mutable<int>(0);
-    const VArray<int> &values = params.readonly_single_input<int>(1);
-
-    for (int64_t i : mask) {
-      vectors.append(i, values[i]);
-    }
-  }
-};
-
-class SumVectorFunction : public MultiFunction {
- public:
-  SumVectorFunction()
-  {
-    static MFSignature signature = create_signature();
-    this->set_signature(&signature);
-  }
-
-  static MFSignature create_signature()
-  {
-    MFSignatureBuilder signature{"Sum Vectors"};
-    signature.vector_input<int>("Vector");
-    signature.single_output<int>("Sum");
-    return signature.build();
-  }
-
-  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
-  {
-    const VVectorArray<int> &vectors = params.readonly_vector_input<int>(0);
-    MutableSpan<int> sums = params.uninitialized_single_output<int>(1);
-
-    for (int64_t i : mask) {
-      int sum = 0;
-      for (int j : IndexRange(vectors.get_vector_size(i))) {
-        sum += vectors.get_vector_element(i, j);
-      }
-      sums[i] = sum;
-    }
-  }
-};
-
-class CreateRangeFunction : public MultiFunction {
- public:
-  CreateRangeFunction()
-  {
-    static MFSignature signature = create_signature();
-    this->set_signature(&signature);
-  }
-
-  static MFSignature create_signature()
-  {
-    MFSignatureBuilder signature{"Create Range"};
-    signature.single_input<int>("Size");
-    signature.vector_output<int>("Range");
-    return signature.build();
-  }
-
-  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
-  {
-    const VArray<int> &sizes = params.readonly_single_input<int>(0, "Size");
-    GVectorArray_TypedMutableRef<int> ranges = params.vector_output<int>(1, "Range");
-
-    for (int64_t i : mask) {
-      int size = sizes[i];
-      for (int j : IndexRange(size)) {
-        ranges.append(i, j);
-      }
-    }
-  }
-};
 
 TEST(multi_function_network, Test2)
 {

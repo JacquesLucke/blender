@@ -5,15 +5,16 @@
 #include "FN_multi_function_builder.hh"
 #include "FN_multi_function_procedure_builder.hh"
 #include "FN_multi_function_procedure_executor.hh"
+#include "FN_multi_function_test_common.hh"
 
 namespace blender::fn::tests {
 
 TEST(multi_function_procedure, SimpleTest)
 {
   /**
-   * procedure(int var1, int var2, int *r_var4) {
+   * procedure(int var1, int var2, int *var4) {
    *   int var3 = var1 + var2;
-   *   *r_var4 = var2 + var3;
+   *   var4 = var2 + var3;
    * }
    */
 
@@ -102,8 +103,8 @@ TEST(multi_function_procedure, BranchTest)
 TEST(multi_function_procedure, EvaluateOne)
 {
   /**
-   * procedure(int var1, int *r_var2) {
-   *   *r_var2 = var1 + 10;
+   * procedure(int var1, int var2) {
+   *   var2 = var1 + 10;
    * }
    */
 
@@ -143,17 +144,17 @@ TEST(multi_function_procedure, EvaluateOne)
 TEST(multi_function_procedure, SimpleLoop)
 {
   /**
-   * procedure(int count, int *r_out) {
-   *   *r_out = 1;
+   * procedure(int count, int *out) {
+   *   out = 1;
    *   int index = 0'
    *   loop {
    *     if (index >= count) {
    *       break;
    *     }
-   *     *r_out *= 2;
+   *     out *= 2;
    *     index += 1;
    *   }
-   *   *r_out += 1000;
+   *   out += 1000;
    * }
    */
 
@@ -208,6 +209,71 @@ TEST(multi_function_procedure, SimpleLoop)
   EXPECT_EQ(results[2], -1);
   EXPECT_EQ(results[3], 1064);
   EXPECT_EQ(results[4], 1016);
+}
+
+TEST(multi_function_procedure, Vectors)
+{
+  /**
+   * procedure(vector<int> v1, vector<int> &v2, vector<int> *v3) {
+   *   v1.extend(v2);
+   *   int constant = 5;
+   *   v2.append(constant);
+   *   v2.extend(v1);
+   *   int len = sum(v2);
+   *   v3 = range(len);
+   * }
+   */
+
+  CreateRangeFunction create_range_fn;
+  ConcatVectorsFunction extend_fn;
+  GenericAppendFunction append_fn{CPPType::get<int>()};
+  SumVectorFunction sum_elements_fn;
+  CustomMF_Constant<int> constant_5_fn{5};
+
+  MFProcedure procedure;
+  MFProcedureBuilder builder{procedure};
+
+  MFVariable *var_v1 = &builder.add_input_parameter(MFDataType::ForVector<int>());
+  MFVariable *var_v2 = &builder.add_parameter(MFParamType::ForMutableVector(CPPType::get<int>()));
+  builder.add_call(extend_fn, {var_v1, var_v2});
+  auto [var_constant] = builder.add_call_with_new_variables<1>(constant_5_fn);
+  builder.add_call(append_fn, {var_v2, var_constant});
+  builder.add_destruct(*var_constant);
+  builder.add_call(extend_fn, {var_v2, var_v1});
+  auto [var_len] = builder.add_call_with_new_variables<1>(sum_elements_fn, {var_v2});
+  auto [var_v3] = builder.add_call_with_new_variables<1>(create_range_fn, {var_len});
+  builder.add_destruct({var_v1, var_len});
+  builder.add_output_parameter(*var_v3);
+
+  MFProcedureExecutor procedure_fn{"Vectors", procedure};
+  MFParamsBuilder params{procedure_fn, 5};
+
+  Array<int> v1 = {5, 2, 3};
+  GVectorArray v2{CPPType::get<int>(), 5};
+  GVectorArray v3{CPPType::get<int>(), 5};
+
+  int value_10 = 10;
+  v2.append(0, &value_10);
+  v2.append(4, &value_10);
+
+  params.add_readonly_vector_input(v1.as_span());
+  params.add_vector_mutable(v2);
+  params.add_vector_output(v3);
+
+  MFContextBuilder context;
+  procedure_fn.call({0, 1, 3, 4}, params, context);
+
+  EXPECT_EQ(v2[0].size(), 6);
+  EXPECT_EQ(v2[1].size(), 4);
+  EXPECT_EQ(v2[2].size(), 0);
+  EXPECT_EQ(v2[3].size(), 4);
+  EXPECT_EQ(v2[4].size(), 6);
+
+  EXPECT_EQ(v3[0].size(), 35);
+  EXPECT_EQ(v3[1].size(), 15);
+  EXPECT_EQ(v3[2].size(), 0);
+  EXPECT_EQ(v3[3].size(), 15);
+  EXPECT_EQ(v3[4].size(), 35);
 }
 
 }  // namespace blender::fn::tests

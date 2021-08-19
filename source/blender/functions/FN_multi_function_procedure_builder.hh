@@ -87,13 +87,10 @@ class MFProcedureBuilder {
       const MultiFunction &fn, Span<MFVariable *> input_and_mutable_variables = {});
 
   void add_parameter(MFParamType::InterfaceType interface_type, MFVariable &variable);
-
   MFVariable &add_parameter(MFParamType param_type, std::string name = "");
 
   MFVariable &add_input_parameter(MFDataType data_type, std::string name = "");
-
   template<typename T> MFVariable &add_single_input_parameter(std::string name = "");
-
   template<typename T> MFVariable &add_single_mutable_parameter(std::string name = "");
 
   void add_output_parameter(MFVariable &variable);
