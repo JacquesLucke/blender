@@ -44,30 +44,30 @@ class MFInstructionCursor {
   void insert(MFProcedure &procedure, MFInstruction *new_instruction);
 };
 
-struct MFProcedureBuilderBranch;
-
 class MFProcedureBuilder {
  private:
   MFProcedure *procedure_ = nullptr;
   Vector<MFInstructionCursor> cursors_;
 
  public:
+  struct Branch;
+
   MFProcedureBuilder(MFProcedure &procedure,
                      MFInstructionCursor initial_cursor = MFInstructionCursor::Entry());
 
   MFProcedureBuilder(Span<MFProcedureBuilder *> builders);
 
-  MFProcedureBuilder(MFProcedureBuilderBranch &branch);
+  MFProcedureBuilder(Branch &branch);
 
   void set_cursor(const MFInstructionCursor &cursor);
   void set_cursor(Span<MFInstructionCursor> cursors);
   void set_cursor(Span<MFProcedureBuilder *> builders);
-  void set_cursor_after_branch(MFProcedureBuilderBranch &branch);
+  void set_cursor_after_branch(Branch &branch);
 
   void insert_destruct(MFVariable &variable);
   void insert_destruct(Span<MFVariable *> variables);
 
-  MFProcedureBuilderBranch insert_branch(MFVariable &condition);
+  Branch insert_branch(MFVariable &condition);
 
   MFCallInstruction &insert_call(const MultiFunction &fn);
   MFCallInstruction &insert_call(const MultiFunction &fn, Span<MFVariable *> variables);
@@ -95,7 +95,7 @@ class MFProcedureBuilder {
   void insert_at_cursors(MFInstruction *instruction);
 };
 
-struct MFProcedureBuilderBranch {
+struct MFProcedureBuilder::Branch {
   MFProcedureBuilder branch_true;
   MFProcedureBuilder branch_false;
 };
@@ -131,7 +131,7 @@ inline MFInstructionCursor MFInstructionCursor::Entry()
  * MFProcedureBuilder inline methods.
  */
 
-inline MFProcedureBuilder::MFProcedureBuilder(MFProcedureBuilderBranch &branch)
+inline MFProcedureBuilder::MFProcedureBuilder(Branch &branch)
     : MFProcedureBuilder(*branch.branch_true.procedure_)
 {
   this->set_cursor_after_branch(branch);
@@ -159,7 +159,7 @@ inline void MFProcedureBuilder::set_cursor(Span<MFInstructionCursor> cursors)
   cursors_ = cursors;
 }
 
-inline void MFProcedureBuilder::set_cursor_after_branch(MFProcedureBuilderBranch &branch)
+inline void MFProcedureBuilder::set_cursor_after_branch(Branch &branch)
 {
   this->set_cursor({&branch.branch_false, &branch.branch_true});
 }

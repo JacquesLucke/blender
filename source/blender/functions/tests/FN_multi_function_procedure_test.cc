@@ -73,7 +73,7 @@ TEST(multi_function_procedure, BranchTest)
   MFVariable *var1 = &builder.add_single_mutable_parameter<int>();
   MFVariable *var2 = &builder.add_single_input_parameter<bool>();
 
-  MFProcedureBuilderBranch branch = builder.insert_branch(*var2);
+  MFProcedureBuilder::Branch branch = builder.insert_branch(*var2);
   branch.branch_false.insert_call(add_10_fn, {var1});
   branch.branch_true.insert_call(add_100_fn, {var1});
   builder.set_cursor_after_branch(branch);

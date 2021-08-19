@@ -112,13 +112,13 @@ Vector<MFVariable *> MFProcedureBuilder::insert_call_with_new_variables(
   return output_variables;
 }
 
-MFProcedureBuilderBranch MFProcedureBuilder::insert_branch(MFVariable &condition)
+MFProcedureBuilder::Branch MFProcedureBuilder::insert_branch(MFVariable &condition)
 {
   MFBranchInstruction &instruction = procedure_->new_branch_instruction();
   instruction.set_condition(&condition);
   this->insert_at_cursors(&instruction);
 
-  MFProcedureBuilderBranch branch{*procedure_, *procedure_};
+  Branch branch{*procedure_, *procedure_};
   branch.branch_true.set_cursor(MFInstructionCursor{instruction, true});
   branch.branch_false.set_cursor(MFInstructionCursor{instruction, false});
   return branch;
