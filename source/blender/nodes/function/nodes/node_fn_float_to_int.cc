@@ -76,12 +76,6 @@ static const blender::fn::MultiFunction &get_multi_function(bNode &bnode)
   return blender::fn::dummy_multi_function;
 }
 
-static void node_float_to_int_expand_in_mf_network(blender::nodes::NodeMFNetworkBuilder &builder)
-{
-  const blender::fn::MultiFunction &fn = get_multi_function(builder.bnode());
-  builder.set_matching_fn(fn);
-}
-
 void register_node_type_fn_float_to_int()
 {
   static bNodeType ntype;
@@ -89,7 +83,6 @@ void register_node_type_fn_float_to_int()
   fn_node_type_base(&ntype, FN_NODE_FLOAT_TO_INT, "Float to Integer", NODE_CLASS_CONVERTOR, 0);
   node_type_socket_templates(&ntype, fn_node_float_to_int_in, fn_node_float_to_int_out);
   node_type_label(&ntype, node_float_to_int_label);
-  ntype.expand_in_mf_network = node_float_to_int_expand_in_mf_network;
   ntype.draw_buttons = fn_node_float_to_int_layout;
   nodeRegisterType(&ntype);
 }

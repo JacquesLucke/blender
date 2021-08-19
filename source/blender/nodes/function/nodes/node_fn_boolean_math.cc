@@ -79,18 +79,6 @@ static const blender::fn::MultiFunction &get_multi_function(bNode &bnode)
   return blender::fn::dummy_multi_function;
 }
 
-static void node_boolean_expand_in_mf_network(blender::nodes::NodeMFNetworkBuilder &builder)
-{
-  const blender::fn::MultiFunction &fn = get_multi_function(builder.bnode());
-  builder.set_matching_fn(fn);
-}
-
-static void node_boolean_build_mf_procedure(blender::nodes::NodeMFProcedureBuilder &builder)
-{
-  const blender::fn::MultiFunction &fn = get_multi_function(builder.bnode());
-  builder.set_matching_fn(fn);
-}
-
 void register_node_type_fn_boolean_math()
 {
   static bNodeType ntype;
@@ -99,8 +87,6 @@ void register_node_type_fn_boolean_math()
   node_type_socket_templates(&ntype, fn_node_boolean_math_in, fn_node_boolean_math_out);
   node_type_label(&ntype, node_boolean_math_label);
   node_type_update(&ntype, node_boolean_math_update);
-  ntype.expand_in_mf_network = node_boolean_expand_in_mf_network;
   ntype.draw_buttons = fn_node_boolean_math_layout;
-  ntype.build_mf_procedure = node_boolean_build_mf_procedure;
   nodeRegisterType(&ntype);
 }

@@ -20,13 +20,24 @@
 
 #include "NOD_derived_node_tree.hh"
 #include "NOD_geometry_nodes_eval_log.hh"
-#include "NOD_node_tree_multi_function.hh"
 
 #include "FN_generic_pointer.hh"
 
 #include "DNA_modifier_types.h"
 
+#include "FN_multi_function.hh"
+
 namespace geo_log = blender::nodes::geometry_nodes_eval_log;
+
+namespace blender::nodes {
+using MultiFunctionByNode = Map<DNode, const fn::MultiFunction *>;
+inline MultiFunctionByNode get_multi_function_per_node(const DerivedNodeTree &UNUSED(tree),
+                                                       ResourceScope &UNUSED(scope))
+{
+  return {};
+}
+
+}  // namespace blender::nodes
 
 namespace blender::modifiers::geometry_nodes {
 

@@ -69,72 +69,6 @@ static int gpu_shader_math(GPUMaterial *mat,
   return 0;
 }
 
-static const blender::fn::MultiFunction &get_base_multi_function(
-    blender::nodes::NodeMFNetworkBuilder &builder)
-{
-  const int mode = builder.bnode().custom1;
-
-  const blender::fn::MultiFunction *base_fn = nullptr;
-
-  blender::nodes::try_dispatch_float_math_fl_to_fl(
-      mode, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
-        static blender::fn::CustomMF_SI_SO<float, float> fn{info.title_case_name, function};
-        base_fn = &fn;
-      });
-  if (base_fn != nullptr) {
-    return *base_fn;
-  }
-
-  blender::nodes::try_dispatch_float_math_fl_fl_to_fl(
-      mode, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
-        static blender::fn::CustomMF_SI_SI_SO<float, float, float> fn{info.title_case_name,
-                                                                      function};
-        base_fn = &fn;
-      });
-  if (base_fn != nullptr) {
-    return *base_fn;
-  }
-
-  blender::nodes::try_dispatch_float_math_fl_fl_fl_to_fl(
-      mode, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
-        static blender::fn::CustomMF_SI_SI_SI_SO<float, float, float, float> fn{
-            info.title_case_name, function};
-        base_fn = &fn;
-      });
-  if (base_fn != nullptr) {
-    return *base_fn;
-  }
-
-  return builder.get_not_implemented_fn();
-}
-
-static void sh_node_math_expand_in_mf_network(blender::nodes::NodeMFNetworkBuilder &builder)
-{
-  const blender::fn::MultiFunction &base_function = get_base_multi_function(builder);
-
-  const blender::nodes::DNode &dnode = builder.dnode();
-  blender::fn::MFNetwork &network = builder.network();
-  blender::fn::MFFunctionNode &base_node = network.add_function(base_function);
-
-  builder.network_map().add_try_match(*dnode.context(), dnode->inputs(), base_node.inputs());
-
-  const bool clamp_output = builder.bnode().custom2 != 0;
-  if (clamp_output) {
-    static blender::fn::CustomMF_SI_SO<float, float> clamp_fn{"Clamp", [](float value) {
-                                                                CLAMP(value, 0.0f, 1.0f);
-                                                                return value;
-                                                              }};
-    blender::fn::MFFunctionNode &clamp_node = network.add_function(clamp_fn);
-    network.add_link(base_node.output(0), clamp_node.input(0));
-    builder.network_map().add(blender::nodes::DOutputSocket(dnode.context(), &dnode->output(0)),
-                              clamp_node.output(0));
-  }
-  else {
-    builder.network_map().add(blender::nodes::DOutputSocket(dnode.context(), &dnode->output(0)),
-                              base_node.output(0));
-  }
-}
-
 void register_node_type_sh_math(void)
 {
   static bNodeType ntype;
@@ -144,7 +78,6 @@ void register_node_type_sh_math(void)
   node_type_label(&ntype, node_math_label);
   node_type_gpu(&ntype, gpu_shader_math);
   node_type_update(&ntype, node_math_update);
-  ntype.expand_in_mf_network = sh_node_math_expand_in_mf_network;
 
   nodeRegisterType(&ntype);
 }

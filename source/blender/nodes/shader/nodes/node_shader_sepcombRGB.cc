@@ -96,12 +96,6 @@ class SeparateRGBFunction : public blender::fn::MultiFunction {
   }
 };
 
-static void sh_node_seprgb_expand_in_mf_network(blender::nodes::NodeMFNetworkBuilder &builder)
-{
-  static SeparateRGBFunction fn;
-  builder.set_matching_fn(fn);
-}
-
 void register_node_type_sh_seprgb(void)
 {
   static bNodeType ntype;
@@ -110,7 +104,6 @@ void register_node_type_sh_seprgb(void)
   node_type_socket_templates(&ntype, sh_node_seprgb_in, sh_node_seprgb_out);
   node_type_exec(&ntype, nullptr, nullptr, node_shader_exec_seprgb);
   node_type_gpu(&ntype, gpu_shader_seprgb);
-  ntype.expand_in_mf_network = sh_node_seprgb_expand_in_mf_network;
 
   nodeRegisterType(&ntype);
 }
@@ -153,14 +146,6 @@ static int gpu_shader_combrgb(GPUMaterial *mat,
   return GPU_stack_link(mat, node, "combine_rgb", in, out);
 }
 
-static void sh_node_combrgb_expand_in_mf_network(blender::nodes::NodeMFNetworkBuilder &builder)
-{
-  static blender::fn::CustomMF_SI_SI_SI_SO<float, float, float, blender::ColorGeometry4f> fn{
-      "Combine RGB",
-      [](float r, float g, float b) { return blender::ColorGeometry4f(r, g, b, 1.0f); }};
-  builder.set_matching_fn(fn);
-}
-
 void register_node_type_sh_combrgb(void)
 {
   static bNodeType ntype;
@@ -169,7 +154,6 @@ void register_node_type_sh_combrgb(void)
   node_type_socket_templates(&ntype, sh_node_combrgb_in, sh_node_combrgb_out);
   node_type_exec(&ntype, nullptr, nullptr, node_shader_exec_combrgb);
   node_type_gpu(&ntype, gpu_shader_combrgb);
-  ntype.expand_in_mf_network = sh_node_combrgb_expand_in_mf_network;
 
   nodeRegisterType(&ntype);
 }

@@ -111,8 +111,6 @@ typedef struct bNodeSocketTemplate {
 #ifdef __cplusplus
 namespace blender {
 namespace nodes {
-class SocketMFNetworkBuilder;
-class NodeMFNetworkBuilder;
 class NodeMFProcedureBuilder;
 class GeoNodeExecParams;
 }  // namespace nodes
@@ -122,7 +120,6 @@ class MFDataType;
 }  // namespace fn
 }  // namespace blender
 
-using NodeExpandInMFNetworkFunction = void (*)(blender::nodes::NodeMFNetworkBuilder &builder);
 using NodeMFProcedureBuildFunction = void (*)(blender::nodes::NodeMFProcedureBuilder &builder);
 using NodeGeometryExecFunction = void (*)(blender::nodes::GeoNodeExecParams params);
 using SocketGetCPPTypeFunction = const blender::fn::CPPType *(*)();
@@ -130,12 +127,9 @@ using SocketGetCPPValueFunction = void (*)(const struct bNodeSocket &socket, voi
 using SocketGetGeometryNodesCPPTypeFunction = const blender::fn::CPPType *(*)();
 using SocketGetGeometryNodesCPPValueFunction = void (*)(const struct bNodeSocket &socket,
                                                         void *r_value);
-using SocketExpandInMFNetworkFunction = void (*)(blender::nodes::SocketMFNetworkBuilder &builder);
 
 #else
-typedef void *NodeExpandInMFNetworkFunction;
 typedef void *NodeMFProcedureBuildFunction;
-typedef void *SocketExpandInMFNetworkFunction;
 typedef void *NodeGeometryExecFunction;
 typedef void *SocketGetCPPTypeFunction;
 typedef void *SocketGetGeometryNodesCPPTypeFunction;
@@ -199,8 +193,6 @@ typedef struct bNodeSocketType {
   /* Callback to free the socket type. */
   void (*free_self)(struct bNodeSocketType *stype);
 
-  /* Expands the socket into a multi-function node that outputs the socket value. */
-  SocketExpandInMFNetworkFunction expand_in_mf_network;
   /* Return the CPPType of this socket. */
   SocketGetCPPTypeFunction get_base_cpp_type;
   /* Get the value of this socket in a generic way. */
@@ -334,9 +326,6 @@ typedef struct bNodeType {
   NodeExecFunction exec_fn;
   /* gpu */
   NodeGPUExecFunction gpu_fn;
-
-  /* Expands the bNode into nodes in a multi-function network, which will be evaluated later on. */
-  NodeExpandInMFNetworkFunction expand_in_mf_network;
 
   /* Adds the node to a multi function procedure. */
   NodeMFProcedureBuildFunction build_mf_procedure;
