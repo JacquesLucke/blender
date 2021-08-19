@@ -50,7 +50,7 @@ static void node_float_to_int_label(bNodeTree *UNUSED(ntree), bNode *node, char 
   BLI_strncpy(label, IFACE_(name), maxlen);
 }
 
-static const blender::fn::MultiFunction &get_multi_function(bNode &bnode)
+static const blender::fn::MultiFunction *get_multi_function(bNode &bnode)
 {
   static blender::fn::CustomMF_SI_SO<float, int> round_fn{"Round",
                                                           [](float a) { return (int)round(a); }};
@@ -63,17 +63,24 @@ static const blender::fn::MultiFunction &get_multi_function(bNode &bnode)
 
   switch (static_cast<FloatToIntRoundingMode>(bnode.custom1)) {
     case FN_NODE_FLOAT_TO_INT_ROUND:
-      return round_fn;
+      return &round_fn;
     case FN_NODE_FLOAT_TO_INT_FLOOR:
-      return floor_fn;
+      return &floor_fn;
     case FN_NODE_FLOAT_TO_INT_CEIL:
-      return ceil_fn;
+      return &ceil_fn;
     case FN_NODE_FLOAT_TO_INT_TRUNCATE:
-      return trunc_fn;
+      return &trunc_fn;
   }
 
   BLI_assert_unreachable();
-  return blender::fn::dummy_multi_function;
+  return nullptr;
+}
+
+static void fn_node_float_to_int_build_multi_function(
+    blender::nodes::NodeMultiFunctionBuilder &builder)
+{
+  const blender::fn::MultiFunction *fn = get_multi_function(builder.node());
+  builder.set_matching_fn(fn);
 }
 
 void register_node_type_fn_float_to_int()
@@ -84,5 +91,6 @@ void register_node_type_fn_float_to_int()
   node_type_socket_templates(&ntype, fn_node_float_to_int_in, fn_node_float_to_int_out);
   node_type_label(&ntype, node_float_to_int_label);
   ntype.draw_buttons = fn_node_float_to_int_layout;
+  ntype.build_multi_function = fn_node_float_to_int_build_multi_function;
   nodeRegisterType(&ntype);
 }

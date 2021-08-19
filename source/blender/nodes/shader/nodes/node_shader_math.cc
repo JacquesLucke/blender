@@ -69,6 +69,56 @@ static int gpu_shader_math(GPUMaterial *mat,
   return 0;
 }
 
+static const blender::fn::MultiFunction *get_base_multi_function(bNode &node)
+{
+  const int mode = node.custom1;
+  const blender::fn::MultiFunction *base_fn = nullptr;
+
+  blender::nodes::try_dispatch_float_math_fl_to_fl(
+      mode, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
+        static blender::fn::CustomMF_SI_SO<float, float> fn{info.title_case_name, function};
+        base_fn = &fn;
+      });
+  if (base_fn != nullptr) {
+    return base_fn;
+  }
+
+  blender::nodes::try_dispatch_float_math_fl_fl_to_fl(
+      mode, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
+        static blender::fn::CustomMF_SI_SI_SO<float, float, float> fn{info.title_case_name,
+                                                                      function};
+        base_fn = &fn;
+      });
+  if (base_fn != nullptr) {
+    return base_fn;
+  }
+
+  blender::nodes::try_dispatch_float_math_fl_fl_fl_to_fl(
+      mode, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
+        static blender::fn::CustomMF_SI_SI_SI_SO<float, float, float, float> fn{
+            info.title_case_name, function};
+        base_fn = &fn;
+      });
+  if (base_fn != nullptr) {
+    return base_fn;
+  }
+
+  return nullptr;
+}
+
+static void sh_node_math_build_multi_function(blender::nodes::NodeMultiFunctionBuilder &builder)
+{
+  const blender::fn::MultiFunction *base_function = get_base_multi_function(builder.node());
+
+  const bool clamp_output = builder.node().custom2 != 0;
+  if (clamp_output) {
+    /* TODO */
+  }
+  else {
+    builder.set_matching_fn(base_function);
+  }
+}
+
 void register_node_type_sh_math(void)
 {
   static bNodeType ntype;
@@ -78,6 +128,7 @@ void register_node_type_sh_math(void)
   node_type_label(&ntype, node_math_label);
   node_type_gpu(&ntype, gpu_shader_math);
   node_type_update(&ntype, node_math_update);
+  ntype.build_multi_function = sh_node_math_build_multi_function;
 
   nodeRegisterType(&ntype);
 }

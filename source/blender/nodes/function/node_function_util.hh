@@ -30,6 +30,7 @@
 #include "BLT_translation.h"
 
 #include "NOD_function.h"
+#include "NOD_multi_function.hh"
 
 #include "node_util.h"
 

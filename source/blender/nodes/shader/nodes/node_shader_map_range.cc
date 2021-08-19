@@ -261,6 +261,51 @@ class MapRangeSmootherstepFunction : public blender::fn::MultiFunction {
   }
 };
 
+static void sh_node_map_range_build_multi_function(
+    blender::nodes::NodeMultiFunctionBuilder &builder)
+{
+  bNode &bnode = builder.node();
+  bool clamp = bnode.custom1 != 0;
+  int interpolation_type = bnode.custom2;
+
+  switch (interpolation_type) {
+    case NODE_MAP_RANGE_LINEAR: {
+      if (clamp) {
+        static MapRangeFunction fn_with_clamp{true};
+        builder.set_matching_fn(fn_with_clamp);
+      }
+      else {
+        static MapRangeFunction fn_without_clamp{false};
+        builder.set_matching_fn(fn_without_clamp);
+      }
+      break;
+    }
+    case NODE_MAP_RANGE_STEPPED: {
+      if (clamp) {
+        static MapRangeSteppedFunction fn_stepped_with_clamp{true};
+        builder.set_matching_fn(fn_stepped_with_clamp);
+      }
+      else {
+        static MapRangeSteppedFunction fn_stepped_without_clamp{false};
+        builder.set_matching_fn(fn_stepped_without_clamp);
+      }
+      break;
+    }
+    case NODE_MAP_RANGE_SMOOTHSTEP: {
+      static MapRangeSmoothstepFunction smoothstep;
+      builder.set_matching_fn(smoothstep);
+      break;
+    }
+    case NODE_MAP_RANGE_SMOOTHERSTEP: {
+      static MapRangeSmootherstepFunction smootherstep;
+      builder.set_matching_fn(smootherstep);
+      break;
+    }
+    default:
+      break;
+  }
+}
+
 void register_node_type_sh_map_range(void)
 {
   static bNodeType ntype;
@@ -270,6 +315,7 @@ void register_node_type_sh_map_range(void)
   node_type_init(&ntype, node_shader_init_map_range);
   node_type_update(&ntype, node_shader_update_map_range);
   node_type_gpu(&ntype, gpu_shader_map_range);
+  ntype.build_multi_function = sh_node_map_range_build_multi_function;
 
   nodeRegisterType(&ntype);
 }

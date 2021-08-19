@@ -39,6 +39,13 @@ static int gpu_shader_value(GPUMaterial *mat,
   return GPU_stack_link(mat, node, "set_value", in, out, link);
 }
 
+static void sh_node_value_build_multi_function(blender::nodes::NodeMultiFunctionBuilder &builder)
+{
+  const bNodeSocket *bsocket = (bNodeSocket *)builder.node().outputs.first;
+  const bNodeSocketValueFloat *value = (const bNodeSocketValueFloat *)bsocket->default_value;
+  builder.construct_and_set_matching_fn<blender::fn::CustomMF_Constant<float>>(value->value);
+}
+
 void register_node_type_sh_value(void)
 {
   static bNodeType ntype;
@@ -46,6 +53,7 @@ void register_node_type_sh_value(void)
   sh_fn_node_type_base(&ntype, SH_NODE_VALUE, "Value", NODE_CLASS_INPUT, 0);
   node_type_socket_templates(&ntype, nullptr, sh_node_value_out);
   node_type_gpu(&ntype, gpu_shader_value);
+  ntype.build_multi_function = sh_node_value_build_multi_function;
 
   nodeRegisterType(&ntype);
 }

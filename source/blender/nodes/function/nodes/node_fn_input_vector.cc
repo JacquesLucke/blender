@@ -39,6 +39,15 @@ static void fn_node_input_vector_init(bNodeTree *UNUSED(ntree), bNode *node)
   node->storage = data;
 }
 
+static void fn_node_vector_input_build_multi_function(
+    blender::nodes::NodeMultiFunctionBuilder &builder)
+{
+  bNode &bnode = builder.node();
+  NodeInputVector *node_storage = static_cast<NodeInputVector *>(bnode.storage);
+  blender::float3 vector(node_storage->vector);
+  builder.construct_and_set_matching_fn<blender::fn::CustomMF_Constant<blender::float3>>(vector);
+}
+
 void register_node_type_fn_input_vector()
 {
   static bNodeType ntype;
@@ -49,5 +58,6 @@ void register_node_type_fn_input_vector()
   node_type_storage(
       &ntype, "NodeInputVector", node_free_standard_storage, node_copy_standard_storage);
   ntype.draw_buttons = fn_node_input_vector_layout;
+  ntype.build_multi_function = fn_node_vector_input_build_multi_function;
   nodeRegisterType(&ntype);
 }

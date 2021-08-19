@@ -18,11 +18,6 @@
 
 namespace blender::nodes {
 
-void NodeMultiFunctionBuilder::set_matching_fn(const MultiFunction *fn)
-{
-  built_fn_ = fn;
-}
-
 NodeMultiFunctions::NodeMultiFunctions(const DerivedNodeTree &tree, ResourceScope &resource_scope)
 {
   for (const NodeTreeRef *tree_ref : tree.used_node_tree_refs()) {

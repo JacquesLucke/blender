@@ -51,6 +51,29 @@ static int gpu_shader_clamp(GPUMaterial *mat,
              GPU_stack_link(mat, node, "clamp_range", in, out);
 }
 
+static void sh_node_clamp_build_multi_function(blender::nodes::NodeMultiFunctionBuilder &builder)
+{
+  static blender::fn::CustomMF_SI_SI_SI_SO<float, float, float, float> minmax_fn{
+      "Clamp (Min Max)",
+      [](float value, float min, float max) { return std::min(std::max(value, min), max); }};
+  static blender::fn::CustomMF_SI_SI_SI_SO<float, float, float, float> range_fn{
+      "Clamp (Range)", [](float value, float a, float b) {
+        if (a < b) {
+          return clamp_f(value, a, b);
+        }
+
+        return clamp_f(value, b, a);
+      }};
+
+  int clamp_type = builder.node().custom1;
+  if (clamp_type == NODE_CLAMP_MINMAX) {
+    builder.set_matching_fn(minmax_fn);
+  }
+  else {
+    builder.set_matching_fn(range_fn);
+  }
+}
+
 void register_node_type_sh_clamp(void)
 {
   static bNodeType ntype;
@@ -59,6 +82,7 @@ void register_node_type_sh_clamp(void)
   node_type_socket_templates(&ntype, sh_node_clamp_in, sh_node_clamp_out);
   node_type_init(&ntype, node_shader_init_clamp);
   node_type_gpu(&ntype, gpu_shader_clamp);
+  ntype.build_multi_function = sh_node_clamp_build_multi_function;
 
   nodeRegisterType(&ntype);
 }
