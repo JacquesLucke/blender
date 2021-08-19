@@ -29,6 +29,16 @@ static void fn_node_input_string_layout(uiLayout *layout, bContext *UNUSED(C), P
   uiItemR(layout, ptr, "string", 0, "", ICON_NONE);
 }
 
+static void fn_node_input_string_build_multi_function(
+    blender::nodes::NodeMultiFunctionBuilder &builder)
+{
+  bNode &bnode = builder.node();
+  NodeInputString *node_storage = static_cast<NodeInputString *>(bnode.storage);
+  std::string string = std::string((node_storage->string) ? node_storage->string : "");
+  builder.construct_and_set_matching_fn<blender::fn::CustomMF_Constant<std::string>>(
+      std::move(string));
+}
+
 static void fn_node_input_string_init(bNodeTree *UNUSED(ntree), bNode *node)
 {
   node->storage = MEM_callocN(sizeof(NodeInputString), __func__);
@@ -60,16 +70,6 @@ static void fn_node_string_copy(bNodeTree *UNUSED(dest_ntree),
   dest_node->storage = destination_storage;
 }
 
-static void fn_node_input_string_build_multi_function(
-    blender::nodes::NodeMultiFunctionBuilder &builder)
-{
-  bNode &bnode = builder.node();
-  NodeInputString *node_storage = static_cast<NodeInputString *>(bnode.storage);
-  std::string string = std::string((node_storage->string) ? node_storage->string : "");
-  builder.construct_and_set_matching_fn<blender::fn::CustomMF_Constant<std::string>>(
-      std::move(string));
-}
-
 void register_node_type_fn_input_string()
 {
   static bNodeType ntype;
@@ -78,7 +78,7 @@ void register_node_type_fn_input_string()
   node_type_socket_templates(&ntype, nullptr, fn_node_input_string_out);
   node_type_init(&ntype, fn_node_input_string_init);
   node_type_storage(&ntype, "NodeInputString", fn_node_input_string_free, fn_node_string_copy);
-  ntype.draw_buttons = fn_node_input_string_layout;
   ntype.build_multi_function = fn_node_input_string_build_multi_function;
+  ntype.draw_buttons = fn_node_input_string_layout;
   nodeRegisterType(&ntype);
 }

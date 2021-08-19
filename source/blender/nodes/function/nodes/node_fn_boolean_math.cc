@@ -94,7 +94,7 @@ void register_node_type_fn_boolean_math()
   node_type_socket_templates(&ntype, fn_node_boolean_math_in, fn_node_boolean_math_out);
   node_type_label(&ntype, node_boolean_math_label);
   node_type_update(&ntype, node_boolean_math_update);
-  ntype.draw_buttons = fn_node_boolean_math_layout;
   ntype.build_multi_function = fn_node_boolean_math_build_multi_function;
+  ntype.draw_buttons = fn_node_boolean_math_layout;
   nodeRegisterType(&ntype);
 }

@@ -113,7 +113,7 @@ void register_node_type_fn_float_compare()
   node_type_socket_templates(&ntype, fn_node_float_compare_in, fn_node_float_compare_out);
   node_type_label(&ntype, node_float_compare_label);
   node_type_update(&ntype, node_float_compare_update);
-  ntype.draw_buttons = geo_node_float_compare_layout;
   ntype.build_multi_function = fn_node_float_compare_build_multi_function;
+  ntype.draw_buttons = geo_node_float_compare_layout;
   nodeRegisterType(&ntype);
 }

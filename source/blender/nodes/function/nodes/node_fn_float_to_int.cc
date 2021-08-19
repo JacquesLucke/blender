@@ -90,7 +90,7 @@ void register_node_type_fn_float_to_int()
   fn_node_type_base(&ntype, FN_NODE_FLOAT_TO_INT, "Float to Integer", NODE_CLASS_CONVERTOR, 0);
   node_type_socket_templates(&ntype, fn_node_float_to_int_in, fn_node_float_to_int_out);
   node_type_label(&ntype, node_float_to_int_label);
-  ntype.draw_buttons = fn_node_float_to_int_layout;
   ntype.build_multi_function = fn_node_float_to_int_build_multi_function;
+  ntype.draw_buttons = fn_node_float_to_int_layout;
   nodeRegisterType(&ntype);
 }
