@@ -859,7 +859,7 @@ static GeometrySet compute_geometry(const DerivedNodeTree &tree,
 {
   blender::ResourceScope scope;
   blender::LinearAllocator<> &allocator = scope.linear_allocator();
-  blender::nodes::MultiFunctionByNode mf_by_node = get_multi_function_per_node(tree, scope);
+  blender::nodes::NodeMultiFunctions mf_by_node{tree, scope};
 
   Map<DOutputSocket, GMutablePointer> group_inputs;
 

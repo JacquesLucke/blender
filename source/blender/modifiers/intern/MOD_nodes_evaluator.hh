@@ -20,6 +20,7 @@
 
 #include "NOD_derived_node_tree.hh"
 #include "NOD_geometry_nodes_eval_log.hh"
+#include "NOD_multi_function.hh"
 
 #include "FN_generic_pointer.hh"
 
@@ -28,16 +29,6 @@
 #include "FN_multi_function.hh"
 
 namespace geo_log = blender::nodes::geometry_nodes_eval_log;
-
-namespace blender::nodes {
-using MultiFunctionByNode = Map<DNode, const fn::MultiFunction *>;
-inline MultiFunctionByNode get_multi_function_per_node(const DerivedNodeTree &UNUSED(tree),
-                                                       ResourceScope &UNUSED(scope))
-{
-  return {};
-}
-
-}  // namespace blender::nodes
 
 namespace blender::modifiers::geometry_nodes {
 
@@ -56,7 +47,7 @@ struct GeometryNodesEvaluationParams {
    * necessary in all cases. Sometimes `log_socket_value_fn` might just want to look at the value
    * and then it can be freed. */
   Vector<DSocket> force_compute_sockets;
-  nodes::MultiFunctionByNode *mf_by_node;
+  nodes::NodeMultiFunctions *mf_by_node;
   const NodesModifierData *modifier_;
   Depsgraph *depsgraph;
   Object *self_object;

@@ -111,7 +111,7 @@ typedef struct bNodeSocketTemplate {
 #ifdef __cplusplus
 namespace blender {
 namespace nodes {
-class NodeMFProcedureBuilder;
+class NodeMultiFunctionBuilder;
 class GeoNodeExecParams;
 }  // namespace nodes
 namespace fn {
@@ -120,7 +120,7 @@ class MFDataType;
 }  // namespace fn
 }  // namespace blender
 
-using NodeMFProcedureBuildFunction = void (*)(blender::nodes::NodeMFProcedureBuilder &builder);
+using NodeMultiFunctionBuildFunction = void (*)(blender::nodes::NodeMultiFunctionBuilder &builder);
 using NodeGeometryExecFunction = void (*)(blender::nodes::GeoNodeExecParams params);
 using SocketGetCPPTypeFunction = const blender::fn::CPPType *(*)();
 using SocketGetCPPValueFunction = void (*)(const struct bNodeSocket &socket, void *r_value);
@@ -129,7 +129,7 @@ using SocketGetGeometryNodesCPPValueFunction = void (*)(const struct bNodeSocket
                                                         void *r_value);
 
 #else
-typedef void *NodeMFProcedureBuildFunction;
+typedef void *NodeMultiFunctionBuildFunction;
 typedef void *NodeGeometryExecFunction;
 typedef void *SocketGetCPPTypeFunction;
 typedef void *SocketGetGeometryNodesCPPTypeFunction;
@@ -327,8 +327,8 @@ typedef struct bNodeType {
   /* gpu */
   NodeGPUExecFunction gpu_fn;
 
-  /* Adds the node to a multi function procedure. */
-  NodeMFProcedureBuildFunction build_mf_procedure;
+  /* Build a multi-function for this node. */
+  NodeMultiFunctionBuildFunction build_multi_function;
 
   /* Execute a geometry node. */
   NodeGeometryExecFunction geometry_node_execute;
