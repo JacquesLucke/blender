@@ -53,7 +53,7 @@ void MFInstructionCursor::insert(MFProcedure &procedure, MFInstruction *new_inst
   }
 }
 
-void MFProcedureBuilder::insert_destruct(MFVariable &variable)
+void MFProcedureBuilder::add_destruct(MFVariable &variable)
 {
   MFDestructInstruction &instruction = procedure_->new_destruct_instruction();
   instruction.set_variable(&variable);
@@ -61,14 +61,14 @@ void MFProcedureBuilder::insert_destruct(MFVariable &variable)
   cursors_ = {MFInstructionCursor{instruction}};
 }
 
-void MFProcedureBuilder::insert_destruct(Span<MFVariable *> variables)
+void MFProcedureBuilder::add_destruct(Span<MFVariable *> variables)
 {
   for (MFVariable *variable : variables) {
-    this->insert_destruct(*variable);
+    this->add_destruct(*variable);
   }
 }
 
-MFCallInstruction &MFProcedureBuilder::insert_call(const MultiFunction &fn)
+MFCallInstruction &MFProcedureBuilder::add_call(const MultiFunction &fn)
 {
   MFCallInstruction &instruction = procedure_->new_call_instruction(fn);
   this->insert_at_cursors(&instruction);
@@ -76,19 +76,19 @@ MFCallInstruction &MFProcedureBuilder::insert_call(const MultiFunction &fn)
   return instruction;
 }
 
-MFCallInstruction &MFProcedureBuilder::insert_call(const MultiFunction &fn,
-                                                   Span<MFVariable *> variables)
+MFCallInstruction &MFProcedureBuilder::add_call(const MultiFunction &fn,
+                                                Span<MFVariable *> variables)
 {
-  MFCallInstruction &instruction = this->insert_call(fn);
+  MFCallInstruction &instruction = this->add_call(fn);
   instruction.set_params(variables);
   return instruction;
 }
 
-Vector<MFVariable *> MFProcedureBuilder::insert_call_with_new_variables(
+Vector<MFVariable *> MFProcedureBuilder::add_call_with_new_variables(
     const MultiFunction &fn, Span<MFVariable *> input_and_mutable_variables)
 {
   Vector<MFVariable *> output_variables;
-  MFCallInstruction &instruction = this->insert_call(fn);
+  MFCallInstruction &instruction = this->add_call(fn);
   for (const int param_index : fn.param_indices()) {
     const MFParamType param_type = fn.param_type(param_index);
     switch (param_type.interface_type()) {
@@ -112,7 +112,7 @@ Vector<MFVariable *> MFProcedureBuilder::insert_call_with_new_variables(
   return output_variables;
 }
 
-MFProcedureBuilder::Branch MFProcedureBuilder::insert_branch(MFVariable &condition)
+MFProcedureBuilder::Branch MFProcedureBuilder::add_branch(MFVariable &condition)
 {
   MFBranchInstruction &instruction = procedure_->new_branch_instruction();
   instruction.set_condition(&condition);

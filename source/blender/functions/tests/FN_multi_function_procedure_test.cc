@@ -25,10 +25,10 @@ TEST(multi_function_procedure, SimpleTest)
 
   MFVariable *var1 = &builder.add_single_input_parameter<int>();
   MFVariable *var2 = &builder.add_single_input_parameter<int>();
-  auto [var3] = builder.insert_call_with_new_variables<1>(add_fn, {var1, var2});
-  auto [var4] = builder.insert_call_with_new_variables<1>(add_fn, {var2, var3});
-  builder.insert_call(add_10_fn, {var4});
-  builder.insert_destruct({var1, var2, var3});
+  auto [var3] = builder.add_call_with_new_variables<1>(add_fn, {var1, var2});
+  auto [var4] = builder.add_call_with_new_variables<1>(add_fn, {var2, var3});
+  builder.add_call(add_10_fn, {var4});
+  builder.add_destruct({var1, var2, var3});
   builder.add_output_parameter(*var4);
 
   MFProcedureExecutor executor{"My Procedure", procedure};
@@ -73,12 +73,12 @@ TEST(multi_function_procedure, BranchTest)
   MFVariable *var1 = &builder.add_single_mutable_parameter<int>();
   MFVariable *var2 = &builder.add_single_input_parameter<bool>();
 
-  MFProcedureBuilder::Branch branch = builder.insert_branch(*var2);
-  branch.branch_false.insert_call(add_10_fn, {var1});
-  branch.branch_true.insert_call(add_100_fn, {var1});
+  MFProcedureBuilder::Branch branch = builder.add_branch(*var2);
+  branch.branch_false.add_call(add_10_fn, {var1});
+  branch.branch_true.add_call(add_100_fn, {var1});
   builder.set_cursor_after_branch(branch);
-  builder.insert_call(add_10_fn, {var1});
-  builder.insert_destruct({var2});
+  builder.add_call(add_10_fn, {var1});
+  builder.add_destruct({var2});
 
   MFProcedureExecutor procedure_fn{"Condition Test", procedure};
   MFParamsBuilder params(procedure_fn, 5);
@@ -117,8 +117,8 @@ TEST(multi_function_procedure, EvaluateOne)
   MFProcedureBuilder builder{procedure};
 
   MFVariable *var1 = &builder.add_single_input_parameter<int>();
-  auto [var2] = builder.insert_call_with_new_variables<1>(add_10_fn, {var1});
-  builder.insert_destruct(*var1);
+  auto [var2] = builder.add_call_with_new_variables<1>(add_10_fn, {var1});
+  builder.add_destruct(*var1);
   builder.add_output_parameter(*var2);
 
   MFProcedureExecutor procedure_fn{"Single Test", procedure};
