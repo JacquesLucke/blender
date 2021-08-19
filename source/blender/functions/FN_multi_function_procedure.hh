@@ -130,6 +130,11 @@ class MFDestructInstruction : public MFInstruction {
   void set_next(MFInstruction *instruction);
 };
 
+struct DestructInstructionChain {
+  MFDestructInstruction *first = nullptr;
+  MFDestructInstruction *last = nullptr;
+};
+
 class MFProcedure : NonCopyable, NonMovable {
  private:
   LinearAllocator<> allocator_;
@@ -150,6 +155,7 @@ class MFProcedure : NonCopyable, NonMovable {
                                           Span<MFVariable *> param_variables);
   MFBranchInstruction &new_branch_instruction(MFVariable *condition_variable = nullptr);
   MFDestructInstruction &new_destruct_instruction(MFVariable *variable = nullptr);
+  DestructInstructionChain new_destruct_instructions(Span<MFVariable *> variables);
 
   void add_parameter(MFParamType::InterfaceType interface_type, MFVariable &variable);
 

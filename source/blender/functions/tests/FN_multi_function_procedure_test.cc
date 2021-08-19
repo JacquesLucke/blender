@@ -22,12 +22,13 @@ TEST(multi_function_procedure, SimpleTest)
   MFCallInstruction &add1_instr = procedure.new_call_instruction(add_fn, {&var1, &var2, &var3});
   MFCallInstruction &add2_instr = procedure.new_call_instruction(add_fn, {&var2, &var3, &var4});
   MFCallInstruction &add3_instr = procedure.new_call_instruction(add_10_fn, {&var4});
-  MFDestructInstruction &destruct_instr = procedure.new_destruct_instruction(&var3);
+  DestructInstructionChain destruction_chain = procedure.new_destruct_instructions(
+      {&var1, &var2, &var3});
 
   procedure.set_entry(add1_instr);
   add1_instr.set_next(&add2_instr);
   add2_instr.set_next(&add3_instr);
-  add3_instr.set_next(&destruct_instr);
+  add3_instr.set_next(destruction_chain.first);
 
   procedure.add_parameter(MFParamType::Input, var1);
   procedure.add_parameter(MFParamType::Input, var2);
@@ -64,10 +65,13 @@ TEST(multi_function_procedure, BranchTest)
   MFBranchInstruction &branch_instr = procedure.new_branch_instruction(&cond_var);
   MFCallInstruction &add_10_instr = procedure.new_call_instruction(add_10_fn, {&a_var});
   MFCallInstruction &add_100_instr = procedure.new_call_instruction(add_100_fn, {&a_var});
+  DestructInstructionChain destruction_chain = procedure.new_destruct_instructions({&cond_var});
 
   procedure.set_entry(branch_instr);
   branch_instr.set_branch_false(&add_10_instr);
   branch_instr.set_branch_true(&add_100_instr);
+  add_10_instr.set_next(destruction_chain.first);
+  add_100_instr.set_next(destruction_chain.first);
 
   procedure.add_parameter(MFParamType::Mutable, a_var);
   procedure.add_parameter(MFParamType::Input, cond_var);
@@ -93,13 +97,20 @@ TEST(multi_function_procedure, BranchTest)
 
 TEST(multi_function_procedure, SingleTest)
 {
-  CustomMF_SI_SO<int, int> add_10_fn{"add_10", [](int a) { return a + 10; }};
+  int tot_evaluations = 0;
+  CustomMF_SI_SO<int, int> add_10_fn{"add_10", [&](int a) {
+                                       tot_evaluations++;
+                                       return a + 10;
+                                     }};
 
   MFProcedure procedure;
   MFVariable &in_var = procedure.new_variable(MFDataType::ForSingle<int>(), "in");
   MFVariable &out_var = procedure.new_variable(MFDataType::ForSingle<int>(), "out");
 
   MFCallInstruction &add_10_instr = procedure.new_call_instruction(add_10_fn, {&in_var, &out_var});
+  DestructInstructionChain destruction_chain = procedure.new_destruct_instructions({&in_var});
+
+  add_10_instr.set_next(destruction_chain.first);
 
   procedure.set_entry(add_10_instr);
   procedure.add_parameter(MFParamType::Input, in_var);
@@ -120,6 +131,8 @@ TEST(multi_function_procedure, SingleTest)
   EXPECT_EQ(values_out[2], 3);
   EXPECT_EQ(values_out[3], 11);
   EXPECT_EQ(values_out[4], 11);
+  /* We expect only one evaluation, because the input is constant. */
+  EXPECT_EQ(tot_evaluations, 1);
 }
 
 }  // namespace blender::fn::tests

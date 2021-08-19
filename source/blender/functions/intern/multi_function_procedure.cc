@@ -158,6 +158,22 @@ MFDestructInstruction &MFProcedure::new_destruct_instruction(MFVariable *variabl
   return instruction;
 }
 
+DestructInstructionChain MFProcedure::new_destruct_instructions(Span<MFVariable *> variables)
+{
+  DestructInstructionChain chain;
+  for (MFVariable *variable : variables) {
+    MFDestructInstruction &instruction = this->new_destruct_instruction(variable);
+    if (chain.first == nullptr) {
+      chain.first = chain.last = &instruction;
+    }
+    else {
+      chain.last->set_next(&instruction);
+      chain.last = &instruction;
+    }
+  }
+  return chain;
+}
+
 void MFProcedure::add_parameter(MFParamType::InterfaceType interface_type, MFVariable &variable)
 {
   params_.append({interface_type, &variable});
