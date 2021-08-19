@@ -727,19 +727,29 @@ class VariableStoreContainer {
   IndexMask full_mask_;
 
  public:
-  VariableStoreContainer(const MFProcedureExecutor &fn,
-                         const MFProcedure &procedure,
-                         IndexMask full_mask,
-                         MFParams &params)
-      : full_mask_(full_mask)
+  VariableStoreContainer(IndexMask full_mask) : full_mask_(full_mask)
   {
+  }
 
+  ~VariableStoreContainer()
+  {
+    for (auto &&item : variable_states_.items()) {
+      const MFVariable *variable = item.key;
+      VariableState *state = item.value;
+      state->destruct_self(value_allocator_, variable->data_type());
+    }
+  }
+
+  void add_initial_variable_states(const MFProcedureExecutor &fn,
+                                   const MFProcedure &procedure,
+                                   MFParams &params)
+  {
     for (const int param_index : fn.param_indices()) {
       MFParamType param_type = fn.param_type(param_index);
       const MFVariable *variable = procedure.params()[param_index].second;
 
       auto add_state = [&](VariableValue *value, bool input_is_initialized) {
-        const int tot_initialized = input_is_initialized ? full_mask.size() : 0;
+        const int tot_initialized = input_is_initialized ? full_mask_.size() : 0;
         variable_states_.add_new(variable,
                                  value_allocator_.obtain_variable_state(*value, tot_initialized));
       };
@@ -776,15 +786,6 @@ class VariableStoreContainer {
           break;
         }
       }
-    }
-  }
-
-  ~VariableStoreContainer()
-  {
-    for (auto &&item : variable_states_.items()) {
-      const MFVariable *variable = item.key;
-      VariableState *state = item.value;
-      state->destruct_self(value_allocator_, variable->data_type());
     }
   }
 
@@ -947,7 +948,7 @@ class InstructionScheduler {
   }
 };
 
-void MFProcedureExecutor::call(IndexMask mask, MFParams params, MFContext context) const
+void MFProcedureExecutor::call(IndexMask full_mask, MFParams params, MFContext context) const
 {
   if (procedure_.entry() == nullptr) {
     return;
@@ -955,10 +956,11 @@ void MFProcedureExecutor::call(IndexMask mask, MFParams params, MFContext contex
 
   LinearAllocator<> allocator;
 
-  VariableStoreContainer variable_stores{*this, procedure_, mask, params};
+  VariableStoreContainer variable_stores{full_mask};
+  variable_stores.add_initial_variable_states(*this, procedure_, params);
 
   InstructionScheduler scheduler;
-  scheduler.add_referenced_indices(procedure_.entry(), mask);
+  scheduler.add_referenced_indices(procedure_.entry(), full_mask);
 
   while (NextInstructionInfo instr_info = scheduler.pop_next()) {
     const MFInstruction &instruction = *instr_info.instruction;
