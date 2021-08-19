@@ -10,6 +10,13 @@ namespace blender::fn::tests {
 
 TEST(multi_function_procedure, SimpleTest)
 {
+  /**
+   * procedure(int var1, int var2, int *r_var4) {
+   *   int var3 = var1 + var2;
+   *   *r_var4 = var2 + var3;
+   * }
+   */
+
   CustomMF_SI_SI_SO<int, int, int> add_fn{"add", [](int a, int b) { return a + b; }};
   CustomMF_SM<int> add_10_fn{"add_10", [](int &a) { a += 10; }};
 
@@ -45,6 +52,18 @@ TEST(multi_function_procedure, SimpleTest)
 
 TEST(multi_function_procedure, BranchTest)
 {
+  /**
+   * procedure(int &var1, bool var2) {
+   *   if (var2) {
+   *     var1 += 100;
+   *   }
+   *   else {
+   *     var1 += 10;
+   *   }
+   *   var1 += 10;
+   * }
+   */
+
   CustomMF_SM<int> add_10_fn{"add_10", [](int &a) { a += 10; }};
   CustomMF_SM<int> add_100_fn{"add_100", [](int &a) { a += 100; }};
 
@@ -82,6 +101,12 @@ TEST(multi_function_procedure, BranchTest)
 
 TEST(multi_function_procedure, EvaluateOne)
 {
+  /**
+   * procedure(int var1, int *r_var2) {
+   *   *r_var2 = var1 + 10;
+   * }
+   */
+
   int tot_evaluations = 0;
   CustomMF_SI_SO<int, int> add_10_fn{"add_10", [&](int a) {
                                        tot_evaluations++;
