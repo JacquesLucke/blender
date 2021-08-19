@@ -84,8 +84,8 @@ static void add_instructions_to_compute_socket(const MFSocket &socket, Conversio
                                                                  socket.name());
     const MultiFunction &copy_fn = context.scope.construct<CopyMultiFunction>(
         "copy function", variable.data_type());
-    MFCallInstruction &copy_instruction = context.procedure.new_call_instruction(
-        copy_fn, {&variable, &copied_variable});
+    MFCallInstruction &copy_instruction = context.procedure.new_call_instruction(copy_fn);
+    copy_instruction.set_params({&variable, &copied_variable});
     context.ordered_instructions.append(&copy_instruction);
     context.socket_variables.add_new(&socket, &copied_variable);
   }
@@ -113,8 +113,8 @@ static void add_instructions_to_compute_socket(const MFSocket &socket, Conversio
                                                                         output_socket.name());
           const MultiFunction &copy_fn = context.scope.construct<CopyMultiFunction>(
               "copy function", input_variable->data_type());
-          MFCallInstruction &copy_instruction = context.procedure.new_call_instruction(
-              copy_fn, {input_variable, &mutable_variable});
+          MFCallInstruction &copy_instruction = context.procedure.new_call_instruction(copy_fn);
+          copy_instruction.set_params({input_variable, &mutable_variable});
           context.ordered_instructions.append(&copy_instruction);
           context.socket_variables.add_new(&output_socket, &mutable_variable);
           variables.append(&mutable_variable);
@@ -130,7 +130,8 @@ static void add_instructions_to_compute_socket(const MFSocket &socket, Conversio
         }
       }
     }
-    MFCallInstruction &call_fn_instruction = context.procedure.new_call_instruction(fn, variables);
+    MFCallInstruction &call_fn_instruction = context.procedure.new_call_instruction(fn);
+    call_fn_instruction.set_params(variables);
     context.ordered_instructions.append(&call_fn_instruction);
   }
 }
@@ -157,7 +158,8 @@ MFProcedure &network_to_procedure(Span<const MFSocket *> inputs,
   }
   for (MFVariable *variable : procedure.variables()) {
     if (!param_variables.contains(variable)) {
-      MFDestructInstruction &destruct_instr = procedure.new_destruct_instruction(variable);
+      MFDestructInstruction &destruct_instr = procedure.new_destruct_instruction();
+      destruct_instr.set_variable(variable);
       context.ordered_instructions.append(&destruct_instr);
     }
   }

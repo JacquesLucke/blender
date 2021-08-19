@@ -135,7 +135,8 @@ class MFProcedureBuilder {
 
   void insert_destruct(MFVariable &variable)
   {
-    MFDestructInstruction &instruction = procedure_->new_destruct_instruction(&variable);
+    MFDestructInstruction &instruction = procedure_->new_destruct_instruction();
+    instruction.set_variable(&variable);
     this->insert_at_cursors(&instruction);
     cursors_ = {MFInstructionCursor{instruction}};
   }
@@ -264,7 +265,8 @@ void MFProcedureBuilder::set_cursor_after_branch(MFProcedureBuilderBranch &branc
 
 MFProcedureBuilderBranch MFProcedureBuilder::insert_branch(MFVariable &condition)
 {
-  MFBranchInstruction &instruction = procedure_->new_branch_instruction(&condition);
+  MFBranchInstruction &instruction = procedure_->new_branch_instruction();
+  instruction.set_condition(&condition);
   this->insert_at_cursors(&instruction);
 
   MFProcedureBuilderBranch branch{*procedure_, *procedure_};

@@ -132,46 +132,20 @@ MFCallInstruction &MFProcedure::new_call_instruction(const MultiFunction &fn)
   return instruction;
 }
 
-MFCallInstruction &MFProcedure::new_call_instruction(const MultiFunction &fn,
-                                                     Span<MFVariable *> param_variables)
-{
-  MFCallInstruction &instruction = this->new_call_instruction(fn);
-  instruction.set_params(param_variables);
-  return instruction;
-}
-
-MFBranchInstruction &MFProcedure::new_branch_instruction(MFVariable *condition_variable)
+MFBranchInstruction &MFProcedure::new_branch_instruction()
 {
   MFBranchInstruction &instruction = *allocator_.construct<MFBranchInstruction>().release();
   instruction.type_ = MFInstructionType::Branch;
   branch_instructions_.append(&instruction);
-  instruction.set_condition(condition_variable);
   return instruction;
 }
 
-MFDestructInstruction &MFProcedure::new_destruct_instruction(MFVariable *variable)
+MFDestructInstruction &MFProcedure::new_destruct_instruction()
 {
   MFDestructInstruction &instruction = *allocator_.construct<MFDestructInstruction>().release();
   instruction.type_ = MFInstructionType::Destruct;
   destruct_instructions_.append(&instruction);
-  instruction.set_variable(variable);
   return instruction;
-}
-
-DestructInstructionChain MFProcedure::new_destruct_instructions(Span<MFVariable *> variables)
-{
-  DestructInstructionChain chain;
-  for (MFVariable *variable : variables) {
-    MFDestructInstruction &instruction = this->new_destruct_instruction(variable);
-    if (chain.first == nullptr) {
-      chain.first = chain.last = &instruction;
-    }
-    else {
-      chain.last->set_next(&instruction);
-      chain.last = &instruction;
-    }
-  }
-  return chain;
 }
 
 void MFProcedure::add_parameter(MFParamType::InterfaceType interface_type, MFVariable &variable)
