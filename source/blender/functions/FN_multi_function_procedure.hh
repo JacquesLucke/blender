@@ -29,12 +29,14 @@ class MFInstruction;
 class MFCallInstruction;
 class MFBranchInstruction;
 class MFDestructInstruction;
+class MFDummyInstruction;
 class MFProcedure;
 
 enum class MFInstructionType {
   Call,
   Branch,
   Destruct,
+  Dummy,
 };
 
 class MFVariable : NonCopyable, NonMovable {
@@ -68,6 +70,7 @@ class MFInstruction : NonCopyable, NonMovable {
   friend MFCallInstruction;
   friend MFBranchInstruction;
   friend MFDestructInstruction;
+  friend MFDummyInstruction;
 
  public:
   MFInstructionType type() const;
@@ -130,9 +133,14 @@ class MFDestructInstruction : public MFInstruction {
   void set_next(MFInstruction *instruction);
 };
 
-struct DestructInstructionChain {
-  MFDestructInstruction *first = nullptr;
-  MFDestructInstruction *last = nullptr;
+class MFDummyInstruction : public MFInstruction {
+ private:
+  MFInstruction *next_ = nullptr;
+
+ public:
+  MFInstruction *next();
+  const MFInstruction *next() const;
+  void set_next(MFInstruction *instruction);
 };
 
 class MFProcedure : NonCopyable, NonMovable {
@@ -141,6 +149,7 @@ class MFProcedure : NonCopyable, NonMovable {
   Vector<MFCallInstruction *> call_instructions_;
   Vector<MFBranchInstruction *> branch_instructions_;
   Vector<MFDestructInstruction *> destruct_instructions_;
+  Vector<MFDummyInstruction *> dummy_instructions_;
   Vector<MFVariable *> variables_;
   Vector<std::pair<MFParamType::InterfaceType, MFVariable *>> params_;
   MFInstruction *entry_ = nullptr;
@@ -153,6 +162,7 @@ class MFProcedure : NonCopyable, NonMovable {
   MFCallInstruction &new_call_instruction(const MultiFunction &fn);
   MFBranchInstruction &new_branch_instruction();
   MFDestructInstruction &new_destruct_instruction();
+  MFDummyInstruction &new_dummy_instruction();
 
   void add_parameter(MFParamType::InterfaceType interface_type, MFVariable &variable);
 
@@ -300,6 +310,20 @@ inline MFInstruction *MFDestructInstruction::next()
 }
 
 inline const MFInstruction *MFDestructInstruction::next() const
+{
+  return next_;
+}
+
+/* --------------------------------------------------------------------
+ * MFDummyInstruction inline methods.
+ */
+
+inline MFInstruction *MFDummyInstruction::next()
+{
+  return next_;
+}
+
+inline const MFInstruction *MFDummyInstruction::next() const
 {
   return next_;
 }

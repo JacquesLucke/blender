@@ -1094,6 +1094,12 @@ void MFProcedureExecutor::call(IndexMask full_mask, MFParams params, MFContext c
         scheduler.add_previous_instruction_indices(destruct_instruction.next(), instr_info);
         break;
       }
+      case MFInstructionType::Dummy: {
+        const MFDummyInstruction &dummy_instruction = static_cast<const MFDummyInstruction &>(
+            instruction);
+        scheduler.add_previous_instruction_indices(dummy_instruction.next(), instr_info);
+        break;
+      }
     }
   }
 

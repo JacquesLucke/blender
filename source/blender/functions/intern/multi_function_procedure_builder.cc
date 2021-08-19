@@ -49,6 +49,10 @@ void MFInstructionCursor::insert(MFProcedure &procedure, MFInstruction *new_inst
         static_cast<MFDestructInstruction *>(instruction_)->set_next(new_instruction);
         break;
       }
+      case MFInstructionType::Dummy: {
+        static_cast<MFDummyInstruction *>(instruction_)->set_next(new_instruction);
+        break;
+      }
     }
   }
 }

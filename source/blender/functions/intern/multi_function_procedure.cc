@@ -111,6 +111,17 @@ void MFDestructInstruction::set_next(MFInstruction *instruction)
   next_ = instruction;
 }
 
+void MFDummyInstruction::set_next(MFInstruction *instruction)
+{
+  if (next_ != nullptr) {
+    next_->prev_.remove_first_occurrence_and_reorder(this);
+  }
+  if (instruction != nullptr) {
+    instruction->prev_.append(this);
+  }
+  next_ = instruction;
+}
+
 MFVariable &MFProcedure::new_variable(MFDataType data_type, std::string name)
 {
   MFVariable &variable = *allocator_.construct<MFVariable>().release();
@@ -148,6 +159,14 @@ MFDestructInstruction &MFProcedure::new_destruct_instruction()
   return instruction;
 }
 
+MFDummyInstruction &MFProcedure::new_dummy_instruction()
+{
+  MFDummyInstruction &instruction = *allocator_.construct<MFDummyInstruction>().release();
+  instruction.type_ = MFInstructionType::Dummy;
+  dummy_instructions_.append(&instruction);
+  return instruction;
+}
+
 void MFProcedure::add_parameter(MFParamType::InterfaceType interface_type, MFVariable &variable)
 {
   params_.append({interface_type, &variable});
@@ -182,6 +201,9 @@ MFProcedure::~MFProcedure()
   }
   for (MFDestructInstruction *instruction : destruct_instructions_) {
     instruction->~MFDestructInstruction();
+  }
+  for (MFDummyInstruction *instruction : dummy_instructions_) {
+    instruction->~MFDummyInstruction();
   }
   for (MFVariable *variable : variables_) {
     variable->~MFVariable();
