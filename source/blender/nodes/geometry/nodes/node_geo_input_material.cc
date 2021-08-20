@@ -17,35 +17,41 @@
 #include "UI_interface.h"
 #include "UI_resources.h"
 
+#include "NOD_node_type.hh"
+
 #include "node_geometry_util.hh"
-
-static bNodeSocketTemplate geo_node_input_material_out[] = {
-    {SOCK_MATERIAL, N_("Material")},
-    {-1, ""},
-};
-
-static void geo_node_input_material_layout(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
-{
-  uiItemR(layout, ptr, "material", 0, "", ICON_NONE);
-}
 
 namespace blender::nodes {
 
-static void geo_node_input_material_exec(GeoNodeExecParams params)
-{
-  Material *material = (Material *)params.node().id;
-  params.set_output("Material", material);
-}
+class InputMaterialNodeType : public NodeType {
+ public:
+  InputMaterialNodeType() : NodeType("Material", GEO_NODE_INPUT_MATERIAL, NODE_CLASS_INPUT)
+  {
+  }
+
+  void build(NodeBuilder &b) const override
+  {
+    b.output<decl::Material>("Material");
+  }
+
+  void geometry_exec(GeoNodeExecParams params) const override
+  {
+    Material *material = (Material *)params.node().id;
+    params.set_output("Material", material);
+  }
+
+  void draw(NodeDrawer &d) const override
+  {
+    uiItemR(d.layout, d.ptr, "material", 0, "", ICON_NONE);
+  }
+};
 
 }  // namespace blender::nodes
 
 void register_node_type_geo_input_material()
 {
   static bNodeType ntype;
+  static blender::nodes::InputMaterialNodeType type;
 
-  geo_node_type_base(&ntype, GEO_NODE_INPUT_MATERIAL, "Material", NODE_CLASS_INPUT, 0);
-  node_type_socket_templates(&ntype, nullptr, geo_node_input_material_out);
-  ntype.draw_buttons = geo_node_input_material_layout;
-  ntype.geometry_node_execute = blender::nodes::geo_node_input_material_exec;
-  nodeRegisterType(&ntype);
+  geo_node_register(ntype, type);
 }

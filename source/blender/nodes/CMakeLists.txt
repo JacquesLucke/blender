@@ -348,6 +348,7 @@ set(SRC
   intern/node_multi_function.cc
   intern/node_socket.cc
   intern/node_tree_ref.cc
+  intern/node_type.cc
   intern/node_util.c
   intern/type_conversions.cc
 
@@ -367,6 +368,7 @@ set(SRC
   NOD_math_functions.hh
   NOD_multi_function.hh
   NOD_node_tree_ref.hh
+  NOD_node_type.hh
   NOD_shader.h
   NOD_socket.h
   NOD_static_types.h

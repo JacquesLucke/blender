@@ -75,3 +75,38 @@ void geo_node_type_base(bNodeType *ntype, int type, const char *name, short ncla
   ntype->update_internal_links = node_update_internal_links_default;
   ntype->insert_link = node_insert_link_default;
 }
+
+void geo_node_register(struct bNodeType &ntype, blender::nodes::NodeType &type)
+{
+  using namespace blender;
+  using namespace blender::nodes;
+
+  geo_node_type_base(&ntype, type.builtin_type(), type.name().c_str(), type.builtin_category(), 0);
+
+  node_type_init(&ntype, [](bNodeTree *tree, bNode *node) {
+    NodeType *ntype = (NodeType *)node->typeinfo->node_type;
+    ntype->init(tree, node);
+
+    NodeBuilder builder;
+    ntype->build(builder);
+    builder.rebuild(tree, node);
+  });
+
+  ntype.geometry_node_execute = [](GeoNodeExecParams params) {
+    NodeType *ntype = (NodeType *)params.node().typeinfo->node_type;
+    ntype->geometry_exec(params);
+  };
+
+  ntype.draw_buttons = [](uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr) {
+    bNode *node = (bNode *)ptr->data;
+    NodeType *ntype = (NodeType *)node->typeinfo->node_type;
+
+    NodeDrawer drawer;
+    drawer.layout = layout;
+    drawer.ptr = ptr;
+
+    ntype->draw(drawer);
+  };
+
+  nodeRegisterType(&ntype);
+}

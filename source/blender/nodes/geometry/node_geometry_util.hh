@@ -31,9 +31,11 @@
 
 #include "NOD_geometry.h"
 #include "NOD_geometry_exec.hh"
+#include "NOD_node_type.hh"
 
 #include "node_util.h"
 
+void geo_node_register(struct bNodeType &ntype, blender::nodes::NodeType &type);
 void geo_node_type_base(
     struct bNodeType *ntype, int type, const char *name, short nclass, short flag);
 bool geo_node_poll_default(struct bNodeType *ntype,

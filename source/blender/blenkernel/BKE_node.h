@@ -334,6 +334,9 @@ typedef struct bNodeType {
   NodeGeometryExecFunction geometry_node_execute;
   bool geometry_node_execute_supports_laziness;
 
+  /* Instance of #blender::nodes::NodeType. */
+  void *node_type;
+
   /* RNA integration */
   ExtensionRNA rna_ext;
 } bNodeType;
