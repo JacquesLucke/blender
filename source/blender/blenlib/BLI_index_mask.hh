@@ -90,6 +90,7 @@ class IndexMask {
   {
   }
 
+  /** Checks that the indices are non-negative and in ascending order. */
   static bool indices_are_valid_index_mask(Span<int64_t> indices)
   {
     if (!indices.is_empty()) {

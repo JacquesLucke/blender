@@ -28,6 +28,9 @@ using namespace fn::multi_function_types;
 
 class NodeMultiFunctions;
 
+/**
+ * Utility class to help nodes build a multi-function for themselves.
+ */
 class NodeMultiFunctionBuilder : NonCopyable, NonMovable {
  private:
   ResourceScope &resource_scope_;
@@ -40,8 +43,17 @@ class NodeMultiFunctionBuilder : NonCopyable, NonMovable {
  public:
   NodeMultiFunctionBuilder(ResourceScope &resource_scope, bNode &node, bNodeTree &tree);
 
+  /**
+   * Assign a multi-function for the current node. The input and output parameters of the function
+   * have to match the available sockets in the node.
+   */
   void set_matching_fn(const MultiFunction *fn);
   void set_matching_fn(const MultiFunction &fn);
+
+  /**
+   * Utility method for creating and assigning a multi-function when it can't have a static
+   * lifetime.
+   */
   template<typename T, typename... Args> void construct_and_set_matching_fn(Args &&...args);
 
   bNode &node();
@@ -50,6 +62,9 @@ class NodeMultiFunctionBuilder : NonCopyable, NonMovable {
   ResourceScope &resource_scope();
 };
 
+/**
+ * Gives access to multi-functions for all nodes in a node tree that support them.
+ */
 class NodeMultiFunctions {
  private:
   Map<const bNode *, const MultiFunction *> map_;
