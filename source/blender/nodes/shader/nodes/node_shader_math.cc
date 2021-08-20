@@ -106,13 +106,42 @@ static const blender::fn::MultiFunction *get_base_multi_function(bNode &node)
   return nullptr;
 }
 
+class ClampWrapperFunction : public blender::fn::MultiFunction {
+ private:
+  const blender::fn::MultiFunction &fn_;
+
+ public:
+  ClampWrapperFunction(const blender::fn::MultiFunction &fn) : fn_(fn)
+  {
+    this->set_signature(&fn.signature());
+  }
+
+  void call(blender::IndexMask mask,
+            blender::fn::MFParams params,
+            blender::fn::MFContext context) const override
+  {
+    fn_.call(mask, params, context);
+
+    /* Assumes the output parameter is the last one. */
+    const int output_param_index = this->param_amount() - 1;
+    /* This has actually been initialized in the call above. */
+    blender::MutableSpan<float> results = params.uninitialized_single_output<float>(
+        output_param_index);
+
+    for (const int i : mask) {
+      float &value = results[i];
+      CLAMP(value, 0.0f, 1.0f);
+    }
+  }
+};
+
 static void sh_node_math_build_multi_function(blender::nodes::NodeMultiFunctionBuilder &builder)
 {
   const blender::fn::MultiFunction *base_function = get_base_multi_function(builder.node());
 
   const bool clamp_output = builder.node().custom2 != 0;
   if (clamp_output) {
-    /* TODO */
+    builder.construct_and_set_matching_fn<ClampWrapperFunction>(*base_function);
   }
   else {
     builder.set_matching_fn(base_function);
