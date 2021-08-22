@@ -81,6 +81,7 @@ void geo_node_register(struct bNodeType &ntype, blender::nodes::NodeType &type)
   using namespace blender;
   using namespace blender::nodes;
 
+  ntype.node_type = &type;
   geo_node_type_base(&ntype, type.builtin_type(), type.name().c_str(), type.builtin_category(), 0);
 
   node_type_init(&ntype, [](bNodeTree *tree, bNode *node) {
