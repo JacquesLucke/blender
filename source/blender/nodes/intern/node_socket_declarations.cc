@@ -31,6 +31,40 @@ bNodeSocket &Float::build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out
   return socket;
 }
 
+bool Float::matches(const bNodeSocket &socket) const
+{
+  if (socket.type != SOCK_FLOAT) {
+    return false;
+  }
+  if (socket.typeinfo->subtype != subtype_) {
+    return false;
+  }
+  if (socket.name != name_) {
+    return false;
+  }
+  if (socket.identifier != name_) {
+    return false;
+  }
+  bNodeSocketValueFloat &value = *(bNodeSocketValueFloat *)socket.default_value;
+  if (value.min != min_value_) {
+    return false;
+  }
+  if (value.max != max_value_) {
+    return false;
+  }
+  return true;
+}
+
+void Float::try_copy_value(bNodeSocket &dst_socket, const bNodeSocket &src_socket) const
+{
+  bNodeSocketValueFloat &dst_value = *(bNodeSocketValueFloat *)dst_socket.default_value;
+  if (src_socket.type == SOCK_FLOAT) {
+    const bNodeSocketValueFloat &src_value = *(const bNodeSocketValueFloat *)
+                                                  src_socket.default_value;
+    dst_value.value = src_value.value;
+  }
+}
+
 bNodeSocket &Int::build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const
 {
   bNodeSocket &socket = *nodeAddStaticSocket(
@@ -42,11 +76,58 @@ bNodeSocket &Int::build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) 
   return socket;
 }
 
+bool Int::matches(const bNodeSocket &socket) const
+{
+  if (socket.type != SOCK_INT) {
+    return false;
+  }
+  if (socket.typeinfo->subtype != subtype_) {
+    return false;
+  }
+  if (socket.name != name_) {
+    return false;
+  }
+  if (socket.identifier != name_) {
+    return false;
+  }
+  bNodeSocketValueInt &value = *(bNodeSocketValueInt *)socket.default_value;
+  if (value.min != min_value_) {
+    return false;
+  }
+  if (value.max != max_value_) {
+    return false;
+  }
+  return true;
+}
+
+void Int::try_copy_value(bNodeSocket &dst_socket, const bNodeSocket &src_socket) const
+{
+  bNodeSocketValueInt &dst_value = *(bNodeSocketValueInt *)dst_socket.default_value;
+  if (src_socket.type == SOCK_INT) {
+    const bNodeSocketValueInt &src_value = *(const bNodeSocketValueInt *)src_socket.default_value;
+    dst_value.value = src_value.value;
+  }
+}
+
 bNodeSocket &Geometry::build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const
 {
   bNodeSocket &socket = *nodeAddSocket(
       &ntree, &node, in_out, "NodeSocketGeometry", name_.c_str(), name_.c_str());
   return socket;
+}
+
+bool Geometry::matches(const bNodeSocket &socket) const
+{
+  if (socket.type != SOCK_GEOMETRY) {
+    return false;
+  }
+  if (socket.name != name_) {
+    return false;
+  }
+  if (socket.identifier != name_) {
+    return false;
+  }
+  return true;
 }
 
 }  // namespace blender::nodes::decl

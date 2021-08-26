@@ -1012,7 +1012,7 @@ IDTypeInfo IDType_ID_NT = {
 
 static void node_add_sockets_from_type(bNodeTree *ntree, bNode *node, bNodeType *ntype)
 {
-  if (ntype->declare_sockets != NULL) {
+  if (ntype->declare_sockets != nullptr) {
     blender::nodes::NodeSocketBuilderState builder_state;
     blender::nodes::NodeSocketsBuilder builder{builder_state};
     ntype->declare_sockets(builder);

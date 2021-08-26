@@ -30,10 +30,6 @@ class Float : public SocketDecl {
   PropertySubType subtype_ = PROP_NONE;
 
  public:
-  Float(std::string name) : SocketDecl(std::move(name))
-  {
-  }
-
   Float &min(const float value)
   {
     min_value_ = value;
@@ -59,6 +55,8 @@ class Float : public SocketDecl {
   }
 
   bNodeSocket &build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const override;
+  bool matches(const bNodeSocket &socket) const override;
+  void try_copy_value(bNodeSocket &dst_socket, const bNodeSocket &src_socket) const override;
 };
 
 class Int : public SocketDecl {
@@ -69,10 +67,6 @@ class Int : public SocketDecl {
   PropertySubType subtype_ = PROP_NONE;
 
  public:
-  Int(std::string name) : SocketDecl(std::move(name))
-  {
-  }
-
   Int &min(const int value)
   {
     min_value_ = value;
@@ -98,15 +92,14 @@ class Int : public SocketDecl {
   }
 
   bNodeSocket &build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const override;
+  bool matches(const bNodeSocket &socket) const override;
+  void try_copy_value(bNodeSocket &dst_socket, const bNodeSocket &src_socket) const override;
 };
 
 class Geometry : public SocketDecl {
  public:
-  Geometry(std::string name) : SocketDecl(std::move(name))
-  {
-  }
-
   bNodeSocket &build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const override;
+  bool matches(const bNodeSocket &socket) const override;
 };
 
 }  // namespace blender::nodes::decl

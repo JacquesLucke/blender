@@ -25,19 +25,20 @@
 
 namespace blender::nodes {
 
+class NodeSocketsBuilder;
+
 class SocketDecl {
  protected:
   std::string name_;
+  std::string identifier_;
+
+  friend NodeSocketsBuilder;
 
  public:
-  SocketDecl(std::string name) : name_(std::move(name))
-  {
-  }
-
   virtual bNodeSocket &build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const = 0;
+  virtual bool matches(const bNodeSocket &socket) const = 0;
+  virtual void try_copy_value(bNodeSocket &dst_socket, const bNodeSocket &src_socket) const;
 };
-
-class NodeSocketsBuilder;
 
 class NodeSocketBuilderState {
  private:
@@ -48,6 +49,10 @@ class NodeSocketBuilderState {
 
  public:
   void build(bNodeTree &ntree, bNode &node) const;
+  bool matches(const bNode &node) const;
+
+  Span<std::unique_ptr<SocketDecl>> inputs() const;
+  Span<std::unique_ptr<SocketDecl>> outputs() const;
 };
 
 class NodeSocketsBuilder {
@@ -57,8 +62,8 @@ class NodeSocketsBuilder {
  public:
   NodeSocketsBuilder(NodeSocketBuilderState &state);
 
-  template<typename DeclType> DeclType &add_input(StringRef name);
-  template<typename DeclType> DeclType &add_output(StringRef name);
+  template<typename DeclType> DeclType &add_input(StringRef name, StringRef identifier = "");
+  template<typename DeclType> DeclType &add_output(StringRef name, StringRef identifier = "");
 };
 
 /* --------------------------------------------------------------------
@@ -69,22 +74,42 @@ inline NodeSocketsBuilder::NodeSocketsBuilder(NodeSocketBuilderState &state) : s
 {
 }
 
-template<typename DeclType> inline DeclType &NodeSocketsBuilder::add_input(StringRef name)
+template<typename DeclType>
+inline DeclType &NodeSocketsBuilder::add_input(StringRef name, StringRef identifier)
 {
   static_assert(std::is_base_of_v<SocketDecl, DeclType>);
-  std::unique_ptr<DeclType> socket_decl = std::make_unique<DeclType>(name);
+  std::unique_ptr<DeclType> socket_decl = std::make_unique<DeclType>();
   DeclType &ref = *socket_decl;
+  ref.name_ = name;
+  ref.identifier_ = identifier.is_empty() ? name : identifier;
   state_.inputs_.append(std::move(socket_decl));
   return ref;
 }
 
-template<typename DeclType> inline DeclType &NodeSocketsBuilder::add_output(StringRef name)
+template<typename DeclType>
+inline DeclType &NodeSocketsBuilder::add_output(StringRef name, StringRef identifier)
 {
   static_assert(std::is_base_of_v<SocketDecl, DeclType>);
-  std::unique_ptr<DeclType> socket_decl = std::make_unique<DeclType>(name);
+  std::unique_ptr<DeclType> socket_decl = std::make_unique<DeclType>();
   DeclType &ref = *socket_decl;
+  ref.name_ = name;
+  ref.identifier_ = identifier.is_empty() ? name : identifier;
   state_.outputs_.append(std::move(socket_decl));
   return ref;
+}
+
+/* --------------------------------------------------------------------
+ * NodeSocketBuilderState inline methods.
+ */
+
+inline Span<std::unique_ptr<SocketDecl>> NodeSocketBuilderState::inputs() const
+{
+  return inputs_;
+}
+
+inline Span<std::unique_ptr<SocketDecl>> NodeSocketBuilderState::outputs() const
+{
+  return outputs_;
 }
 
 }  // namespace blender::nodes

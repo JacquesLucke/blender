@@ -44,9 +44,13 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "NOD_node_socket_builder.hh"
 #include "NOD_socket.h"
 
 #include "FN_cpp_type_make.hh"
+
+using namespace blender;
+using blender::nodes::SocketDecl;
 
 struct bNodeSocket *node_add_socket_from_template(struct bNodeTree *ntree,
                                                   struct bNode *node,
@@ -182,20 +186,100 @@ static void verify_socket_template_list(bNodeTree *ntree,
   }
 }
 
+namespace {
+struct LinkedSocket {
+  std::string identifier;
+  bNode *node;
+  bNodeSocket *socket;
+};
+}  // namespace
+
+static void refresh_socket_list(bNodeTree &ntree,
+                                bNode &node,
+                                ListBase &sockets,
+                                Span<std::unique_ptr<SocketDecl>> socket_decls,
+                                Span<LinkedSocket> linked_sockets,
+                                const eNodeSocketInOut in_out)
+{
+
+  Vector<bNodeSocket *> old_sockets = sockets;
+  VectorSet<bNodeSocket *> new_sockets;
+  for (const std::unique_ptr<SocketDecl> &socket_decl : socket_decls) {
+    bool found_socket = false;
+    for (const int i : old_sockets.index_range()) {
+      bNodeSocket &old_socket = *old_sockets[i];
+      /* TODO: Do less strict check and rebuild/relink in some cases. */
+      if (socket_decl->matches(old_socket)) {
+        new_sockets.add_new(&old_socket);
+        old_sockets.remove_and_reorder(i);
+        found_socket = true;
+        break;
+      }
+    }
+    if (found_socket) {
+      continue;
+    }
+    bNodeSocket &new_socket = socket_decl->build(ntree, node, in_out);
+    new_sockets.add_new(&new_socket);
+  }
+  for (bNodeSocket *old_socket : old_sockets) {
+    if (!new_sockets.contains(old_socket)) {
+      nodeRemoveSocket(&ntree, &node, old_socket);
+    }
+  }
+  BLI_listbase_clear(&sockets);
+  for (bNodeSocket *socket : new_sockets) {
+    BLI_addtail(&sockets, socket);
+  }
+}
+
+static void refresh_node(bNodeTree &ntree,
+                         bNode &node,
+                         blender::nodes::NodeSocketBuilderState &builder_state)
+{
+
+  Vector<LinkedSocket> incoming_links, outgoing_links;
+  LISTBASE_FOREACH (bNodeLink *, link, &ntree.links) {
+    if (link->tonode == &node) {
+      incoming_links.append({link->tosock->identifier, link->fromnode, link->fromsock});
+    }
+    if (link->fromnode == &node) {
+      outgoing_links.append({link->fromsock->identifier, link->tonode, link->tosock});
+    }
+  }
+
+  refresh_socket_list(ntree, node, node.inputs, builder_state.inputs(), incoming_links, SOCK_IN);
+  refresh_socket_list(
+      ntree, node, node.outputs, builder_state.outputs(), outgoing_links, SOCK_OUT);
+}
+
 void node_verify_socket_templates(bNodeTree *ntree, bNode *node)
 {
   bNodeType *ntype = node->typeinfo;
-  /* Don't try to match socket lists when there are no templates.
-   * This prevents dynamically generated sockets to be removed, like for
-   * group, image or render layer nodes. We have an explicit check for the
-   * render layer node since it still has fixed sockets too.
-   */
-  if (ntype) {
-    if (ntype->inputs && ntype->inputs[0].type >= 0) {
-      verify_socket_template_list(ntree, node, SOCK_IN, &node->inputs, ntype->inputs);
+  if (ntype == nullptr) {
+    return;
+  }
+  if (ntype->declare_sockets != nullptr) {
+    blender::nodes::NodeSocketBuilderState builder_state;
+    blender::nodes::NodeSocketsBuilder builder{builder_state};
+    ntype->declare_sockets(builder);
+    if (!builder_state.matches(*node)) {
+      refresh_node(*ntree, *node, builder_state);
     }
-    if (ntype->outputs && ntype->outputs[0].type >= 0 && node->type != CMP_NODE_R_LAYERS) {
-      verify_socket_template_list(ntree, node, SOCK_OUT, &node->outputs, ntype->outputs);
+  }
+  else {
+    /* Don't try to match socket lists when there are no templates.
+     * This prevents dynamically generated sockets to be removed, like for
+     * group, image or render layer nodes. We have an explicit check for the
+     * render layer node since it still has fixed sockets too.
+     */
+    if (ntype) {
+      if (ntype->inputs && ntype->inputs[0].type >= 0) {
+        verify_socket_template_list(ntree, node, SOCK_IN, &node->inputs, ntype->inputs);
+      }
+      if (ntype->outputs && ntype->outputs[0].type >= 0 && node->type != CMP_NODE_R_LAYERS) {
+        verify_socket_template_list(ntree, node, SOCK_OUT, &node->outputs, ntype->outputs);
+      }
     }
   }
 }

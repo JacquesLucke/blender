@@ -28,4 +28,35 @@ void NodeSocketBuilderState::build(bNodeTree &ntree, bNode &node) const
   }
 }
 
+bool NodeSocketBuilderState::matches(const bNode &node) const
+{
+  auto check_sockets = [&](ListBase sockets, Span<std::unique_ptr<SocketDecl>> socket_decls) {
+    const int tot_sockets = BLI_listbase_count(&sockets);
+    if (tot_sockets != socket_decls.size()) {
+      return false;
+    }
+    int i;
+    LISTBASE_FOREACH_INDEX (const bNodeSocket *, socket, &sockets, i) {
+      const SocketDecl &socket_decl = *socket_decls[i];
+      if (!socket_decl.matches(*socket)) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  if (!check_sockets(node.inputs, inputs_)) {
+    return false;
+  }
+  if (!check_sockets(node.outputs, outputs_)) {
+    return false;
+  }
+  return true;
+}
+
+void SocketDecl::try_copy_value(bNodeSocket &UNUSED(dst_socket),
+                                const bNodeSocket &UNUSED(src_socket)) const
+{
+}
+
 }  // namespace blender::nodes
