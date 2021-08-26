@@ -79,6 +79,7 @@
 #include "NOD_composite.h"
 #include "NOD_function.h"
 #include "NOD_geometry.h"
+#include "NOD_node_socket_builder.hh"
 #include "NOD_shader.h"
 #include "NOD_socket.h"
 #include "NOD_texture.h"
@@ -1011,23 +1012,31 @@ IDTypeInfo IDType_ID_NT = {
 
 static void node_add_sockets_from_type(bNodeTree *ntree, bNode *node, bNodeType *ntype)
 {
-  bNodeSocketTemplate *sockdef;
-  /* bNodeSocket *sock; */ /* UNUSED */
-
-  if (ntype->inputs) {
-    sockdef = ntype->inputs;
-    while (sockdef->type != -1) {
-      /* sock = */ node_add_socket_from_template(ntree, node, sockdef, SOCK_IN);
-
-      sockdef++;
-    }
+  if (ntype->declare_sockets != NULL) {
+    blender::nodes::NodeSocketBuilderState builder_state;
+    blender::nodes::NodeSocketsBuilder builder{builder_state};
+    ntype->declare_sockets(builder);
+    builder_state.build(*ntree, *node);
   }
-  if (ntype->outputs) {
-    sockdef = ntype->outputs;
-    while (sockdef->type != -1) {
-      /* sock = */ node_add_socket_from_template(ntree, node, sockdef, SOCK_OUT);
+  else {
+    bNodeSocketTemplate *sockdef;
+    /* bNodeSocket *sock; */ /* UNUSED */
 
-      sockdef++;
+    if (ntype->inputs) {
+      sockdef = ntype->inputs;
+      while (sockdef->type != -1) {
+        /* sock = */ node_add_socket_from_template(ntree, node, sockdef, SOCK_IN);
+
+        sockdef++;
+      }
+    }
+    if (ntype->outputs) {
+      sockdef = ntype->outputs;
+      while (sockdef->type != -1) {
+        /* sock = */ node_add_socket_from_template(ntree, node, sockdef, SOCK_OUT);
+
+        sockdef++;
+      }
     }
   }
 }

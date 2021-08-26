@@ -25,17 +25,6 @@
 
 #include "node_geometry_util.hh"
 
-static bNodeSocketTemplate geo_node_mesh_primitive_circle_in[] = {
-    {SOCK_INT, N_("Vertices"), 32, 0.0f, 0.0f, 0.0f, 3, 4096},
-    {SOCK_FLOAT, N_("Radius"), 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, FLT_MAX, PROP_DISTANCE},
-    {-1, ""},
-};
-
-static bNodeSocketTemplate geo_node_mesh_primitive_circle_out[] = {
-    {SOCK_GEOMETRY, N_("Geometry")},
-    {-1, ""},
-};
-
 static void geo_node_mesh_primitive_circle_layout(uiLayout *layout,
                                                   bContext *UNUSED(C),
                                                   PointerRNA *ptr)
@@ -56,6 +45,13 @@ static void geo_node_mesh_primitive_circle_init(bNodeTree *UNUSED(ntree), bNode 
 }
 
 namespace blender::nodes {
+
+static void geo_node_mesh_primitive_circle_declare_sockets(NodeSocketsBuilder &b)
+{
+  b.add_input<decl::Int>("Vertices").default_value(32).min(3);
+  b.add_input<decl::Float>("Radius").default_value(1.0f).min(0.0f).subtype(PROP_DISTANCE);
+  b.add_output<decl::Geometry>("Geometry");
+}
 
 static int circle_vert_total(const GeometryNodeMeshCircleFillType fill_type, const int verts_num)
 {
@@ -231,12 +227,11 @@ void register_node_type_geo_mesh_primitive_circle()
 
   geo_node_type_base(
       &ntype, GEO_NODE_MESH_PRIMITIVE_CIRCLE, "Mesh Circle", NODE_CLASS_GEOMETRY, 0);
-  node_type_socket_templates(
-      &ntype, geo_node_mesh_primitive_circle_in, geo_node_mesh_primitive_circle_out);
   node_type_init(&ntype, geo_node_mesh_primitive_circle_init);
   node_type_storage(
       &ntype, "NodeGeometryMeshCircle", node_free_standard_storage, node_copy_standard_storage);
   ntype.geometry_node_execute = blender::nodes::geo_node_mesh_primitive_circle_exec;
   ntype.draw_buttons = geo_node_mesh_primitive_circle_layout;
+  ntype.declare_sockets = blender::nodes::geo_node_mesh_primitive_circle_declare_sockets;
   nodeRegisterType(&ntype);
 }
