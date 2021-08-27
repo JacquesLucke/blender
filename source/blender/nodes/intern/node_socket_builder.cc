@@ -14,30 +14,31 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#include "NOD_node_socket_builder.hh"
+#include "NOD_node_declaration.hh"
 
 namespace blender::nodes {
 
-void NodeSocketBuilderState::build(bNodeTree &ntree, bNode &node) const
+void NodeDeclaration::build(bNodeTree &ntree, bNode &node) const
 {
-  for (const std::unique_ptr<SocketDecl> &decl : inputs_) {
+  for (const std::unique_ptr<SocketDeclaration> &decl : inputs_) {
     decl->build(ntree, node, SOCK_IN);
   }
-  for (const std::unique_ptr<SocketDecl> &decl : outputs_) {
+  for (const std::unique_ptr<SocketDeclaration> &decl : outputs_) {
     decl->build(ntree, node, SOCK_OUT);
   }
 }
 
-bool NodeSocketBuilderState::matches(const bNode &node) const
+bool NodeDeclaration::matches(const bNode &node) const
 {
-  auto check_sockets = [&](ListBase sockets, Span<std::unique_ptr<SocketDecl>> socket_decls) {
+  auto check_sockets = [&](ListBase sockets,
+                           Span<std::unique_ptr<SocketDeclaration>> socket_decls) {
     const int tot_sockets = BLI_listbase_count(&sockets);
     if (tot_sockets != socket_decls.size()) {
       return false;
     }
     int i;
     LISTBASE_FOREACH_INDEX (const bNodeSocket *, socket, &sockets, i) {
-      const SocketDecl &socket_decl = *socket_decls[i];
+      const SocketDeclaration &socket_decl = *socket_decls[i];
       if (!socket_decl.matches(*socket)) {
         return false;
       }
@@ -54,8 +55,8 @@ bool NodeSocketBuilderState::matches(const bNode &node) const
   return true;
 }
 
-void SocketDecl::try_copy_value(bNodeSocket &UNUSED(dst_socket),
-                                const bNodeSocket &UNUSED(src_socket)) const
+void SocketDeclaration::try_copy_value(bNodeSocket &UNUSED(dst_socket),
+                                       const bNodeSocket &UNUSED(src_socket)) const
 {
 }
 

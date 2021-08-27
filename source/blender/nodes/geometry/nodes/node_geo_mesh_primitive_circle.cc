@@ -46,7 +46,7 @@ static void geo_node_mesh_primitive_circle_init(bNodeTree *UNUSED(ntree), bNode 
 
 namespace blender::nodes {
 
-static void geo_node_mesh_primitive_circle_declare_sockets(NodeSocketsBuilder &b)
+static void geo_node_mesh_primitive_circle_declare(NodeDeclarationBuilder &b)
 {
   b.add_input<decl::Int>("Vertices").default_value(32).min(3);
   b.add_input<decl::Float>("Radius").default_value(1.0f).min(0.0f).subtype(PROP_DISTANCE);
@@ -232,6 +232,6 @@ void register_node_type_geo_mesh_primitive_circle()
       &ntype, "NodeGeometryMeshCircle", node_free_standard_storage, node_copy_standard_storage);
   ntype.geometry_node_execute = blender::nodes::geo_node_mesh_primitive_circle_exec;
   ntype.draw_buttons = geo_node_mesh_primitive_circle_layout;
-  ntype.declare_sockets = blender::nodes::geo_node_mesh_primitive_circle_declare_sockets;
+  ntype.declare = blender::nodes::geo_node_mesh_primitive_circle_declare;
   nodeRegisterType(&ntype);
 }

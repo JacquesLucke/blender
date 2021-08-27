@@ -79,7 +79,7 @@
 #include "NOD_composite.h"
 #include "NOD_function.h"
 #include "NOD_geometry.h"
-#include "NOD_node_socket_builder.hh"
+#include "NOD_node_declaration.hh"
 #include "NOD_shader.h"
 #include "NOD_socket.h"
 #include "NOD_texture.h"
@@ -1012,11 +1012,11 @@ IDTypeInfo IDType_ID_NT = {
 
 static void node_add_sockets_from_type(bNodeTree *ntree, bNode *node, bNodeType *ntype)
 {
-  if (ntype->declare_sockets != nullptr) {
-    blender::nodes::NodeSocketBuilderState builder_state;
-    blender::nodes::NodeSocketsBuilder builder{builder_state};
-    ntype->declare_sockets(builder);
-    builder_state.build(*ntree, *node);
+  if (ntype->declare != nullptr) {
+    blender::nodes::NodeDeclaration node_decl;
+    blender::nodes::NodeDeclarationBuilder builder{node_decl};
+    ntype->declare(builder);
+    node_decl.build(*ntree, *node);
   }
   else {
     bNodeSocketTemplate *sockdef;

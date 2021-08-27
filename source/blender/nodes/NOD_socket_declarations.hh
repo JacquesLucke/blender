@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include "NOD_node_socket_builder.hh"
+#include "NOD_node_declaration.hh"
 
 #include "RNA_types.h"
 
 namespace blender::nodes::decl {
 
-class Float : public SocketDecl {
+class Float : public SocketDeclaration {
  private:
   float default_value_ = 0.0f;
   float min_value_ = -FLT_MAX;
@@ -59,7 +59,7 @@ class Float : public SocketDecl {
   void try_copy_value(bNodeSocket &dst_socket, const bNodeSocket &src_socket) const override;
 };
 
-class Int : public SocketDecl {
+class Int : public SocketDeclaration {
  private:
   int default_value_ = 0;
   int min_value_ = INT32_MIN;
@@ -96,7 +96,7 @@ class Int : public SocketDecl {
   void try_copy_value(bNodeSocket &dst_socket, const bNodeSocket &src_socket) const override;
 };
 
-class Geometry : public SocketDecl {
+class Geometry : public SocketDeclaration {
  public:
   bNodeSocket &build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const override;
   bool matches(const bNodeSocket &socket) const override;

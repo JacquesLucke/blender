@@ -368,8 +368,8 @@ set(SRC
   NOD_geometry_nodes_eval_log.hh
   NOD_math_functions.hh
   NOD_multi_function.hh
-  NOD_node_socket_builder.hh
-  NOD_node_socket_declarations.hh
+  NOD_node_declaration.hh
+  NOD_socket_declarations.hh
   NOD_node_tree_ref.hh
   NOD_shader.h
   NOD_socket.h

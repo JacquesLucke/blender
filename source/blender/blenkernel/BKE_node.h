@@ -113,7 +113,7 @@ namespace blender {
 namespace nodes {
 class NodeMultiFunctionBuilder;
 class GeoNodeExecParams;
-class NodeSocketsBuilder;
+class NodeDeclarationBuilder;
 }  // namespace nodes
 namespace fn {
 class CPPType;
@@ -123,7 +123,7 @@ class MFDataType;
 
 using NodeMultiFunctionBuildFunction = void (*)(blender::nodes::NodeMultiFunctionBuilder &builder);
 using NodeGeometryExecFunction = void (*)(blender::nodes::GeoNodeExecParams params);
-using NodeDeclareSocketsFunctions = void (*)(blender::nodes::NodeSocketsBuilder &builder);
+using NodeDeclareFunction = void (*)(blender::nodes::NodeDeclarationBuilder &builder);
 using SocketGetCPPTypeFunction = const blender::fn::CPPType *(*)();
 using SocketGetCPPValueFunction = void (*)(const struct bNodeSocket &socket, void *r_value);
 using SocketGetGeometryNodesCPPTypeFunction = const blender::fn::CPPType *(*)();
@@ -133,7 +133,7 @@ using SocketGetGeometryNodesCPPValueFunction = void (*)(const struct bNodeSocket
 #else
 typedef void *NodeMultiFunctionBuildFunction;
 typedef void *NodeGeometryExecFunction;
-typedef void *NodeDeclareSocketsFunctions;
+typedef void *NodeDeclareFunction;
 typedef void *SocketGetCPPTypeFunction;
 typedef void *SocketGetGeometryNodesCPPTypeFunction;
 typedef void *SocketGetGeometryNodesCPPValueFunction;
@@ -338,7 +338,7 @@ typedef struct bNodeType {
   bool geometry_node_execute_supports_laziness;
 
   /* Declares which sockets the node has. */
-  NodeDeclareSocketsFunctions declare_sockets;
+  NodeDeclareFunction declare;
 
   /* RNA integration */
   ExtensionRNA rna_ext;

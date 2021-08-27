@@ -14,7 +14,7 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#include "NOD_node_socket_declarations.hh"
+#include "NOD_socket_declarations.hh"
 
 #include "BKE_node.h"
 

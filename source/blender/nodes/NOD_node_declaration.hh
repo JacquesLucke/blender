@@ -25,14 +25,14 @@
 
 namespace blender::nodes {
 
-class NodeSocketsBuilder;
+class NodeDeclarationBuilder;
 
-class SocketDecl {
+class SocketDeclaration {
  protected:
   std::string name_;
   std::string identifier_;
 
-  friend NodeSocketsBuilder;
+  friend NodeDeclarationBuilder;
 
  public:
   virtual bNodeSocket &build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const = 0;
@@ -40,74 +40,75 @@ class SocketDecl {
   virtual void try_copy_value(bNodeSocket &dst_socket, const bNodeSocket &src_socket) const;
 };
 
-class NodeSocketBuilderState {
+class NodeDeclaration {
  private:
-  Vector<std::unique_ptr<SocketDecl>> inputs_;
-  Vector<std::unique_ptr<SocketDecl>> outputs_;
+  Vector<std::unique_ptr<SocketDeclaration>> inputs_;
+  Vector<std::unique_ptr<SocketDeclaration>> outputs_;
 
-  friend NodeSocketsBuilder;
+  friend NodeDeclarationBuilder;
 
  public:
   void build(bNodeTree &ntree, bNode &node) const;
   bool matches(const bNode &node) const;
 
-  Span<std::unique_ptr<SocketDecl>> inputs() const;
-  Span<std::unique_ptr<SocketDecl>> outputs() const;
+  Span<std::unique_ptr<SocketDeclaration>> inputs() const;
+  Span<std::unique_ptr<SocketDeclaration>> outputs() const;
 };
 
-class NodeSocketsBuilder {
+class NodeDeclarationBuilder {
  private:
-  NodeSocketBuilderState &state_;
+  NodeDeclaration &declaration_;
 
  public:
-  NodeSocketsBuilder(NodeSocketBuilderState &state);
+  NodeDeclarationBuilder(NodeDeclaration &declaration);
 
   template<typename DeclType> DeclType &add_input(StringRef name, StringRef identifier = "");
   template<typename DeclType> DeclType &add_output(StringRef name, StringRef identifier = "");
 };
 
 /* --------------------------------------------------------------------
- * NodeSocketsBuilder inline methods.
+ * NodeDeclarationBuilder inline methods.
  */
 
-inline NodeSocketsBuilder::NodeSocketsBuilder(NodeSocketBuilderState &state) : state_(state)
+inline NodeDeclarationBuilder::NodeDeclarationBuilder(NodeDeclaration &declaration)
+    : declaration_(declaration)
 {
 }
 
 template<typename DeclType>
-inline DeclType &NodeSocketsBuilder::add_input(StringRef name, StringRef identifier)
+inline DeclType &NodeDeclarationBuilder::add_input(StringRef name, StringRef identifier)
 {
-  static_assert(std::is_base_of_v<SocketDecl, DeclType>);
+  static_assert(std::is_base_of_v<SocketDeclaration, DeclType>);
   std::unique_ptr<DeclType> socket_decl = std::make_unique<DeclType>();
   DeclType &ref = *socket_decl;
   ref.name_ = name;
   ref.identifier_ = identifier.is_empty() ? name : identifier;
-  state_.inputs_.append(std::move(socket_decl));
+  declaration_.inputs_.append(std::move(socket_decl));
   return ref;
 }
 
 template<typename DeclType>
-inline DeclType &NodeSocketsBuilder::add_output(StringRef name, StringRef identifier)
+inline DeclType &NodeDeclarationBuilder::add_output(StringRef name, StringRef identifier)
 {
-  static_assert(std::is_base_of_v<SocketDecl, DeclType>);
+  static_assert(std::is_base_of_v<SocketDeclaration, DeclType>);
   std::unique_ptr<DeclType> socket_decl = std::make_unique<DeclType>();
   DeclType &ref = *socket_decl;
   ref.name_ = name;
   ref.identifier_ = identifier.is_empty() ? name : identifier;
-  state_.outputs_.append(std::move(socket_decl));
+  declaration_.outputs_.append(std::move(socket_decl));
   return ref;
 }
 
 /* --------------------------------------------------------------------
- * NodeSocketBuilderState inline methods.
+ * NodeDeclaration inline methods.
  */
 
-inline Span<std::unique_ptr<SocketDecl>> NodeSocketBuilderState::inputs() const
+inline Span<std::unique_ptr<SocketDeclaration>> NodeDeclaration::inputs() const
 {
   return inputs_;
 }
 
-inline Span<std::unique_ptr<SocketDecl>> NodeSocketBuilderState::outputs() const
+inline Span<std::unique_ptr<SocketDeclaration>> NodeDeclaration::outputs() const
 {
   return outputs_;
 }

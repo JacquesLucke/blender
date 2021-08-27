@@ -44,13 +44,13 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "NOD_node_socket_builder.hh"
+#include "NOD_node_declaration.hh"
 #include "NOD_socket.h"
 
 #include "FN_cpp_type_make.hh"
 
 using namespace blender;
-using blender::nodes::SocketDecl;
+using blender::nodes::SocketDeclaration;
 
 struct bNodeSocket *node_add_socket_from_template(struct bNodeTree *ntree,
                                                   struct bNode *node,
@@ -197,14 +197,14 @@ struct LinkedSocket {
 static void refresh_socket_list(bNodeTree &ntree,
                                 bNode &node,
                                 ListBase &sockets,
-                                Span<std::unique_ptr<SocketDecl>> socket_decls,
+                                Span<std::unique_ptr<SocketDeclaration>> socket_decls,
                                 Span<LinkedSocket> linked_sockets,
                                 const eNodeSocketInOut in_out)
 {
 
   Vector<bNodeSocket *> old_sockets = sockets;
   VectorSet<bNodeSocket *> new_sockets;
-  for (const std::unique_ptr<SocketDecl> &socket_decl : socket_decls) {
+  for (const std::unique_ptr<SocketDeclaration> &socket_decl : socket_decls) {
     bool found_socket = false;
     for (const int i : old_sockets.index_range()) {
       bNodeSocket &old_socket = *old_sockets[i];
@@ -233,9 +233,7 @@ static void refresh_socket_list(bNodeTree &ntree,
   }
 }
 
-static void refresh_node(bNodeTree &ntree,
-                         bNode &node,
-                         blender::nodes::NodeSocketBuilderState &builder_state)
+static void refresh_node(bNodeTree &ntree, bNode &node, blender::nodes::NodeDeclaration &node_decl)
 {
 
   Vector<LinkedSocket> incoming_links, outgoing_links;
@@ -248,9 +246,8 @@ static void refresh_node(bNodeTree &ntree,
     }
   }
 
-  refresh_socket_list(ntree, node, node.inputs, builder_state.inputs(), incoming_links, SOCK_IN);
-  refresh_socket_list(
-      ntree, node, node.outputs, builder_state.outputs(), outgoing_links, SOCK_OUT);
+  refresh_socket_list(ntree, node, node.inputs, node_decl.inputs(), incoming_links, SOCK_IN);
+  refresh_socket_list(ntree, node, node.outputs, node_decl.outputs(), outgoing_links, SOCK_OUT);
 }
 
 void node_verify_socket_templates(bNodeTree *ntree, bNode *node)
@@ -259,12 +256,12 @@ void node_verify_socket_templates(bNodeTree *ntree, bNode *node)
   if (ntype == nullptr) {
     return;
   }
-  if (ntype->declare_sockets != nullptr) {
-    blender::nodes::NodeSocketBuilderState builder_state;
-    blender::nodes::NodeSocketsBuilder builder{builder_state};
-    ntype->declare_sockets(builder);
-    if (!builder_state.matches(*node)) {
-      refresh_node(*ntree, *node, builder_state);
+  if (ntype->declare != nullptr) {
+    blender::nodes::NodeDeclaration node_decl;
+    blender::nodes::NodeDeclarationBuilder builder{node_decl};
+    ntype->declare(builder);
+    if (!node_decl.matches(*node)) {
+      refresh_node(*ntree, *node, node_decl);
     }
   }
   else {
