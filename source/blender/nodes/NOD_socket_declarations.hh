@@ -58,6 +58,7 @@ class Float : public SocketDeclaration {
 
   bNodeSocket &build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const override;
   bool matches(const bNodeSocket &socket) const override;
+  bNodeSocket &update_or_build(bNodeTree &ntree, bNode &node, bNodeSocket &socket) const override;
 };
 
 class Int : public SocketDeclaration {
@@ -94,7 +95,7 @@ class Int : public SocketDeclaration {
 
   bNodeSocket &build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const override;
   bool matches(const bNodeSocket &socket) const override;
-  bNodeSocket &update_or_build(bNodeTree &ntree, bNode &node, bNodeSocket &socket) const;
+  bNodeSocket &update_or_build(bNodeTree &ntree, bNode &node, bNodeSocket &socket) const override;
 };
 
 class Vector : public SocketDeclaration {
@@ -117,6 +118,7 @@ class Vector : public SocketDeclaration {
 
   bNodeSocket &build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const override;
   bool matches(const bNodeSocket &socket) const override;
+  bNodeSocket &update_or_build(bNodeTree &ntree, bNode &node, bNodeSocket &socket) const override;
 };
 
 class Object : public SocketDeclaration {

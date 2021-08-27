@@ -22,6 +22,14 @@
 
 namespace blender::nodes::decl {
 
+static void modify_subtype_except_for_storage(bNodeSocket &socket, int new_subtype)
+{
+  const char *idname = nodeStaticSocketType(socket.type, new_subtype);
+  BLI_strncpy(socket.idname, idname, sizeof(socket.idname));
+  bNodeSocketType *socktype = nodeSocketTypeFind(idname);
+  socket.typeinfo = socktype;
+}
+
 bNodeSocket &Float::build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const
 {
   bNodeSocket &socket = *nodeAddStaticSocket(
@@ -55,6 +63,22 @@ bool Float::matches(const bNodeSocket &socket) const
     return false;
   }
   return true;
+}
+
+bNodeSocket &Float::update_or_build(bNodeTree &ntree, bNode &node, bNodeSocket &socket) const
+{
+  if (socket.type != SOCK_FLOAT) {
+    return this->build(ntree, node, (eNodeSocketInOut)socket.in_out);
+  }
+  if (socket.typeinfo->subtype != subtype_) {
+    modify_subtype_except_for_storage(socket, subtype_);
+  }
+  bNodeSocketValueFloat &value = *(bNodeSocketValueFloat *)socket.default_value;
+  value.min = min_value_;
+  value.max = max_value_;
+  value.subtype = subtype_;
+  STRNCPY(socket.name, name_.c_str());
+  return socket;
 }
 
 bNodeSocket &Int::build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const
@@ -98,7 +122,7 @@ bNodeSocket &Int::update_or_build(bNodeTree &ntree, bNode &node, bNodeSocket &so
     return this->build(ntree, node, (eNodeSocketInOut)socket.in_out);
   }
   if (socket.typeinfo->subtype != subtype_) {
-    nodeModifySocketSubtypeStatic(&socket, subtype_);
+    modify_subtype_except_for_storage(socket, subtype_);
   }
   bNodeSocketValueInt &value = *(bNodeSocketValueInt *)socket.default_value;
   value.min = min_value_;
@@ -132,6 +156,20 @@ bool Vector::matches(const bNodeSocket &socket) const
     return false;
   }
   return true;
+}
+
+bNodeSocket &Vector::update_or_build(bNodeTree &ntree, bNode &node, bNodeSocket &socket) const
+{
+  if (socket.type != SOCK_VECTOR) {
+    return this->build(ntree, node, (eNodeSocketInOut)socket.in_out);
+  }
+  if (socket.typeinfo->subtype != subtype_) {
+    modify_subtype_except_for_storage(socket, subtype_);
+  }
+  bNodeSocketValueVector &value = *(bNodeSocketValueVector *)socket.default_value;
+  value.subtype = subtype_;
+  STRNCPY(socket.name, name_.c_str());
+  return socket;
 }
 
 bNodeSocket &Object::build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const
