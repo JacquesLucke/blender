@@ -198,7 +198,6 @@ static void refresh_socket_list(bNodeTree &ntree,
                                 bNode &node,
                                 ListBase &sockets,
                                 Span<std::unique_ptr<SocketDeclaration>> socket_decls,
-                                Span<LinkedSocket> linked_sockets,
                                 const eNodeSocketInOut in_out)
 {
 
@@ -246,8 +245,8 @@ static void refresh_node(bNodeTree &ntree, bNode &node, blender::nodes::NodeDecl
     }
   }
 
-  refresh_socket_list(ntree, node, node.inputs, node_decl.inputs(), incoming_links, SOCK_IN);
-  refresh_socket_list(ntree, node, node.outputs, node_decl.outputs(), outgoing_links, SOCK_OUT);
+  refresh_socket_list(ntree, node, node.inputs, node_decl.inputs(), SOCK_IN);
+  refresh_socket_list(ntree, node, node.outputs, node_decl.outputs(), SOCK_OUT);
 }
 
 void node_verify_socket_templates(bNodeTree *ntree, bNode *node)

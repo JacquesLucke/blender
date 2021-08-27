@@ -20,6 +20,8 @@
 
 #include "RNA_types.h"
 
+#include "BLI_float3.hh"
+
 namespace blender::nodes::decl {
 
 class Float : public SocketDeclaration {
@@ -94,6 +96,43 @@ class Int : public SocketDeclaration {
   bNodeSocket &build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const override;
   bool matches(const bNodeSocket &socket) const override;
   void try_copy_value(bNodeSocket &dst_socket, const bNodeSocket &src_socket) const override;
+};
+
+class Vector : public SocketDeclaration {
+ private:
+  float3 default_value_ = {0, 0, 0};
+  PropertySubType subtype_ = PROP_NONE;
+
+ public:
+  Vector &default_value(const float3 value)
+  {
+    default_value_ = value;
+    return *this;
+  }
+
+  Vector &subtype(PropertySubType subtype)
+  {
+    subtype_ = subtype;
+    return *this;
+  }
+
+  bNodeSocket &build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const override;
+  bool matches(const bNodeSocket &socket) const override;
+};
+
+class Object : public SocketDeclaration {
+ private:
+  bool hide_label_ = false;
+
+ public:
+  Object &hide_label(bool value)
+  {
+    hide_label_ = value;
+    return *this;
+  }
+
+  bNodeSocket &build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const override;
+  bool matches(const bNodeSocket &socket) const override;
 };
 
 class Geometry : public SocketDeclaration {

@@ -18,12 +18,14 @@
 
 #include "BKE_node.h"
 
+#include "BLI_math_vector.h"
+
 namespace blender::nodes::decl {
 
 bNodeSocket &Float::build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const
 {
   bNodeSocket &socket = *nodeAddStaticSocket(
-      &ntree, &node, in_out, SOCK_FLOAT, subtype_, name_.c_str(), name_.c_str());
+      &ntree, &node, in_out, SOCK_FLOAT, subtype_, name_.c_str(), identifier_.c_str());
   bNodeSocketValueFloat &value = *(bNodeSocketValueFloat *)socket.default_value;
   value.min = min_value_;
   value.max = max_value_;
@@ -42,7 +44,7 @@ bool Float::matches(const bNodeSocket &socket) const
   if (socket.name != name_) {
     return false;
   }
-  if (socket.identifier != name_) {
+  if (socket.identifier != identifier_) {
     return false;
   }
   bNodeSocketValueFloat &value = *(bNodeSocketValueFloat *)socket.default_value;
@@ -68,7 +70,7 @@ void Float::try_copy_value(bNodeSocket &dst_socket, const bNodeSocket &src_socke
 bNodeSocket &Int::build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const
 {
   bNodeSocket &socket = *nodeAddStaticSocket(
-      &ntree, &node, in_out, SOCK_INT, subtype_, name_.c_str(), name_.c_str());
+      &ntree, &node, in_out, SOCK_INT, subtype_, name_.c_str(), identifier_.c_str());
   bNodeSocketValueInt &value = *(bNodeSocketValueInt *)socket.default_value;
   value.min = min_value_;
   value.max = max_value_;
@@ -87,7 +89,7 @@ bool Int::matches(const bNodeSocket &socket) const
   if (socket.name != name_) {
     return false;
   }
-  if (socket.identifier != name_) {
+  if (socket.identifier != identifier_) {
     return false;
   }
   bNodeSocketValueInt &value = *(bNodeSocketValueInt *)socket.default_value;
@@ -109,10 +111,63 @@ void Int::try_copy_value(bNodeSocket &dst_socket, const bNodeSocket &src_socket)
   }
 }
 
+bNodeSocket &Vector::build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const
+{
+  bNodeSocket &socket = *nodeAddStaticSocket(
+      &ntree, &node, in_out, SOCK_VECTOR, subtype_, name_.c_str(), identifier_.c_str());
+  bNodeSocketValueVector &value = *(bNodeSocketValueVector *)socket.default_value;
+  copy_v3_v3(value.value, default_value_);
+  return socket;
+}
+
+bool Vector::matches(const bNodeSocket &socket) const
+{
+  if (socket.type != SOCK_VECTOR) {
+    return false;
+  }
+  if (socket.typeinfo->subtype != subtype_) {
+    return false;
+  }
+  if (socket.name != name_) {
+    return false;
+  }
+  if (socket.identifier != identifier_) {
+    return false;
+  }
+  return true;
+}
+
+bNodeSocket &Object::build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const
+{
+  bNodeSocket &socket = *nodeAddSocket(
+      &ntree, &node, in_out, "NodeSocketObject", name_.c_str(), identifier_.c_str());
+  if (hide_label_) {
+    socket.flag |= SOCK_HIDE_LABEL;
+  }
+  return socket;
+}
+
+bool Object::matches(const bNodeSocket &socket) const
+{
+  if (socket.type != SOCK_OBJECT) {
+    return false;
+  }
+  if (hide_label_ != ((socket.flag & SOCK_HIDE_LABEL) != 0)) {
+    return false;
+  }
+  if (socket.name != name_) {
+    return false;
+  }
+  if (socket.identifier != identifier_) {
+    return false;
+  }
+  return true;
+}
+
 bNodeSocket &Geometry::build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const
 {
   bNodeSocket &socket = *nodeAddSocket(
-      &ntree, &node, in_out, "NodeSocketGeometry", name_.c_str(), name_.c_str());
+      &ntree, &node, in_out, "NodeSocketGeometry", name_.c_str(), identifier_.c_str());
   return socket;
 }
 
@@ -124,7 +179,7 @@ bool Geometry::matches(const bNodeSocket &socket) const
   if (socket.name != name_) {
     return false;
   }
-  if (socket.identifier != name_) {
+  if (socket.identifier != identifier_) {
     return false;
   }
   return true;
