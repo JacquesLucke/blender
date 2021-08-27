@@ -55,9 +55,12 @@ bool NodeDeclaration::matches(const bNode &node) const
   return true;
 }
 
-void SocketDeclaration::try_copy_value(bNodeSocket &UNUSED(dst_socket),
-                                       const bNodeSocket &UNUSED(src_socket)) const
+bNodeSocket &SocketDeclaration::update_or_build(bNodeTree &ntree,
+                                                bNode &node,
+                                                bNodeSocket &socket) const
 {
+  /* By default just rebuild. */
+  return this->build(ntree, node, (eNodeSocketInOut)socket.in_out);
 }
 
 }  // namespace blender::nodes

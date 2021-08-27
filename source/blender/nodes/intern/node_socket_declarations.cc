@@ -57,16 +57,6 @@ bool Float::matches(const bNodeSocket &socket) const
   return true;
 }
 
-void Float::try_copy_value(bNodeSocket &dst_socket, const bNodeSocket &src_socket) const
-{
-  bNodeSocketValueFloat &dst_value = *(bNodeSocketValueFloat *)dst_socket.default_value;
-  if (src_socket.type == SOCK_FLOAT) {
-    const bNodeSocketValueFloat &src_value = *(const bNodeSocketValueFloat *)
-                                                  src_socket.default_value;
-    dst_value.value = src_value.value;
-  }
-}
-
 bNodeSocket &Int::build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const
 {
   bNodeSocket &socket = *nodeAddStaticSocket(
@@ -102,13 +92,20 @@ bool Int::matches(const bNodeSocket &socket) const
   return true;
 }
 
-void Int::try_copy_value(bNodeSocket &dst_socket, const bNodeSocket &src_socket) const
+bNodeSocket &Int::update_or_build(bNodeTree &ntree, bNode &node, bNodeSocket &socket) const
 {
-  bNodeSocketValueInt &dst_value = *(bNodeSocketValueInt *)dst_socket.default_value;
-  if (src_socket.type == SOCK_INT) {
-    const bNodeSocketValueInt &src_value = *(const bNodeSocketValueInt *)src_socket.default_value;
-    dst_value.value = src_value.value;
+  if (socket.type != SOCK_INT) {
+    return this->build(ntree, node, (eNodeSocketInOut)socket.in_out);
   }
+  if (socket.typeinfo->subtype != subtype_) {
+    nodeModifySocketSubtypeStatic(&socket, subtype_);
+  }
+  bNodeSocketValueInt &value = *(bNodeSocketValueInt *)socket.default_value;
+  value.min = min_value_;
+  value.max = max_value_;
+  value.subtype = subtype_;
+  STRNCPY(socket.name, name_.c_str());
+  return socket;
 }
 
 bNodeSocket &Vector::build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const

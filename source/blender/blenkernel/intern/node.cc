@@ -1627,6 +1627,15 @@ void nodeModifySocketTypeStatic(
   nodeModifySocketType(ntree, node, sock, idname);
 }
 
+void nodeModifySocketSubtypeStatic(bNodeSocket *sock, int new_subtype)
+{
+  const char *idname = nodeStaticSocketType(sock->type, new_subtype);
+  bNodeSocketType *socktype = nodeSocketTypeFind(idname);
+  BLI_strncpy(sock->idname, idname, sizeof(sock->idname));
+  sock->typeinfo = socktype;
+  /* TODO: Update subtype in storage. */
+}
+
 bNodeSocket *nodeAddSocket(bNodeTree *ntree,
                            bNode *node,
                            eNodeSocketInOut in_out,

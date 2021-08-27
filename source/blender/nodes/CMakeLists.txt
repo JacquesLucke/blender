@@ -346,7 +346,7 @@ set(SRC
   intern/node_exec.cc
   intern/node_geometry_exec.cc
   intern/node_multi_function.cc
-  intern/node_socket_builder.cc
+  intern/node_declaration.cc
   intern/node_socket_declarations.cc
   intern/node_socket.cc
   intern/node_tree_ref.cc

@@ -186,40 +186,55 @@ static void verify_socket_template_list(bNodeTree *ntree,
   }
 }
 
-namespace {
-struct LinkedSocket {
-  std::string identifier;
-  bNode *node;
-  bNodeSocket *socket;
-};
-}  // namespace
-
 static void refresh_socket_list(bNodeTree &ntree,
                                 bNode &node,
                                 ListBase &sockets,
                                 Span<std::unique_ptr<SocketDeclaration>> socket_decls,
                                 const eNodeSocketInOut in_out)
 {
-
   Vector<bNodeSocket *> old_sockets = sockets;
   VectorSet<bNodeSocket *> new_sockets;
   for (const std::unique_ptr<SocketDeclaration> &socket_decl : socket_decls) {
-    bool found_socket = false;
+    bNodeSocket *old_socket_with_same_identifier = nullptr;
     for (const int i : old_sockets.index_range()) {
       bNodeSocket &old_socket = *old_sockets[i];
-      /* TODO: Do less strict check and rebuild/relink in some cases. */
-      if (socket_decl->matches(old_socket)) {
-        new_sockets.add_new(&old_socket);
+      if (old_socket.identifier == socket_decl->identifier()) {
         old_sockets.remove_and_reorder(i);
-        found_socket = true;
+        old_socket_with_same_identifier = &old_socket;
         break;
       }
     }
-    if (found_socket) {
-      continue;
+    bNodeSocket *new_socket = nullptr;
+    if (old_socket_with_same_identifier == nullptr) {
+      /* Create a completely new socket. */
+      new_socket = &socket_decl->build(ntree, node, in_out);
     }
-    bNodeSocket &new_socket = socket_decl->build(ntree, node, in_out);
-    new_sockets.add_new(&new_socket);
+    else if (socket_decl->matches(*old_socket_with_same_identifier)) {
+      /* The existing socket matches exactly, just use it. */
+      new_socket = old_socket_with_same_identifier;
+    }
+    else {
+      /* Clear out identifier to avoid name collisions when a new socket is created. */
+      old_socket_with_same_identifier->identifier[0] = '\0';
+      new_socket = &socket_decl->update_or_build(ntree, node, *old_socket_with_same_identifier);
+
+      if (new_socket == old_socket_with_same_identifier) {
+        /* The existing socket has been updated, set the correct identifier again. */
+        STRNCPY(new_socket->identifier, socket_decl->identifier().c_str());
+      }
+      if (new_socket != old_socket_with_same_identifier) {
+        /* Move links to new socket with same identifier. */
+        LISTBASE_FOREACH (bNodeLink *, link, &ntree.links) {
+          if (link->fromsock == old_socket_with_same_identifier) {
+            link->fromsock = new_socket;
+          }
+          else if (link->tosock == old_socket_with_same_identifier) {
+            link->tosock = new_socket;
+          }
+        }
+      }
+    }
+    new_sockets.add_new(new_socket);
   }
   for (bNodeSocket *old_socket : old_sockets) {
     if (!new_sockets.contains(old_socket)) {
@@ -234,17 +249,6 @@ static void refresh_socket_list(bNodeTree &ntree,
 
 static void refresh_node(bNodeTree &ntree, bNode &node, blender::nodes::NodeDeclaration &node_decl)
 {
-
-  Vector<LinkedSocket> incoming_links, outgoing_links;
-  LISTBASE_FOREACH (bNodeLink *, link, &ntree.links) {
-    if (link->tonode == &node) {
-      incoming_links.append({link->tosock->identifier, link->fromnode, link->fromsock});
-    }
-    if (link->fromnode == &node) {
-      outgoing_links.append({link->fromsock->identifier, link->tonode, link->tosock});
-    }
-  }
-
   refresh_socket_list(ntree, node, node.inputs, node_decl.inputs(), SOCK_IN);
   refresh_socket_list(ntree, node, node.outputs, node_decl.outputs(), SOCK_OUT);
 }

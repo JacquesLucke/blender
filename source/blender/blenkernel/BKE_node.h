@@ -628,6 +628,7 @@ void nodeModifySocketType(struct bNodeTree *ntree,
                           const char *idname);
 void nodeModifySocketTypeStatic(
     struct bNodeTree *ntree, struct bNode *node, struct bNodeSocket *sock, int type, int subtype);
+void nodeModifySocketSubtypeStatic(struct bNodeSocket *sock, int new_subtype);
 
 struct bNode *nodeAddNode(const struct bContext *C, struct bNodeTree *ntree, const char *idname);
 struct bNode *nodeAddStaticNode(const struct bContext *C, struct bNodeTree *ntree, int type);

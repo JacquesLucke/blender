@@ -37,7 +37,9 @@ class SocketDeclaration {
  public:
   virtual bNodeSocket &build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const = 0;
   virtual bool matches(const bNodeSocket &socket) const = 0;
-  virtual void try_copy_value(bNodeSocket &dst_socket, const bNodeSocket &src_socket) const;
+  virtual bNodeSocket &update_or_build(bNodeTree &ntree, bNode &node, bNodeSocket &socket) const;
+
+  StringRefNull identifier() const;
 };
 
 class NodeDeclaration {
@@ -65,6 +67,15 @@ class NodeDeclarationBuilder {
   template<typename DeclType> DeclType &add_input(StringRef name, StringRef identifier = "");
   template<typename DeclType> DeclType &add_output(StringRef name, StringRef identifier = "");
 };
+
+/* --------------------------------------------------------------------
+ * SocketDeclaration inline methods.
+ */
+
+inline StringRefNull SocketDeclaration::identifier() const
+{
+  return identifier_;
+}
 
 /* --------------------------------------------------------------------
  * NodeDeclarationBuilder inline methods.
