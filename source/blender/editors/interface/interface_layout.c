@@ -169,6 +169,7 @@ struct uiLayout {
   bool enabled;
   bool redalert;
   bool keepaspect;
+  bool tooltip;
   /** For layouts inside grid-flow, they and their items shall never have a fixed maximal size. */
   bool variable_size;
   char alignment;
@@ -4655,6 +4656,7 @@ static void ui_litem_init_from_parent(uiLayout *litem, uiLayout *layout, int ali
   litem->context = layout->context;
   litem->redalert = layout->redalert;
   litem->w = layout->w;
+  litem->tooltip = layout->tooltip;
   litem->emboss = layout->emboss;
   litem->item.flag = (layout->item.flag &
                       (UI_ITEM_PROP_SEP | UI_ITEM_PROP_DECORATE | UI_ITEM_INSIDE_PROP_SEP));
@@ -4916,6 +4918,11 @@ void uiLayoutSetEnabled(uiLayout *layout, bool enabled)
 void uiLayoutSetRedAlert(uiLayout *layout, bool redalert)
 {
   layout->redalert = redalert;
+}
+
+void uiLayoutSetTooltip(uiLayout *layout, bool tooltip)
+{
+  layout->tooltip = tooltip;
 }
 
 void uiLayoutSetKeepAspect(uiLayout *layout, bool keepaspect)
@@ -5483,6 +5490,7 @@ uiLayout *UI_block_layout(uiBlock *block,
   layout->active = true;
   layout->enabled = true;
   layout->context = NULL;
+  layout->tooltip = true;
   layout->emboss = UI_EMBOSS_UNDEFINED;
 
   if (ELEM(type, UI_LAYOUT_MENU, UI_LAYOUT_PIEMENU)) {
@@ -5551,6 +5559,10 @@ void ui_layout_add_but(uiLayout *layout, uiBut *but)
 
   if (layout->emboss != UI_EMBOSS_UNDEFINED) {
     but->emboss = layout->emboss;
+  }
+
+  if (!layout->tooltip) {
+    UI_but_drawflag_enable(but, UI_BUT_NO_TOOLTIP);
   }
 
   ui_button_group_add_but(uiLayoutGetBlock(layout), but);

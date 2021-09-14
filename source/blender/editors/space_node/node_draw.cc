@@ -414,6 +414,7 @@ static void node_update_basis(const bContext *C, bNodeTree *ntree, bNode *node)
 
     /* Align output buttons to the right. */
     uiLayout *row = uiLayoutRow(layout, true);
+    uiLayoutSetTooltip(row, false);
     uiLayoutSetAlignment(row, UI_LAYOUT_ALIGN_RIGHT);
     const char *socket_label = nodeSocketLabel(nsock);
     nsock->typeinfo->draw((bContext *)C, row, &sockptr, &nodeptr, IFACE_(socket_label));
@@ -550,6 +551,7 @@ static void node_update_basis(const bContext *C, bNodeTree *ntree, bNode *node)
     uiLayoutSetContextPointer(layout, "socket", &sockptr);
 
     uiLayout *row = uiLayoutRow(layout, true);
+    uiLayoutSetTooltip(row, false);
 
     const char *socket_label = nodeSocketLabel(nsock);
     nsock->typeinfo->draw((bContext *)C, row, &sockptr, &nodeptr, IFACE_(socket_label));

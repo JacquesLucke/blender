@@ -1958,6 +1958,7 @@ void uiLayoutSetActiveDefault(uiLayout *layout, bool active_default);
 void uiLayoutSetActivateInit(uiLayout *layout, bool activate_init);
 void uiLayoutSetEnabled(uiLayout *layout, bool enabled);
 void uiLayoutSetRedAlert(uiLayout *layout, bool redalert);
+void uiLayoutSetTooltip(uiLayout *layout, bool tooltip);
 void uiLayoutSetAlignment(uiLayout *layout, char alignment);
 void uiLayoutSetFixedSize(uiLayout *layout, bool fixed_size);
 void uiLayoutSetKeepAspect(uiLayout *layout, bool keepaspect);
