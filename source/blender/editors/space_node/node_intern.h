@@ -155,6 +155,8 @@ void node_deselect_all_input_sockets(struct SpaceNode *snode, const bool deselec
 void node_deselect_all_output_sockets(struct SpaceNode *snode, const bool deselect_nodes);
 void node_select_single(struct bContext *C, struct bNode *node);
 
+int node_tooltip_handler(bContext *C, const wmEvent *event, void *userdata);
+
 void NODE_OT_select(struct wmOperatorType *ot);
 void NODE_OT_select_all(struct wmOperatorType *ot);
 void NODE_OT_select_linked_to(struct wmOperatorType *ot);

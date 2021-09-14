@@ -2706,6 +2706,7 @@ struct ARegion *UI_tooltip_create_from_button(struct bContext *C,
                                               uiBut *but,
                                               bool is_label);
 struct ARegion *UI_tooltip_create_from_gizmo(struct bContext *C, struct wmGizmo *gz);
+struct ARegion *UI_tooltip_create_from_node(struct bContext *C, struct bNode *node);
 void UI_tooltip_free(struct bContext *C, struct bScreen *screen, struct ARegion *region);
 
 typedef struct {

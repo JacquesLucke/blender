@@ -655,6 +655,8 @@ static void node_main_region_init(wmWindowManager *wm, ARegion *region)
   /* The backdrop image gizmo needs to change together with the view. So always refresh gizmos on
    * region size changes. */
   WM_gizmomap_tag_refresh(region->gizmo_map);
+
+  WM_event_add_ui_handler(NULL, &region->handlers, node_tooltip_handler, NULL, NULL, 0);
 }
 
 static void node_main_region_draw(const bContext *C, ARegion *region)

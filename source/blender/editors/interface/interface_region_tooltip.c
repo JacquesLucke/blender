@@ -1479,6 +1479,35 @@ ARegion *UI_tooltip_create_from_gizmo(bContext *C, wmGizmo *gz)
   return ui_tooltip_create_with_data(C, data, init_position, NULL, aspect);
 }
 
+ARegion *UI_tooltip_create_from_node(bContext *C, bNode *node)
+{
+  wmWindow *win = CTX_wm_window(C);
+
+  uiTooltipData *data = MEM_callocN(sizeof(uiTooltipData), "uiTooltipData");
+  uiTooltipField *field = text_field_add(data,
+                                         &(uiTooltipFormat){
+                                             .style = UI_TIP_STYLE_HEADER,
+                                             .color_id = UI_TIP_LC_VALUE,
+                                             .is_pad = true,
+                                         });
+  field->text = BLI_strdup(node->name);
+
+  field = text_field_add(data,
+                         &(uiTooltipFormat){
+                             .style = UI_TIP_STYLE_NORMAL,
+                             .color_id = UI_TIP_LC_VALUE,
+                             .is_pad = true,
+                         });
+  field->text = BLI_strdup("Hello World");
+
+  float init_position[2];
+  init_position[0] = win->eventstate->x;
+  init_position[1] = win->eventstate->y;
+
+  const float aspect = 1.0f;
+  return ui_tooltip_create_with_data(C, data, init_position, NULL, aspect);
+}
+
 static uiTooltipData *ui_tooltip_data_from_search_item_tooltip_data(
     const uiSearchItemTooltipData *item_tooltip_data)
 {

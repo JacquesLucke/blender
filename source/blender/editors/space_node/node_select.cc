@@ -1323,3 +1323,51 @@ void NODE_OT_find_node(wmOperatorType *ot)
 }
 
 /** \} */
+
+static ARegion *node_hover_init(bContext *C,
+                                ARegion *region,
+                                int *UNUSED(r_pass),
+                                double *UNUSED(pass_delay),
+                                bool *r_exit_on_event)
+{
+  wmWindow *win = CTX_wm_window(C);
+  SpaceNode *snode = CTX_wm_space_node(C);
+  float mouse[2];
+  *r_exit_on_event = false;
+  UI_view2d_region_to_view(&region->v2d,
+                           win->eventstate->x - region->winrct.xmin,
+                           win->eventstate->y - region->winrct.ymin,
+                           &mouse[0],
+                           &mouse[1]);
+
+  bNode *node = node_under_mouse_tweak(snode->edittree, mouse[0], mouse[1]);
+  if (node == nullptr) {
+    return nullptr;
+  }
+
+  return UI_tooltip_create_from_node(C, node);
+}
+
+int node_tooltip_handler(bContext *C, const wmEvent *event, void *UNUSED(userdata))
+{
+  if (event->type != MOUSEMOVE) {
+    return WM_UI_HANDLER_CONTINUE;
+  }
+
+  SpaceNode *snode = CTX_wm_space_node(C);
+  if (snode->edittree == nullptr) {
+    return WM_UI_HANDLER_CONTINUE;
+  }
+  ARegion *region = CTX_wm_region(C);
+  float mouse[2];
+  UI_view2d_region_to_view(&region->v2d, event->mval[0], event->mval[1], &mouse[0], &mouse[1]);
+
+  bNode *node = node_under_mouse_tweak(snode->edittree, mouse[0], mouse[1]);
+  if (node == nullptr) {
+    return WM_UI_HANDLER_CONTINUE;
+  }
+
+  WM_tooltip_timer_init(C, CTX_wm_window(C), CTX_wm_area(C), region, node_hover_init);
+
+  return WM_UI_HANDLER_CONTINUE;
+}
