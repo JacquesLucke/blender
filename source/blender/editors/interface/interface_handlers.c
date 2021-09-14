@@ -8132,6 +8132,10 @@ static void ui_blocks_set_tooltips(ARegion *region, const bool enable)
  */
 void UI_but_tooltip_refresh(bContext *C, uiBut *but)
 {
+  if (but->drawflag & UI_BUT_NO_TOOLTIP) {
+    return;
+  }
+
   uiHandleButtonData *data = but->active;
   if (data) {
     bScreen *screen = WM_window_get_active_screen(data->window);
@@ -8154,7 +8158,7 @@ void UI_but_tooltip_timer_remove(bContext *C, uiBut *but)
       data->autoopentimer = NULL;
     }
 
-    if (data->window) {
+    if (data->window && !(but->drawflag & UI_BUT_NO_TOOLTIP)) {
       WM_tooltip_clear(C, data->window);
     }
   }
@@ -8183,10 +8187,9 @@ static void button_tooltip_timer_reset(bContext *C, uiBut *but)
   wmWindowManager *wm = CTX_wm_manager(C);
   uiHandleButtonData *data = but->active;
 
-  WM_tooltip_timer_clear(C, data->window);
-
   if ((U.flag & USER_TOOLTIPS) || (data->tooltip_force)) {
-    if (!but->block->tooltipdisabled) {
+    if (!but->block->tooltipdisabled && !(but->drawflag & UI_BUT_NO_TOOLTIP)) {
+      WM_tooltip_timer_clear(C, data->window);
       if (!wm->drags.first) {
         const bool is_label = UI_but_has_tooltip_label(but);
         const double delay = is_label ? UI_TOOLTIP_DELAY_LABEL : UI_TOOLTIP_DELAY;

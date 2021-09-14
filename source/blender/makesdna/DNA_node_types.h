@@ -110,6 +110,7 @@ typedef struct bNodeSocket {
   char idname[64];
 
   float locx, locy;
+  rctf tooltip_rect;
 
   /** Default input value used for unlinked sockets. */
   void *default_value;

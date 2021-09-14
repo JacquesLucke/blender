@@ -429,6 +429,11 @@ static void node_update_basis(const bContext *C, bNodeTree *ntree, bNode *node)
     nsock->locx = round(locx + NODE_WIDTH(node));
     nsock->locy = round(0.5f * (dy + buty));
 
+    nsock->tooltip_rect.xmin = locx;
+    nsock->tooltip_rect.xmax = locx + NODE_WIDTH(node);
+    nsock->tooltip_rect.ymin = buty;
+    nsock->tooltip_rect.ymax = dy;
+
     dy = buty;
     if (nsock->next) {
       dy -= NODE_SOCKDY;
@@ -565,6 +570,11 @@ static void node_update_basis(const bContext *C, bNodeTree *ntree, bNode *node)
     nsock->locx = locx;
     /* Round the socket vertical position to stop it from jiggling. */
     nsock->locy = round(0.5f * (dy + buty));
+
+    nsock->tooltip_rect.xmin = locx;
+    nsock->tooltip_rect.xmax = locx + NODE_WIDTH(node);
+    nsock->tooltip_rect.ymin = buty;
+    nsock->tooltip_rect.ymax = dy;
 
     dy = buty - multi_input_socket_offset * 0.5;
     if (nsock->next) {
