@@ -43,6 +43,8 @@
 
 namespace blender {
 
+template<typename T> class VMutableArray;
+
 /* An immutable virtual array. */
 template<typename T> class VArray {
  protected:
@@ -61,6 +63,33 @@ template<typename T> class VArray {
     BLI_assert(index >= 0);
     BLI_assert(index < size_);
     return this->get_impl(index);
+  }
+
+  void get_multiple(VMutableArray<T> &dst_varray) const
+  {
+    this->get_multiple(dst_varray, IndexMask(size_));
+  }
+
+  void get_multiple(VMutableArray<T> &dst_varray, const IndexMask mask) const
+  {
+    BLI_assert(mask.min_array_size() <= size_);
+    BLI_assert(mask.min_array_size() <= dst_varray.size());
+    if (dst_varray.can_set_multiple_efficiently(*this)) {
+      dst_varray._set_multiple(*this, mask);
+    }
+    else {
+      this->_get_multiple(dst_varray, mask);
+    }
+  }
+
+  void _get_multiple(VMutableArray<T> &dst_varray, const IndexMask mask) const
+  {
+    this->get_multiple_impl(dst_varray, mask);
+  }
+
+  bool can_get_multiple_efficiently(const VMutableArray<T> &dst_varray) const
+  {
+    return this->can_get_multiple_efficiently_impl(dst_varray);
   }
 
   int64_t size() const
@@ -152,6 +181,17 @@ template<typename T> class VArray {
  protected:
   virtual T get_impl(const int64_t index) const = 0;
 
+  virtual void get_multiple_impl(VMutableArray<T> &dst_varray, IndexMask mask) const
+  {
+    mask.foreach_index([&](const int i) { dst_varray.set(i, this->get(i)); });
+  }
+
+  virtual bool can_get_multiple_efficiently_impl(const VMutableArray<T> &dst_varray) const
+  {
+    UNUSED_VARS(dst_varray);
+    return false;
+  }
+
   virtual bool is_span_impl() const
   {
     return false;
@@ -223,6 +263,33 @@ template<typename T> class VMutableArray : public VArray<T> {
     this->set_impl(index, std::move(value));
   }
 
+  void set_multiple(const VArray<T> &src_varray)
+  {
+    this->set_multiple(src_varray, IndexMask(this->size_));
+  }
+
+  void set_multiple(const VArray<T> &src_varray, const IndexMask mask)
+  {
+    BLI_assert(mask.min_array_size() <= this->size_);
+    BLI_assert(mask.min_array_size() <= src_varray.size());
+    if (src_varray.can_get_multiple_efficiently_impl(*this)) {
+      src_varray._get_multiple(*this, mask);
+    }
+    else {
+      this->_set_multiple(src_varray, mask);
+    }
+  }
+
+  void _set_multiple(const VArray<T> &src_varray, const IndexMask mask)
+  {
+    this->set_multiple_impl(src_varray, mask);
+  }
+
+  bool can_set_multiple_efficiently(const VArray<T> &src_varray) const
+  {
+    return this->can_get_multiple_efficiently_impl(src_varray);
+  }
+
   /* Copy the values from the source span to all elements in the virtual array. */
   void set_all(Span<T> src)
   {
@@ -239,6 +306,17 @@ template<typename T> class VMutableArray : public VArray<T> {
 
  protected:
   virtual void set_impl(const int64_t index, T value) = 0;
+
+  virtual void set_multiple_impl(const VArray<T> &src_varray, IndexMask mask)
+  {
+    mask.foreach_index([&](const int index) { this->set(index, src_varray.get(index)); });
+  }
+
+  virtual bool can_set_multiple_efficiently_impl(const VArray<T> &src_varray) const
+  {
+    UNUSED_VARS(src_varray);
+    return false;
+  }
 
   virtual void set_all_impl(Span<T> src)
   {
