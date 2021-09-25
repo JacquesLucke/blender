@@ -90,7 +90,7 @@ void GVArray::_get_multiple(GVMutableArray &dst_varray, const IndexMask mask) co
 void GVArray::get_multiple_impl(GVMutableArray &dst_varray, const IndexMask mask) const
 {
   BUFFER_FOR_CPP_TYPE_VALUE(*type_, buffer);
-  for (const int i : mask) {
+  for (const int64_t i : mask) {
     this->get_to_uninitialized(i, buffer);
     dst_varray.set_by_relocate(i, buffer);
   }
@@ -99,6 +99,26 @@ void GVArray::get_multiple_impl(GVMutableArray &dst_varray, const IndexMask mask
 bool GVArray::can_get_multiple_efficiently_impl(const GVMutableArray &UNUSED(dst_varray)) const
 {
   return false;
+}
+
+void GVArray::get_multiple_to_uninitialized(void *dst) const
+{
+  this->get_multiple_to_uninitialized(dst, IndexMask(size_));
+}
+
+void GVArray::get_multiple_to_uninitialized(void *dst, IndexMask mask) const
+{
+  BLI_assert(mask.min_array_size() <= size_);
+  BLI_assert(mask.min_array_size() <= dst.size());
+  this->get_multiple_to_uninitialized_impl(dst, mask);
+}
+
+void GVArray::get_multiple_to_uninitialized_impl(void *dst, IndexMask mask) const
+{
+  mask.foreach_index([&](const int64_t i) {
+    void *elem_dst = POINTER_OFFSET(dst, type_->size() * i);
+    this->get_to_uninitialized(i, elem_dst);
+  });
 }
 
 void GVArray::materialize_to_uninitialized(void *dst) const
@@ -226,7 +246,7 @@ bool GVMutableArray::_can_set_multiple_efficiently(const GVArray &src_varray) co
 void GVMutableArray::set_multiple_by_copy_impl(const GVArray &src_varray, const IndexMask mask)
 {
   BUFFER_FOR_CPP_TYPE_VALUE(*type_, buffer);
-  for (const int i : mask) {
+  for (const int64_t i : mask) {
     src_varray.get_to_uninitialized(i, buffer);
     this->set_by_relocate(i, buffer);
   }

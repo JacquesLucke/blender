@@ -88,9 +88,12 @@ class GVArray {
 
   void get_multiple(GVMutableArray &dst_varray) const;
   void get_multiple(GMutableSpan dst) const;
-  void get_multiple(GVMutableArray &dst_varray, const IndexMask mask) const;
-  void _get_multiple(GVMutableArray &dst_varray, const IndexMask mask) const;
+  void get_multiple(GVMutableArray &dst_varray, IndexMask mask) const;
+  void _get_multiple(GVMutableArray &dst_varray, IndexMask mask) const;
   bool _can_get_multiple_efficiently(const GVMutableArray &dst_varray) const;
+
+  void get_multiple_to_uninitialized(void *dst) const;
+  void get_multiple_to_uninitialized(void *dst, IndexMask mask) const;
 
   /* Returns true when the virtual array is stored as a span internally. */
   bool is_span() const
@@ -164,6 +167,8 @@ class GVArray {
 
   virtual void get_multiple_impl(GVMutableArray &dst_varray, IndexMask mask) const;
   virtual bool can_get_multiple_efficiently_impl(const GVMutableArray &dst_varray) const;
+
+  virtual void get_multiple_to_uninitialized_impl(void *dst, IndexMask mask) const;
 
   virtual bool is_span_impl() const;
   virtual GSpan get_internal_span_impl() const;

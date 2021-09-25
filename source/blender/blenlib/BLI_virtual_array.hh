@@ -74,8 +74,13 @@ template<typename T> class VArray {
 
   void get_multiple(MutableSpan<T> dst) const
   {
+    return this->get_multiple(dst, IndexMask(size_));
+  }
+
+  void get_multiple(MutableSpan<T> dst, IndexMask mask) const
+  {
     VMutableArray_For_MutableSpan<T> varray(dst);
-    return this->get_multiple(varray);
+    return this->get_multiple(varray, mask);
   }
 
   void get_multiple(VMutableArray<T> &dst_varray, const IndexMask mask) const
@@ -98,6 +103,23 @@ template<typename T> class VArray {
   bool _can_get_multiple_efficiently(const VMutableArray<T> &dst_varray) const
   {
     return this->can_get_multiple_efficiently_impl(dst_varray);
+  }
+
+  void get_multiple_to_uninitialized(T *dst) const
+  {
+    this->get_multiple_to_uninitialized(dst);
+  }
+
+  void get_multiple_to_uninitialized(T *dst, IndexMask mask) const
+  {
+    BLI_assert(mask.min_array_size() <= size_);
+    BLI_assert(mask.min_array_size() <= dst.size());
+    if constexpr (std::is_trivial_v<T>) {
+      this->get_multiple(dst, mask);
+    }
+    else {
+      this->get_multiple_to_uninitialized_impl(dst, mask);
+    }
   }
 
   int64_t size() const
@@ -178,7 +200,12 @@ template<typename T> class VArray {
 
   virtual void get_multiple_impl(VMutableArray<T> &dst_varray, IndexMask mask) const
   {
-    mask.foreach_index([&](const int i) { dst_varray.set(i, this->get(i)); });
+    mask.foreach_index([&](const int64_t i) { dst_varray.set(i, this->get(i)); });
+  }
+
+  virtual void get_multiple_to_uninitialized_impl(T *dst, IndexMask mask) const
+  {
+    mask.foreach_index([&](const int64_t i) { new (dst + i) T(this->get(i)); });
   }
 
   virtual bool can_get_multiple_efficiently_impl(const VMutableArray<T> &dst_varray) const
