@@ -285,7 +285,7 @@ template<typename T> class VMutableArray : public VArray<T> {
 
   virtual void set_multiple_impl(const VArray<T> &src_varray, IndexMask mask)
   {
-    mask.foreach_index([&](const int index) { this->set(index, src_varray.get(index)); });
+    mask.foreach_index([&](const int64_t i) { this->set(i, src_varray.get(i)); });
   }
 
   virtual bool can_set_multiple_efficiently_impl(const VArray<T> &src_varray) const
@@ -330,6 +330,27 @@ template<typename T> class VArray_For_Span : public VArray<T> {
   {
     return Span<T>(data_, this->size_);
   }
+
+  void get_multiple_impl(VMutableArray<T> &dst_varray, IndexMask mask) const
+  {
+    if (dst_varray.is_span()) {
+      T *dst_ptr = dst_varray.get_internal_span().data();
+      mask.foreach_index([&](const int64_t i) { dst_ptr[i] = data_[i]; });
+    }
+    else {
+      mask.foreach_index([&](const int64_t i) { dst_varray.set(i, data_[i]); });
+    }
+  }
+
+  void get_multiple_to_uninitialized_impl(T *dst, IndexMask mask) const
+  {
+    mask.foreach_index([&](const int64_t i) { new (dst + i) T(this->get(i)); });
+  }
+
+  bool can_get_multiple_efficiently_impl(const VMutableArray<T> &dst_varray) const
+  {
+    return dst_varray.is_span();
+  }
 };
 
 template<typename T> class VMutableArray_For_MutableSpan : public VMutableArray<T> {
@@ -352,9 +373,50 @@ template<typename T> class VMutableArray_For_MutableSpan : public VMutableArray<
     return data_[index];
   }
 
+  void get_multiple_impl(VMutableArray<T> &dst_varray, IndexMask mask) const
+  {
+    if (dst_varray.is_span()) {
+      T *dst_ptr = dst_varray.get_internal_span().data();
+      mask.foreach_index([&](const int64_t i) { dst_ptr[i] = data_[i]; });
+    }
+    else {
+      mask.foreach_index([&](const int64_t i) { dst_varray.set(i, data_[i]); });
+    }
+  }
+
+  void get_multiple_to_uninitialized_impl(T *dst, IndexMask mask) const
+  {
+    mask.foreach_index([&](const int64_t i) { new (dst + i) T(this->get(i)); });
+  }
+
+  bool can_get_multiple_efficiently_impl(const VMutableArray<T> &dst_varray) const
+  {
+    return dst_varray.is_span();
+  }
+
   void set_impl(const int64_t index, T value) final
   {
     data_[index] = value;
+  }
+
+  void set_multiple_impl(const VArray<T> &src_varray, IndexMask mask)
+  {
+    if (src_varray.is_span()) {
+      const T *src_ptr = src_varray.get_internal_span().data();
+      mask.foreach_index([&](const int64_t i) { data_[i] = src_ptr[i]; });
+    }
+    else if (src_varray.is_single()) {
+      const T src_value = src_varray.get_internal_single();
+      mask.foreach_index([&](const int64_t i) { data_[i] = src_value; });
+    }
+    else {
+      mask.foreach_index([&](const int64_t i) { data_[i] = src_varray.get(i); });
+    }
+  }
+
+  bool can_set_multiple_efficiently_impl(const VArray<T> &src_varray) const
+  {
+    return src_varray.is_span() || src_varray.is_single();
   }
 
   bool is_span_impl() const override
@@ -405,6 +467,27 @@ template<typename T> class VArray_For_Single final : public VArray<T> {
   T get_impl(const int64_t UNUSED(index)) const override
   {
     return value_;
+  }
+
+  void get_multiple_impl(VMutableArray<T> &dst_varray, IndexMask mask) const
+  {
+    if (dst_varray.is_span()) {
+      T *dst_ptr = dst_varray.get_internal_span().data();
+      mask.foreach_index([&](const int64_t i) { dst_ptr[i] = value_; });
+    }
+    else {
+      mask.foreach_index([&](const int64_t i) { dst_varray.set(i, value_); });
+    }
+  }
+
+  void get_multiple_to_uninitialized_impl(T *dst, IndexMask mask) const
+  {
+    mask.foreach_index([&](const int64_t i) { new (dst + i) T(value_); });
+  }
+
+  bool can_get_multiple_efficiently_impl(const VMutableArray<T> &dst_varray) const
+  {
+    return dst_varray.is_span();
   }
 
   bool is_span_impl() const override
@@ -541,6 +624,27 @@ template<typename T, typename GetFunc> class VArray_For_Func final : public VArr
   {
     return get_func_(index);
   }
+
+  void get_multiple_impl(VMutableArray<T> &dst_varray, IndexMask mask) const
+  {
+    if (dst_varray.is_span()) {
+      T *dst_ptr = dst_varray.get_internal_span().data();
+      mask.foreach_index([&](const int64_t i) { dst_ptr[i] = get_func_(i); });
+    }
+    else {
+      mask.foreach_index([&](const int64_t i) { dst_varray.set(i, get_func_(i)); });
+    }
+  }
+
+  void get_multiple_to_uninitialized_impl(T *dst, IndexMask mask) const
+  {
+    mask.foreach_index([&](const int64_t i) { new (dst + i) T(get_func_(i)); });
+  }
+
+  bool can_get_multiple_efficiently_impl(const VMutableArray<T> &dst_varray) const
+  {
+    return dst_varray.is_span();
+  }
 };
 
 template<typename StructT, typename ElemT, ElemT (*GetFunc)(const StructT &)>
@@ -557,6 +661,27 @@ class VArray_For_DerivedSpan : public VArray<ElemT> {
   ElemT get_impl(const int64_t index) const override
   {
     return GetFunc(data_[index]);
+  }
+
+  void get_multiple_impl(VMutableArray<ElemT> &dst_varray, IndexMask mask) const
+  {
+    if (dst_varray.is_span()) {
+      ElemT *dst_ptr = dst_varray.get_internal_span().data();
+      mask.foreach_index([&](const int64_t i) { dst_ptr[i] = GetFunc(data_[i]); });
+    }
+    else {
+      mask.foreach_index([&](const int64_t i) { dst_varray.set(i, GetFunc(data_[i])); });
+    }
+  }
+
+  void get_multiple_to_uninitialized_impl(ElemT *dst, IndexMask mask) const
+  {
+    mask.foreach_index([&](const int64_t i) { new (dst + i) ElemT(GetFunc(data_[i])); });
+  }
+
+  bool can_get_multiple_efficiently_impl(const VMutableArray<ElemT> &dst_varray) const
+  {
+    return dst_varray.is_span();
   }
 };
 
@@ -583,6 +708,43 @@ class VMutableArray_For_DerivedSpan : public VMutableArray<ElemT> {
   void set_impl(const int64_t index, ElemT value) override
   {
     SetFunc(data_[index], std::move(value));
+  }
+
+  void get_multiple_impl(VMutableArray<ElemT> &dst_varray, IndexMask mask) const
+  {
+    if (dst_varray.is_span()) {
+      ElemT *dst_ptr = dst_varray.get_internal_span().data();
+      mask.foreach_index([&](const int64_t i) { dst_ptr[i] = GetFunc(data_[i]); });
+    }
+    else {
+      mask.foreach_index([&](const int64_t i) { dst_varray.set(i, GetFunc(data_[i])); });
+    }
+  }
+
+  void get_multiple_to_uninitialized_impl(ElemT *dst, IndexMask mask) const
+  {
+    mask.foreach_index([&](const int64_t i) { new (dst + i) ElemT(GetFunc(data_[i])); });
+  }
+
+  bool can_get_multiple_efficiently_impl(const VMutableArray<ElemT> &dst_varray) const
+  {
+    return dst_varray.is_span();
+  }
+
+  virtual void set_multiple_impl(const VArray<ElemT> &src_varray, IndexMask mask)
+  {
+    if (src_varray.is_span()) {
+      const ElemT *src_ptr = src_varray.get_internal_span().data();
+      mask.foreach_index([&](const int64_t i) { SetFunc(data_[i], src_ptr[i]); });
+    }
+    else {
+      mask.foreach_index([&](const int64_t i) { SetFunc(data_[i], src_varray.get(i)); });
+    }
+  }
+
+  virtual bool can_set_multiple_efficiently_impl(const VArray<ElemT> &src_varray) const
+  {
+    return src_varray.is_span();
   }
 };
 
