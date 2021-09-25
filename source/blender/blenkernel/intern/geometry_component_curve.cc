@@ -647,15 +647,6 @@ template<typename T> class VMutableArray_For_SplinePoints final : public VMutabl
     data_[indices.spline_index][indices.point_index] = value;
   }
 
-  void set_all_impl(Span<T> src) final
-  {
-    for (const int spline_index : data_.index_range()) {
-      const int offset = offsets_[spline_index];
-      const int next_offsets = offsets_[spline_index + 1];
-      data_[spline_index].copy_from(src.slice(offset, next_offsets - offset));
-    }
-  }
-
   void materialize_impl(const IndexMask mask, MutableSpan<T> r_span) const final
   {
     point_attribute_materialize({(Span<T> *)data_.data(), data_.size()}, offsets_, mask, r_span);
@@ -719,29 +710,6 @@ class VMutableArray_For_SplinePosition final : public VMutableArray<float3> {
     }
     else {
       spline.positions()[indices.point_index] = value;
-    }
-  }
-
-  void set_all_impl(Span<float3> src) final
-  {
-    for (const int spline_index : splines_.index_range()) {
-      Spline &spline = *splines_[spline_index];
-      const int offset = offsets_[spline_index];
-      const int next_offset = offsets_[spline_index + 1];
-      if (BezierSpline *bezier_spline = dynamic_cast<BezierSpline *>(&spline)) {
-        MutableSpan<float3> positions = bezier_spline->positions();
-        MutableSpan<float3> handle_positions_left = bezier_spline->handle_positions_left();
-        MutableSpan<float3> handle_positions_right = bezier_spline->handle_positions_right();
-        for (const int i : IndexRange(next_offset - offset)) {
-          const float3 delta = src[offset + i] - positions[i];
-          handle_positions_left[i] += delta;
-          handle_positions_right[i] += delta;
-          positions[i] = src[offset + i];
-        }
-      }
-      else {
-        spline.positions().copy_from(src.slice(offset, next_offset - offset));
-      }
     }
   }
 
@@ -1115,10 +1083,9 @@ class DynamicPointAttributeProvider final : public DynamicAttributesProvider {
 
     const int total_size = curve->control_point_offsets().last();
     GVArrayPtr source_varray = varray_from_initializer(initializer, data_type, total_size);
-    /* TODO: When we can call a variant of #set_all with a virtual array argument,
+    /* TODO: When we can call a variant of #set_multiple_by_copy with a virtual array argument,
      * this theoretically unnecessary materialize step could be removed. */
-    GVArray_GSpan source_varray_span{*source_varray};
-    write_attribute.varray->set_all(source_varray_span.data());
+    write_attribute.varray->set_multiple_by_copy(*source_varray);
 
     if (initializer.type == AttributeInit::Type::MoveArray) {
       MEM_freeN(static_cast<const AttributeInitMove &>(initializer).data);

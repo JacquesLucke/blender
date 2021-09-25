@@ -44,6 +44,7 @@
 namespace blender {
 
 template<typename T> class VMutableArray;
+template<typename T> class VArray_For_Span;
 
 /* An immutable virtual array. */
 template<typename T> class VArray {
@@ -268,6 +269,11 @@ template<typename T> class VMutableArray : public VArray<T> {
     this->set_multiple(src_varray, IndexMask(this->size_));
   }
 
+  void set_multiple(const Span<T> src)
+  {
+    this->set_multiple(VArray_For_Span<T>{src});
+  }
+
   void set_multiple(const VArray<T> &src_varray, const IndexMask mask)
   {
     BLI_assert(mask.min_array_size() <= this->size_);
@@ -290,13 +296,6 @@ template<typename T> class VMutableArray : public VArray<T> {
     return this->can_get_multiple_efficiently_impl(src_varray);
   }
 
-  /* Copy the values from the source span to all elements in the virtual array. */
-  void set_all(Span<T> src)
-  {
-    BLI_assert(src.size() == this->size_);
-    this->set_all_impl(src);
-  }
-
   MutableSpan<T> get_internal_span()
   {
     BLI_assert(this->is_span());
@@ -316,20 +315,6 @@ template<typename T> class VMutableArray : public VArray<T> {
   {
     UNUSED_VARS(src_varray);
     return false;
-  }
-
-  virtual void set_all_impl(Span<T> src)
-  {
-    if (this->is_span()) {
-      const MutableSpan<T> span = this->get_internal_span();
-      initialized_copy_n(src.data(), this->size_, span.data());
-    }
-    else {
-      const int64_t size = this->size_;
-      for (int64_t i = 0; i < size; i++) {
-        this->set(i, src[i]);
-      }
-    }
   }
 };
 
@@ -551,7 +536,7 @@ template<typename T> class VMutableArray_Span final : public MutableSpan<T> {
     if (this->data_ != owned_data_.data()) {
       return;
     }
-    varray_.set_all(owned_data_);
+    varray_.set_multiple(owned_data_);
   }
 
   void disable_not_applied_warning()

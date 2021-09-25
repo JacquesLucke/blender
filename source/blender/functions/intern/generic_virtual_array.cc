@@ -207,6 +207,11 @@ void GVMutableArray::set_multiple_by_copy(const GVArray &src_varray)
   this->set_multiple_by_copy(src_varray, IndexMask(size_));
 }
 
+void GVMutableArray::set_multiple_by_copy(const GSpan &src)
+{
+  this->set_multiple_by_copy(GVArray_For_GSpan{src});
+}
+
 void GVMutableArray::set_multiple_by_copy(const GVArray &src_varray, const IndexMask mask)
 {
   if (src_varray._can_get_multiple_efficiently(*this)) {
@@ -242,19 +247,6 @@ void GVMutableArray::set_multiple_by_copy_impl(const GVArray &src_varray, const 
 bool GVMutableArray::can_set_multiple_efficiently_impl(const GVArray &UNUSED(src_varray)) const
 {
   return false;
-}
-
-void GVMutableArray::set_all_impl(const void *src)
-{
-  if (this->is_span()) {
-    const GMutableSpan span = this->get_internal_span();
-    type_->copy_assign_n(src, span.data(), size_);
-  }
-  else {
-    for (int64_t i : IndexRange(size_)) {
-      this->set_by_copy(i, POINTER_OFFSET(src, type_->size() * i));
-    }
-  }
 }
 
 void *GVMutableArray::try_get_internal_mutable_varray_impl()

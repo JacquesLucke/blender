@@ -208,6 +208,7 @@ class GVMutableArray : public GVArray {
   }
 
   void set_multiple_by_copy(const GVArray &src_varray);
+  void set_multiple_by_copy(const GSpan &src);
   void set_multiple_by_copy(const GVArray &src_varray, const IndexMask mask);
   void _set_multiple_by_copy(const GVArray &src_varray, const IndexMask mask);
   bool _can_set_multiple_efficiently(const GVArray &src_varray) const;
@@ -233,12 +234,6 @@ class GVMutableArray : public GVArray {
 
   void fill(const void *value);
 
-  /* Copy the values from the source buffer to all elements in the virtual array. */
-  void set_all(const void *src)
-  {
-    this->set_all_impl(src);
-  }
-
  protected:
   virtual void set_by_copy_impl(const int64_t index, const void *value);
   virtual void set_by_relocate_impl(const int64_t index, void *value);
@@ -246,8 +241,6 @@ class GVMutableArray : public GVArray {
 
   virtual void set_multiple_by_copy_impl(const GVArray &src_varray, IndexMask mask);
   virtual bool can_set_multiple_efficiently_impl(const GVArray &src_varray) const;
-
-  virtual void set_all_impl(const void *src);
 
   virtual void *try_get_internal_mutable_varray_impl();
 };
@@ -576,11 +569,6 @@ template<typename T> class GVMutableArray_For_VMutableArray : public GVMutableAr
   {
     T &value_ = *(T *)value;
     varray_->set(index, std::move(value_));
-  }
-
-  void set_all_impl(const void *src) override
-  {
-    varray_->set_all(Span((T *)src, size_));
   }
 
   void materialize_impl(const IndexMask mask, void *dst) const override
