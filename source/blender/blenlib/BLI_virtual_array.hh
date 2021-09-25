@@ -74,7 +74,7 @@ template<typename T> class VArray {
   {
     BLI_assert(mask.min_array_size() <= size_);
     BLI_assert(mask.min_array_size() <= dst_varray.size());
-    if (dst_varray.can_set_multiple_efficiently(*this)) {
+    if (dst_varray._can_set_multiple_efficiently(*this)) {
       dst_varray._set_multiple(*this, mask);
     }
     else {
@@ -87,7 +87,7 @@ template<typename T> class VArray {
     this->get_multiple_impl(dst_varray, mask);
   }
 
-  bool can_get_multiple_efficiently(const VMutableArray<T> &dst_varray) const
+  bool _can_get_multiple_efficiently(const VMutableArray<T> &dst_varray) const
   {
     return this->can_get_multiple_efficiently_impl(dst_varray);
   }
@@ -272,7 +272,7 @@ template<typename T> class VMutableArray : public VArray<T> {
   {
     BLI_assert(mask.min_array_size() <= this->size_);
     BLI_assert(mask.min_array_size() <= src_varray.size());
-    if (src_varray.can_get_multiple_efficiently_impl(*this)) {
+    if (src_varray._can_get_multiple_efficiently(*this)) {
       src_varray._get_multiple(*this, mask);
     }
     else {
@@ -285,7 +285,7 @@ template<typename T> class VMutableArray : public VArray<T> {
     this->set_multiple_impl(src_varray, mask);
   }
 
-  bool can_set_multiple_efficiently(const VArray<T> &src_varray) const
+  bool _can_set_multiple_efficiently(const VArray<T> &src_varray) const
   {
     return this->can_get_multiple_efficiently_impl(src_varray);
   }

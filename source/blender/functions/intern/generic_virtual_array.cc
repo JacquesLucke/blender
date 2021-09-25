@@ -53,6 +53,48 @@ class GVArray_For_ShallowCopy : public GVArray {
  * GVArray.
  */
 
+void GVArray::get_multiple(GVMutableArray &dst_varray) const
+{
+  this->get_multiple(dst_varray, IndexMask(size_));
+}
+
+void GVArray::get_multiple(GVMutableArray &dst_varray, const IndexMask mask) const
+{
+  if (dst_varray._can_set_multiple_efficiently(*this)) {
+    dst_varray._set_multiple_by_copy(*this, mask);
+  }
+  else {
+    this->_get_multiple(dst_varray, mask);
+  }
+}
+
+bool GVArray::_can_get_multiple_efficiently(const GVMutableArray &dst_varray) const
+{
+  return this->can_get_multiple_efficiently_impl(dst_varray);
+}
+
+void GVArray::_get_multiple(GVMutableArray &dst_varray, const IndexMask mask) const
+{
+  BLI_assert(dst_varray.type() == *type_);
+  BLI_assert(mask.min_array_size() <= size_);
+  BLI_assert(mask.min_array_size() <= dst_varray.size());
+  this->get_multiple_impl(dst_varray, mask);
+}
+
+void GVArray::get_multiple_impl(GVMutableArray &dst_varray, const IndexMask mask) const
+{
+  BUFFER_FOR_CPP_TYPE_VALUE(*type_, buffer);
+  for (const int i : mask) {
+    this->get_to_uninitialized(i, buffer);
+    dst_varray.set_by_relocate(i, buffer);
+  }
+}
+
+bool GVArray::can_get_multiple_efficiently_impl(const GVMutableArray &UNUSED(dst_varray)) const
+{
+  return false;
+}
+
 void GVArray::materialize(void *dst) const
 {
   this->materialize(IndexMask(size_), dst);
@@ -158,6 +200,48 @@ void GVMutableArray::set_by_relocate_impl(const int64_t index, void *value)
 {
   this->set_by_move_impl(index, value);
   type_->destruct(value);
+}
+
+void GVMutableArray::set_multiple_by_copy(const GVArray &src_varray)
+{
+  this->set_multiple_by_copy(src_varray, IndexMask(size_));
+}
+
+void GVMutableArray::set_multiple_by_copy(const GVArray &src_varray, const IndexMask mask)
+{
+  if (src_varray._can_get_multiple_efficiently(*this)) {
+    src_varray._get_multiple(*this, mask);
+  }
+  else {
+    this->_set_multiple_by_copy(src_varray, mask);
+  }
+}
+
+void GVMutableArray::_set_multiple_by_copy(const GVArray &src_varray, const IndexMask mask)
+{
+  BLI_assert(src_varray.type() == *type_);
+  BLI_assert(mask.min_array_size() <= size_);
+  BLI_assert(mask.min_array_size() <= src_varray.size());
+  this->set_multiple_by_copy_impl(src_varray, mask);
+}
+
+bool GVMutableArray::_can_set_multiple_efficiently(const GVArray &src_varray) const
+{
+  return this->can_set_multiple_efficiently_impl(src_varray);
+}
+
+void GVMutableArray::set_multiple_by_copy_impl(const GVArray &src_varray, const IndexMask mask)
+{
+  BUFFER_FOR_CPP_TYPE_VALUE(*type_, buffer);
+  for (const int i : mask) {
+    src_varray.get_to_uninitialized(i, buffer);
+    this->set_by_relocate(i, buffer);
+  }
+}
+
+bool GVMutableArray::can_set_multiple_efficiently_impl(const GVArray &UNUSED(src_varray)) const
+{
+  return false;
 }
 
 void GVMutableArray::set_all_impl(const void *src)

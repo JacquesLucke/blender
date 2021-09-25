@@ -86,6 +86,11 @@ class GVArray {
     this->get_to_uninitialized_impl(index, r_value);
   }
 
+  void get_multiple(GVMutableArray &dst_varray) const;
+  void get_multiple(GVMutableArray &dst_varray, const IndexMask mask) const;
+  void _get_multiple(GVMutableArray &dst_varray, const IndexMask mask) const;
+  bool _can_get_multiple_efficiently(const GVMutableArray &dst_varray) const;
+
   /* Returns true when the virtual array is stored as a span internally. */
   bool is_span() const
   {
@@ -159,6 +164,9 @@ class GVArray {
   virtual void get_impl(const int64_t index, void *r_value) const;
   virtual void get_to_uninitialized_impl(const int64_t index, void *r_value) const = 0;
 
+  virtual void get_multiple_impl(GVMutableArray &dst_varray, IndexMask mask) const;
+  virtual bool can_get_multiple_efficiently_impl(const GVMutableArray &dst_varray) const;
+
   virtual bool is_span_impl() const;
   virtual GSpan get_internal_span_impl() const;
 
@@ -199,6 +207,11 @@ class GVMutableArray : public GVArray {
     this->set_by_relocate_impl(index, value);
   }
 
+  void set_multiple_by_copy(const GVArray &src_varray);
+  void set_multiple_by_copy(const GVArray &src_varray, const IndexMask mask);
+  void _set_multiple_by_copy(const GVArray &src_varray, const IndexMask mask);
+  bool _can_set_multiple_efficiently(const GVArray &src_varray) const;
+
   GMutableSpan get_internal_span()
   {
     BLI_assert(this->is_span());
@@ -230,6 +243,9 @@ class GVMutableArray : public GVArray {
   virtual void set_by_copy_impl(const int64_t index, const void *value);
   virtual void set_by_relocate_impl(const int64_t index, void *value);
   virtual void set_by_move_impl(const int64_t index, void *value) = 0;
+
+  virtual void set_multiple_by_copy_impl(const GVArray &src_varray, IndexMask mask);
+  virtual bool can_set_multiple_efficiently_impl(const GVArray &src_varray) const;
 
   virtual void set_all_impl(const void *src);
 
