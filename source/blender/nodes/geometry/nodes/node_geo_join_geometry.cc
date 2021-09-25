@@ -321,7 +321,7 @@ static void ensure_control_point_attribute(const AttributeIDRef &attribute_id,
 
         const DataTypeConversions &conversions = blender::nodes::get_implicit_type_conversions();
         conversions.try_convert(std::make_unique<GVArray_For_GSpan>(*attribute), type)
-            ->materialize(converted_buffer);
+            ->get_multiple(GMutableSpan{type, converted_buffer, spline->size()});
 
         spline->attributes.remove(attribute_id);
         spline->attributes.create_by_move(attribute_id, data_type, converted_buffer);

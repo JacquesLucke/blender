@@ -141,8 +141,8 @@ static SplinePtr resample_spline_evaluated(const Spline &src)
 
   dst->positions().copy_from(src.evaluated_positions());
   dst->positions().copy_from(src.evaluated_positions());
-  src.interpolate_to_evaluated(src.radii())->materialize(dst->radii());
-  src.interpolate_to_evaluated(src.tilts())->materialize(dst->tilts());
+  src.interpolate_to_evaluated(src.radii())->get_multiple(dst->radii());
+  src.interpolate_to_evaluated(src.tilts())->get_multiple(dst->tilts());
 
   src.attributes.foreach_attribute(
       [&](const AttributeIDRef &attribute_id, const AttributeMetaData &meta_data) {
@@ -150,7 +150,7 @@ static SplinePtr resample_spline_evaluated(const Spline &src)
         if (dst->attributes.create(attribute_id, meta_data.data_type)) {
           std::optional<GMutableSpan> dst_attribute = dst->attributes.get_for_write(attribute_id);
           if (dst_attribute) {
-            src.interpolate_to_evaluated(*src_attribute)->materialize(dst_attribute->data());
+            src.interpolate_to_evaluated(*src_attribute)->get_multiple(*dst_attribute);
             return true;
           }
         }

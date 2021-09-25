@@ -294,27 +294,6 @@ template<typename T> class VArray_For_SplineToPoint final : public VArray<T> {
     return original_data_[indices.spline_index];
   }
 
-  void materialize_impl(const IndexMask mask, MutableSpan<T> r_span) const final
-  {
-    const int total_size = offsets_.last();
-    if (mask.is_range() && mask.as_range() == IndexRange(total_size)) {
-      for (const int spline_index : original_data_.index_range()) {
-        const int offset = offsets_[spline_index];
-        const int next_offset = offsets_[spline_index + 1];
-        r_span.slice(offset, next_offset - offset).fill(original_data_[spline_index]);
-      }
-    }
-    else {
-      int spline_index = 0;
-      for (const int dst_index : mask) {
-        while (offsets_[spline_index] < dst_index) {
-          spline_index++;
-        }
-        r_span[dst_index] = original_data_[spline_index];
-      }
-    }
-  }
-
   void materialize_to_uninitialized_impl(const IndexMask mask, MutableSpan<T> r_span) const final
   {
     T *dst = r_span.data();
@@ -610,11 +589,6 @@ template<typename T> class VArray_For_SplinePoints : public VArray<T> {
     return data_[indices.spline_index][indices.point_index];
   }
 
-  void materialize_impl(const IndexMask mask, MutableSpan<T> r_span) const final
-  {
-    point_attribute_materialize(data_.as_span(), offsets_, mask, r_span);
-  }
-
   void materialize_to_uninitialized_impl(const IndexMask mask, MutableSpan<T> r_span) const final
   {
     point_attribute_materialize_to_uninitialized(data_.as_span(), offsets_, mask, r_span);
@@ -645,11 +619,6 @@ template<typename T> class VMutableArray_For_SplinePoints final : public VMutabl
   {
     const PointIndices indices = lookup_point_indices(offsets_, index);
     data_[indices.spline_index][indices.point_index] = value;
-  }
-
-  void materialize_impl(const IndexMask mask, MutableSpan<T> r_span) const final
-  {
-    point_attribute_materialize({(Span<T> *)data_.data(), data_.size()}, offsets_, mask, r_span);
   }
 
   void materialize_to_uninitialized_impl(const IndexMask mask, MutableSpan<T> r_span) const final
@@ -721,12 +690,6 @@ class VMutableArray_For_SplinePosition final : public VMutableArray<float3> {
       spans[i] = splines_[i]->positions();
     }
     return spans;
-  }
-
-  void materialize_impl(const IndexMask mask, MutableSpan<float3> r_span) const final
-  {
-    Array<Span<float3>> spans = this->get_position_spans();
-    point_attribute_materialize(spans.as_span(), offsets_, mask, r_span);
   }
 
   void materialize_to_uninitialized_impl(const IndexMask mask,

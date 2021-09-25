@@ -449,7 +449,7 @@ Span<float3> NURBSpline::evaluated_positions() const
 
   /* TODO: Avoid copying the evaluated data from the temporary array. */
   GVArray_Typed<float3> evaluated = Spline::interpolate_to_evaluated(positions_.as_span());
-  evaluated->materialize(evaluated_position_cache_);
+  evaluated->get_multiple(evaluated_position_cache_);
 
   position_cache_dirty_ = false;
   return evaluated_position_cache_;
