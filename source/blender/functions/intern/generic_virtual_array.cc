@@ -42,11 +42,6 @@ class GVArray_For_ShallowCopy : public GVArray {
   {
     varray_.get_to_uninitialized(index, r_value);
   }
-
-  void materialize_to_uninitialized_impl(const IndexMask mask, void *dst) const override
-  {
-    varray_.materialize_to_uninitialized(mask, dst);
-  }
 };
 
 /* --------------------------------------------------------------------
@@ -109,7 +104,6 @@ void GVArray::get_multiple_to_uninitialized(void *dst) const
 void GVArray::get_multiple_to_uninitialized(void *dst, IndexMask mask) const
 {
   BLI_assert(mask.min_array_size() <= size_);
-  BLI_assert(mask.min_array_size() <= dst.size());
   this->get_multiple_to_uninitialized_impl(dst, mask);
 }
 
@@ -119,25 +113,6 @@ void GVArray::get_multiple_to_uninitialized_impl(void *dst, IndexMask mask) cons
     void *elem_dst = POINTER_OFFSET(dst, type_->size() * i);
     this->get_to_uninitialized(i, elem_dst);
   });
-}
-
-void GVArray::materialize_to_uninitialized(void *dst) const
-{
-  this->materialize_to_uninitialized(IndexMask(size_), dst);
-}
-
-void GVArray::materialize_to_uninitialized(const IndexMask mask, void *dst) const
-{
-  BLI_assert(mask.min_array_size() <= size_);
-  this->materialize_to_uninitialized_impl(mask, dst);
-}
-
-void GVArray::materialize_to_uninitialized_impl(const IndexMask mask, void *dst) const
-{
-  for (const int64_t i : mask) {
-    void *elem_dst = POINTER_OFFSET(dst, type_->size() * i);
-    this->get_to_uninitialized(i, elem_dst);
-  }
 }
 
 void GVArray::get_impl(const int64_t index, void *r_value) const
@@ -405,7 +380,7 @@ GVArray_GSpan::GVArray_GSpan(const GVArray &varray) : GSpan(varray.type()), varr
   }
   else {
     owned_data_ = MEM_mallocN_aligned(type_->size() * size_, type_->alignment(), __func__);
-    varray_.materialize_to_uninitialized(IndexRange(size_), owned_data_);
+    varray_.get_multiple_to_uninitialized(owned_data_);
     data_ = owned_data_;
   }
 }
@@ -432,7 +407,7 @@ GVMutableArray_GSpan::GVMutableArray_GSpan(GVMutableArray &varray, const bool co
   else {
     owned_data_ = MEM_mallocN_aligned(type_->size() * size_, type_->alignment(), __func__);
     if (copy_values_to_span) {
-      varray_.materialize_to_uninitialized(IndexRange(size_), owned_data_);
+      varray_.get_multiple_to_uninitialized(owned_data_);
     }
     else {
       type_->default_construct_n(owned_data_, size_);

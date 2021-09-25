@@ -144,9 +144,6 @@ class GVArray {
     this->get_internal_single(r_value);
   }
 
-  void materialize_to_uninitialized(void *dst) const;
-  void materialize_to_uninitialized(const IndexMask mask, void *dst) const;
-
   template<typename T> const VArray<T> *try_get_internal_varray() const
   {
     BLI_assert(type_->is<T>());
@@ -175,8 +172,6 @@ class GVArray {
 
   virtual bool is_single_impl() const;
   virtual void get_internal_single_impl(void *UNUSED(r_value)) const;
-
-  virtual void materialize_to_uninitialized_impl(const IndexMask mask, void *dst) const;
 
   virtual const void *try_get_internal_varray_impl() const;
 };
@@ -393,11 +388,6 @@ template<typename T> class GVArray_For_VArray : public GVArray {
     *(T *)r_value = varray_->get_internal_single();
   }
 
-  void materialize_to_uninitialized_impl(const IndexMask mask, void *dst) const override
-  {
-    varray_->materialize_to_uninitialized(mask, MutableSpan((T *)dst, mask.min_array_size()));
-  }
-
   const void *try_get_internal_varray_impl() const override
   {
     return varray_;
@@ -566,11 +556,6 @@ template<typename T> class GVMutableArray_For_VMutableArray : public GVMutableAr
   {
     T &value_ = *(T *)value;
     varray_->set(index, std::move(value_));
-  }
-
-  void materialize_to_uninitialized_impl(const IndexMask mask, void *dst) const override
-  {
-    varray_->materialize_to_uninitialized(mask, MutableSpan((T *)dst, mask.min_array_size()));
   }
 
   const void *try_get_internal_varray_impl() const override

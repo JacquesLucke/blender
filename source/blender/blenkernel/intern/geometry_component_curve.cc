@@ -293,28 +293,6 @@ template<typename T> class VArray_For_SplineToPoint final : public VArray<T> {
     const PointIndices indices = lookup_point_indices(offsets_, index);
     return original_data_[indices.spline_index];
   }
-
-  void materialize_to_uninitialized_impl(const IndexMask mask, MutableSpan<T> r_span) const final
-  {
-    T *dst = r_span.data();
-    const int total_size = offsets_.last();
-    if (mask.is_range() && mask.as_range() == IndexRange(total_size)) {
-      for (const int spline_index : original_data_.index_range()) {
-        const int offset = offsets_[spline_index];
-        const int next_offset = offsets_[spline_index + 1];
-        uninitialized_fill_n(dst + offset, next_offset - offset, original_data_[spline_index]);
-      }
-    }
-    else {
-      int spline_index = 0;
-      for (const int dst_index : mask) {
-        while (offsets_[spline_index] < dst_index) {
-          spline_index++;
-        }
-        new (dst + dst_index) T(original_data_[spline_index]);
-      }
-    }
-  }
 };
 
 static GVArrayPtr adapt_curve_domain_spline_to_point(const CurveEval &curve, GVArrayPtr varray)
@@ -541,34 +519,6 @@ static void point_attribute_materialize(Span<Span<T>> data,
   }
 }
 
-template<typename T>
-static void point_attribute_materialize_to_uninitialized(Span<Span<T>> data,
-                                                         Span<int> offsets,
-                                                         const IndexMask mask,
-                                                         MutableSpan<T> r_span)
-{
-  T *dst = r_span.data();
-  const int total_size = offsets.last();
-  if (mask.is_range() && mask.as_range() == IndexRange(total_size)) {
-    for (const int spline_index : data.index_range()) {
-      const int offset = offsets[spline_index];
-      const int next_offset = offsets[spline_index + 1];
-      uninitialized_copy_n(data[spline_index].data(), next_offset - offset, dst + offset);
-    }
-  }
-  else {
-    int spline_index = 0;
-    for (const int dst_index : mask) {
-      while (offsets[spline_index] < dst_index) {
-        spline_index++;
-      }
-
-      const int index_in_spline = dst_index - offsets[spline_index];
-      new (dst + dst_index) T(data[spline_index][index_in_spline]);
-    }
-  }
-}
-
 /**
  * Virtual array for any control point data accessed with spans and an offset array.
  */
@@ -587,11 +537,6 @@ template<typename T> class VArray_For_SplinePoints : public VArray<T> {
   {
     const PointIndices indices = lookup_point_indices(offsets_, index);
     return data_[indices.spline_index][indices.point_index];
-  }
-
-  void materialize_to_uninitialized_impl(const IndexMask mask, MutableSpan<T> r_span) const final
-  {
-    point_attribute_materialize_to_uninitialized(data_.as_span(), offsets_, mask, r_span);
   }
 };
 
@@ -619,12 +564,6 @@ template<typename T> class VMutableArray_For_SplinePoints final : public VMutabl
   {
     const PointIndices indices = lookup_point_indices(offsets_, index);
     data_[indices.spline_index][indices.point_index] = value;
-  }
-
-  void materialize_to_uninitialized_impl(const IndexMask mask, MutableSpan<T> r_span) const final
-  {
-    point_attribute_materialize_to_uninitialized(
-        {(Span<T> *)data_.data(), data_.size()}, offsets_, mask, r_span);
   }
 };
 
@@ -690,13 +629,6 @@ class VMutableArray_For_SplinePosition final : public VMutableArray<float3> {
       spans[i] = splines_[i]->positions();
     }
     return spans;
-  }
-
-  void materialize_to_uninitialized_impl(const IndexMask mask,
-                                         MutableSpan<float3> r_span) const final
-  {
-    Array<Span<float3>> spans = this->get_position_spans();
-    point_attribute_materialize_to_uninitialized(spans.as_span(), offsets_, mask, r_span);
   }
 };
 

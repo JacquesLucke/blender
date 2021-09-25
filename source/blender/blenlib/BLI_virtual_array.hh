@@ -107,15 +107,14 @@ template<typename T> class VArray {
 
   void get_multiple_to_uninitialized(T *dst) const
   {
-    this->get_multiple_to_uninitialized(dst);
+    this->get_multiple_to_uninitialized(dst, IndexMask(size_));
   }
 
   void get_multiple_to_uninitialized(T *dst, IndexMask mask) const
   {
     BLI_assert(mask.min_array_size() <= size_);
-    BLI_assert(mask.min_array_size() <= dst.size());
     if constexpr (std::is_trivial_v<T>) {
-      this->get_multiple(dst, mask);
+      this->get_multiple(MutableSpan(dst, mask.min_array_size()), mask);
     }
     else {
       this->get_multiple_to_uninitialized_impl(dst, mask);
@@ -184,17 +183,6 @@ template<typename T> class VArray {
     return this->get(index);
   }
 
-  void materialize_to_uninitialized(MutableSpan<T> r_span) const
-  {
-    this->materialize_to_uninitialized(IndexMask(size_), r_span);
-  }
-
-  void materialize_to_uninitialized(IndexMask mask, MutableSpan<T> r_span) const
-  {
-    BLI_assert(mask.min_array_size() <= size_);
-    this->materialize_to_uninitialized_impl(mask, r_span);
-  }
-
  protected:
   virtual T get_impl(const int64_t index) const = 0;
 
@@ -236,22 +224,6 @@ template<typename T> class VArray {
      * should never be called because `is_single_impl` returns false by default. */
     BLI_assert_unreachable();
     return T();
-  }
-
-  virtual void materialize_to_uninitialized_impl(IndexMask mask, MutableSpan<T> r_span) const
-  {
-    T *dst = r_span.data();
-    if (this->is_span()) {
-      const T *src = this->get_internal_span().data();
-      mask.foreach_index([&](const int64_t i) { new (dst + i) T(src[i]); });
-    }
-    else if (this->is_single()) {
-      const T single = this->get_internal_single();
-      mask.foreach_index([&](const int64_t i) { new (dst + i) T(single); });
-    }
-    else {
-      mask.foreach_index([&](const int64_t i) { new (dst + i) T(this->get(i)); });
-    }
   }
 };
 
@@ -482,7 +454,7 @@ template<typename T> class VArray_Span final : public Span<T> {
     else {
       owned_data_.~Array();
       new (&owned_data_) Array<T>(varray_.size(), NoInitialization{});
-      varray_.materialize_to_uninitialized(owned_data_);
+      varray_.get_multiple_to_uninitialized(owned_data_.data());
       this->data_ = owned_data_.data();
     }
   }
@@ -516,7 +488,7 @@ template<typename T> class VMutableArray_Span final : public MutableSpan<T> {
       if (copy_values_to_span) {
         owned_data_.~Array();
         new (&owned_data_) Array<T>(varray_.size(), NoInitialization{});
-        varray_.materialize_to_uninitialized(owned_data_);
+        varray_.get_multiple_to_uninitialized(owned_data_.data());
       }
       else {
         owned_data_.reinitialize(varray_.size());
@@ -569,12 +541,6 @@ template<typename T, typename GetFunc> class VArray_For_Func final : public VArr
   {
     return get_func_(index);
   }
-
-  void materialize_to_uninitialized_impl(IndexMask mask, MutableSpan<T> r_span) const override
-  {
-    T *dst = r_span.data();
-    mask.foreach_index([&](const int64_t i) { new (dst + i) T(get_func_(i)); });
-  }
 };
 
 template<typename StructT, typename ElemT, ElemT (*GetFunc)(const StructT &)>
@@ -591,12 +557,6 @@ class VArray_For_DerivedSpan : public VArray<ElemT> {
   ElemT get_impl(const int64_t index) const override
   {
     return GetFunc(data_[index]);
-  }
-
-  void materialize_to_uninitialized_impl(IndexMask mask, MutableSpan<ElemT> r_span) const override
-  {
-    ElemT *dst = r_span.data();
-    mask.foreach_index([&](const int64_t i) { new (dst + i) ElemT(GetFunc(data_[i])); });
   }
 };
 
@@ -623,12 +583,6 @@ class VMutableArray_For_DerivedSpan : public VMutableArray<ElemT> {
   void set_impl(const int64_t index, ElemT value) override
   {
     SetFunc(data_[index], std::move(value));
-  }
-
-  void materialize_to_uninitialized_impl(IndexMask mask, MutableSpan<ElemT> r_span) const override
-  {
-    ElemT *dst = r_span.data();
-    mask.foreach_index([&](const int64_t i) { new (dst + i) ElemT(GetFunc(data_[i])); });
   }
 };
 

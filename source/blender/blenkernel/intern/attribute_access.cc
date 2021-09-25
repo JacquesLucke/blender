@@ -300,7 +300,7 @@ static bool add_custom_data_layer_from_attribute_init(CustomData &custom_data,
         return false;
       }
       const GVArray *varray = static_cast<const AttributeInitVArray &>(initializer).varray;
-      varray->materialize_to_uninitialized(IndexRange(varray->size()), data);
+      varray->get_multiple_to_uninitialized(data);
       return true;
     }
     case AttributeInit::Type::MoveArray: {
@@ -495,7 +495,7 @@ static bool add_custom_data_layer_from_attribute_init(const AttributeIDRef &attr
         return false;
       }
       const GVArray *varray = static_cast<const AttributeInitVArray &>(initializer).varray;
-      varray->materialize_to_uninitialized(IndexRange(varray->size()), data);
+      varray->get_multiple_to_uninitialized(data);
       return true;
     }
     case AttributeInit::Type::MoveArray: {
@@ -1300,7 +1300,7 @@ static OutputAttribute create_output_attribute(GeometryComponent &component,
     /* Fill the temporary array with values from the existing attribute. */
     GVArrayPtr old_varray = component.attribute_get_for_read(
         attribute_id, domain, data_type, default_value);
-    old_varray->materialize_to_uninitialized(IndexRange(domain_size), data);
+    old_varray->get_multiple_to_uninitialized(data);
   }
   GVMutableArrayPtr varray = std::make_unique<GVMutableAttribute_For_OutputAttribute>(
       GMutableSpan{*cpp_type, data, domain_size}, component, attribute_id);
