@@ -36,6 +36,60 @@
 
 #include "node_geometry_util.hh"
 
+namespace std {
+extern template class unique_ptr<blender::nodes::decl::Bool>;
+extern template class unique_ptr<blender::nodes::decl::BoolBuilder>;
+extern template class unique_ptr<blender::nodes::decl::Float>;
+extern template class unique_ptr<blender::nodes::decl::FloatBuilder>;
+extern template class unique_ptr<blender::nodes::decl::Geometry>;
+extern template class unique_ptr<blender::nodes::decl::Int>;
+extern template class unique_ptr<blender::nodes::decl::IntBuilder>;
+extern template class unique_ptr<blender::nodes::decl::Vector>;
+extern template class unique_ptr<blender::nodes::decl::VectorBuilder>;
+extern template class unique_ptr<blender::nodes::BaseSocketDeclarationBuilder>;
+extern template class unique_ptr<blender::nodes::SocketDeclaration>;
+extern template class unique_ptr<
+    blender::nodes::SocketDeclarationBuilder<blender::nodes::decl::Geometry>>;
+extern template class unique_ptr<blender::fn::GVArray>;
+extern template class unique_ptr<blender::fn::GVMutableArray>;
+extern template class unique_ptr<blender::fn::GVMutableArray_For_MutableSpan<float>>;
+extern template class unique_ptr<blender::fn::GVMutableArray_GSpan>;
+extern template class optional<blender::VMutableArray_For_MutableSpan<blender::float3>>;
+extern template class optional<blender::VMutableArray_For_MutableSpan<int>>;
+extern template class optional<blender::bke::OutputAttribute_Typed<blender::float3>>;
+extern template class optional<blender::bke::OutputAttribute_Typed<int>>;
+}  // namespace std
+namespace blender {
+extern template class VArray<int>;
+extern template class VArray<float>;
+extern template class VArray<float3>;
+extern template class VMutableArray<float3>;
+extern template class VMutableArray<float>;
+extern template class VMutableArray<int>;
+extern template class VMutableArray_For_MutableSpan<int>;
+extern template class VMutableArray_For_MutableSpan<float>;
+extern template class VMutableArray_For_MutableSpan<float3>;
+extern template class Vector<Span<char>>;
+extern template class Vector<Span<float3>>;
+extern template class Vector<float3>;
+extern template class Vector<fn::GField>;
+extern template class Vector<const fn::GVArray *>;
+extern template class Vector<const fn::GVMutableArray *>;
+extern template class Vector<int>;
+extern template class Vector<std::unique_ptr<nodes::BaseSocketDeclarationBuilder>>;
+extern template class Vector<std::unique_ptr<nodes::SocketDeclaration>>;
+extern template class Vector<void *>;
+}  // namespace blender
+namespace blender::bke {
+}
+namespace blender::fn {
+extern template class GVMutableArray_For_VMutableArray<float>;
+extern template class VMutableArray_For_GVMutableArray<float3>;
+extern template class VMutableArray_For_GVMutableArray<int>;
+}  // namespace blender::fn
+namespace blender::nodes {
+}
+
 using blender::bke::GeometryInstanceGroup;
 
 namespace blender::nodes {
