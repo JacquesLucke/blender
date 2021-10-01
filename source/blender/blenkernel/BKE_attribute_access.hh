@@ -276,10 +276,7 @@ class OutputAttribute {
 
   ~OutputAttribute();
 
-  operator bool() const
-  {
-    return varray_.get() != nullptr;
-  }
+  operator bool() const;
 
   GVMutableArray &operator*()
   {
@@ -311,16 +308,7 @@ class OutputAttribute {
     return cpp_type_to_custom_data_type(this->cpp_type());
   }
 
-  fn::GMutableSpan as_span()
-  {
-    if (!optional_span_varray_) {
-      const bool materialize_old_values = !ignore_old_values_;
-      optional_span_varray_ = std::make_unique<fn::GVMutableArray_GSpan>(*varray_,
-                                                                         materialize_old_values);
-    }
-    fn::GVMutableArray_GSpan &span_varray = *optional_span_varray_;
-    return span_varray;
-  }
+  fn::GMutableSpan as_span();
 
   template<typename T> MutableSpan<T> as_span()
   {

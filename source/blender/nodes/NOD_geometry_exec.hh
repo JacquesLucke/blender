@@ -199,7 +199,7 @@ class GeoNodeExecParams {
   /**
    * Get the input value for the input socket with the given identifier.
    */
-  template<typename T> const T get_input(StringRef identifier) const
+  template<typename T> T get_input(StringRef identifier) const
   {
     if constexpr (is_stored_as_field_v<T>) {
       const Field<T> &field = this->get_input<Field<T>>(identifier);

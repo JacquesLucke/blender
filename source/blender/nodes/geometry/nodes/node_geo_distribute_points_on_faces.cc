@@ -38,6 +38,71 @@
 
 using blender::bke::GeometryInstanceGroup;
 
+namespace std {
+extern template blender::bke::OutputAttribute_Typed<int>
+    &optional<blender::bke::OutputAttribute_Typed<int>>::emplace(
+        blender::bke::OutputAttribute_Typed<int> &&);
+extern template blender::bke::OutputAttribute_Typed<blender::float3>
+    &optional<blender::bke::OutputAttribute_Typed<blender::float3>>::emplace(
+        blender::bke::OutputAttribute_Typed<blender::float3> &&);
+}  // namespace std
+
+namespace blender {
+extern template class Map<bke::AttributeIDRef, AttributeKind>;
+extern template void Vector<float3>::append(const float3 &);
+extern template void Vector<int>::append(const int &);
+extern template class VArray<float3>;
+extern template class VArray<int>;
+}  // namespace blender
+
+namespace blender::nodes {
+extern template decl::Geometry::Builder &NodeDeclarationBuilder::add_input<decl::Geometry>(
+    StringRef, StringRef);
+extern template decl::Float::Builder &NodeDeclarationBuilder::add_input<decl::Float>(StringRef,
+                                                                                     StringRef);
+extern template decl::Int::Builder &NodeDeclarationBuilder::add_input<decl::Int>(StringRef,
+                                                                                 StringRef);
+extern template decl::Bool::Builder &NodeDeclarationBuilder::add_input<decl::Bool>(StringRef,
+                                                                                   StringRef);
+
+extern template decl::Geometry::Builder &NodeDeclarationBuilder::add_output<decl::Geometry>(
+    StringRef, StringRef);
+extern template decl::Vector::Builder &NodeDeclarationBuilder::add_output<decl::Vector>(StringRef,
+                                                                                        StringRef);
+extern template decl::Int::Builder &NodeDeclarationBuilder::add_output<decl::Int>(StringRef,
+                                                                                  StringRef);
+
+extern template class SocketDeclarationBuilder<decl::Float>;
+extern template class SocketDeclarationBuilder<decl::Bool>;
+extern template class SocketDeclarationBuilder<decl::Vector>;
+extern template class SocketDeclarationBuilder<decl::Int>;
+
+extern template Field<float> GeoNodeExecParams::get_input<Field<float>>(StringRef) const;
+extern template Field<bool> GeoNodeExecParams::get_input<Field<bool>>(StringRef) const;
+extern template Field<bool> GeoNodeExecParams::extract_input<Field<bool>>(StringRef);
+extern template float GeoNodeExecParams::get_input<float>(StringRef) const;
+extern template int GeoNodeExecParams::get_input<int>(StringRef) const;
+extern template GeometrySet GeoNodeExecParams::extract_input<GeometrySet>(StringRef);
+}  // namespace blender::nodes
+
+namespace blender::bke {
+extern template MutableSpan<int> OutputAttribute_Typed<int>::as_span();
+extern template MutableSpan<float3> OutputAttribute_Typed<float3>::as_span();
+extern template class OutputAttribute_Typed<int>;
+extern template class OutputAttribute_Typed<float3>;
+extern template fn::Field<float3> AnonymousAttributeFieldInput::Create<float3>(
+    StrongAnonymousAttributeID);
+extern template fn::Field<int> AnonymousAttributeFieldInput::Create<int>(
+    StrongAnonymousAttributeID);
+extern template class OwnedAnonymousAttributeID<true>;
+}  // namespace blender::bke
+
+namespace blender::fn {
+extern template int FieldEvaluator::add_with_destination<float>(Field<float>, MutableSpan<float>);
+extern template GVMutableArray_Typed<int>::GVMutableArray_Typed(GVMutableArray &);
+extern template GVMutableArray_Typed<float3>::GVMutableArray_Typed(GVMutableArray &);
+}  // namespace blender::fn
+
 namespace blender::nodes {
 
 static void geo_node_point_distribute_points_on_faces_declare(NodeDeclarationBuilder &b)

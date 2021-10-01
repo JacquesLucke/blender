@@ -202,6 +202,17 @@ AttributeDomain attribute_domain_highest_priority(Span<AttributeDomain> domains)
   return highest_priority_domain;
 }
 
+fn::GMutableSpan OutputAttribute::as_span()
+{
+  if (!optional_span_varray_) {
+    const bool materialize_old_values = !ignore_old_values_;
+    optional_span_varray_ = std::make_unique<fn::GVMutableArray_GSpan>(*varray_,
+                                                                       materialize_old_values);
+  }
+  fn::GVMutableArray_GSpan &span_varray = *optional_span_varray_;
+  return span_varray;
+}
+
 void OutputAttribute::save()
 {
   save_has_been_called_ = true;
@@ -211,6 +222,11 @@ void OutputAttribute::save()
   if (save_) {
     save_(*this);
   }
+}
+
+OutputAttribute::operator bool() const
+{
+  return varray_.get() != nullptr;
 }
 
 OutputAttribute::~OutputAttribute()
