@@ -189,7 +189,9 @@ class Map {
   {
   }
 
-  ~Map() = default;
+  ~Map()
+  {
+  }
 
   Map(const Map &other) = default;
 

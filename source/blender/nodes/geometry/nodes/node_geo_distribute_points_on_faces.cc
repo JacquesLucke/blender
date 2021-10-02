@@ -45,14 +45,40 @@ extern template blender::bke::OutputAttribute_Typed<int>
 extern template blender::bke::OutputAttribute_Typed<blender::float3>
     &optional<blender::bke::OutputAttribute_Typed<blender::float3>>::emplace(
         blender::bke::OutputAttribute_Typed<blender::float3> &&);
+extern template class optional<blender::bke::OutputAttribute_Typed<int>>;
+extern template class optional<blender::bke::OutputAttribute_Typed<float>>;
+extern template class optional<blender::bke::OutputAttribute_Typed<blender::float3>>;
+extern template class unique_ptr<blender::fn::GVMutableArray>;
+extern template class unique_ptr<blender::fn::GVArray>;
+
 }  // namespace std
 
 namespace blender {
 extern template class Map<bke::AttributeIDRef, AttributeKind>;
-extern template void Vector<float3>::append(const float3 &);
-extern template void Vector<int>::append(const int &);
 extern template class VArray<float3>;
 extern template class VArray<int>;
+extern template class VMutableArray<int>;
+extern template class VMutableArray<float3>;
+extern template class Vector<int>;
+extern template class Vector<float3>;
+extern template class Vector<void *>;
+extern template class Vector<blender::fn::GVMutableArray *>;
+extern template class Vector<blender::fn::GVArray *>;
+extern template class Vector<blender::fn::GField>;
+extern template class Vector<Span<char>>;
+extern template class Array<bool>;
+extern template class Array<float>;
+extern template class Array<float3>;
+extern template class Span<bool>;
+extern template class Span<int>;
+extern template class Span<float>;
+extern template class Span<float3>;
+extern template class MutableSpan<bool>;
+extern template class MutableSpan<int>;
+extern template class MutableSpan<float>;
+extern template class MutableSpan<float3>;
+extern template class Map<GeometryComponentType, UserCounter<GeometryComponent>>;
+extern template class UserCounter<GeometryComponent>;
 }  // namespace blender
 
 namespace blender::nodes {
@@ -83,6 +109,7 @@ extern template Field<bool> GeoNodeExecParams::extract_input<Field<bool>>(String
 extern template float GeoNodeExecParams::get_input<float>(StringRef) const;
 extern template int GeoNodeExecParams::get_input<int>(StringRef) const;
 extern template GeometrySet GeoNodeExecParams::extract_input<GeometrySet>(StringRef);
+extern template void GeoNodeExecParams::set_output<GeometrySet>(StringRef, GeometrySet &&);
 }  // namespace blender::nodes
 
 namespace blender::bke {
@@ -95,12 +122,17 @@ extern template fn::Field<float3> AnonymousAttributeFieldInput::Create<float3>(
 extern template fn::Field<int> AnonymousAttributeFieldInput::Create<int>(
     StrongAnonymousAttributeID);
 extern template class OwnedAnonymousAttributeID<true>;
+extern template class OwnedAnonymousAttributeID<false>;
+extern template OwnedAnonymousAttributeID<true> &OwnedAnonymousAttributeID<true>::operator=(
+    OwnedAnonymousAttributeID<true> &&);
 }  // namespace blender::bke
 
 namespace blender::fn {
 extern template int FieldEvaluator::add_with_destination<float>(Field<float>, MutableSpan<float>);
 extern template GVMutableArray_Typed<int>::GVMutableArray_Typed(GVMutableArray &);
 extern template GVMutableArray_Typed<float3>::GVMutableArray_Typed(GVMutableArray &);
+extern template class GVMutableArray_Typed<int>;
+extern template class GVMutableArray_Typed<float3>;
 }  // namespace blender::fn
 
 namespace blender::nodes {

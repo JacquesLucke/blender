@@ -336,6 +336,10 @@ template<typename T> class OutputAttribute_Typed {
     }
   }
 
+  OutputAttribute_Typed(const OutputAttribute_Typed &other);
+
+  ~OutputAttribute_Typed();
+
   operator bool() const
   {
     return varray_ != nullptr;

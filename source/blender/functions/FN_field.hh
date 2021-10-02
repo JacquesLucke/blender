@@ -143,6 +143,9 @@ template<typename NodePtr> class GFieldBase {
 
  public:
   GFieldBase() = default;
+  ~GFieldBase()
+  {
+  }
 
   operator bool() const
   {
@@ -182,7 +185,8 @@ template<typename NodePtr> class GFieldBase {
  */
 class GField : public GFieldBase<std::shared_ptr<FieldNode>> {
  public:
-  GField() = default;
+  GField();
+  ~GField();
 
   GField(std::shared_ptr<FieldNode> node, const int node_output_index = 0)
       : GFieldBase<std::shared_ptr<FieldNode>>(std::move(node), node_output_index)

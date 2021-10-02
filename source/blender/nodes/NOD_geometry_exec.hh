@@ -249,10 +249,7 @@ class GeoNodeExecParams {
    * Nodes that support laziness could use the #lazy_output_is_required variant to possibly avoid
    * some computations.
    */
-  bool output_is_required(StringRef identifier) const
-  {
-    return provider_->output_is_required(identifier);
-  }
+  bool output_is_required(StringRef identifier) const;
 
   /**
    * Tell the evaluator that a specific input is required.

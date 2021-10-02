@@ -885,6 +885,14 @@ template<typename T> class GVMutableArray_Typed {
     owned_gvarray_ = std::move(gvarray);
   }
 
+  GVMutableArray_Typed(const GVMutableArray_Typed &UNUSED(other))
+  {
+  }
+
+  ~GVMutableArray_Typed()
+  {
+  }
+
   VMutableArray<T> &operator*()
   {
     return *varray_;
