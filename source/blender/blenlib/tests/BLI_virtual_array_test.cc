@@ -86,9 +86,7 @@ template<int64_t InlineBufferCapacity = 16, int64_t Alignment = 8> class Any {
     info_->move_construct(&buffer_, &other.buffer_);
   }
 
-  /* TODO: bugprone-forwarding-reference-overload. */
-  template<typename T,
-           typename std::enable_if_t<!std::is_same_v<std::decay_t<T>, Any>> * = nullptr>
+  template<typename T, typename X = std::enable_if_t<!std::is_same_v<std::decay_t<T>, Any>, void>>
   Any(T &&value)
   {
     using DecayT = std::decay_t<T>;
@@ -408,7 +406,7 @@ TEST(virtual_array_value, MyTest)
   EXPECT_EQ(varray[3], 10);
 
   Any my_any = Vector<int>();
-  Any other = my_any;
+  Any other = std::move(my_any);
 }
 
 }  // namespace blender::tests
