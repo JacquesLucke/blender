@@ -7,6 +7,256 @@
 #include "BLI_virtual_array.hh"
 #include "testing/testing.h"
 
+#include <optional>
+
+namespace blender {
+
+struct AnyInfo {
+  bool is_unique_ptr;
+  void (*copy_construct)(void *dst, const void *src);
+  void (*move_construct)(void *dst, void *src);
+  void (*copy_assign)(void *dst, const void *src);
+  void (*move_assign)(void *dst, void *src);
+  void (*destruct)(void *src);
+  const void *(*get)(const void *src);
+
+  template<typename T> static const AnyInfo &get_for_inline()
+  {
+    static AnyInfo funcs = {false,
+                            [](void *dst, const void *src) { new (dst) T(*(const T *)src); },
+                            [](void *dst, void *src) { new (dst) T(std::move(*(T *)src)); },
+                            [](void *dst, const void *src) { *(T *)dst = *(const T *)src; },
+                            [](void *dst, void *src) { *(T *)dst = std::move(*(T *)src); },
+                            [](void *src) { ((T *)src)->~T(); },
+                            [](const void *src) { return src; }};
+    return funcs;
+  }
+
+  template<typename T> static const AnyInfo &get_for_unique_ptr()
+  {
+    using Ptr = std::unique_ptr<T>;
+    static AnyInfo funcs = {
+        true,
+        [](void *dst, const void *src) { new (dst) Ptr(new T(**(const Ptr *)src)); },
+        [](void *dst, void *src) { new (dst) Ptr(new T(std::move(**(Ptr *)src))); },
+        [](void *dst, const void *src) { *(Ptr *)dst = Ptr(new T(**(const Ptr *)src)); },
+        [](void *dst, void *src) { *(Ptr *)dst = Ptr(new T(std::move(**(Ptr *)src))); },
+        [](void *src) { ((Ptr *)src)->~Ptr(); },
+        [](const void *src) -> const void * { return &**(const Ptr *)src; }};
+    return funcs;
+  }
+
+  static const AnyInfo &get_for_empty()
+  {
+    static AnyInfo funcs = {false,
+                            [](void *UNUSED(dst), const void *UNUSED(src)) {},
+                            [](void *UNUSED(dst), void *UNUSED(src)) {},
+                            [](void *UNUSED(dst), const void *UNUSED(src)) {},
+                            [](void *UNUSED(dst), void *UNUSED(src)) {},
+                            [](void *UNUSED(src)) {},
+                            [](const void *UNUSED(src)) -> const void * { return nullptr; }};
+    return funcs;
+  }
+};
+
+template<int64_t InlineBufferCapacity = 16, int64_t Alignment = 8> class Any {
+ private:
+  AlignedBuffer<std::max((size_t)InlineBufferCapacity, sizeof(std::unique_ptr<int>)),
+                (size_t)Alignment>
+      buffer_;
+  const AnyInfo *info_ = &AnyInfo::get_for_empty();
+
+ public:
+  /* TODO: Check nothrow movability. */
+  template<typename T>
+  static constexpr inline bool is_inline_v = sizeof(T) <= InlineBufferCapacity &&
+                                             alignof(T) <= Alignment;
+
+  Any() = default;
+
+  Any(const Any &other)
+  {
+    info_ = other.info_;
+    info_->copy_construct(&buffer_, &other.buffer_);
+  }
+
+  Any(Any &&other)
+  {
+    info_ = other.info_;
+    info_->move_construct(&buffer_, &other.buffer_);
+  }
+
+  /* TODO: bugprone-forwarding-reference-overload. */
+  template<typename T,
+           typename std::enable_if_t<!std::is_same_v<std::decay_t<T>, Any>> * = nullptr>
+  Any(T &&value)
+  {
+    using DecayT = std::decay_t<T>;
+    if constexpr (is_inline_v<T>) {
+      info_ = &AnyInfo::get_for_inline<DecayT>();
+      new (&buffer_) T(std::forward<T>(value));
+    }
+    else {
+      info_ = &AnyInfo::get_for_unique_ptr<DecayT>();
+      new (&buffer_) std::unique_ptr<DecayT>(new DecayT(std::forward<T>(value)));
+    }
+  }
+
+  ~Any()
+  {
+    this->reset();
+  }
+
+  Any &operator=(const Any &other)
+  {
+    if (this == &other) {
+      return *this;
+    }
+    this->~Any();
+    new (this) Any(other);
+    return *this;
+  }
+
+  Any &operator=(Any &&other)
+  {
+    if (this == &other) {
+      return *this;
+    }
+    this->~Any();
+    new (this) Any(std::move(other));
+    return *this;
+  }
+
+  template<typename T> Any operator=(T &&other)
+  {
+    this->~Any();
+    new (this) Any(std::forward<T>(other));
+    return *this;
+  }
+
+  template<typename T> T &get()
+  {
+    return *(T *)info_->get(&buffer_);
+  }
+
+  template<typename T> const T &get() const
+  {
+    return *(const T *)info_->get(&buffer_);
+  }
+
+  void reset()
+  {
+    info_->destruct(buffer_);
+    info_ = &AnyInfo::get_for_empty();
+  }
+};
+
+template<typename T> struct VArrayValueImpls {
+  /* TODO: Use #std::variant. */
+  std::optional<VArray_For_Span<T>> varray_span;
+  std::optional<VArray_For_Single<T>> varray_single;
+  std::shared_ptr<const VArray<T>> varray_any;
+
+  const VArray<T> *get() const
+  {
+    if (this->varray_span.has_value()) {
+      return &*this->varray_span;
+    }
+    if (this->varray_single.has_value()) {
+      return &*this->varray_single;
+    }
+    return varray_any.get();
+  }
+
+  void reset()
+  {
+    varray_span.reset();
+    varray_single.reset();
+    varray_any.reset();
+  }
+};
+
+template<typename T> class VArrayValue {
+ private:
+  VArrayValueImpls<T> impls_;
+  const VArray<T> *varray_ = nullptr;
+
+ public:
+  VArrayValue() = default;
+
+  VArrayValue(const VArrayValue &other) : impls_(other.impls_), varray_(impls_.get())
+  {
+  }
+
+  VArrayValue(VArrayValue &&other) : impls_(std::move(other.impls_)), varray_(impls_.get())
+  {
+    other.varray_ = nullptr;
+    other.impls_.reset();
+  }
+
+  VArrayValue &operator=(const VArrayValue &other)
+  {
+    if (this == &other) {
+      return *this;
+    }
+    this->~VArrayValue();
+    new (this) VArrayValue(other);
+    return *this;
+  }
+
+  VArrayValue &operator=(VArrayValue &&other)
+  {
+    if (this == &other) {
+      return *this;
+    }
+    this->~VArrayValue();
+    new (this) VArrayValue(std::move(other));
+    return *this;
+  }
+
+  VArrayValue(Span<T> values)
+  {
+    impls_.varray_span.emplace(values);
+    varray_ = &*impls_.varray_span;
+  }
+
+  VArrayValue(T value, int64_t size)
+  {
+    impls_.varray_single.emplace(std::move(value), size);
+    varray_ = &*impls_.varray_single;
+  }
+
+  VArrayValue(std::shared_ptr<const VArray<T>> varray)
+  {
+    impls_.varray_any = std::move(varray);
+    varray_ = &*impls_.varray_any.get();
+  }
+
+  operator bool() const
+  {
+    return varray_ != nullptr;
+  }
+
+  const VArray<T> *operator->()
+  {
+    BLI_assert(varray_ != nullptr);
+    return varray_;
+  }
+
+  const VArray<T> &operator*() const
+  {
+    BLI_assert(varray_ != nullptr);
+    return *varray_;
+  }
+
+  T operator[](const int64_t index) const
+  {
+    BLI_assert(varray_ != nullptr);
+    return varray_->get(index);
+  }
+};
+}  // namespace blender
+
 namespace blender::tests {
 
 TEST(virtual_array, Span)
@@ -149,6 +399,16 @@ TEST(virtual_array, DerivedSpan)
     EXPECT_EQ(vector[0][0], 10);
     EXPECT_EQ(vector[1][0], 20);
   }
+}
+
+TEST(virtual_array_value, MyTest)
+{
+  VArrayValue<int> varray{10, 20};
+  EXPECT_EQ(varray->size(), 20);
+  EXPECT_EQ(varray[3], 10);
+
+  Any my_any = Vector<int>();
+  Any other = my_any;
 }
 
 }  // namespace blender::tests
