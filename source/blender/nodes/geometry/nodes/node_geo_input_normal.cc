@@ -94,11 +94,11 @@ static GVArrayPtr mesh_vertex_normals(const Mesh &mesh,
   return std::make_unique<fn::GVArray_For_ArrayContainer<Array<float3>>>(std::move(normals));
 }
 
-static const GVArray *construct_mesh_normals_gvarray(const MeshComponent &mesh_component,
-                                                     const Mesh &mesh,
-                                                     const IndexMask mask,
-                                                     const AttributeDomain domain,
-                                                     ResourceScope &scope)
+static const GVArrayImpl *construct_mesh_normals_gvarray(const MeshComponent &mesh_component,
+                                                         const Mesh &mesh,
+                                                         const IndexMask mask,
+                                                         const AttributeDomain domain,
+                                                         ResourceScope &scope)
 {
   Span<MVert> verts{mesh.mvert, mesh.totvert};
   Span<MEdge> edges{mesh.medge, mesh.totedge};
@@ -204,9 +204,9 @@ static Array<float3> curve_normal_point_domain(const CurveEval &curve)
   return normals;
 }
 
-static const GVArray *construct_curve_normal_gvarray(const CurveComponent &component,
-                                                     const AttributeDomain domain,
-                                                     ResourceScope &scope)
+static const GVArrayImpl *construct_curve_normal_gvarray(const CurveComponent &component,
+                                                         const AttributeDomain domain,
+                                                         ResourceScope &scope)
 {
   const CurveEval *curve = component.get_for_read();
   if (curve == nullptr) {
@@ -245,9 +245,9 @@ class NormalFieldInput final : public fn::FieldInput {
   {
   }
 
-  const GVArray *get_varray_for_context(const fn::FieldContext &context,
-                                        IndexMask mask,
-                                        ResourceScope &scope) const final
+  const GVArrayImpl *get_varray_for_context(const fn::FieldContext &context,
+                                            IndexMask mask,
+                                            ResourceScope &scope) const final
   {
     if (const GeometryComponentFieldContext *geometry_context =
             dynamic_cast<const GeometryComponentFieldContext *>(&context)) {

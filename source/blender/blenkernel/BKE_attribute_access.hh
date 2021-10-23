@@ -115,9 +115,9 @@ struct AttributeInitDefault : public AttributeInit {
  * Note that this can be used to fill the new attribute with the default
  */
 struct AttributeInitVArray : public AttributeInit {
-  const blender::fn::GVArray *varray;
+  const blender::fn::GVArrayImpl *varray;
 
-  AttributeInitVArray(const blender::fn::GVArray *varray)
+  AttributeInitVArray(const blender::fn::GVArrayImpl *varray)
       : AttributeInit(Type::VArrayImpl), varray(varray)
   {
   }
@@ -149,9 +149,9 @@ using AttributeForeachCallback = blender::FunctionRef<bool(
 namespace blender::bke {
 
 using fn::CPPType;
-using fn::GVArray;
+using fn::GVArrayImpl;
 using fn::GVArrayPtr;
-using fn::GVMutableArray;
+using fn::GVMutableArrayImpl;
 using fn::GVMutableArrayPtr;
 
 const CPPType *custom_data_type_to_cpp_type(const CustomDataType type);
@@ -193,7 +193,7 @@ struct WriteAttributeLookup {
 
 /**
  * An output attribute allows writing to an attribute (and optionally reading as well). It adds
- * some convenience features on top of `GVMutableArray` that are very commonly used.
+ * some convenience features on top of `GVMutableArrayImpl` that are very commonly used.
  *
  * Supported convenience features:
  * - Implicit type conversion when writing to builtin attributes.
@@ -226,9 +226,9 @@ class OutputAttribute {
 
   operator bool() const;
 
-  GVMutableArray &operator*();
-  GVMutableArray *operator->();
-  GVMutableArray &varray();
+  GVMutableArrayImpl &operator*();
+  GVMutableArrayImpl *operator->();
+  GVMutableArrayImpl &varray();
   AttributeDomain domain() const;
   const CPPType &cpp_type() const;
   CustomDataType custom_data_type() const;
@@ -474,17 +474,17 @@ inline OutputAttribute::operator bool() const
   return varray_.get() != nullptr;
 }
 
-inline GVMutableArray &OutputAttribute::operator*()
+inline GVMutableArrayImpl &OutputAttribute::operator*()
 {
   return *varray_;
 }
 
-inline GVMutableArray *OutputAttribute::operator->()
+inline GVMutableArrayImpl *OutputAttribute::operator->()
 {
   return varray_.get();
 }
 
-inline GVMutableArray &OutputAttribute::varray()
+inline GVMutableArrayImpl &OutputAttribute::varray()
 {
   return *varray_;
 }

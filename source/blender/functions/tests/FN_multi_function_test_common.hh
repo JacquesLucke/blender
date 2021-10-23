@@ -79,7 +79,7 @@ class GenericAppendFunction : public MultiFunction {
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
     GVectorArray &vectors = params.vector_mutable(0, "Vector");
-    const GVArray &values = params.readonly_single_input(1, "Value");
+    const GVArrayImpl &values = params.readonly_single_input(1, "Value");
 
     for (int64_t i : mask) {
       BUFFER_FOR_CPP_TYPE_VALUE(values.type(), buffer);

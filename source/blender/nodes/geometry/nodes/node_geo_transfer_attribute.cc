@@ -376,7 +376,7 @@ class NearestInterpolatedTransferFunction : public fn::MultiFunction {
 
   std::optional<GeometryComponentFieldContext> target_context_;
   std::unique_ptr<FieldEvaluator> target_evaluator_;
-  const GVArray *target_data_;
+  const GVArrayImpl *target_data_;
 
  public:
   NearestInterpolatedTransferFunction(GeometrySet geometry, GField src_field)
@@ -446,11 +446,11 @@ class NearestTransferFunction : public fn::MultiFunction {
   /* Store data from the target as a virtual array, since we may only access a few indices. */
   std::optional<GeometryComponentFieldContext> mesh_context_;
   std::unique_ptr<FieldEvaluator> mesh_evaluator_;
-  const GVArray *mesh_data_;
+  const GVArrayImpl *mesh_data_;
 
   std::optional<GeometryComponentFieldContext> point_context_;
   std::unique_ptr<FieldEvaluator> point_evaluator_;
-  const GVArray *point_data_;
+  const GVArrayImpl *point_data_;
 
  public:
   NearestTransferFunction(GeometrySet geometry, GField src_field, AttributeDomain domain)
@@ -637,9 +637,9 @@ class IndexTransferFieldInput : public FieldInput {
     src_geometry_.ensure_owns_direct_data();
   }
 
-  const GVArray *get_varray_for_context(const FieldContext &context,
-                                        const IndexMask mask,
-                                        ResourceScope &scope) const final
+  const GVArrayImpl *get_varray_for_context(const FieldContext &context,
+                                            const IndexMask mask,
+                                            ResourceScope &scope) const final
   {
     const GeometryComponentFieldContext *geometry_context =
         dynamic_cast<const GeometryComponentFieldContext *>(&context);
@@ -667,7 +667,7 @@ class IndexTransferFieldInput : public FieldInput {
     FieldEvaluator target_evaluator{target_context, component->attribute_domain_size(domain_)};
     target_evaluator.add(src_field_);
     target_evaluator.evaluate();
-    const GVArray &src_data = target_evaluator.get_evaluated(0);
+    const GVArrayImpl &src_data = target_evaluator.get_evaluated(0);
 
     GArray dst(src_field_.cpp_type(), mask.min_array_size());
 

@@ -40,7 +40,7 @@ class MFParamsBuilder {
   const MFSignature *signature_;
   IndexMask mask_;
   int64_t min_array_size_;
-  Vector<const GVArray *> virtual_arrays_;
+  Vector<const GVArrayImpl *> virtual_arrays_;
   Vector<GMutableSpan> mutable_spans_;
   Vector<const GVVectorArray *> virtual_vector_arrays_;
   Vector<GVectorArray *> vector_arrays_;
@@ -81,7 +81,7 @@ class MFParamsBuilder {
         scope_.construct<GVArray_For_SingleValueRef>(*value.type(), min_array_size_, value.get()),
         expected_name);
   }
-  void add_readonly_single_input(const GVArray &ref, StringRef expected_name = "")
+  void add_readonly_single_input(const GVArrayImpl &ref, StringRef expected_name = "")
   {
     this->assert_current_param_type(MFParamType::ForSingleInput(ref.type()), expected_name);
     BLI_assert(ref.size() >= min_array_size_);
@@ -224,10 +224,10 @@ class MFParams {
   template<typename T>
   const VArrayImpl<T> &readonly_single_input(int param_index, StringRef name = "")
   {
-    const GVArray &array = this->readonly_single_input(param_index, name);
+    const GVArrayImpl &array = this->readonly_single_input(param_index, name);
     return builder_->scope_.construct<GVArray_Typed<T>>(array);
   }
-  const GVArray &readonly_single_input(int param_index, StringRef name = "")
+  const GVArrayImpl &readonly_single_input(int param_index, StringRef name = "")
   {
     this->assert_correct_param(param_index, name, MFParamType::SingleInput);
     int data_index = builder_->signature_->data_index(param_index);

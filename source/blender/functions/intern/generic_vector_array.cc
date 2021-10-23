@@ -47,7 +47,7 @@ void GVectorArray::append(const int64_t index, const void *value)
   item.length++;
 }
 
-void GVectorArray::extend(const int64_t index, const GVArray &values)
+void GVectorArray::extend(const int64_t index, const GVArrayImpl &values)
 {
   BLI_assert(values.type() == type_);
   for (const int i : IndexRange(values.size())) {

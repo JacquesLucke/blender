@@ -119,8 +119,8 @@ class GeometryComponent {
   /* Get a read-only attribute for the domain based on the given attribute. This can be used to
    * interpolate from one domain to another.
    * Returns null if the interpolation is not implemented. */
-  virtual std::unique_ptr<blender::fn::GVArray> attribute_try_adapt_domain(
-      std::unique_ptr<blender::fn::GVArray> varray,
+  virtual std::unique_ptr<blender::fn::GVArrayImpl> attribute_try_adapt_domain(
+      std::unique_ptr<blender::fn::GVArrayImpl> varray,
       const AttributeDomain from_domain,
       const AttributeDomain to_domain) const;
 
@@ -146,7 +146,7 @@ class GeometryComponent {
   /* Get a virtual array to read the data of an attribute on the given domain and data type.
    * Returns null when the attribute does not exist or cannot be converted to the requested domain
    * and data type. */
-  std::unique_ptr<blender::fn::GVArray> attribute_try_get_for_read(
+  std::unique_ptr<blender::fn::GVArrayImpl> attribute_try_get_for_read(
       const blender::bke::AttributeIDRef &attribute_id,
       const AttributeDomain domain,
       const CustomDataType data_type) const;
@@ -154,7 +154,7 @@ class GeometryComponent {
   /* Get a virtual array to read the data of an attribute on the given domain. The data type is
    * left unchanged. Returns null when the attribute does not exist or cannot be adapted to the
    * requested domain. */
-  std::unique_ptr<blender::fn::GVArray> attribute_try_get_for_read(
+  std::unique_ptr<blender::fn::GVArrayImpl> attribute_try_get_for_read(
       const blender::bke::AttributeIDRef &attribute_id, const AttributeDomain domain) const;
 
   /* Get a virtual array to read data of an attribute with the given data type. The domain is
@@ -165,7 +165,7 @@ class GeometryComponent {
 
   /* Get a virtual array to read the data of an attribute. If that is not possible, the returned
    * virtual array will contain a default value. This never returns null. */
-  std::unique_ptr<blender::fn::GVArray> attribute_get_for_read(
+  std::unique_ptr<blender::fn::GVArrayImpl> attribute_get_for_read(
       const blender::bke::AttributeIDRef &attribute_id,
       const AttributeDomain domain,
       const CustomDataType data_type,
@@ -388,8 +388,8 @@ class MeshComponent : public GeometryComponent {
   Mesh *get_for_write();
 
   int attribute_domain_size(const AttributeDomain domain) const final;
-  std::unique_ptr<blender::fn::GVArray> attribute_try_adapt_domain(
-      std::unique_ptr<blender::fn::GVArray> varray,
+  std::unique_ptr<blender::fn::GVArrayImpl> attribute_try_adapt_domain(
+      std::unique_ptr<blender::fn::GVArrayImpl> varray,
       const AttributeDomain from_domain,
       const AttributeDomain to_domain) const final;
 
@@ -466,8 +466,8 @@ class CurveComponent : public GeometryComponent {
   CurveEval *get_for_write();
 
   int attribute_domain_size(const AttributeDomain domain) const final;
-  std::unique_ptr<blender::fn::GVArray> attribute_try_adapt_domain(
-      std::unique_ptr<blender::fn::GVArray> varray,
+  std::unique_ptr<blender::fn::GVArrayImpl> attribute_try_adapt_domain(
+      std::unique_ptr<blender::fn::GVArrayImpl> varray,
       const AttributeDomain from_domain,
       const AttributeDomain to_domain) const final;
 
@@ -750,9 +750,9 @@ class AttributeFieldInput : public fn::FieldInput {
     return name_;
   }
 
-  const GVArray *get_varray_for_context(const fn::FieldContext &context,
-                                        IndexMask mask,
-                                        ResourceScope &scope) const override;
+  const GVArrayImpl *get_varray_for_context(const fn::FieldContext &context,
+                                            IndexMask mask,
+                                            ResourceScope &scope) const override;
 
   std::string socket_inspection_name() const override;
 
@@ -768,9 +768,9 @@ class IDAttributeFieldInput : public fn::FieldInput {
 
   static fn::Field<int> Create();
 
-  const GVArray *get_varray_for_context(const fn::FieldContext &context,
-                                        IndexMask mask,
-                                        ResourceScope &scope) const override;
+  const GVArrayImpl *get_varray_for_context(const fn::FieldContext &context,
+                                            IndexMask mask,
+                                            ResourceScope &scope) const override;
 
   std::string socket_inspection_name() const override;
 
@@ -800,9 +800,9 @@ class AnonymousAttributeFieldInput : public fn::FieldInput {
     return fn::Field<T>{field_input};
   }
 
-  const GVArray *get_varray_for_context(const fn::FieldContext &context,
-                                        IndexMask mask,
-                                        ResourceScope &scope) const override;
+  const GVArrayImpl *get_varray_for_context(const fn::FieldContext &context,
+                                            IndexMask mask,
+                                            ResourceScope &scope) const override;
 
   std::string socket_inspection_name() const override;
 

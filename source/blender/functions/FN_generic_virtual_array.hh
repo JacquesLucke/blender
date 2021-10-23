@@ -35,25 +35,25 @@ namespace blender::fn {
 template<typename T> class GVArray_Typed;
 template<typename T> class GVMutableArray_Typed;
 
-class GVArray;
-class GVMutableArray;
+class GVArrayImpl;
+class GVMutableArrayImpl;
 
-using GVArrayPtr = std::unique_ptr<GVArray>;
-using GVMutableArrayPtr = std::unique_ptr<GVMutableArray>;
+using GVArrayPtr = std::unique_ptr<GVArrayImpl>;
+using GVMutableArrayPtr = std::unique_ptr<GVMutableArrayImpl>;
 
 /* A generically typed version of `VArrayImpl<T>`. */
-class GVArray {
+class GVArrayImpl {
  protected:
   const CPPType *type_;
   int64_t size_;
 
  public:
-  GVArray(const CPPType &type, const int64_t size) : type_(&type), size_(size)
+  GVArrayImpl(const CPPType &type, const int64_t size) : type_(&type), size_(size)
   {
     BLI_assert(size_ >= 0);
   }
 
-  virtual ~GVArray() = default;
+  virtual ~GVArrayImpl() = default;
 
   const CPPType &type() const
   {
@@ -172,10 +172,10 @@ class GVArray {
   virtual const void *try_get_internal_varray_impl() const;
 };
 
-/* Similar to GVArray, but supports changing the elements in the virtual array. */
-class GVMutableArray : public GVArray {
+/* Similar to GVArrayImpl, but supports changing the elements in the virtual array. */
+class GVMutableArrayImpl : public GVArrayImpl {
  public:
-  GVMutableArray(const CPPType &type, const int64_t size) : GVArray(type, size)
+  GVMutableArrayImpl(const CPPType &type, const int64_t size) : GVArrayImpl(type, size)
   {
   }
 
@@ -203,7 +203,7 @@ class GVMutableArray : public GVArray {
   GMutableSpan get_internal_span()
   {
     BLI_assert(this->is_span());
-    GSpan span = static_cast<const GVArray *>(this)->get_internal_span();
+    GSpan span = static_cast<const GVArrayImpl *>(this)->get_internal_span();
     return GMutableSpan(span.type(), const_cast<void *>(span.data()), span.size());
   }
 
@@ -237,20 +237,22 @@ class GVMutableArray : public GVArray {
   virtual void *try_get_internal_mutable_varray_impl();
 };
 
-class GVArray_For_GSpan : public GVArray {
+class GVArray_For_GSpan : public GVArrayImpl {
  protected:
   const void *data_ = nullptr;
   const int64_t element_size_;
 
  public:
   GVArray_For_GSpan(const GSpan span)
-      : GVArray(span.type(), span.size()), data_(span.data()), element_size_(span.type().size())
+      : GVArrayImpl(span.type(), span.size()),
+        data_(span.data()),
+        element_size_(span.type().size())
   {
   }
 
  protected:
   GVArray_For_GSpan(const CPPType &type, const int64_t size)
-      : GVArray(type, size), element_size_(type.size())
+      : GVArrayImpl(type, size), element_size_(type.size())
   {
   }
 
@@ -261,9 +263,9 @@ class GVArray_For_GSpan : public GVArray {
   GSpan get_internal_span_impl() const override;
 };
 
-class GVArray_For_Empty : public GVArray {
+class GVArray_For_Empty : public GVArrayImpl {
  public:
-  GVArray_For_Empty(const CPPType &type) : GVArray(type, 0)
+  GVArray_For_Empty(const CPPType &type) : GVArrayImpl(type, 0)
   {
   }
 
@@ -274,14 +276,14 @@ class GVArray_For_Empty : public GVArray {
   }
 };
 
-class GVMutableArray_For_GMutableSpan : public GVMutableArray {
+class GVMutableArray_For_GMutableSpan : public GVMutableArrayImpl {
  protected:
   void *data_ = nullptr;
   const int64_t element_size_;
 
  public:
   GVMutableArray_For_GMutableSpan(const GMutableSpan span)
-      : GVMutableArray(span.type(), span.size()),
+      : GVMutableArrayImpl(span.type(), span.size()),
         data_(span.data()),
         element_size_(span.type().size())
   {
@@ -289,7 +291,7 @@ class GVMutableArray_For_GMutableSpan : public GVMutableArray {
 
  protected:
   GVMutableArray_For_GMutableSpan(const CPPType &type, const int64_t size)
-      : GVMutableArray(type, size), element_size_(type.size())
+      : GVMutableArrayImpl(type, size), element_size_(type.size())
   {
   }
 
@@ -305,18 +307,18 @@ class GVMutableArray_For_GMutableSpan : public GVMutableArray {
 };
 
 /* Generic virtual array where each element has the same value. The value is not owned. */
-class GVArray_For_SingleValueRef : public GVArray {
+class GVArray_For_SingleValueRef : public GVArrayImpl {
  protected:
   const void *value_ = nullptr;
 
  public:
   GVArray_For_SingleValueRef(const CPPType &type, const int64_t size, const void *value)
-      : GVArray(type, size), value_(value)
+      : GVArrayImpl(type, size), value_(value)
   {
   }
 
  protected:
-  GVArray_For_SingleValueRef(const CPPType &type, const int64_t size) : GVArray(type, size)
+  GVArray_For_SingleValueRef(const CPPType &type, const int64_t size) : GVArrayImpl(type, size)
   {
   }
 
@@ -338,18 +340,18 @@ class GVArray_For_SingleValue : public GVArray_For_SingleValueRef {
 };
 
 /* Used to convert a typed virtual array into a generic one. */
-template<typename T> class GVArray_For_VArray : public GVArray {
+template<typename T> class GVArray_For_VArray : public GVArrayImpl {
  protected:
   const VArrayImpl<T> *varray_ = nullptr;
 
  public:
   GVArray_For_VArray(const VArrayImpl<T> &varray)
-      : GVArray(CPPType::get<T>(), varray.size()), varray_(&varray)
+      : GVArrayImpl(CPPType::get<T>(), varray.size()), varray_(&varray)
   {
   }
 
  protected:
-  GVArray_For_VArray(const int64_t size) : GVArray(CPPType::get<T>(), size)
+  GVArray_For_VArray(const int64_t size) : GVArrayImpl(CPPType::get<T>(), size)
   {
   }
 
@@ -412,10 +414,10 @@ class GVArray_For_GArray : public GVArray_For_GSpan {
 /* Used to convert any generic virtual array into a typed one. */
 template<typename T> class VArray_For_GVArray : public VArrayImpl<T> {
  protected:
-  const GVArray *varray_ = nullptr;
+  const GVArrayImpl *varray_ = nullptr;
 
  public:
-  VArray_For_GVArray(const GVArray &varray) : VArrayImpl<T>(varray.size()), varray_(&varray)
+  VArray_For_GVArray(const GVArrayImpl &varray) : VArrayImpl<T>(varray.size()), varray_(&varray)
   {
     BLI_assert(varray_->type().template is<T>());
   }
@@ -458,10 +460,10 @@ template<typename T> class VArray_For_GVArray : public VArrayImpl<T> {
 /* Used to convert an generic mutable virtual array into a typed one. */
 template<typename T> class VMutableArray_For_GVMutableArray : public VMutableArrayImpl<T> {
  protected:
-  GVMutableArray *varray_ = nullptr;
+  GVMutableArrayImpl *varray_ = nullptr;
 
  public:
-  VMutableArray_For_GVMutableArray(GVMutableArray &varray)
+  VMutableArray_For_GVMutableArray(GVMutableArrayImpl &varray)
       : VMutableArrayImpl<T>(varray.size()), varray_(&varray)
   {
     BLI_assert(varray.type().template is<T>());
@@ -508,18 +510,19 @@ template<typename T> class VMutableArray_For_GVMutableArray : public VMutableArr
 };
 
 /* Used to convert any typed virtual mutable array into a generic one. */
-template<typename T> class GVMutableArray_For_VMutableArray : public GVMutableArray {
+template<typename T> class GVMutableArray_For_VMutableArray : public GVMutableArrayImpl {
  protected:
   VMutableArrayImpl<T> *varray_ = nullptr;
 
  public:
   GVMutableArray_For_VMutableArray(VMutableArrayImpl<T> &varray)
-      : GVMutableArray(CPPType::get<T>(), varray.size()), varray_(&varray)
+      : GVMutableArrayImpl(CPPType::get<T>(), varray.size()), varray_(&varray)
   {
   }
 
  protected:
-  GVMutableArray_For_VMutableArray(const int64_t size) : GVMutableArray(CPPType::get<T>(), size)
+  GVMutableArray_For_VMutableArray(const int64_t size)
+      : GVMutableArrayImpl(CPPType::get<T>(), size)
   {
   }
 
@@ -602,24 +605,24 @@ template<typename T> class GVMutableArray_For_VMutableArray : public GVMutableAr
 /* A generic version of VArray_Span. */
 class GVArray_GSpan : public GSpan {
  private:
-  const GVArray &varray_;
+  const GVArrayImpl &varray_;
   void *owned_data_ = nullptr;
 
  public:
-  GVArray_GSpan(const GVArray &varray);
+  GVArray_GSpan(const GVArrayImpl &varray);
   ~GVArray_GSpan();
 };
 
 /* A generic version of VMutableArray_Span. */
 class GVMutableArray_GSpan : public GMutableSpan {
  private:
-  GVMutableArray &varray_;
+  GVMutableArrayImpl &varray_;
   void *owned_data_ = nullptr;
   bool save_has_been_called_ = false;
   bool show_not_saved_warning_ = true;
 
  public:
-  GVMutableArray_GSpan(GVMutableArray &varray, bool copy_values_to_span = true);
+  GVMutableArray_GSpan(GVMutableArrayImpl &varray, bool copy_values_to_span = true);
   ~GVMutableArray_GSpan();
 
   void save();
@@ -632,7 +635,7 @@ template<typename T> class GVArray_Span : public Span<T> {
   GVArray_GSpan varray_gspan_;
 
  public:
-  GVArray_Span(const GVArray &varray) : varray_gspan_(varray)
+  GVArray_Span(const GVArrayImpl &varray) : varray_gspan_(varray)
   {
     BLI_assert(varray.type().is<T>());
     this->data_ = (const T *)varray_gspan_.data();
@@ -803,7 +806,7 @@ template<typename T> class GVArray_Typed {
   GVArrayPtr owned_gvarray_;
 
  public:
-  explicit GVArray_Typed(const GVArray &gvarray)
+  explicit GVArray_Typed(const GVArrayImpl &gvarray)
   {
     BLI_assert(gvarray.type().is<T>());
     if (gvarray.is_span()) {
@@ -874,7 +877,7 @@ template<typename T> class GVMutableArray_Typed {
   GVMutableArrayPtr owned_gvarray_;
 
  public:
-  explicit GVMutableArray_Typed(GVMutableArray &gvarray)
+  explicit GVMutableArray_Typed(GVMutableArrayImpl &gvarray)
   {
     BLI_assert(gvarray.type().is<T>());
     if (gvarray.is_span()) {
@@ -923,14 +926,14 @@ template<typename T> class GVMutableArray_Typed {
   }
 };
 
-class GVArray_For_SlicedGVArray : public GVArray {
+class GVArray_For_SlicedGVArray : public GVArrayImpl {
  protected:
-  const GVArray &varray_;
+  const GVArrayImpl &varray_;
   int64_t offset_;
 
  public:
-  GVArray_For_SlicedGVArray(const GVArray &varray, const IndexRange slice)
-      : GVArray(varray.type(), slice.size()), varray_(varray), offset_(slice.start())
+  GVArray_For_SlicedGVArray(const GVArrayImpl &varray, const IndexRange slice)
+      : GVArrayImpl(varray.type(), slice.size()), varray_(varray), offset_(slice.start())
   {
     BLI_assert(slice.one_after_last() <= varray.size());
   }
@@ -945,25 +948,25 @@ class GVArray_For_SlicedGVArray : public GVArray {
  */
 class GVArray_Slice {
  private:
-  const GVArray *varray_;
+  const GVArrayImpl *varray_;
   /* Of these optional virtual arrays, at most one is constructed at any time. */
   std::optional<GVArray_For_GSpan> varray_span_;
   std::optional<GVArray_For_SlicedGVArray> varray_any_;
 
  public:
-  GVArray_Slice(const GVArray &varray, const IndexRange slice);
+  GVArray_Slice(const GVArrayImpl &varray, const IndexRange slice);
 
-  const GVArray &operator*()
+  const GVArrayImpl &operator*()
   {
     return *varray_;
   }
 
-  const GVArray *operator->()
+  const GVArrayImpl *operator->()
   {
     return varray_;
   }
 
-  operator const GVArray &()
+  operator const GVArrayImpl &()
   {
     return *varray_;
   }

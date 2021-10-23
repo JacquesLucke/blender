@@ -199,7 +199,7 @@ class RaycastFunction : public fn::MultiFunction {
   /** The field for data evaluated on the target geometry. */
   std::optional<GeometryComponentFieldContext> target_context_;
   std::unique_ptr<FieldEvaluator> target_evaluator_;
-  const GVArray *target_data_ = nullptr;
+  const GVArrayImpl *target_data_ = nullptr;
 
   /* Always evaluate the target domain data on the point domain. Eventually this could be
    * exposed as an option or determined automatically from the field inputs in order to avoid

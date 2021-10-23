@@ -247,7 +247,7 @@ BLI_NOINLINE static void interpolate_attribute(const Mesh &mesh,
                                                Span<float3> bary_coords,
                                                Span<int> looptri_indices,
                                                const AttributeDomain source_domain,
-                                               const GVArray &source_data,
+                                               const GVArrayImpl &source_data,
                                                GMutableSpan output_data)
 {
   switch (source_domain) {

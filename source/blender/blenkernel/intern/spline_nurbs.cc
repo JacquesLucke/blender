@@ -26,9 +26,9 @@ using blender::float3;
 using blender::IndexRange;
 using blender::MutableSpan;
 using blender::Span;
-using blender::fn::GVArray;
 using blender::fn::GVArray_For_ArrayContainer;
 using blender::fn::GVArray_Typed;
+using blender::fn::GVArrayImpl;
 using blender::fn::GVArrayPtr;
 
 void NURBSpline::copy_settings(Spline &dst) const
@@ -410,7 +410,7 @@ void interpolate_to_evaluated_impl(Span<NURBSpline::BasisCache> weights,
   mixer.finalize();
 }
 
-GVArrayPtr NURBSpline::interpolate_to_evaluated(const GVArray &src) const
+GVArrayPtr NURBSpline::interpolate_to_evaluated(const GVArrayImpl &src) const
 {
   BLI_assert(src.size() == this->size());
 

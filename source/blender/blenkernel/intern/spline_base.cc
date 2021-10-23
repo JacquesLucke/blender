@@ -34,9 +34,9 @@ using blender::attribute_math::convert_to_static_type;
 using blender::bke::AttributeIDRef;
 using blender::fn::GMutableSpan;
 using blender::fn::GSpan;
-using blender::fn::GVArray;
 using blender::fn::GVArray_For_GSpan;
 using blender::fn::GVArray_Typed;
+using blender::fn::GVArrayImpl;
 using blender::fn::GVArrayPtr;
 
 Spline::Type Spline::type() const
@@ -533,7 +533,7 @@ GVArrayPtr Spline::interpolate_to_evaluated(GSpan data) const
  * points) to arbitrary parameters in between the evaluated points. The interpolation is quite
  * simple, but this handles the cyclic and end point special cases.
  */
-void Spline::sample_with_index_factors(const GVArray &src,
+void Spline::sample_with_index_factors(const GVArrayImpl &src,
                                        Span<float> index_factors,
                                        GMutableSpan dst) const
 {

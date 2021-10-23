@@ -139,9 +139,9 @@ static void do_mix_operation_color4f(const int blend_mode,
 static void do_mix_operation(const CustomDataType result_type,
                              int blend_mode,
                              const VArrayImpl<float> &attribute_factor,
-                             const GVArray &attribute_a,
-                             const GVArray &attribute_b,
-                             GVMutableArray &attribute_result)
+                             const GVArrayImpl &attribute_a,
+                             const GVArrayImpl &attribute_b,
+                             GVMutableArrayImpl &attribute_result)
 {
   if (result_type == CD_PROP_FLOAT) {
     do_mix_operation_float(blend_mode,

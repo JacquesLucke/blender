@@ -130,10 +130,10 @@ static Array<float> curve_parameter_point_domain(const CurveEval &curve)
   return parameters;
 }
 
-static const GVArray *construct_curve_parameter_gvarray(const CurveEval &curve,
-                                                        const IndexMask mask,
-                                                        const AttributeDomain domain,
-                                                        ResourceScope &scope)
+static const GVArrayImpl *construct_curve_parameter_gvarray(const CurveEval &curve,
+                                                            const IndexMask mask,
+                                                            const AttributeDomain domain,
+                                                            ResourceScope &scope)
 {
   if (domain == ATTR_DOMAIN_POINT) {
     Array<float> parameters = curve_parameter_point_domain(curve);
@@ -154,9 +154,9 @@ class CurveParameterFieldInput final : public fn::FieldInput {
   {
   }
 
-  const GVArray *get_varray_for_context(const fn::FieldContext &context,
-                                        IndexMask mask,
-                                        ResourceScope &scope) const final
+  const GVArrayImpl *get_varray_for_context(const fn::FieldContext &context,
+                                            IndexMask mask,
+                                            ResourceScope &scope) const final
   {
     if (const GeometryComponentFieldContext *geometry_context =
             dynamic_cast<const GeometryComponentFieldContext *>(&context)) {

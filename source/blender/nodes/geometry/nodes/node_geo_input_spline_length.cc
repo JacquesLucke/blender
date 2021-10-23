@@ -25,9 +25,9 @@ static void geo_node_input_spline_length_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Float>("Length").field_source();
 }
 
-static const GVArray *construct_spline_length_gvarray(const CurveComponent &component,
-                                                      const AttributeDomain domain,
-                                                      ResourceScope &scope)
+static const GVArrayImpl *construct_spline_length_gvarray(const CurveComponent &component,
+                                                          const AttributeDomain domain,
+                                                          ResourceScope &scope)
 {
   const CurveEval *curve = component.get_for_read();
   if (curve == nullptr) {
@@ -61,9 +61,9 @@ class SplineLengthFieldInput final : public fn::FieldInput {
   {
   }
 
-  const GVArray *get_varray_for_context(const fn::FieldContext &context,
-                                        IndexMask UNUSED(mask),
-                                        ResourceScope &scope) const final
+  const GVArrayImpl *get_varray_for_context(const fn::FieldContext &context,
+                                            IndexMask UNUSED(mask),
+                                            ResourceScope &scope) const final
   {
     if (const GeometryComponentFieldContext *geometry_context =
             dynamic_cast<const GeometryComponentFieldContext *>(&context)) {

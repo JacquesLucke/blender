@@ -84,9 +84,9 @@ static Array<float3> curve_tangent_point_domain(const CurveEval &curve)
   return tangents;
 }
 
-static const GVArray *construct_curve_tangent_gvarray(const CurveComponent &component,
-                                                      const AttributeDomain domain,
-                                                      ResourceScope &scope)
+static const GVArrayImpl *construct_curve_tangent_gvarray(const CurveComponent &component,
+                                                          const AttributeDomain domain,
+                                                          ResourceScope &scope)
 {
   const CurveEval *curve = component.get_for_read();
   if (curve == nullptr) {
@@ -125,9 +125,9 @@ class TangentFieldInput final : public fn::FieldInput {
   {
   }
 
-  const GVArray *get_varray_for_context(const fn::FieldContext &context,
-                                        IndexMask UNUSED(mask),
-                                        ResourceScope &scope) const final
+  const GVArrayImpl *get_varray_for_context(const fn::FieldContext &context,
+                                            IndexMask UNUSED(mask),
+                                            ResourceScope &scope) const final
   {
     if (const GeometryComponentFieldContext *geometry_context =
             dynamic_cast<const GeometryComponentFieldContext *>(&context)) {

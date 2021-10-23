@@ -25,8 +25,8 @@ using blender::float3;
 using blender::IndexRange;
 using blender::MutableSpan;
 using blender::Span;
-using blender::fn::GVArray;
 using blender::fn::GVArray_For_ArrayContainer;
+using blender::fn::GVArrayImpl;
 using blender::fn::GVArrayPtr;
 
 void BezierSpline::copy_settings(Spline &dst) const
@@ -697,7 +697,7 @@ static void interpolate_to_evaluated_impl(const BezierSpline &spline,
   }
 }
 
-GVArrayPtr BezierSpline::interpolate_to_evaluated(const GVArray &src) const
+GVArrayPtr BezierSpline::interpolate_to_evaluated(const GVArrayImpl &src) const
 {
   BLI_assert(src.size() == this->size());
 

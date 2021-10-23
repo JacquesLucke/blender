@@ -21,7 +21,7 @@
 namespace blender::nodes {
 
 using fn::CPPType;
-using fn::GVArray;
+using fn::GVArrayImpl;
 
 struct ConversionFunctions {
   const fn::MultiFunction *multi_function;

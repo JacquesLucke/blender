@@ -34,9 +34,9 @@ class IndexFieldInput final : public FieldInput {
   {
   }
 
-  const GVArray *get_varray_for_context(const FieldContext &UNUSED(context),
-                                        IndexMask mask,
-                                        ResourceScope &scope) const final
+  const GVArrayImpl *get_varray_for_context(const FieldContext &UNUSED(context),
+                                            IndexMask mask,
+                                            ResourceScope &scope) const final
   {
     auto index_func = [](int i) { return i; };
     return &scope.construct<
@@ -264,7 +264,7 @@ TEST(field, SameFieldTwice)
   FieldContext field_context;
   IndexMask mask{IndexRange(2)};
   ResourceScope scope;
-  Vector<const GVArray *> results = evaluate_fields(
+  Vector<const GVArrayImpl *> results = evaluate_fields(
       scope, {constant_field, constant_field}, mask, field_context);
 
   GVArray_Typed<int> varray1{*results[0]};

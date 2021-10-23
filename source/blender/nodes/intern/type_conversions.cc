@@ -25,7 +25,7 @@
 namespace blender::nodes {
 
 using fn::GVArrayPtr;
-using fn::GVMutableArray;
+using fn::GVMutableArrayImpl;
 using fn::GVMutableArrayPtr;
 using fn::MFDataType;
 
@@ -242,7 +242,7 @@ void DataTypeConversions::convert_to_uninitialized(const CPPType &from_type,
   functions->convert_single_to_uninitialized(from_value, to_value);
 }
 
-class GVArray_For_ConvertedGVArray : public GVArray {
+class GVArray_For_ConvertedGVArray : public GVArrayImpl {
  private:
   GVArrayPtr varray_;
   const CPPType &from_type_;
@@ -252,7 +252,9 @@ class GVArray_For_ConvertedGVArray : public GVArray {
   GVArray_For_ConvertedGVArray(GVArrayPtr varray,
                                const CPPType &to_type,
                                const DataTypeConversions &conversions)
-      : GVArray(to_type, varray->size()), varray_(std::move(varray)), from_type_(varray_->type())
+      : GVArrayImpl(to_type, varray->size()),
+        varray_(std::move(varray)),
+        from_type_(varray_->type())
   {
     old_to_new_conversions_ = *conversions.get_conversion_functions(from_type_, to_type);
   }
@@ -275,7 +277,7 @@ class GVArray_For_ConvertedGVArray : public GVArray {
   }
 };
 
-class GVMutableArray_For_ConvertedGVMutableArray : public GVMutableArray {
+class GVMutableArray_For_ConvertedGVMutableArray : public GVMutableArrayImpl {
  private:
   GVMutableArrayPtr varray_;
   const CPPType &from_type_;
@@ -286,7 +288,7 @@ class GVMutableArray_For_ConvertedGVMutableArray : public GVMutableArray {
   GVMutableArray_For_ConvertedGVMutableArray(GVMutableArrayPtr varray,
                                              const CPPType &to_type,
                                              const DataTypeConversions &conversions)
-      : GVMutableArray(to_type, varray->size()),
+      : GVMutableArrayImpl(to_type, varray->size()),
         varray_(std::move(varray)),
         from_type_(varray_->type())
   {

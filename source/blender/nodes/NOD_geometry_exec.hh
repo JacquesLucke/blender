@@ -55,14 +55,14 @@ using fn::GMutablePointer;
 using fn::GMutableSpan;
 using fn::GPointer;
 using fn::GSpan;
-using fn::GVArray;
 using fn::GVArray_GSpan;
 using fn::GVArray_Span;
 using fn::GVArray_Typed;
+using fn::GVArrayImpl;
 using fn::GVArrayPtr;
-using fn::GVMutableArray;
 using fn::GVMutableArray_GSpan;
 using fn::GVMutableArray_Typed;
+using fn::GVMutableArrayImpl;
 using fn::GVMutableArrayPtr;
 using geometry_nodes_eval_log::NodeWarningType;
 

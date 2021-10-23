@@ -81,15 +81,15 @@ static FieldTreeInfo preprocess_field_tree(Span<GFieldRef> entry_fields)
 /**
  * Retrieves the data from the context that is passed as input into the field.
  */
-static Vector<const GVArray *> get_field_context_inputs(
+static Vector<const GVArrayImpl *> get_field_context_inputs(
     ResourceScope &scope,
     const IndexMask mask,
     const FieldContext &context,
     const Span<std::reference_wrapper<const FieldInput>> field_inputs)
 {
-  Vector<const GVArray *> field_context_inputs;
+  Vector<const GVArrayImpl *> field_context_inputs;
   for (const FieldInput &field_input : field_inputs) {
-    const GVArray *varray = context.get_varray_for_input(field_input, mask, scope);
+    const GVArrayImpl *varray = context.get_varray_for_input(field_input, mask, scope);
     if (varray == nullptr) {
       const CPPType &type = field_input.cpp_type();
       varray = &scope.construct<GVArray_For_SingleValueRef>(
@@ -105,7 +105,7 @@ static Vector<const GVArray *> get_field_context_inputs(
  * for different indices.
  */
 static Set<GFieldRef> find_varying_fields(const FieldTreeInfo &field_tree_info,
-                                          Span<const GVArray *> field_context_inputs)
+                                          Span<const GVArrayImpl *> field_context_inputs)
 {
   Set<GFieldRef> found_fields;
   Stack<GFieldRef> fields_to_check;
@@ -114,7 +114,7 @@ static Set<GFieldRef> find_varying_fields(const FieldTreeInfo &field_tree_info,
    * start the tree search at the non-constant input fields and traverse through all fields that
    * depend on them. */
   for (const int i : field_context_inputs.index_range()) {
-    const GVArray *varray = field_context_inputs[i];
+    const GVArrayImpl *varray = field_context_inputs[i];
     if (varray->is_single()) {
       continue;
     }
@@ -278,17 +278,17 @@ static void build_multi_function_procedure_for_fields(MFProcedure &procedure,
  * \return The computed virtual arrays for each provided field. If #dst_varrays is passed, the
  *   provided virtual arrays are returned.
  */
-Vector<const GVArray *> evaluate_fields(ResourceScope &scope,
-                                        Span<GFieldRef> fields_to_evaluate,
-                                        IndexMask mask,
-                                        const FieldContext &context,
-                                        Span<GVMutableArray *> dst_varrays)
+Vector<const GVArrayImpl *> evaluate_fields(ResourceScope &scope,
+                                            Span<GFieldRef> fields_to_evaluate,
+                                            IndexMask mask,
+                                            const FieldContext &context,
+                                            Span<GVMutableArrayImpl *> dst_varrays)
 {
-  Vector<const GVArray *> r_varrays(fields_to_evaluate.size(), nullptr);
+  Vector<const GVArrayImpl *> r_varrays(fields_to_evaluate.size(), nullptr);
   const int array_size = mask.min_array_size();
 
   /* Destination arrays are optional. Create a small utility method to access them. */
-  auto get_dst_varray_if_available = [&](int index) -> GVMutableArray * {
+  auto get_dst_varray_if_available = [&](int index) -> GVMutableArrayImpl * {
     if (dst_varrays.is_empty()) {
       return nullptr;
     }
@@ -300,7 +300,7 @@ Vector<const GVArray *> evaluate_fields(ResourceScope &scope,
   FieldTreeInfo field_tree_info = preprocess_field_tree(fields_to_evaluate);
 
   /* Get inputs that will be passed into the field when evaluated. */
-  Vector<const GVArray *> field_context_inputs = get_field_context_inputs(
+  Vector<const GVArrayImpl *> field_context_inputs = get_field_context_inputs(
       scope, mask, context, field_tree_info.deduplicated_field_inputs);
 
   /* Finish fields that output an input varray directly. For those we don't have to do any further
@@ -312,7 +312,7 @@ Vector<const GVArray *> evaluate_fields(ResourceScope &scope,
     }
     const FieldInput &field_input = static_cast<const FieldInput &>(field.node());
     const int field_input_index = field_tree_info.deduplicated_field_inputs.index_of(field_input);
-    const GVArray *varray = field_context_inputs[field_input_index];
+    const GVArrayImpl *varray = field_context_inputs[field_input_index];
     r_varrays[out_index] = varray;
   }
 
@@ -357,7 +357,7 @@ Vector<const GVArray *> evaluate_fields(ResourceScope &scope,
     MFContextBuilder mf_context;
 
     /* Provide inputs to the procedure executor. */
-    for (const GVArray *varray : field_context_inputs) {
+    for (const GVArrayImpl *varray : field_context_inputs) {
       mf_params.add_readonly_single_input(*varray);
     }
 
@@ -367,7 +367,7 @@ Vector<const GVArray *> evaluate_fields(ResourceScope &scope,
       const int out_index = varying_field_indices[i];
 
       /* Try to get an existing virtual array that the result should be written into. */
-      GVMutableArray *output_varray = get_dst_varray_if_available(out_index);
+      GVMutableArrayImpl *output_varray = get_dst_varray_if_available(out_index);
       void *buffer;
       if (output_varray == nullptr || !output_varray->is_span()) {
         /* Allocate a new buffer for the computed result. */
@@ -411,7 +411,7 @@ Vector<const GVArray *> evaluate_fields(ResourceScope &scope,
     MFContextBuilder mf_context;
 
     /* Provide inputs to the procedure executor. */
-    for (const GVArray *varray : field_context_inputs) {
+    for (const GVArrayImpl *varray : field_context_inputs) {
       mf_params.add_readonly_single_input(*varray);
     }
 
@@ -443,12 +443,12 @@ Vector<const GVArray *> evaluate_fields(ResourceScope &scope,
    * written the computed data in the right place already. */
   if (!dst_varrays.is_empty()) {
     for (const int out_index : fields_to_evaluate.index_range()) {
-      GVMutableArray *output_varray = get_dst_varray_if_available(out_index);
+      GVMutableArrayImpl *output_varray = get_dst_varray_if_available(out_index);
       if (output_varray == nullptr) {
         /* Caller did not provide a destination for this output. */
         continue;
       }
-      const GVArray *computed_varray = r_varrays[out_index];
+      const GVArrayImpl *computed_varray = r_varrays[out_index];
       BLI_assert(computed_varray->type() == output_varray->type());
       if (output_varray == computed_varray) {
         /* The result has been written into the destination provided by the caller already. */
@@ -479,7 +479,7 @@ void evaluate_constant_field(const GField &field, void *r_value)
 {
   ResourceScope scope;
   FieldContext context;
-  Vector<const GVArray *> varrays = evaluate_fields(scope, {field}, IndexRange(1), context);
+  Vector<const GVArrayImpl *> varrays = evaluate_fields(scope, {field}, IndexRange(1), context);
   varrays[0]->get_to_uninitialized(0, r_value);
 }
 
@@ -506,9 +506,9 @@ GField make_field_constant_if_possible(GField field)
   return GField{operation, 0};
 }
 
-const GVArray *FieldContext::get_varray_for_input(const FieldInput &field_input,
-                                                  IndexMask mask,
-                                                  ResourceScope &scope) const
+const GVArrayImpl *FieldContext::get_varray_for_input(const FieldInput &field_input,
+                                                      IndexMask mask,
+                                                      ResourceScope &scope) const
 {
   /* By default ask the field input to create the varray. Another field context might overwrite
    * the context here. */
@@ -519,7 +519,7 @@ IndexFieldInput::IndexFieldInput() : FieldInput(CPPType::get<int>(), "Index")
 {
 }
 
-GVArray *IndexFieldInput::get_index_varray(IndexMask mask, ResourceScope &scope)
+GVArrayImpl *IndexFieldInput::get_index_varray(IndexMask mask, ResourceScope &scope)
 {
   auto index_func = [](int i) { return i; };
   return &scope.construct<
@@ -527,9 +527,9 @@ GVArray *IndexFieldInput::get_index_varray(IndexMask mask, ResourceScope &scope)
       mask.min_array_size(), mask.min_array_size(), index_func);
 }
 
-const GVArray *IndexFieldInput::get_varray_for_context(const fn::FieldContext &UNUSED(context),
-                                                       IndexMask mask,
-                                                       ResourceScope &scope) const
+const GVArrayImpl *IndexFieldInput::get_varray_for_context(const fn::FieldContext &UNUSED(context),
+                                                           IndexMask mask,
+                                                           ResourceScope &scope) const
 {
   /* TODO: Investigate a similar method to IndexRange::as_span() */
   return get_index_varray(mask, scope);
@@ -624,7 +624,7 @@ static Vector<int64_t> indices_from_selection(const VArrayImpl<bool> &selection)
   return indices;
 }
 
-int FieldEvaluator::add_with_destination(GField field, GVMutableArray &dst)
+int FieldEvaluator::add_with_destination(GField field, GVMutableArrayImpl &dst)
 {
   const int field_index = fields_to_evaluate_.append_and_get_index(std::move(field));
   dst_varrays_.append(&dst);
@@ -634,17 +634,17 @@ int FieldEvaluator::add_with_destination(GField field, GVMutableArray &dst)
 
 int FieldEvaluator::add_with_destination(GField field, GMutableSpan dst)
 {
-  GVMutableArray &varray = scope_.construct<GVMutableArray_For_GMutableSpan>(dst);
+  GVMutableArrayImpl &varray = scope_.construct<GVMutableArray_For_GMutableSpan>(dst);
   return this->add_with_destination(std::move(field), varray);
 }
 
-int FieldEvaluator::add(GField field, const GVArray **varray_ptr)
+int FieldEvaluator::add(GField field, const GVArrayImpl **varray_ptr)
 {
   const int field_index = fields_to_evaluate_.append_and_get_index(std::move(field));
   dst_varrays_.append(nullptr);
   output_pointer_infos_.append(OutputPointerInfo{
-      varray_ptr, [](void *dst, const GVArray &varray, ResourceScope &UNUSED(scope)) {
-        *(const GVArray **)dst = &varray;
+      varray_ptr, [](void *dst, const GVArrayImpl &varray, ResourceScope &UNUSED(scope)) {
+        *(const GVArrayImpl **)dst = &varray;
       }});
   return field_index;
 }
@@ -677,7 +677,7 @@ void FieldEvaluator::evaluate()
 
 IndexMask FieldEvaluator::get_evaluated_as_mask(const int field_index)
 {
-  const GVArray &varray = this->get_evaluated(field_index);
+  const GVArrayImpl &varray = this->get_evaluated(field_index);
   GVArray_Typed<bool> typed_varray{varray};
 
   if (typed_varray->is_single()) {

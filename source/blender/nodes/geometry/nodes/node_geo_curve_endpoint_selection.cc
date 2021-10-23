@@ -60,9 +60,9 @@ class EndpointFieldInput final : public fn::FieldInput {
   {
   }
 
-  const GVArray *get_varray_for_context(const fn::FieldContext &context,
-                                        IndexMask UNUSED(mask),
-                                        ResourceScope &scope) const final
+  const GVArrayImpl *get_varray_for_context(const fn::FieldContext &context,
+                                            IndexMask UNUSED(mask),
+                                            ResourceScope &scope) const final
   {
     if (const GeometryComponentFieldContext *geometry_context =
             dynamic_cast<const GeometryComponentFieldContext *>(&context)) {

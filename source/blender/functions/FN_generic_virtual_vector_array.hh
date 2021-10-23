@@ -100,14 +100,14 @@ class GVVectorArray {
   }
 };
 
-class GVArray_For_GVVectorArrayIndex : public GVArray {
+class GVArray_For_GVVectorArrayIndex : public GVArrayImpl {
  private:
   const GVVectorArray &vector_array_;
   const int64_t index_;
 
  public:
   GVArray_For_GVVectorArrayIndex(const GVVectorArray &vector_array, const int64_t index)
-      : GVArray(vector_array.type(), vector_array.get_vector_size(index)),
+      : GVArrayImpl(vector_array.type(), vector_array.get_vector_size(index)),
         vector_array_(vector_array),
         index_(index)
   {
@@ -120,10 +120,10 @@ class GVArray_For_GVVectorArrayIndex : public GVArray {
 
 class GVVectorArray_For_SingleGVArray : public GVVectorArray {
  private:
-  const GVArray &array_;
+  const GVArrayImpl &array_;
 
  public:
-  GVVectorArray_For_SingleGVArray(const GVArray &array, const int64_t size)
+  GVVectorArray_For_SingleGVArray(const GVArrayImpl &array, const int64_t size)
       : GVVectorArray(array.type(), size), array_(array)
   {
   }

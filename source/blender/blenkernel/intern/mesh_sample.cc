@@ -56,7 +56,7 @@ BLI_NOINLINE static void sample_point_attribute(const Mesh &mesh,
 void sample_point_attribute(const Mesh &mesh,
                             const Span<int> looptri_indices,
                             const Span<float3> bary_coords,
-                            const GVArray &data_in,
+                            const GVArrayImpl &data_in,
                             const IndexMask mask,
                             const GMutableSpan data_out)
 {
@@ -103,7 +103,7 @@ BLI_NOINLINE static void sample_corner_attribute(const Mesh &mesh,
 void sample_corner_attribute(const Mesh &mesh,
                              const Span<int> looptri_indices,
                              const Span<float3> bary_coords,
-                             const GVArray &data_in,
+                             const GVArrayImpl &data_in,
                              const IndexMask mask,
                              const GMutableSpan data_out)
 {
@@ -138,7 +138,7 @@ void sample_face_attribute(const Mesh &mesh,
 
 void sample_face_attribute(const Mesh &mesh,
                            const Span<int> looptri_indices,
-                           const GVArray &data_in,
+                           const GVArrayImpl &data_in,
                            const IndexMask mask,
                            const GMutableSpan data_out)
 {
@@ -217,7 +217,7 @@ Span<float3> MeshAttributeInterpolator::ensure_nearest_weights()
   return nearest_weights_;
 }
 
-void MeshAttributeInterpolator::sample_data(const GVArray &src,
+void MeshAttributeInterpolator::sample_data(const GVArrayImpl &src,
                                             const AttributeDomain domain,
                                             const eAttributeMapMode mode,
                                             const GMutableSpan dst)
