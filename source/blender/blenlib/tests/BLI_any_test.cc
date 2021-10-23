@@ -32,7 +32,7 @@ TEST(any, AssignInt)
   EXPECT_FALSE(c.is_empty());
   EXPECT_EQ(c.get<int>(), 10);
 
-  EXPECT_EQ(a.get<int>(), 10);
+  EXPECT_EQ(a.get<int>(), 10); /* NOLINT: bugprone-use-after-move */
 
   a.reset();
   EXPECT_TRUE(a.is_empty());
@@ -57,7 +57,7 @@ TEST(any, AssignMap)
   EXPECT_FALSE(b.is_empty());
   EXPECT_EQ((c.get<Map<int, int>>().lookup(4)), 2);
 
-  EXPECT_TRUE((a.get<Map<int, int>>().is_empty()));
+  EXPECT_TRUE((a.get<Map<int, int>>().is_empty())); /* NOLINT: bugprone-use-after-move */
 }
 
 TEST(any, AssignAny)
@@ -78,6 +78,11 @@ TEST(any, AssignAny)
 
   z = c;
   EXPECT_TRUE(z.is_empty());
+
+  z = Any(std::in_place_type<Any<>>, a);
+  EXPECT_FALSE(z.is<int>());
+  EXPECT_TRUE(z.is<Any<>>());
+  EXPECT_EQ(z.get<Any<>>().get<int>(), 5);
 }
 
 }  // namespace blender::tests

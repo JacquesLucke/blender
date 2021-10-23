@@ -20,6 +20,8 @@
  * \ingroup bli
  */
 
+#include <utility>
+
 #include "BLI_memory_utils.hh"
 
 namespace blender {
@@ -113,17 +115,22 @@ class Any {
     info_->move_construct(&buffer_, &other.buffer_);
   }
 
-  template<typename T, typename X = std::enable_if_t<!is_same_any_v<T>, void>> Any(T &&value)
+  template<typename T, typename... Args> explicit Any(std::in_place_type_t<T>, Args &&...args)
   {
     using DecayT = std::decay_t<T>;
     static_assert(is_allowed_v<DecayT>);
     info_ = &this->template get_info<DecayT>();
     if constexpr (is_inline_v<DecayT>) {
-      new (&buffer_) T(std::forward<T>(value));
+      new (&buffer_) T(std::forward<Args>(args)...);
     }
     else {
-      new (&buffer_) std::unique_ptr<DecayT>(new DecayT(std::forward<T>(value)));
+      new (&buffer_) std::unique_ptr<DecayT>(new DecayT(std::forward<Args>(args)...));
     }
+  }
+
+  template<typename T, typename X = std::enable_if_t<!is_same_any_v<T>, void>>
+  Any(T &&value) : Any(std::in_place_type<T>, std::forward<T>(value))
+  {
   }
 
   ~Any()
