@@ -172,9 +172,8 @@ class Any {
  public:
   Any() = default;
 
-  Any(const Any &other)
+  Any(const Any &other) : info_(other.info_)
   {
-    info_ = other.info_;
     info_->copy_construct(&buffer_, &other.buffer_);
   }
 
@@ -182,9 +181,8 @@ class Any {
    * \note: The #other #Any will not be empty afterwards if it was not before. Just its value is in
    * a moved-from state.
    */
-  Any(Any &&other)
+  Any(Any &&other) : info_(other.info_)
   {
-    info_ = other.info_;
     info_->move_construct(&buffer_, &other.buffer_);
   }
 
@@ -199,7 +197,7 @@ class Any {
     info_ = &this->template get_info<DecayT>();
     if constexpr (is_inline_v<DecayT>) {
       /* Construct the value directly in the inline buffer. */
-      new (&buffer_) T(std::forward<Args>(args)...);
+      new (&buffer_) DecayT(std::forward<Args>(args)...);
     }
     else {
       /* Construct the value in a new allocation and store a #std::unique_ptr to it in the inline
@@ -247,6 +245,18 @@ class Any {
     return info_ == &Info::get_for_empty();
   }
 
+  operator bool() const
+  {
+    return !this->is_empty();
+  }
+
+  template<typename T, typename... Args> std::decay_t<T> &emplace(Args &&...args)
+  {
+    this->~Any();
+    new (this) Any(std::in_place_type<T>, std::forward<Args>(args)...);
+    return this->get<T>();
+  }
+
   /** Return true when the value that is currently stored is a #T. */
   template<typename T> bool is() const
   {
@@ -269,20 +279,20 @@ class Any {
    * Get a pointer to the stored value. This invokes undefined behavior when #T does not have the
    * correct type.
    */
-  template<typename T> T &get()
+  template<typename T> std::decay_t<T> &get()
   {
     BLI_assert(this->is<T>());
-    return *static_cast<T *>(this->get());
+    return *static_cast<std::decay_t<T> *>(this->get());
   }
 
   /**
    * Get a pointer to the stored value. This invokes undefined behavior when #T does not have the
    * correct type.
    */
-  template<typename T> const T &get() const
+  template<typename T> const std::decay_t<T> &get() const
   {
     BLI_assert(this->is<T>());
-    return *static_cast<const T *>(this->get());
+    return *static_cast<const std::decay_t<T> *>(this->get());
   }
 
   /**

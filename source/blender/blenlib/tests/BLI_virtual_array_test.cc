@@ -151,4 +151,24 @@ TEST(virtual_array, DerivedSpan)
   }
 }
 
+TEST(virtual_array, Test)
+{
+  VArray<int> a = VArray<int>::ForContainer(Array<int>({4, 6, 2, 4}));
+  EXPECT_EQ(a[0], 4);
+  EXPECT_EQ(a[1], 6);
+
+  VArray<int> b = VArray<int>::ForFunc(10, [](int64_t i) { return (int)(i * i); });
+  EXPECT_EQ(b[3], 9);
+  EXPECT_EQ(b[5], 25);
+
+  std::array<int, 5> values = {1, 6, 3, 7, 5};
+  VArray<int> c = VArray<int>::ForSpan(values);
+  EXPECT_EQ(c[0], 1);
+  EXPECT_EQ(c[4], 5);
+
+  VArray<float> d = VArray<float>::ForSingle(10.0f, 4);
+  EXPECT_EQ(d[0], 10.0f);
+  EXPECT_EQ(d->size(), 4);
+}
+
 }  // namespace blender::tests

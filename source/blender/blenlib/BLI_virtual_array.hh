@@ -37,6 +37,7 @@
  * see of the increased compile time and binary size is worth it.
  */
 
+#include "BLI_any.hh"
 #include "BLI_array.hh"
 #include "BLI_index_mask.hh"
 #include "BLI_span.hh"
@@ -521,7 +522,8 @@ class VArray_For_DerivedSpan : public VArrayImpl<ElemT> {
   const StructT *data_;
 
  public:
-  VArray_For_DerivedSpan(const Span<StructT> data) : VArrayImpl<ElemT>(data.size()), data_(data.data())
+  VArray_For_DerivedSpan(const Span<StructT> data)
+      : VArrayImpl<ElemT>(data.size()), data_(data.data())
   {
   }
 
@@ -658,5 +660,123 @@ inline void devirtualize_varray2(const VArrayImpl<T1> &varray1,
    * unknown code, which inhibits many compiler optimizations. */
   func(varray1, varray2);
 }
+
+namespace detail {
+
+template<typename T> struct VArrayAnyExtraInfo {
+  const VArrayImpl<T> *(*get_varray)(const void *buffer) =
+      [](const void *UNUSED(buffer)) -> const VArrayImpl<T> * { return nullptr; };
+
+  template<typename StorageT> static VArrayAnyExtraInfo get()
+  {
+    static_assert(std::is_base_of_v<VArrayImpl<T>, StorageT> ||
+                  std::is_same_v<StorageT, std::shared_ptr<const VArrayImpl<T>>>);
+
+    if constexpr (std::is_base_of_v<VArrayImpl<T>, StorageT>) {
+      return {[](const void *buffer) {
+        return static_cast<const VArrayImpl<T> *>((StorageT *)buffer);
+      }};
+    }
+    else if constexpr (std::is_same_v<StorageT, std::shared_ptr<const VArrayImpl<T>>>) {
+      return {[](const void *buffer) { return ((StorageT *)buffer)->get(); }};
+    }
+    else {
+      BLI_assert_unreachable();
+      return {};
+    }
+  }
+};
+
+}  // namespace detail
+
+template<typename T> class VArray {
+ private:
+  using ExtraInfo = detail::VArrayAnyExtraInfo<T>;
+  using Storage = Any<ExtraInfo, 24, 8>;
+
+  const VArrayImpl<T> *impl_ = nullptr;
+  Storage storage_;
+
+ public:
+  VArray() = default;
+
+  VArray(const VArray &other) : storage_(other.storage_)
+  {
+    impl_ = storage_.extra_info().get_varray(storage_.get());
+  }
+
+  VArray(const VArrayImpl<T> *impl) : impl_(impl)
+  {
+  }
+
+  VArray(std::shared_ptr<const VArrayImpl<T>> impl) : impl_(impl.get())
+  {
+    if (impl) {
+      storage_ = std::move(impl);
+    }
+  }
+
+  template<typename ImplT, typename... Args> static VArray For(Args &&...args)
+  {
+    static_assert(std::is_base_of_v<VArrayImpl<T>, ImplT>);
+    if constexpr (std::is_copy_constructible_v<ImplT> && Storage::template is_inline_v<ImplT>) {
+      VArray varray;
+      varray.impl_ = &varray.storage_.template emplace<ImplT>(std::forward<Args>(args)...);
+      return varray;
+    }
+    else {
+      return VArray(std::make_shared<ImplT>(std::forward<Args>(args)...));
+    }
+  }
+
+  static VArray ForSingle(T value, const int64_t size)
+  {
+    return VArray::For<VArray_For_Single<T>>(std::move(value), size);
+  }
+
+  static VArray ForSpan(Span<T> values)
+  {
+    return VArray::For<VArray_For_Span<T>>(values);
+  }
+
+  template<typename GetFunc> static VArray ForFunc(const int64_t size, GetFunc get_func)
+  {
+    return VArray::For<VArray_For_Func<T, decltype(get_func)>>(size, std::move(get_func));
+  }
+
+  template<typename StructT, typename ElemT, ElemT (*GetFunc)(const StructT &)>
+  static VArray ForDerivedSpan(Span<StructT> values)
+  {
+    return VArray::For<VArray_For_DerivedSpan<StructT, ElemT, GetFunc>>(values);
+  }
+
+  template<typename ContainerT> static VArray ForContainer(ContainerT container)
+  {
+    return VArray::For<VArray_For_ArrayContainer<ContainerT>>(std::move(container));
+  }
+
+  operator bool() const
+  {
+    return impl_ != nullptr;
+  }
+
+  const VArrayImpl<T> *operator->() const
+  {
+    BLI_assert(*this);
+    return impl_;
+  }
+
+  const VArrayImpl<T> &operator*() const
+  {
+    BLI_assert(*this);
+    return impl_;
+  }
+
+  T operator[](const int64_t index) const
+  {
+    BLI_assert(*this);
+    return impl_->get(index);
+  }
+};
 
 }  // namespace blender
