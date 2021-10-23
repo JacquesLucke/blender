@@ -187,7 +187,7 @@ static void geo_node_attribute_vector_math_update(bNodeTree *UNUSED(ntree), bNod
 
 static void do_math_operation_fl3_fl3_to_fl3(const VArrayImpl<float3> &input_a,
                                              const VArrayImpl<float3> &input_b,
-                                             VMutableArray<float3> &result,
+                                             VMutableArrayImpl<float3> &result,
                                              const NodeVectorMathOperation operation)
 {
   const int size = input_a.size();
@@ -218,7 +218,7 @@ static void do_math_operation_fl3_fl3_to_fl3(const VArrayImpl<float3> &input_a,
 static void do_math_operation_fl3_fl3_fl3_to_fl3(const VArrayImpl<float3> &input_a,
                                                  const VArrayImpl<float3> &input_b,
                                                  const VArrayImpl<float3> &input_c,
-                                                 VMutableArray<float3> &result,
+                                                 VMutableArrayImpl<float3> &result,
                                                  const NodeVectorMathOperation operation)
 {
   const int size = input_a.size();
@@ -251,7 +251,7 @@ static void do_math_operation_fl3_fl3_fl3_to_fl3(const VArrayImpl<float3> &input
 static void do_math_operation_fl3_fl3_fl_to_fl3(const VArrayImpl<float3> &input_a,
                                                 const VArrayImpl<float3> &input_b,
                                                 const VArrayImpl<float> &input_c,
-                                                VMutableArray<float3> &result,
+                                                VMutableArrayImpl<float3> &result,
                                                 const NodeVectorMathOperation operation)
 {
   const int size = input_a.size();
@@ -283,7 +283,7 @@ static void do_math_operation_fl3_fl3_fl_to_fl3(const VArrayImpl<float3> &input_
 
 static void do_math_operation_fl3_fl3_to_fl(const VArrayImpl<float3> &input_a,
                                             const VArrayImpl<float3> &input_b,
-                                            VMutableArray<float> &result,
+                                            VMutableArrayImpl<float> &result,
                                             const NodeVectorMathOperation operation)
 {
   const int size = input_a.size();
@@ -313,7 +313,7 @@ static void do_math_operation_fl3_fl3_to_fl(const VArrayImpl<float3> &input_a,
 
 static void do_math_operation_fl3_fl_to_fl3(const VArrayImpl<float3> &input_a,
                                             const VArrayImpl<float> &input_b,
-                                            VMutableArray<float3> &result,
+                                            VMutableArrayImpl<float3> &result,
                                             const NodeVectorMathOperation operation)
 {
   const int size = input_a.size();
@@ -342,7 +342,7 @@ static void do_math_operation_fl3_fl_to_fl3(const VArrayImpl<float3> &input_a,
 }
 
 static void do_math_operation_fl3_to_fl3(const VArrayImpl<float3> &input_a,
-                                         VMutableArray<float3> &result,
+                                         VMutableArrayImpl<float3> &result,
                                          const NodeVectorMathOperation operation)
 {
   const int size = input_a.size();
@@ -369,7 +369,7 @@ static void do_math_operation_fl3_to_fl3(const VArrayImpl<float3> &input_a,
 }
 
 static void do_math_operation_fl3_to_fl(const VArrayImpl<float3> &input_a,
-                                        VMutableArray<float> &result,
+                                        VMutableArrayImpl<float> &result,
                                         const NodeVectorMathOperation operation)
 {
   const int size = input_a.size();

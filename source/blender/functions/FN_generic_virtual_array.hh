@@ -207,10 +207,10 @@ class GVMutableArray : public GVArray {
     return GMutableSpan(span.type(), const_cast<void *>(span.data()), span.size());
   }
 
-  template<typename T> VMutableArray<T> *try_get_internal_mutable_varray()
+  template<typename T> VMutableArrayImpl<T> *try_get_internal_mutable_varray()
   {
     BLI_assert(type_->is<T>());
-    return (VMutableArray<T> *)this->try_get_internal_mutable_varray_impl();
+    return (VMutableArrayImpl<T> *)this->try_get_internal_mutable_varray_impl();
   }
 
   /* Create a typed virtual array for this generic virtual array. */
@@ -456,18 +456,18 @@ template<typename T> class VArray_For_GVArray : public VArrayImpl<T> {
 };
 
 /* Used to convert an generic mutable virtual array into a typed one. */
-template<typename T> class VMutableArray_For_GVMutableArray : public VMutableArray<T> {
+template<typename T> class VMutableArray_For_GVMutableArray : public VMutableArrayImpl<T> {
  protected:
   GVMutableArray *varray_ = nullptr;
 
  public:
   VMutableArray_For_GVMutableArray(GVMutableArray &varray)
-      : VMutableArray<T>(varray.size()), varray_(&varray)
+      : VMutableArrayImpl<T>(varray.size()), varray_(&varray)
   {
     BLI_assert(varray.type().template is<T>());
   }
 
-  VMutableArray_For_GVMutableArray(const int64_t size) : VMutableArray<T>(size)
+  VMutableArray_For_GVMutableArray(const int64_t size) : VMutableArrayImpl<T>(size)
   {
   }
 
@@ -510,10 +510,10 @@ template<typename T> class VMutableArray_For_GVMutableArray : public VMutableArr
 /* Used to convert any typed virtual mutable array into a generic one. */
 template<typename T> class GVMutableArray_For_VMutableArray : public GVMutableArray {
  protected:
-  VMutableArray<T> *varray_ = nullptr;
+  VMutableArrayImpl<T> *varray_ = nullptr;
 
  public:
-  GVMutableArray_For_VMutableArray(VMutableArray<T> &varray)
+  GVMutableArray_For_VMutableArray(VMutableArrayImpl<T> &varray)
       : GVMutableArray(CPPType::get<T>(), varray.size()), varray_(&varray)
   {
   }
@@ -868,7 +868,7 @@ template<typename T> class GVArray_Typed {
 /* Same as GVArray_Typed, but for mutable virtual arrays. */
 template<typename T> class GVMutableArray_Typed {
  private:
-  VMutableArray<T> *varray_;
+  VMutableArrayImpl<T> *varray_;
   std::optional<VMutableArray_For_MutableSpan<T>> varray_span_;
   std::optional<VMutableArray_For_GVMutableArray<T>> varray_any_;
   GVMutableArrayPtr owned_gvarray_;
@@ -882,7 +882,8 @@ template<typename T> class GVMutableArray_Typed {
       varray_span_.emplace(span.typed<T>());
       varray_ = &*varray_span_;
     }
-    else if (VMutableArray<T> *internal_varray = gvarray.try_get_internal_mutable_varray<T>()) {
+    else if (VMutableArrayImpl<T> *internal_varray =
+                 gvarray.try_get_internal_mutable_varray<T>()) {
       varray_ = internal_varray;
     }
     else {
@@ -896,17 +897,17 @@ template<typename T> class GVMutableArray_Typed {
     owned_gvarray_ = std::move(gvarray);
   }
 
-  VMutableArray<T> &operator*()
+  VMutableArrayImpl<T> &operator*()
   {
     return *varray_;
   }
 
-  VMutableArray<T> *operator->()
+  VMutableArrayImpl<T> *operator->()
   {
     return varray_;
   }
 
-  operator VMutableArray<T> &()
+  operator VMutableArrayImpl<T> &()
   {
     return *varray_;
   }

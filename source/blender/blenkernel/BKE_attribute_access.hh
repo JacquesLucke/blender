@@ -246,7 +246,7 @@ template<typename T> class OutputAttribute_Typed {
  private:
   OutputAttribute attribute_;
   std::unique_ptr<fn::GVMutableArray_Typed<T>> optional_varray_;
-  VMutableArray<T> *varray_ = nullptr;
+  VMutableArrayImpl<T> *varray_ = nullptr;
 
  public:
   OutputAttribute_Typed();
@@ -276,17 +276,17 @@ template<typename T> class OutputAttribute_Typed {
     return varray_ != nullptr;
   }
 
-  VMutableArray<T> &operator*()
+  VMutableArrayImpl<T> &operator*()
   {
     return *varray_;
   }
 
-  VMutableArray<T> *operator->()
+  VMutableArrayImpl<T> *operator->()
   {
     return varray_;
   }
 
-  VMutableArray<T> &varray()
+  VMutableArrayImpl<T> &varray()
   {
     return *varray_;
   }

@@ -999,14 +999,14 @@ static void set_crease(MEdge &edge, float value)
   edge.crease = round_fl_to_uchar_clamp(value * 255.0f);
 }
 
-class VMutableArray_For_VertexWeights final : public VMutableArray<float> {
+class VMutableArray_For_VertexWeights final : public VMutableArrayImpl<float> {
  private:
   MDeformVert *dverts_;
   const int dvert_index_;
 
  public:
   VMutableArray_For_VertexWeights(MDeformVert *dverts, const int totvert, const int dvert_index)
-      : VMutableArray<float>(totvert), dverts_(dverts), dvert_index_(dvert_index)
+      : VMutableArrayImpl<float>(totvert), dverts_(dverts), dvert_index_(dvert_index)
   {
   }
 

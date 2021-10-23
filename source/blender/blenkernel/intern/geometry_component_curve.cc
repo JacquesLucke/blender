@@ -754,14 +754,14 @@ template<typename T> class VArray_For_SplinePoints : public VArrayImpl<T> {
 /**
  * Mutable virtual array for any control point data accessed with spans and an offset array.
  */
-template<typename T> class VMutableArray_For_SplinePoints final : public VMutableArray<T> {
+template<typename T> class VMutableArray_For_SplinePoints final : public VMutableArrayImpl<T> {
  private:
   Array<MutableSpan<T>> data_;
   Array<int> offsets_;
 
  public:
   VMutableArray_For_SplinePoints(Array<MutableSpan<T>> data, Array<int> offsets)
-      : VMutableArray<T>(offsets.last()), data_(std::move(data)), offsets_(std::move(offsets))
+      : VMutableArrayImpl<T>(offsets.last()), data_(std::move(data)), offsets_(std::move(offsets))
   {
   }
 
@@ -820,14 +820,14 @@ GVMutableArrayPtr point_data_gvarray(Array<MutableSpan<T>> spans, Array<int> off
  * \note There is no need to check the handle type to avoid changing auto handles, since
  * retrieving write access to the position data will mark them for recomputation anyway.
  */
-class VMutableArray_For_SplinePosition final : public VMutableArray<float3> {
+class VMutableArray_For_SplinePosition final : public VMutableArrayImpl<float3> {
  private:
   MutableSpan<SplinePtr> splines_;
   Array<int> offsets_;
 
  public:
   VMutableArray_For_SplinePosition(MutableSpan<SplinePtr> splines, Array<int> offsets)
-      : VMutableArray<float3>(offsets.last()), splines_(splines), offsets_(std::move(offsets))
+      : VMutableArrayImpl<float3>(offsets.last()), splines_(splines), offsets_(std::move(offsets))
   {
   }
 
@@ -988,7 +988,7 @@ class VArray_For_BezierHandle final : public VArrayImpl<float3> {
   }
 };
 
-class VMutableArray_For_BezierHandles final : public VMutableArray<float3> {
+class VMutableArray_For_BezierHandles final : public VMutableArrayImpl<float3> {
  private:
   MutableSpan<SplinePtr> splines_;
   Array<int> offsets_;
@@ -998,7 +998,7 @@ class VMutableArray_For_BezierHandles final : public VMutableArray<float3> {
   VMutableArray_For_BezierHandles(MutableSpan<SplinePtr> splines,
                                   Array<int> offsets,
                                   const bool is_right)
-      : VMutableArray<float3>(offsets.last()),
+      : VMutableArrayImpl<float3>(offsets.last()),
         splines_(splines),
         offsets_(std::move(offsets)),
         is_right_(is_right)

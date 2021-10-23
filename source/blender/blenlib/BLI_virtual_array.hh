@@ -211,9 +211,9 @@ template<typename T> class VArrayImpl {
 };
 
 /* Similar to VArrayImpl, but the elements are mutable. */
-template<typename T> class VMutableArray : public VArrayImpl<T> {
+template<typename T> class VMutableArrayImpl : public VArrayImpl<T> {
  public:
-  VMutableArray(const int64_t size) : VArrayImpl<T>(size)
+  VMutableArrayImpl(const int64_t size) : VArrayImpl<T>(size)
   {
   }
 
@@ -257,7 +257,7 @@ template<typename T> class VMutableArray : public VArrayImpl<T> {
 };
 
 template<typename T> using VArrayPtr = std::unique_ptr<VArrayImpl<T>>;
-template<typename T> using VMutableArrayPtr = std::unique_ptr<VMutableArray<T>>;
+template<typename T> using VMutableArrayPtr = std::unique_ptr<VMutableArrayImpl<T>>;
 
 /**
  * A virtual array implementation for a span. Methods in this class are final so that it can be
@@ -293,18 +293,18 @@ template<typename T> class VArray_For_Span : public VArrayImpl<T> {
   }
 };
 
-template<typename T> class VMutableArray_For_MutableSpan : public VMutableArray<T> {
+template<typename T> class VMutableArray_For_MutableSpan : public VMutableArrayImpl<T> {
  protected:
   T *data_ = nullptr;
 
  public:
   VMutableArray_For_MutableSpan(const MutableSpan<T> data)
-      : VMutableArray<T>(data.size()), data_(data.data())
+      : VMutableArrayImpl<T>(data.size()), data_(data.data())
   {
   }
 
  protected:
-  VMutableArray_For_MutableSpan(const int64_t size) : VMutableArray<T>(size)
+  VMutableArray_For_MutableSpan(const int64_t size) : VMutableArrayImpl<T>(size)
   {
   }
 
@@ -430,7 +430,7 @@ template<typename T> class VArray_Span final : public Span<T> {
  */
 template<typename T> class VMutableArray_Span final : public MutableSpan<T> {
  private:
-  VMutableArray<T> &varray_;
+  VMutableArrayImpl<T> &varray_;
   Array<T> owned_data_;
   bool save_has_been_called_ = false;
   bool show_not_saved_warning_ = true;
@@ -438,7 +438,7 @@ template<typename T> class VMutableArray_Span final : public MutableSpan<T> {
  public:
   /* Create a span for any virtual array. This is cheap when the virtual array is a span itself. If
    * not, a new array has to be allocated as a wrapper for the underlying virtual array. */
-  VMutableArray_Span(VMutableArray<T> &varray, const bool copy_values_to_span = true)
+  VMutableArray_Span(VMutableArrayImpl<T> &varray, const bool copy_values_to_span = true)
       : MutableSpan<T>(), varray_(varray)
   {
     this->size_ = varray_.size();
@@ -550,13 +550,13 @@ template<typename StructT,
          typename ElemT,
          ElemT (*GetFunc)(const StructT &),
          void (*SetFunc)(StructT &, ElemT)>
-class VMutableArray_For_DerivedSpan : public VMutableArray<ElemT> {
+class VMutableArray_For_DerivedSpan : public VMutableArrayImpl<ElemT> {
  private:
   StructT *data_;
 
  public:
   VMutableArray_For_DerivedSpan(const MutableSpan<StructT> data)
-      : VMutableArray<ElemT>(data.size()), data_(data.data())
+      : VMutableArrayImpl<ElemT>(data.size()), data_(data.data())
   {
   }
 

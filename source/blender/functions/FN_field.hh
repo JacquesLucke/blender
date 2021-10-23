@@ -309,7 +309,7 @@ class FieldEvaluator : NonMovable, NonCopyable {
   int add_with_destination(GField field, GVMutableArray &dst);
 
   /** Same as #add_with_destination but typed. */
-  template<typename T> int add_with_destination(Field<T> field, VMutableArray<T> &dst)
+  template<typename T> int add_with_destination(Field<T> field, VMutableArrayImpl<T> &dst)
   {
     GVMutableArray &varray = scope_.construct<GVMutableArray_For_VMutableArray<T>>(dst);
     return this->add_with_destination(GField(std::move(field)), varray);
