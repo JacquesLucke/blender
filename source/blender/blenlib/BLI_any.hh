@@ -27,12 +27,14 @@
 namespace blender {
 
 namespace detail {
-struct AnyTypeInfo {
+
+template<typename ExtraInfo> struct AnyTypeInfo {
   bool is_unique_ptr;
   void (*copy_construct)(void *dst, const void *src);
   void (*move_construct)(void *dst, void *src);
   void (*destruct)(void *src);
   const void *(*get)(const void *src);
+  ExtraInfo extra_info;
 
   template<typename T> static const AnyTypeInfo &get_for_inline()
   {
@@ -40,7 +42,8 @@ struct AnyTypeInfo {
                                 [](void *dst, const void *src) { new (dst) T(*(const T *)src); },
                                 [](void *dst, void *src) { new (dst) T(std::move(*(T *)src)); },
                                 [](void *src) { ((T *)src)->~T(); },
-                                [](const void *src) { return src; }};
+                                [](const void *src) { return src; },
+                                ExtraInfo::template get<T>()};
     return funcs;
   }
 
@@ -52,7 +55,8 @@ struct AnyTypeInfo {
         [](void *dst, const void *src) { new (dst) Ptr(new T(**(const Ptr *)src)); },
         [](void *dst, void *src) { new (dst) Ptr(new T(std::move(**(Ptr *)src))); },
         [](void *src) { ((Ptr *)src)->~Ptr(); },
-        [](const void *src) -> const void * { return &**(const Ptr *)src; }};
+        [](const void *src) -> const void * { return &**(const Ptr *)src; },
+        ExtraInfo::template get<T>()};
     return funcs;
   }
 
@@ -62,16 +66,29 @@ struct AnyTypeInfo {
                                 [](void *UNUSED(dst), const void *UNUSED(src)) {},
                                 [](void *UNUSED(dst), void *UNUSED(src)) {},
                                 [](void *UNUSED(src)) {},
-                                [](const void *UNUSED(src)) -> const void * { return nullptr; }};
+                                [](const void *UNUSED(src)) -> const void * { return nullptr; },
+                                ExtraInfo{}};
     return funcs;
   }
 };
+
+struct NoExtraInfo {
+  template<typename T> static NoExtraInfo get()
+  {
+    return {};
+  }
+};
+
 }  // namespace detail
 
-template<size_t InlineBufferCapacity = sizeof(void *), size_t Alignment = alignof(void *)>
+template<typename ExtraInfo = void,
+         size_t InlineBufferCapacity = sizeof(void *),
+         size_t Alignment = alignof(void *)>
 class Any {
  private:
-  using Info = detail::AnyTypeInfo;
+  using RealExtraInfo =
+      std::conditional_t<std::is_void_v<ExtraInfo>, detail::NoExtraInfo, ExtraInfo>;
+  using Info = detail::AnyTypeInfo<RealExtraInfo>;
 
   AlignedBuffer<std::max(InlineBufferCapacity, sizeof(std::unique_ptr<int>)), Alignment> buffer_;
   const Info *info_ = &Info::get_for_empty();
@@ -93,10 +110,10 @@ class Any {
     using DecayT = std::decay_t<T>;
     static_assert(is_allowed_v<DecayT>);
     if constexpr (is_inline_v<DecayT>) {
-      return Info::get_for_inline<DecayT>();
+      return Info::template get_for_inline<DecayT>();
     }
     else {
-      return Info::get_for_unique_ptr<DecayT>();
+      return Info::template get_for_unique_ptr<DecayT>();
     }
   }
 
@@ -186,6 +203,11 @@ class Any {
   {
     BLI_assert(this->is<T>());
     return *static_cast<const T *>(this->get());
+  }
+
+  const RealExtraInfo &extra_info() const
+  {
+    return info_->extra_info;
   }
 };
 

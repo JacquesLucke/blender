@@ -85,4 +85,24 @@ TEST(any, AssignAny)
   EXPECT_EQ(z.get<Any<>>().get<int>(), 5);
 }
 
+struct ExtraSizeInfo {
+  size_t size;
+
+  template<typename T> static ExtraSizeInfo get()
+  {
+    return {sizeof(T)};
+  }
+};
+
+TEST(any, ExtraInfo)
+{
+  using MyAny = Any<ExtraSizeInfo>;
+
+  MyAny a = 5;
+  EXPECT_EQ(a.extra_info().size, sizeof(int));
+
+  a = std::string("hello");
+  EXPECT_EQ(a.extra_info().size, sizeof(std::string));
+}
+
 }  // namespace blender::tests
