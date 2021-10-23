@@ -1112,6 +1112,108 @@ class GVArray {
   }
 };
 
+class GVMutableArray {
+ private:
+  using ExtraInfo = detail::GVArrayAnyExtraInfo;
+  using Storage = Any<ExtraInfo, 32, 8>;
+  using Impl = GVMutableArrayImpl;
+
+  Impl *impl_ = nullptr;
+  Storage storage_;
+
+ public:
+  GVMutableArray() = default;
+
+  GVMutableArray(const GVMutableArray &other) : storage_(other.storage_)
+  {
+    impl_ = const_cast<Impl *>(
+        static_cast<const Impl *>(storage_.extra_info().get_varray(storage_.get())));
+  }
+
+  GVMutableArray(Impl *impl) : impl_(impl)
+  {
+  }
+
+  GVMutableArray(std::shared_ptr<Impl> impl) : impl_(impl.get())
+  {
+    if (impl) {
+      storage_ = std::shared_ptr<const GVArrayImpl>(std::move(impl));
+    }
+  }
+
+  template<typename T> GVMutableArray(VMutableArray<T> &varray)
+  {
+    if (!varray) {
+      return;
+    }
+    if (varray->is_span()) {
+      Span<T> data = varray->get_internal_span();
+      *this = GVMutableArray::ForSpan(data);
+    }
+    else {
+      // *this = GVMutableArray::For<GVArray_For_VArray<T>>(varray);
+    }
+  }
+
+  template<typename T> VMutableArray<T> typed() const
+  {
+    if (*this) {
+      return {};
+    }
+    BLI_assert(impl_->type().is<T>());
+    if (impl_->is_span()) {
+      const GSpan span = impl_->get_internal_span();
+      return VMutableArray<T>::ForSpan(span.typed<T>());
+    }
+    return {};
+    // return VArray<T>::template For<VArray_For_GVArray<T>>(*this);
+  }
+
+  template<typename ImplT, typename... Args> static GVMutableArray For(Args &&...args)
+  {
+    static_assert(std::is_base_of_v<Impl, ImplT>);
+    if constexpr (std::is_copy_constructible_v<ImplT> && Storage::template is_inline_v<ImplT>) {
+      GVMutableArray varray;
+      varray.impl_ = &varray.storage_.template emplace<ImplT>(std::forward<Args>(args)...);
+      return varray;
+    }
+    else {
+      return GVMutableArray(std::make_shared<ImplT>(std::forward<Args>(args)...));
+    }
+  }
+
+  static GVMutableArray ForSpan(GMutableSpan span);
+
+  operator bool() const
+  {
+    return impl_ != nullptr;
+  }
+
+  Impl *operator->()
+  {
+    BLI_assert(*this);
+    return impl_;
+  }
+
+  const Impl *operator->() const
+  {
+    BLI_assert(*this);
+    return impl_;
+  }
+
+  Impl &operator*()
+  {
+    BLI_assert(*this);
+    return *impl_;
+  }
+
+  const Impl &operator*() const
+  {
+    BLI_assert(*this);
+    return *impl_;
+  }
+};
+
 template<typename T>
 inline VArray_For_GVArray<T>::VArray_For_GVArray(const GVArray &varray)
     : local_varray_(std::make_shared<GVArray>(std::move(varray)))

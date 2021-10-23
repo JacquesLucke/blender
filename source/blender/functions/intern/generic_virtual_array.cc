@@ -473,4 +473,15 @@ GVArray GVArray::ForSpan(GSpan span)
 
 /** \} */
 
+/* -------------------------------------------------------------------- */
+/** \name #GVMutableArray
+ * \{ */
+
+GVMutableArray GVMutableArray::ForSpan(GMutableSpan span)
+{
+  return GVMutableArray::For<GVMutableArray_For_GMutableSpan>(span);
+}
+
+/** \} */
+
 }  // namespace blender::fn
