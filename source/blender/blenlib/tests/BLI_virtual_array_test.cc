@@ -175,6 +175,9 @@ TEST(virtual_array, Test)
   EXPECT_EQ(e[1], 6);
   e->set(0, 10);
   EXPECT_EQ(values[0], 10);
+
+  VArray<int> f = e;
+  EXPECT_EQ(f[3], 7);
 }
 
 }  // namespace blender::tests

@@ -689,13 +689,18 @@ template<typename T> struct VArrayAnyExtraInfo {
 
 }  // namespace detail
 
+template<typename T> class VMutableArray;
+
 template<typename T> class VArray {
  private:
   using ExtraInfo = detail::VArrayAnyExtraInfo<T>;
   using Storage = Any<ExtraInfo, 24, 8>;
+  using Impl = VArrayImpl<T>;
 
-  const VArrayImpl<T> *impl_ = nullptr;
+  const Impl *impl_ = nullptr;
   Storage storage_;
+
+  friend class VMutableArray<T>;
 
  public:
   VArray() = default;
@@ -705,11 +710,11 @@ template<typename T> class VArray {
     impl_ = storage_.extra_info().get_varray(storage_.get());
   }
 
-  VArray(const VArrayImpl<T> *impl) : impl_(impl)
+  VArray(const Impl *impl) : impl_(impl)
   {
   }
 
-  VArray(std::shared_ptr<const VArrayImpl<T>> impl) : impl_(impl.get())
+  VArray(std::shared_ptr<const Impl> impl) : impl_(impl.get())
   {
     if (impl) {
       storage_ = std::move(impl);
@@ -718,7 +723,7 @@ template<typename T> class VArray {
 
   template<typename ImplT, typename... Args> static VArray For(Args &&...args)
   {
-    static_assert(std::is_base_of_v<VArrayImpl<T>, ImplT>);
+    static_assert(std::is_base_of_v<Impl, ImplT>);
     if constexpr (std::is_copy_constructible_v<ImplT> && Storage::template is_inline_v<ImplT>) {
       VArray varray;
       varray.impl_ = &varray.storage_.template emplace<ImplT>(std::forward<Args>(args)...);
@@ -760,13 +765,13 @@ template<typename T> class VArray {
     return impl_ != nullptr;
   }
 
-  const VArrayImpl<T> *operator->() const
+  const Impl *operator->() const
   {
     BLI_assert(*this);
     return impl_;
   }
 
-  const VArrayImpl<T> &operator*() const
+  const Impl &operator*() const
   {
     BLI_assert(*this);
     return impl_;
@@ -839,6 +844,14 @@ template<typename T> class VMutableArray {
   operator bool() const
   {
     return impl_ != nullptr;
+  }
+
+  operator VArray<T>() const
+  {
+    VArray<T> varray;
+    varray.storage_ = storage_;
+    varray.impl_ = impl_;
+    return varray;
   }
 
   Impl *operator->()

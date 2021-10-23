@@ -219,6 +219,19 @@ class Any {
     info_->destruct(&buffer_);
   }
 
+  /**
+   * \note: Only needed because the template below does not count as copy assignment operator.
+   */
+  Any &operator=(const Any &other)
+  {
+    if (this == &other) {
+      return *this;
+    }
+    this->~Any();
+    new (this) Any(other);
+    return *this;
+  }
+
   /** Assign any value to the #Any. */
   template<typename T> Any &operator=(T &&other)
   {
