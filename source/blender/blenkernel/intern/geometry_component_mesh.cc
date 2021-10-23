@@ -160,7 +160,7 @@ namespace blender::bke {
 
 template<typename T>
 static void adapt_mesh_domain_corner_to_point_impl(const Mesh &mesh,
-                                                   const VArray<T> &old_values,
+                                                   const VArrayImpl<T> &old_values,
                                                    MutableSpan<T> r_values)
 {
   BLI_assert(r_values.size() == mesh.totvert);
@@ -178,7 +178,7 @@ static void adapt_mesh_domain_corner_to_point_impl(const Mesh &mesh,
 /* A vertex is selected if all connected face corners were selected and it is not loose. */
 template<>
 void adapt_mesh_domain_corner_to_point_impl(const Mesh &mesh,
-                                            const VArray<bool> &old_values,
+                                            const VArrayImpl<bool> &old_values,
                                             MutableSpan<bool> r_values)
 {
   BLI_assert(r_values.size() == mesh.totvert);
@@ -228,7 +228,7 @@ static GVArrayPtr adapt_mesh_domain_corner_to_point(const Mesh &mesh, GVArrayPtr
  */
 template<typename T>
 static void adapt_mesh_domain_point_to_corner_impl(const Mesh &mesh,
-                                                   const VArray<T> &old_values,
+                                                   const VArrayImpl<T> &old_values,
                                                    MutableSpan<T> r_values)
 {
   BLI_assert(r_values.size() == mesh.totloop);
@@ -258,7 +258,7 @@ static GVArrayPtr adapt_mesh_domain_point_to_corner(const Mesh &mesh, GVArrayPtr
  */
 template<typename T>
 static void adapt_mesh_domain_corner_to_face_impl(const Mesh &mesh,
-                                                  const VArray<T> &old_values,
+                                                  const VArrayImpl<T> &old_values,
                                                   MutableSpan<T> r_values)
 {
   BLI_assert(r_values.size() == mesh.totpoly);
@@ -278,7 +278,7 @@ static void adapt_mesh_domain_corner_to_face_impl(const Mesh &mesh,
 /* A face is selected if all of its corners were selected. */
 template<>
 void adapt_mesh_domain_corner_to_face_impl(const Mesh &mesh,
-                                           const VArray<bool> &old_values,
+                                           const VArrayImpl<bool> &old_values,
                                            MutableSpan<bool> r_values)
 {
   BLI_assert(r_values.size() == mesh.totpoly);
@@ -311,7 +311,7 @@ static GVArrayPtr adapt_mesh_domain_corner_to_face(const Mesh &mesh, GVArrayPtr 
 
 template<typename T>
 static void adapt_mesh_domain_corner_to_edge_impl(const Mesh &mesh,
-                                                  const VArray<T> &old_values,
+                                                  const VArrayImpl<T> &old_values,
                                                   MutableSpan<T> r_values)
 {
   BLI_assert(r_values.size() == mesh.totedge);
@@ -336,7 +336,7 @@ static void adapt_mesh_domain_corner_to_edge_impl(const Mesh &mesh,
 /* An edge is selected if all corners on adjacent faces were selected. */
 template<>
 void adapt_mesh_domain_corner_to_edge_impl(const Mesh &mesh,
-                                           const VArray<bool> &old_values,
+                                           const VArrayImpl<bool> &old_values,
                                            MutableSpan<bool> r_values)
 {
   BLI_assert(r_values.size() == mesh.totedge);
@@ -384,7 +384,7 @@ static GVArrayPtr adapt_mesh_domain_corner_to_edge(const Mesh &mesh, GVArrayPtr 
 
 template<typename T>
 void adapt_mesh_domain_face_to_point_impl(const Mesh &mesh,
-                                          const VArray<T> &old_values,
+                                          const VArrayImpl<T> &old_values,
                                           MutableSpan<T> r_values)
 {
   BLI_assert(r_values.size() == mesh.totvert);
@@ -406,7 +406,7 @@ void adapt_mesh_domain_face_to_point_impl(const Mesh &mesh,
 /* A vertex is selected if any of the connected faces were selected. */
 template<>
 void adapt_mesh_domain_face_to_point_impl(const Mesh &mesh,
-                                          const VArray<bool> &old_values,
+                                          const VArrayImpl<bool> &old_values,
                                           MutableSpan<bool> r_values)
 {
   BLI_assert(r_values.size() == mesh.totvert);
@@ -441,7 +441,7 @@ static GVArrayPtr adapt_mesh_domain_face_to_point(const Mesh &mesh, GVArrayPtr v
 /* Each corner's value is simply a copy of the value at its face. */
 template<typename T>
 void adapt_mesh_domain_face_to_corner_impl(const Mesh &mesh,
-                                           const VArray<T> &old_values,
+                                           const VArrayImpl<T> &old_values,
                                            MutableSpan<T> r_values)
 {
   BLI_assert(r_values.size() == mesh.totloop);
@@ -469,7 +469,7 @@ static GVArrayPtr adapt_mesh_domain_face_to_corner(const Mesh &mesh, GVArrayPtr 
 
 template<typename T>
 void adapt_mesh_domain_face_to_edge_impl(const Mesh &mesh,
-                                         const VArray<T> &old_values,
+                                         const VArrayImpl<T> &old_values,
                                          MutableSpan<T> r_values)
 {
   BLI_assert(r_values.size() == mesh.totedge);
@@ -489,7 +489,7 @@ void adapt_mesh_domain_face_to_edge_impl(const Mesh &mesh,
 /* An edge is selected if any connected face was selected. */
 template<>
 void adapt_mesh_domain_face_to_edge_impl(const Mesh &mesh,
-                                         const VArray<bool> &old_values,
+                                         const VArrayImpl<bool> &old_values,
                                          MutableSpan<bool> r_values)
 {
   BLI_assert(r_values.size() == mesh.totedge);
@@ -528,7 +528,7 @@ static GVArrayPtr adapt_mesh_domain_face_to_edge(const Mesh &mesh, GVArrayPtr va
  */
 template<typename T>
 static void adapt_mesh_domain_point_to_face_impl(const Mesh &mesh,
-                                                 const VArray<T> &old_values,
+                                                 const VArrayImpl<T> &old_values,
                                                  MutableSpan<T> r_values)
 {
   BLI_assert(r_values.size() == mesh.totpoly);
@@ -548,7 +548,7 @@ static void adapt_mesh_domain_point_to_face_impl(const Mesh &mesh,
 /* A face is selected if all of its vertices were selected too. */
 template<>
 void adapt_mesh_domain_point_to_face_impl(const Mesh &mesh,
-                                          const VArray<bool> &old_values,
+                                          const VArrayImpl<bool> &old_values,
                                           MutableSpan<bool> r_values)
 {
   BLI_assert(r_values.size() == mesh.totpoly);
@@ -588,7 +588,7 @@ static GVArrayPtr adapt_mesh_domain_point_to_face(const Mesh &mesh, GVArrayPtr v
  */
 template<typename T>
 static void adapt_mesh_domain_point_to_edge_impl(const Mesh &mesh,
-                                                 const VArray<T> &old_values,
+                                                 const VArrayImpl<T> &old_values,
                                                  MutableSpan<T> r_values)
 {
   BLI_assert(r_values.size() == mesh.totedge);
@@ -606,7 +606,7 @@ static void adapt_mesh_domain_point_to_edge_impl(const Mesh &mesh,
 /* An edge is selected if both of its vertices were selected. */
 template<>
 void adapt_mesh_domain_point_to_edge_impl(const Mesh &mesh,
-                                          const VArray<bool> &old_values,
+                                          const VArrayImpl<bool> &old_values,
                                           MutableSpan<bool> r_values)
 {
   BLI_assert(r_values.size() == mesh.totedge);
@@ -633,7 +633,7 @@ static GVArrayPtr adapt_mesh_domain_point_to_edge(const Mesh &mesh, GVArrayPtr v
 
 template<typename T>
 void adapt_mesh_domain_edge_to_corner_impl(const Mesh &mesh,
-                                           const VArray<T> &old_values,
+                                           const VArrayImpl<T> &old_values,
                                            MutableSpan<T> r_values)
 {
   BLI_assert(r_values.size() == mesh.totloop);
@@ -658,7 +658,7 @@ void adapt_mesh_domain_edge_to_corner_impl(const Mesh &mesh,
 /* A corner is selected if its two adjacent edges were selected. */
 template<>
 void adapt_mesh_domain_edge_to_corner_impl(const Mesh &mesh,
-                                           const VArray<bool> &old_values,
+                                           const VArrayImpl<bool> &old_values,
                                            MutableSpan<bool> r_values)
 {
   BLI_assert(r_values.size() == mesh.totloop);
@@ -694,7 +694,7 @@ static GVArrayPtr adapt_mesh_domain_edge_to_corner(const Mesh &mesh, GVArrayPtr 
 
 template<typename T>
 static void adapt_mesh_domain_edge_to_point_impl(const Mesh &mesh,
-                                                 const VArray<T> &old_values,
+                                                 const VArrayImpl<T> &old_values,
                                                  MutableSpan<T> r_values)
 {
   BLI_assert(r_values.size() == mesh.totvert);
@@ -713,7 +713,7 @@ static void adapt_mesh_domain_edge_to_point_impl(const Mesh &mesh,
 /* A vertex is selected if any connected edge was selected. */
 template<>
 void adapt_mesh_domain_edge_to_point_impl(const Mesh &mesh,
-                                          const VArray<bool> &old_values,
+                                          const VArrayImpl<bool> &old_values,
                                           MutableSpan<bool> r_values)
 {
   BLI_assert(r_values.size() == mesh.totvert);
@@ -749,7 +749,7 @@ static GVArrayPtr adapt_mesh_domain_edge_to_point(const Mesh &mesh, GVArrayPtr v
  */
 template<typename T>
 static void adapt_mesh_domain_edge_to_face_impl(const Mesh &mesh,
-                                                const VArray<T> &old_values,
+                                                const VArrayImpl<T> &old_values,
                                                 MutableSpan<T> r_values)
 {
   BLI_assert(r_values.size() == mesh.totpoly);
@@ -769,7 +769,7 @@ static void adapt_mesh_domain_edge_to_face_impl(const Mesh &mesh,
 /* A face is selected if all of its edges are selected. */
 template<>
 void adapt_mesh_domain_edge_to_face_impl(const Mesh &mesh,
-                                         const VArray<bool> &old_values,
+                                         const VArrayImpl<bool> &old_values,
                                          MutableSpan<bool> r_values)
 {
   BLI_assert(r_values.size() == mesh.totpoly);
@@ -1036,14 +1036,14 @@ class VMutableArray_For_VertexWeights final : public VMutableArray<float> {
   }
 };
 
-class VArray_For_VertexWeights final : public VArray<float> {
+class VArray_For_VertexWeights final : public VArrayImpl<float> {
  private:
   const MDeformVert *dverts_;
   const int dvert_index_;
 
  public:
   VArray_For_VertexWeights(const MDeformVert *dverts, const int totvert, const int dvert_index)
-      : VArray<float>(totvert), dverts_(dverts), dvert_index_(dvert_index)
+      : VArrayImpl<float>(totvert), dverts_(dverts), dvert_index_(dvert_index)
   {
   }
 

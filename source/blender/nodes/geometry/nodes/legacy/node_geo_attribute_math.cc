@@ -160,9 +160,9 @@ static void geo_node_attribute_math_update(bNodeTree *UNUSED(ntree), bNode *node
       operation_use_input_c(operation));
 }
 
-static void do_math_operation(const VArray<float> &span_a,
-                              const VArray<float> &span_b,
-                              const VArray<float> &span_c,
+static void do_math_operation(const VArrayImpl<float> &span_a,
+                              const VArrayImpl<float> &span_b,
+                              const VArrayImpl<float> &span_c,
                               MutableSpan<float> span_result,
                               const NodeMathOperation operation)
 {
@@ -178,8 +178,8 @@ static void do_math_operation(const VArray<float> &span_a,
   UNUSED_VARS_NDEBUG(success);
 }
 
-static void do_math_operation(const VArray<float> &span_a,
-                              const VArray<float> &span_b,
+static void do_math_operation(const VArrayImpl<float> &span_a,
+                              const VArrayImpl<float> &span_b,
                               MutableSpan<float> span_result,
                               const NodeMathOperation operation)
 {
@@ -195,7 +195,7 @@ static void do_math_operation(const VArray<float> &span_a,
   UNUSED_VARS_NDEBUG(success);
 }
 
-static void do_math_operation(const VArray<float> &span_input,
+static void do_math_operation(const VArrayImpl<float> &span_input,
                               MutableSpan<float> span_result,
                               const NodeMathOperation operation)
 {

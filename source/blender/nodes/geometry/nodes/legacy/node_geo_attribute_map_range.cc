@@ -189,7 +189,7 @@ static float map_smootherstep(const float value,
   return min_to + factor_mapped * (max_to - min_to);
 }
 
-static void map_range_float(const VArray<float> &attribute_input,
+static void map_range_float(const VArrayImpl<float> &attribute_input,
                             MutableSpan<float> results,
                             const GeoNodeExecParams &params)
 {
@@ -253,7 +253,7 @@ static void map_range_float(const VArray<float> &attribute_input,
   }
 }
 
-static void map_range_float3(const VArray<float3> &attribute_input,
+static void map_range_float3(const VArrayImpl<float3> &attribute_input,
                              const MutableSpan<float3> results,
                              const GeoNodeExecParams &params)
 {

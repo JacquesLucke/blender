@@ -80,10 +80,10 @@ static void add_instances_from_component(InstancesComponent &dst_component,
   MutableSpan<int> dst_stable_ids = dst_component.instance_ids().slice(start_len, select_len);
 
   FieldEvaluator field_evaluator{field_context, domain_size};
-  const VArray<bool> *pick_instance = nullptr;
-  const VArray<int> *indices = nullptr;
-  const VArray<float3> *rotations = nullptr;
-  const VArray<float3> *scales = nullptr;
+  const VArrayImpl<bool> *pick_instance = nullptr;
+  const VArrayImpl<int> *indices = nullptr;
+  const VArrayImpl<float3> *rotations = nullptr;
+  const VArrayImpl<float3> *scales = nullptr;
   /* The evaluator could use the component's stable IDs as a destination directly, but only the
    * selected indices should be copied. */
   GVArray_Typed<int> stable_ids = src_component.attribute_get_for_read("id", ATTR_DOMAIN_POINT, 0);

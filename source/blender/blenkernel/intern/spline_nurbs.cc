@@ -391,7 +391,7 @@ Span<NURBSpline::BasisCache> NURBSpline::calculate_basis_cache() const
 
 template<typename T>
 void interpolate_to_evaluated_impl(Span<NURBSpline::BasisCache> weights,
-                                   const blender::VArray<T> &src,
+                                   const blender::VArrayImpl<T> &src,
                                    MutableSpan<T> dst)
 {
   const int size = src.size();

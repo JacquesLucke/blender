@@ -77,9 +77,9 @@ static void geo_node_raycast_update(bNodeTree *UNUSED(ntree), bNode *node)
 }
 
 static void raycast_to_mesh(const Mesh &mesh,
-                            const VArray<float3> &ray_origins,
-                            const VArray<float3> &ray_directions,
-                            const VArray<float> &ray_lengths,
+                            const VArrayImpl<float3> &ray_origins,
+                            const VArrayImpl<float3> &ray_directions,
+                            const VArrayImpl<float> &ray_lengths,
                             const MutableSpan<bool> r_hit,
                             const MutableSpan<int> r_hit_indices,
                             const MutableSpan<float3> r_hit_positions,

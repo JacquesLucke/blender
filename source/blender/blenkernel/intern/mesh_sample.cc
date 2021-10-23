@@ -28,7 +28,7 @@ template<typename T>
 BLI_NOINLINE static void sample_point_attribute(const Mesh &mesh,
                                                 const Span<int> looptri_indices,
                                                 const Span<float3> bary_coords,
-                                                const VArray<T> &data_in,
+                                                const VArrayImpl<T> &data_in,
                                                 const IndexMask mask,
                                                 const MutableSpan<T> data_out)
 {
@@ -75,7 +75,7 @@ template<typename T>
 BLI_NOINLINE static void sample_corner_attribute(const Mesh &mesh,
                                                  const Span<int> looptri_indices,
                                                  const Span<float3> bary_coords,
-                                                 const VArray<T> &data_in,
+                                                 const VArrayImpl<T> &data_in,
                                                  const IndexMask mask,
                                                  const MutableSpan<T> data_out)
 {
@@ -121,7 +121,7 @@ void sample_corner_attribute(const Mesh &mesh,
 template<typename T>
 void sample_face_attribute(const Mesh &mesh,
                            const Span<int> looptri_indices,
-                           const VArray<T> &data_in,
+                           const VArrayImpl<T> &data_in,
                            const IndexMask mask,
                            const MutableSpan<T> data_out)
 {

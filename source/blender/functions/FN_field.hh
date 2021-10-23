@@ -343,14 +343,14 @@ class FieldEvaluator : NonMovable, NonCopyable {
    *   assigned to the given position.
    * \return Index of the field in the evaluator which can be used in the #get_evaluated methods.
    */
-  template<typename T> int add(Field<T> field, const VArray<T> **varray_ptr)
+  template<typename T> int add(Field<T> field, const VArrayImpl<T> **varray_ptr)
   {
     const int field_index = fields_to_evaluate_.append_and_get_index(std::move(field));
     dst_varrays_.append(nullptr);
-    output_pointer_infos_.append(
-        OutputPointerInfo{varray_ptr, [](void *dst, const GVArray &varray, ResourceScope &scope) {
-                            *(const VArray<T> **)dst = &*scope.construct<GVArray_Typed<T>>(varray);
-                          }});
+    output_pointer_infos_.append(OutputPointerInfo{
+        varray_ptr, [](void *dst, const GVArray &varray, ResourceScope &scope) {
+          *(const VArrayImpl<T> **)dst = &*scope.construct<GVArray_Typed<T>>(varray);
+        }});
     return field_index;
   }
 
@@ -370,7 +370,7 @@ class FieldEvaluator : NonMovable, NonCopyable {
     return *evaluated_varrays_[field_index];
   }
 
-  template<typename T> const VArray<T> &get_evaluated(const int field_index)
+  template<typename T> const VArrayImpl<T> &get_evaluated(const int field_index)
   {
     const GVArray &varray = this->get_evaluated(field_index);
     GVArray_Typed<T> &typed_varray = scope_.construct<GVArray_Typed<T>>(varray);

@@ -83,7 +83,7 @@ static float3 normal_to_euler_rotation(const float3 normal)
 static void sample_mesh_surface(const Mesh &mesh,
                                 const float4x4 &transform,
                                 const float base_density,
-                                const VArray<float> *density_factors,
+                                const VArrayImpl<float> *density_factors,
                                 const int seed,
                                 Vector<float3> &r_positions,
                                 Vector<float3> &r_bary_coords,
@@ -196,7 +196,7 @@ BLI_NOINLINE static void update_elimination_mask_for_close_points(
 
 BLI_NOINLINE static void update_elimination_mask_based_on_density_factors(
     const Mesh &mesh,
-    const VArray<float> &density_factors,
+    const VArrayImpl<float> &density_factors,
     Span<float3> bary_coords,
     Span<int> looptri_indices,
     MutableSpan<bool> elimination_mask)

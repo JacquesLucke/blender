@@ -185,8 +185,8 @@ static void geo_node_attribute_vector_math_update(bNodeTree *UNUSED(ntree), bNod
       operation_use_input_c(operation));
 }
 
-static void do_math_operation_fl3_fl3_to_fl3(const VArray<float3> &input_a,
-                                             const VArray<float3> &input_b,
+static void do_math_operation_fl3_fl3_to_fl3(const VArrayImpl<float3> &input_a,
+                                             const VArrayImpl<float3> &input_b,
                                              VMutableArray<float3> &result,
                                              const NodeVectorMathOperation operation)
 {
@@ -215,9 +215,9 @@ static void do_math_operation_fl3_fl3_to_fl3(const VArray<float3> &input_a,
   UNUSED_VARS_NDEBUG(success);
 }
 
-static void do_math_operation_fl3_fl3_fl3_to_fl3(const VArray<float3> &input_a,
-                                                 const VArray<float3> &input_b,
-                                                 const VArray<float3> &input_c,
+static void do_math_operation_fl3_fl3_fl3_to_fl3(const VArrayImpl<float3> &input_a,
+                                                 const VArrayImpl<float3> &input_b,
+                                                 const VArrayImpl<float3> &input_c,
                                                  VMutableArray<float3> &result,
                                                  const NodeVectorMathOperation operation)
 {
@@ -248,9 +248,9 @@ static void do_math_operation_fl3_fl3_fl3_to_fl3(const VArray<float3> &input_a,
   UNUSED_VARS_NDEBUG(success);
 }
 
-static void do_math_operation_fl3_fl3_fl_to_fl3(const VArray<float3> &input_a,
-                                                const VArray<float3> &input_b,
-                                                const VArray<float> &input_c,
+static void do_math_operation_fl3_fl3_fl_to_fl3(const VArrayImpl<float3> &input_a,
+                                                const VArrayImpl<float3> &input_b,
+                                                const VArrayImpl<float> &input_c,
                                                 VMutableArray<float3> &result,
                                                 const NodeVectorMathOperation operation)
 {
@@ -281,8 +281,8 @@ static void do_math_operation_fl3_fl3_fl_to_fl3(const VArray<float3> &input_a,
   UNUSED_VARS_NDEBUG(success);
 }
 
-static void do_math_operation_fl3_fl3_to_fl(const VArray<float3> &input_a,
-                                            const VArray<float3> &input_b,
+static void do_math_operation_fl3_fl3_to_fl(const VArrayImpl<float3> &input_a,
+                                            const VArrayImpl<float3> &input_b,
                                             VMutableArray<float> &result,
                                             const NodeVectorMathOperation operation)
 {
@@ -311,8 +311,8 @@ static void do_math_operation_fl3_fl3_to_fl(const VArray<float3> &input_a,
   UNUSED_VARS_NDEBUG(success);
 }
 
-static void do_math_operation_fl3_fl_to_fl3(const VArray<float3> &input_a,
-                                            const VArray<float> &input_b,
+static void do_math_operation_fl3_fl_to_fl3(const VArrayImpl<float3> &input_a,
+                                            const VArrayImpl<float> &input_b,
                                             VMutableArray<float3> &result,
                                             const NodeVectorMathOperation operation)
 {
@@ -341,7 +341,7 @@ static void do_math_operation_fl3_fl_to_fl3(const VArray<float3> &input_a,
   UNUSED_VARS_NDEBUG(success);
 }
 
-static void do_math_operation_fl3_to_fl3(const VArray<float3> &input_a,
+static void do_math_operation_fl3_to_fl3(const VArrayImpl<float3> &input_a,
                                          VMutableArray<float3> &result,
                                          const NodeVectorMathOperation operation)
 {
@@ -368,7 +368,7 @@ static void do_math_operation_fl3_to_fl3(const VArray<float3> &input_a,
   UNUSED_VARS_NDEBUG(success);
 }
 
-static void do_math_operation_fl3_to_fl(const VArray<float3> &input_a,
+static void do_math_operation_fl3_to_fl(const VArrayImpl<float3> &input_a,
                                         VMutableArray<float> &result,
                                         const NodeVectorMathOperation operation)
 {

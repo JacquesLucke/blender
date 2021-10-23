@@ -85,12 +85,12 @@ class NodeTexChecker : public fn::MultiFunction {
             fn::MFParams params,
             fn::MFContext UNUSED(context)) const override
   {
-    const VArray<float3> &vector = params.readonly_single_input<float3>(0, "Vector");
-    const VArray<ColorGeometry4f> &color1 = params.readonly_single_input<ColorGeometry4f>(
+    const VArrayImpl<float3> &vector = params.readonly_single_input<float3>(0, "Vector");
+    const VArrayImpl<ColorGeometry4f> &color1 = params.readonly_single_input<ColorGeometry4f>(
         1, "Color1");
-    const VArray<ColorGeometry4f> &color2 = params.readonly_single_input<ColorGeometry4f>(
+    const VArrayImpl<ColorGeometry4f> &color2 = params.readonly_single_input<ColorGeometry4f>(
         2, "Color2");
-    const VArray<float> &scale = params.readonly_single_input<float>(3, "Scale");
+    const VArrayImpl<float> &scale = params.readonly_single_input<float>(3, "Scale");
     MutableSpan<ColorGeometry4f> r_color =
         params.uninitialized_single_output_if_required<ColorGeometry4f>(4, "Color");
     MutableSpan<float> r_fac = params.uninitialized_single_output<float>(5, "Fac");

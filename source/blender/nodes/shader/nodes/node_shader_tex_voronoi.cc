@@ -220,22 +220,22 @@ class VoronoiMinowskiFunction : public fn::MultiFunction {
 
   void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
   {
-    auto get_vector = [&](int param_index) -> const VArray<float3> & {
+    auto get_vector = [&](int param_index) -> const VArrayImpl<float3> & {
       return params.readonly_single_input<float3>(param_index, "Vector");
     };
-    auto get_w = [&](int param_index) -> const VArray<float> & {
+    auto get_w = [&](int param_index) -> const VArrayImpl<float> & {
       return params.readonly_single_input<float>(param_index, "W");
     };
-    auto get_scale = [&](int param_index) -> const VArray<float> & {
+    auto get_scale = [&](int param_index) -> const VArrayImpl<float> & {
       return params.readonly_single_input<float>(param_index, "Scale");
     };
-    auto get_smoothness = [&](int param_index) -> const VArray<float> & {
+    auto get_smoothness = [&](int param_index) -> const VArrayImpl<float> & {
       return params.readonly_single_input<float>(param_index, "Smoothness");
     };
-    auto get_exponent = [&](int param_index) -> const VArray<float> & {
+    auto get_exponent = [&](int param_index) -> const VArrayImpl<float> & {
       return params.readonly_single_input<float>(param_index, "Exponent");
     };
-    auto get_randomness = [&](int param_index) -> const VArray<float> & {
+    auto get_randomness = [&](int param_index) -> const VArrayImpl<float> & {
       return params.readonly_single_input<float>(param_index, "Randomness");
     };
     auto get_r_distance = [&](int param_index) -> MutableSpan<float> {
@@ -256,10 +256,10 @@ class VoronoiMinowskiFunction : public fn::MultiFunction {
       case 2: {
         switch (feature_) {
           case SHD_VORONOI_F1: {
-            const VArray<float3> &vector = get_vector(param++);
-            const VArray<float> &scale = get_scale(param++);
-            const VArray<float> &exponent = get_exponent(param++);
-            const VArray<float> &randomness = get_randomness(param++);
+            const VArrayImpl<float3> &vector = get_vector(param++);
+            const VArrayImpl<float> &scale = get_scale(param++);
+            const VArrayImpl<float> &exponent = get_exponent(param++);
+            const VArrayImpl<float> &randomness = get_randomness(param++);
             MutableSpan<float> r_distance = get_r_distance(param++);
             MutableSpan<ColorGeometry4f> r_color = get_r_color(param++);
             MutableSpan<float3> r_position = get_r_position(param++);
@@ -281,10 +281,10 @@ class VoronoiMinowskiFunction : public fn::MultiFunction {
             break;
           }
           case SHD_VORONOI_F2: {
-            const VArray<float3> &vector = get_vector(param++);
-            const VArray<float> &scale = get_scale(param++);
-            const VArray<float> &exponent = get_exponent(param++);
-            const VArray<float> &randomness = get_randomness(param++);
+            const VArrayImpl<float3> &vector = get_vector(param++);
+            const VArrayImpl<float> &scale = get_scale(param++);
+            const VArrayImpl<float> &exponent = get_exponent(param++);
+            const VArrayImpl<float> &randomness = get_randomness(param++);
             MutableSpan<float> r_distance = get_r_distance(param++);
             MutableSpan<ColorGeometry4f> r_color = get_r_color(param++);
             MutableSpan<float3> r_position = get_r_position(param++);
@@ -306,11 +306,11 @@ class VoronoiMinowskiFunction : public fn::MultiFunction {
             break;
           }
           case SHD_VORONOI_SMOOTH_F1: {
-            const VArray<float3> &vector = get_vector(param++);
-            const VArray<float> &scale = get_scale(param++);
-            const VArray<float> &smoothness = get_smoothness(param++);
-            const VArray<float> &exponent = get_exponent(param++);
-            const VArray<float> &randomness = get_randomness(param++);
+            const VArrayImpl<float3> &vector = get_vector(param++);
+            const VArrayImpl<float> &scale = get_scale(param++);
+            const VArrayImpl<float> &smoothness = get_smoothness(param++);
+            const VArrayImpl<float> &exponent = get_exponent(param++);
+            const VArrayImpl<float> &randomness = get_randomness(param++);
             MutableSpan<float> r_distance = get_r_distance(param++);
             MutableSpan<ColorGeometry4f> r_color = get_r_color(param++);
             MutableSpan<float3> r_position = get_r_position(param++);
@@ -339,10 +339,10 @@ class VoronoiMinowskiFunction : public fn::MultiFunction {
       case 3: {
         switch (feature_) {
           case SHD_VORONOI_F1: {
-            const VArray<float3> &vector = get_vector(param++);
-            const VArray<float> &scale = get_scale(param++);
-            const VArray<float> &exponent = get_exponent(param++);
-            const VArray<float> &randomness = get_randomness(param++);
+            const VArrayImpl<float3> &vector = get_vector(param++);
+            const VArrayImpl<float> &scale = get_scale(param++);
+            const VArrayImpl<float> &exponent = get_exponent(param++);
+            const VArrayImpl<float> &randomness = get_randomness(param++);
             MutableSpan<float> r_distance = get_r_distance(param++);
             MutableSpan<ColorGeometry4f> r_color = get_r_color(param++);
             MutableSpan<float3> r_position = get_r_position(param++);
@@ -362,10 +362,10 @@ class VoronoiMinowskiFunction : public fn::MultiFunction {
             break;
           }
           case SHD_VORONOI_F2: {
-            const VArray<float3> &vector = get_vector(param++);
-            const VArray<float> &scale = get_scale(param++);
-            const VArray<float> &exponent = get_exponent(param++);
-            const VArray<float> &randomness = get_randomness(param++);
+            const VArrayImpl<float3> &vector = get_vector(param++);
+            const VArrayImpl<float> &scale = get_scale(param++);
+            const VArrayImpl<float> &exponent = get_exponent(param++);
+            const VArrayImpl<float> &randomness = get_randomness(param++);
             MutableSpan<float> r_distance = get_r_distance(param++);
             MutableSpan<ColorGeometry4f> r_color = get_r_color(param++);
             MutableSpan<float3> r_position = get_r_position(param++);
@@ -385,11 +385,11 @@ class VoronoiMinowskiFunction : public fn::MultiFunction {
             break;
           }
           case SHD_VORONOI_SMOOTH_F1: {
-            const VArray<float3> &vector = get_vector(param++);
-            const VArray<float> &scale = get_scale(param++);
-            const VArray<float> &smoothness = get_smoothness(param++);
-            const VArray<float> &exponent = get_exponent(param++);
-            const VArray<float> &randomness = get_randomness(param++);
+            const VArrayImpl<float3> &vector = get_vector(param++);
+            const VArrayImpl<float> &scale = get_scale(param++);
+            const VArrayImpl<float> &smoothness = get_smoothness(param++);
+            const VArrayImpl<float> &exponent = get_exponent(param++);
+            const VArrayImpl<float> &randomness = get_randomness(param++);
             MutableSpan<float> r_distance = get_r_distance(param++);
             MutableSpan<ColorGeometry4f> r_color = get_r_color(param++);
             MutableSpan<float3> r_position = get_r_position(param++);
@@ -416,11 +416,11 @@ class VoronoiMinowskiFunction : public fn::MultiFunction {
       case 4: {
         switch (feature_) {
           case SHD_VORONOI_F1: {
-            const VArray<float3> &vector = get_vector(param++);
-            const VArray<float> &w = get_w(param++);
-            const VArray<float> &scale = get_scale(param++);
-            const VArray<float> &exponent = get_exponent(param++);
-            const VArray<float> &randomness = get_randomness(param++);
+            const VArrayImpl<float3> &vector = get_vector(param++);
+            const VArrayImpl<float> &w = get_w(param++);
+            const VArrayImpl<float> &scale = get_scale(param++);
+            const VArrayImpl<float> &exponent = get_exponent(param++);
+            const VArrayImpl<float> &randomness = get_randomness(param++);
             MutableSpan<float> r_distance = get_r_distance(param++);
             MutableSpan<ColorGeometry4f> r_color = get_r_color(param++);
             MutableSpan<float3> r_position = get_r_position(param++);
@@ -439,11 +439,11 @@ class VoronoiMinowskiFunction : public fn::MultiFunction {
             break;
           }
           case SHD_VORONOI_F2: {
-            const VArray<float3> &vector = get_vector(param++);
-            const VArray<float> &w = get_w(param++);
-            const VArray<float> &scale = get_scale(param++);
-            const VArray<float> &exponent = get_exponent(param++);
-            const VArray<float> &randomness = get_randomness(param++);
+            const VArrayImpl<float3> &vector = get_vector(param++);
+            const VArrayImpl<float> &w = get_w(param++);
+            const VArrayImpl<float> &scale = get_scale(param++);
+            const VArrayImpl<float> &exponent = get_exponent(param++);
+            const VArrayImpl<float> &randomness = get_randomness(param++);
             MutableSpan<float> r_distance = get_r_distance(param++);
             MutableSpan<ColorGeometry4f> r_color = get_r_color(param++);
             MutableSpan<float3> r_position = get_r_position(param++);
@@ -463,12 +463,12 @@ class VoronoiMinowskiFunction : public fn::MultiFunction {
             break;
           }
           case SHD_VORONOI_SMOOTH_F1: {
-            const VArray<float3> &vector = get_vector(param++);
-            const VArray<float> &w = get_w(param++);
-            const VArray<float> &scale = get_scale(param++);
-            const VArray<float> &smoothness = get_smoothness(param++);
-            const VArray<float> &exponent = get_exponent(param++);
-            const VArray<float> &randomness = get_randomness(param++);
+            const VArrayImpl<float3> &vector = get_vector(param++);
+            const VArrayImpl<float> &w = get_w(param++);
+            const VArrayImpl<float> &scale = get_scale(param++);
+            const VArrayImpl<float> &smoothness = get_smoothness(param++);
+            const VArrayImpl<float> &exponent = get_exponent(param++);
+            const VArrayImpl<float> &randomness = get_randomness(param++);
             MutableSpan<float> r_distance = get_r_distance(param++);
             MutableSpan<ColorGeometry4f> r_color = get_r_color(param++);
             MutableSpan<float3> r_position = get_r_position(param++);
@@ -556,19 +556,19 @@ class VoronoiMetricFunction : public fn::MultiFunction {
 
   void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
   {
-    auto get_vector = [&](int param_index) -> const VArray<float3> & {
+    auto get_vector = [&](int param_index) -> const VArrayImpl<float3> & {
       return params.readonly_single_input<float3>(param_index, "Vector");
     };
-    auto get_w = [&](int param_index) -> const VArray<float> & {
+    auto get_w = [&](int param_index) -> const VArrayImpl<float> & {
       return params.readonly_single_input<float>(param_index, "W");
     };
-    auto get_scale = [&](int param_index) -> const VArray<float> & {
+    auto get_scale = [&](int param_index) -> const VArrayImpl<float> & {
       return params.readonly_single_input<float>(param_index, "Scale");
     };
-    auto get_smoothness = [&](int param_index) -> const VArray<float> & {
+    auto get_smoothness = [&](int param_index) -> const VArrayImpl<float> & {
       return params.readonly_single_input<float>(param_index, "Smoothness");
     };
-    auto get_randomness = [&](int param_index) -> const VArray<float> & {
+    auto get_randomness = [&](int param_index) -> const VArrayImpl<float> & {
       return params.readonly_single_input<float>(param_index, "Randomness");
     };
     auto get_r_distance = [&](int param_index) -> MutableSpan<float> {
@@ -589,9 +589,9 @@ class VoronoiMetricFunction : public fn::MultiFunction {
       case 1: {
         switch (feature_) {
           case SHD_VORONOI_F1: {
-            const VArray<float> &w = get_w(param++);
-            const VArray<float> &scale = get_scale(param++);
-            const VArray<float> &randomness = get_randomness(param++);
+            const VArrayImpl<float> &w = get_w(param++);
+            const VArrayImpl<float> &scale = get_scale(param++);
+            const VArrayImpl<float> &randomness = get_randomness(param++);
             MutableSpan<float> r_distance = get_r_distance(param++);
             MutableSpan<ColorGeometry4f> r_color = get_r_color(param++);
             MutableSpan<float> r_w = get_r_w(param++);
@@ -606,9 +606,9 @@ class VoronoiMetricFunction : public fn::MultiFunction {
             break;
           }
           case SHD_VORONOI_F2: {
-            const VArray<float> &w = get_w(param++);
-            const VArray<float> &scale = get_scale(param++);
-            const VArray<float> &randomness = get_randomness(param++);
+            const VArrayImpl<float> &w = get_w(param++);
+            const VArrayImpl<float> &scale = get_scale(param++);
+            const VArrayImpl<float> &randomness = get_randomness(param++);
             MutableSpan<float> r_distance = get_r_distance(param++);
             MutableSpan<ColorGeometry4f> r_color = get_r_color(param++);
             MutableSpan<float> r_w = get_r_w(param++);
@@ -623,10 +623,10 @@ class VoronoiMetricFunction : public fn::MultiFunction {
             break;
           }
           case SHD_VORONOI_SMOOTH_F1: {
-            const VArray<float> &w = get_w(param++);
-            const VArray<float> &scale = get_scale(param++);
-            const VArray<float> &smoothness = get_smoothness(param++);
-            const VArray<float> &randomness = get_randomness(param++);
+            const VArrayImpl<float> &w = get_w(param++);
+            const VArrayImpl<float> &scale = get_scale(param++);
+            const VArrayImpl<float> &smoothness = get_smoothness(param++);
+            const VArrayImpl<float> &randomness = get_randomness(param++);
             MutableSpan<float> r_distance = get_r_distance(param++);
             MutableSpan<ColorGeometry4f> r_color = get_r_color(param++);
             MutableSpan<float> r_w = get_r_w(param++);
@@ -647,9 +647,9 @@ class VoronoiMetricFunction : public fn::MultiFunction {
       case 2: {
         switch (feature_) {
           case SHD_VORONOI_F1: {
-            const VArray<float3> &vector = get_vector(param++);
-            const VArray<float> &scale = get_scale(param++);
-            const VArray<float> &randomness = get_randomness(param++);
+            const VArrayImpl<float3> &vector = get_vector(param++);
+            const VArrayImpl<float> &scale = get_scale(param++);
+            const VArrayImpl<float> &randomness = get_randomness(param++);
             MutableSpan<float> r_distance = get_r_distance(param++);
             MutableSpan<ColorGeometry4f> r_color = get_r_color(param++);
             MutableSpan<float3> r_position = get_r_position(param++);
@@ -671,9 +671,9 @@ class VoronoiMetricFunction : public fn::MultiFunction {
             break;
           }
           case SHD_VORONOI_F2: {
-            const VArray<float3> &vector = get_vector(param++);
-            const VArray<float> &scale = get_scale(param++);
-            const VArray<float> &randomness = get_randomness(param++);
+            const VArrayImpl<float3> &vector = get_vector(param++);
+            const VArrayImpl<float> &scale = get_scale(param++);
+            const VArrayImpl<float> &randomness = get_randomness(param++);
             MutableSpan<float> r_distance = get_r_distance(param++);
             MutableSpan<ColorGeometry4f> r_color = get_r_color(param++);
             MutableSpan<float3> r_position = get_r_position(param++);
@@ -695,10 +695,10 @@ class VoronoiMetricFunction : public fn::MultiFunction {
             break;
           }
           case SHD_VORONOI_SMOOTH_F1: {
-            const VArray<float3> &vector = get_vector(param++);
-            const VArray<float> &scale = get_scale(param++);
-            const VArray<float> &smoothness = get_smoothness(param++);
-            const VArray<float> &randomness = get_randomness(param++);
+            const VArrayImpl<float3> &vector = get_vector(param++);
+            const VArrayImpl<float> &scale = get_scale(param++);
+            const VArrayImpl<float> &smoothness = get_smoothness(param++);
+            const VArrayImpl<float> &randomness = get_randomness(param++);
             MutableSpan<float> r_distance = get_r_distance(param++);
             MutableSpan<ColorGeometry4f> r_color = get_r_color(param++);
             MutableSpan<float3> r_position = get_r_position(param++);
@@ -727,9 +727,9 @@ class VoronoiMetricFunction : public fn::MultiFunction {
       case 3: {
         switch (feature_) {
           case SHD_VORONOI_F1: {
-            const VArray<float3> &vector = get_vector(param++);
-            const VArray<float> &scale = get_scale(param++);
-            const VArray<float> &randomness = get_randomness(param++);
+            const VArrayImpl<float3> &vector = get_vector(param++);
+            const VArrayImpl<float> &scale = get_scale(param++);
+            const VArrayImpl<float> &randomness = get_randomness(param++);
             MutableSpan<float> r_distance = get_r_distance(param++);
             MutableSpan<ColorGeometry4f> r_color = get_r_color(param++);
             MutableSpan<float3> r_position = get_r_position(param++);
@@ -744,9 +744,9 @@ class VoronoiMetricFunction : public fn::MultiFunction {
             break;
           }
           case SHD_VORONOI_F2: {
-            const VArray<float3> &vector = get_vector(param++);
-            const VArray<float> &scale = get_scale(param++);
-            const VArray<float> &randomness = get_randomness(param++);
+            const VArrayImpl<float3> &vector = get_vector(param++);
+            const VArrayImpl<float> &scale = get_scale(param++);
+            const VArrayImpl<float> &randomness = get_randomness(param++);
             MutableSpan<float> r_distance = get_r_distance(param++);
             MutableSpan<ColorGeometry4f> r_color = get_r_color(param++);
             MutableSpan<float3> r_position = get_r_position(param++);
@@ -761,10 +761,10 @@ class VoronoiMetricFunction : public fn::MultiFunction {
             break;
           }
           case SHD_VORONOI_SMOOTH_F1: {
-            const VArray<float3> &vector = get_vector(param++);
-            const VArray<float> &scale = get_scale(param++);
-            const VArray<float> &smoothness = get_smoothness(param++);
-            const VArray<float> &randomness = get_randomness(param++);
+            const VArrayImpl<float3> &vector = get_vector(param++);
+            const VArrayImpl<float> &scale = get_scale(param++);
+            const VArrayImpl<float> &smoothness = get_smoothness(param++);
+            const VArrayImpl<float> &randomness = get_randomness(param++);
             MutableSpan<float> r_distance = get_r_distance(param++);
             MutableSpan<ColorGeometry4f> r_color = get_r_color(param++);
             MutableSpan<float3> r_position = get_r_position(param++);
@@ -791,10 +791,10 @@ class VoronoiMetricFunction : public fn::MultiFunction {
       case 4: {
         switch (feature_) {
           case SHD_VORONOI_F1: {
-            const VArray<float3> &vector = get_vector(param++);
-            const VArray<float> &w = get_w(param++);
-            const VArray<float> &scale = get_scale(param++);
-            const VArray<float> &randomness = get_randomness(param++);
+            const VArrayImpl<float3> &vector = get_vector(param++);
+            const VArrayImpl<float> &w = get_w(param++);
+            const VArrayImpl<float> &scale = get_scale(param++);
+            const VArrayImpl<float> &randomness = get_randomness(param++);
             MutableSpan<float> r_distance = get_r_distance(param++);
             MutableSpan<ColorGeometry4f> r_color = get_r_color(param++);
             MutableSpan<float3> r_position = get_r_position(param++);
@@ -813,10 +813,10 @@ class VoronoiMetricFunction : public fn::MultiFunction {
             break;
           }
           case SHD_VORONOI_F2: {
-            const VArray<float3> &vector = get_vector(param++);
-            const VArray<float> &w = get_w(param++);
-            const VArray<float> &scale = get_scale(param++);
-            const VArray<float> &randomness = get_randomness(param++);
+            const VArrayImpl<float3> &vector = get_vector(param++);
+            const VArrayImpl<float> &w = get_w(param++);
+            const VArrayImpl<float> &scale = get_scale(param++);
+            const VArrayImpl<float> &randomness = get_randomness(param++);
             MutableSpan<float> r_distance = get_r_distance(param++);
             MutableSpan<ColorGeometry4f> r_color = get_r_color(param++);
             MutableSpan<float3> r_position = get_r_position(param++);
@@ -835,11 +835,11 @@ class VoronoiMetricFunction : public fn::MultiFunction {
             break;
           }
           case SHD_VORONOI_SMOOTH_F1: {
-            const VArray<float3> &vector = get_vector(param++);
-            const VArray<float> &w = get_w(param++);
-            const VArray<float> &scale = get_scale(param++);
-            const VArray<float> &smoothness = get_smoothness(param++);
-            const VArray<float> &randomness = get_randomness(param++);
+            const VArrayImpl<float3> &vector = get_vector(param++);
+            const VArrayImpl<float> &w = get_w(param++);
+            const VArrayImpl<float> &scale = get_scale(param++);
+            const VArrayImpl<float> &smoothness = get_smoothness(param++);
+            const VArrayImpl<float> &randomness = get_randomness(param++);
             MutableSpan<float> r_distance = get_r_distance(param++);
             MutableSpan<ColorGeometry4f> r_color = get_r_color(param++);
             MutableSpan<float3> r_position = get_r_position(param++);
@@ -914,16 +914,16 @@ class VoronoiEdgeFunction : public fn::MultiFunction {
 
   void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
   {
-    auto get_vector = [&](int param_index) -> const VArray<float3> & {
+    auto get_vector = [&](int param_index) -> const VArrayImpl<float3> & {
       return params.readonly_single_input<float3>(param_index, "Vector");
     };
-    auto get_w = [&](int param_index) -> const VArray<float> & {
+    auto get_w = [&](int param_index) -> const VArrayImpl<float> & {
       return params.readonly_single_input<float>(param_index, "W");
     };
-    auto get_scale = [&](int param_index) -> const VArray<float> & {
+    auto get_scale = [&](int param_index) -> const VArrayImpl<float> & {
       return params.readonly_single_input<float>(param_index, "Scale");
     };
-    auto get_randomness = [&](int param_index) -> const VArray<float> & {
+    auto get_randomness = [&](int param_index) -> const VArrayImpl<float> & {
       return params.readonly_single_input<float>(param_index, "Randomness");
     };
     auto get_r_distance = [&](int param_index) -> MutableSpan<float> {
@@ -936,9 +936,9 @@ class VoronoiEdgeFunction : public fn::MultiFunction {
     int param = 0;
     switch (dimensions_) {
       case 1: {
-        const VArray<float> &w = get_w(param++);
-        const VArray<float> &scale = get_scale(param++);
-        const VArray<float> &randomness = get_randomness(param++);
+        const VArrayImpl<float> &w = get_w(param++);
+        const VArrayImpl<float> &scale = get_scale(param++);
+        const VArrayImpl<float> &randomness = get_randomness(param++);
         switch (feature_) {
           case SHD_VORONOI_DISTANCE_TO_EDGE: {
             MutableSpan<float> r_distance = get_r_distance(param++);
@@ -962,9 +962,9 @@ class VoronoiEdgeFunction : public fn::MultiFunction {
         break;
       }
       case 2: {
-        const VArray<float3> &vector = get_vector(param++);
-        const VArray<float> &scale = get_scale(param++);
-        const VArray<float> &randomness = get_randomness(param++);
+        const VArrayImpl<float3> &vector = get_vector(param++);
+        const VArrayImpl<float> &scale = get_scale(param++);
+        const VArrayImpl<float> &randomness = get_randomness(param++);
         switch (feature_) {
           case SHD_VORONOI_DISTANCE_TO_EDGE: {
             MutableSpan<float> r_distance = get_r_distance(param++);
@@ -988,9 +988,9 @@ class VoronoiEdgeFunction : public fn::MultiFunction {
         break;
       }
       case 3: {
-        const VArray<float3> &vector = get_vector(param++);
-        const VArray<float> &scale = get_scale(param++);
-        const VArray<float> &randomness = get_randomness(param++);
+        const VArrayImpl<float3> &vector = get_vector(param++);
+        const VArrayImpl<float> &scale = get_scale(param++);
+        const VArrayImpl<float> &randomness = get_randomness(param++);
         switch (feature_) {
           case SHD_VORONOI_DISTANCE_TO_EDGE: {
             MutableSpan<float> r_distance = get_r_distance(param++);
@@ -1012,10 +1012,10 @@ class VoronoiEdgeFunction : public fn::MultiFunction {
         break;
       }
       case 4: {
-        const VArray<float3> &vector = get_vector(param++);
-        const VArray<float> &w = get_w(param++);
-        const VArray<float> &scale = get_scale(param++);
-        const VArray<float> &randomness = get_randomness(param++);
+        const VArrayImpl<float3> &vector = get_vector(param++);
+        const VArrayImpl<float> &w = get_w(param++);
+        const VArrayImpl<float> &scale = get_scale(param++);
+        const VArrayImpl<float> &randomness = get_randomness(param++);
         switch (feature_) {
           case SHD_VORONOI_DISTANCE_TO_EDGE: {
             MutableSpan<float> r_distance = get_r_distance(param++);

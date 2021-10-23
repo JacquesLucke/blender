@@ -90,8 +90,8 @@ static void geo_node_point_rotate_update(bNodeTree *UNUSED(ntree), bNode *node)
 }
 
 static void point_rotate__axis_angle__object_space(const int domain_size,
-                                                   const VArray<float3> &axis,
-                                                   const VArray<float> &angles,
+                                                   const VArrayImpl<float3> &axis,
+                                                   const VArrayImpl<float> &angles,
                                                    MutableSpan<float3> rotations)
 {
   for (const int i : IndexRange(domain_size)) {
@@ -106,8 +106,8 @@ static void point_rotate__axis_angle__object_space(const int domain_size,
 }
 
 static void point_rotate__axis_angle__point_space(const int domain_size,
-                                                  const VArray<float3> &axis,
-                                                  const VArray<float> &angles,
+                                                  const VArrayImpl<float3> &axis,
+                                                  const VArrayImpl<float> &angles,
                                                   MutableSpan<float3> rotations)
 {
   for (const int i : IndexRange(domain_size)) {
@@ -122,7 +122,7 @@ static void point_rotate__axis_angle__point_space(const int domain_size,
 }
 
 static void point_rotate__euler__object_space(const int domain_size,
-                                              const VArray<float3> &eulers,
+                                              const VArrayImpl<float3> &eulers,
                                               MutableSpan<float3> rotations)
 {
   for (const int i : IndexRange(domain_size)) {
@@ -137,7 +137,7 @@ static void point_rotate__euler__object_space(const int domain_size,
 }
 
 static void point_rotate__euler__point_space(const int domain_size,
-                                             const VArray<float3> &eulers,
+                                             const VArrayImpl<float3> &eulers,
                                              MutableSpan<float3> rotations)
 {
   for (const int i : IndexRange(domain_size)) {

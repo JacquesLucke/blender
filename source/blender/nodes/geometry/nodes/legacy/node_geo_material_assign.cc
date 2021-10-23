@@ -34,7 +34,9 @@ static void geo_node_legacy_material_assign_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Geometry>("Geometry");
 }
 
-static void assign_material_to_faces(Mesh &mesh, const VArray<bool> &face_mask, Material *material)
+static void assign_material_to_faces(Mesh &mesh,
+                                     const VArrayImpl<bool> &face_mask,
+                                     Material *material)
 {
   int new_material_index = -1;
   for (const int i : IndexRange(mesh.totcol)) {

@@ -59,10 +59,10 @@ struct FilletParam {
   GeometryNodeCurveFilletMode mode;
 
   /* Number of points to be added. */
-  const VArray<int> *counts;
+  const VArrayImpl<int> *counts;
 
   /* Radii for fillet arc at all vertices. */
-  const VArray<float> *radii;
+  const VArrayImpl<float> *radii;
 
   /* Whether or not fillets are allowed to overlap. */
   bool limit_radius;

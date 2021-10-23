@@ -82,9 +82,9 @@ static void geo_node_attribute_mix_update(bNodeTree *UNUSED(ntree), bNode *node)
 }
 
 static void do_mix_operation_float(const int blend_mode,
-                                   const VArray<float> &factors,
-                                   const VArray<float> &inputs_a,
-                                   const VArray<float> &inputs_b,
+                                   const VArrayImpl<float> &factors,
+                                   const VArrayImpl<float> &inputs_a,
+                                   const VArrayImpl<float> &inputs_b,
                                    VMutableArray<float> &results)
 {
   const int size = results.size();
@@ -101,9 +101,9 @@ static void do_mix_operation_float(const int blend_mode,
 }
 
 static void do_mix_operation_float3(const int blend_mode,
-                                    const VArray<float> &factors,
-                                    const VArray<float3> &inputs_a,
-                                    const VArray<float3> &inputs_b,
+                                    const VArrayImpl<float> &factors,
+                                    const VArrayImpl<float3> &inputs_a,
+                                    const VArrayImpl<float3> &inputs_b,
                                     VMutableArray<float3> &results)
 {
   const int size = results.size();
@@ -119,9 +119,9 @@ static void do_mix_operation_float3(const int blend_mode,
 }
 
 static void do_mix_operation_color4f(const int blend_mode,
-                                     const VArray<float> &factors,
-                                     const VArray<ColorGeometry4f> &inputs_a,
-                                     const VArray<ColorGeometry4f> &inputs_b,
+                                     const VArrayImpl<float> &factors,
+                                     const VArrayImpl<ColorGeometry4f> &inputs_a,
+                                     const VArrayImpl<ColorGeometry4f> &inputs_b,
                                      VMutableArray<ColorGeometry4f> &results)
 {
   const int size = results.size();
@@ -138,7 +138,7 @@ static void do_mix_operation_color4f(const int blend_mode,
 
 static void do_mix_operation(const CustomDataType result_type,
                              int blend_mode,
-                             const VArray<float> &attribute_factor,
+                             const VArrayImpl<float> &attribute_factor,
                              const GVArray &attribute_a,
                              const GVArray &attribute_b,
                              GVMutableArray &attribute_result)

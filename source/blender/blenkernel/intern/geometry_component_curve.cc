@@ -202,7 +202,7 @@ static PointIndices lookup_point_indices(Span<int> offsets, const int index)
  */
 template<typename T>
 static void adapt_curve_domain_point_to_spline_impl(const CurveEval &curve,
-                                                    const VArray<T> &old_values,
+                                                    const VArrayImpl<T> &old_values,
                                                     MutableSpan<T> r_values)
 {
   const int splines_len = curve.splines().size();
@@ -231,7 +231,7 @@ static void adapt_curve_domain_point_to_spline_impl(const CurveEval &curve,
  */
 template<>
 void adapt_curve_domain_point_to_spline_impl(const CurveEval &curve,
-                                             const VArray<bool> &old_values,
+                                             const VArrayImpl<bool> &old_values,
                                              MutableSpan<bool> r_values)
 {
   const int splines_len = curve.splines().size();
@@ -272,7 +272,7 @@ static GVArrayPtr adapt_curve_domain_point_to_spline(const CurveEval &curve, GVA
  * attributes. The goal is to avoid copying the spline value for every one of its control points
  * unless it is necessary (in that case the materialize functions will be called).
  */
-template<typename T> class VArray_For_SplineToPoint final : public VArray<T> {
+template<typename T> class VArray_For_SplineToPoint final : public VArrayImpl<T> {
   GVArrayPtr original_varray_;
   /* Store existing data materialized if it was not already a span. This is expected
    * to be worth it because a single spline's value will likely be accessed many times. */
@@ -281,7 +281,7 @@ template<typename T> class VArray_For_SplineToPoint final : public VArray<T> {
 
  public:
   VArray_For_SplineToPoint(GVArrayPtr original_varray, Array<int> offsets)
-      : VArray<T>(offsets.last()),
+      : VArrayImpl<T>(offsets.last()),
         original_varray_(std::move(original_varray)),
         original_data_(*original_varray_),
         offsets_(std::move(offsets))
@@ -633,7 +633,7 @@ static GVArrayPtr varray_from_initializer(const AttributeInit &initializer,
        * is no need to copy anything to the new custom data array. */
       BLI_assert_unreachable();
       return {};
-    case AttributeInit::Type::VArray:
+    case AttributeInit::Type::VArrayImpl:
       return static_cast<const AttributeInitVArray &>(initializer).varray->shallow_copy();
     case AttributeInit::Type::MoveArray:
       int total_size = 0;
@@ -723,14 +723,14 @@ static bool remove_point_attribute(GeometryComponent &component,
 /**
  * Virtual array for any control point data accessed with spans and an offset array.
  */
-template<typename T> class VArray_For_SplinePoints : public VArray<T> {
+template<typename T> class VArray_For_SplinePoints : public VArrayImpl<T> {
  private:
   const Array<Span<T>> data_;
   Array<int> offsets_;
 
  public:
   VArray_For_SplinePoints(Array<Span<T>> data, Array<int> offsets)
-      : VArray<T>(offsets.last()), data_(std::move(data)), offsets_(std::move(offsets))
+      : VArrayImpl<T>(offsets.last()), data_(std::move(data)), offsets_(std::move(offsets))
   {
   }
 
@@ -899,7 +899,7 @@ class VMutableArray_For_SplinePosition final : public VMutableArray<float3> {
   }
 };
 
-class VArray_For_BezierHandle final : public VArray<float3> {
+class VArray_For_BezierHandle final : public VArrayImpl<float3> {
  private:
   Span<SplinePtr> splines_;
   Array<int> offsets_;
@@ -907,7 +907,7 @@ class VArray_For_BezierHandle final : public VArray<float3> {
 
  public:
   VArray_For_BezierHandle(Span<SplinePtr> splines, Array<int> offsets, const bool is_right)
-      : VArray<float3>(offsets.last()),
+      : VArrayImpl<float3>(offsets.last()),
         splines_(std::move(splines)),
         offsets_(std::move(offsets)),
         is_right_(is_right)

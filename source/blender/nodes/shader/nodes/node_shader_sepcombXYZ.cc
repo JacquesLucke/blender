@@ -67,7 +67,7 @@ class MF_SeparateXYZ : public blender::fn::MultiFunction {
             blender::fn::MFParams params,
             blender::fn::MFContext UNUSED(context)) const override
   {
-    const blender::VArray<blender::float3> &vectors =
+    const blender::VArrayImpl<blender::float3> &vectors =
         params.readonly_single_input<blender::float3>(0, "XYZ");
     blender::MutableSpan<float> xs = params.uninitialized_single_output<float>(1, "X");
     blender::MutableSpan<float> ys = params.uninitialized_single_output<float>(2, "Y");

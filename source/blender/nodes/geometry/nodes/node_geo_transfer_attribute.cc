@@ -123,7 +123,7 @@ static void geo_node_transfer_attribute_update(bNodeTree *UNUSED(ntree), bNode *
 }
 
 static void get_closest_in_bvhtree(BVHTreeFromMesh &tree_data,
-                                   const VArray<float3> &positions,
+                                   const VArrayImpl<float3> &positions,
                                    const IndexMask mask,
                                    const MutableSpan<int> r_indices,
                                    const MutableSpan<float> r_distances_sq,
@@ -152,7 +152,7 @@ static void get_closest_in_bvhtree(BVHTreeFromMesh &tree_data,
 }
 
 static void get_closest_pointcloud_points(const PointCloud &pointcloud,
-                                          const VArray<float3> &positions,
+                                          const VArrayImpl<float3> &positions,
                                           const IndexMask mask,
                                           const MutableSpan<int> r_indices,
                                           const MutableSpan<float> r_distances_sq)
@@ -179,7 +179,7 @@ static void get_closest_pointcloud_points(const PointCloud &pointcloud,
 }
 
 static void get_closest_mesh_points(const Mesh &mesh,
-                                    const VArray<float3> &positions,
+                                    const VArrayImpl<float3> &positions,
                                     const IndexMask mask,
                                     const MutableSpan<int> r_point_indices,
                                     const MutableSpan<float> r_distances_sq,
@@ -193,7 +193,7 @@ static void get_closest_mesh_points(const Mesh &mesh,
 }
 
 static void get_closest_mesh_edges(const Mesh &mesh,
-                                   const VArray<float3> &positions,
+                                   const VArrayImpl<float3> &positions,
                                    const IndexMask mask,
                                    const MutableSpan<int> r_edge_indices,
                                    const MutableSpan<float> r_distances_sq,
@@ -207,7 +207,7 @@ static void get_closest_mesh_edges(const Mesh &mesh,
 }
 
 static void get_closest_mesh_looptris(const Mesh &mesh,
-                                      const VArray<float3> &positions,
+                                      const VArrayImpl<float3> &positions,
                                       const IndexMask mask,
                                       const MutableSpan<int> r_looptri_indices,
                                       const MutableSpan<float> r_distances_sq,
@@ -222,7 +222,7 @@ static void get_closest_mesh_looptris(const Mesh &mesh,
 }
 
 static void get_closest_mesh_polygons(const Mesh &mesh,
-                                      const VArray<float3> &positions,
+                                      const VArrayImpl<float3> &positions,
                                       const IndexMask mask,
                                       const MutableSpan<int> r_poly_indices,
                                       const MutableSpan<float> r_distances_sq,
@@ -244,7 +244,7 @@ static void get_closest_mesh_polygons(const Mesh &mesh,
 
 /* The closest corner is defined to be the closest corner on the closest face. */
 static void get_closest_mesh_corners(const Mesh &mesh,
-                                     const VArray<float3> &positions,
+                                     const VArrayImpl<float3> &positions,
                                      const IndexMask mask,
                                      const MutableSpan<int> r_corner_indices,
                                      const MutableSpan<float> r_distances_sq,
@@ -287,7 +287,7 @@ static void get_closest_mesh_corners(const Mesh &mesh,
 }
 
 template<typename T>
-void copy_with_indices(const VArray<T> &src,
+void copy_with_indices(const VArrayImpl<T> &src,
                        const IndexMask mask,
                        const Span<int> indices,
                        const MutableSpan<T> dst)
@@ -301,7 +301,7 @@ void copy_with_indices(const VArray<T> &src,
 }
 
 template<typename T>
-void copy_with_indices_clamped(const VArray<T> &src,
+void copy_with_indices_clamped(const VArrayImpl<T> &src,
                                const IndexMask mask,
                                const Span<int> indices,
                                const MutableSpan<T> dst)
@@ -319,8 +319,8 @@ void copy_with_indices_clamped(const VArray<T> &src,
 }
 
 template<typename T>
-void copy_with_indices_and_comparison(const VArray<T> &src_1,
-                                      const VArray<T> &src_2,
+void copy_with_indices_and_comparison(const VArrayImpl<T> &src_1,
+                                      const VArrayImpl<T> &src_2,
                                       const Span<float> distances_1,
                                       const Span<float> distances_2,
                                       const IndexMask mask,
@@ -398,7 +398,7 @@ class NearestInterpolatedTransferFunction : public fn::MultiFunction {
 
   void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
   {
-    const VArray<float3> &positions = params.readonly_single_input<float3>(0, "Position");
+    const VArrayImpl<float3> &positions = params.readonly_single_input<float3>(0, "Position");
     GMutableSpan dst = params.uninitialized_single_output_if_required(1, "Attribute");
 
     const MeshComponent &mesh_component = *target_.get_component_for_read<MeshComponent>();
@@ -476,7 +476,7 @@ class NearestTransferFunction : public fn::MultiFunction {
 
   void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
   {
-    const VArray<float3> &positions = params.readonly_single_input<float3>(0, "Position");
+    const VArrayImpl<float3> &positions = params.readonly_single_input<float3>(0, "Position");
     GMutableSpan dst = params.uninitialized_single_output_if_required(1, "Attribute");
 
     if (!use_mesh_ && !use_points_) {
@@ -650,7 +650,7 @@ class IndexTransferFieldInput : public FieldInput {
     FieldEvaluator index_evaluator{*geometry_context, &mask};
     index_evaluator.add(index_field_);
     index_evaluator.evaluate();
-    const VArray<int> &index_varray = index_evaluator.get_evaluated<int>(0);
+    const VArrayImpl<int> &index_varray = index_evaluator.get_evaluated<int>(0);
     /* The index virtual array is expected to be a span, since transferring the same index for
      * every element is not very useful. */
     VArray_Span<int> indices{index_varray};

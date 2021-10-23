@@ -99,7 +99,7 @@ static void get_result_domain_and_data_type(const GeometrySet &src_geometry,
 }
 
 static void get_closest_in_bvhtree(BVHTreeFromMesh &tree_data,
-                                   const VArray<float3> &positions,
+                                   const VArrayImpl<float3> &positions,
                                    const MutableSpan<int> r_indices,
                                    const MutableSpan<float> r_distances_sq,
                                    const MutableSpan<float3> r_positions)
@@ -127,7 +127,7 @@ static void get_closest_in_bvhtree(BVHTreeFromMesh &tree_data,
 }
 
 static void get_closest_pointcloud_points(const PointCloud &pointcloud,
-                                          const VArray<float3> &positions,
+                                          const VArrayImpl<float3> &positions,
                                           const MutableSpan<int> r_indices,
                                           const MutableSpan<float> r_distances_sq)
 {
@@ -151,7 +151,7 @@ static void get_closest_pointcloud_points(const PointCloud &pointcloud,
 }
 
 static void get_closest_mesh_points(const Mesh &mesh,
-                                    const VArray<float3> &positions,
+                                    const VArrayImpl<float3> &positions,
                                     const MutableSpan<int> r_point_indices,
                                     const MutableSpan<float> r_distances_sq,
                                     const MutableSpan<float3> r_positions)
@@ -164,7 +164,7 @@ static void get_closest_mesh_points(const Mesh &mesh,
 }
 
 static void get_closest_mesh_edges(const Mesh &mesh,
-                                   const VArray<float3> &positions,
+                                   const VArrayImpl<float3> &positions,
                                    const MutableSpan<int> r_edge_indices,
                                    const MutableSpan<float> r_distances_sq,
                                    const MutableSpan<float3> r_positions)
@@ -177,7 +177,7 @@ static void get_closest_mesh_edges(const Mesh &mesh,
 }
 
 static void get_closest_mesh_looptris(const Mesh &mesh,
-                                      const VArray<float3> &positions,
+                                      const VArrayImpl<float3> &positions,
                                       const MutableSpan<int> r_looptri_indices,
                                       const MutableSpan<float> r_distances_sq,
                                       const MutableSpan<float3> r_positions)
@@ -190,7 +190,7 @@ static void get_closest_mesh_looptris(const Mesh &mesh,
 }
 
 static void get_closest_mesh_polygons(const Mesh &mesh,
-                                      const VArray<float3> &positions,
+                                      const VArrayImpl<float3> &positions,
                                       const MutableSpan<int> r_poly_indices,
                                       const MutableSpan<float> r_distances_sq,
                                       const MutableSpan<float3> r_positions)
@@ -210,7 +210,7 @@ static void get_closest_mesh_polygons(const Mesh &mesh,
 
 /* The closest corner is defined to be the closest corner on the closest face. */
 static void get_closest_mesh_corners(const Mesh &mesh,
-                                     const VArray<float3> &positions,
+                                     const VArrayImpl<float3> &positions,
                                      const MutableSpan<int> r_corner_indices,
                                      const MutableSpan<float> r_distances_sq,
                                      const MutableSpan<float3> r_positions)
@@ -253,7 +253,7 @@ static void get_closest_mesh_corners(const Mesh &mesh,
 
 static void transfer_attribute_nearest_face_interpolated(const GeometrySet &src_geometry,
                                                          GeometryComponent &dst_component,
-                                                         const VArray<float3> &dst_positions,
+                                                         const VArrayImpl<float3> &dst_positions,
                                                          const AttributeDomain dst_domain,
                                                          const CustomDataType data_type,
                                                          const StringRef src_name,
@@ -294,7 +294,7 @@ static void transfer_attribute_nearest_face_interpolated(const GeometrySet &src_
 
 static void transfer_attribute_nearest(const GeometrySet &src_geometry,
                                        GeometryComponent &dst_component,
-                                       const VArray<float3> &dst_positions,
+                                       const VArrayImpl<float3> &dst_positions,
                                        const AttributeDomain dst_domain,
                                        const CustomDataType data_type,
                                        const StringRef src_name,

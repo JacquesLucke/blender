@@ -45,9 +45,9 @@ static void rotate_instances(GeoNodeExecParams &params, InstancesComponent &inst
   transforms_evaluator.add(params.extract_input<Field<float3>>("Pivot Point"));
   transforms_evaluator.add(params.extract_input<Field<bool>>("Local Space"));
   transforms_evaluator.evaluate();
-  const VArray<float3> &rotations = transforms_evaluator.get_evaluated<float3>(0);
-  const VArray<float3> &pivots = transforms_evaluator.get_evaluated<float3>(1);
-  const VArray<bool> &local_spaces = transforms_evaluator.get_evaluated<bool>(2);
+  const VArrayImpl<float3> &rotations = transforms_evaluator.get_evaluated<float3>(0);
+  const VArrayImpl<float3> &pivots = transforms_evaluator.get_evaluated<float3>(1);
+  const VArrayImpl<bool> &local_spaces = transforms_evaluator.get_evaluated<bool>(2);
 
   MutableSpan<float4x4> instance_transforms = instances_component.instance_transforms();
 

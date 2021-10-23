@@ -111,7 +111,7 @@ inline ColorGeometry4f clamp_value(const ColorGeometry4f val,
 }
 
 template<typename T>
-static void clamp_attribute(const VArray<T> &inputs,
+static void clamp_attribute(const VArrayImpl<T> &inputs,
                             const MutableSpan<T> outputs,
                             const T min,
                             const T max)

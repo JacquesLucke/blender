@@ -181,7 +181,7 @@ static std::unique_ptr<CurveEval> resample_curve(const CurveComponent *component
     fn::FieldEvaluator evaluator{field_context, domain_size};
     evaluator.add(*mode_param.count);
     evaluator.evaluate();
-    const VArray<int> &cuts = evaluator.get_evaluated<int>(0);
+    const VArrayImpl<int> &cuts = evaluator.get_evaluated<int>(0);
 
     threading::parallel_for(input_splines.index_range(), 128, [&](IndexRange range) {
       for (const int i : range) {
@@ -194,7 +194,7 @@ static std::unique_ptr<CurveEval> resample_curve(const CurveComponent *component
     fn::FieldEvaluator evaluator{field_context, domain_size};
     evaluator.add(*mode_param.length);
     evaluator.evaluate();
-    const VArray<float> &lengths = evaluator.get_evaluated<float>(0);
+    const VArrayImpl<float> &lengths = evaluator.get_evaluated<float>(0);
 
     threading::parallel_for(input_splines.index_range(), 128, [&](IndexRange range) {
       for (const int i : range) {

@@ -89,7 +89,7 @@ struct AttributeKind {
 struct AttributeInit {
   enum class Type {
     Default,
-    VArray,
+    VArrayImpl,
     MoveArray,
   };
   Type type;
@@ -118,7 +118,7 @@ struct AttributeInitVArray : public AttributeInit {
   const blender::fn::GVArray *varray;
 
   AttributeInitVArray(const blender::fn::GVArray *varray)
-      : AttributeInit(Type::VArray), varray(varray)
+      : AttributeInit(Type::VArrayImpl), varray(varray)
   {
   }
 };

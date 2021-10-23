@@ -679,7 +679,7 @@ BezierSpline::InterpolationData BezierSpline::interpolation_data_from_index_fact
 /* Use a spline argument to avoid adding this to the header. */
 template<typename T>
 static void interpolate_to_evaluated_impl(const BezierSpline &spline,
-                                          const blender::VArray<T> &src,
+                                          const blender::VArrayImpl<T> &src,
                                           MutableSpan<T> dst)
 {
   BLI_assert(src.size() == spline.size());

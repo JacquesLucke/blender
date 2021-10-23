@@ -31,7 +31,7 @@
 namespace blender::geometry {
 
 template<typename T>
-static void copy_attribute_to_points(const VArray<T> &source_data,
+static void copy_attribute_to_points(const VArrayImpl<T> &source_data,
                                      Span<int> map,
                                      MutableSpan<T> dest_data)
 {

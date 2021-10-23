@@ -128,9 +128,9 @@ class CurveVecFunction : public blender::fn::MultiFunction {
             blender::fn::MFParams params,
             blender::fn::MFContext UNUSED(context)) const override
   {
-    const blender::VArray<float> &fac = params.readonly_single_input<float>(0, "Fac");
-    const blender::VArray<blender::float3> &vec_in = params.readonly_single_input<blender::float3>(
-        1, "Vector");
+    const blender::VArrayImpl<float> &fac = params.readonly_single_input<float>(0, "Fac");
+    const blender::VArrayImpl<blender::float3> &vec_in =
+        params.readonly_single_input<blender::float3>(1, "Vector");
     blender::MutableSpan<blender::float3> vec_out =
         params.uninitialized_single_output<blender::float3>(2, "Vector");
 
@@ -305,8 +305,8 @@ class CurveRGBFunction : public blender::fn::MultiFunction {
             blender::fn::MFParams params,
             blender::fn::MFContext UNUSED(context)) const override
   {
-    const blender::VArray<float> &fac = params.readonly_single_input<float>(0, "Fac");
-    const blender::VArray<blender::ColorGeometry4f> &col_in =
+    const blender::VArrayImpl<float> &fac = params.readonly_single_input<float>(0, "Fac");
+    const blender::VArrayImpl<blender::ColorGeometry4f> &col_in =
         params.readonly_single_input<blender::ColorGeometry4f>(1, "Color");
     blender::MutableSpan<blender::ColorGeometry4f> col_out =
         params.uninitialized_single_output<blender::ColorGeometry4f>(2, "Color");
@@ -447,8 +447,8 @@ class CurveFloatFunction : public blender::fn::MultiFunction {
             blender::fn::MFParams params,
             blender::fn::MFContext UNUSED(context)) const override
   {
-    const blender::VArray<float> &fac = params.readonly_single_input<float>(0, "Factor");
-    const blender::VArray<float> &val_in = params.readonly_single_input<float>(1, "Value");
+    const blender::VArrayImpl<float> &fac = params.readonly_single_input<float>(0, "Factor");
+    const blender::VArrayImpl<float> &val_in = params.readonly_single_input<float>(1, "Value");
     blender::MutableSpan<float> val_out = params.uninitialized_single_output<float>(2, "Value");
 
     for (int64_t i : mask) {

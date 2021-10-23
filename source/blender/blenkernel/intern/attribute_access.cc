@@ -244,7 +244,7 @@ static bool add_builtin_type_custom_data_layer_from_init(CustomData &custom_data
       void *data = CustomData_add_layer(&custom_data, data_type, CD_DEFAULT, nullptr, domain_size);
       return data != nullptr;
     }
-    case AttributeInit::Type::VArray: {
+    case AttributeInit::Type::VArrayImpl: {
       void *data = CustomData_add_layer(&custom_data, data_type, CD_DEFAULT, nullptr, domain_size);
       if (data == nullptr) {
         return false;
@@ -299,7 +299,7 @@ static bool add_custom_data_layer_from_attribute_init(const AttributeIDRef &attr
           custom_data, data_type, CD_DEFAULT, nullptr, domain_size, attribute_id);
       return data != nullptr;
     }
-    case AttributeInit::Type::VArray: {
+    case AttributeInit::Type::VArrayImpl: {
       void *data = add_generic_custom_data_layer(
           custom_data, data_type, CD_DEFAULT, nullptr, domain_size, attribute_id);
       if (data == nullptr) {

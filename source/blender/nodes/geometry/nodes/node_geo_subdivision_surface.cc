@@ -103,7 +103,7 @@ static void geo_node_subdivision_surface_exec(GeoNodeExecParams params)
     FieldEvaluator evaluator(field_context, domain_size);
     evaluator.add(crease_field);
     evaluator.evaluate();
-    const VArray<float> &creases = evaluator.get_evaluated<float>(0);
+    const VArrayImpl<float> &creases = evaluator.get_evaluated<float>(0);
 
     OutputAttribute_Typed<float> crease = mesh_component.attribute_try_get_for_output_only<float>(
         "crease", domain);

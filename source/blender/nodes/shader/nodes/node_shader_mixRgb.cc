@@ -154,10 +154,10 @@ class MixRGBFunction : public blender::fn::MultiFunction {
             blender::fn::MFParams params,
             blender::fn::MFContext UNUSED(context)) const override
   {
-    const blender::VArray<float> &fac = params.readonly_single_input<float>(0, "Fac");
-    const blender::VArray<blender::ColorGeometry4f> &col1 =
+    const blender::VArrayImpl<float> &fac = params.readonly_single_input<float>(0, "Fac");
+    const blender::VArrayImpl<blender::ColorGeometry4f> &col1 =
         params.readonly_single_input<blender::ColorGeometry4f>(1, "Color1");
-    const blender::VArray<blender::ColorGeometry4f> &col2 =
+    const blender::VArrayImpl<blender::ColorGeometry4f> &col2 =
         params.readonly_single_input<blender::ColorGeometry4f>(2, "Color2");
     blender::MutableSpan<blender::ColorGeometry4f> results =
         params.uninitialized_single_output<blender::ColorGeometry4f>(3, "Color");

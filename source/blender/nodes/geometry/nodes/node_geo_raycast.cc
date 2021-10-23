@@ -117,9 +117,9 @@ static eAttributeMapMode get_map_mode(GeometryNodeRaycastMapMode map_mode)
 
 static void raycast_to_mesh(IndexMask mask,
                             const Mesh &mesh,
-                            const VArray<float3> &ray_origins,
-                            const VArray<float3> &ray_directions,
-                            const VArray<float> &ray_lengths,
+                            const VArrayImpl<float3> &ray_origins,
+                            const VArrayImpl<float3> &ray_directions,
+                            const VArrayImpl<float> &ray_lengths,
                             const MutableSpan<bool> r_hit,
                             const MutableSpan<int> r_hit_indices,
                             const MutableSpan<float3> r_hit_positions,

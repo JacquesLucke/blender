@@ -87,8 +87,8 @@ class EndpointFieldInput final : public fn::FieldInput {
       evaluator.add(start_size_);
       evaluator.add(end_size_);
       evaluator.evaluate();
-      const VArray<int> &start_size = evaluator.get_evaluated<int>(0);
-      const VArray<int> &end_size = evaluator.get_evaluated<int>(1);
+      const VArrayImpl<int> &start_size = evaluator.get_evaluated<int>(0);
+      const VArrayImpl<int> &end_size = evaluator.get_evaluated<int>(1);
 
       const int point_size = control_point_offsets.last();
       Array<bool> selection(point_size, false);

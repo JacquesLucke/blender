@@ -55,7 +55,7 @@ static void geo_node_mesh_to_points_init(bNodeTree *UNUSED(tree), bNode *node)
 }
 
 template<typename T>
-static void copy_attribute_to_points(const VArray<T> &src,
+static void copy_attribute_to_points(const VArrayImpl<T> &src,
                                      const IndexMask mask,
                                      MutableSpan<T> dst)
 {

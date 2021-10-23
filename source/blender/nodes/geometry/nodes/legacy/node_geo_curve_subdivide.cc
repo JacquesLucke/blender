@@ -64,7 +64,7 @@ static void geo_node_curve_subdivide_update(bNodeTree *UNUSED(ntree), bNode *nod
 }
 
 static Array<int> get_subdivided_offsets(const Spline &spline,
-                                         const VArray<int> &cuts,
+                                         const VArrayImpl<int> &cuts,
                                          const int spline_offset)
 {
   Array<int> offsets(spline.segments_size() + 1);
@@ -305,7 +305,7 @@ static void subdivide_dynamic_attributes(const Spline &src_spline,
 }
 
 static SplinePtr subdivide_spline(const Spline &spline,
-                                  const VArray<int> &cuts,
+                                  const VArrayImpl<int> &cuts,
                                   const int spline_offset)
 {
   if (spline.size() <= 1) {
@@ -332,7 +332,7 @@ static SplinePtr subdivide_spline(const Spline &spline,
  * way until the attribute API is refactored.
  */
 static std::unique_ptr<CurveEval> subdivide_curve(const CurveEval &input_curve,
-                                                  const VArray<int> &cuts)
+                                                  const VArrayImpl<int> &cuts)
 {
   const Array<int> control_point_offsets = input_curve.control_point_offsets();
   const Span<SplinePtr> input_splines = input_curve.splines();

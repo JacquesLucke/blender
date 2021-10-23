@@ -118,13 +118,14 @@ class WaveFunction : public fn::MultiFunction {
 
   void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
   {
-    const VArray<float3> &vector = params.readonly_single_input<float3>(0, "Vector");
-    const VArray<float> &scale = params.readonly_single_input<float>(1, "Scale");
-    const VArray<float> &distortion = params.readonly_single_input<float>(2, "Distortion");
-    const VArray<float> &detail = params.readonly_single_input<float>(3, "Detail");
-    const VArray<float> &dscale = params.readonly_single_input<float>(4, "Detail Scale");
-    const VArray<float> &droughness = params.readonly_single_input<float>(5, "Detail Roughness");
-    const VArray<float> &phase = params.readonly_single_input<float>(6, "Phase Offset");
+    const VArrayImpl<float3> &vector = params.readonly_single_input<float3>(0, "Vector");
+    const VArrayImpl<float> &scale = params.readonly_single_input<float>(1, "Scale");
+    const VArrayImpl<float> &distortion = params.readonly_single_input<float>(2, "Distortion");
+    const VArrayImpl<float> &detail = params.readonly_single_input<float>(3, "Detail");
+    const VArrayImpl<float> &dscale = params.readonly_single_input<float>(4, "Detail Scale");
+    const VArrayImpl<float> &droughness = params.readonly_single_input<float>(5,
+                                                                              "Detail Roughness");
+    const VArrayImpl<float> &phase = params.readonly_single_input<float>(6, "Phase Offset");
 
     MutableSpan<ColorGeometry4f> r_color =
         params.uninitialized_single_output_if_required<ColorGeometry4f>(7, "Color");

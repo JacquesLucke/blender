@@ -137,9 +137,9 @@ template<typename T> class SwitchFieldsFunction : public fn::MultiFunction {
 
   void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
   {
-    const VArray<bool> &switches = params.readonly_single_input<bool>(0, "Switch");
-    const VArray<T> &falses = params.readonly_single_input<T>(1, "False");
-    const VArray<T> &trues = params.readonly_single_input<T>(2, "True");
+    const VArrayImpl<bool> &switches = params.readonly_single_input<bool>(0, "Switch");
+    const VArrayImpl<T> &falses = params.readonly_single_input<T>(1, "False");
+    const VArrayImpl<T> &trues = params.readonly_single_input<T>(2, "True");
     MutableSpan<T> values = params.uninitialized_single_output_if_required<T>(3, "Output");
     for (int64_t i : mask) {
       new (&values[i]) T(switches[i] ? trues[i] : falses[i]);

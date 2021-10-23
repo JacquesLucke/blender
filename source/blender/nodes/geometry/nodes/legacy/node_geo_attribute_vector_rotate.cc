@@ -139,10 +139,10 @@ static float3 vector_rotate_euler(const float3 vector,
   return result + center;
 }
 
-static void do_vector_rotate_around_axis(const VArray<float3> &vector,
-                                         const VArray<float3> &center,
-                                         const VArray<float3> &axis,
-                                         const VArray<float> &angle,
+static void do_vector_rotate_around_axis(const VArrayImpl<float3> &vector,
+                                         const VArrayImpl<float3> &center,
+                                         const VArrayImpl<float3> &axis,
+                                         const VArrayImpl<float> &angle,
                                          MutableSpan<float3> results,
                                          const bool invert)
 {
@@ -159,10 +159,10 @@ static void do_vector_rotate_around_axis(const VArray<float3> &vector,
   });
 }
 
-static void do_vector_rotate_around_fixed_axis(const VArray<float3> &vector,
-                                               const VArray<float3> &center,
+static void do_vector_rotate_around_fixed_axis(const VArrayImpl<float3> &vector,
+                                               const VArrayImpl<float3> &center,
                                                const float3 axis,
-                                               const VArray<float> &angle,
+                                               const VArrayImpl<float> &angle,
                                                MutableSpan<float3> results,
                                                const bool invert)
 {
@@ -178,9 +178,9 @@ static void do_vector_rotate_around_fixed_axis(const VArray<float3> &vector,
   });
 }
 
-static void do_vector_rotate_euler(const VArray<float3> &vector,
-                                   const VArray<float3> &center,
-                                   const VArray<float3> &rotation,
+static void do_vector_rotate_euler(const VArrayImpl<float3> &vector,
+                                   const VArrayImpl<float3> &center,
+                                   const VArrayImpl<float3> &rotation,
                                    MutableSpan<float3> results,
                                    const bool invert)
 {

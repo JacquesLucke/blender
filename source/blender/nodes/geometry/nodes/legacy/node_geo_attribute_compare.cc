@@ -77,8 +77,8 @@ static void geo_node_attribute_compare_update(bNodeTree *UNUSED(ntree), bNode *n
   nodeSetSocketAvailability(socket_threshold, operation_tests_equality(*node_storage));
 }
 
-static void do_math_operation(const VArray<float> &input_a,
-                              const VArray<float> &input_b,
+static void do_math_operation(const VArrayImpl<float> &input_a,
+                              const VArrayImpl<float> &input_b,
                               const FloatCompareOperation operation,
                               MutableSpan<bool> span_result)
 {
@@ -100,8 +100,8 @@ static void do_math_operation(const VArray<float> &input_a,
   BLI_assert(false);
 }
 
-static void do_equal_operation_float(const VArray<float> &input_a,
-                                     const VArray<float> &input_b,
+static void do_equal_operation_float(const VArrayImpl<float> &input_a,
+                                     const VArrayImpl<float> &input_b,
                                      const float threshold,
                                      MutableSpan<bool> span_result)
 {
@@ -113,8 +113,8 @@ static void do_equal_operation_float(const VArray<float> &input_a,
   }
 }
 
-static void do_equal_operation_float3(const VArray<float3> &input_a,
-                                      const VArray<float3> &input_b,
+static void do_equal_operation_float3(const VArrayImpl<float3> &input_a,
+                                      const VArrayImpl<float3> &input_b,
                                       const float threshold,
                                       MutableSpan<bool> span_result)
 {
@@ -127,8 +127,8 @@ static void do_equal_operation_float3(const VArray<float3> &input_a,
   }
 }
 
-static void do_equal_operation_color4f(const VArray<ColorGeometry4f> &input_a,
-                                       const VArray<ColorGeometry4f> &input_b,
+static void do_equal_operation_color4f(const VArrayImpl<ColorGeometry4f> &input_a,
+                                       const VArrayImpl<ColorGeometry4f> &input_b,
                                        const float threshold,
                                        MutableSpan<bool> span_result)
 {
@@ -141,8 +141,8 @@ static void do_equal_operation_color4f(const VArray<ColorGeometry4f> &input_a,
   }
 }
 
-static void do_equal_operation_bool(const VArray<bool> &input_a,
-                                    const VArray<bool> &input_b,
+static void do_equal_operation_bool(const VArrayImpl<bool> &input_a,
+                                    const VArrayImpl<bool> &input_b,
                                     const float UNUSED(threshold),
                                     MutableSpan<bool> span_result)
 {
@@ -154,8 +154,8 @@ static void do_equal_operation_bool(const VArray<bool> &input_a,
   }
 }
 
-static void do_not_equal_operation_float(const VArray<float> &input_a,
-                                         const VArray<float> &input_b,
+static void do_not_equal_operation_float(const VArrayImpl<float> &input_a,
+                                         const VArrayImpl<float> &input_b,
                                          const float threshold,
                                          MutableSpan<bool> span_result)
 {
@@ -167,8 +167,8 @@ static void do_not_equal_operation_float(const VArray<float> &input_a,
   }
 }
 
-static void do_not_equal_operation_float3(const VArray<float3> &input_a,
-                                          const VArray<float3> &input_b,
+static void do_not_equal_operation_float3(const VArrayImpl<float3> &input_a,
+                                          const VArrayImpl<float3> &input_b,
                                           const float threshold,
                                           MutableSpan<bool> span_result)
 {
@@ -181,8 +181,8 @@ static void do_not_equal_operation_float3(const VArray<float3> &input_a,
   }
 }
 
-static void do_not_equal_operation_color4f(const VArray<ColorGeometry4f> &input_a,
-                                           const VArray<ColorGeometry4f> &input_b,
+static void do_not_equal_operation_color4f(const VArrayImpl<ColorGeometry4f> &input_a,
+                                           const VArrayImpl<ColorGeometry4f> &input_b,
                                            const float threshold,
                                            MutableSpan<bool> span_result)
 {
@@ -195,8 +195,8 @@ static void do_not_equal_operation_color4f(const VArray<ColorGeometry4f> &input_
   }
 }
 
-static void do_not_equal_operation_bool(const VArray<bool> &input_a,
-                                        const VArray<bool> &input_b,
+static void do_not_equal_operation_bool(const VArrayImpl<bool> &input_a,
+                                        const VArrayImpl<bool> &input_b,
                                         const float UNUSED(threshold),
                                         MutableSpan<bool> span_result)
 {

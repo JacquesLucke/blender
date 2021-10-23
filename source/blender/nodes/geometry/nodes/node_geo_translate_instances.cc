@@ -42,8 +42,8 @@ static void translate_instances(GeoNodeExecParams &params, InstancesComponent &i
   transforms_evaluator.add(params.extract_input<Field<float3>>("Translation"));
   transforms_evaluator.add(params.extract_input<Field<bool>>("Local Space"));
   transforms_evaluator.evaluate();
-  const VArray<float3> &translations = transforms_evaluator.get_evaluated<float3>(0);
-  const VArray<bool> &local_spaces = transforms_evaluator.get_evaluated<bool>(1);
+  const VArrayImpl<float3> &translations = transforms_evaluator.get_evaluated<float3>(0);
+  const VArrayImpl<bool> &local_spaces = transforms_evaluator.get_evaluated<bool>(1);
 
   MutableSpan<float4x4> instance_transforms = instances_component.instance_transforms();
 

@@ -53,9 +53,9 @@ class RandomFloatFunction : public blender::fn::MultiFunction {
             blender::fn::MFParams params,
             blender::fn::MFContext UNUSED(context)) const override
   {
-    const blender::VArray<float> &min_values = params.readonly_single_input<float>(0, "Min");
-    const blender::VArray<float> &max_values = params.readonly_single_input<float>(1, "Max");
-    const blender::VArray<int> &seeds = params.readonly_single_input<int>(2, "Seed");
+    const blender::VArrayImpl<float> &min_values = params.readonly_single_input<float>(0, "Min");
+    const blender::VArrayImpl<float> &max_values = params.readonly_single_input<float>(1, "Max");
+    const blender::VArrayImpl<int> &seeds = params.readonly_single_input<int>(2, "Seed");
     blender::MutableSpan<float> values = params.uninitialized_single_output<float>(3, "Value");
 
     for (int64_t i : mask) {

@@ -41,7 +41,7 @@ class GVMutableArray;
 using GVArrayPtr = std::unique_ptr<GVArray>;
 using GVMutableArrayPtr = std::unique_ptr<GVMutableArray>;
 
-/* A generically typed version of `VArray<T>`. */
+/* A generically typed version of `VArrayImpl<T>`. */
 class GVArray {
  protected:
   const CPPType *type_;
@@ -142,10 +142,10 @@ class GVArray {
   void materialize_to_uninitialized(void *dst) const;
   void materialize_to_uninitialized(const IndexMask mask, void *dst) const;
 
-  template<typename T> const VArray<T> *try_get_internal_varray() const
+  template<typename T> const VArrayImpl<T> *try_get_internal_varray() const
   {
     BLI_assert(type_->is<T>());
-    return (const VArray<T> *)this->try_get_internal_varray_impl();
+    return (const VArrayImpl<T> *)this->try_get_internal_varray_impl();
   }
 
   /* Create a typed virtual array for this generic virtual array. */
@@ -340,10 +340,10 @@ class GVArray_For_SingleValue : public GVArray_For_SingleValueRef {
 /* Used to convert a typed virtual array into a generic one. */
 template<typename T> class GVArray_For_VArray : public GVArray {
  protected:
-  const VArray<T> *varray_ = nullptr;
+  const VArrayImpl<T> *varray_ = nullptr;
 
  public:
-  GVArray_For_VArray(const VArray<T> &varray)
+  GVArray_For_VArray(const VArrayImpl<T> &varray)
       : GVArray(CPPType::get<T>(), varray.size()), varray_(&varray)
   {
   }
@@ -410,18 +410,18 @@ class GVArray_For_GArray : public GVArray_For_GSpan {
 };
 
 /* Used to convert any generic virtual array into a typed one. */
-template<typename T> class VArray_For_GVArray : public VArray<T> {
+template<typename T> class VArray_For_GVArray : public VArrayImpl<T> {
  protected:
   const GVArray *varray_ = nullptr;
 
  public:
-  VArray_For_GVArray(const GVArray &varray) : VArray<T>(varray.size()), varray_(&varray)
+  VArray_For_GVArray(const GVArray &varray) : VArrayImpl<T>(varray.size()), varray_(&varray)
   {
     BLI_assert(varray_->type().template is<T>());
   }
 
  protected:
-  VArray_For_GVArray(const int64_t size) : VArray<T>(size)
+  VArray_For_GVArray(const int64_t size) : VArrayImpl<T>(size)
   {
   }
 
@@ -590,7 +590,7 @@ template<typename T> class GVMutableArray_For_VMutableArray : public GVMutableAr
 
   const void *try_get_internal_varray_impl() const override
   {
-    return (const VArray<T> *)varray_;
+    return (const VArrayImpl<T> *)varray_;
   }
 
   void *try_get_internal_mutable_varray_impl() override
@@ -795,7 +795,7 @@ class GVMutableArray_For_MutableSpan
  */
 template<typename T> class GVArray_Typed {
  private:
-  const VArray<T> *varray_;
+  const VArrayImpl<T> *varray_;
   /* Of these optional virtual arrays, at most one is constructed at any time. */
   std::optional<VArray_For_Span<T>> varray_span_;
   std::optional<VArray_For_Single<T>> varray_single_;
@@ -817,7 +817,7 @@ template<typename T> class GVArray_Typed {
       varray_single_.emplace(single_value, gvarray.size());
       varray_ = &*varray_single_;
     }
-    else if (const VArray<T> *internal_varray = gvarray.try_get_internal_varray<T>()) {
+    else if (const VArrayImpl<T> *internal_varray = gvarray.try_get_internal_varray<T>()) {
       varray_ = internal_varray;
     }
     else {
@@ -832,19 +832,19 @@ template<typename T> class GVArray_Typed {
     owned_gvarray_ = std::move(gvarray);
   }
 
-  const VArray<T> &operator*() const
+  const VArrayImpl<T> &operator*() const
   {
     return *varray_;
   }
 
-  const VArray<T> *operator->() const
+  const VArrayImpl<T> *operator->() const
   {
     return varray_;
   }
 
   /* Support implicit cast to the typed virtual array for convenience when `varray->typed<T>()` is
    * used within an expression. */
-  operator const VArray<T> &() const
+  operator const VArrayImpl<T> &() const
   {
     return *varray_;
   }

@@ -474,8 +474,8 @@ static void geometry_set_curve_trim(GeometrySet &geometry_set,
   evaluator.add(start_field);
   evaluator.add(end_field);
   evaluator.evaluate();
-  const blender::VArray<float> &starts = evaluator.get_evaluated<float>(0);
-  const blender::VArray<float> &ends = evaluator.get_evaluated<float>(1);
+  const blender::VArrayImpl<float> &starts = evaluator.get_evaluated<float>(0);
+  const blender::VArrayImpl<float> &ends = evaluator.get_evaluated<float>(1);
 
   CurveEval &curve = *geometry_set.get_curve_for_write();
   MutableSpan<SplinePtr> splines = curve.splines();

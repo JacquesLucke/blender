@@ -82,7 +82,7 @@ class SeparateRGBFunction : public blender::fn::MultiFunction {
             blender::fn::MFParams params,
             blender::fn::MFContext UNUSED(context)) const override
   {
-    const blender::VArray<blender::ColorGeometry4f> &colors =
+    const blender::VArrayImpl<blender::ColorGeometry4f> &colors =
         params.readonly_single_input<blender::ColorGeometry4f>(0, "Color");
     blender::MutableSpan<float> rs = params.uninitialized_single_output<float>(1, "R");
     blender::MutableSpan<float> gs = params.uninitialized_single_output<float>(2, "G");

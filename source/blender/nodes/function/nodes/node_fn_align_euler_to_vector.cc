@@ -45,9 +45,9 @@ static void fn_node_align_euler_to_vector_layout(uiLayout *layout,
 }
 
 static void align_rotations_auto_pivot(IndexMask mask,
-                                       const VArray<float3> &input_rotations,
-                                       const VArray<float3> &vectors,
-                                       const VArray<float> &factors,
+                                       const VArrayImpl<float3> &input_rotations,
+                                       const VArrayImpl<float3> &vectors,
+                                       const VArrayImpl<float> &factors,
                                        const float3 local_main_axis,
                                        const MutableSpan<float3> output_rotations)
 {
@@ -94,9 +94,9 @@ static void align_rotations_auto_pivot(IndexMask mask,
 }
 
 static void align_rotations_fixed_pivot(IndexMask mask,
-                                        const VArray<float3> &input_rotations,
-                                        const VArray<float3> &vectors,
-                                        const VArray<float> &factors,
+                                        const VArrayImpl<float3> &input_rotations,
+                                        const VArrayImpl<float3> &vectors,
+                                        const VArrayImpl<float> &factors,
                                         const float3 local_main_axis,
                                         const float3 local_pivot_axis,
                                         const MutableSpan<float3> output_rotations)
@@ -170,9 +170,10 @@ class MF_AlignEulerToVector : public fn::MultiFunction {
 
   void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
   {
-    const VArray<float3> &input_rotations = params.readonly_single_input<float3>(0, "Rotation");
-    const VArray<float> &factors = params.readonly_single_input<float>(1, "Factor");
-    const VArray<float3> &vectors = params.readonly_single_input<float3>(2, "Vector");
+    const VArrayImpl<float3> &input_rotations = params.readonly_single_input<float3>(0,
+                                                                                     "Rotation");
+    const VArrayImpl<float> &factors = params.readonly_single_input<float>(1, "Factor");
+    const VArrayImpl<float3> &vectors = params.readonly_single_input<float3>(2, "Vector");
 
     auto output_rotations = params.uninitialized_single_output<float3>(3, "Rotation");
 

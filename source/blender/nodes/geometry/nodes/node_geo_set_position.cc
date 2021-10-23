@@ -57,8 +57,8 @@ static void set_position_in_component(GeometryComponent &component,
   /* TODO: We could have different code paths depending on whether the offset input is a single
    * value or not */
 
-  const VArray<float3> &positions_input = position_evaluator.get_evaluated<float3>(0);
-  const VArray<bool> &offsets_input = position_evaluator.get_evaluated<bool>(1);
+  const VArrayImpl<float3> &positions_input = position_evaluator.get_evaluated<float3>(0);
+  const VArrayImpl<bool> &offsets_input = position_evaluator.get_evaluated<bool>(1);
 
   for (int i : selection) {
     position_mutable[i] = offsets_input[i] ? position_mutable[i] + positions_input[i] :

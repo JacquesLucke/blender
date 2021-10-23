@@ -75,8 +75,8 @@ static void geo_node_align_rotation_to_vector_update(bNodeTree *UNUSED(ntree), b
       *node, "Vector", (GeometryNodeAttributeInputMode)node_storage->input_type_vector);
 }
 
-static void align_rotations_auto_pivot(const VArray<float3> &vectors,
-                                       const VArray<float> &factors,
+static void align_rotations_auto_pivot(const VArrayImpl<float3> &vectors,
+                                       const VArrayImpl<float> &factors,
                                        const float3 local_main_axis,
                                        const MutableSpan<float3> rotations)
 {
@@ -120,8 +120,8 @@ static void align_rotations_auto_pivot(const VArray<float3> &vectors,
   });
 }
 
-static void align_rotations_fixed_pivot(const VArray<float3> &vectors,
-                                        const VArray<float> &factors,
+static void align_rotations_fixed_pivot(const VArrayImpl<float3> &vectors,
+                                        const VArrayImpl<float> &factors,
                                         const float3 local_main_axis,
                                         const float3 local_pivot_axis,
                                         const MutableSpan<float3> rotations)

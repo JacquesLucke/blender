@@ -53,7 +53,7 @@ static void geo_attribute_proximity_init(bNodeTree *UNUSED(ntree), bNode *node)
   node->storage = node_storage;
 }
 
-static void calculate_mesh_proximity(const VArray<float3> &positions,
+static void calculate_mesh_proximity(const VArrayImpl<float3> &positions,
                                      const Mesh &mesh,
                                      const GeometryNodeAttributeProximityTargetType type,
                                      MutableSpan<float> r_distances,
@@ -100,7 +100,7 @@ static void calculate_mesh_proximity(const VArray<float3> &positions,
   free_bvhtree_from_mesh(&bvh_data);
 }
 
-static void calculate_pointcloud_proximity(const VArray<float3> &positions,
+static void calculate_pointcloud_proximity(const VArrayImpl<float3> &positions,
                                            const PointCloud &pointcloud,
                                            MutableSpan<float> r_distances,
                                            MutableSpan<float3> r_locations)

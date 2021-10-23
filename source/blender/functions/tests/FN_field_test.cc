@@ -175,8 +175,8 @@ class TwoOutputFunction : public MultiFunction {
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
-    const VArray<int> &in1 = params.readonly_single_input<int>(0, "In1");
-    const VArray<int> &in2 = params.readonly_single_input<int>(1, "In2");
+    const VArrayImpl<int> &in1 = params.readonly_single_input<int>(0, "In1");
+    const VArrayImpl<int> &in2 = params.readonly_single_input<int>(1, "In2");
     MutableSpan<int> add = params.uninitialized_single_output<int>(2, "Add");
     MutableSpan<int> add_10 = params.uninitialized_single_output<int>(3, "Add10");
     mask.foreach_index([&](const int64_t i) {
@@ -240,8 +240,8 @@ TEST(field, TwoFunctionsTwoOutputs)
 
   FieldContext field_context;
   FieldEvaluator field_evaluator{field_context, &mask};
-  const VArray<int> *result_1 = nullptr;
-  const VArray<int> *result_2 = nullptr;
+  const VArrayImpl<int> *result_1 = nullptr;
+  const VArrayImpl<int> *result_2 = nullptr;
   field_evaluator.add(result_field_1, &result_1);
   field_evaluator.add(result_field_2, &result_2);
   field_evaluator.evaluate();
@@ -283,7 +283,7 @@ TEST(field, IgnoredOutput)
 
   FieldContext field_context;
   FieldEvaluator field_evaluator{field_context, 10};
-  const VArray<int> *results = nullptr;
+  const VArrayImpl<int> *results = nullptr;
   field_evaluator.add(field, &results);
   field_evaluator.evaluate();
 

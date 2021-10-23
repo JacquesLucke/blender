@@ -123,7 +123,7 @@ template<typename T> class GVectorArray_TypedMutableRef {
     vector_array_->extend(index, values);
   }
 
-  void extend(const int64_t index, const VArray<T> &values)
+  void extend(const int64_t index, const VArrayImpl<T> &values)
   {
     GVArray_For_VArray<T> array{values};
     this->extend(index, array);

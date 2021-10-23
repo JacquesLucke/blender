@@ -22,7 +22,8 @@ class AddPrefixFunction : public MultiFunction {
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
-    const VArray<std::string> &prefixes = params.readonly_single_input<std::string>(0, "Prefix");
+    const VArrayImpl<std::string> &prefixes = params.readonly_single_input<std::string>(0,
+                                                                                        "Prefix");
     MutableSpan<std::string> strings = params.single_mutable<std::string>(1, "Strings");
 
     for (int64_t i : mask) {
@@ -49,7 +50,7 @@ class CreateRangeFunction : public MultiFunction {
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
-    const VArray<int> &sizes = params.readonly_single_input<int>(0, "Size");
+    const VArrayImpl<int> &sizes = params.readonly_single_input<int>(0, "Size");
     GVectorArray &ranges = params.vector_output(1, "Range");
 
     for (int64_t i : mask) {
@@ -132,7 +133,7 @@ class AppendFunction : public MultiFunction {
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
     GVectorArray_TypedMutableRef<int> vectors = params.vector_mutable<int>(0);
-    const VArray<int> &values = params.readonly_single_input<int>(1);
+    const VArrayImpl<int> &values = params.readonly_single_input<int>(1);
 
     for (int64_t i : mask) {
       vectors.append(i, values[i]);
