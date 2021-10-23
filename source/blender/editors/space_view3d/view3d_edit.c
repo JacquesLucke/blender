@@ -191,7 +191,7 @@ typedef struct ViewOpsData {
     float dist;
     float camzoom;
     float quat[4];
-    /** #wmEvent.x, y. */
+    /** #wmEvent.xy. */
     int event_xy[2];
     /** Offset to use when #VIEWOPS_FLAG_USE_MOUSE_INIT is not set.
      * so we can simulate pressing in the middle of the screen. */
@@ -473,17 +473,16 @@ static void viewops_data_create(bContext *C,
   vod->init.dist = rv3d->dist;
   vod->init.camzoom = rv3d->camzoom;
   copy_qt_qt(vod->init.quat, rv3d->viewquat);
-  vod->init.event_xy[0] = vod->prev.event_xy[0] = event->x;
-  vod->init.event_xy[1] = vod->prev.event_xy[1] = event->y;
+  copy_v2_v2_int(vod->init.event_xy, event->xy);
+  copy_v2_v2_int(vod->prev.event_xy, event->xy);
 
   if (viewops_flag & VIEWOPS_FLAG_USE_MOUSE_INIT) {
-    vod->init.event_xy_offset[0] = 0;
-    vod->init.event_xy_offset[1] = 0;
+    zero_v2_int(vod->init.event_xy_offset);
   }
   else {
     /* Simulate the event starting in the middle of the region. */
-    vod->init.event_xy_offset[0] = BLI_rcti_cent_x(&vod->region->winrct) - event->x;
-    vod->init.event_xy_offset[1] = BLI_rcti_cent_y(&vod->region->winrct) - event->y;
+    vod->init.event_xy_offset[0] = BLI_rcti_cent_x(&vod->region->winrct) - event->xy[0];
+    vod->init.event_xy_offset[1] = BLI_rcti_cent_y(&vod->region->winrct) - event->xy[1];
   }
 
   vod->init.event_type = event->type;
@@ -548,10 +547,9 @@ static void viewops_data_create(bContext *C,
   ED_view3d_win_to_vector(vod->region, (const float[2]){UNPACK2(event->mval)}, vod->init.mousevec);
 
   {
-    const int event_xy_offset[2] = {
-        event->x + vod->init.event_xy_offset[0],
-        event->y + vod->init.event_xy_offset[1],
-    };
+    int event_xy_offset[2];
+    add_v2_v2v2_int(event_xy_offset, event->xy, vod->init.event_xy_offset);
+
     /* For rotation with trackball rotation. */
     calctrackballvec(&vod->region->winrct, event_xy_offset, vod->init.trackvec);
   }
@@ -955,7 +953,7 @@ static int viewrotate_modal(bContext *C, wmOperator *op, const wmEvent *event)
   }
 
   if (event_code == VIEW_APPLY) {
-    viewrotate_apply(vod, &event->x);
+    viewrotate_apply(vod, event->xy);
     if (ED_screen_animation_playing(CTX_wm_manager(C))) {
       use_autokey = true;
     }
@@ -1006,18 +1004,16 @@ static int viewrotate_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
     if (event->type == MOUSEPAN) {
       if (event->is_direction_inverted) {
-        event_xy[0] = 2 * event->x - event->prevx;
-        event_xy[1] = 2 * event->y - event->prevy;
+        event_xy[0] = 2 * event->xy[0] - event->prev_xy[0];
+        event_xy[1] = 2 * event->xy[1] - event->prev_xy[1];
       }
       else {
-        event_xy[0] = event->prevx;
-        event_xy[1] = event->prevy;
+        copy_v2_v2_int(event_xy, event->prev_xy);
       }
     }
     else {
       /* MOUSEROTATE performs orbital rotation, so y axis delta is set to 0 */
-      event_xy[0] = event->prevx;
-      event_xy[1] = event->y;
+      copy_v2_v2_int(event_xy, event->prev_xy);
     }
 
     viewrotate_apply(vod, event_xy);
@@ -1799,7 +1795,7 @@ static int viewmove_modal(bContext *C, wmOperator *op, const wmEvent *event)
   }
 
   if (event_code == VIEW_APPLY) {
-    viewmove_apply(vod, event->x, event->y);
+    viewmove_apply(vod, event->xy[0], event->xy[1]);
     if (ED_screen_animation_playing(CTX_wm_manager(C))) {
       use_autokey = true;
     }
@@ -1844,7 +1840,8 @@ static int viewmove_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
   if (event->type == MOUSEPAN) {
     /* invert it, trackpad scroll follows same principle as 2d windows this way */
-    viewmove_apply(vod, 2 * event->x - event->prevx, 2 * event->y - event->prevy);
+    viewmove_apply(
+        vod, 2 * event->xy[0] - event->prev_xy[0], 2 * event->xy[1] - event->prev_xy[1]);
 
     viewops_data_free(C, op);
 
@@ -1924,7 +1921,7 @@ void viewzoom_modal_keymap(wmKeyConfig *keyconf)
 
 /**
  * \param zoom_xy: Optionally zoom to window location
- * (coords compatible w/ #wmEvent.x, y). Use when not NULL.
+ * (coords compatible w/ #wmEvent.xy). Use when not NULL.
  */
 static void view_zoom_to_window_xy_camera(Scene *scene,
                                           Depsgraph *depsgraph,
@@ -1977,7 +1974,7 @@ static void view_zoom_to_window_xy_camera(Scene *scene,
 
 /**
  * \param zoom_xy: Optionally zoom to window location
- * (coords compatible w/ #wmEvent.x, y). Use when not NULL.
+ * (coords compatible w/ #wmEvent.xy). Use when not NULL.
  */
 static void view_zoom_to_window_xy_3d(ARegion *region, float dfac, const int zoom_xy[2])
 {
@@ -2249,7 +2246,7 @@ static int viewzoom_modal(bContext *C, wmOperator *op, const wmEvent *event)
   if (event_code == VIEW_APPLY) {
     const bool use_cursor_init = RNA_boolean_get(op->ptr, "use_cursor_init");
     viewzoom_apply(vod,
-                   &event->x,
+                   event->xy,
                    (eViewZoom_Style)U.viewzoom,
                    (U.uiflag & USER_ZOOM_INVERT) != 0,
                    (use_cursor_init && (U.uiflag & USER_ZOOM_TO_MOUSEPOS)));
@@ -2374,8 +2371,8 @@ static int viewzoom_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
   /* if one or the other zoom position aren't set, set from event */
   if (!RNA_struct_property_is_set(op->ptr, "mx") || !RNA_struct_property_is_set(op->ptr, "my")) {
-    RNA_int_set(op->ptr, "mx", event->x);
-    RNA_int_set(op->ptr, "my", event->y);
+    RNA_int_set(op->ptr, "mx", event->xy[0]);
+    RNA_int_set(op->ptr, "my", event->xy[1]);
   }
 
   if (RNA_struct_property_is_set(op->ptr, "delta")) {
@@ -2385,15 +2382,15 @@ static int viewzoom_invoke(bContext *C, wmOperator *op, const wmEvent *event)
     if (ELEM(event->type, MOUSEZOOM, MOUSEPAN)) {
 
       if (U.uiflag & USER_ZOOM_HORIZ) {
-        vod->init.event_xy[0] = vod->prev.event_xy[0] = event->x;
+        vod->init.event_xy[0] = vod->prev.event_xy[0] = event->xy[0];
       }
       else {
         /* Set y move = x move as MOUSEZOOM uses only x axis to pass magnification value */
-        vod->init.event_xy[1] = vod->prev.event_xy[1] = vod->init.event_xy[1] + event->x -
-                                                        event->prevx;
+        vod->init.event_xy[1] = vod->prev.event_xy[1] = vod->init.event_xy[1] + event->xy[0] -
+                                                        event->prev_xy[0];
       }
       viewzoom_apply(vod,
-                     &event->prevx,
+                     event->prev_xy,
                      USER_ZOOM_DOLLY,
                      (U.uiflag & USER_ZOOM_INVERT) != 0,
                      (use_cursor_init && (U.uiflag & USER_ZOOM_TO_MOUSEPOS)));
@@ -2572,7 +2569,7 @@ static int viewdolly_modal(bContext *C, wmOperator *op, const wmEvent *event)
   }
 
   if (event_code == VIEW_APPLY) {
-    viewdolly_apply(vod, &event->x, (U.uiflag & USER_ZOOM_INVERT) != 0);
+    viewdolly_apply(vod, event->xy, (U.uiflag & USER_ZOOM_INVERT) != 0);
     if (ED_screen_animation_playing(CTX_wm_manager(C))) {
       use_autokey = true;
     }
@@ -2688,8 +2685,8 @@ static int viewdolly_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
   /* if one or the other zoom position aren't set, set from event */
   if (!RNA_struct_property_is_set(op->ptr, "mx") || !RNA_struct_property_is_set(op->ptr, "my")) {
-    RNA_int_set(op->ptr, "mx", event->x);
-    RNA_int_set(op->ptr, "my", event->y);
+    RNA_int_set(op->ptr, "mx", event->xy[0]);
+    RNA_int_set(op->ptr, "my", event->xy[1]);
   }
 
   if (RNA_struct_property_is_set(op->ptr, "delta")) {
@@ -2706,14 +2703,14 @@ static int viewdolly_invoke(bContext *C, wmOperator *op, const wmEvent *event)
       /* Bypass Zoom invert flag for track pads (pass false always) */
 
       if (U.uiflag & USER_ZOOM_HORIZ) {
-        vod->init.event_xy[0] = vod->prev.event_xy[0] = event->x;
+        vod->init.event_xy[0] = vod->prev.event_xy[0] = event->xy[0];
       }
       else {
         /* Set y move = x move as MOUSEZOOM uses only x axis to pass magnification value */
-        vod->init.event_xy[1] = vod->prev.event_xy[1] = vod->init.event_xy[1] + event->x -
-                                                        event->prevx;
+        vod->init.event_xy[1] = vod->prev.event_xy[1] = vod->init.event_xy[1] + event->xy[0] -
+                                                        event->prev_xy[0];
       }
-      viewdolly_apply(vod, &event->prevx, (U.uiflag & USER_ZOOM_INVERT) == 0);
+      viewdolly_apply(vod, event->prev_xy, (U.uiflag & USER_ZOOM_INVERT) == 0);
 
       viewops_data_free(C, op);
       return OPERATOR_FINISHED;
@@ -4421,7 +4418,7 @@ static int viewroll_modal(bContext *C, wmOperator *op, const wmEvent *event)
   }
 
   if (event_code == VIEW_APPLY) {
-    viewroll_apply(vod, event->x, event->y);
+    viewroll_apply(vod, event->xy[0], event->xy[1]);
     if (ED_screen_animation_playing(CTX_wm_manager(C))) {
       use_autokey = true;
     }
@@ -4535,8 +4532,8 @@ static int viewroll_invoke(bContext *C, wmOperator *op, const wmEvent *event)
     negate_v3(vod->init.mousevec);
 
     if (event->type == MOUSEROTATE) {
-      vod->init.event_xy[0] = vod->prev.event_xy[0] = event->x;
-      viewroll_apply(vod, event->prevx, event->prevy);
+      vod->init.event_xy[0] = vod->prev.event_xy[0] = event->xy[0];
+      viewroll_apply(vod, event->prev_xy[0], event->prev_xy[1]);
 
       viewops_data_free(C, op);
       return OPERATOR_FINISHED;
