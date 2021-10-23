@@ -452,4 +452,25 @@ GVArray_Slice::GVArray_Slice(const GVArrayImpl &varray, const IndexRange slice)
 
 /** \} */
 
+/* -------------------------------------------------------------------- */
+/** \name #GVArray
+ * \{ */
+
+GVArray GVArray::ForSingleRef(const CPPType &type, const int64_t size, const void *value)
+{
+  return GVArray::For<GVArray_For_SingleValueRef>(type, size, value);
+}
+
+GVArray GVArray::ForSingle(const CPPType &type, const int64_t size, const void *value)
+{
+  return GVArray::For<GVArray_For_SingleValue>(type, size, value);
+}
+
+GVArray GVArray::ForSpan(GSpan span)
+{
+  return GVArray::For<GVArray_For_GSpan>(span);
+}
+
+/** \} */
+
 }  // namespace blender::fn

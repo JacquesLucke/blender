@@ -674,11 +674,11 @@ template<typename T> struct VArrayAnyExtraInfo {
 
     if constexpr (std::is_base_of_v<VArrayImpl<T>, StorageT>) {
       return {[](const void *buffer) {
-        return static_cast<const VArrayImpl<T> *>((StorageT *)buffer);
+        return static_cast<const VArrayImpl<T> *>((const StorageT *)buffer);
       }};
     }
     else if constexpr (std::is_same_v<StorageT, std::shared_ptr<const VArrayImpl<T>>>) {
-      return {[](const void *buffer) { return ((StorageT *)buffer)->get(); }};
+      return {[](const void *buffer) { return ((const StorageT *)buffer)->get(); }};
     }
     else {
       BLI_assert_unreachable();
@@ -774,7 +774,7 @@ template<typename T> class VArray {
   const Impl &operator*() const
   {
     BLI_assert(*this);
-    return impl_;
+    return *impl_;
   }
 
   T operator[](const int64_t index) const

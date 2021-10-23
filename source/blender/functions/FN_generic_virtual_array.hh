@@ -343,11 +343,18 @@ class GVArray_For_SingleValue : public GVArray_For_SingleValueRef {
 template<typename T> class GVArray_For_VArray : public GVArrayImpl {
  protected:
   const VArrayImpl<T> *varray_ = nullptr;
+  VArray<T> local_varray_;
 
  public:
   GVArray_For_VArray(const VArrayImpl<T> &varray)
       : GVArrayImpl(CPPType::get<T>(), varray.size()), varray_(&varray)
   {
+  }
+
+  GVArray_For_VArray(VArray<T> varray) : local_varray_(std::move(varray))
+  {
+    BLI_assert(local_varray_);
+    varray_ = &*local_varray_;
   }
 
  protected:
@@ -411,16 +418,22 @@ class GVArray_For_GArray : public GVArray_For_GSpan {
   }
 };
 
+class GVArray;
+
 /* Used to convert any generic virtual array into a typed one. */
 template<typename T> class VArray_For_GVArray : public VArrayImpl<T> {
  protected:
   const GVArrayImpl *varray_ = nullptr;
+  /* TODO: Don't use #shared_ptr. */
+  std::shared_ptr<GVArray> local_varray_;
 
  public:
   VArray_For_GVArray(const GVArrayImpl &varray) : VArrayImpl<T>(varray.size()), varray_(&varray)
   {
     BLI_assert(varray_->type().template is<T>());
   }
+
+  VArray_For_GVArray(const GVArray &varray);
 
  protected:
   VArray_For_GVArray(const int64_t size) : VArrayImpl<T>(size)
@@ -971,5 +984,140 @@ class GVArray_Slice {
     return *varray_;
   }
 };
+
+namespace detail {
+
+struct GVArrayAnyExtraInfo {
+  const GVArrayImpl *(*get_varray)(const void *buffer) =
+      [](const void *UNUSED(buffer)) -> const GVArrayImpl * { return nullptr; };
+
+  template<typename StorageT> static GVArrayAnyExtraInfo get()
+  {
+    static_assert(std::is_base_of_v<GVArrayImpl, StorageT> ||
+                  std::is_same_v<StorageT, std::shared_ptr<const GVArrayImpl>>);
+
+    if constexpr (std::is_base_of_v<GVArrayImpl, StorageT>) {
+      return {[](const void *buffer) {
+        return static_cast<const GVArrayImpl *>((const StorageT *)buffer);
+      }};
+    }
+    else if constexpr (std::is_same_v<StorageT, std::shared_ptr<const GVArrayImpl>>) {
+      return {[](const void *buffer) { return ((const StorageT *)buffer)->get(); }};
+    }
+    else {
+      BLI_assert_unreachable();
+      return {};
+    }
+  }
+};
+
+}  // namespace detail
+
+class GVArray {
+ private:
+  using ExtraInfo = detail::GVArrayAnyExtraInfo;
+  using Storage = Any<ExtraInfo, 32, 8>;
+  using Impl = GVArrayImpl;
+
+  const Impl *impl_ = nullptr;
+  Storage storage_;
+
+ public:
+  GVArray() = default;
+
+  GVArray(const GVArray &other) : storage_(other.storage_)
+  {
+    impl_ = storage_.extra_info().get_varray(storage_.get());
+  }
+
+  GVArray(const Impl *impl) : impl_(impl)
+  {
+  }
+
+  GVArray(std::shared_ptr<const Impl> impl) : impl_(impl.get())
+  {
+    if (impl) {
+      storage_ = std::move(impl);
+    }
+  }
+
+  template<typename T> GVArray(const VArray<T> &varray)
+  {
+    if (!varray) {
+      return;
+    }
+    if (varray->is_span()) {
+      Span<T> data = varray->get_internal_span();
+      *this = GVArray::ForSpan(data);
+    }
+    else if (varray->is_single()) {
+      T value = varray->get_internal_single();
+      *this = GVArray::ForSingle(CPPType::get<T>(), varray->size(), &value);
+    }
+    else {
+      *this = GVArray::For<GVArray_For_VArray<T>>(varray);
+    }
+  }
+
+  template<typename T> VArray<T> typed() const
+  {
+    if (*this) {
+      return {};
+    }
+    BLI_assert(impl_->type().is<T>());
+    if (impl_->is_span()) {
+      const GSpan span = impl_->get_internal_span();
+      return VArray<T>::ForSpan(span.typed<T>());
+    }
+    if (impl_->is_single()) {
+      T value;
+      impl_->get_internal_single(&value);
+      return VArray<T>::ForSingle(value, impl_->size());
+    }
+    return VArray<T>::template For<VArray_For_GVArray<T>>(*this);
+  }
+
+  template<typename ImplT, typename... Args> static GVArray For(Args &&...args)
+  {
+    static_assert(std::is_base_of_v<Impl, ImplT>);
+    if constexpr (std::is_copy_constructible_v<ImplT> && Storage::template is_inline_v<ImplT>) {
+      GVArray varray;
+      varray.impl_ = &varray.storage_.template emplace<ImplT>(std::forward<Args>(args)...);
+      return varray;
+    }
+    else {
+      return GVArray(std::make_shared<ImplT>(std::forward<Args>(args)...));
+    }
+  }
+
+  static GVArray ForSingleRef(const CPPType &type, const int64_t size, const void *value);
+  static GVArray ForSingle(const CPPType &type, const int64_t size, const void *value);
+  static GVArray ForSpan(GSpan span);
+
+  operator bool() const
+  {
+    return impl_ != nullptr;
+  }
+
+  const Impl *operator->() const
+  {
+    BLI_assert(*this);
+    return impl_;
+  }
+
+  const Impl &operator*() const
+  {
+    BLI_assert(*this);
+    return *impl_;
+  }
+};
+
+template<typename T>
+inline VArray_For_GVArray<T>::VArray_For_GVArray(const GVArray &varray)
+    : local_varray_(std::make_shared<GVArray>(std::move(varray)))
+{
+  BLI_assert(*local_varray_);
+  varray_ = &**local_varray_;
+}
 
 }  // namespace blender::fn
