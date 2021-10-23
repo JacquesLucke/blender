@@ -470,10 +470,13 @@ template<typename T> class VArray_For_GVArray : public VArrayImpl<T> {
   }
 };
 
+class GVMutableArray;
+
 /* Used to convert an generic mutable virtual array into a typed one. */
 template<typename T> class VMutableArray_For_GVMutableArray : public VMutableArrayImpl<T> {
  protected:
   GVMutableArrayImpl *varray_ = nullptr;
+  std::shared_ptr<GVMutableArray> local_varray_;
 
  public:
   VMutableArray_For_GVMutableArray(GVMutableArrayImpl &varray)
@@ -481,6 +484,8 @@ template<typename T> class VMutableArray_For_GVMutableArray : public VMutableArr
   {
     BLI_assert(varray.type().template is<T>());
   }
+
+  VMutableArray_For_GVMutableArray(GVMutableArray varray);
 
   VMutableArray_For_GVMutableArray(const int64_t size) : VMutableArrayImpl<T>(size)
   {
@@ -526,11 +531,18 @@ template<typename T> class VMutableArray_For_GVMutableArray : public VMutableArr
 template<typename T> class GVMutableArray_For_VMutableArray : public GVMutableArrayImpl {
  protected:
   VMutableArrayImpl<T> *varray_ = nullptr;
+  VMutableArray<T> local_varray_;
 
  public:
   GVMutableArray_For_VMutableArray(VMutableArrayImpl<T> &varray)
       : GVMutableArrayImpl(CPPType::get<T>(), varray.size()), varray_(&varray)
   {
+  }
+
+  GVMutableArray_For_VMutableArray(VMutableArray<T> varray) : local_varray_(std::move(varray))
+  {
+    BLI_assert(local_varray_);
+    varray_ = &*local_varray_;
   }
 
  protected:
@@ -1151,7 +1163,7 @@ class GVMutableArray {
       *this = GVMutableArray::ForSpan(data);
     }
     else {
-      *this = GVMutableArray::For<GVArray_For_VArray<T>>(varray);
+      *this = GVMutableArray::For<GVMutableArray_For_VMutableArray<T>>(varray);
     }
   }
 
@@ -1165,8 +1177,7 @@ class GVMutableArray {
       const GSpan span = impl_->get_internal_span();
       return VMutableArray<T>::ForSpan(span.typed<T>());
     }
-    return {};
-    // return VArray<T>::template For<VArray_For_GVArray<T>>(*this);
+    return VArray<T>::template For<VMutableArray_For_GVMutableArray<T>>(*this);
   }
 
   template<typename ImplT, typename... Args> static GVMutableArray For(Args &&...args)
@@ -1217,6 +1228,14 @@ class GVMutableArray {
 template<typename T>
 inline VArray_For_GVArray<T>::VArray_For_GVArray(const GVArray &varray)
     : local_varray_(std::make_shared<GVArray>(std::move(varray)))
+{
+  BLI_assert(*local_varray_);
+  varray_ = &**local_varray_;
+}
+
+template<typename T>
+inline VMutableArray_For_GVMutableArray<T>::VMutableArray_For_GVMutableArray(GVMutableArray varray)
+    : local_varray_(std::make_shared<GVMutableArray>(std::move(varray)))
 {
   BLI_assert(*local_varray_);
   varray_ = &**local_varray_;
