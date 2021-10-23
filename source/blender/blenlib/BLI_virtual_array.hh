@@ -779,4 +779,96 @@ template<typename T> class VArray {
   }
 };
 
+template<typename T> class VMutableArray {
+ private:
+  using ExtraInfo = detail::VArrayAnyExtraInfo<T>;
+  using Storage = Any<ExtraInfo, 24, 8>;
+  using Impl = VMutableArrayImpl<T>;
+
+  Impl *impl_ = nullptr;
+  Storage storage_;
+
+ public:
+  VMutableArray() = default;
+
+  VMutableArray(const VMutableArray &other) : storage_(other.storage_)
+  {
+    impl_ = const_cast<Impl *>(
+        static_cast<const Impl *>(storage_.extra_info().get_varray(storage_.get())));
+  }
+
+  VMutableArray(Impl *impl) : impl_(impl)
+  {
+  }
+
+  VMutableArray(std::shared_ptr<Impl> impl) : impl_(impl.get())
+  {
+    if (impl) {
+      storage_ = std::shared_ptr<const VArrayImpl<T>>(std::move(impl));
+    }
+  }
+
+  template<typename ImplT, typename... Args> static VMutableArray For(Args &&...args)
+  {
+    static_assert(std::is_base_of_v<Impl, ImplT>);
+    if constexpr (std::is_copy_constructible_v<ImplT> && Storage::template is_inline_v<ImplT>) {
+      VMutableArray varray;
+      varray.impl_ = &varray.storage_.template emplace<ImplT>(std::forward<Args>(args)...);
+      return varray;
+    }
+    else {
+      return VMutableArray(std::make_shared<ImplT>(std::forward<Args>(args)...));
+    }
+  }
+
+  static VMutableArray ForSpan(MutableSpan<T> values)
+  {
+    return VMutableArray::For<VMutableArray_For_MutableSpan<T>>(values);
+  }
+
+  template<typename StructT,
+           typename ElemT,
+           ElemT (*GetFunc)(const StructT &),
+           void (*SetFunc)(StructT &, ElemT)>
+  static VMutableArray ForDerivedSpan(MutableSpan<StructT> values)
+  {
+    return VMutableArray::For<VMutableArray_For_DerivedSpan<StructT, ElemT, GetFunc, SetFunc>>(
+        values);
+  }
+
+  operator bool() const
+  {
+    return impl_ != nullptr;
+  }
+
+  Impl *operator->()
+  {
+    BLI_assert(*this);
+    return impl_;
+  }
+
+  Impl &operator*()
+  {
+    BLI_assert(*this);
+    return impl_;
+  }
+
+  const Impl *operator->() const
+  {
+    BLI_assert(*this);
+    return impl_;
+  }
+
+  const Impl &operator*() const
+  {
+    return impl_;
+  }
+
+  T operator[](const int64_t index) const
+  {
+    BLI_assert(*this);
+    return impl_->get(index);
+  }
+};
+
 }  // namespace blender

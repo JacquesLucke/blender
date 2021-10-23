@@ -169,6 +169,12 @@ TEST(virtual_array, Test)
   VArray<float> d = VArray<float>::ForSingle(10.0f, 4);
   EXPECT_EQ(d[0], 10.0f);
   EXPECT_EQ(d->size(), 4);
+
+  VMutableArray<int> e = VMutableArray<int>::ForSpan(values);
+  EXPECT_EQ(e[0], 1);
+  EXPECT_EQ(e[1], 6);
+  e->set(0, 10);
+  EXPECT_EQ(values[0], 10);
 }
 
 }  // namespace blender::tests
