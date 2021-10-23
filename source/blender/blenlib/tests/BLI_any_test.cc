@@ -10,13 +10,13 @@ namespace blender::tests {
 TEST(any, DefaultConstructor)
 {
   Any a;
-  EXPECT_TRUE(a.is_empty());
+  EXPECT_FALSE(a);
 }
 
 TEST(any, AssignInt)
 {
   Any a = 5;
-  EXPECT_FALSE(a.is_empty());
+  EXPECT_TRUE(a);
   EXPECT_TRUE(a.is<int>());
   EXPECT_FALSE(a.is<float>());
   const int &value = a.get<int>();
@@ -25,23 +25,23 @@ TEST(any, AssignInt)
   EXPECT_EQ(value, 10);
 
   Any b = a;
-  EXPECT_FALSE(b.is_empty());
+  EXPECT_TRUE(b);
   EXPECT_EQ(b.get<int>(), 10);
 
   Any c = std::move(a);
-  EXPECT_FALSE(c.is_empty());
+  EXPECT_TRUE(c);
   EXPECT_EQ(c.get<int>(), 10);
 
   EXPECT_EQ(a.get<int>(), 10); /* NOLINT: bugprone-use-after-move */
 
   a.reset();
-  EXPECT_TRUE(a.is_empty());
+  EXPECT_FALSE(a);
 }
 
 TEST(any, AssignMap)
 {
   Any a = Map<int, int>();
-  EXPECT_FALSE(a.is_empty());
+  EXPECT_TRUE(a);
   EXPECT_TRUE((a.is<Map<int, int>>()));
   EXPECT_FALSE((a.is<Map<int, float>>()));
   Map<int, int> &map = a.get<Map<int, int>>();
@@ -49,12 +49,12 @@ TEST(any, AssignMap)
   EXPECT_EQ((a.get<Map<int, int>>().lookup(4)), 2);
 
   Any b = a;
-  EXPECT_FALSE(b.is_empty());
+  EXPECT_TRUE(b);
   EXPECT_EQ((b.get<Map<int, int>>().lookup(4)), 2);
 
   Any c = std::move(a);
   c = c;
-  EXPECT_FALSE(b.is_empty());
+  EXPECT_TRUE(b);
   EXPECT_EQ((c.get<Map<int, int>>().lookup(4)), 2);
 
   EXPECT_TRUE((a.get<Map<int, int>>().is_empty())); /* NOLINT: bugprone-use-after-move */
@@ -67,17 +67,17 @@ TEST(any, AssignAny)
   Any c;
 
   Any z;
-  EXPECT_TRUE(z.is_empty());
+  EXPECT_FALSE(z);
 
   z = a;
-  EXPECT_FALSE(z.is_empty());
+  EXPECT_TRUE(z);
   EXPECT_EQ(z.get<int>(), 5);
 
   z = b;
   EXPECT_EQ(z.get<std::string>(), "hello");
 
   z = c;
-  EXPECT_TRUE(z.is_empty());
+  EXPECT_FALSE(z);
 
   z = Any(std::in_place_type<Any<>>, a);
   EXPECT_FALSE(z.is<int>());

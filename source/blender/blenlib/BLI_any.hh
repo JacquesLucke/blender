@@ -239,15 +239,9 @@ class Any {
     info_ = &Info::get_for_empty();
   }
 
-  /** Return true when no value is currently stored. */
-  bool is_empty() const
-  {
-    return info_ == &Info::get_for_empty();
-  }
-
   operator bool() const
   {
-    return !this->is_empty();
+    return info_ != &Info::get_for_empty();
   }
 
   template<typename T, typename... Args> std::decay_t<T> &emplace(Args &&...args)
