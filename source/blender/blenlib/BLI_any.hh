@@ -74,6 +74,7 @@ class Any {
   AlignedBuffer<std::max(InlineBufferCapacity, sizeof(std::unique_ptr<int>)), Alignment> buffer_;
   const Info *info_ = &Info::get_for_empty();
 
+ public:
   template<typename T> static constexpr inline bool is_allowed_v = std::is_copy_constructible_v<T>;
 
   template<typename T>
@@ -150,7 +151,7 @@ class Any {
 
   bool is_empty() const
   {
-    return info_ != &Info::get_for_empty();
+    return info_ == &Info::get_for_empty();
   }
 
   template<typename T> bool is() const
