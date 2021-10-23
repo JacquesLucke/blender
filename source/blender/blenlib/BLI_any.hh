@@ -29,8 +29,6 @@ struct AnyTypeInfo {
   bool is_unique_ptr;
   void (*copy_construct)(void *dst, const void *src);
   void (*move_construct)(void *dst, void *src);
-  void (*copy_assign)(void *dst, const void *src);
-  void (*move_assign)(void *dst, void *src);
   void (*destruct)(void *src);
   const void *(*get)(const void *src);
 
@@ -39,8 +37,6 @@ struct AnyTypeInfo {
     static AnyTypeInfo funcs = {false,
                                 [](void *dst, const void *src) { new (dst) T(*(const T *)src); },
                                 [](void *dst, void *src) { new (dst) T(std::move(*(T *)src)); },
-                                [](void *dst, const void *src) { *(T *)dst = *(const T *)src; },
-                                [](void *dst, void *src) { *(T *)dst = std::move(*(T *)src); },
                                 [](void *src) { ((T *)src)->~T(); },
                                 [](const void *src) { return src; }};
     return funcs;
@@ -53,8 +49,6 @@ struct AnyTypeInfo {
         true,
         [](void *dst, const void *src) { new (dst) Ptr(new T(**(const Ptr *)src)); },
         [](void *dst, void *src) { new (dst) Ptr(new T(std::move(**(Ptr *)src))); },
-        [](void *dst, const void *src) { *(Ptr *)dst = Ptr(new T(**(const Ptr *)src)); },
-        [](void *dst, void *src) { *(Ptr *)dst = Ptr(new T(std::move(**(Ptr *)src))); },
         [](void *src) { ((Ptr *)src)->~Ptr(); },
         [](const void *src) -> const void * { return &**(const Ptr *)src; }};
     return funcs;
@@ -63,8 +57,6 @@ struct AnyTypeInfo {
   static const AnyTypeInfo &get_for_empty()
   {
     static AnyTypeInfo funcs = {false,
-                                [](void *UNUSED(dst), const void *UNUSED(src)) {},
-                                [](void *UNUSED(dst), void *UNUSED(src)) {},
                                 [](void *UNUSED(dst), const void *UNUSED(src)) {},
                                 [](void *UNUSED(dst), void *UNUSED(src)) {},
                                 [](void *UNUSED(src)) {},
@@ -89,8 +81,104 @@ class Any {
                                              sizeof(T) <= InlineBufferCapacity &&
                                              alignof(T) <= Alignment;
 
+  template<typename T>
+  static constexpr inline bool is_same_any_v = std::is_same_v<std::decay_t<T>, Any>;
+
+ private:
+  template<typename T> const Info &get_info() const
+  {
+    using DecayT = std::decay_t<T>;
+    static_assert(is_allowed_v<DecayT>);
+    if constexpr (is_inline_v<DecayT>) {
+      return Info::get_for_inline<DecayT>();
+    }
+    else {
+      return Info::get_for_unique_ptr<DecayT>();
+    }
+  }
+
  public:
   Any() = default;
+
+  Any(const Any &other)
+  {
+    info_ = other.info_;
+    info_->copy_construct(&buffer_, &other.buffer_);
+  }
+
+  Any(Any &&other)
+  {
+    info_ = other.info_;
+    info_->move_construct(&buffer_, &other.buffer_);
+  }
+
+  template<typename T, typename X = std::enable_if_t<!is_same_any_v<T>, void>> Any(T &&value)
+  {
+    using DecayT = std::decay_t<T>;
+    static_assert(is_allowed_v<DecayT>);
+    info_ = &this->template get_info<DecayT>();
+    if constexpr (is_inline_v<DecayT>) {
+      new (&buffer_) T(std::forward<T>(value));
+    }
+    else {
+      new (&buffer_) std::unique_ptr<DecayT>(new DecayT(std::forward<T>(value)));
+    }
+  }
+
+  ~Any()
+  {
+    info_->destruct(&buffer_);
+  }
+
+  template<typename T> Any &operator=(T &&other)
+  {
+    if constexpr (is_same_any_v<T>) {
+      if (this == &other) {
+        return *this;
+      }
+    }
+    this->~Any();
+    new (this) Any(std::forward<T>(other));
+    return *this;
+  }
+
+  void reset()
+  {
+    info_->destruct(&buffer_);
+    info_ = &Info::get_for_empty();
+  }
+
+  bool is_empty() const
+  {
+    return info_ != &Info::get_for_empty();
+  }
+
+  template<typename T> bool is() const
+  {
+    return info_ == &this->template get_info<T>();
+  }
+
+  void *get()
+  {
+    return const_cast<void *>(info_->get(&buffer_));
+  }
+
+  const void *get() const
+  {
+    return info_->get(&buffer_);
+  }
+
+  template<typename T> T &get()
+  {
+    BLI_assert(this->is<T>());
+    return *static_cast<T *>(this->get());
+  }
+
+  template<typename T> const T &get() const
+  {
+    BLI_assert(this->is<T>());
+    return *static_cast<const T *>(this->get());
+  }
 };
 
 }  // namespace blender
