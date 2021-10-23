@@ -1151,7 +1151,7 @@ class GVMutableArray {
       *this = GVMutableArray::ForSpan(data);
     }
     else {
-      // *this = GVMutableArray::For<GVArray_For_VArray<T>>(varray);
+      *this = GVMutableArray::For<GVArray_For_VArray<T>>(varray);
     }
   }
 
