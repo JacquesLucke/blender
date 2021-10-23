@@ -26,9 +26,9 @@ using blender::float3;
 using blender::IndexRange;
 using blender::MutableSpan;
 using blender::Span;
-using blender::fn::GVArray_For_ArrayContainer;
 using blender::fn::GVArray_Typed;
 using blender::fn::GVArrayImpl;
+using blender::fn::GVArrayImpl_For_ArrayContainer;
 using blender::fn::GVArrayPtr;
 
 void NURBSpline::copy_settings(Spline &dst) const
@@ -426,7 +426,7 @@ GVArrayPtr NURBSpline::interpolate_to_evaluated(const GVArrayImpl &src) const
     if constexpr (!std::is_void_v<blender::attribute_math::DefaultMixer<T>>) {
       Array<T> values(this->evaluated_points_size());
       interpolate_to_evaluated_impl<T>(basis_cache, src.typed<T>(), values);
-      new_varray = std::make_unique<GVArray_For_ArrayContainer<Array<T>>>(std::move(values));
+      new_varray = std::make_unique<GVArrayImpl_For_ArrayContainer<Array<T>>>(std::move(values));
     }
   });
 

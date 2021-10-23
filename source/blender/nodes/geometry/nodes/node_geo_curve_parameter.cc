@@ -137,12 +137,14 @@ static const GVArrayImpl *construct_curve_parameter_gvarray(const CurveEval &cur
 {
   if (domain == ATTR_DOMAIN_POINT) {
     Array<float> parameters = curve_parameter_point_domain(curve);
-    return &scope.construct<fn::GVArray_For_ArrayContainer<Array<float>>>(std::move(parameters));
+    return &scope.construct<fn::GVArrayImpl_For_ArrayContainer<Array<float>>>(
+        std::move(parameters));
   }
 
   if (domain == ATTR_DOMAIN_CURVE) {
     Array<float> parameters = curve_parameter_spline_domain(curve, mask);
-    return &scope.construct<fn::GVArray_For_ArrayContainer<Array<float>>>(std::move(parameters));
+    return &scope.construct<fn::GVArrayImpl_For_ArrayContainer<Array<float>>>(
+        std::move(parameters));
   }
 
   return nullptr;

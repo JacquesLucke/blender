@@ -92,7 +92,7 @@ static Vector<const GVArrayImpl *> get_field_context_inputs(
     const GVArrayImpl *varray = context.get_varray_for_input(field_input, mask, scope);
     if (varray == nullptr) {
       const CPPType &type = field_input.cpp_type();
-      varray = &scope.construct<GVArray_For_SingleValueRef>(
+      varray = &scope.construct<GVArrayImpl_For_SingleValueRef>(
           type, mask.min_array_size(), type.default_value());
     }
     field_context_inputs.append(varray);
@@ -379,7 +379,7 @@ Vector<const GVArrayImpl *> evaluate_fields(ResourceScope &scope,
               [buffer, mask, &type]() { type.destruct_indices(buffer, mask); });
         }
 
-        r_varrays[out_index] = &scope.construct<GVArray_For_GSpan>(
+        r_varrays[out_index] = &scope.construct<GVArrayImpl_For_GSpan>(
             GSpan{type, buffer, array_size});
       }
       else {
@@ -432,7 +432,7 @@ Vector<const GVArrayImpl *> evaluate_fields(ResourceScope &scope,
 
       /* Create virtual array that can be used after the procedure has been executed below. */
       const int out_index = constant_field_indices[i];
-      r_varrays[out_index] = &scope.construct<GVArray_For_SingleValueRef>(
+      r_varrays[out_index] = &scope.construct<GVArrayImpl_For_SingleValueRef>(
           type, array_size, buffer);
     }
 
@@ -523,7 +523,7 @@ GVArrayImpl *IndexFieldInput::get_index_varray(IndexMask mask, ResourceScope &sc
 {
   auto index_func = [](int i) { return i; };
   return &scope.construct<
-      fn::GVArray_For_EmbeddedVArray<int, VArray_For_Func<int, decltype(index_func)>>>(
+      fn::GVArrayImpl_For_EmbeddedVArray<int, VArrayImpl_For_Func<int, decltype(index_func)>>>(
       mask.min_array_size(), mask.min_array_size(), index_func);
 }
 
@@ -634,7 +634,7 @@ int FieldEvaluator::add_with_destination(GField field, GVMutableArrayImpl &dst)
 
 int FieldEvaluator::add_with_destination(GField field, GMutableSpan dst)
 {
-  GVMutableArrayImpl &varray = scope_.construct<GVMutableArray_For_GMutableSpan>(dst);
+  GVMutableArrayImpl &varray = scope_.construct<GVMutableArrayImpl_For_GMutableSpan>(dst);
   return this->add_with_destination(std::move(field), varray);
 }
 

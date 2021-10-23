@@ -25,9 +25,9 @@
 
 #include "node_geometry_util.hh"
 
-using blender::fn::GVArray_For_GSpan;
-using blender::fn::GVArray_For_Span;
 using blender::fn::GVArray_Typed;
+using blender::fn::GVArrayImpl_For_GSpan;
+using blender::fn::GVArrayImpl_For_Span;
 
 namespace blender::nodes {
 

@@ -34,9 +34,9 @@ using blender::attribute_math::convert_to_static_type;
 using blender::bke::AttributeIDRef;
 using blender::fn::GMutableSpan;
 using blender::fn::GSpan;
-using blender::fn::GVArray_For_GSpan;
 using blender::fn::GVArray_Typed;
 using blender::fn::GVArrayImpl;
+using blender::fn::GVArrayImpl_For_GSpan;
 using blender::fn::GVArrayPtr;
 
 Spline::Type Spline::type() const
@@ -525,7 +525,7 @@ void Spline::bounds_min_max(float3 &min, float3 &max, const bool use_evaluated) 
 
 GVArrayPtr Spline::interpolate_to_evaluated(GSpan data) const
 {
-  return this->interpolate_to_evaluated(GVArray_For_GSpan(data));
+  return this->interpolate_to_evaluated(GVArrayImpl_For_GSpan(data));
 }
 
 /**

@@ -100,16 +100,17 @@ static const GVArrayImpl *construct_curve_tangent_gvarray(const CurveComponent &
      * This is only possible when there is only one poly spline. */
     if (splines.size() == 1 && splines.first()->type() == Spline::Type::Poly) {
       const PolySpline &spline = static_cast<PolySpline &>(*splines.first());
-      return &scope.construct<fn::GVArray_For_Span<float3>>(spline.evaluated_tangents());
+      return &scope.construct<fn::GVArrayImpl_For_Span<float3>>(spline.evaluated_tangents());
     }
 
     Array<float3> tangents = curve_tangent_point_domain(*curve);
-    return &scope.construct<fn::GVArray_For_ArrayContainer<Array<float3>>>(std::move(tangents));
+    return &scope.construct<fn::GVArrayImpl_For_ArrayContainer<Array<float3>>>(
+        std::move(tangents));
   }
 
   if (domain == ATTR_DOMAIN_CURVE) {
     Array<float3> point_tangents = curve_tangent_point_domain(*curve);
-    GVArrayPtr gvarray = std::make_unique<fn::GVArray_For_ArrayContainer<Array<float3>>>(
+    GVArrayPtr gvarray = std::make_unique<fn::GVArrayImpl_For_ArrayContainer<Array<float3>>>(
         std::move(point_tangents));
     GVArrayPtr spline_tangents = component.attribute_try_adapt_domain(
         std::move(gvarray), ATTR_DOMAIN_POINT, ATTR_DOMAIN_CURVE);

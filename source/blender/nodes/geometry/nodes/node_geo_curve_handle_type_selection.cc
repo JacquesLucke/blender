@@ -117,7 +117,8 @@ class HandleTypeFieldInput final : public fn::FieldInput {
       if (domain == ATTR_DOMAIN_POINT) {
         Array<bool> selection(mask.min_array_size());
         select_by_handle_type(*curve, type_, mode_, selection);
-        return &scope.construct<fn::GVArray_For_ArrayContainer<Array<bool>>>(std::move(selection));
+        return &scope.construct<fn::GVArrayImpl_For_ArrayContainer<Array<bool>>>(
+            std::move(selection));
       }
     }
     return nullptr;

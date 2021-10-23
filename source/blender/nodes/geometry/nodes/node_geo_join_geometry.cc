@@ -27,7 +27,7 @@
 
 #include "node_geometry_util.hh"
 
-using blender::fn::GVArray_For_GSpan;
+using blender::fn::GVArrayImpl_For_GSpan;
 
 namespace blender::nodes {
 
@@ -320,7 +320,7 @@ static void ensure_control_point_attribute(const AttributeIDRef &attribute_id,
             spline->size() * type.size(), type.alignment(), __func__);
 
         const DataTypeConversions &conversions = blender::nodes::get_implicit_type_conversions();
-        conversions.try_convert(std::make_unique<GVArray_For_GSpan>(*attribute), type)
+        conversions.try_convert(std::make_unique<GVArrayImpl_For_GSpan>(*attribute), type)
             ->materialize(converted_buffer);
 
         spline->attributes.remove(attribute_id);

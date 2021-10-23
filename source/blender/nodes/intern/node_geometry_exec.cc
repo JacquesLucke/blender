@@ -63,7 +63,8 @@ GVArrayPtr GeoNodeExecParams::get_input_attribute(const StringRef name,
   }
 
   if (found_socket == nullptr) {
-    return std::make_unique<fn::GVArray_For_SingleValue>(*cpp_type, domain_size, default_value);
+    return std::make_unique<fn::GVArrayImpl_For_SingleValue>(
+        *cpp_type, domain_size, default_value);
   }
 
   if (found_socket->type == SOCK_STRING) {
@@ -81,36 +82,37 @@ GVArrayPtr GeoNodeExecParams::get_input_attribute(const StringRef name,
       this->error_message_add(NodeWarningType::Error,
                               TIP_("No attribute with name \"") + name + "\"");
     }
-    return std::make_unique<fn::GVArray_For_SingleValue>(*cpp_type, domain_size, default_value);
+    return std::make_unique<fn::GVArrayImpl_For_SingleValue>(
+        *cpp_type, domain_size, default_value);
   }
   const DataTypeConversions &conversions = get_implicit_type_conversions();
   if (found_socket->type == SOCK_FLOAT) {
     const float value = this->get_input<float>(found_socket->identifier);
     BUFFER_FOR_CPP_TYPE_VALUE(*cpp_type, buffer);
     conversions.convert_to_uninitialized(CPPType::get<float>(), *cpp_type, &value, buffer);
-    return std::make_unique<fn::GVArray_For_SingleValue>(*cpp_type, domain_size, buffer);
+    return std::make_unique<fn::GVArrayImpl_For_SingleValue>(*cpp_type, domain_size, buffer);
   }
   if (found_socket->type == SOCK_INT) {
     const int value = this->get_input<int>(found_socket->identifier);
     BUFFER_FOR_CPP_TYPE_VALUE(*cpp_type, buffer);
     conversions.convert_to_uninitialized(CPPType::get<int>(), *cpp_type, &value, buffer);
-    return std::make_unique<fn::GVArray_For_SingleValue>(*cpp_type, domain_size, buffer);
+    return std::make_unique<fn::GVArrayImpl_For_SingleValue>(*cpp_type, domain_size, buffer);
   }
   if (found_socket->type == SOCK_VECTOR) {
     const float3 value = this->get_input<float3>(found_socket->identifier);
     BUFFER_FOR_CPP_TYPE_VALUE(*cpp_type, buffer);
     conversions.convert_to_uninitialized(CPPType::get<float3>(), *cpp_type, &value, buffer);
-    return std::make_unique<fn::GVArray_For_SingleValue>(*cpp_type, domain_size, buffer);
+    return std::make_unique<fn::GVArrayImpl_For_SingleValue>(*cpp_type, domain_size, buffer);
   }
   if (found_socket->type == SOCK_RGBA) {
     const ColorGeometry4f value = this->get_input<ColorGeometry4f>(found_socket->identifier);
     BUFFER_FOR_CPP_TYPE_VALUE(*cpp_type, buffer);
     conversions.convert_to_uninitialized(
         CPPType::get<ColorGeometry4f>(), *cpp_type, &value, buffer);
-    return std::make_unique<fn::GVArray_For_SingleValue>(*cpp_type, domain_size, buffer);
+    return std::make_unique<fn::GVArrayImpl_For_SingleValue>(*cpp_type, domain_size, buffer);
   }
   BLI_assert(false);
-  return std::make_unique<fn::GVArray_For_SingleValue>(*cpp_type, domain_size, default_value);
+  return std::make_unique<fn::GVArrayImpl_For_SingleValue>(*cpp_type, domain_size, default_value);
 }
 
 CustomDataType GeoNodeExecParams::get_input_attribute_data_type(

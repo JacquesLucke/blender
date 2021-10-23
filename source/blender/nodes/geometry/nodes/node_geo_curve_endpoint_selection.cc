@@ -107,7 +107,8 @@ class EndpointFieldInput final : public fn::FieldInput {
         }
         current_point += spline->size();
       }
-      return &scope.construct<fn::GVArray_For_ArrayContainer<Array<bool>>>(std::move(selection));
+      return &scope.construct<fn::GVArrayImpl_For_ArrayContainer<Array<bool>>>(
+          std::move(selection));
     }
     return nullptr;
   };

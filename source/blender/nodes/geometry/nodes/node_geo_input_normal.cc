@@ -42,7 +42,7 @@ static GVArrayPtr mesh_face_normals(const Mesh &mesh,
       CustomData_has_layer(&mesh.pdata, CD_NORMAL)) {
     const void *data = CustomData_get_layer(&mesh.pdata, CD_NORMAL);
 
-    return std::make_unique<fn::GVArray_For_Span<float3>>(
+    return std::make_unique<fn::GVArrayImpl_For_Span<float3>>(
         Span<float3>((const float3 *)data, polys.size()));
   }
 
@@ -54,7 +54,8 @@ static GVArrayPtr mesh_face_normals(const Mesh &mesh,
   };
 
   return std::make_unique<
-      fn::GVArray_For_EmbeddedVArray<float3, VArray_For_Func<float3, decltype(normal_fn)>>>(
+      fn::GVArrayImpl_For_EmbeddedVArray<float3,
+                                         VArrayImpl_For_Func<float3, decltype(normal_fn)>>>(
       mask.min_array_size(), mask.min_array_size(), normal_fn);
 }
 
@@ -69,7 +70,7 @@ static GVArrayPtr mesh_vertex_normals(const Mesh &mesh,
       CustomData_has_layer(&mesh.vdata, CD_NORMAL)) {
     const void *data = CustomData_get_layer(&mesh.pdata, CD_NORMAL);
 
-    return std::make_unique<fn::GVArray_For_Span<float3>>(
+    return std::make_unique<fn::GVArrayImpl_For_Span<float3>>(
         Span<float3>((const float3 *)data, mesh.totvert));
   }
 
@@ -91,7 +92,7 @@ static GVArrayPtr mesh_vertex_normals(const Mesh &mesh,
                                         nullptr,
                                         (float(*)[3])normals.data());
 
-  return std::make_unique<fn::GVArray_For_ArrayContainer<Array<float3>>>(std::move(normals));
+  return std::make_unique<fn::GVArrayImpl_For_ArrayContainer<Array<float3>>>(std::move(normals));
 }
 
 static const GVArrayImpl *construct_mesh_normals_gvarray(const MeshComponent &mesh_component,
@@ -130,7 +131,7 @@ static const GVArrayImpl *construct_mesh_normals_gvarray(const MeshComponent &me
                               .normalized();
       }
 
-      return &scope.construct<fn::GVArray_For_ArrayContainer<Array<float3>>>(
+      return &scope.construct<fn::GVArrayImpl_For_ArrayContainer<Array<float3>>>(
           std::move(edge_normals));
     }
     case ATTR_DOMAIN_CORNER: {
@@ -220,16 +221,16 @@ static const GVArrayImpl *construct_curve_normal_gvarray(const CurveComponent &c
      * This is only possible when there is only one poly spline. */
     if (splines.size() == 1 && splines.first()->type() == Spline::Type::Poly) {
       const PolySpline &spline = static_cast<PolySpline &>(*splines.first());
-      return &scope.construct<fn::GVArray_For_Span<float3>>(spline.evaluated_normals());
+      return &scope.construct<fn::GVArrayImpl_For_Span<float3>>(spline.evaluated_normals());
     }
 
     Array<float3> normals = curve_normal_point_domain(*curve);
-    return &scope.construct<fn::GVArray_For_ArrayContainer<Array<float3>>>(std::move(normals));
+    return &scope.construct<fn::GVArrayImpl_For_ArrayContainer<Array<float3>>>(std::move(normals));
   }
 
   if (domain == ATTR_DOMAIN_CURVE) {
     Array<float3> point_normals = curve_normal_point_domain(*curve);
-    GVArrayPtr gvarray = std::make_unique<fn::GVArray_For_ArrayContainer<Array<float3>>>(
+    GVArrayPtr gvarray = std::make_unique<fn::GVArrayImpl_For_ArrayContainer<Array<float3>>>(
         std::move(point_normals));
     GVArrayPtr spline_normals = component.attribute_try_adapt_domain(
         std::move(gvarray), ATTR_DOMAIN_POINT, ATTR_DOMAIN_CURVE);

@@ -125,7 +125,7 @@ template<typename T> class GVectorArray_TypedMutableRef {
 
   void extend(const int64_t index, const VArrayImpl<T> &values)
   {
-    GVArray_For_VArray<T> array{values};
+    GVArrayImpl_For_VArray<T> array{values};
     this->extend(index, array);
   }
 

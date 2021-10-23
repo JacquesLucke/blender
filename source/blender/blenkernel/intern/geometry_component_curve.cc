@@ -28,10 +28,10 @@
 
 using blender::fn::GMutableSpan;
 using blender::fn::GSpan;
-using blender::fn::GVArray_For_GSpan;
 using blender::fn::GVArray_GSpan;
+using blender::fn::GVArrayImpl_For_GSpan;
 using blender::fn::GVArrayPtr;
-using blender::fn::GVMutableArray_For_GMutableSpan;
+using blender::fn::GVMutableArrayImpl_For_GMutableSpan;
 
 /* -------------------------------------------------------------------- */
 /** \name Geometry Component Implementation
@@ -261,7 +261,8 @@ static GVArrayPtr adapt_curve_domain_point_to_spline(const CurveEval &curve, GVA
     if constexpr (!std::is_void_v<attribute_math::DefaultMixer<T>>) {
       Array<T> values(curve.splines().size());
       adapt_curve_domain_point_to_spline_impl<T>(curve, varray->typed<T>(), values);
-      new_varray = std::make_unique<fn::GVArray_For_ArrayContainer<Array<T>>>(std::move(values));
+      new_varray = std::make_unique<fn::GVArrayImpl_For_ArrayContainer<Array<T>>>(
+          std::move(values));
     }
   });
   return new_varray;
@@ -345,8 +346,9 @@ static GVArrayPtr adapt_curve_domain_spline_to_point(const CurveEval &curve, GVA
     using T = decltype(dummy);
 
     Array<int> offsets = curve.control_point_offsets();
-    new_varray = std::make_unique<fn::GVArray_For_EmbeddedVArray<T, VArray_For_SplineToPoint<T>>>(
-        offsets.last(), std::move(varray), std::move(offsets));
+    new_varray =
+        std::make_unique<fn::GVArrayImpl_For_EmbeddedVArray<T, VArray_For_SplineToPoint<T>>>(
+            offsets.last(), std::move(varray), std::move(offsets));
   });
   return new_varray;
 }
@@ -485,16 +487,16 @@ static void set_spline_resolution(SplinePtr &spline, const int resolution)
 
 static GVArrayPtr make_resolution_read_attribute(const CurveEval &curve)
 {
-  return std::make_unique<fn::GVArray_For_DerivedSpan<SplinePtr, int, get_spline_resolution>>(
+  return std::make_unique<fn::GVArrayImpl_For_DerivedSpan<SplinePtr, int, get_spline_resolution>>(
       curve.splines());
 }
 
 static GVMutableArrayPtr make_resolution_write_attribute(CurveEval &curve)
 {
-  return std::make_unique<fn::GVMutableArray_For_DerivedSpan<SplinePtr,
-                                                             int,
-                                                             get_spline_resolution,
-                                                             set_spline_resolution>>(
+  return std::make_unique<fn::GVMutableArrayImpl_For_DerivedSpan<SplinePtr,
+                                                                 int,
+                                                                 get_spline_resolution,
+                                                                 set_spline_resolution>>(
       curve.splines());
 }
 
@@ -513,14 +515,14 @@ static void set_cyclic_value(SplinePtr &spline, const bool value)
 
 static GVArrayPtr make_cyclic_read_attribute(const CurveEval &curve)
 {
-  return std::make_unique<fn::GVArray_For_DerivedSpan<SplinePtr, bool, get_cyclic_value>>(
+  return std::make_unique<fn::GVArrayImpl_For_DerivedSpan<SplinePtr, bool, get_cyclic_value>>(
       curve.splines());
 }
 
 static GVMutableArrayPtr make_cyclic_write_attribute(CurveEval &curve)
 {
   return std::make_unique<
-      fn::GVMutableArray_For_DerivedSpan<SplinePtr, bool, get_cyclic_value, set_cyclic_value>>(
+      fn::GVMutableArrayImpl_For_DerivedSpan<SplinePtr, bool, get_cyclic_value, set_cyclic_value>>(
       curve.splines());
 }
 
@@ -640,7 +642,7 @@ static GVArrayPtr varray_from_initializer(const AttributeInit &initializer,
       for (const SplinePtr &spline : splines) {
         total_size += spline->size();
       }
-      return std::make_unique<fn::GVArray_For_GSpan>(
+      return std::make_unique<fn::GVArrayImpl_For_GSpan>(
           GSpan(*bke::custom_data_type_to_cpp_type(data_type),
                 static_cast<const AttributeInitMove &>(initializer).data,
                 total_size));
@@ -800,7 +802,7 @@ template<typename T> class VMutableArray_For_SplinePoints final : public VMutabl
 
 template<typename T> GVArrayPtr point_data_gvarray(Array<Span<T>> spans, Array<int> offsets)
 {
-  return std::make_unique<fn::GVArray_For_EmbeddedVArray<T, VArray_For_SplinePoints<T>>>(
+  return std::make_unique<fn::GVArrayImpl_For_EmbeddedVArray<T, VArray_For_SplinePoints<T>>>(
       offsets.last(), std::move(spans), std::move(offsets));
 }
 
@@ -808,7 +810,7 @@ template<typename T>
 GVMutableArrayPtr point_data_gvarray(Array<MutableSpan<T>> spans, Array<int> offsets)
 {
   return std::make_unique<
-      fn::GVMutableArray_For_EmbeddedVMutableArray<T, VMutableArray_For_SplinePoints<T>>>(
+      fn::GVMutableArrayImpl_For_EmbeddedVMutableArray<T, VMutableArray_For_SplinePoints<T>>>(
       offsets.last(), std::move(spans), std::move(offsets));
 }
 
@@ -1110,7 +1112,7 @@ template<typename T> class BuiltinPointAttributeProvider : public BuiltinAttribu
 
     Span<SplinePtr> splines = curve->splines();
     if (splines.size() == 1) {
-      return std::make_unique<fn::GVArray_For_GSpan>(get_span_(*splines.first()));
+      return std::make_unique<fn::GVArrayImpl_For_GSpan>(get_span_(*splines.first()));
     }
 
     Array<int> offsets = curve->control_point_offsets();
@@ -1135,7 +1137,7 @@ template<typename T> class BuiltinPointAttributeProvider : public BuiltinAttribu
 
     MutableSpan<SplinePtr> splines = curve->splines();
     if (splines.size() == 1) {
-      return std::make_unique<fn::GVMutableArray_For_GMutableSpan>(
+      return std::make_unique<fn::GVMutableArrayImpl_For_GMutableSpan>(
           get_mutable_span_(*splines.first()));
     }
 
@@ -1241,7 +1243,8 @@ class PositionAttributeProvider final : public BuiltinPointAttributeProvider<flo
 
     Array<int> offsets = curve->control_point_offsets();
     return std::make_unique<
-        fn::GVMutableArray_For_EmbeddedVMutableArray<float3, VMutableArray_For_SplinePosition>>(
+        fn::GVMutableArrayImpl_For_EmbeddedVMutableArray<float3,
+                                                         VMutableArray_For_SplinePosition>>(
         offsets.last(), curve->splines(), std::move(offsets));
   }
 };
@@ -1274,7 +1277,7 @@ class BezierHandleAttributeProvider : public BuiltinAttributeProvider {
     }
 
     Array<int> offsets = curve->control_point_offsets();
-    return std::make_unique<fn::GVArray_For_EmbeddedVArray<float3, VArray_For_BezierHandle>>(
+    return std::make_unique<fn::GVArrayImpl_For_EmbeddedVArray<float3, VArray_For_BezierHandle>>(
         offsets.last(), curve->splines(), std::move(offsets), is_right_);
   }
 
@@ -1291,7 +1294,7 @@ class BezierHandleAttributeProvider : public BuiltinAttributeProvider {
 
     Array<int> offsets = curve->control_point_offsets();
     return std::make_unique<
-        fn::GVMutableArray_For_EmbeddedVMutableArray<float3, VMutableArray_For_BezierHandles>>(
+        fn::GVMutableArrayImpl_For_EmbeddedVMutableArray<float3, VMutableArray_For_BezierHandles>>(
         offsets.last(), curve->splines(), std::move(offsets), is_right_);
   }
 
@@ -1371,7 +1374,7 @@ class DynamicPointAttributeProvider final : public DynamicAttributesProvider {
 
     /* First check for the simpler situation when we can return a simpler span virtual array. */
     if (spans.size() == 1) {
-      return {std::make_unique<GVArray_For_GSpan>(spans.first()), ATTR_DOMAIN_POINT};
+      return {std::make_unique<GVArrayImpl_For_GSpan>(spans.first()), ATTR_DOMAIN_POINT};
     }
 
     ReadAttributeLookup attribute = {};
@@ -1424,7 +1427,8 @@ class DynamicPointAttributeProvider final : public DynamicAttributesProvider {
 
     /* First check for the simpler situation when we can return a simpler span virtual array. */
     if (spans.size() == 1) {
-      return {std::make_unique<GVMutableArray_For_GMutableSpan>(spans.first()), ATTR_DOMAIN_POINT};
+      return {std::make_unique<GVMutableArrayImpl_For_GMutableSpan>(spans.first()),
+              ATTR_DOMAIN_POINT};
     }
 
     WriteAttributeLookup attribute = {};

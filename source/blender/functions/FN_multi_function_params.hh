@@ -67,19 +67,19 @@ class MFParamsBuilder {
   }
   template<typename T> void add_readonly_single_input(const T *value, StringRef expected_name = "")
   {
-    this->add_readonly_single_input(
-        scope_.construct<GVArray_For_SingleValueRef>(CPPType::get<T>(), min_array_size_, value),
-        expected_name);
+    this->add_readonly_single_input(scope_.construct<GVArrayImpl_For_SingleValueRef>(
+                                        CPPType::get<T>(), min_array_size_, value),
+                                    expected_name);
   }
   void add_readonly_single_input(const GSpan span, StringRef expected_name = "")
   {
-    this->add_readonly_single_input(scope_.construct<GVArray_For_GSpan>(span), expected_name);
+    this->add_readonly_single_input(scope_.construct<GVArrayImpl_For_GSpan>(span), expected_name);
   }
   void add_readonly_single_input(GPointer value, StringRef expected_name = "")
   {
-    this->add_readonly_single_input(
-        scope_.construct<GVArray_For_SingleValueRef>(*value.type(), min_array_size_, value.get()),
-        expected_name);
+    this->add_readonly_single_input(scope_.construct<GVArrayImpl_For_SingleValueRef>(
+                                        *value.type(), min_array_size_, value.get()),
+                                    expected_name);
   }
   void add_readonly_single_input(const GVArrayImpl &ref, StringRef expected_name = "")
   {

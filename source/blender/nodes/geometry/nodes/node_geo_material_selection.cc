@@ -83,13 +83,14 @@ class MaterialSelectionFieldInput final : public fn::FieldInput {
       if (domain == ATTR_DOMAIN_FACE) {
         Array<bool> selection(mask.min_array_size());
         select_mesh_by_material(*mesh, material_, mask, selection);
-        return &scope.construct<fn::GVArray_For_ArrayContainer<Array<bool>>>(std::move(selection));
+        return &scope.construct<fn::GVArrayImpl_For_ArrayContainer<Array<bool>>>(
+            std::move(selection));
       }
 
       Array<bool> selection(mesh->totpoly);
       select_mesh_by_material(*mesh, material_, IndexMask(mesh->totpoly), selection);
-      GVArrayPtr face_selection = std::make_unique<fn::GVArray_For_ArrayContainer<Array<bool>>>(
-          std::move(selection));
+      GVArrayPtr face_selection =
+          std::make_unique<fn::GVArrayImpl_For_ArrayContainer<Array<bool>>>(std::move(selection));
       GVArrayPtr final_selection = mesh_component.attribute_try_adapt_domain(
           std::move(face_selection), ATTR_DOMAIN_FACE, domain);
       return scope.add_value(std::move(final_selection)).get();

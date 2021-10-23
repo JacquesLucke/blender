@@ -60,7 +60,7 @@ void GVectorArray::extend(const int64_t index, const GVArrayImpl &values)
 
 void GVectorArray::extend(const int64_t index, const GSpan values)
 {
-  GVArray_For_GSpan varray{values};
+  GVArrayImpl_For_GSpan varray{values};
   this->extend(index, varray);
 }
 

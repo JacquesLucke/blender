@@ -677,7 +677,7 @@ class IndexTransferFieldInput : public FieldInput {
       copy_with_indices_clamped(*src, mask, indices, dst.as_mutable_span().typed<T>());
     });
 
-    return &scope.construct<fn::GVArray_For_GArray>(std::move(dst));
+    return &scope.construct<fn::GVArrayImpl_For_GArray>(std::move(dst));
   }
 };
 

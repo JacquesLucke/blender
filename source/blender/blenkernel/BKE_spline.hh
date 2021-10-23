@@ -187,14 +187,14 @@ class Spline {
                                  blender::MutableSpan<T> dst) const
   {
     this->sample_with_index_factors(
-        blender::fn::GVArray_For_VArray(src), index_factors, blender::fn::GMutableSpan(dst));
+        blender::fn::GVArrayImpl_For_VArray(src), index_factors, blender::fn::GMutableSpan(dst));
   }
   template<typename T>
   void sample_with_index_factors(blender::Span<T> src,
                                  blender::Span<float> index_factors,
                                  blender::MutableSpan<T> dst) const
   {
-    this->sample_with_index_factors(blender::VArray_For_Span(src), index_factors, dst);
+    this->sample_with_index_factors(blender::VArrayImpl_For_Span(src), index_factors, dst);
   }
 
   /**

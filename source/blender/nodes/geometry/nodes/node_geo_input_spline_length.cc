@@ -39,12 +39,14 @@ static const GVArrayImpl *construct_spline_length_gvarray(const CurveComponent &
 
   if (domain == ATTR_DOMAIN_CURVE) {
     return &scope.construct<
-        fn::GVArray_For_EmbeddedVArray<float, VArray_For_Func<float, decltype(length_fn)>>>(
+        fn::GVArrayImpl_For_EmbeddedVArray<float,
+                                           VArrayImpl_For_Func<float, decltype(length_fn)>>>(
         splines.size(), splines.size(), length_fn);
   }
   if (domain == ATTR_DOMAIN_POINT) {
     GVArrayPtr length = std::make_unique<
-        fn::GVArray_For_EmbeddedVArray<float, VArray_For_Func<float, decltype(length_fn)>>>(
+        fn::GVArrayImpl_For_EmbeddedVArray<float,
+                                           VArrayImpl_For_Func<float, decltype(length_fn)>>>(
         splines.size(), splines.size(), length_fn);
     return scope
         .add_value(component.attribute_try_adapt_domain(

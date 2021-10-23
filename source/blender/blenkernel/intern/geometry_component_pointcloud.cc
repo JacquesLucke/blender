@@ -143,13 +143,13 @@ namespace blender::bke {
 template<typename T>
 static GVArrayPtr make_array_read_attribute(const void *data, const int domain_size)
 {
-  return std::make_unique<fn::GVArray_For_Span<T>>(Span<T>((const T *)data, domain_size));
+  return std::make_unique<fn::GVArrayImpl_For_Span<T>>(Span<T>((const T *)data, domain_size));
 }
 
 template<typename T>
 static GVMutableArrayPtr make_array_write_attribute(void *data, const int domain_size)
 {
-  return std::make_unique<fn::GVMutableArray_For_MutableSpan<T>>(
+  return std::make_unique<fn::GVMutableArrayImpl_For_MutableSpan<T>>(
       MutableSpan<T>((T *)data, domain_size));
 }
 

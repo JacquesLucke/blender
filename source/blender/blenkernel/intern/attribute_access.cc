@@ -50,9 +50,9 @@ using blender::bke::AttributeIDRef;
 using blender::bke::OutputAttribute;
 using blender::fn::GMutableSpan;
 using blender::fn::GSpan;
-using blender::fn::GVArray_For_GSpan;
-using blender::fn::GVArray_For_SingleValue;
-using blender::fn::GVMutableArray_For_GMutableSpan;
+using blender::fn::GVArrayImpl_For_GSpan;
+using blender::fn::GVArrayImpl_For_SingleValue;
+using blender::fn::GVMutableArrayImpl_For_GMutableSpan;
 
 namespace blender::bke {
 
@@ -499,7 +499,7 @@ ReadAttributeLookup CustomDataAttributeProvider::try_get_for_read(
       continue;
     }
     GSpan data{*type, layer.data, domain_size};
-    return {std::make_unique<GVArray_For_GSpan>(data), domain_};
+    return {std::make_unique<GVArrayImpl_For_GSpan>(data), domain_};
   }
   return {};
 }
@@ -529,7 +529,7 @@ WriteAttributeLookup CustomDataAttributeProvider::try_get_for_write(
       continue;
     }
     GMutableSpan data{*type, layer.data, domain_size};
-    return {std::make_unique<GVMutableArray_For_GMutableSpan>(data), domain_};
+    return {std::make_unique<GVMutableArrayImpl_For_GMutableSpan>(data), domain_};
   }
   return {};
 }
@@ -754,16 +754,16 @@ GVArrayPtr CustomDataAttributes::get_for_read(const AttributeIDRef &attribute_id
   std::optional<GSpan> attribute = this->get_for_read(attribute_id);
   if (!attribute) {
     const int domain_size = this->size_;
-    return std::make_unique<GVArray_For_SingleValue>(
+    return std::make_unique<GVArrayImpl_For_SingleValue>(
         *type, domain_size, (default_value == nullptr) ? type->default_value() : default_value);
   }
 
   if (attribute->type() == *type) {
-    return std::make_unique<GVArray_For_GSpan>(*attribute);
+    return std::make_unique<GVArrayImpl_For_GSpan>(*attribute);
   }
   const blender::nodes::DataTypeConversions &conversions =
       blender::nodes::get_implicit_type_conversions();
-  return conversions.try_convert(std::make_unique<GVArray_For_GSpan>(*attribute), *type);
+  return conversions.try_convert(std::make_unique<GVArrayImpl_For_GSpan>(*attribute), *type);
 }
 
 std::optional<GMutableSpan> CustomDataAttributes::get_for_write(const AttributeIDRef &attribute_id)
@@ -1180,11 +1180,12 @@ std::unique_ptr<blender::bke::GVArrayImpl> GeometryComponent::attribute_get_for_
     default_value = type->default_value();
   }
   const int domain_size = this->attribute_domain_size(domain);
-  return std::make_unique<blender::fn::GVArray_For_SingleValue>(*type, domain_size, default_value);
+  return std::make_unique<blender::fn::GVArrayImpl_For_SingleValue>(
+      *type, domain_size, default_value);
 }
 
 class GVMutableAttribute_For_OutputAttribute
-    : public blender::fn::GVMutableArray_For_GMutableSpan {
+    : public blender::fn::GVMutableArrayImpl_For_GMutableSpan {
  public:
   GeometryComponent *component;
   std::string attribute_name;
@@ -1193,7 +1194,7 @@ class GVMutableAttribute_For_OutputAttribute
   GVMutableAttribute_For_OutputAttribute(GMutableSpan data,
                                          GeometryComponent &component,
                                          const AttributeIDRef &attribute_id)
-      : blender::fn::GVMutableArray_For_GMutableSpan(data), component(&component)
+      : blender::fn::GVMutableArrayImpl_For_GMutableSpan(data), component(&component)
   {
     if (attribute_id.is_named()) {
       this->attribute_name = attribute_id.name();
@@ -1276,7 +1277,7 @@ static OutputAttribute create_output_attribute(GeometryComponent &component,
     if (!attribute) {
       if (default_value) {
         const int64_t domain_size = component.attribute_domain_size(domain);
-        const GVArray_For_SingleValueRef default_varray{*cpp_type, domain_size, default_value};
+        const GVArrayImpl_For_SingleValueRef default_varray{*cpp_type, domain_size, default_value};
         component.attribute_try_create_builtin(attribute_name,
                                                AttributeInitVArray(&default_varray));
       }
@@ -1308,7 +1309,7 @@ static OutputAttribute create_output_attribute(GeometryComponent &component,
   WriteAttributeLookup attribute = component.attribute_try_get_for_write(attribute_id);
   if (!attribute) {
     if (default_value) {
-      const GVArray_For_SingleValueRef default_varray{*cpp_type, domain_size, default_value};
+      const GVArrayImpl_For_SingleValueRef default_varray{*cpp_type, domain_size, default_value};
       component.attribute_try_create(
           attribute_id, domain, data_type, AttributeInitVArray(&default_varray));
     }
