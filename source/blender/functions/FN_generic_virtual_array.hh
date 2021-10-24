@@ -829,52 +829,6 @@ template<typename T> class GVMutableArray_Typed {
   }
 };
 
-class GVArrayImpl_For_SlicedGVArray : public GVArrayImpl {
- protected:
-  const GVArrayImpl &varray_;
-  int64_t offset_;
-
- public:
-  GVArrayImpl_For_SlicedGVArray(const GVArrayImpl &varray, const IndexRange slice)
-      : GVArrayImpl(varray.type(), slice.size()), varray_(varray), offset_(slice.start())
-  {
-    BLI_assert(slice.one_after_last() <= varray.size());
-  }
-
-  /* TODO: Add #materialize method. */
-  void get_impl(const int64_t index, void *r_value) const override;
-  void get_to_uninitialized_impl(const int64_t index, void *r_value) const override;
-};
-
-/**
- * Utility class to create the "best" sliced virtual array.
- */
-class GVArray_Slice {
- private:
-  const GVArrayImpl *varray_;
-  /* Of these optional virtual arrays, at most one is constructed at any time. */
-  std::optional<GVArrayImpl_For_GSpan> varray_span_;
-  std::optional<GVArrayImpl_For_SlicedGVArray> varray_any_;
-
- public:
-  GVArray_Slice(const GVArrayImpl &varray, const IndexRange slice);
-
-  const GVArrayImpl &operator*()
-  {
-    return *varray_;
-  }
-
-  const GVArrayImpl *operator->()
-  {
-    return varray_;
-  }
-
-  operator const GVArrayImpl &()
-  {
-    return *varray_;
-  }
-};
-
 namespace detail {
 
 struct GVArrayAnyExtraInfo {
@@ -996,6 +950,8 @@ class GVArray {
   static GVArray ForSingleDefault(const CPPType &type, const int64_t size);
   static GVArray ForSpan(GSpan span);
   static GVArray ForEmpty(const CPPType &type);
+
+  GVArray slice(IndexRange slice) const;
 
   operator bool() const
   {

@@ -54,7 +54,6 @@ void ParallelMultiFunction::call(IndexMask full_mask, MFParams params, MFContext
     const IndexRange input_slice_range{input_slice_start, input_slice_size};
 
     MFParamsBuilder sub_params{fn_, sub_mask.min_array_size()};
-    ResourceScope &scope = sub_params.resource_scope();
 
     /* All parameters are sliced so that the wrapped multi-function does not have to take care of
      * the index offset. */
@@ -63,9 +62,7 @@ void ParallelMultiFunction::call(IndexMask full_mask, MFParams params, MFContext
       switch (param_type.category()) {
         case MFParamType::SingleInput: {
           const GVArray &varray = params.readonly_single_input(param_index);
-          GVArray_Slice &sliced_varray = scope.construct<GVArray_Slice>(*varray,
-                                                                        input_slice_range);
-          sub_params.add_readonly_single_input(GVArray(&*sliced_varray)); /* TODO */
+          sub_params.add_readonly_single_input(varray.slice(input_slice_range));
           break;
         }
         case MFParamType::SingleMutable: {

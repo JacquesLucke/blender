@@ -410,47 +410,30 @@ void GVMutableArray_GSpan::disable_not_applied_warning()
 /** \name #GVArrayImpl_For_SlicedGVArray
  * \{ */
 
-void GVArrayImpl_For_SlicedGVArray::get_impl(const int64_t index, void *r_value) const
-{
-  varray_.get(index + offset_, r_value);
-}
+class GVArrayImpl_For_SlicedGVArray : public GVArrayImpl {
+ protected:
+  GVArray varray_;
+  int64_t offset_;
 
-void GVArrayImpl_For_SlicedGVArray::get_to_uninitialized_impl(const int64_t index,
-                                                              void *r_value) const
-{
-  varray_.get_to_uninitialized(index + offset_, r_value);
-}
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name #GVArray_Slice
- * \{ */
-
-GVArray_Slice::GVArray_Slice(const GVArrayImpl &varray, const IndexRange slice)
-{
-  if (varray.is_span()) {
-    /* Create a new virtual for the sliced span. */
-    const GSpan span = varray.get_internal_span();
-    const GSpan sliced_span = span.slice(slice.start(), slice.size());
-    varray_span_.emplace(sliced_span);
-    varray_ = &*varray_span_;
+ public:
+  GVArrayImpl_For_SlicedGVArray(GVArray varray, const IndexRange slice)
+      : GVArrayImpl(varray->type(), slice.size()),
+        varray_(std::move(varray)),
+        offset_(slice.start())
+  {
+    BLI_assert(slice.one_after_last() <= varray->size());
   }
-  else if (varray.is_single()) {
-    /* Can just use the existing virtual array, because it's the same value for the indices in the
-     * slice anyway. */
-    varray_ = &varray;
+
+  void get_impl(const int64_t index, void *r_value) const override
+  {
+    varray_->get(index + offset_, r_value);
   }
-  else {
-    /* Generic version when none of the above method works.
-     * We don't necessarily want to materialize the input varray because there might be
-     * large distances between the required indices. Then we would materialize many elements that
-     * are not accessed later on.
-     */
-    varray_any_.emplace(varray, slice);
-    varray_ = &*varray_any_;
+
+  void get_to_uninitialized_impl(const int64_t index, void *r_value) const override
+  {
+    varray_->get_to_uninitialized(index + offset_, r_value);
   }
-}
+};
 
 /** \} */
 
@@ -481,6 +464,11 @@ GVArray GVArray::ForSpan(GSpan span)
 GVArray GVArray::ForEmpty(const CPPType &type)
 {
   return GVArray::ForSpan(GSpan(type));
+}
+
+GVArray GVArray::slice(IndexRange slice) const
+{
+  return GVArray::For<GVArrayImpl_For_SlicedGVArray>(*this, slice);
 }
 
 GVArray &GVArray::operator=(const GVArray &other)
