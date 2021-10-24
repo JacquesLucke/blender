@@ -557,33 +557,6 @@ template<typename T> class GVMutableArrayImpl_For_VMutableArray : public GVMutab
   }
 };
 
-/* A generic version of VArray_Span. */
-class GVArray_GSpan : public GSpan {
- private:
-  const GVArrayImpl &varray_;
-  void *owned_data_ = nullptr;
-
- public:
-  GVArray_GSpan(const GVArrayImpl &varray);
-  ~GVArray_GSpan();
-};
-
-/* A generic version of VMutableArray_Span. */
-class GVMutableArray_GSpan : public GMutableSpan {
- private:
-  GVMutableArrayImpl &varray_;
-  void *owned_data_ = nullptr;
-  bool save_has_been_called_ = false;
-  bool show_not_saved_warning_ = true;
-
- public:
-  GVMutableArray_GSpan(GVMutableArrayImpl &varray, bool copy_values_to_span = true);
-  ~GVMutableArray_GSpan();
-
-  void save();
-  void disable_not_applied_warning();
-};
-
 namespace detail {
 
 struct GVArrayAnyExtraInfo {
@@ -856,5 +829,32 @@ inline VMutableArrayImpl_For_GVMutableArray<T>::VMutableArrayImpl_For_GVMutableA
   BLI_assert(*local_varray_);
   varray_ = &**local_varray_;
 }
+
+/* A generic version of VArray_Span. */
+class GVArray_GSpan : public GSpan {
+ private:
+  GVArray varray_;
+  void *owned_data_ = nullptr;
+
+ public:
+  GVArray_GSpan(GVArray varray);
+  ~GVArray_GSpan();
+};
+
+/* A generic version of VMutableArray_Span. */
+class GVMutableArray_GSpan : public GMutableSpan {
+ private:
+  GVMutableArray varray_;
+  void *owned_data_ = nullptr;
+  bool save_has_been_called_ = false;
+  bool show_not_saved_warning_ = true;
+
+ public:
+  GVMutableArray_GSpan(GVMutableArray varray, bool copy_values_to_span = true);
+  ~GVMutableArray_GSpan();
+
+  void save();
+  void disable_not_applied_warning();
+};
 
 }  // namespace blender::fn

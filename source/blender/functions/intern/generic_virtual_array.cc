@@ -267,7 +267,9 @@ class GVArrayImpl_For_SingleValueRef : public GVArrayImpl {
  * \{ */
 
 /* Same as GVArrayImpl_For_SingleValueRef, but the value is owned. */
-class GVArrayImpl_For_SingleValue : public GVArrayImpl_For_SingleValueRef {
+class GVArrayImpl_For_SingleValue : public GVArrayImpl_For_SingleValueRef,
+                                    NonCopyable,
+                                    NonMovable {
  public:
   GVArrayImpl_For_SingleValue(const CPPType &type, const int64_t size, const void *value)
       : GVArrayImpl_For_SingleValueRef(type, size)
@@ -289,15 +291,15 @@ class GVArrayImpl_For_SingleValue : public GVArrayImpl_For_SingleValueRef {
 /** \name #GVArray_GSpan
  * \{ */
 
-GVArray_GSpan::GVArray_GSpan(const GVArrayImpl &varray) : GSpan(varray.type()), varray_(varray)
+GVArray_GSpan::GVArray_GSpan(GVArray varray) : GSpan(varray->type()), varray_(std::move(varray))
 {
-  size_ = varray_.size();
-  if (varray_.is_span()) {
-    data_ = varray_.get_internal_span().data();
+  size_ = varray_->size();
+  if (varray_->is_span()) {
+    data_ = varray_->get_internal_span().data();
   }
   else {
     owned_data_ = MEM_mallocN_aligned(type_->size() * size_, type_->alignment(), __func__);
-    varray_.materialize_to_uninitialized(IndexRange(size_), owned_data_);
+    varray_->materialize_to_uninitialized(IndexRange(size_), owned_data_);
     data_ = owned_data_;
   }
 }
@@ -316,18 +318,17 @@ GVArray_GSpan::~GVArray_GSpan()
 /** \name #GVMutableArray_GSpan
  * \{ */
 
-GVMutableArray_GSpan::GVMutableArray_GSpan(GVMutableArrayImpl &varray,
-                                           const bool copy_values_to_span)
-    : GMutableSpan(varray.type()), varray_(varray)
+GVMutableArray_GSpan::GVMutableArray_GSpan(GVMutableArray varray, const bool copy_values_to_span)
+    : GMutableSpan(varray->type()), varray_(std::move(varray))
 {
-  size_ = varray_.size();
-  if (varray_.is_span()) {
-    data_ = varray_.get_internal_span().data();
+  size_ = varray_->size();
+  if (varray_->is_span()) {
+    data_ = varray_->get_internal_span().data();
   }
   else {
     owned_data_ = MEM_mallocN_aligned(type_->size() * size_, type_->alignment(), __func__);
     if (copy_values_to_span) {
-      varray_.materialize_to_uninitialized(IndexRange(size_), owned_data_);
+      varray_->materialize_to_uninitialized(IndexRange(size_), owned_data_);
     }
     else {
       type_->default_construct_n(owned_data_, size_);
@@ -357,7 +358,7 @@ void GVMutableArray_GSpan::save()
   }
   const int64_t element_size = type_->size();
   for (int64_t i : IndexRange(size_)) {
-    varray_.set_by_copy(i, POINTER_OFFSET(owned_data_, element_size * i));
+    varray_->set_by_copy(i, POINTER_OFFSET(owned_data_, element_size * i));
   }
 }
 

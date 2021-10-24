@@ -186,7 +186,7 @@ Array<uint32_t> get_geometry_element_ids_as_uints(const GeometryComponent &compo
     BLI_assert(hashes.size() == hash_attribute->size());
     const CPPType &cpp_type = hash_attribute->type();
     BLI_assert(cpp_type.is_hashable());
-    GVArray_GSpan items{*hash_attribute};
+    GVArray_GSpan items{hash_attribute};
     threading::parallel_for(hashes.index_range(), 512, [&](IndexRange range) {
       for (const int i : range) {
         hashes[i] = cpp_type.hash(items[i]);

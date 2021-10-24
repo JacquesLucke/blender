@@ -369,7 +369,7 @@ static void join_attributes(Span<GeometryInstanceGroup> set_groups,
       continue;
     }
 
-    fn::GVMutableArray_GSpan dst_span{*write_attribute.varray};
+    fn::GVMutableArray_GSpan dst_span{write_attribute.varray};
 
     int offset = 0;
     for (const GeometryInstanceGroup &set_group : set_groups) {
@@ -385,7 +385,7 @@ static void join_attributes(Span<GeometryInstanceGroup> set_groups,
               attribute_id, domain_output, data_type_output);
 
           if (source_attribute) {
-            fn::GVArray_GSpan src_span{*source_attribute};
+            fn::GVArray_GSpan src_span{source_attribute};
             const void *src_buffer = src_span.data();
             for (const int UNUSED(i) : set_group.transforms.index_range()) {
               void *dst_buffer = dst_span[offset];

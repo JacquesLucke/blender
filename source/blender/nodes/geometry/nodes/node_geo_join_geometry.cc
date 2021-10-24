@@ -191,7 +191,7 @@ static void fill_new_attribute(Span<const GeometryComponent *> src_components,
     GVArray read_attribute = component->attribute_get_for_read(
         attribute_id, domain, data_type, nullptr);
 
-    GVArray_GSpan src_span{*read_attribute};
+    GVArray_GSpan src_span{read_attribute};
     const void *src_buffer = src_span.data();
     void *dst_buffer = dst_span[offset];
     cpp_type->copy_assign_n(src_buffer, dst_buffer, domain_size);
@@ -375,7 +375,7 @@ static void ensure_spline_attribute(const AttributeIDRef &attribute_id,
       continue;
     }
     GVArray read_attribute = curve.attributes.get_for_read(attribute_id, data_type, nullptr);
-    GVArray_GSpan src_span{*read_attribute};
+    GVArray_GSpan src_span{read_attribute};
 
     const void *src_buffer = src_span.data();
     type.copy_assign_n(src_buffer, result_attribute[offset], size);
