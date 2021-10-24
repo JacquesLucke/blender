@@ -478,6 +478,26 @@ GVArray GVArray::ForSpan(GSpan span)
   return GVArray::For<GVArrayImpl_For_GSpan>(span);
 }
 
+GVArray &GVArray::operator=(const GVArray &other)
+{
+  if (this == &other) {
+    return *this;
+  }
+  this->~GVArray();
+  new (this) GVArray(other);
+  return *this;
+}
+
+GVArray &GVArray::operator=(GVArray &&other)
+{
+  if (this == &other) {
+    return *this;
+  }
+  this->~GVArray();
+  new (this) GVArray(std::move(other));
+  return *this;
+}
+
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -487,6 +507,34 @@ GVArray GVArray::ForSpan(GSpan span)
 GVMutableArray GVMutableArray::ForSpan(GMutableSpan span)
 {
   return GVMutableArray::For<GVMutableArrayImpl_For_GMutableSpan>(span);
+}
+
+GVMutableArray::operator GVArray() const
+{
+  GVArray varray;
+  varray.impl_ = impl_;
+  varray.storage_ = storage_;
+  return varray;
+}
+
+GVMutableArray &GVMutableArray::operator=(const GVMutableArray &other)
+{
+  if (this == &other) {
+    return *this;
+  }
+  this->~GVMutableArray();
+  new (this) GVMutableArray(other);
+  return *this;
+}
+
+GVMutableArray &GVMutableArray::operator=(GVMutableArray &&other)
+{
+  if (this == &other) {
+    return *this;
+  }
+  this->~GVMutableArray();
+  new (this) GVMutableArray(std::move(other));
+  return *this;
 }
 
 /** \} */

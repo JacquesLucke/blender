@@ -1126,6 +1126,9 @@ class GVArray {
     return impl_ != nullptr;
   }
 
+  GVArray &operator=(const GVArray &other);
+  GVArray &operator=(GVArray &&other);
+
   const Impl *operator->() const
   {
     BLI_assert(*this);
@@ -1217,13 +1220,10 @@ class GVMutableArray {
     return impl_ != nullptr;
   }
 
-  operator GVArray() const
-  {
-    GVArray varray;
-    varray.impl_ = impl_;
-    varray.storage_ = storage_;
-    return varray;
-  }
+  operator GVArray() const;
+
+  GVMutableArray &operator=(const GVMutableArray &other);
+  GVMutableArray &operator=(GVMutableArray &&other);
 
   Impl *operator->()
   {

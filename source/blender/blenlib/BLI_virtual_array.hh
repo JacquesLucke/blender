@@ -677,6 +677,26 @@ template<typename T> class VArray {
     return impl_ != nullptr;
   }
 
+  VArray &operator=(const VArray &other)
+  {
+    if (this == &other) {
+      return *this;
+    }
+    this->~VArray();
+    new (this) VArray(other);
+    return *this;
+  }
+
+  VArray &operator=(VArray &&other)
+  {
+    if (this == &other) {
+      return *this;
+    }
+    this->~VArray();
+    new (this) VArray(std::move(other));
+    return *this;
+  }
+
   const Impl *operator->() const
   {
     BLI_assert(*this);
@@ -764,6 +784,26 @@ template<typename T> class VMutableArray {
     varray.storage_ = storage_;
     varray.impl_ = impl_;
     return varray;
+  }
+
+  VMutableArray &operator=(const VMutableArray &other)
+  {
+    if (this == &other) {
+      return *this;
+    }
+    this->~VMutableArray();
+    new (this) VMutableArray(other);
+    return *this;
+  }
+
+  VMutableArray &operator=(VMutableArray &&other)
+  {
+    if (this == &other) {
+      return *this;
+    }
+    this->~VMutableArray();
+    new (this) VMutableArray(std::move(other));
+    return *this;
   }
 
   Impl *operator->() const
