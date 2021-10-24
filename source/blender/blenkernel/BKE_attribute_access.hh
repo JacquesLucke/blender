@@ -191,7 +191,7 @@ struct WriteAttributeLookup {
 
 /**
  * An output attribute allows writing to an attribute (and optionally reading as well). It adds
- * some convenience features on top of `GVMutableArrayImpl` that are very commonly used.
+ * some convenience features on top of `GVMutableArray` that are very commonly used.
  *
  * Supported convenience features:
  * - Implicit type conversion when writing to builtin attributes.
