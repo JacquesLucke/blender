@@ -327,6 +327,17 @@ class GVArrayImpl_For_SingleValueRef : public GVArrayImpl {
   }
 };
 
+class GVArrayImpl_For_SingleValueRef_final final : public GVArrayImpl_For_SingleValueRef {
+ public:
+  using GVArrayImpl_For_SingleValueRef::GVArrayImpl_For_SingleValueRef;
+
+ private:
+  bool has_ownership_impl() const override
+  {
+    return false;
+  }
+};
+
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -478,7 +489,7 @@ GVArray GVArray::ForSingle(const CPPType &type, const int64_t size, const void *
 
 GVArray GVArray::ForSingleRef(const CPPType &type, const int64_t size, const void *value)
 {
-  return GVArray::For<GVArrayImpl_For_SingleValueRef>(type, size, value);
+  return GVArray::For<GVArrayImpl_For_SingleValueRef_final>(type, size, value);
 }
 
 GVArray GVArray::ForSingleDefault(const CPPType &type, const int64_t size)
