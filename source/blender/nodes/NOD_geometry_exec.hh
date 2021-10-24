@@ -59,7 +59,6 @@ using fn::GVArray;
 using fn::GVArray_GSpan;
 using fn::GVMutableArray;
 using fn::GVMutableArray_GSpan;
-using fn::GVMutableArrayImpl;
 using geometry_nodes_eval_log::NodeWarningType;
 
 /**

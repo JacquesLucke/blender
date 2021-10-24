@@ -24,7 +24,6 @@
 
 namespace blender::nodes {
 
-using fn::GVMutableArrayImpl;
 using fn::MFDataType;
 
 template<typename From, typename To, To (*ConversionF)(const From &)>
@@ -275,7 +274,7 @@ class GVArray_For_ConvertedGVArray : public fn::GVArrayImpl {
   }
 };
 
-class GVMutableArray_For_ConvertedGVMutableArray : public GVMutableArrayImpl {
+class GVMutableArray_For_ConvertedGVMutableArray : public fn::GVMutableArrayImpl {
  private:
   fn::GVMutableArray varray_;
   const CPPType &from_type_;
@@ -286,7 +285,7 @@ class GVMutableArray_For_ConvertedGVMutableArray : public GVMutableArrayImpl {
   GVMutableArray_For_ConvertedGVMutableArray(fn::GVMutableArray varray,
                                              const CPPType &to_type,
                                              const DataTypeConversions &conversions)
-      : GVMutableArrayImpl(to_type, varray->size()),
+      : fn::GVMutableArrayImpl(to_type, varray->size()),
         varray_(std::move(varray)),
         from_type_(varray_->type())
   {

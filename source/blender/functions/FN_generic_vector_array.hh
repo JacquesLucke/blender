@@ -75,7 +75,7 @@ class GVectorArray : NonCopyable, NonMovable {
   void append(int64_t index, const void *value);
 
   /* Add multiple elements to a single vector. */
-  void extend(int64_t index, const GVArrayImpl &values);
+  void extend(int64_t index, const GVArray &values);
   void extend(int64_t index, GSpan values);
 
   /* Add multiple elements to multiple vectors. */
