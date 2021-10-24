@@ -240,7 +240,7 @@ void DataTypeConversions::convert_to_uninitialized(const CPPType &from_type,
   functions->convert_single_to_uninitialized(from_value, to_value);
 }
 
-class GVArray_For_ConvertedGVArray : public GVArrayImpl {
+class GVArray_For_ConvertedGVArray : public fn::GVArrayImpl {
  private:
   fn::GVArray varray_;
   const CPPType &from_type_;
@@ -250,7 +250,7 @@ class GVArray_For_ConvertedGVArray : public GVArrayImpl {
   GVArray_For_ConvertedGVArray(fn::GVArray varray,
                                const CPPType &to_type,
                                const DataTypeConversions &conversions)
-      : GVArrayImpl(to_type, varray->size()),
+      : fn::GVArrayImpl(to_type, varray->size()),
         varray_(std::move(varray)),
         from_type_(varray_->type())
   {

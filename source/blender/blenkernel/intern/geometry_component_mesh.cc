@@ -32,8 +32,6 @@
 /* Can't include BKE_object_deform.h right now, due to an enum forward declaration. */
 extern "C" MDeformVert *BKE_object_defgroup_data_create(ID *id);
 
-using blender::fn::GVArrayImpl;
-
 /* -------------------------------------------------------------------- */
 /** \name Geometry Component Implementation
  * \{ */

@@ -34,7 +34,6 @@ using blender::attribute_math::convert_to_static_type;
 using blender::bke::AttributeIDRef;
 using blender::fn::GMutableSpan;
 using blender::fn::GSpan;
-using blender::fn::GVArrayImpl;
 
 Spline::Type Spline::type() const
 {

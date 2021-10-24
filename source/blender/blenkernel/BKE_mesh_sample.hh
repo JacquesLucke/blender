@@ -39,7 +39,6 @@ using fn::CPPType;
 using fn::GMutableSpan;
 using fn::GSpan;
 using fn::GVArray;
-using fn::GVArrayImpl;
 
 void sample_point_attribute(const Mesh &mesh,
                             Span<int> looptri_indices,

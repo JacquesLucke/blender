@@ -26,7 +26,6 @@ using blender::float3;
 using blender::IndexRange;
 using blender::MutableSpan;
 using blender::Span;
-using blender::fn::GVArrayImpl;
 
 void NURBSpline::copy_settings(Spline &dst) const
 {

@@ -25,7 +25,6 @@ using blender::float3;
 using blender::IndexRange;
 using blender::MutableSpan;
 using blender::Span;
-using blender::fn::GVArrayImpl;
 
 void BezierSpline::copy_settings(Spline &dst) const
 {
