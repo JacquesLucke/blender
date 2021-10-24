@@ -1125,6 +1125,7 @@ class GVArray {
   static GVArray ForSingleRef(const CPPType &type, const int64_t size, const void *value);
   static GVArray ForSingleDefault(const CPPType &type, const int64_t size);
   static GVArray ForSpan(GSpan span);
+  static GVArray ForEmpty(const CPPType &type);
 
   operator bool() const
   {

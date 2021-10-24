@@ -478,6 +478,11 @@ GVArray GVArray::ForSpan(GSpan span)
   return GVArray::For<GVArrayImpl_For_GSpan>(span);
 }
 
+GVArray GVArray::ForEmpty(const CPPType &type)
+{
+  return GVArray::ForSpan(GSpan(type));
+}
+
 GVArray &GVArray::operator=(const GVArray &other)
 {
   if (this == &other) {

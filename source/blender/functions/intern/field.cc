@@ -287,6 +287,14 @@ Vector<GVArray> evaluate_fields(ResourceScope &scope,
   Array<bool> is_output_written_to_dst(fields_to_evaluate.size(), false);
   const int array_size = mask.min_array_size();
 
+  if (mask.is_empty()) {
+    for (const int i : fields_to_evaluate.index_range()) {
+      const CPPType &type = fields_to_evaluate[i].cpp_type();
+      r_varrays[i] = GVArray::ForEmpty(type);
+    }
+    return r_varrays;
+  }
+
   /* Destination arrays are optional. Create a small utility method to access them. */
   auto get_dst_varray = [&](int index) -> GVMutableArray {
     if (dst_varrays.is_empty()) {
@@ -408,10 +416,7 @@ Vector<GVArray> evaluate_fields(ResourceScope &scope,
     build_multi_function_procedure_for_fields(
         procedure, scope, field_tree_info, constant_fields_to_evaluate);
     MFProcedureExecutor procedure_executor{"Procedure", procedure};
-    /* Run the code below even when the mask is empty, so that outputs are properly prepared.
-     * Higher level code can detect this as well and just skip evaluating the field. */
-    const int mask_size = mask.is_empty() ? 0 : 1;
-    MFParamsBuilder mf_params{procedure_executor, mask_size};
+    MFParamsBuilder mf_params{procedure_executor, 1};
     MFContextBuilder mf_context;
 
     /* Provide inputs to the procedure executor. */
@@ -425,21 +430,20 @@ Vector<GVArray> evaluate_fields(ResourceScope &scope,
       /* Allocate memory where the computed value will be stored in. */
       void *buffer = scope.linear_allocator().allocate(type.size(), type.alignment());
 
-      if (!type.is_trivially_destructible() && mask_size > 0) {
-        BLI_assert(mask_size == 1);
+      if (!type.is_trivially_destructible()) {
         /* Destruct value in the end. */
         scope.add_destruct_call([buffer, &type]() { type.destruct(buffer); });
       }
 
       /* Pass output buffer to the procedure executor. */
-      mf_params.add_uninitialized_single_output({type, buffer, mask_size});
+      mf_params.add_uninitialized_single_output({type, buffer, 1});
 
       /* Create virtual array that can be used after the procedure has been executed below. */
       const int out_index = constant_field_indices[i];
       r_varrays[out_index] = GVArray::ForSingleRef(type, array_size, buffer);
     }
 
-    procedure_executor.call(IndexRange(mask_size), mf_params, mf_context);
+    procedure_executor.call(IndexRange(1), mf_params, mf_context);
   }
 
   /* Copy data to supplied destination arrays if necessary. In some cases the evaluation above
