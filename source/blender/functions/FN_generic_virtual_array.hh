@@ -113,35 +113,12 @@ class GVMutableArrayImpl : public GVArrayImpl {
  * \{ */
 
 namespace detail {
-
 struct GVArrayAnyExtraInfo {
   const GVArrayImpl *(*get_varray)(const void *buffer) =
       [](const void *UNUSED(buffer)) -> const GVArrayImpl * { return nullptr; };
 
-  template<typename StorageT> static GVArrayAnyExtraInfo get()
-  {
-    static_assert(std::is_base_of_v<GVArrayImpl, StorageT> ||
-                  std::is_same_v<StorageT, const GVArrayImpl *> ||
-                  std::is_same_v<StorageT, std::shared_ptr<const GVArrayImpl>>);
-
-    if constexpr (std::is_base_of_v<GVArrayImpl, StorageT>) {
-      return {[](const void *buffer) {
-        return static_cast<const GVArrayImpl *>((const StorageT *)buffer);
-      }};
-    }
-    else if constexpr (std::is_same_v<StorageT, const GVArrayImpl *>) {
-      return {[](const void *buffer) { return *(const StorageT *)buffer; }};
-    }
-    else if constexpr (std::is_same_v<StorageT, std::shared_ptr<const GVArrayImpl>>) {
-      return {[](const void *buffer) { return ((const StorageT *)buffer)->get(); }};
-    }
-    else {
-      BLI_assert_unreachable();
-      return {};
-    }
-  }
+  template<typename StorageT> static GVArrayAnyExtraInfo get();
 };
-
 }  // namespace detail
 
 class GVMutableArray;
@@ -676,6 +653,31 @@ inline void GVMutableArrayImpl::set_all(const void *src)
 /* -------------------------------------------------------------------- */
 /** \name Inline methods for #GVArray.
  * \{ */
+
+namespace detail {
+template<typename StorageT> inline GVArrayAnyExtraInfo GVArrayAnyExtraInfo::get()
+{
+  static_assert(std::is_base_of_v<GVArrayImpl, StorageT> ||
+                std::is_same_v<StorageT, const GVArrayImpl *> ||
+                std::is_same_v<StorageT, std::shared_ptr<const GVArrayImpl>>);
+
+  if constexpr (std::is_base_of_v<GVArrayImpl, StorageT>) {
+    return {[](const void *buffer) {
+      return static_cast<const GVArrayImpl *>((const StorageT *)buffer);
+    }};
+  }
+  else if constexpr (std::is_same_v<StorageT, const GVArrayImpl *>) {
+    return {[](const void *buffer) { return *(const StorageT *)buffer; }};
+  }
+  else if constexpr (std::is_same_v<StorageT, std::shared_ptr<const GVArrayImpl>>) {
+    return {[](const void *buffer) { return ((const StorageT *)buffer)->get(); }};
+  }
+  else {
+    BLI_assert_unreachable();
+    return {};
+  }
+}
+}  // namespace detail
 
 inline GVArray::GVArray(const GVArray &other) : storage_(other.storage_)
 {
