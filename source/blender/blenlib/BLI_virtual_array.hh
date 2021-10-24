@@ -582,12 +582,16 @@ template<typename T> struct VArrayAnyExtraInfo {
   template<typename StorageT> static VArrayAnyExtraInfo get()
   {
     static_assert(std::is_base_of_v<VArrayImpl<T>, StorageT> ||
+                  std::is_same_v<StorageT, const VArrayImpl<T> *> ||
                   std::is_same_v<StorageT, std::shared_ptr<const VArrayImpl<T>>>);
 
     if constexpr (std::is_base_of_v<VArrayImpl<T>, StorageT>) {
       return {[](const void *buffer) {
         return static_cast<const VArrayImpl<T> *>((const StorageT *)buffer);
       }};
+    }
+    else if constexpr (std::is_same_v<StorageT, const VArrayImpl<T> *>) {
+      return {[](const void *buffer) { return *(const StorageT *)buffer; }};
     }
     else if constexpr (std::is_same_v<StorageT, std::shared_ptr<const VArrayImpl<T>>>) {
       return {[](const void *buffer) { return ((const StorageT *)buffer)->get(); }};
@@ -624,6 +628,7 @@ template<typename T> class VArray {
 
   VArray(const Impl *impl) : impl_(impl)
   {
+    storage_ = impl_;
   }
 
   VArray(std::shared_ptr<const Impl> impl) : impl_(impl.get())
@@ -736,6 +741,7 @@ template<typename T> class VMutableArray {
 
   VMutableArray(Impl *impl) : impl_(impl)
   {
+    storage_ = static_cast<const VArrayImpl<T> *>(impl);
   }
 
   VMutableArray(std::shared_ptr<Impl> impl) : impl_(impl.get())

@@ -62,10 +62,11 @@ struct VariableValue {
 /* This variable is the unmodified virtual array from the caller. */
 struct VariableValue_GVArray : public VariableValue {
   static inline constexpr ValueType static_type = ValueType::GVArray;
-  const GVArray data;
+  const GVArray &data;
 
-  VariableValue_GVArray(GVArray data) : VariableValue(static_type), data(std::move(data))
+  VariableValue_GVArray(const GVArray &data) : VariableValue(static_type), data(data)
   {
+    BLI_assert(data);
   }
 };
 
@@ -124,8 +125,7 @@ struct VariableValue_OneVector : public VariableValue {
   }
 };
 
-/* TODO */
-// static_assert(std::is_trivially_destructible_v<VariableValue_GVArray>);
+static_assert(std::is_trivially_destructible_v<VariableValue_GVArray>);
 static_assert(std::is_trivially_destructible_v<VariableValue_Span>);
 static_assert(std::is_trivially_destructible_v<VariableValue_GVVectorArray>);
 static_assert(std::is_trivially_destructible_v<VariableValue_GVectorArray>);
@@ -172,9 +172,9 @@ class ValueAllocator : NonCopyable, NonMovable {
 
   void release_variable_state(VariableState *state);
 
-  VariableValue_GVArray *obtain_GVArray(GVArray varray)
+  VariableValue_GVArray *obtain_GVArray(const GVArray &varray)
   {
-    return this->obtain<VariableValue_GVArray>(std::move(varray));
+    return this->obtain<VariableValue_GVArray>(varray);
   }
 
   VariableValue_GVVectorArray *obtain_GVVectorArray(const GVVectorArray &varray)

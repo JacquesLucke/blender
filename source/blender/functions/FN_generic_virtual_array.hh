@@ -1014,12 +1014,16 @@ struct GVArrayAnyExtraInfo {
   template<typename StorageT> static GVArrayAnyExtraInfo get()
   {
     static_assert(std::is_base_of_v<GVArrayImpl, StorageT> ||
+                  std::is_same_v<StorageT, const GVArrayImpl *> ||
                   std::is_same_v<StorageT, std::shared_ptr<const GVArrayImpl>>);
 
     if constexpr (std::is_base_of_v<GVArrayImpl, StorageT>) {
       return {[](const void *buffer) {
         return static_cast<const GVArrayImpl *>((const StorageT *)buffer);
       }};
+    }
+    else if constexpr (std::is_same_v<StorageT, const GVArrayImpl *>) {
+      return {[](const void *buffer) { return *(const StorageT *)buffer; }};
     }
     else if constexpr (std::is_same_v<StorageT, std::shared_ptr<const GVArrayImpl>>) {
       return {[](const void *buffer) { return ((const StorageT *)buffer)->get(); }};
@@ -1056,6 +1060,7 @@ class GVArray {
 
   GVArray(const Impl *impl) : impl_(impl)
   {
+    storage_ = impl;
   }
 
   GVArray(std::shared_ptr<const Impl> impl) : impl_(impl.get())
@@ -1162,6 +1167,7 @@ class GVMutableArray {
 
   GVMutableArray(Impl *impl) : impl_(impl)
   {
+    storage_ = static_cast<const GVArrayImpl *>(impl);
   }
 
   GVMutableArray(std::shared_ptr<Impl> impl) : impl_(impl.get())
