@@ -50,7 +50,6 @@ using blender::bke::AttributeIDRef;
 using blender::bke::OutputAttribute;
 using blender::fn::GMutableSpan;
 using blender::fn::GSpan;
-using blender::fn::GVArrayImpl_For_GSpan;
 using blender::fn::GVArrayImpl_For_SingleValue;
 using blender::fn::GVMutableArrayImpl_For_GMutableSpan;
 

@@ -27,8 +27,6 @@
 
 #include "node_geometry_util.hh"
 
-using blender::fn::GVArrayImpl_For_GSpan;
-
 namespace blender::nodes {
 
 static void geo_node_join_geometry_declare(NodeDeclarationBuilder &b)
