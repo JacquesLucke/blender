@@ -249,19 +249,6 @@ class GVArrayImpl_For_GSpan : public GVArrayImpl {
   GSpan get_internal_span_impl() const override;
 };
 
-class GVArrayImpl_For_Empty : public GVArrayImpl {
- public:
-  GVArrayImpl_For_Empty(const CPPType &type) : GVArrayImpl(type, 0)
-  {
-  }
-
- protected:
-  void get_to_uninitialized_impl(const int64_t UNUSED(index), void *UNUSED(r_value)) const override
-  {
-    BLI_assert(false);
-  }
-};
-
 class GVMutableArrayImpl_For_GMutableSpan : public GVMutableArrayImpl {
  protected:
   void *data_ = nullptr;
@@ -290,39 +277,6 @@ class GVMutableArrayImpl_For_GMutableSpan : public GVMutableArrayImpl {
 
   bool is_span_impl() const override;
   GSpan get_internal_span_impl() const override;
-};
-
-/* Generic virtual array where each element has the same value. The value is not owned. */
-class GVArrayImpl_For_SingleValueRef : public GVArrayImpl {
- protected:
-  const void *value_ = nullptr;
-
- public:
-  GVArrayImpl_For_SingleValueRef(const CPPType &type, const int64_t size, const void *value)
-      : GVArrayImpl(type, size), value_(value)
-  {
-  }
-
- protected:
-  GVArrayImpl_For_SingleValueRef(const CPPType &type, const int64_t size) : GVArrayImpl(type, size)
-  {
-  }
-
-  void get_impl(const int64_t index, void *r_value) const override;
-  void get_to_uninitialized_impl(const int64_t index, void *r_value) const override;
-
-  bool is_span_impl() const override;
-  GSpan get_internal_span_impl() const override;
-
-  bool is_single_impl() const override;
-  void get_internal_single_impl(void *r_value) const override;
-};
-
-/* Same as GVArrayImpl_For_SingleValueRef, but the value is owned. */
-class GVArrayImpl_For_SingleValue : public GVArrayImpl_For_SingleValueRef {
- public:
-  GVArrayImpl_For_SingleValue(const CPPType &type, const int64_t size, const void *value);
-  ~GVArrayImpl_For_SingleValue();
 };
 
 /* Used to convert a typed virtual array into a generic one. */

@@ -216,36 +216,49 @@ GSpan GVMutableArrayImpl_For_GMutableSpan::get_internal_span_impl() const
 /** \name #GVArrayImpl_For_SingleValueRef
  * \{ */
 
-void GVArrayImpl_For_SingleValueRef::get_impl(const int64_t UNUSED(index), void *r_value) const
-{
-  type_->copy_assign(value_, r_value);
-}
+/* Generic virtual array where each element has the same value. The value is not owned. */
+class GVArrayImpl_For_SingleValueRef : public GVArrayImpl {
+ protected:
+  const void *value_ = nullptr;
 
-void GVArrayImpl_For_SingleValueRef::get_to_uninitialized_impl(const int64_t UNUSED(index),
-                                                               void *r_value) const
-{
-  type_->copy_construct(value_, r_value);
-}
+ public:
+  GVArrayImpl_For_SingleValueRef(const CPPType &type, const int64_t size, const void *value)
+      : GVArrayImpl(type, size), value_(value)
+  {
+  }
 
-bool GVArrayImpl_For_SingleValueRef::is_span_impl() const
-{
-  return size_ == 1;
-}
+ protected:
+  GVArrayImpl_For_SingleValueRef(const CPPType &type, const int64_t size) : GVArrayImpl(type, size)
+  {
+  }
 
-GSpan GVArrayImpl_For_SingleValueRef::get_internal_span_impl() const
-{
-  return GSpan{*type_, value_, 1};
-}
+  void get_impl(const int64_t UNUSED(index), void *r_value) const override
+  {
+    type_->copy_assign(value_, r_value);
+  }
+  void get_to_uninitialized_impl(const int64_t UNUSED(index), void *r_value) const override
+  {
+    type_->copy_construct(value_, r_value);
+  }
 
-bool GVArrayImpl_For_SingleValueRef::is_single_impl() const
-{
-  return true;
-}
+  bool is_span_impl() const override
+  {
+    return size_ == 1;
+  }
+  GSpan get_internal_span_impl() const override
+  {
+    return GSpan{*type_, value_, 1};
+  }
 
-void GVArrayImpl_For_SingleValueRef::get_internal_single_impl(void *r_value) const
-{
-  type_->copy_assign(value_, r_value);
-}
+  bool is_single_impl() const override
+  {
+    return true;
+  }
+  void get_internal_single_impl(void *r_value) const override
+  {
+    type_->copy_assign(value_, r_value);
+  }
+};
 
 /** \} */
 
@@ -253,20 +266,22 @@ void GVArrayImpl_For_SingleValueRef::get_internal_single_impl(void *r_value) con
 /** \name #GVArrayImpl_For_SingleValue
  * \{ */
 
-GVArrayImpl_For_SingleValue::GVArrayImpl_For_SingleValue(const CPPType &type,
-                                                         const int64_t size,
-                                                         const void *value)
-    : GVArrayImpl_For_SingleValueRef(type, size)
-{
-  value_ = MEM_mallocN_aligned(type.size(), type.alignment(), __func__);
-  type.copy_construct(value, (void *)value_);
-}
+/* Same as GVArrayImpl_For_SingleValueRef, but the value is owned. */
+class GVArrayImpl_For_SingleValue : public GVArrayImpl_For_SingleValueRef {
+ public:
+  GVArrayImpl_For_SingleValue(const CPPType &type, const int64_t size, const void *value)
+      : GVArrayImpl_For_SingleValueRef(type, size)
+  {
+    value_ = MEM_mallocN_aligned(type.size(), type.alignment(), __func__);
+    type.copy_construct(value, (void *)value_);
+  }
 
-GVArrayImpl_For_SingleValue::~GVArrayImpl_For_SingleValue()
-{
-  type_->destruct((void *)value_);
-  MEM_freeN((void *)value_);
-}
+  ~GVArrayImpl_For_SingleValue()
+  {
+    type_->destruct((void *)value_);
+    MEM_freeN((void *)value_);
+  }
+};
 
 /** \} */
 

@@ -50,7 +50,6 @@ using blender::bke::AttributeIDRef;
 using blender::bke::OutputAttribute;
 using blender::fn::GMutableSpan;
 using blender::fn::GSpan;
-using blender::fn::GVArrayImpl_For_SingleValue;
 using blender::fn::GVMutableArrayImpl_For_GMutableSpan;
 
 namespace blender::bke {
@@ -1272,9 +1271,9 @@ static OutputAttribute create_output_attribute(GeometryComponent &component,
     if (!attribute) {
       if (default_value) {
         const int64_t domain_size = component.attribute_domain_size(domain);
-        const GVArrayImpl_For_SingleValueRef default_varray{*cpp_type, domain_size, default_value};
-        component.attribute_try_create_builtin(attribute_name,
-                                               AttributeInitVArray(&default_varray));
+        component.attribute_try_create_builtin(
+            attribute_name,
+            AttributeInitVArray(GVArray::ForSingleRef(*cpp_type, domain_size, default_value)));
       }
       else {
         component.attribute_try_create_builtin(attribute_name, AttributeInitDefault());
@@ -1304,9 +1303,11 @@ static OutputAttribute create_output_attribute(GeometryComponent &component,
   WriteAttributeLookup attribute = component.attribute_try_get_for_write(attribute_id);
   if (!attribute) {
     if (default_value) {
-      const GVArrayImpl_For_SingleValueRef default_varray{*cpp_type, domain_size, default_value};
       component.attribute_try_create(
-          attribute_id, domain, data_type, AttributeInitVArray(&default_varray));
+          attribute_id,
+          domain,
+          data_type,
+          AttributeInitVArray(GVArray::ForSingleRef(*cpp_type, domain_size, default_value)));
     }
     else {
       component.attribute_try_create(attribute_id, domain, data_type, AttributeInitDefault());

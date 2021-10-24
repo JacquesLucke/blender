@@ -30,7 +30,6 @@ using blender::fn::GMutableSpan;
 using blender::fn::GSpan;
 using blender::fn::GVArray;
 using blender::fn::GVArray_GSpan;
-using blender::fn::GVMutableArrayImpl_For_GMutableSpan;
 
 /* -------------------------------------------------------------------- */
 /** \name Geometry Component Implementation
