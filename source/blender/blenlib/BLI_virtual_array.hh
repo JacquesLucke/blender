@@ -259,9 +259,9 @@ template<typename T> class VMutableArrayImpl : public VArrayImpl<T> {
     return MutableSpan<T>(const_cast<T *>(span.data()), span.size());
   }
 
-  const void *try_get_internal_generic_mutable_virtual_array() const
+  const void *try_get_internal_generic_virtual_mutable_array() const
   {
-    return this->try_get_internal_generic_mutable_virtual_array_impl();
+    return this->try_get_internal_generic_virtual_mutable_array_impl();
   }
 
  protected:
@@ -281,7 +281,7 @@ template<typename T> class VMutableArrayImpl : public VArrayImpl<T> {
     }
   }
 
-  virtual const void *try_get_internal_generic_mutable_virtual_array_impl() const
+  virtual const void *try_get_internal_generic_virtual_mutable_array_impl() const
   {
     return nullptr;
   }
