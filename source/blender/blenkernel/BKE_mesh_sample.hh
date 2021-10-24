@@ -38,25 +38,26 @@ namespace blender::bke::mesh_surface_sample {
 using fn::CPPType;
 using fn::GMutableSpan;
 using fn::GSpan;
+using fn::GVArray;
 using fn::GVArrayImpl;
 
 void sample_point_attribute(const Mesh &mesh,
                             Span<int> looptri_indices,
                             Span<float3> bary_coords,
-                            const GVArrayImpl &data_in,
+                            const GVArray &data_in,
                             const IndexMask mask,
                             GMutableSpan data_out);
 
 void sample_corner_attribute(const Mesh &mesh,
                              Span<int> looptri_indices,
                              Span<float3> bary_coords,
-                             const GVArrayImpl &data_in,
+                             const GVArray &data_in,
                              const IndexMask mask,
                              GMutableSpan data_out);
 
 void sample_face_attribute(const Mesh &mesh,
                            Span<int> looptri_indices,
-                           const GVArrayImpl &data_in,
+                           const GVArray &data_in,
                            const IndexMask mask,
                            GMutableSpan data_out);
 

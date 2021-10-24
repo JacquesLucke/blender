@@ -259,7 +259,7 @@ static GVArray adapt_curve_domain_point_to_spline(const CurveEval &curve, GVArra
     using T = decltype(dummy);
     if constexpr (!std::is_void_v<attribute_math::DefaultMixer<T>>) {
       Array<T> values(curve.splines().size());
-      adapt_curve_domain_point_to_spline_impl<T>(curve, varray->typed<T>(), values);
+      adapt_curve_domain_point_to_spline_impl<T>(curve, *varray.typed<T>(), values);
       new_varray = VArray<T>::ForContainer(std::move(values));
     }
   });

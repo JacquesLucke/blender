@@ -148,12 +148,6 @@ class GVArrayImpl {
     return (const VArrayImpl<T> *)this->try_get_internal_varray_impl();
   }
 
-  /* Create a typed virtual array for this generic virtual array. */
-  template<typename T> GVArray_Typed<T> typed() const
-  {
-    return GVArray_Typed<T>(*this);
-  }
-
   GVArrayPtr shallow_copy() const;
 
  protected:
@@ -211,12 +205,6 @@ class GVMutableArrayImpl : public GVArrayImpl {
   {
     BLI_assert(type_->is<T>());
     return (VMutableArrayImpl<T> *)this->try_get_internal_mutable_varray_impl();
-  }
-
-  /* Create a typed virtual array for this generic virtual array. */
-  template<typename T> GVMutableArray_Typed<T> typed()
-  {
-    return GVMutableArray_Typed<T>(*this);
   }
 
   void fill(const void *value);

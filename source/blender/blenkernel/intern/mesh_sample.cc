@@ -56,18 +56,18 @@ BLI_NOINLINE static void sample_point_attribute(const Mesh &mesh,
 void sample_point_attribute(const Mesh &mesh,
                             const Span<int> looptri_indices,
                             const Span<float3> bary_coords,
-                            const GVArrayImpl &data_in,
+                            const GVArray &data_in,
                             const IndexMask mask,
                             const GMutableSpan data_out)
 {
-  BLI_assert(data_in.size() == mesh.totvert);
-  BLI_assert(data_in.type() == data_out.type());
+  BLI_assert(data_in->size() == mesh.totvert);
+  BLI_assert(data_in->type() == data_out.type());
 
-  const CPPType &type = data_in.type();
+  const CPPType &type = data_in->type();
   attribute_math::convert_to_static_type(type, [&](auto dummy) {
     using T = decltype(dummy);
     sample_point_attribute<T>(
-        mesh, looptri_indices, bary_coords, data_in.typed<T>(), mask, data_out.typed<T>());
+        mesh, looptri_indices, bary_coords, *data_in.typed<T>(), mask, data_out.typed<T>());
   });
 }
 
@@ -103,18 +103,18 @@ BLI_NOINLINE static void sample_corner_attribute(const Mesh &mesh,
 void sample_corner_attribute(const Mesh &mesh,
                              const Span<int> looptri_indices,
                              const Span<float3> bary_coords,
-                             const GVArrayImpl &data_in,
+                             const GVArray &data_in,
                              const IndexMask mask,
                              const GMutableSpan data_out)
 {
-  BLI_assert(data_in.size() == mesh.totloop);
-  BLI_assert(data_in.type() == data_out.type());
+  BLI_assert(data_in->size() == mesh.totloop);
+  BLI_assert(data_in->type() == data_out.type());
 
-  const CPPType &type = data_in.type();
+  const CPPType &type = data_in->type();
   attribute_math::convert_to_static_type(type, [&](auto dummy) {
     using T = decltype(dummy);
     sample_corner_attribute<T>(
-        mesh, looptri_indices, bary_coords, data_in.typed<T>(), mask, data_out.typed<T>());
+        mesh, looptri_indices, bary_coords, *data_in.typed<T>(), mask, data_out.typed<T>());
   });
 }
 
@@ -138,17 +138,18 @@ void sample_face_attribute(const Mesh &mesh,
 
 void sample_face_attribute(const Mesh &mesh,
                            const Span<int> looptri_indices,
-                           const GVArrayImpl &data_in,
+                           const GVArray &data_in,
                            const IndexMask mask,
                            const GMutableSpan data_out)
 {
-  BLI_assert(data_in.size() == mesh.totpoly);
-  BLI_assert(data_in.type() == data_out.type());
+  BLI_assert(data_in->size() == mesh.totpoly);
+  BLI_assert(data_in->type() == data_out.type());
 
-  const CPPType &type = data_in.type();
+  const CPPType &type = data_in->type();
   attribute_math::convert_to_static_type(type, [&](auto dummy) {
     using T = decltype(dummy);
-    sample_face_attribute<T>(mesh, looptri_indices, data_in.typed<T>(), mask, data_out.typed<T>());
+    sample_face_attribute<T>(
+        mesh, looptri_indices, *data_in.typed<T>(), mask, data_out.typed<T>());
   });
 }
 
@@ -242,15 +243,15 @@ void MeshAttributeInterpolator::sample_data(const GVArray &src,
   /* Interpolate the source attributes on the surface. */
   switch (domain) {
     case ATTR_DOMAIN_POINT: {
-      sample_point_attribute(*mesh_, looptri_indices_, weights, *src, mask_, dst);
+      sample_point_attribute(*mesh_, looptri_indices_, weights, src, mask_, dst);
       break;
     }
     case ATTR_DOMAIN_FACE: {
-      sample_face_attribute(*mesh_, looptri_indices_, *src, mask_, dst);
+      sample_face_attribute(*mesh_, looptri_indices_, src, mask_, dst);
       break;
     }
     case ATTR_DOMAIN_CORNER: {
-      sample_corner_attribute(*mesh_, looptri_indices_, weights, *src, mask_, dst);
+      sample_corner_attribute(*mesh_, looptri_indices_, weights, src, mask_, dst);
       break;
     }
     case ATTR_DOMAIN_EDGE: {
