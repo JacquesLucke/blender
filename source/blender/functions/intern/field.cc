@@ -283,7 +283,7 @@ Vector<GVArray> evaluate_fields(ResourceScope &scope,
                                 const FieldContext &context,
                                 Span<GVMutableArray> dst_varrays)
 {
-  Vector<GVArray> r_varrays(fields_to_evaluate.size(), nullptr);
+  Vector<GVArray> r_varrays(fields_to_evaluate.size());
   Array<bool> is_output_written_to_dst(fields_to_evaluate.size(), false);
   const int array_size = mask.min_array_size();
 
