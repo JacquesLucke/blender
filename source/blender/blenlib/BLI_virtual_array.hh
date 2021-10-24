@@ -150,6 +150,16 @@ template<typename T> class VArrayImpl {
     this->materialize_to_uninitialized_impl(mask, r_span);
   }
 
+  const void *try_get_internal_generic_virtual_array() const
+  {
+    return this->try_get_internal_generic_virtual_array_impl();
+  }
+
+  bool has_ownership() const
+  {
+    return this->has_ownership_impl();
+  }
+
  protected:
   virtual T get_impl(const int64_t index) const = 0;
 
@@ -208,6 +218,17 @@ template<typename T> class VArrayImpl {
       mask.foreach_index([&](const int64_t i) { new (dst + i) T(this->get(i)); });
     }
   }
+
+  virtual const void *try_get_internal_generic_virtual_array_impl() const
+  {
+    return nullptr;
+  }
+
+  virtual bool has_ownership_impl() const
+  {
+    /* Use true by default to be on the safe side. */
+    return true;
+  }
 };
 
 /* Similar to VArrayImpl, but the elements are mutable. */
@@ -238,6 +259,11 @@ template<typename T> class VMutableArrayImpl : public VArrayImpl<T> {
     return MutableSpan<T>(const_cast<T *>(span.data()), span.size());
   }
 
+  const void *try_get_internal_generic_mutable_virtual_array() const
+  {
+    return this->try_get_internal_generic_mutable_virtual_array_impl();
+  }
+
  protected:
   virtual void set_impl(const int64_t index, T value) = 0;
 
@@ -253,6 +279,11 @@ template<typename T> class VMutableArrayImpl : public VArrayImpl<T> {
         this->set(i, src[i]);
       }
     }
+  }
+
+  virtual const void *try_get_internal_generic_mutable_virtual_array_impl() const
+  {
+    return nullptr;
   }
 };
 

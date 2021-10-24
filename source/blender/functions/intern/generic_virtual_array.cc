@@ -86,6 +86,27 @@ void GVArrayImpl::get_internal_single_impl(void *UNUSED(r_value)) const
   BLI_assert(false);
 }
 
+const void *GVArrayImpl::try_get_internal_typed_virtual_array() const
+{
+  return this->try_get_internal_typed_virtual_array_impl();
+}
+
+const void *GVArrayImpl::try_get_internal_typed_virtual_array_impl() const
+{
+  return nullptr;
+}
+
+bool GVArrayImpl::has_ownership() const
+{
+  return this->has_ownership_impl();
+}
+
+bool GVArrayImpl::has_ownership_impl() const
+{
+  /* Use true as default to be on the safe side. */
+  return true;
+}
+
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -130,6 +151,16 @@ void GVMutableArrayImpl::fill(const void *value)
       this->set_by_copy(i, value);
     }
   }
+}
+
+const void *GVMutableArrayImpl::try_get_internal_typed_virtual_mutable_array() const
+{
+  return this->try_get_internal_typed_virtual_mutable_array_impl();
+}
+
+const void *GVMutableArrayImpl::try_get_internal_typed_virtual_mutable_array_impl() const
+{
+  return nullptr;
 }
 
 /** \} */

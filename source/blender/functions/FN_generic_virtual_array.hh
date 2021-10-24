@@ -36,7 +36,9 @@ namespace blender::fn {
 /** \name #GVArrayImpl and #GVMutableArrayImpl.
  * \{ */
 
+class GVArray;
 class GVArrayImpl;
+class GVMutableArray;
 class GVMutableArrayImpl;
 
 /* A generically typed version of `VArrayImpl<T>`. */
@@ -70,6 +72,9 @@ class GVArrayImpl {
   void materialize_to_uninitialized(void *dst) const;
   void materialize_to_uninitialized(const IndexMask mask, void *dst) const;
 
+  const void *try_get_internal_typed_virtual_array() const;
+  bool has_ownership() const;
+
  protected:
   virtual void get_impl(const int64_t index, void *r_value) const;
   virtual void get_to_uninitialized_impl(const int64_t index, void *r_value) const = 0;
@@ -82,6 +87,9 @@ class GVArrayImpl {
 
   virtual void materialize_impl(const IndexMask mask, void *dst) const;
   virtual void materialize_to_uninitialized_impl(const IndexMask mask, void *dst) const;
+
+  virtual const void *try_get_internal_typed_virtual_array_impl() const;
+  virtual bool has_ownership_impl() const;
 };
 
 /* Similar to GVArrayImpl, but supports changing the elements in the virtual array. */
@@ -98,12 +106,16 @@ class GVMutableArrayImpl : public GVArrayImpl {
 
   GMutableSpan get_internal_span();
 
+  const void *try_get_internal_typed_virtual_mutable_array() const;
+
  protected:
   virtual void set_by_copy_impl(const int64_t index, const void *value);
   virtual void set_by_relocate_impl(const int64_t index, void *value);
   virtual void set_by_move_impl(const int64_t index, void *value) = 0;
 
   virtual void set_all_impl(const void *src);
+
+  virtual const void *try_get_internal_typed_virtual_mutable_array_impl() const;
 };
 
 /** \} */
