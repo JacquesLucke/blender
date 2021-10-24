@@ -1033,6 +1033,8 @@ struct GVArrayAnyExtraInfo {
 
 }  // namespace detail
 
+class GVMutableArray;
+
 class GVArray {
  private:
   using ExtraInfo = detail::GVArrayAnyExtraInfo;
@@ -1041,6 +1043,8 @@ class GVArray {
 
   const Impl *impl_ = nullptr;
   Storage storage_;
+
+  friend GVMutableArray;
 
  public:
   GVArray() = default;
@@ -1211,6 +1215,14 @@ class GVMutableArray {
   operator bool() const
   {
     return impl_ != nullptr;
+  }
+
+  operator GVArray() const
+  {
+    GVArray varray;
+    varray.impl_ = impl_;
+    varray.storage_ = storage_;
+    return varray;
   }
 
   Impl *operator->()

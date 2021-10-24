@@ -284,18 +284,20 @@ Vector<GVArray> evaluate_fields(ResourceScope &scope,
                                 Span<GVMutableArray> dst_varrays)
 {
   Vector<GVArray> r_varrays(fields_to_evaluate.size(), nullptr);
+  Array<bool> is_output_written_to_dst(fields_to_evaluate.size(), false);
   const int array_size = mask.min_array_size();
 
   /* Destination arrays are optional. Create a small utility method to access them. */
-  auto get_dst_varray_if_available = [&](int index) -> fn::GVMutableArrayImpl * {
+  auto get_dst_varray = [&](int index) -> GVMutableArray {
     if (dst_varrays.is_empty()) {
-      return nullptr;
+      return {};
     }
-    if (!dst_varrays[index]) {
-      return nullptr;
+    const GVMutableArray &varray = dst_varrays[index];
+    if (!varray) {
+      return {};
     }
-    BLI_assert(dst_varrays[index]->size() >= array_size);
-    return const_cast<fn::GVMutableArrayImpl *>(&*dst_varrays[index]);
+    BLI_assert(varray->size() >= array_size);
+    return varray;
   };
 
   /* Traverse the field tree and prepare some data that is used in later steps. */
@@ -305,8 +307,8 @@ Vector<GVArray> evaluate_fields(ResourceScope &scope,
   Vector<GVArray> field_context_inputs = get_field_context_inputs(
       scope, mask, context, field_tree_info.deduplicated_field_inputs);
 
-  /* Finish fields that output an input varray directly. For those we don't have to do any further
-   * processing. */
+  /* Finish fields that output an input varray directly. For those we don't have to do any
+   * further processing. */
   for (const int out_index : fields_to_evaluate.index_range()) {
     const GFieldRef &field = fields_to_evaluate[out_index];
     if (!field.node().is_input()) {
@@ -369,9 +371,9 @@ Vector<GVArray> evaluate_fields(ResourceScope &scope,
       const int out_index = varying_field_indices[i];
 
       /* Try to get an existing virtual array that the result should be written into. */
-      GVMutableArrayImpl *output_varray = get_dst_varray_if_available(out_index);
+      GVMutableArray dst_varray = get_dst_varray(out_index);
       void *buffer;
-      if (output_varray == nullptr || !output_varray->is_span()) {
+      if (!dst_varray || !dst_varray->is_span()) {
         /* Allocate a new buffer for the computed result. */
         buffer = scope.linear_allocator().allocate(type.size() * array_size, type.alignment());
 
@@ -385,9 +387,10 @@ Vector<GVArray> evaluate_fields(ResourceScope &scope,
       }
       else {
         /* Write the result into the existing span. */
-        buffer = output_varray->get_internal_span().data();
+        buffer = dst_varray->get_internal_span().data();
 
-        r_varrays[out_index] = output_varray;
+        r_varrays[out_index] = dst_varray;
+        is_output_written_to_dst[out_index] = true;
       }
 
       /* Pass output buffer to the procedure executor. */
@@ -439,26 +442,26 @@ Vector<GVArray> evaluate_fields(ResourceScope &scope,
     procedure_executor.call(IndexRange(mask_size), mf_params, mf_context);
   }
 
-  /* Copy data to supplied destination arrays if necessary. In some cases the evaluation above has
-   * written the computed data in the right place already. */
+  /* Copy data to supplied destination arrays if necessary. In some cases the evaluation above
+   * has written the computed data in the right place already. */
   if (!dst_varrays.is_empty()) {
     for (const int out_index : fields_to_evaluate.index_range()) {
-      GVMutableArrayImpl *output_varray = get_dst_varray_if_available(out_index);
-      if (output_varray == nullptr) {
+      GVMutableArray dst_varray = get_dst_varray(out_index);
+      if (!dst_varray) {
         /* Caller did not provide a destination for this output. */
         continue;
       }
       const GVArray &computed_varray = r_varrays[out_index];
-      BLI_assert(computed_varray->type() == output_varray->type());
-      if (false) { /* TODO */
+      BLI_assert(computed_varray->type() == dst_varray->type());
+      if (is_output_written_to_dst[out_index]) {
         /* The result has been written into the destination provided by the caller already. */
         continue;
       }
       /* Still have to copy over the data in the destination provided by the caller. */
-      if (output_varray->is_span()) {
+      if (dst_varray->is_span()) {
         /* Materialize into a span. */
         computed_varray->materialize_to_uninitialized(mask,
-                                                      output_varray->get_internal_span().data());
+                                                      dst_varray->get_internal_span().data());
       }
       else {
         /* Slower materialize into a different structure. */
@@ -466,10 +469,10 @@ Vector<GVArray> evaluate_fields(ResourceScope &scope,
         BUFFER_FOR_CPP_TYPE_VALUE(type, buffer);
         for (const int i : mask) {
           computed_varray->get_to_uninitialized(i, buffer);
-          output_varray->set_by_relocate(i, buffer);
+          dst_varray->set_by_relocate(i, buffer);
         }
       }
-      r_varrays[out_index] = output_varray;
+      r_varrays[out_index] = dst_varray;
     }
   }
   return r_varrays;
