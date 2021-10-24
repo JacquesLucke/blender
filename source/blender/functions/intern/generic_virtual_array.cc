@@ -276,7 +276,7 @@ class GVArrayImpl_For_SingleValue : public GVArrayImpl_For_SingleValueRef {
     type.copy_construct(value, (void *)value_);
   }
 
-  ~GVArrayImpl_For_SingleValue()
+  ~GVArrayImpl_For_SingleValue() override
   {
     type_->destruct((void *)value_);
     MEM_freeN((void *)value_);
