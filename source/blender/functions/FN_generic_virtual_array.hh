@@ -148,8 +148,6 @@ class GVArrayImpl {
     return (const VArrayImpl<T> *)this->try_get_internal_varray_impl();
   }
 
-  GVArrayPtr shallow_copy() const;
-
  protected:
   virtual void get_impl(const int64_t index, void *r_value) const;
   virtual void get_to_uninitialized_impl(const int64_t index, void *r_value) const = 0;

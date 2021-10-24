@@ -19,38 +19,6 @@
 namespace blender::fn {
 
 /* -------------------------------------------------------------------- */
-/** \name #GVArray_For_ShallowCopy
- * \{ */
-
-class GVArray_For_ShallowCopy : public GVArrayImpl {
- private:
-  const GVArrayImpl &varray_;
-
- public:
-  GVArray_For_ShallowCopy(const GVArrayImpl &varray)
-      : GVArrayImpl(varray.type(), varray.size()), varray_(varray)
-  {
-  }
-
- private:
-  void get_impl(const int64_t index, void *r_value) const override
-  {
-    varray_.get(index, r_value);
-  }
-
-  void get_to_uninitialized_impl(const int64_t index, void *r_value) const override
-  {
-    varray_.get_to_uninitialized(index, r_value);
-  }
-
-  void materialize_to_uninitialized_impl(const IndexMask mask, void *dst) const override
-  {
-    varray_.materialize_to_uninitialized(mask, dst);
-  }
-};
-/** \} */
-
-/* -------------------------------------------------------------------- */
 /** \name #GVArrayImpl
  * \{ */
 
@@ -121,27 +89,6 @@ void GVArrayImpl::get_internal_single_impl(void *UNUSED(r_value)) const
 const void *GVArrayImpl::try_get_internal_varray_impl() const
 {
   return nullptr;
-}
-
-/**
- * Creates a new `std::unique_ptr<GVArrayImpl>` based on this `GVArrayImpl`.
- * The lifetime of the returned virtual array must not be longer than the lifetime of this virtual
- * array.
- */
-GVArrayPtr GVArrayImpl::shallow_copy() const
-{
-  if (this->is_span()) {
-    return std::make_unique<GVArrayImpl_For_GSpan>(this->get_internal_span());
-  }
-  if (this->is_single()) {
-    BUFFER_FOR_CPP_TYPE_VALUE(*type_, buffer);
-    this->get_internal_single(buffer);
-    std::unique_ptr new_varray = std::make_unique<GVArrayImpl_For_SingleValue>(
-        *type_, size_, buffer);
-    type_->destruct(buffer);
-    return new_varray;
-  }
-  return std::make_unique<GVArray_For_ShallowCopy>(*this);
 }
 
 /** \} */
