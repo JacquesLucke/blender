@@ -257,8 +257,6 @@ template<typename T> class GVArrayImpl_For_VArray : public GVArrayImpl {
   GVArrayImpl_For_VArray(VArray<T> varray)
       : GVArrayImpl(CPPType::get<T>(), varray->size()), varray_(std::move(varray))
   {
-    BLI_assert(varray_);
-    BLI_assert(varray_->type().is<T>());
   }
 
  protected:
@@ -300,6 +298,16 @@ template<typename T> class GVArrayImpl_For_VArray : public GVArrayImpl {
   void materialize_to_uninitialized_impl(const IndexMask mask, void *dst) const override
   {
     varray_->materialize_to_uninitialized(mask, MutableSpan((T *)dst, mask.min_array_size()));
+  }
+
+  const void *try_get_internal_typed_virtual_array_impl() const override
+  {
+    return &varray_;
+  }
+
+  bool has_ownership_impl() const
+  {
+    return varray_->has_ownership();
   }
 };
 
@@ -345,54 +353,15 @@ template<typename T> class VArrayImpl_For_GVArray : public VArrayImpl<T> {
     varray_->get_internal_single(&value);
     return value;
   }
-};
 
-/* Used to convert an generic mutable virtual array into a typed one. */
-template<typename T> class VMutableArrayImpl_For_GVMutableArray : public VMutableArrayImpl<T> {
- protected:
-  GVMutableArray varray_;
-
- public:
-  VMutableArrayImpl_For_GVMutableArray(GVMutableArray varray)
-      : VMutableArrayImpl<T>(varray->size()), varray_(varray)
+  const void *try_get_internal_generic_virtual_array_impl() const override
   {
-    BLI_assert(varray_);
-    BLI_assert(varray_->type().is<T>());
+    return &varray_;
   }
 
- private:
-  T get_impl(const int64_t index) const override
+  bool has_ownership_impl() const override
   {
-    T value;
-    varray_->get(index, &value);
-    return value;
-  }
-
-  void set_impl(const int64_t index, T value) override
-  {
-    varray_->set_by_relocate(index, &value);
-  }
-
-  bool is_span_impl() const override
-  {
-    return varray_->is_span();
-  }
-
-  Span<T> get_internal_span_impl() const override
-  {
-    return varray_->get_internal_span().template typed<T>();
-  }
-
-  bool is_single_impl() const override
-  {
-    return varray_->is_single();
-  }
-
-  T get_internal_single_impl() const override
-  {
-    T value;
-    varray_->get_internal_single(&value);
-    return value;
+    return varray_->has_ownership();
   }
 };
 
@@ -405,8 +374,6 @@ template<typename T> class GVMutableArrayImpl_For_VMutableArray : public GVMutab
   GVMutableArrayImpl_For_VMutableArray(VMutableArray<T> varray)
       : GVMutableArrayImpl(CPPType::get<T>(), varray->size()), varray_(std::move(varray))
   {
-    BLI_assert(varray_);
-    BLI_assert(varray_->type().is<T>());
   }
 
  protected:
@@ -473,6 +440,75 @@ template<typename T> class GVMutableArrayImpl_For_VMutableArray : public GVMutab
   void materialize_to_uninitialized_impl(const IndexMask mask, void *dst) const override
   {
     varray_->materialize_to_uninitialized(mask, MutableSpan((T *)dst, mask.min_array_size()));
+  }
+
+  const void *try_get_internal_typed_virtual_mutable_array_impl() const override
+  {
+    return &varray_;
+  }
+
+  bool has_ownership_impl() const
+  {
+    return varray_->has_ownership();
+  }
+};
+
+/* Used to convert an generic mutable virtual array into a typed one. */
+template<typename T> class VMutableArrayImpl_For_GVMutableArray : public VMutableArrayImpl<T> {
+ protected:
+  GVMutableArray varray_;
+
+ public:
+  VMutableArrayImpl_For_GVMutableArray(GVMutableArray varray)
+      : VMutableArrayImpl<T>(varray->size()), varray_(varray)
+  {
+    BLI_assert(varray_);
+    BLI_assert(varray_->type().is<T>());
+  }
+
+ private:
+  T get_impl(const int64_t index) const override
+  {
+    T value;
+    varray_->get(index, &value);
+    return value;
+  }
+
+  void set_impl(const int64_t index, T value) override
+  {
+    varray_->set_by_relocate(index, &value);
+  }
+
+  bool is_span_impl() const override
+  {
+    return varray_->is_span();
+  }
+
+  Span<T> get_internal_span_impl() const override
+  {
+    return varray_->get_internal_span().template typed<T>();
+  }
+
+  bool is_single_impl() const override
+  {
+    return varray_->is_single();
+  }
+
+  T get_internal_single_impl() const override
+  {
+    T value;
+    varray_->get_internal_single(&value);
+    return value;
+  }
+
+  const void *try_get_internal_generic_virtual_mutable_array_impl() const override
+  {
+    return &varray_;
+  }
+
+  bool has_ownership_impl() const override
+  {
+    return varray_->has_ownership();
   }
 };
 
