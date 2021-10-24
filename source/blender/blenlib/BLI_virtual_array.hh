@@ -287,9 +287,6 @@ template<typename T> class VMutableArrayImpl : public VArrayImpl<T> {
   }
 };
 
-template<typename T> using VArrayPtr = std::unique_ptr<VArrayImpl<T>>;
-template<typename T> using VMutableArrayPtr = std::unique_ptr<VMutableArrayImpl<T>>;
-
 /**
  * A virtual array implementation for a span. Methods in this class are final so that it can be
  * devirtualized by the compiler in some cases (e.g. when #devirtualize_varray is used).
@@ -321,6 +318,17 @@ template<typename T> class VArrayImpl_For_Span : public VArrayImpl<T> {
   Span<T> get_internal_span_impl() const final
   {
     return Span<T>(data_, this->size_);
+  }
+};
+
+template<typename T> class VArrayImpl_For_Span_final final : public VArrayImpl_For_Span<T> {
+ public:
+  using VArrayImpl_For_Span<T>::VArrayImpl_For_Span;
+
+ private:
+  bool has_ownership_impl() const override
+  {
+    return false;
   }
 };
 
@@ -357,6 +365,18 @@ template<typename T> class VMutableArrayImpl_For_MutableSpan : public VMutableAr
   Span<T> get_internal_span_impl() const override
   {
     return Span<T>(data_, this->size_);
+  }
+};
+
+template<typename T>
+class VMutableArrayImpl_For_MutableSpan_final final : public VMutableArrayImpl_For_MutableSpan<T> {
+ public:
+  using VMutableArrayImpl_For_MutableSpan<T>::VMutableArrayImpl_For_MutableSpan;
+
+ private:
+  bool has_ownership_impl() const override
+  {
+    return false;
   }
 };
 
@@ -689,7 +709,7 @@ template<typename T> class VArray {
 
   static VArray ForSpan(Span<T> values)
   {
-    return VArray::For<VArrayImpl_For_Span<T>>(values);
+    return VArray::For<VArrayImpl_For_Span_final<T>>(values);
   }
 
   template<typename GetFunc> static VArray ForFunc(const int64_t size, GetFunc get_func)
@@ -797,7 +817,7 @@ template<typename T> class VMutableArray {
 
   static VMutableArray ForSpan(MutableSpan<T> values)
   {
-    return VMutableArray::For<VMutableArrayImpl_For_MutableSpan<T>>(values);
+    return VMutableArray::For<VMutableArrayImpl_For_MutableSpan_final<T>>(values);
   }
 
   template<typename StructT,
