@@ -28,8 +28,8 @@ class AddFunction : public MultiFunction {
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
-    const VArrayImpl<int> &a = params.readonly_single_input<int>(0, "A");
-    const VArrayImpl<int> &b = params.readonly_single_input<int>(1, "B");
+    const VArray<int> &a = params.readonly_single_input<int>(0, "A");
+    const VArray<int> &b = params.readonly_single_input<int>(1, "B");
     MutableSpan<int> result = params.uninitialized_single_output<int>(2, "Result");
 
     for (int64_t i : mask) {

@@ -36,7 +36,7 @@ class IndexFieldInput final : public FieldInput {
 
   GVArray get_varray_for_context(const FieldContext &UNUSED(context),
                                  IndexMask mask,
-                                 ResourceScope &scope) const final
+                                 ResourceScope &UNUSED(scope)) const final
   {
     auto index_func = [](int i) { return i; };
     return VArray<int>::ForFunc(mask.min_array_size(), index_func);
@@ -281,7 +281,7 @@ TEST(field, IgnoredOutput)
 
   FieldContext field_context;
   FieldEvaluator field_evaluator{field_context, 10};
-  const VArray<int> results;
+  VArray<int> results;
   field_evaluator.add(field, &results);
   field_evaluator.evaluate();
 
