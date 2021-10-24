@@ -57,7 +57,6 @@ using fn::GPointer;
 using fn::GSpan;
 using fn::GVArray;
 using fn::GVArray_GSpan;
-using fn::GVArray_Span;
 using fn::GVMutableArray;
 using fn::GVMutableArray_GSpan;
 using fn::GVMutableArray_Typed;

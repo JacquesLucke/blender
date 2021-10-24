@@ -149,7 +149,7 @@ static void copy_attributes(const Map<AttributeIDRef, AttributeKind> &attributes
 
     attribute_math::convert_to_static_type(data_type, [&](auto dummy) {
       using T = decltype(dummy);
-      GVArray_Span<T> span{*attribute.varray};
+      VArray_Span<T> span{attribute.varray.typed<T>()};
       MutableSpan<T> out_span = result_attribute.as_span<T>();
       out_span.copy_from(span);
     });
@@ -189,7 +189,7 @@ static void copy_attributes_based_on_mask(const Map<AttributeIDRef, AttributeKin
 
     attribute_math::convert_to_static_type(data_type, [&](auto dummy) {
       using T = decltype(dummy);
-      GVArray_Span<T> span{*attribute.varray};
+      VArray_Span<T> span{attribute.varray.typed<T>()};
       MutableSpan<T> out_span = result_attribute.as_span<T>();
       copy_data(span, out_span, mask);
     });

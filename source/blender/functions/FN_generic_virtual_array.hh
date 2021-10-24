@@ -658,20 +658,6 @@ class GVMutableArray_GSpan : public GMutableSpan {
   void disable_not_applied_warning();
 };
 
-/* Similar to GVArray_GSpan, but the resulting span is typed. */
-template<typename T> class GVArray_Span : public Span<T> {
- private:
-  GVArray_GSpan varray_gspan_;
-
- public:
-  GVArray_Span(const GVArrayImpl &varray) : varray_gspan_(varray)
-  {
-    BLI_assert(varray.type().is<T>());
-    this->data_ = (const T *)varray_gspan_.data();
-    this->size_ = varray_gspan_.size();
-  }
-};
-
 template<typename T> class GVArrayImpl_For_OwnedVArray : public GVArrayImpl_For_VArray<T> {
  private:
   VArrayPtr<T> owned_varray_;

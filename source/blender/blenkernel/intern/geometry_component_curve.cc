@@ -275,14 +275,14 @@ template<typename T> class VArray_For_SplineToPoint final : public VArrayImpl<T>
   GVArray original_varray_;
   /* Store existing data materialized if it was not already a span. This is expected
    * to be worth it because a single spline's value will likely be accessed many times. */
-  fn::GVArray_Span<T> original_data_;
+  VArray_Span<T> original_data_;
   Array<int> offsets_;
 
  public:
   VArray_For_SplineToPoint(GVArray original_varray, Array<int> offsets)
       : VArrayImpl<T>(offsets.last()),
         original_varray_(std::move(original_varray)),
-        original_data_(*original_varray_),
+        original_data_(original_varray_.typed<T>()),
         offsets_(std::move(offsets))
   {
   }

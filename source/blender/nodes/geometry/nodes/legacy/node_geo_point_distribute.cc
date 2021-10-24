@@ -337,7 +337,7 @@ BLI_NOINLINE static void interpolate_existing_attributes(
       attribute_math::convert_to_static_type(output_data_type, [&](auto dummy) {
         using T = decltype(dummy);
 
-        GVArray_Span<T> source_span{*source_attribute};
+        VArray_Span source_span{source_attribute.typed<T>()};
       });
     }
 
