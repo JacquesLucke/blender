@@ -26,8 +26,6 @@
 
 #include "node_geometry_util.hh"
 
-using blender::fn::GVArrayImpl_For_Span;
-
 namespace blender::nodes {
 
 static void geo_node_curve_resample_declare(NodeDeclarationBuilder &b)

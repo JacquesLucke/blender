@@ -26,7 +26,6 @@ using blender::IndexRange;
 using blender::MutableSpan;
 using blender::Span;
 using blender::fn::GVArrayImpl;
-using blender::fn::GVArrayImpl_For_ArrayContainer;
 
 void BezierSpline::copy_settings(Spline &dst) const
 {

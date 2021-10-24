@@ -658,56 +658,6 @@ class GVMutableArray_GSpan : public GMutableSpan {
   void disable_not_applied_warning();
 };
 
-template<typename T> class GVArrayImpl_For_OwnedVArray : public GVArrayImpl_For_VArray<T> {
- private:
-  VArrayPtr<T> owned_varray_;
-
- public:
-  /* Takes ownership of varray and passes a reference to the base class. */
-  GVArrayImpl_For_OwnedVArray(VArrayPtr<T> varray)
-      : GVArrayImpl_For_VArray<T>(*varray), owned_varray_(std::move(varray))
-  {
-  }
-};
-
-template<typename T> class VArrayImpl_For_OwnedGVArray : public VArrayImpl_For_GVArray<T> {
- private:
-  GVArrayPtr owned_varray_;
-
- public:
-  /* Takes ownership of varray and passes a reference to the base class. */
-  VArrayImpl_For_OwnedGVArray(GVArrayPtr varray)
-      : VArrayImpl_For_GVArray<T>(*varray), owned_varray_(std::move(varray))
-  {
-  }
-};
-
-template<typename T>
-class GVMutableArrayImpl_For_OwnedVMutableArray : public GVMutableArrayImpl_For_VMutableArray<T> {
- private:
-  VMutableArrayPtr<T> owned_varray_;
-
- public:
-  /* Takes ownership of varray and passes a reference to the base class. */
-  GVMutableArrayImpl_For_OwnedVMutableArray(VMutableArrayPtr<T> varray)
-      : GVMutableArrayImpl_For_VMutableArray<T>(*varray), owned_varray_(std::move(varray))
-  {
-  }
-};
-
-template<typename T>
-class VMutableArrayImpl_For_OwnedGVMutableArray : public VMutableArrayImpl_For_GVMutableArray<T> {
- private:
-  GVMutableArrayPtr owned_varray_;
-
- public:
-  /* Takes ownership of varray and passes a reference to the base class. */
-  VMutableArrayImpl_For_OwnedGVMutableArray(GVMutableArrayPtr varray)
-      : VMutableArrayImpl_For_GVMutableArray<T>(*varray), owned_varray_(std::move(varray))
-  {
-  }
-};
-
 /* Utility to embed a typed virtual array into a generic one. This avoids one allocation and give
  * the compiler more opportunity to optimize the generic virtual array. */
 template<typename T, typename VArrayT>
@@ -738,72 +688,6 @@ class GVMutableArrayImpl_For_EmbeddedVMutableArray
         embedded_varray_(std::forward<Args>(args)...)
   {
     this->varray_ = &embedded_varray_;
-  }
-};
-
-/* Same as VArrayImpl_For_ArrayContainer, but for a generic virtual array. */
-template<typename Container, typename T = typename Container::value_type>
-class GVArrayImpl_For_ArrayContainer
-    : public GVArrayImpl_For_EmbeddedVArray<T, VArrayImpl_For_ArrayContainer<Container, T>> {
- public:
-  GVArrayImpl_For_ArrayContainer(Container container)
-      : GVArrayImpl_For_EmbeddedVArray<T, VArrayImpl_For_ArrayContainer<Container, T>>(
-            container.size(), std::move(container))
-  {
-  }
-};
-
-/* Same as VArrayImpl_For_DerivedSpan, but for a generic virtual array. */
-template<typename StructT, typename ElemT, ElemT (*GetFunc)(const StructT &)>
-class GVArrayImpl_For_DerivedSpan
-    : public GVArrayImpl_For_EmbeddedVArray<ElemT,
-                                            VArrayImpl_For_DerivedSpan<StructT, ElemT, GetFunc>> {
- public:
-  GVArrayImpl_For_DerivedSpan(const Span<StructT> data)
-      : GVArrayImpl_For_EmbeddedVArray<ElemT, VArrayImpl_For_DerivedSpan<StructT, ElemT, GetFunc>>(
-            data.size(), data)
-  {
-  }
-};
-
-/* Same as VMutableArrayImpl_For_DerivedSpan, but for a generic virtual array. */
-template<typename StructT,
-         typename ElemT,
-         ElemT (*GetFunc)(const StructT &),
-         void (*SetFunc)(StructT &, ElemT)>
-class GVMutableArrayImpl_For_DerivedSpan
-    : public GVMutableArrayImpl_For_EmbeddedVMutableArray<
-          ElemT,
-          VMutableArrayImpl_For_DerivedSpan<StructT, ElemT, GetFunc, SetFunc>> {
- public:
-  GVMutableArrayImpl_For_DerivedSpan(const MutableSpan<StructT> data)
-      : GVMutableArrayImpl_For_EmbeddedVMutableArray<
-            ElemT,
-            VMutableArrayImpl_For_DerivedSpan<StructT, ElemT, GetFunc, SetFunc>>(data.size(), data)
-  {
-  }
-};
-
-/* Same as VArrayImpl_For_Span, but for a generic virtual array. */
-template<typename T>
-class GVArrayImpl_For_Span : public GVArrayImpl_For_EmbeddedVArray<T, VArrayImpl_For_Span<T>> {
- public:
-  GVArrayImpl_For_Span(const Span<T> data)
-      : GVArrayImpl_For_EmbeddedVArray<T, VArrayImpl_For_Span<T>>(data.size(), data)
-  {
-  }
-};
-
-/* Same as VMutableArrayImpl_For_MutableSpan, but for a generic virtual array. */
-template<typename T>
-class GVMutableArrayImpl_For_MutableSpan
-    : public GVMutableArrayImpl_For_EmbeddedVMutableArray<T,
-                                                          VMutableArrayImpl_For_MutableSpan<T>> {
- public:
-  GVMutableArrayImpl_For_MutableSpan(const MutableSpan<T> data)
-      : GVMutableArrayImpl_For_EmbeddedVMutableArray<T, VMutableArrayImpl_For_MutableSpan<T>>(
-            data.size(), data)
-  {
   }
 };
 
