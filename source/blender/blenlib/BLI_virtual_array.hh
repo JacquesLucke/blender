@@ -479,8 +479,11 @@ template<typename T, typename GetFunc> class VArrayImpl_For_Func final : public 
   }
 };
 
+/**
+ * \note: This is `final` so that `has_ownership_impl` can be implemented reliably.
+ */
 template<typename StructT, typename ElemT, ElemT (*GetFunc)(const StructT &)>
-class VArrayImpl_For_DerivedSpan : public VArrayImpl<ElemT> {
+class VArrayImpl_For_DerivedSpan final : public VArrayImpl<ElemT> {
  private:
   const StructT *data_;
 
@@ -507,13 +510,21 @@ class VArrayImpl_For_DerivedSpan : public VArrayImpl<ElemT> {
     ElemT *dst = r_span.data();
     mask.foreach_index([&](const int64_t i) { new (dst + i) ElemT(GetFunc(data_[i])); });
   }
+
+  bool has_ownership_impl() const override
+  {
+    return false;
+  }
 };
 
+/**
+ * \note: This is `final` so that `has_ownership_impl` can be implemented reliably.
+ */
 template<typename StructT,
          typename ElemT,
          ElemT (*GetFunc)(const StructT &),
          void (*SetFunc)(StructT &, ElemT)>
-class VMutableArrayImpl_For_DerivedSpan : public VMutableArrayImpl<ElemT> {
+class VMutableArrayImpl_For_DerivedSpan final : public VMutableArrayImpl<ElemT> {
  private:
   StructT *data_;
 
@@ -544,6 +555,11 @@ class VMutableArrayImpl_For_DerivedSpan : public VMutableArrayImpl<ElemT> {
   {
     ElemT *dst = r_span.data();
     mask.foreach_index([&](const int64_t i) { new (dst + i) ElemT(GetFunc(data_[i])); });
+  }
+
+  bool has_ownership_impl() const override
+  {
+    return false;
   }
 };
 
