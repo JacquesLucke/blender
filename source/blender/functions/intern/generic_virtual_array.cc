@@ -199,6 +199,17 @@ GSpan GVArrayImpl_For_GSpan::get_internal_span_impl() const
   return GSpan(*type_, data_, size_);
 }
 
+class GVArrayImpl_For_GSpan_final final : public GVArrayImpl_For_GSpan {
+ public:
+  using GVArrayImpl_For_GSpan::GVArrayImpl_For_GSpan;
+
+ private:
+  bool has_ownership_impl() const override
+  {
+    return false;
+  }
+};
+
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -253,6 +264,18 @@ GSpan GVMutableArrayImpl_For_GMutableSpan::get_internal_span_impl() const
 {
   return GSpan(*type_, data_, size_);
 }
+
+class GVMutableArrayImpl_For_GMutableSpan_final final
+    : public GVMutableArrayImpl_For_GMutableSpan {
+ public:
+  using GVMutableArrayImpl_For_GMutableSpan::GVMutableArrayImpl_For_GMutableSpan;
+
+ private:
+  bool has_ownership_impl() const override
+  {
+    return false;
+  }
+};
 
 /** \} */
 
@@ -465,7 +488,7 @@ GVArray GVArray::ForSingleDefault(const CPPType &type, const int64_t size)
 
 GVArray GVArray::ForSpan(GSpan span)
 {
-  return GVArray::For<GVArrayImpl_For_GSpan>(span);
+  return GVArray::For<GVArrayImpl_For_GSpan_final>(span);
 }
 
 class GVArrayImpl_For_GArray : public GVArrayImpl_For_GSpan {
@@ -522,7 +545,7 @@ GVArray &GVArray::operator=(GVArray &&other)
 
 GVMutableArray GVMutableArray::ForSpan(GMutableSpan span)
 {
-  return GVMutableArray::For<GVMutableArrayImpl_For_GMutableSpan>(span);
+  return GVMutableArray::For<GVMutableArrayImpl_For_GMutableSpan_final>(span);
 }
 
 GVMutableArray::operator GVArray() const
