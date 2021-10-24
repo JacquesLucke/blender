@@ -34,10 +34,8 @@ using blender::attribute_math::convert_to_static_type;
 using blender::bke::AttributeIDRef;
 using blender::fn::GMutableSpan;
 using blender::fn::GSpan;
-using blender::fn::GVArray_Typed;
 using blender::fn::GVArrayImpl;
 using blender::fn::GVArrayImpl_For_GSpan;
-using blender::fn::GVArrayPtr;
 
 Spline::Type Spline::type() const
 {
@@ -416,7 +414,7 @@ Span<float3> Spline::evaluated_normals() const
   }
 
   /* Rotate the generated normals with the interpolated tilt data. */
-  GVArray_Typed<float> tilts = this->interpolate_to_evaluated(this->tilts());
+  blender::VArray<float> tilts = this->interpolate_to_evaluated(this->tilts());
   for (const int i : normals.index_range()) {
     normals[i] = rotate_direction_around_axis(normals[i], tangents[i], tilts[i]);
   }
@@ -523,9 +521,9 @@ void Spline::bounds_min_max(float3 &min, float3 &max, const bool use_evaluated) 
   }
 }
 
-GVArrayPtr Spline::interpolate_to_evaluated(GSpan data) const
+blender::fn::GVArray Spline::interpolate_to_evaluated(GSpan data) const
 {
-  return this->interpolate_to_evaluated(GVArrayImpl_For_GSpan(data));
+  return this->interpolate_to_evaluated(blender::fn::GVArray::ForSpan(data));
 }
 
 /**
@@ -533,17 +531,17 @@ GVArrayPtr Spline::interpolate_to_evaluated(GSpan data) const
  * points) to arbitrary parameters in between the evaluated points. The interpolation is quite
  * simple, but this handles the cyclic and end point special cases.
  */
-void Spline::sample_with_index_factors(const GVArrayImpl &src,
+void Spline::sample_with_index_factors(const blender::fn::GVArray &src,
                                        Span<float> index_factors,
                                        GMutableSpan dst) const
 {
-  BLI_assert(src.size() == this->evaluated_points_size());
+  BLI_assert(src->size() == this->evaluated_points_size());
 
-  blender::attribute_math::convert_to_static_type(src.type(), [&](auto dummy) {
+  blender::attribute_math::convert_to_static_type(src->type(), [&](auto dummy) {
     using T = decltype(dummy);
-    const GVArray_Typed<T> src_typed = src.typed<T>();
+    const blender::VArray<T> src_typed = src.typed<T>();
     MutableSpan<T> dst_typed = dst.typed<T>();
-    if (src.size() == 1) {
+    if (src->size() == 1) {
       dst_typed.fill(src_typed[0]);
       return;
     }

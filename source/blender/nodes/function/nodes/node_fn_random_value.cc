@@ -116,10 +116,10 @@ class RandomVectorFunction : public fn::MultiFunction {
 
   void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
   {
-    const VArrayImpl<float3> &min_values = params.readonly_single_input<float3>(0, "Min");
-    const VArrayImpl<float3> &max_values = params.readonly_single_input<float3>(1, "Max");
-    const VArrayImpl<int> &ids = params.readonly_single_input<int>(2, "ID");
-    const VArrayImpl<int> &seeds = params.readonly_single_input<int>(3, "Seed");
+    const VArray<float3> &min_values = params.readonly_single_input<float3>(0, "Min");
+    const VArray<float3> &max_values = params.readonly_single_input<float3>(1, "Max");
+    const VArray<int> &ids = params.readonly_single_input<int>(2, "ID");
+    const VArray<int> &seeds = params.readonly_single_input<int>(3, "Seed");
     MutableSpan<float3> values = params.uninitialized_single_output<float3>(4, "Value");
 
     for (int64_t i : mask) {
@@ -158,10 +158,10 @@ class RandomFloatFunction : public fn::MultiFunction {
 
   void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
   {
-    const VArrayImpl<float> &min_values = params.readonly_single_input<float>(0, "Min");
-    const VArrayImpl<float> &max_values = params.readonly_single_input<float>(1, "Max");
-    const VArrayImpl<int> &ids = params.readonly_single_input<int>(2, "ID");
-    const VArrayImpl<int> &seeds = params.readonly_single_input<int>(3, "Seed");
+    const VArray<float> &min_values = params.readonly_single_input<float>(0, "Min");
+    const VArray<float> &max_values = params.readonly_single_input<float>(1, "Max");
+    const VArray<int> &ids = params.readonly_single_input<int>(2, "ID");
+    const VArray<int> &seeds = params.readonly_single_input<int>(3, "Seed");
     MutableSpan<float> values = params.uninitialized_single_output<float>(4, "Value");
 
     for (int64_t i : mask) {
@@ -197,10 +197,10 @@ class RandomIntFunction : public fn::MultiFunction {
 
   void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
   {
-    const VArrayImpl<int> &min_values = params.readonly_single_input<int>(0, "Min");
-    const VArrayImpl<int> &max_values = params.readonly_single_input<int>(1, "Max");
-    const VArrayImpl<int> &ids = params.readonly_single_input<int>(2, "ID");
-    const VArrayImpl<int> &seeds = params.readonly_single_input<int>(3, "Seed");
+    const VArray<int> &min_values = params.readonly_single_input<int>(0, "Min");
+    const VArray<int> &max_values = params.readonly_single_input<int>(1, "Max");
+    const VArray<int> &ids = params.readonly_single_input<int>(2, "ID");
+    const VArray<int> &seeds = params.readonly_single_input<int>(3, "Seed");
     MutableSpan<int> values = params.uninitialized_single_output<int>(4, "Value");
 
     for (int64_t i : mask) {
@@ -235,9 +235,9 @@ class RandomBoolFunction : public fn::MultiFunction {
 
   void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
   {
-    const VArrayImpl<float> &probabilities = params.readonly_single_input<float>(0, "Probability");
-    const VArrayImpl<int> &ids = params.readonly_single_input<int>(1, "ID");
-    const VArrayImpl<int> &seeds = params.readonly_single_input<int>(2, "Seed");
+    const VArray<float> &probabilities = params.readonly_single_input<float>(0, "Probability");
+    const VArray<int> &ids = params.readonly_single_input<int>(1, "ID");
+    const VArray<int> &seeds = params.readonly_single_input<int>(2, "Seed");
     MutableSpan<bool> values = params.uninitialized_single_output<bool>(3, "Value");
 
     for (int64_t i : mask) {

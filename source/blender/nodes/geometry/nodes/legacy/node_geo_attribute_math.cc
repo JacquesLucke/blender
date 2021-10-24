@@ -160,9 +160,9 @@ static void geo_node_attribute_math_update(bNodeTree *UNUSED(ntree), bNode *node
       operation_use_input_c(operation));
 }
 
-static void do_math_operation(const VArrayImpl<float> &span_a,
-                              const VArrayImpl<float> &span_b,
-                              const VArrayImpl<float> &span_c,
+static void do_math_operation(const VArray<float> &span_a,
+                              const VArray<float> &span_b,
+                              const VArray<float> &span_c,
                               MutableSpan<float> span_result,
                               const NodeMathOperation operation)
 {
@@ -178,8 +178,8 @@ static void do_math_operation(const VArrayImpl<float> &span_a,
   UNUSED_VARS_NDEBUG(success);
 }
 
-static void do_math_operation(const VArrayImpl<float> &span_a,
-                              const VArrayImpl<float> &span_b,
+static void do_math_operation(const VArray<float> &span_a,
+                              const VArray<float> &span_b,
                               MutableSpan<float> span_result,
                               const NodeMathOperation operation)
 {
@@ -195,7 +195,7 @@ static void do_math_operation(const VArrayImpl<float> &span_a,
   UNUSED_VARS_NDEBUG(success);
 }
 
-static void do_math_operation(const VArrayImpl<float> &span_input,
+static void do_math_operation(const VArray<float> &span_input,
                               MutableSpan<float> span_result,
                               const NodeMathOperation operation)
 {
@@ -250,7 +250,7 @@ static void attribute_math_calc(GeometryComponent &component, const GeoNodeExecP
     return;
   }
 
-  GVArray_Typed<float> attribute_a = params.get_input_attribute<float>(
+  VArray<float> attribute_a = params.get_input_attribute<float>(
       "A", component, result_domain, 0.0f);
 
   MutableSpan<float> result_span = attribute_result.as_span();
@@ -258,10 +258,10 @@ static void attribute_math_calc(GeometryComponent &component, const GeoNodeExecP
   /* Note that passing the data with `get_internal_span<float>()` works
    * because the attributes were accessed with #CD_PROP_FLOAT. */
   if (operation_use_input_b(operation)) {
-    GVArray_Typed<float> attribute_b = params.get_input_attribute<float>(
+    VArray<float> attribute_b = params.get_input_attribute<float>(
         "B", component, result_domain, 0.0f);
     if (operation_use_input_c(operation)) {
-      GVArray_Typed<float> attribute_c = params.get_input_attribute<float>(
+      VArray<float> attribute_c = params.get_input_attribute<float>(
           "C", component, result_domain, 0.0f);
       do_math_operation(attribute_a, attribute_b, attribute_c, result_span, operation);
     }

@@ -103,7 +103,7 @@ static void separate_points_from_component(const GeometryComponent &in_component
     return;
   }
 
-  const GVArray_Typed<bool> mask_attribute = in_component.attribute_get_for_read<bool>(
+  const VArray<bool> mask_attribute = in_component.attribute_get_for_read<bool>(
       mask_name, ATTR_DOMAIN_POINT, false);
   VArray_Span<bool> masks{mask_attribute};
 

@@ -50,7 +50,7 @@ static void geo_proximity_init(bNodeTree *UNUSED(ntree), bNode *node)
   node->storage = node_storage;
 }
 
-static bool calculate_mesh_proximity(const VArrayImpl<float3> &positions,
+static bool calculate_mesh_proximity(const VArray<float3> &positions,
                                      const IndexMask mask,
                                      const Mesh &mesh,
                                      const GeometryNodeProximityTargetType type,
@@ -100,7 +100,7 @@ static bool calculate_mesh_proximity(const VArrayImpl<float3> &positions,
   return true;
 }
 
-static bool calculate_pointcloud_proximity(const VArrayImpl<float3> &positions,
+static bool calculate_pointcloud_proximity(const VArray<float3> &positions,
                                            const IndexMask mask,
                                            const PointCloud &pointcloud,
                                            MutableSpan<float> r_distances,
@@ -164,8 +164,8 @@ class ProximityFunction : public fn::MultiFunction {
 
   void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
   {
-    const VArrayImpl<float3> &src_positions = params.readonly_single_input<float3>(
-        0, "Source Position");
+    const VArray<float3> &src_positions = params.readonly_single_input<float3>(0,
+                                                                               "Source Position");
     MutableSpan<float3> positions = params.uninitialized_single_output_if_required<float3>(
         1, "Position");
     /* Make sure there is a distance array, used for finding the smaller distance when there are

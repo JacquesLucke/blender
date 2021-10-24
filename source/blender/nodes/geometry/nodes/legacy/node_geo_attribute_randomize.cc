@@ -180,7 +180,7 @@ Array<uint32_t> get_geometry_element_ids_as_uints(const GeometryComponent &compo
   const int domain_size = component.attribute_domain_size(domain);
 
   /* Hash the reserved name attribute "id" as a (hopefully) stable seed for each point. */
-  GVArrayPtr hash_attribute = component.attribute_try_get_for_read("id", domain);
+  GVArray hash_attribute = component.attribute_try_get_for_read("id", domain);
   Array<uint32_t> hashes(domain_size);
   if (hash_attribute) {
     BLI_assert(hashes.size() == hash_attribute->size());

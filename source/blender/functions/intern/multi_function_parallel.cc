@@ -62,10 +62,10 @@ void ParallelMultiFunction::call(IndexMask full_mask, MFParams params, MFContext
       const MFParamType param_type = fn_.param_type(param_index);
       switch (param_type.category()) {
         case MFParamType::SingleInput: {
-          const GVArrayImpl &varray = params.readonly_single_input(param_index);
-          const GVArrayImpl &sliced_varray = scope.construct<GVArray_Slice>(varray,
-                                                                            input_slice_range);
-          sub_params.add_readonly_single_input(sliced_varray);
+          const GVArray &varray = params.readonly_single_input(param_index);
+          GVArray_Slice &sliced_varray = scope.construct<GVArray_Slice>(*varray,
+                                                                        input_slice_range);
+          sub_params.add_readonly_single_input(GVArray(&*sliced_varray)); /* TODO */
           break;
         }
         case MFParamType::SingleMutable: {

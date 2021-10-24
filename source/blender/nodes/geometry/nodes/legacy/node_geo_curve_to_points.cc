@@ -230,7 +230,7 @@ static void copy_uniform_sample_point_attributes(Span<SplinePtr> splines,
         BLI_assert(spline.attributes.get_for_read(attribute_id));
         GSpan spline_span = *spline.attributes.get_for_read(attribute_id);
 
-        spline.sample_with_index_factors(*spline.interpolate_to_evaluated(spline_span),
+        spline.sample_with_index_factors(spline.interpolate_to_evaluated(spline_span),
                                          uniform_samples,
                                          point_span.slice(offset, size));
       }
@@ -263,7 +263,7 @@ static void copy_spline_domain_attributes(const CurveComponent &curve_component,
         if (meta_data.domain != ATTR_DOMAIN_CURVE) {
           return true;
         }
-        GVArrayPtr spline_attribute = curve_component.attribute_get_for_read(
+        GVArray spline_attribute = curve_component.attribute_get_for_read(
             attribute_id, ATTR_DOMAIN_CURVE, meta_data.data_type);
         const CPPType &type = spline_attribute->type();
 

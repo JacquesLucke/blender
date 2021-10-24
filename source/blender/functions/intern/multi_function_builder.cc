@@ -154,9 +154,9 @@ void CustomMF_GenericCopy::call(IndexMask mask, MFParams params, MFContext UNUSE
   const MFDataType data_type = this->param_type(0).data_type();
   switch (data_type.category()) {
     case MFDataType::Single: {
-      const GVArrayImpl &inputs = params.readonly_single_input(0, "Input");
+      const GVArray &inputs = params.readonly_single_input(0, "Input");
       GMutableSpan outputs = params.uninitialized_single_output(1, "Output");
-      inputs.materialize_to_uninitialized(mask, outputs.data());
+      inputs->materialize_to_uninitialized(mask, outputs.data());
       break;
     }
     case MFDataType::Vector: {

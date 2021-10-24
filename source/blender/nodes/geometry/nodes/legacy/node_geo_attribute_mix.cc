@@ -82,12 +82,12 @@ static void geo_node_attribute_mix_update(bNodeTree *UNUSED(ntree), bNode *node)
 }
 
 static void do_mix_operation_float(const int blend_mode,
-                                   const VArrayImpl<float> &factors,
-                                   const VArrayImpl<float> &inputs_a,
-                                   const VArrayImpl<float> &inputs_b,
-                                   VMutableArrayImpl<float> &results)
+                                   const VArray<float> &factors,
+                                   const VArray<float> &inputs_a,
+                                   const VArray<float> &inputs_b,
+                                   VMutableArray<float> &results)
 {
-  const int size = results.size();
+  const int size = results->size();
   threading::parallel_for(IndexRange(size), 512, [&](IndexRange range) {
     for (const int i : range) {
       const float factor = factors[i];
@@ -95,74 +95,77 @@ static void do_mix_operation_float(const int blend_mode,
       const float3 b{inputs_b[i]};
       ramp_blend(blend_mode, a, factor, b);
       const float result = a.x;
-      results.set(i, result);
+      results->set(i, result);
     }
   });
 }
 
 static void do_mix_operation_float3(const int blend_mode,
-                                    const VArrayImpl<float> &factors,
-                                    const VArrayImpl<float3> &inputs_a,
-                                    const VArrayImpl<float3> &inputs_b,
-                                    VMutableArrayImpl<float3> &results)
+                                    const VArray<float> &factors,
+                                    const VArray<float3> &inputs_a,
+                                    const VArray<float3> &inputs_b,
+                                    VMutableArray<float3> &results)
 {
-  const int size = results.size();
+  const int size = results->size();
   threading::parallel_for(IndexRange(size), 512, [&](IndexRange range) {
     for (const int i : range) {
       const float factor = factors[i];
       float3 a = inputs_a[i];
       const float3 b = inputs_b[i];
       ramp_blend(blend_mode, a, factor, b);
-      results.set(i, a);
+      results->set(i, a);
     }
   });
 }
 
 static void do_mix_operation_color4f(const int blend_mode,
-                                     const VArrayImpl<float> &factors,
-                                     const VArrayImpl<ColorGeometry4f> &inputs_a,
-                                     const VArrayImpl<ColorGeometry4f> &inputs_b,
-                                     VMutableArrayImpl<ColorGeometry4f> &results)
+                                     const VArray<float> &factors,
+                                     const VArray<ColorGeometry4f> &inputs_a,
+                                     const VArray<ColorGeometry4f> &inputs_b,
+                                     VMutableArray<ColorGeometry4f> &results)
 {
-  const int size = results.size();
+  const int size = results->size();
   threading::parallel_for(IndexRange(size), 512, [&](IndexRange range) {
     for (const int i : range) {
       const float factor = factors[i];
       ColorGeometry4f a = inputs_a[i];
       const ColorGeometry4f b = inputs_b[i];
       ramp_blend(blend_mode, a, factor, b);
-      results.set(i, a);
+      results->set(i, a);
     }
   });
 }
 
 static void do_mix_operation(const CustomDataType result_type,
                              int blend_mode,
-                             const VArrayImpl<float> &attribute_factor,
-                             const GVArrayImpl &attribute_a,
-                             const GVArrayImpl &attribute_b,
-                             GVMutableArrayImpl &attribute_result)
+                             const VArray<float> &attribute_factor,
+                             const GVArray &attribute_a,
+                             const GVArray &attribute_b,
+                             GVMutableArray &attribute_result)
 {
   if (result_type == CD_PROP_FLOAT) {
+    VMutableArray<float> result = attribute_result.typed<float>();
     do_mix_operation_float(blend_mode,
                            attribute_factor,
                            attribute_a.typed<float>(),
                            attribute_b.typed<float>(),
-                           attribute_result.typed<float>());
+                           result);
   }
   else if (result_type == CD_PROP_FLOAT3) {
+    VMutableArray<float3> result = attribute_result.typed<float3>();
     do_mix_operation_float3(blend_mode,
                             attribute_factor,
                             attribute_a.typed<float3>(),
                             attribute_b.typed<float3>(),
-                            attribute_result.typed<float3>());
+                            result);
   }
   else if (result_type == CD_PROP_COLOR) {
+    VMutableArray<ColorGeometry4f> result = attribute_result.typed<ColorGeometry4f>();
     do_mix_operation_color4f(blend_mode,
                              attribute_factor,
                              attribute_a.typed<ColorGeometry4f>(),
                              attribute_b.typed<ColorGeometry4f>(),
-                             attribute_result.typed<ColorGeometry4f>());
+                             result);
   }
 }
 
@@ -203,19 +206,19 @@ static void attribute_mix_calc(GeometryComponent &component, const GeoNodeExecPa
     return;
   }
 
-  GVArray_Typed<float> attribute_factor = params.get_input_attribute<float>(
+  VArray<float> attribute_factor = params.get_input_attribute<float>(
       "Factor", component, result_domain, 0.5f);
-  GVArrayPtr attribute_a = params.get_input_attribute(
+  GVArray attribute_a = params.get_input_attribute(
       "A", component, result_domain, result_type, nullptr);
-  GVArrayPtr attribute_b = params.get_input_attribute(
+  GVArray attribute_b = params.get_input_attribute(
       "B", component, result_domain, result_type, nullptr);
 
   do_mix_operation(result_type,
                    node_storage->blend_type,
                    attribute_factor,
-                   *attribute_a,
-                   *attribute_b,
-                   *attribute_result);
+                   attribute_a,
+                   attribute_b,
+                   attribute_result.varray());
   attribute_result.save();
 }
 

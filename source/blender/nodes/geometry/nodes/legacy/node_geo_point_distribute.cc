@@ -83,7 +83,7 @@ static float3 normal_to_euler_rotation(const float3 normal)
 static void sample_mesh_surface(const Mesh &mesh,
                                 const float4x4 &transform,
                                 const float base_density,
-                                const VArrayImpl<float> *density_factors,
+                                const VArray<float> *density_factors,
                                 const int seed,
                                 Vector<float3> &r_positions,
                                 Vector<float3> &r_bary_coords,
@@ -106,9 +106,9 @@ static void sample_mesh_surface(const Mesh &mesh,
 
     float looptri_density_factor = 1.0f;
     if (density_factors != nullptr) {
-      const float v0_density_factor = std::max(0.0f, density_factors->get(v0_loop));
-      const float v1_density_factor = std::max(0.0f, density_factors->get(v1_loop));
-      const float v2_density_factor = std::max(0.0f, density_factors->get(v2_loop));
+      const float v0_density_factor = std::max(0.0f, (*density_factors)[v0_loop]);
+      const float v1_density_factor = std::max(0.0f, (*density_factors)[v1_loop]);
+      const float v2_density_factor = std::max(0.0f, (*density_factors)[v2_loop]);
       looptri_density_factor = (v0_density_factor + v1_density_factor + v2_density_factor) / 3.0f;
     }
     const float area = area_tri_v3(v0_pos, v1_pos, v2_pos);
@@ -196,7 +196,7 @@ BLI_NOINLINE static void update_elimination_mask_for_close_points(
 
 BLI_NOINLINE static void update_elimination_mask_based_on_density_factors(
     const Mesh &mesh,
-    const VArrayImpl<float> &density_factors,
+    const VArray<float> &density_factors,
     Span<float3> bary_coords,
     Span<int> looptri_indices,
     MutableSpan<bool> elimination_mask)
@@ -247,7 +247,7 @@ BLI_NOINLINE static void interpolate_attribute(const Mesh &mesh,
                                                Span<float3> bary_coords,
                                                Span<int> looptri_indices,
                                                const AttributeDomain source_domain,
-                                               const GVArrayImpl &source_data,
+                                               const GVArray &source_data,
                                                GMutableSpan output_data)
 {
   switch (source_domain) {
@@ -255,7 +255,7 @@ BLI_NOINLINE static void interpolate_attribute(const Mesh &mesh,
       bke::mesh_surface_sample::sample_point_attribute(mesh,
                                                        looptri_indices,
                                                        bary_coords,
-                                                       source_data,
+                                                       *source_data,
                                                        IndexMask(output_data.size()),
                                                        output_data);
       break;
@@ -264,14 +264,14 @@ BLI_NOINLINE static void interpolate_attribute(const Mesh &mesh,
       bke::mesh_surface_sample::sample_corner_attribute(mesh,
                                                         looptri_indices,
                                                         bary_coords,
-                                                        source_data,
+                                                        *source_data,
                                                         IndexMask(output_data.size()),
                                                         output_data);
       break;
     }
     case ATTR_DOMAIN_FACE: {
       bke::mesh_surface_sample::sample_face_attribute(
-          mesh, looptri_indices, source_data, IndexMask(output_data.size()), output_data);
+          mesh, looptri_indices, *source_data, IndexMask(output_data.size()), output_data);
       break;
     }
     default: {
@@ -315,7 +315,7 @@ BLI_NOINLINE static void interpolate_existing_attributes(
       }
 
       const AttributeDomain source_domain = attribute_info->domain;
-      GVArrayPtr source_attribute = source_component.attribute_get_for_read(
+      GVArray source_attribute = source_component.attribute_get_for_read(
           attribute_id, source_domain, output_data_type, nullptr);
       if (!source_attribute) {
         i_instance += set_group.transforms.size();
@@ -329,7 +329,7 @@ BLI_NOINLINE static void interpolate_existing_attributes(
 
         GMutableSpan instance_span = out_span.slice(offset, bary_coords.size());
         interpolate_attribute(
-            mesh, bary_coords, looptri_indices, source_domain, *source_attribute, instance_span);
+            mesh, bary_coords, looptri_indices, source_domain, source_attribute, instance_span);
 
         i_instance++;
       }
@@ -445,7 +445,7 @@ static void distribute_points_random(Span<GeometryInstanceGroup> set_groups,
   for (const GeometryInstanceGroup &set_group : set_groups) {
     const GeometrySet &set = set_group.geometry_set;
     const MeshComponent &component = *set.get_component_for_read<MeshComponent>();
-    GVArray_Typed<float> density_factors = component.attribute_get_for_read<float>(
+    VArray<float> density_factors = component.attribute_get_for_read<float>(
         density_attribute_name, ATTR_DOMAIN_CORNER, use_one_default ? 1.0f : 0.0f);
     const Mesh &mesh = *component.get_for_read();
     for (const float4x4 &transform : set_group.transforms) {
@@ -455,7 +455,7 @@ static void distribute_points_random(Span<GeometryInstanceGroup> set_groups,
       sample_mesh_surface(mesh,
                           transform,
                           density,
-                          &*density_factors,
+                          &density_factors,
                           seed,
                           positions,
                           bary_coords,
@@ -514,7 +514,7 @@ static void distribute_points_poisson_disk(Span<GeometryInstanceGroup> set_group
     const GeometrySet &set = set_group.geometry_set;
     const MeshComponent &component = *set.get_component_for_read<MeshComponent>();
     const Mesh &mesh = *component.get_for_read();
-    const GVArray_Typed<float> density_factors = component.attribute_get_for_read<float>(
+    const VArray<float> density_factors = component.attribute_get_for_read<float>(
         density_attribute_name, ATTR_DOMAIN_CORNER, use_one_default ? 1.0f : 0.0f);
 
     for (const int UNUSED(i_set_instance) : set_group.transforms.index_range()) {

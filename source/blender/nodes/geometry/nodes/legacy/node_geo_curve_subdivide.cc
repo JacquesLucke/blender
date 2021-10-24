@@ -25,7 +25,6 @@
 
 #include "node_geometry_util.hh"
 
-using blender::fn::GVArray_Typed;
 using blender::fn::GVArrayImpl_For_GSpan;
 using blender::fn::GVArrayImpl_For_Span;
 
@@ -64,7 +63,7 @@ static void geo_node_curve_subdivide_update(bNodeTree *UNUSED(ntree), bNode *nod
 }
 
 static Array<int> get_subdivided_offsets(const Spline &spline,
-                                         const VArrayImpl<int> &cuts,
+                                         const VArray<int> &cuts,
                                          const int spline_offset)
 {
   Array<int> offsets(spline.segments_size() + 1);
@@ -305,7 +304,7 @@ static void subdivide_dynamic_attributes(const Spline &src_spline,
 }
 
 static SplinePtr subdivide_spline(const Spline &spline,
-                                  const VArrayImpl<int> &cuts,
+                                  const VArray<int> &cuts,
                                   const int spline_offset)
 {
   if (spline.size() <= 1) {
@@ -332,7 +331,7 @@ static SplinePtr subdivide_spline(const Spline &spline,
  * way until the attribute API is refactored.
  */
 static std::unique_ptr<CurveEval> subdivide_curve(const CurveEval &input_curve,
-                                                  const VArrayImpl<int> &cuts)
+                                                  const VArray<int> &cuts)
 {
   const Array<int> control_point_offsets = input_curve.control_point_offsets();
   const Span<SplinePtr> input_splines = input_curve.splines();
@@ -363,14 +362,13 @@ static void geo_node_subdivide_exec(GeoNodeExecParams params)
   }
 
   const CurveComponent &component = *geometry_set.get_component_for_read<CurveComponent>();
-  GVArray_Typed<int> cuts = params.get_input_attribute<int>(
-      "Cuts", component, ATTR_DOMAIN_POINT, 0);
+  VArray<int> cuts = params.get_input_attribute<int>("Cuts", component, ATTR_DOMAIN_POINT, 0);
   if (cuts->is_single() && cuts->get_internal_single() < 1) {
     params.set_output("Geometry", geometry_set);
     return;
   }
 
-  std::unique_ptr<CurveEval> output_curve = subdivide_curve(*component.get_for_read(), *cuts);
+  std::unique_ptr<CurveEval> output_curve = subdivide_curve(*component.get_for_read(), cuts);
 
   params.set_output("Geometry", GeometrySet::create_with_curve(output_curve.release()));
 }

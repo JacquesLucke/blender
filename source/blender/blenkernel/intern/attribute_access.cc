@@ -244,12 +244,12 @@ static bool add_builtin_type_custom_data_layer_from_init(CustomData &custom_data
       void *data = CustomData_add_layer(&custom_data, data_type, CD_DEFAULT, nullptr, domain_size);
       return data != nullptr;
     }
-    case AttributeInit::Type::VArrayImpl: {
+    case AttributeInit::Type::VArray: {
       void *data = CustomData_add_layer(&custom_data, data_type, CD_DEFAULT, nullptr, domain_size);
       if (data == nullptr) {
         return false;
       }
-      const GVArrayImpl *varray = static_cast<const AttributeInitVArray &>(initializer).varray;
+      const GVArray &varray = static_cast<const AttributeInitVArray &>(initializer).varray;
       varray->materialize_to_uninitialized(IndexRange(varray->size()), data);
       return true;
     }
@@ -299,13 +299,13 @@ static bool add_custom_data_layer_from_attribute_init(const AttributeIDRef &attr
           custom_data, data_type, CD_DEFAULT, nullptr, domain_size, attribute_id);
       return data != nullptr;
     }
-    case AttributeInit::Type::VArrayImpl: {
+    case AttributeInit::Type::VArray: {
       void *data = add_generic_custom_data_layer(
           custom_data, data_type, CD_DEFAULT, nullptr, domain_size, attribute_id);
       if (data == nullptr) {
         return false;
       }
-      const GVArrayImpl *varray = static_cast<const AttributeInitVArray &>(initializer).varray;
+      const GVArray &varray = static_cast<const AttributeInitVArray &>(initializer).varray;
       varray->materialize_to_uninitialized(IndexRange(varray->size()), data);
       return true;
     }
@@ -337,8 +337,7 @@ static bool custom_data_layer_matches_attribute_id(const CustomDataLayer &layer,
   return layer.name == attribute_id.name();
 }
 
-GVArrayPtr BuiltinCustomDataLayerProvider::try_get_for_read(
-    const GeometryComponent &component) const
+GVArray BuiltinCustomDataLayerProvider::try_get_for_read(const GeometryComponent &component) const
 {
   const CustomData *custom_data = custom_data_access_.get_const_custom_data(component);
   if (custom_data == nullptr) {
@@ -360,7 +359,7 @@ GVArrayPtr BuiltinCustomDataLayerProvider::try_get_for_read(
   return as_read_attribute_(data, domain_size);
 }
 
-GVMutableArrayPtr BuiltinCustomDataLayerProvider::try_get_for_write(
+GVMutableArray BuiltinCustomDataLayerProvider::try_get_for_write(
     GeometryComponent &component) const
 {
   if (writable_ != Writable) {
@@ -499,7 +498,7 @@ ReadAttributeLookup CustomDataAttributeProvider::try_get_for_read(
       continue;
     }
     GSpan data{*type, layer.data, domain_size};
-    return {std::make_unique<GVArrayImpl_For_GSpan>(data), domain_};
+    return {GVArray::ForSpan(data), domain_};
   }
   return {};
 }
@@ -529,7 +528,7 @@ WriteAttributeLookup CustomDataAttributeProvider::try_get_for_write(
       continue;
     }
     GMutableSpan data{*type, layer.data, domain_size};
-    return {std::make_unique<GVMutableArrayImpl_For_GMutableSpan>(data), domain_};
+    return {GVMutableArray::ForSpan(data), domain_};
   }
   return {};
 }
@@ -745,25 +744,25 @@ std::optional<GSpan> CustomDataAttributes::get_for_read(const AttributeIDRef &at
  * value if the attribute doesn't exist. If no default value is provided, the default value for the
  * type will be used.
  */
-GVArrayPtr CustomDataAttributes::get_for_read(const AttributeIDRef &attribute_id,
-                                              const CustomDataType data_type,
-                                              const void *default_value) const
+GVArray CustomDataAttributes::get_for_read(const AttributeIDRef &attribute_id,
+                                           const CustomDataType data_type,
+                                           const void *default_value) const
 {
   const CPPType *type = blender::bke::custom_data_type_to_cpp_type(data_type);
 
   std::optional<GSpan> attribute = this->get_for_read(attribute_id);
   if (!attribute) {
     const int domain_size = this->size_;
-    return std::make_unique<GVArrayImpl_For_SingleValue>(
+    return GVArray::ForSingle(
         *type, domain_size, (default_value == nullptr) ? type->default_value() : default_value);
   }
 
   if (attribute->type() == *type) {
-    return std::make_unique<GVArrayImpl_For_GSpan>(*attribute);
+    return GVArray::ForSpan(*attribute);
   }
   const blender::nodes::DataTypeConversions &conversions =
       blender::nodes::get_implicit_type_conversions();
-  return conversions.try_convert(std::make_unique<GVArrayImpl_For_GSpan>(*attribute), *type);
+  return conversions.try_convert(GVArray::ForSpan(*attribute), *type);
 }
 
 std::optional<GMutableSpan> CustomDataAttributes::get_for_write(const AttributeIDRef &attribute_id)
@@ -902,8 +901,8 @@ blender::bke::ReadAttributeLookup GeometryComponent::attribute_try_get_for_read(
   return {};
 }
 
-std::unique_ptr<blender::fn::GVArrayImpl> GeometryComponent::attribute_try_adapt_domain(
-    std::unique_ptr<blender::fn::GVArrayImpl> varray,
+blender::fn::GVArray GeometryComponent::attribute_try_adapt_domain(
+    blender::fn::GVArray varray,
     const AttributeDomain from_domain,
     const AttributeDomain to_domain) const
 {
@@ -1090,15 +1089,15 @@ std::optional<AttributeMetaData> GeometryComponent::attribute_get_meta_data(
   return result;
 }
 
-static std::unique_ptr<blender::fn::GVArrayImpl> try_adapt_data_type(
-    std::unique_ptr<blender::fn::GVArrayImpl> varray, const blender::fn::CPPType &to_type)
+static blender::fn::GVArray try_adapt_data_type(blender::fn::GVArray varray,
+                                                const blender::fn::CPPType &to_type)
 {
   const blender::nodes::DataTypeConversions &conversions =
       blender::nodes::get_implicit_type_conversions();
   return conversions.try_convert(std::move(varray), to_type);
 }
 
-std::unique_ptr<blender::fn::GVArrayImpl> GeometryComponent::attribute_try_get_for_read(
+blender::fn::GVArray GeometryComponent::attribute_try_get_for_read(
     const AttributeIDRef &attribute_id,
     const AttributeDomain domain,
     const CustomDataType data_type) const
@@ -1108,7 +1107,7 @@ std::unique_ptr<blender::fn::GVArrayImpl> GeometryComponent::attribute_try_get_f
     return {};
   }
 
-  std::unique_ptr<blender::fn::GVArrayImpl> varray = std::move(attribute.varray);
+  blender::fn::GVArray varray = std::move(attribute.varray);
   if (!ELEM(domain, ATTR_DOMAIN_AUTO, attribute.domain)) {
     varray = this->attribute_try_adapt_domain(std::move(varray), attribute.domain, domain);
     if (!varray) {
@@ -1128,7 +1127,7 @@ std::unique_ptr<blender::fn::GVArrayImpl> GeometryComponent::attribute_try_get_f
   return varray;
 }
 
-std::unique_ptr<blender::bke::GVArrayImpl> GeometryComponent::attribute_try_get_for_read(
+blender::fn::GVArray GeometryComponent::attribute_try_get_for_read(
     const AttributeIDRef &attribute_id, const AttributeDomain domain) const
 {
   if (!this->attribute_domain_supported(domain)) {
@@ -1164,14 +1163,12 @@ blender::bke::ReadAttributeLookup GeometryComponent::attribute_try_get_for_read(
   return {conversions.try_convert(std::move(attribute.varray), *type), attribute.domain};
 }
 
-std::unique_ptr<blender::bke::GVArrayImpl> GeometryComponent::attribute_get_for_read(
-    const AttributeIDRef &attribute_id,
-    const AttributeDomain domain,
-    const CustomDataType data_type,
-    const void *default_value) const
+blender::fn::GVArray GeometryComponent::attribute_get_for_read(const AttributeIDRef &attribute_id,
+                                                               const AttributeDomain domain,
+                                                               const CustomDataType data_type,
+                                                               const void *default_value) const
 {
-  std::unique_ptr<blender::bke::GVArrayImpl> varray = this->attribute_try_get_for_read(
-      attribute_id, domain, data_type);
+  blender::fn::GVArray varray = this->attribute_try_get_for_read(attribute_id, domain, data_type);
   if (varray) {
     return varray;
   }
@@ -1180,8 +1177,7 @@ std::unique_ptr<blender::bke::GVArrayImpl> GeometryComponent::attribute_get_for_
     default_value = type->default_value();
   }
   const int domain_size = this->attribute_domain_size(domain);
-  return std::make_unique<blender::fn::GVArrayImpl_For_SingleValue>(
-      *type, domain_size, default_value);
+  return blender::fn::GVArray::ForSingle(*type, domain_size, default_value);
 }
 
 class GVMutableAttribute_For_OutputAttribute
@@ -1220,7 +1216,7 @@ static void save_output_attribute(OutputAttribute &output_attribute)
   using namespace blender::bke;
 
   GVMutableAttribute_For_OutputAttribute &varray =
-      dynamic_cast<GVMutableAttribute_For_OutputAttribute &>(output_attribute.varray());
+      dynamic_cast<GVMutableAttribute_For_OutputAttribute &>(*output_attribute.varray());
 
   GeometryComponent &component = *varray.component;
   AttributeIDRef attribute_id;
@@ -1294,7 +1290,7 @@ static OutputAttribute create_output_attribute(GeometryComponent &component,
       /* Builtin attribute is on different domain. */
       return {};
     }
-    GVMutableArrayPtr varray = std::move(attribute.varray);
+    GVMutableArray varray = std::move(attribute.varray);
     if (varray->type() == *cpp_type) {
       /* Builtin attribute matches exactly. */
       return OutputAttribute(std::move(varray), domain, {}, ignore_old_values);
@@ -1338,11 +1334,11 @@ static OutputAttribute create_output_attribute(GeometryComponent &component,
   }
   else {
     /* Fill the temporary array with values from the existing attribute. */
-    GVArrayPtr old_varray = component.attribute_get_for_read(
+    GVArray old_varray = component.attribute_get_for_read(
         attribute_id, domain, data_type, default_value);
     old_varray->materialize_to_uninitialized(IndexRange(domain_size), data);
   }
-  GVMutableArrayPtr varray = std::make_unique<GVMutableAttribute_For_OutputAttribute>(
+  GVMutableArray varray = GVMutableArray::For<GVMutableAttribute_For_OutputAttribute>(
       GMutableSpan{*cpp_type, data, domain_size}, component, attribute_id);
 
   return OutputAttribute(std::move(varray), domain, save_output_attribute, true);
@@ -1366,21 +1362,21 @@ OutputAttribute GeometryComponent::attribute_try_get_for_output_only(
 
 namespace blender::bke {
 
-const GVArrayImpl *AttributeFieldInput::get_varray_for_context(const fn::FieldContext &context,
-                                                               IndexMask UNUSED(mask),
-                                                               ResourceScope &scope) const
+GVArray AttributeFieldInput::get_varray_for_context(const fn::FieldContext &context,
+                                                    IndexMask UNUSED(mask),
+                                                    ResourceScope &UNUSED(scope)) const
 {
   if (const GeometryComponentFieldContext *geometry_context =
           dynamic_cast<const GeometryComponentFieldContext *>(&context)) {
     const GeometryComponent &component = geometry_context->geometry_component();
     const AttributeDomain domain = geometry_context->domain();
     const CustomDataType data_type = cpp_type_to_custom_data_type(*type_);
-    GVArrayPtr attribute = component.attribute_try_get_for_read(name_, domain, data_type);
+    GVArray attribute = component.attribute_try_get_for_read(name_, domain, data_type);
     if (attribute) {
-      return scope.add(std::move(attribute));
+      return attribute;
     }
   }
-  return nullptr;
+  return {};
 }
 
 std::string AttributeFieldInput::socket_inspection_name() const
@@ -1413,25 +1409,25 @@ static StringRef get_random_id_attribute_name(const AttributeDomain domain)
   }
 }
 
-const GVArrayImpl *IDAttributeFieldInput::get_varray_for_context(const fn::FieldContext &context,
-                                                                 IndexMask mask,
-                                                                 ResourceScope &scope) const
+GVArray IDAttributeFieldInput::get_varray_for_context(const fn::FieldContext &context,
+                                                      IndexMask mask,
+                                                      ResourceScope &scope) const
 {
   if (const GeometryComponentFieldContext *geometry_context =
           dynamic_cast<const GeometryComponentFieldContext *>(&context)) {
     const GeometryComponent &component = geometry_context->geometry_component();
     const AttributeDomain domain = geometry_context->domain();
     const StringRef name = get_random_id_attribute_name(domain);
-    GVArrayPtr attribute = component.attribute_try_get_for_read(name, domain, CD_PROP_INT32);
+    GVArray attribute = component.attribute_try_get_for_read(name, domain, CD_PROP_INT32);
     if (attribute) {
       BLI_assert(attribute->size() == component.attribute_domain_size(domain));
-      return scope.add(std::move(attribute));
+      return attribute;
     }
 
     /* Use the index as the fallback if no random ID attribute exists. */
     return fn::IndexFieldInput::get_index_varray(mask, scope);
   }
-  return nullptr;
+  return {};
 }
 
 std::string IDAttributeFieldInput::socket_inspection_name() const
@@ -1451,19 +1447,20 @@ bool IDAttributeFieldInput::is_equal_to(const fn::FieldNode &other) const
   return dynamic_cast<const IDAttributeFieldInput *>(&other) != nullptr;
 }
 
-const GVArrayImpl *AnonymousAttributeFieldInput::get_varray_for_context(
-    const fn::FieldContext &context, IndexMask UNUSED(mask), ResourceScope &scope) const
+GVArray AnonymousAttributeFieldInput::get_varray_for_context(const fn::FieldContext &context,
+                                                             IndexMask UNUSED(mask),
+                                                             ResourceScope &UNUSED(scope)) const
 {
   if (const GeometryComponentFieldContext *geometry_context =
           dynamic_cast<const GeometryComponentFieldContext *>(&context)) {
     const GeometryComponent &component = geometry_context->geometry_component();
     const AttributeDomain domain = geometry_context->domain();
     const CustomDataType data_type = cpp_type_to_custom_data_type(*type_);
-    GVArrayPtr attribute = component.attribute_try_get_for_read(
+    GVArray attribute = component.attribute_try_get_for_read(
         anonymous_id_.get(), domain, data_type);
-    return scope.add(std::move(attribute));
+    return attribute;
   }
-  return nullptr;
+  return {};
 }
 
 std::string AnonymousAttributeFieldInput::socket_inspection_name() const

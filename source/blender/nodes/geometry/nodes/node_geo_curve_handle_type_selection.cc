@@ -95,9 +95,9 @@ class HandleTypeFieldInput final : public fn::FieldInput {
   {
   }
 
-  const GVArrayImpl *get_varray_for_context(const fn::FieldContext &context,
-                                            IndexMask mask,
-                                            ResourceScope &scope) const final
+  GVArray get_varray_for_context(const fn::FieldContext &context,
+                                 IndexMask mask,
+                                 ResourceScope &UNUSED(scope)) const final
   {
     if (const GeometryComponentFieldContext *geometry_context =
             dynamic_cast<const GeometryComponentFieldContext *>(&context)) {
@@ -105,23 +105,22 @@ class HandleTypeFieldInput final : public fn::FieldInput {
       const GeometryComponent &component = geometry_context->geometry_component();
       const AttributeDomain domain = geometry_context->domain();
       if (component.type() != GEO_COMPONENT_TYPE_CURVE) {
-        return nullptr;
+        return {};
       }
 
       const CurveComponent &curve_component = static_cast<const CurveComponent &>(component);
       const CurveEval *curve = curve_component.get_for_read();
       if (curve == nullptr) {
-        return nullptr;
+        return {};
       }
 
       if (domain == ATTR_DOMAIN_POINT) {
         Array<bool> selection(mask.min_array_size());
         select_by_handle_type(*curve, type_, mode_, selection);
-        return &scope.construct<fn::GVArrayImpl_For_ArrayContainer<Array<bool>>>(
-            std::move(selection));
+        return VArray<bool>::ForContainer(std::move(selection));
       }
     }
-    return nullptr;
+    return {};
   };
 
   uint64_t hash() const override

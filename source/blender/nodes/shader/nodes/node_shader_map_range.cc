@@ -126,13 +126,11 @@ class MapRangeFunction : public blender::fn::MultiFunction {
             blender::fn::MFParams params,
             blender::fn::MFContext UNUSED(context)) const override
   {
-    const blender::VArrayImpl<float> &values = params.readonly_single_input<float>(0, "Value");
-    const blender::VArrayImpl<float> &from_min = params.readonly_single_input<float>(1,
-                                                                                     "From Min");
-    const blender::VArrayImpl<float> &from_max = params.readonly_single_input<float>(2,
-                                                                                     "From Max");
-    const blender::VArrayImpl<float> &to_min = params.readonly_single_input<float>(3, "To Min");
-    const blender::VArrayImpl<float> &to_max = params.readonly_single_input<float>(4, "To Max");
+    const blender::VArray<float> &values = params.readonly_single_input<float>(0, "Value");
+    const blender::VArray<float> &from_min = params.readonly_single_input<float>(1, "From Min");
+    const blender::VArray<float> &from_max = params.readonly_single_input<float>(2, "From Max");
+    const blender::VArray<float> &to_min = params.readonly_single_input<float>(3, "To Min");
+    const blender::VArray<float> &to_max = params.readonly_single_input<float>(4, "To Max");
     blender::MutableSpan<float> results = params.uninitialized_single_output<float>(5, "Result");
 
     for (int64_t i : mask) {
@@ -171,14 +169,12 @@ class MapRangeSteppedFunction : public blender::fn::MultiFunction {
             blender::fn::MFParams params,
             blender::fn::MFContext UNUSED(context)) const override
   {
-    const blender::VArrayImpl<float> &values = params.readonly_single_input<float>(0, "Value");
-    const blender::VArrayImpl<float> &from_min = params.readonly_single_input<float>(1,
-                                                                                     "From Min");
-    const blender::VArrayImpl<float> &from_max = params.readonly_single_input<float>(2,
-                                                                                     "From Max");
-    const blender::VArrayImpl<float> &to_min = params.readonly_single_input<float>(3, "To Min");
-    const blender::VArrayImpl<float> &to_max = params.readonly_single_input<float>(4, "To Max");
-    const blender::VArrayImpl<float> &steps = params.readonly_single_input<float>(5, "Steps");
+    const blender::VArray<float> &values = params.readonly_single_input<float>(0, "Value");
+    const blender::VArray<float> &from_min = params.readonly_single_input<float>(1, "From Min");
+    const blender::VArray<float> &from_max = params.readonly_single_input<float>(2, "From Max");
+    const blender::VArray<float> &to_min = params.readonly_single_input<float>(3, "To Min");
+    const blender::VArray<float> &to_max = params.readonly_single_input<float>(4, "To Max");
+    const blender::VArray<float> &steps = params.readonly_single_input<float>(5, "Steps");
     blender::MutableSpan<float> results = params.uninitialized_single_output<float>(6, "Result");
 
     for (int64_t i : mask) {
@@ -215,13 +211,11 @@ class MapRangeSmoothstepFunction : public blender::fn::MultiFunction {
             blender::fn::MFParams params,
             blender::fn::MFContext UNUSED(context)) const override
   {
-    const blender::VArrayImpl<float> &values = params.readonly_single_input<float>(0, "Value");
-    const blender::VArrayImpl<float> &from_min = params.readonly_single_input<float>(1,
-                                                                                     "From Min");
-    const blender::VArrayImpl<float> &from_max = params.readonly_single_input<float>(2,
-                                                                                     "From Max");
-    const blender::VArrayImpl<float> &to_min = params.readonly_single_input<float>(3, "To Min");
-    const blender::VArrayImpl<float> &to_max = params.readonly_single_input<float>(4, "To Max");
+    const blender::VArray<float> &values = params.readonly_single_input<float>(0, "Value");
+    const blender::VArray<float> &from_min = params.readonly_single_input<float>(1, "From Min");
+    const blender::VArray<float> &from_max = params.readonly_single_input<float>(2, "From Max");
+    const blender::VArray<float> &to_min = params.readonly_single_input<float>(3, "To Min");
+    const blender::VArray<float> &to_max = params.readonly_single_input<float>(4, "To Max");
     blender::MutableSpan<float> results = params.uninitialized_single_output<float>(5, "Result");
 
     for (int64_t i : mask) {
@@ -252,13 +246,11 @@ class MapRangeSmootherstepFunction : public blender::fn::MultiFunction {
             blender::fn::MFParams params,
             blender::fn::MFContext UNUSED(context)) const override
   {
-    const blender::VArrayImpl<float> &values = params.readonly_single_input<float>(0, "Value");
-    const blender::VArrayImpl<float> &from_min = params.readonly_single_input<float>(1,
-                                                                                     "From Min");
-    const blender::VArrayImpl<float> &from_max = params.readonly_single_input<float>(2,
-                                                                                     "From Max");
-    const blender::VArrayImpl<float> &to_min = params.readonly_single_input<float>(3, "To Min");
-    const blender::VArrayImpl<float> &to_max = params.readonly_single_input<float>(4, "To Max");
+    const blender::VArray<float> &values = params.readonly_single_input<float>(0, "Value");
+    const blender::VArray<float> &from_min = params.readonly_single_input<float>(1, "From Min");
+    const blender::VArray<float> &from_max = params.readonly_single_input<float>(2, "From Max");
+    const blender::VArray<float> &to_min = params.readonly_single_input<float>(3, "To Min");
+    const blender::VArray<float> &to_max = params.readonly_single_input<float>(4, "To Max");
     blender::MutableSpan<float> results = params.uninitialized_single_output<float>(5, "Result");
 
     for (int64_t i : mask) {

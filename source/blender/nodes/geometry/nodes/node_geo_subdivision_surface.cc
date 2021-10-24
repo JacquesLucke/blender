@@ -103,12 +103,12 @@ static void geo_node_subdivision_surface_exec(GeoNodeExecParams params)
     FieldEvaluator evaluator(field_context, domain_size);
     evaluator.add(crease_field);
     evaluator.evaluate();
-    const VArrayImpl<float> &creases = evaluator.get_evaluated<float>(0);
+    const VArray<float> &creases = evaluator.get_evaluated<float>(0);
 
     OutputAttribute_Typed<float> crease = mesh_component.attribute_try_get_for_output_only<float>(
         "crease", domain);
     MutableSpan<float> crease_span = crease.as_span();
-    for (auto i : creases.index_range()) {
+    for (auto i : creases->index_range()) {
       crease_span[i] = std::clamp(creases[i], 0.0f, 1.0f);
     }
     crease.save();
@@ -122,7 +122,8 @@ static void geo_node_subdivision_surface_exec(GeoNodeExecParams params)
     SubdivSettings subdiv_settings;
     subdiv_settings.is_simple = false;
     subdiv_settings.is_adaptive = false;
-    subdiv_settings.use_creases = !(creases.is_single() && creases.get_internal_single() == 0.0f);
+    subdiv_settings.use_creases = !(creases->is_single() &&
+                                    creases->get_internal_single() == 0.0f);
     subdiv_settings.level = subdiv_level;
 
     subdiv_settings.vtx_boundary_interpolation =

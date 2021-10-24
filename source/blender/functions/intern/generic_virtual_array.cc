@@ -458,14 +458,19 @@ GVArray_Slice::GVArray_Slice(const GVArrayImpl &varray, const IndexRange slice)
 /** \name #GVArray
  * \{ */
 
+GVArray GVArray::ForSingle(const CPPType &type, const int64_t size, const void *value)
+{
+  return GVArray::For<GVArrayImpl_For_SingleValue>(type, size, value);
+}
+
 GVArray GVArray::ForSingleRef(const CPPType &type, const int64_t size, const void *value)
 {
   return GVArray::For<GVArrayImpl_For_SingleValueRef>(type, size, value);
 }
 
-GVArray GVArray::ForSingle(const CPPType &type, const int64_t size, const void *value)
+GVArray GVArray::ForSingleDefault(const CPPType &type, const int64_t size)
 {
-  return GVArray::For<GVArrayImpl_For_SingleValue>(type, size, value);
+  return GVArray::ForSingleRef(type, size, type.default_value());
 }
 
 GVArray GVArray::ForSpan(GSpan span)

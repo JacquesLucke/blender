@@ -26,10 +26,8 @@ using blender::float3;
 using blender::IndexRange;
 using blender::MutableSpan;
 using blender::Span;
-using blender::fn::GVArray_Typed;
 using blender::fn::GVArrayImpl;
 using blender::fn::GVArrayImpl_For_ArrayContainer;
-using blender::fn::GVArrayPtr;
 
 void NURBSpline::copy_settings(Spline &dst) const
 {
@@ -410,23 +408,23 @@ void interpolate_to_evaluated_impl(Span<NURBSpline::BasisCache> weights,
   mixer.finalize();
 }
 
-GVArrayPtr NURBSpline::interpolate_to_evaluated(const GVArrayImpl &src) const
+blender::fn::GVArray NURBSpline::interpolate_to_evaluated(const blender::fn::GVArray &src) const
 {
-  BLI_assert(src.size() == this->size());
+  BLI_assert(src->size() == this->size());
 
-  if (src.is_single()) {
-    return src.shallow_copy();
+  if (src->is_single()) {
+    return src;
   }
 
   Span<BasisCache> basis_cache = this->calculate_basis_cache();
 
-  GVArrayPtr new_varray;
-  blender::attribute_math::convert_to_static_type(src.type(), [&](auto dummy) {
+  blender::fn::GVArray new_varray;
+  blender::attribute_math::convert_to_static_type(src->type(), [&](auto dummy) {
     using T = decltype(dummy);
     if constexpr (!std::is_void_v<blender::attribute_math::DefaultMixer<T>>) {
       Array<T> values(this->evaluated_points_size());
-      interpolate_to_evaluated_impl<T>(basis_cache, src.typed<T>(), values);
-      new_varray = std::make_unique<GVArrayImpl_For_ArrayContainer<Array<T>>>(std::move(values));
+      interpolate_to_evaluated_impl<T>(basis_cache, *src.typed<T>(), values);
+      new_varray = blender::VArray<T>::ForContainer(std::move(values));
     }
   });
 
@@ -448,7 +446,7 @@ Span<float3> NURBSpline::evaluated_positions() const
   evaluated_position_cache_.resize(eval_size);
 
   /* TODO: Avoid copying the evaluated data from the temporary array. */
-  GVArray_Typed<float3> evaluated = Spline::interpolate_to_evaluated(positions_.as_span());
+  blender::VArray<float3> evaluated = Spline::interpolate_to_evaluated(positions_.as_span());
   evaluated->materialize(evaluated_position_cache_);
 
   position_cache_dirty_ = false;

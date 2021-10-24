@@ -80,20 +80,20 @@ static void add_instances_from_component(InstancesComponent &dst_component,
   MutableSpan<int> dst_stable_ids = dst_component.instance_ids().slice(start_len, select_len);
 
   FieldEvaluator field_evaluator{field_context, domain_size};
-  const VArrayImpl<bool> *pick_instance = nullptr;
-  const VArrayImpl<int> *indices = nullptr;
-  const VArrayImpl<float3> *rotations = nullptr;
-  const VArrayImpl<float3> *scales = nullptr;
+  VArray<bool> pick_instance;
+  VArray<int> indices;
+  VArray<float3> rotations;
+  VArray<float3> scales;
   /* The evaluator could use the component's stable IDs as a destination directly, but only the
    * selected indices should be copied. */
-  GVArray_Typed<int> stable_ids = src_component.attribute_get_for_read("id", ATTR_DOMAIN_POINT, 0);
+  VArray<int> stable_ids = src_component.attribute_get_for_read("id", ATTR_DOMAIN_POINT, 0);
   field_evaluator.add(params.get_input<Field<bool>>("Pick Instance"), &pick_instance);
   field_evaluator.add(params.get_input<Field<int>>("Instance Index"), &indices);
   field_evaluator.add(params.get_input<Field<float3>>("Rotation"), &rotations);
   field_evaluator.add(params.get_input<Field<float3>>("Scale"), &scales);
   field_evaluator.evaluate();
 
-  GVArray_Typed<float3> positions = src_component.attribute_get_for_read<float3>(
+  VArray<float3> positions = src_component.attribute_get_for_read<float3>(
       "position", domain, {0, 0, 0});
 
   const InstancesComponent *src_instances = instance.get_component_for_read<InstancesComponent>();

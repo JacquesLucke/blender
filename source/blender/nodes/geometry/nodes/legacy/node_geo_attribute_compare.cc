@@ -77,12 +77,12 @@ static void geo_node_attribute_compare_update(bNodeTree *UNUSED(ntree), bNode *n
   nodeSetSocketAvailability(socket_threshold, operation_tests_equality(*node_storage));
 }
 
-static void do_math_operation(const VArrayImpl<float> &input_a,
-                              const VArrayImpl<float> &input_b,
+static void do_math_operation(const VArray<float> &input_a,
+                              const VArray<float> &input_b,
                               const FloatCompareOperation operation,
                               MutableSpan<bool> span_result)
 {
-  const int size = input_a.size();
+  const int size = input_a->size();
 
   if (try_dispatch_float_math_fl_fl_to_bool(
           operation, [&](auto math_function, const FloatMathOperationInfo &UNUSED(info)) {
@@ -100,12 +100,12 @@ static void do_math_operation(const VArrayImpl<float> &input_a,
   BLI_assert(false);
 }
 
-static void do_equal_operation_float(const VArrayImpl<float> &input_a,
-                                     const VArrayImpl<float> &input_b,
+static void do_equal_operation_float(const VArray<float> &input_a,
+                                     const VArray<float> &input_b,
                                      const float threshold,
                                      MutableSpan<bool> span_result)
 {
-  const int size = input_a.size();
+  const int size = input_a->size();
   for (const int i : IndexRange(size)) {
     const float a = input_a[i];
     const float b = input_b[i];
@@ -113,13 +113,13 @@ static void do_equal_operation_float(const VArrayImpl<float> &input_a,
   }
 }
 
-static void do_equal_operation_float3(const VArrayImpl<float3> &input_a,
-                                      const VArrayImpl<float3> &input_b,
+static void do_equal_operation_float3(const VArray<float3> &input_a,
+                                      const VArray<float3> &input_b,
                                       const float threshold,
                                       MutableSpan<bool> span_result)
 {
   const float threshold_squared = pow2f(threshold);
-  const int size = input_a.size();
+  const int size = input_a->size();
   for (const int i : IndexRange(size)) {
     const float3 a = input_a[i];
     const float3 b = input_b[i];
@@ -127,13 +127,13 @@ static void do_equal_operation_float3(const VArrayImpl<float3> &input_a,
   }
 }
 
-static void do_equal_operation_color4f(const VArrayImpl<ColorGeometry4f> &input_a,
-                                       const VArrayImpl<ColorGeometry4f> &input_b,
+static void do_equal_operation_color4f(const VArray<ColorGeometry4f> &input_a,
+                                       const VArray<ColorGeometry4f> &input_b,
                                        const float threshold,
                                        MutableSpan<bool> span_result)
 {
   const float threshold_squared = pow2f(threshold);
-  const int size = input_a.size();
+  const int size = input_a->size();
   for (const int i : IndexRange(size)) {
     const ColorGeometry4f a = input_a[i];
     const ColorGeometry4f b = input_b[i];
@@ -141,12 +141,12 @@ static void do_equal_operation_color4f(const VArrayImpl<ColorGeometry4f> &input_
   }
 }
 
-static void do_equal_operation_bool(const VArrayImpl<bool> &input_a,
-                                    const VArrayImpl<bool> &input_b,
+static void do_equal_operation_bool(const VArray<bool> &input_a,
+                                    const VArray<bool> &input_b,
                                     const float UNUSED(threshold),
                                     MutableSpan<bool> span_result)
 {
-  const int size = input_a.size();
+  const int size = input_a->size();
   for (const int i : IndexRange(size)) {
     const bool a = input_a[i];
     const bool b = input_b[i];
@@ -154,12 +154,12 @@ static void do_equal_operation_bool(const VArrayImpl<bool> &input_a,
   }
 }
 
-static void do_not_equal_operation_float(const VArrayImpl<float> &input_a,
-                                         const VArrayImpl<float> &input_b,
+static void do_not_equal_operation_float(const VArray<float> &input_a,
+                                         const VArray<float> &input_b,
                                          const float threshold,
                                          MutableSpan<bool> span_result)
 {
-  const int size = input_a.size();
+  const int size = input_a->size();
   for (const int i : IndexRange(size)) {
     const float a = input_a[i];
     const float b = input_b[i];
@@ -167,13 +167,13 @@ static void do_not_equal_operation_float(const VArrayImpl<float> &input_a,
   }
 }
 
-static void do_not_equal_operation_float3(const VArrayImpl<float3> &input_a,
-                                          const VArrayImpl<float3> &input_b,
+static void do_not_equal_operation_float3(const VArray<float3> &input_a,
+                                          const VArray<float3> &input_b,
                                           const float threshold,
                                           MutableSpan<bool> span_result)
 {
   const float threshold_squared = pow2f(threshold);
-  const int size = input_a.size();
+  const int size = input_a->size();
   for (const int i : IndexRange(size)) {
     const float3 a = input_a[i];
     const float3 b = input_b[i];
@@ -181,13 +181,13 @@ static void do_not_equal_operation_float3(const VArrayImpl<float3> &input_a,
   }
 }
 
-static void do_not_equal_operation_color4f(const VArrayImpl<ColorGeometry4f> &input_a,
-                                           const VArrayImpl<ColorGeometry4f> &input_b,
+static void do_not_equal_operation_color4f(const VArray<ColorGeometry4f> &input_a,
+                                           const VArray<ColorGeometry4f> &input_b,
                                            const float threshold,
                                            MutableSpan<bool> span_result)
 {
   const float threshold_squared = pow2f(threshold);
-  const int size = input_a.size();
+  const int size = input_a->size();
   for (const int i : IndexRange(size)) {
     const ColorGeometry4f a = input_a[i];
     const ColorGeometry4f b = input_b[i];
@@ -195,12 +195,12 @@ static void do_not_equal_operation_color4f(const VArrayImpl<ColorGeometry4f> &in
   }
 }
 
-static void do_not_equal_operation_bool(const VArrayImpl<bool> &input_a,
-                                        const VArrayImpl<bool> &input_b,
+static void do_not_equal_operation_bool(const VArray<bool> &input_a,
+                                        const VArray<bool> &input_b,
                                         const float UNUSED(threshold),
                                         MutableSpan<bool> span_result)
 {
-  const int size = input_a.size();
+  const int size = input_a->size();
   for (const int i : IndexRange(size)) {
     const bool a = input_a[i];
     const bool b = input_b[i];
@@ -257,9 +257,9 @@ static void attribute_compare_calc(GeometryComponent &component, const GeoNodeEx
 
   const CustomDataType input_data_type = get_data_type(component, params, *node_storage);
 
-  GVArrayPtr attribute_a = params.get_input_attribute(
+  GVArray attribute_a = params.get_input_attribute(
       "A", component, result_domain, input_data_type, nullptr);
-  GVArrayPtr attribute_b = params.get_input_attribute(
+  GVArray attribute_b = params.get_input_attribute(
       "B", component, result_domain, input_data_type, nullptr);
 
   if (!attribute_a || !attribute_b) {
@@ -276,47 +276,47 @@ static void attribute_compare_calc(GeometryComponent &component, const GeoNodeEx
     if (operation == NODE_FLOAT_COMPARE_EQUAL) {
       if (input_data_type == CD_PROP_FLOAT) {
         do_equal_operation_float(
-            attribute_a->typed<float>(), attribute_b->typed<float>(), threshold, result_span);
+            attribute_a.typed<float>(), attribute_b.typed<float>(), threshold, result_span);
       }
       else if (input_data_type == CD_PROP_FLOAT3) {
         do_equal_operation_float3(
-            attribute_a->typed<float3>(), attribute_b->typed<float3>(), threshold, result_span);
+            attribute_a.typed<float3>(), attribute_b.typed<float3>(), threshold, result_span);
       }
       else if (input_data_type == CD_PROP_COLOR) {
-        do_equal_operation_color4f(attribute_a->typed<ColorGeometry4f>(),
-                                   attribute_b->typed<ColorGeometry4f>(),
+        do_equal_operation_color4f(attribute_a.typed<ColorGeometry4f>(),
+                                   attribute_b.typed<ColorGeometry4f>(),
                                    threshold,
                                    result_span);
       }
       else if (input_data_type == CD_PROP_BOOL) {
         do_equal_operation_bool(
-            attribute_a->typed<bool>(), attribute_b->typed<bool>(), threshold, result_span);
+            attribute_a.typed<bool>(), attribute_b.typed<bool>(), threshold, result_span);
       }
     }
     else if (operation == NODE_FLOAT_COMPARE_NOT_EQUAL) {
       if (input_data_type == CD_PROP_FLOAT) {
         do_not_equal_operation_float(
-            attribute_a->typed<float>(), attribute_b->typed<float>(), threshold, result_span);
+            attribute_a.typed<float>(), attribute_b.typed<float>(), threshold, result_span);
       }
       else if (input_data_type == CD_PROP_FLOAT3) {
         do_not_equal_operation_float3(
-            attribute_a->typed<float3>(), attribute_b->typed<float3>(), threshold, result_span);
+            attribute_a.typed<float3>(), attribute_b.typed<float3>(), threshold, result_span);
       }
       else if (input_data_type == CD_PROP_COLOR) {
-        do_not_equal_operation_color4f(attribute_a->typed<ColorGeometry4f>(),
-                                       attribute_b->typed<ColorGeometry4f>(),
+        do_not_equal_operation_color4f(attribute_a.typed<ColorGeometry4f>(),
+                                       attribute_b.typed<ColorGeometry4f>(),
                                        threshold,
                                        result_span);
       }
       else if (input_data_type == CD_PROP_BOOL) {
         do_not_equal_operation_bool(
-            attribute_a->typed<bool>(), attribute_b->typed<bool>(), threshold, result_span);
+            attribute_a.typed<bool>(), attribute_b.typed<bool>(), threshold, result_span);
       }
     }
   }
   else {
     do_math_operation(
-        attribute_a->typed<float>(), attribute_b->typed<float>(), operation, result_span);
+        attribute_a.typed<float>(), attribute_b.typed<float>(), operation, result_span);
   }
 
   attribute_result.save();

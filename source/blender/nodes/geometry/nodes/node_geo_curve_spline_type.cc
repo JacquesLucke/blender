@@ -260,7 +260,7 @@ static void geo_node_curve_spline_type_exec(GeoNodeExecParams params)
     fn::FieldEvaluator selection_evaluator{field_context, domain_size};
     selection_evaluator.add(selection_field);
     selection_evaluator.evaluate();
-    const VArrayImpl<bool> &selection = selection_evaluator.get_evaluated<bool>(0);
+    const VArray<bool> &selection = selection_evaluator.get_evaluated<bool>(0);
 
     std::unique_ptr<CurveEval> new_curve = std::make_unique<CurveEval>();
     for (const int i : curve.splines().index_range()) {

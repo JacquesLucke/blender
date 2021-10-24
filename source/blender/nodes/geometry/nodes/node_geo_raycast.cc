@@ -117,9 +117,9 @@ static eAttributeMapMode get_map_mode(GeometryNodeRaycastMapMode map_mode)
 
 static void raycast_to_mesh(IndexMask mask,
                             const Mesh &mesh,
-                            const VArrayImpl<float3> &ray_origins,
-                            const VArrayImpl<float3> &ray_directions,
-                            const VArrayImpl<float> &ray_lengths,
+                            const VArray<float3> &ray_origins,
+                            const VArray<float3> &ray_directions,
+                            const VArray<float> &ray_lengths,
                             const MutableSpan<bool> r_hit,
                             const MutableSpan<int> r_hit_indices,
                             const MutableSpan<float3> r_hit_positions,
@@ -199,7 +199,7 @@ class RaycastFunction : public fn::MultiFunction {
   /** The field for data evaluated on the target geometry. */
   std::optional<GeometryComponentFieldContext> target_context_;
   std::unique_ptr<FieldEvaluator> target_evaluator_;
-  const GVArrayImpl *target_data_ = nullptr;
+  const GVArray *target_data_ = nullptr;
 
   /* Always evaluate the target domain data on the point domain. Eventually this could be
    * exposed as an option or determined automatically from the field inputs in order to avoid
@@ -229,7 +229,7 @@ class RaycastFunction : public fn::MultiFunction {
     signature.single_output<float3>("Hit Normal");
     signature.single_output<float>("Distance");
     if (target_data_) {
-      signature.single_output("Attribute", target_data_->type());
+      signature.single_output("Attribute", (*target_data_)->type());
     }
     return signature.build();
   }

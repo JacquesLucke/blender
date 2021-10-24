@@ -119,10 +119,18 @@ class GeometryComponent {
   /* Get a read-only attribute for the domain based on the given attribute. This can be used to
    * interpolate from one domain to another.
    * Returns null if the interpolation is not implemented. */
-  virtual std::unique_ptr<blender::fn::GVArrayImpl> attribute_try_adapt_domain(
-      std::unique_ptr<blender::fn::GVArrayImpl> varray,
-      const AttributeDomain from_domain,
-      const AttributeDomain to_domain) const;
+  virtual blender::fn::GVArray attribute_try_adapt_domain(blender::fn::GVArray varray,
+                                                          const AttributeDomain from_domain,
+                                                          const AttributeDomain to_domain) const;
+
+  template<typename T>
+  blender::VArray<T> attribute_try_adapt_domain_typed(blender::VArray<T> varray,
+                                                      const AttributeDomain from_domain,
+                                                      const AttributeDomain to_domain) const
+  {
+    return this->attribute_try_adapt_domain(blender::fn::GVArray(varray), from_domain, to_domain)
+        .typed<T>();
+  }
 
   /* Returns true when the attribute has been deleted. */
   bool attribute_try_delete(const blender::bke::AttributeIDRef &attribute_id);
@@ -146,16 +154,15 @@ class GeometryComponent {
   /* Get a virtual array to read the data of an attribute on the given domain and data type.
    * Returns null when the attribute does not exist or cannot be converted to the requested domain
    * and data type. */
-  std::unique_ptr<blender::fn::GVArrayImpl> attribute_try_get_for_read(
-      const blender::bke::AttributeIDRef &attribute_id,
-      const AttributeDomain domain,
-      const CustomDataType data_type) const;
+  blender::fn::GVArray attribute_try_get_for_read(const blender::bke::AttributeIDRef &attribute_id,
+                                                  const AttributeDomain domain,
+                                                  const CustomDataType data_type) const;
 
   /* Get a virtual array to read the data of an attribute on the given domain. The data type is
    * left unchanged. Returns null when the attribute does not exist or cannot be adapted to the
    * requested domain. */
-  std::unique_ptr<blender::fn::GVArrayImpl> attribute_try_get_for_read(
-      const blender::bke::AttributeIDRef &attribute_id, const AttributeDomain domain) const;
+  blender::fn::GVArray attribute_try_get_for_read(const blender::bke::AttributeIDRef &attribute_id,
+                                                  const AttributeDomain domain) const;
 
   /* Get a virtual array to read data of an attribute with the given data type. The domain is
    * left unchanged. Returns null when the attribute does not exist or cannot be converted to the
@@ -165,25 +172,22 @@ class GeometryComponent {
 
   /* Get a virtual array to read the data of an attribute. If that is not possible, the returned
    * virtual array will contain a default value. This never returns null. */
-  std::unique_ptr<blender::fn::GVArrayImpl> attribute_get_for_read(
-      const blender::bke::AttributeIDRef &attribute_id,
-      const AttributeDomain domain,
-      const CustomDataType data_type,
-      const void *default_value = nullptr) const;
+  blender::fn::GVArray attribute_get_for_read(const blender::bke::AttributeIDRef &attribute_id,
+                                              const AttributeDomain domain,
+                                              const CustomDataType data_type,
+                                              const void *default_value = nullptr) const;
 
   /* Should be used instead of the method above when the requested data type is known at compile
    * time for better type safety. */
   template<typename T>
-  blender::fn::GVArray_Typed<T> attribute_get_for_read(
-      const blender::bke::AttributeIDRef &attribute_id,
-      const AttributeDomain domain,
-      const T &default_value) const
+  blender::VArray<T> attribute_get_for_read(const blender::bke::AttributeIDRef &attribute_id,
+                                            const AttributeDomain domain,
+                                            const T &default_value) const
   {
     const blender::fn::CPPType &cpp_type = blender::fn::CPPType::get<T>();
     const CustomDataType type = blender::bke::cpp_type_to_custom_data_type(cpp_type);
-    std::unique_ptr varray = this->attribute_get_for_read(
-        attribute_id, domain, type, &default_value);
-    return blender::fn::GVArray_Typed<T>(std::move(varray));
+    return this->attribute_get_for_read(attribute_id, domain, type, &default_value)
+        .template typed<T>();
   }
 
   /**
@@ -388,10 +392,9 @@ class MeshComponent : public GeometryComponent {
   Mesh *get_for_write();
 
   int attribute_domain_size(const AttributeDomain domain) const final;
-  std::unique_ptr<blender::fn::GVArrayImpl> attribute_try_adapt_domain(
-      std::unique_ptr<blender::fn::GVArrayImpl> varray,
-      const AttributeDomain from_domain,
-      const AttributeDomain to_domain) const final;
+  blender::fn::GVArray attribute_try_adapt_domain(blender::fn::GVArray varray,
+                                                  const AttributeDomain from_domain,
+                                                  const AttributeDomain to_domain) const final;
 
   bool is_empty() const final;
 
@@ -466,10 +469,9 @@ class CurveComponent : public GeometryComponent {
   CurveEval *get_for_write();
 
   int attribute_domain_size(const AttributeDomain domain) const final;
-  std::unique_ptr<blender::fn::GVArrayImpl> attribute_try_adapt_domain(
-      std::unique_ptr<blender::fn::GVArrayImpl> varray,
-      const AttributeDomain from_domain,
-      const AttributeDomain to_domain) const final;
+  blender::fn::GVArray attribute_try_adapt_domain(blender::fn::GVArray varray,
+                                                  const AttributeDomain from_domain,
+                                                  const AttributeDomain to_domain) const final;
 
   bool is_empty() const final;
 
@@ -750,9 +752,9 @@ class AttributeFieldInput : public fn::FieldInput {
     return name_;
   }
 
-  const GVArrayImpl *get_varray_for_context(const fn::FieldContext &context,
-                                            IndexMask mask,
-                                            ResourceScope &scope) const override;
+  GVArray get_varray_for_context(const fn::FieldContext &context,
+                                 IndexMask mask,
+                                 ResourceScope &scope) const override;
 
   std::string socket_inspection_name() const override;
 
@@ -768,9 +770,9 @@ class IDAttributeFieldInput : public fn::FieldInput {
 
   static fn::Field<int> Create();
 
-  const GVArrayImpl *get_varray_for_context(const fn::FieldContext &context,
-                                            IndexMask mask,
-                                            ResourceScope &scope) const override;
+  GVArray get_varray_for_context(const fn::FieldContext &context,
+                                 IndexMask mask,
+                                 ResourceScope &scope) const override;
 
   std::string socket_inspection_name() const override;
 
@@ -800,9 +802,9 @@ class AnonymousAttributeFieldInput : public fn::FieldInput {
     return fn::Field<T>{field_input};
   }
 
-  const GVArrayImpl *get_varray_for_context(const fn::FieldContext &context,
-                                            IndexMask mask,
-                                            ResourceScope &scope) const override;
+  GVArray get_varray_for_context(const fn::FieldContext &context,
+                                 IndexMask mask,
+                                 ResourceScope &scope) const override;
 
   std::string socket_inspection_name() const override;
 

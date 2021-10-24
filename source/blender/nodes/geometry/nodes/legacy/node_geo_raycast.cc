@@ -77,22 +77,22 @@ static void geo_node_raycast_update(bNodeTree *UNUSED(ntree), bNode *node)
 }
 
 static void raycast_to_mesh(const Mesh &mesh,
-                            const VArrayImpl<float3> &ray_origins,
-                            const VArrayImpl<float3> &ray_directions,
-                            const VArrayImpl<float> &ray_lengths,
+                            const VArray<float3> &ray_origins,
+                            const VArray<float3> &ray_directions,
+                            const VArray<float> &ray_lengths,
                             const MutableSpan<bool> r_hit,
                             const MutableSpan<int> r_hit_indices,
                             const MutableSpan<float3> r_hit_positions,
                             const MutableSpan<float3> r_hit_normals,
                             const MutableSpan<float> r_hit_distances)
 {
-  BLI_assert(ray_origins.size() == ray_directions.size());
-  BLI_assert(ray_origins.size() == ray_lengths.size());
-  BLI_assert(ray_origins.size() == r_hit.size() || r_hit.is_empty());
-  BLI_assert(ray_origins.size() == r_hit_indices.size() || r_hit_indices.is_empty());
-  BLI_assert(ray_origins.size() == r_hit_positions.size() || r_hit_positions.is_empty());
-  BLI_assert(ray_origins.size() == r_hit_normals.size() || r_hit_normals.is_empty());
-  BLI_assert(ray_origins.size() == r_hit_distances.size() || r_hit_distances.is_empty());
+  BLI_assert(ray_origins->size() == ray_directions->size());
+  BLI_assert(ray_origins->size() == ray_lengths->size());
+  BLI_assert(ray_origins->size() == r_hit.size() || r_hit.is_empty());
+  BLI_assert(ray_origins->size() == r_hit_indices.size() || r_hit_indices.is_empty());
+  BLI_assert(ray_origins->size() == r_hit_positions.size() || r_hit_positions.is_empty());
+  BLI_assert(ray_origins->size() == r_hit_normals.size() || r_hit_normals.is_empty());
+  BLI_assert(ray_origins->size() == r_hit_distances.size() || r_hit_distances.is_empty());
 
   BVHTreeFromMesh tree_data;
   BKE_bvhtree_from_mesh_get(&tree_data, &mesh, BVHTREE_FROM_LOOPTRI, 4);
@@ -101,7 +101,7 @@ static void raycast_to_mesh(const Mesh &mesh,
     return;
   }
 
-  for (const int i : ray_origins.index_range()) {
+  for (const int i : ray_origins->index_range()) {
     const float ray_length = ray_lengths[i];
     const float3 ray_origin = ray_origins[i];
     const float3 ray_direction = ray_directions[i].normalized();
@@ -197,11 +197,11 @@ static void raycast_from_points(const GeoNodeExecParams &params,
       (GeometryNodeRaycastMapMode)storage.mapping);
   const AttributeDomain result_domain = ATTR_DOMAIN_POINT;
 
-  GVArray_Typed<float3> ray_origins = dst_component.attribute_get_for_read<float3>(
+  VArray<float3> ray_origins = dst_component.attribute_get_for_read<float3>(
       "position", result_domain, {0, 0, 0});
-  GVArray_Typed<float3> ray_directions = params.get_input_attribute<float3>(
+  VArray<float3> ray_directions = params.get_input_attribute<float3>(
       "Ray Direction", dst_component, result_domain, {0, 0, 0});
-  GVArray_Typed<float> ray_lengths = params.get_input_attribute<float>(
+  VArray<float> ray_lengths = params.get_input_attribute<float>(
       "Ray Length", dst_component, result_domain, 0);
 
   OutputAttribute_Typed<bool> hit_attribute =
@@ -251,7 +251,7 @@ static void raycast_from_points(const GeoNodeExecParams &params,
 
   /* Custom interpolated attributes */
   bke::mesh_surface_sample::MeshAttributeInterpolator interp(
-      src_mesh, IndexMask(ray_origins.size()), hit_positions, hit_indices);
+      src_mesh, IndexMask(ray_origins->size()), hit_positions, hit_indices);
   for (const int i : hit_attribute_names.index_range()) {
     const std::optional<AttributeMetaData> meta_data = src_mesh_component->attribute_get_meta_data(
         hit_attribute_names[i]);

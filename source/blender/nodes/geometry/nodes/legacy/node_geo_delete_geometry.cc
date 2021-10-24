@@ -137,7 +137,7 @@ static std::unique_ptr<CurveEval> curve_delete(const CurveEval &input_curve,
   Vector<int64_t> copied_splines;
 
   if (input_curve.attributes.get_for_read(name)) {
-    GVArray_Typed<bool> selection = input_curve.attributes.get_for_read<bool>(name, false);
+    VArray<bool> selection = input_curve.attributes.get_for_read<bool>(name, false);
     for (const int i : input_splines.index_range()) {
       if (selection[i] == invert) {
         output_curve->add_spline(input_splines[i]->copy());
@@ -151,7 +151,7 @@ static std::unique_ptr<CurveEval> curve_delete(const CurveEval &input_curve,
 
     for (const int i : input_splines.index_range()) {
       const Spline &spline = *input_splines[i];
-      GVArray_Typed<bool> selection = spline.attributes.get_for_read<bool>(name, false);
+      VArray<bool> selection = spline.attributes.get_for_read<bool>(name, false);
 
       indices_to_copy.clear();
       for (const int i_point : IndexRange(spline.size())) {
@@ -202,7 +202,7 @@ static void delete_point_cloud_selection(const PointCloudComponent &in_component
                                          const StringRef selection_name,
                                          const bool invert)
 {
-  const GVArray_Typed<bool> selection_attribute = in_component.attribute_get_for_read<bool>(
+  const VArray<bool> selection_attribute = in_component.attribute_get_for_read<bool>(
       selection_name, ATTR_DOMAIN_POINT, false);
   VArray_Span<bool> selection{selection_attribute};
 
@@ -217,13 +217,12 @@ static void delete_point_cloud_selection(const PointCloudComponent &in_component
   copy_point_attributes_based_on_mask(in_component, out_component, selection, !invert);
 }
 
-static void compute_selected_vertices_from_vertex_selection(
-    const VArrayImpl<bool> &vertex_selection,
-    const bool invert,
-    MutableSpan<int> r_vertex_map,
-    uint *r_num_selected_vertices)
+static void compute_selected_vertices_from_vertex_selection(const VArray<bool> &vertex_selection,
+                                                            const bool invert,
+                                                            MutableSpan<int> r_vertex_map,
+                                                            uint *r_num_selected_vertices)
 {
-  BLI_assert(vertex_selection.size() == r_vertex_map.size());
+  BLI_assert(vertex_selection->size() == r_vertex_map.size());
 
   uint num_selected_vertices = 0;
   for (const int i : r_vertex_map.index_range()) {
@@ -240,7 +239,7 @@ static void compute_selected_vertices_from_vertex_selection(
 }
 
 static void compute_selected_edges_from_vertex_selection(const Mesh &mesh,
-                                                         const VArrayImpl<bool> &vertex_selection,
+                                                         const VArray<bool> &vertex_selection,
                                                          const bool invert,
                                                          MutableSpan<int> r_edge_map,
                                                          uint *r_num_selected_edges)
@@ -264,16 +263,15 @@ static void compute_selected_edges_from_vertex_selection(const Mesh &mesh,
   *r_num_selected_edges = num_selected_edges;
 }
 
-static void compute_selected_polygons_from_vertex_selection(
-    const Mesh &mesh,
-    const VArrayImpl<bool> &vertex_selection,
-    const bool invert,
-    Vector<int> &r_selected_poly_indices,
-    Vector<int> &r_loop_starts,
-    uint *r_num_selected_polys,
-    uint *r_num_selected_loops)
+static void compute_selected_polygons_from_vertex_selection(const Mesh &mesh,
+                                                            const VArray<bool> &vertex_selection,
+                                                            const bool invert,
+                                                            Vector<int> &r_selected_poly_indices,
+                                                            Vector<int> &r_loop_starts,
+                                                            uint *r_num_selected_polys,
+                                                            uint *r_num_selected_loops)
 {
-  BLI_assert(mesh.totvert == vertex_selection.size());
+  BLI_assert(mesh.totvert == vertex_selection->size());
 
   r_selected_poly_indices.reserve(mesh.totpoly);
   r_loop_starts.reserve(mesh.totloop);
@@ -308,14 +306,14 @@ static void compute_selected_polygons_from_vertex_selection(
  */
 static void compute_selected_vertices_and_edges_from_edge_selection(
     const Mesh &mesh,
-    const VArrayImpl<bool> &edge_selection,
+    const VArray<bool> &edge_selection,
     const bool invert,
     MutableSpan<int> r_vertex_map,
     MutableSpan<int> r_edge_map,
     uint *r_num_selected_vertices,
     uint *r_num_selected_edges)
 {
-  BLI_assert(mesh.totedge == edge_selection.size());
+  BLI_assert(mesh.totedge == edge_selection->size());
 
   uint num_selected_edges = 0;
   uint num_selected_vertices = 0;
@@ -347,7 +345,7 @@ static void compute_selected_vertices_and_edges_from_edge_selection(
  * polygon is kept.
  */
 static void compute_selected_polygons_from_edge_selection(const Mesh &mesh,
-                                                          const VArrayImpl<bool> &edge_selection,
+                                                          const VArray<bool> &edge_selection,
                                                           const bool invert,
                                                           Vector<int> &r_selected_poly_indices,
                                                           Vector<int> &r_loop_starts,
@@ -385,18 +383,17 @@ static void compute_selected_polygons_from_edge_selection(const Mesh &mesh,
  * Checks for every vertex if it is in `vertex_selection`. The polygons and edges are kept if all
  * vertices of that polygon or edge are in the selection.
  */
-static void compute_selected_mesh_data_from_vertex_selection(
-    const Mesh &mesh,
-    const VArrayImpl<bool> &vertex_selection,
-    const bool invert,
-    MutableSpan<int> r_vertex_map,
-    MutableSpan<int> r_edge_map,
-    Vector<int> &r_selected_poly_indices,
-    Vector<int> &r_loop_starts,
-    uint *r_num_selected_vertices,
-    uint *r_num_selected_edges,
-    uint *r_num_selected_polys,
-    uint *r_num_selected_loops)
+static void compute_selected_mesh_data_from_vertex_selection(const Mesh &mesh,
+                                                             const VArray<bool> &vertex_selection,
+                                                             const bool invert,
+                                                             MutableSpan<int> r_vertex_map,
+                                                             MutableSpan<int> r_edge_map,
+                                                             Vector<int> &r_selected_poly_indices,
+                                                             Vector<int> &r_loop_starts,
+                                                             uint *r_num_selected_vertices,
+                                                             uint *r_num_selected_edges,
+                                                             uint *r_num_selected_polys,
+                                                             uint *r_num_selected_loops)
 {
   compute_selected_vertices_from_vertex_selection(
       vertex_selection, invert, r_vertex_map, r_num_selected_vertices);
@@ -418,7 +415,7 @@ static void compute_selected_mesh_data_from_vertex_selection(
  * that edge are kept as well. The polygons are kept if all edges are in the selection.
  */
 static void compute_selected_mesh_data_from_edge_selection(const Mesh &mesh,
-                                                           const VArrayImpl<bool> &edge_selection,
+                                                           const VArray<bool> &edge_selection,
                                                            const bool invert,
                                                            MutableSpan<int> r_vertex_map,
                                                            MutableSpan<int> r_edge_map,
@@ -451,7 +448,7 @@ static void compute_selected_mesh_data_from_edge_selection(const Mesh &mesh,
  * belonging to that polygon are kept as well.
  */
 static void compute_selected_mesh_data_from_poly_selection(const Mesh &mesh,
-                                                           const VArrayImpl<bool> &poly_selection,
+                                                           const VArray<bool> &poly_selection,
                                                            const bool invert,
                                                            MutableSpan<int> r_vertex_map,
                                                            MutableSpan<int> r_edge_map,
@@ -462,7 +459,7 @@ static void compute_selected_mesh_data_from_poly_selection(const Mesh &mesh,
                                                            uint *r_num_selected_polys,
                                                            uint *r_num_selected_loops)
 {
-  BLI_assert(mesh.totpoly == poly_selection.size());
+  BLI_assert(mesh.totpoly == poly_selection->size());
   BLI_assert(mesh.totedge == r_edge_map.size());
   r_vertex_map.fill(-1);
   r_edge_map.fill(-1);
@@ -503,7 +500,7 @@ static void compute_selected_mesh_data_from_poly_selection(const Mesh &mesh,
 }
 
 using FillMapsFunction = void (*)(const Mesh &mesh,
-                                  const VArrayImpl<bool> &selection,
+                                  const VArray<bool> &selection,
                                   const bool invert,
                                   MutableSpan<int> r_vertex_map,
                                   MutableSpan<int> r_edge_map,
@@ -519,7 +516,7 @@ using FillMapsFunction = void (*)(const Mesh &mesh,
  * depends on the selection type: vertices, edges or faces.
  */
 static Mesh *delete_mesh_selection(const Mesh &mesh_in,
-                                   const VArrayImpl<bool> &selection,
+                                   const VArray<bool> &selection,
                                    const bool invert,
                                    FillMapsFunction fill_maps_function)
 {
@@ -593,12 +590,12 @@ static void delete_mesh_selection(MeshComponent &component,
   const AttributeDomain selection_domain = get_mesh_selection_domain(component, selection_name);
 
   /* This already checks if the attribute exists, and displays a warning in that case. */
-  GVArray_Typed<bool> selection = component.attribute_get_for_read<bool>(
+  VArray<bool> selection = component.attribute_get_for_read<bool>(
       selection_name, selection_domain, false);
 
   /* Check if there is anything to delete. */
   bool delete_nothing = true;
-  for (const int i : selection.index_range()) {
+  for (const int i : selection->index_range()) {
     if (selection[i] != invert) {
       delete_nothing = false;
       break;

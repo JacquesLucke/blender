@@ -37,7 +37,7 @@ using IndicesSplitVectors = std::array<Vector<int64_t>, 2>;
 
 namespace {
 enum class ValueType {
-  GVArrayImpl = 0,
+  GVArray = 0,
   Span = 1,
   GVVectorArray = 2,
   GVectorArray = 3,
@@ -61,10 +61,10 @@ struct VariableValue {
 
 /* This variable is the unmodified virtual array from the caller. */
 struct VariableValue_GVArray : public VariableValue {
-  static inline constexpr ValueType static_type = ValueType::GVArrayImpl;
-  const GVArrayImpl &data;
+  static inline constexpr ValueType static_type = ValueType::GVArray;
+  const GVArray data;
 
-  VariableValue_GVArray(const GVArrayImpl &data) : VariableValue(static_type), data(data)
+  VariableValue_GVArray(GVArray data) : VariableValue(static_type), data(std::move(data))
   {
   }
 };
@@ -124,7 +124,8 @@ struct VariableValue_OneVector : public VariableValue {
   }
 };
 
-static_assert(std::is_trivially_destructible_v<VariableValue_GVArray>);
+/* TODO */
+// static_assert(std::is_trivially_destructible_v<VariableValue_GVArray>);
 static_assert(std::is_trivially_destructible_v<VariableValue_Span>);
 static_assert(std::is_trivially_destructible_v<VariableValue_GVVectorArray>);
 static_assert(std::is_trivially_destructible_v<VariableValue_GVectorArray>);
@@ -171,9 +172,9 @@ class ValueAllocator : NonCopyable, NonMovable {
 
   void release_variable_state(VariableState *state);
 
-  VariableValue_GVArray *obtain_GVArray(const GVArrayImpl &varray)
+  VariableValue_GVArray *obtain_GVArray(GVArray varray)
   {
-    return this->obtain<VariableValue_GVArray>(varray);
+    return this->obtain<VariableValue_GVArray>(std::move(varray));
   }
 
   VariableValue_GVVectorArray *obtain_GVVectorArray(const GVVectorArray &varray)
@@ -237,7 +238,7 @@ class ValueAllocator : NonCopyable, NonMovable {
   void release_value(VariableValue *value, const MFDataType &data_type)
   {
     switch (value->type) {
-      case ValueType::GVArrayImpl: {
+      case ValueType::GVArray: {
         break;
       }
       case ValueType::Span: {
@@ -324,8 +325,8 @@ class VariableState : NonCopyable, NonMovable {
   bool is_one() const
   {
     switch (value_->type) {
-      case ValueType::GVArrayImpl:
-        return this->value_as<VariableValue_GVArray>()->data.is_single();
+      case ValueType::GVArray:
+        return this->value_as<VariableValue_GVArray>()->data->is_single();
       case ValueType::Span:
         return tot_initialized_ == 0;
       case ValueType::GVVectorArray:
@@ -358,7 +359,7 @@ class VariableState : NonCopyable, NonMovable {
     BLI_assert(mask.size() <= tot_initialized_);
 
     switch (value_->type) {
-      case ValueType::GVArrayImpl: {
+      case ValueType::GVArray: {
         params.add_readonly_single_input(this->value_as<VariableValue_GVArray>()->data);
         break;
       }
@@ -411,9 +412,9 @@ class VariableState : NonCopyable, NonMovable {
           /* Reuse the storage provided caller when possible. */
           new_value = value_allocator.obtain_Span_not_owned(caller_provided_storage_);
         }
-        if (value_->type == ValueType::GVArrayImpl) {
+        if (value_->type == ValueType::GVArray) {
           /* Fill new buffer with data from virtual array. */
-          this->value_as<VariableValue_GVArray>()->data.materialize_to_uninitialized(
+          this->value_as<VariableValue_GVArray>()->data->materialize_to_uninitialized(
               full_mask, new_value->data);
         }
         else if (value_->type == ValueType::OneSingle) {
@@ -481,7 +482,7 @@ class VariableState : NonCopyable, NonMovable {
         params.add_vector_mutable(this->value_as<VariableValue_GVectorArray>()->data);
         break;
       }
-      case ValueType::GVArrayImpl:
+      case ValueType::GVArray:
       case ValueType::GVVectorArray:
       case ValueType::OneSingle:
       case ValueType::OneVector: {
@@ -512,7 +513,7 @@ class VariableState : NonCopyable, NonMovable {
         params.add_vector_output(this->value_as<VariableValue_GVectorArray>()->data);
         break;
       }
-      case ValueType::GVArrayImpl:
+      case ValueType::GVArray:
       case ValueType::GVVectorArray:
       case ValueType::OneSingle:
       case ValueType::OneVector: {
@@ -529,7 +530,7 @@ class VariableState : NonCopyable, NonMovable {
     BLI_assert(this->is_one());
 
     switch (value_->type) {
-      case ValueType::GVArrayImpl: {
+      case ValueType::GVArray: {
         params.add_readonly_single_input(this->value_as<VariableValue_GVArray>()->data);
         break;
       }
@@ -567,8 +568,8 @@ class VariableState : NonCopyable, NonMovable {
       case MFDataType::Single: {
         const CPPType &type = data_type.single_type();
         VariableValue_OneSingle *new_value = value_allocator.obtain_OneSingle(type);
-        if (value_->type == ValueType::GVArrayImpl) {
-          this->value_as<VariableValue_GVArray>()->data.get_internal_single_to_uninitialized(
+        if (value_->type == ValueType::GVArray) {
+          this->value_as<VariableValue_GVArray>()->data->get_internal_single_to_uninitialized(
               new_value->data);
           new_value->is_initialized = true;
         }
@@ -623,7 +624,7 @@ class VariableState : NonCopyable, NonMovable {
         params.add_vector_mutable(this->value_as<VariableValue_OneVector>()->data);
         break;
       }
-      case ValueType::GVArrayImpl:
+      case ValueType::GVArray:
       case ValueType::Span:
       case ValueType::GVVectorArray:
       case ValueType::GVectorArray: {
@@ -657,7 +658,7 @@ class VariableState : NonCopyable, NonMovable {
         params.add_vector_output(value_typed->data);
         break;
       }
-      case ValueType::GVArrayImpl:
+      case ValueType::GVArray:
       case ValueType::Span:
       case ValueType::GVVectorArray:
       case ValueType::GVectorArray: {
@@ -680,7 +681,7 @@ class VariableState : NonCopyable, NonMovable {
     BLI_assert(new_tot_initialized >= 0);
 
     switch (value_->type) {
-      case ValueType::GVArrayImpl: {
+      case ValueType::GVArray: {
         if (mask.size() == full_mask.size()) {
           /* All elements are destructed. The elements are owned by the caller, so we don't
            * actually destruct them. */
@@ -755,8 +756,8 @@ class VariableState : NonCopyable, NonMovable {
     BLI_assert(mask.size() <= tot_initialized_);
 
     switch (value_->type) {
-      case ValueType::GVArrayImpl: {
-        const GVArray_Typed<bool> varray{this->value_as<VariableValue_GVArray>()->data};
+      case ValueType::GVArray: {
+        const VArray<bool> varray = this->value_as<VariableValue_GVArray>()->data.typed<bool>();
         for (const int i : mask) {
           r_indices[varray[i]].append(i);
         }
@@ -859,7 +860,7 @@ class VariableStates {
 
       switch (param_type.category()) {
         case MFParamType::SingleInput: {
-          const GVArrayImpl &data = params.readonly_single_input(param_index);
+          const GVArray &data = params.readonly_single_input(param_index);
           add_state(value_allocator_.obtain_GVArray(data), true);
           break;
         }

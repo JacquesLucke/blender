@@ -165,7 +165,7 @@ static void gather_point_data_from_component(GeoNodeExecParams &params,
                                              Vector<float3> &r_positions,
                                              Vector<float> &r_radii)
 {
-  GVArray_Typed<float3> positions = component.attribute_get_for_read<float3>(
+  VArray<float3> positions = component.attribute_get_for_read<float3>(
       "position", ATTR_DOMAIN_POINT, {0, 0, 0});
 
   Field<float> radius_field = params.get_input<Field<float>>("Radius");

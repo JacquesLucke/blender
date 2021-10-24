@@ -35,7 +35,7 @@ static void geo_node_instances_to_points_declare(NodeDeclarationBuilder &b)
 }
 
 template<typename T>
-static void copy_attribute_to_points(const VArrayImpl<T> &src,
+static void copy_attribute_to_points(const VArray<T> &src,
                                      const IndexMask mask,
                                      MutableSpan<T> dst)
 {
@@ -72,9 +72,9 @@ static void convert_instances_to_points(GeometrySet &geometry_set,
   evaluator.add(std::move(position_field));
   evaluator.add(std::move(radius_field));
   evaluator.evaluate();
-  const VArrayImpl<float3> &positions = evaluator.get_evaluated<float3>(0);
+  const VArray<float3> &positions = evaluator.get_evaluated<float3>(0);
   copy_attribute_to_points(positions, selection, {(float3 *)pointcloud->co, pointcloud->totpoint});
-  const VArrayImpl<float> &radii = evaluator.get_evaluated<float>(1);
+  const VArray<float> &radii = evaluator.get_evaluated<float>(1);
   copy_attribute_to_points(radii, selection, {pointcloud->radius, pointcloud->totpoint});
 
   OutputAttribute_Typed<int> id_attribute = points.attribute_try_get_for_output<int>(

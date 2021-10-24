@@ -130,11 +130,10 @@ class NoiseFunction : public fn::MultiFunction {
   void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
   {
     int param = ELEM(dimensions_, 2, 3, 4) + ELEM(dimensions_, 1, 4);
-    const VArrayImpl<float> &scale = params.readonly_single_input<float>(param++, "Scale");
-    const VArrayImpl<float> &detail = params.readonly_single_input<float>(param++, "Detail");
-    const VArrayImpl<float> &roughness = params.readonly_single_input<float>(param++, "Roughness");
-    const VArrayImpl<float> &distortion = params.readonly_single_input<float>(param++,
-                                                                              "Distortion");
+    const VArray<float> &scale = params.readonly_single_input<float>(param++, "Scale");
+    const VArray<float> &detail = params.readonly_single_input<float>(param++, "Detail");
+    const VArray<float> &roughness = params.readonly_single_input<float>(param++, "Roughness");
+    const VArray<float> &distortion = params.readonly_single_input<float>(param++, "Distortion");
 
     MutableSpan<float> r_factor = params.uninitialized_single_output_if_required<float>(param++,
                                                                                         "Fac");
@@ -146,7 +145,7 @@ class NoiseFunction : public fn::MultiFunction {
 
     switch (dimensions_) {
       case 1: {
-        const VArrayImpl<float> &w = params.readonly_single_input<float>(0, "W");
+        const VArray<float> &w = params.readonly_single_input<float>(0, "W");
         if (compute_factor) {
           for (int64_t i : mask) {
             const float position = w[i] * scale[i];
@@ -165,7 +164,7 @@ class NoiseFunction : public fn::MultiFunction {
         break;
       }
       case 2: {
-        const VArrayImpl<float3> &vector = params.readonly_single_input<float3>(0, "Vector");
+        const VArray<float3> &vector = params.readonly_single_input<float3>(0, "Vector");
         if (compute_factor) {
           for (int64_t i : mask) {
             const float2 position = vector[i] * scale[i];
@@ -184,7 +183,7 @@ class NoiseFunction : public fn::MultiFunction {
         break;
       }
       case 3: {
-        const VArrayImpl<float3> &vector = params.readonly_single_input<float3>(0, "Vector");
+        const VArray<float3> &vector = params.readonly_single_input<float3>(0, "Vector");
         if (compute_factor) {
           for (int64_t i : mask) {
             const float3 position = vector[i] * scale[i];
@@ -203,8 +202,8 @@ class NoiseFunction : public fn::MultiFunction {
         break;
       }
       case 4: {
-        const VArrayImpl<float3> &vector = params.readonly_single_input<float3>(0, "Vector");
-        const VArrayImpl<float> &w = params.readonly_single_input<float>(1, "W");
+        const VArray<float3> &vector = params.readonly_single_input<float3>(0, "Vector");
+        const VArray<float> &w = params.readonly_single_input<float>(1, "W");
         if (compute_factor) {
           for (int64_t i : mask) {
             const float3 position_vector = vector[i] * scale[i];

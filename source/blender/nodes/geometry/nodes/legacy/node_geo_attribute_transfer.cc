@@ -99,16 +99,16 @@ static void get_result_domain_and_data_type(const GeometrySet &src_geometry,
 }
 
 static void get_closest_in_bvhtree(BVHTreeFromMesh &tree_data,
-                                   const VArrayImpl<float3> &positions,
+                                   const VArray<float3> &positions,
                                    const MutableSpan<int> r_indices,
                                    const MutableSpan<float> r_distances_sq,
                                    const MutableSpan<float3> r_positions)
 {
-  BLI_assert(positions.size() == r_indices.size() || r_indices.is_empty());
-  BLI_assert(positions.size() == r_distances_sq.size() || r_distances_sq.is_empty());
-  BLI_assert(positions.size() == r_positions.size() || r_positions.is_empty());
+  BLI_assert(positions->size() == r_indices.size() || r_indices.is_empty());
+  BLI_assert(positions->size() == r_distances_sq.size() || r_distances_sq.is_empty());
+  BLI_assert(positions->size() == r_positions.size() || r_positions.is_empty());
 
-  for (const int i : positions.index_range()) {
+  for (const int i : positions->index_range()) {
     BVHTreeNearest nearest;
     nearest.dist_sq = FLT_MAX;
     const float3 position = positions[i];
@@ -127,17 +127,17 @@ static void get_closest_in_bvhtree(BVHTreeFromMesh &tree_data,
 }
 
 static void get_closest_pointcloud_points(const PointCloud &pointcloud,
-                                          const VArrayImpl<float3> &positions,
+                                          const VArray<float3> &positions,
                                           const MutableSpan<int> r_indices,
                                           const MutableSpan<float> r_distances_sq)
 {
-  BLI_assert(positions.size() == r_indices.size());
+  BLI_assert(positions->size() == r_indices.size());
   BLI_assert(pointcloud.totpoint > 0);
 
   BVHTreeFromPointCloud tree_data;
   BKE_bvhtree_from_pointcloud_get(&tree_data, &pointcloud, 2);
 
-  for (const int i : positions.index_range()) {
+  for (const int i : positions->index_range()) {
     BVHTreeNearest nearest;
     nearest.dist_sq = FLT_MAX;
     const float3 position = positions[i];
@@ -151,7 +151,7 @@ static void get_closest_pointcloud_points(const PointCloud &pointcloud,
 }
 
 static void get_closest_mesh_points(const Mesh &mesh,
-                                    const VArrayImpl<float3> &positions,
+                                    const VArray<float3> &positions,
                                     const MutableSpan<int> r_point_indices,
                                     const MutableSpan<float> r_distances_sq,
                                     const MutableSpan<float3> r_positions)
@@ -164,7 +164,7 @@ static void get_closest_mesh_points(const Mesh &mesh,
 }
 
 static void get_closest_mesh_edges(const Mesh &mesh,
-                                   const VArrayImpl<float3> &positions,
+                                   const VArray<float3> &positions,
                                    const MutableSpan<int> r_edge_indices,
                                    const MutableSpan<float> r_distances_sq,
                                    const MutableSpan<float3> r_positions)
@@ -177,7 +177,7 @@ static void get_closest_mesh_edges(const Mesh &mesh,
 }
 
 static void get_closest_mesh_looptris(const Mesh &mesh,
-                                      const VArrayImpl<float3> &positions,
+                                      const VArray<float3> &positions,
                                       const MutableSpan<int> r_looptri_indices,
                                       const MutableSpan<float> r_distances_sq,
                                       const MutableSpan<float3> r_positions)
@@ -190,19 +190,19 @@ static void get_closest_mesh_looptris(const Mesh &mesh,
 }
 
 static void get_closest_mesh_polygons(const Mesh &mesh,
-                                      const VArrayImpl<float3> &positions,
+                                      const VArray<float3> &positions,
                                       const MutableSpan<int> r_poly_indices,
                                       const MutableSpan<float> r_distances_sq,
                                       const MutableSpan<float3> r_positions)
 {
   BLI_assert(mesh.totpoly > 0);
 
-  Array<int> looptri_indices(positions.size());
+  Array<int> looptri_indices(positions->size());
   get_closest_mesh_looptris(mesh, positions, looptri_indices, r_distances_sq, r_positions);
 
   const Span<MLoopTri> looptris{BKE_mesh_runtime_looptri_ensure(&mesh),
                                 BKE_mesh_runtime_looptri_len(&mesh)};
-  for (const int i : positions.index_range()) {
+  for (const int i : positions->index_range()) {
     const MLoopTri &looptri = looptris[looptri_indices[i]];
     r_poly_indices[i] = looptri.poly;
   }
@@ -210,16 +210,16 @@ static void get_closest_mesh_polygons(const Mesh &mesh,
 
 /* The closest corner is defined to be the closest corner on the closest face. */
 static void get_closest_mesh_corners(const Mesh &mesh,
-                                     const VArrayImpl<float3> &positions,
+                                     const VArray<float3> &positions,
                                      const MutableSpan<int> r_corner_indices,
                                      const MutableSpan<float> r_distances_sq,
                                      const MutableSpan<float3> r_positions)
 {
   BLI_assert(mesh.totloop > 0);
-  Array<int> poly_indices(positions.size());
+  Array<int> poly_indices(positions->size());
   get_closest_mesh_polygons(mesh, positions, poly_indices, {}, {});
 
-  for (const int i : positions.index_range()) {
+  for (const int i : positions->index_range()) {
     const float3 position = positions[i];
     const int poly_index = poly_indices[i];
     const MPoly &poly = mesh.mpoly[poly_index];
@@ -253,13 +253,13 @@ static void get_closest_mesh_corners(const Mesh &mesh,
 
 static void transfer_attribute_nearest_face_interpolated(const GeometrySet &src_geometry,
                                                          GeometryComponent &dst_component,
-                                                         const VArrayImpl<float3> &dst_positions,
+                                                         const VArray<float3> &dst_positions,
                                                          const AttributeDomain dst_domain,
                                                          const CustomDataType data_type,
                                                          const StringRef src_name,
                                                          const StringRef dst_name)
 {
-  const int tot_samples = dst_positions.size();
+  const int tot_samples = dst_positions->size();
   const MeshComponent *component = src_geometry.get_component_for_read<MeshComponent>();
   if (component == nullptr) {
     return;
@@ -294,7 +294,7 @@ static void transfer_attribute_nearest_face_interpolated(const GeometrySet &src_
 
 static void transfer_attribute_nearest(const GeometrySet &src_geometry,
                                        GeometryComponent &dst_component,
-                                       const VArrayImpl<float3> &dst_positions,
+                                       const VArray<float3> &dst_positions,
                                        const AttributeDomain dst_domain,
                                        const CustomDataType data_type,
                                        const StringRef src_name,
@@ -312,7 +312,7 @@ static void transfer_attribute_nearest(const GeometrySet &src_geometry,
   const MeshComponent *mesh_component = src_geometry.get_component_for_read<MeshComponent>();
   const Mesh *mesh = mesh_component ? mesh_component->get_for_read() : nullptr;
 
-  const int tot_samples = dst_positions.size();
+  const int tot_samples = dst_positions->size();
 
   Array<int> pointcloud_indices;
   Array<float> pointcloud_distances_sq;
@@ -460,7 +460,7 @@ static void transfer_attribute(const GeoNodeExecParams &params,
   const AttributeDomain dst_domain = (input_domain == ATTR_DOMAIN_AUTO) ? auto_domain :
                                                                           input_domain;
 
-  GVArray_Typed<float3> dst_positions = dst_component.attribute_get_for_read<float3>(
+  VArray<float3> dst_positions = dst_component.attribute_get_for_read<float3>(
       "position", dst_domain, {0, 0, 0});
 
   switch (mapping) {

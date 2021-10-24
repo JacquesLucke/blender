@@ -89,7 +89,7 @@ struct AttributeKind {
 struct AttributeInit {
   enum class Type {
     Default,
-    VArrayImpl,
+    VArray,
     MoveArray,
   };
   Type type;
@@ -115,10 +115,10 @@ struct AttributeInitDefault : public AttributeInit {
  * Note that this can be used to fill the new attribute with the default
  */
 struct AttributeInitVArray : public AttributeInit {
-  const blender::fn::GVArrayImpl *varray;
+  blender::fn::GVArray varray;
 
-  AttributeInitVArray(const blender::fn::GVArrayImpl *varray)
-      : AttributeInit(Type::VArrayImpl), varray(varray)
+  AttributeInitVArray(blender::fn::GVArray varray)
+      : AttributeInit(Type::VArray), varray(std::move(varray))
   {
   }
 };
@@ -149,10 +149,8 @@ using AttributeForeachCallback = blender::FunctionRef<bool(
 namespace blender::bke {
 
 using fn::CPPType;
-using fn::GVArrayImpl;
-using fn::GVArrayPtr;
-using fn::GVMutableArrayImpl;
-using fn::GVMutableArrayPtr;
+using fn::GVArray;
+using fn::GVMutableArray;
 
 const CPPType *custom_data_type_to_cpp_type(const CustomDataType type);
 CustomDataType cpp_type_to_custom_data_type(const CPPType &type);
@@ -164,14 +162,14 @@ AttributeDomain attribute_domain_highest_priority(Span<AttributeDomain> domains)
  */
 struct ReadAttributeLookup {
   /* The virtual array that is used to read from this attribute. */
-  GVArrayPtr varray;
+  GVArray varray;
   /* Domain the attribute lives on in the geometry. */
   AttributeDomain domain;
 
   /* Convenience function to check if the attribute has been found. */
   operator bool() const
   {
-    return this->varray.get() != nullptr;
+    return this->varray;
   }
 };
 
@@ -180,14 +178,14 @@ struct ReadAttributeLookup {
  */
 struct WriteAttributeLookup {
   /* The virtual array that is used to read from and write to the attribute. */
-  GVMutableArrayPtr varray;
+  GVMutableArray varray;
   /* Domain the attributes lives on in the geometry. */
   AttributeDomain domain;
 
   /* Convenience function to check if the attribute has been found. */
   operator bool() const
   {
-    return this->varray.get() != nullptr;
+    return this->varray;
   }
 };
 
@@ -207,7 +205,7 @@ class OutputAttribute {
   using SaveFn = std::function<void(OutputAttribute &)>;
 
  private:
-  GVMutableArrayPtr varray_;
+  GVMutableArray varray_;
   AttributeDomain domain_;
   SaveFn save_;
   std::unique_ptr<fn::GVMutableArray_GSpan> optional_span_varray_;
@@ -217,7 +215,7 @@ class OutputAttribute {
  public:
   OutputAttribute();
   OutputAttribute(OutputAttribute &&other);
-  OutputAttribute(GVMutableArrayPtr varray,
+  OutputAttribute(GVMutableArray varray,
                   AttributeDomain domain,
                   SaveFn save,
                   const bool ignore_old_values);
@@ -226,9 +224,9 @@ class OutputAttribute {
 
   operator bool() const;
 
-  GVMutableArrayImpl &operator*();
-  GVMutableArrayImpl *operator->();
-  GVMutableArrayImpl &varray();
+  GVMutableArray &operator*();
+  fn::GVMutableArrayImpl *operator->();
+  GVMutableArray &varray();
   AttributeDomain domain() const;
   const CPPType &cpp_type() const;
   CustomDataType custom_data_type() const;
@@ -245,16 +243,14 @@ class OutputAttribute {
 template<typename T> class OutputAttribute_Typed {
  private:
   OutputAttribute attribute_;
-  std::unique_ptr<fn::GVMutableArray_Typed<T>> optional_varray_;
-  VMutableArrayImpl<T> *varray_ = nullptr;
+  VMutableArray<T> varray_;
 
  public:
   OutputAttribute_Typed();
   OutputAttribute_Typed(OutputAttribute attribute) : attribute_(std::move(attribute))
   {
     if (attribute_) {
-      optional_varray_ = std::make_unique<fn::GVMutableArray_Typed<T>>(attribute_.varray());
-      varray_ = &**optional_varray_;
+      varray_ = attribute_.varray().typed<T>();
     }
   }
 
@@ -273,22 +269,22 @@ template<typename T> class OutputAttribute_Typed {
 
   operator bool() const
   {
-    return varray_ != nullptr;
+    return varray_;
   }
 
-  VMutableArrayImpl<T> &operator*()
-  {
-    return *varray_;
-  }
-
-  VMutableArrayImpl<T> *operator->()
+  VMutableArray<T> &operator*()
   {
     return varray_;
   }
 
-  VMutableArrayImpl<T> &varray()
+  VMutableArrayImpl<T> *operator->()
   {
-    return *varray_;
+    return &*varray_;
+  }
+
+  VMutableArray<T> &varray()
+  {
+    return varray_;
   }
 
   AttributeDomain domain() const
@@ -349,18 +345,17 @@ class CustomDataAttributes {
 
   std::optional<blender::fn::GSpan> get_for_read(const AttributeIDRef &attribute_id) const;
 
-  blender::fn::GVArrayPtr get_for_read(const AttributeIDRef &attribute_id,
-                                       const CustomDataType data_type,
-                                       const void *default_value) const;
+  blender::fn::GVArray get_for_read(const AttributeIDRef &attribute_id,
+                                    const CustomDataType data_type,
+                                    const void *default_value) const;
 
   template<typename T>
-  blender::fn::GVArray_Typed<T> get_for_read(const AttributeIDRef &attribute_id,
-                                             const T &default_value) const
+  blender::VArray<T> get_for_read(const AttributeIDRef &attribute_id, const T &default_value) const
   {
     const blender::fn::CPPType &cpp_type = blender::fn::CPPType::get<T>();
     const CustomDataType type = blender::bke::cpp_type_to_custom_data_type(cpp_type);
-    GVArrayPtr varray = this->get_for_read(attribute_id, type, &default_value);
-    return blender::fn::GVArray_Typed<T>(std::move(varray));
+    GVArray varray = this->get_for_read(attribute_id, type, &default_value);
+    return varray.typed<T>();
   }
 
   std::optional<blender::fn::GMutableSpan> get_for_write(const AttributeIDRef &attribute_id);
@@ -458,7 +453,7 @@ inline bool AttributeIDRef::should_be_kept() const
 inline OutputAttribute::OutputAttribute() = default;
 inline OutputAttribute::OutputAttribute(OutputAttribute &&other) = default;
 
-inline OutputAttribute::OutputAttribute(GVMutableArrayPtr varray,
+inline OutputAttribute::OutputAttribute(GVMutableArray varray,
                                         AttributeDomain domain,
                                         SaveFn save,
                                         const bool ignore_old_values)
@@ -471,22 +466,22 @@ inline OutputAttribute::OutputAttribute(GVMutableArrayPtr varray,
 
 inline OutputAttribute::operator bool() const
 {
-  return varray_.get() != nullptr;
+  return varray_;
 }
 
-inline GVMutableArrayImpl &OutputAttribute::operator*()
+inline GVMutableArray &OutputAttribute::operator*()
 {
-  return *varray_;
+  return varray_;
 }
 
-inline GVMutableArrayImpl *OutputAttribute::operator->()
+inline fn::GVMutableArrayImpl *OutputAttribute::operator->()
 {
-  return varray_.get();
+  return &*varray_;
 }
 
-inline GVMutableArrayImpl &OutputAttribute::varray()
+inline GVMutableArray &OutputAttribute::varray()
 {
-  return *varray_;
+  return varray_;
 }
 
 inline AttributeDomain OutputAttribute::domain() const

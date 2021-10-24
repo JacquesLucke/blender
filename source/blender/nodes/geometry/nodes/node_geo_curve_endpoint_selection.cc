@@ -60,9 +60,9 @@ class EndpointFieldInput final : public fn::FieldInput {
   {
   }
 
-  const GVArrayImpl *get_varray_for_context(const fn::FieldContext &context,
-                                            IndexMask UNUSED(mask),
-                                            ResourceScope &scope) const final
+  GVArray get_varray_for_context(const fn::FieldContext &context,
+                                 IndexMask UNUSED(mask),
+                                 ResourceScope &UNUSED(scope)) const final
   {
     if (const GeometryComponentFieldContext *geometry_context =
             dynamic_cast<const GeometryComponentFieldContext *>(&context)) {
@@ -87,8 +87,8 @@ class EndpointFieldInput final : public fn::FieldInput {
       evaluator.add(start_size_);
       evaluator.add(end_size_);
       evaluator.evaluate();
-      const VArrayImpl<int> &start_size = evaluator.get_evaluated<int>(0);
-      const VArrayImpl<int> &end_size = evaluator.get_evaluated<int>(1);
+      const VArray<int> &start_size = evaluator.get_evaluated<int>(0);
+      const VArray<int> &end_size = evaluator.get_evaluated<int>(1);
 
       const int point_size = control_point_offsets.last();
       Array<bool> selection(point_size, false);
@@ -107,10 +107,9 @@ class EndpointFieldInput final : public fn::FieldInput {
         }
         current_point += spline->size();
       }
-      return &scope.construct<fn::GVArrayImpl_For_ArrayContainer<Array<bool>>>(
-          std::move(selection));
+      return VArray<bool>::ForContainer(std::move(selection));
     }
-    return nullptr;
+    return {};
   };
 
   uint64_t hash() const override

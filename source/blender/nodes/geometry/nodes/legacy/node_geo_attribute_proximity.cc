@@ -53,7 +53,7 @@ static void geo_attribute_proximity_init(bNodeTree *UNUSED(ntree), bNode *node)
   node->storage = node_storage;
 }
 
-static void calculate_mesh_proximity(const VArrayImpl<float3> &positions,
+static void calculate_mesh_proximity(const VArray<float3> &positions,
                                      const Mesh &mesh,
                                      const GeometryNodeAttributeProximityTargetType type,
                                      MutableSpan<float> r_distances,
@@ -76,7 +76,7 @@ static void calculate_mesh_proximity(const VArrayImpl<float3> &positions,
     return;
   }
 
-  threading::parallel_for(positions.index_range(), 512, [&](IndexRange range) {
+  threading::parallel_for(positions->index_range(), 512, [&](IndexRange range) {
     BVHTreeNearest nearest;
     copy_v3_fl(nearest.co, FLT_MAX);
     nearest.index = -1;
@@ -100,7 +100,7 @@ static void calculate_mesh_proximity(const VArrayImpl<float3> &positions,
   free_bvhtree_from_mesh(&bvh_data);
 }
 
-static void calculate_pointcloud_proximity(const VArrayImpl<float3> &positions,
+static void calculate_pointcloud_proximity(const VArray<float3> &positions,
                                            const PointCloud &pointcloud,
                                            MutableSpan<float> r_distances,
                                            MutableSpan<float3> r_locations)
@@ -111,7 +111,7 @@ static void calculate_pointcloud_proximity(const VArrayImpl<float3> &positions,
     return;
   }
 
-  threading::parallel_for(positions.index_range(), 512, [&](IndexRange range) {
+  threading::parallel_for(positions->index_range(), 512, [&](IndexRange range) {
     BVHTreeNearest nearest;
     copy_v3_fl(nearest.co, FLT_MAX);
     nearest.index = -1;
@@ -153,7 +153,7 @@ static void attribute_calc_proximity(GeometryComponent &component,
   if (!position_attribute || (!distance_attribute && !location_attribute)) {
     return;
   }
-  GVArray_Typed<float3> positions{*position_attribute.varray};
+  VArray<float3> positions = position_attribute.varray.typed<float3>();
   const NodeGeometryAttributeProximity &storage =
       *(const NodeGeometryAttributeProximity *)params.node().storage;
 
@@ -166,7 +166,7 @@ static void attribute_calc_proximity(GeometryComponent &component,
     /* Theoretically it would be possible to avoid using the distance array when it's not required
      * and there is only one component. However, this only adds an allocation and a single float
      * comparison per vertex, so it's likely not worth it. */
-    distances_internal.reinitialize(positions.size());
+    distances_internal.reinitialize(positions->size());
     distances = distances_internal;
   }
   distances.fill(FLT_MAX);

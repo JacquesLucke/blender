@@ -34,14 +34,12 @@ class IndexFieldInput final : public FieldInput {
   {
   }
 
-  const GVArrayImpl *get_varray_for_context(const FieldContext &UNUSED(context),
-                                            IndexMask mask,
-                                            ResourceScope &scope) const final
+  GVArray get_varray_for_context(const FieldContext &UNUSED(context),
+                                 IndexMask mask,
+                                 ResourceScope &scope) const final
   {
     auto index_func = [](int i) { return i; };
-    return &scope.construct<
-        GVArrayImpl_For_EmbeddedVArray<int, VArrayImpl_For_Func<int, decltype(index_func)>>>(
-        mask.min_array_size(), mask.min_array_size(), index_func);
+    return VArray<int>::ForFunc(mask.min_array_size(), index_func);
   }
 };
 
@@ -175,8 +173,8 @@ class TwoOutputFunction : public MultiFunction {
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
-    const VArrayImpl<int> &in1 = params.readonly_single_input<int>(0, "In1");
-    const VArrayImpl<int> &in2 = params.readonly_single_input<int>(1, "In2");
+    const VArray<int> &in1 = params.readonly_single_input<int>(0, "In1");
+    const VArray<int> &in2 = params.readonly_single_input<int>(1, "In2");
     MutableSpan<int> add = params.uninitialized_single_output<int>(2, "Add");
     MutableSpan<int> add_10 = params.uninitialized_single_output<int>(3, "Add10");
     mask.foreach_index([&](const int64_t i) {
@@ -240,8 +238,8 @@ TEST(field, TwoFunctionsTwoOutputs)
 
   FieldContext field_context;
   FieldEvaluator field_evaluator{field_context, &mask};
-  const VArrayImpl<int> *result_1 = nullptr;
-  const VArrayImpl<int> *result_2 = nullptr;
+  VArray<int> result_1;
+  VArray<int> result_2;
   field_evaluator.add(result_field_1, &result_1);
   field_evaluator.add(result_field_2, &result_2);
   field_evaluator.evaluate();
@@ -264,11 +262,11 @@ TEST(field, SameFieldTwice)
   FieldContext field_context;
   IndexMask mask{IndexRange(2)};
   ResourceScope scope;
-  Vector<const GVArrayImpl *> results = evaluate_fields(
+  Vector<GVArray> results = evaluate_fields(
       scope, {constant_field, constant_field}, mask, field_context);
 
-  GVArray_Typed<int> varray1{*results[0]};
-  GVArray_Typed<int> varray2{*results[1]};
+  VArray<int> varray1 = results[0].typed<int>();
+  VArray<int> varray2 = results[1].typed<int>();
 
   EXPECT_EQ(varray1->get(0), 10);
   EXPECT_EQ(varray1->get(1), 10);
@@ -283,7 +281,7 @@ TEST(field, IgnoredOutput)
 
   FieldContext field_context;
   FieldEvaluator field_evaluator{field_context, 10};
-  const VArrayImpl<int> *results = nullptr;
+  const VArray<int> results;
   field_evaluator.add(field, &results);
   field_evaluator.evaluate();
 

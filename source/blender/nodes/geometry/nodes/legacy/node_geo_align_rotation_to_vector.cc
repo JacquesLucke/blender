@@ -75,12 +75,12 @@ static void geo_node_align_rotation_to_vector_update(bNodeTree *UNUSED(ntree), b
       *node, "Vector", (GeometryNodeAttributeInputMode)node_storage->input_type_vector);
 }
 
-static void align_rotations_auto_pivot(const VArrayImpl<float3> &vectors,
-                                       const VArrayImpl<float> &factors,
+static void align_rotations_auto_pivot(const VArray<float3> &vectors,
+                                       const VArray<float> &factors,
                                        const float3 local_main_axis,
                                        const MutableSpan<float3> rotations)
 {
-  threading::parallel_for(IndexRange(vectors.size()), 128, [&](IndexRange range) {
+  threading::parallel_for(IndexRange(vectors->size()), 128, [&](IndexRange range) {
     for (const int i : range) {
       const float3 vector = vectors[i];
       if (is_zero_v3(vector)) {
@@ -120,8 +120,8 @@ static void align_rotations_auto_pivot(const VArrayImpl<float3> &vectors,
   });
 }
 
-static void align_rotations_fixed_pivot(const VArrayImpl<float3> &vectors,
-                                        const VArrayImpl<float> &factors,
+static void align_rotations_fixed_pivot(const VArray<float3> &vectors,
+                                        const VArray<float> &factors,
                                         const float3 local_main_axis,
                                         const float3 local_pivot_axis,
                                         const MutableSpan<float3> rotations)
@@ -131,7 +131,7 @@ static void align_rotations_fixed_pivot(const VArrayImpl<float3> &vectors,
     return;
   }
 
-  threading::parallel_for(IndexRange(vectors.size()), 128, [&](IndexRange range) {
+  threading::parallel_for(IndexRange(vectors->size()), 128, [&](IndexRange range) {
     for (const int i : range) {
       const float3 vector = vectors[i];
       if (is_zero_v3(vector)) {
@@ -179,9 +179,9 @@ static void align_rotations_on_component(GeometryComponent &component,
     return;
   }
 
-  GVArray_Typed<float> factors = params.get_input_attribute<float>(
+  VArray<float> factors = params.get_input_attribute<float>(
       "Factor", component, ATTR_DOMAIN_POINT, 1.0f);
-  GVArray_Typed<float3> vectors = params.get_input_attribute<float3>(
+  VArray<float3> vectors = params.get_input_attribute<float3>(
       "Vector", component, ATTR_DOMAIN_POINT, {0, 0, 1});
 
   float3 local_main_axis{0, 0, 0};

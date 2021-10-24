@@ -249,7 +249,7 @@ BLI_NOINLINE static void interpolate_attribute(const Mesh &mesh,
                                                const Span<float3> bary_coords,
                                                const Span<int> looptri_indices,
                                                const AttributeDomain source_domain,
-                                               const GVArrayImpl &source_data,
+                                               const GVArray &source_data,
                                                GMutableSpan output_data)
 {
   switch (source_domain) {
@@ -257,7 +257,7 @@ BLI_NOINLINE static void interpolate_attribute(const Mesh &mesh,
       bke::mesh_surface_sample::sample_point_attribute(mesh,
                                                        looptri_indices,
                                                        bary_coords,
-                                                       source_data,
+                                                       *source_data,
                                                        IndexMask(output_data.size()),
                                                        output_data);
       break;
@@ -266,14 +266,14 @@ BLI_NOINLINE static void interpolate_attribute(const Mesh &mesh,
       bke::mesh_surface_sample::sample_corner_attribute(mesh,
                                                         looptri_indices,
                                                         bary_coords,
-                                                        source_data,
+                                                        *source_data,
                                                         IndexMask(output_data.size()),
                                                         output_data);
       break;
     }
     case ATTR_DOMAIN_FACE: {
       bke::mesh_surface_sample::sample_face_attribute(
-          mesh, looptri_indices, source_data, IndexMask(output_data.size()), output_data);
+          mesh, looptri_indices, *source_data, IndexMask(output_data.size()), output_data);
       break;
     }
     default: {
@@ -311,14 +311,14 @@ BLI_NOINLINE static void propagate_existing_attributes(
     }
 
     const AttributeDomain source_domain = attribute_info->domain;
-    GVArrayPtr source_attribute = mesh_component.attribute_get_for_read(
+    GVArray source_attribute = mesh_component.attribute_get_for_read(
         attribute_id, source_domain, output_data_type, nullptr);
     if (!source_attribute) {
       continue;
     }
 
     interpolate_attribute(
-        mesh, bary_coords, looptri_indices, source_domain, *source_attribute, out_span);
+        mesh, bary_coords, looptri_indices, source_domain, source_attribute, out_span);
 
     attribute_out.save();
   }

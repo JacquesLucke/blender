@@ -199,28 +199,28 @@ class MusgraveFunction : public fn::MultiFunction {
 
   void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
   {
-    auto get_vector = [&](int param_index) -> const VArrayImpl<float3> & {
+    auto get_vector = [&](int param_index) -> VArray<float3> {
       return params.readonly_single_input<float3>(param_index, "Vector");
     };
-    auto get_w = [&](int param_index) -> const VArrayImpl<float> & {
+    auto get_w = [&](int param_index) -> VArray<float> {
       return params.readonly_single_input<float>(param_index, "W");
     };
-    auto get_scale = [&](int param_index) -> const VArrayImpl<float> & {
+    auto get_scale = [&](int param_index) -> VArray<float> {
       return params.readonly_single_input<float>(param_index, "Scale");
     };
-    auto get_detail = [&](int param_index) -> const VArrayImpl<float> & {
+    auto get_detail = [&](int param_index) -> VArray<float> {
       return params.readonly_single_input<float>(param_index, "Detail");
     };
-    auto get_dimension = [&](int param_index) -> const VArrayImpl<float> & {
+    auto get_dimension = [&](int param_index) -> VArray<float> {
       return params.readonly_single_input<float>(param_index, "Dimension");
     };
-    auto get_lacunarity = [&](int param_index) -> const VArrayImpl<float> & {
+    auto get_lacunarity = [&](int param_index) -> VArray<float> {
       return params.readonly_single_input<float>(param_index, "Lacunarity");
     };
-    auto get_offset = [&](int param_index) -> const VArrayImpl<float> & {
+    auto get_offset = [&](int param_index) -> VArray<float> {
       return params.readonly_single_input<float>(param_index, "Offset");
     };
-    auto get_gain = [&](int param_index) -> const VArrayImpl<float> & {
+    auto get_gain = [&](int param_index) -> VArray<float> {
       return params.readonly_single_input<float>(param_index, "Gain");
     };
 
@@ -229,10 +229,10 @@ class MusgraveFunction : public fn::MultiFunction {
     };
 
     int param = ELEM(dimensions_, 2, 3, 4) + ELEM(dimensions_, 1, 4);
-    const VArrayImpl<float> &scale = get_scale(param++);
-    const VArrayImpl<float> &detail = get_detail(param++);
-    const VArrayImpl<float> &dimension = get_dimension(param++);
-    const VArrayImpl<float> &lacunarity = get_lacunarity(param++);
+    const VArray<float> &scale = get_scale(param++);
+    const VArray<float> &detail = get_detail(param++);
+    const VArray<float> &dimension = get_dimension(param++);
+    const VArray<float> &lacunarity = get_lacunarity(param++);
 
     switch (musgrave_type_) {
       case SHD_MUSGRAVE_MULTIFRACTAL: {
@@ -240,7 +240,7 @@ class MusgraveFunction : public fn::MultiFunction {
         const bool compute_factor = !r_factor.is_empty();
         switch (dimensions_) {
           case 1: {
-            const VArrayImpl<float> &w = get_w(0);
+            const VArray<float> &w = get_w(0);
             if (compute_factor) {
               for (int64_t i : mask) {
                 const float position = w[i] * scale[i];
@@ -251,7 +251,7 @@ class MusgraveFunction : public fn::MultiFunction {
             break;
           }
           case 2: {
-            const VArrayImpl<float3> &vector = get_vector(0);
+            const VArray<float3> &vector = get_vector(0);
             if (compute_factor) {
               for (int64_t i : mask) {
                 const float3 pxyz = vector[i] * scale[i];
@@ -263,7 +263,7 @@ class MusgraveFunction : public fn::MultiFunction {
             break;
           }
           case 3: {
-            const VArrayImpl<float3> &vector = get_vector(0);
+            const VArray<float3> &vector = get_vector(0);
             if (compute_factor) {
               for (int64_t i : mask) {
                 const float3 position = vector[i] * scale[i];
@@ -274,8 +274,8 @@ class MusgraveFunction : public fn::MultiFunction {
             break;
           }
           case 4: {
-            const VArrayImpl<float3> &vector = get_vector(0);
-            const VArrayImpl<float> &w = get_w(1);
+            const VArray<float3> &vector = get_vector(0);
+            const VArray<float> &w = get_w(1);
             if (compute_factor) {
               for (int64_t i : mask) {
                 const float3 pxyz = vector[i] * scale[i];
@@ -291,13 +291,13 @@ class MusgraveFunction : public fn::MultiFunction {
         break;
       }
       case SHD_MUSGRAVE_RIDGED_MULTIFRACTAL: {
-        const VArrayImpl<float> &offset = get_offset(param++);
-        const VArrayImpl<float> &gain = get_gain(param++);
+        const VArray<float> &offset = get_offset(param++);
+        const VArray<float> &gain = get_gain(param++);
         MutableSpan<float> r_factor = get_r_factor(param++);
         const bool compute_factor = !r_factor.is_empty();
         switch (dimensions_) {
           case 1: {
-            const VArrayImpl<float> &w = get_w(0);
+            const VArray<float> &w = get_w(0);
             if (compute_factor) {
               for (int64_t i : mask) {
                 const float position = w[i] * scale[i];
@@ -308,7 +308,7 @@ class MusgraveFunction : public fn::MultiFunction {
             break;
           }
           case 2: {
-            const VArrayImpl<float3> &vector = get_vector(0);
+            const VArray<float3> &vector = get_vector(0);
             if (compute_factor) {
               for (int64_t i : mask) {
                 const float3 pxyz = vector[i] * scale[i];
@@ -320,7 +320,7 @@ class MusgraveFunction : public fn::MultiFunction {
             break;
           }
           case 3: {
-            const VArrayImpl<float3> &vector = get_vector(0);
+            const VArray<float3> &vector = get_vector(0);
             if (compute_factor) {
               for (int64_t i : mask) {
                 const float3 position = vector[i] * scale[i];
@@ -331,8 +331,8 @@ class MusgraveFunction : public fn::MultiFunction {
             break;
           }
           case 4: {
-            const VArrayImpl<float3> &vector = get_vector(0);
-            const VArrayImpl<float> &w = get_w(1);
+            const VArray<float3> &vector = get_vector(0);
+            const VArray<float> &w = get_w(1);
             if (compute_factor) {
               for (int64_t i : mask) {
                 const float3 pxyz = vector[i] * scale[i];
@@ -348,13 +348,13 @@ class MusgraveFunction : public fn::MultiFunction {
         break;
       }
       case SHD_MUSGRAVE_HYBRID_MULTIFRACTAL: {
-        const VArrayImpl<float> &offset = get_offset(param++);
-        const VArrayImpl<float> &gain = get_gain(param++);
+        const VArray<float> &offset = get_offset(param++);
+        const VArray<float> &gain = get_gain(param++);
         MutableSpan<float> r_factor = get_r_factor(param++);
         const bool compute_factor = !r_factor.is_empty();
         switch (dimensions_) {
           case 1: {
-            const VArrayImpl<float> &w = get_w(0);
+            const VArray<float> &w = get_w(0);
             if (compute_factor) {
               for (int64_t i : mask) {
                 const float position = w[i] * scale[i];
@@ -365,7 +365,7 @@ class MusgraveFunction : public fn::MultiFunction {
             break;
           }
           case 2: {
-            const VArrayImpl<float3> &vector = get_vector(0);
+            const VArray<float3> &vector = get_vector(0);
             if (compute_factor) {
               for (int64_t i : mask) {
                 const float3 pxyz = vector[i] * scale[i];
@@ -377,7 +377,7 @@ class MusgraveFunction : public fn::MultiFunction {
             break;
           }
           case 3: {
-            const VArrayImpl<float3> &vector = get_vector(0);
+            const VArray<float3> &vector = get_vector(0);
             if (compute_factor) {
               for (int64_t i : mask) {
                 const float3 position = vector[i] * scale[i];
@@ -388,8 +388,8 @@ class MusgraveFunction : public fn::MultiFunction {
             break;
           }
           case 4: {
-            const VArrayImpl<float3> &vector = get_vector(0);
-            const VArrayImpl<float> &w = get_w(1);
+            const VArray<float3> &vector = get_vector(0);
+            const VArray<float> &w = get_w(1);
             if (compute_factor) {
               for (int64_t i : mask) {
                 const float3 pxyz = vector[i] * scale[i];
@@ -409,7 +409,7 @@ class MusgraveFunction : public fn::MultiFunction {
         const bool compute_factor = !r_factor.is_empty();
         switch (dimensions_) {
           case 1: {
-            const VArrayImpl<float> &w = get_w(0);
+            const VArray<float> &w = get_w(0);
             if (compute_factor) {
               for (int64_t i : mask) {
                 const float position = w[i] * scale[i];
@@ -420,7 +420,7 @@ class MusgraveFunction : public fn::MultiFunction {
             break;
           }
           case 2: {
-            const VArrayImpl<float3> &vector = get_vector(0);
+            const VArray<float3> &vector = get_vector(0);
             if (compute_factor) {
               for (int64_t i : mask) {
                 const float3 pxyz = vector[i] * scale[i];
@@ -432,7 +432,7 @@ class MusgraveFunction : public fn::MultiFunction {
             break;
           }
           case 3: {
-            const VArrayImpl<float3> &vector = get_vector(0);
+            const VArray<float3> &vector = get_vector(0);
             if (compute_factor) {
               for (int64_t i : mask) {
                 const float3 position = vector[i] * scale[i];
@@ -443,8 +443,8 @@ class MusgraveFunction : public fn::MultiFunction {
             break;
           }
           case 4: {
-            const VArrayImpl<float3> &vector = get_vector(0);
-            const VArrayImpl<float> &w = get_w(1);
+            const VArray<float3> &vector = get_vector(0);
+            const VArray<float> &w = get_w(1);
             if (compute_factor) {
               for (int64_t i : mask) {
                 const float3 pxyz = vector[i] * scale[i];
@@ -460,12 +460,12 @@ class MusgraveFunction : public fn::MultiFunction {
         break;
       }
       case SHD_MUSGRAVE_HETERO_TERRAIN: {
-        const VArrayImpl<float> &offset = get_offset(param++);
+        const VArray<float> &offset = get_offset(param++);
         MutableSpan<float> r_factor = get_r_factor(param++);
         const bool compute_factor = !r_factor.is_empty();
         switch (dimensions_) {
           case 1: {
-            const VArrayImpl<float> &w = get_w(0);
+            const VArray<float> &w = get_w(0);
             if (compute_factor) {
               for (int64_t i : mask) {
                 const float position = w[i] * scale[i];
@@ -476,7 +476,7 @@ class MusgraveFunction : public fn::MultiFunction {
             break;
           }
           case 2: {
-            const VArrayImpl<float3> &vector = get_vector(0);
+            const VArray<float3> &vector = get_vector(0);
             if (compute_factor) {
               for (int64_t i : mask) {
                 const float3 pxyz = vector[i] * scale[i];
@@ -488,7 +488,7 @@ class MusgraveFunction : public fn::MultiFunction {
             break;
           }
           case 3: {
-            const VArrayImpl<float3> &vector = get_vector(0);
+            const VArray<float3> &vector = get_vector(0);
             if (compute_factor) {
               for (int64_t i : mask) {
                 const float3 position = vector[i] * scale[i];
@@ -499,8 +499,8 @@ class MusgraveFunction : public fn::MultiFunction {
             break;
           }
           case 4: {
-            const VArrayImpl<float3> &vector = get_vector(0);
-            const VArrayImpl<float> &w = get_w(1);
+            const VArray<float3> &vector = get_vector(0);
+            const VArray<float> &w = get_w(1);
             if (compute_factor) {
               for (int64_t i : mask) {
                 const float3 pxyz = vector[i] * scale[i];

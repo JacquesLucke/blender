@@ -130,24 +130,22 @@ static Array<float> curve_parameter_point_domain(const CurveEval &curve)
   return parameters;
 }
 
-static const GVArrayImpl *construct_curve_parameter_gvarray(const CurveEval &curve,
-                                                            const IndexMask mask,
-                                                            const AttributeDomain domain,
-                                                            ResourceScope &scope)
+static GVArray construct_curve_parameter_gvarray(const CurveEval &curve,
+                                                 const IndexMask mask,
+                                                 const AttributeDomain domain,
+                                                 ResourceScope &UNUSED(scope))
 {
   if (domain == ATTR_DOMAIN_POINT) {
     Array<float> parameters = curve_parameter_point_domain(curve);
-    return &scope.construct<fn::GVArrayImpl_For_ArrayContainer<Array<float>>>(
-        std::move(parameters));
+    return VArray<float>::ForContainer(std::move(parameters));
   }
 
   if (domain == ATTR_DOMAIN_CURVE) {
     Array<float> parameters = curve_parameter_spline_domain(curve, mask);
-    return &scope.construct<fn::GVArrayImpl_For_ArrayContainer<Array<float>>>(
-        std::move(parameters));
+    return VArray<float>::ForContainer(std::move(parameters));
   }
 
-  return nullptr;
+  return {};
 }
 
 class CurveParameterFieldInput final : public fn::FieldInput {
@@ -156,9 +154,9 @@ class CurveParameterFieldInput final : public fn::FieldInput {
   {
   }
 
-  const GVArrayImpl *get_varray_for_context(const fn::FieldContext &context,
-                                            IndexMask mask,
-                                            ResourceScope &scope) const final
+  GVArray get_varray_for_context(const fn::FieldContext &context,
+                                 IndexMask mask,
+                                 ResourceScope &scope) const final
   {
     if (const GeometryComponentFieldContext *geometry_context =
             dynamic_cast<const GeometryComponentFieldContext *>(&context)) {
@@ -174,7 +172,7 @@ class CurveParameterFieldInput final : public fn::FieldInput {
         }
       }
     }
-    return nullptr;
+    return {};
   }
 
   uint64_t hash() const override

@@ -59,10 +59,10 @@ struct FilletParam {
   GeometryNodeCurveFilletMode mode;
 
   /* Number of points to be added. */
-  const VArrayImpl<int> *counts;
+  VArray<int> counts;
 
   /* Radii for fillet arc at all vertices. */
-  const VArrayImpl<float> *radii;
+  VArray<float> radii;
 
   /* Whether or not fillets are allowed to overlap. */
   bool limit_radius;
@@ -590,13 +590,13 @@ static void calculate_curve_fillet(GeometrySet &geometry_set,
 
   field_evaluator.evaluate();
 
-  fillet_param.radii = &field_evaluator.get_evaluated<float>(0);
+  fillet_param.radii = field_evaluator.get_evaluated<float>(0);
   if (fillet_param.radii->is_single() && fillet_param.radii->get_internal_single() < 0.0f) {
     return;
   }
 
   if (mode == GEO_NODE_CURVE_FILLET_POLY) {
-    fillet_param.counts = &field_evaluator.get_evaluated<int>(1);
+    fillet_param.counts = field_evaluator.get_evaluated<int>(1);
   }
 
   fillet_param.limit_radius = limit_radius;

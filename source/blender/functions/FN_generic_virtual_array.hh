@@ -351,7 +351,8 @@ template<typename T> class GVArrayImpl_For_VArray : public GVArrayImpl {
   {
   }
 
-  GVArrayImpl_For_VArray(VArray<T> varray) : local_varray_(std::move(varray))
+  GVArrayImpl_For_VArray(VArray<T> varray)
+      : GVArrayImpl(CPPType::get<T>(), varray->size()), local_varray_(std::move(varray))
   {
     BLI_assert(local_varray_);
     varray_ = &*local_varray_;
@@ -541,7 +542,8 @@ template<typename T> class GVMutableArrayImpl_For_VMutableArray : public GVMutab
   {
   }
 
-  GVMutableArrayImpl_For_VMutableArray(VMutableArray<T> varray) : local_varray_(std::move(varray))
+  GVMutableArrayImpl_For_VMutableArray(VMutableArray<T> varray)
+      : GVMutableArrayImpl(CPPType::get<T>(), varray->size()), local_varray_(std::move(varray))
   {
     BLI_assert(local_varray_);
     varray_ = &*local_varray_;
@@ -1064,35 +1066,37 @@ class GVArray {
     if (!varray) {
       return;
     }
-    if (varray->is_span()) {
-      Span<T> data = varray->get_internal_span();
-      *this = GVArray::ForSpan(data);
-    }
-    else if (varray->is_single()) {
-      T value = varray->get_internal_single();
-      *this = GVArray::ForSingle(CPPType::get<T>(), varray->size(), &value);
-    }
-    else {
-      *this = GVArray::For<GVArrayImpl_For_VArray<T>>(varray);
-    }
+    /* Have to take ownership of the varray. */
+    *this = GVArray::For<GVArrayImpl_For_VArray<T>>(varray);
+    // if (varray->is_span()) {
+    //   Span<T> data = varray->get_internal_span();
+    //   *this = GVArray::ForSpan(data);
+    // }
+    // else if (varray->is_single()) {
+    //   T value = varray->get_internal_single();
+    //   *this = GVArray::ForSingle(CPPType::get<T>(), varray->size(), &value);
+    // }
+    // else {
+    // }
   }
 
   template<typename T> VArray<T> typed() const
   {
-    if (*this) {
+    if (!*this) {
       return {};
     }
     BLI_assert(impl_->type().is<T>());
-    if (impl_->is_span()) {
-      const GSpan span = impl_->get_internal_span();
-      return VArray<T>::ForSpan(span.typed<T>());
-    }
-    if (impl_->is_single()) {
-      T value;
-      impl_->get_internal_single(&value);
-      return VArray<T>::ForSingle(value, impl_->size());
-    }
+    /* Have to take ownership of the varray. */
     return VArray<T>::template For<VArrayImpl_For_GVArray<T>>(*this);
+    // if (impl_->is_span()) {
+    //   const GSpan span = impl_->get_internal_span();
+    //   return VArray<T>::ForSpan(span.typed<T>());
+    // }
+    // if (impl_->is_single()) {
+    //   T value;
+    //   impl_->get_internal_single(&value);
+    //   return VArray<T>::ForSingle(value, impl_->size());
+    // }
   }
 
   template<typename ImplT, typename... Args> static GVArray For(Args &&...args)
@@ -1108,8 +1112,9 @@ class GVArray {
     }
   }
 
-  static GVArray ForSingleRef(const CPPType &type, const int64_t size, const void *value);
   static GVArray ForSingle(const CPPType &type, const int64_t size, const void *value);
+  static GVArray ForSingleRef(const CPPType &type, const int64_t size, const void *value);
+  static GVArray ForSingleDefault(const CPPType &type, const int64_t size);
   static GVArray ForSpan(GSpan span);
 
   operator bool() const
@@ -1159,31 +1164,33 @@ class GVMutableArray {
     }
   }
 
-  template<typename T> GVMutableArray(VMutableArray<T> &varray)
+  template<typename T> GVMutableArray(const VMutableArray<T> &varray)
   {
     if (!varray) {
       return;
     }
-    if (varray->is_span()) {
-      Span<T> data = varray->get_internal_span();
-      *this = GVMutableArray::ForSpan(data);
-    }
-    else {
-      *this = GVMutableArray::For<GVMutableArrayImpl_For_VMutableArray<T>>(varray);
-    }
+    /* Have to take ownership of the varray. */
+    *this = GVMutableArray::For<GVMutableArrayImpl_For_VMutableArray<T>>(varray);
+    // if (varray->is_span()) {
+    //   Span<T> data = varray->get_internal_span();
+    //   *this = GVMutableArray::ForSpan(data);
+    // }
+    // else {
+    // }
   }
 
   template<typename T> VMutableArray<T> typed() const
   {
-    if (*this) {
+    if (!*this) {
       return {};
     }
     BLI_assert(impl_->type().is<T>());
-    if (impl_->is_span()) {
-      const GSpan span = impl_->get_internal_span();
-      return VMutableArray<T>::ForSpan(span.typed<T>());
-    }
-    return VArray<T>::template For<VMutableArrayImpl_For_GVMutableArray<T>>(*this);
+    /* Have to take ownership of the varray. */
+    return VMutableArray<T>::template For<VMutableArrayImpl_For_GVMutableArray<T>>(*this);
+    // if (impl_->is_span()) {
+    //   const GSpan span = impl_->get_internal_span();
+    //   return VMutableArray<T>::ForSpan(span.typed<T>());
+    // }
   }
 
   template<typename ImplT, typename... Args> static GVMutableArray For(Args &&...args)
@@ -1233,7 +1240,7 @@ class GVMutableArray {
 
 template<typename T>
 inline VArrayImpl_For_GVArray<T>::VArrayImpl_For_GVArray(const GVArray &varray)
-    : local_varray_(std::make_shared<GVArray>(std::move(varray)))
+    : VArrayImpl<T>(varray->size()), local_varray_(std::make_shared<GVArray>(std::move(varray)))
 {
   BLI_assert(*local_varray_);
   varray_ = &**local_varray_;
@@ -1242,7 +1249,8 @@ inline VArrayImpl_For_GVArray<T>::VArrayImpl_For_GVArray(const GVArray &varray)
 template<typename T>
 inline VMutableArrayImpl_For_GVMutableArray<T>::VMutableArrayImpl_For_GVMutableArray(
     GVMutableArray varray)
-    : local_varray_(std::make_shared<GVMutableArray>(std::move(varray)))
+    : VMutableArrayImpl<T>(varray->size()),
+      local_varray_(std::make_shared<GVMutableArray>(std::move(varray)))
 {
   BLI_assert(*local_varray_);
   varray_ = &**local_varray_;

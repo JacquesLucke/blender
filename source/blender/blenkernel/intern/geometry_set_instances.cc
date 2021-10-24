@@ -381,7 +381,7 @@ static void join_attributes(Span<GeometryInstanceGroup> set_groups,
           if (domain_size == 0) {
             continue; /* Domain size is 0, so no need to increment the offset. */
           }
-          GVArrayPtr source_attribute = component.attribute_try_get_for_read(
+          GVArray source_attribute = component.attribute_try_get_for_read(
               attribute_id, domain_output, data_type_output);
 
           if (source_attribute) {

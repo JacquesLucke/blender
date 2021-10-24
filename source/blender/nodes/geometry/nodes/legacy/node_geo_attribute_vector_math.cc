@@ -185,12 +185,12 @@ static void geo_node_attribute_vector_math_update(bNodeTree *UNUSED(ntree), bNod
       operation_use_input_c(operation));
 }
 
-static void do_math_operation_fl3_fl3_to_fl3(const VArrayImpl<float3> &input_a,
-                                             const VArrayImpl<float3> &input_b,
-                                             VMutableArrayImpl<float3> &result,
+static void do_math_operation_fl3_fl3_to_fl3(const VArray<float3> &input_a,
+                                             const VArray<float3> &input_b,
+                                             const VMutableArray<float3> &result,
                                              const NodeVectorMathOperation operation)
 {
-  const int size = input_a.size();
+  const int size = input_a->size();
 
   VArray_Span<float3> span_a{input_a};
   VArray_Span<float3> span_b{input_b};
@@ -215,13 +215,13 @@ static void do_math_operation_fl3_fl3_to_fl3(const VArrayImpl<float3> &input_a,
   UNUSED_VARS_NDEBUG(success);
 }
 
-static void do_math_operation_fl3_fl3_fl3_to_fl3(const VArrayImpl<float3> &input_a,
-                                                 const VArrayImpl<float3> &input_b,
-                                                 const VArrayImpl<float3> &input_c,
-                                                 VMutableArrayImpl<float3> &result,
+static void do_math_operation_fl3_fl3_fl3_to_fl3(const VArray<float3> &input_a,
+                                                 const VArray<float3> &input_b,
+                                                 const VArray<float3> &input_c,
+                                                 const VMutableArray<float3> &result,
                                                  const NodeVectorMathOperation operation)
 {
-  const int size = input_a.size();
+  const int size = input_a->size();
 
   VArray_Span<float3> span_a{input_a};
   VArray_Span<float3> span_b{input_b};
@@ -248,13 +248,13 @@ static void do_math_operation_fl3_fl3_fl3_to_fl3(const VArrayImpl<float3> &input
   UNUSED_VARS_NDEBUG(success);
 }
 
-static void do_math_operation_fl3_fl3_fl_to_fl3(const VArrayImpl<float3> &input_a,
-                                                const VArrayImpl<float3> &input_b,
-                                                const VArrayImpl<float> &input_c,
-                                                VMutableArrayImpl<float3> &result,
+static void do_math_operation_fl3_fl3_fl_to_fl3(const VArray<float3> &input_a,
+                                                const VArray<float3> &input_b,
+                                                const VArray<float> &input_c,
+                                                const VMutableArray<float3> &result,
                                                 const NodeVectorMathOperation operation)
 {
-  const int size = input_a.size();
+  const int size = input_a->size();
 
   VArray_Span<float3> span_a{input_a};
   VArray_Span<float3> span_b{input_b};
@@ -281,12 +281,12 @@ static void do_math_operation_fl3_fl3_fl_to_fl3(const VArrayImpl<float3> &input_
   UNUSED_VARS_NDEBUG(success);
 }
 
-static void do_math_operation_fl3_fl3_to_fl(const VArrayImpl<float3> &input_a,
-                                            const VArrayImpl<float3> &input_b,
-                                            VMutableArrayImpl<float> &result,
+static void do_math_operation_fl3_fl3_to_fl(const VArray<float3> &input_a,
+                                            const VArray<float3> &input_b,
+                                            const VMutableArray<float> &result,
                                             const NodeVectorMathOperation operation)
 {
-  const int size = input_a.size();
+  const int size = input_a->size();
 
   VArray_Span<float3> span_a{input_a};
   VArray_Span<float3> span_b{input_b};
@@ -311,12 +311,12 @@ static void do_math_operation_fl3_fl3_to_fl(const VArrayImpl<float3> &input_a,
   UNUSED_VARS_NDEBUG(success);
 }
 
-static void do_math_operation_fl3_fl_to_fl3(const VArrayImpl<float3> &input_a,
-                                            const VArrayImpl<float> &input_b,
-                                            VMutableArrayImpl<float3> &result,
+static void do_math_operation_fl3_fl_to_fl3(const VArray<float3> &input_a,
+                                            const VArray<float> &input_b,
+                                            const VMutableArray<float3> &result,
                                             const NodeVectorMathOperation operation)
 {
-  const int size = input_a.size();
+  const int size = input_a->size();
 
   VArray_Span<float3> span_a{input_a};
   VArray_Span<float> span_b{input_b};
@@ -341,11 +341,11 @@ static void do_math_operation_fl3_fl_to_fl3(const VArrayImpl<float3> &input_a,
   UNUSED_VARS_NDEBUG(success);
 }
 
-static void do_math_operation_fl3_to_fl3(const VArrayImpl<float3> &input_a,
-                                         VMutableArrayImpl<float3> &result,
+static void do_math_operation_fl3_to_fl3(const VArray<float3> &input_a,
+                                         const VMutableArray<float3> &result,
                                          const NodeVectorMathOperation operation)
 {
-  const int size = input_a.size();
+  const int size = input_a->size();
 
   VArray_Span<float3> span_a{input_a};
   VMutableArray_Span<float3> span_result{result, false};
@@ -368,11 +368,11 @@ static void do_math_operation_fl3_to_fl3(const VArrayImpl<float3> &input_a,
   UNUSED_VARS_NDEBUG(success);
 }
 
-static void do_math_operation_fl3_to_fl(const VArrayImpl<float3> &input_a,
-                                        VMutableArrayImpl<float> &result,
+static void do_math_operation_fl3_to_fl(const VArray<float3> &input_a,
+                                        const VMutableArray<float> &result,
                                         const NodeVectorMathOperation operation)
 {
-  const int size = input_a.size();
+  const int size = input_a->size();
 
   VArray_Span<float3> span_a{input_a};
   VMutableArray_Span<float> span_result{result, false};
@@ -437,13 +437,13 @@ static void attribute_vector_math_calc(GeometryComponent &component,
   const AttributeDomain result_domain = get_result_domain(
       component, params, operation, result_name);
 
-  GVArrayPtr attribute_a = params.get_input_attribute(
+  GVArray attribute_a = params.get_input_attribute(
       "A", component, result_domain, read_type_a, nullptr);
   if (!attribute_a) {
     return;
   }
-  GVArrayPtr attribute_b;
-  GVArrayPtr attribute_c;
+  GVArray attribute_b;
+  GVArray attribute_c;
   if (use_input_b) {
     attribute_b = params.get_input_attribute("B", component, result_domain, read_type_b, nullptr);
     if (!attribute_b) {
@@ -476,26 +476,26 @@ static void attribute_vector_math_calc(GeometryComponent &component,
     case NODE_VECTOR_MATH_MODULO:
     case NODE_VECTOR_MATH_MINIMUM:
     case NODE_VECTOR_MATH_MAXIMUM:
-      do_math_operation_fl3_fl3_to_fl3(attribute_a->typed<float3>(),
-                                       attribute_b->typed<float3>(),
-                                       attribute_result->typed<float3>(),
+      do_math_operation_fl3_fl3_to_fl3(attribute_a.typed<float3>(),
+                                       attribute_b.typed<float3>(),
+                                       attribute_result.varray().typed<float3>(),
                                        operation);
       break;
     case NODE_VECTOR_MATH_DOT_PRODUCT:
     case NODE_VECTOR_MATH_DISTANCE:
-      do_math_operation_fl3_fl3_to_fl(attribute_a->typed<float3>(),
-                                      attribute_b->typed<float3>(),
-                                      attribute_result->typed<float>(),
+      do_math_operation_fl3_fl3_to_fl(attribute_a.typed<float3>(),
+                                      attribute_b.typed<float3>(),
+                                      attribute_result.varray().typed<float>(),
                                       operation);
       break;
     case NODE_VECTOR_MATH_LENGTH:
       do_math_operation_fl3_to_fl(
-          attribute_a->typed<float3>(), attribute_result->typed<float>(), operation);
+          attribute_a.typed<float3>(), attribute_result.varray().typed<float>(), operation);
       break;
     case NODE_VECTOR_MATH_SCALE:
-      do_math_operation_fl3_fl_to_fl3(attribute_a->typed<float3>(),
-                                      attribute_b->typed<float>(),
-                                      attribute_result->typed<float3>(),
+      do_math_operation_fl3_fl_to_fl3(attribute_a.typed<float3>(),
+                                      attribute_b.typed<float>(),
+                                      attribute_result.varray().typed<float3>(),
                                       operation);
       break;
     case NODE_VECTOR_MATH_NORMALIZE:
@@ -507,22 +507,22 @@ static void attribute_vector_math_calc(GeometryComponent &component,
     case NODE_VECTOR_MATH_COSINE:
     case NODE_VECTOR_MATH_TANGENT:
       do_math_operation_fl3_to_fl3(
-          attribute_a->typed<float3>(), attribute_result->typed<float3>(), operation);
+          attribute_a.typed<float3>(), attribute_result.varray().typed<float3>(), operation);
       break;
     case NODE_VECTOR_MATH_WRAP:
     case NODE_VECTOR_MATH_FACEFORWARD:
     case NODE_VECTOR_MATH_MULTIPLY_ADD:
-      do_math_operation_fl3_fl3_fl3_to_fl3(attribute_a->typed<float3>(),
-                                           attribute_b->typed<float3>(),
-                                           attribute_c->typed<float3>(),
-                                           attribute_result->typed<float3>(),
+      do_math_operation_fl3_fl3_fl3_to_fl3(attribute_a.typed<float3>(),
+                                           attribute_b.typed<float3>(),
+                                           attribute_c.typed<float3>(),
+                                           attribute_result.varray().typed<float3>(),
                                            operation);
       break;
     case NODE_VECTOR_MATH_REFRACT:
-      do_math_operation_fl3_fl3_fl_to_fl3(attribute_a->typed<float3>(),
-                                          attribute_b->typed<float3>(),
-                                          attribute_c->typed<float>(),
-                                          attribute_result->typed<float3>(),
+      do_math_operation_fl3_fl3_fl_to_fl3(attribute_a.typed<float3>(),
+                                          attribute_b.typed<float3>(),
+                                          attribute_c.typed<float>(),
+                                          attribute_result.varray().typed<float3>(),
                                           operation);
       break;
   }

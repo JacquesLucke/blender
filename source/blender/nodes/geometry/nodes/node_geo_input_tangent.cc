@@ -84,9 +84,9 @@ static Array<float3> curve_tangent_point_domain(const CurveEval &curve)
   return tangents;
 }
 
-static const GVArrayImpl *construct_curve_tangent_gvarray(const CurveComponent &component,
-                                                          const AttributeDomain domain,
-                                                          ResourceScope &scope)
+static VArray<float3> construct_curve_tangent_gvarray(const CurveComponent &component,
+                                                      const AttributeDomain domain,
+                                                      ResourceScope &UNUSED(scope))
 {
   const CurveEval *curve = component.get_for_read();
   if (curve == nullptr) {
@@ -100,21 +100,19 @@ static const GVArrayImpl *construct_curve_tangent_gvarray(const CurveComponent &
      * This is only possible when there is only one poly spline. */
     if (splines.size() == 1 && splines.first()->type() == Spline::Type::Poly) {
       const PolySpline &spline = static_cast<PolySpline &>(*splines.first());
-      return &scope.construct<fn::GVArrayImpl_For_Span<float3>>(spline.evaluated_tangents());
+      return VArray<float3>::ForSpan(spline.evaluated_tangents());
     }
 
     Array<float3> tangents = curve_tangent_point_domain(*curve);
-    return &scope.construct<fn::GVArrayImpl_For_ArrayContainer<Array<float3>>>(
-        std::move(tangents));
+    return VArray<float3>::ForContainer(std::move(tangents));
   }
 
   if (domain == ATTR_DOMAIN_CURVE) {
     Array<float3> point_tangents = curve_tangent_point_domain(*curve);
-    GVArrayPtr gvarray = std::make_unique<fn::GVArrayImpl_For_ArrayContainer<Array<float3>>>(
-        std::move(point_tangents));
-    GVArrayPtr spline_tangents = component.attribute_try_adapt_domain(
-        std::move(gvarray), ATTR_DOMAIN_POINT, ATTR_DOMAIN_CURVE);
-    return scope.add_value(std::move(spline_tangents)).get();
+    return component.attribute_try_adapt_domain_typed<float3>(
+        VArray<float3>::ForContainer(std::move(point_tangents)),
+        ATTR_DOMAIN_POINT,
+        ATTR_DOMAIN_CURVE);
   }
 
   return nullptr;
@@ -126,9 +124,9 @@ class TangentFieldInput final : public fn::FieldInput {
   {
   }
 
-  const GVArrayImpl *get_varray_for_context(const fn::FieldContext &context,
-                                            IndexMask UNUSED(mask),
-                                            ResourceScope &scope) const final
+  GVArray get_varray_for_context(const fn::FieldContext &context,
+                                 IndexMask UNUSED(mask),
+                                 ResourceScope &scope) const final
   {
     if (const GeometryComponentFieldContext *geometry_context =
             dynamic_cast<const GeometryComponentFieldContext *>(&context)) {
@@ -141,7 +139,7 @@ class TangentFieldInput final : public fn::FieldInput {
         return construct_curve_tangent_gvarray(curve_component, domain, scope);
       }
     }
-    return nullptr;
+    return {};
   }
 
   uint64_t hash() const override

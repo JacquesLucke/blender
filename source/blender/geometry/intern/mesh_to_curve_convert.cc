@@ -50,7 +50,7 @@ static void copy_attributes_to_points(CurveEval &curve,
 
   /* Copy builtin control point attributes. */
   if (source_attribute_ids.contains("tilt")) {
-    const fn::GVArray_Typed<float> tilt_attribute = mesh_component.attribute_get_for_read<float>(
+    const VArray<float> tilt_attribute = mesh_component.attribute_get_for_read<float>(
         "tilt", ATTR_DOMAIN_POINT, 0.0f);
     threading::parallel_for(splines.index_range(), 256, [&](IndexRange range) {
       for (const int i : range) {
@@ -61,7 +61,7 @@ static void copy_attributes_to_points(CurveEval &curve,
     source_attribute_ids.remove_contained("tilt");
   }
   if (source_attribute_ids.contains("radius")) {
-    const fn::GVArray_Typed<float> radius_attribute = mesh_component.attribute_get_for_read<float>(
+    const VArray<float> radius_attribute = mesh_component.attribute_get_for_read<float>(
         "radius", ATTR_DOMAIN_POINT, 1.0f);
     threading::parallel_for(splines.index_range(), 256, [&](IndexRange range) {
       for (const int i : range) {
@@ -82,7 +82,7 @@ static void copy_attributes_to_points(CurveEval &curve,
       continue;
     }
 
-    const fn::GVArrayPtr mesh_attribute = mesh_component.attribute_try_get_for_read(
+    const fn::GVArray mesh_attribute = mesh_component.attribute_try_get_for_read(
         attribute_id, ATTR_DOMAIN_POINT);
     /* Some attributes might not exist if they were builtin attribute on domains that don't
      * have any elements, i.e. a face attribute on the output of the line primitive node. */

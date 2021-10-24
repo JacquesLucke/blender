@@ -69,7 +69,7 @@ std::unique_ptr<ColumnValues> GeometryDataSource::get_column_values(
   if (!attribute) {
     return {};
   }
-  const fn::GVArrayImpl *varray = scope_.add(std::move(attribute.varray));
+  fn::GVArray varray = std::move(attribute.varray);
   if (attribute.domain != domain_) {
     return {};
   }

@@ -217,12 +217,12 @@ Span<float3> MeshAttributeInterpolator::ensure_nearest_weights()
   return nearest_weights_;
 }
 
-void MeshAttributeInterpolator::sample_data(const GVArrayImpl &src,
+void MeshAttributeInterpolator::sample_data(const GVArray &src,
                                             const AttributeDomain domain,
                                             const eAttributeMapMode mode,
                                             const GMutableSpan dst)
 {
-  if (src.is_empty() || dst.is_empty()) {
+  if (src->is_empty() || dst.is_empty()) {
     return;
   }
 
@@ -242,15 +242,15 @@ void MeshAttributeInterpolator::sample_data(const GVArrayImpl &src,
   /* Interpolate the source attributes on the surface. */
   switch (domain) {
     case ATTR_DOMAIN_POINT: {
-      sample_point_attribute(*mesh_, looptri_indices_, weights, src, mask_, dst);
+      sample_point_attribute(*mesh_, looptri_indices_, weights, *src, mask_, dst);
       break;
     }
     case ATTR_DOMAIN_FACE: {
-      sample_face_attribute(*mesh_, looptri_indices_, src, mask_, dst);
+      sample_face_attribute(*mesh_, looptri_indices_, *src, mask_, dst);
       break;
     }
     case ATTR_DOMAIN_CORNER: {
-      sample_corner_attribute(*mesh_, looptri_indices_, weights, src, mask_, dst);
+      sample_corner_attribute(*mesh_, looptri_indices_, weights, *src, mask_, dst);
       break;
     }
     case ATTR_DOMAIN_EDGE: {
@@ -269,7 +269,7 @@ void MeshAttributeInterpolator::sample_attribute(const ReadAttributeLookup &src_
                                                  eAttributeMapMode mode)
 {
   if (src_attribute && dst_attribute) {
-    this->sample_data(*src_attribute.varray, src_attribute.domain, mode, dst_attribute.as_span());
+    this->sample_data(src_attribute.varray, src_attribute.domain, mode, dst_attribute.as_span());
   }
 }
 

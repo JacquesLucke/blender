@@ -391,100 +391,6 @@ template<typename T> class VArrayImpl_For_Single final : public VArrayImpl<T> {
 };
 
 /**
- * In many cases a virtual array is a span internally. In those cases, access to individual could
- * be much more efficient than calling a virtual method. When the underlying virtual array is not a
- * span, this class allocates a new array and copies the values over.
- *
- * This should be used in those cases:
- *  - All elements in the virtual array are accessed multiple times.
- *  - In most cases, the underlying virtual array is a span, so no copy is necessary to benefit
- *    from faster access.
- *  - An API is called, that does not accept virtual arrays, but only spans.
- */
-template<typename T> class VArray_Span final : public Span<T> {
- private:
-  const VArrayImpl<T> &varray_;
-  Array<T> owned_data_;
-
- public:
-  VArray_Span(const VArrayImpl<T> &varray) : Span<T>(), varray_(varray)
-  {
-    this->size_ = varray_.size();
-    if (varray_.is_span()) {
-      this->data_ = varray_.get_internal_span().data();
-    }
-    else {
-      owned_data_.~Array();
-      new (&owned_data_) Array<T>(varray_.size(), NoInitialization{});
-      varray_.materialize_to_uninitialized(owned_data_);
-      this->data_ = owned_data_.data();
-    }
-  }
-};
-
-/**
- * Same as VArray_Span, but for a mutable span.
- * The important thing to note is that when changing this span, the results might not be
- * immediately reflected in the underlying virtual array (only when the virtual array is a span
- * internally). The #save method can be used to write all changes to the underlying virtual array,
- * if necessary.
- */
-template<typename T> class VMutableArray_Span final : public MutableSpan<T> {
- private:
-  VMutableArrayImpl<T> &varray_;
-  Array<T> owned_data_;
-  bool save_has_been_called_ = false;
-  bool show_not_saved_warning_ = true;
-
- public:
-  /* Create a span for any virtual array. This is cheap when the virtual array is a span itself. If
-   * not, a new array has to be allocated as a wrapper for the underlying virtual array. */
-  VMutableArray_Span(VMutableArrayImpl<T> &varray, const bool copy_values_to_span = true)
-      : MutableSpan<T>(), varray_(varray)
-  {
-    this->size_ = varray_.size();
-    if (varray_.is_span()) {
-      this->data_ = varray_.get_internal_span().data();
-    }
-    else {
-      if (copy_values_to_span) {
-        owned_data_.~Array();
-        new (&owned_data_) Array<T>(varray_.size(), NoInitialization{});
-        varray_.materialize_to_uninitialized(owned_data_);
-      }
-      else {
-        owned_data_.reinitialize(varray_.size());
-      }
-      this->data_ = owned_data_.data();
-    }
-  }
-
-  ~VMutableArray_Span()
-  {
-    if (show_not_saved_warning_) {
-      if (!save_has_been_called_) {
-        std::cout << "Warning: Call `save()` to make sure that changes persist in all cases.\n";
-      }
-    }
-  }
-
-  /* Write back all values from a temporary allocated array to the underlying virtual array. */
-  void save()
-  {
-    save_has_been_called_ = true;
-    if (this->data_ != owned_data_.data()) {
-      return;
-    }
-    varray_.set_all(owned_data_);
-  }
-
-  void disable_not_applied_warning()
-  {
-    show_not_saved_warning_ = false;
-  }
-};
-
-/**
  * This class makes it easy to create a virtual array for an existing function or lambda. The
  * `GetFunc` should take a single `index` argument and return the value at that index.
  */
@@ -860,33 +766,116 @@ template<typename T> class VMutableArray {
     return varray;
   }
 
-  Impl *operator->()
+  Impl *operator->() const
   {
     BLI_assert(*this);
     return impl_;
   }
 
-  Impl &operator*()
+  Impl &operator*() const
   {
     BLI_assert(*this);
-    return impl_;
-  }
-
-  const Impl *operator->() const
-  {
-    BLI_assert(*this);
-    return impl_;
-  }
-
-  const Impl &operator*() const
-  {
-    return impl_;
+    return *impl_;
   }
 
   T operator[](const int64_t index) const
   {
     BLI_assert(*this);
     return impl_->get(index);
+  }
+};
+
+/**
+ * In many cases a virtual array is a span internally. In those cases, access to individual could
+ * be much more efficient than calling a virtual method. When the underlying virtual array is not a
+ * span, this class allocates a new array and copies the values over.
+ *
+ * This should be used in those cases:
+ *  - All elements in the virtual array are accessed multiple times.
+ *  - In most cases, the underlying virtual array is a span, so no copy is necessary to benefit
+ *    from faster access.
+ *  - An API is called, that does not accept virtual arrays, but only spans.
+ */
+template<typename T> class VArray_Span final : public Span<T> {
+ private:
+  VArray<T> varray_;
+  Array<T> owned_data_;
+
+ public:
+  VArray_Span(VArray<T> varray) : Span<T>(), varray_(std::move(varray))
+  {
+    this->size_ = varray_->size();
+    if (varray_->is_span()) {
+      this->data_ = varray_->get_internal_span().data();
+    }
+    else {
+      owned_data_.~Array();
+      new (&owned_data_) Array<T>(varray_->size(), NoInitialization{});
+      varray_->materialize_to_uninitialized(owned_data_);
+      this->data_ = owned_data_.data();
+    }
+  }
+};
+
+/**
+ * Same as VArray_Span, but for a mutable span.
+ * The important thing to note is that when changing this span, the results might not be
+ * immediately reflected in the underlying virtual array (only when the virtual array is a span
+ * internally). The #save method can be used to write all changes to the underlying virtual array,
+ * if necessary.
+ */
+template<typename T> class VMutableArray_Span final : public MutableSpan<T> {
+ private:
+  VMutableArray<T> varray_;
+  Array<T> owned_data_;
+  bool save_has_been_called_ = false;
+  bool show_not_saved_warning_ = true;
+
+ public:
+  /* Create a span for any virtual array. This is cheap when the virtual array is a span itself. If
+   * not, a new array has to be allocated as a wrapper for the underlying virtual array. */
+  VMutableArray_Span(VMutableArray<T> varray, const bool copy_values_to_span = true)
+      : MutableSpan<T>(), varray_(std::move(varray))
+  {
+    this->size_ = varray_->size();
+    if (varray_->is_span()) {
+      this->data_ = varray_->get_internal_span().data();
+    }
+    else {
+      if (copy_values_to_span) {
+        owned_data_.~Array();
+        new (&owned_data_) Array<T>(varray_->size(), NoInitialization{});
+        varray_->materialize_to_uninitialized(owned_data_);
+      }
+      else {
+        owned_data_.reinitialize(varray_->size());
+      }
+      this->data_ = owned_data_.data();
+    }
+  }
+
+  ~VMutableArray_Span()
+  {
+    if (show_not_saved_warning_) {
+      if (!save_has_been_called_) {
+        std::cout << "Warning: Call `save()` to make sure that changes persist in all cases.\n";
+      }
+    }
+  }
+
+  /* Write back all values from a temporary allocated array to the underlying virtual array. */
+  void save()
+  {
+    save_has_been_called_ = true;
+    if (this->data_ != owned_data_.data()) {
+      return;
+    }
+    varray_->set_all(owned_data_);
+  }
+
+  void disable_not_applied_warning()
+  {
+    show_not_saved_warning_ = false;
   }
 };
 

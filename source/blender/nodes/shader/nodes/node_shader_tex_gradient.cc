@@ -80,7 +80,7 @@ class GradientFunction : public fn::MultiFunction {
 
   void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
   {
-    const VArrayImpl<float3> &vector = params.readonly_single_input<float3>(0, "Vector");
+    const VArray<float3> &vector = params.readonly_single_input<float3>(0, "Vector");
 
     MutableSpan<ColorGeometry4f> r_color =
         params.uninitialized_single_output_if_required<ColorGeometry4f>(1, "Color");

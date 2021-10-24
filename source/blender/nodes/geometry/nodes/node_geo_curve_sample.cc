@@ -136,7 +136,7 @@ class SampleCurveFunction : public fn::MultiFunction {
       return return_default();
     }
 
-    const VArrayImpl<float> &lengths_varray = params.readonly_single_input<float>(0, "Length");
+    const VArray<float> &lengths_varray = params.readonly_single_input<float>(0, "Length");
     const VArray_Span lengths{lengths_varray};
 #ifdef DEBUG
     for (const float length : lengths) {

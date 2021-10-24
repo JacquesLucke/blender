@@ -189,7 +189,7 @@ static float map_smootherstep(const float value,
   return min_to + factor_mapped * (max_to - min_to);
 }
 
-static void map_range_float(const VArrayImpl<float> &attribute_input,
+static void map_range_float(const VArray<float> &attribute_input,
                             MutableSpan<float> results,
                             const GeoNodeExecParams &params)
 {
@@ -253,7 +253,7 @@ static void map_range_float(const VArrayImpl<float> &attribute_input,
   }
 }
 
-static void map_range_float3(const VArrayImpl<float3> &attribute_input,
+static void map_range_float3(const VArray<float3> &attribute_input,
                              const MutableSpan<float3> results,
                              const GeoNodeExecParams &params)
 {
@@ -362,7 +362,7 @@ static void map_range_attribute(GeometryComponent &component, const GeoNodeExecP
 
   const AttributeDomain domain = get_result_domain(component, input_name, result_name);
 
-  GVArrayPtr attribute_input = component.attribute_try_get_for_read(input_name, domain, data_type);
+  GVArray attribute_input = component.attribute_try_get_for_read(input_name, domain, data_type);
 
   if (!attribute_input) {
     params.error_message_add(NodeWarningType::Error,
@@ -381,12 +381,12 @@ static void map_range_attribute(GeometryComponent &component, const GeoNodeExecP
 
   switch (data_type) {
     case CD_PROP_FLOAT: {
-      map_range_float(attribute_input->typed<float>(), attribute_result.as_span<float>(), params);
+      map_range_float(attribute_input.typed<float>(), attribute_result.as_span<float>(), params);
       break;
     }
     case CD_PROP_FLOAT3: {
       map_range_float3(
-          attribute_input->typed<float3>(), attribute_result.as_span<float3>(), params);
+          attribute_input.typed<float3>(), attribute_result.as_span<float3>(), params);
       break;
     }
     default:

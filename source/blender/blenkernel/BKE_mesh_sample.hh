@@ -88,7 +88,7 @@ class MeshAttributeInterpolator {
                             const Span<float3> positions,
                             const Span<int> looptri_indices);
 
-  void sample_data(const GVArrayImpl &src,
+  void sample_data(const fn::GVArray &src,
                    const AttributeDomain domain,
                    const eAttributeMapMode mode,
                    const GMutableSpan dst);

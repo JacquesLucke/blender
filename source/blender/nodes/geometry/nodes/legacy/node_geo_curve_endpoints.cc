@@ -61,7 +61,7 @@ static void copy_spline_domain_attributes(const CurveComponent &curve_component,
         if (meta_data.domain != ATTR_DOMAIN_CURVE) {
           return true;
         }
-        GVArrayPtr spline_attribute = curve_component.attribute_get_for_read(
+        GVArray spline_attribute = curve_component.attribute_get_for_read(
             attribute_id, ATTR_DOMAIN_CURVE, meta_data.data_type);
 
         OutputAttribute result_attribute = points.attribute_try_get_for_output_only(

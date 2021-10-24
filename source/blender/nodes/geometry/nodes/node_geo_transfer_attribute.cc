@@ -123,15 +123,15 @@ static void geo_node_transfer_attribute_update(bNodeTree *UNUSED(ntree), bNode *
 }
 
 static void get_closest_in_bvhtree(BVHTreeFromMesh &tree_data,
-                                   const VArrayImpl<float3> &positions,
+                                   const VArray<float3> &positions,
                                    const IndexMask mask,
                                    const MutableSpan<int> r_indices,
                                    const MutableSpan<float> r_distances_sq,
                                    const MutableSpan<float3> r_positions)
 {
-  BLI_assert(positions.size() == r_indices.size() || r_indices.is_empty());
-  BLI_assert(positions.size() == r_distances_sq.size() || r_distances_sq.is_empty());
-  BLI_assert(positions.size() == r_positions.size() || r_positions.is_empty());
+  BLI_assert(positions->size() == r_indices.size() || r_indices.is_empty());
+  BLI_assert(positions->size() == r_distances_sq.size() || r_distances_sq.is_empty());
+  BLI_assert(positions->size() == r_positions.size() || r_positions.is_empty());
 
   for (const int i : mask) {
     BVHTreeNearest nearest;
@@ -152,12 +152,12 @@ static void get_closest_in_bvhtree(BVHTreeFromMesh &tree_data,
 }
 
 static void get_closest_pointcloud_points(const PointCloud &pointcloud,
-                                          const VArrayImpl<float3> &positions,
+                                          const VArray<float3> &positions,
                                           const IndexMask mask,
                                           const MutableSpan<int> r_indices,
                                           const MutableSpan<float> r_distances_sq)
 {
-  BLI_assert(positions.size() == r_indices.size());
+  BLI_assert(positions->size() == r_indices.size());
   BLI_assert(pointcloud.totpoint > 0);
 
   BVHTreeFromPointCloud tree_data;
@@ -179,7 +179,7 @@ static void get_closest_pointcloud_points(const PointCloud &pointcloud,
 }
 
 static void get_closest_mesh_points(const Mesh &mesh,
-                                    const VArrayImpl<float3> &positions,
+                                    const VArray<float3> &positions,
                                     const IndexMask mask,
                                     const MutableSpan<int> r_point_indices,
                                     const MutableSpan<float> r_distances_sq,
@@ -193,7 +193,7 @@ static void get_closest_mesh_points(const Mesh &mesh,
 }
 
 static void get_closest_mesh_edges(const Mesh &mesh,
-                                   const VArrayImpl<float3> &positions,
+                                   const VArray<float3> &positions,
                                    const IndexMask mask,
                                    const MutableSpan<int> r_edge_indices,
                                    const MutableSpan<float> r_distances_sq,
@@ -207,7 +207,7 @@ static void get_closest_mesh_edges(const Mesh &mesh,
 }
 
 static void get_closest_mesh_looptris(const Mesh &mesh,
-                                      const VArrayImpl<float3> &positions,
+                                      const VArray<float3> &positions,
                                       const IndexMask mask,
                                       const MutableSpan<int> r_looptri_indices,
                                       const MutableSpan<float> r_distances_sq,
@@ -222,7 +222,7 @@ static void get_closest_mesh_looptris(const Mesh &mesh,
 }
 
 static void get_closest_mesh_polygons(const Mesh &mesh,
-                                      const VArrayImpl<float3> &positions,
+                                      const VArray<float3> &positions,
                                       const IndexMask mask,
                                       const MutableSpan<int> r_poly_indices,
                                       const MutableSpan<float> r_distances_sq,
@@ -230,7 +230,7 @@ static void get_closest_mesh_polygons(const Mesh &mesh,
 {
   BLI_assert(mesh.totpoly > 0);
 
-  Array<int> looptri_indices(positions.size());
+  Array<int> looptri_indices(positions->size());
   get_closest_mesh_looptris(mesh, positions, mask, looptri_indices, r_distances_sq, r_positions);
 
   const Span<MLoopTri> looptris{BKE_mesh_runtime_looptri_ensure(&mesh),
@@ -244,14 +244,14 @@ static void get_closest_mesh_polygons(const Mesh &mesh,
 
 /* The closest corner is defined to be the closest corner on the closest face. */
 static void get_closest_mesh_corners(const Mesh &mesh,
-                                     const VArrayImpl<float3> &positions,
+                                     const VArray<float3> &positions,
                                      const IndexMask mask,
                                      const MutableSpan<int> r_corner_indices,
                                      const MutableSpan<float> r_distances_sq,
                                      const MutableSpan<float3> r_positions)
 {
   BLI_assert(mesh.totloop > 0);
-  Array<int> poly_indices(positions.size());
+  Array<int> poly_indices(positions->size());
   get_closest_mesh_polygons(mesh, positions, mask, poly_indices, {}, {});
 
   for (const int i : mask) {
@@ -287,12 +287,12 @@ static void get_closest_mesh_corners(const Mesh &mesh,
 }
 
 template<typename T>
-void copy_with_indices(const VArrayImpl<T> &src,
+void copy_with_indices(const VArray<T> &src,
                        const IndexMask mask,
                        const Span<int> indices,
                        const MutableSpan<T> dst)
 {
-  if (src.is_empty()) {
+  if (src->is_empty()) {
     return;
   }
   for (const int i : mask) {
@@ -301,15 +301,15 @@ void copy_with_indices(const VArrayImpl<T> &src,
 }
 
 template<typename T>
-void copy_with_indices_clamped(const VArrayImpl<T> &src,
+void copy_with_indices_clamped(const VArray<T> &src,
                                const IndexMask mask,
                                const Span<int> indices,
                                const MutableSpan<T> dst)
 {
-  if (src.is_empty()) {
+  if (src->is_empty()) {
     return;
   }
-  const int max_index = src.size() - 1;
+  const int max_index = src->size() - 1;
   threading::parallel_for(mask.index_range(), 4096, [&](IndexRange range) {
     for (const int i : range) {
       const int index = mask[i];
@@ -319,8 +319,8 @@ void copy_with_indices_clamped(const VArrayImpl<T> &src,
 }
 
 template<typename T>
-void copy_with_indices_and_comparison(const VArrayImpl<T> &src_1,
-                                      const VArrayImpl<T> &src_2,
+void copy_with_indices_and_comparison(const VArray<T> &src_1,
+                                      const VArray<T> &src_2,
                                       const Span<float> distances_1,
                                       const Span<float> distances_2,
                                       const IndexMask mask,
@@ -328,7 +328,7 @@ void copy_with_indices_and_comparison(const VArrayImpl<T> &src_1,
                                       const Span<int> indices_2,
                                       const MutableSpan<T> dst)
 {
-  if (src_1.is_empty() || src_2.is_empty()) {
+  if (src_1->is_empty() || src_2->is_empty()) {
     return;
   }
   for (const int i : mask) {
@@ -376,7 +376,7 @@ class NearestInterpolatedTransferFunction : public fn::MultiFunction {
 
   std::optional<GeometryComponentFieldContext> target_context_;
   std::unique_ptr<FieldEvaluator> target_evaluator_;
-  const GVArrayImpl *target_data_;
+  const GVArray *target_data_;
 
  public:
   NearestInterpolatedTransferFunction(GeometrySet geometry, GField src_field)
@@ -398,7 +398,7 @@ class NearestInterpolatedTransferFunction : public fn::MultiFunction {
 
   void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
   {
-    const VArrayImpl<float3> &positions = params.readonly_single_input<float3>(0, "Position");
+    const VArray<float3> &positions = params.readonly_single_input<float3>(0, "Position");
     GMutableSpan dst = params.uninitialized_single_output_if_required(1, "Attribute");
 
     const MeshComponent &mesh_component = *target_.get_component_for_read<MeshComponent>();
@@ -446,11 +446,11 @@ class NearestTransferFunction : public fn::MultiFunction {
   /* Store data from the target as a virtual array, since we may only access a few indices. */
   std::optional<GeometryComponentFieldContext> mesh_context_;
   std::unique_ptr<FieldEvaluator> mesh_evaluator_;
-  const GVArrayImpl *mesh_data_;
+  const GVArray *mesh_data_;
 
   std::optional<GeometryComponentFieldContext> point_context_;
   std::unique_ptr<FieldEvaluator> point_evaluator_;
-  const GVArrayImpl *point_data_;
+  const GVArray *point_data_;
 
  public:
   NearestTransferFunction(GeometrySet geometry, GField src_field, AttributeDomain domain)
@@ -476,7 +476,7 @@ class NearestTransferFunction : public fn::MultiFunction {
 
   void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
   {
-    const VArrayImpl<float3> &positions = params.readonly_single_input<float3>(0, "Position");
+    const VArray<float3> &positions = params.readonly_single_input<float3>(0, "Position");
     GMutableSpan dst = params.uninitialized_single_output_if_required(1, "Attribute");
 
     if (!use_mesh_ && !use_points_) {
@@ -538,10 +538,10 @@ class NearestTransferFunction : public fn::MultiFunction {
     attribute_math::convert_to_static_type(dst.type(), [&](auto dummy) {
       using T = decltype(dummy);
       if (use_mesh_ && use_points_) {
-        GVArray_Typed<T> src_mesh{*mesh_data_};
-        GVArray_Typed<T> src_point{*point_data_};
-        copy_with_indices_and_comparison(*src_mesh,
-                                         *src_point,
+        VArray<T> src_mesh = mesh_data_->typed<T>();
+        VArray<T> src_point = point_data_->typed<T>();
+        copy_with_indices_and_comparison(src_mesh,
+                                         src_point,
                                          mesh_distances,
                                          point_distances,
                                          mask,
@@ -550,12 +550,12 @@ class NearestTransferFunction : public fn::MultiFunction {
                                          dst.typed<T>());
       }
       else if (use_points_) {
-        GVArray_Typed<T> src_point{*point_data_};
-        copy_with_indices(*src_point, mask, point_indices, dst.typed<T>());
+        VArray<T> src_point = point_data_->typed<T>();
+        copy_with_indices(src_point, mask, point_indices, dst.typed<T>());
       }
       else if (use_mesh_) {
-        GVArray_Typed<T> src_mesh{*mesh_data_};
-        copy_with_indices(*src_mesh, mask, mesh_indices, dst.typed<T>());
+        VArray<T> src_mesh = mesh_data_->typed<T>();
+        copy_with_indices(src_mesh, mask, mesh_indices, dst.typed<T>());
       }
     });
   }
@@ -637,20 +637,20 @@ class IndexTransferFieldInput : public FieldInput {
     src_geometry_.ensure_owns_direct_data();
   }
 
-  const GVArrayImpl *get_varray_for_context(const FieldContext &context,
-                                            const IndexMask mask,
-                                            ResourceScope &scope) const final
+  GVArray get_varray_for_context(const FieldContext &context,
+                                 const IndexMask mask,
+                                 ResourceScope &scope) const final
   {
     const GeometryComponentFieldContext *geometry_context =
         dynamic_cast<const GeometryComponentFieldContext *>(&context);
     if (geometry_context == nullptr) {
-      return nullptr;
+      return {};
     }
 
     FieldEvaluator index_evaluator{*geometry_context, &mask};
     index_evaluator.add(index_field_);
     index_evaluator.evaluate();
-    const VArrayImpl<int> &index_varray = index_evaluator.get_evaluated<int>(0);
+    const VArray<int> &index_varray = index_evaluator.get_evaluated<int>(0);
     /* The index virtual array is expected to be a span, since transferring the same index for
      * every element is not very useful. */
     VArray_Span<int> indices{index_varray};
@@ -658,7 +658,7 @@ class IndexTransferFieldInput : public FieldInput {
     const GeometryComponent *component = find_best_match_component(
         src_geometry_, geometry_context->geometry_component().type(), domain_);
     if (component == nullptr) {
-      return nullptr;
+      return {};
     }
 
     GeometryComponentFieldContext target_context{*component, domain_};
@@ -667,14 +667,14 @@ class IndexTransferFieldInput : public FieldInput {
     FieldEvaluator target_evaluator{target_context, component->attribute_domain_size(domain_)};
     target_evaluator.add(src_field_);
     target_evaluator.evaluate();
-    const GVArrayImpl &src_data = target_evaluator.get_evaluated(0);
+    const GVArray &src_data = target_evaluator.get_evaluated(0);
 
     GArray dst(src_field_.cpp_type(), mask.min_array_size());
 
-    attribute_math::convert_to_static_type(src_data.type(), [&](auto dummy) {
+    attribute_math::convert_to_static_type(src_data->type(), [&](auto dummy) {
       using T = decltype(dummy);
-      GVArray_Typed<T> src{src_data};
-      copy_with_indices_clamped(*src, mask, indices, dst.as_mutable_span().typed<T>());
+      copy_with_indices_clamped(
+          src_data.typed<T>(), mask, indices, dst.as_mutable_span().typed<T>());
     });
 
     return &scope.construct<fn::GVArrayImpl_For_GArray>(std::move(dst));

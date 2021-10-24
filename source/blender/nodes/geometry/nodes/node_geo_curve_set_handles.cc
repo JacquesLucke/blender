@@ -91,7 +91,7 @@ static void geo_node_curve_set_handles_exec(GeoNodeExecParams params)
     fn::FieldEvaluator selection_evaluator{field_context, domain_size};
     selection_evaluator.add(selection_field);
     selection_evaluator.evaluate();
-    const VArrayImpl<bool> &selection = selection_evaluator.get_evaluated<bool>(0);
+    const VArray<bool> &selection = selection_evaluator.get_evaluated<bool>(0);
 
     const BezierSpline::HandleType new_handle_type = handle_type_from_input_type(type);
     int point_index = 0;

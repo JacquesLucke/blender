@@ -117,7 +117,7 @@ class WhiteNoiseFunction : public fn::MultiFunction {
 
     switch (dimensions_) {
       case 1: {
-        const VArrayImpl<float> &w = params.readonly_single_input<float>(0, "W");
+        const VArray<float> &w = params.readonly_single_input<float>(0, "W");
         if (compute_color) {
           for (int64_t i : mask) {
             const float3 c = noise::hash_float_to_float3(w[i]);
@@ -132,7 +132,7 @@ class WhiteNoiseFunction : public fn::MultiFunction {
         break;
       }
       case 2: {
-        const VArrayImpl<float3> &vector = params.readonly_single_input<float3>(0, "Vector");
+        const VArray<float3> &vector = params.readonly_single_input<float3>(0, "Vector");
         if (compute_color) {
           for (int64_t i : mask) {
             const float3 c = noise::hash_float_to_float3(float2(vector[i].x, vector[i].y));
@@ -147,7 +147,7 @@ class WhiteNoiseFunction : public fn::MultiFunction {
         break;
       }
       case 3: {
-        const VArrayImpl<float3> &vector = params.readonly_single_input<float3>(0, "Vector");
+        const VArray<float3> &vector = params.readonly_single_input<float3>(0, "Vector");
         if (compute_color) {
           for (int64_t i : mask) {
             const float3 c = noise::hash_float_to_float3(vector[i]);
@@ -162,8 +162,8 @@ class WhiteNoiseFunction : public fn::MultiFunction {
         break;
       }
       case 4: {
-        const VArrayImpl<float3> &vector = params.readonly_single_input<float3>(0, "Vector");
-        const VArrayImpl<float> &w = params.readonly_single_input<float>(1, "W");
+        const VArray<float3> &vector = params.readonly_single_input<float3>(0, "Vector");
+        const VArray<float> &w = params.readonly_single_input<float>(1, "W");
         if (compute_color) {
           for (int64_t i : mask) {
             const float3 c = noise::hash_float_to_float3(

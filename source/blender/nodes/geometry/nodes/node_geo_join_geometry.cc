@@ -190,7 +190,7 @@ static void fill_new_attribute(Span<const GeometryComponent *> src_components,
     if (domain_size == 0) {
       continue;
     }
-    GVArrayPtr read_attribute = component->attribute_get_for_read(
+    GVArray read_attribute = component->attribute_get_for_read(
         attribute_id, domain, data_type, nullptr);
 
     GVArray_GSpan src_span{*read_attribute};
@@ -320,8 +320,7 @@ static void ensure_control_point_attribute(const AttributeIDRef &attribute_id,
             spline->size() * type.size(), type.alignment(), __func__);
 
         const DataTypeConversions &conversions = blender::nodes::get_implicit_type_conversions();
-        conversions.try_convert(std::make_unique<GVArrayImpl_For_GSpan>(*attribute), type)
-            ->materialize(converted_buffer);
+        conversions.try_convert(GVArray::ForSpan(*attribute), type)->materialize(converted_buffer);
 
         spline->attributes.remove(attribute_id);
         spline->attributes.create_by_move(attribute_id, data_type, converted_buffer);
@@ -334,7 +333,7 @@ static void ensure_control_point_attribute(const AttributeIDRef &attribute_id,
         /* In this case the attribute did not exist, but there is a spline domain attribute
          * we can retrieve a value from, as a spline to point domain conversion. So fill the
          * new attribute with the value for this spline. */
-        GVArrayPtr current_curve_attribute = current_curve->attributes.get_for_read(
+        GVArray current_curve_attribute = current_curve->attributes.get_for_read(
             attribute_id, data_type, nullptr);
 
         BLI_assert(spline->attributes.get_for_read(attribute_id));
@@ -377,7 +376,7 @@ static void ensure_spline_attribute(const AttributeIDRef &attribute_id,
     if (size == 0) {
       continue;
     }
-    GVArrayPtr read_attribute = curve.attributes.get_for_read(attribute_id, data_type, nullptr);
+    GVArray read_attribute = curve.attributes.get_for_read(attribute_id, data_type, nullptr);
     GVArray_GSpan src_span{*read_attribute};
 
     const void *src_buffer = src_span.data();

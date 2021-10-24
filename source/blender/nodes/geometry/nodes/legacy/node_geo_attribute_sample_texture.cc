@@ -82,11 +82,11 @@ static void execute_on_component(GeometryComponent &component, const GeoNodeExec
     return;
   }
 
-  GVArray_Typed<float3> mapping_attribute = component.attribute_get_for_read<float3>(
+  VArray<float3> mapping_attribute = component.attribute_get_for_read<float3>(
       mapping_name, result_domain, {0, 0, 0});
 
   MutableSpan<ColorGeometry4f> colors = attribute_out.as_span();
-  threading::parallel_for(IndexRange(mapping_attribute.size()), 128, [&](IndexRange range) {
+  threading::parallel_for(IndexRange(mapping_attribute->size()), 128, [&](IndexRange range) {
     for (const int i : range) {
       TexResult texture_result = {0};
       const float3 position = mapping_attribute[i];

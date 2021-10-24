@@ -233,7 +233,7 @@ static void copy_uniform_sample_point_attributes(const Span<SplinePtr> splines,
 
       spline.sample_with_index_factors<float3>(
           spline.evaluated_positions(), uniform_samples, data.positions.slice(offset, size));
-      spline.sample_with_index_factors<float>(*spline.interpolate_to_evaluated(spline.radii()),
+      spline.sample_with_index_factors<float>(spline.interpolate_to_evaluated(spline.radii()),
                                               uniform_samples,
                                               data.radii.slice(offset, size));
 
@@ -244,7 +244,7 @@ static void copy_uniform_sample_point_attributes(const Span<SplinePtr> splines,
         BLI_assert(spline.attributes.get_for_read(attribute_id));
         GSpan spline_span = *spline.attributes.get_for_read(attribute_id);
 
-        spline.sample_with_index_factors(*spline.interpolate_to_evaluated(spline_span),
+        spline.sample_with_index_factors(spline.interpolate_to_evaluated(spline_span),
                                          uniform_samples,
                                          dst.slice(offset, size));
       }
