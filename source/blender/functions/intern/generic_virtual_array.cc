@@ -86,11 +86,6 @@ void GVArrayImpl::get_internal_single_impl(void *UNUSED(r_value)) const
   BLI_assert(false);
 }
 
-const void *GVArrayImpl::try_get_internal_varray_impl() const
-{
-  return nullptr;
-}
-
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -124,11 +119,6 @@ void GVMutableArrayImpl::set_all_impl(const void *src)
   }
 }
 
-void *GVMutableArrayImpl::try_get_internal_mutable_varray_impl()
-{
-  return nullptr;
-}
-
 void GVMutableArrayImpl::fill(const void *value)
 {
   if (this->is_span()) {
@@ -147,6 +137,16 @@ void GVMutableArrayImpl::fill(const void *value)
 /* -------------------------------------------------------------------- */
 /** \name #GVArrayImpl_For_GSpan
  * \{ */
+
+GVArrayImpl_For_GSpan::GVArrayImpl_For_GSpan(const GSpan span)
+    : GVArrayImpl(span.type(), span.size()), data_(span.data()), element_size_(span.type().size())
+{
+}
+
+GVArrayImpl_For_GSpan::GVArrayImpl_For_GSpan(const CPPType &type, const int64_t size)
+    : GVArrayImpl(type, size), element_size_(type.size())
+{
+}
 
 void GVArrayImpl_For_GSpan::get_impl(const int64_t index, void *r_value) const
 {
@@ -173,6 +173,19 @@ GSpan GVArrayImpl_For_GSpan::get_internal_span_impl() const
 /* -------------------------------------------------------------------- */
 /** \name #GVMutableArrayImpl_For_GMutableSpan
  * \{ */
+
+GVMutableArrayImpl_For_GMutableSpan::GVMutableArrayImpl_For_GMutableSpan(const GMutableSpan span)
+    : GVMutableArrayImpl(span.type(), span.size()),
+      data_(span.data()),
+      element_size_(span.type().size())
+{
+}
+
+GVMutableArrayImpl_For_GMutableSpan::GVMutableArrayImpl_For_GMutableSpan(const CPPType &type,
+                                                                         const int64_t size)
+    : GVMutableArrayImpl(type, size), element_size_(type.size())
+{
+}
 
 void GVMutableArrayImpl_For_GMutableSpan::get_impl(const int64_t index, void *r_value) const
 {

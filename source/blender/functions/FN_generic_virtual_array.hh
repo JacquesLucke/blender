@@ -46,105 +46,29 @@ class GVArrayImpl {
   int64_t size_;
 
  public:
-  GVArrayImpl(const CPPType &type, const int64_t size) : type_(&type), size_(size)
-  {
-    BLI_assert(size_ >= 0);
-  }
-
+  GVArrayImpl(const CPPType &type, const int64_t size);
   virtual ~GVArrayImpl() = default;
 
-  const CPPType &type() const
-  {
-    return *type_;
-  }
+  const CPPType &type() const;
 
-  int64_t size() const
-  {
-    return size_;
-  }
+  int64_t size() const;
+  bool is_empty() const;
 
-  bool is_empty() const
-  {
-    return size_ == 0;
-  }
+  void get(const int64_t index, void *r_value) const;
+  void get_to_uninitialized(const int64_t index, void *r_value) const;
 
-  /* Copies the value at the given index into the provided storage. The `r_value` pointer is
-   * expected to point to initialized memory. */
-  void get(const int64_t index, void *r_value) const
-  {
-    BLI_assert(index >= 0);
-    BLI_assert(index < size_);
-    this->get_impl(index, r_value);
-  }
+  bool is_span() const;
+  GSpan get_internal_span() const;
 
-  /* Same as `get`, but `r_value` is expected to point to uninitialized memory. */
-  void get_to_uninitialized(const int64_t index, void *r_value) const
-  {
-    BLI_assert(index >= 0);
-    BLI_assert(index < size_);
-    this->get_to_uninitialized_impl(index, r_value);
-  }
-
-  /* Returns true when the virtual array is stored as a span internally. */
-  bool is_span() const
-  {
-    if (size_ == 0) {
-      return true;
-    }
-    return this->is_span_impl();
-  }
-
-  /* Returns the internally used span of the virtual array. This invokes undefined behavior is the
-   * virtual array is not stored as a span internally. */
-  GSpan get_internal_span() const
-  {
-    BLI_assert(this->is_span());
-    if (size_ == 0) {
-      return GSpan(*type_);
-    }
-    return this->get_internal_span_impl();
-  }
-
-  /* Returns true when the virtual array returns the same value for every index. */
-  bool is_single() const
-  {
-    if (size_ == 1) {
-      return true;
-    }
-    return this->is_single_impl();
-  }
-
-  /* Copies the value that is used for every element into `r_value`, which is expected to point to
-   * initialized memory. This invokes undefined behavior if the virtual array would not return the
-   * same value for every index. */
-  void get_internal_single(void *r_value) const
-  {
-    BLI_assert(this->is_single());
-    if (size_ == 1) {
-      this->get(0, r_value);
-      return;
-    }
-    this->get_internal_single_impl(r_value);
-  }
-
-  /* Same as `get_internal_single`, but `r_value` points to initialized memory. */
-  void get_internal_single_to_uninitialized(void *r_value) const
-  {
-    type_->default_construct(r_value);
-    this->get_internal_single(r_value);
-  }
+  bool is_single() const;
+  void get_internal_single(void *r_value) const;
+  void get_internal_single_to_uninitialized(void *r_value) const;
 
   void materialize(void *dst) const;
   void materialize(const IndexMask mask, void *dst) const;
 
   void materialize_to_uninitialized(void *dst) const;
   void materialize_to_uninitialized(const IndexMask mask, void *dst) const;
-
-  template<typename T> const VArrayImpl<T> *try_get_internal_varray() const
-  {
-    BLI_assert(type_->is<T>());
-    return (const VArrayImpl<T> *)this->try_get_internal_varray_impl();
-  }
 
  protected:
   virtual void get_impl(const int64_t index, void *r_value) const;
@@ -158,58 +82,21 @@ class GVArrayImpl {
 
   virtual void materialize_impl(const IndexMask mask, void *dst) const;
   virtual void materialize_to_uninitialized_impl(const IndexMask mask, void *dst) const;
-
-  virtual const void *try_get_internal_varray_impl() const;
 };
 
 /* Similar to GVArrayImpl, but supports changing the elements in the virtual array. */
 class GVMutableArrayImpl : public GVArrayImpl {
  public:
-  GVMutableArrayImpl(const CPPType &type, const int64_t size) : GVArrayImpl(type, size)
-  {
-  }
+  GVMutableArrayImpl(const CPPType &type, const int64_t size);
 
-  void set_by_copy(const int64_t index, const void *value)
-  {
-    BLI_assert(index >= 0);
-    BLI_assert(index < size_);
-    this->set_by_copy_impl(index, value);
-  }
-
-  void set_by_move(const int64_t index, void *value)
-  {
-    BLI_assert(index >= 0);
-    BLI_assert(index < size_);
-    this->set_by_move_impl(index, value);
-  }
-
-  void set_by_relocate(const int64_t index, void *value)
-  {
-    BLI_assert(index >= 0);
-    BLI_assert(index < size_);
-    this->set_by_relocate_impl(index, value);
-  }
-
-  GMutableSpan get_internal_span()
-  {
-    BLI_assert(this->is_span());
-    GSpan span = static_cast<const GVArrayImpl *>(this)->get_internal_span();
-    return GMutableSpan(span.type(), const_cast<void *>(span.data()), span.size());
-  }
-
-  template<typename T> VMutableArrayImpl<T> *try_get_internal_mutable_varray()
-  {
-    BLI_assert(type_->is<T>());
-    return (VMutableArrayImpl<T> *)this->try_get_internal_mutable_varray_impl();
-  }
+  void set_by_copy(const int64_t index, const void *value);
+  void set_by_move(const int64_t index, void *value);
+  void set_by_relocate(const int64_t index, void *value);
 
   void fill(const void *value);
+  void set_all(const void *src);
 
-  /* Copy the values from the source buffer to all elements in the virtual array. */
-  void set_all(const void *src)
-  {
-    this->set_all_impl(src);
-  }
+  GMutableSpan get_internal_span();
 
  protected:
   virtual void set_by_copy_impl(const int64_t index, const void *value);
@@ -217,8 +104,6 @@ class GVMutableArrayImpl : public GVArrayImpl {
   virtual void set_by_move_impl(const int64_t index, void *value) = 0;
 
   virtual void set_all_impl(const void *src);
-
-  virtual void *try_get_internal_mutable_varray_impl();
 };
 
 /** \} */
@@ -275,38 +160,15 @@ class GVArray {
  public:
   GVArray() = default;
 
-  GVArray(const GVArray &other) : storage_(other.storage_)
-  {
-    impl_ = storage_.extra_info().get_varray(storage_.get());
-  }
-
-  GVArray(const Impl *impl) : impl_(impl)
-  {
-    storage_ = impl;
-  }
-
-  GVArray(std::shared_ptr<const Impl> impl) : impl_(impl.get())
-  {
-    if (impl) {
-      storage_ = std::move(impl);
-    }
-  }
+  /* TODO: Add move constructor? */
+  GVArray(const GVArray &other);
+  GVArray(const Impl *impl);
+  GVArray(std::shared_ptr<const Impl> impl);
 
   template<typename T> GVArray(const VArray<T> &varray);
   template<typename T> VArray<T> typed() const;
 
-  template<typename ImplT, typename... Args> static GVArray For(Args &&...args)
-  {
-    static_assert(std::is_base_of_v<Impl, ImplT>);
-    if constexpr (std::is_copy_constructible_v<ImplT> && Storage::template is_inline_v<ImplT>) {
-      GVArray varray;
-      varray.impl_ = &varray.storage_.template emplace<ImplT>(std::forward<Args>(args)...);
-      return varray;
-    }
-    else {
-      return GVArray(std::make_shared<ImplT>(std::forward<Args>(args)...));
-    }
-  }
+  template<typename ImplT, typename... Args> static GVArray For(Args &&...args);
 
   static GVArray ForSingle(const CPPType &type, const int64_t size, const void *value);
   static GVArray ForSingleRef(const CPPType &type, const int64_t size, const void *value);
@@ -317,25 +179,12 @@ class GVArray {
 
   GVArray slice(IndexRange slice) const;
 
-  operator bool() const
-  {
-    return impl_ != nullptr;
-  }
-
   GVArray &operator=(const GVArray &other);
   GVArray &operator=(GVArray &&other);
 
-  const Impl *operator->() const
-  {
-    BLI_assert(*this);
-    return impl_;
-  }
-
-  const Impl &operator*() const
-  {
-    BLI_assert(*this);
-    return *impl_;
-  }
+  operator bool() const;
+  const Impl *operator->() const;
+  const Impl &operator*() const;
 };
 
 class GVMutableArray {
@@ -348,65 +197,27 @@ class GVMutableArray {
   Storage storage_;
 
  public:
+  /* TODO: Add move constructor? */
   GVMutableArray() = default;
-
-  GVMutableArray(const GVMutableArray &other) : storage_(other.storage_)
-  {
-    impl_ = const_cast<Impl *>(
-        static_cast<const Impl *>(storage_.extra_info().get_varray(storage_.get())));
-  }
-
-  GVMutableArray(Impl *impl) : impl_(impl)
-  {
-    storage_ = static_cast<const GVArrayImpl *>(impl);
-  }
-
-  GVMutableArray(std::shared_ptr<Impl> impl) : impl_(impl.get())
-  {
-    if (impl) {
-      storage_ = std::shared_ptr<const GVArrayImpl>(std::move(impl));
-    }
-  }
+  GVMutableArray(const GVMutableArray &other);
+  GVMutableArray(Impl *impl);
+  GVMutableArray(std::shared_ptr<Impl> impl);
 
   template<typename T> GVMutableArray(const VMutableArray<T> &varray);
   template<typename T> VMutableArray<T> typed() const;
 
-  template<typename ImplT, typename... Args> static GVMutableArray For(Args &&...args)
-  {
-    static_assert(std::is_base_of_v<Impl, ImplT>);
-    if constexpr (std::is_copy_constructible_v<ImplT> && Storage::template is_inline_v<ImplT>) {
-      GVMutableArray varray;
-      varray.impl_ = &varray.storage_.template emplace<ImplT>(std::forward<Args>(args)...);
-      return varray;
-    }
-    else {
-      return GVMutableArray(std::make_shared<ImplT>(std::forward<Args>(args)...));
-    }
-  }
+  template<typename ImplT, typename... Args> static GVMutableArray For(Args &&...args);
 
   static GVMutableArray ForSpan(GMutableSpan span);
-
-  operator bool() const
-  {
-    return impl_ != nullptr;
-  }
 
   operator GVArray() const;
 
   GVMutableArray &operator=(const GVMutableArray &other);
   GVMutableArray &operator=(GVMutableArray &&other);
 
-  Impl *operator->() const
-  {
-    BLI_assert(*this);
-    return impl_;
-  }
-
-  Impl &operator*() const
-  {
-    BLI_assert(*this);
-    return *impl_;
-  }
+  operator bool() const;
+  Impl *operator->() const;
+  Impl &operator*() const;
 };
 
 /** \} */
@@ -500,11 +311,6 @@ template<typename T> class GVArrayImpl_For_VArray : public GVArrayImpl {
   void materialize_to_uninitialized_impl(const IndexMask mask, void *dst) const override
   {
     varray_->materialize_to_uninitialized(mask, MutableSpan((T *)dst, mask.min_array_size()));
-  }
-
-  const void *try_get_internal_varray_impl() const override
-  {
-    return &varray_;
   }
 };
 
@@ -679,16 +485,6 @@ template<typename T> class GVMutableArrayImpl_For_VMutableArray : public GVMutab
   {
     varray_->materialize_to_uninitialized(mask, MutableSpan((T *)dst, mask.min_array_size()));
   }
-
-  const void *try_get_internal_varray_impl() const override
-  {
-    return (const VArrayImpl<T> *)&varray_;
-  }
-
-  void *try_get_internal_mutable_varray_impl() override
-  {
-    return &varray_;
-  }
 };
 
 /** \} */
@@ -703,18 +499,10 @@ class GVArrayImpl_For_GSpan : public GVArrayImpl {
   const int64_t element_size_;
 
  public:
-  GVArrayImpl_For_GSpan(const GSpan span)
-      : GVArrayImpl(span.type(), span.size()),
-        data_(span.data()),
-        element_size_(span.type().size())
-  {
-  }
+  GVArrayImpl_For_GSpan(const GSpan span);
 
  protected:
-  GVArrayImpl_For_GSpan(const CPPType &type, const int64_t size)
-      : GVArrayImpl(type, size), element_size_(type.size())
-  {
-  }
+  GVArrayImpl_For_GSpan(const CPPType &type, const int64_t size);
 
   void get_impl(const int64_t index, void *r_value) const override;
   void get_to_uninitialized_impl(const int64_t index, void *r_value) const override;
@@ -729,18 +517,10 @@ class GVMutableArrayImpl_For_GMutableSpan : public GVMutableArrayImpl {
   const int64_t element_size_;
 
  public:
-  GVMutableArrayImpl_For_GMutableSpan(const GMutableSpan span)
-      : GVMutableArrayImpl(span.type(), span.size()),
-        data_(span.data()),
-        element_size_(span.type().size())
-  {
-  }
+  GVMutableArrayImpl_For_GMutableSpan(const GMutableSpan span);
 
  protected:
-  GVMutableArrayImpl_For_GMutableSpan(const CPPType &type, const int64_t size)
-      : GVMutableArrayImpl(type, size), element_size_(type.size())
-  {
-  }
+  GVMutableArrayImpl_For_GMutableSpan(const CPPType &type, const int64_t size);
 
   void get_impl(const int64_t index, void *r_value) const override;
   void get_to_uninitialized_impl(const int64_t index, void *r_value) const override;
@@ -756,8 +536,193 @@ class GVMutableArrayImpl_For_GMutableSpan : public GVMutableArrayImpl {
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Inline methods for conversions.
+/** \name Inline methods for #GVArrayImpl.
  * \{ */
+
+inline GVArrayImpl::GVArrayImpl(const CPPType &type, const int64_t size)
+    : type_(&type), size_(size)
+{
+  BLI_assert(size_ >= 0);
+}
+
+inline const CPPType &GVArrayImpl::type() const
+{
+  return *type_;
+}
+
+inline int64_t GVArrayImpl::size() const
+{
+  return size_;
+}
+
+inline bool GVArrayImpl::is_empty() const
+{
+  return size_ == 0;
+}
+
+/* Copies the value at the given index into the provided storage. The `r_value` pointer is
+ * expected to point to initialized memory. */
+inline void GVArrayImpl::get(const int64_t index, void *r_value) const
+{
+  BLI_assert(index >= 0);
+  BLI_assert(index < size_);
+  this->get_impl(index, r_value);
+}
+
+/* Same as `get`, but `r_value` is expected to point to uninitialized memory. */
+inline void GVArrayImpl::get_to_uninitialized(const int64_t index, void *r_value) const
+{
+  BLI_assert(index >= 0);
+  BLI_assert(index < size_);
+  this->get_to_uninitialized_impl(index, r_value);
+}
+
+/* Returns true when the virtual array is stored as a span internally. */
+inline bool GVArrayImpl::is_span() const
+{
+  if (size_ == 0) {
+    return true;
+  }
+  return this->is_span_impl();
+}
+
+/* Returns the internally used span of the virtual array. This invokes undefined behavior is the
+ * virtual array is not stored as a span internally. */
+inline GSpan GVArrayImpl::get_internal_span() const
+{
+  BLI_assert(this->is_span());
+  if (size_ == 0) {
+    return GSpan(*type_);
+  }
+  return this->get_internal_span_impl();
+}
+
+/* Returns true when the virtual array returns the same value for every index. */
+inline bool GVArrayImpl::is_single() const
+{
+  if (size_ == 1) {
+    return true;
+  }
+  return this->is_single_impl();
+}
+
+/* Copies the value that is used for every element into `r_value`, which is expected to point to
+ * initialized memory. This invokes undefined behavior if the virtual array would not return the
+ * same value for every index. */
+inline void GVArrayImpl::get_internal_single(void *r_value) const
+{
+  BLI_assert(this->is_single());
+  if (size_ == 1) {
+    this->get(0, r_value);
+    return;
+  }
+  this->get_internal_single_impl(r_value);
+}
+
+/* Same as `get_internal_single`, but `r_value` points to initialized memory. */
+inline void GVArrayImpl::get_internal_single_to_uninitialized(void *r_value) const
+{
+  type_->default_construct(r_value);
+  this->get_internal_single(r_value);
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Inline methods for #GVMutableArrayImpl.
+ * \{ */
+
+inline GVMutableArrayImpl::GVMutableArrayImpl(const CPPType &type, const int64_t size)
+    : GVArrayImpl(type, size)
+{
+}
+
+inline void GVMutableArrayImpl::set_by_copy(const int64_t index, const void *value)
+{
+  BLI_assert(index >= 0);
+  BLI_assert(index < size_);
+  this->set_by_copy_impl(index, value);
+}
+
+inline void GVMutableArrayImpl::set_by_move(const int64_t index, void *value)
+{
+  BLI_assert(index >= 0);
+  BLI_assert(index < size_);
+  this->set_by_move_impl(index, value);
+}
+
+inline void GVMutableArrayImpl::set_by_relocate(const int64_t index, void *value)
+{
+  BLI_assert(index >= 0);
+  BLI_assert(index < size_);
+  this->set_by_relocate_impl(index, value);
+}
+
+inline GMutableSpan GVMutableArrayImpl::get_internal_span()
+{
+  BLI_assert(this->is_span());
+  GSpan span = static_cast<const GVArrayImpl *>(this)->get_internal_span();
+  return GMutableSpan(span.type(), const_cast<void *>(span.data()), span.size());
+}
+
+/* Copy the values from the source buffer to all elements in the virtual array. */
+inline void GVMutableArrayImpl::set_all(const void *src)
+{
+  this->set_all_impl(src);
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Inline methods for #GVArray.
+ * \{ */
+
+inline GVArray::GVArray(const GVArray &other) : storage_(other.storage_)
+{
+  impl_ = storage_.extra_info().get_varray(storage_.get());
+}
+
+inline GVArray::GVArray(const Impl *impl) : impl_(impl)
+{
+  storage_ = impl;
+}
+
+inline GVArray::GVArray(std::shared_ptr<const Impl> impl) : impl_(impl.get())
+{
+  if (impl) {
+    storage_ = std::move(impl);
+  }
+}
+
+template<typename ImplT, typename... Args> inline GVArray GVArray::For(Args &&...args)
+{
+  static_assert(std::is_base_of_v<Impl, ImplT>);
+  if constexpr (std::is_copy_constructible_v<ImplT> && Storage::template is_inline_v<ImplT>) {
+    GVArray varray;
+    varray.impl_ = &varray.storage_.template emplace<ImplT>(std::forward<Args>(args)...);
+    return varray;
+  }
+  else {
+    return GVArray(std::make_shared<ImplT>(std::forward<Args>(args)...));
+  }
+}
+
+inline GVArray::operator bool() const
+{
+  return impl_ != nullptr;
+}
+
+inline const GVArray::Impl *GVArray::operator->() const
+{
+  BLI_assert(*this);
+  return impl_;
+}
+
+inline const GVArray::Impl &GVArray::operator*() const
+{
+  BLI_assert(*this);
+  return *impl_;
+}
 
 template<typename T> inline GVArray::GVArray(const VArray<T> &varray)
 {
@@ -795,6 +760,61 @@ template<typename T> inline VArray<T> GVArray::typed() const
   //   impl_->get_internal_single(&value);
   //   return VArray<T>::ForSingle(value, impl_->size());
   // }
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Inline methods for #GVMutableArray.
+ * \{ */
+
+inline GVMutableArray::GVMutableArray(const GVMutableArray &other) : storage_(other.storage_)
+{
+  impl_ = const_cast<Impl *>(
+      static_cast<const Impl *>(storage_.extra_info().get_varray(storage_.get())));
+}
+
+inline GVMutableArray::GVMutableArray(Impl *impl) : impl_(impl)
+{
+  storage_ = static_cast<const GVArrayImpl *>(impl);
+}
+
+inline GVMutableArray::GVMutableArray(std::shared_ptr<Impl> impl) : impl_(impl.get())
+{
+  if (impl) {
+    storage_ = std::shared_ptr<const GVArrayImpl>(std::move(impl));
+  }
+}
+
+template<typename ImplT, typename... Args>
+inline GVMutableArray GVMutableArray::For(Args &&...args)
+{
+  static_assert(std::is_base_of_v<Impl, ImplT>);
+  if constexpr (std::is_copy_constructible_v<ImplT> && Storage::template is_inline_v<ImplT>) {
+    GVMutableArray varray;
+    varray.impl_ = &varray.storage_.template emplace<ImplT>(std::forward<Args>(args)...);
+    return varray;
+  }
+  else {
+    return GVMutableArray(std::make_shared<ImplT>(std::forward<Args>(args)...));
+  }
+}
+
+inline GVMutableArray::operator bool() const
+{
+  return impl_ != nullptr;
+}
+
+inline GVMutableArray::Impl *GVMutableArray::operator->() const
+{
+  BLI_assert(*this);
+  return impl_;
+}
+
+inline GVMutableArray::Impl &GVMutableArray::operator*() const
+{
+  BLI_assert(*this);
+  return *impl_;
 }
 
 template<typename T> inline GVMutableArray::GVMutableArray(const VMutableArray<T> &varray)
