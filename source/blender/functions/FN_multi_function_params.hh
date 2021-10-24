@@ -77,7 +77,7 @@ class MFParamsBuilder {
   void add_readonly_single_input(GPointer value, StringRef expected_name = "")
   {
     this->add_readonly_single_input(
-        GVArray::ForSingleRef(*value.type(), min_array_size_, value.type()), expected_name);
+        GVArray::ForSingleRef(*value.type(), min_array_size_, value.get()), expected_name);
   }
   void add_readonly_single_input(GVArray varray, StringRef expected_name = "")
   {
