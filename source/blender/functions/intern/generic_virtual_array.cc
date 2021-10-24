@@ -86,14 +86,9 @@ void GVArrayImpl::get_internal_single_impl(void *UNUSED(r_value)) const
   BLI_assert(false);
 }
 
-const void *GVArrayImpl::try_get_internal_typed_virtual_array() const
+bool GVArrayImpl::try_assign_VArray_impl(void *UNUSED(varray)) const
 {
-  return this->try_get_internal_typed_virtual_array_impl();
-}
-
-const void *GVArrayImpl::try_get_internal_typed_virtual_array_impl() const
-{
-  return nullptr;
+  return false;
 }
 
 bool GVArrayImpl::has_ownership() const
@@ -153,14 +148,9 @@ void GVMutableArrayImpl::fill(const void *value)
   }
 }
 
-const void *GVMutableArrayImpl::try_get_internal_typed_virtual_mutable_array() const
+bool GVMutableArrayImpl::try_assign_VMutableArray_impl(void *UNUSED(varray)) const
 {
-  return this->try_get_internal_typed_virtual_mutable_array_impl();
-}
-
-const void *GVMutableArrayImpl::try_get_internal_typed_virtual_mutable_array_impl() const
-{
-  return nullptr;
+  return false;
 }
 
 /** \} */

@@ -72,7 +72,7 @@ class GVArrayImpl {
   void materialize_to_uninitialized(void *dst) const;
   void materialize_to_uninitialized(const IndexMask mask, void *dst) const;
 
-  const void *try_get_internal_typed_virtual_array() const;
+  template<typename T> bool try_assign_VArray(VArray<T> &varray) const;
   bool has_ownership() const;
 
  protected:
@@ -88,7 +88,7 @@ class GVArrayImpl {
   virtual void materialize_impl(const IndexMask mask, void *dst) const;
   virtual void materialize_to_uninitialized_impl(const IndexMask mask, void *dst) const;
 
-  virtual const void *try_get_internal_typed_virtual_array_impl() const;
+  virtual bool try_assign_VArray_impl(void *varray) const;
   virtual bool has_ownership_impl() const;
 };
 
@@ -106,7 +106,7 @@ class GVMutableArrayImpl : public GVArrayImpl {
 
   GMutableSpan get_internal_span();
 
-  const void *try_get_internal_typed_virtual_mutable_array() const;
+  template<typename T> bool try_assign_VMutableArray(VMutableArray<T> &varray) const;
 
  protected:
   virtual void set_by_copy_impl(const int64_t index, const void *value);
@@ -115,7 +115,7 @@ class GVMutableArrayImpl : public GVArrayImpl {
 
   virtual void set_all_impl(const void *src);
 
-  virtual const void *try_get_internal_typed_virtual_mutable_array_impl() const;
+  virtual bool try_assign_VMutableArray_impl(void *varray) const;
 };
 
 /** \} */
@@ -300,9 +300,10 @@ template<typename T> class GVArrayImpl_For_VArray : public GVArrayImpl {
     varray_->materialize_to_uninitialized(mask, MutableSpan((T *)dst, mask.min_array_size()));
   }
 
-  const void *try_get_internal_typed_virtual_array_impl() const override
+  bool try_assign_VArray_impl(void *varray) const override
   {
-    return &varray_;
+    *(VArray<T> *)varray = varray_;
+    return true;
   }
 
   bool has_ownership_impl() const
@@ -354,9 +355,10 @@ template<typename T> class VArrayImpl_For_GVArray : public VArrayImpl<T> {
     return value;
   }
 
-  const void *try_get_internal_generic_virtual_array_impl() const override
+  bool try_assign_GVArray_impl(GVArray &varray) const override
   {
-    return &varray_;
+    varray = varray_;
+    return true;
   }
 
   bool has_ownership_impl() const override
@@ -442,9 +444,16 @@ template<typename T> class GVMutableArrayImpl_For_VMutableArray : public GVMutab
     varray_->materialize_to_uninitialized(mask, MutableSpan((T *)dst, mask.min_array_size()));
   }
 
-  const void *try_get_internal_typed_virtual_mutable_array_impl() const override
+  bool try_assign_VArray_impl(void *varray) const override
   {
-    return &varray_;
+    *(VArray<T> *)varray = varray_;
+    return true;
+  }
+
+  bool try_assign_VMutableArray_impl(void *varray) const override
+  {
+    *(VMutableArray<T> *)varray = varray_;
+    return true;
   }
 
   bool has_ownership_impl() const
@@ -501,9 +510,16 @@ template<typename T> class VMutableArrayImpl_For_GVMutableArray : public VMutabl
     return value;
   }
 
-  const void *try_get_internal_generic_virtual_mutable_array_impl() const override
+  bool try_assign_GVArray_impl(GVArray &varray) const override
   {
-    return &varray_;
+    varray = varray_;
+    return true;
+  }
+
+  bool try_assign_GVMutableArray_impl(GVMutableArray &varray) const override
+  {
+    varray = varray_;
+    return true;
   }
 
   bool has_ownership_impl() const override
@@ -651,6 +667,12 @@ inline void GVArrayImpl::get_internal_single_to_uninitialized(void *r_value) con
   this->get_internal_single(r_value);
 }
 
+template<typename T> inline bool GVArrayImpl::try_assign_VArray(VArray<T> &varray) const
+{
+  BLI_assert(type_->is<T>());
+  return this->try_assign_VArray_impl(&varray);
+}
+
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -694,6 +716,13 @@ inline GMutableSpan GVMutableArrayImpl::get_internal_span()
 inline void GVMutableArrayImpl::set_all(const void *src)
 {
   this->set_all_impl(src);
+}
+
+template<typename T>
+inline bool GVMutableArrayImpl::try_assign_VMutableArray(VMutableArray<T> &varray) const
+{
+  BLI_assert(type_->is<T>());
+  return this->try_assign_VMutableArray_impl(&varray);
 }
 
 /** \} */
@@ -779,10 +808,10 @@ template<typename T> inline GVArray::GVArray(const VArray<T> &varray)
   if (!varray) {
     return;
   }
-  if (const void *gvarray_ptr = varray->try_get_internal_generic_virtual_array()) {
-    *this = *(const GVArray *)gvarray_ptr;
+  if (varray->try_assign_GVArray(*this)) {
+    return;
   }
-  else if (varray->has_ownership()) {
+  if (varray->has_ownership()) {
     *this = GVArray::For<GVArrayImpl_For_VArray<T>>(varray);
   }
   else if (varray->is_span()) {
@@ -804,8 +833,9 @@ template<typename T> inline VArray<T> GVArray::typed() const
     return {};
   }
   BLI_assert(impl_->type().is<T>());
-  if (const void *varray_ptr = impl_->try_get_internal_typed_virtual_array()) {
-    return *(const VArray<T> *)varray_ptr;
+  VArray<T> varray;
+  if (impl_->try_assign_VArray(varray)) {
+    return varray;
   }
   if (impl_->has_ownership()) {
     return VArray<T>::template For<VArrayImpl_For_GVArray<T>>(*this);
@@ -882,10 +912,10 @@ template<typename T> inline GVMutableArray::GVMutableArray(const VMutableArray<T
   if (!varray) {
     return;
   }
-  if (const void *gvarray_ptr = varray->try_get_internal_generic_virtual_mutable_array()) {
-    *this = *(const GVMutableArray *)gvarray_ptr;
+  if (varray->try_assign_GVMutableArray(*this)) {
+    return;
   }
-  else if (varray->has_ownership()) {
+  if (varray->has_ownership()) {
     *this = GVMutableArray::For<GVMutableArrayImpl_For_VMutableArray<T>>(varray);
   }
   else if (varray->is_span()) {
@@ -903,8 +933,9 @@ template<typename T> inline VMutableArray<T> GVMutableArray::typed() const
     return {};
   }
   BLI_assert(impl_->type().is<T>());
-  if (const void *gvarray_ptr = impl_->try_get_internal_typed_virtual_mutable_array()) {
-    return *(const VMutableArray<T> *)gvarray_ptr;
+  VMutableArray<T> varray;
+  if (impl_->try_assign_VMutableArray(varray)) {
+    return varray;
   }
   if (impl_->has_ownership()) {
     return VMutableArray<T>::template For<VMutableArrayImpl_For_GVMutableArray<T>>(*this);

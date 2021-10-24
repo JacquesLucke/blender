@@ -44,6 +44,11 @@
 
 namespace blender {
 
+namespace fn {
+class GVArray;
+class GVMutableArray;
+};  // namespace fn
+
 /* An immutable virtual array. */
 template<typename T> class VArrayImpl {
  protected:
@@ -150,9 +155,9 @@ template<typename T> class VArrayImpl {
     this->materialize_to_uninitialized_impl(mask, r_span);
   }
 
-  const void *try_get_internal_generic_virtual_array() const
+  bool try_assign_GVArray(fn::GVArray &varray) const
   {
-    return this->try_get_internal_generic_virtual_array_impl();
+    return this->try_assign_GVArray_impl(varray);
   }
 
   bool has_ownership() const
@@ -219,9 +224,9 @@ template<typename T> class VArrayImpl {
     }
   }
 
-  virtual const void *try_get_internal_generic_virtual_array_impl() const
+  virtual bool try_assign_GVArray_impl(fn::GVArray &UNUSED(varray)) const
   {
-    return nullptr;
+    return false;
   }
 
   virtual bool has_ownership_impl() const
@@ -259,9 +264,9 @@ template<typename T> class VMutableArrayImpl : public VArrayImpl<T> {
     return MutableSpan<T>(const_cast<T *>(span.data()), span.size());
   }
 
-  const void *try_get_internal_generic_virtual_mutable_array() const
+  bool try_assign_GVMutableArray(fn::GVMutableArray &varray) const
   {
-    return this->try_get_internal_generic_virtual_mutable_array_impl();
+    return this->try_assign_GVMutableArray_impl(varray);
   }
 
  protected:
@@ -281,9 +286,9 @@ template<typename T> class VMutableArrayImpl : public VArrayImpl<T> {
     }
   }
 
-  virtual const void *try_get_internal_generic_virtual_mutable_array_impl() const
+  virtual bool try_assign_GVMutableArray_impl(fn::GVMutableArray &UNUSED(varray)) const
   {
-    return nullptr;
+    return false;
   }
 };
 
