@@ -177,7 +177,7 @@ static void gather_point_data_from_component(const GeoNodeExecParams &params,
   VArray<float> radii = params.get_input_attribute<float>(
       "Radius", component, ATTR_DOMAIN_POINT, 0.0f);
 
-  for (const int i : IndexRange(positions.size())) {
+  for (const int i : IndexRange(positions->size())) {
     r_positions.append(positions[i]);
     r_radii.append(radii[i]);
   }
