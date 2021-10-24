@@ -484,6 +484,12 @@ Vector<GVArray> evaluate_fields(ResourceScope &scope,
 
 void evaluate_constant_field(const GField &field, void *r_value)
 {
+  if (field.node().depends_on_input()) {
+    const CPPType &type = field.cpp_type();
+    type.copy_construct(type.default_value(), r_value);
+    return;
+  }
+
   ResourceScope scope;
   FieldContext context;
   Vector<GVArray> varrays = evaluate_fields(scope, {field}, IndexRange(1), context);
