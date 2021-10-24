@@ -408,6 +408,22 @@ GVArray GVArray::ForSpan(GSpan span)
   return GVArray::For<GVArrayImpl_For_GSpan>(span);
 }
 
+class GVArrayImpl_For_GArray : public GVArrayImpl_For_GSpan {
+ protected:
+  GArray<> array_;
+
+ public:
+  GVArrayImpl_For_GArray(GArray<> array)
+      : GVArrayImpl_For_GSpan(array.as_span()), array_(std::move(array))
+  {
+  }
+};
+
+GVArray GVArray::ForGArray(GArray<> array)
+{
+  return GVArray::For<GVArrayImpl_For_GArray>(array);
+}
+
 GVArray GVArray::ForEmpty(const CPPType &type)
 {
   return GVArray::ForSpan(GSpan(type));

@@ -639,7 +639,7 @@ class IndexTransferFieldInput : public FieldInput {
 
   GVArray get_varray_for_context(const FieldContext &context,
                                  const IndexMask mask,
-                                 ResourceScope &scope) const final
+                                 ResourceScope &UNUSED(scope)) const final
   {
     const GeometryComponentFieldContext *geometry_context =
         dynamic_cast<const GeometryComponentFieldContext *>(&context);
@@ -677,7 +677,7 @@ class IndexTransferFieldInput : public FieldInput {
           src_data.typed<T>(), mask, indices, dst.as_mutable_span().typed<T>());
     });
 
-    return &scope.construct<fn::GVArrayImpl_For_GArray>(std::move(dst));
+    return GVArray::ForGArray(std::move(dst));
   }
 };
 

@@ -395,17 +395,6 @@ template<typename T> class GVArrayImpl_For_VArray : public GVArrayImpl {
   }
 };
 
-class GVArrayImpl_For_GArray : public GVArrayImpl_For_GSpan {
- protected:
-  GArray<> array_;
-
- public:
-  GVArrayImpl_For_GArray(GArray<> array)
-      : GVArrayImpl_For_GSpan(array.as_span()), array_(std::move(array))
-  {
-  }
-};
-
 class GVArray;
 
 /* Used to convert any generic virtual array into a typed one. */
@@ -935,6 +924,7 @@ class GVArray {
   static GVArray ForSingleRef(const CPPType &type, const int64_t size, const void *value);
   static GVArray ForSingleDefault(const CPPType &type, const int64_t size);
   static GVArray ForSpan(GSpan span);
+  static GVArray ForGArray(GArray<> array);
   static GVArray ForEmpty(const CPPType &type);
 
   GVArray slice(IndexRange slice) const;
