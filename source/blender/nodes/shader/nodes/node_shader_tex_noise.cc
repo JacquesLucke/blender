@@ -230,9 +230,11 @@ class NoiseFunction : public fn::MultiFunction {
     }
   }
 
-  int64_t grain_size() const override
+  ExecutionHints get_execution_hints() const override
   {
-    return 256;
+    ExecutionHints hints;
+    hints.grain_size = 256;
+    return hints;
   }
 };
 

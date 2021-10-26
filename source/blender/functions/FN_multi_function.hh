@@ -73,8 +73,13 @@ class MultiFunction {
     return false;
   }
 
-  virtual bool is_primitive() const;
-  virtual int64_t grain_size() const;
+  struct ExecutionHints {
+    bool is_primitive = true;
+    bool prefers_low_indices = false;
+    int64_t grain_size = 1000;
+  };
+
+  virtual ExecutionHints get_execution_hints() const;
 
   int param_amount() const
   {

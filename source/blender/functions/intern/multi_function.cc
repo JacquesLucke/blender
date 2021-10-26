@@ -22,14 +22,10 @@ namespace blender::fn {
 static constexpr int64_t default_grain_size = 1000;
 static constexpr int64_t default_memory_slice_size = 10000;
 
-bool MultiFunction::is_primitive() const
+MultiFunction::ExecutionHints MultiFunction::get_execution_hints() const
 {
-  return true;
-}
-
-int64_t MultiFunction::grain_size() const
-{
-  return default_grain_size;
+  /* Return default execution hints. */
+  return {};
 }
 
 static void prepare_sliced_parameters(const MultiFunction &fn,
@@ -112,12 +108,13 @@ static void process_mask_slice(const MultiFunction &fn,
 void MultiFunction::call_auto(IndexMask mask, MFParams params, MFContext context) const
 {
   const bool supports_threading = !signature_ref_->has_vector_param;
-  if (this->is_primitive()) {
-    const int64_t grain_size = this->grain_size();
-    if (supports_threading && mask.size() > grain_size) {
-      threading::parallel_for(mask.index_range(), grain_size, [&](const IndexRange mask_slice) {
-        process_mask_slice(*this, mask_slice, mask, params, context);
-      });
+  const ExecutionHints execution_hints = this->get_execution_hints();
+  if (execution_hints.is_primitive) {
+    if (supports_threading && mask.size() > execution_hints.grain_size) {
+      threading::parallel_for(
+          mask.index_range(), execution_hints.grain_size, [&](const IndexRange mask_slice) {
+            process_mask_slice(*this, mask_slice, mask, params, context);
+          });
       return;
     }
   }

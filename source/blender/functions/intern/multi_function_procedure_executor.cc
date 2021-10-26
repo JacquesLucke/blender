@@ -1236,9 +1236,12 @@ void MFProcedureExecutor::call(IndexMask full_mask, MFParams params, MFContext c
   }
 }
 
-bool MFProcedureExecutor::is_primitive() const
+MultiFunction::ExecutionHints MFProcedureExecutor::get_execution_hints() const
 {
-  return false;
+  ExecutionHints hints;
+  hints.is_primitive = false;
+  hints.prefers_low_indices = true;
+  return hints;
 }
 
 }  // namespace blender::fn

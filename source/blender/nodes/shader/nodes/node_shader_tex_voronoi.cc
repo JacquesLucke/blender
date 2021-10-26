@@ -589,9 +589,11 @@ class VoronoiMinowskiFunction : public fn::MultiFunction {
     }
   }
 
-  int64_t grain_size() const override
+  ExecutionHints get_execution_hints() const override
   {
-    return 128;
+    ExecutionHints hints;
+    hints.grain_size = 128;
+    return hints;
   }
 };
 
@@ -1108,9 +1110,11 @@ class VoronoiMetricFunction : public fn::MultiFunction {
     }
   }
 
-  int64_t grain_size() const override
+  ExecutionHints get_execution_hints() const override
   {
-    return 128;
+    ExecutionHints hints;
+    hints.grain_size = 128;
+    return hints;
   }
 };
 
@@ -1290,9 +1294,11 @@ class VoronoiEdgeFunction : public fn::MultiFunction {
     }
   }
 
-  int64_t grain_size() const override
+  ExecutionHints get_execution_hints() const override
   {
-    return 128;
+    ExecutionHints hints;
+    hints.grain_size = 128;
+    return hints;
   }
 };
 
