@@ -229,6 +229,11 @@ class NoiseFunction : public fn::MultiFunction {
       }
     }
   }
+
+  int64_t grain_size() const override
+  {
+    return 256;
+  }
 };
 
 static void sh_node_noise_build_multi_function(blender::nodes::NodeMultiFunctionBuilder &builder)

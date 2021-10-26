@@ -588,6 +588,11 @@ class VoronoiMinowskiFunction : public fn::MultiFunction {
       }
     }
   }
+
+  int64_t grain_size() const override
+  {
+    return 128;
+  }
 };
 
 class VoronoiMetricFunction : public fn::MultiFunction {
@@ -1102,6 +1107,11 @@ class VoronoiMetricFunction : public fn::MultiFunction {
       }
     }
   }
+
+  int64_t grain_size() const override
+  {
+    return 128;
+  }
 };
 
 class VoronoiEdgeFunction : public fn::MultiFunction {
@@ -1278,7 +1288,12 @@ class VoronoiEdgeFunction : public fn::MultiFunction {
         break;
       }
     }
-  };
+  }
+
+  int64_t grain_size() const override
+  {
+    return 128;
+  }
 };
 
 static void sh_node_voronoi_build_multi_function(blender::nodes::NodeMultiFunctionBuilder &builder)
