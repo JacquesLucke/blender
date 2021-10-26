@@ -60,6 +60,7 @@ class MultiFunction {
   {
   }
 
+  void call_auto(IndexMask mask, MFParams params, MFContext context) const;
   virtual void call(IndexMask mask, MFParams params, MFContext context) const = 0;
 
   virtual uint64_t hash() const
@@ -71,6 +72,9 @@ class MultiFunction {
   {
     return false;
   }
+
+  virtual bool is_primitive() const;
+  virtual int64_t grain_size() const;
 
   int param_amount() const
   {

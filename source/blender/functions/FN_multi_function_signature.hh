@@ -35,6 +35,7 @@ struct MFSignature {
   Vector<MFParamType> param_types;
   Vector<int> param_data_indices;
   bool depends_on_context = false;
+  bool has_vector_param = false;
 
   int data_index(int param_index) const
   {
@@ -90,6 +91,7 @@ class MFSignatureBuilder {
         break;
       case MFDataType::Vector:
         signature_.param_data_indices.append(virtual_vector_array_count_++);
+        signature_.has_vector_param = true;
         break;
     }
   }
@@ -123,6 +125,7 @@ class MFSignatureBuilder {
         break;
       case MFDataType::Vector:
         signature_.param_data_indices.append(vector_array_count_++);
+        signature_.has_vector_param = true;
         break;
     }
   }
@@ -156,6 +159,7 @@ class MFSignatureBuilder {
         break;
       case MFDataType::Vector:
         signature_.param_data_indices.append(vector_array_count_++);
+        signature_.has_vector_param = true;
         break;
     }
   }

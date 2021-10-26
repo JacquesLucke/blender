@@ -226,7 +226,7 @@ class MFParams {
     const GVArray &array = this->readonly_single_input(param_index, name);
     return builder_->scope_.construct<GVArray_Typed<T>>(array);
   }
-  const GVArray &readonly_single_input(int param_index, StringRef name = "")
+  const GVArray &readonly_single_input(int param_index, StringRef name = "") const
   {
     this->assert_correct_param(param_index, name, MFParamType::SingleInput);
     int data_index = builder_->signature_->data_index(param_index);
@@ -255,19 +255,9 @@ class MFParams {
   {
     this->assert_correct_param(param_index, name, MFParamType::SingleOutput);
     int data_index = builder_->signature_->data_index(param_index);
-    GMutableSpan span = builder_->mutable_spans_[data_index];
-    if (span.is_empty()) {
-      /* The output is ignored by the caller, but the multi-function does not handle this case. So
-       * create a temporary buffer that the multi-function can write to. */
-      const CPPType &type = span.type();
-      void *buffer = builder_->scope_.linear_allocator().allocate(
-          builder_->min_array_size_ * type.size(), type.alignment());
-      if (!type.is_trivially_destructible()) {
-        /* Make sure the temporary elements will be destructed in the end. */
-        builder_->scope_.add_destruct_call(
-            [&type, buffer, mask = builder_->mask_]() { type.destruct_indices(buffer, mask); });
-      }
-      span = GMutableSpan{type, buffer, builder_->min_array_size_};
+    GMutableSpan &span = builder_->mutable_spans_[data_index];
+    if (span.is_empty() && builder_->min_array_size_ > 0) {
+      this->ensure_uninitialized_output(span);
     }
     return span;
   }
@@ -281,7 +271,7 @@ class MFParams {
   {
     return this->uninitialized_single_output_if_required(param_index, name).typed<T>();
   }
-  GMutableSpan uninitialized_single_output_if_required(int param_index, StringRef name = "")
+  GMutableSpan uninitialized_single_output_if_required(int param_index, StringRef name = "") const
   {
     this->assert_correct_param(param_index, name, MFParamType::SingleOutput);
     int data_index = builder_->signature_->data_index(param_index);
@@ -317,7 +307,7 @@ class MFParams {
   {
     return this->single_mutable(param_index, name).typed<T>();
   }
-  GMutableSpan single_mutable(int param_index, StringRef name = "")
+  GMutableSpan single_mutable(int param_index, StringRef name = "") const
   {
     this->assert_correct_param(param_index, name, MFParamType::SingleMutable);
     int data_index = builder_->signature_->data_index(param_index);
@@ -348,7 +338,7 @@ class MFParams {
 #endif
   }
 
-  void assert_correct_param(int param_index, StringRef name, MFParamType::Category category)
+  void assert_correct_param(int param_index, StringRef name, MFParamType::Category category) const
   {
     UNUSED_VARS_NDEBUG(param_index, name, category);
 #ifdef DEBUG
@@ -357,6 +347,21 @@ class MFParams {
       BLI_assert(builder_->signature_->param_names[param_index] == name);
     }
 #endif
+  }
+
+  void ensure_uninitialized_output(GMutableSpan &span)
+  {
+    /* The output is ignored by the caller, but the multi-function does not handle this case. So
+     * create a temporary buffer that the multi-function can write to. */
+    const CPPType &type = span.type();
+    void *buffer = builder_->scope_.linear_allocator().allocate(
+        builder_->min_array_size_ * type.size(), type.alignment());
+    if (!type.is_trivially_destructible()) {
+      /* Make sure the temporary elements will be destructed in the end. */
+      builder_->scope_.add_destruct_call(
+          [&type, buffer, mask = builder_->mask_]() { type.destruct_indices(buffer, mask); });
+    }
+    span = GMutableSpan{type, buffer, builder_->min_array_size_};
   }
 };
 

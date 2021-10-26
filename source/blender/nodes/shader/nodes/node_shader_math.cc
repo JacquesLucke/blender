@@ -122,11 +122,16 @@ class ClampWrapperFunction : public blender::fn::MultiFunction {
     this->set_signature(&fn.signature());
   }
 
+  bool is_primitive() const
+  {
+    return false;
+  }
+
   void call(blender::IndexMask mask,
             blender::fn::MFParams params,
             blender::fn::MFContext context) const override
   {
-    fn_.call(mask, params, context);
+    fn_.call_auto(mask, params, context);
 
     /* Assumes the output parameter is the last one. */
     const int output_param_index = this->param_amount() - 1;

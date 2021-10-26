@@ -1045,7 +1045,7 @@ static void execute_call_instruction(const MFCallInstruction &instruction,
     }
 
     try {
-      fn.call(mask, params, context);
+      fn.call_auto(mask, params, context);
     }
     catch (...) {
       /* Multi-functions must not throw exceptions. */
@@ -1234,6 +1234,11 @@ void MFProcedureExecutor::call(IndexMask full_mask, MFParams params, MFContext c
       }
     }
   }
+}
+
+bool MFProcedureExecutor::is_primitive() const
+{
+  return false;
 }
 
 }  // namespace blender::fn
