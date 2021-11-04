@@ -32,10 +32,15 @@ static void fn_node_enum_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Int>(N_("Integer"));
 };
 
-static void fn_node_enum_layout(uiLayout *UNUSED(layout),
-                                bContext *UNUSED(C),
-                                PointerRNA *UNUSED(ptr))
+static void fn_node_enum_init(bNodeTree *UNUSED(tree), bNode *node)
 {
+  NodeFunctionEnum *data = (NodeFunctionEnum *)MEM_callocN(sizeof(NodeFunctionEnum), __func__);
+  node->storage = data;
+}
+
+static void fn_node_enum_layout(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+{
+  uiItemR(layout, ptr, "value", 0, "", ICON_NONE);
 }
 
 static const fn::MultiFunction *get_multi_function(bNode &UNUSED(bnode))
@@ -56,6 +61,9 @@ void register_node_type_fn_enum()
   static bNodeType ntype;
 
   fn_node_type_base(&ntype, FN_NODE_ENUM, "Enum", NODE_CLASS_SCRIPT, 0);
+  node_type_storage(
+      &ntype, "NodeFunctionEnum", node_free_standard_storage, node_copy_standard_storage);
+  node_type_init(&ntype, blender::nodes::fn_node_enum_init);
   ntype.declare = blender::nodes::fn_node_enum_declare;
   ntype.build_multi_function = blender::nodes::fn_node_enum_build_multi_function;
   ntype.draw_buttons = blender::nodes::fn_node_enum_layout;
