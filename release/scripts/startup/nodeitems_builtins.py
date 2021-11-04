@@ -754,6 +754,7 @@ geometry_node_categories = [
         NodeItem("GeometryNodeSwitch"),
         NodeItem("FunctionNodeRandomValue"),
         NodeItem("FunctionNodeAlignEulerToVector"),
+        NodeItem("FunctionNodeEnum"),
     ]),
     GeometryNodeCategory("GEO_VECTOR", "Vector", items=[
         NodeItem("ShaderNodeVectorCurve"),

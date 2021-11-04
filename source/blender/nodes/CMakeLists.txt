@@ -138,6 +138,7 @@ set(SRC
 
   function/nodes/node_fn_align_euler_to_vector.cc
   function/nodes/node_fn_boolean_math.cc
+  function/nodes/node_fn_enum.cc
   function/nodes/node_fn_float_compare.cc
   function/nodes/node_fn_float_to_int.cc
   function/nodes/node_fn_input_bool.cc
