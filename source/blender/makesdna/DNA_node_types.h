@@ -171,6 +171,7 @@ typedef enum eNodeSocketDatatype {
   SOCK_COLLECTION = 11,
   SOCK_TEXTURE = 12,
   SOCK_MATERIAL = 13,
+  SOCK_ENUM = 14,
 } eNodeSocketDatatype;
 
 /* Socket shape. */
@@ -663,6 +664,10 @@ typedef struct bNodeSocketValueTexture {
 typedef struct bNodeSocketValueMaterial {
   struct Material *value;
 } bNodeSocketValueMaterial;
+
+typedef struct bNodeSocketValueEnum {
+  int value;
+} bNodeSocketValueEnum;
 
 /* Data structs, for node->storage. */
 enum {

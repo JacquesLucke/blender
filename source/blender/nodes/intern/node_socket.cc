@@ -400,6 +400,14 @@ void node_socket_init_default_value(bNodeSocket *sock)
       sock->default_value = dval;
       break;
     }
+    case SOCK_ENUM: {
+      bNodeSocketValueEnum *dval = (bNodeSocketValueEnum *)MEM_callocN(
+          sizeof(bNodeSocketValueEnum), "node socket value enum");
+      dval->value = 0;
+
+      sock->default_value = dval;
+      break;
+    }
   }
 }
 
@@ -491,6 +499,12 @@ void node_socket_copy_default_value(bNodeSocket *to, const bNodeSocket *from)
       bNodeSocketValueMaterial *fromval = (bNodeSocketValueMaterial *)from->default_value;
       *toval = *fromval;
       id_us_plus(&toval->value->id);
+      break;
+    }
+    case SOCK_ENUM: {
+      bNodeSocketValueEnum *toval = (bNodeSocketValueEnum *)to->default_value;
+      bNodeSocketValueEnum *fromval = (bNodeSocketValueEnum *)from->default_value;
+      *toval = *fromval;
       break;
     }
   }
@@ -883,6 +897,12 @@ static bNodeSocketType *make_socket_type_material()
   return socktype;
 }
 
+static bNodeSocketType *make_socket_type_enum()
+{
+  bNodeSocketType *socktype = make_standard_socket_type(SOCK_ENUM, PROP_NONE);
+  return socktype;
+}
+
 void register_standard_node_socket_types(void)
 {
   /* Draw callbacks are set in `drawnode.c` to avoid bad-level calls. */
@@ -928,6 +948,8 @@ void register_standard_node_socket_types(void)
   nodeRegisterSocketType(make_socket_type_image());
 
   nodeRegisterSocketType(make_socket_type_material());
+
+  nodeRegisterSocketType(make_socket_type_enum());
 
   nodeRegisterSocketType(make_socket_type_virtual());
 }

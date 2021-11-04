@@ -349,6 +349,7 @@ static void library_foreach_node_socket(LibraryForeachIDData *data, bNodeSocket 
     case SOCK_CUSTOM:
     case SOCK_SHADER:
     case SOCK_GEOMETRY:
+    case SOCK_ENUM:
       break;
   }
 }
@@ -479,6 +480,9 @@ static void write_node_socket_default_value(BlendWriter *writer, bNodeSocket *so
       break;
     case SOCK_MATERIAL:
       BLO_write_struct(writer, bNodeSocketValueMaterial, sock->default_value);
+      break;
+    case SOCK_ENUM:
+      BLO_write_struct(writer, bNodeSocketValueEnum, sock->default_value);
       break;
     case __SOCK_MESH:
     case SOCK_CUSTOM:
@@ -889,6 +893,7 @@ static void lib_link_node_socket(BlendLibReader *reader, Library *lib, bNodeSock
     case SOCK_CUSTOM:
     case SOCK_SHADER:
     case SOCK_GEOMETRY:
+    case SOCK_ENUM:
       break;
   }
 }
@@ -984,6 +989,7 @@ static void expand_node_socket(BlendExpander *expander, bNodeSocket *sock)
       case SOCK_CUSTOM:
       case SOCK_SHADER:
       case SOCK_GEOMETRY:
+      case SOCK_ENUM:
         break;
     }
   }
@@ -1585,6 +1591,7 @@ static void socket_id_user_increment(bNodeSocket *sock)
     case SOCK_CUSTOM:
     case SOCK_SHADER:
     case SOCK_GEOMETRY:
+    case SOCK_ENUM:
       break;
   }
 }
@@ -1638,6 +1645,7 @@ static void socket_id_user_decrement(bNodeSocket *sock)
     case SOCK_CUSTOM:
     case SOCK_SHADER:
     case SOCK_GEOMETRY:
+    case SOCK_ENUM:
       break;
   }
 }
@@ -1800,6 +1808,8 @@ const char *nodeStaticSocketType(int type, int subtype)
       return "NodeSocketTexture";
     case SOCK_MATERIAL:
       return "NodeSocketMaterial";
+    case SOCK_ENUM:
+      return "NodeSocketEnum";
   }
   return nullptr;
 }
@@ -1877,6 +1887,8 @@ const char *nodeStaticSocketInterfaceType(int type, int subtype)
       return "NodeSocketInterfaceTexture";
     case SOCK_MATERIAL:
       return "NodeSocketInterfaceMaterial";
+    case SOCK_ENUM:
+      return "NodeSocketInterfaceEnum";
   }
   return nullptr;
 }
@@ -1910,6 +1922,8 @@ const char *nodeStaticSocketLabel(int type, int UNUSED(subtype))
       return "Texture";
     case SOCK_MATERIAL:
       return "Material";
+    case SOCK_ENUM:
+      return "Enum";
   }
   return nullptr;
 }

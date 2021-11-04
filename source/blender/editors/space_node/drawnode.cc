@@ -3467,6 +3467,7 @@ static const float std_node_socket_colors[][4] = {
     {0.96, 0.96, 0.96, 1.0}, /* SOCK_COLLECTION */
     {0.62, 0.31, 0.64, 1.0}, /* SOCK_TEXTURE */
     {0.92, 0.46, 0.51, 1.0}, /* SOCK_MATERIAL */
+    {0.00, 0.00, 0.00, 1.0}, /* SOCK_ENUM */
 };
 
 /* common color callbacks for standard types */
@@ -3685,6 +3686,10 @@ static void std_node_socket_draw(
       uiItemR(layout, ptr, "default_value", DEFAULT_FLAGS, text, 0);
       break;
     }
+    case SOCK_ENUM: {
+      uiItemR(layout, ptr, "default_value", DEFAULT_FLAGS, text, 0);
+      break;
+    }
     default:
       node_socket_button_label(C, layout, ptr, node_ptr, text);
       break;
@@ -3722,7 +3727,8 @@ static void std_node_socket_interface_draw(bContext *UNUSED(C), uiLayout *layout
     }
     case SOCK_BOOLEAN:
     case SOCK_RGBA:
-    case SOCK_STRING: {
+    case SOCK_STRING:
+    case SOCK_ENUM: {
       uiItemR(col, ptr, "default_value", DEFAULT_FLAGS, IFACE_("Default"), 0);
       break;
     }
