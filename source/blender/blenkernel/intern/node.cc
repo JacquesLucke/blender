@@ -66,6 +66,7 @@
 #include "BKE_colortools.h"
 #include "BKE_cryptomatte.h"
 #include "BKE_global.h"
+#include "BKE_icons.h"
 #include "BKE_idprop.h"
 #include "BKE_idtype.h"
 #include "BKE_lib_id.h"
@@ -248,6 +249,13 @@ static void ntree_copy_data(Main *UNUSED(bmain), ID *id_dst, const ID *id_src, c
     ntree_dst->field_inferencing_interface = node_field_inferencing_interface_copy(
         *ntree_src->field_inferencing_interface);
   }
+
+  if (flag & LIB_ID_COPY_NO_PREVIEW) {
+    ntree_dst->preview = NULL;
+  }
+  else {
+    BKE_previewimg_id_copy(&ntree_dst->id, &ntree_src->id);
+  }
 }
 
 static void ntree_free_data(ID *id)
@@ -303,6 +311,8 @@ static void ntree_free_data(ID *id)
   if (ntree->id.tag & LIB_TAG_LOCALIZED) {
     BKE_libblock_free_data(&ntree->id, true);
   }
+
+  BKE_previewimg_free(&ntree->preview);
 }
 
 static void library_foreach_node_socket(LibraryForeachIDData *data, bNodeSocket *sock)
@@ -643,6 +653,8 @@ void ntreeBlendWrite(BlendWriter *writer, bNodeTree *ntree)
   LISTBASE_FOREACH (bNodeSocket *, sock, &ntree->outputs) {
     write_node_socket_interface(writer, sock);
   }
+
+  BKE_previewimg_blend_write(writer, ntree->preview);
 }
 
 static void ntree_blend_write(BlendWriter *writer, ID *id, const void *id_address)
@@ -835,6 +847,9 @@ void ntreeBlendReadData(BlendDataReader *reader, bNodeTree *ntree)
     /* Update field referencing for the geometry nodes modifier. */
     ntree->update |= NTREE_UPDATE_FIELD_INFERENCING;
   }
+
+  BLO_read_data_address(reader, &ntree->preview);
+  BKE_previewimg_blend_read(reader, ntree->preview);
 
   /* type verification is in lib-link */
 }
@@ -4605,6 +4620,15 @@ static OutputFieldDependency get_interface_output_field_dependency(const NodeRef
   return socket_decl.output_field_dependency();
 }
 
+static FieldInferencingInterface get_dummy_field_inferencing_interface(const NodeRef &node)
+{
+  FieldInferencingInterface inferencing_interface;
+  inferencing_interface.inputs.append_n_times(InputSocketFieldType::None, node.inputs().size());
+  inferencing_interface.outputs.append_n_times(OutputFieldDependency::ForDataSource(),
+                                               node.outputs().size());
+  return inferencing_interface;
+}
+
 /**
  * Retrieves information about how the node interacts with fields.
  * In the future, this information can be stored in the node declaration. This would allow this
@@ -4617,6 +4641,10 @@ static FieldInferencingInterface get_node_field_inferencing_interface(const Node
     bNodeTree *group = (bNodeTree *)node.bnode()->id;
     if (group == nullptr) {
       return FieldInferencingInterface();
+    }
+    if (!ntreeIsRegistered(group)) {
+      /* This can happen when there is a linked node group that was not found (see T92799). */
+      return get_dummy_field_inferencing_interface(node);
     }
     if (group->field_inferencing_interface == nullptr) {
       /* Update group recursively. */
