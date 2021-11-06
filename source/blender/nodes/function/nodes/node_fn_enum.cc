@@ -35,6 +35,7 @@ static void fn_node_enum_declare(NodeDeclarationBuilder &b)
 static void fn_node_enum_init(bNodeTree *UNUSED(tree), bNode *node)
 {
   NodeFunctionEnum *data = (NodeFunctionEnum *)MEM_callocN(sizeof(NodeFunctionEnum), __func__);
+  data->owner_node = node;
   node->storage = data;
 }
 
@@ -61,10 +62,11 @@ static void fn_node_enum_copy_storage(bNodeTree *UNUSED(dest_ntree),
 {
   const NodeFunctionEnum *src_storage = (const NodeFunctionEnum *)src_node->storage;
   NodeFunctionEnum *dst_storage = (NodeFunctionEnum *)MEM_dupallocN(src_storage);
+  dst_storage->owner_node = dst_node;
   BLI_listbase_clear(&dst_storage->items);
   LISTBASE_FOREACH (const NodeFunctionEnumItem *, src_item, &src_storage->items) {
     NodeFunctionEnumItem *dst_item = (NodeFunctionEnumItem *)MEM_dupallocN(src_item);
-    dst_item->owner = dst_node;
+    dst_item->owner_node = dst_node;
     dst_item->name = (char *)MEM_dupallocN(src_item->name);
     dst_item->description = (char *)MEM_dupallocN(src_item->description);
     BLI_addtail(&dst_storage->items, dst_item);

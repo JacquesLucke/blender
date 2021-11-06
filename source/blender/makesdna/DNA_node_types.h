@@ -1601,7 +1601,8 @@ typedef struct NodeGeometryViewer {
 } NodeGeometryViewer;
 
 typedef struct NodeFunctionEnumItem {
-  bNode *owner;
+  struct NodeFunctionEnumItem *next, *prev;
+  bNode *owner_node;
   int value;
   char _pad[4];
   char *name;
@@ -1609,6 +1610,7 @@ typedef struct NodeFunctionEnumItem {
 } NodeFunctionEnumItem;
 
 typedef struct NodeFunctionEnum {
+  bNode *owner_node;
   /** NodeFunctionEnumItem. */
   ListBase items;
 } NodeFunctionEnum;

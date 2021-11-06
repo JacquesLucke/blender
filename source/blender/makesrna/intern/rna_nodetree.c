@@ -4571,6 +4571,16 @@ bool rna_NodeSocketMaterial_default_value_poll(PointerRNA *UNUSED(ptr), PointerR
   return ma->gp_style == NULL;
 }
 
+static NodeFunctionEnumItem *rna_NodeFunctionEnumItems_items_new(bNode *node)
+{
+  NodeFunctionEnum *storage = node->storage;
+  NodeFunctionEnumItem *item = MEM_callocN(sizeof(NodeFunctionEnumItem), __func__);
+  item->owner_node = node;
+  BLI_addtail(&storage->items, item);
+  printf("%d\n", BLI_listbase_count(&storage->items));
+  return item;
+}
+
 #else
 
 static const EnumPropertyItem prop_image_layer_items[] = {
@@ -5066,16 +5076,54 @@ static void def_fn_input_string(StructRNA *srna)
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
 }
 
-static void def_fn_enum(StructRNA *srna)
+static void rna_def_fn_enum_item(BlenderRNA *brna)
+{
+  StructRNA *srna;
+  PropertyRNA *prop;
+
+  srna = RNA_def_struct(brna, "NodeFunctionEnumItem", NULL);
+  RNA_def_struct_ui_text(srna, "Node Function Enum Item", "");
+
+  prop = RNA_def_property(srna, "value", PROP_INT, PROP_NONE);
+  RNA_def_property_ui_text(prop, "Value", "Internal identifier if the enum item");
+
+  prop = RNA_def_property(srna, "name", PROP_STRING, PROP_NONE);
+  RNA_def_property_ui_text(prop, "Name", "Display name of the enum item");
+
+  prop = RNA_def_property(srna, "description", PROP_STRING, PROP_NONE);
+  RNA_def_property_ui_text(prop, "Description", "Tooltip for the enum item");
+}
+
+static void rna_def_fn_enum_items_api(BlenderRNA *brna, PropertyRNA *cprop)
+{
+  StructRNA *srna;
+  FunctionRNA *func;
+  PropertyRNA *parm;
+
+  RNA_def_property_srna(cprop, "NodeFunctionEnumItems");
+  srna = RNA_def_struct(brna, "NodeFunctionEnumItems", NULL);
+  RNA_def_struct_sdna(srna, "bNode");
+  RNA_def_struct_ui_text(srna, "Enum Items", "");
+
+  func = RNA_def_function(srna, "new", "rna_NodeFunctionEnumItems_items_new");
+  RNA_def_function_ui_description(func, "Add a new enum item");
+  parm = RNA_def_pointer(func, "item", "NodeFunctionEnumItem", "", "New enum item");
+  RNA_def_function_return(func, parm);
+}
+
+static void def_fn_enum(BlenderRNA *brna, StructRNA *srna)
 {
   PropertyRNA *prop;
 
+  rna_def_fn_enum_item(brna);
+
   RNA_def_struct_sdna_from(srna, "NodeFunctionEnum", "storage");
 
-  // prop = RNA_def_property(srna, "value", PROP_INT, PROP_NONE);
-  // RNA_def_property_int_sdna(prop, NULL, "some_value");
-  // RNA_def_property_ui_text(prop, "Integer", "Input value used for unconnected socket");
-  // RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
+  prop = RNA_def_property(srna, "enum_items", PROP_COLLECTION, PROP_NONE);
+  RNA_def_property_collection_sdna(prop, NULL, "items", NULL);
+  RNA_def_property_struct_type(prop, "NodeFunctionEnumItem");
+  RNA_def_property_ui_text(prop, "Items", "");
+  rna_def_fn_enum_items_api(brna, prop);
 }
 
 /* -- Shader Nodes ---------------------------------------------------------- */
@@ -13170,6 +13218,9 @@ void RNA_def_nodetree(BlenderRNA *brna)
       if (ID == CMP_NODE_OUTPUT_FILE) { \
         /* needs brna argument, can't use NOD_static_types.h */ \
         def_cmp_output_file(brna, srna); \
+      } \
+      if (ID == FN_NODE_ENUM) { \
+        def_fn_enum(brna, srna); \
       } \
     }
 
