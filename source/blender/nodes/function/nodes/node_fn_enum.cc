@@ -27,9 +27,14 @@ namespace blender::nodes {
 
 static void fn_node_enum_declare(NodeDeclarationBuilder &b)
 {
-  b.is_function_node();
-  b.add_input<decl::Float>(N_("Float"));
-  b.add_output<decl::Int>(N_("Integer"));
+  const bNode *node = b.node();
+  if (node == nullptr) {
+    return;
+  }
+  const NodeFunctionEnum *storage = (const NodeFunctionEnum *)node->storage;
+  LISTBASE_FOREACH (const NodeFunctionEnumItem *, item, &storage->items) {
+    b.add_output<decl::Bool>(N_("Bool"), "item_" + std::to_string(item->value));
+  }
 };
 
 static void fn_node_enum_init(bNodeTree *UNUSED(tree), bNode *node)
@@ -96,6 +101,7 @@ void register_node_type_fn_enum()
                     blender::nodes::fn_node_enum_copy_storage);
   node_type_init(&ntype, blender::nodes::fn_node_enum_init);
   ntype.declare = blender::nodes::fn_node_enum_declare;
+  ntype.declaration_is_dynamic = true;
   ntype.build_multi_function = blender::nodes::fn_node_enum_build_multi_function;
   ntype.draw_buttons = blender::nodes::fn_node_enum_layout;
   nodeRegisterType(&ntype);

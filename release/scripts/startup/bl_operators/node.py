@@ -320,11 +320,14 @@ class NODE_OT_enum_item_add(Operator):
         return space is not None and space.type == 'NODE_EDITOR' and space.edit_tree is not None
 
     def execute(self, context):
+        import random
+
         space = context.space_data
         node = space.edit_tree.nodes.get(self.node_name)
         if node is None:
             return {'CANCELLED'}
-        node.enum_items.new()
+        item = node.enum_items.new()
+        item.value = random.randint(0, 2 ** 31)
         return {'FINISHED'}
 
 

@@ -244,11 +244,13 @@ class NodeDeclaration {
 
 class NodeDeclarationBuilder {
  private:
+  /** The node may be null. */
   NodeDeclaration &declaration_;
+  const bNode *node_;
   Vector<std::unique_ptr<BaseSocketDeclarationBuilder>> builders_;
 
  public:
-  NodeDeclarationBuilder(NodeDeclaration &declaration);
+  NodeDeclarationBuilder(NodeDeclaration &declaration, const bNode *node);
 
   /**
    * All inputs support fields, and all outputs are fields if any of the inputs is a field.
@@ -257,6 +259,12 @@ class NodeDeclarationBuilder {
   void is_function_node(bool value = true)
   {
     declaration_.is_function_node_ = value;
+  }
+
+  /** Return the node this declaration is build for. It may be null. */
+  const bNode *node() const
+  {
+    return node_;
   }
 
   template<typename DeclType>
@@ -392,8 +400,9 @@ inline const OutputFieldDependency &SocketDeclaration::output_field_dependency()
 /** \name #NodeDeclarationBuilder Inline Methods
  * \{ */
 
-inline NodeDeclarationBuilder::NodeDeclarationBuilder(NodeDeclaration &declaration)
-    : declaration_(declaration)
+inline NodeDeclarationBuilder::NodeDeclarationBuilder(NodeDeclaration &declaration,
+                                                      const bNode *node)
+    : declaration_(declaration), node_(node)
 {
 }
 

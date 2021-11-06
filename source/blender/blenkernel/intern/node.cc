@@ -1153,8 +1153,6 @@ static void node_init(const struct bContext *C, bNodeTree *ntree, bNode *node)
   BLI_strncpy(node->name, DATA_(ntype->ui_name), NODE_MAXSTR);
   nodeUniqueName(ntree, node);
 
-  node_add_sockets_from_type(ntree, node, ntype);
-
   if (ntype->initfunc != nullptr) {
     ntype->initfunc(ntree, node);
   }
@@ -1162,6 +1160,8 @@ static void node_init(const struct bContext *C, bNodeTree *ntree, bNode *node)
   if (ntree->typeinfo->node_add_init != nullptr) {
     ntree->typeinfo->node_add_init(ntree, node);
   }
+
+  node_add_sockets_from_type(ntree, node, ntype);
 
   if (node->id) {
     id_us_plus(node->id);
@@ -1440,7 +1440,7 @@ void nodeRegisterType(bNodeType *nt)
   if (nt->declare && !nt->declaration_is_dynamic) {
     if (nt->fixed_declaration == nullptr) {
       nt->fixed_declaration = new blender::nodes::NodeDeclaration();
-      blender::nodes::NodeDeclarationBuilder builder{*nt->fixed_declaration};
+      blender::nodes::NodeDeclarationBuilder builder{*nt->fixed_declaration, nullptr};
       nt->declare(builder);
     }
   }
@@ -4066,7 +4066,7 @@ void nodeDeclarationEnsure(bNodeTree *UNUSED(ntree), bNode *node)
   }
   if (node->typeinfo->declaration_is_dynamic) {
     node->declaration = new blender::nodes::NodeDeclaration();
-    blender::nodes::NodeDeclarationBuilder builder{*node->declaration};
+    blender::nodes::NodeDeclarationBuilder builder{*node->declaration, node};
     node->typeinfo->declare(builder);
   }
   else {
@@ -4074,6 +4074,16 @@ void nodeDeclarationEnsure(bNodeTree *UNUSED(ntree), bNode *node)
     BLI_assert(node->typeinfo->fixed_declaration != nullptr);
     node->declaration = node->typeinfo->fixed_declaration;
   }
+}
+
+void nodeUpdateFromDeclaration(bNodeTree *ntree, bNode *node)
+{
+  if (!node->typeinfo->declaration_is_dynamic) {
+    return;
+  }
+  delete node->declaration;
+  node->declaration = nullptr;
+  node_verify_sockets(ntree, node, true);
 }
 
 /* ************** Node Clipboard *********** */
@@ -5132,6 +5142,7 @@ void ntreeUpdateTree(Main *bmain, bNodeTree *ntree)
   LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
     /* node tree update tags override individual node update flags */
     if ((node->update & NODE_UPDATE) || (ntree->update & NTREE_UPDATE)) {
+      nodeUpdateFromDeclaration(ntree, node);
       if (node->typeinfo->updatefunc) {
         node->typeinfo->updatefunc(ntree, node);
       }
@@ -5193,6 +5204,7 @@ void nodeUpdate(bNodeTree *ntree, bNode *node)
   }
   ntree->is_updating = true;
 
+  nodeUpdateFromDeclaration(ntree, node);
   if (node->typeinfo->updatefunc) {
     node->typeinfo->updatefunc(ntree, node);
   }
@@ -5223,6 +5235,7 @@ bool nodeUpdateID(bNodeTree *ntree, ID *id)
     if (node->id == id) {
       changed = true;
       node->update |= NODE_UPDATE_ID;
+      nodeUpdateFromDeclaration(ntree, node);
       if (node->typeinfo->updatefunc) {
         node->typeinfo->updatefunc(ntree, node);
       }

@@ -3440,6 +3440,7 @@ static bool rna_NodeInternal_poll_instance(bNode *node, bNodeTree *ntree)
 static void rna_NodeInternal_update(ID *id, bNode *node)
 {
   bNodeTree *ntree = (bNodeTree *)id;
+  nodeUpdateFromDeclaration(ntree, node);
   if (node->typeinfo->updatefunc) {
     node->typeinfo->updatefunc(ntree, node);
   }
@@ -4571,12 +4572,19 @@ bool rna_NodeSocketMaterial_default_value_poll(PointerRNA *UNUSED(ptr), PointerR
   return ma->gp_style == NULL;
 }
 
-static NodeFunctionEnumItem *rna_NodeFunctionEnumItems_items_new(bNode *node)
+static NodeFunctionEnumItem *rna_NodeFunctionEnumItems_items_new(ID *id, bNode *node, bContext *C)
 {
   NodeFunctionEnum *storage = node->storage;
   NodeFunctionEnumItem *item = MEM_callocN(sizeof(NodeFunctionEnumItem), __func__);
   item->owner_node = node;
   BLI_addtail(&storage->items, item);
+
+  PointerRNA node_ptr;
+  RNA_pointer_create(id, &RNA_Node, node, &node_ptr);
+
+  Main *bmain = CTX_data_main(C);
+  Scene *scene = CTX_data_scene(C);
+  rna_Node_socket_update(bmain, scene, &node_ptr);
   return item;
 }
 
@@ -5105,6 +5113,7 @@ static void rna_def_fn_enum_items_api(BlenderRNA *brna, PropertyRNA *cprop)
   RNA_def_struct_ui_text(srna, "Enum Items", "");
 
   func = RNA_def_function(srna, "new", "rna_NodeFunctionEnumItems_items_new");
+  RNA_def_function_flag(func, FUNC_USE_CONTEXT | FUNC_USE_SELF_ID);
   RNA_def_function_ui_description(func, "Add a new enum item");
   parm = RNA_def_pointer(func, "item", "NodeFunctionEnumItem", "", "New enum item");
   RNA_def_function_return(func, parm);
