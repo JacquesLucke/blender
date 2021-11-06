@@ -264,6 +264,12 @@ typedef struct bNodeType {
   /* Additional parameters in the side panel */
   void (*draw_buttons_ex)(struct uiLayout *, struct bContext *C, struct PointerRNA *ptr);
 
+  bool (*draw_socket)(struct uiLayout *layout,
+                      const struct bContext *C,
+                      struct bNodeTree *ntree,
+                      struct bNode *node,
+                      struct bNodeSocket *socket);
+
   /* Additional drawing on backdrop */
   void (*draw_backdrop)(
       struct SpaceNode *snode, struct ImBuf *backdrop, struct bNode *node, int x, int y);

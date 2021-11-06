@@ -419,7 +419,10 @@ static void node_update_basis(const bContext *C, bNodeTree *ntree, bNode *node)
     uiLayout *row = uiLayoutRow(layout, true);
     uiLayoutSetAlignment(row, UI_LAYOUT_ALIGN_RIGHT);
     const char *socket_label = nodeSocketLabel(nsock);
-    nsock->typeinfo->draw((bContext *)C, row, &sockptr, &nodeptr, IFACE_(socket_label));
+    if (node->typeinfo->draw_socket == NULL ||
+        !node->typeinfo->draw_socket(row, C, ntree, node, nsock)) {
+      nsock->typeinfo->draw((bContext *)C, row, &sockptr, &nodeptr, IFACE_(socket_label));
+    }
 
     UI_block_align_end(node->block);
     UI_block_layout_resolve(node->block, nullptr, &buty);
@@ -554,8 +557,11 @@ static void node_update_basis(const bContext *C, bNodeTree *ntree, bNode *node)
 
     uiLayout *row = uiLayoutRow(layout, true);
 
-    const char *socket_label = nodeSocketLabel(nsock);
-    nsock->typeinfo->draw((bContext *)C, row, &sockptr, &nodeptr, IFACE_(socket_label));
+    if (node->typeinfo->draw_socket == NULL ||
+        !node->typeinfo->draw_socket(row, C, ntree, node, nsock)) {
+      const char *socket_label = nodeSocketLabel(nsock);
+      nsock->typeinfo->draw((bContext *)C, row, &sockptr, &nodeptr, IFACE_(socket_label));
+    }
 
     UI_block_align_end(node->block);
     UI_block_layout_resolve(node->block, nullptr, &buty);

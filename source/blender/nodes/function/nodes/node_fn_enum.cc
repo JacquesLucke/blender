@@ -37,6 +37,16 @@ static void fn_node_enum_declare(NodeDeclarationBuilder &b)
   }
 };
 
+static bool fn_node_enum_draw_socket(uiLayout *layout,
+                                     const bContext *UNUSED(C),
+                                     bNodeTree *UNUSED(ntree),
+                                     bNode *UNUSED(node),
+                                     bNodeSocket *UNUSED(socket))
+{
+  uiItemL(layout, "Hello World", ICON_NONE);
+  return true;
+}
+
 static void fn_node_enum_init(bNodeTree *UNUSED(tree), bNode *node)
 {
   NodeFunctionEnum *data = (NodeFunctionEnum *)MEM_callocN(sizeof(NodeFunctionEnum), __func__);
@@ -104,5 +114,6 @@ void register_node_type_fn_enum()
   ntype.declaration_is_dynamic = true;
   ntype.build_multi_function = blender::nodes::fn_node_enum_build_multi_function;
   ntype.draw_buttons = blender::nodes::fn_node_enum_layout;
+  ntype.draw_socket = blender::nodes::fn_node_enum_draw_socket;
   nodeRegisterType(&ntype);
 }
