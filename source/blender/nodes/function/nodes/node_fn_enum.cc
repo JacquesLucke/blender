@@ -38,9 +38,10 @@ static void fn_node_enum_init(bNodeTree *UNUSED(tree), bNode *node)
   node->storage = data;
 }
 
-static void fn_node_enum_layout(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+static void fn_node_enum_layout(uiLayout *UNUSED(layout),
+                                bContext *UNUSED(C),
+                                PointerRNA *UNUSED(ptr))
 {
-  uiItemR(layout, ptr, "value", 0, "", ICON_NONE);
 }
 
 static const fn::MultiFunction *get_multi_function(bNode &UNUSED(bnode))
@@ -54,6 +55,32 @@ static void fn_node_enum_build_multi_function(NodeMultiFunctionBuilder &builder)
   builder.set_matching_fn(fn);
 }
 
+static void fn_node_enum_copy_storage(bNodeTree *UNUSED(dest_ntree),
+                                      bNode *dst_node,
+                                      const bNode *src_node)
+{
+  const NodeFunctionEnum *src_storage = (const NodeFunctionEnum *)src_node->storage;
+  NodeFunctionEnum *dst_storage = (NodeFunctionEnum *)MEM_dupallocN(src_storage);
+  BLI_listbase_clear(&dst_storage->items);
+  LISTBASE_FOREACH (const NodeFunctionEnumItem *, src_item, &src_storage->items) {
+    NodeFunctionEnumItem *dst_item = (NodeFunctionEnumItem *)MEM_dupallocN(src_item);
+    dst_item->owner = dst_node;
+    dst_item->name = (char *)MEM_dupallocN(src_item->name);
+    dst_item->description = (char *)MEM_dupallocN(src_item->description);
+    BLI_addtail(&dst_storage->items, dst_item);
+  }
+  dst_node->storage = dst_storage;
+}
+
+static void fn_node_enum_free_storage(bNode *node)
+{
+  NodeFunctionEnum *storage = (NodeFunctionEnum *)node->storage;
+  LISTBASE_FOREACH_MUTABLE (NodeFunctionEnumItem *, item, &storage->items) {
+    MEM_freeN(item);
+  }
+  MEM_freeN(storage);
+}
+
 }  // namespace blender::nodes
 
 void register_node_type_fn_enum()
@@ -61,8 +88,10 @@ void register_node_type_fn_enum()
   static bNodeType ntype;
 
   fn_node_type_base(&ntype, FN_NODE_ENUM, "Enum", NODE_CLASS_SCRIPT, 0);
-  node_type_storage(
-      &ntype, "NodeFunctionEnum", node_free_standard_storage, node_copy_standard_storage);
+  node_type_storage(&ntype,
+                    "NodeFunctionEnum",
+                    blender::nodes::fn_node_enum_free_storage,
+                    blender::nodes::fn_node_enum_copy_storage);
   node_type_init(&ntype, blender::nodes::fn_node_enum_init);
   ntype.declare = blender::nodes::fn_node_enum_declare;
   ntype.build_multi_function = blender::nodes::fn_node_enum_build_multi_function;

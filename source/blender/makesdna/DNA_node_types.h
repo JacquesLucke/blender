@@ -1600,8 +1600,17 @@ typedef struct NodeGeometryViewer {
   int8_t data_type;
 } NodeGeometryViewer;
 
+typedef struct NodeFunctionEnumItem {
+  bNode *owner;
+  int value;
+  char _pad[4];
+  char *name;
+  char *description;
+} NodeFunctionEnumItem;
+
 typedef struct NodeFunctionEnum {
-  int some_value;
+  /** NodeFunctionEnumItem. */
+  ListBase items;
 } NodeFunctionEnum;
 
 /* script node mode */

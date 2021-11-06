@@ -627,6 +627,14 @@ void ntreeBlendWrite(BlendWriter *writer, bNodeTree *ntree)
       else if (node->typeinfo != &NodeTypeUndefined) {
         BLO_write_struct_by_name(writer, node->typeinfo->storagename, node->storage);
       }
+      else if (node->type == FN_NODE_ENUM) {
+        NodeFunctionEnum *storage = (NodeFunctionEnum *)node->storage;
+        BLO_write_struct_list(writer, NodeFunctionEnumItem, &storage->items);
+        LISTBASE_FOREACH (NodeFunctionEnumItem *, item, &storage->items) {
+          BLO_write_string(writer, item->name);
+          BLO_write_string(writer, item->description);
+        }
+      }
     }
 
     if (node->type == CMP_NODE_OUTPUT_FILE) {
@@ -802,6 +810,16 @@ void ntreeBlendReadData(BlendDataReader *reader, bNodeTree *ntree)
         case FN_NODE_INPUT_STRING: {
           NodeInputString *storage = (NodeInputString *)node->storage;
           BLO_read_data_address(reader, &storage->string);
+          break;
+        }
+        case FN_NODE_ENUM: {
+          NodeFunctionEnum *storage = (NodeFunctionEnum *)node->storage;
+          BLO_read_list(reader, &storage->items);
+          LISTBASE_FOREACH (NodeFunctionEnumItem *, item, &storage->items) {
+            BLO_read_data_address(reader, &item->owner);
+            BLO_read_data_address(reader, &item->name);
+            BLO_read_data_address(reader, &item->description);
+          }
           break;
         }
         default:
