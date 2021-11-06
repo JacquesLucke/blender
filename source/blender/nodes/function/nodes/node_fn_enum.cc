@@ -39,11 +39,19 @@ static void fn_node_enum_declare(NodeDeclarationBuilder &b)
 
 static bool fn_node_enum_draw_socket(uiLayout *layout,
                                      const bContext *UNUSED(C),
-                                     bNodeTree *UNUSED(ntree),
-                                     bNode *UNUSED(node),
-                                     bNodeSocket *UNUSED(socket))
+                                     bNodeTree *ntree,
+                                     bNode *node,
+                                     bNodeSocket *socket)
 {
-  uiItemL(layout, "Hello World", ICON_NONE);
+  const int index = BLI_findindex(&node->outputs, socket);
+  if (index == -1) {
+    return false;
+  }
+  NodeFunctionEnum *storage = (NodeFunctionEnum *)node->storage;
+  NodeFunctionEnumItem *item = (NodeFunctionEnumItem *)BLI_findlink(&storage->items, index);
+  PointerRNA item_ptr;
+  RNA_pointer_create(&ntree->id, &RNA_NodeFunctionEnumItem, item, &item_ptr);
+  uiItemR(layout, &item_ptr, "name", 0, "", ICON_NONE);
   return true;
 }
 
