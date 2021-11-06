@@ -306,6 +306,28 @@ class NODE_OT_tree_path_parent(Operator):
         return {'FINISHED'}
 
 
+class NODE_OT_enum_item_add(Operator):
+    '''Add enum item'''
+    bl_idname = "node.enum_item_add"
+    bl_label = "Add Enum Item"
+    bl_options = {'UNDO'}
+
+    node_name: StringProperty()
+
+    @classmethod
+    def poll(cls, context):
+        space = context.space_data
+        return space is not None and space.type == 'NODE_EDITOR' and space.edit_tree is not None
+
+    def execute(self, context):
+        space = context.space_data
+        node = space.edit_tree.nodes.get(self.node_name)
+        if node is None:
+            return {'CANCELLED'}
+        node.enum_items.new()
+        return {'FINISHED'}
+
+
 classes = (
     NodeSetting,
 
@@ -314,4 +336,5 @@ classes = (
     NODE_OT_add_search,
     NODE_OT_collapse_hide_unused_toggle,
     NODE_OT_tree_path_parent,
+    NODE_OT_enum_item_add,
 )

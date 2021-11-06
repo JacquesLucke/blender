@@ -39,10 +39,10 @@ static void fn_node_enum_init(bNodeTree *UNUSED(tree), bNode *node)
   node->storage = data;
 }
 
-static void fn_node_enum_layout(uiLayout *UNUSED(layout),
-                                bContext *UNUSED(C),
-                                PointerRNA *UNUSED(ptr))
+static void fn_node_enum_layout(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
 {
+  bNode *node = (bNode *)ptr->data;
+  uiItemStringO(layout, "Add", ICON_PLUS, "node.enum_item_add", "node_name", node->name);
 }
 
 static const fn::MultiFunction *get_multi_function(bNode &UNUSED(bnode))

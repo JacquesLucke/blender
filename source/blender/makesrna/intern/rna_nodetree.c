@@ -4577,7 +4577,6 @@ static NodeFunctionEnumItem *rna_NodeFunctionEnumItems_items_new(bNode *node)
   NodeFunctionEnumItem *item = MEM_callocN(sizeof(NodeFunctionEnumItem), __func__);
   item->owner_node = node;
   BLI_addtail(&storage->items, item);
-  printf("%d\n", BLI_listbase_count(&storage->items));
   return item;
 }
 
