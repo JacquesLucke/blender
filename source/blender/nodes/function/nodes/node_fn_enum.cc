@@ -16,6 +16,7 @@
 
 #include <cmath>
 
+#include "RNA_define.h"
 #include "RNA_enum_types.h"
 
 #include "UI_interface.h"
@@ -32,25 +33,37 @@ static void fn_node_enum_declare(NodeDeclarationBuilder &b)
     return;
   }
 
-  static EnumPropertyItem my_items[] = {
-      {0, "GRAVITY", 0, "Gravity", "Applies gravity to the simulation"},
-      {1, "INFLATE", 0, "Inflate", "Inflates the cloth"},
-      {2, "EXPAND", 0, "Expand", "Expands the cloth's dimensions"},
-      {3, "PINCH", 0, "Pinch", "Pulls the cloth to the cursor's start position"},
-      {4,
-       "SCALE",
-       0,
-       "Scale",
-       "Scales the mesh as a soft body using the origin of the object as scale"},
-      {0, NULL, 0, NULL, NULL},
-  };
-
-  b.add_input<decl::Enum>("Enum").static_items(my_items).hide_label();
+  EnumPropertyItem *items = nullptr;
+  int tot_items = 0;
 
   const NodeFunctionEnum *storage = (const NodeFunctionEnum *)node->storage;
   LISTBASE_FOREACH (const NodeFunctionEnumItem *, item, &storage->items) {
     b.add_output<decl::Bool>(N_("Bool"), "item_" + std::to_string(item->value));
+    EnumPropertyItem enum_item = {0};
+    enum_item.identifier = BLI_strdup(item->name ? item->name : "");
+    enum_item.name = enum_item.identifier;
+    enum_item.description = BLI_strdup(item->description ? item->description : "");
+    enum_item.value = item->value;
+    RNA_enum_item_add(&items, &tot_items, &enum_item);
   }
+
+  std::shared_ptr<decl::EnumItems> socket_items;
+  if (items == nullptr) {
+    socket_items = std::make_shared<decl::EnumItems>();
+  }
+  else {
+    socket_items = std::make_shared<decl::EnumItems>(items, [tot_items, items]() {
+      for (const int i : IndexRange(tot_items)) {
+        EnumPropertyItem &enum_item = items[i];
+        MEM_freeN((void *)enum_item.identifier);
+        MEM_freeN((void *)enum_item.description);
+      }
+      MEM_freeN(items);
+    });
+  }
+
+  RNA_enum_item_end(&items, &tot_items);
+  b.add_input<decl::Enum>("Enum").dynamic_items(std::move(socket_items)).hide_label();
 };
 
 static bool fn_node_enum_draw_socket(uiLayout *layout,
@@ -117,6 +130,12 @@ static void fn_node_enum_free_storage(bNode *node)
 {
   NodeFunctionEnum *storage = (NodeFunctionEnum *)node->storage;
   LISTBASE_FOREACH_MUTABLE (NodeFunctionEnumItem *, item, &storage->items) {
+    if (item->name) {
+      MEM_freeN(item->name);
+    }
+    if (item->description) {
+      MEM_freeN(item->description);
+    }
     MEM_freeN(item);
   }
   MEM_freeN(storage);

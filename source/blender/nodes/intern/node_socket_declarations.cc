@@ -286,6 +286,7 @@ EnumItems::EnumItems() : items_(DummyRNA_NULL_items)
 EnumItems::EnumItems(const EnumPropertyItem *items, std::function<void()> free_fn)
     : items_(items), free_fn_(std::move(free_fn))
 {
+  BLI_assert(items != nullptr);
 }
 
 EnumItems::~EnumItems()
@@ -327,6 +328,7 @@ bool Enum::matches(const bNodeSocket &socket) const
 
 EnumBuilder &EnumBuilder::static_items(const EnumPropertyItem *items)
 {
+  BLI_assert(items != nullptr);
   decl_->items_ = std::make_shared<EnumItems>(items, nullptr);
   return *this;
 }

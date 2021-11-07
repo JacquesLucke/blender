@@ -327,7 +327,7 @@ class NODE_OT_enum_item_add(Operator):
         if node is None:
             return {'CANCELLED'}
         item = node.enum_items.new()
-        item.value = random.randint(0, 2 ** 31)
+        item.value = random.randint(0, 1e7)
         return {'FINISHED'}
 
 

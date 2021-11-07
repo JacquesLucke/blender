@@ -4572,6 +4572,21 @@ bool rna_NodeSocketMaterial_default_value_poll(PointerRNA *UNUSED(ptr), PointerR
   return ma->gp_style == NULL;
 }
 
+static void rna_nodeFunctionEnum_update_enum(Main *bmain, bNodeTree *ntree, bNode *node)
+{
+  ntree->update |= NTREE_UPDATE_FIELD_INFERENCING;
+  nodeUpdate(ntree, node);
+  ED_node_tag_update_nodetree(bmain, ntree, node);
+  ntreeUpdateTree(bmain, ntree);
+}
+
+static void rna_NodeFunctionEnumItem_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *ptr)
+{
+  NodeFunctionEnumItem *item = (NodeFunctionEnumItem *)ptr->data;
+  bNode *node = item->owner_node;
+  rna_nodeFunctionEnum_update_enum(bmain, (bNodeTree *)ptr->owner_id, node);
+}
+
 static NodeFunctionEnumItem *rna_NodeFunctionEnumItems_items_new(ID *id, bNode *node, bContext *C)
 {
   NodeFunctionEnum *storage = node->storage;
@@ -4583,8 +4598,8 @@ static NodeFunctionEnumItem *rna_NodeFunctionEnumItems_items_new(ID *id, bNode *
   RNA_pointer_create(id, &RNA_Node, node, &node_ptr);
 
   Main *bmain = CTX_data_main(C);
-  Scene *scene = CTX_data_scene(C);
-  rna_Node_socket_update(bmain, scene, &node_ptr);
+  bNodeTree *ntree = (bNodeTree *)id;
+  rna_nodeFunctionEnum_update_enum(bmain, ntree, node);
   return item;
 }
 
@@ -4600,6 +4615,13 @@ static const EnumPropertyItem *rna_NodeSocketEnum_items(bContext *UNUSED(C),
     return DummyRNA_NULL_items;
   }
   return storage->items;
+}
+
+static void rna_NodeSocketEnum_set(PointerRNA *ptr, int value)
+{
+  bNodeSocket *socket = ptr->data;
+  bNodeSocketValueEnum *storage = (bNodeSocketValueEnum *)socket->default_value;
+  storage->value = value;
 }
 
 #else
@@ -5107,12 +5129,15 @@ static void rna_def_fn_enum_item(BlenderRNA *brna)
 
   prop = RNA_def_property(srna, "value", PROP_INT, PROP_NONE);
   RNA_def_property_ui_text(prop, "Value", "Internal identifier if the enum item");
+  RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_NodeFunctionEnumItem_update");
 
   prop = RNA_def_property(srna, "name", PROP_STRING, PROP_NONE);
   RNA_def_property_ui_text(prop, "Name", "Display name of the enum item");
+  RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_NodeFunctionEnumItem_update");
 
   prop = RNA_def_property(srna, "description", PROP_STRING, PROP_NONE);
   RNA_def_property_ui_text(prop, "Description", "Tooltip for the enum item");
+  RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_NodeFunctionEnumItem_update");
 }
 
 static void rna_def_fn_enum_items_api(BlenderRNA *brna, PropertyRNA *cprop)
@@ -12059,8 +12084,8 @@ static void rna_def_node_socket_enum(BlenderRNA *brna,
 
   prop = RNA_def_property(srna, "default_value", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_sdna(prop, NULL, "value");
-  RNA_def_property_enum_funcs(prop, NULL, NULL, "rna_NodeSocketEnum_items");
-  RNA_def_property_enum_items(prop, DummyRNA_NULL_items);
+  RNA_def_property_enum_funcs(prop, NULL, "rna_NodeSocketEnum_set", "rna_NodeSocketEnum_items");
+  RNA_def_property_enum_items(prop, DummyRNA_DEFAULT_items);
   RNA_def_property_ui_text(prop, "Default Value", "Input value used for unconnected socket");
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_NodeSocketStandard_value_update");
   RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
