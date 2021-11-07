@@ -19,6 +19,8 @@
 
 #include "BKE_node.h"
 
+#include "RNA_enum_types.h"
+
 #include "BLI_math_vector.h"
 
 namespace blender::nodes::decl {
@@ -277,12 +279,39 @@ bool String::matches(const bNodeSocket &socket) const
 /** \name #Enum
  * \{ */
 
+EnumItems::EnumItems() : items_(DummyRNA_NULL_items)
+{
+}
+
+EnumItems::EnumItems(const EnumPropertyItem *items, std::function<void()> free_fn)
+    : items_(items), free_fn_(std::move(free_fn))
+{
+}
+
+EnumItems::~EnumItems()
+{
+  if (free_fn_) {
+    free_fn_();
+  }
+}
+
+const EnumPropertyItem *EnumItems::items() const
+{
+  return items_;
+}
+
+const std::shared_ptr<EnumItems> &Enum::items() const
+{
+  return items_;
+}
+
 bNodeSocket &Enum::build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const
 {
   bNodeSocket &socket = *nodeAddStaticSocket(
       &ntree, &node, in_out, SOCK_ENUM, PROP_NONE, identifier_.c_str(), name_.c_str());
   ((bNodeSocketValueEnum *)socket.default_value)->value = default_value_;
   this->set_common_flags(socket);
+  ((bNodeSocketValueEnum *)socket.default_value)->items = items_->items();
   return socket;
 }
 
@@ -295,6 +324,18 @@ bool Enum::matches(const bNodeSocket &socket) const
     return false;
   }
   return true;
+}
+
+EnumBuilder &EnumBuilder::static_items(const EnumPropertyItem *items)
+{
+  decl_->items_ = std::make_shared<EnumItems>(items, nullptr);
+  return *this;
+}
+
+EnumBuilder &EnumBuilder::dynamic_items(std::shared_ptr<EnumItems> items)
+{
+  decl_->items_ = std::move(items);
+  return *this;
 }
 
 /** \} */

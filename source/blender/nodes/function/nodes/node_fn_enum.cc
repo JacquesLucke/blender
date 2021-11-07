@@ -31,6 +31,22 @@ static void fn_node_enum_declare(NodeDeclarationBuilder &b)
   if (node == nullptr) {
     return;
   }
+
+  static EnumPropertyItem my_items[] = {
+      {0, "GRAVITY", 0, "Gravity", "Applies gravity to the simulation"},
+      {1, "INFLATE", 0, "Inflate", "Inflates the cloth"},
+      {2, "EXPAND", 0, "Expand", "Expands the cloth's dimensions"},
+      {3, "PINCH", 0, "Pinch", "Pulls the cloth to the cursor's start position"},
+      {4,
+       "SCALE",
+       0,
+       "Scale",
+       "Scales the mesh as a soft body using the origin of the object as scale"},
+      {0, NULL, 0, NULL, NULL},
+  };
+
+  b.add_input<decl::Enum>("Enum").static_items(my_items).hide_label();
+
   const NodeFunctionEnum *storage = (const NodeFunctionEnum *)node->storage;
   LISTBASE_FOREACH (const NodeFunctionEnumItem *, item, &storage->items) {
     b.add_output<decl::Bool>(N_("Bool"), "item_" + std::to_string(item->value));

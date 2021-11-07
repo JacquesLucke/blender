@@ -22,6 +22,7 @@
 
 #include "BLI_color.hh"
 #include "BLI_float3.hh"
+#include "BLI_utility_mixins.hh"
 
 namespace blender::nodes::decl {
 
@@ -167,13 +168,30 @@ class StringBuilder : public SocketDeclarationBuilder<String> {
 
 class EnumBuilder;
 
+class EnumItems : NonCopyable, NonMovable {
+ private:
+  const EnumPropertyItem *items_;
+  std::function<void()> free_fn_;
+
+ public:
+  EnumItems();
+  EnumItems(const EnumPropertyItem *items, std::function<void()> free_fn);
+  ~EnumItems();
+
+  const EnumPropertyItem *items() const;
+};
+
 class Enum : public SocketDeclaration {
  private:
   int default_value_ = 0;
+  std::shared_ptr<EnumItems> items_;
+
   friend EnumBuilder;
 
  public:
   using Builder = EnumBuilder;
+
+  const std::shared_ptr<EnumItems> &items() const;
 
   bNodeSocket &build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const override;
   bool matches(const bNodeSocket &socket) const override;
@@ -182,6 +200,9 @@ class Enum : public SocketDeclaration {
 class EnumBuilder : public SocketDeclarationBuilder<Enum> {
  public:
   EnumBuilder &default_value(const int value);
+
+  EnumBuilder &static_items(const EnumPropertyItem *items);
+  EnumBuilder &dynamic_items(std::shared_ptr<EnumItems> items);
 };
 
 class IDSocketDeclaration : public SocketDeclaration {

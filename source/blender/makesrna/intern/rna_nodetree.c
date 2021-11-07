@@ -4588,6 +4588,20 @@ static NodeFunctionEnumItem *rna_NodeFunctionEnumItems_items_new(ID *id, bNode *
   return item;
 }
 
+static const EnumPropertyItem *rna_NodeSocketEnum_items(bContext *UNUSED(C),
+                                                        PointerRNA *ptr,
+                                                        PropertyRNA *UNUSED(prop),
+                                                        bool *r_free)
+{
+  *r_free = false;
+  bNodeSocket *socket = ptr->data;
+  bNodeSocketValueEnum *storage = (bNodeSocketValueEnum *)socket->default_value;
+  if (storage->items == NULL) {
+    return DummyRNA_NULL_items;
+  }
+  return storage->items;
+}
+
 #else
 
 static const EnumPropertyItem prop_image_layer_items[] = {
@@ -12045,7 +12059,8 @@ static void rna_def_node_socket_enum(BlenderRNA *brna,
 
   prop = RNA_def_property(srna, "default_value", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_sdna(prop, NULL, "value");
-  RNA_def_property_enum_items(prop, node_socket_data_type_items); /* TODO */
+  RNA_def_property_enum_funcs(prop, NULL, NULL, "rna_NodeSocketEnum_items");
+  RNA_def_property_enum_items(prop, DummyRNA_NULL_items);
   RNA_def_property_ui_text(prop, "Default Value", "Input value used for unconnected socket");
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_NodeSocketStandard_value_update");
   RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
