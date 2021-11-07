@@ -87,6 +87,7 @@
 #include "NOD_node_tree_ref.hh"
 #include "NOD_shader.h"
 #include "NOD_socket.h"
+#include "NOD_socket_declarations.hh"
 #include "NOD_texture.h"
 
 #include "DEG_depsgraph.h"
@@ -4579,7 +4580,7 @@ static bool is_field_socket_type(const SocketRef &socket)
   return is_field_socket_type((eNodeSocketDatatype)socket.typeinfo()->type);
 }
 
-static bool update_field_inferencing(bNodeTree &btree);
+static bool update_field_inferencing(const NodeTreeRef &tree);
 
 static InputSocketFieldType get_interface_input_field_type(const NodeRef &node,
                                                            const InputSocketRef &socket)
@@ -4678,7 +4679,8 @@ static FieldInferencingInterface get_node_field_inferencing_interface(const Node
     }
     if (group->field_inferencing_interface == nullptr) {
       /* Update group recursively. */
-      update_field_inferencing(*group);
+      const NodeTreeRef group_tree{group};
+      update_field_inferencing(group_tree);
     }
     return *group->field_inferencing_interface;
   }
@@ -5036,12 +5038,10 @@ static void update_socket_shapes(const NodeTreeRef &tree,
   }
 }
 
-static bool update_field_inferencing(bNodeTree &btree)
+static bool update_field_inferencing(const NodeTreeRef &tree)
 {
   using namespace blender::nodes;
-  if (btree.type != NTREE_GEOMETRY) {
-    return false;
-  }
+  bNodeTree &btree = *tree.btree();
 
   /* Create new inferencing interface for this node group. */
   FieldInferencingInterface *new_inferencing_interface = new FieldInferencingInterface();
@@ -5049,9 +5049,6 @@ static bool update_field_inferencing(bNodeTree &btree)
                                            InputSocketFieldType::IsSupported);
   new_inferencing_interface->outputs.resize(BLI_listbase_count(&btree.outputs),
                                             OutputFieldDependency::ForDataSource());
-
-  /* Create #NodeTreeRef to accelerate various queries on the node tree (e.g. linked sockets). */
-  const NodeTreeRef tree{&btree};
 
   /* Keep track of the state of all sockets. The index into this array is #SocketRef::id(). */
   Array<SocketFieldState> field_state_by_socket_id(tree.sockets().size());
@@ -5073,6 +5070,33 @@ static bool update_field_inferencing(bNodeTree &btree)
 }
 
 }  // namespace blender::bke::node_field_inferencing
+
+namespace blender::bke::enum_inferencing {
+
+static bool update_enum_inferencing(const NodeTreeRef &tree)
+{
+  bNodeTree &btree = *tree.btree();
+
+  for (const NodeRef *node : tree.nodes()) {
+    bNode &bnode = *node->bnode();
+    nodeDeclarationEnsure(&btree, &bnode);
+    const NodeDeclaration *node_decl = bnode.declaration;
+    for (const int i : node->inputs().index_range()) {
+      const InputSocketRef &socket = node->input(i);
+      if (socket.typeinfo()->type == SOCK_ENUM) {
+        bNodeSocketValueEnum *socket_value =
+            (bNodeSocketValueEnum *)socket.bsocket()->default_value;
+        const nodes::decl::Enum &enum_decl = static_cast<const nodes::decl::Enum &>(
+            *node_decl->inputs()[i]);
+        socket_value->items = enum_decl.items()->items();
+      }
+    }
+  }
+
+  return false;
+}
+
+}  // namespace blender::bke::enum_inferencing
 
 /**
  * \param tree_update_flag: #eNodeTreeUpdate enum.
@@ -5165,10 +5189,19 @@ void ntreeUpdateTree(Main *bmain, bNodeTree *ntree)
   int tree_user_update_flag = 0;
 
   if (ntree->update & NTREE_UPDATE) {
-    /* If the field interface of this node tree has changed, all node trees using
-     * this group will need to recalculate their interface as well. */
-    if (blender::bke::node_field_inferencing::update_field_inferencing(*ntree)) {
-      tree_user_update_flag |= NTREE_UPDATE_FIELD_INFERENCING;
+    if (ntree->type == NTREE_GEOMETRY) {
+      /* Create #NodeTreeRef to accelerate various queries on the node tree (e.g. linked
+       * sockets). */
+      const NodeTreeRef tree{ntree};
+      /* If the field interface of this node tree has changed, all node trees using
+       * this group will need to recalculate their interface as well. */
+      if (blender::bke::node_field_inferencing::update_field_inferencing(tree)) {
+        tree_user_update_flag |= NTREE_UPDATE_FIELD_INFERENCING;
+      }
+      if (blender::bke::enum_inferencing::update_enum_inferencing(tree)) {
+        /* TODO: Fix flag handling. */
+        tree_user_update_flag |= NTREE_UPDATE_FIELD_INFERENCING;
+      }
     }
   }
 

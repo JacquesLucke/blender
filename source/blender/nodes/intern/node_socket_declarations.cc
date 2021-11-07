@@ -311,7 +311,6 @@ bNodeSocket &Enum::build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out)
       &ntree, &node, in_out, SOCK_ENUM, PROP_NONE, identifier_.c_str(), name_.c_str());
   ((bNodeSocketValueEnum *)socket.default_value)->value = default_value_;
   this->set_common_flags(socket);
-  ((bNodeSocketValueEnum *)socket.default_value)->items = items_->items();
   return socket;
 }
 
