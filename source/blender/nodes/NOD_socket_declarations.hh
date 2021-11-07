@@ -185,6 +185,7 @@ class Enum : public SocketDeclaration {
  private:
   int default_value_ = 0;
   std::shared_ptr<EnumItems> items_;
+  int inference_index_ = -1;
 
   friend EnumBuilder;
 
@@ -192,6 +193,7 @@ class Enum : public SocketDeclaration {
   using Builder = EnumBuilder;
 
   const std::shared_ptr<EnumItems> &items() const;
+  int inference_index() const;
 
   bNodeSocket &build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const override;
   bool matches(const bNodeSocket &socket) const override;
@@ -203,6 +205,7 @@ class EnumBuilder : public SocketDeclarationBuilder<Enum> {
 
   EnumBuilder &static_items(const EnumPropertyItem *items);
   EnumBuilder &dynamic_items(std::shared_ptr<EnumItems> items);
+  EnumBuilder &inference_items(const int output_index = -1);
 };
 
 class IDSocketDeclaration : public SocketDeclaration {

@@ -68,6 +68,8 @@ static void geo_node_switch_declare(NodeDeclarationBuilder &b)
   b.add_input<decl::Material>(N_("True"), "True_010");
   b.add_input<decl::Image>(N_("False"), "False_011");
   b.add_input<decl::Image>(N_("True"), "True_011");
+  b.add_input<decl::Enum>(N_("False"), "False_012");
+  b.add_input<decl::Enum>(N_("True"), "True_012");
 
   b.add_output<decl::Float>(N_("Output")).dependent_field();
   b.add_output<decl::Int>(N_("Output"), "Output_001").dependent_field();
@@ -81,6 +83,7 @@ static void geo_node_switch_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Texture>(N_("Output"), "Output_009");
   b.add_output<decl::Material>(N_("Output"), "Output_010");
   b.add_output<decl::Image>(N_("Output"), "Output_011");
+  b.add_output<decl::Enum>(N_("Output"), "Output_012").inference_items();
 }
 
 static void geo_node_switch_layout(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
@@ -285,6 +288,10 @@ static void geo_node_switch_exec(GeoNodeExecParams params)
     }
     case SOCK_IMAGE: {
       switch_no_fields<Image *>(params, "_011");
+      break;
+    }
+    case SOCK_ENUM: {
+      switch_no_fields<EnumValue>(params, "_012");
       break;
     }
     default:

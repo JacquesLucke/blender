@@ -5080,21 +5080,72 @@ namespace blender::bke::enum_inferencing {
 
 static bool update_enum_inferencing(const NodeTreeRef &tree)
 {
+  using namespace blender::nodes;
+
   bNodeTree &btree = *tree.btree();
 
-  for (const NodeRef *node : tree.nodes()) {
+  const NodeTreeRef::ToposortResult toposort_result = tree.toposort(
+      NodeTreeRef::ToposortDirection::RightToLeft);
+
+  Map<const SocketRef *, const std::shared_ptr<decl::EnumItems> *> enum_by_socket;
+
+  for (const NodeRef *node : toposort_result.sorted_nodes) {
     bNode &bnode = *node->bnode();
     nodeDeclarationEnsure(&btree, &bnode);
     const NodeDeclaration *node_decl = bnode.declaration;
-    for (const int i : node->inputs().index_range()) {
-      const InputSocketRef &socket = node->input(i);
-      if (socket.typeinfo()->type == SOCK_ENUM) {
-        bNodeSocketValueEnum *socket_value =
-            (bNodeSocketValueEnum *)socket.bsocket()->default_value;
-        const nodes::decl::Enum &enum_decl = static_cast<const nodes::decl::Enum &>(
-            *node_decl->inputs()[i]);
-        socket_value->items = enum_decl.items()->items();
+
+    for (const OutputSocketRef *socket : node->outputs()) {
+      if (socket->typeinfo()->type != SOCK_ENUM) {
+        continue;
       }
+      /* TODO: Handle case when connected to incompatible enums. */
+      for (const InputSocketRef *target_socket : socket->directly_linked_sockets()) {
+        const std::shared_ptr<decl::EnumItems> *socket_items = enum_by_socket.lookup_default(
+            target_socket, nullptr);
+        enum_by_socket.add_new(socket, socket_items);
+        break;
+      }
+    }
+
+    for (const InputSocketRef *socket : node->inputs()) {
+      const int index = socket->index();
+      if (socket->typeinfo()->type != SOCK_ENUM) {
+        continue;
+      }
+      const nodes::decl::Enum &enum_decl = static_cast<const nodes::decl::Enum &>(
+          *node_decl->inputs()[index]);
+      const std::shared_ptr<decl::EnumItems> &items = enum_decl.items();
+      const std::shared_ptr<decl::EnumItems> *socket_items = nullptr;
+      if (items) {
+        socket_items = &items;
+      }
+      else {
+        int inference_index = enum_decl.inference_index();
+        if (inference_index == -1) {
+          for (const OutputSocketRef *output_socket : node->outputs()) {
+            if (output_socket->typeinfo()->type == SOCK_ENUM) {
+              inference_index = output_socket->index();
+              break;
+            }
+          }
+        }
+        BLI_assert(inference_index >= 0);
+        const OutputSocketRef &output_socket = node->output(inference_index);
+        socket_items = enum_by_socket.lookup_default(&output_socket, nullptr);
+      }
+      enum_by_socket.add_new(socket, socket_items);
+    }
+  }
+
+  for (const auto item : enum_by_socket.items()) {
+    const SocketRef *socket = item.key;
+    const std::shared_ptr<decl::EnumItems> *socket_items = item.value;
+    bNodeSocketValueEnum *socket_value = (bNodeSocketValueEnum *)socket->bsocket()->default_value;
+    if (socket_items != nullptr) {
+      socket_value->items = socket_items->get()->items();
+    }
+    else {
+      socket_value->items = nullptr;
     }
   }
 

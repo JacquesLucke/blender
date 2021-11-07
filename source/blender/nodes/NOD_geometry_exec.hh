@@ -356,4 +356,9 @@ class GeoNodeExecParams {
   const bNodeSocket *find_available_socket(const StringRef name) const;
 };
 
+/** Wrapper for an integer so that one can not perform various operations like addition on it. */
+struct EnumValue {
+  int value;
+};
+
 }  // namespace blender::nodes

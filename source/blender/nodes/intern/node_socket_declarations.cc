@@ -306,6 +306,11 @@ const std::shared_ptr<EnumItems> &Enum::items() const
   return items_;
 }
 
+int Enum::inference_index() const
+{
+  return inference_index_;
+}
+
 bNodeSocket &Enum::build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const
 {
   bNodeSocket &socket = *nodeAddStaticSocket(
@@ -336,6 +341,12 @@ EnumBuilder &EnumBuilder::static_items(const EnumPropertyItem *items)
 EnumBuilder &EnumBuilder::dynamic_items(std::shared_ptr<EnumItems> items)
 {
   decl_->items_ = std::move(items);
+  return *this;
+}
+
+EnumBuilder &EnumBuilder::inference_items(const int output_index)
+{
+  decl_->inference_index_ = output_index;
   return *this;
 }
 

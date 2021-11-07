@@ -44,6 +44,7 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "NOD_geometry_exec.hh"
 #include "NOD_node_declaration.hh"
 #include "NOD_socket.h"
 
@@ -824,6 +825,7 @@ MAKE_CPP_TYPE(Collection, Collection *, CPPTypeFlags::BasicType)
 MAKE_CPP_TYPE(Texture, Tex *, CPPTypeFlags::BasicType)
 MAKE_CPP_TYPE(Image, Image *, CPPTypeFlags::BasicType)
 MAKE_CPP_TYPE(Material, Material *, CPPTypeFlags::BasicType)
+MAKE_CPP_TYPE(EnumValue, blender::nodes::EnumValue, CPPTypeFlags::None)
 
 static bNodeSocketType *make_socket_type_object()
 {
@@ -900,6 +902,15 @@ static bNodeSocketType *make_socket_type_material()
 static bNodeSocketType *make_socket_type_enum()
 {
   bNodeSocketType *socktype = make_standard_socket_type(SOCK_ENUM, PROP_NONE);
+  socktype->get_base_cpp_type = []() {
+    return &blender::fn::CPPType::get<blender::nodes::EnumValue>();
+  };
+  socktype->get_base_cpp_value = [](const bNodeSocket &socket, void *r_value) {
+    ((blender::nodes::EnumValue *)r_value)->value =
+        ((bNodeSocketValueEnum *)socket.default_value)->value;
+  };
+  socktype->get_geometry_nodes_cpp_type = socktype->get_base_cpp_type;
+  socktype->get_geometry_nodes_cpp_value = socktype->get_base_cpp_value;
   return socktype;
 }
 
