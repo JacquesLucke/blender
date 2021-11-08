@@ -33,6 +33,8 @@ static void fn_node_enum_declare(NodeDeclarationBuilder &b)
     return;
   }
 
+  b.add_output<decl::Int>("Index");
+
   EnumPropertyItem *items = nullptr;
   int tot_items = 0;
 
@@ -68,12 +70,13 @@ static bool fn_node_enum_draw_socket(uiLayout *layout,
                                      bNode *node,
                                      bNodeSocket *socket)
 {
-  const int index = BLI_findindex(&node->outputs, socket);
-  if (index == -1) {
+  const int socket_index = BLI_findindex(&node->outputs, socket);
+  if (socket_index <= 0) {
     return false;
   }
   NodeFunctionEnum *storage = (NodeFunctionEnum *)node->storage;
-  NodeFunctionEnumItem *item = (NodeFunctionEnumItem *)BLI_findlink(&storage->items, index);
+  NodeFunctionEnumItem *item = (NodeFunctionEnumItem *)BLI_findlink(&storage->items,
+                                                                    socket_index - 1);
   PointerRNA item_ptr;
   RNA_pointer_create(&ntree->id, &RNA_NodeFunctionEnumItem, item, &item_ptr);
   uiItemR(layout, &item_ptr, "name", 0, "", ICON_NONE);
