@@ -716,6 +716,7 @@ void ntreeBlendReadData(BlendDataReader *reader, bNodeTree *ntree)
   ntree->execdata = nullptr;
 
   ntree->field_inferencing_interface = nullptr;
+  ntree->enum_inferencing_interface = nullptr;
 
   BLO_read_data_address(reader, &ntree->adt);
   BKE_animdata_blend_read_data(reader, ntree->adt);
@@ -4590,7 +4591,9 @@ void ntreeUpdateAllNew(Main *main)
         }
       }
 
-      ntreeUpdateTree(nullptr, ntree);
+      /* Ideally this would first sort the trees based on their dependencies and then update every
+       * tree just once. */
+      ntreeUpdateTree(main, ntree);
     }
   }
   FOREACH_NODETREE_END;
