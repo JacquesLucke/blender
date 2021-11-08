@@ -50,6 +50,7 @@
 
 #include "FN_cpp_type_make.hh"
 #include "FN_field.hh"
+#include "FN_field_cpp_type.hh"
 
 using namespace blender;
 using blender::nodes::SocketDeclarationPtr;
@@ -827,6 +828,7 @@ MAKE_CPP_TYPE(Texture, Tex *, CPPTypeFlags::BasicType)
 MAKE_CPP_TYPE(Image, Image *, CPPTypeFlags::BasicType)
 MAKE_CPP_TYPE(Material, Material *, CPPTypeFlags::BasicType)
 MAKE_CPP_TYPE(EnumValue, blender::nodes::EnumValue, CPPTypeFlags::None)
+MAKE_FIELD_CPP_TYPE(EnumValueField, blender::nodes::EnumValue);
 
 static bNodeSocketType *make_socket_type_object()
 {
@@ -902,16 +904,21 @@ static bNodeSocketType *make_socket_type_material()
 
 static bNodeSocketType *make_socket_type_enum()
 {
+  using blender::nodes::EnumValue;
   bNodeSocketType *socktype = make_standard_socket_type(SOCK_ENUM, PROP_NONE);
-  socktype->get_base_cpp_type = []() {
-    return &blender::fn::CPPType::get<blender::nodes::EnumValue>();
-  };
+  socktype->get_base_cpp_type = []() { return &blender::fn::CPPType::get<EnumValue>(); };
   socktype->get_base_cpp_value = [](const bNodeSocket &socket, void *r_value) {
-    ((blender::nodes::EnumValue *)r_value)->value =
-        ((bNodeSocketValueEnum *)socket.default_value)->value;
+    ((EnumValue *)r_value)->value = ((bNodeSocketValueEnum *)socket.default_value)->value;
   };
-  socktype->get_geometry_nodes_cpp_type = socktype->get_base_cpp_type;
-  socktype->get_geometry_nodes_cpp_value = socktype->get_base_cpp_value;
+
+  socktype->get_geometry_nodes_cpp_type = []() {
+    return &blender::fn::CPPType::get<blender::fn::Field<EnumValue>>();
+  };
+  socktype->get_geometry_nodes_cpp_value = [](const bNodeSocket &socket, void *r_value) {
+    EnumValue value;
+    socket.typeinfo->get_base_cpp_value(socket, &value);
+    new (r_value) blender::fn::Field<EnumValue>(blender::fn::make_constant_field(value));
+  };
   return socktype;
 }
 

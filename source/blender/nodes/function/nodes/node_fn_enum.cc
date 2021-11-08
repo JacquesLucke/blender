@@ -22,6 +22,8 @@
 #include "UI_interface.h"
 #include "UI_resources.h"
 
+#include "NOD_geometry_exec.hh"
+
 #include "node_function_util.hh"
 
 namespace blender::nodes {
@@ -96,15 +98,58 @@ static void fn_node_enum_layout(uiLayout *layout, bContext *UNUSED(C), PointerRN
   uiItemStringO(layout, "Add", ICON_PLUS, "node.enum_item_add", "node_name", node->name);
 }
 
-static const fn::MultiFunction *get_multi_function(bNode &UNUSED(bnode))
-{
-  return nullptr;
-}
+class EnumFunction : public fn::MultiFunction {
+ private:
+  Vector<int> enum_values_;
+  fn::MFSignature signature_;
+
+ public:
+  EnumFunction(const bNode &node)
+  {
+    fn::MFSignatureBuilder signature{"Enum Function"};
+    signature.single_input<EnumValue>("Enum");
+    signature.single_output<int>("Index");
+
+    const NodeFunctionEnum *storage = (NodeFunctionEnum *)node.storage;
+    LISTBASE_FOREACH (const NodeFunctionEnumItem *, item, &storage->items) {
+      signature.single_output<bool>(item->name);
+      enum_values_.append(item->value);
+    }
+
+    signature_ = signature.build();
+    this->set_signature(&signature_);
+  }
+
+  void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
+  {
+    const VArray<EnumValue> &enum_in = params.readonly_single_input<EnumValue>(0, "Enum");
+    MutableSpan<int> r_indices = params.uninitialized_single_output_if_required<int>(1, "Index");
+
+    if (!r_indices.is_empty()) {
+      for (const int i : mask) {
+        const int in_value = enum_in[i].value;
+        r_indices[i] = enum_values_.first_index_of_try(in_value);
+      }
+    }
+
+    for (const int enum_index : enum_values_.index_range()) {
+      MutableSpan<bool> r_bools = params.uninitialized_single_output_if_required<bool>(2 +
+                                                                                       enum_index);
+      if (r_bools.is_empty()) {
+        continue;
+      }
+      const int enum_value = enum_values_[enum_index];
+      for (const int i : mask) {
+        const int in_value = enum_in[i].value;
+        r_bools[i] = in_value == enum_value;
+      }
+    }
+  }
+};
 
 static void fn_node_enum_build_multi_function(NodeMultiFunctionBuilder &builder)
 {
-  const fn::MultiFunction *fn = get_multi_function(builder.node());
-  builder.set_matching_fn(fn);
+  builder.construct_and_set_matching_fn<EnumFunction>(builder.node());
 }
 
 static void fn_node_enum_copy_storage(bNodeTree *UNUSED(dest_ntree),

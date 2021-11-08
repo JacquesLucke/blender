@@ -359,6 +359,22 @@ class GeoNodeExecParams {
 /** Wrapper for an integer so that one can not perform various operations like addition on it. */
 struct EnumValue {
   int value;
+
+  friend std::ostream &operator<<(std::ostream &stream, const EnumValue &value)
+  {
+    stream << value.value;
+    return stream;
+  }
+
+  friend bool operator==(const EnumValue &a, const EnumValue &b)
+  {
+    return a.value == b.value;
+  }
+
+  uint64_t hash() const
+  {
+    return this->value;
+  }
 };
 
 }  // namespace blender::nodes
