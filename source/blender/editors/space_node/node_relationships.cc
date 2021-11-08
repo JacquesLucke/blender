@@ -1335,6 +1335,8 @@ static int node_link_invoke(bContext *C, wmOperator *op, const wmEvent *event)
     /* add modal handler */
     WM_event_add_modal_handler(C, op);
 
+    ntreeUpdateTree(bmain, snode->edittree);
+
     return OPERATOR_RUNNING_MODAL;
   }
   return OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH;
