@@ -38,7 +38,8 @@ static void fn_node_enum_declare(NodeDeclarationBuilder &b)
 
   const NodeFunctionEnum *storage = (const NodeFunctionEnum *)node->storage;
   LISTBASE_FOREACH (const NodeFunctionEnumItem *, item, &storage->items) {
-    b.add_output<decl::Bool>(N_("Bool"), "item_" + std::to_string(item->value));
+    b.add_output<decl::Bool>(item->name ? item->name : "Bool",
+                             "item_" + std::to_string(item->value));
     EnumPropertyItem enum_item = {0};
     enum_item.identifier = BLI_strdup(item->name ? item->name : "");
     enum_item.name = enum_item.identifier;

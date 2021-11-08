@@ -5143,6 +5143,7 @@ static bool update_enum_inferencing(const NodeTreeRef &tree)
 
   bNodeTree &btree = *tree.btree();
 
+  /* TODO: handle cyclic trees */
   const NodeTreeRef::ToposortResult toposort_result = tree.toposort(
       NodeTreeRef::ToposortDirection::RightToLeft);
 
