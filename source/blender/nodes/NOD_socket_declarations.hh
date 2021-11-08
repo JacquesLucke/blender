@@ -24,6 +24,32 @@
 #include "BLI_float3.hh"
 #include "BLI_utility_mixins.hh"
 
+namespace blender::nodes {
+
+class EnumItems : NonCopyable, NonMovable {
+ private:
+  const EnumPropertyItem *items_;
+  std::function<void()> free_fn_;
+
+ public:
+  EnumItems();
+  EnumItems(const EnumPropertyItem *items, std::function<void()> free_fn);
+  ~EnumItems();
+
+  const EnumPropertyItem *items() const;
+};
+
+struct EnumInputInferencingInfo {
+  std::shared_ptr<EnumItems> items;
+  int inference_index = -1;
+};
+
+struct EnumInferencingInterface {
+  Vector<EnumInputInferencingInfo> inputs;
+};
+
+}  // namespace blender::nodes
+
 namespace blender::nodes::decl {
 
 class FloatBuilder;
@@ -168,32 +194,16 @@ class StringBuilder : public SocketDeclarationBuilder<String> {
 
 class EnumBuilder;
 
-class EnumItems : NonCopyable, NonMovable {
- private:
-  const EnumPropertyItem *items_;
-  std::function<void()> free_fn_;
-
- public:
-  EnumItems();
-  EnumItems(const EnumPropertyItem *items, std::function<void()> free_fn);
-  ~EnumItems();
-
-  const EnumPropertyItem *items() const;
-};
-
 class Enum : public SocketDeclaration {
  private:
   int default_value_ = 0;
-  std::shared_ptr<EnumItems> items_;
-  int inference_index_ = -1;
-
+  EnumInputInferencingInfo inferencing_info_;
   friend EnumBuilder;
 
  public:
   using Builder = EnumBuilder;
 
-  const std::shared_ptr<EnumItems> &items() const;
-  int inference_index() const;
+  const EnumInputInferencingInfo &inferencing_info() const;
 
   bNodeSocket &build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const override;
   bool matches(const bNodeSocket &socket) const override;

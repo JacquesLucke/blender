@@ -1237,8 +1237,8 @@ static bNode *rna_NodeTree_node_new(bNodeTree *ntree,
     ntreeTexCheckCyclics(ntree);
   }
 
-  ntreeUpdateTree(CTX_data_main(C), ntree);
   nodeUpdate(ntree, node);
+  ntreeUpdateTree(CTX_data_main(C), ntree);
   WM_main_add_notifier(NC_NODE | NA_EDITED, ntree);
 
   return node;

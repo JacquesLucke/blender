@@ -46,23 +46,18 @@ static void fn_node_enum_declare(NodeDeclarationBuilder &b)
     enum_item.value = item->value;
     RNA_enum_item_add(&items, &tot_items, &enum_item);
   }
-
-  std::shared_ptr<decl::EnumItems> socket_items;
-  if (items == nullptr) {
-    socket_items = std::make_shared<decl::EnumItems>();
-  }
-  else {
-    socket_items = std::make_shared<decl::EnumItems>(items, [tot_items, items]() {
-      for (const int i : IndexRange(tot_items)) {
-        EnumPropertyItem &enum_item = items[i];
-        MEM_freeN((void *)enum_item.identifier);
-        MEM_freeN((void *)enum_item.description);
-      }
-      MEM_freeN(items);
-    });
-  }
-
   RNA_enum_item_end(&items, &tot_items);
+
+  std::shared_ptr<EnumItems> socket_items = std::make_shared<EnumItems>(
+      items, [tot_items, items]() {
+        for (const int i : IndexRange(tot_items - 1)) {
+          EnumPropertyItem &enum_item = items[i];
+          MEM_freeN((void *)enum_item.identifier);
+          MEM_freeN((void *)enum_item.description);
+        }
+        MEM_freeN(items);
+      });
+
   b.add_input<decl::Enum>("Enum").dynamic_items(std::move(socket_items)).hide_label();
 };
 

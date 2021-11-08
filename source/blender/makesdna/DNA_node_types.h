@@ -478,10 +478,13 @@ typedef struct bNodeLink {
 #ifdef __cplusplus
 namespace blender::nodes {
 struct FieldInferencingInterface;
-}
+struct EnumInferencingInterface;
+}  // namespace blender::nodes
 using FieldInferencingInterfaceHandle = blender::nodes::FieldInferencingInterface;
+using EnumInferencingInterfaceHandle = blender::nodes::EnumInferencingInterface;
 #else
 typedef struct FieldInferencingInterfaceHandle FieldInferencingInterfaceHandle;
+typedef struct EnumInferencingInterfaceHandle EnumInferencingInterfaceHandle;
 #endif
 
 /* the basis for a Node tree, all links and nodes reside internal here */
@@ -508,6 +511,7 @@ typedef struct bNodeTree {
   ListBase nodes, links;
   /** Information about how inputs and outputs of the node group interact with fields. */
   FieldInferencingInterfaceHandle *field_inferencing_interface;
+  EnumInferencingInterfaceHandle *enum_inferencing_interface;
 
   /** Set init on fileread. */
   int type, init;

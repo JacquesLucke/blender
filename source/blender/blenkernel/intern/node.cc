@@ -131,10 +131,6 @@ static void node_socket_interface_free(bNodeTree *UNUSED(ntree),
 static void nodeMuteRerouteOutputLinks(struct bNodeTree *ntree,
                                        struct bNode *node,
                                        const bool mute);
-static FieldInferencingInterface *node_field_inferencing_interface_copy(
-    const FieldInferencingInterface &field_inferencing_interface);
-static void node_field_inferencing_interface_free(
-    const FieldInferencingInterface *field_inferencing_interface);
 
 static void ntree_init_data(ID *id)
 {
@@ -247,8 +243,12 @@ static void ntree_copy_data(Main *UNUSED(bmain), ID *id_dst, const ID *id_src, c
   ntree_dst->interface_type = nullptr;
 
   if (ntree_src->field_inferencing_interface) {
-    ntree_dst->field_inferencing_interface = node_field_inferencing_interface_copy(
+    ntree_dst->field_inferencing_interface = new blender::nodes::FieldInferencingInterface(
         *ntree_src->field_inferencing_interface);
+  }
+  if (ntree_src->enum_inferencing_interface) {
+    ntree_dst->enum_inferencing_interface = new blender::nodes::EnumInferencingInterface(
+        *ntree_src->enum_inferencing_interface);
   }
 
   if (flag & LIB_ID_COPY_NO_PREVIEW) {
@@ -302,7 +302,8 @@ static void ntree_free_data(ID *id)
     MEM_freeN(sock);
   }
 
-  node_field_inferencing_interface_free(ntree->field_inferencing_interface);
+  delete ntree->field_inferencing_interface;
+  delete ntree->enum_inferencing_interface;
 
   /* free preview hash */
   if (ntree->previews) {
@@ -4595,18 +4596,6 @@ void ntreeUpdateAllNew(Main *main)
   FOREACH_NODETREE_END;
 }
 
-static FieldInferencingInterface *node_field_inferencing_interface_copy(
-    const FieldInferencingInterface &field_inferencing_interface)
-{
-  return new FieldInferencingInterface(field_inferencing_interface);
-}
-
-static void node_field_inferencing_interface_free(
-    const FieldInferencingInterface *field_inferencing_interface)
-{
-  delete field_inferencing_interface;
-}
-
 namespace blender::bke::node_field_inferencing {
 
 static bool is_field_socket_type(eNodeSocketDatatype type)
@@ -5112,6 +5101,42 @@ static bool update_field_inferencing(const NodeTreeRef &tree)
 
 namespace blender::bke::enum_inferencing {
 
+using namespace blender::nodes;
+
+static bool update_enum_inferencing(const NodeTreeRef &tree);
+
+static EnumInputInferencingInfo get_input_enum_socket_inferencing_info(
+    const InputSocketRef &socket)
+{
+  BLI_assert(socket.typeinfo()->type == SOCK_ENUM);
+  const NodeRef &node = socket.node();
+  if (node.is_group_node()) {
+    bNodeTree *group = (bNodeTree *)node.bnode()->id;
+    if (group == nullptr) {
+      return {};
+    }
+    if (!ntreeIsRegistered(group)) {
+      return {};
+    }
+    if (group->enum_inferencing_interface == nullptr) {
+      /* Update group recursively. */
+      const NodeTreeRef group_tree{group};
+      update_enum_inferencing(group_tree);
+    }
+    return group->enum_inferencing_interface->inputs[socket.index()];
+  }
+  if (node.is_reroute_node()) {
+    return {};
+  }
+  const decl::Enum &socket_decl = static_cast<const decl::Enum &>(*socket.bsocket()->declaration);
+  return socket_decl.inferencing_info();
+}
+
+struct EnumState {
+  std::shared_ptr<EnumItems> items;
+  int group_output_index = -1;
+};
+
 static bool update_enum_inferencing(const NodeTreeRef &tree)
 {
   using namespace blender::nodes;
@@ -5121,40 +5146,45 @@ static bool update_enum_inferencing(const NodeTreeRef &tree)
   const NodeTreeRef::ToposortResult toposort_result = tree.toposort(
       NodeTreeRef::ToposortDirection::RightToLeft);
 
-  Map<const SocketRef *, const std::shared_ptr<decl::EnumItems> *> enum_by_socket;
+  Map<const SocketRef *, EnumState> state_by_socket;
 
   for (const NodeRef *node : toposort_result.sorted_nodes) {
     bNode &bnode = *node->bnode();
     nodeDeclarationEnsure(&btree, &bnode);
-    const NodeDeclaration *node_decl = bnode.declaration;
+
+    if (node->is_group_output_node()) {
+      for (const InputSocketRef *input_socket : node->inputs()) {
+        if (input_socket->typeinfo()->type == SOCK_ENUM) {
+          state_by_socket.add(input_socket, EnumState{nullptr, input_socket->index()});
+        }
+      }
+      continue;
+    }
 
     for (const OutputSocketRef *socket : node->outputs()) {
       if (socket->typeinfo()->type != SOCK_ENUM) {
         continue;
       }
       /* TODO: Handle case when connected to incompatible enums. */
+      EnumState enum_state;
       for (const InputSocketRef *target_socket : socket->directly_linked_sockets()) {
-        const std::shared_ptr<decl::EnumItems> *socket_items = enum_by_socket.lookup_default(
-            target_socket, nullptr);
-        enum_by_socket.add_new(socket, socket_items);
+        enum_state = state_by_socket.lookup(target_socket);
         break;
       }
+      state_by_socket.add_new(socket, enum_state);
     }
 
     for (const InputSocketRef *socket : node->inputs()) {
-      const int index = socket->index();
       if (socket->typeinfo()->type != SOCK_ENUM) {
         continue;
       }
-      const nodes::decl::Enum &enum_decl = static_cast<const nodes::decl::Enum &>(
-          *node_decl->inputs()[index]);
-      const std::shared_ptr<decl::EnumItems> &items = enum_decl.items();
-      const std::shared_ptr<decl::EnumItems> *socket_items = nullptr;
-      if (items) {
-        socket_items = &items;
+      EnumInputInferencingInfo inferencing_info = get_input_enum_socket_inferencing_info(*socket);
+      EnumState input_state;
+      if (inferencing_info.items) {
+        input_state.items = inferencing_info.items;
       }
       else {
-        int inference_index = enum_decl.inference_index();
+        int inference_index = inferencing_info.inference_index;
         if (inference_index == -1) {
           for (const OutputSocketRef *output_socket : node->outputs()) {
             if (output_socket->typeinfo()->type == SOCK_ENUM) {
@@ -5165,25 +5195,52 @@ static bool update_enum_inferencing(const NodeTreeRef &tree)
         }
         BLI_assert(inference_index >= 0);
         const OutputSocketRef &output_socket = node->output(inference_index);
-        socket_items = enum_by_socket.lookup_default(&output_socket, nullptr);
+        input_state = state_by_socket.lookup(&output_socket);
       }
-      enum_by_socket.add_new(socket, socket_items);
+      state_by_socket.add_new(socket, input_state);
     }
   }
 
-  for (const auto item : enum_by_socket.items()) {
+  for (const auto item : state_by_socket.items()) {
     const SocketRef *socket = item.key;
-    const std::shared_ptr<decl::EnumItems> *socket_items = item.value;
+    const EnumState &state = item.value;
     bNodeSocketValueEnum *socket_value = (bNodeSocketValueEnum *)socket->bsocket()->default_value;
-    if (socket_items != nullptr) {
-      socket_value->items = socket_items->get()->items();
+    if (state.items) {
+      socket_value->items = state.items->items();
     }
     else {
       socket_value->items = nullptr;
     }
   }
 
-  return false;
+  EnumInferencingInterface *new_inferencing_interface = new EnumInferencingInterface();
+  new_inferencing_interface->inputs.resize(BLI_listbase_count(&btree.inputs));
+
+  for (const NodeRef *node : tree.nodes_by_type("NodeGroupInput")) {
+    for (const OutputSocketRef *output_socket : node->outputs().drop_back(1)) {
+      if (output_socket->typeinfo()->type != SOCK_ENUM) {
+        continue;
+      }
+      const EnumState &state = state_by_socket.lookup(output_socket);
+      EnumInputInferencingInfo &group_input_info =
+          new_inferencing_interface->inputs[output_socket->index()];
+      if (state.items) {
+        group_input_info.items = state.items;
+      }
+      else if (state.group_output_index >= 0) {
+        group_input_info.inference_index = state.group_output_index;
+      }
+      else {
+        group_input_info.items = std::make_shared<EnumItems>();
+      }
+    }
+  }
+
+  delete btree.enum_inferencing_interface;
+  btree.enum_inferencing_interface = new_inferencing_interface;
+
+  /* TODO: Only return true when the interface changed. */
+  return true;
 }
 
 }  // namespace blender::bke::enum_inferencing

@@ -23,6 +23,32 @@
 
 #include "BLI_math_vector.h"
 
+namespace blender::nodes {
+
+EnumItems::EnumItems() : items_(DummyRNA_NULL_items)
+{
+}
+
+EnumItems::EnumItems(const EnumPropertyItem *items, std::function<void()> free_fn)
+    : items_(items), free_fn_(std::move(free_fn))
+{
+  BLI_assert(items != nullptr);
+}
+
+EnumItems::~EnumItems()
+{
+  if (free_fn_) {
+    free_fn_();
+  }
+}
+
+const EnumPropertyItem *EnumItems::items() const
+{
+  return items_;
+}
+
+}  // namespace blender::nodes
+
 namespace blender::nodes::decl {
 
 static void modify_subtype_except_for_storage(bNodeSocket &socket, int new_subtype)
@@ -279,36 +305,9 @@ bool String::matches(const bNodeSocket &socket) const
 /** \name #Enum
  * \{ */
 
-EnumItems::EnumItems() : items_(DummyRNA_NULL_items)
+const EnumInputInferencingInfo &Enum::inferencing_info() const
 {
-}
-
-EnumItems::EnumItems(const EnumPropertyItem *items, std::function<void()> free_fn)
-    : items_(items), free_fn_(std::move(free_fn))
-{
-  BLI_assert(items != nullptr);
-}
-
-EnumItems::~EnumItems()
-{
-  if (free_fn_) {
-    free_fn_();
-  }
-}
-
-const EnumPropertyItem *EnumItems::items() const
-{
-  return items_;
-}
-
-const std::shared_ptr<EnumItems> &Enum::items() const
-{
-  return items_;
-}
-
-int Enum::inference_index() const
-{
-  return inference_index_;
+  return inferencing_info_;
 }
 
 bNodeSocket &Enum::build(bNodeTree &ntree, bNode &node, eNodeSocketInOut in_out) const
@@ -334,19 +333,19 @@ bool Enum::matches(const bNodeSocket &socket) const
 EnumBuilder &EnumBuilder::static_items(const EnumPropertyItem *items)
 {
   BLI_assert(items != nullptr);
-  decl_->items_ = std::make_shared<EnumItems>(items, nullptr);
+  decl_->inferencing_info_.items = std::make_shared<EnumItems>(items, nullptr);
   return *this;
 }
 
 EnumBuilder &EnumBuilder::dynamic_items(std::shared_ptr<EnumItems> items)
 {
-  decl_->items_ = std::move(items);
+  decl_->inferencing_info_.items = std::move(items);
   return *this;
 }
 
 EnumBuilder &EnumBuilder::inference_items(const int output_index)
 {
-  decl_->inference_index_ = output_index;
+  decl_->inferencing_info_.inference_index = output_index;
   return *this;
 }
 
