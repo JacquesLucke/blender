@@ -25,8 +25,19 @@ struct bNodeSocket;
 struct bNodeTree;
 struct Main;
 
-void BKE_node_tree_update_tag_node(struct bNode *node);
-void BKE_node_tree_update_tag_socket(struct bNodeSocket *socket);
+/**
+ * Tag tree as changed without providing any more information about what has changed exactly.
+ * The update process has to assume that everything may have changed.
+ */
+void BKE_node_tree_update_tag(struct bNodeTree *tree);
+
+/**
+ * More specialized tag functions that may result in a more efficient update.
+ */
+void BKE_node_tree_update_tag_node(struct bNodeTree *tree, struct bNode *node);
+void BKE_node_tree_update_tag_socket(struct bNodeTree *tree, struct bNodeSocket *socket);
+void BKE_node_tree_update_tag_node_removed(struct bNodeTree *tree);
+void BKE_node_tree_update_tag_link_removed(struct bNodeTree *tree);
 
 typedef struct NodeTreeUpdateExtraParams {
   /**
@@ -48,8 +59,8 @@ typedef struct NodeTreeUpdateExtraParams {
   void (*tree_interface_changed_fn)(struct bNodeTree *);
 
   /**
-   * Called for every tree whose output value may have changed. This can be used to tag the
-   * depsgraph if necessary.
+   * Called for every tree whose output value may have changed based on the provided update tags.
+   * This can be used to tag the depsgraph if necessary.
    */
   void (*tree_output_changed_fn)(struct bNodeTree *);
 } NodeTreeUpdateExtraParams;
