@@ -99,6 +99,7 @@
 #define NODE_DEFAULT_MAX_WIDTH 700
 
 using blender::Array;
+using blender::Map;
 using blender::MutableSpan;
 using blender::Set;
 using blender::Span;
@@ -4527,23 +4528,117 @@ static void ntree_validate_links(bNodeTree *ntree)
   }
 }
 
+namespace blender::bke::tree_update_order {
+
+enum class Mark {
+  None,
+  Temporary,
+  Permanent,
+};
+
+static bool visit(bNodeTree *ntree,
+                  Map<bNodeTree *, Mark> &marks,
+                  Map<bNodeTree *, Set<bNodeTree *>> &dependent_trees_map,
+                  Vector<bNodeTree *> &sorted_trees)
+{
+  Mark &mark = marks.lookup(ntree);
+  if (mark == Mark::Permanent) {
+    return true;
+  }
+  if (mark == Mark::Temporary) {
+    /* Cyclic dependencies between graphs. */
+    return false;
+  }
+
+  mark = Mark::Temporary;
+
+  for (bNodeTree *dependent_tree : dependent_trees_map.lookup(ntree)) {
+    visit(dependent_tree, marks, dependent_trees_map, sorted_trees);
+  }
+
+  mark = Mark::Permanent;
+  sorted_trees.append(ntree);
+  return true;
+}
+
+static Vector<bNodeTree *> get_tree_update_order(Main *main, const Span<bNodeTree *> changed_trees)
+{
+  /* Find all dependencies between node trees. */
+  Map<bNodeTree *, Set<bNodeTree *>> dependent_trees_map;
+  FOREACH_NODETREE_BEGIN (main, ntree, owner_id) {
+    /* Ensure there is an entry for all trees which simplifies the code below. */
+    dependent_trees_map.lookup_or_add_default(ntree);
+    LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
+      if (node->id == nullptr) {
+        continue;
+      }
+      if (GS(node->id->name) != ID_NT) {
+        continue;
+      }
+      bNodeTree *used_ntree = (bNodeTree *)node->id;
+      dependent_trees_map.lookup_or_add_default(used_ntree).add(ntree);
+    }
+  }
+  FOREACH_NODETREE_END;
+
+  /* Find all trees that have to be updated. */
+  Map<bNodeTree *, Mark> marks;
+  VectorSet<bNodeTree *> trees_to_check = changed_trees;
+  while (!trees_to_check.is_empty()) {
+    bNodeTree *ntree = trees_to_check.pop();
+    if (!marks.add(ntree, Mark::None)) {
+      /* Handled already. */
+      continue;
+    }
+    const Set<bNodeTree *> &dependent_trees = dependent_trees_map.lookup(ntree);
+    for (bNodeTree *dependent_tree : dependent_trees) {
+      if (marks.contains(dependent_tree)) {
+        continue;
+      }
+      trees_to_check.add(dependent_tree);
+    }
+  }
+
+  /* Sort trees that have to be updated. */
+  Vector<bNodeTree *> sorted_trees;
+  for (const auto item : marks.items()) {
+    if (item.value == Mark::None) {
+      visit(item.key, marks, dependent_trees_map, sorted_trees);
+    }
+  }
+
+  /* Above the nodes were sorted in the wrong direction to avoid inverting the dependency map. */
+  std::reverse(sorted_trees.begin(), sorted_trees.end());
+  return sorted_trees;
+}
+
+}  // namespace blender::bke::tree_update_order
+
 void ntreeUpdateAllNew(Main *main)
 {
+  Vector<bNodeTree *> new_ntrees;
+
   /* Update all new node trees on file read or append, to add/remove sockets
    * in groups nodes if the group changed, and handle any update flags that
    * might have been set in file reading or versioning. */
   FOREACH_NODETREE_BEGIN (main, ntree, owner_id) {
     if (owner_id->tag & LIB_TAG_NEW) {
-      LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
-        if (node->typeinfo->group_update_func) {
-          node->typeinfo->group_update_func(ntree, node);
-        }
-      }
-
-      ntreeUpdateTree(nullptr, ntree);
+      new_ntrees.append(ntree);
     }
   }
   FOREACH_NODETREE_END;
+
+  Vector<bNodeTree *> ntrees_to_update = blender::bke::tree_update_order::get_tree_update_order(
+      main, new_ntrees);
+  for (bNodeTree *ntree : ntrees_to_update) {
+    LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
+      if (node->typeinfo->group_update_func) {
+        node->typeinfo->group_update_func(ntree, node);
+      }
+    }
+
+    ntreeUpdateTree(nullptr, ntree);
+  }
 }
 
 static FieldInferencingInterface *node_field_inferencing_interface_copy(
