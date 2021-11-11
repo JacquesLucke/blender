@@ -470,23 +470,6 @@ static void handle_tree_change(ID *id, bNodeTree *ntree)
   }
 }
 
-static void handle_tree_interface_change(Main *bmain, bNodeTree *ntree)
-{
-  if (ntree->type != NTREE_GEOMETRY) {
-    return;
-  }
-  LISTBASE_FOREACH (Object *, object, &bmain->objects) {
-    LISTBASE_FOREACH (ModifierData *, md, &object->modifiers) {
-      if (md->type == eModifierType_Nodes) {
-        NodesModifierData *nmd = (NodesModifierData *)md;
-        if (nmd->node_group == ntree) {
-          MOD_nodes_update_interface(object, nmd);
-        }
-      }
-    }
-  }
-}
-
 void ED_node_tree_propagate_change(bContext *UNUSED(C), Main *bmain, bNodeTree *only_tagged_tree)
 {
   struct UserData {
@@ -499,10 +482,6 @@ void ED_node_tree_propagate_change(bContext *UNUSED(C), Main *bmain, bNodeTree *
   params.tree_changed_fn = [](ID *id, bNodeTree *ntree, void *UNUSED(user_data)) {
     handle_tree_change(id, ntree);
   };
-  params.tree_interface_changed_fn = [](ID *UNUSED(id), bNodeTree *ntree, void *user_data) {
-    UserData *data = (UserData *)user_data;
-    handle_tree_interface_change(data->bmain, ntree);
-  };
   params.tree_output_changed_fn = [](ID *id, bNodeTree *ntree, void *UNUSED(user_data)) {
     if (id != nullptr) {
       DEG_id_tag_update(id, 0);
@@ -510,7 +489,7 @@ void ED_node_tree_propagate_change(bContext *UNUSED(C), Main *bmain, bNodeTree *
     DEG_id_tag_update(&ntree->id, 0);
   };
 
-  BKE_node_tree_update(bmain, &params);
+  BKE_node_tree_update_main(bmain, &params);
 }
 
 void ED_node_set_tree_type(SpaceNode *snode, bNodeTreeType *typeinfo)

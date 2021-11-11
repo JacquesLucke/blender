@@ -58,6 +58,9 @@ typedef struct NodeTreeUpdateExtraParams {
    */
   struct bNodeTree *only_tagged_tree;
 
+  /**
+   * Data passed into the callbacks.
+   */
   void *user_data;
 
   /**
@@ -67,8 +70,7 @@ typedef struct NodeTreeUpdateExtraParams {
   void (*tree_changed_fn)(struct ID *, struct bNodeTree *, void *user_data);
 
   /**
-   * Called for every tree whose interface (e.g. input sockets) changed in some way. Other
-   * (non-node-tree) data blocks may have to update when that happens.
+   * Called for every tree whose interface (e.g. input sockets) changed in some way.
    */
   void (*tree_interface_changed_fn)(struct ID *, struct bNodeTree *, void *user_data);
 
@@ -79,7 +81,10 @@ typedef struct NodeTreeUpdateExtraParams {
   void (*tree_output_changed_fn)(struct ID *, struct bNodeTree *, void *user_data);
 } NodeTreeUpdateExtraParams;
 
-void BKE_node_tree_update(struct Main *bmain, struct NodeTreeUpdateExtraParams *params);
+/**
+ * Updates #bmain based on changes to node trees.
+ */
+void BKE_node_tree_update_main(struct Main *bmain, struct NodeTreeUpdateExtraParams *params);
 
 #ifdef __cplusplus
 }

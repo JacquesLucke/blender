@@ -85,7 +85,7 @@ void BKE_node_tree_update_tag_interface(bNodeTree *tree)
   tree->update |= NTREE_UPDATE;
 }
 
-void BKE_node_tree_update(Main *bmain, NodeTreeUpdateExtraParams *params)
+void BKE_node_tree_update_main(Main *bmain, NodeTreeUpdateExtraParams *params)
 {
   FOREACH_NODETREE_BEGIN (bmain, ntree, id) {
     ntreeUpdateTree(bmain, ntree);
