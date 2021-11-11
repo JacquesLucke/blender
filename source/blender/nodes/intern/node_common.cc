@@ -37,6 +37,7 @@
 #include "BLT_translation.h"
 
 #include "BKE_node.h"
+#include "BKE_node_tree_update.h"
 
 #include "RNA_types.h"
 
@@ -145,7 +146,7 @@ static bNodeSocket *group_verify_socket(bNodeTree *ntree,
     if (sock->typeinfo != iosock->typeinfo) {
       nodeModifySocketType(ntree, gnode, sock, iosock->idname);
       /* Flag the tree to make sure link validity is updated after type changes. */
-      ntree->update |= NTREE_UPDATE_LINKS;
+      BKE_node_tree_update_tag_link(ntree);
     }
 
     if (iosock->typeinfo->interface_verify_socket) {

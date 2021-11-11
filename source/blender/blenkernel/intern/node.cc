@@ -73,6 +73,7 @@
 #include "BKE_lib_query.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
+#include "BKE_node_tree_update.h"
 
 #include "BLI_ghash.h"
 #include "BLI_threads.h"
@@ -698,6 +699,7 @@ void ntreeBlendReadData(BlendDataReader *reader, bNodeTree *ntree)
   ntree->execdata = nullptr;
 
   ntree->field_inferencing_interface = nullptr;
+  BKE_node_tree_update_tag_missing_runtime_data(ntree);
 
   BLO_read_data_address(reader, &ntree->adt);
   BKE_animdata_blend_read_data(reader, ntree->adt);
@@ -840,11 +842,6 @@ void ntreeBlendReadData(BlendDataReader *reader, bNodeTree *ntree)
 
   /* TODO: should be dealt by new generic cache handling of IDs... */
   ntree->previews = nullptr;
-
-  if (ntree->type == NTREE_GEOMETRY) {
-    /* Update field referencing for the geometry nodes modifier. */
-    ntree->update |= NTREE_UPDATE_FIELD_INFERENCING;
-  }
 
   BLO_read_data_address(reader, &ntree->preview);
   BKE_previewimg_blend_read(reader, ntree->preview);
@@ -1220,6 +1217,7 @@ static void node_socket_set_typeinfo(bNodeTree *ntree,
 
     ntree->init &= ~NTREE_TYPE_INIT;
   }
+  BKE_node_tree_update_tag_socket(ntree, sock);
 }
 
 /* Set specific typeinfo pointers in all node trees on register/unregister */
@@ -1710,7 +1708,7 @@ bNodeSocket *nodeAddSocket(bNodeTree *ntree,
   BLI_remlink(lb, sock); /* does nothing for new socket */
   BLI_addtail(lb, sock);
 
-  node->update |= NODE_UPDATE;
+  BKE_node_tree_update_tag_socket(ntree, sock);
 
   return sock;
 }
@@ -2221,7 +2219,7 @@ bNode *nodeAddNode(const struct bContext *C, bNodeTree *ntree, const char *idnam
   BLI_strncpy(node->idname, idname, sizeof(node->idname));
   node_set_typeinfo(C, ntree, node, nodeTypeFind(idname));
 
-  ntree->update |= NTREE_UPDATE_NODES;
+  BKE_node_tree_update_tag_node(ntree, node);
 
   return node;
 }
@@ -2350,7 +2348,7 @@ bNode *BKE_node_copy_ex(bNodeTree *ntree,
   }
 
   if (ntree) {
-    ntree->update |= NTREE_UPDATE_NODES;
+    BKE_node_tree_update_tag_node(ntree, node_dst);
   }
 
   /* Reset the declaration of the new node. */
@@ -2448,7 +2446,7 @@ bNodeLink *nodeAddLink(
   }
 
   if (ntree) {
-    ntree->update |= NTREE_UPDATE_LINKS;
+    BKE_node_tree_update_tag_link_added(ntree, link);
   }
 
   if (link != nullptr && link->tosock->flag & SOCK_MULTI_INPUT) {
@@ -2471,7 +2469,7 @@ void nodeRemLink(bNodeTree *ntree, bNodeLink *link)
   MEM_freeN(link);
 
   if (ntree) {
-    ntree->update |= NTREE_UPDATE_LINKS;
+    BKE_node_tree_update_tag_link_removed(ntree);
   }
 }
 
@@ -2571,7 +2569,7 @@ void nodeMuteLinkToggle(bNodeTree *ntree, bNodeLink *link)
   }
 
   if (ntree) {
-    ntree->update |= NTREE_UPDATE_LINKS;
+    BKE_node_tree_update_tag_link_mute(ntree, link);
   }
 }
 
@@ -2582,8 +2580,6 @@ void nodeRemSocketLinks(bNodeTree *ntree, bNodeSocket *sock)
       nodeRemLink(ntree, link);
     }
   }
-
-  ntree->update |= NTREE_UPDATE_LINKS;
 }
 
 bool nodeLinkIsHidden(const bNodeLink *link)
@@ -2648,7 +2644,7 @@ void nodeInternalRelink(bNodeTree *ntree, bNode *node)
             link->flag |= NODE_LINK_MUTED;
           }
 
-          ntree->update |= NTREE_UPDATE_LINKS;
+          BKE_node_tree_update_tag_link(ntree);
         }
         else {
           if (link->tosock->flag & SOCK_MULTI_INPUT) {
@@ -3192,7 +3188,7 @@ static void node_free_node(bNodeTree *ntree, bNode *node)
   MEM_freeN(node);
 
   if (ntree) {
-    ntree->update |= NTREE_UPDATE_NODES;
+    BKE_node_tree_update_tag_node_removed(ntree);
   }
 }
 
@@ -3579,12 +3575,11 @@ bNodeSocket *ntreeAddSocketInterface(bNodeTree *ntree,
   bNodeSocket *iosock = make_socket_interface(ntree, in_out, idname, name);
   if (in_out == SOCK_IN) {
     BLI_addtail(&ntree->inputs, iosock);
-    ntree->update |= NTREE_UPDATE_GROUP_IN;
   }
   else if (in_out == SOCK_OUT) {
     BLI_addtail(&ntree->outputs, iosock);
-    ntree->update |= NTREE_UPDATE_GROUP_OUT;
   }
+  BKE_node_tree_update_tag_interface(ntree);
   return iosock;
 }
 
@@ -3597,12 +3592,11 @@ bNodeSocket *ntreeInsertSocketInterface(bNodeTree *ntree,
   bNodeSocket *iosock = make_socket_interface(ntree, in_out, idname, name);
   if (in_out == SOCK_IN) {
     BLI_insertlinkbefore(&ntree->inputs, next_sock, iosock);
-    ntree->update |= NTREE_UPDATE_GROUP_IN;
   }
   else if (in_out == SOCK_OUT) {
     BLI_insertlinkbefore(&ntree->outputs, next_sock, iosock);
-    ntree->update |= NTREE_UPDATE_GROUP_OUT;
   }
+  BKE_node_tree_update_tag_interface(ntree);
   return iosock;
 }
 
@@ -3648,7 +3642,7 @@ void ntreeRemoveSocketInterface(bNodeTree *ntree, bNodeSocket *sock)
   node_socket_interface_free(ntree, sock, true);
   MEM_freeN(sock);
 
-  ntree->update |= NTREE_UPDATE_GROUP;
+  BKE_node_tree_update_tag_interface(ntree);
 }
 
 /* generates a valid RNA identifier from the node tree name */

@@ -2537,7 +2537,7 @@ static int ntree_socket_change_type_exec(bContext *C, wmOperator *op)
 
   /* Need the extra update here because the loop above does not check for valid links in the node
    * group we're currently editing. */
-  ntree->update |= NTREE_UPDATE_GROUP | NTREE_UPDATE_LINKS;
+  BKE_node_tree_update_tag(ntree);
 
   /* Deactivate sockets. */
   LISTBASE_FOREACH (bNodeSocket *, socket_iter, sockets) {
@@ -2657,7 +2657,7 @@ static int ntree_socket_move_exec(bContext *C, wmOperator *op)
     }
   }
 
-  ntree->update |= NTREE_UPDATE_GROUP;
+  BKE_node_tree_update_tag_interface(ntree);
   ED_node_tree_propagate_change(C, CTX_data_main(C), ntree);
 
   WM_event_add_notifier(C, NC_NODE | ND_DISPLAY, nullptr);

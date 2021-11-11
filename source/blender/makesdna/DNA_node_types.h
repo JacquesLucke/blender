@@ -586,17 +586,21 @@ typedef enum eNodeSocketChangedFlag {
   SOCK_CHANGED_ANY = (1 << 0),
 } eNodeSocketChangedFlag;
 
+/** bNode->changed_flag */
 typedef enum eNodeChangedFlag {
   NODE_CHANGED_NONE = 0,
   NODE_CHANGED_ANY = (1 << 0),
 } eNodeChangedFlag;
 
+/** bNodeTree->changed_flag */
 typedef enum eNodeTreeChangedFlag {
   NTREE_CHANGED_NONE = 0,
   NTREE_CHANGED_ANY = (1 << 0),
   NTREE_CHANGED_SOCKET = (1 << 1),
   NTREE_CHANGED_NODE = (1 << 2),
-  NTREE_CHANGED_REMOVED_ANY = (1 << 3),
+  NTREE_CHANGED_LINK = (1 << 3),
+  NTREE_CHANGED_REMOVED_ANY = (1 << 4),
+  NTREE_CHANGED_MISSING_RUNTIME_DATA = (1 << 5),
 } eNodeTreeChangedFlag;
 
 /* ntree->type, index */

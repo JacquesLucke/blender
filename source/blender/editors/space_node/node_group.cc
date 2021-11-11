@@ -40,6 +40,7 @@
 #include "BKE_context.h"
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
+#include "BKE_node_tree_update.h"
 #include "BKE_report.h"
 
 #include "DEG_depsgraph_build.h"
@@ -391,7 +392,7 @@ static int node_group_ungroup(Main *bmain, bNodeTree *ntree, bNode *gnode)
   /* delete the group instance and dereference group tree */
   nodeRemoveNode(bmain, ntree, gnode, true);
 
-  ntree->update |= NTREE_UPDATE_NODES | NTREE_UPDATE_LINKS;
+  BKE_node_tree_update_tag(ntree);
 
   return 1;
 }
@@ -552,9 +553,9 @@ static int node_group_separate_selected(
     }
   }
 
-  ntree->update |= NTREE_UPDATE_NODES | NTREE_UPDATE_LINKS;
+  BKE_node_tree_update_tag(ntree);
   if (!make_copy) {
-    ngroup->update |= NTREE_UPDATE_NODES | NTREE_UPDATE_LINKS;
+    BKE_node_tree_update_tag(ngroup);
   }
 
   return 1;
@@ -977,9 +978,9 @@ static void node_group_make_insert_selected(const bContext *C, bNodeTree *ntree,
   }
 
   /* update of the group tree */
-  ngroup->update |= NTREE_UPDATE | NTREE_UPDATE_LINKS;
+  BKE_node_tree_update_tag(ngroup);
   /* update of the tree containing the group instance node */
-  ntree->update |= NTREE_UPDATE_NODES | NTREE_UPDATE_LINKS;
+  BKE_node_tree_update_tag(ntree);
 }
 
 static bNode *node_group_make_from_selected(const bContext *C,
@@ -1009,7 +1010,7 @@ static bNode *node_group_make_from_selected(const bContext *C,
   node_group_make_insert_selected(C, ntree, gnode);
 
   /* update of the tree containing the group instance node */
-  ntree->update |= NTREE_UPDATE_NODES;
+  BKE_node_tree_update_tag(ntree);
 
   return gnode;
 }

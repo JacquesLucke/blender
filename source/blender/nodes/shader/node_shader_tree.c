@@ -44,6 +44,7 @@
 #include "BKE_lib_id.h"
 #include "BKE_linestyle.h"
 #include "BKE_node.h"
+#include "BKE_node_tree_update.h"
 #include "BKE_scene.h"
 
 #include "RNA_access.h"
@@ -514,7 +515,7 @@ static void flatten_group_do(bNodeTree *ntree, bNode *gnode)
     ntreeFreeLocalNode(ntree, node);
   }
 
-  ntree->update |= NTREE_UPDATE_NODES | NTREE_UPDATE_LINKS;
+  BKE_node_tree_update_tag(ntree);
 }
 
 /* Flatten group to only have a simple single tree */

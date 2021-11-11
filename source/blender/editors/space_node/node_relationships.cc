@@ -36,6 +36,7 @@
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
+#include "BKE_node_tree_update.h"
 #include "BKE_screen.h"
 
 #include "ED_node.h" /* own include */
@@ -851,7 +852,7 @@ static int link_socket_to_viewer(const bContext *C,
   else {
     link_to_change->fromnode = bnode_to_view;
     link_to_change->fromsock = bsocket_to_view;
-    btree->update |= NTREE_UPDATE_LINKS;
+    BKE_node_tree_update_tag_link(btree);
   }
 
   remove_links_to_unavailable_viewer_sockets(*btree, *viewer_bnode);
@@ -1037,8 +1038,7 @@ static void node_link_exit(bContext *C, wmOperator *op, bool apply_links)
 
       /* add link to the node tree */
       BLI_addtail(&ntree->links, link);
-
-      ntree->update |= NTREE_UPDATE_LINKS;
+      BKE_node_tree_update_tag_link(ntree);
 
       /* tag tonode for update */
       link->tonode->update |= NODE_UPDATE;

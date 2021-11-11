@@ -31,22 +31,58 @@ void BKE_node_tree_update_tag_node(bNodeTree *tree, bNode *node)
 {
   tree->changed_flag |= NTREE_CHANGED_NODE;
   node->changed_flag |= NODE_CHANGED_ANY;
+  tree->update |= NTREE_UPDATE;
 }
 
 void BKE_node_tree_update_tag_socket(bNodeTree *tree, bNodeSocket *socket)
 {
   tree->changed_flag |= NTREE_CHANGED_SOCKET;
   socket->changed_flag |= SOCK_CHANGED_ANY;
+  tree->update |= NTREE_UPDATE;
 }
 
 void BKE_node_tree_update_tag_node_removed(bNodeTree *tree)
 {
   tree->changed_flag |= NTREE_CHANGED_REMOVED_ANY;
+  tree->update |= NTREE_UPDATE;
+}
+
+void BKE_node_tree_update_tag_link(bNodeTree *tree)
+{
+  tree->changed_flag |= NTREE_CHANGED_LINK;
+  tree->update |= NTREE_UPDATE;
+}
+
+void BKE_node_tree_update_tag_node_added(bNodeTree *tree, bNode *node)
+{
+  BKE_node_tree_update_tag_node(tree, node);
 }
 
 void BKE_node_tree_update_tag_link_removed(bNodeTree *tree)
 {
-  tree->changed_flag |= NTREE_CHANGED_REMOVED_ANY;
+  BKE_node_tree_update_tag_link(tree);
+}
+
+void BKE_node_tree_update_tag_link_added(bNodeTree *tree, bNodeLink *UNUSED(link))
+{
+  BKE_node_tree_update_tag_link(tree);
+}
+
+void BKE_node_tree_update_tag_link_mute(bNodeTree *tree, bNodeLink *UNUSED(link))
+{
+  BKE_node_tree_update_tag_link(tree);
+}
+
+void BKE_node_tree_update_tag_missing_runtime_data(bNodeTree *tree)
+{
+  tree->changed_flag |= NTREE_CHANGED_MISSING_RUNTIME_DATA;
+  tree->update |= NTREE_UPDATE;
+}
+
+void BKE_node_tree_update_tag_interface(bNodeTree *tree)
+{
+  tree->changed_flag |= NTREE_CHANGED_ANY;
+  tree->update |= NTREE_UPDATE;
 }
 
 void BKE_node_tree_update(Main *bmain, NodeTreeUpdateExtraParams *params)

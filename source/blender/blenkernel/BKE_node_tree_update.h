@@ -23,6 +23,7 @@
 struct bNode;
 struct bNodeSocket;
 struct bNodeTree;
+struct bNodeLink;
 struct Main;
 struct ID;
 
@@ -41,8 +42,14 @@ void BKE_node_tree_update_tag(struct bNodeTree *tree);
  */
 void BKE_node_tree_update_tag_node(struct bNodeTree *tree, struct bNode *node);
 void BKE_node_tree_update_tag_socket(struct bNodeTree *tree, struct bNodeSocket *socket);
+void BKE_node_tree_update_tag_link(struct bNodeTree *tree);
 void BKE_node_tree_update_tag_node_removed(struct bNodeTree *tree);
+void BKE_node_tree_update_tag_node_added(struct bNodeTree *tree, struct bNode *node);
 void BKE_node_tree_update_tag_link_removed(struct bNodeTree *tree);
+void BKE_node_tree_update_tag_link_added(struct bNodeTree *tree, struct bNodeLink *link);
+void BKE_node_tree_update_tag_link_mute(struct bNodeTree *tree, struct bNodeLink *link);
+void BKE_node_tree_update_tag_missing_runtime_data(struct bNodeTree *tree);
+void BKE_node_tree_update_tag_interface(struct bNodeTree *tree);
 
 typedef struct NodeTreeUpdateExtraParams {
   /**

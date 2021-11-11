@@ -41,6 +41,7 @@
 #include "BKE_cryptomatte.h"
 #include "BKE_image.h"
 #include "BKE_node.h"
+#include "BKE_node_tree_update.h"
 #include "BKE_texture.h"
 
 #include "RNA_access.h"
@@ -1563,7 +1564,7 @@ static void rna_NodeTree_inputs_move(bNodeTree *ntree, Main *bmain, int from_ind
     }
   }
 
-  ntree->update |= NTREE_UPDATE_GROUP_IN;
+  BKE_node_tree_update_tag_interface(ntree);
 
   ntreeUpdateTree(bmain, ntree);
   WM_main_add_notifier(NC_NODE | NA_EDITED, ntree);
@@ -1594,7 +1595,7 @@ static void rna_NodeTree_outputs_move(bNodeTree *ntree, Main *bmain, int from_in
     }
   }
 
-  ntree->update |= NTREE_UPDATE_GROUP_OUT;
+  BKE_node_tree_update_tag_interface(ntree);
 
   ntreeUpdateTree(bmain, ntree);
   WM_main_add_notifier(NC_NODE | NA_EDITED, ntree);
@@ -1604,7 +1605,7 @@ static void rna_NodeTree_interface_update(bNodeTree *ntree, bContext *C)
 {
   Main *bmain = CTX_data_main(C);
 
-  ntree->update |= NTREE_UPDATE_GROUP;
+  BKE_node_tree_update_tag_interface(ntree);
   ED_node_tree_propagate_change(NULL, bmain, ntree);
 }
 
@@ -3215,7 +3216,7 @@ static void rna_NodeSocketInterface_update(Main *bmain, Scene *UNUSED(scene), Po
     return;
   }
 
-  ntree->update |= NTREE_UPDATE_GROUP;
+  BKE_node_tree_update_tag_interface(ntree);
   ED_node_tree_propagate_change(NULL, bmain, ntree);
 }
 
