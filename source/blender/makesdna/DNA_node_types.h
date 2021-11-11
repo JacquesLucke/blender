@@ -592,7 +592,7 @@ typedef enum eNodeChangedFlag {
 } eNodeChangedFlag;
 
 typedef enum eNodeTreeChangedFlag {
-  NTREE_CHANGED_None = 0,
+  NTREE_CHANGED_NONE = 0,
   NTREE_CHANGED_ANY = (1 << 0),
   NTREE_CHANGED_SOCKET = (1 << 1),
   NTREE_CHANGED_NODE = (1 << 2),
