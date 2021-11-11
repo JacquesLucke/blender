@@ -24,6 +24,7 @@ struct bNode;
 struct bNodeSocket;
 struct bNodeTree;
 struct Main;
+struct ID;
 
 #ifdef __cplusplus
 extern "C" {
@@ -50,23 +51,25 @@ typedef struct NodeTreeUpdateExtraParams {
    */
   struct bNodeTree *only_tagged_tree;
 
+  void *user_data;
+
   /**
    * Called for every tree that has been changed during the update. This can be used to send
    * notifiers to trigger redraws or depsgraph updates.
    */
-  void (*tree_changed_fn)(struct bNodeTree *);
+  void (*tree_changed_fn)(struct ID *, struct bNodeTree *, void *user_data);
 
   /**
    * Called for every tree whose interface (e.g. input sockets) changed in some way. Other
    * (non-node-tree) data blocks may have to update when that happens.
    */
-  void (*tree_interface_changed_fn)(struct bNodeTree *);
+  void (*tree_interface_changed_fn)(struct ID *, struct bNodeTree *, void *user_data);
 
   /**
    * Called for every tree whose output value may have changed based on the provided update tags.
    * This can be used to tag the depsgraph if necessary.
    */
-  void (*tree_output_changed_fn)(struct bNodeTree *);
+  void (*tree_output_changed_fn)(struct ID *, struct bNodeTree *, void *user_data);
 } NodeTreeUpdateExtraParams;
 
 void BKE_node_tree_update(struct Main *bmain, struct NodeTreeUpdateExtraParams *params);

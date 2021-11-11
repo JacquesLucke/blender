@@ -172,6 +172,9 @@ typedef struct bNodeSocket {
    * data. It has to be updated when the node declaration changes.
    */
   const SocketDeclarationHandle *declaration;
+
+  uint8_t changed_flag;
+  char _pad[7];
 } bNodeSocket;
 
 /* sock->type */
@@ -261,7 +264,7 @@ typedef struct bNode {
   /** Used as a boolean for execution. */
   uint8_t need_exec;
 
-  char _pad[1];
+  uint8_t changed_flag;
 
   /** Custom user-defined color. */
   float color[3];
@@ -551,7 +554,8 @@ typedef struct bNodeTree {
    * in case multiple different editors are used and make context ambiguous.
    */
   bNodeInstanceKey active_viewer_key;
-  char _pad[4];
+  char _pad[3];
+  uint8_t changed_flag;
 
   /** Execution data.
    *
@@ -575,6 +579,25 @@ typedef struct bNodeTree {
   /** Image representing what the node group does. */
   struct PreviewImage *preview;
 } bNodeTree;
+
+/** bNodeSocket->changed_flag */
+typedef enum eNodeSocketChangedFlag {
+  SOCK_CHANGED_NONE = 0,
+  SOCK_CHANGED_ANY = (1 << 0),
+} eNodeSocketChangedFlag;
+
+typedef enum eNodeChangedFlag {
+  NODE_CHANGED_NONE = 0,
+  NODE_CHANGED_ANY = (1 << 0),
+} eNodeChangedFlag;
+
+typedef enum eNodeTreeChangedFlag {
+  NTREE_CHANGED_None = 0,
+  NTREE_CHANGED_ANY = (1 << 0),
+  NTREE_CHANGED_SOCKET = (1 << 1),
+  NTREE_CHANGED_NODE = (1 << 2),
+  NTREE_CHANGED_REMOVED_ANY = (1 << 3),
+} eNodeTreeChangedFlag;
 
 /* ntree->type, index */
 

@@ -27,6 +27,7 @@
 
 #include "DNA_light_types.h"
 #include "DNA_material_types.h"
+#include "DNA_modifier_types.h"
 #include "DNA_node_types.h"
 #include "DNA_text_types.h"
 #include "DNA_world_types.h"
@@ -41,6 +42,7 @@
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_node.h"
+#include "BKE_node_tree_update.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_workspace.h"
@@ -62,6 +64,8 @@
 #include "RNA_access.h"
 #include "RNA_define.h"
 #include "RNA_enum_types.h"
+
+#include "MOD_nodes.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -440,25 +444,73 @@ void snode_notify(bContext *C, SpaceNode *snode)
   }
 }
 
-void ED_node_tree_propagate_change(bContext *C, Main *bmain, bNodeTree *only_tagged_tree)
+static void handle_tree_change(ID *id, bNodeTree *ntree)
 {
-  if (C != nullptr) {
-    SpaceNode *snode = CTX_wm_space_node(C);
-    if (snode != nullptr) {
-      snode_notify(C, snode);
-      snode_dag_update(C, snode);
+  WM_main_add_notifier(NC_NODE | NA_EDITED, nullptr);
+
+  if (ntree->type == NTREE_SHADER) {
+    if (GS(id->name) == ID_MA) {
+      WM_main_add_notifier(NC_MATERIAL | ND_SHADING, id);
+    }
+    else if (GS(id->name) == ID_LA) {
+      WM_main_add_notifier(NC_LAMP | ND_LIGHTING, id);
+    }
+    else if (GS(id->name) == ID_WO) {
+      WM_main_add_notifier(NC_WORLD | ND_WORLD, id);
     }
   }
-  if (only_tagged_tree != nullptr) {
-    ntreeUpdateTree(bmain, only_tagged_tree);
-    ED_node_tag_update_nodetree(bmain, only_tagged_tree, nullptr);
+  else if (ntree->type == NTREE_COMPOSIT) {
+    WM_main_add_notifier(NC_SCENE | ND_NODES, id);
   }
-  else {
-    FOREACH_NODETREE_BEGIN (bmain, tree, id) {
-      ntreeUpdateTree(bmain, tree);
+  else if (ntree->type == NTREE_TEXTURE) {
+    WM_main_add_notifier(NC_TEXTURE | ND_NODES, id);
+  }
+  else if (ntree->type == NTREE_GEOMETRY) {
+    WM_main_add_notifier(NC_OBJECT | ND_MODIFIER, id);
+  }
+}
+
+static void handle_tree_interface_change(Main *bmain, bNodeTree *ntree)
+{
+  if (ntree->type != NTREE_GEOMETRY) {
+    return;
+  }
+  LISTBASE_FOREACH (Object *, object, &bmain->objects) {
+    LISTBASE_FOREACH (ModifierData *, md, &object->modifiers) {
+      if (md->type == eModifierType_Nodes) {
+        NodesModifierData *nmd = (NodesModifierData *)md;
+        if (nmd->node_group == ntree) {
+          MOD_nodes_update_interface(object, nmd);
+        }
+      }
     }
-    FOREACH_NODETREE_END;
   }
+}
+
+void ED_node_tree_propagate_change(bContext *UNUSED(C), Main *bmain, bNodeTree *only_tagged_tree)
+{
+  struct UserData {
+    Main *bmain;
+  } user_data = {bmain};
+
+  NodeTreeUpdateExtraParams params = {0};
+  params.only_tagged_tree = only_tagged_tree;
+  params.user_data = &user_data;
+  params.tree_changed_fn = [](ID *id, bNodeTree *ntree, void *UNUSED(user_data)) {
+    handle_tree_change(id, ntree);
+  };
+  params.tree_interface_changed_fn = [](ID *UNUSED(id), bNodeTree *ntree, void *user_data) {
+    UserData *data = (UserData *)user_data;
+    handle_tree_interface_change(data->bmain, ntree);
+  };
+  params.tree_output_changed_fn = [](ID *id, bNodeTree *ntree, void *UNUSED(user_data)) {
+    if (id != nullptr) {
+      DEG_id_tag_update(id, 0);
+    }
+    DEG_id_tag_update(&ntree->id, 0);
+  };
+
+  BKE_node_tree_update(bmain, &params);
 }
 
 void ED_node_set_tree_type(SpaceNode *snode, bNodeTreeType *typeinfo)

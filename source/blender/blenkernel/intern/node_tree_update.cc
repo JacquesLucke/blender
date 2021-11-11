@@ -16,34 +16,52 @@
 
 #include "BLI_map.hh"
 
+#include "DNA_node_types.h"
+
+#include "BKE_node.h"
 #include "BKE_node_tree_update.h"
 
 void BKE_node_tree_update_tag(bNodeTree *tree)
 {
+  tree->changed_flag |= NTREE_CHANGED_ANY;
   UNUSED_VARS(tree);
 }
 
 void BKE_node_tree_update_tag_node(bNodeTree *tree, bNode *node)
 {
-  UNUSED_VARS(tree, node);
+  tree->changed_flag |= NTREE_CHANGED_NODE;
+  node->changed_flag |= NODE_CHANGED_ANY;
 }
 
 void BKE_node_tree_update_tag_socket(bNodeTree *tree, bNodeSocket *socket)
 {
-  UNUSED_VARS(tree, socket);
+  tree->changed_flag |= NTREE_CHANGED_SOCKET;
+  socket->changed_flag |= SOCK_CHANGED_ANY;
 }
 
 void BKE_node_tree_update_tag_node_removed(bNodeTree *tree)
 {
-  UNUSED_VARS(tree);
+  tree->changed_flag |= NTREE_CHANGED_REMOVED_ANY;
 }
 
 void BKE_node_tree_update_tag_link_removed(bNodeTree *tree)
 {
-  UNUSED_VARS(tree);
+  tree->changed_flag |= NTREE_CHANGED_REMOVED_ANY;
 }
 
 void BKE_node_tree_update(Main *bmain, NodeTreeUpdateExtraParams *params)
 {
-  UNUSED_VARS(bmain, params);
+  FOREACH_NODETREE_BEGIN (bmain, ntree, id) {
+    ntreeUpdateTree(bmain, ntree);
+    if (params->tree_changed_fn) {
+      params->tree_changed_fn(id, ntree, params->user_data);
+    }
+    if (params->tree_interface_changed_fn) {
+      params->tree_interface_changed_fn(id, ntree, params->user_data);
+    }
+    if (params->tree_output_changed_fn) {
+      params->tree_output_changed_fn(id, ntree, params->user_data);
+    }
+  }
+  FOREACH_NODETREE_END;
 }
