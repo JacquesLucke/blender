@@ -35,6 +35,7 @@ set(INC
   ../nodes
   ../render
   ../windowmanager
+  ../../../intern/ghost
   ../../../intern/eigen
   ../../../intern/guardedalloc
 

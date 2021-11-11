@@ -102,6 +102,12 @@
 /* the global to talk to ghost */
 static GHOST_SystemHandle g_system = NULL;
 
+GHOST_SystemHandle *get_ghost_system_handle(void);
+GHOST_SystemHandle *get_ghost_system_handle(void)
+{
+  return &g_system;
+}
+
 typedef enum eWinOverrideFlag {
   WIN_OVERRIDE_GEOM = (1 << 0),
   WIN_OVERRIDE_WINSTATE = (1 << 1),
@@ -1585,6 +1591,18 @@ void wm_window_process_events(const bContext *C)
 /** \name Ghost Init/Exit
  * \{ */
 
+static int my_event_processor(GHOST_EventHandle evt, GHOST_TUserDataPtr UNUSED(C_void_ptr))
+{
+  GHOST_TEventType type = GHOST_GetEventType(evt);
+  GHOST_TEventDataPtr data = GHOST_GetEventData(evt);
+  if (type == GHOST_kEventKeyDown) {
+    GHOST_TEventKeyData *kdata = data;
+    const bool is_esc = kdata->key == GHOST_kKeyEsc;
+    printf("%d\n", is_esc);
+  }
+  return 1;
+}
+
 /**
  * \note #bContext can be null in background mode because we don't
  * need to event handling.
@@ -1603,6 +1621,9 @@ void wm_ghost_init(bContext *C)
 
     if (C != NULL) {
       GHOST_AddEventConsumer(g_system, consumer);
+
+      GHOST_EventConsumerHandle my_consumer = GHOST_CreateEventConsumer(my_event_processor, C);
+      GHOST_AddEventConsumer(g_system, my_consumer);
     }
 
     if (wm_init_state.native_pixels) {

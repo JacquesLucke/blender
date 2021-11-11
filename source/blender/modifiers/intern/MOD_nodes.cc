@@ -24,8 +24,13 @@
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <thread>
+
+#include "GHOST_C-api.h"
 
 #include "MEM_guardedalloc.h"
+
+#include "PIL_time.h"
 
 #include "BLI_array.hh"
 #include "BLI_float3.hh"
@@ -1052,6 +1057,10 @@ static void check_property_socket_sync(const Object *ob, ModifierData *md)
   }
 }
 
+extern "C" {
+GHOST_SystemHandle *get_ghost_system_handle();
+}
+
 static void modifyGeometry(ModifierData *md,
                            const ModifierEvalContext *ctx,
                            GeometrySet &geometry_set)
@@ -1059,6 +1068,21 @@ static void modifyGeometry(ModifierData *md,
   NodesModifierData *nmd = reinterpret_cast<NodesModifierData *>(md);
   if (nmd->node_group == nullptr) {
     return;
+  }
+
+  {
+    static std::mutex mutex;
+    std::lock_guard lock{mutex};
+    static std::thread thread_started{[]() {
+      while (true) {
+        GHOST_SystemHandle *system = get_ghost_system_handle();
+        if (GHOST_ProcessEvents(*system, false)) {
+          GHOST_DispatchEvents(*system);
+        }
+
+        PIL_sleep_ms(50);
+      }
+    }};
   }
 
   check_property_socket_sync(ctx->object, md);
