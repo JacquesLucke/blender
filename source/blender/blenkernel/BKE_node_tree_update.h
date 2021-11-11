@@ -35,29 +35,23 @@ extern "C" {
  * Tag tree as changed without providing any more information about what has changed exactly.
  * The update process has to assume that everything may have changed.
  */
-void BKE_node_tree_update_tag(struct bNodeTree *tree);
+void BKE_node_tree_update_tag(struct bNodeTree *ntree);
 
 /**
  * More specialized tag functions that may result in a more efficient update.
  */
-void BKE_node_tree_update_tag_node(struct bNodeTree *tree, struct bNode *node);
-void BKE_node_tree_update_tag_socket(struct bNodeTree *tree, struct bNodeSocket *socket);
-void BKE_node_tree_update_tag_link(struct bNodeTree *tree);
-void BKE_node_tree_update_tag_node_removed(struct bNodeTree *tree);
-void BKE_node_tree_update_tag_node_added(struct bNodeTree *tree, struct bNode *node);
-void BKE_node_tree_update_tag_link_removed(struct bNodeTree *tree);
-void BKE_node_tree_update_tag_link_added(struct bNodeTree *tree, struct bNodeLink *link);
-void BKE_node_tree_update_tag_link_mute(struct bNodeTree *tree, struct bNodeLink *link);
-void BKE_node_tree_update_tag_missing_runtime_data(struct bNodeTree *tree);
-void BKE_node_tree_update_tag_interface(struct bNodeTree *tree);
+void BKE_node_tree_update_tag_node(struct bNodeTree *ntree, struct bNode *node);
+void BKE_node_tree_update_tag_socket(struct bNodeTree *ntree, struct bNodeSocket *socket);
+void BKE_node_tree_update_tag_link(struct bNodeTree *ntree);
+void BKE_node_tree_update_tag_node_removed(struct bNodeTree *ntree);
+void BKE_node_tree_update_tag_node_added(struct bNodeTree *ntree, struct bNode *node);
+void BKE_node_tree_update_tag_link_removed(struct bNodeTree *ntree);
+void BKE_node_tree_update_tag_link_added(struct bNodeTree *ntree, struct bNodeLink *link);
+void BKE_node_tree_update_tag_link_mute(struct bNodeTree *ntree, struct bNodeLink *link);
+void BKE_node_tree_update_tag_missing_runtime_data(struct bNodeTree *ntree);
+void BKE_node_tree_update_tag_interface(struct bNodeTree *ntree);
 
 typedef struct NodeTreeUpdateExtraParams {
-  /**
-   * Hint to the update function that this is the only tree that has been tagged for update. Under
-   * some circumstances checking the entirety of #bmain can be avoided with that.
-   */
-  struct bNodeTree *only_tagged_tree;
-
   /**
    * Data passed into the callbacks.
    */
@@ -85,6 +79,19 @@ typedef struct NodeTreeUpdateExtraParams {
  * Updates #bmain based on changes to node trees.
  */
 void BKE_node_tree_update_main(struct Main *bmain, struct NodeTreeUpdateExtraParams *params);
+
+/**
+ * Same as #BKE_node_tree_update_main, but will first only look at the provided tree and only looks
+ * at #bmain when something relevant for other data-blocks changed.
+ *
+ * If #bmain is null, only the provided tree is updated. This should only be used in very rare
+ * cases because it may result it incorrectly synced data in DNA.
+ *
+ * If #tree is null, this will update everything.
+ */
+void BKE_node_tree_update_main_rooted(struct Main *bmain,
+                                      struct bNodeTree *ntree,
+                                      struct NodeTreeUpdateExtraParams *params);
 
 #ifdef __cplusplus
 }

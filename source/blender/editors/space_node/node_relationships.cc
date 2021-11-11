@@ -605,7 +605,7 @@ static void snode_autoconnect(Main *bmain,
   }
 
   if (numlinks > 0) {
-    ntreeUpdateTree(bmain, ntree);
+    BKE_node_tree_update_main_rooted(bmain, ntree, nullptr);
   }
 
   BLI_freelistN(nodelist);
@@ -861,7 +861,7 @@ static int link_socket_to_viewer(const bContext *C,
     ED_spreadsheet_context_paths_set_geometry_node(CTX_data_main(C), snode, viewer_bnode);
   }
 
-  ntreeUpdateTree(CTX_data_main(C), btree);
+  BKE_node_tree_update_main_rooted(CTX_data_main(C), btree, nullptr);
   snode_update(snode, viewer_bnode);
   DEG_id_tag_update(&btree->id, 0);
 
@@ -2596,7 +2596,7 @@ void ED_node_link_insert(Main *bmain, ScrArea *area)
         snode->runtime->iofsd = iofsd;
       }
 
-      ntreeUpdateTree(bmain, snode->edittree); /* needed for pointers */
+      BKE_node_tree_update_main_rooted(bmain, snode->edittree, nullptr); /* needed for pointers */
       snode_update(snode, select);
       ED_node_tag_update_id((ID *)snode->edittree);
       ED_node_tag_update_id(snode->id);

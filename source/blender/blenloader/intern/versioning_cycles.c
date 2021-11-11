@@ -41,6 +41,7 @@
 #include "BKE_idprop.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
+#include "BKE_node_tree_update.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -170,7 +171,7 @@ static void displacement_node_insert(bNodeTree *ntree)
   }
 
   if (need_update) {
-    ntreeUpdateTree(NULL, ntree);
+    BKE_node_tree_update_main_rooted(NULL, ntree, NULL);
   }
 }
 
@@ -243,7 +244,7 @@ static void square_roughness_node_insert(bNodeTree *ntree)
   }
 
   if (need_update) {
-    ntreeUpdateTree(NULL, ntree);
+    BKE_node_tree_update_main_rooted(NULL, ntree, NULL);
   }
 }
 
@@ -318,7 +319,7 @@ static void ambient_occlusion_node_relink(bNodeTree *ntree)
   }
 
   if (need_update) {
-    ntreeUpdateTree(NULL, ntree);
+    BKE_node_tree_update_main_rooted(NULL, ntree, NULL);
   }
 }
 
@@ -466,7 +467,7 @@ static void update_math_node_single_operand_operators(bNodeTree *ntree)
   }
 
   if (need_update) {
-    ntreeUpdateTree(NULL, ntree);
+    BKE_node_tree_update_main_rooted(NULL, ntree, NULL);
   }
 }
 
@@ -528,7 +529,7 @@ static void update_vector_math_node_add_and_subtract_operators(bNodeTree *ntree)
   }
 
   if (need_update) {
-    ntreeUpdateTree(NULL, ntree);
+    BKE_node_tree_update_main_rooted(NULL, ntree, NULL);
   }
 }
 
@@ -566,7 +567,7 @@ static void update_vector_math_node_dot_product_operator(bNodeTree *ntree)
   }
 
   if (need_update) {
-    ntreeUpdateTree(NULL, ntree);
+    BKE_node_tree_update_main_rooted(NULL, ntree, NULL);
   }
 }
 
@@ -631,7 +632,7 @@ static void update_vector_math_node_cross_product_operator(bNodeTree *ntree)
   }
 
   if (need_update) {
-    ntreeUpdateTree(NULL, ntree);
+    BKE_node_tree_update_main_rooted(NULL, ntree, NULL);
   }
 }
 
@@ -683,7 +684,7 @@ static void update_vector_math_node_normalize_operator(bNodeTree *ntree)
     }
   }
   if (need_update) {
-    ntreeUpdateTree(NULL, ntree);
+    BKE_node_tree_update_main_rooted(NULL, ntree, NULL);
   }
 }
 
@@ -785,7 +786,7 @@ static void update_vector_math_node_average_operator(bNodeTree *ntree)
   }
 
   if (need_update) {
-    ntreeUpdateTree(NULL, ntree);
+    BKE_node_tree_update_main_rooted(NULL, ntree, NULL);
   }
 }
 
@@ -974,7 +975,7 @@ static void update_mapping_node_inputs_and_properties(bNodeTree *ntree)
   }
 
   if (need_update) {
-    ntreeUpdateTree(NULL, ntree);
+    BKE_node_tree_update_main_rooted(NULL, ntree, NULL);
   }
 }
 
@@ -1149,7 +1150,7 @@ static void update_voronoi_node_crackle(bNodeTree *ntree)
   }
 
   if (need_update) {
-    ntreeUpdateTree(NULL, ntree);
+    BKE_node_tree_update_main_rooted(NULL, ntree, NULL);
   }
 }
 
@@ -1191,7 +1192,7 @@ static void update_voronoi_node_coloring(bNodeTree *ntree)
   }
 
   if (need_update) {
-    ntreeUpdateTree(NULL, ntree);
+    BKE_node_tree_update_main_rooted(NULL, ntree, NULL);
   }
 }
 
@@ -1234,7 +1235,7 @@ static void update_voronoi_node_square_distance(bNodeTree *ntree)
   }
 
   if (need_update) {
-    ntreeUpdateTree(NULL, ntree);
+    BKE_node_tree_update_main_rooted(NULL, ntree, NULL);
   }
 }
 
@@ -1279,7 +1280,7 @@ static void update_noise_and_wave_distortion(bNodeTree *ntree)
   }
 
   if (need_update) {
-    ntreeUpdateTree(NULL, ntree);
+    BKE_node_tree_update_main_rooted(NULL, ntree, NULL);
   }
 }
 

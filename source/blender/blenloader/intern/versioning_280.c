@@ -88,6 +88,7 @@
 #include "BKE_main.h"
 #include "BKE_mesh.h"
 #include "BKE_node.h"
+#include "BKE_node_tree_update.h"
 #include "BKE_paint.h"
 #include "BKE_pointcache.h"
 #include "BKE_report.h"
@@ -810,7 +811,9 @@ static void do_versions_seq_alloc_transform_and_crop(ListBase *seqbase)
 }
 
 /* Return true if there is something to convert. */
-static void do_versions_material_convert_legacy_blend_mode(bNodeTree *ntree, char blend_method)
+static void do_versions_material_convert_legacy_blend_mode(Main *bmain,
+                                                           bNodeTree *ntree,
+                                                           char blend_method)
 {
   bool need_update = false;
 
@@ -896,7 +899,7 @@ static void do_versions_material_convert_legacy_blend_mode(bNodeTree *ntree, cha
   }
 
   if (need_update) {
-    ntreeUpdateTree(NULL, ntree);
+    BKE_node_tree_update_main_rooted(bmain, ntree, NULL);
   }
 }
 
@@ -1594,13 +1597,13 @@ void do_versions_after_linking_280(Main *bmain, ReportList *UNUSED(reports))
       bNodeTree *ntree = ma->nodetree;
       if (ma->blend_method == 1 /* MA_BM_ADD */) {
         if (ma->use_nodes) {
-          do_versions_material_convert_legacy_blend_mode(ntree, 1 /* MA_BM_ADD */);
+          do_versions_material_convert_legacy_blend_mode(bmain, ntree, 1 /* MA_BM_ADD */);
         }
         ma->blend_method = MA_BM_BLEND;
       }
       else if (ma->blend_method == 2 /* MA_BM_MULTIPLY */) {
         if (ma->use_nodes) {
-          do_versions_material_convert_legacy_blend_mode(ntree, 2 /* MA_BM_MULTIPLY */);
+          do_versions_material_convert_legacy_blend_mode(bmain, ntree, 2 /* MA_BM_MULTIPLY */);
         }
         ma->blend_method = MA_BM_BLEND;
       }

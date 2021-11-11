@@ -135,9 +135,9 @@ void ED_node_set_active(struct Main *bmain,
  *   changed since the last update. In this case the function may be able to skip scanning bmain
  *   for other things that have to be changed.
  */
-void ED_node_tree_propagate_change(struct bContext *C,
+void ED_node_tree_propagate_change(const struct bContext *C,
                                    struct Main *bmain,
-                                   struct bNodeTree *only_tagged_tree);
+                                   struct bNodeTree *ntree);
 
 void ED_node_composite_job(const struct bContext *C,
                            struct bNodeTree *nodetree,

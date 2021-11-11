@@ -37,6 +37,7 @@
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
+#include "BKE_node_tree_update.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_texture.h"
@@ -89,7 +90,7 @@ bNode *node_add_node(const bContext *C, const char *idname, int type, float locx
 
   nodeSetSelected(node, true);
 
-  ntreeUpdateTree(bmain, snode->edittree);
+  BKE_node_tree_update_main_rooted(bmain, snode->edittree, nullptr);
   ED_node_set_active(bmain, snode, snode->edittree, node, nullptr);
 
   snode_update(snode, node);

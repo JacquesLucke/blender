@@ -37,6 +37,7 @@
 #include "BKE_context.h"
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
+#include "BKE_node_tree_update.h"
 
 #include "RNA_access.h"
 
@@ -84,7 +85,7 @@ static void node_link_item_apply(Main *bmain, bNode *node, NodeLinkItem *item)
 {
   if (ELEM(node->type, NODE_GROUP, NODE_CUSTOM_GROUP)) {
     node->id = (ID *)item->ngroup;
-    ntreeUpdateTree(bmain, item->ngroup);
+    BKE_node_tree_update_main_rooted(bmain, item->ngroup, nullptr);
   }
   else {
     /* nothing to do for now */

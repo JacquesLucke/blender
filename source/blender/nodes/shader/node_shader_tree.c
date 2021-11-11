@@ -376,7 +376,7 @@ static void ntree_shader_unlink_hidden_value_sockets(bNode *group_node, bNodeSoc
   }
 
   if (removed_link) {
-    ntreeUpdateTree(G.main, group_ntree);
+    BKE_node_tree_update_main_rooted(G.main, group_ntree, NULL);
   }
 }
 
@@ -435,7 +435,7 @@ static void ntree_shader_groups_expand_inputs(bNodeTree *localtree)
   }
 
   if (link_added) {
-    ntreeUpdateTree(G.main, localtree);
+    BKE_node_tree_update_main_rooted(G.main, localtree, NULL);
   }
 }
 
@@ -540,7 +540,7 @@ static void ntree_shader_groups_flatten(bNodeTree *localtree)
     }
   }
 
-  ntreeUpdateTree(G.main, localtree);
+  BKE_node_tree_update_main_rooted(G.main, localtree, NULL);
 }
 
 /* Check whether shader has a displacement.
@@ -560,7 +560,7 @@ static bool ntree_shader_has_displacement(bNodeTree *ntree,
     return false;
   }
   /* Make sure sockets links pointers are correct. */
-  ntreeUpdateTree(G.main, ntree);
+  BKE_node_tree_update_main_rooted(G.main, ntree, NULL);
   bNodeSocket *displacement = ntree_shader_node_find_input(output_node, "Displacement");
 
   if (displacement == NULL) {
@@ -649,7 +649,7 @@ static void ntree_shader_bypass_tagged_bump_nodes(bNodeTree *ntree)
       ntree_shader_bypass_bump_link(ntree, node, link);
     }
   }
-  ntreeUpdateTree(G.main, ntree);
+  BKE_node_tree_update_main_rooted(G.main, ntree, NULL);
 }
 
 static bool ntree_branch_count_and_tag_nodes(bNode *fromnode, bNode *tonode, void *userdata)
@@ -734,7 +734,7 @@ static void ntree_shader_copy_branch_displacement(bNodeTree *ntree,
   nodeRemLink(ntree, displacement_link);
   nodeAddLink(ntree, displacement_node, displacement_socket, tonode, tosock);
 
-  ntreeUpdateTree(G.main, ntree);
+  BKE_node_tree_update_main_rooted(G.main, ntree, NULL);
 }
 
 /* Re-link displacement output to unconnected normal sockets via bump node.
@@ -798,12 +798,12 @@ static void ntree_shader_relink_displacement(bNodeTree *ntree, bNode *output_nod
   geo_node->tmp_flag = -2;
   bump_node->tmp_flag = -2;
 
-  ntreeUpdateTree(G.main, ntree);
+  BKE_node_tree_update_main_rooted(G.main, ntree, NULL);
 
   /* Connect all free-standing Normal inputs and relink geometry/coordinate nodes. */
   ntree_shader_link_builtin_normal(ntree, bump_node, bump_output_socket);
   /* We modified the tree, it needs to be updated now. */
-  ntreeUpdateTree(G.main, ntree);
+  BKE_node_tree_update_main_rooted(G.main, ntree, NULL);
 }
 
 static void node_tag_branch_as_derivative(bNode *node, int dx)
@@ -883,7 +883,7 @@ void ntree_shader_tag_nodes(bNodeTree *ntree, bNode *output_node, nTreeTags *tag
     return;
   }
   /* Make sure sockets links pointers are correct. */
-  ntreeUpdateTree(G.main, ntree);
+  BKE_node_tree_update_main_rooted(G.main, ntree, NULL);
 
   nodeChainIterBackwards(ntree, output_node, ntree_tag_bsdf_cb, tags, 0);
 }

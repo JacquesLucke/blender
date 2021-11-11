@@ -21,83 +21,92 @@
 #include "BKE_node.h"
 #include "BKE_node_tree_update.h"
 
-void BKE_node_tree_update_tag(bNodeTree *tree)
+void BKE_node_tree_update_tag(bNodeTree *ntree)
 {
-  tree->changed_flag |= NTREE_CHANGED_ANY;
-  UNUSED_VARS(tree);
+  ntree->changed_flag |= NTREE_CHANGED_ANY;
+  ntree->update |= NTREE_UPDATE;
 }
 
-void BKE_node_tree_update_tag_node(bNodeTree *tree, bNode *node)
+void BKE_node_tree_update_tag_node(bNodeTree *ntree, bNode *node)
 {
-  tree->changed_flag |= NTREE_CHANGED_NODE;
+  ntree->changed_flag |= NTREE_CHANGED_NODE;
   node->changed_flag |= NODE_CHANGED_ANY;
-  tree->update |= NTREE_UPDATE;
+  ntree->update |= NTREE_UPDATE;
 }
 
-void BKE_node_tree_update_tag_socket(bNodeTree *tree, bNodeSocket *socket)
+void BKE_node_tree_update_tag_socket(bNodeTree *ntree, bNodeSocket *socket)
 {
-  tree->changed_flag |= NTREE_CHANGED_SOCKET;
+  ntree->changed_flag |= NTREE_CHANGED_SOCKET;
   socket->changed_flag |= SOCK_CHANGED_ANY;
-  tree->update |= NTREE_UPDATE;
+  ntree->update |= NTREE_UPDATE;
 }
 
-void BKE_node_tree_update_tag_node_removed(bNodeTree *tree)
+void BKE_node_tree_update_tag_node_removed(bNodeTree *ntree)
 {
-  tree->changed_flag |= NTREE_CHANGED_REMOVED_ANY;
-  tree->update |= NTREE_UPDATE;
+  ntree->changed_flag |= NTREE_CHANGED_REMOVED_ANY;
+  ntree->update |= NTREE_UPDATE;
 }
 
-void BKE_node_tree_update_tag_link(bNodeTree *tree)
+void BKE_node_tree_update_tag_link(bNodeTree *ntree)
 {
-  tree->changed_flag |= NTREE_CHANGED_LINK;
-  tree->update |= NTREE_UPDATE;
+  ntree->changed_flag |= NTREE_CHANGED_LINK;
+  ntree->update |= NTREE_UPDATE;
 }
 
-void BKE_node_tree_update_tag_node_added(bNodeTree *tree, bNode *node)
+void BKE_node_tree_update_tag_node_added(bNodeTree *ntree, bNode *node)
 {
-  BKE_node_tree_update_tag_node(tree, node);
+  BKE_node_tree_update_tag_node(ntree, node);
 }
 
-void BKE_node_tree_update_tag_link_removed(bNodeTree *tree)
+void BKE_node_tree_update_tag_link_removed(bNodeTree *ntree)
 {
-  BKE_node_tree_update_tag_link(tree);
+  BKE_node_tree_update_tag_link(ntree);
 }
 
-void BKE_node_tree_update_tag_link_added(bNodeTree *tree, bNodeLink *UNUSED(link))
+void BKE_node_tree_update_tag_link_added(bNodeTree *ntree, bNodeLink *UNUSED(link))
 {
-  BKE_node_tree_update_tag_link(tree);
+  BKE_node_tree_update_tag_link(ntree);
 }
 
-void BKE_node_tree_update_tag_link_mute(bNodeTree *tree, bNodeLink *UNUSED(link))
+void BKE_node_tree_update_tag_link_mute(bNodeTree *ntree, bNodeLink *UNUSED(link))
 {
-  BKE_node_tree_update_tag_link(tree);
+  BKE_node_tree_update_tag_link(ntree);
 }
 
-void BKE_node_tree_update_tag_missing_runtime_data(bNodeTree *tree)
+void BKE_node_tree_update_tag_missing_runtime_data(bNodeTree *ntree)
 {
-  tree->changed_flag |= NTREE_CHANGED_MISSING_RUNTIME_DATA;
-  tree->update |= NTREE_UPDATE;
+  ntree->changed_flag |= NTREE_CHANGED_MISSING_RUNTIME_DATA;
+  ntree->update |= NTREE_UPDATE;
 }
 
-void BKE_node_tree_update_tag_interface(bNodeTree *tree)
+void BKE_node_tree_update_tag_interface(bNodeTree *ntree)
 {
-  tree->changed_flag |= NTREE_CHANGED_ANY;
-  tree->update |= NTREE_UPDATE;
+  ntree->changed_flag |= NTREE_CHANGED_ANY;
+  ntree->update |= NTREE_UPDATE;
 }
 
 void BKE_node_tree_update_main(Main *bmain, NodeTreeUpdateExtraParams *params)
 {
   FOREACH_NODETREE_BEGIN (bmain, ntree, id) {
     ntreeUpdateTree(bmain, ntree);
-    if (params->tree_changed_fn) {
-      params->tree_changed_fn(id, ntree, params->user_data);
-    }
-    if (params->tree_interface_changed_fn) {
-      params->tree_interface_changed_fn(id, ntree, params->user_data);
-    }
-    if (params->tree_output_changed_fn) {
-      params->tree_output_changed_fn(id, ntree, params->user_data);
+    if (params) {
+      if (params->tree_changed_fn) {
+        params->tree_changed_fn(id, ntree, params->user_data);
+      }
+      if (params->tree_interface_changed_fn) {
+        params->tree_interface_changed_fn(id, ntree, params->user_data);
+      }
+      if (params->tree_output_changed_fn) {
+        params->tree_output_changed_fn(id, ntree, params->user_data);
+      }
     }
   }
   FOREACH_NODETREE_END;
+}
+
+void BKE_node_tree_update_main_rooted(Main *bmain,
+                                      bNodeTree *UNUSED(ntree),
+                                      NodeTreeUpdateExtraParams *params)
+{
+  BKE_node_tree_update_main(bmain, params);
 }

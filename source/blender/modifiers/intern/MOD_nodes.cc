@@ -60,6 +60,7 @@
 #include "BKE_main.h"
 #include "BKE_mesh.h"
 #include "BKE_modifier.h"
+#include "BKE_node_tree_update.h"
 #include "BKE_object.h"
 #include "BKE_pointcloud.h"
 #include "BKE_screen.h"
@@ -694,7 +695,7 @@ void MOD_nodes_init(Main *bmain, NodesModifierData *nmd)
               group_input_node,
               (bNodeSocket *)group_input_node->outputs.first);
 
-  ntreeUpdateTree(bmain, ntree);
+  BKE_node_tree_update_main_rooted(bmain, ntree, nullptr);
 }
 
 static void initialize_group_input(NodesModifierData &nmd,

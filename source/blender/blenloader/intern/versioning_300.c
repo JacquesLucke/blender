@@ -58,6 +58,7 @@
 #include "BKE_main.h"
 #include "BKE_modifier.h"
 #include "BKE_node.h"
+#include "BKE_node_tree_update.h"
 
 #include "RNA_access.h"
 #include "RNA_enum_types.h"
@@ -585,7 +586,7 @@ static bNodeTree *add_realize_node_tree(Main *bmain)
     nodeSetSelected(node, false);
   }
 
-  ntreeUpdateTree(bmain, node_tree);
+  BKE_node_tree_update_main_rooted(bmain, node_tree, NULL);
   return node_tree;
 }
 
@@ -783,7 +784,6 @@ void do_versions_after_linking_300(Main *bmain, ReportList *UNUSED(reports))
    */
   {
     /* Keep this block, even when empty. */
-
   }
 }
 

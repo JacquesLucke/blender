@@ -411,7 +411,7 @@ static int node_group_ungroup_exec(bContext *C, wmOperator *op)
   }
 
   if (gnode->id && node_group_ungroup(bmain, snode->edittree, gnode)) {
-    // ntreeUpdateTree(bmain, snode->nodetree);
+    BKE_node_tree_update_main_rooted(bmain, snode->edittree, nullptr);
   }
   else {
     BKE_report(op->reports, RPT_WARNING, "Cannot ungroup");
@@ -1040,11 +1040,10 @@ static int node_group_make_exec(bContext *C, wmOperator *op)
       LISTBASE_FOREACH (bNode *, node, &ngroup->nodes) {
         sort_multi_input_socket_links(snode, node, nullptr, nullptr);
       }
-      ntreeUpdateTree(bmain, ngroup);
     }
   }
 
-  ED_node_tree_propagate_change(C, CTX_data_main(C), nullptr);
+  ED_node_tree_propagate_change(C, bmain, nullptr);
 
   /* We broke relations in node tree, need to rebuild them in the graphs. */
   DEG_relations_tag_update(bmain);

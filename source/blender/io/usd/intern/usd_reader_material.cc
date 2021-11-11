@@ -23,6 +23,7 @@
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_node.h"
+#include "BKE_node_tree_update.h"
 
 #include "BLI_math_vector.h"
 #include "BLI_string.h"
@@ -340,7 +341,7 @@ void USDMaterialReader::import_usd_preview(Material *mtl,
 
   nodeSetActive(ntree, output);
 
-  ntreeUpdateTree(bmain_, ntree);
+  BKE_node_tree_update_main_rooted(bmain_, ntree, nullptr);
 
   /* Optionally, set the material blend mode. */
 

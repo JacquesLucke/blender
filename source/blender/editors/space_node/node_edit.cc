@@ -470,14 +470,13 @@ static void handle_tree_change(ID *id, bNodeTree *ntree)
   }
 }
 
-void ED_node_tree_propagate_change(bContext *UNUSED(C), Main *bmain, bNodeTree *only_tagged_tree)
+void ED_node_tree_propagate_change(const bContext *UNUSED(C), Main *bmain, bNodeTree *ntree)
 {
   struct UserData {
     Main *bmain;
   } user_data = {bmain};
 
   NodeTreeUpdateExtraParams params = {0};
-  params.only_tagged_tree = only_tagged_tree;
   params.user_data = &user_data;
   params.tree_changed_fn = [](ID *id, bNodeTree *ntree, void *UNUSED(user_data)) {
     handle_tree_change(id, ntree);
@@ -489,7 +488,7 @@ void ED_node_tree_propagate_change(bContext *UNUSED(C), Main *bmain, bNodeTree *
     DEG_id_tag_update(&ntree->id, 0);
   };
 
-  BKE_node_tree_update_main(bmain, &params);
+  BKE_node_tree_update_main_rooted(bmain, ntree, &params);
 }
 
 void ED_node_set_tree_type(SpaceNode *snode, bNodeTreeType *typeinfo)
@@ -542,7 +541,7 @@ void ED_node_shader_default(const bContext *C, ID *id)
     }
 
     ma->nodetree = ntreeCopyTree(bmain, ma_default->nodetree);
-    ntreeUpdateTree(bmain, ma->nodetree);
+    BKE_node_tree_update_main_rooted(bmain, ma->nodetree, nullptr);
   }
   else if (ELEM(GS(id->name), ID_WO, ID_LA)) {
     /* Emission */
@@ -582,7 +581,7 @@ void ED_node_shader_default(const bContext *C, ID *id)
     output->locx = 300.0f;
     output->locy = 300.0f;
     nodeSetActive(ntree, output);
-    ntreeUpdateTree(bmain, ntree);
+    BKE_node_tree_update_main_rooted(bmain, ntree, nullptr);
   }
   else {
     printf("ED_node_shader_default called on wrong ID type.\n");
@@ -622,7 +621,7 @@ void ED_node_composit_default(const bContext *C, struct Scene *sce)
   bNodeSocket *tosock = (bNodeSocket *)out->inputs.first;
   nodeAddLink(sce->nodetree, in, fromsock, out, tosock);
 
-  ntreeUpdateTree(CTX_data_main(C), sce->nodetree);
+  BKE_node_tree_update_main_rooted(CTX_data_main(C), sce->nodetree, nullptr);
 }
 
 /* assumes nothing being done in ntree yet, sets the default in/out node */
@@ -652,7 +651,7 @@ void ED_node_texture_default(const bContext *C, Tex *tex)
   bNodeSocket *tosock = (bNodeSocket *)out->inputs.first;
   nodeAddLink(tex->nodetree, in, fromsock, out, tosock);
 
-  ntreeUpdateTree(CTX_data_main(C), tex->nodetree);
+  BKE_node_tree_update_main_rooted(CTX_data_main(C), tex->nodetree, nullptr);
 }
 
 /* Here we set the active tree(s), even called for each redraw now, so keep it fast :) */
@@ -1784,7 +1783,7 @@ static int node_socket_toggle_exec(bContext *C, wmOperator *UNUSED(op))
     }
   }
 
-  ntreeUpdateTree(CTX_data_main(C), snode->edittree);
+  ED_node_tree_propagate_change(C, CTX_data_main(C), snode->edittree);
 
   WM_event_add_notifier(C, NC_NODE | ND_DISPLAY, nullptr);
 

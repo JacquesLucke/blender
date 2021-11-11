@@ -1236,7 +1236,7 @@ static bNode *rna_NodeTree_node_new(bNodeTree *ntree,
     ntreeTexCheckCyclics(ntree);
   }
 
-  ntreeUpdateTree(CTX_data_main(C), ntree);
+  BKE_node_tree_update_main_rooted(CTX_data_main(C), ntree, NULL);
   nodeUpdate(ntree, node);
   WM_main_add_notifier(NC_NODE | NA_EDITED, ntree);
 
@@ -1263,7 +1263,7 @@ static void rna_NodeTree_node_remove(bNodeTree *ntree,
 
   RNA_POINTER_INVALIDATE(node_ptr);
 
-  ntreeUpdateTree(bmain, ntree); /* update group node socket links */
+  BKE_node_tree_update_main_rooted(bmain, ntree, NULL); /* update group node socket links */
   WM_main_add_notifier(NC_NODE | NA_EDITED, ntree);
 }
 
@@ -1283,7 +1283,7 @@ static void rna_NodeTree_node_clear(bNodeTree *ntree, Main *bmain, ReportList *r
     node = next_node;
   }
 
-  ntreeUpdateTree(bmain, ntree);
+  BKE_node_tree_update_main_rooted(bmain, ntree, NULL);
 
   WM_main_add_notifier(NC_NODE | NA_EDITED, ntree);
 }
@@ -1392,7 +1392,7 @@ static void rna_NodeTree_link_remove(bNodeTree *ntree,
   nodeRemLink(ntree, link);
   RNA_POINTER_INVALIDATE(link_ptr);
 
-  ntreeUpdateTree(bmain, ntree);
+  BKE_node_tree_update_main_rooted(bmain, ntree, NULL);
   WM_main_add_notifier(NC_NODE | NA_EDITED, ntree);
 }
 
@@ -1411,7 +1411,7 @@ static void rna_NodeTree_link_clear(bNodeTree *ntree, Main *bmain, ReportList *r
 
     link = next_link;
   }
-  ntreeUpdateTree(bmain, ntree);
+  BKE_node_tree_update_main_rooted(bmain, ntree, NULL);
 
   WM_main_add_notifier(NC_NODE | NA_EDITED, ntree);
 }
@@ -1469,7 +1469,7 @@ static bNodeSocket *rna_NodeTree_inputs_new(
 
   bNodeSocket *sock = ntreeAddSocketInterface(ntree, SOCK_IN, type, name);
 
-  ntreeUpdateTree(bmain, ntree);
+  BKE_node_tree_update_main_rooted(bmain, ntree, NULL);
   WM_main_add_notifier(NC_NODE | NA_EDITED, ntree);
 
   return sock;
@@ -1484,7 +1484,7 @@ static bNodeSocket *rna_NodeTree_outputs_new(
 
   bNodeSocket *sock = ntreeAddSocketInterface(ntree, SOCK_OUT, type, name);
 
-  ntreeUpdateTree(bmain, ntree);
+  BKE_node_tree_update_main_rooted(bmain, ntree, NULL);
   WM_main_add_notifier(NC_NODE | NA_EDITED, ntree);
 
   return sock;
@@ -1505,7 +1505,7 @@ static void rna_NodeTree_socket_remove(bNodeTree *ntree,
   else {
     ntreeRemoveSocketInterface(ntree, sock);
 
-    ntreeUpdateTree(bmain, ntree);
+    BKE_node_tree_update_main_rooted(bmain, ntree, NULL);
     DEG_id_tag_update(&ntree->id, 0);
     WM_main_add_notifier(NC_NODE | NA_EDITED, ntree);
   }
@@ -1521,7 +1521,7 @@ static void rna_NodeTree_inputs_clear(bNodeTree *ntree, Main *bmain, ReportList 
     ntreeRemoveSocketInterface(ntree, socket);
   }
 
-  ntreeUpdateTree(bmain, ntree);
+  BKE_node_tree_update_main_rooted(bmain, ntree, NULL);
   WM_main_add_notifier(NC_NODE | NA_EDITED, ntree);
 }
 
@@ -1535,7 +1535,7 @@ static void rna_NodeTree_outputs_clear(bNodeTree *ntree, Main *bmain, ReportList
     ntreeRemoveSocketInterface(ntree, socket);
   }
 
-  ntreeUpdateTree(bmain, ntree);
+  BKE_node_tree_update_main_rooted(bmain, ntree, NULL);
   WM_main_add_notifier(NC_NODE | NA_EDITED, ntree);
 }
 
@@ -1566,7 +1566,7 @@ static void rna_NodeTree_inputs_move(bNodeTree *ntree, Main *bmain, int from_ind
 
   BKE_node_tree_update_tag_interface(ntree);
 
-  ntreeUpdateTree(bmain, ntree);
+  BKE_node_tree_update_main_rooted(bmain, ntree, NULL);
   WM_main_add_notifier(NC_NODE | NA_EDITED, ntree);
 }
 
@@ -1597,7 +1597,7 @@ static void rna_NodeTree_outputs_move(bNodeTree *ntree, Main *bmain, int from_in
 
   BKE_node_tree_update_tag_interface(ntree);
 
-  ntreeUpdateTree(bmain, ntree);
+  BKE_node_tree_update_main_rooted(bmain, ntree, NULL);
   WM_main_add_notifier(NC_NODE | NA_EDITED, ntree);
 }
 
@@ -2552,7 +2552,7 @@ static bNodeSocket *rna_Node_inputs_new(ID *id,
     BKE_report(reports, RPT_ERROR, "Unable to create socket");
   }
   else {
-    ntreeUpdateTree(bmain, ntree);
+    BKE_node_tree_update_main_rooted(bmain, ntree, NULL);
     WM_main_add_notifier(NC_NODE | NA_EDITED, ntree);
   }
 
@@ -2586,7 +2586,7 @@ static bNodeSocket *rna_Node_outputs_new(ID *id,
     BKE_report(reports, RPT_ERROR, "Unable to create socket");
   }
   else {
-    ntreeUpdateTree(bmain, ntree);
+    BKE_node_tree_update_main_rooted(bmain, ntree, NULL);
     WM_main_add_notifier(NC_NODE | NA_EDITED, ntree);
   }
 
@@ -2604,7 +2604,7 @@ static void rna_Node_socket_remove(
   else {
     nodeRemoveSocket(ntree, node, sock);
 
-    ntreeUpdateTree(bmain, ntree);
+    BKE_node_tree_update_main_rooted(bmain, ntree, NULL);
     WM_main_add_notifier(NC_NODE | NA_EDITED, ntree);
   }
 }
@@ -2619,7 +2619,7 @@ static void rna_Node_inputs_clear(ID *id, bNode *node, Main *bmain)
     nodeRemoveSocket(ntree, node, sock);
   }
 
-  ntreeUpdateTree(bmain, ntree);
+  BKE_node_tree_update_main_rooted(bmain, ntree, NULL);
   WM_main_add_notifier(NC_NODE | NA_EDITED, ntree);
 }
 
@@ -2633,7 +2633,7 @@ static void rna_Node_outputs_clear(ID *id, bNode *node, Main *bmain)
     nodeRemoveSocket(ntree, node, sock);
   }
 
-  ntreeUpdateTree(bmain, ntree);
+  BKE_node_tree_update_main_rooted(bmain, ntree, NULL);
   WM_main_add_notifier(NC_NODE | NA_EDITED, ntree);
 }
 
@@ -2665,7 +2665,7 @@ static void rna_Node_inputs_move(ID *id, bNode *node, Main *bmain, int from_inde
     }
   }
 
-  ntreeUpdateTree(bmain, ntree);
+  BKE_node_tree_update_main_rooted(bmain, ntree, NULL);
   WM_main_add_notifier(NC_NODE | NA_EDITED, ntree);
 }
 
@@ -2697,7 +2697,7 @@ static void rna_Node_outputs_move(ID *id, bNode *node, Main *bmain, int from_ind
     }
   }
 
-  ntreeUpdateTree(bmain, ntree);
+  BKE_node_tree_update_main_rooted(bmain, ntree, NULL);
   WM_main_add_notifier(NC_NODE | NA_EDITED, ntree);
 }
 
@@ -3336,7 +3336,7 @@ static void rna_NodeSocketStandard_value_and_relation_update(struct bContext *C,
   rna_NodeSocketStandard_value_update(C, ptr);
   bNodeTree *ntree = (bNodeTree *)ptr->owner_id;
   Main *bmain = CTX_data_main(C);
-  ntreeUpdateTree(bmain, ntree);
+  BKE_node_tree_update_main_rooted(bmain, ntree, NULL);
   DEG_relations_tag_update(bmain);
 }
 
@@ -3592,11 +3592,6 @@ static void rna_Node_tex_image_update(Main *bmain, Scene *UNUSED(scene), Pointer
 static void rna_NodeGroup_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *ptr)
 {
   bNodeTree *ntree = (bNodeTree *)ptr->owner_id;
-  bNode *node = (bNode *)ptr->data;
-
-  if (node->id) {
-    ntreeUpdateTree(bmain, (bNodeTree *)node->id);
-  }
 
   ED_node_tree_propagate_change(NULL, bmain, ntree);
   DEG_relations_tag_update(bmain);
@@ -4259,7 +4254,7 @@ static bNodeSocket *rna_NodeOutputFile_slots_new(
 
   sock = ntreeCompositOutputFileAddSocket(ntree, node, name, im_format);
 
-  ntreeUpdateTree(CTX_data_main(C), ntree);
+  BKE_node_tree_update_main_rooted(CTX_data_main(C), ntree, NULL);
   WM_main_add_notifier(NC_NODE | NA_EDITED, ntree);
 
   return sock;
