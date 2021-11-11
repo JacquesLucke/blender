@@ -3323,7 +3323,8 @@ static void node_property_update_default(Main *bmain, Scene *UNUSED(scene), Poin
 {
   bNodeTree *ntree = (bNodeTree *)ptr->owner_id;
   bNode *node = (bNode *)ptr->data;
-  ED_node_tag_update_nodetree(bmain, ntree, node);
+  UNUSED_VARS(node);
+  ED_node_tree_propagate_change(nullptr, bmain, ntree);
 }
 
 static void node_socket_template_properties_update(bNodeType *ntype, bNodeSocketTemplate *stemp)

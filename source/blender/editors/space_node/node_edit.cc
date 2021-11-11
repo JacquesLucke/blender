@@ -440,6 +440,27 @@ void snode_notify(bContext *C, SpaceNode *snode)
   }
 }
 
+void ED_node_tree_propagate_change(bContext *C, Main *bmain, bNodeTree *only_tagged_tree)
+{
+  if (C != nullptr) {
+    SpaceNode *snode = CTX_wm_space_node(C);
+    if (snode != nullptr) {
+      snode_notify(C, snode);
+      snode_dag_update(C, snode);
+    }
+  }
+  if (only_tagged_tree != nullptr) {
+    ntreeUpdateTree(bmain, only_tagged_tree);
+    ED_node_tag_update_nodetree(bmain, only_tagged_tree, nullptr);
+  }
+  else {
+    FOREACH_NODETREE_BEGIN (bmain, tree, id) {
+      ntreeUpdateTree(bmain, tree);
+    }
+    FOREACH_NODETREE_END;
+  }
+}
+
 void ED_node_set_tree_type(SpaceNode *snode, bNodeTreeType *typeinfo)
 {
   if (typeinfo) {
@@ -712,13 +733,9 @@ void ED_node_set_active(
         }
 
         node->flag |= NODE_DO_OUTPUT;
-        if (was_output == 0) {
-          ED_node_tag_update_nodetree(bmain, ntree, node);
-        }
       }
-      else if (do_update) {
-        ED_node_tag_update_nodetree(bmain, ntree, node);
-      }
+
+      ED_node_tree_propagate_change(nullptr, bmain, ntree);
 
       if ((node->flag & NODE_ACTIVE_TEXTURE) && !was_active_texture) {
         /* If active texture changed, free glsl materials. */
@@ -765,7 +782,7 @@ void ED_node_set_active(
         if (r_active_texture_changed) {
           *r_active_texture_changed = true;
         }
-        ED_node_tag_update_nodetree(bmain, ntree, node);
+        ED_node_tree_propagate_change(nullptr, bmain, ntree);
         WM_main_add_notifier(NC_IMAGE, nullptr);
       }
 
@@ -782,7 +799,7 @@ void ED_node_set_active(
 
         node->flag |= NODE_DO_OUTPUT;
         if (was_output == 0) {
-          ED_node_tag_update_nodetree(bmain, ntree, node);
+          ED_node_tree_propagate_change(nullptr, bmain, ntree);
         }
 
         /* Adding a node doesn't link this yet. */
@@ -797,11 +814,11 @@ void ED_node_set_active(
           }
 
           node->flag |= NODE_DO_OUTPUT;
-          ED_node_tag_update_nodetree(bmain, ntree, node);
+          ED_node_tree_propagate_change(nullptr, bmain, ntree);
         }
       }
       else if (do_update) {
-        ED_node_tag_update_nodetree(bmain, ntree, node);
+        ED_node_tree_propagate_change(nullptr, bmain, ntree);
       }
     }
     else if (ntree->type == NTREE_TEXTURE) {
@@ -1398,12 +1415,7 @@ static int node_duplicate_exec(bContext *C, wmOperator *op)
     }
   }
 
-  ntreeUpdateTree(CTX_data_main(C), snode->edittree);
-
-  snode_notify(C, snode);
-  if (do_tag_update) {
-    snode_dag_update(C, snode);
-  }
+  ED_node_tree_propagate_change(C, bmain, snode->edittree);
 
   return OPERATOR_FINISHED;
 }
@@ -1495,8 +1507,7 @@ static int node_read_viewlayers_exec(bContext *C, wmOperator *UNUSED(op))
     }
   }
 
-  snode_notify(C, snode);
-  snode_dag_update(C, snode);
+  ED_node_tree_propagate_change(C, bmain, snode->edittree);
 
   return OPERATOR_FINISHED;
 }
@@ -1663,7 +1674,7 @@ static int node_preview_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 
   node_flag_toggle_exec(snode, NODE_PREVIEW);
 
-  snode_notify(C, snode);
+  ED_node_tree_propagate_change(C, CTX_data_main(C), snode->edittree);
 
   return OPERATOR_FINISHED;
 }
@@ -1783,10 +1794,7 @@ static int node_mute_exec(bContext *C, wmOperator *UNUSED(op))
     }
   }
 
-  snode_notify(C, snode);
-  if (do_tag_update) {
-    snode_dag_update(C, snode);
-  }
+  ED_node_tree_propagate_change(C, bmain, snode->edittree);
 
   return OPERATOR_FINISHED;
 }
@@ -1823,12 +1831,7 @@ static int node_delete_exec(bContext *C, wmOperator *UNUSED(op))
     }
   }
 
-  ntreeUpdateTree(CTX_data_main(C), snode->edittree);
-
-  snode_notify(C, snode);
-  if (do_tag_update) {
-    snode_dag_update(C, snode);
-  }
+  ED_node_tree_propagate_change(C, bmain, snode->edittree);
 
   return OPERATOR_FINISHED;
 }
@@ -1872,10 +1875,7 @@ static int node_switch_view_exec(bContext *C, wmOperator *UNUSED(op))
     }
   }
 
-  ntreeUpdateTree(CTX_data_main(C), snode->edittree);
-
-  snode_notify(C, snode);
-  snode_dag_update(C, snode);
+  ED_node_tree_propagate_change(C, CTX_data_main(C), snode->edittree);
 
   return OPERATOR_FINISHED;
 }
@@ -1910,10 +1910,7 @@ static int node_delete_reconnect_exec(bContext *C, wmOperator *UNUSED(op))
     }
   }
 
-  ntreeUpdateTree(CTX_data_main(C), snode->edittree);
-
-  snode_notify(C, snode);
-  snode_dag_update(C, snode);
+  ED_node_tree_propagate_change(C, bmain, snode->edittree);
 
   return OPERATOR_FINISHED;
 }
@@ -1960,7 +1957,7 @@ static int node_output_file_add_socket_exec(bContext *C, wmOperator *op)
   RNA_string_get(op->ptr, "file_path", file_path);
   ntreeCompositOutputFileAddSocket(ntree, node, file_path, &scene->r.im_format);
 
-  snode_notify(C, snode);
+  ED_node_tree_propagate_change(C, CTX_data_main(C), snode->edittree);
 
   return OPERATOR_FINISHED;
 }
@@ -2009,7 +2006,7 @@ static int node_output_file_remove_active_socket_exec(bContext *C, wmOperator *U
     return OPERATOR_CANCELLED;
   }
 
-  snode_notify(C, snode);
+  ED_node_tree_propagate_change(C, CTX_data_main(C), ntree);
 
   return OPERATOR_FINISHED;
 }
@@ -2076,7 +2073,7 @@ static int node_output_file_move_active_socket_exec(bContext *C, wmOperator *op)
     nimf->active_input++;
   }
 
-  snode_notify(C, snode);
+  ED_node_tree_propagate_change(C, CTX_data_main(C), snode->edittree);
 
   return OPERATOR_FINISHED;
 }
@@ -2322,10 +2319,7 @@ static int node_clipboard_paste_exec(bContext *C, wmOperator *op)
   }
 
   Main *bmain = CTX_data_main(C);
-  ntreeUpdateTree(bmain, snode->edittree);
-
-  snode_notify(C, snode);
-  snode_dag_update(C, snode);
+  ED_node_tree_propagate_change(C, bmain, snode->edittree);
   /* Pasting nodes can create arbitrary new relations, because nodes can reference IDs. */
   DEG_relations_tag_update(bmain);
 
@@ -2393,10 +2387,7 @@ static int ntree_socket_add_exec(bContext *C, wmOperator *op)
   /* make the new socket active */
   sock->flag |= SELECT;
 
-  ntreeUpdateTree(CTX_data_main(C), ntree);
-
-  snode_notify(C, snode);
-  snode_dag_update(C, snode);
+  ED_node_tree_propagate_change(C, CTX_data_main(C), snode->edittree);
 
   WM_event_add_notifier(C, NC_NODE | ND_DISPLAY, nullptr);
 
@@ -2443,10 +2434,7 @@ static int ntree_socket_remove_exec(bContext *C, wmOperator *op)
     active_sock->flag |= SELECT;
   }
 
-  ntreeUpdateTree(CTX_data_main(C), ntree);
-
-  snode_notify(C, snode);
-  snode_dag_update(C, snode);
+  ED_node_tree_propagate_change(C, CTX_data_main(C), ntree);
 
   WM_event_add_notifier(C, NC_NODE | ND_DISPLAY, nullptr);
 
@@ -2506,10 +2494,7 @@ static int ntree_socket_change_type_exec(bContext *C, wmOperator *op)
   /* Make the new socket active. */
   iosock->flag |= SELECT;
 
-  ntreeUpdateTree(main, ntree);
-
-  snode_notify(C, snode);
-  snode_dag_update(C, snode);
+  ED_node_tree_propagate_change(C, main, ntree);
 
   WM_event_add_notifier(C, NC_NODE | ND_DISPLAY, nullptr);
 
@@ -2621,10 +2606,7 @@ static int ntree_socket_move_exec(bContext *C, wmOperator *op)
   }
 
   ntree->update |= NTREE_UPDATE_GROUP;
-  ntreeUpdateTree(CTX_data_main(C), ntree);
-
-  snode_notify(C, snode);
-  snode_dag_update(C, snode);
+  ED_node_tree_propagate_change(C, CTX_data_main(C), ntree);
 
   WM_event_add_notifier(C, NC_NODE | ND_DISPLAY, nullptr);
 
@@ -2940,7 +2922,7 @@ static int node_cryptomatte_add_socket_exec(bContext *C, wmOperator *UNUSED(op))
 
   ntreeCompositCryptomatteAddSocket(ntree, node);
 
-  snode_notify(C, snode);
+  ED_node_tree_propagate_change(C, CTX_data_main(C), ntree);
 
   return OPERATOR_FINISHED;
 }
@@ -2986,7 +2968,7 @@ static int node_cryptomatte_remove_socket_exec(bContext *C, wmOperator *UNUSED(o
     return OPERATOR_CANCELLED;
   }
 
-  snode_notify(C, snode);
+  ED_node_tree_propagate_change(C, CTX_data_main(C), ntree);
 
   return OPERATOR_FINISHED;
 }

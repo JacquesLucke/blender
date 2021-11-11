@@ -1186,7 +1186,7 @@ static void rna_NodeTree_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *p
   WM_main_add_notifier(NC_NODE | NA_EDITED, NULL);
   WM_main_add_notifier(NC_SCENE | ND_NODES, &ntree->id);
 
-  ED_node_tag_update_nodetree(bmain, ntree, NULL);
+  ED_node_tree_propagate_change(NULL, bmain, ntree);
 }
 
 static bNode *rna_NodeTree_node_new(bNodeTree *ntree,
@@ -1366,9 +1366,7 @@ static bNodeLink *rna_NodeTree_link_new(bNodeTree *ntree,
       nodeUpdate(ntree, tonode);
     }
 
-    ntreeUpdateTree(bmain, ntree);
-
-    ED_node_tag_update_nodetree(bmain, ntree, ret->tonode);
+    ED_node_tree_propagate_change(NULL, bmain, ntree);
     WM_main_add_notifier(NC_NODE | NA_EDITED, ntree);
   }
   return ret;
@@ -1607,9 +1605,7 @@ static void rna_NodeTree_interface_update(bNodeTree *ntree, bContext *C)
   Main *bmain = CTX_data_main(C);
 
   ntree->update |= NTREE_UPDATE_GROUP;
-  ntreeUpdateTree(bmain, ntree);
-
-  ED_node_tag_update_nodetree(bmain, ntree, NULL);
+  ED_node_tree_propagate_change(NULL, bmain, ntree);
 }
 
 /* ******** NodeLink ******** */
@@ -2489,7 +2485,8 @@ static void rna_Node_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *ptr)
 {
   bNodeTree *ntree = (bNodeTree *)ptr->owner_id;
   bNode *node = (bNode *)ptr->data;
-  ED_node_tag_update_nodetree(bmain, ntree, node);
+  UNUSED_VARS(node);
+  ED_node_tree_propagate_change(NULL, bmain, ntree);
 }
 
 static void rna_Node_update_relations(Main *bmain, Scene *scene, PointerRNA *ptr)
@@ -2498,9 +2495,9 @@ static void rna_Node_update_relations(Main *bmain, Scene *scene, PointerRNA *ptr
   DEG_relations_tag_update(bmain);
 }
 
-static void rna_Node_socket_value_update(ID *id, bNode *node, bContext *C)
+static void rna_Node_socket_value_update(ID *id, bNode *UNUSED(node), bContext *C)
 {
-  ED_node_tag_update_nodetree(CTX_data_main(C), (bNodeTree *)id, node);
+  ED_node_tree_propagate_change(C, CTX_data_main(C), (bNodeTree *)id);
 }
 
 static void rna_Node_select_set(PointerRNA *ptr, bool value)
@@ -2927,9 +2924,8 @@ static void rna_NodeSocket_update(Main *bmain, Scene *UNUSED(scene), PointerRNA 
   bNodeTree *ntree = (bNodeTree *)ptr->owner_id;
   bNodeSocket *sock = (bNodeSocket *)ptr->data;
   bNode *node;
-  if (nodeFindNode(ntree, sock, &node, NULL)) {
-    ED_node_tag_update_nodetree(bmain, ntree, node);
-  }
+  UNUSED_VARS(sock, node);
+  ED_node_tree_propagate_change(NULL, bmain, ntree);
 }
 
 static bool rna_NodeSocket_is_output_get(PointerRNA *ptr)
@@ -3220,9 +3216,7 @@ static void rna_NodeSocketInterface_update(Main *bmain, Scene *UNUSED(scene), Po
   }
 
   ntree->update |= NTREE_UPDATE_GROUP;
-  ntreeUpdateTree(bmain, ntree);
-
-  ED_node_tag_update_nodetree(bmain, ntree, NULL);
+  ED_node_tree_propagate_change(NULL, bmain, ntree);
 }
 
 /* ******** Standard Node Socket Base Types ******** */
@@ -3588,8 +3582,9 @@ static void rna_Node_tex_image_update(Main *bmain, Scene *UNUSED(scene), Pointer
 {
   bNodeTree *ntree = (bNodeTree *)ptr->owner_id;
   bNode *node = (bNode *)ptr->data;
+  UNUSED_VARS(node);
 
-  ED_node_tag_update_nodetree(bmain, ntree, node);
+  ED_node_tree_propagate_change(NULL, bmain, ntree);
   WM_main_add_notifier(NC_IMAGE, NULL);
 }
 
@@ -3602,7 +3597,7 @@ static void rna_NodeGroup_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *
     ntreeUpdateTree(bmain, (bNodeTree *)node->id);
   }
 
-  ED_node_tag_update_nodetree(bmain, ntree, node);
+  ED_node_tree_propagate_change(NULL, bmain, ntree);
   DEG_relations_tag_update(bmain);
 }
 
@@ -4372,7 +4367,7 @@ static void rna_ShaderNodeScript_update(Main *bmain, Scene *scene, PointerRNA *p
     RE_engine_free(engine);
   }
 
-  ED_node_tag_update_nodetree(bmain, ntree, node);
+  ED_node_tree_propagate_change(NULL, bmain, ntree);
 }
 
 static void rna_ShaderNode_socket_update(Main *bmain, Scene *scene, PointerRNA *ptr)

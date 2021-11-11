@@ -908,7 +908,7 @@ static int node_active_link_viewer_exec(bContext *C, wmOperator *UNUSED(op))
     return OPERATOR_CANCELLED;
   }
 
-  snode_notify(C, snode);
+  ED_node_tree_propagate_change(C, CTX_data_main(C), snode->edittree);
 
   return OPERATOR_FINISHED;
 }
@@ -1058,11 +1058,7 @@ static void node_link_exit(bContext *C, wmOperator *op, bool apply_links)
   }
   ntree->is_updating = false;
 
-  ntreeUpdateTree(bmain, ntree);
-  snode_notify(C, snode);
-  if (do_tag_update) {
-    snode_dag_update(C, snode);
-  }
+  ED_node_tree_propagate_change(C, CTX_data_main(C), ntree);
 
   if (reset_view) {
     UI_view2d_edge_pan_cancel(C, &nldrag->pan_data);
@@ -1425,9 +1421,7 @@ static int node_make_link_exec(bContext *C, wmOperator *op)
   node_deselect_all_input_sockets(snode, false);
   node_deselect_all_output_sockets(snode, false);
 
-  ntreeUpdateTree(CTX_data_main(C), snode->edittree);
-  snode_notify(C, snode);
-  snode_dag_update(C, snode);
+  ED_node_tree_propagate_change(C, CTX_data_main(C), snode->edittree);
 
   return OPERATOR_FINISHED;
 }
@@ -1530,12 +1524,7 @@ static int cut_links_exec(bContext *C, wmOperator *op)
     }
 
     if (found) {
-      ntreeUpdateTree(CTX_data_main(C), snode->edittree);
-      snode_notify(C, snode);
-      if (do_tag_update) {
-        snode_dag_update(C, snode);
-      }
-
+      ED_node_tree_propagate_change(C, CTX_data_main(C), snode->edittree);
       return OPERATOR_FINISHED;
     }
 
@@ -1639,12 +1628,7 @@ static int mute_links_exec(bContext *C, wmOperator *op)
       link->flag &= ~NODE_LINK_TEST;
     }
 
-    ntreeUpdateTree(CTX_data_main(C), snode->edittree);
-    snode_notify(C, snode);
-    if (do_tag_update) {
-      snode_dag_update(C, snode);
-    }
-
+    ED_node_tree_propagate_change(C, CTX_data_main(C), snode->edittree);
     return OPERATOR_FINISHED;
   }
 
@@ -1695,11 +1679,7 @@ static int detach_links_exec(bContext *C, wmOperator *UNUSED(op))
     }
   }
 
-  ntreeUpdateTree(CTX_data_main(C), ntree);
-
-  snode_notify(C, snode);
-  snode_dag_update(C, snode);
-
+  ED_node_tree_propagate_change(C, CTX_data_main(C), ntree);
   return OPERATOR_FINISHED;
 }
 

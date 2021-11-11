@@ -180,9 +180,7 @@ static void node_socket_disconnect(Main *bmain,
   sock_to->flag |= SOCK_COLLAPSED;
 
   nodeUpdate(ntree, node_to);
-  ntreeUpdateTree(bmain, ntree);
-
-  ED_node_tag_update_nodetree(bmain, ntree, node_to);
+  ED_node_tree_propagate_change(nullptr, bmain, ntree);
 }
 
 /* remove all nodes connected to this socket, if they aren't connected to other nodes */
@@ -196,9 +194,7 @@ static void node_socket_remove(Main *bmain, bNodeTree *ntree, bNode *node_to, bN
   sock_to->flag |= SOCK_COLLAPSED;
 
   nodeUpdate(ntree, node_to);
-  ntreeUpdateTree(bmain, ntree);
-
-  ED_node_tag_update_nodetree(bmain, ntree, node_to);
+  ED_node_tree_propagate_change(nullptr, bmain, ntree);
 }
 
 /* add new node connected to this socket, or replace an existing one */
@@ -301,9 +297,7 @@ static void node_socket_add_replace(const bContext *C,
 
   nodeUpdate(ntree, node_from);
   nodeUpdate(ntree, node_to);
-  ntreeUpdateTree(CTX_data_main(C), ntree);
-
-  ED_node_tag_update_nodetree(CTX_data_main(C), ntree, node_to);
+  ED_node_tree_propagate_change(nullptr, bmain, ntree);
 }
 
 /****************************** Node Link Menu *******************************/

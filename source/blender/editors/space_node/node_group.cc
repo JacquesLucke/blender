@@ -410,16 +410,14 @@ static int node_group_ungroup_exec(bContext *C, wmOperator *op)
   }
 
   if (gnode->id && node_group_ungroup(bmain, snode->edittree, gnode)) {
-    ntreeUpdateTree(bmain, snode->nodetree);
+    // ntreeUpdateTree(bmain, snode->nodetree);
   }
   else {
     BKE_report(op->reports, RPT_WARNING, "Cannot ungroup");
     return OPERATOR_CANCELLED;
   }
 
-  snode_notify(C, snode);
-  snode_dag_update(C, snode);
-
+  ED_node_tree_propagate_change(C, CTX_data_main(C), nullptr);
   return OPERATOR_FINISHED;
 }
 
@@ -611,10 +609,7 @@ static int node_group_separate_exec(bContext *C, wmOperator *op)
   /* switch to parent tree */
   ED_node_tree_pop(snode);
 
-  ntreeUpdateTree(CTX_data_main(C), snode->nodetree);
-
-  snode_notify(C, snode);
-  snode_dag_update(C, snode);
+  ED_node_tree_propagate_change(C, CTX_data_main(C), nullptr);
 
   return OPERATOR_FINISHED;
 }
@@ -1048,10 +1043,7 @@ static int node_group_make_exec(bContext *C, wmOperator *op)
     }
   }
 
-  ntreeUpdateTree(bmain, ntree);
-
-  snode_notify(C, snode);
-  snode_dag_update(C, snode);
+  ED_node_tree_propagate_change(C, CTX_data_main(C), nullptr);
 
   /* We broke relations in node tree, need to rebuild them in the graphs. */
   DEG_relations_tag_update(bmain);
@@ -1104,12 +1096,7 @@ static int node_group_insert_exec(bContext *C, wmOperator *op)
 
   nodeSetActive(ntree, gnode);
   ED_node_tree_push(snode, ngroup, gnode);
-  ntreeUpdateTree(bmain, ngroup);
-
-  ntreeUpdateTree(bmain, ntree);
-
-  snode_notify(C, snode);
-  snode_dag_update(C, snode);
+  ED_node_tree_propagate_change(C, bmain, nullptr);
 
   return OPERATOR_FINISHED;
 }
