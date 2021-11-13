@@ -96,8 +96,6 @@
 
 #include "UI_resources.h"
 
-#include "atomic_ops.h"
-
 /* the global to talk to ghost */
 static GHOST_SystemHandle g_system = NULL;
 static ThreadMutex g_system_destruct_mutex = BLI_MUTEX_INITIALIZER;
