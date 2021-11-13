@@ -23,8 +23,8 @@
 #include "DNA_ID.h"
 #include "DNA_userdef_types.h"
 
+#include "BKE_cancel.h"
 #include "BKE_context.h"
-#include "BKE_process_cancel.h"
 
 #include "BLI_utildefines.h"
 
@@ -225,7 +225,7 @@ static int rna_Context_mode_get(PointerRNA *ptr)
 
 static bool rna_Context_cancel_requested_get(PointerRNA *UNUSED(ptr))
 {
-  return BKE_process_cancel_requested();
+  return BKE_cancel_requested();
 }
 
 static struct Depsgraph *rna_Context_evaluated_depsgraph_get(bContext *C)

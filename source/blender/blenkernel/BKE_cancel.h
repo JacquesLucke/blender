@@ -24,9 +24,9 @@
 extern "C" {
 #endif
 
-void BKE_process_cancel_request(void);
-bool BKE_process_cancel_requested(void);
-void BKE_process_cancel_continue(void);
+void BKE_cancel_request(void);
+bool BKE_cancel_requested(void);
+void BKE_cancel_continue(void);
 
 #ifdef __cplusplus
 }

@@ -61,6 +61,7 @@
 
 #include "BKE_anim_data.h"
 #include "BKE_brush.h"
+#include "BKE_cancel.h"
 #include "BKE_colortools.h"
 #include "BKE_context.h"
 #include "BKE_global.h"
@@ -71,7 +72,6 @@
 #include "BKE_lib_query.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
-#include "BKE_process_cancel.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h" /* BKE_ST_MAXNAME */
@@ -3768,7 +3768,7 @@ static void WM_OT_stereo3d_set(wmOperatorType *ot)
 
 static int enable_processing_exec(bContext *C, wmOperator *UNUSED(op))
 {
-  BKE_process_cancel_continue();
+  BKE_cancel_continue();
   Main *bmain = CTX_data_main(C);
 
   /* Everything may have changed since processing was disabled. */

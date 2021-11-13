@@ -107,6 +107,7 @@ set(SRC
   intern/cachefile.c
   intern/callbacks.c
   intern/camera.c
+  intern/cancel.cc
   intern/cdderivedmesh.c
   intern/cloth.c
   intern/collection.c
@@ -246,7 +247,6 @@ set(SRC
   intern/pointcache.c
   intern/pointcloud.cc
   intern/preferences.c
-  intern/process_cancel.cc
   intern/report.c
   intern/rigidbody.c
   intern/scene.c
@@ -334,6 +334,7 @@ set(SRC
   BKE_cachefile.h
   BKE_callbacks.h
   BKE_camera.h
+  BKE_cancel.h
   BKE_ccg.h
   BKE_cdderivedmesh.h
   BKE_cloth.h
@@ -431,7 +432,6 @@ set(SRC
   BKE_pointcache.h
   BKE_pointcloud.h
   BKE_preferences.h
-  BKE_process_cancel.h
   BKE_report.h
   BKE_rigidbody.h
   BKE_scene.h

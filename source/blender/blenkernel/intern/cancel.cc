@@ -16,21 +16,21 @@
 
 #include <atomic>
 
-#include "BKE_process_cancel.h"
+#include "BKE_cancel.h"
 
 static std::atomic<bool> g_is_cancelled = false;
 
-void BKE_process_cancel_request(void)
+void BKE_cancel_request(void)
 {
   g_is_cancelled = true;
 }
 
-bool BKE_process_cancel_requested(void)
+bool BKE_cancel_requested(void)
 {
   return g_is_cancelled;
 }
 
-void BKE_process_cancel_continue(void)
+void BKE_cancel_continue(void)
 {
   g_is_cancelled = false;
 }

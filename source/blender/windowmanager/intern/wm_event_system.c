@@ -47,12 +47,12 @@
 #include "BLI_timer.h"
 #include "BLI_utildefines.h"
 
+#include "BKE_cancel.h"
 #include "BKE_context.h"
 #include "BKE_customdata.h"
 #include "BKE_global.h"
 #include "BKE_idprop.h"
 #include "BKE_main.h"
-#include "BKE_process_cancel.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
@@ -439,7 +439,7 @@ void wm_event_do_notifiers(bContext *C)
     return;
   }
 
-  if (BKE_process_cancel_requested()) {
+  if (BKE_cancel_requested()) {
     WM_event_add_notifier(C, NC_SPACE | ND_SPACE_TOPBAR, NULL);
   }
 

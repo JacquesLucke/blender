@@ -44,12 +44,12 @@
 
 #include "BLT_translation.h"
 
+#include "BKE_cancel.h"
 #include "BKE_context.h"
 #include "BKE_global.h"
 #include "BKE_icons.h"
 #include "BKE_layer.h"
 #include "BKE_main.h"
-#include "BKE_process_cancel.h"
 #include "BKE_report.h"
 #include "BKE_screen.h"
 #include "BKE_workspace.h"
@@ -1593,7 +1593,7 @@ static int check_for_cancel_event(GHOST_EventHandle evt, GHOST_TUserDataPtr UNUS
   if (type == GHOST_kEventKeyDown) {
     GHOST_TEventKeyData *kdata = data;
     if (kdata->key == GHOST_kKeyEsc) {
-      BKE_process_cancel_request();
+      BKE_cancel_request();
     }
   }
   return 1;
