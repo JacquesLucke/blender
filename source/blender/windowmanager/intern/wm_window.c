@@ -1606,7 +1606,10 @@ static int check_for_cancel_event(GHOST_EventHandle evt, GHOST_TUserDataPtr UNUS
   return 1;
 }
 
-static void *cancel_thread_start(void *UNUSED(data))
+/**
+ * Continously checks whether any new events arrived even while Blender is frozen.
+ */
+static void *cancel_thread_func(void *UNUSED(data))
 {
   while (true) {
     PIL_sleep_ms(50);
@@ -1638,7 +1641,7 @@ void wm_ghost_init(bContext *C)
       GHOST_AddEventConsumer(g_system, cancel_consumer);
 
       static pthread_t cancel_thread;
-      pthread_create(&cancel_thread, NULL, cancel_thread_start, NULL);
+      pthread_create(&cancel_thread, NULL, cancel_thread_func, NULL);
     }
 
     if (wm_init_state.native_pixels) {

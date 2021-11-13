@@ -24,8 +24,22 @@
 extern "C" {
 #endif
 
+/**
+ * Try to stop a running operation so that the user can take back control over Blender which may be
+ * frozen.
+ */
 void BKE_cancel_request(void);
+
+/**
+ * Return true when the caller should try to stop the processing it is doing as quickly as
+ * possible to stop Blender from freezing. The caller should leave everything in a valid state
+ * though.
+ */
 bool BKE_cancel_requested(void);
+
+/**
+ * Disable canceling again so that everything behaves normally.
+ */
 void BKE_cancel_continue(void);
 
 #ifdef __cplusplus

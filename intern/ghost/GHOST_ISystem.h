@@ -341,6 +341,9 @@ class GHOST_ISystem {
    */
   virtual void dispatchEvents() = 0;
 
+  /**
+   * \return True when there is any event to be dispatched to non-immediate consumers.
+   */
   virtual bool hasEventInQueue() const = 0;
 
   /**

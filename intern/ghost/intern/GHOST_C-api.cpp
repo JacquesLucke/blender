@@ -258,6 +258,9 @@ int GHOST_GetFullScreen(GHOST_SystemHandle systemhandle)
   return (int)system->getFullScreen();
 }
 
+/**
+ * Used to make sure that only one thread is ever processing or dispatching events at a time.
+ */
 static std::mutex g_event_process_mutex;
 
 bool GHOST_ProcessEvents(GHOST_SystemHandle systemhandle, bool waitForEvent)

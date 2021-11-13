@@ -51,7 +51,10 @@ class GHOST_IEventConsumer {
    */
   virtual bool processEvent(GHOST_IEvent *event) = 0;
 
-  virtual bool isImmediateConsumer() const = 0;
+  virtual bool isImmediateConsumer() const
+  {
+    return false;
+  }
 
 #ifdef WITH_CXX_GUARDEDALLOC
   MEM_CXX_CLASS_ALLOC_FUNCS("GHOST:GHOST_IEventConsumer")

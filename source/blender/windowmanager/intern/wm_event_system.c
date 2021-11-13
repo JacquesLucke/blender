@@ -428,6 +428,24 @@ static void wm_event_execute_timers(bContext *C)
   CTX_wm_window_set(C, NULL);
 }
 
+/**
+ * When cancel was requested, the top bar has to be redrawn, because it has a new button. We can't
+ * run this directly when cancelling is requested, because that is in a separate thread.
+ */
+static void handle_requested_cancel_redraw(bContext *C)
+{
+  static bool cancel_redraw_handled = false;
+  if (BKE_cancel_requested()) {
+    if (!cancel_redraw_handled) {
+      WM_event_add_notifier(C, NC_SPACE | ND_SPACE_TOPBAR, NULL);
+      cancel_redraw_handled = true;
+    }
+  }
+  else {
+    cancel_redraw_handled = false;
+  }
+}
+
 /* Called in mainloop. */
 void wm_event_do_notifiers(bContext *C)
 {
@@ -439,9 +457,7 @@ void wm_event_do_notifiers(bContext *C)
     return;
   }
 
-  if (BKE_cancel_requested()) {
-    WM_event_add_notifier(C, NC_SPACE | ND_SPACE_TOPBAR, NULL);
-  }
+  handle_requested_cancel_redraw(C);
 
   /* Disable? - Keep for now since its used for window level notifiers. */
 #if 1

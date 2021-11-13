@@ -70,6 +70,7 @@ GHOST_TSuccess GHOST_EventManager::pushEvent(GHOST_IEvent *event)
     m_events.push_front(event);
     success = GHOST_kSuccess;
 
+    /* Dispatch event to immediate consumers now already. */
     for (GHOST_IEventConsumer *consumer : m_consumers) {
       if (consumer->isImmediateConsumer()) {
         consumer->processEvent(event);
@@ -85,6 +86,7 @@ GHOST_TSuccess GHOST_EventManager::pushEvent(GHOST_IEvent *event)
 void GHOST_EventManager::dispatchEvent(GHOST_IEvent *event)
 {
   for (GHOST_IEventConsumer *consumer : m_consumers) {
+    /* Immediate consumers have processed the event in #pushEvent already. */
     if (!consumer->isImmediateConsumer()) {
       consumer->processEvent(event);
     }

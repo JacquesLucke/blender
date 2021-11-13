@@ -37,6 +37,8 @@ class GHOST_CallbackEventConsumer : public GHOST_IEventConsumer {
    * Constructor.
    * \param eventCallback: The call-back routine invoked.
    * \param userData: The data passed back through the call-back routine.
+   * \param processEventsImmediately: The #processEvent method should be called immediately when
+   *   the event is created, not later when it is dispatched.
    */
   GHOST_CallbackEventConsumer(GHOST_EventCallbackProcPtr eventCallback,
                               GHOST_TUserDataPtr userData,

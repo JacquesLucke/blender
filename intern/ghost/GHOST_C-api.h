@@ -82,6 +82,10 @@ extern void GHOST_ShowMessageBox(GHOST_SystemHandle systemhandle,
 extern GHOST_EventConsumerHandle GHOST_CreateEventConsumer(
     GHOST_EventCallbackProcPtr eventCallback, GHOST_TUserDataPtr userdata);
 
+/**
+ * Create an event consumer object that will receive the events as soon as they are processed.
+ * The parameters are the same as in #GHOST_CreateEventConsumer.
+ */
 extern GHOST_EventConsumerHandle GHOST_CreateImmediateEventConsumer(
     GHOST_EventCallbackProcPtr eventCallback, GHOST_TUserDataPtr userdata);
 

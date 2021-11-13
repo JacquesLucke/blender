@@ -25,7 +25,6 @@
 
 #include "BKE_cancel.h"
 #include "BKE_context.h"
-
 #include "BLI_utildefines.h"
 
 #include "RNA_access.h"
