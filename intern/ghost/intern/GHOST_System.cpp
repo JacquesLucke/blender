@@ -257,6 +257,11 @@ GHOST_TSuccess GHOST_System::pushEvent(GHOST_IEvent *event)
   return success;
 }
 
+bool GHOST_System::hasEventInQueue() const
+{
+  return m_eventManager->getNumEvents() > 0;
+}
+
 GHOST_TSuccess GHOST_System::getModifierKeyState(GHOST_TModifierKeyMask mask, bool &isDown) const
 {
   GHOST_ModifierKeys keys;

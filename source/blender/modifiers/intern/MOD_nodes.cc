@@ -26,11 +26,7 @@
 #include <string>
 #include <thread>
 
-#include "GHOST_C-api.h"
-
 #include "MEM_guardedalloc.h"
-
-#include "PIL_time.h"
 
 #include "BLI_array.hh"
 #include "BLI_float3.hh"
@@ -67,6 +63,7 @@
 #include "BKE_modifier.h"
 #include "BKE_object.h"
 #include "BKE_pointcloud.h"
+#include "BKE_process_cancel.h"
 #include "BKE_screen.h"
 #include "BKE_simulation.h"
 #include "BKE_workspace.h"
@@ -1066,32 +1063,17 @@ static void check_property_socket_sync(const Object *ob, ModifierData *md)
   }
 }
 
-extern "C" {
-GHOST_SystemHandle *get_ghost_system_handle();
-}
-
 static void modifyGeometry(ModifierData *md,
                            const ModifierEvalContext *ctx,
                            GeometrySet &geometry_set)
 {
-  NodesModifierData *nmd = reinterpret_cast<NodesModifierData *>(md);
-  if (nmd->node_group == nullptr) {
+  if (BKE_process_cancel_requested()) {
     return;
   }
 
-  {
-    static std::mutex mutex;
-    std::lock_guard lock{mutex};
-    static std::thread thread_started{[]() {
-      while (true) {
-        GHOST_SystemHandle *system = get_ghost_system_handle();
-        if (GHOST_ProcessEvents(*system, false)) {
-          GHOST_DispatchEvents(*system);
-        }
-
-        PIL_sleep_ms(50);
-      }
-    }};
+  NodesModifierData *nmd = reinterpret_cast<NodesModifierData *>(md);
+  if (nmd->node_group == nullptr) {
+    return;
   }
 
   check_property_socket_sync(ctx->object, md);

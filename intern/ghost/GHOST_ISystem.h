@@ -341,6 +341,8 @@ class GHOST_ISystem {
    */
   virtual void dispatchEvents() = 0;
 
+  virtual bool hasEventInQueue() const = 0;
+
   /**
    * Adds the given event consumer to our list.
    * \param consumer: The event consumer to add.

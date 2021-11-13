@@ -69,6 +69,12 @@ GHOST_TSuccess GHOST_EventManager::pushEvent(GHOST_IEvent *event)
   if (m_events.size() < m_events.max_size()) {
     m_events.push_front(event);
     success = GHOST_kSuccess;
+
+    for (GHOST_IEventConsumer *consumer : m_consumers) {
+      if (consumer->isImmediateConsumer()) {
+        consumer->processEvent(event);
+      }
+    }
   }
   else {
     success = GHOST_kFailure;
@@ -78,10 +84,10 @@ GHOST_TSuccess GHOST_EventManager::pushEvent(GHOST_IEvent *event)
 
 void GHOST_EventManager::dispatchEvent(GHOST_IEvent *event)
 {
-  TConsumerVector::iterator iter;
-
-  for (iter = m_consumers.begin(); iter != m_consumers.end(); ++iter) {
-    (*iter)->processEvent(event);
+  for (GHOST_IEventConsumer *consumer : m_consumers) {
+    if (!consumer->isImmediateConsumer()) {
+      consumer->processEvent(event);
+    }
   }
 }
 

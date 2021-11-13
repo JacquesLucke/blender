@@ -23,6 +23,7 @@
  * C Api for GHOST
  */
 
+#include <mutex>
 #include <stdlib.h>
 #include <string.h>
 
@@ -75,7 +76,15 @@ void GHOST_ShowMessageBox(GHOST_SystemHandle systemhandle,
 GHOST_EventConsumerHandle GHOST_CreateEventConsumer(GHOST_EventCallbackProcPtr eventCallback,
                                                     GHOST_TUserDataPtr userdata)
 {
-  return (GHOST_EventConsumerHandle) new GHOST_CallbackEventConsumer(eventCallback, userdata);
+  return (GHOST_EventConsumerHandle) new GHOST_CallbackEventConsumer(
+      eventCallback, userdata, false);
+}
+
+GHOST_EventConsumerHandle GHOST_CreateImmediateEventConsumer(
+    GHOST_EventCallbackProcPtr eventCallback, GHOST_TUserDataPtr userdata)
+{
+  return (GHOST_EventConsumerHandle) new GHOST_CallbackEventConsumer(
+      eventCallback, userdata, true);
 }
 
 GHOST_TSuccess GHOST_DisposeEventConsumer(GHOST_EventConsumerHandle consumerhandle)
@@ -249,15 +258,20 @@ int GHOST_GetFullScreen(GHOST_SystemHandle systemhandle)
   return (int)system->getFullScreen();
 }
 
+static std::mutex g_event_process_mutex;
+
 bool GHOST_ProcessEvents(GHOST_SystemHandle systemhandle, bool waitForEvent)
 {
+  std::lock_guard lock{g_event_process_mutex};
   GHOST_ISystem *system = (GHOST_ISystem *)systemhandle;
 
-  return system->processEvents(waitForEvent);
+  system->processEvents(waitForEvent);
+  return system->hasEventInQueue();
 }
 
 void GHOST_DispatchEvents(GHOST_SystemHandle systemhandle)
 {
+  std::lock_guard lock{g_event_process_mutex};
   GHOST_ISystem *system = (GHOST_ISystem *)systemhandle;
 
   system->dispatchEvents();

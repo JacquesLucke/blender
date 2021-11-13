@@ -82,6 +82,9 @@ extern void GHOST_ShowMessageBox(GHOST_SystemHandle systemhandle,
 extern GHOST_EventConsumerHandle GHOST_CreateEventConsumer(
     GHOST_EventCallbackProcPtr eventCallback, GHOST_TUserDataPtr userdata);
 
+extern GHOST_EventConsumerHandle GHOST_CreateImmediateEventConsumer(
+    GHOST_EventCallbackProcPtr eventCallback, GHOST_TUserDataPtr userdata);
+
 /**
  * Disposes an event consumer object
  * \param consumerhandle: Handle to the event consumer.

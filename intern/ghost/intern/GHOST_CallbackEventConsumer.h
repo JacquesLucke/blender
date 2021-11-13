@@ -39,7 +39,8 @@ class GHOST_CallbackEventConsumer : public GHOST_IEventConsumer {
    * \param userData: The data passed back through the call-back routine.
    */
   GHOST_CallbackEventConsumer(GHOST_EventCallbackProcPtr eventCallback,
-                              GHOST_TUserDataPtr userData);
+                              GHOST_TUserDataPtr userData,
+                              bool processEventsImmediately);
 
   /**
    * Destructor.
@@ -55,11 +56,14 @@ class GHOST_CallbackEventConsumer : public GHOST_IEventConsumer {
    */
   bool processEvent(GHOST_IEvent *event);
 
+  bool isImmediateConsumer() const;
+
  protected:
   /** The call-back routine invoked. */
   GHOST_EventCallbackProcPtr m_eventCallback;
   /** The data passed back through the call-back routine. */
   GHOST_TUserDataPtr m_userData;
+  bool m_isImmediateConsumer;
 
 #ifdef WITH_CXX_GUARDEDALLOC
   MEM_CXX_CLASS_ALLOC_FUNCS("GHOST:GHOST_CallbackEventConsumer")

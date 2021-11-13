@@ -266,6 +266,8 @@ class GHOST_System : public GHOST_ISystem {
    */
   GHOST_TSuccess pushEvent(GHOST_IEvent *event);
 
+  bool hasEventInQueue() const override;
+
   /**
    * \return The timer manager.
    */

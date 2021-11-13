@@ -49,6 +49,7 @@
 #include "BKE_icons.h"
 #include "BKE_layer.h"
 #include "BKE_main.h"
+#include "BKE_process_cancel.h"
 #include "BKE_report.h"
 #include "BKE_screen.h"
 #include "BKE_workspace.h"
@@ -102,10 +103,10 @@
 /* the global to talk to ghost */
 static GHOST_SystemHandle g_system = NULL;
 
-GHOST_SystemHandle *get_ghost_system_handle(void);
-GHOST_SystemHandle *get_ghost_system_handle(void)
+GHOST_SystemHandle get_ghost_system_handle(void);
+GHOST_SystemHandle get_ghost_system_handle(void)
 {
-  return &g_system;
+  return g_system;
 }
 
 typedef enum eWinOverrideFlag {
@@ -1591,17 +1592,35 @@ void wm_window_process_events(const bContext *C)
 /** \name Ghost Init/Exit
  * \{ */
 
-static int my_event_processor(GHOST_EventHandle evt, GHOST_TUserDataPtr UNUSED(C_void_ptr))
+static int check_for_cancel_event(GHOST_EventHandle evt, GHOST_TUserDataPtr UNUSED(C_void_ptr))
 {
   GHOST_TEventType type = GHOST_GetEventType(evt);
   GHOST_TEventDataPtr data = GHOST_GetEventData(evt);
   if (type == GHOST_kEventKeyDown) {
     GHOST_TEventKeyData *kdata = data;
-    const bool is_esc = kdata->key == GHOST_kKeyEsc;
-    printf("%d\n", is_esc);
+    if (kdata->key == GHOST_kKeyEsc) {
+      BKE_process_cancel_request();
+    }
+    if (kdata->key == GHOST_kKeyRightArrow) {
+      BKE_process_cancel_continue();
+    }
   }
   return 1;
 }
+
+static void *cancel_thread_start(void *UNUSED(data))
+{
+  while (true) {
+    PIL_sleep_ms(50);
+    if (g_system) {
+      GHOST_ProcessEvents(g_system, false);
+    }
+  }
+  return NULL;
+}
+
+static bool g_cancel_thread_started = false;
+static pthread_t g_cancel_thread;
 
 /**
  * \note #bContext can be null in background mode because we don't
@@ -1610,20 +1629,19 @@ static int my_event_processor(GHOST_EventHandle evt, GHOST_TUserDataPtr UNUSED(C
 void wm_ghost_init(bContext *C)
 {
   if (!g_system) {
-    GHOST_EventConsumerHandle consumer;
-
-    if (C != NULL) {
-      consumer = GHOST_CreateEventConsumer(ghost_event_proc, C);
-    }
-
     g_system = GHOST_CreateSystem();
     GHOST_SystemInitDebug(g_system, G.debug & G_DEBUG_GHOST);
 
     if (C != NULL) {
+      GHOST_EventConsumerHandle consumer = GHOST_CreateEventConsumer(ghost_event_proc, C);
       GHOST_AddEventConsumer(g_system, consumer);
 
-      GHOST_EventConsumerHandle my_consumer = GHOST_CreateEventConsumer(my_event_processor, C);
-      GHOST_AddEventConsumer(g_system, my_consumer);
+      GHOST_EventConsumerHandle process_cancel_consumer = GHOST_CreateImmediateEventConsumer(
+          check_for_cancel_event, C);
+      GHOST_AddEventConsumer(g_system, process_cancel_consumer);
+
+      pthread_create(&g_cancel_thread, NULL, cancel_thread_start, NULL);
+      g_cancel_thread_started = true;
     }
 
     if (wm_init_state.native_pixels) {
@@ -1638,6 +1656,10 @@ void wm_ghost_exit(void)
 {
   if (g_system) {
     GHOST_DisposeSystem(g_system);
+
+    if (g_cancel_thread_started) {
+      // pthread_join(g_cancel_thread, NULL);
+    }
   }
   g_system = NULL;
 }

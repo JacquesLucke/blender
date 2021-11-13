@@ -30,13 +30,20 @@
 #include "GHOST_Debug.h"
 
 GHOST_CallbackEventConsumer::GHOST_CallbackEventConsumer(GHOST_EventCallbackProcPtr eventCallback,
-                                                         GHOST_TUserDataPtr userData)
+                                                         GHOST_TUserDataPtr userData,
+                                                         bool processEventsImmediately)
 {
   m_eventCallback = eventCallback;
   m_userData = userData;
+  m_isImmediateConsumer = processEventsImmediately;
 }
 
 bool GHOST_CallbackEventConsumer::processEvent(GHOST_IEvent *event)
 {
   return m_eventCallback((GHOST_EventHandle)event, m_userData) != 0;
+}
+
+bool GHOST_CallbackEventConsumer::isImmediateConsumer() const
+{
+  return m_isImmediateConsumer;
 }
