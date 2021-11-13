@@ -222,7 +222,10 @@ class TOPBAR_MT_editor_menus(Menu):
         layout.menu("TOPBAR_MT_help")
 
         if context.cancel_requested:
-            layout.operator("WM_OT_enable_processing", text="Enable Processing", icon='ERROR')
+            row = layout.row()
+            row.alert = True
+            row.scale_x = 1.5
+            row.operator("WM_OT_enable_processing", text="Enable Processing", icon='ERROR')
 
 
 class TOPBAR_MT_blender(Menu):
