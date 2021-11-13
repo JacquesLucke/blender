@@ -52,6 +52,7 @@
 #include "BKE_global.h"
 #include "BKE_idprop.h"
 #include "BKE_main.h"
+#include "BKE_process_cancel.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
@@ -436,6 +437,10 @@ void wm_event_do_notifiers(bContext *C)
   wmWindowManager *wm = CTX_wm_manager(C);
   if (wm == NULL) {
     return;
+  }
+
+  if (BKE_process_cancel_requested()) {
+    WM_event_add_notifier(C, NC_SPACE | ND_SPACE_TOPBAR, NULL);
   }
 
   /* Disable? - Keep for now since its used for window level notifiers. */

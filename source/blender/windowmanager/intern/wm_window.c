@@ -1595,9 +1595,6 @@ static int check_for_cancel_event(GHOST_EventHandle evt, GHOST_TUserDataPtr UNUS
     if (kdata->key == GHOST_kKeyEsc) {
       BKE_process_cancel_request();
     }
-    if (kdata->key == GHOST_kKeyRightArrow) {
-      BKE_process_cancel_continue();
-    }
   }
   return 1;
 }

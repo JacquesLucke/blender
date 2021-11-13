@@ -146,7 +146,7 @@ static void topbar_main_region_listener(const wmRegionListenerParams *params)
       }
       break;
     case NC_SPACE:
-      if (wmn->data == ND_SPACE_VIEW3D) {
+      if (ELEM(wmn->data, ND_SPACE_TOPBAR, ND_SPACE_VIEW3D)) {
         ED_region_tag_redraw(region);
       }
       break;
@@ -171,7 +171,7 @@ static void topbar_header_listener(const wmRegionListenerParams *params)
       }
       break;
     case NC_SPACE:
-      if (wmn->data == ND_SPACE_INFO) {
+      if (ELEM(wmn->data, ND_SPACE_TOPBAR, ND_SPACE_INFO)) {
         ED_region_tag_redraw(region);
       }
       break;
