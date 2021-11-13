@@ -1590,10 +1590,20 @@ static int check_for_cancel_event(GHOST_EventHandle evt, GHOST_TUserDataPtr UNUS
 {
   GHOST_TEventType type = GHOST_GetEventType(evt);
   GHOST_TEventDataPtr data = GHOST_GetEventData(evt);
+  static bool shift_is_down = false;
   if (type == GHOST_kEventKeyDown) {
     GHOST_TEventKeyData *kdata = data;
-    if (kdata->key == GHOST_kKeyEsc) {
+    if (kdata->key == GHOST_kKeyLeftShift) {
+      shift_is_down = true;
+    }
+    if (shift_is_down && kdata->key == GHOST_kKeyEsc) {
       BKE_cancel_request();
+    }
+  }
+  if (type == GHOST_kEventKeyUp) {
+    GHOST_TEventKeyData *kdata = data;
+    if (kdata->key == GHOST_kKeyLeftShift) {
+      shift_is_down = false;
     }
   }
   return 1;
