@@ -71,6 +71,7 @@
 #include "BKE_lib_query.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
+#include "BKE_process_cancel.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h" /* BKE_ST_MAXNAME */
@@ -103,6 +104,8 @@
 
 #include "WM_api.h"
 #include "WM_types.h"
+
+#include "DEG_depsgraph.h"
 
 #include "wm.h"
 #include "wm_draw.h"
@@ -3760,6 +3763,45 @@ static void WM_OT_stereo3d_set(wmOperatorType *ot)
 /** \} */
 
 /* -------------------------------------------------------------------- */
+/** \name Enable Processing Operator
+ * \{ */
+
+static int enable_processing_exec(bContext *C, wmOperator *UNUSED(op))
+{
+  BKE_process_cancel_continue();
+  Main *bmain = CTX_data_main(C);
+
+  /* Everything may have changed since processing was disabled. */
+  ID *id;
+  FOREACH_MAIN_ID_BEGIN (bmain, id) {
+    DEG_id_tag_update(id, 0);
+  }
+  FOREACH_MAIN_ID_END;
+
+  /* Also redraw everything. */
+  LISTBASE_FOREACH (wmWindow *, window, &((wmWindowManager *)bmain->wm.first)->windows) {
+    bScreen *screen = WM_window_get_active_screen(window);
+    LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
+      ED_area_tag_redraw(area);
+    }
+  }
+  return OPERATOR_FINISHED;
+}
+
+static void WM_OT_enable_processing(wmOperatorType *ot)
+{
+  /* identifiers */
+  ot->name = "Enable Processing";
+  ot->idname = "WM_OT_enable_processing";
+  ot->description = "Restart processing after it has been cancelled";
+
+  /* callbacks */
+  ot->exec = enable_processing_exec;
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
 /** \name Operator Registration & Keymaps
  * \{ */
 
@@ -3806,6 +3848,7 @@ void wm_operatortypes_register(void)
   WM_operatortype_append(WM_OT_previews_ensure);
   WM_operatortype_append(WM_OT_previews_clear);
   WM_operatortype_append(WM_OT_doc_view_manual_ui_context);
+  WM_operatortype_append(WM_OT_enable_processing);
 
 #ifdef WITH_XR_OPENXR
   wm_xr_operatortypes_register();
