@@ -223,7 +223,7 @@ static int rna_Context_mode_get(PointerRNA *ptr)
   return CTX_data_mode_enum(C);
 }
 
-static bool rna_Context_process_cancel_requested_get(PointerRNA *UNUSED(ptr))
+static bool rna_Context_cancel_requested_get(PointerRNA *UNUSED(ptr))
 {
   return BKE_process_cancel_requested();
 }
@@ -362,9 +362,9 @@ void RNA_def_context(BlenderRNA *brna)
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
   RNA_def_property_enum_funcs(prop, "rna_Context_mode_get", NULL, NULL);
 
-  prop = RNA_def_property(srna, "process_cancel_requested", PROP_BOOLEAN, PROP_NONE);
+  prop = RNA_def_property(srna, "cancel_requested", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
-  RNA_def_property_boolean_funcs(prop, "rna_Context_process_cancel_requested_get", NULL);
+  RNA_def_property_boolean_funcs(prop, "rna_Context_cancel_requested_get", NULL);
 
   func = RNA_def_function(srna, "evaluated_depsgraph_get", "rna_Context_evaluated_depsgraph_get");
   RNA_def_function_ui_description(
