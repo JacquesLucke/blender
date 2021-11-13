@@ -63,7 +63,6 @@
 #include "BKE_modifier.h"
 #include "BKE_object.h"
 #include "BKE_pointcloud.h"
-#include "BKE_process_cancel.h"
 #include "BKE_screen.h"
 #include "BKE_simulation.h"
 #include "BKE_workspace.h"
@@ -1067,10 +1066,6 @@ static void modifyGeometry(ModifierData *md,
                            const ModifierEvalContext *ctx,
                            GeometrySet &geometry_set)
 {
-  if (BKE_process_cancel_requested()) {
-    return;
-  }
-
   NodesModifierData *nmd = reinterpret_cast<NodesModifierData *>(md);
   if (nmd->node_group == nullptr) {
     return;
