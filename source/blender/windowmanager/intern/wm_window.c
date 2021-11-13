@@ -103,12 +103,6 @@
 /* the global to talk to ghost */
 static GHOST_SystemHandle g_system = NULL;
 
-GHOST_SystemHandle get_ghost_system_handle(void);
-GHOST_SystemHandle get_ghost_system_handle(void)
-{
-  return g_system;
-}
-
 typedef enum eWinOverrideFlag {
   WIN_OVERRIDE_GEOM = (1 << 0),
   WIN_OVERRIDE_WINSTATE = (1 << 1),

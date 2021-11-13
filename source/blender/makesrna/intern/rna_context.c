@@ -24,6 +24,8 @@
 #include "DNA_userdef_types.h"
 
 #include "BKE_context.h"
+#include "BKE_process_cancel.h"
+
 #include "BLI_utildefines.h"
 
 #include "RNA_access.h"
@@ -221,6 +223,11 @@ static int rna_Context_mode_get(PointerRNA *ptr)
   return CTX_data_mode_enum(C);
 }
 
+static bool rna_Context_process_cancel_requested_get(PointerRNA *UNUSED(ptr))
+{
+  return BKE_process_cancel_requested();
+}
+
 static struct Depsgraph *rna_Context_evaluated_depsgraph_get(bContext *C)
 {
   struct Depsgraph *depsgraph;
@@ -354,6 +361,10 @@ void RNA_def_context(BlenderRNA *brna)
   RNA_def_property_enum_items(prop, rna_enum_context_mode_items);
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
   RNA_def_property_enum_funcs(prop, "rna_Context_mode_get", NULL, NULL);
+
+  prop = RNA_def_property(srna, "process_cancel_requested", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_boolean_funcs(prop, "rna_Context_process_cancel_requested_get", NULL);
 
   func = RNA_def_function(srna, "evaluated_depsgraph_get", "rna_Context_evaluated_depsgraph_get");
   RNA_def_function_ui_description(

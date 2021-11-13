@@ -221,6 +221,9 @@ class TOPBAR_MT_editor_menus(Menu):
         layout.menu("TOPBAR_MT_window")
         layout.menu("TOPBAR_MT_help")
 
+        if context.process_cancel_requested:
+            layout.operator("WM_OT_enable_processing", text="Enable Processing", icon='ERROR')
+
 
 class TOPBAR_MT_blender(Menu):
     bl_label = "Blender"
