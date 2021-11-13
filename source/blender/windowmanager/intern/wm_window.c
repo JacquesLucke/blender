@@ -40,6 +40,7 @@
 
 #include "BLI_blenlib.h"
 #include "BLI_math.h"
+#include "BLI_threads.h"
 #include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
@@ -95,13 +96,11 @@
 
 #include "UI_resources.h"
 
-/* for assert */
-#ifndef NDEBUG
-#  include "BLI_threads.h"
-#endif
+#include "atomic_ops.h"
 
 /* the global to talk to ghost */
 static GHOST_SystemHandle g_system = NULL;
+static ThreadMutex g_system_destruct_mutex = BLI_MUTEX_INITIALIZER;
 
 typedef enum eWinOverrideFlag {
   WIN_OVERRIDE_GEOM = (1 << 0),
@@ -1613,15 +1612,14 @@ static void *cancel_thread_start(void *UNUSED(data))
 {
   while (true) {
     PIL_sleep_ms(50);
+    BLI_mutex_lock(&g_system_destruct_mutex);
     if (g_system) {
       GHOST_ProcessEvents(g_system, false);
     }
+    BLI_mutex_unlock(&g_system_destruct_mutex);
   }
   return NULL;
 }
-
-static bool g_cancel_thread_started = false;
-static pthread_t g_cancel_thread;
 
 /**
  * \note #bContext can be null in background mode because we don't
@@ -1637,12 +1635,12 @@ void wm_ghost_init(bContext *C)
       GHOST_EventConsumerHandle consumer = GHOST_CreateEventConsumer(ghost_event_proc, C);
       GHOST_AddEventConsumer(g_system, consumer);
 
-      GHOST_EventConsumerHandle process_cancel_consumer = GHOST_CreateImmediateEventConsumer(
+      GHOST_EventConsumerHandle cancel_consumer = GHOST_CreateImmediateEventConsumer(
           check_for_cancel_event, C);
-      GHOST_AddEventConsumer(g_system, process_cancel_consumer);
+      GHOST_AddEventConsumer(g_system, cancel_consumer);
 
-      pthread_create(&g_cancel_thread, NULL, cancel_thread_start, NULL);
-      g_cancel_thread_started = true;
+      static pthread_t cancel_thread;
+      pthread_create(&cancel_thread, NULL, cancel_thread_start, NULL);
     }
 
     if (wm_init_state.native_pixels) {
@@ -1655,14 +1653,12 @@ void wm_ghost_init(bContext *C)
 
 void wm_ghost_exit(void)
 {
+  BLI_mutex_lock(&g_system_destruct_mutex);
   if (g_system) {
     GHOST_DisposeSystem(g_system);
-
-    if (g_cancel_thread_started) {
-      // pthread_join(g_cancel_thread, NULL);
-    }
   }
   g_system = NULL;
+  BLI_mutex_unlock(&g_system_destruct_mutex);
 }
 
 /** \} */
