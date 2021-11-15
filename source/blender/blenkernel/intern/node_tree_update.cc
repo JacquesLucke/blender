@@ -16,6 +16,8 @@
 
 #include "BLI_map.hh"
 #include "BLI_multi_value_map.hh"
+#include "BLI_set.hh"
+#include "BLI_vector_set.hh"
 
 #include "DNA_modifier_types.h"
 #include "DNA_node_types.h"
@@ -35,6 +37,7 @@ using ObjectModifierPair = std::pair<Object *, ModifierData *>;
 struct NodeTreeRelations {
  private:
   Main *bmain_;
+  std::optional<Vector<IDTreePair>> all_trees_;
   std::optional<MultiValueMap<bNodeTree *, TreeNodePair>> group_node_users_;
   std::optional<MultiValueMap<bNodeTree *, ObjectModifierPair>> modifiers_users_;
 
@@ -43,19 +46,36 @@ struct NodeTreeRelations {
   {
   }
 
-  void ensure_group_node_users()
+  void ensure_all_trees()
   {
-    if (group_node_users_.has_value()) {
+    if (all_trees_.has_value()) {
       return;
     }
-
-    group_node_users_.emplace();
-
+    all_trees_.emplace();
     if (bmain_ == nullptr) {
       return;
     }
 
     FOREACH_NODETREE_BEGIN (bmain_, ntree, id) {
+      all_trees_->append({id, ntree});
+    }
+    FOREACH_NODETREE_END;
+  }
+
+  void ensure_group_node_users()
+  {
+    if (group_node_users_.has_value()) {
+      return;
+    }
+    group_node_users_.emplace();
+    if (bmain_ == nullptr) {
+      return;
+    }
+
+    this->ensure_all_trees();
+
+    for (const IDTreePair &pair : *all_trees_) {
+      bNodeTree *ntree = pair.second;
       LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
         if (node->id == nullptr) {
           continue;
@@ -67,7 +87,6 @@ struct NodeTreeRelations {
         }
       }
     }
-    FOREACH_NODETREE_END;
   }
 
   void ensure_modifier_users()
@@ -75,9 +94,7 @@ struct NodeTreeRelations {
     if (modifiers_users_.has_value()) {
       return;
     }
-
     modifiers_users_.emplace();
-
     if (bmain_ == nullptr) {
       return;
     }
@@ -102,8 +119,14 @@ struct NodeTreeRelations {
 
   Span<TreeNodePair> get_group_node_users(bNodeTree *ntree)
   {
-    BLI_assert(group_node_users_);
+    BLI_assert(group_node_users_.has_value());
     return group_node_users_->lookup(ntree);
+  }
+
+  Span<IDTreePair> get_all_trees()
+  {
+    BLI_assert(all_trees_.has_value());
+    return *all_trees_;
   }
 };
 
@@ -174,24 +197,6 @@ class NodeTreeMainUpdater {
       }
     }
 
-    Vector<bNodeTree *> trees_with_visible_changes;
-    for (bNodeTree *ntree : root_ntrees) {
-      const TreeUpdateResult result = this->update_tree(*ntree);
-      update_result_by_tree_.add_new(ntree, result);
-
-      if (result.output_changed || result.interface_changed) {
-        trees_with_visible_changes.append(ntree);
-        relations_.ensure_group_node_users();
-        if (ntree->type == NTREE_GEOMETRY) {
-          relations_.ensure_modifier_users();
-        }
-      }
-    }
-
-    if (!trees_with_visible_changes.is_empty()) {
-      relations_.ensure_group_node_users();
-    }
-
     for (const auto &item : update_result_by_tree_.items()) {
       bNodeTree *ntree = item.key;
       const TreeUpdateResult &result = item.value;
@@ -229,10 +234,79 @@ class NodeTreeMainUpdater {
   }
 
  private:
+  enum class ToposortMark {
+    None,
+    Temporary,
+    Permanent,
+  };
+
+  using ToposortMarkMap = Map<bNodeTree *, ToposortMark>;
+
   Vector<bNodeTree *> get_tree_update_order(Span<bNodeTree *> root_ntrees)
   {
+    relations_.ensure_all_trees();
     relations_.ensure_group_node_users();
-    return {};
+
+    Set<bNodeTree *> trees_to_update = get_trees_to_update(root_ntrees);
+
+    Vector<bNodeTree *> sorted_ntrees;
+
+    ToposortMarkMap marks;
+    for (bNodeTree *ntree : trees_to_update) {
+      marks.add_new(ntree, ToposortMark::None);
+    }
+    for (bNodeTree *ntree : trees_to_update) {
+      if (marks.lookup(ntree) == ToposortMark::None) {
+        const bool cycle_detected = !this->get_tree_update_order__visit_recursive(
+            ntree, marks, sorted_ntrees);
+        BLI_assert(!cycle_detected);
+      }
+    }
+
+    return sorted_ntrees;
+  }
+
+  bool get_tree_update_order__visit_recursive(bNodeTree *ntree,
+                                              ToposortMarkMap &marks,
+                                              Vector<bNodeTree *> &sorted_ntrees)
+  {
+    ToposortMark &mark = marks.lookup(ntree);
+    if (mark == ToposortMark::Permanent) {
+      return true;
+    }
+    if (mark == ToposortMark::Temporary) {
+      /* There is a dependency cycle. */
+      return false;
+    }
+
+    mark = ToposortMark::Temporary;
+
+    for (const TreeNodePair &pair : relations_.get_group_node_users(ntree)) {
+      this->get_tree_update_order__visit_recursive(pair.first, marks, sorted_ntrees);
+    }
+    sorted_ntrees.append(ntree);
+
+    mark = ToposortMark::Permanent;
+    return true;
+  }
+
+  Set<bNodeTree *> get_trees_to_update(Span<bNodeTree *> root_ntrees)
+  {
+    relations_.ensure_group_node_users();
+
+    Set<bNodeTree *> reachable_trees;
+    VectorSet<bNodeTree *> trees_to_check = root_ntrees;
+
+    while (!trees_to_check.is_empty()) {
+      bNodeTree *ntree = trees_to_check.pop();
+      if (reachable_trees.add(ntree)) {
+        for (const TreeNodePair &pair : relations_.get_group_node_users(ntree)) {
+          trees_to_check.add(pair.first);
+        }
+      }
+    }
+
+    return reachable_trees;
   }
 
   TreeUpdateResult update_tree(bNodeTree &ntree)
@@ -340,6 +414,6 @@ void BKE_node_tree_update_main_rooted(Main *bmain,
 
   is_updating = true;
   blender::bke::NodeTreeMainUpdater updater{bmain, params};
-  updater.update_rooted({{(ID *)ntree, ntree}});
+  updater.update_rooted({ntree});
   is_updating = false;
 }
