@@ -21,6 +21,46 @@
 #include "BKE_node.h"
 #include "BKE_node_tree_update.h"
 
+namespace blender::bke {
+
+class NodeTreeMainUpdater {
+ private:
+  Main *bmain_;
+  NodeTreeUpdateExtraParams *params_;
+
+ public:
+  NodeTreeMainUpdater(Main *bmain, NodeTreeUpdateExtraParams *params)
+      : bmain_(bmain), params_(params)
+  {
+  }
+
+  void update()
+  {
+    FOREACH_NODETREE_BEGIN (bmain_, ntree, id) {
+      ntreeUpdateTree(bmain_, ntree);
+      if (params_) {
+        if (params_->tree_changed_fn) {
+          params_->tree_changed_fn(id, ntree, params_->user_data);
+        }
+        if (params_->tree_interface_changed_fn) {
+          params_->tree_interface_changed_fn(id, ntree, params_->user_data);
+        }
+        if (params_->tree_output_changed_fn) {
+          params_->tree_output_changed_fn(id, ntree, params_->user_data);
+        }
+      }
+    }
+    FOREACH_NODETREE_END;
+  }
+
+  void update_rooted(Span<bNodeTree *> root_trees)
+  {
+    this->update();
+  }
+};
+
+}  // namespace blender::bke
+
 void BKE_node_tree_update_tag(bNodeTree *ntree)
 {
   ntree->changed_flag |= NTREE_CHANGED_ANY;
@@ -87,26 +127,14 @@ void BKE_node_tree_update_tag_interface(bNodeTree *ntree)
 
 void BKE_node_tree_update_main(Main *bmain, NodeTreeUpdateExtraParams *params)
 {
-  FOREACH_NODETREE_BEGIN (bmain, ntree, id) {
-    ntreeUpdateTree(bmain, ntree);
-    if (params) {
-      if (params->tree_changed_fn) {
-        params->tree_changed_fn(id, ntree, params->user_data);
-      }
-      if (params->tree_interface_changed_fn) {
-        params->tree_interface_changed_fn(id, ntree, params->user_data);
-      }
-      if (params->tree_output_changed_fn) {
-        params->tree_output_changed_fn(id, ntree, params->user_data);
-      }
-    }
-  }
-  FOREACH_NODETREE_END;
+  blender::bke::NodeTreeMainUpdater updater{bmain, params};
+  updater.update();
 }
 
 void BKE_node_tree_update_main_rooted(Main *bmain,
-                                      bNodeTree *UNUSED(ntree),
+                                      bNodeTree *ntree,
                                       NodeTreeUpdateExtraParams *params)
 {
-  BKE_node_tree_update_main(bmain, params);
+  blender::bke::NodeTreeMainUpdater updater{bmain, params};
+  updater.update_rooted({ntree});
 }
