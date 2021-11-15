@@ -159,7 +159,7 @@ typedef struct bNodeSocket {
    * restores pointer from matching own_index. */
   struct bNodeSocket *groupsock DNA_DEPRECATED;
 
-  /** A link pointer, set in ntreeUpdateTree. */
+  /** A link pointer, set in BKE_node_tree_update_main. */
   struct bNodeLink *link;
 
   /* XXX deprecated, socket input values are stored in default_value now.

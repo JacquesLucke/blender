@@ -2159,7 +2159,7 @@ static void iter_backwards_ex(const bNodeTree *ntree,
  * Can be called recursively (using another nodeChainIterBackwards) by
  * setting the recursion_lvl accordingly.
  *
- * \note Needs updated socket links (ntreeUpdateTree).
+ * \note Needs updated socket links (BKE_node_tree_update_main).
  * \note Recursive
  */
 void nodeChainIterBackwards(const bNodeTree *ntree,
@@ -4489,37 +4489,6 @@ void ntreeTagUsedSockets(bNodeTree *ntree)
   }
 }
 
-static void ntree_update_link_pointers(bNodeTree *ntree)
-{
-  /* first clear data */
-  LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
-    LISTBASE_FOREACH (bNodeSocket *, sock, &node->inputs) {
-      sock->link = nullptr;
-    }
-  }
-
-  LISTBASE_FOREACH (bNodeLink *, link, &ntree->links) {
-    link->tosock->link = link;
-  }
-
-  ntreeTagUsedSockets(ntree);
-}
-
-static void ntree_validate_links(bNodeTree *ntree)
-{
-  LISTBASE_FOREACH (bNodeLink *, link, &ntree->links) {
-    link->flag |= NODE_LINK_VALID;
-    if (link->fromnode && link->tonode && link->fromnode->level <= link->tonode->level) {
-      link->flag &= ~NODE_LINK_VALID;
-    }
-    else if (ntree->typeinfo->validate_link) {
-      if (!ntree->typeinfo->validate_link(ntree, link)) {
-        link->flag &= ~NODE_LINK_VALID;
-      }
-    }
-  }
-}
-
 void ntreeUpdateAllNew(Main *main)
 {
   Vector<bNodeTree *> new_ntrees;
@@ -4542,35 +4511,27 @@ void ntreeUpdateAllNew(Main *main)
   BKE_node_tree_update_main(main, nullptr);
 }
 
-/**
- * \param tree_update_flag: #eNodeTreeUpdate enum.
- */
-void ntreeUpdateAllUsers(Main *main, ID *id, const int tree_update_flag)
+void ntreeUpdateAllUsers(Main *main, ID *id)
 {
   if (id == nullptr) {
     return;
   }
 
+  bool need_update = false;
+
   /* Update all users of ngroup, to add/remove sockets as needed. */
   FOREACH_NODETREE_BEGIN (main, ntree, owner_id) {
-    bool need_update = false;
-
     LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
       if (node->id == id) {
-        if (node->typeinfo->group_update_func) {
-          node->typeinfo->group_update_func(ntree, node);
-        }
-
+        BKE_node_tree_update_tag_node(ntree, node);
         need_update = true;
       }
     }
-
-    if (need_update) {
-      ntree->update |= tree_update_flag;
-      ntreeUpdateTree(tree_update_flag ? main : nullptr, ntree);
-    }
   }
   FOREACH_NODETREE_END;
+  if (need_update) {
+    BKE_node_tree_update_main(main, nullptr);
+  }
 
   if (GS(id->name) == ID_NT) {
     bNodeTree *ngroup = (bNodeTree *)id;
@@ -4587,80 +4548,6 @@ void ntreeUpdateAllUsers(Main *main, ID *id, const int tree_update_flag)
       }
     }
   }
-}
-
-void ntreeUpdateTree(Main *bmain, bNodeTree *ntree)
-{
-  if (!ntree) {
-    return;
-  }
-
-  /* Avoid re-entrant updates, can be caused by RNA update callbacks. */
-  if (ntree->is_updating) {
-    return;
-  }
-  ntree->is_updating = true;
-
-  if (ntree->update & (NTREE_UPDATE_LINKS | NTREE_UPDATE_NODES)) {
-    /* set the bNodeSocket->link pointers */
-    ntree_update_link_pointers(ntree);
-  }
-
-  /* update individual nodes */
-  LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
-    /* node tree update tags override individual node update flags */
-    if ((node->update & NODE_UPDATE) || (ntree->update & NTREE_UPDATE)) {
-      if (node->typeinfo->updatefunc) {
-        node->typeinfo->updatefunc(ntree, node);
-      }
-
-      nodeUpdateInternalLinks(ntree, node);
-    }
-  }
-
-  /* generic tree update callback */
-  if (ntree->typeinfo->update) {
-    ntree->typeinfo->update(ntree);
-  }
-  /* XXX this should be moved into the tree type update callback for tree supporting node groups.
-   * Currently the node tree interface is still a generic feature of the base NodeTree type.
-   */
-  if (ntree->update & NTREE_UPDATE_GROUP) {
-    ntreeInterfaceTypeUpdate(ntree);
-  }
-
-  int tree_user_update_flag = 0;
-
-  if (ntree->update & NTREE_UPDATE) {
-    /* If the field interface of this node tree has changed, all node trees using
-     * this group will need to recalculate their interface as well. */
-    // if (blender::bke::node_field_inferencing::update_field_inferencing(*ntree)) {
-    //   tree_user_update_flag |= NTREE_UPDATE_FIELD_INFERENCING;
-    // }
-  }
-
-  if (bmain) {
-    ntreeUpdateAllUsers(bmain, &ntree->id, tree_user_update_flag);
-  }
-
-  if (ntree->update & (NTREE_UPDATE_LINKS | NTREE_UPDATE_NODES)) {
-    /* node updates can change sockets or links, repeat link pointer update afterward */
-    ntree_update_link_pointers(ntree);
-
-    /* update the node level from link dependencies */
-    ntreeUpdateNodeLevels(ntree);
-
-    /* check link validity */
-    ntree_validate_links(ntree);
-  }
-
-  /* clear update flags */
-  LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
-    node->update = 0;
-  }
-  ntree->update = 0;
-
-  ntree->is_updating = false;
 }
 
 void nodeUpdate(bNodeTree *ntree, bNode *node)

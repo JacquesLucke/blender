@@ -905,6 +905,9 @@ class NodeTreeMainUpdater {
 
   void update_individual_node(bNodeTree &ntree, bNode &node)
   {
+    if (node.typeinfo->group_update_func) {
+      node.typeinfo->group_update_func(&ntree, &node);
+    }
     if (node.typeinfo->updatefunc) {
       node.typeinfo->updatefunc(&ntree, &node);
     }
