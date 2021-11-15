@@ -15,13 +15,72 @@
  */
 
 #include "BLI_map.hh"
+#include "BLI_multi_value_map.hh"
 
+#include "DNA_modifier_types.h"
 #include "DNA_node_types.h"
 
+#include "BKE_main.h"
 #include "BKE_node.h"
 #include "BKE_node_tree_update.h"
 
 namespace blender::bke {
+
+using TreeNodePair = std::pair<bNodeTree *, bNode *>;
+using ObjectModifierPair = std::pair<Object *, ModifierData *>;
+
+struct NodeTreeRelations {
+ private:
+  Main *bmain_;
+  std::optional<MultiValueMap<bNodeTree *, TreeNodePair>> group_node_users_;
+  std::optional<MultiValueMap<bNodeTree *, ObjectModifierPair>> modifiers_users_;
+
+ public:
+  NodeTreeRelations(Main &bmain) : bmain_(&bmain)
+  {
+  }
+
+  void ensure_group_node_users()
+  {
+    if (group_node_users_.has_value()) {
+      return;
+    }
+
+    group_node_users_.emplace();
+    FOREACH_NODETREE_BEGIN (bmain_, ntree, id) {
+      LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
+        if (node->id == nullptr) {
+          continue;
+        }
+        ID *id = node->id;
+        if (GS(id->name) == ID_NT) {
+          bNodeTree *group = (bNodeTree *)id;
+          group_node_users_->add(group, {ntree, node});
+        }
+      }
+    }
+    FOREACH_NODETREE_END;
+  }
+
+  void ensure_modifier_users()
+  {
+    if (modifiers_users_.has_value()) {
+      return;
+    }
+
+    modifiers_users_.emplace();
+    LISTBASE_FOREACH (Object *, object, &bmain_->objects) {
+      LISTBASE_FOREACH (ModifierData *, md, &object->modifiers) {
+        if (md->type == eModifierType_Nodes) {
+          NodesModifierData *nmd = (NodesModifierData *)md;
+          if (nmd->node_group != nullptr) {
+            modifiers_users_->add(nmd->node_group, {object, md});
+          }
+        }
+      }
+    }
+  }
+};
 
 class NodeTreeMainUpdater {
  private:
