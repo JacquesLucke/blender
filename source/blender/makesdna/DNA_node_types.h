@@ -601,6 +601,8 @@ typedef enum eNodeTreeChangedFlag {
   NTREE_CHANGED_LINK = (1 << 3),
   NTREE_CHANGED_REMOVED_ANY = (1 << 4),
   NTREE_CHANGED_MISSING_RUNTIME_DATA = (1 << 5),
+  NTREE_CHANGED_INTERFACE = (1 << 6),
+  NTREE_CHANGED_ALL = -1,
 } eNodeTreeChangedFlag;
 
 /* ntree->type, index */

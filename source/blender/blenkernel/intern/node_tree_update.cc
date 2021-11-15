@@ -311,11 +311,85 @@ class NodeTreeMainUpdater {
 
   TreeUpdateResult update_tree(bNodeTree &ntree)
   {
-    ntreeUpdateTree(bmain_, &ntree);
     TreeUpdateResult result;
+
+    if (ntree.changed_flag & NTREE_CHANGED_INTERFACE) {
+      result.interface_changed = true;
+    }
+
+    if (ntree.changed_flag & NTREE_CHANGED_LINK) {
+      this->update_input_socket_link_pointers(ntree);
+    }
+    this->update_individual_nodes(ntree);
+
+    if (ntree.typeinfo->update) {
+      ntree.typeinfo->update(&ntree);
+    }
+
     result.interface_changed = true;
     result.output_changed = true;
+
+    if (result.interface_changed) {
+      ntreeInterfaceTypeUpdate(&ntree);
+    }
+
     return result;
+  }
+
+  void update_input_socket_link_pointers(bNodeTree &ntree)
+  {
+    LISTBASE_FOREACH (bNode *, node, &ntree.nodes) {
+      LISTBASE_FOREACH (bNodeSocket *, socket, &node->inputs) {
+        socket->link = nullptr;
+      }
+    }
+
+    LISTBASE_FOREACH (bNodeLink *, link, &ntree.links) {
+      link->tosock->link = link;
+    }
+
+    this->update_socket_used_tags(ntree);
+  }
+
+  void update_socket_used_tags(bNodeTree &ntree)
+  {
+    /* First clear flag. */
+    LISTBASE_FOREACH (bNode *, node, &ntree.nodes) {
+      LISTBASE_FOREACH (bNodeSocket *, sock, &node->inputs) {
+        sock->flag &= ~SOCK_IN_USE;
+      }
+      LISTBASE_FOREACH (bNodeSocket *, sock, &node->outputs) {
+        sock->flag &= ~SOCK_IN_USE;
+      }
+    }
+
+    LISTBASE_FOREACH (bNodeLink *, link, &ntree.links) {
+      link->fromsock->flag |= SOCK_IN_USE;
+      if (!(link->flag & NODE_LINK_MUTED)) {
+        link->tosock->flag |= SOCK_IN_USE;
+      }
+    }
+  }
+
+  void update_individual_nodes(bNodeTree &ntree)
+  {
+    LISTBASE_FOREACH (bNode *, node, &ntree.nodes) {
+      if (ntree.changed_flag & NTREE_CHANGED_ANY || node->changed_flag & NODE_CHANGED_ANY) {
+        this->update_individual_node(ntree, *node);
+      }
+    }
+  }
+
+  void update_individual_node(bNodeTree &ntree, bNode &node)
+  {
+    if (node.typeinfo->updatefunc) {
+      node.typeinfo->updatefunc(&ntree, &node);
+    }
+
+    BLI_freelistN(&node.internal_links);
+    if (node.typeinfo->update_internal_links) {
+      node.typeinfo->update_internal_links(&ntree, &node);
+    }
   }
 };
 
@@ -323,7 +397,7 @@ class NodeTreeMainUpdater {
 
 void BKE_node_tree_update_tag(bNodeTree *ntree)
 {
-  ntree->changed_flag |= NTREE_CHANGED_ANY;
+  ntree->changed_flag |= NTREE_CHANGED_ALL;
   ntree->update |= NTREE_UPDATE;
 }
 
@@ -381,7 +455,7 @@ void BKE_node_tree_update_tag_missing_runtime_data(bNodeTree *ntree)
 
 void BKE_node_tree_update_tag_interface(bNodeTree *ntree)
 {
-  ntree->changed_flag |= NTREE_CHANGED_ANY;
+  ntree->changed_flag |= NTREE_CHANGED_INTERFACE;
   ntree->update |= NTREE_UPDATE;
 }
 
