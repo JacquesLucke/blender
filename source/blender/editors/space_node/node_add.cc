@@ -57,7 +57,7 @@
 
 #include "UI_view2d.h"
 
-#include "node_intern.h" /* own include */
+#include "node_intern.hh" /* own include */
 
 /* -------------------------------------------------------------------- */
 /** \name Utilities

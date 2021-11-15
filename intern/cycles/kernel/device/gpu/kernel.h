@@ -56,8 +56,7 @@
  */
 
 ccl_gpu_kernel(GPU_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
-ccl_gpu_kernel_signature(integrator_reset,
-                          int num_states)
+    ccl_gpu_kernel_signature(integrator_reset, int num_states)
 {
   const int state = ccl_gpu_global_id_x();
 
@@ -132,13 +131,14 @@ ccl_gpu_kernel(GPU_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
 ccl_gpu_kernel(GPU_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
     ccl_gpu_kernel_signature(integrator_intersect_closest,
                              ccl_global const int *path_index_array,
+                             ccl_global float *render_buffer,
                              const int work_size)
 {
   const int global_index = ccl_gpu_global_id_x();
 
   if (global_index < work_size) {
     const int state = (path_index_array) ? path_index_array[global_index] : global_index;
-    ccl_gpu_kernel_call(integrator_intersect_closest(NULL, state));
+    ccl_gpu_kernel_call(integrator_intersect_closest(NULL, state, render_buffer));
   }
 }
 
@@ -265,7 +265,7 @@ ccl_gpu_kernel(GPU_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
   }
 }
 
-ccl_gpu_kernel(GPU_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE)
+ccl_gpu_kernel_threads(GPU_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE)
     ccl_gpu_kernel_signature(integrator_queued_paths_array,
                              int num_states,
                              ccl_global int *indices,
@@ -273,14 +273,14 @@ ccl_gpu_kernel(GPU_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE)
                              int kernel_index)
 {
   ccl_gpu_kernel_lambda(INTEGRATOR_STATE(state, path, queued_kernel) == kernel_index,
-                        int kernel_index)
-      .kernel_index = kernel_index;
+                        int kernel_index);
+  ccl_gpu_kernel_lambda_pass.kernel_index = kernel_index;
 
   gpu_parallel_active_index_array<GPU_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE>(
       num_states, indices, num_indices, ccl_gpu_kernel_lambda_pass);
 }
 
-ccl_gpu_kernel(GPU_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE)
+ccl_gpu_kernel_threads(GPU_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE)
     ccl_gpu_kernel_signature(integrator_queued_shadow_paths_array,
                              int num_states,
                              ccl_global int *indices,
@@ -288,25 +288,26 @@ ccl_gpu_kernel(GPU_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE)
                              int kernel_index)
 {
   ccl_gpu_kernel_lambda(INTEGRATOR_STATE(state, shadow_path, queued_kernel) == kernel_index,
-                        int kernel_index)
-      .kernel_index = kernel_index;
+                        int kernel_index);
+  ccl_gpu_kernel_lambda_pass.kernel_index = kernel_index;
 
   gpu_parallel_active_index_array<GPU_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE>(
       num_states, indices, num_indices, ccl_gpu_kernel_lambda_pass);
 }
 
-ccl_gpu_kernel(GPU_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE)
+ccl_gpu_kernel_threads(GPU_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE)
     ccl_gpu_kernel_signature(integrator_active_paths_array,
                              int num_states,
                              ccl_global int *indices,
                              ccl_global int *num_indices)
 {
   ccl_gpu_kernel_lambda(INTEGRATOR_STATE(state, path, queued_kernel) != 0);
+
   gpu_parallel_active_index_array<GPU_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE>(
       num_states, indices, num_indices, ccl_gpu_kernel_lambda_pass);
 }
 
-ccl_gpu_kernel(GPU_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE)
+ccl_gpu_kernel_threads(GPU_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE)
     ccl_gpu_kernel_signature(integrator_terminated_paths_array,
                              int num_states,
                              ccl_global int *indices,
@@ -314,11 +315,12 @@ ccl_gpu_kernel(GPU_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE)
                              int indices_offset)
 {
   ccl_gpu_kernel_lambda(INTEGRATOR_STATE(state, path, queued_kernel) == 0);
+
   gpu_parallel_active_index_array<GPU_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE>(
       num_states, indices + indices_offset, num_indices, ccl_gpu_kernel_lambda_pass);
 }
 
-ccl_gpu_kernel(GPU_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE)
+ccl_gpu_kernel_threads(GPU_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE)
     ccl_gpu_kernel_signature(integrator_terminated_shadow_paths_array,
                              int num_states,
                              ccl_global int *indices,
@@ -326,11 +328,12 @@ ccl_gpu_kernel(GPU_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE)
                              int indices_offset)
 {
   ccl_gpu_kernel_lambda(INTEGRATOR_STATE(state, shadow_path, queued_kernel) == 0);
+
   gpu_parallel_active_index_array<GPU_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE>(
       num_states, indices + indices_offset, num_indices, ccl_gpu_kernel_lambda_pass);
 }
 
-ccl_gpu_kernel(GPU_PARALLEL_SORTED_INDEX_DEFAULT_BLOCK_SIZE)
+ccl_gpu_kernel_threads(GPU_PARALLEL_SORTED_INDEX_DEFAULT_BLOCK_SIZE)
     ccl_gpu_kernel_signature(integrator_sorted_paths_array,
                              int num_states,
                              int num_states_limit,
@@ -343,37 +346,37 @@ ccl_gpu_kernel(GPU_PARALLEL_SORTED_INDEX_DEFAULT_BLOCK_SIZE)
   ccl_gpu_kernel_lambda((INTEGRATOR_STATE(state, path, queued_kernel) == kernel_index) ?
                             INTEGRATOR_STATE(state, path, shader_sort_key) :
                             GPU_PARALLEL_SORTED_INDEX_INACTIVE_KEY,
-                        int kernel_index)
-    .kernel_index = kernel_index;
-  
+                        int kernel_index);
+  ccl_gpu_kernel_lambda_pass.kernel_index = kernel_index;
+
   const uint state_index = ccl_gpu_global_id_x();
-  gpu_parallel_sorted_index_array(
-      state_index,
-      num_states,
-      num_states_limit,
-      indices,
+  gpu_parallel_sorted_index_array(state_index,
+                                  num_states,
+                                  num_states_limit,
+                                  indices,
                                   num_indices,
                                   key_counter,
                                   key_prefix_sum,
                                   ccl_gpu_kernel_lambda_pass);
 }
 
-ccl_gpu_kernel(GPU_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE)
+ccl_gpu_kernel_threads(GPU_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE)
     ccl_gpu_kernel_signature(integrator_compact_paths_array,
                              int num_states,
                              ccl_global int *indices,
-                         ccl_global int *num_indices,
-                         int num_active_paths)
+                             ccl_global int *num_indices,
+                             int num_active_paths)
 {
-  ccl_gpu_kernel_lambda((state >= num_active_paths) && (INTEGRATOR_STATE(state, path, queued_kernel) != 0),
-                        int num_active_paths)
-    .num_active_paths = num_active_paths;
-  
+  ccl_gpu_kernel_lambda((state >= num_active_paths) &&
+                            (INTEGRATOR_STATE(state, path, queued_kernel) != 0),
+                        int num_active_paths);
+  ccl_gpu_kernel_lambda_pass.num_active_paths = num_active_paths;
+
   gpu_parallel_active_index_array<GPU_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE>(
       num_states, indices, num_indices, ccl_gpu_kernel_lambda_pass);
 }
 
-ccl_gpu_kernel(GPU_PARALLEL_SORTED_INDEX_DEFAULT_BLOCK_SIZE)
+ccl_gpu_kernel_threads(GPU_PARALLEL_SORTED_INDEX_DEFAULT_BLOCK_SIZE)
     ccl_gpu_kernel_signature(integrator_compact_states,
                              ccl_global const int *active_terminated_states,
                              const int active_states_offset,
@@ -390,22 +393,23 @@ ccl_gpu_kernel(GPU_PARALLEL_SORTED_INDEX_DEFAULT_BLOCK_SIZE)
   }
 }
 
-ccl_gpu_kernel(GPU_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE)
+ccl_gpu_kernel_threads(GPU_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE)
     ccl_gpu_kernel_signature(integrator_compact_shadow_paths_array,
                              int num_states,
                              ccl_global int *indices,
-                         ccl_global int *num_indices,
-                         int num_active_paths)
+                             ccl_global int *num_indices,
+                             int num_active_paths)
 {
-  ccl_gpu_kernel_lambda((state >= num_active_paths) && (INTEGRATOR_STATE(state, shadow_path, queued_kernel) != 0),
-                        int num_active_paths)
-    .num_active_paths = num_active_paths;
+  ccl_gpu_kernel_lambda((state >= num_active_paths) &&
+                            (INTEGRATOR_STATE(state, shadow_path, queued_kernel) != 0),
+                        int num_active_paths);
+  ccl_gpu_kernel_lambda_pass.num_active_paths = num_active_paths;
 
   gpu_parallel_active_index_array<GPU_PARALLEL_ACTIVE_INDEX_DEFAULT_BLOCK_SIZE>(
       num_states, indices, num_indices, ccl_gpu_kernel_lambda_pass);
 }
 
-ccl_gpu_kernel(GPU_PARALLEL_SORTED_INDEX_DEFAULT_BLOCK_SIZE)
+ccl_gpu_kernel_threads(GPU_PARALLEL_SORTED_INDEX_DEFAULT_BLOCK_SIZE)
     ccl_gpu_kernel_signature(integrator_compact_shadow_states,
                              ccl_global const int *active_terminated_states,
                              const int active_states_offset,
@@ -422,7 +426,7 @@ ccl_gpu_kernel(GPU_PARALLEL_SORTED_INDEX_DEFAULT_BLOCK_SIZE)
   }
 }
 
-ccl_gpu_kernel(GPU_PARALLEL_PREFIX_SUM_DEFAULT_BLOCK_SIZE) ccl_gpu_kernel_signature(
+ccl_gpu_kernel_threads(GPU_PARALLEL_PREFIX_SUM_DEFAULT_BLOCK_SIZE) ccl_gpu_kernel_signature(
     prefix_sum, ccl_global int *counter, ccl_global int *prefix_sum, int num_values)
 {
   gpu_parallel_prefix_sum(ccl_gpu_global_id_x(), counter, prefix_sum, num_values);
@@ -520,11 +524,31 @@ ccl_gpu_kernel(GPU_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
  * Film.
  */
 
+ccl_device_inline void kernel_gpu_film_convert_half_write(ccl_global uchar4 *rgba,
+                                                          const int rgba_offset,
+                                                          const int rgba_stride,
+                                                          const int x,
+                                                          const int y,
+                                                          const half4 half_pixel)
+{
+  /* Work around HIP issue with half float display, see T92972. */
+#ifdef __KERNEL_HIP__
+  ccl_global half *out = ((ccl_global half *)rgba) + (rgba_offset + y * rgba_stride + x) * 4;
+  out[0] = half_pixel.x;
+  out[1] = half_pixel.y;
+  out[2] = half_pixel.z;
+  out[3] = half_pixel.w;
+#else
+  ccl_global half4 *out = ((ccl_global half4 *)rgba) + rgba_offset + y * rgba_stride + x;
+  *out = half_pixel;
+#endif
+}
+
 #define KERNEL_FILM_CONVERT_VARIANT(variant, input_channel_count) \
   ccl_gpu_kernel(GPU_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS) \
       ccl_gpu_kernel_signature(film_convert_##variant, \
                                const KernelFilmConvert kfilm_convert, \
-                               ccl_global uchar4 *rgba, \
+                               ccl_global float *pixels, \
                                ccl_global float *render_buffer, \
                                int num_pixels, \
                                int width, \
@@ -544,20 +568,10 @@ ccl_gpu_kernel(GPU_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
     ccl_global const float *buffer = render_buffer + offset + x * kfilm_convert.pass_stride + \
                                      y * stride * kfilm_convert.pass_stride; \
 \
-    float pixel[4]; \
+    ccl_global float *pixel = pixels + \
+                              (render_pixel_index + rgba_offset) * kfilm_convert.pixel_stride; \
+\
     film_get_pass_pixel_##variant(&kfilm_convert, buffer, pixel); \
-\
-    film_apply_pass_pixel_overlays_rgba(&kfilm_convert, buffer, pixel); \
-\
-    if (input_channel_count == 1) { \
-      pixel[1] = pixel[2] = pixel[0]; \
-    } \
-    if (input_channel_count <= 3) { \
-      pixel[3] = 1.0f; \
-    } \
-\
-    ccl_global float *out = ((ccl_global float *)rgba) + rgba_offset + y * rgba_stride + x; \
-    *(ccl_global float4 *)out = make_float4(pixel[0], pixel[1], pixel[2], pixel[3]); \
   } \
 \
   ccl_gpu_kernel(GPU_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS) \
@@ -586,8 +600,6 @@ ccl_gpu_kernel(GPU_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
     float pixel[4]; \
     film_get_pass_pixel_##variant(&kfilm_convert, buffer, pixel); \
 \
-    film_apply_pass_pixel_overlays_rgba(&kfilm_convert, buffer, pixel); \
-\
     if (input_channel_count == 1) { \
       pixel[1] = pixel[2] = pixel[0]; \
     } \
@@ -595,8 +607,11 @@ ccl_gpu_kernel(GPU_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
       pixel[3] = 1.0f; \
     } \
 \
-    ccl_global half4 *out = ((ccl_global half4 *)rgba) + (rgba_offset + y * rgba_stride + x); \
-    *out = float4_to_half4_display(make_float4(pixel[0], pixel[1], pixel[2], pixel[3])); \
+    film_apply_pass_pixel_overlays_rgba(&kfilm_convert, buffer, pixel); \
+\
+    const half4 half_pixel = float4_to_half4_display( \
+        make_float4(pixel[0], pixel[1], pixel[2], pixel[3])); \
+    kernel_gpu_film_convert_half_write(rgba, rgba_offset, rgba_stride, x, y, half_pixel); \
   }
 
 /* 1 channel inputs */
@@ -616,6 +631,8 @@ KERNEL_FILM_CONVERT_VARIANT(shadow_catcher, 4)
 KERNEL_FILM_CONVERT_VARIANT(shadow_catcher_matte_with_shadow, 4)
 KERNEL_FILM_CONVERT_VARIANT(combined, 4)
 KERNEL_FILM_CONVERT_VARIANT(float4, 4)
+
+#undef KERNEL_FILM_CONVERT_VARIANT
 
 /* --------------------------------------------------------------------
  * Shader evaluation.
