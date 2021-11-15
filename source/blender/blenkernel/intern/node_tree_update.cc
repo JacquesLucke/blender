@@ -782,6 +782,8 @@ class NodeTreeMainUpdater {
       }
     }
 
+    std::reverse(sorted_ntrees.begin(), sorted_ntrees.end());
+
     return sorted_ntrees;
   }
 
@@ -897,7 +899,8 @@ class NodeTreeMainUpdater {
   void update_individual_nodes(bNodeTree &ntree)
   {
     LISTBASE_FOREACH (bNode *, node, &ntree.nodes) {
-      if (ntree.changed_flag & NTREE_CHANGED_ANY || node->changed_flag & NODE_CHANGED_ANY) {
+      if (ntree.changed_flag & NTREE_CHANGED_ANY || node->changed_flag & NODE_CHANGED_ANY ||
+          ntree.changed_flag & NTREE_CHANGED_LINK) {
         this->update_individual_node(ntree, *node);
       }
     }
