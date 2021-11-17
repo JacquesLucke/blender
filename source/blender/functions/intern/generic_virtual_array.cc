@@ -450,6 +450,29 @@ class GVArrayImpl_For_SlicedGVArray : public GVArrayImpl {
 /** \} */
 
 /* -------------------------------------------------------------------- */
+/** \name #GVArrayImpl_For_PartialOwnedSpan
+ * \{ */
+
+class GVArrayImpl_For_PartialOwnedSpan : public GVArrayImpl_For_GSpan {
+ protected:
+  const IndexMask *mask_;
+
+ public:
+  GVArrayImpl_For_PartialOwnedSpan(const CPPType &type, void *buffer, const IndexMask *mask)
+      : GVArrayImpl_For_GSpan(GSpan(type, buffer, mask->min_array_size())), mask_(mask)
+  {
+  }
+
+  ~GVArrayImpl_For_PartialOwnedSpan()
+  {
+    type_->destruct_indices((void *)data_, *mask_);
+    MEM_freeN((void *)data_);
+  }
+};
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
 /** \name #GVArrayCommon
  * \{ */
 
@@ -655,6 +678,17 @@ GVArray GVArray::slice(IndexRange slice) const
     return GVArray::ForSpan(span.slice(slice.start(), slice.size()));
   }
   return GVArray::For<GVArrayImpl_For_SlicedGVArray>(*this, slice);
+}
+
+GVArray GVArray::as_span_or_single(const IndexMask *mask) const
+{
+  if (impl_->is_single() || impl_->is_span()) {
+    return *this;
+  }
+  const CPPType &type = impl_->type();
+  void *buffer = MEM_mallocN(type.size() * mask->min_array_size(), __func__);
+  impl_->materialize_to_uninitialized(*mask, buffer);
+  return GVArray::For<GVArrayImpl_For_PartialOwnedSpan>(type, buffer, mask);
 }
 
 GVArray &GVArray::operator=(const GVArray &other)

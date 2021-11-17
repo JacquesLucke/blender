@@ -1107,6 +1107,21 @@ template<typename T> class VMutableArray_Span final : public MutableSpan<T> {
   }
 };
 
+template<typename T> class SingleAsSpan {
+ private:
+  T value_;
+
+ public:
+  SingleAsSpan(T value) : value_(std::move(value))
+  {
+  }
+
+  const T &operator[](const int64_t UNUSED(i)) const
+  {
+    return value_;
+  }
+};
+
 /**
  * Generate multiple versions of the given function optimized for different virtual arrays.
  * One has to be careful with nesting multiple devirtualizations, because that results in an
@@ -1121,14 +1136,11 @@ inline void devirtualize_varray(const VArray<T> &varray, const Func &func, bool 
   /* Support disabling the devirtualization to simplify benchmarking. */
   if (enable) {
     if (varray.is_single()) {
-      /* `VArrayImpl_For_Single` can be used for devirtualization, because it is declared `final`.
-       */
-      func(VArray<T>::ForSingle(varray.get_internal_single(), varray.size()));
+      func(SingleAsSpan(varray.get_internal_single()));
       return;
     }
     if (varray.is_span()) {
-      /* `VArrayImpl_For_Span` can be used for devirtualization, because it is declared `final`. */
-      func(VArray<T>::ForSpan(varray.get_internal_span()));
+      func(varray.get_internal_span());
       return;
     }
   }
@@ -1153,23 +1165,20 @@ inline void devirtualize_varray2(const VArray<T1> &varray1,
     const bool is_single1 = varray1.is_single();
     const bool is_single2 = varray2.is_single();
     if (is_span1 && is_span2) {
-      func(VArray<T1>::ForSpan(varray1.get_internal_span()),
-           VArray<T2>::ForSpan(varray2.get_internal_span()));
+      func(varray1.get_internal_span(), varray2.get_internal_span());
       return;
     }
     if (is_span1 && is_single2) {
-      func(VArray<T1>::ForSpan(varray1.get_internal_span()),
-           VArray<T2>::ForSingle(varray2.get_internal_single(), varray2.size()));
+      func(varray1.get_internal_span(), SingleAsSpan(varray2.get_internal_single()));
       return;
     }
     if (is_single1 && is_span2) {
-      func(VArray<T1>::ForSingle(varray1.get_internal_single(), varray1.size()),
-           VArray<T2>::ForSpan(varray2.get_internal_span()));
+      func(SingleAsSpan(varray1.get_internal_single()), varray2.get_internal_span());
       return;
     }
     if (is_single1 && is_single2) {
-      func(VArray<T1>::ForSingle(varray1.get_internal_single(), varray1.size()),
-           VArray<T2>::ForSingle(varray2.get_internal_single(), varray2.size()));
+      func(SingleAsSpan(varray1.get_internal_single()),
+           SingleAsSpan(varray2.get_internal_single()));
       return;
     }
   }

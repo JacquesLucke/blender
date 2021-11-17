@@ -122,8 +122,10 @@ static void call_with_original_indices(const MultiFunction &fn,
     fn.call(orig_mask, orig_params, orig_context);
     return;
   }
+
   threading::parallel_for(orig_mask.index_range(), grain_size, [&](const IndexRange sub_range) {
     const IndexMask sub_mask = orig_mask.slice(sub_range);
+    /* TODO: Can't use same params from multiple threads. */
     fn.call(sub_mask, orig_params, orig_context);
   });
 }
@@ -159,7 +161,8 @@ static void call_with_moved_indices(const MultiFunction &fn,
       switch (param_type.category()) {
         case MFParamType::SingleInput: {
           const GVArray &varray = orig_params.readonly_single_input(param_index);
-          sub_params.add_readonly_single_input(varray.slice(input_slice_range));
+          sub_params.add_readonly_single_input(
+              varray.slice(input_slice_range).as_span_or_single(&sub_mask));
           break;
         }
         case MFParamType::SingleMutable: {
@@ -201,7 +204,8 @@ void MultiFunction::call_auto(IndexMask mask, MFParams params, MFContext context
   const ExecutionStrategy strategy = make_execution_strategy(*this, mask);
   switch (strategy.index_mode) {
     case IndexMode::Original: {
-      call_with_original_indices(*this, mask, params, context, strategy.grain_size);
+      // call_with_original_indices(*this, mask, params, context, strategy.grain_size);
+      call_with_moved_indices(*this, mask, params, context, strategy.grain_size);
       break;
     }
     case IndexMode::Moved: {

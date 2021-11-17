@@ -185,6 +185,7 @@ class GVArray : public GVArrayCommon {
   static GVArray ForEmpty(const CPPType &type);
 
   GVArray slice(IndexRange slice) const;
+  GVArray as_span_or_single(const IndexMask *mask) const;
 
   GVArray &operator=(const GVArray &other);
   GVArray &operator=(GVArray &&other) noexcept;
