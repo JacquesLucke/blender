@@ -60,6 +60,7 @@ class MultiFunction {
   {
   }
 
+  void call_auto(IndexMask mask, MFParams params, MFContext context) const;
   virtual void call(IndexMask mask, MFParams params, MFContext context) const = 0;
 
   virtual uint64_t hash() const
@@ -108,6 +109,13 @@ class MultiFunction {
     return *signature_ref_;
   }
 
+  struct ExecutionHints {
+    int64_t min_grain_size = 1000;
+    bool allocates_array = false;
+  };
+
+  ExecutionHints execution_hints() const;
+
  protected:
   /* Make the function use the given signature. This should be called once in the constructor of
    * child classes. No copy of the signature is made, so the caller has to make sure that the
@@ -119,6 +127,8 @@ class MultiFunction {
     BLI_assert(signature != nullptr);
     signature_ref_ = signature;
   }
+
+  virtual ExecutionHints get_execution_hints() const;
 };
 
 inline MFParamsBuilder::MFParamsBuilder(const MultiFunction &fn, int64_t mask_size)

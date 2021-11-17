@@ -647,6 +647,13 @@ GVArray GVArray::ForEmpty(const CPPType &type)
 
 GVArray GVArray::slice(IndexRange slice) const
 {
+  if (impl_->is_single()) {
+    return *this;
+  }
+  else if (impl_->is_span()) {
+    GSpan span = this->get_internal_span();
+    return GVArray::ForSpan(span.slice(slice.start(), slice.size()));
+  }
   return GVArray::For<GVArrayImpl_For_SlicedGVArray>(*this, slice);
 }
 
