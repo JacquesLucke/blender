@@ -17,6 +17,7 @@
 #include "FN_multi_function.hh"
 
 #include "BLI_task.hh"
+#include "BLI_threads.h"
 
 namespace blender::fn {
 
@@ -48,8 +49,16 @@ static ExecutionStrategy make_execution_strategy(const MultiFunction &fn, IndexM
   BLI_assert(!mask.is_empty());
 
   const ExecutionHints hints = fn.execution_hints();
+
   ExecutionStrategy strategy;
   strategy.grain_size = hints.min_grain_size;
+
+  if (hints.uniform_execution_time) {
+    const int thread_count = BLI_system_thread_count();
+    /* Avoid using a small grain size even if it is not necessary. */
+    const int64_t thread_based_grain_size = mask.size() / thread_count / 4;
+    strategy.grain_size = std::max(strategy.grain_size, thread_based_grain_size);
+  }
 
   if (!hints.allocates_array) {
     strategy.index_mode = IndexMode::Original;

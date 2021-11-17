@@ -1241,7 +1241,7 @@ MultiFunction::ExecutionHints MFProcedureExecutor::get_execution_hints() const
 {
   ExecutionHints hints;
   hints.allocates_array = true;
-  hints.min_grain_size = 10000;
+  hints.min_grain_size = 100000;
   return hints;
 }
 
