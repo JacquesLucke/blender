@@ -1046,7 +1046,7 @@ static void execute_call_instruction(const MFCallInstruction &instruction,
     }
 
     try {
-      fn.call(mask, params, context);
+      fn.call_auto(mask, params, context);
     }
     catch (...) {
       /* Multi-functions must not throw exceptions. */

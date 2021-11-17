@@ -34,7 +34,6 @@ set(SRC
   intern/generic_virtual_vector_array.cc
   intern/multi_function.cc
   intern/multi_function_builder.cc
-  intern/multi_function_parallel.cc
   intern/multi_function_procedure.cc
   intern/multi_function_procedure_builder.cc
   intern/multi_function_procedure_executor.cc
@@ -54,7 +53,6 @@ set(SRC
   FN_multi_function_builder.hh
   FN_multi_function_context.hh
   FN_multi_function_data_type.hh
-  FN_multi_function_parallel.hh
   FN_multi_function_param_type.hh
   FN_multi_function_params.hh
   FN_multi_function_procedure.hh
