@@ -1237,4 +1237,12 @@ void MFProcedureExecutor::call(IndexMask full_mask, MFParams params, MFContext c
   }
 }
 
+MultiFunction::ExecutionHints MFProcedureExecutor::get_execution_hints() const
+{
+  ExecutionHints hints;
+  hints.allocates_array = true;
+  hints.min_grain_size = 10000;
+  return hints;
+}
+
 }  // namespace blender::fn
