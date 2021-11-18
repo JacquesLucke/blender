@@ -677,7 +677,7 @@ GVArray GVArray::slice(IndexRange slice) const
   }
   else if (impl_->is_span()) {
     GSpan span = this->get_internal_span();
-    return GVArray::ForSpan(span.slice(slice.start(), slice.size()));
+    return GVArray::ForSpan(span.slice(slice));
   }
   return GVArray::For<GVArrayImpl_For_SlicedGVArray>(*this, slice);
 }
