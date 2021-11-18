@@ -62,8 +62,7 @@ class MFParamsBuilder {
 
   template<typename T> void add_readonly_single_input_value(T value, StringRef expected_name = "")
   {
-    T *value_ptr = &scope_.add_value<T>(std::move(value));
-    this->add_readonly_single_input(value_ptr, expected_name);
+    this->add_readonly_single_input(VArray<T>::ForSingle(std::move(value)), expected_name);
   }
   template<typename T> void add_readonly_single_input(const T *value, StringRef expected_name = "")
   {
