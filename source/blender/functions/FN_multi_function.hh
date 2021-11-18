@@ -110,7 +110,7 @@ class MultiFunction {
   }
 
   struct ExecutionHints {
-    int64_t min_grain_size = 1000;
+    int64_t min_grain_size = 10000;
     bool allocates_array = false;
     bool uniform_execution_time = true;
   };

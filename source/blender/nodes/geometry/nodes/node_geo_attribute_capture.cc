@@ -98,7 +98,6 @@ static void try_capture_field_on_geometry(GeometryComponent &component,
                                           const AttributeDomain domain,
                                           const GField &field)
 {
-  SCOPED_TIMER(__func__);
   GeometryComponentFieldContext field_context{component, domain};
   const int domain_size = component.attribute_domain_size(domain);
   const IndexMask mask{IndexMask(domain_size)};
