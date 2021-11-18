@@ -34,6 +34,7 @@ set(SRC
   intern/generic_virtual_vector_array.cc
   intern/multi_function.cc
   intern/multi_function_builder.cc
+  intern/multi_function_params.cc
   intern/multi_function_procedure.cc
   intern/multi_function_procedure_builder.cc
   intern/multi_function_procedure_executor.cc
