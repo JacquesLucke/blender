@@ -1107,6 +1107,9 @@ template<typename T> class VMutableArray_Span final : public MutableSpan<T> {
   }
 };
 
+/**
+ * Utility class used by #devirtualize_varray.
+ */
 template<typename T> class SingleAsSpan {
  private:
   T value_;
