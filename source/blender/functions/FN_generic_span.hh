@@ -169,6 +169,11 @@ class GMutableSpan {
     const int64_t new_size = std::max<int64_t>(0, std::min(size, size_ - start));
     return GMutableSpan(*type_, POINTER_OFFSET(data_, type_->size() * start), new_size);
   }
+
+  GMutableSpan slice(IndexRange range) const
+  {
+    return this->slice(range.start(), range.size());
+  }
 };
 
 }  // namespace blender::fn

@@ -364,7 +364,7 @@ Vector<GVArray> evaluate_fields(ResourceScope &scope,
 
     /* Provide inputs to the procedure executor. */
     for (const GVArray &varray : field_context_inputs) {
-      mf_params.add_readonly_single_input(varray);
+      mf_params.add_readonly_single_input(varray.as_span_or_single(&mask));
     }
 
     for (const int i : varying_fields_to_evaluate.index_range()) {
