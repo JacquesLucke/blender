@@ -93,7 +93,7 @@ HIPDevice::HIPDevice(const DeviceInfo &info, Stats &stats, Profiler &profiler)
   }
 
   /* Setup device and context. */
-  result = hipGetDevice(&hipDevice, hipDevId);
+  result = hipDeviceGet(&hipDevice, hipDevId);
   if (result != hipSuccess) {
     set_error(string_printf("Failed to get HIP device handle from ordinal (%s)",
                             hipewErrorString(result)));
@@ -738,6 +738,7 @@ void HIPDevice::generic_free(device_memory &mem)
   if (mem.device_pointer) {
     HIPContextScope scope(this);
     thread_scoped_lock lock(hip_mem_map_mutex);
+    DCHECK(hip_mem_map.find(&mem) != hip_mem_map.end());
     const HIPMem &cmem = hip_mem_map[&mem];
 
     /* If cmem.use_mapped_host is true, reference counting is used
@@ -980,16 +981,16 @@ void HIPDevice::tex_alloc(device_texture &mem)
             << string_human_readable_number(mem.memory_size()) << " bytes. ("
             << string_human_readable_size(mem.memory_size()) << ")";
 
-    hip_assert(hipArray3DCreate(&array_3d, &desc));
+    hip_assert(hipArray3DCreate((hArray *)&array_3d, &desc));
 
     if (!array_3d) {
       return;
     }
 
     HIP_MEMCPY3D param;
-    memset(&param, 0, sizeof(param));
+    memset(&param, 0, sizeof(HIP_MEMCPY3D));
     param.dstMemoryType = hipMemoryTypeArray;
-    param.dstArray = &array_3d;
+    param.dstArray = array_3d;
     param.srcMemoryType = hipMemoryTypeHost;
     param.srcHost = mem.host_pointer;
     param.srcPitch = src_pitch;
@@ -1055,12 +1056,13 @@ void HIPDevice::tex_alloc(device_texture &mem)
 
   if (mem.info.data_type != IMAGE_DATA_TYPE_NANOVDB_FLOAT &&
       mem.info.data_type != IMAGE_DATA_TYPE_NANOVDB_FLOAT3) {
+    /* Bindless textures. */
     hipResourceDesc resDesc;
     memset(&resDesc, 0, sizeof(resDesc));
 
     if (array_3d) {
       resDesc.resType = hipResourceTypeArray;
-      resDesc.res.array.h_Array = &array_3d;
+      resDesc.res.array.h_Array = array_3d;
       resDesc.flags = 0;
     }
     else if (mem.data_height > 0) {
@@ -1105,6 +1107,7 @@ void HIPDevice::tex_free(device_texture &mem)
   if (mem.device_pointer) {
     HIPContextScope scope(this);
     thread_scoped_lock lock(hip_mem_map_mutex);
+    DCHECK(hip_mem_map.find(&mem) != hip_mem_map.end());
     const HIPMem &cmem = hip_mem_map[&mem];
 
     if (cmem.texobject) {

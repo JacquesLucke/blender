@@ -33,17 +33,18 @@
 
 #include "node_geometry_util.hh"
 
+namespace blender::nodes::node_geo_transfer_attribute_cc {
+
 using namespace blender::bke::mesh_surface_sample;
 using blender::fn::GArray;
 
-namespace blender::nodes {
-
-static void geo_node_transfer_attribute_declare(NodeDeclarationBuilder &b)
+static void node_declare(NodeDeclarationBuilder &b)
 {
   b.add_input<decl::Geometry>(N_("Target"))
-      .only_realized_data()
-      .supported_type(
-          {GEO_COMPONENT_TYPE_MESH, GEO_COMPONENT_TYPE_POINT_CLOUD, GEO_COMPONENT_TYPE_CURVE});
+      .supported_type({GEO_COMPONENT_TYPE_MESH,
+                       GEO_COMPONENT_TYPE_POINT_CLOUD,
+                       GEO_COMPONENT_TYPE_CURVE,
+                       GEO_COMPONENT_TYPE_INSTANCES});
 
   b.add_input<decl::Vector>(N_("Attribute")).hide_value().supports_field();
   b.add_input<decl::Float>(N_("Attribute"), "Attribute_001").hide_value().supports_field();
@@ -61,9 +62,7 @@ static void geo_node_transfer_attribute_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Int>(N_("Attribute"), "Attribute_004").dependent_field({6, 7});
 }
 
-static void geo_node_transfer_attribute_layout(uiLayout *layout,
-                                               bContext *UNUSED(C),
-                                               PointerRNA *ptr)
+static void node_layout(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
 {
   const bNode &node = *static_cast<const bNode *>(ptr->data);
   const NodeGeometryTransferAttribute &data = *static_cast<const NodeGeometryTransferAttribute *>(
@@ -77,7 +76,7 @@ static void geo_node_transfer_attribute_layout(uiLayout *layout,
   }
 }
 
-static void geo_node_transfer_attribute_init(bNodeTree *UNUSED(tree), bNode *node)
+static void node_init(bNodeTree *UNUSED(tree), bNode *node)
 {
   NodeGeometryTransferAttribute *data = (NodeGeometryTransferAttribute *)MEM_callocN(
       sizeof(NodeGeometryTransferAttribute), __func__);
@@ -86,7 +85,7 @@ static void geo_node_transfer_attribute_init(bNodeTree *UNUSED(tree), bNode *nod
   node->storage = data;
 }
 
-static void geo_node_transfer_attribute_update(bNodeTree *ntree, bNode *node)
+static void node_update(bNodeTree *ntree, bNode *node)
 {
   const NodeGeometryTransferAttribute &data = *(const NodeGeometryTransferAttribute *)
                                                    node->storage;
@@ -593,8 +592,10 @@ static const GeometryComponent *find_target_component(const GeometrySet &geometr
 {
   /* Choose the other component based on a consistent order, rather than some more complicated
    * heuristic. This is the same order visible in the spreadsheet and used in the ray-cast node. */
-  static const Array<GeometryComponentType> supported_types = {
-      GEO_COMPONENT_TYPE_MESH, GEO_COMPONENT_TYPE_POINT_CLOUD, GEO_COMPONENT_TYPE_CURVE};
+  static const Array<GeometryComponentType> supported_types = {GEO_COMPONENT_TYPE_MESH,
+                                                               GEO_COMPONENT_TYPE_POINT_CLOUD,
+                                                               GEO_COMPONENT_TYPE_CURVE,
+                                                               GEO_COMPONENT_TYPE_INSTANCES};
   for (const GeometryComponentType src_type : supported_types) {
     if (component_is_available(geometry, src_type, domain)) {
       return geometry.get_component_for_read(src_type);
@@ -719,7 +720,7 @@ static void output_attribute_field(GeoNodeExecParams &params, GField field)
   }
 }
 
-static void geo_node_transfer_attribute_exec(GeoNodeExecParams params)
+static void node_geo_exec(GeoNodeExecParams params)
 {
   GeometrySet geometry = params.extract_input<GeometrySet>("Target");
   const bNode &node = params.node();
@@ -736,10 +737,6 @@ static void geo_node_transfer_attribute_exec(GeoNodeExecParams params)
       output_attribute_field(params, fn::make_constant_field<T>(T()));
     });
   };
-
-  /* Since the instances are not used, there is no point in keeping
-   * a reference to them while the field is passed around. */
-  geometry.remove(GEO_COMPONENT_TYPE_INSTANCES);
 
   GField output_field;
   switch (mapping) {
@@ -794,22 +791,24 @@ static void geo_node_transfer_attribute_exec(GeoNodeExecParams params)
   output_attribute_field(params, std::move(output_field));
 }
 
-}  // namespace blender::nodes
+}  // namespace blender::nodes::node_geo_transfer_attribute_cc
 
 void register_node_type_geo_transfer_attribute()
 {
+  namespace file_ns = blender::nodes::node_geo_transfer_attribute_cc;
+
   static bNodeType ntype;
 
   geo_node_type_base(
       &ntype, GEO_NODE_TRANSFER_ATTRIBUTE, "Transfer Attribute", NODE_CLASS_ATTRIBUTE, 0);
-  node_type_init(&ntype, blender::nodes::geo_node_transfer_attribute_init);
-  node_type_update(&ntype, blender::nodes::geo_node_transfer_attribute_update);
+  node_type_init(&ntype, file_ns::node_init);
+  node_type_update(&ntype, file_ns::node_update);
   node_type_storage(&ntype,
                     "NodeGeometryTransferAttribute",
                     node_free_standard_storage,
                     node_copy_standard_storage);
-  ntype.declare = blender::nodes::geo_node_transfer_attribute_declare;
-  ntype.geometry_node_execute = blender::nodes::geo_node_transfer_attribute_exec;
-  ntype.draw_buttons = blender::nodes::geo_node_transfer_attribute_layout;
+  ntype.declare = file_ns::node_declare;
+  ntype.geometry_node_execute = file_ns::node_geo_exec;
+  ntype.draw_buttons = file_ns::node_layout;
   nodeRegisterType(&ntype);
 }

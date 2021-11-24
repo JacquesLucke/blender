@@ -400,9 +400,8 @@ typedef enum {
   /** Resize handle (resize uilist). */
   UI_BTYPE_GRIP = 57 << 9,
   UI_BTYPE_DECORATOR = 58 << 9,
-  UI_BTYPE_DATASETROW = 59 << 9,
   /* An item in a tree view. Parent items may be collapsible. */
-  UI_BTYPE_TREEROW = 60 << 9,
+  UI_BTYPE_TREEROW = 59 << 9,
 } eButType;
 
 #define BUTTYPE (63 << 9)
@@ -732,8 +731,8 @@ bool UI_block_is_search_only(const uiBlock *block);
 void UI_block_set_search_only(uiBlock *block, bool search_only);
 
 void UI_block_free(const struct bContext *C, uiBlock *block);
-void UI_blocklist_free(const struct bContext *C, struct ListBase *lb);
-void UI_blocklist_free_inactive(const struct bContext *C, struct ListBase *lb);
+void UI_blocklist_free(const struct bContext *C, struct ARegion *region);
+void UI_blocklist_free_inactive(const struct bContext *C, struct ARegion *region);
 void UI_screen_free_active_but(const struct bContext *C, struct bScreen *screen);
 
 void UI_block_region_set(uiBlock *block, struct ARegion *region);
@@ -774,6 +773,7 @@ void UI_block_translate(uiBlock *block, int x, int y);
 int UI_but_return_value_get(uiBut *but);
 
 void UI_but_drag_set_id(uiBut *but, struct ID *id);
+void UI_but_drag_attach_image(uiBut *but, struct ImBuf *imb, const float scale);
 void UI_but_drag_set_asset(uiBut *but,
                            const struct AssetHandle *asset,
                            const char *path,
@@ -1675,11 +1675,7 @@ int UI_searchbox_size_x(void);
 int UI_search_items_find_index(uiSearchItems *items, const char *name);
 
 void UI_but_hint_drawstr_set(uiBut *but, const char *string);
-void UI_but_datasetrow_indentation_set(uiBut *but, int indentation);
-void UI_but_datasetrow_component_set(uiBut *but, uint8_t geometry_component_type);
-void UI_but_datasetrow_domain_set(uiBut *but, uint8_t attribute_domain);
-uint8_t UI_but_datasetrow_component_get(uiBut *but);
-uint8_t UI_but_datasetrow_domain_get(uiBut *but);
+
 void UI_but_treerow_indentation_set(uiBut *but, int indentation);
 
 void UI_but_node_link_set(uiBut *but, struct bNodeSocket *socket, const float draw_color[4]);
@@ -1765,6 +1761,8 @@ struct Panel *UI_panel_begin(struct ARegion *region,
 void UI_panel_header_buttons_begin(struct Panel *panel);
 void UI_panel_header_buttons_end(struct Panel *panel);
 void UI_panel_end(struct Panel *panel, int width, int height);
+
+void UI_panel_context_pointer_set(struct Panel *panel, const char *name, struct PointerRNA *ptr);
 
 bool UI_panel_is_closed(const struct Panel *panel);
 bool UI_panel_is_active(const struct Panel *panel);

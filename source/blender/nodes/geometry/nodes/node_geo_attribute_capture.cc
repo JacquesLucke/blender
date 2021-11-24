@@ -21,9 +21,9 @@
 
 #include "node_geometry_util.hh"
 
-namespace blender::nodes {
+namespace blender::nodes::node_geo_attribute_capture_cc {
 
-static void geo_node_attribute_capture_declare(NodeDeclarationBuilder &b)
+static void node_declare(NodeDeclarationBuilder &b)
 {
   b.add_input<decl::Geometry>(N_("Geometry"));
   b.add_input<decl::Vector>(N_("Value")).supports_field();
@@ -40,9 +40,7 @@ static void geo_node_attribute_capture_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Int>(N_("Attribute"), "Attribute_004").field_source();
 }
 
-static void geo_node_attribute_capture_layout(uiLayout *layout,
-                                              bContext *UNUSED(C),
-                                              PointerRNA *ptr)
+static void node_layout(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
 {
   uiLayoutSetPropSep(layout, true);
   uiLayoutSetPropDecorate(layout, false);
@@ -50,7 +48,7 @@ static void geo_node_attribute_capture_layout(uiLayout *layout,
   uiItemR(layout, ptr, "data_type", 0, "", ICON_NONE);
 }
 
-static void geo_node_attribute_capture_init(bNodeTree *UNUSED(tree), bNode *node)
+static void node_init(bNodeTree *UNUSED(tree), bNode *node)
 {
   NodeGeometryAttributeCapture *data = (NodeGeometryAttributeCapture *)MEM_callocN(
       sizeof(NodeGeometryAttributeCapture), __func__);
@@ -60,7 +58,7 @@ static void geo_node_attribute_capture_init(bNodeTree *UNUSED(tree), bNode *node
   node->storage = data;
 }
 
-static void geo_node_attribute_capture_update(bNodeTree *ntree, bNode *node)
+static void node_update(bNodeTree *ntree, bNode *node)
 {
   const NodeGeometryAttributeCapture &storage = *(const NodeGeometryAttributeCapture *)
                                                      node->storage;
@@ -113,7 +111,7 @@ static void try_capture_field_on_geometry(GeometryComponent &component,
   output_attribute.save();
 }
 
-static void geo_node_attribute_capture_exec(GeoNodeExecParams params)
+static void node_geo_exec(GeoNodeExecParams params)
 {
   GeometrySet geometry_set = params.extract_input<GeometrySet>("Geometry");
 
@@ -147,16 +145,27 @@ static void geo_node_attribute_capture_exec(GeoNodeExecParams params)
   WeakAnonymousAttributeID anonymous_id{"Attribute"};
   const CPPType &type = field.cpp_type();
 
-  static const Array<GeometryComponentType> types = {
-      GEO_COMPONENT_TYPE_MESH, GEO_COMPONENT_TYPE_POINT_CLOUD, GEO_COMPONENT_TYPE_CURVE};
-  geometry_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
-    for (const GeometryComponentType type : types) {
-      if (geometry_set.has(type)) {
-        GeometryComponent &component = geometry_set.get_component_for_write(type);
-        try_capture_field_on_geometry(component, anonymous_id.get(), domain, field);
-      }
+  /* Run on the instances component separately to only affect the top level of instances. */
+  if (domain == ATTR_DOMAIN_INSTANCE) {
+    if (geometry_set.has_instances()) {
+      GeometryComponent &component = geometry_set.get_component_for_write(
+          GEO_COMPONENT_TYPE_INSTANCES);
+      try_capture_field_on_geometry(component, anonymous_id.get(), domain, field);
     }
-  });
+  }
+  else {
+    static const Array<GeometryComponentType> types = {
+        GEO_COMPONENT_TYPE_MESH, GEO_COMPONENT_TYPE_POINT_CLOUD, GEO_COMPONENT_TYPE_CURVE};
+
+    geometry_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
+      for (const GeometryComponentType type : types) {
+        if (geometry_set.has(type)) {
+          GeometryComponent &component = geometry_set.get_component_for_write(type);
+          try_capture_field_on_geometry(component, anonymous_id.get(), domain, field);
+        }
+      }
+    });
+  }
 
   GField output_field{std::make_shared<bke::AnonymousAttributeFieldInput>(
       std::move(anonymous_id), type, params.attribute_producer_name())};
@@ -189,10 +198,12 @@ static void geo_node_attribute_capture_exec(GeoNodeExecParams params)
   params.set_output("Geometry", geometry_set);
 }
 
-}  // namespace blender::nodes
+}  // namespace blender::nodes::node_geo_attribute_capture_cc
 
 void register_node_type_geo_attribute_capture()
 {
+  namespace file_ns = blender::nodes::node_geo_attribute_capture_cc;
+
   static bNodeType ntype;
 
   geo_node_type_base(
@@ -201,10 +212,10 @@ void register_node_type_geo_attribute_capture()
                     "NodeGeometryAttributeCapture",
                     node_free_standard_storage,
                     node_copy_standard_storage);
-  node_type_init(&ntype, blender::nodes::geo_node_attribute_capture_init);
-  node_type_update(&ntype, blender::nodes::geo_node_attribute_capture_update);
-  ntype.declare = blender::nodes::geo_node_attribute_capture_declare;
-  ntype.geometry_node_execute = blender::nodes::geo_node_attribute_capture_exec;
-  ntype.draw_buttons = blender::nodes::geo_node_attribute_capture_layout;
+  node_type_init(&ntype, file_ns::node_init);
+  node_type_update(&ntype, file_ns::node_update);
+  ntype.declare = file_ns::node_declare;
+  ntype.geometry_node_execute = file_ns::node_geo_exec;
+  ntype.draw_buttons = file_ns::node_layout;
   nodeRegisterType(&ntype);
 }

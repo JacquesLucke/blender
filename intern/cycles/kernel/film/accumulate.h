@@ -160,7 +160,8 @@ ccl_device_inline int kernel_accum_sample(KernelGlobals kg,
 
   ccl_global float *buffer = kernel_accum_pixel_render_buffer(kg, state, render_buffer);
 
-  return atomic_fetch_and_add_uint32((uint *)(buffer) + kernel_data.film.pass_sample_count, 1) +
+  return atomic_fetch_and_add_uint32(
+             (ccl_global uint *)(buffer) + kernel_data.film.pass_sample_count, 1) +
          sample_offset;
 }
 
@@ -501,7 +502,7 @@ ccl_device_inline void kernel_accum_light(KernelGlobals kg,
 
     /* Write shadow pass. */
     if (kernel_data.film.pass_shadow != PASS_UNUSED && (path_flag & PATH_RAY_SHADOW_FOR_LIGHT) &&
-        (path_flag & PATH_RAY_CAMERA)) {
+        (path_flag & PATH_RAY_TRANSPARENT_BACKGROUND)) {
       const float3 unshadowed_throughput = INTEGRATOR_STATE(
           state, shadow_path, unshadowed_throughput);
       const float3 shadowed_throughput = INTEGRATOR_STATE(state, shadow_path, throughput);

@@ -21,6 +21,8 @@
 
 #include "kernel/device/gpu/image.h"  /* Texture lookup uses normal CUDA intrinsics. */
 
+#include "kernel/tables.h"
+
 #include "kernel/integrator/state.h"
 #include "kernel/integrator/state_flow.h"
 #include "kernel/integrator/state_util.h"
@@ -29,8 +31,10 @@
 #include "kernel/integrator/intersect_shadow.h"
 #include "kernel/integrator/intersect_subsurface.h"
 #include "kernel/integrator/intersect_volume_stack.h"
-
 // clang-format on
+
+#define OPTIX_DEFINE_ABI_VERSION_ONLY
+#include <optix_function_table.h>
 
 template<typename T> ccl_device_forceinline T *get_payload_ptr_0()
 {
@@ -44,7 +48,7 @@ template<typename T> ccl_device_forceinline T *get_payload_ptr_2()
 ccl_device_forceinline int get_object_id()
 {
 #ifdef __OBJECT_MOTION__
-  /* Always get the the instance ID from the TLAS
+  /* Always get the instance ID from the TLAS
    * There might be a motion transform node between TLAS and BLAS which does not have one. */
   return optixGetInstanceIdFromHandle(optixGetTransformListHandle(0));
 #else
@@ -198,10 +202,12 @@ extern "C" __global__ void __anyhit__kernel_optix_shadow_all_hit()
     type = segment.type;
     prim = segment.prim;
 
+#    if OPTIX_ABI_VERSION < 55
     /* Filter out curve endcaps. */
     if (u == 0.0f || u == 1.0f) {
       return optixIgnoreIntersection();
     }
+#    endif
   }
 #  endif
 
@@ -308,6 +314,7 @@ extern "C" __global__ void __anyhit__kernel_optix_volume_test()
 extern "C" __global__ void __anyhit__kernel_optix_visibility_test()
 {
 #ifdef __HAIR__
+#  if OPTIX_ABI_VERSION < 55
   if (!optixIsTriangleHit()) {
     /* Filter out curve endcaps. */
     const float u = __uint_as_float(optixGetAttribute_0());
@@ -315,6 +322,7 @@ extern "C" __global__ void __anyhit__kernel_optix_visibility_test()
       return optixIgnoreIntersection();
     }
   }
+#  endif
 #endif
 
 #ifdef __VISIBILITY_FLAG__

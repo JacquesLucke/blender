@@ -144,4 +144,9 @@ void MultiFunction::call_auto(IndexMask mask, MFParams params, MFContext context
   });
 }
 
+std::string MultiFunction::debug_name() const
+{
+  return signature_ref_->function_name;
+}
+
 }  // namespace blender::fn

@@ -236,8 +236,7 @@ static void build_multi_function_procedure_for_fields(MFProcedure &procedure,
     if (!already_output_variables.add(variable)) {
       /* One variable can be output at most once. To output the same value twice, we have to make
        * a copy first. */
-      const MultiFunction &copy_fn = scope.construct<CustomMF_GenericCopy>("copy",
-                                                                           variable->data_type());
+      const MultiFunction &copy_fn = scope.construct<CustomMF_GenericCopy>(variable->data_type());
       variable = builder.add_call<1>(copy_fn, {variable})[0];
     }
     builder.add_output_parameter(*variable);
@@ -357,7 +356,7 @@ Vector<GVArray> evaluate_fields(ResourceScope &scope,
     MFProcedure procedure;
     build_multi_function_procedure_for_fields(
         procedure, scope, field_tree_info, varying_fields_to_evaluate);
-    MFProcedureExecutor procedure_executor{"Procedure", procedure};
+    MFProcedureExecutor procedure_executor{procedure};
 
     MFParamsBuilder mf_params{procedure_executor, &mask};
     MFContextBuilder mf_context;
@@ -409,7 +408,7 @@ Vector<GVArray> evaluate_fields(ResourceScope &scope,
     MFProcedure procedure;
     build_multi_function_procedure_for_fields(
         procedure, scope, field_tree_info, constant_fields_to_evaluate);
-    MFProcedureExecutor procedure_executor{"Procedure", procedure};
+    MFProcedureExecutor procedure_executor{procedure};
     MFParamsBuilder mf_params{procedure_executor, 1};
     MFContextBuilder mf_context;
 
@@ -506,10 +505,16 @@ GField make_field_constant_if_possible(GField field)
   const CPPType &type = field.cpp_type();
   BUFFER_FOR_CPP_TYPE_VALUE(type, buffer);
   evaluate_constant_field(field, buffer);
-  auto constant_fn = std::make_unique<CustomMF_GenericConstant>(type, buffer, true);
+  GField new_field = make_constant_field(type, buffer);
   type.destruct(buffer);
+  return new_field;
+}
+
+GField make_constant_field(const CPPType &type, const void *value)
+{
+  auto constant_fn = std::make_unique<CustomMF_GenericConstant>(type, value, true);
   auto operation = std::make_shared<FieldOperation>(std::move(constant_fn));
-  return GField{operation, 0};
+  return GField{std::move(operation), 0};
 }
 
 GVArray FieldContext::get_varray_for_input(const FieldInput &field_input,

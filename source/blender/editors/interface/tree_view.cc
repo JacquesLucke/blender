@@ -111,7 +111,10 @@ void AbstractTreeView::update_from_old(uiBlock &new_block)
 
   uiTreeViewHandle *old_view_handle = ui_block_view_find_matching_in_old_block(
       &new_block, reinterpret_cast<uiTreeViewHandle *>(this));
-  BLI_assert(old_view_handle);
+  if (old_view_handle == nullptr) {
+    is_reconstructed_ = true;
+    return;
+  }
 
   AbstractTreeView &old_view = reinterpret_cast<AbstractTreeView &>(*old_view_handle);
 
@@ -350,9 +353,14 @@ void AbstractTreeViewItem::on_activate()
   /* Do nothing by default. */
 }
 
-void AbstractTreeViewItem::is_active(IsActiveFn is_active_fn)
+std::optional<bool> AbstractTreeViewItem::should_be_active() const
 {
-  is_active_fn_ = is_active_fn;
+  return std::nullopt;
+}
+
+bool AbstractTreeViewItem::supports_collapsing() const
+{
+  return true;
 }
 
 std::unique_ptr<AbstractTreeViewItemDragController> AbstractTreeViewItem::create_drag_controller()
@@ -504,7 +512,10 @@ void AbstractTreeViewItem::set_collapsed(bool collapsed)
 
 bool AbstractTreeViewItem::is_collapsible() const
 {
-  return !children_.is_empty();
+  if (children_.is_empty()) {
+    return false;
+  }
+  return this->supports_collapsing();
 }
 
 bool AbstractTreeViewItem::is_renaming() const
@@ -546,7 +557,8 @@ uiButTreeRow *AbstractTreeViewItem::tree_row_button()
 
 void AbstractTreeViewItem::change_state_delayed()
 {
-  if (is_active_fn_()) {
+  const std::optional<bool> should_be_active = this->should_be_active();
+  if (should_be_active.has_value() && *should_be_active) {
     activate();
   }
 }
@@ -670,9 +682,22 @@ void BasicTreeViewItem::on_activate()
   }
 }
 
-void BasicTreeViewItem::on_activate(ActivateFn fn)
+void BasicTreeViewItem::set_on_activate_fn(ActivateFn fn)
 {
   activate_fn_ = fn;
+}
+
+void BasicTreeViewItem::set_is_active_fn(IsActiveFn is_active_fn)
+{
+  is_active_fn_ = is_active_fn;
+}
+
+std::optional<bool> BasicTreeViewItem::should_be_active() const
+{
+  if (is_active_fn_) {
+    return is_active_fn_();
+  }
+  return std::nullopt;
 }
 
 }  // namespace blender::ui
