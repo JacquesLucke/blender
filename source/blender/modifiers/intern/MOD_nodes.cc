@@ -99,6 +99,7 @@
 
 #include "FN_field.hh"
 #include "FN_field_cpp_type.hh"
+#include "FN_llvm.hh"
 #include "FN_multi_function.hh"
 
 using blender::Array;
@@ -1079,6 +1080,7 @@ static void modifyGeometry(ModifierData *md,
                            const ModifierEvalContext *ctx,
                            GeometrySet &geometry_set)
 {
+  blender::fn::playground();
   NodesModifierData *nmd = reinterpret_cast<NodesModifierData *>(md);
   if (nmd->node_group == nullptr) {
     return;

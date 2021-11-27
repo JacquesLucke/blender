@@ -24,6 +24,7 @@ set(INC
 )
 
 set(INC_SYS
+  ${LLVM_INCLUDE_DIRS}
 )
 
 set(SRC
@@ -32,6 +33,7 @@ set(SRC
   intern/generic_vector_array.cc
   intern/generic_virtual_array.cc
   intern/generic_virtual_vector_array.cc
+  intern/llvm.cc
   intern/multi_function.cc
   intern/multi_function_builder.cc
   intern/multi_function_params.cc
@@ -50,6 +52,7 @@ set(SRC
   FN_generic_vector_array.hh
   FN_generic_virtual_array.hh
   FN_generic_virtual_vector_array.hh
+  FN_llvm.hh
   FN_multi_function.hh
   FN_multi_function_builder.hh
   FN_multi_function_context.hh
@@ -64,6 +67,7 @@ set(SRC
 
 set(LIB
   bf_blenlib
+  ${LLVM_LIBS}
 )
 
 if(WITH_TBB)
