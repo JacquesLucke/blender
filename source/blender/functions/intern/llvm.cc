@@ -25,6 +25,7 @@
 #include <llvm/IR/Verifier.h>
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/TargetRegistry.h>
+#include <llvm/Object/ObjectFile.h>
 #include <llvm/Support/TargetSelect.h>
 
 #include "FN_llvm.hh"
@@ -90,9 +91,15 @@ void playground()
 
   MyObjectCache object_cache;
 
+  llvm::Expected<llvm::object::OwningBinary<llvm::object::ObjectFile>> object_file_ex = llvm::object::ObjectFile::createObjectFile(object_file_path);
+  if (!object_file_ex) {
+    return;
+  }
+
   llvm::Module *module_ptr = &*module;
   std::unique_ptr<llvm::ExecutionEngine> ee{llvm::EngineBuilder(std::move(module)).create()};
-  ee->setObjectCache(&object_cache);
+  ee->addObjectFile(std::move(*object_file_ex));
+  //ee->setObjectCache(&object_cache);
   ee->finalizeObject();
 
   const uint64_t function_ptr = ee->getFunctionAddress(function->getName().str());
