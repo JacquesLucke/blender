@@ -327,7 +327,12 @@ BLI_INLINE bool lineart_occlusion_is_adjacent_intersection(LineartEdge *e, Linea
 static void lineart_bounding_area_triangle_add(LineartRenderBuffer *rb,
                                                LineartBoundingArea *ba,
                                                LineartTriangle *tri)
-{
+{ /* In case of too many triangles concentrating in one point, do not add anymore, these triangles
+   * will be either narrower than a single pixel, or will still be added into the list of other
+   * less dense areas. */
+  if (ba->triangle_count >= 65535) {
+    return;
+  }
   if (ba->triangle_count >= ba->max_triangle_count) {
     LineartTriangle **new_array = lineart_mem_acquire(
         &rb->render_data_pool, sizeof(LineartTriangle *) * ba->max_triangle_count * 2);
@@ -343,6 +348,12 @@ static void lineart_bounding_area_line_add(LineartRenderBuffer *rb,
                                            LineartBoundingArea *ba,
                                            LineartEdge *e)
 {
+  /* In case of too many lines concentrating in one point, do not add anymore, these lines will
+   * be either shorter than a single pixel, or will still be added into the list of other less
+   * dense areas. */
+  if (ba->line_count >= 65535) {
+    return;
+  }
   if (ba->line_count >= ba->max_line_count) {
     LineartEdge **new_array = lineart_mem_acquire(&rb->render_data_pool,
                                                   sizeof(LineartEdge *) * ba->max_line_count * 2);
@@ -501,10 +512,6 @@ static void lineart_main_occlusion_begin(LineartRenderBuffer *rb)
   rb->material.last = rb->material.first;
   rb->edge_mark.last = rb->edge_mark.first;
   rb->floating.last = rb->floating.first;
-
-  /* This is needed because the occlusion function expects the camera vector to point towards the
-   * camera. */
-  negate_v3_db(rb->view_vector);
 
   TaskPool *tp = BLI_task_pool_create(NULL, TASK_PRIORITY_HIGH);
 
@@ -2332,9 +2339,9 @@ static bool lineart_edge_from_triangle(const LineartTriangle *tri,
  * if returns true, then from/to will carry the occluded segments
  * in ratio from `e->v1` to `e->v2`. The line is later cut with these two values.
  *
- * TODO: (Yiming) This function uses a convoluted method that needs to be redesigned.
+ * TODO(@Yiming): This function uses a convoluted method that needs to be redesigned.
  *
- * 1) The lineart_intersect_seg_seg() and lineart_point_triangle_relation() are separate calls,
+ * 1) The #lineart_intersect_seg_seg() and #lineart_point_triangle_relation() are separate calls,
  * which would potentially return results that doesn't agree, especially when it's an edge
  * extruding from one of the triangle's point. To get the information using one math process can
  * solve this problem.
@@ -2346,7 +2353,7 @@ static bool lineart_edge_from_triangle(const LineartTriangle *tri,
  * I keep this function as-is because it's still fast, and more importantly the output value
  * threshold is already in tune with the cutting function in the next stage.
  * While current "edge aligned" fix isn't ideal, it does solve most of the precision issue
- * especially in ortho camera mode.
+ * especially in orthographic camera mode.
  */
 static bool lineart_triangle_edge_image_space_occlusion(SpinLock *UNUSED(spl),
                                                         const LineartTriangle *tri,
@@ -2934,15 +2941,7 @@ static LineartEdge *lineart_triangle_intersect(LineartRenderBuffer *rb,
   result->intersection_mask = (tri->intersection_mask | testing->intersection_mask);
 
   lineart_prepend_edge_direct(&rb->intersection.first, result);
-  int r1, r2, c1, c2, row, col;
-  if (lineart_get_edge_bounding_areas(rb, result, &r1, &r2, &c1, &c2)) {
-    for (row = r1; row != r2 + 1; row++) {
-      for (col = c1; col != c2 + 1; col++) {
-        lineart_bounding_area_link_edge(
-            rb, &rb->initial_bounding_areas[row * LRT_BA_ROWS + col], result);
-      }
-    }
-  }
+
   return result;
 }
 
@@ -3006,7 +3005,7 @@ static void lineart_triangle_intersect_in_bounding_area(LineartRenderBuffer *rb,
  */
 static void lineart_main_get_view_vector(LineartRenderBuffer *rb)
 {
-  float direction[3] = {0, 0, -1};
+  float direction[3] = {0, 0, 1};
   float trans[3];
   float inv[4][4];
   float obmat_no_scale[4][4];
@@ -3413,7 +3412,6 @@ static void lineart_bounding_area_split(LineartRenderBuffer *rb,
   LineartBoundingArea *ba = lineart_mem_acquire(&rb->render_data_pool,
                                                 sizeof(LineartBoundingArea) * 4);
   LineartTriangle *tri;
-  LineartEdge *e;
 
   ba[0].l = root->cx;
   ba[0].r = root->r;
@@ -3477,11 +3475,6 @@ static void lineart_bounding_area_split(LineartRenderBuffer *rb,
     if (LRT_BOUND_AREA_CROSSES(b, &cba[3].l)) {
       lineart_bounding_area_link_triangle(rb, &cba[3], tri, b, 0, recursive_level + 1, false);
     }
-  }
-
-  for (int i = 0; i < root->line_count; i++) {
-    e = root->linked_lines[i];
-    lineart_bounding_area_link_edge(rb, root, e);
   }
 
   rb->bounding_area_count += 3;
@@ -3763,9 +3756,6 @@ static bool lineart_get_edge_bounding_areas(LineartRenderBuffer *rb,
   return true;
 }
 
-/**
- * This only gets initial "biggest" tile.
- */
 LineartBoundingArea *MOD_lineart_get_parent_bounding_area(LineartRenderBuffer *rb,
                                                           double x,
                                                           double y)
@@ -3837,9 +3827,6 @@ static LineartBoundingArea *lineart_get_bounding_area(LineartRenderBuffer *rb, d
   return iba;
 }
 
-/**
- * Wrapper for more convenience.
- */
 LineartBoundingArea *MOD_lineart_get_bounding_area(LineartRenderBuffer *rb, double x, double y)
 {
   LineartBoundingArea *ba;
@@ -4145,11 +4132,6 @@ static LineartBoundingArea *lineart_bounding_area_next(LineartBoundingArea *this
   return 0;
 }
 
-/**
- * This is the entry point of all line art calculations.
- *
- * \return True when a change is made.
- */
 bool MOD_lineart_compute_feature_lines(Depsgraph *depsgraph,
                                        LineartGpencilModifierData *lmd,
                                        LineartCache **cached_result,
@@ -4394,7 +4376,7 @@ static void lineart_gpencil_generate(LineartCache *cache,
         }
       }
     }
-    if (types & LRT_EDGE_FLAG_INTERSECTION) {
+    if (ec->type & LRT_EDGE_FLAG_INTERSECTION) {
       if (mask_switches & LRT_GPENCIL_INTERSECTION_MATCH) {
         if (ec->intersection_mask != intersection_mask) {
           continue;
@@ -4477,9 +4459,6 @@ static void lineart_gpencil_generate(LineartCache *cache,
   }
 }
 
-/**
- * Wrapper for external calls.
- */
 void MOD_lineart_gpencil_generate(LineartCache *cache,
                                   Depsgraph *depsgraph,
                                   Object *ob,

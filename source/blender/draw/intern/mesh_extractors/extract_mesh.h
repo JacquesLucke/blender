@@ -39,6 +39,8 @@
 extern "C" {
 #endif
 
+struct DRWSubdivCache;
+
 #define MIN_RANGE_LEN 1024
 
 /* ---------------------------------------------------------------------- */
@@ -168,7 +170,9 @@ BLI_INLINE const float *bm_face_no_get(const MeshRenderData *mr, const BMFace *e
 /* ---------------------------------------------------------------------- */
 /** \name Mesh Elements Extract Struct
  * \{ */
+
 /* TODO(jbakker): move parameters inside a struct. */
+
 typedef void(ExtractTriBMeshFn)(const MeshRenderData *mr,
                                 BMLoop **elt,
                                 const int elt_index,
@@ -201,6 +205,11 @@ typedef void(ExtractLVertMeshFn)(const MeshRenderData *mr,
                                  const MVert *mv,
                                  const int lvert_index,
                                  void *data);
+typedef void(ExtractLooseGeomSubdivFn)(const struct DRWSubdivCache *subdiv_cache,
+                                       const MeshRenderData *mr,
+                                       const MeshExtractLooseGeom *loose_geom,
+                                       void *buffer,
+                                       void *data);
 typedef void(ExtractInitFn)(const MeshRenderData *mr,
                             struct MeshBatchCache *cache,
                             void *buffer,
@@ -210,6 +219,18 @@ typedef void(ExtractFinishFn)(const MeshRenderData *mr,
                               void *buffer,
                               void *data);
 typedef void(ExtractTaskReduceFn)(void *userdata, void *task_userdata);
+
+typedef void(ExtractInitSubdivFn)(const struct DRWSubdivCache *subdiv_cache,
+                                  const MeshRenderData *mr,
+                                  struct MeshBatchCache *cache,
+                                  void *buf,
+                                  void *data);
+typedef void(ExtractIterSubdivFn)(const struct DRWSubdivCache *subdiv_cache,
+                                  const MeshRenderData *mr,
+                                  void *data);
+typedef void(ExtractFinishSubdivFn)(const struct DRWSubdivCache *subdiv_cache,
+                                    void *buf,
+                                    void *data);
 
 typedef struct MeshExtract {
   /** Executed on main thread and return user data for iteration functions. */
@@ -223,9 +244,14 @@ typedef struct MeshExtract {
   ExtractLEdgeMeshFn *iter_ledge_mesh;
   ExtractLVertBMeshFn *iter_lvert_bm;
   ExtractLVertMeshFn *iter_lvert_mesh;
+  ExtractLooseGeomSubdivFn *iter_loose_geom_subdiv;
   /** Executed on one worker thread after all elements iterations. */
   ExtractTaskReduceFn *task_reduce;
   ExtractFinishFn *finish;
+  /** Executed on main thread for subdivision evaluation. */
+  ExtractInitSubdivFn *init_subdiv;
+  ExtractIterSubdivFn *iter_subdiv;
+  ExtractFinishSubdivFn *finish_subdiv;
   /** Used to request common data. */
   eMRDataType data_type;
   size_t data_size;
@@ -241,6 +267,11 @@ typedef struct MeshExtract {
 /** \} */
 
 /* draw_cache_extract_mesh_render_data.c */
+
+/**
+ * \param is_mode_active: When true, use the modifiers from the edit-data,
+ * otherwise don't use modifiers as they are not from this object.
+ */
 MeshRenderData *mesh_render_data_create(Mesh *me,
                                         const bool is_editmode,
                                         const bool is_paint_mode,
@@ -258,6 +289,9 @@ void mesh_render_data_update_loose_geom(MeshRenderData *mr,
 void mesh_render_data_update_polys_sorted(MeshRenderData *mr,
                                           MeshBufferCache *cache,
                                           const eMRDataType data_flag);
+/**
+ * Part of the creation of the #MeshRenderData that happens in a thread.
+ */
 void mesh_render_data_update_looptris(MeshRenderData *mr,
                                       const eMRIterType iter_type,
                                       const eMRDataType data_flag);

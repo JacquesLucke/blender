@@ -24,8 +24,9 @@
 #include "node_shader_util.h"
 
 #include "NOD_math_functions.hh"
+#include "NOD_socket_search_link.hh"
 
-namespace blender::nodes {
+namespace blender::nodes::node_shader_vector_math_cc {
 
 static void sh_node_vector_math_declare(NodeDeclarationBuilder &b)
 {
@@ -38,7 +39,17 @@ static void sh_node_vector_math_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Float>(N_("Value"));
 };
 
-}  // namespace blender::nodes
+static void sh_node_vector_math_gather_link_searches(GatherLinkSearchOpParams &params)
+{
+  /* For now, do something very basic (only exposing "Add", and a single "Vector" socket). */
+  if (params.node_tree().typeinfo->validate_link(
+          static_cast<eNodeSocketDatatype>(params.other_socket().type), SOCK_VECTOR)) {
+    params.add_item(IFACE_("Vector"), [](LinkSearchOpParams &params) {
+      bNode &node = params.add_node("ShaderNodeVectorMath");
+      params.update_and_connect_available_socket(node, "Vector");
+    });
+  }
+}
 
 static const char *gpu_shader_get_name(int mode)
 {
@@ -279,16 +290,21 @@ static void sh_node_vector_math_build_multi_function(
   builder.set_matching_fn(fn);
 }
 
-void register_node_type_sh_vect_math(void)
+}  // namespace blender::nodes::node_shader_vector_math_cc
+
+void register_node_type_sh_vect_math()
 {
+  namespace file_ns = blender::nodes::node_shader_vector_math_cc;
+
   static bNodeType ntype;
 
   sh_fn_node_type_base(&ntype, SH_NODE_VECTOR_MATH, "Vector Math", NODE_CLASS_OP_VECTOR, 0);
-  ntype.declare = blender::nodes::sh_node_vector_math_declare;
-  node_type_label(&ntype, node_vector_math_label);
-  node_type_gpu(&ntype, gpu_shader_vector_math);
-  node_type_update(&ntype, node_shader_update_vector_math);
-  ntype.build_multi_function = sh_node_vector_math_build_multi_function;
+  ntype.declare = file_ns::sh_node_vector_math_declare;
+  ntype.labelfunc = node_vector_math_label;
+  node_type_gpu(&ntype, file_ns::gpu_shader_vector_math);
+  node_type_update(&ntype, file_ns::node_shader_update_vector_math);
+  ntype.build_multi_function = file_ns::sh_node_vector_math_build_multi_function;
+  ntype.gather_link_search_ops = file_ns::sh_node_vector_math_gather_link_searches;
 
   nodeRegisterType(&ntype);
 }
