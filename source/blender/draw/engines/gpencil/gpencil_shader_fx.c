@@ -99,6 +99,11 @@ static void gpencil_vfx_blur(BlurShaderFxData *fx, Object *ob, gpIterVfxData *it
     return;
   }
 
+  if ((fx->flag & FX_BLUR_DOF_MODE) && iter->pd->camera == NULL) {
+    /* No blur outside camera view (or when DOF is disabled on the camera). */
+    return;
+  }
+
   DRWShadingGroup *grp;
   const float s = sin(fx->rotation);
   const float c = cos(fx->rotation);
@@ -108,7 +113,7 @@ static void gpencil_vfx_blur(BlurShaderFxData *fx, Object *ob, gpIterVfxData *it
   DRW_view_persmat_get(NULL, persmat, false);
   const float w = fabsf(mul_project_m4_v3_zfac(persmat, ob->obmat[3]));
 
-  if ((fx->flag & FX_BLUR_DOF_MODE) && iter->pd->camera != NULL) {
+  if ((fx->flag & FX_BLUR_DOF_MODE)) {
     /* Compute circle of confusion size. */
     float coc = (iter->pd->dof_params[0] / -w) - iter->pd->dof_params[1];
     copy_v2_fl(blur_size, fabsf(coc));
@@ -397,7 +402,7 @@ static void gpencil_vfx_shadow(ShadowShaderFxData *fx, Object *ob, gpIterVfxData
   unit_m4(uv_mat);
   zero_v2(wave_ofs);
 
-  /* We reset the uv_mat so we need to account for the rotation in the  */
+  /* Reset the `uv_mat` to account for rotation in the Y-axis (Shadow-V parameter). */
   copy_v2_fl2(tmp, 0.0f, blur_size[1]);
   rotate_v2_v2fl(blur_dir, tmp, -fx->rotation);
   mul_v2_v2(blur_dir, vp_size_inv);

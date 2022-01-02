@@ -55,7 +55,7 @@
 /* Surface refers to a simplified and lower-memory footprint representation of the limit surface.
  *
  * Used to store pre-calculated information which is expensive or impossible to evaluate when
- * traversing the final limit surface.  */
+ * traversing the final limit surface. */
 
 typedef struct SurfacePoint {
   float P[3];
@@ -271,7 +271,7 @@ static void base_surface_grids_allocate(MultiresReshapeSmoothContext *reshape_sm
 
   for (int grid_index = 0; grid_index < num_grids; ++grid_index) {
     surface_grid[grid_index].points = MEM_calloc_arrayN(
-        sizeof(SurfacePoint), grid_area, "delta grid displacement");
+        grid_area, sizeof(SurfacePoint), "delta grid displacement");
   }
 
   reshape_smooth_context->base_surface_grids = surface_grid;
@@ -566,7 +566,8 @@ static bool foreach_topology_info(const SubdivForeachContext *foreach_context,
                                   const int num_vertices,
                                   const int num_edges,
                                   const int num_loops,
-                                  const int num_polygons)
+                                  const int num_polygons,
+                                  const int *UNUSED(subdiv_polygon_offset))
 {
   MultiresReshapeSmoothContext *reshape_smooth_context = foreach_context->user_data;
   const int max_edges = reshape_smooth_context->smoothing_type == MULTIRES_SUBDIVIDE_LINEAR ?
@@ -576,19 +577,19 @@ static bool foreach_topology_info(const SubdivForeachContext *foreach_context,
   /* NOTE: Calloc so the counters are re-set to 0 "for free". */
   reshape_smooth_context->geometry.num_vertices = num_vertices;
   reshape_smooth_context->geometry.vertices = MEM_calloc_arrayN(
-      sizeof(Vertex), num_vertices, "smooth vertices");
+      num_vertices, sizeof(Vertex), "smooth vertices");
 
   reshape_smooth_context->geometry.max_edges = max_edges;
   reshape_smooth_context->geometry.edges = MEM_malloc_arrayN(
-      sizeof(Edge), max_edges, "smooth edges");
+      max_edges, sizeof(Edge), "smooth edges");
 
   reshape_smooth_context->geometry.num_corners = num_loops;
   reshape_smooth_context->geometry.corners = MEM_malloc_arrayN(
-      sizeof(Corner), num_loops, "smooth corners");
+      num_loops, sizeof(Corner), "smooth corners");
 
   reshape_smooth_context->geometry.num_faces = num_polygons;
   reshape_smooth_context->geometry.faces = MEM_malloc_arrayN(
-      sizeof(Face), num_polygons, "smooth faces");
+      num_polygons, sizeof(Face), "smooth faces");
 
   return true;
 }
@@ -1027,7 +1028,7 @@ static void converter_init(const MultiresReshapeSmoothContext *reshape_smooth_co
   converter->user_data = (void *)reshape_smooth_context;
 }
 
-/* Create subdiv descriptor created for topology at a reshape level,  */
+/* Create subdiv descriptor created for topology at a reshape level. */
 static void reshape_subdiv_create(MultiresReshapeSmoothContext *reshape_smooth_context)
 {
   const MultiresReshapeContext *reshape_context = reshape_smooth_context->reshape_context;
@@ -1037,7 +1038,7 @@ static void reshape_subdiv_create(MultiresReshapeSmoothContext *reshape_smooth_c
   converter_init(reshape_smooth_context, &converter);
 
   Subdiv *reshape_subdiv = BKE_subdiv_new_from_converter(settings, &converter);
-  BKE_subdiv_eval_begin(reshape_subdiv);
+  BKE_subdiv_eval_begin(reshape_subdiv, SUBDIV_EVALUATOR_TYPE_CPU, NULL);
 
   reshape_smooth_context->reshape_subdiv = reshape_subdiv;
 
@@ -1050,7 +1051,7 @@ typedef void(ReshapeSubdivCoarsePositionCb)(
     const Vertex *vertex,
     float r_P[3]);
 
-/* Refine subdivision surface topology at a reshape level for new coarse vertices positions.  */
+/* Refine subdivision surface topology at a reshape level for new coarse vertices positions. */
 static void reshape_subdiv_refine(const MultiresReshapeSmoothContext *reshape_smooth_context,
                                   ReshapeSubdivCoarsePositionCb coarse_position_cb)
 {
@@ -1354,7 +1355,7 @@ static void evaluate_higher_grid_positions_with_details_callback(
 {
   const MultiresReshapeContext *reshape_context = reshape_smooth_context->reshape_context;
 
-  /* Position of the original veretx at top level. */
+  /* Position of the original vertex at top level. */
   float orig_final_P[3];
   evaluate_final_original_point(reshape_smooth_context, grid_coord, orig_final_P);
 

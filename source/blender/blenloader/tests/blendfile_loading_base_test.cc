@@ -21,6 +21,7 @@
 
 #include "BKE_appdir.h"
 #include "BKE_blender.h"
+#include "BKE_callbacks.h"
 #include "BKE_context.h"
 #include "BKE_global.h"
 #include "BKE_idtype.h"
@@ -48,6 +49,8 @@
 #include "WM_api.h"
 #include "wm.h"
 
+#include "GHOST_Path-api.h"
+
 #include "CLG_log.h"
 
 void BlendfileLoadingBaseTest::SetUpTestCase()
@@ -65,11 +68,11 @@ void BlendfileLoadingBaseTest::SetUpTestCase()
   BKE_idtype_init();
   BKE_appdir_init();
   IMB_init();
-  BKE_images_init();
   BKE_modifier_init();
   DEG_register_node_types();
   RNA_init();
   BKE_node_system_init();
+  BKE_callback_global_init();
 
   G.background = true;
   G.factory_startup = true;
@@ -93,6 +96,7 @@ void BlendfileLoadingBaseTest::TearDownTestCase()
   RNA_exit();
 
   DEG_free_node_types();
+  GHOST_DisposeSystemPaths();
   DNA_sdna_current_free();
   BLI_threadapi_exit();
 
@@ -123,7 +127,8 @@ bool BlendfileLoadingBaseTest::blendfile_load(const char *filepath)
   char abspath[FILENAME_MAX];
   BLI_path_join(abspath, sizeof(abspath), test_assets_dir.c_str(), filepath, NULL);
 
-  bfile = BLO_read_from_file(abspath, BLO_READ_SKIP_NONE, nullptr /* reports */);
+  BlendFileReadReport bf_reports = {nullptr};
+  bfile = BLO_read_from_file(abspath, BLO_READ_SKIP_NONE, &bf_reports);
   if (bfile == nullptr) {
     ADD_FAILURE() << "Unable to load file '" << filepath << "' from test assets dir '"
                   << test_assets_dir << "'";

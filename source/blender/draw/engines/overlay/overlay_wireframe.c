@@ -218,18 +218,10 @@ void OVERLAY_wireframe_cache_populate(OVERLAY_Data *vedata,
     struct GPUBatch *geom = NULL;
     switch (ob->type) {
       case OB_CURVE:
-        if (!pd->wireframe_mode && !use_wire && ob->runtime.curve_cache &&
-            BKE_displist_has_faces(&ob->runtime.curve_cache->disp)) {
-          break;
-        }
         geom = DRW_cache_curve_edge_wire_get(ob);
         break;
       case OB_FONT:
-        if (!pd->wireframe_mode && !use_wire && ob->runtime.curve_cache &&
-            BKE_displist_has_faces(&ob->runtime.curve_cache->disp)) {
-          break;
-        }
-        geom = DRW_cache_text_loose_edges_get(ob);
+        geom = DRW_cache_text_edge_wire_get(ob);
         break;
       case OB_SURF:
         geom = DRW_cache_surf_edge_wire_get(ob);
@@ -245,7 +237,21 @@ void OVERLAY_wireframe_cache_populate(OVERLAY_Data *vedata,
   if (dupli && !init_dupli) {
     if (dupli->wire_shgrp && dupli->wire_geom) {
       if (dupli->base_flag == ob->base_flag) {
-        DRW_shgroup_call(dupli->wire_shgrp, dupli->wire_geom, ob);
+        /* Check for the special cases used below, assign specific theme colors to the shaders. */
+        OVERLAY_ExtraCallBuffers *cb = OVERLAY_extra_call_buffer_get(vedata, ob);
+        if (dupli->wire_shgrp == cb->extra_loose_points) {
+          float *color;
+          DRW_object_wire_theme_get(ob, draw_ctx->view_layer, &color);
+          OVERLAY_extra_loose_points(cb, dupli->wire_geom, ob->obmat, color);
+        }
+        else if (dupli->wire_shgrp == cb->extra_wire) {
+          float *color;
+          DRW_object_wire_theme_get(ob, draw_ctx->view_layer, &color);
+          OVERLAY_extra_wire(cb, dupli->wire_geom, ob->obmat, color);
+        }
+        else {
+          DRW_shgroup_call(dupli->wire_shgrp, dupli->wire_geom, ob);
+        }
         return;
       }
     }
@@ -276,6 +282,9 @@ void OVERLAY_wireframe_cache_populate(OVERLAY_Data *vedata,
     }
   }
 
+  DRWShadingGroup *shgrp = NULL;
+  struct GPUBatch *geom = NULL;
+
   /* Don't do that in edit Mesh mode, unless there is a modifier preview. */
   if (use_wire && (!is_mesh || (!is_edit_mode || has_edit_mesh_cage))) {
     const bool is_sculpt_mode = ((ob->mode & OB_MODE_SCULPT) != 0) && (ob->sculpt != NULL);
@@ -283,8 +292,7 @@ void OVERLAY_wireframe_cache_populate(OVERLAY_Data *vedata,
                                  !DRW_state_is_image_render();
     const bool use_coloring = (use_wire && !is_edit_mode && !is_sculpt_mode &&
                                !has_edit_mesh_cage);
-    DRWShadingGroup *shgrp = NULL;
-    struct GPUBatch *geom = DRW_cache_object_face_wireframe_get(ob);
+    geom = DRW_cache_object_face_wireframe_get(ob);
 
     if (geom || use_sculpt_pbvh) {
       if (use_sculpt_pbvh) {
@@ -308,11 +316,6 @@ void OVERLAY_wireframe_cache_populate(OVERLAY_Data *vedata,
         DRW_shgroup_call(shgrp, geom, ob);
       }
     }
-
-    if (dupli) {
-      dupli->wire_shgrp = shgrp;
-      dupli->wire_geom = geom;
-    }
   }
   else if (is_mesh && (!is_edit_mode || has_edit_mesh_cage)) {
     OVERLAY_ExtraCallBuffers *cb = OVERLAY_extra_call_buffer_get(vedata, ob);
@@ -321,17 +324,24 @@ void OVERLAY_wireframe_cache_populate(OVERLAY_Data *vedata,
 
     /* Draw loose geometry. */
     if (is_mesh_verts_only) {
-      struct GPUBatch *geom = DRW_cache_mesh_all_verts_get(ob);
+      geom = DRW_cache_mesh_all_verts_get(ob);
       if (geom) {
         OVERLAY_extra_loose_points(cb, geom, ob->obmat, color);
+        shgrp = cb->extra_loose_points;
       }
     }
     else {
-      struct GPUBatch *geom = DRW_cache_mesh_loose_edges_get(ob);
+      geom = DRW_cache_mesh_loose_edges_get(ob);
       if (geom) {
         OVERLAY_extra_wire(cb, geom, ob->obmat, color);
+        shgrp = cb->extra_wire;
       }
     }
+  }
+
+  if (dupli) {
+    dupli->wire_shgrp = shgrp;
+    dupli->wire_geom = geom;
   }
 }
 

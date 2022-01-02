@@ -36,7 +36,7 @@ typedef struct MeshPairRemapItem {
   int sources_num;
   int *indices_src;   /* NULL if no source found. */
   float *weights_src; /* NULL if no source found, else, always normalized! */
-  /* UNUSED (at the moment)*/
+  /* UNUSED (at the moment). */
   // float  hit_dist;     /* FLT_MAX if irrelevant or no source found. */
   int island; /* For loops only. */
 } MeshPairRemapItem;
@@ -115,7 +115,7 @@ enum {
                                          MREMAP_USE_INTERP,
 
   /* ***** Target's loops ***** */
-  /* Note: when islands are given to loop mapping func,
+  /* NOTE: when islands are given to loop mapping func,
    * all loops from the same destination face will always be mapped
    * to loops of source faces within a same island, regardless of mapping mode. */
   MREMAP_MODE_LOOP = 1 << 26,
@@ -161,11 +161,24 @@ void BKE_mesh_remap_calc_source_cddata_masks_from_map_modes(
     const int poly_mode,
     struct CustomData_MeshMasks *cddata_mask);
 
+/**
+ * Compute a value of the difference between both given meshes.
+ * The smaller the result, the better the match.
+ *
+ * We return the inverse of the average of the inversed
+ * shortest distance from each dst vertex to src ones.
+ * In other words, beyond a certain (relatively small) distance, all differences have more or less
+ * the same weight in final result, which allows to reduce influence of a few high differences,
+ * in favor of a global good matching.
+ */
 float BKE_mesh_remap_calc_difference_from_mesh(const struct SpaceTransform *space_transform,
                                                const struct MVert *verts_dst,
                                                const int numverts_dst,
                                                struct Mesh *me_src);
 
+/**
+ * Set r_space_transform so that best bbox of dst matches best bbox of src.
+ */
 void BKE_mesh_remap_find_best_match_from_mesh(const struct MVert *verts_dst,
                                               const int numverts_dst,
                                               struct Mesh *me_src,

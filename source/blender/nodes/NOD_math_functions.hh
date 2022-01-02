@@ -193,7 +193,7 @@ inline bool try_dispatch_float_math_fl_fl_fl_to_fl(const int operation, Callback
     case NODE_MATH_SMOOTH_MIN:
       return dispatch([](float a, float b, float c) { return smoothminf(a, b, c); });
     case NODE_MATH_SMOOTH_MAX:
-      return dispatch([](float a, float b, float c) { return -smoothminf(-a, -b, -c); });
+      return dispatch([](float a, float b, float c) { return -smoothminf(-a, -b, c); });
     case NODE_MATH_WRAP:
       return dispatch([](float a, float b, float c) { return wrapf(a, b, c); });
   }
@@ -204,7 +204,7 @@ inline bool try_dispatch_float_math_fl_fl_fl_to_fl(const int operation, Callback
  * This is similar to try_dispatch_float_math_fl_to_fl, just with a different callback signature.
  */
 template<typename Callback>
-inline bool try_dispatch_float_math_fl_fl_to_bool(const FloatCompareOperation operation,
+inline bool try_dispatch_float_math_fl_fl_to_bool(const NodeCompareOperation operation,
                                                   Callback &&callback)
 {
   const FloatMathOperationInfo *info = get_float_compare_operation_info(operation);
@@ -219,13 +219,13 @@ inline bool try_dispatch_float_math_fl_fl_to_bool(const FloatCompareOperation op
   };
 
   switch (operation) {
-    case NODE_FLOAT_COMPARE_LESS_THAN:
+    case NODE_COMPARE_LESS_THAN:
       return dispatch([](float a, float b) { return a < b; });
-    case NODE_FLOAT_COMPARE_LESS_EQUAL:
+    case NODE_COMPARE_LESS_EQUAL:
       return dispatch([](float a, float b) { return a <= b; });
-    case NODE_FLOAT_COMPARE_GREATER_THAN:
+    case NODE_COMPARE_GREATER_THAN:
       return dispatch([](float a, float b) { return a > b; });
-    case NODE_FLOAT_COMPARE_GREATER_EQUAL:
+    case NODE_COMPARE_GREATER_EQUAL:
       return dispatch([](float a, float b) { return a >= b; });
     default:
       return false;
@@ -266,7 +266,7 @@ inline bool try_dispatch_float_math_fl3_fl3_to_fl3(const NodeVectorMathOperation
       return dispatch([](float3 a, float3 b) { return float3::cross_high_precision(a, b); });
     case NODE_VECTOR_MATH_PROJECT:
       return dispatch([](float3 a, float3 b) {
-        float length_squared = float3::dot(a, b);
+        float length_squared = b.length_squared();
         return (length_squared != 0.0) ? (float3::dot(a, b) / length_squared) * b : float3(0.0f);
       });
     case NODE_VECTOR_MATH_REFLECT:
@@ -347,6 +347,8 @@ inline bool try_dispatch_float_math_fl3_fl3_fl3_to_fl3(const NodeVectorMathOpera
   };
 
   switch (operation) {
+    case NODE_VECTOR_MATH_MULTIPLY_ADD:
+      return dispatch([](float3 a, float3 b, float3 c) { return a * b + c; });
     case NODE_VECTOR_MATH_WRAP:
       return dispatch([](float3 a, float3 b, float3 c) {
         return float3(wrapf(a.x, b.x, c.x), wrapf(a.y, b.y, c.y), wrapf(a.z, b.z, c.z));

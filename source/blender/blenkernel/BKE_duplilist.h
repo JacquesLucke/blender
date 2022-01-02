@@ -31,10 +31,14 @@ struct ListBase;
 struct Object;
 struct ParticleSystem;
 struct Scene;
+struct ID;
 
 /* ---------------------------------------------------- */
 /* Dupli-Geometry */
 
+/**
+ * \return a #ListBase of #DupliObject.
+ */
 struct ListBase *object_duplilist(struct Depsgraph *depsgraph,
                                   struct Scene *sce,
                                   struct Object *ob);
@@ -42,7 +46,10 @@ void free_object_duplilist(struct ListBase *lb);
 
 typedef struct DupliObject {
   struct DupliObject *next, *prev;
+  /* Object whose geometry is instanced. */
   struct Object *ob;
+  /* Data owned by the object above that is instanced. This might not be the same as `ob->data`. */
+  struct ID *ob_data;
   float mat[4][4];
   float orco[3], uv[2];
 

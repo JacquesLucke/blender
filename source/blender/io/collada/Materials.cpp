@@ -16,6 +16,8 @@
 
 #include "Materials.h"
 
+#include "BKE_node_tree_update.h"
+
 MaterialNode::MaterialNode(bContext *C, Material *ma, KeyImageMap &key_image_map)
     : mContext(C), material(ma), effect(nullptr), key_image_map(&key_image_map)
 {
@@ -91,7 +93,6 @@ void MaterialNode::setShaderType()
 #endif
 }
 
-/* returns null if material already has a node tree */
 bNodeTree *MaterialNode::prepare_material_nodetree()
 {
   if (material->nodetree) {
@@ -107,7 +108,7 @@ bNodeTree *MaterialNode::prepare_material_nodetree()
 
 void MaterialNode::update_material_nodetree()
 {
-  ntreeUpdateTree(CTX_data_main(mContext), ntree);
+  BKE_ntree_update_main_tree(CTX_data_main(mContext), ntree, nullptr);
 }
 
 bNode *MaterialNode::add_node(int node_type, int locx, int locy, std::string label)
@@ -411,10 +412,9 @@ void MaterialNode::set_specular(COLLADAFW::ColorOrTexture &cot)
 
   if (!has_specularity) {
     /* If specularity is black or not defined reset the Specular value to 0
-       TODO: This is a solution only for a corner case. We must find a better
-       way to handle specularity in general. Also note that currently we
-       do not export specularity values, see EffectExporter::operator()
-    */
+     * TODO: This is a solution only for a corner case. We must find a better
+     * way to handle specularity in general. Also note that currently we
+     * do not export specularity values, see EffectExporter::operator() */
     bNodeSocket *socket = nodeFindSocket(shader_node, SOCK_IN, "Specular");
     ((bNodeSocketValueFloat *)socket->default_value)->value = 0.0f;
   }

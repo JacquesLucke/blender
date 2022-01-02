@@ -323,7 +323,7 @@ static void gpencil_draw_strokes(tGPDdraw *tgpw)
     MaterialGPencilStyle *gp_style = (ma) ? ma->gp_style : NULL;
 
     if ((gp_style == NULL) || (gp_style->flag & GP_MATERIAL_HIDE) ||
-        /* if onion and ghost flag do not draw*/
+        /* If onion and ghost flag do not draw. */
         (tgpw->onion && (gp_style->flag & GP_MATERIAL_HIDE_ONIONSKIN))) {
       continue;
     }
@@ -412,7 +412,6 @@ static void gpencil_draw_strokes(tGPDdraw *tgpw)
 
 /* ----- General Drawing ------ */
 
-/* wrapper to draw strokes for filling operator */
 void ED_gpencil_draw_fill(tGPDdraw *tgpw)
 {
   gpencil_draw_strokes(tgpw);

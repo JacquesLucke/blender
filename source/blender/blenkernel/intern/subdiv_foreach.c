@@ -1749,7 +1749,7 @@ static void subdiv_foreach_vertices_of_loose_edges_task(void *__restrict userdat
   /* Subdivision vertices which corresponds to edge's v1 and v2. */
   const int subdiv_v1_index = ctx->vertices_corner_offset + coarse_edge->v1;
   const int subdiv_v2_index = ctx->vertices_corner_offset + coarse_edge->v2;
-  /* First subdivided inner vertex of the edge.  */
+  /* First subdivided inner vertex of the edge. */
   const int subdiv_start_vertex = ctx->vertices_edge_offset +
                                   coarse_edge_index * num_subdiv_vertices_per_coarse_edge;
   /* Perform interpolation. */
@@ -1877,7 +1877,8 @@ bool BKE_subdiv_foreach_subdiv_geometry(Subdiv *subdiv,
                                 ctx.num_subdiv_vertices,
                                 ctx.num_subdiv_edges,
                                 ctx.num_subdiv_loops,
-                                ctx.num_subdiv_polygons)) {
+                                ctx.num_subdiv_polygons,
+                                ctx.subdiv_polygon_offset)) {
       subdiv_foreach_ctx_free(&ctx);
       return false;
     }

@@ -166,11 +166,6 @@ static void buttons_main_region_init(wmWindowManager *wm, ARegion *region)
 /** \name Property Editor Layout
  * \{ */
 
-/**
- * Fills an array with the tab context values for the properties editor. -1 signals a separator.
- *
- * \return The total number of items in the array returned.
- */
 int ED_buttons_tabs_list(SpaceProperties *sbuts, short *context_tabs_array)
 {
   int length = 0;
@@ -202,11 +197,11 @@ int ED_buttons_tabs_list(SpaceProperties *sbuts, short *context_tabs_array)
     context_tabs_array[length] = BCONTEXT_WORLD;
     length++;
   }
-  if (length != 0) {
-    context_tabs_array[length] = -1;
-    length++;
-  }
   if (sbuts->pathflag & (1 << BCONTEXT_COLLECTION)) {
+    if (length != 0) {
+      context_tabs_array[length] = -1;
+      length++;
+    }
     context_tabs_array[length] = BCONTEXT_COLLECTION;
     length++;
   }
@@ -445,7 +440,7 @@ static void property_search_all_tabs(const bContext *C,
                    i,
                    property_search_for_context(C, region_copy, &sbuts_copy));
 
-    UI_blocklist_free(C, &region_copy->uiblocks);
+    UI_blocklist_free(C, region_copy);
   }
 
   BKE_area_region_free(area_copy.type, region_copy);
@@ -811,6 +806,9 @@ static void buttons_area_listener(const wmSpaceTypeListenerParams *params)
       break;
     case NC_ANIMATION:
       switch (wmn->data) {
+        case ND_NLA_ACTCHANGE:
+          ED_area_tag_redraw(area);
+          break;
         case ND_KEYFRAME:
           if (ELEM(wmn->action, NA_EDITED, NA_ADDED, NA_REMOVED)) {
             ED_area_tag_redraw(area);
@@ -921,7 +919,6 @@ static void buttons_id_remap(ScrArea *UNUSED(area), SpaceLink *slink, ID *old_id
 /** \name Space Type Initialization
  * \{ */
 
-/* only called once, from space/spacetypes.c */
 void ED_spacetype_buttons(void)
 {
   SpaceType *st = MEM_callocN(sizeof(SpaceType), "spacetype buttons");

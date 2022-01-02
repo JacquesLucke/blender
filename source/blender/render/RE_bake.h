@@ -76,7 +76,7 @@ typedef struct BakeHighPolyData {
 } BakeHighPolyData;
 
 /* external_engine.c */
-bool RE_bake_has_engine(struct Render *re);
+bool RE_bake_has_engine(const struct Render *re);
 
 bool RE_bake_engine(struct Render *re,
                     struct Depsgraph *depsgraph,
@@ -120,6 +120,10 @@ void RE_bake_normal_world_to_object(const BakePixel pixel_array[],
                                     float result[],
                                     struct Object *ob,
                                     const eBakeNormalSwizzle normal_swizzle[3]);
+/**
+ * This function converts an object space normal map
+ * to a tangent space normal map for a given low poly mesh.
+ */
 void RE_bake_normal_world_to_tangent(const BakePixel pixel_array[],
                                      const size_t num_pixels,
                                      const int depth,

@@ -141,7 +141,7 @@ template<typename Allocator = GuardedAllocator> class LinearAllocator : NonCopya
    * You must not call `delete` on the returned value.
    * Instead, only the destructor has to be called.
    */
-  template<typename T, typename... Args> destruct_ptr<T> construct(Args &&... args)
+  template<typename T, typename... Args> destruct_ptr<T> construct(Args &&...args)
   {
     void *buffer = this->allocate(sizeof(T), alignof(T));
     T *value = new (buffer) T(std::forward<Args>(args)...);
@@ -154,7 +154,7 @@ template<typename Allocator = GuardedAllocator> class LinearAllocator : NonCopya
    * the constructed elements.
    */
   template<typename T, typename... Args>
-  MutableSpan<T> construct_array(int64_t size, Args &&... args)
+  MutableSpan<T> construct_array(int64_t size, Args &&...args)
   {
     MutableSpan<T> array = this->allocate_array<T>(size);
     for (const int64_t i : IndexRange(size)) {
@@ -208,7 +208,7 @@ template<typename Allocator = GuardedAllocator> class LinearAllocator : NonCopya
   }
 
   template<typename T, typename... Args>
-  Span<T *> construct_elements_and_pointer_array(int64_t n, Args &&... args)
+  Span<T *> construct_elements_and_pointer_array(int64_t n, Args &&...args)
   {
     MutableSpan<void *> void_pointers = this->allocate_elements_and_pointer_array(
         n, sizeof(T), alignof(T));

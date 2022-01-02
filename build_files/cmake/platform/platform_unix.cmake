@@ -99,6 +99,7 @@ endif()
 find_package_wrapper(JPEG REQUIRED)
 find_package_wrapper(PNG REQUIRED)
 find_package_wrapper(ZLIB REQUIRED)
+find_package_wrapper(Zstd REQUIRED)
 find_package_wrapper(Freetype REQUIRED)
 
 if(WITH_PYTHON)
@@ -240,7 +241,7 @@ if(WITH_INPUT_NDOF)
   endif()
 endif()
 
-if(WITH_CYCLES_OSL)
+if(WITH_CYCLES AND WITH_CYCLES_OSL)
   set(CYCLES_OSL ${LIBDIR}/osl CACHE PATH "Path to OpenShadingLanguage installation")
   if(EXISTS ${CYCLES_OSL} AND NOT OSL_ROOT)
     set(OSL_ROOT ${CYCLES_OSL})
@@ -313,7 +314,7 @@ if(WITH_BOOST)
     endif()
     set(Boost_USE_MULTITHREADED ON)
     set(__boost_packages filesystem regex thread date_time)
-    if(WITH_CYCLES_OSL)
+    if(WITH_CYCLES AND WITH_CYCLES_OSL)
       if(NOT (${OSL_LIBRARY_VERSION_MAJOR} EQUAL "1" AND ${OSL_LIBRARY_VERSION_MINOR} LESS "6"))
         list(APPEND __boost_packages wave)
       else()
@@ -321,9 +322,6 @@ if(WITH_BOOST)
     endif()
     if(WITH_INTERNATIONAL)
       list(APPEND __boost_packages locale)
-    endif()
-    if(WITH_CYCLES_NETWORK)
-      list(APPEND __boost_packages serialization)
     endif()
     if(WITH_OPENVDB)
       list(APPEND __boost_packages iostreams)
@@ -402,7 +400,7 @@ if(WITH_OPENCOLORIO)
   endif()
 endif()
 
-if(WITH_CYCLES_EMBREE)
+if(WITH_CYCLES AND WITH_CYCLES_EMBREE)
   find_package(Embree 3.8.0 REQUIRED)
 endif()
 
@@ -457,6 +455,10 @@ endif()
 
 if(WITH_TBB)
   find_package_wrapper(TBB)
+  if(NOT TBB_FOUND)
+    message(WARNING "TBB not found, disabling WITH_TBB")
+    set(WITH_TBB OFF)
+  endif()
 endif()
 
 if(WITH_XR_OPENXR)
@@ -575,17 +577,17 @@ if(WITH_GHOST_WAYLAND)
   pkg_check_modules(wayland-scanner REQUIRED wayland-scanner)
   pkg_check_modules(xkbcommon REQUIRED xkbcommon)
   pkg_check_modules(wayland-cursor REQUIRED wayland-cursor)
+  pkg_check_modules(dbus REQUIRED dbus-1)
 
   set(WITH_GL_EGL ON)
 
-  if(WITH_GHOST_WAYLAND)
-    list(APPEND PLATFORM_LINKLIBS
-      ${wayland-client_LIBRARIES}
-      ${wayland-egl_LIBRARIES}
-      ${xkbcommon_LIBRARIES}
-      ${wayland-cursor_LIBRARIES}
-    )
-  endif()
+  list(APPEND PLATFORM_LINKLIBS
+    ${wayland-client_LINK_LIBRARIES}
+    ${wayland-egl_LINK_LIBRARIES}
+    ${xkbcommon_LINK_LIBRARIES}
+    ${wayland-cursor_LINK_LIBRARIES}
+    ${dbus_LINK_LIBRARIES}
+  )
 endif()
 
 if(WITH_GHOST_X11)

@@ -47,7 +47,6 @@
 #  include "BKE_collection.h"
 #  include "BKE_curve.h"
 #  include "BKE_displist.h"
-#  include "BKE_font.h"
 #  include "BKE_gpencil.h"
 #  include "BKE_hair.h"
 #  include "BKE_icons.h"
@@ -74,6 +73,7 @@
 #  include "BKE_speaker.h"
 #  include "BKE_text.h"
 #  include "BKE_texture.h"
+#  include "BKE_vfont.h"
 #  include "BKE_volume.h"
 #  include "BKE_workspace.h"
 #  include "BKE_world.h"
@@ -122,7 +122,7 @@
 static void rna_idname_validate(const char *name, char *r_name)
 {
   BLI_strncpy(r_name, name, MAX_ID_NAME - 2);
-  BLI_utf8_invalid_strip(r_name, strlen(r_name));
+  BLI_str_utf8_invalid_strip(r_name, strlen(r_name));
 }
 
 static void rna_Main_ID_remove(Main *bmain,

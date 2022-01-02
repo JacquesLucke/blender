@@ -121,7 +121,7 @@ BLI_INLINE float sum_v3(const float v[3])
 typedef struct SortVertsElem {
   int vertex_num; /* The original index of the vertex, prior to sorting */
   float co[3];    /* Its coordinates */
-  float sum_co;   /* sum_v3(co), just so we don't do the sum many times.  */
+  float sum_co;   /* `sum_v3(co)`: just so we don't do the sum many times. */
 } SortVertsElem;
 
 static int svert_sum_cmp(const void *e1, const void *e2)
@@ -194,8 +194,8 @@ static void dm_mvert_map_doubles(int *doubles_map,
   i_target_low_bound = 0;
   target_scan_completed = false;
 
-  /* Scan source vertices, in SortVertsElem sorted array, */
-  /* all the while maintaining the lower bound of possible doubles in target vertices */
+  /* Scan source vertices, in #SortVertsElem sorted array,
+   * all the while maintaining the lower bound of possible doubles in target vertices. */
   for (i_source = 0, sve_source = sorted_verts_source; i_source < source_num_verts;
        i_source++, sve_source++) {
     int best_target_vertex = -1;
@@ -285,7 +285,8 @@ static void mesh_merge_transform(Mesh *result,
                                  int cap_nloops,
                                  int cap_npolys,
                                  int *remap,
-                                 int remap_len)
+                                 int remap_len,
+                                 const bool recalc_normals_later)
 {
   int *index_orig;
   int i;
@@ -305,6 +306,15 @@ static void mesh_merge_transform(Mesh *result,
     mul_m4_v3(cap_offset, mv->co);
     /* Reset MVert flags for caps */
     mv->flag = mv->bweight = 0;
+
+    /* We have to correct normals too, if we do not tag them as dirty later! */
+    if (!recalc_normals_later) {
+      float no[3];
+      normal_short_to_float_v3(no, mv->no);
+      mul_mat3_m4_v3(cap_offset, no);
+      normalize_v3(no);
+      normal_float_to_short_v3(mv->no, no);
+    }
   }
 
   /* remap the vertex groups if necessary */
@@ -427,7 +437,7 @@ static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
     }
   }
 
-  /* Build up offset array, cumulating all settings options */
+  /* Build up offset array, accumulating all settings options. */
 
   unit_m4(offset);
   src_mvert = mesh->mvert;
@@ -711,7 +721,8 @@ static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
                          start_cap_nloops,
                          start_cap_npolys,
                          vgroup_start_cap_remap,
-                         vgroup_start_cap_remap_len);
+                         vgroup_start_cap_remap_len,
+                         use_recalc_normals);
     /* Identify doubles with first chunk */
     if (use_merge) {
       dm_mvert_map_doubles(full_doubles_map,
@@ -740,7 +751,8 @@ static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
                          end_cap_nloops,
                          end_cap_npolys,
                          vgroup_end_cap_remap,
-                         vgroup_end_cap_remap_len);
+                         vgroup_end_cap_remap_len,
+                         use_recalc_normals);
     /* Identify doubles with last chunk */
     if (use_merge) {
       dm_mvert_map_doubles(full_doubles_map,
@@ -786,7 +798,7 @@ static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
    * TODO: we may need to set other dirty flags as well?
    */
   if (use_recalc_normals) {
-    result->runtime.cd_dirty_vert |= CD_MASK_NORMAL;
+    BKE_mesh_normals_tag_dirty(result);
   }
 
   if (vgroup_start_cap_remap) {

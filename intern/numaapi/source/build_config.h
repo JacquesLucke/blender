@@ -20,6 +20,10 @@
 //
 // Author: Sergey Sharybin <sergey.vfx@gmail.com>
 
+/** \file
+ * \ingroup intern_numaapi
+ */
+
 #ifndef __BUILD_CONFIG_H__
 #define __BUILD_CONFIG_H__
 
@@ -324,6 +328,16 @@
 #  define ARCH_CPU_ARM64 1
 #  define ARCH_CPU_64_BITS 1
 #  define ARCH_CPU_LITTLE_ENDIAN 1
+#elif defined(__riscv) && __riscv_xlen == 32
+#  define ARCH_CPU_RISCV_FAMILY 1
+#  define ARCH_CPU_RISCV32 1
+#  define ARCH_CPU_64_BITS 0
+#  define ARCH_CPU_LITTLE_ENDIAN 1
+#elif defined(__riscv) && __riscv_xlen == 64
+#  define ARCH_CPU_RISCV_FAMILY 1
+#  define ARCH_CPU_RISCV64 1
+#  define ARCH_CPU_64_BITS 1
+#  define ARCH_CPU_LITTLE_ENDIAN 1
 #elif defined(__pnacl__) || defined(__asmjs__) || defined(__wasm__)
 #  define ARCH_CPU_32_BITS 1
 #  define ARCH_CPU_LITTLE_ENDIAN 1
@@ -380,6 +394,9 @@
 #endif
 #if !defined(ARCH_CPU_PPC64_FAMILY)
 #  define ARCH_CPU_PPC64_FAMILY 0
+#endif
+#if !defined(ARCH_CPU_RISCV_FAMILY)
+#  define ARCH_CPU_RISCV_FAMILY 0
 #endif
 #if !defined(ARCH_CPU_S390_FAMILY)
 #  define ARCH_CPU_S390_FAMILY 0

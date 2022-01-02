@@ -30,6 +30,7 @@ set(INC
   ../depsgraph
   ../editors/include
   ../functions
+  ../geometry
   ../makesdna
   ../makesrna
   ../nodes
@@ -113,7 +114,7 @@ set(SRC
   intern/MOD_weightvgedit.c
   intern/MOD_weightvgmix.c
   intern/MOD_weightvgproximity.c
-  intern/MOD_weld.c
+  intern/MOD_weld.cc
   intern/MOD_wireframe.c
 
   MOD_modifiertypes.h
@@ -138,6 +139,16 @@ if(WITH_ALEMBIC)
   )
   list(APPEND LIB
     bf_alembic
+  )
+endif()
+
+if(WITH_USD)
+  add_definitions(-DWITH_USD)
+  list(APPEND INC
+    ../io/usd
+  )
+  list(APPEND LIB
+    bf_usd
   )
 endif()
 
@@ -195,7 +206,11 @@ endif()
 
 if(WITH_TBB)
   add_definitions(-DWITH_TBB)
-
+  if(WIN32)
+    # TBB includes Windows.h which will define min/max macros
+    # that will collide with the stl versions.
+    add_definitions(-DNOMINMAX)
+  endif()
   list(APPEND INC_SYS
     ${TBB_INCLUDE_DIRS}
   )

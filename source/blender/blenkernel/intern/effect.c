@@ -163,7 +163,7 @@ static void precalculate_effector(struct Depsgraph *depsgraph, EffectorCache *ef
     if (cu->flag & CU_PATH) {
       if (eff->ob->runtime.curve_cache == NULL ||
           eff->ob->runtime.curve_cache->anim_path_accum_length == NULL) {
-        BKE_displist_make_curveTypes(depsgraph, eff->scene, eff->ob, false, false);
+        BKE_displist_make_curveTypes(depsgraph, eff->scene, eff->ob, false);
       }
 
       if (eff->ob->runtime.curve_cache->anim_path_accum_length) {
@@ -221,9 +221,6 @@ static void add_effector_evaluation(ListBase **effectors,
   precalculate_effector(depsgraph, eff);
 }
 
-/* Create list of effector relations in the collection or entire scene.
- * This is used by the depsgraph to build relations, as well as faster
- * lookup of effectors during evaluation. */
 ListBase *BKE_effector_relations_create(Depsgraph *depsgraph,
                                         ViewLayer *view_layer,
                                         Collection *collection)
@@ -329,7 +326,6 @@ static bool is_effector_relevant(PartDeflect *pd, EffectorWeights *weights, bool
          is_effector_nonzero_strength(pd);
 }
 
-/* Create effective list of effectors from relations built beforehand. */
 ListBase *BKE_effectors_create(Depsgraph *depsgraph,
                                Object *ob_src,
                                ParticleSystem *psys_src,
@@ -481,7 +477,9 @@ static void eff_tri_ray_hit(void *UNUSED(userData),
   hit->index = 1;
 }
 
-// get visibility of a wind ray
+/**
+ * Get visibility of a wind ray.
+ */
 static float eff_calc_visibility(ListBase *colliders,
                                  EffectorCache *eff,
                                  EffectorData *efd,
@@ -547,7 +545,7 @@ static float eff_calc_visibility(ListBase *colliders,
   return visibility;
 }
 
-// noise function for wind e.g.
+/* Noise function for wind e.g. */
 static float wind_func(struct RNG *rng, float strength)
 {
   int random = (BLI_rng_get_int(rng) + 1) % 128; /* max 2357 */
@@ -654,11 +652,11 @@ float effector_falloff(EffectorCache *eff,
   return falloff;
 }
 
-int closest_point_on_surface(SurfaceModifierData *surmd,
-                             const float co[3],
-                             float surface_co[3],
-                             float surface_nor[3],
-                             float surface_vel[3])
+bool closest_point_on_surface(SurfaceModifierData *surmd,
+                              const float co[3],
+                              float surface_co[3],
+                              float surface_nor[3],
+                              float surface_vel[3])
 {
   BVHTreeNearest nearest;
 
@@ -685,18 +683,18 @@ int closest_point_on_surface(SurfaceModifierData *surmd,
 
       mul_v3_fl(surface_vel, (1.0f / 3.0f));
     }
-    return 1;
+    return true;
   }
 
-  return 0;
+  return false;
 }
-int get_effector_data(EffectorCache *eff,
-                      EffectorData *efd,
-                      EffectedPoint *point,
-                      int real_velocity)
+bool get_effector_data(EffectorCache *eff,
+                       EffectorData *efd,
+                       EffectedPoint *point,
+                       int real_velocity)
 {
   float cfra = DEG_get_ctime(eff->depsgraph);
-  int ret = 0;
+  bool ret = false;
 
   /* In case surface object is in Edit mode when loading the .blend,
    * surface modifier is never executed and bvhtree never built, see T48415. */
@@ -716,7 +714,7 @@ int get_effector_data(EffectorCache *eff,
   }
   else if (eff->pd && eff->pd->shape == PFIELD_SHAPE_POINTS) {
     /* TODO: hair and points object support */
-    Mesh *me_eval = BKE_object_get_evaluated_mesh(eff->ob);
+    const Mesh *me_eval = BKE_object_get_evaluated_mesh(eff->ob);
     if (me_eval != NULL) {
       copy_v3_v3(efd->loc, me_eval->mvert[*efd->index].co);
       normal_short_to_float_v3(efd->nor, me_eval->mvert[*efd->index].no);
@@ -728,7 +726,7 @@ int get_effector_data(EffectorCache *eff,
 
       efd->size = 0.0f;
 
-      ret = 1;
+      ret = true;
     }
   }
   else if (eff->psys) {
@@ -773,7 +771,7 @@ int get_effector_data(EffectorCache *eff,
     /* use center of object for distance calculus */
     const Object *ob = eff->ob;
 
-    /* use z-axis as normal*/
+    /* Use z-axis as normal. */
     normalize_v3_v3(efd->nor, ob->obmat[2]);
 
     if (eff->pd && ELEM(eff->pd->shape, PFIELD_SHAPE_PLANE, PFIELD_SHAPE_LINE)) {
@@ -796,7 +794,7 @@ int get_effector_data(EffectorCache *eff,
     zero_v3(efd->vel);
     efd->size = 0.0f;
 
-    ret = 1;
+    ret = true;
   }
 
   if (ret) {
@@ -830,7 +828,7 @@ static void get_effector_tot(
 
   if (eff->pd->shape == PFIELD_SHAPE_POINTS) {
     /* TODO: hair and points object support */
-    Mesh *me_eval = BKE_object_get_evaluated_mesh(eff->ob);
+    const Mesh *me_eval = BKE_object_get_evaluated_mesh(eff->ob);
     *tot = me_eval != NULL ? me_eval->totvert : 1;
 
     if (*tot && eff->pd->forcefield == PFIELD_HARMONIC && point->index >= 0) {
@@ -861,7 +859,7 @@ static void get_effector_tot(
       int totpart = eff->psys->totpart;
       int amount = eff->psys->part->effector_amount;
 
-      *step = (totpart > amount) ? totpart / amount : 1;
+      *step = (totpart > amount) ? (int)ceil((float)totpart / (float)amount) : 1;
     }
   }
   else {
@@ -1128,20 +1126,6 @@ static void do_physical_effector(EffectorCache *eff,
   }
 }
 
-/*  -------- BKE_effectors_apply() --------
- * generic force/speed system, now used for particles and softbodies
- * scene       = scene where it runs in, for time and stuff
- * lb           = listbase with objects that take part in effecting
- * opco     = global coord, as input
- * force        = accumulator for force
- * wind_force   = accumulator for force only acting perpendicular to a surface
- * speed        = actual current speed which can be altered
- * cur_time = "external" time in frames, is constant for static particles
- * loc_time = "local" time in frames, range <0-1> for the lifetime of particle
- * par_layer    = layer the caller is in
- * flags        = only used for softbody wind now
- * guide        = old speed of particle
- */
 void BKE_effectors_apply(ListBase *effectors,
                          ListBase *colliders,
                          EffectorWeights *weights,
@@ -1150,6 +1134,22 @@ void BKE_effectors_apply(ListBase *effectors,
                          float *wind_force,
                          float *impulse)
 {
+  /* WARNING(@campbellbarton): historic comment?
+   * Many of these parameters don't exist!
+   *
+   * scene        = scene where it runs in, for time and stuff.
+   * lb           = listbase with objects that take part in effecting.
+   * opco         = global coord, as input.
+   * force        = accumulator for force.
+   * wind_force   = accumulator for force only acting perpendicular to a surface.
+   * speed        = actual current speed which can be altered.
+   * cur_time     = "external" time in frames, is constant for static particles.
+   * loc_time     = "local" time in frames, range <0-1> for the lifetime of particle.
+   * par_layer    = layer the caller is in.
+   * flags        = only used for soft-body wind now.
+   * guide        = old speed of particle.
+   */
+
   /*
    * Modifies the force on a particle according to its
    * relation with the effector object

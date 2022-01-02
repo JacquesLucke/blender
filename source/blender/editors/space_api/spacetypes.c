@@ -70,7 +70,6 @@
 
 #include "io_ops.h"
 
-/* Only called once on startup. storage is global in BKE kernel listbase. */
 void ED_spacetypes_init(void)
 {
   /* UI unit is a variable, may be used in some space type inits. */
@@ -130,6 +129,8 @@ void ED_spacetypes_init(void)
 
   ED_screen_user_menu_register();
 
+  ED_uilisttypes_ui();
+
   /* Gizmo types. */
   ED_gizmotypes_button_2d();
   ED_gizmotypes_dial_3d();
@@ -176,6 +177,7 @@ void ED_spacemacros_init(void)
   ED_operatormacros_gpencil();
 
   /* Register dropboxes (can use macros). */
+  ED_dropboxes_ui();
   const ListBase *spacetypes = BKE_spacetypes_list();
   LISTBASE_FOREACH (const SpaceType *, type, spacetypes) {
     if (type->dropboxes) {
@@ -184,10 +186,6 @@ void ED_spacemacros_init(void)
   }
 }
 
-/**
- * \note Keymap definitions are registered only once per WM initialize,
- * usually on file read, using the keymap the actual areas/regions add the handlers.
- * \note Called in wm.c. */
 void ED_spacetypes_keymap(wmKeyConfig *keyconf)
 {
   ED_keymap_screen(keyconf);
@@ -262,9 +260,9 @@ void ED_region_draw_cb_exit(ARegionType *art, void *handle)
   }
 }
 
-void ED_region_draw_cb_draw(const bContext *C, ARegion *region, int type)
+static void ed_region_draw_cb_draw(const bContext *C, ARegion *region, ARegionType *art, int type)
 {
-  LISTBASE_FOREACH_MUTABLE (RegionDrawCB *, rdc, &region->type->drawcalls) {
+  LISTBASE_FOREACH_MUTABLE (RegionDrawCB *, rdc, &art->drawcalls) {
     if (rdc->type == type) {
       rdc->draw(C, region, rdc->customdata);
 
@@ -272,6 +270,16 @@ void ED_region_draw_cb_draw(const bContext *C, ARegion *region, int type)
       GPU_bgl_end();
     }
   }
+}
+
+void ED_region_draw_cb_draw(const bContext *C, ARegion *region, int type)
+{
+  ed_region_draw_cb_draw(C, region, region->type, type);
+}
+
+void ED_region_surface_draw_cb_draw(ARegionType *art, int type)
+{
+  ed_region_draw_cb_draw(NULL, NULL, art, type);
 }
 
 void ED_region_draw_cb_remove_by_type(ARegionType *art, void *draw_fn, void (*free)(void *))

@@ -95,7 +95,9 @@ static void foreachTexLink(ModifierData *md, Object *ob, TexWalkFunc walk, void 
   walk(userData, ob, md, "texture");
 }
 
-static bool dependsOnTime(ModifierData *md)
+static bool dependsOnTime(struct Scene *UNUSED(scene),
+                          ModifierData *md,
+                          const int UNUSED(dag_eval_mode))
 {
   VolumeDisplaceModifierData *vdmd = reinterpret_cast<VolumeDisplaceModifierData *>(md);
   if (vdmd->texture) {
@@ -201,9 +203,10 @@ struct DisplaceGridOp {
 
   template<typename GridType> void operator()()
   {
-    if constexpr (std::is_same_v<GridType, openvdb::points::PointDataGrid> ||
-                  std::is_same_v<GridType, openvdb::StringGrid> ||
-                  std::is_same_v<GridType, openvdb::MaskGrid>) {
+    if constexpr (blender::is_same_any_v<GridType,
+                                         openvdb::points::PointDataGrid,
+                                         openvdb::StringGrid,
+                                         openvdb::MaskGrid>) {
       /* We don't support displacing these grid types yet. */
       return;
     }

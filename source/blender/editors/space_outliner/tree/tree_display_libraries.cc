@@ -33,7 +33,6 @@
 
 namespace blender::ed::outliner {
 
-/* Convenience/readability. */
 template<typename T> using List = ListBaseWrapper<T>;
 
 TreeDisplayLibraries::TreeDisplayLibraries(SpaceOutliner &space_outliner)
@@ -138,8 +137,8 @@ TreeElement *TreeDisplayLibraries::add_library_contents(Main &mainvar,
       }
     }
 
-    /* We always want to create an entry for libraries, even if/when we have no more IDs from
-     * them. This invalid state is important to show to user as well.*/
+    /* We always want to create an entry for libraries, even if/when we have no more IDs from them.
+     * This invalid state is important to show to user as well. */
     if (id != nullptr || is_library) {
       if (!tenlib) {
         /* Create library tree element on demand, depending if there are any data-blocks. */
@@ -186,7 +185,7 @@ short TreeDisplayLibraries::id_filter_get() const
   return 0;
 }
 
-bool TreeDisplayLibraries::library_id_filter_poll(Library *lib, ID *id) const
+bool TreeDisplayLibraries::library_id_filter_poll(const Library *lib, ID *id) const
 {
   if (id->lib != lib) {
     return false;

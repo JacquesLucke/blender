@@ -30,6 +30,7 @@
 
 #define RNA_MAGIC ((int)~0)
 
+struct AssetLibraryReference;
 struct FreestyleSettings;
 struct ID;
 struct IDOverrideLibrary;
@@ -250,6 +251,9 @@ bool rna_AnimaData_override_apply(struct Main *bmain,
 void rna_def_animviz_common(struct StructRNA *srna);
 void rna_def_motionpath_common(struct StructRNA *srna);
 
+/**
+ * Settings for curved bbone settings.
+ */
 void rna_def_bone_curved_common(struct StructRNA *srna, bool is_posebone, bool is_editbone);
 
 void rna_def_texmat_common(struct StructRNA *srna, const char *texspace_editable);
@@ -266,6 +270,21 @@ void rna_def_mtex_common(struct BlenderRNA *brna,
 void rna_def_texpaint_slots(struct BlenderRNA *brna, struct StructRNA *srna);
 void rna_def_view_layer_common(struct BlenderRNA *brna, struct StructRNA *srna, const bool scene);
 
+int rna_AssetMetaData_editable(struct PointerRNA *ptr, const char **r_info);
+/**
+ * \note the UI text and updating has to be set by the caller.
+ */
+PropertyRNA *rna_def_asset_library_reference_common(struct StructRNA *srna,
+                                                    const char *get,
+                                                    const char *set);
+const EnumPropertyItem *rna_asset_library_reference_itemf(struct bContext *C,
+                                                          struct PointerRNA *ptr,
+                                                          struct PropertyRNA *prop,
+                                                          bool *r_free);
+
+/**
+ * Common properties for Action/Bone Groups - related to color.
+ */
 void rna_def_actionbone_group_common(struct StructRNA *srna,
                                      int update_flag,
                                      const char *update_cb);
@@ -276,10 +295,10 @@ void rna_ID_name_get(struct PointerRNA *ptr, char *value);
 int rna_ID_name_length(struct PointerRNA *ptr);
 void rna_ID_name_set(struct PointerRNA *ptr, const char *value);
 struct StructRNA *rna_ID_refine(struct PointerRNA *ptr);
-struct IDProperty *rna_ID_idprops(struct PointerRNA *ptr, bool create);
+struct IDProperty **rna_ID_idprops(struct PointerRNA *ptr);
 void rna_ID_fake_user_set(struct PointerRNA *ptr, bool value);
 void **rna_ID_instance(PointerRNA *ptr);
-struct IDProperty *rna_PropertyGroup_idprops(struct PointerRNA *ptr, bool create);
+struct IDProperty **rna_PropertyGroup_idprops(struct PointerRNA *ptr);
 void rna_PropertyGroup_unregister(struct Main *bmain, struct StructRNA *type);
 struct StructRNA *rna_PropertyGroup_register(struct Main *bmain,
                                              struct ReportList *reports,
@@ -499,8 +518,16 @@ extern StructRNA RNA_PropertyGroupItem;
 extern StructRNA RNA_PropertyGroup;
 #endif
 
+/**
+ * This function only returns an #IDProperty,
+ * or NULL (in case IDProp could not be found, or prop is a real RNA property).
+ */
 struct IDProperty *rna_idproperty_check(struct PropertyRNA **prop,
                                         struct PointerRNA *ptr) ATTR_WARN_UNUSED_RESULT;
+/**
+ * This function always return the valid, real data pointer, be it a regular RNA property one,
+ * or an #IDProperty one.
+ */
 struct PropertyRNA *rna_ensure_property_realdata(struct PropertyRNA **prop,
                                                  struct PointerRNA *ptr) ATTR_WARN_UNUSED_RESULT;
 struct PropertyRNA *rna_ensure_property(struct PropertyRNA *prop) ATTR_WARN_UNUSED_RESULT;

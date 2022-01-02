@@ -37,23 +37,13 @@
 #include "BKE_scene.h"
 
 #include "SEQ_iterator.h"
+#include "SEQ_time.h"
+#include "render.h"
 
 /* -------------------------------------------------------------------- */
 /** \Iterator API
  * \{ */
 
-/**
- * Utility function for SEQ_ITERATOR_FOREACH macro.
- * Ensure, that iterator is initialized. During initialization return pointer to collection element
- * and step gset iterator. When this function is called after iterator has been initialized, it
- * will do nothing and return true.
- *
- * \param collection: collection to iterate
- * \param iterator: iterator to be initialized
- * \param r_seq: pointer to Sequence pointer
- *
- * \return false when iterator can not be initialized, true otherwise
- */
 bool SEQ_iterator_ensure(SeqCollection *collection, SeqIterator *iterator, Sequence **r_seq)
 {
   if (iterator->iterator_initialized) {
@@ -74,14 +64,6 @@ bool SEQ_iterator_ensure(SeqCollection *collection, SeqIterator *iterator, Seque
   return true;
 }
 
-/**
- * Utility function for SEQ_ITERATOR_FOREACH macro.
- * Yield collection element
- *
- * \param iterator: iterator to be initialized
- *
- * \return collection element or NULL when iteration has ended
- */
 Sequence *SEQ_iterator_yield(SeqIterator *iterator)
 {
   Sequence *seq = BLI_gsetIterator_done(&iterator->gsi) ? NULL :
@@ -90,82 +72,77 @@ Sequence *SEQ_iterator_yield(SeqIterator *iterator)
   return seq;
 }
 
-/**
- * Free strip collection.
- *
- * \param collection: collection to be freed
- */
+static bool seq_for_each_recursive(ListBase *seqbase, SeqForEachFunc callback, void *user_data)
+{
+  LISTBASE_FOREACH (Sequence *, seq, seqbase) {
+    if (!callback(seq, user_data)) {
+      /* Callback signaled stop, return. */
+      return false;
+    }
+    if (seq->type == SEQ_TYPE_META) {
+      if (!seq_for_each_recursive(&seq->seqbase, callback, user_data)) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+void SEQ_for_each_callback(ListBase *seqbase, SeqForEachFunc callback, void *user_data)
+{
+  seq_for_each_recursive(seqbase, callback, user_data);
+}
+
 void SEQ_collection_free(SeqCollection *collection)
 {
   BLI_gset_free(collection->set, NULL);
   MEM_freeN(collection);
 }
 
-/**
- * Create new empty strip collection.
- *
- * \return empty strip collection.
- */
-SeqCollection *SEQ_collection_create(void)
+SeqCollection *SEQ_collection_create(const char *name)
 {
-  SeqCollection *collection = MEM_callocN(sizeof(SeqCollection), "SeqCollection");
+  SeqCollection *collection = MEM_callocN(sizeof(SeqCollection), name);
   collection->set = BLI_gset_new(
       BLI_ghashutil_ptrhash, BLI_ghashutil_ptrcmp, "SeqCollection GSet");
   return collection;
 }
 
-/**
- * Query strips from seqbase. seq_reference is used by query function as filter condition.
- *
- * \param seq_reference: reference strip for query function
- * \param seqbase: ListBase in which strips are queried
- * \param seq_query_func: query function callback
- * \return strip collection
- */
+uint SEQ_collection_len(const SeqCollection *collection)
+{
+  return BLI_gset_len(collection->set);
+}
+
+bool SEQ_collection_has_strip(const Sequence *seq, const SeqCollection *collection)
+{
+  return BLI_gset_haskey(collection->set, seq);
+}
+
 SeqCollection *SEQ_query_by_reference(Sequence *seq_reference,
                                       ListBase *seqbase,
                                       void seq_query_func(Sequence *seq_reference,
                                                           ListBase *seqbase,
                                                           SeqCollection *collection))
 {
-  SeqCollection *collection = SEQ_collection_create();
+  SeqCollection *collection = SEQ_collection_create(__func__);
   seq_query_func(seq_reference, seqbase, collection);
   return collection;
 }
-/**
- * Add strip to collection.
- *
- * \param seq: strip to be added
- * \param collection: collection to which strip will be added
- * \return false if strip is already in set, otherwise true
- */
 bool SEQ_collection_append_strip(Sequence *seq, SeqCollection *collection)
 {
-  if (BLI_gset_lookup(collection->set, seq) != NULL) {
+  void **key;
+  if (BLI_gset_ensure_p_ex(collection->set, seq, &key)) {
     return false;
   }
-  BLI_gset_insert(collection->set, seq);
+
+  *key = (void *)seq;
   return true;
 }
 
-/**
- * Remove strip from collection.
- *
- * \param seq: strip to be removed
- * \param collection: collection from which strip will be removed
- * \return true if strip exists in set and it was removed from set, otherwise false
- */
 bool SEQ_collection_remove_strip(Sequence *seq, SeqCollection *collection)
 {
   return BLI_gset_remove(collection->set, seq, NULL);
 }
 
-/**
- * Move strips from collection_src to collection_dst. Source collection will be freed.
- *
- * \param collection_dst: destination collection
- * \param collection_src: source collection
- */
 void SEQ_collection_merge(SeqCollection *collection_dst, SeqCollection *collection_src)
 {
   Sequence *seq;
@@ -175,14 +152,15 @@ void SEQ_collection_merge(SeqCollection *collection_dst, SeqCollection *collecti
   SEQ_collection_free(collection_src);
 }
 
-/**
- * Expand collection by running SEQ_query() for each strip, which will be used as reference.
- * Results of these queries will be merged into provided collection.
- *
- * \param seqbase: ListBase in which strips are queried
- * \param collection: SeqCollection to be expanded
- * \param seq_query_func: query function callback
- */
+void SEQ_collection_exclude(SeqCollection *collection, SeqCollection *exclude_elements)
+{
+  Sequence *seq;
+  SEQ_ITERATOR_FOREACH (seq, exclude_elements) {
+    SEQ_collection_remove_strip(seq, collection);
+  }
+  SEQ_collection_free(exclude_elements);
+}
+
 void SEQ_collection_expand(ListBase *seqbase,
                            SeqCollection *collection,
                            void seq_query_func(Sequence *seq_reference,
@@ -190,65 +168,63 @@ void SEQ_collection_expand(ListBase *seqbase,
                                                SeqCollection *collection))
 {
   /* Collect expanded results for each sequence in provided SeqIteratorCollection. */
-  ListBase expand_collections = {0};
+  SeqCollection *query_matches = SEQ_collection_create(__func__);
 
   Sequence *seq;
   SEQ_ITERATOR_FOREACH (seq, collection) {
-    SeqCollection *expand_collection = SEQ_query_by_reference(seq, seqbase, seq_query_func);
-    BLI_addtail(&expand_collections, expand_collection);
+    SEQ_collection_merge(query_matches, SEQ_query_by_reference(seq, seqbase, seq_query_func));
   }
 
   /* Merge all expanded results in provided SeqIteratorCollection. */
-  LISTBASE_FOREACH_MUTABLE (SeqCollection *, expand_collection, &expand_collections) {
-    BLI_remlink(&expand_collections, expand_collection);
-    SEQ_collection_merge(collection, expand_collection);
+  SEQ_collection_merge(collection, query_matches);
+}
+
+SeqCollection *SEQ_collection_duplicate(SeqCollection *collection)
+{
+  SeqCollection *duplicate = SEQ_collection_create(__func__);
+  Sequence *seq;
+  SEQ_ITERATOR_FOREACH (seq, collection) {
+    SEQ_collection_append_strip(seq, duplicate);
   }
+  return duplicate;
 }
 
 /** \} */
 
-/**
- * Query all strips in seqbase and nested meta strips.
- *
- * \param seqbase: ListBase in which strips are queried
- * \return strip collection
- */
-SeqCollection *SEQ_query_all_strips_recursive(ListBase *seqbase)
+static void query_all_strips_recursive(ListBase *seqbase, SeqCollection *collection)
 {
-  SeqCollection *collection = SEQ_collection_create();
   LISTBASE_FOREACH (Sequence *, seq, seqbase) {
     if (seq->type == SEQ_TYPE_META) {
-      SEQ_collection_merge(collection, SEQ_query_all_strips_recursive(&seq->seqbase));
+      query_all_strips_recursive(&seq->seqbase, collection);
+    }
+    SEQ_collection_append_strip(seq, collection);
+  }
+}
+
+SeqCollection *SEQ_query_all_strips_recursive(ListBase *seqbase)
+{
+  SeqCollection *collection = SEQ_collection_create(__func__);
+  LISTBASE_FOREACH (Sequence *, seq, seqbase) {
+    if (seq->type == SEQ_TYPE_META) {
+      query_all_strips_recursive(&seq->seqbase, collection);
     }
     SEQ_collection_append_strip(seq, collection);
   }
   return collection;
 }
 
-/**
- * Query all strips in seqbase. This does not include strips nested in meta strips.
- *
- * \param seqbase: ListBase in which strips are queried
- * \return strip collection
- */
 SeqCollection *SEQ_query_all_strips(ListBase *seqbase)
 {
-  SeqCollection *collection = SEQ_collection_create();
+  SeqCollection *collection = SEQ_collection_create(__func__);
   LISTBASE_FOREACH (Sequence *, seq, seqbase) {
     SEQ_collection_append_strip(seq, collection);
   }
   return collection;
 }
 
-/**
- * Query all selected strips in seqbase.
- *
- * \param seqbase: ListBase in which strips are queried
- * \return strip collection
- */
 SeqCollection *SEQ_query_selected_strips(ListBase *seqbase)
 {
-  SeqCollection *collection = SEQ_collection_create();
+  SeqCollection *collection = SEQ_collection_create(__func__);
   LISTBASE_FOREACH (Sequence *, seq, seqbase) {
     if ((seq->flag & SELECT) == 0) {
       continue;
@@ -258,15 +234,118 @@ SeqCollection *SEQ_query_selected_strips(ListBase *seqbase)
   return collection;
 }
 
-/**
- * Query all effect strips that are directly or indirectly connected to seq_reference.
- * This includes all effects of seq_reference, strips used by another inputs and their effects, so
- * that whole chain is fully independent of other strips.
- *
- * \param seq_reference: reference strip
- * \param seqbase: ListBase in which strips are queried
- * \param collection: collection to be filled
- */
+static SeqCollection *query_strips_at_frame(ListBase *seqbase, const int timeline_frame)
+{
+  SeqCollection *collection = SEQ_collection_create(__func__);
+
+  LISTBASE_FOREACH (Sequence *, seq, seqbase) {
+    if (SEQ_time_strip_intersects_frame(seq, timeline_frame)) {
+      SEQ_collection_append_strip(seq, collection);
+    }
+  }
+  return collection;
+}
+
+static void collection_filter_channel_up_to_incl(SeqCollection *collection, const int channel)
+{
+  Sequence *seq;
+  SEQ_ITERATOR_FOREACH (seq, collection) {
+    if (seq->machine <= channel) {
+      continue;
+    }
+    SEQ_collection_remove_strip(seq, collection);
+  }
+}
+
+static bool seq_is_effect_of(const Sequence *seq_effect, const Sequence *possibly_input)
+{
+  if (seq_effect->seq1 == possibly_input || seq_effect->seq2 == possibly_input ||
+      seq_effect->seq3 == possibly_input) {
+    return true;
+  }
+  return false;
+}
+
+/* Check if seq must be rendered. This depends on whole stack in some cases, not only seq itself.
+ * Order of applying these conditions is important. */
+static bool must_render_strip(const Sequence *seq, SeqCollection *strips_at_timeline_frame)
+{
+  bool seq_have_effect_in_stack = false;
+  Sequence *seq_iter;
+  SEQ_ITERATOR_FOREACH (seq_iter, strips_at_timeline_frame) {
+    /* Strips is below another strip with replace blending are not rendered. */
+    if (seq_iter->blend_mode == SEQ_BLEND_REPLACE && seq->machine < seq_iter->machine) {
+      return false;
+    }
+
+    if ((seq_iter->type & SEQ_TYPE_EFFECT) != 0 && seq_is_effect_of(seq_iter, seq)) {
+      /* Strips in same channel or higher than its effect are rendered. */
+      if (seq->machine >= seq_iter->machine) {
+        return true;
+      }
+      /* Mark that this strip has effect in stack, that is above the strip. */
+      seq_have_effect_in_stack = true;
+    }
+  }
+
+  /* All effects are rendered (with respect to conditions above). */
+  if ((seq->type & SEQ_TYPE_EFFECT) != 0) {
+    return true;
+  }
+
+  /* If strip has effects in stack, and all effects are above this strip, it is not rendered. */
+  if (seq_have_effect_in_stack) {
+    return false;
+  }
+
+  return true;
+}
+
+/* Remove strips we don't want to render from collection. */
+static void collection_filter_rendered_strips(SeqCollection *collection)
+{
+  Sequence *seq;
+
+  /* Remove sound strips and muted strips from collection, because these are not rendered.
+   * Function #must_render_strip() don't have to check for these strips anymore. */
+  SEQ_ITERATOR_FOREACH (seq, collection) {
+    if (seq->type == SEQ_TYPE_SOUND_RAM || (seq->flag & SEQ_MUTE) != 0) {
+      SEQ_collection_remove_strip(seq, collection);
+    }
+  }
+
+  SEQ_ITERATOR_FOREACH (seq, collection) {
+    if (must_render_strip(seq, collection)) {
+      continue;
+    }
+    SEQ_collection_remove_strip(seq, collection);
+  }
+}
+
+SeqCollection *SEQ_query_rendered_strips(ListBase *seqbase,
+                                         const int timeline_frame,
+                                         const int displayed_channel)
+{
+  SeqCollection *collection = query_strips_at_frame(seqbase, timeline_frame);
+  if (displayed_channel != 0) {
+    collection_filter_channel_up_to_incl(collection, displayed_channel);
+  }
+  collection_filter_rendered_strips(collection);
+  return collection;
+}
+
+SeqCollection *SEQ_query_unselected_strips(ListBase *seqbase)
+{
+  SeqCollection *collection = SEQ_collection_create(__func__);
+  LISTBASE_FOREACH (Sequence *, seq, seqbase) {
+    if ((seq->flag & SELECT) != 0) {
+      continue;
+    }
+    SEQ_collection_append_strip(seq, collection);
+  }
+  return collection;
+}
+
 void SEQ_query_strip_effect_chain(Sequence *seq_reference,
                                   ListBase *seqbase,
                                   SeqCollection *collection)
@@ -293,6 +372,16 @@ void SEQ_query_strip_effect_chain(Sequence *seq_reference,
     if (seq_test->seq1 == seq_reference || seq_test->seq2 == seq_reference ||
         seq_test->seq3 == seq_reference) {
       SEQ_query_strip_effect_chain(seq_test, seqbase, collection);
+    }
+  }
+}
+
+void SEQ_filter_selected_strips(SeqCollection *collection)
+{
+  Sequence *seq;
+  SEQ_ITERATOR_FOREACH (seq, collection) {
+    if ((seq->flag & SELECT) == 0) {
+      SEQ_collection_remove_strip(seq, collection);
     }
   }
 }

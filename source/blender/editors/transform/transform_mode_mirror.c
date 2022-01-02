@@ -37,6 +37,8 @@
 #include "BLT_translation.h"
 
 #include "transform.h"
+#include "transform_convert.h"
+
 #include "transform_mode.h"
 
 /* -------------------------------------------------------------------- */
@@ -236,4 +238,5 @@ void initMirror(TransInfo *t)
 
   t->flag |= T_NULL_ONE;
 }
+
 /** \} */

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -62,6 +62,7 @@
 #include "BLT_translation.h"
 
 #include "BKE_armature.h"
+#include "BKE_deform.h"
 #include "BKE_layer.h"
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
@@ -202,12 +203,6 @@ void outliner_cleanup_tree(SpaceOutliner *space_outliner)
   outliner_storage_cleanup(space_outliner);
 }
 
-/**
- * Free \a element and its sub-tree and remove its link in \a parent_subtree.
- *
- * \note Does not remove the #TreeStoreElem of \a element!
- * \param parent_subtree: Sub-tree of the parent element, so the list containing \a element.
- */
 void outliner_free_tree_element(TreeElement *element, ListBase *parent_subtree)
 {
   BLI_assert(BLI_findindex(parent_subtree, element) > -1);
@@ -234,10 +229,6 @@ bool outliner_requires_rebuild_on_select_or_active_change(const SpaceOutliner *s
   return exclude_flags & (SO_FILTER_OB_STATE_SELECTED | SO_FILTER_OB_STATE_ACTIVE);
 }
 
-/**
- * Check if a display mode needs a full rebuild if the open/collapsed state changes.
- * Element types in these modes don't actually add children if collapsed, so the rebuild is needed.
- */
 bool outliner_requires_rebuild_on_open_change(const SpaceOutliner *space_outliner)
 {
   return ELEM(space_outliner->outlinevis, SO_DATA_API);
@@ -312,12 +303,8 @@ static void outliner_add_object_contents(SpaceOutliner *space_outliner,
     outliner_add_element(space_outliner, &te->subtree, ob, te, TSE_ANIM_DATA, 0);
   }
 
-  outliner_add_element(space_outliner,
-                       &te->subtree,
-                       ob->poselib,
-                       te,
-                       TSE_SOME_ID,
-                       0); /* XXX FIXME.. add a special type for this. */
+  /* FIXME: add a special type for this. */
+  outliner_add_element(space_outliner, &te->subtree, ob->poselib, te, TSE_SOME_ID, 0);
 
   if (ob->proxy && !ID_IS_LINKED(ob)) {
     outliner_add_element(space_outliner, &te->subtree, ob->proxy, te, TSE_PROXY, 0);
@@ -556,17 +543,20 @@ static void outliner_add_object_contents(SpaceOutliner *space_outliner,
   }
 
   /* vertex groups */
-  if (!BLI_listbase_is_empty(&ob->defbase)) {
-    TreeElement *tenla = outliner_add_element(
-        space_outliner, &te->subtree, ob, te, TSE_DEFGROUP_BASE, 0);
-    tenla->name = IFACE_("Vertex Groups");
+  if (ELEM(ob->type, OB_MESH, OB_GPENCIL, OB_LATTICE)) {
+    const ListBase *defbase = BKE_object_defgroup_list(ob);
+    if (!BLI_listbase_is_empty(defbase)) {
+      TreeElement *tenla = outliner_add_element(
+          space_outliner, &te->subtree, ob, te, TSE_DEFGROUP_BASE, 0);
+      tenla->name = IFACE_("Vertex Groups");
 
-    int index;
-    LISTBASE_FOREACH_INDEX (bDeformGroup *, defgroup, &ob->defbase, index) {
-      TreeElement *ten = outliner_add_element(
-          space_outliner, &tenla->subtree, ob, tenla, TSE_DEFGROUP, index);
-      ten->name = defgroup->name;
-      ten->directdata = defgroup;
+      int index;
+      LISTBASE_FOREACH_INDEX (bDeformGroup *, defgroup, defbase, index) {
+        TreeElement *ten = outliner_add_element(
+            space_outliner, &tenla->subtree, ob, tenla, TSE_DEFGROUP, index);
+        ten->name = defgroup->name;
+        ten->directdata = defgroup;
+      }
     }
   }
 
@@ -592,7 +582,7 @@ static void outliner_add_id_contents(SpaceOutliner *space_outliner,
   switch (GS(id->name)) {
     case ID_LI:
     case ID_SCE:
-      BLI_assert(!"ID type expected to be expanded through new tree-element design");
+      BLI_assert_msg(0, "ID type expected to be expanded through new tree-element design");
       break;
     case ID_OB: {
       outliner_add_object_contents(space_outliner, te, tselem, (Object *)id);
@@ -822,13 +812,6 @@ static void outliner_add_id_contents(SpaceOutliner *space_outliner,
   }
 }
 
-/**
- * TODO: this function needs to be split up! It's getting a bit too large...
- *
- * \note "ID" is not always a real ID.
- * \note If child items are only added to the tree if the item is open,
- * the `TSE_` type _must_ be added to #outliner_element_needs_rebuild_on_open_change().
- */
 TreeElement *outliner_add_element(SpaceOutliner *space_outliner,
                                   ListBase *lb,
                                   void *idv,
@@ -905,12 +888,13 @@ TreeElement *outliner_add_element(SpaceOutliner *space_outliner,
   }
   else if (type == TSE_SOME_ID) {
     if (!te->type) {
-      BLI_assert(!"Expected this ID type to be ported to new Outliner tree-element design");
+      BLI_assert_msg(0, "Expected this ID type to be ported to new Outliner tree-element design");
     }
   }
   else if (ELEM(type, TSE_LIBRARY_OVERRIDE_BASE, TSE_LIBRARY_OVERRIDE)) {
     if (!te->type) {
-      BLI_assert(!"Expected override types to be ported to new Outliner tree-element design");
+      BLI_assert_msg(0,
+                     "Expected override types to be ported to new Outliner tree-element design");
     }
   }
   else {
@@ -1175,7 +1159,6 @@ TreeElement *outliner_add_collection_recursive(SpaceOutliner *space_outliner,
 
 /* Hierarchy --------------------------------------------- */
 
-/* make sure elements are correctly nested */
 void outliner_make_object_parent_hierarchy(ListBase *lb)
 {
   /* build hierarchy */
@@ -1324,7 +1307,7 @@ static void outliner_sort(ListBase *lb)
   }
   TreeStoreElem *tselem = TREESTORE(te);
 
-  /* sorting rules; only object lists, ID lists, or deformgroups */
+  /* Sorting rules; only object lists, ID lists, or deform-groups. */
   if (ELEM(tselem->type, TSE_DEFGROUP, TSE_ID_BASE) ||
       ((tselem->type == TSE_SOME_ID) && (te->idcode == ID_OB))) {
     int totelem = BLI_listbase_count(lb);
@@ -1863,10 +1846,18 @@ static void outliner_filter_tree(SpaceOutliner *space_outliner, ViewLayer *view_
       space_outliner, view_layer, &space_outliner->tree, search_string, exclude_filter);
 }
 
+static void outliner_clear_newid_from_main(Main *bmain)
+{
+  ID *id_iter;
+  FOREACH_MAIN_ID_BEGIN (bmain, id_iter) {
+    id_iter->newid = NULL;
+  }
+  FOREACH_MAIN_ID_END;
+}
+
 /* ======================================================= */
 /* Main Tree Building API */
 
-/* Main entry point for building the tree data-structure that the outliner represents. */
 void outliner_build_tree(Main *mainvar,
                          Scene *scene,
                          ViewLayer *view_layer,
@@ -1925,5 +1916,7 @@ void outliner_build_tree(Main *mainvar,
   outliner_filter_tree(space_outliner, view_layer);
   outliner_restore_scrolling_position(space_outliner, region, &focus);
 
-  BKE_main_id_clear_newpoins(mainvar);
+  /* `ID.newid` pointer is abused when building tree, DO NOT call #BKE_main_id_newptr_and_tag_clear
+   * as this expects valid IDs in this pointer, not random unknown data. */
+  outliner_clear_newid_from_main(mainvar);
 }

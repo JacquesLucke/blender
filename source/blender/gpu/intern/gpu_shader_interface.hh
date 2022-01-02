@@ -60,6 +60,7 @@ class ShaderInterface {
   uint attr_len_ = 0;
   uint ubo_len_ = 0;
   uint uniform_len_ = 0;
+  uint ssbo_len_ = 0;
   /** Enabled bind-points that needs to be fed with data. */
   uint16_t enabled_attr_mask_ = 0;
   uint16_t enabled_ubo_mask_ = 0;
@@ -99,6 +100,11 @@ class ShaderInterface {
     return input_lookup(inputs_ + attr_len_ + ubo_len_, uniform_len_, binding);
   }
 
+  inline const ShaderInput *ssbo_get(const char *name) const
+  {
+    return input_lookup(inputs_ + attr_len_ + ubo_len_ + uniform_len_, ssbo_len_, name);
+  }
+
   inline const char *input_name_get(const ShaderInput *input) const
   {
     return name_buffer_ + input->name_offset;
@@ -124,7 +130,9 @@ class ShaderInterface {
 
   inline uint32_t set_input_name(ShaderInput *input, char *name, uint32_t name_len) const;
 
-  /* Finalize interface construction by sorting the ShaderInputs for faster lookups. */
+  /**
+   * Finalize interface construction by sorting the #ShaderInputs for faster lookups.
+   */
   void sort_inputs(void);
 
  private:

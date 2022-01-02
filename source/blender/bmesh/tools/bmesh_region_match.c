@@ -553,7 +553,8 @@ static void bm_uuidwalk_pass_add(UUIDWalk *uuidwalk,
 
 static int bm_face_len_cmp(const void *v1, const void *v2)
 {
-  const BMFace *f1 = v1, *f2 = v2;
+  const BMFace *f1 = *((BMFace **)v1);
+  const BMFace *f2 = *((BMFace **)v2);
 
   if (f1->len > f2->len) {
     return 1;
@@ -1052,7 +1053,7 @@ static BMEdge *bm_face_region_pivot_edge_find(BMFace **faces_region,
                                               uint verts_region_len,
                                               uint *r_depth)
 {
-  /* note, keep deterministic where possible (geometry order independent)
+  /* NOTE: keep deterministic where possible (geometry order independent)
    * this function assumed all visit faces & edges are tagged */
 
   BLI_LINKSTACK_DECLARE(vert_queue_prev, BMVert *);
@@ -1222,6 +1223,7 @@ static BMEdge *bm_face_region_pivot_edge_find(BMFace **faces_region,
 
   return e_pivot;
 }
+
 /** \} */
 
 #endif /* USE_PIVOT_SEARCH */
@@ -1331,12 +1333,6 @@ static void bm_vert_fasthash_destroy(UUIDFashMatch *fm)
 
 #endif /* USE_PIVOT_FASTMATCH */
 
-/**
- * Take a face-region and return a list of matching face-regions.
- *
- * \param faces_region: A single, contiguous face-region.
- * \return  A list of matching null-terminated face-region arrays.
- */
 int BM_mesh_region_match(BMesh *bm,
                          BMFace **faces_region,
                          uint faces_region_len,

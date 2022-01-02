@@ -25,10 +25,13 @@
 #include "DNA_object_types.h"
 #include "DNA_pointcloud_types.h"
 
+#include "BLI_float3.hh"
+#include "BLI_index_range.hh"
 #include "BLI_listbase.h"
-#include "BLI_math.h"
 #include "BLI_rand.h"
+#include "BLI_span.hh"
 #include "BLI_string.h"
+#include "BLI_task.hh"
 #include "BLI_utildefines.h"
 
 #include "BKE_anim_data.h"
@@ -50,6 +53,10 @@
 #include "DEG_depsgraph_query.h"
 
 #include "BLO_read_write.h"
+
+using blender::float3;
+using blender::IndexRange;
+using blender::Span;
 
 /* PointCloud datablock */
 
@@ -79,7 +86,7 @@ static void pointcloud_copy_data(Main *UNUSED(bmain), ID *id_dst, const ID *id_s
 {
   PointCloud *pointcloud_dst = (PointCloud *)id_dst;
   const PointCloud *pointcloud_src = (const PointCloud *)id_src;
-  pointcloud_dst->mat = static_cast<Material **>(MEM_dupallocN(pointcloud_dst->mat));
+  pointcloud_dst->mat = static_cast<Material **>(MEM_dupallocN(pointcloud_src->mat));
 
   const eCDAllocType alloc_type = (flag & LIB_ID_COPY_CD_REFERENCE) ? CD_REFERENCE : CD_DUPLICATE;
   CustomData_copy(&pointcloud_src->pdata,
@@ -105,35 +112,34 @@ static void pointcloud_foreach_id(ID *id, LibraryForeachIDData *data)
 {
   PointCloud *pointcloud = (PointCloud *)id;
   for (int i = 0; i < pointcloud->totcol; i++) {
-    BKE_LIB_FOREACHID_PROCESS(data, pointcloud->mat[i], IDWALK_CB_USER);
+    BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, pointcloud->mat[i], IDWALK_CB_USER);
   }
 }
 
 static void pointcloud_blend_write(BlendWriter *writer, ID *id, const void *id_address)
 {
   PointCloud *pointcloud = (PointCloud *)id;
-  if (pointcloud->id.us > 0 || BLO_write_is_undo(writer)) {
-    CustomDataLayer *players = nullptr, players_buff[CD_TEMP_CHUNK_SIZE];
-    CustomData_blend_write_prepare(
-        &pointcloud->pdata, &players, players_buff, ARRAY_SIZE(players_buff));
 
-    /* Write LibData */
-    BLO_write_id_struct(writer, PointCloud, id_address, &pointcloud->id);
-    BKE_id_blend_write(writer, &pointcloud->id);
+  CustomDataLayer *players = nullptr, players_buff[CD_TEMP_CHUNK_SIZE];
+  CustomData_blend_write_prepare(
+      &pointcloud->pdata, &players, players_buff, ARRAY_SIZE(players_buff));
 
-    /* Direct data */
-    CustomData_blend_write(
-        writer, &pointcloud->pdata, players, pointcloud->totpoint, CD_MASK_ALL, &pointcloud->id);
+  /* Write LibData */
+  BLO_write_id_struct(writer, PointCloud, id_address, &pointcloud->id);
+  BKE_id_blend_write(writer, &pointcloud->id);
 
-    BLO_write_pointer_array(writer, pointcloud->totcol, pointcloud->mat);
-    if (pointcloud->adt) {
-      BKE_animdata_blend_write(writer, pointcloud->adt);
-    }
+  /* Direct data */
+  CustomData_blend_write(
+      writer, &pointcloud->pdata, players, pointcloud->totpoint, CD_MASK_ALL, &pointcloud->id);
 
-    /* Remove temporary data. */
-    if (players && players != players_buff) {
-      MEM_freeN(players);
-    }
+  BLO_write_pointer_array(writer, pointcloud->totcol, pointcloud->mat);
+  if (pointcloud->adt) {
+    BKE_animdata_blend_write(writer, pointcloud->adt);
+  }
+
+  /* Remove temporary data. */
+  if (players && players != players_buff) {
+    MEM_freeN(players);
   }
 }
 
@@ -175,7 +181,8 @@ IDTypeInfo IDType_ID_PT = {
     /* name */ "PointCloud",
     /* name_plural */ "pointclouds",
     /* translation_context */ BLT_I18NCONTEXT_ID_POINTCLOUD,
-    /* flags */ 0,
+    /* flags */ IDTYPE_FLAGS_APPEND_IS_REUSABLE,
+    /* asset_type_info */ nullptr,
 
     /* init_data */ pointcloud_init_data,
     /* copy_data */ pointcloud_copy_data,
@@ -183,6 +190,7 @@ IDTypeInfo IDType_ID_PT = {
     /* make_local */ nullptr,
     /* foreach_id */ pointcloud_foreach_id,
     /* foreach_cache */ nullptr,
+    /* foreach_path */ nullptr,
     /* owner_get */ nullptr,
 
     /* blend_write */ pointcloud_blend_write,
@@ -260,18 +268,64 @@ PointCloud *BKE_pointcloud_new_nomain(const int totpoint)
   return pointcloud;
 }
 
-void BKE_pointcloud_minmax(const struct PointCloud *pointcloud, float r_min[3], float r_max[3])
+struct MinMaxResult {
+  float3 min;
+  float3 max;
+};
+
+static MinMaxResult min_max_no_radii(Span<float3> positions)
 {
-  float(*pointcloud_co)[3] = pointcloud->co;
-  float *pointcloud_radius = pointcloud->radius;
-  for (int a = 0; a < pointcloud->totpoint; a++) {
-    float *co = pointcloud_co[a];
-    float radius = (pointcloud_radius) ? pointcloud_radius[a] : 0.0f;
-    const float co_min[3] = {co[0] - radius, co[1] - radius, co[2] - radius};
-    const float co_max[3] = {co[0] + radius, co[1] + radius, co[2] + radius};
-    DO_MIN(co_min, r_min);
-    DO_MAX(co_max, r_max);
+  return blender::threading::parallel_reduce(
+      positions.index_range(),
+      1024,
+      MinMaxResult{float3(FLT_MAX), float3(-FLT_MAX)},
+      [&](IndexRange range, const MinMaxResult &init) {
+        MinMaxResult result = init;
+        for (const int i : range) {
+          float3::min_max(positions[i], result.min, result.max);
+        }
+        return result;
+      },
+      [](const MinMaxResult &a, const MinMaxResult &b) {
+        return MinMaxResult{float3::min(a.min, b.min), float3::max(a.max, b.max)};
+      });
+}
+
+static MinMaxResult min_max_with_radii(Span<float3> positions, Span<float> radii)
+{
+  return blender::threading::parallel_reduce(
+      positions.index_range(),
+      1024,
+      MinMaxResult{float3(FLT_MAX), float3(-FLT_MAX)},
+      [&](IndexRange range, const MinMaxResult &init) {
+        MinMaxResult result = init;
+        for (const int i : range) {
+          result.min = float3::min(positions[i] - radii[i], result.min);
+          result.max = float3::max(positions[i] + radii[i], result.max);
+        }
+        return result;
+      },
+      [](const MinMaxResult &a, const MinMaxResult &b) {
+        return MinMaxResult{float3::min(a.min, b.min), float3::max(a.max, b.max)};
+      });
+}
+
+bool BKE_pointcloud_minmax(const PointCloud *pointcloud, float r_min[3], float r_max[3])
+{
+  if (!pointcloud->totpoint) {
+    return false;
   }
+
+  Span<float3> positions{reinterpret_cast<float3 *>(pointcloud->co), pointcloud->totpoint};
+  const MinMaxResult min_max = (pointcloud->radius) ?
+                                   min_max_with_radii(positions,
+                                                      {pointcloud->radius, pointcloud->totpoint}) :
+                                   min_max_no_radii(positions);
+
+  copy_v3_v3(r_min, float3::min(min_max.min, r_min));
+  copy_v3_v3(r_max, float3::max(min_max.max, r_max));
+
+  return true;
 }
 
 BoundBox *BKE_pointcloud_boundbox_get(Object *ob)
@@ -418,6 +472,7 @@ void BKE_pointcloud_data_update(struct Depsgraph *depsgraph, struct Scene *scene
 }
 
 /* Draw Cache */
+
 void (*BKE_pointcloud_batch_cache_dirty_tag_cb)(PointCloud *pointcloud, int mode) = nullptr;
 void (*BKE_pointcloud_batch_cache_free_cb)(PointCloud *pointcloud) = nullptr;
 

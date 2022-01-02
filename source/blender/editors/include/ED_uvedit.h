@@ -42,9 +42,11 @@ struct SpaceImage;
 struct ToolSettings;
 struct ViewLayer;
 struct bNode;
+struct bNodeTree;
 struct wmKeyConfig;
 
 /* uvedit_ops.c */
+
 void ED_operatortypes_uvedit(void);
 void ED_operatormacros_uvedit(void);
 void ED_keymap_uvedit(struct wmKeyConfig *keyconf);
@@ -53,6 +55,9 @@ bool ED_uvedit_minmax(const struct Scene *scene,
                       struct Object *obedit,
                       float min[2],
                       float max[2]);
+/**
+ * Be careful when using this, it bypasses all synchronization options.
+ */
 void ED_uvedit_select_all(struct BMesh *bm);
 
 bool ED_uvedit_minmax_multi(const struct Scene *scene,
@@ -216,12 +221,17 @@ struct BMLoop *ED_uvedit_active_vert_loop_get(struct BMesh *bm);
 void ED_uvedit_active_edge_loop_set(struct BMesh *bm, struct BMLoop *l);
 struct BMLoop *ED_uvedit_active_edge_loop_get(struct BMesh *bm);
 
+/**
+ * Intentionally don't return #UV_SELECT_ISLAND as it's not an element type.
+ * In this case return #UV_SELECT_VERTEX as a fallback.
+ */
 char ED_uvedit_select_mode_get(const struct Scene *scene);
 void ED_uvedit_select_sync_flush(const struct ToolSettings *ts,
                                  struct BMEditMesh *em,
                                  const bool select);
 
 /* uvedit_unwrap_ops.c */
+
 void ED_uvedit_live_unwrap_begin(struct Scene *scene, struct Object *obedit);
 void ED_uvedit_live_unwrap_re_solve(void);
 void ED_uvedit_live_unwrap_end(short cancel);
@@ -230,12 +240,26 @@ void ED_uvedit_live_unwrap(const struct Scene *scene, struct Object **objects, i
 void ED_uvedit_add_simple_uvs(struct Main *bmain, const struct Scene *scene, struct Object *ob);
 
 /* uvedit_draw.c */
+
 void ED_image_draw_cursor(struct ARegion *region, const float cursor[2]);
 
 /* uvedit_buttons.c */
+
 void ED_uvedit_buttons_register(struct ARegionType *art);
 
 /* uvedit_islands.c */
+
+struct UVMapUDIM_Params {
+  const struct Image *image;
+  /** Copied from #SpaceImage.tile_grid_shape */
+  int grid_shape[2];
+  bool use_target_udim;
+  int target_udim;
+};
+bool ED_uvedit_udim_params_from_image_space(const struct SpaceImage *sima,
+                                            bool use_active,
+                                            struct UVMapUDIM_Params *udim_params);
+
 struct UVPackIsland_Params {
   uint rotate : 1;
   /** -1 not to align to axis, otherwise 0,1 for X,Y. */
@@ -245,9 +269,17 @@ struct UVPackIsland_Params {
   uint use_seams : 1;
   uint correct_aspect : 1;
 };
+
+/**
+ *  Returns true if UV coordinates lie on a valid tile in UDIM grid or tiled image.
+ */
+bool uv_coords_isect_udim(const struct Image *image,
+                          const int udim_grid[2],
+                          const float coords[2]);
 void ED_uvedit_pack_islands_multi(const struct Scene *scene,
                                   Object **objects,
                                   const uint objects_len,
+                                  const struct UVMapUDIM_Params *udim_params,
                                   const struct UVPackIsland_Params *params);
 
 #ifdef __cplusplus

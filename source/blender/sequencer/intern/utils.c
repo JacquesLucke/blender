@@ -39,10 +39,13 @@
 #include "BKE_main.h"
 #include "BKE_scene.h"
 
+#include "SEQ_edit.h"
 #include "SEQ_iterator.h"
 #include "SEQ_relations.h"
+#include "SEQ_render.h"
 #include "SEQ_select.h"
 #include "SEQ_sequencer.h"
+#include "SEQ_time.h"
 #include "SEQ_utils.h"
 
 #include "IMB_imbuf.h"
@@ -52,13 +55,6 @@
 #include "proxy.h"
 #include "utils.h"
 
-/**
- * Sort strips in provided seqbase. Effect strips are trailing the list and they are sorted by
- * channel position as well.
- * This is important for SEQ_time_update_sequence to work properly
- *
- * \param seqbase: ListBase with strips
- */
 void SEQ_sort(ListBase *seqbase)
 {
   if (seqbase == NULL) {
@@ -131,15 +127,17 @@ static void seqbase_unique_name(ListBase *seqbasep, SeqUniqueInfo *sui)
   }
 }
 
-static int seqbase_unique_name_recursive_fn(Sequence *seq, void *arg_pt)
+static bool seqbase_unique_name_recursive_fn(Sequence *seq, void *arg_pt)
 {
   if (seq->seqbase.first) {
     seqbase_unique_name(&seq->seqbase, (SeqUniqueInfo *)arg_pt);
   }
-  return 1;
+  return true;
 }
 
-void SEQ_sequence_base_unique_name_recursive(ListBase *seqbasep, Sequence *seq)
+void SEQ_sequence_base_unique_name_recursive(struct Scene *scene,
+                                             ListBase *seqbasep,
+                                             Sequence *seq)
 {
   SeqUniqueInfo sui;
   char *dot;
@@ -163,10 +161,10 @@ void SEQ_sequence_base_unique_name_recursive(ListBase *seqbasep, Sequence *seq)
   while (sui.match) {
     sui.match = 0;
     seqbase_unique_name(seqbasep, &sui);
-    SEQ_seqbase_recursive_apply(seqbasep, seqbase_unique_name_recursive_fn, &sui);
+    SEQ_for_each_callback(seqbasep, seqbase_unique_name_recursive_fn, &sui);
   }
 
-  BLI_strncpy(seq->name + 2, sui.name_dest, sizeof(seq->name) - 2);
+  SEQ_edit_sequence_name_set(scene, seq, sui.name_dest);
 }
 
 static const char *give_seqname_by_type(int type)
@@ -253,7 +251,7 @@ ListBase *SEQ_get_seqbase_from_sequence(Sequence *seq, int *r_offset)
     }
     case SEQ_TYPE_SCENE: {
       if (seq->flag & SEQ_SCENE_STRIPS && seq->scene) {
-        Editing *ed = SEQ_editing_get(seq->scene, false);
+        Editing *ed = SEQ_editing_get(seq->scene);
         if (ed) {
           seqbase = &ed->seqbase;
           *r_offset = seq->scene->r.sfra;
@@ -406,7 +404,7 @@ const Sequence *SEQ_get_topmost_sequence(const Scene *scene, int frame)
   }
 
   for (seq = ed->seqbasep->first; seq; seq = seq->next) {
-    if (seq->flag & SEQ_MUTE || seq->startdisp > frame || seq->enddisp <= frame) {
+    if (seq->flag & SEQ_MUTE || !SEQ_time_strip_intersects_frame(seq, frame)) {
       continue;
     }
     /* Only use strips that generate an image, not ones that combine
@@ -427,7 +425,6 @@ const Sequence *SEQ_get_topmost_sequence(const Scene *scene, int frame)
   return best_seq;
 }
 
-/* in cases where we done know the sequence's listbase */
 ListBase *SEQ_get_seqbase_by_seq(ListBase *seqbase, Sequence *seq)
 {
   Sequence *iseq;
@@ -445,29 +442,21 @@ ListBase *SEQ_get_seqbase_by_seq(ListBase *seqbase, Sequence *seq)
   return NULL;
 }
 
-Sequence *seq_find_metastrip_by_sequence(ListBase *seqbase, Sequence *meta, Sequence *seq)
+Sequence *SEQ_get_meta_by_seqbase(ListBase *seqbase_main, ListBase *meta_seqbase)
 {
-  Sequence *iseq;
+  SeqCollection *strips = SEQ_query_all_strips_recursive(seqbase_main);
 
-  for (iseq = seqbase->first; iseq; iseq = iseq->next) {
-    Sequence *rval;
-
-    if (seq == iseq) {
-      return meta;
-    }
-    if (iseq->seqbase.first &&
-        (rval = seq_find_metastrip_by_sequence(&iseq->seqbase, iseq, seq))) {
-      return rval;
+  Sequence *seq = NULL;
+  SEQ_ITERATOR_FOREACH (seq, strips) {
+    if (seq->type == SEQ_TYPE_META && &seq->seqbase == meta_seqbase) {
+      break;
     }
   }
 
-  return NULL;
+  SEQ_collection_free(strips);
+  return seq;
 }
 
-/**
- * Only use as last resort when the StripElem is available but no the Sequence.
- * (needed for RNA)
- */
 Sequence *SEQ_sequence_from_strip_elem(ListBase *seqbase, StripElem *se)
 {
   Sequence *iseq;
@@ -524,10 +513,10 @@ void SEQ_alpha_mode_from_file_extension(Sequence *seq)
   }
 }
 
-/* called on draw, needs to be fast,
- * we could cache and use a flag if we want to make checks for file paths resolving for eg. */
-bool SEQ_sequence_has_source(Sequence *seq)
+bool SEQ_sequence_has_source(const Sequence *seq)
 {
+  /* Called on draw, needs to be fast,
+   * we could cache and use a flag if we want to make checks for file paths resolving for eg. */
   switch (seq->type) {
     case SEQ_TYPE_MASK:
       return (seq->mask != NULL);
@@ -588,47 +577,12 @@ void SEQ_set_scale_to_fit(const Sequence *seq,
   }
 }
 
-int SEQ_seqbase_recursive_apply(ListBase *seqbase,
-                                int (*apply_fn)(Sequence *seq, void *),
-                                void *arg)
-{
-  Sequence *iseq;
-  for (iseq = seqbase->first; iseq; iseq = iseq->next) {
-    if (SEQ_recursive_apply(iseq, apply_fn, arg) == -1) {
-      return -1; /* bail out */
-    }
-  }
-  return 1;
-}
-
-int SEQ_recursive_apply(Sequence *seq, int (*apply_fn)(Sequence *, void *), void *arg)
-{
-  int ret = apply_fn(seq, arg);
-
-  if (ret == -1) {
-    return -1; /* bail out */
-  }
-
-  if (ret && seq->seqbase.first) {
-    ret = SEQ_seqbase_recursive_apply(&seq->seqbase, apply_fn, arg);
-  }
-
-  return ret;
-}
-
-/**
- * Ensure, that provided Sequence has unique name. If animation data exists for this Sequence, it
- * will be duplicated and mapped onto new name
- *
- * \param seq: Sequence which name will be ensured to be unique
- * \param scene: Scene in which name must be unique
- */
 void SEQ_ensure_unique_name(Sequence *seq, Scene *scene)
 {
   char name[SEQ_NAME_MAXSTR];
 
   BLI_strncpy_utf8(name, seq->name + 2, sizeof(name));
-  SEQ_sequence_base_unique_name_recursive(&scene->ed->seqbase, seq);
+  SEQ_sequence_base_unique_name_recursive(scene, &scene->ed->seqbase, seq);
   SEQ_dupe_animdata(scene, name, seq->name + 2);
 
   if (seq->type == SEQ_TYPE_META) {

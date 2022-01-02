@@ -98,7 +98,6 @@ static bool modifiers_disable_subsurf_temporary(struct Scene *scene, Object *ob)
   return disabled;
 }
 
-/* disable subsurf temporal, get mapped cos, and enable it */
 float (*BKE_crazyspace_get_mapped_editverts(struct Depsgraph *depsgraph, Object *obedit))[3]
 {
   Scene *scene = DEG_get_input_scene(depsgraph);
@@ -243,10 +242,6 @@ void BKE_crazyspace_set_quats_mesh(Mesh *me,
   }
 }
 
-/**
- * Returns an array of deform matrices for crazy-space correction,
- * and the number of modifiers left.
- */
 int BKE_crazyspace_get_first_deform_matrices_editbmesh(struct Depsgraph *depsgraph,
                                                        Scene *scene,
                                                        Object *ob,
@@ -398,8 +393,7 @@ int BKE_sculpt_get_first_deform_matrices(struct Depsgraph *depsgraph,
     if (crazyspace_modifier_supports_deform_matrices(md)) {
       const ModifierTypeInfo *mti = BKE_modifier_get_info(md->type);
       if (defmats == NULL) {
-        /* NOTE: Evaluated object si re-set to its original undeformed
-         * state. */
+        /* NOTE: Evaluated object is re-set to its original un-deformed state. */
         Mesh *me = object_eval.data;
         me_eval = BKE_mesh_copy_for_eval(me, true);
         crazyspace_init_verts_and_matrices(me_eval, &defmats, &deformedVerts);

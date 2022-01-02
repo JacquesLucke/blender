@@ -95,7 +95,7 @@ void main()
 
 /**
  * ----------------- STEP 0.5 ------------------
- * Custom Coc aware downsampling. Quater res pass.
+ * Custom Coc aware downsampling. Quarter res pass.
  */
 #ifdef DOWNSAMPLE
 
@@ -394,7 +394,7 @@ void main()
   vec2 pixel_size = 0.5 / vec2(textureSize(halfResColorTex, 0).xy);
   vec2 uv = gl_FragCoord.xy * pixel_size;
 
-  /* TODO MAKE SURE TO ALIGN SAMPLE POSITION TO AVOID OFFSET IN THE BOKEH */
+  /* TODO: MAKE SURE TO ALIGN SAMPLE POSITION TO AVOID OFFSET IN THE BOKEH. */
   float depth = texelFetch(sceneDepthTex, ivec2(gl_FragCoord.xy), 0).r;
   float zdepth = linear_depth(depth);
   float coc = calculate_coc(zdepth);

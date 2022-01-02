@@ -45,14 +45,27 @@ struct float4x4 {
     return mat;
   }
 
+  static float4x4 from_location(const float3 location)
+  {
+    float4x4 mat = float4x4::identity();
+    copy_v3_v3(mat.values[3], location);
+    return mat;
+  }
+
   static float4x4 from_normalized_axis_data(const float3 location,
                                             const float3 forward,
                                             const float3 up)
   {
     BLI_ASSERT_UNIT_V3(forward);
     BLI_ASSERT_UNIT_V3(up);
+
+    /* Negate the cross product so that the resulting matrix has determinant 1 (instead of -1).
+     * Without the negation, the result would be a so called improper rotation. That means it
+     * contains a reflection. Such an improper rotation matrix could not be converted to another
+     * representation of a rotation such as euler angles. */
+    const float3 cross = -float3::cross(forward, up);
+
     float4x4 matrix;
-    const float3 cross = float3::cross(forward, up);
     matrix.values[0][0] = forward.x;
     matrix.values[1][0] = cross.x;
     matrix.values[2][0] = up.x;
@@ -109,6 +122,11 @@ struct float4x4 {
     float4x4 result;
     mul_m4_m4m4(result.values, a.values, b.values);
     return result;
+  }
+
+  void operator*=(const float4x4 &other)
+  {
+    mul_m4_m4_post(values, other.values);
   }
 
   /**
@@ -210,6 +228,11 @@ struct float4x4 {
     float result[4][4];
     interp_m4_m4m4(result, a.values, b.values, t);
     return result;
+  }
+
+  bool is_negative() const
+  {
+    return is_negative_m4(ptr());
   }
 
   uint64_t hash() const

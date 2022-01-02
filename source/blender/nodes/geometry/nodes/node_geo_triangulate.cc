@@ -27,18 +27,16 @@ Mesh *triangulate_mesh(Mesh *mesh,
                        const int flag);
 }
 
-static bNodeSocketTemplate geo_node_triangulate_in[] = {
-    {SOCK_GEOMETRY, N_("Geometry")},
-    {SOCK_INT, N_("Minimum Vertices"), 4, 0, 0, 0, 4, 10000},
-    {-1, ""},
-};
+namespace blender::nodes::node_geo_triangulate_cc {
 
-static bNodeSocketTemplate geo_node_triangulate_out[] = {
-    {SOCK_GEOMETRY, N_("Geometry")},
-    {-1, ""},
-};
+static void node_declare(NodeDeclarationBuilder &b)
+{
+  b.add_input<decl::Geometry>(N_("Mesh")).supported_type(GEO_COMPONENT_TYPE_MESH);
+  b.add_input<decl::Int>(N_("Minimum Vertices")).default_value(4).min(4).max(10000);
+  b.add_output<decl::Geometry>(N_("Mesh"));
+}
 
-static void geo_node_triangulate_layout(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+static void node_layout(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
 {
   uiItemR(layout, ptr, "quad_method", 0, "", ICON_NONE);
   uiItemR(layout, ptr, "ngon_method", 0, "", ICON_NONE);
@@ -50,10 +48,9 @@ static void geo_triangulate_init(bNodeTree *UNUSED(ntree), bNode *node)
   node->custom2 = GEO_NODE_TRIANGULATE_NGON_BEAUTY;
 }
 
-namespace blender::nodes {
-static void geo_node_triangulate_exec(GeoNodeExecParams params)
+static void node_geo_exec(GeoNodeExecParams params)
 {
-  GeometrySet geometry_set = params.extract_input<GeometrySet>("Geometry");
+  GeometrySet geometry_set = params.extract_input<GeometrySet>("Mesh");
   const int min_vertices = std::max(params.extract_input<int>("Minimum Vertices"), 4);
 
   GeometryNodeTriangulateQuads quad_method = static_cast<GeometryNodeTriangulateQuads>(
@@ -61,27 +58,29 @@ static void geo_node_triangulate_exec(GeoNodeExecParams params)
   GeometryNodeTriangulateNGons ngon_method = static_cast<GeometryNodeTriangulateNGons>(
       params.node().custom2);
 
-  geometry_set = geometry_set_realize_instances(geometry_set);
+  geometry_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
+    /* #triangulate_mesh might modify the input mesh currently. */
+    Mesh *mesh_in = geometry_set.get_mesh_for_write();
+    if (mesh_in != nullptr) {
+      Mesh *mesh_out = triangulate_mesh(mesh_in, quad_method, ngon_method, min_vertices, 0);
+      geometry_set.replace_mesh(mesh_out);
+    }
+  });
 
-  /* #triangulate_mesh might modify the input mesh currently. */
-  Mesh *mesh_in = geometry_set.get_mesh_for_write();
-  if (mesh_in != nullptr) {
-    Mesh *mesh_out = triangulate_mesh(mesh_in, quad_method, ngon_method, min_vertices, 0);
-    geometry_set.replace_mesh(mesh_out);
-  }
-
-  params.set_output("Geometry", std::move(geometry_set));
+  params.set_output("Mesh", std::move(geometry_set));
 }
-}  // namespace blender::nodes
+}  // namespace blender::nodes::node_geo_triangulate_cc
 
 void register_node_type_geo_triangulate()
 {
+  namespace file_ns = blender::nodes::node_geo_triangulate_cc;
+
   static bNodeType ntype;
 
   geo_node_type_base(&ntype, GEO_NODE_TRIANGULATE, "Triangulate", NODE_CLASS_GEOMETRY, 0);
-  node_type_socket_templates(&ntype, geo_node_triangulate_in, geo_node_triangulate_out);
-  node_type_init(&ntype, geo_triangulate_init);
-  ntype.geometry_node_execute = blender::nodes::geo_node_triangulate_exec;
-  ntype.draw_buttons = geo_node_triangulate_layout;
+  ntype.declare = file_ns::node_declare;
+  node_type_init(&ntype, file_ns::geo_triangulate_init);
+  ntype.geometry_node_execute = file_ns::node_geo_exec;
+  ntype.draw_buttons = file_ns::node_layout;
   nodeRegisterType(&ntype);
 }

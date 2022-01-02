@@ -91,21 +91,22 @@ typedef struct ScanFillFace {
 } ScanFillFace;
 
 /* scanfill.c */
+
 struct ScanFillVert *BLI_scanfill_vert_add(ScanFillContext *sf_ctx, const float vec[3]);
 struct ScanFillEdge *BLI_scanfill_edge_add(ScanFillContext *sf_ctx,
                                            struct ScanFillVert *v1,
                                            struct ScanFillVert *v2);
 
 enum {
-  /* note: using BLI_SCANFILL_CALC_REMOVE_DOUBLES
+  /* NOTE(campbell): using BLI_SCANFILL_CALC_REMOVE_DOUBLES
    * Assumes ordered edges, otherwise we risk an eternal loop
-   * removing double verts. - campbell */
+   * removing double verts. */
   BLI_SCANFILL_CALC_REMOVE_DOUBLES = (1 << 1),
 
   /* calculate isolated polygons */
   BLI_SCANFILL_CALC_POLYS = (1 << 2),
 
-  /* note: This flag removes checks for overlapping polygons.
+  /* NOTE: This flag removes checks for overlapping polygons.
    * when this flag is set, we'll never get back more faces than (totvert - 2) */
   BLI_SCANFILL_CALC_HOLES = (1 << 3),
 
@@ -123,6 +124,12 @@ void BLI_scanfill_begin_arena(ScanFillContext *sf_ctx, struct MemArena *arena);
 void BLI_scanfill_end_arena(ScanFillContext *sf_ctx, struct MemArena *arena);
 
 /* scanfill_utils.c */
+
+/**
+ * Call before scan-fill to remove self intersections.
+ *
+ * \return false if no changes were made.
+ */
 bool BLI_scanfill_calc_self_isect(ScanFillContext *sf_ctx,
                                   ListBase *fillvertbase,
                                   ListBase *filledgebase);

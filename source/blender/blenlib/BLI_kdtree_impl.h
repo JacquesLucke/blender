@@ -16,7 +16,7 @@
 
 /** \file
  * \ingroup bli
- * \brief A kd-tree for nearest neighbor search.
+ * \brief A KD-tree for nearest neighbor search.
  */
 
 #include "BLI_compiler_attrs.h"
@@ -74,7 +74,7 @@ int BLI_kdtree_nd_(calc_duplicates_fast)(const KDTree *tree,
 
 int BLI_kdtree_nd_(deduplicate)(KDTree *tree);
 
-/* Versions of find/range search that take a squared distance callback to support bias. */
+/** Versions of find/range search that take a squared distance callback to support bias. */
 int BLI_kdtree_nd_(find_nearest_n_with_len_squared_cb)(
     const KDTree *tree,
     const float co[KD_DIMS],

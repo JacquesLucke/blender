@@ -36,8 +36,10 @@
 #include "BLT_translation.h"
 
 #include "transform.h"
-#include "transform_mode.h"
+#include "transform_convert.h"
 #include "transform_snap.h"
+
+#include "transform_mode.h"
 
 /* -------------------------------------------------------------------- */
 /** \name Transform (Mask Shrink/Fatten)
@@ -50,7 +52,7 @@ static void applyMaskShrinkFatten(TransInfo *t, const int UNUSED(mval[2]))
   bool initial_feather = false;
   char str[UI_MAX_DRAW_STR];
 
-  ratio = t->values[0];
+  ratio = t->values[0] + t->values_modal_offset[0];
 
   transform_snap_increment(t, &ratio);
 
@@ -89,7 +91,7 @@ static void applyMaskShrinkFatten(TransInfo *t, const int UNUSED(mval[2]))
 
   /* apply shrink/fatten */
   FOREACH_TRANS_DATA_CONTAINER (t, tc) {
-    TransData *td = tc->data;
+    TransData *td;
     for (td = tc->data, i = 0; i < tc->data_len; i++, td++) {
       if (td->flag & TD_SKIP) {
         continue;
@@ -139,4 +141,5 @@ void initMaskShrinkFatten(TransInfo *t)
 
   t->flag |= T_NO_CONSTRAINT;
 }
+
 /** \} */

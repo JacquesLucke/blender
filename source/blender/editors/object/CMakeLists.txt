@@ -37,6 +37,9 @@ set(INC
   ../../../../intern/clog
   ../../../../intern/glew-mx
   ../../../../intern/guardedalloc
+
+  # dna_type_offsets.h in BLO_read_write.h
+  ${CMAKE_BINARY_DIR}/source/blender/makesdna/intern
 )
 
 set(SRC
@@ -56,7 +59,7 @@ set(SRC
   object_ops.c
   object_random.c
   object_relations.c
-  object_remesh.c
+  object_remesh.cc
   object_select.c
   object_shader_fx.c
   object_shapekey.c
@@ -93,3 +96,5 @@ if(WITH_EXPERIMENTAL_FEATURES)
 endif()
 
 blender_add_lib(bf_editor_object "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+
+add_dependencies(bf_editor_object bf_dna)

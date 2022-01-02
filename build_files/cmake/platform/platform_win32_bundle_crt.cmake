@@ -15,10 +15,19 @@ if(WITH_WINDOWS_BUNDLE_CRT)
 
   include(InstallRequiredSystemLibraries)
 
+  # ucrtbase(d).dll cannot be in the manifest, due to the way windows 10 handles
+  # redirects for this dll, for details see T88813.
+  foreach(lib ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS})
+    string(FIND ${lib} "ucrtbase" pos)
+    if(NOT pos EQUAL -1)
+      list(REMOVE_ITEM CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS ${lib})
+      install(FILES ${lib} DESTINATION . COMPONENT Libraries)
+    endif()
+  endforeach()
   # Install the CRT to the blender.crt Sub folder.
   install(FILES ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS} DESTINATION ./blender.crt COMPONENT Libraries)
 
-  # Generating the manifest is a relativly expensive operation since
+  # Generating the manifest is a relatively expensive operation since
   # it is collecting an sha1 hash for every file required. so only do
   # this work when the libs have either changed or the manifest does
   # not exist yet.

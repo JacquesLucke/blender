@@ -121,20 +121,19 @@ void USDAbstractWriter::write_visibility(const HierarchyContext &context,
   usd_value_writer_.SetAttribute(attr_visibility, pxr::VtValue(visibility), timecode);
 }
 
-/* Reference the original data instead of writing a copy. */
 bool USDAbstractWriter::mark_as_instance(const HierarchyContext &context, const pxr::UsdPrim &prim)
 {
   BLI_assert(context.is_instance());
 
   if (context.export_path == context.original_export_path) {
     printf("USD ref error: export path is reference path: %s\n", context.export_path.c_str());
-    BLI_assert(!"USD reference error");
+    BLI_assert_msg(0, "USD reference error");
     return false;
   }
 
   pxr::SdfPath ref_path(context.original_export_path);
   if (!prim.GetReferences().AddInternalReference(ref_path)) {
-    /* See this URL for a description fo why referencing may fail"
+    /* See this URL for a description for why referencing may fail"
      * https://graphics.pixar.com/usd/docs/api/class_usd_references.html#Usd_Failing_References
      */
     printf("USD Export warning: unable to add reference from %s to %s, not instancing object\n",

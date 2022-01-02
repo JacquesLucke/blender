@@ -17,7 +17,7 @@
 # ***** END GPL LICENSE BLOCK *****
 
 ########################################################################
-# Copy all generated files to the proper strucure as blender prefers
+# Copy all generated files to the proper structure as blender prefers
 ########################################################################
 
 if(NOT DEFINED HARVEST_TARGET)
@@ -106,6 +106,7 @@ harvest(llvm/include llvm/include "*")
 harvest(llvm/bin llvm/bin "llvm-config")
 harvest(llvm/lib llvm/lib "libLLVM*.a")
 harvest(llvm/lib llvm/lib "libclang*.a")
+harvest(llvm/lib/clang llvm/lib/clang "*.h")
 if(APPLE)
   harvest(openmp/lib openmp/lib "*")
   harvest(openmp/include openmp/include "*.h")
@@ -126,6 +127,8 @@ if(UNIX AND NOT APPLE)
 
   harvest(xml2/include xml2/include "*.h")
   harvest(xml2/lib xml2/lib "*.a")
+
+  harvest(wayland-protocols/share/wayland-protocols wayland-protocols/share/wayland-protocols/ "*.xml")
 else()
   harvest(blosc/lib openvdb/lib "*.a")
   harvest(xml2/lib opencollada/lib "*.a")
@@ -190,6 +193,8 @@ harvest(potrace/include potrace/include "*.h")
 harvest(potrace/lib potrace/lib "*.a")
 harvest(haru/include haru/include "*.h")
 harvest(haru/lib haru/lib "*.a")
+harvest(zstd/include zstd/include "*.h")
+harvest(zstd/lib zstd/lib "*.a")
 
 if(UNIX AND NOT APPLE)
   harvest(libglu/lib mesa/lib "*.so*")

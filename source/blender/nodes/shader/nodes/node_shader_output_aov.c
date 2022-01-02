@@ -43,8 +43,9 @@ static int node_shader_gpu_output_aov(GPUMaterial *mat,
 {
   GPUNodeLink *outlink;
   NodeShaderOutputAOV *aov = (NodeShaderOutputAOV *)node->storage;
-  /* Keep in sync with `renderpass_lib.glsl#render_pass_aov_hash`. */
-  unsigned int hash = BLI_hash_string(aov->name) & ~1;
+  /* Keep in sync with `renderpass_lib.glsl#render_pass_aov_hash` and
+   * `EEVEE_renderpasses_aov_hash`. */
+  unsigned int hash = BLI_hash_string(aov->name) << 1;
   GPU_stack_link(mat, node, "node_output_aov", in, out, &outlink);
   GPU_material_add_output_link_aov(mat, outlink, hash);
 
@@ -63,8 +64,7 @@ void register_node_type_sh_output_aov(void)
       &ntype, "NodeShaderOutputAOV", node_free_standard_storage, node_copy_standard_storage);
   node_type_gpu(&ntype, node_shader_gpu_output_aov);
 
-  /* Do not allow muting output node. */
-  node_type_internal_links(&ntype, NULL);
+  ntype.no_muting = true;
 
   nodeRegisterType(&ntype);
 }

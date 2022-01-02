@@ -98,7 +98,7 @@ const char *imb_ext_movie[] = {
     ".mpg2", ".vob", ".mkv", ".flv",   ".divx", ".xvid", ".mxf", ".webm", NULL,
 };
 
-/* sort of wrong being here... */
+/** Sort of wrong having audio extensions in imbuf. */
 const char *imb_ext_audio[] = {
     ".wav",
     ".ogg",
@@ -182,7 +182,7 @@ bool IMB_ispic_type_matches(const char *filepath, int filetype)
 
   const ImFileType *type = IMB_file_type_from_ftype(filetype);
   if (type != NULL) {
-    /* Requesting to load a type that can't check it's own header doesn't make sense.
+    /* Requesting to load a type that can't check its own header doesn't make sense.
      * Keep the check for developers. */
     BLI_assert(type->is_a != NULL);
     if (type->is_a != NULL) {
