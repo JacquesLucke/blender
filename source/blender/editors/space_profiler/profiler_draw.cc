@@ -205,7 +205,7 @@ class ProfilerDrawer {
 
     immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
-    const Color4f color = this->get_node_color(node);
+    const ColorGeometry4f color = this->get_node_color(node);
     immUniformColor4fv(color);
 
     const float top_y = this->node_y_to_region_y(node.top_y);
@@ -249,7 +249,8 @@ class ProfilerDrawer {
     UI_but_func_tooltip_set(but,
                             node_tooltip_fn,
                             new (MEM_mallocN(sizeof(NodeTooltipArg), __func__))
-                                NodeTooltipArg{&node});
+                                NodeTooltipArg{&node},
+                            MEM_freeN);
     UI_but_func_set(but, node_click_fn, &node, profiler_layout_);
   }
 
@@ -309,7 +310,7 @@ class ProfilerDrawer {
     return region_->winy + y * UI_UNIT_Y - region_->v2d.cur.ymax;
   }
 
-  Color4f get_node_color(ProfileNode &node)
+  ColorGeometry4f get_node_color(ProfileNode &node)
   {
     const uint64_t value = POINTER_AS_UINT(&node);
     const float variation = BLI_hash_int_2d_to_float(value, value >> 32);

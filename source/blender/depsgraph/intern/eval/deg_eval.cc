@@ -422,13 +422,13 @@ void deg_evaluate_on_refresh(Depsgraph *graph)
   deg_graph_clear_tags(graph);
   graph->is_evaluating = false;
 
+  BLI_profile_task_end(&state.profile_task);
+
 #ifdef WITH_PYTHON
   BPy_END_ALLOW_THREADS;
 #endif
 
   graph->debug.end_graph_evaluation();
-
-  BLI_profile_task_end(&state.profile_task);
 }
 
 }  // namespace blender::deg
