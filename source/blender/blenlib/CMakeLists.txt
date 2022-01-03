@@ -68,6 +68,7 @@ set(SRC
   intern/boxpack_2d.c
   intern/buffer.c
   intern/convexhull_2d.c
+  intern/copy_on_write.cc
   intern/delaunay_2d.cc
   intern/dot_export.cc
   intern/dynlib.c
@@ -187,6 +188,7 @@ set(SRC
   BLI_compiler_typecheck.h
   BLI_console.h
   BLI_convexhull_2d.h
+  BLI_copy_on_write.h
   BLI_delaunay_2d.h
   BLI_dial_2d.h
   BLI_disjoint_set.hh
