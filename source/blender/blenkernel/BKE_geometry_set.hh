@@ -30,7 +30,6 @@
 #include "BLI_hash.hh"
 #include "BLI_map.hh"
 #include "BLI_set.hh"
-#include "BLI_user_counter.hh"
 #include "BLI_vector_set.hh"
 
 #include "BKE_anonymous_attribute.hh"
