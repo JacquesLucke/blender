@@ -191,7 +191,7 @@ struct GatherTasks {
 
   /* Volumes only have very simple support currently. Only the first found volume is put into the
    * output. */
-  UserCounter<VolumeComponent> first_volume;
+  COWUser<VolumeComponent> first_volume;
 };
 
 /** Current offsets while during the gather operation. */
@@ -480,7 +480,7 @@ static void gather_realize_tasks_recursive(GatherTasksInfo &gather_info,
       case GEO_COMPONENT_TYPE_VOLUME: {
         const VolumeComponent *volume_component = static_cast<const VolumeComponent *>(component);
         if (!gather_info.r_tasks.first_volume) {
-          volume_component->user_add();
+          volume_component->cow().user_add();
           gather_info.r_tasks.first_volume = const_cast<VolumeComponent *>(volume_component);
         }
         break;

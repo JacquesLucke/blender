@@ -23,6 +23,7 @@
 #include <atomic>
 #include <iostream>
 
+#include "BLI_copy_on_write.h"
 #include "BLI_float3.hh"
 #include "BLI_float4x4.hh"
 #include "BLI_function_ref.hh"
@@ -63,14 +64,13 @@ class GeometryComponent;
 
 /**
  * This is the base class for specialized geometry component types. A geometry component handles
- * a user count to allow avoiding duplication when it is wrapped with #UserCounter. It also handles
- * the attribute API, which generalizes storing and modifying generic information on a geometry.
+ * a user count to allow avoiding duplication when it is wrapped with #bCopyOnWrite. It also
+ * handles the attribute API, which generalizes storing and modifying generic information on a
+ * geometry.
  */
 class GeometryComponent {
  private:
-  /* The reference count has two purposes. When it becomes zero, the component is freed. When it is
-   * larger than one, the component becomes immutable. */
-  mutable std::atomic<int> users_ = 1;
+  blender::bCopyOnWrite cow_;
   GeometryComponentType type_;
 
  public:
@@ -81,14 +81,22 @@ class GeometryComponent {
   /* The returned component should be of the same type as the type this is called on. */
   virtual GeometryComponent *copy() const = 0;
 
+  const blender::bCopyOnWrite &cow() const
+  {
+    return cow_;
+  }
+
+  void cow_delete_self() const
+  {
+    delete this;
+  }
+
   /* Direct data is everything except for instances of objects/collections.
    * If this returns true, the geometry set can be cached and is still valid after e.g. modifier
    * evaluation ends. Instances can only be valid as long as the data they instance is valid. */
   virtual bool owns_direct_data() const = 0;
   virtual void ensure_owns_direct_data() = 0;
 
-  void user_add() const;
-  void user_remove() const;
   bool is_mutable() const;
 
   GeometryComponentType type() const;
@@ -310,7 +318,7 @@ inline constexpr bool is_geometry_component_v = std::is_base_of_v<GeometryCompon
  */
 struct GeometrySet {
  private:
-  using GeometryComponentPtr = blender::UserCounter<class GeometryComponent>;
+  using GeometryComponentPtr = blender::COWUser<class GeometryComponent>;
   /* Indexed by #GeometryComponentType. */
   std::array<GeometryComponentPtr, GEO_COMPONENT_TYPE_ENUM_SIZE> components_;
 

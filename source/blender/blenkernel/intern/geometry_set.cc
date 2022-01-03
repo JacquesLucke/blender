@@ -69,24 +69,9 @@ GeometryComponent *GeometryComponent::create(GeometryComponentType component_typ
   return nullptr;
 }
 
-void GeometryComponent::user_add() const
-{
-  users_.fetch_add(1);
-}
-
-void GeometryComponent::user_remove() const
-{
-  const int new_users = users_.fetch_sub(1) - 1;
-  if (new_users == 0) {
-    delete this;
-  }
-}
-
 bool GeometryComponent::is_mutable() const
 {
-  /* If the item is shared, it is read-only. */
-  /* The user count can be 0, when this is called from the destructor. */
-  return users_ <= 1;
+  return cow_.is_mutable();
 }
 
 GeometryComponentType GeometryComponent::type() const
@@ -168,7 +153,7 @@ void GeometrySet::keep_only(const blender::Span<GeometryComponentType> component
 void GeometrySet::add(const GeometryComponent &component)
 {
   BLI_assert(!components_[component.type()]);
-  component.user_add();
+  component.cow().user_add();
   components_[component.type()] = const_cast<GeometryComponent *>(&component);
 }
 

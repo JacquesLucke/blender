@@ -44,9 +44,9 @@ void BLI_cow_free(const bCopyOnWrite *cow)
   MEM_freeN(const_cast<bCopyOnWrite *>(cow));
 }
 
-void BLI_cow_init(const bCopyOnWrite *cow, int user_count)
+void BLI_cow_init(const bCopyOnWrite *cow)
 {
-  get_counter(cow) = user_count;
+  get_counter(cow) = 1;
 }
 
 bool BLI_cow_is_mutable(const bCopyOnWrite *cow)
@@ -57,11 +57,6 @@ bool BLI_cow_is_mutable(const bCopyOnWrite *cow)
 bool BLI_cow_is_shared(const bCopyOnWrite *cow)
 {
   return cow->user_count >= 2;
-}
-
-bool BLI_cow_is_zero(const bCopyOnWrite *cow)
-{
-  return cow->user_count == 0;
 }
 
 void BLI_cow_user_add(const bCopyOnWrite *cow)
