@@ -41,6 +41,7 @@
 #include "BLT_translation.h"
 
 #include "BKE_context.h"
+#include "BKE_global.h"
 #include "BKE_lib_id.h"
 #include "BKE_report.h"
 
@@ -566,6 +567,8 @@ void ui_rna_collection_search_update_fn(const struct bContext *C,
     }
   }
   else {
+    BLI_string_search_add_recent_list(search, &G.recent_searches);
+
     CollItemSearch **filtered_items;
     int filtered_amount = BLI_string_search_query(search, str, (void ***)&filtered_items);
 

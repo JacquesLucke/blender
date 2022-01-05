@@ -23,6 +23,8 @@
 
 #include "DNA_customdata_types.h"
 
+#include "BKE_global.h"
+
 #include "RNA_access.h"
 #include "RNA_enum_types.h"
 
@@ -108,6 +110,8 @@ void attribute_search_add_items(StringRefNull str,
 
     BLI_string_search_add(search, item->name.c_str(), (void *)item, 0);
   }
+
+  BLI_string_search_add_recent_list(search, &G.recent_searches);
 
   GeometryAttributeInfo **filtered_items;
   const int filtered_amount = BLI_string_search_query(search, string, (void ***)&filtered_items);

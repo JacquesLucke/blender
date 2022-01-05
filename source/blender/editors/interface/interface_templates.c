@@ -439,6 +439,8 @@ static void id_search_cb(const bContext *C,
     }
   }
 
+  BLI_string_search_add_recent_list(search, &G.recent_searches);
+
   ID **filtered_ids;
   const int filtered_amount = BLI_string_search_query(search, str, (void ***)&filtered_ids);
 
@@ -475,6 +477,8 @@ static void id_search_cb_tagged(const bContext *C,
       id->tag &= ~LIB_TAG_DOIT;
     }
   }
+
+  BLI_string_search_add_recent_list(search, &G.recent_searches);
 
   ID **filtered_ids;
   const int filtered_amount = BLI_string_search_query(search, str, (void ***)&filtered_ids);

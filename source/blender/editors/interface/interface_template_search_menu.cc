@@ -1017,6 +1017,8 @@ static void menu_search_update_fn(const bContext *UNUSED(C),
     BLI_string_search_add(search, item->drawwstr_full, item, 0);
   }
 
+  BLI_string_search_add_recent_list(search, &G.recent_searches);
+
   MenuSearch_Item **filtered_items;
   const int filtered_amount = BLI_string_search_query(search, str, (void ***)&filtered_items);
 

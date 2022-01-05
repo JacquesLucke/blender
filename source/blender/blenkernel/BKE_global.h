@@ -57,6 +57,12 @@ typedef struct Global {
   struct ListBase recent_files;
 
   /**
+   * Strings of recently selected search results.
+   * List of #RecentSearch.
+   */
+  struct ListBase recent_searches;
+
+  /**
    * Set when Escape been pressed or `Ctrl-C` pressed in background mode.
    * Used for render quit and some other background tasks such as baking.
    */

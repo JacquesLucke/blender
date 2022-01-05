@@ -23,6 +23,7 @@
 #include "BLI_string_search.h"
 #include "BLI_string_utf8.h"
 #include "BLI_timeit.hh"
+#include "BLI_vector_set.hh"
 
 /* Right arrow, keep in sync with #UI_MENU_ARROW_SEP in `UI_interface.h`. */
 #define UI_MENU_ARROW_SEP "\xe2\x96\xb6"
@@ -387,7 +388,7 @@ void extract_normalized_words(StringRef str,
 
 struct SearchItem {
   blender::Span<blender::StringRef> normalized_words;
-  int length;
+  blender::StringRefNull full_str;
   void *user_data;
   int weight;
 };
@@ -395,6 +396,7 @@ struct SearchItem {
 struct StringSearch {
   blender::LinearAllocator<> allocator;
   blender::Vector<SearchItem> items;
+  blender::VectorSet<std::string> recent_searches;
 };
 
 StringSearch *BLI_string_search_new()
@@ -412,9 +414,16 @@ void BLI_string_search_add(StringSearch *search,
   StringRef str_ref{str};
   string_search::extract_normalized_words(str_ref, search->allocator, words);
   search->items.append({search->allocator.construct_array_copy(words.as_span()),
-                        (int)str_ref.size(),
+                        search->allocator.copy_string(str_ref),
                         user_data,
                         weight});
+}
+
+void BLI_string_search_add_recent_list(StringSearch *search, const ListBase *recent_searches)
+{
+  LISTBASE_FOREACH (const RecentSearch *, recent_search, recent_searches) {
+    search->recent_searches.add(recent_search->str);
+  }
 }
 
 int BLI_string_search_query(StringSearch *search, const char *query, void ***r_data)
@@ -444,21 +453,39 @@ int BLI_string_search_query(StringSearch *search, const char *query, void ***r_d
   std::sort(found_scores.begin(), found_scores.end(), std::greater<>());
 
   /* Add results to output vector in correct order. First come the results with the best match
-   * score. Results with the same score are in the order they have been added to the search. */
+   * score. Results with the same score are sorted based ona various additional criteria. */
   Vector<int> sorted_result_indices;
   for (const int score : found_scores) {
     MutableSpan<int> indices = result_indices_by_score.lookup(score);
-    if (score == found_scores[0] && !query_str.is_empty()) {
-      /* Sort items with best score by length. Shorter items are more likely the ones you are
-       * looking for. This also ensures that exact matches will be at the top, even if the query is
-       * a substring of another item. */
-      std::sort(indices.begin(), indices.end(), [&](int a, int b) {
-        return search->items[a].length < search->items[b].length;
-      });
-      /* Prefer items with larger weights. Use `stable_sort` so that if the weights are the same,
-       * the order won't be changed. */
+    if (score == found_scores[0]) {
       std::stable_sort(indices.begin(), indices.end(), [&](int a, int b) {
-        return search->items[a].weight > search->items[b].weight;
+        const SearchItem &item_a = search->items[a];
+        const SearchItem &item_b = search->items[b];
+
+        /* Prefer items that have been selected recently. */
+        const int recent_index_a = search->recent_searches.index_of_try_as(item_a.full_str);
+        const int recent_index_b = search->recent_searches.index_of_try_as(item_b.full_str);
+        if (recent_index_a != recent_index_b) {
+          return recent_index_a > recent_index_b;
+        }
+
+        if (query_str.is_empty()) {
+          /* When the query is empty, keep the order in which the elements have been added to the
+           * search (see T86891). */
+          return a < b;
+        }
+
+        /* Prefer items with higher weight. */
+        if (item_a.weight != item_b.weight) {
+          return item_a.weight > item_b.weight;
+        }
+
+        /* Prefer shorter items. Shorter items are more likely the ones you are
+         * looking for. This also ensures that exact matches will be at the top, even if the
+         * query is a substring of another item. */
+        const int size_a = item_a.full_str.size();
+        const int size_b = item_b.full_str.size();
+        return size_a < size_b;
       });
     }
     sorted_result_indices.extend(indices);

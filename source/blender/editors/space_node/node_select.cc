@@ -36,6 +36,7 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_context.h"
+#include "BKE_global.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
 #include "BKE_workspace.h"
@@ -1206,6 +1207,8 @@ static void node_find_update_fn(const struct bContext *C,
     node_find_create_label(node, name, ARRAY_SIZE(name));
     BLI_string_search_add(search, name, node, 0);
   }
+
+  BLI_string_search_add_recent_list(search, &G.recent_searches);
 
   bNode **filtered_nodes;
   int filtered_amount = BLI_string_search_query(search, str, (void ***)&filtered_nodes);

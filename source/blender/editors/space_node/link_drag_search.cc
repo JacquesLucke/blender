@@ -20,6 +20,7 @@
 #include "DNA_space_types.h"
 
 #include "BKE_context.h"
+#include "BKE_global.h"
 
 #include "NOD_socket_search_link.hh"
 
@@ -188,6 +189,8 @@ static void link_drag_search_update_fn(const bContext *UNUSED(C),
   for (SocketLinkOperation &op : storage.search_link_ops) {
     BLI_string_search_add(search, op.name.c_str(), &op, op.weight);
   }
+
+  BLI_string_search_add_recent_list(search, &G.recent_searches);
 
   /* Don't filter when the menu is first opened, but still run the search
    * so the items are in the same order they will appear in while searching. */

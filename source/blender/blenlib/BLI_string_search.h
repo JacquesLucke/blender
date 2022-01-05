@@ -16,11 +16,18 @@
 
 #pragma once
 
+#include "BLI_listbase.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 typedef struct StringSearch StringSearch;
+
+typedef struct RecentSearch {
+  struct RecentSearch *next, *prev;
+  const char *str;
+} RecentSearch;
 
 StringSearch *BLI_string_search_new(void);
 /**
@@ -30,6 +37,12 @@ StringSearch *BLI_string_search_new(void);
  * \param weight: Can be used to customize the order when multiple items have the same match score.
  */
 void BLI_string_search_add(StringSearch *search, const char *str, void *user_data, int weight);
+
+/**
+ * Add a list of recent searches. Those search results may be ranked higher because it is more
+ * likely that they are searched for again.
+ */
+void BLI_string_search_add_recent_list(StringSearch *search, const ListBase *recent_searches);
 
 /**
  * Filter and sort all previously added search items.

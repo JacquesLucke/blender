@@ -43,6 +43,7 @@
 #include "BLI_sort_utils.h"
 #include "BLI_string.h"
 #include "BLI_string_cursor_utf8.h"
+#include "BLI_string_search.h"
 #include "BLI_string_utf8.h"
 #include "BLI_utildefines.h"
 
@@ -55,6 +56,7 @@
 #include "BKE_colortools.h"
 #include "BKE_context.h"
 #include "BKE_curveprofile.h"
+#include "BKE_global.h"
 #include "BKE_movieclip.h"
 #include "BKE_paint.h"
 #include "BKE_report.h"
@@ -1232,6 +1234,9 @@ static void ui_apply_but_TEX(bContext *C, uiBut *but, uiHandleButtonData *data)
   if ((but->func_arg2 == NULL) && (but->type == UI_BTYPE_SEARCH_MENU)) {
     uiButSearch *search_but = (uiButSearch *)but;
     but->func_arg2 = search_but->item_active;
+    RecentSearch *recent_search = MEM_callocN(sizeof(RecentSearch), __func__);
+    recent_search->str = BLI_strdup(search_but->item_active_str);
+    BLI_addtail(&G.recent_searches, recent_search);
   }
 
   ui_apply_but_func(C, but);

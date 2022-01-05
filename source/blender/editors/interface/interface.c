@@ -51,6 +51,7 @@
 
 #include "BKE_animsys.h"
 #include "BKE_context.h"
+#include "BKE_global.h"
 #include "BKE_idprop.h"
 #include "BKE_main.h"
 #include "BKE_report.h"
@@ -3330,6 +3331,7 @@ static void ui_but_free_type_specific(uiBut *but)
   switch (but->type) {
     case UI_BTYPE_SEARCH_MENU: {
       uiButSearch *search_but = (uiButSearch *)but;
+      MEM_SAFE_FREE(search_but->item_active_str);
 
       if (search_but->arg_free_fn) {
         search_but->arg_free_fn(search_but->arg);
@@ -6373,6 +6375,8 @@ static void operator_enum_search_update_fn(const struct bContext *C,
     for (const EnumPropertyItem *item = all_items; item->identifier; item++) {
       BLI_string_search_add(search, item->name, (void *)item, 0);
     }
+
+    BLI_string_search_add_recent_list(search, &G.recent_searches);
 
     const EnumPropertyItem **filtered_items;
     const int filtered_amount = BLI_string_search_query(search, str, (void ***)&filtered_items);
