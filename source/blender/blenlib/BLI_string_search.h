@@ -26,7 +26,7 @@ typedef struct StringSearch StringSearch;
 
 typedef struct RecentSearch {
   struct RecentSearch *next, *prev;
-  const char *str;
+  char *str;
 } RecentSearch;
 
 StringSearch *BLI_string_search_new(void);

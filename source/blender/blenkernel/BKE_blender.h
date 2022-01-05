@@ -35,6 +35,7 @@ struct UserDef;
 void BKE_blender_free(void);
 
 void BKE_blender_globals_init(void);
+void BKE_blender_globals_clear_main(void);
 void BKE_blender_globals_clear(void);
 
 void BKE_blender_userdef_data_swap(struct UserDef *userdef_a, struct UserDef *userdef_b);

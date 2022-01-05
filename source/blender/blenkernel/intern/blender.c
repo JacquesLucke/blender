@@ -31,6 +31,7 @@
 
 #include "BLI_listbase.h"
 #include "BLI_string.h"
+#include "BLI_string_search.h"
 #include "BLI_utildefines.h"
 
 #include "IMB_imbuf.h"
@@ -78,8 +79,7 @@ void BKE_blender_free(void)
   /* Needs to run before main free as wm is still referenced for icons preview jobs. */
   BKE_studiolight_free();
 
-  BKE_main_free(G_MAIN);
-  G_MAIN = NULL;
+  BKE_blender_globals_clear();
 
   if (G.log.file != NULL) {
     fclose(G.log.file);
@@ -175,11 +175,22 @@ void BKE_blender_globals_init(void)
   G.log.level = 1;
 }
 
-void BKE_blender_globals_clear(void)
+void BKE_blender_globals_clear_main(void)
 {
   BKE_main_free(G_MAIN); /* free all lib data */
 
   G_MAIN = NULL;
+}
+
+void BKE_blender_globals_clear(void)
+{
+  BKE_blender_globals_clear_main();
+
+  LISTBASE_FOREACH_MUTABLE (RecentSearch *, recent_search, &G.recent_searches) {
+    BLI_remlink(&G.recent_searches, recent_search);
+    MEM_freeN(recent_search->str);
+    MEM_freeN(recent_search);
+  }
 }
 
 /** \} */
