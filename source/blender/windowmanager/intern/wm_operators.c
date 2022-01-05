@@ -1712,6 +1712,7 @@ static uiBlock *wm_block_search_menu(bContext *C, ARegion *region, void *userdat
 {
   const struct SearchPopupInit_Data *init_data = userdata;
   static char search[256] = "";
+  search[0] = '\0';
 
   uiBlock *block = UI_block_begin(C, region, "_popup", UI_EMBOSS);
   UI_block_flag_enable(block, UI_BLOCK_LOOP | UI_BLOCK_MOVEMOUSE_QUIT | UI_BLOCK_SEARCH_MENU);

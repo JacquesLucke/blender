@@ -131,6 +131,7 @@ void uiTemplateOperatorSearch(uiLayout *layout)
   uiBlock *block;
   uiBut *but;
   static char search[256] = "";
+  search[0] = '\0';
 
   block = uiLayoutGetBlock(layout);
   UI_block_layout_set_current(block, layout);
