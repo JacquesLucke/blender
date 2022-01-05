@@ -57,7 +57,9 @@ typedef struct Global {
   struct ListBase recent_files;
 
   /**
-   * Strings of recently selected search results.
+   * Strings of recently selected search results. This allows showing them at the top for
+   * subsequent searches. The most recent items are at the tail of the list.
+   *
    * List of #RecentSearch.
    */
   struct ListBase recent_searches;
