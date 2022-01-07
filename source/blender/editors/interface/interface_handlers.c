@@ -1236,20 +1236,7 @@ static void ui_apply_but_TEX(bContext *C, uiBut *but, uiHandleButtonData *data)
     but->func_arg2 = search_but->item_active;
 
     /* Remember search item so that it can show up at the top the next time. */
-    bool moved_item = false;
-    LISTBASE_FOREACH_MUTABLE (RecentSearch *, recent_search, &G.recent_searches) {
-      if (STREQ(recent_search->str, search_but->item_active_str)) {
-        BLI_remlink(&G.recent_searches, recent_search);
-        BLI_addtail(&G.recent_searches, recent_search);
-        moved_item = true;
-        break;
-      }
-    }
-    if (!moved_item) {
-      RecentSearch *recent_search = MEM_callocN(sizeof(RecentSearch), __func__);
-      recent_search->str = BLI_strdup(search_but->item_active_str);
-      BLI_addtail(&G.recent_searches, recent_search);
-    }
+    BKE_global_recent_search_add(search_but->item_active_str);
   }
 
   ui_apply_but_func(C, but);

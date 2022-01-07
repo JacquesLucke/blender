@@ -287,6 +287,8 @@ extern Global G;
  */
 #define G_MAIN (G).main
 
+void BKE_global_recent_search_add(const char *search_str);
+
 #ifdef __cplusplus
 }
 #endif

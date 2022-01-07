@@ -152,6 +152,7 @@ set(SRC
   intern/geometry_component_volume.cc
   intern/geometry_set.cc
   intern/geometry_set_instances.cc
+  intern/global.cc
   intern/gpencil.c
   intern/gpencil_curve.c
   intern/gpencil_geom.cc
