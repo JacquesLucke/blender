@@ -24,16 +24,16 @@
 void BKE_global_recent_search_add(const char *search_str)
 {
   /* If the search string is in the list already, move it to the tail. */
-  LISTBASE_FOREACH_MUTABLE (RecentSearch *, recent_search, &G.recent_searches) {
-    if (STREQ(recent_search->str, search_str)) {
-      BLI_remlink(&G.recent_searches, recent_search);
-      BLI_addtail(&G.recent_searches, recent_search);
-      return;
-    }
+  RecentSearch *recent_search = static_cast<RecentSearch *>(
+      BLI_findstring_ptr(&G.recent_searches, search_str, offsetof(RecentSearch, str)));
+  if (recent_search != nullptr) {
+    BLI_remlink(&G.recent_searches, recent_search);
+    BLI_addtail(&G.recent_searches, recent_search);
+    return;
   }
 
   /* The search string did not exist yet. Add a new list entry. */
-  RecentSearch *recent_search = MEM_cnew<RecentSearch>(__func__);
+  recent_search = MEM_cnew<RecentSearch>(__func__);
   recent_search->str = BLI_strdup(search_str);
   BLI_addtail(&G.recent_searches, recent_search);
 }

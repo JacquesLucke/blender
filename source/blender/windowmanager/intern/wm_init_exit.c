@@ -402,7 +402,6 @@ static void free_recent_searches(void)
 {
   LISTBASE_FOREACH (RecentSearch *, recent_search, &G.recent_searches) {
     MEM_freeN(recent_search->str);
-    MEM_freeN(recent_search);
   }
   BLI_freelistN(&G.recent_searches);
 }
