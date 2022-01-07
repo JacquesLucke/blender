@@ -31,7 +31,6 @@
 
 #include "BLI_listbase.h"
 #include "BLI_string.h"
-#include "BLI_string_search.h"
 #include "BLI_utildefines.h"
 
 #include "IMB_imbuf.h"
@@ -79,7 +78,8 @@ void BKE_blender_free(void)
   /* Needs to run before main free as wm is still referenced for icons preview jobs. */
   BKE_studiolight_free();
 
-  BKE_blender_globals_clear();
+  BKE_main_free(G_MAIN);
+  G_MAIN = NULL;
 
   if (G.log.file != NULL) {
     fclose(G.log.file);
