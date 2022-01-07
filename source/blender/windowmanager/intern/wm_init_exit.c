@@ -404,7 +404,7 @@ static void free_recent_searches(void)
     MEM_freeN(recent_search->str);
     MEM_freeN(recent_search);
   }
-  BLI_freelinkN(&G.recent_searches);
+  BLI_freelistN(&G.recent_searches);
 }
 
 #ifdef WIN32
