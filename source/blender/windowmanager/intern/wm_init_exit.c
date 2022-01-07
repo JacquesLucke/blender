@@ -44,6 +44,7 @@
 #include "BLI_listbase.h"
 #include "BLI_path_util.h"
 #include "BLI_string.h"
+#include "BLI_string_search.h"
 #include "BLI_task.h"
 #include "BLI_threads.h"
 #include "BLI_timer.h"
@@ -397,6 +398,15 @@ static void free_openrecent(void)
   BLI_freelistN(&(G.recent_files));
 }
 
+static void free_recent_searches(void)
+{
+  LISTBASE_FOREACH (RecentSearch *, recent_search, &G.recent_searches) {
+    MEM_freeN(recent_search->str);
+    MEM_freeN(recent_search);
+  }
+  BLI_freelinkN(&G.recent_searches);
+}
+
 #ifdef WIN32
 /* Read console events until there is a key event.  Also returns on any error. */
 static void wait_for_console_key(void)
@@ -528,6 +538,7 @@ void WM_exit_ex(bContext *C, const bool do_python)
   ED_undosys_type_free();
 
   free_openrecent();
+  free_recent_searches();
 
   BKE_mball_cubeTable_free();
 

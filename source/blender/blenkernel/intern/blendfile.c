@@ -260,7 +260,7 @@ static void setup_app_data(bContext *C,
       win->scene = curscene;
     }
 
-    /* BKE_blender_globals_clear_main will free G_MAIN, here we can still restore pointers */
+    /* BKE_blender_globals_clear will free G_MAIN, here we can still restore pointers */
     blo_lib_link_restore(bmain, bfd->main, CTX_wm_manager(C), curscene, cur_view_layer);
     if (win) {
       curscene = win->scene;
@@ -285,7 +285,7 @@ static void setup_app_data(bContext *C,
 
   /* free G_MAIN Main database */
   //  CTX_wm_manager_set(C, NULL);
-  BKE_blender_globals_clear_main();
+  BKE_blender_globals_clear();
 
   bmain = G_MAIN = bfd->main;
   bfd->main = NULL;

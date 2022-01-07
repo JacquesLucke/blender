@@ -175,22 +175,11 @@ void BKE_blender_globals_init(void)
   G.log.level = 1;
 }
 
-void BKE_blender_globals_clear_main(void)
+void BKE_blender_globals_clear(void)
 {
   BKE_main_free(G_MAIN); /* free all lib data */
 
   G_MAIN = NULL;
-}
-
-void BKE_blender_globals_clear(void)
-{
-  BKE_blender_globals_clear_main();
-
-  LISTBASE_FOREACH_MUTABLE (RecentSearch *, recent_search, &G.recent_searches) {
-    BLI_remlink(&G.recent_searches, recent_search);
-    MEM_freeN(recent_search->str);
-    MEM_freeN(recent_search);
-  }
 }
 
 /** \} */
