@@ -2361,7 +2361,7 @@ void uiTemplateRunningJobs(uiLayout *layout, struct bContext *C);
 void UI_but_func_operator_search(uiBut *but);
 void uiTemplateOperatorSearch(uiLayout *layout);
 
-void UI_but_func_menu_search(uiBut *but);
+void UI_but_func_menu_search(uiBut *but, bool use_recent_searches);
 void uiTemplateMenuSearch(uiLayout *layout);
 
 /**

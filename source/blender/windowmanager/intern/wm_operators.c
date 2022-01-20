@@ -1706,6 +1706,7 @@ struct SearchPopupInit_Data {
   } search_type;
 
   int size[2];
+  bool use_recent_searches;
 };
 
 static uiBlock *wm_block_search_menu(bContext *C, ARegion *region, void *userdata)
@@ -1735,7 +1736,7 @@ static uiBlock *wm_block_search_menu(bContext *C, ARegion *region, void *userdat
     UI_but_func_operator_search(but);
   }
   else if (init_data->search_type == SEARCH_TYPE_MENU) {
-    UI_but_func_menu_search(but);
+    UI_but_func_menu_search(but, init_data->use_recent_searches);
   }
   else {
     BLI_assert_unreachable();
@@ -1799,8 +1800,10 @@ static int wm_search_menu_invoke(bContext *C, wmOperator *op, const wmEvent *eve
   }
 
   int search_type;
+  bool use_recent_searches = true;
   if (STREQ(op->type->idname, "WM_OT_search_menu")) {
     search_type = SEARCH_TYPE_MENU;
+    use_recent_searches = RNA_boolean_get(op->ptr, "use_recent_searches");
   }
   else {
     search_type = SEARCH_TYPE_OPERATOR;
@@ -1810,6 +1813,7 @@ static int wm_search_menu_invoke(bContext *C, wmOperator *op, const wmEvent *eve
   data = (struct SearchPopupInit_Data){
       .search_type = search_type,
       .size = {UI_searchbox_size_x() * 2, UI_searchbox_size_y()},
+      .use_recent_searches = use_recent_searches,
   };
 
   UI_popup_block_invoke_ex(C, wm_block_search_menu, &data, NULL, false);
@@ -1826,6 +1830,14 @@ static void WM_OT_search_menu(wmOperatorType *ot)
   ot->invoke = wm_search_menu_invoke;
   ot->exec = wm_search_menu_exec;
   ot->poll = WM_operator_winactive;
+
+  PropertyRNA *prop;
+  prop = RNA_def_boolean(ot->srna,
+                         "use_recent_searches",
+                         true,
+                         "Use Recent Searches",
+                         "Move menu items that have been searched for recently to the top");
+  RNA_def_property_flag(prop, PROP_HIDDEN);
 }
 
 static void WM_OT_search_operator(wmOperatorType *ot)

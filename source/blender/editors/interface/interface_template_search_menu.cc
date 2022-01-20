@@ -144,6 +144,9 @@ struct MenuSearch_Data {
     uiBut but;
     uiBlock block;
   } context_menu_data;
+
+  /** Can be disabled to support a more predictable behavior when this search is used in tests. */
+  bool use_recent_searches;
 };
 
 static int menu_item_sort_by_drawstr_full(const void *menu_item_a_v, const void *menu_item_b_v)
@@ -1017,7 +1020,9 @@ static void menu_search_update_fn(const bContext *UNUSED(C),
     BLI_string_search_add(search, item->drawwstr_full, item, 0);
   }
 
-  BLI_string_search_add_recent_list(search, &G.recent_searches);
+  if (data->use_recent_searches) {
+    BLI_string_search_add_recent_list(search, &G.recent_searches);
+  }
 
   MenuSearch_Item **filtered_items;
   const int filtered_amount = BLI_string_search_query(search, str, (void ***)&filtered_items);
@@ -1142,7 +1147,7 @@ static struct ARegion *ui_search_menu_create_tooltip(struct bContext *C,
 /** \name Menu Search Template Public API
  * \{ */
 
-void UI_but_func_menu_search(uiBut *but)
+void UI_but_func_menu_search(uiBut *but, bool use_recent_searches)
 {
   bContext *C = (bContext *)but->block->evil_C;
   wmWindow *win = CTX_wm_window(C);
@@ -1151,6 +1156,7 @@ void UI_but_func_menu_search(uiBut *but)
   /* When run from top-bar scan all areas in the current window. */
   const bool include_all_areas = (area && (area->spacetype == SPACE_TOPBAR));
   MenuSearch_Data *data = menu_items_from_ui_create(C, win, area, region, include_all_areas);
+  data->use_recent_searches = use_recent_searches;
   UI_but_func_search_set(but,
                          /* Generic callback. */
                          ui_searchbox_create_menu,
@@ -1178,7 +1184,7 @@ void uiTemplateMenuSearch(uiLayout *layout)
 
   but = uiDefSearchBut(
       block, search, 0, ICON_VIEWZOOM, sizeof(search), 0, 0, UI_UNIT_X * 6, UI_UNIT_Y, 0, 0, "");
-  UI_but_func_menu_search(but);
+  UI_but_func_menu_search(but, true);
 }
 
 /** \} */
