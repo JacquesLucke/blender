@@ -56,11 +56,12 @@ typedef std::unique_ptr<std::remove_pointer_t<HMODULE>, decltype(&::FreeLibrary)
 typedef std::unique_ptr<std::remove_pointer_t<HCTX>, GHOST_WIN32_WTClose> unique_hctx;
 
 struct GHOST_WintabInfoWin32 {
-  int32_t x, y;
-  GHOST_TEventType type;
-  GHOST_TButtonMask button;
-  uint64_t time;
-  GHOST_TabletData tabletData;
+  int32_t x = 0;
+  int32_t y = 0;
+  GHOST_TEventType type = GHOST_kEventCursorMove;
+  GHOST_TButtonMask button = GHOST_kButtonMaskNone;
+  uint64_t time = 0;
+  GHOST_TabletData tabletData = GHOST_TABLET_DATA_NONE;
 };
 
 class GHOST_Wintab {
@@ -213,8 +214,7 @@ class GHOST_Wintab {
   /** Most recently received tablet data, or none if pen is not in range. */
   GHOST_TabletData m_lastTabletData = GHOST_TABLET_DATA_NONE;
 
-  GHOST_Wintab(HWND hwnd,
-               unique_hmodule handle,
+  GHOST_Wintab(unique_hmodule handle,
                GHOST_WIN32_WTInfo info,
                GHOST_WIN32_WTGet get,
                GHOST_WIN32_WTSet set,

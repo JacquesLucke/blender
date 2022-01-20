@@ -418,6 +418,22 @@ static void ntree_shader_groups_expand_inputs(bNodeTree *localtree)
   }
 }
 
+static void ntree_shader_groups_remove_muted_links(bNodeTree *ntree)
+{
+  LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
+    if (node->type == NODE_GROUP) {
+      if (node->id != nullptr) {
+        ntree_shader_groups_remove_muted_links(reinterpret_cast<bNodeTree *>(node->id));
+      }
+    }
+  }
+  LISTBASE_FOREACH_MUTABLE (bNodeLink *, link, &ntree->links) {
+    if (link->flag & NODE_LINK_MUTED) {
+      nodeRemLink(ntree, link);
+    }
+  }
+}
+
 static void flatten_group_do(bNodeTree *ntree, bNode *gnode)
 {
   LinkNode *group_interface_nodes = nullptr;
@@ -665,8 +681,8 @@ static bNode *ntree_shader_copy_branch(bNodeTree *ntree,
   LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
     if (node->tmp_flag >= 0) {
       int id = node->tmp_flag;
-      nodes_copy[id] = BKE_node_copy(
-          ntree, node, LIB_ID_CREATE_NO_USER_REFCOUNT | LIB_ID_CREATE_NO_MAIN, false);
+      nodes_copy[id] = blender::bke::node_copy(
+          ntree, *node, LIB_ID_CREATE_NO_USER_REFCOUNT | LIB_ID_CREATE_NO_MAIN, false);
       nodes_copy[id]->tmp_flag = -2; /* Copy */
       /* Make sure to clear all sockets links as they are invalid. */
       LISTBASE_FOREACH (bNodeSocket *, sock, &nodes_copy[id]->inputs) {
@@ -875,6 +891,7 @@ void ntreeGPUMaterialNodes(bNodeTree *localtree,
 
   bNode *output = ntreeShaderOutputNode(localtree, SHD_OUTPUT_EEVEE);
 
+  ntree_shader_groups_remove_muted_links(localtree);
   ntree_shader_groups_expand_inputs(localtree);
 
   ntree_shader_groups_flatten(localtree);
