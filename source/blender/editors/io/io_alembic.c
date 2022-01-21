@@ -137,6 +137,7 @@ static int wm_alembic_export_exec(bContext *C, wmOperator *op)
       .uvs = RNA_boolean_get(op->ptr, "uvs"),
       .normals = RNA_boolean_get(op->ptr, "normals"),
       .vcolors = RNA_boolean_get(op->ptr, "vcolors"),
+      .generic_attributes = true,
       .orcos = RNA_boolean_get(op->ptr, "orcos"),
       .apply_subdiv = RNA_boolean_get(op->ptr, "apply_subdiv"),
       .curves_as_mesh = RNA_boolean_get(op->ptr, "curves_as_mesh"),

@@ -51,6 +51,7 @@ struct AlembicExportParams {
   bool uvs;
   bool normals;
   bool vcolors;
+  bool generic_attributes;
   bool orcos;
   bool apply_subdiv;
   bool curves_as_mesh;

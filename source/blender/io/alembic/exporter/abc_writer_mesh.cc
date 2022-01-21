@@ -361,7 +361,7 @@ void ABCGenericMeshWriter::write_face_sets(Object *object, struct Mesh *mesh, Sc
 
 void ABCGenericMeshWriter::write_arb_geo_params(struct Mesh *me)
 {
-  if (!args_.export_params->vcolors) {
+  if (!(args_.export_params->vcolors || args_.export_params->generic_attributes)) {
     return;
   }
 

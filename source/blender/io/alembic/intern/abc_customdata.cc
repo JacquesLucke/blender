@@ -32,6 +32,7 @@
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 
+#include "BLI_index_range.hh"
 #include "BLI_math_base.h"
 #include "BLI_utildefines.h"
 
@@ -48,13 +49,20 @@ using Alembic::AbcGeom::kFacevaryingScope;
 using Alembic::AbcGeom::kVaryingScope;
 using Alembic::AbcGeom::kVertexScope;
 
+using Alembic::Abc::BoolArraySample;
 using Alembic::Abc::C4fArraySample;
+using Alembic::Abc::FloatArraySample;
+using Alembic::Abc::Int32ArraySample;
 using Alembic::Abc::UInt32ArraySample;
 using Alembic::Abc::V2fArraySample;
+using Alembic::Abc::V3fArraySample;
 
 using Alembic::AbcGeom::OC4fGeomParam;
+using Alembic::AbcGeom::OFloatGeomParam;
+using Alembic::AbcGeom::OInt32GeomParam;
 using Alembic::AbcGeom::OV2fGeomParam;
 using Alembic::AbcGeom::OV3fGeomParam;
+
 namespace blender::io::alembic {
 
 /* ORCO, Generated Coordinates, and Reference Points ("Pref") are all terms for the same thing.
@@ -312,6 +320,47 @@ void write_custom_data(const OCompoundProperty &prop,
     }
     else if (cd_data_type == CD_MLOOPCOL) {
       write_mcol(prop, config, cd_data, name);
+    }
+  }
+}
+
+void write_generic_attributes(const OCompoundProperty &prop,
+                              CDStreamConfig &config,
+                              CustomData *custom_data,
+                              const int size,
+                              const Alembic::AbcGeom::GeometryScope geometry_scope,
+                              const bool is_indexed,
+                              const UInt32ArraySample indices)
+{
+  for (const int layer_index : IndexRange(custom_data->totlayer)) {
+    const CustomDataLayer &layer = custom_data->layers[layer_index];
+    switch (layer.type) {
+      case CD_PROP_FLOAT: {
+        OFloatGeomParam param{prop, layer.name, is_indexed, geometry_scope, 1};
+        OFloatGeomParam::Sample sample{
+            FloatArraySample{static_cast<float *>(layer.data), size}, indices, geometry_scope};
+        param.set(sample);
+        param.setTimeSampling(config.timesample_index);
+        break;
+      }
+      case CD_PROP_FLOAT2: {
+        break;
+      }
+      case CD_PROP_FLOAT3: {
+        break;
+      }
+      case CD_PROP_COLOR: {
+        break;
+      }
+      case CD_PROP_INT32: {
+        break;
+      }
+      case CD_PROP_BOOL: {
+        break;
+      }
+      default: {
+        break;
+      }
     }
   }
 }
