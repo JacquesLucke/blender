@@ -1024,7 +1024,7 @@ void BKE_defvert_array_free(MDeformVert *dvert, int totvert)
   MEM_freeN(dvert);
 }
 
-void BKE_defvert_extract_vgroup_to_vertweights(MDeformVert *dvert,
+void BKE_defvert_extract_vgroup_to_vertweights(const MDeformVert *dvert,
                                                const int defgroup,
                                                const int num_verts,
                                                float *r_weights,
@@ -1209,7 +1209,7 @@ static bool data_transfer_layersmapping_vgroups_multisrc_to_dst(ListBase *r_map,
                                                                 const bool use_delete,
                                                                 Object *ob_src,
                                                                 Object *ob_dst,
-                                                                MDeformVert *data_src,
+                                                                const MDeformVert *data_src,
                                                                 MDeformVert *data_dst,
                                                                 CustomData *UNUSED(cd_src),
                                                                 CustomData *cd_dst,
@@ -1364,7 +1364,8 @@ bool data_transfer_layersmapping_vgroups(ListBase *r_map,
                                          const int tolayers)
 {
   int idx_src, idx_dst;
-  MDeformVert *data_src, *data_dst = NULL;
+  const MDeformVert *data_src;
+  MDeformVert *data_dst = NULL;
 
   const size_t elem_size = sizeof(*((MDeformVert *)NULL));
 
@@ -1386,9 +1387,9 @@ bool data_transfer_layersmapping_vgroups(ListBase *r_map,
     return true;
   }
 
-  data_src = CustomData_get_layer(cd_src, CD_MDEFORMVERT);
+  data_src = CustomData_get_layer_for_read(cd_src, CD_MDEFORMVERT);
 
-  data_dst = CustomData_get_layer(cd_dst, CD_MDEFORMVERT);
+  data_dst = CustomData_get_layer_for_write(cd_dst, CD_MDEFORMVERT, num_elem_dst);
   if (data_dst && use_dupref_dst && r_map) {
     /* If dest is a derivedmesh, we do not want to overwrite cdlayers of org mesh! */
     data_dst = CustomData_duplicate_referenced_layer(cd_dst, CD_MDEFORMVERT, num_elem_dst);

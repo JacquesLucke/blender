@@ -279,15 +279,16 @@ static void data_transfer_dtdata_type_preprocess(Mesh *me_src,
     const float split_angle_dst = me_dst->smoothresh;
 
     /* This should be ensured by cddata_masks we pass to code generating/giving us me_src now. */
-    BLI_assert(CustomData_get_layer(&me_src->ldata, CD_NORMAL) != NULL);
-    BLI_assert(CustomData_get_layer(&me_src->pdata, CD_NORMAL) != NULL);
+    BLI_assert(CustomData_get_layer_for_read(&me_src->ldata, CD_NORMAL) != NULL);
+    BLI_assert(CustomData_get_layer_for_read(&me_src->pdata, CD_NORMAL) != NULL);
     (void)me_src;
 
     float(*loop_nors_dst)[3];
-    short(*custom_nors_dst)[2] = CustomData_get_layer(ldata_dst, CD_CUSTOMLOOPNORMAL);
+    short(*custom_nors_dst)[2] = CustomData_get_layer_for_write(
+        ldata_dst, CD_CUSTOMLOOPNORMAL, me_dst->totloop);
 
     /* Cache loop nors into a temp CDLayer. */
-    loop_nors_dst = CustomData_get_layer(ldata_dst, CD_NORMAL);
+    loop_nors_dst = CustomData_get_layer_for_write(ldata_dst, CD_NORMAL, me_dst->totloop);
     const bool do_loop_nors_dst = (loop_nors_dst == NULL);
     if (do_loop_nors_dst) {
       loop_nors_dst = CustomData_add_layer(ldata_dst, CD_NORMAL, CD_CALLOC, NULL, num_loops_dst);
@@ -338,9 +339,12 @@ static void data_transfer_dtdata_type_postprocess(Object *UNUSED(ob_src),
     CustomData *pdata_dst = &me_dst->pdata;
     CustomData *ldata_dst = &me_dst->ldata;
 
-    const float(*poly_nors_dst)[3] = CustomData_get_layer(pdata_dst, CD_NORMAL);
-    float(*loop_nors_dst)[3] = CustomData_get_layer(ldata_dst, CD_NORMAL);
-    short(*custom_nors_dst)[2] = CustomData_get_layer(ldata_dst, CD_CUSTOMLOOPNORMAL);
+    const float(*poly_nors_dst)[3] = CustomData_get_layer_for_write(
+        pdata_dst, CD_NORMAL, me_dst->totpoly);
+    float(*loop_nors_dst)[3] = CustomData_get_layer_for_write(
+        ldata_dst, CD_NORMAL, me_dst->totloop);
+    short(*custom_nors_dst)[2] = CustomData_get_layer_for_write(
+        ldata_dst, CD_CUSTOMLOOPNORMAL, me_dst->totloop);
 
     BLI_assert(poly_nors_dst);
 
@@ -706,17 +710,18 @@ static bool data_transfer_layersmapping_cdlayers(ListBase *r_map,
                                                  void *interp_data)
 {
   int idx_src, idx_dst;
-  void *data_src, *data_dst = NULL;
+  const void *data_src;
+  void *data_dst = NULL;
 
   if (CustomData_layertype_is_singleton(cddata_type)) {
-    if (!(data_src = CustomData_get_layer(cd_src, cddata_type))) {
+    if (!(data_src = CustomData_get_layer_for_read(cd_src, cddata_type))) {
       if (use_delete) {
         CustomData_free_layer(cd_dst, cddata_type, num_elem_dst, 0);
       }
       return true;
     }
 
-    data_dst = CustomData_get_layer(cd_dst, cddata_type);
+    data_dst = CustomData_get_layer_for_write(cd_dst, cddata_type, num_elem_dst);
     if (!data_dst) {
       if (!use_create) {
         return true;
@@ -990,7 +995,7 @@ static bool data_transfer_layersmapping_generate(ListBase *r_map,
                                                 tolayers);
 
       /* Mesh stores its dvert in a specific pointer too. :( */
-      me_dst->dvert = CustomData_get_layer(&me_dst->vdata, CD_MDEFORMVERT);
+      me_dst->dvert = CustomData_get_layer_for_read(&me_dst->vdata, CD_MDEFORMVERT);
       return ret;
     }
     if (cddata_type == CD_FAKE_SHAPEKEY) {
@@ -1379,7 +1384,7 @@ bool BKE_object_data_transfer_ex(struct Depsgraph *depsgraph,
   /* Assumed always true if not using an evaluated mesh as destination. */
   bool dirty_nors_dst = true;
 
-  MDeformVert *mdef = NULL;
+  const MDeformVert *mdef = NULL;
   int vg_idx = -1;
   float *weights[DATAMAX] = {NULL};
 
@@ -1407,7 +1412,7 @@ bool BKE_object_data_transfer_ex(struct Depsgraph *depsgraph,
   }
 
   if (vgroup_name) {
-    mdef = CustomData_get_layer(&me_dst->vdata, CD_MDEFORMVERT);
+    mdef = CustomData_get_layer_for_read(&me_dst->vdata, CD_MDEFORMVERT);
     if (mdef) {
       vg_idx = BKE_id_defgroup_name_index(&me_dst->id, vgroup_name);
     }

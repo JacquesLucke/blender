@@ -352,7 +352,7 @@ GVArray BuiltinCustomDataLayerProvider::try_get_for_read(const GeometryComponent
     data = CustomData_get_layer_named(custom_data, stored_type_, name_.c_str());
   }
   else {
-    data = CustomData_get_layer(custom_data, stored_type_);
+    data = CustomData_get_layer_for_read(custom_data, stored_type_);
   }
   if (data == nullptr) {
     return {};
@@ -379,7 +379,7 @@ WriteAttributeLookup BuiltinCustomDataLayerProvider::try_get_for_write(
     data = CustomData_get_layer_named(custom_data, stored_type_, name_.c_str());
   }
   else {
-    data = CustomData_get_layer(custom_data, stored_type_);
+    data = CustomData_get_layer_for_write(custom_data, stored_type_, domain_size);
   }
   if (data == nullptr) {
     return {};
@@ -467,7 +467,7 @@ bool BuiltinCustomDataLayerProvider::try_create(GeometryComponent &component,
         name_, *custom_data, stored_type_, domain_size, initializer);
   }
   else {
-    if (CustomData_get_layer(custom_data, stored_type_) != nullptr) {
+    if (CustomData_get_layer_for_read(custom_data, stored_type_) != nullptr) {
       /* Exists already. */
       return false;
     }
@@ -491,7 +491,7 @@ bool BuiltinCustomDataLayerProvider::exists(const GeometryComponent &component) 
   if (stored_as_named_attribute_) {
     return CustomData_get_layer_named(custom_data, stored_type_, name_.c_str()) != nullptr;
   }
-  return CustomData_get_layer(custom_data, stored_type_) != nullptr;
+  return CustomData_get_layer_for_read(custom_data, stored_type_) != nullptr;
 }
 
 ReadAttributeLookup CustomDataAttributeProvider::try_get_for_read(

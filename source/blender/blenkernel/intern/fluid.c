@@ -2024,7 +2024,7 @@ typedef struct EmitFromDMData {
   const MLoop *mloop;
   const MLoopTri *mlooptri;
   const MLoopUV *mloopuv;
-  MDeformVert *dvert;
+  const MDeformVert *dvert;
   int defgrp_index;
 
   BVHTreeFromMesh *tree;
@@ -2096,7 +2096,7 @@ static void emit_from_mesh(
     const MLoopTri *mlooptri = NULL;
     const MLoop *mloop = NULL;
     const MLoopUV *mloopuv = NULL;
-    MDeformVert *dvert = NULL;
+    const MDeformVert *dvert = NULL;
     BVHTreeFromMesh tree_data = {NULL};
     int numverts, i;
 
@@ -2121,7 +2121,7 @@ static void emit_from_mesh(
     mloop = me->mloop;
     mlooptri = BKE_mesh_runtime_looptri_ensure(me);
     numverts = me->totvert;
-    dvert = CustomData_get_layer(&me->vdata, CD_MDEFORMVERT);
+    dvert = CustomData_get_layer_for_read(&me->vdata, CD_MDEFORMVERT);
     mloopuv = CustomData_get_layer_named(&me->ldata, CD_MLOOPUV, ffs->uvlayer_name);
 
     if (ffs->flags & FLUID_FLOW_INITVELOCITY) {

@@ -547,7 +547,7 @@ static void contarget_get_mesh_mat(Object *ob, const char *substring, float mat[
   float weightsum = 0.0f;
   const float(*vert_normals)[3] = BKE_mesh_vertex_normals_ensure(me_eval);
   if (me_eval) {
-    const MDeformVert *dvert = CustomData_get_layer(&me_eval->vdata, CD_MDEFORMVERT);
+    const MDeformVert *dvert = CustomData_get_layer_for_read(&me_eval->vdata, CD_MDEFORMVERT);
     int numVerts = me_eval->totvert;
 
     /* check that dvert is a valid pointers (just in case) */

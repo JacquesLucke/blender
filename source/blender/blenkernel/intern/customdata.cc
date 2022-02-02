@@ -2909,6 +2909,11 @@ bool CustomData_is_referenced_layer(struct CustomData *data, int type)
   return (layer->flag & CD_FLAG_NOFREE) != 0;
 }
 
+void CustomData_layer_is_mutable_ensure(struct CustomData *data, int layer_index, int totelem)
+{
+  customData_duplicate_referenced_layer_index(data, layer_index, totelem);
+}
+
 void CustomData_free_temporary(CustomData *data, int totelem)
 {
   int i, j;
@@ -3252,6 +3257,25 @@ void *CustomData_get_layer(const CustomData *data, int type)
     return nullptr;
   }
 
+  return data->layers[layer_index].data;
+}
+
+const void *CustomData_get_layer_for_read(const CustomData *data, int type)
+{
+  int layer_index = CustomData_get_active_layer_index(data, type);
+  if (layer_index == -1) {
+    return nullptr;
+  }
+  return data->layers[layer_index].data;
+}
+
+void *CustomData_get_layer_for_write(CustomData *data, const int type, const int totelem)
+{
+  int layer_index = CustomData_get_active_layer_index(data, type);
+  if (layer_index == -1) {
+    return nullptr;
+  }
+  CustomData_layer_is_mutable_ensure(data, layer_index, totelem);
   return data->layers[layer_index].data;
 }
 
@@ -5222,7 +5246,7 @@ void CustomData_debug_info_from_layers(const CustomData *data, const char *inden
       /* NOTE: doesn't account for multiple layers. */
       const char *name = CustomData_layertype_name(type);
       const int size = CustomData_sizeof(type);
-      const void *pt = CustomData_get_layer(data, type);
+      const void *pt = CustomData_get_layer_for_read(data, type);
       const int pt_size = pt ? (int)(MEM_allocN_len(pt) / size) : 0;
       const char *structname;
       int structnum;

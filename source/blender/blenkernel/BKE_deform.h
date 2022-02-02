@@ -244,8 +244,11 @@ void BKE_defvert_normalize_lock_map(struct MDeformVert *dvert,
 /* Utilities to 'extract' a given vgroup into a simple float array,
  * for verts, but also edges/polys/loops. */
 
-void BKE_defvert_extract_vgroup_to_vertweights(
-    struct MDeformVert *dvert, int defgroup, int num_verts, float *r_weights, bool invert_vgroup);
+void BKE_defvert_extract_vgroup_to_vertweights(const struct MDeformVert *dvert,
+                                               int defgroup,
+                                               int num_verts,
+                                               float *r_weights,
+                                               bool invert_vgroup);
 /**
  * The following three make basic interpolation,
  * using temp vert_weights array to avoid looking up same weight several times.

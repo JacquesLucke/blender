@@ -1567,7 +1567,8 @@ void BKE_mesh_nomain_to_mesh(Mesh *mesh_src,
   /* NOTE(nazgul): maybe some other layers should be copied? */
   if (CustomData_has_layer(&mesh_dst->ldata, CD_MDISPS)) {
     if (totloop == mesh_dst->totloop) {
-      MDisps *mdisps = (MDisps *)CustomData_get_layer(&mesh_dst->ldata, CD_MDISPS);
+      MDisps *mdisps = (MDisps *)CustomData_get_layer_for_write(
+          &mesh_dst->ldata, CD_MDISPS, mesh_dst->totloop);
       CustomData_add_layer(&tmp.ldata, CD_MDISPS, alloctype, mdisps, totloop);
       if (alloctype == CD_ASSIGN) {
         /* Assign nullptr to prevent double-free. */

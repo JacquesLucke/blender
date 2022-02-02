@@ -280,6 +280,7 @@ void *CustomData_duplicate_referenced_layer_named(struct CustomData *data,
 void *CustomData_duplicate_referenced_layer_anonymous(
     CustomData *data, int type, const struct AnonymousAttributeID *anonymous_id, int totelem);
 bool CustomData_is_referenced_layer(struct CustomData *data, int type);
+void CustomData_layer_is_mutable_ensure(struct CustomData *data, int layer_index, int totelem);
 
 /**
  * Duplicate all the layers with flag NOFREE, and remove the flag from duplicated layers.
@@ -418,6 +419,9 @@ const char *CustomData_get_layer_name(const struct CustomData *data, int type, i
  * \return NULL if there is no layer of type.
  */
 void *CustomData_get_layer(const struct CustomData *data, int type);
+const void *CustomData_get_layer_for_read(const struct CustomData *data, int type);
+void *CustomData_get_layer_for_write(struct CustomData *data, int type, int totelem);
+
 void *CustomData_get_layer_n(const struct CustomData *data, int type, int n);
 void *CustomData_get_layer_named(const struct CustomData *data, int type, const char *name);
 int CustomData_get_offset(const struct CustomData *data, int type);

@@ -857,7 +857,7 @@ void BKE_mesh_convert_mfaces_to_mpolys_ex(ID *id,
     me->flag &= ~ME_FGON;
   }
 
-  polyindex = (int *)CustomData_get_layer(fdata, CD_ORIGINDEX);
+  polyindex = (int *)CustomData_get_layer_for_write(fdata, CD_ORIGINDEX, totface_i);
 
   j = 0; /* current loop index */
   ml = mloop;
@@ -960,7 +960,7 @@ void BKE_mesh_polygon_flip_ex(MPoly *mpoly,
 {
   int loopstart = mpoly->loopstart;
   int loopend = loopstart + mpoly->totloop - 1;
-  const bool loops_in_ldata = (CustomData_get_layer(ldata, CD_MLOOP) == mloop);
+  const bool loops_in_ldata = (CustomData_get_layer_for_read(ldata, CD_MLOOP) == mloop);
 
   if (mdisp) {
     for (int i = loopstart; i <= loopend; i++) {

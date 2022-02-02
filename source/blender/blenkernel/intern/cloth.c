@@ -731,7 +731,7 @@ static bool cloth_from_object(
   int i = 0;
   MVert *mvert = NULL;
   ClothVertex *verts = NULL;
-  float(*shapekey_rest)[3] = NULL;
+  const float(*shapekey_rest)[3] = NULL;
   const float tnull[3] = {0, 0, 0};
 
   /* If we have a clothObject, free it. */
@@ -768,7 +768,7 @@ static bool cloth_from_object(
 
   if (clmd->sim_parms->shapekey_rest &&
       !(clmd->sim_parms->flags & CLOTH_SIMSETTINGS_FLAG_DYNAMIC_BASEMESH)) {
-    shapekey_rest = CustomData_get_layer(&mesh->vdata, CD_CLOTH_ORCO);
+    shapekey_rest = CustomData_get_layer_for_read(&mesh->vdata, CD_CLOTH_ORCO);
   }
 
   mvert = mesh->mvert;

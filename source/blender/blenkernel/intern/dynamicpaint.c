@@ -1989,7 +1989,8 @@ static Mesh *dynamicPaint_Modifier_apply(DynamicPaintModifierData *pmd, Object *
           /* vertex group paint */
           else if (surface->type == MOD_DPAINT_SURFACE_T_WEIGHT) {
             int defgrp_index = BKE_object_defgroup_name_index(ob, surface->output_name);
-            MDeformVert *dvert = CustomData_get_layer(&result->vdata, CD_MDEFORMVERT);
+            MDeformVert *dvert = CustomData_get_layer_for_write(
+                &result->vdata, CD_MDEFORMVERT, result->totvert);
             float *weight = (float *)sData->type_data;
 
             /* apply weights into a vertex group, if doesn't exists add a new layer */
