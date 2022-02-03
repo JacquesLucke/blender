@@ -177,6 +177,7 @@ set(SRC
   BLI_astar.h
   BLI_bitmap.h
   BLI_bitmap_draw_2d.h
+  BLI_bit_vector.hh
   BLI_blenlib.h
   BLI_boxpack_2d.h
   BLI_buffer.h
@@ -411,6 +412,7 @@ if(WITH_GTESTS)
     tests/BLI_array_store_test.cc
     tests/BLI_array_test.cc
     tests/BLI_array_utils_test.cc
+    tests/BLI_bit_vector_test.cc
     tests/BLI_color_test.cc
     tests/BLI_delaunay_2d_test.cc
     tests/BLI_disjoint_set_test.cc
