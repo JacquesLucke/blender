@@ -77,94 +77,25 @@ class MutableBitRef {
   }
 };
 
-template<int64_t GroupSize> class BitGroupRef {
- private:
-  const uint8_t *byte_ptr_;
-  uint8_t mask_;
-  uint8_t shift_;
-
-  static_assert(ELEM(GroupSize, 1, 2, 4));
-  static constexpr int64_t GroupsPerByte = 8 / GroupSize;
-  static constexpr int64_t IndexShift = (GroupSize == 1) ? 3 : (GroupSize == 2) ? 2 : 1;
-  static constexpr int64_t IndexMask = (1 << IndexShift) - 1;
-
- public:
-  BitGroupRef(const uint8_t *byte_ptr, const int64_t group_index)
-  {
-    byte_ptr_ = byte_ptr_ + (group_index >> IndexShift);
-    shift_ = (group_index & IndexMask) * GroupSize;
-    mask_ = (GroupSize - 1) << shift_;
-  }
-
-  operator uint8_t() const
-  {
-    const uint8_t byte = *byte_ptr_;
-    const uint8_t masked_byte = byte & mask_;
-    return masked_byte >> shift_;
-  }
-};
-
-template<int64_t GroupSize> class MutableBitGroupRef {
- private:
-  uint8_t *byte_ptr_;
-  uint8_t mask_;
-  uint8_t shift_;
-
-  static_assert(ELEM(GroupSize, 1, 2, 4));
-  static constexpr int64_t GroupsPerByte = 8 / GroupSize;
-  static constexpr int64_t IndexShift = (GroupSize == 1) ? 3 : (GroupSize == 2) ? 2 : 1;
-  static constexpr int64_t IndexMask = (1 << IndexShift) - 1;
-
- public:
-  MutableBitGroupRef(const uint8_t *byte_ptr, const int64_t group_index)
-  {
-    byte_ptr_ = byte_ptr_ + (group_index >> IndexShift);
-    shift_ = (group_index & IndexMask) * GroupSize;
-    mask_ = (GroupSize - 1) << shift_;
-  }
-
-  operator uint8_t() const
-  {
-    const uint8_t byte = *byte_ptr_;
-    const uint8_t masked_byte = byte & mask_;
-    return masked_byte >> shift_;
-  }
-
-  MutableBitGroupRef &operator=(const uint8_t value) const
-  {
-    BLI_assert(value < (1 << GroupSize));
-    const uint8_t old_byte = *byte_ptr_;
-    const uint8_t cleared_byte = old_byte & ~mask_;
-    const uint8_t new_byte = cleared_byte | (value << shift_);
-    *byte_ptr_ = new_byte;
-    return *this;
-  }
-};
-
-template<int64_t BitsPerGroup = 1,
-         int64_t InlineBufferCapacity = 16,
-         typename Allocator = GuardedAllocator>
+template<int64_t InlineBufferCapacity = 16, typename Allocator = GuardedAllocator>
 class BitVector {
  private:
-  static_assert(ELEM(BitsPerGroup, 1, 2, 4));
-  static constexpr int64_t GroupsPerByte = 8 / BitsPerGroup;
-  static constexpr int64_t GroupsInInlineBuffer = InlineBufferCapacity * GroupsPerByte;
+  static constexpr int64_t BitsPerByte = 8;
+  static constexpr int64_t BitsInInlineBuffer = InlineBufferCapacity * BitsPerByte;
 
   uint8_t *data_;
-  int64_t size_in_groups_;
-  int64_t capacity_in_groups_;
+  int64_t size_in_bits_;
+  int64_t capacity_in_bits_;
 
   Allocator allocator_;
   TypedBuffer<uint8_t, InlineBufferCapacity> inline_buffer_;
 
-  publ
-
-      public : BitVector(Allocator allocator = {}) noexcept
-      : allocator_(allocator)
+ public:
+  BitVector(Allocator allocator = {}) noexcept : allocator_(allocator)
   {
     data_ = inline_buffer_;
-    size_in_groups_ = 0;
-    capacity_in_groups_ = GroupsInInlineBuffer;
+    size_in_bits_ = 0;
+    capacity_in_bits_ = BitsInInlineBuffer;
   }
 
   BitVector(NoExceptConstructor, Allocator allocator = {}) noexcept : BitVector(allocator)
@@ -174,15 +105,15 @@ class BitVector {
   BitVector(const BitVector &other) : BitVector(NoExceptConstructor(), other.allocator_)
   {
     const int64_t bytes_to_copy = other.used_bytes_amount();
-    if (other.size_in_groups_ <= GroupsInInlineBuffer) {
+    if (other.size_in_bits_ <= BitsInInlineBuffer) {
       data_ = inline_buffer_;
-      capacity_in_groups_ = GroupsInInlineBuffer;
+      capacity_in_bits_ = BitsInInlineBuffer;
     }
     else {
       data_ = static_cast<uint8_t *>(allocator_.allocate(bytes_to_copy, 8, __func__));
-      capacity_in_groups_ = bytes_to_copy * GroupsPerByte;
+      capacity_in_bits_ = bytes_to_copy * BitsPerByte;
     }
-    size_in_groups_ = other.size_in_groups_;
+    size_in_bits_ = other.size_in_bits_;
     uninitialized_copy_n(other.data_, bytes_to_copy, data_);
   }
 
@@ -197,12 +128,12 @@ class BitVector {
       /* Steal the pointer. */
       data_ = other.data_;
     }
-    size_in_groups_ = other.size_in_groups_;
-    capacity_in_groups_ = other.capacity_in_groups_;
+    size_in_bits_ = other.size_in_bits_;
+    capacity_in_bits_ = other.capacity_in_bits_;
 
     other.data_ = other.inline_buffer_;
-    other.size_in_groups_ = 0;
-    other.capacity_in_groups_ = GroupsInInlineBuffer;
+    other.size_in_bits_ = 0;
+    other.capacity_in_bits_ = BitsInInlineBuffer;
   }
 
   ~BitVector()
@@ -224,7 +155,7 @@ class BitVector {
 
   int64_t size() const
   {
-    return size_in_groups_;
+    return size_in_bits_;
   }
 
  private:
@@ -235,7 +166,7 @@ class BitVector {
 
   int64_t used_bytes_amount() const
   {
-    return (size_in_groups_ + GroupsPerByte - 1) / GroupsPerByte;
+    return (size_in_bits_ + BitsPerByte - 1) / BitsPerByte;
   }
 };
 
