@@ -2020,7 +2020,7 @@ static int split_faces_prepare_new_verts(Mesh *mesh,
   BLI_assert(lnors_spacearr->data_type == MLNOR_SPACEARR_LOOP_INDEX);
 
   for (int loop_idx = 0; loop_idx < loops_len; loop_idx++, ml++, lnor_space++) {
-    if (!BLI_BITMAP_TEST(done_loops, loop_idx)) {
+    if (!done_loops[loop_idx]) {
       const int vert_idx = ml->v;
       const bool vert_used = verts_used[vert_idx];
       /* If vert is already used by another smooth fan, we need a new vert for this one. */
