@@ -35,6 +35,7 @@
 #include "BLI_alloca.h"
 #include "BLI_bitmap.h"
 
+#include "BLI_bit_vector.hh"
 #include "BLI_linklist.h"
 #include "BLI_linklist_stack.h"
 #include "BLI_math.h"
@@ -52,6 +53,7 @@
 
 #include "atomic_ops.h"
 
+using blender::BitVector;
 using blender::Span;
 
 // #define DEBUG_TIME
@@ -849,7 +851,10 @@ static void mesh_edges_sharp_tag(LoopSplitTaskDataCommon *data,
   int(*edge_to_loops)[2] = data->edge_to_loops;
   int *loop_to_poly = data->loop_to_poly;
 
-  BLI_bitmap *sharp_edges = do_sharp_edges_tag ? BLI_BITMAP_NEW(numEdges, __func__) : nullptr;
+  BitVector sharp_edges;
+  if (do_sharp_edges_tag) {
+    sharp_edges.resize(numEdges, false);
+  }
 
   const MPoly *mp;
   int mp_index;
@@ -901,7 +906,7 @@ static void mesh_edges_sharp_tag(LoopSplitTaskDataCommon *data,
           /* We want to avoid tagging edges as sharp when it is already defined as such by
            * other causes than angle threshold. */
           if (do_sharp_edges_tag && is_angle_sharp) {
-            BLI_BITMAP_SET(sharp_edges, ml_curr->e, true);
+            sharp_edges[ml_curr->e].enable();
           }
         }
         else {
@@ -915,7 +920,7 @@ static void mesh_edges_sharp_tag(LoopSplitTaskDataCommon *data,
         /* We want to avoid tagging edges as sharp when it is already defined as such by
          * other causes than angle threshold. */
         if (do_sharp_edges_tag) {
-          BLI_BITMAP_SET(sharp_edges, ml_curr->e, false);
+          sharp_edges[ml_curr->e].disable();
         }
       }
       /* Else, edge is already 'disqualified' (i.e. sharp)! */
@@ -927,12 +932,10 @@ static void mesh_edges_sharp_tag(LoopSplitTaskDataCommon *data,
     MEdge *me;
     int me_index;
     for (me = (MEdge *)medges, me_index = 0; me_index < numEdges; me++, me_index++) {
-      if (BLI_BITMAP_TEST(sharp_edges, me_index)) {
+      if (sharp_edges[me_index]) {
         me->flag |= ME_SHARP;
       }
     }
-
-    MEM_freeN(sharp_edges);
   }
 }
 
@@ -1354,7 +1357,7 @@ static bool loop_split_generator_check_cyclic_smooth_fan(const MLoop *mloops,
                                                          const int (*edge_to_loops)[2],
                                                          const int *loop_to_poly,
                                                          const int *e2l_prev,
-                                                         BLI_bitmap *skip_loops,
+                                                         BitVector<> &skip_loops,
                                                          const MLoop *ml_curr,
                                                          const MLoop *ml_prev,
                                                          const int ml_curr_index,
@@ -1383,8 +1386,8 @@ static bool loop_split_generator_check_cyclic_smooth_fan(const MLoop *mloops,
   BLI_assert(mlfan_vert_index >= 0);
   BLI_assert(mpfan_curr_index >= 0);
 
-  BLI_assert(!BLI_BITMAP_TEST(skip_loops, mlfan_vert_index));
-  BLI_BITMAP_ENABLE(skip_loops, mlfan_vert_index);
+  BLI_assert(!skip_loops[mlfan_vert_index]);
+  skip_loops[mlfan_vert_index].enable();
 
   while (true) {
     /* Find next loop of the smooth fan. */
@@ -1405,7 +1408,7 @@ static bool loop_split_generator_check_cyclic_smooth_fan(const MLoop *mloops,
       return false;
     }
     /* Smooth loop/edge. */
-    if (BLI_BITMAP_TEST(skip_loops, mlfan_vert_index)) {
+    if (skip_loops[mlfan_vert_index]) {
       if (mlfan_vert_index == ml_curr_index) {
         /* We walked around a whole cyclic smooth fan without finding any already-processed loop,
          * means we can use initial `ml_curr` / `ml_prev` edge as start for this smooth fan. */
@@ -1416,7 +1419,7 @@ static bool loop_split_generator_check_cyclic_smooth_fan(const MLoop *mloops,
     }
 
     /* We can skip it in future, and keep checking the smooth fan. */
-    BLI_BITMAP_ENABLE(skip_loops, mlfan_vert_index);
+    skip_loops[mlfan_vert_index].enable();
   }
 }
 
@@ -1440,7 +1443,7 @@ static void loop_split_generator(TaskPool *pool, LoopSplitTaskDataCommon *common
   int ml_curr_index;
   int ml_prev_index;
 
-  BLI_bitmap *skip_loops = BLI_BITMAP_NEW(numLoops, __func__);
+  BitVector<> skip_loops(numLoops, false);
 
   LoopSplitTaskData *data_buff = nullptr;
   int data_idx = 0;
@@ -1482,7 +1485,7 @@ static void loop_split_generator(TaskPool *pool, LoopSplitTaskDataCommon *common
              ml_curr->e,
              ml_curr->v,
              IS_EDGE_SHARP(e2l_curr),
-             BLI_BITMAP_TEST_BOOL(skip_loops, ml_curr_index));
+             skip_loops[ml_curr_index]);
 #endif
 
       /* A smooth edge, we have to check for cyclic smooth fan case.
@@ -1495,7 +1498,7 @@ static void loop_split_generator(TaskPool *pool, LoopSplitTaskDataCommon *common
        * However, this would complicate the code, add more memory usage, and despite its logical
        * complexity, #loop_manifold_fan_around_vert_next() is quite cheap in term of CPU cycles,
        * so really think it's not worth it. */
-      if (!IS_EDGE_SHARP(e2l_curr) && (BLI_BITMAP_TEST(skip_loops, ml_curr_index) ||
+      if (!IS_EDGE_SHARP(e2l_curr) && (skip_loops[ml_curr_index] ||
                                        !loop_split_generator_check_cyclic_smooth_fan(mloops,
                                                                                      mpolys,
                                                                                      edge_to_loops,
@@ -1590,7 +1593,6 @@ static void loop_split_generator(TaskPool *pool, LoopSplitTaskDataCommon *common
   if (edge_vectors) {
     BLI_stack_free(edge_vectors);
   }
-  MEM_freeN(skip_loops);
 
 #ifdef DEBUG_TIME
   TIMEIT_END_AVERAGED(loop_split_generator);
