@@ -33,8 +33,6 @@
 #include "DNA_meshdata_types.h"
 
 #include "BLI_alloca.h"
-#include "BLI_bitmap.h"
-
 #include "BLI_bit_vector.hh"
 #include "BLI_linklist.h"
 #include "BLI_linklist_stack.h"
@@ -1773,7 +1771,7 @@ static void mesh_normals_loop_custom_set(const MVert *mverts,
    * (and perhaps from some editing tools later?).
    * So better to keep some simplicity here, and just call #BKE_mesh_normals_loop_split() twice! */
   MLoopNorSpaceArray lnors_spacearr = {nullptr};
-  BLI_bitmap *done_loops = BLI_BITMAP_NEW((size_t)numLoops, __func__);
+  BitVector<> done_loops(numLoops, false);
   float(*lnors)[3] = (float(*)[3])MEM_calloc_arrayN((size_t)numLoops, sizeof(*lnors), __func__);
   int *loop_to_poly = (int *)MEM_malloc_arrayN((size_t)numLoops, sizeof(int), __func__);
   /* In this case we always consider split nors as ON,
@@ -1831,14 +1829,14 @@ static void mesh_normals_loop_custom_set(const MVert *mverts,
         /* This should not happen in theory, but in some rare case (probably ugly geometry)
          * we can get some nullptr loopspacearr at this point. :/
          * Maybe we should set those loops' edges as sharp? */
-        BLI_BITMAP_ENABLE(done_loops, i);
+        done_loops[i].enable();
         if (G.debug & G_DEBUG) {
           printf("WARNING! Getting invalid nullptr loop space for loop %d!\n", i);
         }
         continue;
       }
 
-      if (!BLI_BITMAP_TEST(done_loops, i)) {
+      if (!done_loops[i]) {
         /* Notes:
          * - In case of mono-loop smooth fan, we have nothing to do.
          * - Loops in this linklist are ordered (in reversed order compared to how they were
@@ -1849,7 +1847,7 @@ static void mesh_normals_loop_custom_set(const MVert *mverts,
          *   to avoid small differences adding up into a real big one in the end!
          */
         if (lnors_spacearr.lspacearr[i]->flags & MLNOR_SPACE_IS_SINGLE) {
-          BLI_BITMAP_ENABLE(done_loops, i);
+          done_loops[i].enable();
           continue;
         }
 
@@ -1881,7 +1879,7 @@ static void mesh_normals_loop_custom_set(const MVert *mverts,
 
           prev_ml = ml;
           loops = loops->next;
-          BLI_BITMAP_ENABLE(done_loops, lidx);
+          done_loops[lidx].enable();
         }
 
         /* We also have to check between last and first loops,
@@ -1925,14 +1923,14 @@ static void mesh_normals_loop_custom_set(const MVert *mverts,
                                 loop_to_poly);
   }
   else {
-    BLI_bitmap_set_all(done_loops, true, (size_t)numLoops);
+    done_loops.fill(true);
   }
 
   /* And we just have to convert plain object-space custom normals to our
    * lnor space-encoded ones. */
   for (int i = 0; i < numLoops; i++) {
     if (!lnors_spacearr.lspacearr[i]) {
-      BLI_BITMAP_DISABLE(done_loops, i);
+      done_loops[i].disable();
       if (G.debug & G_DEBUG) {
         printf("WARNING! Still getting invalid nullptr loop space in second loop for loop %d!\n",
                i);
@@ -1940,7 +1938,7 @@ static void mesh_normals_loop_custom_set(const MVert *mverts,
       continue;
     }
 
-    if (BLI_BITMAP_TEST_BOOL(done_loops, i)) {
+    if (done_loops[i]) {
       /* Note we accumulate and average all custom normals in current smooth fan,
        * to avoid getting different clnors data (tiny differences in plain custom normals can
        * give rather huge differences in computed 2D factors). */
@@ -1951,7 +1949,7 @@ static void mesh_normals_loop_custom_set(const MVert *mverts,
         float *nor = r_custom_loopnors[nidx];
 
         BKE_lnor_space_custom_normal_to_data(lnors_spacearr.lspacearr[i], nor, r_clnors_data[i]);
-        BLI_BITMAP_DISABLE(done_loops, i);
+        done_loops[i].disable();
       }
       else {
         int nbr_nors = 0;
@@ -1969,7 +1967,7 @@ static void mesh_normals_loop_custom_set(const MVert *mverts,
           BLI_SMALLSTACK_PUSH(clnors_data, (short *)r_clnors_data[lidx]);
 
           loops = loops->next;
-          BLI_BITMAP_DISABLE(done_loops, lidx);
+          done_loops[lidx].disable();
         }
 
         mul_v3_fl(avg_nor, 1.0f / (float)nbr_nors);
@@ -1985,7 +1983,6 @@ static void mesh_normals_loop_custom_set(const MVert *mverts,
 
   MEM_freeN(lnors);
   MEM_freeN(loop_to_poly);
-  MEM_freeN(done_loops);
   BKE_lnor_spacearr_free(&lnors_spacearr);
 }
 

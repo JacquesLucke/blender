@@ -337,6 +337,11 @@ template<int64_t InlineBufferCapacity = 4, typename Allocator = GuardedAllocator
     }
   }
 
+  void fill(const bool value)
+  {
+    this->fill_range(IndexRange(0, size_in_bits_), value);
+  }
+
   void reserve(const int new_capacity_in_bits)
   {
     this->realloc_to_at_least(new_capacity_in_bits);
