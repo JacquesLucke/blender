@@ -331,8 +331,21 @@ template<int64_t InlineBufferCapacity = 4, typename Allocator = GuardedAllocator
 
   void fill_range(const IndexRange range, const bool value)
   {
-    /* Can be optimized by filling entire bytes at once. */
-    for (const int64_t i : range) {
+    const AlignedIndexRanges aligned_ranges = split_index_range_by_alignment(range, BitsPerByte);
+
+    /* Fill first few bits. */
+    for (const int64_t i : aligned_ranges.prefix) {
+      (*this)[i].set(value);
+    }
+
+    /* Fill entire bytes at once. */
+    const int64_t start_fill_byte_index = aligned_ranges.aligned.start() / BitsPerByte;
+    const int64_t bytes_to_fill = aligned_ranges.aligned.size() / BitsPerByte;
+    const uint8_t fill_value = value ? (uint8_t)0xff : (uint8_t)0x00;
+    initialized_fill_n(data_ + start_fill_byte_index, bytes_to_fill, fill_value);
+
+    /* Fill bits in the end that don't cover a full byte. */
+    for (const int64_t i : aligned_ranges.suffix) {
       (*this)[i].set(value);
     }
   }
