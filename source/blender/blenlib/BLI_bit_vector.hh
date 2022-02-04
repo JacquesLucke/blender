@@ -18,6 +18,21 @@
 
 /** \file
  * \ingroup bli
+ *
+ * A `blender::BitVector` is a dynamically growing contiguous arrays of bits. It's main purpose is
+ * to provide a compact way to map indices to bools. It requires 8 times less memory compared to a
+ * `blender::Vector<bool>`.
+ *
+ * However, the compact nature of storing bools in individual bits has some downsides that have to
+ * be kept in mind:
+ * - Writing to separate bits in the same byte is not thread-safe. Therefore, an existing vector of
+ *   bool can't easily be replaced with a bit vector, if it is written to from multiple threads.
+ *   Reading-only access from multiple threads is fine though.
+ * - Writing individual elements is more expensive when the array is in cache already. That is
+ *   because changing a bit is always a read-modify-write operation on the byte the bit resides in.
+ * - Reading individual elements is more expensive when the array is in cache already. That is
+ *   because additional bit-wise operations have to be applied after the corresponding byte is
+ *   read.
  */
 
 #include <cstring>
@@ -29,46 +44,74 @@
 
 namespace blender {
 
-class MutableBitRef;
-
+/**
+ * This is a read-only pointer to a specific bit. The value of the bit can be retrieved, but not
+ * changed.
+ */
 class BitRef {
  private:
+  /** Points to the exact byte that the bit is in. */
   const uint8_t *byte_ptr_;
+  /** All zeros except for a single one at the bit that is referenced. */
   uint8_t mask_;
 
-  friend MutableBitRef;
+  friend class MutableBitRef;
 
  public:
   BitRef() = default;
 
+  /**
+   * Reference a specific in a byte array. Note that #byte_ptr does *not* have to point to the
+   * exact byte the bit is in.
+   */
   BitRef(const uint8_t *byte_ptr, const int64_t bit_index)
   {
     byte_ptr_ = byte_ptr + (bit_index >> 3);
     mask_ = 1 << (bit_index & 7);
   }
 
-  operator bool() const
+  /**
+   * Return true when the bit is currently 1 and false otherwise.
+   */
+  bool test() const
   {
     const uint8_t byte = *byte_ptr_;
     const uint8_t masked_byte = byte & mask_;
     return masked_byte != 0;
   }
+
+  operator bool() const
+  {
+    return this->test();
+  }
 };
 
+/**
+ * Similar to #BitRef, but also allows changing the referenced bit.
+ */
 class MutableBitRef {
  private:
+  /** Points to the exact byte that the bit is in. */
   uint8_t *byte_ptr_;
+  /** All zeros except for a single one at the bit that is referenced. */
   uint8_t mask_;
 
  public:
   MutableBitRef() = default;
 
+  /**
+   * Reference a specific in a byte array. Note that #byte_ptr does *not* have to point to the
+   * exact byte the bit is in.
+   */
   MutableBitRef(uint8_t *byte_ptr, const int64_t bit_index)
   {
     byte_ptr_ = byte_ptr + (bit_index >> 3);
     mask_ = 1 << static_cast<uint8_t>(bit_index & 7);
   }
 
+  /**
+   * Support implicitly casting to a read-only #BitRef.
+   */
   operator BitRef() const
   {
     BitRef bit_ref;
@@ -77,23 +120,40 @@ class MutableBitRef {
     return bit_ref;
   }
 
-  operator bool() const
+  /**
+   * Return true when the bit is currently 1 and false otherwise.
+   */
+  bool test() const
   {
     const uint8_t byte = *byte_ptr_;
     const uint8_t masked_byte = byte & mask_;
     return masked_byte != 0;
   }
 
+  operator bool() const
+  {
+    return this->test();
+  }
+
+  /**
+   * Change the bit to a 1.
+   */
   void set()
   {
     *byte_ptr_ |= mask_;
   }
 
+  /**
+   * Change the bit to a 0.
+   */
   void reset()
   {
     *byte_ptr_ &= ~mask_;
   }
 
+  /**
+   * Change the bit to a 1 if #value is true and 0 otherwise.
+   */
   void set(const bool value)
   {
     if (value) {
@@ -105,18 +165,45 @@ class MutableBitRef {
   }
 };
 
-template<int64_t InlineBufferCapacity = 4, typename Allocator = GuardedAllocator> class BitVector {
+template<
+    /**
+     * Number of bits that can be stored in the vector without doing an allocation.
+     */
+    int64_t InlineBufferCapacity = 32,
+    /**
+     * The allocator used by this vector. Should rarely be changed, except when you don't want that
+     * MEM_* is used internally.
+     */
+    typename Allocator = GuardedAllocator>
+class BitVector {
  private:
+  static constexpr int64_t required_bytes_for_bits(const int64_t number_of_bits)
+  {
+    return (number_of_bits + BitsPerByte - 1) / BitsPerByte;
+  }
+
   static constexpr int64_t BitsPerByte = 8;
-  static constexpr int64_t BitsInInlineBuffer = InlineBufferCapacity * BitsPerByte;
+  static constexpr int64_t BytesInInlineBuffer = required_bytes_for_bits(InlineBufferCapacity);
+  static constexpr int64_t BitsInInlineBuffer = BytesInInlineBuffer * BitsPerByte;
   static constexpr int64_t AllocationAlignment = 8;
 
+  /**
+   * Points to the first byte used by the vector. It might point to the memory in the inline
+   * buffer.
+   */
   uint8_t *data_;
+
+  /** Current size of the vector in bits. */
   int64_t size_in_bits_;
+
+  /** Number of bits that fit into the vector until a reallocation has to occure. */
   int64_t capacity_in_bits_;
 
+  /** Used for allocations when the inline buffer is too small. */
   Allocator allocator_;
-  TypedBuffer<uint8_t, InlineBufferCapacity> inline_buffer_;
+
+  /** Contains the bits as long as the vector is small enough. */
+  TypedBuffer<uint8_t, BytesInInlineBuffer> inline_buffer_;
 
  public:
   BitVector(Allocator allocator = {}) noexcept : allocator_(allocator)
@@ -134,10 +221,12 @@ template<int64_t InlineBufferCapacity = 4, typename Allocator = GuardedAllocator
   {
     const int64_t bytes_to_copy = other.used_bytes_amount();
     if (other.size_in_bits_ <= BitsInInlineBuffer) {
+      /* The data is copied into the own inline buffer. */
       data_ = inline_buffer_;
       capacity_in_bits_ = BitsInInlineBuffer;
     }
     else {
+      /* Allocate a new byte array because the inline buffer is too small. */
       data_ = static_cast<uint8_t *>(
           allocator_.allocate(bytes_to_copy, AllocationAlignment, __func__));
       capacity_in_bits_ = bytes_to_copy * BitsPerByte;
@@ -149,6 +238,7 @@ template<int64_t InlineBufferCapacity = 4, typename Allocator = GuardedAllocator
   BitVector(BitVector &&other) noexcept : BitVector(NoExceptConstructor(), other.allocator_)
   {
     if (other.is_inline()) {
+      /* Copy the data into the inline buffer. */
       const int64_t bytes_to_copy = other.used_bytes_amount();
       data_ = inline_buffer_;
       uninitialized_copy_n(other.data_, bytes_to_copy, data_);
@@ -160,23 +250,33 @@ template<int64_t InlineBufferCapacity = 4, typename Allocator = GuardedAllocator
     size_in_bits_ = other.size_in_bits_;
     capacity_in_bits_ = other.capacity_in_bits_;
 
+    /* Clear the other vector because it has been moved from. */
     other.data_ = other.inline_buffer_;
     other.size_in_bits_ = 0;
     other.capacity_in_bits_ = BitsInInlineBuffer;
   }
 
+  /**
+   * Create a new vector with the given size.
+   */
   explicit BitVector(const int64_t size_in_bits, Allocator allocator = {})
       : BitVector(NoExceptConstructor(), allocator)
   {
     this->resize(size_in_bits);
   }
 
+  /**
+   * Create a new vector with the given size and fill it with #value.
+   */
   BitVector(const int64_t size_in_bits, const bool value, Allocator allocator = {})
       : BitVector(NoExceptConstructor(), allocator)
   {
     this->resize(size_in_bits, value);
   }
 
+  /**
+   * Create a bit vector based on an array of bools. Each byte of the input array maps to one bit.
+   */
   explicit BitVector(const Span<bool> values, Allocator allocator = {})
       : BitVector(NoExceptConstructor(), allocator)
   {
@@ -203,11 +303,17 @@ template<int64_t InlineBufferCapacity = 4, typename Allocator = GuardedAllocator
     return move_assign_container(*this, std::move(other));
   }
 
+  /**
+   * Number of bits in the bit vector.
+   */
   int64_t size() const
   {
     return size_in_bits_;
   }
 
+  /**
+   * Get a read-only reference to a specific bit.
+   */
   BitRef operator[](const int64_t index) const
   {
     BLI_assert(index >= 0);
@@ -215,6 +321,9 @@ template<int64_t InlineBufferCapacity = 4, typename Allocator = GuardedAllocator
     return {data_, index};
   }
 
+  /**
+   * Get a mutable reference to a specific bit.
+   */
   MutableBitRef operator[](const int64_t index)
   {
     BLI_assert(index >= 0);
@@ -227,6 +336,9 @@ template<int64_t InlineBufferCapacity = 4, typename Allocator = GuardedAllocator
     return {0, size_in_bits_};
   }
 
+  /**
+   * Add a new bit to the end of the vector.
+   */
   void append(const bool value)
   {
     this->ensure_space_for_one();
@@ -311,6 +423,9 @@ template<int64_t InlineBufferCapacity = 4, typename Allocator = GuardedAllocator
     return {*this, size_in_bits_};
   }
 
+  /**
+   * Change the size of the vector.
+   */
   void resize(const int64_t new_size_in_bits)
   {
     BLI_assert(new_size_in_bits >= 0);
@@ -320,6 +435,10 @@ template<int64_t InlineBufferCapacity = 4, typename Allocator = GuardedAllocator
     size_in_bits_ = new_size_in_bits;
   }
 
+  /**
+   * Change the size of the vector. If the new vector is larger than the old one, the new elements
+   * are filled with #value.
+   */
   void resize(const int64_t new_size_in_bits, const bool value)
   {
     const int64_t old_size_in_bits = size_in_bits_;
@@ -329,6 +448,9 @@ template<int64_t InlineBufferCapacity = 4, typename Allocator = GuardedAllocator
     }
   }
 
+  /**
+   * Set #value for every element in #range.
+   */
   void fill_range(const IndexRange range, const bool value)
   {
     const AlignedIndexRanges aligned_ranges = split_index_range_by_alignment(range, BitsPerByte);
@@ -350,11 +472,18 @@ template<int64_t InlineBufferCapacity = 4, typename Allocator = GuardedAllocator
     }
   }
 
+  /**
+   * Set #value on every element.
+   */
   void fill(const bool value)
   {
     this->fill_range(IndexRange(0, size_in_bits_), value);
   }
 
+  /**
+   * Make sure that the capacity of the vector is large enough to hold the given amount of bits.
+   * The actual size is not changed.
+   */
   void reserve(const int new_capacity_in_bits)
   {
     this->realloc_to_at_least(new_capacity_in_bits);
@@ -403,11 +532,6 @@ template<int64_t InlineBufferCapacity = 4, typename Allocator = GuardedAllocator
   int64_t used_bytes_amount() const
   {
     return this->required_bytes_for_bits(size_in_bits_);
-  }
-
-  static int64_t required_bytes_for_bits(const int64_t number_of_bits)
-  {
-    return (number_of_bits + BitsPerByte - 1) / BitsPerByte;
   }
 };
 

@@ -163,4 +163,18 @@ TEST(bit_vector, Append)
   EXPECT_FALSE(vec[3]);
 }
 
+TEST(bit_vector, AppendMany)
+{
+  BitVector<> vec;
+  for (const int64_t i : IndexRange(1000)) {
+    vec.append(i % 2);
+  }
+  EXPECT_FALSE(vec[0]);
+  EXPECT_TRUE(vec[1]);
+  EXPECT_FALSE(vec[2]);
+  EXPECT_TRUE(vec[3]);
+  EXPECT_FALSE(vec[4]);
+  EXPECT_TRUE(vec[5]);
+}
+
 }  // namespace blender::tests
