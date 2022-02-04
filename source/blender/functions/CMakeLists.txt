@@ -62,6 +62,7 @@ set(SRC
   FN_multi_function_procedure_executor.hh
   FN_multi_function_procedure_optimization.hh
   FN_multi_function_signature.hh
+  FN_node_graph.hh
 )
 
 set(LIB
@@ -95,6 +96,7 @@ if(WITH_GTESTS)
     tests/FN_generic_vector_array_test.cc
     tests/FN_multi_function_procedure_test.cc
     tests/FN_multi_function_test.cc
+    tests/FN_node_graph_test.cc
 
     tests/FN_multi_function_test_common.hh
   )
