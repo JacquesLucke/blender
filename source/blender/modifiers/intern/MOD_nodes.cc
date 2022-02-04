@@ -1221,7 +1221,7 @@ static void modifyGeometry(ModifierData *md,
   DerivedNodeTree tree{*nmd->node_group, tree_refs};
 
   for (const std::unique_ptr<const NodeTreeRef> &tree_ref : tree_refs.values()) {
-    blender::nodes::NodeTreeRefAdapter graph{*tree_ref};
+    blender::nodes::NodeTreeRefLogicalAdapter graph{*tree_ref};
     std::cout << blender::fn::node_graph_to_dot(graph) << "\n";
   }
 
