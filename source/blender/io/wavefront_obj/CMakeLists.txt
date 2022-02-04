@@ -24,6 +24,7 @@ set(INC
   ../../bmesh/intern
   ../../depsgraph
   ../../editors/include
+  ../../functions
   ../../makesdna
   ../../makesrna
   ../../nodes

@@ -54,6 +54,8 @@
 #include "BLI_utility_mixins.hh"
 #include "BLI_vector.hh"
 
+#include "FN_node_graph.hh"
+
 #include "BKE_node.h"
 
 #include "DNA_node_types.h"
@@ -779,6 +781,74 @@ inline StringRefNull NodeTreeRef::name() const
 {
   return btree_->id.name + 2;
 }
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Node graph adapter.
+ * \{ */
+
+class NodeTreeRefAdapter : public fn::NodeGraphAdapterBase<NodeTreeRefAdapter> {
+ private:
+  const NodeTreeRef &tree_;
+
+ public:
+  using NodeID = const NodeRef *;
+
+  NodeTreeRefAdapter(const NodeTreeRef &tree) : tree_(tree)
+  {
+  }
+
+  int node_inputs_size(const NodeRef *node) const
+  {
+    return node->inputs().size();
+  }
+
+  int node_outputs_size(const NodeRef *node) const
+  {
+    return node->outputs().size();
+  }
+
+  template<typename F> void foreach_node(const F &f) const
+  {
+    for (const NodeRef *node : tree_.nodes()) {
+      f(node);
+    }
+  }
+
+  template<typename F>
+  void foreach_linked_input(const NodeRef *node, const int output_socket_index, const F &f) const
+  {
+    const OutputSocketRef &socket = node->output(output_socket_index);
+    for (const InputSocketRef *linked_socket : socket.directly_linked_sockets()) {
+      f(&linked_socket->node(), linked_socket->index());
+    }
+  }
+
+  template<typename F>
+  void foreach_linked_output(const NodeRef *node, const int input_socket_index, const F &f) const
+  {
+    const InputSocketRef &socket = node->input(input_socket_index);
+    for (const OutputSocketRef *linked_socket : socket.directly_linked_sockets()) {
+      f(&linked_socket->node(), linked_socket->index());
+    }
+  }
+
+  std::string node_debug_name(const NodeRef *node) const
+  {
+    return node->name();
+  }
+
+  std::string input_socket_debug_name(const NodeRef *node, const int input_socket_index) const
+  {
+    return node->input(input_socket_index).name();
+  }
+
+  std::string output_socket_debug_name(const NodeRef *node, const int output_socket_index) const
+  {
+    return node->output(output_socket_index).name();
+  }
+};
 
 /** \} */
 

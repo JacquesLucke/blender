@@ -304,7 +304,7 @@ inline bool try_dispatch_float_math_fl3_fl3_to_fl(const NodeVectorMathOperation 
 
   switch (operation) {
     case NODE_VECTOR_MATH_DOT_PRODUCT:
-      return dispatch([](float3 a, float3 b) { return dot(a, b); });
+      return dispatch([](float3 a, float3 b) { return math::dot(a, b); });
     case NODE_VECTOR_MATH_DISTANCE:
       return dispatch([](float3 a, float3 b) { return distance(a, b); });
     default:

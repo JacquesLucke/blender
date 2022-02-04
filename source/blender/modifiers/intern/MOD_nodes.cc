@@ -1220,6 +1220,11 @@ static void modifyGeometry(ModifierData *md,
   NodeTreeRefMap tree_refs;
   DerivedNodeTree tree{*nmd->node_group, tree_refs};
 
+  for (const std::unique_ptr<const NodeTreeRef> &tree_ref : tree_refs.values()) {
+    blender::nodes::NodeTreeRefAdapter graph{*tree_ref};
+    std::cout << blender::fn::node_graph_to_dot(graph) << "\n";
+  }
+
   if (tree.has_link_cycles()) {
     BKE_modifier_set_error(ctx->object, md, "Node group has cycles");
     geometry_set.clear();
