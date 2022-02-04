@@ -22,7 +22,7 @@ TEST(bit_vector, CopyConstructorInline)
   EXPECT_EQ(vec.size(), 5);
   EXPECT_EQ(vec2.size(), 5);
 
-  vec2[1].enable();
+  vec2[1].set();
   EXPECT_FALSE(vec[1]);
 
   EXPECT_FALSE(vec2[0]);
@@ -35,14 +35,14 @@ TEST(bit_vector, CopyConstructorInline)
 TEST(bit_vector, CopyConstructorLarge)
 {
   BitVector<> vec(500, false);
-  vec[1].enable();
+  vec[1].set();
 
   BitVector<> vec2 = vec;
 
   EXPECT_EQ(vec.size(), 500);
   EXPECT_EQ(vec2.size(), 500);
 
-  vec2[2].enable();
+  vec2[2].set();
   EXPECT_FALSE(vec[2]);
 
   EXPECT_FALSE(vec2[0]);
@@ -68,7 +68,7 @@ TEST(bit_vector, MoveConstructorInline)
 TEST(bit_vector, MoveConstructorLarge)
 {
   BitVector<> vec(500, false);
-  vec[3].enable();
+  vec[3].set();
 
   BitVector<> vec2 = std::move(vec);
 
@@ -117,7 +117,7 @@ TEST(bit_vector, SizeFillConstructor)
 TEST(bit_vector, IndexAccess)
 {
   BitVector<> vec(100, false);
-  vec[55].enable();
+  vec[55].set();
   EXPECT_FALSE(vec[50]);
   EXPECT_FALSE(vec[51]);
   EXPECT_FALSE(vec[52]);

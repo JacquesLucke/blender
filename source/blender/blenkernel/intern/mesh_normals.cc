@@ -904,7 +904,7 @@ static void mesh_edges_sharp_tag(LoopSplitTaskDataCommon *data,
           /* We want to avoid tagging edges as sharp when it is already defined as such by
            * other causes than angle threshold. */
           if (do_sharp_edges_tag && is_angle_sharp) {
-            sharp_edges[ml_curr->e].enable();
+            sharp_edges[ml_curr->e].set();
           }
         }
         else {
@@ -918,7 +918,7 @@ static void mesh_edges_sharp_tag(LoopSplitTaskDataCommon *data,
         /* We want to avoid tagging edges as sharp when it is already defined as such by
          * other causes than angle threshold. */
         if (do_sharp_edges_tag) {
-          sharp_edges[ml_curr->e].disable();
+          sharp_edges[ml_curr->e].reset();
         }
       }
       /* Else, edge is already 'disqualified' (i.e. sharp)! */
@@ -1385,7 +1385,7 @@ static bool loop_split_generator_check_cyclic_smooth_fan(const MLoop *mloops,
   BLI_assert(mpfan_curr_index >= 0);
 
   BLI_assert(!skip_loops[mlfan_vert_index]);
-  skip_loops[mlfan_vert_index].enable();
+  skip_loops[mlfan_vert_index].set();
 
   while (true) {
     /* Find next loop of the smooth fan. */
@@ -1417,7 +1417,7 @@ static bool loop_split_generator_check_cyclic_smooth_fan(const MLoop *mloops,
     }
 
     /* We can skip it in future, and keep checking the smooth fan. */
-    skip_loops[mlfan_vert_index].enable();
+    skip_loops[mlfan_vert_index].set();
   }
 }
 
@@ -1829,7 +1829,7 @@ static void mesh_normals_loop_custom_set(const MVert *mverts,
         /* This should not happen in theory, but in some rare case (probably ugly geometry)
          * we can get some nullptr loopspacearr at this point. :/
          * Maybe we should set those loops' edges as sharp? */
-        done_loops[i].enable();
+        done_loops[i].set();
         if (G.debug & G_DEBUG) {
           printf("WARNING! Getting invalid nullptr loop space for loop %d!\n", i);
         }
@@ -1847,7 +1847,7 @@ static void mesh_normals_loop_custom_set(const MVert *mverts,
          *   to avoid small differences adding up into a real big one in the end!
          */
         if (lnors_spacearr.lspacearr[i]->flags & MLNOR_SPACE_IS_SINGLE) {
-          done_loops[i].enable();
+          done_loops[i].set();
           continue;
         }
 
@@ -1879,7 +1879,7 @@ static void mesh_normals_loop_custom_set(const MVert *mverts,
 
           prev_ml = ml;
           loops = loops->next;
-          done_loops[lidx].enable();
+          done_loops[lidx].set();
         }
 
         /* We also have to check between last and first loops,
@@ -1930,7 +1930,7 @@ static void mesh_normals_loop_custom_set(const MVert *mverts,
    * lnor space-encoded ones. */
   for (int i = 0; i < numLoops; i++) {
     if (!lnors_spacearr.lspacearr[i]) {
-      done_loops[i].disable();
+      done_loops[i].reset();
       if (G.debug & G_DEBUG) {
         printf("WARNING! Still getting invalid nullptr loop space in second loop for loop %d!\n",
                i);
@@ -1949,7 +1949,7 @@ static void mesh_normals_loop_custom_set(const MVert *mverts,
         float *nor = r_custom_loopnors[nidx];
 
         BKE_lnor_space_custom_normal_to_data(lnors_spacearr.lspacearr[i], nor, r_clnors_data[i]);
-        done_loops[i].disable();
+        done_loops[i].reset();
       }
       else {
         int nbr_nors = 0;
@@ -1967,7 +1967,7 @@ static void mesh_normals_loop_custom_set(const MVert *mverts,
           BLI_SMALLSTACK_PUSH(clnors_data, (short *)r_clnors_data[lidx]);
 
           loops = loops->next;
-          done_loops[lidx].disable();
+          done_loops[lidx].reset();
         }
 
         mul_v3_fl(avg_nor, 1.0f / (float)nbr_nors);

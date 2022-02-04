@@ -2031,7 +2031,7 @@ static int split_faces_prepare_new_verts(Mesh *mesh,
       if ((*lnor_space)->flags & MLNOR_SPACE_IS_SINGLE) {
         /* Single loop in this fan... */
         BLI_assert(POINTER_AS_INT((*lnor_space)->loops) == loop_idx);
-        done_loops[loop_idx].enable();
+        done_loops[loop_idx].set();
         if (vert_used) {
           ml->v = new_vert_idx;
         }
@@ -2039,7 +2039,7 @@ static int split_faces_prepare_new_verts(Mesh *mesh,
       else {
         for (LinkNode *lnode = (*lnor_space)->loops; lnode; lnode = lnode->next) {
           const int ml_fan_idx = POINTER_AS_INT(lnode->link);
-          done_loops[ml_fan_idx].enable();
+          done_loops[ml_fan_idx].set();
           if (vert_used) {
             mloop[ml_fan_idx].v = new_vert_idx;
           }
@@ -2047,7 +2047,7 @@ static int split_faces_prepare_new_verts(Mesh *mesh,
       }
 
       if (!vert_used) {
-        verts_used[vert_idx].enable();
+        verts_used[vert_idx].set();
         /* We need to update that vertex's normal here, we won't go over it again. */
         /* This is important! *DO NOT* set vnor to final computed lnor,
          * vnor should always be defined to 'automatic normal' value computed from its polys,
@@ -2116,7 +2116,7 @@ static int split_faces_prepare_new_edges(const Mesh *mesh,
           medge[edge_idx].v1 = ml_prev->v;
           medge[edge_idx].v2 = ml->v;
           *eval = POINTER_FROM_INT(edge_idx);
-          edges_used[edge_idx].enable();
+          edges_used[edge_idx].set();
         }
       }
       else {

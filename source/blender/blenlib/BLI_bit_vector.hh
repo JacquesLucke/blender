@@ -84,12 +84,12 @@ class MutableBitRef {
     return masked_byte != 0;
   }
 
-  void enable()
+  void set()
   {
     *byte_ptr_ |= mask_;
   }
 
-  void disable()
+  void reset()
   {
     *byte_ptr_ &= ~mask_;
   }
@@ -97,10 +97,10 @@ class MutableBitRef {
   void set(const bool value)
   {
     if (value) {
-      this->enable();
+      this->set();
     }
     else {
-      this->disable();
+      this->reset();
     }
   }
 };
