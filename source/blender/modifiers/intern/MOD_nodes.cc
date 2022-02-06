@@ -101,6 +101,7 @@
 #include "FN_field.hh"
 #include "FN_field_cpp_type.hh"
 #include "FN_multi_function.hh"
+#include "FN_sgraph_to_dot.hh"
 
 using blender::Array;
 using blender::ColorGeometry4f;

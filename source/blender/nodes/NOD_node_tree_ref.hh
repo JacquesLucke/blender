@@ -54,8 +54,6 @@
 #include "BLI_utility_mixins.hh"
 #include "BLI_vector.hh"
 
-#include "FN_sgraph.hh"
-
 #include "BKE_node.h"
 
 #include "DNA_node_types.h"

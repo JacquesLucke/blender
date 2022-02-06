@@ -63,6 +63,7 @@ set(SRC
   FN_multi_function_procedure_optimization.hh
   FN_multi_function_signature.hh
   FN_sgraph.hh
+  FN_sgraph_to_dot.hh
 )
 
 set(LIB
