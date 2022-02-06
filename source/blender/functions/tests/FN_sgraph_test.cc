@@ -6,7 +6,7 @@
 
 namespace blender::fn::sgraph::tests {
 
-struct SGraphExample : public SGraphBase<SGraphExample> {
+struct ExampleSGraphAdapter {
   using NodeID = int;
 
   int node_inputs_size(const NodeID &node) const
@@ -102,7 +102,8 @@ struct SGraphExample : public SGraphBase<SGraphExample> {
 
 TEST(sgraph, ToDot)
 {
-  SGraphExample graph;
+  ExampleSGraphAdapter adapter;
+  SGraph<ExampleSGraphAdapter> graph{adapter};
   std::cout << sgraph_to_dot(graph) << "\n";
 }
 
