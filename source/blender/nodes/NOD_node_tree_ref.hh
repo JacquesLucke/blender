@@ -54,7 +54,7 @@
 #include "BLI_utility_mixins.hh"
 #include "BLI_vector.hh"
 
-#include "FN_node_graph.hh"
+#include "FN_sgraph.hh"
 
 #include "BKE_node.h"
 

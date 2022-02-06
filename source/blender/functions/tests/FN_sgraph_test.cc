@@ -2,7 +2,7 @@
 
 #include "testing/testing.h"
 
-#include "FN_node_graph.hh"
+#include "FN_sgraph.hh"
 
 namespace blender::fn::tests {
 
