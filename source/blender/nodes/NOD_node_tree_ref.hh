@@ -783,7 +783,7 @@ inline StringRefNull NodeTreeRef::name() const
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Node graph adapter.
+/** \name SGraph adapter.
  * \{ */
 
 class NodeTreeRefLogicalSGraphAdapter {
