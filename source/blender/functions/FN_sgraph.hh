@@ -25,7 +25,7 @@
 
 namespace blender::fn::sgraph {
 
-template<typename SGraphAdapter> class SGraph;
+template<typename SGraphAdapter> class SGraphT;
 template<typename SGraphAdapter> class NodeT;
 template<typename SGraphAdapter> class InSocketT;
 template<typename SGraphAdapter> class OutSocketT;
@@ -33,7 +33,7 @@ template<typename SGraphAdapter> class OutSocketT;
 template<typename SGraphAdapter> class NodeT {
  private:
   using NodeID = typename SGraphAdapter::NodeID;
-  using OwnerSGraph = SGraph<SGraphAdapter>;
+  using SGraph = SGraphT<SGraphAdapter>;
   using InSocket = InSocketT<SGraphAdapter>;
   using OutSocket = OutSocketT<SGraphAdapter>;
 
@@ -47,17 +47,17 @@ template<typename SGraphAdapter> class NodeT {
   {
   }
 
-  int inputs_size(const OwnerSGraph &graph) const
+  int inputs_size(const SGraph &graph) const
   {
     return graph.adapter_->node_inputs_size(id_);
   }
 
-  int outputs_size(const OwnerSGraph &graph) const
+  int outputs_size(const SGraph &graph) const
   {
     return graph.adapter_->node_outputs_size(id_);
   }
 
-  InSocket input(const OwnerSGraph &graph, const int index) const
+  InSocket input(const SGraph &graph, const int index) const
   {
     BLI_assert(index >= 0);
     BLI_assert(index < this->inputs_size(graph));
@@ -65,7 +65,7 @@ template<typename SGraphAdapter> class NodeT {
     return {*this, index};
   }
 
-  OutSocket output(const OwnerSGraph &graph, const int index) const
+  OutSocket output(const SGraph &graph, const int index) const
   {
     BLI_assert(index >= 0);
     BLI_assert(index < this->outputs_size(graph));
@@ -88,7 +88,7 @@ template<typename SGraphAdapter> class NodeT {
     return !(a == b);
   }
 
-  std::string debug_name(const OwnerSGraph &graph) const
+  std::string debug_name(const SGraph &graph) const
   {
     return graph.adapter_->node_debug_name(id_);
   }
@@ -97,7 +97,7 @@ template<typename SGraphAdapter> class NodeT {
 template<typename SGraphAdapter> class InSocketT {
  private:
   using NodeID = typename SGraphAdapter::NodeID;
-  using OwnerSGraph = SGraph<SGraphAdapter>;
+  using SGraph = SGraphT<SGraphAdapter>;
   using InSocket = InSocketT<SGraphAdapter>;
   using OutSocket = OutSocketT<SGraphAdapter>;
   using Node = NodeT<SGraphAdapter>;
@@ -106,7 +106,7 @@ template<typename SGraphAdapter> class InSocketT {
   Node node;
   int index;
 
-  template<typename F> void foreach_linked(const OwnerSGraph &graph, const F &f) const
+  template<typename F> void foreach_linked(const SGraph &graph, const F &f) const
   {
     graph.adapter_->foreach_linked_output(
         this->node.id_, this->index, [&](const NodeID &linked_node, const int linked_index) {
@@ -114,7 +114,7 @@ template<typename SGraphAdapter> class InSocketT {
         });
   }
 
-  std::string debug_name(const OwnerSGraph &graph) const
+  std::string debug_name(const SGraph &graph) const
   {
     return graph.adapter_->input_socket_debug_name(this->node.id_, this->index);
   }
@@ -123,7 +123,7 @@ template<typename SGraphAdapter> class InSocketT {
 template<typename SGraphAdapter> class OutSocketT {
  private:
   using NodeID = typename SGraphAdapter::NodeID;
-  using OwnerSGraph = SGraph<SGraphAdapter>;
+  using SGraph = SGraphT<SGraphAdapter>;
   using InSocket = InSocketT<SGraphAdapter>;
   using OutSocket = OutSocketT<SGraphAdapter>;
   using Node = NodeT<SGraphAdapter>;
@@ -132,7 +132,7 @@ template<typename SGraphAdapter> class OutSocketT {
   Node node;
   int index;
 
-  template<typename F> void foreach_linked(const OwnerSGraph &graph, const F &f) const
+  template<typename F> void foreach_linked(const SGraph &graph, const F &f) const
   {
     graph.adapter_->foreach_linked_input(
         this->node.id_, this->index, [&](const NodeID &linked_node, const int linked_index) {
@@ -140,7 +140,7 @@ template<typename SGraphAdapter> class OutSocketT {
         });
   }
 
-  std::string debug_name(const OwnerSGraph &graph) const
+  std::string debug_name(const SGraph &graph) const
   {
     return graph.adapter_->output_socket_debug_name(this->node.id_, this->index);
   }
@@ -149,7 +149,7 @@ template<typename SGraphAdapter> class OutSocketT {
 template<typename SGraphAdapter> class LinkT {
  private:
   using NodeID = typename SGraphAdapter::NodeID;
-  using OwnerSGraph = SGraph<SGraphAdapter>;
+  using SGraph = SGraphT<SGraphAdapter>;
   using InSocket = InSocketT<SGraphAdapter>;
   using OutSocket = OutSocketT<SGraphAdapter>;
   using Node = NodeT<SGraphAdapter>;
@@ -159,7 +159,7 @@ template<typename SGraphAdapter> class LinkT {
   OutSocket out_socket;
 };
 
-template<typename SGraphAdapter> class SGraph {
+template<typename SGraphAdapter> class SGraphT {
  public:
   using NodeID = typename SGraphAdapter::NodeID;
   using Node = NodeT<SGraphAdapter>;
@@ -176,7 +176,7 @@ template<typename SGraphAdapter> class SGraph {
   SGraphAdapter *adapter_;
 
  public:
-  SGraph(SGraphAdapter &adapter) : adapter_(&adapter)
+  SGraphT(SGraphAdapter &adapter) : adapter_(&adapter)
   {
   }
 
@@ -199,11 +199,11 @@ template<typename SGraphAdapter> class SGraph {
 };
 
 template<typename SGraphAdapter>
-inline std::string sgraph_to_dot(const SGraph<SGraphAdapter> &graph)
+inline std::string sgraph_to_dot(const SGraphT<SGraphAdapter> &graph)
 {
-  using SGraph_ = SGraph<SGraphAdapter>;
-  using Node = typename SGraph_::Node;
-  using Link = typename SGraph_::Link;
+  using SGraph = SGraphT<SGraphAdapter>;
+  using Node = typename SGraph::Node;
+  using Link = typename SGraph::Link;
 
   dot::DirectedGraph digraph;
   digraph.set_rankdir(dot::Attr_rankdir::LeftToRight);

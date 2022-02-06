@@ -103,7 +103,7 @@ struct ExampleSGraphAdapter {
 TEST(sgraph, ToDot)
 {
   ExampleSGraphAdapter adapter;
-  SGraph<ExampleSGraphAdapter> graph{adapter};
+  SGraphT graph{adapter};
   std::cout << sgraph_to_dot(graph) << "\n";
 }
 

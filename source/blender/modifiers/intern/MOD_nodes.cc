@@ -1222,7 +1222,7 @@ static void modifyGeometry(ModifierData *md,
 
   for (const std::unique_ptr<const NodeTreeRef> &tree_ref : tree_refs.values()) {
     blender::nodes::NodeTreeRefLogicalSGraphAdapter adapter{*tree_ref};
-    blender::fn::sgraph::SGraph graph(adapter);
+    blender::fn::sgraph::SGraphT graph(adapter);
     std::cout << blender::fn::sgraph::sgraph_to_dot(graph) << "\n";
   }
 
