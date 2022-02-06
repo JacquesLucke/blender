@@ -18,6 +18,18 @@
 
 /** \file
  * \ingroup fn
+ *
+ * A `SGraph` ("socket graph") is a graph data structure wrapper. It wraps graphs where each node
+ * has input and output sockets and links only exist between an input and output of two different
+ * nodes.
+ *
+ * In itself, it can not hold a graph. Instead different concrete graph data structures can
+ * implement a "SGraphAdapter". This allows generic algorithms to work on different concrete graph
+ * data structures.
+ *
+ * Generic algorithms don't work on the adapter directly, but on SGraph<Adapter>, which adds some
+ * utilities on top of the adapter. This minimizes the amount of functionality that has to be
+ * implemented by an adapter, while still making generic algorithms somewhat convenient to write.
  */
 
 #include "BLI_hash.hh"
