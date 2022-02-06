@@ -1221,9 +1221,20 @@ static void modifyGeometry(ModifierData *md,
   NodeTreeRefMap tree_refs;
   DerivedNodeTree tree{*nmd->node_group, tree_refs};
 
+  for (const std::unique_ptr<const NodeTreeRef> &tree_ref : tree_refs.values()) {
+    blender::nodes::NodeTreeRefLogicalSGraphAdapter logical_adapter{*tree_ref};
+    std::cout << "logical\n";
+    blender::fn::sgraph::sgraph_adapter_is_valid(logical_adapter);
+    blender::nodes::NodeTreeRefSGraphAdapter real_adapter{*tree_ref};
+    std::cout << "real\n";
+    blender::fn::sgraph::sgraph_adapter_is_valid(real_adapter);
+  }
+
   blender::nodes::DerivedNodeTreeSGraphAdapter adapter{tree};
   blender::fn::sgraph::SGraphT graph(adapter);
-  std::cout << blender::fn::sgraph::sgraph_to_dot(graph) << "\n";
+  std::cout << "derived\n";
+  blender::fn::sgraph::sgraph_adapter_is_valid(adapter);
+  // std::cout << blender::fn::sgraph::sgraph_to_dot(graph) << "\n";
 
   if (tree.has_link_cycles()) {
     BKE_modifier_set_error(ctx->object, md, "Node group has cycles");

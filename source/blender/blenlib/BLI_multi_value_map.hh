@@ -129,6 +129,14 @@ template<typename Key, typename Value> class MultiValueMap {
   }
 
   /**
+   * Get the number of keys.
+   */
+  int64_t size() const
+  {
+    return map_.size();
+  }
+
+  /**
    * NOTE: This signature will change when the implementation changes.
    */
   typename MapType::ItemIterator items() const

@@ -180,6 +180,11 @@ template<typename SGraphAdapter> class SGraphT {
   {
   }
 
+  const SGraphAdapter adapter() const
+  {
+    return *adapter_;
+  }
+
   template<typename F> void foreach_node(const F &f) const
   {
     adapter_->foreach_node([&](const NodeID &node_id) { f(Node(node_id)); });
