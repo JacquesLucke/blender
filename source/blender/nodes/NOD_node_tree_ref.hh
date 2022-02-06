@@ -788,14 +788,14 @@ inline StringRefNull NodeTreeRef::name() const
 /** \name Node graph adapter.
  * \{ */
 
-class NodeTreeRefLogicalSGraph : public fn::sgraph::SGraphBase<NodeTreeRefLogicalSGraph> {
+class NodeTreeRefLogicalSGraphAdapter {
  private:
   const NodeTreeRef &tree_;
 
  public:
   using NodeID = const NodeRef *;
 
-  NodeTreeRefLogicalSGraph(const NodeTreeRef &tree) : tree_(tree)
+  NodeTreeRefLogicalSGraphAdapter(const NodeTreeRef &tree) : tree_(tree)
   {
   }
 
@@ -864,14 +864,14 @@ class NodeTreeRefLogicalSGraph : public fn::sgraph::SGraphBase<NodeTreeRefLogica
   }
 };
 
-class NodeTreeRefSGraph : public fn::sgraph::SGraphBase<NodeTreeRefSGraph> {
+class NodeTreeRefSGraphAdapter {
  private:
   const NodeTreeRef &tree_;
 
  public:
   using NodeID = const NodeRef *;
 
-  NodeTreeRefSGraph(const NodeTreeRef &tree) : tree_(tree)
+  NodeTreeRefSGraphAdapter(const NodeTreeRef &tree) : tree_(tree)
   {
   }
 

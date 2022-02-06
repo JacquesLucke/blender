@@ -25,29 +25,6 @@
 
 namespace blender::fn::sgraph {
 
-template<typename SGraph> struct SGraphBase {
-  template<typename F> void foreach_link(const F &f) const
-  {
-    using NodeID = typename SGraph::NodeID;
-
-    const SGraph &graph = this->self_sgraph();
-    graph.foreach_node([&](const NodeID &from_node) {
-      for (const int from_index : IndexRange(graph.node_outputs_size(from_node))) {
-        graph.foreach_linked_input(
-            from_node, from_index, [&](const NodeID &to_node, const int to_index) {
-              f(from_node, from_index, to_node, to_index);
-            });
-      }
-    });
-  }
-
- private:
-  const SGraph &self_sgraph() const
-  {
-    return static_cast<const SGraph &>(*this);
-  }
-};
-
 template<typename SGraphAdapter> class SGraph;
 template<typename SGraphAdapter> class NodeT;
 template<typename SGraphAdapter> class InSocketT;
