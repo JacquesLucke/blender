@@ -54,7 +54,7 @@ class ExecuteNodeParams {
 
   virtual bool output_maybe_required(int index) const = 0;
 
-  virtual LazyRequireInputResult lazy_require_input(int index) = 0;
+  virtual LazyRequireInputResult set_input_required(int index) = 0;
   virtual bool output_is_required(int index) = 0;
 };
 
@@ -291,7 +291,7 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
       NodeState &node_state = *node_states_.lookup(node);
       if (socket.is_input) {
         this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
-          this->lazy_require_input(locked_node, InSocket(socket));
+          this->set_input_required(locked_node, InSocket(socket));
         });
       }
       else {
@@ -420,7 +420,7 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
 
       if (!node_state.always_required_inputs_handled) {
         executor_.foreach_always_required_input_index(node.id, [&](const int input_index) {
-          this->lazy_require_input(locked_node, node.input(graph_, input_index));
+          this->set_input_required(locked_node, node.input(graph_, input_index));
         });
         node_state.always_required_inputs_handled = true;
       }
@@ -536,13 +536,13 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
     UNUSED_VARS(locked_node, in_socket);
   }
 
-  LazyRequireInputResult lazy_require_input_during_execution(const Node node,
+  LazyRequireInputResult set_input_required_during_execution(const Node node,
                                                              NodeState &node_state,
                                                              const int input_index)
   {
     LazyRequireInputResult result;
     this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
-      result = this->lazy_require_input(locked_node, node.input(graph_, input_index));
+      result = this->set_input_required(locked_node, node.input(graph_, input_index));
       if (result == LazyRequireInputResult::Ready) {
         this->schedule_node(locked_node);
       }
@@ -550,7 +550,7 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
     return result;
   }
 
-  LazyRequireInputResult lazy_require_input(LockedNode &locked_node, const InSocket in_socket)
+  LazyRequireInputResult set_input_required(LockedNode &locked_node, const InSocket in_socket)
   {
     BLI_assert(locked_node.node == in_socket.node);
     InputState &input_state = locked_node.node_state.inputs[in_socket.index];
@@ -716,9 +716,9 @@ class ExecuteNodeParamsT final : public ExecuteNodeParams {
     return output_state.usage_for_execution != ValueUsage::Unused;
   }
 
-  LazyRequireInputResult lazy_require_input(int index) override
+  LazyRequireInputResult set_input_required(int index) override
   {
-    return evaluator_.lazy_require_input_during_execution(node_, node_state_, index);
+    return evaluator_.set_input_required_during_execution(node_, node_state_, index);
   }
 
   bool output_is_required(int index) override
