@@ -104,6 +104,7 @@ struct ExampleSGraphAdapter {
 
 class ExampleExecutor {
  public:
+  SGraphT<ExampleSGraphAdapter> graph_;
   using NodeID = ExampleSGraphAdapter::NodeID;
 
   const CPPType *input_socket_type(const NodeID &UNUSED(node), const int UNUSED(input_index)) const
@@ -117,9 +118,9 @@ class ExampleExecutor {
     return &CPPType::get<int>();
   }
 
-  void load_single_input(const NodeID &UNUSED(node),
-                         const int UNUSED(input_index),
-                         GMutablePointer r_value) const
+  void load_unlinked_single_input(const NodeID &UNUSED(node),
+                                  const int UNUSED(input_index),
+                                  GMutablePointer r_value) const
   {
     *r_value.get<int>() = 2;
   }
@@ -127,6 +128,14 @@ class ExampleExecutor {
   bool is_multi_input(const NodeID &UNUSED(node), const int UNUSED(input_index)) const
   {
     return false;
+  }
+
+  template<typename F>
+  void foreach_always_required_input_index(const NodeID node, const F &f) const
+  {
+    for (const int input_index : IndexRange(graph_.adapter().node_inputs_size(node))) {
+      f(input_index);
+    }
   }
 
   std::optional<Vector<int>> always_required_input_indices(const NodeID &UNUSED(node)) const
@@ -175,7 +184,7 @@ TEST(sgraph, ToDot)
   SGraphT graph{adapter};
   std::cout << sgraph_to_dot(graph) << "\n";
 
-  ExampleExecutor executor;
+  ExampleExecutor executor{graph};
 
   SocketT<ExampleSGraphAdapter> output_socket{3, 0, false};
   SGraphEvaluator graph_evaluator{graph, executor, {}, {output_socket}};

@@ -71,6 +71,13 @@ enum class ValueUsage : uint8_t {
   Unused,
 };
 
+enum class NodeScheduleState {
+  NotScheduled,
+  Scheduled,
+  Running,
+  RunningAndRescheduled,
+};
+
 struct SingleInputValue {
   void *value = nullptr;
 };
@@ -82,6 +89,11 @@ struct MultiInputValue {
   int missing_values() const
   {
     return this->values.size() - this->provided_value_count;
+  }
+
+  bool all_values_available() const
+  {
+    return this->values.size() == this->provided_value_count;
   }
 };
 
@@ -100,6 +112,7 @@ struct InputState {
 struct OutputState {
   const CPPType *type = nullptr;
   ValueUsage usage = ValueUsage::Maybe;
+  ValueUsage usage_for_execution = ValueUsage::Maybe;
   int potential_users = 0;
   bool has_been_computed = false;
 };
@@ -110,6 +123,9 @@ struct NodeState {
   MutableSpan<OutputState> outputs;
 
   int missing_required_inputs = 0;
+  bool node_has_finished = false;
+  bool always_required_inputs_handled = false;
+  NodeScheduleState schedule_state = NodeScheduleState::NotScheduled;
 };
 
 template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
@@ -193,14 +209,28 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
       node_state.outputs = allocator_.construct_array<OutputState>(node.inputs_size(graph_));
 
       for (const int input_index : node_state.inputs.index_range()) {
+        InSocket in_socket = node.input(graph_, input_index);
         InputState &input_state = node_state.inputs[input_index];
         input_state.type = executor_.input_socket_type(node.id, input_index);
         if (input_state.type == nullptr) {
           input_state.usage = ValueUsage::Unused;
         }
+        else {
+          if (executor_.is_multi_input(node.id, input_index)) {
+            /* TODO: destruct */
+            input_state.value.multi = allocator_.construct<MultiInputValue>().release();
+            int count = 0;
+            in_socket.foreach_linked(graph_,
+                                     [&](const OutSocket &UNUSED(origin_socket)) { count += 1; });
+            input_state.value.multi->values.resize(count);
+          }
+          else {
+            input_state.value.single = allocator_.construct<SingleInputValue>().release();
+          }
+        }
       }
       for (const int output_index : node_state.outputs.index_range()) {
-        OutSocket out_socket{node, output_index};
+        OutSocket out_socket = node.output(graph_, output_index);
         OutputState &output_state = node_state.outputs[output_index];
         output_state.type = executor_.output_socket_type(node.id, output_index);
         if (output_state.type == nullptr) {
@@ -252,10 +282,65 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
       const Node node = socket.node;
       NodeState &node_state = node_states_.lookup(node);
       if (socket.is_input) {
-        /* TODO */
+        this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+          this->lazy_require_input(locked_node, InSocket(socket));
+        });
       }
       else {
-        /* TODO */
+        this->notify_output_required(OutSocket(socket));
+      }
+    }
+  }
+
+  void notify_output_required(const OutSocket socket)
+  {
+    const Node node = socket.node;
+    NodeState &node_state = node_states_.lookup(node);
+    OutputState &output_state = node_state.outputs[socket.index];
+
+    this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+      if (output_state.usage == ValueUsage::Required) {
+        return;
+      }
+      output_state.usage = ValueUsage::Required;
+      this->schedule_node(locked_node);
+    });
+  }
+
+  void notify_output_unused(const OutSocket socket)
+  {
+    const Node node = socket.node;
+    NodeState &node_state = node_states_.lookup(node);
+    OutputState &output_state = node_state.outputs[socket.index];
+
+    this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+      output_state.potential_users -= 1;
+      if (output_state.potential_users == 0) {
+        if (output_state.usage != ValueUsage::Required) {
+          output_state.usage = ValueUsage::Unused;
+          this->schedule_node(locked_node);
+        }
+      }
+    });
+  }
+
+  void schedule_node(LockedNode &locked_node)
+  {
+    switch (locked_node.node_state.schedule_state) {
+      case NodeScheduleState::NotScheduled: {
+        locked_node.node_state.schedule_state = NodeScheduleState::Scheduled;
+        locked_node.delayed_scheduled_nodes.append(locked_node.node);
+        break;
+      }
+      case NodeScheduleState::Scheduled: {
+        break;
+      }
+      case NodeScheduleState::Running: {
+        locked_node.node_state.schedule_state = NodeScheduleState::RunningAndRescheduled;
+        break;
+      }
+      case NodeScheduleState::RunningAndRescheduled: {
+        break;
       }
     }
   }
@@ -274,6 +359,16 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
       threading::isolate_task([&]() { f(locked_node); });
       any_node_is_locked_on_current_thread = false;
     }
+
+    for (const OutSocket &socket : locked_node.delayed_required_outputs) {
+      this->notify_output_required(socket);
+    }
+    for (const OutSocket &socket : locked_node.delayed_unused_outputs) {
+      this->notify_output_unused(socket);
+    }
+    for (const Node &node : locked_node.delayed_scheduled_nodes) {
+      this->add_node_to_task_pool(node);
+    }
   }
 
   void add_node_to_task_pool(const Node &node)
@@ -287,12 +382,150 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
     void *user_data = BLI_task_pool_user_data(task_pool);
     SGraphEvaluator &evaluator = *static_cast<SGraphEvaluator *>(user_data);
     const Node &node = *static_cast<const Node *>(task_data);
-    evaluator.execute_node(node);
+    evaluator.run_node_task(node);
   }
 
-  void execute_node(const Node &node)
+  void run_node_task(const Node &node)
   {
+    NodeState &node_state = node_states_.lookup(node);
     std::cout << "Execute node: " << node.id << "\n";
+
+    bool node_needs_execution = false;
+    this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+      BLI_assert(node_state.schedule_state == NodeScheduleState::Scheduled);
+      node_state.schedule_state = NodeScheduleState::Running;
+
+      if (node_state.node_has_finished) {
+        return;
+      }
+
+      bool required_uncomputed_exists = false;
+      for (OutputState &output_state : node_state.outputs) {
+        output_state.usage_for_execution = output_state.usage;
+        if (output_state.usage == ValueUsage::Required && !output_state.has_been_computed) {
+          required_uncomputed_exists = true;
+        }
+      }
+      if (!required_uncomputed_exists) {
+        return;
+      }
+
+      if (!node_state.always_required_inputs_handled) {
+        executor_.foreach_always_required_input_index(node.id, [&](const int input_index) {
+          this->lazy_require_input(locked_node, node.input(graph_, input_index));
+        });
+        node_state.always_required_inputs_handled = true;
+      }
+
+      for (const int input_index : node_state.inputs.index_range()) {
+        InputState &input_state = node_state.inputs[input_index];
+        if (input_state.type == nullptr) {
+          continue;
+        }
+        if (input_state.was_ready_for_execution) {
+          continue;
+        }
+
+        if (executor_.is_multi_input(node.id, input_index)) {
+          MultiInputValue &multi_value = *input_state.value.multi;
+          if (multi_value.all_values_available()) {
+            input_state.was_ready_for_execution = true;
+          }
+        }
+        else {
+          SingleInputValue &single_value = *input_state.value.single;
+          if (single_value.value != nullptr) {
+            input_state.was_ready_for_execution = true;
+          }
+        }
+        if (!input_state.was_ready_for_execution && input_state.usage == ValueUsage::Required) {
+          return;
+        }
+      }
+
+      node_needs_execution = true;
+    });
+
+    if (node_needs_execution) {
+      this->execute_node(node, node_state);
+    }
+
+    this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+      this->finish_node_if_possible(locked_node);
+      const bool reschedule_requested = node_state.schedule_state ==
+                                        NodeScheduleState::RunningAndRescheduled;
+      node_state.schedule_state = NodeScheduleState::NotScheduled;
+      if (reschedule_requested && !node_state.node_has_finished) {
+        this->schedule_node(locked_node);
+      }
+
+      if (node_needs_execution) {
+        this->assert_expected_outputs_has_been_computed(locked_node);
+      }
+    });
+  }
+
+  void assert_expected_outputs_has_been_computed(LockedNode &locked_node)
+  {
+    const NodeState &node_state = locked_node.node_state;
+    if (node_state.missing_required_inputs > 0) {
+      return;
+    }
+    if (node_state.schedule_state == NodeScheduleState::Scheduled) {
+      return;
+    }
+    for (const OutputState &output_state : node_state.outputs) {
+      if (output_state.usage_for_execution == ValueUsage::Required) {
+        BLI_assert(output_state.has_been_computed);
+      }
+    }
+  }
+
+  void finish_node_if_possible(LockedNode &locked_node)
+  {
+    const Node node = locked_node.node;
+    NodeState &node_state = locked_node.node_state;
+
+    if (node_state.node_has_finished) {
+      return;
+    }
+
+    for (OutputState &output_state : node_state.outputs) {
+      if (output_state.usage != ValueUsage::Unused && !output_state.has_been_computed) {
+        return;
+      }
+    }
+
+    for (InputState &input_state : node_state.inputs) {
+      if (input_state.usage == ValueUsage::Required && !input_state.was_ready_for_execution) {
+        return;
+      }
+    }
+
+    node_state.node_has_finished = true;
+
+    for (const int input_index : node_state.inputs.index_range()) {
+      const InSocket socket = node.input(graph_, input_index);
+      InputState &input_state = node_state.inputs[input_index];
+      if (input_state.usage == ValueUsage::Maybe) {
+        this->set_input_unused(locked_node, socket);
+      }
+      else if (input_state.usage == ValueUsage::Required) {
+        this->destruct_input_value_if_exists(locked_node, socket);
+      }
+    }
+  }
+
+  void destruct_input_value_if_exists(LockedNode &locked_node, const InSocket in_socket)
+  {
+  }
+
+  void execute_node(const Node node, NodeState &node_state)
+  {
+  }
+
+  void set_input_unused(LockedNode &locked_node, const InSocket in_socket)
+  {
   }
 
   LazyRequireInputResult lazy_require_input(LockedNode &locked_node, const InSocket in_socket)
@@ -312,7 +545,7 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
     input_state.usage = ValueUsage::Required;
 
     int missing_values = 0;
-    if (executor_.is_multi_input(locked_node.node, in_socket.index)) {
+    if (executor_.is_multi_input(locked_node.node.id, in_socket.index)) {
       MultiInputValue &multi_value = *input_state.value.multi;
       missing_values = multi_value.missing_values();
     }
@@ -345,6 +578,14 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
 
   void load_unlinked_input_value(LockedNode &locked_node, const InSocket in_socket)
   {
+    InputState &input_state = locked_node.node_state.inputs[in_socket.index];
+    if (executor_.is_multi_input(in_socket.node.id, in_socket.index)) {
+      BLI_assert(input_state.value.multi->values.is_empty());
+      return;
+    }
+    const CPPType &type = *input_state.type;
+    void *buffer = allocator_.allocate(type.size(), type.alignment());
+    executor_.load_unlinked_single_input(locked_node.node, in_socket.index, {type, buffer});
   }
 };
 
