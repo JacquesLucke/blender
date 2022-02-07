@@ -178,6 +178,28 @@ class ExampleExecutor {
   }
 };
 
+class ExampleExecuteGraphParams : public ExecuteGraphParams {
+ public:
+  LazyRequireInputResult require_input(int UNUSED(index)) override
+  {
+    return LazyRequireInputResult::Ready;
+  }
+
+  void load_input(int UNUSED(index), GMutablePointer r_value) override
+  {
+    *r_value.get<int>() = 100;
+  }
+
+  bool output_is_required(int UNUSED(index)) const override
+  {
+    return true;
+  }
+
+  void set_output_by_move(int UNUSED(index), GMutablePointer UNUSED(value)) override
+  {
+  }
+};
+
 TEST(sgraph, ToDot)
 {
   ExampleSGraphAdapter adapter;
@@ -185,9 +207,11 @@ TEST(sgraph, ToDot)
   std::cout << sgraph_to_dot(graph) << "\n";
 
   ExampleExecutor executor{graph};
+  ExampleExecuteGraphParams execute_graph_params;
 
   SocketT<ExampleSGraphAdapter> output_socket{3, 0, false};
   SGraphEvaluator graph_evaluator{graph, executor, {}, {output_socket}};
+  graph_evaluator.execute(execute_graph_params);
 }
 
 }  // namespace blender::fn::sgraph::tests

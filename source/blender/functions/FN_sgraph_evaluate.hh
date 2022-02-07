@@ -59,10 +59,11 @@ class ExecuteNodeParams {
 };
 
 class ExecuteGraphParams {
-  LazyRequireInputResult require_input(int index);
-  void load_input(int index, GMutablePointer r_value);
-  bool output_is_required(int index) const;
-  void set_output_by_move(int index, GMutablePointer value);
+ public:
+  virtual LazyRequireInputResult require_input(int index) = 0;
+  virtual void load_input(int index, GMutablePointer r_value) = 0;
+  virtual bool output_is_required(int index) const = 0;
+  virtual void set_output_by_move(int index, GMutablePointer value) = 0;
 };
 
 enum class ValueUsage : uint8_t {
@@ -266,7 +267,7 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
         continue;
       }
       const Socket socket = output_sockets_[i];
-      const NodeState &node_state = node_states_.lookup(socket.node);
+      const NodeState &node_state = *node_states_.lookup(socket.node);
       const OutputState &output_state = node_state.outputs[socket.index];
       if (output_state.has_been_computed) {
         continue;
@@ -276,11 +277,11 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
     return sockets_to_compute;
   }
 
-  void schedule_initial_nodes(const Span<Socket> sockets_to_compute) const
+  void schedule_initial_nodes(const Span<Socket> sockets_to_compute)
   {
     for (const Socket &socket : sockets_to_compute) {
       const Node node = socket.node;
-      NodeState &node_state = node_states_.lookup(node);
+      NodeState &node_state = *node_states_.lookup(node);
       if (socket.is_input) {
         this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
           this->lazy_require_input(locked_node, InSocket(socket));
@@ -295,7 +296,7 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
   void notify_output_required(const OutSocket socket)
   {
     const Node node = socket.node;
-    NodeState &node_state = node_states_.lookup(node);
+    NodeState &node_state = *node_states_.lookup(node);
     OutputState &output_state = node_state.outputs[socket.index];
 
     this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
@@ -310,7 +311,7 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
   void notify_output_unused(const OutSocket socket)
   {
     const Node node = socket.node;
-    NodeState &node_state = node_states_.lookup(node);
+    NodeState &node_state = *node_states_.lookup(node);
     OutputState &output_state = node_state.outputs[socket.index];
 
     this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
@@ -387,7 +388,7 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
 
   void run_node_task(const Node &node)
   {
-    NodeState &node_state = node_states_.lookup(node);
+    NodeState &node_state = *node_states_.lookup(node);
     std::cout << "Execute node: " << node.id << "\n";
 
     bool node_needs_execution = false;
@@ -518,14 +519,17 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
 
   void destruct_input_value_if_exists(LockedNode &locked_node, const InSocket in_socket)
   {
+    UNUSED_VARS(locked_node, in_socket);
   }
 
   void execute_node(const Node node, NodeState &node_state)
   {
+    UNUSED_VARS(node, node_state);
   }
 
   void set_input_unused(LockedNode &locked_node, const InSocket in_socket)
   {
+    UNUSED_VARS(locked_node, in_socket);
   }
 
   LazyRequireInputResult lazy_require_input(LockedNode &locked_node, const InSocket in_socket)
@@ -585,7 +589,7 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
     }
     const CPPType &type = *input_state.type;
     void *buffer = allocator_.allocate(type.size(), type.alignment());
-    executor_.load_unlinked_single_input(locked_node.node, in_socket.index, {type, buffer});
+    executor_.load_unlinked_single_input(locked_node.node.id, in_socket.index, {type, buffer});
   }
 };
 
