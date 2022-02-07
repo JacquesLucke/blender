@@ -43,19 +43,19 @@ enum class LazyRequireInputResult {
 
 class ExecuteNodeParams {
  public:
-  bool is_input_available(int index) const;
-  bool output_was_set(int index) const;
+  virtual bool is_input_available(int index) const = 0;
+  virtual bool output_was_set(int index) const = 0;
 
-  GMutablePointer extract_input(int index);
-  GPointer get_input(int index) const;
+  virtual GMutablePointer extract_single_input(int index) = 0;
+  virtual GPointer get_input(int index) const = 0;
 
-  void set_output_by_copy(int index, GPointer value);
-  void set_output_by_move(int index, GMutablePointer value);
+  virtual void set_output_by_copy(int index, GPointer value) = 0;
+  virtual void set_output_by_move(int index, GMutablePointer value) = 0;
 
-  bool output_is_required(int index) const;
+  virtual bool output_maybe_required(int index) const = 0;
 
-  LazyRequireInputResult lazy_require_input(int index);
-  bool lazy_output_is_required(int index);
+  virtual LazyRequireInputResult lazy_require_input(int index) = 0;
+  virtual bool output_is_required(int index) = 0;
 };
 
 class ExecuteGraphParams {
@@ -108,6 +108,7 @@ struct InputState {
 
   ValueUsage usage = ValueUsage::Maybe;
   bool was_ready_for_execution = false;
+  bool is_destructed = false;
 };
 
 struct OutputState {
@@ -129,6 +130,8 @@ struct NodeState {
   NodeScheduleState schedule_state = NodeScheduleState::NotScheduled;
 };
 
+template<typename SGraphAdapter, typename Executor> class ExecuteNodeParamsT;
+
 template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
  private:
   using SGraph = SGraphT<SGraphAdapter>;
@@ -138,6 +141,8 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
   using Socket = SocketT<SGraphAdapter>;
   using Link = LinkT<SGraphAdapter>;
 
+  friend ExecuteNodeParamsT<SGraphAdapter, Executor>;
+
   LinearAllocator<> allocator_;
   const SGraph graph_;
   Executor executor_;
@@ -145,6 +150,8 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
   const VectorSet<Socket> output_sockets_;
   Map<Node, destruct_ptr<NodeState>> node_states_;
   TaskPool *task_pool_ = nullptr;
+
+  threading::EnumerableThreadSpecific<LinearAllocator<>> local_allocators_;
 
   threading::EnumerableThreadSpecific<bool> node_is_locked_by_thread;
 
@@ -217,7 +224,7 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
           input_state.usage = ValueUsage::Unused;
         }
         else {
-          if (executor_.is_multi_input(node.id, input_index)) {
+          if (this->is_multi_input(node, input_index)) {
             /* TODO: destruct */
             input_state.value.multi = allocator_.construct<MultiInputValue>().release();
             int count = 0;
@@ -427,7 +434,7 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
           continue;
         }
 
-        if (executor_.is_multi_input(node.id, input_index)) {
+        if (this->is_multi_input(node, input_index)) {
           MultiInputValue &multi_value = *input_state.value.multi;
           if (multi_value.all_values_available()) {
             input_state.was_ready_for_execution = true;
@@ -522,14 +529,25 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
     UNUSED_VARS(locked_node, in_socket);
   }
 
-  void execute_node(const Node node, NodeState &node_state)
-  {
-    UNUSED_VARS(node, node_state);
-  }
+  void execute_node(const Node node, NodeState &node_state);
 
   void set_input_unused(LockedNode &locked_node, const InSocket in_socket)
   {
     UNUSED_VARS(locked_node, in_socket);
+  }
+
+  LazyRequireInputResult lazy_require_input_during_execution(const Node node,
+                                                             NodeState &node_state,
+                                                             const int input_index)
+  {
+    LazyRequireInputResult result;
+    this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+      result = this->lazy_require_input(locked_node, node.input(graph_, input_index));
+      if (result == LazyRequireInputResult::Ready) {
+        this->schedule_node(locked_node);
+      }
+    });
+    return result;
   }
 
   LazyRequireInputResult lazy_require_input(LockedNode &locked_node, const InSocket in_socket)
@@ -549,7 +567,7 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
     input_state.usage = ValueUsage::Required;
 
     int missing_values = 0;
-    if (executor_.is_multi_input(locked_node.node.id, in_socket.index)) {
+    if (this->is_multi_input(locked_node.node, in_socket.index)) {
       MultiInputValue &multi_value = *input_state.value.multi;
       missing_values = multi_value.missing_values();
     }
@@ -583,7 +601,7 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
   void load_unlinked_input_value(LockedNode &locked_node, const InSocket in_socket)
   {
     InputState &input_state = locked_node.node_state.inputs[in_socket.index];
-    if (executor_.is_multi_input(in_socket.node.id, in_socket.index)) {
+    if (this->is_multi_input(in_socket.node, in_socket.index)) {
       BLI_assert(input_state.value.multi->values.is_empty());
       return;
     }
@@ -591,6 +609,130 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
     void *buffer = allocator_.allocate(type.size(), type.alignment());
     executor_.load_unlinked_single_input(locked_node.node.id, in_socket.index, {type, buffer});
   }
+
+  bool is_multi_input(const Node node, const int input_index) const
+  {
+    return executor_.is_multi_input(node.id, input_index);
+  }
+
+  void forward_output(const OutSocket out_socket, GMutablePointer value)
+  {
+    UNUSED_VARS(out_socket, value);
+  }
 };
+
+template<typename SGraphAdapter, typename Executor>
+class ExecuteNodeParamsT final : public ExecuteNodeParams {
+ private:
+  using Evaluator = SGraphEvaluator<SGraphAdapter, Executor>;
+  using Node = NodeT<SGraphAdapter>;
+  friend Evaluator;
+
+  Evaluator &evaluator_;
+  Node node_;
+  NodeState &node_state_;
+
+  ExecuteNodeParamsT(Evaluator &evaluator, Node node, NodeState &node_state)
+      : evaluator_(evaluator), node_(std::move(node)), node_state_(node_state)
+  {
+  }
+
+ public:
+  bool is_input_available(const int index) const override
+  {
+    const InputState &input_state = node_state_.inputs[index];
+    if (!input_state.was_ready_for_execution) {
+      return false;
+    }
+    if (input_state.is_destructed) {
+      return false;
+    }
+    return true;
+  }
+
+  bool output_was_set(int index) const override
+  {
+    const OutputState &output_state = node_state_.outputs[index];
+    return output_state.has_been_computed;
+  }
+
+  GMutablePointer extract_single_input(int index) override
+  {
+    BLI_assert(!evaluator_.is_multi_input(node, index));
+    BLI_assert(this->is_input_available(index));
+
+    InputState &input_state = node_state_.inputs[index];
+    SingleInputValue &single_value = *input_state.value.single;
+    void *value = single_value.value;
+    single_value.value = nullptr;
+    return {*input_state.type, value};
+  }
+
+  GPointer get_input(int index) const override
+  {
+    BLI_assert(!evaluator_.is_multi_input(node, index));
+    BLI_assert(this->is_input_available(index));
+
+    const InputState &input_state = node_state_.inputs[index];
+    const SingleInputValue &single_value = *input_state.value.single;
+    return {*input_state.type, single_value.value};
+  }
+
+  void set_output_by_copy(int index, GPointer value) override
+  {
+    OutputState &output_state = node_state_.outputs[index];
+    const CPPType &type = *output_state.type;
+
+    BLI_assert(!this->output_was_set(index));
+    BLI_assert(*value.type() == type);
+
+    output_state.has_been_computed = true;
+
+    LinearAllocator<> &allocator = evaluator_.local_allocators_.local();
+    void *buffer = allocator.allocate(type.size(), type.alignment());
+    type.copy_construct(value.get(), buffer);
+    evaluator_.forward_output(node_.output(evaluator_.graph_, index), {type, buffer});
+  }
+
+  void set_output_by_move(int index, GMutablePointer value) override
+  {
+    OutputState &output_state = node_state_.outputs[index];
+    const CPPType &type = *output_state.type;
+
+    BLI_assert(!this->output_was_set(index));
+    BLI_assert(*value.type() == type);
+
+    output_state.has_been_computed = true;
+
+    LinearAllocator<> &allocator = evaluator_.local_allocators_.local();
+    void *buffer = allocator.allocate(type.size(), type.alignment());
+    type.move_construct(value.get(), buffer);
+    evaluator_.forward_output(node_.output(evaluator_.graph_, index), {type, buffer});
+  }
+
+  bool output_maybe_required(int index) const override
+  {
+    const OutputState &output_state = node_state_.outputs[index];
+    return output_state.usage_for_execution != ValueUsage::Unused;
+  }
+
+  LazyRequireInputResult lazy_require_input(int index) override
+  {
+    return evaluator_.lazy_require_input_during_execution(node_, node_state_, index);
+  }
+
+  bool output_is_required(int index) override
+  {
+    const OutputState &output_state = node_state_.outputs[index];
+    return output_state.usage_for_execution == ValueUsage::Required;
+  }
+};
+
+template<typename SGraphAdapter, typename Executor>
+void SGraphEvaluator<SGraphAdapter, Executor>::execute_node(const NodeT<SGraphAdapter> node,
+                                                            NodeState &node_state)
+{
+  ExecuteNodeParamsT<SGraphAdapter, Executor> execute_params{*this, node, node_state};
+}
 
 }  // namespace blender::fn::sgraph
