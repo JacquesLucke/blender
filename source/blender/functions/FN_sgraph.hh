@@ -52,21 +52,21 @@ template<typename SGraphAdapter> class NodeT {
   friend InSocket;
   friend OutSocket;
 
-  NodeID id_;
-
  public:
-  NodeT(NodeID id) : id_(std::move(id))
+  NodeID id;
+
+  NodeT(NodeID id) : id(std::move(id))
   {
   }
 
   int inputs_size(const SGraph &graph) const
   {
-    return graph.adapter_->node_inputs_size(id_);
+    return graph.adapter_->node_inputs_size(this->id);
   }
 
   int outputs_size(const SGraph &graph) const
   {
-    return graph.adapter_->node_outputs_size(id_);
+    return graph.adapter_->node_outputs_size(this->id);
   }
 
   InSocket input(const SGraph &graph, const int index) const
@@ -87,12 +87,12 @@ template<typename SGraphAdapter> class NodeT {
 
   uint64_t hash() const
   {
-    return get_default_hash(id_);
+    return get_default_hash(this->id);
   }
 
   friend bool operator==(const NodeT &a, const NodeT &b)
   {
-    return a.id_ == b.id_;
+    return a.id == b.id;
   }
 
   friend bool operator!=(const NodeT &a, const NodeT &b)
@@ -102,7 +102,7 @@ template<typename SGraphAdapter> class NodeT {
 
   std::string debug_name(const SGraph &graph) const
   {
-    return graph.adapter_->node_debug_name(id_);
+    return graph.adapter_->node_debug_name(this->id);
   }
 };
 
@@ -121,14 +121,14 @@ template<typename SGraphAdapter> class InSocketT {
   template<typename F> void foreach_linked(const SGraph &graph, const F &f) const
   {
     graph.adapter_->foreach_linked_output(
-        this->node.id_, this->index, [&](const NodeID &linked_node, const int linked_index) {
+        this->node.id, this->index, [&](const NodeID &linked_node, const int linked_index) {
           f(OutSocket{linked_node, linked_index});
         });
   }
 
   std::string debug_name(const SGraph &graph) const
   {
-    return graph.adapter_->input_socket_debug_name(this->node.id_, this->index);
+    return graph.adapter_->input_socket_debug_name(this->node.id, this->index);
   }
 };
 
@@ -147,14 +147,50 @@ template<typename SGraphAdapter> class OutSocketT {
   template<typename F> void foreach_linked(const SGraph &graph, const F &f) const
   {
     graph.adapter_->foreach_linked_input(
-        this->node.id_, this->index, [&](const NodeID &linked_node, const int linked_index) {
+        this->node.id, this->index, [&](const NodeID &linked_node, const int linked_index) {
           f(InSocket{linked_node, linked_index});
         });
   }
 
   std::string debug_name(const SGraph &graph) const
   {
-    return graph.adapter_->output_socket_debug_name(this->node.id_, this->index);
+    return graph.adapter_->output_socket_debug_name(this->node.id, this->index);
+  }
+};
+
+template<typename SGraphAdapter> class SocketT {
+ private:
+  using NodeID = typename SGraphAdapter::NodeID;
+  using SGraph = SGraphT<SGraphAdapter>;
+  using InSocket = InSocketT<SGraphAdapter>;
+  using OutSocket = OutSocketT<SGraphAdapter>;
+  using Node = NodeT<SGraphAdapter>;
+
+ public:
+  Node node;
+  int index;
+  bool is_input;
+
+  uint64_t hash() const
+  {
+    return get_default_hash_3(node, index, is_input);
+  }
+
+  friend bool operator==(const SocketT &a, const SocketT &b)
+  {
+    return a.node == b.node && a.index == b.index && a.is_input == b.is_input;
+  }
+
+  explicit operator InSocket() const
+  {
+    BLI_assert(is_input);
+    return {node, index};
+  }
+
+  explicit operator OutSocket() const
+  {
+    BLI_assert(!is_input);
+    return {node, index};
   }
 };
 
@@ -177,6 +213,7 @@ template<typename SGraphAdapter> class SGraphT {
   using Node = NodeT<SGraphAdapter>;
   using InSocket = InSocketT<SGraphAdapter>;
   using OutSocket = OutSocketT<SGraphAdapter>;
+  using Socket = SocketT<SGraphAdapter>;
   using Link = LinkT<SGraphAdapter>;
 
  private:

@@ -3,6 +3,7 @@
 #include "testing/testing.h"
 
 #include "FN_sgraph.hh"
+#include "FN_sgraph_evaluate.hh"
 #include "FN_sgraph_to_dot.hh"
 
 namespace blender::fn::sgraph::tests {
@@ -101,11 +102,83 @@ struct ExampleSGraphAdapter {
   }
 };
 
+class ExampleExecutor {
+ public:
+  using NodeID = ExampleSGraphAdapter::NodeID;
+
+  const CPPType *input_socket_type(const NodeID &UNUSED(node), const int UNUSED(input_index)) const
+  {
+    return &CPPType::get<int>();
+  }
+
+  const CPPType *output_socket_type(const NodeID &UNUSED(node),
+                                    const int UNUSED(output_index)) const
+  {
+    return &CPPType::get<int>();
+  }
+
+  void load_single_input(const NodeID &UNUSED(node),
+                         const int UNUSED(input_index),
+                         GMutablePointer r_value) const
+  {
+    *r_value.get<int>() = 2;
+  }
+
+  bool is_multi_input(const NodeID &UNUSED(node), const int UNUSED(input_index)) const
+  {
+    return false;
+  }
+
+  std::optional<Vector<int>> always_required_input_indices(const NodeID &UNUSED(node)) const
+  {
+    return std::nullopt;
+  }
+
+  void execute_node(const NodeID &node, ExecuteNodeParams &params) const
+  {
+    switch (node) {
+      case 1: {
+        const int a = *params.get_input(0).get<int>();
+        const int b = *params.get_input(1).get<int>();
+        const int out1 = a + b;
+        const int out2 = a * b;
+        params.set_output_by_copy(0, &out1);
+        params.set_output_by_copy(1, &out2);
+        break;
+      }
+      case 2: {
+        const int a = *params.get_input(0).get<int>();
+        const int b = *params.get_input(1).get<int>();
+        const int out = a + b;
+        params.set_output_by_copy(0, &out);
+        break;
+      }
+      case 3: {
+        const int a = *params.get_input(0).get<int>();
+        const int b = *params.get_input(1).get<int>();
+        const int c = *params.get_input(2).get<int>();
+        const int out1 = a + b + c;
+        const int out2 = a * b * c;
+        const int out3 = out1 + out2;
+        params.set_output_by_copy(0, &out1);
+        params.set_output_by_copy(1, &out2);
+        params.set_output_by_copy(2, &out3);
+        break;
+      }
+    }
+  }
+};
+
 TEST(sgraph, ToDot)
 {
   ExampleSGraphAdapter adapter;
   SGraphT graph{adapter};
   std::cout << sgraph_to_dot(graph) << "\n";
+
+  ExampleExecutor executor;
+
+  SocketT<ExampleSGraphAdapter> output_socket{3, 0, false};
+  SGraphEvaluator graph_evaluator{graph, executor, {}, {output_socket}};
 }
 
 }  // namespace blender::fn::sgraph::tests
