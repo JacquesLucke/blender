@@ -55,6 +55,7 @@ class ExecuteNodeParams {
   virtual bool output_maybe_required(int index) const = 0;
 
   virtual LazyRequireInputResult set_input_required(int index) = 0;
+  virtual void set_input_unused(int index) = 0;
   virtual bool output_is_required(int index) = 0;
 };
 
@@ -531,6 +532,13 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
 
   void execute_node(const Node node, NodeState &node_state);
 
+  void set_input_unused_during_execution(const Node node,
+                                         NodeState &node_state,
+                                         const int input_index)
+  {
+    UNUSED_VARS(node, node_state, input_index);
+  }
+
   void set_input_unused(LockedNode &locked_node, const InSocket in_socket)
   {
     UNUSED_VARS(locked_node, in_socket);
@@ -719,6 +727,11 @@ class ExecuteNodeParamsT final : public ExecuteNodeParams {
   LazyRequireInputResult set_input_required(int index) override
   {
     return evaluator_.set_input_required_during_execution(node_, node_state_, index);
+  }
+
+  virtual void set_input_unused(int index) override
+  {
+    evaluator_.set_input_unused_during_execution(node_, node_state_, index);
   }
 
   bool output_is_required(int index) override
