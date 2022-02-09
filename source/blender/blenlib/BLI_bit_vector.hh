@@ -23,6 +23,9 @@
  * to provide a compact way to map indices to bools. It requires 8 times less memory compared to a
  * `blender::Vector<bool>`.
  *
+ * By default all bits are zero-initialized. This is necessary avoid warnings caused by using
+ * uninitialized memory. This happens when e.g. setting or clearing a bit in an uninitialized byte.
+ *
  * However, the compact nature of storing bools in individual bits has some downsides that have to
  * be kept in mind:
  * - Writing to separate bits in the same byte is not thread-safe. Therefore, an existing vector of
@@ -211,6 +214,7 @@ class BitVector {
     data_ = inline_buffer_;
     size_in_bits_ = 0;
     capacity_in_bits_ = BitsInInlineBuffer;
+    memset(data_, 0, BytesInInlineBuffer);
   }
 
   BitVector(NoExceptConstructor, Allocator allocator = {}) noexcept : BitVector(allocator)
@@ -257,18 +261,9 @@ class BitVector {
   }
 
   /**
-   * Create a new vector with the given size.
-   */
-  explicit BitVector(const int64_t size_in_bits, Allocator allocator = {})
-      : BitVector(NoExceptConstructor(), allocator)
-  {
-    this->resize(size_in_bits);
-  }
-
-  /**
    * Create a new vector with the given size and fill it with #value.
    */
-  BitVector(const int64_t size_in_bits, const bool value, Allocator allocator = {})
+  BitVector(const int64_t size_in_bits, const bool value = false, Allocator allocator = {})
       : BitVector(NoExceptConstructor(), allocator)
   {
     this->resize(size_in_bits, value);
@@ -424,25 +419,17 @@ class BitVector {
   }
 
   /**
-   * Change the size of the vector.
-   */
-  void resize(const int64_t new_size_in_bits)
-  {
-    BLI_assert(new_size_in_bits >= 0);
-    if (new_size_in_bits > size_in_bits_) {
-      this->reserve(new_size_in_bits);
-    }
-    size_in_bits_ = new_size_in_bits;
-  }
-
-  /**
    * Change the size of the vector. If the new vector is larger than the old one, the new elements
    * are filled with #value.
    */
-  void resize(const int64_t new_size_in_bits, const bool value)
+  void resize(const int64_t new_size_in_bits, const bool value = false)
   {
+    BLI_assert(new_size_in_bits >= 0);
     const int64_t old_size_in_bits = size_in_bits_;
-    this->resize(new_size_in_bits);
+    if (new_size_in_bits > old_size_in_bits) {
+      this->reserve(new_size_in_bits);
+    }
+    size_in_bits_ = new_size_in_bits;
     if (old_size_in_bits < new_size_in_bits) {
       this->fill_range(IndexRange(old_size_in_bits, new_size_in_bits - old_size_in_bits), value);
     }
@@ -497,7 +484,8 @@ class BitVector {
     }
   }
 
-  BLI_NOINLINE void realloc_to_at_least(const int64_t min_capacity_in_bits)
+  BLI_NOINLINE void realloc_to_at_least(const int64_t min_capacity_in_bits,
+                                        const uint8_t initial_value_for_new_bytes = 0x00)
   {
     if (capacity_in_bits_ >= min_capacity_in_bits) {
       return;
@@ -515,6 +503,9 @@ class BitVector {
     uint8_t *new_data = static_cast<uint8_t *>(
         allocator_.allocate(new_capacity_in_bytes, AllocationAlignment, __func__));
     uninitialized_copy_n(data_, bytes_to_copy, new_data);
+    uninitialized_fill_n(new_data + bytes_to_copy,
+                         new_capacity_in_bytes - bytes_to_copy,
+                         (uint8_t)initial_value_for_new_bytes);
 
     if (!this->is_inline()) {
       allocator_.deallocate(data_);
