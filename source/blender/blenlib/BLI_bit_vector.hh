@@ -26,8 +26,8 @@
  * By default all bits are zero-initialized. This is necessary avoid warnings caused by using
  * uninitialized memory. This happens when e.g. setting or clearing a bit in an uninitialized byte.
  *
- * However, the compact nature of storing bools in individual bits has some downsides that have to
- * be kept in mind:
+ * The compact nature of storing bools in individual bits has some downsides that have to be kept
+ * in mind:
  * - Writing to separate bits in the same byte is not thread-safe. Therefore, an existing vector of
  *   bool can't easily be replaced with a bit vector, if it is written to from multiple threads.
  *   Reading-only access from multiple threads is fine though.
@@ -64,7 +64,7 @@ class BitRef {
   BitRef() = default;
 
   /**
-   * Reference a specific in a byte array. Note that #byte_ptr does *not* have to point to the
+   * Reference a specific bit in a byte array. Note that #byte_ptr does *not* have to point to the
    * exact byte the bit is in.
    */
   BitRef(const uint8_t *byte_ptr, const int64_t bit_index)
@@ -103,7 +103,7 @@ class MutableBitRef {
   MutableBitRef() = default;
 
   /**
-   * Reference a specific in a byte array. Note that #byte_ptr does *not* have to point to the
+   * Reference a specific bit in a byte array. Note that #byte_ptr does *not* have to point to the
    * exact byte the bit is in.
    */
   MutableBitRef(uint8_t *byte_ptr, const int64_t bit_index)
