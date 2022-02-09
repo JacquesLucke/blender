@@ -91,10 +91,16 @@ TEST(bit_vector, SizeConstructor)
   {
     BitVector<> vec(5);
     EXPECT_EQ(vec.size(), 5);
+    for (BitRef bit : vec) {
+      EXPECT_FALSE(bit);
+    }
   }
   {
     BitVector<> vec(123);
     EXPECT_EQ(vec.size(), 123);
+    for (BitRef bit : vec) {
+      EXPECT_FALSE(bit);
+    }
   }
 }
 
