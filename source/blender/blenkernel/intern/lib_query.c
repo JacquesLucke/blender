@@ -323,6 +323,8 @@ static bool library_foreach_ID_link(Main *bmain,
                          IDWALK_CB_USER | IDWALK_CB_OVERRIDE_LIBRARY_REFERENCE);
       CALLBACK_INVOKE_ID(id->override_library->storage,
                          IDWALK_CB_USER | IDWALK_CB_OVERRIDE_LIBRARY_REFERENCE);
+
+      CALLBACK_INVOKE_ID(id->override_library->hierarchy_root, IDWALK_CB_LOOPBACK);
     }
 
     IDP_foreach_property(id->properties,
@@ -471,7 +473,7 @@ bool BKE_library_id_can_use_idtype(ID *id_owner, const short id_type_used)
       return ELEM(id_type_used, ID_MA);
     case ID_WS:
       return ELEM(id_type_used, ID_SCR, ID_SCE);
-    case ID_HA:
+    case ID_CV:
       return ELEM(id_type_used, ID_MA);
     case ID_PT:
       return ELEM(id_type_used, ID_MA);

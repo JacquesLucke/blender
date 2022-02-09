@@ -1999,6 +1999,7 @@ static void lib_link_id(BlendLibReader *reader, ID *id)
   if (id->override_library) {
     BLO_read_id_address(reader, id->lib, &id->override_library->reference);
     BLO_read_id_address(reader, id->lib, &id->override_library->storage);
+    BLO_read_id_address(reader, id->lib, &id->override_library->hierarchy_root);
   }
 
   lib_link_id_embedded_id(reader, id);
@@ -2988,7 +2989,7 @@ static const char *dataname(short id_code)
       return "Data from CF";
     case ID_WS:
       return "Data from WS";
-    case ID_HA:
+    case ID_CV:
       return "Data from HA";
     case ID_PT:
       return "Data from PT";

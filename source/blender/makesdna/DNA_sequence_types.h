@@ -73,13 +73,14 @@ typedef struct StripCrop {
 } StripCrop;
 
 typedef struct StripTransform {
-  int xofs;
-  int yofs;
+  float xofs;
+  float yofs;
   float scale_x;
   float scale_y;
   float rotation;
   /** 0-1 range, use SEQ_image_transform_origin_offset_pixelspace_get to convert to pixel space. */
   float origin[2];
+  int filter;
 } StripTransform;
 
 typedef struct StripColorBalance {
@@ -787,6 +788,12 @@ typedef enum SequenceColorTag {
 
   SEQUENCE_COLOR_TOT,
 } SequenceColorTag;
+
+/* Sequence->StripTransform->filter */
+enum {
+  SEQ_TRANSFORM_FILTER_NEAREST = 0,
+  SEQ_TRANSFORM_FILTER_BILINEAR = 1,
+};
 
 #ifdef __cplusplus
 }

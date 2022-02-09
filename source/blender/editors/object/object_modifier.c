@@ -53,12 +53,12 @@
 #include "BKE_armature.h"
 #include "BKE_context.h"
 #include "BKE_curve.h"
+#include "BKE_curves.h"
 #include "BKE_displist.h"
 #include "BKE_editmesh.h"
 #include "BKE_effect.h"
 #include "BKE_global.h"
 #include "BKE_gpencil_modifier.h"
-#include "BKE_hair.h"
 #include "BKE_key.h"
 #include "BKE_lattice.h"
 #include "BKE_lib_id.h"
@@ -83,6 +83,8 @@
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
 #include "DEG_depsgraph_query.h"
+
+#include "BLT_translation.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -130,8 +132,8 @@ static void object_force_modifier_update_for_bind(Depsgraph *depsgraph, Object *
   else if (ob->type == OB_GPENCIL) {
     BKE_gpencil_modifiers_calc(depsgraph, scene_eval, ob_eval);
   }
-  else if (ob->type == OB_HAIR) {
-    BKE_hair_data_update(depsgraph, scene_eval, ob);
+  else if (ob->type == OB_CURVES) {
+    BKE_curves_data_update(depsgraph, scene_eval, ob);
   }
   else if (ob->type == OB_POINTCLOUD) {
     BKE_pointcloud_data_update(depsgraph, scene_eval, ob);
@@ -1521,7 +1523,7 @@ static char *modifier_apply_as_shapekey_get_description(struct bContext *UNUSED(
   bool keep = RNA_boolean_get(values, "keep_modifier");
 
   if (keep) {
-    return BLI_strdup("Apply modifier as a new shapekey and keep it in the stack");
+    return BLI_strdup(TIP_("Apply modifier as a new shapekey and keep it in the stack"));
   }
 
   return NULL;

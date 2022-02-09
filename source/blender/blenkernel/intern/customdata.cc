@@ -15,13 +15,13 @@
  *
  * The Original Code is Copyright (C) 2006 Blender Foundation.
  * All rights reserved.
- * Implementation of CustomData.
- *
- * BKE_customdata.h contains the function prototypes for this file.
  */
 
 /** \file
  * \ingroup bke
+ * Implementation of CustomData.
+ *
+ * BKE_customdata.h contains the function prototypes for this file.
  */
 
 #include "MEM_guardedalloc.h"
@@ -31,7 +31,6 @@
 
 #include "DNA_ID.h"
 #include "DNA_customdata_types.h"
-#include "DNA_hair_types.h"
 #include "DNA_meshdata_types.h"
 
 #include "BLI_bitmap.h"
@@ -1793,8 +1792,8 @@ static const LayerTypeInfo LAYERTYPEINFO[CD_NUMTYPES] = {
     {sizeof(float[3]), "vec3f", 1, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     /* 44: CD_RADIUS */
     {sizeof(float), "MFloatProperty", 1, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    /* 45: CD_HAIRCURVE */ /* UNUSED */
-    {-1, "", 1, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    /* 45: CD_PROP_INT8 */
+    {sizeof(int8_t), "MInt8Property", 1, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     /* 46: CD_HAIRMAPPING */ /* UNUSED */
     {-1, "", 1, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     /* 47: CD_PROP_COLOR */
@@ -1914,7 +1913,7 @@ static const char *LAYERTYPENAMES[CD_NUMTYPES] = {
     "CDCustomLoopNormal",
     "CDSculptFaceGroups",
     /* 43-46 */ "CDHairPoint",
-    "CDHairCurve",
+    "CDPropInt8",
     "CDHairMapping",
     "CDPoint",
     "CDPropCol",
