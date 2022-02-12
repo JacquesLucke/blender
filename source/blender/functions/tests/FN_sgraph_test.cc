@@ -3,6 +3,7 @@
 #include "testing/testing.h"
 
 #include "FN_sgraph.hh"
+#include "FN_sgraph2.hh"
 #include "FN_sgraph_evaluate.hh"
 #include "FN_sgraph_to_dot.hh"
 
