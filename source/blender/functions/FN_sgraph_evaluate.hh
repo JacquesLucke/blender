@@ -62,7 +62,8 @@ class ExecuteNodeParams {
 class ExecuteGraphParams {
  public:
   virtual LazyRequireInputResult require_input(int index) = 0;
-  virtual void load_input(int index, GMutablePointer r_value) = 0;
+  virtual void load_input_to_uninitialized(int index, GMutablePointer r_value) = 0;
+  virtual bool can_load_input(int index) const = 0;
   virtual bool output_is_required(int index) const = 0;
   virtual void set_output_by_move(int index, GMutablePointer value) = 0;
 };
@@ -262,11 +263,41 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
 
   void execute(ExecuteGraphParams &params)
   {
+    this->schedule_newly_requested_outputs(params);
+    this->forward_newly_provided_inputs(params);
+    BLI_task_pool_work_and_wait(task_pool_);
+  }
+
+ private:
+  void schedule_newly_requested_outputs(ExecuteGraphParams &params)
+  {
     const Vector<Socket> sockets_to_compute = this->find_sockets_to_compute(params);
     this->schedule_initial_nodes(sockets_to_compute);
   }
 
- private:
+  void forward_newly_provided_inputs(ExecuteGraphParams &params)
+  {
+    LinearAllocator<> &allocator = local_allocators_.local();
+    for (const int i : input_sockets_.index_range()) {
+      if (!params.can_load_input(i)) {
+        continue;
+      }
+      const Socket socket = input_sockets_[i];
+      const CPPType &type = (socket.is_input) ?
+                                *executor_.input_socket_type(socket.node.id, socket.index) :
+                                *executor_.output_socket_type(socket.node.id, socket.index);
+      void *buffer = allocator.allocate(type.size(), type.alignment());
+      GMutablePointer value{type, buffer};
+      params.load_input_to_uninitialized(i, value);
+      if (socket.is_input) {
+        this->add_value_to_input_from_caller(InSocket(socket), value);
+      }
+      else {
+        this->forward_output(OutSocket(socket), value);
+      }
+    }
+  }
+
   Vector<Socket> find_sockets_to_compute(ExecuteGraphParams &params) const
   {
     Vector<Socket> sockets_to_compute;
@@ -626,6 +657,16 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
   void forward_output(const OutSocket out_socket, GMutablePointer value)
   {
     UNUSED_VARS(out_socket, value);
+  }
+
+  void add_value_to_input(const InSocket socket, const OutSocket origin, GMutablePointer value)
+  {
+    UNUSED_VARS(socket, origin, value);
+  }
+
+  void add_value_to_input_from_caller(const InSocket socket, GMutablePointer value)
+  {
+    UNUSED_VARS(socket, value);
   }
 };
 

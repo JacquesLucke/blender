@@ -185,9 +185,14 @@ class ExampleExecuteGraphParams : public ExecuteGraphParams {
     return LazyRequireInputResult::Ready;
   }
 
-  void load_input(int UNUSED(index), GMutablePointer r_value) override
+  void load_input_to_uninitialized(int UNUSED(index), GMutablePointer r_value) override
   {
     *r_value.get<int>() = 100;
+  }
+
+  bool can_load_input(const int UNUSED(index)) const override
+  {
+    return true;
   }
 
   bool output_is_required(int UNUSED(index)) const override
