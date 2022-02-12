@@ -686,7 +686,7 @@ template<typename SGraphAdapter> class SGraphEvaluator {
       /* TODO: Value is overridden from the caller. */
     }
 
-    Vector<std::pair<NodeID, int>> sockets_to_forward_to;
+    Vector<InSocket> sockets_to_forward_to;
     Vector<GMutablePointer> forwarded_values;
     from_socket.foreach_linked(graph_, [&](const InSocket &to_socket) {
       const destruct_ptr<NodeState> *node_state_ptr = node_states_.lookup_ptr(to_socket.node);
@@ -707,8 +707,17 @@ template<typename SGraphAdapter> class SGraphEvaluator {
       const CPPType &type = *input_state.type;
       void *forwarded_buffer = allocator.allocate(type.size(), type.alignment());
       forwarded_values.append({type, forwarded_buffer});
-      sockets_to_forward_to.append({to_socket.node.id, to_socket.index});
+      sockets_to_forward_to.append(to_socket);
     });
+
+    for (const int i : forwarded_values.index_range()) {
+      /* TODO */
+      *forwarded_values[i].get<int>() = *value_to_forward.get<int>();
+    }
+
+    for (const int i : forwarded_values.index_range()) {
+      this->add_value_to_input(sockets_to_forward_to[i], from_socket, forwarded_values[i]);
+    }
   }
 
   void add_value_to_input(const InSocket socket, const OutSocket origin, GMutablePointer value)
