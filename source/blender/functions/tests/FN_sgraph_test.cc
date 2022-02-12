@@ -102,48 +102,48 @@ struct ExampleSGraphAdapter {
   }
 };
 
-class ExampleExecutor {
+class ExampleExecutor : public SGraphExecuteSemantics<ExampleSGraphAdapter::NodeID> {
  public:
   SGraphT<ExampleSGraphAdapter> graph_;
   using NodeID = ExampleSGraphAdapter::NodeID;
 
-  const CPPType *input_socket_type(const NodeID &UNUSED(node), const int UNUSED(input_index)) const
+  ExampleExecutor(SGraphT<ExampleSGraphAdapter> &graph) : graph_(graph)
+  {
+  }
+
+  const CPPType *input_socket_type(const NodeID &UNUSED(node),
+                                   const int UNUSED(input_index)) const override
   {
     return &CPPType::get<int>();
   }
 
   const CPPType *output_socket_type(const NodeID &UNUSED(node),
-                                    const int UNUSED(output_index)) const
+                                    const int UNUSED(output_index)) const override
   {
     return &CPPType::get<int>();
   }
 
   void load_unlinked_single_input(const NodeID &UNUSED(node),
                                   const int UNUSED(input_index),
-                                  GMutablePointer r_value) const
+                                  GMutablePointer r_value) const override
   {
     *r_value.get<int>() = 2;
   }
 
-  bool is_multi_input(const NodeID &UNUSED(node), const int UNUSED(input_index)) const
+  bool is_multi_input(const NodeID &UNUSED(node), const int UNUSED(input_index)) const override
   {
     return false;
   }
 
-  template<typename F>
-  void foreach_always_required_input_index(const NodeID node, const F &f) const
+  void foreach_always_required_input_index(const NodeID &node,
+                                           const FunctionRef<void(int)> fn) const override
   {
     for (const int input_index : IndexRange(graph_.adapter().node_inputs_size(node))) {
-      f(input_index);
+      fn(input_index);
     }
   }
 
-  std::optional<Vector<int>> always_required_input_indices(const NodeID &UNUSED(node)) const
-  {
-    return std::nullopt;
-  }
-
-  void execute_node(const NodeID &node, ExecuteNodeParams &params) const
+  void execute_node(const NodeID &node, ExecuteNodeParams &params) const override
   {
     switch (node) {
       case 1: {

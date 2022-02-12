@@ -23,6 +23,7 @@
 #include <mutex>
 
 #include "BLI_enumerable_thread_specific.hh"
+#include "BLI_function_ref.hh"
 #include "BLI_linear_allocator.hh"
 #include "BLI_map.hh"
 #include "BLI_stack.hh"
@@ -66,6 +67,19 @@ class ExecuteGraphParams {
   virtual bool can_load_input(int index) const = 0;
   virtual bool output_is_required(int index) const = 0;
   virtual void set_output_by_move(int index, GMutablePointer value) = 0;
+};
+
+template<typename NodeID> class SGraphExecuteSemantics {
+ public:
+  virtual const CPPType *input_socket_type(const NodeID &node, int input_index) const = 0;
+  virtual const CPPType *output_socket_type(const NodeID &node, int output_index) const = 0;
+  virtual void load_unlinked_single_input(const NodeID &node,
+                                          int input_index,
+                                          GMutablePointer r_value) const = 0;
+  virtual bool is_multi_input(const NodeID &node, const int input_index) const = 0;
+  virtual void foreach_always_required_input_index(const NodeID &node,
+                                                   FunctionRef<void(int)> fn) const = 0;
+  virtual void execute_node(const NodeID &node, ExecuteNodeParams &params) const = 0;
 };
 
 enum class ValueUsage : uint8_t {
@@ -132,9 +146,9 @@ struct NodeState {
   NodeScheduleState schedule_state = NodeScheduleState::NotScheduled;
 };
 
-template<typename SGraphAdapter, typename Executor> class ExecuteNodeParamsT;
+template<typename SGraphAdapter> class ExecuteNodeParamsT;
 
-template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
+template<typename SGraphAdapter> class SGraphEvaluator {
  private:
   using NodeID = typename SGraphAdapter::NodeID;
   using SGraph = SGraphT<SGraphAdapter>;
@@ -143,12 +157,13 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
   using OutSocket = OutSocketT<SGraphAdapter>;
   using Socket = SocketT<SGraphAdapter>;
   using Link = LinkT<SGraphAdapter>;
+  using Executor = SGraphExecuteSemantics<NodeID>;
 
-  friend ExecuteNodeParamsT<SGraphAdapter, Executor>;
+  friend ExecuteNodeParamsT<SGraphAdapter>;
 
   LinearAllocator<> allocator_;
   const SGraph graph_;
-  Executor executor_;
+  const Executor &executor_;
   const VectorSet<Socket> input_sockets_;
   const VectorSet<Socket> output_sockets_;
   Map<Node, destruct_ptr<NodeState>> node_states_;
@@ -173,11 +188,11 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
 
  public:
   SGraphEvaluator(SGraph graph,
-                  Executor executor,
+                  const Executor &executor,
                   const Span<Socket> input_sockets,
                   const Span<Socket> output_sockets)
       : graph_(std::move(graph)),
-        executor_(std::move(executor)),
+        executor_(executor),
         input_sockets_(input_sockets),
         output_sockets_(output_sockets)
   {
@@ -707,10 +722,9 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
   }
 };
 
-template<typename SGraphAdapter, typename Executor>
-class ExecuteNodeParamsT final : public ExecuteNodeParams {
+template<typename SGraphAdapter> class ExecuteNodeParamsT final : public ExecuteNodeParams {
  private:
-  using Evaluator = SGraphEvaluator<SGraphAdapter, Executor>;
+  using Evaluator = SGraphEvaluator<SGraphAdapter>;
   using Node = NodeT<SGraphAdapter>;
   friend Evaluator;
 
@@ -819,11 +833,11 @@ class ExecuteNodeParamsT final : public ExecuteNodeParams {
   }
 };
 
-template<typename SGraphAdapter, typename Executor>
-void SGraphEvaluator<SGraphAdapter, Executor>::execute_node(const NodeT<SGraphAdapter> node,
-                                                            NodeState &node_state)
+template<typename SGraphAdapter>
+void SGraphEvaluator<SGraphAdapter>::execute_node(const NodeT<SGraphAdapter> node,
+                                                  NodeState &node_state)
 {
-  ExecuteNodeParamsT<SGraphAdapter, Executor> execute_params{*this, node, node_state};
+  ExecuteNodeParamsT<SGraphAdapter> execute_params{*this, node, node_state};
 }
 
 }  // namespace blender::fn::sgraph
