@@ -171,6 +171,18 @@ template<typename SGraphAdapter> class SocketT {
   int index;
   bool is_input;
 
+  SocketT(Node node, int index, bool is_input) : node(node), index(index), is_input(is_input)
+  {
+  }
+
+  SocketT(const InSocket socket) : SocketT(socket.node, socket.index, true)
+  {
+  }
+
+  SocketT(const OutSocket socket) : SocketT(socket.node, socket.index, false)
+  {
+  }
+
   uint64_t hash() const
   {
     return get_default_hash_3(node, index, is_input);

@@ -122,7 +122,7 @@ struct OutputState {
 };
 
 struct NodeState {
-  std::mutex mutex;
+  mutable std::mutex mutex;
   MutableSpan<InputState> inputs;
   MutableSpan<OutputState> outputs;
 
@@ -136,6 +136,7 @@ template<typename SGraphAdapter, typename Executor> class ExecuteNodeParamsT;
 
 template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
  private:
+  using NodeID = typename SGraphAdapter::NodeID;
   using SGraph = SGraphT<SGraphAdapter>;
   using Node = NodeT<SGraphAdapter>;
   using InSocket = InSocketT<SGraphAdapter>;
@@ -605,6 +606,10 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
     }
     input_state.usage = ValueUsage::Required;
 
+    if (input_sockets_.contains(in_socket)) {
+      /* TODO: Request input from caller. */
+    }
+
     int missing_values = 0;
     if (this->is_multi_input(locked_node.node, in_socket.index)) {
       MultiInputValue &multi_value = *input_state.value.multi;
@@ -654,9 +659,41 @@ template<typename SGraphAdapter, typename Executor> class SGraphEvaluator {
     return executor_.is_multi_input(node.id, input_index);
   }
 
-  void forward_output(const OutSocket out_socket, GMutablePointer value)
+  void forward_output(const OutSocket from_socket, GMutablePointer value_to_forward)
   {
-    UNUSED_VARS(out_socket, value);
+    BLI_assert(value_to_forward.get() != nullptr);
+    LinearAllocator<> &allocator = local_allocators_.local();
+
+    if (output_sockets_.contains(from_socket)) {
+      /* TODO: Set output. */
+    }
+    if (input_sockets_.contains(from_socket)) {
+      /* TODO: Value is overridden from the caller. */
+    }
+
+    Vector<std::pair<NodeID, int>> sockets_to_forward_to;
+    Vector<GMutablePointer> forwarded_values;
+    from_socket.foreach_linked(graph_, [&](const InSocket &to_socket) {
+      const destruct_ptr<NodeState> *node_state_ptr = node_states_.lookup_ptr(to_socket.node);
+      if (node_state_ptr == nullptr) {
+        return;
+      }
+      const NodeState &node_state = **node_state_ptr;
+      const InputState &input_state = node_state.inputs[to_socket.index];
+      if (input_state.type == nullptr) {
+        return;
+      }
+      {
+        std::lock_guard lock{node_state.mutex};
+        if (input_state.usage == ValueUsage::Unused) {
+          return;
+        }
+      }
+      const CPPType &type = *input_state.type;
+      void *forwarded_buffer = allocator.allocate(type.size(), type.alignment());
+      forwarded_values.append({type, forwarded_buffer});
+      sockets_to_forward_to.append({to_socket.node.id, to_socket.index});
+    });
   }
 
   void add_value_to_input(const InSocket socket, const OutSocket origin, GMutablePointer value)
