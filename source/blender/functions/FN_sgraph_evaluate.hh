@@ -306,7 +306,7 @@ template<typename SGraphAdapter> class SGraphEvaluator {
       GMutablePointer value{type, buffer};
       params.load_input_to_uninitialized(i, value);
       if (socket.is_input) {
-        this->add_value_to_input_from_caller(InSocket(socket), value);
+        this->add_value_to_input(InSocket(socket), std::nullopt, value);
       }
       else {
         this->forward_output(OutSocket(socket), value);
@@ -669,6 +669,11 @@ template<typename SGraphAdapter> class SGraphEvaluator {
     executor_.load_unlinked_single_input(locked_node.node.id, in_socket.index, {type, buffer});
   }
 
+  bool is_multi_input(const InSocket socket) const
+  {
+    return this->is_multi_input(socket.node, socket.index);
+  }
+
   bool is_multi_input(const Node node, const int input_index) const
   {
     return executor_.is_multi_input(node.id, input_index);
@@ -720,14 +725,33 @@ template<typename SGraphAdapter> class SGraphEvaluator {
     }
   }
 
-  void add_value_to_input(const InSocket socket, const OutSocket origin, GMutablePointer value)
+  void add_value_to_input(const InSocket socket,
+                          const std::optional<OutSocket> UNUSED(origin),
+                          GMutablePointer value)
   {
-    UNUSED_VARS(socket, origin, value);
-  }
+    NodeState &node_state = *node_states_.lookup(socket.node);
+    InputState &input_state = node_state.inputs[socket.index];
+    BLI_assert(*value.type() == *input_state.type);
 
-  void add_value_to_input_from_caller(const InSocket socket, GMutablePointer value)
-  {
-    UNUSED_VARS(socket, value);
+    this->with_locked_node(socket.node, node_state, [&](LockedNode &locked_node) {
+      if (this->is_multi_input(socket)) {
+        MultiInputValue &multi_value = *input_state.value.multi;
+        UNUSED_VARS(multi_value);
+        /* TODO */
+      }
+      else {
+        SingleInputValue &single_value = *input_state.value.single;
+        BLI_assert(single_value.value == nullptr);
+        BLI_assert(!input_state.was_ready_for_execution);
+        single_value.value = value.get();
+      }
+      if (input_state.usage == ValueUsage::Required) {
+        node_state.missing_required_inputs--;
+        if (node_state.missing_required_inputs == 0) {
+          this->schedule_node(locked_node);
+        }
+      }
+    });
   }
 };
 
