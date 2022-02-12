@@ -232,7 +232,7 @@ template<typename SGraphAdapter> class SGraphEvaluator {
       const Node node = item.key;
       NodeState &node_state = *item.value;
       node_state.inputs = allocator_.construct_array<InputState>(node.inputs_size(graph_));
-      node_state.outputs = allocator_.construct_array<OutputState>(node.inputs_size(graph_));
+      node_state.outputs = allocator_.construct_array<OutputState>(node.outputs_size(graph_));
 
       for (const int input_index : node_state.inputs.index_range()) {
         InSocket in_socket = node.input(graph_, input_index);
@@ -667,6 +667,7 @@ template<typename SGraphAdapter> class SGraphEvaluator {
     const CPPType &type = *input_state.type;
     void *buffer = allocator_.allocate(type.size(), type.alignment());
     executor_.load_unlinked_single_input(locked_node.node.id, in_socket.index, {type, buffer});
+    input_state.value.single->value = buffer;
   }
 
   bool is_multi_input(const InSocket socket) const
@@ -791,7 +792,7 @@ template<typename SGraphAdapter> class ExecuteNodeParamsT final : public Execute
 
   GMutablePointer extract_single_input(int index) override
   {
-    BLI_assert(!evaluator_.is_multi_input(node, index));
+    BLI_assert(!evaluator_.is_multi_input(node_, index));
     BLI_assert(this->is_input_available(index));
 
     InputState &input_state = node_state_.inputs[index];
@@ -803,7 +804,7 @@ template<typename SGraphAdapter> class ExecuteNodeParamsT final : public Execute
 
   GPointer get_input(int index) const override
   {
-    BLI_assert(!evaluator_.is_multi_input(node, index));
+    BLI_assert(!evaluator_.is_multi_input(node_, index));
     BLI_assert(this->is_input_available(index));
 
     const InputState &input_state = node_state_.inputs[index];
@@ -871,6 +872,7 @@ void SGraphEvaluator<SGraphAdapter>::execute_node(const NodeT<SGraphAdapter> nod
                                                   NodeState &node_state)
 {
   ExecuteNodeParamsT<SGraphAdapter> execute_params{*this, node, node_state};
+  executor_.execute_node(node.id, execute_params);
 }
 
 }  // namespace blender::fn::sgraph
