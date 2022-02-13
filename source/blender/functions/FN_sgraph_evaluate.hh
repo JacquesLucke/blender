@@ -852,7 +852,7 @@ template<typename SGraphAdapter> class SGraphEvaluator {
   }
 
   void forward_value_to_input(const InSocket socket,
-                              const std::optional<OutSocket> UNUSED(origin),
+                              const std::optional<OutSocket> origin,
                               GMutablePointer value)
   {
     NodeState &node_state = *node_states_.lookup(socket.node);
@@ -867,8 +867,17 @@ template<typename SGraphAdapter> class SGraphEvaluator {
     this->with_locked_node(socket.node, node_state, [&](LockedNode &locked_node) {
       if (this->is_multi_input(socket)) {
         MultiInputValue &multi_value = *input_state.value.multi;
-        UNUSED_VARS(multi_value);
-        /* TODO */
+        BLI_assert(origin.has_value());
+        int origin_index = -1;
+        for (const int i : multi_value.links.index_range()) {
+          const Link &link = multi_value.links[i];
+          if (link.from == *origin) {
+            origin_index = i;
+            break;
+          }
+        }
+        BLI_assert(multi_value.values[origin_index] == nullptr);
+        multi_value.values[origin_index] = value.get();
       }
       else {
         SingleInputValue &single_value = *input_state.value.single;

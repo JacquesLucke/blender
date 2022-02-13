@@ -130,6 +130,16 @@ template<typename SGraphAdapter> class InSocketT {
   {
     return graph.adapter_->input_socket_debug_name(this->node.id, this->index);
   }
+
+  friend bool operator==(const InSocketT &a, const InSocketT &b)
+  {
+    return a.node == b.node && a.index == b.index;
+  }
+
+  friend bool operator!=(const InSocketT &a, const InSocketT &b)
+  {
+    return !(a == b);
+  }
 };
 
 template<typename SGraphAdapter> class OutSocketT {
@@ -155,6 +165,16 @@ template<typename SGraphAdapter> class OutSocketT {
   std::string debug_name(const SGraph &graph) const
   {
     return graph.adapter_->output_socket_debug_name(this->node.id, this->index);
+  }
+
+  friend bool operator==(const OutSocketT &a, const OutSocketT &b)
+  {
+    return a.node == b.node && a.index == b.index;
+  }
+
+  friend bool operator!=(const OutSocketT &a, const OutSocketT &b)
+  {
+    return !(a == b);
   }
 };
 
