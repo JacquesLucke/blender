@@ -405,7 +405,7 @@ template<typename SGraphAdapter> class SGraphEvaluator {
     this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
       output_state.potential_users -= 1;
       if (output_state.potential_users == 0) {
-        if (output_state.usage != ValueUsage::Required) {
+        if (output_state.usage != ValueUsage::Required && output_state.io.output_index != -1) {
           output_state.usage = ValueUsage::Unused;
           this->schedule_node(locked_node);
         }
@@ -558,9 +558,13 @@ template<typename SGraphAdapter> class SGraphEvaluator {
   {
     const NodeState &node_state = locked_node.node_state;
     if (node_state.missing_required_values > 0) {
+      /* If the node still requires some inputs, it is ok if not all outputs have been computed
+       * yet. */
       return;
     }
     if (node_state.schedule_state == NodeScheduleState::Scheduled) {
+      /* The node is scheduled again already, so it still has a chance to compute the remaining
+       * outputs. */
       return;
     }
     for (const OutputState &output_state : node_state.outputs) {
@@ -607,7 +611,28 @@ template<typename SGraphAdapter> class SGraphEvaluator {
 
   void destruct_input_value_if_exists(LockedNode &locked_node, const InSocket in_socket)
   {
-    UNUSED_VARS(locked_node, in_socket);
+    NodeState &node_state = locked_node.node_state;
+    InputState &input_state = node_state.inputs[in_socket.index];
+    if (input_state.type == nullptr) {
+      return;
+    }
+    const CPPType &type = *input_state.type;
+    if (this->is_multi_input(in_socket)) {
+      MultiInputValue &multi_value = *input_state.value.multi;
+      for (void *&buffer : multi_value.values) {
+        if (buffer != nullptr) {
+          type.destruct(buffer);
+          buffer = nullptr;
+        }
+      }
+    }
+    else {
+      SingleInputValue &single_value = *input_state.value.single;
+      if (single_value.value != nullptr) {
+        type.destruct(single_value.value);
+        single_value.value = nullptr;
+      }
+    }
   }
 
   void execute_node(const Node node, NodeState &node_state);
