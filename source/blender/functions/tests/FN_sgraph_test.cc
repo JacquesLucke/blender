@@ -5,6 +5,7 @@
 #include "FN_sgraph.hh"
 #include "FN_sgraph2.hh"
 #include "FN_sgraph_evaluate.hh"
+#include "FN_sgraph_simple.hh"
 #include "FN_sgraph_to_dot.hh"
 
 namespace blender::fn::sgraph::tests {
@@ -218,6 +219,17 @@ TEST(sgraph, ToDot)
   SocketT<ExampleSGraphAdapter> output_socket{3, 0, false};
   SGraphEvaluator graph_evaluator{graph, executor, execute_graph_io, {}, {output_socket}};
   graph_evaluator.execute();
+}
+
+TEST(sgraph, Simple)
+{
+  SimpleSGraph graph;
+  graph.add_link("A", 0, "B", 3);
+  graph.add_link("A", 2, "B", 1);
+  graph.add_link("A", 0, "C", 0);
+  graph.add_link("C", 0, "D", 1);
+  SimpleSGraphAdapter adapter{graph};
+  std::cout << sgraph_to_dot(SGraphT(adapter)) << "\n";
 }
 
 }  // namespace blender::fn::sgraph::tests
