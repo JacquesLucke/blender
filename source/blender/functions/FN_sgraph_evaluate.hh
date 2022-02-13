@@ -179,6 +179,7 @@ template<typename SGraphAdapter> class SGraphEvaluator {
 
   threading::EnumerableThreadSpecific<LinearAllocator<>> local_allocators_;
 
+  /** Debug utils. */
   threading::EnumerableThreadSpecific<bool> node_is_locked_by_thread;
 
   struct LockedNode : NonCopyable, NonMovable {
@@ -763,6 +764,9 @@ template<typename SGraphAdapter> class SGraphEvaluator {
       const NodeState &node_state = **node_state_ptr;
       const InputState &input_state = node_state.inputs[to_socket.index];
       if (input_state.type == nullptr) {
+        return;
+      }
+      if (input_state.io.input_index != -1) {
         return;
       }
       {
