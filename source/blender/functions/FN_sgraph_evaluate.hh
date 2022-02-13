@@ -482,7 +482,7 @@ template<typename SGraphAdapter> class SGraphEvaluator {
   void run_node_task(const Node &node)
   {
     NodeState &node_state = *node_states_.lookup(node);
-    std::cout << "Execute node: " << node.id << "\n";
+    std::cout << "Run Node Task: " << node.id << "\n";
 
     bool node_needs_execution = false;
     this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {

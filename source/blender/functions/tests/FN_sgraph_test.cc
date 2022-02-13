@@ -147,6 +147,7 @@ class ExampleExecutor : public SGraphExecuteSemantics<ExampleSGraphAdapter::Node
 
   void execute_node(const NodeID &node, ExecuteNodeParams &params) const override
   {
+    std::cout << "Execute Node: " << node << "\n";
     switch (node) {
       case 1: {
         const int a = *params.get_input(0).get<int>();
@@ -182,6 +183,8 @@ class ExampleExecutor : public SGraphExecuteSemantics<ExampleSGraphAdapter::Node
 
 class ExampleExecuteGraphIO : public ExecuteGraphIO {
  public:
+  bool allow_loading_value = true;
+
   LazyRequireInputResult require_input(int UNUSED(index)) override
   {
     return LazyRequireInputResult::Ready;
@@ -194,7 +197,7 @@ class ExampleExecuteGraphIO : public ExecuteGraphIO {
 
   bool can_load_input(const int UNUSED(index)) const override
   {
-    return true;
+    return this->allow_loading_value;
   }
 
   bool output_is_required(int UNUSED(index)) const override
@@ -202,8 +205,9 @@ class ExampleExecuteGraphIO : public ExecuteGraphIO {
     return true;
   }
 
-  void set_output_by_copy(int UNUSED(index), GPointer UNUSED(value)) override
+  void set_output_by_copy(int UNUSED(index), GPointer value) override
   {
+    std::cout << "Computed Value: " << *value.get<int>() << "\n";
   }
 };
 
@@ -216,8 +220,14 @@ TEST(sgraph, ToDot)
   ExampleExecutor executor{graph};
   ExampleExecuteGraphIO execute_graph_io;
 
-  SocketT<ExampleSGraphAdapter> output_socket{3, 0, false};
-  SGraphEvaluator graph_evaluator{graph, executor, execute_graph_io, {}, {output_socket}};
+  InSocketT<ExampleSGraphAdapter> input_socket{1, 0};
+  InSocketT<ExampleSGraphAdapter> output_socket{3, 0};
+  SGraphEvaluator graph_evaluator{
+      graph, executor, execute_graph_io, {input_socket}, {output_socket}};
+  execute_graph_io.allow_loading_value = false;
+  graph_evaluator.execute();
+  graph_evaluator.execute();
+  execute_graph_io.allow_loading_value = true;
   graph_evaluator.execute();
 }
 
