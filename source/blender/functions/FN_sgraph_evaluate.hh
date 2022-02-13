@@ -351,24 +351,34 @@ template<typename SGraphAdapter> class SGraphEvaluator {
   void forward_newly_provided_inputs()
   {
     LinearAllocator<> &allocator = local_allocators_.local();
-    for (const int i : input_sockets_.index_range()) {
-      if (!graph_io_.can_load_input(i)) {
+    for (const int io_input_index : input_sockets_.index_range()) {
+      if (!graph_io_.can_load_input(io_input_index)) {
         continue;
       }
-      const Socket socket = input_sockets_[i];
-      const CPPType &type = (socket.is_input) ?
-                                *executor_.input_socket_type(socket.node.id, socket.index) :
-                                *executor_.output_socket_type(socket.node.id, socket.index);
+      const Socket socket = input_sockets_[io_input_index];
+      destruct_ptr<NodeState> *node_state_ptr = node_states_.lookup_ptr(socket.node);
+      if (node_state_ptr == nullptr) {
+        /* The value is never used. */
+        continue;
+      }
+      const CPPType &type = *this->get_cpp_type(socket);
       void *buffer = allocator.allocate(type.size(), type.alignment());
-      GMutablePointer value{type, buffer};
-      graph_io_.load_input_to_uninitialized(i, value);
+      graph_io_.load_input_to_uninitialized(io_input_index, {type, buffer});
       if (socket.is_input) {
-        this->add_value_to_input(InSocket(socket), std::nullopt, value);
+        this->forward_value_to_input(InSocket(socket), std::nullopt, {type, buffer});
       }
       else {
-        this->forward_output_provided_by_outside(OutSocket(socket), value);
+        this->forward_output_provided_by_outside(OutSocket(socket), {type, buffer});
       }
     }
+  }
+
+  const CPPType *get_cpp_type(const Socket &socket) const
+  {
+    if (socket.is_input) {
+      return executor_.input_socket_type(socket.node.id, socket.index);
+    }
+    return executor_.output_socket_type(socket.node.id, socket.index);
   }
 
   void notify_output_required(const OutSocket socket)
@@ -781,17 +791,22 @@ template<typename SGraphAdapter> class SGraphEvaluator {
     }
 
     for (const int i : forwarded_values.index_range()) {
-      this->add_value_to_input(sockets_to_forward_to[i], from_socket, forwarded_values[i]);
+      this->forward_value_to_input(sockets_to_forward_to[i], from_socket, forwarded_values[i]);
     }
   }
 
-  void add_value_to_input(const InSocket socket,
-                          const std::optional<OutSocket> UNUSED(origin),
-                          GMutablePointer value)
+  void forward_value_to_input(const InSocket socket,
+                              const std::optional<OutSocket> UNUSED(origin),
+                              GMutablePointer value)
   {
     NodeState &node_state = *node_states_.lookup(socket.node);
     InputState &input_state = node_state.inputs[socket.index];
     BLI_assert(*value.type() == *input_state.type);
+
+    if (input_state.usage == ValueUsage::Unused) {
+      value.destruct();
+      return;
+    }
 
     this->with_locked_node(socket.node, node_state, [&](LockedNode &locked_node) {
       if (this->is_multi_input(socket)) {
@@ -804,6 +819,10 @@ template<typename SGraphAdapter> class SGraphEvaluator {
         BLI_assert(single_value.value == nullptr);
         BLI_assert(!input_state.was_ready_for_execution);
         single_value.value = value.get();
+
+        if (input_state.io.output_index != -1) {
+          graph_io_.set_output_by_copy(input_state.io.output_index, value);
+        }
       }
       if (input_state.usage == ValueUsage::Required) {
         node_state.missing_required_values--;
