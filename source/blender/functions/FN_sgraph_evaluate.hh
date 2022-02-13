@@ -641,12 +641,38 @@ template<typename SGraphAdapter> class SGraphEvaluator {
                                          NodeState &node_state,
                                          const int input_index)
   {
-    UNUSED_VARS(node, node_state, input_index);
+    this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+      this->set_input_unused(locked_node, node.input(graph_, input_index));
+    });
   }
 
   void set_input_unused(LockedNode &locked_node, const InSocket in_socket)
   {
-    UNUSED_VARS(locked_node, in_socket);
+    NodeState &node_state = locked_node.node_state;
+    InputState &input_state = node_state.inputs[in_socket.index];
+
+    /* A required socket cannot become unused. */
+    BLI_assert(input_state.usage != ValueUsage::Required);
+
+    if (input_state.usage == ValueUsage::Unused) {
+      /* Nothing to do. */
+      return;
+    }
+    input_state.usage = ValueUsage::Unused;
+
+    /* The value of an unused input is never used again, so it can be destructed now. */
+    this->destruct_input_value_if_exists(locked_node, in_socket);
+
+    if (input_state.was_ready_for_execution) {
+      /* If the value was already computed, the origin nodes don't need to be notified. */
+      return;
+    }
+
+    /* Let the origin sockets know that they may become unused as well. */
+    in_socket.foreach_linked(graph_, [&](const OutSocket &origin) {
+      /* Delay notification of the other nodes until this node is not locked anymore. */
+      locked_node.delayed_unused_outputs.append(origin);
+    });
   }
 
   LazyRequireInputResult set_input_required_during_execution(const Node node,
