@@ -99,8 +99,9 @@ struct SingleInputValue {
   void *value = nullptr;
 };
 
-struct MultiInputValue {
-  Vector<void *> values;
+template<typename SGraphAdapter> struct MultiInputValueT {
+  Vector<LinkT<SGraphAdapter>> links;
+  Array<void *> values;
   int provided_value_count = 0;
 
   int missing_values() const
@@ -119,12 +120,12 @@ struct IOIndices {
   int output_index = -1;
 };
 
-struct InputState {
+template<typename SGraphAdapter> struct InputStateT {
   const CPPType *type = nullptr;
 
   union {
     SingleInputValue *single;
-    MultiInputValue *multi;
+    MultiInputValueT<SGraphAdapter> *multi;
   } value;
 
   ValueUsage usage = ValueUsage::Maybe;
@@ -142,9 +143,9 @@ struct OutputState {
   IOIndices io;
 };
 
-struct NodeState {
+template<typename SGraphAdapter> struct NodeStateT {
   mutable std::mutex mutex;
-  MutableSpan<InputState> inputs;
+  MutableSpan<InputStateT<SGraphAdapter>> inputs;
   MutableSpan<OutputState> outputs;
 
   int missing_required_values = 0;
@@ -165,6 +166,9 @@ template<typename SGraphAdapter> class SGraphEvaluator {
   using Socket = SocketT<SGraphAdapter>;
   using Link = LinkT<SGraphAdapter>;
   using Executor = SGraphExecuteSemantics<NodeID>;
+  using NodeState = NodeStateT<SGraphAdapter>;
+  using InputState = InputStateT<SGraphAdapter>;
+  using MultiInputValue = MultiInputValueT<SGraphAdapter>;
 
   friend ExecuteNodeParamsT<SGraphAdapter>;
 
@@ -276,11 +280,12 @@ template<typename SGraphAdapter> class SGraphEvaluator {
         else {
           if (this->is_multi_input(node, input_index)) {
             /* TODO: destruct */
-            input_state.value.multi = allocator_.construct<MultiInputValue>().release();
-            int count = 0;
-            in_socket.foreach_linked(graph_,
-                                     [&](const OutSocket &UNUSED(origin_socket)) { count += 1; });
-            input_state.value.multi->values.resize(count);
+            MultiInputValue &multi_value = *allocator_.construct<MultiInputValue>().release();
+            input_state.value.multi = &multi_value;
+            in_socket.foreach_linked(graph_, [&](const OutSocket &origin_socket) {
+              multi_value.links.append(Link{origin_socket, in_socket});
+            });
+            multi_value.values.reinitialize(multi_value.links.size());
           }
           else {
             input_state.value.single = allocator_.construct<SingleInputValue>().release();
@@ -889,6 +894,8 @@ template<typename SGraphAdapter> class ExecuteNodeParamsT final : public Execute
  private:
   using Evaluator = SGraphEvaluator<SGraphAdapter>;
   using Node = NodeT<SGraphAdapter>;
+  using NodeState = NodeStateT<SGraphAdapter>;
+  using InputState = InputStateT<SGraphAdapter>;
   friend Evaluator;
 
   Evaluator &evaluator_;

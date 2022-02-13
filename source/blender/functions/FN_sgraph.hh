@@ -215,8 +215,8 @@ template<typename SGraphAdapter> class LinkT {
   using Node = NodeT<SGraphAdapter>;
 
  public:
-  InSocket in_socket;
-  OutSocket out_socket;
+  OutSocket from;
+  InSocket to;
 };
 
 template<typename SGraphAdapter> class SGraphT {
@@ -257,7 +257,7 @@ template<typename SGraphAdapter> class SGraphT {
       for (const int i : IndexRange(node.outputs_size(*this))) {
         OutSocket out_socket{node, i};
         out_socket.foreach_linked(*this, [&](const InSocket &in_socket) {
-          f(Link{in_socket, out_socket});
+          f(Link{out_socket, in_socket});
         });
       }
     });

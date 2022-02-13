@@ -57,10 +57,9 @@ inline std::string sgraph_to_dot(const SGraphT<SGraphAdapter> &graph)
   });
 
   graph.foreach_link([&](const Link &link) {
-    dot::NodeWithSocketsRef &from_dot_node = dot_nodes.lookup(link.out_socket.node);
-    dot::NodeWithSocketsRef &to_dot_node = dot_nodes.lookup(link.in_socket.node);
-    digraph.new_edge(from_dot_node.output(link.out_socket.index),
-                     to_dot_node.input(link.in_socket.index));
+    dot::NodeWithSocketsRef &from_dot_node = dot_nodes.lookup(link.from.node);
+    dot::NodeWithSocketsRef &to_dot_node = dot_nodes.lookup(link.to.node);
+    digraph.new_edge(from_dot_node.output(link.from.index), to_dot_node.input(link.to.index));
   });
 
   return digraph.to_dot_string();
