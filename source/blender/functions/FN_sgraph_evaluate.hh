@@ -66,7 +66,7 @@ class ExecuteGraphIO {
   virtual void load_input_to_uninitialized(int index, GMutablePointer r_value) = 0;
   virtual bool can_load_input(int index) const = 0;
   virtual bool output_is_required(int index) const = 0;
-  virtual void set_output_by_move(int index, GMutablePointer value) = 0;
+  virtual void set_output_by_copy(int index, GPointer value) = 0;
 };
 
 template<typename NodeID> class SGraphExecuteSemantics {
@@ -312,7 +312,7 @@ template<typename SGraphAdapter> class SGraphEvaluator {
         this->add_value_to_input(InSocket(socket), std::nullopt, value);
       }
       else {
-        this->forward_computed_node_output(OutSocket(socket), value);
+        this->forward_output_provided_by_outside(OutSocket(socket), value);
       }
     }
   }
@@ -696,6 +696,17 @@ template<typename SGraphAdapter> class SGraphEvaluator {
     return executor_.is_multi_input(node.id, input_index);
   }
 
+  void forward_output_provided_by_outside(const OutSocket from_socket,
+                                          GMutablePointer value_to_forward)
+  {
+    const int io_output_index = output_sockets_.index_of_try(from_socket);
+    if (io_output_index != -1) {
+      /* Same socket is used as input and output. */
+      graph_io_.set_output_by_copy(io_output_index, value_to_forward);
+    }
+    this->forward_value_to_linked_inputs(from_socket, value_to_forward);
+  }
+
   void forward_computed_node_output(const OutSocket from_socket, GMutablePointer value_to_forward)
   {
     BLI_assert(value_to_forward.get() != nullptr);
@@ -710,10 +721,7 @@ template<typename SGraphAdapter> class SGraphEvaluator {
     }
     if (io_output_index != -1) {
       /* Report computed value to the outside. */
-      const CPPType &type = *value_to_forward.type();
-      BUFFER_FOR_CPP_TYPE_VALUE(type, buffer);
-      type.copy_construct(value_to_forward.get(), buffer);
-      graph_io_.set_output_by_move(io_output_index, {type, buffer});
+      graph_io_.set_output_by_copy(io_output_index, value_to_forward);
     }
 
     this->forward_value_to_linked_inputs(from_socket, value_to_forward);

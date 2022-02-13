@@ -201,7 +201,7 @@ class ExampleExecuteGraphIO : public ExecuteGraphIO {
     return true;
   }
 
-  void set_output_by_move(int UNUSED(index), GMutablePointer UNUSED(value)) override
+  void set_output_by_copy(int UNUSED(index), GPointer UNUSED(value)) override
   {
   }
 };
