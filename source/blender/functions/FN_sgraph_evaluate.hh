@@ -312,7 +312,7 @@ template<typename SGraphAdapter> class SGraphEvaluator {
         this->add_value_to_input(InSocket(socket), std::nullopt, value);
       }
       else {
-        this->forward_output(OutSocket(socket), value);
+        this->forward_computed_node_output(OutSocket(socket), value);
       }
     }
   }
@@ -696,18 +696,33 @@ template<typename SGraphAdapter> class SGraphEvaluator {
     return executor_.is_multi_input(node.id, input_index);
   }
 
-  void forward_output(const OutSocket from_socket, GMutablePointer value_to_forward)
+  void forward_computed_node_output(const OutSocket from_socket, GMutablePointer value_to_forward)
   {
     BLI_assert(value_to_forward.get() != nullptr);
+
+    const int io_input_index = input_sockets_.index_of_try(from_socket);
+    const int io_output_index = output_sockets_.index_of_try(from_socket);
+
+    if (io_input_index != -1) {
+      /* The computed value is ignored, because it is overridden from the outside. */
+      value_to_forward.destruct();
+      return;
+    }
+    if (io_output_index != -1) {
+      /* Report computed value to the outside. */
+      const CPPType &type = *value_to_forward.type();
+      BUFFER_FOR_CPP_TYPE_VALUE(type, buffer);
+      type.copy_construct(value_to_forward.get(), buffer);
+      graph_io_.set_output_by_move(io_output_index, {type, buffer});
+    }
+
+    this->forward_value_to_linked_inputs(from_socket, value_to_forward);
+  }
+
+  void forward_value_to_linked_inputs(const OutSocket from_socket,
+                                      GMutablePointer value_to_forward)
+  {
     LinearAllocator<> &allocator = local_allocators_.local();
-
-    if (output_sockets_.contains(from_socket)) {
-      /* TODO: Set output. */
-    }
-    if (input_sockets_.contains(from_socket)) {
-      /* TODO: Value is overridden from the caller. */
-    }
-
     Vector<InSocket> sockets_to_forward_to;
     Vector<GMutablePointer> forwarded_values;
     from_socket.foreach_linked(graph_, [&](const InSocket &to_socket) {
@@ -841,7 +856,8 @@ template<typename SGraphAdapter> class ExecuteNodeParamsT final : public Execute
     LinearAllocator<> &allocator = evaluator_.local_allocators_.local();
     void *buffer = allocator.allocate(type.size(), type.alignment());
     type.copy_construct(value.get(), buffer);
-    evaluator_.forward_output(node_.output(evaluator_.graph_, index), {type, buffer});
+    evaluator_.forward_computed_node_output(node_.output(evaluator_.graph_, index),
+                                            {type, buffer});
   }
 
   void set_output_by_move(int index, GMutablePointer value) override
@@ -857,7 +873,8 @@ template<typename SGraphAdapter> class ExecuteNodeParamsT final : public Execute
     LinearAllocator<> &allocator = evaluator_.local_allocators_.local();
     void *buffer = allocator.allocate(type.size(), type.alignment());
     type.move_construct(value.get(), buffer);
-    evaluator_.forward_output(node_.output(evaluator_.graph_, index), {type, buffer});
+    evaluator_.forward_computed_node_output(node_.output(evaluator_.graph_, index),
+                                            {type, buffer});
   }
 
   bool output_maybe_required(int index) const override
