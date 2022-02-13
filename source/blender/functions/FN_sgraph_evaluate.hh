@@ -60,8 +60,7 @@ class ExecuteNodeParams {
   virtual bool output_is_required(int index) = 0;
 };
 
-/* TODO: Name ExecuteGraphIO? */
-class ExecuteGraphParams {
+class ExecuteGraphIO {
  public:
   virtual LazyRequireInputResult require_input(int index) = 0;
   virtual void load_input_to_uninitialized(int index, GMutablePointer r_value) = 0;
@@ -165,7 +164,7 @@ template<typename SGraphAdapter> class SGraphEvaluator {
   LinearAllocator<> allocator_;
   const SGraph graph_;
   const Executor &executor_;
-  ExecuteGraphParams &params_;
+  ExecuteGraphIO &graph_io_;
   const VectorSet<Socket> input_sockets_;
   const VectorSet<Socket> output_sockets_;
   Map<Node, destruct_ptr<NodeState>> node_states_;
@@ -191,12 +190,12 @@ template<typename SGraphAdapter> class SGraphEvaluator {
  public:
   SGraphEvaluator(SGraph graph,
                   const Executor &executor,
-                  ExecuteGraphParams &params,
+                  ExecuteGraphIO &graph_io,
                   const Span<Socket> input_sockets,
                   const Span<Socket> output_sockets)
       : graph_(std::move(graph)),
         executor_(executor),
-        params_(params),
+        graph_io_(graph_io),
         input_sockets_(input_sockets),
         output_sockets_(output_sockets)
   {
@@ -299,7 +298,7 @@ template<typename SGraphAdapter> class SGraphEvaluator {
   {
     LinearAllocator<> &allocator = local_allocators_.local();
     for (const int i : input_sockets_.index_range()) {
-      if (!params_.can_load_input(i)) {
+      if (!graph_io_.can_load_input(i)) {
         continue;
       }
       const Socket socket = input_sockets_[i];
@@ -308,7 +307,7 @@ template<typename SGraphAdapter> class SGraphEvaluator {
                                 *executor_.output_socket_type(socket.node.id, socket.index);
       void *buffer = allocator.allocate(type.size(), type.alignment());
       GMutablePointer value{type, buffer};
-      params_.load_input_to_uninitialized(i, value);
+      graph_io_.load_input_to_uninitialized(i, value);
       if (socket.is_input) {
         this->add_value_to_input(InSocket(socket), std::nullopt, value);
       }
@@ -322,7 +321,7 @@ template<typename SGraphAdapter> class SGraphEvaluator {
   {
     Vector<Socket> sockets_to_compute;
     for (const int i : output_sockets_.index_range()) {
-      if (!params_.output_is_required(i)) {
+      if (!graph_io_.output_is_required(i)) {
         continue;
       }
       const Socket socket = output_sockets_[i];

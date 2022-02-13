@@ -179,7 +179,7 @@ class ExampleExecutor : public SGraphExecuteSemantics<ExampleSGraphAdapter::Node
   }
 };
 
-class ExampleExecuteGraphParams : public ExecuteGraphParams {
+class ExampleExecuteGraphIO : public ExecuteGraphIO {
  public:
   LazyRequireInputResult require_input(int UNUSED(index)) override
   {
@@ -213,10 +213,10 @@ TEST(sgraph, ToDot)
   std::cout << sgraph_to_dot(graph) << "\n";
 
   ExampleExecutor executor{graph};
-  ExampleExecuteGraphParams execute_graph_params;
+  ExampleExecuteGraphIO execute_graph_io;
 
   SocketT<ExampleSGraphAdapter> output_socket{3, 0, false};
-  SGraphEvaluator graph_evaluator{graph, executor, execute_graph_params, {}, {output_socket}};
+  SGraphEvaluator graph_evaluator{graph, executor, execute_graph_io, {}, {output_socket}};
   graph_evaluator.execute();
 }
 
