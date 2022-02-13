@@ -611,7 +611,8 @@ template<typename SGraphAdapter> class SGraphEvaluator {
   LazyRequireInputResult set_input_required(LockedNode &locked_node, const InSocket in_socket)
   {
     BLI_assert(locked_node.node == in_socket.node);
-    InputState &input_state = locked_node.node_state.inputs[in_socket.index];
+    NodeState &node_state = locked_node.node_state;
+    InputState &input_state = node_state.inputs[in_socket.index];
 
     BLI_assert(input_state.usage != ValueUsage::Unused);
 
@@ -624,23 +625,35 @@ template<typename SGraphAdapter> class SGraphEvaluator {
     }
     input_state.usage = ValueUsage::Required;
 
-    if (input_sockets_.contains(in_socket)) {
-      /* TODO: Request input from caller. */
+    const int io_input_index = input_sockets_.index_of_try(in_socket);
+    if (io_input_index != -1) {
+      BLI_assert(!this->is_multi_input(in_socket));
+      if (graph_io_.can_load_input(io_input_index)) {
+        LinearAllocator<> &allocator = local_allocators_.local();
+        const CPPType &type = *input_state.type;
+        void *buffer = allocator.allocate(type.size(), type.alignment());
+        graph_io_.load_input_to_uninitialized(io_input_index, {type, buffer});
+        SingleInputValue &single_value = *input_state.value.single;
+        single_value.value = buffer;
+        return LazyRequireInputResult::Ready;
+      }
     }
 
-    int missing_values = 0;
     if (this->is_multi_input(locked_node.node, in_socket.index)) {
       MultiInputValue &multi_value = *input_state.value.multi;
-      missing_values = multi_value.missing_values();
+      node_state.missing_required_inputs += multi_value.missing_values();
     }
     else {
       SingleInputValue &single_value = *input_state.value.single;
-      if (single_value.value == nullptr) {
-        missing_values = 1;
-      }
+      BLI_assert(single_value.value == nullptr);
+      UNUSED_VARS_NDEBUG(single_value);
+      node_state.missing_required_inputs += 1;
     }
-    BLI_assert(missing_values > 0);
-    locked_node.node_state.missing_required_inputs += missing_values;
+
+    if (io_input_index != -1) {
+      graph_io_.require_input(io_input_index);
+      return LazyRequireInputResult::NotYetAvailable;
+    }
 
     Vector<OutSocket> origin_sockets;
     in_socket.foreach_linked(
@@ -648,7 +661,7 @@ template<typename SGraphAdapter> class SGraphEvaluator {
 
     if (origin_sockets.is_empty()) {
       this->load_unlinked_input_value(locked_node, in_socket);
-      locked_node.node_state.missing_required_inputs -= 1;
+      node_state.missing_required_inputs -= 1;
       input_state.was_ready_for_execution = true;
       return LazyRequireInputResult::Ready;
     }
