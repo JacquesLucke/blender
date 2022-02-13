@@ -60,6 +60,7 @@ class ExecuteNodeParams {
   virtual bool output_is_required(int index) = 0;
 };
 
+/* TODO: Name ExecuteGraphIO? */
 class ExecuteGraphParams {
  public:
   virtual LazyRequireInputResult require_input(int index) = 0;
@@ -164,6 +165,7 @@ template<typename SGraphAdapter> class SGraphEvaluator {
   LinearAllocator<> allocator_;
   const SGraph graph_;
   const Executor &executor_;
+  ExecuteGraphParams &params_;
   const VectorSet<Socket> input_sockets_;
   const VectorSet<Socket> output_sockets_;
   Map<Node, destruct_ptr<NodeState>> node_states_;
@@ -189,10 +191,12 @@ template<typename SGraphAdapter> class SGraphEvaluator {
  public:
   SGraphEvaluator(SGraph graph,
                   const Executor &executor,
+                  ExecuteGraphParams &params,
                   const Span<Socket> input_sockets,
                   const Span<Socket> output_sockets)
       : graph_(std::move(graph)),
         executor_(executor),
+        params_(params),
         input_sockets_(input_sockets),
         output_sockets_(output_sockets)
   {
@@ -277,25 +281,25 @@ template<typename SGraphAdapter> class SGraphEvaluator {
     }
   }
 
-  void execute(ExecuteGraphParams &params)
+  void execute()
   {
-    this->schedule_newly_requested_outputs(params);
-    this->forward_newly_provided_inputs(params);
+    this->schedule_newly_requested_outputs();
+    this->forward_newly_provided_inputs();
     BLI_task_pool_work_and_wait(task_pool_);
   }
 
  private:
-  void schedule_newly_requested_outputs(ExecuteGraphParams &params)
+  void schedule_newly_requested_outputs()
   {
-    const Vector<Socket> sockets_to_compute = this->find_sockets_to_compute(params);
+    const Vector<Socket> sockets_to_compute = this->find_sockets_to_compute();
     this->schedule_initial_nodes(sockets_to_compute);
   }
 
-  void forward_newly_provided_inputs(ExecuteGraphParams &params)
+  void forward_newly_provided_inputs()
   {
     LinearAllocator<> &allocator = local_allocators_.local();
     for (const int i : input_sockets_.index_range()) {
-      if (!params.can_load_input(i)) {
+      if (!params_.can_load_input(i)) {
         continue;
       }
       const Socket socket = input_sockets_[i];
@@ -304,7 +308,7 @@ template<typename SGraphAdapter> class SGraphEvaluator {
                                 *executor_.output_socket_type(socket.node.id, socket.index);
       void *buffer = allocator.allocate(type.size(), type.alignment());
       GMutablePointer value{type, buffer};
-      params.load_input_to_uninitialized(i, value);
+      params_.load_input_to_uninitialized(i, value);
       if (socket.is_input) {
         this->add_value_to_input(InSocket(socket), std::nullopt, value);
       }
@@ -314,11 +318,11 @@ template<typename SGraphAdapter> class SGraphEvaluator {
     }
   }
 
-  Vector<Socket> find_sockets_to_compute(ExecuteGraphParams &params) const
+  Vector<Socket> find_sockets_to_compute() const
   {
     Vector<Socket> sockets_to_compute;
     for (const int i : output_sockets_.index_range()) {
-      if (!params.output_is_required(i)) {
+      if (!params_.output_is_required(i)) {
         continue;
       }
       const Socket socket = output_sockets_[i];

@@ -216,8 +216,8 @@ TEST(sgraph, ToDot)
   ExampleExecuteGraphParams execute_graph_params;
 
   SocketT<ExampleSGraphAdapter> output_socket{3, 0, false};
-  SGraphEvaluator graph_evaluator{graph, executor, {}, {output_socket}};
-  graph_evaluator.execute(execute_graph_params);
+  SGraphEvaluator graph_evaluator{graph, executor, execute_graph_params, {}, {output_socket}};
+  graph_evaluator.execute();
 }
 
 }  // namespace blender::fn::sgraph::tests
