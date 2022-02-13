@@ -313,8 +313,26 @@ template<typename SGraphAdapter> class SGraphEvaluator {
 
   void schedule_newly_requested_outputs()
   {
-    const Vector<Socket> sockets_to_compute = this->find_sockets_to_compute();
-    this->schedule_initial_nodes(sockets_to_compute);
+    for (const int i : output_sockets_.index_range()) {
+      if (!graph_io_.output_is_required(i)) {
+        continue;
+      }
+      const Socket socket = output_sockets_[i];
+      NodeState &node_state = *node_states_.lookup(socket.node);
+      OutputState &output_state = node_state.outputs[socket.index];
+      if (output_state.has_been_computed) {
+        continue;
+      }
+
+      if (socket.is_input) {
+        this->with_locked_node(socket.node, node_state, [&](LockedNode &locked_node) {
+          this->set_input_required(locked_node, InSocket(socket));
+        });
+      }
+      else {
+        this->notify_output_required(OutSocket(socket));
+      }
+    }
   }
 
   void forward_newly_provided_inputs()
@@ -336,40 +354,6 @@ template<typename SGraphAdapter> class SGraphEvaluator {
       }
       else {
         this->forward_output_provided_by_outside(OutSocket(socket), value);
-      }
-    }
-  }
-
-  Vector<Socket> find_sockets_to_compute() const
-  {
-    Vector<Socket> sockets_to_compute;
-    for (const int i : output_sockets_.index_range()) {
-      if (!graph_io_.output_is_required(i)) {
-        continue;
-      }
-      const Socket socket = output_sockets_[i];
-      const NodeState &node_state = *node_states_.lookup(socket.node);
-      const OutputState &output_state = node_state.outputs[socket.index];
-      if (output_state.has_been_computed) {
-        continue;
-      }
-      sockets_to_compute.append(socket);
-    }
-    return sockets_to_compute;
-  }
-
-  void schedule_initial_nodes(const Span<Socket> sockets_to_compute)
-  {
-    for (const Socket &socket : sockets_to_compute) {
-      const Node node = socket.node;
-      NodeState &node_state = *node_states_.lookup(node);
-      if (socket.is_input) {
-        this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
-          this->set_input_required(locked_node, InSocket(socket));
-        });
-      }
-      else {
-        this->notify_output_required(OutSocket(socket));
       }
     }
   }
