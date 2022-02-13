@@ -114,6 +114,11 @@ struct MultiInputValue {
   }
 };
 
+struct IOIndices {
+  int input_index = -1;
+  int output_index = -1;
+};
+
 struct InputState {
   const CPPType *type = nullptr;
 
@@ -125,6 +130,7 @@ struct InputState {
   ValueUsage usage = ValueUsage::Maybe;
   bool was_ready_for_execution = false;
   bool is_destructed = false;
+  IOIndices io;
 };
 
 struct OutputState {
@@ -133,6 +139,7 @@ struct OutputState {
   ValueUsage usage_for_execution = ValueUsage::Maybe;
   int potential_users = 0;
   bool has_been_computed = false;
+  IOIndices io;
 };
 
 struct NodeState {
@@ -208,6 +215,14 @@ template<typename SGraphAdapter> class SGraphEvaluator {
     BLI_task_pool_free(task_pool_);
   }
 
+  void execute()
+  {
+    this->schedule_newly_requested_outputs();
+    this->forward_newly_provided_inputs();
+    BLI_task_pool_work_and_wait(task_pool_);
+  }
+
+ private:
   void initialize_reachable_node_states()
   {
     Stack<Node> nodes_to_check;
@@ -278,16 +293,23 @@ template<typename SGraphAdapter> class SGraphEvaluator {
         }
       }
     }
+
+    for (const int io_input_index : input_sockets_.index_range()) {
+      const Socket socket = input_sockets_[io_input_index];
+      NodeState &node_state = *node_states_.lookup(socket.node);
+      IOIndices &io_indices = (socket.is_input) ? node_state.inputs[socket.index].io :
+                                                  node_state.outputs[socket.index].io;
+      io_indices.input_index = io_input_index;
+    }
+    for (const int io_output_index : output_sockets_.index_range()) {
+      const Socket socket = output_sockets_[io_output_index];
+      NodeState &node_state = *node_states_.lookup(socket.node);
+      IOIndices &io_indices = (socket.is_input) ? node_state.inputs[socket.index].io :
+                                                  node_state.outputs[socket.index].io;
+      io_indices.output_index = io_output_index;
+    }
   }
 
-  void execute()
-  {
-    this->schedule_newly_requested_outputs();
-    this->forward_newly_provided_inputs();
-    BLI_task_pool_work_and_wait(task_pool_);
-  }
-
- private:
   void schedule_newly_requested_outputs()
   {
     const Vector<Socket> sockets_to_compute = this->find_sockets_to_compute();
@@ -625,7 +647,7 @@ template<typename SGraphAdapter> class SGraphEvaluator {
     }
     input_state.usage = ValueUsage::Required;
 
-    const int io_input_index = input_sockets_.index_of_try(in_socket);
+    const int io_input_index = input_state.io.input_index;
     if (io_input_index != -1) {
       BLI_assert(!this->is_multi_input(in_socket));
       if (graph_io_.can_load_input(io_input_index)) {
